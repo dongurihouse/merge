@@ -2234,7 +2234,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 20)))   # shop pitch — readable default (was 16)
+	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 20)))   # vault pitch — readable default (was 16)
 	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	pitch.add_theme_constant_override("outline_size", 0)
 	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE

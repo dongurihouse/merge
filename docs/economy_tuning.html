@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acorn Forest — Level Curve & Early-Economy Tuner</title>
+<style>
+  :root{
+    --bg:#10140f; --panel:#181d15; --panel2:#1f261a; --ink:#e8efe0; --muted:#9aa890;
+    --line:#2c3626; --accent:#9ad36b; --warn:#e6b65c; --bad:#e07a6b; --good:#7fd0a0;
+    --z0:#7fd0a0; --z1:#9ad36b; --z2:#e6d65c; --z3:#e6b65c; --z4:#e07a6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0 auto;max-width:1100px;background:var(--bg);color:var(--ink);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px}
+  h1{font-size:22px;margin:0 0 2px}
+  h2{font-size:16px;margin:26px 0 10px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .dials{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;
+         background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .dial{display:flex;flex-direction:column;gap:4px}
+  .dial label{font-size:11px;color:var(--muted)}
+  .dial .val{color:var(--accent);font-weight:700}
+  .dial input[type=number]{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+         border-radius:6px;padding:6px 8px;font:13px monospace}
+  .dial input[type=range]{width:100%}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;
+       padding:7px 12px;font:13px/1 -apple-system,sans-serif;cursor:pointer}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);color:#0d1108;border-color:var(--accent);font-weight:700}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+  table{border-collapse:collapse;width:100%;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+  th,td{border:1px solid var(--line);padding:5px 9px;text-align:right}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  td:first-child,th:first-child{text-align:left}
+  tr.enter td{background:#14200f}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:8px 0}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .kpi b{display:block;font-size:20px;color:var(--accent)} .kpi span{font-size:11px;color:var(--muted)}
+  .note{color:var(--muted);font-size:12px;margin:4px 0}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;color:var(--accent);font-size:12px}
+  .board{display:grid;grid-template-columns:repeat(7,30px);gap:3px;margin:6px 0}
+  .cell{width:30px;height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+        font:11px monospace;color:#0d1108;font-weight:700}
+  textarea{width:100%;height:150px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+           border-radius:6px;padding:10px;font:12px monospace;resize:vertical}
+  .pill{display:inline-block;font-size:11px;color:var(--muted)}
+  .flag{border-left:3px solid var(--good);background:#10231a;padding:9px 13px;border-radius:6px;margin:8px 0;font-size:13px}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+<h1>Level Curve &amp; Early-Economy Tuner</h1>
+<p class="sub">Adjust the curve, the whole-game click budget, and the board-open speed — every table recomputes.
+Then <b>Save</b> the settings file the game reads at launch (<code>games/grove/economy_tuning.json</code> → <code>content.gd.apply_tuning</code>).</p>
+
+<h2>Dials</h2>
+<div class="dials" id="dials"></div>
+<div class="row">
+  <span class="note" style="margin-right:6px">Presets:</span>
+  <button class="btn" onclick="preset('current')">Current (40 / 3, board L22)</button>
+  <button class="btn" onclick="preset('fast')">Proposed fast (20 / 1, board L8)</button>
+  <button class="btn" onclick="preset('mid')">Front-load + medium tail (20 / 3, board L8)</button>
+</div>
+<p class="note">Curve: level <code>n→n+1</code> costs <code>base + (n−1)·step</code> exp. Quest effort: <code>1 exp ≈ clicksPerExp clicks</code>.
+Time uses <code>clicks/day</code> (≈800 = an engaged 3-session player, calibrated to grove_sim; ≈350 = casual). The board grid scales the
+hand-tuned diamond so its corners open at <code>board corner level</code>.</p>
+
+<h2>At a glance</h2>
+<div class="card"><div class="kpis" id="kpis"></div></div>
+
+<h2>Per-zone summary (5 maps)</h2>
+<div class="card"><table id="zoneTable"></table></div>
+
+<h2>Full ladder — level · clicks · time · unlock zone · board cells</h2>
+<div class="card"><table id="levelTable"></table></div>
+
+<h2>Board open-up (the 9×7 grid, each cell's unlock level)</h2>
+<div class="card">
+  <div id="board" class="board"></div>
+  <p class="note" id="boardNote"></p>
+  <p class="note">
+    <span class="pill"><span class="swatch" style="background:var(--z0)"></span>start</span> &nbsp;
+    <span class="pill"><span class="swatch" style="background:var(--z1)"></span>early</span> &nbsp;
+    <span class="pill"><span class="swatch" style="background:var(--z2)"></span>mid</span> &nbsp;
+    <span class="pill"><span class="swatch" style="background:var(--z3)"></span>late</span> &nbsp;
+    <span class="pill"><span class="swatch" style="background:var(--z4)"></span>last</span>
+  </p>
+</div>
+
+<h2>Save to game settings</h2>
+<div class="card">
+  <div class="row">
+    <button class="btn primary" onclick="saveSettings()">💾 Save economy_tuning.json</button>
+    <span class="note" id="saveMsg"></span>
+  </div>
+  <p class="note">One-click save needs Chrome/Edge (File System Access). Otherwise it downloads — move it to
+    <code id="targetPath">games/grove/economy_tuning.json</code>. The game applies it at launch; an absent file = current defaults.</p>
+  <textarea id="json" spellcheck="false" readonly></textarea>
+</div>
+
+<script>
+// ---- baked-in game structure (must mirror grove_data.gd) ---------------------------------------
+const SPOTS = [6,4,7,4,4];                                   // regions per map (vine_mask_tool region counts)
+const ZONES = ["The Farm","The Orchard","The Garden","The Mill","The Gate"];
+const TOTAL_SPOTS = SPOTS.reduce((a,b)=>a+b,0);             // 25
+const ENDGAME_LEVEL = 1 + TOTAL_SPOTS;                      // first spot at L2 → last at L26
+// the current hand-tuned MIN_LEVEL diamond (9 rows × 7 cols), corners = 22
+const GRID0 = [
+  [22,14,10,10,10,14,22],
+  [18,10, 6, 6, 6,10,18],
+  [14,10, 1, 1, 1,10,14],
+  [10, 3, 0, 0, 0, 3,10],
+  [ 6, 3, 0, 0, 0, 3, 6],
+  [10, 3, 0, 0, 0, 3,10],
+  [14,10, 1, 1, 1,10,14],
+  [18,10, 6, 6, 6,10,18],
+  [22,14,10,10,10,14,22],
+];
+const GRID0_MAX = 22;
+const TOTAL_CELLS = 63;
+
+// ---- dials ------------------------------------------------------------------------------------
+const D = { base:40, step:3, cpe:7, perDay:800, corner:22 };
+const DIALS = [
+  {k:"base",   label:"Level base exp (L1→L2 cost)",      min:5,  max:120, step:1},
+  {k:"step",   label:"Level step (+exp each level)",     min:0,  max:12,  step:1},
+  {k:"cpe",    label:"Clicks per exp (quest effort)",    min:1,  max:20,  step:1},
+  {k:"perDay", label:"Clicks per day (for time)",        min:100,max:3000,step:50},
+  {k:"corner", label:"Board corner level (full-open by)",min:3,  max:30,  step:1},
+];
+
+function buildDials(){
+  const el = document.getElementById("dials");
+  el.innerHTML = "";
+  for (const d of DIALS){
+    const wrap = document.createElement("div"); wrap.className="dial";
+    wrap.innerHTML =
+      `<label>${d.label}: <span class="val" id="v_${d.k}">${D[d.k]}</span></label>
+       <input type="range" id="r_${d.k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${D[d.k]}">
+       <input type="number" id="n_${d.k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${D[d.k]}">`;
+    el.appendChild(wrap);
+    const r = wrap.querySelector(`#r_${d.k}`), n = wrap.querySelector(`#n_${d.k}`);
+    const set = v=>{ v=+v; if(isNaN(v))return; D[d.k]=v; r.value=v; n.value=v;
+                     document.getElementById(`v_${d.k}`).textContent=v; render(); };
+    r.addEventListener("input", e=>set(e.target.value));
+    n.addEventListener("input", e=>set(e.target.value));
+  }
+}
+function syncDials(){ for(const d of DIALS){ document.getElementById(`r_${d.k}`).value=D[d.k];
+  document.getElementById(`n_${d.k}`).value=D[d.k]; document.getElementById(`v_${d.k}`).textContent=D[d.k]; } }
+function preset(which){
+  if(which==="current") Object.assign(D,{base:40,step:3,corner:22});
+  if(which==="fast")    Object.assign(D,{base:20,step:1,corner:8});
+  if(which==="mid")     Object.assign(D,{base:20,step:3,corner:8});
+  syncDials(); render();
+}
+
+// ---- model ------------------------------------------------------------------------------------
+const expAtLevel = L => L<=1 ? 0 : (L-1)*D.base + ((L-1)*(L-2)/2)*D.step;
+const clicksAt   = L => Math.round(expAtLevel(L)*D.cpe);
+const days       = c => c / D.perDay;
+
+function scaledGrid(){
+  const s = D.corner / GRID0_MAX;
+  return GRID0.map(row => row.map(v => Math.round(v*s)));
+}
+function cellsOpen(grid, L){ let n=0; for(const row of grid) for(const v of row) if(v<=L) n++; return n; }
+function boardFullLevel(grid){ let m=0; for(const row of grid) for(const v of row) m=Math.max(m,v); return m; }
+
+// which zone/spot unlocks at level L (global spot index = L-2); {} if none
+function unlockAt(L){
+  const gi = L-2;
+  if (gi<0 || gi>=TOTAL_SPOTS) return null;
+  let acc=0;
+  for (let m=0;m<SPOTS.length;m++){
+    if (gi < acc+SPOTS[m]) return {map:m, spot:gi-acc+1, first:(gi-acc===0)};
+    acc += SPOTS[m];
+  }
+  return null;
+}
+function fmt(n){ return n.toLocaleString(); }
+function fmtDays(d){ if(d<1) return (d*24).toFixed(1).replace(/\.0$/,"")+" h"; return d.toFixed(1).replace(/\.0$/,"")+" d"; }
+
+// ---- render -----------------------------------------------------------------------------------
+function render(){
+  const grid = scaledGrid();
+  const endClicks = clicksAt(ENDGAME_LEVEL);
+  const boardFull = boardFullLevel(grid);
+
+  // KPIs
+  const kpis = [
+    ["Whole game", fmt(endClicks)+" clicks", "to restore all 25 spots"],
+    ["Whole game", fmtDays(days(endClicks)), `at ${D.perDay} clicks/day`],
+    ["Endgame badge", "L"+ENDGAME_LEVEL, "25 spots, one per level from L2"],
+    ["Board fully open", "L"+boardFull, fmtDays(days(clicksAt(boardFull+1)))+" in"],
+    ["First region", fmtDays(days(clicksAt(2))), fmt(clicksAt(2))+" clicks (L2)"],
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(k=>
+    `<div class="kpi"><b>${k[1]}</b><span>${k[0]} — ${k[2]}</span></div>`).join("");
+
+  // zone summary
+  let zt = "<tr><th>Zone</th><th>Spots</th><th>Levels</th><th>Enter clicks</th><th>Done clicks</th><th>Enters</th><th>Completes</th></tr>";
+  let acc=0;
+  for(let m=0;m<SPOTS.length;m++){
+    const enterL = 2+acc, doneL = 2+acc+SPOTS[m]-1;
+    zt += `<tr><td>${m+1} · ${ZONES[m]}</td><td>${SPOTS[m]}</td><td>L${enterL}–L${doneL}</td>`+
+          `<td>${fmt(clicksAt(enterL))}</td><td>${fmt(clicksAt(doneL))}</td>`+
+          `<td>${fmtDays(days(clicksAt(enterL)))}</td><td>${fmtDays(days(clicksAt(doneL)))}</td></tr>`;
+    acc += SPOTS[m];
+  }
+  document.getElementById("zoneTable").innerHTML = zt;
+
+  // full ladder
+  let lt = "<tr><th>Level</th><th>Cum. clicks</th><th>Time</th><th>Unlocks</th><th>Board cells</th></tr>";
+  for(let L=1; L<=ENDGAME_LEVEL; L++){
+    const u = unlockAt(L);
+    let label = (L===1) ? '<span class="note">start (center + generator)</span>' : "—";
+    let cls = "";
+    if(u){ label = `${ZONES[u.map]} · spot ${u.spot}` + (u.first?` <b style="color:var(--accent)">◀ ${ZONES[u.map]} opens</b>`:"");
+           if(u.first) cls="enter"; }
+    const oc = cellsOpen(grid, L);
+    lt += `<tr class="${cls}"><td>L${L}</td><td>${fmt(clicksAt(L))}</td><td>${fmtDays(days(clicksAt(L)))}</td>`+
+          `<td>${label}</td><td>${oc} / ${TOTAL_CELLS}</td></tr>`;
+  }
+  document.getElementById("levelTable").innerHTML = lt;
+
+  // board heatmap
+  const colOf = v => v===0?"var(--z0)": v<=boardFull*0.25?"var(--z1)": v<=boardFull*0.5?"var(--z2)": v<=boardFull*0.75?"var(--z3)":"var(--z4)";
+  let b="";
+  for(const row of grid) for(const v of row) b += `<div class="cell" style="background:${colOf(v)}">${v}</div>`;
+  document.getElementById("board").innerHTML = b;
+  document.getElementById("boardNote").textContent =
+    `${cellsOpen(grid,1)} of ${TOTAL_CELLS} cells open at start · fully open by L${boardFull}. Numbers are each cell's unlock level.`;
+
+  // JSON
+  document.getElementById("json").value = currentJSON();
+}
+
+function currentJSON(){
+  return JSON.stringify({
+    level_base_exp: D.base,
+    level_step_exp: D.step,
+    quest_clicks_per_exp: D.cpe,
+    endgame_clicks: clicksAt(ENDGAME_LEVEL),
+    min_level: scaledGrid(),
+  }, null, 2);
+}
+
+// ---- save -------------------------------------------------------------------------------------
+let fileHandle = null;
+async function saveSettings(){
+  const json = currentJSON();
+  const msg = document.getElementById("saveMsg");
+  if (window.showSaveFilePicker){
+    try{
+      if(!fileHandle)
+        fileHandle = await window.showSaveFilePicker({suggestedName:"economy_tuning.json",
+          types:[{description:"JSON",accept:{"application/json":[".json"]}}]});
+      const w = await fileHandle.createWritable(); await w.write(json); await w.close();
+      msg.textContent = "Saved ✓ — relaunch the game to pick it up."; msg.style.color="var(--good)";
+      return;
+    }catch(e){ if(e && e.name==="AbortError"){ msg.textContent="(save cancelled)"; msg.style.color="var(--muted)"; return; } }
+  }
+  const blob = new Blob([json],{type:"application/json"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="economy_tuning.json"; a.click();
+  msg.textContent = "Downloaded — move it to games/grove/economy_tuning.json"; msg.style.color="var(--warn)";
+}
+
+buildDials();
+render();
+</script>
+</body>
+</html>

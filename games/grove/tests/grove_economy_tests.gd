@@ -451,36 +451,8 @@ func _initialize() -> void:
 	ok(int(nu.k) == 0 and int(nu.exp) == G.spot_unlock_exp(0, 0), "map_next_unlock targets the lowest-threshold unclaimed spot")
 	var owned0 := {String(G.MAPS[0].spots[0].id): true}
 	ok(int(G.map_next_unlock(0, owned0).k) == 1, "claiming spot 0 advances the next-unlock to spot 1")
-	# 13e. economy-tuning loader (docs/economy_tuning.html writes the JSON; the game picks it up via
-	# G.apply_tuning at load). Drive it off a temp user:// file: assert the curve/board math FOLLOWS the
-	# override, that a missing file is a no-op, then RESTORE the live dials so the rest of the suite is exact.
-	var _tb := G.LEVEL_BASE_EXP
-	var _ts := G.LEVEL_STEP_EXP
-	var _tc := G.QUEST_CLICKS_PER_EXP
-	var _te := G.ENDGAME_CLICKS
-	var _tg := G.MIN_LEVEL
-	var tune_path := "user://test_economy_tuning.json"
-	var tf := FileAccess.open(tune_path, FileAccess.WRITE)
-	tf.store_string(JSON.stringify({
-		"level_base_exp": 11, "level_step_exp": 0, "quest_clicks_per_exp": 5, "endgame_clicks": 12345,
-		"min_level": [[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,0,0,0,1,1],[1,1,0,0,0,1,1],
-			[1,1,0,0,0,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1]],
-	}))
-	tf.close()
-	var applied := G.apply_tuning(tune_path)
-	ok(applied.has("level_base_exp") and applied.has("min_level"), "apply_tuning reports the keys it applied")
-	ok(G.LEVEL_BASE_EXP == 11 and G.LEVEL_STEP_EXP == 0, "apply_tuning overrides the level curve")
-	ok(G.exp_at_level(3) == 22, "exp_at_level follows the override (base 11 · step 0 → L3 = 2×11 = 22)")
-	ok(G.QUEST_CLICKS_PER_EXP == 5, "apply_tuning overrides quest_clicks_per_exp")
-	ok(G.cell_min_level(Vector2i(0, 0)) == 1 and G.cell_min_level(Vector2i(4, 3)) == 0, \
-		"apply_tuning overrides the MIN_LEVEL board grid")
-	ok(G.ENDGAME_CLICKS == 12345, "apply_tuning overrides the endgame-clicks anchor")
-	ok(G.apply_tuning("user://no_such_tuning.json").is_empty() and G.LEVEL_BASE_EXP == 11, \
-		"a missing tuning file is a clean no-op (dials unchanged)")
-	G.LEVEL_BASE_EXP = _tb;  G.LEVEL_STEP_EXP = _ts;  G.QUEST_CLICKS_PER_EXP = _tc
-	G.ENDGAME_CLICKS = _te;  G.MIN_LEVEL = _tg
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(tune_path))
-	ok(G.exp_at_level(3) == _tb * 2 + _ts, "the live curve is restored after the tuning test")
+	# (the economy-tuning loader — content.gd.apply_tuning, fed by docs/economy_tuning.html — is covered
+	# by the ACTIVE engine suite engine/tests/tuning_tests.gd, not here: this suite is parked/disabled.)
 	# earn_exp bumps the single exp total; the level-up gift is DEFERRED to the dialog's Collect
 	# (level_gift + grant_level_gift), so earn_exp itself grants nothing.
 	fresh("earn")
