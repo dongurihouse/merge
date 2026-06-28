@@ -360,7 +360,7 @@ static func make_generator(id: String, csz: float, hl: Dictionary = {}) -> Contr
 # it. Each part is mouse-ignore (keeps _all_ignore green) and never becomes child(0) (keeps the shadow/
 # sprite invariant make_piece shares). `scale`/`a`/`width` fractions are of the cell size.
 const GEN_GLOW := {"scale": 1.0, "color": "#FFD27A", "a": 0.30}                  # warm halo
-const GEN_OUTLINE := {"width": 0.035, "alpha": 0.85, "color": "#E8BE5C", "steps": 16}   # gold silhouette rim
+const GEN_OUTLINE := {"width": 0.035, "alpha": 0.85, "color": "#E8BE5C", "blur": 0.0, "steps": 16}   # gold silhouette rim
 const GEN_SPARKLE := {"count": 5, "size": 1.0, "speed": 0.7, "color": "#FFF4C2"}
 
 static func _highlight_color(value: Variant, fallback_hex: String) -> Color:
@@ -464,9 +464,10 @@ static func _add_gen_outline(holder: Control, size: float, path: String, hl: Dic
 	o.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	o.tex = sil
 	o.inset = ITEM_INSET                    # MUST match the sprite so the rim aligns
-	o.color = Color(GEN_OUTLINE["color"])
+	o.color = _highlight_color(hl.get("outline_color", GEN_OUTLINE["color"]), GEN_OUTLINE["color"])
 	o.width = float(hl.get("outline_w", GEN_OUTLINE["width"])) * size
 	o.alpha = float(hl.get("outline_a", GEN_OUTLINE["alpha"]))
+	o.blur = float(hl.get("outline_blur", GEN_OUTLINE["blur"])) * size   # feather, as a fraction of cell
 	o.steps = int(GEN_OUTLINE["steps"])
 	holder.add_child(o)
 

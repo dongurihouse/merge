@@ -249,7 +249,8 @@ var _params := {
 	# Saved knobs (glow scale/alpha/color, outline width/alpha, sparkle count/size/speed/color) flow to
 	# the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's GEN_* consts.
 	# `preview` (which generator) + `cell` (preview px) are test-only.
-	"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A", "outline_w": 35, "outline_a": 85,
+	"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A",
+		"outline_w": 35, "outline_a": 85, "outline_blur": 0, "outline_color": "E8BE5C",
 		"sparkle_count": 5, "sparkle_size": 100, "sparkle_speed": 70, "sparkle_color": "FFF4C2",
 		"preview": "seed_satchel", "cell": 170},
 	# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
@@ -2186,6 +2187,8 @@ func _rebuild_sidebar() -> void:
 			_section_header("Outline (traces the art)")
 			_sidebar_body.add_child(_slider_row(["outline_w", 0, 90]))       # rim thickness (per-mille of cell)
 			_sidebar_body.add_child(_slider_row(["outline_a", 0, 100]))      # rim opacity %
+			_sidebar_body.add_child(_slider_row(["outline_blur", 0, 60]))    # rim feather (per-mille of cell)
+			_sidebar_body.add_child(_color_row("Outline", "outline_color")) # rim tint
 			_section_header("Sparkle")
 			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
 			_sidebar_body.add_child(_slider_row(["sparkle_size", 50, 250]))  # twinkle size, % of default
