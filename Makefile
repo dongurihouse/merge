@@ -62,6 +62,15 @@ fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 land-workbench: ## click a generator + tune the LANDING feel live (squash/puff/flash/sound/haptic)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/land_workbench.gd
 
+merge-workbench: ## merge two tiles + tune the MERGE feel live (squash/flash/hitstop/burst/shake/sound/ripple/punch)
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/merge_workbench.gd
+
+launch-workbench: ## emit from a generator + tune the LAUNCH feel live (recoil/puff/toss)
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/launch_workbench.gd
+
+move-workbench: ## send a tile + tune the MOVE feel live (shadow/trail/lean, slide·arc·fall)
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/move_workbench.gd
+
 vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
 	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
 
@@ -139,6 +148,15 @@ shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbe
 
 shot-land-workbench: ## quiet screenshot of the Land workbench:  make shot-land-workbench [OUT=/tmp/land_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/land_workbench.gd -- $(or $(OUT),/tmp/land_workbench.png)
+
+shot-merge-workbench: ## quiet screenshot of the Merge workbench
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/merge_workbench.gd -- $(or $(OUT),/tmp/merge_workbench.png)
+
+shot-launch-workbench: ## quiet screenshot of the Launch workbench
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/launch_workbench.gd -- $(or $(OUT),/tmp/launch_workbench.png)
+
+shot-move-workbench: ## quiet screenshot of the Move workbench
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/move_workbench.gd -- $(or $(OUT),/tmp/move_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)
