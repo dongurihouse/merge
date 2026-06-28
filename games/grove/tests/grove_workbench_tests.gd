@@ -1713,8 +1713,34 @@ func _test_gold_badge_consumers(view) -> void:
 		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
 		"the Workbench map-card preview requests the resident-slot preview overlay")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open)"), \
-		"the Workbench map-card preview shows the collection progress shelf for open map cards")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open) and bool(p.done)"), \
+		"the Workbench map-card preview shows the collection progress shelf only for DONE (restored) map cards")
+	# Drive the REAL preview path (_make_element) so the count-pill knobs are proven to reach a rendered pill.
+	# An OPEN, in-progress (not-done) card is the state the game shows the count pill in — the workbench must
+	# render it there so its sliders have a target; a DONE card swaps it for the habitat reward shelf.
+	var mc_params: Dictionary = view._params["map_card"]
+	var saved_mc_open: bool = bool(mc_params.get("open", true))
+	var saved_mc_done: bool = bool(mc_params.get("done", false))
+	var saved_mc_pill_y: float = float(mc_params.get("pill_y_frac", 13))
+	mc_params["open"] = true
+	mc_params["done"] = false
+	var inprogress_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
+	ok(inprogress_pill != null, \
+		"the Workbench open/in-progress map-card preview renders the count pill so its sliders have a target")
+	mc_params["pill_y_frac"] = 3
+	var low_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
+	mc_params["pill_y_frac"] = 30
+	var high_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
+	ok(low_pill != null and high_pill != null and high_pill.position.y < low_pill.position.y, \
+		"the Workbench count-pill lift slider (pill_y_frac) moves the rendered preview pill up the card")
+	mc_params["pill_y_frac"] = saved_mc_pill_y
+	mc_params["done"] = true
+	var done_card: Control = view._make_element("map_card")
+	ok(done_card.find_child("MapHabitatRewardShelf", true, false) != null \
+		and done_card.find_child("MapCardCountPill", true, false) == null, \
+		"the Workbench done/restored map-card preview swaps the count pill for the habitat reward shelf")
+	mc_params["open"] = saved_mc_open
+	mc_params["done"] = saved_mc_done
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	var preview_small := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
