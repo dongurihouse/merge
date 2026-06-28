@@ -116,9 +116,12 @@ static func _shadow(node: Control, from: Vector2, to: Vector2, dur: float, alpha
 	var sz := node.size
 	if sz.x <= 0.0 or sz.y <= 0.0:
 		sz = node.custom_minimum_size
-	var sh := ColorRect.new()
-	sh.color = Color(SHADOW_DARK.r, SHADOW_DARK.g, SHADOW_DARK.b, alpha)
+	var sh := TextureRect.new()
+	sh.texture = FX._flash_texture()     # the soft radial sprite, reused as a SOFT dark blob (not a hard rect)
+	sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sh.stretch_mode = TextureRect.STRETCH_SCALE
 	sh.size = sz * SHADOW_SCALE
+	sh.modulate = Color(SHADOW_DARK.r, SHADOW_DARK.g, SHADOW_DARK.b, alpha)
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sh.z_index = node.z_index            # same layer as the tile — NOT z=-1 (which hid it behind the field/board bg)
 	(parent as Node).add_child(sh)
