@@ -1683,7 +1683,7 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 		if bool(entry.get("claimed", false)):
 			var done := Label.new()
 			done.text = String(entry.get("claimed_text", "Claimed"))
-			done.add_theme_font_size_override("font_size", 14)
+			done.add_theme_font_size_override("font_size", 18)   # "Claimed" tag — readable next to the card body (was a tiny hardcoded 14)
 			done.add_theme_color_override("font_color", Color(Pal.LEAF.darkened(0.1), 0.95))
 			done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			done.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2147,7 +2147,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fl.add_theme_font_override("font", plain_font())          # standard text, not the chunky display face
-		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
+		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 16)))
 		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 		fl.add_theme_constant_override("outline_size", 0)
 		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3467,6 +3467,7 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"close_poke": Vector2(float(d.get("close_x", 12)), float(d.get("close_y", 12))),
 		"list_max_h": float(d.get("list_max_h", 0)),
 		"list_top_pad": float(d.get("list_top_pad", 0)),
+		"empty_font": int(d.get("empty_font", 28)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
 	}
