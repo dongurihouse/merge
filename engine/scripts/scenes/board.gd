@@ -48,6 +48,7 @@ const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the
 const Pal = Game.PALETTE
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
+const MERGE_SLIDE_MS := 130      # the merge snap is a fast FIXED slide, decoupled from the tunable move duration_ms
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
@@ -2691,10 +2692,11 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	piece_nodes.erase(a)
 	animating = true
 	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
-	# impact). The board piece already carries its own piece_view ContactShadow, so Feel.move detects
-	# it and adds NO cast shadow (no double). _after_merge stays the completion callback — chained on
-	# the returned tween so the merge still resolves exactly when the slide lands.
-	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts)
+	# impact). The slide is a fast FIXED SNAP (MERGE_SLIDE_MS) — NOT the tunable travel duration_ms, so
+	# tuning the Move workbench's travel speed never makes merges feel sluggish. The shadow/trail/lean
+	# toggles still apply. _after_merge stays the completion callback — chained on the returned tween so
+	# the merge still resolves exactly when the slide lands.
+	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts, MERGE_SLIDE_MS)
 	if t != null:
 		t.tween_callback(_after_merge.bind(a, b, produced, node))
 	else:

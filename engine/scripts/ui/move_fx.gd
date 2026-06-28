@@ -66,11 +66,14 @@ static func _enhance_enabled() -> bool:
 ## Drive the TRAVEL per the resolved opts. `node` slides/arcs/falls `from`->`to`; `kind` is
 ## "slide" / "arc" / "fall". Returns the primary `position` Tween (always built, so the move reaches
 ## `to` even with every enhancement off). Mirrors feel.move but every cue is individually toggled + tuned.
-static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts: Dictionary) -> Tween:
+## `dur_ms` (> 0) OVERRIDES the tunable duration_ms knob — used by callers whose travel must stay a
+## fixed speed regardless of the Move-workbench duration slider (e.g. the board merge SNAP, which must
+## not slow down when someone tunes the travel duration). The shadow/trail/lean toggles still apply.
+static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts: Dictionary, dur_ms := 0) -> Tween:
 	if not (node and is_instance_valid(node)):
 		return null
 	node.position = from
-	var dur := maxf(0.02, float(knob(opts, "duration_ms")) / 1000.0)
+	var dur := maxf(0.02, (float(dur_ms) if dur_ms > 0 else float(knob(opts, "duration_ms"))) / 1000.0)
 	var t := node.create_tween()
 	if kind == "arc":
 		_build_arc(t, node, from, to, dur)
