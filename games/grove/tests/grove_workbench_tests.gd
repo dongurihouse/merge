@@ -1922,6 +1922,11 @@ func _test_quest_card_config(view) -> void:
 	ok(not view._is_config("quest_card", "bust") and not view._is_config("quest_card", "stand_w") \
 		and not view._is_config("quest_card", "met"), "the quest-card demo knobs are preview-only (not saved)")
 	ok(view._is_config("quest_card", "shadow"), "the quest card's Shadow toggle is saved config (the shared shadow)")
+	# the quest card casts the shared shadow by DEFAULT — so it follows the global shadow config out of the box
+	# (like board / home_button / gold_badge), not an opt-in the player never turns on.
+	view._params["quest_card"].erase("shadow")
+	view._ensure_shadow_keys()
+	ok(bool(view._params["quest_card"].get("shadow", false)), "the quest card's Shadow toggle defaults ON (follows the global shadow)")
 
 	# Kit.giver_lay_from_config DEFAULTS must mirror giver_stand.LAY, so an empty config renders the SHIPPED card
 	var GiverStand = load("res://engine/scripts/ui/giver_stand.gd")
