@@ -73,6 +73,13 @@ static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts:
 	if not (node and is_instance_valid(node)):
 		return null
 	node.position = from
+	# A tile IN FLIGHT is not interactable — clicking it mid-travel must not pause it or re-trigger it.
+	# Flip mouse input off for the trip and hand it back when the travel lands (below). The resting filter
+	# is stashed in meta so overlapping moves on the same node never restore to the in-flight IGNORE (which
+	# would leave the tile permanently dead) — the captured value is always the real resting state.
+	if not node.has_meta("_movefx_rest_filter"):
+		node.set_meta("_movefx_rest_filter", node.mouse_filter)
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var dur := maxf(0.02, (float(dur_ms) if dur_ms > 0 else float(knob(opts, "duration_ms"))) / 1000.0)
 	var t := node.create_tween()
 	if kind == "arc":
@@ -80,6 +87,11 @@ static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts:
 	else:
 		# slide / fall: accelerate INTO the impact — slow to leave, fastest at the target.
 		t.tween_property(node, "position", to, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# the travel landed — restore interactability (guarded: the node may be freed mid-flight, e.g. a merge).
+	t.chain().tween_callback(func() -> void:
+		if node and is_instance_valid(node) and node.has_meta("_movefx_rest_filter"):
+			node.mouse_filter = node.get_meta("_movefx_rest_filter")
+			node.remove_meta("_movefx_rest_filter"))
 	# the enhancements ride alongside the primary tween — never block it, never run headless/calm.
 	if _enhance_enabled():
 		if on(opts, "shadow"):
@@ -119,7 +131,6 @@ static func _shadow(node: Control, from: Vector2, to: Vector2, dur: float, alpha
 	var sz := node.size
 	if sz.x <= 0.0 or sz.y <= 0.0:
 		sz = node.custom_minimum_size
-	print("[MOVE_SHADOW] fired parent=%s node.size=%s cmin=%s sz=%s alpha=%.2f pos=%s" % [node.get_parent().name, node.size, node.custom_minimum_size, sz, alpha, from])
 	var sh := TextureRect.new()
 	sh.texture = FX._flash_texture()     # the soft radial sprite, reused as a SOFT dark blob (not a hard rect)
 	sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
