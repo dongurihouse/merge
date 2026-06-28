@@ -334,6 +334,7 @@ var _params := {
 	# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
 	"map_card": {"use_art": true, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
+		"title_font": 0, "title_w": 0, "title_h": 0, "title_x": 0, "title_y": 0, "title_pad_x": 24, "title_pad_y": 2,
 		"resident_slot_px": 58, "resident_slot_gap": 10,
 		"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
 		"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
@@ -2490,6 +2491,14 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pill_min", 80, 360]))       # …clamped to this min px
 			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
 			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
+			_section_header("Title plate")                                   # the "The Farm" name plate, top-left of an open card
+			_sidebar_body.add_child(_slider_row(["title_font", -10, 20]))     # grow/shrink the map-name text (px nudge)
+			_sidebar_body.add_child(_slider_row(["title_w", -120, 200]))      # widen/narrow the plate from its auto width (px)
+			_sidebar_body.add_child(_slider_row(["title_h", -20, 40]))        # taller/shorter plate (px)
+			_sidebar_body.add_child(_slider_row(["title_x", -60, 160]))       # move the plate right/left (px)
+			_sidebar_body.add_child(_slider_row(["title_y", -40, 100]))       # move the plate down/up (px)
+			_sidebar_body.add_child(_slider_row(["title_pad_x", 0, 80]))      # text inset left/right inside the plate (px)
+			_sidebar_body.add_child(_slider_row(["title_pad_y", -10, 24]))    # text inset vertical (px)
 			_section_header("Resident rail")
 			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 148])) # completed-card square slot size px
 			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card resident slots px
