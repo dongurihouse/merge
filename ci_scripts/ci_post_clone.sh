@@ -34,7 +34,24 @@ download() {
 
 	log "downloading $label"
 	rm -f "$out.tmp"
-	curl -fL --retry 3 --retry-delay 5 --connect-timeout 30 -o "$out.tmp" "$url"
+	# GitHub serves release assets from release-assets.githubusercontent.com, a
+	# CDN host separate from github.com. That host is IPv4-only, and Xcode Cloud's
+	# resolver intermittently times out resolving it (curl exit 6), failing the
+	# build even though github.com resolves fine. Force IPv4 to skip the doomed
+	# AAAA lookup, retry on ALL errors (the default --retry set ignores resolve
+	# failures), and widen the retry window so a brief DNS/CDN blip self-heals.
+	local rc=0
+	curl -fL -4 \
+		--retry 6 --retry-delay 5 --retry-all-errors \
+		--connect-timeout 30 --max-time 1800 \
+		-o "$out.tmp" "$url" || rc=$?
+	if [ "$rc" -ne 0 ]; then
+		echo "ci_post_clone: download of $label failed (curl exit $rc)" >&2
+		echo "ci_post_clone: DNS check for the asset CDN host:" >&2
+		nslookup release-assets.githubusercontent.com >&2 || true
+		rm -f "$out.tmp"
+		exit "$rc"
+	fi
 	mv "$out.tmp" "$out"
 }
 
