@@ -12,7 +12,7 @@ extends RefCounted
 # dependency the bag band below avoids — just a one-way read of a tuning constant.
 const Game = preload("res://engine/scripts/core/game.gd")
 
-const SCHEMA_VERSION := 3   # v3: stars collapsed into a single grove.exp total (no migration — see load_now)
+const SCHEMA_VERSION := 4   # v4: force a one-time profile wipe on the new release (no migration — see load_now)
 # A small starting gem balance for a brand-new save, so the premium-currency wallet slot reads
 # alive (not a dead 0) and a first acquire-button tap lands the player in a non-empty store. Kept
 # deliberately small — a taste, not a giveaway. Only fresh saves get it (defaulted, never re-granted).

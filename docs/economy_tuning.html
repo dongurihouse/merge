@@ -64,8 +64,8 @@ Then <b>Save</b> the settings file the game reads at launch (<code>games/grove/e
   <button class="btn" onclick="preset('mid')">Front-load + medium tail (20 / 3, board L8)</button>
 </div>
 <p class="note">Curve: level <code>n→n+1</code> costs <code>base + (n−1)·step</code> exp. Quest effort: <code>1 exp ≈ clicksPerExp clicks</code>.
-Time uses <code>clicks/day</code> (≈800 = an engaged 3-session player, calibrated to grove_sim; ≈350 = casual). The board grid scales the
-hand-tuned diamond so its corners open at <code>board corner level</code>.</p>
+Time is <b>active play</b> at <code>clicks/sec</code> (2 = steady tapping) — pure tapping time, not counting water-gated waiting. The board grid scales the
+hand-tuned diamond so its corners open at <code>board corner level</code>, then caps every inner (non-edge) cell to unlock by <code>inner cells level</code> — so the outer ring stays a slow reward while the interior opens early.</p>
 
 <h2>At a glance</h2>
 <div class="card"><div class="kpis" id="kpis"></div></div>
@@ -122,13 +122,14 @@ const GRID0_MAX = 22;
 const TOTAL_CELLS = 63;
 
 // ---- dials ------------------------------------------------------------------------------------
-const D = { base:40, step:3, cpe:7, perDay:800, corner:22 };
+const D = { base:20, step:2, cpe:7, cps:2, corner:16, inner:4 };
 const DIALS = [
   {k:"base",   label:"Level base exp (L1→L2 cost)",      min:5,  max:120, step:1},
   {k:"step",   label:"Level step (+exp each level)",     min:0,  max:12,  step:1},
   {k:"cpe",    label:"Clicks per exp (quest effort)",    min:1,  max:20,  step:1},
-  {k:"perDay", label:"Clicks per day (for time)",        min:100,max:3000,step:50},
+  {k:"cps",    label:"Clicks / second (active play)",   min:0.5,max:8,  step:0.5},
   {k:"corner", label:"Board corner level (full-open by)",min:3,  max:30,  step:1},
+  {k:"inner",  label:"Inner cells unlock by (level)",     min:1,  max:30,  step:1},
 ];
 
 function buildDials(){
@@ -151,20 +152,25 @@ function buildDials(){
 function syncDials(){ for(const d of DIALS){ document.getElementById(`r_${d.k}`).value=D[d.k];
   document.getElementById(`n_${d.k}`).value=D[d.k]; document.getElementById(`v_${d.k}`).textContent=D[d.k]; } }
 function preset(which){
-  if(which==="current") Object.assign(D,{base:40,step:3,corner:22});
-  if(which==="fast")    Object.assign(D,{base:20,step:1,corner:8});
-  if(which==="mid")     Object.assign(D,{base:20,step:3,corner:8});
+  if(which==="current") Object.assign(D,{base:40,step:3,corner:22,inner:22});
+  if(which==="fast")    Object.assign(D,{base:20,step:1,corner:8,inner:4});
+  if(which==="mid")     Object.assign(D,{base:20,step:3,corner:8,inner:4});
   syncDials(); render();
 }
 
 // ---- model ------------------------------------------------------------------------------------
 const expAtLevel = L => L<=1 ? 0 : (L-1)*D.base + ((L-1)*(L-2)/2)*D.step;
 const clicksAt   = L => Math.round(expAtLevel(L)*D.cpe);
-const days       = c => c / D.perDay;
+const sec        = c => c / D.cps;
 
 function scaledGrid(){
   const s = D.corner / GRID0_MAX;
-  return GRID0.map(row => row.map(v => Math.round(v*s)));
+  const R = GRID0.length, C = GRID0[0].length;
+  return GRID0.map((row,r) => row.map((v,c) => {
+    const val = Math.round(v*s);
+    const edge = (r===0 || r===R-1 || c===0 || c===C-1);   // outer ring keeps its level; inner caps at D.inner
+    return edge ? val : Math.min(val, D.inner);
+  }));
 }
 function cellsOpen(grid, L){ let n=0; for(const row of grid) for(const v of row) if(v<=L) n++; return n; }
 function boardFullLevel(grid){ let m=0; for(const row of grid) for(const v of row) m=Math.max(m,v); return m; }
@@ -181,7 +187,7 @@ function unlockAt(L){
   return null;
 }
 function fmt(n){ return n.toLocaleString(); }
-function fmtDays(d){ if(d<1) return (d*24).toFixed(1).replace(/\.0$/,"")+" h"; return d.toFixed(1).replace(/\.0$/,"")+" d"; }
+function ftime(s){ if(s<60) return s.toFixed(0)+"s"; if(s<3600) return (s/60).toFixed(1)+"m"; if(s<86400) return (s/3600).toFixed(1)+"h"; return (s/86400).toFixed(1)+"d"; }
 
 // ---- render -----------------------------------------------------------------------------------
 function render(){
@@ -192,10 +198,10 @@ function render(){
   // KPIs
   const kpis = [
     ["Whole game", fmt(endClicks)+" clicks", "to restore all 25 spots"],
-    ["Whole game", fmtDays(days(endClicks)), `at ${D.perDay} clicks/day`],
+    ["Whole game", ftime(sec(endClicks)), `active play @ ${D.cps}/sec`],
     ["Endgame badge", "L"+ENDGAME_LEVEL, "25 spots, one per level from L2"],
-    ["Board fully open", "L"+boardFull, fmtDays(days(clicksAt(boardFull+1)))+" in"],
-    ["First region", fmtDays(days(clicksAt(2))), fmt(clicksAt(2))+" clicks (L2)"],
+    ["Board fully open", "L"+boardFull, ftime(sec(clicksAt(boardFull+1)))+" in"],
+    ["First region", ftime(sec(clicksAt(2))), fmt(clicksAt(2))+" clicks (L2)"],
   ];
   document.getElementById("kpis").innerHTML = kpis.map(k=>
     `<div class="kpi"><b>${k[1]}</b><span>${k[0]} — ${k[2]}</span></div>`).join("");
@@ -207,7 +213,7 @@ function render(){
     const enterL = 2+acc, doneL = 2+acc+SPOTS[m]-1;
     zt += `<tr><td>${m+1} · ${ZONES[m]}</td><td>${SPOTS[m]}</td><td>L${enterL}–L${doneL}</td>`+
           `<td>${fmt(clicksAt(enterL))}</td><td>${fmt(clicksAt(doneL))}</td>`+
-          `<td>${fmtDays(days(clicksAt(enterL)))}</td><td>${fmtDays(days(clicksAt(doneL)))}</td></tr>`;
+          `<td>${ftime(sec(clicksAt(enterL)))}</td><td>${ftime(sec(clicksAt(doneL)))}</td></tr>`;
     acc += SPOTS[m];
   }
   document.getElementById("zoneTable").innerHTML = zt;
@@ -221,7 +227,7 @@ function render(){
     if(u){ label = `${ZONES[u.map]} · spot ${u.spot}` + (u.first?` <b style="color:var(--accent)">◀ ${ZONES[u.map]} opens</b>`:"");
            if(u.first) cls="enter"; }
     const oc = cellsOpen(grid, L);
-    lt += `<tr class="${cls}"><td>L${L}</td><td>${fmt(clicksAt(L))}</td><td>${fmtDays(days(clicksAt(L)))}</td>`+
+    lt += `<tr class="${cls}"><td>L${L}</td><td>${fmt(clicksAt(L))}</td><td>${ftime(sec(clicksAt(L)))}</td>`+
           `<td>${label}</td><td>${oc} / ${TOTAL_CELLS}</td></tr>`;
   }
   document.getElementById("levelTable").innerHTML = lt;

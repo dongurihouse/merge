@@ -1189,13 +1189,21 @@ func _refresh_quest_ready_marks() -> void:
 		if node == null or not is_instance_valid(node):
 			continue
 		var glow: Control = node.get_node_or_null("ReadyGlow")
+		# the item's own sprite (absent on un-arted placeholder discs) — breathed alongside the halo so the
+		# WHOLE tile pulses like a generator (FX.breathe on its holder), not just the glow ring behind it.
+		# Kept on the SPRITE, not the holder: the holder is the drag-telegraph's breathe node, and two
+		# breathe tweens on one node collide. FX.breathe / breathe_stop are null-safe, so a sprite-less
+		# placeholder simply keeps the halo-only pulse.
+		var art: Control = node.get_node_or_null(PieceView.ART_NAME)
 		if wanted.has(board.item_at(cell)):
 			if glow == null:
 				var g := PieceView.add_ready_glow(node, csz, _ready_glow_opts)
 				if g != null:
 					FX.breathe(g)
+					FX.breathe(art)
 		elif glow != null:
 			FX.breathe_stop(glow)
+			FX.breathe_stop(art)
 			glow.queue_free()
 
 # §6: dim EVERY live generator to a standing "paused" look while the board has no free

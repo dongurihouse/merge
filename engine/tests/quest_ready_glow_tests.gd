@@ -204,5 +204,39 @@ func _initialize() -> void:
 		"a tuned ready glow takes the workbench corner roundness + halo size")
 	holder.free(); holder2.free()
 
+	# --- Part E: the wanted ITEM itself breathes (a whole-tile pulse like a generator), not only its halo ---
+	# board.gd breathes the piece's ItemArt sprite alongside the ReadyGlow, so the icon pulses with its halo —
+	# matching the generator's whole-tile breathe (FX.breathe on the holder). Asserted through the live board.
+	Features.FLAGS["breathe_cta"] = true          # FX.breathe is a no-op while this CTA-pulse flag is off
+	fresh("breathe")
+	scn = _board()
+	q = scn.quests[0]
+	it = G.quest_item(q)
+	code = int(it.line) * 100 + int(it.tier)
+	var bcell: Vector2i = scn.board.empty_ground_cells()[0]
+	scn.board.place(bcell, code)
+	scn._rebuild_pieces()                          # fresh node, no glow yet (rebuild never marks)
+	var bnode: Control = scn.piece_nodes[bcell]
+	# the item sprite the board breathes; headless runs may lack imported art (placeholder disc, no ItemArt),
+	# so stand in a stub of the same name to exercise the wiring regardless of the art-import state.
+	var bart: Control = bnode.get_node_or_null(PieceView.ART_NAME)
+	if bart == null:
+		bart = Control.new()
+		bart.name = PieceView.ART_NAME
+		bart.custom_minimum_size = Vector2(scn.csz, scn.csz)
+		bnode.add_child(bart)
+	scn._refresh_quest_ready_marks()
+	ok(_has_glow(bnode), "the wanted tile wears the ready glow")
+	ok(bart.has_meta("_fx_breathe_tween"), "the wanted ITEM sprite breathes too (whole-tile pulse like a generator)")
+	# clearing: once nothing asks for it, the item's breathe stops and it settles back to its natural scale
+	for i in range(scn.quests.size() - 1, -1, -1):
+		var qit := G.quest_item(scn.quests[i])
+		if not qit.is_empty() and int(qit.line) * 100 + int(qit.tier) == code:
+			scn.quests.remove_at(i)
+	scn._refresh_quest_ready_marks()
+	ok(not bart.has_meta("_fx_breathe_tween"), "the item's breathe stops when the tile is no longer wanted")
+	ok(bart.scale.is_equal_approx(Vector2.ONE), "the item settles back to its natural scale when cleared")
+	scn.free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

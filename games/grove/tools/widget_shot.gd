@@ -9,7 +9,9 @@ extends SceneTree
 ##
 ## Each TILE is `CODE[:MOD]`, rendered in a labelled row (CODE = line*100 + tier):
 ##   104          a plain board item
-##   104:glow     the item wearing the quest-ready glow (PieceView.add_ready_glow)
+##   104:glow     the item wearing the quest-ready glow (halo + item both breathing, as the board poses it)
+##   104:glowrest the quest-ready tile frozen at its breathe REST (scale 1.0) — the before half of the pulse
+##   104:glowpeak the quest-ready tile frozen at its breathe PEAK (item + halo at BREATHE_AMOUNT) — the after
 ##   104:lift     the item in its picked-up (lifted) pose (PieceView.set_lifted)
 ## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Items only today; extend
 ## the `match mod` below for new widgets as the need arises (grow tools incrementally).
@@ -43,6 +45,7 @@ func _initialize() -> void:
 	bg.size = Vector2(4000, 4000)                         # cover the whole window so the crop is never dark
 	root.add_child(bg)
 
+	var peaks: Array = []                                 # pieces to freeze at their breathe PEAK after layout settles
 	for i in n:
 		var spec := String(tiles[i])
 		var parts := spec.split(":")
@@ -57,12 +60,18 @@ func _initialize() -> void:
 				var g := PieceView.add_ready_glow(piece, s)
 				if g != null:
 					FX.breathe(g)
+					FX.breathe(piece.get_node_or_null(PieceView.ART_NAME))   # the item breathes too (mirrors the board)
+			"glowrest":
+				PieceView.add_ready_glow(piece, s)                           # halo present, no pulse — the breathe's REST half
+			"glowpeak":
+				PieceView.add_ready_glow(piece, s)
+				peaks.append(piece)                                          # frozen at the breathe PEAK once laid out
 			"lift":
 				PieceView.set_lifted(piece, true)
 			"":
 				pass
 			_:
-				print("widget_shot: unknown modifier '%s' (use glow|lift)" % mod)
+				print("widget_shot: unknown modifier '%s' (use glow|glowrest|glowpeak|lift)" % mod)
 		var lbl := Label.new()
 		lbl.text = spec
 		lbl.position = Vector2(x, pad + s + s * 0.04)
@@ -73,9 +82,21 @@ func _initialize() -> void:
 		bg.add_child(lbl)
 
 	await create_timer(0.4).timeout
+	for piece in peaks:                                    # now sizes are settled — freeze the peak about real centers
+		_pose_breathe_peak(piece)
 	RenderingServer.force_draw()
 	var fb := root.get_texture().get_image()                  # frame to the content (bg covers the rest in cream)
 	var img := fb.get_region(Rect2i(0, 0, mini(int(content.x), fb.get_width()), mini(int(content.y), fb.get_height())))
 	var err := img.save_png(out)
 	print("WIDGET saved=%s err=%d tiles=%s" % [out, err, str(tiles)])
 	quit()
+
+# Freeze a quest-ready tile at the breathe PEAK: scale the item sprite AND its halo to BREATHE_AMOUNT about
+# their centers — the SAME nodes + scale the looping FX.breathe reaches on the live board, captured statically
+# so a still SHOWS the item growing (not just its halo). Sizes must be settled (call post-layout).
+func _pose_breathe_peak(piece: Control) -> void:
+	var amt: float = FX.Tune.BREATHE_AMOUNT
+	for node in [piece.get_node_or_null(PieceView.ART_NAME), piece.get_node_or_null("ReadyGlow")]:
+		if node is Control:
+			node.pivot_offset = node.size / 2.0
+			node.scale = Vector2(amt, amt)
