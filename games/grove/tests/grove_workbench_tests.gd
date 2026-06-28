@@ -690,7 +690,7 @@ func _initialize() -> void:
 	var map_screen_w: float = map_scene.get_viewport_rect().size.x
 	var map_screen_h: float = map_scene.get_viewport_rect().size.y
 	var settings_gap: float = map_screen_w - (map_scene._gear as Control).get_global_rect().end.x if map_scene._gear != null else INF
-	ok(map_scene._gear != null and _has_label_text(map_scene._gear, "Settings") and map_scene._chrome_nodes.has(map_scene._gear) \
+	ok(map_scene._gear != null and String((map_scene._gear as Button).tooltip_text) == "Settings" and map_scene._chrome_nodes.has(map_scene._gear) \
 		and absf(settings_gap - edge_margin) <= 1.0, \
 		"map Settings tile is built through the side rail chrome path")
 	if map_scene._gear != null and map_scene._hud_panels.size() > 0:

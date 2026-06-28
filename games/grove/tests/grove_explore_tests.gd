@@ -26,6 +26,7 @@ func _initialize() -> void:
 	await _test_rush_resize()
 	_test_trade_reward_dialog_layout()
 	_test_reward_row_cap()
+	await _test_home_expedition_rail_chrome()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
@@ -136,6 +137,53 @@ func _button_with_text(node: Control, text: String) -> Button:
 			return b as Button
 	return null
 
+func _button_has_label(node: Button, text: String) -> bool:
+	for l in node.find_children("*", "Label", true, false):
+		if String((l as Label).text) == text:
+			return true
+	return false
+
+func _home_chrome_button(node: Control, label: String) -> Button:
+	for b in node.find_children("*", "Button", true, false):
+		var btn := b as Button
+		if not btn.is_visible_in_tree():
+			continue
+		if btn.tooltip_text == label or _button_has_label(btn, label):
+			return btn
+	return null
+
+func _button_has_visible_text(btn: Button) -> bool:
+	if String(btn.text).strip_edges() != "":
+		return true
+	for l in btn.find_children("*", "Label", true, false):
+		var label := l as Label
+		if label.get_parent() is PanelContainer and label.get_parent().get_parent() == btn:
+			continue
+		if label.is_visible_in_tree() and String(label.text).strip_edges() != "":
+			return true
+	return false
+
+func _button_icon_node(btn: Button) -> Control:
+	var wrap := btn.get_meta("icon_wrap", null) as Control
+	if wrap == null:
+		return null
+	if wrap.get_child_count() == 0:
+		return wrap
+	return wrap.get_child(0) as Control
+
+func _button_icon_is_centered(btn: Button) -> bool:
+	var icon := _button_icon_node(btn)
+	if icon == null:
+		return false
+	var b := btn.get_global_rect().get_center()
+	var c := icon.get_global_rect().get_center()
+	return absf(b.x - c.x) <= 3.0 and absf(b.y - c.y) <= 3.0
+
+func _button_icon_is_large(btn: Button) -> bool:
+	if not btn.has_meta("icon_px"):
+		return false
+	return float(btn.get_meta("icon_px")) >= btn.custom_minimum_size.x * 0.68
+
 func _source_contains(path: String, needle: String) -> bool:
 	return FileAccess.get_file_as_string(path).find(needle) != -1
 
@@ -149,6 +197,47 @@ func _push_tap(gpos: Vector2) -> void:
 	var up := down.duplicate()
 	up.pressed = false
 	get_root().push_input(up, true)
+
+func _test_home_expedition_rail_chrome() -> void:
+	fresh("home_expedition_rail_chrome")
+	var z := G.hub_map()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	var g := Save.grove()
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	g["last_map"] = String(G.MAPS[z].id)
+	Save.grove_write()
+
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	hx.unlocks = unl
+	hx._open_map(z)
+	await create_timer(0.05).timeout
+
+	var exp := _home_chrome_button(hx, "Expedition")
+	ok(exp != null, "home chrome keeps an Expedition entry point")
+	if exp != null:
+		var er := exp.get_global_rect()
+		var vs: Vector2 = hx.get_viewport_rect().size
+		ok(er.position.x > vs.x * 0.72 and er.position.y < vs.y * 0.78, "Expedition lives in the right side rail, not the bottom nav")
+		ok(String(exp.get_meta("icon_id", "")) == "1512", "Expedition uses icon id 1512")
+
+	var labels := ["Map", "Settings", "Daily", "Vault", "Expedition"]
+	if _home_chrome_button(hx, "Inbox") != null:
+		labels.append("Inbox")
+	for label in labels:
+		var btn := _home_chrome_button(hx, label)
+		ok(btn != null, "%s button is present" % label)
+		if btn == null:
+			continue
+		ok(not _button_has_visible_text(btn), "%s button has no visible text" % label)
+		ok(_button_icon_is_large(btn), "%s icon fills the button footprint" % label)
+		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
+	hx.queue_free()
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------
 func _test_loadout() -> void:

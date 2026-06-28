@@ -11,6 +11,7 @@ extends RefCounted
 # Named ids the renderer references at its specific call sites (keeps map.gd's chrome builders literal-free).
 const ICON_MAP := "map"             # bottom-nav Map badge → the place-picker
 const ICON_RESIDENTS := "house"     # bottom-nav Residents badge → the resident roster shop (residence → residents)
+const ICON_EXPEDITION := "1512"     # side-rail Expedition badge → rendered through the item/icon-node path
 const ICON_PLAY := "board"          # the merged Play CTA, default face (taps into the board)
 const ICON_PLAY_RESTORE := "vine"   # the Play CTA's restore-ready face (swapped in when a spot is affordable)
 const ICON_DAILY := "calendar"      # live-ops rail: the daily-login calendar

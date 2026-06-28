@@ -43,6 +43,7 @@ const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-war
 const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")   # cold-boot phase timer — no-ops unless the Boot splash opened a trace
 const Habitat = preload("res://engine/scripts/core/habitat.gd")   # the unified resident model (hand + placed + production) — the map IS the habitat surface
 const Explore = preload("res://engine/scripts/core/explore.gd")   # the acquire ritual (Expedition nav button → Load out dialog → Rush → Trade)
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
@@ -108,7 +109,7 @@ var _hand_scroll_max := 0.0      # 0 when the hand fits its column; else grid_h 
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
-var _residents_btn: Button = null  # the bottom-nav Expedition badge (legacy name) — shown only on a fully-unlocked map
+var _residents_btn: Button = null  # legacy handle for the side-rail Expedition badge visibility gate
 # THE map-view spirit dock (replaces the standalone habitat dialog). The place-picker carries an in-hand
 # COLUMN on the right, and every completed map's housed orbs as a vertical STRIP down the card's right side.
 # Spirits are managed by DRAG through the single input surface: hand→a map places, hand→a matching orb
@@ -312,7 +313,7 @@ func _open_map(z: int) -> void:
 	_build_map()
 	_refresh_chrome_badges()             # Daily · Vault · Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
-	_refresh_residents_btn()             # show/hide the Residents badge for the map just opened
+	_refresh_residents_btn()             # show/hide the Expedition rail badge for the map just opened
 
 func _open_select() -> void:
 	_view = "select"
@@ -431,7 +432,7 @@ func _build_map(animate := true) -> void:
 		_seat_spots(z, home_dict, frame)
 	# §1 residents: a FULLY-UNLOCKED map (spots restored + gate delivered) pays its one-time unlock gift
 	# (the celebration dialog; the free spirit lands in the habitat hand) and shows the spirits dock + the
-	# Expedition nav button (_make_expedition_button).
+	# Expedition rail button (_build_liveops_rail).
 	if G.can_populate(z, unlocks, _gates()):
 		_maybe_show_unlock_reward(z)
 	BootTrace.end("map.open.ambient")
@@ -2266,8 +2267,6 @@ func _build_chrome() -> void:
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
 		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
-		# Expedition — the acquire ritual (Load out dialog → Rush → Trade). Shown only on a fully-unlocked map.
-		{"make": _make_expedition_button, "label": "Expedition"},
 		# (Residents management folded into the place-picker — the map view's right-hand in-hand column +
 		# each map's housed strip — so there is no longer a standalone Residents button or dialog.)
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
@@ -2303,32 +2302,11 @@ func _make_map_button() -> Button:
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = _hud_button_px()
 	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
+	opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 	var HC: GDScript = load(HOME_CHROME_PATH)
-	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
+	return Kit.home_button({"icon": HC.ICON_MAP, "caption": "", "tooltip": Strings.t("map.nav.map"), "action": open}, opts)
 
-# The Residents button (bottom nav, between Map and Play) — opens the habitat management screen. Built like the
-# Map button (rounded-rect badge, shape:"rect"), carrying the "house" icon (residence → residents) + a
-# "Residents" caption. Hidden until the open map is fully unlocked (G.can_populate); a hidden child collapses
-# out of the nav HBox, so an incomplete map shows just [Map, Play].
-func _make_expedition_button() -> Button:
-	var open := func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_expedition()
-	var Kit: GDScript = load(KIT_PATH)
-	var b: Button
-	if Kit == null:
-		b = NavBar._make_nav_button("nav_residents.png", 140.0, open)   # defensive: glyph/png fallback
-	else:
-		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		opts["px"] = _hud_button_px()
-		opts["shape"] = "rect"
-		var HC: GDScript = load(HOME_CHROME_PATH)
-		b = Kit.home_button({"icon": HC.ICON_RESIDENTS, "caption": "Expedition", "action": open}, opts)
-	_residents_btn = b
-	_refresh_residents_btn()
-	return b
-
-# Show the Residents button only when the open map is fully unlocked (same gate as the population layer).
+# Show the Expedition rail button only when the open map is ready for the acquisition loop.
 func _refresh_residents_btn() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn):
 		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
@@ -2615,6 +2593,7 @@ func _make_back_button(sb: float) -> Button:
 	if Kit != null:
 		var opts := _home_opts.duplicate()
 		opts["shape"] = "rect"               # the rounded-rect badge, matching the Map button (no longer a disc)
+		opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, opts)
 	else:
 		b = Button.new()                     # defensive fallback (kit absent): a bare square
@@ -2645,6 +2624,7 @@ const RAIL_CAP_H := 10.0        # gap band beneath each tile (captions now sit I
 const RAIL_GAP := 8.0           # gap between stacked entries (tightened so the rail reads as one tidy column)
 const RAIL_TOP := 210.0         # first disc sits this far below the safe-top (clear of the wallet pill)
 const RAIL_SCALE := 0.80        # the rail discs are SMALLER than the shared home-button size (nav + back stay full)
+const HOME_ICON_ONLY_SCALE := 0.72
 var _home_opts := {}            # the shared home-button style (loaded once per rail build)
 var _rail_px := RAIL_PX         # the shared home-button size (drives the place-picker back button; full size)
 var _rail_disc_px := RAIL_PX    # the rail's OWN reduced disc size (RAIL_SCALE × shared) — smaller than the nav
@@ -2700,6 +2680,7 @@ func _build_liveops_rail() -> void:
 	_rail_opts = _home_opts.duplicate()
 	_rail_opts["px"] = _rail_disc_px
 	_rail_opts["shape"] = "rect"   # the rail tiles are ROUNDED-RECT badges (icon over label inside), not discs (ui_mock2)
+	_rail_opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
 	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).
 	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)), float(_home_opts.get("badge_dy", -26.0)))
@@ -2714,6 +2695,16 @@ func _build_liveops_rail() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_settings())
 	_place_rail(_gear, top, slot, step); slot += 1
+	var open_expedition := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_expedition()
+	var expedition := _rail_button(HC.ICON_EXPEDITION, "Expedition",
+		open_expedition,
+		false,
+		{"icon_node": PieceView.make_piece(int(HC.ICON_EXPEDITION), _rail_disc_px * HOME_ICON_ONLY_SCALE), "icon_id": HC.ICON_EXPEDITION})
+	_residents_btn = expedition
+	_place_rail(expedition, top, slot, step); slot += 1
+	_refresh_residents_btn()
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	var daily := _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_place_rail(daily, top, slot, step); slot += 1
@@ -2739,14 +2730,18 @@ func _build_liveops_rail() -> void:
 # One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +
 # caption tab, tuned in the workbench. `sparkle` opts the disc into the engine-drawn glow/twinkle. Falls
 # back to a plain cream disc when the kit can't load. Parented to self + tracked as chrome.
-func _rail_button(icon_id: String, label: String, cb: Callable, sparkle := false) -> Button:
+func _rail_button(icon_id: String, label: String, cb: Callable, sparkle := false, extra_spec: Dictionary = {}) -> Button:
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
 	if Kit != null:
-		b = Kit.home_button({"icon": icon_id, "caption": label, "action": cb, "sparkle": sparkle}, _rail_opts)
+		var spec := {"icon": icon_id, "caption": "", "tooltip": label, "action": cb, "sparkle": sparkle}
+		for k in extra_spec.keys():
+			spec[k] = extra_spec[k]
+		b = Kit.home_button(spec, _rail_opts)
 	else:
 		b = Button.new()                          # defensive fallback (kit absent): a bare disc
 		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = label
 		b.custom_minimum_size = Vector2(_rail_disc_px, _rail_disc_px)
 		b.pressed.connect(cb)
 	add_child(b)

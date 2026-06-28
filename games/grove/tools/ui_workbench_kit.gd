@@ -1307,6 +1307,11 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	b.custom_minimum_size = Vector2(px, px)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.disabled = not bool(spec.get("enabled", true))
+	if spec.has("tooltip"):
+		b.tooltip_text = String(spec.get("tooltip", ""))
+	var meta_icon := String(spec.get("icon_id", spec.get("icon", "")))
+	if meta_icon != "":
+		b.set_meta("icon_id", meta_icon)
 	# the shell shape: "disc" (the round cream/gold sprite, the default) or "rect" (the ui_asset2 rounded-rect
 	# badge — the home rail + the Map button). The rect shell stacks its icon + caption INSIDE the badge; the
 	# disc keeps the icon centred with the caption as an overflow tab beneath it.
