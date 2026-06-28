@@ -383,7 +383,7 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 # sprite — never child(0), preserving make_piece's shadow-at-0 invariant. The board breathes it
 # (FX.breathe) and clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
 # node, or null when the holder already wears one (idempotent).
-const READY_GLOW := {"scale": 1.18, "color": "#FFE08A", "a": 0.5}
+const READY_GLOW := {"scale": 1.34, "color": "#FFB02E", "a": 0.85}   # a SATURATED warm amber, sized well past the cell — a pale gold halo washes out against the cream board
 static func add_ready_glow(holder: Control, size: float) -> Control:
 	if holder.has_node("ReadyGlow"):
 		return null
