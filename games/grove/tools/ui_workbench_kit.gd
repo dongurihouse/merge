@@ -2858,6 +2858,10 @@ static func level_frame(content: Control, width: float = 460.0, opts: Dictionary
 	var sl := float(opts.get("slice", 56.0))
 	var pad := float(opts.get("pad", 26.0))
 	var top_pad := float(opts.get("top_pad", 70.0))
+	# CRISP CHROME, SCALED CONTENT (mirrors dialog_frame): chrome built at the on-screen target
+	# width = design × content_scale; content laid out at `width` and uniformly scaled to fill it.
+	var content_scale: float = maxf(0.01, float(opts.get("content_scale", 1.0)))
+	var target_w: float = width * content_scale
 	var card := PanelContainer.new()
 	var fp := Look.kit("kit/level_frame.png")
 	# the parchment border, polished like every other sprite (defringe + alpha-feather) so its outer edge
@@ -2879,12 +2883,19 @@ static func level_frame(content: Control, width: float = 460.0, opts: Dictionary
 		cf.content_margin_left = pad; cf.content_margin_right = pad
 		cf.content_margin_top = top_pad; cf.content_margin_bottom = pad
 		card.add_theme_stylebox_override("panel", cf)
-	card.custom_minimum_size = Vector2(width, 0)
+	card.custom_minimum_size = Vector2(target_w, 0)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_child(content)
+	if is_equal_approx(content_scale, 1.0):
+		card.add_child(content)
+	else:
+		var scaler := ScaleContainer.new()
+		scaler.scale_factor = content_scale
+		scaler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scaler.add_child(content)
+		card.add_child(scaler)
 	# the title pill overlays the top edge, centered (added after the card → drawn on top)
 	var wrap := Control.new()
-	wrap.custom_minimum_size.x = width
+	wrap.custom_minimum_size.x = target_w
 	wrap.add_child(card)
 	var title := _level_title_pill(banner_text, title_font)
 	wrap.add_child(title)

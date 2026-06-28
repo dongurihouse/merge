@@ -71,5 +71,18 @@ func _initialize() -> void:
 	ok(_find_scaler(dlg2) == null, "identity content_scale inserts no ScaleContainer")
 	dlg2.queue_free()
 
+	# level_frame mirrors dialog_frame: crisp chrome at target, content scaled.
+	var lbody := VBoxContainer.new()
+	lbody.add_child(Label.new())
+	var ldlg: Control = Kit.level_frame(lbody, 400.0, {"content_scale": 1.5})
+	get_root().add_child(ldlg)
+	for _i in 6:
+		await process_frame
+	var lcard := ldlg.get_child(0) as Control
+	ok(lcard != null and lcard.custom_minimum_size.x >= 400.0 * 1.5 - 1.0, "level_frame chrome width = design x content_scale")
+	var lscaler := _find_scaler(ldlg)
+	ok(lscaler != null and is_equal_approx(float(lscaler.scale_factor), 1.5), "level_frame wraps content in a ScaleContainer")
+	ldlg.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
