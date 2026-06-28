@@ -20,6 +20,13 @@ static func open(host: Control, overlay_name: String, image_path: String) -> Con
 	if vp.x <= 0.0 or vp.y <= 0.0:
 		vp = Vector2(720, 1280)
 
+	var backdrop := ColorRect.new()
+	backdrop.name = "TutorialImageBackdrop"
+	backdrop.color = Color.BLACK
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(backdrop)
+
 	var art := TextureRect.new()
 	art.name = "TutorialImageArt"
 	art.texture = tex
