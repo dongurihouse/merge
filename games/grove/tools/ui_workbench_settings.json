@@ -161,13 +161,16 @@
 		"trail_count": 2.0
 	},
 	"generator": {
-		"glow_a": 30.0,
-		"glow_scale": 100.0,
-		"outline_a": 85.0,
-		"outline_w": 35.0,
+		"glow_a": 0.0,
+		"glow_color": "e74c2d",
+		"glow_scale": 60.0,
+		"outline_a": 81.0,
+		"outline_w": 58.0,
 		"shadow": false,
-		"sparkle_count": 5.0,
-		"sparkle_speed": 70.0
+		"sparkle_color": "FFF4C2",
+		"sparkle_count": 7.0,
+		"sparkle_size": 250.0,
+		"sparkle_speed": 36.0
 	},
 	"gold_badge": {
 		"corner": 21.0,
@@ -380,6 +383,7 @@
 		"flash_pct": 84.0,
 		"hitstop": true,
 		"hitstop_ms": 77.0,
+		"merge_slide_ms": 130,
 		"pitch_base_pct": 100.0,
 		"puff_count": 8.0,
 		"puff_size_pct": 120.0,

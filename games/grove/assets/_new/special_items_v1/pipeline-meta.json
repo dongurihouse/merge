@@ -1,0 +1,416 @@
+{
+  "source": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_07b441bea19a09dc016a4145122a24819897affab4cf9cfb3c.png",
+  "raw_copy": "games/grove/assets/_new/special_items_v1/special_items_3x5_raw.png",
+  "rows": 5,
+  "cols": 3,
+  "output_size": 250,
+  "max_subject": 205,
+  "items": [
+    {
+      "index": 1,
+      "row": 1,
+      "col": 1,
+      "base": "chest",
+      "tier": 1,
+      "title": "small_plain_wooden_treasure_chest",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/chest_1_small_plain_wooden_treasure_chest.png",
+      "target": "games/grove/assets/items/chest/chest_1.png",
+      "source_bbox": [
+        49,
+        123,
+        276,
+        343
+      ],
+      "output_bbox": [
+        22,
+        26,
+        227,
+        224
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 2,
+      "row": 1,
+      "col": 2,
+      "base": "chest",
+      "tier": 2,
+      "title": "sturdier_brass_banded_chest",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/chest_2_sturdier_brass_banded_chest.png",
+      "target": "games/grove/assets/items/chest/chest_2.png",
+      "source_bbox": [
+        30,
+        111,
+        273,
+        343
+      ],
+      "output_bbox": [
+        22,
+        27,
+        227,
+        222
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 3,
+      "row": 1,
+      "col": 3,
+      "base": "chest",
+      "tier": 3,
+      "title": "ornate_royal_gold_chest",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/chest_3_ornate_royal_gold_chest.png",
+      "target": "games/grove/assets/items/chest/chest_3.png",
+      "source_bbox": [
+        15,
+        98,
+        274,
+        343
+      ],
+      "output_bbox": [
+        22,
+        28,
+        227,
+        222
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 4,
+      "row": 2,
+      "col": 1,
+      "base": "key",
+      "tier": 1,
+      "title": "simple_bronze_key",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/key_1_simple_bronze_key.png",
+      "target": "games/grove/assets/items/key/key_1.png",
+      "source_bbox": [
+        84,
+        74,
+        234,
+        330
+      ],
+      "output_bbox": [
+        64,
+        22,
+        185,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 5,
+      "row": 2,
+      "col": 2,
+      "base": "key",
+      "tier": 2,
+      "title": "ornate_brass_key",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/key_2_ornate_brass_key.png",
+      "target": "games/grove/assets/items/key/key_2.png",
+      "source_bbox": [
+        59,
+        63,
+        235,
+        341
+      ],
+      "output_bbox": [
+        59,
+        22,
+        190,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 6,
+      "row": 2,
+      "col": 3,
+      "base": "key",
+      "tier": 3,
+      "title": "grand_golden_key",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/key_3_grand_golden_key.png",
+      "target": "games/grove/assets/items/key/key_3.png",
+      "source_bbox": [
+        36,
+        0,
+        226,
+        344
+      ],
+      "output_bbox": [
+        56,
+        22,
+        194,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 7,
+      "row": 3,
+      "col": 1,
+      "base": "water",
+      "tier": 1,
+      "title": "single_water_droplet",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/water_1_single_water_droplet.png",
+      "target": "games/grove/assets/items/water/water_1.png",
+      "source_bbox": [
+        66,
+        60,
+        227,
+        290
+      ],
+      "output_bbox": [
+        53,
+        22,
+        197,
+        227
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 8,
+      "row": 3,
+      "col": 2,
+      "base": "water",
+      "tier": 2,
+      "title": "joined_three_droplet_cluster",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/water_2_joined_three_droplet_cluster.png",
+      "target": "games/grove/assets/items/water/water_2.png",
+      "source_bbox": [
+        19,
+        58,
+        236,
+        293
+      ],
+      "output_bbox": [
+        30,
+        22,
+        219,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 9,
+      "row": 3,
+      "col": 3,
+      "base": "water",
+      "tier": 3,
+      "title": "large_blue_water_sphere",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/water_3_large_blue_water_sphere.png",
+      "target": "games/grove/assets/items/water/water_3.png",
+      "source_bbox": [
+        12,
+        54,
+        253,
+        299
+      ],
+      "output_bbox": [
+        24,
+        22,
+        226,
+        227
+      ],
+      "components": 4,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 10,
+      "row": 4,
+      "col": 1,
+      "base": "acorn",
+      "tier": 1,
+      "title": "whole_brown_acorn",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/acorn_1_whole_brown_acorn.png",
+      "target": "games/grove/assets/items/acorn/acorn_1.png",
+      "source_bbox": [
+        57,
+        6,
+        233,
+        344
+      ],
+      "output_bbox": [
+        46,
+        22,
+        204,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 11,
+      "row": 4,
+      "col": 2,
+      "base": "acorn",
+      "tier": 2,
+      "title": "plump_brown_acorn",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/acorn_2_plump_brown_acorn.png",
+      "target": "games/grove/assets/items/acorn/acorn_2.png",
+      "source_bbox": [
+        21,
+        0,
+        243,
+        344
+      ],
+      "output_bbox": [
+        33,
+        22,
+        216,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 12,
+      "row": 4,
+      "col": 3,
+      "base": "acorn",
+      "tier": 3,
+      "title": "polished_golden_acorn",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/acorn_3_polished_golden_acorn.png",
+      "target": "games/grove/assets/items/acorn/acorn_3.png",
+      "source_bbox": [
+        17,
+        0,
+        232,
+        344
+      ],
+      "output_bbox": [
+        37,
+        22,
+        212,
+        227
+      ],
+      "components": 2,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 13,
+      "row": 5,
+      "col": 1,
+      "base": "spark",
+      "tier": 1,
+      "title": "fresh_green_leaf",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/spark_1_fresh_green_leaf.png",
+      "target": "games/grove/assets/items/spark/spark_1.png",
+      "source_bbox": [
+        58,
+        0,
+        234,
+        207
+      ],
+      "output_bbox": [
+        38,
+        22,
+        212,
+        227
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 14,
+      "row": 5,
+      "col": 2,
+      "base": "spark",
+      "tier": 2,
+      "title": "green_leafy_sprig",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/spark_2_green_leafy_sprig.png",
+      "target": "games/grove/assets/items/spark/spark_2.png",
+      "source_bbox": [
+        11,
+        0,
+        223,
+        210
+      ],
+      "output_bbox": [
+        22,
+        24,
+        227,
+        226
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "index": 15,
+      "row": 5,
+      "col": 3,
+      "base": "spark",
+      "tier": 3,
+      "title": "golden_autumn_leaf",
+      "processed": "games/grove/assets/_new/special_items_v1/processed/spark_3_golden_autumn_leaf.png",
+      "target": "games/grove/assets/items/spark/spark_3.png",
+      "source_bbox": [
+        21,
+        0,
+        242,
+        221
+      ],
+      "output_bbox": [
+        22,
+        23,
+        227,
+        227
+      ],
+      "components": 1,
+      "normalized_max_subject": 205,
+      "output_size": 250,
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    }
+  ],
+  "contact": "games/grove/assets/_new/special_items_v1/special_items_contact.png"
+}
