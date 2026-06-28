@@ -93,6 +93,15 @@ func _initialize() -> void:
 	ok(scn.piece_nodes.has(cell_b) and not _has_glow(scn.piece_nodes[cell_b]),
 		"an un-wanted item (code %d) carries no glow" % other)
 
+	# the REAL hook: clear the glow, then drive _refresh_giver_lights — the beat EVERY board/quest change
+	# runs — and confirm IT re-adds the glow (not just the direct _refresh_quest_ready_marks). Guards the
+	# in-game wiring: a dropped hook call leaves the units green but the live board dark.
+	scn.piece_nodes[cell_a].get_node("ReadyGlow").free()
+	ok(not scn.piece_nodes[cell_a].has_node("ReadyGlow"), "glow cleared for the real-hook check")
+	scn._refresh_giver_lights()
+	ok(_has_glow(scn.piece_nodes[cell_a]),
+		"the glow appears through the REAL _refresh_giver_lights hook, not only the direct refresh")
+
 	# clearing: once no live quest asks for it, the glow is removed IN PLACE (the tile stays)
 	for i in range(scn.quests.size() - 1, -1, -1):
 		var qit := G.quest_item(scn.quests[i])

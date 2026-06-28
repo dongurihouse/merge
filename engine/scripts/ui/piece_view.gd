@@ -396,27 +396,30 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 	glow.modulate = glow_color
 	holder.add_child(glow)
 
-# A warm GOLD "a quest wants this" halo — the board-side twin of the giver's ✓/bob. Reuses the same
-# radial backing_tex the generator glow uses, tinted gold and sized a touch past the cell so it frames
-# the item. Seated just ABOVE the contact shadow (when item_backing adds one) so it sits BEHIND the
-# sprite — never child(0), preserving make_piece's shadow-at-0 invariant. The board breathes it
-# (FX.breathe) and clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
+# A warm AMBER "a quest wants this" highlight — the board-side twin of the giver's ✓/bob. A soft rounded
+# cell FILL plus a glow shadow spilling past the cell; a pale halo BEHIND the item washed out on the
+# cream board (its bright core hid behind the sprite). Seated just ABOVE the contact shadow so it sits
+# BEHIND the sprite — never child(0), preserving make_piece's shadow-at-0 invariant. The board breathes
+# it (FX.breathe) and clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
 # node, or null when the holder already wears one (idempotent).
-const READY_GLOW := {"scale": 1.34, "color": "#FFB02E", "a": 0.85}   # a SATURATED warm amber, sized well past the cell — a pale gold halo washes out against the cream board
+const READY_GLOW := {"color": "#FFB12E", "fill_a": 0.55, "halo_a": 0.6}   # warm amber: a rounded cell-FILL + a soft halo
 static func add_ready_glow(holder: Control, size: float) -> Control:
 	if holder.has_node("ReadyGlow"):
 		return null
 	var below := 1 if (holder.get_child_count() > 0 and String(holder.get_child(0).name) == SHADOW_NAME) else 0
-	var glow := TextureRect.new()
+	# A halo BEHIND the item read too faint on the cream board (its bright core hid behind the sprite,
+	# only the pale falloff showed). Instead FILL the cell with a soft warm amber (rounded, like a lit
+	# slot) plus a glow shadow that spills past the cell — the way the frontier cells read clearly.
+	var glow := Panel.new()
 	glow.name = "ReadyGlow"
-	glow.texture = backing_tex()
-	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var gw := size * float(READY_GLOW["scale"])
-	glow.size = Vector2(gw, gw)
-	glow.position = (Vector2(size, size) - glow.size) / 2.0
-	glow.modulate = Color(READY_GLOW["color"], float(READY_GLOW["a"]))
+	glow.size = Vector2(size, size)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(READY_GLOW["color"], float(READY_GLOW["fill_a"]))
+	sb.set_corner_radius_all(int(size * 0.22))
+	sb.shadow_color = Color(READY_GLOW["color"], float(READY_GLOW["halo_a"]))
+	sb.shadow_size = int(size * 0.16)        # the soft glow spilling past the cell
+	glow.add_theme_stylebox_override("panel", sb)
 	holder.add_child(glow)
 	holder.move_child(glow, below)
 	return glow
