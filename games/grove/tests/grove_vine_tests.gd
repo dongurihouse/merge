@@ -421,7 +421,11 @@ func _test_registry() -> void:
 	# assert structure, not a fixed count (the count-specific coverage uses dedicated fixtures).
 	ok(regions.size() >= 1, "map1_farm regions JSON is non-empty")
 	ok(regions[0].has("points") and regions[0].has("tuning"), "a region carries points + tuning")
-	ok(VineMaps.mask_offset_for(e0) == Vector2(0, 100), "map1_farm exposes its authored mask offset")
+	# mask_offset is hand-authored in the vine tool and changes with the art (it was zeroed when the farm
+	# mask was re-cut), so assert the reader surfaces the regions file's value, not a constant that re-rots.
+	var farm: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(String(e0.get("regions_path", ""))))
+	var want := Vector2(float(farm["mask_offset"][0]), float(farm["mask_offset"][1]))
+	ok(VineMaps.mask_offset_for(e0) == want, "map1_farm's reader surfaces the authored mask offset from its regions JSON")
 
 # The unlock ladder is ONE REGION PER LEVEL: each spot, in GLOBAL order, opens at its own consecutive
 # level (the first region at L2), and the live threshold floors to that level's start. So the home Farm's
