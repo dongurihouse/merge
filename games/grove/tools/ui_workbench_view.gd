@@ -311,7 +311,7 @@ var _params := {
 	# the mail DIALOG = the shared frame + the mail cards. width_pct = the dialog's width as a % of the
 	# SCREEN (responsive — the game multiplies by the live viewport width; here it previews against the
 	# 1080 portrait base). entries = the preview count.
-	"dialog": {"entries": 4},
+	"dialog": {"entries": 4, "empty_font": 28},
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
 	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
@@ -776,6 +776,7 @@ func _make_element(id: String) -> Control:
 			# build from the SHARED kit transform (same one the game uses) + the test-only preview count
 			var opts := Kit.dialog_opts_from_config(_params)
 			opts["entries_count"] = int(p.entries)
+			opts["empty_text"] = "No mail right now — check back soon."   # so entries=0 previews the empty note (+ its font)
 			opts["content_scale"] = _dlg_scale("dialog")
 			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
 			return Kit.mail_dialog(Kit.DEMO_MAIL, _dlg_px("dialog"), opts)
@@ -2359,8 +2360,9 @@ func _rebuild_sidebar() -> void:
 			_frame_sidebar()         # the shared frame's own config (Card / Banner / Close / List)
 		"dialog":
 			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["empty_font", 12, 48]))   # the empty-state note size ("No mail …")
 			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_slider_row(["entries", 1, 12]))   # how many rows to preview
+			_sidebar_body.add_child(_slider_row(["entries", 0, 12]))   # how many rows to preview (0 = the empty state)
 		"daily_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
