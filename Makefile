@@ -59,6 +59,9 @@ fx: ## watch the breaking-glass FX live, looping (a real window; close it to qui
 fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
 
+land-workbench: ## click a generator + tune the LANDING feel live (squash/puff/flash/sound/haptic)
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/land_workbench.gd
+
 vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
 	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
 
@@ -133,6 +136,9 @@ shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [O
 
 shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
+
+shot-land-workbench: ## quiet screenshot of the Land workbench:  make shot-land-workbench [OUT=/tmp/land_workbench.png]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/land_workbench.gd -- $(or $(OUT),/tmp/land_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)
