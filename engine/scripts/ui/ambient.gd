@@ -8,8 +8,7 @@ extends RefCounted
 ##
 ## Weather picks deterministically per HOUR (clear/breeze/rain/snow ≈ 70/20/8/2).
 ## The >=48h win-back persists `winback_until = now + 60` and both scenes'
-## pickers read it → it rains for that first minute back. CALM MODE WINS:
-## calm players get breeze, never rain/snow. Caps: ≤2 emitters, ≤80 particles.
+## pickers read it → it rains for that first minute back. Caps: ≤2 emitters, ≤80 particles.
 ##
 ## Every look/feel dial lives in Tune (engine/scripts/core/tuning.gd → class Ambient).
 
@@ -114,7 +113,6 @@ static func merge_poof(layer: Control, count: int) -> void:
 ## then self-free. `impulse` sets how hard they scatter (outward velocity). The motes are a CPUParticles2D
 ## (a Node2D — it never eats input). No-op when ambient_weather is off OR the layer is gone — the caller
 ## guards the no-ambient case (Rush) too.
-## The mote COUNT is calm-trimmed (FX.amount_for); the puff is light, so it still fires under calm.
 static func puff(layer: Control, center: Vector2, impulse := FXTune.MOTE_PUFF_IMPULSE) -> void:
 	if layer == null or not is_instance_valid(layer) or not Features.on("ambient_weather"):
 		return
@@ -142,10 +140,9 @@ static func puff(layer: Control, center: Vector2, impulse := FXTune.MOTE_PUFF_IM
 	p.emitting = true
 	p.finished.connect(p.queue_free)
 
-# How many motes a puff flings — MOTE_PUFF_COUNT, calm-trimmed (FX.amount_for). Pure-ish (reads the
-# calm setting through FX); unit-tested for "> 0 normally, never above the base count".
+# How many motes a puff flings — MOTE_PUFF_COUNT. Unit-tested for "> 0 normally, never above the base count".
 static func _puff_count() -> int:
-	return FX.amount_for(FXTune.MOTE_PUFF_COUNT)
+	return FXTune.MOTE_PUFF_COUNT
 
 static func _update_layer(layer: Control) -> void:
 	if layer == null or not is_instance_valid(layer) or layer.get_meta("paused", false):
@@ -196,11 +193,11 @@ static func winback_active() -> bool:
 
 # --- weather -----------------------------------------------------------------------
 
-static func weather_now(calm: bool) -> String:
+static func weather_now() -> String:
 	if forced_weather != "":
 		return forced_weather
 	if winback_active():
-		return "breeze" if calm else "rain"      # "it rained while you were away"
+		return "rain"                            # "it rained while you were away"
 	var roll := absi(hash(int(Time.get_unix_time_from_system() / Tune.SECS_PER_HOUR))) % Tune.ROLL_RANGE
 	var w := "clear"
 	if roll >= Tune.BREEZE_AT and roll < Tune.RAIN_AT:
@@ -209,8 +206,6 @@ static func weather_now(calm: bool) -> String:
 		w = "rain"
 	elif roll >= Tune.SNOW_AT:
 		w = "snow"
-	if calm and (w == "rain" or w == "snow"):
-		return "breeze"                          # calm mode WINS
 	return w
 
 static func weather_debug_label() -> String:
@@ -263,7 +258,7 @@ static func build_weather(view: Vector2, kind: String) -> Control:
 
 static func _drift_emitter(view: Vector2, tex: Texture2D, amount: int, life: float, vel: Vector2) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
-	p.amount = FX.amount_for(amount)
+	p.amount = amount
 	p.lifetime = life
 	p.preprocess = life                  # the sky is already mid-weather on arrival
 	p.texture = tex

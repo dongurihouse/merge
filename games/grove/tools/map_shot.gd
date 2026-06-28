@@ -101,11 +101,6 @@ func _initialize() -> void:
 			gl["unlocks"] = {String(G.MAPS[G.hub_map()].spots[0].id): true}
 			gl["exp"] = 6
 			Save.grove_write()
-		"calmbreeze":
-			Save.set_setting("calm", true)
-			var gc := Save.grove()
-			gc["winback_until"] = Time.get_unix_time_from_system() + 60.0
-			Save.grove_write()
 		"closeup", "progress":
 			Save.add_exp(20)
 			var g := Save.grove()

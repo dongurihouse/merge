@@ -89,9 +89,6 @@ static func _squash(node: Control, pct: int, ms: int) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	node.pivot_offset = (node.size / 2.0) if node.size.x > 0.0 else (node.custom_minimum_size / 2.0)
-	if FX.calm():
-		node.scale = Vector2.ONE
-		return
 	var a := 0.20 * float(pct) / 100.0       # impact deviation (wide+short)
 	var b := a * 0.45                          # counter-stretch (tall+narrow)
 	var t1 := maxf(0.02, float(ms) / 1000.0 * 0.4)

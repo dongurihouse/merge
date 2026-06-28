@@ -68,7 +68,6 @@ var vines_template_material: ShaderMaterial
 var shadow_template_material: ShaderMaterial
 var ember_template_material: ShaderMaterial
 var lock_template_material: ShaderMaterial
-var _calm := false
 var _debug_layer_mode := DEBUG_LAYER_ALL
 # Authoring/dev opt-out: the vine mask tool sets this so it ALWAYS rasterizes live (it mutates geometry,
 # and an author must see the live torn edge, never a stale baked one). The game leaves it false → baked.
@@ -194,21 +193,6 @@ func set_mask_offset(value: Vector2) -> void:
 		if lock != null:
 			(lock.material as ShaderMaterial).set_shader_parameter("mask_offset_uv", offset_uv)
 
-func set_calm(on: bool) -> void:
-	# reduced-motion: damp the time-driven shader terms (pulse/flow) toward 0 across all overlays.
-	_calm = on
-	if not on:
-		_apply_all_region_tuning()   # restore per-region pulse/flow that the calm-damp zeroed
-		return
-	for entry in region_overlays:
-		for key in ["shadow", "glow", "vines", "embers"]:
-			var rect := entry.get(key) as TextureRect
-			if rect == null:
-				continue
-			var m := rect.material as ShaderMaterial
-			m.set_shader_parameter("pulse_speed", 0.0)
-			m.set_shader_parameter("flow_speed", 0.0)
-
 func set_debug_layer_mode(mode: String) -> void:
 	_debug_layer_mode = mode if DEBUG_LAYER_MODES.has(mode) else DEBUG_LAYER_ALL
 	_apply_debug_layer_mode()
@@ -239,7 +223,6 @@ func diagnostic_summary() -> Dictionary:
 		"region_map_texture_size": _texture_size(region_map_texture),
 		"region_count": _region_count,
 		"debug_layer_mode": _debug_layer_mode,
-		"calm": _calm,
 		"overlays": overlay_data,
 	}
 

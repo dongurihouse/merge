@@ -2,14 +2,12 @@ extends CanvasLayer
 ## The COMBO SCREEN BLOOM — a soft warm edge-glow that SWELLS as a merge streak builds and DECAYS
 ## back to nothing when the streak lapses. A self-owned overlay a scene drops in once at startup and
 ## pokes (`bump(combo)`) right after each `Feel.merge`; the verb stays parameter-light, the scene
-## owns the world reaction. It is purely FELT — a glow, not motion — so unlike the motion verbs it is
-## still ALLOWED under calm, just gentler (HALF strength): see _visible_strength.
+## owns the world reaction.
 ##
 ## State is two scalars: `target` (where the glow wants to be — raised by bumps, bled off over time)
 ## and `strength` (where it IS — eased toward target each frame). Both the rise and the per-frame ease
 ## are PURE step functions (_bump_target / _advance) so the math unit-tests without a real frame loop.
 
-const FX = preload("res://engine/scripts/ui/fx.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 const GLOW := Color("#FFD27F")        # the warm bloom hue (a soft amber edge-glow)
@@ -54,7 +52,7 @@ func _process(delta: float) -> void:
 	strength = _advance(strength, target, delta)
 	target = maxf(0.0, target - Tune.COMBO_BLOOM_DECAY * delta)
 	if _rect != null and is_instance_valid(_rect):
-		_rect.color.a = _visible_strength(strength)
+		_rect.color.a = strength
 
 # --- pure helpers (no scene tree — unit-tested in an active grove suite) ---------------
 
@@ -69,8 +67,3 @@ static func _bump_target(current: float, combo: int, strength_pct := 100) -> flo
 static func _advance(strength: float, target: float, delta: float) -> float:
 	var k := clampf(delta * Tune.COMBO_BLOOM_EASE, 0.0, 1.0)
 	return strength + (target - strength) * k
-
-## The visible alpha for a given strength: the raw strength normally, HALVED under calm (the glow is
-## still allowed — it is light, not motion — but gentler for motion-sensitive players).
-static func _visible_strength(strength: float) -> float:
-	return strength * (0.5 if FX.calm() else 1.0)

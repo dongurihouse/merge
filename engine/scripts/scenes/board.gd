@@ -324,7 +324,7 @@ func _ready() -> void:
 	tick.timeout.connect(_tick_water)
 	add_child(tick)
 	tick.start()
-	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm())))
+	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now()))
 	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
 	# dies with the board). It sits above the board art but below the HUD; merges poke it via bump().
 	_combo_bloom = ComboBloom.new()
@@ -354,7 +354,7 @@ func debug_refresh_weather() -> void:
 			insert_at = mini(insert_at, child.get_index())
 			remove_child(child)
 			child.queue_free()
-	var weather := Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	var weather := Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now())
 	add_child(weather)
 	move_child(weather, mini(insert_at, get_child_count() - 1))
 
@@ -857,7 +857,7 @@ func _update_hud() -> void:
 	_set_home_ready(not _map_done() and _gate_ready())
 
 # The Home button is the way back to the decorate hub, so the "you can afford a spot" cue lives
-# ON it now: a gentle breathe (suppressed in calm, like every attention pulse). On the board stars
+# ON it now: a gentle breathe. On the board stars
 # only rise, so this flips off→on once and never back; breathe_once self-guards re-entry.
 func _set_home_ready(on: bool) -> void:
 	if on and not _gate_was_ready and _gate_ready_seen:
@@ -1586,7 +1586,6 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = px
 	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
-	opts["calm"] = FX.calm()
 	opts["shadow"] = false               # the shared action tray now owns the lift/shadow
 	if not action_opts.is_empty():
 		opts["icon_scale"] = float(action_opts.get("icon_scale", opts.get("icon_scale", 0.5)))
@@ -2309,7 +2308,7 @@ func _drag_follow(pos: Vector2) -> void:
 # Resolve the cell the held tile hovers; if it's a NEW valid merge target, telegraph it (glow + breathe +
 # magnet the pair together) and pull the held tile a touch toward it. Moving off a telegraphed target (to a
 # non-mergeable cell or a different one) restores the old target first. Mirrors the Bag-highlight idiom
-# (DRAG_HILITE + breathe_once / breathe_stop). No-op under calm (the glow/breathe self-quiet there too).
+# (DRAG_HILITE + breathe_once / breathe_stop).
 func _update_telegraph(pos: Vector2) -> void:
 	var target := _pos_to_cell(pos)
 	var valid := target != _drag_from and board.can_merge(_drag_from, target) and piece_nodes.has(target)
@@ -2327,17 +2326,16 @@ func _update_telegraph(pos: Vector2) -> void:
 	_telegraph_cell = target
 	_telegraph_node = tnode
 	_telegraph_rest = _cell_pos(target)
-	if not FX.calm():
-		tnode.modulate = FX.Tune.TELEGRAPH_GLOW
-		# pull the TARGET toward the held tile (the magnet's other half) — a small, steady lean toward the pair centre.
-		tnode.position = _telegraph_rest + (_drag_node.position - tnode.position).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
+	tnode.modulate = FX.Tune.TELEGRAPH_GLOW
+	# pull the TARGET toward the held tile (the magnet's other half) — a small, steady lean toward the pair centre.
+	tnode.position = _telegraph_rest + (_drag_node.position - tnode.position).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
 	FX.breathe_once(tnode)
 	_apply_drag_magnet(target)
 
 # Pull the HELD tile a fraction of a cell toward the telegraphed target (the magnet, held-tile half). Layered
-# ON TOP of the pointer-seated position each follow so it reads as a tug, never a teleport. Off under calm.
+# ON TOP of the pointer-seated position each follow so it reads as a tug, never a teleport.
 func _apply_drag_magnet(target: Vector2i) -> void:
-	if FX.calm() or _drag_node == null:
+	if _drag_node == null:
 		return
 	var tcenter := _cell_pos(target)
 	var hcenter := _drag_node.position
@@ -2357,10 +2355,8 @@ func _clear_telegraph() -> void:
 # Tilt the held tile INTO pointer velocity, lagged: the lean target is DRAG_LEAN_DEG scaled by the
 # normalized horizontal speed of this update, sign following travel direction; we lerp the live lean toward
 # it by DRAG_LEAN_LAG (so it trails the motion) and ease toward upright when the pointer is still. Clamped to
-# ±DRAG_LEAN_DEG. Skipped under calm (motion accessibility) — the tile stays upright.
+# ±DRAG_LEAN_DEG.
 func _update_drag_lean(pos: Vector2) -> void:
-	if FX.calm():
-		return
 	if not _drag_lean_seeded:
 		_drag_last_pos = pos
 		_drag_lean_seeded = true

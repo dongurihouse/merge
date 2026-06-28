@@ -251,10 +251,9 @@ func _initialize() -> void:
 	alayer.free()
 	var ga := Save.grove()
 	ga["winback_until"] = Time.get_unix_time_from_system() + 60.0
-	ok(Ambient.weather_now(false) == "rain", "the win-back minute rains")
-	ok(Ambient.weather_now(true) == "breeze", "calm mode WINS: breeze, never rain")
+	ok(Ambient.weather_now() == "rain", "the win-back minute rains")
 	Ambient.forced_weather = "snow"
-	ok(Ambient.weather_now(true) == "snow", "shot tools can force a state")
+	ok(Ambient.weather_now() == "snow", "shot tools can force a state")
 	Ambient.forced_weather = ""
 	var h8 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h8)
