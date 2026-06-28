@@ -1890,8 +1890,7 @@ func _test_quest_card_config(view) -> void:
 		and view._is_config("quest_card", "plaque_y"), "the quest-card layout knobs are saved design config")
 	ok(not view._is_config("quest_card", "bust") and not view._is_config("quest_card", "stand_w") \
 		and not view._is_config("quest_card", "met"), "the quest-card demo knobs are preview-only (not saved)")
-	ok(view._is_config("quest_card", "card_shadow_a") and view._is_config("quest_card", "card_shadow_size"), \
-		"the quest-card drop-shadow knobs are saved design config")
+	ok(view._is_config("quest_card", "shadow"), "the quest card's Shadow toggle is saved config (the shared shadow)")
 
 	# Kit.giver_lay_from_config DEFAULTS must mirror giver_stand.LAY, so an empty config renders the SHIPPED card
 	var GiverStand = load("res://engine/scripts/ui/giver_stand.gd")
@@ -1918,12 +1917,13 @@ func _test_quest_card_config(view) -> void:
 		"giver_lay carries the card 9-slice margins as raw source px (not /100)")
 	var gsl: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_slice_t": 30}})
 	ok(is_equal_approx(float(gsl.card_slice_t), 30.0), "giver_lay slice margins are overridable (raw px)")
-	# the card DROP-SHADOW knobs ride the lay as fractions (percent → /100), OFF by default so the shipped card is unchanged
-	ok(is_equal_approx(float(gdf.get("card_shadow_a", -1.0)), 0.0), "giver_lay card shadow is OFF by default (alpha 0 = shipped card unchanged)")
-	var gsh: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_shadow_a": 40, "card_shadow_size": 12, "card_shadow_x": -6, "card_shadow_y": 8}})
-	ok(is_equal_approx(float(gsh.get("card_shadow_a", -1.0)), 0.40) and is_equal_approx(float(gsh.get("card_shadow_size", -1.0)), 0.12) \
-		and is_equal_approx(float(gsh.get("card_shadow_x", -1.0)), -0.06) and is_equal_approx(float(gsh.get("card_shadow_y", -1.0)), 0.08), \
-		"giver_lay maps the card shadow knobs (percent → fraction)")
+	# the quest card casts the SHARED shadow (Skin.shadow_rect + the global shadow block), driven by the
+	# UNIVERSAL Shadow toggle — not a bespoke per-card shadow. giver_lay threads the toggle + shared params.
+	ok(bool(gdf.get("shadow", true)) == false, "giver_lay quest-card Shadow toggle is OFF by default (shipped card unchanged)")
+	ok(bool(Kit.giver_lay_from_config({"quest_card": {"shadow": true}}).get("shadow", false)), "giver_lay carries the quest-card Shadow toggle when set")
+	var gsp: Dictionary = Kit.giver_lay_from_config({"shadow": {"alpha": 50, "offset_y": 9}}).get("shadow_params", {})
+	ok(is_equal_approx(float(gsp.get("alpha", -1.0)), 0.50) and is_equal_approx(float(gsp.get("offset_y", -1.0)), 9.0), \
+		"giver_lay carries the shared shadow_params from the global shadow block (single source of truth)")
 	# the card background is built as a NINE-SLICE so the frame corners stay crisp while the centre stretches
 	var noop := func(_a: Variant, _b: Variant) -> void: pass
 	var wire := func(_n: Control, _a: Callable) -> void: pass
@@ -1933,18 +1933,18 @@ func _test_quest_card_config(view) -> void:
 		"the giver card background is a NinePatchRect (9-slice, crisp corners)")
 	qcard.queue_free()
 
-	# the card DROP-SHADOW override (req: a settable shadow on the quest card): alpha 0 leaves the bare art
-	# (shipped look untouched), alpha>0 wraps the art with a drop-shadow panel behind it.
+	# the card shadow reuses the SHARED shadow: toggle OFF leaves the bare art (shipped), toggle ON casts a
+	# show_behind_parent Skin.shadow_rect with the WARM shared tint behind the card (not a bespoke black box).
 	var coff: Control = GiverStand._quest_card(300.0, 200.0, gdf)
-	ok(coff is NinePatchRect, "card shadow OFF (alpha 0) returns the bare NinePatch — shipped card unchanged")
-	var con: Control = GiverStand._quest_card(300.0, 200.0, {"card_shadow_a": 0.40, "card_shadow_size": 0.10, "card_shadow_x": 0.0, "card_shadow_y": 0.04})
-	var con_has_art := con.find_children("*", "NinePatchRect", true, false).size() > 0
-	var con_shadow_a := 0.0
+	ok(coff is NinePatchRect, "card Shadow toggle OFF returns the bare NinePatch — shipped card unchanged")
+	var on_params := Look.shadow_params({"shadow": {"offset_x": 0, "offset_y": 6, "blur": 14, "spread": 4, "alpha": 34, "warmth": 82}})
+	var con: Control = GiverStand._quest_card(300.0, 200.0, {"shadow": true, "shadow_params": on_params})
+	var warm_shadow := false
 	for p in con.find_children("*", "Panel", true, false):
 		var sb = (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0:
-			con_shadow_a = (sb as StyleBoxFlat).shadow_color.a
-	ok(con_has_art and con_shadow_a > 0.0, "card shadow ON (alpha>0) adds a drop-shadow panel behind the card art")
+		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 and _is_warm_shadow((sb as StyleBoxFlat).shadow_color):
+			warm_shadow = true
+	ok(warm_shadow, "card Shadow toggle ON casts the shared warm-tinted shadow behind the card")
 	coff.queue_free()
 	con.queue_free()
 
@@ -1955,11 +1955,9 @@ func _test_quest_card_config(view) -> void:
 	view._apply_edit()
 	ok(_id_of(view, "quest_card") != qid, "editing a quest-card slider rebuilds the quest-card element live")
 
-	# the sidebar exposes the drop-shadow override controls (req: a settable shadow on the quest card)
+	# the sidebar exposes the UNIVERSAL Shadow toggle for the quest card (the one shared shadow, tuned on the Shadow item)
 	view._rebuild_sidebar()
-	ok(_slider_max(view, "Card Shadow A") >= 100.0 and _slider_max(view, "Card Shadow Size") >= 40.0 \
-		and _slider_min(view, "Card Shadow X") <= -20.0 and _slider_min(view, "Card Shadow Y") <= -20.0, \
-		"the quest-card sidebar exposes the drop-shadow controls (alpha, size, x/y offset)")
+	ok(_has_sidebar_label(view, "Shadow"), "the quest-card sidebar exposes the shared Shadow toggle")
 
 func _test_bag_components() -> void:
 	# the gold currency pill, reused for the bag's single-acorn balance, renders one icon/count pair and

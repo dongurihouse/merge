@@ -340,7 +340,6 @@ var _params := {
 	# board's size; met toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
 		"card_w": 98, "card_h": 65, "card_slice_l": 46, "card_slice_t": 44, "card_slice_r": 46, "card_slice_b": 56,
-		"card_shadow_a": 0, "card_shadow_size": 8, "card_shadow_x": 0, "card_shadow_y": 4,
 		"bust_size": 94, "bust_x": 25, "bust_y": 53,
 		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
 		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
@@ -919,7 +918,7 @@ func _make_element(id: String) -> Control:
 						if ev is InputEventMouseButton and not (ev as InputEventMouseButton).pressed:
 							action.call()),
 				"stand_w": float(p.stand_w), "fence_h": float(p.fence_h),
-				"lay": Kit.giver_lay_from_config({"quest_card": p}),
+				"lay": Kit.giver_lay_from_config({"quest_card": p, "shadow": _params["shadow"]}),
 			}
 			var made := GiverStand.make(maxi(1, int(p.bust)), demo_q, qcfg)
 			var stand: Control = made.chip
@@ -1491,7 +1490,7 @@ func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "
 ## the view must NOT also wrap them, or the shadow would double up. (info_bar is NOT here: it returns a
 ## PanelContainer and builds its own frame directly, so its shadow comes from the
 ## view-level wrap below, like the other unwired components.)
-const SHADOW_WIRED := {"home_button": true, "board": true, "button": true, "gold_currency_pill": true}
+const SHADOW_WIRED := {"home_button": true, "board": true, "button": true, "gold_currency_pill": true, "quest_card": true}
 
 ## Cast the SHARED shadow behind a component's preview when its Shadow toggle is on. Skips the wired
 ## components (their builder casts it) and the Shadow item itself. A rounded-rect cast (corner ~ a card's)
@@ -2684,11 +2683,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["plaque_w", 20, 90]))     # width (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_x", 0, 100]))     # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_y", 0, 100]))     # centre y (% of box height)
-			_section_header("Card drop-shadow (α0 = off; the painted card bakes none)")
-			_sidebar_body.add_child(_slider_row(["card_shadow_a", 0, 100]))      # alpha (0 = off → shipped card)
-			_sidebar_body.add_child(_slider_row(["card_shadow_size", 0, 40]))    # blur/size (% of card height)
-			_sidebar_body.add_child(_slider_row(["card_shadow_x", -30, 30]))     # x offset (% of card width)
-			_sidebar_body.add_child(_slider_row(["card_shadow_y", -30, 30]))     # y offset (% of card height)
+			# (the card drop-shadow is the UNIVERSAL Shadow toggle added below — the one shared shadow, tuned on
+			# the Shadow item — not a per-card control.)
 			_group_header("Demo (preview only)", false)
 			_sidebar_body.add_child(_slider_row(["bust", 0, 15]))          # which giver (0..15) — also the asked line
 			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier
