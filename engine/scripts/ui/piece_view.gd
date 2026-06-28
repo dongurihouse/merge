@@ -37,6 +37,25 @@ static func backing_tex() -> Texture2D:
 		_backing = ImageTexture.create_from_image(img)
 	return _backing
 
+# A broader radial bloom for generator halos. Contact shadows want a tight, squared-off falloff;
+# generator glow needs a visible outer aura, especially on the pale board/workbench backgrounds.
+static var _gen_halo: Texture2D
+static func gen_halo_tex() -> Texture2D:
+	if _gen_halo == null:
+		var w := 128
+		var h := 128
+		var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+		var c := (w - 1) / 2.0
+		for y in h:
+			for x in w:
+				var nx := (float(x) - c) / c
+				var ny := (float(y) - c) / c
+				var r := sqrt(nx * nx + ny * ny)
+				var a := pow(clampf(1.0 - r, 0.0, 1.0), 0.62)
+				img.set_pixel(x, y, Color(1, 1, 1, a))
+		_gen_halo = ImageTexture.create_from_image(img)
+	return _gen_halo
+
 # Item textures are framed with inconsistent transparent padding, so KEEP_ASPECT_CENTERED on the
 # raw image leaves the visible art off-centre in the cell. Crop each to its opaque content (cached
 # per path) via an AtlasTexture so the art CENTERS. Falls back to the raw texture if get_image fails.
@@ -365,7 +384,7 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 		return
 	var glow := TextureRect.new()
 	glow.name = "GenGlow"
-	glow.texture = backing_tex()
+	glow.texture = gen_halo_tex()
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glow.stretch_mode = TextureRect.STRETCH_SCALE
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE

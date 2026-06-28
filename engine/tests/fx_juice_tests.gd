@@ -91,6 +91,12 @@ func _initialize() -> void:
 	ok(tuned_glow != null and tuned_glow.modulate.is_equal_approx(Color("#77CCFF", 0.72)) \
 		and is_equal_approx(tuned_glow.size.x, 135.0), \
 		"generator glow consumes the workbench-tuned color, alpha, and scale")
+	var halo_falloff_ok := false
+	if tuned_glow != null and tuned_glow.texture != null:
+		var glow_img := tuned_glow.texture.get_image()
+		var edge_px := Vector2i(int(round(float(glow_img.get_width() - 1) * 0.88)), glow_img.get_height() / 2)
+		halo_falloff_ok = glow_img.get_pixelv(edge_px).a >= 0.16
+	ok(halo_falloff_ok, "generator glow texture keeps enough outer alpha to read as a halo")
 	var tuned_sparkle := gen.find_child("GenSparkle", true, false) as Control
 	var sparkle_tint_ok := false
 	var sparkle_size_ok := false
