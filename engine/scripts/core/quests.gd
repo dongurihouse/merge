@@ -122,6 +122,61 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 		out.pop_back()
 	return out
 
+# --- §7 stand PORTRAIT (the giver face) ---------------------------------------------------------------
+# Each quest carries a stable `giver` index (0..pool-1): the character portrait drawn on its stand. The
+# rule the board needs ("no same quest giver on screen") is on-screen UNIQUENESS — no two LIVE quests share
+# a face. pick_giver enforces that as a HARD exclusion (`used` = faces already on the fence) and treats the
+# rolling recency window (`recent` = the last ≤GIVER_RECENT assigned) as a SOFT preference, relaxed BEFORE
+# uniqueness when the pool is too small to honour both. Pure: pool size + rng in, an index out.
+const GIVER_RECENT := 5
+
+# Faces in [0,pool) that are in neither `used` (on a live quest) nor `recent` (recently shown).
+static func _free_faces(pool: int, used: Array, recent: Array) -> Array:
+	var out: Array = []
+	for g in range(pool):
+		if not used.has(g) and not recent.has(g):
+			out.append(g)
+	return out
+
+# Pick a face for a NEW stand: never one already on a live quest (hard), and not a recently-shown one when
+# the pool allows (soft). Layered fallback always returns a valid index — drop recency first, then (only if
+# every face is in use) allow an unavoidable repeat.
+static func pick_giver(used: Array, recent: Array, pool: int, rng: RandomNumberGenerator) -> int:
+	var avail := _free_faces(pool, used, recent)
+	if avail.is_empty():
+		avail = _free_faces(pool, used, [])      # pool too tight → drop the soft recency rule, KEEP uniqueness
+	if avail.is_empty():
+		return rng.randi() % pool                # every face is live (≥pool stands) → a repeat is unavoidable
+	return avail[rng.randi() % avail.size()]
+
+# The faces on every LIVE quest EXCEPT the stand at `skip` (the one being assigned) — its hard avoid-set.
+static func _live_givers(quests: Array, skip: int) -> Array:
+	var out: Array = []
+	for i in range(quests.size()):
+		if i != skip and (quests[i] as Dictionary).has("giver"):
+			out.append(int(quests[i]["giver"]))
+	return out
+
+# Give every quest that lacks a face one, AND reassign any whose face collides with an EARLIER live quest
+# (a save written before on-screen-uniqueness existed could carry duplicates) — so no two live quests share
+# a face. An already-distinct fence is left untouched (faces stay stable across refills). Each fresh pick is
+# pushed into the board's rolling `recent` window (capped). Mutates `quests` + `recent` in place.
+static func assign_givers(quests: Array, recent: Array, pool: int, rng: RandomNumberGenerator) -> void:
+	for i in range(quests.size()):
+		var q: Dictionary = quests[i]
+		var collides := false
+		if q.has("giver"):
+			for j in range(i):
+				if (quests[j] as Dictionary).has("giver") and int(quests[j]["giver"]) == int(q["giver"]):
+					collides = true
+					break
+		if (not q.has("giver")) or collides:
+			var pick := pick_giver(_live_givers(quests, i), recent, pool, rng)
+			q["giver"] = pick
+			recent.append(pick)
+			while recent.size() > GIVER_RECENT:
+				recent.pop_front()
+
 # The discovery ladder for a line: one row per tier, code = line*100+tier, with `seen` flagged
 # from the save's `seen` set (keyed by the string code, as written on merge).
 static func ladder_entries(seen: Dictionary, line: int) -> Array:

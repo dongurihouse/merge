@@ -340,6 +340,7 @@ var _params := {
 	# board's size; met toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
 		"card_w": 98, "card_h": 65, "card_slice_l": 46, "card_slice_t": 44, "card_slice_r": 46, "card_slice_b": 56,
+		"card_shadow_a": 0, "card_shadow_size": 8, "card_shadow_x": 0, "card_shadow_y": 4,
 		"bust_size": 94, "bust_x": 25, "bust_y": 53,
 		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
 		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
@@ -2683,6 +2684,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["plaque_w", 20, 90]))     # width (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_x", 0, 100]))     # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_y", 0, 100]))     # centre y (% of box height)
+			_section_header("Card drop-shadow (α0 = off; the painted card bakes none)")
+			_sidebar_body.add_child(_slider_row(["card_shadow_a", 0, 100]))      # alpha (0 = off → shipped card)
+			_sidebar_body.add_child(_slider_row(["card_shadow_size", 0, 40]))    # blur/size (% of card height)
+			_sidebar_body.add_child(_slider_row(["card_shadow_x", -30, 30]))     # x offset (% of card width)
+			_sidebar_body.add_child(_slider_row(["card_shadow_y", -30, 30]))     # y offset (% of card height)
 			_group_header("Demo (preview only)", false)
 			_sidebar_body.add_child(_slider_row(["bust", 0, 15]))          # which giver (0..15) — also the asked line
 			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier

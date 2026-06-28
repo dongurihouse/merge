@@ -5406,6 +5406,14 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 		# the centre parchment stretches. Defaults bracket the wood frame + peg-hole corners of the 369×209 art.
 		"card_slice_l": float(q.get("card_slice_l", 46)), "card_slice_t": float(q.get("card_slice_t", 44)),
 		"card_slice_r": float(q.get("card_slice_r", 46)), "card_slice_b": float(q.get("card_slice_b", 56)),
+		# the card's OPTIONAL drop-shadow — fractions of the card box (percent → /100; _quest_card converts to
+		# px). OFF by default (alpha 0) so an absent/empty block renders the SHIPPED card unchanged; a designer
+		# raises card_shadow_a in the workbench to cast a soft shadow behind the parchment. size/x/y carry
+		# sensible defaults so turning alpha up alone gives a soft down-shadow.
+		"card_shadow_a":    float(q.get("card_shadow_a", 0)) / 100.0,
+		"card_shadow_size": float(q.get("card_shadow_size", 8)) / 100.0,
+		"card_shadow_x":    float(q.get("card_shadow_x", 0)) / 100.0,
+		"card_shadow_y":    float(q.get("card_shadow_y", 4)) / 100.0,
 	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).

@@ -659,11 +659,12 @@ func _meter_target() -> int:
 # via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
 func _refill_quests() -> void:
 	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, _exp(), _quest_level(), rng, _recent_items)
-	_assign_givers()                          # give each new quest a giver face distinct from the previous 5
+	_assign_givers()                          # give each new quest a face distinct from every other live stand
 
 # Each quest carries a stable `giver` index (the portrait shown on its stand). A NEW quest is assigned a
-# giver that is NOT among the last 5 assigned, so the same forest character never reappears within 5 — the
-# index persists on the quest (saved), so a stand keeps its face across rebuilds + sessions.
+# face that is NOT on any other LIVE stand (no two visible cards share a giver) and, when the pool allows,
+# not among the last 5 assigned either — the index persists on the quest (saved), so a stand keeps its face
+# across rebuilds + sessions. The pick + collision de-dup live in the pure, headless-tested Quests.assign_givers.
 func _assign_givers() -> void:
 	# seed the rolling window once from quests that already carry a giver (their array order ≈ assignment
 	# order), so a freshly-loaded session's new givers still avoid the recently-shown faces.
@@ -671,20 +672,7 @@ func _assign_givers() -> void:
 		for q in quests:
 			if q.has("giver"):
 				_push_recent_giver(int(q["giver"]))
-	for q in quests:
-		if not q.has("giver"):
-			q["giver"] = _next_giver()
-
-# Pick a giver index (0..GIVER_COUNT-1) that is not among the last 5 used; GIVER_COUNT (16) ≫ 5, so the
-# avoid-set never exhausts the pool. Records the pick in the rolling window.
-func _next_giver() -> int:
-	var avail: Array = []
-	for g in range(Bust.GIVER_COUNT):
-		if not _recent_givers.has(g):
-			avail.append(g)
-	var pick: int = avail[rng.randi() % avail.size()] if not avail.is_empty() else rng.randi() % Bust.GIVER_COUNT
-	_push_recent_giver(pick)
-	return pick
+	Quests.assign_givers(quests, _recent_givers, Bust.GIVER_COUNT, rng)
 
 func _push_recent_giver(g: int) -> void:
 	_recent_givers.append(g)

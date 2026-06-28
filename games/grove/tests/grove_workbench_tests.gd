@@ -1890,6 +1890,8 @@ func _test_quest_card_config(view) -> void:
 		and view._is_config("quest_card", "plaque_y"), "the quest-card layout knobs are saved design config")
 	ok(not view._is_config("quest_card", "bust") and not view._is_config("quest_card", "stand_w") \
 		and not view._is_config("quest_card", "met"), "the quest-card demo knobs are preview-only (not saved)")
+	ok(view._is_config("quest_card", "card_shadow_a") and view._is_config("quest_card", "card_shadow_size"), \
+		"the quest-card drop-shadow knobs are saved design config")
 
 	# Kit.giver_lay_from_config DEFAULTS must mirror giver_stand.LAY, so an empty config renders the SHIPPED card
 	var GiverStand = load("res://engine/scripts/ui/giver_stand.gd")
@@ -1916,6 +1918,12 @@ func _test_quest_card_config(view) -> void:
 		"giver_lay carries the card 9-slice margins as raw source px (not /100)")
 	var gsl: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_slice_t": 30}})
 	ok(is_equal_approx(float(gsl.card_slice_t), 30.0), "giver_lay slice margins are overridable (raw px)")
+	# the card DROP-SHADOW knobs ride the lay as fractions (percent → /100), OFF by default so the shipped card is unchanged
+	ok(is_equal_approx(float(gdf.get("card_shadow_a", -1.0)), 0.0), "giver_lay card shadow is OFF by default (alpha 0 = shipped card unchanged)")
+	var gsh: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_shadow_a": 40, "card_shadow_size": 12, "card_shadow_x": -6, "card_shadow_y": 8}})
+	ok(is_equal_approx(float(gsh.get("card_shadow_a", -1.0)), 0.40) and is_equal_approx(float(gsh.get("card_shadow_size", -1.0)), 0.12) \
+		and is_equal_approx(float(gsh.get("card_shadow_x", -1.0)), -0.06) and is_equal_approx(float(gsh.get("card_shadow_y", -1.0)), 0.08), \
+		"giver_lay maps the card shadow knobs (percent → fraction)")
 	# the card background is built as a NINE-SLICE so the frame corners stay crisp while the centre stretches
 	var noop := func(_a: Variant, _b: Variant) -> void: pass
 	var wire := func(_n: Control, _a: Callable) -> void: pass
@@ -1925,12 +1933,33 @@ func _test_quest_card_config(view) -> void:
 		"the giver card background is a NinePatchRect (9-slice, crisp corners)")
 	qcard.queue_free()
 
+	# the card DROP-SHADOW override (req: a settable shadow on the quest card): alpha 0 leaves the bare art
+	# (shipped look untouched), alpha>0 wraps the art with a drop-shadow panel behind it.
+	var coff: Control = GiverStand._quest_card(300.0, 200.0, gdf)
+	ok(coff is NinePatchRect, "card shadow OFF (alpha 0) returns the bare NinePatch — shipped card unchanged")
+	var con: Control = GiverStand._quest_card(300.0, 200.0, {"card_shadow_a": 0.40, "card_shadow_size": 0.10, "card_shadow_x": 0.0, "card_shadow_y": 0.04})
+	var con_has_art := con.find_children("*", "NinePatchRect", true, false).size() > 0
+	var con_shadow_a := 0.0
+	for p in con.find_children("*", "Panel", true, false):
+		var sb = (p as Panel).get_theme_stylebox("panel")
+		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0:
+			con_shadow_a = (sb as StyleBoxFlat).shadow_color.a
+	ok(con_has_art and con_shadow_a > 0.0, "card shadow ON (alpha>0) adds a drop-shadow panel behind the card art")
+	coff.queue_free()
+	con.queue_free()
+
 	# editing a quest-card layout slider rebuilds just the quest-card section (live preview)
 	view._selected = "quest_card"
 	var qid: int = _id_of(view, "quest_card")
 	view._params["quest_card"]["card_w"] = 120
 	view._apply_edit()
 	ok(_id_of(view, "quest_card") != qid, "editing a quest-card slider rebuilds the quest-card element live")
+
+	# the sidebar exposes the drop-shadow override controls (req: a settable shadow on the quest card)
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Card Shadow A") >= 100.0 and _slider_max(view, "Card Shadow Size") >= 40.0 \
+		and _slider_min(view, "Card Shadow X") <= -20.0 and _slider_min(view, "Card Shadow Y") <= -20.0, \
+		"the quest-card sidebar exposes the drop-shadow controls (alpha, size, x/y offset)")
 
 func _test_bag_components() -> void:
 	# the gold currency pill, reused for the bag's single-acorn balance, renders one icon/count pair and

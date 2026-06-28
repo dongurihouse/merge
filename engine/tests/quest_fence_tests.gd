@@ -244,5 +244,60 @@ func _initialize() -> void:
 	if Quests.map_done(every, every_gate):
 		ok(Quests.home_map_id(every, every_gate) == String(G.MAPS[0].id), "with everything complete, the home target falls back to the first map")
 
+	# --- giver FACES (req: "no same quest giver on screen"): board.gd assigns each quest a portrait index.
+	# --- pick_giver's HARD rule is on-screen uniqueness — never a face already on a LIVE quest; the recency
+	# --- window is a SOFT preference, relaxed BEFORE uniqueness when the pool is too small to honour both. ---
+	var gpool := 16
+	# never returns a face already on a live quest (the on-screen rule), across many seeds
+	var hard_ok := true
+	for s in 200:
+		var rg := RandomNumberGenerator.new(); rg.seed = s
+		var pick := Quests.pick_giver([0, 1, 2], [], gpool, rg)
+		if [0, 1, 2].has(pick) or pick < 0 or pick >= gpool:
+			hard_ok = false
+	ok(hard_ok, "pick_giver never returns a face already on a live quest")
+	# avoids the recency window too when the pool has room (soft variety honoured)
+	var soft_ok := true
+	for s in 200:
+		var rg2 := RandomNumberGenerator.new(); rg2.seed = s
+		var pick2 := Quests.pick_giver([0], [1, 2, 3], gpool, rg2)
+		if [0, 1, 2, 3].has(pick2):
+			soft_ok = false
+	ok(soft_ok, "pick_giver avoids the recency window when the pool has room")
+	# pool too small for both rules → drop recency, KEEP uniqueness (pool 5, used+recent cover all 5 faces)
+	var relax_ok := true
+	for s in 50:
+		var rg3 := RandomNumberGenerator.new(); rg3.seed = s
+		var pick3 := Quests.pick_giver([0, 1], [2, 3, 4], 5, rg3)
+		if [0, 1].has(pick3) or pick3 < 0 or pick3 >= 5:
+			relax_ok = false
+	ok(relax_ok, "pick_giver relaxes recency before uniqueness when the pool is tight")
+	# graceful: when EVERY face is already in use it still returns a valid index (cannot avoid a repeat, no crash)
+	var fb := Quests.pick_giver([0, 1, 2], [], 3, RandomNumberGenerator.new())
+	ok(fb >= 0 and fb < 3, "pick_giver returns a valid index even when the whole pool is in use (graceful)")
+
+	# assign_givers: fill every quest's face + de-dupe collisions so no two LIVE quests share one
+	var gq: Array = [{}, {}, {}, {}, {}]
+	var grecent: Array = []
+	Quests.assign_givers(gq, grecent, gpool, RandomNumberGenerator.new())
+	var all_have := true
+	var gseen := {}
+	for q in gq:
+		if not q.has("giver"):
+			all_have = false
+		else:
+			gseen[int(q["giver"])] = true
+	ok(all_have, "assign_givers gives every quest a face")
+	ok(gseen.size() == gq.size(), "assign_givers leaves no two live quests sharing a face (%d/%d unique)" % [gseen.size(), gq.size()])
+	ok(grecent.size() == gq.size(), "assign_givers records each pick in the recency window")
+	# de-dupes a PRE-EXISTING collision (a save written before this fix could carry two equal faces)
+	var dup: Array = [{"giver": 3}, {"giver": 3}, {"giver": 7}]
+	Quests.assign_givers(dup, [], gpool, RandomNumberGenerator.new())
+	ok(int(dup[0]["giver"]) != int(dup[1]["giver"]) and int(dup[1]["giver"]) != int(dup[2]["giver"]) and int(dup[0]["giver"]) != int(dup[2]["giver"]), "assign_givers reassigns a pre-existing duplicate so the fence is distinct")
+	# STABILITY: an already-distinct set is left untouched (faces must not churn on every refill)
+	var stable: Array = [{"giver": 5}, {"giver": 6}, {"giver": 7}]
+	Quests.assign_givers(stable, [], gpool, RandomNumberGenerator.new())
+	ok(int(stable[0]["giver"]) == 5 and int(stable[1]["giver"]) == 6 and int(stable[2]["giver"]) == 7, "assign_givers leaves an already-distinct fence unchanged (stable faces)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
