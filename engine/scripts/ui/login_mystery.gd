@@ -59,7 +59,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 
 	var vw: float = (host.get_viewport_rect().size.x if host.is_inside_tree() else 720.0)
 	var built: Dictionary = build_reveal(options, winners, reveal_width(vw),
-		{"on_close": func() -> void: _dismiss(overlay, on_done)})
+		{"on_close": func() -> void: _dismiss(overlay, on_done), "viewport_w": vw})
 	var dialog: Control = built["dialog"]
 	var reels: Array = built["reels"]
 	var caption: Label = built["caption"]
@@ -126,6 +126,10 @@ static func build_reveal(options: Array, winners: Array, width: float, opts: Dic
 
 	var cfg: Dictionary = opts.get("frame_cfg", Kit.load_config(Kit.CONFIG_PATH))
 	var fo: Dictionary = Kit.daily_opts_from_config(cfg)
+	# bring the reveal to the SINGLE global dialog width: `width` is its authored (design) size, so the
+	# reels stay authored and scale up to fill the global width. viewport_w lets us derive the target.
+	var vw_ref: float = float(opts.get("viewport_w", 0.0))
+	fo["content_scale"] = ((vw_ref * Kit.frame_width_pct(cfg) / 100.0) / maxf(1.0, width)) if vw_ref > 0.0 else 1.0
 	fo["banner_text"] = (Strings.t("mystery.banner_plural") if winners.size() > 1 else Strings.t("mystery.banner_single"))
 	var on_close: Callable = opts.get("on_close", Callable())
 	if on_close.is_valid():

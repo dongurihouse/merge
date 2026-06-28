@@ -56,7 +56,7 @@ const COLUMNS := [
 const DEPENDENTS := {
 	"button": ["card", "dialog", "daily", "shop", "settings", "info"],
 	"card": ["dialog", "daily", "shop", "settings", "info"],
-	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info"],
+	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info", "level", "vault"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
@@ -294,7 +294,8 @@ var _params := {
 	# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
 	# carries its own width. snap is the drag-grid for the banner/✕ handles.
 	"frame": {
-		"width": 560, "border": "parchment", "card_corner": 22, "card_art": true,
+		"width_pct": 75,   # the GLOBAL dialog width (% of screen) — drives EVERY dialog
+		"border": "parchment", "card_corner": 22, "card_art": true,
 		"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
@@ -309,7 +310,7 @@ var _params := {
 	# the mail DIALOG = the shared frame + the mail cards. width_pct = the dialog's width as a % of the
 	# SCREEN (responsive — the game multiplies by the live viewport width; here it previews against the
 	# 1080 portrait base). entries = the preview count.
-	"dialog": {"width_pct": 85, "entries": 4},
+	"dialog": {"entries": 4},
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
 	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
@@ -345,18 +346,18 @@ var _params := {
 		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
-	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
+	"daily": {"cols": 3, "list_max_h": 0},
 	# the MYSTERY spin-reveal dialog (login_mystery.gd) — the shared frame + a row of reward cards the spin
 	# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
 	# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
 	"mystery": {"preview": "day 7 · revealed"},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+	"shop": {"cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
 	# the LEVEL dialog — its OWN dedicated frame (title pill · ornate border, NOT the shared frame),
 	# the medallion (wreath + ring + number), the reusable progress bar, and the Collect/Got-it button.
 	# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
-	"level": {"width_pct": 80, "banner_text": "Level", "title_font": 30,
+	"level": {"banner_text": "Level", "title_font": 30,
 		"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
 		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "btn_font": 22, "gap": 14,
 		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
@@ -365,7 +366,7 @@ var _params := {
 	# piece size + well face are INHERITED from the Slot cell item; only the discovery-specific knobs live
 	# here — the square cell size, plain tier number, and marked-tier sparkle (percents for the sliders).
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
-	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
+	"tiers": {"cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
 	# the LAYERED level badge — five cut parts (ui/lvl_parts) composited bottom-up + the level number.
 	# Every position/size knob is a PERCENT of the badge px (so the emblem scales to any size); they map
@@ -408,17 +409,17 @@ var _params := {
 	"move_fx": _move_fx_defaults(),
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
-	"settings": {"width_pct": 80, "row_gap": 12},
+	"settings": {"row_gap": 12},
 	# the VAULT dialog — the shared frame in the NEW twig border + the jar hero. width_pct + the twig
 	# slice/pad + the jar/plate sizes are saved; balance/claimable just preview the read. The banner / ✕
 	# styling is inherited from the Frame item (like the other dialogs).
-	"vault": {"width_pct": 80, "card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
+	"vault": {"card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
 		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
 		"balance": 320, "claimable": true},
 	# the INFO detail sheet — now the shared MAIL DIALOG (parchment cards, NO Claim) with a "Got it" footer.
 	# Its face is inherited wholesale from the Frame/Card elements; only the sheet WIDTH is info-specific (a
 	# 1–2 row sheet is narrower than the inbox). Read by the game's _info_sheet via Kit.info_opts_from_config.
-	"info": {"width_pct": 58},
+	"info": {},
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120,
@@ -434,7 +435,7 @@ var _params := {
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
-	"bag": {"width_pct": 85, "cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
+	"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
 		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
 }
 # merge_fx defaults = the registry defaults PLUS the preview-only escalation sliders (tier/combo, not saved).
@@ -527,11 +528,9 @@ func _build() -> void:
 	gal_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gal_row.size_flags_vertical = Control.SIZE_FILL
 	hb.add_child(gal_row)
-	# the DIALOG column is sized to the WIDEST dialog (mail/daily/shop carry their own width) + chrome, so
-	# no dialog is clipped inside its column; the building-blocks column takes the remaining width.
-	var dlg_w := 0.0
-	for did in ["dialog", "daily", "shop", "tiers", "bag"]:
-		dlg_w = maxf(dlg_w, _dlg_px(did))
+	# the DIALOG column is sized to the global dialog width (every dialog now shares it) + chrome, so no
+	# dialog is clipped inside its column; the building-blocks column takes the remaining width.
+	var dlg_w := PHONE_W * Kit.frame_width_pct(_params) / 100.0
 	var dlg_col_w: float = dlg_w + 96.0
 	_columns.clear()
 	for ci in COLUMNS.size():
@@ -588,11 +587,15 @@ func _build() -> void:
 	_rebuild_gallery()
 	_rebuild_sidebar()
 
-## A dialog's preview width in PIXELS, from its saved width_pct (% of the screen). The workbench previews
-## against the 1080 portrait base; in-game the SAME pct multiplies the live viewport width (see login.gd /
-## inbox.gd) — so the dialog is responsive, never a fixed pixel width.
+## A dialog's preview width in PIXELS at its AUTHORED design baseline (Kit.DIALOG_DESIGN_PCT). The frame
+## then scales content to the SINGLE global width (_dlg_scale); in-game the same baseline × the live
+## viewport feeds the builder while content_scale resizes to the global frame.width_pct.
 func _dlg_px(id: String) -> float:
-	return PHONE_W * float((_params[id] as Dictionary).get("width_pct", 85)) / 100.0
+	return PHONE_W * float(Kit.DIALOG_DESIGN_PCT.get(id, 75.0)) / 100.0
+
+## The content scale for a previewed dialog = the global frame width / the dialog's design baseline.
+func _dlg_scale(id: String) -> float:
+	return Kit.dialog_content_scale(_params, id)
 
 func _preview_screen_w() -> float:
 	# The workbench window is intentionally wide so tools/dialogs fit side by side.
@@ -765,13 +768,14 @@ func _make_element(id: String) -> Control:
 			# the SHARED frame on its own, with placeholder content — the one chrome every dialog reuses
 			var fo := Kit.dialog_opts_from_config(_params)
 			fo["banner_text"] = String(p.get("preview_text", "Frame"))   # type any title to test the ribbon width-scaling
-			var fr := Kit.dialog_frame(_frame_placeholder(), float(p.width), fo)
+			var fr := Kit.dialog_frame(_frame_placeholder(), PHONE_W * Kit.frame_width_pct(_params) / 100.0, fo)
 			_attach_dialog_drag(fr)
 			return fr
 		"dialog":
 			# build from the SHARED kit transform (same one the game uses) + the test-only preview count
 			var opts := Kit.dialog_opts_from_config(_params)
 			opts["entries_count"] = int(p.entries)
+			opts["content_scale"] = _dlg_scale("dialog")
 			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
 			return Kit.mail_dialog(Kit.DEMO_MAIL, _dlg_px("dialog"), opts)
 		"daily_card":
@@ -799,6 +803,7 @@ func _make_element(id: String) -> Control:
 			# SHARED frame config (from the Dialog item) + the separately-defined day card + grid knobs
 			var dopts := Kit.daily_opts_from_config(_params)
 			dopts["banner_text"] = "Daily"
+			dopts["content_scale"] = _dlg_scale("daily")
 			return Kit.daily_dialog(Kit.DEMO_DAILY, _dlg_px("daily"), dopts)   # frame edited on the Frame item
 		"mystery":
 			# the spin-reveal dialog (login_mystery.gd build_reveal) — the SAME face the game animates, rendered
@@ -809,11 +814,13 @@ func _make_element(id: String) -> Control:
 			# the SAME shared frame + the SAME small card — just shop data (icon+count+price+ribbon)
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
+			sopts["content_scale"] = _dlg_scale("shop")
 			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
 		"level":
 			# the dedicated level dialog, from the SAME config transform the game (level_popup) reads
 			var lo := Kit.level_opts_from_config(_params)
 			lo["banner_text"] = TranslationServer.translate("Level %d") % int(p.preview_level)
+			lo["content_scale"] = _dlg_scale("level")
 			var lv_into: int = int(p.into)
 			var lv_span: int = maxi(1, int(p.span))
 			var lv_data := {
@@ -931,6 +938,7 @@ func _make_element(id: String) -> Control:
 			# the STANDARD shared frame (no override) + the tier-cell grid (NO vines). The banner text is the line name.
 			var topts := Kit.tiers_opts_from_config(_params)
 			topts["banner_text"] = "Wildflower"
+			topts["content_scale"] = _dlg_scale("tiers")
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
 		"info_bar":
 			# The merged Workbench target previews the LIVE board bottom bar as one shared tray: Home · Info ·
@@ -940,11 +948,13 @@ func _make_element(id: String) -> Control:
 			# the SHARED frame + a column of toggle cards (the SAME builder the game's settings.gd uses)
 			var setopts := Kit.settings_opts_from_config(_params)
 			setopts["banner_text"] = "Settings"
+			setopts["content_scale"] = _dlg_scale("settings")
 			return Kit.settings_dialog(Kit.DEMO_SETTINGS, _dlg_px("settings"), setopts)
 		"vault":
 			# the SHARED frame in the NEW twig border + the jar hero (the SAME builder ui/vault.gd uses)
 			var vopts := Kit.vault_opts_from_config(_params)
 			vopts["banner_text"] = "Vault"
+			vopts["content_scale"] = _dlg_scale("vault")
 			var p_st := Kit.DEMO_VAULT.duplicate()
 			p_st["balance"] = int(p.balance)
 			p_st["claimable"] = bool(p.claimable)
@@ -955,6 +965,7 @@ func _make_element(id: String) -> Control:
 			# bundle's two line items, each amount riding a read-only cream chip.
 			var iopts := Kit.info_opts_from_config(_params)
 			iopts["banner_text"] = "Welcome gift"
+			iopts["content_scale"] = _dlg_scale("info")
 			iopts["banner_icon_on"] = false
 			iopts["got_it"] = "Got it"
 			iopts["note"] = "Claimable just once — a warm start to the grove."
@@ -980,6 +991,7 @@ func _make_element(id: String) -> Control:
 			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
 			var bopts := Kit.bag_opts_from_config(_params)
 			bopts["banner_text"] = "Bag"
+			bopts["content_scale"] = _dlg_scale("bag")
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
@@ -1662,7 +1674,7 @@ func _mystery_preview(which: String) -> Control:
 	var options: Array = []
 	for i in show:
 		options.append(pool[i])                       # first `show` (deterministic — the live roll shuffles)
-	var built: Dictionary = LoginMystery.build_reveal(options, range(win), LoginMystery.reveal_width(PHONE_W), {"frame_cfg": _params})
+	var built: Dictionary = LoginMystery.build_reveal(options, range(win), LoginMystery.reveal_width(PHONE_W), {"frame_cfg": _params, "viewport_w": PHONE_W})
 	var reels: Array = built["reels"]
 	var dialog: Control = built["dialog"]
 	if pick_state:
@@ -2339,7 +2351,6 @@ func _rebuild_sidebar() -> void:
 			_frame_sidebar()         # the shared frame's own config (Card / Banner / Close / List)
 		"dialog":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["entries", 1, 12]))   # how many rows to preview
 		"daily_card":
@@ -2363,7 +2374,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_option_row("Ribbon", "ribbon", Kit.POPULAR_BADGES))   # the popular badge
 		"daily":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 7]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 		"mystery":
@@ -2377,7 +2387,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(mplay)
 		"shop":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
@@ -2385,7 +2394,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 		"level":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_text_row("Banner text", "banner_text"))
 			_sidebar_body.add_child(_slider_row(["title_font", 16, 48]))
 			_sidebar_body.add_child(_slider_row(["medallion_px", 80, 180]))
@@ -2537,7 +2545,6 @@ func _rebuild_sidebar() -> void:
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))    # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
@@ -2583,16 +2590,13 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Value (on)", "value"))
 		"settings":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
-			# the info sheet IS the mail dialog now: its border/banner/✕/card art + fonts are tuned on the
-			# Frame + Card elements (shared). Only the sheet WIDTH is info-specific.
-			_group_header("Saved to config", true)
-			_section_header("Layout (face shared with the Mail dialog — tune the Frame + Card elements)")
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+			# the info sheet IS the mail dialog: its border/banner/✕/card art + fonts are tuned on the Frame +
+			# Card elements, and its width is the global frame width. No info-specific knobs remain.
+			_section_header("Face shared with the Mail dialog — tune the Frame + Card elements")
 		"bag_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
@@ -2643,7 +2647,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cost", 0, 999]))           # 0 = no cost; >0 shows the acorn cost (bag)
 		"bag":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 40]))
 			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 200]))    # how far the parchment border eats the grid width
@@ -2762,8 +2765,9 @@ func _feel_fx_sidebar(effects: Array, knobs: Dictionary) -> void:
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.
 func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
+	_section_header("Dialog width (all dialogs)")
+	_sidebar_body.add_child(_slider_row(["width_pct", 30, 100]))   # the SINGLE global dialog width — % of screen
 	_section_header("Card")
-	_sidebar_body.add_child(_slider_row(["width", 360, 720]))
 	_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))   # parchment / vault twig
 	_sidebar_body.add_child(_toggle_row("9-slice art", "card_art", true))   # rebuilds the sidebar to swap the slider
 	if bool(_params["frame"]["card_art"]):
@@ -2807,7 +2811,6 @@ func _frame_sidebar() -> void:
 func _vault_sidebar() -> void:
 	_group_header("Saved to config", true)
 	_section_header("Layout")
-	_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 	_sidebar_body.add_child(_slider_row(["jar_px", 120, 320]))
 	_sidebar_body.add_child(_slider_row(["plate_px", 120, 340]))
 	_sidebar_body.add_child(_slider_row(["balance_font", 18, 56]))
