@@ -2313,8 +2313,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_x", -32, 32]))
 			_section_header("Amount")
 			_sidebar_body.add_child(_slider_row(["amount_w", 40, 180]))
-			_sidebar_body.add_child(_slider_row(["num_size", 16, 48]))
-			_sidebar_body.add_child(_slider_row(["amount_x", -40, 40]))
+			_sidebar_body.add_child(_slider_row(["num_size", 16, 72]))
+			_sidebar_body.add_child(_slider_row(["amount_x", -40, 120]))
 			_section_header("Plus button")
 			_sidebar_body.add_child(_slider_row(["plus_x", -200, 40]))
 			_sidebar_body.add_child(_slider_row(["plus_y", -60, 60]))   # move the whole green button up/down

@@ -480,7 +480,7 @@
 	},
 	"shadow": {
 		"alpha": 46.0,
-		"blur": 15.0,
+		"blur": 19.0,
 		"offset_x": 1.0,
 		"offset_y": 2.0,
 		"spread": -13.0,

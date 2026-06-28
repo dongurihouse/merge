@@ -1078,7 +1078,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.add_theme_font_size_override("font_size", num_size)
 	amount.add_theme_color_override("font_color", Color("#3A1C12"))
 	amount.add_theme_constant_override("outline_size", 0)
-	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER   # centre the number within its amount box
+	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # right-align the number; amount_x pushes it toward the pill's right edge
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE

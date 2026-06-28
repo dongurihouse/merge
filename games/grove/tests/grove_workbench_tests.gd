@@ -534,6 +534,8 @@ func _initialize() -> void:
 	var amount := _first_control(tuned, "GoldCurrencyAmount", "Label") as Label
 	ok(amount_slot != null and amount != null and amount.position.x == 9 and int(amount.get_theme_font_size("font_size")) == 36, \
 		"gold_currency_pill amount x + font controls adjust the amount component")
+	ok(amount != null and amount.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT, \
+		"gold_currency_pill right-aligns the amount number")
 	var plus_slot := _first_control(tuned, "GoldCurrencyPlusSlot")
 	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton", "Panel")
 	ok(plus_slot != null and plus_btn != null and plus_btn.position.x == 12, \
@@ -564,6 +566,8 @@ func _initialize() -> void:
 	view._rebuild_sidebar()
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
+	ok(_slider_max(view, "Num Size") >= 70.0, "gold_currency_pill sidebar allows a larger amount number")
+	ok(_slider_max(view, "Amount X") >= 100.0, "gold_currency_pill sidebar lets the amount push further right")
 	ok(_slider_min(view, "Plus X") <= -100.0, "gold_currency_pill sidebar lets the plus button move far to the left")
 	ok(_slider_min(view, "Plus Y") < 0.0 and _slider_max(view, "Plus Y") > 0.0, "gold_currency_pill sidebar exposes a plus_y vertical nudge")
 	ok(_slider_min(view, "Plus Button") < 75.0, "gold_currency_pill sidebar allows a plus button smaller than 75")
