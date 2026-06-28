@@ -2695,16 +2695,6 @@ func _build_liveops_rail() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_settings())
 	_place_rail(_gear, top, slot, step); slot += 1
-	var open_expedition := func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_expedition()
-	var expedition := _rail_button(HC.ICON_EXPEDITION, "Expedition",
-		open_expedition,
-		false,
-		{"icon_node": PieceView.make_piece(int(HC.ICON_EXPEDITION), _rail_disc_px * HOME_ICON_ONLY_SCALE), "icon_id": HC.ICON_EXPEDITION})
-	_residents_btn = expedition
-	_place_rail(expedition, top, slot, step); slot += 1
-	_refresh_residents_btn()
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	var daily := _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_place_rail(daily, top, slot, step); slot += 1
@@ -2725,6 +2715,16 @@ func _build_liveops_rail() -> void:
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(inbox, _inbox_badge, bover)
+	var open_expedition := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_expedition()
+	var expedition := _rail_button(HC.ICON_EXPEDITION, "Expedition",
+		open_expedition,
+		false,
+		{"icon_node": PieceView.make_piece(int(HC.ICON_EXPEDITION), _rail_disc_px * HOME_ICON_ONLY_SCALE), "icon_id": HC.ICON_EXPEDITION})
+	_residents_btn = expedition
+	_place_rail(expedition, top, slot, step); slot += 1
+	_refresh_residents_btn()
 	_refresh_liveops_badges()
 
 # One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +

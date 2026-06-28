@@ -201,6 +201,33 @@ func _push_tap(gpos: Vector2) -> void:
 func _test_home_expedition_rail_chrome() -> void:
 	fresh("home_expedition_rail_chrome")
 	var z := G.hub_map()
+	var locked_g := Save.grove()
+	locked_g["unlocks"] = {}
+	locked_g["gates"] = []
+	locked_g["last_map"] = String(G.MAPS[z].id)
+	Save.grove_write()
+
+	var locked = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(locked)
+	if locked.content == null:
+		locked._ready()
+	locked.unlocks = {}
+	locked._open_map(z)
+	await create_timer(0.05).timeout
+
+	var locked_exp := _home_chrome_button(locked, "Expedition")
+	ok(locked_exp == null, "locked map hides Expedition without leaving a visible rail button")
+	var settings := _home_chrome_button(locked, "Settings")
+	var daily := _home_chrome_button(locked, "Daily")
+	ok(settings != null, "locked rail still shows Settings")
+	ok(daily != null, "locked rail still shows Daily")
+	if settings != null and daily != null:
+		var y_step := daily.get_global_rect().position.y - settings.get_global_rect().position.y
+		var max_packed_step := maxf(settings.get_global_rect().size.y, daily.get_global_rect().size.y) + 36.0
+		ok(y_step <= max_packed_step,
+			"locked rail packs Daily directly below Settings (step %.1f <= %.1f)" % [y_step, max_packed_step])
+	locked.queue_free()
+
 	var unl := {}
 	for sp in G.MAPS[z].spots:
 		unl[String(sp.id)] = true
