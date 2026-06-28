@@ -33,9 +33,23 @@ const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carve
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
 const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
-const BOTTOM_HINT_BOTTOM_GAP_FRAC := 0.05
 const BOTTOM_HINT_TEXT_VISUAL_NUDGE_Y := 4.0
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
+
+# --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
+# whole HUD scales 1:1 with the device. The vertical stack, top → bottom:
+#   [safe-top] · close button · score bar · activity bar · board · bottom info bar · [safe-bottom]
+const RUSH_TOP_GAP_FRAC := 0.012        # safe-top → close button (small + consistent — kills the mobile top gap)
+const RUSH_EXIT_W_FRAC := 0.135         # close button box ≈ the home map nav button (~150px on a 1080 canvas)
+const RUSH_EXIT_RIGHT_FRAC := 0.025     # close button right inset
+const RUSH_BAR_GAP_FRAC := 0.010        # close button → score bar
+const RUSH_ACT_GAP_FRAC := 0.010        # score bar slot → activity bar
+const RUSH_ACT_H_FRAC := 0.036          # activity bar height
+const RUSH_ACT_FS_FRAC := 0.34          # activity caption font, as a fraction of the activity bar height
+const RUSH_BOARD_TOP_GAP_FRAC := 0.015  # activity bar → board top reserve
+const RUSH_HINT_H_FRAC := 0.060         # bottom info bar height (~2× the old size)
+const RUSH_HINT_FS_FRAC := 0.32         # info-bar caption font, as a fraction of the bar height
+const RUSH_HINT_MARGIN_FRAC := 0.022    # min breathing above+below the info bar within the bottom section
 
 const INK := Color("#43352B")
 const PARCH := Color("#F3E7CE")
@@ -89,6 +103,8 @@ var _hint: Control = null              # the always-on bottom hint strip
 var _hint_h := 0.0                     # its measured height — the board reserves above it
 var _last_view := Vector2.ZERO         # the last laid-out viewport size (resize coalesce)
 var _relayout_queued := false          # coalesces a burst of size_changed into one relayout per frame
+var _band: Dictionary = {}             # the resolved per-layout band geometry (_compute_bands)
+var _board_fit: Dictionary = {}        # the board fit for this layout — shared by the bar / activity / hint / chrome
 
 func _ready() -> void:
 	_rng.randomize()
@@ -130,6 +146,12 @@ func _layout() -> void:
 	if _activity != null and is_instance_valid(_activity): _activity.queue_free()
 	if _hint != null and is_instance_valid(_hint): _hint.queue_free()
 	if _chrome != null and is_instance_valid(_chrome): _chrome.queue_free()
+	# Resolve the band geometry, then the board fit ONCE — every chrome band (score bar, activity bar,
+	# bottom info bar) sizes to the board's width, and _build_board_chrome lays out the SAME grid.
+	_band = _compute_bands()
+	_board_fit = BoardFit.fit_bottom_aligned(
+		Vector2(float(_band.vw), float(_band.vh)), G.COLS, G.ROWS, _gap, FRAME_OUT, BOARD_MARGIN,
+		float(_band.top_limit), float(_band.bottom_limit), 1.0, 24.0, true)
 	_build_topbar()
 	_build_activity()
 	_build_bottom_hint()
@@ -138,6 +160,56 @@ func _layout() -> void:
 	_apply_treefall_visual()
 	_refresh_readouts()
 	_last_view = get_viewport_rect().size
+
+# Resolve the rush HUD's band geometry for the current viewport: every Y as a fraction of the screen —
+# the close button + score bar reserved at the top, the activity bar below, the board between, and the
+# bottom info bar centred in the bottom section. Pure math (no nodes) so the score bar can be sized to
+# the board BEFORE it is built. The score-bar slot is reserved at the FULL-WIDTH bar height (the tallest
+# it can be) so the board geometry never depends on the bar's final, board-matched width.
+func _compute_bands() -> Dictionary:
+	var vp := get_viewport_rect().size
+	var vw: float = vp.x if vp.x > 0.0 else 1080.0
+	var vh: float = vp.y if vp.y > 0.0 else 1920.0
+	var st := Look.safe_top(self)
+	var sb := Look.safe_bottom(self)
+	var Kit: GDScript = load(KIT_PATH)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var bar_opts: Dictionary = Kit.rush_bar_opts_from_config(cfg)
+	var bar_intrinsic: Vector2 = Kit.rush_bar_intrinsic_size(bar_opts)
+	# close button — sized like the home map nav button, hugging the top-right corner below the safe area
+	var exit_sz := vw * RUSH_EXIT_W_FRAC
+	var exit_top := st + vh * RUSH_TOP_GAP_FRAC
+	# score bar slot — reserved at full-width height; the actual bar (board width) sits at the slot top
+	var bar_top := exit_top + exit_sz + vh * RUSH_BAR_GAP_FRAC
+	var full_bar_w := vw - 2.0 * BOARD_MARGIN
+	# reserve at the bar's tallest reachable height (the full-width scale, clamped to the same ceiling the
+	# actual bar uses) so the board geometry never depends on the bar's final, board-matched width.
+	var bar_scale_max := clampf(full_bar_w / maxf(1.0, bar_intrinsic.x), 0.45, 1.6)
+	var bar_h_max := bar_intrinsic.y * bar_scale_max
+	var bar_slot_bottom := bar_top + bar_h_max
+	# activity bar
+	var act_top := bar_slot_bottom + vh * RUSH_ACT_GAP_FRAC
+	var act_h := vh * RUSH_ACT_H_FRAC
+	var act_bottom := act_top + act_h
+	# the board reserves the screen between the activity bar and the bottom info-bar section
+	var top_limit := act_bottom + vh * RUSH_BOARD_TOP_GAP_FRAC
+	var hint_h := vh * RUSH_HINT_H_FRAC
+	var bottom_band := hint_h + 2.0 * vh * RUSH_HINT_MARGIN_FRAC
+	var bottom_limit := vh - sb - bottom_band
+	return {
+		"vw": vw, "vh": vh, "safe_top": st, "safe_bottom": sb,
+		"cfg": cfg, "bar_opts": bar_opts, "bar_intrinsic": bar_intrinsic,
+		"exit_sz": exit_sz, "exit_top": exit_top,
+		"bar_top": bar_top, "bar_h_max": bar_h_max, "bar_slot_bottom": bar_slot_bottom,
+		"act_top": act_top, "act_h": act_h, "act_bottom": act_bottom,
+		"top_limit": top_limit, "bottom_limit": bottom_limit,
+		"hint_h": hint_h, "bottom_band": bottom_band,
+	}
+
+# The board's on-screen VISUAL width (the gold frame's outer width) for this layout — the width every
+# chrome band matches. Derived from the shared _board_fit so the bar / activity / hint align to the board.
+func _board_w() -> float:
+	return (_board_fit.get("grid_size", Vector2.ZERO) as Vector2).x + FRAME_OUT * 2.0
 
 func _on_viewport_resized() -> void:
 	if _relayout_queued:
@@ -155,37 +227,38 @@ func _relayout_after_resize() -> void:
 
 # The rush_concept top bar: three CODE-DRAWN gold-badge cells — Time | SCORE (centred, larger) | Mult —
 # built by the SHARED kit (Kit.rush_bar, workbench-tunable) with the rush_bar_asset art used only for the
-# leaf clusters, the score coin, and the acorn crown. The bar is centred and scaled to fit the width; the
-# value Labels come back via meta so _refresh_readouts updates them. The EXIT × keeps the top-right corner.
+# leaf clusters, the score coin, and the acorn crown. The bar is scaled to the BOARD width (so it spans the
+# same width as the grid below it) and centred at the top of its reserved slot; uniform scale keeps its
+# aspect, so a wider bar is proportionally taller. The value Labels come back via meta so _refresh_readouts
+# updates them. The big EXIT × hugs the top-right corner ABOVE the bar (sized like the home map nav button).
 func _build_topbar() -> void:
 	var Kit: GDScript = load(KIT_PATH)
-	var vp := get_viewport_rect().size
-	var vw: float = vp.x if vp.x > 0.0 else 720.0
-	var bar_top := maxf(Look.safe_top(self), 14.0) + 8.0
-	var opts: Dictionary = Kit.rush_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var vw: float = float(_band.vw)
+	var opts: Dictionary = _band.bar_opts
 	# seed the live readouts so a resize mid-run keeps the time / score / mult (not a reset to 0)
 	var bar: Control = Kit.rush_bar(opts, {"time": _fmt_time(), "score": str(Explore.score()), "mult": "×%.1f" % _mult})
-	var bw: float = bar.size.x
-	var scale: float = clampf((vw * 0.74) / maxf(1.0, bw), 0.45, 1.4)   # the bar is ~74% of screen width on any device
+	var bw: float = (_band.bar_intrinsic as Vector2).x
+	var scale: float = clampf(_board_w() / maxf(1.0, bw), 0.45, 1.6)    # match the board width
 	bar.scale = Vector2(scale, scale)
-	bar.position = Vector2((vw - bw * scale) * 0.5, bar_top)
+	var bar_w := bw * scale
+	bar.position = Vector2((vw - bar_w) * 0.5, float(_band.bar_top))
 	add_child(bar)
 	_topbar = bar
-	_bar_bottom = bar_top + bar.size.y * scale          # the board reserves the screen below this
+	_bar_bottom = float(_band.bar_slot_bottom)          # the board reserves the screen below this
 	_lbl_time = bar.get_meta("time_label")
 	_lbl_score = bar.get_meta("score_label")
 	_lbl_mult = bar.get_meta("mult_label")
 	_score_cell = bar.get_meta("score_cell")
 	_mult_cell = bar.get_meta("mult_cell")
-	_fx = RushFx.from_config(Kit.load_config(Kit.CONFIG_PATH))   # the saved screen-juice toggles
-	# EXIT — the parchment × in the top-right corner
-	var ex_h: float = clampf(float(opts.get("height", 116.0)) * scale * 0.55, 40.0, 92.0)
+	_fx = RushFx.from_config(_band.cfg)                  # the saved screen-juice toggles
+	# EXIT — the parchment × hugging the top-right corner, sized like the home map nav button
+	var ex_sz: float = float(_band.exit_sz)
 	var ex := TextureButton.new()
 	ex.texture_normal = _tex("exit_x")
 	ex.ignore_texture_size = true
 	ex.stretch_mode = TextureButton.STRETCH_SCALE
-	ex.custom_minimum_size = Vector2(ex_h, ex_h) ; ex.size = Vector2(ex_h, ex_h)
-	ex.position = Vector2(vw * 0.97 - ex_h, bar_top + 6.0)
+	ex.custom_minimum_size = Vector2(ex_sz, ex_sz) ; ex.size = Vector2(ex_sz, ex_sz)
+	ex.position = Vector2(vw - vw * RUSH_EXIT_RIGHT_FRAC - ex_sz, float(_band.exit_top))
 	ex.pressed.connect(func() -> void: _end())
 	add_child(ex)
 	_exit_btn = ex
@@ -196,22 +269,19 @@ func _build_topbar() -> void:
 # notice (a second indicator — multiplier cooldown / board-fill — is parked). Its bottom sets the board's
 # top reserve, so the board never jumps between the idle and warning states.
 func _build_activity() -> void:
-	var vp := get_viewport_rect().size
-	var vw: float = vp.x if vp.x > 0.0 else 720.0
-	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var margin := vw * 0.05
-	var w := vw - margin * 2.0
-	var h := clampf(vh * 0.05, 44.0, 70.0)
-	var top := _bar_bottom + vh * 0.01
+	var vw: float = float(_band.vw)
+	var w := _board_w()                       # match the board (and the score bar) width
+	var h: float = float(_band.act_h)
+	var top: float = float(_band.act_top)
 	_activity = Control.new()
 	_activity.name = "RushActivityBar"
-	_activity.position = Vector2(margin, top)
+	_activity.position = Vector2((vw - w) * 0.5, top)
 	_activity.size = Vector2(w, h)
 	_activity.custom_minimum_size = _activity.size
 	_activity.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_activity)
 	_act_bottom = top + h
-	var fs := int(clampf(h * 0.34, 15.0, 23.0))
+	var fs := int(maxf(12.0, h * RUSH_ACT_FS_FRAC))
 	var pad := h * 0.28
 	# IDLE — a quiet parchment rail (low-key, so it is not a second empty void)
 	_act_idle = _act_panel(Vector2(w, h), Color(PARCH, 0.34), Color(INK, 0.16))
@@ -299,19 +369,8 @@ func _tile_px() -> float:
 
 func _build_board_chrome() -> void:
 	var Kit: GDScript = load(KIT_PATH)
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var vp := get_viewport_rect().size
-	var vw: float = vp.x if vp.x > 0.0 else 720.0
-	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var top_limit := _act_bottom + vh * 0.015             # the screen below the activity bar
-	var fallback_bottom_gap := maxf(14.0, vh * BOTTOM_HINT_BOTTOM_GAP_FRAC)
-	var hint_top := vh - Look.safe_bottom(self) - fallback_bottom_gap - _hint_h
-	if _hint != null and is_instance_valid(_hint):
-		hint_top = _hint.position.y
-	var bottom_limit := hint_top - BOARD_BOTTOM_BREATHING
-	var fit: Dictionary = BoardFit.fit_bottom_aligned(
-		Vector2(vw, vh), G.COLS, G.ROWS, _gap, FRAME_OUT, BOARD_MARGIN,
-		top_limit, bottom_limit, 1.0, 24.0, true)
+	var cfg: Dictionary = _band.cfg
+	var fit: Dictionary = _board_fit                      # resolved once in _layout (shared with the chrome bands)
 	_cell = float(fit.cell)
 	var bw: float = (fit.grid_size as Vector2).x
 	var bh: float = (fit.grid_size as Vector2).y
@@ -387,18 +446,17 @@ func _apply_treefall_visual() -> void:
 		var col_screen_x := _board.position.x + _cellxy(0, int(_tf.col)).x + _cell * 0.5
 		_act_arrow.position.x = clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
 
-# An ALWAYS-ON micro-hint along the bottom safe area, teaching the two secondary verbs the
-# top popup leaves out: tap-again-to-fling and clearing a column before a treefall. The
-# source art is used as a 3-slice: fixed side caps + horizontally stretched center.
+# An ALWAYS-ON info bar teaching the two secondary verbs the top popup leaves out: tap-again-to-fling
+# and clearing a column before a treefall. The source art is used as a 3-slice (fixed side caps +
+# horizontally stretched center). Sized to the board width and ~2× the old height (pure %), and centred
+# vertically in the bottom SECTION (board bottom → screen bottom) so it sits in the open band below the grid.
 func _build_bottom_hint() -> void:
-	var vp := get_viewport_rect().size
-	var vw: float = vp.x if vp.x > 0.0 else 720.0
-	var vh: float = vp.y if vp.y > 0.0 else 1280.0
+	var vw: float = float(_band.vw)
 	var tex := load(BOTTOM_HINT_ART) as Texture2D
 	var tex_w := float(tex.get_width())
 	var tex_h := float(tex.get_height())
-	var strip_w := minf(vw * 0.91, 760.0)
-	var strip_h := clampf(vh * 0.037, 42.0, 56.0)
+	var strip_w := _board_w()                  # match the board (and the bars) width
+	var strip_h: float = float(_band.hint_h)   # ~2× the old height, pure %
 	var src_cap_w := minf(roundf(tex_h * 1.12), floorf((tex_w - 1.0) * 0.5))
 	var cap_w := src_cap_w * (strip_h / tex_h)
 	var center_w := maxf(1.0, strip_w - cap_w * 2.0)
@@ -424,7 +482,7 @@ func _build_bottom_hint() -> void:
 	l.position = Vector2(cap_w * 0.65, text_vpad + text_nudge)
 	var info_px := strip_h * 0.74
 	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3 - info_px * 1.25), maxf(1.0, strip_h - text_vpad - text_nudge))
-	l.add_theme_font_size_override("font_size", int(clampf(strip_h * 0.48, 20.0, 27.0)))
+	l.add_theme_font_size_override("font_size", int(maxf(18.0, strip_h * RUSH_HINT_FS_FRAC)))
 	l.add_theme_color_override("font_color", Color("#F8E9D0"))
 	l.add_theme_color_override("font_outline_color", Color("#3D251B", 0.65))
 	l.add_theme_constant_override("outline_size", 2)
@@ -434,8 +492,10 @@ func _build_bottom_hint() -> void:
 	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, l.position.y + (l.size.y - info_px) * 0.5)
 	strip.add_child(info)
 	add_child(strip)
-	var bottom_gap := maxf(14.0, vh * BOTTOM_HINT_BOTTOM_GAP_FRAC)
-	strip.position = Vector2((vw - strip_w) * 0.5, vh - Look.safe_bottom(self) - bottom_gap - strip_h)
+	# centred vertically in the bottom SECTION: the open band between the board's bottom and the screen
+	# bottom (minus the safe area). The board reserves exactly _band.bottom_band there, so centre within it.
+	var strip_y := float(_band.bottom_limit) + (float(_band.bottom_band) - strip_h) * 0.5
+	strip.position = Vector2((vw - strip_w) * 0.5, strip_y)
 	_hint = strip
 	_hint_h = strip_h
 

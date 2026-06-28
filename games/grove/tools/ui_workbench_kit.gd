@@ -778,6 +778,15 @@ static func rush_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"value_col":  String(r.get("value_col", "#43352B")),
 	}
 
+## The rush bar's INTRINSIC (unscaled) size for a given opts — the three cells + gaps wide, the cell
+## height plus the crown's headroom tall. One source of truth so a caller can size/scale the bar to a
+## target width (e.g. match the board) WITHOUT building it first.
+static func rush_bar_intrinsic_size(opts: Dictionary) -> Vector2:
+	var H := float(opts.get("height", 116.0))
+	var total_w := float(opts.get("side_w", 224.0)) * 2.0 + float(opts.get("score_w", 300.0)) + float(opts.get("gap", 18.0)) * 2.0
+	var top_pad := float(opts.get("crown_size", 76.0)) * 0.78   # headroom so the crown sits mostly ABOVE the cell
+	return Vector2(total_w, top_pad + H)
+
 ## Build the rush bar. `data` = {time, score, mult} display strings. Returns a Control sized to the bar;
 ## the three value Labels are exposed as meta (time_label / score_label / mult_label) for live updates.
 static func rush_bar(opts: Dictionary, data: Dictionary = {}) -> Control:
@@ -786,10 +795,11 @@ static func rush_bar(opts: Dictionary, data: Dictionary = {}) -> Control:
 	var side_w := float(opts.get("side_w", 224.0))
 	var gap := float(opts.get("gap", 18.0))
 	var crown_sz := float(opts.get("crown_size", 76.0))
-	var total_w := side_w * 2.0 + score_w + gap * 2.0
+	var intrinsic := rush_bar_intrinsic_size(opts)
+	var total_w := intrinsic.x
 	var top_pad := crown_sz * 0.78                             # headroom so the crown sits mostly ABOVE the cell
 	var bar := Control.new()
-	bar.custom_minimum_size = Vector2(total_w, top_pad + H)
+	bar.custom_minimum_size = intrinsic
 	bar.size = bar.custom_minimum_size
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var gold := gold_badge_style(opts.get("gold", {}))

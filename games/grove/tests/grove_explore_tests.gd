@@ -499,14 +499,14 @@ func _test_rush_resize() -> void:
 	var bx1080: float = s._board.position.x
 	ok(absf(cx1080 - 540.0) < 3.0, "S-RESIZE: the rush board re-centres to the 1080 width (cx=%.0f)" % cx1080)
 	ok(s._board.position.x + s._board.size.x <= 1082.0, "S-RESIZE: the board fits within the 1080 width")
-	ok(absf(s._activity.size.x - 1080.0 * 0.9) < 3.0, "S-RESIZE: the activity bar tracks the 1080 width (w=%.0f)" % s._activity.size.x)
+	ok(absf(s._activity.size.x - (s._board.size.x + 2.0 * float(s.FRAME_OUT))) < 3.0, "S-RESIZE: the activity bar matches the board width at 1080 (w=%.0f)" % s._activity.size.x)
 	get_root().size = Vector2i(1600, 1920)
 	await create_timer(0.06).timeout
 	await create_timer(0.06).timeout
 	var cx1600: float = s._board.position.x + s._board.size.x * 0.5
 	ok(absf(cx1600 - 800.0) < 3.0, "S-RESIZE: the rush board re-centres on a live resize to 1600 (cx=%.0f)" % cx1600)
 	ok(s._board.position.x + s._board.size.x <= 1602.0, "S-RESIZE: the re-fitted board fits within the 1600 width")
-	ok(absf(s._activity.size.x - 1600.0 * 0.9) < 3.0, "S-RESIZE: the activity bar re-fits to the new width (w=%.0f)" % s._activity.size.x)
+	ok(absf(s._activity.size.x - (s._board.size.x + 2.0 * float(s.FRAME_OUT))) < 3.0, "S-RESIZE: the activity bar re-fits to the board width at 1600 (w=%.0f)" % s._activity.size.x)
 	ok(absf(s._board.position.x - bx1080) > 10.0, "S-RESIZE: the board actually moved on the resize (not pinned to the old width)")
 	ok(s._hint != null and absf((s._hint.position.x + s._hint.size.x * 0.5) - 800.0) < 8.0, "S-RESIZE: the bottom hint re-centres to the new width")
 	var hint_label := s._hint.find_child("RushBottomHint", true, false) as Label if s._hint != null else null
@@ -514,10 +514,15 @@ func _test_rush_resize() -> void:
 	if hint_label != null:
 		hint_label_delta = (hint_label.position.y + hint_label.size.y * 0.5) - s._hint.size.y * 0.5
 	ok(hint_label != null and hint_label.vertical_alignment == VERTICAL_ALIGNMENT_CENTER \
-		and hint_label_delta >= 3.0 and hint_label_delta <= 5.5, \
+		and hint_label_delta >= 3.0 and hint_label_delta <= s._hint.size.y * 0.10, \
 		"S-RESIZE: the bottom hint compensates font ink centering (delta=%.1f)" % hint_label_delta)
-	var bottom_gap: float = 1920.0 - (s._hint.position.y + s._hint.size.y) if s._hint != null else 0.0
-	ok(bottom_gap >= 1920.0 * 0.05 - 1.0, "S-RESIZE: the bottom hint clears the bottom edge by 5%% (gap=%.0f)" % bottom_gap)
+	# the info bar sits at the vertical CENTRE of the bottom section (board frame bottom → screen bottom):
+	# equal breathing above and below, both clear.
+	var board_fb: float = s._board.position.y + s._board.size.y + float(s.FRAME_OUT) if s._board != null else 0.0
+	var margin_above: float = s._hint.position.y - board_fb if s._hint != null else 0.0
+	var margin_below: float = 1920.0 - (s._hint.position.y + s._hint.size.y) if s._hint != null else 0.0
+	ok(s._hint != null and margin_above > 4.0 and margin_below > 4.0 and absf(margin_above - margin_below) < 6.0, \
+		"S-RESIZE: the bottom hint is centred in the bottom section (above=%.0f below=%.0f)" % [margin_above, margin_below])
 	get_root().size = Vector2i(1600, 1400)
 	await create_timer(0.06).timeout
 	await create_timer(0.06).timeout
