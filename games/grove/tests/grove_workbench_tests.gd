@@ -420,6 +420,7 @@ func _initialize() -> void:
 	_test_board_element(view)
 	_test_quest_card_config(view)
 	_test_generator_highlight_controls(view)
+	_test_ready_glow_controls(view)
 	_test_new_knobs(view)
 	await _test_action_tray_icon_scale_centers(view)
 	_test_warm_shadow_port()
@@ -916,6 +917,38 @@ func _test_unlock_reward_reuses_mail_dialog() -> void:
 ## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
 ## live scale/frame/gap knobs plus preview-only `cell`/`cols`/`rows`. Piece size comes from Slot-cell
 ## content_frac, the same source the live board uses.
+# The READY GLOW (quest-wanted board tile highlight) workbench section: colour + fill/halo opacity +
+# roundness/halo-size, live-tunable here and flowing to the LIVE board via Kit.ready_glow_opts_from_config.
+func _test_ready_glow_controls(view) -> void:
+	var opts: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": {
+		"color": "77CCFF", "fill_a": 40, "halo_a": 90, "corner_pct": 30, "halo_pct": 25,
+	}})
+	var color_v = opts.get("color", null)
+	ok(color_v is Color and (color_v as Color).is_equal_approx(Color("#77CCFF")) \
+		and is_equal_approx(float(opts.fill_a), 0.40) and is_equal_approx(float(opts.halo_a), 0.90), \
+		"ready glow reads colour + fill/halo opacity from workbench config")
+	ok(is_equal_approx(float(opts.corner_frac), 0.30) and is_equal_approx(float(opts.halo_frac), 0.25), \
+		"ready glow reads corner roundness + halo size from workbench config")
+	# an absent section still yields the shipped look (the kit defaults map 1:1 to piece_view's READY_GLOW)
+	var def: Dictionary = Kit.ready_glow_opts_from_config({})
+	ok(def.color is Color and (def.color as Color).is_equal_approx(Color("#FFB12E")) \
+		and is_equal_approx(float(def.fill_a), 0.55) and is_equal_approx(float(def.halo_a), 0.60), \
+		"ready glow with no config returns the shipped amber defaults")
+	# registered as a gallery element; the look knobs are saved config, the preview cell size is not
+	ok(View.IDS.has("ready_glow") and view._sections.has("ready_glow"), "the ready glow is a registered workbench element")
+	ok(view._is_config("ready_glow", "fill_a") and view._is_config("ready_glow", "color") \
+		and not view._is_config("ready_glow", "cell"), "ready glow look knobs are saved config; preview cell is not")
+	# the sidebar exposes a colour picker; a colour edit flows through the SAME kit transform the board reads
+	view._selected = "ready_glow"
+	view._rebuild_sidebar()
+	ok(view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 1, \
+		"the ready glow sidebar exposes a colour picker")
+	view._params["ready_glow"]["color"] = "FF8800"
+	view._apply_edit()
+	var rg_opts: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": view._params["ready_glow"]})
+	ok(rg_opts.color.is_equal_approx(Color("#FF8800")), "a workbench ready-glow colour edit flows through the kit transform the board reads")
+	ok(view._make_element("ready_glow") != null, "the ready glow preview element builds")
+
 func _test_generator_highlight_controls(view) -> void:
 	var opts: Dictionary = Kit.gen_highlight_opts_from_config({"generator": {
 		"glow_scale": 122, "glow_a": 80, "glow_color": "77CCFF",

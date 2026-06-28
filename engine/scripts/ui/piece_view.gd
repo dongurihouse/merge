@@ -402,23 +402,28 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 # BEHIND the sprite — never child(0), preserving make_piece's shadow-at-0 invariant. The board breathes
 # it (FX.breathe) and clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
 # node, or null when the holder already wears one (idempotent).
-const READY_GLOW := {"color": "#FFB12E", "fill_a": 0.55, "halo_a": 0.6}   # warm amber: a rounded cell-FILL + a soft halo
-static func add_ready_glow(holder: Control, size: float) -> Control:
+# color is a hex string; fill_a/halo_a are 0..1 opacities; corner_frac/halo_frac are the rounded-fill
+# corner radius and the halo spill, each as a FRACTION of the cell. The workbench "ready_glow" section
+# overrides these live via the `hl` dict (board.gd → Kit.ready_glow_opts_from_config); an absent config
+# leaves every key here, so the shipped look is byte-identical.
+const READY_GLOW := {"color": "#FFB12E", "fill_a": 0.55, "halo_a": 0.6, "corner_frac": 0.22, "halo_frac": 0.16}
+static func add_ready_glow(holder: Control, size: float, hl: Dictionary = {}) -> Control:
 	if holder.has_node("ReadyGlow"):
 		return null
 	var below := 1 if (holder.get_child_count() > 0 and String(holder.get_child(0).name) == SHADOW_NAME) else 0
 	# A halo BEHIND the item read too faint on the cream board (its bright core hid behind the sprite,
 	# only the pale falloff showed). Instead FILL the cell with a soft warm amber (rounded, like a lit
 	# slot) plus a glow shadow that spills past the cell — the way the frontier cells read clearly.
+	var col: Color = hl.get("color", Color(READY_GLOW["color"]))
 	var glow := Panel.new()
 	glow.name = "ReadyGlow"
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	glow.size = Vector2(size, size)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(READY_GLOW["color"], float(READY_GLOW["fill_a"]))
-	sb.set_corner_radius_all(int(size * 0.22))
-	sb.shadow_color = Color(READY_GLOW["color"], float(READY_GLOW["halo_a"]))
-	sb.shadow_size = int(size * 0.16)        # the soft glow spilling past the cell
+	sb.bg_color = Color(col, float(hl.get("fill_a", READY_GLOW["fill_a"])))
+	sb.set_corner_radius_all(int(size * float(hl.get("corner_frac", READY_GLOW["corner_frac"]))))
+	sb.shadow_color = Color(col, float(hl.get("halo_a", READY_GLOW["halo_a"])))
+	sb.shadow_size = int(size * float(hl.get("halo_frac", READY_GLOW["halo_frac"])))   # the soft glow spilling past the cell
 	glow.add_theme_stylebox_override("panel", sb)
 	holder.add_child(glow)
 	holder.move_child(glow, below)

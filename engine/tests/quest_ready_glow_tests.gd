@@ -10,6 +10,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 
 var _pass := 0
 var _fail := 0
@@ -74,6 +75,7 @@ func _initialize() -> void:
 	fresh("glow")
 	var scn = _board()
 	ok(scn.board != null, "the board scene stands up")
+	ok(not scn._ready_glow_opts.is_empty(), "the board resolves the workbench ready-glow opts once in _ready")
 	ok(not scn.quests.is_empty(), "the fresh fence carries at least one live quest")
 	var q: Dictionary = scn.quests[0]
 	var it: Dictionary = G.quest_item(q)
@@ -101,6 +103,16 @@ func _initialize() -> void:
 	scn._refresh_giver_lights()
 	ok(_has_glow(scn.piece_nodes[cell_a]),
 		"the glow appears through the REAL _refresh_giver_lights hook, not only the direct refresh")
+
+	# the live glow reflects the board's resolved _ready_glow_opts (the workbench tuning the board reads) —
+	# guards the wiring: a dropped opts hand-off leaves the units green but the live board on shipped defaults.
+	scn.piece_nodes[cell_a].get_node("ReadyGlow").free()
+	scn._ready_glow_opts = {"color": Color("#FF0000"), "fill_a": 0.90, "halo_a": 0.80, "corner_frac": 0.20, "halo_frac": 0.15}
+	scn._refresh_giver_lights()
+	var live_sb: StyleBoxFlat = scn.piece_nodes[cell_a].get_node("ReadyGlow").get_theme_stylebox("panel")
+	ok(live_sb != null and is_equal_approx(live_sb.bg_color.r, 1.0) and live_sb.bg_color.g < 0.2 \
+		and is_equal_approx(live_sb.bg_color.a, 0.90), \
+		"the live ready glow takes the board's resolved _ready_glow_opts (workbench tuning reaches the board)")
 
 	# clearing: once no live quest asks for it, the glow is removed IN PLACE (the tile stays)
 	for i in range(scn.quests.size() - 1, -1, -1):
@@ -165,6 +177,32 @@ func _initialize() -> void:
 	ok(scn.board.item_at(fc) == oc, "a focused tile nothing wants is never delivered")
 	ok(scn.quests.size() == fq, "no quest is removed by tapping an un-wanted tile")
 	scn.free()
+
+	# --- Part D: add_ready_glow honours a workbench `hl` override; {} keeps the shipped look ---
+	# The glow appearance is now workbench-tunable (the "ready_glow" section). add_ready_glow takes an
+	# optional override dict; absent keys must reproduce the shipped READY_GLOW constants byte-for-byte.
+	var holder := Control.new()
+	get_root().add_child(holder)
+	var g_default: Control = PieceView.add_ready_glow(holder, 100.0)         # no hl → shipped constants
+	var sb_d: StyleBoxFlat = g_default.get_theme_stylebox("panel")
+	ok(sb_d != null and sb_d.bg_color.is_equal_approx(Color(Color("#FFB12E"), 0.55)), \
+		"default ready glow fills with the shipped amber at 0.55")
+	ok(sb_d != null and is_equal_approx(sb_d.shadow_color.a, 0.6) \
+		and sb_d.shadow_size == int(100.0 * 0.16) and sb_d.corner_radius_top_left == int(100.0 * 0.22), \
+		"default ready glow keeps the shipped halo alpha / size / corner")
+
+	var holder2 := Control.new()
+	get_root().add_child(holder2)
+	var g_tuned: Control = PieceView.add_ready_glow(holder2, 100.0, \
+		{"color": Color("#1188FF"), "fill_a": 0.30, "halo_a": 0.90, "corner_frac": 0.10, "halo_frac": 0.25})
+	var sb_t: StyleBoxFlat = g_tuned.get_theme_stylebox("panel")
+	ok(sb_t != null and sb_t.bg_color.is_equal_approx(Color(Color("#1188FF"), 0.30)), \
+		"a tuned ready glow takes the workbench colour + fill opacity")
+	ok(sb_t != null and sb_t.shadow_color.is_equal_approx(Color(Color("#1188FF"), 0.90)), \
+		"a tuned ready glow takes the workbench halo opacity + colour")
+	ok(sb_t != null and sb_t.corner_radius_top_left == int(100.0 * 0.10) and sb_t.shadow_size == int(100.0 * 0.25), \
+		"a tuned ready glow takes the workbench corner roundness + halo size")
+	holder.free(); holder2.free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

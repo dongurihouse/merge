@@ -3758,6 +3758,20 @@ static func focus_ring_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"halo": bool(f.get("halo", true)),
 	}
 
+## The QUEST-READY glow (a board tile a live quest wants) tuning from the workbench. Colour is a 6-digit
+## hex string (no '#'); fill_a/halo_a are whole-percent opacities; corner_pct/halo_pct are the rounded-fill
+## corner radius and the halo spill as percents of the cell. Flows to the live board via board.gd
+## _ready_glow_opts → PieceView.add_ready_glow. An absent section returns the shipped READY_GLOW look.
+static func ready_glow_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var r: Dictionary = cfg.get("ready_glow", {}) if cfg is Dictionary else {}
+	return {
+		"color": _hex_color(String(r.get("color", "FFB12E"))),
+		"fill_a": clampf(float(r.get("fill_a", 55.0)) / 100.0, 0.0, 1.0),
+		"halo_a": clampf(float(r.get("halo_a", 60.0)) / 100.0, 0.0, 1.0),
+		"corner_frac": clampf(float(r.get("corner_pct", 22.0)) / 100.0, 0.0, 0.50),
+		"halo_frac": clampf(float(r.get("halo_pct", 16.0)) / 100.0, 0.0, 0.50),
+	}
+
 ## Parse a 6-digit hex string (with or without a leading '#') into a Color; falls back to white.
 static func _hex_color(hex: String) -> Color:
 	var h := hex.strip_edges()
