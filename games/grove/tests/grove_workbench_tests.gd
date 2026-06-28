@@ -1981,6 +1981,15 @@ func _test_quest_card_config(view) -> void:
 		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 and _is_warm_shadow((sb as StyleBoxFlat).shadow_color):
 			warm_shadow = true
 	ok(warm_shadow, "card Shadow toggle ON casts the shared warm-tinted shadow behind the card")
+	# the shadow HUGS the visible card: card_quest.png pads the parchment with a transparent margin, so the
+	# shadow is inset by it (cast from the visible card edge) — a tight directional drop matching the global
+	# shadow, NOT an all-around halo around the padded NinePatch rect.
+	var cins := Control.new()
+	GiverStand._add_card_shadow(cins, 200.0, {"shadow": true, "shadow_params": on_params})
+	var sins := cins.get_child(0) as Panel
+	ok(sins != null and sins.offset_left > 0.0 and sins.offset_top > 0.0 and sins.offset_right < 0.0 and sins.offset_bottom < 0.0, \
+		"the card shadow insets to hug the visible card, not the transparent-padded rect")
+	cins.queue_free()
 	coff.queue_free()
 	con.queue_free()
 
