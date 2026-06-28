@@ -42,10 +42,14 @@ const KNOBS := {
 static func knob(opts: Dictionary, id: String) -> int:
 	return int(opts.get(id, KNOBS.get(id, 0)))
 
+# shake + board_punch fire on EVERY merge when on; the cozy design reserves them for big moments,
+# so they default OFF (opt-in via the workbench). The rest of the cues default on.
+const DEFAULT_OFF := ["shake", "board_punch"]
+
 static func defaults() -> Dictionary:
 	var d := {"enabled": true}
 	for e in EFFECTS:
-		d[String(e.id)] = true
+		d[String(e.id)] = not (String(e.id) in DEFAULT_OFF)
 	for k in KNOBS.keys():
 		d[k] = KNOBS[k]
 	return d
