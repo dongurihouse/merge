@@ -17,6 +17,8 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const Debug = preload("res://engine/scripts/ui/debug.gd")           # authoring() gate for the debug-only rows
+const Identity = preload("res://engine/scripts/core/identity.gd")   # the Game Center player id (read-only display)
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "SettingsOverlay"
 
@@ -96,4 +98,30 @@ static func _entries(host: Control) -> Array:
 				Music.refresh()
 			Audio.play("button_tap", -2.0)
 		out.append(e)
+	# DEBUG-ONLY rows, gated exactly like the state-jump panel (Debug.authoring): a read-only Game
+	# Center id line and a destructive Reset-save action. Never present in a release build, headless
+	# logic suites, or quiet captures — so production players see the toggle list above and nothing more.
+	if Debug.authoring():
+		out.append(_gc_info_entry())
+		out.append(_reset_entry(host))
 	return out
+
+# The read-only Game Center id row: the signed-in player id, or a "not signed in" placeholder when there
+# is none (off iOS, plugin absent, or sign-in not yet complete). The row never triggers sign-in — that
+# already runs automatically at home open (Identity.boot from map.gd); this only displays the cached id.
+static func _gc_info_entry() -> Dictionary:
+	var id := Identity.player_id()
+	return {"kind": "info", "label": "Game Center", "value": id if id != "" else "not signed in"}
+
+# The destructive Reset-save row: a two-tap confirm (the kit morphs the label to "Tap again to wipe" on
+# the first tap) whose on_action wipes ALL progress and reloads to a fresh home — the same wipe + reflect
+# the debug state-jump panel's Reset uses (Debug._act_reset).
+static func _reset_entry(host: Control) -> Dictionary:
+	return {
+		"kind": "action", "label": "Reset save", "confirm_label": "Tap again to wipe",
+		"destructive": true,
+		"on_action": func() -> void:
+			Save.reset()
+			if host.is_inside_tree():
+				host.get_tree().call_deferred("reload_current_scene"),
+	}

@@ -7,9 +7,30 @@ extends SceneTree
 ## and the config transforms read defaults + saved overrides — so the workbench's saved JSON drives it.
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Settings = preload("res://engine/scripts/ui/settings.gd")
+const Debug = preload("res://engine/scripts/ui/debug.gd")
+const Identity = preload("res://engine/scripts/core/identity.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0
+
+# Redirect the save to a throwaway dir (mirrors debug_overlay_tests.fresh) so get_setting /
+# grove / reset run against a clean fixture, never the real user save.
+func fresh(name: String) -> void:
+	var dir := "user://tu_settings_kit_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
+func _entry_of_kind(entries: Array, kind: String) -> Dictionary:
+	for e in entries:
+		if String((e as Dictionary).get("kind", "")) == kind:
+			return e
+	return {}
 
 func ok(cond: bool, label: String) -> void:
 	if cond:
@@ -155,6 +176,150 @@ func _initialize() -> void:
 	ok(so.has("toggle") and so["toggle"] is Dictionary, "settings_opts carries the toggle-card style under 'toggle'")
 	ok(float(so.get("row_gap", -1)) == 20.0, "settings_opts reads the saved row_gap")
 	ok(so.has("banner_font") and so.has("close_size"), "settings_opts inherits the shared frame chrome")
+
+	# --- info_card: a read-only label + value row, no switch -----------------------
+	var info := Kit.info_card({"label": "Game Center", "value": "ABC123"})
+	var info_has_label := false
+	var info_has_value := false
+	for l in info.find_children("", "Label", true, false):
+		var t := (l as Label).text
+		if t == "Game Center":
+			info_has_label = true
+		if t == "ABC123":
+			info_has_value = true
+	ok(info_has_label, "info_card shows its label")
+	ok(info_has_value, "info_card shows its value text")
+	ok(_find_switch(info) == null, "info_card carries no toggle switch (read-only)")
+
+	# --- action_card: a button row that fires on_action ----------------------------
+	var acted: Array = [0]
+	var action := Kit.action_card({"label": "Reset save", "on_action": func() -> void: acted[0] += 1})
+	var action_btn: Button = null
+	for b in action.find_children("", "Button", true, false):
+		if (b as Button).text == "Reset save" and not (b as Button).has_meta("on"):
+			action_btn = b
+	ok(action_btn != null, "action_card shows a button with its label")
+	if action_btn != null:
+		action_btn.pressed.emit()
+	ok(acted[0] == 1, "pressing the action_card button fires on_action")
+
+	# --- action_card with confirm_label: two-tap before firing ---------------------
+	var confirmed: Array = [0]
+	var two := Kit.action_card({
+		"label": "Reset save", "confirm_label": "Tap again to wipe",
+		"on_action": func() -> void: confirmed[0] += 1,
+	})
+	var two_btn: Button = null
+	for b in two.find_children("", "Button", true, false):
+		if not (b as Button).has_meta("on"):
+			two_btn = b
+	ok(two_btn != null and two_btn.text == "Reset save", "two-tap action starts with its base label")
+	if two_btn != null:
+		two_btn.pressed.emit()
+	ok(confirmed[0] == 0, "first tap does NOT fire on_action (arms the confirm)")
+	ok(two_btn != null and two_btn.text == "Tap again to wipe", "first tap morphs the label to the confirm prompt")
+	if two_btn != null:
+		two_btn.pressed.emit()
+	ok(confirmed[0] == 1, "second tap fires on_action")
+
+	# --- settings_dialog renders entries BY KIND (toggle default · info · action) --
+	var mixed := Kit.settings_dialog([
+		{"label": "Music", "value": false},                                  # no kind → toggle
+		{"kind": "info", "label": "Game Center", "value": "not signed in"},
+		{"kind": "action", "label": "Reset save", "on_action": func() -> void: pass},
+	], 540.0, {"banner_text": "Settings"})
+	var mixed_switches := 0
+	for b in mixed.find_children("", "Button", true, false):
+		if (b as Button).has_meta("on"):
+			mixed_switches += 1
+	ok(mixed_switches == 1, "settings_dialog renders the toggle entry as exactly one switch")
+	var mixed_value := false
+	for l in mixed.find_children("", "Label", true, false):
+		if (l as Label).text == "not signed in":
+			mixed_value = true
+	ok(mixed_value, "settings_dialog renders the info entry's value")
+	var mixed_action := false
+	for b in mixed.find_children("", "Button", true, false):
+		if (b as Button).text == "Reset save" and not (b as Button).has_meta("on"):
+			mixed_action = true
+	ok(mixed_action, "settings_dialog renders the action entry's button")
+
+	# --- settings._entries appends the DEBUG rows only under the authoring gate -------
+	# In a debug build (Debug.force), the settings list grows a read-only Game Center id row
+	# and a Reset save action; off the gate it stays the plain toggle list.
+	fresh("debug_rows")
+	var host := Control.new()
+	get_root().add_child(host)
+	Debug.force = true
+	var gated: Array = Settings._entries(host)
+	var info_e := _entry_of_kind(gated, "info")
+	var action_e := _entry_of_kind(gated, "action")
+	ok(String(info_e.get("label", "")) == "Game Center", "debug settings show a Game Center info row")
+	ok(String(info_e.get("value", "")) == "not signed in",
+		"the GC row reads 'not signed in' when there is no id (off iOS)")
+	ok(String(action_e.get("label", "")) == "Reset save", "debug settings show a Reset save action row")
+	ok(bool(action_e.get("destructive", false)), "the Reset row is flagged destructive")
+
+	Debug.force = false
+	var plain_entries: Array = Settings._entries(host)
+	var has_debug_row := false
+	for e in plain_entries:
+		var k := String((e as Dictionary).get("kind", ""))
+		if k == "info" or k == "action":
+			has_debug_row = true
+	ok(not has_debug_row, "without the authoring gate the settings list is toggles only")
+	host.queue_free()
+
+	# --- the Reset action's on_action wipes progress to a fresh save ------------------
+	fresh("reset_action")
+	Save.add_exp(50)
+	ok(Save.exp_total() == 50, "seed: the save carries progress before reset")
+	var host2 := Control.new()                 # NOT added to the tree → _reflect skips the scene reload
+	Debug.force = true
+	var reset_entry := _entry_of_kind(Settings._entries(host2), "action")
+	ok(reset_entry.has("on_action"), "the Reset row carries an on_action")
+	if reset_entry.has("on_action"):
+		(reset_entry["on_action"] as Callable).call()
+	ok(Save.exp_total() == 0, "the Reset action wipes progress to a fresh save")
+	Debug.force = false
+	host2.free()
+
+	# --- the settings dialog GROWS to fit all its rows (no bottom clip) ---------------
+	# Regression: the debug rows make the settings content taller; the card must grow so the LAST row
+	# sits inside it. The frame used to size the body to rows.size.y (a lagging current size), leaving a
+	# taller dialog one row short and clipping Reset + the footer behind the scroll. Built + laid out the
+	# real way (open's width + content_scale) and measured headless.
+	fresh("dialog_fit")
+	var fit_host := Control.new()
+	get_root().add_child(fit_host)
+	Debug.force = true
+	var fit_cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var fit_opts := Kit.settings_opts_from_config(fit_cfg)
+	fit_opts["banner_text"] = "Settings"
+	fit_opts["content_scale"] = Kit.dialog_content_scale(fit_cfg, "settings")
+	fit_opts["footer_text"] = "Privacy Policy"
+	var fit_w := 1080.0 * float(Kit.DIALOG_DESIGN_PCT["settings"]) / 100.0
+	var fit_dlg := Kit.settings_dialog(Settings._entries(fit_host), fit_w, fit_opts)
+	get_root().add_child(fit_dlg)
+	for i in 24:
+		await process_frame
+	var fit_card: PanelContainer = null
+	for c in fit_dlg.get_children():
+		if c is PanelContainer:
+			fit_card = c
+	var fit_reset: Button = null
+	for b in fit_dlg.find_children("", "Button", true, false):
+		var bt := String((b as Button).text)
+		if bt == "Reset save" or bt == "Tap again to wipe":
+			fit_reset = b
+	ok(fit_card != null and fit_reset != null, "the built settings dialog exposes a card + the Reset button")
+	var card_bottom := (fit_card.global_position.y + fit_card.size.y) if fit_card != null else 0.0
+	var reset_bottom := (fit_reset.global_position.y + fit_reset.size.y) if fit_reset != null else 1.0e9
+	ok(fit_reset != null and reset_bottom <= card_bottom + 1.0,
+		"the Reset row sits inside the dialog card (card grew to fit the debug rows, no clip)")
+	Debug.force = false
+	fit_dlg.queue_free()
+	fit_host.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
