@@ -685,12 +685,27 @@ func _initialize() -> void:
 			var inhand_bar := map_scene._inhand_info_bar(Rect2(0, 0, 240, 88)) as Control
 			var inhand_frame := inhand_bar.find_child("InHandInfoBarFrame", true, false) as Panel
 			var inhand_style := inhand_frame.get_theme_stylebox("panel") if inhand_frame != null else null
-			ok(inhand_frame != null and inhand_style is StyleBoxTexture and _has_button_text(inhand_bar, "Sell +5"), \
-				"place-picker resident sell bar reuses the board info-bar gold frame")
+			var inhand_flat := inhand_style as StyleBoxFlat
+			var inhand_line_w := 99
+			if inhand_flat != null:
+				inhand_line_w = maxi(maxi(inhand_flat.border_width_left, inhand_flat.border_width_right), \
+					maxi(inhand_flat.border_width_top, inhand_flat.border_width_bottom))
+			ok(inhand_frame != null and inhand_flat != null and inhand_line_w > 0 and inhand_line_w <= 2 \
+				and _has_button_text(inhand_bar, "Sell +5"), \
+				"place-picker resident sell bar uses the thin Slot-cell line border")
 			inhand_bar.queue_free()
 		if map_scene.select_hits.size() >= 2:
-			var unlocked_select_card := map_scene.select_hits[0].node as Control
-			var locked_select_card := map_scene.select_hits[1].node as Control
+			var unlocked_select_card: Control = null
+			var locked_select_card: Control = null
+			for select_hit in map_scene.select_hits:
+				var select_card := select_hit.get("node", null) as Control
+				var select_z := int(select_hit.get("z", -1))
+				if select_card == null:
+					continue
+				if map_scene.map_unlocked(select_z) and unlocked_select_card == null:
+					unlocked_select_card = select_card
+				elif not map_scene.map_unlocked(select_z) and locked_select_card == null:
+					locked_select_card = select_card
 			ok(unlocked_select_card != null and locked_select_card != null \
 				and unlocked_select_card.size.y > locked_select_card.size.y + 8.0, \
 				"place-picker unlocked map cards are slightly taller than locked map cards")

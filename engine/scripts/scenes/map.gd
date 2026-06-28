@@ -1459,9 +1459,8 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	grid.position = Vector2(0.0, -_hand_scroll)
 	return panel
 
-# The in-hand board's bottom INFO BAR (mirrors the merge board's info bar): a framed strip that reads the
-# SELECTED spirit's tier, and — when the selection is a HOUSED spirit — surfaces a Sell button. The bar and
-# its labels IGNORE the mouse; only the Sell button intercepts its own tap.
+# The in-hand board's bottom strip reads the selected spirit's tier and surfaces Sell. It uses the same
+# thin code-drawn Slot-cell face as the resident cells so it stays quiet inside the right board.
 func _inhand_info_bar(rect: Rect2) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
@@ -1470,25 +1469,23 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	bar.position = rect.position
 	bar.size = rect.size
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bg := Panel.new()
-	bg.name = "InHandInfoBarFrame"
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg: Panel
 	if Kit != null:
-		var ib_opts: Dictionary = Kit.info_bar_opts_from_config(cfg)
-		var frame: StyleBoxTexture = Kit.gold_badge_style(ib_opts.get("badge", {}))
-		frame.content_margin_left = 0.0
-		frame.content_margin_right = 0.0
-		frame.content_margin_top = 0.0
-		frame.content_margin_bottom = 0.0
-		bg.add_theme_stylebox_override("panel", frame)
+		var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
+		bg = Kit.slot_cell_background(rect.size, "empty", false, bag_opts) as Panel
 	else:
+		bg = Panel.new()
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(DOCK_PARCH, 0.97)
 		sb.set_corner_radius_all(12)
 		sb.set_border_width_all(2)
 		sb.border_color = Color(DOCK_INK, 0.20)
 		bg.add_theme_stylebox_override("panel", sb)
+	bg.name = "InHandInfoBarFrame"
+	bg.position = Vector2.ZERO
+	bg.size = rect.size
+	bg.custom_minimum_size = rect.size
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(bg)
 	var pad := 8.0
 	if _sel_orb.is_empty():
