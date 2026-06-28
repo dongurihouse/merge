@@ -18,6 +18,7 @@ const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices by 
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
 const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
+const ScaleContainer = preload("res://engine/scripts/ui/scale_container.gd")   # uniform content scaling inside the frame
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
 const CARD_TEX := Vector2(30, 30)
@@ -1998,6 +1999,12 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var banner_art: String = String(opts.get("banner_art", "mail/mail_banner.png"))
 	var banner_icon_id: String = String(opts.get("banner_icon_id", "mail"))
 	var close_art: String = String(opts.get("close_art", "kit/mail_close.png"))
+	# CRISP CHROME, SCALED CONTENT: `width` is the dialog's AUTHORED (design) width; the chrome
+	# (card border, banner, ✕) is built at the real on-screen TARGET width = design × content_scale,
+	# so it stays sharp. The inner content is laid out at `width` and uniformly scaled to fill the
+	# target (see the ScaleContainer below). content_scale == 1 → byte-identical to the old frame.
+	var content_scale: float = maxf(0.01, float(opts.get("content_scale", 1.0)))
+	var target_w: float = width * content_scale
 
 	var wrap := Control.new()
 	var card := PanelContainer.new()
@@ -2019,9 +2026,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		cf.content_margin_left = 18; cf.content_margin_right = 18
 		cf.content_margin_top = 18; cf.content_margin_bottom = 18
 		card.add_theme_stylebox_override("panel", cf)
-	card.custom_minimum_size = Vector2(width, 0)
+	card.custom_minimum_size = Vector2(target_w, 0)
 	card.position = Vector2.ZERO
-	wrap.custom_minimum_size.x = width      # robust horizontal centring even before relayout runs
+	wrap.custom_minimum_size.x = target_w      # robust horizontal centring even before relayout runs
 	wrap.add_child(card)
 
 	# inner = the card's single content child; it hosts the scrolling content AND the banner overlay
@@ -2046,11 +2053,18 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rows.add_child(spacer)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rows.add_child(content)
+	if is_equal_approx(content_scale, 1.0):
+		rows.add_child(content)                    # identity → unchanged (mail/daily/bag stay byte-identical)
+	else:
+		var scaler := ScaleContainer.new()         # lays content out at `width`, renders it at content_scale
+		scaler.scale_factor = content_scale
+		scaler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scaler.add_child(content)
+		rows.add_child(scaler)
 	scroll.add_child(rows)
 
 	# the banner overlays the TOP (added after the scroll → drawn on top), draggable
-	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id, banner_text_pad_l, banner_text_pad_r, banner_min_w)
+	var header := _banner(banner_text, banner_font, banner_h, target_w, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id, banner_text_pad_l, banner_text_pad_r, banner_min_w)
 	header.position = banner_pos
 	inner.add_child(header)
 
@@ -3339,6 +3353,27 @@ static func card_icon_badge(cfg: Dictionary) -> String:
 
 ## The SHARED FRAME's config section. It lives under "frame" now (its own standalone component); older
 ## saved files kept these keys under "dialog", so merge that as a fallback — the "frame" section wins.
+## Each dialog's AUTHORED width as a % of the screen — the baseline its content (fonts, cells,
+## padding) was tuned at. Content scales by global_width_pct / design_pct so every dialog renders
+## at the SINGLE global width while keeping its proportions. This is a code constant (same category
+## as cell sizes), NOT a workbench knob — the only width KNOB is the global frame.width_pct.
+const DIALOG_DESIGN_PCT := {
+	"dialog": 75.0, "daily": 75.0, "bag": 75.0,
+	"shop": 85.0, "tiers": 85.0, "vault": 80.0,
+	"settings": 50.0, "level": 50.0, "info": 58.0,
+}
+
+## The ONE global dialog width, as a % of the screen — read from the shared frame config
+## (cfg.frame.width_pct, falling back through cfg.dialog for back-compat). Clamped to [30,100].
+static func frame_width_pct(cfg: Dictionary) -> float:
+	return clampf(float(_frame_cfg(cfg).get("width_pct", 75.0)), 30.0, 100.0)
+
+## The content scale for a dialog id = the global width / the dialog's authored design width.
+## > 1 enlarges (e.g. settings 50→75 = 1.5×), < 1 shrinks (e.g. shop 85→75 ≈ 0.88×).
+static func dialog_content_scale(cfg: Dictionary, id: String) -> float:
+	var design: float = float(DIALOG_DESIGN_PCT.get(id, 75.0))
+	return frame_width_pct(cfg) / maxf(1.0, design)
+
 static func _frame_cfg(cfg: Dictionary) -> Dictionary:
 	var m: Dictionary = (cfg.get("dialog", {}) as Dictionary).duplicate()
 	m.merge(cfg.get("frame", {}), true)
