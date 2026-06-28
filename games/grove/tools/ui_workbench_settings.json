@@ -114,7 +114,6 @@
 		"thick_pct": 4.0
 	},
 	"frame": {
-		"width_pct": 75.0,
 		"banner_burn": 62.0,
 		"banner_font": 37.0,
 		"banner_h": 92.0,
@@ -143,7 +142,7 @@
 		"list_max_h": 425.0,
 		"list_top_pad": -2.0,
 		"shadow": false,
-		"width": 720.0
+		"width_pct": 75.0
 	},
 	"fx": {
 		"enabled": {
@@ -162,10 +161,10 @@
 		"glow_a": 0.0,
 		"glow_color": "e74c2d",
 		"glow_scale": 60.0,
-		"outline_a": 81.0,
-		"outline_blur": 0,
-		"outline_color": "E8BE5C",
-		"outline_w": 58.0,
+		"outline_a": 23.0,
+		"outline_blur": 54.0,
+		"outline_color": "c97648",
+		"outline_w": 29.0,
 		"shadow": false,
 		"sparkle_color": "FFF4C2",
 		"sparkle_count": 7.0,
