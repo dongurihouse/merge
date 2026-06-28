@@ -838,10 +838,11 @@ func _make_element(id: String) -> Control:
 			var mh := live_h
 			var art_path := Kit.map_card_art_path(Game.DATA.MAPS[0]) if bool(p.open) else ""
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": art_path,
-				# the count pill (in-progress) and the habitat reward shelf (restored) share the card's lower
-				# edge, so they're mutually exclusive: an OPEN, not-yet-done card previews the count pill (its
-				# sliders' target); flipping Done swaps in the reward shelf the completed habitat card renders.
-				"title": "The Farm", "resident_preview": true, "habitat_preview": bool(p.open) and bool(p.done),
+				# A not-yet-done OPEN card previews the in-progress vista the game renders: the count pill (the
+				# pill sliders' target), no resident rail. Flipping Done previews the COMPLETED habitat card —
+				# the resident rail plus the reward shelf — which share the lower edge and replace the pill. So
+				# both overlays are Done-gated together, and each state mirrors what map.gd actually draws.
+				"title": "The Farm", "resident_preview": bool(p.open) and bool(p.done), "habitat_preview": bool(p.open) and bool(p.done),
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": String(Game.DATA.MAPS[0].id)}
 			var card := Kit.map_card(mdata, mco, mw, mh)

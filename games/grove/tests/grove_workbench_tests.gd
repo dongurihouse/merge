@@ -1716,8 +1716,8 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_h\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_y\""), \
 		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
-		"the Workbench map-card preview requests the resident-slot preview overlay")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": bool(p.open) and bool(p.done)"), \
+		"the Workbench map-card preview requests the resident-slot overlay only for DONE (completed habitat) cards")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open) and bool(p.done)"), \
 		"the Workbench map-card preview shows the collection progress shelf only for DONE (restored) map cards")
 	# Drive the REAL preview path (_make_element) so the count-pill knobs are proven to reach a rendered pill.
@@ -1729,9 +1729,14 @@ func _test_gold_badge_consumers(view) -> void:
 	var saved_mc_pill_y: float = float(mc_params.get("pill_y_frac", 13))
 	mc_params["open"] = true
 	mc_params["done"] = false
-	var inprogress_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
+	var inprogress_card: Control = view._make_element("map_card")
+	var inprogress_pill := inprogress_card.find_child("MapCardCountPill", true, false) as Control
 	ok(inprogress_pill != null, \
 		"the Workbench open/in-progress map-card preview renders the count pill so its sliders have a target")
+	# the game's in-progress card has NO resident rail (that's a completed-habitat element), so the preview
+	# must hide it too — otherwise the pill is shoved aside to dodge a rail the player never sees there.
+	ok(inprogress_card.find_child("MapResidentRailPreview", true, false) == null, \
+		"the Workbench open/in-progress map-card preview hides the resident rail to match the game")
 	mc_params["pill_y_frac"] = 3
 	var low_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
 	mc_params["pill_y_frac"] = 30
@@ -1744,6 +1749,8 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(done_card.find_child("MapHabitatRewardShelf", true, false) != null \
 		and done_card.find_child("MapCardCountPill", true, false) == null, \
 		"the Workbench done/restored map-card preview swaps the count pill for the habitat reward shelf")
+	ok(done_card.find_child("MapResidentRailPreview", true, false) != null, \
+		"the Workbench done/restored map-card preview shows the resident rail (the completed habitat card)")
 	mc_params["open"] = saved_mc_open
 	mc_params["done"] = saved_mc_done
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
