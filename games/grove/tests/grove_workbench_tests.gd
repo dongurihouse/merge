@@ -648,6 +648,22 @@ func _initialize() -> void:
 		level_badge = level_badge.get_parent()
 	ok(absf(_painted_top(level_badge) - edge_margin) <= 1.0, \
 		"live HUD level badge painted top uses the shared margin (%.1f ~= %.1f)" % [_painted_top(level_badge), edge_margin])
+	var safe_host := Control.new()
+	safe_host.size = Design.size()
+	safe_host.custom_minimum_size = Design.size()
+	get_root().add_child(safe_host)
+	var fake_safe_top := 44.0
+	var safe_hud := Hud.build(safe_host, {"_safe_top_for_test": fake_safe_top})
+	await process_frame
+	var safe_expected_top := edge_margin + fake_safe_top
+	var safe_level_badge := (safe_hud.level as Label).get_parent()
+	while safe_level_badge != null and safe_level_badge.name != "LevelBadge":
+		safe_level_badge = safe_level_badge.get_parent()
+	ok(absf((safe_hud.wallet as Control).get_global_rect().position.y - safe_expected_top) <= 1.0, \
+		"live HUD wallet top honors the mobile safe-area inset (%.1f ~= %.1f)" % [(safe_hud.wallet as Control).get_global_rect().position.y, safe_expected_top])
+	ok(absf(_painted_top(safe_level_badge) - safe_expected_top) <= 1.0, \
+		"live HUD level badge painted top shares the wallet safe-area Y (%.1f ~= %.1f)" % [_painted_top(safe_level_badge), safe_expected_top])
+	safe_host.queue_free()
 	var later_weather := Control.new()
 	later_weather.name = "WeatherLayer"
 	hud_host.add_child(later_weather)

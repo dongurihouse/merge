@@ -65,11 +65,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
 	var view := _view_size(host)
-	var safe_top := Look.safe_top(host)
-	var top_edge := Tune.EDGE_MARGIN + safe_top
+	var edge_margin := float(layout.get("edge_margin_px", 18.0))
+	var safe_top := float(opts.get("_safe_top_for_test", Look.safe_top(host)))
+	var top_edge := edge_margin + safe_top
 	var lv_px := _screen_w_px(view, float(layout.level_w_frac))
 	var pill_slot_w := _screen_w_px(view, float(layout.currency_pill_w_frac))
-	var edge_margin := float(layout.get("edge_margin_px", 18.0))
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
@@ -167,7 +167,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 					(on_level as Callable).call())
 		return av
 	var avatar: Control = build_badge.call(lvl0)
-	place_level_row.call(edge_margin - float(avatar.get_meta("painted_top_offset", 0.0)))
+	place_level_row.call(top_edge - float(avatar.get_meta("painted_top_offset", 0.0)))
 	# the rebuildable badge bits, shared with `refresh` via a dict (closures capture it by reference)
 	var badge_state := {"avatar": avatar, "level": avatar.get_node_or_null("lv_num") as Label,
 		"tier": Look.level_badge_index(lvl0)}
@@ -209,7 +209,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 			badge_state["avatar"] = nb
 			badge_state["level"] = nb.get_node_or_null("lv_num") as Label
 			badge_state["tier"] = tier
-			place_level_row.call(edge_margin - float(nb.get_meta("painted_top_offset", 0.0)))
+			place_level_row.call(top_edge - float(nb.get_meta("painted_top_offset", 0.0)))
 			out["level"] = badge_state["level"]
 		var lnum: Label = badge_state["level"]
 		if lnum != null:
