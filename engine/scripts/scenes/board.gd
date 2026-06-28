@@ -33,6 +33,7 @@ const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")    # the toggleab
 const LandFx = preload("res://engine/scripts/ui/land_fx.gd")      # (workbench-tuned, resolved once in _ready)
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
+const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")        # the toggleable Grab (pickup) highlight
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -115,6 +116,7 @@ var _merge_opts := {}
 var _land_opts := {}
 var _launch_opts := {}
 var _move_opts := {}
+var _grab_opts := {}
 # the quest-ready glow look (colour/opacity/roundness/halo), resolved ONCE in _ready from the workbench
 # "ready_glow" section so add_ready_glow renders the SAME look the workbench previews. {} → shipped amber.
 var _ready_glow_opts := {}
@@ -341,6 +343,7 @@ func _ready() -> void:
 	_land_opts = LandFx.from_config(fx_cfg)
 	_launch_opts = LaunchFx.from_config(fx_cfg)
 	_move_opts = MoveFx.from_config(fx_cfg)
+	_grab_opts = GrabFx.from_config(fx_cfg)
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
 	if _winback:
@@ -2460,6 +2463,7 @@ func _clear_drag_feel(node: Control = null) -> void:
 	_drag_last_pos = Vector2.ZERO
 	if node != null and is_instance_valid(node):
 		node.rotation = 0.0
+		GrabFx.release(node)   # drop the grab glow + white rim (the shared drag-end chokepoint)
 
 func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
@@ -2476,6 +2480,7 @@ func _on_press(pos: Vector2) -> void:
 			_drag_node.z_index = 20
 			_drag_node.scale = Vector2(1.12, 1.12)
 			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the generator lifts off
+			GrabFx.grab(_drag_node, _grab_opts)      # glow + white rim + a light pickup tap (workbench-tuned)
 			Audio.play("item_pickup", -6.0)
 		return
 	if board.item_at(cell) > 0:
@@ -2485,6 +2490,7 @@ func _on_press(pos: Vector2) -> void:
 			_drag_node.z_index = 20
 			_drag_node.scale = Vector2(1.12, 1.12)
 			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the item lifts off
+			GrabFx.grab(_drag_node, _grab_opts)      # glow + white rim + a light pickup tap (workbench-tuned)
 			Audio.play("item_pickup", -6.0)
 			_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
@@ -3222,9 +3228,14 @@ func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)
 	piece_nodes.erase(a)
 	piece_nodes[b] = node
+	# JUICE: the tile slides into the empty cell, then THUMPS DOWN on arrival — the workbench-tuned Land
+	# feel (squash + dust puff + flash + the land sound + the new neighbour ripple), with the cell's
+	# orthogonal neighbours bumped. LandFx owns the touchdown sound now, so the old bare item_drop is gone
+	# (keeping it would double with the land sound). Mirrors the generator-pop touchdown at _pop_seed.
+	var land_ctr := _cell_pos(b) + Vector2(csz, csz) / 2.0
 	var t := node.create_tween()
 	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	Audio.play("item_drop", -4.0)
+	t.tween_callback(LandFx.apply.bind(board_area, node, land_ctr, _land_opts, 1.0, false, _orthogonal_neighbour_nodes(b)))
 	_persist()
 	_refresh_giver_lights()
 

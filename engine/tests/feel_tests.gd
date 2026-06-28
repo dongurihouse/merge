@@ -352,6 +352,29 @@ func _test_fx_config() -> void:
 	ok(_count_particles(host_q) >= 1, "LandFx.apply quiet still fires the dust puff (the touchdown visual)")
 	ok(_count_flashes(host_q) == 0, "LandFx.apply quiet suppresses the flash (the per-tile dedupe)")
 
+	# --- LandFx ripple: the new neighbour BUMP on a plain drop (mirrors the merge ripple, driven by the
+	# new trailing `neighbors` arg). Default ON; gated by `not quiet` so a bulk settle never N-bumps. ---
+	var l_def := LandFx.from_config({})
+	ok(LandFx.on(l_def, "ripple"), "LandFx ripple defaults ON")
+	ok(LandFx.knob(l_def, "ripple_pct") == LandFx.KNOBS["ripple_pct"], "LandFx ripple_pct defaults to the registry knob")
+	var l_rip := LandFx.from_config({"land_fx": {"ripple": false, "ripple_pct": 30}})
+	ok(LandFx.on(l_rip, "ripple") == false and LandFx.knob(l_rip, "ripple_pct") == 30, "LandFx.from_config honours the ripple toggle + knob")
+	var host_r := Control.new(); host_r.size = Vector2(300, 300); get_root().add_child(host_r)
+	var tile_r := Control.new(); tile_r.size = Vector2(96, 96); host_r.add_child(tile_r)
+	# loud land + ripple ON → the neighbour's pivot gets centred (the Feel.ripple side effect we can read headless).
+	var nb := Control.new(); nb.size = Vector2(96, 96); nb.position = Vector2(120, 0); host_r.add_child(nb)
+	LandFx.apply(host_r, tile_r, Vector2(20, 20), LandFx.from_config({}), 1.0, false, [nb])
+	ok(nb.pivot_offset.is_equal_approx(nb.size / 2.0), "LandFx.apply with a neighbour + ripple on bumps the neighbour (pivot centred)")
+	# a QUIET land must NOT ripple (a gravity/bulk settle can't fire N neighbour bumps).
+	var nb_q := Control.new(); nb_q.size = Vector2(96, 96); nb_q.position = Vector2(120, 0); host_r.add_child(nb_q)
+	LandFx.apply(host_r, tile_r, Vector2(20, 20), LandFx.from_config({}), 1.0, true, [nb_q])
+	ok(nb_q.pivot_offset == Vector2.ZERO, "a QUIET LandFx.apply does NOT ripple the neighbours")
+	# ripple toggled OFF → no neighbour bump even on a loud land.
+	var nb_off := Control.new(); nb_off.size = Vector2(96, 96); nb_off.position = Vector2(120, 0); host_r.add_child(nb_off)
+	LandFx.apply(host_r, tile_r, Vector2(20, 20), LandFx.from_config({"land_fx": {"ripple": false}}), 1.0, false, [nb_off])
+	ok(nb_off.pivot_offset == Vector2.ZERO, "LandFx.apply with ripple OFF does not bump neighbours")
+	host_r.queue_free()
+
 	host_on.queue_free(); host_off.queue_free(); host_q.queue_free()
 
 # Count the GPUParticles2D children of a host (the FX.burst side effect).

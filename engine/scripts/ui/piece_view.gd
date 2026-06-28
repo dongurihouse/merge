@@ -436,26 +436,33 @@ static var _silhouette_cache: Dictionary = {}
 static func _silhouette_tex(path: String) -> Texture2D:
 	if _silhouette_cache.has(path):
 		return _silhouette_cache[path]
-	var result: Texture2D = null
 	var ct := _content_tex(path)
-	if ct != null:
-		var img := ct.get_image()
-		if img != null:
-			if img.is_compressed():
-				img.decompress()
-			if img.has_mipmaps():
-				img.clear_mipmaps()   # silhouette needs mip 0 only; a mip chain breaks create_from_data(…false…)
-			if img.get_format() != Image.FORMAT_RGBA8:
-				img.convert(Image.FORMAT_RGBA8)
-			var data := img.get_data()
-			for i in range(0, data.size(), 4):
-				data[i] = 255
-				data[i + 1] = 255
-				data[i + 2] = 255           # keep data[i + 3] (the alpha = the shape)
-			result = ImageTexture.create_from_image(
-				Image.create_from_data(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8, data))
+	var result: Texture2D = _silhouette_from_tex(ct) if ct != null else null
 	_silhouette_cache[path] = result
 	return result
+
+# The white-silhouette byte pass (rgb forced to 255, alpha kept = the shape) from ANY texture — the
+# shared core of _silhouette_tex (cached per path, for the gold gen rim) and the grab outline (built
+# live from a held tile's OWN art texture). Returns null when the texture has no readable image.
+static func _silhouette_from_tex(tex: Texture2D) -> Texture2D:
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	if img == null:
+		return null
+	if img.is_compressed():
+		img.decompress()
+	if img.has_mipmaps():
+		img.clear_mipmaps()   # silhouette needs mip 0 only; a mip chain breaks create_from_data(…false…)
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var data := img.get_data()
+	for i in range(0, data.size(), 4):
+		data[i] = 255
+		data[i + 1] = 255
+		data[i + 2] = 255           # keep data[i + 3] (the alpha = the shape)
+	return ImageTexture.create_from_image(
+		Image.create_from_data(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8, data))
 
 # (2/3) A gold rim TRACING the icon's silhouette (not a square frame). GenOutline draws the white
 # silhouette tinted + offset around a ring; the art sprite (added after, on top) covers the interior.
@@ -475,6 +482,48 @@ static func _add_gen_outline(holder: Control, size: float, path: String, hl: Dic
 	o.blur = float(hl.get("outline_blur", GEN_OUTLINE["blur"])) * size   # feather, as a fraction of cell
 	o.steps = int(GEN_OUTLINE["steps"])
 	holder.add_child(o)
+
+# The GRAB highlight rim — the SAME silhouette-tracing outline as the generator highlight, but driven
+# on/off as the player picks a tile UP (GrabFx.grab/release call these). Built from the held tile's OWN
+# art texture (forced white), so it traces any piece. Idempotent (a second call while one is on is a
+# no-op); a no-op for a tile with no art sprite (e.g. a placeholder disc — nothing to trace). The rim
+# seats just UNDER the art sprite so the art covers the interior, leaving only the rim peeking.
+const GRAB_OUTLINE_NAME := "GrabOutline"
+static func add_grab_outline(holder: Control, color: Color, width_frac: float, alpha: float) -> void:
+	if holder == null or not is_instance_valid(holder):
+		return
+	if holder.has_node(NodePath(GRAB_OUTLINE_NAME)):
+		return
+	var art := holder.get_node_or_null(NodePath(ART_NAME))
+	if not (art is TextureRect) or (art as TextureRect).texture == null:
+		return
+	var sil := _silhouette_from_tex((art as TextureRect).texture)
+	if sil == null:
+		return
+	var size := holder.size.x
+	var o := GenOutline.new()
+	o.name = GRAB_OUTLINE_NAME
+	o.set_anchors_preset(Control.PRESET_FULL_RECT)
+	o.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	o.tex = sil
+	o.inset = ITEM_INSET                    # MUST match the sprite so the rim aligns
+	o.color = color
+	o.width = width_frac * size
+	o.alpha = alpha
+	o.steps = int(GEN_OUTLINE["steps"])
+	holder.add_child(o)
+	holder.move_child(o, (art as Control).get_index())   # seat the rim just UNDER the art sprite
+
+# Take the GRAB outline rim off (GrabFx.release). Null-safe + idempotent (safe if none was added).
+# Detaches synchronously (remove_child) so the rim is gone the instant the tile drops — not a frame
+# later — then frees it; a deferred queue_free alone would leave the rim up for one more frame.
+static func clear_grab_outline(holder: Control) -> void:
+	if holder == null or not is_instance_valid(holder):
+		return
+	var o := holder.get_node_or_null(NodePath(GRAB_OUTLINE_NAME))
+	if o != null:
+		holder.remove_child(o)
+		o.queue_free()
 
 # (3/3) A few slow code-drawn twinkles over the icon. GenSparkle is a self-animating Control (see its
 # header for why not particles). mouse_filter is set here too — _all_ignore can run before its _ready().

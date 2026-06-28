@@ -17,6 +17,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")           # the tog
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")         # the toggleable Merge (fuse) feel
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")       # the toggleable Launch (emit) feel
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")           # the toggleable Move (travel) feel
+const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")           # the toggleable Grab (pickup) highlight
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")   # the shared persistent combo-bloom overlay
 const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
@@ -34,7 +35,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
-const IDS := ["board", "fx", "generator", "focus_ring", "ready_glow", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "focus_ring", "ready_glow", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -43,7 +44,7 @@ const IDS := ["board", "fx", "generator", "focus_ring", "ready_glow", "button", 
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
 	# … the Rush FX juice tester, then the FOUR feel-verb testers (land · merge · launch · move) grouped beside it.
-	[["shadow"], ["generator"], ["focus_ring"], ["ready_glow"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["focus_ring"], ["ready_glow"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["grab_fx"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -131,6 +132,7 @@ const TEST_KEYS := {
 	"launch_fx": [],
 	# move_fx: `kind` (slide/arc/fall) picks the preview travel; the game passes the live kind, so it is NOT saved.
 	"move_fx": ["kind"],
+	"grab_fx": [],   # every toggle + knob is saved (read by GrabFx.from_config)
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
@@ -179,10 +181,11 @@ const CAPTIONS := {
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
 	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): cell size · text · icon · leaf · crown",
 	"rush_fx": "Rush FX — screen juice for the Expedition: toggle each effect, Replay to feel it, save (the game honours it)",
-	"land_fx": "Land feel — a tile touches down: squash · puff · flash · sound · haptic. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"land_fx": "Land feel — a tile touches down (incl. the player's drop into an empty cell): squash · puff · flash · sound · haptic · neighbour ripple. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"merge_fx": "Merge feel — two tiles fuse: squash · flash · hitstop · burst · shake · sound · ripple · punch. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"launch_fx": "Launch feel — a generator emits a tile: recoil · muzzle puff · toss sound. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"move_fx": "Move feel — a tile travels (slide · arc · fall): cast shadow · motion trail · motion lean. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"grab_fx": "Grab feel — a tile is picked up: glow tint · white silhouette outline · light haptic tap. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -206,6 +209,7 @@ const LAND_FX_KNOBS := {
 	"flash":  [["flash_pct", 0, 100]],
 	"sound":  [["sound_db", -24, 0]],
 	"haptic": [],
+	"ripple": [["ripple_pct", 0, 100]],
 }
 const MERGE_FX_KNOBS := {
 	"squash":      [],
@@ -230,9 +234,15 @@ const MOVE_FX_KNOBS := {
 	"trail":  [["trail_count", 0, 8]],
 	"lean":   [["lean_deg", 0, 20]],
 }
+const GRAB_FX_KNOBS := {
+	"glow":    [["glow_pct", 0, 200]],
+	"outline": [["outline_w", 0, 12], ["outline_a", 0, 100]],
+	"haptic":  [],
+}
 const MoveFx_KINDS := ["slide", "arc", "fall"]   # the move preview's travel kinds (preview-only; the game passes the live kind)
 var _land_fx_ctx: Dictionary = {}
 var _merge_fx_ctx: Dictionary = {}
+var _grab_fx_ctx: Dictionary = {}
 var _launch_fx_ctx: Dictionary = {}
 var _move_fx_ctx: Dictionary = {}
 var _params := {
@@ -417,6 +427,7 @@ var _params := {
 	"launch_fx": LaunchFx.defaults(),
 	# move_fx ALSO carries the preview-only KIND selector (slide/arc/fall) — excluded from save via TEST_KEYS.
 	"move_fx": _move_fx_defaults(),
+	"grab_fx": GrabFx.defaults(),
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"row_gap": 12},
@@ -937,6 +948,8 @@ func _make_element(id: String) -> Control:
 			return _launch_fx_preview()
 		"move_fx":
 			return _move_fx_preview()
+		"grab_fx":
+			return _grab_fx_preview()
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
 			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
@@ -1101,6 +1114,42 @@ func _land_fx_play() -> void:
 	tw.tween_property(tile, "position", land_top, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func() -> void:
 		LandFx.apply(field, tile, c["land_pos"], _params["land_fx"]))
+
+# --- GRAB: click the tile → it lights up (glow + white rim + a tap), then settles -------------
+func _grab_fx_preview() -> Control:
+	var tile_pos := Vector2(FEEL_FIELD.x * 0.5, FEEL_FIELD.y * 0.5)
+	var field := _feel_field()
+	field.add_child(_feel_cell_marker(tile_pos))
+	var tbtn := Button.new()
+	tbtn.flat = true
+	tbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
+	tbtn.position = tile_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	tbtn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
+	var tile := PieceView.make_piece(102, FEEL_CSZ)
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tbtn.add_child(tile)
+	field.add_child(tbtn)
+	var hint := _feel_hint("Click the tile — or ▶ Grab", tile_pos + Vector2(-70, FEEL_CSZ / 2.0 + 6))
+	field.add_child(hint)
+	_grab_fx_ctx = {"field": field, "tile": tile}
+	tbtn.pressed.connect(_grab_fx_play)
+	return field
+
+# Light the preview tile up with the LIVE grab_fx toggles/knobs, then drop the highlight after a beat so
+# it reads as a pickup-then-settle the designer can feel. Mirrors the board: grab() on, release() on drop.
+func _grab_fx_play() -> void:
+	if _grab_fx_ctx.is_empty():
+		return
+	var tile: Control = _grab_fx_ctx.get("tile")
+	if not (tile != null and is_instance_valid(tile)):
+		return
+	GrabFx.release(tile)                          # clear any prior preview highlight first (idempotent)
+	GrabFx.grab(tile, _params["grab_fx"])
+	tile.pivot_offset = tile.size / 2.0
+	tile.scale = Vector2(1.12, 1.12)             # the same lift pop the board uses on pickup
+	var tw := tile.create_tween()
+	tw.tween_property(tile, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void: GrabFx.release(tile))
 
 # --- MERGE: click the field → tile A slides into tile B + the two FUSE ------------------------
 func _merge_fx_preview() -> Control:
@@ -2591,6 +2640,9 @@ func _rebuild_sidebar() -> void:
 				_sidebar_body.add_child(_toggle_row("On", mfid))
 				for spec in MOVE_FX_KNOBS.get(mfid, []):
 					_sidebar_body.add_child(_slider_row(spec))
+		"grab_fx":
+			_feel_trigger_button("▶  Grab", _grab_fx_play)
+			_feel_fx_sidebar(GrabFx.EFFECTS, GRAB_FX_KNOBS)
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")

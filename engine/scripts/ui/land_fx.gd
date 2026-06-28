@@ -1,6 +1,7 @@
 extends RefCounted
 ## Land screen-juice — a TOGGLEABLE + tunable registry for the TILE-LANDING impact (a tile that
-## travelled then touches down: squash + dust puff + soft flash + touch sound + haptic). Mirrors
+## travelled then touches down: squash + dust puff + soft flash + touch sound + haptic + a neighbour
+## ripple). The board now routes the player's plain drop-into-empty-cell through this too. Mirrors
 ## rush_fx.gd: the Land workbench flips the toggles + drags the knobs, replays to FEEL it, and saves
 ## to config; the game resolves the saved config once and calls LandFx.apply(...) at each landing.
 ##
@@ -20,6 +21,7 @@ const EFFECTS := [
 	{"id": "flash",  "label": "Flash",       "tip": "a soft white pop at the contact point"},
 	{"id": "sound",  "label": "Touch sound", "tip": "a soft woody tap"},
 	{"id": "haptic", "label": "Haptic",      "tip": "a light tap on the device (no effect on desktop)"},
+	{"id": "ripple", "label": "Ripple",      "tip": "the orthogonal neighbours bump outward from the landing"},
 ]
 
 # id → default numeric knob. Sliders edit these; apply() reads them via knob().
@@ -29,6 +31,7 @@ const KNOBS := {
 	"puff_count": 7,     # dust particles
 	"flash_pct": 45,     # flash peak as % of FLASH_PEAK
 	"sound_db": -4,      # touch sound level (dB; less negative = louder)
+	"ripple_pct": 60,    # neighbour bump strength (% of full intensity)
 }
 
 static func knob(opts: Dictionary, id: String) -> int:
@@ -63,10 +66,12 @@ static func on(opts: Dictionary, id: String) -> bool:
 ## Fire the landing impact per the resolved opts. `node` is the arriving tile; `host`/`center`
 ## locate the puff + flash. Mirrors feel.land but every cue is individually toggled + tuned.
 ## `intensity` (0..1) scales the squash deviation; `quiet` (a bulk/gravity settle) suppresses the
-## per-tile SOUND, flash, and haptic — but the SQUASH still fires and the dust puff still fires
-## whenever intensity > 0 (the cheap visual touchdown), so a settling column still visibly thumps
-## without machine-gunning N sounds/flashes/pulses. Mirrors feel.land's quiet behaviour.
-static func apply(host: Node, node: Control, center: Vector2, opts: Dictionary, intensity := 1.0, quiet := false) -> void:
+## per-tile SOUND, flash, haptic, and neighbour ripple — but the SQUASH still fires and the dust puff
+## still fires whenever intensity > 0 (the cheap visual touchdown), so a settling column still visibly
+## thumps without machine-gunning N sounds/flashes/pulses/ripples. Mirrors feel.land's quiet behaviour.
+## `neighbors` is the orthogonal tiles to bump on a discrete landing (empty = no ripple — e.g. a spawn or
+## a bulk settle that passes none); the scene gathers them (board.gd → _orthogonal_neighbour_nodes).
+static func apply(host: Node, node: Control, center: Vector2, opts: Dictionary, intensity := 1.0, quiet := false, neighbors := []) -> void:
 	if on(opts, "squash"):
 		_squash(node, int(round(knob(opts, "squash_pct") * intensity)), knob(opts, "squash_ms"))
 	# the dust puff reads the touchdown — fires even on a quiet bulk settle (it's the SOUND/flash we dedupe)
@@ -74,7 +79,7 @@ static func apply(host: Node, node: Control, center: Vector2, opts: Dictionary, 
 		FX.burst(host, center, LEAF, knob(opts, "puff_count"))
 	if quiet:
 		return
-	# discrete (loud) landing only: the soft flash + touch sound + haptic
+	# discrete (loud) landing only: the soft flash + touch sound + haptic + the neighbour ripple
 	if on(opts, "flash"):
 		var size := node.size.x if node != null and is_instance_valid(node) else 96.0
 		FX.flash(host, center, size, Tune.FLASH_PEAK * float(knob(opts, "flash_pct")) / 100.0)
@@ -82,6 +87,10 @@ static func apply(host: Node, node: Control, center: Vector2, opts: Dictionary, 
 		Audio.play("tidy_poof", float(knob(opts, "sound_db")), 1.0)
 	if on(opts, "haptic"):
 		Feel.haptic("soft")
+	# the orthogonal neighbours BUMP outward from the touchdown — the same impact-propagation verb the
+	# merge uses, driven by the neighbour list the caller passes (empty = no bump).
+	if on(opts, "ripple") and not neighbors.is_empty():
+		Feel.ripple(neighbors, center, float(knob(opts, "ripple_pct")) / 100.0 * intensity)
 
 ## The tunable impact squash: compress to (1+a, 1-a), counter-stretch to (1-b, 1+b), settle to rest.
 ## `pct` scales the deviation `a`; `ms` is the total duration split across the two legs.

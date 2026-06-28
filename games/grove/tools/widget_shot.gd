@@ -13,10 +13,12 @@ extends SceneTree
 ##   104:glowrest the quest-ready tile frozen at its breathe REST (scale 1.0) — the before half of the pulse
 ##   104:glowpeak the quest-ready tile frozen at its breathe PEAK (item + halo at BREATHE_AMOUNT) — the after
 ##   104:lift     the item in its picked-up (lifted) pose (PieceView.set_lifted)
+##   104:grab     the item wearing the GRAB highlight — glow tint + white silhouette outline (GrabFx.grab)
 ## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Items only today; extend
 ## the `match mod` below for new widgets as the need arises (grow tools incrementally).
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -68,10 +70,13 @@ func _initialize() -> void:
 				peaks.append(piece)                                          # frozen at the breathe PEAK once laid out
 			"lift":
 				PieceView.set_lifted(piece, true)
+			"grab":
+				PieceView.set_lifted(piece, true)                            # picked-up pose…
+				GrabFx.grab(piece, GrabFx.defaults())                        # …plus the glow tint + white silhouette rim
 			"":
 				pass
 			_:
-				print("widget_shot: unknown modifier '%s' (use glow|glowrest|glowpeak|lift)" % mod)
+				print("widget_shot: unknown modifier '%s' (use glow|glowrest|glowpeak|lift|grab)" % mod)
 		var lbl := Label.new()
 		lbl.text = spec
 		lbl.position = Vector2(x, pad + s + s * 0.04)

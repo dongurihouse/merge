@@ -17,6 +17,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
+const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 
 var _pass := 0
@@ -2411,8 +2412,8 @@ func _test_feel_fx() -> void:
 	get_root().add_child(view)
 	if view.get_child_count() == 0:
 		view._ready()
-	var registries := {"land_fx": LandFx, "merge_fx": MergeFx, "launch_fx": LaunchFx, "move_fx": MoveFx}
-	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx"]:
+	var registries := {"land_fx": LandFx, "merge_fx": MergeFx, "launch_fx": LaunchFx, "move_fx": MoveFx, "grab_fx": GrabFx}
+	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx"]:
 		var reg = registries[id]
 		var p: Dictionary = view._params[id]
 		# every registry key (enabled + effect toggles + knobs) is present so from_config reads it back
@@ -2450,17 +2451,28 @@ func _test_feel_fx() -> void:
 	ok(board_src.find("MERGE_SLIDE_MS") == -1, "board no longer has a hard-coded merge slide duration constant")
 	# the saved block's keys are EXACTLY the registry's from_config keys (the game's read path), so the
 	# saved out[id] round-trips. Every saved key is a registry default; tier/combo/kind are the only excludes.
-	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx"]:
+	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx"]:
 		var reg2 = registries[id]
 		for k in view._params[id].keys():
 			# `shadow` is injected into EVERY component by _ensure_shadow_keys (like rush_fx) — from_config
 			# ignores unknown keys, so it is harmless; every OTHER saved key must be a registry default.
 			if view._is_config(id, k) and k != "shadow":
 				ok(reg2.defaults().has(k), "%s saved key %s is a registry default (from_config reads it)" % [id, k])
+	# the GRAB panel + the LAND ripple knob are registered like the others
+	ok(View.IDS.has("grab_fx") and view._sections.has("grab_fx"), "grab_fx is a registered workbench panel")
+	ok(view_src.find("\"ripple\": [[\"ripple_pct\"") != -1, "the Land panel exposes a saved ripple_pct slider")
+	ok(view_src.find("_feel_fx_sidebar(GrabFx.EFFECTS, GRAB_FX_KNOBS)") != -1, "the Grab panel auto-builds its toggles + knobs from the registry")
+	# board wiring: grab highlight on pickup + clear on drop, and the plain drop routes through LandFx
+	ok(board_src.find("_grab_opts = GrabFx.from_config(") != -1, "board resolves the grab_fx config once")
+	ok(board_src.find("GrabFx.grab(") != -1, "board fires the grab highlight on pickup")
+	ok(board_src.find("GrabFx.release(") != -1, "board clears the grab highlight on drop")
+	ok(board_src.find("LandFx.apply.bind(board_area, node, land_ctr, _land_opts, 1.0, false, _orthogonal_neighbour_nodes(b))") != -1, \
+		"board's plain drop (_commit_move) routes through LandFx.apply with the cell's neighbours (squash + ripple)")
 	# firing each play function does not error (reads the live _params; no rebuild needed)
 	view._land_fx_play()
 	view._merge_fx_play()
 	view._launch_fx_play()
 	view._move_fx_play()
-	ok(true, "all four feel-verb play functions fire without error")
+	view._grab_fx_play()
+	ok(true, "all five feel-verb play functions fire without error")
 	view.queue_free()
