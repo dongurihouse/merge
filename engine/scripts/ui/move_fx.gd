@@ -58,10 +58,10 @@ static func from_config(cfg: Dictionary) -> Dictionary:
 static func on(opts: Dictionary, id: String) -> bool:
 	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
 
-## Are the felt enhancements (shadow / trail / lean) allowed at all? Hard-off under calm (motion
-## accessibility) AND under headless (no renderer, no felt effect) — exactly feel.move's gate.
+## Are the felt enhancements (shadow / trail / lean) allowed at all? Hard-off under headless (no
+## renderer, no felt effect) — exactly feel.move's gate.
 static func _enhance_enabled() -> bool:
-	return not FX.calm() and DisplayServer.get_name() != "headless"
+	return DisplayServer.get_name() != "headless"
 
 ## Drive the TRAVEL per the resolved opts. `node` slides/arcs/falls `from`->`to`; `kind` is
 ## "slide" / "arc" / "fall". Returns the primary `position` Tween (always built, so the move reaches
@@ -77,7 +77,7 @@ static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts:
 	else:
 		# slide / fall: accelerate INTO the impact — slow to leave, fastest at the target.
 		t.tween_property(node, "position", to, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	# the enhancements ride alongside the primary tween — never block it, never run headless/calm.
+	# the enhancements ride alongside the primary tween — never block it, never run headless.
 	if _enhance_enabled():
 		if on(opts, "shadow"):
 			_shadow(node, from, to, dur, float(knob(opts, "shadow_alpha_pct")) / 100.0)
@@ -102,7 +102,7 @@ static func _build_arc(t: Tween, node: Control, from: Vector2, to: Vector2, dur:
 				node.position = from * (u * u) + ctrl * (2.0 * u * s) + to * (s * s),
 		0.0, 1.0, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
-# --- enhancements (scene-tree; only run off-headless, off-calm) ------------------------
+# --- enhancements (scene-tree; only run off-headless) ------------------------
 
 ## A soft dark blob that follows under the node along the ground for the duration of the move. A single
 ## ColorRect — cheap; frees itself when the travel ends. For an "arc" it shrinks + fades as the tile

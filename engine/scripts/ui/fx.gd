@@ -3,7 +3,6 @@ extends RefCounted
 ##   const FX = preload("res://engine/scripts/ui/fx.gd")
 ## Every animation value lives in Tune (engine/scripts/core/tuning.gd → class FX).
 
-const Save = preload("res://engine/scripts/core/save.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # §13: every glyph is a sprite via Look.icon — no emoji in floaters
@@ -32,11 +31,6 @@ static var _reward_fx_config_path := ""
 # cache is dropped whenever the config is written or the test path is reconfigured.
 static var _reward_fx_config_cache: Dictionary = {}
 static var _reward_fx_config_cached := false
-
-## Calm mode (accessibility): fewer particles, gentler motion. Checked at fire time
-## so toggling applies immediately.
-static func calm() -> bool:
-	return Save.get_setting("calm", false)
 
 static func reward_fx_config_path() -> String:
 	return _reward_fx_config_path if _reward_fx_config_path != "" else REWARD_FX_CONFIG_PATH
@@ -158,10 +152,6 @@ static func reward_fx_auto_replay() -> bool:
 static func set_reward_fx_auto_replay(on: bool) -> void:
 	pass # test-only preview value; kept as a no-op for older workbench call sites
 
-## Particle count adjusted for calm mode — shared by fx.burst and main's local burst.
-static func amount_for(amount: int) -> int:
-	return maxi(Tune.CALM_AMOUNT_FLOOR, int(amount * Tune.CALM_AMOUNT_SCALE)) if calm() else amount
-
 ## Shatter a captured veil texture from `impact` (host-local). `bbox` (host-local) is the
 ## region's opaque bounds — the fracture area. Each shard carries its slice of `texture`, so
 ## an irregular masked region breaks in its true shape (pixels outside are transparent).
@@ -187,17 +177,12 @@ static func pop(node: Control) -> void:
 	t.tween_property(node, "scale", Tune.POP_SCALE, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
-## The merge result's IMPACT: squash & stretch (the chosen "C" feel). Calm falls back to a
-## gentle uniform overshoot. `pop()` stays for taps/confirms — this is for produced tiles.
+## The merge result's IMPACT: squash & stretch (the chosen "C" feel). `pop()` stays for
+## taps/confirms — this is for produced tiles.
 static func squash_pop(node: Control, strength := 1.0) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	node.pivot_offset = _center_pivot(node)
-	if calm():
-		var c := node.create_tween()
-		c.tween_property(node, "scale", Vector2.ONE + (Tune.SQUASH_CALM - Vector2.ONE) * strength, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		c.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		return
 	node.scale = Vector2.ONE + (Tune.SQUASH_K[0] - Vector2.ONE) * strength
 	var t := node.create_tween()
 	for i in range(1, Tune.SQUASH_K.size()):
@@ -206,10 +191,10 @@ static func squash_pop(node: Control, strength := 1.0) -> void:
 ## A brief white impact pop over a merged tile (modelled on login_mystery's reel flash). A SOFT
 ## ROUND glow (radial falloff, blurred edge) — NOT a hard square — so it never pokes sharp corners
 ## past a cell's rounded corners. `gpos`/`size` are host-local; the glow is centred on `gpos` and
-## drawn a touch larger than `size` so its soft halo frames the cell. Gated on merge_impact, off
-## under calm. Frees itself.
+## drawn a touch larger than `size` so its soft halo frames the cell. Gated on merge_impact.
+## Frees itself.
 static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEAK) -> void:
-	if not Features.on("merge_impact") or calm():
+	if not Features.on("merge_impact"):
 		return
 	if not (host and is_instance_valid(host)):
 		return
@@ -233,12 +218,9 @@ static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEA
 
 ## A short decaying positional shake (the "thunk"). Promoted from login_mystery's private
 ## copy so the board's big-moment escalation and the slot jackpot share one verb. `amp` px;
-## settles back to the rest position. No-op under calm (motion accessibility). Callers gate
-## on their own flag (e.g. big_moment_shake).
+## settles back to the rest position. Callers gate on their own flag (e.g. big_moment_shake).
 static func shake(node: Control, amp := Tune.SHAKE_AMP) -> void:
 	if not (node and is_instance_valid(node)) or not node.is_inside_tree():
-		return
-	if calm():
 		return
 	var rest := node.position
 	var t := node.create_tween()
@@ -250,9 +232,9 @@ static func shake(node: Control, amp := Tune.SHAKE_AMP) -> void:
 # --- hitstop: a global micro-freeze at the moment of impact -------------------------
 static var _hitstop_active := false
 
-# "do we want a freeze" — flag ON and not calm. Testable off-headless.
+# "do we want a freeze" — flag ON. Testable off-headless.
 static func hitstop_wanted() -> bool:
-	return Features.on("merge_hitstop") and not calm()
+	return Features.on("merge_hitstop")
 
 # the full gate: wanted AND not headless. A global time_scale change would starve the
 # deterministic headless test clock (the grove base pins time_scale=1.0), and a freeze
@@ -278,12 +260,11 @@ static func hitstop(secs: float) -> void:
 		_hitstop_active = false)
 
 ## Generator pop anticipation: a quick crouch -> spring -> settle squash as the generator
-## spits a tile. Flag-off / calm fall back to the existing `pop()` so a tap still feels
-## responsive.
+## spits a tile. Flag-off falls back to the existing `pop()` so a tap still feels responsive.
 static func gen_charge(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	if not Features.on("gen_anticipation") or calm():
+	if not Features.on("gen_anticipation"):
 		pop(node)
 		return
 	node.pivot_offset = _center_pivot(node)
@@ -297,10 +278,6 @@ static func wobble(node: Control) -> void:
 		return
 	node.pivot_offset = _center_pivot(node)
 	var t := node.create_tween()   # bound to node so it dies with it
-	if calm():                     # one gentle tilt instead of a shake
-		t.tween_property(node, "rotation", Tune.WOBBLE_CALM_TILT, Tune.WOBBLE_CALM_T_OUT).set_trans(Tween.TRANS_SINE)
-		t.tween_property(node, "rotation", 0.0, Tune.WOBBLE_CALM_T_BACK).set_trans(Tween.TRANS_SINE)
-		return
 	t.tween_property(node, "rotation", Tune.WOBBLE_SHAKE[0], Tune.WOBBLE_SHAKE_T[0])
 	t.tween_property(node, "rotation", Tune.WOBBLE_SHAKE[1], Tune.WOBBLE_SHAKE_T[1])
 	t.tween_property(node, "rotation", Tune.WOBBLE_SHAKE[2], Tune.WOBBLE_SHAKE_T[2])
@@ -320,13 +297,12 @@ static func rock(node: Control, deg := Tune.ROCK_DEG, cycle := Tune.ROCK_CYCLE, 
 		t.tween_property(node, "rotation", -rad, half).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_property(node, "rotation", 0.0, half).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-# The ONE suggested action pulses ONLY when the feature is on AND calm mode is off.
-# Calm mode (§12) disables breathe — the screen quiets without losing function.
+# The ONE suggested action pulses ONLY when the feature is on.
 static func breathe_active() -> bool:
-	return Features.on("breathe_cta") and not calm()
+	return Features.on("breathe_cta")
 
 # gentle looping attention pulse (bound to the node — dies with it).
-# A no-op under calm: the node rests at its natural scale rather than pulsing.
+# A no-op when the flag is off: the node rests at its natural scale rather than pulsing.
 static func breathe(node: Control, amount := Tune.BREATHE_AMOUNT, period := Tune.BREATHE_PERIOD) -> void:
 	if not (node and is_instance_valid(node)):
 		return
@@ -442,7 +418,7 @@ static func breathe_once(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	if not breathe_active():
-		node.scale = Vector2.ONE   # calm/off: rest at natural scale (don't latch the meta flag)
+		node.scale = Vector2.ONE   # flag off: rest at natural scale (don't latch the meta flag)
 		return
 	if node.has_meta("_fx_breathing"):
 		return
@@ -555,7 +531,7 @@ static func reward_arrival(host: Control, from_gpos: Vector2, icon_id: String, a
 		floater.name = "RewardArrivalFloater"
 		spawned.append(floater)
 	burst(host, from_gpos, color, mini(Tune.CELEB_BURST, 14))
-	if Features.on("fly_to_wallet") and not calm():
+	if Features.on("fly_to_wallet"):
 		for i in mini(trail_count, 4):
 			var trail := _reward_trail(host, from_gpos, icon_id, color, to_chip, i, size)
 			if trail != null:
@@ -648,7 +624,7 @@ static func burst(host: Node, center: Vector2, color: Color, amount: int = Tune.
 	var p := GPUParticles2D.new()
 	p.texture = tex
 	p.position = center
-	p.amount = amount_for(amount)
+	p.amount = amount
 	p.lifetime = Tune.BURST_GROVE_LIFE if grove else Tune.BURST_DOT_LIFE      # grove juice is floaty, breezy, settling
 	p.one_shot = true
 	p.explosiveness = 1.0

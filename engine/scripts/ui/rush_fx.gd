@@ -72,7 +72,7 @@ static func on(opts: Dictionary, id: String) -> bool:
 ## WORKBENCH-PREVIEW ONLY. A puff of leaves where two tiles fused; `count` is the base, the result
 ## tier nudges it. The LIVE Rush merge no longer calls this — its burst (and the tier>=4 flash +
 ## combo-gated thunk + real merge sound) now come from Feel.merge in explore_rush._merge, gated on
-## the global feature flags + calm rather than this RushFx toggle. The `merge_burst` toggle therefore
+## the global feature flags rather than this RushFx toggle. The `merge_burst` toggle therefore
 ## only drives the workbench rush_fx preview (ui_workbench_view._rush_fx_play), which still calls this.
 static func merge_burst(host: Node, gpos: Vector2, tier: int, count := 20) -> void:
 	FX.burst(host, gpos, LEAF, clampi(count + (tier - 3) * 4, 4, 40))

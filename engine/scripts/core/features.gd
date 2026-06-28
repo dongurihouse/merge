@@ -1,7 +1,7 @@
 extends RefCounted
 ## FEATURE FLAGS — the registry index lives in docs/FEATURES.md (Lives-in + Eval per flag).
 ## Flipping a bool HERE disables the feature — code-level only by owner's word
-## (player-facing settings like music/sfx/calm stay in Settings).
+## (player-facing settings like music/sfx stay in Settings).
 ##
 ## `static var` (not const) so tests can flip flags (N3's flip smokes) — runtime
 ## code treats it as read-only. Missing id → push_warning + TRUE, so a typo can

@@ -177,12 +177,12 @@ func _ready() -> void:
 	content.gui_input.connect(_on_input)
 	add_child(content)
 
-	# the day's weather drifts over the MAP (calm mode wins inside); kept as a member so the
+	# the day's weather drifts over the MAP; kept as a member so the
 	# place-picker can hide it — drifting leaves over a static chooser read as stray sprites.
 	BootTrace.begin("map.weather")
 	var g0 := Save.grove()
 	Ambient.check_winback(g0, Time.get_unix_time_from_system())
-	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now())
 	add_child(_weather)
 	BootTrace.end("map.weather")
 
@@ -351,7 +351,7 @@ func debug_refresh_weather() -> void:
 			insert_at = existing.get_index()
 			remove_child(existing)
 			existing.queue_free()
-	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now())
 	add_child(_weather)
 	move_child(_weather, mini(insert_at, get_child_count() - 1))
 	_weather.visible = _view != "select"
@@ -575,7 +575,6 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 		# (not the image) drives geometry — base cover layer + vine overlays then fill the SAME frame.
 		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		view.custom_minimum_size = Vector2.ZERO
-		view.set_calm(FX.calm())
 		# owned regions show clean (vines off); unowned show vines.
 		for i in range(view.region_count()):
 			var sid := "%s_r%d" % [String(G.MAPS[z].id), i]
@@ -1041,7 +1040,6 @@ func _build_select(animate := true) -> void:
 	var n := G.MAPS.size()
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
-	opts["calm"] = FX.calm()                                    # reduced-motion: freeze the active card's edge sparkle
 	var layout: Dictionary = Kit.map_select_layout(view, opts, Look.safe_top(self), Look.safe_bottom(self))
 	var sep := float(layout.sep)
 	var band_top := float(layout.band_top)
@@ -1346,7 +1344,6 @@ func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, ca
 		bag_opts = bag_opts.duplicate(true)
 	bag_opts["cell_w"] = orb_px
 	bag_opts["cell_h"] = orb_px
-	bag_opts["calm"] = FX.calm()
 	for i in placed.size():
 		var inst: Dictionary = placed[i]
 		var selected := String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("z", -1)) == z and int(_sel_orb.get("idx", -1)) == i
@@ -1382,7 +1379,6 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	# board now wears — fills the column.
 	if Kit != null:
 		var bp_opts: Dictionary = Kit.board_panel_opts_from_config(cfg)
-		bp_opts["calm"] = FX.calm()
 		var bp: Control = Kit.board_panel(rect.size, bp_opts)
 		bp.position = Vector2.ZERO
 		_force_ignore(bp)
@@ -1433,7 +1429,6 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg) if Kit != null else {}
 	bag_opts["cell_w"] = cell_px
 	bag_opts["cell_h"] = cell_px
-	bag_opts["calm"] = FX.calm()
 	var grid := GridContainer.new()
 	grid.name = "HandGrid"
 	grid.columns = cols
@@ -2055,10 +2050,9 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	# Break the purple lock veil with a glass-shatter from the tap point. Snapshot the veil's
 	# true (masked) shape BEFORE the rebuild hides it, rebuild, then spawn the shards on top.
 	var veil := {}
-	if not FX.calm():
-		var vv = content.find_child("VineMapView", true, false)
-		if vv != null:
-			veil = await _capture_region_veil(vv, k)
+	var vv = content.find_child("VineMapView", true, false)
+	if vv != null:
+		veil = await _capture_region_veil(vv, k)
 	_build_map(false)                     # rebuild IN PLACE (no whole-map pop-in) — only the veil should break
 	if not veil.is_empty():
 		FX.shatter_veil(self, veil["tex"], veil["bbox"], at - get_global_rect().position)
@@ -2237,7 +2231,6 @@ func _make_map_button() -> Button:
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = _hud_button_px()
 	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
-	opts["calm"] = FX.calm()
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
 
@@ -2257,7 +2250,6 @@ func _make_expedition_button() -> Button:
 		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 		opts["px"] = _hud_button_px()
 		opts["shape"] = "rect"
-		opts["calm"] = FX.calm()
 		var HC: GDScript = load(HOME_CHROME_PATH)
 		b = Kit.home_button({"icon": HC.ICON_RESIDENTS, "caption": "Expedition", "action": open}, opts)
 	_residents_btn = b
@@ -2520,7 +2512,6 @@ func _make_play_button() -> Button:
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	opts["shell"] = HC.PLAY_SHELL             # the orange play disc (no green tint — the art carries the colour)
 	opts["icon_scale"] = 0.52                 # the centred mark (board+acorn, or the vine when a restore is ready)
-	opts["calm"] = FX.calm()
 	var action: Callable = _on_unlock_pressed if ready else _on_board
 	_play_btn = Kit.home_button({"icon": (HC.ICON_PLAY_RESTORE if ready else HC.ICON_PLAY), "caption": "", "action": action}, opts)
 	return _play_btn
@@ -2613,7 +2604,6 @@ func _build_liveops_rail() -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
 	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
-	_home_opts["calm"] = FX.calm()
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {
 		"button_w_frac": RAIL_PX / Design.size().x,
 		"edge_margin_px": RAIL_MARGIN,
@@ -2914,7 +2904,7 @@ func _maybe_login_popup_deferred() -> void:
 		_refresh_piggy_pip()})
 
 func _open_settings() -> void:
-	SettingsUI.open(self)               # the shared card (music/sounds/calm)
+	SettingsUI.open(self)               # the shared card (music/sounds)
 
 func _on_board() -> void:
 	Audio.play("button_tap", -2.0)

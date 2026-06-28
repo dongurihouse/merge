@@ -175,7 +175,6 @@ const DEMO_TIERS := [
 const DEMO_SETTINGS := [
 	{"label": "Music", "value": false},
 	{"label": "Sounds", "value": true},
-	{"label": "Calm mode", "value": false},
 ]
 
 # Demo vault state for the workbench preview — same shape the game builds from core/vault.gd (the
@@ -1286,7 +1285,7 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 ##     icon_<id> convention — e.g. the map back arrow) · caption (visible tab text, "" = none) ·
 ##     action (Callable) · sparkle (bool) · enabled (bool).
 ##   opts (shared STYLE — see home_button_opts_from_config): px · shell · icon_scale (0..1) ·
-##     caption_font · caption_gap · glow (0..1) · twinkle (0..1) · calm (bool).
+##     caption_font · caption_gap · glow (0..1) · twinkle (0..1).
 const HOME_SHELL := "shared/disc_round.png"
 const RECT_SHELL := "shared/badge_rect.png"   # the ui_asset2 rounded-rect badge (rail + Map button), used when opts.shape == "rect"
 
@@ -1343,7 +1342,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		var glow: float = float(opts.get("glow", 0.0))
 		var tw: float = float(opts.get("twinkle", 0.0))
 		if glow > 0.0 or tw > 0.0:
-			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
+			b.add_child(_sparkle_overlay(px, glow, tw))
 	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface). The icon
 	# gets the SHARED global polish (make_icon → _icon_tex's defringe + feather) — its own clean recipe.
 	var icwrap := CenterContainer.new()
@@ -1452,8 +1451,8 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 
 ## The engine-drawn SPARKLE overlay: a soft additive GLOW that gently breathes + drifting 4-point
 ## TWINKLES (a continuous GPUParticles2D), both code-generated (no baked art). glow / twinkle are 0..1
-## amounts (the workbench sliders); calm freezes it to a static glow with no twinkles (reduced-motion).
-static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool, tint: Color = Pal.STRAW, size_mult: float = 1.7) -> Control:
+## amounts (the workbench sliders).
+static func _sparkle_overlay(px: float, glow: float, twinkle: float, tint: Color = Pal.STRAW, size_mult: float = 1.7) -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1481,13 +1480,12 @@ static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool,
 			return h
 		make_halo.call(false, 0.45)                              # warm tint (light-bg readable)
 		var halo: TextureRect = make_halo.call(true, 1.0)        # additive bloom (dark-bg pop)
-		if not calm:
-			halo.pivot_offset = Vector2(hsz, hsz) / 2.0
-			halo.tree_entered.connect(func() -> void:
-				var tw := halo.create_tween().set_loops()
-				tw.tween_property(halo, "scale", Vector2(1.08, 1.08), 1.1).set_trans(Tween.TRANS_SINE)
-				tw.tween_property(halo, "scale", Vector2(0.93, 0.93), 1.1).set_trans(Tween.TRANS_SINE))
-	if twinkle > 0.0 and not calm:
+		halo.pivot_offset = Vector2(hsz, hsz) / 2.0
+		halo.tree_entered.connect(func() -> void:
+			var tw := halo.create_tween().set_loops()
+			tw.tween_property(halo, "scale", Vector2(1.08, 1.08), 1.1).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(halo, "scale", Vector2(0.93, 0.93), 1.1).set_trans(Tween.TRANS_SINE))
+	if twinkle > 0.0:
 		var p := GPUParticles2D.new()
 		p.position = Vector2(px / 2.0, px / 2.0)
 		p.texture = _star_texture()
@@ -3565,7 +3563,7 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
 ## side rail and bottom nav. Slider values are stored 0..100 (icon_scale / glow / twinkle), divided here
-## to the 0..1 the builder wants. The caller adds `calm` and overrides `px` per call site (rail vs nav).
+## to the 0..1 the builder wants. The caller overrides `px` per call site (rail vs nav).
 static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("home_button", {})
 	return {
@@ -4334,7 +4332,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var mglow := float(opts.get("mark_glow", 0.6))
 		var mtwinkle := float(opts.get("mark_twinkle", 0.5))
 		if mglow > 0.0 or mtwinkle > 0.0:
-			var msp := _sparkle_overlay(cw, mglow, mtwinkle, bool(opts.get("calm", false)))
+			var msp := _sparkle_overlay(cw, mglow, mtwinkle)
 			msp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			tile.add_child(msp)
 
@@ -4423,7 +4421,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var glow := float(opts.get("next_glow", 0.45))
 		var twinkle := float(opts.get("next_twinkle", 0.55))
 		if glow > 0.0 or twinkle > 0.0:
-			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)), tint, float(opts.get("glow_size", 1.7)))
+			var spk := _sparkle_overlay(cw, glow, twinkle, tint, float(opts.get("glow_size", 1.7)))
 			spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			tile.add_child(spk)
 
@@ -5029,7 +5027,7 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	if not bool(d.get("done", false)):
 		var spark := float(opts.get("edge_sparkle", 0.6))
 		if spark > 0.0:
-			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark, bool(opts.get("calm", false))))
+			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark))
 
 # The locked card's dark "veiled" interior: a top→bottom gradient ColorRect (NO texture, so there's no baked
 # border to double up against the gold frame), inset to the rim + clipped to the frame's inner rounded
@@ -5205,9 +5203,9 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 
 # Twinkles spaced AROUND the card's edges — each rides the gold frame band and pulses (fade + scale) on
 # a staggered loop, so an active place's border shimmers and draws the eye. Reuses the twinkle sprite
-# (_star_texture) + warm-gold tint from the button sparkle. `amount` 0..1 scales how many ring the card;
-# `calm` (reduced-motion) drops the motion and shows a faint static scatter instead. Mouse-transparent.
-static func _map_card_edge_sparkle(card_w: float, card_h: float, amount: float, calm: bool) -> Control:
+# (_star_texture) + warm-gold tint from the button sparkle. `amount` 0..1 scales how many ring the card.
+# Mouse-transparent.
+static func _map_card_edge_sparkle(card_w: float, card_h: float, amount: float) -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5236,11 +5234,7 @@ static func _map_card_edge_sparkle(card_w: float, card_h: float, amount: float, 
 		s.modulate = Color(1.0, 0.84, 0.42, 1.0)       # warm gold (same tint as the button twinkles)
 		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(s)
-		if calm:
-			s.modulate.a = 0.45
-			s.scale = Vector2(0.85, 0.85)
-		else:
-			_pulse_twinkle(s, (float(i) / float(count)) * cycle)   # stagger so the ring shimmers, not blinks in unison
+		_pulse_twinkle(s, (float(i) / float(count)) * cycle)   # stagger so the ring shimmers, not blinks in unison
 	return root
 
 # A point on a rectangle's perimeter at parameter t∈[0,1) (top L→R, right T→B, bottom R→L, left B→T).
@@ -5328,8 +5322,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin BOTH cards' frame wears (board/info-bar consistent)
 		"edge_margin_px":  float(hud.get("edge_margin_px", 18.0)),     # place-picker column edges share the HUD side margin
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
-		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
-		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())
+		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off)
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
 		"pill_min":        float(c.get("pill_min", 170)),
 		"pill_max":        float(c.get("pill_max", 290)),

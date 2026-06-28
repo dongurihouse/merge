@@ -112,20 +112,13 @@ class Audio:
 
 
 class FX:
-	# --- calm mode (accessibility) -----------------------------------------------------
-	const CALM_AMOUNT_SCALE := 0.4        # particle count ×this in calm mode
-	const CALM_AMOUNT_FLOOR := 4          # ...but never fewer than this
-
 	# --- pop (tap / confirm acknowledge) -----------------------------------------------
 	const POP_SCALE := Vector2(1.12, 1.12)
 	const POP_T_OUT := 0.1
 	const POP_T_SETTLE := 0.16
 
 	# --- wobble (invalid / nudge) ------------------------------------------------------
-	const WOBBLE_CALM_TILT := 0.07                  # calm: one gentle tilt (rad)
-	const WOBBLE_CALM_T_OUT := 0.12
-	const WOBBLE_CALM_T_BACK := 0.14
-	const WOBBLE_SHAKE := [0.22, -0.17, 0.09]       # else: a quick shake — keyframe angles (rad)
+	const WOBBLE_SHAKE := [0.22, -0.17, 0.09]       # a quick shake — keyframe angles (rad)
 	const WOBBLE_SHAKE_T := [0.05, 0.06, 0.05, 0.05]   # per-leg durations (4th = settle to 0)
 
 	# --- rock / breathe (idle attention) -----------------------------------------------
@@ -205,7 +198,6 @@ class FX:
 	# --- squash_pop (merge result — squash & stretch, the "C" impact) ------------------
 	const SQUASH_K := [Vector2(1.16, 0.84), Vector2(0.92, 1.12), Vector2(1.03, 0.98), Vector2.ONE]
 	const SQUASH_T := [0.07, 0.06, 0.06]        # per-leg seconds: K0->K1, K1->K2, K2->K3
-	const SQUASH_CALM := Vector2(1.08, 1.08)    # calm: a gentle uniform overshoot (no stretch)
 
 	# --- flash (white impact pop over a merged tile) -----------------------------------
 	const FLASH_PEAK := 0.55
@@ -291,7 +283,7 @@ class FX:
 	# dials only feed Ambient.puff, which survives for tests / reuse. The SCALE range was the bug source
 	# (0.5–0.9 of a 128px tex = 64–115px motes), shrunk here to a sane small size so any future caller is safe.
 	const MOTE_PUFF_IMPULSE := 220.0
-	const MOTE_PUFF_COUNT := 8          # motes flung outward by a merge puff (before calm-trim)
+	const MOTE_PUFF_COUNT := 8          # motes flung outward by a merge puff
 	const MOTE_PUFF_LIFE := 0.7         # seconds the flung motes drift before fading out
 	const MOTE_PUFF_SCALE_MIN := 0.18   # mote sprite scale range (the breeze tex is 128px — keep small)
 	const MOTE_PUFF_SCALE_MAX := 0.32
@@ -466,7 +458,7 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	# (x = past the right edge, y = above the top edge), both positive = outside the host.
 	const BADGE_OVERHANG := Vector2(6, 6)
 
-	# --- toggle switch (Look.toggle_switch — settings music / sounds / calm) ------------
+	# --- toggle switch (Look.toggle_switch — settings music / sounds) ------------
 	# A press surface wearing the sliced switch art (kit/switch_on·off.png — the green/tan
 	# pill with the knob baked in), or a code-drawn track + knob when the art is absent.
 	const SWITCH_H := 48.0                 # the switch pill's height; width follows the aspect

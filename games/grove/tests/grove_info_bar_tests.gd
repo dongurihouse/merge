@@ -344,10 +344,9 @@ func _initialize() -> void:
 # Bundle A board-drag feel — the merge-target telegraph (glow + breathe + magnet) and the held-tile lean.
 # Drives the real _on_board_input path: press a piece, motion the held tile over a mergeable neighbour
 # (telegraph lights), motion onto a non-mergeable cell (telegraph clears), and release (all feel torn down,
-# no stuck glow/rotation). Runs with calm OFF so the felt cues are active.
+# no stuck glow/rotation).
 func _test_drag_feel() -> void:
 	fresh("drag_feel")
-	Save.set_setting("calm", false)
 	var b = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(b)
 	if b.board == null:
@@ -413,15 +412,6 @@ func _test_drag_feel() -> void:
 	ok(absf(held_node.rotation) < 0.0001, "dropping resets the held tile's lean to upright")
 	ok(target_node.modulate.is_equal_approx(Color(1, 1, 1, 1.0)), "no glow leaks onto the target after the drop")
 
-	# calm OFF was asserted above; verify calm SUPPRESSES the telegraph glow + the lean.
-	Save.set_setting("calm", true)
-	_press_emulated(b, b._cell_pos(from_cell) + h)
-	_motion(b, b._cell_pos(target_cell) + h)
-	ok(target_node.modulate.is_equal_approx(Color(1, 1, 1, 1.0)), "under calm the telegraph does NOT glow the target")
-	_motion(b, b._cell_pos(from_cell) + h + Vector2(120, 0))
-	ok(absf(held_node.rotation) < 0.0001, "under calm the held tile does NOT lean")
-	_release_emulated(b, b._cell_pos(from_cell) + h)
-	Save.set_setting("calm", false)
 	b.queue_free()
 
 # --- drag-gesture drivers (emulate_touch_from_mouse: mouse + synth touch per event) ----

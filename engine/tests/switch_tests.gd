@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless guard for the settings toggle SWITCH (Look.toggle_switch — the sliced
-## kit/switch_on·off pill driving the music / sounds / calm rows).
+## kit/switch_on·off pill driving the music / sounds rows).
 ##   godot --headless --path . -s res://engine/tests/switch_tests.gd
 ## Proves: the on/off sprites resolve as grove art (so the art branch runs, not the
 ## fallback), the builder seeds the requested state + paints the matching sprite, and a

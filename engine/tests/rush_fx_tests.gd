@@ -4,9 +4,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/rush_fx_tests.gd
 
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")
-const FX = preload("res://engine/scripts/ui/fx.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
-const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0
@@ -28,8 +26,7 @@ func _initialize() -> void:
 	# knob() reader
 	ok(RushFx.knob(o, "merge_burst_count") == 7, "knob(): reads a present value")
 	ok(RushFx.knob({}, "timer_low_secs") == RushFx.KNOBS["timer_low_secs"], "knob(): falls back to KNOBS default")
-	# effects honour their params. Enable the gating flags + non-calm so the effect bodies run.
-	Save.set_setting("calm", false)
+	# effects honour their params. Enable the gating flags so the effect bodies run.
 	Features.FLAGS["celebrate_bursts"] = true
 	# merge_burst: count + (tier-3)*4 → at count 20, tier 3 == 20 (today's value)
 	var mh := Control.new(); get_root().add_child(mh)
@@ -37,12 +34,12 @@ func _initialize() -> void:
 	var pcount := 0
 	for ch in mh.get_children():
 		if ch is GPUParticles2D: pcount = int((ch as GPUParticles2D).amount)
-	ok(pcount == FX.amount_for(20), "merge_burst: particle amount tracks the count knob (tier 3, count 20)")
+	ok(pcount == 20, "merge_burst: particle amount tracks the count knob (tier 3, count 20)")
 	mh.queue_free()
 	# cell_pop strength flows to squash_pop (pct 50 → half deviation)
 	var cp := Control.new(); cp.size = Vector2(80, 80); get_root().add_child(cp)
 	RushFx.cell_pop(cp, 50)
-	# calm is false (set above), so squash_pop sets node.scale synchronously before tweening
+	# squash_pop sets node.scale synchronously before tweening
 	ok(not cp.scale.is_equal_approx(Vector2.ONE), "cell_pop: applies a scaled squash (pct 50)")
 	cp.queue_free()
 	# treefall_crack accepts debris/shake/hitstop without error and bursts on the host

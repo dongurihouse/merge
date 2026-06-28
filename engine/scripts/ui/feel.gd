@@ -27,7 +27,7 @@ static func merge(host: Node, node: Control, center: Vector2, tier: int, combo: 
 	if Features.on("merge_impact"):
 		FX.squash_pop(node)
 		var size := node.size.x if node != null and is_instance_valid(node) else 96.0
-		FX.flash(host, center, size, _merge_flash_peak(tier, intensity))   # flash self-gates on merge_impact + calm
+		FX.flash(host, center, size, _merge_flash_peak(tier, intensity))   # flash self-gates on merge_impact
 	else:
 		FX.pop(node)
 	# reserved big-moment shake — only at the pinnacle tiers, gated as the board did.
@@ -36,7 +36,7 @@ static func merge(host: Node, node: Control, center: Vector2, tier: int, combo: 
 	FX.burst(host, center, _merge_color(tier), _merge_burst_count(tier, combo, intensity))
 	var hs := _merge_hitstop(tier, combo, intensity, hitstop_gate)
 	if hs > 0.0:
-		FX.hitstop(minf(hs, Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless / calm
+		FX.hitstop(minf(hs, Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless
 	Audio.play(_merge_sound(tier), -1.0, _merge_pitch(tier, combo))
 	haptic(_merge_weight(tier))
 
@@ -78,7 +78,7 @@ static func _merge_hitstop(tier: int, combo: int, intensity: float, gate: int) -
 
 ## Burst particle count: the board's `10 + tier*3` curve + the big-moment bonus (tier>=ESCALATE_TIER)
 ## + the live-streak combo bonus (merge_combo), scaled by intensity. Feature-gated exactly as the
-## board assembled it. FX.burst applies calm-trimming (amount_for) itself — not pre-applied here.
+## board assembled it.
 static func _merge_burst_count(tier: int, combo: int, intensity: float) -> int:
 	var n := 10 + tier * 3
 	if Features.on("big_moment_shake") and tier >= Tune.ESCALATE_TIER:
@@ -114,32 +114,26 @@ static func _ladder_pitch(base: float, combo: int) -> float:
 ## visibly thumps down. Discrete arrivals (fling-land, a single drop) pass quiet=false for the
 ## full thunk; the caller fires ONE shared sound for a batch. `intensity` (0..1) dials strength.
 static func land(host: Node, node: Control, center: Vector2, intensity := 1.0, quiet := false) -> void:
-	_land_squash(node)   # the LAND_SQUASH_K impact pose -> rest; calm-gated; null-safe
+	_land_squash(node)   # the LAND_SQUASH_K impact pose -> rest; null-safe
 	if intensity <= 0.0:
 		return
 	# the dust puff reads the touchdown — fires even on a quiet bulk settle (it's the SOUND we dedupe)
-	FX.burst(host, center, LEAF, _land_puff_count(intensity))   # FX.burst calm-trims itself — not pre-applied here
+	FX.burst(host, center, LEAF, _land_puff_count(intensity))
 	if quiet:
 		return
 	# discrete (loud) landing only: the soft flash + touch sound + haptic
 	var size := node.size.x if node != null and is_instance_valid(node) else 96.0
-	FX.flash(host, center, size, _land_flash_peak(intensity))   # flash self-gates on merge_impact + calm
+	FX.flash(host, center, size, _land_flash_peak(intensity))   # flash self-gates on merge_impact
 	Audio.play("tidy_poof", Tune.LAND_TOUCH_DB, 1.0)
 	haptic("soft")
 
 ## The land squash: set the initial squashed pose then tween through the LAND_SQUASH_K keys to
 ## rest with TRANS_BACK/EASE_OUT — the 2-key `1.14/0.86 -> 1.0` impact Rush already uses inline.
-## Mirrors fx.squash_pop's calm handling: under calm it skips the stretch and does a gentle uniform
-## overshoot (SQUASH_CALM) instead, so motion-accessibility holds. No-op on a null/invalid node.
+## No-op on a null/invalid node.
 static func _land_squash(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	node.pivot_offset = node.size / 2.0 if node.size.x > 0.0 and node.size.y > 0.0 else node.custom_minimum_size / 2.0
-	if FX.calm():
-		var c := node.create_tween()
-		c.tween_property(node, "scale", Tune.SQUASH_CALM, Tune.LAND_SQUASH_T[0]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		c.tween_property(node, "scale", Vector2.ONE, Tune.LAND_SQUASH_T[1]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		return
 	node.scale = Tune.LAND_SQUASH_K[0]
 	var t := node.create_tween()
 	for i in range(1, Tune.LAND_SQUASH_K.size()):
@@ -157,8 +151,7 @@ static func _land_flash_peak(intensity: float) -> float:
 static func _land_should_emit(intensity: float, quiet: bool) -> bool:
 	return not quiet and intensity > 0.0
 
-## Micro-puff particle count: LAND_PUFF_N scaled by intensity (FX.burst applies its own
-## calm-trim via amount_for — not pre-applied here). 0 at intensity 0.
+## Micro-puff particle count: LAND_PUFF_N scaled by intensity. 0 at intensity 0.
 static func _land_puff_count(intensity: float) -> int:
 	return int(Tune.LAND_PUFF_N * intensity)
 ## The launch EMIT — an emitter spits a projectile (the generator pops a tile, the Rush board
@@ -177,7 +170,7 @@ static func launch(emitter: Control, projectile: Control, intensity := 1.0, soun
 	if intensity > 0.0 and projectile and is_instance_valid(projectile):
 		var p := projectile.get_parent()
 		if p is Node:
-			FX.burst(p, projectile.position + projectile.size / 2.0, LEAF, _launch_puff_count(intensity))   # muzzle puff (FX.burst calm-trims itself)
+			FX.burst(p, projectile.position + projectile.size / 2.0, LEAF, _launch_puff_count(intensity))   # muzzle puff
 	if sound != "":
 		Audio.play(sound, sound_db, sound_pitch)
 	haptic("tick")
@@ -185,7 +178,7 @@ static func launch(emitter: Control, projectile: Control, intensity := 1.0, soun
 # --- launch pure helpers (no scene tree — unit-tested in feel_tests.gd) ----------------
 
 ## Muzzle-puff particle count: LAUNCH_PUFF_N scaled by intensity (floored to int); 0 at intensity 0,
-## where launch() also skips the puff entirely (FX.burst applies its own calm-trim — not pre-applied here).
+## where launch() also skips the puff entirely.
 static func _launch_puff_count(intensity: float) -> int:
 	return int(Tune.LAUNCH_PUFF_N * intensity)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
@@ -201,8 +194,8 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 ##             MOVE_FALL_T_MIN..MAX. This is the PERF-CRITICAL path (a whole column settles at once),
 ##             so it gets NO trail and only the cheap constant-offset shadow.
 ## The ENHANCEMENTS (cast shadow + motion trail + motion-lean) are purely FELT: hard-gated OFF under
-## calm AND under headless (see _move_enhance_enabled), and the cast shadow is SKIPPED entirely when
-## the node already carries a piece_view ContactShadow (no double shadow). `dur >= 0` overrides timing.
+## headless (see _move_enhance_enabled), and the cast shadow is SKIPPED entirely when the node already
+## carries a piece_view ContactShadow (no double shadow). `dur >= 0` overrides timing.
 static func move(node: Control, from: Vector2, to: Vector2, kind := "slide", dur := -1.0) -> Tween:
 	if not (node and is_instance_valid(node)):
 		return null
@@ -213,7 +206,7 @@ static func move(node: Control, from: Vector2, to: Vector2, kind := "slide", dur
 		_move_build_arc(t, node, from, to)
 	else:
 		t.tween_property(node, "position", to, d).set_trans(Tween.TRANS_QUAD).set_ease(_move_ease(kind))
-	# the enhancements ride alongside the primary tween — never block it, never run headless/calm.
+	# the enhancements ride alongside the primary tween — never block it, never run headless.
 	if _move_enhance_enabled():
 		var speed := from.distance_to(to) / maxf(d, 0.001)
 		_move_shadow(node, from, to, kind, d)
@@ -234,10 +227,10 @@ static func _move_build_arc(t: Tween, node: Control, from: Vector2, to: Vector2)
 # --- move pure helpers (no scene tree — unit-tested in feel_tests.gd) ------------------
 
 ## The shared gate for ALL of cast-shadow / motion-trail / motion-lean: they are purely FELT, so they
-## never run under calm (motion accessibility) NOR under headless (no renderer, no felt effect, and a
-## per-frame ghost/shadow would only burden the deterministic test clock).
+## never run under headless (no renderer, no felt effect, and a per-frame ghost/shadow would only
+## burden the deterministic test clock).
 static func _move_enhance_enabled() -> bool:
-	return not FX.calm() and DisplayServer.get_name() != "headless"
+	return DisplayServer.get_name() != "headless"
 
 ## Accelerate-INTO-impact easing for the flat kinds: EASE_IN (slow to leave, fastest at the target) for
 ## slide + fall. (arc builds its own two-leg easing in _move_build_arc and never asks this.)
@@ -289,7 +282,7 @@ static func _move_has_contact_shadow(node: Node) -> bool:
 			return true
 	return false
 
-# --- move enhancements (scene-tree; only run off-headless, off-calm) -------------------
+# --- move enhancements (scene-tree; only run off-headless) -------------------
 
 ## A soft cast shadow that follows under the node for the duration of the move — but ONLY for nodes
 ## that DON'T already cast one (board pieces + Rush tiles carry their own piece_view ContactShadow, so
@@ -396,8 +389,8 @@ static func haptic(weight := "soft") -> void:
 
 # --- haptic pure helpers (no vibrator — unit-tested in feel_tests.gd) ------------------
 
-## The "haptics" player setting (Settings card, default ON), read the same pull-based way FX.calm()
-## reads "calm" — so toggling it applies immediately, no caching.
+## The "haptics" player setting (Settings card, default ON), read pull-based via Save.get_setting —
+## so toggling it applies immediately, no caching.
 static func _haptics_enabled() -> bool:
 	return Save.get_setting("haptics", true)
 
@@ -415,14 +408,11 @@ static func _haptic_allowed(now_ms: int, last_ms: int) -> bool:
 ## OUTWARD from the hit, staggered so the wave reads as travelling. Each neighbour squashes along the
 ## AXIS pointing away from `impact_center` (RIPPLE_SQUASH * intensity), held briefly, then springs back
 ## to 1.0 — a SINE in/out so it never snaps. The neighbour list is gathered SCENE-SIDE (the scene owns
-## the grid); this verb only animates the nodes it's handed. Hard no-op under calm (motion accessibility),
-## and per-neighbour null/invalid-safe (a freed or empty cell is skipped, never errors). Every tween ends
-## on Vector2.ONE, so a neighbour can't leak off-scale even if it's interrupted partway by the next ripple
-## (create_tween on the SAME node auto-kills the prior one, so a re-rippled neighbour restarts cleanly
-## rather than stacking — no scale leak).
+## the grid); this verb only animates the nodes it's handed. Per-neighbour null/invalid-safe (a freed or
+## empty cell is skipped, never errors). Every tween ends on Vector2.ONE, so a neighbour can't leak
+## off-scale even if it's interrupted partway by the next ripple (create_tween on the SAME node auto-kills
+## the prior one, so a re-rippled neighbour restarts cleanly rather than stacking — no scale leak).
 static func ripple(neighbors: Array, impact_center: Vector2, intensity := 1.0) -> void:
-	if FX.calm():
-		return
 	var i := 0
 	for nb in neighbors:
 		if nb == null or not is_instance_valid(nb) or not (nb is Control):
@@ -451,10 +441,10 @@ static func _ripple_pose(nb_center: Vector2, impact_center: Vector2, intensity: 
 ## The BOARD PUNCH — a whole-board scale pulse on a BIG merge (tier >= ESCALATE_TIER): the board snaps up
 ## to 1 + PUNCH*intensity then springs back to 1.0 (a QUAD-out punch, BACK-out settle for a tiny overshoot).
 ## Reserved for the pinnacle moments only — co-fires with feel.merge's reserved shake there. Returns the
-## scale Tween (so a caller could chain) or null when suppressed. Hard no-op under calm + null-safe; the
-## settle always lands on Vector2.ONE, so the board can't leak off-scale.
+## scale Tween (so a caller could chain) or null when suppressed. Null-safe; the settle always lands on
+## Vector2.ONE, so the board can't leak off-scale.
 static func board_punch(board: Control, intensity := 1.0) -> Tween:
-	if FX.calm() or board == null or not is_instance_valid(board):
+	if board == null or not is_instance_valid(board):
 		return null
 	board.pivot_offset = board.size / 2.0
 	var t := board.create_tween()   # same-node create_tween kills any prior punch — no stacking

@@ -717,7 +717,7 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 	return holder
 
 ## --- toggle switch ---------------------------------------------------------------------
-## A SWITCH (the settings music / sounds / calm rows): a press surface wearing the sliced
+## A SWITCH (the settings music / sounds rows): a press surface wearing the sliced
 ## switch art (kit/switch_on.png · switch_off.png — the green/tan pill with the knob baked
 ## in), or a code-drawn track + sliding knob when the art is absent (the kit invariant —
 ## same metrics either way). Tapping flips the state, repaints the look, and fires

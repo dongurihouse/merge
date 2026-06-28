@@ -1,5 +1,5 @@
 extends RefCounted
-## The SETTINGS card (music · sounds · calm) — opened from the map's side-rail Settings tile.
+## The SETTINGS card (music · sounds) — opened from the map's side-rail Settings tile.
 ##
 ## The FACE is now BUILT from the shared MAIL KIT (games/grove/tools/ui_workbench_kit.gd) using the
 ## design config the UI WORKBENCH saves — the SAME pattern the mailbox (inbox.gd) and daily (login.gd)
@@ -33,7 +33,6 @@ const PRIVACY_URL := "https://dongurihouse.net/privacy"
 const FLAGS := [
 	{"key": "music", "label": "Music", "def": false},
 	{"key": "sfx", "label": "Sounds", "def": true},
-	{"key": "calm", "label": "Calm mode", "def": false},
 	{"key": "haptics", "label": "Vibration", "def": true},
 ]
 

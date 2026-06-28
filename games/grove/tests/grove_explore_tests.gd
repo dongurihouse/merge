@@ -48,13 +48,6 @@ func _test_combo_bloom() -> void:
 	ok(ComboBloom._advance(0.2, 0.0, 0.016) < 0.2, "bloom: with target below, the live strength eases down")
 	# target decays over time (no bumps) at ~COMBO_BLOOM_DECAY/sec — checked via the _process bleed math.
 	ok(Tune.COMBO_BLOOM_DECAY > 0.0, "bloom: the target bleeds off when the streak lapses (decay > 0)")
-	# calm halves the VISIBLE strength (the glow is allowed under calm, just gentler).
-	var prev := Save.get_setting("calm", false)
-	Save.set_setting("calm", false)
-	ok(approx(ComboBloom._visible_strength(0.2), 0.2), "bloom: full strength shows when calm is off")
-	Save.set_setting("calm", true)
-	ok(approx(ComboBloom._visible_strength(0.2), 0.1), "bloom: calm halves the visible glow (gentler, not gone)")
-	Save.set_setting("calm", prev)
 	# scene wiring: both merge scenes own ONE bloom child (freed with the scene) and bump it after Feel.merge.
 	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
 	ok(board_src.find("ComboBloom") != -1, "board owns a ComboBloom overlay")
@@ -63,7 +56,7 @@ func _test_combo_bloom() -> void:
 	ok(rush_src.find("ComboBloom") != -1, "rush owns a ComboBloom overlay")
 	ok(rush_src.find("_combo_bloom.bump(_combo)") != -1, "rush bumps the bloom after the merge")
 
-# Bundle D: the reactive ambient motes (Ambient.puff). The count is calm-trimmed; puff is a graceful
+# Bundle D: the reactive ambient motes (Ambient.puff). Puff is a graceful
 # no-op when there's no layer (Rush / weather off); the board reaches its WeatherLayer and puffs.
 func _test_mote_puff() -> void:
 	# the puff count is positive (motes fly) and never exceeds the base MOTE_PUFF_COUNT.
