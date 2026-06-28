@@ -1380,19 +1380,22 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		icwrap.add_child(icon_node)
 	var caption := String(spec.get("caption", ""))
 	if shape == "rect":
-		# RECT badge: icon (upper) + caption (lower) stacked INSIDE the rounded rect, padded off the edge —
-		# the rail's "icon over label" tiles and the Map button's "Map" plate (matches the ui_mock2 chrome).
-		var vb := VBoxContainer.new()
-		vb.set_anchors_preset(Control.PRESET_FULL_RECT)
-		vb.alignment = BoxContainer.ALIGNMENT_CENTER
-		vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var rpad := px * float(opts.get("rect_pad", 0.13))
-		vb.offset_left = rpad; vb.offset_right = -rpad
-		vb.offset_top = rpad; vb.offset_bottom = -rpad
-		icwrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		icwrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		vb.add_child(icwrap)
-		if caption != "":
+		if caption == "":
+			icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+			b.add_child(icwrap)
+		else:
+			# RECT badge: icon (upper) + caption (lower) stacked INSIDE the rounded rect, padded off the edge —
+			# the rail's "icon over label" tiles and the Map button's "Map" plate (matches the ui_mock2 chrome).
+			var vb := VBoxContainer.new()
+			vb.set_anchors_preset(Control.PRESET_FULL_RECT)
+			vb.alignment = BoxContainer.ALIGNMENT_CENTER
+			vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var rpad := px * float(opts.get("rect_pad", 0.13))
+			vb.offset_left = rpad; vb.offset_right = -rpad
+			vb.offset_top = rpad; vb.offset_bottom = -rpad
+			icwrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			icwrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			vb.add_child(icwrap)
 			var cl := Label.new()
 			cl.text = caption
 			cl.add_theme_font_size_override("font_size", int(opts.get("caption_font", 22)))
@@ -1402,7 +1405,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			vb.add_child(cl)
-		b.add_child(vb)
+			b.add_child(vb)
 	else:
 		icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 		b.add_child(icwrap)
@@ -3891,7 +3894,12 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	info_slot.name = "InfoButtonSlot"
 	info_slot.custom_minimum_size = Vector2(inner, inner)
 	info_slot.size = Vector2(inner, inner)
-	info_slot.position = Vector2(0.0, maxf(0.0, (height - (vpad * 2.0) - inner) * 0.5))
+	info_slot.anchor_top = 0.5
+	info_slot.anchor_bottom = 0.5
+	info_slot.offset_left = 0.0
+	info_slot.offset_right = inner
+	info_slot.offset_top = -inner * 0.5
+	info_slot.offset_bottom = inner * 0.5
 	info_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	info_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info_btn.size = Vector2(info_btn_px, info_btn_px)

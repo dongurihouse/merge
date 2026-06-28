@@ -198,6 +198,14 @@ func _slider_min(view: Control, label: String) -> float:
 					return (kid as HSlider).min_value
 	return INF
 
+func _button_icon_art(button: Button) -> Control:
+	if button == null or not button.has_meta("icon_wrap"):
+		return null
+	var wrap := button.get_meta("icon_wrap") as Control
+	if wrap == null or wrap.get_child_count() == 0:
+		return null
+	return wrap.get_child(0) as Control
+
 func _has_sidebar_label(view: Control, label: String) -> bool:
 	for found in view._sidebar_body.find_children("*", "Label", true, false):
 		if String((found as Label).text) == label:
@@ -413,6 +421,7 @@ func _initialize() -> void:
 	_test_quest_card_config(view)
 	_test_generator_highlight_controls(view)
 	_test_new_knobs(view)
+	await _test_action_tray_icon_scale_centers(view)
 	_test_warm_shadow_port()
 	_test_mystery_preview(view)
 	_test_level_badge_component(view)
@@ -1198,6 +1207,32 @@ func _test_new_knobs(view) -> void:
 		view._selected = sel
 		view._rebuild_sidebar()
 		ok(view._sidebar_body.get_child_count() > 0, "the %s sidebar builds its slider panel" % sel)
+
+func _test_action_tray_icon_scale_centers(view) -> void:
+	var original_info: Dictionary = (view._params["info_bar"] as Dictionary).duplicate()
+	var original_home: Dictionary = (view._params["home_button"] as Dictionary).duplicate()
+	view._params["home_button"]["px"] = 180
+	for pct in [25, 95]:
+		view._params["info_bar"]["icon_scale_pct"] = pct
+		var action_prev: Control = view._make_element("info_bar")
+		action_prev.size = action_prev.custom_minimum_size
+		root.add_child(action_prev)
+		await process_frame
+		await process_frame
+		var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
+		var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
+		var home_icon := _button_icon_art(preview_home)
+		var bag_icon := _button_icon_art(preview_bag)
+		var home_dx := absf(home_icon.get_global_rect().get_center().x - preview_home.get_global_rect().get_center().x) if home_icon != null and preview_home != null else INF
+		var bag_dx := absf(bag_icon.get_global_rect().get_center().x - preview_bag.get_global_rect().get_center().x) if bag_icon != null and preview_bag != null else INF
+		var home_dy := absf(home_icon.get_global_rect().get_center().y - preview_home.get_global_rect().get_center().y) if home_icon != null and preview_home != null else INF
+		var bag_dy := absf(bag_icon.get_global_rect().get_center().y - preview_bag.get_global_rect().get_center().y) if bag_icon != null and preview_bag != null else INF
+		ok(home_dx <= 0.75 and home_dy <= 0.75 and bag_dx <= 0.75 and bag_dy <= 0.75, \
+			"action tray Home/Bag icon art stays centered in each side well at %d%% scale" % pct)
+		action_prev.queue_free()
+		await process_frame
+	view._params["info_bar"] = original_info
+	view._params["home_button"] = original_home
 
 func _test_board_element(view) -> void:
 	ok(view._sections.has("board"), "the board is a registered gallery item")
