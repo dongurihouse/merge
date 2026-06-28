@@ -2579,6 +2579,10 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		t.set_parallel(true)
 		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# JUICE: the tile THUMPS DOWN on arrival — a quiet land (squash + dust puff, no per-seed sound;
+		# the pop's water_pop/item_drop is the one shared batch sound). Grow-in = appearance, land = touchdown.
+		var land_ctr := _cell_pos(pick) + Vector2(csz, csz) / 2.0
+		t.chain().tween_callback(Feel.land.bind(board_area, n, land_ctr, 0.7, true))
 	# Unified launch EMIT: the generator recoil + a muzzle puff (toss sound left OFF — the generator
 	# keeps its OWN spawn sound: water_pop above, else the item_drop fallback below). Called ONCE per
 	# pop (not per burst seed) with the representative item.

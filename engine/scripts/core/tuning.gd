@@ -236,12 +236,12 @@ class FX:
 	const COMBO_BURST_BONUS := 3        # + burst particles while a streak is live
 
 	# --- feel.land ---
-	const LAND_SQUASH_K := [Vector2(1.14, 0.86), Vector2.ONE]
-	const LAND_SQUASH_T := [0.05, 0.10]
+	const LAND_SQUASH_K := [Vector2(1.20, 0.80), Vector2(0.93, 1.08), Vector2.ONE]   # punchy: squash -> counter-stretch -> settle
+	const LAND_SQUASH_T := [0.09, 0.15]   # ~0.24s — slow enough to read as a real thump (was 0.18s, 2-key)
 	const LAND_FLASH_FACTOR := 0.45
 	const LAND_FLASH_T := 0.10
 	const LAND_TOUCH_DB := -4.0
-	const LAND_PUFF_N := 4
+	const LAND_PUFF_N := 7
 	# --- feel.launch ---
 	const LAUNCH_TOSS_DB := -5.0
 	const LAUNCH_PUFF_N := 4

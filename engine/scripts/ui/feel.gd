@@ -107,19 +107,23 @@ static func _ladder_pitch(base: float, combo: int) -> float:
 	var semitones: float = float(Tune.PENTA[clampi(combo, 0, Tune.PENTA.size() - 1)])
 	return base * pow(2.0, semitones / 12.0)
 
-## The land IMPACT — a tile that traveled then touched down. `quiet` separates a discrete
-## arrival (fling-land, a coin/special drop: squash + small flash + micro-puff + touch sound
-## + haptic) from a BULK settle (a Rush gravity column or the spawn fall, where N tiles land
-## at once): quiet does the SQUASH ONLY — no flash/puff/sound/haptic — so a settling column
-## can't fire N flashes + N poofs + N motor pulses simultaneously. `node` is the arriving tile;
-## `center`/`host` locate the flash + puff; `intensity` (0..1) dials strength.
+## The land IMPACT — a tile that traveled then touched down. ALWAYS does the squash + a small
+## dust PUFF (the cheap visual that actually reads a touchdown). `quiet` only suppresses the
+## per-tile SOUND, flash, and haptic — so a bulk settle (a Rush gravity column, a generator
+## burst) can't fire N touch-sounds + N flashes + N motor pulses at once, while every tile still
+## visibly thumps down. Discrete arrivals (fling-land, a single drop) pass quiet=false for the
+## full thunk; the caller fires ONE shared sound for a batch. `intensity` (0..1) dials strength.
 static func land(host: Node, node: Control, center: Vector2, intensity := 1.0, quiet := false) -> void:
-	_land_squash(node)   # the 2-key LAND_SQUASH_K impact (1.14/0.86 -> 1.0); calm-gated; null-safe
-	if not _land_should_emit(intensity, quiet):
+	_land_squash(node)   # the LAND_SQUASH_K impact pose -> rest; calm-gated; null-safe
+	if intensity <= 0.0:
 		return
+	# the dust puff reads the touchdown — fires even on a quiet bulk settle (it's the SOUND we dedupe)
+	FX.burst(host, center, LEAF, _land_puff_count(intensity))   # FX.burst calm-trims itself — not pre-applied here
+	if quiet:
+		return
+	# discrete (loud) landing only: the soft flash + touch sound + haptic
 	var size := node.size.x if node != null and is_instance_valid(node) else 96.0
 	FX.flash(host, center, size, _land_flash_peak(intensity))   # flash self-gates on merge_impact + calm
-	FX.burst(host, center, LEAF, _land_puff_count(intensity))   # FX.burst calm-trims itself — not pre-applied here
 	Audio.play("tidy_poof", Tune.LAND_TOUCH_DB, 1.0)
 	haptic("soft")
 
