@@ -38,6 +38,10 @@ const INK = Game.PALETTE.INK
 # native size is the reference for the slice margins (card_slice_*) and the no-distortion box shape.
 const CARD_ART_W := 369.0
 const CARD_ART_H := 209.0
+# card_quest.png pads the parchment with an ~8px TRANSPARENT border (opaque bbox x[8..360] y[8..200] of the
+# 369×209 art). The NinePatch draws those corners at native px, so the VISIBLE card sits ~8px inside its
+# layout rect — the drop-shadow insets by this so it hugs the card instead of haloing around the padded rect.
+const CARD_ART_MARGIN := 8.0
 const PLAQUE_PATH := "quest/plaque.png"   # the reusable wooden reward sign (island 6 of board1_asset2.png)
 const PLAQUE_AR := 202.0 / 110.0          # plaque art aspect, so it never stretches
 
@@ -229,6 +233,13 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	if not bool(lay.get("shadow", false)):
 		return
 	var sh := Look.shadow_rect(h * 0.12, lay.get("shadow_params", {}))   # corner ≈ the wood-frame radius
+	# inset to the VISIBLE card (past card_quest.png's transparent margin) so the cast is a tight directional
+	# drop matching the global shadow — not an all-around halo around the padded rect. shadow_rect is full-rect;
+	# these offsets pull each edge in by the art margin.
+	sh.offset_left = CARD_ART_MARGIN
+	sh.offset_top = CARD_ART_MARGIN
+	sh.offset_right = -CARD_ART_MARGIN
+	sh.offset_bottom = -CARD_ART_MARGIN
 	sh.show_behind_parent = true
 	card.add_child(sh)
 
