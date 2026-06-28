@@ -162,6 +162,8 @@ var _info_label: Label               # "<name> · Tier N" (or the empty-state pr
 var _info_desc_label: Label          # compact player-use hint for the selected item
 var _info_btn: Button                # opens the selected item's Tiers ladder
 var _info_button_hidden := false     # workbench option: hide the floating info button even when selected
+var _info_btn_selected_pos := Vector2.ZERO
+var _info_btn_empty_pos := Vector2.ZERO
 var _info_trash: Button              # sells the selected item; its content shows trash + payout (built by the kit)
 var _info_trash_count: Label         # the "+N" sell payout amount inside the trash button (kit meta sell_count)
 var _info_trash_coin: Control        # the payout currency icon slot (standard coin/acorn) inside the trash button
@@ -1771,9 +1773,28 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_info_item_icon_scale = float(pill.get_meta("item_icon_scale", 0.80)) # artwork scale as a fraction of bar height
 	_info_item_px = float(pill.get_meta("item_icon_px", _info_inner_px * _info_item_icon_scale))
 	_info_button_hidden = bool(pill.get_meta("hide_info_button", false))
+	_capture_info_button_positions()
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	return pill
+
+func _capture_info_button_positions() -> void:
+	_info_btn_selected_pos = Vector2.ZERO
+	_info_btn_empty_pos = Vector2.ZERO
+	if _info_btn == null or not is_instance_valid(_info_btn):
+		return
+	_info_btn_selected_pos = _info_btn.position
+	_info_btn_empty_pos = _info_btn_selected_pos
+	var slot := _info_btn.get_parent() as Control
+	if slot != null:
+		var slot_h := slot.size.y if slot.size.y > 0.0 else slot.custom_minimum_size.y
+		var btn_h := _info_btn.size.y if _info_btn.size.y > 0.0 else _info_btn.custom_minimum_size.y
+		_info_btn_empty_pos.y = (slot_h - btn_h) * 0.5
+
+func _place_info_button(empty_state: bool) -> void:
+	if _info_btn == null or not is_instance_valid(_info_btn):
+		return
+	_info_btn.position = _info_btn_empty_pos if empty_state else _info_btn_selected_pos
 
 # An info-bar ACTION chip — a caption over a green badge holding a currency icon + a number — MIRRORING
 # the kit sell button's recipe so every action in the bar reads one button language. Shared by the T54
@@ -1881,6 +1902,7 @@ func _select_item(cell: Vector2i) -> void:
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
+	_place_info_button(false)
 	var tier := BoardModel.tier_of(code)
 	for c in _info_icon.get_children():
 		c.queue_free()
@@ -1920,6 +1942,7 @@ func _select_generator(cell: Vector2i) -> void:
 	_selected_cell = cell
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
+	_place_info_button(false)
 	for c in _info_icon.get_children():
 		c.queue_free()
 	var prev := PieceView.make_generator(gid, _info_item_px, {})
@@ -1969,6 +1992,7 @@ func _clear_selection() -> void:
 		_info_desc_label.text = Strings.t("board.info.empty_bag_hint")
 		_info_desc_label.visible = _info_desc_label.text != ""
 	if _info_btn != null and is_instance_valid(_info_btn):
+		_place_info_button(true)
 		_info_btn.visible = true
 		_info_btn.disabled = false
 	if _info_trash != null and is_instance_valid(_info_trash):

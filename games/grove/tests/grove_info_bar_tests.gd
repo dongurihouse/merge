@@ -47,6 +47,11 @@ func _initialize() -> void:
 	ok(info_button != null, "the info bar exposes its info button")
 	ok(info_button != null and info_button.visible and not info_button.disabled, \
 		"the empty info bar shows an enabled tutorial info button")
+	var info_bar := board_scene.find_child("ActionBarInfoBar", true, false) as Control
+	ok(info_bar != null, "the board exposes the live action-bar info bar")
+	var empty_info_center_delta := absf(info_button.get_global_rect().get_center().y - info_bar.get_global_rect().get_center().y) if info_button != null and info_bar != null else 999.0
+	ok(empty_info_center_delta <= 1.0, \
+		"the empty info button is vertically centered in the workbench-tuned info bar")
 	ok(board_scene.get_node_or_null("BoardTutorialOverlay") != null, \
 		"a fresh board opens the how-to-play tutorial on first run")
 	ok(bool(Save.grove().get("board_tutorial_seen", false)), \
