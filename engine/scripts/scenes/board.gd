@@ -1148,6 +1148,61 @@ func _refresh_giver_lights() -> void:
 		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
+	_refresh_quest_ready_marks()                  # board-side twin: glow every board tile a live quest wants
+
+# The asked item codes (line*100+tier) the live fence currently wants, as a set. Empty while the fence
+# is INERT (the bank can finish the map → quests greyed, nothing deliverable), so the glow AND the
+# tap-to-deliver both fall quiet together — the SAME gate the giver ✓/bob read.
+func _asked_codes() -> Dictionary:
+	var out := {}
+	if Quests.fence_inert(_quest_map(), _exp(), Save.grove().get("unlocks", {})):
+		return out
+	for q in quests:
+		var it := G.quest_item(q)
+		if not it.is_empty():
+			out[int(it.line) * 100 + int(it.tier)] = true
+	return out
+
+# The index of the first live, non-inert quest asking for `code` (the leftmost giver in fence order),
+# or -1 when nothing wants it. Drives the board-side second-tap: a focused, glowing tile delivers here.
+func _quest_for_code(code: int) -> int:
+	if Quests.fence_inert(_quest_map(), _exp(), Save.grove().get("unlocks", {})):
+		return -1
+	for i in quests.size():
+		var it := G.quest_item(quests[i])
+		if not it.is_empty() and int(it.line) * 100 + int(it.tier) == code:
+			return i
+	return -1
+
+# The giver card wired to quest qi, so a board-side delivery flies the item to the RIGHT giver and pays
+# its reward there. Null when qi has no live card (e.g. mid-rebuild).
+func _chip_for_qi(qi: int) -> Control:
+	for e in giver_chips:
+		if int(e.get("qi", -1)) == qi:
+			return e.chip
+	return null
+
+# Quest-ready glow: every board tile a live quest wants wears a soft gold halo + gentle breathe (the
+# board-side twin of the giver ✓/bob). Diffs the asked-codes set against the live piece nodes — adds a
+# glow to a newly-wanted tile, clears it from one no longer wanted. Idempotent; runs on the SAME beat as
+# the giver lights (every board/quest change), so it tracks merges, deliveries, refills, and inert flips.
+func _refresh_quest_ready_marks() -> void:
+	if not Features.on("quest_ready_glow"):
+		return
+	var wanted := _asked_codes()
+	for cell in piece_nodes:
+		var node: Control = piece_nodes[cell]
+		if node == null or not is_instance_valid(node):
+			continue
+		var glow: Control = node.get_node_or_null("ReadyGlow")
+		if wanted.has(board.item_at(cell)):
+			if glow == null:
+				var g := PieceView.add_ready_glow(node, csz)
+				if g != null:
+					FX.breathe(g)
+		elif glow != null:
+			FX.breathe_stop(glow)
+			glow.queue_free()
 
 # §6: dim EVERY live generator to a standing "paused" look while the board has no free
 # cell (popping is free while dimmed — only the cue is missing), and restore full modulate
@@ -2447,6 +2502,8 @@ func _on_release(pos: Vector2) -> void:
 				_collect_coin(from, node)
 			else:
 				_collect_special(from, node)
+		elif _press_was_selected and Features.on("quest_ready_glow") and _quest_for_code(from_code) >= 0:
+			_deliver_from_board(from)         # second tap of an already-focused, glowing tile → consume it + complete the quest
 		else:
 			_snap_back(from, node)
 			_select_item(from)
@@ -3331,13 +3388,33 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	if _quest_is_inert(qi):
 		return                                # greyed quest: not deliverable
 	var q: Dictionary = quests[qi]
-	var it: Dictionary = G.quest_item(q)
 	if not BoardLogic.quest_payable(board, q):
 		FX.wobble(chip)
 		Audio.play("invalid_soft", -6.0)
 		return
+	var it: Dictionary = G.quest_item(q)
+	_deliver_quest(qi, board.first_item_of(int(it.line) * 100 + int(it.tier)), chip)
+
+# Board-side delivery (the second-tap affordance): the player tapped an already-focused, glowing tile —
+# hand it to the leftmost giver that wants it, consuming THIS exact tile. No-op when nothing wants it
+# (the fence is inert / the giver card is missing). Mirrors the giver tap, just sourced from the board.
+func _deliver_from_board(cell: Vector2i) -> void:
+	var qi := _quest_for_code(board.item_at(cell))
+	if qi < 0:
+		return
+	var chip := _chip_for_qi(qi)
+	if chip == null:
+		return
+	_clear_selection()                        # the tile is leaving — drop its focus ring + info bar
+	_deliver_quest(qi, cell, chip)
+
+# The ONE delivery path, shared by the giver tap and the board second-tap. Consumes the item at `cell`,
+# flies it to `chip`, pays the quest's reward (exp + coins + level-up), and drops the quest from the
+# fence. `cell` is explicit so a board-tap consumes the EXACT tile tapped, not just first_item_of(code).
+func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
+	var q: Dictionary = quests[qi]
+	var it: Dictionary = G.quest_item(q)
 	var code := int(it.line) * 100 + int(it.tier)
-	var cell := board.first_item_of(code)
 	board.take(cell)
 	var n: Control = piece_nodes.get(cell)
 	piece_nodes.erase(cell)
