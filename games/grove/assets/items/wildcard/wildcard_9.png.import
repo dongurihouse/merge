@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/wildcard_9.png-e1d6ea69ec9ee144b66f55b4999b18
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

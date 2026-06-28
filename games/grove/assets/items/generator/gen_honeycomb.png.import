@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/gen_honeycomb.png-45d4d2f8e3f285df18683b8e128
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

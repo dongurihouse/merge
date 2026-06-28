@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/13_green_leaf_spark_t1.png-f7e315a2e2f8193021
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/garden_mossy_trinkets_4.png-a70d001db2c2b959e
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

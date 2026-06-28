@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/honey_11.png-5557c339b73c8d3573c2e7e8ab04d9d0
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
