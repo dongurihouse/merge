@@ -15,6 +15,7 @@ static var FLAGS := {
 	"idle_hint": true,            # idle ~7s → a mergeable pair wiggles
 	"discovery_ladder": true,     # tap item → upgrade-path card ("?" tiers)
 	"quest_ready_check": true,    # green ✓ badge when an ask is payable
+	"quest_ready_glow": true,     # board tile glows when a quest wants it; second tap of the focused tile delivers it
 	"sell_hints": true,           # W3: a one-time floater the first time a max-tier item lands (sell spares)
 	# juice
 	"breathe_cta": true,          # the ONE suggested next action breathes
