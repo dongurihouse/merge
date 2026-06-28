@@ -49,7 +49,6 @@ const Pal = Game.PALETTE
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
 const MERGE_SLIDE_MS := 130      # the merge snap is a fast FIXED slide, decoupled from the tunable move duration_ms
-const POP_FLIGHT_MS := 220       # the generator-pop flight — a fixed snappy travel that carries the move shadow/trail/lean
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
@@ -2613,10 +2612,10 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		var st := n.create_tween()
 		st.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		# the position FLIGHT routes through the unified MOVE verb so the workbench-tuned shadow / trail /
-		# lean show on the board's most visible tile travel (the merge snap is too brief to read them). A
-		# fixed snappy POP_FLIGHT_MS — NOT the tunable travel duration_ms, so pops never go sluggish.
+		# lean show on the board's most visible tile travel (the merge snap is too brief to read them). The
+		# flight FOLLOWS the workbench travel duration_ms (no override), so tuning Move speed is felt here.
 		var land_ctr := _cell_pos(pick) + Vector2(csz, csz) / 2.0
-		var mt := MoveFx.apply(n, _cell_pos(cell), _cell_pos(pick), "slide", _move_opts, POP_FLIGHT_MS)
+		var mt := MoveFx.apply(n, _cell_pos(cell), _cell_pos(pick), "slide", _move_opts)
 		if mt != null:
 			# JUICE: the tile THUMPS DOWN on arrival — a quiet land (squash + dust puff, no per-seed sound;
 			# the pop's water_pop/item_drop is the one shared batch sound). Grow-in = appearance, land = touchdown.
