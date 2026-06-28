@@ -389,11 +389,15 @@ func _test_rush_intro_hint() -> void:
 	var replay := s.find_child("RushInfoButton", true, false) as Button
 	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
 	var replay_glyph := replay.find_child("RushInfoGlyph", true, false) as Label if replay != null else null
+	# the info button + the caption both centre on the BAR — the button geometrically, the caption via its
+	# small optical nudge (its rect centre is offset from its ink centre by that nudge, so compare the
+	# button to the strip centre rather than to the label rect).
+	var strip2 := replay.get_parent() as Control if replay != null else null
 	var replay_center_y := replay.get_global_rect().get_center().y if replay != null else -9999.0
-	var hint_center_y := hint.get_global_rect().get_center().y if hint != null else 9999.0
-	var replay_hint_delta := replay_center_y - hint_center_y
-	ok(replay != null and absf(replay_hint_delta) <= 1.5, \
-		"Rush info button is vertically centered with the bottom hint text (delta=%.1f)" % replay_hint_delta)
+	var strip_center_y := strip2.get_global_rect().get_center().y if strip2 != null else 9999.0
+	var replay_strip_delta := replay_center_y - strip_center_y
+	ok(replay != null and strip2 != null and absf(replay_strip_delta) <= 1.5, \
+		"Rush info button is vertically centered in the bottom hint bar (delta=%.1f)" % replay_strip_delta)
 	ok(replay_glyph != null and replay_glyph.vertical_alignment == VERTICAL_ALIGNMENT_CENTER \
 		and absf(replay_glyph.get_global_rect().get_center().y - replay_center_y) <= 1.0, \
 		"Rush info glyph is vertically centered inside the info button")
@@ -510,12 +514,13 @@ func _test_rush_resize() -> void:
 	ok(absf(s._board.position.x - bx1080) > 10.0, "S-RESIZE: the board actually moved on the resize (not pinned to the old width)")
 	ok(s._hint != null and absf((s._hint.position.x + s._hint.size.x * 0.5) - 800.0) < 8.0, "S-RESIZE: the bottom hint re-centres to the new width")
 	var hint_label := s._hint.find_child("RushBottomHint", true, false) as Label if s._hint != null else null
-	var hint_label_delta := 0.0
-	if hint_label != null:
-		hint_label_delta = (hint_label.position.y + hint_label.size.y * 0.5) - s._hint.size.y * 0.5
+	# the caption box FILLS the strip (symmetric centring — no top-only pad that shoved the text low) and
+	# carries only a small optical-centre nudge; valign CENTER then sits it on the pill centre.
+	var hint_label_nudge := hint_label.position.y if hint_label != null else 999.0
 	ok(hint_label != null and hint_label.vertical_alignment == VERTICAL_ALIGNMENT_CENTER \
-		and hint_label_delta >= 3.0 and hint_label_delta <= s._hint.size.y * 0.10, \
-		"S-RESIZE: the bottom hint compensates font ink centering (delta=%.1f)" % hint_label_delta)
+		and absf(hint_label.size.y - s._hint.size.y) < 1.0 \
+		and absf(hint_label_nudge) <= s._hint.size.y * 0.06, \
+		"S-RESIZE: the bottom hint caption fills the bar and is centred (nudge=%.1f)" % hint_label_nudge)
 	# the info bar sits at the vertical CENTRE of the bottom section (board frame bottom → screen bottom):
 	# equal breathing above and below, both clear.
 	var board_fb: float = s._board.position.y + s._board.size.y + float(s.FRAME_OUT) if s._board != null else 0.0

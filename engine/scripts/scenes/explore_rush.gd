@@ -33,7 +33,7 @@ const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carve
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
 const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
-const BOTTOM_HINT_TEXT_VISUAL_NUDGE_Y := 4.0
+const BOTTOM_HINT_TEXT_NUDGE_FRAC := -0.039  # caption optical-centre nudge (the pill sits high in the strip + the font ink sits low → nudge UP), as a fraction of the bar height
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
 
 # --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
@@ -477,11 +477,13 @@ func _build_bottom_hint() -> void:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var text_vpad := strip_h * 0.08
-	var text_nudge := BOTTOM_HINT_TEXT_VISUAL_NUDGE_Y
-	l.position = Vector2(cap_w * 0.65, text_vpad + text_nudge)
+	# centre the caption on the strip's vertical centre (= the pill centre): the box FILLS the strip so the
+	# centring is symmetric (no top-only pad that shoved the text low), plus a small downward nudge that
+	# optically centres the caps (a single line's caps otherwise read slightly high).
 	var info_px := strip_h * 0.74
-	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3 - info_px * 1.25), maxf(1.0, strip_h - text_vpad - text_nudge))
+	var text_nudge := strip_h * BOTTOM_HINT_TEXT_NUDGE_FRAC
+	l.position = Vector2(cap_w * 0.65, text_nudge)
+	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3 - info_px * 1.25), strip_h)
 	l.add_theme_font_size_override("font_size", int(maxf(18.0, strip_h * RUSH_HINT_FS_FRAC)))
 	l.add_theme_color_override("font_color", Color("#F8E9D0"))
 	l.add_theme_color_override("font_outline_color", Color("#3D251B", 0.65))
@@ -489,7 +491,7 @@ func _build_bottom_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	var info := _rush_info_button(info_px)
-	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, l.position.y + (l.size.y - info_px) * 0.5)
+	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, (strip_h - info_px) * 0.5)
 	strip.add_child(info)
 	add_child(strip)
 	# centred vertically in the bottom SECTION: the open band between the board's bottom and the screen
