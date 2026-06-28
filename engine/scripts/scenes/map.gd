@@ -1207,7 +1207,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		reward_icon.position = Vector2(shelf_pad_l, shelf_pad_t) + Vector2(float(opts.get("reward_icon_x", 0.0)), float(opts.get("reward_icon_y", 0.0)))
 		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shelf.add_child(reward_icon)
-	var sub := _card_sub("%d/%d" % [ready, reward_cap])
+	var sub := _card_sub("%s · %d/%d" % [_reward_label(cur), ready, reward_cap])
 	sub.name = "MapHabitatRewardLabel"
 	sub.add_theme_font_size_override("font_size", int(clampf(float(opts.get("reward_label_font", 21)), 8.0, 48.0)))
 	sub.custom_minimum_size = Vector2(maxf(120.0, shelf_rect.size.x * 0.40), float(sub.get_theme_font_size("font_size")) + 8.0)
@@ -1464,20 +1464,31 @@ func _build_hand_panel(rect: Rect2) -> Control:
 # its labels IGNORE the mouse; only the Sell button intercepts its own tap.
 func _inhand_info_bar(rect: Rect2) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
 	var bar := Control.new()
 	bar.name = "InHandInfoBar"
 	bar.position = rect.position
 	bar.size = rect.size
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg := Panel.new()
+	bg.name = "InHandInfoBarFrame"
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(DOCK_PARCH, 0.97)
-	sb.set_corner_radius_all(12)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(DOCK_INK, 0.20)
-	bg.add_theme_stylebox_override("panel", sb)
+	if Kit != null:
+		var ib_opts: Dictionary = Kit.info_bar_opts_from_config(cfg)
+		var frame: StyleBoxTexture = Kit.gold_badge_style(ib_opts.get("badge", {}))
+		frame.content_margin_left = 0.0
+		frame.content_margin_right = 0.0
+		frame.content_margin_top = 0.0
+		frame.content_margin_bottom = 0.0
+		bg.add_theme_stylebox_override("panel", frame)
+	else:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(DOCK_PARCH, 0.97)
+		sb.set_corner_radius_all(12)
+		sb.set_border_width_all(2)
+		sb.border_color = Color(DOCK_INK, 0.20)
+		bg.add_theme_stylebox_override("panel", sb)
 	bar.add_child(bg)
 	var pad := 8.0
 	if _sel_orb.is_empty():
@@ -1610,6 +1621,15 @@ func _reward_icon(cur: String) -> String:
 		"water": return "water"
 		"diamonds": return "gem"
 		_: return "leaf"
+
+func _reward_label(cur: String) -> String:
+	match cur:
+		"coins": return "Coins"
+		"water": return "Water"
+		"boost": return "Boosts"
+		"diamonds": return "Diamonds"
+		"residents": return "Spirits"
+		_: return "Resting"
 
 # The amount a collect would bank right now: units × per_unit, clamped to each reward's hard cap. For
 # map 5 it's the chest size; 0 until a whole unit has matured.

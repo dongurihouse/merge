@@ -4578,11 +4578,11 @@ static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: fl
 	var top := 96.0 + safe_top
 	var sep := 18.0
 	var band_top := top + 16.0
-	var band_bot := view.y - (safe_bottom + 150.0)
+	var margin := clampf(float(opts.get("edge_margin_px", 18.0)), 0.0, 96.0)
+	var band_bot := view.y - (safe_bottom + margin)
 	var col_h := maxf(1.0, band_bot - band_top)
 	var left_clip_top := 0.0
 	var left_clip_h := maxf(1.0, view.y)
-	var margin := clampf(view.x * 0.012, 8.0, 16.0)
 	var col_gap := clampf(view.x * 0.02, 10.0, 24.0)
 	var hand_w := clampf(view.x * 0.30, 210.0, 360.0)
 	var card_w := maxf(160.0, view.x - margin * 2.0 - col_gap - hand_w)
@@ -4807,7 +4807,7 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 	shelf.add_child(ico)
 	var label := Label.new()
 	label.name = "MapHabitatRewardLabel"
-	label.text = "5/5"
+	label.text = "Coins · 5/5"
 	var label_font := int(clampf(float(opts.get("reward_label_font", clampf(rect.size.y * 0.18, 15.0, 22.0))), 8.0, 48.0))
 	label.add_theme_font_size_override("font_size", label_font)
 	label.add_theme_color_override("font_color", Pal.INK)
@@ -5311,9 +5311,11 @@ static func _map_meadow_texture() -> Texture2D:
 ## sliders (inset/radius in thousandths, fracs + veil alphas in percent) and resolved to fractions here.
 static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
+	var hud: Dictionary = hud_layout_opts_from_config(cfg)
 	return {
 		"use_art":         bool(c.get("use_art", true)),
 		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin BOTH cards' frame wears (board/info-bar consistent)
+		"edge_margin_px":  float(hud.get("edge_margin_px", 18.0)),     # place-picker column edges share the HUD side margin
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
 		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())

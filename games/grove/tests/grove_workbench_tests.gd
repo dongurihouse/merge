@@ -675,6 +675,19 @@ func _initialize() -> void:
 			ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
 				and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
 				"place-picker back button uses the shared side/bottom margin")
+		var hand_panel := map_scene.get("_hand_panel") as Control
+		if hand_panel != null:
+			var hand_rect := hand_panel.get_global_rect()
+			ok(absf(map_screen_w - hand_rect.end.x - edge_margin) <= 1.0 \
+				and absf(map_screen_h - hand_rect.end.y - edge_margin) <= 1.0, \
+				"place-picker right resident board extends to the bottom with the shared side margin")
+			map_scene._sel_orb = {"src": "hand", "idx": 0, "kind": "sprout", "tier": 1}
+			var inhand_bar := map_scene._inhand_info_bar(Rect2(0, 0, 240, 88)) as Control
+			var inhand_frame := inhand_bar.find_child("InHandInfoBarFrame", true, false) as Panel
+			var inhand_style := inhand_frame.get_theme_stylebox("panel") if inhand_frame != null else null
+			ok(inhand_frame != null and inhand_style is StyleBoxTexture and _has_button_text(inhand_bar, "Sell +5"), \
+				"place-picker resident sell bar reuses the board info-bar gold frame")
+			inhand_bar.queue_free()
 		if map_scene.select_hits.size() >= 2:
 			var unlocked_select_card := map_scene.select_hits[0].node as Control
 			var locked_select_card := map_scene.select_hits[1].node as Control
@@ -1587,8 +1600,8 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(tuned_shelf != null and tuned_label != null and int(tuned_label.get_theme_font_size("font_size")) == 21 \
 		and tuned_label.position == Vector2(67, 11), \
 		"the Workbench map-card preview applies reward label font and location knobs")
-	ok(tuned_label != null and tuned_label.text == "5/5", \
-		"the Workbench map-card preview replaces housed text with collection progress")
+	ok(tuned_label != null and tuned_label.text == "Coins · 5/5", \
+		"the Workbench map-card preview replaces housed text with reward collection progress")
 	ok(tuned_collect != null and tuned_collect.custom_minimum_size == Vector2(132, 36), \
 		"the Workbench map-card preview applies reward button size knobs")
 	ok(tuned_collect != null and tuned_collect.size == Vector2(132, 36) \
