@@ -12,8 +12,7 @@
 		"grid_inset": 70.0,
 		"list_max_h": 0.0,
 		"row_gap": 14.0,
-		"shadow": false,
-		"width_pct": 75.0
+		"shadow": false
 	},
 	"bag_card": {
 		"cell_h": 120.0,
@@ -83,8 +82,7 @@
 	"daily": {
 		"cols": 3.0,
 		"list_max_h": 0.0,
-		"shadow": false,
-		"width_pct": 75.0
+		"shadow": false
 	},
 	"daily_card": {
 		"cell_art": true,
@@ -103,8 +101,7 @@
 		"today_badge": "gold glow"
 	},
 	"dialog": {
-		"shadow": false,
-		"width_pct": 75.0
+		"shadow": false
 	},
 	"focus_ring": {
 		"arm_pct": 14.0,
@@ -117,6 +114,7 @@
 		"thick_pct": 4.0
 	},
 	"frame": {
+		"width_pct": 75.0,
 		"banner_burn": 62.0,
 		"banner_font": 37.0,
 		"banner_h": 92.0,
@@ -254,8 +252,7 @@
 
 	},
 	"info": {
-		"shadow": false,
-		"width_pct": 58.0
+		"shadow": false
 	},
 	"info_bar": {
 		"height": 125.0,
@@ -314,8 +311,7 @@
 		"ring_dy": -6.0,
 		"shadow": false,
 		"tally_font": 28.0,
-		"title_font": 30.0,
-		"width_pct": 50.0
+		"title_font": 30.0
 	},
 	"level_badge": {
 		"acorn_scale": 33.0,
@@ -474,8 +470,7 @@
 	},
 	"settings": {
 		"row_gap": 12.0,
-		"shadow": false,
-		"width_pct": 50.0
+		"shadow": false
 	},
 	"shadow": {
 		"alpha": 46.0,
@@ -491,8 +486,7 @@
 		"cols": 3.0,
 		"list_max_h": 0.0,
 		"row_gap": 22.0,
-		"shadow": false,
-		"width_pct": 85.0
+		"shadow": false
 	},
 	"tiers": {
 		"cell_gap": 16.0,
@@ -503,8 +497,7 @@
 		"mark_glow": 60.0,
 		"mark_twinkle": 50.0,
 		"shadow": false,
-		"show_num": true,
-		"width_pct": 85.0
+		"show_num": true
 	},
 	"toggle_card": {
 		"card_art": true,
@@ -520,7 +513,6 @@
 		"panel_pad_y": 34.0,
 		"plate_px": 250.0,
 		"row_gap": 12.0,
-		"shadow": false,
-		"width_pct": 80.0
+		"shadow": false
 	}
 }
