@@ -3691,11 +3691,22 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var scale := maxf(0.01, float(g.get("overall_scale", 100.0)) / 100.0)
 	var icon_box := float(g.get("icon_box", 54.0)) * scale
 	var icon_size := float(g.get("icon_size", 34.0)) * scale
-	# the OVERALL drop shadow reuses the shared shadow look (offset/blur/spread/warmth), but the pill
-	# overrides just its STRENGTH (alpha) — so the wallet capsule can sit heavier/lighter than the rest.
+	# the OVERALL drop shadow starts from the shared shadow look, but the pill can OVERRIDE any of
+	# its knobs (strength/offset/blur/spread/warmth) — so the wallet capsule can cast its own shadow
+	# independent of the rest. Each override is opt-in: absent keys fall through to the shared values.
 	var sp: Dictionary = Look.shadow_params(cfg)
 	if g.has("shadow_alpha"):
 		sp["alpha"] = clampf(float(g["shadow_alpha"]) / 100.0, 0.0, 1.0)
+	if g.has("shadow_offset_x"):
+		sp["offset_x"] = float(g["shadow_offset_x"])
+	if g.has("shadow_offset_y"):
+		sp["offset_y"] = float(g["shadow_offset_y"])
+	if g.has("shadow_blur"):
+		sp["blur"] = float(g["shadow_blur"])
+	if g.has("shadow_spread"):
+		sp["spread"] = float(g["shadow_spread"])
+	if g.has("shadow_warmth"):
+		sp["warmth"] = clampf(float(g["shadow_warmth"]) / 100.0, 0.0, 1.0)
 	return {
 		"shadow": bool(g.get("shadow", false)),
 		"shadow_params": sp,

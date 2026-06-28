@@ -2339,7 +2339,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["plus_hue", 55, 82]))
 			_sidebar_body.add_child(_slider_row(["plus_label_y", -20, 20]))   # nudge the "+" up/down within the green button
 			_section_header("Shadow")
-			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # the pill's own drop-shadow STRENGTH (turn it on with the Shadow toggle above)
+			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))      # STRENGTH / opacity (%) — turn it on with the Shadow toggle above
+			_sidebar_body.add_child(_slider_row(["shadow_offset_x", -40, 40]))  # horizontal cast (px): −left / +right
+			_sidebar_body.add_child(_slider_row(["shadow_offset_y", -40, 40]))  # vertical cast (px): −up / +down
+			_sidebar_body.add_child(_slider_row(["shadow_blur", 0, 40]))        # soft feather radius (px)
+			_sidebar_body.add_child(_slider_row(["shadow_spread", -20, 40]))    # grow(+) / shrink(−) on every side (px)
+			_sidebar_body.add_child(_slider_row(["shadow_warmth", 0, 100]))     # warm brown ↔ cool violet-black
 		"progress_bar":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
