@@ -17,6 +17,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 
 var _pass := 0
 var _fail := 0
@@ -2177,11 +2178,18 @@ func _test_feel_fx() -> void:
 		# every registry key (enabled + effect toggles + knobs) is present so from_config reads it back
 		for k in reg.defaults().keys():
 			ok(p.has(k), "%s params include the registry key %s" % [id, k])
+		if id == "merge_fx":
+			ok(p.has("merge_slide_ms") and int(p["merge_slide_ms"]) == int(MergeFx.KNOBS.get("merge_slide_ms", -1)), \
+				"merge_fx params include the saved merge-slide duration")
 		# the preview stage builds and stores its ctx (so the play function has its node refs)
 		var prev: Control = view._make_element(id)
 		ok(prev != null, "%s preview stage builds" % id)
 		var ctx: Dictionary = view.get("_%s_ctx" % id)
 		ok(not ctx.is_empty(), "%s preview stores its stage ctx" % id)
+		if id == "merge_fx":
+			ok(ctx.get("bloom") is ComboBloom, "merge_fx preview stores the shared ComboBloom node")
+			ok(ctx.get("bloom") != null and ctx["bloom"].get_parent() == ctx.get("field"), \
+				"merge_fx preview mounts ComboBloom inside the preview field")
 		# the sidebar builds with a master toggle + per-effect On toggles (+ a ▶ trigger button)
 		view._selected = id
 		view._rebuild_sidebar()
@@ -2191,6 +2199,15 @@ func _test_feel_fx() -> void:
 	ok(view._params["merge_fx"].has("tier") and view._params["merge_fx"].has("combo"), "merge_fx carries tier/combo")
 	ok(not view._is_config("merge_fx", "tier") and not view._is_config("merge_fx", "combo"), "merge_fx tier/combo excluded from save")
 	ok(view._params["move_fx"].has("kind") and not view._is_config("move_fx", "kind"), "move_fx kind is preview-only")
+	var view_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_view.gd")
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(view_src.find("_slider_row([\"merge_slide_ms\"") != -1, "merge_fx sidebar exposes a saved merge-slide duration slider")
+	ok(view_src.find("MoveFx.apply(a, a.position, merge_top, \"slide\", _params[\"move_fx\"], MergeFx.knob(p, \"merge_slide_ms\"))") != -1, \
+		"merge_fx preview uses the same MoveFx slide override as the board")
+	ok(view_src.find("_merge_fx_pulse_bloom") == -1, "merge_fx preview no longer uses a separate local bloom pulse")
+	ok(board_src.find("MergeFx.knob(_merge_opts, \"merge_slide_ms\")") != -1, \
+		"board merge slide duration reads the saved merge_fx knob")
+	ok(board_src.find("MERGE_SLIDE_MS") == -1, "board no longer has a hard-coded merge slide duration constant")
 	# the saved block's keys are EXACTLY the registry's from_config keys (the game's read path), so the
 	# saved out[id] round-trips. Every saved key is a registry default; tier/combo/kind are the only excludes.
 	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx"]:

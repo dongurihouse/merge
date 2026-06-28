@@ -46,6 +46,7 @@ const KNOBS := {
 	"puff_size_pct": 120,   # world-puff petal sprite size (% of the grove burst scale)
 	"words_size": 30,       # milestone word font size
 	"bloom_pct": 100,       # combo-bloom rise strength (% — scaled at the call site)
+	"merge_slide_ms": 130,  # pre-impact loser-tile snap duration (board + Workbench preview)
 }
 
 static func knob(opts: Dictionary, id: String) -> int:

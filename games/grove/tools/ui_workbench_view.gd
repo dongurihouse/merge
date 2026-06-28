@@ -17,6 +17,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")           # the tog
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")         # the toggleable Merge (fuse) feel
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")       # the toggleable Launch (emit) feel
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")           # the toggleable Move (travel) feel
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")   # the shared persistent combo-bloom overlay
 const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
@@ -1068,16 +1069,7 @@ func _merge_fx_preview() -> Control:
 	var src_pos := Vector2(FEEL_FIELD.x * 0.5 - 130.0, FEEL_FIELD.y * 0.5)
 	var nb_off := [Vector2(0, -FEEL_CSZ + 6), Vector2(0, FEEL_CSZ - 6), Vector2(-FEEL_CSZ + 6, 0), Vector2(FEEL_CSZ - 6, 0)]
 	var field := _feel_field()
-	# a STAGE-LOCAL bloom preview — a warm amber wash over the field (NOT the full-screen ComboBloom
-	# CanvasLayer, which would cover the whole gallery). _merge_fx_play pulses its alpha up by bloom_pct
-	# × the combo, then fades it. Additive, non-interactive, gated on the combo_bloom toggle.
-	var bloom := ColorRect.new()
-	bloom.color = Color(Color("#FFD27F"), 0.0)
-	bloom.size = FEEL_FIELD
-	bloom.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bmat := CanvasItemMaterial.new()
-	bmat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	bloom.material = bmat
+	var bloom := ComboBloom.new()
 	field.add_child(bloom)
 	field.add_child(_feel_cell_marker(merge_pos))
 	field.add_child(_feel_cell_marker(src_pos))
@@ -1141,9 +1133,7 @@ func _merge_fx_play() -> void:
 		return
 	var merge_top: Vector2 = c["merge_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
 	var p: Dictionary = _params["merge_fx"]
-	var tw := a.create_tween()
-	tw.tween_property(a, "position", merge_top, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func() -> void:
+	var finish := func() -> void:
 		if a != null and is_instance_valid(a):
 			a.queue_free()
 		var nb_nodes: Array = []
@@ -1151,27 +1141,14 @@ func _merge_fx_play() -> void:
 			if n != null and is_instance_valid(n):
 				nb_nodes.append(n)
 		MergeFx.apply(field, b, c["merge_pos"], int(p.get("tier", 3)), int(p.get("combo", 0)), nb_nodes, field, p)
-		_merge_fx_pulse_bloom(p))
-
-# Pulse the STAGE-LOCAL bloom rect: alpha = COMBO_BLOOM_RISE × combo × bloom_pct/100 (clamped to the
-# overlay's ceiling), then fade — a self-contained read of the bloom strength. Gated on the combo_bloom
-# toggle (off → no swell). Mirrors ComboBloom's rise math so the preview tracks the live overlay.
-func _merge_fx_pulse_bloom(p: Dictionary) -> void:
-	if _merge_fx_ctx.is_empty():
-		return
-	var bloom: ColorRect = _merge_fx_ctx.get("bloom")
-	if bloom == null or not is_instance_valid(bloom):
-		return
-	if not MergeFx.on(p, "combo_bloom"):
-		bloom.color.a = 0.0
-		return
-	var combo := int(p.get("combo", 0))
-	var bloom_pct := int(p.get("bloom_pct", 100))
-	var FXTune = MergeFx.Tune
-	var peak := clampf(FXTune.COMBO_BLOOM_RISE * float(maxi(0, combo)) * float(maxi(0, bloom_pct)) / 100.0, 0.0, FXTune.COMBO_BLOOM_MAX)
-	var tw := bloom.create_tween()
-	tw.tween_property(bloom, "color:a", peak, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.tween_property(bloom, "color:a", 0.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		var bloom_node: ComboBloom = c.get("bloom") as ComboBloom
+		if MergeFx.on(p, "combo_bloom") and bloom_node != null and is_instance_valid(bloom_node):
+			bloom_node.bump(int(p.get("combo", 0)), MergeFx.knob(p, "bloom_pct"))
+	var tw := MoveFx.apply(a, a.position, merge_top, "slide", _params["move_fx"], MergeFx.knob(p, "merge_slide_ms"))
+	if tw != null:
+		tw.tween_callback(finish)
+	else:
+		finish.call()
 
 # --- LAUNCH: click the generator → a tile is EMITTED (pops up-and-away) ------------------------
 func _launch_fx_preview() -> Control:
@@ -2528,6 +2505,9 @@ func _rebuild_sidebar() -> void:
 			_feel_fx_sidebar(LandFx.EFFECTS, LAND_FX_KNOBS)
 		"merge_fx":
 			_feel_trigger_button("▶  Merge", _merge_fx_play)
+			_group_header("Saved to config", true)
+			_section_header("Approach")
+			_sidebar_body.add_child(_slider_row(["merge_slide_ms", 60, 260]))
 			_group_header("Preview only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))    # drives colour / flash / pitch escalation
 			_sidebar_body.add_child(_slider_row(["combo", 0, 10]))   # climbs the pentatonic ladder + gates hitstop

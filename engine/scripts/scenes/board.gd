@@ -48,7 +48,6 @@ const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the
 const Pal = Game.PALETTE
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
-const MERGE_SLIDE_MS := 130      # the merge snap is a fast FIXED slide, decoupled from the tunable move duration_ms
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
@@ -325,8 +324,8 @@ func _ready() -> void:
 	add_child(tick)
 	tick.start()
 	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now()))
-	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
-	# dies with the board). It sits above the board art but below the HUD; merges poke it via bump().
+	# bundle D: the combo screen bloom — ONE overlay owned by the scene, so it dies with the board.
+	# It sits above the board art but below the HUD; merges poke it via bump().
 	_combo_bloom = ComboBloom.new()
 	add_child(_combo_bloom)
 	# resolve the workbench-tuned feel-FX opts ONCE — the game then runs the SAME appliers the
@@ -2694,11 +2693,12 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	piece_nodes.erase(a)
 	animating = true
 	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
-	# impact). The slide is a fast FIXED SNAP (MERGE_SLIDE_MS) — NOT the tunable travel duration_ms, so
-	# tuning the Move workbench's travel speed never makes merges feel sluggish. The shadow/trail/lean
-	# toggles still apply. _after_merge stays the completion callback — chained on the returned tween so
-	# the merge still resolves exactly when the slide lands.
-	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts, MERGE_SLIDE_MS)
+	# impact). The slide duration is owned by the Merge FX workbench's merge_slide_ms knob, not by the
+	# Move workbench's general travel duration_ms, so tuning ordinary travel never makes merges sluggish.
+	# The shadow/trail/lean toggles still apply. _after_merge stays the completion callback — chained on
+	# the returned tween so the merge still resolves exactly when the slide lands.
+	var merge_slide_ms := MergeFx.knob(_merge_opts, "merge_slide_ms")
+	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts, merge_slide_ms)
 	if t != null:
 		t.tween_callback(_after_merge.bind(a, b, produced, node))
 	else:
