@@ -59,22 +59,44 @@ static func hand_add(kind: String, tier: int = 1) -> int:
 	return list.size()
 
 ## Merge a same-kind + same-tier PAIR in the hand into one a tier up (the explicit drag-merge).
-## Returns true iff a pair was consumed. No-op at MAX_TIER, or with fewer than 2 of the pair.
-static func hand_merge(kind: String, tier: int) -> bool:
+## When a drop target is supplied, the upgraded spirit replaces that target side of the pair instead of
+## being appended. Returns true iff a pair was consumed. No-op at MAX_TIER, or with fewer than 2 of the pair.
+static func hand_merge(kind: String, tier: int, target_index: int = -1, source_index: int = -1) -> bool:
 	if tier >= MAX_TIER:
 		return false
 	var list := hand()
-	var idxs: Array = []
-	for i in list.size():
-		if String(list[i].kind) == kind and int(list[i].tier) == tier:
-			idxs.append(i)
-			if idxs.size() == 2:
-				break
-	if idxs.size() < 2:
+	var keep_idx := -1
+	var remove_idx := -1
+	if target_index >= 0 and target_index < list.size():
+		var target: Dictionary = list[target_index]
+		if String(target.kind) == kind and int(target.tier) == tier:
+			keep_idx = target_index
+			if source_index >= 0 and source_index < list.size() and source_index != keep_idx:
+				var source: Dictionary = list[source_index]
+				if String(source.kind) == kind and int(source.tier) == tier:
+					remove_idx = source_index
+			if remove_idx < 0:
+				for i in list.size():
+					if i == keep_idx:
+						continue
+					if String(list[i].kind) == kind and int(list[i].tier) == tier:
+						remove_idx = i
+						break
+	if keep_idx < 0:
+		var idxs: Array = []
+		for i in list.size():
+			if String(list[i].kind) == kind and int(list[i].tier) == tier:
+				idxs.append(i)
+				if idxs.size() == 2:
+					break
+		if idxs.size() < 2:
+			return false
+		keep_idx = int(idxs[0])
+		remove_idx = int(idxs[1])
+	if remove_idx < 0:
 		return false
-	list.remove_at(idxs[1])   # remove the higher index first so the first removal doesn't shift it
-	list.remove_at(idxs[0])
-	list.append({"kind": kind, "tier": tier + 1})
+	list[keep_idx] = {"kind": kind, "tier": tier + 1}
+	list.remove_at(remove_idx)
 	_set_hand(list)
 	return true
 

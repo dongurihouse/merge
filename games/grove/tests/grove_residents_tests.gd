@@ -8,6 +8,7 @@ const Game = preload("res://engine/scripts/core/game.gd")   # for WATER_CAP
 func _initialize() -> void:
 	begin("grove · residents habitat")
 	_test_hand()
+	await _test_hand_drop_merge_targets_slot()
 	_test_place()
 	_test_place_merge()
 	_test_production()
@@ -45,6 +46,56 @@ func _test_hand() -> void:
 	ok(not Habitat.hand_merge("moss", 2), "a lone t2 cannot merge")
 	Habitat.hand_add("acorn")
 	ok(not Habitat.hand_merge("moss", 2), "different kinds do not merge")
+
+	fresh("habitat_hand_in_place")
+	Habitat.hand_add("ember", 1)
+	Habitat.hand_add("sprout", 1)
+	Habitat.hand_add("ember", 1)
+	Habitat.hand_add("dewdrop", 1)
+	ok(Habitat.hand_merge("ember", 1), "two same-tier residents merge in a mixed hand")
+	var merged := Habitat.hand()
+	ok(merged.size() == 3 \
+		and String(merged[0].kind) == "ember" and int(merged[0].tier) == 2 \
+		and String(merged[1].kind) == "sprout" \
+		and String(merged[2].kind) == "dewdrop", \
+		"an in-hand merge replaces the first merged slot instead of appending")
+
+func _test_hand_drop_merge_targets_slot() -> void:
+	fresh("residents_hand_merge_drop_target")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl ; g["gates"] = [z] ; Save.grove_write()
+	for zz in range(G.MAPS.size()):
+		G.claim_unlock_reward(zz)
+	Habitat.hand_add("ember", 1)
+	Habitat.hand_add("sprout", 1)
+	Habitat.hand_add("ember", 1)
+	Habitat.hand_add("dewdrop", 1)
+
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	hx._login_shown_launch = true
+	await create_timer(0.1).timeout
+	hx.unlocks = unl
+	hx._open_map(z)
+	hx._open_select()
+	await create_timer(0.08).timeout
+	var source := _hand_orb_at_index(hx, 0)
+	var target := _hand_orb_at_index(hx, 2)
+	ok(source != null and target != null, "the hand merge target test has source and target cells")
+	if source != null and target != null:
+		_drag_select(hx, _hit_center(source), _hit_center(target))
+		await create_timer(0.06).timeout
+		var h := Habitat.hand()
+		ok(h.size() == 3 \
+			and String(h[0].kind) == "sprout" \
+			and String(h[1].kind) == "ember" and int(h[1].tier) == 2 \
+			and String(h[2].kind) == "dewdrop", \
+			"dragging onto a hand match upgrades the drop slot instead of appending to the end")
+	hx.queue_free()
 
 # --- capacity-gated placement, sell, move ----------------------------------------
 func _test_place() -> void:
@@ -456,6 +507,12 @@ func _drag_select(hx, from: Vector2, to: Vector2) -> void:
 func _hand_orb_of(hx, kind: String, tier: int) -> Control:
 	for o in hx._hand_orbs:
 		if String(o.kind) == kind and int(o.tier) == tier:
+			return o.node
+	return null
+
+func _hand_orb_at_index(hx, index: int) -> Control:
+	for o in hx._hand_orbs:
+		if int(o.idx) == index:
 			return o.node
 	return null
 

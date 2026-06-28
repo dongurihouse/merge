@@ -1868,7 +1868,7 @@ func _resolve_drop(gpos: Vector2) -> void:
 			if not (is_instance_valid(hn) and hn.get_global_rect().grow(6.0).has_point(gpos)):
 				continue
 			if String(o.kind) == String(d.kind) and int(o.tier) == int(d.tier) and int(o.tier) < Habitat.MAX_TIER:
-				if Habitat.hand_merge(String(d.kind), int(d.tier)):
+				if Habitat.hand_merge(String(d.kind), int(d.tier), int(o.idx), int(d.idx)):
 					_merge_fx(hn.get_global_rect().get_center())
 					_after_habitat_action()
 				return
