@@ -21,7 +21,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const CARD_WIDTH_PCT := 85.0       # share the tier ladder's default width (overridable via the tiers config)
 const OVERLAY_NAME := "GenLinesOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:
@@ -50,15 +49,16 @@ static func open(host: Control, opts: Dictionary) -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	# the board fills the SAME % of the SCREEN width as the tier ladder (the workbench saves tiers.width_pct).
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("tiers", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	# every dialog renders at the SINGLE global frame width; content scales from this dialog's
+	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
 
 	# the shared tiers dialog opts (twig border + ribbon + ✕ + slot-cell look). Lines carry no tier number
 	# (they aren't tiers), so suppress it; make_content reads each cell's `code` to render its piece.
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
+	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
 	dopts["show_num"] = false
 	dopts["banner_text"] = Strings.t("producing.title")
 	# SHOW-ALL lists every line in the game (~30 cells), so cap the card to a screen-fit height and let the grid

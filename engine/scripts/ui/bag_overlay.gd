@@ -120,14 +120,15 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 		return overlay
 	var kcfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var opts: Dictionary = Kit.bag_opts_from_config(kcfg)
+	opts["content_scale"] = Kit.dialog_content_scale(kcfg, "bag")
 	opts["banner_text"] = Strings.t("bag.banner_text")
 	opts["caption"] = Strings.t("bag.caption")
 	opts["on_close"] = dismiss
 
-	# the responsive width: the saved bag width_pct × the live viewport (matching the other overlays)
+	# every dialog renders at the SINGLE global frame width; content scales from the bag's authored
+	# baseline (Kit.DIALOG_DESIGN_PCT) to that width (matching the other overlays).
 	var vw: float = host.get_viewport_rect().size.x
-	var width_pct: float = float((kcfg.get("bag", {}) as Dictionary).get("width_pct", 85))
-	var width: float = vw * clampf(width_pct, 30.0, 100.0) / 100.0
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["bag"] / 100.0
 	# the "Bag" ribbon is short, so floor it at a fraction of the SCREEN width (not the narrower dialog) — it
 	# reads as a proper banner instead of a tiny stub. The shared frame honours this min in _banner.
 	opts["banner_min_w"] = vw * Kit.BANNER_MIN_W_FRAC

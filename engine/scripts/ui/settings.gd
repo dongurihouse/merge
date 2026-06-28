@@ -23,7 +23,6 @@ const OVERLAY_NAME := "SettingsOverlay"
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox/login idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const WIDTH_PCT_DEF := 80.0        # the dialog's default width as a % of the screen (workbench-tunable)
 # The privacy policy the App Store listing points at — also reachable in-app (reviewer-expected for a
 # paid-IAP app). The SAME URL goes in App Store Connect's "Privacy Policy URL" field.
 const PRIVACY_URL := "https://dongurihouse.net/privacy"
@@ -60,13 +59,14 @@ static func open(host: Control) -> void:
 	overlay.add_child(cc)
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	# the dialog fills a % of the SCREEN width (the workbench saves width_pct) — responsive across phones.
+	# the dialog renders at the SINGLE global frame width; content scales from the authored baseline
+	# (Kit.DIALOG_DESIGN_PCT) to that width — responsive across phones.
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("settings", {}) as Dictionary).get("width_pct", WIDTH_PCT_DEF))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["settings"] / 100.0
 
 	# build the kit settings dialog (shared frame + a toggle card per flag) from the saved design config.
 	var opts: Dictionary = Kit.settings_opts_from_config(cfg)
+	opts["content_scale"] = Kit.dialog_content_scale(cfg, "settings")
 	opts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 	opts["banner_text"] = Strings.t("settings.title")

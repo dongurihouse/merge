@@ -3496,7 +3496,6 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## game's _info_sheet, so a tweak flows to every shop detail sheet.
 static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)        # the standard mail-dialog face: border + banner + ✕ + cards
-	o["width_pct"] = float((cfg.get("info", {}) as Dictionary).get("width_pct", 58))
 	return o
 
 ## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits

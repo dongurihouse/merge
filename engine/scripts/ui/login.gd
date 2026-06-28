@@ -21,7 +21,6 @@ const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const CARD_WIDTH_PCT := 85.0       # default daily-dialog width as a % of the screen (overridable in config)
 const WEEK := 7
 const OVERLAY_NAME := "LoginOverlay"
 const CLAIM_CLOSE_DELAY := 0.85    # after a claim, let the reward shout rise, then the popup bows out on its own
@@ -50,11 +49,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	overlay.add_child(cc)
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	# the daily dialog fills a % of the SCREEN width (the workbench saves width_pct), so it's responsive
-	# across phone sizes instead of a fixed pixel width — wide enough to read on a phone.
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("daily", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	# every dialog renders at the SINGLE global frame width; content scales from this dialog's
+	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["daily"] / 100.0
 
 	# (re)build the kit daily dialog from the live ladder; a claim rebuilds it in place. fx_host = the
 	# z=100 overlay so a claim's reward celebration renders ABOVE the veil (the map host buries it).
@@ -65,6 +63,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		for c in cc.get_children():
 			c.queue_free()
 		var fo: Dictionary = Kit.daily_opts_from_config(cfg)
+		fo["content_scale"] = Kit.dialog_content_scale(cfg, "daily")
 		fo["banner_text"] = Strings.t("login.banner")
 		(fo["btn"] as Dictionary)["text"] = Strings.t("login.claim")
 		fo["on_close"] = func() -> void: _dismiss(overlay, opts)

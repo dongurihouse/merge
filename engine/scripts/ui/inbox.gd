@@ -23,7 +23,6 @@ const OVERLAY_NAME := "InboxOverlay"
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox's own guarded-system idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const CARD_WIDTH_PCT := 85.0       # default mail-dialog width as a % of the screen (overridable in config)
 
 # --- the mailbox popup --------------------------------------------------------------
 
@@ -54,11 +53,10 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	Inbox.mark_all_read()
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	# the mail dialog fills a % of the SCREEN width (the workbench saves width_pct), so it's responsive
-	# across phone sizes instead of a fixed pixel width.
+	# the mail dialog renders at the SINGLE global frame width; content scales from the authored
+	# baseline (Kit.DIALOG_DESIGN_PCT) to that width (responsive across phone sizes).
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("dialog", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
 
 	# (re)build the whole kit dialog from the live message list. Held in a dict so a claim's callback can
 	# call back into it (GDScript lambdas capture by value — a dict lets the closure see the live fn).
@@ -72,6 +70,7 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 		for c in cc.get_children():
 			c.queue_free()
 		var opts: Dictionary = Kit.dialog_opts_from_config(cfg)
+		opts["content_scale"] = Kit.dialog_content_scale(cfg, "dialog")
 		opts["on_close"] = func() -> void:
 			if is_instance_valid(overlay): overlay.queue_free()
 		opts["empty_text"] = Strings.t("inbox.empty_text")

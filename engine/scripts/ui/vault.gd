@@ -33,7 +33,6 @@ const BARK := Pal.BARK
 
 # the shared UI kit (ships in the build); loaded by PATH at runtime — the settings.gd/inbox.gd idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const WIDTH_PCT_DEF := 80.0        # the dialog's default width as a % of the screen (workbench-tunable)
 
 # IAP: the crack routes through StoreKit (via core/iap.gd → core/store.gd) when the plugin is in the
 # build; without it, the honest non-charging test path. Product id + price live in data/iap_products.json.
@@ -64,10 +63,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	overlay.add_child(cc)
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	# the dialog fills a % of the SCREEN width (the workbench saves width_pct) — responsive across phones.
+	# the dialog renders at the SINGLE global frame width; content scales from the authored baseline
+	# (Kit.DIALOG_DESIGN_PCT) to that width — responsive across phones.
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("vault", {}) as Dictionary).get("width_pct", WIDTH_PCT_DEF))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["vault"] / 100.0
 
 	# the vault MATH stays in core/vault.gd; the kit face reads it via this state dict (game-state-agnostic,
 	# exactly like settings_dialog takes entries). The CTA's on_claim wiggles when not claimable (never
@@ -85,6 +84,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			_confirm_crack(host, overlay, opts),
 	}
 	var vopts: Dictionary = Kit.vault_opts_from_config(cfg)
+	vopts["content_scale"] = Kit.dialog_content_scale(cfg, "vault")
 	vopts["banner_text"] = Strings.t("vault.banner")
 	vopts["pitch"] = Strings.t("vault.pitch") % Vault.price_usd()
 	vopts["hint_text"] = Strings.t("vault.hint")

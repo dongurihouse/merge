@@ -18,7 +18,6 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 const OVERLAY_NAME = "LevelPopupOverlay"
-const DEFAULT_WIDTH_PCT := 80.0
 
 static func open(host: Control) -> Control:
 	return _build(host, "info", 0)
@@ -60,11 +59,12 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 
 	var cfg := Kit.load_config(Kit.CONFIG_PATH)
 	var opts := Kit.level_opts_from_config(cfg)
+	opts["content_scale"] = Kit.dialog_content_scale(cfg, "level")
 	opts["banner_text"] = Strings.t("level.banner") % lvl
-	# responsive: a % of the LIVE screen width (mirrors inbox.gd), so the dialog fits every phone size
+	# every dialog renders at the SINGLE global frame width; content scales from the authored baseline
+	# (Kit.DIALOG_DESIGN_PCT) to that width (mirrors inbox.gd), so the dialog fits every phone size.
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("level", {}) as Dictionary).get("width_pct", DEFAULT_WIDTH_PCT))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["level"] / 100.0
 
 	var gift: Dictionary = G.level_gift(levels_up, lvl) if mode == "levelup" else {}   # lvl = new level → milestone acorns
 	var data := {

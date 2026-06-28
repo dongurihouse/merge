@@ -22,7 +22,6 @@ const Pal = Game.PALETTE
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching inbox.gd's guarded idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const CARD_WIDTH_PCT := 85.0       # default discovery-dialog width as a % of the screen (overridable in config)
 const OVERLAY_NAME := "LadderOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:
@@ -49,17 +48,17 @@ static func open(host: Control, opts: Dictionary) -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	# the board fills a % of the SCREEN width (the workbench saves width_pct), so it's responsive across
-	# phone sizes instead of a fixed pixel width.
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = host.get_viewport_rect().size.x
-	var pct: float = float((cfg.get("tiers", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	# every dialog renders at the SINGLE global frame width; content scales from this dialog's
+	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
 
 	# the TIERS dialog opts (twig border + ladder ribbon + ✕ + the shared slot-cell look) from the saved config.
 	# make_content lets the kit build each discovered tile's piece at the cell size IT computes, so this
 	# file never touches layout — it just renders the merge piece for a code.
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
+	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
 	# The dialog header is always just "Tiers" — the internal line name (e.g. "clover") is implementation
 	# detail, not player-facing copy. The tapped line is already obvious from the pieces on the ladder.
 	dopts["banner_text"] = Strings.t("ladder.title")

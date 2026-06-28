@@ -36,7 +36,6 @@ const BARK = Pal.BARK
 # The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
 # so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const SHOP_WIDTH_PCT := 85.0       # default shop-dialog width as a % of the screen (overridable in config)
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
@@ -183,8 +182,7 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 	var vw: float = host.get_viewport_rect().size.x
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var shop_cfg: Dictionary = cfg.get("shop", {})
-	var pct: float = float(shop_cfg.get("width_pct", SHOP_WIDTH_PCT))
-	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
 	# the hero size for the game-injected previews (piece art / the welcome bundle): matches the kit's own
 	# icon ratio at the computed cell width, so the injected art reads the same size as the kit's gem icons.
 	var cols: int = maxi(1, int(shop_cfg.get("cols", 3)))
@@ -205,6 +203,7 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 		for c in cc.get_children():
 			c.queue_free()
 		var sopts: Dictionary = Kit.shop_opts_from_config(cfg)
+		sopts["content_scale"] = Kit.dialog_content_scale(cfg, "shop")
 		sopts["banner_text"] = host.tr(_banner_for(kind))
 		sopts["on_close"] = func() -> void: overlay.queue_free()
 		# the workbench leaves list_max_h 0 (grow to fit, the gallery scrolls); on a PHONE the full ladder
@@ -491,8 +490,10 @@ static func _info_sheet(host: Control, title: String, items: Array, note := "") 
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
-	var iopts: Dictionary = Kit.info_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var width: float = host.get_viewport_rect().size.x * clampf(float(iopts.get("width_pct", 70)), 30.0, 100.0) / 100.0
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var iopts: Dictionary = Kit.info_opts_from_config(cfg)
+	iopts["content_scale"] = Kit.dialog_content_scale(cfg, "info")
+	var width: float = host.get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["info"] / 100.0
 	iopts["on_close"] = func() -> void: overlay.queue_free()
 	iopts["banner_text"] = title             # the ribbon title (a generic info sheet wears no banner icon)
 	iopts["banner_icon_on"] = false

@@ -1960,9 +1960,9 @@ func _open_resident_ladder(kind: String, mark_tier: int) -> void:
 	overlay.add_child(cc)
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var pct: float = float((cfg.get("tiers", {}) as Dictionary).get("width_pct", 85.0))
-	var width: float = get_viewport_rect().size.x * clampf(pct, 30.0, 100.0) / 100.0
+	var width: float = get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
+	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
 	dopts["banner_text"] = Strings.t("ladder.title")
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		return _spirit_icon_node(String(d.get("kind", "")), int(d.get("tier", 1)), px)
@@ -2873,8 +2873,10 @@ func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
 			"body": Strings.t("map.welcome.new_friend"),
 			"chip": {"icon": "gift", "text": "+1"},
 		})
-	var width: float = minf(get_viewport_rect().size.x * 0.86, 520.0)
-	var opts: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var ucfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var width: float = get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
+	var opts: Dictionary = Kit.dialog_opts_from_config(ucfg)
+	opts["content_scale"] = Kit.dialog_content_scale(ucfg, "dialog")
 	opts["banner_text"] = Strings.t("map.unlock.title")
 	opts["banner_icon_on"] = false
 	opts["got_it"] = Strings.t("map.unlock.collect")
