@@ -1637,31 +1637,17 @@ func _reward_label(cur: String) -> String:
 		"residents": return "Spirits"
 		_: return "Resting"
 
-# The amount a collect would bank right now: units × per_unit, clamped to each reward's hard cap. For
-# map 5 it's the chest size; 0 until a whole unit has matured.
+# The amount a collect would bank right now: floor(pending), already in the map's currency (the per-map MULT
+# is baked into pending). For map 5 that's the number of residents the chest would drop. 0 below one whole unit.
 func _reward_amount_ready(map_id: String) -> int:
-	var cur := Habitat.reward_currency(map_id)
-	var units := int(floor(Habitat.pending(map_id)))
-	if cur == "residents":
-		return Habitat.chest_size(map_id) if units >= 1 else 0
-	if cur == "diamonds":
-		return mini(units * Habitat.reward_per_unit(map_id), Habitat.diamond_daily_remaining())
-	if cur == "boost":
-		return mini(units * Habitat.reward_per_unit(map_id), Habitat.BOOST_CHARGE_CAP - Habitat.boost_charges())
-	return units * Habitat.reward_per_unit(map_id)
+	if Habitat.reward_currency(map_id) == "":
+		return 0
+	return int(floor(Habitat.pending(map_id)))
 
 func _reward_amount_cap(map_id: String) -> int:
-	var cur := Habitat.reward_currency(map_id)
-	if cur == "":
+	if Habitat.reward_currency(map_id) == "":
 		return 0
-	if cur == "residents":
-		return Habitat.chest_size(map_id)
-	var cap_amount := maxi(0, int(floor(Habitat.accrual_cap(map_id))) * Habitat.reward_per_unit(map_id))
-	if cur == "diamonds":
-		return mini(cap_amount, Habitat.diamond_daily_remaining())
-	if cur == "boost":
-		return mini(cap_amount, Habitat.BOOST_CHARGE_CAP - Habitat.boost_charges())
-	return cap_amount
+	return int(floor(Habitat.accrual_cap(map_id)))
 
 # Reward-aware collect feedback (a chime + a float/callout matched to the currency).
 func _collect_fx(r: Dictionary, at: Vector2) -> void:
