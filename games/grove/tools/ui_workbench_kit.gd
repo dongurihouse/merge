@@ -4807,7 +4807,7 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 	shelf.add_child(ico)
 	var label := Label.new()
 	label.name = "MapHabitatRewardLabel"
-	label.text = "Coins · 1/1 housed"
+	label.text = "5/5"
 	var label_font := int(clampf(float(opts.get("reward_label_font", clampf(rect.size.y * 0.18, 15.0, 22.0))), 8.0, 48.0))
 	label.add_theme_font_size_override("font_size", label_font)
 	label.add_theme_color_override("font_color", Pal.INK)
@@ -4824,19 +4824,25 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 		clampf(float(opts.get("reward_button_w", clampf(rect.size.x * 0.26, 104.0, 138.0))), 40.0, 260.0),
 		clampf(float(opts.get("reward_button_h", clampf(rect.size.y * 0.31, 34.0, 44.0))), 20.0, 90.0)
 	)
-	var collect := map_reward_collect_button("Collect 5", "coin", button_size,
+	var collect := map_reward_collect_button("Collect", "", button_size,
 		int(clampf(float(opts.get("reward_button_font", clampf(rect.size.y * 0.17, 15.0, 20.0))), 8.0, 48.0)),
-		clampf(float(opts.get("reward_button_icon_size", clampf(rect.size.y * 0.24, 22.0, 30.0))), 8.0, 56.0),
+		0.0,
 		true)
 	collect.position = Vector2(rect.size.x - pad_r - button_size.x, rect.size.y - pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
 	collect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shelf.add_child(collect)
 
-	var bar_h := clampf(rect.size.y * 0.14, 10.0, 18.0)
+	var bar_h := clampf(float(opts.get("reward_bar_h", clampf(rect.size.y * 0.14, 10.0, 18.0))), 4.0, 40.0)
 	var bar_x := pad_l
-	var bar_y := rect.size.y - pad_b - bar_h - 5.0
+	var bar_y := clampf(
+		rect.size.y - pad_b - bar_h - 5.0 + float(opts.get("reward_bar_y", 0.0)),
+		pad_t,
+		maxf(pad_t, rect.size.y - pad_b - bar_h)
+	)
 	var bar_w := clampf(collect.position.x - gap - bar_x, 44.0, maxf(44.0, rect.size.x - pad_l - pad_r))
 	var bar := progress_bar(0.42, {"width": bar_w, "height": bar_h, "art": true})
+	bar.name = "MapHabitatProgressBar"
+	bar.size = bar.custom_minimum_size
 	bar.position = Vector2(bar_x, bar_y)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shelf.add_child(bar)
@@ -4876,7 +4882,7 @@ static func map_reward_collect_button(text: String, icon_id: String, button_size
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.position = Vector2(label_left, 0.0)
-	label.size = Vector2(maxf(1.0, button_size.x - label_left - 6.0), button_size.y)
+	label.size = Vector2(button_size.x if label_left <= 0.0 else maxf(1.0, button_size.x - label_left - 6.0), button_size.y)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(label)
 	return b
@@ -5332,7 +5338,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"reward_button_x":  float(c.get("reward_button_x", 0)),
 		"reward_button_y":  float(c.get("reward_button_y", 0)),
 		"reward_button_font": int(c.get("reward_button_font", 18)),
-		"reward_button_icon_size": float(c.get("reward_button_icon_size", 24)),
+		"reward_bar_h":     float(c.get("reward_bar_h", 10)),
+		"reward_bar_y":     float(c.get("reward_bar_y", 0)),
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
 	}
 

@@ -273,7 +273,8 @@ var _params := {
 		"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
 		"reward_label_font": 21, "reward_label_x": 0, "reward_label_y": 0,
 		"reward_button_w": 116, "reward_button_h": 36, "reward_button_x": 0, "reward_button_y": 0,
-		"reward_button_font": 18, "reward_button_icon_size": 24,
+		"reward_button_font": 18,
+		"reward_bar_h": 10, "reward_bar_y": 0,
 		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
@@ -2095,13 +2096,15 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["reward_label_font", 10, 34]))
 			_sidebar_body.add_child(_slider_row(["reward_label_x", -90, 90]))
 			_sidebar_body.add_child(_slider_row(["reward_label_y", -40, 40]))
+			_section_header("Progress bar")
+			_sidebar_body.add_child(_slider_row(["reward_bar_h", 4, 32]))
+			_sidebar_body.add_child(_slider_row(["reward_bar_y", -40, 40]))
 			_section_header("Collect button")
 			_sidebar_body.add_child(_slider_row(["reward_button_w", 70, 200]))
 			_sidebar_body.add_child(_slider_row(["reward_button_h", 24, 70]))
 			_sidebar_body.add_child(_slider_row(["reward_button_x", -120, 120]))
 			_sidebar_body.add_child(_slider_row(["reward_button_y", -50, 50]))
 			_sidebar_body.add_child(_slider_row(["reward_button_font", 10, 34]))
-			_sidebar_body.add_child(_slider_row(["reward_button_icon_size", 10, 48]))
 			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
 			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))

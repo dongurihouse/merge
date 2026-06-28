@@ -1144,6 +1144,15 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	var shelf_pad_t := 8.0
 	var shelf_pad_b := 8.0
 	var shelf_gap := 8.0
+	var capf := 0.0
+	var pendingf := 0.0
+	var ready := 0
+	var reward_cap := 0
+	if cur != "":
+		capf = Habitat.accrual_cap(map_id)
+		pendingf = Habitat.pending(map_id)
+		ready = _reward_amount_ready(map_id)
+		reward_cap = _reward_amount_cap(map_id)
 
 	var reward_icon: Control = null
 	var reward_icon_size := clampf(float(opts.get("reward_icon_size", 24.0)), 8.0, 72.0)
@@ -1156,7 +1165,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		reward_icon.position = Vector2(shelf_pad_l, shelf_pad_t) + Vector2(float(opts.get("reward_icon_x", 0.0)), float(opts.get("reward_icon_y", 0.0)))
 		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shelf.add_child(reward_icon)
-	var sub := _card_sub("%s · %d/%d housed" % [_reward_label(cur), placed.size(), cap])
+	var sub := _card_sub("%d/%d" % [ready, reward_cap])
 	sub.name = "MapHabitatRewardLabel"
 	sub.add_theme_font_size_override("font_size", int(clampf(float(opts.get("reward_label_font", 21)), 8.0, 48.0)))
 	sub.custom_minimum_size = Vector2(maxf(120.0, shelf_rect.size.x * 0.40), float(sub.get_theme_font_size("font_size")) + 8.0)
@@ -1167,28 +1176,32 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 
 	# production bar + Collect — every completed map pays its own reward now (coins/water/boost/diamonds/chest)
 	if cur != "":
-		var capf := Habitat.accrual_cap(map_id)
-		var frac := (Habitat.pending(map_id) / capf) if capf > 0.0 else 0.0
-		var ready := _reward_amount_ready(map_id)
+		var frac := (pendingf / capf) if capf > 0.0 else 0.0
 		var button_size := Vector2(
 			clampf(float(opts.get("reward_button_w", 116.0)), 40.0, 260.0),
 			clampf(float(opts.get("reward_button_h", 36.0)), 20.0, 90.0)
 		)
 		var button_pos := Vector2(shelf_rect.size.x - shelf_pad_r - button_size.x, shelf_rect.size.y - shelf_pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
-		var bar_h := clampf(shelf_rect.size.y * 0.13, 10.0, 18.0)
+		var bar_h := clampf(float(opts.get("reward_bar_h", clampf(shelf_rect.size.y * 0.13, 10.0, 18.0))), 4.0, 40.0)
 		var bar_x := shelf_pad_l
-		var bar_y := shelf_rect.size.y - shelf_pad_b - bar_h - 5.0
+		var bar_y := clampf(
+			shelf_rect.size.y - shelf_pad_b - bar_h - 5.0 + float(opts.get("reward_bar_y", 0.0)),
+			shelf_pad_t,
+			maxf(shelf_pad_t, shelf_rect.size.y - shelf_pad_b - bar_h)
+		)
 		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {
 			"height": bar_h,
 			"width": clampf(button_pos.x - shelf_gap - bar_x, 44.0, maxf(44.0, shelf_rect.size.x - shelf_pad_l - shelf_pad_r)),
 			"art": true,
 		})
+		bar.name = "MapHabitatProgressBar"
+		bar.size = bar.custom_minimum_size
 		bar.position = Vector2(bar_x, bar_y)
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shelf.add_child(bar)
-		var collect: Button = Kit.map_reward_collect_button("Collect %d" % ready, _reward_icon(cur), button_size,
+		var collect: Button = Kit.map_reward_collect_button("Collect", "", button_size,
 			int(clampf(float(opts.get("reward_button_font", 18)), 8.0, 48.0)),
-			clampf(float(opts.get("reward_button_icon_size", 24.0)), 8.0, 56.0),
+			0.0,
 			ready > 0)
 		collect.position = button_pos
 		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
@@ -1546,17 +1559,8 @@ func _on_card_collect(z: int) -> void:
 	_collect_fx(r, get_global_rect().get_center() - Vector2(0, 40))
 	_refresh_picker()    # a residents-chest collect grows the hand; repaint the bar + Collect + hand column
 
-# --- the per-map reward, surfaced (label / icon / collectable amount / feedback) ------------------
+# --- the per-map reward, surfaced (icon / collectable amount / feedback) --------------------------
 # Map 1 coins · map 2 water · map 3 a generator-boost charge · map 4 diamonds · map 5 a resident chest.
-func _reward_label(cur: String) -> String:
-	match cur:
-		"coins": return "Coins"
-		"water": return "Water"
-		"boost": return "Boosts"
-		"diamonds": return "Diamonds"
-		"residents": return "Spirits"
-		_: return "Resting"
-
 # Boost + residents reuse the leaf glyph until their bespoke art ships (parked); diamonds read as gems.
 func _reward_icon(cur: String) -> String:
 	match cur:
@@ -1577,6 +1581,19 @@ func _reward_amount_ready(map_id: String) -> int:
 	if cur == "boost":
 		return mini(units * Habitat.reward_per_unit(map_id), Habitat.BOOST_CHARGE_CAP - Habitat.boost_charges())
 	return units * Habitat.reward_per_unit(map_id)
+
+func _reward_amount_cap(map_id: String) -> int:
+	var cur := Habitat.reward_currency(map_id)
+	if cur == "":
+		return 0
+	if cur == "residents":
+		return Habitat.chest_size(map_id)
+	var cap_amount := maxi(0, int(floor(Habitat.accrual_cap(map_id))) * Habitat.reward_per_unit(map_id))
+	if cur == "diamonds":
+		return mini(cap_amount, Habitat.diamond_daily_remaining())
+	if cur == "boost":
+		return mini(cap_amount, Habitat.BOOST_CHARGE_CAP - Habitat.boost_charges())
+	return cap_amount
 
 # Reward-aware collect feedback (a chime + a float/callout matched to the currency).
 func _collect_fx(r: Dictionary, at: Vector2) -> void:
