@@ -436,7 +436,7 @@
 		"plaque_w": 39.0,
 		"plaque_x": 72.0,
 		"plaque_y": 79.0,
-		"shadow": false
+		"shadow": true
 	},
 	"rush_bar": {
 		"burn": 55.0,

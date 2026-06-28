@@ -477,7 +477,7 @@ func _ready() -> void:
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
 ## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
 func _ensure_shadow_keys() -> void:
-	var on_by_default := {"home_button": true, "board": true, "gold_badge": true}
+	var on_by_default := {"home_button": true, "board": true, "gold_badge": true, "quest_card": true}
 	for id in _params.keys():
 		if id == "shadow":
 			continue
