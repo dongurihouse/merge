@@ -51,10 +51,20 @@ func _initialize() -> void:
 		"a fresh board opens the how-to-play tutorial on first run")
 	ok(bool(Save.grove().get("board_tutorial_seen", false)), \
 		"opening the first-run board tutorial marks it seen")
-	var board_intro: Node = board_scene.get_node_or_null("BoardTutorialOverlay")
+	var board_intro: Control = board_scene.get_node_or_null("BoardTutorialOverlay") as Control
+	var intro_art := board_intro.find_child("TutorialImageArt", true, false) as TextureRect if board_intro != null else null
+	var intro_vp: Vector2 = board_scene.get_viewport_rect().size
+	ok(board_intro != null and board_intro.find_child("TutorialCloseButton", true, false) == null, \
+		"the tutorial image has no separate close button")
+	ok(board_intro != null and board_intro.find_child("TutorialImageFrame", true, false) == null, \
+		"the tutorial image is not wrapped in a card frame")
+	ok(intro_art != null and intro_art.get_global_rect().size.distance_to(intro_vp) < 2.0, \
+		"the tutorial image fills the full screen")
 	if board_intro != null:
-		board_intro.queue_free()
+		_push_tap(intro_art.get_global_rect().get_center() if intro_art != null else board_intro.get_global_rect().get_center())
 		await process_frame
+	ok(board_scene.get_node_or_null("BoardTutorialOverlay") == null, \
+		"tapping anywhere on the tutorial image closes it")
 	board_scene._on_info_pressed()
 	await process_frame
 	ok(board_scene.get_node_or_null("BoardTutorialOverlay") != null, \
