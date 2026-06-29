@@ -758,6 +758,34 @@ func _initialize() -> void:
 	var vault1 := Vault.balance() * Vault.skim_den() + Save.vault_carry()
 	ok(vault1 - vault0 == G.LEVEL_DIAMONDS * Vault.skim_num(), "granting the gift SKIMS its premium into the piggy bank (§10)")
 
+	# 11e. A BOOSTED bonus-generator collect must SPEND a boost tap (regression P2). The collect uses the
+	# boosted burst odds to MULTIPLY its payout, so — exactly like a charged generator tap — it has to decay
+	# the boost. Without this, one boost silently multiplies every one of a bonus generator's 5-15 collects
+	# for free (the boost taps stay reserved for main pops). See board.gd::_collect_accumulator.
+	fresh("bonus_boost_consume")
+	var sbg = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbg)
+	if sbg.board == null:
+		sbg._ready()
+	Save.add_coins(10000)
+	ok(G.try_activate_boost(), "arm a boost for the bonus-collect check")
+	var bg_taps0: int = G.boost_taps_left()
+	# stand a COIN bonus generator on a free non-gen cell with a known 3-tap budget
+	var bg_cell := Vector2i(-1, -1)
+	for bg_c in sbg.board.empty_ground_cells():
+		if not sbg.board.gens.has(bg_c):
+			bg_cell = bg_c
+			break
+	ok(bg_cell.x >= 0, "found a free cell for the bonus generator")
+	sbg.board.place_gen("acc_coins", bg_cell)
+	Save.grove()["bonus_clicks"] = 3
+	var bg_coins0 := Save.coins()
+	sbg._collect_accumulator(bg_cell)
+	ok(Save.coins() > bg_coins0, "the boosted bonus collect pays out coins")
+	ok(int(Save.grove().get("bonus_clicks", 0)) == 2, "the collect spends one of the bonus generator's own taps")
+	ok(G.boost_taps_left() == bg_taps0 - 1, "a boosted bonus collect ALSO spends one boost tap")
+	sbg.queue_free()
+
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;
 	# unseen tiers stay "?")
 	finish()

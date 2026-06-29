@@ -3163,8 +3163,9 @@ func _sync_accumulators() -> void:
 	Save.grove().erase("accumulators")
 	_persist()
 
-# §6.C a tap on a BONUS generator grants its currency (× a burst while a boost is live), spends one of its
-# limited taps, and VANISHES when the budget runs out. (gen redesign 2026-06-28 — was time-banked accrual.)
+# §6.C a tap on a BONUS generator grants its currency (× a burst while a boost is live — a boosted collect
+# then spends one boost tap, like a charged generator tap), spends one of its limited taps, and VANISHES
+# when the budget runs out. (gen redesign 2026-06-28 — was time-banked accrual.)
 func _collect_accumulator(cell: Vector2i) -> void:
 	var id := board.gen_id_at(cell)
 	var kind := G.accumulator_kind_of(id)
@@ -3178,7 +3179,8 @@ func _collect_accumulator(cell: Vector2i) -> void:
 		Audio.play("invalid_soft", -6.0)
 		return
 	var mult := 1
-	if G.boost_active():
+	var boosted := G.boost_active()
+	if boosted:
 		mult = G.burst_count(_quest_map(), G.boost_bonus(), rng)
 	var amount := G.bonus_value(kind) * mult
 	match kind:
@@ -3191,6 +3193,9 @@ func _collect_accumulator(cell: Vector2i) -> void:
 		"acorn":
 			Save.add_diamonds(amount)
 	clicks -= 1
+	if boosted:
+		G.consume_boost_tap()              # §6: a boosted collect used the boost's burst, so — like a charged
+		_refresh_boost_indicator()         # generator tap — it spends one boost tap and ticks the badge down
 	if gn != null:
 		FX.pop(gn)
 	Audio.play("coin_earn", -3.0, 1.1)
