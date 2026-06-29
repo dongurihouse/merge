@@ -136,6 +136,15 @@ func _initialize() -> void:
 		and not cleaned.gen_bag.has("old_generator") and not cleaned.gen_bag.has("treat_999"), \
 		"from_dict drops unknown/deprecated generator ids from gen_bag and keeps valid bonus/treat generators")
 
+	# #3d retired-line hygiene: a line kept in LINES only for its art but DROPPED from the live content
+	# model (no generator AND not a craftable special) is NOT a valid item code — its saved pieces +
+	# discovery prune on load. DERIVED from the model (generator roster + recipes), so it scales to any
+	# future retired line with no per-line list.
+	ok(G.is_valid_item_code(101) and G.is_valid_item_code(2101), "a live BASE line's items stay valid (it has a generator)")
+	ok(G.is_valid_item_code(7101) and G.is_valid_item_code(7201), "a live SPECIAL line's items stay valid (craftable from two base lines)")
+	ok(not G.is_valid_item_code(6101) and not G.is_valid_item_code(6112), "a RETIRED line's items are invalid (line 61: in LINES for art, no generator + no recipe)")
+	ok(not G.is_valid_item_code(3801) and not G.is_valid_item_code(5201), "every generator-less, non-special line prunes (lines 38, 52) — derived, not a hardcoded ember list")
+
 	# #3c game load hygiene: stale item pointers in the grove save are removed from persisted board,
 	# bag, quest, and seen state on load.
 	fresh("stale_save_items")
@@ -148,7 +157,7 @@ func _initialize() -> void:
 		{"line": 1, "tier": int(G.TOP_TIER) + 1, "reward": {"exp": 1, "coins": 1}},
 	]
 	sg["quests_map"] = 0
-	sg["seen"] = {"101": true, "99901": true, str(100 + int(G.TOP_TIER) + 1): true, "not-an-item": true}
+	sg["seen"] = {"101": true, "7101": true, "6101": true, "99901": true, str(100 + int(G.TOP_TIER) + 1): true, "not-an-item": true}
 	Save.grove_write()
 	Save._loaded = false
 	var stale_scene = load("res://engine/scenes/Board.tscn").instantiate()
@@ -161,6 +170,8 @@ func _initialize() -> void:
 	var seen: Dictionary = after.get("seen", {})
 	ok(not seen.has("99901") and not seen.has(str(100 + int(G.TOP_TIER) + 1)) and not seen.has("not-an-item"), \
 		"loading the board removes unknown/deprecated item codes from the seen ledger")
+	ok(not seen.has("6101") and seen.has("101") and seen.has("7101"), \
+		"loading prunes a RETIRED line's discovery (ember 6101) end-to-end, keeping live base (101) + special (7101)")
 	stale_scene.free()
 
 	# #8 generator merge ladder + tier persistence

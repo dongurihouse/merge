@@ -69,7 +69,10 @@ static func seen_lines(seen: Dictionary) -> Array:
 	var out: Array = []
 	for k in seen.keys():
 		var line := int(int(k) / 100)
-		if line > 0 and not out.has(line):
+		# Only lines still in the live content model seed a Rush — a retired line lingering in an old
+		# `seen` set (loaded before the prune migration) must not respawn. Reuse is_valid_item_code (a
+		# tier-1 probe) so the rule is identical to the load-sanitizer and keeps live specials/special-items.
+		if line > 0 and not out.has(line) and G.is_valid_item_code(line * 100 + 1):
 			out.append(line)
 	out.sort()
 	return out
