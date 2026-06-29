@@ -2542,6 +2542,8 @@ func _on_release(pos: Vector2) -> void:
 		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
+	elif _recipe_merge_code(from_code, target_code) > 0:
+		_apply_recipe(from, target, node)   # #14: two DIFFERENT base lines at the same tier craft a SPECIAL
 	elif board.is_empty_ground(target) and target != from:
 		_commit_move(from, target, node)
 	elif Features.on("drag_swap") and target != from \
@@ -2815,6 +2817,30 @@ func _another_submax_line_gen(exclude_id: String) -> String:
 		if tier < G.GEN_TOP_TIER:
 			return gid
 	return ""
+
+# #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
+# recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.
+func _recipe_merge_code(a_code: int, b_code: int) -> int:
+	if a_code <= 0 or b_code <= 0:
+		return 0
+	var at := a_code % 100
+	if at != (b_code % 100):
+		return 0                              # the two ingredients must be the same tier
+	var special_line := G.special_for_pair(int(a_code / 100.0), int(b_code / 100.0))
+	return (special_line * 100 + at) if special_line > 0 else 0
+
+# #14 craft the special: consume the source ingredient; the target becomes the special at the same tier.
+func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
+	var code := _recipe_merge_code(board.item_at(from), board.item_at(target))
+	if code <= 0:
+		_snap_back(from, node)
+		return
+	board.items[BoardModel.idx(from)] = 0
+	board.items[BoardModel.idx(target)] = code
+	_mark_seen(code)
+	_persist()
+	_rebuild_all()
+	Audio.play("item_drop", -2.0)
 
 # A generator's per-tap bonus from the LIVE boost (§6): BOOST_BONUS while a boost is active, else 0.
 # Read by _pop_seed as the addend to burst_count. The boost is global (every generator on the board).
