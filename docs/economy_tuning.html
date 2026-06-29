@@ -122,7 +122,7 @@ const GRID0_MAX = 22;
 const TOTAL_CELLS = 63;
 
 // ---- dials ------------------------------------------------------------------------------------
-const D = { base:10, step:2, cpe:7, cps:2, corner:16, inner:4 };
+const D = { base:10, step:4, cpe:7, cps:2, corner:16, inner:4 };
 const DIALS = [
   {k:"base",   label:"Level base exp (L1→L2 cost)",      min:5,  max:120, step:1},
   {k:"step",   label:"Level step (+exp each level)",     min:0,  max:12,  step:1},
@@ -152,15 +152,21 @@ function buildDials(){
 function syncDials(){ for(const d of DIALS){ document.getElementById(`r_${d.k}`).value=D[d.k];
   document.getElementById(`n_${d.k}`).value=D[d.k]; document.getElementById(`v_${d.k}`).textContent=D[d.k]; } }
 function preset(which){
-  if(which==="current") Object.assign(D,{base:40,step:3,corner:22,inner:22});
+  if(which==="current") Object.assign(D,{base:10,step:4,corner:16,inner:4});   // the live economy_tuning.json
   if(which==="fast")    Object.assign(D,{base:20,step:1,corner:8,inner:4});
   if(which==="mid")     Object.assign(D,{base:20,step:3,corner:8,inner:4});
   syncDials(); render();
 }
 
 // ---- model ------------------------------------------------------------------------------------
+// §7 quest exp is RANK-RAMPED now: a base line's exp scales 1.0→2.0 by its rank + a merger pays 1.2× its
+// two sources, so a quest pays ~AVG_EXP_RAMP× more exp per click than the old FLAT model. A given exp total
+// is therefore reached in fewer quest-clicks — the click/time estimates divide by it. Display only: `cpe`
+// stays the rank-0 anchor written to quest_clicks_per_exp (lowering it would re-inflate the game's rewards).
+// Planning approximation — grove_sim is the authority (it also folds in §6 bonus faucets, which this omits).
+const AVG_EXP_RAMP = 1.67;
 const expAtLevel = L => L<=1 ? 0 : (L-1)*D.base + ((L-1)*(L-2)/2)*D.step;
-const clicksAt   = L => Math.round(expAtLevel(L)*D.cpe);
+const clicksAt   = L => Math.round(expAtLevel(L)*D.cpe / AVG_EXP_RAMP);
 const sec        = c => c / D.cps;
 
 function scaledGrid(){

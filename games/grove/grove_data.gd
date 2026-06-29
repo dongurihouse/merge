@@ -189,8 +189,9 @@ const COINS_PER_ACORN := 1024             # acorn↔coin value peg (acorns preci
 # The whole-game effort budget: clicks to finish ALL maps (last region restored). COMPRESSED 100K → 30K
 # (~3–4 weeks of daily play, not many months). The unlock ladder no longer reads this directly (it is one
 # region per level now); the LEVEL curve below is sized so the last region lands near this budget, so this
-# stays the single "how long is the whole arc" anchor (docs/economy_model.html recalculates from it).
-const ENDGAME_CLICKS := 30000             # 30K-click game (docs/economy_model.html is the live calculator)
+# stays the single "how long is the whole arc" anchor (docs/economy_tuning.html is the live calculator).
+# FALLBACK default — the live value is economy_tuning.json (≈4300 clicks under the §7 ramped-exp curve).
+const ENDGAME_CLICKS := 30000             # absent-JSON fallback; live = economy_tuning.json (docs/economy_tuning.html edits it)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 4                # floor of the asked-tier band (no quest asks below t4); band is always [4..TOP_TIER]
 const QUEST_LEVELS_PER_TIER := 2          # the asked-tier bell's CENTRE climbs +1 every N levels, up to the band midpoint
@@ -502,10 +503,13 @@ const LEVEL_WATER_GIFT := 40
 # The one uncapped LEVEL clock (cosmetic badge + per-level gift). FRONT-LOADED arithmetic curve: early levels
 # are cheap so the first week delivers a region (and a level-up beat) every half-day or so; later levels cost
 # more (STEP) for a gentle ramp. cost(n) = LEVEL_BASE_EXP + (n-1)*LEVEL_STEP_EXP. Sized so the last region
-# (~L26 at 25 spots) lands near the compressed click budget — the whole 5-zone arc in ~3–4 weeks of daily
-# play, vs the old flat curve's ~L35 / many-month grind. RE-TUNE on grove_sim (the pacing sim is the judge).
-const LEVEL_BASE_EXP := 40        # exp for the FIRST level-up (≈ 280 clicks ≈ a couple minutes) — cheap early
-const LEVEL_STEP_EXP := 3         # each level costs +3 more than the last (gentle ramp; 0 = perfectly even)
+# (~L26 at 25 spots) lands near the click budget — the whole 5-zone arc in a few weeks of daily play.
+# §7 NOTE (2026-06-29): quest exp is now per-line RANK-RAMPED (1.0→2.0 by line) + merger 1.2×, so a quest
+# pays ~1.67× more exp per click than the old FLAT model — the live curve's STEP was raised to absorb that
+# (else regions unlock ~1.67× too fast). The LIVE curve is economy_tuning.json (base 10 / step 4, re-tuned on
+# grove_sim); these consts are only the absent-JSON FALLBACK. RE-TUNE on grove_sim (the pacing sim is the judge).
+const LEVEL_BASE_EXP := 40        # FALLBACK first level-up cost — the live value is economy_tuning.json (cheap early)
+const LEVEL_STEP_EXP := 3         # FALLBACK per-level ramp — the live step is higher to absorb the §7 exp ramp
 
 # (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-
