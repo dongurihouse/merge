@@ -64,11 +64,14 @@ func _initialize() -> void:
 	ok(not BoardLogic.find_mergeable_pair(b2).is_empty(), "fresh board has mergeable pairs")
 
 	# 5. persistence roundtrip
+	b.set_collect_reward(Vector2i(2, 3), "coins", 640)
 	var d := b.to_dict()
 	var b3: BoardModel = BoardModel.new()
 	b3.from_dict(d)
 	ok(Array(b3.items) == Array(b.items) and Array(b3.terrain) == Array(b.terrain), \
 		"board roundtrips through to_dict/from_dict")
+	ok(b3.collect_reward_at(Vector2i(2, 3)) == {"kind": "coins", "amount": 640}, \
+		"board collect-reward metadata roundtrips through to_dict/from_dict")
 
 	# 6. The §7 GENERATED-quest model — asks, the capped stars+coins reward, the metered fence,
 	# and the gate quest — is covered by quest_tests (engine) + the gate/grant/delivery tests
