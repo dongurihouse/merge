@@ -180,12 +180,15 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
 
 # §7 generated-quest reward — EFFORT-BASED (clicks are the unit; merge 2:1 so a tier-N item = 2^(N-1) clicks).
-#   exp   = round(clicks / QUEST_CLICKS_PER_EXP)              — flat across maps (the progression clock)
-#   coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × QUEST_COIN_DEPTH^(tier-QUEST_TIER_BASE))
+#   exp   = round(clicks / QUEST_CLICKS_PER_EXP × line_exp_mult)  — scales by LINE RANK: later lines pay more (§7)
+#   coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × QUEST_COIN_DEPTH^(tier-QUEST_TIER_BASE))  — per-map + per-tier
+#   merger (special line): QUEST_MERGE_REWARD_FACTOR × its two recipe sources' COMBINED exp & coins (no reward of its own)
 #   acorns= NONE — acorns are milestone/IAP only (the t8-sell pinnacle was removed; 1 acorn = COINS_PER_ACORN coins).
-const QUEST_CLICKS_PER_EXP := 7           # 1 exp (★) ≈ 7 clicks of effort (owner anchor)
+const QUEST_CLICKS_PER_EXP := 7           # 1 exp (★) ≈ 7 clicks of effort at the FIRST line (rank 0); later lines ramp up (owner anchor)
 const QUEST_CLICKS_PER_COIN := [8, 7, 6, 5, 4]   # clicks-per-coin per map (Farmhouse→Meadow); later maps pay more coins/click
 const QUEST_COIN_DEPTH := 1.05            # per-tier coin multiplier — a deep merge's click is worth ~1.5× a shallow one across the band
+const QUEST_EXP_LINE_SPREAD := 2.0        # per-line EXP ramp: the LAST base line pays this × the FIRST line's exp at the same tier (linear by ZONE_BASE_LINES rank). EXP only — coins keep their per-map curve.
+const QUEST_MERGE_REWARD_FACTOR := 1.2    # a merger/special-line quest pays this × its two source lines' COMBINED reward (exp AND coins) — it has no generator/base reward of its own.
 const COINS_PER_ACORN := 1024             # acorn↔coin value peg (acorns precious; earned only at milestones / bought)
 # The whole-game effort budget: clicks to finish ALL maps (last region restored). COMPRESSED 100K → 30K
 # (~3–4 weeks of daily play, not many months). The unlock ladder no longer reads this directly (it is one
