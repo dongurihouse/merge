@@ -55,6 +55,10 @@
 		"claimed_text": "Claimed",
 		"empty_text": "No mail right now — check back soon."
 	},
+	"iap": {
+		"opening_message": "Please wait...",
+		"opening_title": "Opening App Store"
+	},
 	"ladder": {
 		"title": "Tiers"
 	},

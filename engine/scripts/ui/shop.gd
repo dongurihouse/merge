@@ -21,6 +21,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")    # the free daily-claim faucets (Free acorns + the free water refill)
 const Iap = preload("res://engine/scripts/core/iap.gd")          # IAP catalog: product id + price by key (data/iap_products.json)
+const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const D = Game.DATA                                               # the active game's data (§10 IAP ladder)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
@@ -651,13 +652,16 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 			if gem_n != null:
 				FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), gem_n)
 			_after_buy(refs)
-		overlay.queue_free()
 		if charged:
 			# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase, nothing on cancel.
+			var wait := PurchaseWait.show(host, Strings.t("iap.opening_title"), Strings.t("iap.opening_message"))
+			overlay.queue_free()
 			Iap.buy(product_key, func(okay: bool) -> void:
+				PurchaseWait.close(wait)
 				if okay:
 					settle.call())
 		else:
+			overlay.queue_free()
 			settle.call(), true))
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var copts: Dictionary = Kit.dialog_opts_from_config(cfg)

@@ -24,6 +24,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "VaultOverlay"
 
@@ -166,14 +167,17 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 				parent_overlay.queue_free()
 			if opts.has("refresh"):
 				(opts.refresh as Callable).call()
-		overlay.queue_free()
 		if charged:
 			# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase, just refresh on cancel.
+			var wait := PurchaseWait.show(host, Strings.t("iap.opening_title"), Strings.t("iap.opening_message"))
+			overlay.queue_free()
 			Iap.buy(PIGGY_KEY, func(okay: bool) -> void:
+				PurchaseWait.close(wait)
 				if okay:
 					grant.call()
 				elif opts.has("refresh"):
 					(opts.refresh as Callable).call())
 		else:
+			overlay.queue_free()
 			grant.call(), true))
 	FX.pop_in(card)
