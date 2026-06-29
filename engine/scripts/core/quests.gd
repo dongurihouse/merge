@@ -142,13 +142,14 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	if map_done(unlocks, gates):
 		return []
 	var out: Array = _cap_quests_per_line(quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))))
-	# Ask only from the current map's live lines (`level` gates a not-yet-grown generator's lines
-	# out, so the fence never asks for what nothing on the board can produce yet).
+	# Ask from the level-reached line window, not claimed restore spots: a player can keep seeing
+	# new quest lines by earning exp even if they delay restoring newly affordable zones.
 	# #12/#14/#16: quests draw from a rolling window of the last QUEST_GEN_CAP BASE lines (quest_base_lines) PLUS
 	# any craftable SPECIAL (merge) line, trimmed to the QUEST_GEN_CAP generator footprint (a special folds into
-	# its 2 ingredient generators — already in the window). The window slides with the player, matching born gens.
-	var base_lines := G.quest_base_lines(unlocks.size())
-	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, unlocks.size()))
+	# its 2 ingredient generators — already in the window).
+	var quest_zone := G.quest_zone_for_level(level)
+	var base_lines := G.quest_base_lines(quest_zone)
+	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
 	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
 	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
 	# lit Purge card).

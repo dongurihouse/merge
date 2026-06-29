@@ -137,6 +137,16 @@ func _initialize() -> void:
 	ok(_max_line_count(full_fence) <= 4, "the live fence allows at most 4 quests from any single line")
 	ok(_unique_item_count(full_fence) == full_fence.size(), "the full fence keeps distinct concurrent item-code asks")
 
+	# Quest ask variety follows level progress, not restored-zone count: a player who keeps doing quests
+	# without claiming new restore spots should still see newer lines enter the fence.
+	var rl_level := RandomNumberGenerator.new(); rl_level.seed = 4242
+	var level_fence := Quests.refill([], 0, {}, [], {}, [], 0, 6, rl_level)
+	var level_counts := _line_counts(level_fence)
+	ok(level_fence.size() == int(G.MAX_GIVERS), "a high-level player with no new zones restored still fills the 8-card fence")
+	ok(level_counts.size() >= 2, "level-based quest progress includes newer lines even when unlocks are empty")
+	ok(_max_line_count(level_fence) <= 4, "level-based quest progress still respects the 4-per-line cap")
+	ok(_unique_item_count(level_fence) == level_fence.size(), "level-based quest progress keeps distinct concurrent item-code asks")
+
 	# --- refill is deterministic for a given seed (the rng is seeded + persisted; order is load-bearing) ---
 	var rA := RandomNumberGenerator.new(); rA.seed = 7
 	var rB := RandomNumberGenerator.new(); rB.seed = 7
@@ -162,32 +172,33 @@ func _initialize() -> void:
 	for pbm_id in pbm.gens.values():
 		pbm_lines.append(int(G.gen_def(G.GENERATORS, String(pbm_id)).get("line", 0)))
 	pbm_lines.sort()
-	ok(pbm_lines == [1], "a fresh map-0 board is anchor-only (line 1); birth-on-tap gens are not grown by level")
+	ok(pbm_lines == [1], "a fresh map-0 board is anchor-only (line 1); birth-on-tap gens are not pre-grown by grow_gens")
 
 	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-items window (the last ≤5 asked
 	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence
 	# --- stands use). When the item pool is too small to honour the whole window it relaxes the OLDEST
 	# --- asks first, never the freshest. A different TIER of the same line still counts as variety. ---
-	# #12: the quest pool is the rolling window of the last QUEST_GEN_CAP base lines at the current zone —
-	# drive a realistic mid-map-0 progression (6 spots restored → lines 1-5) so the pool has ≥2 lines.
+	# #12: the quest pool is the rolling window of the last QUEST_GEN_CAP base lines reached by level —
+	# drive a realistic mid-map-0 progression (level 6 → multiple lines) so the pool has ≥2 lines.
 	var rl_unl := {}
 	for i in 6:
 		rl_unl[str(i)] = true
-	var pool := G.quest_base_lines(rl_unl.size())
+	var anti_repeat_level := 6
+	var pool := G.quest_base_lines(G.quest_zone_for_level(anti_repeat_level))
 	if pool.size() >= 2:
 		# target the newest line at its tier-bell centre (the most-asked item) so the free count is non-zero
-		var fence_hi := clampi(int(G.QUEST_TIER_BASE) + int(6 / float(G.QUEST_LEVELS_PER_TIER)), int(G.QUEST_TIER_BASE), int(G.TOP_TIER))
+		var fence_hi := clampi(int(G.QUEST_TIER_BASE) + int(anti_repeat_level / float(G.QUEST_LEVELS_PER_TIER)), int(G.QUEST_TIER_BASE), int(G.TOP_TIER))
 		var rl_target := int(pool[pool.size() - 1]) * 100 + int((int(G.QUEST_TIER_BASE) + fence_hi) / 2)
 		var rl_free := 0
 		var rl_avoid := 0
 		for s in 200:
 			var rf := RandomNumberGenerator.new(); rf.seed = s
-			for q in Quests.refill([], 0, rl_unl, [], {}, [], 0, 6, rf):
+			for q in Quests.refill([], 0, rl_unl, [], {}, [], 0, anti_repeat_level, rf):
 				var it := G.quest_item(q)
 				if int(it.line) * 100 + int(it.tier) == rl_target:
 					rl_free += 1
 			var ra := RandomNumberGenerator.new(); ra.seed = s
-			for q in Quests.refill([], 0, rl_unl, [], {}, [], 0, 6, ra, [rl_target]):
+			for q in Quests.refill([], 0, rl_unl, [], {}, [], 0, anti_repeat_level, ra, [rl_target]):
 				var it := G.quest_item(q)
 				if int(it.line) * 100 + int(it.tier) == rl_target:
 					rl_avoid += 1
@@ -195,7 +206,7 @@ func _initialize() -> void:
 		# determinism is preserved with a recent-items window (same seed → same fence)
 		var rd1 := RandomNumberGenerator.new(); rd1.seed = 9
 		var rd2 := RandomNumberGenerator.new(); rd2.seed = 9
-		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd2, [rl_target])), "refill stays deterministic with a recent-items window")
+		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, anti_repeat_level, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, anti_repeat_level, rd2, [rl_target])), "refill stays deterministic with a recent-items window")
 
 	# --- NO TWO IN A ROW on a tiny pool: a 2-line pool is smaller than the recent window (5), so
 	# --- priority relaxation must still keep CONSECUTIVE asks distinct (the bug: the old soft fallback

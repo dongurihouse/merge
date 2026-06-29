@@ -119,7 +119,7 @@ var _grab_opts := {}
 # the quest-ready glow look (colour/opacity/roundness/halo), resolved ONCE in _ready from the workbench
 # "ready_glow" section so add_ready_glow renders the SAME look the workbench previews. {} → shipped amber.
 var _ready_glow_opts := {}
-var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
+var quests: Array = []             # §7: the LIVE generated fence (level-window asks, metered to restore progress), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
@@ -565,7 +565,7 @@ func _load_state() -> void:
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
 		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap as restored-zone
-		# count advances; see G.due_generators / _produce_due_generators.
+		# count or level-reached quest progress advances; see G.due_generators / _produce_due_generators.
 		board.seed_gens(0, _quest_level())
 	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
 	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
@@ -2636,9 +2636,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 			return
 		cell = board.gens.keys()[0]
 	var gnode: Control = gen_nodes.get(cell, gen_node)
-	# Tap-to-produce: when a generator is DUE (the restored-zone count has reached its base line, but the
-	# player doesn't own it — board or bag), this tap BIRTHS the new tool instead of popping items. Free
-	# (no energy), preempts the pop, and self-heals missing active-line generators. See below.
+	# Tap-to-produce: when a generator is DUE (restore count or level-reached quest progress has reached
+	# its base line, but the player doesn't own it — board or bag), this tap BIRTHS the new tool instead of
+	# popping items. Free (no energy), preempts the pop, and self-heals missing active-line generators. See below.
 	if _produce_due_generators():
 		return
 	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
@@ -2754,12 +2754,12 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_update_water_hud()
 
 # Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when restored-zone count
-# reaches its base line and the player owns neither a board copy nor a bagged one. The new tool lands on the
-# first open cell (bag only when the board is full), pops in + breathes + glows so it is unmissable. Returns
-# true if it produced one — the tap is then SPENT birthing the tool (no energy, no item burst). Self-heals a
-# missing active-line tool for stranded saves, so the next tap catches the gap.
+# or level-reached quest progress reaches its base line and the player owns neither a board copy nor a bagged
+# one. The new tool lands on the first open cell (bag only when the board is full), pops in + breathes + glows
+# so it is unmissable. Returns true if it produced one — the tap is then SPENT birthing the tool (no energy,
+# no item burst). Self-heals a missing active-line tool for stranded saves, so the next tap catches the gap.
 func _produce_due_generators() -> bool:
-	var due := G.due_generators(Save.grove().get("unlocks", {}), Save.grove().get("gates", []), Quests.owned_gens(board.gens, board.gen_bag))
+	var due := G.due_generators(Save.grove().get("unlocks", {}), Save.grove().get("gates", []), Quests.owned_gens(board.gens, board.gen_bag), _quest_level())
 	if due.is_empty():
 		return false
 	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)

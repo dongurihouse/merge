@@ -186,7 +186,7 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 	return out
 
 ## The lines LIVE while the player is in `map` — its generators' lines only (older maps'
-## lines have retired, §6). The current map's quests draw only from these.
+## lines have retired, §6). Regular quest asks use the level-reached quest window below.
 static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
 	for g in generators_for_map(roster, map, level):
@@ -225,14 +225,17 @@ static func retired_lines(roster: Array, map: int) -> Array:
 				out.append(int(l))
 	return out
 
-## The generator the player is OWED but doesn't have. Birth-on-tap per line: restored-zone count
-## (`unlocks.size()`) selects the active base-line window, then the newest active line lacking a generator
-## is due. Fresh saves self-heal `gen_1`; after the first restored zone, `gen_2` becomes due if unowned.
+## The generator the player is OWED but doesn't have. Birth-on-tap per line: the active base-line window
+## follows restored-zone count OR, when provided, the level-reached quest zone, whichever is farther.
+## Fresh saves self-heal `gen_1`; level progress can make `gen_2` due even before the first spot is claimed.
 ## `gates` is kept for the call-site signature.
-static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) -> Array:
-	# gen redesign: birth-on-tap per line. current_zone = spots restored; the newest active base line lacking
-	# a generator is due (Core §6.B). At start (zone 0) gen_1 is due if unowned — the FTUE anchor self-heals.
-	var gid := due_line_gen(unlocks.size(), owned_ids)
+static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array, level: int = -1) -> Array:
+	# gen redesign: birth-on-tap per line. The newest active base line lacking a generator is due (Core §6.B).
+	# Level is optional for old pure callers; the live board passes it so level-based quest asks stay playable.
+	var current_zone := unlocks.size()
+	if level >= 1:
+		current_zone = maxi(current_zone, quest_zone_for_level(level))
+	var gid := due_line_gen(current_zone, owned_ids)
 	return [gid] if gid != "" else []
 
 # --- §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model -----------------------------
@@ -365,10 +368,15 @@ static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
 			out.append(zone_line(z))
 	return out
 
+# Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
+# opening new zones, the ask pool still advances. Level 1 starts at zone 0; level 2 reaches zone 1.
+static func quest_zone_for_level(level: int) -> int:
+	return clampi(int(level) - 1, 0, ZONE_COUNT - 1)
+
 # gen redesign (#12, simplified): the BASE lines a quest may ask — a rolling window of the last QUEST_GEN_CAP
-# base lines REACHED (current_zone = spots restored). The SINGLE quest window: the old map-wide askable_lines
-# pulled in whole maps (and cap_quest_lines then kept the OLDEST 6); this slides with the player and matches the
-# born generators. Specials are crafted FROM these (active_special_lines), never a window slot of their own.
+# base lines reached by quest progress. The SINGLE quest window: the old map-wide askable_lines pulled in
+# whole maps (and cap_quest_lines then kept the OLDEST 6); this slides with level and can lead claimed zones.
+# Specials are crafted FROM these (active_special_lines), never a window slot of their own.
 static func quest_base_lines(current_zone: int) -> Array:
 	var out: Array = []
 	var z := mini(current_zone, ZONE_COUNT - 1)
