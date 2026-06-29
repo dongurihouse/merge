@@ -282,11 +282,11 @@ func _initialize() -> void:
 	ok(Array(scn2.board.items) == snapshot and scn2._spots_bought() == scn._spots_bought(), \
 		"a fresh scene resumes the persisted board and progress")
 
-	# 10g. TAP-TO-PRODUCE the next generator + spots-done unlock (the carrier/gate quest types are retired).
-	# (a) Once a map is UNLOCKED (map_unlocked — the SAME gate signal that surfaces its quests, not a visit),
-	# its generator is DUE; the next generator TAP births it on the board (gen_bag only when the board is full).
-	# No quest delivers it, and it self-heals any missing tool. (b) Restoring the LAST spot auto-appends z to
-	# `gates`, unlocking the next map (no gate quest). All engine/grove-side; the grove only supplies tunables.
+	# 10g. TAP-TO-PRODUCE the next per-line generator + spots-done unlock (the carrier/gate quest types are retired).
+	# (a) Once a restored zone opens a new base line, its generator is DUE; the next generator TAP births it on
+	# the board (gen_bag only when the board is full). No quest delivers it, and it self-heals missing active-line
+	# tools. (b) Restoring the LAST spot auto-appends z to `gates`, unlocking the next map (no gate quest).
+	# All engine/grove-side; the grove only supplies tunables.
 	fresh("produce")
 	var sg = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sg)
@@ -294,34 +294,32 @@ func _initialize() -> void:
 		sg._ready()
 	var sgg := Save.grove()
 	sgg["exp"] = 300                          # exp past map 0's spot thresholds
-	# complete map 0 (all spots restored + the gate recorded) → map 1 is UNLOCKED
-	var done0 := {}
-	for sp in G.MAPS[0].spots:
-		done0[String(sp.id)] = true
-	sgg["unlocks"] = done0
-	sgg["gates"] = [0]
+	# restore one spot (zone 1) → line 2's generator becomes due once the zone-0 anchor is owned
+	var z1_unlocks := {}
+	z1_unlocks[String(G.MAPS[0].spots[0].id)] = true
+	sgg["unlocks"] = z1_unlocks
+	sgg["gates"] = []
 	Save.grove_write()
 	sg._init_quests()
 	sg._rebuild_all()
-	# SINGLE-GENERATOR model (idea 3): the map-0 anchor is the ONLY generator. Unlocking map 1 does NOT
-	# grow a new tool — the anchor itself pops every OPENED line (map 1's included). So nothing is due, and
-	# a generator tap POPS ITEMS rather than birthing a tool; no new generator tile ever accumulates.
 	var owned_b: Array = []
 	for gv in sg.board.gens.values():
 		owned_b.append(String(gv))
 	for gbid in sg.board.gen_bag:
 		owned_b.append(String(gbid))
-	ok(not sg.board.gens.values().has("hen_coop"), "map 1's tool is never produced (single anchor)")
-	ok(G.due_generators(done0, [0], owned_b).is_empty(), "map 1 unlocked → NO tool is due (the anchor serves all opened lines)")
+	ok(sg.board.gens.values().has("gen_1"), "fresh board starts with the zone-0 generator")
+	ok(not sg.board.gens.values().has("gen_2"), "zone-1 generator is not pre-seeded")
+	ok(str(G.due_generators(z1_unlocks, [], owned_b)) == str(["gen_2"]), "one restored zone makes gen_2 due")
 	var gens_before: int = sg.board.gens.size()
-	ok(not sg._produce_due_generators(), "nothing is due → a tap produces no new tool")
-	ok(sg.board.gens.size() == gens_before, "the generator set stays a single anchor (no new tiles accumulate)")
-	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the anchor satchel remains the sole generator")
-	# SEAM PROBE: map 1's line is in the anchor's ASKABLE pool, so a fence entering map 1 is satisfiable from
-	# the single anchor WITHOUT producing hen_coop.
-	var askable_at_m1: Array = G.askable_lines(G.GENERATORS, 1)
-	for hc_ln in G.gen_def(G.GENERATORS, "hen_coop").get("lines", []):
-		ok(askable_at_m1.has(int(hc_ln)), "map-1 line %d is askable from the anchor (fence producible, no new tool)" % int(hc_ln))
+	ok(sg._produce_due_generators(), "a generator tap births the due gen_2")
+	ok(sg.board.gens.size() == gens_before + 1, "the generator set gains the per-line tool")
+	ok(sg.board.gens.values().has("gen_2"), "gen_2 lands on the board")
+	owned_b.clear()
+	for gv in sg.board.gens.values():
+		owned_b.append(String(gv))
+	for gbid in sg.board.gen_bag:
+		owned_b.append(String(gbid))
+	ok(G.due_generators(z1_unlocks, [], owned_b).is_empty(), "nothing is due once gen_2 is owned")
 	sg.queue_free()
 	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
 	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;

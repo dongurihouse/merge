@@ -225,13 +225,11 @@ static func retired_lines(roster: Array, map: int) -> Array:
 				out.append(int(l))
 	return out
 
-## The generator the player is OWED but doesn't have. SINGLE-GENERATOR model (idea 3): only the map-0
-## ANCHOR is ever produced — later maps no longer grow their own tool (the one anchor pops EVERY opened
-## line, via askable_lines + the board pop pool). So this returns the anchor id only if it is somehow
-## missing (the self-heal for a stranded save); NEVER a later map's tool. Empty once the anchor is owned.
-## (`unlocks`/`gates` are now unused — kept for the call-site signature.)
+## The generator the player is OWED but doesn't have. Birth-on-tap per line: restored-zone count
+## (`unlocks.size()`) selects the active base-line window, then the newest active line lacking a generator
+## is due. Fresh saves self-heal `gen_1`; after the first restored zone, `gen_2` becomes due if unowned.
+## `gates` is kept for the call-site signature.
 static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) -> Array:
-	var out: Array = []
 	# gen redesign: birth-on-tap per line. current_zone = spots restored; the newest active base line lacking
 	# a generator is due (Core §6.B). At start (zone 0) gen_1 is due if unowned — the FTUE anchor self-heals.
 	var gid := due_line_gen(unlocks.size(), owned_ids)

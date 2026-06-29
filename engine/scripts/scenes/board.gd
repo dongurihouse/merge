@@ -564,9 +564,8 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		# SINGLE-GENERATOR model (idea 3): always seed the map-0 ANCHOR (never the current map's tool).
-		# The one anchor pops EVERY opened line (askable_lines), and due_generators never grows another,
-		# so the whole game runs on this single generator regardless of progression.
+		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap as restored-zone
+		# count advances; see G.due_generators / _produce_due_generators.
 		board.seed_gens(0, _quest_level())
 	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
 	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
@@ -2611,11 +2610,9 @@ func _snap_back(from: Vector2i, node: Control) -> void:
 
 # --- actions ---------------------------------------------------------------------
 
-# The CURRENT pop pool (and the wanted/giver context it derives from) — the single source of truth shared by
-# the burst-pop (_pop_seed) and the Producing dialog, so the dialog's highlighted lines are exactly what a tap
-# would spawn right now. SINGLE-GENERATOR model (idea 3.2): the pool is the WANTED (quested) lines drawn from
-# the all-opened askable set, capped to pop_line_cap distinct lines (falling back to the full opened set when
-# no quest is poppable). Returns {pool, wanted, giver_quests}.
+# The CURRENT pop context shared by burst-pop (_pop_seed) and the Producing dialog. It keeps the wanted/giver
+# lines and the capped fallback pool in one place; per-line generators narrow the actual tap pool to their own
+# line below. Returns {pool, wanted, giver_quests}.
 func _pop_pool_ctx() -> Dictionary:
 	var opened: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
 	var giver_quests: Array = []
@@ -2635,9 +2632,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 			return
 		cell = board.gens.keys()[0]
 	var gnode: Control = gen_nodes.get(cell, gen_node)
-	# Tap-to-produce: when a generator is DUE (its map is unlocked but the player doesn't own it — board or
-	# bag), this tap BIRTHS the new tool instead of popping items. Free (no energy), preempts the pop, and
-	# self-heals any missing generator on any unlocked map (no carrier quest involved). See below.
+	# Tap-to-produce: when a generator is DUE (the restored-zone count has reached its base line, but the
+	# player doesn't own it — board or bag), this tap BIRTHS the new tool instead of popping items. Free
+	# (no energy), preempts the pop, and self-heals missing active-line generators. See below.
 	if _produce_due_generators():
 		return
 	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
@@ -2668,11 +2665,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
-	# SINGLE-GENERATOR model (idea 3.2): the one anchor produces the items the CURRENT QUESTS REQUIRE —
-	# its pop pool is the WANTED (quested) lines, drawn from the ALL-OPENED askable set (§6: quests may
-	# ask any opened line, but the generator pops what's asked). Restricting pops to wanted keeps the
-	# board mergeable no matter how many lines have opened (a 24-line opened set would otherwise scatter
-	# un-mergeable singletons and jam). Fall back to the full opened set only when no quest is poppable.
+	# Keep the quest-wanted context for dialog/highlighting and tier bias. The actual pop pool is narrowed to
+	# the tapped generator's own line below; the capped fallback remains for non-line legacy/test callers.
 	var ctx := _pop_pool_ctx()
 	var pool: Array = ctx["pool"]
 	var wanted: Array = ctx["wanted"]
@@ -2747,12 +2741,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
 	_update_water_hud()
 
-# Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when its map is unlocked
-# (G.due_generators — keyed on map-unlock, the SAME signal that surfaces a map's quests, NOT on which map is
-# being viewed) but the player owns neither a board copy nor a bagged one. The new tool lands on the first open
-# cell (bag only when the board is full), pops in + breathes + glows so it is unmissable. Returns true if it
-# produced one — the tap is then SPENT birthing the tool (no energy, no item burst). Self-heals any missing
-# tool on any unlocked map, so every corner case (a skipped map, a stranded save) is caught on the next tap.
+# Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when restored-zone count
+# reaches its base line and the player owns neither a board copy nor a bagged one. The new tool lands on the
+# first open cell (bag only when the board is full), pops in + breathes + glows so it is unmissable. Returns
+# true if it produced one — the tap is then SPENT birthing the tool (no energy, no item burst). Self-heals a
+# missing active-line tool for stranded saves, so the next tap catches the gap.
 func _produce_due_generators() -> bool:
 	var due := G.due_generators(Save.grove().get("unlocks", {}), Save.grove().get("gates", []), Quests.owned_gens(board.gens, board.gen_bag))
 	if due.is_empty():
