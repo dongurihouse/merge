@@ -264,6 +264,53 @@ func _initialize() -> void:
 	bd._on_press(dc2pos)
 	bd._on_release(dc2pos + Vector2(bd.csz, 0.0))           # drag away (>18px) — must not collect
 	ok(Save.coins() == wallet1, "dragging a coin does not pocket it")
+
+	# Opening a chest with a key is board-first like other collectables: it consumes the
+	# pair, but leaves the reward as a board item instead of crediting wallet currency.
+	for ci in bd.board.items.size():
+		bd.board.items[ci] = 0
+	var chest_spots: Array = bd.board.empty_ground_cells()
+	ok(chest_spots.size() >= 2, "test setup: chest/key has two open cells")
+	var chest_cell := Vector2i(chest_spots[0])
+	var key_cell := Vector2i(chest_spots[1])
+	bd.board.place(chest_cell, 1003)
+	bd.board.place(key_cell, 1103)
+	bd._rebuild_pieces()
+	var chest_wallet := Save.coins()
+	var chest_acorns := Save.diamonds()
+	var key_pos: Vector2 = bd._cell_pos(key_cell) + chalf
+	var chest_pos: Vector2 = bd._cell_pos(chest_cell) + chalf
+	bd._on_press(key_pos)
+	bd._on_release(chest_pos)
+	await create_timer(0.1).timeout
+	var expected_chest_reward := G.chest_open_reward(1003, 1103)
+	var reward_items := 0
+	var opened_pair_items := 0
+	var coin_reward_cell := Vector2i(-1, -1)
+	var acorn_reward_cell := Vector2i(-1, -1)
+	for i in bd.board.items.size():
+		var v := int(bd.board.items[i])
+		if int(v) == 1003 or int(v) == 1103:
+			opened_pair_items += 1
+		if int(v) > 0 and G.is_collectable(int(v)):
+			reward_items += 1
+			var reward_cell := BoardModel.cell_of(i)
+			if G.is_coin(int(v)):
+				coin_reward_cell = reward_cell
+			elif G.special_kind(int(v)) == "acorn":
+				acorn_reward_cell = reward_cell
+	ok(Save.coins() == chest_wallet and Save.diamonds() == chest_acorns, "key-opened chest does not credit wallet currency directly")
+	ok(opened_pair_items == 0 and reward_items >= G.chest_open_items(1003, 1103).size(), "key-opened chest leaves its reward as collectable board items")
+	ok(coin_reward_cell.x >= 0 and bd.board.collect_reward_at(coin_reward_cell) == {"kind": "coins", "amount": int(expected_chest_reward.coins)}, \
+		"key-opened chest coin item keeps the authored coin reward on the board")
+	ok(acorn_reward_cell.x >= 0 and bd.board.collect_reward_at(acorn_reward_cell) == {"kind": "acorn", "amount": int(expected_chest_reward.acorns)}, \
+		"key-opened chest acorn item keeps the authored acorn reward on the board")
+	if coin_reward_cell.x >= 0:
+		bd._collect_coin(coin_reward_cell, bd.piece_nodes.get(coin_reward_cell))
+	if acorn_reward_cell.x >= 0:
+		bd._collect_special(acorn_reward_cell, bd.piece_nodes.get(acorn_reward_cell))
+	ok(Save.coins() == chest_wallet + int(expected_chest_reward.coins) and Save.diamonds() == chest_acorns + int(expected_chest_reward.acorns), \
+		"collecting key-opened chest board rewards credits the authored payout")
 	bd.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a

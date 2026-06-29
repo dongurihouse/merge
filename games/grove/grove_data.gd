@@ -304,12 +304,16 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
-const COIN_TOP := 3
-const COIN_VALUES := {1: 1, 2: 5, 3: 25}  # tap-collect value per coin tier
+const COIN_TOP := 12
+const COIN_VALUES := {                    # tap-collect value per coin tier
+	1: 1, 2: 5, 3: 25, 4: 100, 5: 250, 6: 500,
+	7: 1000, 8: 2500, 9: 5000, 10: 10000, 11: 25000, 12: 50000,
+}
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
-# §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Like coins they merge up to a
-# small top (SPECIAL_TOP), are NEVER popped from the generator and NEVER asked by quests or sold; they
+# §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Most merge up to a
+# small top (SPECIAL_TOP), while individual defs may override it. They are NEVER popped from the generator
+# and NEVER asked by quests or sold; they
 # DROP occasionally and pay out a reward on use. Codes `line*100 + tier` on dedicated line numbers (10+,
 # clear of the 1-5 content lines + 9 = coin). Art at items/<base>/<base>_<tier>.png (already wired). `kind`
 # selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
@@ -319,7 +323,7 @@ const SPECIAL_ITEMS := {
 	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Drag a key onto this chest to open a reward."},   # merges; opened by a key for a reward
 	11: {"name": "Key",   "base": "key",   "kind": "key", "desc": "Drag onto a chest to open it. Better keys improve the reward."},     # merges; opens a chest
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
-	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
+	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "top": 12, "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
 	14: {"name": "Spark", "base": "spark", "kind": "exp", "desc": "Tap again to gain exp. Merge first for more."},     # merges; tap-collect → exp
 	# wildcard — a full 12-tier line (overrides SPECIAL_TOP) so a high-tier wildcard can advance high-tier
 	# items; art PENDING (code-drawn from `color` until the 12-tier sprite lands, §6.B/#5).
@@ -333,7 +337,10 @@ const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item)
 const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 15: 1}   # chest·key·water·acorn·exp·wildcard (flat — water/exp no longer double-weighted, they over-fed the faucets)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
-	"acorn": {1: 1, 2: 2, 3: 5},
+	"acorn": {
+		1: 1, 2: 2, 3: 5, 4: 10, 5: 20, 6: 50,
+		7: 100, 8: 200, 9: 500, 10: 1000, 11: 2000, 12: 5000,
+	},
 	"exp":   {1: 5, 2: 12, 3: 30},
 }
 const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …

@@ -9,6 +9,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 var terrain := PackedInt32Array()
 var items := PackedInt32Array()
+var collect_rewards: Dictionary = {}       # idx -> {kind, amount}; custom-value collectables such as opened chests.
 var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
                                           # STATEFUL + persisted (movable; stored/placed via gen_bag, §6).
                                           # Seeded by seed_gens / restored by from_dict.
@@ -70,11 +71,14 @@ func _claim_gen_cells() -> void:
 		if terrain[idx(cell)] > 0:
 			terrain[idx(cell)] = 0           # clears its bramble (no contents)
 			items[idx(cell)] = 0
+			collect_rewards.erase(idx(cell))
 		elif items[idx(cell)] > 0:
 			var refuge := empty_ground_cells()
 			if not refuge.is_empty():
-				items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
-			items[idx(cell)] = 0
+				move(cell, Vector2i(refuge[0]))
+			else:
+				items[idx(cell)] = 0
+				collect_rewards.erase(idx(cell))
 
 ## Move a board generator into the bag's generator section (frees its cell). No-op on a bad cell.
 ## #8: the generator's TIER travels with it into the bag, and the vacated cell sheds its tier data.
@@ -164,11 +168,14 @@ func place_gen(id: String, cell: Vector2i) -> void:
 	if terrain[idx(cell)] > 0:
 		terrain[idx(cell)] = 0
 		items[idx(cell)] = 0
+		collect_rewards.erase(idx(cell))
 	elif items[idx(cell)] > 0:
 		var refuge := empty_ground_cells()
 		if not refuge.is_empty():
-			items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
-		items[idx(cell)] = 0
+			move(cell, Vector2i(refuge[0]))
+		else:
+			items[idx(cell)] = 0
+			collect_rewards.erase(idx(cell))
 
 ## Compat shim for the fresh-run tools (sim / shot) that still ask for a spot-count's
 ## generators: re-seed to the map that many home spots reaches. NOT used by the live board
@@ -215,33 +222,86 @@ func can_merge(a: Vector2i, b: Vector2i) -> bool:
 	var k := item_at(a)
 	if a == b or k <= 0 or item_at(b) != k:
 		return false
+	if not collect_reward_at(a).is_empty() or not collect_reward_at(b).is_empty():
+		return false
 	return tier_of(k) < G.merge_top(k)
+
+func any_pair_exists() -> bool:
+	var seen := {}
+	for i in items.size():
+		var k: int = items[i]
+		if k <= 0 or tier_of(k) >= G.merge_top(k):
+			continue
+		if seen.has(k):
+			return true
+		seen[k] = true
+	return false
 
 ## Merge a onto b → b holds the next tier; returns the produced code.
 func merge(a: Vector2i, b: Vector2i) -> int:
 	var produced: int = item_at(a) + 1
 	items[idx(a)] = 0
 	items[idx(b)] = produced
+	collect_rewards.erase(idx(a))
+	collect_rewards.erase(idx(b))
 	return produced
 
 func move(a: Vector2i, b: Vector2i) -> void:
+	var reward := collect_reward_at(a)
 	items[idx(b)] = items[idx(a)]
 	items[idx(a)] = 0
+	collect_rewards.erase(idx(a))
+	collect_rewards.erase(idx(b))
+	if not reward.is_empty():
+		collect_rewards[idx(b)] = reward
 
 ## P: trade the codes in two occupied cells — no merge, no side effects.
 ## Persists for free via to_dict (it serialises `items`).
 func swap(a: Vector2i, b: Vector2i) -> void:
 	var ka: int = items[idx(a)]
+	var ra := collect_reward_at(a)
+	var rb := collect_reward_at(b)
 	items[idx(a)] = items[idx(b)]
 	items[idx(b)] = ka
+	collect_rewards.erase(idx(a))
+	collect_rewards.erase(idx(b))
+	if not rb.is_empty():
+		collect_rewards[idx(a)] = rb
+	if not ra.is_empty():
+		collect_rewards[idx(b)] = ra
 
 func take(cell: Vector2i) -> int:
 	var k := item_at(cell)
 	items[idx(cell)] = 0
+	collect_rewards.erase(idx(cell))
 	return k
 
 func place(cell: Vector2i, code: int) -> void:
 	items[idx(cell)] = code
+	collect_rewards.erase(idx(cell))
+
+func collect_reward_at(cell: Vector2i) -> Dictionary:
+	if not in_bounds(cell):
+		return {}
+	var reward = collect_rewards.get(idx(cell), {})
+	if reward is Dictionary:
+		return (reward as Dictionary).duplicate()
+	return {}
+
+func set_collect_reward(cell: Vector2i, kind: String, amount: int) -> void:
+	if not in_bounds(cell):
+		return
+	var i := idx(cell)
+	if kind == "" or amount <= 0:
+		collect_rewards.erase(i)
+		return
+	collect_rewards[i] = {"kind": kind, "amount": amount}
+
+func take_collect_reward(cell: Vector2i) -> Dictionary:
+	var reward := collect_reward_at(cell)
+	if in_bounds(cell):
+		collect_rewards.erase(idx(cell))
+	return reward
 
 ## Sealed cells adjacent to `cell` that a merge here can open: §4 level-gated — a neighbour
 ## opens when the player's Level has reached its G.cell_min_level. The merge is the trigger;
@@ -262,6 +322,7 @@ func open_bramble(cell: Vector2i, contents: int = -1) -> int:
 	if contents < 0:
 		contents = G.bramble_contents(cell)
 	items[idx(cell)] = contents
+	collect_rewards.erase(idx(cell))
 	return contents
 
 func empty_ground_cells() -> Array:
@@ -305,7 +366,13 @@ func to_dict() -> Dictionary:
 	var gl: Array = []
 	for c in gens:
 		gl.append([c.x, c.y, gens[c], gen_tier_at(c)])   # [row, col, id, tier] — JSON-safe (no Vector2i keys)
-	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate()}
+	var cr: Array = []
+	for i in collect_rewards:
+		var cell := cell_of(int(i))
+		var reward: Dictionary = collect_reward_at(cell)
+		if not reward.is_empty():
+			cr.append([cell.x, cell.y, String(reward.kind), int(reward.amount)])
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate(), "collect_rewards": cr}
 
 func from_dict(d: Dictionary) -> void:
 	var t: Array = d.get("terrain", [])
@@ -314,6 +381,13 @@ func from_dict(d: Dictionary) -> void:
 		for i in t.size():
 			terrain[i] = int(t[i])
 			items[i] = int(it[i])
+	collect_rewards = {}
+	for e in d.get("collect_rewards", []):
+		if not (e is Array) or (e as Array).size() < 4:
+			continue
+		var cell := Vector2i(int(e[0]), int(e[1]))
+		if in_bounds(cell) and item_at(cell) > 0:
+			set_collect_reward(cell, String(e[2]), int(e[3]))
 	gens = {}
 	gen_tiers = {}
 	for e in d.get("gens", []):

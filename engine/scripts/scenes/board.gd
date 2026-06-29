@@ -1916,7 +1916,7 @@ func _select_item(cell: Vector2i) -> void:
 	_info_label.text = nm
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
-		var desc := G.item_description(code)
+		var desc := _item_description_for_cell(cell, code)
 		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
 		_info_desc_label.visible = true
 	_info_btn.visible = not _info_button_hidden
@@ -1936,6 +1936,21 @@ func _select_item(cell: Vector2i) -> void:
 		_info_trash_coin.add_child(pay_icon)
 		_info_trash.visible = true
 		_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
+
+func _item_description_for_cell(cell: Vector2i, code: int) -> String:
+	var reward := board.collect_reward_at(cell)
+	if not reward.is_empty():
+		var amount := int(reward.amount)
+		match String(reward.kind):
+			"coins":
+				return "Tap again to collect %d %s." % [amount, "coin" if amount == 1 else "coins"]
+			"acorn":
+				return "Tap again to collect %d %s." % [amount, "acorn" if amount == 1 else "acorns"]
+			"water":
+				return "Tap again to collect %d water." % amount
+			"exp":
+				return "Tap again to gain %d exp." % amount
+	return G.item_description(code)
 
 # T54 — select a GENERATOR into the info bar (after a tap pops it): its sprite + name (+ the live boost
 # detail), the ⓘ ladder of what it produces, and — in the slot the sell button leaves empty — the boost
@@ -2538,7 +2553,8 @@ func _on_release(pos: Vector2) -> void:
 		else:
 			_snap_back(from, node)
 			_select_item(from)
-	elif G.wildcard_advance_code(from_code, target_code) > 0:
+	elif board.collect_reward_at(from).is_empty() and board.collect_reward_at(target).is_empty() \
+			and G.wildcard_advance_code(from_code, target_code) > 0:
 		_apply_wildcard(from, target, node)   # §6.B a WILDCARD advances a same-tier item one tier
 	elif G.can_open_chest(from_code, target_code):
 		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
@@ -2998,9 +3014,10 @@ func debug_drop_coin() -> void:
 	_refresh_generator_dim()
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
+	var reward := board.take_collect_reward(cell)
 	var code := board.take(cell)
 	piece_nodes.erase(cell)
-	var got := G.coin_value(code)
+	var got := int(reward.amount) if String(reward.get("kind", "")) == "coins" else G.coin_value(code)
 	var at := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	if node != null and is_instance_valid(node):
 		at = node.get_global_rect().get_center()
@@ -3044,6 +3061,9 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
 	var got: Dictionary = G.special_collect(board.item_at(cell))
+	var reward := board.take_collect_reward(cell)
+	if not reward.is_empty():
+		got = reward
 	if got.is_empty():
 		return
 	board.take(cell)
@@ -3065,10 +3085,10 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 	_refresh_giver_lights()
 	_refresh_generator_dim()
 
-# §6.B open a chest with a key (drag one onto the other): consume BOTH, pay coins (+acorns at higher
-# tiers), scaled by the chest tier and a key-tier multiplier. The richest non-merge board interaction.
+# §6.B open a chest with a key (drag one onto the other): consume BOTH and leave the
+# reward as collectable board item(s), scaled by chest tier and key tier.
 func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
-	var reward: Dictionary = G.chest_open_reward(board.item_at(from), board.item_at(target))
+	var reward_items: Array = G.chest_open_collect_rewards(board.item_at(from), board.item_at(target))
 	board.take(from)
 	board.take(target)
 	piece_nodes.erase(from)
@@ -3077,18 +3097,29 @@ func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
 	piece_nodes.erase(target)
 	if node != null and is_instance_valid(node):
 		node.queue_free()
-	var coins := int(reward.coins)
-	var acorns := int(reward.acorns)
-	if coins > 0:
-		Save.add_coins(coins)
-	if acorns > 0:
-		Save.add_diamonds(acorns)
-	var at := board_area.get_global_transform() * _cell_pos(target) + Vector2(csz, csz) / 2.0
-	var done := func() -> void:
-		if is_instance_valid(self):
-			_update_hud()
-	FX.reward_arrival(self, at, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "coin_pickup")
-	Audio.play("coin_earn", -2.0)
+	var reward_cells: Array = [target, from]
+	for i in reward_items.size():
+		var reward: Dictionary = reward_items[i]
+		var code := int(reward.code)
+		var cell: Vector2i = reward_cells[i] if i < reward_cells.size() else Vector2i(-1, -1)
+		if cell.x < 0 or not board.is_empty_ground(cell):
+			var empties := board.empty_ground_cells()
+			if empties.is_empty():
+				continue
+			empties.sort_custom(func(a, b): return (a - target).length_squared() < (b - target).length_squared())
+			cell = empties[0]
+		board.place(cell, code)
+		board.set_collect_reward(cell, String(reward.kind), int(reward.amount))
+		var n := _make_piece(code, csz)
+		n.position = _cell_pos(target)
+		n.scale = Vector2(0.3, 0.3)
+		board_area.add_child(n)
+		piece_nodes[cell] = n
+		var t := n.create_tween()
+		t.set_parallel(true)
+		t.tween_property(n, "position", _cell_pos(cell), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Audio.play("item_drop", -2.0)
 	_persist()
 	_update_hud()
 	_refresh_giver_lights()
@@ -3354,6 +3385,10 @@ func _bag_has_buy_slot() -> bool:
 	return Save.bag_slots() < G.BAG_MAX_SLOTS
 
 func _stash(from: Vector2i, node: Control) -> void:
+	if not board.collect_reward_at(from).is_empty():
+		# The bag stores only item codes; custom-value chest rewards must remain board collectables.
+		_snap_back(from, node)
+		return
 	if bag.size() >= _bag_capacity():
 		_snap_back(from, node)
 		return
@@ -3745,24 +3780,29 @@ func _grant_sale(code: int, node: Control) -> void:
 func _open_ladder(line: int, mark_tier: int) -> void:
 	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
-	# gen redesign #9/#15: the header names the GENERATOR that makes this line (or the RECIPE for a special).
-	Ladder.open(self, {
-		"entries": _ladder_entries(line),
+	# gen redesign #9/#15: a base line shows its GENERATOR icon atop the tier grid; a merged (special) line
+	# shows its two ingredient items alone — tapping either opens THAT item's tier screen (Ladder rebuilds
+	# the modal in place, so navigation REPLACES rather than stacks).
+	var header := _ladder_header(line)
+	var opts := {
+		"header": header,
 		"mark_tier": mark_tier,
-		"title": _ladder_title(line),
-	})
+		"on_pick": func(l: int) -> void: _open_ladder(l, 1),
+	}
+	if String(header.get("kind", "")) != "recipe":
+		opts["entries"] = _ladder_entries(line)
+	Ladder.open(self, opts)
 
-# #9 / #15: the tier dialog's header — names the GENERATOR that makes a base line, or the RECIPE (the two
-# base lines) for a crafted special line.
-func _ladder_title(line: int) -> String:
+# #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
+# the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
+func _ladder_header(line: int) -> Dictionary:
 	var gid := G.gen_for_line(line)
 	if gid != "":
-		return "Made by %s" % G.generator_display_name(gid)
-	var z := G.zone_of_line(line)
-	var recipe: Array = G.zone_recipe(z) if z >= 0 else []
-	if recipe.size() == 2:
-		return "Craft: %s + %s" % [_ladder_line_name(int(recipe[0])), _ladder_line_name(int(recipe[1]))]
-	return Strings.t("ladder.title")
+		return {"kind": "generator", "gid": gid, "name": G.generator_display_name(gid)}
+	var rl: Array = G.recipe_lines(line)
+	if rl.size() == 2:
+		return {"kind": "recipe", "lines": rl, "name": _ladder_line_name(line)}
+	return {"kind": "title", "name": Strings.t("ladder.title")}
 
 func _ladder_line_name(line: int) -> String:
 	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))

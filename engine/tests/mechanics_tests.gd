@@ -241,6 +241,8 @@ func _initialize() -> void:
 		"special_kind selects the per-item behaviour")
 	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
 		"merge_top caps special items low, content high, coins at the coin top")
+	ok(G.merge_top(coin_t1) == 12, "coins now merge through tier 12")
+	ok(G.coin_value(G.COIN_LINE * 100 + 12) == 50000, "coin t12 collects for the tuned high-tier value")
 	var sbm := BoardModel.new()
 	sbm.place(Vector2i(3, 2), 10 * 100 + 2)
 	sbm.place(Vector2i(3, 4), 10 * 100 + 2)
@@ -249,6 +251,10 @@ func _initialize() -> void:
 	sbm.place(Vector2i(5, 4), 10 * 100 + 3)
 	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
+	ok(G.merge_top(13 * 100 + 1) == 12, "acorn drops now merge through tier 12")
+	ok(G.item_tex_path(13 * 100 + 12).ends_with("items/acorn/acorn_12.png"), "acorn t12 resolves its wired art path")
+	ok(ResourceLoader.exists("res://games/grove/assets/items/coin/coin_12.png"), "coin t12 art is imported")
+	ok(ResourceLoader.exists(G.item_tex_path(13 * 100 + 12)), "acorn t12 art is imported")
 	ok(not G.LINES.has(10), "a special pseudo-line is not a content LINE (never popped/asked/sold as content)")
 
 	# --- §6.B special-drop reward math (drop roll, tap-collect, chest open) ---
@@ -261,6 +267,7 @@ func _initialize() -> void:
 	# tap-collect grants the resource by tier; chest/key are NOT tap-collected (opened instead)
 	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
 	ok(G.special_collect(13 * 100 + 3) == {"kind": "acorn", "amount": 5}, "acorn t3 tap-collects acorns")
+	ok(G.special_collect(13 * 100 + 12) == {"kind": "acorn", "amount": 5000}, "acorn t12 tap-collects its tuned premium amount")
 	ok(G.special_collect(14 * 100 + 1) == {"kind": "exp", "amount": 5}, "exp (spark) t1 tap-collects exp")
 	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest is NOT tap-collected (it is opened by a key)")
 	# the open pairing: chest + key (either order), not chest+chest or key+water
@@ -307,6 +314,9 @@ func _initialize() -> void:
 	ok(G.LINES.has(76) and G.LINES.has(77) and G.LINES.has(78), "the 3 late-game specials (76/77/78) now have LINES defs")
 	ok(G.special_for_pair(32, 33) == 76 and G.special_for_pair(36, 37) == 78, "76 crafts from 32+33; 78 from 36+37 (recipes live)")
 	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4] and G.zone_recipe(23) == [36, 37], "a special is crafted from the two preceding base lines")
+	# the tier screen / recipe view needs a LINE-keyed recipe (zone_recipe is zone-keyed) — resolves a merged line to its two ingredient base lines.
+	ok(G.recipe_lines(71) == [1, 2] and G.recipe_lines(72) == [3, 4] and G.recipe_lines(78) == [36, 37], "recipe_lines(special) → its two base ingredient lines")
+	ok(G.recipe_lines(1) == [] and G.recipe_lines(2) == [] and G.recipe_lines(51) == [], "recipe_lines(base) is empty — a base line has no recipe")
 	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
 	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped

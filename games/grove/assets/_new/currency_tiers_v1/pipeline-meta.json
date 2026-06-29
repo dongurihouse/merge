@@ -1,0 +1,283 @@
+{
+  "source": "games/grove/assets/_new/currency_tiers_v1/currency_tiers_3x6_raw.png",
+  "rows": 6,
+  "cols": 3,
+  "output_size": 512,
+  "background_rgb": [
+    245,
+    11,
+    229
+  ],
+  "items": [
+    {
+      "index": 1,
+      "row": 1,
+      "col": 1,
+      "base": "coin",
+      "tier": 4,
+      "target": "games/grove/assets/items/coin/coin_4.png",
+      "source_bbox": [
+        51,
+        128,
+        262,
+        271
+      ],
+      "components": 1
+    },
+    {
+      "index": 2,
+      "row": 1,
+      "col": 2,
+      "base": "coin",
+      "tier": 5,
+      "target": "games/grove/assets/items/coin/coin_5.png",
+      "source_bbox": [
+        337,
+        92,
+        559,
+        278
+      ],
+      "components": 1
+    },
+    {
+      "index": 3,
+      "row": 1,
+      "col": 3,
+      "base": "coin",
+      "tier": 6,
+      "target": "games/grove/assets/items/coin/coin_6.png",
+      "source_bbox": [
+        605,
+        75,
+        862,
+        280
+      ],
+      "components": 1
+    },
+    {
+      "index": 4,
+      "row": 2,
+      "col": 1,
+      "base": "coin",
+      "tier": 7,
+      "target": "games/grove/assets/items/coin/coin_7.png",
+      "source_bbox": [
+        27,
+        369,
+        269,
+        556
+      ],
+      "components": 1
+    },
+    {
+      "index": 5,
+      "row": 2,
+      "col": 2,
+      "base": "coin",
+      "tier": 8,
+      "target": "games/grove/assets/items/coin/coin_8.png",
+      "source_bbox": [
+        312,
+        336,
+        567,
+        547
+      ],
+      "components": 1
+    },
+    {
+      "index": 6,
+      "row": 2,
+      "col": 3,
+      "base": "coin",
+      "tier": 9,
+      "target": "games/grove/assets/items/coin/coin_9.png",
+      "source_bbox": [
+        597,
+        321,
+        868,
+        565
+      ],
+      "components": 1
+    },
+    {
+      "index": 7,
+      "row": 3,
+      "col": 1,
+      "base": "coin",
+      "tier": 10,
+      "target": "games/grove/assets/items/coin/coin_10.png",
+      "source_bbox": [
+        25,
+        623,
+        277,
+        837
+      ],
+      "components": 1
+    },
+    {
+      "index": 8,
+      "row": 3,
+      "col": 2,
+      "base": "coin",
+      "tier": 11,
+      "target": "games/grove/assets/items/coin/coin_11.png",
+      "source_bbox": [
+        300,
+        600,
+        570,
+        849
+      ],
+      "components": 1
+    },
+    {
+      "index": 9,
+      "row": 3,
+      "col": 3,
+      "base": "coin",
+      "tier": 12,
+      "target": "games/grove/assets/items/coin/coin_12.png",
+      "source_bbox": [
+        595,
+        598,
+        872,
+        847
+      ],
+      "components": 1
+    },
+    {
+      "index": 10,
+      "row": 4,
+      "col": 1,
+      "base": "acorn",
+      "tier": 4,
+      "target": "games/grove/assets/items/acorn/acorn_4.png",
+      "source_bbox": [
+        64,
+        904,
+        232,
+        1104
+      ],
+      "components": 1
+    },
+    {
+      "index": 11,
+      "row": 4,
+      "col": 2,
+      "base": "acorn",
+      "tier": 5,
+      "target": "games/grove/assets/items/acorn/acorn_5.png",
+      "source_bbox": [
+        354,
+        904,
+        525,
+        1105
+      ],
+      "components": 1
+    },
+    {
+      "index": 12,
+      "row": 4,
+      "col": 3,
+      "base": "acorn",
+      "tier": 6,
+      "target": "games/grove/assets/items/acorn/acorn_6.png",
+      "source_bbox": [
+        647,
+        904,
+        819,
+        1106
+      ],
+      "components": 1
+    },
+    {
+      "index": 13,
+      "row": 5,
+      "col": 1,
+      "base": "acorn",
+      "tier": 7,
+      "target": "games/grove/assets/items/acorn/acorn_7.png",
+      "source_bbox": [
+        60,
+        1167,
+        229,
+        1384
+      ],
+      "components": 1
+    },
+    {
+      "index": 14,
+      "row": 5,
+      "col": 2,
+      "base": "acorn",
+      "tier": 8,
+      "target": "games/grove/assets/items/acorn/acorn_8.png",
+      "source_bbox": [
+        353,
+        1168,
+        525,
+        1389
+      ],
+      "components": 1
+    },
+    {
+      "index": 15,
+      "row": 5,
+      "col": 3,
+      "base": "acorn",
+      "tier": 9,
+      "target": "games/grove/assets/items/acorn/acorn_9.png",
+      "source_bbox": [
+        644,
+        1168,
+        818,
+        1389
+      ],
+      "components": 1
+    },
+    {
+      "index": 16,
+      "row": 6,
+      "col": 1,
+      "base": "acorn",
+      "tier": 10,
+      "target": "games/grove/assets/items/acorn/acorn_10.png",
+      "source_bbox": [
+        52,
+        1445,
+        241,
+        1687
+      ],
+      "components": 1
+    },
+    {
+      "index": 17,
+      "row": 6,
+      "col": 2,
+      "base": "acorn",
+      "tier": 11,
+      "target": "games/grove/assets/items/acorn/acorn_11.png",
+      "source_bbox": [
+        343,
+        1445,
+        529,
+        1691
+      ],
+      "components": 1
+    },
+    {
+      "index": 18,
+      "row": 6,
+      "col": 3,
+      "base": "acorn",
+      "tier": 12,
+      "target": "games/grove/assets/items/acorn/acorn_12.png",
+      "source_bbox": [
+        635,
+        1444,
+        841,
+        1693
+      ],
+      "components": 1
+    }
+  ]
+}

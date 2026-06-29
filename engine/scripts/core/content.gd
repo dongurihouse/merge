@@ -213,6 +213,12 @@ static func zone_recipe(z: int) -> Array:
 		return []
 	return [zone_line(z - 2), zone_line(z - 1)]
 
+# LINE-keyed recipe: the two ingredient base lines a MERGED (special) line is crafted from; [] for a base
+# line or an unknown line. The tier screen's recipe view uses this (zone_recipe is zone-keyed).
+static func recipe_lines(line: int) -> Array:
+	var z := zone_of_line(int(line))
+	return zone_recipe(z) if z >= 0 else []
+
 # The SPECIAL line crafted by merging two base lines at the same tier (Core §6.G). Order-independent; 0 if
 # the pair isn't a recipe. (Derived: the special zone whose two preceding base lines are this pair.)
 static func special_for_pair(line_a: int, line_b: int) -> int:
@@ -1100,6 +1106,33 @@ static func chest_open_reward(a: int, b: int) -> Dictionary:
 		"coins": int(round(float(int(CHEST_OPEN_COINS.get(ct, 0))) * mult)),
 		"acorns": int(round(float(int(CHEST_OPEN_ACORNS.get(ct, 0))) * mult)),
 	}
+
+static func _reward_tier_for_amount(amount: int, values: Dictionary) -> int:
+	var best := 0
+	for k in values.keys():
+		var tier := int(k)
+		if amount >= int(values[k]) and tier > best:
+			best = tier
+	return best
+
+## Board-first chest reward: convert the authored value into collectable item(s)
+## that stay on the board until the player taps to collect them.
+static func chest_open_collect_rewards(a: int, b: int) -> Array:
+	var reward := chest_open_reward(a, b)
+	var out: Array = []
+	var coin_tier := _reward_tier_for_amount(int(reward.coins), COIN_VALUES)
+	if coin_tier > 0:
+		out.append({"code": COIN_LINE * 100 + coin_tier, "kind": "coins", "amount": int(reward.coins)})
+	var acorn_tier := _reward_tier_for_amount(int(reward.acorns), SPECIAL_COLLECT.get("acorn", {}))
+	if acorn_tier > 0:
+		out.append({"code": 13 * 100 + acorn_tier, "kind": "acorn", "amount": int(reward.acorns)})
+	return out
+
+static func chest_open_items(a: int, b: int) -> Array:
+	var out: Array = []
+	for reward in chest_open_collect_rewards(a, b):
+		out.append(int((reward as Dictionary).code))
+	return out
 
 # --- §6.C utility accumulators (bank a resource over time) -----------------------------
 # UNLOCKED is derived: an accumulator is live once map-0's spot at its `unlock_spot` index is claimed.
