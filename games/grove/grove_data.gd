@@ -309,9 +309,9 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
 const COIN_TOP := 12
-const COIN_VALUES := {                    # tap-collect value per coin tier (2.2x-shaped, readable, top-anchored)
-	1: 10, 2: 20, 3: 40, 4: 90, 5: 200, 6: 450,
-	7: 1000, 8: 2200, 9: 4700, 10: 10000, 11: 23000, 12: 50000,
+const COIN_VALUES := {                    # tap-collect value per coin tier (2.2x from a 2-coin start)
+	1: 2, 2: 4, 3: 10, 4: 21, 5: 47, 6: 103,
+	7: 227, 8: 499, 9: 1098, 10: 2415, 11: 5312, 12: 11686,
 }
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 

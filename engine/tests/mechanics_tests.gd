@@ -340,8 +340,8 @@ func _initialize() -> void:
 		"merge_top caps special items low, content high, coins at the coin top")
 	ok(G.merge_top(coin_t1) == 12, "coins now merge through tier 12")
 	var expected_coin_values := {
-		1: 10, 2: 20, 3: 40, 4: 90, 5: 200, 6: 450,
-		7: 1000, 8: 2200, 9: 4700, 10: 10000, 11: 23000, 12: 50000,
+		1: 2, 2: 4, 3: 10, 4: 21, 5: 47, 6: 103,
+		7: 227, 8: 499, 9: 1098, 10: 2415, 11: 5312, 12: 11686,
 	}
 	for tier in expected_coin_values:
 		ok(G.coin_value(G.COIN_LINE * 100 + int(tier)) == int(expected_coin_values[tier]), \
