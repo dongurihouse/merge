@@ -298,6 +298,9 @@ func _initialize() -> void:
 	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4], "a special is crafted from the two preceding base lines")
 	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
 	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
+	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
+	ok(G.cap_quest_lines([1, 2, 3, 4, 5, 21, 22, 23], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
+	ok(G.cap_quest_lines([1, 2, 3], 6) == [1, 2, 3], "a small pool is left untouched (footprint under the cap)")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
 	ok(G.zone_map(0) == 0 and G.zone_map(6) == 0 and G.zone_map(7) == 1 and G.zone_map(22) == 4, "zone -> map via the spot distribution")

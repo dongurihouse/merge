@@ -31,7 +31,7 @@ const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_MAP_SPOTS = D.ZONE_MAP_SPOTS
 const GEN_TOP_TIER = D.GEN_TOP_TIER
-const GEN_BOARD_CAP = D.GEN_BOARD_CAP
+const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
 const GEN_TIER_BURST_ODDS = D.GEN_TIER_BURST_ODDS
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
@@ -271,6 +271,37 @@ static func special_for_pair(line_a: int, line_b: int) -> int:
 		if r.size() == 2 and ((int(r[0]) == int(line_a) and int(r[1]) == int(line_b)) or (int(r[0]) == int(line_b) and int(r[1]) == int(line_a))):
 			return zone_line(z)
 	return 0
+
+# --- §7 quest-side generator cap (gen redesign #16, RE-SCOPED) -----------------------------------------
+# The generator(s) a quest for `line` REQUIRES: a base line → its own generator; a crafted SPECIAL line →
+# its 2 ingredient base-line generators (the special has no generator of its own).
+static func _gens_for_quest_line(line: int) -> Array:
+	var gid := gen_for_line(int(line))
+	if gid != "":
+		return [gid]
+	var z := zone_of_line(int(line))
+	var out: Array = []
+	for il in (zone_recipe(z) if z >= 0 else []):
+		var ig := gen_for_line(int(il))
+		if ig != "" and not out.has(ig):
+			out.append(ig)
+	return out
+
+# Trim the askable quest-line pool so the active quests can never DEMAND more than QUEST_GEN_CAP distinct
+# generators (a base ask = 1, a merge/special ask = its 2 ingredients). Stops merge-quests forcing the player
+# into a huge generator count; the player's BOARD itself stays uncapped (births/dups place freely).
+static func cap_quest_lines(lines: Array, cap: int = QUEST_GEN_CAP) -> Array:
+	var out: Array = []
+	var used := {}
+	for line in lines:
+		var union := used.duplicate()
+		for g in _gens_for_quest_line(int(line)):
+			union[g] = true
+		if union.size() > cap:
+			continue                              # this line would push the generator footprint past the cap
+		used = union
+		out.append(int(line))
+	return out
 
 # A base line → its generator id ("gen_<line>"); "" if the line is a special (no generator).
 static func gen_for_line(line: int) -> String:

@@ -2761,13 +2761,12 @@ func _produce_due_generators() -> bool:
 	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)
 	for id in due:
 		var dest := Vector2i(-1, -1)
-		if board.gens.size() < G.GEN_BOARD_CAP:   # gen redesign #16: <=6 generators on the board; overflow to the bag
-			for c in board.empty_ground_cells():
-				if not board.gens.has(c):
-					dest = c
-					break
+		for c in board.empty_ground_cells():      # gen redesign: NO board cap — generators place freely (the ≤6
+			if not board.gens.has(c):             # limit is a QUEST-side complexity cap, not a board cap)
+				dest = c
+				break
 		if dest == Vector2i(-1, -1):
-			board.gen_bag.append(id)              # at the cap (or board full) → hold it in the bag
+			board.gen_bag.append(id)              # board genuinely full (no open cell) → hold it in the bag
 		else:
 			board.place_gen(id, dest)
 			_grown_cells.append(dest)             # _rebuild_all pops it in + starts its breathe
@@ -2782,21 +2781,20 @@ func _produce_due_generators() -> bool:
 
 # gen redesign #8 — SELF-DUP (the merge fuel). A below-top generator spawns a tier-1 DUPLICATE of its own
 # line; a MAXED (tier-GEN_TOP_TIER) generator instead seeds another active line still below the top — so a
-# maxed generator graduates to feeding the rest of the garden. Lands on a free cell (≤6 cap) or the bag.
+# maxed generator graduates to feeding the rest of the garden. Lands on a free cell, else waits in the bag.
 func _self_dup_generator(src: Vector2i) -> void:
 	var dup_id := board.gen_id_at(src)
 	if board.gen_tier_at(src) >= G.GEN_TOP_TIER:
 		dup_id = _another_submax_line_gen(dup_id)
 	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
 		return
-	if board.gens.size() < G.GEN_BOARD_CAP:
-		for c in board.empty_ground_cells():
-			if not board.gens.has(c):
-				board.place_gen(dup_id, c)
-				_grown_cells.append(c)
-				_persist()
-				_rebuild_all()
-				return
+	for c in board.empty_ground_cells():           # no board cap — the merge fuel places freely (≤6 is a quest cap)
+		if not board.gens.has(c):
+			board.place_gen(dup_id, c)
+			_grown_cells.append(c)
+			_persist()
+			_rebuild_all()
+			return
 	if not board.gen_bag.has(dup_id):
 		board.gen_bag.append(dup_id)
 		_persist()

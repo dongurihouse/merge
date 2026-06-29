@@ -100,7 +100,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var out: Array = quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false)))
 	# Ask only from the current map's live lines (`level` gates a not-yet-grown generator's lines
 	# out, so the fence never asks for what nothing on the board can produce yet).
-	var lines := G.askable_lines(G.GENERATORS, z, level)
+	var lines := G.cap_quest_lines(G.askable_lines(G.GENERATORS, z, level))   # #16: cap the quests' generator footprint
 	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
 	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
 	# lit Purge card).
