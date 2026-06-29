@@ -128,7 +128,7 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 >
 > **Zone ↔ spot (v1 scale = 23).** The run is **23 zones = 16 base + 7 special**, sized to **match the ~23
 > existing restoration spots** so a zone IS a spot — one line/generator introduced as each spot is restored
-> (fuses content-unlock with world-restoration §3, no parallel axis). *(Confirm before §3 rewrite.)*
+> (fuses content-unlock with world-restoration §3, no parallel axis). *(Confirmed 2026-06-28 — drives the §3 rewrite.)*
 >
 > **Bonus generators.** `ACCUMULATORS` (water · coin · acorn · exp) drop their `habitat` real-time accrual
 > and become **limited-use side-spawn generators** (Core §6.F). Treat lines **71–75** and the treat-gen are
