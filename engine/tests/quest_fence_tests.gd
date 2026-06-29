@@ -113,7 +113,12 @@ func _initialize() -> void:
 	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence
 	# --- stands use). When the item pool is too small to honour the whole window it relaxes the OLDEST
 	# --- asks first, never the freshest. A different TIER of the same line still counts as variety. ---
-	var pool := G.askable_lines(G.GENERATORS, 0, 6)   # level 6 — MATCH the refill level below (map-0 lines are min_level-staged, so the pool grows with level)
+	# #12: the quest pool is the rolling window of the last QUEST_GEN_CAP base lines at the current zone —
+	# drive a realistic mid-map-0 progression (6 spots restored → lines 1-5) so the pool has ≥2 lines.
+	var rl_unl := {}
+	for i in 6:
+		rl_unl[str(i)] = true
+	var pool := G.quest_base_lines(rl_unl.size())
 	if pool.size() >= 2:
 		# target the newest line at its tier-bell centre (the most-asked item) so the free count is non-zero
 		var fence_hi := clampi(int(G.QUEST_TIER_BASE) + int(6 / float(G.QUEST_LEVELS_PER_TIER)), int(G.QUEST_TIER_BASE), int(G.TOP_TIER))
@@ -122,12 +127,12 @@ func _initialize() -> void:
 		var rl_avoid := 0
 		for s in 200:
 			var rf := RandomNumberGenerator.new(); rf.seed = s
-			for q in Quests.refill([], 0, {}, [], {}, [], 0, 6, rf):
+			for q in Quests.refill([], 0, rl_unl, [], {}, [], 0, 6, rf):
 				var it := G.quest_item(q)
 				if int(it.line) * 100 + int(it.tier) == rl_target:
 					rl_free += 1
 			var ra := RandomNumberGenerator.new(); ra.seed = s
-			for q in Quests.refill([], 0, {}, [], {}, [], 0, 6, ra, [rl_target]):
+			for q in Quests.refill([], 0, rl_unl, [], {}, [], 0, 6, ra, [rl_target]):
 				var it := G.quest_item(q)
 				if int(it.line) * 100 + int(it.tier) == rl_target:
 					rl_avoid += 1
