@@ -2935,15 +2935,13 @@ func debug_drop_acorn() -> void:
 	_refresh_generator_dim()
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
-	var reward := board.take_collect_reward(cell)
-	var code := board.take(cell)
+	# RULE in the pure action (take the coin + credit the wallet); the scene renders the fly-to-HUD.
+	var got := int(BoardActions.collect_coin(board, cell).get("got", 0))
 	piece_nodes.erase(cell)
-	var got := int(reward.amount) if String(reward.get("kind", "")) == "coins" else G.coin_value(code)
 	var at := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	if node != null and is_instance_valid(node):
 		at = node.get_global_rect().get_center()
 		node.queue_free()
-	Save.add_coins(got)
 	var coin_done := func() -> void:
 		if is_instance_valid(self):
 			_update_hud()
@@ -2981,24 +2979,16 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
-	var got: Dictionary = G.special_collect(board.item_at(cell))
-	var reward := board.take_collect_reward(cell)
-	if not reward.is_empty():
-		got = reward
-	if got.is_empty():
+	# RULE in the pure action (resolve the reward, take the tile, credit acorn/exp); the scene folds a
+	# "water" reward into its live water mirror (a scene field, not Save) and renders.
+	var out := BoardActions.collect_special(board, cell)
+	if out.is_empty():
 		return
-	board.take(cell)
 	piece_nodes.erase(cell)
 	if node != null and is_instance_valid(node):
 		node.queue_free()
-	var amount := int(got.amount)
-	match String(got.kind):
-		"water":
-			water = mini(G.WATER_CAP, water + amount)
-		"acorn":
-			Save.add_diamonds(amount)
-		"exp":
-			Save.add_exp(amount)
+	if String(out.kind) == "water":
+		water = mini(G.WATER_CAP, water + int(out.amount))
 	Audio.play("coin_earn", -3.0, 1.15)
 	_persist()
 	_update_hud()

@@ -35,3 +35,31 @@ static func deliver_quest(board: BoardModel, quests: Array, recent_items: Array,
 	if sp_coins > 0:
 		Save.add_coins(sp_coins)                  # §7/§10: the quest coin faucet
 	return {"code": code, "exp": sp_exp, "coins": sp_coins, "levels_up": levels_up, "cell": cell}
+
+# Collect the coin at `cell`: take it off the board and credit its value (a stashed collect-reward
+# overrides the face value). Returns {got, code} for the fly-to-HUD reward FX.
+static func collect_coin(board: BoardModel, cell: Vector2i) -> Dictionary:
+	var reward := board.take_collect_reward(cell)
+	var code := board.take(cell)
+	var got := int(reward.amount) if String(reward.get("kind", "")) == "coins" else G.coin_value(code)
+	Save.add_coins(got)
+	return {"got": got, "code": code}
+
+# Collect the special drop at `cell` (water / acorn / exp). A stashed collect-reward overrides the
+# item's own face reward. acorn + exp write Save here; "water" is RETURNED for the caller to fold into
+# its live water mirror (a scene field, capped — not a Save currency). Returns {} when nothing collects.
+static func collect_special(board: BoardModel, cell: Vector2i) -> Dictionary:
+	var got: Dictionary = G.special_collect(board.item_at(cell))
+	var reward := board.take_collect_reward(cell)
+	if not reward.is_empty():
+		got = reward
+	if got.is_empty():
+		return {}
+	board.take(cell)
+	var amount := int(got.amount)
+	match String(got.kind):
+		"acorn":
+			Save.add_diamonds(amount)
+		"exp":
+			Save.add_exp(amount)
+	return {"kind": String(got.kind), "amount": amount}
