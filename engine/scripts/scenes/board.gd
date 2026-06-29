@@ -616,8 +616,7 @@ func _gen_line_entries(gid: String) -> Array:
 		lines.append(G.treat_line_of(gid))
 	else:
 		for gen in G.GENERATORS:
-			for l in gen.get("lines", []):
-				lines.append(int(l))
+			lines.append(int(gen.get("line", 0)))   # gen redesign: one line per generator (was lines[])
 	for l in lines:
 		var line := int(l)
 		if added.has(line) or not G.LINES.has(line):

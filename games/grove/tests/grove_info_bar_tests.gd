@@ -189,32 +189,25 @@ func _initialize() -> void:
 		# SHOW ALL: every line in the WHOLE game (every generator / every map) gets a cell — the full roadmap.
 		var all_game_lines: Array = []
 		for gen in G.GENERATORS:
-			for l in gen.get("lines", []):
-				if not all_game_lines.has(int(l)):
-					all_game_lines.append(int(l))
+			var gl := int(gen.get("line", 0))   # gen redesign: one line per generator (the lines[] array is retired)
+			if gl > 0 and not all_game_lines.has(gl):
+				all_game_lines.append(gl)
 		var entry_lines: Array = []
 		var all_valid := true
-		var gated_present := false
-		var gated_unseen := false
 		var has_other_map := false
 		for e in entries:
 			entry_lines.append(int(e.line))
 			if not G.LINES.has(int(e.line)):
 				all_valid = false
-			if int(e.line) == 66:                 # Flower boxes — min_level 6, NOT yet grown in at the fresh level
-				gated_present = true
-				gated_unseen = not bool(e.seen)
-			if int(e.line) == 5:                  # Mushroom — a LATER map's (Meadow) line, far from the farm anchor
+			if int(e.line) == 37:                 # Small critters — the LAST map's (map 4) line, far from the anchor
 				has_other_map = true
 		ok(all_valid, "every Producing entry is a real game line")
 		var all_present := true
 		for gl in all_game_lines:
 			if not entry_lines.has(int(gl)):
 				all_present = false
-		ok(all_present and entries.size() == all_game_lines.size(), "every line in the game gets a cell (show-all roadmap)")
+		ok(all_present and entries.size() == all_game_lines.size(), "every base line in the game gets a cell (show-all roadmap)")
 		ok(has_other_map, "lines from later maps appear too (not just the tapped generator's own roster)")
-		ok(gated_present, "a not-yet-grown-in line (min_level-gated) still appears as a cell, not hidden")
-		ok(gated_unseen, "the not-yet-grown-in line shows as an unseen placeholder until the player reaches it")
 		# in_pool must match the live pop pool exactly — the dialog highlight is what a tap would spawn now.
 		var pool: Array = board_scene._pop_pool_ctx()["pool"]
 		var pool_match := true

@@ -84,22 +84,26 @@ const LINES := {
 # the icon repaint is PARKED; the intended replacements are gen_honeycomb (Honey) and gen_porcini
 # (Mushroom), kept in items/generator/. Tool-shed (Garden tools) has no themed icon yet.
 const GENERATORS := [
-	# map 1 — Farmhouse: Wildflower + the staged Farm content lines (61-66, min_level-gated). The ANCHOR —
-	# live from the first second; emits line 1 from L1, then each Farm line grows in at its min_level.
-	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 61, 62, 63, 64, 65, 66], "grant_from": "", "anchor": true,
-		"tex": "items/generator/gen_wildflowers.png", "label": "seeds"},
-	# map 2 — Barn: Feather.
-	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2, 21, 22, 23, 24], "grant_from": "",
-		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
-	# map 3 — Pond: Garden tools. (icon still cattails — repaint parked)
-	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37, 38], "grant_from": "",
-		"tex": "items/generator/gen_cattails.png", "label": "tools"},
-	# map 4 — Orchard: Honey. (icon still apples — repaint parked, gen_honeycomb ready)
-	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4, 41, 42, 43, 44], "grant_from": "",
-		"tex": "items/generator/gen_apples.png", "label": "hives"},
-	# map 5 — Meadow: Mushroom. (icon still glowcaps — repaint parked, gen_porcini ready)
-	{"id": "mushroom_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [5, 51, 52, 53, 54], "grant_from": "",
-		"tex": "items/generator/gen_glowcaps.png", "label": "mushrooms"},
+	# Gen redesign 2026-06-28: ONE generator per BASE line (Core §6.A), born on tap as its zone (= restoration
+	# spot) opens (§6.B). The 16 base lines in zone order; `zone` = global spot index, `map` = its painted map.
+	# Specials (every 3rd zone) have NO generator (crafted, §6.G). The legacy 5-multi-line roster + map/lines[]
+	# model is RETIRED. Each generator carries `line` (singular) + `zone`; `lines` arrays are gone.
+	{"id": "gen_1",  "line": 1,  "zone": 0,  "map": 0, "cell": Vector2i(4, 3), "anchor": true, "tex": "items/generator/generators_1.png",  "label": "wildflower"},
+	{"id": "gen_2",  "line": 2,  "zone": 1,  "map": 0, "tex": "items/generator/generators_2.png",  "label": "feather"},
+	{"id": "gen_3",  "line": 3,  "zone": 3,  "map": 0, "tex": "items/generator/generators_3.png",  "label": "garden tools"},
+	{"id": "gen_4",  "line": 4,  "zone": 4,  "map": 0, "tex": "items/generator/generators_4.png",  "label": "honey"},
+	{"id": "gen_5",  "line": 5,  "zone": 6,  "map": 0, "tex": "items/generator/generators_5.png",  "label": "mushroom"},
+	{"id": "gen_21", "line": 21, "zone": 7,  "map": 1, "tex": "items/generator/generators_6.png",  "label": "orchard fruits"},
+	{"id": "gen_22", "line": 22, "zone": 9,  "map": 1, "tex": "items/generator/generators_7.png",  "label": "orchard tools"},
+	{"id": "gen_23", "line": 23, "zone": 10, "map": 1, "tex": "items/generator/generators_8.png",  "label": "orchard seeds"},
+	{"id": "gen_24", "line": 24, "zone": 12, "map": 2, "tex": "items/generator/generators_9.png",  "label": "scarecrows"},
+	{"id": "gen_31", "line": 31, "zone": 13, "map": 2, "tex": "items/generator/generators_10.png", "label": "juice"},
+	{"id": "gen_32", "line": 32, "zone": 15, "map": 2, "tex": "items/generator/generators_11.png", "label": "kites"},
+	{"id": "gen_33", "line": 33, "zone": 16, "map": 2, "tex": "items/generator/generators_12.png", "label": "stones"},
+	{"id": "gen_34", "line": 34, "zone": 18, "map": 3, "tex": "items/generator/generators_13.png", "label": "mossy trinkets"},
+	{"id": "gen_35", "line": 35, "zone": 19, "map": 3, "tex": "items/generator/generators_14.png", "label": "rain charms"},
+	{"id": "gen_36", "line": 36, "zone": 21, "map": 3, "tex": "items/generator/generators_15.png", "label": "birds"},
+	{"id": "gen_37", "line": 37, "zone": 22, "map": 4, "tex": "items/generator/generators_16.png", "label": "small critters"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 

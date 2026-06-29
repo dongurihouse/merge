@@ -100,23 +100,15 @@ func _initialize() -> void:
 	var shrinks := G.active_giver_count(0, 8) >= G.active_giver_count(4, 8) and G.active_giver_count(4, 8) >= G.active_giver_count(6, 8)
 	ok(shrinks, "the active count shrinks monotonically as stars bank toward the unlock")
 
-	# --- due_generators: the tools the player is OWED — for every UNLOCKED map (map_unlocked, the SAME gate
-	# --- signal that surfaces a map's quests, NOT where the camera is), that map's generator if not owned
-	# --- (board or bag). Keyed on map UNLOCK, not on visiting a map; monotonic + self-healing. Replaces the
-	# --- retired carrier path (gens_to_grant): generators now arrive when a tap produces a DUE tool. ---
-	var anchor_ids: Array = G.generators_for_map(G.GENERATORS, 0).map(func(g): return String(g.id))
-	ok(G.due_generators({}, [], anchor_ids).is_empty(), "fresh game with map 0's tool owned → nothing due")
-	ok(str(G.due_generators({}, [], [])) == str(anchor_ids), "an unlocked map missing its tool is due (the self-heal catch-all)")
-	# complete map 0 (all spots restored + the gate recorded) → map 1 unlocks → its tool becomes due
-	var m0_done := {}
-	for sp in G.MAPS[0].spots:
-		m0_done[String(sp.id)] = true
-	# SINGLE-GENERATOR model (idea 3): later maps NEVER grow their own tool — the one map-0 anchor pops
-	# every opened line. So unlocking map 1 makes NO new tool due; only a MISSING anchor is ever due.
-	ok(G.due_generators(m0_done, [0], anchor_ids).is_empty(), "unlocking map 1 makes NO new tool due (the single anchor serves all lines)")
-	for mid in G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id)):
-		ok(not G.due_generators(m0_done, [0], anchor_ids).has(mid), "a later map's tool is never due (%s)" % mid)
-	ok(str(G.due_generators(m0_done, [0], [])) == str(anchor_ids), "a MISSING anchor is still self-healed (the only thing ever due)")
+	# --- due_generators: BIRTH-ON-TAP per line (gen redesign §6.B). current_zone = restored-spot count
+	# (unlocks.size()); the NEWEST active base line lacking a generator is due — the board births it on the
+	# next tap. Monotonic: as spots restore, each new line's generator comes due in turn. ---
+	ok(str(G.due_generators({}, [], [])) == str(["gen_1"]), "fresh game: only the anchor (gen_1) is due")
+	ok(G.due_generators({}, [], ["gen_1"]).is_empty(), "anchor owned → nothing due (zone 0 has one active line)")
+	# restore one spot (advance to zone 1) → line 2's generator becomes due once the anchor is owned
+	var z1_unlocks := {"spot_a": true}
+	ok(str(G.due_generators(z1_unlocks, [], ["gen_1"])) == str(["gen_2"]), "advancing a zone makes the next active line's generator due")
+	ok(G.due_generators(z1_unlocks, [], ["gen_1", "gen_2"]).is_empty(), "nothing due once every active line has its generator")
 
 	# --- askable_lines is the ROLLING WINDOW of the last LINE_WINDOW maps — older lines retire ---
 	for z in G.MAPS.size():

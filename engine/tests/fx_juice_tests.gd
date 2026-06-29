@@ -78,7 +78,7 @@ func _initialize() -> void:
 
 	# --- generator highlight: workbench-tuned halo + sparkle -----------------------
 	Features.FLAGS["item_backing"] = true
-	var gen := PieceView.make_generator("seed_satchel", 100.0, {
+	var gen := PieceView.make_generator("gen_1", 100.0, {
 		"glow_scale": 1.35,
 		"glow_a": 0.72,
 		"glow_color": Color("#77CCFF"),

@@ -17,9 +17,9 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
-# map-0 lines: seed_satchel emits Wildflower(1). (One line per map now — line code == map number;
-# map 0's sole generator emits its single line.)
-const Z0_LINES := [1]
+# map-0 base lines: the 5 per-line generators at zones 0,1,3,4,6 (gen redesign — was the seed_satchel anchor
+# emitting Wildflower + the staged Farm lines).
+const Z0_LINES := [1, 2, 3, 4, 5]
 
 func _initialize() -> void:
 	# --- askable_lines == the ROLLING WINDOW of the last LINE_WINDOW maps, at EVERY map (older lines retire) ---
@@ -31,26 +31,15 @@ func _initialize() -> void:
 	for l in Z0_LINES:
 		ok(z0.has(l), "map-0 askable includes its own line %d" % l)
 
-	# --- map 0 ALSO emits the Farm content lines (61-66), WIRED onto the seed_satchel anchor and STAGED
-	# via min_level so the tiny FTUE board grows in gradually. Hearth embers (61) is LIVE at L1 (the board's
-	# 2nd starting line); the rest grow in across L2–6, all live by L6 — before the Barn opens. ---
-	var farm_lines := [61, 62, 63, 64, 65, 66]
-	var z0_hi := G.askable_lines(G.GENERATORS, 0, 99)
-	var all_farm_hi := true
-	for fl in farm_lines:
-		if not z0_hi.has(int(fl)):
-			all_farm_hi = false
-	ok(all_farm_hi, "map-0 pool includes all 6 Farm lines (61-66) at high level")
-	# the board OPENS with TWO live lines: the anchor (1) + Hearth embers (61, min_level 1)
-	var z0_l1 := G.askable_lines(G.GENERATORS, 0, 1)
-	ok(z0_l1.has(1) and z0_l1.has(61), "map-0 starts with 2 live lines at L1: Wildflower(1) + Hearth embers(61)")
-	ok(not z0_l1.has(62), "the next Farm line (62) is still gated out at L1 (staged)")
-	var z0_l6 := G.askable_lines(G.GENERATORS, 0, 6)
-	var all_farm_l6 := true
-	for fl in farm_lines:
-		if not z0_l6.has(int(fl)):
-			all_farm_l6 = false
-	ok(all_farm_l6, "all 6 Farm lines are live by L6 (staged in before the Barn opens)")
+	# --- gen redesign: map 0 hosts its 5 per-line BASE generators (lines 1-5 at zones 0,1,3,4,6); the old
+	# Farm-line (61-66) min_level staging is RETIRED — every base line is live the moment its zone opens. ---
+	var z0_all := G.askable_lines(G.GENERATORS, 0, 99)
+	var m0_ok := true
+	for l in Z0_LINES:
+		if not z0_all.has(int(l)):
+			m0_ok = false
+	ok(m0_ok, "map-0's askable set is exactly its 5 per-line base lines")
+	ok(not z0_all.has(61) and not z0_all.has(62), "the retired Farm lines (61-66) no longer appear in the pool")
 
 	# --- the ROLLING WINDOW: map-0 lines stay askable only while map 0 is within the last LINE_WINDOW maps
 	# (maps 1-2), then RETIRE from map 3 on — late-game quests can no longer ask Wildflower(1). ---
@@ -64,13 +53,13 @@ func _initialize() -> void:
 	# shipped roster is one generator per map (no staged gen), so drive the gate on a SYNTHETIC
 	# roster: map 0 = a live anchor (L0) + a staged gen (appear_level 5) emitting lines 3,4. ---
 	var staged := [
-		{"id": "fix_anchor", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "anchor": true},
-		{"id": "fix_staged", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "appear_level": 5},
+		{"id": "fix_anchor", "map": 0, "cell": Vector2i(4, 3), "line": 1, "anchor": true},
+		{"id": "fix_staged", "map": 0, "cell": Vector2i(2, 1), "line": 3, "appear_level": 5},
 	]
-	ok(not G.askable_lines(staged, 0, 4).has(3) and not G.askable_lines(staged, 0, 4).has(4), \
-		"a staged gen's lines (3,4) are NOT askable before it grows in (level gate)")
-	ok(G.askable_lines(staged, 0, 5).has(3) and G.askable_lines(staged, 0, 5).has(4), \
-		"a staged gen's lines become askable once it appears at its level")
+	ok(not G.askable_lines(staged, 0, 4).has(3), \
+		"a staged gen's line (3) is NOT askable before it grows in (appear_level gate)")
+	ok(G.askable_lines(staged, 0, 5).has(3), \
+		"a staged gen's line becomes askable once it appears at its level")
 
 	# --- gen_quest at a later map draws from the rolling-window askable set (at map 2 that still includes
 	# map-0 lines — maps 0,1,2 all fit a 3-map window) ---

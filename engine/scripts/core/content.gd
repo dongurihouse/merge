@@ -189,14 +189,9 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
 	for g in generators_for_map(roster, map, level):
-		for l in g.lines:
-			# per-LINE stage gate (§6.E): a line with `min_level` stays out of the askable/pop set until
-			# the player reaches it — so extra lines on the small FTUE board grow in as it opens, without
-			# placing a second generator (the single anchor still emits them once ungated).
-			if int(LINES.get(int(l), {}).get("min_level", 0)) > level:
-				continue
-			if not out.has(int(l)):
-				out.append(int(l))
+		var l := int(g.line)   # gen redesign: ONE line per generator (the `lines` array is retired)
+		if not out.has(l):
+			out.append(l)
 	return out
 
 ## The lines a regular quest may ASK while the player is in `map`: a ROLLING WINDOW of the last
@@ -236,11 +231,10 @@ static func retired_lines(roster: Array, map: int) -> Array:
 ## (`unlocks`/`gates` are now unused — kept for the call-site signature.)
 static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) -> Array:
 	var out: Array = []
-	for g in generators_for_map(GENERATORS, 0):      # map 0 only — the single anchor
-		var id := String(g.id)
-		if not owned_ids.has(id) and not out.has(id):
-			out.append(id)
-	return out
+	# gen redesign: birth-on-tap per line. current_zone = spots restored; the newest active base line lacking
+	# a generator is due (Core §6.B). At start (zone 0) gen_1 is due if unowned — the FTUE anchor self-heals.
+	var gid := due_line_gen(unlocks.size(), owned_ids)
+	return [gid] if gid != "" else []
 
 # --- §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model -----------------------------
 # The world is a run of ZONES (each = a restoration spot). Rhythm base · base · special: zone z (0-based)
@@ -373,9 +367,11 @@ static func gen_def(roster: Array, id: String) -> Dictionary:
 ## unrostered/coin line falls to the map-1 band 1.0 rather than crashing the sell path).
 static func map_for_line(line: int) -> int:
 	for g in GENERATORS:
-		if g.get("lines", []).has(line):
+		if int(g.get("line", 0)) == int(line):
 			return int(g.map)
-	return 0
+	# gen redesign: a special line has no generator — map it via its zone (its recipe's region).
+	var z := zone_of_line(int(line))
+	return zone_map(z) if z >= 0 else 0
 
 ## The map an ITEM (code = line*100 + tier) belongs to — derive its line, then its map.
 ## The sell band reads this so later-map harvests sell for more coins (§6).
@@ -387,9 +383,9 @@ static func map_for_code(code: int) -> int:
 static func gen_live_lines(gen_state: Dictionary, roster: Array) -> Array:
 	var out: Array = []
 	for cell in gen_state:
-		for l in gen_def(roster, String(gen_state[cell])).get("lines", []):
-			if not out.has(int(l)):
-				out.append(int(l))
+		var l := int(gen_def(roster, String(gen_state[cell])).get("line", 0))   # gen redesign: one line per gen
+		if l > 0 and not out.has(l):
+			out.append(l)
 	out.sort()
 	return out
 

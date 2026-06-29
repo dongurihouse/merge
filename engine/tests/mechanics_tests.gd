@@ -23,11 +23,11 @@ func ok(cond: bool, label: String) -> void:
 ## data on the live roster; the fixture omits it.)
 func _fixture() -> Array:
 	return [
-		{"id": "g0a", "map": 0, "lines": [1, 2], "cell": Vector2i(4, 3)},
-		{"id": "g0b", "map": 0, "lines": [3, 4], "cell": Vector2i(2, 1)},
-		{"id": "g1a", "map": 1, "lines": [5, 6], "cell": Vector2i(4, 3)},
-		{"id": "g1b", "map": 1, "lines": [7, 8], "cell": Vector2i(2, 1)},
-		{"id": "g1c", "map": 1, "lines": [10, 11], "cell": Vector2i(6, 5)},
+		{"id": "g0a", "map": 0, "line": 1, "cell": Vector2i(4, 3)},
+		{"id": "g0b", "map": 0, "line": 2, "cell": Vector2i(2, 1)},
+		{"id": "g1a", "map": 1, "line": 5, "cell": Vector2i(4, 3)},
+		{"id": "g1b", "map": 1, "line": 6, "cell": Vector2i(2, 1)},
+		{"id": "g1c", "map": 1, "line": 7, "cell": Vector2i(6, 5)},
 	]
 
 func _initialize() -> void:
@@ -36,9 +36,9 @@ func _initialize() -> void:
 	# --- per-map roster derivation (replaces appears_at accumulation) ---
 	ok(G.generators_for_map(r, 0).size() == 2, "map 0 has 2 generators")
 	ok(G.generators_for_map(r, 1).size() == 3, "map 1 has 3 generators")
-	ok(G.lines_for_map(r, 1) == [5, 6, 7, 8, 10, 11], "map 1's live lines are its 3 generators' 6 lines")
+	ok(G.lines_for_map(r, 1) == [5, 6, 7], "map 1's live lines are its 3 per-line generators' 3 lines")
 	ok(G.retired_lines(r, 1) == [], "at map 1 nothing has retired yet — the 3-map rolling window still covers map 0")
-	ok(G.lines_for_map(r, 0) == [1, 2, 3, 4], "map 0's live lines are its own 4")
+	ok(G.lines_for_map(r, 0) == [1, 2], "map 0's live lines are its own 2")
 	ok(G.retired_lines(r, 0) == [], "nothing is retired while in map 0")
 	# retirement kicks in once a map falls OUTSIDE the rolling window: on the REAL roster, Wildflower(1) retires by map 3
 	ok(G.retired_lines(G.GENERATORS, 3).has(1) and not G.askable_lines(G.GENERATORS, 3).has(1), "Wildflower(1) has RETIRED by map 3 (outside the 3-map window)")
@@ -46,18 +46,18 @@ func _initialize() -> void:
 	# (gens_to_grant + the carrier-quest delivery are RETIRED — generators now arrive when a generator tap
 	#  produces a DUE tool; see G.due_generators, covered in quest_tests.gd against the real maps.)
 
-	# --- the §6 invariant: every generator emits exactly 2 lines ---
-	var two_each := true
+	# --- gen redesign invariant: every generator emits exactly ONE line ---
+	var one_each := true
 	for g in r:
-		if int((g.lines as Array).size()) != 2:
-			two_each = false
-	ok(two_each, "every generator emits exactly 2 lines")
+		if not g.has("line"):
+			one_each = false
+	ok(one_each, "every generator emits exactly one line")
 
 	# --- live lines off a board state (the union of the generators present) ---
 	var center := Vector2i(4, 3)
 	var other := Vector2i(2, 1)
 	var st := {center: "g0a", other: "g0b"}            # map-0 live set: g0a + g0b
-	ok(G.gen_live_lines(st, r) == [1, 2, 3, 4], "map-0 state: all 4 starter lines live")
+	ok(G.gen_live_lines(st, r) == [1, 2], "map-0 state: both starter lines live")
 
 	# --- cell resolution + the live set per map (each generator at its own authored cell) ---
 	ok(G.gen_cell_of(r, "g0a") == Vector2i(4, 3), "a generator sits at its own cell")
@@ -69,11 +69,11 @@ func _initialize() -> void:
 	ok(s1.size() == 3 and s1[Vector2i(4, 3)] == "g1a" and s1[Vector2i(2, 1)] == "g1b" and s1[Vector2i(6, 5)] == "g1c", "map 1 live set: 3 generators at their own cells")
 
 	# --- the board model's STATEFUL, persisted generator map (movable #1 · store/place #2 · save #3) ---
-	# Uses the LIVE grove roster (G.GENERATORS): map 0 ships ONE generator, the anchor seed_satchel.
+	# Uses the LIVE grove roster (G.GENERATORS): map 0 ships ONE generator, the anchor gen_1.
 	var bm := BoardModel.new()
 	bm.seed_gens(0)
 	ok(bm.is_gen(Vector2i(4, 3)) and bm.gens.size() == 1, "seed_gens(0): the map-0 anchor satchel is live")
-	ok(bm.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the center cell holds the satchel")
+	ok(bm.gen_id_at(Vector2i(4, 3)) == "gen_1", "the center cell holds the satchel")
 	ok(bm.gen_id_at(Vector2i(0, 0)) == "", "a non-generator cell has no generator id")
 	# #1 movable: a generator relocates to an empty open cell, refuses an occupied/gen cell
 	var dest := Vector2i(4, 4)
@@ -83,16 +83,16 @@ func _initialize() -> void:
 	ok(not bm.move_gen(dest, Vector2i(2, 1)), "a generator can't move onto another generator")
 	bm.move_gen(dest, Vector2i(4, 3))             # put it back
 	# #2 store/place: a generator persists into the gen_bag and back onto the board (no hand-in consumption)
-	ok(bm.store_gen(Vector2i(4, 3)) and bm.gen_bag.has("seed_satchel") and not bm.gens.has(Vector2i(4, 3)), "store_gen moves the satchel board→gen_bag (frees the cell)")
+	ok(bm.store_gen(Vector2i(4, 3)) and bm.gen_bag.has("gen_1") and not bm.gens.has(Vector2i(4, 3)), "store_gen moves the satchel board→gen_bag (frees the cell)")
 	var open_cell: Vector2i = bm.empty_ground_cells()[0]
-	ok(bm.place_gen_from_bag("seed_satchel", open_cell) and bm.gens.values().has("seed_satchel") and not bm.gen_bag.has("seed_satchel"), "place_gen_from_bag moves it gen_bag→board (persists, never consumed)")
+	ok(bm.place_gen_from_bag("gen_1", open_cell) and bm.gens.values().has("gen_1") and not bm.gen_bag.has("gen_1"), "place_gen_from_bag moves it gen_bag→board (persists, never consumed)")
 	# #3 persistence: gens + gen_bag survive a save round-trip. Realistic state: the map-0 satchel
-	# sits on the board (at open_cell) while a granted next-map generator (hen_coop) waits in the bag.
-	bm.gen_bag.append("hen_coop")                  # a granted-but-unplaced generator, stashed in the bag
+	# sits on the board (at open_cell) while a granted next-map generator (gen_21) waits in the bag.
+	bm.gen_bag.append("gen_21")                  # a granted-but-unplaced generator, stashed in the bag
 	var blob := bm.to_dict()
 	var bm2 := BoardModel.new()
 	bm2.from_dict(blob)
-	ok(bm2.gen_id_at(open_cell) == "seed_satchel" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("hen_coop"), "the generator map + gen_bag round-trip through to_dict/from_dict")
+	ok(bm2.gen_id_at(open_cell) == "gen_1" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("gen_21"), "the generator map + gen_bag round-trip through to_dict/from_dict")
 
 	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
 	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
@@ -337,7 +337,7 @@ func _initialize() -> void:
 	# id ↔ line roundtrip + the is_treat_gen gate (a real gen id is not a treat)
 	ok(G.is_treat_gen(G.treat_gen_id(63)) and G.treat_line_of(G.treat_gen_id(63)) == 63,
 		"treat_gen_id ↔ treat_line_of roundtrips")
-	ok(not G.is_treat_gen("seed_satchel") and not G.is_treat_gen("acc_water"),
+	ok(not G.is_treat_gen("gen_1") and not G.is_treat_gen("acc_water"),
 		"a normal generator / accumulator is NOT a treat generator")
 	ok(G.gen_tex(G.treat_gen_id(61)).begins_with("items/generator/gen_"), "a treat gen resolves a wired icon")
 

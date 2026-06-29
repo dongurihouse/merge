@@ -54,7 +54,11 @@ func gen_id_at(cell: Vector2i) -> String:
 ## Each gen cell sheds its bramble, and any player item caught on it hops to free ground
 ## (never destroyed).
 func seed_gens(map: int, level: int = G.APPEAR_ALL) -> void:
-	gens = G.live_gen_state(G.GENERATORS, map, level)
+	# gen redesign: the board STARTS with only the anchor generator; the rest are born on tap (§6.B).
+	gens = {}
+	for g in G.generators_for_map(G.GENERATORS, map, level):
+		if bool(g.get("anchor", false)):
+			gens[Vector2i(g.get("cell", Vector2i(-1, -1)))] = String(g.id)
 	_claim_gen_cells()
 
 func _claim_gen_cells() -> void:
