@@ -1,6 +1,8 @@
 extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · model — split from the grove_tests monolith; shares grove_test_base.gd.
 
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+
 func _initialize() -> void:
 	begin("grove · model")
 
@@ -59,7 +61,7 @@ func _initialize() -> void:
 
 	# 4. pigeonhole helper
 	var b2: BoardModel = BoardModel.new()
-	ok(b2.any_pair_exists(), "fresh board has mergeable pairs")
+	ok(not BoardLogic.find_mergeable_pair(b2).is_empty(), "fresh board has mergeable pairs")
 
 	# 5. persistence roundtrip
 	var d := b.to_dict()
@@ -74,33 +76,30 @@ func _initialize() -> void:
 	# RETIRED (chapters()/ZONE_RAMP/_quest_stars gone); the no-strand guarantee now rests on the
 	# guardrails (every ask producible) + the Monte-Carlo sim (games/grove/tools/grove_sim.gd).
 
-	# 6c. generators arrive PER MAP (§6): the shipped roster is ONE generator per map, so map 0's
-	# board carries only ITS own generator (the anchor satchel at (4,3)); the next map's generator
-	# (hen_coop) is NOT live on the map-0 board — it waits for its own map.
-	var z1_spots: int = G.MAPS[0].spots.size()  # all map-0 spots bought (= entering map 1)
-	var hen_cell: Vector2i = G.gen_cell_of(G.GENERATORS, "hen_coop")
+	# 6c. generators are per-line (§6): the board starts with only the zone-0 anchor at (4,3);
+	# later base-line generators are born on tap when restore count or level progress reaches them.
 	var bg: BoardModel = BoardModel.new()
 	bg.set_active_gens(0)
-	ok(bg.is_gen(Vector2i(4, 3)) and bg.gens.size() == 1, "map 0's board carries only its own anchor generator (the satchel)")
-	ok(not bg.is_gen(hen_cell), "map 1's generator (hen_coop) is not live on the map-0 board (it waits for its own map)")
-	# 6d. entering map 1 reveals map 1's generator at its cell — and an item caught on that cell
-	# hops away safely (never destroyed): _claim_gen_cells relocates a parked item to open ground.
+	ok(bg.is_gen(G.GEN_CELL) and bg.gens.values().has("gen_1") and bg.gens.size() == 1, "map 0's board starts with only the zone-0 generator (gen_1)")
+	ok(not bg.gens.values().has("gen_2"), "the next base-line generator (gen_2) is not pre-seeded")
+	# 6d. a dynamically born generator claims its landing cell — and an item caught on that cell
+	# hops away safely (never destroyed): place_gen relocates a parked item to open ground.
 	var bh: BoardModel = BoardModel.new()
 	bh.set_active_gens(0)
-	bh.terrain[BoardModel.idx(hen_cell)] = 0
-	bh.place(hen_cell, 204)                    # a player item parked on the future generator cell
+	var birth_cell: Vector2i = bh.empty_ground_cells()[0]
+	bh.place(birth_cell, 204)                  # a player item parked on the future generator cell
 	var before_count := 0
 	for v in bh.items:
 		if v == 204:
 			before_count += 1
-	var fresh_hive: Array = bh.set_active_gens(z1_spots)
-	ok(fresh_hive.has(hen_cell) and bh.is_gen(hen_cell), "entering map 1 reveals map 1's generator (hen_coop) at its cell")
+	bh.place_gen("gen_2", birth_cell)
+	ok(bh.is_gen(birth_cell) and String(bh.gens[birth_cell]) == "gen_2", "a born generator can land on the selected open cell")
 	var after_count := 0
 	for v in bh.items:
 		if v == 204:
 			after_count += 1
-	ok(after_count == before_count and bh.item_at(hen_cell) == 0, \
-		"an item on the revealing generator's cell relocates, never vanishes")
+	ok(after_count == before_count and bh.item_at(birth_cell) == 0, \
+		"an item on the generator landing cell relocates, never vanishes")
 
 	# 6e. the appear_level STAGING gate is a live ENGINE feature: a generator grows into the live set
 	# only once the player's Level reaches its appear_level (the PLACEMENT axis, via live_gen_state).
@@ -116,30 +115,28 @@ func _initialize() -> void:
 	ok(G.live_gen_state(staged, 0, 5).size() == 2 and G.live_gen_state(staged, 0, 5).has(Vector2i(2, 1)), \
 		"at its appear_level the staged gen joins the live set at its cell")
 
-	# 6e-bis: grow_gens(0, ...) must NEVER place another map's generators. Regression for the bug
-	# where map_for_spots(_spots_bought()) returned 1 once all map-0 spots were bought, auto-placing
-	# map 1's gens on the board. (Reads the live roster: map 0 = seed_satchel; map 1 = hen_coop.)
+	# 6e-bis: grow_gens(0, ...) must NEVER place birth-on-tap generators. Regression for the bug
+	# where cell-less generators were placed at the (-1,-1) sentinel and then counted as owned.
 	var bmap0: BoardModel = BoardModel.new()
 	bmap0.seed_gens(0)
 	bmap0.grow_gens(0, 99)
-	ok(not bmap0.gens.values().has("hen_coop"), \
-		"grow_gens(0, ...) never places map 1's generator (hen_coop) on the board")
-	ok(bmap0.gens.values().has("seed_satchel"), \
-		"grow_gens(0, 99) places map 0's own anchor generator (seed_satchel)")
+	ok(not bmap0.gens.values().has("gen_2"), \
+		"grow_gens(0, ...) never pre-places gen_2 on the board")
+	ok(bmap0.gens.values().has("gen_1"), \
+		"grow_gens(0, 99) preserves map 0's own anchor generator (gen_1)")
 
 	# 6e-ter: a generator stored in gen_bag must NOT be auto-re-placed by grow_gens (the duplicate-gen
-	# bug — a gen living in both gen_bag and board.gens). Driven on map 1's hen_coop (a non-anchor gen
-	# that seed_gens places), stored to the bag, then grown — it must stay in the bag, off the board.
+	# bug — a gen living in both gen_bag and board.gens). Store the anchor, then grow — it must stay in the
+	# bag, off the board, because a bagged generator is deliberately held by the player.
 	var bgb: BoardModel = BoardModel.new()
-	bgb.seed_gens(1)
-	var hc_cell: Vector2i = G.gen_cell_of(G.GENERATORS, "hen_coop")
-	ok(bgb.store_gen(hc_cell), "store hen_coop into the gen_bag (frees its cell)")
-	ok(bgb.gen_bag.has("hen_coop") and not bgb.gens.values().has("hen_coop"), \
-		"pre-condition: hen_coop is in gen_bag, not on the board")
-	bgb.grow_gens(1, 99)
-	ok(not bgb.gens.values().has("hen_coop"), \
+	bgb.seed_gens(0)
+	ok(bgb.store_gen(G.GEN_CELL), "store gen_1 into the gen_bag (frees its cell)")
+	ok(bgb.gen_bag.has("gen_1") and not bgb.gens.values().has("gen_1"), \
+		"pre-condition: gen_1 is in gen_bag, not on the board")
+	bgb.grow_gens(0, 99)
+	ok(not bgb.gens.values().has("gen_1"), \
 		"grow_gens skips a generator already stored in gen_bag (no auto-re-place)")
-	ok(bgb.gen_bag.has("hen_coop"), "hen_coop remains in gen_bag after grow_gens")
+	ok(bgb.gen_bag.has("gen_1"), "gen_1 remains in gen_bag after grow_gens")
 
 	# 6f. gen_bag: store a board generator and place it back
 	var bm := BoardModel.new()
@@ -195,13 +192,21 @@ func _initialize() -> void:
 	for v in scn.board.items:
 		if v > 0:
 			items_before += 1
+	scn.water = G.WATER_CAP
+	scn._pop_seed()
+	await create_timer(0.3).timeout
+	ok(scn.board.gens.values().has("gen_2"), "at Lv2 the first generator tap births gen_2 before popping items")
+	items_before = 0
+	for v in scn.board.items:
+		if v > 0:
+			items_before += 1
 	scn._pop_seed()
 	await create_timer(0.3).timeout
 	var items_after := 0
 	for v in scn.board.items:
 		if v > 0:
 			items_after += 1
-	ok(items_after >= items_before + 1, "the satchel pops a burst (≥1 item) onto the board")
+	ok(items_after >= items_before + 1, "the generator pops a burst (≥1 item) onto the board after due tools are born")
 
 	# deliver: map 1's first quest wants flower t2 (code 102) — we just made one
 	ok(not scn.giver_chips.is_empty(), "givers are on duty")
@@ -249,7 +254,17 @@ func _initialize() -> void:
 	scn._rebuild_givers()
 	scn._update_hud()
 	ok(scn._gate_ready(), "§7: total exp has reached the next unlock threshold (gate ready)")
-	ok(scn.quests.size() == 4, "§7: the one-line inert fence stays visible but line-capped")
+	var inert_counts := {}
+	var inert_max := 0
+	for q in scn.quests:
+		var it_inert := G.quest_item(q)
+		if it_inert.is_empty():
+			continue
+		var li := int(it_inert.line)
+		inert_counts[li] = int(inert_counts.get(li, 0)) + 1
+		inert_max = maxi(inert_max, int(inert_counts[li]))
+	ok(scn.quests.size() == int(G.MAX_GIVERS), "§7: the level-based inert fence stays visible and full when enough lines are reached")
+	ok(inert_max <= int(G.MAX_QUESTS_PER_LINE), "§7: the inert fence still respects the 4-per-line cap")
 	# item 4: the fence row lives in a horizontal ScrollContainer; the jar + ALL quest cards are
 	# rendered with no trim-to-fit, and scroll horizontally when they overflow.
 	var fence_scroll: ScrollContainer = null
@@ -285,9 +300,10 @@ func _initialize() -> void:
 		"a fresh scene resumes the persisted board and progress")
 
 	# 10g. TAP-TO-PRODUCE the next per-line generator + spots-done unlock (the carrier/gate quest types are retired).
-	# (a) Once a restored zone opens a new base line, its generator is DUE; the next generator TAP births it on
-	# the board (gen_bag only when the board is full). No quest delivers it, and it self-heals missing active-line
-	# tools. (b) Restoring the LAST spot auto-appends z to `gates`, unlocking the next map (no gate quest).
+	# (a) Once level progress opens a new quest base line, its generator is DUE even before the player claims
+	# the matching restore spot; the next generator TAP births it on the board (gen_bag only when the board is
+	# full). No quest delivers it, and it self-heals missing active-line tools. (b) Restoring the LAST spot
+	# auto-appends z to `gates`, unlocking the next map (no gate quest).
 	# All engine/grove-side; the grove only supplies tunables.
 	fresh("produce")
 	var sg = load("res://engine/scenes/Board.tscn").instantiate()
@@ -295,11 +311,8 @@ func _initialize() -> void:
 	if sg.board == null:
 		sg._ready()
 	var sgg := Save.grove()
-	sgg["exp"] = 300                          # exp past map 0's spot thresholds
-	# restore one spot (zone 1) → line 2's generator becomes due once the zone-0 anchor is owned
-	var z1_unlocks := {}
-	z1_unlocks[String(G.MAPS[0].spots[0].id)] = true
-	sgg["unlocks"] = z1_unlocks
+	sgg["exp"] = G.exp_at_level(2)            # level progress reaches zone 1 while restore spots remain unclaimed
+	sgg["unlocks"] = {}
 	sgg["gates"] = []
 	Save.grove_write()
 	sg._init_quests()
@@ -310,10 +323,10 @@ func _initialize() -> void:
 	for gbid in sg.board.gen_bag:
 		owned_b.append(String(gbid))
 	ok(sg.board.gens.values().has("gen_1"), "fresh board starts with the zone-0 generator")
-	ok(not sg.board.gens.values().has("gen_2"), "zone-1 generator is not pre-seeded")
-	ok(str(G.due_generators(z1_unlocks, [], owned_b)) == str(["gen_2"]), "one restored zone makes gen_2 due")
+	ok(not sg.board.gens.values().has("gen_2"), "level-reached generator is not pre-seeded")
+	ok(str(G.due_generators({}, [], owned_b, G.level_for_exp(Save.exp_total()))) == str(["gen_2"]), "level progress makes gen_2 due before a spot is restored")
 	var gens_before: int = sg.board.gens.size()
-	ok(sg._produce_due_generators(), "a generator tap births the due gen_2")
+	ok(sg._produce_due_generators(), "a generator tap births level-reached gen_2")
 	ok(sg.board.gens.size() == gens_before + 1, "the generator set gains the per-line tool")
 	ok(sg.board.gens.values().has("gen_2"), "gen_2 lands on the board")
 	owned_b.clear()
@@ -321,7 +334,7 @@ func _initialize() -> void:
 		owned_b.append(String(gv))
 	for gbid in sg.board.gen_bag:
 		owned_b.append(String(gbid))
-	ok(G.due_generators(z1_unlocks, [], owned_b).is_empty(), "nothing is due once gen_2 is owned")
+	ok(G.due_generators({}, [], owned_b, G.level_for_exp(Save.exp_total())).is_empty(), "nothing is due once level-reached gen_2 is owned")
 	sg.queue_free()
 	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
 	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;
