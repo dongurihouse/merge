@@ -168,13 +168,13 @@ func remove_gen(cell: Vector2i) -> bool:
 	return true
 
 ## Place a single generator at `cell` — claims the cell (sheds bramble / hops any item to
-## safety), like seed_gens. No-op if a generator already sits there.
-func place_gen(id: String, cell: Vector2i) -> void:
+## safety), like seed_gens. No-op if a generator already sits there. New generators default to tier 1,
+## while explicit merge-fuel duplicates can carry the source tier.
+func place_gen(id: String, cell: Vector2i, tier: int = 1) -> void:
 	if gens.has(cell):
 		return
 	gens[cell] = id
-	if not gen_tiers.has(cell):
-		gen_tiers[cell] = 1               # #8: new generators start at tier 1
+	gen_tiers[cell] = clampi(tier, 1, G.GEN_TOP_TIER)   # #8: new generators start at tier 1 unless explicit
 	if terrain[idx(cell)] > 0:
 		terrain[idx(cell)] = 0
 		items[idx(cell)] = 0

@@ -211,6 +211,39 @@ func _initialize() -> void:
 	ok(not bm6.gen_tiers.has(Vector2i(4, 3)), "remove_gen clears the vacated cell's tier (no stale tier left behind)")
 	ok(not bm6.remove_gen(Vector2i(4, 3)), "remove_gen on a cell with no generator is a no-op (false)")
 
+	# #8 scene wiring: a higher-tier generator's self-dup is merge fuel for THAT tier.
+	# If the duplicate silently resets to tier 1, dragging it onto the source is refused and the
+	# generator ladder stalls at tier 2.
+	fresh("scene_gen_self_dup_tier")
+	Save.mark_board_tutorial_seen()
+	var sgen = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sgen)
+	await process_frame
+	if sgen.board == null:
+		sgen._ready()
+	var src := Vector2i(4, 3)
+	var dup_fuel: Vector2i = sgen.board.empty_ground_cells()[0]
+	var gid: String = sgen.board.gen_id_at(src)
+	sgen.board.place_gen(gid, dup_fuel)
+	ok(sgen.board.merge_gens(dup_fuel, src) and sgen.board.gen_tier_at(src) == 2, "scene self-dup fixture starts from a tier-2 generator")
+	sgen._rebuild_all()
+	sgen._self_dup_generator(src)
+	var spawned := Vector2i(-1, -1)
+	for c in sgen.board.gens.keys():
+		if Vector2i(c) != src and sgen.board.gen_id_at(c) == gid:
+			spawned = Vector2i(c)
+			break
+	ok(spawned.x >= 0, "scene self-dup places a duplicate generator")
+	ok(sgen.board.gen_tier_at(spawned) == sgen.board.gen_tier_at(src), "scene self-dup keeps the source generator tier")
+	var gen_half: Vector2 = Vector2(sgen.csz, sgen.csz) / 2.0
+	sgen._on_press(sgen._cell_pos(spawned) + gen_half)
+	sgen._on_release(sgen._cell_pos(src) + gen_half)
+	ok(sgen.board.gen_tier_at(src) == 3 and not sgen.board.gens.has(spawned), "scene drag-drop merges self-dup back into the source tier")
+	sgen.queue_free()
+	await process_frame
+	await process_frame
+	await process_frame
+
 	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
 	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
 	# the norm — the boost RAISES THE CHANCE of multiples, it does not add a flat count. Both tables top
