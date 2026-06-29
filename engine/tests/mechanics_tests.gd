@@ -278,6 +278,14 @@ func _initialize() -> void:
 	ok(G.bonus_value("water") == int(G.ACCUMULATORS["water"]["value"]), "a bonus collect grants the kind's per-tap value")
 	ok(G.ACCUMULATORS.keys().has(G.pick_bonus_kind(bonus_rng)), "pick_bonus_kind returns a real accumulator kind")
 
+	# --- §6 zone progression (gen redesign 2026-06-28; additive — board wiring flips later) ---
+	ok(G.ZONE_BASE_LINES.size() == 16 and G.ZONE_SPECIAL_LINES.size() == 7 and G.ZONE_COUNT == 23, "23 zones = 16 base + 7 special")
+	ok(not G.zone_is_special(0) and not G.zone_is_special(1) and G.zone_is_special(2), "every 3rd zone (z%3==2) is special")
+	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(3) == 3 and G.zone_line(6) == 5, "base zones introduce the base lines in order")
+	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72, "special zones introduce the special lines")
+	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4], "a special is crafted from the two preceding base lines")
+	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
+
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
 	var per_map_ok := true

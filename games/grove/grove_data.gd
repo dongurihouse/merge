@@ -141,6 +141,15 @@ const LINE_WINDOW := 3                    # quests draw from the current + previ
 # tiny zone-1 (Farmhouse) board, the full cap from zone 2 on. OWNER/SIM dial (grove_sim I1 = zero jams judges).
 const POP_LINE_CAP := 3                   # zone 2+ (the window is 3 maps wide, so up to 3 lines pop)
 const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board holds fewer lines
+
+# §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model. The world is a run of ZONES,
+# each = a restoration spot. Rhythm: base · base · special. 16 base lines + 7 special = 23 zones; a special
+# (every 3rd zone) is crafted by merging the two base lines just before it (no generator). Base lines are
+# popped one-per-generator; specials have no generator (Core §6.A/G). Built ADDITIVELY alongside the legacy
+# map/`lines[]` roster — the board wiring flips to it in a later step. OWNER/content dials.
+const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37]   # 16 base lines, in zone order
+const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77]   # 7 special lines (71-75 = shelved treat art; 76-77 to author)
+const ZONE_COUNT := 23                    # 16 base + 7 special
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.

@@ -26,6 +26,9 @@ const ASK_WEIGHT = D.ASK_WEIGHT
 const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines popped at once (zone 2+)
 const POP_LINE_CAP_Z1 = D.POP_LINE_CAP_Z1   # §6 the tighter zone-1 (Farmhouse) cap — the tiny FTUE board
 const LINE_WINDOW = D.LINE_WINDOW           # §6 rolling map-window width for the askable lines
+const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
+const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
+const ZONE_COUNT = D.ZONE_COUNT
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -234,6 +237,34 @@ static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) 
 		if not owned_ids.has(id) and not out.has(id):
 			out.append(id)
 	return out
+
+# --- §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model -----------------------------
+# The world is a run of ZONES (each = a restoration spot). Rhythm base · base · special: zone z (0-based)
+# with z%3 in {0,1} introduces a BASE line (its own generator); z%3==2 is a SPECIAL line crafted by merging
+# the two preceding base lines (no generator). Built ADDITIVELY — the board still runs the legacy roster
+# until the wiring flips. Pure derivation off ZONE_BASE_LINES / ZONE_SPECIAL_LINES.
+static func zone_is_special(z: int) -> bool:
+	return z >= 0 and z % 3 == 2
+
+# The line a zone introduces (a base line, or a special line on every 3rd zone). 0 if out of range.
+static func zone_line(z: int) -> int:
+	if z < 0 or z >= ZONE_COUNT:
+		return 0
+	if zone_is_special(z):
+		var si := z / 3
+		return int(ZONE_SPECIAL_LINES[si]) if si < ZONE_SPECIAL_LINES.size() else 0
+	var bi := z - (z / 3)   # base lines skip the every-3rd special zones
+	return int(ZONE_BASE_LINES[bi]) if bi < ZONE_BASE_LINES.size() else 0
+
+# The two base lines a special zone is crafted from (its two preceding base zones); [] for a base zone.
+static func zone_recipe(z: int) -> Array:
+	if not zone_is_special(z):
+		return []
+	return [zone_line(z - 2), zone_line(z - 1)]
+
+# A base line → its generator id ("gen_<line>"); "" if the line is a special (no generator).
+static func gen_for_line(line: int) -> String:
+	return "gen_%d" % int(line) if ZONE_BASE_LINES.has(int(line)) else ""
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
 	for g in roster:
