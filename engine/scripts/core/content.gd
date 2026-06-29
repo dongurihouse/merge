@@ -298,6 +298,29 @@ static func base_generators() -> Array:
 		out.append(base_generator(int(line)))
 	return out
 
+# The base lines ACTIVE at a given progress (current_zone = spots restored so far): a rolling window of the
+# last LINE_WINDOW base zones reached (specials aren't window slots — they're crafted from active base lines).
+static func active_base_lines(current_zone: int) -> Array:
+	var out: Array = []
+	var z := mini(current_zone, ZONE_COUNT - 1)
+	while z >= 0 and out.size() < LINE_WINDOW:
+		if not zone_is_special(z):
+			out.append(zone_line(z))
+		z -= 1
+	out.reverse()
+	return out
+
+# The generator the player is OWED but lacks (birth-on-tap, Core §6.B): the newest active base line whose
+# generator isn't owned. "" if none due. (current_zone = spots restored; owned_ids = gens on board + bag.)
+static func due_line_gen(current_zone: int, owned_ids: Array) -> String:
+	var lines := active_base_lines(current_zone)
+	lines.reverse()   # newest first
+	for line in lines:
+		var gid := gen_for_line(int(line))
+		if gid != "" and not owned_ids.has(gid):
+			return gid
+	return ""
+
 static func gen_def(roster: Array, id: String) -> Dictionary:
 	for g in roster:
 		if String(g.id) == id:

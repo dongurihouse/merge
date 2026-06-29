@@ -292,6 +292,12 @@ func _initialize() -> void:
 	var bgen := G.base_generator(2)
 	ok(bgen.id == "gen_2" and bgen.line == 2 and bgen.zone == 1 and bgen.map == 0, "a base generator carries its id/line/zone/map")
 	ok(G.base_generator(71).is_empty(), "a special line has no generator")
+	# active-window + birth-on-tap (tasks 5/7 logic; additive — board wiring flips later)
+	ok(G.active_base_lines(0) == [1], "zone 0 -> 1 active base line")
+	ok(G.active_base_lines(1) == [1, 2], "zone 1 -> 2 active base lines")
+	ok(G.active_base_lines(7) == [4, 5, 21], "the active window holds the last 3 base lines (specials skipped)")
+	ok(G.due_line_gen(7, ["gen_4", "gen_5"]) == "gen_21", "birth-on-tap returns the newest active line lacking a generator")
+	ok(G.due_line_gen(7, ["gen_4", "gen_5", "gen_21"]) == "", "nothing due when all active lines have generators")
 
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
