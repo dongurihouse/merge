@@ -3752,12 +3752,27 @@ func _grant_sale(code: int, node: Control) -> void:
 func _open_ladder(line: int, mark_tier: int) -> void:
 	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
-	# Wave 3: the ladder modal lives in ui/ladder.gd; the open-gate + data stay here.
-	# The dialog header is a fixed "Tiers" (set in ladder.gd) — no internal line name passed.
+	# gen redesign #9/#15: the header names the GENERATOR that makes this line (or the RECIPE for a special).
 	Ladder.open(self, {
 		"entries": _ladder_entries(line),
 		"mark_tier": mark_tier,
+		"title": _ladder_title(line),
 	})
+
+# #9 / #15: the tier dialog's header — names the GENERATOR that makes a base line, or the RECIPE (the two
+# base lines) for a crafted special line.
+func _ladder_title(line: int) -> String:
+	var gid := G.gen_for_line(line)
+	if gid != "":
+		return "Made by %s" % G.generator_display_name(gid)
+	var z := G.zone_of_line(line)
+	var recipe: Array = G.zone_recipe(z) if z >= 0 else []
+	if recipe.size() == 2:
+		return "Craft: %s + %s" % [_ladder_line_name(int(recipe[0])), _ladder_line_name(int(recipe[1]))]
+	return Strings.t("ladder.title")
+
+func _ladder_line_name(line: int) -> String:
+	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))
 
 # The map→Map handoff target (req 3/4): ALWAYS the latest not-fully-unlocked map (the frontier), falling
 # back to the FIRST map once the whole grove is restored. Shared by the nav Home button and the Purge card

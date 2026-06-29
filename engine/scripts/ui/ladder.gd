@@ -61,7 +61,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
 	# The dialog header is always just "Tiers" — the internal line name (e.g. "clover") is implementation
 	# detail, not player-facing copy. The tapped line is already obvious from the pieces on the ladder.
-	dopts["banner_text"] = Strings.t("ladder.title")
+	dopts["banner_text"] = String(opts.get("title", Strings.t("ladder.title")))
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		return PieceView.make_piece(int(d.get("code", 0)), px)
 	dopts["on_close"] = func() -> void:
