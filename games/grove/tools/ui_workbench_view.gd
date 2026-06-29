@@ -2555,7 +2555,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card resident slots px
 			_section_header("Reward shelf")
 			_sidebar_body.add_child(_slider_row(["reward_shelf_w_frac", 45, 100])) # completed-card shelf width (% of left lane)
-			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 30]))   # completed-card shelf height (% of card height)
+			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 60]))   # completed-card shelf height (% of card height)
 			_sidebar_body.add_child(_slider_row(["reward_shelf_y_frac", 0, 35]))   # lift the shelf upward from the bottom (% of height)
 			_section_header("Expedition button")
 			_sidebar_body.add_child(_slider_row(["expedition_button_w", 70, 200]))

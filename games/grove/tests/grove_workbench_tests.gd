@@ -1794,6 +1794,8 @@ func _test_gold_badge_consumers(view) -> void:
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Resident Slot Px") >= 148.0, \
 		"the map-card resident slot-size slider can grow to double the old cap")
+	ok(_slider_max(view, "Reward Shelf H Frac") >= 60.0, \
+		"the map-card reward shelf height slider can grow beyond the old 30% cap")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_w_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_h_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_y_frac\""), \
@@ -1876,9 +1878,12 @@ func _test_gold_badge_consumers(view) -> void:
 			"expedition_button_w": 72, "expedition_button_h": 30, "expedition_button_x": -4, "expedition_button_y": -6,
 			"expedition_button_font": 14,
 		}, "gold_badge": {}}), 460.0, 230.0)
+	var tall_shelf_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "habitat_preview": true}, \
+		Kit.map_card_opts_from_config({"map_card": {"reward_shelf_h_frac": 60}, "gold_badge": {}}), 460.0, 230.0)
 	var small_rail := preview_small.find_child("MapResidentRailPreview", true, false) as Control
 	var big_rail := preview_big.find_child("MapResidentRailPreview", true, false) as Control
 	var tuned_shelf := tuned_shelf_card.find_child("MapHabitatRewardShelf", true, false) as Control
+	var tall_shelf := tall_shelf_card.find_child("MapHabitatRewardShelf", true, false) as Control
 	var tuned_icon := tuned_shelf_card.find_child("MapHabitatRewardIcon", true, false) as Control
 	var tuned_label := tuned_shelf_card.find_child("MapHabitatRewardLabel", true, false) as Label
 	var tuned_collect := tuned_shelf_card.find_child("MapHabitatCollectButton", true, false) as Button
@@ -1916,6 +1921,8 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(tuned_shelf != null and tuned_label != null and int(tuned_label.get_theme_font_size("font_size")) == 21 \
 		and tuned_label.position == Vector2(67, 11), \
 		"the Workbench map-card preview applies reward label font and location knobs")
+	ok(tall_shelf != null and tall_shelf.size.y > 128.0, \
+		"the Workbench map-card preview honors reward shelf heights above the old 128px renderer cap")
 	ok(tuned_label != null and tuned_label.text == "Coins · 5/5", \
 		"the Workbench map-card preview replaces housed text with reward collection progress")
 	ok(tuned_collect != null and tuned_collect.custom_minimum_size == Vector2(132, 36), \
