@@ -118,18 +118,24 @@ func _initialize() -> void:
 	if sbp.board == null:
 		sbp._ready()
 	Save.grove()["pops"] = 50                 # well past the FTUE — the energy meter is on
-	ok(not G.boost_active(), "no boost is active on a fresh save")
-	ok(sbp._gen_boost_bonus() == 0, "with no boost a generator gets no bonus items")
+	var cell_a: Vector2i = sbp.board.gens.keys()[0]
+	ok(not sbp.board.is_gen_boosted(cell_a), "no generator is boosted on a fresh save")
+	ok(sbp._gen_boost_bonus(cell_a) == 0, "with no boost a generator gets no bonus items")
 	Save.add_coins(10000)
 	var bu_c0 := Save.coins()
-	ok(sbp._activate_gen_boost(), "the boost activates with coins")
+	ok(sbp._activate_gen_boost(cell_a), "the boost activates on the chosen generator with coins")
 	ok(Save.coins() == bu_c0 - G.BOOST_COST, "activating spends the boost cost (the coin sink)")
-	ok(G.boost_active() and G.boost_taps_left() == G.BOOST_TAPS, "the boost arms BOOST_TAPS taps")
-	ok(sbp._gen_boost_bonus() == G.BOOST_BONUS, "while active a generator gets +BOOST_BONUS items")
-	# a second activation while one is running is refused — no extra taps, no double spend
+	ok(sbp.board.is_gen_boosted(cell_a) and sbp.board.gen_boost_at(cell_a) == G.BOOST_TAPS, "the boost arms BOOST_TAPS taps on that generator")
+	ok(sbp._gen_boost_bonus(cell_a) == G.BOOST_BONUS, "while active that generator gets +BOOST_BONUS items")
+	# a second buy on the SAME generator is refused — no extra taps, no double spend
 	var bu_c1 := Save.coins()
-	ok(not sbp._activate_gen_boost(), "a second boost while one is running is refused")
-	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == bu_c1, "...no extra taps, no double spend")
+	ok(not sbp._activate_gen_boost(cell_a), "a second boost on an already-boosted generator is refused")
+	ok(sbp.board.gen_boost_at(cell_a) == G.BOOST_TAPS and Save.coins() == bu_c1, "...no extra taps, no double spend")
+	# a DIFFERENT generator can be boosted at the same time (stackable)
+	var cell_b: Vector2i = sbp.board.empty_ground_cells()[0]
+	sbp.board.place_gen(sbp.board.gen_id_at(cell_a), cell_b, sbp.board.gen_tier_at(cell_a))
+	ok(sbp._activate_gen_boost(cell_b), "a different generator can be boosted while the first is live (stackable)")
+	ok(sbp.board.is_gen_boosted(cell_a) and sbp.board.is_gen_boosted(cell_b), "both generators are boosted at once")
 	# clear a wide-open area so the burst is bounded only by its own size (not by board space)
 	for ci in sbp.board.items.size():
 		if sbp.board.items[ci] > 0 and not G.is_coin(sbp.board.items[ci]):
@@ -141,27 +147,26 @@ func _initialize() -> void:
 	for v in sbp.board.items:
 		if v > 0:
 			bb += 1
-	sbp._pop_seed()
+	sbp._pop_seed(cell_a)                      # a real charged tap on the boosted generator
 	await create_timer(0.3).timeout
 	var burst_got := -bb
 	for v in sbp.board.items:
 		if v > 0:
 			burst_got += 1
-	ok(burst_got >= 1 and burst_got <= int(G.BURST_MAX), "with the boost a single tap throws a burst of 1..BURST_MAX items")
+	ok(burst_got >= 1 and burst_got <= int(G.BURST_MAX), "a boosted tap throws a burst of 1..BURST_MAX items")
 	ok(sbp.water == bw0 - burst_got * G.POP_COST, "each burst item costs one energy")
-	ok(G.boost_taps_left() == G.BOOST_TAPS - 1, "a charged tap spends one boost tap")
-	# the boost expires when its taps run out — back to no bonus
-	while G.boost_active():
-		G.consume_boost_tap()
-	ok(sbp._gen_boost_bonus() == 0, "an expired boost gives no bonus")
-	# the boost taps ride the save across scenes
-	ok(G.try_activate_boost(), "re-arm a boost for the persistence check")
-	var saved_taps: int = G.boost_taps_left()
+	ok(sbp.board.gen_boost_at(cell_a) == G.BOOST_TAPS - 1, "a charged tap spends one of that generator's boost taps")
+	ok(sbp.board.gen_boost_at(cell_b) == G.BOOST_TAPS, "the other generator's boost is untouched by the tap")
+	# only a boosted generator gets the bonus
+	ok(sbp._gen_boost_bonus(cell_b) == G.BOOST_BONUS and sbp._gen_boost_bonus(Vector2i(-1, -1)) == 0, "only boosted generators get the bonus")
+	# the per-generator boost rides the save across scenes
+	var saved_taps: int = sbp.board.gen_boost_at(cell_a)
+	sbp._persist()
 	var sbp2 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbp2)
 	if sbp2.board == null:
 		sbp2._ready()
-	ok(sbp2._gen_boost_bonus() == G.BOOST_BONUS and G.boost_taps_left() == saved_taps, "the boost taps persist across scenes")
+	ok(sbp2.board.gen_boost_at(cell_a) == saved_taps, "the per-generator boost rides the save across scenes")
 	sbp.queue_free()
 	sbp2.queue_free()
 
@@ -171,9 +176,10 @@ func _initialize() -> void:
 	get_root().add_child(sbc)
 	if sbc.board == null:
 		sbc._ready()
-	ok(not G.boost_active() and Save.coins() == 0, "fresh: no boost, no coins")
-	ok(not sbc._activate_gen_boost(), "broke: the boost refuses — returns false")
-	ok(not G.boost_active() and Save.coins() == 0, "broke refusal arms no taps and leaves no coin debt")
+	var bc_cell: Vector2i = sbc.board.gens.keys()[0]
+	ok(not sbc.board.is_gen_boosted(bc_cell) and Save.coins() == 0, "fresh: no boost, no coins")
+	ok(not sbc._activate_gen_boost(bc_cell), "broke: the boost refuses — returns false")
+	ok(not sbc.board.is_gen_boosted(bc_cell) and Save.coins() == 0, "broke refusal arms no taps and leaves no coin debt")
 	sbc.queue_free()
 
 	# 11d. The SHARED boost seam G.try_activate_boost() + G.consume_boost_tap() — the single arm/decay
@@ -223,21 +229,21 @@ func _initialize() -> void:
 	ok(sbu._info_burst.visible, "the boost chip shows for a generator")
 	ok(not sbu._info_trash.visible, "the sell button is hidden for a generator")
 	sbu._on_burst_chip()
-	ok(not G.boost_active() and Save.coins() == 0, "broke: tapping the chip arms nothing, no debt")
+	ok(not sbu.board.is_gen_boosted(bgcell) and Save.coins() == 0, "broke: tapping the chip arms nothing, no debt")
 	Save.add_coins(10000)
 	var bc0 := Save.coins()
 	sbu._select_generator(bgcell)                              # re-read affordability with coins
 	sbu._on_burst_chip()
-	ok(G.boost_active(), "afford: tapping the boost chip arms the boost")
+	ok(sbu.board.is_gen_boosted(bgcell), "afford: tapping the boost chip arms the boost")
 	ok(Save.coins() == bc0 - G.BOOST_COST, "...and spends the boost cost")
 	# while the boost is LIVE: the chip stays visible but faded + inert; the label carries the detail
 	sbu._select_generator(bgcell)
 	ok(sbu._info_burst.visible, "the boost chip stays visible while a boost is live")
 	ok(sbu._info_burst.modulate.a < 1.0, "the live boost chip is faded (like can't-afford) — no re-buy")
-	ok(sbu._info_label.text.contains("Boosted") and sbu._info_label.text.contains(str(G.boost_taps_left())), "the info label shows the boost is live and the taps left")
+	ok(sbu._info_label.text.contains("Boosted") and sbu._info_label.text.contains(str(sbu.board.gen_boost_at(bgcell))), "the info label shows the boost is live and the taps left")
 	var live_c := Save.coins()
 	sbu._on_burst_chip()
-	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == live_c, "tapping the live chip re-buys nothing, no double spend")
+	ok(sbu.board.gen_boost_at(bgcell) == G.BOOST_TAPS and Save.coins() == live_c, "tapping the live chip re-buys nothing, no double spend")
 	var bicell := Vector2i(-1, -1)
 	for bcc in sbu.board.empty_ground_cells():
 		bicell = bcc
@@ -768,8 +774,6 @@ func _initialize() -> void:
 	if sbg.board == null:
 		sbg._ready()
 	Save.add_coins(10000)
-	ok(G.try_activate_boost(), "arm a boost for the bonus-collect check")
-	var bg_taps0: int = G.boost_taps_left()
 	# stand a COIN bonus generator on a free non-gen cell with a known 3-tap budget
 	var bg_cell := Vector2i(-1, -1)
 	for bg_c in sbg.board.empty_ground_cells():
@@ -778,6 +782,8 @@ func _initialize() -> void:
 			break
 	ok(bg_cell.x >= 0, "found a free cell for the bonus generator")
 	sbg.board.place_gen("acc_coins", bg_cell)
+	ok(sbg._activate_gen_boost(bg_cell), "arm a boost ON the bonus generator for the bonus-collect check")
+	var bg_taps0: int = sbg.board.gen_boost_at(bg_cell)
 	Save.grove()["bonus_clicks"] = 3
 	var bg_coins0 := Save.coins()
 	var board_coin_items0 := 0
@@ -792,7 +798,7 @@ func _initialize() -> void:
 	ok(Save.coins() == bg_coins0, "the boosted bonus collect does not pay the coin pill directly")
 	ok(board_coin_items1 > board_coin_items0, "the boosted bonus collect pops coin items onto the board")
 	ok(int(Save.grove().get("bonus_clicks", 0)) == 2, "the collect spends one of the bonus generator's own taps")
-	ok(G.boost_taps_left() == bg_taps0 - 1, "a boosted bonus item-pop ALSO spends one boost tap")
+	ok(sbg.board.gen_boost_at(bg_cell) == bg_taps0 - 1, "a boosted bonus item-pop ALSO spends one of this generator's boost taps")
 	sbg.queue_free()
 
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;

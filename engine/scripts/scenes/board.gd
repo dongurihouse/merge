@@ -1367,9 +1367,9 @@ func _refresh_generator_dim() -> void:
 # generator wears a sparkle overlay (reused gen_sparkle) + a small corner badge counting the taps left;
 # both are cleared the moment the boost expires. Rebuilt by _rebuild_all and refreshed on each pop.
 func _refresh_boost_indicator() -> void:
-	var live := G.boost_active()
-	var taps := G.boost_taps_left()
 	for cell in gen_nodes:
+		var live := board.is_gen_boosted(cell)   # §6: each generator lights from its OWN boost
+		var taps := board.gen_boost_at(cell)
 		var gn: Control = gen_nodes[cell]
 		if gn == null or not is_instance_valid(gn):
 			continue
@@ -1853,7 +1853,7 @@ func _select_generator(cell: Vector2i) -> void:
 	var prev := PieceView.make_generator(gid, _info_item_px, {})
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
-	_info_label.text = _gen_info_text(gid)
+	_info_label.text = _gen_info_text(gid, cell)
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		var desc := G.generator_description(gid)
 		_info_desc_label.text = desc
@@ -1874,14 +1874,14 @@ func _select_generator(cell: Vector2i) -> void:
 # The generator's info-bar label: its name, plus — while a boost is live — the boost detail (that the
 # boost is on and how many taps are left). Built here so a pop can refresh it live without rebuilding
 # the whole info bar (§3 boost detail).
-func _gen_info_text(gid: String) -> String:
+func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:
 			lbl += " · %d taps" % clicks
-	elif G.boost_active():
-		lbl += " · " + (Strings.t("board.info.boost_detail") % G.boost_taps_left())
+	elif board.is_gen_boosted(cell):
+		lbl += " · " + (Strings.t("board.info.boost_detail") % board.gen_boost_at(cell))
 	return lbl
 
 # Reset the info bar to its empty "tap an item" state.
@@ -1961,7 +1961,7 @@ func _refresh_burst_chip() -> void:
 	if _info_burst == null or not is_instance_valid(_info_burst):
 		return
 	var cost := G.boost_cost()
-	var live := G.boost_active()
+	var live := _selected_cell.x >= 0 and board.is_gen_boosted(_selected_cell)   # THIS generator already boosted
 	var ready := Save.coins() >= cost and not live   # full-color only when arming one now would work
 	for c in _info_burst_coin.get_children():
 		c.queue_free()
@@ -1978,8 +1978,10 @@ func _refresh_burst_chip() -> void:
 # live → soft refusal (no re-buy, §2); broke → wallet-side nudge, no spend; success → spend, light the
 # on-board indicator, juice the generator, and refresh the chip to its now-faded live state.
 func _on_burst_chip() -> void:
-	if G.boost_active():
-		FX.wobble(_info_burst)                # a boost is already running — no re-buy while live
+	if _selected_cell.x < 0 or not board.is_gen(_selected_cell):
+		return
+	if board.is_gen_boosted(_selected_cell):
+		FX.wobble(_info_burst)                # this generator is already boosted — no re-buy on it
 		Audio.play("invalid_soft", -4.0)
 		return
 	if Save.coins() < G.boost_cost():
@@ -1987,7 +1989,7 @@ func _on_burst_chip() -> void:
 		Audio.play("invalid_soft", -4.0)
 		FX.floating_text(self, _info_burst.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.burst_need"), CREAM, 24)
 		return
-	if _activate_gen_boost():                  # the shared seam: spend + arm + persist
+	if _activate_gen_boost(_selected_cell):    # spend + arm THIS generator + persist
 		Audio.play("button_tap", -2.0)
 		_update_hud()                         # the coin pill ticks down
 		_refresh_boost_indicator()            # the sparkle + count badge light up on every generator
@@ -1998,7 +2000,7 @@ func _on_burst_chip() -> void:
 			var ctr := board_area.get_global_transform().origin + _cell_pos(_selected_cell) + Vector2(csz, csz) / 2.0
 			FX.celebrate_at(self, ctr, Strings.t("board.feedback.bigger_bursts"), STRAW)
 			if board.is_gen(_selected_cell):
-				_info_label.text = _gen_info_text(board.gen_id_at(_selected_cell))
+				_info_label.text = _gen_info_text(board.gen_id_at(_selected_cell), _selected_cell)
 		_refresh_burst_chip()                 # now faded — a boost is live
 
 # T55 — drive the BUY chip for the selected item: its price (G.buy_price) in the right currency (coins
@@ -2562,7 +2564,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# overrides with the boosted odds. (Accumulator/treat taps never reach here — their own collect/pop paths.)
 	var burst := 1
 	if charged:
-		burst = G.burst_count(_quest_map(), _gen_boost_bonus(), rng) if G.boost_active() else G.gen_burst_count(board.gen_tier_at(cell), rng)
+		burst = G.burst_count(_quest_map(), _gen_boost_bonus(cell), rng) if board.is_gen_boosted(cell) else G.gen_burst_count(board.gen_tier_at(cell), rng)
 	if charged:
 		burst = mini(burst, int(water / G.POP_COST))
 	burst = mini(burst, empties.size())
@@ -2627,11 +2629,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	LaunchFx.apply(gnode, last_piece, launch_ctr, _launch_opts, 1.0)
 	if not Audio.has("water_pop"):
 		Audio.play("item_drop", -3.0, 1.1)
-	if G.boost_active():
-		G.consume_boost_tap()              # §6: each charged tap spends one boost tap, then it expires
+	if board.is_gen_boosted(cell):
+		board.consume_gen_boost(cell)      # §6: each charged tap spends one of THIS generator's boost taps
 		_refresh_boost_indicator()         # tick the on-board sparkle + count badge down (or clear it)
 		if _selected_cell.x >= 0 and board.is_gen(_selected_cell):
-			_info_label.text = _gen_info_text(board.gen_id_at(_selected_cell))
+			_info_label.text = _gen_info_text(board.gen_id_at(_selected_cell), _selected_cell)
 			_refresh_burst_chip()          # re-enables the chip the moment the boost expires
 	# §6.D a main-generator tap may pop out a temporary TREAT generator (one live at a time)
 	if not _has_treat_gen() and G.rolls_treat_spawn(rng):
@@ -2723,16 +2725,22 @@ func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_rebuild_all()
 	Audio.play("item_drop", -2.0)
 
-# A generator's per-tap bonus from the LIVE boost (§6): BOOST_BONUS while a boost is active, else 0.
-# Read by _pop_seed as the addend to burst_count. The boost is global (every generator on the board).
-func _gen_boost_bonus() -> int:
-	return G.boost_bonus() if G.boost_active() else 0
+# A generator's per-tap bonus from ITS OWN live boost (§6): BOOST_BONUS while that cell is boosted, else 0.
+# Read by _pop_seed as the addend to burst_count. The boost is per-generator (only the boosted cell).
+func _gen_boost_bonus(cell: Vector2i) -> int:
+	return G.boost_bonus() if board.is_gen_boosted(cell) else 0
 
-# Activate the temporary boost (the §6/§10 coin sink): arm BOOST_TAPS taps of +BOOST_BONUS items,
-# board-wide. Delegates to the shared seam G.try_activate_boost(); refuses (no spend) when broke or
-# when a boost is already running. The info-bar boost chip (T54→boost) calls this.
-func _activate_gen_boost() -> bool:
-	return G.try_activate_boost()
+# Arm the temporary boost on ONE generator (§6/§10 coin sink): BOOST_TAPS taps of +BOOST_BONUS items on
+# `cell`. Refuses (no spend) when the cell holds no generator, that generator is already boosted, or the
+# player is broke. Spends BOOST_COST, arms the cell, persists. (Free map-3 charges are wired in next.)
+func _activate_gen_boost(cell: Vector2i) -> bool:
+	if not board.is_gen(cell) or board.is_gen_boosted(cell):
+		return false
+	if not Save.spend(G.BOOST_COST, "boost"):
+		return false
+	board.arm_gen_boost(cell, G.BOOST_TAPS)
+	_persist()
+	return true
 
 # The info-bar boost chip (T54→boost, T57): on a generator tap the bottom info bar shows the generator
 # (preview + name + the live boost detail) and — in the slot the sell button leaves empty for
@@ -3096,7 +3104,7 @@ func _collect_accumulator(cell: Vector2i) -> void:
 	if item_code <= 0:
 		return
 	var mult := 1
-	var boosted := G.boost_active()
+	var boosted := board.is_gen_boosted(cell)
 	if boosted:
 		mult = G.burst_count(_quest_map(), G.boost_bonus(), rng)
 	var drops := mini(mult, board.empty_ground_cells().size())
@@ -3112,8 +3120,8 @@ func _collect_accumulator(cell: Vector2i) -> void:
 			_drop_special_near(cell, item_code)
 	clicks -= 1
 	if boosted:
-		G.consume_boost_tap()              # §6: a boosted collect used the boost's burst, so — like a charged
-		_refresh_boost_indicator()         # generator tap — it spends one boost tap and ticks the badge down
+		board.consume_gen_boost(cell)      # §6: a boosted collect spends one of this generator's boost taps
+		_refresh_boost_indicator()         # tick the on-board sparkle + count badge down
 	if gn != null:
 		FX.pop(gn)
 	Audio.play("water_pop" if Audio.has("water_pop") else "item_drop", -3.0, 1.1)
