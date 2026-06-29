@@ -195,6 +195,21 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 		out.pop_back()
 	return out
 
+# Fence ORDER: float every DELIVERABLE quest to the FRONT of the row so a player can find and hand in a
+# completed ask at a glance. A STABLE partition — `ready[i]` flags `items[i]` as payable; the ready ones
+# come first in their existing order, then the rest in theirs. Pure: it reorders the index/entry list the
+# board renders, NOT the persisted `quests` array (whose order is load-bearing for refill RNG, due_gen,
+# and giver assignment). A missing flag (ready shorter than items) reads as not-ready.
+static func ready_first(items: Array, ready: Array) -> Array:
+	var head: Array = []
+	var tail: Array = []
+	for i in range(items.size()):
+		if i < ready.size() and bool(ready[i]):
+			head.append(items[i])
+		else:
+			tail.append(items[i])
+	return head + tail
+
 # --- §7 stand PORTRAIT (the giver face) ---------------------------------------------------------------
 # Each quest carries a stable `giver` index (0..pool-1): the character portrait drawn on its stand. The
 # rule the board needs ("no same quest giver on screen") is on-screen UNIQUENESS — no two LIVE quests share
