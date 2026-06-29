@@ -123,14 +123,23 @@ static func _set_placed(map_id: String, list: Array) -> void:
 static func is_full(map_id: String) -> bool:
 	return placed(map_id).size() >= cap(map_id)
 
+## True when `inst` belongs on `map_id`. Unknown resident kinds cannot be newly placed.
+static func can_place_on(map_id: String, inst: Dictionary) -> bool:
+	var kind := String(inst.get("kind", ""))
+	if kind == "":
+		return false
+	return Content.resident_home_map_id(kind) == map_id
+
 ## Place hand[index] onto map_id if it has a free slot. Settles that map's production at the OLD
 ## rate first so the rate change is clean, then moves the instance hand -> map.
 static func place(map_id: String, index: int, now: float = -1.0) -> bool:
 	var h := hand()
 	if index < 0 or index >= h.size() or is_full(map_id):
 		return false
-	_settle(map_id, now)
 	var inst: Dictionary = h[index]
+	if not can_place_on(map_id, inst):
+		return false
+	_settle(map_id, now)
 	h.remove_at(index)
 	_set_hand(h)
 	var p := placed(map_id)
@@ -171,9 +180,11 @@ static func move(from_id: String, index: int, to_id: String, now: float = -1.0) 
 	var src := placed(from_id)
 	if index < 0 or index >= src.size() or is_full(to_id):
 		return false
+	var inst: Dictionary = src[index]
+	if not can_place_on(to_id, inst):
+		return false
 	_settle(from_id, now)
 	_settle(to_id, now)
-	var inst: Dictionary = src[index]
 	src.remove_at(index)
 	_set_placed(from_id, src)
 	var dst := placed(to_id)
@@ -206,6 +217,8 @@ static func place_merge(map_id: String, h_index: int, p_index: int, now: float =
 	if h_index < 0 or h_index >= h.size() or p_index < 0 or p_index >= p.size():
 		return false
 	var a: Dictionary = h[h_index]
+	if not can_place_on(map_id, a):
+		return false
 	var b: Dictionary = p[p_index]
 	if String(a.kind) != String(b.kind) or int(a.tier) != int(b.tier):
 		return false
