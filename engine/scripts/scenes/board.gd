@@ -2723,6 +2723,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# §6.D a main-generator tap may pop out a temporary TREAT generator (one live at a time)
 	if not _has_treat_gen() and G.rolls_treat_spawn(rng):
 		_spawn_treat_gen()
+	# §6.C a main-generator tap may also side-spawn a limited-use BONUS generator (one at a time)
+	if not _has_bonus_gen() and G.rolls_bonus_spawn(rng):
+		_spawn_bonus_gen()
 	_persist()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
@@ -3065,58 +3068,41 @@ func _apply_wildcard(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_refresh_giver_lights()
 	_update_hud()
 
-# §6.C ensure every UNLOCKED accumulator (its map-1 spot claimed) is on the board (or the gen bag), and
-# start its banking clock the first time it appears. Idempotent — called each rebuild.
+# §6.C LEGACY MIGRATION (gen redesign 2026-06-28): the old constant-accrual accumulators are retired — they
+# are now limited-use BONUS generators that side-spawn off a tap (_spawn_bonus_gen). One-time: strip any
+# placed/banked legacy accumulators from the board + bag, then drop the legacy save key. Idempotent after.
 func _sync_accumulators() -> void:
-	var unlocks: Dictionary = Save.grove().get("unlocks", {})
-	var accs: Dictionary = Save.grove().get("accumulators", {})
-	var owned := {}
-	for v in board.gens.values():
-		owned[String(v)] = true
+	if not Save.grove().has("accumulators"):
+		return
+	for cell in board.gens.keys():
+		if G.is_accumulator(String(board.gens[cell])):
+			board.gens.erase(cell)
+	var kept: Array = []
 	for v in board.gen_bag:
-		owned[String(v)] = true
-	var changed := false
-	for kind in G.ACCUMULATORS:
-		if not G.accumulator_unlocked(String(kind), unlocks):
-			continue
-		var id := String(G.ACCUMULATORS[kind].id)
-		if not accs.has(id):
-			accs[id] = Time.get_unix_time_from_system()   # start banking the moment it unlocks
-			changed = true
-		if owned.has(id):
-			continue
-		var dest := Vector2i(-1, -1)
-		for c in board.empty_ground_cells():
-			if not board.gens.has(c):
-				dest = c
-				break
-		if dest == Vector2i(-1, -1):
-			board.gen_bag.append(id)          # board full → it waits (still banks) in the bag
-		else:
-			board.place_gen(id, dest)
-		changed = true
-	if changed:
-		Save.grove()["accumulators"] = accs
-		_persist()
+		if not G.is_accumulator(String(v)):
+			kept.append(v)
+	board.gen_bag = kept
+	Save.grove().erase("accumulators")
+	_persist()
 
-# §6.C a tap on an accumulator collects its banked resource (grant it, reset the clock). Nothing banked
-# yet → a gentle wobble.
+# §6.C a tap on a BONUS generator grants its currency (× a burst while a boost is live), spends one of its
+# limited taps, and VANISHES when the budget runs out. (gen redesign 2026-06-28 — was time-banked accrual.)
 func _collect_accumulator(cell: Vector2i) -> void:
 	var id := board.gen_id_at(cell)
 	var kind := G.accumulator_kind_of(id)
 	if kind == "":
 		return
-	var accs: Dictionary = Save.grove().get("accumulators", {})
-	var last_ts := float(accs.get(id, 0.0))
-	var now := Time.get_unix_time_from_system()
-	var banked := G.accumulator_banked(kind, last_ts, now)
+	var clicks := int(Save.grove().get("bonus_clicks", 0))
 	var gn: Control = gen_nodes.get(cell)
-	if banked <= 0:
+	if clicks <= 0:
 		if gn != null:
 			FX.wobble(gn)
 		Audio.play("invalid_soft", -6.0)
 		return
-	var amount := int(G.accumulator_reward(kind, banked).amount)
+	var mult := 1
+	if G.boost_active():
+		mult = G.burst_count(_quest_map(), G.boost_bonus(), rng)
+	var amount := G.bonus_value(kind) * mult
 	match kind:
 		"water":
 			water = mini(G.WATER_CAP, water + amount)
@@ -3126,29 +3112,30 @@ func _collect_accumulator(cell: Vector2i) -> void:
 			Save.add_exp(amount)
 		"acorn":
 			Save.add_diamonds(amount)
-	accs[id] = now
-	Save.grove()["accumulators"] = accs
+	clicks -= 1
 	if gn != null:
 		FX.pop(gn)
 	Audio.play("coin_earn", -3.0, 1.1)
+	if clicks <= 0:
+		board.gens.erase(cell)                # the bonus generator is spent → it vanishes
+		Save.grove().erase("bonus_clicks")
+	else:
+		Save.grove()["bonus_clicks"] = clicks
 	_persist()
 	_update_hud()
 	_update_water_hud()
-	_refresh_accumulator_badge(cell)
+	_rebuild_all()
 
-# §6.C draw/update the small banked-count badge on an accumulator (reuses the boost-badge chrome).
+# §6.C draw/update the small taps-left badge on a BONUS generator (reuses the boost-badge chrome).
 func _refresh_accumulator_badge(cell: Vector2i) -> void:
 	var gn: Control = gen_nodes.get(cell)
 	if gn == null:
 		return
-	var kind := G.accumulator_kind_of(board.gen_id_at(cell))
-	if kind == "":
+	if G.accumulator_kind_of(board.gen_id_at(cell)) == "":
 		return
-	var id := board.gen_id_at(cell)
-	var last_ts := float((Save.grove().get("accumulators", {}) as Dictionary).get(id, 0.0))
-	var banked := G.accumulator_banked(kind, last_ts, Time.get_unix_time_from_system())
+	var clicks := int(Save.grove().get("bonus_clicks", 0))
 	var badge: Control = gn.get_node_or_null("AccBadge")
-	if banked <= 0:
+	if clicks <= 0:
 		if badge != null:
 			badge.queue_free()
 		return
@@ -3156,7 +3143,35 @@ func _refresh_accumulator_badge(cell: Vector2i) -> void:
 		badge = _make_boost_badge()
 		badge.name = "AccBadge"
 		gn.add_child(badge)
-	(badge.get_node("Count") as Label).text = "%d" % banked
+	(badge.get_node("Count") as Label).text = "%d" % clicks
+
+# §6.C is any limited-use BONUS generator currently on the board or in the bag (one at a time)?
+func _has_bonus_gen() -> bool:
+	for v in board.gens.values():
+		if G.is_accumulator(String(v)):
+			return true
+	for v in board.gen_bag:
+		if G.is_accumulator(String(v)):
+			return true
+	return false
+
+# §6.C side-spawn a limited-use bonus generator onto a free cell with a random tap budget. Skips if full.
+func _spawn_bonus_gen() -> void:
+	var kind := G.pick_bonus_kind(rng)
+	if kind == "":
+		return
+	var dest := Vector2i(-1, -1)
+	for c in board.empty_ground_cells():
+		if not board.gens.has(c):
+			dest = c
+			break
+	if dest == Vector2i(-1, -1):
+		return
+	board.place_gen(String(G.ACCUMULATORS[kind].id), dest)
+	Save.grove()["bonus_clicks"] = G.pick_bonus_clicks(rng)
+	_grown_cells.append(dest)
+	_rebuild_all()
+	Audio.play("level_complete", -5.0, 1.25)
 
 # --- §6.D temporary treat generators (board) ----------------------------------------------------------
 func _has_treat_gen() -> bool:

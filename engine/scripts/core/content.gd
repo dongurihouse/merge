@@ -80,6 +80,8 @@ const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
 const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
 const KEY_TIER_MULT = D.KEY_TIER_MULT
 const ACCUMULATORS = D.ACCUMULATORS
+const BONUS_SPAWN_CHANCE = D.BONUS_SPAWN_CHANCE
+const BONUS_CLICKS = D.BONUS_CLICKS
 const TREAT_SPAWN_CHANCE = D.TREAT_SPAWN_CHANCE
 const TREAT_CLICKS = D.TREAT_CLICKS
 const TREAT_LINES = D.TREAT_LINES
@@ -885,10 +887,8 @@ static func generator_description(id: String) -> String:
 		return ""
 	var kind := accumulator_kind_of(id)
 	if kind != "":
-		var def: Dictionary = ACCUMULATORS.get(kind, {})
-		var amount := int(def.get("cap", 0)) * int(def.get("value", 0))
-		var unit := "acorns" if kind == "acorn" and amount != 1 else kind
-		return "Banks %s over time. Tap to collect up to %d %s." % [unit, amount, unit]
+		var unit := "acorns" if kind == "acorn" else kind
+		return "Bonus generator — tap to collect %s. Lasts a few taps, then it's gone." % unit
 	if is_treat_gen(id):
 		var line := treat_line_of(id)
 		var name := item_display_name(line * 100 + TREAT_POP_TIER)
@@ -1013,6 +1013,26 @@ static func accumulator_full(kind: String, last_ts: float, now: float) -> bool:
 # The reward for collecting `banked` units of `kind`: {kind, amount}.
 static func accumulator_reward(kind: String, banked: int) -> Dictionary:
 	return {"kind": kind, "amount": maxi(0, banked) * int(ACCUMULATORS.get(kind, {}).get("value", 0))}
+
+# --- §6.C bonus generators (limited-use; gen redesign 2026-06-28) ----------------------
+# The accrual helpers above are now VESTIGIAL (kept for grove_sim's legacy income model until the §11
+# economy re-tune). Live gameplay uses these: a bonus generator SIDE-SPAWNS off a main-generator tap,
+# grants its `value` currency per tap for a random BONUS_CLICKS budget (× a burst while a boost is live),
+# then VANISHES.
+static func rolls_bonus_spawn(rng: RandomNumberGenerator) -> bool:
+	return rng.randf() < BONUS_SPAWN_CHANCE
+
+static func pick_bonus_clicks(rng: RandomNumberGenerator) -> int:
+	return rng.randi_range(int(BONUS_CLICKS[0]), int(BONUS_CLICKS[1]))
+
+# A uniform random bonus kind to spawn (registry order).
+static func pick_bonus_kind(rng: RandomNumberGenerator) -> String:
+	var kinds: Array = ACCUMULATORS.keys()
+	return String(kinds[rng.randi_range(0, kinds.size() - 1)]) if not kinds.is_empty() else ""
+
+# The currency granted per tap for a bonus generator of `kind` (× a burst when a boost is live).
+static func bonus_value(kind: String) -> int:
+	return int(ACCUMULATORS.get(kind, {}).get("value", 0))
 
 # Accumulators ride the generator infra (placement, render, bag), keyed by their `id` ("acc_<kind>").
 static func is_accumulator(id: String) -> bool:

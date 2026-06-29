@@ -270,6 +270,14 @@ func _initialize() -> void:
 	ok(G.accumulator_reward("water", 3) == {"kind": "water", "amount": 3 * int(G.ACCUMULATORS["water"]["value"])},
 		"the collect reward is banked × the per-unit value")
 
+	# --- §6.C bonus generators (limited-use side-spawn; gen redesign 2026-06-28) ---
+	var bonus_rng := RandomNumberGenerator.new()
+	bonus_rng.seed = 7
+	var bonus_clicks_n := G.pick_bonus_clicks(bonus_rng)
+	ok(bonus_clicks_n >= int(G.BONUS_CLICKS[0]) and bonus_clicks_n <= int(G.BONUS_CLICKS[1]), "a bonus generator lasts a BONUS_CLICKS-sized tap budget")
+	ok(G.bonus_value("water") == int(G.ACCUMULATORS["water"]["value"]), "a bonus collect grants the kind's per-tap value")
+	ok(G.ACCUMULATORS.keys().has(G.pick_bonus_kind(bonus_rng)), "pick_bonus_kind returns a real accumulator kind")
+
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
 	var per_map_ok := true
