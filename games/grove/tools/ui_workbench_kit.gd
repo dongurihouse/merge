@@ -2815,6 +2815,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 	var label := String(opts.get("label", ""))
 	if label != "":
 		var l := Label.new()
+		l.name = String(opts.get("label_name", "ProgressBarLabel"))
 		l.text = label
 		l.set_anchors_preset(Control.PRESET_FULL_RECT)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2822,6 +2823,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		l.add_theme_font_size_override("font_size", int(h * 0.7))
 		l.add_theme_color_override("font_color", Pal.INK)
 		l.add_theme_constant_override("outline_size", 0)
+		l.clip_text = true
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(l)
 	return holder
@@ -5117,7 +5119,13 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 		maxf(pad_t, rect.size.y - pad_b - bar_h)
 	)
 	var bar_w := clampf(expedition.position.x - gap - bar_x, 0.0, maxf(0.0, rect.size.x - pad_l - pad_r))
-	var bar := progress_bar(0.42, {"width": bar_w, "height": bar_h, "art": true})
+	var bar := progress_bar(0.42, {
+		"width": bar_w,
+		"height": bar_h,
+		"art": true,
+		"label": "2h",
+		"label_name": "MapHabitatProgressTimeLabel",
+	})
 	bar.name = "MapHabitatProgressBar"
 	bar.size = bar.custom_minimum_size
 	bar.position = Vector2(bar_x, bar_y)

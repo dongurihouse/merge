@@ -27,6 +27,7 @@ func _initialize() -> void:
 	_test_trade_reward_dialog_layout()
 	_test_reward_row_cap()
 	await _test_map_card_expedition_chrome()
+	await _test_map_card_collection_time_label()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
@@ -308,6 +309,41 @@ func _test_map_card_expedition_chrome() -> void:
 		exp.pressed.emit()
 		await process_frame
 		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the card Expedition button opens loadout")
+	hx.queue_free()
+
+func _test_map_card_collection_time_label() -> void:
+	fresh("map_card_collection_time_label")
+	var z := G.hub_map()
+	var map_id := String(G.MAPS[z].id)
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	var g := Save.grove()
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	g["last_map"] = map_id
+	Save.grove_write()
+
+	var now := Time.get_unix_time_from_system()
+	Habitat.hand_add("ember", 1)
+	Habitat.place(map_id, 0, now)
+	g = Save.grove()
+	g["hab_prod"] = {map_id: {"acc": 1.25, "last": now}}
+	Save.grove_write()
+
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	hx._login_shown_launch = true
+	if hx.content == null:
+		hx._ready()
+	hx.unlocks = unl
+	hx._open_select()
+	await create_timer(0.05).timeout
+	var bar := hx.content.find_child("MapHabitatProgressBar", true, false) as Control
+	var label := hx.content.find_child("MapHabitatProgressTimeLabel", true, false) as Label
+	ok(bar != null, "eligible map cards show the collection progress bar")
+	ok(label != null and label.get_parent() == bar, "the collection progress bar owns a remaining-time label")
+	ok(label != null and label.text == "15h", "the collection progress bar shows compact time remaining to full")
 	hx.queue_free()
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------

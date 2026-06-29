@@ -289,6 +289,18 @@ func _test_production() -> void:
 	var mg := String(G.MAPS[0].id)
 	ok(Habitat.rate(mg) == 0 and Habitat.accrual_cap(mg) == 0.0, "an empty map has no speed and no cap")
 	ok(Habitat.pending(mg, far) == 0.0, "an empty map accrues nothing")
+	ok(Habitat.seconds_until_full(mg, t0) < 0.0, "an empty map has no meaningful time-to-full")
+
+	# TIME TO FULL: the map-card bar shows pending/cap, so its remaining time is (cap - pending) / speed.
+	fresh("habitat_seconds_until_full")
+	var mtf := String(G.MAPS[0].id)
+	Habitat.hand_add(farm_kind, 1)
+	Habitat.place(mtf, 0, t0)
+	var speed_per_second := Habitat.rate(mtf) * Habitat.UNITS_PER_HOUR_PER_TIER * Habitat.reward_mult(mtf) / 3600.0
+	var expected_left := (Habitat.accrual_cap(mtf) - Habitat.pending(mtf, t0 + 3600.0)) / speed_per_second
+	ok(abs(Habitat.seconds_until_full(mtf, t0 + 3600.0) - expected_left) < 0.001, \
+		"seconds_until_full reports the remaining seconds to the progress-bar cap")
+	ok(Habitat.seconds_until_full(mtf, far) == 0.0, "seconds_until_full is zero once the progress bar is full")
 
 	# COLLECT pays floor(pending) of the map's currency directly (MULT baked into pending)
 	fresh("habitat_collect_coins")
