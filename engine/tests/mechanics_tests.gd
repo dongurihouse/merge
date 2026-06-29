@@ -301,6 +301,18 @@ func _initialize() -> void:
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
 	ok(G.cap_quest_lines([1, 2, 3, 4, 5, 21, 22, 23], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
 	ok(G.cap_quest_lines([1, 2, 3], 6) == [1, 2, 3], "a small pool is left untouched (footprint under the cap)")
+	# §14/§16 wire special quests into the askable pool: a special is asked only once REACHED with both ingredients live
+	ok(G.active_special_lines([1, 2], 2) == [71], "special 71 is asked once zone 2 is reached with ingredients [1,2] live")
+	ok(G.active_special_lines([1, 2], 1) == [], "a special is NOT asked before its zone is reached")
+	ok(G.active_special_lines([2, 3], 2) == [], "a special drops out once an ingredient line (1) has retired")
+	# no-strand invariant: every special the pool can ask has BOTH its ingredients producible in the base pool
+	var _bp := G.askable_lines(G.GENERATORS, 2, G.APPEAR_ALL)
+	var _all_producible := true
+	for s in G.active_special_lines(_bp, 8):
+		var _rr := G.zone_recipe(G.zone_of_line(int(s)))
+		if not (_bp.has(int(_rr[0])) and _bp.has(int(_rr[1]))):
+			_all_producible = false
+	ok(_all_producible, "every asked special has both ingredients in the base pool (producible -> no-strand)")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
 	ok(G.zone_map(0) == 0 and G.zone_map(6) == 0 and G.zone_map(7) == 1 and G.zone_map(22) == 4, "zone -> map via the spot distribution")

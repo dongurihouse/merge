@@ -104,6 +104,7 @@ var treat_exp := 0
 var treat_acorn := 0
 var acorns := 0              # acorn (premium) balance — previously unmodeled; the §6 faucets mint it
 var merges := 0             # total board merges (drives special-drop volume)
+var specials_crafted := 0   # #14/#16 special (merge-line) quests delivered — proves the craft path is live
 var treat_gens := 0         # §6.D treat generators spawned over the run
 var _pending_chests := 0    # banked special-drop chests awaiting a key (paired-open model)
 var _pending_keys := 0
@@ -162,7 +163,7 @@ func _initialize() -> void:
 		("  (runway: day %d)" % map_done_day) if map_done_day > 0 else "  (runway exceeds the %d-day window)" % days])
 	print("  spots claimed: %d/23 · maps completed: %d · level %d (exp earned %d)" % \
 		[unlocks.size(), gates_reached, G.level_for_exp(exp_earned), exp_earned])
-	print("  merchant sells: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, open_low_mark, jams])
+	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 
 	var pass_all := true
@@ -643,7 +644,10 @@ func _refill_quests() -> void:
 			var it := G.quest_item(q)
 			if not it.is_empty():
 				avoid.append(int(it.line) * 100 + int(it.tier))
-		live_quests.append(G.gen_quest(_level(), _live_lines(), rng, avoid))
+		# #14/#16 mirror quests.gd: pool = the live base lines PLUS the craftable specials, footprint-capped.
+		var base_lines := _live_lines()
+		var pool: Array = G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, unlocks.size()))
+		live_quests.append(G.gen_quest(_level(), pool, rng, avoid))
 	while live_quests.size() > want:
 		live_quests.pop_back()
 
@@ -651,8 +655,21 @@ func _wanted_lines() -> Array:
 	var out: Array = []
 	for q in live_quests:
 		var it := G.quest_item(q)
-		if not it.is_empty() and not out.has(int(it.line)):
-			out.append(int(it.line))
+		if it.is_empty():
+			continue
+		for li in _quest_pop_lines(int(it.line)):   # a special expands to its two ingredient base lines (what's popped)
+			if not out.has(int(li)):
+				out.append(int(li))
+	return out
+
+# The base lines the bot must POP to satisfy a quest: the line itself (a base ask), or its two ingredient
+# base lines (a SPECIAL ask — the special has no generator; it is CRAFTED from the ingredients, Core §6.G).
+func _quest_pop_lines(line: int) -> Array:
+	if G.gen_for_line(int(line)) != "":
+		return [int(line)]
+	var out: Array = []
+	for il in G.zone_recipe(G.zone_of_line(int(line))):
+		out.append(int(il))
 	return out
 
 # §6 mirror of BoardLogic.wanted_tiers: the poppable asked tiers per pool line — so the sim's
@@ -663,18 +680,25 @@ func _wanted_tiers(pool: Array) -> Dictionary:
 		var it := G.quest_item(q)
 		if it.is_empty():
 			continue
-		var li := int(it.line)
 		var t := int(it.tier)
-		if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
-			if not out.has(li):
-				out[li] = []
-			if not out[li].has(t):
-				out[li].append(t)
+		if t < 1 or t > G.TIER_ODDS.size():
+			continue
+		for li in _quest_pop_lines(int(it.line)):   # a special biases the pop tier on its ingredient lines
+			if pool.has(int(li)):
+				if not out.has(int(li)):
+					out[int(li)] = []
+				if not out[int(li)].has(t):
+					out[int(li)].append(t)
 	return out
 
 func _payable(q: Dictionary) -> bool:
 	var it := G.quest_item(q)
-	return board.count_of(int(it.line) * 100 + int(it.tier)) >= 1
+	var line := int(it.line)
+	var tier := int(it.tier)
+	if G.gen_for_line(line) == "":   # a SPECIAL → craftable once BOTH ingredient base lines sit at the asked tier
+		var r := G.zone_recipe(G.zone_of_line(line))
+		return r.size() == 2 and board.count_of(int(r[0]) * 100 + tier) >= 1 and board.count_of(int(r[1]) * 100 + tier) >= 1
+	return board.count_of(line * 100 + tier) >= 1
 
 func _play_session() -> Dictionary:
 	var s_exp := 0
@@ -711,7 +735,13 @@ func _play_session() -> Dictionary:
 			if not _payable(q):
 				continue
 			var it := G.quest_item(q)
-			board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
+			if G.gen_for_line(int(it.line)) == "":   # craft + deliver a special: consume BOTH ingredient base items
+				var r := G.zone_recipe(G.zone_of_line(int(it.line)))
+				board.take(board.first_item_of(int(r[0]) * 100 + int(it.tier)))
+				board.take(board.first_item_of(int(r[1]) * 100 + int(it.tier)))
+				specials_crafted += 1
+			else:
+				board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
 			var rw: Dictionary = q.reward
 			var sp_exp := int(rw.exp)              # effort-based exp (was rw.stars — the field is `exp` now)
 			s_exp += sp_exp

@@ -269,7 +269,8 @@ static func special_for_pair(line_a: int, line_b: int) -> int:
 			continue
 		var r := zone_recipe(z)
 		if r.size() == 2 and ((int(r[0]) == int(line_a) and int(r[1]) == int(line_b)) or (int(r[0]) == int(line_b) and int(r[1]) == int(line_a))):
-			return zone_line(z)
+			var s := zone_line(z)
+			return s if LINES.has(s) else 0   # 76-77 unauthored (no LINES def) → no craft (would make an unrenderable item)
 	return 0
 
 # --- §7 quest-side generator cap (gen redesign #16, RE-SCOPED) -----------------------------------------
@@ -348,6 +349,25 @@ static func active_base_lines(current_zone: int) -> Array:
 			out.append(zone_line(z))
 		z -= 1
 	out.reverse()
+	return out
+
+# The SPECIAL (merge) lines the player can be ASKED for right now (gen redesign #14/#16): a special whose
+# zone has been REACHED (current_zone = spots restored) AND whose two ingredient base lines are BOTH still in
+# `base_lines` — so it is craftable NOW (pop both ingredients, merge them, Core §6.G). Gating on the live
+# ingredients keeps every special quest PRODUCIBLE (no-strand) and lets cap_quest_lines fold its shared
+# generators into the footprint cap (a special adds no generator the base asks didn't already need).
+static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
+	var out: Array = []
+	for z in range(ZONE_COUNT):
+		if not zone_is_special(z):
+			continue
+		if z > current_zone:
+			break                                  # zones are reached in order — nothing past current_zone yet
+		var r := zone_recipe(z)
+		# LINES.has gate: specials 76-77 have no art/def yet (ZONE_SPECIAL_LINES lists them; LINES doesn't) —
+		# keep them DORMANT (never asked) until authored, so a quest card always has a piece to render.
+		if r.size() == 2 and base_lines.has(int(r[0])) and base_lines.has(int(r[1])) and LINES.has(zone_line(z)):
+			out.append(zone_line(z))
 	return out
 
 # The generator the player is OWED but lacks (birth-on-tap, Core §6.B): the newest active base line whose
