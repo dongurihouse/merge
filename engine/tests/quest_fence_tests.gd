@@ -7,6 +7,7 @@ extends SceneTree
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
+const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 
 var _pass := 0
 var _fail := 0
@@ -108,6 +109,21 @@ func _initialize() -> void:
 		over.append({"line": 1, "tier": 1, "reward": {"exp": 1, "coins": 0}})
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
 	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
+
+	# --- BIRTH-ON-TAP board invariant: a fresh map-0 board seeds + grows to the ANCHOR ONLY (gen_1 / line 1) —
+	# --- the produceable set the fence must match. grow_gens is the legacy appear_level staging path; with
+	# --- appear_level retired (every gen defaults to 0) it must NOT place the cell-less birth-on-tap gens
+	# --- (gen_2..5) — doing so dropped a phantom gen onto the (-1,-1) sentinel cell, which then read as
+	# --- "owned" and blocked the real generator's birth-on-tap (board._produce_due_generators). ---
+	var pbm := BoardModel.new()
+	pbm.seed_gens(0)
+	pbm.grow_gens(0, 99)                                # high level: the old path grew EVERY map-0 gen in at once
+	ok(not pbm.gens.has(Vector2i(-1, -1)), "grow_gens never registers a phantom generator at the (-1,-1) sentinel")
+	var pbm_lines: Array = []
+	for pbm_id in pbm.gens.values():
+		pbm_lines.append(int(G.gen_def(G.GENERATORS, String(pbm_id)).get("line", 0)))
+	pbm_lines.sort()
+	ok(pbm_lines == [1], "a fresh map-0 board is anchor-only (line 1); birth-on-tap gens are not grown by level")
 
 	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-items window (the last ≤5 asked
 	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence

@@ -183,6 +183,10 @@ func set_active_gens(spots: int, level: int = G.APPEAR_ALL) -> Array:
 ## Idempotent: a generator already on the board or deliberately stored in gen_bag is skipped,
 ## so this is safe to call on every board open / level-up. Returns the ids newly installed
 ## (for a beat). Does NOT install the next map's generators (those arrive via gen_bag).
+## Gen redesign: a birth-on-tap generator carries NO authored cell (gen_cell_of → (-1,-1)); it is
+## placed dynamically by board._produce_due_generators when its zone opens, so it is SKIPPED here.
+## (Without this guard the dead appear_level default 0 grew every cell-less gen onto the (-1,-1)
+## sentinel — a phantom that then read as "owned" and blocked the real birth-on-tap.)
 func grow_gens(map: int, level: int) -> Array:
 	var added: Array = []
 	for g in G.generators_for_map(G.GENERATORS, map, level):
@@ -191,7 +195,10 @@ func grow_gens(map: int, level: int) -> Array:
 			continue
 		if gen_bag.has(id):
 			continue
-		place_gen(id, G.gen_cell_of(G.GENERATORS, id))
+		var cell := G.gen_cell_of(G.GENERATORS, id)
+		if cell == Vector2i(-1, -1):
+			continue
+		place_gen(id, cell)
 		added.append(id)
 	return added
 
