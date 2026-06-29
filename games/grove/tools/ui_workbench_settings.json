@@ -344,6 +344,10 @@
 	"map_card": {
 		"card_h_frac": 19.0,
 		"edge_sparkle": 60.0,
+		"expedition_button_icon_scale": 64.0,
+		"expedition_button_px": 82.0,
+		"expedition_button_x": 0.0,
+		"expedition_button_y": 0.0,
 		"pill_max": 290.0,
 		"pill_min": 170.0,
 		"pill_w_frac": 30.0,

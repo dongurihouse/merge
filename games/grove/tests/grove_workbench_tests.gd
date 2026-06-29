@@ -1782,6 +1782,11 @@ func _test_gold_badge_consumers(view) -> void:
 		shelf_part_knobs_saved = shelf_part_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
 	ok(shelf_part_knobs_saved, \
 		"map_card opts carry saved reward shelf icon/text/button size and location knobs")
+	var expedition_keys := ["expedition_button_px", "expedition_button_x", "expedition_button_y", "expedition_button_icon_scale"]
+	var expedition_knobs_saved := true
+	for k in expedition_keys:
+		expedition_knobs_saved = expedition_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
+	ok(expedition_knobs_saved, "map_card opts carry saved Expedition button size and position knobs")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
 		"the Workbench map-card sidebar exposes resident slot-size and gap sliders")
@@ -1803,6 +1808,11 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_h\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_y\""), \
 		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_px\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_x\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_y\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_icon_scale\""), \
+		"the Workbench map-card sidebar exposes Expedition button sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": bool(p.open) and bool(p.done)"), \
 		"the Workbench map-card preview requests the resident-slot overlay only for DONE (completed habitat) cards")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open) and bool(p.done)"), \
@@ -1838,6 +1848,8 @@ func _test_gold_badge_consumers(view) -> void:
 		"the Workbench done/restored map-card preview swaps the count pill for the habitat reward shelf")
 	ok(done_card.find_child("MapResidentRailPreview", true, false) != null, \
 		"the Workbench done/restored map-card preview shows the resident rail (the completed habitat card)")
+	ok(done_card.find_child("MapCardExpeditionButtonPreview", true, false) != null, \
+		"the Workbench done/restored map-card preview shows the Expedition button")
 	mc_params["open"] = saved_mc_open
 	mc_params["done"] = saved_mc_done
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)

@@ -313,7 +313,7 @@ func _open_map(z: int) -> void:
 	_build_map()
 	_refresh_chrome_badges()             # Daily · Vault · Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
-	_refresh_residents_btn()             # show/hide the Expedition rail badge for the map just opened
+	_refresh_residents_btn()             # legacy no-op; Expedition now lives on eligible map cards
 
 func _open_select() -> void:
 	_view = "select"
@@ -1256,8 +1256,38 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 			shelf.add_child(useb)
 
 	card.add_child(shelf)
+	_add_expedition_button(card, z, opts, shelf_rect)
 
 	return card
+
+func _add_expedition_button(card: Control, z: int, opts: Dictionary, shelf_rect: Rect2) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	var HC: GDScript = load(HOME_CHROME_PATH)
+	if Kit == null or HC == null:
+		return
+	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
+	var b: Button = Kit.home_button({
+		"icon": HC.ICON_EXPEDITION,
+		"caption": "",
+		"tooltip": "Expedition",
+		"action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_expedition(z)
+	}, {
+		"px": px,
+		"shape": "rect",
+		"icon_scale": clampf(float(opts.get("expedition_button_icon_scale", 0.64)), 0.35, 0.90),
+		"fill_alpha": 100,
+		"badge": opts.get("badge", {}),
+	})
+	b.name = "MapCardExpeditionButton"
+	b.set_meta("map_id", String(G.MAPS[z].id))
+	b.set_meta("icon_id", HC.ICON_EXPEDITION)
+	b.mouse_filter = Control.MOUSE_FILTER_STOP
+	b.size = Vector2(px, px)
+	b.position = shelf_rect.position + Vector2(shelf_rect.size.x - px, -px - 6.0) \
+		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
+	card.add_child(b)
 
 # The housed-spirit STRIP down a card's right side — a translucent vertical plate carrying the placed orbs
 # (then empty slots up to capacity), arranged as a stable two-column / four-row rail. The whole strip
@@ -2463,10 +2493,14 @@ func _dock_label(text: String, size: int, bold: bool = false) -> Label:
 # The EXPEDITION entry: the Load out as an overlay dialog (the start-expedition dialog). Spend coins on
 # stackable boosts, then Set off → the Rush (a scene) → Trade → back to the map with spirits in hand.
 # Replaces the standalone Loadout scene; built over a veil with the same look as the other map dialogs.
-func _open_expedition() -> void:
+func _open_expedition(z: int = -1) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
+	if z < 0:
+		z = _map_idx
+	var source_z := clampi(z, 0, G.MAPS.size() - 1)
+	var source_map_id := String(G.MAPS[source_z].id)
 	var equip := {"v": {}}                # boxed so the toggle callbacks can mutate the chosen boosts
 	var overlay := Overlay.mount(self, "ExpeditionOverlay")
 	var veil := ColorRect.new()
@@ -2537,7 +2571,7 @@ func _open_expedition() -> void:
 			return
 		if cost > 0:
 			Save.spend(cost, "expedition")
-		Explore.begin_run(equip.v)
+		Explore.begin_run(equip.v, source_map_id)
 		Audio.play("button_tap", -2.0)
 		SceneWarm.go(get_tree(), "res://engine/scenes/ExploreRush.tscn"))
 	actions.add_child(go)
@@ -2715,12 +2749,6 @@ func _build_liveops_rail() -> void:
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(inbox, _inbox_badge, bover)
-	var open_expedition := func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_expedition()
-	var expedition := _rail_button(HC.ICON_EXPEDITION, "Expedition", open_expedition)
-	_residents_btn = expedition
-	_place_rail(expedition, top, slot, step); slot += 1
 	_refresh_residents_btn()
 	_refresh_liveops_badges()
 
