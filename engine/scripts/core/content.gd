@@ -1237,10 +1237,10 @@ static func accumulator_kind_of(id: String) -> String:
 
 # The generator icon for an id — the merge-generator roster first, then the accumulators. One lookup so
 # _make_generator renders both kinds of on-board "generator" from the same path.
-static func gen_tex(id: String) -> String:
+static func gen_tex(id: String, tier: int = 1) -> String:
 	var d := gen_def(GENERATORS, id)
 	if not d.is_empty():
-		return String(d.get("tex", ""))
+		return _tiered_gen_tex(String(d.get("tex", "")), tier)
 	var kind := accumulator_kind_of(id)
 	if kind != "":
 		return String(ACCUMULATORS[kind].get("tex", ""))
@@ -1248,6 +1248,19 @@ static func gen_tex(id: String) -> String:
 		var idx := TREAT_LINES.find(treat_line_of(id))
 		return String(TREAT_GEN_TEX[maxi(0, idx) % TREAT_GEN_TEX.size()])
 	return ""
+
+static func _tiered_gen_tex(tex: String, tier: int) -> String:
+	if tier <= 1 or tex == "":
+		return tex
+	var file := tex.get_file()
+	if not file.begins_with("generators_") or not file.ends_with(".png"):
+		return tex
+	var stem := file.trim_prefix("generators_").trim_suffix(".png")
+	if not stem.is_valid_int():
+		return tex
+	var upgraded := int(stem) + 17
+	var candidate := "%s/generators_%d.png" % [tex.get_base_dir(), upgraded]
+	return candidate if ResourceLoader.exists("res://games/grove/assets/%s" % candidate) else tex
 
 # --- §6.D temporary treat generators (the main generator occasionally spawns one) ---------------------
 static func rolls_treat_spawn(rng: RandomNumberGenerator) -> bool:

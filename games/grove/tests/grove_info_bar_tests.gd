@@ -275,6 +275,12 @@ func _initialize() -> void:
 		g["seen"][str(probe * 100 + 1)] = true
 		var lit: Array = board_scene._gen_line_entries(gid)
 		ok(bool(lit[0].seen) and int(lit[0].code) == probe * 100 + 1, "a seen line shows its lowest-seen tier piece")
+		board_scene.board.gen_tiers[gcell] = 2
+		board_scene._rebuild_all()
+		ok(_has_texture_suffix(board_scene.gen_nodes.get(gcell), "generators_18.png"), "tier-2 generator uses upgraded board art")
+		board_scene._select_generator(gcell)
+		ok(desc_label != null and desc_label.visible and desc_label.text.begins_with("Tier 2"), "generator info bar shows the selected generator tier")
+		ok(_has_texture_suffix(board_scene._info_icon, "generators_18.png"), "generator info bar preview uses upgraded tier art")
 		# wiring: selecting the generator enables ⓘ, and ⓘ opens the Producing overlay (feature is on).
 		board_scene._select_generator(gcell)
 		ok(board_scene._info_btn.disabled == live_hides_info, "selecting a generator applies the configured info button visibility")
@@ -585,3 +591,17 @@ func _first_empty_cell(board, skip: Array) -> Vector2i:
 		if not board.board.is_gen(c) and not skip.has(c):
 			return c
 	return Vector2i(-1, -1)
+
+func _has_texture_suffix(root: Node, suffix: String) -> bool:
+	if root == null:
+		return false
+	if root.has_meta("gen_tex_path") and String(root.get_meta("gen_tex_path")).ends_with(suffix):
+		return true
+	if root is TextureRect and root.texture != null:
+		var path := String(root.texture.resource_path)
+		if path.ends_with(suffix):
+			return true
+	for child in root.get_children():
+		if _has_texture_suffix(child, suffix):
+			return true
+	return false

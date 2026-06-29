@@ -328,12 +328,15 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 
 # `hl` is the GEN-highlight override dict (from the UI workbench via Kit.gen_highlight_opts_from_config);
 # absent keys fall back to the GEN_* consts below, so make_generator(id, csz) renders the shipped look.
-static func make_generator(id: String, csz: float, hl: Dictionary = {}) -> Control:
+static func make_generator(id: String, csz: float, hl: Dictionary = {}, tier: int = 1) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)   # roster def (empty for an accumulator — art still resolves below)
 	var holder := _make_holder(csz)
 	_add_contact_shadow(holder, csz)   # same contact shadow as a piece — generators ground identically
 	_add_gen_glow(holder, csz, hl)     # GEN highlight (1/3): a warm halo BEHIND the art (added before it)
-	var path: String = Game.art(G.gen_tex(id))   # merge-gen roster OR an accumulator (§6.C) — one resolver
+	var path: String = Game.art(G.gen_tex(id, tier))   # merge-gen roster OR an accumulator (§6.C) — one resolver
+	holder.set_meta("gen_id", id)
+	holder.set_meta("gen_tier", tier)
+	holder.set_meta("gen_tex_path", path)
 	if ResourceLoader.exists(path):
 		_add_gen_outline(holder, csz, path, hl)   # GEN highlight (2/3): gold rim tracing the silhouette, BEHIND the art
 		_add_sprite(holder, _content_tex(path), csz, ITEM_INSET)   # same crop-to-content + inset as a piece

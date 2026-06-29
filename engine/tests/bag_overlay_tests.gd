@@ -128,7 +128,8 @@ func _initialize() -> void:
 	var gen_overlay := BagOverlay.open(gen_host, {
 		"bag": [], "owned": start, "balance": 12,
 		"max_slots": cap, "start_slots": start, "prices": prices,
-		"gen_bag": ["acc_water", "acc_coins", "acc_exp"],
+		"gen_bag": ["acc_water", "acc_coins", "acc_exp", "gen_1"],
+		"gen_bag_tiers": [1, 1, 1, 2],
 		"on_retrieve": func(_i: int) -> void: pass,
 		"on_buy_slot": func() -> void: pass,
 		"on_place_gen": func(_id: String) -> void: pass,
@@ -137,6 +138,7 @@ func _initialize() -> void:
 	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_rainbarrel.png"), "stored water accumulator renders rain barrel art")
 	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_coinpress.png"), "stored coin accumulator renders coin press art")
 	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_crystalfont.png"), "stored exp accumulator renders crystal font art")
+	ok(tex_paths.has("res://games/grove/assets/items/generator/generators_18.png"), "stored tier-2 base generator renders upgraded art")
 	ok(not _has_label(gen_overlay, "acc_water") and not _has_label(gen_overlay, "acc_coins") and not _has_label(gen_overlay, "acc_exp"),
 		"stored accumulator generator tiles do not fall back to raw ids")
 	gen_overlay.queue_free()

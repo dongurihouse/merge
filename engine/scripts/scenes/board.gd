@@ -1469,7 +1469,7 @@ func _rebuild_all() -> void:
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
 		var gid := String(board.gens[cell])
-		var gn := _make_generator(gid, ghl)
+		var gn := _make_generator(gid, ghl, board.gen_tier_at(cell))
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
@@ -1851,14 +1851,20 @@ func _select_generator(cell: Vector2i) -> void:
 	_place_info_button(false)
 	for c in _info_icon.get_children():
 		c.queue_free()
-	var prev := PieceView.make_generator(gid, _info_item_px, {})
+	var tier := board.gen_tier_at(cell)
+	var prev := PieceView.make_generator(gid, _info_item_px, {}, tier)
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid, cell)
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		var desc := G.generator_description(gid)
-		_info_desc_label.text = desc
-		_info_desc_label.visible = desc != ""
+		if not G.gen_def(G.GENERATORS, gid).is_empty():
+			var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
+			_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
+			_info_desc_label.visible = true
+		else:
+			_info_desc_label.text = desc
+			_info_desc_label.visible = desc != ""
 	var entries := _gen_line_entries(gid)
 	var show_info_btn := not entries.is_empty() and not _info_button_hidden
 	_info_btn.visible = show_info_btn
@@ -2151,6 +2157,7 @@ func _open_bag_overlay() -> void:
 		"on_retrieve": func(i: int) -> void: _retrieve_to_first_empty(i),
 		"on_buy_slot": _buy_bag_slot,
 		"gen_bag": board.gen_bag,
+		"gen_bag_tiers": board.gen_bag_tiers,
 		"on_place_gen": func(id: String) -> void:
 			var cells := board.empty_ground_cells()
 			if cells.is_empty():
@@ -2247,8 +2254,8 @@ func _refresh_locked_cells() -> void:
 		old.queue_free()
 		bramble_nodes[cell] = nb
 
-func _make_generator(id: String, hl: Dictionary = {}) -> Control:
-	return PieceView.make_generator(String(id), csz, hl)
+func _make_generator(id: String, hl: Dictionary = {}, tier: int = 1) -> Control:
+	return PieceView.make_generator(String(id), csz, hl, tier)
 
 # The GEN-highlight (glow / silhouette outline / sparkle) tuning saved in the UI workbench
 # ("generator" block). Absent file/keys → {} → make_generator falls back to its shipped GEN_* consts.

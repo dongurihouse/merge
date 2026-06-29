@@ -25,6 +25,7 @@ extends RefCounted
 ##     on_retrieve: Callable, # (index: int) -> a filled slot was tapped: pull the piece back out
 ##     on_buy_slot: Callable, # () -> the next (gold) tile was tapped: buy the next slot
 ##     gen_bag: Array,        # (optional) stored generator ids — a row below the grid (game-only)
+##     gen_bag_tiers: Array,  # (optional) tiers parallel to gen_bag
 ##     on_place_gen: Callable,# (optional) (id: String) -> a generator tile was tapped: place it
 ##     on_close: Callable })  # (optional) () -> the overlay was dismissed (any path)
 ## Returns the overlay root Control (already added to host).
@@ -84,6 +85,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var on_buy_slot: Callable = cfg.get("on_buy_slot", Callable())
 	var on_close: Callable = cfg.get("on_close", Callable())
 	var gen_bag: Array = cfg.get("gen_bag", [])
+	var gen_bag_tiers: Array = cfg.get("gen_bag_tiers", [])
 	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
 
 	var overlay := Overlay.mount(host, OVERLAY_NAME)
@@ -163,7 +165,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 
 	# the generators section (game-only — no analogue in bag.png), inserted below the grid by the kit.
 	if not gen_bag.is_empty():
-		opts["extra"] = _gen_section(host, Kit, gen_bag, on_place_gen, dismiss)
+		opts["extra"] = _gen_section(host, Kit, gen_bag, gen_bag_tiers, on_place_gen, dismiss)
 
 	var dialog: Control = Kit.bag_dialog(entries, balance, width, opts)
 	cc.add_child(dialog)
@@ -173,7 +175,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 # The stored-generators row (a "Generators" label + a row of generator tiles) — built on the SAME
 # bag_card surface as the slots: each tile carries the generator's sprite (sized to the fitted cell via
 # make_content) and taps to place it.
-static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
+static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	var label := Label.new()
@@ -187,9 +189,10 @@ static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, on_place_
 	row.add_theme_constant_override("separation", 12)
 	col.add_child(row)
 	var co: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	for gid in gen_bag:
-		var gid_str := String(gid)
-		var gtex_path: String = Game.art(G.gen_tex(gid_str))
+	for i in gen_bag.size():
+		var gid_str := String(gen_bag[i])
+		var tier := int(gen_bag_tiers[i]) if i < gen_bag_tiers.size() else 1
+		var gtex_path: String = Game.art(G.gen_tex(gid_str, tier))
 		var make_gen := func(sz: float) -> Control:
 			if ResourceLoader.exists(gtex_path):
 				var gicon := TextureRect.new()
