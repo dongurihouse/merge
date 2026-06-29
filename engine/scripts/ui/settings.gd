@@ -17,7 +17,6 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
-const Debug = preload("res://engine/scripts/ui/debug.gd")           # authoring() gate for the debug-only rows
 const Identity = preload("res://engine/scripts/core/identity.gd")   # the Game Center player id (read-only display)
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "SettingsOverlay"
@@ -98,12 +97,11 @@ static func _entries(host: Control) -> Array:
 				Music.refresh()
 			Audio.play("button_tap", -2.0)
 		out.append(e)
-	# DEBUG-ONLY rows, gated exactly like the state-jump panel (Debug.authoring): a read-only Game
-	# Center id line and a destructive Reset-save action. Never present in a release build, headless
-	# logic suites, or quiet captures — so production players see the toggle list above and nothing more.
-	if Debug.authoring():
-		out.append(_gc_info_entry())
-		out.append(_reset_entry(host))
+	# Player-facing rows under the toggles: a read-only Game Center id line and a destructive Reset-save
+	# action (a two-tap confirm). Shown in every build — the GC id helps support identify a player, and
+	# Reset gives a clean "start over".
+	out.append(_gc_info_entry())
+	out.append(_reset_entry(host))
 	return out
 
 # The read-only Game Center id row: the signed-in player id, or a "not signed in" placeholder when there
