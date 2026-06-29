@@ -16,6 +16,7 @@ static var FLAGS := {
 	"discovery_ladder": true,     # tap item → upgrade-path card ("?" tiers)
 	"quest_ready_check": true,    # green ✓ badge when an ask is payable
 	"quest_ready_glow": true,     # board tile glows when a quest wants it; second tap of the focused tile delivers it
+	"quest_ready_front": true,    # a DELIVERABLE quest floats to the front of the giver fence (display-only reorder)
 	"sell_hints": true,           # W3: a one-time floater the first time a max-tier item lands (sell spares)
 	# juice
 	"breathe_cta": true,          # the ONE suggested next action breathes

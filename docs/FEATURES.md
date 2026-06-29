@@ -30,6 +30,7 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 | `idle_hint` | idle ~7s → a mergeable pair wiggles | `engine/scripts/scenes/board.gd` `_process()` (L302), `_hint_pair()` (L312) | keep — default ON, owner review pending |
 | `discovery_ladder` | tap item → upgrade-path card ("?" tiers) | `engine/scripts/scenes/board.gd` `_open_ladder()` (L2190) | keep — default ON, owner review pending |
 | `quest_ready_check` | green ✓ badge when an ask is payable | `engine/scripts/scenes/board.gd` `_refresh_giver_lights()` (L1084) | keep — default ON, owner review pending |
+| `quest_ready_front` | a deliverable quest floats to the front of the giver fence (display-only stable reorder) | `engine/scripts/scenes/board.gd` `_ready_first_order()`, `_reorder_giver_row()`; `engine/scripts/core/quests.gd` `ready_first()` | keep — default ON, owner review pending |
 | `sell_hints` | W3: stall brightens + "+N🪙" tag while dragging; 1st max-tier floater | `engine/scripts/scenes/board.gd` `_show_sell_affordance()` (L1047), `_note_item_landed()` (L1064) | keep — default ON, owner review pending |
 
 ## juice

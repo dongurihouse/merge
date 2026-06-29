@@ -149,6 +149,7 @@ var _fence_h := FENCE_H          # runtime quest-row height, optionally driven b
 var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
 var _board_item_inset := 0.16    # saved piece-in-cell inset (from Slot-cell content_frac; 0.16 = the old shipped look)
 var giver_chips: Array = []        # [{chip, qi}]
+var _giver_row: Control = null     # the HBox the giver cards sit in — kept so the live refresh can reorder cards (ready-first)
 var home_btn: Button                 # the centre nav Home button — IS the decorate jump; breathes when a spot is affordable
 # the bottom-nav bag is a circular well (the always-present bag row is retired).
 # bag_btn: tap → full bag, drag a board item onto it → stash; bag_content (a CenterContainer)
@@ -929,12 +930,65 @@ func _active_quest_idx() -> Array:
 		out.append(i)
 	return out
 
+# A quest is "ready" (deliverable) when its single asked item is on the board RIGHT NOW and the fence is
+# not inert — the SAME notion the giver ✓/bob read (BoardLogic.quest_payable, gated by _quest_is_inert).
+func _quest_ready(qi: int) -> bool:
+	if qi < 0 or qi >= quests.size():
+		return false
+	if _quest_is_inert(qi):
+		return false
+	return BoardLogic.quest_payable(board, quests[qi])
+
+# Reorder quest indices so DELIVERABLE quests sit at the FRONT of the fence (a stable partition — see
+# Quests.ready_first). Display-only: the persisted `quests` array (whose order drives refill RNG, due_gen
+# and giver assignment) is untouched. A no-op when the assist flag is off.
+func _ready_first_order(idx: Array) -> Array:
+	if not Features.on("quest_ready_front"):
+		return idx
+	var ready: Array = []
+	for qi in idx:
+		ready.append(_quest_ready(int(qi)))
+	return Quests.ready_first(idx, ready)
+
+# Live reorder of the rendered giver cards to match _ready_first_order, run on the refresh beat so a quest
+# going deliverable (via a merge) floats to the front WITHOUT a full rebuild. Moves the existing card nodes
+# (FX/bust state intact); the leading Purge card, if any, keeps slot 0. Reads each card's `ready` flag
+# stamped by _refresh_giver_lights. No-op when the flag is off, the row is gone, or the order is unchanged.
+func _reorder_giver_row() -> void:
+	if not Features.on("quest_ready_front"):
+		return
+	if _giver_row == null or not is_instance_valid(_giver_row) or giver_chips.is_empty():
+		return
+	# Desired order = ready-first, then by original quest index within each group — IDENTICAL to what a
+	# fresh _rebuild_givers produces, so the live order is self-correcting: a card that loses readiness
+	# settles back into its resting (quest-index) slot rather than drifting at the front.
+	var by_qi: Array = giver_chips.duplicate()
+	by_qi.sort_custom(func(a, b): return int(a.get("qi", -1)) < int(b.get("qi", -1)))
+	var ready: Array = []
+	for e in by_qi:
+		ready.append(bool(e.get("ready", false)))
+	var order: Array = Quests.ready_first(by_qi, ready)
+	var changed := false
+	for i in range(order.size()):
+		if int(order[i].get("qi", -1)) != int(giver_chips[i].get("qi", -1)):
+			changed = true
+			break
+	if not changed:
+		return
+	var base := _giver_row.get_child_count() - giver_chips.size()   # leading non-card children (the Purge card) stay ahead
+	for k in range(order.size()):
+		var chip: Control = order[k].chip
+		if is_instance_valid(chip):
+			_giver_row.move_child(chip, base + k)
+	giver_chips = order
+
 func _rebuild_givers() -> void:
 	for c in giver_bar.get_children():
 		c.queue_free()
 	giver_chips.clear()
+	_giver_row = null
 	_refill_quests()                          # §7: size the live fence to the meter before rendering
-	var qidx := _active_quest_idx()
+	var qidx := _ready_first_order(_active_quest_idx())   # deliverable quests render at the FRONT of the fence
 	var stands := qidx.size()
 	var show_purge := _show_purge_card()
 	# the fence renders while there are quests OR the Purge card is showing — the Purge card now stands
@@ -973,6 +1027,7 @@ func _rebuild_givers() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # left-aligned: spare width falls on the right when it all fits
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
 	scroll.add_child(row)
+	_giver_row = row
 	if show_purge:
 		row.add_child(_make_purge_card(stand_w))
 	var quest_slots := mini(int(G.MAX_GIVERS), qidx.size())
@@ -1174,6 +1229,7 @@ func _refresh_giver_lights() -> void:
 		# req 1: once the bank can finish the whole map the fence goes GREYED + inert instead of empty —
 		# dim the card, drop its ready ✓ + bob, and the tap handlers no-op (see _quest_is_inert).
 		if _quest_is_inert(int(e.get("qi", -1))):
+			e["ready"] = false                  # inert quests never float to the front
 			var ichip: Control = e.chip
 			ichip.modulate = PURGE_DIM
 			var iitem: Dictionary = e.get("item", {})
@@ -1185,6 +1241,7 @@ func _refresh_giver_lights() -> void:
 				GiverStand.bob(ibust, false)
 			continue
 		var lit := _giver_is_payable(e)
+		e["ready"] = lit                        # deliverable → floats to the front of the fence (see _reorder_giver_row)
 		var ready_ui := lit and Features.on("quest_ready_check")
 		var check: Control = e.check
 		if check != null and is_instance_valid(check):
@@ -1201,6 +1258,7 @@ func _refresh_giver_lights() -> void:
 		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
+	_reorder_giver_row()                          # float any now-deliverable card to the front (display-only)
 	_refresh_quest_ready_marks()                  # board-side twin: glow every board tile a live quest wants
 
 # The asked item codes (line*100+tier) the live fence currently wants, as a set. Empty while the fence

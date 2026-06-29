@@ -165,5 +165,13 @@ func _initialize() -> void:
 			saw_high = true
 	ok(saw_high, "a high-level player can be asked at or above the old ceiling")
 
+	# --- ready_first: float DELIVERABLE quests to the FRONT of the fence, stable within each group ---
+	ok(Quests.ready_first([], []) == [], "ready_first of an empty fence is empty")
+	ok(Quests.ready_first([10, 11, 12], [false, false, false]) == [10, 11, 12], "no ready quest → order is unchanged")
+	ok(Quests.ready_first([10, 11, 12], [true, true, true]) == [10, 11, 12], "all ready → order is unchanged")
+	ok(Quests.ready_first([10, 11, 12, 13], [false, true, false, true]) == [11, 13, 10, 12], "ready quests float to the front, each group keeps its order (stable)")
+	ok(Quests.ready_first([10, 11], []) == [10, 11], "a short/absent ready mask treats every quest as not-ready (order held)")
+	ok(Quests.ready_first([10, 11, 12], [false, false, true]) == [12, 10, 11], "a single ready quest at the back jumps to the front")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
