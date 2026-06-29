@@ -2667,6 +2667,10 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	var pool: Array = ctx["pool"]
 	var wanted: Array = ctx["wanted"]
 	var giver_quests: Array = ctx["giver_quests"]
+	# gen redesign #4: a per-line generator pops ONLY its own line (the legacy shared windowed pool is gone).
+	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
+	if gen_line > 0:
+		pool = [gen_line]
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
