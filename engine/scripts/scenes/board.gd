@@ -11,6 +11,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -755,25 +756,11 @@ func _push_recent_giver(g: int) -> void:
 	while _recent_givers.size() > 5:
 		_recent_givers.pop_front()
 
-# Record an asked item code (line*100+tier) in the rolling window (mirrors _push_recent_giver): a NEW
-# quest's item is steered off the last ≤5 asks, so the same item does not reappear within 5 — a
-# different TIER of the same line still counts as variety (§7 anti-monotony).
-func _push_recent_item(code: int) -> void:
-	_recent_items.append(code)
-	while _recent_items.size() > 5:
-		_recent_items.pop_front()
-
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
 	quests = []
 	quests_map = _quest_map()
 	_refill_quests()
-
-func _quest_exp(q: Dictionary) -> int:
-	return Quests.exp(q)
-
-func _quest_coins(q: Dictionary) -> int:
-	return Quests.coins(q)
 
 func _persist() -> void:
 	var g := Save.grove()
@@ -3430,10 +3417,15 @@ func _deliver_from_board(cell: Vector2i) -> void:
 # flies it to `chip`, pays the quest's reward (exp + coins + level-up), and drops the quest from the
 # fence. `cell` is explicit so a board-tap consumes the EXACT tile tapped, not just first_item_of(code).
 func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
-	var q: Dictionary = quests[qi]
-	var it: Dictionary = G.quest_item(q)
-	var code := int(it.line) * 100 + int(it.tier)
-	board.take(cell)
+	# Snapshot the purge-vase meter BEFORE the action mutates exp/quests — the animation tweens from it.
+	var purge_before := _purge_progress()
+	# RULE: the whole state transition — consume the tile, drop the quest, remember the ask, advance exp
+	# (the ONE place exp earns), pay the coin faucet — lives in the pure, headless-tested action. The scene
+	# below is render-only: it reads the returned outcome to drive the fly, reward FX, level dialog, vase.
+	var out := BoardActions.deliver_quest(board, quests, _recent_items, qi, cell)
+	var sp_exp := int(out.exp)
+	var sp_coins := int(out.coins)
+	var levels_up := int(out.levels_up)
 	var n: Control = piece_nodes.get(cell)
 	piece_nodes.erase(cell)
 	if n != null and is_instance_valid(n):
@@ -3443,17 +3435,6 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 		t.tween_property(n, "position", dest, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		t.tween_property(n, "scale", Vector2(0.4, 0.4), 0.3)
 		t.chain().tween_callback(n.queue_free)
-	quests.remove_at(qi)                      # §7: the delivered quest leaves the live fence
-	if not it.is_empty():
-		_push_recent_item(code)               # remember this ask so the next ≤5 quests avoid the same item
-	# delivering a quest is the ONE place exp advances — earn_exp bumps the single exp total
-	# and reports the levels gained so the Level dialog can fire (the gift pays on Collect).
-	var purge_before := _purge_progress()
-	var sp_exp := _quest_exp(q)
-	var sp_coins := _quest_coins(q)
-	var levels_up := G.earn_exp(sp_exp)
-	if sp_coins > 0:
-		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
 	# (generators are no longer delivered here — they arrive when a generator tap produces a DUE tool;
 	#  see _produce_due_generators in _pop_seed.)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_exp, STRAW)
