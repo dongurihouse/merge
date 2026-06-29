@@ -12,12 +12,12 @@ const TOP_TIER := 12
 const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled from TOP_TIER
 
 # Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; a line
-# renders code-drawn from its `color` only if a tier sprite is missing. v1 = the home grove
-# (Acorn & Bloom, grove_spec §2): ONE line per map across maps 1 Farmhouse · 2 Barn · 3 Pond ·
-# 4 Orchard · 5 Meadow. Line code == map number (1-indexed). All five bases are fully arted
-# (12 tiers each). Wildflower (1) is the title line + the permanent ANCHOR (Seed satchel never
-# retires). Codes skip 9 (= COIN_LINE). Earlier drafts carried 22 lines / 2-per-map; the unused
-# lines (Milk, Reed, Lotus, Fish, Snail, Apple, Pear, Plum, …, Firefly) were retired here.
+# renders code-drawn from its `color` only if a tier sprite is missing. GEN REDESIGN (2026-06-28): the
+# 16 BASE lines below (1-5, 21-37) each get their OWN per-line generator (see GENERATORS), introduced one
+# per ZONE (= restoration spot). Specials 71-75 are CRAFTED by merging two base lines (Core §6.G) — no
+# generator. Wildflower (1) is the title line + the anchor (gen_1, the FTUE starter). Codes skip 9 (= COIN_LINE).
+# The §6.E `min_level` field on the Farm lines (61-66) is now VESTIGIAL — those lines aren't in the per-line
+# roster (shelved); the staged-line model is retired.
 const LINES := {
 	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3"), "desc": "Merge wildflowers to restore the first garden paths."},     # map 1 — Farmhouse
 	2: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0"), "desc": "Soft coop finds for orchard-side asks."},       # map 2 — Barn
