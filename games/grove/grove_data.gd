@@ -51,12 +51,10 @@ const LINES := {
 	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F"), "desc": "Little ringing tokens for gate rituals and asks."},
 	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F"), "desc": "Old gate pieces. Merge them toward a restored arch."},
 	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9"), "desc": "Pebbles marked with starlight. Higher tiers feel rare."},
-	# map idx 0 — The Farm (farmhouse), alongside the Wildflower anchor (line 1). WIRED onto the seed_satchel
-	# anchor (the single generator emits them — no extra generator) and STAGED via `min_level`: the FTUE
-	# board is tiny early, so all 6 live from L1 would jam it. min_level keeps each line off the askable/pop
-	# set until the player's level reaches it. Hearth embers (61) is min_level 1 — LIVE at L1, the board's
-	# SECOND starting line (its starters seed the open 3x3, see STARTER_ITEMS); the rest "grow in" one per
-	# level across L2–6, all live by L6 (before the Barn opens ~L8). (askable_lines gate; see lines_for_map.)
+	# map idx 0 — The Farm (farmhouse). Lines 61-66 are SHELVED (gen redesign 2026-06-28): they have NO
+	# generator in the roster, so they are never popped, asked, or seeded — `min_level` here is vestigial
+	# (see the LINES header). Kept as defs only (art still ships) pending a possible re-author. The Farm's
+	# live content is the Wildflower anchor (line 1) plus the per-zone base lines 2-4.
 	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F"), "min_level": 1, "desc": "Warm little coals for early quests around the farmhouse."},
 	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A"), "min_level": 2, "desc": "Fresh herbs for cozy kitchen asks."},
 	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9"), "min_level": 3, "desc": "Clear water from the old well. Merge into stronger supplies."},
@@ -251,15 +249,16 @@ static func resident_lines(map_id: String) -> Array:
 
 # BACKLOG (post-v1): premium 💎 surprise-capsule (no-loss, cosmetic, guardrails) — see grove_spec §1.
 
-# Starter items on the open 3x3 (besides the generator cell). The board OPENS with TWO live Farmhouse
-# lines so there is merge fuel for both from the first second: Wildflower (1, the anchor) and Hearth
-# embers (61, the first staged Farm line — min_level 1, so live at L1). Both are popped + quested from the
-# start; neither is premature. (Earlier this seeded Feather (line 2), the BARN anchor — not askable until
-# map 2 — so those starters sat dead the whole first map; replaced by a real L1 Farmhouse line.)
+# Starter items on the open 3x3 (besides the generator cell). The board OPENS with merge fuel for the
+# ANCHOR line only — Wildflower (101) — because gen_1 is the sole generator on a fresh map-0 board and each
+# generator pops only its OWN line (gen redesign 2026-06-28). INVARIANT: every seeded line must be
+# produceable on map 0 (mechanics_tests guards it) — a starter whose line has no generator is an orphan
+# that sits dead on the board forever. (This previously seeded Hearth embers (6101), whose line 61 was
+# shelved in the redesign, leaving 3 dead items on every new save — now all Wildflower.)
 const STARTER_ITEMS := {
 	Vector2i(3, 2): 101, Vector2i(3, 4): 101,
-	Vector2i(5, 2): 6101, Vector2i(5, 4): 6101,
-	Vector2i(4, 2): 101, Vector2i(4, 4): 6101,
+	Vector2i(5, 2): 101, Vector2i(5, 4): 101,
+	Vector2i(4, 2): 101, Vector2i(4, 4): 101,
 }
 
 

@@ -349,6 +349,16 @@ func _initialize() -> void:
 		if int(_g.map) != G.zone_map(int(_g.zone)):
 			_gen_maps_ok = false
 	ok(_gen_maps_ok, "every GENERATORS map matches the live zone_map(zone) — no hardcoded sell-band drift")
+	# drift guard: every line SEEDED on the fresh map-0 board (STARTER_ITEMS) must be PRODUCEABLE there — some
+	# map-0 generator pops it. A starter whose line has no generator is an orphan: nothing replenishes it and no
+	# quest asks it, so it sits dead on every fresh board. (Regressed when staged Farm lines 61-66 were shelved
+	# but STARTER_ITEMS still seeded Hearth embers 6101 — 3 dead items per new save.)
+	var _farm_lines: Array = G.lines_for_map(G.GENERATORS, 0)
+	var _starters_produceable := true
+	for _code in G.STARTER_ITEMS.values():
+		if not _farm_lines.has(int(_code) / 100):
+			_starters_produceable = false
+	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
 	ok(G.base_generator(71).is_empty(), "a special line has no generator")
 	# active-window + birth-on-tap (tasks 5/7 logic; additive — board wiring flips later)
 	ok(G.active_base_lines(0) == [1], "zone 0 -> 1 active base line")

@@ -28,6 +28,7 @@ func _initialize() -> void:
 
 	# 2. merge rules
 	ok(b.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "same code merges")
+	b.place(Vector2i(5, 2), 201)   # explicit 2nd line (Feather) — starters are now single-line (all Wildflower), so set up the cross-line case directly
 	ok(not b.can_merge(Vector2i(3, 2), Vector2i(5, 2)), "different lines never merge")
 	var produced := b.merge(Vector2i(3, 2), Vector2i(3, 4))
 	ok(produced == 102 and b.item_at(Vector2i(3, 2)) == 0 and b.item_at(Vector2i(3, 4)) == 102, \
@@ -163,7 +164,8 @@ func _initialize() -> void:
 	for cell in G.STARTER_ITEMS:
 		var k: int = G.STARTER_ITEMS[cell]
 		counts[k] = int(counts.get(k, 0)) + 1
-	ok(int(counts.get(101, 0)) >= 2 and int(counts.get(6101, 0)) >= 2, "starters give each of the 2 L1 lines (Wildflower 101 + Hearth embers 6101) a pair")
+	ok(int(counts.get(101, 0)) >= 2, "starters seed the Wildflower anchor (101) with a mergeable pair — first quests achievable")
+	ok(not counts.has(6101), "no orphan Hearth-ember (6101) starters — line 61 has no generator (mechanics_tests' produceable guard)")
 
 	# 9. exp total (Save) — the single progression number (no spendable balance)
 	fresh("exp")
