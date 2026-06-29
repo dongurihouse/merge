@@ -304,11 +304,11 @@ func _initialize() -> void:
 	ok(G.ACCUMULATORS.keys().has(G.pick_bonus_kind(bonus_rng)), "pick_bonus_kind returns a real accumulator kind")
 
 	# --- §6 zone progression (gen redesign 2026-06-28; additive — board wiring flips later) ---
-	ok(G.ZONE_BASE_LINES.size() == 16 and G.ZONE_SPECIAL_LINES.size() == 7 and G.ZONE_COUNT == 23, "23 zones = 16 base + 7 special")
+	ok(G.ZONE_BASE_LINES.size() == 17 and G.ZONE_SPECIAL_LINES.size() == 8 and G.ZONE_COUNT == 25, "25 zones = 17 base + 8 special (= the 25 live spots)")
 	ok(not G.zone_is_special(0) and not G.zone_is_special(1) and G.zone_is_special(2), "every 3rd zone (z%3==2) is special")
-	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(3) == 3 and G.zone_line(6) == 5, "base zones introduce the base lines in order")
-	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72, "special zones introduce the special lines")
-	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4], "a special is crafted from the two preceding base lines")
+	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(3) == 3 and G.zone_line(6) == 5 and G.zone_line(24) == 51, "base zones introduce the base lines in order (zone 24 = the 17th base, line 51)")
+	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72 and G.zone_line(23) == 78, "special zones introduce the special lines (zone 23 = the 8th special, line 78)")
+	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4] and G.zone_recipe(23) == [36, 37], "a special is crafted from the two preceding base lines")
 	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
 	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
@@ -335,9 +335,17 @@ func _initialize() -> void:
 	# new map index. Pins the boundaries so it tracks the vine layout instead of a hardcoded split.
 	ok(G.zone_map(0) == 0 and G.zone_map(5) == 0 and G.zone_map(6) == 1 and G.zone_map(9) == 1 and G.zone_map(10) == 2 and G.zone_map(16) == 2 and G.zone_map(17) == 3 and G.zone_map(20) == 3 and G.zone_map(21) == 4, "zone -> map tracks the live MAPS spot distribution")
 	ok(G.zone_of_line(1) == 0 and G.zone_of_line(5) == 6 and G.zone_of_line(71) == 2, "zone_of_line inverts zone_line")
-	ok(G.base_generators().size() == 16, "the per-line roster has one generator per base line")
+	ok(G.base_generators().size() == 17, "the per-line roster has one generator per base line")
 	var bgen := G.base_generator(2)
 	ok(bgen.id == "gen_2" and bgen.line == 2 and bgen.zone == 1 and bgen.map == 0, "a base generator carries its id/line/zone/map")
+	var bgen51 := G.base_generator(51)
+	ok(bgen51.id == "gen_51" and bgen51.line == 51 and bgen51.zone == 24 and bgen51.map == 4, "the 17th base line (51) lands at zone 24 in map 5")
+	# drift guard: each hardcoded GENERATORS.map must equal the live-derived zone_map(zone), so the sell band can't drift
+	var _gen_maps_ok := true
+	for _g in G.GENERATORS:
+		if int(_g.map) != G.zone_map(int(_g.zone)):
+			_gen_maps_ok = false
+	ok(_gen_maps_ok, "every GENERATORS map matches the live zone_map(zone) — no hardcoded sell-band drift")
 	ok(G.base_generator(71).is_empty(), "a special line has no generator")
 	# active-window + birth-on-tap (tasks 5/7 logic; additive — board wiring flips later)
 	ok(G.active_base_lines(0) == [1], "zone 0 -> 1 active base line")

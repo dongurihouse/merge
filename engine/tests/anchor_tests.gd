@@ -17,9 +17,10 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
-# map-0 base lines: the 5 per-line generators at zones 0,1,3,4,6 (gen redesign — was the seed_satchel anchor
-# emitting Wildflower + the staged Farm lines).
-const Z0_LINES := [1, 2, 3, 4, 5]
+# map-0 base lines: the 4 per-line generators at zones 0,1,3,4 (gen redesign — was the seed_satchel anchor
+# emitting Wildflower + the staged Farm lines). Under the live [6,4,7,4,4] layout map 0 has 6 spots = zones
+# 0-5 (4 base + the specials at zones 2/5); line 5 sits at zone 6 = map 1's first base line.
+const Z0_LINES := [1, 2, 3, 4]
 
 func _initialize() -> void:
 	# --- askable_lines == the ROLLING WINDOW of the last LINE_WINDOW maps, at EVERY map (older lines retire) ---
@@ -31,14 +32,14 @@ func _initialize() -> void:
 	for l in Z0_LINES:
 		ok(z0.has(l), "map-0 askable includes its own line %d" % l)
 
-	# --- gen redesign: map 0 hosts its 5 per-line BASE generators (lines 1-5 at zones 0,1,3,4,6); the old
+	# --- gen redesign: map 0 hosts its 4 per-line BASE generators (lines 1-4 at zones 0,1,3,4); the old
 	# Farm-line (61-66) min_level staging is RETIRED — every base line is live the moment its zone opens. ---
 	var z0_all := G.askable_lines(G.GENERATORS, 0, 99)
 	var m0_ok := true
 	for l in Z0_LINES:
 		if not z0_all.has(int(l)):
 			m0_ok = false
-	ok(m0_ok, "map-0's askable set is exactly its 5 per-line base lines")
+	ok(m0_ok, "map-0's askable set is exactly its 4 per-line base lines")
 	ok(not z0_all.has(61) and not z0_all.has(62), "the retired Farm lines (61-66) no longer appear in the pool")
 
 	# --- the ROLLING WINDOW: map-0 lines stay askable only while map 0 is within the last LINE_WINDOW maps

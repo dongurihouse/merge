@@ -13,7 +13,7 @@ const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled
 
 # Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; a line
 # renders code-drawn from its `color` only if a tier sprite is missing. GEN REDESIGN (2026-06-28): the
-# 16 BASE lines below (1-5, 21-37) each get their OWN per-line generator (see GENERATORS), introduced one
+# 17 BASE lines below (1-5, 21-37, 51) each get their OWN per-line generator (see GENERATORS), introduced one
 # per ZONE (= restoration spot). Specials 71-75 are CRAFTED by merging two base lines (Core §6.G) — no
 # generator. Wildflower (1) is the title line + the anchor (gen_1, the FTUE starter). Codes skip 9 (= COIN_LINE).
 # The §6.E `min_level` field on the Farm lines (61-66) is now VESTIGIAL — those lines aren't in the per-line
@@ -85,25 +85,27 @@ const LINES := {
 # (Mushroom), kept in items/generator/. Tool-shed (Garden tools) has no themed icon yet.
 const GENERATORS := [
 	# Gen redesign 2026-06-28: ONE generator per BASE line (Core §6.A), born on tap as its zone (= restoration
-	# spot) opens (§6.B). The 16 base lines in zone order; `zone` = global spot index, `map` = its painted map.
+	# spot) opens (§6.B). The 17 base lines in zone order; `zone` = global spot index, `map` = its painted map
+	# (which MUST equal G.zone_map(zone) = the live MAPS layout — a mechanics_tests guard pins it; can't drift).
 	# Specials (every 3rd zone) have NO generator (crafted, §6.G). The legacy 5-multi-line roster + map/lines[]
 	# model is RETIRED. Each generator carries `line` (singular) + `zone`; `lines` arrays are gone.
 	{"id": "gen_1",  "line": 1,  "zone": 0,  "map": 0, "cell": Vector2i(4, 3), "anchor": true, "tex": "items/generator/generators_1.png",  "label": "wildflower"},
 	{"id": "gen_2",  "line": 2,  "zone": 1,  "map": 0, "tex": "items/generator/generators_2.png",  "label": "feather"},
 	{"id": "gen_3",  "line": 3,  "zone": 3,  "map": 0, "tex": "items/generator/generators_3.png",  "label": "garden tools"},
 	{"id": "gen_4",  "line": 4,  "zone": 4,  "map": 0, "tex": "items/generator/generators_4.png",  "label": "honey"},
-	{"id": "gen_5",  "line": 5,  "zone": 6,  "map": 0, "tex": "items/generator/generators_5.png",  "label": "mushroom"},
+	{"id": "gen_5",  "line": 5,  "zone": 6,  "map": 1, "tex": "items/generator/generators_5.png",  "label": "mushroom"},
 	{"id": "gen_21", "line": 21, "zone": 7,  "map": 1, "tex": "items/generator/generators_6.png",  "label": "orchard fruits"},
 	{"id": "gen_22", "line": 22, "zone": 9,  "map": 1, "tex": "items/generator/generators_7.png",  "label": "orchard tools"},
-	{"id": "gen_23", "line": 23, "zone": 10, "map": 1, "tex": "items/generator/generators_8.png",  "label": "orchard seeds"},
+	{"id": "gen_23", "line": 23, "zone": 10, "map": 2, "tex": "items/generator/generators_8.png",  "label": "orchard seeds"},
 	{"id": "gen_24", "line": 24, "zone": 12, "map": 2, "tex": "items/generator/generators_9.png",  "label": "scarecrows"},
 	{"id": "gen_31", "line": 31, "zone": 13, "map": 2, "tex": "items/generator/generators_10.png", "label": "juice"},
 	{"id": "gen_32", "line": 32, "zone": 15, "map": 2, "tex": "items/generator/generators_11.png", "label": "kites"},
 	{"id": "gen_33", "line": 33, "zone": 16, "map": 2, "tex": "items/generator/generators_12.png", "label": "stones"},
 	{"id": "gen_34", "line": 34, "zone": 18, "map": 3, "tex": "items/generator/generators_13.png", "label": "mossy trinkets"},
 	{"id": "gen_35", "line": 35, "zone": 19, "map": 3, "tex": "items/generator/generators_14.png", "label": "rain charms"},
-	{"id": "gen_36", "line": 36, "zone": 21, "map": 3, "tex": "items/generator/generators_15.png", "label": "birds"},
+	{"id": "gen_36", "line": 36, "zone": 21, "map": 4, "tex": "items/generator/generators_15.png", "label": "birds"},
 	{"id": "gen_37", "line": 37, "zone": 22, "map": 4, "tex": "items/generator/generators_16.png", "label": "small critters"},
+	{"id": "gen_51", "line": 51, "zone": 24, "map": 4, "tex": "items/generator/generators_17.png", "label": "glowcaps"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
@@ -147,13 +149,13 @@ const POP_LINE_CAP := 3                   # zone 2+ (the window is 3 maps wide, 
 const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board holds fewer lines
 
 # §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model. The world is a run of ZONES,
-# each = a restoration spot. Rhythm: base · base · special. 16 base lines + 7 special = 23 zones; a special
+# each = a restoration spot. Rhythm: base · base · special. 17 base lines + 8 special = 25 zones (= the 25 live restoration spots, [6,4,7,4,4]); a special
 # (every 3rd zone) is crafted by merging the two base lines just before it (no generator). Base lines are
 # popped one-per-generator; specials have no generator (Core §6.A/G). Built ADDITIVELY alongside the legacy
 # map/`lines[]` roster — the board wiring flips to it in a later step. OWNER/content dials.
-const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37]   # 16 base lines, in zone order
-const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77]   # 7 special lines (71-75 = shelved treat art; 76-77 to author)
-const ZONE_COUNT := 23                    # 16 base + 7 special
+const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37, 51]   # 17 base lines, in zone order (51 = Glowcaps, the map-5 base)
+const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77, 78]   # 8 special lines (71-75 = shelved treat art; 76-78 to author)
+const ZONE_COUNT := 25                    # 17 base + 8 special = the 25 live restoration spots ([6,4,7,4,4])
 # (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
 # so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
