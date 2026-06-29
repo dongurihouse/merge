@@ -266,6 +266,17 @@ static func zone_recipe(z: int) -> Array:
 		return []
 	return [zone_line(z - 2), zone_line(z - 1)]
 
+# The SPECIAL line crafted by merging two base lines at the same tier (Core §6.G). Order-independent; 0 if
+# the pair isn't a recipe. (Derived: the special zone whose two preceding base lines are this pair.)
+static func special_for_pair(line_a: int, line_b: int) -> int:
+	for z in ZONE_COUNT:
+		if not zone_is_special(z):
+			continue
+		var r := zone_recipe(z)
+		if r.size() == 2 and ((int(r[0]) == int(line_a) and int(r[1]) == int(line_b)) or (int(r[0]) == int(line_b) and int(r[1]) == int(line_a))):
+			return zone_line(z)
+	return 0
+
 # A base line → its generator id ("gen_<line>"); "" if the line is a special (no generator).
 static func gen_for_line(line: int) -> String:
 	return "gen_%d" % int(line) if ZONE_BASE_LINES.has(int(line)) else ""

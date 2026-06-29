@@ -284,6 +284,8 @@ func _initialize() -> void:
 	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(3) == 3 and G.zone_line(6) == 5, "base zones introduce the base lines in order")
 	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72, "special zones introduce the special lines")
 	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4], "a special is crafted from the two preceding base lines")
+	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
+	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
 	ok(G.zone_map(0) == 0 and G.zone_map(6) == 0 and G.zone_map(7) == 1 and G.zone_map(22) == 4, "zone -> map via the spot distribution")
