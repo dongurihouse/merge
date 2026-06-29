@@ -273,7 +273,7 @@ static func special_for_pair(line_a: int, line_b: int) -> int:
 # --- §7 quest-side generator cap (gen redesign #16, RE-SCOPED) -----------------------------------------
 # The generator(s) a quest for `line` REQUIRES: a base line → its own generator; a crafted SPECIAL line →
 # its 2 ingredient base-line generators (the special has no generator of its own).
-static func _gens_for_quest_line(line: int) -> Array:
+static func gens_for_quest_line(line: int) -> Array:
 	var gid := gen_for_line(int(line))
 	if gid != "":
 		return [gid]
@@ -293,7 +293,7 @@ static func cap_quest_lines(lines: Array, cap: int = QUEST_GEN_CAP) -> Array:
 	var used := {}
 	for line in lines:
 		var union := used.duplicate()
-		for g in _gens_for_quest_line(int(line)):
+		for g in gens_for_quest_line(int(line)):
 			union[g] = true
 		if union.size() > cap:
 			continue                              # this line would push the generator footprint past the cap
@@ -304,6 +304,11 @@ static func cap_quest_lines(lines: Array, cap: int = QUEST_GEN_CAP) -> Array:
 # A base line → its generator id ("gen_<line>"); "" if the line is a special (no generator).
 static func gen_for_line(line: int) -> String:
 	return "gen_%d" % int(line) if ZONE_BASE_LINES.has(int(line)) else ""
+
+# The FTUE anchor generator (the first base line's generator, gen_1) — guaranteed so the very first tap can
+# always produce. Quests.due_gen self-heals it before any quest is consulted, so a fresh save is never stranded.
+static func anchor_gen() -> String:
+	return gen_for_line(int(ZONE_BASE_LINES[0])) if not ZONE_BASE_LINES.is_empty() else ""
 
 # zone → which of the 5 maps it sits in. Zone = restoration spot, so a zone's map IS its spot's map:
 # derived live from the MAPS spot counts (map_for_spots), never a hardcoded distribution — so it can't

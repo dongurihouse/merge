@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/quest_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Quests = preload("res://engine/scripts/core/quests.gd")
 
 var _pass := 0
 var _fail := 0
@@ -100,32 +101,16 @@ func _initialize() -> void:
 	var shrinks := G.active_giver_count(0, 8) >= G.active_giver_count(4, 8) and G.active_giver_count(4, 8) >= G.active_giver_count(6, 8)
 	ok(shrinks, "the active count shrinks monotonically as stars bank toward the unlock")
 
-	# --- due_generators: BIRTH-ON-TAP per line (gen redesign §6.B). current_zone = restored-spot count
-	# (unlocks.size()); the NEWEST active base line lacking a generator is due — the board births it on the
-	# next tap. Monotonic: as spots restore, each new line's generator comes due in turn. ---
-	ok(str(G.due_generators({}, [], [])) == str(["gen_1"]), "fresh game: only the anchor (gen_1) is due")
-	ok(G.due_generators({}, [], ["gen_1"]).is_empty(), "anchor owned → nothing due (zone 0 has one active line)")
-	# restore one spot (advance to zone 1) → line 2's generator becomes due once the anchor is owned
-	var z1_unlocks := {"spot_a": true}
-	ok(str(G.due_generators(z1_unlocks, [], ["gen_1"])) == str(["gen_2"]), "advancing a zone makes the next active line's generator due")
-	ok(G.due_generators(z1_unlocks, [], ["gen_1", "gen_2"]).is_empty(), "nothing due once every active line has its generator")
-
-	# --- askable_lines is the ROLLING WINDOW of the last LINE_WINDOW maps — older lines retire ---
-	for z in G.MAPS.size():
-		var win: Array = []
-		for zz in range(maxi(0, z - G.LINE_WINDOW + 1), z + 1):
-			for l in G.lines_for_map(G.GENERATORS, zz):
-				if not win.has(int(l)):
-					win.append(int(l))
-		win.sort()
-		ok(str(G.askable_lines(G.GENERATORS, z)) == str(win), "askable_lines(map %d) == the rolling-window lines" % z)
-	var z1_ask := G.askable_lines(G.GENERATORS, 1)
-	var z0_only := G.lines_for_map(G.GENERATORS, 0)
-	var z1_includes_z0 := true
-	for l in z0_only:
-		if not z1_ask.has(int(l)):
-			z1_includes_z0 = false
-	ok(z1_includes_z0, "askable_lines(roster, 1) INCLUDES map-0 lines (still inside the window at map 1)")
+	# --- due_gen: QUEST-DRIVEN birth-on-tap (gen redesign — LINE_WINDOW retired). A generator is born only
+	# when an active quest asks for a line whose generator the player lacks; the gen_1 anchor self-heals FIRST
+	# so the very first tap always produces. Reaching a zone no longer grants a tool on its own — quests do. ---
+	ok(Quests.due_gen([], []) == "gen_1", "fresh game: the anchor (gen_1) is due even before any quest")
+	ok(Quests.due_gen([], ["gen_1"]) == "", "anchor owned + no quest asking → nothing due (progression alone grants no tool)")
+	ok(Quests.due_gen([{"line": 2, "tier": 1}], ["gen_1"]) == "gen_2", "a quest asking line 2 makes its generator due")
+	ok(Quests.due_gen([{"line": 2, "tier": 1}], ["gen_1", "gen_2"]) == "", "nothing due once the asked line's generator is owned")
+	# a SPECIAL quest (71 = merge of base lines 1+2) pulls its missing INGREDIENT generator
+	ok(Quests.due_gen([{"line": 71, "tier": 1}], ["gen_1"]) == "gen_2", "a special quest births its missing ingredient generator")
+	ok(Quests.due_gen([{"line": 71, "tier": 1}], ["gen_1", "gen_2"]) == "", "a special quest is satisfied once both ingredient generators are owned")
 
 	# --- economy ceiling + sell economy (Option A: no premium-sell pinnacle, every tier → coins) ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")
