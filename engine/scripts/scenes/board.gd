@@ -73,7 +73,6 @@ const ACTION_BAR_SEPARATOR_FRAC := 0.24
 const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
-const MAX_QUEST_CARDS := 6       # the fence renders at most this many cards: the jar (purge) + up to MAX_GIVERS (5) quest cards. They scroll horizontally when they overflow the screen.
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
@@ -893,8 +892,8 @@ func _rebuild_givers() -> void:
 	giver_bar.move_child(wall, 0)
 	# (the full-width quest-band Panel is removed — the cards ride directly on the painted backdrop.)
 	# Cards are a FIXED size (proportional to the band height, so the art never distorts) packed LEFT to
-	# right inside a horizontal ScrollContainer: the jar (purge) takes the first slot, then up to MAX_GIVERS
-	# quest cards. When the jar + cards FIT the screen they sit left-aligned with spare width on the right
+	# right inside a horizontal ScrollContainer: the jar (purge) takes the first slot, then every metered
+	# quest card. When the jar + cards FIT the screen they sit left-aligned with spare width on the right
 	# (no scroll, as before). When they OVERFLOW a narrow screen the row scrolls horizontally and the next
 	# card is left half-visible — the peek that signals "more to the right". Vertical scroll is off, so the
 	# busts (which sit within the band height) are never clipped.
@@ -918,8 +917,8 @@ func _rebuild_givers() -> void:
 	scroll.add_child(row)
 	if show_purge:
 		row.add_child(_make_purge_card(stand_w))
-	var quest_slots := MAX_QUEST_CARDS - (1 if show_purge else 0)
-	for k in range(mini(quest_slots, qidx.size())):
+	var quest_slots := mini(int(G.MAX_GIVERS), qidx.size())
+	for k in range(quest_slots):
 		var qi: int = qidx[k]
 		var stand := _make_giver_stand(qi, quests[qi], stand_w)
 		row.add_child(stand.chip)
