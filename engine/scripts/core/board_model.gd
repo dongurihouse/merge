@@ -12,6 +12,7 @@ var items := PackedInt32Array()
 var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
                                           # STATEFUL + persisted (movable; stored/placed via gen_bag, §6).
                                           # Seeded by seed_gens / restored by from_dict.
+var gen_tiers: Dictionary = {}            # cell -> generator TIER (1..GEN_TOP_TIER); 1 if absent. Gen redesign #8.
 var gen_bag: Array = []                   # stored generator ids (the bag's generator section, soft cap 100)
 
 func _init() -> void:
@@ -96,6 +97,27 @@ func move_gen(from: Vector2i, to: Vector2i) -> bool:
 		return false
 	gens[to] = gens[from]
 	gens.erase(from)
+	gen_tiers[to] = gen_tier_at(from)     # #8: the tier travels with the generator
+	gen_tiers.erase(from)
+	return true
+
+# The TIER of the generator at `cell` (1..GEN_TOP_TIER); 1 if unset. Gen redesign #8.
+func gen_tier_at(cell: Vector2i) -> int:
+	return int(gen_tiers.get(cell, 1))
+
+# #8 merge: two SAME-LINE generators at the SAME tier (below the top) merge 2:1 → the target gains a tier,
+# the source is removed (frees its cell). Returns true on a real merge.
+func merge_gens(from: Vector2i, to: Vector2i) -> bool:
+	if from == to or not gens.has(from) or not gens.has(to):
+		return false
+	if String(gens[from]) != String(gens[to]):
+		return false
+	var t := gen_tier_at(from)
+	if t != gen_tier_at(to) or t >= G.GEN_TOP_TIER:
+		return false
+	gens.erase(from)
+	gen_tiers.erase(from)
+	gen_tiers[to] = t + 1
 	return true
 
 ## Place a single generator at `cell` — claims the cell (sheds bramble / hops any item to
@@ -104,6 +126,8 @@ func place_gen(id: String, cell: Vector2i) -> void:
 	if gens.has(cell):
 		return
 	gens[cell] = id
+	if not gen_tiers.has(cell):
+		gen_tiers[cell] = 1               # #8: new generators start at tier 1
 	if terrain[idx(cell)] > 0:
 		terrain[idx(cell)] = 0
 		items[idx(cell)] = 0
@@ -240,7 +264,7 @@ func top_tier_cells() -> Array:
 func to_dict() -> Dictionary:
 	var gl: Array = []
 	for c in gens:
-		gl.append([c.x, c.y, gens[c]])       # [row, col, id] — JSON-safe (no Vector2i keys)
+		gl.append([c.x, c.y, gens[c], gen_tier_at(c)])   # [row, col, id, tier] — JSON-safe (no Vector2i keys)
 	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate()}
 
 func from_dict(d: Dictionary) -> void:
@@ -251,6 +275,9 @@ func from_dict(d: Dictionary) -> void:
 			terrain[i] = int(t[i])
 			items[i] = int(it[i])
 	gens = {}
+	gen_tiers = {}
 	for e in d.get("gens", []):
-		gens[Vector2i(int(e[0]), int(e[1]))] = String(e[2])
+		var gc := Vector2i(int(e[0]), int(e[1]))
+		gens[gc] = String(e[2])
+		gen_tiers[gc] = int(e[3]) if (e as Array).size() > 3 else 1   # #8: tier (old 3-element saves → 1)
 	gen_bag = Array(d.get("gen_bag", []))

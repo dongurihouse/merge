@@ -94,6 +94,18 @@ func _initialize() -> void:
 	bm2.from_dict(blob)
 	ok(bm2.gen_id_at(open_cell) == "gen_1" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("gen_21"), "the generator map + gen_bag round-trip through to_dict/from_dict")
 
+	# #8 generator merge ladder + tier persistence
+	var bm3 := BoardModel.new()
+	bm3.seed_gens(0)                                    # gen_1 at the anchor cell (4,3)
+	var c1: Vector2i = bm3.empty_ground_cells()[0]
+	bm3.place_gen("gen_1", c1)                          # a duplicate gen_1 (the merge fuel)
+	ok(bm3.gen_tier_at(Vector2i(4, 3)) == 1 and bm3.gen_tier_at(c1) == 1, "new generators start at tier 1")
+	ok(bm3.merge_gens(c1, Vector2i(4, 3)) and bm3.gen_tier_at(Vector2i(4, 3)) == 2 and not bm3.gens.has(c1), "two same-line generators merge 2:1 into a stronger tier, freeing the source")
+	ok(not bm3.merge_gens(Vector2i(4, 3), Vector2i(4, 3)), "a generator can't merge with itself")
+	var bm4 := BoardModel.new()
+	bm4.from_dict(bm3.to_dict())
+	ok(bm4.gen_tier_at(Vector2i(4, 3)) == 2, "a generator's tier survives a save round-trip")
+
 	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
 	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
 	# the norm — the boost RAISES THE CHANCE of multiples, it does not add a flat count. Both tables top

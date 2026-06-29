@@ -2595,8 +2595,13 @@ func _release_gen(pos: Vector2) -> void:
 		_persist()
 		_rebuild_all()                        # #1 move (generators are movable-only; new ones arrive via near-end reward → gen_bag)
 		return
+	if target != from and board.is_gen(target) and board.merge_gens(from, target):   # #8: same-line generators merge → a stronger tier (frees the source cell)
+		Audio.play("item_drop", -2.0)
+		_persist()
+		_rebuild_all()
+		return
 	if node != null:
-		_snap_back(from, node)                # occupied / bramble / dropped on another gen — refuse
+		_snap_back(from, node)                # occupied / bramble / different-line generator — refuse
 
 func _snap_back(from: Vector2i, node: Control) -> void:
 	var t := node.create_tween()
@@ -2651,7 +2656,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# FTUE (§4): during the free-pop intro a tap pops EXACTLY ONE item — burst is suppressed so the
 	# 10 free pops are ~10 deliberate frictionless taps (not spent 3-at-a-time) and the counter can't
 	# overshoot 10 mid-burst. Burst resumes the moment the free budget is gone (`charged`).
-	var burst := 1 if not charged else G.burst_count(_quest_map(), _gen_boost_bonus(), rng)
+	# gen redesign #8: a generator's burst scales with its TIER (higher tier → more multiples); a live boost
+	# overrides with the boosted odds. (Accumulator/treat taps never reach here — their own collect/pop paths.)
+	var burst := 1
+	if charged:
+		burst = G.burst_count(_quest_map(), _gen_boost_bonus(), rng) if G.boost_active() else G.gen_burst_count(board.gen_tier_at(cell), rng)
 	if charged:
 		burst = mini(burst, int(water / G.POP_COST))
 	burst = mini(burst, empties.size())
@@ -2729,6 +2738,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# §6.C a main-generator tap may also side-spawn a limited-use BONUS generator (one at a time)
 	if not _has_bonus_gen() and G.rolls_bonus_spawn(rng):
 		_spawn_bonus_gen()
+	# gen redesign #8: a tap may also self-produce a duplicate generator (the merge fuel) at GEN_SELF_DUP_RATE.
+	if G.rolls_gen_self_dup(rng):
+		_self_dup_generator(cell)
 	_persist()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
@@ -2765,6 +2777,44 @@ func _produce_due_generators() -> bool:
 		FX.celebrate_at(self, ctr, Strings.t("board.feedback.tool_arrived"), STRAW)
 	Audio.play("unlock" if Audio.has("unlock") else "level_complete", -3.0)
 	return true
+
+# gen redesign #8 — SELF-DUP (the merge fuel). A below-top generator spawns a tier-1 DUPLICATE of its own
+# line; a MAXED (tier-GEN_TOP_TIER) generator instead seeds another active line still below the top — so a
+# maxed generator graduates to feeding the rest of the garden. Lands on a free cell (≤6 cap) or the bag.
+func _self_dup_generator(src: Vector2i) -> void:
+	var dup_id := board.gen_id_at(src)
+	if board.gen_tier_at(src) >= G.GEN_TOP_TIER:
+		dup_id = _another_submax_line_gen(dup_id)
+	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
+		return
+	if board.gens.size() < G.GEN_BOARD_CAP:
+		for c in board.empty_ground_cells():
+			if not board.gens.has(c):
+				board.place_gen(dup_id, c)
+				_grown_cells.append(c)
+				_persist()
+				_rebuild_all()
+				return
+	if not board.gen_bag.has(dup_id):
+		board.gen_bag.append(dup_id)
+		_persist()
+
+# The generator id of an ACTIVE base line currently below the top tier (or absent from the board), other
+# than `exclude_id`. "" if none — used by the maxed-generator self-dup to feed a different line.
+func _another_submax_line_gen(exclude_id: String) -> String:
+	var zone := int((Save.grove().get("unlocks", {}) as Dictionary).size())
+	for line in G.active_base_lines(zone):
+		var gid := G.gen_for_line(int(line))
+		if gid == "" or gid == exclude_id:
+			continue
+		var tier := 0
+		for c in board.gens:
+			if String(board.gens[c]) == gid:
+				tier = board.gen_tier_at(c)
+				break
+		if tier < G.GEN_TOP_TIER:
+			return gid
+	return ""
 
 # A generator's per-tap bonus from the LIVE boost (§6): BOOST_BONUS while a boost is active, else 0.
 # Read by _pop_seed as the addend to burst_count. The boost is global (every generator on the board).
