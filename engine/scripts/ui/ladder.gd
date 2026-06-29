@@ -73,38 +73,39 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	dopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 
+	# Both screens carry the line's tier grid; make_content lets the kit build each discovered tile's piece
+	# at the cell size IT computes. (A base line stacks it under its generator icon; a merged line under its recipe.)
+	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
+		return PieceView.make_piece(int(d.get("code", 0)), px)
+	var grid: Control = Kit.tiers_grid(_cells(opts.get("entries", []), int(opts.get("mark_tier", 0))), width, dopts)
+
 	var dialog: Control
 	if String(header.get("kind", "")) == "recipe":
 		var lines: Array = header.get("lines", [])
 		overlay.set_meta("ladder_kind", "recipe")
 		overlay.set_meta("recipe_lines", lines)
-		dialog = Kit.dialog_frame(_recipe_body(lines, width, on_pick), width, dopts)
+		dialog = Kit.dialog_frame(_recipe_body(lines, grid, width, on_pick), width, dopts)
 	else:
 		var gid := String(header.get("gid", ""))
 		overlay.set_meta("ladder_kind", "tiers")
 		overlay.set_meta("header_gid", gid)
-		# make_content lets the kit build each discovered tile's piece at the cell size IT computes.
-		dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-			return PieceView.make_piece(int(d.get("code", 0)), px)
-		var grid: Control = Kit.tiers_grid(_cells(opts.get("entries", []), int(opts.get("mark_tier", 0))), width, dopts)
 		dialog = Kit.dialog_frame(_tiers_body(gid, grid, width), width, dopts)
 
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
 
-# The MERGED-line recipe view: the two ingredient items alone (with a "+" between), each a tappable button
-# that opens THAT line's tier screen via on_pick. No tier grid — "show the two items alone".
-static func _recipe_body(lines: Array, width: float, on_pick: Callable) -> Control:
-	var pad := MarginContainer.new()
-	pad.custom_minimum_size = Vector2(width, 0.0)
-	var m := int(width * 0.07)
-	pad.add_theme_constant_override("margin_top", m)
-	pad.add_theme_constant_override("margin_bottom", m)
+# The MERGED-line recipe view: the two ingredient items (with a "+" between) — each a tappable button that
+# opens THAT line's tier screen via on_pick — stacked ABOVE the merged line's OWN tier grid (the same shared
+# grid the base-line screen uses). The ingredients are smaller than the grid-less view so both fit the frame.
+static func _recipe_body(lines: Array, grid: Control, width: float, on_pick: Callable) -> Control:
+	var col := VBoxContainer.new()
+	col.custom_minimum_size = Vector2(width, 0.0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", int(width * 0.025))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(width * 0.05))
-	pad.add_child(row)
-	var icon_px := width * 0.30
+	var icon_px := width * 0.20
 	for i in lines.size():
 		var line := int(lines[i])
 		row.add_child(_ingredient_button(line, icon_px, on_pick))
@@ -115,7 +116,9 @@ static func _recipe_body(lines: Array, width: float, on_pick: Callable) -> Contr
 			plus.add_theme_font_size_override("font_size", int(icon_px * 0.55))
 			plus.add_theme_color_override("font_color", Color(0.36, 0.26, 0.18))
 			row.add_child(plus)
-	return pad
+	col.add_child(row)
+	col.add_child(grid)
+	return col
 
 static func _ingredient_button(line: int, icon_px: float, on_pick: Callable) -> Button:
 	var btn := Button.new()

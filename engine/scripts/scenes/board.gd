@@ -3793,16 +3793,15 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
 	# gen redesign #9/#15: a base line shows its GENERATOR icon atop the tier grid; a merged (special) line
-	# shows its two ingredient items alone — tapping either opens THAT item's tier screen (Ladder rebuilds
-	# the modal in place, so navigation REPLACES rather than stacks).
+	# shows its two ingredient items atop the SAME tier grid (its own ladder) — tapping either ingredient
+	# opens THAT item's tier screen (Ladder rebuilds the modal in place, so navigation REPLACES, not stacks).
 	var header := _ladder_header(line)
 	var opts := {
 		"header": header,
 		"mark_tier": mark_tier,
 		"on_pick": func(l: int) -> void: _open_ladder(l, 1),
+		"entries": _ladder_entries(line),   # the line's own tier ladder — shown under the recipe for a merged line
 	}
-	if String(header.get("kind", "")) != "recipe":
-		opts["entries"] = _ladder_entries(line)
 	Ladder.open(self, opts)
 
 # #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),

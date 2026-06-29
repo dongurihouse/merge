@@ -1,6 +1,7 @@
 extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · ladder — the tier screen's GENERATOR-ICON header (base lines) and the MERGED-LINE
-## recipe view: two ingredient items alone, each tapping through to its OWN tier screen.
+## recipe view: the two ingredient items + the merged line's OWN tier ladder below, each ingredient
+## tapping through to its OWN tier screen.
 
 func _initialize() -> void:
 	begin("grove · ladder")
@@ -27,12 +28,18 @@ func _initialize() -> void:
 		"the base tier screen carries its generator icon (gen_1)")
 
 	b._open_ladder(71, 1)
+	await create_timer(0.1).timeout   # let the prior base-line grid's deferred queue_free settle before counting cells
 	var ov_rec: Node = _ladder_overlay(b)
 	ok(ov_rec != null and String(ov_rec.get_meta("ladder_kind", "")) == "recipe", \
-		"a merged line opens the recipe view (no tier grid)")
+		"a merged line opens the recipe view")
 	ok(Array(ov_rec.get_meta("recipe_lines", [])) == [1, 2], \
 		"the recipe view shows the two ingredient lines [1,2]")
 	ok(_ingredient_count(ov_rec) == 2, "the recipe view shows exactly the two ingredient items")
+	# the recipe view ALSO carries the merged line's OWN tier ladder below the two ingredients
+	# (the same shared tier grid the base-line screen uses), so the merged line's progression reads here too.
+	var merged_tiers: int = b._ladder_entries(71).size()
+	ok(merged_tiers > 0 and _tier_cell_count(ov_rec) == merged_tiers, \
+		"the recipe view also shows the merged line's full tier ladder (%d cells)" % merged_tiers)
 
 	# --- navigation: tapping an ingredient REPLACES the modal with THAT line's tier screen ---
 	var ing: Button = _ingredient(ov_rec, 1)
@@ -76,3 +83,7 @@ func _ingredient_count(overlay: Node) -> int:
 		if btn.has_meta("ingredient_line"):
 			n += 1
 	return n
+
+# count the tier cells rendered in the overlay — each discovery cell carries a "TierNumber" label
+func _tier_cell_count(overlay: Node) -> int:
+	return (overlay as Control).find_children("TierNumber", "Label", true, false).size()
