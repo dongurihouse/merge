@@ -435,6 +435,7 @@ func _build_map(animate := true) -> void:
 	# Expedition rail button (_build_liveops_rail).
 	if G.can_populate(z, unlocks, _gates()):
 		_maybe_show_unlock_reward(z)
+		_add_home_expedition_button(z)
 	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
@@ -1262,11 +1263,38 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	return card
 
 func _add_expedition_button(card: Control, z: int, opts: Dictionary, shelf_rect: Rect2) -> void:
+	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
+	var b := _make_expedition_button(z, opts, px, "MapCardExpeditionButton")
+	if b == null:
+		return
+	b.size = Vector2(px, px)
+	b.position = shelf_rect.position + Vector2(shelf_rect.size.x - px, -px - 6.0) \
+		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
+	card.add_child(b)
+
+func _add_home_expedition_button(z: int) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
+	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
+	var b := _make_expedition_button(z, opts, px, "MapHomeExpeditionButton")
+	if b == null:
+		return
+	var margin := clampf(px * 0.18, 10.0, 24.0)
+	var raw := _map_art_rect.position + Vector2(_map_art_rect.size.x - px - margin, _map_art_rect.size.y - px - margin) \
+		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
+	var min_pos := _map_art_rect.position + Vector2(margin, margin)
+	var max_pos := _map_art_rect.position + _map_art_rect.size - Vector2(px + margin, px + margin)
+	b.size = Vector2(px, px)
+	b.position = Vector2(clampf(raw.x, min_pos.x, max_pos.x), clampf(raw.y, min_pos.y, max_pos.y))
+	content.add_child(b)
+
+func _make_expedition_button(z: int, opts: Dictionary, px: float, node_name: String) -> Button:
 	var Kit: GDScript = load(KIT_PATH)
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	if Kit == null or HC == null:
-		return
-	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
+		return null
 	var b: Button = Kit.home_button({
 		"icon": HC.ICON_EXPEDITION,
 		"caption": "",
@@ -1281,14 +1309,11 @@ func _add_expedition_button(card: Control, z: int, opts: Dictionary, shelf_rect:
 		"fill_alpha": 100,
 		"badge": opts.get("badge", {}),
 	})
-	b.name = "MapCardExpeditionButton"
+	b.name = node_name
 	b.set_meta("map_id", String(G.MAPS[z].id))
 	b.set_meta("icon_id", HC.ICON_EXPEDITION)
 	b.mouse_filter = Control.MOUSE_FILTER_STOP
-	b.size = Vector2(px, px)
-	b.position = shelf_rect.position + Vector2(shelf_rect.size.x - px, -px - 6.0) \
-		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
-	card.add_child(b)
+	return b
 
 # The housed-spirit STRIP down a card's right side — a translucent vertical plate carrying the placed orbs
 # (then empty slots up to capacity), arranged as a stable two-column / four-row rail. The whole strip
