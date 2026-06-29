@@ -29,6 +29,7 @@ const LINE_WINDOW = D.LINE_WINDOW           # §6 rolling map-window width for t
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
+const ZONE_MAP_SPOTS = D.ZONE_MAP_SPOTS
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -265,6 +266,37 @@ static func zone_recipe(z: int) -> Array:
 # A base line → its generator id ("gen_<line>"); "" if the line is a special (no generator).
 static func gen_for_line(line: int) -> String:
 	return "gen_%d" % int(line) if ZONE_BASE_LINES.has(int(line)) else ""
+
+# zone → which of the 5 maps it sits in (zone = restoration spot; ZONE_MAP_SPOTS spots/map sum to ZONE_COUNT).
+static func zone_map(z: int) -> int:
+	var acc := 0
+	for m in ZONE_MAP_SPOTS.size():
+		acc += int(ZONE_MAP_SPOTS[m])
+		if z < acc:
+			return m
+	return maxi(0, ZONE_MAP_SPOTS.size() - 1)
+
+# The zone a line is introduced at (inverse of zone_line); -1 if the line is not in the zone roster.
+static func zone_of_line(line: int) -> int:
+	for z in ZONE_COUNT:
+		if zone_line(z) == int(line):
+			return z
+	return -1
+
+# The per-line generator def for a base line: {id, line, zone, map}. {} for a special line (no generator).
+static func base_generator(line: int) -> Dictionary:
+	if not ZONE_BASE_LINES.has(int(line)):
+		return {}
+	var z := zone_of_line(int(line))
+	return {"id": gen_for_line(int(line)), "line": int(line), "zone": z, "map": zone_map(z)}
+
+# All 16 base-line generators, in zone order — the new per-line roster (replaces the 5 multi-line GENERATORS
+# when the board flips). Special lines have no generator and are absent here.
+static func base_generators() -> Array:
+	var out: Array = []
+	for line in ZONE_BASE_LINES:
+		out.append(base_generator(int(line)))
+	return out
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
 	for g in roster:

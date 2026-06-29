@@ -285,6 +285,13 @@ func _initialize() -> void:
 	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72, "special zones introduce the special lines")
 	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4], "a special is crafted from the two preceding base lines")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
+	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
+	ok(G.zone_map(0) == 0 and G.zone_map(6) == 0 and G.zone_map(7) == 1 and G.zone_map(22) == 4, "zone -> map via the spot distribution")
+	ok(G.zone_of_line(1) == 0 and G.zone_of_line(5) == 6 and G.zone_of_line(71) == 2, "zone_of_line inverts zone_line")
+	ok(G.base_generators().size() == 16, "the per-line roster has one generator per base line")
+	var bgen := G.base_generator(2)
+	ok(bgen.id == "gen_2" and bgen.line == 2 and bgen.zone == 1 and bgen.map == 0, "a base generator carries its id/line/zone/map")
+	ok(G.base_generator(71).is_empty(), "a special line has no generator")
 
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
