@@ -1,8 +1,8 @@
 {
   "level_base_exp": 10,
-  "level_step_exp": 2,
+  "level_step_exp": 4,
   "quest_clicks_per_exp": 7,
-  "endgame_clicks": 7700,
+  "endgame_clicks": 4300,
   "min_level": [
     [16, 10, 7, 7, 7, 10, 16],
     [13, 4, 4, 4, 4, 4, 13],

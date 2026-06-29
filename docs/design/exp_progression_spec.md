@@ -2,6 +2,13 @@
 
 Status: design approved 2026-06-22 · **shipped, then partly superseded** — see the banner below.
 
+> **⚠️ Curve re-tune (2026-06-29).** Quest exp is no longer flat: it is per-line **RANK-RAMPED** (a base
+> line's exp scales 1.0→2.0 by rank) plus a **merger 1.2×** (§7, `content.gd: quest_reward_for_line`). A quest
+> now pays ~1.67× more exp per click, so the live **level curve was re-tuned** (per-level `step` raised, the
+> first level-ups kept cheap) to hold the pre-rework arc pacing. Live dials: `games/grove/economy_tuning.json`
+> (`base 10 / step 4`) + the `economy_tuning.html` editor; verified on `grove_sim`. Any "flat exp" / `clicks/7`
+> wording below is the OLD model.
+
 > **⚠️ Build status & supersession (2026-06-24, T62).** The **core model here SHIPPED**: stars
 > collapsed into one cumulative `exp`, spots **claimed at exp thresholds (no spend)**, the spendable
 > balance deleted, `earn_exp`/`level_for_exp`/`exp_at_level`/`spot_unlock_exp` live, the schema
