@@ -365,6 +365,12 @@ func _test_loadout() -> void:
 	ok(base.time == Explore.BASE_TIME, "no-boost run length is BASE_TIME")
 	ok(base.spawn_mul == 1.0 and base.calm_mul == 1.0 and base.t2 == 0.0, "no-boost cfg is the neutral baseline")
 	ok((base.lines as Array).size() == Explore.RUSH_LINES.size(), "all lines are in play without the focus boost")
+
+	# the Rush pool draws from `seen` but ONLY lines still in the live model — a retired line lingering in
+	# an old save (ember 61) is dropped; live base (1) + special (71) lines stay. Derived, not a list.
+	ok(Explore.seen_lines({"101": true, "6101": true, "7101": true}) == [1, 71], \
+		"seen_lines drops a retired line (61) from the Rush pool while keeping live lines")
+
 	var full: Dictionary = Explore.rush_cfg({"time": true, "drops": true, "calm": true, "lucky": true, "focus": true})
 	ok(full.time == Explore.BASE_TIME + 15.0, "the time boost adds 15s")
 	ok(full.spawn_mul < 1.0, "the drops boost shortens the spawn interval")

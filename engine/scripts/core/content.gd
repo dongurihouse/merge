@@ -1009,7 +1009,15 @@ static func is_valid_item_code(code: int) -> bool:
 		return COIN_VALUES.has(tier)
 	if SPECIAL_ITEMS.has(line):
 		return tier <= int((SPECIAL_ITEMS[line] as Dictionary).get("top", SPECIAL_TOP))
-	return LINES.has(line) and tier <= TOP_TIER
+	return LINES.has(line) and tier <= TOP_TIER and line_is_producible(line)
+
+# A content line is PRODUCIBLE when it can still be made in the current model — a base line with its own
+# generator, or a special line craftable from two base lines. DERIVED from the roster + zone recipes (no
+# hardcoded list), so a line retired from the model (kept in LINES only for its art) is automatically
+# treated as gone: its saved pieces + discovery prune on load, and a re-authored line is kept again.
+# (Distinct from gen_live_lines, which is the progress-gated set of UNLOCKED generator lines.)
+static func line_is_producible(line: int) -> bool:
+	return gen_for_line(line) != "" or recipe_lines(line).size() == 2
 
 static func item_display_name(code: int) -> String:
 	var line := int(code / 100.0)
