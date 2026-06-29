@@ -125,6 +125,11 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
+		"recipe":
+			# the MERGED-line tier screen: a special line (71 = Prize pumpkin, crafted from Wildflower + Feather)
+			# opens its RECIPE view — the two ingredient items alone, each tapping through to its own tier screen.
+			scn._open_ladder(71, 1)
+			await create_timer(0.4).timeout
 		"producingearly":
 			# the BEGINNING the player first sees (low level — only Wildflower + Hearth embers have grown in).
 			# The dialog must still preview the generator's FULL line-up: the live lines as pieces, the rest as

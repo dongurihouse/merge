@@ -25,17 +25,29 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const OVERLAY_NAME := "LadderOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:
-	if Overlay.is_open(host, OVERLAY_NAME):
-		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Ladder: ui kit missing at %s" % KIT_PATH)
 		return
-	var entries: Array = opts.entries
-	var mark_tier: int = opts.mark_tier
+	# Rebuild IN PLACE: reuse an already-open ladder overlay so an ingredient tap REPLACES the screen
+	# (one modal ever) rather than stacking — Overlay.is_open would otherwise block a second mount, and
+	# freeing-then-remounting mid-signal is unsafe. A duplicate open just re-renders the same content.
+	var overlay: Control = host.get_node_or_null(NodePath(OVERLAY_NAME)) as Control
+	if overlay == null or overlay.is_queued_for_deletion():
+		overlay = Overlay.mount(host, OVERLAY_NAME)
+	else:
+		for c in overlay.get_children():
+			c.queue_free()
 	Audio.play("button_tap", -4.0)
+	_render(Kit, host, overlay, opts)
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
+# Build the veil + framed dialog for `opts` into `overlay`. Routes on the header descriptor: a "recipe"
+# header → the two-ingredient view (no grid); anything else → the tier grid, with a generator icon on top
+# when the header is a generator. Sets overlay metas the suites assert on (ladder_kind / header_gid / recipe_lines).
+static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictionary) -> void:
+	var header: Dictionary = opts.get("header", {})
+	var on_pick: Callable = opts.get("on_pick", Callable())
+
 	var veil := ColorRect.new()
 	veil.color = Color(Pal.GROUND_EDGE, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -54,22 +66,89 @@ static func open(host: Control, opts: Dictionary) -> void:
 	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
 
-	# the TIERS dialog opts (twig border + ladder ribbon + ✕ + the shared slot-cell look) from the saved config.
-	# make_content lets the kit build each discovered tile's piece at the cell size IT computes, so this
-	# file never touches layout — it just renders the merge piece for a code.
+	# the shared TIERS chrome (twig border + ladder ribbon + ✕ + slot-cell look) from the saved config.
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
 	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
-	# The dialog header is always just "Tiers" — the internal line name (e.g. "clover") is implementation
-	# detail, not player-facing copy. The tapped line is already obvious from the pieces on the ladder.
-	dopts["banner_text"] = String(opts.get("title", Strings.t("ladder.title")))
-	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-		return PieceView.make_piece(int(d.get("code", 0)), px)
+	dopts["banner_text"] = String(header.get("name", Strings.t("ladder.title")))
 	dopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 
-	var dialog: Control = Kit.tiers_dialog(_cells(entries, mark_tier), width, dopts)
+	var dialog: Control
+	if String(header.get("kind", "")) == "recipe":
+		var lines: Array = header.get("lines", [])
+		overlay.set_meta("ladder_kind", "recipe")
+		overlay.set_meta("recipe_lines", lines)
+		dialog = Kit.dialog_frame(_recipe_body(lines, width, on_pick), width, dopts)
+	else:
+		var gid := String(header.get("gid", ""))
+		overlay.set_meta("ladder_kind", "tiers")
+		overlay.set_meta("header_gid", gid)
+		# make_content lets the kit build each discovered tile's piece at the cell size IT computes.
+		dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
+			return PieceView.make_piece(int(d.get("code", 0)), px)
+		var grid: Control = Kit.tiers_grid(_cells(opts.get("entries", []), int(opts.get("mark_tier", 0))), width, dopts)
+		dialog = Kit.dialog_frame(_tiers_body(gid, grid, width), width, dopts)
+
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
+
+# The MERGED-line recipe view: the two ingredient items alone (with a "+" between), each a tappable button
+# that opens THAT line's tier screen via on_pick. No tier grid — "show the two items alone".
+static func _recipe_body(lines: Array, width: float, on_pick: Callable) -> Control:
+	var pad := MarginContainer.new()
+	pad.custom_minimum_size = Vector2(width, 0.0)
+	var m := int(width * 0.07)
+	pad.add_theme_constant_override("margin_top", m)
+	pad.add_theme_constant_override("margin_bottom", m)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(width * 0.05))
+	pad.add_child(row)
+	var icon_px := width * 0.30
+	for i in lines.size():
+		var line := int(lines[i])
+		row.add_child(_ingredient_button(line, icon_px, on_pick))
+		if i < lines.size() - 1:
+			var plus := Label.new()
+			plus.text = "+"
+			plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			plus.add_theme_font_size_override("font_size", int(icon_px * 0.55))
+			plus.add_theme_color_override("font_color", Color(0.36, 0.26, 0.18))
+			row.add_child(plus)
+	return pad
+
+static func _ingredient_button(line: int, icon_px: float, on_pick: Callable) -> Button:
+	var btn := Button.new()
+	btn.flat = true
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(icon_px, icon_px)
+	btn.set_meta("ingredient_line", line)
+	var holder := CenterContainer.new()
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(holder)
+	var piece: Control = PieceView.make_piece(line * 100 + 1, icon_px)   # the base item (tier 1) of the ingredient line
+	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(piece)
+	if on_pick.is_valid():
+		btn.pressed.connect(func() -> void: on_pick.call(line))
+	return btn
+
+# The BASE-line tier screen body: the GENERATOR icon centred atop the unchanged tier grid (gid "" → grid only).
+static func _tiers_body(gid: String, grid: Control, width: float) -> Control:
+	if gid == "":
+		return grid
+	var col := VBoxContainer.new()
+	col.custom_minimum_size = Vector2(width, 0.0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", int(width * 0.025))
+	var center := CenterContainer.new()
+	var icon: Control = PieceView.make_generator(gid, width * 0.22)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(icon)
+	col.add_child(center)
+	col.add_child(grid)
+	return col
 
 # Map Quests.ladder_entries ({tier, code, seen}) → kit tier cells ({tier, seen, marked, code}). The kit's
 # make_content reads `code` to build the discovered piece; `marked` flags the tapped/asked tier's ring.
