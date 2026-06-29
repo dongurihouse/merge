@@ -8,7 +8,6 @@ extends SceneTree
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Settings = preload("res://engine/scripts/ui/settings.gd")
-const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 
@@ -244,30 +243,20 @@ func _initialize() -> void:
 			mixed_action = true
 	ok(mixed_action, "settings_dialog renders the action entry's button")
 
-	# --- settings._entries appends the DEBUG rows only under the authoring gate -------
-	# In a debug build (Debug.force), the settings list grows a read-only Game Center id row
-	# and a Reset save action; off the gate it stays the plain toggle list.
-	fresh("debug_rows")
+	# --- settings._entries ALWAYS appends the Game Center id + Reset save rows --------
+	# These are player-facing (no debug gate): the settings list always grows a read-only Game Center
+	# id row and a destructive Reset save action, in every build.
+	fresh("gc_reset_rows")
 	var host := Control.new()
 	get_root().add_child(host)
-	Debug.force = true
-	var gated: Array = Settings._entries(host)
-	var info_e := _entry_of_kind(gated, "info")
-	var action_e := _entry_of_kind(gated, "action")
-	ok(String(info_e.get("label", "")) == "Game Center", "debug settings show a Game Center info row")
+	var entries_def: Array = Settings._entries(host)        # default build — no debug flag set
+	var info_e := _entry_of_kind(entries_def, "info")
+	var action_e := _entry_of_kind(entries_def, "action")
+	ok(String(info_e.get("label", "")) == "Game Center", "settings show a Game Center info row")
 	ok(String(info_e.get("value", "")) == "not signed in",
 		"the GC row reads 'not signed in' when there is no id (off iOS)")
-	ok(String(action_e.get("label", "")) == "Reset save", "debug settings show a Reset save action row")
+	ok(String(action_e.get("label", "")) == "Reset save", "settings show a Reset save action row")
 	ok(bool(action_e.get("destructive", false)), "the Reset row is flagged destructive")
-
-	Debug.force = false
-	var plain_entries: Array = Settings._entries(host)
-	var has_debug_row := false
-	for e in plain_entries:
-		var k := String((e as Dictionary).get("kind", ""))
-		if k == "info" or k == "action":
-			has_debug_row = true
-	ok(not has_debug_row, "without the authoring gate the settings list is toggles only")
 	host.queue_free()
 
 	# --- the Reset action's on_action wipes progress to a fresh save ------------------
@@ -275,13 +264,11 @@ func _initialize() -> void:
 	Save.add_exp(50)
 	ok(Save.exp_total() == 50, "seed: the save carries progress before reset")
 	var host2 := Control.new()                 # NOT added to the tree → _reflect skips the scene reload
-	Debug.force = true
 	var reset_entry := _entry_of_kind(Settings._entries(host2), "action")
 	ok(reset_entry.has("on_action"), "the Reset row carries an on_action")
 	if reset_entry.has("on_action"):
 		(reset_entry["on_action"] as Callable).call()
 	ok(Save.exp_total() == 0, "the Reset action wipes progress to a fresh save")
-	Debug.force = false
 	host2.free()
 
 	# --- the settings dialog GROWS to fit all its rows (no bottom clip) ---------------
@@ -292,7 +279,6 @@ func _initialize() -> void:
 	fresh("dialog_fit")
 	var fit_host := Control.new()
 	get_root().add_child(fit_host)
-	Debug.force = true
 	var fit_cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var fit_opts := Kit.settings_opts_from_config(fit_cfg)
 	fit_opts["banner_text"] = "Settings"
@@ -316,8 +302,7 @@ func _initialize() -> void:
 	var card_bottom := (fit_card.global_position.y + fit_card.size.y) if fit_card != null else 0.0
 	var reset_bottom := (fit_reset.global_position.y + fit_reset.size.y) if fit_reset != null else 1.0e9
 	ok(fit_reset != null and reset_bottom <= card_bottom + 1.0,
-		"the Reset row sits inside the dialog card (card grew to fit the debug rows, no clip)")
-	Debug.force = false
+		"the Reset row sits inside the dialog card (card grew to fit the rows, no clip)")
 	fit_dlg.queue_free()
 	fit_host.queue_free()
 
