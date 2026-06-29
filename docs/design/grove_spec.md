@@ -117,6 +117,37 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 
 *Instantiates Core §6 (Generators & Item Lines).*
 
+> **⚠ REDESIGN (2026-06-28) — read FIRST; the grove build of the new Core §6 box.** Supersedes the
+> 2026-06-26 as-built below.
+>
+> **16 base lines become their own generator (v1 scale).** Sixteen of the grove's content lines (a subset
+> of the 31 that have item art — exact picks chosen in the per-line-generator task) each get **one
+> generator** that pops **only** that line (Core §6.A), introduced **one per zone**, ~3 active at once via
+> `LINE_WINDOW` (Core §6.C). The rest stay shelved for later. The **5 painted maps** (`map1–map5.png`) are
+> **reused as backdrops**, decoupled from zone progression — **no new map art**.
+>
+> **Zone ↔ spot (v1 scale = 23).** The run is **23 zones = 16 base + 7 special**, sized to **match the ~23
+> existing restoration spots** so a zone IS a spot — one line/generator introduced as each spot is restored
+> (fuses content-unlock with world-restoration §3, no parallel axis). *(Confirm before §3 rewrite.)*
+>
+> **Bonus generators.** `ACCUMULATORS` (water · coin · acorn · exp) drop their `habitat` real-time accrual
+> and become **limited-use side-spawn generators** (Core §6.F). Treat lines **71–75** and the treat-gen are
+> **shelved** (kept in `LINES`, out of every pool).
+>
+> **Special recipe lines.** Rhythm = **base · base · special** (every 3rd zone): the special = the **two
+> base lines just before it** at the same tier (Core §6.G). **16 base → 7 specials** (zones 3·6·9·12·15·18·21).
+> Art: the 5 shelved treat lines (71–75) seed the first specials; **~2 new 12-tier special sets** to author.
+>
+> **Quests:** `MAX_GIVERS` **5 → 10**. **Curve:** front-loaded — zone 2 in minutes, zone 3 by ~10 min
+> (≈30 taps/min), sim-validated.
+>
+> **Assets (Core §6 #5).** Item tier art for all 31 base lines **already exists**. Generator icons: **16
+> exist** — 4 are accumulators (→ bonus gens); 12 are line generators (`gen_` wildflowers, wildflowerarch,
+> twig_nest, cattails, apples, applepress, beehive, honeycomb, glowcaps, porcini, lilyfountain, seedcart).
+> **~4 new generator icons** are needed (16 base − 12 existing icons); the exact per-line assignment is the
+> first step of the per-line-generator task. Base-line **item art is complete**; **special-line item art**:
+> 5 sets ready (the shelved 71–75), **~2 new 12-tier sets** to author. ~6 new art assets total.
+
 > **⚠ AS-BUILT (2026-06-26) — read first.** The "24 lines / 12 generators / 2 lines per generator" roster
 > below is superseded. The Core §6 model (A–E, **all SHIPPED**) is authoritative; this is its grove build.
 >
@@ -307,6 +338,9 @@ Map-art generation prompts (top-down, restored hero) for maps 2–5 are authored
 
 *Instantiates Core §7 (Quests & the fence) and Core §3 (level/rank).*
 
+> **⚠ 2026-06-28:** `MAX_GIVERS` **5 → 10** (fence layout to follow); recipe-quest asks (§2 REDESIGN box);
+> the curve front-loads — zone 2 in minutes, zone 3 by ~10 min. See §2.
+
 ### Quests — the live generated model (Core §7, shipped T19)
 
 The deterministic per-map ramp is **retired**; the grove runs Core §7's **generated** quest stream (built + cut over live, `T19`):
@@ -352,6 +386,10 @@ The home grove's **23 spots** ([7,4,7,4,1] across the five maps) run in a global
 ## 5 · Grove Economy Specifics
 
 *Instantiates Core §10 (The Economy) and Core §9 (Selling & the Merchant).*
+
+> **⚠ 2026-06-28:** the water/coin/acorn/exp **accumulators are retired** — replaced by limited-use
+> **bonus generators** (§2 / Core §6.F). The faucet/sink tables below that lean on real-time accrual must
+> be re-derived in the `grove_sim` pass.
 
 The 4-currency model (Water / **Exp** / Coins / Diamonds) and **sink > faucet** law are core. **Naming note:** the grove's premium currency is **acorns** — that's the player-facing name for the engine's *diamonds* (💎, `add_diamonds`/`LEVEL_DIAMONDS`/`MAP_DIAMONDS` in code); **coins are coins** (the soft currency), *not* acorns. Grove faucet/sink details:
 

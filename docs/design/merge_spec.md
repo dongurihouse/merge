@@ -197,6 +197,69 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 
 ## 6 · Generators & Item Lines
 
+> **⚠ GENERATOR/LINE MODEL REDESIGNED — read this box FIRST (2026-06-28).** Supersedes the
+> **2026-06-26 box and the original §6 body below**, and the grove as-built (`grove_spec` §2). Design
+> source: the 2026-06-28 session + `generator_line_ideas.md`. Ships **one change at a time** (order at the
+> end of this box). Implementation map: `grove_data.gd` (tables), `content.gd` (`due_generators`,
+> pop/odds), `board.gd` (`_pop_seed`, `_produce_due_generators`, `_release_gen`), `habitat.gd`
+> (accumulators → removed), `gen_lines.gd` (tier dialog), `grove_sim.gd`.
+>
+> **A. One generator per line; it pops ONLY that line.** Every base line has its **own** generator that
+> pops **only** that line — no rolling-window union, no `POP_LINE_CAP` pop pool. Tap → a burst of that one
+> line (1 energy/item). *(The window survives only as which lines are *active*, C.)*
+>
+> **B. Birth-on-tap (revived).** Opening a zone surfaces a **quest for its line**; if the player owns **no
+> generator** for that line, the **next tap on any generator births that line's generator** instead of
+> popping (free; the tap is spent). *(Revives `due_generators` / `_produce_due_generators`, rescoped from
+> "anchor only" to "the newly-active line".)*
+>
+> **C. One line per zone · rolling active window.** The world is a run of **zones**, each introducing **one
+> base line + its generator**. A line stays active for `LINE_WINDOW` zones → **~3 lines active at once**.
+> The **5 painted maps are reused as backdrops** (no new map art); the backdrop is **decoupled** from zone
+> progression and swaps only occasionally. When a line leaves the window it **retires to the Collection**;
+> its generator **retires with it — archived, no harvest payout (harvest parked, 2026-06-28)**.
+>
+> **D. Generators merge to tier 3; produce the fuel (tier-aware).** Two same-line generators **merge 2:1**
+> to the next tier (3 tiers), **freeing a cell**. **Higher tier → higher multi-item burst odds**
+> (`BURST_ODDS` keyed by generator tier). A **below-tier-3** generator **self-produces a duplicate of its
+> own line at ~0.5%/tap** (`GEN_SELF_DUP_RATE`) — the merge fuel; the first of a line is free (B). A
+> **tier-3 (maxed)** generator **stops self-duplicating** (no further merge for itself) and instead, at the
+> same rate, **produces a tier-1 generator for another active line still below tier 3** — redirecting the
+> drip to where it helps (nothing if every active line is maxed).
+>
+> **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + duplicates
+> mid-merge + bonus gens, F); overflow queues in the **bag**.
+>
+> **F. Bonus generators (replaces real-time accrual).** The utility producers (water · coin · acorn · exp,
+> the old `ACCUMULATORS`/`habitat`) are **no longer real-time accumulators**. They become **limited-use
+> bonus generators** that **side-spawn on a normal tap at a low, economy-tunable %** (like the old treat
+> gen), give **5–15 collects**, then vanish, and are **boostable** like a normal generator. The premium
+> "treat treasure" lines (71–75) and the 2% treat-gen side-spawn are **removed** — definitions kept,
+> shelved for later.
+>
+> **G. Special recipe lines (new) — every 3rd zone.** The zone rhythm is **base · base · special**: every
+> 3rd zone is a **special line** crafted from the **two base lines just before it**, at the **same tier** →
+> the special pops at that tier and climbs its own ladder. Specials have **no generator**; they debut as a
+> special quest and are craftable while their two ingredient lines are still live (stockpile ingredient
+> items in the bag to craft after one retires). v1 scale: **23 zones = 16 base + 7 special** (specials on
+> zones 3·6·9·12·15·18·21); 5 special art sets ready (the shelved 71–75), ~2 to author; ~4 new generator
+> icons. The 23 zones **map onto the ~23 existing restoration spots** (one line per spot — see the zone↔spot
+> note in `grove_spec` §2/§3). *(No recipe mechanic existed; the wildcard is unrelated.)*
+>
+> **Tier dialog.** The line's tier dialog **names the generator** that makes it, lets the player **buy any
+> seen tier** (existing 3×-sell `buy_price`), and **shows the recipe** for special lines.
+>
+> **Quests & curve.** Active quests rise **5 → 10** (`MAX_GIVERS`). The early curve front-loads so a new
+> player hits **zone 2 in a few minutes** and **zone 3 by ~10 min** (≈30 taps/min) — sim-validated on
+> `grove_sim`.
+>
+> **Ship order (one task each):** (1) remove treat-gen spawn + shelve lines 71–75 · (2) accumulators →
+> limited-use bonus gens · (3) one generator per line (pop only that line) · (4) per-line generators for the
+> 16 base lines (+ ~4 new generator icons) · (5) birth-on-tap revival · (6) generator merge ladder +
+> 0.5% self-dup + per-tier burst · (7) ≤6 board cap + bag overflow · (8) special recipe lines · (9) tier
+> dialog: generator name + buy + recipe · (10) `MAX_GIVERS` → 10 + fence layout · (11) the front-loaded
+> curve.
+
 > **⚠ GENERATOR/LINE MODEL EVOLVED — read this box first (2026-06-26).** The original §6 below (a
 > generator emits *two* lines · generators *arrive per map* · old lines *retire* / *hand-in* at
 > boundaries · the *anchor-line exemption*) is **SUPERSEDED**. The authoritative model is here.
@@ -279,6 +342,10 @@ Generators emit **themed item lines** — **2 lines per generator** (each line a
 ---
 
 ## 7 · Quests, Exp & the Soft Gate
+
+> **⚠ 2026-06-28:** active givers **5 → 10** (`MAX_GIVERS`); a new **special-recipe** ask joins the
+> generated/authored kinds (merge two base lines at the same tier → a special line, §6.G). See the §6
+> REDESIGN box.
 
 ### The givers (the fence)
 
