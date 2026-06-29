@@ -312,6 +312,9 @@ func _initialize() -> void:
 	ok(G.LINES.has(76) and G.LINES.has(77) and G.LINES.has(78), "the 3 late-game specials (76/77/78) now have LINES defs")
 	ok(G.special_for_pair(32, 33) == 76 and G.special_for_pair(36, 37) == 78, "76 crafts from 32+33; 78 from 36+37 (recipes live)")
 	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4] and G.zone_recipe(23) == [36, 37], "a special is crafted from the two preceding base lines")
+	# the tier screen / recipe view needs a LINE-keyed recipe (zone_recipe is zone-keyed) — resolves a merged line to its two ingredient base lines.
+	ok(G.recipe_lines(71) == [1, 2] and G.recipe_lines(72) == [3, 4] and G.recipe_lines(78) == [36, 37], "recipe_lines(special) → its two base ingredient lines")
+	ok(G.recipe_lines(1) == [] and G.recipe_lines(2) == [] and G.recipe_lines(51) == [], "recipe_lines(base) is empty — a base line has no recipe")
 	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
 	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped

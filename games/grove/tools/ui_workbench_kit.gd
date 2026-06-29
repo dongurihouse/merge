@@ -3329,6 +3329,11 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 static func tiers_dialog(entries: Array, width: float = 620.0, opts: Dictionary = {}) -> Control:
 	return dialog_frame(_tiers_grid(entries, width, opts), width, opts)
 
+## Public alias for the tiers grid builder — lets a caller (the ladder) compose the grid WITH its own
+## header (e.g. a generator icon) inside the shared dialog_frame, instead of tiers_dialog's grid-only body.
+static func tiers_grid(entries: Array, width: float = 620.0, opts: Dictionary = {}) -> Control:
+	return _tiers_grid(entries, width, opts)
+
 ## The SHOP dialog — the SAME shared frame, here filled with SECTIONS (each a vine divider + a centered
 ## row/grid of the SAME small card) rather than one flat grid. `sections` is [{caption, cards}, …] from
 ## demo_shop. Shared frame, sectioned shop content.

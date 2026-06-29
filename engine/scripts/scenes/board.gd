@@ -3773,24 +3773,29 @@ func _grant_sale(code: int, node: Control) -> void:
 func _open_ladder(line: int, mark_tier: int) -> void:
 	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
-	# gen redesign #9/#15: the header names the GENERATOR that makes this line (or the RECIPE for a special).
-	Ladder.open(self, {
-		"entries": _ladder_entries(line),
+	# gen redesign #9/#15: a base line shows its GENERATOR icon atop the tier grid; a merged (special) line
+	# shows its two ingredient items alone — tapping either opens THAT item's tier screen (Ladder rebuilds
+	# the modal in place, so navigation REPLACES rather than stacks).
+	var header := _ladder_header(line)
+	var opts := {
+		"header": header,
 		"mark_tier": mark_tier,
-		"title": _ladder_title(line),
-	})
+		"on_pick": func(l: int) -> void: _open_ladder(l, 1),
+	}
+	if String(header.get("kind", "")) != "recipe":
+		opts["entries"] = _ladder_entries(line)
+	Ladder.open(self, opts)
 
-# #9 / #15: the tier dialog's header — names the GENERATOR that makes a base line, or the RECIPE (the two
-# base lines) for a crafted special line.
-func _ladder_title(line: int) -> String:
+# #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
+# the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
+func _ladder_header(line: int) -> Dictionary:
 	var gid := G.gen_for_line(line)
 	if gid != "":
-		return "Made by %s" % G.generator_display_name(gid)
-	var z := G.zone_of_line(line)
-	var recipe: Array = G.zone_recipe(z) if z >= 0 else []
-	if recipe.size() == 2:
-		return "Craft: %s + %s" % [_ladder_line_name(int(recipe[0])), _ladder_line_name(int(recipe[1]))]
-	return Strings.t("ladder.title")
+		return {"kind": "generator", "gid": gid, "name": G.generator_display_name(gid)}
+	var rl: Array = G.recipe_lines(line)
+	if rl.size() == 2:
+		return {"kind": "recipe", "lines": rl, "name": _ladder_line_name(line)}
+	return {"kind": "title", "name": Strings.t("ladder.title")}
 
 func _ladder_line_name(line: int) -> String:
 	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))
