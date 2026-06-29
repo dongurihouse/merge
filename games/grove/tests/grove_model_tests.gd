@@ -341,7 +341,7 @@ func _initialize() -> void:
 			dest2 = fc
 			break
 	if dest2 == Vector2i(-1, -1):
-		fbm.gen_bag.append("hen_coop")
+		fbm.bag_add("hen_coop")
 	else:
 		fbm.place_gen("hen_coop", dest2)
 	ok(fbm.gen_bag.has("hen_coop") and not fbm.gens.values().has("hen_coop"), \

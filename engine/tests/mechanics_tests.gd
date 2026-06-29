@@ -88,7 +88,7 @@ func _initialize() -> void:
 	ok(bm.place_gen_from_bag("gen_1", open_cell) and bm.gens.values().has("gen_1") and not bm.gen_bag.has("gen_1"), "place_gen_from_bag moves it gen_bag→board (persists, never consumed)")
 	# #3 persistence: gens + gen_bag survive a save round-trip. Realistic state: the map-0 satchel
 	# sits on the board (at open_cell) while a granted next-map generator (gen_21) waits in the bag.
-	bm.gen_bag.append("gen_21")                  # a granted-but-unplaced generator, stashed in the bag
+	bm.bag_add("gen_21")                         # a granted-but-unplaced generator, stashed in the bag
 	var blob := bm.to_dict()
 	var bm2 := BoardModel.new()
 	bm2.from_dict(blob)
@@ -105,6 +105,19 @@ func _initialize() -> void:
 	var bm4 := BoardModel.new()
 	bm4.from_dict(bm3.to_dict())
 	ok(bm4.gen_tier_at(Vector2i(4, 3)) == 2, "a generator's tier survives a save round-trip")
+
+	# #8 (cont.) the tier must travel THROUGH the gen_bag — storing then re-placing a merged generator
+	# must NOT reset it to tier 1, and store must not leave stale tier data on the vacated cell.
+	ok(bm3.store_gen(Vector2i(4, 3)) and bm3.gen_bag.has("gen_1"), "a tier-2 generator stores into the gen_bag")
+	ok(bm3.gen_tier_at(Vector2i(4, 3)) == 1, "store_gen clears the vacated cell's tier (no stale tier-2 left behind)")
+	var gb_back: Vector2i = bm3.empty_ground_cells()[0]
+	ok(bm3.place_gen_from_bag("gen_1", gb_back) and bm3.gen_tier_at(gb_back) == 2, "place_gen_from_bag restores the stored tier (not reset to tier 1)")
+	# the bagged tier must also survive a save round-trip — gen_bag tiers serialize, not just board tiers.
+	bm3.store_gen(gb_back)                               # a tier-2 gen_1 waits in the bag across the save
+	var bm5 := BoardModel.new()
+	bm5.from_dict(bm3.to_dict())
+	var gb_back2: Vector2i = bm5.empty_ground_cells()[0]
+	ok(bm5.place_gen_from_bag("gen_1", gb_back2) and bm5.gen_tier_at(gb_back2) == 2, "a bagged generator's tier survives to_dict/from_dict")
 
 	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
 	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become

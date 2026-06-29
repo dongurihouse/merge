@@ -14,6 +14,9 @@ var gens: Dictionary = {}                 # cell -> generator id; the LIVE gener
                                           # Seeded by seed_gens / restored by from_dict.
 var gen_tiers: Dictionary = {}            # cell -> generator TIER (1..GEN_TOP_TIER); 1 if absent. Gen redesign #8.
 var gen_bag: Array = []                   # stored generator ids (the bag's generator section, soft cap 100)
+var gen_bag_tiers: Array = []             # PARALLEL to gen_bag: the TIER of each stored generator (#8; 1 default).
+                                          # Invariant: size() == gen_bag.size(). Mutate the bag only via
+                                          # store_gen / place_gen_from_bag / bag_add / prune_bag so it stays aligned.
 
 func _init() -> void:
 	terrain.resize(G.ROWS * G.COLS)
@@ -74,21 +77,51 @@ func _claim_gen_cells() -> void:
 			items[idx(cell)] = 0
 
 ## Move a board generator into the bag's generator section (frees its cell). No-op on a bad cell.
+## #8: the generator's TIER travels with it into the bag, and the vacated cell sheds its tier data.
 func store_gen(cell: Vector2i) -> bool:
 	if not gens.has(cell):
 		return false
 	gen_bag.append(String(gens[cell]))
+	gen_bag_tiers.append(gen_tier_at(cell))   # the tier follows the generator into the bag
 	gens.erase(cell)
+	gen_tiers.erase(cell)                      # no stale tier left behind on the now-empty cell
 	return true
 
-## Place a stored generator from the bag onto an open, empty, non-generator cell.
+## Place a stored generator from the bag onto an open, empty, non-generator cell. #8: restores the stored TIER.
 func place_gen_from_bag(id: String, cell: Vector2i) -> bool:
 	# is_open already guarantees terrain == 0 (an open, empty cell)
-	if not gen_bag.has(id) or gens.has(cell) or not is_open(cell) or item_at(cell) != 0:
+	var i := gen_bag.find(id)
+	if i < 0 or gens.has(cell) or not is_open(cell) or item_at(cell) != 0:
 		return false
-	gen_bag.erase(id)
+	var tier := _bag_tier_at(i)               # read the tier BEFORE removing the entry
+	gen_bag.remove_at(i)
+	if i < gen_bag_tiers.size():
+		gen_bag_tiers.remove_at(i)
 	gens[cell] = id
+	gen_tiers[cell] = tier                     # restore the stored tier (not a silent reset to 1)
 	return true
+
+## Append a generator id to the bag at `tier` (default 1) — the canonical bag-push that keeps
+## gen_bag_tiers aligned. Use this instead of a raw gen_bag.append(...).
+func bag_add(id: String, tier: int = 1) -> void:
+	gen_bag.append(String(id))
+	gen_bag_tiers.append(maxi(1, tier))
+
+## The tier of the bagged generator at index `i` (1 if out of range — tolerates a transient skew).
+func _bag_tier_at(i: int) -> int:
+	return int(gen_bag_tiers[i]) if i >= 0 and i < gen_bag_tiers.size() else 1
+
+## Filter the bag in place, keeping only ids for which `should_keep.call(id)` is true — rebuilds
+## gen_bag and its parallel tiers together so they stay aligned.
+func prune_bag(should_keep: Callable) -> void:
+	var ids: Array = []
+	var tiers: Array = []
+	for i in gen_bag.size():
+		if bool(should_keep.call(String(gen_bag[i]))):
+			ids.append(gen_bag[i])
+			tiers.append(_bag_tier_at(i))
+	gen_bag = ids
+	gen_bag_tiers = tiers
 
 ## #1 — a generator is a movable piece (§2): relocate it to an empty, open, non-generator
 ## cell. Refuses an occupied cell, a bramble, or another generator's cell. Persisted via `gens`.
@@ -265,7 +298,7 @@ func to_dict() -> Dictionary:
 	var gl: Array = []
 	for c in gens:
 		gl.append([c.x, c.y, gens[c], gen_tier_at(c)])   # [row, col, id, tier] — JSON-safe (no Vector2i keys)
-	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate()}
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate()}
 
 func from_dict(d: Dictionary) -> void:
 	var t: Array = d.get("terrain", [])
@@ -281,3 +314,7 @@ func from_dict(d: Dictionary) -> void:
 		gens[gc] = String(e[2])
 		gen_tiers[gc] = int(e[3]) if (e as Array).size() > 3 else 1   # #8: tier (old 3-element saves → 1)
 	gen_bag = Array(d.get("gen_bag", []))
+	var bt: Array = Array(d.get("gen_bag_tiers", []))     # #8: parallel tiers (absent in old saves → all 1)
+	gen_bag_tiers = []
+	for i in gen_bag.size():
+		gen_bag_tiers.append(int(bt[i]) if i < bt.size() else 1)
