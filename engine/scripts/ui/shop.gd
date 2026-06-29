@@ -590,6 +590,9 @@ static func _confirm_starter(host: Control, refs: Dictionary) -> void:
 # `grant` + a guard around this Confirm — the frame, the note, and the wiring stay.
 static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		line: String, sub: String, product_key: String, grant: Callable) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = Overlay.MODAL_TOP_Z          # the cash confirm sits ABOVE the open shop
@@ -602,19 +605,9 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
-	# S16: kit-normalized — parchment card, RIBBON title (no raw emoji: the gem
-	# is an icon beside the count), btn_leaf pair SIDE BY SIDE, 0.5 scrim
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	cc.add_child(card)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", Tune.CONFIRM_COL_SEP)
-	card.add_child(col)
-	# S16: kit-normalized title chip (Look.title_ribbon — same solid chip as the
-	# shop header; the ribbon_title nine-patch collapsed invisibly here too).
-	var ribbon := Look.title_ribbon(title, Tune.CONFIRM_TITLE_SIZE)
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ribbon)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	var what := HBoxContainer.new()
 	what.alignment = BoxContainer.ALIGNMENT_CENTER
 	what.add_theme_constant_override("separation", Tune.WHAT_SEP)
@@ -638,16 +631,19 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	var note := Label.new()
 	note.text = (Strings.t("shop.confirm.charged_note") % Iap.usd(product_key)) if charged else Strings.t("shop.confirm.test_build_note")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note.add_theme_font_size_override("font_size", Tune.CONFIRM_NOTE_SIZE)
 	note.add_theme_color_override("font_color", BARK)
 	col.add_child(note)
+	var dialog: Control = null
 	var btns := HBoxContainer.new()
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	btns.add_theme_constant_override("separation", Tune.BTNS_SEP)
 	col.add_child(btns)
 	btns.add_child(Look.button(Strings.t("shop.confirm.cancel"), func() -> void: overlay.queue_free(), false))
 	btns.add_child(Look.button(Strings.t("shop.confirm.confirm"), func() -> void:
-		var at := card.get_global_rect().get_center()
+		var at := dialog.get_global_rect().get_center()
 		# grant + fly-to-wallet + rebuild — IDENTICAL whether the purchase was real or the test path.
 		var settle := func() -> void:
 			grant.call()
@@ -663,4 +659,16 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 					settle.call())
 		else:
 			settle.call(), true))
-	FX.pop_in(card)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var copts: Dictionary = Kit.dialog_opts_from_config(cfg)
+	copts["content_scale"] = Kit.dialog_content_scale(cfg, "dialog")
+	copts["banner_text"] = title
+	copts["banner_icon_on"] = false
+	copts["center_content"] = true
+	copts["on_close"] = func() -> void: overlay.queue_free()
+	var vp := host.get_viewport()
+	var vw: float = vp.get_visible_rect().size.x if vp != null else 1080.0
+	var width: float = maxf(1.0, vw) * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
+	dialog = Kit.dialog_frame(col, width, copts)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)

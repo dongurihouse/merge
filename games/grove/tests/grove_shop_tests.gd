@@ -60,6 +60,21 @@ func _initialize() -> void:
 	ok(Save.take_water_pending() == int(Data.STARTER_PACK.water), "the board drains the banked water credit")
 	ok(Save.water_pending() == 0, "...and the credit is cleared (applied exactly once)")
 
+	# T-D(ii): the real-money purchase confirm wears the SAME shared dialog frame as Mail/Daily/Shop:
+	# named banner + close controls from Kit.dialog_frame, with the cash-specific Cancel/Confirm body inside.
+	fresh("iap_confirm_frame")
+	var chost := Control.new()
+	chost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(chost)
+	ShopS._confirm_cash(chost, {"opts": {}, "host": chost}, 0)
+	var cov: Control = chost.get_child(chost.get_child_count() - 1)
+	await process_frame
+	ok(cov.find_child("DialogBanner", true, false) != null, "cash confirm uses the shared dialog banner")
+	ok(cov.find_child("DialogClose", true, false) != null, "...and the shared dialog close button")
+	var cbtns := _button_texts(cov)
+	ok(cbtns.has("Cancel") and cbtns.has("Confirm"), "...while keeping its Cancel/Confirm purchase actions")
+	chost.queue_free()
+
 	# T-E: free claims — a claim grants the reward, then the type is REFUSED until its
 	# cooldown elapses AND under its daily cap; the per-type daily cap holds.
 	fresh("claims_refill")
