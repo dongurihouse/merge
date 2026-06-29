@@ -1,8 +1,9 @@
 extends Control
-## BOOT SPLASH: the app's cold-launch loading screen (the new main_scene). It paints the
-## brand (logo on the cream chrome) + a progress bar immediately, kicks the heavy Map scene
-## load onto a worker thread (SceneWarm), animates the bar from real load progress while the
-## thread works, then hands off to the home map via SceneWarm's prewarmed packed swap.
+## BOOT SPLASH: the app's cold-launch loading screen (the new main_scene). It keeps the
+## same composed launch frame that the native/mobile splash shows, adds a progress bar
+## immediately, kicks the heavy Map scene load onto a worker thread (SceneWarm), animates
+## the bar from real load progress while the thread works, then hands off to the home map
+## via SceneWarm's prewarmed packed swap.
 ##
 ## It also opens the boot trace (BootTrace.start): every cold-boot phase here AND inside
 ## map.gd's _ready is timed and printed as a table to the log — the "what's taking long"
@@ -18,8 +19,7 @@ const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")
 const Pal = Game.PALETTE
 
 const MAP_PATH := "res://engine/scenes/Map.tscn"
-const BG_PATH := "res://games/grove/assets/ui/boot/splash_background.png"   # the painted grove scene
-const ICON_PATH := "res://games/grove/assets/ui/boot/splash_icon.png"      # the carved "Acorn Forest" title
+const LAUNCH_PATH := "res://games/grove/assets/ui/boot/splash_launch.png"
 const MIN_DURATION := 1.0     # min seconds the splash shows, so a fast load never just flashes
 
 var _bar: ProgressBar
@@ -57,35 +57,22 @@ func _ready() -> void:
 func _build_splash() -> void:
 	var vp := get_viewport_rect().size    # design space (1080 x 1920) under canvas_items stretch
 
-	# cream fallback behind the scene (shown only if the art fails to load / while it streams)
+	# Cream fallback behind the frame, visible only if the launch texture fails.
 	var fill := ColorRect.new()
 	fill.color = Pal.SCREEN_BG
 	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fill)
 
-	# the painted grove scene, covering the whole screen (9:16 source ≈ the design aspect, so ~no crop)
+	# Match the native launch splash exactly, then paint the live progress UI on top.
 	var scene := TextureRect.new()
-	if ResourceLoader.exists(BG_PATH):
-		scene.texture = load(BG_PATH)
+	if ResourceLoader.exists(LAUNCH_PATH):
+		scene.texture = load(LAUNCH_PATH)
 	scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	scene.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(scene)
-
-	# the carved "Acorn Forest: Merge!" title, upper-centre over the scene
-	var title := TextureRect.new()
-	if ResourceLoader.exists(ICON_PATH):
-		title.texture = load(ICON_PATH)
-	title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var title_w := vp.x * 0.82
-	var title_h := title_w * 0.78          # ~1183x921 source ratio (KEEP_ASPECT_CENTERED letterboxes anyway)
-	title.size = Vector2(title_w, title_h)
-	title.position = Vector2((vp.x - title_w) * 0.5, vp.y * 0.05)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(title)
 
 	var bar_w := vp.x * 0.56
 	var bar_h := 24.0

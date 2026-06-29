@@ -56,6 +56,12 @@ class BootSplashAssetTests(unittest.TestCase):
         self.assertEqual(header["bit_depth"], 8)
         self.assertIn(header["color_type"], (2, 6))
 
+    def test_boot_scene_uses_the_same_composed_launch_frame(self):
+        boot = (ROOT / "engine/scripts/scenes/boot.gd").read_text()
+        self.assertIn('const LAUNCH_PATH := "%s"' % LAUNCH_RES, boot)
+        self.assertNotIn("splash_background.png", boot)
+        self.assertNotIn("splash_icon.png", boot)
+
 
 if __name__ == "__main__":
     unittest.main()
