@@ -177,6 +177,41 @@ func _initialize() -> void:
 		ok(board_scene.board.item_at(dbl_cell) == 0, "double-event tap 2 COLLECTS (emulate_touch_from_mouse dedup)")
 		ok(Save.coins() == dcoins0 + G.coin_value(902), "double-event collect credits the coin value")
 
+	# A regular board item that is neither a collectable nor wanted by a live quest should use the
+	# same visible focus affordance: tap 1 focuses it, tap 2 opens its tier ladder instead of no-oping.
+	var regular_cell := dbl_cell
+	if regular_cell.x < 0 or board_scene.board.item_at(regular_cell) != 0:
+		regular_cell = _first_empty_cell(board_scene, [cell, coin_cell])
+	ok(regular_cell.x >= 0, "the focused regular-item ladder test found an empty cell")
+	if regular_cell.x >= 0:
+		var saved_quests: Array = board_scene.quests.duplicate(true)
+		board_scene.quests = []
+		var regular_code := 101
+		board_scene.board.place(regular_cell, regular_code)
+		board_scene._rebuild_pieces()
+		ok(not G.is_collectable(regular_code), "the regular test item is not tap-collectable")
+		ok(board_scene.board.collect_reward_at(regular_cell).is_empty(), "the regular test item has no custom collect reward")
+		ok(board_scene._quest_for_code(regular_code) < 0, "the regular test item is not a quest-ready delivery")
+		var rhalf := Vector2(board_scene.csz, board_scene.csz) / 2.0
+		var rat: Vector2 = board_scene.board_area.get_global_transform() * (board_scene._cell_pos(regular_cell) + rhalf)
+		_push_tap(rat)                                   # tap 1 -> focus
+		await create_timer(0.05).timeout
+		ok(board_scene._selected_cell == regular_cell, "tap 1 focuses the regular item")
+		ok(board_scene.get_node_or_null("LadderOverlay") == null, "tap 1 does not open the tier dialog")
+		var rat2: Vector2 = board_scene.board_area.get_global_transform() * (board_scene._cell_pos(regular_cell) + rhalf)
+		_push_tap(rat2)                                  # tap 2 -> tier dialog
+		await create_timer(0.05).timeout
+		ok(board_scene.get_node_or_null("LadderOverlay") != null, "tap 2 of the focused regular item opens the tier dialog")
+		ok(board_scene.board.item_at(regular_cell) == regular_code, "opening the tier dialog leaves the regular item on the board")
+		var regular_overlay: Node = board_scene.get_node_or_null("LadderOverlay")
+		if regular_overlay != null:
+			regular_overlay.queue_free()
+			await process_frame
+		board_scene.board.place(regular_cell, 0)
+		board_scene._rebuild_pieces()
+		board_scene._clear_selection()
+		board_scene.quests = saved_quests
+
 	# Producing dialog (tap generator → ⓘ): the lines a generator currently makes, drilling into each line's
 	# tier ladder. Logic (_gen_line_entries / _pop_pool_ctx) + the info-button wiring.
 	var gens: Dictionary = board_scene.board.gens

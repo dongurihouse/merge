@@ -4042,6 +4042,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pill.custom_minimum_size.y = height
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var frame := gold_badge_style(opts.get("badge", {}))
 	var pad: Dictionary = opts.get("pill", {})
 	var pad_x := float(pad.get("pad_x", 18.0))
@@ -4058,6 +4059,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.add_child(hb)
 	var item_text_row := HBoxContainer.new()
 	item_text_row.add_theme_constant_override("separation", 0)

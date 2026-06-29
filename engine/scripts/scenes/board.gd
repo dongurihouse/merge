@@ -292,6 +292,7 @@ func _ready() -> void:
 	bar.anchor_top = 1.0
 	bar.anchor_bottom = 1.0
 	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb_inset := Look.safe_bottom(self)
 	var bottom_btn_px := _bottom_button_px()
 	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
@@ -309,6 +310,7 @@ func _ready() -> void:
 	row.name = "ActionBarRow"
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 0)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.add_child(row)
@@ -1547,6 +1549,7 @@ func _relayout_action_bar() -> void:
 	bottom_bar.anchor_right = 0.0
 	bottom_bar.anchor_top = 1.0
 	bottom_bar.anchor_bottom = 1.0
+	bottom_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bar_margin := _board_side_margin_px()
 	bottom_bar.offset_left = bar_margin
 	bottom_bar.offset_right = _view_size().x - bar_margin
@@ -1554,6 +1557,8 @@ func _relayout_action_bar() -> void:
 	bottom_bar.offset_bottom = -14.0 - sb_inset
 	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
 	var row := bottom_bar.find_child("ActionBarRow", false, false) as HBoxContainer
+	if row != null:
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, true)
 
 func _on_action_bar_viewport_resized() -> void:
@@ -2385,6 +2390,11 @@ func _on_release(pos: Vector2) -> void:
 				_collect_special(from, node)
 		elif _press_was_selected and Features.on("quest_ready_glow") and _quest_for_code(from_code) >= 0:
 			_deliver_from_board(from)         # second tap of an already-focused, glowing tile → consume it + complete the quest
+		elif _press_was_selected and board.collect_reward_at(from).is_empty():
+			if node != null and is_instance_valid(node):
+				node.position = _cell_pos(from)
+			_select_item(from)
+			_open_ladder(BoardModel.line_of(from_code), BoardModel.tier_of(from_code))
 		else:
 			_snap_back(from, node)
 			_select_item(from)
