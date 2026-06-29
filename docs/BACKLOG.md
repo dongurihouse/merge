@@ -111,7 +111,7 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
   spirits along a **kind × rarity** ledger; surface it as a dedicated **almanac page**, not inline on
   the habitat/management screen (Dev call, 2026-06-24). Likely shares an almanac component with the
   retired-line Collection above. Parked until the residents habitat/management screen is built. Spec:
-  `docs/design/residents_spec.md` (Reward → Collection).
+  `grove_spec §3` (the Residents expansion → Collection) + `merge_spec §8`.
 
 - **Live-ops / events framework (§17).** A data-driven event framework — a time-boxed overlay with a mini
   reward track, usually a limited-time generator + line (retires to the Collection), plus bonus weekends,
@@ -228,7 +228,7 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
   and expect some to need updating to match by-then-current behavior. *(from old meta 5.2.)* **Note (T62):
   `grove_economy` + `grove_placement` still reference the retired `STAR_CAP` + the t8 → 1💎 sell pinnacle —
   re-enabling them needs a rewrite to the §exp economy (effort exp = `round(clicks/7)`, every tier sells for
-  coins×band, exp-threshold spot claims). The specs are now reconciled (`exp_progression_spec`, `merge_spec`
+  coins×band, exp-threshold spot claims). The specs are now reconciled (`merge_spec`
   §3/§7/§9, `grove_spec` §4/§5) — use them + `economy_model.html` as the target.**
 
 - **Code-narrative cleanup — stale comments + legacy spot fields (T62, docs pass found these).** The build is

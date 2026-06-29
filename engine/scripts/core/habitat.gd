@@ -300,7 +300,7 @@ static func _settle(map_id: String, now: float = -1.0) -> void:
 	g["hab_prod"][map_id] = {"acc": banked, "last": now}
 	Save.grove_write()
 
-# --- the per-map reward (residents_spec Reward table; all five maps wired) ------------------------
+# --- the per-map reward (grove_spec §3 Residents expansion → Reward table; all five maps wired) ---
 ## The reward currency each map pays: coins / water / boost / diamonds / residents. "" for an unknown id.
 static func reward_currency(map_id: String) -> String:
 	return String(REWARD.get(map_id, {}).get("currency", ""))

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Godot 4.6 GDScript. Headless test suites via `make test-fast` (engine), `make test-grove` (grove slices), `make test` (full, before handoff). Run `make import` once in this worktree first (per-checkout texture cache).
 
-**Reference spec:** `docs/design/exp_progression_spec.md`.
+**Reference spec:** `merge_spec §3` + `economy_model.html` (the exp model was folded there; `exp_progression_spec.md` has since been removed).
 
 ---
 
