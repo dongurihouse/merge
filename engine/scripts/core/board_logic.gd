@@ -155,3 +155,13 @@ static func quest_payable(board: BoardModel, q: Dictionary) -> bool:
 	if it.is_empty():
 		return true
 	return board.count_of(int(it.line) * 100 + int(it.tier)) >= 1
+
+# The landing cell for a lucky drop (coin / §6.B special) shaken loose near `near`: one of the up-to-3
+# OPEN cells nearest `near`, chosen by `rng`. Returns the (-1,-1) sentinel when the board has no open
+# ground. Pure — the two drop handlers share it so the "where does it land" chance is unit-tested.
+static func pick_drop_cell(board: BoardModel, near: Vector2i, rng: RandomNumberGenerator) -> Vector2i:
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		return Vector2i(-1, -1)
+	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
+	return empties[rng.randi_range(0, mini(2, empties.size() - 1))]

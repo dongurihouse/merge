@@ -5,6 +5,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## Board scene. This is the "change the rule, assert without UI validation" gate.
 
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
 func _initialize() -> void:
 	begin("grove · board actions")
@@ -14,6 +15,7 @@ func _initialize() -> void:
 	_test_collect_coin()
 	_test_collect_special()
 	_test_produce_due_generators()
+	_test_pick_drop_cell()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -153,3 +155,24 @@ func _test_produce_due_generators() -> void:
 	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
 	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
 	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
+
+# The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
+# cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.
+func _test_pick_drop_cell() -> void:
+	var board := BoardModel.new()
+	var near := Vector2i(3, 3)
+	var empties := board.empty_ground_cells()
+	ok(not empties.is_empty(), "a fresh board has open cells to drop into")
+	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
+	var nearest3: Array = empties.slice(0, mini(3, empties.size()))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 999
+	var all_in := true
+	for n in 12:
+		if not (BoardLogic.pick_drop_cell(board, near, rng) in nearest3):
+			all_in = false
+	ok(all_in, "pick_drop_cell always lands within the 3 nearest open cells")
+	var full := BoardModel.new()
+	for i in full.items.size():
+		full.items[i] = 101
+	ok(BoardLogic.pick_drop_cell(full, near, rng) == Vector2i(-1, -1), "a board with no open ground yields the (-1,-1) sentinel")

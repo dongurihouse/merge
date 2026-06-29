@@ -2879,11 +2879,9 @@ func _open_bramble(cell: Vector2i) -> void:
 	Audio.play("tidy_poof", -2.0)
 
 func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
-	var empties := board.empty_ground_cells()
-	if empties.is_empty():
+	var cell := BoardLogic.pick_drop_cell(board, near, rng)
+	if cell.x < 0:                                # no open ground → nothing to shake loose
 		return
-	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
-	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
 	if code <= 0:
 		code = G.COIN_LINE * 100 + 1
 	board.place(cell, code)
@@ -2943,11 +2941,9 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 
 # §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
 func _drop_special_near(near: Vector2i, code: int) -> void:
-	var empties := board.empty_ground_cells()
-	if empties.is_empty():
+	var cell := BoardLogic.pick_drop_cell(board, near, rng)
+	if cell.x < 0:                                # no open ground → nothing to shake loose
 		return
-	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
-	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
 	board.place(cell, code)
 	var n := _make_piece(code, csz)
 	n.position = _cell_pos(near)
