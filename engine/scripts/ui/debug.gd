@@ -121,6 +121,8 @@ static func mount(host: Control) -> void:
 		_action(menu, host, "Vine diag", _act_vine_diag)
 	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
 		_action(menu, host, "Drop coin", _act_drop_coin)
+	if host.has_method("debug_drop_acorn"):      # board-only: spawn an acorn to exercise premium collectables
+		_action(menu, host, "Drop acorn", _act_drop_acorn)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)
@@ -328,6 +330,12 @@ static func _act_add_resident(host: Control) -> void:
 static func _act_drop_coin(host: Control) -> void:
 	if host.has_method("debug_drop_coin"):
 		host.debug_drop_coin()
+
+## Board-only: drop an acorn onto a free cell so premium collectables can be tested on demand.
+## No _reflect — the acorn animates in live and debug_drop_acorn() persists it (no scene reload).
+static func _act_drop_acorn(host: Control) -> void:
+	if host.has_method("debug_drop_acorn"):
+		host.debug_drop_acorn()
 
 ## Knock 25 off the water can (floored at 0) to walk down into the out-of-water flow.
 static func _act_reduce_water(host: Control) -> void:

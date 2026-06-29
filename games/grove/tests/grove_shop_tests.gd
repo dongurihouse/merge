@@ -237,6 +237,23 @@ func _initialize() -> void:
 	# coins (and any future collectable) are POCKETED by a tap-to-FOCUS then tap-AGAIN gesture,
 	# never by a drag (board.gd _on_release keys off G.is_collectable + the focused cell).
 	ok(G.is_collectable(bd.board.item_at(dc)), "the dropped coin counts as a collectable")
+
+	bd.debug_drop_acorn()
+	await create_timer(0.3).timeout
+	var da := Vector2i(-1, -1)
+	for i in bd.board.items.size():
+		if int(bd.board.items[i] / 100.0) == 13:
+			da = BoardModel.cell_of(i)
+			break
+	ok(da != Vector2i(-1, -1), "debug_drop_acorn lands an acorn on an empty board cell")
+	ok(bd.piece_nodes.has(da), "the debug-dropped acorn gets a piece node")
+	var saved_acorn := false
+	for v in Save.grove().get("board", {}).get("items", []):
+		if int(int(v) / 100.0) == 13:
+			saved_acorn = true
+	ok(saved_acorn, "debug_drop_acorn persists the acorn to the save (survives a reload)")
+	ok(G.is_collectable(bd.board.item_at(da)), "the dropped acorn counts as a collectable")
+
 	var coin_val := G.coin_value(bd.board.item_at(dc))
 	var wallet0 := Save.coins()
 	var chalf := Vector2(bd.csz, bd.csz) / 2.0

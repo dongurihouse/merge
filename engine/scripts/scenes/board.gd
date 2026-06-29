@@ -3023,6 +3023,15 @@ func debug_drop_coin() -> void:
 	_persist()
 	_refresh_generator_dim()
 
+## Debug-only: drop a tier-1 acorn onto a free board cell (the debug panel's "Drop acorn" button).
+## Uses the normal special-drop placement path so it lands, persists, merges, and tap-collects like a real drop.
+func debug_drop_acorn() -> void:
+	if board.empty_ground_cells().is_empty():
+		return
+	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), 13 * 100 + 1)
+	_persist()
+	_refresh_generator_dim()
+
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	var reward := board.take_collect_reward(cell)
 	var code := board.take(cell)
