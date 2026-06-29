@@ -212,6 +212,16 @@
 		"shadow_spread": -13.0,
 		"shadow_warmth": 82.0
 	},
+	"grab_fx": {
+		"enabled": true,
+		"glow": true,
+		"glow_pct": 100,
+		"haptic": true,
+		"outline": true,
+		"outline_a": 90,
+		"outline_w": 4,
+		"shadow": false
+	},
 	"home_button": {
 		"badge_dot_px": 15.0,
 		"badge_dx": 8.0,
@@ -285,6 +295,8 @@
 		"haptic": true,
 		"puff": false,
 		"puff_count": 3.0,
+		"ripple": true,
+		"ripple_pct": 60,
 		"shadow": false,
 		"sound": true,
 		"sound_db": -4.0,
@@ -344,10 +356,10 @@
 	"map_card": {
 		"card_h_frac": 19.0,
 		"edge_sparkle": 60.0,
-		"expedition_button_icon_scale": 64.0,
-		"expedition_button_px": 82.0,
-		"expedition_button_x": 0.0,
-		"expedition_button_y": 0.0,
+		"expedition_button_icon_scale": 75.0,
+		"expedition_button_px": 148.0,
+		"expedition_button_x": 160.0,
+		"expedition_button_y": -35.0,
 		"pill_max": 290.0,
 		"pill_min": 170.0,
 		"pill_w_frac": 30.0,
