@@ -114,6 +114,18 @@ func _initialize() -> void:
 	var gb_back2: Vector2i = bm5.empty_ground_cells()[0]
 	ok(bm5.place_gen_from_bag("gen_1", gb_back2) and bm5.gen_tier_at(gb_back2) == 2, "a bagged generator's tier survives to_dict/from_dict")
 
+	# #8 a generator that VANISHES in place (a spent bonus/treat gen) must clear its tier too — like
+	# store_gen / merge_gens / move_gen. remove_gen is the model seam for it (board.gd erased `gens` raw,
+	# leaving a stale gen_tiers entry on the now-empty cell).
+	var bm6 := BoardModel.new()
+	bm6.seed_gens(0)
+	var vanish_dup: Vector2i = bm6.empty_ground_cells()[0]
+	bm6.place_gen("gen_1", vanish_dup)
+	bm6.merge_gens(vanish_dup, Vector2i(4, 3))           # (4,3) is now a tier-2 generator
+	ok(bm6.remove_gen(Vector2i(4, 3)) and not bm6.gens.has(Vector2i(4, 3)), "remove_gen deletes the generator")
+	ok(not bm6.gen_tiers.has(Vector2i(4, 3)), "remove_gen clears the vacated cell's tier (no stale tier left behind)")
+	ok(not bm6.remove_gen(Vector2i(4, 3)), "remove_gen on a cell with no generator is a no-op (false)")
+
 	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
 	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
 	# the norm — the boost RAISES THE CHANCE of multiples, it does not add a flat count. Both tables top

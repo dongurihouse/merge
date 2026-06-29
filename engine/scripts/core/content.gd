@@ -293,7 +293,7 @@ static func base_generator(line: int) -> Dictionary:
 	var z := zone_of_line(int(line))
 	return {"id": gen_for_line(int(line)), "line": int(line), "zone": z, "map": zone_map(z)}
 
-# All 16 base-line generators, in zone order — the new per-line roster (replaces the 5 multi-line GENERATORS
+# All 17 base-line generators, in zone order — the new per-line roster (replaces the 5 multi-line GENERATORS
 # when the board flips). Special lines have no generator and are absent here.
 static func base_generators() -> Array:
 	var out: Array = []
@@ -554,6 +554,8 @@ static func _all_avoided(items: Array, avoid: Array) -> bool:
 ## Returns {line, tier, reward, featured}. All numbers OWNER/SIM tunables (docs/economy_model.html).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = [], map: int = 0) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
+	if lines.is_empty():
+		return {}                                      # degenerate: no askable line (refill always passes ≥1) — guard the items[0] read below from a -1 _weighted_index
 	lines.sort()                                       # ascending: last entry = newest / highest-value
 	# Per-tier bell over the FULL band [QUEST_TIER_BASE, TOP_TIER] — so every line always offers all of
 	# its tiers (9 items at BASE=4, TOP=12), even at level 0. weight(t) ∝ exp(-½((t-μ)/σ)²). The band is

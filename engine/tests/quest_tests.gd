@@ -94,6 +94,9 @@ func _initialize() -> void:
 	var rA := RandomNumberGenerator.new(); rA.seed = 42
 	var rB := RandomNumberGenerator.new(); rB.seed = 42
 	ok(str(G.gen_quest(10, hi_lines, rA)) == str(G.gen_quest(10, hi_lines, rB)), "gen_quest is deterministic for a seed")
+	# degenerate guard: an empty line pool must not crash on items[0] (a -1 _weighted_index). Unreachable in
+	# play (refill always passes ≥1 line) but a one-line safety net — return {} so callers see "no ask".
+	ok(G.gen_quest(0, [], rng, [], 0).is_empty(), "gen_quest on an EMPTY line pool returns {} (no items[0] crash)")
 	# avoid is a set of ITEM codes (line*100+tier): a HARD-excluded item is never asked while any other
 	# candidate item is free. (band [4..12] at level 20, tier bell centred on t8.)
 	rng.seed = 31

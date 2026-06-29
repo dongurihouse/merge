@@ -1260,6 +1260,10 @@ func _refresh_boost_indicator() -> void:
 		var gn: Control = gen_nodes[cell]
 		if gn == null or not is_instance_valid(gn):
 			continue
+		# A bonus/treat generator already shows its OWN taps-left badge in this corner (AccBadge/TreatBadge);
+		# don't stack the boost-taps badge on top — they'd overlap into an unreadable double count. The boost
+		# still APPLIES to it (its collect/pop multiplies); only the corner count chrome stays the gen's own.
+		var owns_badge := G.is_accumulator(board.gen_id_at(cell)) or G.is_treat_gen(board.gen_id_at(cell))
 		var spk: Node = gn.get_node_or_null("BoostSparkle")
 		var bdg: Node = gn.get_node_or_null("BoostBadge")
 		if live:
@@ -1269,10 +1273,14 @@ func _refresh_boost_indicator() -> void:
 				s.size = Vector2(csz, csz)
 				s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				gn.add_child(s)
-			if bdg == null:
-				bdg = _make_boost_badge()
-				gn.add_child(bdg)
-			((bdg as Control).get_node("Count") as Label).text = "%d" % taps
+			if owns_badge:
+				if bdg != null:
+					bdg.queue_free()             # the gen's own count badge owns this corner
+			else:
+				if bdg == null:
+					bdg = _make_boost_badge()
+					gn.add_child(bdg)
+				((bdg as Control).get_node("Count") as Label).text = "%d" % taps
 		else:
 			if spk != null:
 				spk.queue_free()
@@ -3164,7 +3172,7 @@ func _sync_accumulators() -> void:
 		return
 	for cell in board.gens.keys():
 		if G.is_accumulator(String(board.gens[cell])):
-			board.gens.erase(cell)
+			board.remove_gen(cell)
 	board.prune_bag(func(id: String) -> bool: return not G.is_accumulator(id))   # drops legacy accumulators, keeps tiers aligned
 	Save.grove().erase("accumulators")
 	_persist()
@@ -3218,7 +3226,7 @@ func _collect_accumulator(cell: Vector2i) -> void:
 		FX.pop(gn)
 	Audio.play("water_pop" if Audio.has("water_pop") else "item_drop", -3.0, 1.1)
 	if clicks <= 0:
-		board.gens.erase(cell)                # the bonus generator is spent → it vanishes
+		board.remove_gen(cell)                # the bonus generator is spent → it vanishes (clears its tier too)
 		Save.grove().erase("bonus_clicks")
 	else:
 		Save.grove()["bonus_clicks"] = clicks
@@ -3307,6 +3315,8 @@ func _spawn_treat_gen() -> void:
 # A tap on the treat generator pops a burst of its premium line at the head-start tier (no water), often
 # also showering a §6.B special drop. Decrements the tap budget; at 0 the treat generator VANISHES.
 func _pop_treat(cell: Vector2i) -> void:
+	if int(Save.grove().get("treat_clicks", 0)) <= 0:
+		return                                # parity with _collect_accumulator: no budget left → no free burst, no -1 underflow
 	var line := G.treat_line_of(board.gen_id_at(cell))
 	var empties := board.empty_ground_cells()
 	if empties.is_empty():
@@ -3337,7 +3347,7 @@ func _pop_treat(cell: Vector2i) -> void:
 	FX.gen_charge(gen_nodes.get(cell))
 	Audio.play("water_pop", -2.0, 1.2)
 	if clicks <= 0:
-		board.gens.erase(cell)                # the treat generator is spent → it vanishes
+		board.remove_gen(cell)                # the treat generator is spent → it vanishes (clears its tier too)
 		Save.grove().erase("treat_clicks")
 	else:
 		Save.grove()["treat_clicks"] = clicks

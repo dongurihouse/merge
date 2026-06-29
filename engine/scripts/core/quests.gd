@@ -38,8 +38,8 @@ static func gate_ready(z: int, exp: int, unlocks: Dictionary) -> bool:
 # §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED + non-interactive
 # instead of emptying — once earned exp can finish the WHOLE current map (the exact point the active
 # meter used to taper to 0). False while the player still needs exp for the map, and false on a spots-done
-# map (left == 0 → that map is complete, never a frontier). The generator-carrier quest stays deliverable
-# even here (board.gd keeps out[0] active), so the next map's tools still arrive — see refill().
+# map (left == 0 → that map is complete, never a frontier). The generator-carrier quest is RETIRED — the
+# next map's tools now arrive via quest-driven birth-on-tap (Quests.due_gen / board._produce_due_generators).
 static func fence_inert(z: int, exp: int, unlocks: Dictionary) -> bool:
 	var fin := G.map_finish_exp(z, unlocks)
 	return fin >= 0 and exp >= fin

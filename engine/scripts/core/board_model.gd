@@ -157,6 +157,16 @@ func merge_gens(from: Vector2i, to: Vector2i) -> bool:
 	gen_tiers[to] = t + 1
 	return true
 
+## A generator that VANISHES in place (a spent bonus/treat gen): erase BOTH `gens` and its tier so no stale
+## gen_tier is left on the now-empty cell — mirrors store_gen / merge_gens / move_gen. Returns true if one was
+## removed. (board.gd used a raw `gens.erase(cell)` that orphaned the tier; route those through here.)
+func remove_gen(cell: Vector2i) -> bool:
+	if not gens.has(cell):
+		return false
+	gens.erase(cell)
+	gen_tiers.erase(cell)
+	return true
+
 ## Place a single generator at `cell` — claims the cell (sheds bramble / hops any item to
 ## safety), like seed_gens. No-op if a generator already sits there.
 func place_gen(id: String, cell: Vector2i) -> void:
