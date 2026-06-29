@@ -241,17 +241,17 @@ func _initialize() -> void:
 	ok(scn.quests.size() <= n_before, "§7: the delivered quest leaves the live fence")
 
 	# §7 soft gate: once total exp can claim the WHOLE current map (fence_inert), the fence does
-	# NOT empty — it fills to MAX_GIVERS greyed/inert quests (so it never goes blank under the lit
-	# restore CTA), and the next unlock reads ready.
+	# NOT empty — it fills greyed/inert quests up to the active line budget (so it never goes blank
+	# under the lit restore CTA), and the next unlock reads ready.
 	var gg := Save.grove()
 	gg["exp"] = 300                              # well past map 0's spot thresholds → fence_inert
 	Save.grove_write()
 	scn._rebuild_givers()
 	scn._update_hud()
 	ok(scn._gate_ready(), "§7: total exp has reached the next unlock threshold (gate ready)")
-	ok(scn.quests.size() == int(G.MAX_GIVERS), "§7: the inert fence fills to MAX_GIVERS greyed (never blank)")
-	# item 4: the fence row lives in a horizontal ScrollContainer; the jar + ALL quest cards (up to
-	# MAX_GIVERS=5) are rendered with no trim-to-fit, and scroll horizontally when they overflow.
+	ok(scn.quests.size() == 4, "§7: the one-line inert fence stays visible but line-capped")
+	# item 4: the fence row lives in a horizontal ScrollContainer; the jar + ALL quest cards are
+	# rendered with no trim-to-fit, and scroll horizontally when they overflow.
 	var fence_scroll: ScrollContainer = null
 	for c in scn.giver_bar.get_children():
 		if c is ScrollContainer:
@@ -261,8 +261,8 @@ func _initialize() -> void:
 		"the fence scrolls horizontally")
 	ok(fence_scroll != null and fence_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
 		"the fence never scrolls vertically (busts stay un-clipped)")
-	ok(scn.giver_chips.size() == int(G.MAX_GIVERS),
-		"the fence renders all %d quest cards (no trim-to-fit)" % int(G.MAX_GIVERS))
+	ok(scn.giver_chips.size() == scn.quests.size(),
+		"the fence renders all %d quest cards (no trim-to-fit)" % scn.quests.size())
 	# the restore invitation now LIGHTS the centre Home button (the standalone Decorate CTA is retired):
 	# Home breathes the moment a spot is affordable
 	ok(scn.home_btn != null and scn.home_btn.has_meta("_fx_breathing"), "§7: the Home button breathes when a spot is affordable")

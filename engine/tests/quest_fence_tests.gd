@@ -20,6 +20,31 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
+func _line_counts(qs: Array) -> Dictionary:
+	var out := {}
+	for q in qs:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		var line := int(it.line)
+		out[line] = int(out.get(line, 0)) + 1
+	return out
+
+func _max_line_count(qs: Array) -> int:
+	var out := 0
+	for count in _line_counts(qs).values():
+		out = maxi(out, int(count))
+	return out
+
+func _unique_item_count(qs: Array) -> int:
+	var seen := {}
+	for q in qs:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		seen[int(it.line) * 100 + int(it.tier)] = true
+	return seen.size()
+
 func _initialize() -> void:
 	# --- reward readers: new {reward:{…}} shape and the legacy flat {exp} shape ---
 	var q_new := {"reward": {"exp": 3, "coins": 5, "gems": 1}}
@@ -76,6 +101,7 @@ func _initialize() -> void:
 
 	# --- meter_target: bounded 0..MAX_GIVERS, and shrinks as ★ bank toward finishing the map (§7) ---
 	var tgt := Quests.meter_target(0, 0, {})
+	ok(int(G.MAX_GIVERS) == 8, "the quest fence caps at 8 live quest cards")
 	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
 	ok(Quests.meter_target(0, 0, {}) >= Quests.meter_target(0, 100000, {}), "the fence shrinks monotonically as ★ bank toward finishing the map")
 
@@ -91,12 +117,25 @@ func _initialize() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
 	var r := Quests.refill([], 0, {}, [], {}, [], 0, 1, rng)
-	ok(r.size() == tgt, "refill fills an empty fence to exactly the metered target (%d)" % tgt)
+	ok(r.size() == 4, "a fresh one-line game shows only 4 quests, not the full fence (%d)" % r.size())
+	ok(_max_line_count(r) <= 4, "fresh quests never exceed the 4-per-line cap")
+	ok(_unique_item_count(r) == r.size(), "fresh quests keep distinct item-code asks while capped")
 	var no_special := true
 	for q in r:
 		if bool(q.get("gate", false)) or q.has("grant"):
 			no_special = false
 	ok(no_special, "the normal stream carries no gate or grant quest")
+
+	# With enough live lines, the fence can still fill to the global cap, while no single line
+	# occupies more than four cards.
+	var full_unl := {}
+	for i in 6:
+		full_unl[str(i)] = true
+	var rf_full := RandomNumberGenerator.new(); rf_full.seed = 4242
+	var full_fence := Quests.refill([], 0, full_unl, [], {}, [], 0, 6, rf_full)
+	ok(full_fence.size() == int(G.MAX_GIVERS), "a multi-line pool can fill the 8-card fence")
+	ok(_max_line_count(full_fence) <= 4, "the live fence allows at most 4 quests from any single line")
+	ok(_unique_item_count(full_fence) == full_fence.size(), "the full fence keeps distinct concurrent item-code asks")
 
 	# --- refill is deterministic for a given seed (the rng is seeded + persisted; order is load-bearing) ---
 	var rA := RandomNumberGenerator.new(); rA.seed = 7
@@ -108,7 +147,7 @@ func _initialize() -> void:
 	for _i in tgt + 3:
 		over.append({"line": 1, "tier": 1, "reward": {"exp": 1, "coins": 0}})
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
-	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
+	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == 4, "refill trims an over-full one-line fence to the line-capped target")
 
 	# --- BIRTH-ON-TAP board invariant: a fresh map-0 board seeds + grows to the ANCHOR ONLY (gen_1 / line 1) —
 	# --- the produceable set the fence must match. grow_gens is the legacy appear_level staging path; with
@@ -227,10 +266,11 @@ func _initialize() -> void:
 		z0_full[String(sp.id)] = true
 	ok(not Quests.fence_inert(0, 999999, z0_full), "fence_inert is false on a spots-done map (no frontier work left)")
 
-	# --- refill INERT: instead of emptying when you can finish the map, the fence fills to MAX_GIVERS with
-	# --- quests the board renders GREYED + inert, so the fence never goes blank under the lit Purge card. ---
+	# --- refill INERT: instead of emptying when you can finish the map, the fence still shows greyed
+	# --- quests, but it obeys the same per-line cap as the active fence. A one-line fresh map shows 4. ---
 	var rin := Quests.refill([], 0, {}, [], {}, [], 999999, 1, RandomNumberGenerator.new())
-	ok(rin.size() == int(G.MAX_GIVERS), "refill fills the inert fence to MAX_GIVERS (greyed), not empty")
+	ok(rin.size() == 4, "refill keeps a one-line inert fence visible but line-capped")
+	ok(_max_line_count(rin) <= 4, "one-line inert quests obey the 4-per-line cap")
 
 	# --- refill INERT carries NO generator quest either (carrier retired): the inert fence is ordinary greyed
 	# --- quests; the next map's tool is produced by a generator tap once that map unlocks, not delivered here. ---
