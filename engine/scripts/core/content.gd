@@ -1068,6 +1068,14 @@ static func is_collectable(code: int) -> bool:
 static func is_special(code: int) -> bool:
 	return SPECIAL_ITEMS.has(int(code / 100.0))
 
+# §6.G RECIPE-line membership: true when `code` belongs to one of the special "treasure" lines (71-78,
+# ZONE_SPECIAL_LINES) — the premium lines CRAFTED by merging two base lines at the same tier. DISTINCT
+# from is_special() above, which gates the §6.B special-DROP pseudo-lines (chest/key/water/acorn/exp/
+# wildcard). Recipe lines are ordinary content LINES; this predicate exists so a recipe-line merge can
+# fire the intensified big-moment feel at EVERY tier (T63 — board.gd _after_merge → MergeFx.apply).
+static func is_special_line(code: int) -> bool:
+	return ZONE_SPECIAL_LINES.has(int(code / 100.0))
+
 static func special_kind(code: int) -> String:
 	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("kind", ""))
 

@@ -2888,7 +2888,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# squash/flash/shake/hitstop/burst/sound + ripple + board punch + the WORLD PUFF (a small grove-scale
 	# petal burst that replaced the old giant Ambient.puff motes) + the milestone WORD all fire INSIDE
 	# MergeFx.apply now — every cue is a workbench toggle/knob.
-	MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0)
+	# T63: a §6.G recipe-line (special "treasure" line) merge fires the intensified big-moment feel at EVERY
+	# tier — top-band colour/chime/haptic + the reserved shake + board punch — so the premium lines always land.
+	MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0, G.is_special_line(produced))
 	# bundle D: poke the screen-bloom — a PERSISTENT overlay, so it can't live inside apply(); gate + scale it
 	# here by the workbench's combo_bloom toggle + bloom_pct knob (the scene owns the world reaction).
 	if MergeFx.on(_merge_opts, "combo_bloom") and _combo_bloom != null and is_instance_valid(_combo_bloom):

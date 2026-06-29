@@ -319,6 +319,12 @@ func _initialize() -> void:
 	ok(G.recipe_lines(1) == [] and G.recipe_lines(2) == [] and G.recipe_lines(51) == [], "recipe_lines(base) is empty — a base line has no recipe")
 	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
 	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
+	# §6.G RECIPE-line membership (is_special_line) — a code whose line is one of the 8 special lines (71-78).
+	# Distinct from is_special() above (the §6.B special-DROP pseudo-lines chest/key/water/...). Used to give a
+	# recipe-line merge the intensified big-moment feel at EVERY tier (T63 → board.gd _after_merge → MergeFx).
+	ok(G.is_special_line(71 * 100 + 1) and G.is_special_line(78 * 100 + 6), "is_special_line gates the §6.G recipe lines (71-78) at any tier")
+	ok(not G.is_special_line(1 * 100 + 1) and not G.is_special_line(51 * 100 + 4), "a base content line (1, 51) is not a recipe line")
+	ok(not G.is_special_line(G.COIN_LINE * 100 + 1) and not G.is_special_line(10 * 100 + 1), "coins and §6.B special-DROP items are not recipe lines")
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
 	ok(G.cap_quest_lines([1, 2, 3, 4, 5, 21, 22, 23], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
 	ok(G.cap_quest_lines([1, 2, 3], 6) == [1, 2, 3], "a small pool is left untouched (footprint under the cap)")
