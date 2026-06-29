@@ -326,7 +326,7 @@ const ACCUMULATORS := {
 # a head-start tier, for a random number of taps, then VANISHES. Scarce + fleeting (grab it before it's
 # gone), no water cost. The treat items merge + sell (the Farm lines carry the later-map sell band), and
 # each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
-const TREAT_SPAWN_CHANCE := 0.02          # P(a main-generator tap also spawns a temp treat generator) — sim-tuned down (treats fed too much water/exp)
+const TREAT_SPAWN_CHANCE := 0.0           # SHELVED (gen redesign 2026-06-28, task 1): treat gens no longer spawn; lines 71–75 kept for later reuse. (was 0.02)
 const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
 # Every premium treat line — sells at TREAT_SELL_BAND and is a valid treat-drop target. The 5 fruit
 # treasures are the per-map ACTIVE specials (MAP_TREAT_LINE below). (The Farm lines 61-66 USED to sit here
