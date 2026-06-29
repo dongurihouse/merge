@@ -208,13 +208,28 @@ func _initialize() -> void:
 				all_present = false
 		ok(all_present and entries.size() == all_game_lines.size(), "every base line in the game gets a cell (show-all roadmap)")
 		ok(has_other_map, "lines from later maps appear too (not just the tapped generator's own roster)")
-		# in_pool must match the live pop pool exactly — the dialog highlight is what a tap would spawn now.
-		var pool: Array = board_scene._pop_pool_ctx()["pool"]
-		var pool_match := true
+		# in_pool must match the SELECTED generator's own pop line. The global quest context may span
+		# several wanted lines, but a per-line generator still only produces its own line.
+		var gen_line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
+		var hot_lines: Array = []
 		for e in entries:
-			if bool(e.in_pool) != pool.has(int(e.line)):
-				pool_match = false
-		ok(pool_match, "Producing in_pool flags match the live pop pool exactly")
+			if bool(e.in_pool):
+				hot_lines.append(int(e.line))
+		ok(hot_lines == [gen_line], "Producing highlights only the selected generator's own line")
+		var saved_quests: Array = board_scene.quests.duplicate(true)
+		board_scene.quests = [
+			{"line": gen_line, "tier": 4, "reward": {"exp": 1, "coins": 0}},
+			{"line": 2, "tier": 4, "reward": {"exp": 1, "coins": 0}},
+			{"line": 3, "tier": 4, "reward": {"exp": 1, "coins": 0}},
+		]
+		var global_pool: Array = board_scene._pop_pool_ctx()["pool"]
+		ok(global_pool.size() > 1, "test setup: the global quest pool spans multiple lines")
+		var mixed_hot: Array = []
+		for e in board_scene._gen_line_entries(gid):
+			if bool(e.in_pool):
+				mixed_hot.append(int(e.line))
+		ok(mixed_hot == [gen_line], "Producing stays selected-generator-only when quests want several lines")
+		board_scene.quests = saved_quests
 		# seen/code: a wholly-unseen line carries no piece (code 0); marking its tier-1 lights it with that code.
 		var probe := int(entries[0].line)
 		var g := Save.grove()

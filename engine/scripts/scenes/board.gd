@@ -604,15 +604,19 @@ func _ladder_entries(line: int) -> Array:
 # entries because they bank currency, not item lines. `seen`/`code` carry the lowest-seen tier for the piece.
 func _gen_line_entries(gid: String) -> Array:
 	var seen: Dictionary = Save.grove().get("seen", {})
-	var pool: Array = _pop_pool_ctx()["pool"]
+	var pool: Array = []
 	var out: Array = []
 	var added := {}
 	var lines: Array = []
 	if G.is_accumulator(gid):
 		return out
 	if G.is_treat_gen(gid):
-		lines.append(G.treat_line_of(gid))
+		var treat_line := G.treat_line_of(gid)
+		lines.append(treat_line)
+		pool = [treat_line] if treat_line > 0 else []
 	else:
+		var selected_line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
+		pool = [selected_line] if selected_line > 0 else []
 		for gen in G.GENERATORS:
 			lines.append(int(gen.get("line", 0)))   # gen redesign: one line per generator (was lines[])
 	for l in lines:
@@ -2673,8 +2677,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	var giver_quests: Array = ctx["giver_quests"]
 	# gen redesign #4: a per-line generator pops ONLY its own line (the legacy shared windowed pool is gone).
 	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
-	if gen_line > 0:
-		pool = [gen_line]
+	if gen_line <= 0:
+		FX.wobble(gnode)
+		Audio.play("invalid_soft", -4.0)
+		return
+	pool = [gen_line]
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
