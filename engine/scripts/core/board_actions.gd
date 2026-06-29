@@ -63,3 +63,26 @@ static func collect_special(board: BoardModel, cell: Vector2i) -> Dictionary:
 		"exp":
 			Save.add_exp(amount)
 	return {"kind": String(got.kind), "amount": amount}
+
+# Birth-on-tap placement: the generator the board owes (Quests.due_gen — the anchor self-heals first,
+# then the first quest-required gen the player lacks) lands on a free cell, or falls into the bag when
+# the board is full. Mutates the model. Returns {due, landed:[cells], bagged:[ids]} for the pop-in render.
+static func produce_due_generators(board: BoardModel, quests: Array) -> Dictionary:
+	var gid := Quests.due_gen(quests, Quests.owned_gens(board.gens, board.gen_bag))
+	if gid == "":
+		return {"due": false, "landed": [], "bagged": []}
+	var landed: Array = []
+	var bagged: Array = []
+	for id in [gid]:                              # one owed gen per tap (kept as a loop to mirror the source)
+		var dest := Vector2i(-1, -1)
+		for c in board.empty_ground_cells():     # gen redesign: NO board cap — place freely on any open cell
+			if not board.gens.has(c):
+				dest = c
+				break
+		if dest == Vector2i(-1, -1):
+			board.bag_add(id)                     # board genuinely full → hold it in the bag
+			bagged.append(id)
+		else:
+			board.place_gen(id, dest)
+			landed.append(dest)
+	return {"due": true, "landed": landed, "bagged": bagged}

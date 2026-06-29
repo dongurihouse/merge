@@ -13,6 +13,7 @@ func _initialize() -> void:
 	_test_per_generator_boost()
 	_test_collect_coin()
 	_test_collect_special()
+	_test_produce_due_generators()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -132,3 +133,23 @@ func _test_collect_special() -> void:
 	var o3: Dictionary = BoardActions.collect_special(board, c3)
 	ok(String(o3.get("kind", "")) == "water" and int(o3.get("amount", -1)) == 4, "a water special is reported for the caller's water mirror")
 	ok(board.item_at(c3) == 0 and Save.diamonds() == dia_b2, "the water special is consumed but writes no Save currency")
+
+# Birth-on-tap: the generator the board owes (the anchor self-heals first, then any quest-required gen the
+# player lacks) lands on a free cell, or falls into the bag when the board is full. Pure model placement.
+func _test_produce_due_generators() -> void:
+	var anchor := G.anchor_gen()
+	# 1. a fresh board owes the anchor → it lands on one free cell
+	var board := BoardModel.new()
+	var out: Dictionary = BoardActions.produce_due_generators(board, [])
+	ok(bool(out.get("due", false)) and out.get("landed", []).size() == 1, "a fresh board is due to produce the anchor onto one cell")
+	var cell: Vector2i = out.landed[0]
+	ok(board.is_gen(cell) and board.gen_id_at(cell) == anchor, "the landed cell holds the anchor generator")
+	# 2. idempotent: with the anchor now owned, nothing further is due
+	ok(not bool(BoardActions.produce_due_generators(board, []).get("due", false)), "with the anchor owned, nothing more is due")
+	# 3. board full → the owed tool falls into the bag instead of a cell
+	var full := BoardModel.new()
+	for i in full.items.size():
+		full.items[i] = 101                       # occupy every cell → no empty ground remains
+	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
+	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
+	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")

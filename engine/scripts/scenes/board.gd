@@ -2664,23 +2664,13 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 # breathes + glows so it is unmissable. Returns true if it produced one — the tap is then SPENT birthing the
 # tool (no energy, no item burst). Self-heals the anchor for fresh/stranded saves, so the next tap catches up.
 func _produce_due_generators() -> bool:
-	var gid := Quests.due_gen(quests, Quests.owned_gens(board.gens, board.gen_bag))
-	var due: Array = [gid] if gid != "" else []
-	if due.is_empty():
+	# RULE in the pure action (which gen is owed + place-or-bag it); the scene renders the pop-in + glow.
+	var out := BoardActions.produce_due_generators(board, quests)
+	if not bool(out.due):
 		return false
-	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)
-	for id in due:
-		var dest := Vector2i(-1, -1)
-		for c in board.empty_ground_cells():      # gen redesign: NO board cap — generators place freely (the ≤6
-			if not board.gens.has(c):             # limit is a QUEST-side complexity cap, not a board cap)
-				dest = c
-				break
-		if dest == Vector2i(-1, -1):
-			board.bag_add(id)                     # board genuinely full (no open cell) → hold it in the bag
-		else:
-			board.place_gen(id, dest)
-			_grown_cells.append(dest)             # _rebuild_all pops it in + starts its breathe
-			landed.append(dest)
+	var landed: Array = out.landed                # board cells of tools placed this tap (bagged ones have none)
+	for gc in landed:
+		_grown_cells.append(gc)                   # _rebuild_all pops it in + starts its breathe
 	_persist()
 	_rebuild_all()                                # renders the new tool(s); _grown_cells drives the pop-in + breathe
 	for gc in landed:                             # glow + announce each freshly-landed tool so it can't be missed
