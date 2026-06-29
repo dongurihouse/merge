@@ -346,7 +346,8 @@ var _params := {
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
 		"title_font": 0, "title_w": 0, "title_h": 0, "title_x": 0, "title_y": 0, "title_pad_x": 24, "title_pad_y": 2,
 		"resident_slot_px": 58, "resident_slot_gap": 10,
-		"expedition_button_px": 82, "expedition_button_x": 0, "expedition_button_y": 0, "expedition_button_icon_scale": 64,
+		"expedition_button_w": 116, "expedition_button_h": 36, "expedition_button_x": 0, "expedition_button_y": 0,
+		"expedition_button_font": 18,
 		"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
 		"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
 		"reward_label_font": 21, "reward_label_x": 0, "reward_label_y": 0,
@@ -2557,10 +2558,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 30]))   # completed-card shelf height (% of card height)
 			_sidebar_body.add_child(_slider_row(["reward_shelf_y_frac", 0, 35]))   # lift the shelf upward from the bottom (% of height)
 			_section_header("Expedition button")
-			_sidebar_body.add_child(_slider_row(["expedition_button_px", 44, 148]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_x", -160, 160]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_y", -120, 120]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_icon_scale", 35, 90]))
+			_sidebar_body.add_child(_slider_row(["expedition_button_w", 70, 200]))
+			_sidebar_body.add_child(_slider_row(["expedition_button_h", 24, 70]))
+			_sidebar_body.add_child(_slider_row(["expedition_button_x", -120, 120]))
+			_sidebar_body.add_child(_slider_row(["expedition_button_y", -50, 50]))
+			_sidebar_body.add_child(_slider_row(["expedition_button_font", 10, 34]))
 			_section_header("Reward icon")
 			_sidebar_body.add_child(_slider_row(["reward_icon_size", 12, 60]))
 			_sidebar_body.add_child(_slider_row(["reward_icon_x", -60, 60]))

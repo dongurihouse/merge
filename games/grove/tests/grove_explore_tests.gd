@@ -248,7 +248,7 @@ func _test_map_card_expedition_chrome() -> void:
 			"locked rail packs Daily directly below Settings (step %.1f <= %.1f)" % [y_step, max_packed_step])
 	locked._open_select()
 	await create_timer(0.05).timeout
-	ok(locked.content.find_child("MapCardExpeditionButton", true, false) == null, "locked/unpopulatable map cards do not show Expedition")
+	ok(locked.content.find_child("MapHabitatExpeditionButton", true, false) == null, "locked/unpopulatable map cards do not show Expedition")
 	locked.queue_free()
 
 	var unl := {}
@@ -294,10 +294,14 @@ func _test_map_card_expedition_chrome() -> void:
 			await process_frame
 	hx._open_select()
 	await create_timer(0.05).timeout
-	var exp := hx.content.find_child("MapCardExpeditionButton", true, false) as Button
+	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "completed map cards no longer use the floating Expedition icon button")
+	var exp := hx.content.find_child("MapHabitatExpeditionButton", true, false) as Button
+	var exp_label := hx.content.find_child("MapHabitatExpeditionButtonLabel", true, false) as Label
+	var exp_icon := hx.content.find_child("MapHabitatExpeditionButtonIcon", true, false) as Control
 	ok(exp != null, "eligible map cards expose an Expedition button")
 	ok(exp != null and String(exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "card Expedition button records its source map")
-	ok(exp != null and String(exp.get_meta("icon_id", "")) == "expedition", "card Expedition uses the dedicated expedition icon")
+	ok(exp_label != null and exp_label.text == "Expedition", "card Expedition button uses a plain text label")
+	ok(exp_icon == null, "card Expedition button has no icon")
 	if exp != null:
 		exp.pressed.emit()
 		await process_frame

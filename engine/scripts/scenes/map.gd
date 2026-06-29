@@ -1226,6 +1226,21 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 			clampf(float(opts.get("reward_button_h", 36.0)), 20.0, 90.0)
 		)
 		var button_pos := Vector2(shelf_rect.size.x - shelf_pad_r - button_size.x, shelf_rect.size.y - shelf_pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
+		var button_font := int(clampf(float(opts.get("reward_button_font", 18)), 8.0, 48.0))
+		var expedition_size := Vector2(
+			clampf(float(opts.get("expedition_button_w", button_size.x)), 56.0, 260.0),
+			clampf(float(opts.get("expedition_button_h", button_size.y)), 20.0, 90.0)
+		)
+		var max_expedition_w := maxf(56.0, button_pos.x - shelf_gap - shelf_pad_l)
+		expedition_size.x = minf(expedition_size.x, max_expedition_w)
+		var expedition_x_min := shelf_pad_l
+		var expedition_x_max := maxf(expedition_x_min, button_pos.x - shelf_gap - expedition_size.x)
+		var expedition_y_min := 0.0
+		var expedition_y_max := maxf(expedition_y_min, shelf_rect.size.y - expedition_size.y)
+		var expedition_pos := Vector2(
+			clampf(button_pos.x - shelf_gap - expedition_size.x + float(opts.get("expedition_button_x", 0.0)), expedition_x_min, expedition_x_max),
+			clampf(button_pos.y + (button_size.y - expedition_size.y) * 0.5 + float(opts.get("expedition_button_y", 0.0)), expedition_y_min, expedition_y_max)
+		)
 		var bar_h := clampf(float(opts.get("reward_bar_h", clampf(shelf_rect.size.y * 0.13, 10.0, 18.0))), 4.0, 40.0)
 		var bar_x := shelf_pad_l
 		var bar_y := clampf(
@@ -1235,7 +1250,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		)
 		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {
 			"height": bar_h,
-			"width": clampf(button_pos.x - shelf_gap - bar_x, 44.0, maxf(44.0, shelf_rect.size.x - shelf_pad_l - shelf_pad_r)),
+			"width": clampf(expedition_pos.x - shelf_gap - bar_x, 0.0, maxf(0.0, shelf_rect.size.x - shelf_pad_l - shelf_pad_r)),
 			"art": true,
 		})
 		bar.name = "MapHabitatProgressBar"
@@ -1244,11 +1259,24 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shelf.add_child(bar)
 		var collect: Button = Kit.map_reward_collect_button("Collect", "", button_size,
-			int(clampf(float(opts.get("reward_button_font", 18)), 8.0, 48.0)),
+			button_font,
 			0.0,
 			ready > 0)
 		collect.position = button_pos
 		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
+		var expedition_font := int(clampf(float(opts.get("expedition_button_font", button_font)), 8.0, 48.0))
+		var expedition: Button = Kit.map_reward_collect_button("Expedition", "", expedition_size,
+			expedition_font,
+			0.0,
+			true,
+			"MapHabitatExpeditionButton")
+		expedition.position = expedition_pos
+		expedition.set_meta("map_id", map_id)
+		expedition.pressed.connect(func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_expedition(z)
+		)
+		shelf.add_child(expedition)
 		shelf.add_child(collect)
 		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
 		if cur == "boost" and Habitat.boost_charges() > 0:
@@ -1258,32 +1286,23 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 			shelf.add_child(useb)
 
 	card.add_child(shelf)
-	_add_expedition_button(card, z, opts, shelf_rect)
 
 	return card
-
-func _add_expedition_button(card: Control, z: int, opts: Dictionary, shelf_rect: Rect2) -> void:
-	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
-	var b := _make_expedition_button(z, opts, px, "MapCardExpeditionButton")
-	if b == null:
-		return
-	b.size = Vector2(px, px)
-	b.position = shelf_rect.position + Vector2(shelf_rect.size.x - px, -px - 6.0) \
-		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
-	card.add_child(b)
 
 func _add_home_expedition_button(z: int) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
-	var b := _make_expedition_button(z, opts, px, "MapHomeExpeditionButton")
+	var px := clampf(float(opts.get("home_expedition_button_px", 82.0)), 44.0, 148.0)
+	var home_opts := opts.duplicate()
+	home_opts["expedition_button_icon_scale"] = float(opts.get("home_expedition_button_icon_scale", 0.64))
+	var b := _make_expedition_button(z, home_opts, px, "MapHomeExpeditionButton")
 	if b == null:
 		return
 	var margin := clampf(px * 0.18, 10.0, 24.0)
 	var raw := _map_art_rect.position + Vector2(_map_art_rect.size.x - px - margin, _map_art_rect.size.y - px - margin) \
-		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
+		+ Vector2(float(opts.get("home_expedition_button_x", 0.0)), float(opts.get("home_expedition_button_y", 0.0)))
 	var min_pos := _map_art_rect.position + Vector2(margin, margin)
 	var max_pos := _map_art_rect.position + _map_art_rect.size - Vector2(px + margin, px + margin)
 	b.size = Vector2(px, px)
