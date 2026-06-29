@@ -138,8 +138,8 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 > base lines just before it** at the same tier (Core §6.G). **16 base → 7 specials** (zones 3·6·9·12·15·18·21).
 > Art: the 5 shelved treat lines (71–75) seed the first specials; **~2 new 12-tier special sets** to author.
 >
-> **Quests:** `MAX_GIVERS` **5 → 10**. **Curve:** front-loaded — zone 2 in minutes, zone 3 by ~10 min
-> (≈30 taps/min), sim-validated.
+> **Quests:** `MAX_GIVERS` **8**, with at most **4 quests per line**. **Curve:** front-loaded — zone 2
+> in minutes, zone 3 by ~10 min (≈30 taps/min), sim-validated.
 >
 > **Assets (Core §6 #5).** Item tier art for all 31 base lines **already exists**. Generator icons: **16
 > exist** — 4 are accumulators (→ bonus gens); 12 are line generators (`gen_` wildflowers, wildflowerarch,
@@ -236,7 +236,7 @@ Generators (and their lines) arrive **per map** (Core §6): map 1 → 2 generato
 
 ### Generators (Core §6 — the grove's instances)
 
-Each generator emits **2 lines**, popped in a small burst (1 energy/item). Generators **arrive per map, never by level**; only the current map's ~2–4 are live. At each boundary the **generator-grant quest** hands an old generator in for a new one (a hand-in, *not* a merge — the previously-shipped T17 evolve-merge is retired); the boundary's **gate quest** (the **great-spirit**) asks a randomized handful of the finished map's **top-tier harvest** to unlock the next map (Core §6/§7). Later-map lines **sell for more** (per-map coin band, §5).
+Each generator emits its authored line, popped in a small burst (1 energy/item). Base-line generators are **owed by the farther of restored-zone progress and level-reached quest progress**, then born on tap if the player lacks the tool; this lets newer level-based quest asks appear and stay playable even when the player delays claiming an affordable restore spot. At each boundary the **gate quest** (the **great-spirit**) asks a randomized handful of the finished map's **top-tier harvest** to unlock the next map (Core §6/§7). Later-map lines **sell for more** (per-map coin band, §5).
 
 **Burst + burst-upgrades (the second functional coin sink).** A generator tap pops a **burst** of items (Core §6 `BURST_ODDS`), stacking three ways: a random base · a **free per-map scale-up** (later maps' generators pop bigger) · a **paid burst-upgrade** — spend **coins** to raise a generator's burst (a few levels, L1→~L3, escalating). This is the grove's **second functional coin sink** (alongside the population loop, §3): a board-level spend that **scales as maps add generators**, so coins always have somewhere to go. It cuts **taps, not the per-item energy cost** — the energy monetization socket (Core §4) and the level-pacing curve (Core §3) stay **untouched** (Core §6). *(Per-generator levels, costs, burst sizes — sim-tuned.)*
 
@@ -338,14 +338,14 @@ Map-art generation prompts (top-down, restored hero) for maps 2–5 are authored
 
 *Instantiates Core §7 (Quests & the fence) and Core §3 (level/rank).*
 
-> **⚠ 2026-06-28:** `MAX_GIVERS` **5 → 10** (fence layout to follow); recipe-quest asks (§2 REDESIGN box);
+> **⚠ 2026-06-28:** `MAX_GIVERS` **8** with **4-per-line** fence layout; recipe-quest asks (§2 REDESIGN box);
 > the curve front-loads — zone 2 in minutes, zone 3 by ~10 min. See §2.
 
 ### Quests — the live generated model (Core §7, shipped T19)
 
 The deterministic per-map ramp is **retired**; the grove runs Core §7's **generated** quest stream (built + cut over live, `T19`):
 
-- **The ask** draws `{line, tier, count}` from the current map's **live generator lines** (§2), weighted to the **newest / highest-value** and **steered off the lines already on the fence** (distinct concurrent stands). A regular quest is a **single ask** (one item type, count ≥ 1 → a ×N badge); **difficulty rises with level** via **higher tiers + more frequent quests** (reward is effort-priced, so level tracks total effort — §4 Reward), *not* more asks. The late-game "juggle" is **several distinct single-line stands on the fence at once**, with the multi-line **co-assembly reserved for the gate quest**. A map's **ceiling (up to t8) is asked _only_ by the gate quest**, never a regular one.
+- **The ask** draws `{line, tier, count}` from the **level-reached quest-line window** (§2), not restored-zone count, weighted to the **newest / highest-value** and **steered off the lines already on the fence** (distinct concurrent stands). A regular quest is a **single ask** (one item type, count ≥ 1 → a ×N badge); **difficulty rises with level** via **higher tiers + more frequent quests** (reward is effort-priced, so level tracks total effort — §4 Reward), *not* more asks. The late-game "juggle" is **several distinct single-line stands on the fence at once**, with the multi-line **co-assembly reserved for the gate quest**. A map's **ceiling (up to t8) is asked _only_ by the gate quest**, never a regular one.
 - **Reward = effort exp + scaled coins** (Core §7, the §exp economy — T58): `exp = round(clicks / QUEST_CLICKS_PER_EXP)` — **flat across maps and uncapped** (the old `STAR_CAP` cap is retired; deeper quests now level you faster *and* pay more coins); `coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × QUEST_COIN_DEPTH^(tier−QUEST_TIER_BASE))` — later maps + deeper merges pay more 🪙 (the **quest coin faucet**, §5). **Acorns are never a quest reward** (milestone/IAP only, §5).
 - **Authored boundary quests** (§2): the **great-spirit's gate** (a top-tier handful → unlocks the next map for a large reward) + the **generator-grant** hand-in opening each map.
 - **Metered fence** (`gate_pause`): active givers ≈ exp-left-to-finish-the-map (cap = `MAX_GIVERS`) — the fence stays full through the map and tapers only at the end; the **"go restore" cue is the breathing Home button** (it pulses once your exp reaches the cheapest unclaimed spot's threshold, `gate_ready`), not an emptied fence. **No-strand** rests on **guardrails + a Monte-Carlo sim** (green: no-jam · no-strand · steady-state <30% · selling-not-income), not the retired pigeonhole proof.
@@ -375,7 +375,7 @@ The whole economy is anchored to the **`ENDGAME_CLICKS` = 100K-click budget** an
 
 ### The givers (instantiate Core §7's fence)
 
-Grove quest-givers are one class (the §1 cast): the **named leads** — **Radish, Carrot, Frog, Bee, Morel** (one anchoring each home-grove map, each a map-long **wish**) — **plus a rotating menagerie** of one-wish walk-ons (the old fox/hedgehog/owl naming is **retired**), over the full-width **fence**, up to 5 stands at once, with the **Market Squirrel** (the merchant) pinned at the right. Quest shape (a **single ask** → effort exp + coins, all-or-nothing; the **gate is the multi-line exception**) and the **soft exp-gate** (`gate_pause`) are core. Off the fence, the **great-spirit (heart-tree)** is the **gatekeeper** — its end-of-map gate quest is the **completion chain** (§3); the one hard rule is **no-strand** (spots are exp-threshold-gated and claimed free, so the cheapest unclaimed spot is always reachable as exp climbs). The **lead roster extends per place** — maps 6–15 each get their place's spirit (§1's river-spirit, lantern-keeper…); the **menagerie refreshes per map / event** (a few walk-ons at a time — the warmth + novelty layer).
+Grove quest-givers are one class (the §1 cast): the **named leads** — **Radish, Carrot, Frog, Bee, Morel** (one anchoring each home-grove map, each a map-long **wish**) — **plus a rotating menagerie** of one-wish walk-ons (the old fox/hedgehog/owl naming is **retired**), over the full-width **fence**, up to 8 stands at once and no more than 4 from one item line, with the **Market Squirrel** (the merchant) pinned at the right. Quest shape (a **single ask** → effort exp + coins, all-or-nothing; the **gate is the multi-line exception**) and the **soft exp-gate** (`gate_pause`) are core. Off the fence, the **great-spirit (heart-tree)** is the **gatekeeper** — its end-of-map gate quest is the **completion chain** (§3); the one hard rule is **no-strand** (spots are exp-threshold-gated and claimed free, so the cheapest unclaimed spot is always reachable as exp climbs). The **lead roster extends per place** — maps 6–15 each get their place's spirit (§1's river-spirit, lantern-keeper…); the **menagerie refreshes per map / event** (a few walk-ons at a time — the warmth + novelty layer).
 
 ### Level / rank (instantiate Core §3)
 

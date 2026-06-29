@@ -25,7 +25,6 @@ const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
 const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines popped at once (zone 2+)
 const POP_LINE_CAP_Z1 = D.POP_LINE_CAP_Z1   # §6 the tighter zone-1 (Farmhouse) cap — the tiny FTUE board
-const LINE_WINDOW = D.LINE_WINDOW           # §6 rolling map-window width for the askable lines
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
@@ -44,6 +43,7 @@ const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const MAX_GIVERS = D.MAX_GIVERS
+const MAX_QUESTS_PER_LINE = D.MAX_QUESTS_PER_LINE
 const EXP_PER_QUEST_EST = D.STARS_PER_QUEST_EST
 const BURST_ODDS = D.BURST_ODDS
 const BURST_ODDS_BOOST = D.BURST_ODDS_BOOST
@@ -174,7 +174,7 @@ static func next_bag_slot_price(owned: int) -> int:
 # GENERATORS; tests pass a fixture. Replaces appears_at accumulation.
 # `level` gates generators that GROW IN later (a def's `appear_level`, default 0 = live at
 # start): a generator whose appear_level exceeds the player's Level is not yet on the map, so
-# it is excluded from placement (live_gen_state) AND from the askable lines (askable_lines) —
+# it is excluded from placement (live_gen_state) AND from the quest ask window (quest_base_lines) —
 # the two must agree or the fence would ask for a line nothing on the board can produce. The
 # default APPEAR_ALL includes every generator (the many callers that don't care about staging).
 static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
@@ -184,55 +184,10 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 			out.append(g)
 	return out
 
-## The lines LIVE while the player is in `map` — its generators' lines only (older maps'
-## lines have retired, §6). The current map's quests draw only from these.
-static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
-	var out: Array = []
-	for g in generators_for_map(roster, map, level):
-		var l := int(g.line)   # gen redesign: ONE line per generator (the `lines` array is retired)
-		if not out.has(l):
-			out.append(l)
-	return out
-
-## The lines a regular quest may ASK while the player is in `map`: a ROLLING WINDOW of the last
-## LINE_WINDOW maps — the current map's live lines PLUS the previous LINE_WINDOW-1 maps' (maps
-## [map-LINE_WINDOW+1 .. map], clamped). Older lines RETIRE off the fence (→ the Collection), so the
-## live set stays small as the lifetime roster grows (NOT cumulative — the old "nothing retires" set is
-## retired). `level` still gates a not-yet-grown generator's lines out (the staging invariant).
-static func askable_lines(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
-	var out: Array = []
-	for z in range(maxi(0, map - LINE_WINDOW + 1), map + 1):   # the rolling window: current + previous (LINE_WINDOW-1) maps
-		for l in lines_for_map(roster, z, level):
-			if not out.has(int(l)):
-				out.append(int(l))
-	out.sort()
-	return out
-
 ## The max distinct lines the single generator pops at once — STAGED by map: a tighter cap on the tiny
-## zone-1 (Farmhouse) board, the full cap from zone 2 on (the §6 rolling window is POP_LINE_CAP maps wide).
+## zone-1 (Farmhouse) board, the full cap from zone 2 on (POP_LINE_CAP / POP_LINE_CAP_Z1, the §6 pop cap).
 static func pop_line_cap(map: int) -> int:
 	return POP_LINE_CAP_Z1 if map <= 0 else POP_LINE_CAP
-
-## Lines that have RETIRED by the time you reach `map` — the maps that have fallen OUT of the rolling
-## window (every map z < map-LINE_WINDOW+1). A retired line is never popped or asked again (it archives
-## to the Collection — that hook is a separate task; here it simply drops out of the live set).
-static func retired_lines(roster: Array, map: int) -> Array:
-	var out: Array = []
-	for z in maxi(0, map - LINE_WINDOW + 1):     # maps 0 .. (window start - 1) — everything before the window
-		for l in lines_for_map(roster, z):
-			if not out.has(int(l)):
-				out.append(int(l))
-	return out
-
-## The generator the player is OWED but doesn't have. Birth-on-tap per line: restored-zone count
-## (`unlocks.size()`) selects the active base-line window, then the newest active line lacking a generator
-## is due. Fresh saves self-heal `gen_1`; after the first restored zone, `gen_2` becomes due if unowned.
-## `gates` is kept for the call-site signature.
-static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) -> Array:
-	# gen redesign: birth-on-tap per line. current_zone = spots restored; the newest active base line lacking
-	# a generator is due (Core §6.B). At start (zone 0) gen_1 is due if unowned — the FTUE anchor self-heals.
-	var gid := due_line_gen(unlocks.size(), owned_ids)
-	return [gid] if gid != "" else []
 
 # --- §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model -----------------------------
 # The world is a run of ZONES (each = a restoration spot). Rhythm base · base · special: zone z (0-based)
@@ -338,18 +293,6 @@ static func base_generators() -> Array:
 		out.append(base_generator(int(line)))
 	return out
 
-# The base lines ACTIVE at a given progress (current_zone = spots restored so far): a rolling window of the
-# last LINE_WINDOW base zones reached (specials aren't window slots — they're crafted from active base lines).
-static func active_base_lines(current_zone: int) -> Array:
-	var out: Array = []
-	var z := mini(current_zone, ZONE_COUNT - 1)
-	while z >= 0 and out.size() < LINE_WINDOW:
-		if not zone_is_special(z):
-			out.append(zone_line(z))
-		z -= 1
-	out.reverse()
-	return out
-
 # The SPECIAL (merge) lines the player can be ASKED for right now (gen redesign #14/#16): a special whose
 # zone has been REACHED (current_zone = spots restored) AND whose two ingredient base lines are BOTH still in
 # `base_lines` — so it is craftable NOW (pop both ingredients, merge them, Core §6.G). Gating on the live
@@ -369,10 +312,14 @@ static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
 			out.append(zone_line(z))
 	return out
 
+# Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
+# opening new zones, the ask pool still advances. Level 1 starts at zone 0; level 2 reaches zone 1.
+static func quest_zone_for_level(level: int) -> int:
+	return clampi(int(level) - 1, 0, ZONE_COUNT - 1)
+
 # gen redesign (#12, simplified): the BASE lines a quest may ask — a rolling window of the last QUEST_GEN_CAP
-# base lines REACHED (current_zone = spots restored). The SINGLE quest window: the old map-wide askable_lines
-# pulled in whole maps (and cap_quest_lines then kept the OLDEST 6); this slides with the player and matches the
-# born generators. Specials are crafted FROM these (active_special_lines), never a window slot of their own.
+# base lines reached by quest progress (quest_zone_for_level). The window slides with level and can lead the
+# claimed zones. Specials are crafted FROM these (active_special_lines), never a window slot of their own.
 static func quest_base_lines(current_zone: int) -> Array:
 	var out: Array = []
 	var z := mini(current_zone, ZONE_COUNT - 1)
@@ -382,17 +329,6 @@ static func quest_base_lines(current_zone: int) -> Array:
 		z -= 1
 	out.reverse()
 	return out
-
-# The generator the player is OWED but lacks (birth-on-tap, Core §6.B): the newest active base line whose
-# generator isn't owned. "" if none due. (current_zone = spots restored; owned_ids = gens on board + bag.)
-static func due_line_gen(current_zone: int, owned_ids: Array) -> String:
-	var lines := active_base_lines(current_zone)
-	lines.reverse()   # newest first
-	for line in lines:
-		var gid := gen_for_line(int(line))
-		if gid != "" and not owned_ids.has(gid):
-			return gid
-	return ""
 
 # --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
 # A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples.

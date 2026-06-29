@@ -222,8 +222,10 @@ func _initialize() -> void:
 			{"line": 2, "tier": 4, "reward": {"exp": 1, "coins": 0}},
 			{"line": 3, "tier": 4, "reward": {"exp": 1, "coins": 0}},
 		]
-		var global_pool: Array = board_scene._pop_pool_ctx()["pool"]
-		ok(global_pool.size() > 1, "test setup: the global quest pool spans multiple lines")
+		var quest_lines := {}
+		for _q in board_scene.quests:
+			quest_lines[int(_q.line)] = true
+		ok(quest_lines.size() > 1, "test setup: active quests span multiple lines")
 		var mixed_hot: Array = []
 		for e in board_scene._gen_line_entries(gid):
 			if bool(e.in_pool):
@@ -395,7 +397,11 @@ func _initialize() -> void:
 		{"line": 2, "tier": 4, "reward": {"exp": 1, "coins": 0}},
 	]
 	spl.giver_chips = [{"chip": null, "qi": 0}, {"chip": null, "qi": 1}]
-	ok(spl._pop_pool_ctx()["wanted"].size() >= 2, "per-line: test setup — active quests want more than one line")
+	var _gq: Array = spl._pop_pool_ctx()["giver_quests"]
+	var _wl := {}
+	for _q in _gq:
+		_wl[int(_q.line)] = true
+	ok(_wl.size() >= 2, "per-line: test setup — active quests want more than one line")
 	var pl_cell: Vector2i = spl.board.gens.keys()[0]
 	ok(int(G.gen_def(G.GENERATORS, spl.board.gen_id_at(pl_cell)).get("line", 0)) == 1, "per-line: the anchor generator is line 1")
 	var pl_own := 0

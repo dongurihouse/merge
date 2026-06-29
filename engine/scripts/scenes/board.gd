@@ -119,7 +119,7 @@ var _grab_opts := {}
 # the quest-ready glow look (colour/opacity/roundness/halo), resolved ONCE in _ready from the workbench
 # "ready_glow" section so add_ready_glow renders the SAME look the workbench previews. {} → shipped amber.
 var _ready_glow_opts := {}
-var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
+var quests: Array = []             # §7: the LIVE generated fence (level-window asks, metered to restore progress), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
@@ -564,8 +564,8 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap as restored-zone
-		# count advances; see G.due_generators / _produce_due_generators.
+		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap when an active quest
+		# asks for their line and the player lacks the generator; see Quests.due_gen / _produce_due_generators.
 		board.seed_gens(0, _quest_level())
 	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
 	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
@@ -2614,21 +2614,15 @@ func _snap_back(from: Vector2i, node: Control) -> void:
 
 # --- actions ---------------------------------------------------------------------
 
-# The CURRENT pop context shared by burst-pop (_pop_seed) and the Producing dialog. It keeps the wanted/giver
-# lines and the capped fallback pool in one place; per-line generators narrow the actual tap pool to their own
-# line below. Returns {pool, wanted, giver_quests}.
+# The live giver quests (the §7 fence stands currently asking). A per-line generator pops only its OWN line
+# (narrowed in _pop_seed), so there is no shared windowed pool any more — _pop_seed derives the tapped line's
+# `wanted` flag from these for the §6 tier bias. Returns {giver_quests}.
 func _pop_pool_ctx() -> Dictionary:
-	var opened: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
 	var giver_quests: Array = []
 	for e in giver_chips:
 		if int(e.qi) >= 0 and int(e.qi) < quests.size():
 			giver_quests.append(quests[int(e.qi)])
-	var wanted: Array = BoardLogic.wanted_lines(opened, giver_quests)
-	var pool: Array = wanted if not wanted.is_empty() else opened
-	var line_cap := G.pop_line_cap(_quest_map())   # staged: 2 on the zone-1 board, 3 from zone 2
-	if pool.size() > line_cap:                # keep the board mergeable: pop at most line_cap distinct lines
-		pool = pool.slice(0, line_cap)
-	return {"pool": pool, "wanted": wanted, "giver_quests": giver_quests}
+	return {"giver_quests": giver_quests}
 
 func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if cell.x < 0:                            # default: the first live generator (tests / FTUE / no-arg)
@@ -2636,9 +2630,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 			return
 		cell = board.gens.keys()[0]
 	var gnode: Control = gen_nodes.get(cell, gen_node)
-	# Tap-to-produce: when a generator is DUE (the restored-zone count has reached its base line, but the
-	# player doesn't own it — board or bag), this tap BIRTHS the new tool instead of popping items. Free
-	# (no energy), preempts the pop, and self-heals missing active-line generators. See below.
+	# Tap-to-produce: when a generator is DUE (restore count or level-reached quest progress has reached
+	# its base line, but the player doesn't own it — board or bag), this tap BIRTHS the new tool instead of
+	# popping items. Free (no energy), preempts the pop, and self-heals missing active-line generators. See below.
 	if _produce_due_generators():
 		return
 	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
@@ -2669,24 +2663,18 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
-	# Keep the quest-wanted context for dialog/highlighting and tier bias. The actual pop pool is narrowed to
-	# the tapped generator's own line below; the capped fallback remains for non-line legacy/test callers.
-	var ctx := _pop_pool_ctx()
-	var pool: Array = ctx["pool"]
-	var wanted: Array = ctx["wanted"]
-	var giver_quests: Array = ctx["giver_quests"]
 	# gen redesign #4: a per-line generator pops ONLY its own line (the legacy shared windowed pool is gone).
+	var giver_quests: Array = _pop_pool_ctx()["giver_quests"]
 	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
 	if gen_line <= 0:
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
 		return
-	pool = [gen_line]
-	# …and narrow `wanted` to match: roll_spawn leans ~ASK_WEIGHT toward the wanted set, so leaving the
-	# shared multi-line wanted here would let this generator pop OTHER quests' lines (gen redesign #4 —
-	# "both generators produce both lines"). Keep only this line, so every spawn — wanted branch or pool
-	# branch — resolves to gen_line, while the own-line tier bias below still applies.
-	wanted = [gen_line] if wanted.has(gen_line) else []
+	var pool: Array = [gen_line]
+	# `wanted` = this line iff a live giver quest asks for it — it drives the §6 spawn tier-bias below.
+	# roll_spawn leans ~ASK_WEIGHT toward the wanted set; with only gen_line here every spawn resolves to
+	# this generator's own line (gen redesign #4 — a generator never pops another quest's line).
+	var wanted: Array = BoardLogic.wanted_lines(pool, giver_quests)
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
@@ -2753,13 +2741,14 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
 	_update_water_hud()
 
-# Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when restored-zone count
-# reaches its base line and the player owns neither a board copy nor a bagged one. The new tool lands on the
-# first open cell (bag only when the board is full), pops in + breathes + glows so it is unmissable. Returns
-# true if it produced one — the tap is then SPENT birthing the tool (no energy, no item burst). Self-heals a
-# missing active-line tool for stranded saves, so the next tap catches the gap.
+# Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when an ACTIVE QUEST asks
+# for its line and the player owns neither a board copy nor a bagged one (the gen_1 anchor self-heals first);
+# see Quests.due_gen. The new tool lands on the first open cell (bag only when the board is full), pops in +
+# breathes + glows so it is unmissable. Returns true if it produced one — the tap is then SPENT birthing the
+# tool (no energy, no item burst). Self-heals the anchor for fresh/stranded saves, so the next tap catches up.
 func _produce_due_generators() -> bool:
-	var due := G.due_generators(Save.grove().get("unlocks", {}), Save.grove().get("gates", []), Quests.owned_gens(board.gens, board.gen_bag))
+	var gid := Quests.due_gen(quests, Quests.owned_gens(board.gens, board.gen_bag))
+	var due: Array = [gid] if gid != "" else []
 	if due.is_empty():
 		return false
 	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)
@@ -2784,12 +2773,12 @@ func _produce_due_generators() -> bool:
 	return true
 
 # gen redesign #8 — SELF-DUP (the merge fuel). A below-top generator spawns a tier-1 DUPLICATE of its own
-# line; a MAXED (tier-GEN_TOP_TIER) generator instead seeds another active line still below the top — so a
-# maxed generator graduates to feeding the rest of the garden. Lands on a free cell, else waits in the bag.
+# line; a MAXED (tier-GEN_TOP_TIER) generator no longer self-dups — it can't merge higher, and the cross-line
+# "feed another active line" path is retired with the active-lines window. Lands on a free cell, else the bag.
 func _self_dup_generator(src: Vector2i) -> void:
-	var dup_id := board.gen_id_at(src)
 	if board.gen_tier_at(src) >= G.GEN_TOP_TIER:
-		dup_id = _another_submax_line_gen(dup_id)
+		return                                     # maxed generator → nothing to dup (no cross-line feed)
+	var dup_id := board.gen_id_at(src)
 	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
 		return
 	for c in board.empty_ground_cells():           # no board cap — the merge fuel places freely (≤6 is a quest cap)
@@ -2802,23 +2791,6 @@ func _self_dup_generator(src: Vector2i) -> void:
 	if not board.gen_bag.has(dup_id):
 		board.bag_add(dup_id)
 		_persist()
-
-# The generator id of an ACTIVE base line currently below the top tier (or absent from the board), other
-# than `exclude_id`. "" if none — used by the maxed-generator self-dup to feed a different line.
-func _another_submax_line_gen(exclude_id: String) -> String:
-	var zone := int((Save.grove().get("unlocks", {}) as Dictionary).size())
-	for line in G.active_base_lines(zone):
-		var gid := G.gen_for_line(int(line))
-		if gid == "" or gid == exclude_id:
-			continue
-		var tier := 0
-		for c in board.gens:
-			if String(board.gens[c]) == gid:
-				tier = board.gen_tier_at(c)
-				break
-		if tier < G.GEN_TOP_TIER:
-			return gid
-	return ""
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.

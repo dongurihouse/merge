@@ -109,27 +109,76 @@ static func due_gen(quests: Array, owned_ids: Array) -> String:
 				return gid
 	return ""
 
+static func _quest_line_counts(quests: Array) -> Dictionary:
+	var out := {}
+	for q in quests:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		var line := int(it.line)
+		out[line] = int(out.get(line, 0)) + 1
+	return out
+
+static func _cap_quests_per_line(quests: Array) -> Array:
+	var out: Array = []
+	var counts := {}
+	for q in quests:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			out.append(q)
+			continue
+		var line := int(it.line)
+		if int(counts.get(line, 0)) >= int(G.MAX_QUESTS_PER_LINE):
+			continue
+		counts[line] = int(counts.get(line, 0)) + 1
+		out.append(q)
+	return out
+
+static func _line_capacity(lines: Array) -> int:
+	var seen := {}
+	for line in lines:
+		seen[int(line)] = true
+	return seen.size() * int(G.MAX_QUESTS_PER_LINE)
+
+static func _lines_with_room(lines: Array, quests: Array) -> Array:
+	var counts := _quest_line_counts(quests)
+	var seen := {}
+	var out: Array = []
+	for line in lines:
+		var li := int(line)
+		if seen.has(li):
+			continue
+		seen[li] = true
+		if int(counts.get(li, 0)) < int(G.MAX_QUESTS_PER_LINE):
+			out.append(li)
+	return out
+
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via `rng` — RNG CALL ORDER IS LOAD-BEARING (the rng is seeded + persisted): the filter takes no rng,
 # then gen_quest is drawn once per appended stand, in order. Generators are NO LONGER delivered by a
-# carrier quest — they arrive when a generator tap produces a DUE tool (G.due_generators / board.gd), so
+# carrier quest — they arrive when a generator tap produces a DUE tool (Quests.due_gen / board.gd), so
 # refill is purely the §7 ask stream now. Returns the new quests array.
 static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, exp: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	if map_done(unlocks, gates):
 		return []
-	var out: Array = quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false)))
-	# Ask only from the current map's live lines (`level` gates a not-yet-grown generator's lines
-	# out, so the fence never asks for what nothing on the board can produce yet).
+	var out: Array = _cap_quests_per_line(quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))))
+	# Ask from the level-reached line window, not claimed restore spots: a player can keep seeing
+	# new quest lines by earning exp even if they delay restoring newly affordable zones.
 	# #12/#14/#16: quests draw from a rolling window of the last QUEST_GEN_CAP BASE lines (quest_base_lines) PLUS
 	# any craftable SPECIAL (merge) line, trimmed to the QUEST_GEN_CAP generator footprint (a special folds into
-	# its 2 ingredient generators — already in the window). The window slides with the player, matching born gens.
-	var base_lines := G.quest_base_lines(unlocks.size())
-	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, unlocks.size()))
+	# its 2 ingredient generators — already in the window).
+	var quest_zone := G.quest_zone_for_level(level)
+	var base_lines := G.quest_base_lines(quest_zone)
+	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
 	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
 	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
 	# lit Purge card).
 	var target := int(G.MAX_GIVERS) if fence_inert(z, exp, unlocks) else meter_target(z, exp, unlocks)
+	target = mini(target, _line_capacity(lines))
 	while out.size() < target:
+		var eligible_lines := _lines_with_room(lines, out)
+		if eligible_lines.is_empty():
+			break
 		# §7 anti-monotony: steer the new stand off the recent-items window (the last ≤5 item codes just
 		# asked) AND the items already on the fence (so the concurrent single-ask stands stay distinct),
 		# so a NEW quest never repeats an item from the previous few — a different TIER of the same line
@@ -141,7 +190,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 			var it := G.quest_item(q)
 			if not it.is_empty():
 				avoid.append(int(it.line) * 100 + int(it.tier))
-		out.append(G.gen_quest(level, lines, rng, avoid, z))   # z = current map → per-map coin band
+		out.append(G.gen_quest(level, eligible_lines, rng, avoid, z))   # z = current map → per-map coin band
 	while out.size() > target:
 		out.pop_back()
 	return out

@@ -249,15 +249,15 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > **Tier dialog.** The line's tier dialog **names the generator** that makes it, lets the player **buy any
 > seen tier** (existing 3×-sell `buy_price`), and **shows the recipe** for special lines.
 >
-> **Quests & curve.** Active quests rise **5 → 10** (`MAX_GIVERS`). The early curve front-loads so a new
-> player hits **zone 2 in a few minutes** and **zone 3 by ~10 min** (≈30 taps/min) — sim-validated on
-> `grove_sim`.
+> **Quests & curve.** Active quests cap at **8** (`MAX_GIVERS`), with at most **4 quests from one line**.
+> The early curve front-loads so a new player hits **zone 2 in a few minutes** and **zone 3 by ~10 min**
+> (≈30 taps/min) — sim-validated on `grove_sim`.
 >
 > **Ship order (one task each):** (1) remove treat-gen spawn + shelve lines 71–75 · (2) accumulators →
 > limited-use bonus gens · (3) one generator per line (pop only that line) · (4) per-line generators for the
 > 16 base lines (+ ~4 new generator icons) · (5) birth-on-tap revival · (6) generator merge ladder +
 > 0.5% self-dup + per-tier burst · (7) ≤6 board cap + bag overflow · (8) special recipe lines · (9) tier
-> dialog: generator name + buy + recipe · (10) `MAX_GIVERS` → 10 + fence layout · (11) the front-loaded
+> dialog: generator name + buy + recipe · (10) `MAX_GIVERS` → 8 + 4-per-line fence layout · (11) the front-loaded
 > curve.
 
 > **⚠ GENERATOR/LINE MODEL EVOLVED — read this box first (2026-06-26).** The original §6 below (a
@@ -343,13 +343,13 @@ Generators emit **themed item lines** — **2 lines per generator** (each line a
 
 ## 7 · Quests, Exp & the Soft Gate
 
-> **⚠ 2026-06-28:** active givers **5 → 10** (`MAX_GIVERS`); a new **special-recipe** ask joins the
+> **⚠ 2026-06-28:** active givers cap at **8** (`MAX_GIVERS`) and **4 per line**; a new **special-recipe** ask joins the
 > generated/authored kinds (merge two base lines at the same tier → a special line, §6.G). See the §6
 > REDESIGN box.
 
 ### The givers (the fence)
 
-Themed characters pop up over a full-width **fence** above the grid — **up to 5 stands** (the active count is metered to the exp still needed to complete the map — see the soft gate), plus the **merchant** pinned at the right. Tapping a giver whose asked items are all on the board delivers them (**all-or-nothing** — they fly into the giver's hands) and pays the quest reward (exp + coins — below). A regular quest asks **one item type**, so all-or-nothing rides on that single ask; the **gate quest** is the multi-line exception (its handful must be co-assembled on the board at once). One giver is special — the **gatekeeper**, whose end-of-map **gate quest** (below) is the capstone that unlocks the next map.
+Themed characters pop up over a full-width **fence** above the grid — **up to 8 stands**, capped at **4 quests per item line** (the active count is metered to the exp still needed to complete the map — see the soft gate), plus the **merchant** pinned at the right. Tapping a giver whose asked items are all on the board delivers them (**all-or-nothing** — they fly into the giver's hands) and pays the quest reward (exp + coins — below). A regular quest asks **one item type**, so all-or-nothing rides on that single ask; the **gate quest** is the multi-line exception (its handful must be co-assembled on the board at once). One giver is special — the **gatekeeper**, whose end-of-map **gate quest** (below) is the capstone that unlocks the next map.
 
 Givers can carry an optional **narrative arc** — a name, a personality, and dialogue that unfolds as the world restores. Cozy and low-pressure, but it's the genre's **emotional-retention** hook (the *who* and *why* behind the asks), so a game should use it. *(The grove's givers + their story: see `grove_spec`.)*
 
@@ -357,8 +357,8 @@ A **regular** quest is `{asks: [{line, tier, count}], reward: {exp, coins}}` —
 
 ### Generating the asks
 
-- The ask draws a `{line, tier, count}` from the **currently-available generators' lines** (the current map's — old lines retire, §6), **weighted toward the newest / highest-value** ones, and **steered off the lines already on the fence** (a soft repeat-penalty) so the **concurrent stands stay distinct** — the fence keeps pointing at the player's richest content without repeating one line.
-- **Difficulty rises with player level** via **higher tiers** and **more frequent quests** — *not* by adding asks. Each quest is one item type; the late-game **"juggle every line on one board"** comes from **several distinct single-line stands on the fence at once** (up to 5, kept distinct by the repeat-penalty), with the **all-or-nothing multi-line co-assembly reserved for the gate quest** (below). *(Reward is **effort-priced**, §Reward: a deeper or more frequent quest pays proportionally more exp — so **level tracks total effort (clicks)**, and tier additionally lifts the coin-per-click rate. Both tier and frequency feed level.)*
+- The ask draws a `{line, tier, count}` from the **level-reached quest-line window** (not the restored-zone/unlock count), **weighted toward the newest / highest-value** ones, and **steered off the lines already on the fence** (a soft repeat-penalty) so the **concurrent stands stay distinct**. If a player earns levels but delays claiming newly affordable restore spots, newer quest lines still enter the fence; owed generators are born on tap from the same level-reached progress so those asks remain playable.
+- **Difficulty rises with player level** via **higher tiers** and **more frequent quests** — *not* by adding asks. Each quest is one item type; the late-game **"juggle every line on one board"** comes from **several distinct single-line stands on the fence at once** (up to 8, with no more than 4 from one line), with the **all-or-nothing multi-line co-assembly reserved for the gate quest** (below). *(Reward is **effort-priced**, §Reward: a deeper or more frequent quest pays proportionally more exp — so **level tracks total effort (clicks)**, and tier additionally lifts the coin-per-click rate. Both tier and frequency feed level.)*
 - **A map's top tier (its ceiling, up to t8) is asked _only_ by the gate quest** (the gatekeeper's capstone at the map's *end*, below) — never in a regular generated quest.
 - **Gate + generator-grant quests are _authored_, not generated (§6).** The **gate quest** is the **gatekeeper's** capstone at a map's *end* — a **randomized handful of the map's top-tier items** (its ceiling, up to **t8**) that **unlocks the next map** for a **large reward**. The **generator-grant quests** dispense the next map's producers: the **first** asks for **one previous-map generator** and **rewards a new one** (a hand-in, not a merge — the old line retires); any extras are **spread through the map**. The generated stream fills everything between. *(Map 1 excepted — generators granted outright, gentlest gate.)*
 
