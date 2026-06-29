@@ -8,7 +8,7 @@
 
 **Tech Stack:** Godot 4.6, GDScript. Headless `SceneTree` tests via `engine/tools/run_suites.py`. No new third-party deps.
 
-**Design source of truth:** `docs/design/residents_spec.md` (Mechanics → Place / Reward, and Build-readiness notes). This plan implements the **v1 contract** stated there: rarity parked (a spirit is `{kind, tier}`; merge is *same kind + same tier*; production is tier-only), roster keys on kind, merge on kind+tier.
+**Design source of truth:** `grove_spec §3` (the Residents expansion — Place / Reward / Build-readiness; folded from the removed `residents_spec.md`) + `merge_spec §8`. This plan implements the **v1 contract** stated there: rarity parked (a spirit is `{kind, tier}`; merge is *same kind + same tier*; production is tier-only), roster keys on kind, merge on kind+tier.
 
 ---
 
