@@ -235,7 +235,7 @@ func _test_map_card_expedition_chrome() -> void:
 	locked.unlocks = {}
 	locked._open_map(z)
 	await create_timer(0.05).timeout
-	ok(_home_chrome_button(locked, "Expedition") == null, "Expedition no longer lives in the side rail")
+	ok(_home_chrome_button(locked, "Expedition") == null, "locked/unpopulatable home maps hide Expedition from the side rail")
 	ok(locked.content.find_child("MapHomeExpeditionButton", true, false) == null, "locked/unpopulatable home maps do not show Expedition")
 	var settings := _home_chrome_button(locked, "Settings")
 	var daily := _home_chrome_button(locked, "Daily")
@@ -267,11 +267,16 @@ func _test_map_card_expedition_chrome() -> void:
 	hx.unlocks = unl
 	hx._open_map(z)
 	await create_timer(0.05).timeout
-	ok(_home_chrome_button(hx, "Expedition") == null, "populatable maps still keep Expedition out of the side rail")
+	var home_exp := _home_chrome_button(hx, "Expedition")
+	ok(home_exp != null, "eligible home maps expose Expedition in the home chrome rail")
+	ok(home_exp != null and String(home_exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "home Expedition rail button records its source map")
+	ok(home_exp != null and String(home_exp.get_meta("icon_id", "")) == "expedition", "home Expedition rail button uses the dedicated expedition icon")
 
 	var labels := ["Map", "Settings", "Daily", "Vault"]
 	if _home_chrome_button(hx, "Inbox") != null:
 		labels.append("Inbox")
+	if home_exp != null:
+		labels.append("Expedition")
 	for label in labels:
 		var btn := _home_chrome_button(hx, label)
 		ok(btn != null, "%s button is present" % label)
@@ -280,14 +285,11 @@ func _test_map_card_expedition_chrome() -> void:
 		ok(not _button_has_visible_text(btn), "%s button has no visible text" % label)
 		ok(_button_icon_is_large(btn), "%s icon fills the button footprint" % label)
 		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
-	var home_exp := hx.content.find_child("MapHomeExpeditionButton", true, false) as Button
-	ok(home_exp != null, "eligible home maps expose an Expedition button")
-	ok(home_exp != null and String(home_exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "home Expedition button records its source map")
-	ok(home_exp != null and String(home_exp.get_meta("icon_id", "")) == "expedition", "home Expedition uses the dedicated expedition icon")
+	ok(hx.content.find_child("MapHomeExpeditionButton", true, false) == null, "eligible home maps do not hide Expedition as a map-art overlay")
 	if home_exp != null:
 		home_exp.pressed.emit()
 		await process_frame
-		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the home Expedition button opens loadout")
+		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the home Expedition rail button opens loadout")
 		var home_overlay: Node = hx.get_node_or_null("ExpeditionOverlay")
 		if home_overlay != null:
 			home_overlay.queue_free()
