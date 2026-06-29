@@ -169,6 +169,22 @@ func _initialize() -> void:
 
 	var pass_all := true
 
+	# --- STALL guard: if the bot barely spent any water over the WHOLE run, the early board never opened
+	# up (a bootstrap stall — pre-2026-06-29 this hit ~50% of seeds; fixed by the quest_base_lines rework).
+	# The economy RATIO checks below (Y sell-coins/100💧, I2 gift/spend, the water self-sustain line) divide
+	# by that spend, so on a near-zero denominator they fire on noise — a spurious "income pump" FAIL (e.g.
+	# 3 cleanup-sale coins / 7💧 = 42.9) or an equally meaningless PASS. Detect the degenerate run up front,
+	# report it honestly as a STALL, and SKIP those ratio checks. Floor = 2 sessions' water; a healthy run
+	# spends that on day 1 alone, a stall never reaches it. ---
+	var total_water_spent := 0
+	for z in map_spend:
+		total_water_spent += int(map_spend[z])
+	var stall_floor := 2 * G.WATER_CAP
+	var stalled := total_water_spent < stall_floor
+	if stalled:
+		print("  FAIL STALL: the bot spent only %d💧 over the whole run (< %d floor = 2 sessions) — a bootstrap stall: the early board never opened up, so no maps could be restored. The spend-ratio checks (Y / I2 / water self-sustain) are not meaningful on so little spend and are skipped below." % [total_water_spent, stall_floor])
+		pass_all = false
+
 	# --- I1: no jams ---
 	if jams > 0:
 		print("  FAIL I1: %d jam(s) — a full, merge-less, deliver-less board occurred" % jams)
@@ -195,7 +211,7 @@ func _initialize() -> void:
 	# "§7 economy tuning + pacing sign-off" pass — see BACKLOG. ---
 	var i2_ftue_maps := 2                       # maps 1-2: low-volume early game — WARN, not FAIL
 	var i2_ok := true
-	for z in map_gift:
+	for z in (map_gift.keys() if not stalled else []):   # skip per-map ratios on a stall (tiny denominators)
 		var spend: int = int(map_spend.get(z, 0))
 		var gift: int = int(map_gift.get(z, 0))
 		var ratio := (float(gift) / float(spend)) if spend > 0 else 999.0
@@ -208,7 +224,9 @@ func _initialize() -> void:
 					[z + 1, gift, spend, ratio, G.WATER_REWARD_MAX_RATIO])
 				i2_ok = false
 				pass_all = false
-	if i2_ok:
+	if stalled:
+		print("  -- I2: skipped — stalled run (%d💧 spent); per-map gift/spend ratios are not meaningful --" % total_water_spent)
+	elif i2_ok:
 		print("  PASS I2: every steady-state map (3+) keeps its water gift under %.0f%% of spend (early maps 1-2 noted above)" % (G.WATER_REWARD_MAX_RATIO * 100))
 
 	# --- §6 NEW FAUCETS (B/C/D): the water/exp/coin/acorn the bonus generators, special drops, and treats add
@@ -231,7 +249,9 @@ func _initialize() -> void:
 		total_spend += int(map_spend[z])
 	var gift_plus_new := level_gift_water + new_water
 	var sustain := 100.0 * float(gift_plus_new) / float(maxi(1, total_spend))
-	if sustain >= G.WATER_REWARD_MAX_RATIO * 100.0:
+	if stalled:
+		print("  -- water self-sustain: skipped — stalled run (%d💧 spent); gift-vs-spend ratio not meaningful --" % total_spend)
+	elif sustain >= G.WATER_REWARD_MAX_RATIO * 100.0:
 		print("  WARN water self-sustain: gift+§6 water %d💧 vs spend %d💧 (%.0f%% ≥ %.0f%%) — the §6 faucets erase the early water pinch; budget them against I2 in the tuning pass" % \
 			[gift_plus_new, total_spend, sustain, G.WATER_REWARD_MAX_RATIO * 100.0])
 	else:
@@ -252,7 +272,9 @@ func _initialize() -> void:
 	var scpw := (float(sell_coins) * 100.0 / float(total_water)) if total_water > 0 else 0.0
 	print("  -- Y selling --  💎 earned: %d · SELL-coins/100💧: %.1f (tripwire < 25) · earn-1💎=%d💧 vs buy=%d💧 (>=10x)" % \
 		[gems_earned, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
-	if scpw >= 25.0:
+	if stalled:
+		print("  -- Y: sell-coins/100💧 %.1f skipped — stalled run (%d💧 spent); the ratio fires on cleanup-sale noise, not an income pump --" % [scpw, total_water])
+	elif scpw >= 25.0:
 		print("  FAIL Y: sell-coins/100💧 %.1f >= 25 — selling became an income pump" % scpw)
 		pass_all = false
 	if G.water_to_earn_diamond() < 10 * G.water_a_diamond_buys():
