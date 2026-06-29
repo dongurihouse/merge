@@ -545,7 +545,7 @@ func _initialize() -> void:
 		"gold_currency_pill default padding resolves without the legacy config")
 	ok(int(dflt.num_size) == 30 and is_equal_approx(float(dflt.icon_box), 54.0), \
 		"gold_currency_pill default amount font and icon box resolve")
-	ok(bool(dflt.show_plus), "gold_currency_pill shows the plus button by default")
+	ok(bool(dflt.show_plus), "gold_currency_pill shows the plus token by default")
 	# a saved block overrides ONLY the named keys; every other key stays at its gold-pill default
 	var over: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"pad_x": 5, "num_size": 99}})
 	ok(is_equal_approx(float(over.pad_x), 5.0) and int(over.num_size) == 99, "gold_currency_pill config overrides the named keys")
@@ -557,7 +557,7 @@ func _initialize() -> void:
 	get_root().add_child(pill)
 	await create_timer(0.05).timeout
 	var texts := _all_label_texts(pill)
-	ok("12" in texts and "+" in texts, "gold_currency_pill preview renders the sample count and plus")
+	ok("12" in texts and "+" in texts, "gold_currency_pill preview renders the sample count and plus token")
 	pill.queue_free()
 
 	# 28. the map-SELECT place-picker CARD (spec §8) is now CONFIG-DRIVEN through the shared kit: the

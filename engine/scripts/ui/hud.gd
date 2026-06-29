@@ -74,16 +74,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
 	var icon_size := float(pill.get("icon_size", icon_box))   # the workbench-tuned icon SPRITE px (defaults to fill the box)
-	# The wallet is THREE separate gold pills (water coin gem) centred across the TOP, each with its own green
-	# "+" that opens the store (board2.png). The store opens through the +'s Button.pressed — which the
-	# engine de-dupes against the emulated touch/mouse pair, so one tap opens it ONCE. (The old whole-pill
-	# gui_input fired on BOTH the real mouse release AND the emulated touch release under
-	# emulate_touch_from_mouse, opening the shop twice → it then had to be closed twice.)
+	# The wallet is THREE separate gold pills (water coin gem) centred across the TOP. The whole pill is
+	# the Button and the green "+" is a decorative affordance, so the engine still de-dupes the emulated
+	# touch/mouse pair without making players hit the tiny token.
 	var shop_opts := opts.duplicate()
-	# Each currency pill's "+" opens its OWN stall: water → water shop, coin → coin shop, gem → premium shop.
-	var open_water := func() -> void: Shop.open_water(host, shop_opts)
-	var open_coin := func() -> void: Shop.open_coin(host, shop_opts)
-	var open_premium := func() -> void: Shop.open_premium(host, shop_opts)
+	# Each currency pill opens its OWN stall: water → water shop, coin → coin shop, gem → premium shop.
+	var open_water := Callable(Shop, "open_water").bind(host, shop_opts)
+	var open_coin := Callable(Shop, "open_coin").bind(host, shop_opts)
+	var open_premium := Callable(Shop, "open_premium").bind(host, shop_opts)
 	var cluster := HBoxContainer.new()
 	cluster.anchor_left = maxf(0.0, 1.0 - float(layout.currency_area_frac))
 	cluster.anchor_right = 1.0
@@ -221,9 +219,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		if host_refresh is Callable and (host_refresh as Callable).is_valid():
 			(host_refresh as Callable).call()
 	out["refresh"] = refresh
-	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
-	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
-	# buttons and the bottom-bar store tick the wallet after a purchase.
+	# `shop_opts` was duplicated up top (so the currency pills share the SAME options);
+	# wire `refresh` into it now — the closure captured the dict by reference, so both the
+	# pills and the bottom-bar store tick the wallet after a purchase.
 	shop_opts["refresh"] = refresh
 	# The shop drops its own (redundant) currency strip and reuses THIS bar as the wallet: pass each
 	# pill + label so buy feedback (fly-home / tick / "need more" wobble) targets the right capsule, and
@@ -236,7 +234,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		"gem": {"node": gem_pill.panel, "label": gems},
 		"panels": raise_panels,
 	}
-	# The per-stall openers (the pills' + buttons share these); `open_shop` stays as the generic "open the
+	# The per-stall openers (the pills share these); `open_shop` stays as the generic "open the
 	# shop" handle, pointed at the premium (acorn) stall, for callers that don't care which stall.
 	out["open_water"] = open_water
 	out["open_coin"] = open_coin
@@ -246,7 +244,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	return out
 
 # One currency pill: the workbench-styled gold badge wrapping a fixed icon BOX + the number + a green "+"
-# that opens the store. Added to `cluster`; returns {panel, label, icon, plus}.
+# affordance. The pill surface opens the store. Added to `cluster`; returns {panel, label, icon, plus}.
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
 		optical: float, tint: Color, num_size: int, box: float, open_store: Callable, init_count: int = 0) -> Dictionary:
 	var po: Dictionary = pill.duplicate()

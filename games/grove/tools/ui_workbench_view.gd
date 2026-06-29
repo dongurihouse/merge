@@ -648,7 +648,7 @@ func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 		opts["icon"] = icon_id
 		opts["count"] = int(sample.count)
 		var pill := Kit.gold_currency_pill(opts, {icon_id: int(sample.count)})
-		var pill_surface := pill.find_child("GoldCurrencyPill", true, false) as Control
+		var pill_surface := pill as Control if pill.name == "GoldCurrencyPill" else pill.find_child("GoldCurrencyPill", true, false) as Control
 		if pill_surface != null:
 			pill_surface.custom_minimum_size = Vector2(pill_body_w, pill_surface.custom_minimum_size.y)
 		pill.custom_minimum_size = Vector2(pill_body_w, pill.custom_minimum_size.y)

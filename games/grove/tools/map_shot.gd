@@ -176,9 +176,11 @@ func _initialize() -> void:
 		Save.add_diamonds(40)
 		var cluster: Control = scn._hud_panels[0]               # hud.wallet — the Water·Coin·Gem cluster
 		var water_pill_panel: Control = cluster.get_child(0)    # water is first
-		var water_plus: Button = water_pill_panel.find_child("GoldCurrencyPlusButton", true, false)
-		print("MAP WATERSHOP probe: plus=%s" % water_plus)
-		water_plus.pressed.emit()
+		var water_button := water_pill_panel as Button
+		if water_button == null:
+			water_button = water_pill_panel.find_child("GoldCurrencyPill", true, false) as Button
+		print("MAP WATERSHOP probe: button=%s" % water_button)
+		water_button.pressed.emit()
 		await create_timer(0.6).timeout
 	elif mode == "shop" or mode == "confirm":
 		Save.add_diamonds(40)

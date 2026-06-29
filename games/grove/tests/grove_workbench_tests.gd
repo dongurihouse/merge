@@ -23,6 +23,7 @@ const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 var _pass := 0
 var _fail := 0
 var _fx_settings_path := ""
+var _pill_taps := 0
 
 func ok(cond: bool, label: String) -> void:
 	if cond:
@@ -31,6 +32,9 @@ func ok(cond: bool, label: String) -> void:
 	else:
 		_fail += 1
 		print("  FAIL  ", label)
+
+func _record_pill_tap() -> void:
+	_pill_taps += 1
 
 # Count the currency-number labels inside a pill (one per currency pair). The gold pill also has a
 # "+" label, so count only numeric text.
@@ -91,6 +95,19 @@ func _first_button(node: Control) -> Button:
 		return node as Button
 	var bs := node.find_children("*", "Button", true, false)
 	return bs[0] if not bs.is_empty() else null
+
+func _push_tap(gpos: Vector2, viewport: Viewport = null) -> void:
+	var target: Viewport = viewport if viewport != null else get_root()
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = gpos
+	target.push_input(down, true)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = gpos
+	target.push_input(up, true)
 
 func _locked_placeholder(node: Control) -> TextureRect:
 	return node.find_child("SlotCellLockedPlaceholder", true, false) as TextureRect
@@ -457,7 +474,7 @@ func _initialize() -> void:
 	})
 	ok(gcp is Control and _has_label_text(gcp, "2450") and _has_label_text(gcp, "+"), \
 		"gold_currency_pill renders the sample count and plus glyph")
-	var gcp_frame: StyleBox = (gcp as PanelContainer).get_theme_stylebox("panel")
+	var gcp_frame: StyleBox = (gcp as Button).get_theme_stylebox("normal")
 	ok(gcp_frame is StyleBoxTexture, "gold_currency_pill background uses the code-drawn gold badge texture")
 	ok(not (gcp_frame is StyleBoxFlat) or (gcp_frame as StyleBoxFlat).shadow_size == 0, \
 		"gold_currency_pill does not add its own flat-panel shadow")
@@ -465,6 +482,35 @@ func _initialize() -> void:
 		"gold_currency_pill icon has no extra square badge background")
 	ok(gcp.find_children("GoldCurrencyIcon", "TextureRect", true, false).size() >= 1, \
 		"gold_currency_pill reuses the existing currency icon asset")
+	_pill_taps = 0
+	var clickable_pill := Kit.gold_currency_pill({
+		"icon": "water", "count": 12, "plus_action": Callable(self, "_record_pill_tap"),
+	}, {"water": 12})
+	var tap_viewport := SubViewport.new()
+	tap_viewport.name = "GoldCurrencyTapViewport"
+	tap_viewport.size = Vector2i(640, 240)
+	tap_viewport.disable_3d = true
+	tap_viewport.transparent_bg = true
+	root.add_child(tap_viewport)
+	var tap_root := Control.new()
+	tap_root.name = "GoldCurrencyTapRoot"
+	tap_root.size = Vector2(float(tap_viewport.size.x), float(tap_viewport.size.y))
+	tap_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tap_viewport.add_child(tap_root)
+	clickable_pill.position = Vector2(24, 24)
+	clickable_pill.size = clickable_pill.custom_minimum_size
+	clickable_pill.z_index = 4096
+	tap_root.add_child(clickable_pill)
+	await process_frame
+	var decorative_plus := _first_control(clickable_pill, "GoldCurrencyPlusButton") as Control
+	ok(decorative_plus != null and not (decorative_plus is Button) and decorative_plus.mouse_filter == Control.MOUSE_FILTER_IGNORE, \
+		"gold_currency_pill plus token is decorative, with no separate click box")
+	var body_target := _first_control(clickable_pill, "GoldCurrencyAmountSlot") as Control
+	_push_tap((body_target if body_target != null else clickable_pill).get_global_rect().get_center(), tap_viewport)
+	await process_frame
+	ok(_pill_taps == 1, "tapping the currency pill body fires the store action once")
+	tap_viewport.queue_free()
+	await process_frame
 	var view_size_before_wallet := view.size
 	view.size = Vector2(View.PHONE_W * 1.5, View.PHONE_H)
 	var wallet_prev: Control = view._make_element("gold_currency_pill")
@@ -495,13 +541,13 @@ func _initialize() -> void:
 	var all_shared: bool = tuned_labels.size() == 3 and tuned_icons.size() == 3
 	for tl in tuned_labels:
 		var n := tl as Node
-		var pill_panel: PanelContainer = null
+		var pill_panel: Button = null
 		while n != null:
-			if n is PanelContainer:
-				pill_panel = n as PanelContainer
+			if n is Button and String(n.name).begins_with("GoldCurrencyPill"):
+				pill_panel = n as Button
 				break
 			n = n.get_parent()
-		var sb := pill_panel.get_theme_stylebox("panel") as StyleBoxTexture if pill_panel != null else null
+		var sb := pill_panel.get_theme_stylebox("normal") as StyleBoxTexture if pill_panel != null else null
 		all_shared = all_shared and sb != null and is_equal_approx(float(sb.content_margin_left), expected_pad_left)
 	for tl in tuned_labels:
 		all_shared = all_shared and int((tl as Label).get_theme_font_size("font_size")) == expected_num_size
@@ -523,7 +569,7 @@ func _initialize() -> void:
 		"plus_font": 132, "plus_button": 120, "plus_round": 8, "plus_hue": 65,
 		"inner_shadow": 0,
 	})
-	var tuned_frame := (tuned as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
+	var tuned_frame := (tuned as Button).get_theme_stylebox("normal") as StyleBoxTexture
 	ok(tuned_frame != null and int(tuned_frame.content_margin_left) == 31 and int(tuned_frame.content_margin_right) == 22 and int(tuned_frame.content_margin_top) == 14, \
 		"gold_currency_pill saved padding controls the badge frame margins")
 	var icon_slot := _first_control(tuned, "GoldCurrencyIconSlot")
@@ -552,8 +598,8 @@ func _initialize() -> void:
 		"gold_currency_pill vertically centers icon and amount on one line")
 	ok(is_equal_approx(plus_center, amount_center - 8.0), \
 		"gold_currency_pill plus_y nudges the plus button off the shared centre line")
-	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
-	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
+	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as Button).get_theme_stylebox("normal") as StyleBoxTexture
+	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as Button).get_theme_stylebox("normal") as StyleBoxTexture
 	var no_px := no_inner.texture.get_image().get_pixel(58, 14)
 	var strong_px := strong_inner.texture.get_image().get_pixel(58, 14)
 	ok((strong_px.r + strong_px.g + strong_px.b) < (no_px.r + no_px.g + no_px.b), \
@@ -637,13 +683,16 @@ func _initialize() -> void:
 	await process_frame
 	ok(hud.coins is Label, "live HUD exposes the coin amount label")
 	ok(_ancestor_named(hud.coins, "GoldCurrencyPill") != null, "live HUD currency pills use the gold currency pill")
-	ok(hud.coin_plus is Button, "live HUD gold currency pill exposes a real plus button")
-	ok(hud.coin_plus is Button and not (hud.coin_plus as Button).flat, \
-		"live HUD plus button draws the same green rounded background as the workbench plus")
+	var live_pill_button := hud.coin_pill as Button
+	if live_pill_button == null:
+		live_pill_button = _first_control(hud.coin_pill, "GoldCurrencyPill", "Button") as Button
+	ok(live_pill_button != null, "live HUD gold currency pill exposes the whole pill as the button")
+	ok(hud.coin_plus is Panel and (hud.coin_plus as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, \
+		"live HUD plus token is decorative and has no separate click box")
 	var live_gold_opts := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var live_amount_slot := _first_control(hud.coin_pill, "GoldCurrencyAmountSlot")
 	var live_amount := _first_control(hud.coin_pill, "GoldCurrencyAmount", "Label") as Label
-	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton", "Button")
+	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton", "Panel")
 	var live_plus_label := _first_control(hud.coin_pill, "GoldCurrencyPlusLabel", "Label") as Label
 	ok(live_amount_slot != null and live_amount != null and live_plus != null and live_plus_label != null \
 		and absf(live_amount_slot.custom_minimum_size.x - float(live_gold_opts.amount_w)) <= 0.01 \
@@ -2095,10 +2144,10 @@ func _test_bag_components() -> void:
 	# the gold currency pill, reused for the bag's single-acorn balance, renders one icon/count pair and
 	# stays on the new direct entry point.
 	var one := Kit.gold_currency_pill({"icon": "gem", "count": 132, "icon_size": 40, "show_plus": false}, {"gem": 132})
-	ok(one is PanelContainer and one.name == "GoldCurrencyPill" and _pill_numbers(one) == 1, \
+	ok(one is Button and one.name == "GoldCurrencyPill" and _pill_numbers(one) == 1, \
 		"gold_currency_pill renders the bag's single-currency balance")
 	var water := Kit.gold_currency_pill({"icon": "water", "show_plus": true}, {"water": 128})
-	ok(water is PanelContainer and water.name == "GoldCurrencyPill" and _has_label_text(water, "+"), \
+	ok(water is Button and water.name == "GoldCurrencyPill" and _has_label_text(water, "+"), \
 		"gold_currency_pill renders the optional plus button directly")
 	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "top.add_child(currency_pill("), \
 		"bag_dialog uses gold_currency_pill directly for the in-game balance cell")

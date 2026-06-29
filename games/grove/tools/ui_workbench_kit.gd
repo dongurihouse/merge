@@ -997,8 +997,8 @@ static func _gold_badge_over(dst: Color, src: Color) -> Color:
 		(src.b * src.a + dst.b * dst.a * (1.0 - src.a)) / a,
 		a)
 
-## Shared gold currency pill that ports the HTML plus-button study. The background reuses
-## gold_badge(); the currency glyph reuses make_icon().
+## Shared gold currency pill. The whole capsule can be the Button; the green "+" is a passive
+## affordance. The background reuses gold_badge(); the currency glyph reuses make_icon().
 static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -> Control:
 	var pill_w := float(opts.get("pill_w", 292))
 	var base_pill_h := float(opts.get("pill_h", 100))
@@ -1020,19 +1020,22 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var plus_action_value: Variant = opts.get("plus_action", null)
 	if plus_action_value is Callable:
 		plus_action = plus_action_value as Callable
-	var plus := _gold_currency_plus_button(opts, plus_action)
+	var plus := _gold_currency_plus_button(opts)
 	var plus_h := plus.custom_minimum_size.y if show_plus else 0.0
 	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus_h))
 	var height_pad := pad_y * 2.0
 	var pill_floor_h := maxf(1.0, base_pill_h + minf(height_pad, 0.0))
 	pill_h = maxf(pill_floor_h, ceilf(content_h + height_pad))
 
-	var panel := PanelContainer.new()
+	var panel := Button.new()
 	panel.name = "GoldCurrencyPill"
 	panel.custom_minimum_size = Vector2(pill_w, pill_h)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP if plus_action.is_valid() else Control.MOUSE_FILTER_IGNORE
+	panel.flat = false
+	panel.focus_mode = Control.FOCUS_NONE
+	panel.add_theme_constant_override("h_separation", 0)
 	var badge_opts: Dictionary = (opts.get("badge", {}) as Dictionary).duplicate() if opts.get("badge", {}) is Dictionary else {}
 	for k in ["inner_inset", "shine", "corner", "gradient"]:
 		if opts.has(k):
@@ -1042,10 +1045,19 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	badge_opts["content_margin_right"] = pad_x
 	badge_opts["content_margin_top"] = style_pad_y
 	badge_opts["content_margin_bottom"] = style_pad_y
-	panel.add_theme_stylebox_override("panel", gold_badge_style(badge_opts))
+	var badge_style := gold_badge_style(badge_opts)
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		panel.add_theme_stylebox_override(st, badge_style)
+	if plus_action.is_valid():
+		panel.pressed.connect(plus_action)
 
 	var row_host := Control.new()
 	row_host.name = "GoldCurrencyPillContentHost"
+	row_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row_host.offset_left = pad_left
+	row_host.offset_right = -pad_x
+	row_host.offset_top = style_pad_y
+	row_host.offset_bottom = -style_pad_y
 	row_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(row_host)
 
@@ -1098,14 +1110,14 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		row.add_child(plus_slot)
 	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
 	# shadow). The look is the SHARED box-shadow (offset/blur/spread/warmth), with the pill's own alpha strength
-	# folded into shadow_params by the resolver. A PanelContainer manages its children, so cast it via a holder
-	# (Look.with_shadow) rather than a behind-parent child. Cast it with the badge's OWN corner radius (the
+	# folded into shadow_params by the resolver. Cast it via a holder (Look.with_shadow) rather than a
+	# behind-parent child. Cast it with the badge's OWN corner radius (the
 	# nine-patch cap, held constant in px) so the shadow stays CONCENTRIC with the pill — not a fatter capsule.
 	if bool(opts.get("shadow", false)):
 		return Look.with_shadow(panel, float(gold_badge_cap(badge_opts)), opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
-static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable = Callable()) -> Control:
+static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	var base := float(opts.get("plus_base", 34))
 	var button_scale := float(opts.get("plus_button", 100)) / 100.0
 	var hue := float(opts.get("plus_hue", 65)) / 360.0
@@ -1116,21 +1128,11 @@ static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable =
 	var w := base * 1.03 * button_scale
 	var h := base * 0.90 * button_scale
 
-	var p: Control
-	if action.is_valid():
-		var b := Button.new()
-		b.flat = false
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_constant_override("h_separation", 0)
-		b.pressed.connect(func() -> void: action.call())
-		Look.add_press_juice(b)
-		p = b
-	else:
-		p = Panel.new()
+	var p := Panel.new()
 	p.name = "GoldCurrencyPlusButton"
 	p.custom_minimum_size = Vector2(w, h)
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	p.mouse_filter = Control.MOUSE_FILTER_STOP if action.is_valid() else Control.MOUSE_FILTER_IGNORE
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var green := Color.from_hsv(hue, 0.42, 0.40 + shine * 0.04)
 	var psb := StyleBoxFlat.new()
 	psb.bg_color = green
@@ -1140,11 +1142,7 @@ static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable =
 	psb.shadow_color = Color(55.0 / 255.0, 53.0 / 255.0, 22.0 / 255.0, 0.34)
 	psb.shadow_size = 3
 	psb.shadow_offset = Vector2(0, 2)
-	if p is Button:
-		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-			(p as Button).add_theme_stylebox_override(st, psb)
-	else:
-		(p as Panel).add_theme_stylebox_override("panel", psb)
+	p.add_theme_stylebox_override("panel", psb)
 
 	var g := Label.new()
 	g.name = "GoldCurrencyPlusLabel"

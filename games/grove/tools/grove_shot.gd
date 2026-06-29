@@ -259,9 +259,11 @@ func _initialize() -> void:
 			scn._update_hud()
 			var cluster: Control = scn._wallet_panel
 			var water_pill_panel: Control = cluster.get_child(0)   # WATER · COIN · GEM — water is first
-			var water_plus: Button = water_pill_panel.find_child("GoldCurrencyPlusButton", true, false)
-			print("WATERSHOP probe: cluster=%s water_pill=%s plus=%s" % [cluster, water_pill_panel, water_plus])
-			water_plus.pressed.emit()
+			var water_button := water_pill_panel as Button
+			if water_button == null:
+				water_button = water_pill_panel.find_child("GoldCurrencyPill", true, false) as Button
+			print("WATERSHOP probe: cluster=%s water_pill=%s button=%s" % [cluster, water_pill_panel, water_button])
+			water_button.pressed.emit()
 			await create_timer(0.6).timeout
 		"bag":
 			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
