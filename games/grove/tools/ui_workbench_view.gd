@@ -185,7 +185,7 @@ const CAPTIONS := {
 	"merge_fx": "Merge feel — two tiles fuse: squash · flash · hitstop · burst · shake · sound · ripple · punch. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"launch_fx": "Launch feel — a generator emits a tile: recoil · muzzle puff · toss sound. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"move_fx": "Move feel — a tile travels (slide · arc · fall): cast shadow · motion trail · motion lean. Toggle + tune, ▶ to feel it, save (the game honours it).",
-	"grab_fx": "Grab feel — a tile is picked up: glow tint · white silhouette outline · light haptic tap. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"grab_fx": "Grab feel — a tile is picked up: soft glow halo · white silhouette outline · light haptic tap. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",

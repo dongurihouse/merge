@@ -14,14 +14,17 @@ extends RefCounted
 const Feel = preload("res://engine/scripts/ui/feel.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 
-# The brighten the glow tint reaches at glow_pct = 100 — the SAME warm value the merge telegraph uses
-# (board.gd TELEGRAPH_GLOW), so a held tile reads consistently with a telegraphed merge target.
-const GRAB_GLOW := Color(1.15, 1.15, 1.05, 1.0)
+# The grab GLOW is a soft radial HALO behind the held tile, NOT a modulate brighten — a modulate tint is
+# invisible on already-bright art (it multiplies and clamps at 1.0), so it reads as nothing on most
+# sprites. The halo adds light AROUND the item regardless of its colour.
+const GRAB_GLOW_COLOR := Color(1.0, 0.97, 0.82)   # warm-white aura
+const GRAB_GLOW_ALPHA := 0.6                        # halo opacity at glow_pct = 100
+const GRAB_GLOW_SCALE := 1.35                       # halo size as a fraction of the cell
 const OUTLINE_COLOR := Color(1, 1, 1, 1)   # a white rim
 
 # id · label (shown in the workbench) · tip (one-line feel). DEFAULT is on; the config can turn any off.
 const EFFECTS := [
-	{"id": "glow",    "label": "Glow",    "tip": "the held tile brightens while you hold it"},
+	{"id": "glow",    "label": "Glow",    "tip": "a soft warm halo glows behind the held tile"},
 	{"id": "outline", "label": "Outline", "tip": "a white rim traces the held tile's silhouette"},
 	{"id": "haptic",  "label": "Haptic",  "tip": "a light tap on the device on pickup (no effect on desktop)"},
 ]
@@ -68,8 +71,11 @@ static func grab(node: Control, opts: Dictionary) -> void:
 	if node == null or not is_instance_valid(node):
 		return
 	if on(opts, "glow"):
-		# brighten the held tile toward GRAB_GLOW, scaled by glow_pct (>100 extrapolates brighter).
-		node.modulate = Color.WHITE.lerp(GRAB_GLOW, float(knob(opts, "glow_pct")) / 100.0)
+		# a soft radial halo behind the tile; glow_pct scales its opacity (a modulate brighten would clamp
+		# on bright art and read as nothing).
+		var c := GRAB_GLOW_COLOR
+		c.a = clampf(float(knob(opts, "glow_pct")) / 100.0 * GRAB_GLOW_ALPHA, 0.0, 1.0)
+		PieceView.add_grab_glow(node, c, GRAB_GLOW_SCALE)
 	if on(opts, "outline"):
 		PieceView.add_grab_outline(node, OUTLINE_COLOR, float(knob(opts, "outline_w")) / 100.0, float(knob(opts, "outline_a")) / 100.0)
 	if on(opts, "haptic"):
@@ -80,5 +86,5 @@ static func grab(node: Control, opts: Dictionary) -> void:
 static func release(node: Control) -> void:
 	if node == null or not is_instance_valid(node):
 		return
-	node.modulate = Color.WHITE
+	PieceView.clear_grab_glow(node)
 	PieceView.clear_grab_outline(node)

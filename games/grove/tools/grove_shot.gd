@@ -294,6 +294,63 @@ func _initialize() -> void:
 			var dhalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			scn._on_press(scn._cell_pos(dc) + dhalf)        # pick up → lights the drop targets
 			await create_timer(0.5).timeout
+		"grab":
+			# the GRAB highlight on a REAL board piece (glow + white silhouette outline) via the actual
+			# _on_press path — proves the rim aligns with the LIFTED art at the board's tuned piece size.
+			var gtut: Node = scn.find_child("BoardTutorialOverlay", true, false)   # drop the FTUE card so the board shows
+			if gtut != null:
+				gtut.queue_free()
+			await create_timer(0.4).timeout                # let the board's deferred intro re-deal settle FIRST
+			var grabes: Array = scn.board.empty_ground_cells()
+			var gcell := Vector2i(grabes[grabes.size() / 2])
+			scn.board.place(gcell, 104)
+			scn._rebuild_pieces()
+			await create_timer(0.3).timeout
+			var ghalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
+			scn._on_press(scn._cell_pos(gcell) + ghalf)   # REAL grab: scale 1.12 + set_lifted + GrabFx.grab
+			await create_timer(0.3).timeout
+			# instrument the REAL grabbed node: did the outline get added, and does its rect match the art's?
+			var dn: Control = scn._drag_node
+			print("GRAB dragnode=%s grabbed_cell=%s" % [dn, str(gcell)])
+			if dn != null:
+				var dart: Control = dn.get_node_or_null(NodePath("ItemArt"))
+				var drim: Control = dn.get_node_or_null(NodePath("GrabOutline"))
+				print("  modulate=%s scale=%s" % [str(dn.modulate), str(dn.scale)])
+				if dart != null:
+					print("  ART  offsets L/T/R/B=%.1f/%.1f/%.1f/%.1f size=%s" % [dart.offset_left, dart.offset_top, dart.offset_right, dart.offset_bottom, str(dart.size)])
+				print("  RIM  node=%s" % drim)
+				if drim != null:
+					print("  RIM  offsets L/T/R/B=%.1f/%.1f/%.1f/%.1f size=%s inset=%s width=%s" % [drim.offset_left, drim.offset_top, drim.offset_right, drim.offset_bottom, str(drim.size), str(drim.get("inset")), str(drim.get("width"))])
+				var dglow: Control = dn.get_node_or_null(NodePath("GrabGlow"))
+				print("  GLOW node=%s modulate=%s size=%s" % [dglow, str(dglow.modulate) if dglow != null else "n/a", str(dglow.size) if dglow != null else "n/a"])
+			# crop the grabbed node in FRAMEBUFFER pixels: get_global_transform_with_canvas folds in the
+			# canvas_items stretch (the capture is post-stretch, so plain global coords miss it).
+			var gxf: Transform2D = dn.get_global_transform_with_canvas() if dn != null else scn.board_area.get_global_transform_with_canvas()
+			var gpos: Vector2 = gxf.origin
+			var gsz: Vector2 = (dn.size if dn != null else Vector2(scn.csz, scn.csz)) * gxf.get_scale()
+			# widen + extend UP (the lifted art rises above the cell) so the crop shows the whole rim
+			print("GRAB cell=%s crop=%d,%d,%d,%d" % [str(gcell), int(gpos.x) - 24, int(gpos.y) - 40, int(gsz.x) + 48, int(gsz.y) + 64])
+		"grabgen":
+			# grab a GENERATOR (different node structure: gold GenOutline + glow + sprite) and DRAG it, then
+			# instrument every layer's rect so we can see which outline is shifted vs the (lifted) sprite.
+			var ggtut: Node = scn.find_child("BoardTutorialOverlay", true, false)
+			if ggtut != null:
+				ggtut.queue_free()
+			await create_timer(0.4).timeout
+			var gcellg: Vector2i = scn.board.gens.keys()[0]
+			var gghalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
+			scn._on_press(scn._cell_pos(gcellg) + gghalf)              # REAL gen grab: scale + set_lifted + GrabFx.grab
+			scn._drag_follow(scn._cell_pos(gcellg) + gghalf + Vector2(40, -30))   # simulate a drag move
+			await create_timer(0.3).timeout
+			var gn: Control = scn._drag_node
+			print("GRABGEN dragnode=%s cell=%s" % [gn, str(gcellg)])
+			if gn != null:
+				for cn in ["ItemArt", "GenOutline", "GrabOutline"]:
+					var ch: Control = gn.get_node_or_null(NodePath(cn))
+					if ch != null:
+						print("  %-11s offsets L/T/R/B=%.1f/%.1f/%.1f/%.1f size=%s" % [cn, ch.offset_left, ch.offset_top, ch.offset_right, ch.offset_bottom, str(ch.size)])
+					else:
+						print("  %-11s <absent>" % cn)
 		"compost", "hive":
 			var g := Save.grove()
 			var ul := {}

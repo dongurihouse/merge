@@ -1,0 +1,123 @@
+{
+  "target": "asset",
+  "mode": "single",
+  "prompt": "",
+  "role": "",
+  "input": "games/grove/assets/_new/coin_icons_v1/coin_icons_raw_transparent_hard.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "rows": 1,
+  "cols": 3,
+  "cell_size": 128,
+  "fit_scale": 0.9,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "center",
+  "shared_scale": true,
+  "component_mode": "all",
+  "component_padding": 8,
+  "min_component_area": 256,
+  "edge_touch_margin": 2,
+  "frame_labels": [
+    "coin-1",
+    "coin-2",
+    "coin-3"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        724,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 1,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        153,
+        107,
+        644,
+        605
+      ],
+      "edge_touch": false,
+      "output_size": [
+        99,
+        101
+      ],
+      "paste_position": [
+        14,
+        13
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        724,
+        0,
+        1448,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 1,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        121,
+        113,
+        562,
+        604
+      ],
+      "edge_touch": false,
+      "output_size": [
+        89,
+        99
+      ],
+      "paste_position": [
+        19,
+        14
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        1448,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "all",
+      "component_count": 1,
+      "selected_component_area": null,
+      "selected_component_bbox": null,
+      "crop_bbox": [
+        12,
+        157,
+        580,
+        586
+      ],
+      "edge_touch": false,
+      "output_size": [
+        115,
+        87
+      ],
+      "paste_position": [
+        6,
+        20
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

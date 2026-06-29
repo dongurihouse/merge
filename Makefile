@@ -23,7 +23,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench \
-        decor icon ios clean clean-cache intake intake-test
+        decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
 help: ## list available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -138,13 +138,14 @@ shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbe
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
-# `make ios 1.2.3` passes the version as a positional goal (also accepts `make ios VERSION=1.2.3`). The
-# leftover goal(s) after ios/ios-plugins are taken as the version; when an ios build is requested we stub
-# them as no-op targets so make doesn't error with "No rule to make target '1.2.3'" (scoped to ios runs,
-# so a typo'd target in any other command still errors normally).
-IOS_ARGS    := $(filter-out ios ios-plugins,$(MAKECMDGOALS))
+# `make ios 1.2.3` / `make release-ios 1.2.3` pass the version as a positional goal (also accepts
+# VERSION=1.2.3). `make release-ios patch|minor|major` instead auto-bumps the last UPLOADED version.
+# The leftover goal(s) after the iOS targets are taken as that arg; when an iOS target is requested we
+# stub them as no-op targets so make doesn't error with "No rule to make target '1.2.3'" (scoped to iOS
+# runs, so a typo'd target in any other command still errors normally).
+IOS_ARGS    := $(filter-out ios ios-plugins release-ios get-ios,$(MAKECMDGOALS))
 IOS_VERSION := $(or $(VERSION),$(IOS_ARGS))
-ifneq (,$(filter ios,$(MAKECMDGOALS)))
+ifneq (,$(filter ios release-ios,$(MAKECMDGOALS)))
 ifneq (,$(IOS_ARGS))
 $(eval $(IOS_ARGS):;@:)
 endif
@@ -164,6 +165,18 @@ ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets
 	# `make ios 1.2.3` -> app version 1.2.3; bare `make ios` keeps export_presets' version (Xcode Cloud
 	# auto-sets the build number from $$CI_BUILD_NUMBER). See tools/set_ios_version.sh.
 	tools/set_ios_version.sh build/ios/AcornForest.xcodeproj/project.pbxproj $(IOS_VERSION)
+
+release-ios: ## archive + upload to App Store Connect/TestFlight: make release-ios <patch|minor|major|X.Y.Z>
+	@test -n "$(strip $(IOS_VERSION))" || { echo "usage: make release-ios <patch|minor|major|X.Y.Z>"; exit 1; }
+	@set -e; \
+	v="$(IOS_VERSION)"; \
+	case "$$v" in major|minor|patch) v="$$(tools/next_ios_version.sh "$$v")";; esac; \
+	echo "==> Releasing version $$v"; \
+	$(MAKE) ios VERSION="$$v"; \
+	tools/release_ios.sh "$$v"
+
+get-ios: ## print the last version/build uploaded to App Store Connect (needs the API key)
+	tools/get_ios_version.sh
 
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output

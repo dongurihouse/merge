@@ -1,0 +1,16 @@
+Production-ready 2D game asset sheet for Grove / Acorn Forest coin item icons.
+
+Canvas: exact 768x256 PNG, arranged as a 3 columns x 1 row grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style: cozy hand-painted merge-game item icons, crisp continuous dark outline, warm painterly gold color blocking, simple readable silhouettes, cutout-friendly, matching Acorn Forest / Grove item style.
+
+Create exactly one connected coin currency object per cell, row-major left to right. Every tier must include a clear Grove ACORN SYMBOL as an embossed or stamped motif on visible coin faces. The acorn symbol must read as an acorn with a cap and nut, not a leaf, not an oak leaf, not a generic seed.
+
+Cell 1: one large front-facing round gold coin, raised rim, embossed acorn symbol centered on the face, clean and broad.
+Cell 2: one short tidy connected stack of gold coins, compact cylindrical stack, visible front coin and top coin both stamped with acorn symbols, especially a clear acorn on the front face.
+Cell 3: one compact connected mound / pile of gold coins, broad sturdy silhouette, several visible front coins stamped with clear acorn symbols, no loose separated coins.
+
+Sizing: all 3 icons share the same visual footprint and fill the same amount of each cell. Cell 1 may be a single coin but must not look smaller than the stack or pile. Center every icon with generous padding.
+
+Strict constraints: no cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark. One connected object per cell only; no scenes, no containers, no extra props, nothing crossing cell gutters. Keep details broad and attached; avoid hairline engravings, tiny separated dots, loose specks, or thin strings. Output only the image sheet.

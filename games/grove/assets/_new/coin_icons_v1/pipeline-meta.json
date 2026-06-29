@@ -1,0 +1,182 @@
+{
+  "source": "games/grove/assets/_new/coin_icons_v1/coin_icons_raw.png",
+  "transparent_source": "games/grove/assets/_new/coin_icons_v1/coin_icons_raw_transparent_hard.png",
+  "layout": {
+    "rows": 1,
+    "cols": 3,
+    "source_size": [
+      2172,
+      724
+    ],
+    "source_cell_size": [
+      724,
+      724
+    ]
+  },
+  "output_size": [
+    512,
+    512
+  ],
+  "target_max_opaque_bbox": 452,
+  "frames": [
+    {
+      "tier": 1,
+      "source_cell": [
+        0,
+        0,
+        724,
+        724
+      ],
+      "source_bbox_alpha_gt_16": [
+        157,
+        111,
+        648,
+        609
+      ],
+      "source_bbox_size": [
+        491,
+        498
+      ],
+      "crop_box_with_padding": [
+        141,
+        95,
+        664,
+        625
+      ],
+      "scale": 0.9076305220883534,
+      "resized_size": [
+        475,
+        481
+      ],
+      "paste_position": [
+        18,
+        16
+      ],
+      "final_path": "games/grove/assets/items/coin/coin_1.png",
+      "staged_path": "games/grove/assets/_new/coin_icons_v1/processed/coin_1.png",
+      "final_bbox_alpha_gt_16": [
+        32,
+        30,
+        479,
+        482
+      ],
+      "final_padding_ltrb": [
+        32,
+        30,
+        33,
+        30
+      ],
+      "component_count_alpha_gt_16_area_ge_64": 1,
+      "component_areas_top5": [
+        158026
+      ],
+      "magenta_like_visible_pixels": 0
+    },
+    {
+      "tier": 2,
+      "source_cell": [
+        724,
+        0,
+        1448,
+        724
+      ],
+      "source_bbox_alpha_gt_16": [
+        125,
+        117,
+        566,
+        608
+      ],
+      "source_bbox_size": [
+        441,
+        491
+      ],
+      "crop_box_with_padding": [
+        109,
+        101,
+        582,
+        624
+      ],
+      "scale": 0.9205702647657841,
+      "resized_size": [
+        435,
+        481
+      ],
+      "paste_position": [
+        38,
+        16
+      ],
+      "final_path": "games/grove/assets/items/coin/coin_2.png",
+      "staged_path": "games/grove/assets/_new/coin_icons_v1/processed/coin_2.png",
+      "final_bbox_alpha_gt_16": [
+        52,
+        30,
+        459,
+        482
+      ],
+      "final_padding_ltrb": [
+        52,
+        30,
+        53,
+        30
+      ],
+      "component_count_alpha_gt_16_area_ge_64": 1,
+      "component_areas_top5": [
+        163468
+      ],
+      "magenta_like_visible_pixels": 0
+    },
+    {
+      "tier": 3,
+      "source_cell": [
+        1448,
+        0,
+        2172,
+        724
+      ],
+      "source_bbox_alpha_gt_16": [
+        16,
+        162,
+        584,
+        590
+      ],
+      "source_bbox_size": [
+        568,
+        428
+      ],
+      "crop_box_with_padding": [
+        0,
+        146,
+        600,
+        606
+      ],
+      "scale": 0.795774647887324,
+      "resized_size": [
+        477,
+        366
+      ],
+      "paste_position": [
+        18,
+        74
+      ],
+      "final_path": "games/grove/assets/items/coin/coin_3.png",
+      "staged_path": "games/grove/assets/_new/coin_icons_v1/processed/coin_3.png",
+      "final_bbox_alpha_gt_16": [
+        30,
+        86,
+        482,
+        427
+      ],
+      "final_padding_ltrb": [
+        30,
+        86,
+        30,
+        85
+      ],
+      "component_count_alpha_gt_16_area_ge_64": 1,
+      "component_areas_top5": [
+        104043
+      ],
+      "magenta_like_visible_pixels": 0
+    }
+  ]
+}

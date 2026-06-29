@@ -131,15 +131,25 @@ static func _apply_shadow(back: TextureRect, size: float, p: Dictionary) -> void
 # the item visibly lifts OFF the board; both settle back on drop. No-ops for parts it can't find.
 static func set_lifted(holder: Control, lifted: bool) -> void:
 	var size := holder.size.x
+	var rise := size * LIFT_RISE if lifted else 0.0
 	var back := holder.get_node_or_null(NodePath(SHADOW_NAME))
 	if back is TextureRect:
 		_apply_shadow(back, size, SHADOW_LIFTED if lifted else SHADOW_RESTING)
 	var art := holder.get_node_or_null(NodePath(ART_NAME))
 	if art is Control and art.has_meta("inset_px"):
 		var inset: float = art.get_meta("inset_px")
-		var rise := size * LIFT_RISE if lifted else 0.0
 		art.offset_top = inset - rise          # shift the art rect UP by `rise`, keeping its height
 		art.offset_bottom = -inset - rise
+	# A GENERATOR's silhouette decorations TRACE the sprite (the gold rim + the sparkle overlay), so they
+	# must ride the lift WITH it — otherwise they stay at rest and read as "shifted" below the raised sprite
+	# while the generator is dragged. Both are FULL_RECT (resting offsets 0) → lifted = -rise. The GenGlow
+	# halo is intentionally LEFT at rest: like the contact shadow, it's a grounding layer the art lifts off
+	# of. No-ops for a plain piece (these children are absent).
+	for deco_name in ["GenOutline", "GenSparkle"]:
+		var deco := holder.get_node_or_null(NodePath(deco_name))
+		if deco is Control:
+			deco.offset_top = -rise
+			deco.offset_bottom = -rise
 
 # The sprite over the shadow: cropped to its opaque content so it CENTERS in the cell (raw art
 # padding varies), inset a little so it sits INSIDE the cell, aspect-preserving. Never eats input.
@@ -501,18 +511,67 @@ static func add_grab_outline(holder: Control, color: Color, width_frac: float, a
 	if sil == null:
 		return
 	var size := holder.size.x
+	var art_c := art as Control
 	var o := GenOutline.new()
 	o.name = GRAB_OUTLINE_NAME
-	o.set_anchors_preset(Control.PRESET_FULL_RECT)
 	o.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Overlay the sprite's EXACT rect by mirroring its anchors + offsets, then draw at inset 0. This makes
+	# the rim track BOTH the sprite's tuned inset (board content_frac, not a fixed 0.16) AND its LIFTED
+	# position (set_lifted raises the art ~12% on pickup) — a fixed FULL_RECT+inset rim does neither, so it
+	# ends up smaller than a large board sprite and shifted below the lifted art (the on-board "shifted
+	# outline" bug). GenOutline then aspect-fits the silhouette in that rect, same box the sprite fills.
+	o.anchor_left = art_c.anchor_left
+	o.anchor_top = art_c.anchor_top
+	o.anchor_right = art_c.anchor_right
+	o.anchor_bottom = art_c.anchor_bottom
+	o.offset_left = art_c.offset_left
+	o.offset_top = art_c.offset_top
+	o.offset_right = art_c.offset_right
+	o.offset_bottom = art_c.offset_bottom
 	o.tex = sil
-	o.inset = ITEM_INSET                    # MUST match the sprite so the rim aligns
+	o.inset = 0.0
 	o.color = color
 	o.width = width_frac * size
 	o.alpha = alpha
 	o.steps = int(GEN_OUTLINE["steps"])
 	holder.add_child(o)
-	holder.move_child(o, (art as Control).get_index())   # seat the rim just UNDER the art sprite
+	holder.move_child(o, art_c.get_index())   # seat the rim just UNDER the art sprite
+
+# The GRAB GLOW — a soft radial HALO behind a held tile (GrabFx.grab/release call these). A modulate
+# brighten is invisible on bright art (it clamps at 1.0), so the glow is a real aura: the same radial
+# bloom the generator halo uses, tinted + sized by the caller, seated just above the contact shadow so it
+# spills out AROUND the item. Idempotent + null-safe.
+const GRAB_GLOW_NAME := "GrabGlow"
+static func add_grab_glow(holder: Control, color: Color, scale_frac: float) -> void:
+	if holder == null or not is_instance_valid(holder):
+		return
+	if holder.has_node(NodePath(GRAB_GLOW_NAME)):
+		return
+	var size := holder.size.x
+	var g := TextureRect.new()
+	g.name = GRAB_GLOW_NAME
+	g.texture = gen_halo_tex()
+	g.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	g.stretch_mode = TextureRect.STRETCH_SCALE
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gw := size * scale_frac
+	g.size = Vector2(gw, gw)
+	g.position = (Vector2(size, size) - g.size) / 2.0
+	g.modulate = color
+	holder.add_child(g)
+	# seat the aura just above the contact shadow (so it sits BEHIND the sprite + rim and spills outward)
+	var below := 1 if (holder.get_child_count() > 1 and String(holder.get_child(0).name) == SHADOW_NAME) else 0
+	holder.move_child(g, below)
+
+# Take the GRAB glow halo off (GrabFx.release). Detaches synchronously so it's gone the instant the tile
+# drops. Null-safe + idempotent.
+static func clear_grab_glow(holder: Control) -> void:
+	if holder == null or not is_instance_valid(holder):
+		return
+	var g := holder.get_node_or_null(NodePath(GRAB_GLOW_NAME))
+	if g != null:
+		holder.remove_child(g)
+		g.queue_free()
 
 # Take the GRAB outline rim off (GrabFx.release). Null-safe + idempotent (safe if none was added).
 # Detaches synchronously (remove_child) so the rim is gone the instant the tile drops — not a frame

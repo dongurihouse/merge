@@ -53,23 +53,26 @@ func _initialize() -> void:
 	ok(GrabFx.on(off, "glow") == false and GrabFx.on(off, "outline") == false, \
 		"the master switch (enabled:false) turns every cue off")
 
-	# --- grab(): glow brightens the held tile's modulate; off leaves it white -----
+	# --- grab(): glow adds a soft luminous HALO behind the held tile. A modulate brighten is invisible on
+	# already-bright art (it clamps at 1.0), so the glow is a real radial aura, not a tint. -------------
 	var h := _piece_holder()
 	GrabFx.grab(h, GrabFx.from_config({}))
-	ok(h.modulate.r > 1.0, "grab with glow ON brightens the held tile (modulate > white)")
+	ok(h.has_node(NodePath("GrabGlow")), "grab with glow ON adds a glow halo behind the tile")
 	GrabFx.release(h)
-	ok(h.modulate.is_equal_approx(Color.WHITE), "release restores the modulate to white")
+	ok(not h.has_node(NodePath("GrabGlow")), "release removes the glow halo")
 
 	var h_glowoff := _piece_holder()
 	GrabFx.grab(h_glowoff, GrabFx.from_config({"grab_fx": {"glow": false}}))
-	ok(h_glowoff.modulate.is_equal_approx(Color.WHITE), "grab with glow OFF leaves the modulate at white")
+	ok(not h_glowoff.has_node(NodePath("GrabGlow")), "grab with glow OFF adds no halo")
 
-	# glow strength scales with glow_pct (a stronger pct brightens more).
+	# glow strength scales with glow_pct (a stronger pct = a more opaque halo).
 	var h_soft := _piece_holder()
 	var h_hard := _piece_holder()
 	GrabFx.grab(h_soft, GrabFx.from_config({"grab_fx": {"glow_pct": 50}}))
 	GrabFx.grab(h_hard, GrabFx.from_config({"grab_fx": {"glow_pct": 200}}))
-	ok(h_hard.modulate.r > h_soft.modulate.r, "a higher glow_pct brightens the tile more")
+	var soft_a: float = (h_soft.get_node(NodePath("GrabGlow")) as Control).modulate.a
+	var hard_a: float = (h_hard.get_node(NodePath("GrabGlow")) as Control).modulate.a
+	ok(hard_a > soft_a, "a higher glow_pct makes the halo more opaque")
 
 	# --- grab(): outline adds a white rim node; off + cleared correctly -----------
 	var h_out := _piece_holder()
@@ -91,6 +94,64 @@ func _initialize() -> void:
 	ok(h_help.get_child_count() == n_after_first, "add_grab_outline is idempotent (no duplicate rim)")
 	PieceView.clear_grab_outline(h_help)
 	ok(not _has_grab_outline(h_help), "PieceView.clear_grab_outline removes the rim node")
+
+	# the rim must overlay the sprite's EXACT rect — both its tuned inset (board content_frac, not 0.16)
+	# AND its LIFTED position (set_lifted raises the art ~12% on pickup). A fixed FULL_RECT+inset rim is
+	# smaller than a large board sprite AND doesn't follow the lift, so it sits shifted below the art (the
+	# "outline is shifted on the board" bug). Build the sprite the way make_piece does, lift it, then check.
+	var h_tuned := Control.new()
+	h_tuned.size = Vector2(96, 96)
+	var inset_px := 96.0 * 0.045   # the board's tuned sprite inset (content_frac 91)
+	var img_t := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	img_t.fill(Color(0.2, 0.6, 0.3, 1.0))
+	var art_t := TextureRect.new()
+	art_t.name = PieceView.ART_NAME
+	art_t.texture = ImageTexture.create_from_image(img_t)
+	art_t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art_t.offset_left = inset_px
+	art_t.offset_top = inset_px
+	art_t.offset_right = -inset_px
+	art_t.offset_bottom = -inset_px
+	art_t.set_meta("inset_px", inset_px)
+	h_tuned.add_child(art_t)
+	get_root().add_child(h_tuned)
+	PieceView.set_lifted(h_tuned, true)   # raise the art, as pickup does — the rim must follow
+	PieceView.add_grab_outline(h_tuned, Color.WHITE, 0.04, 0.9)
+	var rim_t = h_tuned.get_node_or_null(NodePath("GrabOutline"))
+	ok(rim_t != null \
+		and is_equal_approx(rim_t.offset_left, art_t.offset_left) \
+		and is_equal_approx(rim_t.offset_top, art_t.offset_top) \
+		and is_equal_approx(rim_t.offset_right, art_t.offset_right) \
+		and is_equal_approx(rim_t.offset_bottom, art_t.offset_bottom), \
+		"grab outline overlays the sprite's exact rect — tracks the tuned inset AND the lift")
+
+	# a GENERATOR's decorations (the gold GenOutline rim + halo + sparkle) trace the sprite, so set_lifted
+	# must ride them UP with the art on pickup — else the gold rim stays at rest and reads as "shifted"
+	# below the lifted sprite while the generator is dragged. (My white grab rim is already correct.)
+	var hg := Control.new()
+	hg.size = Vector2(96, 96)
+	var ginset := 96.0 * 0.16
+	var gart := TextureRect.new()
+	gart.name = PieceView.ART_NAME
+	gart.set_anchors_preset(Control.PRESET_FULL_RECT)
+	gart.offset_left = ginset
+	gart.offset_top = ginset
+	gart.offset_right = -ginset
+	gart.offset_bottom = -ginset
+	gart.set_meta("inset_px", ginset)
+	hg.add_child(gart)
+	var gout := Control.new()   # stand-in for the gold GenOutline (FULL_RECT, like the real one)
+	gout.name = "GenOutline"
+	gout.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hg.add_child(gout)
+	get_root().add_child(hg)
+	var rise := 96.0 * PieceView.LIFT_RISE
+	PieceView.set_lifted(hg, true)
+	ok(is_equal_approx(gout.offset_top, -rise) and is_equal_approx(gout.offset_bottom, -rise), \
+		"set_lifted raises the generator's gold outline with the sprite (tracks the lift)")
+	PieceView.set_lifted(hg, false)
+	ok(is_equal_approx(gout.offset_top, 0.0) and is_equal_approx(gout.offset_bottom, 0.0), \
+		"set_lifted(false) returns the generator outline to rest")
 
 	# a placeholder tile with NO ItemArt sprite gets no outline (nothing to trace) — but never errors.
 	var bare := Control.new()

@@ -14,7 +14,8 @@ extends SceneTree
 ##   104:glowpeak the quest-ready tile frozen at its breathe PEAK (item + halo at BREATHE_AMOUNT) — the after
 ##   104:lift     the item in its picked-up (lifted) pose (PieceView.set_lifted)
 ##   104:grab     the item wearing the GRAB highlight — glow tint + white silhouette outline (GrabFx.grab)
-## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Items only today; extend
+## A non-numeric CODE is a GENERATOR id (e.g. `seed_satchel` or `seed_satchel:grab`) — make_generator.
+## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Extend
 ## the `match mod` below for new widgets as the need arises (grow tools incrementally).
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -47,14 +48,25 @@ func _initialize() -> void:
 	bg.size = Vector2(4000, 4000)                         # cover the whole window so the crop is never dark
 	root.add_child(bg)
 
+	# Mirror the BOARD's tuned piece size so a widget preview matches what the board actually renders
+	# (board.gd derives the sprite inset from the saved Slot-cell content_frac the SAME way). This matters
+	# for :grab — the rim must trace the art at its real inset, which is wrong if the preview uses 0.16 but
+	# the board uses a larger sprite. content_frac 68 → 0.16 (the shipped look); absent file → 0.16.
+	var board_inset := PieceView.ITEM_INSET
+	if FileAccess.file_exists("res://games/grove/tools/ui_workbench_settings.json"):
+		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_settings.json"))
+		if cfg is Dictionary and cfg.get("bag_card") is Dictionary and cfg["bag_card"].has("content_frac"):
+			board_inset = clampf((1.0 - float(cfg["bag_card"]["content_frac"]) / 100.0) / 2.0, 0.0, 0.45)
+
 	var peaks: Array = []                                 # pieces to freeze at their breathe PEAK after layout settles
 	for i in n:
 		var spec := String(tiles[i])
 		var parts := spec.split(":")
-		var code := int(parts[0])
+		var code_str := String(parts[0])
+		var is_gen := not code_str.is_valid_int()   # a non-numeric code is a generator id (e.g. seed_satchel)
 		var mod := String(parts[1]) if parts.size() > 1 else ""
 		var x := pad + i * (s + gap)
-		var piece := PieceView.make_piece(code, s)
+		var piece := PieceView.make_generator(code_str, s) if is_gen else PieceView.make_piece(int(code_str), s, board_inset)
 		piece.position = Vector2(x, pad)
 		bg.add_child(piece)
 		match mod:
@@ -73,6 +85,9 @@ func _initialize() -> void:
 			"grab":
 				PieceView.set_lifted(piece, true)                            # picked-up pose…
 				GrabFx.grab(piece, GrabFx.defaults())                        # …plus the glow tint + white silhouette rim
+			"glowonly":
+				PieceView.set_lifted(piece, true)
+				GrabFx.grab(piece, GrabFx.from_config({"grab_fx": {"outline": false, "haptic": false}}))   # ONLY the glow tint
 			"":
 				pass
 			_:
