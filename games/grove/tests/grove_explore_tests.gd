@@ -432,11 +432,14 @@ func _test_pool_and_box() -> void:
 
 # --- run state: carried across the three scenes, score spent on boxes ------------
 func _test_run_state() -> void:
-	Explore.begin_run({"drops": true})
+	Explore.begin_run({"drops": true}, "farmhouse")
 	ok(Explore.score() == 0, "a fresh run starts at score 0")
 	ok(bool(Explore.run().equip.get("drops", false)), "the run carries the chosen loadout")
+	ok(Explore.source_map_id() == "farmhouse", "the run carries the source map id")
 	Explore.add_score(250)
 	ok(Explore.score() == 250, "add_score accrues the run score")
+	Explore.begin_run({})
+	ok(Explore.source_map_id() == "", "legacy begin_run callers keep an empty source map")
 
 func _test_trade_count() -> void:
 	ok(Explore.trade_count(0) == 0, "no score yields no spirits")
@@ -596,7 +599,7 @@ func _test_screens() -> void:
 	g["unlocks"] = unl
 	g["gates"] = [z]
 	Save.grove_write()
-	Explore.begin_run({})
+	Explore.begin_run({}, String(G.MAPS[z].id))
 	Explore.add_score(400)                          # 400 / 200 = 2 spirits
 	var pool: Array = Explore.unlocked_pool(unl, [z])
 	var hand_before := Habitat.hand().size()
@@ -604,6 +607,7 @@ func _test_screens() -> void:
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ExploreReward.open(host, {"on_done": func() -> void: pass})
+	ok(Explore.source_map_id() == String(G.MAPS[z].id), "reward overlay keeps the source map on the run")
 	ok(Habitat.hand().size() == hand_before + 2, "opening the reward overlay grants floor(score / RATE) spirits to the hand")
 	var last: Dictionary = Habitat.hand()[Habitat.hand().size() - 1]
 	ok(pool.has(String(last.kind)), "a granted spirit's kind comes from the unlocked pool")

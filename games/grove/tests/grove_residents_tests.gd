@@ -350,6 +350,23 @@ func _test_rewards() -> void:
 	ok(abs(Habitat.reward_mult("orchard") - 0.1) < 1e-6, "orchard ×0.1")
 	ok(abs(Habitat.reward_mult("meadow") - 0.2) < 1e-6, "meadow ×0.2")
 
+	fresh("reward_pool_source_weight")
+	for z in G.MAPS.size():
+		_open_spots(z)
+	var source_id := String(G.MAPS[0].id)
+	var pool := Habitat.resident_reward_pool(source_id)
+	var weights := {}
+	for entry in pool:
+		weights[String(entry.get("kind", ""))] = int(entry.get("weight", 0))
+	ok(weights.get("ember", 0) == 3, "source map resident has 3x expedition reward weight")
+	ok(weights.get("sprout", 0) == 1 and weights.get("dewdrop", 0) == 1 \
+		and weights.get("breeze", 0) == 1 and weights.get("starlight", 0) == 1, \
+		"other unlocked resident lines remain in the reward pool at 1x")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var rolled := Habitat.roll_reward_kind(source_id, rng)
+	ok(weights.has(rolled), "weighted rolling returns a kind from the weighted pool")
+
 	# WATER (map 2, ×1) — collect tops up water, still clamped to WATER_CAP inside Save.add_water
 	fresh("reward_water")
 	_open_spots(1)

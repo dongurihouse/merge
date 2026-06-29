@@ -226,11 +226,14 @@ static func roll_kind(pool: Array, rng: RandomNumberGenerator) -> String:
 static var _run: Dictionary = {}
 
 ## Start a fresh run with the chosen loadout (score 0).
-static func begin_run(equip: Dictionary) -> void:
-	_run = {"equip": equip.duplicate(true), "score": 0, "pending": []}
+static func begin_run(equip: Dictionary, source_map_id: String = "") -> void:
+	_run = {"equip": equip.duplicate(true), "score": 0, "pending": [], "source_map_id": source_map_id}
 
 static func run() -> Dictionary:
 	return _run
+
+static func source_map_id() -> String:
+	return String(_run.get("source_map_id", ""))
 
 static func score() -> int:
 	return int(_run.get("score", 0))
