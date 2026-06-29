@@ -326,6 +326,9 @@ func _initialize() -> void:
 		if not (_bp.has(int(_rr[0])) and _bp.has(int(_rr[1]))):
 			_all_producible = false
 	ok(_all_producible, "every asked special has both ingredients in the base pool (producible -> no-strand)")
+	# §12 (simplified): the quest base pool is a rolling window of the LAST QUEST_GEN_CAP base lines reached
+	ok(G.quest_base_lines(6) == [1, 2, 3, 4, 5], "by zone 6 only 5 base lines are reached -> the window holds all of them")
+	ok(G.quest_base_lines(13) == [5, 21, 22, 23, 24, 31], "the window holds the LAST 6 base lines; lines 1-4 have rolled off")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
 	# zone -> map is derived live from the MAPS spot counts ([6,4,7,4,4] today): each map's first spot starts a

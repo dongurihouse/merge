@@ -100,9 +100,10 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var out: Array = quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false)))
 	# Ask only from the current map's live lines (`level` gates a not-yet-grown generator's lines
 	# out, so the fence never asks for what nothing on the board can produce yet).
-	# #14/#16: ask the live base lines PLUS any craftable SPECIAL (merge) line, then trim to the QUEST_GEN_CAP
-	# generator footprint (a special folds into its 2 ingredient generators — usually already paid for).
-	var base_lines := G.askable_lines(G.GENERATORS, z, level)
+	# #12/#14/#16: quests draw from a rolling window of the last QUEST_GEN_CAP BASE lines (quest_base_lines) PLUS
+	# any craftable SPECIAL (merge) line, trimmed to the QUEST_GEN_CAP generator footprint (a special folds into
+	# its 2 ingredient generators — already in the window). The window slides with the player, matching born gens.
+	var base_lines := G.quest_base_lines(unlocks.size())
 	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, unlocks.size()))
 	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
 	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the

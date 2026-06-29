@@ -316,9 +316,9 @@ func _level() -> int:
 	return G.level_for_exp(exp_earned)
 
 func _live_lines() -> Array:
-	# SINGLE-GENERATOR model (idea 3): all opened lines stay live, not just the current map's. Pass the
-	# LEVEL so per-line stage gates (§6.E min_level) apply, mirroring the board's askable pool.
-	return G.askable_lines(G.GENERATORS, map, _level())
+	# #12 (simplified): quests + pops draw from the rolling window of the last QUEST_GEN_CAP base lines reached
+	# (unlocks = spots restored) — mirrors the board's quest_base_lines, the single quest window.
+	return G.quest_base_lines(unlocks.size())
 
 # Credit `amount` exp and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up within
 # the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current map's gift (I2). Shared by

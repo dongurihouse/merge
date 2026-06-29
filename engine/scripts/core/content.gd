@@ -364,6 +364,20 @@ static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
 			out.append(zone_line(z))
 	return out
 
+# gen redesign (#12, simplified): the BASE lines a quest may ask — a rolling window of the last QUEST_GEN_CAP
+# base lines REACHED (current_zone = spots restored). The SINGLE quest window: the old map-wide askable_lines
+# pulled in whole maps (and cap_quest_lines then kept the OLDEST 6); this slides with the player and matches the
+# born generators. Specials are crafted FROM these (active_special_lines), never a window slot of their own.
+static func quest_base_lines(current_zone: int) -> Array:
+	var out: Array = []
+	var z := mini(current_zone, ZONE_COUNT - 1)
+	while z >= 0 and out.size() < QUEST_GEN_CAP:
+		if not zone_is_special(z):
+			out.append(zone_line(z))
+		z -= 1
+	out.reverse()
+	return out
+
 # The generator the player is OWED but lacks (birth-on-tap, Core §6.B): the newest active base line whose
 # generator isn't owned. "" if none due. (current_zone = spots restored; owned_ids = gens on board + bag.)
 static func due_line_gen(current_zone: int, owned_ids: Array) -> String:
