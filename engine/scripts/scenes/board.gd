@@ -36,6 +36,7 @@ const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")        # the toggleable Grab (pickup) highlight
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
@@ -66,10 +67,8 @@ const FENCE_H := 215.0           # the quest fence band above the grid (wide giv
 const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · info bar · Bag); runtime follows workbench button px
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
-const ACTION_BAR_SEPARATOR := "shared/action_separator.png"
 const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
 const BOARD_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_board.png"
-const ACTION_BAR_SEPARATOR_FRAC := 0.24
 const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
@@ -296,13 +295,13 @@ func _ready() -> void:
 	var sb_inset := Look.safe_bottom(self)
 	var bottom_btn_px := _bottom_button_px()
 	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
-	var action_opts := _action_bar_opts()
+	var action_opts := ActionBar.opts()
 	var bar_margin := _board_side_margin_px()
 	bar.offset_left = bar_margin
 	bar.offset_right = _view_size().x - bar_margin
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
-	bar.add_theme_stylebox_override("panel", _action_bar_style(bottom_bar_h, action_opts))
+	bar.add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
 	bar.set_meta("shared_action_tray", true)
 	add_child(bar)
 	bottom_bar = bar
@@ -1515,23 +1514,6 @@ func _make_slot(cell: Vector2i) -> Control:
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
 
-# The per-cell empty well: the kit tile-slot sprite (`ui/board/slot_tile.png`) as a nine-patch,
-# falling back to the code-drawn `_cell_style()` well when the art is absent.
-static func _slot_style() -> StyleBox:
-	var p := Look.kit("board/slot_tile.png")
-	if ResourceLoader.exists(p):
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = load(p)
-		sbt.set_texture_margin_all(28.0)   # ~180px source corners → crisp at cell size
-		return sbt
-	return _cell_style()
-
-func _action_bar_opts() -> Dictionary:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return {}
-	return Kit.action_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-
 func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_opts: Dictionary, bottom_bar_h: float, preserve_selection: bool) -> void:
 	if row == null:
 		return
@@ -1541,10 +1523,10 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 		child.queue_free()
 	home_btn = _home_nav_button(bottom_btn_px, action_opts)     # left: the Home disc (lit when a spot is affordable)
 	row.add_child(home_btn)
-	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorHomeInfo"))
-	row.add_child(_action_bar_offset_slot(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), \
+	row.add_child(ActionBar.separator(bottom_btn_px, "ActionBarSeparatorHomeInfo"))
+	row.add_child(ActionBar.offset_slot(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), \
 		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))  # centre: the selected-item info bar
-	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorInfoBag"))
+	row.add_child(ActionBar.separator(bottom_btn_px, "ActionBarSeparatorInfoBag"))
 	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag well + the x/y count
 	if preserve_selection and prior_selection.x >= 0 and board != null:
 		if board.is_gen(prior_selection):
@@ -1560,7 +1542,7 @@ func _relayout_action_bar() -> void:
 	var sb_inset := Look.safe_bottom(self)
 	var bottom_btn_px := _bottom_button_px()
 	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
-	var action_opts := _action_bar_opts()
+	var action_opts := ActionBar.opts()
 	bottom_bar.anchor_left = 0.0
 	bottom_bar.anchor_right = 0.0
 	bottom_bar.anchor_top = 1.0
@@ -1570,7 +1552,7 @@ func _relayout_action_bar() -> void:
 	bottom_bar.offset_right = _view_size().x - bar_margin
 	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bottom_bar.offset_bottom = -14.0 - sb_inset
-	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", _action_bar_style(bottom_bar_h, action_opts))
+	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
 	var row := bottom_bar.find_child("ActionBarRow", false, false) as HBoxContainer
 	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, true)
 
@@ -1590,156 +1572,12 @@ func _relayout_action_bar_after_resize() -> void:
 	_last_action_bar_view_size = sz
 	_relayout_action_bar()
 
-func _apply_action_bar_padding(sb: StyleBox, bar_h: float, action_opts: Dictionary) -> StyleBox:
-	var pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-	var pad_y := roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
-	sb.content_margin_left = pad_x
-	sb.content_margin_right = pad_x
-	sb.content_margin_top = pad_y
-	sb.content_margin_bottom = pad_y
-	return sb
-
-# The bottom action bar is a single generated tray. Bag, info, and Home stay as real controls inside it;
-# their own frames are cleared so this parent surface is the only painted box.
-func _action_bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {}) -> StyleBox:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit != null:
-		var opts: Dictionary = Kit.board_panel_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		if String(opts.get("frame_style", "badge")) == "code":
-			var code := StyleBoxFlat.new()
-			code.bg_color = Color("#FBF3E2")
-			code.border_color = Pal.STRAW
-			code.set_border_width_all(int(opts.get("border_w", 4)))
-			code.set_corner_radius_all(int(opts.get("corner", 46)))
-			return _apply_action_bar_padding(code, bar_h, action_opts)
-		var badge_opts: Dictionary = (opts.get("badge", {}) as Dictionary).duplicate() if opts.get("badge", {}) is Dictionary else {}
-		badge_opts["content_margin_left"] = roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-		badge_opts["content_margin_right"] = badge_opts["content_margin_left"]
-		badge_opts["content_margin_top"] = roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
-		badge_opts["content_margin_bottom"] = badge_opts["content_margin_top"]
-		return Kit.gold_badge_style(badge_opts)
-	var flat := StyleBoxFlat.new()
-	flat.bg_color = Color(Pal.CREAM, 0.96)
-	flat.border_color = Pal.STRAW
-	flat.set_border_width_all(3)
-	flat.set_corner_radius_all(24)
-	return _apply_action_bar_padding(flat, bar_h, action_opts)
-
-func _action_bar_offset_slot(child: Control, x_frac: float, node_name: String) -> Control:
-	if child == null:
-		return Control.new()
-	if absf(x_frac) < 0.001:
-		return child
-	var slot := MarginContainer.new()
-	slot.name = node_name
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.custom_minimum_size = child.custom_minimum_size
-	slot.size_flags_horizontal = child.size_flags_horizontal
-	slot.size_flags_vertical = child.size_flags_vertical
-	var basis := maxf(1.0, child.custom_minimum_size.x)
-	var x_px := int(roundf(basis * x_frac))
-	slot.add_theme_constant_override("margin_left", x_px)
-	slot.add_theme_constant_override("margin_right", -x_px)
-	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slot.add_child(child)
-	return slot
-
-func _action_bar_separator_w(px: float) -> float:
-	return maxf(28.0, roundf(px * ACTION_BAR_SEPARATOR_FRAC))
-
-func _action_bar_separator(px: float, node_name: String) -> Control:
-	var slot := CenterContainer.new()
-	slot.name = node_name + "Slot"
-	slot.custom_minimum_size = Vector2(_action_bar_separator_w(px), px)
-	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sep := TextureRect.new()
-	sep.name = node_name
-	sep.custom_minimum_size = Vector2(_action_bar_separator_w(px), px * 0.94)
-	sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sep.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var p := Look.kit(ACTION_BAR_SEPARATOR)
-	if ResourceLoader.exists(p):
-		sep.texture = load(p)
-	slot.add_child(sep)
-	return slot
-
-func _clear_action_tray_button_frame(b: Button) -> void:
-	var empty := StyleBoxEmpty.new()
-	for st_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-		b.add_theme_stylebox_override(st_name, empty)
-
-func _transparent_info_bar_frame(opts: Dictionary) -> StyleBoxEmpty:
-	var empty := StyleBoxEmpty.new()
-	var pad: Dictionary = opts.get("pill", {})
-	var pad_x := float(pad.get("pad_x", 18.0))
-	empty.content_margin_left = float(pad.get("pad_left", pad_x))
-	empty.content_margin_right = float(opts.get("pad_right", 16.0))
-	var vpad := float(opts.get("vpad", 8.0))
-	empty.content_margin_top = vpad
-	empty.content_margin_bottom = vpad
-	return empty
-
-# One painted nav button: a flat Button hosting the kit sprite (`ui/nav/<kit_name>`),
-# centered + aspect-kept in a px×px box, with the shared press juice. Falls back to a glyph
-# Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
-# An expanding gap between two nav buttons — the full-width row distributes its leftover
-# space equally across these so the 5 buttons spread evenly edge to edge.
-# A round painted button for the bottom nav (Bag + Merchant): hosts the round wood `nav/<art>`
-# sprite (matching board.png), with the stash/sell preview riding on top. A drop is resolved by
-# global-rect in _on_release, so a round button is as good a target as the old square well. Falls
-# back to the slot-tile well when the sprite is absent.
-func _tray_well(px: float, art: String = "") -> Button:
-	var b := Button.new()
-	b.flat = true
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, px)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var p := Look.kit("nav/" + art) if art != "" else ""
-	if art != "" and ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(t)
-	else:
-		var bg := Panel.new()
-		bg.add_theme_stylebox_override("panel", _slot_style())
-		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(bg)
-	Look.add_press_juice(b)
-	return b
-
-# The Bag/Merchant well, built on the SHARED home-button shell (cream/gold disc + the lifted icon) so it
-# matches the rest of the bar; the stash/sell preview overlays still ride on top and the drop is resolved
-# by global-rect, so a home-button disc is as good a target as the old wood well. Soft-loads the kit by
-# path (engine → game-tool bridge); falls back to the wood _tray_well if the kit can't load.
-func _home_well(px: float, icon_id: String, fallback_art: String, count: String = "", icon_scale: float = -1.0, action_opts: Dictionary = {}) -> Button:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return _tray_well(px, fallback_art)
-	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	opts["px"] = px
-	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
-	opts["shadow"] = false               # the shared action tray now owns the lift/shadow
-	if not action_opts.is_empty():
-		opts["icon_scale"] = float(action_opts.get("icon_scale", opts.get("icon_scale", 0.5)))
-	if icon_scale > 0.0:
-		opts["icon_scale"] = icon_scale
-	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
-	# so the bag cell stays the same px box as the rest of the bar (no taller label stacked beneath it).
-	return Kit.home_button({"icon": icon_id, "caption": "", "sparkle": false, "count": count}, opts)
-
 # The Bag well (bottom nav): tap → the full bag overlay; a board item dragged onto it stashes
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var b := _home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)   # the home-button disc + satchel icon + the in-disc "x/y" count
-	_clear_action_tray_button_frame(b)
+	var b := ActionBar.home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)   # the home-button disc + satchel icon + the in-disc "x/y" count
+	ActionBar.clear_button_frame(b)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
@@ -1813,8 +1651,8 @@ func _bag_count_text() -> String:
 
 # The Home disc for the bottom bar's left edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var b := _home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
-	_clear_action_tray_button_frame(b)
+	var b := ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
+	ActionBar.clear_button_frame(b)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func() -> void:
@@ -1839,9 +1677,9 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	# The bar insets to the board's side margins, so the flexible middle (this pill) gives back that same
 	# width — the two fixed end buttons then sit flush to the board's edges instead of overflowing the bar.
 	var info_w := _info_bar_w_px() - 2.0 * _board_side_margin_px()
-	pill.custom_minimum_size.x = maxf(1.0, info_w - _action_bar_separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
+	pill.custom_minimum_size.x = maxf(1.0, info_w - ActionBar.separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	pill.add_theme_stylebox_override("panel", _transparent_info_bar_frame(opts))
+	pill.add_theme_stylebox_override("panel", ActionBar.info_bar_frame(opts))
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
 	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)
@@ -1876,87 +1714,9 @@ func _place_info_button(empty_state: bool) -> void:
 		return
 	_info_btn.position = _info_btn_empty_pos if empty_state else _info_btn_selected_pos
 
-# An info-bar ACTION chip — a caption over a green badge holding a currency icon + a number — MIRRORING
-# the kit sell button's recipe so every action in the bar reads one button language. Shared by the T54
-# burst chip and the T55 buy chip; returns the mutable nodes the caller drives (caption set here, the
-# coin glyph + number filled per-selection). The chip starts hidden and is added to `row`.
-func _build_action_chip(opts: Dictionary, row: Control, caption_text: String, on_press: Callable, content_align: int = BoxContainer.ALIGNMENT_CENTER) -> Dictionary:
-	var height := float(opts.get("height", 130.0))
-	var icon_px := height * float(opts.get("sell_icon", 0.30))
-	var label_font := int(opts.get("sell_label_font", 22))
-	var num_font := int(opts.get("sell_font", 30))
-	var btn := Button.new()
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var stack := VBoxContainer.new()
-	stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	stack.add_theme_constant_override("separation", 3)
-	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var caption := Label.new()                       # the caption above the badge (ink on the bar)
-	caption.text = caption_text
-	caption.add_theme_font_size_override("font_size", label_font)
-	caption.add_theme_color_override("font_color", Pal.INK)
-	caption.add_theme_constant_override("outline_size", 0)
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(caption)
-	var badge_col := VBoxContainer.new()             # the green badge body: currency on top, number below
-	badge_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	badge_col.add_theme_constant_override("separation", 1)
-	badge_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var coin := CenterContainer.new()                # the currency glyph (filled per-selection)
-	coin.custom_minimum_size = Vector2(icon_px, icon_px)
-	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge_col.add_child(coin)
-	var count := Label.new()                         # the COST / number
-	count.add_theme_font_size_override("font_size", num_font)
-	count.add_theme_color_override("font_color", Pal.CREAM)
-	count.add_theme_constant_override("outline_size", 0)
-	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge_col.add_child(count)
-	var badge := PanelContainer.new()
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()                     # the SAME leaf-green CTA fill the sell badge uses
-	sb.bg_color = Pal.BTN_PRIMARY
-	sb.border_color = Pal.BTN_PRIMARY_EDGE
-	sb.set_corner_radius_all(int(opts.get("sell_badge_radius", 10)))
-	sb.set_border_width_all(Tuning.UiSkin.BTN_BORDER_W)
-	sb.shadow_color = Color(0, 0, 0, 0.16)
-	sb.shadow_size = 2
-	sb.shadow_offset = Vector2(0, 1)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
-	sb.content_margin_top = 4
-	sb.content_margin_bottom = 4
-	badge.add_theme_stylebox_override("panel", sb)
-	badge.add_child(badge_col)
-	stack.add_child(badge)
-	var h := int(label_font * 1.45) + 3 + 8 + icon_px + 1 + int(num_font * 1.45)
-	btn.custom_minimum_size = Vector2(maxf(icon_px + 64.0, 96.0), h)
-	# the badge floats in a button wider than itself (a comfortable tap target); content_align decides where in
-	# that slack it sits — the buy chip aligns its badge to the RIGHT so it hugs the sell button beside it.
-	var center := HBoxContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.alignment = content_align
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	center.add_child(stack)
-	btn.add_child(center)
-	var flat := StyleBoxEmpty.new()                  # the green lives on the inner badge; the button is bare
-	btn.add_theme_stylebox_override("normal", flat)
-	btn.add_theme_stylebox_override("hover", flat)
-	btn.add_theme_stylebox_override("pressed", flat)
-	btn.pressed.connect(on_press)
-	Look.add_press_juice(btn)
-	btn.visible = false
-	row.add_child(btn)
-	return {"btn": btn, "sb": sb, "count": count, "coin": coin}
-
 # T54 — the burst-upgrade chip (a generator's action). Built from the shared action-chip recipe.
 func _build_burst_chip(opts: Dictionary, row: Control) -> void:
-	var c := _build_action_chip(opts, row, Strings.t("board.info.burst_label"), _on_burst_chip)
+	var c := ActionBar.action_chip(opts, row, Strings.t("board.info.burst_label"), _on_burst_chip)
 	_info_burst = c.btn
 	_info_burst_sb = c.sb
 	_info_burst_count = c.count
@@ -1964,7 +1724,7 @@ func _build_burst_chip(opts: Dictionary, row: Control) -> void:
 
 # T55 — the buy-a-copy chip (a regular item's action, beside sell). Built from the shared recipe.
 func _build_buy_chip(opts: Dictionary, row: Control) -> void:
-	var c := _build_action_chip(opts, row, Strings.t("board.info.buy_label"), _on_buy_pressed, BoxContainer.ALIGNMENT_END)
+	var c := ActionBar.action_chip(opts, row, Strings.t("board.info.buy_label"), _on_buy_pressed, BoxContainer.ALIGNMENT_END)
 	_info_buy = c.btn
 	_info_buy_sb = c.sb
 	_info_buy_count = c.count
