@@ -206,8 +206,8 @@ const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing 
 # per-item energy economy). The COUNT is drawn from an odds table: BURST_ODDS with NO boost (a single item
 # is the norm, multiples are rare) or BURST_ODDS_BOOST while a temporary BOOST is live (multiples become the
 # norm). The boost RAISES THE CHANCE of multiples — it does NOT add a flat count, and there is no per-map
-# scale-up. One BOOST_COST activation arms BOOST_TAPS board-wide taps, decays one tap at a time, then
-# expires (the §10 coin sink; no permanent stacking — T57). Both tables top out at BURST_MAX.
+# scale-up. One BOOST_COST activation arms BOOST_TAPS taps on ONE chosen generator (per-generator, stackable
+# across generators), decays one tap at a time, then expires (the §10 coin sink — T57). Both tables top out at BURST_MAX.
 const BURST_ODDS       := [0.80, 0.15, 0.05]   # no boost: 1 / 2 / 3 items — a single item is the norm
 const BURST_ODDS_BOOST := [0.20, 0.45, 0.35]   # boost live: 1 / 2 / 3 items — multiples are the norm
 const BURST_MAX        := 3                     # ceiling on one tap's burst (both tables top out here)

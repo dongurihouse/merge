@@ -200,27 +200,6 @@ func _initialize() -> void:
 	ok(int(Save.grove().get("boost_charges", 0)) == 0 and Save.coins() == ff_coins, "the free charge was spent, not coins")
 	sbf.queue_free()
 
-	# 11d. The SHARED boost seam G.try_activate_boost() + G.consume_boost_tap() — the single arm/decay
-	# path the info-bar chip drives. Spends the cost, arms BOOST_TAPS, refuses a second arm while live
-	# and when broke, decays one tap at a time to expiry, and never underflows. No scene needed.
-	fresh("burst_seam")
-	ok(not G.boost_active() and G.boost_taps_left() == 0, "seam: fresh save has no boost")
-	ok(not G.try_activate_boost(), "seam: broke → refuses (no coins)")
-	ok(not G.boost_active() and Save.coins() == 0, "seam: broke refusal arms nothing, no debt")
-	Save.add_coins(10000)
-	var seam_c0 := Save.coins()
-	ok(G.try_activate_boost(), "seam: arms with coins")
-	ok(Save.coins() == seam_c0 - G.BOOST_COST, "seam: spends the boost cost")
-	ok(G.boost_active() and G.boost_taps_left() == G.BOOST_TAPS, "seam: arms BOOST_TAPS taps (persisted)")
-	var live_coins := Save.coins()
-	ok(not G.try_activate_boost(), "seam: a second arm while live is refused")
-	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == live_coins, "seam: no extra taps, no double spend")
-	for _i in G.BOOST_TAPS:
-		G.consume_boost_tap()
-	ok(not G.boost_active() and G.boost_taps_left() == 0, "seam: decays to expiry over BOOST_TAPS taps")
-	G.consume_boost_tap()
-	ok(G.boost_taps_left() == 0, "seam: consuming past expiry never underflows")
-
 	# 11e. The INFO-BAR boost chip (T54→boost): a generator tap selects it into the bar and shows the
 	# chip in the slot the sell button leaves empty; tapping it arms the boost; broke refuses; while the
 	# boost is LIVE the chip stays visible but faded + inert (no re-buy) and the label carries the boost

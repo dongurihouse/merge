@@ -640,53 +640,15 @@ static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator)
 			break
 	return clampi(n, 1, BURST_MAX)
 
-## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS generator taps that each
-## drop BOOST_BONUS extra items, board-wide, then it expires. The arm count rides the grove blob under
-## "boost_taps" (0 = none active). Replaces the old permanent burst-upgrade ladder (T57).
+## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS taps of +BOOST_BONUS items on ONE
+## generator, then it expires. The per-generator tap counts live in BoardModel.gen_boost (cell-keyed); this
+## module keeps only the constants. Replaces the old board-wide grove["boost_taps"] counter (T57).
 static func boost_cost() -> int:
 	return BOOST_COST
 
 ## The boost's magnitude: extra items per generator tap while it is live (the caller gates on active).
 static func boost_bonus() -> int:
 	return BOOST_BONUS
-
-## Generator taps left on the live boost (0 = none active), read from the grove blob.
-static func boost_taps_left() -> int:
-	return int(Save.grove().get("boost_taps", 0))
-
-## Is a boost currently live?
-static func boost_active() -> bool:
-	return boost_taps_left() > 0
-
-## The single arm path the info-bar chip drives. Refuses (no spend) when a boost is already live or
-## when broke; else spends BOOST_COST, arms BOOST_TAPS taps, and persists. Returns true on a real arm.
-static func try_activate_boost() -> bool:
-	if boost_active():
-		return false                          # one boost at a time — no re-buy while live
-	if not Save.spend(BOOST_COST, "boost"):
-		return false                          # not enough coins
-	Save.grove()["boost_taps"] = BOOST_TAPS
-	Save.grove_write()
-	return true
-
-## Arm one boost for FREE (no coin spend) — the path the habitat's map-3 boost CHARGE drives
-## (Habitat.use_boost_charge). Refuses (no arm) when a boost is already live, mirroring try_activate_boost's
-## one-at-a-time rule. Returns true on a real arm.
-static func arm_boost_free() -> bool:
-	if boost_active():
-		return false
-	Save.grove()["boost_taps"] = BOOST_TAPS
-	Save.grove_write()
-	return true
-
-## Spend one tap off the live boost — called once per charged generator tap. No-op (never underflows)
-## when no boost is active. Persists so the count rides app restarts.
-static func consume_boost_tap() -> void:
-	var left := boost_taps_left()
-	if left <= 0:
-		return
-	Save.grove()["boost_taps"] = left - 1
-	Save.grove_write()
 
 # --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
 # Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE
