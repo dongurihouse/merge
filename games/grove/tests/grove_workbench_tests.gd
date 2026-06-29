@@ -1277,8 +1277,10 @@ func _test_new_knobs(view) -> void:
 	# which does the neighbour ripple + big-merge board punch INTERNALLY — the merge cell's neighbours + the
 	# board are passed in, with NO separate scene-side ripple/board_punch calls (double-firing would be a bug).
 	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
-	ok(board_src.find("MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0)") != -1, \
-		"board merge routes through MergeFx.apply (neighbours + board passed in)")
+	# T63: the call now passes `intensified = G.is_special_line(produced)` as the trailing arg, so a §6.G
+	# recipe-line merge gets the big-moment feel at every tier.
+	ok(board_src.find("MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0, G.is_special_line(produced))") != -1, \
+		"board merge routes through MergeFx.apply (neighbours + board passed in; recipe lines flagged intensified)")
 	ok(board_src.find("_merge_opts = MergeFx.from_config(") != -1, \
 		"board resolves the merge_fx config once")
 	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(b),") == -1, \

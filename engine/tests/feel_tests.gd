@@ -275,6 +275,27 @@ func _test_fx_config() -> void:
 	var off := MergeFx.from_config({"merge_fx": {"enabled": false}})
 	ok(MergeFx.on(off, "burst") == false, "the merge master switch (enabled:false) turns every cue off")
 
+	# --- T63: an INTENSIFIED (§6.G recipe-line) merge feels like a pinnacle merge at any tier ---
+	# escalation_tier lifts the tier the colour/sound/weight read off to the big-moment band when intensified,
+	# but never drops a real high-tier merge.
+	ok(MergeFx.escalation_tier(1, false) == 1, "escalation_tier leaves an ordinary merge's tier untouched")
+	ok(MergeFx.escalation_tier(1, true) >= Tune.ESCALATE_TIER, "escalation_tier lifts a low-tier intensified merge to the big-moment band")
+	ok(MergeFx.escalation_tier(12, true) == 12, "escalation_tier never lowers a real high-tier merge")
+	# the lift composes to the TOP band (hot burst colour, success chime tier, heavy haptic) at tier 1...
+	ok(MergeFx._color(MergeFx.escalation_tier(1, true)) == MergeFx.HOT, "a t1 recipe merge bursts HOT (not LEAF)")
+	ok(MergeFx._weight(MergeFx.escalation_tier(1, true)) == "heavy", "a t1 recipe merge thumps heavy")
+	ok(MergeFx.escalation_tier(1, true) >= 4, "a t1 recipe merge crosses the success-chime threshold (>=4)")
+	# ...while an ordinary t1 merge stays cozy (green burst, soft thump, soft chime)
+	ok(MergeFx._color(MergeFx.escalation_tier(1, false)) == MergeFx.LEAF, "an ordinary t1 merge stays LEAF green")
+	ok(MergeFx._weight(MergeFx.escalation_tier(1, false)) == "soft", "an ordinary t1 merge stays soft")
+	# the reserved big-moment cues (shake + board punch, default OFF) are FORCED on for an intensified merge,
+	# but still respect the master enable.
+	var dflt := MergeFx.from_config({})
+	ok(not MergeFx.on(dflt, "shake") and not MergeFx.on(dflt, "board_punch"), "shake + board punch default OFF (cozy)")
+	ok(MergeFx.big_cue_forced(dflt, true), "an intensified merge forces the reserved shake + board punch on")
+	ok(not MergeFx.big_cue_forced(dflt, false), "an ordinary merge does NOT force the reserved cues")
+	ok(not MergeFx.big_cue_forced(off, true), "even an intensified merge stays silent when the merge master is off")
+
 	# --- apply: a cue toggled OFF does not fire (burst adds no GPUParticles2D child) ---
 	var host_on := Control.new()
 	host_on.size = Vector2(200, 200)
