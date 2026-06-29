@@ -101,10 +101,12 @@ func _initialize() -> void:
 	ok(shrinks, "the active count shrinks monotonically as stars bank toward the unlock")
 
 	# --- due_generators: BIRTH-ON-TAP per line (gen redesign §6.B). current_zone = restored-spot count
-	# (unlocks.size()); the NEWEST active base line lacking a generator is due — the board births it on the
-	# next tap. Monotonic: as spots restore, each new line's generator comes due in turn. ---
+	# (unlocks.size()) or the optional level-reached quest zone, whichever is farther; the NEWEST active
+	# base line lacking a generator is due — the board births it on the next tap. ---
 	ok(str(G.due_generators({}, [], [])) == str(["gen_1"]), "fresh game: only the anchor (gen_1) is due")
 	ok(G.due_generators({}, [], ["gen_1"]).is_empty(), "anchor owned → nothing due (zone 0 has one active line)")
+	ok(str(G.due_generators({}, [], ["gen_1"], 2)) == str(["gen_2"]), "level progress makes gen_2 due even before restoring a spot")
+	ok(G.due_generators({}, [], ["gen_1", "gen_2"], 2).is_empty(), "level-reached gen_2 is no longer due once owned")
 	# restore one spot (advance to zone 1) → line 2's generator becomes due once the anchor is owned
 	var z1_unlocks := {"spot_a": true}
 	ok(str(G.due_generators(z1_unlocks, [], ["gen_1"])) == str(["gen_2"]), "advancing a zone makes the next active line's generator due")

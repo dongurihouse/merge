@@ -18,6 +18,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
 ##
 ## Quests are GENERATED (G.gen_quest), metered to the next unlock (G.active_giver_count),
+## asked from the level-reached quest-line window (not restored-zone count), capped at 4 per line,
 ## a FLAT single item paying G.quest_reward (capped ★, coin overflow, premium 💎 at high
 ## level). There is NO gate quest: a map completes when all its SPOTS are bought (spots-done),
 ## which unlocks the next map + seeds its generators (the next map's tool rides on a near-end
@@ -315,10 +316,13 @@ func _initialize() -> void:
 func _level() -> int:
 	return G.level_for_exp(exp_earned)
 
+func _quest_zone() -> int:
+	return G.quest_zone_for_level(_level())
+
 func _live_lines() -> Array:
-	# #12 (simplified): quests + pops draw from the rolling window of the last QUEST_GEN_CAP base lines reached
-	# (unlocks = spots restored) — mirrors the board's quest_base_lines, the single quest window.
-	return G.quest_base_lines(unlocks.size())
+	# Quest asks draw from the rolling window reached by level progress. This deliberately does not depend
+	# on restored spots, so earning exp can reveal newer asks even if the player delays claiming zones.
+	return G.quest_base_lines(_quest_zone())
 
 # Credit `amount` exp and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up within
 # the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current map's gift (I2). Shared by
@@ -636,20 +640,70 @@ func _refill_quests() -> void:
 		live_quests = []
 		return
 	var want := G.active_giver_count(exp_earned, _map_next_spot(map)[0])
+	live_quests = _cap_quests_per_line(live_quests)
+	var quest_zone := _quest_zone()
+	var base_lines := G.quest_base_lines(quest_zone)
+	var pool: Array = G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
+	want = mini(want, _line_capacity(pool))
 	while live_quests.size() < want:
 		# mirror quests.gd refill: steer each new single-item stand off the lines already on the
 		# fence so the sim validates the real anti-monotony line-diversity behaviour.
+		var eligible_lines := _lines_with_room(pool, live_quests)
+		if eligible_lines.is_empty():
+			break
 		var avoid: Array = []
 		for q in live_quests:
 			var it := G.quest_item(q)
 			if not it.is_empty():
 				avoid.append(int(it.line) * 100 + int(it.tier))
-		# #14/#16 mirror quests.gd: pool = the live base lines PLUS the craftable specials, footprint-capped.
-		var base_lines := _live_lines()
-		var pool: Array = G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, unlocks.size()))
-		live_quests.append(G.gen_quest(_level(), pool, rng, avoid))
+		# #14/#16 mirror quests.gd: pool = the level-reached base lines PLUS craftable specials, footprint-capped.
+		live_quests.append(G.gen_quest(_level(), eligible_lines, rng, avoid))
 	while live_quests.size() > want:
 		live_quests.pop_back()
+
+func _quest_line_counts(quests: Array) -> Dictionary:
+	var out := {}
+	for q in quests:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		var line := int(it.line)
+		out[line] = int(out.get(line, 0)) + 1
+	return out
+
+func _cap_quests_per_line(quests: Array) -> Array:
+	var out: Array = []
+	var counts := {}
+	for q in quests:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			out.append(q)
+			continue
+		var line := int(it.line)
+		if int(counts.get(line, 0)) >= int(G.MAX_QUESTS_PER_LINE):
+			continue
+		counts[line] = int(counts.get(line, 0)) + 1
+		out.append(q)
+	return out
+
+func _line_capacity(lines: Array) -> int:
+	var seen := {}
+	for line in lines:
+		seen[int(line)] = true
+	return seen.size() * int(G.MAX_QUESTS_PER_LINE)
+
+func _lines_with_room(lines: Array, quests: Array) -> Array:
+	var counts := _quest_line_counts(quests)
+	var seen := {}
+	var out: Array = []
+	for line in lines:
+		var li := int(line)
+		if seen.has(li):
+			continue
+		seen[li] = true
+		if int(counts.get(li, 0)) < int(G.MAX_QUESTS_PER_LINE):
+			out.append(li)
+	return out
 
 func _wanted_lines() -> Array:
 	var out: Array = []
