@@ -249,7 +249,7 @@ func _initialize() -> void:
 	ok(not bool(Quests.ladder_entries({"101": true}, 1)[1].seen), "an unseen tier stays unseen")
 
 	# --- the carrier mechanism is RETIRED: refill NEVER attaches reward.generators (generators now arrive
-	# --- when a generator tap produces a DUE tool — see G.due_generators / board._produce_due_generators).
+	# --- when a generator tap produces a DUE tool — see Quests.due_gen / board._produce_due_generators).
 	# --- Scenario: all of map 0's spots bought except the last, so a non-empty metered fence still exists. ---
 	var ne_ul := {}
 	for i in G.MAPS[0].spots.size() - 1:

@@ -141,10 +141,6 @@ const MIN_LEVEL := [
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
-# §6 ROLLING LINE WINDOW — the map/pop window keeps the live board set small as the lifetime roster grows.
-# Regular quest asks now use the level-reached quest window (QUEST_GEN_CAP); this remains the board-side
-# current + previous maps window for callers that reason from the current map context.
-const LINE_WINDOW := 3                    # map window = current + previous 2 maps' lines
 # §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
 # (idea 3.2), but several quests could span many DISTINCT lines — scattering un-mergeable singletons until
 # the board jams. So the generator pops at most this many distinct lines per session (the lowest-indexed

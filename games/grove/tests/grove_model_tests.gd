@@ -302,42 +302,41 @@ func _initialize() -> void:
 	ok(Array(scn2.board.items) == snapshot and scn2._spots_bought() == scn._spots_bought(), \
 		"a fresh scene resumes the persisted board and progress")
 
-	# 10g. TAP-TO-PRODUCE the next per-line generator + spots-done unlock (the carrier/gate quest types are retired).
-	# (a) Once level progress opens a new quest base line, its generator is DUE even before the player claims
-	# the matching restore spot; the next generator TAP births it on the board (gen_bag only when the board is
-	# full). No quest delivers it, and it self-heals missing active-line tools. (b) Restoring the LAST spot
-	# auto-appends z to `gates`, unlocking the next map (no gate quest).
-	# All engine/grove-side; the grove only supplies tunables.
+	# 10g. QUEST-DRIVEN tap-to-produce (gen redesign — the LINE_WINDOW "active lines" window is retired). A new
+	# line's generator is born on the next generator TAP only when an ACTIVE QUEST asks for that line and the
+	# player lacks its generator; reaching the zone alone no longer grants the tool. The gen_1 anchor is already
+	# owned here, so the quest stream governs. (Restoring the LAST spot still auto-appends z to `gates`, unlocking
+	# the next map — unchanged.) All engine/grove-side; the grove only supplies tunables.
 	fresh("produce")
 	var sg = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sg)
 	if sg.board == null:
 		sg._ready()
 	var sgg := Save.grove()
-	sgg["exp"] = G.exp_at_level(2)            # level progress reaches zone 1 while restore spots remain unclaimed
-	sgg["unlocks"] = {}
+	sgg["exp"] = 300                          # exp past map 0's spot thresholds
+	var z1_unlocks := {}
+	z1_unlocks[String(G.MAPS[0].spots[0].id)] = true
+	sgg["unlocks"] = z1_unlocks
 	sgg["gates"] = []
 	Save.grove_write()
 	sg._init_quests()
 	sg._rebuild_all()
-	var owned_b: Array = []
-	for gv in sg.board.gens.values():
-		owned_b.append(String(gv))
-	for gbid in sg.board.gen_bag:
-		owned_b.append(String(gbid))
-	ok(sg.board.gens.values().has("gen_1"), "fresh board starts with the zone-0 generator")
-	ok(not sg.board.gens.values().has("gen_2"), "level-reached generator is not pre-seeded")
-	ok(str(G.due_generators({}, [], owned_b, G.level_for_exp(Save.exp_total()))) == str(["gen_2"]), "level progress makes gen_2 due before a spot is restored")
+	ok(sg.board.gens.values().has("gen_1"), "fresh board starts with the zone-0 anchor generator")
+	ok(not sg.board.gens.values().has("gen_2"), "zone-1 generator is not pre-seeded")
+	# (a) NO quest asks line 2 → reaching the zone grants nothing on its own.
+	sg.quests = []
+	ok(not sg._produce_due_generators(), "no quest asking line 2 → a tap births nothing (progression alone grants no tool)")
+	ok(not sg.board.gens.values().has("gen_2"), "gen_2 stays absent while no quest asks for it")
+	# (b) a quest asks line 2 → the next tap births its generator.
+	sg.quests = [{"line": 2, "tier": 1}]
 	var gens_before: int = sg.board.gens.size()
-	ok(sg._produce_due_generators(), "a generator tap births level-reached gen_2")
+	ok(sg._produce_due_generators(), "a quest asking line 2 makes a generator tap birth gen_2")
 	ok(sg.board.gens.size() == gens_before + 1, "the generator set gains the per-line tool")
 	ok(sg.board.gens.values().has("gen_2"), "gen_2 lands on the board")
-	owned_b.clear()
-	for gv in sg.board.gens.values():
-		owned_b.append(String(gv))
-	for gbid in sg.board.gen_bag:
-		owned_b.append(String(gbid))
-	ok(G.due_generators({}, [], owned_b, G.level_for_exp(Save.exp_total())).is_empty(), "nothing is due once level-reached gen_2 is owned")
+	# (c) once owned, the same quest asks for nothing more. (Re-inject: the birth above ran _rebuild_all,
+	# which refills the RNG fence — pin the quest back to line 2 so the assertion stays deterministic.)
+	sg.quests = [{"line": 2, "tier": 1}]
+	ok(not sg._produce_due_generators(), "nothing more is due once the asked line's generator is owned")
 	sg.queue_free()
 	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
 	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;

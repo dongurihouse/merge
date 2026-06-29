@@ -36,15 +36,10 @@ func _initialize() -> void:
 	# --- per-map roster derivation (replaces appears_at accumulation) ---
 	ok(G.generators_for_map(r, 0).size() == 2, "map 0 has 2 generators")
 	ok(G.generators_for_map(r, 1).size() == 3, "map 1 has 3 generators")
-	ok(G.lines_for_map(r, 1) == [5, 6, 7], "map 1's live lines are its 3 per-line generators' 3 lines")
-	ok(G.retired_lines(r, 1) == [], "at map 1 nothing has retired yet — the 3-map rolling window still covers map 0")
-	ok(G.lines_for_map(r, 0) == [1, 2], "map 0's live lines are its own 2")
-	ok(G.retired_lines(r, 0) == [], "nothing is retired while in map 0")
-	# retirement kicks in once a map falls OUTSIDE the rolling window: on the REAL roster, Wildflower(1) retires by map 3
-	ok(G.retired_lines(G.GENERATORS, 3).has(1) and not G.askable_lines(G.GENERATORS, 3).has(1), "Wildflower(1) has RETIRED by map 3 (outside the 3-map window)")
-
-	# (gens_to_grant + the carrier-quest delivery are RETIRED — generators now arrive when a generator tap
-	#  produces a DUE tool; see G.due_generators, covered in quest_tests.gd against the real maps.)
+	# (the rolling map/line window — lines_for_map / askable_lines / retired_lines — is RETIRED; quests now ask
+	#  from the level-reached quest_base_lines window. gens_to_grant + the carrier-quest delivery are RETIRED
+	#  too — generators arrive when a generator tap produces a DUE tool; see Quests.due_gen, covered in
+	#  quest_tests.gd against the real maps.)
 
 	# --- gen redesign invariant: every generator emits exactly ONE line ---
 	var one_each := true
@@ -332,7 +327,7 @@ func _initialize() -> void:
 	ok(G.active_special_lines([1, 2], 1) == [], "a special is NOT asked before its zone is reached")
 	ok(G.active_special_lines([2, 3], 2) == [], "a special drops out once an ingredient line (1) has retired")
 	# no-strand invariant: every special the pool can ask has BOTH its ingredients producible in the base pool
-	var _bp := G.askable_lines(G.GENERATORS, 2, G.APPEAR_ALL)
+	var _bp := G.quest_base_lines(8)
 	var _all_producible := true
 	for s in G.active_special_lines(_bp, 8):
 		var _rr := G.zone_recipe(G.zone_of_line(int(s)))
@@ -363,19 +358,17 @@ func _initialize() -> void:
 	# map-0 generator pops it. A starter whose line has no generator is an orphan: nothing replenishes it and no
 	# quest asks it, so it sits dead on every fresh board. (Regressed when staged Farm lines 61-66 were shelved
 	# but STARTER_ITEMS still seeded Hearth embers 6101 — 3 dead items per new save.)
-	var _farm_lines: Array = G.lines_for_map(G.GENERATORS, 0)
+	var _farm_lines: Array = []
+	for _g in G.generators_for_map(G.GENERATORS, 0):
+		_farm_lines.append(int(_g.line))
 	var _starters_produceable := true
 	for _code in G.STARTER_ITEMS.values():
 		if not _farm_lines.has(int(_code) / 100):
 			_starters_produceable = false
 	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
 	ok(G.base_generator(71).is_empty(), "a special line has no generator")
-	# active-window + birth-on-tap (tasks 5/7 logic; additive — board wiring flips later)
-	ok(G.active_base_lines(0) == [1], "zone 0 -> 1 active base line")
-	ok(G.active_base_lines(1) == [1, 2], "zone 1 -> 2 active base lines")
-	ok(G.active_base_lines(7) == [4, 5, 21], "the active window holds the last 3 base lines (specials skipped)")
-	ok(G.due_line_gen(7, ["gen_4", "gen_5"]) == "gen_21", "birth-on-tap returns the newest active line lacking a generator")
-	ok(G.due_line_gen(7, ["gen_4", "gen_5", "gen_21"]) == "", "nothing due when all active lines have generators")
+	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
+	#  Quests.due_gen in quest_tests.gd.)
 	# generator merge ladder (task 8 logic; additive — board wiring flips later)
 	ok(G.gen_merge_tier(1) == 2 and G.gen_merge_tier(2) == 3 and G.gen_merge_tier(3) == 3, "generators merge up to tier 3, then cap")
 	ok(G.gen_burst_odds(1) == [0.80, 0.15, 0.05] and float(G.gen_burst_odds(3)[2]) > float(G.gen_burst_odds(1)[2]), "higher generator tier pops more multiples")

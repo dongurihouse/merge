@@ -89,6 +89,26 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 		out.append(String(id))
 	return out
 
+# QUEST-DRIVEN birth-on-tap (gen redesign — the LINE_WINDOW "active lines" window is retired). The generator
+# the board should birth on the next tap: the gen_1 ANCHOR self-heals FIRST (so a fresh save's very first tap
+# always produces, even before any quest exists), then the first generator REQUIRED by an active quest the
+# player doesn't own yet — a base quest needs its own generator, a special quest needs its two ingredient
+# generators (G.gens_for_quest_line). "" if nothing is owed. Progression alone no longer grants a tool: a
+# line's generator arrives only when a quest asks for it (or for a special crafted from it), which lets the
+# quest stream choose what the player gets next. `owned_ids` = generators on the board ∪ the gen_bag.
+static func due_gen(quests: Array, owned_ids: Array) -> String:
+	var anchor := G.anchor_gen()
+	if anchor != "" and not owned_ids.has(anchor):
+		return anchor
+	for q in quests:
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		for gid in G.gens_for_quest_line(int(it.line)):
+			if not owned_ids.has(gid):
+				return gid
+	return ""
+
 static func _quest_line_counts(quests: Array) -> Dictionary:
 	var out := {}
 	for q in quests:
@@ -136,7 +156,7 @@ static func _lines_with_room(lines: Array, quests: Array) -> Array:
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via `rng` — RNG CALL ORDER IS LOAD-BEARING (the rng is seeded + persisted): the filter takes no rng,
 # then gen_quest is drawn once per appended stand, in order. Generators are NO LONGER delivered by a
-# carrier quest — they arrive when a generator tap produces a DUE tool (G.due_generators / board.gd), so
+# carrier quest — they arrive when a generator tap produces a DUE tool (Quests.due_gen / board.gd), so
 # refill is purely the §7 ask stream now. Returns the new quests array.
 static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, exp: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	if map_done(unlocks, gates):
