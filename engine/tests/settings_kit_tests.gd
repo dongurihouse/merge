@@ -45,6 +45,12 @@ func _find_switch(card: Node) -> Button:
 			return b
 	return null
 
+func _has_label_text(root: Node, text: String) -> bool:
+	for l in root.find_children("", "Label", true, false):
+		if (l as Label).text == text:
+			return true
+	return false
+
 func _initialize() -> void:
 	OS.set_environment("GAME", "grove")   # the card / switch art lives in grove's clothes (Game.art root)
 	print("== Settings kit guard ==")
@@ -305,6 +311,26 @@ func _initialize() -> void:
 		"the Reset row sits inside the dialog card (card grew to fit the rows, no clip)")
 	fit_dlg.queue_free()
 	fit_host.queue_free()
+
+	# --- the live settings dialog refreshes the Game Center id after async auth ----
+	# TestFlight auth completes asynchronously after the Settings dialog may already be open. The row must
+	# update from the placeholder to the cached id without requiring the owner to close/reopen Settings.
+	fresh("gc_live_refresh")
+	var live_host := Control.new()
+	live_host.size = Vector2(1080, 1920)
+	get_root().add_child(live_host)
+	Settings.open(live_host)
+	for i in 6:
+		await process_frame
+	ok(_has_label_text(live_host, "not signed in"), "open Settings starts with the GC placeholder when no id is cached")
+	var live_save := Save.grove()
+	live_save["gc_player_id"] = "G:TESTFLIGHT123"
+	Save.grove_write()
+	for i in 20:
+		await process_frame
+	ok(_has_label_text(live_host, "G:TESTFLIGHT123"),
+		"the open Settings dialog refreshes to the Game Center id when auth caches it")
+	live_host.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

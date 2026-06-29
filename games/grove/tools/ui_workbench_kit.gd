@@ -1844,13 +1844,16 @@ static func _row_panel(card_art: bool) -> PanelContainer:
 	return panel
 
 ## An INFO CARD — a read-only row on the toggle_card surface: a label on the LEFT, a value on the RIGHT,
-## no switch. The settings dialog uses it for non-interactive lines (e.g. the debug Game Center id).
-##   entry: label · value (both String). opts: label_font (px) · card_art (bool).
+## no switch. The settings dialog uses it for non-interactive lines (e.g. the Game Center id).
+##   entry: label · value (both String) · id? (String metadata). opts: label_font (px) · card_art (bool).
 static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", 28))
 	var card_art := bool(opts.get("card_art", true))
+	var info_id := String(entry.get("id", ""))
 	var panel := _row_panel(card_art)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if info_id != "":
+		panel.set_meta("settings_info_id", info_id)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 18)
@@ -1867,6 +1870,8 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	row.add_child(name_l)
 	var val_l := Label.new()
 	val_l.text = String(entry.get("value", ""))
+	if info_id != "":
+		val_l.set_meta("settings_info_value_id", info_id)
 	val_l.add_theme_font_size_override("font_size", maxi(13, label_font - 4))
 	val_l.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	val_l.add_theme_constant_override("outline_size", 0)

@@ -20,6 +20,8 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")   # the Game Center player id (read-only display)
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "SettingsOverlay"
+const GC_INFO_ID := "game_center"
+const GC_REFRESH_SECONDS := 0.05
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox/login idiom.
@@ -78,6 +80,7 @@ static func open(host: Control) -> void:
 		OS.shell_open(PRIVACY_URL)
 	var dialog: Control = Kit.settings_dialog(_entries(host), width, opts)
 	cc.add_child(dialog)
+	_bind_gc_info_refresh(overlay, dialog)
 	FX.pop_in(dialog)
 
 # Map the persisted FLAGS → kit toggle entries: a localized label, the saved value, and an on_toggle that
@@ -108,8 +111,40 @@ static func _entries(host: Control) -> Array:
 # is none (off iOS, plugin absent, or sign-in not yet complete). The row never triggers sign-in — that
 # already runs automatically at home open (Identity.boot from map.gd); this only displays the cached id.
 static func _gc_info_entry() -> Dictionary:
+	return {"kind": "info", "id": GC_INFO_ID, "label": "Game Center", "value": _gc_id_text()}
+
+static func _gc_id_text() -> String:
 	var id := Identity.player_id()
-	return {"kind": "info", "label": "Game Center", "value": id if id != "" else "not signed in"}
+	return id if id != "" else "not signed in"
+
+static func _bind_gc_info_refresh(overlay: Control, dialog: Control) -> void:
+	var value_label := _gc_value_label(dialog)
+	if value_label == null:
+		return
+	_refresh_gc_value(value_label)
+	if Identity.player_id() != "":
+		return
+	var timer := Timer.new()
+	timer.name = "GameCenterIdRefreshTimer"
+	timer.wait_time = GC_REFRESH_SECONDS
+	timer.autostart = true
+	timer.timeout.connect(func() -> void:
+		if not is_instance_valid(value_label) or not is_instance_valid(overlay):
+			timer.queue_free()
+			return
+		_refresh_gc_value(value_label)
+		if Identity.player_id() != "":
+			timer.queue_free())
+	overlay.add_child(timer)
+
+static func _gc_value_label(dialog: Node) -> Label:
+	for l in dialog.find_children("", "Label", true, false):
+		if String((l as Label).get_meta("settings_info_value_id", "")) == GC_INFO_ID:
+			return l as Label
+	return null
+
+static func _refresh_gc_value(value_label: Label) -> void:
+	value_label.text = _gc_id_text()
 
 # The destructive Reset-save row: a two-tap confirm (the kit morphs the label to "Tap again to wipe" on
 # the first tap) whose on_action wipes ALL progress and reloads to a fresh home — the same wipe + reflect
