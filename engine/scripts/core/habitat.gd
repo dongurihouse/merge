@@ -123,14 +123,23 @@ static func _set_placed(map_id: String, list: Array) -> void:
 static func is_full(map_id: String) -> bool:
 	return placed(map_id).size() >= cap(map_id)
 
+## True when `inst` belongs on `map_id`. Unknown resident kinds cannot be newly placed.
+static func can_place_on(map_id: String, inst: Dictionary) -> bool:
+	var kind := String(inst.get("kind", ""))
+	if kind == "":
+		return false
+	return Content.resident_home_map_id(kind) == map_id
+
 ## Place hand[index] onto map_id if it has a free slot. Settles that map's production at the OLD
 ## rate first so the rate change is clean, then moves the instance hand -> map.
 static func place(map_id: String, index: int, now: float = -1.0) -> bool:
 	var h := hand()
 	if index < 0 or index >= h.size() or is_full(map_id):
 		return false
-	_settle(map_id, now)
 	var inst: Dictionary = h[index]
+	if not can_place_on(map_id, inst):
+		return false
+	_settle(map_id, now)
 	h.remove_at(index)
 	_set_hand(h)
 	var p := placed(map_id)
@@ -171,9 +180,11 @@ static func move(from_id: String, index: int, to_id: String, now: float = -1.0) 
 	var src := placed(from_id)
 	if index < 0 or index >= src.size() or is_full(to_id):
 		return false
+	var inst: Dictionary = src[index]
+	if not can_place_on(to_id, inst):
+		return false
 	_settle(from_id, now)
 	_settle(to_id, now)
-	var inst: Dictionary = src[index]
 	src.remove_at(index)
 	_set_placed(from_id, src)
 	var dst := placed(to_id)
@@ -206,6 +217,8 @@ static func place_merge(map_id: String, h_index: int, p_index: int, now: float =
 	if h_index < 0 or h_index >= h.size() or p_index < 0 or p_index >= p.size():
 		return false
 	var a: Dictionary = h[h_index]
+	if not can_place_on(map_id, a):
+		return false
 	var b: Dictionary = p[p_index]
 	if String(a.kind) != String(b.kind) or int(a.tier) != int(b.tier):
 		return false
@@ -304,15 +317,35 @@ static func use_boost_charge() -> bool:
 
 # --- map 5 resident grant (the SHARED rush pool) -------------------------------------------------
 
-## The kinds map 5 may roll: the union of every populatable map's offered residents (mirrors the box pool).
-static func _resident_pool() -> Array:
+## Weighted resident reward entries for Rush and resident-producing map rewards.
+static func resident_reward_pool(source_map_id: String = "") -> Array:
 	var unlocks: Dictionary = Save.grove().get("unlocks", {})
-	var kinds := {}
+	var out: Array = []
 	for z in Content.MAPS.size():
-		if Content.map_spots_restored(z, unlocks) >= 1:
-			for ln in Content.resident_lines(z):
-				kinds[String(ln.id)] = true
-	return kinds.keys()
+		if Content.map_spots_restored(z, unlocks) < 1:
+			continue
+		var map_id := String(Content.MAPS[z].id)
+		for ln in Content.resident_lines(z):
+			var kind := String(ln.get("id", ""))
+			if kind == "":
+				continue
+			out.append({"kind": kind, "map_id": map_id, "weight": 3 if map_id == source_map_id else 1})
+	return out
+
+static func roll_reward_kind(source_map_id: String, rng: RandomNumberGenerator) -> String:
+	var pool := resident_reward_pool(source_map_id)
+	var total := 0
+	for entry in pool:
+		total += maxi(0, int(entry.get("weight", 0)))
+	if total <= 0:
+		return ""
+	var pick := rng.randi_range(1, total)
+	var acc := 0
+	for entry in pool:
+		acc += maxi(0, int(entry.get("weight", 0)))
+		if pick <= acc:
+			return String(entry.get("kind", ""))
+	return ""
 
 # A shared loot rng for chest grants — NOT the board's seeded+persisted rng (chest loot is cosmetic and
 # never replayed, so a fresh randomized stream is fine).
@@ -328,14 +361,13 @@ static func _rng() -> RandomNumberGenerator:
 ## Drops `count` spirits into the hand; each rolls a KIND from the unlocked pool and a TIER off the
 ## generator's OWN curve (BoardLogic.roll_tier → TIER_ODDS: t1-heavy, capped at t4 — higher tiers still only
 ## via in-hand merges). Returns the granted {kind, tier} instances (for the reveal). Empty if the pool is empty.
-static func grant_chest(count: int) -> Array:
-	var pool := _resident_pool()
-	if pool.is_empty():
-		return []
+static func grant_chest(count: int, source_map_id: String = "") -> Array:
 	var rng := _rng()
 	var out: Array = []
 	for _i in maxi(0, count):
-		var kind := String(pool[rng.randi() % pool.size()])
+		var kind := roll_reward_kind(source_map_id, rng)
+		if kind == "":
+			return out
 		var tier := BoardLogic.roll_tier(rng)
 		hand_add(kind, tier)
 		out.append({"kind": kind, "tier": tier})
@@ -380,7 +412,7 @@ static func collect(map_id: String, now: float = -1.0) -> Dictionary:
 	g["hab_prod"][map_id] = {"acc": p - float(whole), "last": now}
 	Save.grove_write()
 	if cur == "residents":
-		var granted := grant_chest(whole)               # grant_chest(0) is a harmless no-op below the threshold
+		var granted := grant_chest(whole, map_id)       # grant_chest(0) is a harmless no-op below the threshold
 		return {"currency": "residents", "amount": granted.size()}
 	if whole <= 0:
 		return {"currency": cur, "amount": 0}

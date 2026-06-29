@@ -561,6 +561,20 @@ static func resident_capacity(z: int, unlocks: Dictionary) -> int:
 static func resident_lines(z: int) -> Array:
 	return D.resident_lines(String(MAPS[z].id))
 
+## The home map index for a resident kind, derived from the resident lines each map offers.
+## Returns -1 for unknown kinds.
+static func resident_home_map(kind: String) -> int:
+	for z in MAPS.size():
+		for td in resident_lines(z):
+			if String(td.get("id", "")) == kind:
+				return z
+	return -1
+
+## The home map id for a resident kind, or "" for unknown kinds.
+static func resident_home_map_id(kind: String) -> String:
+	var z := resident_home_map(kind)
+	return String(MAPS[z].id) if z >= 0 else ""
+
 ## The per-map one-time unlock gift {coins, gems, spirit}. Delegates to the game data.
 static func map_unlock_reward(z: int) -> Dictionary:
 	return D.map_unlock_reward(z)

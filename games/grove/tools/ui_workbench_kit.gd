@@ -4824,9 +4824,10 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 	else:
 		_map_card_locked(d, opts, card, card_w, card_h)
 	if bool(d.get("resident_preview", false)) and bool(d.get("open", true)):
-		_map_add_resident_preview(card, opts, card_w, card_h)
+		_map_add_resident_preview(card, opts, card_w, card_h, d)
 	if bool(d.get("habitat_preview", false)) and bool(d.get("open", true)):
 		_map_add_habitat_shelf_preview(card, opts, card_w, card_h)
+		_map_add_expedition_button_preview(card, opts, card_w, card_h)
 	return card
 
 static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: float = 0.0, safe_bottom: float = 0.0) -> Dictionary:
@@ -4942,7 +4943,7 @@ static func _map_add_card_shell(card: Control, badge_opts: Dictionary) -> void:
 	rim.add_theme_stylebox_override("panel", rs)
 	card.add_child(rim)
 
-static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: float, card_h: float) -> void:
+static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: float, card_h: float, d: Dictionary = {}) -> void:
 	var badge_opts: Dictionary = opts.get("badge", {})
 	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
 	var inset := band + 6.0
@@ -5012,9 +5013,10 @@ static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: f
 	grid.add_theme_constant_override("v_separation", int(round(sep)))
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(grid)
+	var resident_cap := clampi(int(d.get("resident_cap", slot_cols * slot_rows)), 0, slot_cols * slot_rows)
 	for i in range(slot_cols * slot_rows):
-		var slot := _map_resident_preview_slot(orb_px, opts)
-		slot.name = "MapResidentRailPreviewSlot_%02d" % i
+		var slot := _map_resident_preview_slot(orb_px, opts) if i < resident_cap else _map_resident_preview_locked_slot(orb_px, opts)
+		slot.name = ("MapResidentRailPreviewSlot_%02d" if i < resident_cap else "MapResidentRailPreviewLockedSlot_%02d") % i
 		grid.add_child(slot)
 	card.add_child(rail)
 
@@ -5142,6 +5144,22 @@ static func map_reward_collect_button(text: String, icon_id: String, button_size
 	b.add_child(label)
 	return b
 
+static func _map_add_expedition_button_preview(card: Control, opts: Dictionary, card_w: float, card_h: float) -> void:
+	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
+	var b := home_button({"icon": "expedition", "caption": "", "tooltip": "Expedition", "action": func() -> void: pass}, {
+		"px": px,
+		"shape": "rect",
+		"icon_scale": clampf(float(opts.get("expedition_button_icon_scale", 0.64)), 0.35, 0.90),
+		"fill_alpha": 100,
+		"badge": opts.get("badge", {}),
+	})
+	b.name = "MapCardExpeditionButtonPreview"
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.size = Vector2(px, px)
+	b.position = Vector2(card_w * 0.38 - px * 0.5, card_h * 0.50 - px * 0.5) \
+		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
+	card.add_child(b)
+
 static func _map_habitat_shelf_style() -> StyleBoxTexture:
 	var path := Look.kit(MAP_LEFT_REWARD_SHELF)
 	if not ResourceLoader.exists(path):
@@ -5173,6 +5191,18 @@ static func _map_resident_preview_slot(px: float, opts: Dictionary = {}) -> Cont
 	slot.custom_minimum_size = Vector2(px, px)
 	slot.size = Vector2(px, px)
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return slot
+
+static func _map_resident_preview_locked_slot(px: float, opts: Dictionary = {}) -> Control:
+	var slot := _map_resident_preview_slot(px, opts)
+	slot.modulate = Color(0.55, 0.55, 0.55, 0.62)
+	slot.set_meta("locked", true)
+	var veil := ColorRect.new()
+	veil.name = "MapResidentRailPreviewLockedVeil"
+	veil.color = Color(Pal.INK, 0.28)
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(veil)
 	return slot
 
 static func _map_leaf(rel: String, node_name: String, size: Vector2, flip_h := false) -> TextureRect:
@@ -5588,6 +5618,10 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
 		"resident_slot_px": float(c.get("resident_slot_px", 58)),        # completed-card resident slot size px
 		"resident_slot_gap": float(c.get("resident_slot_gap", 10)),      # completed-card gap between resident slots px
+		"expedition_button_px": float(c.get("expedition_button_px", 82)),
+		"expedition_button_x": float(c.get("expedition_button_x", 0)),
+		"expedition_button_y": float(c.get("expedition_button_y", 0)),
+		"expedition_button_icon_scale": float(c.get("expedition_button_icon_scale", 64)) / 100.0,
 		"slot_cell":       bag_card_opts_from_config(cfg),               # completed-card resident cells match the right-column square slots
 		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
 		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)

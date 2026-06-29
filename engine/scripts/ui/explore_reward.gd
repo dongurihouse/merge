@@ -44,7 +44,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	overlay.add_child(cc)
 
 	# convert the run score straight into spirits + drop them in the hand (the reveal is cosmetic over this)
-	var granted: Array = Habitat.grant_chest(Explore.trade_count(Explore.score()))
+	var granted: Array = Habitat.grant_chest(Explore.trade_count(Explore.score()), Explore.source_map_id())
 
 	var vp: Vector2 = (host.get_viewport_rect().size if host.is_inside_tree() else Vector2(720.0, 1280.0))
 	var width: float = minf(vp.x * 0.92, DIALOG_MAX_W)

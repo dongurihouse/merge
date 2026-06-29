@@ -26,7 +26,7 @@ func _initialize() -> void:
 	await _test_rush_resize()
 	_test_trade_reward_dialog_layout()
 	_test_reward_row_cap()
-	await _test_home_expedition_rail_chrome()
+	await _test_map_card_expedition_chrome()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
@@ -207,8 +207,8 @@ func _push_tap(gpos: Vector2) -> void:
 	up.pressed = false
 	get_root().push_input(up, true)
 
-func _test_home_expedition_rail_chrome() -> void:
-	fresh("home_expedition_rail_chrome")
+func _test_map_card_expedition_chrome() -> void:
+	fresh("map_card_expedition_chrome")
 	var z := G.hub_map()
 	var locked_g := Save.grove()
 	locked_g["unlocks"] = {}
@@ -223,9 +223,7 @@ func _test_home_expedition_rail_chrome() -> void:
 	locked.unlocks = {}
 	locked._open_map(z)
 	await create_timer(0.05).timeout
-
-	var locked_exp := _home_chrome_button(locked, "Expedition")
-	ok(locked_exp == null, "locked map hides Expedition without leaving a visible rail button")
+	ok(_home_chrome_button(locked, "Expedition") == null, "Expedition no longer lives in the side rail")
 	var settings := _home_chrome_button(locked, "Settings")
 	var daily := _home_chrome_button(locked, "Daily")
 	ok(settings != null, "locked rail still shows Settings")
@@ -235,6 +233,9 @@ func _test_home_expedition_rail_chrome() -> void:
 		var max_packed_step := maxf(settings.get_global_rect().size.y, daily.get_global_rect().size.y) + 36.0
 		ok(y_step <= max_packed_step,
 			"locked rail packs Daily directly below Settings (step %.1f <= %.1f)" % [y_step, max_packed_step])
+	locked._open_select()
+	await create_timer(0.05).timeout
+	ok(locked.content.find_child("MapCardExpeditionButton", true, false) == null, "locked/unpopulatable map cards do not show Expedition")
 	locked.queue_free()
 
 	var unl := {}
@@ -253,16 +254,9 @@ func _test_home_expedition_rail_chrome() -> void:
 	hx.unlocks = unl
 	hx._open_map(z)
 	await create_timer(0.05).timeout
+	ok(_home_chrome_button(hx, "Expedition") == null, "populatable maps still keep Expedition out of the side rail")
 
-	var exp := _home_chrome_button(hx, "Expedition")
-	ok(exp != null, "home chrome keeps an Expedition entry point")
-	if exp != null:
-		var er := exp.get_global_rect()
-		var vs: Vector2 = hx.get_viewport_rect().size
-		ok(er.position.x > vs.x * 0.72 and er.position.y < vs.y * 0.78, "Expedition lives in the right side rail, not the bottom nav")
-		ok(String(exp.get_meta("icon_id", "")) == "expedition", "Expedition uses the dedicated expedition icon")
-
-	var labels := ["Map", "Settings", "Daily", "Vault", "Expedition"]
+	var labels := ["Map", "Settings", "Daily", "Vault"]
 	if _home_chrome_button(hx, "Inbox") != null:
 		labels.append("Inbox")
 	for label in labels:
@@ -273,16 +267,16 @@ func _test_home_expedition_rail_chrome() -> void:
 		ok(not _button_has_visible_text(btn), "%s button has no visible text" % label)
 		ok(_button_icon_is_large(btn), "%s icon fills the button footprint" % label)
 		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
-	var daily_btn := _home_chrome_button(hx, "Daily")
-	var exp_btn := _home_chrome_button(hx, "Expedition")
-	if daily_btn != null and exp_btn != null:
-		var daily_icon := _button_visible_icon_node(daily_btn)
-		var exp_icon := _button_visible_icon_node(exp_btn)
-		if daily_icon != null and exp_icon != null:
-			var daily_size := daily_icon.get_global_rect().size
-			var exp_size := exp_icon.get_global_rect().size
-			ok(exp_size.x >= daily_size.x * 0.92 and exp_size.y >= daily_size.y * 0.92,
-				"Expedition visible icon matches rail icon size (exp %.1fx%.1f vs daily %.1fx%.1f)" % [exp_size.x, exp_size.y, daily_size.x, daily_size.y])
+	hx._open_select()
+	await create_timer(0.05).timeout
+	var exp := hx.content.find_child("MapCardExpeditionButton", true, false) as Button
+	ok(exp != null, "eligible map cards expose an Expedition button")
+	ok(exp != null and String(exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "card Expedition button records its source map")
+	ok(exp != null and String(exp.get_meta("icon_id", "")) == "expedition", "card Expedition uses the dedicated expedition icon")
+	if exp != null:
+		exp.pressed.emit()
+		await process_frame
+		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the card Expedition button opens loadout")
 	hx.queue_free()
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------
@@ -432,11 +426,14 @@ func _test_pool_and_box() -> void:
 
 # --- run state: carried across the three scenes, score spent on boxes ------------
 func _test_run_state() -> void:
-	Explore.begin_run({"drops": true})
+	Explore.begin_run({"drops": true}, "farmhouse")
 	ok(Explore.score() == 0, "a fresh run starts at score 0")
 	ok(bool(Explore.run().equip.get("drops", false)), "the run carries the chosen loadout")
+	ok(Explore.source_map_id() == "farmhouse", "the run carries the source map id")
 	Explore.add_score(250)
 	ok(Explore.score() == 250, "add_score accrues the run score")
+	Explore.begin_run({})
+	ok(Explore.source_map_id() == "", "legacy begin_run callers keep an empty source map")
 
 func _test_trade_count() -> void:
 	ok(Explore.trade_count(0) == 0, "no score yields no spirits")
@@ -596,7 +593,7 @@ func _test_screens() -> void:
 	g["unlocks"] = unl
 	g["gates"] = [z]
 	Save.grove_write()
-	Explore.begin_run({})
+	Explore.begin_run({}, String(G.MAPS[z].id))
 	Explore.add_score(400)                          # 400 / 200 = 2 spirits
 	var pool: Array = Explore.unlocked_pool(unl, [z])
 	var hand_before := Habitat.hand().size()
@@ -604,6 +601,7 @@ func _test_screens() -> void:
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ExploreReward.open(host, {"on_done": func() -> void: pass})
+	ok(Explore.source_map_id() == String(G.MAPS[z].id), "reward overlay keeps the source map on the run")
 	ok(Habitat.hand().size() == hand_before + 2, "opening the reward overlay grants floor(score / RATE) spirits to the hand")
 	var last: Dictionary = Habitat.hand()[Habitat.hand().size() - 1]
 	ok(pool.has(String(last.kind)), "a granted spirit's kind comes from the unlocked pool")
@@ -744,7 +742,7 @@ func _test_loadout_toggle_updates_in_place() -> void:
 	var map = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map)
 	await process_frame
-	map._open_expedition()
+	map._open_expedition(0)
 	await process_frame
 	var overlay := map.get_node_or_null("ExpeditionOverlay") as Control
 	ok(overlay != null, "the map opens the expedition loadout overlay")
@@ -796,7 +794,7 @@ func _test_loadout_keeps_unaffordable_choices_visible() -> void:
 	var map = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map)
 	await process_frame
-	map._open_expedition()
+	map._open_expedition(0)
 	await process_frame
 	var overlay := map.get_node_or_null("ExpeditionOverlay") as Control
 	ok(overlay != null, "the low-wallet loadout overlay opens")
