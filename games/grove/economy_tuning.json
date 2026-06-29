@@ -1,5 +1,5 @@
 {
-  "level_base_exp": 20,
+  "level_base_exp": 10,
   "level_step_exp": 2,
   "quest_clicks_per_exp": 7,
   "endgame_clicks": 7700,
