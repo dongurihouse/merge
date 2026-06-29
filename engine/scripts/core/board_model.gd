@@ -19,6 +19,11 @@ var gen_bag_tiers: Array = []             # PARALLEL to gen_bag: the TIER of eac
                                           # Invariant: size() == gen_bag.size(). Mutate the bag only via
                                           # store_gen / place_gen_from_bag / bag_add / prune_bag so it stays aligned.
 
+# §6 per-generator boost — remaining taps, cell-keyed; rides with the generator (move carries, merge sums,
+# sell/store clears). gen_bag_boost is PARALLEL to gen_bag (invariant: equal sizes).
+var gen_boost: Dictionary = {}
+var gen_bag_boost: Array = []
+
 func _init() -> void:
 	terrain.resize(G.ROWS * G.COLS)
 	items.resize(G.ROWS * G.COLS)
@@ -61,6 +66,7 @@ func gen_id_at(cell: Vector2i) -> String:
 func seed_gens(map: int, level: int = G.APPEAR_ALL) -> void:
 	# gen redesign: the board STARTS with only the anchor generator; the rest are born on tap (§6.B).
 	gens = {}
+	gen_boost = {}
 	for g in G.generators_for_map(G.GENERATORS, map, level):
 		if bool(g.get("anchor", false)):
 			gens[Vector2i(g.get("cell", Vector2i(-1, -1)))] = String(g.id)
@@ -87,8 +93,10 @@ func store_gen(cell: Vector2i) -> bool:
 		return false
 	gen_bag.append(String(gens[cell]))
 	gen_bag_tiers.append(gen_tier_at(cell))   # the tier follows the generator into the bag
+	gen_bag_boost.append(gen_boost_at(cell))  # §6: the boost travels with it too
 	gens.erase(cell)
 	gen_tiers.erase(cell)                      # no stale tier left behind on the now-empty cell
+	gen_boost.erase(cell)
 	return true
 
 ## Place a stored generator from the bag onto an open, empty, non-generator cell. #8: restores the stored TIER.
@@ -98,34 +106,47 @@ func place_gen_from_bag(id: String, cell: Vector2i) -> bool:
 	if i < 0 or gens.has(cell) or not is_open(cell) or item_at(cell) != 0:
 		return false
 	var tier := _bag_tier_at(i)               # read the tier BEFORE removing the entry
+	var boost := _bag_boost_at(i)             # §6: and the carried boost
 	gen_bag.remove_at(i)
 	if i < gen_bag_tiers.size():
 		gen_bag_tiers.remove_at(i)
+	if i < gen_bag_boost.size():
+		gen_bag_boost.remove_at(i)
 	gens[cell] = id
 	gen_tiers[cell] = tier                     # restore the stored tier (not a silent reset to 1)
+	if boost > 0:
+		gen_boost[cell] = boost                # §6: restore the carried boost
 	return true
 
 ## Append a generator id to the bag at `tier` (default 1) — the canonical bag-push that keeps
 ## gen_bag_tiers aligned. Use this instead of a raw gen_bag.append(...).
-func bag_add(id: String, tier: int = 1) -> void:
+func bag_add(id: String, tier: int = 1, boost: int = 0) -> void:
 	gen_bag.append(String(id))
 	gen_bag_tiers.append(maxi(1, tier))
+	gen_bag_boost.append(maxi(0, boost))
 
 ## The tier of the bagged generator at index `i` (1 if out of range — tolerates a transient skew).
 func _bag_tier_at(i: int) -> int:
 	return int(gen_bag_tiers[i]) if i >= 0 and i < gen_bag_tiers.size() else 1
+
+## The boost taps of the bagged generator at index `i` (0 if out of range — tolerates a transient skew).
+func _bag_boost_at(i: int) -> int:
+	return int(gen_bag_boost[i]) if i >= 0 and i < gen_bag_boost.size() else 0
 
 ## Filter the bag in place, keeping only ids for which `should_keep.call(id)` is true — rebuilds
 ## gen_bag and its parallel tiers together so they stay aligned.
 func prune_bag(should_keep: Callable) -> void:
 	var ids: Array = []
 	var tiers: Array = []
+	var boosts: Array = []
 	for i in gen_bag.size():
 		if bool(should_keep.call(String(gen_bag[i]))):
 			ids.append(gen_bag[i])
 			tiers.append(_bag_tier_at(i))
+			boosts.append(_bag_boost_at(i))
 	gen_bag = ids
 	gen_bag_tiers = tiers
+	gen_bag_boost = boosts
 
 ## #1 — a generator is a movable piece (§2): relocate it to an empty, open, non-generator
 ## cell. Refuses an occupied cell, a bramble, or another generator's cell. Persisted via `gens`.
@@ -136,11 +157,37 @@ func move_gen(from: Vector2i, to: Vector2i) -> bool:
 	gens.erase(from)
 	gen_tiers[to] = gen_tier_at(from)     # #8: the tier travels with the generator
 	gen_tiers.erase(from)
+	var moved_boost := gen_boost_at(from)  # §6: the boost travels with the generator
+	if moved_boost > 0:
+		gen_boost[to] = moved_boost
+	gen_boost.erase(from)
 	return true
 
 # The TIER of the generator at `cell` (1..GEN_TOP_TIER); 1 if unset. Gen redesign #8.
 func gen_tier_at(cell: Vector2i) -> int:
 	return int(gen_tiers.get(cell, 1))
+
+# §6 per-generator boost — remaining taps at a cell (0 = unboosted). Read by the board's pop/collect/indicator.
+func gen_boost_at(cell: Vector2i) -> int:
+	return int(gen_boost.get(cell, 0))
+
+func is_gen_boosted(cell: Vector2i) -> bool:
+	return gen_boost_at(cell) > 0
+
+# Arm a generator's boost to `taps`. No-op when the cell holds no generator; taps<=0 clears the entry.
+func arm_gen_boost(cell: Vector2i, taps: int) -> void:
+	if taps > 0 and gens.has(cell):
+		gen_boost[cell] = taps
+	else:
+		gen_boost.erase(cell)
+
+# Spend one boost tap off a cell — called once per charged/collect tap on that generator. Erases at 0; never underflows.
+func consume_gen_boost(cell: Vector2i) -> void:
+	var left := gen_boost_at(cell)
+	if left <= 1:
+		gen_boost.erase(cell)
+	else:
+		gen_boost[cell] = left - 1
 
 # #8 merge: two SAME-LINE generators at the SAME tier (below the top) merge 2:1 → the target gains a tier,
 # the source is removed (frees its cell). Returns true on a real merge.
@@ -155,6 +202,10 @@ func merge_gens(from: Vector2i, to: Vector2i) -> bool:
 	gens.erase(from)
 	gen_tiers.erase(from)
 	gen_tiers[to] = t + 1
+	var combined := gen_boost_at(to) + gen_boost_at(from)  # §6: the survivor keeps both generators' taps
+	gen_boost.erase(from)
+	if combined > 0:
+		gen_boost[to] = combined
 	return true
 
 ## A generator that VANISHES in place (a spent bonus/treat gen): erase BOTH `gens` and its tier so no stale
@@ -165,6 +216,7 @@ func remove_gen(cell: Vector2i) -> bool:
 		return false
 	gens.erase(cell)
 	gen_tiers.erase(cell)
+	gen_boost.erase(cell)                      # §6: a vanished generator loses its boost
 	return true
 
 ## Place a single generator at `cell` — claims the cell (sheds bramble / hops any item to
@@ -375,14 +427,14 @@ func top_tier_cells() -> Array:
 func to_dict() -> Dictionary:
 	var gl: Array = []
 	for c in gens:
-		gl.append([c.x, c.y, gens[c], gen_tier_at(c)])   # [row, col, id, tier] — JSON-safe (no Vector2i keys)
+		gl.append([c.x, c.y, gens[c], gen_tier_at(c), gen_boost_at(c)])   # [row, col, id, tier, boost] — JSON-safe
 	var cr: Array = []
 	for i in collect_rewards:
 		var cell := cell_of(int(i))
 		var reward: Dictionary = collect_reward_at(cell)
 		if not reward.is_empty():
 			cr.append([cell.x, cell.y, String(reward.kind), int(reward.amount)])
-	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate(), "collect_rewards": cr}
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate(), "gen_bag_boost": gen_bag_boost.duplicate(), "collect_rewards": cr}
 
 func from_dict(d: Dictionary) -> bool:
 	var changed := false
@@ -408,6 +460,7 @@ func from_dict(d: Dictionary) -> bool:
 			changed = true
 	gens = {}
 	gen_tiers = {}
+	gen_boost = {}
 	for e in d.get("gens", []):
 		if not (e is Array) or (e as Array).size() < 3:
 			changed = true
@@ -419,10 +472,14 @@ func from_dict(d: Dictionary) -> bool:
 			continue
 		gens[gc] = gid
 		gen_tiers[gc] = int(e[3]) if (e as Array).size() > 3 else 1   # #8: tier (old 3-element saves → 1)
+		if (e as Array).size() > 4 and int(e[4]) > 0:
+			gen_boost[gc] = int(e[4])           # §6: per-cell boost (absent in 4-element legacy entries → none)
 	var raw_gen_bag: Array = Array(d.get("gen_bag", []))
 	var bt: Array = Array(d.get("gen_bag_tiers", []))     # #8: parallel tiers (absent in old saves → all 1)
+	var bb: Array = Array(d.get("gen_bag_boost", []))     # §6: parallel bag boosts (absent in old saves → all 0)
 	gen_bag = []
 	gen_bag_tiers = []
+	gen_bag_boost = []
 	for i in raw_gen_bag.size():
 		var gid := String(raw_gen_bag[i])
 		if not G.is_valid_generator_id(gid):
@@ -430,4 +487,5 @@ func from_dict(d: Dictionary) -> bool:
 			continue
 		gen_bag.append(gid)
 		gen_bag_tiers.append(int(bt[i]) if i < bt.size() else 1)
+		gen_bag_boost.append(int(bb[i]) if i < bb.size() else 0)
 	return changed

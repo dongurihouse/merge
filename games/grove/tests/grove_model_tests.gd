@@ -152,6 +152,74 @@ func _initialize() -> void:
 	var bm_round := BoardModel.new(); bm_round.from_dict(bm.to_dict())
 	ok(str(bm_round.gen_bag) == str(bm.gen_bag), "gen_bag survives to_dict/from_dict")
 
+	# 6g. §6 per-generator boost: per-cell state rides with the generator
+	var bb := BoardModel.new(); bb.seed_gens(0)
+	var c0: Vector2i = bb.gens.keys()[0]                  # the anchor generator's cell
+	ok(bb.gen_boost_at(c0) == 0 and not bb.is_gen_boosted(c0), "boost: a fresh generator is unboosted")
+	bb.arm_gen_boost(c0, G.BOOST_TAPS)
+	ok(bb.is_gen_boosted(c0) and bb.gen_boost_at(c0) == G.BOOST_TAPS, "boost: arm sets the cell's taps")
+	bb.consume_gen_boost(c0)
+	ok(bb.gen_boost_at(c0) == G.BOOST_TAPS - 1, "boost: consume decrements one tap")
+	for _i in G.BOOST_TAPS:
+		bb.consume_gen_boost(c0)
+	ok(bb.gen_boost_at(c0) == 0 and not bb.is_gen_boosted(c0), "boost: decays to zero and never underflows")
+	var empty_cell: Vector2i = bb.empty_ground_cells()[0]
+	bb.arm_gen_boost(empty_cell, G.BOOST_TAPS)
+	ok(bb.gen_boost_at(empty_cell) == 0, "boost: arming a cell with no generator is a no-op")
+
+	# move carries the boost
+	var mvb := BoardModel.new(); mvb.seed_gens(0)
+	var mfrom: Vector2i = mvb.gens.keys()[0]
+	var mto: Vector2i = mvb.empty_ground_cells()[0]
+	mvb.arm_gen_boost(mfrom, 3)
+	ok(mvb.move_gen(mfrom, mto), "boost: move the boosted generator")
+	ok(mvb.gen_boost_at(mto) == 3 and mvb.gen_boost_at(mfrom) == 0, "boost: move carries the taps to the new cell")
+
+	# merge combines the taps
+	var mgb := BoardModel.new(); mgb.seed_gens(0)
+	var ca: Vector2i = mgb.gens.keys()[0]
+	var gid_a := mgb.gen_id_at(ca)
+	var cb: Vector2i = mgb.empty_ground_cells()[0]
+	mgb.place_gen(gid_a, cb, mgb.gen_tier_at(ca))         # a same-line, same-tier twin to merge with
+	mgb.arm_gen_boost(ca, 2)
+	mgb.arm_gen_boost(cb, 5)
+	ok(mgb.merge_gens(ca, cb), "boost: merge the two boosted generators")
+	ok(mgb.gen_boost_at(cb) == 7 and mgb.gen_boost_at(ca) == 0, "boost: merge sums the survivor's and source's taps")
+
+	# sell / spent clears the boost
+	var rmb := BoardModel.new(); rmb.seed_gens(0)
+	var rc: Vector2i = rmb.gens.keys()[0]
+	rmb.arm_gen_boost(rc, 4)
+	ok(rmb.remove_gen(rc), "boost: remove the boosted generator")
+	ok(rmb.gen_boost_at(rc) == 0, "boost: remove clears the boost")
+
+	# bag carries the boost in and back out, arrays stay aligned
+	var bgb2 := BoardModel.new(); bgb2.seed_gens(0)
+	var sc: Vector2i = bgb2.gens.keys()[0]
+	var sgid := bgb2.gen_id_at(sc)
+	bgb2.arm_gen_boost(sc, 6)
+	ok(bgb2.store_gen(sc), "boost: store the boosted generator into the bag")
+	ok(bgb2.gen_boost_at(sc) == 0, "boost: storing clears the on-board entry")
+	ok(bgb2.gen_bag_boost.size() == bgb2.gen_bag.size(), "boost: bag arrays stay aligned after store")
+	var oc: Vector2i = bgb2.empty_ground_cells()[0]
+	ok(bgb2.place_gen_from_bag(sgid, oc), "boost: place the stored generator back")
+	ok(bgb2.gen_boost_at(oc) == 6, "boost: re-placing restores the carried taps")
+
+	# serialization round-trips per-cell and per-bag boost
+	var srb := BoardModel.new(); srb.seed_gens(0)
+	var ssc: Vector2i = srb.gens.keys()[0]
+	srb.arm_gen_boost(ssc, 5)
+	srb.bag_add(srb.gen_id_at(ssc), 2, 3)                 # a bagged generator with its own boost
+	var srt := BoardModel.new(); srt.from_dict(srb.to_dict())
+	ok(srt.gen_boost_at(ssc) == 5, "boost: per-cell taps survive to_dict/from_dict")
+	ok(srt.gen_bag_boost.size() == srt.gen_bag.size() and int(srt.gen_bag_boost.back()) == 3, "boost: bag taps survive the round-trip")
+
+	# legacy saves (4-element gens entry, no gen_bag_boost) read as zero
+	var legacy := {"terrain": Array(srb.terrain), "items": Array(srb.items),
+		"gens": [[ssc.x, ssc.y, srb.gen_id_at(ssc), 1]], "gen_bag": [], "gen_bag_tiers": [], "collect_rewards": []}
+	var lgb := BoardModel.new(); lgb.from_dict(legacy)
+	ok(lgb.gen_boost_at(ssc) == 0 and lgb.gen_bag_boost.is_empty(), "boost: a legacy save reads no boost (default 0)")
+
 	# 7. dispenser odds well-formed
 	var total := 0.0
 	for p in G.TIER_ODDS:
