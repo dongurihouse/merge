@@ -2747,12 +2747,13 @@ func _produce_due_generators() -> bool:
 	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)
 	for id in due:
 		var dest := Vector2i(-1, -1)
-		for c in board.empty_ground_cells():
-			if not board.gens.has(c):
-				dest = c
-				break
+		if board.gens.size() < G.GEN_BOARD_CAP:   # gen redesign #16: <=6 generators on the board; overflow to the bag
+			for c in board.empty_ground_cells():
+				if not board.gens.has(c):
+					dest = c
+					break
 		if dest == Vector2i(-1, -1):
-			board.gen_bag.append(id)              # board full → hold it in the bag (placed from the bag later)
+			board.gen_bag.append(id)              # at the cap (or board full) → hold it in the bag
 		else:
 			board.place_gen(id, dest)
 			_grown_cells.append(dest)             # _rebuild_all pops it in + starts its breathe

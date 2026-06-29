@@ -160,6 +160,7 @@ const ZONE_MAP_SPOTS := [7, 4, 7, 4, 1]   # spots per map = zones per map (sums 
 # higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
 # GEN_SELF_DUP_RATE per tap (the merge fuel); a maxed generator instead feeds another sub-max line (board logic).
 const GEN_TOP_TIER := 3
+const GEN_BOARD_CAP := 6                   # gen redesign #16: max generators on the board at once; births overflow to the bag
 const GEN_SELF_DUP_RATE := 0.005           # 0.5% per tap
 const GEN_TIER_BURST_ODDS := [             # burst odds [1,2,3 items] by generator tier (1..3) — higher = more multiples
 	[0.80, 0.15, 0.05],   # tier 1
@@ -190,7 +191,7 @@ const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (a flat coin bonus, no extra ★)
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest (featured = COINS ONLY since T58 — acorns precious)
 # §7 soft gate — PROVISIONAL, sim-tuned.
-const MAX_GIVERS := 5                     # fence quest slots (§7) — up to 5 quest cards (+ the jar); the metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
+const MAX_GIVERS := 10                    # fence quest slots (§7, gen redesign #13) — up to 10 quest cards (+ the jar); metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
 # §6 burst-pop (T58). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not the
 # per-item energy economy). The COUNT is drawn from an odds table: BURST_ODDS with NO boost (a single item
