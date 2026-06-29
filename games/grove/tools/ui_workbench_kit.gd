@@ -5629,10 +5629,6 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"expedition_button_x":  float(c.get("expedition_button_x", 0)),
 		"expedition_button_y":  float(c.get("expedition_button_y", 0)),
 		"expedition_button_font": int(c.get("expedition_button_font", 18)),
-		"home_expedition_button_px": float(c.get("home_expedition_button_px", c.get("expedition_button_px", 82))),
-		"home_expedition_button_x": float(c.get("home_expedition_button_x", 0)),
-		"home_expedition_button_y": float(c.get("home_expedition_button_y", 0)),
-		"home_expedition_button_icon_scale": float(c.get("home_expedition_button_icon_scale", c.get("expedition_button_icon_scale", 64))) / 100.0,
 		"slot_cell":       bag_card_opts_from_config(cfg),               # completed-card resident cells match the right-column square slots
 		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
 		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)

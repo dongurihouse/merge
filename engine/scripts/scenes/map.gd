@@ -109,7 +109,10 @@ var _hand_scroll_max := 0.0      # 0 when the hand fits its column; else grid_h 
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
-var _residents_btn: Button = null  # legacy handle for the side-rail Expedition badge visibility gate
+var _residents_btn: Button = null  # side-rail Expedition badge; visible on maps ready for the acquisition loop
+var _daily_btn: Button = null
+var _vault_btn: Button = null
+var _inbox_btn: Button = null
 # THE map-view spirit dock (replaces the standalone habitat dialog). The place-picker carries an in-hand
 # COLUMN on the right, and every completed map's housed orbs as a vertical STRIP down the card's right side.
 # Spirits are managed by DRAG through the single input surface: hand→a map places, hand→a matching orb
@@ -313,7 +316,7 @@ func _open_map(z: int) -> void:
 	_build_map()
 	_refresh_chrome_badges()             # Daily · Vault · Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
-	_refresh_residents_btn()             # legacy no-op; Expedition now lives on eligible map cards
+	_refresh_residents_btn()             # Expedition is a per-map home-rail action
 
 func _open_select() -> void:
 	_view = "select"
@@ -430,12 +433,11 @@ func _build_map(animate := true) -> void:
 	content.add_child(amb)
 	if not has_home:
 		_seat_spots(z, home_dict, frame)
-	# §1 residents: a FULLY-UNLOCKED map (spots restored + gate delivered) pays its one-time unlock gift
-	# (the celebration dialog; the free spirit lands in the habitat hand) and shows the spirits dock + the
-	# Expedition rail button (_build_liveops_rail).
+	# §1 residents: an eligible map pays its one-time unlock gift (the celebration dialog; the free spirit
+	# lands in the habitat hand). The visible Expedition entry lives in the home chrome rail and is refreshed
+	# for the current map below.
 	if G.can_populate(z, unlocks, _gates()):
 		_maybe_show_unlock_reward(z)
-		_add_home_expedition_button(z)
 	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
@@ -1288,51 +1290,6 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	card.add_child(shelf)
 
 	return card
-
-func _add_home_expedition_button(z: int) -> void:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return
-	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var px := clampf(float(opts.get("home_expedition_button_px", 82.0)), 44.0, 148.0)
-	var home_opts := opts.duplicate()
-	home_opts["expedition_button_icon_scale"] = float(opts.get("home_expedition_button_icon_scale", 0.64))
-	var b := _make_expedition_button(z, home_opts, px, "MapHomeExpeditionButton")
-	if b == null:
-		return
-	var margin := clampf(px * 0.18, 10.0, 24.0)
-	var raw := _map_art_rect.position + Vector2(_map_art_rect.size.x - px - margin, _map_art_rect.size.y - px - margin) \
-		+ Vector2(float(opts.get("home_expedition_button_x", 0.0)), float(opts.get("home_expedition_button_y", 0.0)))
-	var min_pos := _map_art_rect.position + Vector2(margin, margin)
-	var max_pos := _map_art_rect.position + _map_art_rect.size - Vector2(px + margin, px + margin)
-	b.size = Vector2(px, px)
-	b.position = Vector2(clampf(raw.x, min_pos.x, max_pos.x), clampf(raw.y, min_pos.y, max_pos.y))
-	content.add_child(b)
-
-func _make_expedition_button(z: int, opts: Dictionary, px: float, node_name: String) -> Button:
-	var Kit: GDScript = load(KIT_PATH)
-	var HC: GDScript = load(HOME_CHROME_PATH)
-	if Kit == null or HC == null:
-		return null
-	var b: Button = Kit.home_button({
-		"icon": HC.ICON_EXPEDITION,
-		"caption": "",
-		"tooltip": "Expedition",
-		"action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_expedition(z)
-	}, {
-		"px": px,
-		"shape": "rect",
-		"icon_scale": clampf(float(opts.get("expedition_button_icon_scale", 0.64)), 0.35, 0.90),
-		"fill_alpha": 100,
-		"badge": opts.get("badge", {}),
-	})
-	b.name = node_name
-	b.set_meta("map_id", String(G.MAPS[z].id))
-	b.set_meta("icon_id", HC.ICON_EXPEDITION)
-	b.mouse_filter = Control.MOUSE_FILTER_STOP
-	return b
 
 # The housed-spirit STRIP down a card's right side — a translucent vertical plate carrying the placed orbs
 # (then empty slots up to capacity), arranged as a stable two-column / four-row rail. The whole strip
@@ -2436,7 +2393,30 @@ func _make_map_button() -> Button:
 # Show the Expedition rail button only when the open map is ready for the acquisition loop.
 func _refresh_residents_btn() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn):
-		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
+		var ready := G.can_populate(_map_idx, unlocks, _gates())
+		_residents_btn.visible = ready
+		_residents_btn.set_meta("map_id", String(G.MAPS[_map_idx].id))
+		var HC: GDScript = load(HOME_CHROME_PATH)
+		if HC != null:
+			_residents_btn.set_meta("icon_id", HC.ICON_EXPEDITION)
+	_layout_liveops_rail()
+
+func _layout_liveops_rail() -> void:
+	if _gear == null or not is_instance_valid(_gear):
+		return
+	var slot := 0
+	_place_rail(_gear, _rail_top_px, slot, _rail_step_px)
+	slot += 1
+	if _residents_btn != null and is_instance_valid(_residents_btn) and _residents_btn.visible:
+		_place_rail(_residents_btn, _rail_top_px, slot, _rail_step_px)
+		slot += 1
+	var ordered := [_daily_btn, _vault_btn, _inbox_btn]
+	for node in ordered:
+		var b := node as Button
+		if b == null or not is_instance_valid(b):
+			continue
+		_place_rail(b, _rail_top_px, slot, _rail_step_px)
+		slot += 1
 
 # --- the spirit DOCK constants (shared by the place-picker's housed strip + in-hand column) ------
 # The map view IS the residents surface now: the place-picker carries every completed map's housed orbs
@@ -2773,6 +2753,8 @@ var _rail_px := RAIL_PX         # the shared home-button size (drives the place-
 var _rail_disc_px := RAIL_PX    # the rail's OWN reduced disc size (RAIL_SCALE × shared) — smaller than the nav
 var _rail_margin_px := RAIL_MARGIN
 var _rail_opts := {}            # _home_opts with px overridden to _rail_disc_px (the rail discs only)
+var _rail_top_px := 0.0
+var _rail_step_px := 0.0
 
 func _view_size() -> Vector2:
 	if is_inside_tree():
@@ -2829,35 +2811,35 @@ func _build_liveops_rail() -> void:
 	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)), float(_home_opts.get("badge_dy", -26.0)))
 	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
 	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
-	var step := _rail_disc_px + RAIL_CAP_H + RAIL_GAP
-	var top := _wallet_bottom_y() + _rail_margin_px
-	var slot := 0
+	_rail_step_px = _rail_disc_px + RAIL_CAP_H + RAIL_GAP
+	_rail_top_px = _wallet_bottom_y() + _rail_margin_px
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	# Settings — first rail tile, using the same builder/placement as the rest of the side rail.
 	_gear = _rail_button(HC.ICON_SETTINGS, Strings.t("settings.title"), func() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_settings())
-	_place_rail(_gear, top, slot, step); slot += 1
+	# Expedition — map-specific acquisition entry. It appears directly under Settings only when the open map
+	# has at least one restored spot; hidden maps do not reserve a rail slot.
+	_residents_btn = _rail_button(HC.ICON_EXPEDITION, "Expedition", func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_expedition(_map_idx))
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
-	var daily := _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
-	_place_rail(daily, top, slot, step); slot += 1
+	_daily_btn = _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_daily_badge = Look.badge("dot", 0, bopts)
-	Look.attach_badge(daily, _daily_badge, bover)
+	Look.attach_badge(_daily_btn, _daily_badge, bover)
 	# (The free "Free" gem faucet moved off the rail into the premium/acorn shop — its lead card.
 	#  See shop.gd `_free_gems_card`. The rail is the navigation/liveops column only now.)
 	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
 	# Vault.claimable() (driven by _refresh_piggy_pip).
-	var piggy := _rail_button(HC.ICON_VAULT, Strings.t("map.rail.vault"), _open_vault)
-	_place_rail(piggy, top, slot, step); slot += 1
+	_vault_btn = _rail_button(HC.ICON_VAULT, Strings.t("map.rail.vault"), _open_vault)
 	_piggy_pip = Look.badge("dot", 0, bopts)
-	Look.attach_badge(piggy, _piggy_pip, bover)
+	Look.attach_badge(_vault_btn, _piggy_pip, bover)
 	_refresh_piggy_pip()
 	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
-		var inbox := _rail_button(HC.ICON_INBOX, Strings.t("map.rail.inbox"), _open_inbox)
-		_place_rail(inbox, top, slot, step); slot += 1
+		_inbox_btn = _rail_button(HC.ICON_INBOX, Strings.t("map.rail.inbox"), _open_inbox)
 		_inbox_badge = Look.badge("pill", 0, bopts)
-		Look.attach_badge(inbox, _inbox_badge, bover)
+		Look.attach_badge(_inbox_btn, _inbox_badge, bover)
 	_refresh_residents_btn()
 	_refresh_liveops_badges()
 
