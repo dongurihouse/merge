@@ -538,15 +538,79 @@ func _apply_board_config(b: Dictionary) -> void:
 
 # --- state ----------------------------------------------------------------------
 
+func _sanitize_saved_item_bag(raw: Array) -> Dictionary:
+	var out: Array = []
+	var changed := false
+	for v in raw:
+		var code := int(v)
+		if code > 0 and G.is_valid_item_code(code):
+			out.append(code)
+		else:
+			changed = true
+	return {"items": out, "changed": changed}
+
+func _quest_items_are_known(q: Dictionary) -> bool:
+	if q.has("line"):
+		return G.is_valid_item_code(int(q.get("line", 0)) * 100 + int(q.get("tier", 0)))
+	if q.has("asks"):
+		for ask in Array(q.get("asks", [])):
+			if not (ask is Dictionary):
+				continue
+			if not G.is_valid_item_code(int(ask.get("line", 0)) * 100 + int(ask.get("tier", 0))):
+				return false
+	return true
+
+func _sanitize_saved_quests(raw: Array) -> Dictionary:
+	var out: Array = []
+	var changed := false
+	for q in raw:
+		if not (q is Dictionary):
+			changed = true
+			continue
+		var qd: Dictionary = q
+		if not _quest_items_are_known(qd):
+			changed = true
+			continue
+		out.append(qd)
+	return {"quests": out, "changed": changed}
+
+func _sanitize_seen(g: Dictionary) -> bool:
+	if not g.has("seen"):
+		return false
+	if not (g["seen"] is Dictionary):
+		g["seen"] = {}
+		return true
+	var seen: Dictionary = g["seen"]
+	var out := {}
+	var changed := false
+	for key in seen.keys():
+		var sk := String(key)
+		if not sk.is_valid_int():
+			changed = true
+			continue
+		var code := int(sk)
+		if not G.is_valid_item_code(code):
+			changed = true
+			continue
+		out[sk] = seen[key]
+	if changed:
+		g["seen"] = out
+	return changed
+
 func _load_state() -> void:
 	board = BoardModel.new()
 	var now := Time.get_unix_time_from_system()
 	var g := Save.grove()
+	var save_dirty := _sanitize_seen(g)
 	if g.has("board"):
-		board.from_dict(g["board"])
-		quests = Array(g.get("quests", []))
+		save_dirty = board.from_dict(g["board"]) or save_dirty
+		var quest_clean := _sanitize_saved_quests(Array(g.get("quests", [])))
+		quests = quest_clean["quests"]
+		save_dirty = bool(quest_clean["changed"]) or save_dirty
 		quests_map = int(g.get("quests_map", -1))
-		bag = Array(g.get("bag", []))
+		var bag_clean := _sanitize_saved_item_bag(Array(g.get("bag", [])))
+		bag = bag_clean["items"]
+		save_dirty = bool(bag_clean["changed"]) or save_dirty
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
 		refills_used = int(g.get("refills_used", 0))
@@ -567,6 +631,7 @@ func _load_state() -> void:
 		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap when an active quest
 		# asks for their line and the player lacks the generator; see Quests.due_gen / _produce_due_generators.
 		board.seed_gens(0, _quest_level())
+		save_dirty = true
 	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
 	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
 	# a save whose gate write was missed — a pre-§7 save (gate quest retired), or one whose spot ids were
@@ -582,6 +647,8 @@ func _load_state() -> void:
 		_mark_seen(int(v))
 	for v in bag:
 		_mark_seen(int(v))
+	if save_dirty:
+		_persist()
 
 # --- the discovery log: which items has this player ever grown? -------------------
 # Powers the upgrade-path card (unseen tiers show as "?").

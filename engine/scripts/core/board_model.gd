@@ -384,28 +384,50 @@ func to_dict() -> Dictionary:
 			cr.append([cell.x, cell.y, String(reward.kind), int(reward.amount)])
 	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate(), "collect_rewards": cr}
 
-func from_dict(d: Dictionary) -> void:
+func from_dict(d: Dictionary) -> bool:
+	var changed := false
 	var t: Array = d.get("terrain", [])
 	var it: Array = d.get("items", [])
 	if t.size() == terrain.size() and it.size() == items.size():
 		for i in t.size():
 			terrain[i] = int(t[i])
-			items[i] = int(it[i])
+			var code := int(it[i])
+			if code < 0 or (code > 0 and not G.is_valid_item_code(code)):
+				code = 0
+				changed = true
+			items[i] = code
 	collect_rewards = {}
 	for e in d.get("collect_rewards", []):
 		if not (e is Array) or (e as Array).size() < 4:
+			changed = true
 			continue
 		var cell := Vector2i(int(e[0]), int(e[1]))
 		if in_bounds(cell) and item_at(cell) > 0:
 			set_collect_reward(cell, String(e[2]), int(e[3]))
+		else:
+			changed = true
 	gens = {}
 	gen_tiers = {}
 	for e in d.get("gens", []):
+		if not (e is Array) or (e as Array).size() < 3:
+			changed = true
+			continue
 		var gc := Vector2i(int(e[0]), int(e[1]))
-		gens[gc] = String(e[2])
+		var gid := String(e[2])
+		if not in_bounds(gc) or not G.is_valid_generator_id(gid):
+			changed = true
+			continue
+		gens[gc] = gid
 		gen_tiers[gc] = int(e[3]) if (e as Array).size() > 3 else 1   # #8: tier (old 3-element saves → 1)
-	gen_bag = Array(d.get("gen_bag", []))
+	var raw_gen_bag: Array = Array(d.get("gen_bag", []))
 	var bt: Array = Array(d.get("gen_bag_tiers", []))     # #8: parallel tiers (absent in old saves → all 1)
+	gen_bag = []
 	gen_bag_tiers = []
-	for i in gen_bag.size():
+	for i in raw_gen_bag.size():
+		var gid := String(raw_gen_bag[i])
+		if not G.is_valid_generator_id(gid):
+			changed = true
+			continue
+		gen_bag.append(gid)
 		gen_bag_tiers.append(int(bt[i]) if i < bt.size() else 1)
+	return changed

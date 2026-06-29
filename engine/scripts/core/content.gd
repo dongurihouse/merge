@@ -998,6 +998,19 @@ static func is_coin(code: int) -> bool:
 static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
+static func is_valid_item_code(code: int) -> bool:
+	if code <= 0:
+		return false
+	var line := int(code / 100.0)
+	var tier := code % 100
+	if tier <= 0:
+		return false
+	if is_coin(code):
+		return COIN_VALUES.has(tier)
+	if SPECIAL_ITEMS.has(line):
+		return tier <= int((SPECIAL_ITEMS[line] as Dictionary).get("top", SPECIAL_TOP))
+	return LINES.has(line) and tier <= TOP_TIER
+
 static func item_display_name(code: int) -> String:
 	var line := int(code / 100.0)
 	if is_coin(code):
@@ -1058,6 +1071,15 @@ static func generator_description(id: String) -> String:
 		var name := item_display_name(line * 100 + TREAT_POP_TIER)
 		return "Temporary generator. Tap to pop %s items and special drops." % name
 	return ""
+
+static func is_valid_generator_id(id: String) -> bool:
+	if id == "":
+		return false
+	if not gen_def(GENERATORS, id).is_empty():
+		return true
+	if is_accumulator(id):
+		return true
+	return is_treat_gen(id) and TREAT_LINES.has(treat_line_of(id))
 
 ## A board piece that is POCKETED rather than merged into goods. The single hook the board's
 ## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins AND the §6.B

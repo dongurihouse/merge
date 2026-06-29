@@ -6,6 +6,7 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0
@@ -29,6 +30,30 @@ func _fixture() -> Array:
 		{"id": "g1b", "map": 1, "line": 6, "cell": Vector2i(2, 1)},
 		{"id": "g1c", "map": 1, "line": 7, "cell": Vector2i(6, 5)},
 	]
+
+func fresh(name: String) -> void:
+	var dir := "user://tu_mechanics_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
+func _has_stale_test_item(list: Array) -> bool:
+	for v in list:
+		if int(v) == 99901 or int(v) == 100 + int(G.TOP_TIER) + 1 or int(v) == G.COIN_LINE * 100 + 99:
+			return true
+	return false
+
+func _has_stale_test_quest_item(list: Array) -> bool:
+	for q in list:
+		if not (q is Dictionary):
+			continue
+		var it := G.quest_item(q)
+		if not it.is_empty() and (int(it.line) == 999 or int(it.tier) == int(G.TOP_TIER) + 1):
+			return true
+	return false
 
 func _initialize() -> void:
 	var r := _fixture()
@@ -88,6 +113,55 @@ func _initialize() -> void:
 	var bm2 := BoardModel.new()
 	bm2.from_dict(blob)
 	ok(bm2.gen_id_at(open_cell) == "gen_1" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("gen_21"), "the generator map + gen_bag round-trip through to_dict/from_dict")
+
+	# #3b stale-save hygiene: unknown/deprecated item codes and generator ids are dropped while
+	# loading saved board state, rather than surviving into gameplay.
+	var stale_blob := bm.to_dict()
+	var stale_items: Array = stale_blob["items"]
+	stale_items[0] = 101
+	stale_items[1] = 99901
+	stale_items[2] = 100 + int(G.TOP_TIER) + 1
+	stale_blob["items"] = stale_items
+	stale_blob["gens"] = [[4, 3, "gen_1", 1], [4, 4, "old_generator", 2]]
+	stale_blob["gen_bag"] = ["gen_21", "old_generator", "acc_water", G.treat_gen_id(int(G.TREAT_LINES[0])), "treat_999"]
+	stale_blob["gen_bag_tiers"] = [1, 2, 3, 4, 5]
+	var cleaned := BoardModel.new()
+	cleaned.from_dict(stale_blob)
+	ok(cleaned.item_at(BoardModel.cell_of(1)) == 0 and cleaned.item_at(BoardModel.cell_of(2)) == 0, \
+		"from_dict drops unknown/deprecated item codes from board cells")
+	ok(cleaned.gens.values().has("gen_1") and not cleaned.gens.values().has("old_generator"), \
+		"from_dict drops unknown/deprecated generator ids from board cells")
+	ok(cleaned.gen_bag.has("gen_21") and cleaned.gen_bag.has("acc_water") \
+		and cleaned.gen_bag.has(G.treat_gen_id(int(G.TREAT_LINES[0]))) \
+		and not cleaned.gen_bag.has("old_generator") and not cleaned.gen_bag.has("treat_999"), \
+		"from_dict drops unknown/deprecated generator ids from gen_bag and keeps valid bonus/treat generators")
+
+	# #3c game load hygiene: stale item pointers in the grove save are removed from persisted board,
+	# bag, quest, and seen state on load.
+	fresh("stale_save_items")
+	var sg := Save.grove()
+	sg["board"] = stale_blob
+	sg["bag"] = [101, 99901, G.COIN_LINE * 100 + 1, G.COIN_LINE * 100 + 99]
+	sg["quests"] = [
+		{"line": 1, "tier": 4, "reward": {"exp": 1, "coins": 1}},
+		{"line": 999, "tier": 1, "reward": {"exp": 1, "coins": 1}},
+		{"line": 1, "tier": int(G.TOP_TIER) + 1, "reward": {"exp": 1, "coins": 1}},
+	]
+	sg["quests_map"] = 0
+	sg["seen"] = {"101": true, "99901": true, str(100 + int(G.TOP_TIER) + 1): true, "not-an-item": true}
+	Save.grove_write()
+	Save._loaded = false
+	var stale_scene = load("res://engine/scenes/Board.tscn").instantiate()
+	stale_scene._load_state()
+	var after := Save.grove()
+	ok(not _has_stale_test_item(Array(after["board"].get("items", []))) and not _has_stale_test_item(Array(after.get("bag", []))), \
+		"loading the board removes unknown/deprecated item codes from persisted board and bag state")
+	ok(not _has_stale_test_quest_item(Array(after.get("quests", []))), \
+		"loading the board removes quests that ask for unknown/deprecated items")
+	var seen: Dictionary = after.get("seen", {})
+	ok(not seen.has("99901") and not seen.has(str(100 + int(G.TOP_TIER) + 1)) and not seen.has("not-an-item"), \
+		"loading the board removes unknown/deprecated item codes from the seen ledger")
+	stale_scene.free()
 
 	# #8 generator merge ladder + tier persistence
 	var bm3 := BoardModel.new()
