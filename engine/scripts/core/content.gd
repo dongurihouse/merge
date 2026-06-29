@@ -30,6 +30,9 @@ const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (g
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_MAP_SPOTS = D.ZONE_MAP_SPOTS
+const GEN_TOP_TIER = D.GEN_TOP_TIER
+const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
+const GEN_TIER_BURST_ODDS = D.GEN_TIER_BURST_ODDS
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -320,6 +323,32 @@ static func due_line_gen(current_zone: int, owned_ids: Array) -> String:
 		if gid != "" and not owned_ids.has(gid):
 			return gid
 	return ""
+
+# --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
+# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples.
+static func gen_burst_odds(tier: int) -> Array:
+	return GEN_TIER_BURST_ODDS[clampi(tier, 1, GEN_TOP_TIER) - 1]
+
+# Two same-line generators merge 2:1 into the next tier (capped at GEN_TOP_TIER).
+static func gen_merge_tier(tier: int) -> int:
+	return mini(tier + 1, GEN_TOP_TIER)
+
+# A below-top generator self-produces a duplicate at GEN_SELF_DUP_RATE per tap (the merge fuel).
+static func rolls_gen_self_dup(rng: RandomNumberGenerator) -> bool:
+	return rng.randf() < GEN_SELF_DUP_RATE
+
+# A generator's burst count at its tier (1..N items), rolled over its tier odds.
+static func gen_burst_count(tier: int, rng: RandomNumberGenerator) -> int:
+	var odds := gen_burst_odds(tier)
+	var n := 1
+	var roll := rng.randf()
+	var acc := 0.0
+	for i in odds.size():
+		acc += float(odds[i])
+		if roll <= acc:
+			n = i + 1
+			break
+	return clampi(n, 1, odds.size())
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
 	for g in roster:

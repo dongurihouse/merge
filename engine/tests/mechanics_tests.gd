@@ -298,6 +298,16 @@ func _initialize() -> void:
 	ok(G.active_base_lines(7) == [4, 5, 21], "the active window holds the last 3 base lines (specials skipped)")
 	ok(G.due_line_gen(7, ["gen_4", "gen_5"]) == "gen_21", "birth-on-tap returns the newest active line lacking a generator")
 	ok(G.due_line_gen(7, ["gen_4", "gen_5", "gen_21"]) == "", "nothing due when all active lines have generators")
+	# generator merge ladder (task 8 logic; additive — board wiring flips later)
+	ok(G.gen_merge_tier(1) == 2 and G.gen_merge_tier(2) == 3 and G.gen_merge_tier(3) == 3, "generators merge up to tier 3, then cap")
+	ok(G.gen_burst_odds(1) == [0.80, 0.15, 0.05] and float(G.gen_burst_odds(3)[2]) > float(G.gen_burst_odds(1)[2]), "higher generator tier pops more multiples")
+	var sdup_rng := RandomNumberGenerator.new()
+	sdup_rng.seed = 11
+	var sdups := 0
+	for i in 10000:
+		if G.rolls_gen_self_dup(sdup_rng):
+			sdups += 1
+	ok(sdups > 15 and sdups < 130, "self-dup fires near the 0.5% rate over 10k taps")
 
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.

@@ -151,6 +151,17 @@ const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36,
 const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77]   # 7 special lines (71-75 = shelved treat art; 76-77 to author)
 const ZONE_COUNT := 23                    # 16 base + 7 special
 const ZONE_MAP_SPOTS := [7, 4, 7, 4, 1]   # spots per map = zones per map (sums to ZONE_COUNT=23); zone = spot
+
+# §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
+# higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
+# GEN_SELF_DUP_RATE per tap (the merge fuel); a maxed generator instead feeds another sub-max line (board logic).
+const GEN_TOP_TIER := 3
+const GEN_SELF_DUP_RATE := 0.005           # 0.5% per tap
+const GEN_TIER_BURST_ODDS := [             # burst odds [1,2,3 items] by generator tier (1..3) — higher = more multiples
+	[0.80, 0.15, 0.05],   # tier 1
+	[0.50, 0.35, 0.15],   # tier 2
+	[0.20, 0.45, 0.35],   # tier 3
+]
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
