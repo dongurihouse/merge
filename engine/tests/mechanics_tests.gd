@@ -339,7 +339,13 @@ func _initialize() -> void:
 	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
 		"merge_top caps special items low, content high, coins at the coin top")
 	ok(G.merge_top(coin_t1) == 12, "coins now merge through tier 12")
-	ok(G.coin_value(G.COIN_LINE * 100 + 12) == 50000, "coin t12 collects for the tuned high-tier value")
+	var expected_coin_values := {
+		1: 10, 2: 20, 3: 40, 4: 90, 5: 200, 6: 450,
+		7: 1000, 8: 2200, 9: 4700, 10: 10000, 11: 23000, 12: 50000,
+	}
+	for tier in expected_coin_values:
+		ok(G.coin_value(G.COIN_LINE * 100 + int(tier)) == int(expected_coin_values[tier]), \
+			"coin t%d follows the tuned 2.2x ladder (%d)" % [int(tier), int(expected_coin_values[tier])])
 	var sbm := BoardModel.new()
 	sbm.place(Vector2i(3, 2), 10 * 100 + 2)
 	sbm.place(Vector2i(3, 4), 10 * 100 + 2)
@@ -363,8 +369,13 @@ func _initialize() -> void:
 		"pick_special_drop yields t1 codes spread across the special kinds")
 	# tap-collect grants the resource by tier; chest/key are NOT tap-collected (opened instead)
 	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
-	ok(G.special_collect(13 * 100 + 3) == {"kind": "acorn", "amount": 5}, "acorn t3 tap-collects acorns")
-	ok(G.special_collect(13 * 100 + 12) == {"kind": "acorn", "amount": 5000}, "acorn t12 tap-collects its tuned premium amount")
+	var expected_acorn_values := {
+		1: 1, 2: 2, 3: 5, 4: 11, 5: 23, 6: 52,
+		7: 113, 8: 249, 9: 549, 10: 1207, 11: 2656, 12: 5843,
+	}
+	for tier in expected_acorn_values:
+		ok(G.special_collect(13 * 100 + int(tier)) == {"kind": "acorn", "amount": int(expected_acorn_values[tier])}, \
+			"acorn t%d follows the 2.2x ladder (%d)" % [int(tier), int(expected_acorn_values[tier])])
 	ok(G.special_collect(14 * 100 + 1) == {"kind": "exp", "amount": 5}, "exp (spark) t1 tap-collects exp")
 	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest is NOT tap-collected (it is opened by a key)")
 	# the open pairing: chest + key (either order), not chest+chest or key+water

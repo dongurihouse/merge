@@ -18,7 +18,7 @@ func _initialize() -> void:
 		ok(content.call("item_display_name", 1501) == "Wildcard", "wildcards have a real display name")
 		ok(String(content.call("item_description", 1501)).contains("same-tier"), "wildcards explain their drag rule")
 		ok(content.call("item_display_name", 902) == "Coin", "coin items have a real display name")
-		ok(String(content.call("item_description", 902)).contains("5 coins"), "coin items explain their collect value")
+		ok(String(content.call("item_description", 902)).contains("20 coins"), "coin items explain their collect value")
 		for special_line in G.SPECIAL_ITEMS:
 			var special_code := int(special_line) * 100 + 1
 			ok(content.call("item_display_name", special_code) != "Item", "special item line %d has player-facing copy" % int(special_line))
