@@ -4,9 +4,9 @@
   "cols": 3,
   "output_size": 512,
   "background_rgb": [
-    245,
-    11,
-    229
+    255,
+    0,
+    255
   ],
   "items": [
     {
@@ -17,10 +17,10 @@
       "tier": 4,
       "target": "games/grove/assets/items/coin/coin_4.png",
       "source_bbox": [
-        51,
-        128,
-        262,
-        271
+        116,
+        30,
+        267,
+        270
       ],
       "components": 1
     },
@@ -32,10 +32,10 @@
       "tier": 5,
       "target": "games/grove/assets/items/coin/coin_5.png",
       "source_bbox": [
-        337,
-        92,
-        559,
-        278
+        380,
+        55,
+        620,
+        253
       ],
       "components": 1
     },
@@ -47,10 +47,10 @@
       "tier": 6,
       "target": "games/grove/assets/items/coin/coin_6.png",
       "source_bbox": [
-        605,
-        75,
-        862,
-        280
+        710,
+        45,
+        952,
+        275
       ],
       "components": 1
     },
@@ -62,10 +62,10 @@
       "tier": 7,
       "target": "games/grove/assets/items/coin/coin_7.png",
       "source_bbox": [
-        27,
-        369,
-        269,
-        556
+        94,
+        299,
+        276,
+        542
       ],
       "components": 1
     },
@@ -77,10 +77,10 @@
       "tier": 8,
       "target": "games/grove/assets/items/coin/coin_8.png",
       "source_bbox": [
-        312,
-        336,
-        567,
-        547
+        360,
+        291,
+        631,
+        551
       ],
       "components": 1
     },
@@ -92,10 +92,10 @@
       "tier": 9,
       "target": "games/grove/assets/items/coin/coin_9.png",
       "source_bbox": [
-        597,
-        321,
-        868,
-        565
+        696,
+        327,
+        963,
+        552
       ],
       "components": 1
     },
@@ -107,10 +107,10 @@
       "tier": 10,
       "target": "games/grove/assets/items/coin/coin_10.png",
       "source_bbox": [
-        25,
-        623,
-        277,
-        837
+        60,
+        570,
+        299,
+        790
       ],
       "components": 1
     },
@@ -122,10 +122,10 @@
       "tier": 11,
       "target": "games/grove/assets/items/coin/coin_11.png",
       "source_bbox": [
-        300,
-        600,
-        570,
-        849
+        381,
+        565,
+        621,
+        801
       ],
       "components": 1
     },
@@ -137,10 +137,10 @@
       "tier": 12,
       "target": "games/grove/assets/items/coin/coin_12.png",
       "source_bbox": [
-        595,
-        598,
-        872,
-        847
+        710,
+        568,
+        940,
+        798
       ],
       "components": 1
     },
@@ -152,10 +152,10 @@
       "tier": 4,
       "target": "games/grove/assets/items/acorn/acorn_4.png",
       "source_bbox": [
-        64,
-        904,
-        232,
-        1104
+        100,
+        815,
+        264,
+        1023
       ],
       "components": 1
     },
@@ -167,10 +167,10 @@
       "tier": 5,
       "target": "games/grove/assets/items/acorn/acorn_5.png",
       "source_bbox": [
-        354,
-        904,
-        525,
-        1105
+        399,
+        810,
+        602,
+        1025
       ],
       "components": 1
     },
@@ -182,10 +182,10 @@
       "tier": 6,
       "target": "games/grove/assets/items/acorn/acorn_6.png",
       "source_bbox": [
-        647,
-        904,
-        819,
-        1106
+        720,
+        812,
+        916,
+        1027
       ],
       "components": 1
     },
@@ -197,10 +197,10 @@
       "tier": 7,
       "target": "games/grove/assets/items/acorn/acorn_7.png",
       "source_bbox": [
-        60,
-        1167,
-        229,
-        1384
+        101,
+        1037,
+        261,
+        1244
       ],
       "components": 1
     },
@@ -212,10 +212,10 @@
       "tier": 8,
       "target": "games/grove/assets/items/acorn/acorn_8.png",
       "source_bbox": [
-        353,
-        1168,
-        525,
-        1389
+        413,
+        1037,
+        580,
+        1246
       ],
       "components": 1
     },
@@ -227,10 +227,10 @@
       "tier": 9,
       "target": "games/grove/assets/items/acorn/acorn_9.png",
       "source_bbox": [
-        644,
-        1168,
-        818,
-        1389
+        732,
+        1037,
+        886,
+        1249
       ],
       "components": 1
     },
@@ -242,10 +242,10 @@
       "tier": 10,
       "target": "games/grove/assets/items/acorn/acorn_10.png",
       "source_bbox": [
-        52,
-        1445,
-        241,
-        1687
+        81,
+        1249,
+        258,
+        1501
       ],
       "components": 1
     },
@@ -257,10 +257,10 @@
       "tier": 11,
       "target": "games/grove/assets/items/acorn/acorn_11.png",
       "source_bbox": [
-        343,
-        1445,
-        529,
-        1691
+        399,
+        1248,
+        594,
+        1507
       ],
       "components": 1
     },
@@ -272,10 +272,10 @@
       "tier": 12,
       "target": "games/grove/assets/items/acorn/acorn_12.png",
       "source_bbox": [
-        635,
-        1444,
-        841,
-        1693
+        721,
+        1259,
+        926,
+        1506
       ],
       "components": 1
     }
