@@ -2682,6 +2682,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		Audio.play("invalid_soft", -4.0)
 		return
 	pool = [gen_line]
+	# …and narrow `wanted` to match: roll_spawn leans ~ASK_WEIGHT toward the wanted set, so leaving the
+	# shared multi-line wanted here would let this generator pop OTHER quests' lines (gen redesign #4 —
+	# "both generators produce both lines"). Keep only this line, so every spawn — wanted branch or pool
+	# branch — resolves to gen_line, while the own-line tier bias below still applies.
+	wanted = [gen_line] if wanted.has(gen_line) else []
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()

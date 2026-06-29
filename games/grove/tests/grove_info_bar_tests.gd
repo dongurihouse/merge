@@ -376,6 +376,46 @@ func _initialize() -> void:
 	# Bundle A (tactile) board drag: the merge-target TELEGRAPH and the held-tile LEAN.
 	_test_drag_feel()
 
+	# PER-LINE PRODUCTION (gen redesign #4): a generator pops ONLY its own line through the real _pop_seed
+	# tap path, even when several active quests want OTHER lines. roll_spawn leans ~ASK_WEIGHT toward the
+	# quest-wanted set, so feeding it the un-narrowed `wanted` makes a line-1 generator also spew the other
+	# quests' lines (the "both generators produce both lines" bug). Tap the anchor with two lines wanted and
+	# assert nothing foreign ever lands. (The sibling _gen_line_entries highlight is asserted above.)
+	fresh("per_line_pop")
+	var spl = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(spl)
+	if spl.board == null:
+		spl._ready()
+	await process_frame
+	spl.rng.seed = 424242                               # deterministic spawn stream
+	Save.grove()["pops"] = 99                           # past the FTUE free pops → charged bursts
+	spl.water = 9_999_999
+	spl.quests = [
+		{"line": 1, "tier": 4, "reward": {"exp": 1, "coins": 0}},
+		{"line": 2, "tier": 4, "reward": {"exp": 1, "coins": 0}},
+	]
+	spl.giver_chips = [{"chip": null, "qi": 0}, {"chip": null, "qi": 1}]
+	ok(spl._pop_pool_ctx()["wanted"].size() >= 2, "per-line: test setup — active quests want more than one line")
+	var pl_cell: Vector2i = spl.board.gens.keys()[0]
+	ok(int(G.gen_def(G.GENERATORS, spl.board.gen_id_at(pl_cell)).get("line", 0)) == 1, "per-line: the anchor generator is line 1")
+	var pl_own := 0
+	var pl_foreign := 0
+	for _i in 30:
+		for ci in spl.board.items.size():              # clear non-gen items so each tap pops onto open ground
+			if spl.board.items[ci] > 0 and not spl.board.gens.has(BoardModel.cell_of(ci)):
+				spl.board.items[ci] = 0
+		spl._pop_seed(pl_cell)
+		for v in spl.board.items:
+			if v > 0:
+				var ln := BoardModel.line_of(v)
+				if ln == 1:
+					pl_own += 1
+				elif ln != 0:
+					pl_foreign += 1
+	ok(pl_own > 0, "per-line: the line-1 generator pops its own line")
+	ok(pl_foreign == 0, "per-line: a line-1 generator never pops another quest's line (got %d foreign)" % pl_foreign)
+	spl.queue_free()
+
 	board_scene.queue_free()
 	board_scene = null
 	content = null
