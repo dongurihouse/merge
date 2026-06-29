@@ -2664,23 +2664,13 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 # breathes + glows so it is unmissable. Returns true if it produced one — the tap is then SPENT birthing the
 # tool (no energy, no item burst). Self-heals the anchor for fresh/stranded saves, so the next tap catches up.
 func _produce_due_generators() -> bool:
-	var gid := Quests.due_gen(quests, Quests.owned_gens(board.gens, board.gen_bag))
-	var due: Array = [gid] if gid != "" else []
-	if due.is_empty():
+	# RULE in the pure action (which gen is owed + place-or-bag it); the scene renders the pop-in + glow.
+	var out := BoardActions.produce_due_generators(board, quests)
+	if not bool(out.due):
 		return false
-	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)
-	for id in due:
-		var dest := Vector2i(-1, -1)
-		for c in board.empty_ground_cells():      # gen redesign: NO board cap — generators place freely (the ≤6
-			if not board.gens.has(c):             # limit is a QUEST-side complexity cap, not a board cap)
-				dest = c
-				break
-		if dest == Vector2i(-1, -1):
-			board.bag_add(id)                     # board genuinely full (no open cell) → hold it in the bag
-		else:
-			board.place_gen(id, dest)
-			_grown_cells.append(dest)             # _rebuild_all pops it in + starts its breathe
-			landed.append(dest)
+	var landed: Array = out.landed                # board cells of tools placed this tap (bagged ones have none)
+	for gc in landed:
+		_grown_cells.append(gc)                   # _rebuild_all pops it in + starts its breathe
 	_persist()
 	_rebuild_all()                                # renders the new tool(s); _grown_cells drives the pop-in + breathe
 	for gc in landed:                             # glow + announce each freshly-landed tool so it can't be missed
@@ -2889,11 +2879,9 @@ func _open_bramble(cell: Vector2i) -> void:
 	Audio.play("tidy_poof", -2.0)
 
 func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
-	var empties := board.empty_ground_cells()
-	if empties.is_empty():
+	var cell := BoardLogic.pick_drop_cell(board, near, rng)
+	if cell.x < 0:                                # no open ground → nothing to shake loose
 		return
-	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
-	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
 	if code <= 0:
 		code = G.COIN_LINE * 100 + 1
 	board.place(cell, code)
@@ -2935,15 +2923,13 @@ func debug_drop_acorn() -> void:
 	_refresh_generator_dim()
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
-	var reward := board.take_collect_reward(cell)
-	var code := board.take(cell)
+	# RULE in the pure action (take the coin + credit the wallet); the scene renders the fly-to-HUD.
+	var got := int(BoardActions.collect_coin(board, cell).get("got", 0))
 	piece_nodes.erase(cell)
-	var got := int(reward.amount) if String(reward.get("kind", "")) == "coins" else G.coin_value(code)
 	var at := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	if node != null and is_instance_valid(node):
 		at = node.get_global_rect().get_center()
 		node.queue_free()
-	Save.add_coins(got)
 	var coin_done := func() -> void:
 		if is_instance_valid(self):
 			_update_hud()
@@ -2955,11 +2941,9 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 
 # §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
 func _drop_special_near(near: Vector2i, code: int) -> void:
-	var empties := board.empty_ground_cells()
-	if empties.is_empty():
+	var cell := BoardLogic.pick_drop_cell(board, near, rng)
+	if cell.x < 0:                                # no open ground → nothing to shake loose
 		return
-	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
-	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
 	board.place(cell, code)
 	var n := _make_piece(code, csz)
 	n.position = _cell_pos(near)
@@ -2981,24 +2965,16 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
-	var got: Dictionary = G.special_collect(board.item_at(cell))
-	var reward := board.take_collect_reward(cell)
-	if not reward.is_empty():
-		got = reward
-	if got.is_empty():
+	# RULE in the pure action (resolve the reward, take the tile, credit acorn/exp); the scene folds a
+	# "water" reward into its live water mirror (a scene field, not Save) and renders.
+	var out := BoardActions.collect_special(board, cell)
+	if out.is_empty():
 		return
-	board.take(cell)
 	piece_nodes.erase(cell)
 	if node != null and is_instance_valid(node):
 		node.queue_free()
-	var amount := int(got.amount)
-	match String(got.kind):
-		"water":
-			water = mini(G.WATER_CAP, water + amount)
-		"acorn":
-			Save.add_diamonds(amount)
-		"exp":
-			Save.add_exp(amount)
+	if String(out.kind) == "water":
+		water = mini(G.WATER_CAP, water + int(out.amount))
 	Audio.play("coin_earn", -3.0, 1.15)
 	_persist()
 	_update_hud()

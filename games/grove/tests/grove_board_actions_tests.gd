@@ -5,12 +5,17 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## Board scene. This is the "change the rule, assert without UI validation" gate.
 
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
 func _initialize() -> void:
 	begin("grove · board actions")
 	_test_deliver_quest()
 	_test_deliver_empty_quest_skips_recent()
 	_test_per_generator_boost()
+	_test_collect_coin()
+	_test_collect_special()
+	_test_produce_due_generators()
+	_test_pick_drop_cell()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -85,3 +90,89 @@ func _test_per_generator_boost() -> void:
 	var e2 := BoardModel.new(); e2.from_dict(e.to_dict())
 	var eopen: Vector2i = e2.empty_ground_cells()[0]
 	ok(e2.place_gen_from_bag(eid, eopen) and e2.gen_boost_at(eopen) == 6, "boost: re-placing from a saved bag restores the carried taps")
+
+# §6.B collect a board coin → the tile leaves the board and its value credits the coin wallet. Pure
+# transition: model take + Save.add_coins, returning the credited amount for the scene's fly-to-HUD.
+func _test_collect_coin() -> void:
+	fresh("collect_coin")
+	var board := BoardModel.new()
+	var cell := Vector2i(2, 2)
+	var code := G.COIN_LINE * 100 + 1
+	board.place(cell, code)
+	var coins_b := Save.coins()
+	var out: Dictionary = BoardActions.collect_coin(board, cell)
+	ok(board.item_at(cell) == 0, "collecting removed the coin from the board")
+	ok(int(out.get("got", -1)) == G.coin_value(code), "collect_coin reports the coin value")
+	ok(Save.coins() == coins_b + G.coin_value(code), "collect_coin credited the coin value to the wallet")
+
+# §6.B collect a special drop (water / acorn / exp). exp+acorn write Save directly; water is RETURNED
+# for the caller to fold into its live water mirror (a scene field, not Save). The tile always leaves.
+func _test_collect_special() -> void:
+	fresh("collect_special")
+	var board := BoardModel.new()
+	var special := 13 * 100 + 1
+	# exp special → Save.add_exp
+	var c1 := Vector2i(1, 1)
+	board.place(c1, special)
+	board.set_collect_reward(c1, "exp", 5)
+	var exp_b := Save.exp_total()
+	var o1: Dictionary = BoardActions.collect_special(board, c1)
+	ok(board.item_at(c1) == 0, "collecting a special removes it from the board")
+	ok(String(o1.get("kind", "")) == "exp" and int(o1.get("amount", -1)) == 5, "collect_special reports kind + amount")
+	ok(Save.exp_total() == exp_b + 5, "an exp special credits exp")
+	# acorn special → Save.add_diamonds
+	var c2 := Vector2i(2, 2)
+	board.place(c2, special)
+	board.set_collect_reward(c2, "acorn", 3)
+	var dia_b := Save.diamonds()
+	BoardActions.collect_special(board, c2)
+	ok(Save.diamonds() == dia_b + 3, "an acorn special credits diamonds")
+	# water special → NOT written to Save; returned so the caller folds it into its live water mirror
+	var c3 := Vector2i(3, 3)
+	board.place(c3, special)
+	board.set_collect_reward(c3, "water", 4)
+	var dia_b2 := Save.diamonds()
+	var o3: Dictionary = BoardActions.collect_special(board, c3)
+	ok(String(o3.get("kind", "")) == "water" and int(o3.get("amount", -1)) == 4, "a water special is reported for the caller's water mirror")
+	ok(board.item_at(c3) == 0 and Save.diamonds() == dia_b2, "the water special is consumed but writes no Save currency")
+
+# Birth-on-tap: the generator the board owes (the anchor self-heals first, then any quest-required gen the
+# player lacks) lands on a free cell, or falls into the bag when the board is full. Pure model placement.
+func _test_produce_due_generators() -> void:
+	var anchor := G.anchor_gen()
+	# 1. a fresh board owes the anchor → it lands on one free cell
+	var board := BoardModel.new()
+	var out: Dictionary = BoardActions.produce_due_generators(board, [])
+	ok(bool(out.get("due", false)) and out.get("landed", []).size() == 1, "a fresh board is due to produce the anchor onto one cell")
+	var cell: Vector2i = out.landed[0]
+	ok(board.is_gen(cell) and board.gen_id_at(cell) == anchor, "the landed cell holds the anchor generator")
+	# 2. idempotent: with the anchor now owned, nothing further is due
+	ok(not bool(BoardActions.produce_due_generators(board, []).get("due", false)), "with the anchor owned, nothing more is due")
+	# 3. board full → the owed tool falls into the bag instead of a cell
+	var full := BoardModel.new()
+	for i in full.items.size():
+		full.items[i] = 101                       # occupy every cell → no empty ground remains
+	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
+	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
+	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
+
+# The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
+# cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.
+func _test_pick_drop_cell() -> void:
+	var board := BoardModel.new()
+	var near := Vector2i(3, 3)
+	var empties := board.empty_ground_cells()
+	ok(not empties.is_empty(), "a fresh board has open cells to drop into")
+	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
+	var nearest3: Array = empties.slice(0, mini(3, empties.size()))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 999
+	var all_in := true
+	for n in 12:
+		if not (BoardLogic.pick_drop_cell(board, near, rng) in nearest3):
+			all_in = false
+	ok(all_in, "pick_drop_cell always lands within the 3 nearest open cells")
+	var full := BoardModel.new()
+	for i in full.items.size():
+		full.items[i] = 101
+	ok(BoardLogic.pick_drop_cell(full, near, rng) == Vector2i(-1, -1), "a board with no open ground yields the (-1,-1) sentinel")
