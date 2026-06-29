@@ -259,6 +259,12 @@ static func zone_recipe(z: int) -> Array:
 		return []
 	return [zone_line(z - 2), zone_line(z - 1)]
 
+# LINE-keyed recipe: the two ingredient base lines a MERGED (special) line is crafted from; [] for a base
+# line or an unknown line. The tier screen's recipe view uses this (zone_recipe is zone-keyed).
+static func recipe_lines(line: int) -> Array:
+	var z := zone_of_line(int(line))
+	return zone_recipe(z) if z >= 0 else []
+
 # The SPECIAL line crafted by merging two base lines at the same tier (Core §6.G). Order-independent; 0 if
 # the pair isn't a recipe. (Derived: the special zone whose two preceding base lines are this pair.)
 static func special_for_pair(line_a: int, line_b: int) -> int:
