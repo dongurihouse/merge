@@ -249,15 +249,15 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > **Tier dialog.** The line's tier dialog **names the generator** that makes it, lets the player **buy any
 > seen tier** (existing 3×-sell `buy_price`), and **shows the recipe** for special lines.
 >
-> **Quests & curve.** Active quests rise **5 → 10** (`MAX_GIVERS`). The early curve front-loads so a new
-> player hits **zone 2 in a few minutes** and **zone 3 by ~10 min** (≈30 taps/min) — sim-validated on
-> `grove_sim`.
+> **Quests & curve.** Active quests cap at **8** (`MAX_GIVERS`), with at most **4 quests from one line**.
+> The early curve front-loads so a new player hits **zone 2 in a few minutes** and **zone 3 by ~10 min**
+> (≈30 taps/min) — sim-validated on `grove_sim`.
 >
 > **Ship order (one task each):** (1) remove treat-gen spawn + shelve lines 71–75 · (2) accumulators →
 > limited-use bonus gens · (3) one generator per line (pop only that line) · (4) per-line generators for the
 > 16 base lines (+ ~4 new generator icons) · (5) birth-on-tap revival · (6) generator merge ladder +
 > 0.5% self-dup + per-tier burst · (7) ≤6 board cap + bag overflow · (8) special recipe lines · (9) tier
-> dialog: generator name + buy + recipe · (10) `MAX_GIVERS` → 10 + fence layout · (11) the front-loaded
+> dialog: generator name + buy + recipe · (10) `MAX_GIVERS` → 8 + 4-per-line fence layout · (11) the front-loaded
 > curve.
 
 > **⚠ GENERATOR/LINE MODEL EVOLVED — read this box first (2026-06-26).** The original §6 below (a
@@ -343,7 +343,7 @@ Generators emit **themed item lines** — **2 lines per generator** (each line a
 
 ## 7 · Quests, Exp & the Soft Gate
 
-> **⚠ 2026-06-28:** active givers **5 → 10** (`MAX_GIVERS`); a new **special-recipe** ask joins the
+> **⚠ 2026-06-28:** active givers cap at **8** (`MAX_GIVERS`) and **4 per line**; a new **special-recipe** ask joins the
 > generated/authored kinds (merge two base lines at the same tier → a special line, §6.G). See the §6
 > REDESIGN box.
 

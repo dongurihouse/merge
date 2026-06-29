@@ -138,8 +138,8 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 > base lines just before it** at the same tier (Core §6.G). **16 base → 7 specials** (zones 3·6·9·12·15·18·21).
 > Art: the 5 shelved treat lines (71–75) seed the first specials; **~2 new 12-tier special sets** to author.
 >
-> **Quests:** `MAX_GIVERS` **5 → 10**. **Curve:** front-loaded — zone 2 in minutes, zone 3 by ~10 min
-> (≈30 taps/min), sim-validated.
+> **Quests:** `MAX_GIVERS` **8**, with at most **4 quests per line**. **Curve:** front-loaded — zone 2
+> in minutes, zone 3 by ~10 min (≈30 taps/min), sim-validated.
 >
 > **Assets (Core §6 #5).** Item tier art for all 31 base lines **already exists**. Generator icons: **16
 > exist** — 4 are accumulators (→ bonus gens); 12 are line generators (`gen_` wildflowers, wildflowerarch,
@@ -338,7 +338,7 @@ Map-art generation prompts (top-down, restored hero) for maps 2–5 are authored
 
 *Instantiates Core §7 (Quests & the fence) and Core §3 (level/rank).*
 
-> **⚠ 2026-06-28:** `MAX_GIVERS` **5 → 10** (fence layout to follow); recipe-quest asks (§2 REDESIGN box);
+> **⚠ 2026-06-28:** `MAX_GIVERS` **8** with **4-per-line** fence layout; recipe-quest asks (§2 REDESIGN box);
 > the curve front-loads — zone 2 in minutes, zone 3 by ~10 min. See §2.
 
 ### Quests — the live generated model (Core §7, shipped T19)
