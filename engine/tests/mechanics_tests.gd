@@ -308,6 +308,9 @@ func _initialize() -> void:
 	ok(not G.zone_is_special(0) and not G.zone_is_special(1) and G.zone_is_special(2), "every 3rd zone (z%3==2) is special")
 	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(3) == 3 and G.zone_line(6) == 5 and G.zone_line(24) == 51, "base zones introduce the base lines in order (zone 24 = the 17th base, line 51)")
 	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72 and G.zone_line(23) == 78, "special zones introduce the special lines (zone 23 = the 8th special, line 78)")
+	# §14 (25-zone): all 8 specials are authored + craftable now — 76/77/78 reuse spare mill/gate art
+	ok(G.LINES.has(76) and G.LINES.has(77) and G.LINES.has(78), "the 3 late-game specials (76/77/78) now have LINES defs")
+	ok(G.special_for_pair(32, 33) == 76 and G.special_for_pair(36, 37) == 78, "76 crafts from 32+33; 78 from 36+37 (recipes live)")
 	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4] and G.zone_recipe(23) == [36, 37], "a special is crafted from the two preceding base lines")
 	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
 	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")

@@ -63,13 +63,20 @@ const LINES := {
 	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A"), "min_level": 4, "desc": "Pantry goods for hungry helpers around the grove."},
 	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B"), "min_level": 5, "desc": "Bundled deliveries from the porch. Merge to unpack better goods."},
 	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3"), "min_level": 6, "desc": "Bright boxes that help the farmhouse bloom again."},
-	# §6.D special "treasure" lines (#3) — the premium fruit chains, emitted ONLY by temp treat generators
-	# (TREAT_LINES below), never the main pool. 12 tiers each, sliced from _originals/items/special_*.
+	# §6.G special "treasure" lines (#14) — CRAFTED by merging two base lines at the same tier; the recipe is
+	# derived from the zone model (active_special_lines / special_for_pair). 12 tiers each. 71-75 use bespoke
+	# special_* fruit art; 76-78 reuse SPARE base-line art (a special is just a LINES entry whose id is in
+	# ZONE_SPECIAL_LINES — any art works). (The old treat-generator emission path is shelved.)
 	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F"), "desc": "A special harvest treasure. Merge high, then sell for coins."},
 	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A"), "desc": "A rare golden treat line. Merge for better treasure value."},
 	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F"), "desc": "A glossy treasure fruit. Higher tiers are worth saving."},
 	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F"), "desc": "A bright treasure fruit for coin value."},
 	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B"), "desc": "A sweet special melon. Merge it before selling."},
+	# 76-78 (#14, 25-zone roster): the late-game specials (maps 3-4) reuse SPARE base-line art — mechanically
+	# identical to 71-75, crafted from their two ingredient lines (recipe derived from the zone model).
+	76: {"name": "Brass cogs", "base": "mill_gears", "color": Color("#B5803A"), "desc": "A mill-forged treasure. Merge high, then sell for coins."},
+	77: {"name": "Starstones", "base": "gate_star_pebbles", "color": Color("#8C7BC4"), "desc": "A pocketful of starstones. Merge for better treasure value."},
+	78: {"name": "Golden bells", "base": "gate_bells", "color": Color("#E3C84A"), "desc": "Golden gate bells. Merge high, then sell for coins."},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5

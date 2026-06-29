@@ -267,7 +267,7 @@ static func special_for_pair(line_a: int, line_b: int) -> int:
 		var r := zone_recipe(z)
 		if r.size() == 2 and ((int(r[0]) == int(line_a) and int(r[1]) == int(line_b)) or (int(r[0]) == int(line_b) and int(r[1]) == int(line_a))):
 			var s := zone_line(z)
-			return s if LINES.has(s) else 0   # 76-77 unauthored (no LINES def) → no craft (would make an unrenderable item)
+			return s if LINES.has(s) else 0   # safety: a def-less special can't be crafted (no unrenderable item)
 	return 0
 
 # --- §7 quest-side generator cap (gen redesign #16, RE-SCOPED) -----------------------------------------
@@ -358,8 +358,8 @@ static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
 		if z > current_zone:
 			break                                  # zones are reached in order — nothing past current_zone yet
 		var r := zone_recipe(z)
-		# LINES.has gate: specials 76-77 have no art/def yet (ZONE_SPECIAL_LINES lists them; LINES doesn't) —
-		# keep them DORMANT (never asked) until authored, so a quest card always has a piece to render.
+		# LINES.has gate (safety): a special with no LINES def stays DORMANT (never asked) so a quest card always
+		# has a piece to render. All 8 specials are authored now; this guards any future def-less special.
 		if r.size() == 2 and base_lines.has(int(r[0])) and base_lines.has(int(r[1])) and LINES.has(zone_line(z)):
 			out.append(zone_line(z))
 	return out
