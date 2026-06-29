@@ -36,6 +36,8 @@ const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = 
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
 const QUEST_COIN_DEPTH = D.QUEST_COIN_DEPTH
+const QUEST_EXP_LINE_SPREAD = D.QUEST_EXP_LINE_SPREAD       # per-line exp ramp (last base line ÷ first) — §7
+const QUEST_MERGE_REWARD_FACTOR = D.QUEST_MERGE_REWARD_FACTOR   # merger pays this × its two sources combined — §7
 const COINS_PER_ACORN = D.COINS_PER_ACORN
 const QUEST_TIER_BASE = D.QUEST_TIER_BASE
 const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
@@ -445,19 +447,50 @@ static func tier_clicks(t: int) -> int:
 
 ## EFFORT-BASED quest reward, keyed on the asked TIER and the MAP (§7). The whole economy is priced
 ## in clicks (= the effort to build the asked item):
-##   exp   = round(clicks / QUEST_CLICKS_PER_EXP)                       — flat across maps (progression clock)
+##   exp   = round(clicks / QUEST_CLICKS_PER_EXP × exp_mult)             — exp_mult carries the per-line RANK ramp (1.0 at the first line)
 ##   coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × depth^(tier-base)) — later maps + deeper merges pay more
 ##   acorns= NONE (acorns are milestone/IAP only — Option A). `map` is 0-indexed; defaults to map 1.
+## `exp_mult` lifts EXP ONLY (coins keep their per-map curve); gen_quest supplies it via quest_reward_for_line.
 ## All numbers OWNER/SIM tunables (grove_data); validated against the 100K-click budget (docs/economy_model.html).
-static func quest_reward(tier: int, map: int = 0) -> Dictionary:
+static func quest_reward(tier: int, map: int = 0, exp_mult: float = 1.0) -> Dictionary:
 	var c := float(tier_clicks(tier))
 	var cpc_arr: Array = QUEST_CLICKS_PER_COIN
 	var cpc: float = float(cpc_arr[clampi(map, 0, cpc_arr.size() - 1)]) if not cpc_arr.is_empty() else 8.0
 	var depth: float = pow(QUEST_COIN_DEPTH, maxi(0, tier - QUEST_TIER_BASE))
 	return {
-		"exp": maxi(1, int(round(c / float(QUEST_CLICKS_PER_EXP)))),
+		"exp": maxi(1, int(round(c / float(QUEST_CLICKS_PER_EXP) * maxf(0.0, exp_mult)))),
 		"coins": maxi(0, int(round(c / cpc * depth))),
 	}
+
+## §7 per-line EXP power ramp: a base line's exp multiplier, LINEAR from 1.0 (the first base line) to
+## QUEST_EXP_LINE_SPREAD (the last) by its rank in ZONE_BASE_LINES — later/more-powerful lines pay more exp
+## for the same tier. 1.0 for a non-base line (a special derives its reward from its sources, not this ramp).
+static func line_exp_mult(line: int) -> float:
+	var idx := ZONE_BASE_LINES.find(int(line))
+	if idx < 0 or ZONE_BASE_LINES.size() <= 1:
+		return 1.0
+	var frac := float(idx) / float(ZONE_BASE_LINES.size() - 1)   # 0..1 across the base-line roster
+	return 1.0 + (float(QUEST_EXP_LINE_SPREAD) - 1.0) * frac
+
+## §7 LINE-AWARE reward — the reward gen_quest actually pays. A BASE line scales its EXP by line_exp_mult
+## (later lines pay more) and keeps the per-map coin curve. A SPECIAL/merger line has no base reward of its
+## own: it pays QUEST_MERGE_REWARD_FACTOR × the COMBINED reward (exp AND coins) of its two recipe source lines
+## at the same tier, each valued in its OWN map — so a merger inherits all per-line scaling and is worth ~20%
+## more than its two ingredients combined. Recursion bottoms out: a special's recipe is always two BASE lines.
+static func quest_reward_for_line(line: int, tier: int, map: int = 0) -> Dictionary:
+	if ZONE_SPECIAL_LINES.has(int(line)):
+		var z := zone_of_line(int(line))
+		var exp_sum := 0.0
+		var coin_sum := 0.0
+		for s in (zone_recipe(z) if z >= 0 else []):
+			var sr := quest_reward_for_line(int(s), tier, zone_map(zone_of_line(int(s))))
+			exp_sum += float(sr.exp)
+			coin_sum += float(sr.coins)
+		return {
+			"exp": maxi(1, int(round(exp_sum * float(QUEST_MERGE_REWARD_FACTOR)))),
+			"coins": maxi(0, int(round(coin_sum * float(QUEST_MERGE_REWARD_FACTOR)))),
+		}
+	return quest_reward(tier, map, line_exp_mult(int(line)))
 
 ## The diamond-priced quest-reward 2× DOUBLER (§10). Pure economy helpers — the board UI reads
 ## these to decide whether to offer the card and what it costs. The doubler grants `got` extra
@@ -516,8 +549,8 @@ static func _all_avoided(items: Array, avoid: Array) -> bool:
 ## repeats one of the previous few — variety can come from a different TIER of the same line, not only a
 ## different line. If the pool is too small to honour the whole window, it relaxes from the oldest end
 ## until one item is free, so no two asks in a row repeat while >1 item exists (anti-monotony, §7).
-## Reward is EFFORT-BASED on the asked tier (+ `map` for coins): exp=round(clicks/7),
-## coins=round(clicks/cpc[map]×depth^(tier-base)), no acorns. Deterministic given `rng`.
+## Reward is LINE-AWARE (quest_reward_for_line): exp scales by the line's RANK (later lines pay more), coins by
+## `map`; a merger/special line pays QUEST_MERGE_REWARD_FACTOR × its two sources combined. No acorns. Deterministic given `rng`.
 ## Returns {line, tier, reward, featured}. All numbers OWNER/SIM tunables (docs/economy_model.html).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = [], map: int = 0) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
@@ -567,7 +600,7 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 	var chosen: Dictionary = items[pick]
 	var li := int(chosen.line)
 	var tier := int(chosen.tier)
-	var reward: Dictionary = quest_reward(tier, map)
+	var reward: Dictionary = quest_reward_for_line(li, tier, map)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:
 		# the featured bonus is COINS ONLY, NEVER extra exp (§7 level ∝ quests-done) and NEVER acorns
@@ -1034,6 +1067,14 @@ static func is_collectable(code: int) -> bool:
 # shared plumbing (merge ceiling, art, the not-content exclusions); special_kind selects the behaviour.
 static func is_special(code: int) -> bool:
 	return SPECIAL_ITEMS.has(int(code / 100.0))
+
+# §6.G RECIPE-line membership: true when `code` belongs to one of the special "treasure" lines (71-78,
+# ZONE_SPECIAL_LINES) — the premium lines CRAFTED by merging two base lines at the same tier. DISTINCT
+# from is_special() above, which gates the §6.B special-DROP pseudo-lines (chest/key/water/acorn/exp/
+# wildcard). Recipe lines are ordinary content LINES; this predicate exists so a recipe-line merge can
+# fire the intensified big-moment feel at EVERY tier (T63 — board.gd _after_merge → MergeFx.apply).
+static func is_special_line(code: int) -> bool:
+	return ZONE_SPECIAL_LINES.has(int(code / 100.0))
 
 static func special_kind(code: int) -> String:
 	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("kind", ""))
