@@ -75,6 +75,29 @@ func _initialize() -> void:
 	ok(cbtns.has("Cancel") and cbtns.has("Confirm"), "...while keeping its Cancel/Confirm purchase actions")
 	chost.queue_free()
 
+	fresh("iap_confirm_real_tap")
+	Save.set_first_purchase_made()
+	var thost := Control.new()
+	thost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(thost)
+	ShopS._confirm_cash(thost, {"opts": {}, "host": thost}, 0)
+	var tov: Control = thost.get_child(thost.get_child_count() - 1)
+	await process_frame
+	await process_frame
+	var confirm := _button_with_text(tov, "Confirm")
+	ok(confirm != null, "cash confirm has a visible Confirm button for real taps")
+	if confirm != null:
+		ok(confirm.get_global_rect().size.x > 0.0 and confirm.get_global_rect().size.y > 0.0,
+			"cash Confirm has a real hit rect")
+		var gems_before := Save.diamonds()
+		var expected_gems := int(Data.CASH_PACKS[0].gems)
+		_push_tap(confirm.get_global_rect().get_center())
+		await process_frame
+		await process_frame
+		ok(Save.diamonds() == gems_before + expected_gems,
+			"real tap on cash Confirm grants the selected pack")
+	thost.queue_free()
+
 	# T-E: free claims — a claim grants the reward, then the type is REFUSED until its
 	# cooldown elapses AND under its daily cap; the per-type daily cap holds.
 	fresh("claims_refill")
@@ -467,3 +490,21 @@ func _initialize() -> void:
 	bhost.queue_free()
 
 	finish()
+
+func _button_with_text(overlay: Control, text: String) -> Button:
+	for b in overlay.find_children("*", "Button", true, false):
+		if String((b as Button).text) == text:
+			return b as Button
+	return null
+
+func _push_tap(gpos: Vector2) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = gpos
+	get_root().push_input(down, true)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = gpos
+	get_root().push_input(up, true)

@@ -644,7 +644,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	col.add_child(btns)
 	btns.add_child(Look.button(Strings.t("shop.confirm.cancel"), func() -> void: overlay.queue_free(), false))
 	btns.add_child(Look.button(Strings.t("shop.confirm.confirm"), func() -> void:
-		var at := dialog.get_global_rect().get_center()
+		var at := col.get_global_rect().get_center()
 		# grant + fly-to-wallet + rebuild — IDENTICAL whether the purchase was real or the test path.
 		var settle := func() -> void:
 			grant.call()
