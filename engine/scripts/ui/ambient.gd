@@ -18,6 +18,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient   # the engine's ambient look/feel dials
 const FXTune = preload("res://engine/scripts/core/tuning.gd").FX      # the merge-puff dials live with the other feel-verb tunables
+const AmbientDriver = preload("res://engine/scripts/ui/ambient_driver.gd")  # the per-layer CPU governor (throttle + idle-gate)
 
 const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow"]
 
@@ -50,8 +51,11 @@ static func build_population_layer(bounds: Vector2, members: Array) -> Control:
 		var m: Dictionary = members[i]
 		layer.add_child(_make_resident(i, String(m.get("type", "")), int(m.get("tier", 1))))
 	_update_layer(layer)                  # correct positions on the very first frame
-	var tw := layer.create_tween().set_loops()
-	tw.tween_method(func(_t: float) -> void: _update_layer(layer), 0.0, 1.0, Tune.REPATH_SPAN)
+	# A throttled driver re-positions at Tune.REPATH_HZ (not once per frame) and idles the layer when
+	# it's backgrounded / unfocused / hidden — the wander is slow + time-derived, so this is invisible.
+	var driver := AmbientDriver.new()
+	layer.add_child(driver)
+	driver.setup(layer, func() -> void: _update_layer(layer), Tune.REPATH_HZ)
 	return layer
 
 # One resident sprite: the type+tier's own art (G.resident_art(type, tier)) when present, else the
@@ -254,6 +258,12 @@ static func build_weather(view: Vector2, kind: String) -> Control:
 			frost.set_anchors_preset(Control.PRESET_FULL_RECT)
 			frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			layer.add_child(frost)
+	# Idle-gate the weather sim: a driver (no reposition tick — weather is particle-driven) freezes the
+	# layer's CPUParticles2D when the app is backgrounded / unfocused / hidden, so it burns no CPU unseen.
+	if kind != "clear":
+		var driver := AmbientDriver.new()
+		layer.add_child(driver)
+		driver.setup(layer, Callable(), Tune.REPATH_HZ)
 	return layer
 
 static func _drift_emitter(view: Vector2, tex: Texture2D, amount: int, life: float, vel: Vector2) -> CPUParticles2D:

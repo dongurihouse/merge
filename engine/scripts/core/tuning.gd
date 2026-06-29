@@ -11,7 +11,6 @@ class Ambient:
 	const CHAR_SIZE := Vector2(84, 84)            # a character's on-screen box
 	const SPARSE_CAP := 2                          # a "sparse" layer (the board's backdrop band) shows at most this many
 	const EDGE_MARGIN := 40.0                      # a character is kept this many px clear of every edge of bounds
-	const REPATH_SPAN := 3600.0                    # the per-frame position pump re-arms over this span (s); only needs to outlast a sitting
 	const REPATH_HZ := 15.0                        # the wander/bob re-positions at this fixed rate (Hz), NOT every frame — the drift is slow + purely time-derived, so 15Hz is visually identical at ~4× less CPU
 
 	# --- the wander path (a slow Lissajous figure + a vertical bob) ---------------------

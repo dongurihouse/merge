@@ -13,6 +13,7 @@ config_version=5
 config/name="Acorn Forest: Merge!"
 config/description="A cozy merge-to-grow game: restore a fading spirit-forest, one acorn at a time."
 run/main_scene="res://engine/scenes/Boot.tscn"
+run/max_fps=30
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.png"
 boot_splash/bg_color=Color(0.956, 0.933, 0.874, 1)
