@@ -182,6 +182,24 @@ func _initialize() -> void:
 	ok(not sbc.board.is_gen_boosted(bc_cell) and Save.coins() == 0, "broke refusal arms no taps and leaves no coin debt")
 	sbc.queue_free()
 
+	# 11c-free. A stockpiled map-3 boost CHARGE pays on the board: the chip reads "Free" and spends a charge, not coins.
+	fresh("burst_free_charge")
+	var sbf = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbf)
+	if sbf.board == null:
+		sbf._ready()
+	await create_timer(0.02).timeout
+	var ff_cell: Vector2i = sbf.board.gens.keys()[0]
+	Save.grove()["boost_charges"] = 1
+	Save.spend(Save.coins())                                   # broke: only the free charge can pay
+	sbf._select_generator(ff_cell)
+	ok(sbf._info_burst_count.text == "Free", "the boost chip reads Free while a charge is in stock")
+	var ff_coins := Save.coins()
+	ok(sbf._activate_gen_boost(ff_cell), "a free charge arms the boost while broke")
+	ok(sbf.board.is_gen_boosted(ff_cell), "the generator is boosted by the free charge")
+	ok(int(Save.grove().get("boost_charges", 0)) == 0 and Save.coins() == ff_coins, "the free charge was spent, not coins")
+	sbf.queue_free()
+
 	# 11d. The SHARED boost seam G.try_activate_boost() + G.consume_boost_tap() — the single arm/decay
 	# path the info-bar chip drives. Spends the cost, arms BOOST_TAPS, refuses a second arm while live
 	# and when broke, decays one tap at a time to expiry, and never underflows. No scene needed.

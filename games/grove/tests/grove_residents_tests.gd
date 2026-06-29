@@ -407,10 +407,11 @@ func _test_rewards() -> void:
 	ok(String(rb.currency) == "boost" and int(rb.amount) > 0, "collecting map 3 grants boost charges")
 	ok(Habitat.boost_charges() == cb + int(rb.amount), "the charges are stockpiled")
 	var ch := Habitat.boost_charges()
-	ok(Habitat.use_boost_charge(), "a stockpiled charge can be used")
-	ok(Habitat.boost_charges() == ch - 1, "using a charge decrements the stock")
-	ok(G.boost_active(), "using a charge arms the generator boost (free activation)")
-	ok(not Habitat.use_boost_charge(), "a second charge is refused while a boost is already live")
+	ok(Habitat.spend_boost_charge(), "a stockpiled charge can be spent")
+	ok(Habitat.boost_charges() == ch - 1, "spending a charge decrements the stock")
+	while Habitat.boost_charges() > 0:
+		Habitat.spend_boost_charge()
+	ok(not Habitat.spend_boost_charge(), "spending refuses cleanly when the stock is empty")
 
 	# DIAMONDS (map 4, ×0.1) — collect pays floor(pending) diamonds, NO daily cap
 	fresh("reward_diamonds")

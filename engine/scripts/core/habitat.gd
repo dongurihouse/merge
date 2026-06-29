@@ -310,8 +310,8 @@ static func reward_mult(map_id: String) -> float:
 	return float(REWARD.get(map_id, {}).get("mult", 0.0))
 
 # --- generator-boost charges (map 3 / pond stock) -----------------------------------------------
-## Stockpiled generator-boost charges minted by map 3. A charge arms the temporary boost for FREE (no
-## coin cost) via use_boost_charge. No stock ceiling — the small map-3 MULT throttles the mint instead.
+## Stockpiled generator-boost charges minted by map 3. A charge pays for one boost on the board for FREE
+## (no coin cost) via spend_boost_charge. No stock ceiling — the small map-3 MULT throttles the mint instead.
 static func boost_charges() -> int:
 	return int(Save.grove().get("boost_charges", 0))
 
@@ -319,12 +319,10 @@ static func _set_boost_charges(n: int) -> void:
 	Save.grove()["boost_charges"] = maxi(0, n)
 	Save.grove_write()
 
-## Spend one stockpiled charge to arm the generator boost for free. Refuses (keeps the charge) when the
-## stock is empty or a boost is already live (one boost at a time, mirroring content.try_activate_boost).
-static func use_boost_charge() -> bool:
+## Spend one stockpiled generator-boost charge (map 3's reward). Returns false (keeps the stock) when empty.
+## The board's boost chip calls this to arm the SELECTED generator for free (the arming lives on the board).
+static func spend_boost_charge() -> bool:
 	if boost_charges() <= 0:
-		return false
-	if not Content.arm_boost_free():
 		return false
 	_set_boost_charges(boost_charges() - 1)
 	return true

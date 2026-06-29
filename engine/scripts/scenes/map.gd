@@ -1282,12 +1282,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		)
 		shelf.add_child(expedition)
 		shelf.add_child(collect)
-		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
-		if cur == "boost" and Habitat.boost_charges() > 0:
-			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 18, "enabled": not G.boost_active()})
-			useb.position = Vector2(button_pos.x, maxf(shelf_pad_t, button_pos.y - button_size.y - 4.0))
-			useb.pressed.connect(func() -> void: _on_use_boost())
-			shelf.add_child(useb)
+		# map 3 boost charges are spent on the board (the boost chip reads "Free"); no map-screen affordance.
 
 	card.add_child(shelf)
 
@@ -1722,18 +1717,6 @@ func _collect_fx(r: Dictionary, at: Vector2) -> void:
 		"boost": FX.celebrate_at(self, at, "+%d boost%s" % [amt, "" if amt == 1 else "s"], STRAW)
 		"residents": FX.celebrate_at(self, at, "Chest! +%d spirit%s" % [amt, "" if amt == 1 else "s"], STRAW)
 		_: FX.celebrate_at(self, at, "+%d" % amt, STRAW)
-
-# Spend one stockpiled generator-boost charge (map 3's reward) to arm the board boost for FREE. Repaints the
-# place-picker (the card's boost affordance) when it is the open surface.
-func _on_use_boost() -> void:
-	if Habitat.use_boost_charge():
-		Audio.play("level_complete", -8.0, 1.1)
-		FX.celebrate_at(self, _screen_center(-12.0), "Boost armed!", STRAW)
-	else:
-		Audio.play("button_tap", -2.0)
-	_update_hud()
-	if _view == "select":
-		_refresh_picker()    # repaint the card's boost affordance in place
 
 func _card_sub(text: String) -> Label:
 	var l := _dock_label(text, 21, true)

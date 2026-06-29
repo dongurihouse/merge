@@ -27,6 +27,7 @@
 		},
 		"info": {
 			"boost_detail": "Boosted · %d left",
+			"boost_free": "Free",
 			"burst_label": "Boost",
 			"burst_need": "Need more coins",
 			"buy_label": "Buy",
