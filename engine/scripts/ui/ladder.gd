@@ -77,14 +77,16 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	# at the cell size IT computes. (A base line stacks it under its generator icon; a merged line under its recipe.)
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		return PieceView.make_piece(int(d.get("code", 0)), px)
-	var grid: Control = Kit.tiers_grid(_cells(opts.get("entries", []), int(opts.get("mark_tier", 0))), width, dopts)
+	var mark_tier := int(opts.get("mark_tier", 0))
+	var grid: Control = Kit.tiers_grid(_cells(opts.get("entries", []), mark_tier), width, dopts)
 
 	var dialog: Control
+	overlay.set_meta("mark_tier", mark_tier)
 	if String(header.get("kind", "")) == "recipe":
 		var lines: Array = header.get("lines", [])
 		overlay.set_meta("ladder_kind", "recipe")
 		overlay.set_meta("recipe_lines", lines)
-		dialog = Kit.dialog_frame(_recipe_body(lines, grid, width, on_pick), width, dopts)
+		dialog = Kit.dialog_frame(_recipe_body(lines, mark_tier, grid, width, on_pick), width, dopts)
 	else:
 		var gid := String(header.get("gid", ""))
 		overlay.set_meta("ladder_kind", "tiers")
@@ -94,10 +96,10 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
 
-# The MERGED-line recipe view: the two ingredient items (with a "+" between) — each a tappable button that
+# The MERGED-line recipe view: the two same-tier ingredient items (with a "+" between) — each a tappable button that
 # opens THAT line's tier screen via on_pick — stacked ABOVE the merged line's OWN tier grid (the same shared
 # grid the base-line screen uses). The ingredients are smaller than the grid-less view so both fit the frame.
-static func _recipe_body(lines: Array, grid: Control, width: float, on_pick: Callable) -> Control:
+static func _recipe_body(lines: Array, tier: int, grid: Control, width: float, on_pick: Callable) -> Control:
 	var col := VBoxContainer.new()
 	col.custom_minimum_size = Vector2(width, 0.0)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -108,7 +110,7 @@ static func _recipe_body(lines: Array, grid: Control, width: float, on_pick: Cal
 	var icon_px := width * 0.20
 	for i in lines.size():
 		var line := int(lines[i])
-		row.add_child(_ingredient_button(line, icon_px, on_pick))
+		row.add_child(_ingredient_button(line, tier, icon_px, on_pick))
 		if i < lines.size() - 1:
 			var plus := Label.new()
 			plus.text = "+"
@@ -120,17 +122,21 @@ static func _recipe_body(lines: Array, grid: Control, width: float, on_pick: Cal
 	col.add_child(grid)
 	return col
 
-static func _ingredient_button(line: int, icon_px: float, on_pick: Callable) -> Button:
+static func _ingredient_button(line: int, tier: int, icon_px: float, on_pick: Callable) -> Button:
 	var btn := Button.new()
 	btn.flat = true
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.custom_minimum_size = Vector2(icon_px, icon_px)
 	btn.set_meta("ingredient_line", line)
+	var item_tier := maxi(1, tier)
+	var code := line * 100 + item_tier
+	btn.set_meta("ingredient_tier", item_tier)
+	btn.set_meta("ingredient_code", code)
 	var holder := CenterContainer.new()
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(holder)
-	var piece: Control = PieceView.make_piece(line * 100 + 1, icon_px)   # the base item (tier 1) of the ingredient line
+	var piece: Control = PieceView.make_piece(code, icon_px)
 	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(piece)
 	if on_pick.is_valid():

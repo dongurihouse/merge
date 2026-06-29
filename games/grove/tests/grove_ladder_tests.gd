@@ -27,7 +27,7 @@ func _initialize() -> void:
 	ok(String(ov_base.get_meta("header_gid", "")) == "gen_1", \
 		"the base tier screen carries its generator icon (gen_1)")
 
-	b._open_ladder(71, 1)
+	b._open_ladder(71, 3)
 	await create_timer(0.1).timeout   # let the prior base-line grid's deferred queue_free settle before counting cells
 	var ov_rec: Node = _ladder_overlay(b)
 	ok(ov_rec != null and String(ov_rec.get_meta("ladder_kind", "")) == "recipe", \
@@ -35,6 +35,8 @@ func _initialize() -> void:
 	ok(Array(ov_rec.get_meta("recipe_lines", [])) == [1, 2], \
 		"the recipe view shows the two ingredient lines [1,2]")
 	ok(_ingredient_count(ov_rec) == 2, "the recipe view shows exactly the two ingredient items")
+	ok(_ingredient_code(ov_rec, 1) == 103 and _ingredient_code(ov_rec, 2) == 203, \
+		"the recipe view shows the actual tier-3 ingredient items required for this merge")
 	# the recipe view ALSO carries the merged line's OWN tier ladder below the two ingredients
 	# (the same shared tier grid the base-line screen uses), so the merged line's progression reads here too.
 	var merged_tiers: int = b._ladder_entries(71).size()
@@ -51,6 +53,8 @@ func _initialize() -> void:
 		ok(ov_nav != null and String(ov_nav.get_meta("ladder_kind", "")) == "tiers" \
 			and String(ov_nav.get_meta("header_gid", "")) == "gen_1", \
 			"tapping ingredient Wildflower opens its OWN tier screen (gen_1)")
+		ok(ov_nav != null and int(ov_nav.get_meta("mark_tier", 0)) == 3, \
+			"tapping a tier-3 ingredient keeps that tier marked on its own screen")
 		ok(_count_ladder_overlays(b) == 1, "navigation REPLACES — only ever one ladder modal open")
 
 	b.queue_free()
@@ -83,6 +87,10 @@ func _ingredient_count(overlay: Node) -> int:
 		if btn.has_meta("ingredient_line"):
 			n += 1
 	return n
+
+func _ingredient_code(overlay: Node, line: int) -> int:
+	var btn := _ingredient(overlay, line)
+	return int(btn.get_meta("ingredient_code", 0)) if btn != null else 0
 
 # count the tier cells rendered in the overlay — each discovery cell carries a "TierNumber" label
 func _tier_cell_count(overlay: Node) -> int:

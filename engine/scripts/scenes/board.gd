@@ -3680,7 +3680,7 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 	var opts := {
 		"header": header,
 		"mark_tier": mark_tier,
-		"on_pick": func(l: int) -> void: _open_ladder(l, 1),
+		"on_pick": func(l: int) -> void: _open_ladder(l, mark_tier),
 		"entries": _ladder_entries(line),   # the line's own tier ladder — shown under the recipe for a merged line
 	}
 	Ladder.open(self, opts)
