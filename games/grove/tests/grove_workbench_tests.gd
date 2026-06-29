@@ -1888,6 +1888,7 @@ func _test_gold_badge_consumers(view) -> void:
 	var tuned_expedition_label := tuned_shelf_card.find_child("MapHabitatExpeditionButtonLabel", true, false) as Label
 	var tuned_expedition_icon := tuned_shelf_card.find_child("MapHabitatExpeditionButtonIcon", true, false) as Control
 	var tuned_bar := tuned_shelf_card.find_child("MapHabitatProgressBar", true, false) as Control
+	var tuned_time := tuned_shelf_card.find_child("MapHabitatProgressTimeLabel", true, false) as Label
 	var oversized_slot := preview_oversized.find_child("MapResidentRailPreviewSlot_00", true, false) as Control
 	ok(locked_resident_preview.find_children("MapResidentRailPreviewLockedSlot_*", "Control", true, false).size() == 5, \
 		"the Workbench resident rail preview greys cells above the preview capacity")
@@ -1931,6 +1932,8 @@ func _test_gold_badge_consumers(view) -> void:
 		and int(round(tuned_bar.custom_minimum_size.y)) == 18 \
 		and tuned_bar.position.y == tuned_shelf.size.y - 38.0, \
 		"the Workbench map-card preview applies progress bar height and Y knobs")
+	ok(tuned_time != null and tuned_time.get_parent() == tuned_bar and tuned_time.text == "2h", \
+		"the Workbench map-card preview shows compact remaining time inside the progress bar")
 	ok(tuned_shelf != null and tuned_collect != null \
 		and tuned_collect.position == Vector2(tuned_shelf.size.x - 155, tuned_shelf.size.y - 49), \
 		"the Workbench map-card preview applies reward button location knobs")

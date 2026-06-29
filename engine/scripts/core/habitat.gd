@@ -274,6 +274,20 @@ static func pending(map_id: String, now: float = -1.0) -> float:
 	var room := maxf(0.0, accrual_cap(map_id) - acc)
 	return acc + minf(flow, room)
 
+## Seconds until `pending / accrual_cap` reaches the cap shown by the map-card collection bar.
+## Returns -1 when the map has no meaningful timer yet (no cap or no production speed).
+static func seconds_until_full(map_id: String, now: float = -1.0) -> float:
+	if now < 0.0:
+		now = _now()
+	var capf := accrual_cap(map_id)
+	var speed_per_second := float(rate(map_id)) * UNITS_PER_HOUR_PER_TIER * reward_mult(map_id) / 3600.0
+	if capf <= 0.0 or speed_per_second <= 0.0:
+		return -1.0
+	var remaining := capf - pending(map_id, now)
+	if remaining <= 0.0:
+		return 0.0
+	return remaining / speed_per_second
+
 ## Bank pending into stored `acc` and reset `last` = now. Called before any speed change (place/move/
 ## sell/unplace) and inside collect, so accrual is always integrated at the correct speed.
 static func _settle(map_id: String, now: float = -1.0) -> void:

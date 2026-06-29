@@ -1254,6 +1254,8 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 			"height": bar_h,
 			"width": clampf(expedition_pos.x - shelf_gap - bar_x, 0.0, maxf(0.0, shelf_rect.size.x - shelf_pad_l - shelf_pad_r)),
 			"art": true,
+			"label": _collection_time_label(map_id),
+			"label_name": "MapHabitatProgressTimeLabel",
 		})
 		bar.name = "MapHabitatProgressBar"
 		bar.size = bar.custom_minimum_size
@@ -1674,6 +1676,25 @@ func _reward_label(cur: String) -> String:
 		"diamonds": return "Diamonds"
 		"residents": return "Spirits"
 		_: return "Resting"
+
+func _collection_time_label(map_id: String) -> String:
+	var secs := Habitat.seconds_until_full(map_id)
+	if secs < 0.0:
+		return ""
+	if secs <= 0.0:
+		return "Ready"
+	if secs < 60.0:
+		return "<1m"
+	var mins := int(ceil(secs / 60.0))
+	if mins < 60:
+		return "%dm" % mins
+	var hours := int(mins / 60)
+	var rem_mins := mins % 60
+	if hours < 24:
+		return "%dh" % hours if rem_mins == 0 else "%dh %dm" % [hours, rem_mins]
+	var days := int(hours / 24)
+	var rem_hours := hours % 24
+	return "%dd" % days if rem_hours == 0 else "%dd %dh" % [days, rem_hours]
 
 # The amount a collect would bank right now: floor(pending), already in the map's currency (the per-map MULT
 # is baked into pending). For map 5 that's the number of residents the chest would drop. 0 below one whole unit.
