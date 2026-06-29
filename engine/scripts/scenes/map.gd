@@ -1078,6 +1078,7 @@ func _build_select(animate := true) -> void:
 		var card := _make_card(z, card_w, card_h, opts)
 		card.position = Vector2(0.0, y - _select_scroll)        # clip-local: flush to the column's top-left
 		card.size = Vector2(card_w, card_h)
+		_apply_card_hint(card, z)
 		clip.add_child(card)
 		select_hits.append({"node": card, "z": z, "y0": y})
 		y += card_h + sep
@@ -1296,7 +1297,7 @@ func _add_expedition_button(card: Control, z: int, opts: Dictionary, shelf_rect:
 func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, cap: int, rect: Rect2, orb_px: float, opts: Dictionary = {}, slot_gap: float = 10.0) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var badge_opts: Dictionary = opts.get("badge", {})
-	var display_cap := maxi(cap, 8)
+	var display_cap := G.RESIDENT_SLOTS_MAX
 	var slot_cols := 2
 	var slot_rows := 4
 	display_cap = mini(display_cap, slot_cols * slot_rows)
@@ -1383,8 +1384,13 @@ func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, ca
 		slot.name = "MapResidentRailCell_%02d" % i
 		grid.add_child(slot)
 		_placed_orbs.append({"node": slot, "z": z, "map_id": map_id, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
-	for _e in range(placed.size(), display_cap):
-		grid.add_child(_empty_cell(Kit, bag_opts, orb_px))
+	for i in range(placed.size(), display_cap):
+		if i < cap:
+			grid.add_child(_empty_cell(Kit, bag_opts, orb_px))
+		else:
+			var locked := _locked_resident_cell(Kit, bag_opts, orb_px)
+			locked.name = "MapResidentRailLockedCell_%02d" % i
+			grid.add_child(locked)
 	vb.add_child(grid)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1830,6 +1836,7 @@ func _begin_drag_ghost(gpos: Vector2) -> void:
 	_drag_ghost.set_meta("ghost_px", px)
 	content.add_child(_drag_ghost)
 	_move_drag_ghost(gpos)
+	_refresh_card_hints()
 	Audio.play("button_tap", -6.0)
 
 func _drag_source_px() -> float:
@@ -1851,6 +1858,7 @@ func _end_drag() -> void:
 		_drag_ghost.queue_free()
 	_drag_ghost = null
 	_drag = {}
+	_refresh_card_hints()
 
 # Resolve a dropped drag at `gpos`. HAND spirit → a matching housed orb merges (place_merge), another matching
 # hand orb merges in hand (hand_merge), else a map card's right drop zone places (place). HOUSED spirit → the
@@ -1894,6 +1902,9 @@ func _resolve_drop(gpos: Vector2) -> void:
 			var mid := String(G.MAPS[z].id)
 			if not G.can_populate(z, unlocks, _gates()):
 				_invalid_at(card)
+			elif not Habitat.can_place_on(mid, {"kind": String(d.kind), "tier": int(d.tier)}):
+				_invalid_at(card)
+				FX.floating_text(self, gpos - Vector2(120, 60), "Not here", Color(CREAM, 0.9), 26)
 			elif Habitat.is_full(mid):
 				_invalid_at(card)
 				FX.floating_text(self, gpos - Vector2(120, 60), "Full", Color(CREAM, 0.9), 26)
@@ -1930,6 +1941,48 @@ func _on_orb_tap(d: Dictionary) -> void:
 			_sel_orb["map_id"] = String(d.map_id)
 	Audio.play("button_tap", -3.0)
 	_refresh_picker()
+
+func _selected_hand_home_z() -> int:
+	if String(_sel_orb.get("src", "")) != "hand":
+		return -1
+	return G.resident_home_map(String(_sel_orb.get("kind", "")))
+
+func _drag_hand_home_z() -> int:
+	if String(_drag.get("src", "")) != "hand":
+		return -1
+	return G.resident_home_map(String(_drag.get("kind", "")))
+
+func _card_hint_state(z: int) -> String:
+	var drag_home := _drag_hand_home_z()
+	if drag_home >= 0:
+		return "valid_drag" if z == drag_home else "invalid_drag"
+	var sel_home := _selected_hand_home_z()
+	if sel_home >= 0:
+		return "valid_select" if z == sel_home else "invalid_select"
+	return "none"
+
+func _apply_card_hint(card: Control, z: int) -> void:
+	if card == null or not is_instance_valid(card):
+		return
+	var state := _card_hint_state(z)
+	card.set_meta("resident_hint_state", state)
+	match state:
+		"valid_select":
+			card.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		"invalid_select":
+			card.modulate = Color(0.78, 0.78, 0.78, 0.78)
+		"valid_drag":
+			card.modulate = Color(1.08, 1.04, 0.92, 1.0)
+		"invalid_drag":
+			card.modulate = Color(0.55, 0.55, 0.55, 0.62)
+		_:
+			card.modulate = Color.WHITE
+
+func _refresh_card_hints() -> void:
+	if _view != "select":
+		return
+	for hit in select_hits:
+		_apply_card_hint(hit.node, int(hit.z))
 
 func _merge_fx(at: Vector2) -> void:
 	# the spirit merge gets the unified verb at a GENTLE intensity (squash + a soft bloom + a light
@@ -2439,6 +2492,18 @@ func _empty_cell(Kit: GDScript, bag_opts: Dictionary, px: float) -> Control:
 	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_force_ignore(cell)
+	return cell
+
+func _locked_resident_cell(Kit: GDScript, bag_opts: Dictionary, px: float) -> Control:
+	var cell := _empty_cell(Kit, bag_opts, px)
+	cell.modulate = Color(0.55, 0.55, 0.55, 0.62)
+	cell.set_meta("locked", true)
+	var veil := ColorRect.new()
+	veil.name = "MapResidentLockedVeil"
+	veil.color = Color(DOCK_INK, 0.28)
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(veil)
 	return cell
 
 # The spirit's icon for a cell's content — cropped to its opaque bounds (the board pipeline) so every creature

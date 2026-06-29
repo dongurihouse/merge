@@ -437,6 +437,91 @@ func _test_rewards() -> void:
 # surface (drag a hand orb onto a map to place / onto a match to merge; a housed orb onto the column to
 # bring out; a tap on a housed orb focuses it for Sell). This drives the REAL drag path (_on_input).
 func _test_residents_dock() -> void:
+	fresh("resident_locked_cells_partial")
+	var farm_kind_partial := _resident_kind_for_map(0)
+	var partial_g := Save.grove()
+	var partial_unl := {String(G.MAPS[0].spots[0].id): true}
+	partial_g["unlocks"] = partial_unl
+	partial_g["gates"] = [0]
+	Save.grove_write()
+	var partial_mid := String(G.MAPS[0].id)
+	Habitat.hand_add(farm_kind_partial, 1)
+	Habitat.place(partial_mid, 0)
+	var hx_locked = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx_locked)
+	hx_locked._login_shown_launch = true
+	await create_timer(0.1).timeout
+	hx_locked.unlocks = partial_unl
+	hx_locked._open_select()
+	await create_timer(0.08).timeout
+	var locked_cells: Array = hx_locked.content.find_children("MapResidentRailLockedCell_*", "Control", true, false)
+	ok(locked_cells.size() == G.RESIDENT_SLOTS_MAX - Habitat.cap(partial_mid), "resident rails show grey locked cells above current capacity")
+	hx_locked.queue_free()
+
+	fresh("resident_tap_home_hint")
+	var hint_g := Save.grove()
+	var hint_unl := {}
+	for zz in [0, 1]:
+		hint_unl[String(G.MAPS[zz].spots[0].id)] = true
+	hint_g["unlocks"] = hint_unl
+	hint_g["gates"] = [0, 1]
+	Save.grove_write()
+	Habitat.hand_add("ember", 1)
+	var hx_hint = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx_hint)
+	hx_hint._login_shown_launch = true
+	await create_timer(0.1).timeout
+	hx_hint.unlocks = hint_unl
+	hx_hint._open_select()
+	await create_timer(0.08).timeout
+	_map_tap_at(hx_hint, _hit_center(_hand_orb_of(hx_hint, "ember", 1)))
+	await create_timer(0.06).timeout
+	var farm_card := _card_for_map(hx_hint, 0)
+	var other_card := _card_for_map(hx_hint, 1)
+	ok(farm_card != null and String(farm_card.get_meta("resident_hint_state", "")) == "valid_select", "tap-select softly marks the resident home map")
+	ok(other_card != null and String(other_card.get_meta("resident_hint_state", "")) == "invalid_select", "tap-select dims non-home maps")
+	hx_hint.queue_free()
+
+	fresh("resident_wrong_map_drag_hint")
+	var drag_g := Save.grove()
+	var drag_unl := {}
+	for zz in [0, 1]:
+		for sp in G.MAPS[zz].spots:
+			drag_unl[String(sp.id)] = true
+	drag_g["unlocks"] = drag_unl
+	drag_g["gates"] = [0, 1]
+	Save.grove_write()
+	Habitat.hand_add("sprout", 1)
+	var hx_drag = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx_drag)
+	hx_drag._login_shown_launch = true
+	await create_timer(0.1).timeout
+	hx_drag.unlocks = drag_unl
+	hx_drag._open_select()
+	await create_timer(0.08).timeout
+	var sprout := _hand_orb_of(hx_drag, "sprout", 1)
+	var farm_drop := _card_for_map(hx_drag, 0)
+	var barn_drop := _card_for_map(hx_drag, 1)
+	var farm_drop_point := _card_drop_point(farm_drop)
+	var barn_drop_point := _card_drop_point(barn_drop)
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT ; down.pressed = true ; down.position = _hit_center(sprout)
+	hx_drag._on_input(down)
+	var mv := InputEventMouseMotion.new()
+	mv.position = farm_drop_point
+	mv.relative = mv.position - down.position
+	mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+	hx_drag._on_input(mv)
+	ok(String(farm_drop.get_meta("resident_hint_state", "")) == "invalid_drag", "wrong map is strongly marked invalid during drag")
+	ok(String(barn_drop.get_meta("resident_hint_state", "")) == "valid_drag", "home map is strongly marked valid during drag")
+	var up := down.duplicate()
+	up.pressed = false ; up.position = farm_drop_point
+	hx_drag._on_input(up)
+	ok(Habitat.hand().size() == 1 and Habitat.placed(String(G.MAPS[0].id)).is_empty(), "dropping a resident on the wrong map is refused")
+	_drag_select(hx_drag, _hit_center(_hand_orb_of(hx_drag, "sprout", 1)), barn_drop_point)
+	ok(Habitat.hand().is_empty() and Habitat.placed(String(G.MAPS[1].id)).size() == 1, "dropping on the home map places the resident")
+	hx_drag.queue_free()
+
 	fresh("residents_dock")
 	var z := 0
 	var g := Save.grove()
@@ -593,6 +678,16 @@ func _placed_for(hx, z: int) -> int:
 		if int(o.z) == z:
 			n += 1
 	return n
+
+func _card_for_map(hx, z: int) -> Control:
+	for hit in hx.select_hits:
+		if int(hit.z) == z:
+			return hit.node
+	return null
+
+func _card_drop_point(card: Control) -> Vector2:
+	var r := card.get_global_rect()
+	return r.position + Vector2(r.size.x * 0.80, r.size.y * 0.50)
 
 func _buttons_with(node: Node, frag: String) -> Array:
 	var out: Array = []

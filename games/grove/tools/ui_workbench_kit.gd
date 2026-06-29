@@ -4824,7 +4824,7 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 	else:
 		_map_card_locked(d, opts, card, card_w, card_h)
 	if bool(d.get("resident_preview", false)) and bool(d.get("open", true)):
-		_map_add_resident_preview(card, opts, card_w, card_h)
+		_map_add_resident_preview(card, opts, card_w, card_h, d)
 	if bool(d.get("habitat_preview", false)) and bool(d.get("open", true)):
 		_map_add_habitat_shelf_preview(card, opts, card_w, card_h)
 		_map_add_expedition_button_preview(card, opts, card_w, card_h)
@@ -4943,7 +4943,7 @@ static func _map_add_card_shell(card: Control, badge_opts: Dictionary) -> void:
 	rim.add_theme_stylebox_override("panel", rs)
 	card.add_child(rim)
 
-static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: float, card_h: float) -> void:
+static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: float, card_h: float, d: Dictionary = {}) -> void:
 	var badge_opts: Dictionary = opts.get("badge", {})
 	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
 	var inset := band + 6.0
@@ -5013,9 +5013,10 @@ static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: f
 	grid.add_theme_constant_override("v_separation", int(round(sep)))
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(grid)
+	var resident_cap := clampi(int(d.get("resident_cap", slot_cols * slot_rows)), 0, slot_cols * slot_rows)
 	for i in range(slot_cols * slot_rows):
-		var slot := _map_resident_preview_slot(orb_px, opts)
-		slot.name = "MapResidentRailPreviewSlot_%02d" % i
+		var slot := _map_resident_preview_slot(orb_px, opts) if i < resident_cap else _map_resident_preview_locked_slot(orb_px, opts)
+		slot.name = ("MapResidentRailPreviewSlot_%02d" if i < resident_cap else "MapResidentRailPreviewLockedSlot_%02d") % i
 		grid.add_child(slot)
 	card.add_child(rail)
 
@@ -5190,6 +5191,18 @@ static func _map_resident_preview_slot(px: float, opts: Dictionary = {}) -> Cont
 	slot.custom_minimum_size = Vector2(px, px)
 	slot.size = Vector2(px, px)
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return slot
+
+static func _map_resident_preview_locked_slot(px: float, opts: Dictionary = {}) -> Control:
+	var slot := _map_resident_preview_slot(px, opts)
+	slot.modulate = Color(0.55, 0.55, 0.55, 0.62)
+	slot.set_meta("locked", true)
+	var veil := ColorRect.new()
+	veil.name = "MapResidentRailPreviewLockedVeil"
+	veil.color = Color(Pal.INK, 0.28)
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(veil)
 	return slot
 
 static func _map_leaf(rel: String, node_name: String, size: Vector2, flip_h := false) -> TextureRect:
