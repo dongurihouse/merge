@@ -350,7 +350,7 @@ const ACCUMULATORS := {
 	"acorn": {"id": "acc_acorn", "name": "Acorn mill", "tex": "items/generator/gen_acornmill.png", "cap": 3, "secs": 7200, "value": 1, "unlock_spot": 3},
 }
 # §6.C BONUS generators (gen redesign 2026-06-28): the ACCUMULATORS above are no longer constant-accrual.
-# A bonus generator SIDE-SPAWNS off a main-generator tap, grants its `value` currency per tap for a random
+# A bonus generator SIDE-SPAWNS off a main-generator tap, pops collectable board items for a random
 # BONUS_CLICKS budget, then VANISHES. (cap / secs / unlock_spot are now vestigial.) Sim-tuned dials.
 const BONUS_SPAWN_CHANCE := 0.03          # P(a main-generator tap also side-spawns a bonus gen) — the 2–5% band
 const BONUS_CLICKS := [5, 15]             # the random tap budget a bonus generator lasts [min, max]

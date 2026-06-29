@@ -2983,13 +2983,14 @@ func _open_bramble(cell: Vector2i) -> void:
 	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), Strings.t("board.feedback.cleared"), CREAM, 34)
 	Audio.play("tidy_poof", -2.0)
 
-func _drop_coin_near(near: Vector2i) -> void:
+func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
 	var empties := board.empty_ground_cells()
 	if empties.is_empty():
 		return
 	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
 	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
-	var code := G.COIN_LINE * 100 + 1
+	if code <= 0:
+		code = G.COIN_LINE * 100 + 1
 	board.place(cell, code)
 	var n := _make_piece(code, csz)
 	n.position = _cell_pos(near)
@@ -3158,9 +3159,9 @@ func _sync_accumulators() -> void:
 	Save.grove().erase("accumulators")
 	_persist()
 
-# §6.C a tap on a BONUS generator grants its currency (× a burst while a boost is live — a boosted collect
-# then spends one boost tap, like a charged generator tap), spends one of its limited taps, and VANISHES
-# when the budget runs out. (gen redesign 2026-06-28 — was time-banked accrual.)
+# §6.C a tap on a BONUS generator pops collectable board items (× a burst while a boost is live — a
+# boosted pop then spends one boost tap, like a charged generator tap), spends one of its limited taps,
+# and VANISHES when the budget runs out. (gen redesign 2026-06-28 — was time-banked accrual.)
 func _collect_accumulator(cell: Vector2i) -> void:
 	var id := board.gen_id_at(cell)
 	var kind := G.accumulator_kind_of(id)
@@ -3173,27 +3174,39 @@ func _collect_accumulator(cell: Vector2i) -> void:
 			FX.wobble(gn)
 		Audio.play("invalid_soft", -6.0)
 		return
+	var item_code := 0
+	if kind == "coins":
+		item_code = G.COIN_LINE * 100 + 1
+	else:
+		for line in G.SPECIAL_ITEMS:
+			var def: Dictionary = G.SPECIAL_ITEMS[line]
+			if String(def.get("kind", "")) == kind:
+				item_code = int(line) * 100 + 1
+				break
+	if item_code <= 0:
+		return
 	var mult := 1
 	var boosted := G.boost_active()
 	if boosted:
 		mult = G.burst_count(_quest_map(), G.boost_bonus(), rng)
-	var amount := G.bonus_value(kind) * mult
-	match kind:
-		"water":
-			water = mini(G.WATER_CAP, water + amount)
-		"coins":
-			Save.add_coins(amount)
-		"exp":
-			Save.add_exp(amount)
-		"acorn":
-			Save.add_diamonds(amount)
+	var drops := mini(mult, board.empty_ground_cells().size())
+	if drops <= 0:
+		if gn != null:
+			FX.wobble(gn)
+		Audio.play("invalid_soft", -6.0)
+		return
+	for _i in drops:
+		if G.is_coin(item_code):
+			_drop_coin_near(cell, item_code)
+		else:
+			_drop_special_near(cell, item_code)
 	clicks -= 1
 	if boosted:
 		G.consume_boost_tap()              # §6: a boosted collect used the boost's burst, so — like a charged
 		_refresh_boost_indicator()         # generator tap — it spends one boost tap and ticks the badge down
 	if gn != null:
 		FX.pop(gn)
-	Audio.play("coin_earn", -3.0, 1.1)
+	Audio.play("water_pop" if Audio.has("water_pop") else "item_drop", -3.0, 1.1)
 	if clicks <= 0:
 		board.gens.erase(cell)                # the bonus generator is spent → it vanishes
 		Save.grove().erase("bonus_clicks")
@@ -3202,7 +3215,12 @@ func _collect_accumulator(cell: Vector2i) -> void:
 	_persist()
 	_update_hud()
 	_update_water_hud()
-	_rebuild_all()
+	if board.is_gen(cell):
+		_refresh_accumulator_badge(cell)
+	else:
+		_rebuild_all()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
 
 # §6.C draw/update the small taps-left badge on a BONUS generator (reuses the boost-badge chrome).
 func _refresh_accumulator_badge(cell: Vector2i) -> void:

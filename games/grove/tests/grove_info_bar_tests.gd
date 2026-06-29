@@ -267,6 +267,35 @@ func _initialize() -> void:
 		ok(board_scene._info_btn.disabled, "accumulators disable the producing-ladder button because they bank currency")
 		board_scene._clear_selection()
 
+		board_scene.board.gens.erase(acc_cell)
+		board_scene.board.place_gen("acc_coins", acc_cell)
+		Save.grove()["bonus_clicks"] = 3
+		var bonus_drop_cell := _first_empty_cell(board_scene, [acc_cell])
+		if bonus_drop_cell.x < 0:
+			for i in board_scene.board.items.size():
+				var c := BoardModel.cell_of(i)
+				if c != acc_cell and board_scene.board.is_open(c) and not board_scene.board.is_gen(c):
+					board_scene.board.take(c)
+					bonus_drop_cell = c
+					break
+		ok(bonus_drop_cell.x >= 0, "the bonus generator item-pop test found room for a board item")
+		board_scene._rebuild_all()
+		var coins0 := Save.coins()
+		var coin_items0 := 0
+		for v in board_scene.board.items:
+			if G.is_coin(v):
+				coin_items0 += 1
+		_tap_emulated(board_scene, acc_at)
+		await create_timer(0.05).timeout
+		var coin_items1 := 0
+		for v in board_scene.board.items:
+			if G.is_coin(v):
+				coin_items1 += 1
+		ok(Save.coins() == coins0, "tapping a bonus coin generator does not pay the coin pill directly")
+		ok(coin_items1 > coin_items0, "tapping a bonus coin generator pops coin items onto the board")
+		ok(int(Save.grove().get("bonus_clicks", 0)) == 2, "tapping a bonus generator spends one of its own taps")
+		board_scene._clear_selection()
+
 	var treat_cell := acc_cell if acc_cell.x >= 0 else _first_empty_cell(board_scene, [])
 	var treat_id := G.treat_gen_id(71)
 	ok(treat_cell.x >= 0, "the treat generator focus test found an empty cell")

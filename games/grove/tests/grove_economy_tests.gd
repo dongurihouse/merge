@@ -780,10 +780,19 @@ func _initialize() -> void:
 	sbg.board.place_gen("acc_coins", bg_cell)
 	Save.grove()["bonus_clicks"] = 3
 	var bg_coins0 := Save.coins()
+	var board_coin_items0 := 0
+	for v in sbg.board.items:
+		if G.is_coin(v):
+			board_coin_items0 += 1
 	sbg._collect_accumulator(bg_cell)
-	ok(Save.coins() > bg_coins0, "the boosted bonus collect pays out coins")
+	var board_coin_items1 := 0
+	for v in sbg.board.items:
+		if G.is_coin(v):
+			board_coin_items1 += 1
+	ok(Save.coins() == bg_coins0, "the boosted bonus collect does not pay the coin pill directly")
+	ok(board_coin_items1 > board_coin_items0, "the boosted bonus collect pops coin items onto the board")
 	ok(int(Save.grove().get("bonus_clicks", 0)) == 2, "the collect spends one of the bonus generator's own taps")
-	ok(G.boost_taps_left() == bg_taps0 - 1, "a boosted bonus collect ALSO spends one boost tap")
+	ok(G.boost_taps_left() == bg_taps0 - 1, "a boosted bonus item-pop ALSO spends one boost tap")
 	sbg.queue_free()
 
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;

@@ -1069,8 +1069,8 @@ static func generator_description(id: String) -> String:
 		return ""
 	var kind := accumulator_kind_of(id)
 	if kind != "":
-		var unit := "acorns" if kind == "acorn" else kind
-		return "Bonus generator — tap to collect %s. Lasts a few taps, then it's gone." % unit
+		var unit := "acorn" if kind == "acorn" else ("coin" if kind == "coins" else kind)
+		return "Bonus generator — tap to pop %s items. Lasts a few taps, then it's gone." % unit
 	if is_treat_gen(id):
 		var line := treat_line_of(id)
 		var name := item_display_name(line * 100 + TREAT_POP_TIER)
@@ -1199,8 +1199,8 @@ static func accumulator_reward(kind: String, banked: int) -> Dictionary:
 # --- §6.C bonus generators (limited-use; gen redesign 2026-06-28) ----------------------
 # The accrual helpers above are now VESTIGIAL (kept for grove_sim's legacy income model until the §11
 # economy re-tune). Live gameplay uses these: a bonus generator SIDE-SPAWNS off a main-generator tap,
-# grants its `value` currency per tap for a random BONUS_CLICKS budget (× a burst while a boost is live),
-# then VANISHES.
+# pops collectable board items for a random BONUS_CLICKS budget (× a burst while a boost is live), then
+# VANISHES.
 static func rolls_bonus_spawn(rng: RandomNumberGenerator) -> bool:
 	return rng.randf() < BONUS_SPAWN_CHANCE
 
