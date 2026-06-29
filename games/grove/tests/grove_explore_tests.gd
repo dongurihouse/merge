@@ -144,7 +144,19 @@ func _button_has_label(node: Button, text: String) -> bool:
 	return false
 
 func _home_chrome_button(node: Control, label: String) -> Button:
-	for b in node.find_children("*", "Button", true, false):
+	var roots = node.get("_chrome_nodes")
+	var buttons: Array = []
+	if roots is Array:
+		for root in roots:
+			if not is_instance_valid(root):
+				continue
+			if root is Button:
+				buttons.append(root)
+			if root is Node:
+				buttons.append_array((root as Node).find_children("*", "Button", true, false))
+	else:
+		buttons = node.find_children("*", "Button", true, false)
+	for b in buttons:
 		var btn := b as Button
 		if not btn.is_visible_in_tree():
 			continue
@@ -224,6 +236,7 @@ func _test_map_card_expedition_chrome() -> void:
 	locked._open_map(z)
 	await create_timer(0.05).timeout
 	ok(_home_chrome_button(locked, "Expedition") == null, "Expedition no longer lives in the side rail")
+	ok(locked.content.find_child("MapHomeExpeditionButton", true, false) == null, "locked/unpopulatable home maps do not show Expedition")
 	var settings := _home_chrome_button(locked, "Settings")
 	var daily := _home_chrome_button(locked, "Daily")
 	ok(settings != null, "locked rail still shows Settings")
@@ -267,6 +280,18 @@ func _test_map_card_expedition_chrome() -> void:
 		ok(not _button_has_visible_text(btn), "%s button has no visible text" % label)
 		ok(_button_icon_is_large(btn), "%s icon fills the button footprint" % label)
 		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
+	var home_exp := hx.content.find_child("MapHomeExpeditionButton", true, false) as Button
+	ok(home_exp != null, "eligible home maps expose an Expedition button")
+	ok(home_exp != null and String(home_exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "home Expedition button records its source map")
+	ok(home_exp != null and String(home_exp.get_meta("icon_id", "")) == "expedition", "home Expedition uses the dedicated expedition icon")
+	if home_exp != null:
+		home_exp.pressed.emit()
+		await process_frame
+		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the home Expedition button opens loadout")
+		var home_overlay: Node = hx.get_node_or_null("ExpeditionOverlay")
+		if home_overlay != null:
+			home_overlay.queue_free()
+			await process_frame
 	hx._open_select()
 	await create_timer(0.05).timeout
 	var exp := hx.content.find_child("MapCardExpeditionButton", true, false) as Button
