@@ -4827,7 +4827,6 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_add_resident_preview(card, opts, card_w, card_h, d)
 	if bool(d.get("habitat_preview", false)) and bool(d.get("open", true)):
 		_map_add_habitat_shelf_preview(card, opts, card_w, card_h)
-		_map_add_expedition_button_preview(card, opts, card_w, card_h)
 	return card
 
 static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: float = 0.0, safe_bottom: float = 0.0) -> Dictionary:
@@ -5081,13 +5080,34 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 		clampf(float(opts.get("reward_button_w", clampf(rect.size.x * 0.26, 104.0, 138.0))), 40.0, 260.0),
 		clampf(float(opts.get("reward_button_h", clampf(rect.size.y * 0.31, 34.0, 44.0))), 20.0, 90.0)
 	)
+	var button_font := int(clampf(float(opts.get("reward_button_font", clampf(rect.size.y * 0.17, 15.0, 20.0))), 8.0, 48.0))
 	var collect := map_reward_collect_button("Collect", "", button_size,
-		int(clampf(float(opts.get("reward_button_font", clampf(rect.size.y * 0.17, 15.0, 20.0))), 8.0, 48.0)),
+		button_font,
 		0.0,
 		true)
 	collect.position = Vector2(rect.size.x - pad_r - button_size.x, rect.size.y - pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
 	collect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shelf.add_child(collect)
+	var expedition_size := Vector2(
+		clampf(float(opts.get("expedition_button_w", button_size.x)), 56.0, 260.0),
+		clampf(float(opts.get("expedition_button_h", button_size.y)), 20.0, 90.0)
+	)
+	var expedition_font := int(clampf(float(opts.get("expedition_button_font", button_font)), 8.0, 48.0))
+	var max_expedition_w := maxf(56.0, collect.position.x - gap - pad_l)
+	expedition_size.x = minf(expedition_size.x, max_expedition_w)
+	var expedition := map_reward_collect_button("Expedition", "", expedition_size,
+		expedition_font,
+		0.0,
+		true,
+		"MapHabitatExpeditionButton")
+	var expedition_x_min := pad_l
+	var expedition_x_max := maxf(expedition_x_min, collect.position.x - gap - expedition_size.x)
+	var expedition_y_min := 0.0
+	var expedition_y_max := maxf(expedition_y_min, rect.size.y - expedition_size.y)
+	expedition.position = Vector2(
+		clampf(collect.position.x - gap - expedition_size.x + float(opts.get("expedition_button_x", 0.0)), expedition_x_min, expedition_x_max),
+		clampf(collect.position.y + (button_size.y - expedition_size.y) * 0.5 + float(opts.get("expedition_button_y", 0.0)), expedition_y_min, expedition_y_max)
+	)
+	expedition.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var bar_h := clampf(float(opts.get("reward_bar_h", clampf(rect.size.y * 0.14, 10.0, 18.0))), 4.0, 40.0)
 	var bar_x := pad_l
@@ -5096,16 +5116,18 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 		pad_t,
 		maxf(pad_t, rect.size.y - pad_b - bar_h)
 	)
-	var bar_w := clampf(collect.position.x - gap - bar_x, 44.0, maxf(44.0, rect.size.x - pad_l - pad_r))
+	var bar_w := clampf(expedition.position.x - gap - bar_x, 0.0, maxf(0.0, rect.size.x - pad_l - pad_r))
 	var bar := progress_bar(0.42, {"width": bar_w, "height": bar_h, "art": true})
 	bar.name = "MapHabitatProgressBar"
 	bar.size = bar.custom_minimum_size
 	bar.position = Vector2(bar_x, bar_y)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shelf.add_child(bar)
+	shelf.add_child(expedition)
+	shelf.add_child(collect)
 	card.add_child(shelf)
 
-static func map_reward_collect_button(text: String, icon_id: String, button_size: Vector2, font_px: int, icon_px: float, enabled := true) -> Button:
+static func map_reward_collect_button(text: String, icon_id: String, button_size: Vector2, font_px: int, icon_px: float, enabled := true, node_name := "MapHabitatCollectButton") -> Button:
 	var b := pill_button("", {
 		"bg": "green",
 		"art": false,
@@ -5114,14 +5136,14 @@ static func map_reward_collect_button(text: String, icon_id: String, button_size
 		"shadow": false,
 		"pad_scale": 0.62,
 	})
-	b.name = "MapHabitatCollectButton"
+	b.name = node_name
 	b.custom_minimum_size = button_size
 	b.size = button_size
 	var icon_left := clampf(button_size.x * 0.10, 5.0, 14.0)
 	var label_left := 0.0
 	if icon_id != "" and icon_px > 0.0:
 		var ico := make_icon(icon_id, icon_px)
-		ico.name = "MapHabitatCollectButtonIcon"
+		ico.name = "%sIcon" % node_name
 		ico.custom_minimum_size = Vector2(icon_px, icon_px)
 		ico.size = ico.custom_minimum_size
 		ico.position = Vector2(icon_left, (button_size.y - icon_px) * 0.5)
@@ -5130,7 +5152,7 @@ static func map_reward_collect_button(text: String, icon_id: String, button_size
 		b.add_child(ico)
 		label_left = icon_left + icon_px + 4.0
 	var label := Label.new()
-	label.name = "MapHabitatCollectButtonLabel"
+	label.name = "%sLabel" % node_name
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_px)
 	label.add_theme_color_override("font_color", Color(Pal.CREAM, 1.0 if enabled else 0.55))
@@ -5143,22 +5165,6 @@ static func map_reward_collect_button(text: String, icon_id: String, button_size
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(label)
 	return b
-
-static func _map_add_expedition_button_preview(card: Control, opts: Dictionary, card_w: float, card_h: float) -> void:
-	var px := clampf(float(opts.get("expedition_button_px", 82.0)), 44.0, 148.0)
-	var b := home_button({"icon": "expedition", "caption": "", "tooltip": "Expedition", "action": func() -> void: pass}, {
-		"px": px,
-		"shape": "rect",
-		"icon_scale": clampf(float(opts.get("expedition_button_icon_scale", 0.64)), 0.35, 0.90),
-		"fill_alpha": 100,
-		"badge": opts.get("badge", {}),
-	})
-	b.name = "MapCardExpeditionButtonPreview"
-	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.size = Vector2(px, px)
-	b.position = Vector2(card_w * 0.38 - px * 0.5, card_h * 0.50 - px * 0.5) \
-		+ Vector2(float(opts.get("expedition_button_x", 0.0)), float(opts.get("expedition_button_y", 0.0)))
-	card.add_child(b)
 
 static func _map_habitat_shelf_style() -> StyleBoxTexture:
 	var path := Look.kit(MAP_LEFT_REWARD_SHELF)
@@ -5618,10 +5624,15 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
 		"resident_slot_px": float(c.get("resident_slot_px", 58)),        # completed-card resident slot size px
 		"resident_slot_gap": float(c.get("resident_slot_gap", 10)),      # completed-card gap between resident slots px
-		"expedition_button_px": float(c.get("expedition_button_px", 82)),
-		"expedition_button_x": float(c.get("expedition_button_x", 0)),
-		"expedition_button_y": float(c.get("expedition_button_y", 0)),
-		"expedition_button_icon_scale": float(c.get("expedition_button_icon_scale", 64)) / 100.0,
+		"expedition_button_w":  float(c.get("expedition_button_w", 116)),
+		"expedition_button_h":  float(c.get("expedition_button_h", 36)),
+		"expedition_button_x":  float(c.get("expedition_button_x", 0)),
+		"expedition_button_y":  float(c.get("expedition_button_y", 0)),
+		"expedition_button_font": int(c.get("expedition_button_font", 18)),
+		"home_expedition_button_px": float(c.get("home_expedition_button_px", c.get("expedition_button_px", 82))),
+		"home_expedition_button_x": float(c.get("home_expedition_button_x", 0)),
+		"home_expedition_button_y": float(c.get("home_expedition_button_y", 0)),
+		"home_expedition_button_icon_scale": float(c.get("home_expedition_button_icon_scale", c.get("expedition_button_icon_scale", 64))) / 100.0,
 		"slot_cell":       bag_card_opts_from_config(cfg),               # completed-card resident cells match the right-column square slots
 		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
 		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)

@@ -1782,11 +1782,11 @@ func _test_gold_badge_consumers(view) -> void:
 		shelf_part_knobs_saved = shelf_part_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
 	ok(shelf_part_knobs_saved, \
 		"map_card opts carry saved reward shelf icon/text/button size and location knobs")
-	var expedition_keys := ["expedition_button_px", "expedition_button_x", "expedition_button_y", "expedition_button_icon_scale"]
+	var expedition_keys := ["expedition_button_w", "expedition_button_h", "expedition_button_x", "expedition_button_y", "expedition_button_font"]
 	var expedition_knobs_saved := true
 	for k in expedition_keys:
 		expedition_knobs_saved = expedition_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
-	ok(expedition_knobs_saved, "map_card opts carry saved Expedition button size and position knobs")
+	ok(expedition_knobs_saved, "map_card opts carry saved shelf Expedition button size, font, and position knobs")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
 		"the Workbench map-card sidebar exposes resident slot-size and gap sliders")
@@ -1808,11 +1808,12 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_h\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_y\""), \
 		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_px\"") \
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_w\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_h\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_x\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_y\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_icon_scale\""), \
-		"the Workbench map-card sidebar exposes Expedition button sliders")
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_font\""), \
+		"the Workbench map-card sidebar exposes shelf Expedition button sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": bool(p.open) and bool(p.done)"), \
 		"the Workbench map-card preview requests the resident-slot overlay only for DONE (completed habitat) cards")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open) and bool(p.done)"), \
@@ -1848,8 +1849,13 @@ func _test_gold_badge_consumers(view) -> void:
 		"the Workbench done/restored map-card preview swaps the count pill for the habitat reward shelf")
 	ok(done_card.find_child("MapResidentRailPreview", true, false) != null, \
 		"the Workbench done/restored map-card preview shows the resident rail (the completed habitat card)")
-	ok(done_card.find_child("MapCardExpeditionButtonPreview", true, false) != null, \
-		"the Workbench done/restored map-card preview shows the Expedition button")
+	ok(done_card.find_child("MapCardExpeditionButtonPreview", true, false) == null, \
+		"the Workbench done/restored map-card preview no longer shows the old floating Expedition icon button")
+	var done_exp := done_card.find_child("MapHabitatExpeditionButton", true, false) as Button
+	var done_exp_label := done_card.find_child("MapHabitatExpeditionButtonLabel", true, false) as Label
+	var done_exp_icon := done_card.find_child("MapHabitatExpeditionButtonIcon", true, false) as Control
+	ok(done_exp != null and done_exp_label != null and done_exp_label.text == "Expedition" and done_exp_icon == null, \
+		"the Workbench done/restored map-card preview shows a plain green Expedition shelf button")
 	mc_params["open"] = saved_mc_open
 	mc_params["done"] = saved_mc_done
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
@@ -1867,6 +1873,8 @@ func _test_gold_badge_consumers(view) -> void:
 			"reward_label_font": 21, "reward_label_x": 11, "reward_label_y": 4,
 			"reward_button_w": 132, "reward_button_h": 36, "reward_button_x": -9, "reward_button_y": -5,
 			"reward_bar_h": 18, "reward_bar_y": -7,
+			"expedition_button_w": 72, "expedition_button_h": 30, "expedition_button_x": -4, "expedition_button_y": -6,
+			"expedition_button_font": 14,
 		}, "gold_badge": {}}), 460.0, 230.0)
 	var small_rail := preview_small.find_child("MapResidentRailPreview", true, false) as Control
 	var big_rail := preview_big.find_child("MapResidentRailPreview", true, false) as Control
@@ -1876,6 +1884,9 @@ func _test_gold_badge_consumers(view) -> void:
 	var tuned_collect := tuned_shelf_card.find_child("MapHabitatCollectButton", true, false) as Button
 	var tuned_collect_label := tuned_shelf_card.find_child("MapHabitatCollectButtonLabel", true, false) as Label
 	var tuned_collect_icon := tuned_shelf_card.find_child("MapHabitatCollectButtonIcon", true, false) as Control
+	var tuned_expedition := tuned_shelf_card.find_child("MapHabitatExpeditionButton", true, false) as Button
+	var tuned_expedition_label := tuned_shelf_card.find_child("MapHabitatExpeditionButtonLabel", true, false) as Label
+	var tuned_expedition_icon := tuned_shelf_card.find_child("MapHabitatExpeditionButtonIcon", true, false) as Control
 	var tuned_bar := tuned_shelf_card.find_child("MapHabitatProgressBar", true, false) as Control
 	var oversized_slot := preview_oversized.find_child("MapResidentRailPreviewSlot_00", true, false) as Control
 	ok(locked_resident_preview.find_children("MapResidentRailPreviewLockedSlot_*", "Control", true, false).size() == 5, \
@@ -1911,6 +1922,11 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(tuned_collect != null and tuned_collect.size == Vector2(132, 36) \
 		and tuned_collect_label != null and tuned_collect_label.text == "Collect" and tuned_collect_icon == null, \
 		"the Workbench map-card preview keeps the rendered reward button plain and labeled")
+	ok(tuned_expedition != null and tuned_expedition.custom_minimum_size == Vector2(72, 30) \
+		and tuned_expedition_label != null and tuned_expedition_label.text == "Expedition" \
+		and int(tuned_expedition_label.get_theme_font_size("font_size")) == 14 \
+		and tuned_expedition_icon == null, \
+		"the Workbench map-card preview applies shelf Expedition button size/font knobs and keeps it icon-free")
 	ok(tuned_shelf != null and tuned_bar != null \
 		and int(round(tuned_bar.custom_minimum_size.y)) == 18 \
 		and tuned_bar.position.y == tuned_shelf.size.y - 38.0, \
@@ -1918,11 +1934,19 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(tuned_shelf != null and tuned_collect != null \
 		and tuned_collect.position == Vector2(tuned_shelf.size.x - 155, tuned_shelf.size.y - 49), \
 		"the Workbench map-card preview applies reward button location knobs")
+	ok(tuned_shelf != null and tuned_collect != null and tuned_expedition != null \
+		and tuned_expedition.position == Vector2(tuned_collect.position.x - 84.0, tuned_collect.position.y - 3.0), \
+		"the Workbench map-card preview applies Expedition button offset knobs beside Collect")
 	ok(tuned_shelf != null and tuned_collect != null \
 		and tuned_collect.position.x >= 0 and tuned_collect.position.y >= 0 \
 		and tuned_collect.position.x + tuned_collect.custom_minimum_size.x <= tuned_shelf.size.x \
 		and tuned_collect.position.y + tuned_collect.custom_minimum_size.y <= tuned_shelf.size.y, \
 		"the Workbench map-card preview keeps the tuned reward button inside the shelf")
+	ok(tuned_shelf != null and tuned_expedition != null \
+		and tuned_expedition.position.x >= 0 and tuned_expedition.position.y >= 0 \
+		and tuned_expedition.position.x + tuned_expedition.custom_minimum_size.x <= tuned_shelf.size.x \
+		and tuned_expedition.position.y + tuned_expedition.custom_minimum_size.y <= tuned_shelf.size.y, \
+		"the Workbench map-card preview keeps the tuned Expedition button inside the shelf")
 	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
 	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
