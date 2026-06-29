@@ -35,7 +35,6 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
 const Habitat = preload("res://engine/scripts/core/habitat.gd")   # §1 idle yield + sell (the live residents coin SOURCES)
-const SESSION_GAP_SECS := 8 * 3600   # ~3 sessions/day → ~8h between check-ins; sets how full each §6.C accumulator banks
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
 
 var rng := RandomNumberGenerator.new()
@@ -82,14 +81,18 @@ var _greedy := false           # bot mode: greedy welcomes residents whenever af
 var _cur_day := 0              # the current day index (0-based), for the P1 first-completion stamp
 
 # §6 NEW FAUCETS (B/C/D) — folded in so the invariants see the REAL water/exp/coin/acorn income, not
-# just quests + the level-gift. Collected the way real play does: accumulators per check-in (§6.C),
+# just quests + the level-gift. Collected the way real play does: limited-use BONUS generators that
+# side-spawn off a main-generator tap (§6.C; gen redesign 2026-06-28 — was constant-accrual accumulators),
 # special items on merge (§6.B), treat bursts on pop (§6.D). Tallied separately so the report shows how
 # much each moves the exp arc and the water pinch. (Conservative: drops/treats credited at their t1/head
-# tier, not merged up — a floor on the real yield.)
-var acc_water := 0            # §6.C accumulator faucets (collected at each session check-in)
-var acc_coins := 0
-var acc_exp := 0
-var acc_acorn := 0
+# tier, bonus gens collected at mult 1 — the live boost-burst stacking is not modeled — a floor on the real yield.)
+var bonus_water := 0          # §6.C bonus-generator faucets (collected by draining the live side-spawn)
+var bonus_coins := 0
+var bonus_exp := 0
+var bonus_acorn := 0
+var bonus_gens := 0           # §6.C bonus generators side-spawned over the run (the faucet's volume signal)
+var _bonus_kind := ""         # §6.C the live bonus generator's kind on the board ("" = none — one at a time)
+var _bonus_clicks := 0        # its remaining tap budget; drained one tap per main-gen tap, then it vanishes
 var drop_water := 0          # §6.B special-item drops on merge (collected at t1)
 var drop_exp := 0
 var drop_acorn := 0
@@ -143,9 +146,7 @@ func _initialize() -> void:
 		var day_exp_b := exp_earned          # exp at day start — the day line reports the full delta (quest + §6)
 		var d_water := 0
 		for _session in 3:
-			_session_cap = G.WATER_CAP
-			var bonus := _collect_accumulators()   # §6.C check-in: credits exp/coins/acorn, returns bonus water
-			_session_cap = G.WATER_CAP + bonus
+			_session_cap = G.WATER_CAP             # §6.B special-item water drops extend this in-session
 			water = _session_cap
 			_hab_collect()                         # §1 collect the live habitat's idle coin yield (a SOURCE)
 			var r := _play_session()
@@ -208,19 +209,19 @@ func _initialize() -> void:
 	if i2_ok:
 		print("  PASS I2: every steady-state map (3+) keeps its water gift under %.0f%% of spend (early maps 1-2 noted above)" % (G.WATER_REWARD_MAX_RATIO * 100))
 
-	# --- §6 NEW FAUCETS (B/C/D): the water/exp/coin/acorn the accumulators, special drops, and treats add
+	# --- §6 NEW FAUCETS (B/C/D): the water/exp/coin/acorn the bonus generators, special drops, and treats add
 	# ON TOP of quests + the level-gift. The exp arc (runway/level above) already reflects this exp; here we
 	# surface the magnitude and the WATER self-sustain risk. NOTE: these water faucets BYPASS the level-gift,
 	# so I2's gift-ratio no longer captures total water income — the self-sustain line below is the real
 	# pinch check now. Reported as tuning signals (WARN, not hard fails — the §7 tuning pass owns the dials). ---
-	var new_water := acc_water + drop_water + treat_water
-	var new_exp := acc_exp + drop_exp + treat_exp
-	var new_coins := acc_coins + treat_coins + drop_open_coins
-	var new_acorn := acc_acorn + drop_acorn + treat_acorn + drop_open_acorns
-	print("  -- §6 faucets --  water +%d💧 (acc %d·drop %d·treat %d) · exp +%d✨ (acc %d·drop %d·treat %d) · coins +%d🪙 (acc %d·treat %d·chest %d) · acorn +%d🌰" % \
-		[new_water, acc_water, drop_water, treat_water, new_exp, acc_exp, drop_exp, treat_exp, new_coins, acc_coins, treat_coins, drop_open_coins, new_acorn])
-	print("                 over %d merges · %d treat-gens — §6 supplies %.0f%% of all exp earned (the rest is quests)" % \
-		[merges, treat_gens, 100.0 * float(new_exp) / float(maxi(1, exp_earned))])
+	var new_water := bonus_water + drop_water + treat_water
+	var new_exp := bonus_exp + drop_exp + treat_exp
+	var new_coins := bonus_coins + treat_coins + drop_open_coins
+	var new_acorn := bonus_acorn + drop_acorn + treat_acorn + drop_open_acorns
+	print("  -- §6 faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · exp +%d✨ (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·chest %d) · acorn +%d🌰" % \
+		[new_water, bonus_water, drop_water, treat_water, new_exp, bonus_exp, drop_exp, treat_exp, new_coins, bonus_coins, treat_coins, drop_open_coins, new_acorn])
+	print("                 over %d merges · %d bonus-gens · %d treat-gens — §6 supplies %.0f%% of all exp earned (the rest is quests)" % \
+		[merges, bonus_gens, treat_gens, 100.0 * float(new_exp) / float(maxi(1, exp_earned))])
 	# WATER self-sustain: gift + the §6 water faucets vs total spend. I2 guards the GIFT alone at <30%; these
 	# faucets are ADDITIONAL income, so if (gift + §6) climbs toward spend the early water pinch is gone.
 	var total_spend := 0
@@ -320,7 +321,7 @@ func _live_lines() -> Array:
 
 # Credit `amount` exp and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up within
 # the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current map's gift (I2). Shared by
-# quest delivery AND the new §6 exp faucets (accumulator exp, exp drops, treat exp).
+# quest delivery AND the new §6 exp faucets (bonus-gen exp, exp drops, treat exp).
 func _earn_exp(amount: int) -> void:
 	if amount <= 0:
 		return
@@ -335,35 +336,38 @@ func _earn_exp(amount: int) -> void:
 		diamonds += G.LEVEL_DIAMONDS * up
 		gems_from_levels += G.LEVEL_DIAMONDS * up
 
-# §6.C UTILITY ACCUMULATORS — at each session check-in the bot collects every UNLOCKED accumulator (an
-# accumulator unlocks once its map-0 spot is claimed, G.accumulator_unlocked). With 3 sessions spread
-# across the day, each refills to its cap between check-ins (cap×secs ≪ the gap), so a check-in collects a
-# FULL cap. exp/coins/acorn credit directly; water is returned as bonus pop-budget for the session (on TOP
-# of the assumed full regen) — which is why the bot can out-pop a bare WATER_CAP day.
-func _collect_accumulators() -> int:
-	var bonus_water := 0
-	for kind in G.ACCUMULATORS:
-		if not G.accumulator_unlocked(String(kind), unlocks):
-			continue
-		var cap := int(G.ACCUMULATORS[kind].get("cap", 0))
-		var secs := maxi(1, int(G.ACCUMULATORS[kind].get("secs", 1)))
-		var banked := mini(cap, int(SESSION_GAP_SECS / secs))   # banks min(cap, gap/secs) between check-ins
-		var amount := int(G.accumulator_reward(String(kind), banked).amount)
-		match String(kind):
+# §6.C BONUS GENERATORS (gen redesign 2026-06-28) — replaces the retired constant-accrual accumulators.
+# A main-generator tap (the burst block in _play_session) MAY side-spawn a limited-use bonus generator
+# (G.rolls_bonus_spawn — the ~3% band), ONE at a time. Each grants G.bonus_value(kind) per tap for a random
+# G.pick_bonus_clicks budget, then VANISHES. The bot drains the live one (one collect-tap per main-gen tap)
+# before a new one can spawn — exactly the live "one at a time" lockout, so the spawn rate is suppressed
+# while a gen is outstanding. Kind is uniform over all 4 (ungated by unlocks now; unlock_spot is vestigial).
+# Conservative: collected at mult 1 (live multiplies by the burst count while a boost is live — not stacked).
+func _tick_bonus_gen() -> void:
+	if _bonus_clicks > 0:                                # a live bonus gen on the board → drain one tap
+		var amount := G.bonus_value(_bonus_kind)
+		match _bonus_kind:
 			"water":
+				water = mini(G.WATER_CAP, water + amount)   # caps at WATER_CAP, like the live _collect_accumulator
 				bonus_water += amount
-				acc_water += amount
 			"coins":
 				coins += amount
 				coins_earned += amount
-				acc_coins += amount
+				bonus_coins += amount
 			"exp":
-				acc_exp += amount
+				bonus_exp += amount
 				_earn_exp(amount)
 			"acorn":
 				acorns += amount
-				acc_acorn += amount
-	return bonus_water
+				bonus_acorn += amount
+		_bonus_clicks -= 1
+		if _bonus_clicks <= 0:                           # spent its budget → it vanishes (a new one may now spawn)
+			_bonus_kind = ""
+		return
+	if G.rolls_bonus_spawn(rng):                         # no live one → this tap may side-spawn a fresh bonus gen
+		_bonus_kind = G.pick_bonus_kind(rng)
+		_bonus_clicks = G.pick_bonus_clicks(rng)
+		bonus_gens += 1
 
 # A §6.B special item shaken loose by a merge (or a treat tap). Modeled at its t1 collect value — a
 # conservative FLOOR (real play merges drops up first). water → extends the session pop-budget; exp → the
@@ -817,6 +821,8 @@ func _play_session() -> Dictionary:
 			# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
 			if G.rolls_treat_spawn(rng):
 				_run_treat_gen()
+			# §6.C each main-generator tap also drains the live bonus generator, or may side-spawn a fresh one
+			_tick_bonus_gen()
 			continue
 
 		# 7. nothing to do
