@@ -49,6 +49,10 @@ class BootSplashAssetTests(unittest.TestCase):
         self.assertEqual(_setting("export_presets.cfg", "storyboard/use_custom_bg_color"), "true")
         self.assertEqual(_setting("export_presets.cfg", "storyboard/custom_bg_color"), CREAM)
 
+    def test_engine_splash_uses_cover_scale_like_ios_storyboard(self):
+        self.assertEqual(_setting("project.godot", "boot_splash/stretch_mode"), "6")
+        self.assertEqual(_setting("export_presets.cfg", "storyboard/image_scale_mode"), "3")
+
     def test_composed_launch_image_matches_design_viewport(self):
         self.assertTrue(LAUNCH_FILE.exists(), "%s should exist" % LAUNCH_FILE)
         header = _png_header(LAUNCH_FILE)

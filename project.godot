@@ -19,6 +19,7 @@ config/icon="res://icon.png"
 boot_splash/bg_color=Color(0.956, 0.933, 0.874, 1)
 boot_splash/image="res://games/grove/assets/ui/boot/splash_launch.png"
 boot_splash/fullsize=true
+boot_splash/stretch_mode=6
 
 [display]
 
