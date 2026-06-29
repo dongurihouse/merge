@@ -154,7 +154,8 @@ const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board h
 const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37]   # 16 base lines, in zone order
 const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77]   # 7 special lines (71-75 = shelved treat art; 76-77 to author)
 const ZONE_COUNT := 23                    # 16 base + 7 special
-const ZONE_MAP_SPOTS := [7, 4, 7, 4, 1]   # spots per map = zones per map (sums to ZONE_COUNT=23); zone = spot
+# (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
+# so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
 # §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
 # higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at

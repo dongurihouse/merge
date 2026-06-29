@@ -328,7 +328,9 @@ func _initialize() -> void:
 	ok(_all_producible, "every asked special has both ingredients in the base pool (producible -> no-strand)")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
-	ok(G.zone_map(0) == 0 and G.zone_map(6) == 0 and G.zone_map(7) == 1 and G.zone_map(22) == 4, "zone -> map via the spot distribution")
+	# zone -> map is derived live from the MAPS spot counts ([6,4,7,4,4] today): each map's first spot starts a
+	# new map index. Pins the boundaries so it tracks the vine layout instead of a hardcoded split.
+	ok(G.zone_map(0) == 0 and G.zone_map(5) == 0 and G.zone_map(6) == 1 and G.zone_map(9) == 1 and G.zone_map(10) == 2 and G.zone_map(16) == 2 and G.zone_map(17) == 3 and G.zone_map(20) == 3 and G.zone_map(21) == 4, "zone -> map tracks the live MAPS spot distribution")
 	ok(G.zone_of_line(1) == 0 and G.zone_of_line(5) == 6 and G.zone_of_line(71) == 2, "zone_of_line inverts zone_line")
 	ok(G.base_generators().size() == 16, "the per-line roster has one generator per base line")
 	var bgen := G.base_generator(2)

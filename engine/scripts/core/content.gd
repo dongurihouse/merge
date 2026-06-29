@@ -29,7 +29,6 @@ const LINE_WINDOW = D.LINE_WINDOW           # §6 rolling map-window width for t
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
-const ZONE_MAP_SPOTS = D.ZONE_MAP_SPOTS
 const GEN_TOP_TIER = D.GEN_TOP_TIER
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
@@ -306,14 +305,11 @@ static func cap_quest_lines(lines: Array, cap: int = QUEST_GEN_CAP) -> Array:
 static func gen_for_line(line: int) -> String:
 	return "gen_%d" % int(line) if ZONE_BASE_LINES.has(int(line)) else ""
 
-# zone → which of the 5 maps it sits in (zone = restoration spot; ZONE_MAP_SPOTS spots/map sum to ZONE_COUNT).
+# zone → which of the 5 maps it sits in. Zone = restoration spot, so a zone's map IS its spot's map:
+# derived live from the MAPS spot counts (map_for_spots), never a hardcoded distribution — so it can't
+# drift from the vine-region layout the way the old ZONE_MAP_SPOTS const did.
 static func zone_map(z: int) -> int:
-	var acc := 0
-	for m in ZONE_MAP_SPOTS.size():
-		acc += int(ZONE_MAP_SPOTS[m])
-		if z < acc:
-			return m
-	return maxi(0, ZONE_MAP_SPOTS.size() - 1)
+	return map_for_spots(z)
 
 # The zone a line is introduced at (inverse of zone_line); -1 if the line is not in the zone roster.
 static func zone_of_line(line: int) -> int:
