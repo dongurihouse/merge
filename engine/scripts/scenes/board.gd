@@ -2758,7 +2758,7 @@ func _produce_due_generators() -> bool:
 				dest = c
 				break
 		if dest == Vector2i(-1, -1):
-			board.gen_bag.append(id)              # board genuinely full (no open cell) → hold it in the bag
+			board.bag_add(id)                     # board genuinely full (no open cell) → hold it in the bag
 		else:
 			board.place_gen(id, dest)
 			_grown_cells.append(dest)             # _rebuild_all pops it in + starts its breathe
@@ -2788,7 +2788,7 @@ func _self_dup_generator(src: Vector2i) -> void:
 			_rebuild_all()
 			return
 	if not board.gen_bag.has(dup_id):
-		board.gen_bag.append(dup_id)
+		board.bag_add(dup_id)
 		_persist()
 
 # The generator id of an ACTIVE base line currently below the top tier (or absent from the board), other
@@ -3147,11 +3147,7 @@ func _sync_accumulators() -> void:
 	for cell in board.gens.keys():
 		if G.is_accumulator(String(board.gens[cell])):
 			board.gens.erase(cell)
-	var kept: Array = []
-	for v in board.gen_bag:
-		if not G.is_accumulator(String(v)):
-			kept.append(v)
-	board.gen_bag = kept
+	board.prune_bag(func(id: String) -> bool: return not G.is_accumulator(id))   # drops legacy accumulators, keeps tiers aligned
 	Save.grove().erase("accumulators")
 	_persist()
 
