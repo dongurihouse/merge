@@ -463,6 +463,74 @@ func _initialize() -> void:
 	ok(pl_foreign == 0, "per-line: a line-1 generator never pops another quest's line (got %d foreign)" % pl_foreign)
 	spl.queue_free()
 
+	# §6 TREAT and SPECIAL-ITEM/bonus generators pop a SPREAD of tiers like a normal generator (no longer a
+	# fixed tier), each tier rolled off the generator curve and CLAMPED to the item's merge ceiling. Drive the
+	# REAL board pops on a seeded stream and sample the popped tiers, clearing each pop so the board never fills.
+	fresh("special_gen_tier_spread")
+	var sgt_scene = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sgt_scene)
+	if sgt_scene.board == null:
+		sgt_scene._ready()
+	sgt_scene.rng.seed = 4242                               # deterministic pop stream
+	# water bonus generator: was a fixed t1 — now a clamped spread (water tops out at SPECIAL_TOP).
+	var sgt_wgen := _first_empty_cell(sgt_scene, [])
+	ok(sgt_wgen.x >= 0, "tier-spread: found a free cell for the water bonus generator")
+	sgt_scene.board.place_gen("acc_water", sgt_wgen)
+	sgt_scene._rebuild_all()
+	var sgt_water_line := -1
+	for sgt_swl in G.SPECIAL_ITEMS:
+		if String((G.SPECIAL_ITEMS[sgt_swl] as Dictionary).get("kind", "")) == "water":
+			sgt_water_line = int(sgt_swl)
+			break
+	var sgt_water_top := G.merge_top(sgt_water_line * 100 + 1)
+	Save.grove()["bonus_clicks"] = 30
+	var sgt_wtiers := {}
+	var sgt_over := false
+	for sgt_wtap in 30:
+		if int(Save.grove().get("bonus_clicks", 0)) <= 0:
+			break
+		sgt_scene._collect_accumulator(sgt_wgen)
+		for sgt_wi in sgt_scene.board.items.size():
+			var sgt_wv: int = sgt_scene.board.items[sgt_wi]
+			if sgt_wv <= 0:
+				continue
+			var sgt_wcell := BoardModel.cell_of(sgt_wi)
+			if sgt_scene.board.is_gen(sgt_wcell):
+				continue
+			if BoardModel.line_of(sgt_wv) == sgt_water_line:
+				var sgt_wtier := BoardModel.tier_of(sgt_wv)
+				sgt_wtiers[sgt_wtier] = true
+				if sgt_wtier > sgt_water_top:
+					sgt_over = true
+			sgt_scene.board.take(sgt_wcell)                # clear every loose item so the next tap has room
+	ok(sgt_wtiers.size() >= 2, "a special-item (water) bonus generator pops a SPREAD of tiers, not one fixed tier")
+	ok(not sgt_over, "the special-item pop never exceeds the item's merge ceiling (water tops at SPECIAL_TOP)")
+	# treat generator: was a fixed TREAT_POP_TIER (2) — now the full normal spread (can roll BELOW 2).
+	var sgt_tgen := _first_empty_cell(sgt_scene, [])
+	ok(sgt_tgen.x >= 0, "tier-spread: found a free cell for the treat generator")
+	var sgt_tline := int(G.TREAT_LINES[0])
+	sgt_scene.board.place_gen(G.treat_gen_id(sgt_tline), sgt_tgen)
+	sgt_scene._rebuild_all()
+	Save.grove()["treat_clicks"] = 30
+	var sgt_ttiers := {}
+	for sgt_ttap in 30:
+		if int(Save.grove().get("treat_clicks", 0)) <= 0:
+			break
+		sgt_scene._pop_treat(sgt_tgen)
+		for sgt_ti in sgt_scene.board.items.size():
+			var sgt_tv: int = sgt_scene.board.items[sgt_ti]
+			if sgt_tv <= 0:
+				continue
+			var sgt_tcell := BoardModel.cell_of(sgt_ti)
+			if sgt_scene.board.is_gen(sgt_tcell):
+				continue
+			if BoardModel.line_of(sgt_tv) == sgt_tline:
+				sgt_ttiers[BoardModel.tier_of(sgt_tv)] = true
+			sgt_scene.board.take(sgt_tcell)                # clear loose pops (treats + the special shower)
+	ok(sgt_ttiers.size() >= 2, "a treat generator pops a SPREAD of tiers, not a fixed tier")
+	ok(sgt_ttiers.has(1), "treat pops can roll BELOW the old fixed head-start tier (full normal spread)")
+	sgt_scene.queue_free()
+
 	board_scene.queue_free()
 	board_scene = null
 	content = null

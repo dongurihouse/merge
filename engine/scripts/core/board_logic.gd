@@ -96,6 +96,14 @@ static func roll_tier(rng: RandomNumberGenerator) -> int:
 			return i + 1
 	return 1
 
+# roll_item_tier: roll_tier CLAMPED to an item's merge ceiling (`top`). Treat AND special-item/bonus
+# generators use this so they pop a SPREAD of tiers like a normal generator, while never popping above
+# what that item can merge to — water/exp top out at SPECIAL_TOP (a rolled t4 folds into t3); coins,
+# acorns and treat fruit top high, so the 1..TIER_ODDS roll is unaffected there. Exactly ONE randf
+# (via roll_tier) and the same t1 fallback, so it shares the generator curve and stays a single draw.
+static func roll_item_tier(rng: RandomNumberGenerator, top: int) -> int:
+	return clampi(roll_tier(rng), 1, maxi(1, top))
+
 # A freshly-opened cell's reward: mimic ONE generator pop for what the player is questing. Pick a
 # RANDOM line among `open_lines` (the open quests' lines) and roll its tier off the SAME generator
 # curve (roll_tier). The caller guards `open_lines` non-empty — an empty set falls back to the
