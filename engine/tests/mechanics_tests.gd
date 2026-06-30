@@ -244,6 +244,35 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 
+	# gen stranding fix: selecting a REDUNDANT (sub-top) generator surfaces the info-bar SELL button; tapping
+	# it removes the generator + credits coins, while the line's TOP generator is never sellable.
+	fresh("scene_sell_redundant_gen")
+	Save.mark_board_tutorial_seen()
+	var ssell = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ssell)
+	await process_frame
+	if ssell.board == null:
+		ssell._ready()
+	var anchor_cell := Vector2i(4, 3)                  # the seeded tier-1 anchor (gen_1)
+	var gid2: String = ssell.board.gen_id_at(anchor_cell)
+	var topcell: Vector2i = ssell.board.empty_ground_cells()[0]
+	ssell.board.place_gen(gid2, topcell, 3)            # a tier-3 sibling makes the anchor (tier 1) redundant
+	ssell._rebuild_all()
+	ssell._select_generator(anchor_cell)
+	ok(ssell._info_trash.visible, "selecting a redundant generator shows the sell button")
+	ok(ssell._info_trash_count.text == "%d" % G.gen_sell_coins(1), "the sell button shows the tier-1 coin payout")
+	var coins_before := Save.coins()
+	ssell._on_trash_pressed()                          # taps the sell button (reads _selected_cell)
+	ok(not ssell.board.gens.has(anchor_cell), "selling removed the redundant generator from the board")
+	ok(ssell.board.gens.has(topcell), "the line's top (tier-3) generator survives the sale")
+	ok(Save.coins() == coins_before + G.gen_sell_coins(1), "the sale credited the generator's coin payout")
+	ssell._select_generator(topcell)
+	ok(not ssell._info_trash.visible, "the top generator of a line is not sellable (no sell button)")
+	ssell.queue_free()
+	await process_frame
+	await process_frame
+	await process_frame
+
 	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
 	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
 	# the norm — the boost RAISES THE CHANCE of multiples, it does not add a flat count. Both tables top
