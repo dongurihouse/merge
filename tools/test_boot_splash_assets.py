@@ -88,6 +88,12 @@ class BootSplashAssetTests(unittest.TestCase):
         self.assertNotIn("splash_background.png", boot)
         self.assertNotIn("splash_icon.png", boot)
 
+    def test_engine_splash_is_held_until_boot_scene_can_paint(self):
+        self.assertGreaterEqual(
+            int(_setting("project.godot", "boot_splash/minimum_display_time")),
+            500,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
