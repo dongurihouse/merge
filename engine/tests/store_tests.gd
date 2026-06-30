@@ -14,6 +14,16 @@ class FakeProduct extends RefCounted:
 	func _init(pid: String) -> void:
 		product_id = pid
 
+class FakeTransaction extends RefCounted:
+	var product_id := ""
+	var transaction_id := ""
+	var finished := 0
+	func _init(pid: String, tid: String = "tx-1") -> void:
+		product_id = pid
+		transaction_id = tid
+	func finish() -> void:
+		finished += 1
+
 var _pass := 0
 var _fail := 0
 
@@ -35,6 +45,8 @@ func _initialize() -> void:
 	ok(Store._product_id(FakeProduct.new(pid)) == pid, "_product_id reads the StoreProduct product_id member")
 	ok(Store._product_id(null) == "", "_product_id is safe on a null product")
 
+	_test_successful_purchase_finishes_transaction_after_grant(pid)
+
 	var got := {"called": false, "ok": true}
 	Store.purchase("com.dongurihouse.dongurimerge.piggybank", func(success: bool) -> void:
 		got.called = true
@@ -49,3 +61,33 @@ func _initialize() -> void:
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+func _test_successful_purchase_finishes_transaction_after_grant(pid: String) -> void:
+	_reset_store_state()
+	var tx := FakeTransaction.new(pid)
+	var got := {"called": false, "ok": false, "finished_during_callback": -1}
+	Store._pending_id = pid
+	Store._pending_cb = func(success: bool) -> void:
+		got.called = true
+		got.ok = success
+		got.finished_during_callback = tx.finished
+
+	var completion := Callable(Store, "_on_purchase_completed")
+	if not completion.is_valid():
+		ok(false, "Store has a named purchase-completion handler")
+		_reset_store_state()
+		return
+	completion.call(tx, Store.STATUS_OK, "")
+
+	ok(got.called and got.ok, "successful StoreKit completion settles the pending purchase")
+	ok(int(got.finished_during_callback) == 0,
+		"the transaction is not finished until after the grant callback runs")
+	ok(tx.finished == 1,
+		"successful StoreKit transactions are finished so consumables cannot replay on the next buy")
+	ok(Store._pending_id == "" and not Store._pending_cb.is_valid(),
+		"successful StoreKit completion clears pending purchase state")
+	_reset_store_state()
+
+func _reset_store_state() -> void:
+	Store._pending_id = ""
+	Store._pending_cb = Callable()

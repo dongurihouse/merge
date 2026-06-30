@@ -9,6 +9,8 @@ extends RefCounted
 ##   signal products_request_completed(products: Array, status: int)
 ##   signal purchase_completed(transaction, status: int, error_message: String)
 ##   signal restore_completed(status: int, error_message: String)
+## Successful consumable transactions must call StoreTransaction.finish() after the grant is delivered;
+## otherwise StoreKit can replay the same transaction on the next purchase attempt.
 ##
 ## CONFIRM-ON-DEVICE — both verified against the plugin's bundled doc classes (addons/…StoreKit):
 ##   • STATUS_OK = 0 — StoreKitStatus.OK; the other statuses are INVALID_PRODUCT=1, CANCELLED=2,
@@ -41,10 +43,8 @@ static func _ensure() -> bool:
 			return false
 		_sk.connect("products_request_completed", func(products: Array, _status: int) -> void:
 			_on_products(products))
-		_sk.connect("purchase_completed", func(_tx: Object, status: int, err: String) -> void:
-			if status != STATUS_OK:
-				push_warning("Store: purchase_completed status=%d (not OK) err=\"%s\"" % [status, err])
-			_settle(status == STATUS_OK))
+		_sk.connect("purchase_completed", func(tx: Object, status: int, err: String) -> void:
+			_on_purchase_completed(tx, status, err))
 		_sk.call("start")
 	return true
 
@@ -70,18 +70,34 @@ static func _on_products(products: Array) -> void:
 	push_warning("Store: product \"%s\" not in the %d returned product(s) — purchase aborted" % [_pending_id, products.size()])
 	_settle(false)
 
+static func _on_purchase_completed(transaction: Object, status: int, err: String) -> void:
+	if status != STATUS_OK:
+		push_warning("Store: purchase_completed status=%d (not OK) err=\"%s\"" % [status, err])
+	_settle(status == STATUS_OK, transaction)
+
 static func _product_id(p: Object) -> String:
 	if p == null:
 		return ""
 	var v: Variant = p.get("product_id")            # the plugin's StoreProduct id member (getter get_product_id)
 	return String(v) if v != null else ""
 
-static func _settle(success: bool) -> void:
+static func _settle(success: bool, transaction: Object = null) -> void:
 	var cb := _pending_cb
 	_pending_id = ""
 	_pending_cb = Callable()
 	if cb.is_valid():
 		cb.call(success)
+		if success:
+			_finish_transaction(transaction)
+
+static func _finish_transaction(transaction: Object) -> void:
+	if transaction == null:
+		push_warning("Store: successful purchase had no transaction to finish; it may replay")
+		return
+	if not transaction.has_method("finish"):
+		push_warning("Store: successful purchase transaction has no finish() method; it may replay")
+		return
+	transaction.call("finish")
 
 ## Restore non-consumable purchases (an App Store requirement). on_done(ok). No-op false off iOS.
 static func restore(on_done: Callable = Callable()) -> void:
