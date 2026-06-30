@@ -4,6 +4,7 @@ extends SceneTree
 
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 
 var _pass := 0
 var _fail := 0
@@ -35,6 +36,16 @@ func _initialize() -> void:
 	ok(_has_label(wait, "Opening App Store"), "overlay shows the title")
 	ok(_has_label(wait, "Please wait..."), "overlay shows the wait message")
 	ok(_has_non_empty_label_named(wait, "PurchaseWaitSpinner"), "overlay includes a visible spinner glyph")
+	ok(wait.find_child("DialogBanner", true, false) != null, "wait sheet uses the shared dialog banner")
+	ok(wait.find_child("DialogClose", true, false) != null, "...and the shared dialog close button")
+	var spinner := _label_named(wait, "PurchaseWaitSpinner")
+	var body := _label_named(wait, "PurchaseWaitMessage")
+	ok(spinner != null and spinner.has_theme_font_override("font")
+		and spinner.get_theme_font("font") == Kit.plain_font(),
+		"spinner uses the standard plain UI font")
+	ok(body != null and body.has_theme_font_override("font")
+		and body.get_theme_font("font") == Kit.plain_font(),
+		"wait message uses the standard plain UI font")
 
 	PurchaseWait.close(wait)
 	await process_frame
@@ -74,3 +85,12 @@ func _has_non_empty_label_named(node: Node, wanted_name: String) -> bool:
 		if _has_non_empty_label_named(child, wanted_name):
 			return true
 	return false
+
+func _label_named(node: Node, wanted_name: String) -> Label:
+	if node is Label and node.name == wanted_name:
+		return node as Label
+	for child in node.get_children():
+		var found := _label_named(child, wanted_name)
+		if found != null:
+			return found
+	return null

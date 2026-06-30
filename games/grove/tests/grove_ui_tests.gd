@@ -449,13 +449,23 @@ func _initialize() -> void:
 	sp._on_release(sp._cell_pos(c2) + phalf)
 	ok(sp.board.item_at(c1) == 101 and sp.board.item_at(c2) == 203, "P2: drag_swap OFF → snap-back (no swap)")
 	Features.FLAGS["drag_swap"] = true
-	# drop on a generator cell → snap-back (never swaps with a generator)
+	# drop on a generator cell → trade the item and generator locations
 	var gcell := Vector2i(G.GEN_CELL)
 	sp.board.place(c1, 101)
 	sp._rebuild_pieces()
 	sp._on_press(sp._cell_pos(c1) + phalf)
 	sp._on_release(sp._cell_pos(gcell) + phalf)
-	ok(sp.board.item_at(c1) == 101, "P2: drop on a generator cell → snap-back")
+	ok(sp.board.item_at(gcell) == 101 and sp.board.is_gen(c1) and not sp.board.is_gen(gcell), "P2: item dropped on generator → swaps item and generator cells")
+	# dragging the generator back onto the item swaps them back
+	sp._on_press(sp._cell_pos(c1) + phalf)
+	sp._on_release(sp._cell_pos(gcell) + phalf)
+	ok(sp.board.item_at(c1) == 101 and sp.board.is_gen(gcell) and not sp.board.is_gen(c1), "P2: generator dropped on item → swaps generator and item cells")
+	# non-matching generators swap cells; same-line/tier generator merges keep precedence elsewhere.
+	sp.board.place_gen("gen_2", c2)
+	sp._rebuild_all()
+	sp._on_press(sp._cell_pos(gcell) + phalf)
+	sp._on_release(sp._cell_pos(c2) + phalf)
+	ok(sp.board.gen_id_at(c2) == "gen_1" and sp.board.gen_id_at(gcell) == "gen_2", "P2: generator dropped on a different generator → swaps generator cells")
 
 	# 24. T — the Decorate jump goes to the MAP the player was decorating (NEW model:
 	# decorate_map opens that MAP, not an interior). Boot lands ON a map view.

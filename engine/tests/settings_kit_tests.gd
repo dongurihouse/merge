@@ -10,6 +10,7 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Settings = preload("res://engine/scripts/ui/settings.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const BuildInfo = preload("res://engine/scripts/core/build_info.gd")
 
 var _pass := 0
 var _fail := 0
@@ -56,6 +57,39 @@ func _has_label_text(root: Node, text: String) -> bool:
 		if (l as Label).text == text:
 			return true
 	return false
+
+func _info_value_label(root: Node, id: String) -> Label:
+	for l in root.find_children("", "Label", true, false):
+		var label := l as Label
+		if String(label.get_meta("settings_info_value_id", "")) == id:
+			return label
+	return null
+
+func _read_text(path: String) -> String:
+	var f := FileAccess.open(path, FileAccess.READ)
+	return f.get_as_text() if f != null else ""
+
+func _write_generated_build_info(version: String, build: String) -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://engine/generated"))
+	var f := FileAccess.open(BuildInfo.GENERATED_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string("""extends RefCounted
+
+const MARKETING_VERSION := "%s"
+const BUILD_NUMBER := "%s"
+
+static func info() -> Dictionary:
+	return {"marketing_version": MARKETING_VERSION, "build_number": BUILD_NUMBER}
+""" % [version, build])
+
+func _restore_generated_build_info(had_generated: bool, previous_text: String) -> void:
+	if had_generated:
+		var f := FileAccess.open(BuildInfo.GENERATED_PATH, FileAccess.WRITE)
+		if f != null:
+			f.store_string(previous_text)
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(BuildInfo.GENERATED_PATH))
 
 func _initialize() -> void:
 	OS.set_environment("GAME", "grove")   # the card / switch art lives in grove's clothes (Game.art root)
@@ -255,6 +289,17 @@ func _initialize() -> void:
 			mixed_action = true
 	ok(mixed_action, "settings_dialog renders the action entry's button")
 
+	# --- build info uses the stamped generated file whenever it exists -------------
+	# Regression: Settings could still show the checked-in fallback ("1.0 (build 1)") off iOS,
+	# even when the current stamped build_info.gd existed with the uploaded TestFlight version.
+	var had_generated := FileAccess.file_exists(BuildInfo.GENERATED_PATH)
+	var previous_generated := _read_text(BuildInfo.GENERATED_PATH) if had_generated else ""
+	_write_generated_build_info("9.8.7", "456")
+	var stamped_text := BuildInfo.version_text()
+	_restore_generated_build_info(had_generated, previous_generated)
+	ok(stamped_text == "9.8.7 (build 456)",
+		"BuildInfo reads stamped generated version/build info outside iOS")
+
 	# --- settings._entries ALWAYS appends the Game Center id + Reset save rows --------
 	# These are player-facing (no debug gate): the settings list always grows a read-only Game Center
 	# id row and a destructive Reset save action, in every build.
@@ -269,8 +314,8 @@ func _initialize() -> void:
 	ok(String(info_e.get("value", "")) == "not signed in",
 		"the GC row reads 'not signed in' when there is no id (off iOS)")
 	ok(String(version_e.get("label", "")) == "Version", "settings show a Version info row")
-	ok(String(version_e.get("value", "")) == "1.0 (build 1)",
-		"the Version row shows the marketing version and build number")
+	ok(String(version_e.get("value", "")) == BuildInfo.version_text(),
+		"the Version row shows the current BuildInfo version/build number")
 	ok(String(action_e.get("label", "")) == "Reset save", "settings show a Reset save action row")
 	ok(bool(action_e.get("destructive", false)), "the Reset row is flagged destructive")
 	host.queue_free()
@@ -321,6 +366,21 @@ func _initialize() -> void:
 		"the Reset row sits inside the dialog card (card grew to fit the rows, no clip)")
 	fit_dlg.queue_free()
 	fit_host.queue_free()
+
+	# --- the settings info values get real row width -------------------------------
+	# Regression: info_card's left label expanded to fill the HBox, squeezing the right value label down
+	# to ~1 px. The Version row existed in the tree, but the actual number was invisible to players.
+	fresh("version_value_visible")
+	var value_host := Control.new()
+	value_host.size = Vector2(1080, 1920)
+	get_root().add_child(value_host)
+	Settings.open(value_host)
+	for i in 24:
+		await process_frame
+	var version_value := _info_value_label(value_host, "app_version")
+	ok(version_value != null and version_value.size.x >= 120.0,
+		"the Version value label has enough width to visibly draw the version/build number")
+	value_host.queue_free()
 
 	# --- the live settings dialog refreshes the Game Center id after async auth ----
 	# TestFlight auth completes asynchronously after the Settings dialog may already be open. The row must

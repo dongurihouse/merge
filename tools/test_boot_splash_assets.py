@@ -20,6 +20,11 @@ def _setting(path, key):
     return m.group(1).strip()
 
 
+def _has_setting(path, key):
+    text = (ROOT / path).read_text()
+    return re.search(r"^%s=" % re.escape(key), text, re.MULTILINE) is not None
+
+
 def _png_header(path):
     data = path.read_bytes()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
@@ -50,8 +55,25 @@ class BootSplashAssetTests(unittest.TestCase):
         self.assertEqual(_setting("export_presets.cfg", "storyboard/custom_bg_color"), CREAM)
 
     def test_engine_splash_uses_cover_scale_like_ios_storyboard(self):
-        self.assertEqual(_setting("project.godot", "boot_splash/stretch_mode"), "6")
+        # The engine boot-splash stretch_mode enum is
+        # Disabled,Keep,Keep Width,Keep Height,Cover,Ignore  -> Cover == 4.
+        # (NOT TextureRect.StretchMode, where Keep Aspect Covered == 6; an out-of-range
+        # 6 here silently falls back to Keep, which renders the splash at native size,
+        # centered -> the letterboxed "screen shrank with a cream border" launch flash.)
+        self.assertEqual(_setting("project.godot", "boot_splash/stretch_mode"), "4")
+        # iOS storyboard enum: Same as Logo,Center,Scale to Fit,Scale to Fill,Scale -> Scale to Fill == 3.
         self.assertEqual(_setting("export_presets.cfg", "storyboard/image_scale_mode"), "3")
+
+    def test_no_deprecated_fullsize_overrides_stretch_mode(self):
+        # The deprecated boot_splash/fullsize boolean wins over stretch_mode via the
+        # engine's back-compat migration: while it is present the explicit stretch_mode
+        # is ignored (fullsize=true -> Keep, fullsize=false -> Disabled) -- neither is
+        # Cover. It must stay absent so stretch_mode=4 (Cover) is actually honored.
+        self.assertFalse(
+            _has_setting("project.godot", "boot_splash/fullsize"),
+            "boot_splash/fullsize must be removed; its presence forces the splash to "
+            "Keep and reintroduces the letterboxed launch flash.",
+        )
 
     def test_composed_launch_image_matches_design_viewport(self):
         self.assertTrue(LAUNCH_FILE.exists(), "%s should exist" % LAUNCH_FILE)
