@@ -167,6 +167,28 @@ func move_gen(from: Vector2i, to: Vector2i) -> bool:
 func gen_tier_at(cell: Vector2i) -> int:
 	return int(gen_tiers.get(cell, 1))
 
+# The highest tier owned for a generator LINE, across the board AND the bag (0 when the line owns none).
+# Drives self-dup (spawn at the line's top so duplicates feed ONE lineage and never strand) and
+# redundancy. Gen stranding fix.
+func top_gen_tier(line: int) -> int:
+	var top := 0
+	for cell in gens:
+		if int(G.gen_def(G.GENERATORS, String(gens[cell])).get("line", 0)) == line:
+			top = maxi(top, gen_tier_at(cell))
+	for i in gen_bag.size():
+		if int(G.gen_def(G.GENERATORS, String(gen_bag[i])).get("line", 0)) == line:
+			top = maxi(top, _bag_tier_at(i))
+	return top
+
+# A generator is REDUNDANT when a strictly-higher-tier generator of its line exists (board or bag): it
+# can never merge up to or past the top, so it is safe to sell — the line's top generator always remains.
+# Gen stranding fix.
+func is_redundant_gen(cell: Vector2i) -> bool:
+	if not gens.has(cell):
+		return false
+	var line := int(G.gen_def(G.GENERATORS, gen_id_at(cell)).get("line", 0))
+	return gen_tier_at(cell) < top_gen_tier(line)
+
 # §6 per-generator boost — remaining taps at a cell (0 = unboosted). Read by the board's pop/collect/indicator.
 func gen_boost_at(cell: Vector2i) -> int:
 	return int(gen_boost.get(cell, 0))

@@ -15,6 +15,7 @@ func _initialize() -> void:
 	_test_collect_coin()
 	_test_collect_special()
 	_test_produce_due_generators()
+	_test_gen_redundancy()
 	_test_pick_drop_cell()
 	finish()
 
@@ -155,6 +156,29 @@ func _test_produce_due_generators() -> void:
 	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
 	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
 	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
+
+# top_gen_tier = the line's highest owned tier across board + bag; is_redundant_gen flags any generator
+# that has a strictly-higher same-line sibling (so it can never merge up to the top → safe to sell).
+func _test_gen_redundancy() -> void:
+	fresh("gen_redundancy")
+	var b := BoardModel.new()
+	var gid := G.anchor_gen()                          # gen_1, line 1
+	var line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
+	ok(b.top_gen_tier(line) == 0, "no generators of a line → top tier 0")
+	var t1: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, t1, 1)
+	ok(b.top_gen_tier(line) == 1 and not b.is_redundant_gen(t1), "a lone tier-1 is the top, not redundant")
+	var t3: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, t3, 3)
+	ok(b.top_gen_tier(line) == 3, "top_gen_tier reports the highest owned tier")
+	ok(b.is_redundant_gen(t1) and not b.is_redundant_gen(t3), "the tier-1 is redundant under the tier-3; the tier-3 is not")
+	# a bagged higher tier still makes a board leftover redundant (top is bag-aware)
+	var b2 := BoardModel.new()
+	var lc: Vector2i = b2.empty_ground_cells()[0]
+	b2.place_gen(gid, lc, 1)
+	b2.bag_add(gid, 3)
+	ok(b2.top_gen_tier(line) == 3 and b2.is_redundant_gen(lc), "a bagged tier-3 makes the board tier-1 redundant")
+	ok(not b2.is_redundant_gen(Vector2i(0, 0)), "an empty cell is not a redundant generator")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.
