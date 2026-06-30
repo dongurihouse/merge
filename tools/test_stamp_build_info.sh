@@ -21,11 +21,11 @@ grep -q 'const MARKETING_VERSION := "2.3.4"' "$OUT" || fail "explicit version wa
 grep -q 'const BUILD_NUMBER := "2.3.4"' "$OUT" || fail "explicit build was not stamped"
 
 CI_BUILD_NUMBER=77 "$SCRIPT" "$OUT"
-grep -q 'const MARKETING_VERSION := "1.1.8"' "$OUT" || fail "bare export did not use export preset marketing version"
+grep -q 'const MARKETING_VERSION := "1.1.9"' "$OUT" || fail "bare export did not use export preset marketing version"
 grep -q 'const BUILD_NUMBER := "77"' "$OUT" || fail "bare CI export did not use CI build number"
 
 "$SCRIPT" "$OUT"
-grep -q 'const MARKETING_VERSION := "1.1.8"' "$OUT" || fail "bare local export did not use export preset marketing version"
-grep -q 'const BUILD_NUMBER := "1.1.8"' "$OUT" || fail "bare local export did not use export preset build number"
+grep -q 'const MARKETING_VERSION := "1.1.9"' "$OUT" || fail "bare local export did not use export preset marketing version"
+grep -q 'const BUILD_NUMBER := "1.1.9"' "$OUT" || fail "bare local export did not use export preset build number"
 
 echo "test_stamp_build_info: ok"
