@@ -15,7 +15,11 @@ func _initialize() -> void:
 	_test_collect_coin()
 	_test_collect_special()
 	_test_produce_due_generators()
+	_test_gen_redundancy()
+	_test_self_dup_at_top()
+	_test_sell_generator()
 	_test_pick_drop_cell()
+	_test_generator_swaps()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -156,6 +160,79 @@ func _test_produce_due_generators() -> void:
 	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
 	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
 
+# top_gen_tier = the line's highest owned tier across board + bag; is_redundant_gen flags any generator
+# that has a strictly-higher same-line sibling (so it can never merge up to the top → safe to sell).
+func _test_gen_redundancy() -> void:
+	fresh("gen_redundancy")
+	var b := BoardModel.new()
+	var gid := G.anchor_gen()                          # gen_1, line 1
+	var line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
+	ok(b.top_gen_tier(line) == 0, "no generators of a line → top tier 0")
+	var t1: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, t1, 1)
+	ok(b.top_gen_tier(line) == 1 and not b.is_redundant_gen(t1), "a lone tier-1 is the top, not redundant")
+	var t3: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, t3, 3)
+	ok(b.top_gen_tier(line) == 3, "top_gen_tier reports the highest owned tier")
+	ok(b.is_redundant_gen(t1) and not b.is_redundant_gen(t3), "the tier-1 is redundant under the tier-3; the tier-3 is not")
+	# a bagged higher tier still makes a board leftover redundant (top is bag-aware)
+	var b2 := BoardModel.new()
+	var lc: Vector2i = b2.empty_ground_cells()[0]
+	b2.place_gen(gid, lc, 1)
+	b2.bag_add(gid, 3)
+	ok(b2.top_gen_tier(line) == 3 and b2.is_redundant_gen(lc), "a bagged tier-3 makes the board tier-1 redundant")
+	ok(not b2.is_redundant_gen(Vector2i(0, 0)), "an empty cell is not a redundant generator")
+
+# Self-dup feeds the line's TOP lineage: the duplicate spawns at top_gen_tier (not the tapped generator's
+# tier), so tapping a sub-top leftover never breeds more low tiers, and a maxed line breeds nothing at all.
+func _test_self_dup_at_top() -> void:
+	fresh("self_dup_at_top")
+	var gid := G.anchor_gen()
+	# tapping a tier-1 leftover while a tier-2 top exists spawns the duplicate at the TOP (tier 2)
+	var b := BoardModel.new()
+	var low: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, low, 1)
+	var top: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, top, 2)
+	var out: Dictionary = BoardActions.self_dup_generator(b, low)
+	ok(out.landed.size() == 1, "self-dup placed one duplicate")
+	ok(b.gen_tier_at(out.landed[0]) == 2, "the duplicate spawns at the line top (tier 2), not the tapped tier 1")
+	# a maxed line (top == GEN_TOP_TIER) breeds nothing — no new strand
+	var bm := BoardModel.new()
+	var mx: Vector2i = bm.empty_ground_cells()[0]
+	bm.place_gen(gid, mx, G.GEN_TOP_TIER)
+	var leftover: Vector2i = bm.empty_ground_cells()[0]
+	bm.place_gen(gid, leftover, 1)
+	var outm: Dictionary = BoardActions.self_dup_generator(bm, leftover)
+	ok(outm.landed.is_empty() and outm.bagged.is_empty(), "a maxed line breeds no duplicate")
+	# board full → the duplicate falls into the bag at the line-top tier
+	var bf := BoardModel.new()
+	for i in bf.items.size():
+		bf.items[i] = 101
+	bf.place_gen(gid, Vector2i(4, 3), 1)               # place_gen clears this cell's item; the board is else full
+	var outf: Dictionary = BoardActions.self_dup_generator(bf, Vector2i(4, 3))
+	ok(outf.landed.is_empty() and outf.bagged == [gid], "a full board bags the duplicate")
+	ok(bf._bag_tier_at(0) == 1, "the bagged duplicate carries the line-top tier")
+
+# Selling a redundant generator removes it + credits GEN_SELL_COINS; the guard refuses a non-redundant
+# (last/highest) generator, so a line always keeps its top producer (quests stay satisfiable).
+func _test_sell_generator() -> void:
+	fresh("sell_generator")
+	var gid := G.anchor_gen()
+	var b := BoardModel.new()
+	var low: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, low, 1)
+	var top: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, top, 3)
+	var coins_b := Save.coins()
+	var out: Dictionary = BoardActions.sell_generator(b, low)
+	ok(bool(out.sold) and int(out.coins) == G.gen_sell_coins(1), "selling a redundant tier-1 reports sold + its coin value")
+	ok(not b.gens.has(low) and b.gens.has(top), "the redundant generator is removed; the top survives")
+	ok(Save.coins() == coins_b + G.gen_sell_coins(1), "the sale credits GEN_SELL_COINS to the wallet")
+	var out2: Dictionary = BoardActions.sell_generator(b, top)
+	ok(not bool(out2.sold) and b.gens.has(top), "a non-redundant (top) generator cannot be sold")
+	ok(G.gen_sell_coins(1) >= 0 and G.gen_sell_coins(2) >= 0, "gen_sell_coins is defined for the sellable tiers 1..2")
+
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.
 func _test_pick_drop_cell() -> void:
@@ -176,3 +253,32 @@ func _test_pick_drop_cell() -> void:
 	for i in full.items.size():
 		full.items[i] = 101
 	ok(BoardLogic.pick_drop_cell(full, near, rng) == Vector2i(-1, -1), "a board with no open ground yields the (-1,-1) sentinel")
+
+# Generators are movable board pieces: besides empty-ground moves and same-generator merges, they can
+# trade cells with a regular item or with a non-mergeable generator without dropping tier/boost state.
+func _test_generator_swaps() -> void:
+	fresh("generator_swaps")
+	var b := BoardModel.new(); b.seed_gens(0)
+	var gen_cell: Vector2i = b.gens.keys()[0]
+	var gen_id := b.gen_id_at(gen_cell)
+	b.gen_tiers[gen_cell] = 2
+	b.arm_gen_boost(gen_cell, 3)
+	var item_cell: Vector2i = b.empty_ground_cells()[0]
+	b.place(item_cell, 101)
+	b.set_collect_reward(item_cell, "exp", 4)
+	ok(b.has_method("swap_gen_with_item"), "generator swap: model exposes a generator-item swap")
+	if b.has_method("swap_gen_with_item"):
+		ok(b.swap_gen_with_item(gen_cell, item_cell), "generator swap: generator trades places with an occupied item cell")
+		ok(b.is_gen(item_cell) and b.gen_id_at(item_cell) == gen_id, "generator swap: generator lands on the item's old cell")
+		ok(b.item_at(gen_cell) == 101 and not b.collect_reward_at(gen_cell).is_empty(), "generator swap: item and reward land on the generator's old cell")
+		ok(b.gen_tier_at(item_cell) == 2 and b.gen_boost_at(item_cell) == 3, "generator swap: tier and boost travel with the generator")
+
+	var live_gen_cell := item_cell if b.is_gen(item_cell) else gen_cell
+	var other_cell: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen("gen_2", other_cell, 3)
+	b.arm_gen_boost(other_cell, 5)
+	ok(b.has_method("swap_gens"), "generator swap: model exposes a generator-generator swap")
+	if b.has_method("swap_gens"):
+		ok(b.swap_gens(live_gen_cell, other_cell), "generator swap: two non-matching generators trade cells")
+		ok(b.gen_id_at(other_cell) == gen_id and b.gen_tier_at(other_cell) == 2 and b.gen_boost_at(other_cell) == 3, "generator swap: dragged generator state lands on the target cell")
+		ok(b.gen_id_at(live_gen_cell) == "gen_2" and b.gen_tier_at(live_gen_cell) == 3 and b.gen_boost_at(live_gen_cell) == 5, "generator swap: target generator state lands on the source cell")

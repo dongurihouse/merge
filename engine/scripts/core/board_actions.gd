@@ -86,3 +86,36 @@ static func produce_due_generators(board: BoardModel, quests: Array) -> Dictiona
 			board.place_gen(id, dest)
 			landed.append(dest)
 	return {"due": true, "landed": landed, "bagged": bagged}
+
+# Gen stranding fix — SELF-DUP (the merge fuel). The duplicate spawns at the LINE's TOP tier
+# (top_gen_tier across board+bag) so every self-dup feeds ONE lineage and merges up — no sub-tier strand
+# forms, and a maxed line breeds nothing. Lands on a free cell, else the bag. Mutates the model; returns
+# {landed, bagged} for the scene's pop-in render (mirrors produce_due_generators).
+static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
+	var dup_id := board.gen_id_at(src)
+	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
+		return {"landed": [], "bagged": []}
+	var line := int(G.gen_def(G.GENERATORS, dup_id).get("line", 0))
+	var tier := board.top_gen_tier(line)
+	if tier <= 0 or tier >= G.GEN_TOP_TIER:
+		return {"landed": [], "bagged": []}          # maxed line → no merge fuel, no new strand
+	for c in board.empty_ground_cells():
+		if not board.gens.has(c):
+			board.place_gen(dup_id, c, tier)
+			return {"landed": [c], "bagged": []}
+	if not board.gen_bag.has(dup_id):
+		board.bag_add(dup_id, tier)
+		return {"landed": [], "bagged": [dup_id]}
+	return {"landed": [], "bagged": []}
+
+# Gen stranding fix — SELL a redundant generator (one that has a strictly-higher same-line sibling, so the
+# line keeps its top producer). Guarded: a non-redundant generator is refused. Removes it from the model and
+# credits GEN_SELL_COINS. Returns {sold, coins} for the scene's poof + coin float.
+static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
+	if not board.is_redundant_gen(cell):
+		return {"sold": false, "coins": 0}
+	var coins := G.gen_sell_coins(board.gen_tier_at(cell))
+	board.remove_gen(cell)
+	if coins > 0:
+		Save.add_coins(coins)
+	return {"sold": true, "coins": coins}

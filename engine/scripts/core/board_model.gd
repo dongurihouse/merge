@@ -167,6 +167,28 @@ func move_gen(from: Vector2i, to: Vector2i) -> bool:
 func gen_tier_at(cell: Vector2i) -> int:
 	return int(gen_tiers.get(cell, 1))
 
+# The highest tier owned for a generator LINE, across the board AND the bag (0 when the line owns none).
+# Drives self-dup (spawn at the line's top so duplicates feed ONE lineage and never strand) and
+# redundancy. Gen stranding fix.
+func top_gen_tier(line: int) -> int:
+	var top := 0
+	for cell in gens:
+		if int(G.gen_def(G.GENERATORS, String(gens[cell])).get("line", 0)) == line:
+			top = maxi(top, gen_tier_at(cell))
+	for i in gen_bag.size():
+		if int(G.gen_def(G.GENERATORS, String(gen_bag[i])).get("line", 0)) == line:
+			top = maxi(top, _bag_tier_at(i))
+	return top
+
+# A generator is REDUNDANT when a strictly-higher-tier generator of its line exists (board or bag): it
+# can never merge up to or past the top, so it is safe to sell — the line's top generator always remains.
+# Gen stranding fix.
+func is_redundant_gen(cell: Vector2i) -> bool:
+	if not gens.has(cell):
+		return false
+	var line := int(G.gen_def(G.GENERATORS, gen_id_at(cell)).get("line", 0))
+	return gen_tier_at(cell) < top_gen_tier(line)
+
 # §6 per-generator boost — remaining taps at a cell (0 = unboosted). Read by the board's pop/collect/indicator.
 func gen_boost_at(cell: Vector2i) -> int:
 	return int(gen_boost.get(cell, 0))
@@ -331,6 +353,62 @@ func swap(a: Vector2i, b: Vector2i) -> void:
 		collect_rewards[idx(a)] = rb
 	if not ra.is_empty():
 		collect_rewards[idx(b)] = ra
+
+## Trade a generator with a regular occupied item cell. The generator's tier/boost rides with
+## it, and any custom collect reward rides with the item to the generator's old cell.
+func swap_gen_with_item(gen_cell: Vector2i, item_cell: Vector2i) -> bool:
+	if gen_cell == item_cell or not gens.has(gen_cell) or gens.has(item_cell):
+		return false
+	if not is_open(gen_cell) or not is_open(item_cell):
+		return false
+	if item_at(gen_cell) != 0 or item_at(item_cell) <= 0:
+		return false
+	var gid := String(gens[gen_cell])
+	var tier := gen_tier_at(gen_cell)
+	var boost := gen_boost_at(gen_cell)
+	var code := item_at(item_cell)
+	var reward := collect_reward_at(item_cell)
+	gens.erase(gen_cell)
+	gen_tiers.erase(gen_cell)
+	gen_boost.erase(gen_cell)
+	items[idx(item_cell)] = 0
+	items[idx(gen_cell)] = code
+	collect_rewards.erase(idx(item_cell))
+	collect_rewards.erase(idx(gen_cell))
+	if not reward.is_empty():
+		collect_rewards[idx(gen_cell)] = reward
+	gens[item_cell] = gid
+	gen_tiers[item_cell] = tier
+	if boost > 0:
+		gen_boost[item_cell] = boost
+	return true
+
+## Trade two non-mergeable generators. Mergeable same-line/same-tier pairs are deliberately
+## refused here so callers keep routing those through merge_gens().
+func swap_gens(a: Vector2i, b: Vector2i) -> bool:
+	if a == b or not gens.has(a) or not gens.has(b):
+		return false
+	if not is_open(a) or not is_open(b) or item_at(a) != 0 or item_at(b) != 0:
+		return false
+	var tier_a := gen_tier_at(a)
+	var tier_b := gen_tier_at(b)
+	if String(gens[a]) == String(gens[b]) and tier_a == tier_b and tier_a < G.GEN_TOP_TIER:
+		return false
+	var aid := String(gens[a])
+	var bid := String(gens[b])
+	var boost_a := gen_boost_at(a)
+	var boost_b := gen_boost_at(b)
+	gens[a] = bid
+	gens[b] = aid
+	gen_tiers[a] = tier_b
+	gen_tiers[b] = tier_a
+	gen_boost.erase(a)
+	gen_boost.erase(b)
+	if boost_b > 0:
+		gen_boost[a] = boost_b
+	if boost_a > 0:
+		gen_boost[b] = boost_a
+	return true
 
 func take(cell: Vector2i) -> int:
 	var k := item_at(cell)

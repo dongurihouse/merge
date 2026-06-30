@@ -162,10 +162,13 @@ const ZONE_COUNT := 25                    # 17 base + 8 special = the 25 live re
 
 # §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
 # higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
-# GEN_SELF_DUP_RATE per tap (the merge fuel); a maxed generator instead feeds another sub-max line (board logic).
+# GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
 const GEN_TOP_TIER := 3
 const QUEST_GEN_CAP := 6                   # gen redesign #16 (RE-SCOPED): a QUEST-side cap — the active quests may demand at most this many DISTINCT generators (a base ask needs 1; a merge/special ask needs its 2 ingredient gens). The player's BOARD is uncapped; this just stops merge-quests forcing a huge generator count.
 const GEN_SELF_DUP_RATE := 0.005           # 0.5% per tap
+# Coins refunded when SELLING a redundant generator (a sub-top leftover), indexed by tier 1..GEN_TOP_TIER-1
+# (a tier-3 is never redundant, so never sold). Small on purpose — 0.5%/tap breeding must not be a coin faucet.
+const GEN_SELL_COINS := [2, 6]             # tier 1 → 2 coins, tier 2 → 6 coins
 const GEN_TIER_BURST_ODDS := [             # burst odds [1,2,3 items] by generator tier (1..3) — higher = more multiples
 	[0.80, 0.15, 0.05],   # tier 1
 	[0.50, 0.35, 0.15],   # tier 2

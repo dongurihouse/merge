@@ -1869,14 +1869,27 @@ func _select_generator(cell: Vector2i) -> void:
 	var show_info_btn := not entries.is_empty() and not _info_button_hidden
 	_info_btn.visible = show_info_btn
 	_info_btn.disabled = not show_info_btn     # ⓘ opens the line ladder unless empty or hidden in the workbench
-	_info_trash.visible = false               # a generator is never sold
 	if _info_buy != null and is_instance_valid(_info_buy):
-		_info_buy.visible = false             # …nor buyable as a copy (the boost chip is its action)
-	if G.is_accumulator(gid) or G.is_treat_gen(gid):
+		_info_buy.visible = false             # a generator is never buyable as a copy
+	if board.is_redundant_gen(cell):
+		# gen stranding fix: a sub-top (redundant) generator is sellable — show the sell button + its payout
+		var sell_coins := G.gen_sell_coins(tier)
+		_info_trash_count.text = "%d" % sell_coins
+		for ic in _info_trash_coin.get_children():
+			ic.queue_free()
+		var pay_icon := Look.icon("coin", _info_trash_coin.custom_minimum_size.x)
+		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_info_trash_coin.add_child(pay_icon)
+		_info_trash.visible = true
 		if _info_burst != null and is_instance_valid(_info_burst):
-			_info_burst.visible = false
+			_info_burst.visible = false       # a generator you're clearing isn't boostable
 	else:
-		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
+		_info_trash.visible = false           # the top/only generator of a line is never sold
+		if G.is_accumulator(gid) or G.is_treat_gen(gid):
+			if _info_burst != null and is_instance_valid(_info_burst):
+				_info_burst.visible = false
+		else:
+			_refresh_burst_chip()             # the boost chip (full when armable, faded while live)
 
 # The generator's info-bar label: its name, plus — while a boost is live — the boost detail (that the
 # boost is on and how many taps are left). Built here so a pop can refresh it live without rebuilding
@@ -2128,6 +2141,11 @@ func _on_trash_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var cell := _selected_cell
+	if board.is_gen(cell):                         # gen stranding fix: the sell button clears a REDUNDANT generator
+		if board.is_redundant_gen(cell):
+			_sell_generator(cell)
+			_clear_selection()
+		return
 	var code := board.item_at(cell)
 	if code <= 0 or board.is_gen(cell) or G.is_coin(code):
 		return
@@ -2466,6 +2484,11 @@ func _on_release(pos: Vector2) -> void:
 	elif board.is_empty_ground(target) and target != from:
 		_commit_move(from, target, node)
 	elif Features.on("drag_swap") and target != from \
+			and board.is_gen(target) and board.swap_gen_with_item(target, from):
+		Audio.play("item_drop", -4.0)
+		_persist()
+		_rebuild_all()
+	elif Features.on("drag_swap") and target != from \
 			and board.item_at(target) > 0 and not board.is_gen(target) \
 			and piece_nodes.has(target):
 		_commit_swap(from, target, node)        # P: trade two unlocked items
@@ -2518,6 +2541,18 @@ func _release_gen(pos: Vector2) -> void:
 		return
 	if target != from and board.is_gen(target) and board.merge_gens(from, target):   # #8: same-line generators merge → a stronger tier (frees the source cell)
 		Audio.play("item_drop", -2.0)
+		_persist()
+		_rebuild_all()
+		return
+	if Features.on("drag_swap") and target != from \
+			and board.item_at(target) > 0 and not board.is_gen(target) \
+			and board.swap_gen_with_item(from, target):
+		Audio.play("item_drop", -4.0)
+		_persist()
+		_rebuild_all()
+		return
+	if Features.on("drag_swap") and target != from and board.is_gen(target) and board.swap_gens(from, target):
+		Audio.play("item_drop", -4.0)
 		_persist()
 		_rebuild_all()
 		return
@@ -2679,26 +2714,18 @@ func _produce_due_generators() -> bool:
 	Audio.play("unlock" if Audio.has("unlock") else "level_complete", -3.0)
 	return true
 
-# gen redesign #8 — SELF-DUP (the merge fuel). A below-top generator spawns a same-tier DUPLICATE of its own
-# line; a MAXED (tier-GEN_TOP_TIER) generator no longer self-dups — it can't merge higher, and the cross-line
-# "feed another active line" path is retired with the active-lines window. Lands on a free cell, else the bag.
+# Gen stranding fix — SELF-DUP (the merge fuel). The pure action spawns a duplicate at the LINE's TOP tier
+# so duplicates feed ONE lineage (no sub-tier strand) and a maxed line breeds nothing; the scene renders the
+# pop-in. Lands on a free cell, else the bag (BoardActions.self_dup_generator).
 func _self_dup_generator(src: Vector2i) -> void:
-	var tier := board.gen_tier_at(src)
-	if tier >= G.GEN_TOP_TIER:
-		return                                     # maxed generator → nothing to dup (no cross-line feed)
-	var dup_id := board.gen_id_at(src)
-	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
+	var out := BoardActions.self_dup_generator(board, src)
+	if out.landed.is_empty() and out.bagged.is_empty():
 		return
-	for c in board.empty_ground_cells():           # no board cap — the merge fuel places freely (≤6 is a quest cap)
-		if not board.gens.has(c):
-			board.place_gen(dup_id, c, tier)
-			_grown_cells.append(c)
-			_persist()
-			_rebuild_all()
-			return
-	if not board.gen_bag.has(dup_id):
-		board.bag_add(dup_id, tier)
-		_persist()
+	for c in out.landed:
+		_grown_cells.append(c)
+	_persist()
+	if not out.landed.is_empty():
+		_rebuild_all()
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.
@@ -3622,6 +3649,25 @@ func _dismiss_2x_offer() -> void:
 	_2x_offer = null
 
 # sell ANYTHING dragged onto the cart — tier pocket change; cleanup, never income
+## Gen stranding fix — sell the selected REDUNDANT generator: the pure action removes it + credits coins;
+## the scene re-renders without it (mirrors the merge/store generator paths) and floats the coin payout.
+func _sell_generator(cell: Vector2i) -> void:
+	var out := BoardActions.sell_generator(board, cell)
+	if not bool(out.sold):
+		return
+	Audio.play("tidy_poof", -4.0, 1.1)
+	var coins := int(out.coins)
+	if coins > 0:
+		var center: Vector2 = _info_trash.get_global_rect().get_center() if (_info_trash != null and is_instance_valid(_info_trash)) else get_global_rect().get_center()
+		var done := func() -> void:
+			if is_instance_valid(self):
+				_update_hud()
+		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	_persist()
+	_rebuild_all()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
+
 func _sell_item(from: Vector2i, node: Control) -> void:
 	var code := board.item_at(from)
 	if code <= 0:
