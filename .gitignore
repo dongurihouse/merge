@@ -34,6 +34,9 @@ __pycache__/
 override.cfg
 /archive/
 
+# Generated per-export runtime constants (for example, player-visible iOS build info)
+/engine/generated/
+
 # Grove art import-skip toggle: a LOCAL build-speed switch, not source.
 # `make run_base` creates it (placeholder boots without importing grove art);
 # `make run_grove` removes it (grove art imports + loads). Either way: never committed.

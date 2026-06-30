@@ -16,11 +16,13 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const BuildInfo = preload("res://engine/scripts/core/build_info.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")   # the Game Center player id (read-only display)
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "SettingsOverlay"
 const GC_INFO_ID := "game_center"
+const VERSION_INFO_ID := "app_version"
 const GC_REFRESH_SECONDS := 0.05
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
@@ -104,6 +106,7 @@ static func _entries(host: Control) -> Array:
 	# action (a two-tap confirm). Shown in every build — the GC id helps support identify a player, and
 	# Reset gives a clean "start over".
 	out.append(_gc_info_entry())
+	out.append(_version_info_entry())
 	out.append(_reset_entry(host))
 	return out
 
@@ -116,6 +119,9 @@ static func _gc_info_entry() -> Dictionary:
 static func _gc_id_text() -> String:
 	var id := Identity.player_id()
 	return id if id != "" else "not signed in"
+
+static func _version_info_entry() -> Dictionary:
+	return {"kind": "info", "id": VERSION_INFO_ID, "label": "Version", "value": BuildInfo.version_text()}
 
 static func _bind_gc_info_refresh(overlay: Control, dialog: Control) -> void:
 	var value_label := _gc_value_label(dialog)
