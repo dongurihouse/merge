@@ -57,6 +57,13 @@ func _has_label_text(root: Node, text: String) -> bool:
 			return true
 	return false
 
+func _info_value_label(root: Node, id: String) -> Label:
+	for l in root.find_children("", "Label", true, false):
+		var label := l as Label
+		if String(label.get_meta("settings_info_value_id", "")) == id:
+			return label
+	return null
+
 func _initialize() -> void:
 	OS.set_environment("GAME", "grove")   # the card / switch art lives in grove's clothes (Game.art root)
 	print("== Settings kit guard ==")
@@ -321,6 +328,21 @@ func _initialize() -> void:
 		"the Reset row sits inside the dialog card (card grew to fit the rows, no clip)")
 	fit_dlg.queue_free()
 	fit_host.queue_free()
+
+	# --- the settings info values get real row width -------------------------------
+	# Regression: info_card's left label expanded to fill the HBox, squeezing the right value label down
+	# to ~1 px. The Version row existed in the tree, but the actual number was invisible to players.
+	fresh("version_value_visible")
+	var value_host := Control.new()
+	value_host.size = Vector2(1080, 1920)
+	get_root().add_child(value_host)
+	Settings.open(value_host)
+	for i in 24:
+		await process_frame
+	var version_value := _info_value_label(value_host, "app_version")
+	ok(version_value != null and version_value.size.x >= 120.0,
+		"the Version value label has enough width to visibly draw the version/build number")
+	value_host.queue_free()
 
 	# --- the live settings dialog refreshes the Game Center id after async auth ----
 	# TestFlight auth completes asynchronously after the Settings dialog may already be open. The row must

@@ -1875,6 +1875,7 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	val_l.add_theme_font_size_override("font_size", maxi(13, label_font - 4))
 	val_l.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	val_l.add_theme_constant_override("outline_size", 0)
+	val_l.custom_minimum_size.x = float(opts.get("value_min_w", 180.0))
 	val_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	val_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	val_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
