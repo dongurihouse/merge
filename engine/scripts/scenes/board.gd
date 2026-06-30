@@ -2466,6 +2466,11 @@ func _on_release(pos: Vector2) -> void:
 	elif board.is_empty_ground(target) and target != from:
 		_commit_move(from, target, node)
 	elif Features.on("drag_swap") and target != from \
+			and board.is_gen(target) and board.swap_gen_with_item(target, from):
+		Audio.play("item_drop", -4.0)
+		_persist()
+		_rebuild_all()
+	elif Features.on("drag_swap") and target != from \
 			and board.item_at(target) > 0 and not board.is_gen(target) \
 			and piece_nodes.has(target):
 		_commit_swap(from, target, node)        # P: trade two unlocked items
@@ -2518,6 +2523,18 @@ func _release_gen(pos: Vector2) -> void:
 		return
 	if target != from and board.is_gen(target) and board.merge_gens(from, target):   # #8: same-line generators merge → a stronger tier (frees the source cell)
 		Audio.play("item_drop", -2.0)
+		_persist()
+		_rebuild_all()
+		return
+	if Features.on("drag_swap") and target != from \
+			and board.item_at(target) > 0 and not board.is_gen(target) \
+			and board.swap_gen_with_item(from, target):
+		Audio.play("item_drop", -4.0)
+		_persist()
+		_rebuild_all()
+		return
+	if Features.on("drag_swap") and target != from and board.is_gen(target) and board.swap_gens(from, target):
+		Audio.play("item_drop", -4.0)
 		_persist()
 		_rebuild_all()
 		return

@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_collect_special()
 	_test_produce_due_generators()
 	_test_pick_drop_cell()
+	_test_generator_swaps()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -176,3 +177,32 @@ func _test_pick_drop_cell() -> void:
 	for i in full.items.size():
 		full.items[i] = 101
 	ok(BoardLogic.pick_drop_cell(full, near, rng) == Vector2i(-1, -1), "a board with no open ground yields the (-1,-1) sentinel")
+
+# Generators are movable board pieces: besides empty-ground moves and same-generator merges, they can
+# trade cells with a regular item or with a non-mergeable generator without dropping tier/boost state.
+func _test_generator_swaps() -> void:
+	fresh("generator_swaps")
+	var b := BoardModel.new(); b.seed_gens(0)
+	var gen_cell: Vector2i = b.gens.keys()[0]
+	var gen_id := b.gen_id_at(gen_cell)
+	b.gen_tiers[gen_cell] = 2
+	b.arm_gen_boost(gen_cell, 3)
+	var item_cell: Vector2i = b.empty_ground_cells()[0]
+	b.place(item_cell, 101)
+	b.set_collect_reward(item_cell, "exp", 4)
+	ok(b.has_method("swap_gen_with_item"), "generator swap: model exposes a generator-item swap")
+	if b.has_method("swap_gen_with_item"):
+		ok(b.swap_gen_with_item(gen_cell, item_cell), "generator swap: generator trades places with an occupied item cell")
+		ok(b.is_gen(item_cell) and b.gen_id_at(item_cell) == gen_id, "generator swap: generator lands on the item's old cell")
+		ok(b.item_at(gen_cell) == 101 and not b.collect_reward_at(gen_cell).is_empty(), "generator swap: item and reward land on the generator's old cell")
+		ok(b.gen_tier_at(item_cell) == 2 and b.gen_boost_at(item_cell) == 3, "generator swap: tier and boost travel with the generator")
+
+	var live_gen_cell := item_cell if b.is_gen(item_cell) else gen_cell
+	var other_cell: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen("gen_2", other_cell, 3)
+	b.arm_gen_boost(other_cell, 5)
+	ok(b.has_method("swap_gens"), "generator swap: model exposes a generator-generator swap")
+	if b.has_method("swap_gens"):
+		ok(b.swap_gens(live_gen_cell, other_cell), "generator swap: two non-matching generators trade cells")
+		ok(b.gen_id_at(other_cell) == gen_id and b.gen_tier_at(other_cell) == 2 and b.gen_boost_at(other_cell) == 3, "generator swap: dragged generator state lands on the target cell")
+		ok(b.gen_id_at(live_gen_cell) == "gen_2" and b.gen_tier_at(live_gen_cell) == 3 and b.gen_boost_at(live_gen_cell) == 5, "generator swap: target generator state lands on the source cell")
