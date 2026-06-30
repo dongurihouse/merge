@@ -2990,7 +2990,7 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 			LandFx.apply(self, n, special_ctr, _land_opts, 0.8, false)
 			Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
-# §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
+# §6.B tap-collect a water/acorn/exp item → grant the resource (water banks OVER the cap; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
 	# RULE in the pure action (resolve the reward, take the tile, credit acorn/exp); the scene folds a
 	# "water" reward into its live water mirror (a scene field, not Save) and renders.
@@ -3001,7 +3001,9 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 	if node != null and is_instance_valid(node):
 		node.queue_free()
 	if String(out.kind) == "water":
-		water = mini(G.WATER_CAP, water + int(out.amount))
+		# Bank OVER the cap (like the free refill + starter credit) — a collect at a full can keeps the
+		# spare instead of dissolving the drop; regen pauses above the cap (board_logic.regen) so it holds.
+		water = water + int(out.amount)
 	Audio.play("coin_earn", -3.0, 1.15)
 	_persist()
 	_update_hud()

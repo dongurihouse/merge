@@ -55,6 +55,23 @@ func _initialize() -> void:
 			s2.board.items[ci] = 0
 	s2._rebuild_pieces()
 
+	# §6.B collecting a water DROP banks OVER the cap — a tap on a water special while the can is
+	# already full keeps the spare (like the free refill + starter credit; regen pauses above cap),
+	# instead of dissolving the drop against a hard 100 clamp.
+	var wcell := Vector2i(-1, -1)
+	for ci in s2.board.items.size():
+		var cc := BoardModel.cell_of(ci)
+		if s2.board.items[ci] == 0 and not s2.board.gens.has(cc):
+			wcell = cc
+			break
+	ok(wcell != Vector2i(-1, -1), "found an empty cell to seed a water drop")
+	s2.water = G.WATER_CAP
+	s2.board.place(wcell, 13 * 100 + 1)                  # a SPECIAL drop tile (code mirrors the board-actions test)
+	s2.board.set_collect_reward(wcell, "water", 8)       # a tier-1 water drop is worth 8
+	s2._collect_special(wcell, null)
+	ok(s2.water == G.WATER_CAP + 8, "collecting a water drop at a full can banks OVER the cap (no 100 clamp)")
+	ok(Save.water() == G.WATER_CAP + 8, "the over-cap water total persists to Save")
+
 	# collectables (coins): a coin is collectable; FIRST tap only focuses it into the info bar,
 	# a SECOND tap (while focused) collects it; a DRAG never collects. (board.gd _on_release)
 	var coins0 := Save.coins()
