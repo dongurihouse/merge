@@ -11,8 +11,7 @@ const BUILD_NUMBER := "1.1.8"
 static func version_text() -> String:
 	var info := _info()
 	var version := String(info.get("marketing_version", MARKETING_VERSION))
-	var build := String(info.get("build_number", BUILD_NUMBER))
-	return _format_text(version, build)
+	return _format_text(version)
 
 static func _info() -> Dictionary:
 	var out := {"marketing_version": MARKETING_VERSION, "build_number": BUILD_NUMBER}
@@ -32,11 +31,8 @@ static func _generated_info() -> Dictionary:
 	var info: Variant = Generated.info()
 	return info if info is Dictionary else {}
 
-static func _format_text(version: String, build: String) -> String:
+static func _format_text(version: String) -> String:
 	version = version.strip_edges()
-	build = build.strip_edges()
 	if version == "":
 		version = MARKETING_VERSION
-	if build == "":
-		build = BUILD_NUMBER
-	return "%s (build %s)" % [version, build]
+	return version

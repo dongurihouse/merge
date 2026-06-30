@@ -297,8 +297,8 @@ func _initialize() -> void:
 	_write_generated_build_info("9.8.7", "456")
 	var stamped_text := BuildInfo.version_text()
 	_restore_generated_build_info(had_generated, previous_generated)
-	ok(stamped_text == "9.8.7 (build 456)",
-		"BuildInfo reads stamped generated version/build info outside iOS")
+	ok(stamped_text == "9.8.7",
+		"BuildInfo reads stamped generated marketing version outside iOS")
 
 	# --- settings._entries ALWAYS appends the Game Center id + Reset save rows --------
 	# These are player-facing (no debug gate): the settings list always grows a read-only Game Center
@@ -315,7 +315,9 @@ func _initialize() -> void:
 		"the GC row reads 'not signed in' when there is no id (off iOS)")
 	ok(String(version_e.get("label", "")) == "Version", "settings show a Version info row")
 	ok(String(version_e.get("value", "")) == BuildInfo.version_text(),
-		"the Version row shows the current BuildInfo version/build number")
+		"the Version row shows the current BuildInfo marketing version")
+	ok(not String(version_e.get("value", "")).contains("(build"),
+		"the Version row omits the build-number suffix")
 	ok(String(action_e.get("label", "")) == "Reset save", "settings show a Reset save action row")
 	ok(bool(action_e.get("destructive", false)), "the Reset row is flagged destructive")
 	host.queue_free()
