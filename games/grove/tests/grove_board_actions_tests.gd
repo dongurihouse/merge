@@ -17,6 +17,7 @@ func _initialize() -> void:
 	_test_produce_due_generators()
 	_test_gen_redundancy()
 	_test_self_dup_at_top()
+	_test_sell_generator()
 	_test_pick_drop_cell()
 	finish()
 
@@ -211,6 +212,25 @@ func _test_self_dup_at_top() -> void:
 	var outf: Dictionary = BoardActions.self_dup_generator(bf, Vector2i(4, 3))
 	ok(outf.landed.is_empty() and outf.bagged == [gid], "a full board bags the duplicate")
 	ok(bf._bag_tier_at(0) == 1, "the bagged duplicate carries the line-top tier")
+
+# Selling a redundant generator removes it + credits GEN_SELL_COINS; the guard refuses a non-redundant
+# (last/highest) generator, so a line always keeps its top producer (quests stay satisfiable).
+func _test_sell_generator() -> void:
+	fresh("sell_generator")
+	var gid := G.anchor_gen()
+	var b := BoardModel.new()
+	var low: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, low, 1)
+	var top: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, top, 3)
+	var coins_b := Save.coins()
+	var out: Dictionary = BoardActions.sell_generator(b, low)
+	ok(bool(out.sold) and int(out.coins) == G.gen_sell_coins(1), "selling a redundant tier-1 reports sold + its coin value")
+	ok(not b.gens.has(low) and b.gens.has(top), "the redundant generator is removed; the top survives")
+	ok(Save.coins() == coins_b + G.gen_sell_coins(1), "the sale credits GEN_SELL_COINS to the wallet")
+	var out2: Dictionary = BoardActions.sell_generator(b, top)
+	ok(not bool(out2.sold) and b.gens.has(top), "a non-redundant (top) generator cannot be sold")
+	ok(G.gen_sell_coins(1) >= 0 and G.gen_sell_coins(2) >= 0, "gen_sell_coins is defined for the sellable tiers 1..2")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.

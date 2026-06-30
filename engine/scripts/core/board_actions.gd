@@ -107,3 +107,15 @@ static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
 		board.bag_add(dup_id, tier)
 		return {"landed": [], "bagged": [dup_id]}
 	return {"landed": [], "bagged": []}
+
+# Gen stranding fix — SELL a redundant generator (one that has a strictly-higher same-line sibling, so the
+# line keeps its top producer). Guarded: a non-redundant generator is refused. Removes it from the model and
+# credits GEN_SELL_COINS. Returns {sold, coins} for the scene's poof + coin float.
+static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
+	if not board.is_redundant_gen(cell):
+		return {"sold": false, "coins": 0}
+	var coins := G.gen_sell_coins(board.gen_tier_at(cell))
+	board.remove_gen(cell)
+	if coins > 0:
+		Save.add_coins(coins)
+	return {"sold": true, "coins": coins}
