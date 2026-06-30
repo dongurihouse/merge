@@ -157,6 +157,7 @@ ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into ad
 ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets the app version (see docs/design/apple-services-setup.md)
 	mkdir -p build/ios
 	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
+	tools/stamp_build_info.sh engine/generated/build_info.gd $(IOS_VERSION)
 	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
 	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist

@@ -31,6 +31,12 @@ func _entry_of_kind(entries: Array, kind: String) -> Dictionary:
 			return e
 	return {}
 
+func _entry_with_id(entries: Array, id: String) -> Dictionary:
+	for e in entries:
+		if String((e as Dictionary).get("id", "")) == id:
+			return e
+	return {}
+
 func ok(cond: bool, label: String) -> void:
 	if cond:
 		_pass += 1
@@ -257,10 +263,14 @@ func _initialize() -> void:
 	get_root().add_child(host)
 	var entries_def: Array = Settings._entries(host)        # default build — no debug flag set
 	var info_e := _entry_of_kind(entries_def, "info")
+	var version_e := _entry_with_id(entries_def, "app_version")
 	var action_e := _entry_of_kind(entries_def, "action")
 	ok(String(info_e.get("label", "")) == "Game Center", "settings show a Game Center info row")
 	ok(String(info_e.get("value", "")) == "not signed in",
 		"the GC row reads 'not signed in' when there is no id (off iOS)")
+	ok(String(version_e.get("label", "")) == "Version", "settings show a Version info row")
+	ok(String(version_e.get("value", "")) == "1.0 (build 1)",
+		"the Version row shows the marketing version and build number")
 	ok(String(action_e.get("label", "")) == "Reset save", "settings show a Reset save action row")
 	ok(bool(action_e.get("destructive", false)), "the Reset row is flagged destructive")
 	host.queue_free()
