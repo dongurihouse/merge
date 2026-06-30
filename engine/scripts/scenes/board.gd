@@ -3009,8 +3009,9 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 	_refresh_giver_lights()
 	_refresh_generator_dim()
 
-# §6.B open a chest with a key (drag one onto the other): consume BOTH and leave the
-# reward as collectable board item(s), scaled by chest tier and key tier.
+# §6.B open a chest with a key (drag one onto the other): consume BOTH and leave the reward as
+# PLAIN, face-value collectable board item(s) (coin/acorn) whose tier scales with chest + key —
+# they merge with ordinary coins, unlike the old custom-amount drop that forked into a second coin.
 func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
 	var reward_items: Array = G.chest_open_collect_rewards(board.item_at(from), board.item_at(target))
 	board.take(from)
@@ -3033,7 +3034,6 @@ func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
 			empties.sort_custom(func(a, b): return (a - target).length_squared() < (b - target).length_squared())
 			cell = empties[0]
 		board.place(cell, code)
-		board.set_collect_reward(cell, String(reward.kind), int(reward.amount))
 		var n := _make_piece(code, csz)
 		n.position = _cell_pos(target)
 		n.scale = Vector2(0.3, 0.3)

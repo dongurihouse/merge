@@ -356,16 +356,32 @@ func _initialize() -> void:
 				acorn_reward_cell = reward_cell
 	ok(Save.coins() == chest_wallet and Save.diamonds() == chest_acorns, "key-opened chest does not credit wallet currency directly")
 	ok(opened_pair_items == 0 and reward_items >= G.chest_open_items(1003, 1103).size(), "key-opened chest leaves its reward as collectable board items")
-	ok(coin_reward_cell.x >= 0 and bd.board.collect_reward_at(coin_reward_cell) == {"kind": "coins", "amount": int(expected_chest_reward.coins)}, \
-		"key-opened chest coin item keeps the authored coin reward on the board")
-	ok(acorn_reward_cell.x >= 0 and bd.board.collect_reward_at(acorn_reward_cell) == {"kind": "acorn", "amount": int(expected_chest_reward.acorns)}, \
-		"key-opened chest acorn item keeps the authored acorn reward on the board")
+	# Chest rewards are PLAIN face-value items — same code, same value, and mergeable with ordinary
+	# coins. No per-cell custom-amount override (which used to fork the chest payout into a second,
+	# un-mergeable "tier-4 coin" worth a different number than a merged one).
+	var coin_code: int = bd.board.item_at(coin_reward_cell)
+	var acorn_code: int = bd.board.item_at(acorn_reward_cell)
+	ok(coin_reward_cell.x >= 0 and bd.board.collect_reward_at(coin_reward_cell).is_empty(), \
+		"key-opened chest coin is a plain coin (no custom-amount override)")
+	ok(acorn_reward_cell.x >= 0 and bd.board.collect_reward_at(acorn_reward_cell).is_empty(), \
+		"key-opened chest acorn is a plain acorn drop (no custom-amount override)")
+	ok(G.coin_value(coin_code) > 0 and G.coin_value(coin_code) <= int(expected_chest_reward.coins), \
+		"chest coin snaps DOWN to a real coin denomination (never over-pays the authored value)")
+	var twin_cell := Vector2i(-1, -1)
+	for tc in bd.board.empty_ground_cells():
+		if tc != coin_reward_cell and tc != acorn_reward_cell:
+			twin_cell = tc
+			break
+	ok(twin_cell.x >= 0, "test setup: an empty cell for the merge check")
+	bd.board.place(twin_cell, coin_code)
+	ok(bd.board.can_merge(coin_reward_cell, twin_cell), "a chest coin merges with an ordinary same-tier coin")
+	bd.board.take(twin_cell)
 	if coin_reward_cell.x >= 0:
 		bd._collect_coin(coin_reward_cell, bd.piece_nodes.get(coin_reward_cell))
 	if acorn_reward_cell.x >= 0:
 		bd._collect_special(acorn_reward_cell, bd.piece_nodes.get(acorn_reward_cell))
-	ok(Save.coins() == chest_wallet + int(expected_chest_reward.coins) and Save.diamonds() == chest_acorns + int(expected_chest_reward.acorns), \
-		"collecting key-opened chest board rewards credits the authored payout")
+	ok(Save.coins() == chest_wallet + G.coin_value(coin_code) and Save.diamonds() == chest_acorns + int(G.special_collect(acorn_code).amount), \
+		"collecting a chest reward credits the coin/acorn FACE value for its tier")
 	bd.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a

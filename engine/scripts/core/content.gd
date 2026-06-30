@@ -1156,17 +1156,20 @@ static func _reward_tier_for_amount(amount: int, values: Dictionary) -> int:
 			best = tier
 	return best
 
-## Board-first chest reward: convert the authored value into collectable item(s)
-## that stay on the board until the player taps to collect them.
+## Board-first chest reward: the authored coin/acorn payout becomes PLAIN, face-value board items
+## — the largest standard denomination whose value fits the payout — that stay on the board until
+## the player taps to collect them. Face value (not the exact authored amount) so a chest coin is
+## identical to, and merges with, an ordinary merged coin of the same tier (the payout snaps DOWN
+## to the denomination; tune CHEST_OPEN_COINS/ACORNS if the average payout needs restoring).
 static func chest_open_collect_rewards(a: int, b: int) -> Array:
 	var reward := chest_open_reward(a, b)
 	var out: Array = []
 	var coin_tier := _reward_tier_for_amount(int(reward.coins), COIN_VALUES)
 	if coin_tier > 0:
-		out.append({"code": COIN_LINE * 100 + coin_tier, "kind": "coins", "amount": int(reward.coins)})
+		out.append({"code": COIN_LINE * 100 + coin_tier})
 	var acorn_tier := _reward_tier_for_amount(int(reward.acorns), SPECIAL_COLLECT.get("acorn", {}))
 	if acorn_tier > 0:
-		out.append({"code": 13 * 100 + acorn_tier, "kind": "acorn", "amount": int(reward.acorns)})
+		out.append({"code": 13 * 100 + acorn_tier})
 	return out
 
 static func chest_open_items(a: int, b: int) -> Array:
