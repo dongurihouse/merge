@@ -349,6 +349,28 @@ func _initialize() -> void:
 			rt_range_ok = false
 	ok(rt_range_ok and rt_seen.has(1) and rt_seen.has(2), \
 		"roll_tier stays within the pop curve (1..%d) and spreads across low tiers" % G.TIER_ODDS.size())
+	# roll_item_tier is roll_tier CLAMPED to an item's merge ceiling — so treat/special-item generators
+	# pop a SPREAD of tiers (like a normal generator) while never exceeding what that item can merge to
+	# (water/exp top out at SPECIAL_TOP). One randf, same fallback as roll_tier.
+	var ri := RandomNumberGenerator.new(); ri.seed = 99
+	var ri_high_seen := {}
+	var ri_cap_seen := {}
+	var ri_high_ok := true
+	var ri_cap_ok := true
+	for _i in 500:
+		var t_high := BoardLogic.roll_item_tier(ri, 12)   # high ceiling: behaves exactly like roll_tier (1..pop curve)
+		ri_high_seen[t_high] = true
+		if t_high < 1 or t_high > G.TIER_ODDS.size():
+			ri_high_ok = false
+		var t_cap := BoardLogic.roll_item_tier(ri, 3)     # low ceiling (water/exp): a rolled t4 folds into t3
+		ri_cap_seen[t_cap] = true
+		if t_cap < 1 or t_cap > 3:
+			ri_cap_ok = false
+	ok(ri_high_ok and ri_high_seen.has(1) and ri_high_seen.has(2), \
+		"roll_item_tier spreads across the pop curve (1..%d) under a high merge ceiling" % G.TIER_ODDS.size())
+	ok(ri_cap_ok and ri_cap_seen.size() >= 2, \
+		"roll_item_tier clamps to a low merge ceiling (≤3) yet still spreads across tiers")
+	ok(BoardLogic.roll_item_tier(ri, 1) == 1, "roll_item_tier with a ceiling of 1 always pops tier 1")
 	# §4 bramble_seed: a freshly-opened cell mimics ONE generator pop biased to a RANDOM open-quest
 	# line — line ∈ open_lines, tier off the same curve. (The scene gathers open_lines from quests.)
 	var bs := RandomNumberGenerator.new(); bs.seed = 20240601

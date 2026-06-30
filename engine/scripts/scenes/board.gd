@@ -3106,17 +3106,21 @@ func _collect_accumulator(cell: Vector2i) -> void:
 			FX.wobble(gn)
 		Audio.play("invalid_soft", -6.0)
 		return
-	var item_code := 0
+	# §6: a special-item/bonus generator pops a SPREAD of tiers like a normal generator (was a fixed t1) —
+	# rolled per drop off the generator curve and CLAMPED to the item's merge ceiling (water/exp top out at
+	# SPECIAL_TOP; coins/acorns top high). The LINE is fixed by the accumulator's kind; only the tier varies.
+	var base_line := 0
 	if kind == "coins":
-		item_code = G.COIN_LINE * 100 + 1
+		base_line = G.COIN_LINE
 	else:
 		for line in G.SPECIAL_ITEMS:
 			var def: Dictionary = G.SPECIAL_ITEMS[line]
 			if String(def.get("kind", "")) == kind:
-				item_code = int(line) * 100 + 1
+				base_line = int(line)
 				break
-	if item_code <= 0:
+	if base_line <= 0:
 		return
+	var item_top := G.merge_top(base_line * 100 + 1)
 	var mult := 1
 	var boosted := board.is_gen_boosted(cell)
 	if boosted:
@@ -3128,6 +3132,7 @@ func _collect_accumulator(cell: Vector2i) -> void:
 		Audio.play("invalid_soft", -6.0)
 		return
 	for _i in drops:
+		var item_code := base_line * 100 + BoardLogic.roll_item_tier(rng, item_top)   # a tier off the curve, like a normal pop
 		if G.is_coin(item_code):
 			_drop_coin_near(cell, item_code)
 		else:
@@ -3242,7 +3247,7 @@ func _pop_treat(cell: Vector2i) -> void:
 	var burst := mini(G.burst_count(_quest_map(), 0, rng), empties.size())
 	for _b in burst:
 		var pick: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
-		var code: int = line * 100 + G.TREAT_POP_TIER
+		var code: int = line * 100 + BoardLogic.roll_item_tier(rng, G.merge_top(line * 100 + 1))   # §6: a SPREAD of tiers like a normal pop (was a fixed TREAT_POP_TIER head start)
 		board.place(pick, code)
 		empties.erase(pick)
 		_mark_seen(code)
