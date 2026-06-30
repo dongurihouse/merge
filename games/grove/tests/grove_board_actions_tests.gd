@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_collect_special()
 	_test_produce_due_generators()
 	_test_gen_redundancy()
+	_test_self_dup_at_top()
 	_test_pick_drop_cell()
 	finish()
 
@@ -179,6 +180,37 @@ func _test_gen_redundancy() -> void:
 	b2.bag_add(gid, 3)
 	ok(b2.top_gen_tier(line) == 3 and b2.is_redundant_gen(lc), "a bagged tier-3 makes the board tier-1 redundant")
 	ok(not b2.is_redundant_gen(Vector2i(0, 0)), "an empty cell is not a redundant generator")
+
+# Self-dup feeds the line's TOP lineage: the duplicate spawns at top_gen_tier (not the tapped generator's
+# tier), so tapping a sub-top leftover never breeds more low tiers, and a maxed line breeds nothing at all.
+func _test_self_dup_at_top() -> void:
+	fresh("self_dup_at_top")
+	var gid := G.anchor_gen()
+	# tapping a tier-1 leftover while a tier-2 top exists spawns the duplicate at the TOP (tier 2)
+	var b := BoardModel.new()
+	var low: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, low, 1)
+	var top: Vector2i = b.empty_ground_cells()[0]
+	b.place_gen(gid, top, 2)
+	var out: Dictionary = BoardActions.self_dup_generator(b, low)
+	ok(out.landed.size() == 1, "self-dup placed one duplicate")
+	ok(b.gen_tier_at(out.landed[0]) == 2, "the duplicate spawns at the line top (tier 2), not the tapped tier 1")
+	# a maxed line (top == GEN_TOP_TIER) breeds nothing — no new strand
+	var bm := BoardModel.new()
+	var mx: Vector2i = bm.empty_ground_cells()[0]
+	bm.place_gen(gid, mx, G.GEN_TOP_TIER)
+	var leftover: Vector2i = bm.empty_ground_cells()[0]
+	bm.place_gen(gid, leftover, 1)
+	var outm: Dictionary = BoardActions.self_dup_generator(bm, leftover)
+	ok(outm.landed.is_empty() and outm.bagged.is_empty(), "a maxed line breeds no duplicate")
+	# board full → the duplicate falls into the bag at the line-top tier
+	var bf := BoardModel.new()
+	for i in bf.items.size():
+		bf.items[i] = 101
+	bf.place_gen(gid, Vector2i(4, 3), 1)               # place_gen clears this cell's item; the board is else full
+	var outf: Dictionary = BoardActions.self_dup_generator(bf, Vector2i(4, 3))
+	ok(outf.landed.is_empty() and outf.bagged == [gid], "a full board bags the duplicate")
+	ok(bf._bag_tier_at(0) == 1, "the bagged duplicate carries the line-top tier")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.

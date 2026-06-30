@@ -2679,26 +2679,18 @@ func _produce_due_generators() -> bool:
 	Audio.play("unlock" if Audio.has("unlock") else "level_complete", -3.0)
 	return true
 
-# gen redesign #8 — SELF-DUP (the merge fuel). A below-top generator spawns a same-tier DUPLICATE of its own
-# line; a MAXED (tier-GEN_TOP_TIER) generator no longer self-dups — it can't merge higher, and the cross-line
-# "feed another active line" path is retired with the active-lines window. Lands on a free cell, else the bag.
+# Gen stranding fix — SELF-DUP (the merge fuel). The pure action spawns a duplicate at the LINE's TOP tier
+# so duplicates feed ONE lineage (no sub-tier strand) and a maxed line breeds nothing; the scene renders the
+# pop-in. Lands on a free cell, else the bag (BoardActions.self_dup_generator).
 func _self_dup_generator(src: Vector2i) -> void:
-	var tier := board.gen_tier_at(src)
-	if tier >= G.GEN_TOP_TIER:
-		return                                     # maxed generator → nothing to dup (no cross-line feed)
-	var dup_id := board.gen_id_at(src)
-	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
+	var out := BoardActions.self_dup_generator(board, src)
+	if out.landed.is_empty() and out.bagged.is_empty():
 		return
-	for c in board.empty_ground_cells():           # no board cap — the merge fuel places freely (≤6 is a quest cap)
-		if not board.gens.has(c):
-			board.place_gen(dup_id, c, tier)
-			_grown_cells.append(c)
-			_persist()
-			_rebuild_all()
-			return
-	if not board.gen_bag.has(dup_id):
-		board.bag_add(dup_id, tier)
-		_persist()
+	for c in out.landed:
+		_grown_cells.append(c)
+	_persist()
+	if not out.landed.is_empty():
+		_rebuild_all()
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.

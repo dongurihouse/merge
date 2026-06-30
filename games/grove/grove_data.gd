@@ -162,7 +162,7 @@ const ZONE_COUNT := 25                    # 17 base + 8 special = the 25 live re
 
 # §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
 # higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
-# GEN_SELF_DUP_RATE per tap (the merge fuel); a maxed generator instead feeds another sub-max line (board logic).
+# GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
 const GEN_TOP_TIER := 3
 const QUEST_GEN_CAP := 6                   # gen redesign #16 (RE-SCOPED): a QUEST-side cap — the active quests may demand at most this many DISTINCT generators (a base ask needs 1; a merge/special ask needs its 2 ingredient gens). The player's BOARD is uncapped; this just stops merge-quests forcing a huge generator count.
 const GEN_SELF_DUP_RATE := 0.005           # 0.5% per tap
