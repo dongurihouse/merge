@@ -181,6 +181,9 @@ func _initialize() -> void:
 			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
 			# the piece + "<name> · Tier N" + the BUY chip (T55) + the sell button. Coins make the buy chip
 			# read affordable (green); "infobuy" is just the explicit alias for the buy-chip capture.
+			var tut: Node = scn.get_node_or_null("BoardTutorialOverlay")   # drop the first-run How-to-Play so the bar shows
+			if tut != null:
+				tut.queue_free()
 			Save.add_coins(2000)
 			Save.add_diamonds(50)
 			var ies: Array = scn.board.empty_ground_cells()

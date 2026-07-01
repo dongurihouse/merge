@@ -103,6 +103,12 @@ func _initialize() -> void:
 			"the info bar title wraps instead of ellipsizing when it overflows")
 		ok(desc_label != null and desc_label.autowrap_mode != TextServer.AUTOWRAP_OFF and not desc_label.clip_text, \
 			"the info bar subtitle wraps instead of ellipsizing when it overflows")
+		# the title is enlarged for prominence; the subtitle stays SMALLER than it so long, sentence-length
+		# descriptions still fit the narrow phone bar (matching the subtitle to the big title overflows it).
+		var title_font: int = board_scene._info_label.get_theme_font_size("font_size")
+		var sub_font: int = desc_label.get_theme_font_size("font_size")
+		ok(sub_font < title_font, \
+			"the info bar subtitle stays smaller than the enlarged title (%d) so long descriptions fit" % title_font)
 		var selected_icon_slot := board_scene.get("_info_icon") as Control
 		var selected_art := selected_icon_slot.get_child(0) as Control if selected_icon_slot != null and selected_icon_slot.get_child_count() > 0 else null
 		var expected_icon_px_raw = board_scene.get("_info_item_px")

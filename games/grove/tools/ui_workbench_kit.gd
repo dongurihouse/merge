@@ -4008,7 +4008,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"info_button_scale": clampf(float(i.get("info_button_scale", 100)) / 100.0, 0.25, 2.0),
 		"hide_info_button": bool(i.get("hide_info_button", false)),
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
-		"desc_font":   int(i.get("desc_font", 18)),                 # the compact player-use hint under the selected item name
+		"desc_font":   int(i.get("desc_font", 18)),                 # the compact player-use hint under the selected item name (kept SMALLER than the title so long descriptions fit the narrow bar)
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
 		"sell_font":   int(i.get("sell_font", 30)),                 # the sell badge's payout number font
 		"sell_label_font": int(i.get("sell_label_font", 22)),       # the plain "Sell" caption above the badge
