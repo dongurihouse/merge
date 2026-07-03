@@ -45,7 +45,9 @@
 		},
 		"refill": {
 			"free": "Rain ☔ free refill",
-			"paid": "Rain ☔ %d🌰"
+			"paid": "Rain ☔ %d🌰",
+			"shop": "Rain ☔ get water",
+			"hint": "Water refills over time ☔"
 		},
 		"winback": {
 			"rained": "It rained while you were away ☔"

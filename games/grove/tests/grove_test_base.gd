@@ -6,6 +6,7 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")   # localized copy (board.refill.*)
 const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy bank skims earned premium
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")   # T44 — the diegetic piggy-bank jar surface

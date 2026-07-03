@@ -156,6 +156,39 @@ func _initialize() -> void:
 	bw.water = 0
 	bw._update_water_hud()
 	ok(bw._refill_stack.visible, "at empty the refill stack is shown (the friction point)")
+	# option 1 — no silent wall: even with every free refill spent AND too few 🌰 for the paid fill, the
+	# refill offer STAYS visible while empty and INVITES the water stall (instead of the old dead wobble).
+	# Two always-present cues ride along: the water pill breathes, and a one-time text hint drifts on screen.
+	bw.refills_used = G.FREE_REFILLS                    # all lifetime free refills spent
+	Save.add_diamonds(-Save.diamonds())                 # and too few 🌰 for the paid fill
+	bw._empty_hint_shown = false
+	bw._update_water_hud()
+	ok(bw.refill_btn.visible, "the refill offer stays visible when empty even if unaffordable")
+	ok(bw.refill_btn.text == Strings.t("board.refill.shop"), "the unaffordable empty state invites the water stall")
+	ok(bw._water_pill != null and bw._water_pill.has_meta("_fx_breathing"), "the water pill breathes while the can is empty")
+	# the blocked-tap hint is anchored to the empty water pill and fires ONCE per empty episode — a
+	# second dry tap this episode must not stack another floater (the throttle over a naive per-tap cue).
+	bw._cue_empty_water()
+	var hint_after_1st := 0
+	for ch in bw.get_children():
+		if ch is Label and String(ch.text) == Strings.t("board.refill.hint"):
+			hint_after_1st += 1
+	ok(hint_after_1st == 1 and bw._empty_hint_shown, "a tap on the dry can drifts one water hint (anchored to the pill)")
+	bw._cue_empty_water()                                # a second dry tap this same empty episode
+	var hint_after_2nd := 0
+	for ch in bw.get_children():
+		if ch is Label and String(ch.text) == Strings.t("board.refill.hint"):
+			hint_after_2nd += 1
+	ok(hint_after_2nd == 1, "repeated dry taps don't stack the hint (throttled once per empty episode)")
+	var oow_refills: int = bw.refills_used
+	bw._open_water = Callable()                          # neutralize the stall-open → assert the tap itself grants nothing
+	bw._on_refill()
+	ok(bw.water == 0 and bw.refills_used == oow_refills, "an unaffordable refill tap grants no water (it routes to the stall)")
+	# restoring water settles the pill, hides the offer, and re-arms the hint for the next empty episode
+	bw.water = G.WATER_CAP
+	bw._update_water_hud()
+	ok(not bw._water_pill.has_meta("_fx_breathing"), "the water pill rests once the can is refilled")
+	ok(not bw.refill_btn.visible and not bw._empty_hint_shown, "refilled → the offer hides and the hint re-arms")
 	bw.queue_free()
 	# T-J(ii): water is a Save-backed CURRENCY now (like coins/gems). The free refill ADDS a full can
 	# over-cap (banks a spare); a plain add clamps to the cap; the 💎 fill tops to full without trimming

@@ -85,6 +85,24 @@ func _initialize() -> void:
 			scn._update_water_hud()
 			scn._rebuild_givers()
 			await create_timer(0.5).timeout
+		"oowater":
+			# the OUT-OF-WATER surfaces (option 1 + cues): empty can, every free refill spent, and too few
+			# 🌰 for the paid fill — the state that used to go SILENT (only a wobble). Now the refill offer
+			# STAYS up as a "get water" invite to the stall, the water pill breathes, and a text hint drifts.
+			var tutow: Node = scn.get_node_or_null("BoardTutorialOverlay")   # drop the first-run How-to-Play
+			if tutow != null:
+				tutow.queue_free()
+			var gow := Save.grove()
+			gow["pops"] = 30                       # past the FTUE so water is a live cost
+			gow["refills_used"] = G.FREE_REFILLS   # all lifetime free refills spent
+			Save.grove_write()
+			Save.add_diamonds(-Save.diamonds())    # and too few 🌰 for the paid fill
+			scn.refills_used = G.FREE_REFILLS
+			scn.water = 0
+			scn._update_hud()
+			scn._update_water_hud()                # shows the offer + breathes the pill
+			scn._cue_empty_water()                 # + the drifting hint anchored to the water pill
+			await create_timer(0.35).timeout       # catch the hint floater mid-rise (before it fades)
 		"level":
 			# the level screen (tapping the Lv badge or a locked cell): banked partway to the
 			# next level so the tally + progress bar show a real fraction.

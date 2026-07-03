@@ -227,8 +227,10 @@ var _idle := 0.0                   # seconds without input → the wiggle hint
 
 var water_label: Label
 var _water_icon: Control
+var _water_pill: Control              # the whole Water top-pill panel (breathes while the can is empty)
 var _wallet_panel: Control
 var refill_btn: Button
+var _empty_hint_shown := false        # the drifting "water refills over time" hint fires once per empty episode
 # T43: the empty-water surfaces stack under the Lv chip (shown only at water<=0): the free/💎
 # refill (refill_btn). (The free daily refill — a full can, capped + cooled — lives in the water
 # SHOP stall now, not here; see shop.gd.)
@@ -813,6 +815,7 @@ func _build_hud() -> void:
 	# _update_water_hud. The board owns only the empty-water REFILL stack (built in _build_water_hud).
 	water_label = hud.water
 	_water_icon = hud.water_icon
+	_water_pill = hud.water_pill     # the whole Water pill panel — breathes while the can is empty (below)
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_refresh = hud.refresh       # tick the wallet + fire on_refresh (re-sync the live water cache from Save)
 	_update_hud()
@@ -867,15 +870,43 @@ func _update_water_hud() -> void:
 	_water_icon.visible = true
 	water_label.visible = true
 	water_label.text = str(water)
-	# the empty-water surfaces (§10 the friction point): the stack appears at water<=0.
+	# the empty-water surfaces (§10 the friction point): while the can is empty the offer ALWAYS shows.
 	var empty := water <= 0
 	var free_left := refills_used < G.FREE_REFILLS
-	refill_btn.visible = empty and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
+	# option 1 — no silent wall: the refill button surfaces whenever water <= 0, even with every free
+	# refill spent AND too few 🌰 for the paid fill. In that third state it INVITES the water STALL
+	# (free daily / IAP) rather than dead-ending in a wobble; the routing lives in _on_refill.
+	refill_btn.visible = empty
 	if refill_btn.visible:
-		refill_btn.text = Strings.t("board.refill.free") if free_left else Strings.t("board.refill.paid") % G.REFILL_DIAMOND_COST
+		if free_left:
+			refill_btn.text = Strings.t("board.refill.free")
+		elif Save.diamonds() >= G.REFILL_DIAMOND_COST:
+			refill_btn.text = Strings.t("board.refill.paid") % G.REFILL_DIAMOND_COST
+		else:
+			refill_btn.text = Strings.t("board.refill.shop")
 	_refill_stack.visible = refill_btn.visible
 	if _refill_stack.visible:
 		FX.breathe_once(refill_btn)
+	# an always-present state cue: the water pill breathes while the can is empty and settles once
+	# refilled — which also re-arms the blocked-tap hint below for the next empty episode.
+	if empty:
+		FX.breathe_once(_water_pill)
+	else:
+		FX.breathe_stop(_water_pill)
+		_empty_hint_shown = false
+
+# the blocked-tap teaching cue (option 2): tapping a dry generator drifts a hint ANCHORED to the empty
+# water pill (it points at what's depleted), fired once per empty episode so rapid taps don't stack
+# floaters. Re-armed when the can is refilled (see _update_water_hud). Content reassures — water comes
+# back on its own, and the refill offer is right there — so the empty state never reads as "stuck".
+func _cue_empty_water() -> void:
+	if _empty_hint_shown:
+		return
+	_empty_hint_shown = true
+	var anchor: Control = _water_icon if _water_icon != null and is_instance_valid(_water_icon) else water_label
+	if anchor == null or not is_instance_valid(anchor):
+		return
+	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, 30)
 
 func _on_refill() -> void:
 	if water > 0:
@@ -883,8 +914,14 @@ func _on_refill() -> void:
 	if refills_used < G.FREE_REFILLS:
 		refills_used += 1
 	elif not Save.spend_diamonds(G.REFILL_DIAMOND_COST):
-		FX.wobble(refill_btn)
-		Audio.play("invalid_soft", -4.0)
+		# empty, no free refills left, and too few 🌰 for the paid fill → open the water STALL (free
+		# daily top-up / IAP) instead of the old dead-end wobble (§10 "no silent wall"). Fall back to
+		# the wobble only if the stall isn't wired (e.g. a test that neutralizes _open_water).
+		if _open_water.is_valid():
+			_open_water.call()
+		else:
+			FX.wobble(refill_btn)
+			Audio.play("invalid_soft", -4.0)
 		return
 	water = G.WATER_CAP
 	_regen_ts = Time.get_unix_time_from_system()
@@ -2591,7 +2628,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if charged and water < G.POP_COST:
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
-		_update_water_hud()                # surfaces the refill offer if available
+		_update_water_hud()                # surfaces the refill offer + breathes the empty pill
+		_cue_empty_water()                 # + a drifting "water refills over time" hint (once/episode)
 		return
 	var empties := board.empty_ground_cells()
 	if empties.is_empty():
