@@ -529,7 +529,7 @@ func _add_zone_level_badge_if_locked(node: Control, z: int, k: int) -> void:
 	node.add_child(_zone_level_badge(need_level, node.size))
 
 func _zone_level_badge(level: int, host_size: Vector2) -> Control:
-	var px := clampf(_map_rect.size.x * 0.085, 64.0, 92.0)
+	var px := clampf(_map_rect.size.x * 0.102, 80.0, 112.0)   # larger locked-zone badge → a bigger level number
 	var wrap := Control.new()
 	wrap.name = ZONE_LEVEL_BADGE_NODE
 	wrap.size = Vector2(px, px)
@@ -1428,7 +1428,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	# rounded bottom corners so neither it nor its Sell button pokes past the frame.
 	var cbot := rect.size.y - 62.0
 
-	var title := _dock_label("In hand", 20, true)
+	var title := _dock_label("In hand", 26, true)
 	title.position = Vector2(cx, ctop)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(title)
@@ -1520,7 +1520,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	bar.add_child(bg)
 	var pad := 8.0
 	if _sel_orb.is_empty():
-		var hint := _dock_label("Tap a spirit", 16)
+		var hint := _dock_label("Tap a spirit", 22)
 		hint.position = Vector2(pad + 4.0, (rect.size.y - 22.0) * 0.5)
 		hint.modulate = Color(1, 1, 1, 0.65)
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -542,7 +542,7 @@
 		"switch_h": 44.0
 	},
 	"vault": {
-		"balance_font": 34.0,
+		"balance_font": 42.0,
 		"card_slice": 64.0,
 		"jar_px": 200.0,
 		"panel_pad_x": 40.0,

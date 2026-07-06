@@ -2326,7 +2326,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	var bnum := Label.new()
 	bnum.text = str(int(state.get("balance", 0)))
 	bnum.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", 34)))
+	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", 42)))
 	bnum.add_theme_color_override("font_color", Pal.INK)
 	bnum.add_theme_constant_override("outline_size", 0)
 	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2344,7 +2344,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 20)))   # vault pitch — readable default (was 16)
+	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 26)))   # vault pitch — enlarged (was 20)
 	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	pitch.add_theme_constant_override("outline_size", 0)
 	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2353,7 +2353,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	# the green price CTA — the SHARED pill_button (reused), claimable-gated (dim + a hint below)
 	var claimable: bool = bool(state.get("claimable", true))
 	var cta := pill_button(String(state.get("price", "")), {"bg": "green", "icon": "gem",
-		"font": int(opts.get("cta_font", 24)), "enabled": true, "shadow": true, "corner": 22.0})
+		"font": int(opts.get("cta_font", 30)), "enabled": true, "shadow": true, "corner": 22.0})
 	cta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	cta.modulate = Color(1, 1, 1, 1.0 if claimable else 0.55)
 	var on_claim: Callable = state.get("on_claim", Callable())
@@ -2368,7 +2368,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		var hl := Label.new()
 		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
 		hl.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hl.add_theme_font_size_override("font_size", 20)   # vault "keep playing" hint — readable (was 15)
+		hl.add_theme_font_size_override("font_size", 26)   # vault "keep playing" hint — enlarged (was 20)
 		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
 		hl.add_theme_constant_override("outline_size", 0)
 		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2378,7 +2378,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		var hn := Label.new()
 		hn.text = str(int(state.get("claim_min", 0)))
 		hn.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hn.add_theme_font_size_override("font_size", 20)   # matches the hint text (was 15)
+		hn.add_theme_font_size_override("font_size", 26)   # matches the hint text (was 20)
 		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
 		hn.add_theme_constant_override("outline_size", 0)
 		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2530,7 +2530,7 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# button AND the position offsets all scale TOGETHER with the card, so the proportions stay CONSTANT as
 	# the dialog grows — no more small text/icon stranded in a big card (everything was capped before).
 	var s: float = cw / 160.0
-	var label_font := maxi(8, int(18.0 * s))
+	var label_font := maxi(8, int(24.0 * s))   # the "Day N" label — larger, more legible (was 18)
 	var count_font := maxi(8, int(21.0 * s))
 	# the bottom action is the SHARED pill_button — so its font tracks the Button component (opts.btn.font),
 	# scaled to the card like everything else, instead of a constant. Edit the Button slider, every card follows.
@@ -3710,7 +3710,7 @@ static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["banner_icon_id"] = "piggy"                         # reuse the existing icon_piggy sprite
 	o["jar_px"] = float(v.get("jar_px", 200))
 	o["plate_px"] = float(v.get("plate_px", 250))
-	o["balance_font"] = int(v.get("balance_font", 34))
+	o["balance_font"] = int(v.get("balance_font", 42))
 	o["row_gap"] = float(v.get("row_gap", 12))
 	return o
 
