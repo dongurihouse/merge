@@ -66,8 +66,19 @@ Both files are non-interlaced, 8-bit RGB PNGs at exactly `941 x 1672`.
 
 ```text
 730bc58e296170642d99ff6406b0b182cba49f11b297a2fc443cbf89216abde3  appleblossom_commons_mock_v3.png
-df292bae7511d2bf7ce529b04a981802e706cb825e861f35453398513b3c2b1a  bellwater_vale_mock_v3.png
+0d41156f0e49f4c06dbbcb47e1499b2ee19e780cc8baa0213e92607b069e39c7  bellwater_vale_mock_v3.png
 ```
+
+## Bellwater bottom-edge pixel evidence
+
+The final row at `y=1671` was scanned deterministically across all `941`
+pixels. A broad blue-dominance check (`B > G`) reports zero pixels and no
+intervals; its strongest final-row value is `max(B - G) = -60`. A narrower
+Meadow Sky water classifier (`B >= G + 8` and `B >= R + 30`) also reports zero
+pixels and no intervals. For comparison, the prior committed image reported
+277 water-like pixels in intervals `x=48–211` and `x=828–940` under the same
+water classifier. The entire final bottom row is therefore ground-colored,
+with no blue contact at either corner or anywhere between them.
 
 ## Anti-convergence verdict
 
@@ -83,4 +94,6 @@ distinct. Appleblossom's only promenade is unbranched and the Tea Pavilion sits
 directly on meadow without a paved or turf base. Bellwater water is one
 continuous basin-to-spillway body, never touches the bottom frame, and exits
 only the lower-left side edge; its Meeting House is the dominant bottom-center
-long-chevron structure rather than a barrel-roof form.
+long-chevron structure rather than a barrel-roof form. The final spillway
+curves out through the lower-left side above the corner, while pale-sage meadow
+forms one continuous bottom edge from x=0 through x=940.
