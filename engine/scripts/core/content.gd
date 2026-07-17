@@ -103,6 +103,8 @@ const TREAT_GEN_TEX = D.TREAT_GEN_TEX
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 static var LEVEL_BASE_EXP: int = D.LEVEL_BASE_EXP   # OWNER DIAL — the level curve, live-overridable (apply_tuning)
 static var LEVEL_STEP_EXP: int = D.LEVEL_STEP_EXP   # OWNER DIAL — live-overridable (apply_tuning)
+static var LEVEL_BASE_COINS: int = D.LEVEL_BASE_COINS   # OWNER DIAL — the COIN clock curve (home redesign), live-overridable
+static var LEVEL_STEP_COINS: int = D.LEVEL_STEP_COINS   # OWNER DIAL — live-overridable
 static var ENDGAME_CLICKS: int = D.ENDGAME_CLICKS   # OWNER DIAL — whole-arc click budget (anchor; economy_tuning.json)
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 
@@ -133,6 +135,10 @@ static func apply_tuning(path: String = "") -> PackedStringArray:
 		LEVEL_BASE_EXP = maxi(1, int(t["level_base_exp"]));   applied.append("level_base_exp")
 	if t.has("level_step_exp"):
 		LEVEL_STEP_EXP = maxi(0, int(t["level_step_exp"]));   applied.append("level_step_exp")
+	if t.has("level_base_coins"):
+		LEVEL_BASE_COINS = maxi(1, int(t["level_base_coins"]));   applied.append("level_base_coins")
+	if t.has("level_step_coins"):
+		LEVEL_STEP_COINS = maxi(0, int(t["level_step_coins"]));   applied.append("level_step_coins")
 	if t.has("quest_clicks_per_exp"):
 		QUEST_CLICKS_PER_EXP = maxi(1, int(t["quest_clicks_per_exp"]));  applied.append("quest_clicks_per_exp")
 	if t.has("endgame_clicks"):
@@ -1317,6 +1323,35 @@ static func exp_at_level(level: int) -> int:
 		return 0
 	var m := level - 1                                   # number of completed level-ups
 	return m * LEVEL_BASE_EXP + (m * (m - 1) / 2) * LEVEL_STEP_EXP
+
+# --- the COIN clock (home build-and-upgrade redesign) ---------------------------------
+# Level derives from LIFETIME ORGANIC coin earnings (Save.coins_earned_lifetime) through the
+# same gentle arithmetic curve shape: level n→n+1 costs LEVEL_BASE_COINS + (n-1)·LEVEL_STEP_COINS.
+# Purchased coins (Save.add_coins) never touch the counter, so a wallet can spend past its level
+# but never rush it — the gate reads the EARNED total, a price reads the HELD balance.
+
+static func level() -> int:
+	return level_at_coins(Save.coins_earned_lifetime())
+
+static func level_at_coins(earned: int) -> int:
+	var lvl := 1
+	while coins_at_level(lvl + 1) <= earned:
+		lvl += 1
+	return lvl
+
+# Cumulative organic coins to REACH `level` (closed form; level 1 = 0).
+static func coins_at_level(level: int) -> int:
+	if level <= 1:
+		return 0
+	var m := level - 1                                   # number of completed level-ups
+	return m * LEVEL_BASE_COINS + (m * (m - 1) / 2) * LEVEL_STEP_COINS
+
+# Earn organic coins into the clock. Returns the levels gained so the caller can show the
+# Level dialog (the earn_exp contract, carried over to the coin clock).
+static func earn_coins(n: int) -> int:
+	var before := level()
+	Save.earn_coins(n)
+	return level() - before
 
 # --- the per-spot unlock ladder (§map-unlock) — ONE REGION PER LEVEL --------------------
 # Every restoration spot, taken in GLOBAL order (all of map 0's spots, then map 1's, …), unlocks at its

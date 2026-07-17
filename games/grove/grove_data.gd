@@ -520,6 +520,11 @@ const LEVEL_WATER_GIFT := 40
 # grove_sim); these consts are only the absent-JSON FALLBACK. RE-TUNE on grove_sim (the pacing sim is the judge).
 const LEVEL_BASE_EXP := 40        # FALLBACK first level-up cost — the live value is economy_tuning.json (cheap early)
 const LEVEL_STEP_EXP := 3         # FALLBACK per-level ramp — the live step is higher to absorb the §7 exp ramp
+# The COIN clock (home redesign): level derives from LIFETIME ORGANIC coin earnings
+# (Save.coins_earned_lifetime) through the same gentle arithmetic curve shape.
+# PROVISIONAL — owned by the economy-sim re-pass (spec 2026-07-17 §4).
+const LEVEL_BASE_COINS := 30      # first level-up: ~a few early quests' coins
+const LEVEL_STEP_COINS := 12      # per-level ramp
 
 # (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-

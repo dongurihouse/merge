@@ -113,6 +113,21 @@ static func add_coins(n: int) -> void:
 	data["currencies"]["coins"] = coins() + n
 	save_now()
 
+# --- the coin CLOCK (home build-and-upgrade redesign) ----------------------------
+# Lifetime ORGANIC coin earnings — the progression clock Level derives from
+# (content.level_at_coins). earn_coins is the organic-faucet path (quests, merge drops,
+# selling, resident collects); add_coins stays the neutral/purchased credit (shop packs) —
+# spendable, never clock-advancing. Only ever increases: spending never reduces it.
+static func coins_earned_lifetime() -> int:
+	return int(grove().get("coins_earned", 0))
+
+static func earn_coins(n: int) -> void:
+	_ensure_loaded()
+	var earned := maxi(0, n)
+	grove()["coins_earned"] = coins_earned_lifetime() + earned
+	data["currencies"]["coins"] = coins() + earned
+	save_now()
+
 static func spend(n: int, _reason := "") -> bool:
 	_ensure_loaded()
 	if coins() < n:
