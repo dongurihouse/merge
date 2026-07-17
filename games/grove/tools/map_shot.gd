@@ -40,7 +40,7 @@ func _initialize() -> void:
 	match mode:
 		"select":
 			# the place-picker capture needs no special save setup — unless `owned=1` is passed,
-			# which restores EVERY map's spots so completed maps render as the habitat card.
+			# which restores EVERY map's spots so the bucket dock opens at full capacity.
 			for wa in args:
 				if String(wa) == "owned=1":
 					var gsel := Save.grove()
@@ -50,7 +50,7 @@ func _initialize() -> void:
 					for z in G.MAPS.size():
 						for sp in G.MAPS[z].spots:
 							ulsel[String(sp.id)] = true
-						gates.append(z)               # record each map's gate so it reads as COMPLETE (habitat card)
+						gates.append(z)               # record each map's gate so it reads as COMPLETE (grants bucket cells)
 						claimed[String(G.MAPS[z].id)] = true   # pre-claim unlock rewards so no popup covers the picker
 					gsel["unlocks"] = ulsel
 					gsel["gates"] = gates
@@ -133,11 +133,11 @@ func _initialize() -> void:
 			Save.grove_write()
 			# seed in-hand + placed spirits so the residents dialog renders fully (for UI capture): a
 			# mergeable pair left in hand + a few placed on the hub.
-			var Habitat = load("res://engine/scripts/core/habitat.gd")
+			var Bucket = load("res://engine/scripts/core/bucket.gd")
 			var hub_id := String(G.MAPS[G.hub_map()].id)
-			Habitat.hand_add("ember", 1) ; Habitat.hand_add("ember", 1) ; Habitat.hand_add("ember", 1)
-			Habitat.hand_add("sprout", 2) ; Habitat.hand_add("sprout", 2)
-			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)   # 3 Ember placed; 2 Sprout left in hand
+			Bucket.hand_add("boost", 1) ; Bucket.hand_add("boost", 1) ; Bucket.hand_add("boost", 1)
+			Bucket.hand_add("coin", 2) ; Bucket.hand_add("coin", 2)
+			Bucket.place(0) ; Bucket.place(0) ; Bucket.place(0)   # 3 boost-kin placed; 2 coin-kin left in hand
 
 	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
 	# not a popup. Must run after Save.configure_for_test (above).

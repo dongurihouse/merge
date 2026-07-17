@@ -1204,23 +1204,28 @@ func _build_hand_panel(rect: Rect2) -> Control:
 				badges.append({"line": String(line), "amt": amt})
 		var collect := _dock_chip_button("BucketCollectChip", "Collect", ready_total > 0)
 		collect.position = Vector2(cx, chip_y)
-		collect.custom_minimum_size = Vector2(cw * 0.56 - 4.0, chip_h)
+		collect.custom_minimum_size = Vector2(cw * 0.60 - 4.0, chip_h)
 		collect.size = collect.custom_minimum_size
+		collect.alignment = HORIZONTAL_ALIGNMENT_LEFT if not badges.is_empty() else HORIZONTAL_ALIGNMENT_CENTER
 		collect.pressed.connect(_on_dock_collect)
 		if not badges.is_empty() and Kit != null:
+			# the ready badges ride the chip's RIGHT side; the label stays left so they never collide
+			var est_w := 0.0
+			for b in badges:
+				est_w += 16.0 + 4.0 + 8.0 * float(str(int(b.amt)).length()) + 6.0
 			var brow := HBoxContainer.new()
 			brow.name = "BucketCollectBadges"
 			brow.add_theme_constant_override("separation", 4)
 			brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			for b in badges:
-				var ic: Control = Kit.make_icon(_line_icon(String(b.line)), 18.0)
-				ic.custom_minimum_size = Vector2(18.0, 18.0)
+				var ic: Control = Kit.make_icon(_line_icon(String(b.line)), 16.0)
+				ic.custom_minimum_size = Vector2(16.0, 16.0)
 				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				brow.add_child(ic)
-				var bl := _dock_label(str(int(b.amt)), 16, true)
+				var bl := _dock_label(str(int(b.amt)), 14, true)
 				bl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				brow.add_child(bl)
-			brow.position = Vector2(8.0, chip_h - 20.0)
+			brow.position = Vector2(maxf(8.0, collect.size.x - est_w - 6.0), (chip_h - 18.0) * 0.5)
 			collect.add_child(brow)
 		panel.add_child(collect)
 	var exped_open := false
@@ -1230,8 +1235,8 @@ func _build_hand_panel(rect: Rect2) -> Control:
 			break
 	if exped_open:
 		var exped := _dock_chip_button("BucketExpeditionButton", "Expedition", true)
-		exped.position = Vector2(cx + cw * 0.56 + 4.0, chip_y)
-		exped.custom_minimum_size = Vector2(cw * 0.44 - 4.0, chip_h)
+		exped.position = Vector2(cx + cw * 0.60 + 4.0, chip_y)
+		exped.custom_minimum_size = Vector2(cw * 0.40 - 4.0, chip_h)
 		exped.size = exped.custom_minimum_size
 		exped.pressed.connect(func() -> void:
 			Audio.play("button_tap", -2.0)
@@ -1309,7 +1314,7 @@ func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
 	btn.text = text
 	btn.disabled = not enabled
 	btn.focus_mode = Control.FOCUS_NONE
-	btn.add_theme_font_size_override("font_size", 20)
+	btn.add_theme_font_size_override("font_size", 17)
 	btn.add_theme_color_override("font_color", Color("#F4FBE9"))
 	btn.add_theme_color_override("font_outline_color", Color("#173404"))
 	btn.add_theme_constant_override("outline_size", 3)
@@ -1317,6 +1322,8 @@ func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
 	gsb.bg_color = Color("#639922") if enabled else Color("#8A9377")
 	gsb.set_corner_radius_all(12)
 	gsb.set_border_width_all(2)
+	gsb.content_margin_left = 10.0
+	gsb.content_margin_right = 10.0
 	gsb.border_color = Color("#3B6D11") if enabled else Color("#6B755C")
 	for st_name in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(st_name, gsb)

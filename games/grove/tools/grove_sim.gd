@@ -35,7 +35,7 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
-const Habitat = preload("res://engine/scripts/core/habitat.gd")   # §1 idle yield + sell (the live residents coin SOURCES)
+const RB = preload("res://engine/scripts/core/resident_bucket.gd")   # §1 idle yield + sell dials (the live residents coin SOURCES) — NOTE the full bucket re-author is the parked §5 economy pass
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
 
 var rng := RandomNumberGenerator.new()
@@ -111,7 +111,7 @@ var _pending_chests := 0    # banked special-drop chests awaiting a key (paired-
 var _pending_keys := 0
 var _session_cap := 0       # this session's water budget = WATER_CAP + §6 water (lets the bot out-pop a bare cap)
 
-# §1 LIVE RESIDENTS ECONOMY (Habitat) — replaces the dormant welcome-coin-SINK the older model used. The
+# §1 LIVE RESIDENTS ECONOMY (the global Bucket) — replaces the dormant welcome-coin-SINK the older model used. The
 # live loop: pay coins to run an EXPEDITION (the only coin SINK) → acquire spirits → PLACE into cap-limited
 # habitat slots → they YIELD coins over time (idle production) + SELL for coins (both SOURCES). Modeled on
 # map 0 (the only map whose habitat pays coins; maps 2-5 yield is parked). Abstraction: an expedition costs
@@ -301,7 +301,7 @@ func _initialize() -> void:
 	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
 		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, resident_gems_spent, residents_premium, diamonds])
 
-	# --- §1 RESIDENTS economy — REALIGNED to the LIVE Habitat (was: the dormant welcome-roster modeled as an
+	# --- §1 RESIDENTS economy — REALIGNED to the LIVE Bucket (was: the dormant welcome-roster modeled as an
 	# ENDLESS coin sink). The live loop is the OPPOSITE: an EXPEDITION (Explore.MIN_COST) is the only coin
 	# SINK and it STOPS once the habitat fills, while placed spirits YIELD coins forever (idle production) and
 	# SELL for coins. So the question flips from "does the sink absorb the faucet?" to "are residents a net
@@ -314,7 +314,7 @@ func _initialize() -> void:
 	# so res_net > 0 means there is NO endless coin sink and late coins pile. REPORTED (not a hard fail): this
 	# is the realignment finding the economy pass must answer, not a sim bug.
 	if res_net > 0:
-		print("  WARN P1: residents are a NET COIN FAUCET (+%d🪙) — the live Habitat idle-yield ADDS coins; the expedition cost only drains during the slot ramp, so there is NO standing coin sink (late-game coins pile %d🪙 held). The economy needs a real sink (cosmetics/upgrades/events)." % [res_net, coins])
+		print("  WARN P1: residents are a NET COIN FAUCET (+%d🪙) — the live Bucket idle-yield ADDS coins; the expedition cost only drains during the slot ramp, so there is NO standing coin sink (late-game coins pile %d🪙 held). The economy needs a real sink (cosmetics/upgrades/events)." % [res_net, coins])
 	else:
 		print("  PASS P1: residents are a net coin SINK (%d🪙) — expeditions out-drain the habitat yield+sell." % res_net)
 
@@ -456,16 +456,22 @@ func _run_treat_gen() -> void:
 		if rng.randf() < G.TREAT_DROP_RATE:
 			_credit_special_drop(G.pick_special_drop(rng), "treat")
 
-# --- §1 LIVE RESIDENTS (Habitat) coin loop: expedition SINK + idle-yield/sell SOURCE ----------------
+# --- §1 LIVE RESIDENTS (Bucket) coin loop: expedition SINK + idle-yield/sell SOURCE ----------------
 func _hab_rate() -> int:
 	var r := 0
 	for t in hab0:
 		r += int(t)
 	return r
 
-# Map-0 habitat capacity right now — the 1→8 ramp (Habitat.cap → Content.resident_capacity).
+# Bucket capacity right now — cells granted by COMPLETED maps (BUCKET_CELL_GRANTS; no per-map ramp).
 func _hab_cap() -> int:
-	return G.resident_capacity(0, unlocks)
+	var total := 0
+	for z in G.MAPS.size():
+		if z >= Data.BUCKET_CELL_GRANTS.size():
+			break
+		if G.map_spots_restored(z, unlocks) >= G.MAPS[z].spots.size():
+			total += int(Data.BUCKET_CELL_GRANTS[z])
+	return total
 
 # Cascade 2-of-a-tier → one a tier up (mirrors the hand/auto merge), raising rate + freeing a slot.
 func _hab_merge() -> void:
@@ -489,8 +495,8 @@ func _hab_collect() -> void:
 	var stier := _hab_rate()
 	if stier <= 0:
 		return
-	var cap_units := Habitat.BASE_CAP_UNITS + Habitat.CAP_UNITS_PER_TIER * maxf(0.0, float(stier) - 1.0)
-	var hy := int(floor(cap_units * float(Habitat.REWARD["farmhouse"]["mult"])))
+	var lc: Dictionary = RB.DEFAULTS["lines"]["coin"]
+	var hy := int(floor(float(lc.bank_base) + float(lc.bank_per_tier) * float(stier)))
 	if hy > 0:
 		coins += hy
 		coins_earned += hy
@@ -509,7 +515,7 @@ func _run_expedition() -> void:
 			hab0.append(1)
 			_hab_merge()
 		else:
-			var sv := Habitat.SELL_PER_TIER * 1
+			var sv := RB.SELL_PER_TIER * 1
 			coins += sv
 			coins_earned += sv
 			habitat_sell += sv

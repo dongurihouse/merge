@@ -10,7 +10,7 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")
+const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
@@ -47,10 +47,13 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_coins(800)
 	Save.add_diamonds(20)
-	# seed the live Habitat roster with REAL residents (these carry per-tier art) so the shot shows icons.
-	for spec in [["ember", 1], ["ember", 2], ["sprout", 1], ["dewdrop", 3], ["breeze", 2], ["starlight", 1], ["ember", 1]]:
-		Habitat.hand_add(String(spec[0]), int(spec[1]))
-	Habitat.place(String(G.MAPS[z].id), 0)   # seat one (ember t1) on the map so its housed strip shows
+	# seed the live bucket with spirits on every line (each line wears a real per-tier art family).
+	for spec in [["boost", 1], ["boost", 2], ["coin", 1], ["water", 3], ["diamond", 1], ["boost", 1]]:
+		Bucket.hand_add(String(spec[0]), int(spec[1]))
+	Bucket.place(0)   # seat one (boost t1) into a cell so the dock's cells grid shows a resident
+	var seeded := Bucket.state()
+	seeded["banks"] = {"coin": 3.4, "water": 1.2}   # light matured production so the Collect chip reads live
+	Save.grove_write()
 
 	MapScene._login_shown_launch = true         # arm the per-launch guard so the daily calendar never auto-pops over our shot
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
@@ -65,7 +68,7 @@ func _initialize() -> void:
 	var e1 := img1.save_png(out_dir + "unlock_dialog.png")
 
 	# dismiss the unlock overlay, then open the place-picker (residents management now lives here: the
-	# in-hand column + each map's housed strip, dragged to place/merge) and capture it.
+	# bucket dock — cells + Collect/Expedition chips + the in-hand grid, dragged to place/merge) and capture it.
 	var ov: Node = scn.get_node_or_null("UnlockRewardOverlay")
 	if ov != null:
 		ov.queue_free()
@@ -74,8 +77,8 @@ func _initialize() -> void:
 	await create_timer(0.7).timeout
 	RenderingServer.force_draw()
 	var img2 := root.get_texture().get_image()
-	var e2 := img2.save_png(out_dir + "residents_dialog.png")
+	var e2 := img2.save_png(out_dir + "residents_dock.png")
 
-	print("SHOT unlock=%s (err %d) shop=%s (err %d) coins=%d gems=%d" % [
-		out_dir + "unlock_dialog.png", e1, out_dir + "residents_shop.png", e2, Save.coins(), Save.diamonds()])
+	print("SHOT unlock=%s (err %d) dock=%s (err %d) coins=%d gems=%d" % [
+		out_dir + "unlock_dialog.png", e1, out_dir + "residents_dock.png", e2, Save.coins(), Save.diamonds()])
 	quit()

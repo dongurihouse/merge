@@ -664,7 +664,8 @@ static func boost_bonus() -> int:
 
 ## Can the player welcome residents on map `z`? §1 EARLY POPULATION — opens as soon as the FIRST spot is
 ## restored (not full completion). The roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as more spots are
-## restored (`resident_capacity`). `gates` is retained for signature compatibility (no longer gates the open).
+## restored — it gates the ACQUIRE loop. `gates` is retained for signature compatibility. Bucket CELLS are
+## a separate, stricter gate: only FULL completion grants them (bucket.gd cells_total / BUCKET_CELL_GRANTS).
 static func can_populate(z: int, unlocks: Dictionary, _gates: Array = []) -> bool:
 	return map_spots_restored(z, unlocks) >= 1
 
@@ -677,21 +678,7 @@ static func map_spots_restored(z: int, unlocks: Dictionary) -> int:
 			n += 1
 	return n
 
-## The resident SLOT capacity on map `z`: 1 at the first restored spot, ramping linearly to
-## RESIDENT_SLOTS_MAX once every spot is restored. 0 before any spot (roster not open). The LIVE roster is
-## the Habitat (engine/scripts/core/habitat.gd) — Habitat.cap reads this ramp; Habitat.is_full / .sell
-## enforce + free slots (a full roster is thinned by a merge or a sell, the live "throw away").
-static func resident_capacity(z: int, unlocks: Dictionary) -> int:
-	var total := int(MAPS[z].spots.size())
-	var done := map_spots_restored(z, unlocks)
-	if done <= 0 or total <= 0:
-		return 0
-	if total <= 1:
-		return RESIDENT_SLOTS_MAX
-	return 1 + int(floor(float(RESIDENT_SLOTS_MAX - 1) * float(done - 1) / float(total - 1)))
 
-## The resident types OFFERED on map `z`: the shared core + that map's signature (each a
-## Dictionary {id, name, premium?}). Delegates to the game data, addressed by the map's id.
 static func resident_lines(z: int) -> Array:
 	return D.resident_lines(String(MAPS[z].id))
 

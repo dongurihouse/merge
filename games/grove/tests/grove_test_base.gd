@@ -188,18 +188,12 @@ func _test_residents() -> void:
 	ok(_rart == "" or _rart.ends_with(".png"), "resident_art resolves a type to an art path (or empty under the placeholder root)")
 
 	# 1. EARLY POPULATE GATE: can_populate opens as soon as the FIRST spot is restored (not full
-	# completion); the roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as the rest come in.
+	# completion) — it gates the acquire loop (Expedition). Bucket CELLS come only from full completion
+	# (Bucket.cells_total, BUCKET_CELL_GRANTS; covered in grove_residents_tests + bucket_adapter_tests).
 	fresh("residents_gate")
 	var first_spot := String(G.MAPS[z].spots[0].id)
-	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true                                # all spots restored
 	ok(not G.can_populate(z, {}, []), "can_populate is FALSE before any spot is restored")
 	ok(G.can_populate(z, {first_spot: true}, []), "can_populate OPENS once the first spot is restored")
-	ok(G.resident_capacity(z, {first_spot: true}) == 1, "capacity is 1 at the first restored spot")
-	ok(G.resident_capacity(z, unl) == G.RESIDENT_SLOTS_MAX, "capacity reaches RESIDENT_SLOTS_MAX when all spots are restored")
-	# (the live roster CAP is enforced by Habitat — Habitat.cap reads resident_capacity, is_full/sell guard +
-	# free slots; covered in grove_residents_tests. Here we cover the early-open + the capacity ramp only.)
 
 	# 2. WELCOME spends + adds a t1. A core welcome debits coins and pushes the t1 count to 1.
 	fresh("residents_welcome")
