@@ -1,0 +1,47 @@
+Use case: stylized-concept
+Asset type: reference-only baked 2D game environment mock; not a runtime layered map
+Primary request: Create Bellwater Vale as a peaceful side-loaded basin for Acorn Forest. Its exclusive signature is: right-edge cropped basin / short diagonal spillway / bent dead-end path / two outer clusters / quiet center.
+
+Input images:
+- Image 1, the Meadow Sky palette study board: authoritative reference for the exact palette, matte cut-cardstock material language, shallow upper-left cast shadows, warm paper edges, and restrained texture.
+- Image 2, the approved working Farm: authoritative reference for camera pitch, portrait framing, object scale, shallow upper-left shadows, matte paper texture, and low environmental detail budget only. Do not reuse the Farm's crossroads, looping paths, garden plots, scattered building arrangement, or repeated coral roofs.
+
+Canvas and viewpoint:
+- Exactly 941 x 1672 pixels, portrait logical canvas, full-bleed environment art with no interface.
+- Preserve the approved Farm's elevated three-quarter top-down camera pitch and readable cozy-game object scale.
+- Show the full zone from boundary to boundary. Keep every principal structure readable at thumbnail scale and safely inside the frame except for the deliberately right-cropped water basin.
+
+Required topology and composition:
+- The middle-right is one large calm millpond basin cropped decisively by the right edge, so the viewer understands that water continues beyond the canvas.
+- A short, broad spill channel leaves only the pond's lower-left corner and runs diagonally down-left, exiting through the lower-left edge. It is a compact spillway, not a river.
+- Water must never form a full-height river, a vertical centerline, a winding S shape, a second pond, or a water loop.
+- One cream-paper path enters at the top-left, bends once toward Bellwater Millhall beside the pond, and ends at the mill. It is a bent dead-end path, not a loop and not a shoreline-following promenade. Add no more than two very short dead-end access spurs; no crossroads, ring, circuit, or branch network.
+- Place the six principal structures exactly once as two compact, uneven outer-third clusters of three: one loose upper-left cluster around the path entrance and one denser lower-right / pond-edge cluster. Do not scatter buildings evenly. Do not place a pavilion or cottage in the visual center.
+- Leave the middle of the canvas quiet and spacious, dominated by open sage meadow plus calm pond water. At least 50% of the entire image must be uninterrupted meadow, path, or water.
+- Use continuous low hedges, soft meadow boundaries, a few low shrubs, sparse flat lilies, and only a few small trees as natural framing. Keep decorations sparse and consolidated; no circular clearing, rectangular building pad, flower ring, garden plot, or building-specific scenic base.
+
+Exactly six principal structures, each with a distinct required thumbnail silhouette:
+1. Bellwater Millhall — squat hall with a bold wedge roof and one oversized flat slate mill wheel; silhouette reads WEDGE-AND-WHEEL. Keep the body to two or three major paper masses and place it at the dead end of the main path next to the millpond.
+2. Welcome Bell Arch — roofless open pi-shaped frame with two independent plain uprights and one lintel holding a single flat gold bell; silhouette reads OPEN FRAME. The path remains visibly open through it.
+3. Millbridge Meeting House — one long, low covered crossing with a shallow chevron roof and simple bankside contacts; silhouette reads LONG CHEVRON. It is an enclosed/railed crossing form, not another four-post shelter.
+4. Lilybell Pavilion — wide diamond canopy on exactly four plain posts; silhouette reads DIAMOND CANOPY. This is the zone's one and only four-post open shelter and the only coral roof plane in the whole image.
+5. Lanternkeeper's Nook — compact slate square body with one oversized flat cream cap; silhouette reads FLAT-CAP SQUARE.
+6. Otter Landing — low receding-blue arch shell attached to one simple straight dock tongue at the pond edge; silhouette reads LOW ARCH-AND-TONGUE.
+- No extra buildings, cottages, sheds, gazebos, arches, docks, shelters, mills, or decorative architecture.
+- Use coral #D87865 as the roof color only on Lilybell Pavilion. No other structure may have a coral, red, orange, or terracotta roof. Coral may appear only as tiny door or awning accents elsewhere.
+
+Style and material:
+- Clean HD 2D game environment illustration made from shallow layered matte cut cardstock, not pixel art and not a 3D render.
+- Fixed Meadow Sky palette only: #6FA9C0, #3F6D7D, #A8D3B9, #8296AF, #F6EBDD, #243B4B, #5F9B6D, #D87865, #D6A94C, #8677A3.
+- Cast shadows use #294654 at approximately 18–20% opacity, short and shallow, consistently cast away from one upper-left light.
+- Subtle 2–4% paper fiber, warm cut edges, broad clean shapes, softly rounded cut-paper contours, and restrained tonal variation.
+- Two or three major architectural masses per building. Consolidate tiny ornaments. Preserve strong, non-overlapping silhouettes and the approved Farm's low detail budget.
+
+Avoid:
+- No UI, top bar, bottom navigation, buttons, labels, lettering, numbers, icons, borders, frames, watermark, or screen chrome.
+- No people, residents, characters, animals, birds, fish, or faces.
+- No white sticker outlines or halos, black outlines, glossy plastic, shine, glassy rendering, neon, watercolor, photorealism, pixel art, or deep stacked paper sculpture.
+- No turf islands, scenic grass skirts, shaped building pads, isolated circular lawns, repeated coral cottages, or building-specific flower/rock bases.
+- No portal-like boundary frame, no second artificial exit edge, and no composition copied from any other zone.
+
+Output intent: A polished reference-only Bellwater Vale scene for pairwise composition QA. The topology must read immediately at thumbnail size as SIDE-LOADED RIGHT BASIN + SHORT DIAGONAL SPILLWAY + BENT DEAD-END PATH + TWO OUTER STRUCTURE CLUSTERS + QUIET CENTER.
