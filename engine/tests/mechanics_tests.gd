@@ -536,10 +536,18 @@ func _initialize() -> void:
 	ok(G.quest_base_lines(6) == [1, 2, 3, 4, 5], "by zone 6 only 5 base lines are reached -> the window holds all of them")
 	ok(G.quest_base_lines(13) == [5, 21, 22, 23, 24, 31], "the window holds the LAST 6 base lines; lines 1-4 have rolled off")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
-	# per-line generator roster (additive — replaces the 5 multi-line GENERATORS at the board flip)
-	# zone -> map is derived live from the MAPS spot counts ([6,4,7,4,4] today): each map's first spot starts a
-	# new map index. Pins the boundaries so it tracks the vine layout instead of a hardcoded split.
-	ok(G.zone_map(0) == 0 and G.zone_map(5) == 0 and G.zone_map(6) == 1 and G.zone_map(9) == 1 and G.zone_map(10) == 2 and G.zone_map(16) == 2 and G.zone_map(17) == 3 and G.zone_map(20) == 3 and G.zone_map(21) == 4, "zone -> map tracks the live MAPS spot distribution")
+	# per-line generator roster (one generator per base line)
+	# zone -> band is derived from the FROZEN ZONE_BAND counts ([6,4,7,4,4]) — the retired 5-map layout kept
+	# purely for the per-band coin/sell curves (coin-clock redesign: the content arc gates on level, not spots).
+	ok(G.zone_map(0) == 0 and G.zone_map(5) == 0 and G.zone_map(6) == 1 and G.zone_map(9) == 1 and G.zone_map(10) == 2 and G.zone_map(16) == 2 and G.zone_map(17) == 3 and G.zone_map(20) == 3 and G.zone_map(21) == 4, "zone -> band tracks the frozen ZONE_BAND distribution")
+	# the ZONE ladder rides the coin clock: zone z unlocks at level 2+z, so the 25-zone arc spans L2..L26.
+	ok(G.zone_unlock_level(0) == 2 and G.zone_unlock_level(G.ZONE_COUNT - 1) == 2 + G.ZONE_COUNT - 1, "zone z unlocks at level 2+z (the one-zone-per-level rhythm)")
+	ok(G.zone_threshold(0) == G.coins_at_level(2), "zone 0's threshold is the L2 coin threshold")
+	ok(G.arc_finish_threshold() == G.zone_threshold(G.ZONE_COUNT - 1), "the arc finishes at the last zone's threshold")
+	var _band_sum := 0
+	for _b in G.ZONE_BAND:
+		_band_sum += int(_b)
+	ok(_band_sum == G.ZONE_COUNT, "ZONE_BAND sums to ZONE_COUNT (every zone lands in exactly one band)")
 	ok(G.zone_of_line(1) == 0 and G.zone_of_line(5) == 6 and G.zone_of_line(71) == 2, "zone_of_line inverts zone_line")
 	ok(G.base_generators().size() == 17, "the per-line roster has one generator per base line")
 	var bgen := G.base_generator(2)
