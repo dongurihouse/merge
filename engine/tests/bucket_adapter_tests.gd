@@ -6,6 +6,8 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
+const Home = preload("res://engine/scripts/core/home.gd")
+const HB = preload("res://engine/scripts/core/home_build.gd")
 
 var _pass := 0
 var _fail := 0
@@ -29,26 +31,27 @@ func fresh(name: String) -> void:
 	Save.configure_for_test(dir)
 	Save.reset()
 
-func _restore_map(z: int) -> void:
-	var g := Save.grove()
-	if not g.has("unlocks"):
-		g["unlocks"] = {}
-	for sp in G.MAPS[z].spots:
-		g["unlocks"][String(sp.id)] = true
+# Complete building index `i` (build every step, wallet-free) directly in the home state.
+func _build_building(i: int) -> void:
+	var d: Dictionary = Home.defs()[i]
+	var st := Home.state()
+	while HB.buy_step(st, d):
+		pass
 	Save.grove_write()
 
 func _test_cells_from_completion() -> void:
 	fresh("cells")
 	ok(Bucket.cells_total() == 0, "a fresh save has 0 cells")
 	ok(Bucket.state().cells == 0, "state syncs the derived cell count")
-	_restore_map(0)
-	ok(Bucket.cells_total() == int(Game.DATA.BUCKET_CELL_GRANTS[0]), "completing map 0 grants its cells")
-	for z in G.MAPS.size():
-		_restore_map(z)
+	_build_building(0)
+	ok(Bucket.cells_total() == int(Home.defs()[0].cells), "completing the first building grants its cells")
+	for i in Home.defs().size():
+		_build_building(i)
 	var want := 0
-	for grant in Game.DATA.BUCKET_CELL_GRANTS:
-		want += int(grant)
-	ok(Bucket.cells_total() == want, "all five maps grant the full 8-cell bucket")
+	for d in Home.defs():
+		want += int(d.cells)
+	ok(Bucket.cells_total() == want, "completing every building grants the full 8-cell bucket")
+	ok(want == 8, "the seven farmhouse buildings grant 8 cells total")
 	ok(Bucket.state().cells == want, "state re-syncs cells after completion")
 
 func _test_migration() -> void:
@@ -77,8 +80,8 @@ func _test_place_and_sell() -> void:
 	fresh("place_sell")
 	Bucket.hand_add("coin", 1)
 	ok(not Bucket.place(0), "place refuses with 0 cells")
-	_restore_map(0)
-	ok(Bucket.place(0), "place succeeds once completion granted cells")
+	_build_building(0)
+	ok(Bucket.place(0), "place succeeds once a completed building granted cells")
 	ok(Bucket.placed().size() == 1 and Bucket.hand().is_empty(), "place moved the spirit into a cell")
 	Bucket.hand_add("coin", 1)
 	ok(Bucket.place_merge(0, 0), "place_merge climbs the placed spirit")

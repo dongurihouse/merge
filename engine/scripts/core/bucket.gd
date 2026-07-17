@@ -1,7 +1,7 @@
 extends RefCounted
 ## The Save-backed adapter over the PURE resident bucket (resident_bucket.gd) — the ONLY game-facing
 ## resident API. Real time + RNG live here; every rule lives in the module. State persists under
-## Save.grove()["bucket"]; cells are DERIVED from fully-restored maps (BUCKET_CELL_GRANTS) on every
+## Save.grove()["bucket"]; cells are DERIVED from COMPLETED home buildings (home.gd) on every
 ## access; collected lines credit currencies here (coins/water/diamonds + the board's boost stockpile).
 ## Spec: docs/superpowers/specs/2026-07-16-global-resident-bucket-design.md
 
@@ -9,6 +9,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Content = preload("res://engine/scripts/core/content.gd")
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")
+const Home = preload("res://engine/scripts/core/home.gd")   # cells derive from COMPLETED home buildings
 const D = Game.DATA
 
 const MAX_TIER := RB.MAX_TIER
@@ -25,19 +26,11 @@ static func line_kind(line: String) -> String:
 static func kind_line(kind: String) -> String:
 	return String(D.RESIDENT_KIND_LINES.get(kind, ""))
 
-## Cells granted so far — the sum of BUCKET_CELL_GRANTS over FULLY-restored maps. The only capacity source.
+## Cells granted so far — the sum of `cells` over COMPLETED home buildings (home.gd). The only
+## capacity source (home build-and-upgrade redesign, spec 2026-07-17): a building's final step
+## grants its cells, so capacity drips in as the home is built, gated by the level brake.
 static func cells_total() -> int:
-	var unlocks: Dictionary = Save.grove().get("unlocks", {})
-	var total := 0
-	for z in Content.MAPS.size():
-		if z >= D.BUCKET_CELL_GRANTS.size():
-			break
-		if Content.map_spots_restored(z, unlocks) >= G_spots(z):
-			total += int(D.BUCKET_CELL_GRANTS[z])
-	return total
-
-static func G_spots(z: int) -> int:
-	return Content.MAPS[z].spots.size()
+	return Home.cells_total()
 
 ## The live bucket state (module shape). Created by migration on first access; cells re-synced every time.
 static func state() -> Dictionary:
