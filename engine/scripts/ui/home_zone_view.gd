@@ -110,7 +110,9 @@ static func _build_badge(id: String, cost: int, min_level: int) -> Control:
 	badge.add_child(box)
 	var cost_lbl := Label.new()
 	cost_lbl.name = "Cost"
-	cost_lbl.text = "%d🪙" % cost
+	# no emoji glyph (the game font lacks 🪙 — it renders as a blob); the scene can skin a coin
+	# icon over this via the "Cost" node. Plain number keeps the renderer scene-agnostic.
+	cost_lbl.text = "%d" % cost
 	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cost_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(cost_lbl)

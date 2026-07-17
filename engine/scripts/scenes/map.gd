@@ -49,6 +49,9 @@ const Pal = Game.PALETTE
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
+const HomeBuild = preload("res://engine/scripts/core/home.gd")   # the build-and-upgrade adapter (the map surface)
+const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
+const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/home/zone_farmhouse.json"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 const ZONE_LEVEL_BADGE_NODE := "ZoneLevelBadge"
@@ -382,53 +385,57 @@ func _debug_resident_line() -> String:
 # sprites. The whole view lives under `content` — every child IGNOREs (single input
 # surface).
 
+# THE home render path (build-and-upgrade redesign, spec 2026-07-17): one evolving home world of
+# coin-built, level-gated buildings rendered through the layered cut-paper pipeline. The old §16
+# mask-reveal + per-spot claim machinery (_build_map_base / _seat_spots / _make_spot / vines) is
+# retired. HomeZoneView draws the foundation + one painter-sorted prop per building (its current
+# build state) + a coin/level BADGE over each unbuilt plot; build badges register into spot_hits so
+# the shared _map_tap resolves a tap to _on_build_tap.
 func _build_map(animate := true) -> void:
 	for c in content.get_children():
 		c.queue_free()
 	spot_hits.clear()
 	select_hits.clear()
-	var z := _map_idx
-	# the stable map canvas is a centered, design-aspect rect (see _map_image_rect) that the HUD
-	# floats over. Background art fills it; spots ride this same rect, so the painting and the
-	# buildings stay locked together on any window aspect.
+	# the stable canvas is a centered, design-aspect rect that COVER-FILLS the viewport (see _map_image_rect).
 	_map_rect = _map_image_rect()
-	_map_art_rect = _map_placed_rect(z, _map_rect)
-	# ONE rendering path for EVERY map (item 1 — no hub special-case): a unified base layer, then one
-	# spot per G.MAPS[z].spots index-aligned into spot_hits via _seat_spots. A map that ships §16 home
-	# art (clean/broken + per-building masks) reveals the clean art per RESTORED building; any other map
-	# renders its cutout sprites / ghost badges through _make_spot. Both share this base + seat + ambient.
-	var home = G.MAPS[z].get("home", null)
-	var has_home := typeof(home) == TYPE_DICTIONARY
-	var home_dict: Dictionary = home if has_home else {}
-	BootTrace.begin("map.open.base")
-	var frame := _build_map_base(z, home_dict)   # §16 overgrown home base · the map's bg · or flat fallback
-	BootTrace.end("map.open.base")
-	# z-order parity with the pre-unify renderer (so the look is unchanged): a §16 home seats its reveals
-	# /badges UNDER the ambient wanderers + title plank; a cutout map seats its sprites OVER them.
-	BootTrace.begin("map.open.seat")
-	if has_home:
-		_seat_spots(z, home_dict, frame)
-	BootTrace.end("map.open.seat")
-	BootTrace.begin("map.open.ambient")
-	# ambient life — every map. The wanderers ARE the map's placed residents (the §1 population
-	# sub-game): one sprite per placed spirit, EMPTY until something is placed. A map opens to
-	# placement at its FIRST restored spot (resident_capacity ramps 1 → MAX), so a single complete
-	# zone hosts one resident and it shows here. (The old generic moss/acorn/lantern wander fallback
-	# for not-yet-populated maps was retired — ambient life now derives solely from the habitat.)
-	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
+	_map_art_rect = _map_rect
+
+	var manifest := _home_manifest()
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(holder)
+	var built := HomeZoneView.build(holder, manifest, Callable(self, "_home_state_id"), Callable(self, "_home_next_step"))
+	# fit the native canvas into the cover-filled map rect (uniform scale keeps the cut-paper aspect).
+	var stage: Control = built.stage
+	var native: Vector2 = built.canvas
+	var factor := maxf(_map_rect.size.x / native.x, _map_rect.size.y / native.y)
+	stage.scale = Vector2.ONE * factor
+	stage.position = _map_rect.position + (_map_rect.size - native * factor) * 0.5
+	# register each build badge as a tap hit (k = -1 sentinel; the building id rides the node meta).
+	for id in built.badges:
+		spot_hits.append({"node": built.badges[id], "z": _map_idx, "k": -1, "building": String(id)})
+
+	# ambient life — the wanderers ARE the placed residents (the §1 population sub-game): one sprite per
+	# placed spirit, empty until something is placed.
+	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(_map_idx))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
-	if not has_home:
-		_seat_spots(z, home_dict, frame)
-	# §1 residents: an eligible map pays its one-time unlock gift (the celebration dialog; the free spirit
-	# lands in the habitat hand). The visible Expedition entry lives in the home chrome rail and is refreshed
-	# for the current map below.
-	if G.can_populate(z, unlocks, _gates()):
-		_maybe_show_unlock_reward(z)
-	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
+
+var _home_manifest_cache: Dictionary = {}
+func _home_manifest() -> Dictionary:
+	if _home_manifest_cache.is_empty():
+		_home_manifest_cache = HomeZoneView.load_manifest(HOME_ZONE_MANIFEST)
+	return _home_manifest_cache
+
+# The zone renderer's injected state resolvers (thin adapters over home.gd).
+func _home_state_id(id: String) -> String:
+	return HomeBuild.state_id(id)
+
+func _home_next_step(id: String) -> Dictionary:
+	return HomeBuild.next_step(id)
 
 # The GLOBAL bucket roster as ambient members ({type, tier}) — rendered on any COMPLETED map (the
 # "roster wanders the map you're viewing" polish, grove_spec §3): one wanderer per placed spirit,
@@ -1249,11 +1256,9 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		collect.size = collect.custom_minimum_size
 		collect.pressed.connect(_on_dock_collect)
 		panel.add_child(collect)
-	var exped_open := false
-	for z in G.MAPS.size():
-		if G.can_populate(z, unlocks, _gates()):
-			exped_open = true
-			break
+	# the acquire loop opens once the bucket has cells — i.e. once ANY home building is completed
+	# (cells come from buildings now, spec 2026-07-17). Same condition as the Collect chip.
+	var exped_open := cells_total > 0
 	if exped_open:
 		var exped := _dock_chip_button("BucketExpeditionButton", "Expedition", true)
 		exped.position = Vector2(cx + cw * 0.56 + 4.0, chip_y)
@@ -1853,13 +1858,13 @@ func _scroll_hand_by(dy: float) -> void:
 		(grid as Control).position.y = -_hand_scroll
 
 func _map_tap(gpos: Vector2) -> void:
-	# Residents live on their own screen now, so map taps resolve straight to spots / wandering spirits.
+	# Residents live on their own screen now, so map taps resolve to build badges / wandering spirits.
 	for hit in spot_hits:
 		var n: Control = hit.node
 		if n == null or not is_instance_valid(n):
 			continue
-		if n.get_global_rect().grow(8.0).has_point(gpos):
-			_on_spot_tap(int(hit.z), int(hit.k), n, gpos)
+		if n.get_global_rect().grow(24.0).has_point(gpos):
+			_on_build_tap(String(hit.get("building", "")), n, gpos)
 			return
 	# a wandering spirit? a tap earns a hop (pure charm, v1)
 	var amb: Control = content.get_node_or_null("AmbientLayer")
@@ -1874,68 +1879,45 @@ func _map_tap(gpos: Vector2) -> void:
 					Audio.play("button_tap", -8.0)
 				return
 
-# --- buying a spot, right on the map image -----------------------------------------------
+# --- building a building, right on the map image -----------------------------------------
 
-# Restore (claim) a spot. FREE — total exp is never spent; the spot just becomes claimable once
-# exp reaches its threshold. Driven by the bottom Unlock button (and a direct spot tap, harmless
-# since thresholds are monotonic). A below-threshold call wobbles + shows the exp still needed.
-func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
-	var spot: Dictionary = G.MAPS[z].spots[k]
-	if spot_owned(String(spot.id)):
-		return                                # an already-restored spot is inert (no customization)
-	var need := G.spot_unlock_exp(z, k)
-	if Save.exp_total() < need:
+# Tap a build BADGE: buy the building's next step (coins + level gate, home.gd). A refusal wobbles
+# and shows why (too poor / level-locked); a success pops the paid step's art, credits nothing (a
+# completing step grants bucket cells), rebuilds the plot, and celebrates a finished building.
+func _on_build_tap(building_id: String, node: Control, at: Vector2) -> void:
+	if building_id == "":
+		return
+	var step := HomeBuild.next_step(building_id)
+	if step.is_empty():
+		return                                # already built — inert (customization opens elsewhere)
+	var out := HomeBuild.buy_step(building_id)
+	if not bool(out.ok):
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 64),
-			Strings.t("map.spot.needs_level") % G.spot_unlock_level(z, k), Color(CREAM, 0.9), 30)
+		var msg := Strings.t("map.spot.needs_level") % int(step.get("min_level", 1)) if String(out.reason) == "level" \
+			else Strings.t("map.build.needs_coins") if String(out.reason) == "coins" else ""
+		if msg != "":
+			FX.floating_text(self, at - Vector2(120, 64), msg, Color(CREAM, 0.9), 30)
 		return
-	unlocks[String(spot.id)] = true
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
-	if Features.on("big_moment_shake"):
-		FX.shake(self)
-	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
-	# level-ups, not a per-spot gift)
-	FX.floating_text(self, at - Vector2(160, 96), Strings.t("map.spot.new_asks_in_garden"), CREAM, 30)
-	_persist()
-	# Spots-done completion — recorded SYNCHRONOUSLY (before the async veil FX below) so the gate
-	# advance + map reward never depend on FX timing. Completing the map's spots IS the completion
-	# record (the gate quest is retired): append z to `gates` so `map_complete`/`frontier_map`
-	# advance and the next map unlocks.
-	if map_spots_done(z):
-		Save.add_diamonds(G.MAP_DIAMONDS)
-		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
-		if not G.gate_recorded(_gates(), z):     # int-tolerant: a reloaded gate is a JSON float (0.0)
-			var gg := Save.grove()
-			var gl: Array = gg.get("gates", [])
-			gl.append(z)
-			gg["gates"] = gl
-			Save.grove_write()
-		FX.celebrate_at(self, get_global_rect().get_center(), Strings.t("map.spot.map_restored") % tr(G.MAPS[z].name), STRAW)
-		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
-			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
-		# §3 the map's free signature spirit moves in NOW — completion is the beat that grants the
-		# bucket cells to house it, so the gift is immediately placeable (one-time per map).
-		var comp_spirit := G.claim_completion_spirit(z)
-		if comp_spirit != "":
-			var comp_line := Bucket.kind_line(comp_spirit)
-			if comp_line != "":
-				Bucket.hand_add(comp_line)
-				FX.celebrate_at(self, get_global_rect().get_center() + Vector2(0, 132), "+1 spirit", STRAW)
-		Audio.play("level_complete", -2.0)
-	# Break the purple lock veil with a glass-shatter from the tap point. Snapshot the veil's
-	# true (masked) shape BEFORE the rebuild hides it, rebuild, then spawn the shards on top.
-	var veil := {}
-	var vv = content.find_child("VineMapView", true, false)
-	if vv != null:
-		veil = await _capture_region_veil(vv, k)
-	_build_map(false)                     # rebuild IN PLACE (no whole-map pop-in) — only the veil should break
-	if not veil.is_empty():
-		FX.shatter_veil(self, veil["tex"], veil["bbox"], at - get_global_rect().position)
+	if bool(out.built):
+		# a finished building grants its bucket cells (home.cells_total re-derives) + moves its spirit in.
+		FX.celebrate_at(self, get_global_rect().get_center(), Strings.t("map.build.done") % tr(_building_label(building_id)), STRAW)
 		if Features.on("big_moment_shake"):
 			FX.shake(self)
+		Audio.play("level_complete", -2.0)
+	_persist()
+	_build_map(false)                     # rebuild the plot in place (the prop advances a state)
+	_refresh_play_cta()
 	_update_hud()
+
+# The display label for a building id (from the zone manifest).
+func _building_label(building_id: String) -> String:
+	for b in _home_manifest().get("buildings", []):
+		if String((b as Dictionary).get("id", "")) == building_id:
+			return String((b as Dictionary).get("label", building_id))
+	return building_id
 
 # Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.
 # The lock shader rendered alone in a transparent SubViewport reproduces the exact on-screen masking
@@ -2016,8 +1998,7 @@ func _update_hud() -> void:
 
 # Is the open map's next spot affordable right now? Drives the merged Play/Restore CTA's state.
 func _unlock_ready() -> bool:
-	var nxt := G.map_next_unlock(_map_idx, unlocks)
-	return int(nxt.k) != -1 and Save.exp_total() >= int(nxt.exp)
+	return HomeBuild.any_buyable()   # some building step is buyable now (level + wallet)
 
 # The bottom-right CTA is MERGED: PLAY by default (the board+acorn mark → the board), and RESTORE when the
 # open map's next spot is affordable — the SAME orange play disc, but wearing the ui_asset3 vine mark and
@@ -2045,19 +2026,35 @@ func _refresh_play_cta() -> void:
 	_play_btn.pressed.connect(_on_unlock_pressed if ready else _on_board)
 
 func _on_unlock_pressed() -> void:
-	var z := _map_idx
-	var nxt := G.map_next_unlock(z, unlocks)
-	if int(nxt.k) == -1 or Save.exp_total() < int(nxt.exp):
+	# the merged CTA's RESTORE face → build the cheapest buyable building's next step. Resolve to that
+	# building's badge (for the FX origin), then run the shared build-tap path.
+	var target := _cheapest_buyable()
+	if target == "":
 		return
-	var k := int(nxt.k)
 	var node: Control = self
 	var at := get_global_rect().get_center()
 	for hit in spot_hits:
-		if int(hit.z) == z and int(hit.k) == k:
+		if String(hit.get("building", "")) == target and hit.node != null and is_instance_valid(hit.node):
 			node = hit.node
 			at = (hit.node as Control).get_global_rect().get_center()
 			break
-	_on_spot_tap(z, k, node, at)
+	_on_build_tap(target, node, at)
+
+# The building id whose next step is buyable now at the lowest coin cost ("" if none buyable).
+func _cheapest_buyable() -> String:
+	var lvl := G.level()
+	var wallet := Save.coins()
+	var best := ""
+	var best_cost := 1 << 30
+	for d in HomeBuild.defs():
+		var id := String(d.id)
+		var step := HomeBuild.next_step(id)
+		if step.is_empty():
+			continue
+		if int(step.min_level) <= lvl and int(step.cost) <= wallet and int(step.cost) < best_cost:
+			best = id
+			best_cost = int(step.cost)
+	return best
 
 func _build_chrome() -> void:
 	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
@@ -2110,10 +2107,11 @@ func _make_map_button() -> Button:
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": "", "tooltip": Strings.t("map.nav.map"), "action": open}, opts)
 
-# Show the Expedition rail button only when the open map is ready for the acquisition loop.
+# Show the Expedition rail button once the acquire loop is open — i.e. the bucket has cells
+# (a home building is completed; spec 2026-07-17). Was gated on a restored map spot.
 func _refresh_residents_btn() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn):
-		var ready := G.can_populate(_map_idx, unlocks, _gates())
+		var ready := Bucket.cells_total() > 0
 		_residents_btn.visible = ready
 		_residents_btn.set_meta("map_id", String(G.MAPS[_map_idx].id))
 		var HC: GDScript = load(HOME_CHROME_PATH)

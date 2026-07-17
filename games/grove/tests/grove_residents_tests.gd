@@ -20,29 +20,36 @@ func _initialize() -> void:
 	await _test_completion_grants_gift_spirit()
 	finish()
 
-func _open_spots(z: int) -> void:
-	var g := Save.grove()
-	if not g.has("unlocks"):
-		g["unlocks"] = {}
-	for sp in G.MAPS[z].spots:
-		g["unlocks"][String(sp.id)] = true
+const Home = preload("res://engine/scripts/core/home.gd")
+const HB = preload("res://engine/scripts/core/home_build.gd")
+
+# Complete every home building up to (and including) index `n` — the cell source now (spec 2026-07-17).
+func _build_through(n: int) -> void:
+	var st := Home.state()
+	for i in mini(n + 1, Home.defs().size()):
+		var d: Dictionary = Home.defs()[i]
+		while HB.buy_step(st, d):
+			pass
 	Save.grove_write()
 
-# --- cells come ONLY from completed maps (no per-map rosters, no coin capacity sink) ---------------
+# Grant "enough cells for this test" — completing the first building yields the first grant.
+func _open_spots(_z: int) -> void:
+	_build_through(Home.defs().size() - 1)   # build everything → the full bucket
+
+# --- cells come ONLY from completed home buildings (no per-map rosters, no coin capacity sink) -------
 func _test_cells_from_completion() -> void:
 	fresh("bucket_cells")
 	ok(Bucket.cells_total() == 0, "a fresh save has 0 cells")
 	Bucket.hand_add("coin", 1)
-	ok(not Bucket.place(0), "placement is refused before any map completes")
-	_open_spots(0)
-	ok(Bucket.cells_total() == int(Data.BUCKET_CELL_GRANTS[0]), "completing map 0 grants its cells")
-	ok(Bucket.place(0), "placement works once completion granted cells")
-	for z in G.MAPS.size():
-		_open_spots(z)
+	ok(not Bucket.place(0), "placement is refused before any building completes")
+	_build_through(0)
+	ok(Bucket.cells_total() == int(Home.defs()[0].cells), "completing the first building grants its cells")
+	ok(Bucket.place(0), "placement works once a building granted cells")
+	_build_through(Home.defs().size() - 1)
 	var want := 0
-	for grant in Data.BUCKET_CELL_GRANTS:
-		want += int(grant)
-	ok(Bucket.cells_total() == want, "all five maps grant the full bucket")
+	for d in Home.defs():
+		want += int(d.cells)
+	ok(Bucket.cells_total() == want, "completing every building grants the full bucket")
 
 # --- the four lines and their art kinds -----------------------------------------------------------
 func _test_hand_and_lines() -> void:

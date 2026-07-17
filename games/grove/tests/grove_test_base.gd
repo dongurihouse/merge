@@ -138,6 +138,9 @@ func _panel_count(area: Control) -> int:
 			n += 1
 	return n
 
+const HomeAdapter = preload("res://engine/scripts/core/home.gd")
+const HomeBld = preload("res://engine/scripts/core/home_build.gd")
+
 func fresh(name: String) -> void:
 	var dir := "user://tu_test_grove_" + name + "/"
 	if DirAccess.dir_exists_absolute(dir):
@@ -146,6 +149,15 @@ func fresh(name: String) -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
+
+# Complete EVERY home building (wallet-free), the shared way suites open the resident bucket now that
+# cells come from built buildings (spec 2026-07-17) — replaces the old "restore all map spots".
+func build_all_buildings() -> void:
+	var st := HomeAdapter.state()
+	for d in HomeAdapter.defs():
+		while HomeBld.buy_step(st, d):
+			pass
+	Save.grove_write()
 
 
 func begin(title: String) -> void:

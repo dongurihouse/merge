@@ -260,6 +260,7 @@ func _test_map_card_expedition_chrome() -> void:
 	g["gates"] = [z]
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
+	build_all_buildings()                 # cells come from built buildings now → the acquire loop opens
 
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
@@ -321,6 +322,7 @@ func _test_dock_collect_chip() -> void:
 	g["last_map"] = map_id
 	Save.grove_write()
 
+	build_all_buildings()                 # open the bucket (cells from buildings) before placing
 	Bucket.hand_add("coin", 1)
 	Bucket.place(0)
 	var st := Bucket.state()

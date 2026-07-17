@@ -313,6 +313,18 @@ func _gallery_neighbors(a: String, b: String) -> bool:
 			return true
 	return false
 
+# Complete every home building (wallet-free) so the resident bucket has cells — the dock's cell
+# grid + Expedition chip need it (cells come from built buildings now, spec 2026-07-17).
+func _wb_build_all_buildings() -> void:
+	var Home = load("res://engine/scripts/core/home.gd")
+	var HB = load("res://engine/scripts/core/home_build.gd")
+	var Save = load("res://engine/scripts/core/save.gd")
+	var st: Dictionary = Home.state()
+	for d in Home.defs():
+		while HB.buy_step(st, d):
+			pass
+	Save.grove_write()
+
 func _initialize() -> void:
 	print("== Workbench selective-rebuild tests ==")
 	_fresh_fx_settings("settings")
@@ -751,6 +763,7 @@ func _initialize() -> void:
 	await process_frame
 	ok(not _has_label_text(board_scene, "Settings"), "board screen hides the settings tile with the rest of the side rail")
 	board_scene.queue_free()
+	_wb_build_all_buildings()         # open the bucket (cells from built buildings) so the dock fills
 	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map_scene)
 	if map_scene.get("content") == null:

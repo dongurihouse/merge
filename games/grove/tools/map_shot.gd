@@ -76,6 +76,22 @@ func _initialize() -> void:
 			var Inbox = load("res://engine/scripts/core/inbox.gd")
 			for _i in 3:
 				Inbox.add({"title": "Gift", "body": "A little something.", "icon": "coin", "reward": {"coins": 50}, "read": false})
+		"built":
+			# the home part-way through the build-and-upgrade loop: some buildings finished (props show),
+			# the wallet + coin clock funded so the next steps read buyable (badges lit).
+			var HB := load("res://engine/scripts/core/home_build.gd")
+			var Home := load("res://engine/scripts/core/home.gd")
+			Save.earn_coins(2000)                 # organic → coins + a high level (badges unlocked)
+			var hst: Dictionary = Home.state()
+			var to_build := ["fh_hearth", "fh_boxes", "fh_kitchen", "fh_well"]
+			for bid in to_build:
+				var d: Dictionary = Home.def_of(bid)
+				while HB.buy_step(hst, d):
+					pass
+			# leave fh_larder mid-build (one site step) so a SITE prop + an active badge both show
+			var larder: Dictionary = Home.def_of("fh_larder")
+			HB.buy_step(hst, larder)
+			Save.grove_write()
 		"spirits":
 			var gs := Save.grove()
 			var ful := {}
