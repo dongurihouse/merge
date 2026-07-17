@@ -271,45 +271,44 @@ static func _act_premium(host: Control) -> void:
 	Save.add_diamonds(100)               # the free premium currency; convert via shop
 	_reflect(host)
 
-## Top up the exp total so you can claim spots through the normal UI (the single unlock
-## button enables as exp crosses each spot's threshold). Exactly like real play — earn_exp
-## advances the one progression total. Tap again for the big later-map gate spots.
+## Top up the coin clock (organic earnings) so build steps unlock through the normal UI —
+## exactly like real play: earn_coins advances the wallet AND the one progression total.
 static func _act_stars(host: Control) -> void:
-	if host.has_method("debug_add_exp"):
-		host.debug_add_exp(5)
+	if host.has_method("debug_add_progress"):
+		host.debug_add_progress(5)
 		return
-	G.earn_exp(5)
+	G.earn_coins(5)
 	_reflect(host)
 
-## Claim every spot in the next unfinished map + push exp past its thresholds (so the next
-## map opens), exactly like real play.
+## Complete the next unbuilt home building (pay-free) + push the clock past its level gates —
+## the mid-game staging grant (spec §6: preset built buildings for testing).
 static func _act_unlock_map(host: Control) -> void:
-	var g := Save.grove()
-	var unlocks: Dictionary = g.get("unlocks", {})
-	g["unlocks"] = unlocks
-	var z := -1
-	for i in G.MAPS.size():
-		if not G.map_spots_done(i, unlocks):
-			z = i
-			break
-	if z < 0:
-		return                              # every map already restored
-	for sp in G.MAPS[z].spots:
-		unlocks[String(sp.id)] = true
-	# bump exp to where the NEXT map opens — covers all of map z's spot thresholds
-	g["exp"] = maxi(int(g.get("exp", 0)), G.spot_unlock_exp(z + 1, 0))
-	Save.grove_write()
+	var HB := preload("res://engine/scripts/core/home_build.gd")
+	var Home := preload("res://engine/scripts/core/home.gd")
+	var st: Dictionary = Home.state()
+	for d in Home.defs():
+		if HB.is_built(st, d):
+			continue
+		var last_gate := 1
+		while HB.buy_step(st, d):          # advance every step, wallet-free (debug)
+			pass
+		for stp in d.steps:
+			last_gate = maxi(last_gate, int(stp.min_level))
+		# lift the clock to the building's top gate so the NEXT building's steps read unlockable
+		var need := G.coins_at_level(last_gate + 1) - Save.coins_earned_lifetime()
+		if need > 0:
+			Save.earn_coins(need)
+		Save.grove_write()
+		break                               # one building per tap
 	_reflect(host)
 
-## Push exp to the next level threshold (the clock is uncapped).
+## Push the coin clock to the next level threshold (the clock is uncapped).
 static func _act_level_up(host: Control) -> void:
-	var g := Save.grove()
-	var lvl := G.level_for_exp(int(g.get("exp", 0)))
-	if host.has_method("debug_add_exp"):
-		host.debug_add_exp(maxi(0, G.exp_at_level(lvl + 1) - int(g.get("exp", 0))))
+	var need := G.coins_at_level(G.level() + 1) - Save.coins_earned_lifetime()
+	if host.has_method("debug_add_progress"):
+		host.debug_add_progress(maxi(0, need))
 		return
-	g["exp"] = G.exp_at_level(lvl + 1)
-	Save.grove_write()
+	Save.earn_coins(maxi(0, need))
 	_reflect(host)
 
 ## Fast-forward the daily-login calendar to the next day (claims today to advance the

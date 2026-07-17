@@ -148,7 +148,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the level badge — the shared layered emblem + centred number (Look.make_level_badge). The HUD
 	# carries the player's CURRENT level; `refresh` re-ticks the
 	# number and, when leveling crosses a badge TIER (the part SET changes), rebuilds the emblem.
-	var lvl0 := G.level_for_exp(Save.exp_total())
+	var lvl0 := G.level()
 	# tap the level badge -> the level screen (stars earned / needed next), when the scene wires
 	# "on_level". The badge's children ignore input, so the avatar itself catches the tap.
 	var on_level: Variant = opts.get("on_level")
@@ -194,8 +194,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(water_lbl, int(Save.grove().get("water", G.WATER_CAP)))
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
-		var earned := Save.exp_total()
-		var lvl := G.level_for_exp(earned)
+		var lvl := G.level()
 		var tier := Look.level_badge_index(lvl)
 		if tier != int(badge_state["tier"]):
 			# tier flipped -> rebuild the emblem (a tier changes the SET of parts, not just one frame)

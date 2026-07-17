@@ -121,14 +121,14 @@ static func is_full() -> bool:
 static func sell_hand(i: int) -> int:
 	var got := RB.sell_hand(state(), i)
 	if got > 0:
-		Save.add_coins(got)
+		Save.earn_coins(got)
 		Save.grove_write()
 	return got
 
 static func sell_placed(i: int) -> int:
 	var got := RB.sell_placed(state(), i, now())
 	if got > 0:
-		Save.add_coins(got)
+		Save.earn_coins(got)
 		Save.grove_write()
 	return got
 
@@ -161,7 +161,7 @@ static func collect() -> Dictionary:
 static func _credit_line(line: String, amount: int) -> void:
 	match line:
 		"coin":
-			Save.add_coins(amount)
+			Save.earn_coins(amount)
 		"water":
 			Save.add_water(amount)               # clamps the TOTAL to WATER_CAP
 		"diamond":

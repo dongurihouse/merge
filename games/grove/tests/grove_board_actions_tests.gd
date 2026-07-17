@@ -33,9 +33,9 @@ func _test_deliver_quest() -> void:
 	board.place(cell, code)
 	ok(board.item_at(cell) == code, "the asked tile sits on the board pre-delivery")
 
-	var quests: Array = [{"line": 1, "tier": 1, "reward": {"exp": 7, "coins": 3}}]
+	var quests: Array = [{"line": 1, "tier": 1, "reward": {"coins": 3}}]
 	var recent: Array = []
-	var exp_b := Save.exp_total()
+	var earned_b := Save.coins_earned_lifetime()
 	var coins_b := Save.coins()
 
 	var out: Dictionary = BoardActions.deliver_quest(board, quests, recent, 0, cell)
@@ -43,9 +43,9 @@ func _test_deliver_quest() -> void:
 	ok(board.item_at(cell) == 0, "delivery consumed the asked tile")
 	ok(quests.is_empty(), "delivery dropped the quest from the fence")
 	ok(recent == [code], "delivery remembered the asked item (anti-monotony window)")
-	ok(Save.exp_total() == exp_b + 7, "delivery advanced exp by the quest's exp")
 	ok(Save.coins() == coins_b + 3, "delivery paid the quest's coin reward")
-	ok(int(out.get("exp", -1)) == 7 and int(out.get("coins", -1)) == 3, "the outcome reports exp + coins for the render layer")
+	ok(Save.coins_earned_lifetime() == earned_b + 3, "delivery advanced the coin clock (organic earn)")
+	ok(int(out.get("coins", -1)) == 3, "the outcome reports the coins for the render layer")
 	ok(int(out.get("code", -1)) == code and Vector2i(out.get("cell", Vector2i(-1, -1))) == cell, "the outcome reports the consumed code + cell")
 	ok(out.has("levels_up"), "the outcome reports levels gained (drives the Level dialog)")
 
@@ -54,14 +54,14 @@ func _test_deliver_quest() -> void:
 func _test_deliver_empty_quest_skips_recent() -> void:
 	fresh("deliver_empty")
 	var board := BoardModel.new()
-	var quests: Array = [{"reward": {"exp": 2, "coins": 0}}]   # no line/tier → quest_item is empty
+	var quests: Array = [{"reward": {"coins": 2}}]   # no line/tier → quest_item is empty
 	var recent: Array = []
-	var exp_b := Save.exp_total()
+	var earned_b := Save.coins_earned_lifetime()
 	var out: Dictionary = BoardActions.deliver_quest(board, quests, recent, 0, Vector2i(0, 0))
 	ok(quests.is_empty(), "an empty-item quest still leaves the fence")
 	ok(recent.is_empty(), "an empty-item quest does NOT touch the recent-item window")
-	ok(Save.exp_total() == exp_b + 2, "an empty-item quest still pays its exp")
-	ok(int(out.get("coins", -1)) == 0, "a zero-coin quest reports 0 coins")
+	ok(Save.coins_earned_lifetime() == earned_b + 2, "an empty-item quest still pays its coins into the clock")
+	ok(int(out.get("coins", -1)) == 2, "the outcome reports the paid coins")
 
 # §6 per-generator boost: pure BoardModel state that rides with the generator (arm / consume / stackable /
 # move-carries / merge-sums / sell-clears / bag round-trip). Gated HERE (active suite) because the fuller
@@ -115,15 +115,15 @@ func _test_collect_special() -> void:
 	fresh("collect_special")
 	var board := BoardModel.new()
 	var special := 13 * 100 + 1
-	# exp special → Save.add_exp
+	# coins special (the Spark) → Save.earn_coins (organic, clock-advancing)
 	var c1 := Vector2i(1, 1)
 	board.place(c1, special)
-	board.set_collect_reward(c1, "exp", 5)
-	var exp_b := Save.exp_total()
+	board.set_collect_reward(c1, "coins", 5)
+	var earned_sp := Save.coins_earned_lifetime()
 	var o1: Dictionary = BoardActions.collect_special(board, c1)
 	ok(board.item_at(c1) == 0, "collecting a special removes it from the board")
-	ok(String(o1.get("kind", "")) == "exp" and int(o1.get("amount", -1)) == 5, "collect_special reports kind + amount")
-	ok(Save.exp_total() == exp_b + 5, "an exp special credits exp")
+	ok(String(o1.get("kind", "")) == "coins" and int(o1.get("amount", -1)) == 5, "collect_special reports kind + amount")
+	ok(Save.coins_earned_lifetime() == earned_sp + 5, "a Spark special credits coins into the clock")
 	# acorn special → Save.add_diamonds
 	var c2 := Vector2i(2, 2)
 	board.place(c2, special)

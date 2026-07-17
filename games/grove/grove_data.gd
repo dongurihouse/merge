@@ -156,7 +156,11 @@ const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board h
 # map/`lines[]` roster — the board wiring flips to it in a later step. OWNER/content dials.
 const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37, 51]   # 17 base lines, in zone order (51 = Glowcaps, the map-5 base)
 const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77, 78]   # 8 special lines (71-75 = shelved treat art; 76-78 to author)
-const ZONE_COUNT := 25                    # 17 base + 8 special = the 25 live restoration spots ([6,4,7,4,4])
+const ZONE_COUNT := 25                    # 17 base + 8 special zones (the [6,4,7,4,4] banding below)
+# The frozen per-BAND zone counts (the retired 5-map world's spot layout). Pure banding for the
+# per-band coin/sell curves (QUEST_CLICKS_PER_COIN / SELL_MAP_BAND) — G.zone_map derives from THIS,
+# never from map data (coin-clock redesign: the content arc gates on level alone).
+const ZONE_BAND := [6, 4, 7, 4, 4]
 # (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
 # so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
@@ -338,7 +342,7 @@ const SPECIAL_ITEMS := {
 	11: {"name": "Key",   "base": "key",   "kind": "key", "desc": "Drag onto a chest to open it. Better keys improve the reward."},     # merges; opens a chest
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "top": 12, "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
-	14: {"name": "Spark", "base": "spark", "kind": "exp", "desc": "Tap again to gain exp. Merge first for more."},     # merges; tap-collect → exp
+	14: {"name": "Spark", "base": "spark", "kind": "coins", "desc": "Tap again to collect coins. Merge first for more."},     # merges; tap-collect → coins (organic, clock-advancing)
 	# wildcard — a full 12-tier line (overrides SPECIAL_TOP) so a high-tier wildcard can advance high-tier
 	# items; art PENDING (code-drawn from `color` until the 12-tier sprite lands, §6.B/#5).
 	15: {"name": "Wildcard", "base": "wildcard", "kind": "wildcard", "top": 12, "color": Color("#C77DD9"), "desc": "Drag onto a same-tier item to raise it one tier."},  # self-merges up to 12; OR advances any same-tier item
@@ -355,7 +359,7 @@ const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the
 		1: 1, 2: 2, 3: 5, 4: 11, 5: 23, 6: 52,
 		7: 113, 8: 249, 9: 549, 10: 1207, 11: 2656, 12: 5843,
 	},
-	"exp":   {1: 5, 2: 12, 3: 30},
+	"coins": {1: 5, 2: 12, 3: 30},   # the Spark (was the exp special — coin-clock redesign)
 }
 const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
 const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers

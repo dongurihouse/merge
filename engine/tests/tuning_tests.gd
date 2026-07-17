@@ -42,7 +42,9 @@ func _initialize() -> void:
 	ok(G.LEVEL_BASE_EXP == 11 and G.LEVEL_STEP_EXP == 0, "the level curve is overridden")
 	ok(G.exp_at_level(3) == 22, "exp_at_level FOLLOWS the override (base 11 · step 0 → L3 = 2×11 = 22)")
 	ok(G.QUEST_CLICKS_PER_EXP == 5, "quest_clicks_per_exp is overridden")
-	ok(int(G.quest_reward(5).exp) == int(round(16.0 / 5.0)), "quest_reward exp follows the clicks-per-exp override (t5 = 16 clicks)")
+	# coins-only reward: the folded PROGRESSION slice follows the clicks-per-exp override
+	var t5_spend := int(round(16.0 / float(G.QUEST_CLICKS_PER_COIN[0]) * pow(G.QUEST_COIN_DEPTH, 5 - G.QUEST_TIER_BASE)))
+	ok(int(G.quest_reward(5).coins) == int(round(16.0 / 5.0)) + t5_spend, "quest_reward's progression slice follows the clicks-per-exp override (t5 = 16 clicks)")
 	ok(G.ENDGAME_CLICKS == 4242, "the endgame-clicks anchor is overridden")
 	ok(G.cell_min_level(Vector2i(0, 0)) == 1 and G.cell_min_level(Vector2i(4, 3)) == 0,
 		"the MIN_LEVEL board grid is overridden (corner → 1, center → 0)")

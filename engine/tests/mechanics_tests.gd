@@ -460,7 +460,7 @@ func _initialize() -> void:
 	for tier in expected_acorn_values:
 		ok(G.special_collect(13 * 100 + int(tier)) == {"kind": "acorn", "amount": int(expected_acorn_values[tier])}, \
 			"acorn t%d follows the 2.2x ladder (%d)" % [int(tier), int(expected_acorn_values[tier])])
-	ok(G.special_collect(14 * 100 + 1) == {"kind": "exp", "amount": 5}, "exp (spark) t1 tap-collects exp")
+	ok(G.special_collect(14 * 100 + 1) == {"kind": "coins", "amount": 5}, "the Spark t1 tap-collects coins (clock-advancing)")
 	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest is NOT tap-collected (it is opened by a key)")
 	# the open pairing: chest + key (either order), not chest+chest or key+water
 	ok(G.can_open_chest(10 * 100 + 1, 11 * 100 + 1) and G.can_open_chest(11 * 100 + 2, 10 * 100 + 3),

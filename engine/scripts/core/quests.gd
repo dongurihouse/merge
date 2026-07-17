@@ -9,76 +9,48 @@ extends RefCounted
 
 const G = preload("res://engine/scripts/core/content.gd")
 
-# The map currently being restored (its generators/lines are live). Clamped to a valid map.
-static func current_map(unlocks: Dictionary, gates: Array) -> int:
-	return clampi(G.frontier_map(unlocks, gates), 0, G.MAPS.size() - 1)
+# --- fence gating on the COIN CLOCK (coin-clock redesign, spec 2026-07-17) ----------------
+# `earned` everywhere below = Save.coins_earned_lifetime() (the cumulative organic-coins clock).
+# The retired per-spot exp ladder becomes the zone ladder: one zone per level (G.zone_threshold),
+# so every meter/vase read keeps its shape with the source swapped. The map surface (buildings,
+# home.gd) no longer drives the fence — the Home CTA reads Home.any_buyable() directly.
 
-# The map id the board's Home/Purge jump targets (req 3/4): the LATEST not-fully-unlocked map (the
-# frontier — current_map), falling back to the FIRST map once everything is complete (current_map clamps
-# frontier_map's -1 → 0). There is always exactly one such map until the whole grove is restored.
-static func home_map_id(unlocks: Dictionary, gates: Array) -> String:
-	return String(G.MAPS[current_map(unlocks, gates)].id)
+# The reward BAND the fence currently pays at (the retired "current map" axis): the band of the
+# level-reached quest zone. Drives the per-band coin curve + the reseed check.
+static func current_band(level: int) -> int:
+	return G.zone_map(G.quest_zone_for_level(level))
 
-# Every map fully complete (spots + gate) — no frontier left.
-static func map_done(unlocks: Dictionary, gates: Array) -> bool:
-	return G.frontier_map(unlocks, gates) == -1
+# §7 fence sizing: how many stands the fence shows, metered to the remaining CONTENT ARC (the
+# zone ladder's finish threshold). The fence stays full through the game (active_giver_count
+# clamps at MAX_GIVERS) and only tapers in the arc's final stretch.
+static func meter_target(earned: int) -> int:
+	return G.active_giver_count(earned, G.arc_finish_threshold())
 
-# §7 fence sizing: how many stands the fence shows, metered to the WHOLE map's remaining exp
-# (not the next single spot). The fence stays full and only tapers in the map's final stretch,
-# emptying once you've banked enough to finish the map. The "go restore" cue is the breathing
-# Home button (gate_ready) — the fence no longer empties at each affordable spot.
-static func meter_target(z: int, exp: int, unlocks: Dictionary) -> int:
-	return G.active_giver_count(exp, G.map_finish_exp(z, unlocks))
+# §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED +
+# non-interactive instead of emptying — once the whole zone arc is earned (the endgame quiet,
+# the exact point the active meter tapers to 0).
+static func fence_inert(earned: int) -> bool:
+	return earned >= G.arc_finish_threshold()
 
-# The restore CTA: ready once total exp has reached the NEXT unclaimed spot's threshold.
-static func gate_ready(z: int, exp: int, unlocks: Dictionary) -> bool:
-	var nxt := int(G.map_next_unlock(z, unlocks).exp)
-	return nxt >= 0 and exp >= nxt
-
-# §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED + non-interactive
-# instead of emptying — once earned exp can finish the WHOLE current map (the exact point the active
-# meter used to taper to 0). False while the player still needs exp for the map, and false on a spots-done
-# map (left == 0 → that map is complete, never a frontier). The generator-carrier quest is RETIRED — the
-# next map's tools now arrive via quest-driven birth-on-tap (Quests.due_gen / board._produce_due_generators).
-static func fence_inert(z: int, exp: int, unlocks: Dictionary) -> bool:
-	var fin := G.map_finish_exp(z, unlocks)
-	return fin >= 0 and exp >= fin
-
-# The Purge fence card's state. It SHOWS whenever a frontier remains (the map is not done) — no longer
-# only when affordable — so it always advertises the home map's current exp total. It is READY (full
-# colour + breathing) when earned exp reaches the cheapest remaining unlock; otherwise it greys
-# out (still shown, no breathe). `exp` is the balance the card displays.
-static func purge_state(z: int, exp: int, unlocks: Dictionary, gates: Array) -> Dictionary:
+# The Purge fence card's state. One zone per level means the vase IS the level bar now: it
+# SHOWS while the arc runs, fills toward the NEXT level threshold, and is READY at the brim.
+# `exp` stays the displayed balance key (the card face reads it verbatim).
+static func purge_state(earned: int) -> Dictionary:
 	return {
-		"show": not map_done(unlocks, gates),
-		"ready": gate_ready(z, exp, unlocks),
-		"exp": exp,
+		"show": not fence_inert(earned),
+		"ready": purge_progress(earned) >= 1.0,
+		"exp": earned,
 	}
 
-# Progress toward the NEXT unclaimed restore spot on the current frontier map.
-# 0.0 = the previous claimed spot threshold (or a fresh map at 0 exp), 1.0 = the
-# next unclaimed spot's threshold. Exp is cumulative, so extra exp beyond the
-# next threshold stays clamped full until the player claims that spot on the map.
-static func purge_progress(z: int, exp: int, unlocks: Dictionary) -> float:
-	if z < 0 or z >= G.MAPS.size():
-		return 0.0
-	var nxt := G.map_next_unlock(z, unlocks)
-	if int(nxt.k) < 0:
+# Progress toward the NEXT level threshold on the coin clock. 0.0 at the current level's start,
+# 1.0 at the next level's threshold (clamped — the level-up consumes it visually on the rebuild).
+static func purge_progress(earned: int) -> float:
+	var lvl := G.level_at_coins(earned)
+	var base := G.coins_at_level(lvl)
+	var nxt := G.coins_at_level(lvl + 1)
+	if nxt <= base:
 		return 1.0
-	var previous := 0
-	for k in G.MAPS[z].spots.size():
-		if unlocks.has(String(G.MAPS[z].spots[k].id)):
-			previous = maxi(previous, G.spot_unlock_exp(z, k))
-	var target := int(nxt.exp)
-	if target <= previous:
-		return 1.0
-	return clampf(float(exp - previous) / float(target - previous), 0.0, 1.0)
-
-# Exp the player still has to EARN to make the WHOLE of map z claimable (the highest unclaimed
-# threshold minus current exp, floored at 0).
-static func exp_remaining(z: int, unlocks: Dictionary, exp: int) -> int:
-	var fin := G.map_finish_exp(z, unlocks)
-	return 0 if fin < 0 else maxi(0, fin - exp)
+	return clampf(float(earned - base) / float(nxt - base), 0.0, 1.0)
 
 # The owned generator ids = on the board ∪ stored in the gen_bag.
 static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
@@ -158,22 +130,19 @@ static func _lines_with_room(lines: Array, quests: Array) -> Array:
 # then gen_quest is drawn once per appended stand, in order. Generators are NO LONGER delivered by a
 # carrier quest — they arrive when a generator tap produces a DUE tool (Quests.due_gen / board.gd), so
 # refill is purely the §7 ask stream now. Returns the new quests array.
-static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, exp: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
-	if map_done(unlocks, gates):
-		return []
+static func refill(quests: Array, band: int, board_gens: Dictionary, gen_bag: Array, earned: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	var out: Array = _cap_quests_per_line(quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))))
-	# Ask from the level-reached line window, not claimed restore spots: a player can keep seeing
-	# new quest lines by earning exp even if they delay restoring newly affordable zones.
+	# Ask from the level-reached line window (the coin clock drives level): a player keeps seeing
+	# new quest lines by earning coins even if they delay building newly affordable structures.
 	# #12/#14/#16: quests draw from a rolling window of the last QUEST_GEN_CAP BASE lines (quest_base_lines) PLUS
 	# any craftable SPECIAL (merge) line, trimmed to the QUEST_GEN_CAP generator footprint (a special folds into
 	# its 2 ingredient generators — already in the window).
 	var quest_zone := G.quest_zone_for_level(level)
 	var base_lines := G.quest_base_lines(quest_zone)
 	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
-	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
-	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
-	# lit Purge card).
-	var target := int(G.MAX_GIVERS) if fence_inert(z, exp, unlocks) else meter_target(z, exp, unlocks)
+	# req 1: at the arc's end the active meter is 0 — instead of letting the fence empty, fill it to
+	# a FULL set the board renders GREYED + inert (so it never goes blank under the lit Purge card).
+	var target := int(G.MAX_GIVERS) if fence_inert(earned) else meter_target(earned)
 	target = mini(target, _line_capacity(lines))
 	while out.size() < target:
 		var eligible_lines := _lines_with_room(lines, out)
@@ -190,7 +159,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 			var it := G.quest_item(q)
 			if not it.is_empty():
 				avoid.append(int(it.line) * 100 + int(it.tier))
-		out.append(G.gen_quest(level, eligible_lines, rng, avoid, z))   # z = current map → per-map coin band
+		out.append(G.gen_quest(level, eligible_lines, rng, avoid, band))   # band → the per-band coin curve
 	while out.size() > target:
 		out.pop_back()
 	return out
@@ -275,10 +244,8 @@ static func ladder_entries(seen: Dictionary, line: int) -> Array:
 		out.append({"tier": t, "code": code, "seen": seen.has(str(code))})
 	return out
 
-# Reward readers — the {reward:{exp,coins,gems}} shape, falling back to the flat legacy key.
-static func exp(q: Dictionary) -> int:
-	return int(q.reward.get("exp", 0)) if q.has("reward") else int(q.get("exp", 0))
-
+# Reward reader — the {reward:{coins,gems}} shape (COINS ONLY since the coin-clock redesign;
+# the exp reader is retired with the exp economy).
 static func coins(q: Dictionary) -> int:
 	return int(q.reward.get("coins", 0)) if q.has("reward") else 0
 

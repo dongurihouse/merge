@@ -44,6 +44,16 @@ static func next_step(id: String) -> Dictionary:
 static func cells_total() -> int:
 	return HB.cells_granted(state(), defs())
 
+## Any building step buyable RIGHT NOW (level gate + wallet)? Drives the board's Home CTA breathe.
+static func any_buyable() -> bool:
+	var st := state()
+	var lvl := G.level()
+	var wallet := Save.coins()
+	for d in defs():
+		if HB.can_buy_step(st, d, lvl, wallet) == "":
+			return true
+	return false
+
 ## Buy the next build step of `id`: gate through the module (level + price), spend, commit.
 ## Outcome: {ok, reason, built, levels_up} — `reason` "" | "built" | "level" | "coins";
 ## `built` flips true on the completing step (the scene celebrates + the bucket grows).
