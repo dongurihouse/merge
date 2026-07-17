@@ -807,15 +807,28 @@ static func claim_unlock_reward(z: int) -> Dictionary:
 	var rew: Dictionary = D.map_unlock_reward(z)
 	var coins := int(rew.get("coins", 0))
 	var gems := int(rew.get("gems", 0))
-	var spirit := String(rew.get("spirit", ""))
 	if coins > 0:
 		Save.add_coins(coins)
 	if gems > 0:
 		Save.add_diamonds(gems)
-	var events: Array = []
-	if spirit != "":
-		events = grant_resident(z, spirit)
-	return {"coins": coins, "gems": gems, "spirit": spirit, "events": events}
+	# NOTE: the free signature SPIRIT no longer pays here — it moves in at map COMPLETION
+	# (claim_completion_spirit), the beat that also grants the bucket cells to house it.
+	return {"coins": coins, "gems": gems}
+
+## The map's free signature spirit, claimed ONCE at map COMPLETION (all spots restored — the same beat
+## that grants the bucket cells, so the gift is immediately placeable). Returns the spirit KIND, or ""
+## when already claimed / the map has none. The caller lands it in the bucket hand (content cannot
+## preload bucket.gd — bucket preloads content).
+static func claim_completion_spirit(z: int) -> String:
+	var g := Save.grove()
+	var claimed: Dictionary = g.get("completion_spirit", {})
+	var key := String(MAPS[z].id)
+	if claimed.has(key):
+		return ""
+	claimed[key] = true
+	g["completion_spirit"] = claimed
+	Save.grove_write()
+	return String(D.map_unlock_reward(z).get("spirit", ""))
 
 static func map_for_spots(i: int) -> int:
 	var acc := 0

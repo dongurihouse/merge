@@ -17,6 +17,7 @@ func _initialize() -> void:
 	await _test_bucket_dock()
 	await _test_dock_closed_state()
 	await _test_map_tap_over_ambient()
+	await _test_completion_grants_gift_spirit()
 	finish()
 
 func _open_spots(z: int) -> void:
@@ -250,6 +251,38 @@ func _test_map_tap_over_ambient() -> void:
 	var src := FileAccess.get_file_as_string("res://engine/scripts/scenes/map.gd")
 	ok(src.find("var spc := sp as Control") != -1 and src.find("if spc == null:") != -1,
 		"_map_tap skips non-Control ambient children instead of crashing on the driver")
+	hx.queue_free()
+
+# --- completing a map lands its gift spirit in the bucket hand, same beat as the cells ------------
+func _test_completion_grants_gift_spirit() -> void:
+	fresh("bucket_completion_gift")
+	var g := Save.grove()
+	g["exp"] = 999999
+	var unl := {}
+	for i in range(G.MAPS[0].spots.size() - 1):
+		unl[String(G.MAPS[0].spots[i].id)] = true          # every farm spot but the last
+	g["unlocks"] = unl
+	Save.grove_write()
+	G.claim_unlock_reward(0)                               # consume the unlock beat (coins/gems only now)
+	var hand_before := Bucket.hand().size()
+
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	hx._login_shown_launch = true
+	await create_timer(0.1).timeout
+	hx.unlocks = unl
+	hx._open_map(0)
+	await create_timer(0.08).timeout
+	var dummy := Control.new()
+	get_root().add_child(dummy)
+	await hx._on_spot_tap(0, G.MAPS[0].spots.size() - 1, dummy, Vector2(60.0, 60.0))
+	await create_timer(0.05).timeout
+	var h := Bucket.hand()
+	ok(h.size() == hand_before + 1, "completing a map lands its gift spirit in the bucket hand")
+	ok(h.size() > 0 and String(h[h.size() - 1].line) == Bucket.kind_line("ember"), "the farm's gift is its signature kind on its line")
+	ok(G.claim_completion_spirit(0) == "", "the completion gift pays exactly once")
+	ok(Bucket.cells_total() > 0, "the same beat grants the cells that house it")
+	dummy.queue_free()
 	hx.queue_free()
 
 # --- place-picker drag test helpers -------------------------------------------------

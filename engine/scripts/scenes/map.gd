@@ -1915,6 +1915,14 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		FX.celebrate_at(self, get_global_rect().get_center(), Strings.t("map.spot.map_restored") % tr(G.MAPS[z].name), STRAW)
 		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
 			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
+		# §3 the map's free signature spirit moves in NOW — completion is the beat that grants the
+		# bucket cells to house it, so the gift is immediately placeable (one-time per map).
+		var comp_spirit := G.claim_completion_spirit(z)
+		if comp_spirit != "":
+			var comp_line := Bucket.kind_line(comp_spirit)
+			if comp_line != "":
+				Bucket.hand_add(comp_line)
+				FX.celebrate_at(self, get_global_rect().get_center() + Vector2(0, 132), "+1 spirit", STRAW)
 		Audio.play("level_complete", -2.0)
 	# Break the purple lock veil with a glass-shatter from the tap point. Snapshot the veil's
 	# true (masked) shape BEFORE the rebuild hides it, rebuild, then spawn the shards on top.
@@ -2630,13 +2638,8 @@ func _maybe_show_unlock_reward(z: int) -> void:
 	if rew.is_empty():
 		return
 	_update_hud()
-	# Unified habitat: the free unlock spirit lands in the HAND so it shows + is placeable on the map.
-	# (claim_unlock_reward also seats it in the now-dormant legacy roster; that copy retires with the economy pass.)
-	var unlock_spirit := String(rew.get("spirit", ""))
-	if unlock_spirit != "":
-		var unlock_line := Bucket.kind_line(unlock_spirit)
-		if unlock_line != "":
-			Bucket.hand_add(unlock_line)
+	# (The free signature spirit no longer pays here — it moves in at map COMPLETION, alongside the
+	# bucket cells that house it: see the map_spots_done block in _on_spot_tap.)
 	if not is_inside_tree():
 		return
 	_show_unlock_dialog.call_deferred(z, rew)
