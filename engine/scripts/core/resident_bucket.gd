@@ -131,6 +131,43 @@ static func collect(state: Dictionary, now: float, cfg: Dictionary = {}) -> Dict
 		out[line] = whole
 	return out
 
+static func roll_line(rng: RandomNumberGenerator, cfg: Dictionary = {}) -> String:
+	var lines: Dictionary = cfg.get("lines", DEFAULTS["lines"])
+	var total := 0
+	for line in LINES:
+		total += int(lines.get(line, {}).get("weight", 0))
+	if total <= 0:
+		return LINES[0]
+	var pick := rng.randi_range(1, total)
+	for line in LINES:
+		pick -= int(lines.get(line, {}).get("weight", 0))
+		if pick <= 0:
+			return line
+	return LINES[0]
+
+static func roll_tier(rng: RandomNumberGenerator, cfg: Dictionary = {}) -> int:
+	var weights: Array = cfg.get("tier_weights", DEFAULTS["tier_weights"])
+	var total := 0
+	for w in weights:
+		total += int(w)
+	if total <= 0:
+		return 1
+	var pick := rng.randi_range(1, total)
+	for i in range(weights.size()):
+		pick -= int(weights[i])
+		if pick <= 0:
+			return i + 1
+	return 1
+
+static func grant_box(state: Dictionary, count: int, rng: RandomNumberGenerator, cfg: Dictionary = {}) -> Array:
+	var out := []
+	for i in range(count):
+		var line := roll_line(rng, cfg)
+		var tier := roll_tier(rng, cfg)
+		hand_add(state, line, tier)
+		out.append(state.hand.back())
+	return out
+
 static func _pair_mergeable(list_a: Array, i: int, list_b: Array, j: int) -> bool:
 	if i < 0 or j < 0 or i >= list_a.size() or j >= list_b.size():
 		return false

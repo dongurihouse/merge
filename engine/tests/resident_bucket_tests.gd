@@ -157,6 +157,50 @@ func _test_collect_and_day_cap() -> void:
 	ok(int(Bucket.collect(u, HOUR * 5.0, free_cfg).get("coin", 0)) == 10, "day_cap 0 = unbounded collect")
 	ok(Bucket.collect(u, HOUR * 5.0, free_cfg).is_empty(), "an empty bank returns an empty grant")
 
+func _test_box_rolls() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12345
+	# a rigged config: only water can drop, only tier 3 can roll
+	var rig := _cfg(1.0, 1.0, 1.0)
+	for l in rig.lines:
+		rig.lines[l].weight = 1 if l == "water" else 0
+	rig.tier_weights = [0, 0, 1]
+	var s := Bucket.make_state()
+	var got := Bucket.grant_box(s, 3, rng, rig)
+	ok(got.size() == 3 and s.hand.size() == 3, "grant_box drops count spirits into the hand")
+	var rigged_ok := true
+	for inst in got:
+		if inst.line != "water" or int(inst.tier) != 3:
+			rigged_ok = false
+	ok(rigged_ok, "rolls honor the line weights and tier weights")
+	# under DEFAULTS, over many rolls: every line appears and diamond is the rarest
+	var counts := {"coin": 0, "water": 0, "boost": 0, "diamond": 0}
+	for i in range(4000):
+		counts[Bucket.roll_line(rng)] += 1
+	var all_present := true
+	for l in Bucket.LINES:
+		if int(counts[l]) == 0:
+			all_present = false
+	ok(all_present, "every line is reachable under DEFAULTS")
+	ok(int(counts.diamond) < int(counts.coin) and int(counts.diamond) < int(counts.water) and int(counts.diamond) < int(counts.boost),
+		"diamond is the rarest drop under DEFAULTS")
+	var tiers_ok := true
+	for i in range(500):
+		var t := Bucket.roll_tier(rng)
+		if t < 1 or t > 4:
+			tiers_ok = false
+	ok(tiers_ok, "DEFAULTS tier rolls stay in the t1..t4 band")
+
+func _test_ceiling_guard() -> void:
+	# the redesign's whole point: full-dedication ceilings are designed numbers, not emergent blowups
+	var s := _stier_state("diamond", Bucket.MAX_TIER * 8)   # 8 cells, all t12 diamond
+	var day_one := Bucket.collect(s, DAY * 30.0)             # a month idle, then collect
+	var dcap := int(Bucket.line_cfg("diamond").get("day_cap", 0))
+	ok(dcap > 0, "the diamond line ships day-capped in DEFAULTS")
+	ok(int(day_one.get("diamond", 0)) <= dcap, "full 8-cell t12 diamond dedication still pays <= day_cap per day")
+	var coin := _stier_state("coin", Bucket.MAX_TIER * 8)
+	ok(Bucket.rate(coin, "coin") <= 30.0, "full coin dedication stays under 30 coins/h (provisional sanity bound)")
+
 func _initialize() -> void:
 	print("== resident bucket (pure module) ==")
 	_test_hand_ops()
@@ -165,5 +209,7 @@ func _initialize() -> void:
 	_test_production()
 	_test_merge_always_pays()
 	_test_collect_and_day_cap()
+	_test_box_rolls()
+	_test_ceiling_guard()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
