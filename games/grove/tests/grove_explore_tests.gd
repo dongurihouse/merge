@@ -4,7 +4,6 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## coverage; the real-time Rush *feel* needs an interactive run. Active suite (in GROVE_TESTS).
 
 const Explore = preload("res://engine/scripts/core/explore.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
@@ -28,7 +27,7 @@ func _initialize() -> void:
 	_test_trade_reward_dialog_layout()
 	_test_reward_row_cap()
 	await _test_map_card_expedition_chrome()
-	await _test_map_card_collection_time_label()
+	await _test_dock_collect_chip()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
@@ -250,7 +249,7 @@ func _test_map_card_expedition_chrome() -> void:
 			"locked rail packs Daily directly below Settings (step %.1f <= %.1f)" % [y_step, max_packed_step])
 	locked._open_select()
 	await create_timer(0.05).timeout
-	ok(locked.content.find_child("MapHabitatExpeditionButton", true, false) == null, "locked/unpopulatable map cards do not show Expedition")
+	ok(locked.content.find_child("BucketExpeditionButton", true, false) == null, "the dock hides Expedition before the loop opens")
 	locked.queue_free()
 
 	var unl := {}
@@ -298,22 +297,19 @@ func _test_map_card_expedition_chrome() -> void:
 			await process_frame
 	hx._open_select()
 	await create_timer(0.05).timeout
-	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "completed map cards no longer use the floating Expedition icon button")
-	var exp := hx.content.find_child("MapHabitatExpeditionButton", true, false) as Button
-	var exp_label := hx.content.find_child("MapHabitatExpeditionButtonLabel", true, false) as Label
-	var exp_icon := hx.content.find_child("MapHabitatExpeditionButtonIcon", true, false) as Control
-	ok(exp != null, "eligible map cards expose an Expedition button")
-	ok(exp != null and String(exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "card Expedition button records its source map")
-	ok(exp_label != null and exp_label.text == "Expedition", "card Expedition button uses a plain text label")
-	ok(exp_icon == null, "card Expedition button has no icon")
+	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "map cards no longer carry a floating Expedition icon button")
+	ok(hx.content.find_child("MapHabitatExpeditionButton", true, false) == null, "the per-card habitat Expedition button is retired (bucket dock owns it)")
+	var exp := hx.content.find_child("BucketExpeditionButton", true, false) as Button
+	ok(exp != null, "the bucket dock exposes the Expedition entry once the loop is open")
+	ok(exp != null and exp.text == "Expedition", "the dock Expedition chip uses a plain text label")
 	if exp != null:
 		exp.pressed.emit()
 		await process_frame
-		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the card Expedition button opens loadout")
+		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the dock Expedition chip opens loadout")
 	hx.queue_free()
 
-func _test_map_card_collection_time_label() -> void:
-	fresh("map_card_collection_time_label")
+func _test_dock_collect_chip() -> void:
+	fresh("dock_collect_chip")
 	var z := G.hub_map()
 	var map_id := String(G.MAPS[z].id)
 	var unl := {}
@@ -325,11 +321,10 @@ func _test_map_card_collection_time_label() -> void:
 	g["last_map"] = map_id
 	Save.grove_write()
 
-	var now := Time.get_unix_time_from_system()
-	Habitat.hand_add("ember", 1)
-	Habitat.place(map_id, 0, now)
-	g = Save.grove()
-	g["hab_prod"] = {map_id: {"acc": 1.25, "last": now}}
+	Bucket.hand_add("coin", 1)
+	Bucket.place(0)
+	var st := Bucket.state()
+	st["banks"] = {"coin": 1.25}
 	Save.grove_write()
 
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
@@ -340,11 +335,15 @@ func _test_map_card_collection_time_label() -> void:
 	hx.unlocks = unl
 	hx._open_select()
 	await create_timer(0.05).timeout
-	var bar := hx.content.find_child("MapHabitatProgressBar", true, false) as Control
-	var label := hx.content.find_child("MapHabitatProgressTimeLabel", true, false) as Label
-	ok(bar != null, "eligible map cards show the collection progress bar")
-	ok(label != null and label.get_parent() == bar, "the collection progress bar owns a remaining-time label")
-	ok(label != null and label.text == "15h", "the collection progress bar shows compact time remaining to full")
+	ok(hx.content.find_child("MapHabitatProgressBar", true, false) == null, "the per-card production bar is retired (bucket dock owns collect)")
+	var chip := hx.content.find_child("BucketCollectChip", true, false) as Button
+	ok(chip != null and not chip.disabled, "the dock Collect chip is live with matured production")
+	ok(chip != null and chip.find_child("BucketCollectBadges", true, false) != null, "the Collect chip shows per-line ready badges")
+	var coins_before := Save.coins()
+	if chip != null:
+		chip.pressed.emit()
+		await create_timer(0.05).timeout
+	ok(Save.coins() == coins_before + 1, "pressing the chip collects the matured whole unit")
 	hx.queue_free()
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------

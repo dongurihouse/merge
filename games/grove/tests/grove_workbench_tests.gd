@@ -2040,46 +2040,19 @@ func _test_gold_badge_consumers(view) -> void:
 		ok(prereq_label.position.x >= prereq_left.position.x + prereq_left.size.x + 6.0 \
 			and prereq_label.position.x + prereq_label.size.x <= prereq_right.position.x - 6.0, \
 			"locked prerequisite text sits between the two leaves with a readable gap")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardIcon") \
-		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "MapHabitatCollectButton"), \
-		"completed map cards render a reward icon and named large green Collect button")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_reward_collect_button") \
-		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_reward_collect_button") \
-		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "\"shadow\": false") \
-		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "\"art\": false") \
-		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "\"pad_scale\": 0.62") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_font") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_w") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_h"), \
-		"completed map Collect button stays compact, Workbench-tuned, and avoids sprite-padding/shadow bloat")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "_spirit_cell(Kit, bag_opts") \
-			and _source_contains("res://engine/scripts/scenes/map.gd", "_empty_cell(Kit, bag_opts") \
-			and _source_contains("res://engine/scripts/scenes/map.gd", "_locked_resident_cell(Kit, bag_opts") \
-			and _source_contains("res://engine/scripts/scenes/map.gd", "var display_cap := G.RESIDENT_SLOTS_MAX"), \
-			"completed map resident rails reuse standard square slot cells and keep eight spaces ready with locked cells")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "_spirit_cell(Kit, bag_opts, String(inst.kind), int(inst.tier), orb_px") \
-		and not _source_contains("res://engine/scripts/scenes/map.gd", "_resident_slot(orb_px, orb)") \
-		and not _source_contains("res://engine/scripts/scenes/map.gd", "_resident_slot(orb_px)"), \
-		"completed map resident rail filled slots do not render the old per-orb tier badge")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "var slot_cols := 2") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "var slot_rows := 4"), \
-		"completed map resident rails arrange eight spaces as a two-column/four-row rail")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentRailFrame") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.board_panel") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "\"draw_center\": true") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "strip.add_child(frame)") \
-		and not _source_contains("res://engine/scripts/scenes/map.gd", "LEFT_MAP_HABITAT_STRIP"), \
-		"completed map resident rail uses the code-drawn board background instead of baked strip art")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentRailInset") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "resident_slot_px") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "resident_slot_gap") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0"), \
-		"completed map resident rail border expands and shrinks with the slot size and slot gap")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_habitat_shelf_rect") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_habitat_shelf_rect") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardShelf"), \
-		"completed map reward shelf placement is driven by the shared Workbench-tuned layout helper")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "BucketCellsGrid") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "BucketCollectChip") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "BucketExpeditionButton"), \
+		"the place-picker dock hosts the bucket cells grid + Collect/Expedition chips")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "_spirit_cell(Kit, cbag") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "_empty_cell(Kit, cbag") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "_locked_resident_cell("), \
+		"bucket cells reuse the standard square slot cells; locked filler cells are retired")
+	ok(not _source_contains("res://engine/scripts/scenes/map.gd", "_habitat_card") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardShelf") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "MapResidentRailFrame") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "_resident_slot(orb_px"), \
+		"the per-map habitat card, reward shelf, and resident rail are ripped out (bucket dock owns residents)")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "LEFT_MAP_TITLE_PLATE") \
 		and not _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatTitleLeafLeft") \
 		and not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "MapCardTitleLeafLeft"), \

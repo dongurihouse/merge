@@ -41,7 +41,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Board off-thread so the garden CTA is snappy
 const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")   # cold-boot phase timer — no-ops unless the Boot splash opened a trace
-const Habitat = preload("res://engine/scripts/core/habitat.gd")   # the unified resident model (hand + placed + production) — the map IS the habitat surface
+const Bucket = preload("res://engine/scripts/core/bucket.gd")   # the GLOBAL resident bucket adapter (hand + cells + per-line production) — the dock IS the habitat surface
 const Explore = preload("res://engine/scripts/core/explore.gd")   # the acquire ritual (Expedition nav button → Load out dialog → Rush → Trade)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Pal = Game.PALETTE
@@ -118,6 +118,7 @@ var _inbox_btn: Button = null
 # Spirits are managed by DRAG through the single input surface: hand→a map places, hand→a matching orb
 # merges, a housed orb→the hand column brings out. A still-tap on a housed orb focuses it for Sell.
 var _hand_panel: Control = null            # the in-hand column (right side of the place-picker); null off the picker
+var _cells_grid: Control = null            # the bucket CELLS grid inside the dock — the place drop zone; null off the picker
 var _hand_orbs: Array = []                 # [{node, idx, kind, tier}] — in-hand orbs (drag sources / merge targets)
 var _placed_orbs: Array = []               # [{node, z, map_id, idx, kind, tier}] — housed orbs (drag sources / merge + focus targets)
 var _drag: Dictionary = {}                 # the in-flight (or pending) spirit drag; {} when none. active=true once it lifts off
@@ -362,27 +363,14 @@ func debug_refresh_weather() -> void:
 	_weather.visible = _view != "select"
 
 func debug_add_resident_to_hand() -> void:
-	var kind := _debug_resident_kind()
-	if kind == "":
-		return
-	Habitat.hand_add(kind)
+	Bucket.hand_add(_debug_resident_line())
 	if is_inside_tree():
 		Audio.play("level_complete", -8.0, 1.05)
 		FX.celebrate_at(self, _screen_center(-12.0), "+1 spirit", STRAW)
 	_refresh_picker()
 
-func _debug_resident_kind() -> String:
-	var z := clampi(_map_idx, 0, G.MAPS.size() - 1)
-	for ln in G.resident_lines(z):
-		var id := String(ln.id)
-		if id != "":
-			return id
-	for zi in G.MAPS.size():
-		for ln in G.resident_lines(zi):
-			var id := String(ln.id)
-			if id != "":
-				return id
-	return ""
+func _debug_resident_line() -> String:
+	return String(Bucket.LINES[randi() % Bucket.LINES.size()])
 
 # (The 2× DOUBLER lived here, triggered by the now-removed hub yield-collect. It was RE-HOMED to the
 # quest coin reward on the board — see board.gd `_maybe_offer_2x` — since the map scene no longer has a
@@ -442,13 +430,15 @@ func _build_map(animate := true) -> void:
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
 
-# The open map's PLACED spirits as ambient members ({type, tier}). The map renders the habitat
-# (engine/scripts/core/habitat.gd) — the single resident model where Explore deposits — instead of the
-# legacy per-map welcome roster (G.resident_members), which is now dormant (retired with the economy pass).
+# The GLOBAL bucket roster as ambient members ({type, tier}) — rendered on any COMPLETED map (the
+# "roster wanders the map you're viewing" polish, grove_spec §3): one wanderer per placed spirit,
+# wearing its line's art kind. Un-completed maps stay empty (the habitat isn't open there yet).
 func _habitat_members(z: int) -> Array:
 	var out: Array = []
-	for inst in Habitat.placed(String(G.MAPS[z].id)):
-		out.append({"type": String(inst.kind), "tier": int(inst.tier)})
+	if not G.can_populate(z, unlocks, _gates()):
+		return out
+	for inst in Bucket.placed():
+		out.append({"type": Bucket.line_kind(String(inst.line)), "tier": int(inst.tier)})
 	return out
 
 # Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).
@@ -1038,6 +1028,7 @@ func _build_select(animate := true) -> void:
 	_hand_orbs.clear()
 	_placed_orbs.clear()
 	_hand_panel = null
+	_cells_grid = null
 	var view := get_viewport_rect().size
 	# TWO SEPARATE columns, both top-aligned. LEFT: the individual map cards, scrolled in a clipped column.
 	# RIGHT: the in-hand spirits on a reused garden BOARD (its own framed planter — a 2-column grid + a bottom
@@ -1081,7 +1072,6 @@ func _build_select(animate := true) -> void:
 		var card := _make_card(z, card_w, card_h, opts)
 		card.position = Vector2(0.0, y - _select_scroll)        # clip-local: flush to the column's top-left
 		card.size = Vector2(card_w, card_h)
-		_apply_card_hint(card, z)
 		clip.add_child(card)
 		select_hits.append({"node": card, "z": z, "y0": y})
 		y += card_h + sep
@@ -1102,9 +1092,6 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	var Kit: GDScript = load(KIT_PATH)
 	if opts.is_empty():     # standalone callers (no _build_select context) resolve the saved look themselves
 		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
-	# a COMPLETED map renders as the prototype habitat card; in-progress / locked maps keep the vista card
-	if Kit != null and map_unlocked(z) and G.can_populate(z, unlocks, _gates()):
-		return _habitat_card(z, card_w, card_h, opts)
 	var open := map_unlocked(z)
 	# One zone per vine region — the badge reports honest restore progress over every region (owned/total),
 	# and a map is "done" only when all of them are restored (map_spots_done). No phantom base-region offset.
@@ -1121,286 +1108,11 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	}
 	return Kit.map_card(d, opts, card_w, card_h)
 
-# A COMPLETED map's place-picker card: the map's own art fills the WHOLE card as a full-bleed background
-# inside the SHARED gold frame (so a completed place reads with the same framed vista as an open one), with
-# the habitat controls riding on top — a name plate over the art, then the housed spirits as ORBS in slots
-# (empty slots show free capacity) and a production fill-bar + Collect on a translucent parchment shelf so
-# the dark-ink content stays legible. The body is mouse-IGNORE so a tap navigates; only Collect intercepts.
-func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
-	var map_id := String(G.MAPS[z].id)
-	var placed: Array = Habitat.placed(map_id)
-	var cap := Habitat.cap(map_id)
-	var cur := Habitat.reward_currency(map_id)
-	if opts.is_empty() and Kit != null:
-		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var badge_opts: Dictionary = opts.get("badge", {})
-
-	var card := Control.new()
-	card.custom_minimum_size = Vector2(card_w, card_h)
-	card.size = Vector2(card_w, card_h)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	# full-bleed map art as the card background, framed + COVER-filled exactly like an open vista card.
-	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
-	var radius := maxf(2.0, float(Kit.gold_badge_cap(badge_opts)) - band)
-	Kit._map_add_frame(card, badge_opts)
-	var art_path := _card_art_path(z)
-	if art_path != "" and ResourceLoader.exists(art_path):
-		Kit._map_add_fill(card, load(art_path), badge_opts, card_w, card_h)
-	else:
-		card.add_child(_inset_fill(Color(DOCK_STRAW, 0.5), band, radius))   # a parched plate when art is absent
-
-	# the map name on a parchment plate, top-left over the art
-	var plate := _habitat_plate(String(G.MAPS[z].name))
-	plate.position = Vector2(band + 8.0, band + 8.0)
-	card.add_child(plate)
-
-	var inset := band + 6.0
-	# the HOUSED spirits ride a VERTICAL strip down the card's RIGHT side. This strip IS the drop zone for a
-	# dragged in-hand spirit — sized generously so a drop lands easily, while a tap elsewhere on the card still
-	# navigates into the map. The orbs register into `_placed_orbs` (drag-out / merge / focus targets).
-	var resident_slot_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 148.0)
-	var resident_slot_gap := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
-	var rail_pad_preview := clampf(resident_slot_px * 0.26, 11.0, 36.0)
-	var strip_w := clampf(resident_slot_px * 2.0 + resident_slot_gap + rail_pad_preview * 2.0, 96.0, minf(card_w * 0.76, 440.0))
-	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), resident_slot_px, opts, resident_slot_gap)
-	var shelf_rect: Rect2 = Kit.map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
-
-	# the name + production read ride a translucent parchment shelf docked to the BOTTOM-LEFT (clear of the
-	# strip) so the dark-ink labels stay legible while the art still shows through behind them.
-	var shelf := Panel.new()
-	shelf.name = "MapHabitatRewardShelf"
-	shelf.position = shelf_rect.position
-	shelf.size = shelf_rect.size
-	shelf.custom_minimum_size = shelf_rect.size
-	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shelf_style := _left_map_style(LEFT_MAP_REWARD_SHELF, Vector4(36, 24, 36, 24), Vector4(14, 8, 14, 8))
-	if shelf_style != null:
-		shelf.add_theme_stylebox_override("panel", shelf_style)
-	else:
-		var ss := StyleBoxFlat.new()
-		ss.bg_color = Color(DOCK_PARCH, 0.88)
-		ss.set_corner_radius_all(14)
-		ss.set_border_width_all(2)
-		ss.border_color = Color(DOCK_INK, 0.12)
-		shelf.add_theme_stylebox_override("panel", ss)
-	var shelf_pad_l := 14.0
-	var shelf_pad_r := 14.0
-	var shelf_pad_t := 8.0
-	var shelf_pad_b := 8.0
-	var shelf_gap := 8.0
-	var capf := 0.0
-	var pendingf := 0.0
-	var ready := 0
-	var reward_cap := 0
-	if cur != "":
-		capf = Habitat.accrual_cap(map_id)
-		pendingf = Habitat.pending(map_id)
-		ready = _reward_amount_ready(map_id)
-		reward_cap = _reward_amount_cap(map_id)
-
-	var reward_icon: Control = null
-	var reward_icon_size := clampf(float(opts.get("reward_icon_size", 24.0)), 8.0, 72.0)
-	if Kit != null:
-		reward_icon = Kit.make_icon(_reward_icon(cur), reward_icon_size)
-	if reward_icon != null:
-		reward_icon.name = "MapHabitatRewardIcon"
-		reward_icon.custom_minimum_size = Vector2(reward_icon_size, reward_icon_size)
-		reward_icon.size = reward_icon.custom_minimum_size
-		reward_icon.position = Vector2(shelf_pad_l, shelf_pad_t) + Vector2(float(opts.get("reward_icon_x", 0.0)), float(opts.get("reward_icon_y", 0.0)))
-		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shelf.add_child(reward_icon)
-	var sub := _card_sub("%s · %d/%d" % [_reward_label(cur), ready, reward_cap])
-	sub.name = "MapHabitatRewardLabel"
-	sub.add_theme_font_size_override("font_size", int(clampf(float(opts.get("reward_label_font", 21)), 8.0, 48.0)))
-	sub.custom_minimum_size = Vector2(maxf(120.0, shelf_rect.size.x * 0.40), float(sub.get_theme_font_size("font_size")) + 8.0)
-	sub.size = sub.custom_minimum_size
-	sub.position = Vector2(shelf_pad_l + reward_icon_size + 4.0, shelf_pad_t - 1.0) + Vector2(float(opts.get("reward_label_x", 0.0)), float(opts.get("reward_label_y", 0.0)))
-	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shelf.add_child(sub)
-
-	# production bar + Collect — every completed map pays its own reward now (coins/water/boost/diamonds/chest)
-	if cur != "":
-		var frac := (pendingf / capf) if capf > 0.0 else 0.0
-		var button_size := Vector2(
-			clampf(float(opts.get("reward_button_w", 116.0)), 40.0, 260.0),
-			clampf(float(opts.get("reward_button_h", 36.0)), 20.0, 90.0)
-		)
-		var button_pos := Vector2(shelf_rect.size.x - shelf_pad_r - button_size.x, shelf_rect.size.y - shelf_pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
-		var button_font := int(clampf(float(opts.get("reward_button_font", 18)), 8.0, 48.0))
-		var expedition_size := Vector2(
-			clampf(float(opts.get("expedition_button_w", button_size.x)), 56.0, 260.0),
-			clampf(float(opts.get("expedition_button_h", button_size.y)), 20.0, 90.0)
-		)
-		var max_expedition_w := maxf(56.0, button_pos.x - shelf_gap - shelf_pad_l)
-		expedition_size.x = minf(expedition_size.x, max_expedition_w)
-		var expedition_x_min := shelf_pad_l
-		var expedition_x_max := maxf(expedition_x_min, button_pos.x - shelf_gap - expedition_size.x)
-		var expedition_y_min := 0.0
-		var expedition_y_max := maxf(expedition_y_min, shelf_rect.size.y - expedition_size.y)
-		var expedition_pos := Vector2(
-			clampf(button_pos.x - shelf_gap - expedition_size.x + float(opts.get("expedition_button_x", 0.0)), expedition_x_min, expedition_x_max),
-			clampf(button_pos.y + (button_size.y - expedition_size.y) * 0.5 + float(opts.get("expedition_button_y", 0.0)), expedition_y_min, expedition_y_max)
-		)
-		var bar_h := clampf(float(opts.get("reward_bar_h", clampf(shelf_rect.size.y * 0.13, 10.0, 18.0))), 4.0, 40.0)
-		var bar_x := shelf_pad_l
-		var bar_y := clampf(
-			shelf_rect.size.y - shelf_pad_b - bar_h - 5.0 + float(opts.get("reward_bar_y", 0.0)),
-			shelf_pad_t,
-			maxf(shelf_pad_t, shelf_rect.size.y - shelf_pad_b - bar_h)
-		)
-		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {
-			"height": bar_h,
-			"width": clampf(expedition_pos.x - shelf_gap - bar_x, 0.0, maxf(0.0, shelf_rect.size.x - shelf_pad_l - shelf_pad_r)),
-			"art": true,
-			"label": _collection_time_label(map_id),
-			"label_name": "MapHabitatProgressTimeLabel",
-		})
-		bar.name = "MapHabitatProgressBar"
-		bar.size = bar.custom_minimum_size
-		bar.position = Vector2(bar_x, bar_y)
-		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shelf.add_child(bar)
-		var collect: Button = Kit.map_reward_collect_button("Collect", "", button_size,
-			button_font,
-			0.0,
-			ready > 0)
-		collect.position = button_pos
-		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
-		var expedition_font := int(clampf(float(opts.get("expedition_button_font", button_font)), 8.0, 48.0))
-		var expedition: Button = Kit.map_reward_collect_button("Expedition", "", expedition_size,
-			expedition_font,
-			0.0,
-			true,
-			"MapHabitatExpeditionButton")
-		expedition.position = expedition_pos
-		expedition.set_meta("map_id", map_id)
-		expedition.pressed.connect(func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_expedition(z)
-		)
-		shelf.add_child(expedition)
-		shelf.add_child(collect)
-		# map 3 boost charges are spent on the board (the boost chip reads "Free"); no map-screen affordance.
-
-	card.add_child(shelf)
-
-	return card
-
-# The housed-spirit STRIP down a card's right side — a translucent vertical plate carrying the placed orbs
-# (then empty slots up to capacity), arranged as a stable two-column / four-row rail. The whole strip
-# is the card's PLACE/merge drop zone; each filled orb registers into `_placed_orbs` (drag-out + merge + focus
-# target) and the focused orb is tinted. Every node IGNOREs the mouse (the single input surface hit-tests it).
-func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, cap: int, rect: Rect2, orb_px: float, opts: Dictionary = {}, slot_gap: float = 10.0) -> void:
-	var Kit: GDScript = load(KIT_PATH)
-	var badge_opts: Dictionary = opts.get("badge", {})
-	var display_cap := G.RESIDENT_SLOTS_MAX
-	var slot_cols := 2
-	var slot_rows := 4
-	display_cap = mini(display_cap, slot_cols * slot_rows)
-	var sep := clampf(slot_gap, 0.0, 36.0)
-	orb_px = clampf(orb_px, 30.0, 148.0)
-	var rail_pad := clampf(orb_px * 0.26, 11.0, 36.0)
-	var max_sep_w := maxf(0.0, (rect.size.x - rail_pad * 2.0 - 10.0 * float(slot_cols)) / float(slot_cols - 1))
-	var max_sep_h := maxf(0.0, (rect.size.y - rail_pad * 2.0 - 10.0 * float(slot_rows)) / float(slot_rows - 1))
-	sep = minf(sep, minf(max_sep_w, max_sep_h))
-	var max_orb_w := (rect.size.x - rail_pad * 2.0 - sep * float(slot_cols - 1)) / float(slot_cols)
-	var max_orb_h := (rect.size.y - rail_pad * 2.0 - sep * float(slot_rows - 1)) / float(slot_rows)
-	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 148.0))
-	rail_pad = clampf(orb_px * 0.26, 11.0, 36.0)
-	var rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0
-	var rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0
-	rail_w = minf(rect.size.x, rail_w)
-	rail_h = minf(rect.size.y, rail_h)
-	var strip := Control.new()
-	strip.position = rect.position + Vector2(maxf(0.0, rect.size.x - rail_w), maxf(0.0, (rect.size.y - rail_h) * 0.5))
-	strip.size = Vector2(rail_w, rail_h)
-	strip.clip_contents = true
-	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var rail_badge: Dictionary = badge_opts.duplicate()
-	rail_badge["corner"] = minf(float(rail_badge.get("corner", 24.0)), 24.0)
-	rail_badge["inner_inset"] = clampf(float(rail_badge.get("inner_inset", 7.0)), 4.0, 8.0)
-	var frame: Control = null
-	if Kit != null:
-		frame = Kit.board_panel(strip.size, {
-			"frame_style": "badge",
-			"badge": rail_badge,
-			"draw_center": true,
-			"shadow": false,
-		})
-	if frame == null:
-		var panel := Panel.new()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(DOCK_PARCH, 0.96)
-		sb.draw_center = true
-		sb.set_corner_radius_all(18)
-		sb.set_border_width_all(2)
-		sb.border_color = Color(DOCK_STRAW, 0.72)
-		panel.add_theme_stylebox_override("panel", sb)
-		frame = panel
-	frame.name = "MapResidentRailFrame"
-	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	frame.modulate = Color(1, 1, 1, 0.96)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	strip.add_child(frame)
-
-	# a MarginContainer insets the two-column / four-row grid inside the board-style background.
-	var margin := MarginContainer.new()
-	margin.name = "MapResidentRailInset"
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, int(round(rail_pad)))
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	strip.add_child(margin)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", sep)
-	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(vb)
-	var avail_w := maxf(1.0, rail_w - rail_pad * 2.0)
-	var avail_h := maxf(1.0, rail_h - rail_pad * 2.0)
-	var slot_gap_x := sep
-	var slot_gap_y := sep
-	var grid := GridContainer.new()
-	grid.columns = slot_cols
-	grid.custom_minimum_size = Vector2(avail_w, avail_h)
-	grid.add_theme_constant_override("h_separation", int(round(slot_gap_x)))
-	grid.add_theme_constant_override("v_separation", int(round(slot_gap_y)))
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bag_opts: Dictionary = opts.get("slot_cell", {})
-	if bag_opts.is_empty() and Kit != null:
-		bag_opts = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	else:
-		bag_opts = bag_opts.duplicate(true)
-	bag_opts["cell_w"] = orb_px
-	bag_opts["cell_h"] = orb_px
-	for i in placed.size():
-		var inst: Dictionary = placed[i]
-		var selected := String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("z", -1)) == z and int(_sel_orb.get("idx", -1)) == i
-		var slot := _spirit_cell(Kit, bag_opts, String(inst.kind), int(inst.tier), orb_px, selected)
-		slot.name = "MapResidentRailCell_%02d" % i
-		grid.add_child(slot)
-		_placed_orbs.append({"node": slot, "z": z, "map_id": map_id, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
-	for i in range(placed.size(), display_cap):
-		if i < cap:
-			grid.add_child(_empty_cell(Kit, bag_opts, orb_px))
-		else:
-			var locked := _locked_resident_cell(Kit, bag_opts, orb_px)
-			locked.name = "MapResidentRailLockedCell_%02d" % i
-			grid.add_child(locked)
-	vb.add_child(grid)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(spacer)
-	card.add_child(strip)
-
-# The IN-HAND board on the place-picker's right — a REUSED garden planter (PieceView.make_board_mat) carrying
-# the spirits as a TWO-column grid (no per-orb tier badge), above a bottom INFO BAR. Tap a spirit (here, or a
-# housed orb on a card) to select it; the info bar reads its tier and — for a housed spirit — shows Sell. The
-# grid scrolls (wheel, or a drag on the board's empty soil). Orbs IGNORE the mouse (the single input surface
-# hit-tests them); only the info-bar Sell button intercepts its own tap.
+# The BUCKET dock on the place-picker's right — the global habitat surface (grove_spec §3): the placed
+# CELLS on top (the one bucket, grown by map completion), a Collect chip with per-line ready badges and the
+# Expedition entry under them, then the unbounded IN-HAND grid above a bottom INFO BAR (tier + Sell). Tap a
+# spirit to select it; drag between hand and cells to place / merge / bring out. Orbs IGNORE the mouse (the
+# single input surface hit-tests them); only the chip / Expedition / info-bar buttons intercept their taps.
 func _build_hand_panel(rect: Rect2) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
@@ -1428,19 +1140,119 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	# rounded bottom corners so neither it nor its Sell button pokes past the frame.
 	var cbot := rect.size.y - 62.0
 
-	var title := _dock_label("In hand", 26, true)
+	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg) if Kit != null else {}
+
+	# --- the CELLS (the one global bucket) — placed spirits, then free capacity ----------------------
+	var title := _dock_label("Spirits", 26, true)
 	title.position = Vector2(cx, ctop)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(title)
-	var grid_top := ctop + 30.0
+	var cells_top := ctop + 30.0
+	var cells_total := Bucket.cells_total()
+	var placed: Array = Bucket.placed()
+	var cells_h := 0.0
+	if cells_total <= 0:
+		var closed := _dock_label("Complete a map to open the habitat.", 15)
+		closed.name = "BucketCellsClosedHint"
+		closed.autowrap_mode = TextServer.AUTOWRAP_WORD
+		closed.position = Vector2(cx + 2.0, cells_top)
+		closed.size = Vector2(cw - 4.0, 40.0)
+		closed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(closed)
+		cells_h = 44.0
+	else:
+		var csep := 8.0
+		var ccols := 4
+		var cell_px := (cw - csep * float(ccols - 1)) / float(ccols)
+		var cbag: Dictionary = bag_opts.duplicate(true)
+		cbag["cell_w"] = cell_px
+		cbag["cell_h"] = cell_px
+		var cgrid := GridContainer.new()
+		cgrid.name = "BucketCellsGrid"
+		cgrid.columns = ccols
+		cgrid.add_theme_constant_override("h_separation", int(csep))
+		cgrid.add_theme_constant_override("v_separation", int(csep))
+		cgrid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for i in placed.size():
+			var inst: Dictionary = placed[i]
+			var pkind := Bucket.line_kind(String(inst.line))
+			var psel := String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("idx", -1)) == i
+			var pcell := _spirit_cell(Kit, cbag, pkind, int(inst.tier), cell_px, psel)
+			pcell.name = "BucketCell_%02d" % i
+			cgrid.add_child(pcell)
+			_placed_orbs.append({"node": pcell, "idx": i, "kind": pkind, "tier": int(inst.tier)})
+		for _e in range(placed.size(), cells_total):
+			cgrid.add_child(_empty_cell(Kit, cbag, cell_px))
+		cgrid.position = Vector2(cx, cells_top)
+		panel.add_child(cgrid)
+		_cells_grid = cgrid
+		var crows := int(ceil(float(cells_total) / float(ccols)))
+		cells_h = float(crows) * cell_px + float(maxi(crows - 1, 0)) * csep
 
-	# the bottom INFO BAR — the selected spirit's tier + Sell (housed), sitting above the rounded corners
+	# --- Collect (per-line ready badges) + Expedition, side by side under the cells ------------------
+	# Collect shows once the bucket has cells; Expedition once the acquire loop is open anywhere
+	# (a first restored spot — the same gate the map-view rail uses, G.can_populate).
+	var chip_h := 40.0
+	var chip_y := cells_top + cells_h + 8.0
+	if cells_total > 0:
+		var ready_total := 0
+		var badges: Array = []
+		for line in Bucket.LINES:
+			var amt := int(floor(Bucket.pending_line(String(line))))
+			if amt > 0:
+				ready_total += amt
+				badges.append({"line": String(line), "amt": amt})
+		var collect := _dock_chip_button("BucketCollectChip", "Collect", ready_total > 0)
+		collect.position = Vector2(cx, chip_y)
+		collect.custom_minimum_size = Vector2(cw * 0.56 - 4.0, chip_h)
+		collect.size = collect.custom_minimum_size
+		collect.pressed.connect(_on_dock_collect)
+		if not badges.is_empty() and Kit != null:
+			var brow := HBoxContainer.new()
+			brow.name = "BucketCollectBadges"
+			brow.add_theme_constant_override("separation", 4)
+			brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			for b in badges:
+				var ic: Control = Kit.make_icon(_line_icon(String(b.line)), 18.0)
+				ic.custom_minimum_size = Vector2(18.0, 18.0)
+				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				brow.add_child(ic)
+				var bl := _dock_label(str(int(b.amt)), 16, true)
+				bl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				brow.add_child(bl)
+			brow.position = Vector2(8.0, chip_h - 20.0)
+			collect.add_child(brow)
+		panel.add_child(collect)
+	var exped_open := false
+	for z in G.MAPS.size():
+		if G.can_populate(z, unlocks, _gates()):
+			exped_open = true
+			break
+	if exped_open:
+		var exped := _dock_chip_button("BucketExpeditionButton", "Expedition", true)
+		exped.position = Vector2(cx + cw * 0.56 + 4.0, chip_y)
+		exped.custom_minimum_size = Vector2(cw * 0.44 - 4.0, chip_h)
+		exped.size = exped.custom_minimum_size
+		exped.pressed.connect(func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_expedition(_frontier_map()))
+		panel.add_child(exped)
+	if cells_total <= 0 and not exped_open:
+		chip_y = cells_top + cells_h - chip_h - 8.0      # no chips yet — hand the row back to the grid
+
+	# --- the IN-HAND grid, scrollable between the chips and the info bar ------------------------------
+	var hand_title := _dock_label("In hand", 22, true)
+	hand_title.position = Vector2(cx, chip_y + chip_h + 8.0)
+	hand_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(hand_title)
+	var grid_top := chip_y + chip_h + 8.0 + 26.0
+
+	# the bottom INFO BAR — the selected spirit's tier + Sell, sitting above the rounded corners
 	var bar_h := 88.0
 	panel.add_child(_inhand_info_bar(Rect2(cx, cbot - bar_h, cw, bar_h)))
 	var grid_bot := cbot - bar_h - 8.0
 
-	# the spirit grid, scrollable within a clipped viewport between the title and the info bar
-	var hand: Array = Habitat.hand()
+	var hand: Array = Bucket.hand()
 	var view_h := maxf(40.0, grid_bot - grid_top)
 	var clip := Control.new()
 	clip.name = "HandClip"
@@ -1460,11 +1272,10 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		return panel
 	var sep := 8.0
 	var cols := 2                                                # exactly two columns → larger cells
-	var cell_px := (cw - sep * float(cols - 1)) / float(cols)    # fill the width evenly
+	var cell_w := (cw - sep * float(cols - 1)) / float(cols)     # fill the width evenly
 	# the NEW board CELLS — Kit.slot_cell, the very component the reskinned board + bag use
-	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg) if Kit != null else {}
-	bag_opts["cell_w"] = cell_px
-	bag_opts["cell_h"] = cell_px
+	bag_opts["cell_w"] = cell_w
+	bag_opts["cell_h"] = cell_w
 	var grid := GridContainer.new()
 	grid.name = "HandGrid"
 	grid.columns = cols
@@ -1473,22 +1284,43 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for i in hand.size():
 		var inst: Dictionary = hand[i]
+		var kind := Bucket.line_kind(String(inst.line))
 		var sel := String(_sel_orb.get("src", "")) == "hand" and int(_sel_orb.get("idx", -1)) == i
-		var cell := _spirit_cell(Kit, bag_opts, String(inst.kind), int(inst.tier), cell_px, sel)
+		var cell := _spirit_cell(Kit, bag_opts, kind, int(inst.tier), cell_w, sel)
 		grid.add_child(cell)
-		_hand_orbs.append({"node": cell, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
+		_hand_orbs.append({"node": cell, "idx": i, "kind": kind, "tier": int(inst.tier)})
 	# round the grid out with EMPTY cells so it reads as a board, filling the visible rows
-	var vis_rows := maxi(1, int((view_h + sep) / (cell_px + sep)))
+	var vis_rows := maxi(1, int((view_h + sep) / (cell_w + sep)))
 	var want_cells := maxi(hand.size(), vis_rows * cols)
 	for _e in range(hand.size(), want_cells):
-		grid.add_child(_empty_cell(Kit, bag_opts, cell_px))
+		grid.add_child(_empty_cell(Kit, bag_opts, cell_w))
 	clip.add_child(grid)
 	var rows := int(ceil(float(want_cells) / float(cols)))
-	var grid_h := float(rows) * cell_px + float(maxi(rows - 1, 0)) * sep
+	var grid_h := float(rows) * cell_w + float(maxi(rows - 1, 0)) * sep
 	_hand_scroll_max = maxf(0.0, grid_h - view_h)
 	_hand_scroll = clampf(_hand_scroll, 0.0, _hand_scroll_max)
 	grid.position = Vector2(0.0, -_hand_scroll)
 	return panel
+
+# A small green pill button for the dock chips (Collect / Expedition) — the same face the Sell pill wears.
+func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
+	var btn := Button.new()
+	btn.name = btn_name
+	btn.text = text
+	btn.disabled = not enabled
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.add_theme_font_size_override("font_size", 20)
+	btn.add_theme_color_override("font_color", Color("#F4FBE9"))
+	btn.add_theme_color_override("font_outline_color", Color("#173404"))
+	btn.add_theme_constant_override("outline_size", 3)
+	var gsb := StyleBoxFlat.new()
+	gsb.bg_color = Color("#639922") if enabled else Color("#8A9377")
+	gsb.set_corner_radius_all(12)
+	gsb.set_border_width_all(2)
+	gsb.border_color = Color("#3B6D11") if enabled else Color("#6B755C")
+	for st_name in ["normal", "hover", "pressed", "focus", "disabled"]:
+		btn.add_theme_stylebox_override(st_name, gsb)
+	return btn
 
 # The in-hand board's bottom strip reads the selected spirit's tier and surfaces Sell. It uses the same
 # thin code-drawn Slot-cell face as the resident cells so it stays quiet inside the right board.
@@ -1555,7 +1387,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		var sh := 42.0
 		var sell := Button.new()
 		sell.name = "ResidentSellButton"
-		sell.text = "Sell +%d" % (Habitat.SELL_PER_TIER * tier)
+		sell.text = "Sell +%d" % (Bucket.SELL_PER_TIER * tier)
 		sell.add_theme_font_size_override("font_size", 22)
 		sell.add_theme_color_override("font_color", Color("#F4FBE9"))
 		sell.add_theme_color_override("font_outline_color", Color("#173404"))
@@ -1596,127 +1428,33 @@ func _left_map_style(rel: String, slice: Vector4, content: Vector4) -> StyleBoxT
 	st.content_margin_bottom = content.w
 	return st
 
-func _habitat_plate(text: String) -> Control:
-	var plate_tex := _left_map_texture(LEFT_MAP_TITLE_PLATE)
-	if plate_tex != null:
-		var node := Control.new()
-		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var lbl := _dock_label(text, 24, true)
-		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var text_size := lbl.get_combined_minimum_size()
-		node.size = Vector2(maxf(text_size.x + 54.0, 142.0), maxf(text_size.y + 16.0, 42.0))
-		node.custom_minimum_size = node.size
-		var bg := TextureRect.new()
-		bg.texture = plate_tex
-		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		bg.stretch_mode = TextureRect.STRETCH_SCALE
-		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		node.add_child(bg)
-		lbl.position = Vector2(24.0, 6.0)
-		lbl.size = Vector2(maxf(2.0, node.size.x - 48.0), maxf(2.0, node.size.y - 10.0))
-		node.add_child(lbl)
-		return node
-	var p := PanelContainer.new()
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color(DOCK_PARCH, 0.92)
-	s.set_corner_radius_all(12)
-	s.set_border_width_all(2)
-	s.border_color = Color(DOCK_INK, 0.14)
-	s.content_margin_left = 12 ; s.content_margin_right = 12
-	s.content_margin_top = 4 ; s.content_margin_bottom = 4
-	p.add_theme_stylebox_override("panel", s)
-	var lbl := _dock_label(text, 28, true)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(lbl)
-	p.size = p.get_combined_minimum_size()
-	return p
-
-# A rounded fill inset to the gold frame's inner rim — the habitat card's fallback when a map has no
-# painted art yet (mirrors the COVER art fill's band/radius so it nestles inside the same rim). Mouse-IGNORE.
-func _inset_fill(col: Color, band: float, radius: float) -> Control:
-	var pnl := Panel.new()
-	pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pnl.offset_left = band ; pnl.offset_top = band
-	pnl.offset_right = -band ; pnl.offset_bottom = -band
-	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var s := StyleBoxFlat.new()
-	s.bg_color = col
-	s.set_corner_radius_all(int(radius))
-	pnl.add_theme_stylebox_override("panel", s)
-	return pnl
-
-func _on_card_collect(z: int) -> void:
-	var r: Dictionary = Habitat.collect(String(G.MAPS[z].id))
+func _on_dock_collect() -> void:
+	var got := Bucket.collect()
 	_update_hud()
-	_collect_fx(r, get_global_rect().get_center() - Vector2(0, 40))
-	_refresh_picker()    # a residents-chest collect grows the hand; repaint the bar + Collect + hand column
-
-# --- the per-map reward, surfaced (icon / collectable amount / feedback) --------------------------
-# Map 1 coins · map 2 water · map 3 a generator-boost charge · map 4 diamonds · map 5 a resident chest.
-# Boost + residents reuse the leaf glyph until their bespoke art ships (parked); diamonds read as gems.
-func _reward_icon(cur: String) -> String:
-	match cur:
-		"coins": return "coin"
-		"water": return "water"
-		"diamonds": return "gem"
-		_: return "leaf"
-
-func _reward_label(cur: String) -> String:
-	match cur:
-		"coins": return "Coins"
-		"water": return "Water"
-		"boost": return "Boosts"
-		"diamonds": return "Diamonds"
-		"residents": return "Spirits"
-		_: return "Resting"
-
-func _collection_time_label(map_id: String) -> String:
-	var secs := Habitat.seconds_until_full(map_id)
-	if secs < 0.0:
-		return ""
-	if secs <= 0.0:
-		return "Ready"
-	if secs < 60.0:
-		return "<1m"
-	var mins := int(ceil(secs / 60.0))
-	if mins < 60:
-		return "%dm" % mins
-	var hours := int(mins / 60)
-	var rem_mins := mins % 60
-	if hours < 24:
-		return "%dh" % hours if rem_mins == 0 else "%dh %dm" % [hours, rem_mins]
-	var days := int(hours / 24)
-	var rem_hours := hours % 24
-	return "%dd" % days if rem_hours == 0 else "%dd %dh" % [days, rem_hours]
-
-# The amount a collect would bank right now: floor(pending), already in the map's currency (the per-map MULT
-# is baked into pending). For map 5 that's the number of residents the chest would drop. 0 below one whole unit.
-func _reward_amount_ready(map_id: String) -> int:
-	if Habitat.reward_currency(map_id) == "":
-		return 0
-	return int(floor(Habitat.pending(map_id)))
-
-func _reward_amount_cap(map_id: String) -> int:
-	if Habitat.reward_currency(map_id) == "":
-		return 0
-	return int(floor(Habitat.accrual_cap(map_id)))
-
-# Reward-aware collect feedback (a chime + a float/callout matched to the currency).
-func _collect_fx(r: Dictionary, at: Vector2) -> void:
-	var amt := int(r.get("amount", 0))
-	if amt <= 0:
+	var at := get_global_rect().get_center() - Vector2(0, 40)
+	if got.is_empty():
 		Audio.play("button_tap", -2.0)
-		return
-	Audio.play("level_complete", -8.0, 1.1)
-	match String(r.get("currency", "")):
-		"coins": FX.floating_reward(self, at, "coin", amt, STRAW)
-		"water": FX.floating_reward(self, at, "water", amt, STRAW)
-		"diamonds": FX.floating_reward(self, at, "gem", amt, STRAW)
-		"boost": FX.celebrate_at(self, at, "+%d boost%s" % [amt, "" if amt == 1 else "s"], STRAW)
-		"residents": FX.celebrate_at(self, at, "Chest! +%d spirit%s" % [amt, "" if amt == 1 else "s"], STRAW)
-		_: FX.celebrate_at(self, at, "+%d" % amt, STRAW)
+	else:
+		Audio.play("level_complete", -8.0, 1.1)
+		var off := 0.0
+		for line in got:
+			var amt := int(got[line])
+			match String(line):
+				"coin": FX.floating_reward(self, at + Vector2(0, off), "coin", amt, STRAW)
+				"water": FX.floating_reward(self, at + Vector2(0, off), "water", amt, STRAW)
+				"diamond": FX.floating_reward(self, at + Vector2(0, off), "gem", amt, STRAW)
+				"boost": FX.celebrate_at(self, at + Vector2(0, off), "+%d boost%s" % [amt, "" if amt == 1 else "s"], STRAW)
+				_: FX.celebrate_at(self, at + Vector2(0, off), "+%d" % amt, STRAW)
+			off += 34.0
+	_refresh_picker()    # a collect can change every badge; repaint the dock
+
+# The per-line collect glyph on the dock chip (boost reuses the leaf until bespoke art ships — parked).
+func _line_icon(line: String) -> String:
+	match line:
+		"coin": return "coin"
+		"water": return "water"
+		"diamond": return "gem"
+		_: return "leaf"
 
 func _card_sub(text: String) -> Label:
 	var l := _dock_label(text, 21, true)
@@ -1825,8 +1563,7 @@ func _orb_at(gpos: Vector2) -> Dictionary:
 	for o in _placed_orbs:
 		var pn: Control = o.node
 		if is_instance_valid(pn) and pn.get_global_rect().grow(4.0).has_point(gpos):
-			return {"src": "placed", "idx": int(o.idx), "z": int(o.z), "map_id": String(o.map_id),
-				"kind": String(o.kind), "tier": int(o.tier), "node": pn}
+			return {"src": "placed", "idx": int(o.idx), "kind": String(o.kind), "tier": int(o.tier), "node": pn}
 	return {}
 
 # Lift the dragged spirit into a ghost orb that follows the finger (IGNOREs input, rides above the cards).
@@ -1841,7 +1578,6 @@ func _begin_drag_ghost(gpos: Vector2) -> void:
 	_drag_ghost.set_meta("ghost_px", px)
 	content.add_child(_drag_ghost)
 	_move_drag_ghost(gpos)
-	_refresh_card_hints()
 	Audio.play("button_tap", -6.0)
 
 func _drag_source_px() -> float:
@@ -1863,73 +1599,59 @@ func _end_drag() -> void:
 		_drag_ghost.queue_free()
 	_drag_ghost = null
 	_drag = {}
-	_refresh_card_hints()
 
-# Resolve a dropped drag at `gpos`. HAND spirit → a matching housed orb merges (place_merge), another matching
-# hand orb merges in hand (hand_merge), else a map card's right drop zone places (place). HOUSED spirit → the
-# in-hand column brings it out (unplace). Anything else snaps back (a soft tap).
+# Resolve a dropped drag at `gpos`. HAND spirit → a matching placed orb merges in its cell (place_merge),
+# a matching hand orb merges in hand (hand_merge), else the bucket CELLS grid places (place). PLACED spirit →
+# the hand board brings it out (unplace). Anything else snaps back (a soft tap).
 func _resolve_drop(gpos: Vector2) -> void:
 	var d := _drag
 	if String(d.get("src", "")) == "hand":
-		# onto a MATCHING housed orb → merge it up a tier on that map. A non-matching housed orb is NOT a
-		# rejection: the strip is the map's drop zone, so fall through and PLACE into a free slot instead.
+		# onto a MATCHING placed orb → merge it up a tier in its cell. A non-matching orb is NOT a
+		# rejection: the cells grid is the drop zone, so fall through and PLACE into a free cell instead.
 		for o in _placed_orbs:
 			var pn: Control = o.node
 			if not (is_instance_valid(pn) and pn.get_global_rect().grow(6.0).has_point(gpos)):
 				continue
-			if String(o.kind) == String(d.kind) and int(o.tier) == int(d.tier) and int(o.tier) < Habitat.MAX_TIER:
-				if Habitat.place_merge(String(o.map_id), int(d.idx), int(o.idx)):
+			if String(o.kind) == String(d.kind) and int(o.tier) == int(d.tier) and int(o.tier) < Bucket.MAX_TIER:
+				if Bucket.place_merge(int(d.idx), int(o.idx)):
 					_merge_fx(pn.get_global_rect().get_center())
 					_after_habitat_action()
 				else:
 					_invalid_at(pn)
 				return
-			break                             # over a non-mergeable housed orb → place onto its map below
-		# onto a MATCHING hand orb → merge the pair in hand
+			break                             # over a non-mergeable placed orb → try a plain place below
+		# onto a MATCHING hand orb → merge the pair in hand (the module keeps the TARGET index)
 		for o in _hand_orbs:
 			if int(o.idx) == int(d.idx):
 				continue
 			var hn: Control = o.node
 			if not (is_instance_valid(hn) and hn.get_global_rect().grow(6.0).has_point(gpos)):
 				continue
-			if String(o.kind) == String(d.kind) and int(o.tier) == int(d.tier) and int(o.tier) < Habitat.MAX_TIER:
-				if Habitat.hand_merge(String(d.kind), int(d.tier), int(o.idx), int(d.idx)):
+			if String(o.kind) == String(d.kind) and int(o.tier) == int(d.tier) and int(o.tier) < Bucket.MAX_TIER:
+				if Bucket.hand_merge(int(o.idx), int(d.idx)):
 					_merge_fx(hn.get_global_rect().get_center())
 					_after_habitat_action()
 				return
 			break                             # over a non-matching hand orb → snap back below
-		# onto a map card's right drop zone → place into a free slot
-		for hit in select_hits:
-			var card: Control = hit.node
-			if not (is_instance_valid(card) and _card_dropzone(card).has_point(gpos)):
-				continue
-			var z := int(hit.z)
-			var mid := String(G.MAPS[z].id)
-			if not G.can_populate(z, unlocks, _gates()):
-				_invalid_at(card)
-			elif not Habitat.can_place_on(mid, {"kind": String(d.kind), "tier": int(d.tier)}):
-				_invalid_at(card)
-				FX.floating_text(self, gpos - Vector2(120, 60), "Not here", Color(CREAM, 0.9), 26)
-			elif Habitat.is_full(mid):
-				_invalid_at(card)
+		# onto the bucket CELLS grid → place into a free cell
+		if _cells_grid != null and is_instance_valid(_cells_grid) and _cells_grid.get_global_rect().grow(8.0).has_point(gpos):
+			if Bucket.is_full():
+				_invalid_at(_cells_grid)
 				FX.floating_text(self, gpos - Vector2(120, 60), "Full", Color(CREAM, 0.9), 26)
-			elif Habitat.place(mid, int(d.idx)):
+			elif Bucket.place(int(d.idx)):
 				Audio.play("tidy_poof", -3.0, 1.05)
 				_after_habitat_action()
 			return
 		Audio.play("button_tap", -8.0)        # dropped on nothing — a soft snap-back
 	elif String(d.get("src", "")) == "placed":
-		if _hand_panel != null and is_instance_valid(_hand_panel) and _hand_panel.get_global_rect().has_point(gpos):
-			if Habitat.unplace(String(d.map_id), int(d.idx)):
+		var over_hand := _hand_panel != null and is_instance_valid(_hand_panel) and _hand_panel.get_global_rect().has_point(gpos)
+		var over_cells := _cells_grid != null and is_instance_valid(_cells_grid) and _cells_grid.get_global_rect().has_point(gpos)
+		if over_hand and not over_cells:
+			if Bucket.unplace(int(d.idx)):
 				Audio.play("tidy_poof", -3.0, 1.0)
 				_after_habitat_action()
 			return
 		Audio.play("button_tap", -8.0)
-
-# The right portion of a card — the generous drop zone for placing a spirit (a tap on the rest navigates).
-func _card_dropzone(card: Control) -> Rect2:
-	var r := card.get_global_rect()
-	return Rect2(r.position.x + r.size.x * 0.58, r.position.y, r.size.x * 0.42, r.size.y)
 
 # A still-tap on an orb SELECTS it (hand or housed) — the in-hand board's bottom info bar then reads its
 # tier, and a housed selection also surfaces a Sell button there. Tapping the same orb again clears it.
@@ -1941,53 +1663,8 @@ func _on_orb_tap(d: Dictionary) -> void:
 		_sel_orb = {}
 	else:
 		_sel_orb = {"src": String(d.src), "idx": int(d.idx), "kind": String(d.kind), "tier": int(d.tier)}
-		if String(d.src) == "placed":
-			_sel_orb["z"] = int(d.z)
-			_sel_orb["map_id"] = String(d.map_id)
 	Audio.play("button_tap", -3.0)
 	_refresh_picker()
-
-func _selected_hand_home_z() -> int:
-	if String(_sel_orb.get("src", "")) != "hand":
-		return -1
-	return G.resident_home_map(String(_sel_orb.get("kind", "")))
-
-func _drag_hand_home_z() -> int:
-	if String(_drag.get("src", "")) != "hand":
-		return -1
-	return G.resident_home_map(String(_drag.get("kind", "")))
-
-func _card_hint_state(z: int) -> String:
-	var drag_home := _drag_hand_home_z()
-	if drag_home >= 0:
-		return "valid_drag" if z == drag_home else "invalid_drag"
-	var sel_home := _selected_hand_home_z()
-	if sel_home >= 0:
-		return "valid_select" if z == sel_home else "invalid_select"
-	return "none"
-
-func _apply_card_hint(card: Control, z: int) -> void:
-	if card == null or not is_instance_valid(card):
-		return
-	var state := _card_hint_state(z)
-	card.set_meta("resident_hint_state", state)
-	match state:
-		"valid_select":
-			card.modulate = Color(1.0, 1.0, 1.0, 1.0)
-		"invalid_select":
-			card.modulate = Color(0.78, 0.78, 0.78, 0.78)
-		"valid_drag":
-			card.modulate = Color(1.08, 1.04, 0.92, 1.0)
-		"invalid_drag":
-			card.modulate = Color(0.55, 0.55, 0.55, 0.62)
-		_:
-			card.modulate = Color.WHITE
-
-func _refresh_card_hints() -> void:
-	if _view != "select":
-		return
-	for hit in select_hits:
-		_apply_card_hint(hit.node, int(hit.z))
 
 func _merge_fx(at: Vector2) -> void:
 	# the spirit merge gets the unified verb at a GENTLE intensity (squash + a soft bloom + a light
@@ -2015,7 +1692,7 @@ func _on_focus_sell() -> void:
 	if src == "":
 		return
 	var idx := int(_sel_orb.get("idx", -1))
-	var got := int(Habitat.sell(String(_sel_orb.get("map_id", "")), idx)) if src == "placed" else int(Habitat.sell_hand(idx))
+	var got := int(Bucket.sell_placed(idx)) if src == "placed" else int(Bucket.sell_hand(idx))
 	Audio.play("button_tap", -2.0)
 	if got > 0:
 		FX.floating_reward(self, _screen_center(0.0), "coin", got, STRAW)
@@ -2076,14 +1753,12 @@ func _resident_ladder_entries(kind: String, mark_tier: int) -> Array:
 
 func _resident_seen_tier_cap(kind: String, mark_tier: int) -> int:
 	var cap := clampi(mark_tier, 1, G.RESIDENT_MAX_TIER)
-	for inst in Habitat.hand():
-		if String(inst.get("kind", "")) == kind:
+	for inst in Bucket.hand():
+		if Bucket.line_kind(String(inst.get("line", ""))) == kind:
 			cap = maxi(cap, int(inst.get("tier", 1)))
-	for m in G.MAPS:
-		var map_id := String(m.get("id", ""))
-		for inst in Habitat.placed(map_id):
-			if String(inst.get("kind", "")) == kind:
-				cap = maxi(cap, int(inst.get("tier", 1)))
+	for inst in Bucket.placed():
+		if Bucket.line_kind(String(inst.get("line", ""))) == kind:
+			cap = maxi(cap, int(inst.get("tier", 1)))
 	return clampi(cap, 1, G.RESIDENT_MAX_TIER)
 
 func _after_habitat_action() -> void:
@@ -2104,8 +1779,8 @@ func _valid_sel() -> Dictionary:
 		return {}
 	var idx := int(_sel_orb.get("idx", -1))
 	if String(_sel_orb.get("src", "")) == "placed":
-		return _sel_orb if idx < Habitat.placed(String(_sel_orb.get("map_id", ""))).size() else {}
-	return _sel_orb if idx < Habitat.hand().size() else {}
+		return _sel_orb if idx < Bucket.placed().size() else {}
+	return _sel_orb if idx < Bucket.hand().size() else {}
 
 func _screen_center(dy: float) -> Vector2:
 	return get_global_rect().get_center() + Vector2(0.0, dy)
@@ -2522,20 +2197,6 @@ func _empty_cell(Kit: GDScript, bag_opts: Dictionary, px: float) -> Control:
 	_force_ignore(cell)
 	return cell
 
-func _locked_resident_cell(Kit: GDScript, bag_opts: Dictionary, px: float) -> Control:
-	var cell := _empty_cell(Kit, bag_opts, px)
-	cell.modulate = Color(0.55, 0.55, 0.55, 0.62)
-	cell.set_meta("locked", true)
-	var veil := ColorRect.new()
-	veil.name = "MapResidentLockedVeil"
-	veil.color = Color(DOCK_INK, 0.28)
-	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(veil)
-	return cell
-
-# The spirit's icon for a cell's content — cropped to its opaque bounds (the board pipeline) so every creature
-# fills the cell uniformly + centered. `px` is the fitted content size slot_cell asks for.
 func _spirit_icon_node(kind: String, tier: int, px: float) -> Control:
 	var t := TextureRect.new()
 	t.custom_minimum_size = Vector2(px, px)
@@ -2940,7 +2601,9 @@ func _maybe_show_unlock_reward(z: int) -> void:
 	# (claim_unlock_reward also seats it in the now-dormant legacy roster; that copy retires with the economy pass.)
 	var unlock_spirit := String(rew.get("spirit", ""))
 	if unlock_spirit != "":
-		Habitat.hand_add(unlock_spirit)
+		var unlock_line := Bucket.kind_line(unlock_spirit)
+		if unlock_line != "":
+			Bucket.hand_add(unlock_line)
 	if not is_inside_tree():
 		return
 	_show_unlock_dialog.call_deferred(z, rew)
