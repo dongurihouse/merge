@@ -68,10 +68,75 @@ func _test_sell() -> void:
 	ok(Bucket.sell_placed(s, 0, 0.0) == Bucket.SELL_PER_TIER, "sell_placed pays the same rate")
 	ok(s.placed.is_empty(), "sell_placed freed the cell")
 
+const HOUR := 3600.0
+
+func _cfg(rate_h: float, base: float, per: float, day_cap: int = 0) -> Dictionary:
+	# a pinned single-dial override so tests never depend on provisional DEFAULTS
+	var lines := {}
+	for l in Bucket.LINES:
+		lines[l] = {"rate_per_tier_h": rate_h, "bank_base": base, "bank_per_tier": per, "day_cap": day_cap, "weight": 1}
+	return {"lines": lines, "tier_weights": [1]}
+
+func _test_production() -> void:
+	var cfg := _cfg(1.0, 2.0, 1.0)   # 1 unit/h per Σtier; bank = 2 + Σtier
+	var s := Bucket.make_state(0.0)
+	Bucket.grant_cells(s, 3)
+	Bucket.hand_add(s, "coin", 2)
+	Bucket.hand_add(s, "coin", 3)
+	Bucket.place(s, 0, 0.0, cfg)
+	Bucket.place(s, 0, 0.0, cfg)
+	ok(Bucket.line_stier(s, "coin") == 5, "line_stier sums placed tiers of the line")
+	ok(Bucket.line_stier(s, "water") == 0, "line_stier is 0 for an unplaced line")
+	ok(is_equal_approx(Bucket.rate(s, "coin", cfg), 5.0), "rate = rate_per_tier_h x Stier")
+	ok(is_equal_approx(Bucket.bank_cap(s, "coin", cfg), 7.0), "bank_cap = base + per_tier x Stier")
+	ok(is_equal_approx(Bucket.pending(s, "coin", HOUR * 0.5, cfg), 2.5), "pending accrues rate x elapsed")
+	ok(is_equal_approx(Bucket.pending(s, "coin", HOUR * 100.0, cfg), 7.0), "pending clamps at the bank cap")
+	ok(is_equal_approx(Bucket.pending(s, "coin", -5.0, cfg), 0.0), "pending ignores time running backwards")
+	ok(is_equal_approx(Bucket.pending(s, "water", HOUR, cfg), 0.0), "an unplaced line accrues nothing")
+	# settling mid-way then raising Stier accounts the old rate up to the settle point
+	Bucket.hand_add(s, "coin", 5)
+	Bucket.place(s, 0, HOUR, cfg)              # settles at t=1h: bank 5.0; Stier now 10
+	ok(is_equal_approx(s.banks["coin"], 5.0), "Stier-changing calls settle at the old rate first")
+	ok(is_equal_approx(Bucket.pending(s, "coin", HOUR + HOUR * 0.1, cfg), 6.0), "post-change accrual uses the new rate")
+	# selling below an already-banked amount never destroys the bank
+	var over := Bucket.make_state(0.0)
+	Bucket.grant_cells(over, 2)
+	Bucket.hand_add(over, "coin", 10)
+	Bucket.place(over, 0, 0.0, cfg)
+	Bucket.sell_placed(over, 0, HOUR, cfg)      # banked 10.0 with cap 12 -> then Stier 0, cap 2
+	ok(is_equal_approx(over.banks["coin"], 10.0), "an over-cap bank survives (no accrual, no destruction)")
+	ok(is_equal_approx(Bucket.pending(over, "coin", HOUR * 9.0, cfg), 10.0), "over-cap bank stops accruing")
+
+func _test_merge_always_pays() -> void:
+	# the spec's hard invariant: every +1 Stier strictly raises rate AND bank cap on every line
+	for line in Bucket.LINES:
+		var all_pay := true
+		for stier in range(1, Bucket.MAX_TIER * 8):
+			var lo := _stier_state(line, stier)
+			var hi := _stier_state(line, stier + 1)
+			if Bucket.rate(hi, line) <= Bucket.rate(lo, line):
+				all_pay = false
+			if Bucket.bank_cap(hi, line) <= Bucket.bank_cap(lo, line):
+				all_pay = false
+		ok(all_pay, "merge always pays on '%s' (rate + bank strictly rise per Stier step, DEFAULTS)" % line)
+
+func _stier_state(line: String, stier: int) -> Dictionary:
+	var s := Bucket.make_state(0.0)
+	Bucket.grant_cells(s, 8)
+	var left := stier
+	while left > 0:
+		var t: int = mini(left, Bucket.MAX_TIER)
+		Bucket.hand_add(s, line, t)
+		Bucket.place(s, 0, 0.0)
+		left -= t
+	return s
+
 func _initialize() -> void:
 	print("== resident bucket (pure module) ==")
 	_test_hand_ops()
 	_test_cells_and_placement()
 	_test_sell()
+	_test_production()
+	_test_merge_always_pays()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

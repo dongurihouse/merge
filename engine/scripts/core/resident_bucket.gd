@@ -80,8 +80,38 @@ static func sell_placed(state: Dictionary, i: int, now: float, cfg: Dictionary =
 	_settle(state, now, cfg)
 	return SELL_PER_TIER * int(state.placed.pop_at(i).tier)
 
+static func line_cfg(line: String, cfg: Dictionary = {}) -> Dictionary:
+	var lines: Dictionary = cfg.get("lines", DEFAULTS["lines"])
+	return lines.get(line, {})
+
+static func line_stier(state: Dictionary, line: String) -> int:
+	var total := 0
+	for p in state.placed:
+		if p.line == line:
+			total += int(p.tier)
+	return total
+
+static func rate(state: Dictionary, line: String, cfg: Dictionary = {}) -> float:
+	return float(line_cfg(line, cfg).get("rate_per_tier_h", 0.0)) * float(line_stier(state, line))
+
+static func bank_cap(state: Dictionary, line: String, cfg: Dictionary = {}) -> float:
+	var lc := line_cfg(line, cfg)
+	return float(lc.get("bank_base", 0.0)) + float(lc.get("bank_per_tier", 0.0)) * float(line_stier(state, line))
+
+static func pending(state: Dictionary, line: String, now: float, cfg: Dictionary = {}) -> float:
+	var bank: float = state.banks.get(line, 0.0)
+	var hours: float = maxf(0.0, now - float(state.last)) / 3600.0
+	var cap := bank_cap(state, line, cfg)
+	if bank >= cap:
+		return bank   # an over-cap bank neither accrues nor decays
+	return minf(bank + rate(state, line, cfg) * hours, cap)
+
 static func _settle(state: Dictionary, now: float, cfg: Dictionary = {}) -> void:
-	state.last = now   # stub — the production task replaces this with real accrual
+	if now < float(state.last):
+		return
+	for line in LINES:
+		state.banks[line] = pending(state, line, now, cfg)
+	state.last = now
 
 static func _pair_mergeable(list_a: Array, i: int, list_b: Array, j: int) -> bool:
 	if i < 0 or j < 0 or i >= list_a.size() or j >= list_b.size():
