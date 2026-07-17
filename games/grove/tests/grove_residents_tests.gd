@@ -16,6 +16,7 @@ func _initialize() -> void:
 	await _test_hand_drop_merge_targets_slot()
 	await _test_bucket_dock()
 	await _test_dock_closed_state()
+	await _test_map_tap_over_ambient()
 	finish()
 
 func _open_spots(z: int) -> void:
@@ -217,6 +218,38 @@ func _test_dock_closed_state() -> void:
 	ok(hx.content.find_child("BucketCellsClosedHint", true, false) != null, "the dock explains how the habitat opens")
 	ok(hx.content.find_child("BucketCollectChip", true, false) == null, "no Collect chip before a completion")
 	ok(hx.content.find_child("BucketExpeditionButton", true, false) == null, "no Expedition entry before the loop opens")
+	hx.queue_free()
+
+# --- a map tap must survive the ambient layer's non-Control wander driver -------------------------
+func _test_map_tap_over_ambient() -> void:
+	fresh("bucket_map_tap_ambient")
+	_open_spots(0)
+	var g := Save.grove()
+	g["gates"] = [0]
+	Save.grove_write()
+	for zz in range(G.MAPS.size()):
+		G.claim_unlock_reward(zz)
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	hx._login_shown_launch = true
+	await create_timer(0.1).timeout
+	hx.unlocks = Save.grove().get("unlocks", {})
+	hx._open_map(0)
+	await create_timer(0.08).timeout
+	hx._build_map(false)
+	var amb: Control = hx.content.get_node_or_null("AmbientLayer")
+	ok(amb != null, "an open map builds the ambient layer")
+	var has_plain_node := false
+	if amb != null:
+		for ch in amb.get_children():
+			if not (ch is Control):
+				has_plain_node = true
+	ok(has_plain_node, "the ambient layer carries the wander driver (a plain Node child)")
+	hx._map_tap(Vector2(2.0, 2.0))
+	ok(true, "a map tap over the driver child resolves cleanly")
+	var src := FileAccess.get_file_as_string("res://engine/scripts/scenes/map.gd")
+	ok(src.find("var spc := sp as Control") != -1 and src.find("if spc == null:") != -1,
+		"_map_tap skips non-Control ambient children instead of crashing on the driver")
 	hx.queue_free()
 
 # --- place-picker drag test helpers -------------------------------------------------

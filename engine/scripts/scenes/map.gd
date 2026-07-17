@@ -1856,6 +1856,8 @@ func _map_tap(gpos: Vector2) -> void:
 	# Residents live on their own screen now, so map taps resolve straight to spots / wandering spirits.
 	for hit in spot_hits:
 		var n: Control = hit.node
+		if n == null or not is_instance_valid(n):
+			continue
 		if n.get_global_rect().grow(8.0).has_point(gpos):
 			_on_spot_tap(int(hit.z), int(hit.k), n, gpos)
 			return
@@ -1863,9 +1865,12 @@ func _map_tap(gpos: Vector2) -> void:
 	var amb: Control = content.get_node_or_null("AmbientLayer")
 	if amb != null:
 		for sp in amb.get_children():
-			if (sp as Control).get_global_rect().grow(10.0).has_point(gpos):
+			var spc := sp as Control
+			if spc == null:
+				continue                      # the wander DRIVER rides the layer as a plain Node — never a tap target
+			if spc.get_global_rect().grow(10.0).has_point(gpos):
 				if Features.on("spirit_tap_hop"):
-					Ambient.hop(sp)
+					Ambient.hop(spc)
 					Audio.play("button_tap", -8.0)
 				return
 
