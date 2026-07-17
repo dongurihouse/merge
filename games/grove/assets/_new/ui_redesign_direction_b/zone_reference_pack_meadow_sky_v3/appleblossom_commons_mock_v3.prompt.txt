@@ -1,12 +1,12 @@
-Use case: stylized-concept
+Use case: precise-object-edit
 Asset type: reference-only baked 2D game environment scene mock, not a runtime layered map
 
-Primary request: Create Appleblossom Commons as a terraced crescent commons for Acorn Forest. This must be a new composition with the exclusive signature: right-edge stream / open promenade / two unequal edge groups / upper-center tree hero / central quiet lawn.
+Primary request: Precisely correct the committed Appleblossom Commons terraced crescent mock while preserving its composition and every approved invariant. The exclusive signature remains: right-edge stream / open promenade / two unequal edge groups / upper-center tree hero / central quiet lawn.
 
 Input images:
 - Image 1 is the mandatory Meadow Sky board reference. Use it only for the fixed palette, matte cut-cardstock material language, warm cut edges, subtle paper fiber, and friendly low-detail finish. Ignore all UI, text, icons, characters, grid layout, and sticker outlines.
 - Image 2 is the mandatory approved Farm reference. Preserve its camera pitch, portrait world framing, matte cut-cardstock texture, shallow upper-left shadows, object scale, and low detail budget. Do not reuse its crossroads, evenly scattered buildings, repeated cottages, farm plots, UI, or composition.
-- Image 3 is the first Appleblossom draft and the edit target for one targeted structural correction. Preserve its successful central quiet lawn, right-edge stream, lower-right pond, open left-and-lower promenade, upper-center Storytree hero, six silhouette designs, palette, camera, and paper finish. Change only the building distribution described below.
+- Image 3 is the committed Appleblossom Commons PNG and the precise edit target. Preserve its central quiet lawn, right-edge stream, lower-right pond, upper-center Storytree hero, six intended silhouette designs, palette, camera, paper finish, lighting, orchard terraces, and all geometry outside the two explicitly named correction areas. Do not regenerate or recompose the scene.
 
 Canvas and viewpoint: exactly 941 x 1672 pixels, portrait, full-bleed environment only. Show the whole zone from the same high three-quarter top-down camera pitch as Image 2. No interface frame and no cropped-off principal structure.
 
@@ -35,4 +35,10 @@ Constraints: Reference-only flattened scenic mock. No UI, text, labels, numbers,
 
 Output intent: a polished in-world Appleblossom Commons reference mock suitable for pairwise composition QA against the approved Farm while remaining unmistakably different in water topology, path topology, building distribution, hero location, and negative-space location.
 
-Targeted regeneration correction: Edit Image 3 rather than redesigning the scene. Relocate only the compact lavender-blue drum-shaped Kite Hill Playhouse from the mid-left edge into the upper-crescent cluster so the two structure groups read unmistakably as four above and two below. Heal its old location into quiet orchard floor and low vegetation. Do not add, remove, duplicate, or redesign any principal structure, do not fill the lawn, do not close or branch the promenade, and do not move the stream or pond.
+Final corrective edit — apply exactly these two removals to Image 3 and nothing else:
+
+1. Remove only the extra upper-right folded slate building that sits immediately to the right of the small lavender-blue drum-shaped Kite Hill Playhouse and immediately left of the far-right stream. Remove that duplicate building, its shadow, steps, fence, and building-specific planting footprint. Heal only that footprint into quiet orchard floor and a few consolidated low plant masses matching the surrounding upper orchard. Preserve the intended lower-right Rainwatch House beside the pond completely unchanged. Preserve the other five intended structures completely unchanged. The final image must contain exactly six principal structures in a clear 4+2 distribution: upper group = Blossom Hall, Petal Conservatory, Storytree Library, Kite Hill Playhouse; lower group = Orchard Tea Pavilion, Rainwatch House. Do not add or duplicate any structure.
+
+2. Remove only the stone-path continuation that forks below the cream four-post parasol pavilion and exits through the bottom edge. Remove every paving stone from that lower fork to the bottom canvas edge and heal only that strip into continuous quiet meadow matching the adjacent lawn. Retain one continuous open promenade from the upper-left orchard seam, down the left and lower lawn edge, past the parasol, ending at the pond/Rainwatch area. The final promenade must have no loop, fork, branch, crossroads, or bottom exit.
+
+Where these two removals touch the scene, consolidate tiny ornamental marks into broad quiet orchard-floor, low-planting, or meadow shapes. Do not globally simplify, restyle, recolor, relight, crop, resize, move, redraw, or alter any other part of Image 3. Preserve exact 941 x 1672 dimensions, camera pitch, paper texture, shadows, fixed Meadow Sky palette, central lawn, right-edge water, pond, upper-center tree hero, all six silhouette families, and the absence of UI, text, labels, characters, and animals.
