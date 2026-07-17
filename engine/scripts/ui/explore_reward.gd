@@ -1,7 +1,7 @@
 extends RefCounted
 ## Explore · Rewards — the run's payout, shown as a MODAL OVERLAY on top of the frozen Rush board (no
 ## scene change). Converts the run score directly into spirits (Explore.trade_count, min 1 if any score),
-## grants them via Habitat.grant_chest, and reveals them as a slot cascade — one big reel per spirit,
+## grants them via Bucket.grant_box, and reveals them as a slot cascade — one big reel per spirit,
 ## reusing the shared ui/slot_reel.gd spin. Done SKIPS the reveal to the end on the first press, then
 ## returns to the Map. Mounts via ui/overlay.gd, the same way the daily mystery reveal (ui/login_mystery.gd)
 ## stacks over the calendar.
@@ -9,7 +9,7 @@ extends RefCounted
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")
+const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -44,7 +44,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	overlay.add_child(cc)
 
 	# convert the run score straight into spirits + drop them in the hand (the reveal is cosmetic over this)
-	var granted: Array = Habitat.grant_chest(Explore.trade_count(Explore.score()), Explore.source_map_id())
+	var granted: Array = Bucket.grant_box(Explore.trade_count(Explore.score()))
 
 	var vp: Vector2 = (host.get_viewport_rect().size if host.is_inside_tree() else Vector2(720.0, 1280.0))
 	var width: float = minf(vp.x * 0.92, DIALOG_MAX_W)

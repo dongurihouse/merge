@@ -12,7 +12,7 @@ const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")   # map-3 free boost charges, spent on the board chip
+const Bucket = preload("res://engine/scripts/core/bucket.gd")   # boost-line charges, spent on the board chip
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -2018,7 +2018,7 @@ func _refresh_burst_chip() -> void:
 	if _info_burst == null or not is_instance_valid(_info_burst):
 		return
 	var cost := G.boost_cost()
-	var free := Habitat.boost_charges() > 0           # §10: a stockpiled map-3 charge pays for the next boost
+	var free := Bucket.boost_charges() > 0           # §10: a stockpiled boost-line charge pays for the next boost
 	var live := _selected_cell.x >= 0 and board.is_gen_boosted(_selected_cell)   # THIS generator already boosted
 	var ready := (free or Save.coins() >= cost) and not live   # full-color only when arming one now would work
 	for c in _info_burst_coin.get_children():
@@ -2800,8 +2800,8 @@ func _gen_boost_bonus(cell: Vector2i) -> int:
 func _activate_gen_boost(cell: Vector2i) -> bool:
 	if not board.is_gen(cell) or board.is_gen_boosted(cell):
 		return false
-	if Habitat.boost_charges() > 0:
-		Habitat.spend_boost_charge()       # §10: a free map-3 charge arms it for free (spent on the board)
+	if Bucket.boost_charges() > 0:
+		Bucket.spend_boost_charge()       # §10: a free boost-line charge arms it for free (spent on the board)
 	elif not Save.spend(G.BOOST_COST, "boost"):
 		return false
 	board.arm_gen_boost(cell, G.BOOST_TAPS)

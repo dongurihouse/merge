@@ -5,6 +5,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
+const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -669,15 +670,15 @@ func _test_screens() -> void:
 	Explore.begin_run({}, String(G.MAPS[z].id))
 	Explore.add_score(400)                          # 400 / 200 = 2 spirits
 	var pool: Array = Explore.unlocked_pool(unl, [z])
-	var hand_before := Habitat.hand().size()
+	var hand_before := Bucket.hand().size()
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ExploreReward.open(host, {"on_done": func() -> void: pass})
 	ok(Explore.source_map_id() == String(G.MAPS[z].id), "reward overlay keeps the source map on the run")
-	ok(Habitat.hand().size() == hand_before + 2, "opening the reward overlay grants floor(score / RATE) spirits to the hand")
-	var last: Dictionary = Habitat.hand()[Habitat.hand().size() - 1]
-	ok(pool.has(String(last.kind)), "a granted spirit's kind comes from the unlocked pool")
+	ok(Bucket.hand().size() == hand_before + 2, "opening the reward overlay grants floor(score / RATE) spirits to the hand")
+	var last: Dictionary = Bucket.hand()[Bucket.hand().size() - 1]
+	ok(String(last.line) in Bucket.LINES, "a granted spirit lands on one of the four bucket lines")
 	ok(int(last.tier) >= 1 and int(last.tier) <= 4, "a granted spirit rolls a generator tier (1–4)")
 	ok(host.find_child("ExploreRewardOverlay", true, false) != null, "the reward mounts as a modal overlay (not a separate scene)")
 	ok(host.find_child("RewardDialog", true, false) != null, "the reward uses the shared framed dialog")
@@ -788,12 +789,12 @@ func _test_reward_row_cap() -> void:
 	Save.grove_write()
 	Explore.begin_run({})
 	Explore.add_score(6000)                         # 6000 / 200 = 30 spirits — well past the row cap
-	var hand_before := Habitat.hand().size()
+	var hand_before := Bucket.hand().size()
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ExploreReward.open(host, {"on_done": func() -> void: pass})
-	ok(Habitat.hand().size() == hand_before + 30, "every granted spirit lands in the hand even past the reveal cap")
+	ok(Bucket.hand().size() == hand_before + 30, "every granted spirit lands in the hand even past the reveal cap")
 	var grid := host.find_child("RewardReels", true, false) as GridContainer
 	ok(grid != null, "the reveal grid is built")
 	ok(grid.get_child_count() <= 4 * ExploreReward.MAX_ROWS, "the reveal never exceeds the row cap (≤ 4 × MAX_ROWS cells)")
