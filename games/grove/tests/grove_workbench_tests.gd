@@ -800,9 +800,11 @@ func _initialize() -> void:
 		var hand_panel := map_scene.get("_hand_panel") as Control
 		if hand_panel != null:
 			var hand_rect := hand_panel.get_global_rect()
-			ok(absf(map_screen_w - hand_rect.end.x - edge_margin) <= 1.0 \
+			# the dock is CENTERED now (the map-select column retired): horizontally centered, and it
+			# still extends to the shared bottom margin.
+			ok(absf((hand_rect.position.x + hand_rect.end.x) * 0.5 - map_screen_w * 0.5) <= 1.5 \
 				and absf(map_screen_h - hand_rect.end.y - edge_margin) <= 1.0, \
-				"place-picker right resident board extends to the bottom with the shared side margin")
+				"the centered resident dock extends to the bottom with the shared margin")
 			map_scene._sel_orb = {"src": "hand", "idx": 0, "kind": "sprout", "tier": 1}
 			var inhand_bar := map_scene._inhand_info_bar(Rect2(0, 0, 240, 88)) as Control
 			var inhand_frame := inhand_bar.find_child("InHandInfoBarFrame", true, false) as Panel

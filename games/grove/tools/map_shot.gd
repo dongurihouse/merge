@@ -93,12 +93,20 @@ func _initialize() -> void:
 			HB.buy_step(hst, larder)
 			Save.grove_write()
 		"spirits":
-			var gs := Save.grove()
-			var ful := {}
-			for sp in G.MAPS[0].spots:
-				ful[String(sp.id)] = true
-			gs["unlocks"] = ful
+			# open the resident bucket by completing home buildings (cells come from buildings now),
+			# then seed a few placed + in-hand spirits so the centered dock renders fully.
+			var HBs := load("res://engine/scripts/core/home_build.gd")
+			var Homes := load("res://engine/scripts/core/home.gd")
+			Save.earn_coins(2000)
+			var sst: Dictionary = Homes.state()
+			for sd in Homes.defs():
+				while HBs.buy_step(sst, sd):
+					pass
 			Save.grove_write()
+			var Bkt := load("res://engine/scripts/core/bucket.gd")
+			Bkt.hand_add("coin", 2) ; Bkt.hand_add("coin", 2)
+			Bkt.hand_add("water", 1)
+			Bkt.place(0) ; Bkt.place(0)
 		"vault2x":
 			# T45: the hub with the piggy-VAULT button (pip lit); the jar fills past claimable (the pip).
 			# (The old hub-collect 2x doubler is gone — it now lives on the board quest reward.)
@@ -169,8 +177,8 @@ func _initialize() -> void:
 	for wa in args:
 		if String(wa).begins_with("pmap="):
 			pmap = int(String(wa).split("=")[1])
-	if mode == "select":
-		scn._open_select()                # the discrete map-select screen
+	if mode == "select" or mode == "spirits":
+		scn._open_select()                # the centered resident dock (the map-select column retired)
 		await create_timer(0.4).timeout
 	elif mode == "vault2x":
 		# _ready already opened the frontier (the HUB while its gate is pending) and auto-collected,

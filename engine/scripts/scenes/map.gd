@@ -1022,10 +1022,12 @@ func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 		item.add_child(stack)
 	return item
 
-# --- THE MAP-SELECT VIEW (grove_spec §3) ------------------------------------------------
-# A clean atlas of every map as a card: thumbnail + name + state line. Tapping an
-# unlocked card opens that map; a locked card wobbles. Lives under `content` —
-# every child IGNOREs (single input surface).
+# --- THE SPIRITS DOCK VIEW (home build-and-upgrade redesign, spec 2026-07-17) -----------
+# One evolving home means there is no map-select atlas any more; this view IS the resident
+# bucket dock — the in-hand column + the cells grid + collect/expedition chips — centered on
+# its own surface, reached from the home nav and dismissed by the back arrow. Lives under
+# `content`; every child IGNOREs (single input surface). (The old two-column place-picker —
+# map cards on the left, dock on the right — retired with the discrete maps.)
 
 func _build_select(animate := true) -> void:
 	for c in content.get_children():
@@ -1036,54 +1038,20 @@ func _build_select(animate := true) -> void:
 	_placed_orbs.clear()
 	_hand_panel = null
 	_cells_grid = null
+	_select_scroll = 0.0
+	_select_scroll_max = 0.0
 	var view := get_viewport_rect().size
-	# TWO SEPARATE columns, both top-aligned. LEFT: the individual map cards, scrolled in a clipped column.
-	# RIGHT: the in-hand spirits on a reused garden BOARD (its own framed planter — a 2-column grid + a bottom
-	# info bar). The board is the single input surface (cards / orbs are hit-tested by their scrolled global rect).
-	var n := G.MAPS.size()
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	var layout: Dictionary = Kit.map_select_layout(view, opts, Look.safe_top(self), Look.safe_bottom(self))
-	var sep := float(layout.sep)
 	var band_top := float(layout.band_top)
 	var col_h := float(layout.col_h)
-	var left_clip_top := float(layout.get("left_clip_top", band_top))
-	var left_clip_h := float(layout.get("left_clip_h", col_h))
-	var left_content_top := float(layout.get("left_content_top", band_top - left_clip_top))
-	var card_w := float(layout.card_w)
-	var base_card_h := float(layout.base_card_h)
-	var left_x := float(layout.left_x)
-	var hand_x := float(layout.hand_x)
-	var hand_w := float(layout.hand_w)
-	# LEFT column: the card stack keeps its visual top alignment with the hand board, but the clip itself spans
-	# the full screen so scrolling can reveal cards all the way to the top and bottom edges.
-	var clip := Control.new()
-	clip.name = "MapSelectCardScrollClip"
-	clip.position = Vector2(left_x, left_clip_top)
-	clip.size = Vector2(card_w, left_clip_h)
-	clip.clip_contents = true
-	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
-	content.add_child(clip)
-	var card_heights: Array = []
-	var total_h := sep * float(maxi(n - 1, 0))
-	for z in n:
-		var this_h := base_card_h * (1.045 if map_unlocked(z) else 0.965)
-		this_h = maxf(this_h, 132.0)
-		card_heights.append(this_h)
-		total_h += this_h
-	_select_scroll_max = maxf(0.0, left_content_top + total_h - left_clip_h)
-	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
-	var y := left_content_top
-	for z in n:
-		var card_h := float(card_heights[z])
-		var card := _make_card(z, card_w, card_h, opts)
-		card.position = Vector2(0.0, y - _select_scroll)        # clip-local: flush to the column's top-left
-		card.size = Vector2(card_w, card_h)
-		clip.add_child(card)
-		select_hits.append({"node": card, "z": z, "y0": y})
-		y += card_h + sep
-	# RIGHT column: the in-hand garden board
-	_hand_panel = _build_hand_panel(Rect2(hand_x, band_top, hand_w, col_h))
+	var margin := float(layout.get("margin", 18.0))
+	# the dock is a single CENTERED column (no map cards beside it). It keeps the hand-board width
+	# band but sits in the middle of the screen, spanning the same top/bottom as the old picker.
+	var dock_w := clampf(view.x * 0.62, 320.0, view.x - margin * 2.0)
+	var dock_x := (view.x - dock_w) * 0.5
+	_hand_panel = _build_hand_panel(Rect2(dock_x, band_top, dock_w, col_h))
 	content.add_child(_hand_panel)
 	if _select_back != null and is_instance_valid(_select_back):
 		_select_back.visible = true
@@ -1558,11 +1526,9 @@ func _on_select_input(event: InputEvent) -> void:
 			if bool(_drag.get("active", false)):
 				_move_drag_ghost(gp)
 			return
-		# a drag on EMPTY area scrolls the column it is over (the hand board, else the map cards)
+		# a drag on EMPTY area scrolls the dock's in-hand column
 		if _hand_panel != null and is_instance_valid(_hand_panel) and _hand_panel.get_global_rect().has_point(gp):
 			_scroll_hand_by(-event.relative.y)
-		elif _select_scroll_max > 0.0:
-			_scroll_select_by(-event.relative.y)
 		return
 	if event is InputEventMouseButton and event.pressed \
 			and (event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_UP):
@@ -1570,8 +1536,6 @@ func _on_select_input(event: InputEvent) -> void:
 		var dy := 90.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -90.0
 		if _hand_panel != null and is_instance_valid(_hand_panel) and _hand_panel.get_global_rect().has_point(gpw):
 			_scroll_hand_by(dy)
-		else:
-			_scroll_select_by(dy)
 		return
 	if release:
 		var gpos: Vector2 = content.get_global_transform() * event.position
@@ -1818,20 +1782,8 @@ func _valid_sel() -> Dictionary:
 func _screen_center(dy: float) -> Vector2:
 	return get_global_rect().get_center() + Vector2(0.0, dy)
 
-func _select_tap(gpos: Vector2) -> void:
-	for hit in select_hits:
-		var n: Control = hit.node
-		if not n.get_global_rect().grow(6.0).has_point(gpos):
-			continue
-		var z := int(hit.z)
-		if map_unlocked(z):
-			_open_map(z)
-		else:
-			Audio.play("invalid_soft", -4.0)
-			FX.wobble(n)
-			FX.floating_text(self, gpos - Vector2(150, 70),
-				Strings.t("map.select.locked_prereq") % tr(G.MAPS[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
-		return
+func _select_tap(_gpos: Vector2) -> void:
+	pass   # the dock view has no map cards to open — spirit orbs are handled on the drag path (_on_orb_tap)
 
 # Pan the place-picker stack by `dy` px, clamped to [0, _select_scroll_max], and slide every card to its
 # scrolled position (clip-local y0 − scroll). No-op when the stack fits (_select_scroll_max == 0).
