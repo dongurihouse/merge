@@ -10,10 +10,15 @@ approval checkpoints, not runtime layered map assets.
 | Appleblossom Commons | `appleblossom_commons_mock_v3.prompt.txt` | `appleblossom_commons_mock_v3.png` | Accepted |
 | Bellwater Vale | `bellwater_vale_mock_v3.prompt.txt` | `bellwater_vale_mock_v3.png` | Accepted |
 
-## Reference paths
+## Tracked reference paths
 
-- Palette and material reference: `games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png`
-- Camera, scale, shadow, and detail reference: `games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png`
+- Palette and material image: `games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png`
+- Palette and material prompt: `games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky.prompt.txt`
+- Camera, scale, shadow, and detail image: `games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png`
+- Camera, scale, shadow, and detail prompt: `games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.prompt.txt`
+
+Supporting tracked documents:
+
 - Approved art design: `docs/superpowers/specs/2026-07-17-three-zone-cosmetic-world-art-design.md`
 - Generation and validation plan: `docs/superpowers/plans/2026-07-17-zone-reference-mocks-v3.md`
 
@@ -24,14 +29,24 @@ largest focal structure visible in the accepted mock.
 
 | Field | Appleblossom Commons | Bellwater Vale | Different? |
 | --- | --- | --- | --- |
-| Water topology | Narrow far-right boundary stream feeding one lower-right pond | One right-edge-cropped basin narrowing into a short broad diagonal spillway that exits lower-left | Yes |
-| Path topology | One open promenade from the upper-left seam around the left and lower lawn edges, terminating at the pond | One top-left entry path bending once through the Bell Arch and ending at Millhall | Yes |
+| Water topology | Narrow far-right boundary stream feeding one lower-right pond | One right-edge-cropped basin narrowing into one short broad diagonal spillway that exits only the lower-left side edge; the bottom edge is continuous meadow | Yes |
+| Path topology | One unbranched open promenade from the upper-left seam around the left and lower lawn edges, terminating at Rainwatch/pond; no pavilion spur or pad | One top-left entry path bending once through the Bell Arch and ending at Millhall | Yes |
 | Building distribution | Unequal 4+2 edge groups: four along the upper crescent, two beside the lower pond | Uneven spatial 3+3 outer clusters: three at the upper path/mill edge, three at the lower water junction | Yes |
 | Hero 3 x 3 cell | Top-center: Storytree Library | Bottom-center: Millbridge Meeting House | Yes; Manhattan distance 2 |
 | Negative-space 3 x 3 cell | Middle-center: broad social lawn | Middle-center: broad quiet meadow | No |
 
 Result: four of five signature fields differ. The two mandatory fields, path
 topology and building distribution, differ.
+
+## Hero evidence
+
+- Appleblossom: Storytree Library occupies the top-center grid cell. Its broad
+  apple canopy and ring-shaped reading shelter form the largest combined
+  silhouette and dominate the upper crescent without filling the central lawn.
+- Bellwater: Millbridge Meeting House occupies the bottom-center grid cell. Its
+  long low straight-edged shallow-chevron roof spans the spillway and is visibly
+  wider and larger than the upper-right Millhall, making it the dominant focal
+  structure while retaining the crossing function.
 
 ## Silhouette rosters
 
@@ -50,8 +65,8 @@ Bellwater has one open shelter, the coral diamond-canopy Lilybell Pavilion.
 Both files are non-interlaced, 8-bit RGB PNGs at exactly `941 x 1672`.
 
 ```text
-2ea2ab4a659e4c17f277f327d1c17da9ab6f9cbf573ee7aff8b0b1e3901968df  appleblossom_commons_mock_v3.png
-d663adf2a2501982a4a4d4e8f2b1821c9fd2bb38e096b20a1ea7fc2b90d57fa2  bellwater_vale_mock_v3.png
+730bc58e296170642d99ff6406b0b182cba49f11b297a2fc443cbf89216abde3  appleblossom_commons_mock_v3.png
+df292bae7511d2bf7ce529b04a981802e706cb825e861f35453398513b3c2b1a  bellwater_vale_mock_v3.png
 ```
 
 ## Anti-convergence verdict
@@ -64,4 +79,8 @@ low-arch Otter Landing. Each zone contains only one open shelter. The shared
 Meadow Sky palette, high three-quarter camera, shallow matte cut-cardstock
 material, warm edges, upper-left lighting, and restrained architectural detail
 remain consistent while topology, distribution, and silhouette grammar remain
-distinct.
+distinct. Appleblossom's only promenade is unbranched and the Tea Pavilion sits
+directly on meadow without a paved or turf base. Bellwater water is one
+continuous basin-to-spillway body, never touches the bottom frame, and exits
+only the lower-left side edge; its Meeting House is the dominant bottom-center
+long-chevron structure rather than a barrel-roof form.

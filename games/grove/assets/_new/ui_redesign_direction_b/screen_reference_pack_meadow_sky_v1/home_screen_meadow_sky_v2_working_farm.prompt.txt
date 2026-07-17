@@ -1,0 +1,47 @@
+Use case: ui-mockup
+Asset type: complete shippable portrait mobile-game Home screen, 931x1690
+
+Input images:
+- Image 1 is the approved Meadow Sky board mock. Use it as the mandatory reference for palette, typography, icons, cream resource pills, fine paper edges, shallow shadows, and bottom navigation. Do not copy its board/residents/items.
+- Image 2 is the previous Meadow Sky Home mock. Preserve its top wallet, bottom navigation, color/material language, and text styling, but completely replace its rejected close-up single-cottage composition.
+- Image 3 is a farm-layout reference only. Use its large-area elevated farm-map idea and integrated shared-ground relationships, but recolor and simplify everything into Meadow Sky. Do not copy its electric palette or exact buildings.
+
+Primary request: Create a broad, explorable working-farm Home screen in the fixed MEADOW SKY palette and CUT-PAPER PLAYGROUND style. It must immediately read as one large farm with multiple naturally integrated buildings, not a portrait of one oversized house.
+
+Composition and camera: Elevated three-quarter bird’s-eye storybook-map perspective. The farm landscape fills the entire playable area between the top wallet and bottom navigation. Every building is fully visible, relatively small, clearly separated, and recognizable as a tappable destination. Preserve substantial open meadow between destinations; about one-third of the playable area remains quiet grass or paths. No building is cropped. The farmhouse is important but does not dominate the screen.
+
+Working Farm Loop layout:
+- upper center: modest cream farmhouse, muted coral roof, green shutters, slate-blue details
+- upper right: larger coral-roof barn with one compact slate-and-cream silo
+- left side: small chicken coop beside a clearly readable orchard of evenly spaced fruit trees
+- middle: two or three tidy crop fields plus one compact greenhouse
+- lower area: stone well and small farm workshop, separated by open ground
+- connect all destinations with one coherent network of pale warm-stone or packed-earth paths, forming a loose walking loop with short branches that end exactly at doors and gates
+- keep the center readable and maintain clear breathing room around every structure
+
+Ground integration is critical: Use one continuous rolling meadow across the entire farm. Every foundation meets the same shared ground directly. Paths reach doors/gates naturally. Only a few broad grass blades or low plants may overlap foundation edges. Give every structure one shallow tinted down-right contact shadow consistent with the same upper-left light. Match scale, perspective, lighting, and shadow direction across all buildings.
+
+Absolutely no turf islands, grass skirts, circular clearings, rectangular pads, foundation plates, sticker halos, glowing borders, detached flower rings, individual scenic bases, hard outlines around destinations, or abrupt color patches beneath buildings. The scene must feel designed and illustrated as one coherent farm landscape, never assembled from building stickers.
+
+Cut-Paper Playground: Friendly matte hand-cut cardstock with chunky low-complexity silhouettes. Limit each building to two or three major architectural masses with oversized readable features. Use subtle 2–4% paper fiber, fine warm cut edges, thin locally darker paper edges, no universal white sticker outline. Vegetation is grouped into broad layered shapes rather than dense individual leaves.
+
+Fixed Meadow Sky palette:
+- sky/distant atmosphere #6FA9C0
+- structural slate #3F6D7D
+- shared meadow green #A8D3B9
+- receding blue #8296AF
+- cream surfaces #F6EBDD
+- ink/text #243B4B
+- selected/action green #5F9B6D
+- roof/flower coral #D87865
+- reward gold #D6A94C
+- supporting purple #8677A3
+- shadows #294654 at approximately 18–20% opacity
+
+Color hierarchy: Keep the large landscape and UI chrome moderately saturated. Buildings are colorful but coordinated, repeating Meadow Sky colors rather than unrelated rainbow schemes. Reserve strongest chroma for doors, crops, fruit, icons, and small interactive details.
+
+Top UI: Reproduce the compact wallet: gold star level badge “2” at left; cream resource pills showing water “91”, coin “51”, and acorn “7”; each pill has its small green plus button.
+Bottom UI: Show exactly five tabs labeled “Home”, “Board”, “Maps”, “Bag”, and “Shop”. Home is selected, raised, and uses the strongest action-green treatment. Inactive tabs use coordinated quiet paper tints. Use a folded map-pin icon for Maps. Match Image 1’s typography, icon scale, spacing, fine edges, and shallow shadows.
+
+Constraints: no side rail, destination labels, level badges over buildings, characters, animals, restoration effects, floating buttons, quests, speech bubbles, text beyond the specified wallet/navigation, or watermark.
+Avoid: close-up house portrait, isolated diorama platforms, pasted-on architecture, electric cyan, ultramarine dominance, lime-green grass, equal-strength rainbow navigation, glossy plastic, 3D clay, watercolor, heavy black outlines, deep shadows, excessive foliage, or tiny clutter.

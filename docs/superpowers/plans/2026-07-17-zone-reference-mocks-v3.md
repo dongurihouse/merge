@@ -97,6 +97,8 @@ Require at least four of five signature fields to differ, including path topolog
 
 Change only the failed structural dimension while repeating all approved style invariants. Preserve the accepted zone unchanged. A second correction is allowed only when original-detail review proves that the first correction did not alter the failed structural dimension; never use it to explore a new composition.
 
+If the final whole-branch review identifies a new binding topology or silhouette defect that task-level review missed, it may authorize one final precise edit per affected zone. The final edit must address only the cited defect, preserve accepted invariants, and be re-reviewed against the complete pair.
+
 - [ ] **Step 4: Save validation metadata**
 
 Write `README.md` with the exact filenames, five-field signatures, silhouette rosters, reference paths, and accepted/rejected status. Run:
