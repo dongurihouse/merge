@@ -4,7 +4,6 @@ extends RefCounted
 ## numbers, the quest ramp, maps/spots, waysides, variants, and all economy dials.
 ## A different game ships its own data module with the SAME const names.
 
-const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 
 const COLS := 7
 const ROWS := 9
@@ -478,30 +477,8 @@ static func _build_maps() -> Array:
 	]
 	return maps
 
-# Overlay the vine mask tool's maps onto the hardcoded slots, positionally: slot i becomes vine-driven
-# from the i-th maps.json entry when present. The slot KEEPS its id/name/hub (so saves + progression +
-# map_for_id stay stable); only its rendering (`vine`) and `spots` (one per region) change. Slots with
-# no matching tool entry are left exactly as-is. Any missing/unparseable tool file => no overlay (the
-# game falls back to the legacy maps), so this can never break the build.
-static func _apply_vine_maps(maps: Array) -> Array:
-	var entries := VineMaps.entries()
-	for i in range(mini(entries.size(), maps.size())):
-		var entry: Dictionary = entries[i]
-		# Guard: only overlay once the entry's base art is actually imported. A half-added map (registered
-		# in maps.json but not yet copied/imported into assets/map) leaves its legacy slot intact rather
-		# than blanking it.
-		var base := String(entry.get("base", ""))
-		if base == "" or not ResourceLoader.exists(base):
-			continue
-		# Overlay positionally: the slot keeps its id/name/hub but renders vine-driven. Spots are one per
-		# region; a map whose regions aren't authored YET overlays with an EMPTY spot list, so its clean
-		# base art shows immediately (map.gd renders base-only when there are no regions) without becoming
-		# "complete" — map_spots_done is false for a spot-less map, so it never auto-unlocks the next map
-		# or invites residents. Each region the tool authors then appears in-game on the next open.
-		maps[i]["vine"] = entry
-		maps[i].erase("home")   # vine rendering supersedes the §16 mask-reveal home for this slot
-		maps[i]["spots"] = VineMaps.spots_for(String(maps[i].id), entry)
-	return maps
+# (The vine-mask overlay `_apply_vine_maps` was retired with the discrete-map / mask-reveal model —
+# the home build-and-upgrade redesign renders the layered cut-paper zone instead, spec 2026-07-17.)
 
 
 # Level-up energy gift. Loosened (20 → 40) to LOOSEN THE EARLY GAME: with the front-loaded level curve below,

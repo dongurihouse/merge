@@ -15,7 +15,7 @@ ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engin
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
 GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests
-GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_vine_tool_tests games/grove/tests/grove_vine_tests
+GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
