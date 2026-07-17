@@ -113,6 +113,18 @@ static func _settle(state: Dictionary, now: float, cfg: Dictionary = {}) -> void
 		state.banks[line] = pending(state, line, now, cfg)
 	state.last = now
 
+## What a collect would grant for `line` RIGHT NOW — floor(pending), clamped to the remaining day
+## allowance on day-capped lines (a fresh day restores the full allowance). Pure read: never mutates.
+static func collectable(state: Dictionary, line: String, now: float, cfg: Dictionary = {}) -> int:
+	var whole := int(floor(pending(state, line, now, cfg)))
+	var day_cap := int(line_cfg(line, cfg).get("day_cap", 0))
+	if day_cap > 0:
+		var granted := 0
+		if int(state.day.stamp) == int(now / 86400.0):
+			granted = int(state.day.granted.get(line, 0))
+		whole = mini(whole, day_cap - granted)
+	return maxi(whole, 0)
+
 static func collect(state: Dictionary, now: float, cfg: Dictionary = {}) -> Dictionary:
 	_settle(state, now, cfg)
 	var day_stamp := int(now / 86400.0)

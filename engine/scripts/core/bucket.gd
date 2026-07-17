@@ -139,6 +139,16 @@ static func pending_line(line: String) -> float:
 static func line_stier(line: String) -> int:
 	return RB.line_stier(state(), line)
 
+## One line's dock report: placed Σtier, matured pending, its bank cap, what a collect would grant
+## NOW (day-ceiling aware), and whether the bank has plateaued (production stopped until a collect).
+static func line_report(line: String) -> Dictionary:
+	var st := state()
+	var n := now()
+	var p := RB.pending(st, line, n)
+	var cap := RB.bank_cap(st, line)
+	return {"stier": RB.line_stier(st, line), "pending": p, "cap": cap,
+		"ready": RB.collectable(st, line, n), "full": p >= cap - 0.0001}
+
 ## Collect every line's matured whole units and credit them (day ceilings enforced by the module).
 ## Returns the granted {line: amount} for FX.
 static func collect() -> Dictionary:

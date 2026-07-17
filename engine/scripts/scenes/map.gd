@@ -1189,44 +1189,65 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		var crows := int(ceil(float(cells_total) / float(ccols)))
 		cells_h = float(crows) * cell_px + float(maxi(crows - 1, 0)) * csep
 
-	# --- Collect (per-line ready badges) + Expedition, side by side under the cells ------------------
+	# --- per-line production rows: icon · bank-fill bar · what a collect grants NOW -------------------
+	# One row per line that is producing (placed Σtier > 0) or still holds matured stock. The bar reads
+	# the BANK's fullness (full = production plateaued); the label reads the grantable amount, or the
+	# day-capped surplus as "+N tomorrow". This is the progress surface the old per-map cards carried.
+	var rows_y := cells_top + cells_h + 6.0
+	var row_h := 26.0
+	var ready_total := 0
+	if cells_total > 0:
+		for line in Bucket.LINES:
+			var rep: Dictionary = Bucket.line_report(String(line))
+			if int(rep.stier) <= 0 and float(rep.pending) < 0.005:
+				continue
+			ready_total += int(rep.ready)
+			var row := Control.new()
+			row.name = "BucketLineRow_" + String(line)
+			row.position = Vector2(cx, rows_y)
+			row.size = Vector2(cw, row_h)
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if Kit != null:
+				var ic: Control = Kit.make_icon(_line_icon(String(line)), 20.0)
+				ic.custom_minimum_size = Vector2(20.0, 20.0)
+				ic.size = ic.custom_minimum_size
+				ic.position = Vector2(0.0, (row_h - 20.0) * 0.5)
+				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				row.add_child(ic)
+			var whole := int(floor(float(rep.pending)))
+			var tag := ""
+			if int(rep.ready) > 0:
+				tag = "%d ready" % int(rep.ready)
+			elif whole > 0:
+				tag = "+%d tomorrow" % whole                 # day-capped surplus stays banked
+			var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
+			if Kit != null:
+				var bar: Control = Kit.progress_bar(frac, {
+					"height": 16.0,
+					"width": cw - 28.0,
+					"art": true,
+					"label": tag,
+					"label_name": "BucketLineRowLabel_" + String(line),
+				})
+				bar.name = "BucketLineRowBar_" + String(line)
+				bar.size = bar.custom_minimum_size
+				bar.position = Vector2(28.0, (row_h - 16.0) * 0.5)
+				bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				row.add_child(bar)
+			panel.add_child(row)
+			rows_y += row_h
+
+	# --- Collect + Expedition chips under the rows ----------------------------------------------------
 	# Collect shows once the bucket has cells; Expedition once the acquire loop is open anywhere
 	# (a first restored spot — the same gate the map-view rail uses, G.can_populate).
 	var chip_h := 40.0
-	var chip_y := cells_top + cells_h + 8.0
+	var chip_y := rows_y + (4.0 if rows_y > cells_top + cells_h + 6.0 else 2.0)
 	if cells_total > 0:
-		var ready_total := 0
-		var badges: Array = []
-		for line in Bucket.LINES:
-			var amt := int(floor(Bucket.pending_line(String(line))))
-			if amt > 0:
-				ready_total += amt
-				badges.append({"line": String(line), "amt": amt})
 		var collect := _dock_chip_button("BucketCollectChip", "Collect", ready_total > 0)
 		collect.position = Vector2(cx, chip_y)
-		collect.custom_minimum_size = Vector2(cw * 0.60 - 4.0, chip_h)
+		collect.custom_minimum_size = Vector2(cw * 0.56 - 4.0, chip_h)
 		collect.size = collect.custom_minimum_size
-		collect.alignment = HORIZONTAL_ALIGNMENT_LEFT if not badges.is_empty() else HORIZONTAL_ALIGNMENT_CENTER
 		collect.pressed.connect(_on_dock_collect)
-		if not badges.is_empty() and Kit != null:
-			# the ready badges ride the chip's RIGHT side; the label stays left so they never collide
-			var est_w := 0.0
-			for b in badges:
-				est_w += 16.0 + 4.0 + 8.0 * float(str(int(b.amt)).length()) + 6.0
-			var brow := HBoxContainer.new()
-			brow.name = "BucketCollectBadges"
-			brow.add_theme_constant_override("separation", 4)
-			brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			for b in badges:
-				var ic: Control = Kit.make_icon(_line_icon(String(b.line)), 16.0)
-				ic.custom_minimum_size = Vector2(16.0, 16.0)
-				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				brow.add_child(ic)
-				var bl := _dock_label(str(int(b.amt)), 14, true)
-				bl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				brow.add_child(bl)
-			brow.position = Vector2(maxf(8.0, collect.size.x - est_w - 6.0), (chip_h - 18.0) * 0.5)
-			collect.add_child(brow)
 		panel.add_child(collect)
 	var exped_open := false
 	for z in G.MAPS.size():
@@ -1235,8 +1256,8 @@ func _build_hand_panel(rect: Rect2) -> Control:
 			break
 	if exped_open:
 		var exped := _dock_chip_button("BucketExpeditionButton", "Expedition", true)
-		exped.position = Vector2(cx + cw * 0.60 + 4.0, chip_y)
-		exped.custom_minimum_size = Vector2(cw * 0.40 - 4.0, chip_h)
+		exped.position = Vector2(cx + cw * 0.56 + 4.0, chip_y)
+		exped.custom_minimum_size = Vector2(cw * 0.44 - 4.0, chip_h)
 		exped.size = exped.custom_minimum_size
 		exped.pressed.connect(func() -> void:
 			Audio.play("button_tap", -2.0)

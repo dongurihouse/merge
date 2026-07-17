@@ -165,7 +165,13 @@ func _test_bucket_dock() -> void:
 	ok(hx.content.find_child("MapResidentRailLockedCell_00", true, false) == null, "the old per-card locked cells are gone")
 	var chip := hx.content.find_child("BucketCollectChip", true, false) as Button
 	ok(chip != null and not chip.disabled, "the Collect chip is live with matured production")
-	ok(chip != null and chip.find_child("BucketCollectBadges", true, false) != null, "the Collect chip carries per-line ready badges")
+	var boost_row: Control = hx.content.find_child("BucketLineRow_boost", true, false) as Control
+	ok(boost_row != null, "a producing line shows its production row")
+	var coin_row: Control = hx.content.find_child("BucketLineRow_coin", true, false) as Control
+	ok(coin_row != null, "a line with matured stock shows a row even with nothing placed")
+	var coin_label := hx.content.find_child("BucketLineRowLabel_coin", true, false) as Label
+	ok(coin_label != null and coin_label.text == "3 ready", "the row label reads what a collect grants now")
+	ok(hx.content.find_child("BucketLineRow_water", true, false) == null, "idle empty lines stay off the dock")
 	ok(hx.content.find_child("BucketExpeditionButton", true, false) != null, "the dock exposes the Expedition entry")
 
 	# collect through the chip: credits coins, keeps the fraction

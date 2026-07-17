@@ -338,7 +338,7 @@ func _test_dock_collect_chip() -> void:
 	ok(hx.content.find_child("MapHabitatProgressBar", true, false) == null, "the per-card production bar is retired (bucket dock owns collect)")
 	var chip := hx.content.find_child("BucketCollectChip", true, false) as Button
 	ok(chip != null and not chip.disabled, "the dock Collect chip is live with matured production")
-	ok(chip != null and chip.find_child("BucketCollectBadges", true, false) != null, "the Collect chip shows per-line ready badges")
+	ok(hx.content.find_child("BucketLineRow_coin", true, false) != null, "the dock shows the coin line's production row")
 	var coins_before := Save.coins()
 	if chip != null:
 		chip.pressed.emit()

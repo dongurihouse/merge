@@ -157,6 +157,25 @@ func _test_collect_and_day_cap() -> void:
 	ok(int(Bucket.collect(u, HOUR * 5.0, free_cfg).get("coin", 0)) == 10, "day_cap 0 = unbounded collect")
 	ok(Bucket.collect(u, HOUR * 5.0, free_cfg).is_empty(), "an empty bank returns an empty grant")
 
+func _test_collectable() -> void:
+	# the dock's per-line report: what a collect would grant NOW (day-ceiling aware, no mutation)
+	var cfg := _cfg(1.0, 50.0, 1.0, 2)
+	var s := Bucket.make_state(0.0)
+	Bucket.grant_cells(s, 2)
+	Bucket.hand_add(s, "coin", 1)
+	Bucket.hand_add(s, "diamond", 1)
+	Bucket.place(s, 0, 0.0, cfg)
+	Bucket.place(s, 0, 0.0, cfg)
+	ok(Bucket.collectable(s, "coin", HOUR * 3.5, cfg) == 2, "collectable clamps to the day allowance")
+	var free_cfg := _cfg(1.0, 50.0, 1.0, 0)
+	ok(Bucket.collectable(s, "coin", HOUR * 3.5, free_cfg) == 3, "collectable reports floor(pending) when uncapped")
+	var before := s.duplicate(true)
+	Bucket.collectable(s, "coin", HOUR * 3.5, cfg)
+	ok(str(s) == str(before), "collectable never mutates the state")
+	Bucket.collect(s, HOUR * 3.5, cfg)
+	ok(Bucket.collectable(s, "diamond", HOUR * 4.0, cfg) == 0, "collectable is 0 once the day allowance is spent")
+	ok(Bucket.collectable(s, "diamond", DAY + HOUR, cfg) == 2, "collectable resets with the next day")
+
 func _test_box_rolls() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12345
@@ -209,6 +228,7 @@ func _initialize() -> void:
 	_test_production()
 	_test_merge_always_pays()
 	_test_collect_and_day_cap()
+	_test_collectable()
 	_test_box_rolls()
 	_test_ceiling_guard()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
