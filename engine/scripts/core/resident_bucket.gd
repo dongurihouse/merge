@@ -42,6 +42,47 @@ static func hand_merge(state: Dictionary, i: int, j: int) -> bool:
 	state.hand.remove_at(j)
 	return true
 
+static func grant_cells(state: Dictionary, n: int) -> int:
+	if n > 0:
+		state.cells += n
+	return state.cells
+
+static func place(state: Dictionary, hand_index: int, now: float, cfg: Dictionary = {}) -> bool:
+	if hand_index < 0 or hand_index >= state.hand.size() or state.placed.size() >= state.cells:
+		return false
+	_settle(state, now, cfg)
+	state.placed.append(state.hand.pop_at(hand_index))
+	return true
+
+static func place_merge(state: Dictionary, hand_index: int, placed_index: int, now: float, cfg: Dictionary = {}) -> bool:
+	if not _pair_mergeable(state.hand, hand_index, state.placed, placed_index):
+		return false
+	_settle(state, now, cfg)
+	state.placed[placed_index].tier += 1
+	state.hand.remove_at(hand_index)
+	return true
+
+static func unplace(state: Dictionary, placed_index: int, now: float, cfg: Dictionary = {}) -> bool:
+	if placed_index < 0 or placed_index >= state.placed.size():
+		return false
+	_settle(state, now, cfg)
+	state.hand.append(state.placed.pop_at(placed_index))
+	return true
+
+static func sell_hand(state: Dictionary, i: int) -> int:
+	if i < 0 or i >= state.hand.size():
+		return 0
+	return SELL_PER_TIER * int(state.hand.pop_at(i).tier)
+
+static func sell_placed(state: Dictionary, i: int, now: float, cfg: Dictionary = {}) -> int:
+	if i < 0 or i >= state.placed.size():
+		return 0
+	_settle(state, now, cfg)
+	return SELL_PER_TIER * int(state.placed.pop_at(i).tier)
+
+static func _settle(state: Dictionary, now: float, cfg: Dictionary = {}) -> void:
+	state.last = now   # stub — the production task replaces this with real accrual
+
 static func _pair_mergeable(list_a: Array, i: int, list_b: Array, j: int) -> bool:
 	if i < 0 or j < 0 or i >= list_a.size() or j >= list_b.size():
 		return false
