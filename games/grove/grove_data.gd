@@ -240,6 +240,13 @@ const RESIDENT_LINES := {
 	"orchard": {"id": "breeze", "name": "Breeze"},        # The Mill — air / wind
 	"meadow": {"id": "starlight", "name": "Starlight"},   # The Gate — light / aether
 }
+# The GLOBAL resident bucket (grove_spec §3): four resource LINES, each arted by one of the existing
+# resident families (items/resident_<kind>/). breeze (air) is retired — legacy breeze spirits migrate
+# to the coin line. Cells come ONLY from fully-restored maps (index = map z; 8 total, no coin sink).
+const RESIDENT_LINE_KINDS := {"coin": "sprout", "water": "dewdrop", "boost": "ember", "diamond": "starlight"}
+const RESIDENT_KIND_LINES := {"sprout": "coin", "dewdrop": "water", "ember": "boost", "starlight": "diamond", "breeze": "coin"}
+const BUCKET_CELL_GRANTS := [2, 1, 2, 1, 2]
+
 # Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 resident costs coins.
 const RESIDENT_BASE_COST := 40           # 🪙 to welcome a t1 resident
 const RESIDENT_PREMIUM_COST := 3         # 💎 vestigial — no line is premium in the one-line-per-map model (kept for resident_cost compat)
