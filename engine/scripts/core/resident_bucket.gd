@@ -113,6 +113,24 @@ static func _settle(state: Dictionary, now: float, cfg: Dictionary = {}) -> void
 		state.banks[line] = pending(state, line, now, cfg)
 	state.last = now
 
+static func collect(state: Dictionary, now: float, cfg: Dictionary = {}) -> Dictionary:
+	_settle(state, now, cfg)
+	var day_stamp := int(now / 86400.0)
+	if int(state.day.stamp) != day_stamp:
+		state.day = {"stamp": day_stamp, "granted": {}}
+	var out := {}
+	for line in LINES:
+		var whole := int(floor(float(state.banks.get(line, 0.0))))
+		var day_cap := int(line_cfg(line, cfg).get("day_cap", 0))
+		if day_cap > 0:
+			whole = mini(whole, day_cap - int(state.day.granted.get(line, 0)))
+		if whole <= 0:
+			continue
+		state.banks[line] = float(state.banks[line]) - float(whole)
+		state.day.granted[line] = int(state.day.granted.get(line, 0)) + whole
+		out[line] = whole
+	return out
+
 static func _pair_mergeable(list_a: Array, i: int, list_b: Array, j: int) -> bool:
 	if i < 0 or j < 0 or i >= list_a.size() or j >= list_b.size():
 		return false

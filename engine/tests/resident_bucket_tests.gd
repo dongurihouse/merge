@@ -131,6 +131,32 @@ func _stier_state(line: String, stier: int) -> Dictionary:
 		left -= t
 	return s
 
+const DAY := 86400.0
+
+func _test_collect_and_day_cap() -> void:
+	var cfg := _cfg(1.0, 50.0, 1.0, 2)   # every line: 1 unit/h per Stier, deep bank, day_cap 2
+	var s := Bucket.make_state(0.0)
+	Bucket.grant_cells(s, 2)
+	Bucket.hand_add(s, "coin", 1)
+	Bucket.hand_add(s, "diamond", 1)
+	Bucket.place(s, 0, 0.0, cfg)
+	Bucket.place(s, 0, 0.0, cfg)
+	var got := Bucket.collect(s, HOUR * 3.5, cfg)
+	ok(int(got.get("coin", 0)) == 2, "collect grants floor(bank) whole units (day-capped at 2 here)")
+	ok(is_equal_approx(s.banks["coin"], 1.5), "the fraction AND the over-allowance stay banked")
+	ok(int(got.get("diamond", 0)) == 2, "a day-capped line grants at most day_cap")
+	ok(Bucket.collect(s, HOUR * 3.5, cfg).is_empty(), "same-day recollect grants nothing further")
+	got = Bucket.collect(s, DAY + HOUR, cfg)
+	ok(int(got.get("diamond", 0)) == 2, "the allowance resets on the next day and banked surplus pays out")
+	# an uncapped line pays the whole banked amount
+	var free_cfg := _cfg(1.0, 50.0, 1.0, 0)
+	var u := Bucket.make_state(0.0)
+	Bucket.grant_cells(u, 1)
+	Bucket.hand_add(u, "coin", 2)
+	Bucket.place(u, 0, 0.0, free_cfg)
+	ok(int(Bucket.collect(u, HOUR * 5.0, free_cfg).get("coin", 0)) == 10, "day_cap 0 = unbounded collect")
+	ok(Bucket.collect(u, HOUR * 5.0, free_cfg).is_empty(), "an empty bank returns an empty grant")
+
 func _initialize() -> void:
 	print("== resident bucket (pure module) ==")
 	_test_hand_ops()
@@ -138,5 +164,6 @@ func _initialize() -> void:
 	_test_sell()
 	_test_production()
 	_test_merge_always_pays()
+	_test_collect_and_day_cap()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
