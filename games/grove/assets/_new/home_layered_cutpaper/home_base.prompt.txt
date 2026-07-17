@@ -1,0 +1,14 @@
+Use case: stylized-concept
+Asset type: foundation-only layered Home map background for a portrait mobile game
+Primary request: Create the clean structure-free background plate for the selected saturated Cut-Paper Playground Home direction.
+Input images: Image 1 is the mandatory cut-paper palette/material/style anchor; ignore and remove all of its UI. Image 2 is a composition reference for the portrait farm landscape and path flow only; do not preserve its watercolor style or any of its buildings.
+Canvas: portrait 9:16 composition intended to normalize to exactly 941x1672.
+Perspective: straight-on elevated three-quarter storybook map view, matching the Home references; no camera tilt change.
+Scene: bright electric-cyan sky with simple white cut-paper clouds, layered teal and green hills, saturated grass meadow, permanent trees and shrubs framing the far left/right edges, small broad flowers and low grass clusters, and one winding pale stepping-stone path entering from the bottom center and branching naturally toward the upper and side placement areas.
+Layer contract: BASE FOUNDATION ONLY. Do not include any farmhouse, cottage, shed, barn, flower box or planter, well, fenced vegetable garden or crops, doghouse, lantern, lamp post, gate feature, restoration badge, dashed outline, sign, chest, character, animal, UI, resource counter, navigation, text, number, or shadow belonging to a removable structure.
+Placement support: leave natural open grassy clearings, not obvious circles or empty holes, around approximate normalized areas: large upper-center clearing; smaller upper-right clearing; compact mid-left clearing; wide mid-right clearing; lower-left clearing; narrow lower-right clearing; small lower-center clearing. Let the path connect these areas without outlining them.
+Style/medium: original layered cut-paper collage, crisp simplified geometric shapes, two or three visible paper layers, tiny consistent down-right offset depth, subtle paper fiber, chunky low-detail silhouettes, contemporary high-end casual game art.
+Color palette: electric cyan, ultramarine, emerald, mint, lime, tomato coral, lemon yellow, raspberry, violet, white, and deep navy accents. Very colorful and high contrast, while the background remains slightly quieter than later structure sprites.
+Lighting: soft top-left illumination with consistent small down-right paper-layer shadows. No dramatic cast shadows across placement clearings.
+Constraints: coherent landscape when every structure is hidden; full-bleed art; no border; no watermark; no labels; no guide marks; no rectangular empty pads; production-ready mobile background.
+Avoid: watercolor, painterly brushwork, parchment, beige dominance, gold ornament, photorealism, 3D clay, glossy plastic, fine botanical clutter, noisy microtexture, blurry detail, buildings, UI.

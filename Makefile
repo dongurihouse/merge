@@ -14,15 +14,15 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/palette_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_vine_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests
+GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_vine_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests
 GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_vine_tool_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
-        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench \
+.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -61,6 +61,9 @@ fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 
 vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
 	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
+
+home-layers: ## review the modular cut-paper Home background and seven props
+	$(GODOT) --path $(PROJECT) res://games/grove/tools/HomeLayerWorkbench.tscn
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
@@ -136,6 +139,9 @@ shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [O
 
 shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
+
+shot-home-layers: ## capture modular Home: MODE=all|base|prop:fh_hearth
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/home_layer_shot.gd -- $(or $(MODE),all) $(or $(OUT),/tmp/home_layers.png)
 
 ## --- iOS -------------------------------------------------------------------
 # `make ios 1.2.3` / `make release-ios 1.2.3` pass the version as a positional goal (also accepts

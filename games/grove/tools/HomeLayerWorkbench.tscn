@@ -1,0 +1,66 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://games/grove/tools/home_layer_workbench.gd" id="1_workbench"]
+[ext_resource type="Script" path="res://games/grove/tools/home_layer_guides.gd" id="2_guides"]
+
+[node name="HomeLayerWorkbench" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_workbench")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Stage" type="Control" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="HomeBase" type="TextureRect" parent="Stage"]
+layout_mode = 0
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="Props" type="Control" parent="Stage"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Guides" type="Control" parent="Stage"]
+visible = false
+z_index = 4000
+layout_mode = 0
+offset_right = 941.0
+offset_bottom = 1672.0
+mouse_filter = 2
+script = ExtResource("2_guides")
+
+[node name="Help" type="PanelContainer" parent="."]
+z_index = 4096
+layout_mode = 0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 505.0
+offset_bottom = 146.0
+
+[node name="Margin" type="MarginContainer" parent="Help"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="Label" type="Label" parent="Help/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.086, 0.137, 0.239, 1)
+theme_override_font_sizes/font_size = 20
+text = "HOME LAYER REVIEW\n1–7 toggle  •  A all  •  N none\nG guides  •  R reload  •  H hide help"
