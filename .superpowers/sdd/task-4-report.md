@@ -27,7 +27,7 @@ The initial `fresh` Board and `intro` Rush captures were not representative game
 - Home: Meadow wallet, level badge, rail buttons, and play disc are unclipped and consistent. World/building mats remain outside this UI-only pass.
 - Board: board frame and authored cell states retain their corners without stretching. The final bottom action tray keeps the two-line title and compact help copy inside the frame, with the info button in its reserved slot and no overlap. No obvious magenta fringe was visible.
 - Maps: level/wallet/rail chrome is stable and unobscured; the no-FTUE capture shows the map surface without an unintended Daily overlay.
-- Rush: the live board, score readouts, cells, close affordance, and bottom hint are unclipped. The bottom hint remains the intentionally preserved legacy 3-slice rather than the Meadow board frame; the chevron route is covered by the active Rush regression test. The capture tool emits pre-existing audio `add_child()` setup errors, but still saves a valid image.
+- Rush: the live board, score readouts, cells, Meadow close affordance, and dedicated wide Meadow three-slice hint are unclipped. The chevron route is covered by the active Rush regression test. The capture tool emits pre-existing audio `add_child()` setup errors, but still saves a valid image.
 - Level: the shared title ribbon is not clipped. The badge sits tightly above the progress copy, but the copy remains readable and inside the frame; no broader spacing redesign was made.
 - Bag: title ribbon, close target, balance pill, open/next/locked cells, and cost chips are unclipped and consistently registered.
 - Shop: title, close target, cards, ribbons, price buttons, and scroll rail are unclipped. Map restore labels no longer pierce the modal surface.

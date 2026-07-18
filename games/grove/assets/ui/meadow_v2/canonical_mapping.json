@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "policy": "Each canonical PNG is a byte-identical copy of the named meadow_v2 source. One source may intentionally feed multiple legacy consumer paths; those copies must not be edited independently. A route is valid only when the source manifest policy is accepted by a matching consumer contract. Fixed-aspect legacy consumers are deliberately absent.",
+  "policy": "Each canonical PNG is a byte-identical copy of the named meadow_v2 source. One source may intentionally feed multiple consumer paths; those copies must not be edited independently. A route is valid only when the source manifest policy is accepted by a matching consumer contract. Fixed-aspect consumers use dedicated Meadow derivatives at their exact required dimensions.",
   "source_to_canonical": {
     "water_drop.png": ["shared/icon_water.png"],
     "coin.png": ["currency/icon_coin.png", "currency/coin.png", "rush/bar_coin.png"],
