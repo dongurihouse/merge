@@ -196,6 +196,26 @@ func _initialize() -> void:
 	var desc_label: Label = board_scene.get("_info_desc_label") as Label
 	ok(desc_label != null and desc_label.visible and desc_label.text.contains("Drag an item to the bag"), \
 		"the empty info bar mentions dragging an item to the bag for space")
+	await process_frame
+	var live_info_rect := info_bar.get_global_rect() if info_bar != null else Rect2()
+	ok(info_bar != null and live_info_rect.encloses(board_scene._info_label.get_global_rect()), \
+		"the empty info-bar title stays inside the live Meadow action tray")
+	ok(info_bar != null and desc_label != null and live_info_rect.encloses(desc_label.get_global_rect()), \
+		"the empty info-bar help copy stays inside the live Meadow action tray")
+	var live_tray_rect: Rect2 = board_scene.bottom_bar.get_global_rect() if board_scene.bottom_bar != null else Rect2()
+	ok(board_scene.bottom_bar != null and live_tray_rect.encloses(board_scene._info_label.get_global_rect()), \
+		"the empty info-bar title stays inside the outer Meadow action tray")
+	ok(board_scene.bottom_bar != null and desc_label != null and live_tray_rect.encloses(desc_label.get_global_rect()), \
+		"the empty info-bar help copy stays inside the outer Meadow action tray")
+	ok(board_scene._info_label.get_line_count() <= 2, \
+		"the empty info-bar title fits in at most two lines at the phone viewport")
+	ok(desc_label != null and desc_label.get_line_count() <= 3, \
+		"the empty info-bar help copy fits in at most three compact lines at the phone viewport")
+	var empty_info_slot := info_button.get_parent() as Control
+	ok(empty_info_slot != null and not empty_info_slot.get_global_rect().intersects(board_scene._info_label.get_global_rect()), \
+		"the empty info-button slot does not overlap the instructional title")
+	ok(not info_button.get_global_rect().intersects(board_scene._info_label.get_global_rect()), \
+		"the empty info button does not overlap the instructional title")
 
 	var cell := Vector2i(-1, -1)
 	for c in board_scene.board.empty_ground_cells():
