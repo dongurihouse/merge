@@ -166,6 +166,44 @@ func _initialize() -> void:
 		crow.pressed.emit()
 		ok(is_instance_valid(crow), "a pressed cluster-row survives its own refresh (deferred free)")
 		ok(view._sel_cluster == "camp", "the press selected the cluster")
+
+	# --- view: click-select + drag-move + wheel-resize through the stage input surface -
+	# (regression: "dragging doesn't work" — mouse input formerly relied on _unhandled_input
+	# under full-rect STOP-filter Controls, which swallowed every stage event; the stage now
+	# OWNS gui_input, and tests drive _on_stage_input directly like the map suites do _on_input)
+	ok(view._stage.gui_input.is_connected(view._on_stage_input),
+		"the stage Control owns mouse input via gui_input")
+	ok(view._stage.mouse_filter == Control.MOUSE_FILTER_STOP,
+		"the stage's filter is STOP so the GUI routes stage clicks to it")
+	view._select(-1)
+	var s2: float = view._layers.scale.x
+	# canvas (500,1050) sits inside 'gate' (rect 370,780 300×300, topmost there at z 30)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(500, 1050) * s2
+	view._on_stage_input(press)
+	ok(view._sel == 2, "a stage click selects the topmost entry under the point")
+	var drag := InputEventMouseMotion.new()
+	drag.position = Vector2(520, 1030) * s2
+	drag.button_mask = MOUSE_BUTTON_MASK_LEFT
+	view._on_stage_input(drag)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = drag.position
+	view._on_stage_input(release)
+	var gate: Dictionary = view.doc.placements[2]
+	ok(int(gate.x) == 540 and int(gate.y) == 1060,
+		"dragging on the stage moves the selected entry (anchor follows the grab)")
+	ok(view.dirty, "a drag marks the doc dirty")
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	wheel.position = drag.position
+	view._on_stage_input(wheel)
+	ok(int((view.doc.placements[2] as Dictionary).w) == 306,
+		"a wheel notch over the stage resizes the selection (+2%)")
 	view.queue_free()
 
 	# --- path resolution ------------------------------------------------------------

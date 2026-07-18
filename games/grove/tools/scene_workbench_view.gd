@@ -60,12 +60,19 @@ func setup(scenes_root: String, scene: String, cluster := "") -> bool:
 	return true
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE         # the full-rect view root must not swallow stage clicks either
+	# Stage input arrives via _unhandled_input, so every node over the stage must IGNORE the
+	# mouse — a Control's DEFAULT filter is STOP, which silently swallows clicks in the GUI
+	# layer and the handler never fires (the sidebar still worked; the stage read as dead).
 	var bg := ColorRect.new()
 	bg.color = Color("#10213d")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	_stage = Control.new()
 	_stage.clip_contents = true
+	_stage.mouse_filter = Control.MOUSE_FILTER_STOP    # the stage OWNS mouse input (gui_input surface)
+	_stage.gui_input.connect(_on_stage_input)
 	add_child(_stage)
 	_layers = Control.new()
 	_layers.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -89,7 +96,7 @@ func _layout() -> void:
 	var vp := get_viewport_rect().size
 	var canvas := M.canvas_size(doc)
 	var avail := Vector2(vp.x - SIDEBAR_W, vp.y)
-	var s := minf(avail.x / canvas.x, avail.y / canvas.y)
+	var s := maxf(minf(avail.x / canvas.x, avail.y / canvas.y), 0.02)   # never zero/negative (tiny or headless viewports)
 	_stage.position = Vector2((avail.x - canvas.x * s) * 0.5, (vp.y - canvas.y * s) * 0.5)
 	_stage.size = canvas * s
 	_layers.scale = Vector2(s, s)
@@ -198,17 +205,17 @@ func _draw_overlay() -> void:
 	_overlay.draw_circle(Vector2(r.position.x + r.size.x * 0.5, r.end.y), 6.0 / s, Color("#FFB12E"))
 
 # --- input ----------------------------------------------------------------------------------------
+# The STAGE is the mouse-input surface (gui_input, the repo's testable pattern — cf. the map scene's
+# _on_input): events arrive in stage-local coords, /scale = canvas coords, and tests drive
+# _on_stage_input directly. Keys stay on _unhandled_input (sidebar buttons are FOCUS_NONE).
 
-func _gui_stage_point(global: Vector2) -> Vector2:
-	return (global - _stage.global_position) / maxf(_layers.scale.x, 0.001)
-
-func _unhandled_input(ev: InputEvent) -> void:
+func _on_stage_input(ev: InputEvent) -> void:
+	var s := maxf(_layers.scale.x, 0.001)
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
-		var p := _gui_stage_point(mb.global_position)
-		var over_stage := Rect2(Vector2.ZERO, M.canvas_size(doc)).has_point(p)
+		var p := mb.position / s
 		if mb.button_index == MOUSE_BUTTON_LEFT:
-			if mb.pressed and over_stage:
+			if mb.pressed:
 				var hit := M.hit_at(doc, p, _opaque_at)
 				if _isolated != "" and hit >= 0 and M.cluster_of(doc, hit) != _isolated:
 					hit = -1                          # ghosted scenery is context, not clickable
@@ -224,10 +231,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 				if _sel >= 0:
 					var e: Dictionary = M.placements(doc)[_sel]
 					_drag_grab = Vector2(float(e.get("x", 0)), float(e.get("y", 0))) - p
-			elif not mb.pressed:
+			else:
 				_dragging = false
-		elif over_stage and mb.pressed \
-				and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			var up := mb.button_index == MOUSE_BUTTON_WHEEL_UP
 			var f := (1.10 if up else 0.90) if mb.shift_pressed else (1.02 if up else 0.98)
 			if _sel_cluster != "":
@@ -239,7 +245,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 				_mark_dirty()
 				_refresh_entry_rect(_sel)
 	elif ev is InputEventMouseMotion and _dragging:
-		var p := _gui_stage_point((ev as InputEventMouseMotion).global_position)
+		var p := (ev as InputEventMouseMotion).position / s
 		if _sel_cluster != "":
 			M.move_cluster(doc, _sel_cluster, p - _drag_last)
 			_drag_last = p
@@ -249,7 +255,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 			M.set_pos(doc, _sel, p + _drag_grab)
 			_mark_dirty()
 			_refresh_entry_rect(_sel)
-	elif ev is InputEventKey and (ev as InputEventKey).pressed:
+
+func _unhandled_input(ev: InputEvent) -> void:
+	if ev is InputEventKey and (ev as InputEventKey).pressed:
 		_key(ev as InputEventKey)
 
 func _key(k: InputEventKey) -> void:
