@@ -321,11 +321,8 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
-const COIN_TOP := 12
-const COIN_VALUES := {                    # tap-collect value per coin tier (2.2x from a 2-coin start)
-	1: 2, 2: 4, 3: 10, 4: 21, 5: 47, 6: 103,
-	7: 227, 8: 499, 9: 1098, 10: 2415, 11: 5312, 12: 11686,
-}
+const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is retired)
+const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
 # §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Most merge up to a
@@ -337,29 +334,24 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
 const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
 const SPECIAL_ITEMS := {
-	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Drag a key onto this chest to open a reward."},   # merges; opened by a key for a reward
-	11: {"name": "Key",   "base": "key",   "kind": "key", "desc": "Drag onto a chest to open it. Better keys improve the reward."},     # merges; opens a chest
+	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
-	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "top": 12, "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
+	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
 	14: {"name": "Spark", "base": "spark", "kind": "coins", "desc": "Tap again to collect coins. Merge first for more."},     # merges; tap-collect → coins (organic, clock-advancing)
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
-# Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
-# (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
+# Tap-collect grants the resource (water/acorn/coins) per tier; a CHEST is opened by a second TAP
+# (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 1, 13: 1, 14: 1}   # chest·key·water·acorn·spark (flat — water/exp no longer double-weighted, they over-fed the faucets)
+const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1, 14: 1}   # chest·water·acorn·spark (flat; the key line is retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
-	"acorn": {
-		1: 1, 2: 2, 3: 5, 4: 11, 5: 23, 6: 52,
-		7: 113, 8: 249, 9: 549, 10: 1207, 11: 2656, 12: 5843,
-	},
+	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)
 	"coins": {1: 5, 2: 12, 3: 30},   # the Spark (was the exp special — coin-clock redesign)
 }
 const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
 const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
-const KEY_TIER_MULT := [1.0, 1.0, 1.5, 2.0]         # index by key tier (1/2/3) → payout multiplier
 
 # §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
 # cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored

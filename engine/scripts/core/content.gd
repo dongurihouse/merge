@@ -89,7 +89,6 @@ const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
 const SPECIAL_COLLECT = D.SPECIAL_COLLECT
 const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
 const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
-const KEY_TIER_MULT = D.KEY_TIER_MULT
 const ACCUMULATORS = D.ACCUMULATORS
 const BONUS_SPAWN_CHANCE = D.BONUS_SPAWN_CHANCE
 const BONUS_CLICKS = D.BONUS_CLICKS
@@ -1070,10 +1069,15 @@ static func is_valid_generator_id(id: String) -> bool:
 	return is_treat_gen(id) and TREAT_LINES.has(treat_line_of(id))
 
 ## A board piece that is POCKETED rather than merged into goods. The single hook the board's
-## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins AND the §6.B
-## resource drops (water/acorn/exp) collect this way; chest/key are OPENED by a drag, not tap-collected.
+## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins, the §6.B
+## resource drops (water/acorn/coins), AND the chest (tap-OPENED — the key line is retired) all
+## resolve on the second tap of a focused cell.
 static func is_collectable(code: int) -> bool:
-	return is_coin(code) or not special_collect(code).is_empty()
+	return is_coin(code) or is_chest(code) or not special_collect(code).is_empty()
+
+# A chest special (tap-opened for its coins+acorns payout — see chest_open_reward).
+static func is_chest(code: int) -> bool:
+	return special_kind(code) == "chest"
 
 # §6.B special drop items — coin-like pseudo-lines (chest/key/water/acorn/exp). is_special gates the
 # shared plumbing (merge ceiling, art, the not-content exclusions); special_kind selects the behaviour.
@@ -1119,7 +1123,8 @@ static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 
 			return int(line) * 100 + 1
 	return 10 * 100 + 1                                              # defensive: a chest t1
 
-# What TAPPING a water/acorn/exp item grants: {kind, amount}. Empty for chest/key (opened, not tapped).
+# What TAPPING a water/acorn/coins item grants: {kind, amount}. Empty for a chest (it OPENS instead
+# — board._open_chest — spawning face-value reward items rather than crediting a wallet directly).
 static func special_collect(code: int) -> Dictionary:
 	var kind := special_kind(code)
 	var tier := code % 100
@@ -1127,54 +1132,14 @@ static func special_collect(code: int) -> Dictionary:
 		return {"kind": kind, "amount": int((SPECIAL_COLLECT[kind] as Dictionary).get(tier, 0))}
 	return {}
 
-# Whether a key and a chest may OPEN (both special, one chest + one key — order-independent).
-static func can_open_chest(a: int, b: int) -> bool:
-	var ka := special_kind(a)
-	var kb := special_kind(b)
-	return (ka == "chest" and kb == "key") or (ka == "key" and kb == "chest")
-
-# The reward for opening a chest with a key: {coins, acorns}. Scales by the CHEST tier and a KEY-tier
-# multiplier (a better key opens a richer chest). `a`/`b` in either order.
-static func chest_open_reward(a: int, b: int) -> Dictionary:
-	var chest := a if special_kind(a) == "chest" else b
-	var key := b if special_kind(a) == "chest" else a
+# The reward for opening a chest (tap-opened — no key): {coins, acorns}, scaled by the chest tier.
+static func chest_open_reward(chest: int) -> Dictionary:
 	var ct := chest % 100
-	var kt := key % 100
-	var mult: float = float(KEY_TIER_MULT[kt]) if kt >= 0 and kt < KEY_TIER_MULT.size() else 1.0
 	return {
-		"coins": int(round(float(int(CHEST_OPEN_COINS.get(ct, 0))) * mult)),
-		"acorns": int(round(float(int(CHEST_OPEN_ACORNS.get(ct, 0))) * mult)),
+		"coins": int(CHEST_OPEN_COINS.get(ct, 0)),
+		"acorns": int(CHEST_OPEN_ACORNS.get(ct, 0)),
 	}
 
-static func _reward_tier_for_amount(amount: int, values: Dictionary) -> int:
-	var best := 0
-	for k in values.keys():
-		var tier := int(k)
-		if amount >= int(values[k]) and tier > best:
-			best = tier
-	return best
-
-## Board-first chest reward: the authored coin/acorn payout becomes PLAIN, face-value board items
-## — the largest standard denomination whose value fits the payout — that stay on the board until
-## the player taps to collect them. Face value (not the exact authored amount) so a chest coin is
-## identical to, and merges with, an ordinary merged coin of the same tier (the payout snaps DOWN
-## to the denomination; tune CHEST_OPEN_COINS/ACORNS if the average payout needs restoring).
-static func chest_open_collect_rewards(a: int, b: int) -> Array:
-	var reward := chest_open_reward(a, b)
-	var out: Array = []
-	var coin_tier := _reward_tier_for_amount(int(reward.coins), COIN_VALUES)
-	if coin_tier > 0:
-		out.append({"code": COIN_LINE * 100 + coin_tier})
-	var acorn_tier := _reward_tier_for_amount(int(reward.acorns), SPECIAL_COLLECT.get("acorn", {}))
-	if acorn_tier > 0:
-		out.append({"code": 13 * 100 + acorn_tier})
-	return out
-
-static func chest_open_items(a: int, b: int) -> Array:
-	var out: Array = []
-	for reward in chest_open_collect_rewards(a, b):
-		out.append(int((reward as Dictionary).code))
-	return out
 
 # --- §6.C utility accumulators (bank a resource over time) -----------------------------
 # UNLOCKED is derived: an accumulator is live once map-0's spot at its `unlock_spot` index is claimed.

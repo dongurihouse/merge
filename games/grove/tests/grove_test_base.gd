@@ -302,22 +302,22 @@ func _test_unlock_rewards() -> void:
 	# claim_unlock_reward grants coins + gems ONCE per map (the free spirit moved to COMPLETION);
 	# a second claim is a no-op. claim_completion_spirit pays the spirit kind once, at completion.
 	fresh("claim_unlock_once")
-	var cz := 1                                       # map 1: 200 coins, 3 gems; signature line "sprout"
+	var cz := 0                                       # the one surviving map (farmhouse: 120c/2g; signature "ember")
 	var cmid := String(G.MAPS[cz].id)
 	var coins0 := Save.coins()
 	var gems0 := Save.diamonds()
 	var got: Dictionary = G.claim_unlock_reward(cz)
-	ok(int(got.coins) == 200 and int(got.gems) == 3, "first claim returns the scaled reward (200c / 3g)")
-	ok(Save.coins() == coins0 + 200, "coins credited")
-	ok(Save.diamonds() == gems0 + 3, "diamonds credited")
+	ok(int(got.coins) == 120 and int(got.gems) == 2, "first claim returns the scaled reward (120c / 2g)")
+	ok(Save.coins() == coins0 + 120, "coins credited")
+	ok(Save.diamonds() == gems0 + 2, "diamonds credited")
 	ok(not got.has("spirit"), "the unlock claim no longer pays the free spirit (moved to completion)")
-	ok(Save.resident_counts(cmid, "sprout")[0] == 0, "no spirit lands in any roster at the unlock beat")
+	ok(Save.resident_counts(cmid, "ember")[0] == 0, "no spirit lands in any roster at the unlock beat")
 	var coins1 := Save.coins()
 	var gems1 := Save.diamonds()
 	var again: Dictionary = G.claim_unlock_reward(cz)
 	ok(again.is_empty(), "a second claim returns {} (already claimed)")
 	ok(Save.coins() == coins1 and Save.diamonds() == gems1, "a second claim grants nothing more")
-	ok(G.claim_completion_spirit(cz) == "sprout", "the completion claim pays the map's signature spirit kind")
+	ok(G.claim_completion_spirit(cz) == "ember", "the completion claim pays the map's signature spirit kind")
 	ok(G.claim_completion_spirit(cz) == "", "the completion spirit pays exactly once")
 
 # §1 · the residents SHOP card data: one card per offered resident, correct price/currency, and an

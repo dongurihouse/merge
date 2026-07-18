@@ -353,68 +353,37 @@ func _initialize() -> void:
 	bd._on_release(dc2pos + Vector2(bd.csz, 0.0))           # drag away (>18px) — must not collect
 	ok(Save.coins() == wallet1, "dragging a coin does not pocket it")
 
-	# Opening a chest with a key is board-first like other collectables: it consumes the
-	# pair, but leaves the reward as a board item instead of crediting wallet currency.
+	# Opening a chest is a second TAP (the key line is retired): the focused chest opens and
+	# credits its coins+acorns payout DIRECTLY to the wallet — coins organically (the clock moves).
 	for ci in bd.board.items.size():
 		bd.board.items[ci] = 0
 	var chest_spots: Array = bd.board.empty_ground_cells()
-	ok(chest_spots.size() >= 2, "test setup: chest/key has two open cells")
+	ok(chest_spots.size() >= 1, "test setup: the chest has an open cell")
 	var chest_cell := Vector2i(chest_spots[0])
-	var key_cell := Vector2i(chest_spots[1])
 	bd.board.place(chest_cell, 1003)
-	bd.board.place(key_cell, 1103)
 	bd._rebuild_pieces()
 	var chest_wallet := Save.coins()
+	var chest_clock := Save.coins_earned_lifetime()
 	var chest_acorns := Save.diamonds()
-	var key_pos: Vector2 = bd._cell_pos(key_cell) + chalf
+	var expected_chest_reward := G.chest_open_reward(1003)
 	var chest_pos: Vector2 = bd._cell_pos(chest_cell) + chalf
-	bd._on_press(key_pos)
-	bd._on_release(chest_pos)
+	bd._on_press(chest_pos)
+	bd._on_release(chest_pos)               # first tap: focus only
+	ok(bd.board.item_at(chest_cell) == 1003 and Save.coins() == chest_wallet, "first tap focuses the chest (no open)")
+	bd._on_press(chest_pos)
+	bd._on_release(chest_pos)               # second tap: OPEN
 	await create_timer(0.1).timeout
-	var expected_chest_reward := G.chest_open_reward(1003, 1103)
-	var reward_items := 0
-	var opened_pair_items := 0
-	var coin_reward_cell := Vector2i(-1, -1)
-	var acorn_reward_cell := Vector2i(-1, -1)
-	for i in bd.board.items.size():
-		var v := int(bd.board.items[i])
-		if int(v) == 1003 or int(v) == 1103:
-			opened_pair_items += 1
-		if int(v) > 0 and G.is_collectable(int(v)):
-			reward_items += 1
-			var reward_cell := BoardModel.cell_of(i)
-			if G.is_coin(int(v)):
-				coin_reward_cell = reward_cell
-			elif G.special_kind(int(v)) == "acorn":
-				acorn_reward_cell = reward_cell
-	ok(Save.coins() == chest_wallet and Save.diamonds() == chest_acorns, "key-opened chest does not credit wallet currency directly")
-	ok(opened_pair_items == 0 and reward_items >= G.chest_open_items(1003, 1103).size(), "key-opened chest leaves its reward as collectable board items")
-	# Chest rewards are PLAIN face-value items — same code, same value, and mergeable with ordinary
-	# coins. No per-cell custom-amount override (which used to fork the chest payout into a second,
-	# un-mergeable "tier-4 coin" worth a different number than a merged one).
-	var coin_code: int = bd.board.item_at(coin_reward_cell)
-	var acorn_code: int = bd.board.item_at(acorn_reward_cell)
-	ok(coin_reward_cell.x >= 0 and bd.board.collect_reward_at(coin_reward_cell).is_empty(), \
-		"key-opened chest coin is a plain coin (no custom-amount override)")
-	ok(acorn_reward_cell.x >= 0 and bd.board.collect_reward_at(acorn_reward_cell).is_empty(), \
-		"key-opened chest acorn is a plain acorn drop (no custom-amount override)")
-	ok(G.coin_value(coin_code) > 0 and G.coin_value(coin_code) <= int(expected_chest_reward.coins), \
-		"chest coin snaps DOWN to a real coin denomination (never over-pays the authored value)")
-	var twin_cell := Vector2i(-1, -1)
-	for tc in bd.board.empty_ground_cells():
-		if tc != coin_reward_cell and tc != acorn_reward_cell:
-			twin_cell = tc
-			break
-	ok(twin_cell.x >= 0, "test setup: an empty cell for the merge check")
-	bd.board.place(twin_cell, coin_code)
-	ok(bd.board.can_merge(coin_reward_cell, twin_cell), "a chest coin merges with an ordinary same-tier coin")
-	bd.board.take(twin_cell)
-	if coin_reward_cell.x >= 0:
-		bd._collect_coin(coin_reward_cell, bd.piece_nodes.get(coin_reward_cell))
-	if acorn_reward_cell.x >= 0:
-		bd._collect_special(acorn_reward_cell, bd.piece_nodes.get(acorn_reward_cell))
-	ok(Save.coins() == chest_wallet + G.coin_value(coin_code) and Save.diamonds() == chest_acorns + int(G.special_collect(acorn_code).amount), \
-		"collecting a chest reward credits the coin/acorn FACE value for its tier")
+	ok(bd.board.item_at(chest_cell) == 0, "the second tap opens (consumes) the chest — no key needed")
+	ok(Save.coins() == chest_wallet + int(expected_chest_reward.coins), "the open credits the chest-tier coins to the wallet")
+	ok(Save.coins_earned_lifetime() == chest_clock + int(expected_chest_reward.coins), "chest coins are ORGANIC — the level clock advances")
+	ok(Save.diamonds() == chest_acorns + int(expected_chest_reward.acorns), "the open credits the chest-tier acorns")
+	# nothing is left behind: the open credits the wallet directly (the old face-value item spawn
+	# died with the 12-tier coin ladder), so the board holds no spawned reward items.
+	var leftover := 0
+	for i2 in bd.board.items.size():
+		if int(bd.board.items[i2]) > 0:
+			leftover += 1
+	ok(leftover == 0, "a tap-opened chest leaves no board items behind (direct wallet credit)")
 	bd.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a

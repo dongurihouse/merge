@@ -418,15 +418,12 @@ func _initialize() -> void:
 	var coin_t1 := G.COIN_LINE * 100 + 1   # a coin
 	ok(G.is_special(chest_t1) and not G.is_special(flower_t1) and not G.is_special(coin_t1),
 		"is_special gates only the special pseudo-lines (not content, not coins)")
-	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "key",
-		"special_kind selects the per-item behaviour")
+	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "",
+		"the chest reads its kind; the retired key line (11) is no longer special")
 	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
 		"merge_top caps special items low, content high, coins at the coin top")
-	ok(G.merge_top(coin_t1) == 12, "coins now merge through tier 12")
-	var expected_coin_values := {
-		1: 2, 2: 4, 3: 10, 4: 21, 5: 47, 6: 103,
-		7: 227, 8: 499, 9: 1098, 10: 2415, 11: 5312, 12: 11686,
-	}
+	ok(G.merge_top(coin_t1) == 3, "coins merge through tier 3 (the 12-tier ladder is retired)")
+	var expected_coin_values := {1: 2, 2: 4, 3: 10}
 	for tier in expected_coin_values:
 		ok(G.coin_value(G.COIN_LINE * 100 + int(tier)) == int(expected_coin_values[tier]), \
 			"coin t%d follows the tuned 2.2x ladder (%d)" % [int(tier), int(expected_coin_values[tier])])
@@ -438,10 +435,10 @@ func _initialize() -> void:
 	sbm.place(Vector2i(5, 4), 10 * 100 + 3)
 	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
-	ok(G.merge_top(13 * 100 + 1) == 12, "acorn drops now merge through tier 12")
-	ok(G.item_tex_path(13 * 100 + 12).ends_with("items/acorn/acorn_12.png"), "acorn t12 resolves its wired art path")
+	ok(G.merge_top(13 * 100 + 1) == G.SPECIAL_TOP, "acorn drops merge through tier 3 (the 12-tier ladder is retired)")
+	ok(G.item_tex_path(13 * 100 + 3).ends_with("items/acorn/acorn_3.png"), "acorn t3 resolves its wired art path")
 	ok(ResourceLoader.exists("res://games/grove/assets/items/coin/coin_12.png"), "coin t12 art is imported")
-	ok(ResourceLoader.exists(G.item_tex_path(13 * 100 + 12)), "acorn t12 art is imported")
+	ok(ResourceLoader.exists(G.item_tex_path(13 * 100 + 3)), "acorn t3 art is imported")
 	ok(not G.LINES.has(10), "a special pseudo-line is not a content LINE (never popped/asked/sold as content)")
 
 	# --- §6.B special-drop reward math (drop roll, tap-collect, chest open) ---
@@ -451,27 +448,20 @@ func _initialize() -> void:
 		picked[int(G.pick_special_drop(srng) / 100.0)] = true
 	ok(picked.size() >= 4 and G.special_kind(G.pick_special_drop(srng)) != "",
 		"pick_special_drop yields t1 codes spread across the special kinds")
-	# tap-collect grants the resource by tier; chest/key are NOT tap-collected (opened instead)
+	# tap-collect grants the resource by tier; a chest tap-OPENS instead (no wallet credit here)
 	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
-	var expected_acorn_values := {
-		1: 1, 2: 2, 3: 5, 4: 11, 5: 23, 6: 52,
-		7: 113, 8: 249, 9: 549, 10: 1207, 11: 2656, 12: 5843,
-	}
+	var expected_acorn_values := {1: 1, 2: 2, 3: 5}
 	for tier in expected_acorn_values:
 		ok(G.special_collect(13 * 100 + int(tier)) == {"kind": "acorn", "amount": int(expected_acorn_values[tier])}, \
 			"acorn t%d follows the 2.2x ladder (%d)" % [int(tier), int(expected_acorn_values[tier])])
 	ok(G.special_collect(14 * 100 + 1) == {"kind": "coins", "amount": 5}, "the Spark t1 tap-collects coins (clock-advancing)")
-	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest is NOT tap-collected (it is opened by a key)")
-	# the open pairing: chest + key (either order), not chest+chest or key+water
-	ok(G.can_open_chest(10 * 100 + 1, 11 * 100 + 1) and G.can_open_chest(11 * 100 + 2, 10 * 100 + 3),
-		"a chest and a key open (in either order)")
-	ok(not G.can_open_chest(10 * 100 + 1, 10 * 100 + 1) and not G.can_open_chest(10 * 100 + 1, 12 * 100 + 1),
-		"chest+chest and chest+water do NOT open")
-	# the open reward scales by chest tier and key-tier multiplier (t3 key = ×2)
-	var r1 := G.chest_open_reward(10 * 100 + 1, 11 * 100 + 1)   # chest t1 · key t1 → 40 coins, 0 acorns
-	var r3 := G.chest_open_reward(10 * 100 + 3, 11 * 100 + 3)   # chest t3 · key t3 → 320×2 coins, 3×2 acorns
-	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 + key t1 opens for the base coins")
-	ok(int(r3.coins) == 640 and int(r3.acorns) == 6, "a higher chest + key tier multiplies the open payout")
+	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest has no tap-collect credit (it OPENS via the board path)")
+	ok(G.is_chest(10 * 100 + 1) and G.is_collectable(10 * 100 + 1), "a chest is collectable — the second tap opens it (no key needed)")
+	# the open reward scales by the chest tier alone (the key line + its multiplier are retired)
+	var r1 := G.chest_open_reward(10 * 100 + 1)   # chest t1 → 40 coins, 0 acorns
+	var r3 := G.chest_open_reward(10 * 100 + 3)   # chest t3 → 320 coins, 3 acorns
+	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 opens for the base coins")
+	ok(int(r3.coins) == 320 and int(r3.acorns) == 3, "a higher chest tier opens for the richer payout")
 
 	# --- §6.C utility accumulators (bank-to-cap, unlocked by map-1 spots) ---
 	var acc_spot: String = String(G.MAPS[0].spots[0].id)   # the water accumulator's unlock spot

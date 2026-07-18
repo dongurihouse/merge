@@ -2476,6 +2476,8 @@ func _on_release(pos: Vector2) -> void:
 		if G.is_collectable(from_code) and _press_was_selected:
 			if G.is_coin(from_code):
 				_collect_coin(from, node)
+			elif G.is_chest(from_code):
+				_open_chest(from, node)    # §6.B second tap OPENS the chest (the key line is retired)
 			else:
 				_collect_special(from, node)
 		elif _press_was_selected and Features.on("quest_ready_glow") and _quest_for_code(from_code) >= 0:
@@ -2488,8 +2490,6 @@ func _on_release(pos: Vector2) -> void:
 		else:
 			_snap_back(from, node)
 			_select_item(from)
-	elif G.can_open_chest(from_code, target_code):
-		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
 	elif _recipe_merge_code(from_code, target_code) > 0:
@@ -3025,45 +3025,32 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 	_refresh_giver_lights()
 	_refresh_generator_dim()
 
-# §6.B open a chest with a key (drag one onto the other): consume BOTH and leave the reward as
-# PLAIN, face-value collectable board item(s) (coin/acorn) whose tier scales with chest + key —
-# they merge with ordinary coins, unlike the old custom-amount drop that forked into a second coin.
-func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
-	var reward_items: Array = G.chest_open_collect_rewards(board.item_at(from), board.item_at(target))
-	board.take(from)
+# §6.B open a chest with a second TAP (the key line is retired): consume it and credit its
+# coins+acorns payout DIRECTLY to the wallet (like every other tap-collect). Coins are ORGANIC
+# (earn_coins — the clock advances); acorns skim the piggy bank like other premium earns. (The old
+# face-value item spawn died with the 12-tier coin ladder — 3-tier coins can't carry the payout.)
+func _open_chest(target: Vector2i, node: Control) -> void:
+	var reward := G.chest_open_reward(board.item_at(target))
 	board.take(target)
-	piece_nodes.erase(from)
-	if piece_nodes.has(target) and is_instance_valid(piece_nodes[target]):
-		piece_nodes[target].queue_free()
 	piece_nodes.erase(target)
 	if node != null and is_instance_valid(node):
 		node.queue_free()
-	var reward_cells: Array = [target, from]
-	for i in reward_items.size():
-		var reward: Dictionary = reward_items[i]
-		var code := int(reward.code)
-		var cell: Vector2i = reward_cells[i] if i < reward_cells.size() else Vector2i(-1, -1)
-		if cell.x < 0 or not board.is_empty_ground(cell):
-			var empties := board.empty_ground_cells()
-			if empties.is_empty():
-				continue
-			empties.sort_custom(func(a, b): return (a - target).length_squared() < (b - target).length_squared())
-			cell = empties[0]
-		board.place(cell, code)
-		var n := _make_piece(code, csz)
-		n.position = _cell_pos(target)
-		n.scale = Vector2(0.3, 0.3)
-		board_area.add_child(n)
-		piece_nodes[cell] = n
-		var t := n.create_tween()
-		t.set_parallel(true)
-		t.tween_property(n, "position", _cell_pos(cell), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Audio.play("item_drop", -2.0)
+	var at := board_area.get_global_transform().origin + _cell_pos(target) + Vector2(csz, csz) / 2.0
+	var got_coins := int(reward.coins)
+	var got_acorns := int(reward.acorns)
+	if got_coins > 0:
+		Save.earn_coins(got_coins)
+		FX.reward_arrival(self, at, "coin", got_coins, STRAW, coins_label, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "chest_open")
+	if got_acorns > 0:
+		Save.add_diamonds(got_acorns)
+		Vault.skim(got_acorns)               # premium earned in play skims the piggy bank (T44)
+		FX.floating_reward(self, at + Vector2(0, 40), "gem", got_acorns, Color("#BFE6F2"), 34)
+	Audio.play("level_complete", -4.0, 1.15)
 	_persist()
 	_update_hud()
 	_refresh_giver_lights()
 	_refresh_generator_dim()
+
 
 # §6.C LEGACY MIGRATION (gen redesign 2026-06-28): the old constant-accrual accumulators are retired — they
 # are now limited-use BONUS generators that side-spawn off a tap (_spawn_bonus_gen). One-time: strip any

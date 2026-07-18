@@ -107,8 +107,7 @@ var acorns := 0              # acorn (premium) balance — previously unmodeled;
 var merges := 0             # total board merges (drives special-drop volume)
 var specials_crafted := 0   # #14/#16 special (merge-line) quests delivered — proves the craft path is live
 var treat_gens := 0         # §6.D treat generators spawned over the run
-var _pending_chests := 0    # banked special-drop chests awaiting a key (paired-open model)
-var _pending_keys := 0
+var _pending_chests := 0    # banked special-drop chests (tap-opened — the key line is retired)
 var _session_cap := 0       # this session's water budget = WATER_CAP + §6 water (lets the bot out-pop a bare cap)
 
 # §1 LIVE RESIDENTS ECONOMY (the global Bucket) — replaces the dormant welcome-coin-SINK the older model used. The
@@ -420,19 +419,15 @@ func _credit_special_drop(code: int, src: String = "drop") -> void:
 		"chest":
 			_pending_chests += 1
 			_try_open_chest()
-		"key":
-			_pending_keys += 1
-			_try_open_chest()
 		_:
 			pass
 
-# Pair a banked chest + key and OPEN for coins+acorns (both t1 — conservative). Models the §6.B chest/key
-# loop without board placement.
+# Open a banked chest for coins+acorns (t1 — conservative). Models the §6.B tap-open chest
+# (the key line is retired) without board placement.
 func _try_open_chest() -> void:
-	if _pending_chests >= 1 and _pending_keys >= 1:
+	while _pending_chests >= 1:
 		_pending_chests -= 1
-		_pending_keys -= 1
-		var rw := G.chest_open_reward(10 * 100 + 1, 11 * 100 + 1)
+		var rw := G.chest_open_reward(10 * 100 + 1)
 		coins += int(rw.coins)
 		coins_earned += int(rw.coins)
 		drop_open_coins += int(rw.coins)
