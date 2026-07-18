@@ -149,6 +149,27 @@ static func unique_cluster_name(doc: Dictionary, base: String) -> String:
 		n += 1
 	return "%s_%d" % [base, n]
 
+## Toggle one entry's membership in `name`: a member leaves, anything else joins (re-tagging
+## away from another cluster is allowed). Returns true when the entry is now a member.
+static func toggle_cluster_member(doc: Dictionary, i: int, name: String) -> bool:
+	var joining := cluster_of(doc, i) != name
+	set_cluster(doc, i, name if joining else "")
+	return joining
+
+## Rename a cluster (every member re-tags). The applied name is unique-ified against the other
+## clusters; returns it ("" = nothing to rename / empty target).
+static func rename_cluster(doc: Dictionary, from: String, to: String) -> String:
+	to = to.strip_edges().replace(" ", "_")
+	if from == "" or to == "" or to == from:
+		return ""
+	var members: Array = clusters(doc).get(from, [])
+	if members.is_empty():
+		return ""
+	var applied := unique_cluster_name(doc, to)
+	for i in members:
+		set_cluster(doc, i, applied)
+	return applied
+
 ## The members' combined canvas rect ({} members → zero rect).
 static func cluster_bbox(doc: Dictionary, name: String) -> Rect2:
 	var idx: Array = clusters(doc).get(name, [])
