@@ -17,7 +17,8 @@ it makes the player feel they're working somewhere genuinely new, not repainting
 - Every **item** builds out in **stages**, each completed by delivering a **recipe** of merge-items
   (§7), then is **customizable** among many generated variations.
 - A page is **complete** when all its items are built. Completing the frontier page **turns to the next
-  page** (unlocks the next scene) and grants a bundle of resident-bucket cells.
+  page** (unlocks the next scene) and grants **exactly ONE resident-bucket cell** (decision 2026-07-17:
+  one cell per zone/page — not a bundle; v1 book = 5 cells total).
 - The merge **board** is the engine that feeds the book. Its **generators accumulate into a permanent
   library** whose lines are reused across pages (§7), so the board deepens as you go. The **coin clock**
   and the **resident bucket** carry over; page-completion is the bucket's new cell source.
@@ -39,7 +40,7 @@ resident bucket, and the merge board.
 
 **Changes:** the single "one evolving home" becomes an **ordered sequence of pages**; add page-turn
 (frontier completion → next page unlocks) and page browsing. Cell-grants move from per-building to
-**per-page completion**.
+**per-page completion** — one cell per completed page.
 
 **Dropped (from the superseded journey spec):** keystones, next-zone reveal, misty silhouettes, the
 wake beat, creature→resident wiring, the world-pan camera, and any narrative thread. A page simply
@@ -72,8 +73,8 @@ optional beautify/collection layer, available anytime, including on flipped-back
   Coins remain a secondary currency (merge drops, selling) for **customization** + speed-ups. The exact
   split (recipe sizes vs. coin costs) is the sim re-pass's call.
 - **Page turn:** completing the frontier page unlocks the next page, plays a short **page-turn
-  transition**, and grants a **cell bundle** to the resident bucket (capacity drip). Level-ups keep
-  gifting water/diamonds as today.
+  transition**, and grants **one resident-bucket cell** (capacity drip — a fixed 1 per page, decision
+  2026-07-17). Level-ups keep gifting water/diamonds as today.
 - **Customization** is a coins/diamonds sink, cosmetic-only (grove_spec §5 guardrails), themed into
   **sets** for collection; premium/seasonal variations are the diamond cosmetic sink the economy wants.
 - **Residents** (global bucket) produce coins in the background and remain the endgame collection/
@@ -81,8 +82,8 @@ optional beautify/collection layer, available anytime, including on flipped-back
   — a purely cosmetic book with no residents is possible, but retiring residents removes the v1 coin
   faucet + endgame, so the default keeps them.)*
 - **Invariants for the sim re-pass** (deferred): no-strand (an affordable next item step always exists
-  at nominal coin flow), sink > faucet (build ladder + customization vs. the faucet), cells ≈ the
-  designed bucket capacity across the page arc.
+  at nominal coin flow), sink > faucet (build ladder + customization vs. the faucet), cells = one per
+  completed page (fixed — not a sim dial).
 
 ## 6 · Example pages (content)
 
@@ -191,8 +192,8 @@ book.json
 }
 ```
 
-- `grove_data` gains a `PAGES` gameplay table (per-item **stage recipes**/min_level, per-page cell
-  bundle, per-page signature generator ids) parallel to today's `BUILDINGS`, plus a `GENERATORS` roster
+- `grove_data` gains a `PAGES` gameplay table (per-item **stage recipes**/min_level, per-page signature
+  generator ids; cells need no per-page field — every page grants 1) parallel to today's `BUILDINGS`, plus a `GENERATORS` roster
   extended to the accumulating library; the `book.json` manifest carries art + placement + variations.
   All numbers **PROVISIONAL** (economy-sim re-pass owns them).
 - **Save:** `Save.grove()["book"] = {frontier, viewing}`; `["home"]` per-item `built`/`custom` (item ids
@@ -210,7 +211,7 @@ layer:
   `page_complete`, `next_page`, `page_cells`. Customize rules unchanged.
 - **`home.gd`** (adapter): `frontier()`, `viewing()`, `set_viewing(id)` (≤ frontier); `deliver(item_id,
   items)` advances a stage and, on the stage that completes the last item of the frontier page, advances
-  the frontier + grants the page's cell bundle; `cells_total()` = Σ completed pages' bundles.
+  the frontier + grants the page's single cell; `cells_total()` = the count of completed pages.
 - **Generator library** (extends the existing gen/gen_bag): `library()` (owned), `deploy(gen_id)` /
   `stow(gen_id)` moving generators between the library and the board's bounded active set; a page's
   base generators join the library when the page becomes frontier; specials are crafted once their

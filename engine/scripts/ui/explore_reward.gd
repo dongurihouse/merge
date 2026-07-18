@@ -1,6 +1,7 @@
 extends RefCounted
 ## Explore · Rewards — the run's payout, shown as a MODAL OVERLAY on top of the frozen Rush board (no
-## scene change). Converts the run score directly into spirits (Explore.trade_count, min 1 if any score),
+## scene change). Converts the run score directly into spirits (Explore.trade_count, min 1 if any score,
+## capped at Explore.TRADE_MAX),
 ## grants them via Bucket.grant_box, and reveals them as a slot cascade — one big reel per spirit,
 ## reusing the shared ui/slot_reel.gd spin. Done SKIPS the reveal to the end on the first press, then
 ## returns to the Map. Mounts via ui/overlay.gd, the same way the daily mystery reveal (ui/login_mystery.gd)

@@ -513,10 +513,11 @@ func _test_run_state() -> void:
 func _test_trade_count() -> void:
 	ok(Explore.trade_count(0) == 0, "no score yields no spirits")
 	ok(Explore.trade_count(150) == 1, "a sub-rate score still yields one spirit (min 1)")
-	ok(Explore.trade_count(199) == 1, "just under the rate yields one spirit")
-	ok(Explore.trade_count(200) == 1, "exactly the rate yields one spirit")
-	ok(Explore.trade_count(400) == 2, "double the rate yields two spirits")
-	ok(Explore.trade_count(852) == 4, "852 converts to four spirits (remainder discarded)")
+	ok(Explore.trade_count(Explore.TRADE_RATE - 1) == 1, "just under the rate yields one spirit")
+	ok(Explore.trade_count(Explore.TRADE_RATE) == 1, "exactly the rate yields one spirit")
+	ok(Explore.trade_count(Explore.TRADE_RATE * 2) == 2, "double the rate yields two spirits")
+	ok(Explore.trade_count(Explore.TRADE_RATE * 3 + 50) == 3, "a great run yields three spirits (remainder discarded)")
+	ok(Explore.trade_count(Explore.TRADE_RATE * 20) == Explore.TRADE_MAX, "a runaway score is capped at TRADE_MAX spirits")
 
 func _test_slot_reel() -> void:
 	var SlotReel: GDScript = load("res://engine/scripts/ui/slot_reel.gd")
@@ -669,7 +670,7 @@ func _test_screens() -> void:
 	g["gates"] = [z]
 	Save.grove_write()
 	Explore.begin_run({}, String(G.MAPS[z].id))
-	Explore.add_score(400)                          # 400 / 200 = 2 spirits
+	Explore.add_score(Explore.TRADE_RATE * 2)       # two rates → 2 spirits
 	var pool: Array = Explore.unlocked_pool(unl, [z])
 	var hand_before := Bucket.hand().size()
 	var host := Control.new()
@@ -766,18 +767,19 @@ func _test_trade_reward_dialog_layout() -> void:
 	g["gates"] = [z]
 	Save.grove_write()
 	Explore.begin_run({})
-	Explore.add_score(800)                          # 800 / 200 = 4 reels
+	Explore.add_score(Explore.TRADE_RATE * 3)       # a great run → TRADE_MAX reels
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ExploreReward.open(host, {"on_done": func() -> void: pass})
 	ok(host.find_child("RewardDialog", true, false) != null, "the reward mounts the shared framed dialog on the board")
 	var grid := host.find_child("RewardReels", true, false)
-	ok(grid != null and grid.get_child_count() == 4, "an 800-point run reveals four reels")
+	ok(grid != null and grid.get_child_count() == Explore.TRADE_MAX, "a great run reveals TRADE_MAX reels")
 	host.queue_free()
 
-# a huge haul is row-capped: only MAX_ROWS rows reveal, the rest fold into a "+N more" tile — but every
-# granted spirit still lands in the hand (the reveal is cosmetic).
+# The per-run trade is capped at TRADE_MAX, so the reveal can never overflow through the real path — a
+# runaway score still grants exactly TRADE_MAX spirits and no "+N more" tile. The MAX_ROWS fold stays
+# as a defensive bound of the dialog builder and is exercised directly with a synthetic haul.
 func _test_reward_row_cap() -> void:
 	fresh("reward_row_cap")
 	var z := 0
@@ -789,19 +791,32 @@ func _test_reward_row_cap() -> void:
 	g["gates"] = [z]
 	Save.grove_write()
 	Explore.begin_run({})
-	Explore.add_score(6000)                         # 6000 / 200 = 30 spirits — well past the row cap
+	Explore.add_score(Explore.TRADE_RATE * 30)      # runaway score — the trade cap is the brake
 	var hand_before := Bucket.hand().size()
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ExploreReward.open(host, {"on_done": func() -> void: pass})
-	ok(Bucket.hand().size() == hand_before + 30, "every granted spirit lands in the hand even past the reveal cap")
+	ok(Bucket.hand().size() == hand_before + Explore.TRADE_MAX, "a runaway score grants exactly TRADE_MAX spirits")
 	var grid := host.find_child("RewardReels", true, false) as GridContainer
-	ok(grid != null, "the reveal grid is built")
-	ok(grid.get_child_count() <= 4 * ExploreReward.MAX_ROWS, "the reveal never exceeds the row cap (≤ 4 × MAX_ROWS cells)")
-	ok(grid.get_child_count() == grid.columns * ExploreReward.MAX_ROWS, "a big haul fills exactly the capped rows")
-	ok(host.find_child("RewardMore", true, false) != null, "the overflow folds into a +N more tile")
+	ok(grid != null and grid.get_child_count() == Explore.TRADE_MAX, "the capped haul reveals one reel per spirit")
+	ok(host.find_child("RewardMore", true, false) == null, "a capped haul never shows the overflow tile")
 	host.queue_free()
+	# the builder's row-cap fold, driven directly with a haul bigger than any trade can produce
+	var Kit: GDScript = load(ExploreReward.KIT_PATH)
+	var haul: Array = []
+	for i in 30:
+		haul.append({"kind": "meadow", "tier": 1 + (i % 4)})
+	var built: Dictionary = ExploreReward.build(Kit, haul, 660.0, 1280.0, func() -> void: pass)
+	var host2 := Control.new()
+	host2.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host2)
+	host2.add_child(built["dialog"])
+	var grid2 := host2.find_child("RewardReels", true, false) as GridContainer
+	ok(grid2 != null and grid2.get_child_count() == grid2.columns * ExploreReward.MAX_ROWS,
+		"a synthetic huge haul fills exactly the capped rows")
+	ok(host2.find_child("RewardMore", true, false) != null, "the overflow folds into a +N more tile")
+	host2.queue_free()
 
 func _test_loadout_uses_toggle_card_callback() -> void:
 	var map_src := "res://engine/scripts/scenes/map.gd"
