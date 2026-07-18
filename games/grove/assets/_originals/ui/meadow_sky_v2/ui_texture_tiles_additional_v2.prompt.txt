@@ -23,4 +23,3 @@ Tile contract:
 - Opposite edges match exactly in color, value, and fiber distribution so every tile repeats seamlessly horizontally and vertically.
 - Texture is only extremely subtle 2–4% matte cardstock fiber/value variation, quiet enough beneath UI text.
 - No text, labels, visible grid, checkerboard, gradient, watermark, or non-magenta background outside tiles.
-

@@ -87,4 +87,3 @@ Material:
 
 Avoid:
 all shadows, semi-transparent pixels, soft shadow edges, glow, reflection, checkerboard transparency preview, transparent background, visible grid, text, numbers, labels, extra badges, characters, animals, screen mockup, phone frame, sticker halos, thick white outlines, heavy black outlines, neon color, electric cyan, lime green, glossy plastic, 3D clay, photorealism, watercolor, gradients, bevelled metal, ornate micro-detail, detached decorations, watermark, or signatures.
-
