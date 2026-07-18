@@ -1,0 +1,21 @@
+Generate a production-ready Grove / Acorn Forest 12-tier Coin line in the current Meadow Sky + Cut-Paper item-line style.
+
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, row-major tiers 1-12. Background: solid flat #FF00FF only.
+
+Style: cozy matte hand-cut cardstock icons, broad rounded silhouettes, simple paper color blocking, subtle paper-fiber variation, warm cut edges, thin locally darker edge. Palette: reward gold, straw gold, warm cream, ochre, muted teal/evergreen accents, deeper amber. No glossy 3D render, no shadows, no floor, no reflection, no glow, no sparkles, no particles, no text, no labels, no watermark.
+
+Tier order:
+1. Thin acorn coin.
+2. Thick acorn coin.
+3. Octagonal acorn token.
+4. Coin roll with acorn band.
+5. Small coin pouch with acorn seal.
+6. Acorn clasp coin purse.
+7. Minted coin tablet with raised acorn.
+8. Coin coffer with acorn latch.
+9. Treasury medallion with acorn crest.
+10. Acorn seal strongbox.
+11. Royal mint die with engraved acorn.
+12. Grand closed acorn treasury chest.
+
+Constraints: one connected object per cell, no loose coins, no piles, no scattered props, no thin strings, no tiny filigree. Every tier must include one clear acorn symbol integrated into the object.

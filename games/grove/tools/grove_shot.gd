@@ -35,6 +35,7 @@ func _initialize() -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
+	Save.mark_board_tutorial_seen()   # a capture shows the BOARD, never the How-to-Play overlay
 
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	root.add_child(scn)

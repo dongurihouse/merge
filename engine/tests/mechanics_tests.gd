@@ -107,12 +107,12 @@ func _initialize() -> void:
 	var open_cell: Vector2i = bm.empty_ground_cells()[0]
 	ok(bm.place_gen_from_bag("gen_1", open_cell) and bm.gens.values().has("gen_1") and not bm.gen_bag.has("gen_1"), "place_gen_from_bag moves it gen_bag→board (persists, never consumed)")
 	# #3 persistence: gens + gen_bag survive a save round-trip. Realistic state: the map-0 satchel
-	# sits on the board (at open_cell) while a granted next-map generator (gen_21) waits in the bag.
-	bm.bag_add("gen_21")                         # a granted-but-unplaced generator, stashed in the bag
+	# sits on the board (at open_cell) while a granted next-page generator (gen_3) waits in the bag.
+	bm.bag_add("gen_3")                          # a granted-but-unplaced generator, stashed in the bag
 	var blob := bm.to_dict()
 	var bm2 := BoardModel.new()
 	bm2.from_dict(blob)
-	ok(bm2.gen_id_at(open_cell) == "gen_1" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("gen_21"), "the generator map + gen_bag round-trip through to_dict/from_dict")
+	ok(bm2.gen_id_at(open_cell) == "gen_1" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("gen_3"), "the generator map + gen_bag round-trip through to_dict/from_dict")
 
 	# #3b stale-save hygiene: unknown/deprecated item codes and generator ids are dropped while
 	# loading saved board state, rather than surviving into gameplay.
@@ -123,7 +123,7 @@ func _initialize() -> void:
 	stale_items[2] = 100 + int(G.TOP_TIER) + 1
 	stale_blob["items"] = stale_items
 	stale_blob["gens"] = [[4, 3, "gen_1", 1], [4, 4, "old_generator", 2]]
-	stale_blob["gen_bag"] = ["gen_21", "old_generator", "acc_water", G.treat_gen_id(int(G.TREAT_LINES[0])), "treat_999"]
+	stale_blob["gen_bag"] = ["gen_3", "old_generator", "acc_water", G.treat_gen_id(int(G.TREAT_LINES[0])), "treat_999"]
 	stale_blob["gen_bag_tiers"] = [1, 2, 3, 4, 5]
 	var cleaned := BoardModel.new()
 	cleaned.from_dict(stale_blob)
@@ -131,7 +131,7 @@ func _initialize() -> void:
 		"from_dict drops unknown/deprecated item codes from board cells")
 	ok(cleaned.gens.values().has("gen_1") and not cleaned.gens.values().has("old_generator"), \
 		"from_dict drops unknown/deprecated generator ids from board cells")
-	ok(cleaned.gen_bag.has("gen_21") and cleaned.gen_bag.has("acc_water") \
+	ok(cleaned.gen_bag.has("gen_3") and cleaned.gen_bag.has("acc_water") \
 		and cleaned.gen_bag.has(G.treat_gen_id(int(G.TREAT_LINES[0]))) \
 		and not cleaned.gen_bag.has("old_generator") and not cleaned.gen_bag.has("treat_999"), \
 		"from_dict drops unknown/deprecated generator ids from gen_bag and keeps valid bonus/treat generators")
@@ -140,10 +140,11 @@ func _initialize() -> void:
 	# model (no generator AND not a craftable special) is NOT a valid item code — its saved pieces +
 	# discovery prune on load. DERIVED from the model (generator roster + recipes), so it scales to any
 	# future retired line with no per-line list.
-	ok(G.is_valid_item_code(101) and G.is_valid_item_code(2101), "a live BASE line's items stay valid (it has a generator)")
-	ok(G.is_valid_item_code(7101) and G.is_valid_item_code(7201), "a live SPECIAL line's items stay valid (craftable from two base lines)")
-	ok(not G.is_valid_item_code(6101) and not G.is_valid_item_code(6112), "a RETIRED line's items are invalid (line 61: in LINES for art, no generator + no recipe)")
-	ok(not G.is_valid_item_code(3801) and not G.is_valid_item_code(5201), "every generator-less, non-special line prunes (lines 38, 52) — derived, not a hardcoded ember list")
+	ok(G.is_valid_item_code(101) and G.is_valid_item_code(1601), "a live BASE line's items stay valid (it has a generator)")
+	ok(G.is_valid_item_code(501) and G.is_valid_item_code(1901), "a live SPECIAL line's items stay valid (craftable from its recipe)")
+	ok(G.is_valid_item_code(7101) and G.is_valid_item_code(7501), "a §6.D TREAT line's items stay valid (the treat generator produces them)")
+	ok(not G.is_valid_item_code(6101) and not G.is_valid_item_code(2101), "a RETIRED line's items are invalid (old rosters 61/21: dropped from the model)")
+	ok(not G.is_valid_item_code(3801) and not G.is_valid_item_code(5201), "every dropped line prunes (old 38, 52) — derived, not a hardcoded list")
 
 	# #3c game load hygiene: stale item pointers in the grove save are removed from persisted board,
 	# bag, quest, and seen state on load.
@@ -486,50 +487,53 @@ func _initialize() -> void:
 	ok(G.bonus_value("water") == int(G.ACCUMULATORS["water"]["value"]), "a bonus collect grants the kind's per-tap value")
 	ok(G.ACCUMULATORS.keys().has(G.pick_bonus_kind(bonus_rng)), "pick_bonus_kind returns a real accumulator kind")
 
-	# --- §6 zone progression (gen redesign 2026-06-28; additive — board wiring flips later) ---
-	ok(G.ZONE_BASE_LINES.size() == 17 and G.ZONE_SPECIAL_LINES.size() == 8 and G.ZONE_COUNT == 25, "25 zones = 17 base + 8 special (= the 25 live spots)")
-	ok(not G.zone_is_special(0) and not G.zone_is_special(1) and G.zone_is_special(2), "every 3rd zone (z%3==2) is special")
-	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(3) == 3 and G.zone_line(6) == 5 and G.zone_line(24) == 51, "base zones introduce the base lines in order (zone 24 = the 17th base, line 51)")
-	ok(G.zone_line(2) == 71 and G.zone_line(5) == 72 and G.zone_line(23) == 78, "special zones introduce the special lines (zone 23 = the 8th special, line 78)")
-	# §14 (25-zone): all 8 specials are authored + craftable now — 76/77/78 reuse spare mill/gate art
-	ok(G.LINES.has(76) and G.LINES.has(77) and G.LINES.has(78), "the 3 late-game specials (76/77/78) now have LINES defs")
-	ok(G.special_for_pair(32, 33) == 76 and G.special_for_pair(36, 37) == 78, "76 crafts from 32+33; 78 from 36+37 (recipes live)")
-	ok(G.zone_recipe(2) == [1, 2] and G.zone_recipe(5) == [3, 4] and G.zone_recipe(23) == [36, 37], "a special is crafted from the two preceding base lines")
-	# the tier screen / recipe view needs a LINE-keyed recipe (zone_recipe is zone-keyed) — resolves a merged line to its two ingredient base lines.
-	ok(G.recipe_lines(71) == [1, 2] and G.recipe_lines(72) == [3, 4] and G.recipe_lines(78) == [36, 37], "recipe_lines(special) → its two base ingredient lines")
-	ok(G.recipe_lines(1) == [] and G.recipe_lines(2) == [] and G.recipe_lines(51) == [], "recipe_lines(base) is empty — a base line has no recipe")
-	ok(G.special_for_pair(1, 2) == 71 and G.special_for_pair(2, 1) == 71, "merging base lines 1+2 crafts special 71 (order-independent)")
-	ok(G.special_for_pair(3, 4) == 72 and G.special_for_pair(1, 3) == 0, "3+4 craft special 72; a non-recipe pair crafts nothing")
-	# §6.G RECIPE-line membership (is_special_line) — a code whose line is one of the 8 special lines (71-78).
+	# --- §6 zone progression (picture-book roster; data-driven ZONES table) ---
+	ok(G.ZONE_BASE_LINES.size() == 8 and G.ZONE_SPECIAL_LINES.size() == 4 and G.ZONE_COUNT == 12, "12 zones = 8 base + 4 special (the picture-book roster)")
+	ok(not G.zone_is_special(0) and not G.zone_is_special(1) and G.zone_is_special(4) and G.zone_is_special(11), "a zone is special iff its ZONES row carries a recipe (the every-3rd formula is retired)")
+	ok(G.zone_line(0) == 1 and G.zone_line(1) == 2 and G.zone_line(2) == 3 and G.zone_line(5) == 6 and G.zone_line(10) == 18, "base zones introduce the base lines in order (zone 10 = the 8th base, koi 18)")
+	ok(G.zone_line(4) == 5 and G.zone_line(7) == 8 and G.zone_line(11) == 19, "special zones introduce the special lines (winter berries 5 · spices 8 · tea cups 19)")
+	ok(G.LINES.has(5) and G.LINES.has(8) and G.LINES.has(17) and G.LINES.has(19), "all 4 specials have LINES defs")
+	ok(G.zone_recipe(4) == [2, 3] and G.zone_recipe(7) == [2, 4] and G.zone_recipe(9) == [7, 3] and G.zone_recipe(11) == [8, 2], "specials carry their AUTHORED recipes (arbitrary pairs, not the two preceding zones)")
+	# the tier screen / recipe view needs a LINE-keyed recipe (zone_recipe is zone-keyed).
+	ok(G.recipe_lines(5) == [2, 3] and G.recipe_lines(8) == [2, 4] and G.recipe_lines(19) == [8, 2], "recipe_lines(special) → its two ingredient lines")
+	ok(G.recipe_lines(1) == [] and G.recipe_lines(2) == [] and G.recipe_lines(18) == [], "recipe_lines(base) is empty — a base line has no recipe")
+	ok(G.special_for_pair(2, 3) == 5 and G.special_for_pair(3, 2) == 5, "merging lines 2+3 crafts winter berries (order-independent)")
+	ok(G.special_for_pair(2, 4) == 8 and G.special_for_pair(8, 2) == 19 and G.special_for_pair(1, 3) == 0, "2+4 craft spices; spices+berries craft tea cups; a non-recipe pair crafts nothing")
+	# §6.G RECIPE-line membership (is_special_line) — a code whose line is one of the 4 special lines.
 	# Distinct from is_special() above (the §6.B special-DROP pseudo-lines chest/key/water/...). Used to give a
 	# recipe-line merge the intensified big-moment feel at EVERY tier (T63 → board.gd _after_merge → MergeFx).
-	ok(G.is_special_line(71 * 100 + 1) and G.is_special_line(78 * 100 + 6), "is_special_line gates the §6.G recipe lines (71-78) at any tier")
-	ok(not G.is_special_line(1 * 100 + 1) and not G.is_special_line(51 * 100 + 4), "a base content line (1, 51) is not a recipe line")
+	ok(G.is_special_line(5 * 100 + 1) and G.is_special_line(19 * 100 + 6), "is_special_line gates the recipe lines (5/8/17/19) at any tier")
+	ok(not G.is_special_line(1 * 100 + 1) and not G.is_special_line(18 * 100 + 4), "a base content line (1, 18) is not a recipe line")
 	ok(not G.is_special_line(G.COIN_LINE * 100 + 1) and not G.is_special_line(10 * 100 + 1), "coins and §6.B special-DROP items are not recipe lines")
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
-	ok(G.cap_quest_lines([1, 2, 3, 4, 5, 21, 22, 23], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
+	ok(G.cap_quest_lines([1, 2, 3, 4, 6, 7, 16, 18], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
 	ok(G.cap_quest_lines([1, 2, 3], 6) == [1, 2, 3], "a small pool is left untouched (footprint under the cap)")
-	# §14/§16 wire special quests into the askable pool: a special is asked only once REACHED with both ingredients live
-	ok(G.active_special_lines([1, 2], 2) == [71], "special 71 is asked once zone 2 is reached with ingredients [1,2] live")
-	ok(G.active_special_lines([1, 2], 1) == [], "a special is NOT asked before its zone is reached")
-	ok(G.active_special_lines([2, 3], 2) == [], "a special drops out once an ingredient line (1) has retired")
-	# no-strand invariant: every special the pool can ask has BOTH its ingredients producible in the base pool
+	# §14/§16 wire special quests into the askable pool: a special is asked only once REACHED with its ingredients available
+	ok(G.active_special_lines([2, 3], 4) == [5], "winter berries is asked once zone 4 is reached with ingredients [2,3] live")
+	ok(G.active_special_lines([2, 3], 3) == [], "a special is NOT asked before its zone is reached")
+	ok(G.active_special_lines([3, 4], 4) == [], "a special drops out once an ingredient line (2) has retired")
+	# the DEEPEST craft: tea cups needs spices (itself a special) + wild berries — active iff the whole chain is live
+	ok(G.active_special_lines([2, 3, 4, 6, 7, 16, 18], 11).has(19), "tea cups activates when its special ingredient (spices) is itself active")
+	ok(not G.active_special_lines([2, 3, 6, 7, 16, 18], 11).has(19), "tea cups stays dormant when the spices chain is broken (woolens retired)")
+	# no-strand invariant: every special the pool can ask has BOTH its ingredients producible (base pool or active special)
 	var _bp := G.quest_base_lines(8)
+	var _asp := G.active_special_lines(_bp, 8)
 	var _all_producible := true
-	for s in G.active_special_lines(_bp, 8):
+	for s in _asp:
 		var _rr := G.zone_recipe(G.zone_of_line(int(s)))
-		if not (_bp.has(int(_rr[0])) and _bp.has(int(_rr[1]))):
-			_all_producible = false
-	ok(_all_producible, "every asked special has both ingredients in the base pool (producible -> no-strand)")
+		for _ing in _rr:
+			if not (_bp.has(int(_ing)) or _asp.has(int(_ing))):
+				_all_producible = false
+	ok(_all_producible, "every asked special has both ingredients producible (base pool or active special) -> no-strand")
 	# §12 (simplified): the quest base pool is a rolling window of the LAST QUEST_GEN_CAP base lines reached
-	ok(G.quest_base_lines(6) == [1, 2, 3, 4, 5], "by zone 6 only 5 base lines are reached -> the window holds all of them")
-	ok(G.quest_base_lines(13) == [5, 21, 22, 23, 24, 31], "the window holds the LAST 6 base lines; lines 1-4 have rolled off")
-	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(71) == "", "base lines have a generator id; specials have none")
+	ok(G.quest_base_lines(4) == [1, 2, 3, 4], "by zone 4 only 4 base lines are reached -> the window holds all of them")
+	ok(G.quest_base_lines(11) == [3, 4, 6, 7, 16, 18], "the window holds the LAST 6 base lines; lines 1-2 have rolled off")
+	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(5) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (one generator per base line)
 	# zone -> band is derived from the FROZEN ZONE_BAND counts ([6,4,7,4,4]) — the retired 5-map layout kept
 	# purely for the per-band coin/sell curves (coin-clock redesign: the content arc gates on level, not spots).
-	ok(G.zone_map(0) == 0 and G.zone_map(5) == 0 and G.zone_map(6) == 1 and G.zone_map(9) == 1 and G.zone_map(10) == 2 and G.zone_map(16) == 2 and G.zone_map(17) == 3 and G.zone_map(20) == 3 and G.zone_map(21) == 4, "zone -> band tracks the frozen ZONE_BAND distribution")
-	# the ZONE ladder rides the coin clock: zone z unlocks at level 2+z, so the 25-zone arc spans L2..L26.
+	ok(G.zone_map(0) == 0 and G.zone_map(1) == 0 and G.zone_map(2) == 1 and G.zone_map(4) == 1 and G.zone_map(5) == 2 and G.zone_map(7) == 2 and G.zone_map(8) == 3 and G.zone_map(9) == 3 and G.zone_map(10) == 4 and G.zone_map(11) == 4, "zone -> band tracks the ZONE_BAND page distribution")
+	# the ZONE ladder rides the coin clock: zone z unlocks at level 2+z, so the 12-zone arc spans L2..L13.
 	ok(G.zone_unlock_level(0) == 2 and G.zone_unlock_level(G.ZONE_COUNT - 1) == 2 + G.ZONE_COUNT - 1, "zone z unlocks at level 2+z (the one-zone-per-level rhythm)")
 	ok(G.zone_threshold(0) == G.coins_at_level(2), "zone 0's threshold is the L2 coin threshold")
 	ok(G.arc_finish_threshold() == G.zone_threshold(G.ZONE_COUNT - 1), "the arc finishes at the last zone's threshold")
@@ -537,12 +541,16 @@ func _initialize() -> void:
 	for _b in G.ZONE_BAND:
 		_band_sum += int(_b)
 	ok(_band_sum == G.ZONE_COUNT, "ZONE_BAND sums to ZONE_COUNT (every zone lands in exactly one band)")
-	ok(G.zone_of_line(1) == 0 and G.zone_of_line(5) == 6 and G.zone_of_line(71) == 2, "zone_of_line inverts zone_line")
-	ok(G.base_generators().size() == 17, "the per-line roster has one generator per base line")
+	ok(G.zone_of_line(1) == 0 and G.zone_of_line(6) == 5 and G.zone_of_line(5) == 4, "zone_of_line inverts zone_line (base + special)")
+	ok(G.base_generators().size() == 8, "the per-line roster has one generator per base line")
 	var bgen := G.base_generator(2)
 	ok(bgen.id == "gen_2" and bgen.line == 2 and bgen.zone == 1 and bgen.map == 0, "a base generator carries its id/line/zone/map")
-	var bgen51 := G.base_generator(51)
-	ok(bgen51.id == "gen_51" and bgen51.line == 51 and bgen51.zone == 24 and bgen51.map == 4, "the 17th base line (51) lands at zone 24 in map 5")
+	var bgen18 := G.base_generator(18)
+	ok(bgen18.id == "gen_18" and bgen18.line == 18 and bgen18.zone == 10 and bgen18.map == 4, "the 8th base line (koi, 18) lands at zone 10 in page 5")
+	# the data-driven recipes (arbitrary pairs, unlike the retired every-3rd-zone formula)
+	ok(str(G.zone_recipe(4)) == str([2, 3]) and str(G.zone_recipe(11)) == str([8, 2]), "specials carry their authored recipes (winter berries 2+3; tea cups 8+2)")
+	ok(G.special_for_pair(3, 2) == 5 and G.special_for_pair(8, 2) == 19 and G.special_for_pair(1, 2) == 0, "special_for_pair resolves authored pairs order-independently")
+	ok(str(G.gens_for_quest_line(19)) == str(["gen_2", "gen_4"]), "a special-of-a-special resolves recursively to its BASE generators")
 	# drift guard: each hardcoded GENERATORS.map must equal the live-derived zone_map(zone), so the sell band can't drift
 	var _gen_maps_ok := true
 	for _g in G.GENERATORS:
@@ -561,7 +569,7 @@ func _initialize() -> void:
 		if not _farm_lines.has(int(_code) / 100):
 			_starters_produceable = false
 	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
-	ok(G.base_generator(71).is_empty(), "a special line has no generator")
+	ok(G.base_generator(5).is_empty(), "a special line has no generator")
 	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
 	#  Quests.due_gen in quest_tests.gd.)
 	# generator merge ladder (task 8 logic; additive — board wiring flips later)

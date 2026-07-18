@@ -1,0 +1,21 @@
+Generate a 12-tier merge-line sheet for the Coral Reef Shells line.
+Use the Meadow Sky + Cut-Paper Playground style block from docs/design/art-style-guide.md section 2.
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, generous gutters. Background: solid flat #FF00FF only. No visible grid.
+
+V3 diversity rule: every tier must differ from adjacent and prior tiers by at least two of these axes: physical silhouette, shell subtype/construction, dominant color family, and broad motif/material. Do not make the same rounded clam/scallop with different stripes. Specifically avoid repeating old failures: tier 2 must not look like tier 6, and tier 1 must not look like tier 7.
+
+Constraints: same visual footprint across all cells; one connected whole shell/test object per cell; no open interiors, sliced shells, piles, loose pearls, sand, scenic bases, water, bubbles, detached decorations, loose parts, shadows, grounding, glow, sparkles, particles, aura, smoke, text, labels, or watermark. Keep details broad and attached. Use warm cream, structural slate, receding blue, coral, garden green, reward gold, and rare purple.
+
+Tier list, row-major:
+1. Cap limpet shell: low triangular dome silhouette, cream body, one broad slate patch, no hinge.
+2. Razor clam shell: long slim blade-like horizontal shell, asymmetric paired panels fused into one object, pale cream with coral seam.
+3. Moon-snail spiral shell: smooth near-round spiral disk shell, slate spiral band, no fan ribs.
+4. Cowrie shell: oval bean-shaped shell with one broad central slit groove, coral inner groove, cream rim.
+5. Auger tower shell: tall tapered turret spiral, stacked chunky bands, teal lower band, narrow pointed top.
+6. Scallop fan shell: wide upright fan with chunky ribs and scalloped top, slate-blue body with cream rib strips; clearly fan-shaped, not long or oval.
+7. Sand-dollar sea-biscuit test: flat round disk with five broad flower grooves, muted green-cream surface, no clam hinge, no spiral.
+8. Murex shell: compact shell with a few thick attached knob-horns around the body, coral and slate panels, no thin spikes.
+9. Nautilus shell: bold chambered spiral shell with large cream crescent segments and coral separators, different from the plain moon-snail.
+10. Helmet shell: domed helmet/cassis shell with reward-gold rim and one integrated Grove acorn-shaped central relief replacing the normal shell motif, not a dangling badge.
+11. Abalone ear shell: asymmetrical ear-shaped shell with matte rare-purple and teal panels, no tiny holes, no round disk silhouette.
+12. Rainbow crest conch: premium final tier, one conch body with attached broad rainbow cardstock crest, reward-gold rim, and one integrated acorn relief on the front plate; bold silhouette, not cluttered.

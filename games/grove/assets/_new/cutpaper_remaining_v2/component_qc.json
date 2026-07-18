@@ -1,0 +1,304 @@
+{
+  "coin": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        145017
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        142653
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        142416
+      ]
+    },
+    {
+      "tier": 4,
+      "components_after_strict_clean": [
+        139892
+      ]
+    },
+    {
+      "tier": 5,
+      "components_after_strict_clean": [
+        117801
+      ]
+    },
+    {
+      "tier": 6,
+      "components_after_strict_clean": [
+        121554
+      ]
+    },
+    {
+      "tier": 7,
+      "components_after_strict_clean": [
+        126356
+      ]
+    },
+    {
+      "tier": 8,
+      "components_after_strict_clean": [
+        151422
+      ]
+    },
+    {
+      "tier": 9,
+      "components_after_strict_clean": [
+        122920
+      ]
+    },
+    {
+      "tier": 10,
+      "components_after_strict_clean": [
+        147216
+      ]
+    },
+    {
+      "tier": 11,
+      "components_after_strict_clean": [
+        149244
+      ]
+    },
+    {
+      "tier": 12,
+      "components_after_strict_clean": [
+        156738
+      ]
+    }
+  ],
+  "well_water": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        98410
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        149468
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        94321
+      ]
+    },
+    {
+      "tier": 4,
+      "components_after_strict_clean": [
+        143063
+      ]
+    },
+    {
+      "tier": 5,
+      "components_after_strict_clean": [
+        121225
+      ]
+    },
+    {
+      "tier": 6,
+      "components_after_strict_clean": [
+        107981
+      ]
+    },
+    {
+      "tier": 7,
+      "components_after_strict_clean": [
+        97329
+      ]
+    },
+    {
+      "tier": 8,
+      "components_after_strict_clean": [
+        113669
+      ]
+    },
+    {
+      "tier": 9,
+      "components_after_strict_clean": [
+        129511
+      ]
+    },
+    {
+      "tier": 10,
+      "components_after_strict_clean": [
+        106153
+      ]
+    },
+    {
+      "tier": 11,
+      "components_after_strict_clean": [
+        118210
+      ]
+    },
+    {
+      "tier": 12,
+      "components_after_strict_clean": [
+        127775
+      ]
+    }
+  ],
+  "acorn": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        93955
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        114694
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        109696
+      ]
+    },
+    {
+      "tier": 4,
+      "components_after_strict_clean": [
+        97242
+      ]
+    },
+    {
+      "tier": 5,
+      "components_after_strict_clean": [
+        99219
+      ]
+    },
+    {
+      "tier": 6,
+      "components_after_strict_clean": [
+        101413
+      ]
+    },
+    {
+      "tier": 7,
+      "components_after_strict_clean": [
+        98010
+      ]
+    },
+    {
+      "tier": 8,
+      "components_after_strict_clean": [
+        113204
+      ]
+    },
+    {
+      "tier": 9,
+      "components_after_strict_clean": [
+        90589
+      ]
+    },
+    {
+      "tier": 10,
+      "components_after_strict_clean": [
+        104367
+      ]
+    },
+    {
+      "tier": 11,
+      "components_after_strict_clean": [
+        97386
+      ]
+    },
+    {
+      "tier": 12,
+      "components_after_strict_clean": [
+        100418
+      ]
+    }
+  ],
+  "chest": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        147702
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        149115
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        154366
+      ]
+    }
+  ],
+  "key": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        65002
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        66994
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        77135
+      ]
+    }
+  ],
+  "water": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        90178
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        108987
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        141472
+      ]
+    }
+  ],
+  "spark": [
+    {
+      "tier": 1,
+      "components_after_strict_clean": [
+        107897
+      ]
+    },
+    {
+      "tier": 2,
+      "components_after_strict_clean": [
+        106746
+      ]
+    },
+    {
+      "tier": 3,
+      "components_after_strict_clean": [
+        119711
+      ]
+    }
+  ]
+}

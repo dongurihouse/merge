@@ -1,0 +1,21 @@
+Generate a production-ready Grove / Acorn Forest 12-tier Acorn Drop premium collectible line in the current Meadow Sky + Cut-Paper item-line style.
+
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, row-major tiers 1-12. Background: solid flat #FF00FF only.
+
+Style: cozy matte hand-cut cardstock icons, broad rounded silhouettes, simple paper color blocking, subtle paper-fiber variation, warm cut edges, thin locally darker edge. Palette: warm brown, umber cap, straw gold, reward gold, warm cream, muted teal, rare purple only as a tiny late-tier accent. No glossy render, no shadows, no floor, no reflection, no glow, no sparkles, no particles, no text, no labels, no watermark.
+
+Tier order:
+1. Plain brown acorn.
+2. Plump brown acorn.
+3. Polished amber acorn.
+4. Bronze acorn token.
+5. Silver-capped acorn.
+6. Golden acorn.
+7. Teal-banded acorn.
+8. Acorn crest token.
+9. Royal acorn.
+10. Jeweled acorn seal.
+11. Ancient acorn relic.
+12. Grand Grove acorn.
+
+Constraints: one connected object per cell, no piles, no loose acorns, no separate leaves, no dangling charms, no floating symbols. Keep every tier whole and acorn-like while varying material, cap shape, rim, band, crest, or relic silhouette.

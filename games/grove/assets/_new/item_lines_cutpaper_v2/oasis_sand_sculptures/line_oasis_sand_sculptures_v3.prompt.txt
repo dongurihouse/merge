@@ -1,0 +1,28 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest 12-tier merge-game item line sheet
+Primary request: Create a NEW Oasis Sand / Sand Sculptures item-line sheet in the accepted v2 Meadow Sky + Cut-Paper Playground Grove style.
+Input images: Image 1 is the accepted v2 item-line style reference only, especially matte cut-paper/cardstock objects, broad low-detail silhouettes, warm cut edges, same visual footprint, and flat magenta sheet behavior. Image 2 is the previous Oasis Sand Sculptures content reference: keep the sand shell and crescent moon ideas, but do not copy the mask. Images 3 and 4 are Meadow Sky UI palette and material references for soft sky/teal/slate/coral/gold/purple accent taste only.
+
+Canvas: exact 1024x1536 PNG, portrait, arranged as 3 columns x 4 rows with 12 invisible equal cells, row-major tier order. No visible grid, no borders between cells.
+Background: perfectly flat solid #FF00FF only, one connected background color, no gradients or texture.
+Style/medium: cozy 2D game asset sheet, matte hand-cut cardstock / cut-paper playground style, crisp continuous dark warm outline, broad low-detail silhouettes, warm sand and cream cardstock, warm cut edges, subtle paper/cardstock grain only inside objects, clean color-blocked incised planes. Do not make pixel art.
+Composition/framing: exactly one centered connected object per cell; each object fills the same approximate visual footprint with generous magenta padding; early tiers are simpler but not smaller. Entire subject must fit fully inside each cell; no part may cross a cell edge.
+Palette/materials: warm sand/cream cardstock as the dominant material; teal/slate incised planes for carved grooves and insets; restrained coral, gold, and purple accents on late tiers only; premium rainbow glass effect only inside tier 12 cardstock insets, still matte and cutout-friendly.
+
+Create exactly these 12 portable sand-carved objects in row-major order:
+1. Single fleck of sand as one connected stylized sand chip/token: an enlarged tiny irregular angular sand shard, same icon footprint as the other tiers, no loose grains or separate crumbs.
+2. Packed sand pebble: one rounded compressed sand pebble/token.
+3. Molded sand lump: one chunky hand-molded sand lump with a broad carved plane.
+4. Small sand shell sculpture: one compact shell-shaped sand carving, keeping the previous shell idea.
+5. Sand spiral token: one round sand disk with a broad teal/slate incised spiral groove.
+6. Sand turtle sculpture: one connected toy-like turtle carved from sand, shell plates as attached teal/slate insets, completely featureless head with no eyes, no eye dot, no mouth, no nostril, no face marks, no holes.
+7. Sand castle wall segment: one portable chunky crenellated wall object, a short toy sculpture segment, not scenery.
+8. Sand castle tower: one compact portable crenellated tower sculpture, not a building scene.
+9. Sand castle: one connected toy sandcastle sculpture icon with tower and wall forms fused into a single compact object, not an environment.
+10. Crescent moon sand sculpture: one compact crescent moon sand carving with teal/slate recessed plane and restrained coral/gold accent; no dots, eyes, holes, or face-like marks.
+11. Sun sand disk: one round sun disk sand carving with broad attached rays and a restrained coral/gold center.
+12. Premium rainbow-glass sand mandala token: one circular sand mandala token with attached gold rim and large rainbow glass-like cardstock insets, broad low-detail segments.
+
+Important constraints: no masks, no faces, no idols, no acorn emblem, no architecture scenes, no dunes, no scenic bases, no piles, no bowls, no jars, no labels, no loose grains, no detached particles, no sparkles, no glow, no smoke, no aura, no shadows, no grounding, no reflections, no watermark, no text. No face-like dots, eye holes, mouth cuts, or small facial marks anywhere. Castle and castle wall must read as portable sandcastle toy/sculpture icons, not a full environment. Keep details broad and attached; use no thin lines or tiny clutter.
+
+Output only the image sheet.

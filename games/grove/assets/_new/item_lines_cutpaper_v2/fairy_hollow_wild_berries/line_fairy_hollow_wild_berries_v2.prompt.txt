@@ -1,0 +1,45 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted v2 Fairy Hollow Glowshroom sheet: use it as the local v2 item-line art direction for matte cut-paper rendering quality, 3x4 spacing, generous gutters, broad fantasy silhouettes, and board-readable detail budget. Do not copy mushroom shapes or mushroom content.
+- Image 2 is mandatory Meadow Sky palette and Cut-Paper Playground material authority: use its palette relationships, matte cardstock treatment, warm cut edges, cream/ink neutral balance, muted meadow/sky tones, and restrained reward-gold / rare-purple accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 3 is mandatory world scale, object simplicity, shallow handcrafted detail-budget authority: use its broad low-detail silhouettes, friendly cut-paper material, and readable phone-size forms. Do not copy its farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Generate a production-ready 2D game asset sheet for the Fairy Hollow Wild Berries line, matching the accepted v2 Meadow Sky + Cut-Paper Playground Grove item style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the fruit only, fine warm cut edge plus thin locally darker ink edge. Use strong color contrast against the magenta key: coral berry red, muted meadow green leaves/calyx, receding blue berry tones, rare purple berries, warm cream cut edges, and meaningful reward-gold only on late tiers. No universal white sticker outlines, no heavy black outlines, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly wild berry item per cell, in this row-major order:
+1. Berry bud: one plump closed berry bud, coral-red peeking from a thick attached green calyx, broad seed-like silhouette, no loose stem.
+2. Half-grown berry: one rounded berry halfway ripe, green lower half and coral upper blush, thick attached leaf cap, compact and broad.
+3. Red forest berry: one large round coral-red berry with a simple attached meadow-green leaf cap.
+4. Blue teardrop berry: one plump blue teardrop-shaped berry with cream cut edge and a broad attached calyx.
+5. Purple oval berry: one deep purple oval huckleberry-like fruit with a teal leaf cap, simple and whole.
+6. Fairy raspberry: one connected berry made from a few large rounded lobes, not many tiny beads, coral-red with cream seams.
+7. Midnight blackberry: one dark purple clustered berry made of six large attached lobes, broad silhouette, no tiny dots.
+8. Golden huskberry: one warm gold berry wrapped by three broad attached green husk leaves, like a fairy lantern fruit but with no glow.
+9. Starberry: one fantasy berry shaped like a rounded five-lobed star fruit, coral and cream paper layers, thick attached green top.
+10. Moonberry: one crescent-moon-shaped blue-purple berry with a sturdy attached leaf cap, no acorn emblem.
+11. Sunberry: one round warm coral-and-gold berry with chunky attached sun-petal calyx forms, no glow, no acorn emblem.
+12. Elder fairy berry: strongest final berry, one large deep-purple berry with warm gold and teal cut-paper panels and ONE subtle Grove acorn-shaped calyx integrated naturally at the top; the acorn form is part of the berry cap, not a floating badge or separate emblem.
+
+Important constraints:
+- One connected object per cell only. No scenes, no baskets, no bowls, no jars, no bundles, no piles, no loose garnish, no detached leaves, no detached stems, no vines, no brambles, no thorn branches, no labels.
+- Food/fruit must be whole intact objects only: no sliced interiors, no cut-open fruit, no juice, no seeds spilling out.
+- Keep details broad and attached. Avoid many tiny seeds, tiny bead clusters, hairline stems, thin tendrils, loose specks, dots, crumbs, or separated ornaments.
+- Only tier 12 may hint at an acorn, and it must be a natural attached calyx shape. Tiers 10 and 11 should feel premium through silhouette, cut-paper panels, and color contrast, not acorns.
+- Make the entire sheet readable at mobile board-item size, with each tier clearly a different berry kind.
+
+Output only the image sheet. Do not add explanatory text in the image.

@@ -1,0 +1,14 @@
+Generate a production-ready Grove / Acorn Forest special drop sheet in the current Meadow Sky + Cut-Paper item-line style.
+
+Canvas: exact 1024x1920 PNG, 3 columns x 5 rows, generous gutters, no visible grid. Background: solid flat #FF00FF only.
+
+Style: cozy matte hand-cut cardstock icons, broad rounded silhouettes, simple paper color blocking, subtle paper-fiber variation, warm cut edges, thin locally darker edge. Palette: warm cream, reward gold, ochre wood, muted teal, clean water blue, fresh leaf green, autumn amber. No glossy render, no shadows, no floor, no reflection, no glow, no sparkles, no particles, no text, no labels, no watermark.
+
+Rows:
+1. Treasure Chest tiers: small closed wood lockbox, brass-banded closed chest, ornate closed royal chest.
+2. Key tiers: simple bronze acorn-bow key, ornate brass acorn/clover key, grand golden acorn key.
+3. Water Drop tiers: single blue droplet token, joined three-droplet token, large blue water orb token.
+4. Acorn preview tiers: whole brown acorn, plump brown acorn, polished golden acorn. Live acorn art uses the separate 12-tier acorn sheet.
+5. Spark Leaf tiers: fresh green leaf, connected green sprig, golden autumn leaf.
+
+Constraints: one connected object per cell, no loose props, no coin piles, no detached leaves, no thin strings, no tiny specks. Acorn symbols only where natural, such as chest locks and key bows.

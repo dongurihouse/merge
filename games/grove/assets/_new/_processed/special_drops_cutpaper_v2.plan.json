@@ -1,0 +1,26 @@
+{
+  "source": "_new/special_items_v2/special_items_3x5_cutpaper_v2_intake.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": {
+    "key": "#FF00FF",
+    "tol": 0.18,
+    "min_area": 1200,
+    "pad": 8
+  },
+  "outputs": [
+    {"island": 0, "name": "chest_1", "path": "items/chest/chest_1.png", "post": "icon:512"},
+    {"island": 1, "name": "chest_2", "path": "items/chest/chest_2.png", "post": "icon:512"},
+    {"island": 2, "name": "chest_3", "path": "items/chest/chest_3.png", "post": "icon:512"},
+    {"island": 3, "name": "key_1", "path": "items/key/key_1.png", "post": "icon:512"},
+    {"island": 4, "name": "key_2", "path": "items/key/key_2.png", "post": "icon:512"},
+    {"island": 5, "name": "key_3", "path": "items/key/key_3.png", "post": "icon:512"},
+    {"island": 6, "name": "water_1", "path": "items/water/water_1.png", "post": "icon:512"},
+    {"island": 7, "name": "water_2", "path": "items/water/water_2.png", "post": "icon:512"},
+    {"island": 8, "name": "water_3", "path": "items/water/water_3.png", "post": "icon:512"},
+    {"island": 12, "name": "spark_1", "path": "items/spark/spark_1.png", "post": "icon:512"},
+    {"island": 13, "name": "spark_2", "path": "items/spark/spark_2.png", "post": "icon:512"},
+    {"island": 14, "name": "spark_3", "path": "items/spark/spark_3.png", "post": "icon:512"}
+  ],
+  "archive": "_originals/items/special_items_3x5_cutpaper_v2_intake.png"
+}

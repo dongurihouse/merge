@@ -1,0 +1,45 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted Fairy Hollow Glowshroom v2 item-line style reference only: preserve its successful 1024x1536 portrait sheet discipline, 3x4 item-line spacing, matte hand-cut cardstock rendering quality, broad low-detail silhouettes, warm cut edges, subtle paper-fiber value variation inside objects, thin locally darker ink edges, and generous magenta gutters. Do not copy mushroom content, celestial motifs, or shapes.
+- Image 2 is mandatory Meadow Sky palette and cut-paper material authority: use its palette relationships, matte cardstock treatment, warm cut edges, cream/ink neutral balance, muted meadow/sky tones, coral accents, soft straw/sun gold, teal/slate shadows, and restrained rare-purple accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 3 is mandatory world scale, object simplicity, and shallow handcrafted detail-budget authority: use its broad low-detail silhouettes, friendly cut-paper material, and readable phone-size forms. Do not copy its farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Generate Coral Reef line 10: Corals, visually informed by sand sculpture shape language plus shell curves, but simple. Make a production-ready 2D game item-line sheet matching the v2 Meadow Sky + Cut-Paper Playground Grove style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid, no borders, no frames between cells.
+Background: solid flat #FF00FF only, perfectly uniform.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the coral objects only, fine warm cut edge plus thin locally darker ink edge. Use coral/coral-red, cream, teal/slate shadow planes, rare purple only on late tiers, and restrained gold only on late tiers. Shell-curve and sand-sculpture shape language should influence the chunky curves and soft carved ridges, but every item is still one portable coral object. No universal white sticker outlines, no heavy black outlines, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no bubbles, no water, no fish, no loose rocks, no sand, no reef base, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges. The entire object must fit fully inside its cell and leave magenta margin on all four sides.
+
+Create exactly one clean cutout-friendly portable coral object per cell, in this row-major order:
+1. Coral nub: one chunky rounded coral-red nub with a cream cut edge and one broad shell-like groove; single connected piece, no base.
+2. Chunky branch coral: a compact coral-red branch with only three thick rounded branches, sand-sculpture soft curves, no tiny branching forest.
+3. Rounded brain coral: one rounded cream-and-coral brain coral token with a few large carved maze grooves, broad and simple, no tiny holes.
+4. Fan coral: one broad connected coral fan with shell-curve scallops, coral-red body with cream rim, no thin lace or perforations.
+5. Tube coral mass: one connected object made of a few large teal-and-coral tubes fused together, each tube thick and simple, no small holes beyond large visible openings.
+6. Plate coral: one stacked plate-coral object with two or three thick rounded cream/coral plates fused into one portable piece, no reef base.
+7. Blue coral branch: one chunky teal-blue coral branch with cream cut edges, four or fewer thick arms, compact silhouette.
+8. Coral arch token: one portable coral arch token shaped like a small hand-held arch sculpture, coral-red with cream inner edge, not a scene, no ground, no water.
+9. Reef crown coral: one crown-like coral piece with thick rounded upward lobes, coral-red and teal accents, single connected object, no base.
+10. Gold-edged coral piece: premium coral-red coral object with one bold shell-curve silhouette and restrained warm-gold rim, still simple and portable, no acorn emblem.
+11. Purple-cream fan coral: late-tier fan coral with broad purple panels and cream/coral rim, shell-like scallops, one connected object, no lace holes.
+12. Premium rainbow coral crown: strongest final coral crown, broad connected lobes with large cut-paper panels of coral red, cream, teal blue, muted meadow green, rare purple, and restrained gold edging; premium, simple, readable, no sparkles, no acorn emblem.
+
+Important constraints:
+- One connected object per cell only. No reef scenes, no seafloor, no water, no bubbles, no fish, no loose rocks, no sand, no shells as separate props, no piles, no clusters of detached pieces, no jars, no baskets, no bases, no stands.
+- Keep details broad and attached. Avoid many tiny branches, tiny holes, tiny grooves, dots, lace, fronds, crumbs, separated ornaments, hairline decorations, thin stems, thin plates, or tiny branching forests.
+- Sand sculpture influence means chunky rounded silhouette and soft carved-ridge language only; do not add actual sand, beach, plinth, pedestal, or environment.
+- Shell influence means large shell-like curves and scalloped rims only; do not add separate shells.
+- Make the whole sheet readable at mobile board-item size, with each tier clearly a different coral kind while sharing a coherent coral line identity.
+
+Output only the image sheet. Do not add explanatory text in the image.

@@ -1,0 +1,44 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the current Snowy Village Winter Vegetation v4 sheet. Preserve its matte cut-paper material, spacing, and cozy item-line production quality, but fix the item choices. The current tier 1 and tier 10 are too similar closed icy flower-bud shapes. The current tier 4 and tier 11 are both acorns. The ornate red/pink flower in tier 9 and the rainbow flower final feel odd for this cold winter place. Replace those repeated or odd choices with more grounded, distinct winter vegetation.
+- Image 2 is the accepted Snow/Ice v4 sheet. Use only for snowy village mood, pale winter palette, and cutter-safe spacing. Do not copy snow sculptures or buildings.
+- Image 3 is the accepted Glowshroom v2 sheet. Use only for consistent 3x4 item-line spacing, same visual footprint per tier, and matte cut-paper craft quality. Do not copy mushrooms or colors.
+
+Primary request:
+Regenerate Snowy Village Winter Vegetation as a more comprehensive cold-season vegetation line. Do not make it a berry line, do not make it a flower line, and do not repeat acorns. Include varied winter leaves, evergreen, needles, cones, hardy roots, moss/lichen, and a few winter-only plant details. Keep it grounded and natural for Snowy Village, with cool green, blue-white frost, warm cream, pine brown, and restrained gold on the last tier.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside each object only, fine warm cut edge plus thin locally darker ink edge. Palette: deep evergreen, muted pine green, frosty blue-white, warm cream cut edges, pinecone brown, a little holly red only on one tier, restrained reward-gold only on the final tier. No glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly winter vegetation item per cell, in this row-major order:
+1. Frosted pine needle tuft: one small connected tuft of broad pine needles tipped with pale frost, not a closed flower bud.
+2. Holly sprig: one broad holly leaf with exactly one attached red winter berry, only red berry in the sheet.
+3. Snowdrop sprout: one simple drooping snowdrop with two attached leaves, modest and winter-specific.
+4. Juniper branch: one compact evergreen branch with three attached blue-grey juniper berries as broad attached dots, not a berry cluster.
+5. Snow-dusted pinecone: one chunky brown pinecone with broad attached snow caps on the scales.
+6. Mistletoe sprig: one pale green paired-leaf sprig with two attached white berries, distinct from holly and juniper.
+7. Winter cabbage rosette: one compact hardy cabbage/kale rosette, blue-green layered leaves, vegetable-like not flower-like.
+8. Frost fern frond: one single broad icy fern frond, long leaf silhouette, no bud.
+9. Lichen stone patch: one rounded pale-grey winter lichen patch on an attached small stone, plant-like ground vegetation, not a flower.
+10. Frozen winter reed bundle: one upright bundle of three broad tan reeds with frost-blue leaf wraps, clearly not a closed icy bud.
+11. Evergreen wreath: one connected ring of pine boughs with a small attached cream ribbon knot, no loose berries, not an acorn.
+12. Golden winter seed crest: one premium stylized evergreen seed crest or pine-bough medallion in green, frost-blue, cream, and restrained gold, natural-slot final emblem, not a flower, not an acorn, no rainbow petals.
+
+Important constraints:
+- One connected object per cell only. No duplicate bud shapes. No duplicate acorns; avoid acorns entirely in this revision. No ornate garden rose, no rainbow flower, no large decorative blossom.
+- Do not make multiple similar closed icy buds. Tier 1 must be pine needles; tier 10 must be reed bundle. They must have clearly different silhouettes.
+- Keep details broad and attached. Avoid loose berries, detached leaves, tiny seeds, thin stems, hairline veins, labels, piles, or anything crossing cell gutters.
+- Push premium tier through richer material, gold edge, and bolder winter-vegetation silhouette, never through glow, sparkle, particles, or effects.
+
+Output only the image sheet. Do not add explanatory text in the image.

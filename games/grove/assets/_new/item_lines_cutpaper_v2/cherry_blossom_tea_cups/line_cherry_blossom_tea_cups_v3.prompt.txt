@@ -1,0 +1,21 @@
+Generate a 12-tier merge-line sheet for the Cherry-Blossom Tea Cups line.
+Use the Meadow Sky + Cut-Paper Playground style block from docs/design/art-style-guide.md section 2.
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, generous gutters. Background: solid flat #FF00FF only. No visible grid.
+
+V3 diversity rule: every tier must differ from adjacent and prior tiers by at least two of these axes: vessel silhouette, construction features, dominant color family, and broad motif/material. Do not make the same rounded handled cup with different decoration. Vary handle/no-handle, lid/no-lid, bowl/tall glass/tumbler/chalice, saucer/foot/pedestal, rim shape, and palette.
+
+Constraints: same visual footprint across all cells; one connected tea vessel per cell; if a lid or saucer appears it must touch and visually fuse with the cup as one cutout object. No teapots, kettles, spoons, steam, liquid splashes, loose tea leaves, scenes, tables, shadows, grounding, glow, sparkles, particles, aura, smoke, text, labels, or watermark. Keep details broad and attached.
+
+Tier list, row-major:
+1. Yunomi cup: straight handleless Japanese tea cup, short cylinder with warm cream body and structural-slate foot ring.
+2. Matcha chawan: wide low open tea bowl, squat rounded profile, garden-green exterior, cream inner rim, no handle.
+3. Western teacup: rounded cup with one large loop handle, coral band, warm cream body, small foot.
+4. Tall Moroccan tea glass: tall faceted glass-shaped cup in teal cardstock with reward-gold holder panels, no handle.
+5. Gaiwan: lidded Chinese tea bowl, broad bowl with lid and knob touching the cup, rare-purple rim, no handle.
+6. Tiny tasting cup: very small low clay zisha cup silhouette enlarged to same footprint, terracotta coral-brown body, flared lip, no handle.
+7. Footed porcelain cup: narrow cup on a high pedestal foot, cream body with slate rim, elegant vertical silhouette.
+8. Cup-and-saucer: shallow handled cup sitting on a broad attached saucer, saucer visibly fused beneath, green leaf motif.
+9. Travel tea tumbler: tall lidded cylindrical cup with wrap band, structural slate lid and warm cream body, no handle.
+10. Stemmed tea chalice: premium cup on a short stem and round foot, reward-gold panels, coral blossom medallion integrated on the bowl.
+11. Purple handled porcelain cup: flared tulip cup with angular handle, rare-purple body, garden-green side panels, reward-gold rim, no saucer.
+12. Imperial lidded teacup: final premium tier, ornate lidded cup with side handles, reward-gold rim, coral and green panels, one integrated Grove acorn-shaped central relief replacing the normal medallion; bold silhouette, not cluttered.

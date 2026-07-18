@@ -126,8 +126,8 @@ func _initialize() -> void:
 	var has_copy_helpers := content.has_method("item_display_name") and content.has_method("item_description")
 	ok(has_copy_helpers, "content exposes canonical item display-name and description helpers")
 	if has_copy_helpers:
-		ok(content.call("item_display_name", 6101) == "Hearth embers", "regular lines keep their authored display names")
-		ok(String(content.call("item_description", 6101)).contains("early quests"), "regular lines carry a player-useful hint")
+		ok(content.call("item_display_name", 101) == "Glow-mushrooms", "regular lines keep their authored display names")
+		ok(String(content.call("item_description", 101)).contains("forest"), "regular lines carry a player-useful hint")
 		ok(content.call("item_display_name", 1201) == "Water drop", "special drops have real display names")
 		ok(String(content.call("item_description", 1202)).contains("20 water"), "collectable special drops describe their tier reward")
 		ok(content.call("item_display_name", 902) == "Coin", "coin items have a real display name")
@@ -373,7 +373,7 @@ func _initialize() -> void:
 			entry_lines.append(int(e.line))
 			if not G.LINES.has(int(e.line)):
 				all_valid = false
-			if int(e.line) == 37:                 # Small critters — the LAST map's (map 4) line, far from the anchor
+			if int(e.line) == 18:                 # Koi — the LAST page's (band 4) line, far from the anchor
 				has_other_map = true
 		ok(all_valid, "every Producing entry is a real game line")
 		var all_present := true

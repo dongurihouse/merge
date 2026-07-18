@@ -1,0 +1,47 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images, in order:
+1. Accepted v2 Fairy Hollow Glowshroom item-line style reference only: preserve its successful matte hand-cut cardstock rendering quality, 3x4 spacing, generous gutters, broad low-detail silhouettes, warm cut edges, clean paper-fiber texture, and board-readable item footprint. Do not copy mushroom content or mushroom shapes.
+2. Previous Snowy Village Woolens v2 sheet reference: keep the woolens family and successful cream/teal/coral cut-paper material feel, but fix the content repetition. Replace the old tier 11 item. Avoid repeated blankets/rolls, avoid duplicate caps at tiers 3 and 10, and avoid tier 9 and tier 12 looking like similar rolls.
+3. Meadow Sky palette board reference: use the palette relationships, matte cardstock treatment, warm cream neutrals, teal/slate, coral, meadow green, straw gold accents, and restrained cozy contrast. Do not copy UI layout, labels, icons, or composition.
+4. Meadow Sky home screen reference: use only its friendly cut-paper material language and phone-size readability. Do not copy farm content, buildings, scene layout, UI, text, or shadows.
+
+Primary request:
+Generate a new production-ready 2D game asset sheet for the Snowy Village Woolens line, v3. Make exactly 12 portable woolen winter items, row-major tier order, in the v2 Meadow Sky + Cut-Paper Playground Grove item-line style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: perfectly flat solid #FF00FF only, edge to edge, one connected background region.
+
+Style:
+Matte hand-cut cardstock game icons, broad rounded silhouettes, simple layered paper color blocking, subtle 2-4% paper-fiber value variation inside the wool objects only, fine warm cut edge plus thin locally darker ink edge. Palette: cream wool, warm off-white, teal and slate-blue panels, coral accents, muted meadow green, straw-gold trim only on high tiers. No universal white sticker outline, no heavy black outline, no glossy plastic, no clay, no photorealism, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark. No visible cell grid, guide boxes, slot markers, or divider lines.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each cell. Early tiers may be simpler, but they must not be smaller than later tiers. Center every item with generous magenta padding and no cropped edges. Each cell contains one connected object only.
+
+Create exactly one clean cutout-friendly woolen item per cell, in this row-major order:
+1. Wool puff: one compact cream wool puff, rounded cloud-like but solid, with a broad attached teal-slate underside paper layer; no loose fibers or particles.
+2. Yarn ball: one round cream yarn ball as a single connected sphere with broad raised paper bands; no loose string, no yarn tail, no needles.
+3. Simple knit cap: one small rounded winter knit cap in cream with a thick attached coral brim and a stout attached pom-pom; no dangling ties, no tassels.
+4. Folded scarf: one compact folded scarf block in cream and teal, folded into a single connected soft rectangle with broad stripe panels; no loose ends, no fringe.
+5. Single mitten: one left-hand mitten in cream wool with teal cuff and coral thumb patch, one connected item only; no pair, no string.
+6. Thick sock: one thick winter sock in cream with slate toe and meadow-green cuff, broad simple silhouette; no pair, no dangling thread.
+7. Triangular shawl: one triangular folded shawl in cream wool with teal inner fold and coral edge panel, compact single object; no fringe, no tassels, not a blanket roll.
+8. Cozy hood: one standalone soft winter hood in slate-teal and cream, rounded opening with attached meadow-green trim; no face, no coat body, no strings.
+9. Wool ear-warmer / earmuffs: one connected rounded ear-warmer object with two padded cream ear pads joined by a thick broad teal headband, coral accent panels, no thin wire, no string, not a roll.
+10. Knitted bootie / slipper: one single soft knitted bootie or house slipper in cream with teal sole and meadow-green cuff, low foot-shaped silhouette, not a cap, no pom-pom, no pair.
+11. Folded wool sweater: one premium sweater folded into a compact single object, cream body with slate-teal sleeves folded across the front, broad coral collar/cuff blocks and restrained straw-gold trim; clearly a sweater, not a blanket, not a scarf, not a roll, no loose buttons.
+12. Premium patchwork winter poncho/cloak: one folded broad shield-like woolen poncho or cloak, not rolled, not a blanket. Broad draped triangular/shield silhouette with patchwork panels in cream, teal, slate, coral, meadow green, and straw-gold trim; one small integrated acorn-shaped cloth patch may sit naturally on a central panel. No dangling patch, no clasp chain, no loose tie, no pile.
+
+Important constraints:
+- One portable woolen item per cell only. No scenes, no furniture, no people, no animals, no mannequins, no needles, no baskets, no shelves, no piles, no bundles, no pairs, no yarn skeins with tails, no loose yarn, no loose patches, no detached buttons, no floating symbols.
+- Keep details broad and attached. Avoid thin strings, tassels, fringe, loose yarn tails, tiny stitches, tiny buttons, hairline decorations, separated ornaments, loose wool fibers, lint specks, dots, crumbs, or repeated mini-motifs.
+- There should be no more than one blanket-like object in the whole sheet; preferably none. Tiers 9 and 12 must not be rolls. Tier 10 must not resemble tier 3.
+- Tiers 10-12 should feel premium through silhouette, larger color-block panels, and restrained straw-gold trim, not through clutter or visual effects.
+- Only tier 12 may have one acorn-shaped cloth patch. Tiers 1-11 should have no acorn emblem.
+- Make the entire sheet readable at mobile board-item size, with each tier clearly a different portable woolen winter item.
+
+Output only the image sheet. Do not add explanatory text in the image.

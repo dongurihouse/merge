@@ -1,0 +1,21 @@
+Generate a 12-tier merge-line sheet for the Coral Reef Corals line.
+Use the Meadow Sky + Cut-Paper Playground style block from docs/design/art-style-guide.md section 2.
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, generous gutters. Background: solid flat #FF00FF only. No visible grid.
+
+V3 diversity rule: every tier must differ from adjacent and prior tiers by at least two of these axes: physical silhouette, coral growth form, dominant color family, and broad motif/material. Do not make the same branching coral with different colors. Specifically avoid old failures: tier 2 must not look like tier 9, and tiers 10, 11, and 12 must be completely different physical forms.
+
+Constraints: same visual footprint across all cells; one connected coral object per cell; no scenes, rocks, reef bases, sand, water, fish, shells, bubbles, loose polyps, detached dots, tiny repeated tentacles, shadows, grounding, glow, sparkles, particles, aura, smoke, text, labels, or watermark. Keep all branches, cups, plates, and lobes broad, rounded, and attached.
+
+Tier list, row-major:
+1. Button coral polyp: one squat round coral cup with thick cream rim and coral-red center, simple compact disk/cup silhouette.
+2. Knobby cauliflower coral: compact cluster of rounded mustard-gold lobes fused into one mound, no antler branches.
+3. Brain coral dome: teal-green rounded boulder with broad maze grooves in warm cream, no branches.
+4. Mushroom coral disk: flat oval purple disk with radial cream ribs, broad low saucer silhouette.
+5. Pipe organ coral: upright cluster of several thick slate-blue tubes with coral-red openings, all tubes fused at the base.
+6. Lettuce plate coral: layered green saucer plates stacked like broad leaves, one connected tiered silhouette.
+7. Finger leather coral: lavender chunky hand-like fingers rising from one base, rounded ends, not branched antlers.
+8. Boulder star coral: warm gold rounded mound with a few large star-shaped incised panels, no tiny polyp dots.
+9. Elkhorn coral: wide flat antler paddles in sea-green with coral edge accents; flattened broad forks, clearly not the tier-2 knobby mound.
+10. Gorgonian fan coral: one large semicircular fan in rare purple with a few broad cream vein bands, no lace micro-lines, no branch mound.
+11. Sun-cup coral cluster: connected group of big orange cup flowers on a dark slate crescent base, broad cups, not fan-shaped, not branching.
+12. Rainbow reef crown coral: premium final tier, one bold crown-like coral made of attached plate, cup, and short branch masses in coral, teal, green, purple, and reward gold, with one integrated Grove acorn-shaped central relief replacing a normal panel; not a fan, not a simple branch, not a mound.

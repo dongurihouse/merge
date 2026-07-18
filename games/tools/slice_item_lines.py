@@ -70,6 +70,20 @@ SHEETS = {
     "special_watermelon": (4, 3),
     # §6.B wildcard — a full 12-tier line (3 cols × 4 rows). Base name is "wildcard" → items/wildcard/wildcard_1..12.png.
     "wildcard": (4, 3),
+    # Picture-book v1 late pages — 12-tier item lines on exact 1024x1536 magenta sheets.
+    "coral_reef_shells": (4, 3),
+    "coral_reef_corals": (4, 3),
+    "cherry_blossom_koi": (4, 3),
+    "cherry_blossom_tea_cups": (4, 3),
+    # Picture-book v1 early/mid pages — same 1024x1536 magenta 12-tier contract.
+    "fairy_hollow_glowshroom": (4, 3),
+    "fairy_hollow_wild_berries": (4, 3),
+    "snowy_village_snow_ice": (4, 3),
+    "snowy_village_woolens": (4, 3),
+    "snowy_village_winter_berries": (4, 3),
+    "oasis_desert_fruits": (4, 3),
+    "oasis_sand_sculptures": (4, 3),
+    "oasis_spices": (4, 3),
 }
 
 SIZE = 512          # output canvas (square)
@@ -91,6 +105,20 @@ def clean(rgba: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     bg = np.median(corners, axis=0)
     dist = np.sqrt(((rgb - bg) ** 2).sum(axis=2))
     near_bg = (dist < TOL_FLOOD) | (alpha < 8)
+    # LLM sheets on saturated magenta often include darker magenta antialias/shadow
+    # pixels near the object edge. A pure distance threshold from #FF00FF can miss
+    # those and leave a visible pink halo after alpha compositing, so broaden only
+    # for magenta-like key fields while staying clear of normal coral/purple art.
+    bg_is_magenta = bool(bg[0] > 180 and bg[2] > 170 and bg[1] < 90)
+    if bg_is_magenta:
+        magenta_like = (
+            (rgb[:, :, 0] >= 150)
+            & (rgb[:, :, 2] >= 120)
+            & (rgb[:, :, 1] <= 100)
+            & ((rgb[:, :, 0] - rgb[:, :, 1]) >= 70)
+            & ((rgb[:, :, 2] - rgb[:, :, 1]) >= 50)
+        )
+        near_bg |= magenta_like
 
     # Background = near-bg regions reachable from the border.
     lbl, _ = ndimage.label(near_bg)

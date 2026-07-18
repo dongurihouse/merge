@@ -1,0 +1,38 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Primary request:
+Regenerate the Snowy Village winter berries line as a broader Winter Vegetation line. The previous berries were still too similar to each other. Do not limit the family to berries: include winter leaves, flowers, acorns, pinecones, and evergreen vegetation so every tier has a distinct silhouette while still reading as cold-season plant collectibles.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the object only, fine warm cut edge plus thin locally darker ink edge. Use evergreen, holly red, ice blue, warm cream, straw gold, and small late-tier jewel tones. No glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly winter vegetation item per cell, in this row-major order:
+1. Frosted leaf bud: one icy folded leaf bud with two attached green leaves.
+2. Holly leaf and berry: one broad holly leaf with one attached red winter berry.
+3. Snowdrop flower: one drooping white snowdrop blossom with two attached leaves.
+4. Winter acorn: one frosted brown acorn with a leafy winter sprig attached.
+5. Snow-dusted pinecone: one chunky pinecone with broad pale snow caps attached to its scales.
+6. Mistletoe sprout: one pale green winter sprout with attached round white berry.
+7. Evergreen rosette: one compact radial evergreen rosette with one small gold center leaf.
+8. Frost fern leaf: one broad single icy fern or oak-like leaf, no berry.
+9. Winter rose flower: one red-and-pink winter flower with green leaves attached.
+10. Blue ice blossom: one layered blue winter flower bud with green leaf base.
+11. Golden winter acorn: one polished golden acorn with one frost-blue leaf attached.
+12. Aurora winter bloom: one premium multi-color winter flower with bold petal silhouette, no glow.
+
+Important constraints:
+- One connected object per cell only. Do not make twelve berry clusters. Avoid repeating similar red-berry silhouettes.
+- Keep details broad and attached. Avoid loose berries, detached leaves, tiny seeds, thin stems, hairline veins, labels, or anything crossing cell gutters.
+- Push premium tier through color contrast, gold material, and bolder silhouette, never through glow, sparkle, particles, or effects.
+
+Output only the image sheet. Do not add explanatory text in the image.

@@ -1,0 +1,44 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is a better Oasis Desert Fruits draft. Preserve its stronger silhouette variety and cut-paper art quality, but replace the crescent/cut-looking tier 10 with a whole sealed desert pod. Do not copy any cut fruit.
+- Image 2 is the accepted v2 Glowshroom style reference for spacing and cut-paper item-line quality.
+- Image 3 is mandatory Meadow Sky palette and Cut-Paper Playground material authority.
+- Image 4 is mandatory object simplicity/detail-budget authority.
+
+Primary request:
+Regenerate Oasis Desert Fruits with strong silhouette variety and NO cut fruit anywhere. Keep tier 4 as a good plump date. Avoid repeating the same round capped melon shape. Tier 10 must be a sealed whole carob-style pod, not a crescent melon, not a banana, not a slice, and not showing any interior.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the fruit only, fine warm cut edge plus thin locally darker ink edge. Use oasis greens, cactus coral, honeydew pale green, warm date amber, pomegranate coral, lime green, cream cut edges, and restrained reward-gold on late tiers. No glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly whole desert fruit item per cell, in this row-major order:
+1. Cactus fruit bud: coral fruit bud wrapped in thick attached green cactus bracts, tall bud silhouette.
+2. Prickly pear: one pear-shaped cactus fruit, green-to-coral blush, small broad scale marks, pear/teardrop silhouette.
+3. Dragon cactus fruit: one oval coral cactus fruit with broad attached green scale petals around the edge, not round and not berry-like.
+4. Plump date: one long warm amber-brown date fruit with simple vertical paper grooves and tiny attached cap; preserve the good date idea.
+5. Desert fig: one squat pear-shaped green fig with a short neck and pale coral blush, whole and closed.
+6. Oasis lime: one small round green citrus fruit with a single cream highlight and tiny attached leaf, the only simple round citrus.
+7. Barrel cactus melon: one squat ribbed barrel-shaped green fruit with flat top and vertical cardstock ribs, not spherical.
+8. Horned melon: one orange oval desert fruit with a few large attached rounded horn bumps, broad and safe to cut, whole fruit.
+9. Closed pomegranate: one coral-red pomegranate-like desert fruit with a chunky crown top, whole and not split.
+10. Sealed carob pod: one long dark amber-brown whole carob pod, gently curved capsule with rounded sealed ends and subtle rib lines; no exposed interior, no crescent shape, no banana shape, no slice.
+11. Star desert fruit: one thick rounded five-lobed star-shaped desert fruit in coral and straw-gold panels, whole and portable, not a star icon.
+12. Jeweled desert melon: one premium whole oval melon with distinct teal, honeydew, coral, and gold cut-paper panels and a central jewel-like attached panel; final can be ornate but still one connected whole fruit.
+
+Important constraints:
+- Whole intact desert fruit only. Absolutely no cut interiors, no slices, no crescent melon, no banana-like slice, no exposed flesh, no juice, no seeds spilling out, no bowls, baskets, jars, piles, vines, detached leaves, or acorn emblem.
+- Avoid berry-only language: no strawberry, blueberry, raspberry, blackberry, gooseberry, cloudberry, cranberry, grape clusters, or eggplant silhouettes.
+- Make every tier clearly different from the adjacent tiers: do not repeat the same round melon/calyx silhouette.
+
+Output only the image sheet. Do not add explanatory text in the image.

@@ -1,0 +1,44 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the previous Fairy Hollow Glowshroom v2 sheet: preserve its successful matte cut-paper rendering quality, 3x4 item-line spacing, broad silhouettes, and overall Fairy Hollow fantasy mushroom direction, but revise the tier list below.
+- Image 2 is mandatory Meadow Sky palette and Cut-Paper Playground material authority: use its palette relationships, matte cardstock treatment, warm cut edges, cream/ink neutral balance, muted meadow/sky tones, and restrained reward-gold / rare-purple accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 3 is mandatory world scale, object simplicity, shallow handcrafted detail-budget authority: use its broad low-detail silhouettes, friendly cut-paper material, and readable phone-size forms. Do not copy its farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Regenerate the Fairy Hollow Glowshroom line as a more varied fantasy mushroom set. Specific revisions from the previous sheet: tier 1 should be a spore rather than a full mushroom; tier 2 should be a half-grown mushroom; replace the cup fungus with a different mushroom-native silhouette; replace the last three premium tiers with new fantasy mushroom designs. Avoid string-like, thin, dangling, or thread mushrooms.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the objects only, fine warm cut edge plus thin locally darker ink edge. Use Meadow Sky contrast: cream stems, slate/teal shadow planes, muted meadow green, coral cap accents, soft straw/sun gold, rare purple accents. No universal white sticker outlines, no heavy black outlines, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark. The word glowshroom describes the fantasy identity only: DO NOT add actual glow effects, light halos, sparkles, or particles.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly fantasy mushroom item per cell, in this row-major order:
+1. Fairy spore: a single plump floating-looking spore seed body, like a rounded seed/puff capsule with a tiny attached cap ridge and subtle cream/coral paper layers; it is still one solid object, no dust, no particles, no loose spores.
+2. Half-grown mushroom: a squat young mushroom pushing upward, short cream stem with a small partially opened teal cap, like a bud halfway between spore and full cap; compact and broad, no thin parts.
+3. Starcap mushroom: rounded five-point star-shaped cap in soft straw-gold over a short cream stem; the star points are thick and attached, not sharp or thin.
+4. Mooncap mushroom: crescent-moon cap in muted sky blue sitting on a sturdy cream stem; one connected compact object.
+5. Suncap mushroom: round sun-disk cap with chunky attached rays in coral and cream, no glow, no particles.
+6. Spiral cap mushroom: a squat fantasy mushroom with a thick rounded spiral-shell-like cap in meadow green and cream, clearly mushroom-shaped, not a bowl or cup.
+7. Shelf mushroom: tiered bracket/shelf fungus with two broad teal-and-cream shelves attached to one single base.
+8. Trumpet mushroom: tall fantasy trumpet or horn-shaped mushroom in receding blue with cream inner lip, compact readable silhouette.
+9. Hooded purple mushroom: draped rare-purple hood cap with curled lower edge and teal stem, mysterious but simple.
+10. Comet-cap mushroom: premium mushroom with a broad coral-and-teal cap shaped like a rounded comet/leaf flame, thick attached form, warm gold rim accents, no acorn emblem.
+11. Crystal-cap mushroom: premium stout mushroom with chunky faceted cap panels in teal, purple, and cream, like cut-paper crystal facets but rounded and safe to cut, gold lower rim, no acorn emblem.
+12. Elder celestial glowshroom: strongest final fantasy mushroom with a deep purple dome cap, large warm-gold sun and moon cut-paper panels, and ONE subtle Grove acorn emblem integrated naturally into the central cap panel; the acorn is part of the mushroom design, not floating.
+
+Important constraints:
+- One connected object per cell only. No scenes, no furniture, no built-in architecture, no full environments, no bundles, no pots, no jars, no baskets, no bases, no grass, no moss clumps, no loose leaves, no loose spores, no detached symbols.
+- Keep details broad and attached. Avoid many tiny spots, tiny gills, hairline decorations, thin stems, string mushrooms, thread mushrooms, dangling strands, loose specks, dots, crumbs, or separated ornaments.
+- Only tier 12 should have an acorn emblem. Tiers 10 and 11 should feel premium through silhouette, cut-paper panels, and color contrast, not acorns.
+- Make the entire sheet readable at mobile board-item size, with each tier clearly a different mushroom kind.
+
+Output only the image sheet. Do not add explanatory text in the image.

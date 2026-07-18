@@ -1,0 +1,38 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Primary request:
+Regenerate Snowy Village Snow / Ice with clearer tier variety. The first item should be a very simple snowflake. Remove the extra second snowflake from the prior sheet. Remove the round snow cylinder from tier 4. Add winter objects such as an igloo and snow slide. Keep the line readable as a simple Snow / Ice merge progression with compact cutter-safe silhouettes.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the object only, fine warm cut edge plus thin locally darker ink edge. Use snow white, ice blue, pale sky blue, warm cream edge trim, and restrained late-tier rainbow accents. No glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly snow or ice item per cell, in this row-major order:
+1. Very simple snowflake: one broad six-arm snowflake, simple connected silhouette, no tiny needles.
+2. Snowball: one smooth rounded packed snowball with soft blue paper shading.
+3. Ice cube: one single clean ice cube, not paired with another cube.
+4. Snow rabbit: one compact rabbit-shaped snow sculpture with broad ears.
+5. Snow fox: one curled fox-shaped snow sculpture with a readable tail.
+6. Snow bear cub: one sitting bear-cub snow sculpture.
+7. Snow seal: one rounded seal-shaped snow sculpture.
+8. Igloo: one small igloo with block pattern and arched doorway.
+9. Ice lantern housing: one compact ice lantern casing with broad window shapes, no glow.
+10. Snow slide: one chunky packed-snow slide object.
+11. Snow cabin: one tiny snow-covered cabin or hut, connected and compact.
+12. Premium rainbow prism ice lantern: one faceted ice lantern with rainbow paper panels, no glow or detached effects.
+
+Important constraints:
+- One connected object per cell only. No duplicate snowflakes, no round snow cylinder, no birds, no tokens, no piles, no loose flakes, no detached icicles.
+- Keep details broad and attached. Avoid thin strings, tiny repeated specks, hairline cracks, crumbs, labels, or anything crossing cell gutters.
+- Push premium tier through richer material and bolder silhouette, never through glow, sparkle, particles, or effects.
+
+Output only the image sheet. Do not add explanatory text in the image.

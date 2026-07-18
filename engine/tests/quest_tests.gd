@@ -50,27 +50,28 @@ func _initialize() -> void:
 		if G.line_exp_mult(int(bases[i])) < G.line_exp_mult(int(bases[i - 1])):
 			mult_rising = false
 	ok(mult_rising, "line_exp_mult rises monotonically along the base-line rank")
-	ok(is_equal_approx(G.line_exp_mult(71), 1.0), "a special/merger line has no rank multiplier (1.0 — it derives its reward from its sources)")
+	ok(is_equal_approx(G.line_exp_mult(5), 1.0), "a special/merger line has no rank multiplier (1.0 — it derives its reward from its sources)")
 	# a base line: a later line pays MORE than the first at the same tier (the ramp rides the progression slice)
 	ok(int(G.quest_reward_for_line(first_base, 8, 0).coins) == int(G.quest_reward(8, 0).coins), "the first base line's t8 coins are unchanged from the flat reward")
 	ok(int(G.quest_reward_for_line(last_base, 8, 0).coins) > int(G.quest_reward_for_line(first_base, 8, 0).coins), "a later base line pays more t8 coins than the first (per-line ramp)")
-	# a merger line (71): coins == FACTOR × the two recipe sources' combined coins, and it beats a base ask
-	var z71 := G.zone_of_line(71)
-	var srcs71: Array = G.zone_recipe(z71)
-	ok(srcs71.size() == 2, "the special line 71 resolves to two recipe source lines")
-	var s0 := int(srcs71[0])
-	var s1 := int(srcs71[1])
+	# a merger line (5, winter berries = wild berries + snow): coins == FACTOR × the two recipe
+	# sources' combined coins, and it beats a base ask
+	var z5 := G.zone_of_line(5)
+	var srcs5: Array = G.zone_recipe(z5)
+	ok(srcs5.size() == 2, "the special line 5 resolves to two recipe source lines")
+	var s0 := int(srcs5[0])
+	var s1 := int(srcs5[1])
 	var sr0 := G.quest_reward_for_line(s0, 8, G.zone_map(G.zone_of_line(s0)))
 	var sr1 := G.quest_reward_for_line(s1, 8, G.zone_map(G.zone_of_line(s1)))
 	var coin_expected := maxi(1, int(round(float(G.QUEST_MERGE_REWARD_FACTOR) * (float(sr0.coins) + float(sr1.coins)))))
-	var m71 := G.quest_reward_for_line(71, 8, 0)
-	ok(int(m71.coins) == coin_expected, "a merger quest's coins = round(FACTOR × combined source coins) = %d" % coin_expected)
-	ok(int(m71.coins) > int(G.quest_reward(8, 0).coins), "a merger quest pays MORE than a base quest of the same tier")
+	var m5 := G.quest_reward_for_line(5, 8, 0)
+	ok(int(m5.coins) == coin_expected, "a merger quest's coins = round(FACTOR × combined source coins) = %d" % coin_expected)
+	ok(int(m5.coins) > int(G.quest_reward(8, 0).coins), "a merger quest pays MORE than a base quest of the same tier")
 	# gen_quest wires the line-aware reward: a single-line pool always asks that line and pays its line-aware coins
 	var rngm := RandomNumberGenerator.new(); rngm.seed = 77
-	var qm := G.gen_quest(20, [71], rngm)
+	var qm := G.gen_quest(20, [5], rngm)
 	var qm_base := int(qm.reward.coins) - (G.QUEST_FEATURED_COIN_BONUS if bool(qm.featured) else 0)
-	ok(int(qm.line) == 71 and int(G.quest_reward_for_line(71, int(qm.tier), 0).coins) == qm_base, "gen_quest pays a merger line its line-aware coins")
+	ok(int(qm.line) == 5 and int(G.quest_reward_for_line(5, int(qm.tier), 0).coins) == qm_base, "gen_quest pays a merger line its line-aware coins")
 	var rngb := RandomNumberGenerator.new(); rngb.seed = 77
 	var qb := G.gen_quest(20, [first_base], rngb)
 	var qb_base := int(qb.reward.coins) - (G.QUEST_FEATURED_COIN_BONUS if bool(qb.featured) else 0)
@@ -152,9 +153,13 @@ func _initialize() -> void:
 	ok(Quests.due_gen([], ["gen_1"]) == "", "anchor owned + no quest asking → nothing due (progression alone grants no tool)")
 	ok(Quests.due_gen([{"line": 2, "tier": 1}], ["gen_1"]) == "gen_2", "a quest asking line 2 makes its generator due")
 	ok(Quests.due_gen([{"line": 2, "tier": 1}], ["gen_1", "gen_2"]) == "", "nothing due once the asked line's generator is owned")
-	# a SPECIAL quest (71 = merge of base lines 1+2) pulls its missing INGREDIENT generator
-	ok(Quests.due_gen([{"line": 71, "tier": 1}], ["gen_1"]) == "gen_2", "a special quest births its missing ingredient generator")
-	ok(Quests.due_gen([{"line": 71, "tier": 1}], ["gen_1", "gen_2"]) == "", "a special quest is satisfied once both ingredient generators are owned")
+	# a SPECIAL quest (5 = winter berries, merge of lines 2+3) pulls its missing INGREDIENT generator
+	ok(Quests.due_gen([{"line": 5, "tier": 1}], ["gen_1"]) == "gen_2", "a special quest births its missing ingredient generator")
+	ok(Quests.due_gen([{"line": 5, "tier": 1}], ["gen_1", "gen_2"]) == "gen_3", "a special quest then births its second ingredient generator")
+	ok(Quests.due_gen([{"line": 5, "tier": 1}], ["gen_1", "gen_2", "gen_3"]) == "", "a special quest is satisfied once both ingredient generators are owned")
+	# the DEEPEST craft: tea cups (19) ← spices (8, itself a special) + wild berries — the generator
+	# resolution recurses to the BASE gens (wild berries gen_2 + woolens gen_4).
+	ok(Quests.due_gen([{"line": 19, "tier": 1}], ["gen_1", "gen_2"]) == "gen_4", "a special-of-a-special quest recurses to its missing BASE generator")
 
 	# --- economy ceiling + sell economy (Option A: no premium-sell pinnacle, every tier → coins) ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")

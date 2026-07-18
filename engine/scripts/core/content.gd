@@ -198,29 +198,25 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 static func pop_line_cap(map: int) -> int:
 	return POP_LINE_CAP_Z1 if map <= 0 else POP_LINE_CAP
 
-# --- §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model -----------------------------
-# The world is a run of ZONES (each = a restoration spot). Rhythm base · base · special: zone z (0-based)
-# with z%3 in {0,1} introduces a BASE line (its own generator); z%3==2 is a SPECIAL line crafted by merging
-# the two preceding base lines (no generator). Built ADDITIVELY — the board still runs the legacy roster
-# until the wiring flips. Pure derivation off ZONE_BASE_LINES / ZONE_SPECIAL_LINES.
+# --- §6 ZONE PROGRESSION — the picture-book per-line model (data-driven) -------------------------------
+# The world is a run of ZONES, one row per zone in D.ZONES (play order). A row with a `recipe`
+# introduces a SPECIAL line — crafted by merging its two ingredient lines at the same tier (no
+# generator); an ingredient may itself be a special (tea_cup ← spices — the deepest v1 craft). The
+# old every-3rd-zone formula is retired: special placement and recipes are arbitrary data now.
 static func zone_is_special(z: int) -> bool:
-	return z >= 0 and z % 3 == 2
+	return z >= 0 and z < ZONE_COUNT and (D.ZONES[z] as Dictionary).has("recipe")
 
-# The line a zone introduces (a base line, or a special line on every 3rd zone). 0 if out of range.
+# The line a zone introduces. 0 if out of range.
 static func zone_line(z: int) -> int:
 	if z < 0 or z >= ZONE_COUNT:
 		return 0
-	if zone_is_special(z):
-		var si := z / 3
-		return int(ZONE_SPECIAL_LINES[si]) if si < ZONE_SPECIAL_LINES.size() else 0
-	var bi := z - (z / 3)   # base lines skip the every-3rd special zones
-	return int(ZONE_BASE_LINES[bi]) if bi < ZONE_BASE_LINES.size() else 0
+	return int((D.ZONES[z] as Dictionary).get("line", 0))
 
-# The two base lines a special zone is crafted from (its two preceding base zones); [] for a base zone.
+# The two ingredient lines a special zone is crafted from; [] for a base zone.
 static func zone_recipe(z: int) -> Array:
 	if not zone_is_special(z):
 		return []
-	return [zone_line(z - 2), zone_line(z - 1)]
+	return (D.ZONES[z] as Dictionary).get("recipe", [])
 
 # LINE-keyed recipe: the two ingredient base lines a MERGED (special) line is crafted from; [] for a base
 # line or an unknown line. The tier screen's recipe view uses this (zone_recipe is zone-keyed).
@@ -247,12 +243,14 @@ static func gens_for_quest_line(line: int) -> Array:
 	var gid := gen_for_line(int(line))
 	if gid != "":
 		return [gid]
+	# a special resolves RECURSIVELY: an ingredient may itself be a special with no generator
+	# (tea_cup ← spices ← wild berries + woolens), so walk down to the base generators.
 	var z := zone_of_line(int(line))
 	var out: Array = []
 	for il in (zone_recipe(z) if z >= 0 else []):
-		var ig := gen_for_line(int(il))
-		if ig != "" and not out.has(ig):
-			out.append(ig)
+		for ig in gens_for_quest_line(int(il)):
+			if not out.has(ig):
+				out.append(ig)
 	return out
 
 # Trim the askable quest-line pool so the active quests can never DEMAND more than QUEST_GEN_CAP distinct
@@ -323,6 +321,9 @@ static func base_generators() -> Array:
 # ingredients keeps every special quest PRODUCIBLE (no-strand) and lets cap_quest_lines fold its shared
 # generators into the footprint cap (a special adds no generator the base asks didn't already need).
 static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
+	# Walk the zones in order, growing the AVAILABLE set: an ingredient is satisfied by a live base
+	# line OR an already-active special (tea_cup ← spices — a special-of-a-special is fine as long
+	# as the chain below it is live). LINES.has gate (safety): a def-less special stays DORMANT.
 	var out: Array = []
 	for z in range(ZONE_COUNT):
 		if not zone_is_special(z):
@@ -330,9 +331,13 @@ static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
 		if z > current_zone:
 			break                                  # zones are reached in order — nothing past current_zone yet
 		var r := zone_recipe(z)
-		# LINES.has gate (safety): a special with no LINES def stays DORMANT (never asked) so a quest card always
-		# has a piece to render. All 8 specials are authored now; this guards any future def-less special.
-		if r.size() == 2 and base_lines.has(int(r[0])) and base_lines.has(int(r[1])) and LINES.has(zone_line(z)):
+		if r.size() != 2 or not LINES.has(zone_line(z)):
+			continue
+		var ok := true
+		for ing in r:
+			if not (base_lines.has(int(ing)) or out.has(int(ing))):
+				ok = false
+		if ok:
 			out.append(zone_line(z))
 	return out
 
@@ -996,7 +1001,10 @@ static func is_valid_item_code(code: int) -> bool:
 # treated as gone: its saved pieces + discovery prune on load, and a re-authored line is kept again.
 # (Distinct from gen_live_lines, which is the progress-gated set of UNLOCKED generator lines.)
 static func line_is_producible(line: int) -> bool:
-	return gen_for_line(line) != "" or recipe_lines(line).size() == 2
+	# a base line with a generator · a craftable special · or a §6.D TREAT line (produced by the
+	# fleeting treat generator — treats left the zone roster in the picture-book redesign, so they
+	# must count here explicitly or every saved treat item would prune on load).
+	return gen_for_line(line) != "" or recipe_lines(line).size() == 2 or TREAT_LINES.has(int(line))
 
 static func item_display_name(code: int) -> String:
 	var line := int(code / 100.0)

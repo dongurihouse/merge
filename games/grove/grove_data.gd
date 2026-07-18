@@ -18,62 +18,35 @@ const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled
 # The §6.E `min_level` field on the Farm lines (61-66) is now VESTIGIAL — those lines aren't in the per-line
 # roster (shelved); the staged-line model is retired.
 const LINES := {
-	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3"), "desc": "Merge wildflowers to restore the first garden paths."},     # map 1 — Farmhouse
-	2: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0"), "desc": "Soft coop finds for orchard-side asks."},       # map 2 — Barn
-	3: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B"), "desc": "Useful tools for clearing and tending the garden."},    # map 3 — Pond
-	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C"), "desc": "Sweet hive goods for mill-side requests."},           # map 4 — Orchard
-	5: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B"), "desc": "Gate mushrooms with a hint of old magic."},     # map 5 — Meadow
-	# §6.E additional per-map content lines (hooked up from assets/_new). Codes are non-contiguous (clear of
-	# the 1-5 anchors, 9 coin, 10-14 special items); map assignment is via the GENERATORS roster below.
-	# Colors are the code-drawn FALLBACK only — every tier ships art at items/<base>/<base>_<tier>.png.
-	# map idx 1 — The Orchard (barn)
-	21: {"name": "Orchard fruits", "base": "orchard_fruits", "color": Color("#D9534F"), "desc": "Fruit harvests that grow richer as the orchard wakes."},
-	22: {"name": "Orchard tools", "base": "orchard_tools", "color": Color("#8A6D3B"), "desc": "Handy tools for repairing orchard corners."},
-	23: {"name": "Orchard seeds", "base": "orchard_seeds", "color": Color("#C9A66B"), "desc": "Seeds for new orchard growth. Merge for bigger asks."},
-	24: {"name": "Scarecrows", "base": "orchard_scarecrows", "color": Color("#C8A24A"), "desc": "Cheerful field guardians that become more complete with each merge."},
-	# map idx 2 — The Garden (pond)
-	31: {"name": "Juice", "base": "garden_juice", "color": Color("#C76B98"), "desc": "Sweet garden drinks for picnic-ready asks."},
-	32: {"name": "Kites", "base": "garden_kites", "color": Color("#4FB0D9"), "desc": "Breezy toys from the garden air."},
-	33: {"name": "Stones", "base": "garden_stones", "color": Color("#9AA0A6"), "desc": "Smooth stones for paths and borders."},
-	34: {"name": "Mossy trinkets", "base": "garden_mossy_trinkets", "color": Color("#6B9C5A"), "desc": "Small moss-touched treasures from quiet corners."},
-	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9"), "desc": "Charms that carry the feel of gentle rain."},
-	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9"), "desc": "Friendly garden birds. Merge pairs into rarer visitors."},
-	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B"), "desc": "Tiny garden friends for lively restoration asks."},
-	38: {"name": "Vegetables", "base": "garden_vegetables", "color": Color("#6BA84F"), "desc": "Garden harvests that become heartier with each merge."},
-	# map idx 3 — The Mill (orchard)
-	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6"), "desc": "Brook fish that merge into rarer catches."},
-	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B"), "desc": "Little mill visitors. Pair them into more helpful friends."},
-	43: {"name": "Water plants", "base": "mill_water_plants", "color": Color("#5FA66B"), "desc": "Brookside plants for restoring damp, green places."},
-	44: {"name": "Gears", "base": "mill_gears", "color": Color("#8A8F94"), "desc": "Mill parts that repair more complex mechanisms."},
-	# map idx 4 — The Gate (meadow)
-	51: {"name": "Glowcaps", "base": "gate_glowcaps", "color": Color("#6BC9A6"), "desc": "Soft-lit mushrooms from near the Vale Gate."},
-	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F"), "desc": "Little ringing tokens for gate rituals and asks."},
-	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F"), "desc": "Old gate pieces. Merge them toward a restored arch."},
-	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9"), "desc": "Pebbles marked with starlight. Higher tiers feel rare."},
-	# map idx 0 — The Farm (farmhouse). Lines 61-66 are SHELVED (gen redesign 2026-06-28): they have NO
-	# generator in the roster, so they are never popped, asked, or seeded — `min_level` here is vestigial
-	# (see the LINES header). Kept as defs only (art still ships) pending a possible re-author. The Farm's
-	# live content is the Wildflower anchor (line 1) plus the per-zone base lines 2-4.
-	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F"), "min_level": 1, "desc": "Warm little coals for early quests around the farmhouse."},
-	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A"), "min_level": 2, "desc": "Fresh herbs for cozy kitchen asks."},
-	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9"), "min_level": 3, "desc": "Clear water from the old well. Merge into stronger supplies."},
-	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A"), "min_level": 4, "desc": "Pantry goods for hungry helpers around the grove."},
-	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B"), "min_level": 5, "desc": "Bundled deliveries from the porch. Merge to unpack better goods."},
-	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3"), "min_level": 6, "desc": "Bright boxes that help the farmhouse bloom again."},
-	# §6.G special "treasure" lines (#14) — CRAFTED by merging two base lines at the same tier; the recipe is
-	# derived from the zone model (active_special_lines / special_for_pair). 12 tiers each. 71-75 use bespoke
-	# special_* fruit art; 76-78 reuse SPARE base-line art (a special is just a LINES entry whose id is in
-	# ZONE_SPECIAL_LINES — any art works). (The old treat-generator emission path is shelved.)
+	# --- THE PICTURE-BOOK ROSTER (12 lines; docs/design/picturebook_lines_recipes.md) -----------
+	# 8 BASE lines (own generator, introduced in zone order) + 4 SPECIALS (crafted by merging two
+	# ingredient lines at the same tier — Core §6.G; recipes live in ZONES below, and may name
+	# another special as an ingredient: tea_cup ← spices+wild berries, the deepest v1 craft).
+	# Codes skip 9 (COIN_LINE) and 10-15 (SPECIAL_ITEMS drops); specials sit at 5/8/17/19 so each
+	# page reads contiguously. Art: items/<base>/<base>_<tier>.png (v2 cut-paper, sliced 2026-07-17).
+	# P1 Fairy Hollow
+	1: {"name": "Glow-mushrooms", "base": "fairy_hollow_glowshroom", "color": Color("#E387C9"), "desc": "Softly glowing caps from the hollow. The forest's first light."},
+	2: {"name": "Wild Berries", "base": "fairy_hollow_wild_berries", "color": Color("#8C5BA8"), "desc": "Sweet dark berries from the bramble shade."},
+	# P2 Snowy Village
+	3: {"name": "Snow & Ice", "base": "snowy_village_snow_ice", "color": Color("#BFE6F2"), "desc": "Snowballs and carved ice, colder and grander each merge."},
+	4: {"name": "Woolens", "base": "snowy_village_woolens", "color": Color("#D9776B"), "desc": "Knits and warmers for the village winter."},
+	5: {"name": "Winter Berries", "base": "snowy_village_winter_berries", "color": Color("#B33A4D"), "desc": "Frost-kissed sprigs. Crafted from wild berries and snow."},
+	# P3 Desert Oasis
+	6: {"name": "Desert Fruits", "base": "oasis_desert_fruits", "color": Color("#E3B23C"), "desc": "Sun-baked harvests from the oasis palms."},
+	7: {"name": "Sand Sculptures", "base": "oasis_sand_sculptures", "color": Color("#D9C08B"), "desc": "Shaped sand, from castle to monument."},
+	8: {"name": "Spices", "base": "oasis_spices", "color": Color("#C96A3F"), "desc": "Fragrant market blends. Crafted from wild berries and woolens."},
+	# P4 Coral Reef
+	16: {"name": "Shells", "base": "coral_reef_shells", "color": Color("#E8D0B0"), "desc": "Tide-turned shells in every spiral and hue."},
+	17: {"name": "Corals", "base": "coral_reef_corals", "color": Color("#E08A7A"), "desc": "Living reef sculptures. Crafted from sand and snow."},
+	# P5 Cherry-Blossom Garden
+	18: {"name": "Koi", "base": "cherry_blossom_koi", "color": Color("#E06A50"), "desc": "Garden koi, calm and bright, rarer with each merge."},
+	19: {"name": "Tea Cups", "base": "cherry_blossom_tea_cups", "color": Color("#8FB4D9"), "desc": "A collector's tea service. Crafted from spices and wild berries."},
+	# §6.D premium TREAT lines (unchanged — the fleeting treat-generator drops, NOT zone content).
 	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F"), "desc": "A special harvest treasure. Merge high, then sell for coins."},
 	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A"), "desc": "A rare golden treat line. Merge for better treasure value."},
 	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F"), "desc": "A glossy treasure fruit. Higher tiers are worth saving."},
 	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F"), "desc": "A bright treasure fruit for coin value."},
 	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B"), "desc": "A sweet special melon. Merge it before selling."},
-	# 76-78 (#14, 25-zone roster): the late-game specials (maps 3-4) reuse SPARE base-line art — mechanically
-	# identical to 71-75, crafted from their two ingredient lines (recipe derived from the zone model).
-	76: {"name": "Brass cogs", "base": "mill_gears", "color": Color("#B5803A"), "desc": "A mill-forged treasure. Merge high, then sell for coins."},
-	77: {"name": "Starstones", "base": "gate_star_pebbles", "color": Color("#8C7BC4"), "desc": "A pocketful of starstones. Merge for better treasure value."},
-	78: {"name": "Golden bells", "base": "gate_bells", "color": Color("#E3C84A"), "desc": "Golden gate bells. Merge high, then sell for coins."},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -88,28 +61,19 @@ const LINES := {
 # the icon repaint is PARKED; the intended replacements are gen_honeycomb (Honey) and gen_porcini
 # (Mushroom), kept in items/generator/. Tool-shed (Garden tools) has no themed icon yet.
 const GENERATORS := [
-	# Gen redesign 2026-06-28: ONE generator per BASE line (Core §6.A), born on tap as its zone (= restoration
-	# spot) opens (§6.B). The 17 base lines in zone order; `zone` = global spot index, `map` = its painted map
-	# (which MUST equal G.zone_map(zone) = the live MAPS layout — a mechanics_tests guard pins it; can't drift).
-	# Specials (every 3rd zone) have NO generator (crafted, §6.G). The legacy 5-multi-line roster + map/lines[]
-	# model is RETIRED. Each generator carries `line` (singular) + `zone`; `lines` arrays are gone.
-	{"id": "gen_1",  "line": 1,  "zone": 0,  "map": 0, "cell": Vector2i(4, 3), "anchor": true, "tex": "items/generator/generators_1.png",  "label": "wildflower"},
-	{"id": "gen_2",  "line": 2,  "zone": 1,  "map": 0, "tex": "items/generator/generators_2.png",  "label": "feather"},
-	{"id": "gen_3",  "line": 3,  "zone": 3,  "map": 0, "tex": "items/generator/generators_3.png",  "label": "garden tools"},
-	{"id": "gen_4",  "line": 4,  "zone": 4,  "map": 0, "tex": "items/generator/generators_4.png",  "label": "honey"},
-	{"id": "gen_5",  "line": 5,  "zone": 6,  "map": 1, "tex": "items/generator/generators_5.png",  "label": "mushroom"},
-	{"id": "gen_21", "line": 21, "zone": 7,  "map": 1, "tex": "items/generator/generators_6.png",  "label": "orchard fruits"},
-	{"id": "gen_22", "line": 22, "zone": 9,  "map": 1, "tex": "items/generator/generators_7.png",  "label": "orchard tools"},
-	{"id": "gen_23", "line": 23, "zone": 10, "map": 2, "tex": "items/generator/generators_8.png",  "label": "orchard seeds"},
-	{"id": "gen_24", "line": 24, "zone": 12, "map": 2, "tex": "items/generator/generators_9.png",  "label": "scarecrows"},
-	{"id": "gen_31", "line": 31, "zone": 13, "map": 2, "tex": "items/generator/generators_10.png", "label": "juice"},
-	{"id": "gen_32", "line": 32, "zone": 15, "map": 2, "tex": "items/generator/generators_11.png", "label": "kites"},
-	{"id": "gen_33", "line": 33, "zone": 16, "map": 2, "tex": "items/generator/generators_12.png", "label": "stones"},
-	{"id": "gen_34", "line": 34, "zone": 18, "map": 3, "tex": "items/generator/generators_13.png", "label": "mossy trinkets"},
-	{"id": "gen_35", "line": 35, "zone": 19, "map": 3, "tex": "items/generator/generators_14.png", "label": "rain charms"},
-	{"id": "gen_36", "line": 36, "zone": 21, "map": 4, "tex": "items/generator/generators_15.png", "label": "birds"},
-	{"id": "gen_37", "line": 37, "zone": 22, "map": 4, "tex": "items/generator/generators_16.png", "label": "small critters"},
-	{"id": "gen_51", "line": 51, "zone": 24, "map": 4, "tex": "items/generator/generators_17.png", "label": "glowcaps"},
+	# ONE generator per BASE line (Core §6.A), born on tap as its zone opens (§6.B). 8 base lines in
+	# zone order; `zone` = zone index, `map` = its page BAND (must equal G.zone_map(zone) — the
+	# mechanics_tests guard pins it). Specials (ZONES rows with a recipe) have NO generator (crafted).
+	# ICON NOTE — the per-line generator icon repaint for the picture-book roster is PARKED; slots
+	# reuse the existing generators_N.png icons until the new set lands.
+	{"id": "gen_1",  "line": 1,  "zone": 0,  "map": 0, "cell": Vector2i(4, 3), "anchor": true, "tex": "items/generator/generators_1.png",  "label": "glow-mushrooms"},
+	{"id": "gen_2",  "line": 2,  "zone": 1,  "map": 0, "tex": "items/generator/generators_2.png",  "label": "wild berries"},
+	{"id": "gen_3",  "line": 3,  "zone": 2,  "map": 1, "tex": "items/generator/generators_3.png",  "label": "snow & ice"},
+	{"id": "gen_4",  "line": 4,  "zone": 3,  "map": 1, "tex": "items/generator/generators_4.png",  "label": "woolens"},
+	{"id": "gen_6",  "line": 6,  "zone": 5,  "map": 2, "tex": "items/generator/generators_5.png",  "label": "desert fruits"},
+	{"id": "gen_7",  "line": 7,  "zone": 6,  "map": 2, "tex": "items/generator/generators_6.png",  "label": "sand sculptures"},
+	{"id": "gen_16", "line": 16, "zone": 8,  "map": 3, "tex": "items/generator/generators_7.png",  "label": "shells"},
+	{"id": "gen_18", "line": 18, "zone": 10, "map": 4, "tex": "items/generator/generators_8.png",  "label": "koi"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
@@ -153,13 +117,30 @@ const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board h
 # (every 3rd zone) is crafted by merging the two base lines just before it (no generator). Base lines are
 # popped one-per-generator; specials have no generator (Core §6.A/G). Built ADDITIVELY alongside the legacy
 # map/`lines[]` roster — the board wiring flips to it in a later step. OWNER/content dials.
-const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37, 51]   # 17 base lines, in zone order (51 = Glowcaps, the map-5 base)
-const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77, 78]   # 8 special lines (71-75 = shelved treat art; 76-78 to author)
-const ZONE_COUNT := 25                    # 17 base + 8 special zones (the [6,4,7,4,4] banding below)
-# The frozen per-BAND zone counts (the retired 5-map world's spot layout). Pure banding for the
-# per-band coin/sell curves (QUEST_CLICKS_PER_COIN / SELL_MAP_BAND) — G.zone_map derives from THIS,
-# never from map data (coin-clock redesign: the content arc gates on level alone).
-const ZONE_BAND := [6, 4, 7, 4, 4]
+# §6 THE ZONE TABLE (picture-book roster) — data-driven, replacing the old every-3rd-zone formula:
+# one row per zone in play order; a row with a `recipe` introduces a SPECIAL (crafted by merging its
+# two ingredient lines at the same tier; an ingredient may itself be a special — tea_cup ← spices).
+# Pages band the zones via ZONE_BAND below.
+const ZONES := [
+	{"line": 1},                            # z0  P1 glow-mushrooms (anchor)
+	{"line": 2},                            # z1  P1 wild berries
+	{"line": 3},                            # z2  P2 snow & ice
+	{"line": 4},                            # z3  P2 woolens
+	{"line": 5, "recipe": [2, 3]},          # z4  P2 winter berries = wild berries + snow
+	{"line": 6},                            # z5  P3 desert fruits
+	{"line": 7},                            # z6  P3 sand sculptures
+	{"line": 8, "recipe": [2, 4]},          # z7  P3 spices = wild berries + woolens
+	{"line": 16},                           # z8  P4 shells
+	{"line": 17, "recipe": [7, 3]},         # z9  P4 corals = sand + snow
+	{"line": 18},                           # z10 P5 koi
+	{"line": 19, "recipe": [8, 2]},         # z11 P5 tea cups = spices + wild berries (2-level craft)
+]
+const ZONE_BASE_LINES := [1, 2, 3, 4, 6, 7, 16, 18]   # the 8 base lines, in zone order (derived view of ZONES)
+const ZONE_SPECIAL_LINES := [5, 8, 17, 19]            # the 4 crafted specials (rows of ZONES with a recipe)
+const ZONE_COUNT := 12                    # 8 base + 4 special zones (the [2,3,3,2,2] banding below)
+# Per-PAGE zone counts (P1 Fairy Hollow -> P5 Cherry-Blossom). Pure banding for the per-band
+# coin/sell curves (QUEST_CLICKS_PER_COIN / SELL_MAP_BAND) — G.zone_map derives from THIS.
+const ZONE_BAND := [2, 3, 3, 2, 2]
 # (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
 # so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
@@ -187,7 +168,7 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
 #   merger (special line): QUEST_MERGE_REWARD_FACTOR × its two recipe sources' COMBINED exp & coins (no reward of its own)
 #   acorns= NONE — acorns are milestone/IAP only (the t8-sell pinnacle was removed; 1 acorn = COINS_PER_ACORN coins).
 const QUEST_CLICKS_PER_EXP := 7           # 1 exp (★) ≈ 7 clicks of effort at the FIRST line (rank 0); later lines ramp up (owner anchor)
-const QUEST_CLICKS_PER_COIN := [8, 7, 6, 5, 4]   # clicks-per-coin per map (Farmhouse→Meadow); later maps pay more coins/click
+const QUEST_CLICKS_PER_COIN := [8, 7, 6, 5, 4]   # clicks-per-coin per page band (Fairy→Cherry); later pages pay more coins/click
 const QUEST_COIN_DEPTH := 1.05            # per-tier coin multiplier — a deep merge's click is worth ~1.5× a shallow one across the band
 const QUEST_EXP_LINE_SPREAD := 2.0        # per-line EXP ramp: the LAST base line pays this × the FIRST line's exp at the same tier (linear by ZONE_BASE_LINES rank). EXP only — coins keep their per-map curve.
 const QUEST_MERGE_REWARD_FACTOR := 1.2    # a merger/special-line quest pays this × its two source lines' COMBINED reward (exp AND coins) — it has no generator/base reward of its own.
@@ -283,7 +264,7 @@ const STARTER_ITEMS := {
 # Monotonic by construction. Map 1 == 1.0 keeps the FTUE-era sell proofs exact. OWNER/SIM FEEL
 # DIAL — re-tune across the arc (grove_spec §5); the engine reads it via G.SELL_MAP_BAND in
 # content.sell_reward(). One entry per MAPS row.
-const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Farmhouse · Barn · Pond · Orchard · Meadow
+const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Fairy Hollow · Snowy · Oasis · Reef · Cherry-Blossom
 
 # What BUYING a copy of an item (the §10 board info-bar buy, T55) costs RELATIVE to its sell value:
 # buy_price = ceil(sell_reward × BUY_MARKUP), in the same currency split (coins sub-top, 💎 top). Must

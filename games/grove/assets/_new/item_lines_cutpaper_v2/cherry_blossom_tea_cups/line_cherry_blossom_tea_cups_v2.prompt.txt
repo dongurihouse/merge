@@ -1,0 +1,41 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted Fairy Hollow Glowshroom v3 sheet: use it only as the local accepted v2 item-line style reference for matte hand-cut cardstock rendering, broad low-detail silhouettes, warm cut edges, crisp continuous outlines, exact 3x4 item-line spacing, generous magenta gutters, and board-readable detail budget. Do not copy mushrooms or mushroom content.
+- Image 2 is the Oasis Spices v2 sheet: use it only for warm spice-gold, amber, coral, and late-tier premium accent language. Do not copy spice objects, star-anise shapes, tokens, acorn medallions, or knots.
+- Image 3 is the Fairy Hollow Wild Berries v3 sheet: use it only for playful coral/green/teal cut-paper color relationships and attached motif construction. Do not copy fruits, leaves, calyxes, melons, berries, or vines.
+- Image 4 is mandatory Meadow Sky palette and Cut-Paper Playground material authority: use its palette relationships, matte cardstock treatment, cream/ink neutral balance, muted meadow/sky tones, coral accents, soft straw-gold, teal/slate contrast, and restrained rare-purple accents. Do not copy UI, board layout, labels, icons, or composition.
+- Image 5 is mandatory world scale, object simplicity, and shallow handcrafted detail-budget authority: use broad low-detail silhouettes, friendly cut-paper material, and readable phone-size forms. Do not copy farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Generate Cherry-Blossom line 12: Tea Cups in the v2 Meadow Sky + Cut-Paper Playground Grove item-line style. Make the line visually informed by Oasis spice-gold warmth and Fairy fruit coral/green accents, but every tier must be a clean compact cup object first.
+
+Canvas/layout: exact 1024x1536 PNG, portrait sheet, 3 columns x 4 rows, exactly 12 invisible equal cells, row-major order from top-left to bottom-right, generous magenta gutters, no visible grid, no borders, no labels.
+Background: perfectly flat solid #FF00FF only, uniform to every edge. No background texture, no gradients, no shadows, no grounding, no reflections.
+
+Style/medium: cozy production 2D game icon sheet, matte hand-cut cardstock ceramic icons, cream ceramic body, broad rounded low-detail silhouettes, warm paper cut edges, thin locally darker ink edge, clean board-readable color blocking, subtle paper-fiber value variation inside objects only. Do not make pixel art. No glossy plastic, no porcelain shine, no photorealism, no watercolor, no clay, no 3D render, no universal white sticker outline.
+
+Color palette: cream ceramic, coral cherry-blossom accents, muted meadow green only for small attached leaf motifs, teal/slate rims and shadow planes, soft spice gold on late tiers, rare purple only on tier 9 and subtle final accents, rainbow festival panels only on tier 12.
+
+Sizing: each cup centered and fully contained in its cell, same visual footprint and similar scale across all 12 tiers. Early tiers simpler but not smaller. Leave clean magenta margin on all four sides of every cell. No cropped edges.
+
+Create exactly one connected clean cutout-friendly cup object per cell, in this row-major order:
+1. Plain cream cup: one simple handleless cream ceramic teacup, rounded bowl-like cup silhouette with thick lip, no saucer, no liquid, no steam.
+2. Small round tea cup: one compact round cream teacup with a small attached handle, squat friendly silhouette, no saucer, no liquid, no steam.
+3. Blue-rim cup: one cream teacup with a thick attached teal-slate rim and matching base ring, single connected cup only.
+4. Coral blossom cup: one cream cup with one broad attached coral cherry-blossom motif painted/inlaid on the cup wall; petals are large and connected to the cup surface, no detached flowers.
+5. Cup with leaf motif: one cream cup with a simple attached muted-green leaf motif painted/inlaid on the body and a teal rim; leaves are broad and connected to the cup surface, no detached leaves.
+6. Lidded tea cup: one cream cup with a snug attached domed lid, teal rim, small thick knob, all one connected silhouette, no steam.
+7. Cup with attached saucer: one cream teacup physically fused to a compact matching saucer as one connected low oval base; same overall footprint, no separate plate, no spoon.
+8. Spice-gold cup: one warm spice-gold ceramic cup with cream rim and coral accent band, no acorn emblem, no medallion, no separate ornament.
+9. Rare purple tea cup: one cream-and-rare-purple cup with teal/slate rim and one broad coral blossom panel, elegant but simple, no glow.
+10. Gold-trim blossom cup: one cream cup with soft gold trim and one large central coral blossom motif replacing other decoration, motif attached to the cup body, no acorn emblem.
+11. Jade-cream ceremonial cup: one jade-and-cream ceremonial cup with broad teal/slate rim, warm gold edge panels, balanced compact silhouette, no detached ornament.
+12. Premium rainbow festival tea cup: strongest final tier, one cream ceramic festival cup with large attached rainbow cardstock panels in coral, straw gold, meadow green, teal blue, and rare purple, plus a clean gold rim; no acorn emblem unless it naturally reads as a single tiny inlaid mark on the cup front, but prefer no acorn emblem.
+
+Hard cutter constraints: one connected object per cell only. No scenes, no furniture, no full environments, no multiple cups, no tea sets, no piles, no bundles, no trays, no spoons, no loose blossoms, no detached flowers, no detached leaves, no loose petals, no saucer except tier 7 and only if physically fused into one compact silhouette, no tea steam, no smoke, no liquid spill, no visible tea surface, no labels, no text, no watermark, no sparkle, no glow, no aura, no particles, no cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, and no visible grid.
+
+Make all 12 cups clearly related as one Cherry-Blossom Tea Cups line, readable at mobile board-item size, with progression through rim shape, ceramic material, attached painted/inlaid motifs, and late-tier gold/purple/rainbow color rather than extra clutter.
+
+Output only the image sheet. Do not add explanatory text in the image.

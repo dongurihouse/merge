@@ -1,0 +1,21 @@
+Generate a 12-tier merge-line sheet for the Cherry-Blossom Koi line.
+Use the Meadow Sky + Cut-Paper Playground style block from docs/design/art-style-guide.md section 2.
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, generous gutters. Background: solid flat #FF00FF only. No visible grid.
+
+V3 diversity rule: every tier must differ from adjacent and prior tiers by at least two of these axes: body silhouette/proportion, fin/tail construction, dominant color family, and marking pattern. Do not make twelve identical diagonal koi with new patches. Vary physical form: fry, slender, plump, longfin, stout, mirror-scale, round-bellied, arched, fan-tail, dragon, butterfly.
+
+Constraints: same visual footprint across all cells; one connected whole koi per cell; no water, bubbles, lily pads, bowls, scenes, shadows, grounding, glow, sparkles, particles, aura, smoke, detached FX, text, labels, or watermark. Fins and whiskers must be attached and broad; avoid thin strings, tiny detached barbels, loose scales, or tiny repeated markings.
+
+Tier list, row-major:
+1. Tiny koi fry: short teardrop body, tiny rounded fins, cream body with one coral head dot.
+2. Slender beni-goi: long narrow orange-coral body, small cream belly stripe, fork tail, no large body patches.
+3. Plump kohaku: rounder white body with two large coral-red island patches, short rounded fins, wider belly.
+4. Golden butterfly koi: warm reward-gold body, very long broad flowing side fins and long split tail, elegant silhouette.
+5. Shiro utsuri: stout cream body with bold structural-slate black patches, heavy dark dorsal fin, compact tail.
+6. Taisho sanke longfin: cream body with coral and slate patches, long ribbon-like but broad attached fins, split tail.
+7. Doitsu mirror-scale koi: smooth blue-grey body, a single row of large raised cream mirror scales along the back, small fins.
+8. Tancho adult koi: long white body with one large coral-red circle on the head only, high upright dorsal fin, no other body patches.
+9. Shusui koi: arched sky-blue back, coral belly panels, dark dorsal ridge scales, narrow swept tail.
+10. Metallic ogon fan-tail: premium gold-orange body with huge rounded fan tail and broad gold pectoral fins; one clean central scale motif, no acorn.
+11. Purple dragon koi: rare-purple and cream body, arched dragon-like back, longer attached whisker fins, high crest, broad ornate tail.
+12. Rainbow emperor butterfly koi: final premium tier, long butterfly body with attached rainbow cardstock scale panels, large sweeping fins, reward-gold head cap, one bold central forehead scale motif; no loose decorations and no floating emblem.

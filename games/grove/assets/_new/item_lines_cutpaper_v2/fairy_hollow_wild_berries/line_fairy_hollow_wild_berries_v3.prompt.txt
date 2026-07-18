@@ -1,0 +1,45 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted v2 Fairy Hollow Glowshroom sheet: use it as the local v2 item-line art direction for matte cut-paper rendering quality, 3x4 spacing, generous gutters, broad fantasy silhouettes, and board-readable detail budget. Do not copy mushroom shapes or mushroom content.
+- Image 2 is mandatory Meadow Sky palette and Cut-Paper Playground material authority: use its palette relationships, matte cardstock treatment, warm cut edges, cream/ink neutral balance, muted meadow/sky tones, and restrained reward-gold / rare-purple accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 3 is mandatory world scale, object simplicity, shallow handcrafted detail-budget authority: use its broad low-detail silhouettes, friendly cut-paper material, and readable phone-size forms. Do not copy its farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Regenerate the Fairy Hollow Wild Berries line as a broader magical wild-fruit line. Fix the previous attempt by removing the eggplant-like purple ovals, removing grape-like clusters, and making the final tier simpler and cleaner. Include fairy watermelon, honeydew, date, huskberry, starfruit-style and melon-style forms. Keep them whole and portable, not sliced or served.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the fruit only, fine warm cut edge plus thin locally darker ink edge. Use strong color contrast against the magenta key: coral berry red, muted meadow green leaves/calyx, pale honeydew green, watermelon green stripes, warm date brown, soft straw-gold late accents, and rare purple only as tiny trim, never as an eggplant-shaped fruit. No universal white sticker outlines, no heavy black outlines, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly magical wild fruit item per cell, in this row-major order:
+1. Berry bud: one plump closed berry bud, coral-red peeking from a thick attached green calyx, broad seed-like silhouette, no loose stem.
+2. Half-grown berry: one rounded berry halfway ripe, green lower half and coral upper blush, thick attached leaf cap, compact and broad.
+3. Red forest berry: one large round coral-red berry with a simple attached meadow-green leaf cap.
+4. Blue dewberry: one round blue berry, squat and circular rather than oval, with a broad attached green cap.
+5. Fairy date: one single plump date fruit in warm amber-brown, short and rounded, with a thick attached cream-green cap; it must not look like an eggplant.
+6. Fairy watermelon: one whole tiny round watermelon fruit with chunky meadow-green stripes and a small attached leaf cap; no slice, no cut interior.
+7. Honeydew melon: one whole pale honeydew-green melon, round and smooth, with a cream cut-paper rim and attached leaf cap.
+8. Golden huskberry: one warm gold berry wrapped by three broad attached green husk leaves, like a fairy lantern fruit but with no glow.
+9. Starfruit berry: one rounded five-lobed starfruit-like fruit in coral and straw-gold paper layers, thick attached green top, not a star icon.
+10. Moon melon: one pale honeydew crescent-melon fruit with teal-green rind edge and attached leaf cap, no purple body, no eggplant silhouette, no acorn emblem.
+11. Sun melon: one round coral-and-gold melon with chunky attached sun-petal calyx forms, no glow, no acorn emblem.
+12. Elder fairy melon: clean final tier, one large round magical melon combining teal, honeydew green, coral, and warm gold cut-paper panels with a leafy crown cap; simple readable round fruit silhouette, no acorn emblem, no grape cluster, no eggplant shape.
+
+Important constraints:
+- One connected object per cell only. No scenes, no baskets, no bowls, no jars, no bundles, no piles, no grape clusters, no blackberry clusters, no eggplants, no loose garnish, no detached leaves, no detached stems, no vines, no brambles, no thorn branches, no labels.
+- Food/fruit must be whole intact objects only: no sliced interiors, no cut-open fruit, no juice, no seeds spilling out.
+- Keep details broad and attached. Avoid many tiny seeds, tiny bead clusters, hairline stems, thin tendrils, loose specks, dots, crumbs, or separated ornaments.
+- Do not use acorn emblems on this line; fruit premium tiers should stand out through silhouette, cut-paper panels, and color contrast.
+- Make the entire sheet readable at mobile board-item size, with each tier clearly a different berry or magical fruit kind.
+
+Output only the image sheet. Do not add explanatory text in the image.

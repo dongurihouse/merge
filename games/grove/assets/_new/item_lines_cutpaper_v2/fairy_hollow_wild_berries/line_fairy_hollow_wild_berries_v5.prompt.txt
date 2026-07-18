@@ -1,0 +1,44 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the previous Fairy Hollow Wild Berries v4 sheet. Preserve its successful matte cut-paper rendering quality and berry-only direction, but fix the repeated silhouettes: tiers 6, 9, and 10 were too similar, and tiers 2, 3, and 8 were too similar.
+- Image 2 is the accepted v2 Glowshroom style reference: use it for local item-line spacing, broad fantasy silhouettes, and cut-paper detail budget. Do not copy mushroom content.
+- Image 3 is mandatory Meadow Sky palette and Cut-Paper Playground material authority.
+- Image 4 is mandatory object simplicity/detail-budget authority. Do not copy scene content.
+
+Primary request:
+Regenerate Fairy Hollow Wild Berries as a berry-only line with stronger silhouette variety. Keep berries only, no desert fruit overlap. Avoid repeated round fruit with the same leafy cap, and avoid repeated lumpy raspberry/cloudberry/salmonberry forms.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the fruit only, fine warm cut edge plus thin locally darker ink edge. Use strong color contrast: berry red, cranberry red, blueberry blue, blackberry purple, pale gooseberry green, cloudberry amber, cream cut edges, and meadow green only as small attached caps/leaves. No glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly berry item per cell, in this row-major order:
+1. Closed berry bud: one green closed berry bud in a thick leafy cup, broad seed-like silhouette.
+2. Green currant pearl: one small smooth round lime-green currant berry with a tiny attached star-scar cap, minimal leaves, not half-red, not strawberry-shaped, not ribbed.
+3. Wild strawberry: one red heart-shaped strawberry with a few large oval seed marks and a small top leaf, clearly triangular/heart silhouette.
+4. Blueberry: one round deep-blue berry with a bold attached star-shaped calyx on top.
+5. Cranberry: one low smooth red oval cranberry with a small top dimple, no leafy crown.
+6. Cone raspberry: one upright cone-shaped raspberry made from a few large attached lobes, tall/conical silhouette, not round.
+7. Blackberry: one dark purple elongated berry capsule made from a few large lobes, taller and darker than the raspberry, not a grape cluster.
+8. Gooseberry: one pale translucent green oval gooseberry with vertical cream ribs, no big leafy cap, not round like tier 2 and not heart-shaped like tier 3.
+9. Cloudberry rosette: one amber cloudberry shaped like a low three-lobed rosette/crown, broad and squat, not a cone and not a raspberry.
+10. Salmonberry: one smooth coral teardrop berry with a split leaf-like top seam, mostly smooth surface, not lumpy and not cloudberry-like.
+11. Moon snowberry: one pale lavender-white round snowberry with a small purple star calyx, smooth single berry, no winter ice motifs.
+12. Rainbow fairy berry: one premium single berry with a clean round body made of broad rainbow cut-paper panels and one attached green cap; not a cluster of lobes, no acorn emblem.
+
+Important constraints:
+- Berries only. Do not include watermelon, honeydew, date, cactus fruit, prickly pear, melon, pomegranate, fig, citrus, grape clusters, eggplant silhouettes, bowls, baskets, jars, piles, vines, branches, brambles, loose leaves, loose stems, loose seeds, or cut-open interiors.
+- One connected object per cell only. Keep details broad and attached.
+- Make tiers 2, 3, and 8 obviously different silhouettes. Make tiers 6, 9, and 10 obviously different silhouettes.
+
+Output only the image sheet. Do not add explanatory text in the image.

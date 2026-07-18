@@ -1,0 +1,21 @@
+Generate a production-ready Grove / Acorn Forest 12-tier Well Water line in the current Meadow Sky + Cut-Paper item-line style.
+
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, row-major tiers 1-12. Background: solid flat #FF00FF only.
+
+Style: cozy matte hand-cut cardstock icons, broad rounded silhouettes, simple paper color blocking, subtle paper-fiber variation, warm cut edges, thin locally darker edge. Palette: clear water blue, receding blue, warm cream, pale stone, muted teal, soft wood brown, restrained reward-gold on high tiers. No glossy ceramic, no glass shine, no shadows, no floor, no reflection, no glow, no sparkles, no particles, no text, no labels, no watermark.
+
+Tier order:
+1. Well droplet token in cream rim.
+2. Stone water cup.
+3. Wooden well scoop.
+4. Rope-free well bucket.
+5. Cream water pitcher.
+6. Blue handled amphora.
+7. Corked water flask.
+8. Moonwell basin.
+9. Acorn-latch water jar.
+10. Sealed well canteen with acorn seal.
+11. Old well urn with acorn medallion.
+12. Grand acorn well-vase.
+
+Constraints: one connected object per cell, no full wells, no architecture, no puddles, no splashes, no detached droplets, no ropes or dangling charms. Water must be an attached interior shape.

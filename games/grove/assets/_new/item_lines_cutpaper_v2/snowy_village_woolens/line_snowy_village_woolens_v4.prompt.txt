@@ -1,0 +1,38 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Primary request:
+Regenerate Snowy Village Woolens with the same overall progression, but replace tier 10 with a clearly different woolen item, not a sock, not a bootie, not footwear. Use a neck-warmer cowl / knitted collar as tier 10. Keep tier 6 as the only sock or stocking item.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the wool only, fine warm cut edge plus thin locally darker ink edge. Use cream wool, teal/slate, coral, meadow green, and straw gold accents. No glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly woolen item per cell, in this row-major order:
+1. Wool puff: one compact cream wool puff, broad cloud-like but connected.
+2. Yarn ball: one round yarn ball, no loose yarn tail.
+3. Simple knit cap: one cream-and-coral knit cap with pom, only cap in the line.
+4. Folded scarf: one compact folded scarf, broad rectangle roll-fold shape, not a blanket.
+5. Single mitten: one cream mitten with coral thumb, not paired.
+6. Thick sock: one cream sock or stocking with green cuff and teal heel; this is the only sock or footwear item.
+7. Triangular shawl: one folded triangular shawl, flat broad silhouette.
+8. Cozy hood: one padded hood or cowl hood, open face hole, not cap.
+9. Earmuffs: one connected pair of round wool earmuffs on thick band.
+10. Neck-warmer cowl: one chunky circular knitted collar or cowl, short tube ring with open top, clearly neckwear, not a sock, not a boot, not footwear.
+11. Folded sweater: one compact folded wool sweater with collar and sleeves visible, not a blanket roll.
+12. Premium patchwork poncho: one broad shield-like folded winter poncho or cloak with patchwork panels, not a rolled blanket and not footwear.
+
+Important constraints:
+- One connected object per cell only. No duplicate sock, boot, slipper, or footwear shapes. Tier 6 is the only sock, stocking, or footwear. Tier 10 must be a neck-warmer cowl or collar, not a sock.
+- Avoid duplicate caps, duplicate blankets or rolls, thin strings, tassels, loose yarn, tiny stitch clutter, piles, bundles, or labels.
+- No acorn emblem unless it appears as a small attached final patch, but prefer no acorn.
+
+Output only the image sheet. Do not add explanatory text in the image.

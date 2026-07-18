@@ -15,9 +15,9 @@ func _initialize() -> void:
 	var hbase: Dictionary = b._ladder_header(1)
 	ok(String(hbase.get("kind", "")) == "generator" and String(hbase.get("gid", "")) == "gen_1", \
 		"a base line's header descriptor is its generator (gen_1)")
-	var hmerged: Dictionary = b._ladder_header(71)
-	ok(String(hmerged.get("kind", "")) == "recipe" and Array(hmerged.get("lines", [])) == [1, 2], \
-		"a merged line's header descriptor is the 2-ingredient recipe [1,2]")
+	var hmerged: Dictionary = b._ladder_header(5)
+	ok(String(hmerged.get("kind", "")) == "recipe" and Array(hmerged.get("lines", [])) == [2, 3], \
+		"a merged line's header descriptor is the 2-ingredient recipe [2,3]")
 
 	# --- routing: a base line opens the tier grid (carrying its generator); a merged line the recipe view ---
 	b._open_ladder(1, 1)
@@ -27,32 +27,32 @@ func _initialize() -> void:
 	ok(String(ov_base.get_meta("header_gid", "")) == "gen_1", \
 		"the base tier screen carries its generator icon (gen_1)")
 
-	b._open_ladder(71, 3)
+	b._open_ladder(5, 3)
 	await create_timer(0.1).timeout   # let the prior base-line grid's deferred queue_free settle before counting cells
 	var ov_rec: Node = _ladder_overlay(b)
 	ok(ov_rec != null and String(ov_rec.get_meta("ladder_kind", "")) == "recipe", \
 		"a merged line opens the recipe view")
-	ok(Array(ov_rec.get_meta("recipe_lines", [])) == [1, 2], \
-		"the recipe view shows the two ingredient lines [1,2]")
+	ok(Array(ov_rec.get_meta("recipe_lines", [])) == [2, 3], \
+		"the recipe view shows the two ingredient lines [2,3]")
 	ok(_ingredient_count(ov_rec) == 2, "the recipe view shows exactly the two ingredient items")
-	ok(_ingredient_code(ov_rec, 1) == 103 and _ingredient_code(ov_rec, 2) == 203, \
+	ok(_ingredient_code(ov_rec, 2) == 203 and _ingredient_code(ov_rec, 3) == 303, \
 		"the recipe view shows the actual tier-3 ingredient items required for this merge")
 	# the recipe view ALSO carries the merged line's OWN tier ladder below the two ingredients
 	# (the same shared tier grid the base-line screen uses), so the merged line's progression reads here too.
-	var merged_tiers: int = b._ladder_entries(71).size()
+	var merged_tiers: int = b._ladder_entries(5).size()
 	ok(merged_tiers > 0 and _tier_cell_count(ov_rec) == merged_tiers, \
 		"the recipe view also shows the merged line's full tier ladder (%d cells)" % merged_tiers)
 
 	# --- navigation: tapping an ingredient REPLACES the modal with THAT line's tier screen ---
-	var ing: Button = _ingredient(ov_rec, 1)
-	ok(ing != null, "the recipe view has a tappable node for ingredient line 1 (Wildflower)")
+	var ing: Button = _ingredient(ov_rec, 2)
+	ok(ing != null, "the recipe view has a tappable node for ingredient line 2 (Wild Berries)")
 	if ing != null:
 		ing.pressed.emit()
 		await create_timer(0.1).timeout
 		var ov_nav: Node = _ladder_overlay(b)
 		ok(ov_nav != null and String(ov_nav.get_meta("ladder_kind", "")) == "tiers" \
-			and String(ov_nav.get_meta("header_gid", "")) == "gen_1", \
-			"tapping ingredient Wildflower opens its OWN tier screen (gen_1)")
+			and String(ov_nav.get_meta("header_gid", "")) == "gen_2", \
+			"tapping ingredient Wild Berries opens its OWN tier screen (gen_2)")
 		ok(ov_nav != null and int(ov_nav.get_meta("mark_tier", 0)) == 3, \
 			"tapping a tier-3 ingredient keeps that tier marked on its own screen")
 		ok(_count_ladder_overlays(b) == 1, "navigation REPLACES — only ever one ladder modal open")

@@ -1,0 +1,46 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted v2 Fairy Hollow Glowshroom item-line sheet: use it as the local v2 item-line art direction for matte cut-paper rendering quality, 3x4 spacing, generous gutters, broad low-detail silhouettes, warm cut edges, crisp separated object reads, and board-readable item footprint. Do not copy mushroom content or mushroom shapes.
+- Image 2 is mandatory Meadow Sky palette and Cut-Paper Playground material authority: use its palette relationships, matte cardstock treatment, warm cut edges, cream/ink neutral balance, muted meadow/sky tones, and restrained reward-gold / rare-purple accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 3 is mandatory world scale and object-simplicity authority: use its friendly hand-cut paper material, shallow detail budget, and phone-size readability. Do not copy farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Generate Oasis line 7: Sand / Sand Sculptures. Create exactly 12 portable sand-carved item icons in the v2 Meadow Sky + Cut-Paper Playground Grove item-line style. These are small hand-held sand sculpture objects and sand tokens only, not scenery.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only, edge to edge.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple layered paper color blocking, subtle 2-4% paper-fiber value variation inside the objects only, fine warm cut edge plus thin locally darker ink edge. Palette: warm cream and sand cardstock as the dominant material, teal and slate incised planes or recessed cuts, restrained coral, soft gold, and rare purple on late tiers, with a final premium rainbow-glass accent that still reads as flat cut paper. No universal white sticker outline, no heavy black outline, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no grounding, no reflection, no shine streaks, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark. No visible cell grid, guide boxes, slot markers, divider lines, or frames.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous magenta padding and no cropped edges. Each cell contains one connected object only.
+
+Create exactly one clean cutout-friendly portable sand-carved object per cell, in this row-major order:
+1. Packed sand pebble: one compact rounded sand pebble, hand-packed and smooth, with a warm cream cut edge and a single broad teal-slate incised plane; no loose grains.
+2. Molded sand lump: one molded rounded sand lump, like a soft hand-shaped nugget, with two attached paper layers in warm sand and cream; no pile, no crumbs.
+3. Small sand acorn sculpture: one portable acorn-shaped sand carving with a chunky attached cap ridge, sand and cream cardstock, broad simple silhouette; no real brown acorn colors, no loose grains.
+4. Rounded sand swirl token: one round sand token with a thick attached spiral swirl carved into the surface, teal recessed groove, broad safe-to-cut form.
+5. Simple sand tower: one compact hand-held sand tower sculpture shaped like a rounded stacked pawn or tiered sand totem, with a sturdy single body and no openings; no doors, no windows, no arch holes, no crenellations, no flags, no walls, no base, not a castle, not architecture, not scenery.
+6. Chunky sand turtle sculpture: one small connected turtle-shaped sand carving, shell and body fused into one broad silhouette, teal-slate shell incised planes; no thin legs, no loose grains.
+7. Carved sand spiral shell: one portable spiral shell-shaped sand carving, warm cream raised spiral band and teal recessed plane, one connected compact object.
+8. Tiny sand arch token: one small rounded arch-shaped sand token, portable hand-held object, thick U-shaped opening cut fully through as negative space if shown; not a building, gate, bridge, doorway, ruin, or scenery.
+9. Sand sun disk: one round sand sun disk token with chunky attached rays and a coral center panel, no glow, no particles.
+10. Gold-edged crescent sand token: one premium crescent-shaped sand token with soft-gold attached rim, warm sand body, teal inset plane, and coral accent; no acorn emblem.
+11. Purple-inlaid sand guardian mask: one premium compact guardian mask-shaped sand carving with slate eye incisions and rare-purple inlaid panels, broad calm face silhouette, one connected portable mask, no straps or loose pieces, no acorn emblem.
+12. Premium rainbow-glass sand mandala token: strongest final tier, one round sand mandala token with large attached rainbow-glass cut-paper panels inset into warm sand, soft gold rim, teal/slate incised planes, bold simple radial motif; one connected portable token, no acorn emblem.
+
+Important constraints:
+- One connected object per cell only. No scenes, no dunes, no beaches, no landscape pieces, no scenery, no buildings, no architecture, no ruins, no full environments, no bases, no bowls, no jars, no containers, no labels, no furniture, no piles, no clusters, no bundles, no loose grains, no sand crumbs, no dust, no pebbles around the object, and no unrelated props.
+- The simple sand tower must read as a solid portable stacked sand token with no door, no window, no opening, no castle marks, and no architectural details. The tiny sand arch must read as a portable carved token, not as a building, gate piece, monument, bridge, ruin, doorway, or scenery.
+- Keep details broad and attached. Avoid hairline cuts, tiny chips, crumbs, loose facets, tiny sand granules, thin strings, thin legs, thin antennae, or many small separated decorations.
+- Tiers 10-12 should feel premium through silhouette, bigger color-block panels, restrained gold trim, rare purple, and rainbow inset material, not through clutter or visual effects.
+- Do not use Grove acorn emblems on this line except tier 3's acorn-shaped sand sculpture, which is the item itself rather than a badge.
+- Make the entire sheet readable at mobile board-item size, with each tier clearly a different sand-carved object while keeping the same visual footprint.
+
+Output only the image sheet. Do not add explanatory text in the image.

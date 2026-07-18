@@ -1,0 +1,47 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted v2 Fairy Hollow Glowshroom sheet: use it as the local v2 item-line art direction for matte cut-paper rendering quality, 3x4 spacing, generous gutters, broad fantasy silhouettes, warm cut edges, and board-readable detail budget. Do not copy mushroom shapes or mushroom content.
+- Image 2 is the accepted Fairy Hollow Wild Berries sheet: use it as fruit variety guidance for whole portable fantasy fruit and attached cap/leaf construction, but do not copy the exact berries, grape-like clusters, eggplant-like ovals, or final melon layout.
+- Image 3 is mandatory Meadow Sky palette and Cut-Paper Playground material authority: use its palette relationships, matte cardstock treatment, warm cut edges, cream/ink neutral balance, muted meadow/oasis greens, coral accents, honeydew pale green, teal/slate contrast, and restrained reward-gold accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 4 is mandatory world scale, object simplicity, and shallow handcrafted detail-budget authority: use its broad low-detail silhouettes, friendly cut-paper material, and readable phone-size forms. Do not copy its farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Generate the Oasis line 6: Desert Fruits as a 12-tier Grove item-line sheet. Make the line feel like whole portable fruit from a cozy oasis/desert grove: cactus fruits, dates, figs, limes, melons, and a premium jeweled oasis melon. The sheet should match the v2 Meadow Sky + Cut-Paper Playground Grove item-line style, with fruit variety that is related to the wild-berries reference but clearly not a copy.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the fruit only, fine warm cut edge plus thin locally darker ink edge. Use strong color contrast against the magenta key: cream/ink neutral edges, muted oasis greens, coral fruit reds, honeydew pale green, date amber, teal rind accents, and restrained soft gold on late tiers. No universal white sticker outlines, no heavy black outlines, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges. One connected object per cell only.
+
+Create exactly one clean cutout-friendly whole desert fruit item per cell, in this row-major order:
+1. Cactus fruit bud: one plump closed cactus-fruit bud, coral fruit just peeking from broad attached muted-green sepals, compact oval bud, no detached leaves or spines.
+2. Half-grown prickly pear: one half-grown prickly pear fruit, squat pear shape with pale green lower paper layer and coral blush top, a few broad attached cactus-nub panels, no needles.
+3. Whole prickly pear: one ripe whole prickly pear in coral-red paper, rounded pear silhouette, simple attached green crown cap, no cut interior.
+4. Fairy date: one whole plump fairy date fruit in warm amber-brown, short and rounded, thick attached cream-green cap, not long, not purple, not eggplant-shaped.
+5. Round oasis lime: one whole round oasis lime, muted green with a pale honeydew highlight panel and a thick attached leaf cap, not a grape and not a cluster.
+6. Plump desert fig: one whole plump desert fig, rounded teardrop shape in coral-mauve and honeydew-green paper panels, broad attached cap, no sliced interior and no exposed seeds.
+7. Tiny whole striped desert melon: one small whole round desert melon with chunky meadow-green and cream stripes, attached cap only, no vine, no slice.
+8. Pale honeydew oasis melon: one whole pale honeydew-green melon, rounded and smooth with large cream-green rind bands and a small attached cap, no cut interior.
+9. Rounded star cactus fruit: one rounded five-lobed cactus fruit, coral and straw-gold paper layers with a thick attached green top, fruit-shaped rather than a flat star icon.
+10. Crescent moon melon: one whole crescent-shaped moon melon, pale honeydew body with teal-green rind edge and attached cap, broad fruit form, no eggplant silhouette, no acorn emblem.
+11. Warm sun pomegranate-like fruit: one whole round pomegranate-like desert fruit, coral and warm sun-gold panels with a chunky attached crown calyx, not opened, no visible seeds, no glow, no acorn emblem.
+12. Premium jeweled oasis melon: strongest final tier, one large rounded whole melon with broad teal, coral, honeydew, cream, and restrained gold cut-paper panels, integrated crown cap, jewel-like paneling from cardstock shapes only, no loose jewels, no acorn emblem.
+
+Important constraints:
+- One connected object per cell only. No scenes, no baskets, no bowls, no jars, no containers, no bundles, no piles, no grape clusters, no blackberry clusters, no repeated fruit pile, no eggplants, no loose seeds, no loose garnish, no detached leaves, no detached stems, no vines, no tendrils, no cactus pads separate from the fruit, no labels.
+- Food/fruit must be whole intact objects only: no sliced interiors, no cut-open fruit, no juice, no seeds spilling out.
+- Keep details broad and attached. Avoid many tiny seeds, tiny bead clusters, hairline stems, thin tendrils, loose specks, dots, crumbs, spines, thorns, prickles, or separated ornaments.
+- Do not include Grove acorn emblems on this organic fruit line; premium tiers should stand out through silhouette, cut-paper panels, and color contrast.
+- Make this line visually different from Fairy Hollow Wild Berries: use more cactus-fruit, date, fig, lime, pomegranate, and oasis-melon silhouettes; avoid copying its exact berry, huskberry, watermelon, moon melon, sun melon, or elder melon shapes.
+- Make the entire sheet readable at mobile board-item size, with each tier clearly a different desert fruit kind.
+
+Output only the image sheet. Do not add explanatory text in the image.

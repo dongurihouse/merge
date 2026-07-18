@@ -1,0 +1,44 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the previous Oasis Desert Fruits v4 sheet. Replace its berry-like fruit direction: too many round fruit bodies, green leaf caps, coral/red/pink colors, and jewel melon shapes. Keep only the general 3x4 spacing, cutout scale, and matte cut-paper production quality.
+- Image 2 is the latest Wild Berries sheet. Use it only as a negative comparison: the new Oasis line must NOT resemble its colors, fruit shapes, leafy berry caps, round berry silhouettes, grapes, strawberry, blueberry, raspberry, melon, or rainbow fruit style.
+- Image 3 is the accepted Glowshroom v2 sheet. Use it only for consistent item-line spacing, one object per cell, simple cutout-friendly silhouettes, and matte cut-paper craft quality. Do not copy mushrooms or its colors.
+
+Primary request:
+Regenerate the Oasis Desert Fruits line as a broader Oasis Desert Vegetation and Sun-Baked Desert Items line. It should feel yellowish and sandy like the desert, not red/green berry-like. Include different cactus forms, desert vegetation, and small desert objects/buildings. The line should read as desert collectibles from natural growth to crafted oasis relics, not as a fruit bowl.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock game icons, broad rounded silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside each object only, fine warm cut edge plus thin locally darker ink edge. Dominant palette must be yellowish desert colors: sand yellow, straw gold, ochre, sun-baked clay, warm cream, muted date amber. Use dusty cactus green or muted teal only as small accents. Avoid saturated red, pink, purple, berry blue, bright green dominance, glossy fruit highlights, watercolor, clay, or 3D render.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+
+Sizing:
+All 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be visually simpler, but they must not be smaller than later tiers. Center every item with generous padding and no cropped edges.
+
+Create exactly one clean cutout-friendly desert vegetation or oasis item per cell, in this row-major order:
+1. Sand seed pod: one simple closed straw-yellow desert seed pod, almond shape with a tiny attached husk base, not a berry.
+2. Date palm sprout: one small fan-shaped palm sprout, sandy green fronds attached to a warm ochre seed base.
+3. Barrel cactus pup: one squat ribbed barrel cactus in dusty yellow-green, broad ribs and attached cream spines as thick shapes, not round fruit.
+4. Prickly pear cactus pads: one connected cactus object made of two broad oval pads, muted sage with one tiny straw-yellow flower attached, no red fruit.
+5. Young saguaro cactus: one upright branching cactus silhouette, dusty green with ochre edge, broad arms, no loose needles.
+6. Desert agave rosette: one spiky but broad agave rosette, straw green and sand yellow leaves, connected as one plant.
+7. Dried gourd canteen: one sun-yellow desert gourd canteen with attached cork cap, no string, no slice, no fruit interior.
+8. Woven palm basket: one compact straw-gold woven palm basket or tray with a simple closed top, one connected item, no contents spilling out.
+9. Clay water jar: one ochre clay amphora/water jar with a muted teal band, wide readable handles attached.
+10. Adobe dome oven: one tiny sand-colored adobe oven or desert hut object with arched opening and rounded dome, compact building silhouette.
+11. Sandstone oasis arch: one small carved sandstone arch plinth with attached cactus relief plate, one connected desert-building item.
+12. Golden desert seed vault: one premium compact sandstone-and-gold oasis vault/shrine with a domed top and small attached cactus emblem, yellow-gold dominant, bold silhouette, no glow or jewel rainbow effect.
+
+Important constraints:
+- One connected object per cell only. No scenes, no piles, no bowls of fruit, no fruit baskets filled with contents, no detached leaves, no loose seeds, no loose cactus needles, no sand piles, no floating symbols.
+- Avoid all berry and orchard cues: no strawberries, blueberries, raspberries, blackberries, grapes, gooseberries, cherries, apples, melons, dragon fruit, pomegranate, leafy berry caps, round capped fruit bodies, coral/red fruit dominance, or rainbow fruit panels.
+- Make adjacent tiers visually different through silhouette: pod, sprout, barrel cactus, cactus pads, saguaro, agave, gourd canteen, basket, jar, dome oven, arch, vault.
+- Push premium tier through richer yellow-gold material and bolder desert-building silhouette, never through glow, sparkle, particles, aura, or effects.
+
+Output only the image sheet. Do not add explanatory text in the image.

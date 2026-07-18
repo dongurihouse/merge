@@ -16,7 +16,7 @@ The docs this replaces disagreed. These are the decisions; the rest of the guide
 |---|---|
 | Art direction | **Meadow Sky + Cut-Paper Playground wins everywhere.** The old Direction-F "gouache / watercolor / visible brushwork" STYLE LOCK is retired. |
 | Merge ladder | **12 tiers** (the 8-tier / 24-line era is retired). |
-| Baked shadow on gameplay sprites | **None.** Item tiers, merge icons, UI/shop icons, and generator sprites ship shadow-free — the engine draws shadows at runtime. A tight contact shadow is baked **only** on world/scene objects placed into a clearing (§6). |
+| Baked shadow on gameplay sprites | **None.** Item tiers, merge icons, UI/shop icons, generators, and movable world objects ship shadow-free. Layered scenes use a separate registered contact-shadow sprite or a runtime shadow; only a permanently flattened scene may bake shadows into the scene (§6). |
 | Icon size | **512² master → 256 runtime.** Generate/store at 512²; the runtime UI glyph is 256 via the bake/clean path (§8). |
 | Keying | Flat `#FF00FF`, removed deterministically **including enclosed pockets** (§8). |
 | Content roster | The **picture-book 5-page / 12-line** roster (§10). Old Farm/Orchard/Garden/Mill/Gate and 24-line rosters are retired. |
@@ -85,8 +85,9 @@ rainbow treatment.
 - Fine warm cut edge + thin locally-darker edge. No white sticker outline, no heavy black outline.
 - **One upper-left light.** World cast/contact shadows fall shallowly **down-right**, soft, short, tinted,
   ~18–20% opacity — they explain contact, never sculpt deep paper.
-- **Shadow boundary rule.** Gameplay sprites (item tiers, merge/UI icons, generators) bake **no** shadow —
-  the engine adds them. Only objects composited into a world clearing carry a tight baked contact shadow.
+- **Shadow boundary rule.** Gameplay sprites and movable world objects bake **no** shadow into their color
+  sprite. The engine adds it, or the asset bundle supplies a separate registered contact-shadow layer.
+  Only a permanently flattened scene may bake the final short contact shadows into the scene pixels.
 - Consolidate ornament into a few shapes. Keep doors, windows, handles, fruit, caps, tool heads legible at
   phone size.
 
@@ -105,7 +106,7 @@ Use the exact canvas of the consuming scene/manifest when it specifies one; othe
 | **Meadow atlas `badge`** | `256²`, visible reg `[20,20,236,236]` | (in-sheet) | none | one canonical star alpha across variants |
 | **Meadow atlas `tile`** | `256²` **opaque**, periodic | (in-sheet) | n/a | seam-verified via `*_3x3_offset.png` |
 | **Meadow atlas `surface`** | native tight aspect | (in-sheet) | none | nine-slice; no fixed px |
-| **World object sprite** | registered `W×H` envelope | flat chroma-key | **tight contact shadow** | center-bottom anchor; attached components only |
+| **World object sprite** | registered `W×H` envelope | flat chroma-key | none in color sprite | center-bottom anchor; attached components only; optional separate registered shadow layer |
 | **Map scene** | `1084×1451` (≈3:4) | painted (no white bleed) | in-scene | 8 spot objects floor-standing, separated |
 | **Full-screen mock** | `9:19.5` portrait | painted | in-scene | upper 15–18% + lower 12–15% UI-safe |
 | **Three-zone reference** | `941×1672` | painted | in-scene | — |
@@ -136,7 +137,8 @@ approaches, lives in, and uses the location.
   small props inside the home silhouette. Natural backdrop vegetation may overlap other backdrop shapes
   but must not obscure interactive items.
 - **Grounding:** one continuous ground plane; matched camera pitch, horizon, scale, light, and shadow
-  length across every asset; tight down-right contact shadows. Never use circular clearings, rectangular
+  length across every asset; add only a separate short, soft, tinted down-right contact shadow when the
+  reconstruction needs it. Never use circular clearings, rectangular
   pads, glowing borders, sticker halos, turf islands, object-specific flower rings, or forced scenic
   bases beneath individual objects. A foundation must stay coherent with every customizable object hidden.
 
@@ -317,6 +319,86 @@ sizes (`PRICE_ICON 28`, `HERO_ICON 72`, HUD pill). No code change — `Look.icon
 
 **The share-gate is the Dev's eye, never an LLM's** — visual quality judgment is low-reliability for the
 model; measure/composite for verification, hand the artifact to the human for sign-off.
+
+### 11a · Layered scene generation learnings
+
+The strongest scene pipeline is layered and test-composited. Do not ask for one final flattened map and
+then try to carve it apart. Build the scene from pieces that can survive being hidden, moved, replaced,
+and recomposed.
+
+**Backdrop first.** The true foundation is only the continuous ground/floor plane and its low, flat
+material texture. It is valid for the top of the image to be empty or transparent where later horizon,
+sky, canopy, or atmosphere plates will cover it. For open world pages, keep the floor broad, readable,
+and softly radiant. Do not bake sky, mountains, horizon trees, buildings, ponds, roads, shrubs, tree
+bases, decorative rings, or object-specific shadows into the foundation.
+
+**Depth plates second.** Generate mountains, distant trees, bushes, and horizon vegetation as full-width
+transparent plates. Use several mountain bands with clearly different value/saturation so distance reads
+even on a phone. Let horizon vegetation overlap the mountain bases to hide seams and add depth, but keep
+enough mountain silhouette exposed to preserve the far/middle/near read. Clouds are separate transparent
+plates so they can drift later.
+
+**Terrain features are removable plates.** Lakes, ponds, roads, bridges, steps, cliffs, and paths are not
+part of the foundation unless the whole location is permanently defined by them. Generate them separately
+with transparent edges and then test them on the plain backdrop. A road/path must terminate exactly at its
+destination in the same perspective. If the road is optional or may vary, keep it out of the backdrop.
+
+**Hero structures one by one.** Homes, huts, gates, pavilions, large trees, bridges, and other scale-setting
+objects should be generated as standalone sprites, not inside square prop packs. Use one sprite per hero
+object with a center-bottom anchor, transparent background, matched camera, and matched light. Keep its
+color sprite shadow-free; if grounding needs help, generate a separate registered shadow companion.
+Reject dark bottom smears, scenic plinths, grass skirts, turf islands, flower rings, and any baked "little
+floor" around the object; those make later placement feel forced. When two forms are structurally one
+landmark—such as a door and dwelling carved into the roots of its host tree—generate them as one hero
+asset rather than trying to hide a seam between independent sprites.
+
+**Blend contacts with dressing, not scenic bases.** If an object looks pasted-on, add separate low grass,
+flower tufts, moss, small stones, petals, or edge-overhang sprites around the contact after placement.
+These are reusable dressing sprites, not attached bases. They should overlap object feet/pond banks/path
+edges lightly and asymmetrically, leaving the main silhouette and touch target readable.
+
+**Use sprite packs only for compact variation.** `3x3` and `4x4` packs are for compact shrubs, flowers,
+rocks, small ornaments, and contact patches. Do not pack large trees, buildings, roads, bridges, gates,
+ponds, stairs, cliffs, or collision-bearing objects into square grids. Use one-by-one generation or custom
+wide cells for those.
+
+**Keep paper texture local.** Generated props often lose the shared paper tooth after alpha extraction or
+resampling. Preserve or reapply the local paper material after keying, then inspect at phone-review size.
+The texture must be visible on sky, sand, mountains, water, roofs, walls, bridges, stones, foliage, and
+hero props, but it stays subtle; it is not brushwork or noise.
+
+**Verify by reconstruction.** Every accepted layered scene needs a deterministic compositor, placement JSON,
+asset manifest, full-size render, and phone-review render. Rebuild from the source PNGs each time; do not
+copy cached layers into the reconstruction folder. Validation checks must cover file existence, dimensions,
+RGBA/RGB mode, transparent corners for sprites, zero visible magenta, unique z values, placement counts, and
+deterministic repeat renders.
+
+**Separate source extraction from generative repair.** If an asset must stay *exactly* the same size,
+position, silhouette, and camera angle as an approved mock, do not ask image generation to "cut it out."
+That request commonly redraws and recenters the subject. Preserve the approved source pixels with a mask
+or segmentation pass in full-canvas coordinates; use image generation only to repair occluded edges or
+missing pixels. A generated replacement is a variation and must pass a new visual approval.
+
+**Keep every layer registered to one canvas.** Store large plates and positioned hero sprites on the full
+scene canvas with a shared top-left origin, even when a tight-cropped source sprite is also retained. Record
+the crop box, center-bottom anchor, intended display size, and z-order in metadata. Never resize one layer
+until it "looks about right" in the preview; that hides camera/scale drift and makes reconstruction fragile.
+
+### 11b · Common generation failures and fixes
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Building looks forced onto the grass | The generated sprite includes its own grass floor, flower ring, or dark base shadow | Regenerate the building without a scenic base; add separate contact dressing after placement |
+| Bottom shadow looks dirty or heavy | Prompt asked for grounding but not shadow limits | Specify one upper-left light and a short, soft, tinted down-right contact shadow only |
+| Road misses the doorstep/gate | Road was baked into an independent backdrop or composed without the destination visible | Generate the road/path as its own terrain plate and test it with the destination object |
+| Pond/lake reads like a sticker | Edge rocks form a necklace or the water lacks an inner bank/depth cue | Use irregular overlapping stones, moss, planted banks, and a narrow inner shadow; preserve sand-to-bank-to-water steps |
+| Props lose the cut-paper feel | Keying/resizing flattened or removed paper tooth | Reapply local paper material after extraction and inspect the phone-size review render |
+| Mountains look flat | One mountain layer or too-similar values | Split far/middle/near bands with distinct shades and layer horizon foliage over their bases |
+| Large objects crop or shrink in a pack | Square prop pack is the wrong container | Generate large or collision-important objects one by one with their own registered envelope |
+| Magenta holes remain inside props | Border-only flood fill removed only the outside field | Use the deterministic key/hole workflow and validate enclosed transparent pockets |
+| Scene quality drifts late | Too many assets generated before visual approval | Gate the pipeline: dressed mock -> backdrop+one hero test -> remaining assets -> final reconstruction |
+| "Extracted" object changes size or angle | A generative redraw was used for an exact source-preservation task | Mask the approved source in full-canvas coordinates; reserve generation for edge repair or an explicitly new variation |
+| Horizon layer covers the lake or playable floor | A full-width plate contains foreground terrain below its intended band | Crop/mask it to its registered horizon band and validate the alpha footprint before compositing |
 
 ### Rejection checklist (regenerate if any is "yes")
 
