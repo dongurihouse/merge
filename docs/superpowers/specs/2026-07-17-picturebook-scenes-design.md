@@ -14,13 +14,13 @@ it makes the player feel they're working somewhere genuinely new, not repainting
 - The spend surface is an ordered **book of pages**. Only the current **frontier** page is being
   completed; earlier pages stay **browsable** (flip back to keep customizing — the whole book is yours).
 - A **page** = a distinct scene (a season, a biome, an occasion) with **6–10 items** native to it.
-- Every **item** follows the shipped contract: **unlock in steps** (coin- + level-gated) → then
-  **customize** among many generated variations.
+- Every **item** builds out in **stages**, each completed by delivering a **recipe** of merge-items
+  (§7), then is **customizable** among many generated variations.
 - A page is **complete** when all its items are built. Completing the frontier page **turns to the next
   page** (unlocks the next scene) and grants a bundle of resident-bucket cells.
-- The merge **board** (core play) and the **coin clock** (level from lifetime earned coins) are
-  unchanged — they fund the book. The **resident bucket** (global) is unchanged; page-completion is its
-  new cell source.
+- The merge **board** is the engine that feeds the book. Its **generators accumulate into a permanent
+  library** whose lines are reused across pages (§7), so the board deepens as you go. The **coin clock**
+  and the **resident bucket** carry over; page-completion is the bucket's new cell source.
 
 ## 2 · The pull (why the player keeps playing)
 
@@ -50,9 +50,12 @@ completes and turns.
 **Page** (one per scene): `{id, index, label, foundation, canvas, items:[…]}`. The renderer draws ONE
 page at a time, fit to the viewport (exactly as the home zone renders today).
 
-**Item** (the only element type — no roles/keystones): every item is **unlock → customize**.
-- `states`: the build progression `empty → site(s) → built` (art per state).
-- `steps`: `[{cost_coins, min_level, shows_state}]` — 2+ steps; the coin+level gate paces completion.
+**Item** (the only element type — no roles/keystones): every item **builds out in stages → customize**.
+- `states`: the build progression `empty → stage1 → … → built` (art per stage).
+- `stages`: `[{recipe, min_level, shows_state}]` — each stage is completed by delivering a **recipe**
+  of merge-items (§7), not a flat coin cost. 2+ stages; a min-level per stage still paces. The recipe
+  is the primary sink for board output; **staggered** so a page's demands (and the lines it needs)
+  evolve as it builds out — the freshness engine for a long page.
 - `customizations`: `[{id, set, texture, cost:{coins|diamonds}}]` — the variation skins, offered once
   the item is **built**. Optional, never blocks page completion.
 - A minority of items may be **backdrop** (build-only, no `customizations`) where variation would read
@@ -64,8 +67,10 @@ optional beautify/collection layer, available anytime, including on flipped-back
 
 ## 5 · Progression & economy
 
-- **Build steps** cost coins and require a min **level** (lifetime earned coins) — the pacing brake,
-  unchanged. This meters how fast a page fills in.
+- **Build stages** are completed by delivering **recipes** (item deliveries, §7) — the primary sink
+  for board output — with a per-stage min **level** gate (lifetime earned coins) as the pacing brake.
+  Coins remain a secondary currency (merge drops, selling) for **customization** + speed-ups. The exact
+  split (recipe sizes vs. coin costs) is the sim re-pass's call.
 - **Page turn:** completing the frontier page unlocks the next page, plays a short **page-turn
   transition**, and grants a **cell bundle** to the resident bucket (capacity drip). Level-ups keep
   gifting water/diamonds as today.
@@ -100,7 +105,62 @@ Top-Hat · Carrot-Nose · Scarfed · Ice-Crystal · Grumpy; a *tent* in Striped 
 Royal; a *koi pond* in Calm · Lily-Covered · Bridge-Lit · Autumn-Leaf. (Sets support collection +
 seasonal drops.)
 
-## 7 · Data model (concrete)
+## 7 · Generators, library & recipes (the board side)
+
+The merge **board** is the engine that feeds the book: generators produce item lines, you merge them,
+and you **deliver recipes** to build out the current page's items. Design (decided: *library + deploy,
+moderate chains*):
+
+**Generators = a permanent, accumulating library.**
+- A **generator** produces one **item line** (a 12-tier merge ladder), as today.
+- **Two tiers:** **2 evergreen anchors** (Wildflower — the never-retiring FTUE line — + Acorn-caps),
+  present always; **~3 new signature lines per page**, themed to the scene.
+- Generators **accumulate** into a permanent **library** — **never retired, never sold**. Every line
+  stays valuable because later recipes keep calling it back (below).
+
+**The library & deploy (board management).**
+- You own every unlocked generator in a **library/shelf**. Only a bounded **active set** (~5, ≤
+  `QUEST_GEN_CAP`) sits on the board producing at once; you **deploy/swap** from the library based on
+  what the current buildout recipes need — a light strategic beat that also refreshes play. Reuse the
+  existing `gen_bag` as the storage substrate; the active-slot cap stays fixed however big the library
+  grows (so the board never jams — the `POP_LINE_CAP` reason).
+
+**Multi-stage buildout + recipes (the sink).**
+- Each decorate item builds out in **stages** (§4); each stage is completed by delivering a **recipe** —
+  a set of merge-items mixing the page's **new-line** items and **earlier pages' line items**.
+- Lines **stagger in** across a page's stages, so the board's demands evolve *within* a long page.
+- Delivering recipes is the primary sink for board output; completing every item's stages completes the
+  page.
+
+**Cross-zone chains — moderate.** Later recipes commonly call back **1–2 earlier lines** (e.g. Fairy
+Hollow's toadstool-cottage stage needs *Pinecones* from Snowy Village + *Glow-mushrooms* new), never
+deep dependency trees. This keeps old generators earning their keep and weaves the book together, while
+staying readable and mostly cozy (the deliberate fork away from a pure logistics game).
+
+**The count.** `2 evergreen + 3 per page`, all permanent → **~20 generators for a 6-page v1** (≈ today's
+17, but each reused across pages), growing **+3 per future page**. The real constraint is the **active
+slot cap** (~5), not the library size.
+
+**Page-signature lines** (for the §6 example pages; each a 12-tier line):
+
+| Page | 3 signature lines | *(optional craftable special)* |
+|---|---|---|
+| Snowy Village | Snowballs · Pinecones · Woolens | *Gingerbread* |
+| Autumn Orchard | Apples · Pumpkins · Fallen Leaves | *Cider* |
+| Desert Oasis | Dates · Spices · Waterskins | *Mint Tea* |
+| Coral Reef | Shells · Pearls · Kelp | *Sunken Treasure* |
+| Cherry-Blossom Garden | Blossoms · Koi · Tea-leaves | *Mochi* |
+| Fairy Hollow | Glow-mushrooms · Fireflies · Wildberries | *Wish-potion* |
+
+*Evergreen (all pages):* Wildflower · Acorn-caps. *Example recipe* (Fairy Hollow, "toadstool cottage",
+stage 2): `4× Glow-mushroom·t5 + 2× Pinecone·t4 (Snowy Village) + 2× Wildflower·t6`.
+
+**Economy integration** is deferred to the sim re-pass: recipes are the primary sink, coins/level the
+pacing + customization sink; recipe sizes, tiers, coin costs, and the cross-zone reuse rate are its
+numbers to tune. This spec fixes the STRUCTURE (accumulate + library/deploy + multi-stage recipes +
+moderate cross-zone), not the values.
+
+## 8 · Data model (concrete)
 
 ```
 book.json
@@ -114,64 +174,78 @@ book.json
       "items": [
         {"id": "sv_cabin", "position": [..], "display_size": [..], "sort_y": ..,
          "states": [{id,texture}, ...],
-         "steps": [{cost_coins, min_level, shows_state}, ...],
+         "stages": [{recipe:[{line, tier, qty}, ...], min_level, shows_state}, ...],
          "customizations": [{id, set, texture, cost:{coins|diamonds}}, ...]},
-        {"id": "sv_snow", "backdrop": true, "states": [...], "steps": [...]},
+        {"id": "sv_snow", "backdrop": true, "states": [...], "stages": [...]},
         ...
-      ]
+      ],
+      "generators": ["snowballs", "pinecones", "woolens"]   // this page's 3 new signature lines
     },
     { "id": "autumn_orchard", "index": 1, ... }, ...
-  ]
+  ],
+  "evergreen_generators": ["wildflower", "acorn_caps"]
 }
 ```
 
-- `grove_data` gains a `PAGES` gameplay table (per-item step costs/min_level, per-page cell bundle),
-  parallel to today's `BUILDINGS`; the `book.json` manifest carries art + placement + variations. All
-  numbers **PROVISIONAL** (economy-sim re-pass owns them).
-- **Save:** `Save.grove()["book"] = {frontier: page_id, viewing: page_id}` plus the existing per-item
-  `built`/`custom` under `home` (keyed by item id, unique across pages). A page is complete when all its
-  items are built; the frontier advances on completion; `viewing` is the currently-shown page (browse).
+- `grove_data` gains a `PAGES` gameplay table (per-item **stage recipes**/min_level, per-page cell
+  bundle, per-page signature generator ids) parallel to today's `BUILDINGS`, plus a `GENERATORS` roster
+  extended to the accumulating library; the `book.json` manifest carries art + placement + variations.
+  All numbers **PROVISIONAL** (economy-sim re-pass owns them).
+- **Save:** `Save.grove()["book"] = {frontier, viewing}`; `["home"]` per-item `built`/`custom` (item ids
+  unique across pages); `["gen_library"]` = owned generator ids; the existing `gen_bag` / board `gens`
+  hold the **deployed active set**. A page completes when all its items are built; the frontier advances
+  on completion; a recipe delivery advances an item's current stage.
 
-## 8 · System architecture
+## 9 · System architecture
 
-Extends the shipped `home_build.gd` / `home.gd` / `home_zone_view.gd`:
+Extends the shipped `home_build.gd` / `home.gd` / `home_zone_view.gd` and the board's generator/quest
+layer:
 
-- **`home_build.gd`** (pure): generalize from one building set to a **book of pages**; add
-  `page_complete(state, page_def) -> bool`, `next_page(book_def, frontier) -> id`,
-  `page_cells(page_def)`; item build/customize rules unchanged.
-- **`home.gd`** (adapter): `frontier()`, `viewing()`, `set_viewing(page_id)` (browse; only ≤ frontier),
-  `buy_step(item_id)` — on the step that completes the last item of the frontier page, advance the
-  frontier + grant the page's cell bundle; `cells_total()` = sum of completed pages' bundles.
-- **`home_zone_view.gd`** (renderer): draw the **viewed page's** manifest (foundation + items by
-  current build state, painter-sorted, single input surface) — one page fit to the viewport, exactly as
-  the home zone renders today. Add a **page-turn** transition and a small **page nav** (prev/next within
-  unlocked pages) for browsing. No world camera, no silhouettes.
-- **Scene (`map.gd`)**: the tap flow (`_on_build_tap`) and the build/customize dialogs are unchanged;
-  they now act on the viewed page's items. The Play/Restore CTA reads "any buyable item on the frontier
-  page." The resident dock + chrome are unchanged.
+- **`home_build.gd`** (pure): generalize one building set → a **book of pages**; items advance by
+  **recipe delivery** per stage (`can_advance(item, delivered)`, `advance_stage`); add
+  `page_complete`, `next_page`, `page_cells`. Customize rules unchanged.
+- **`home.gd`** (adapter): `frontier()`, `viewing()`, `set_viewing(id)` (≤ frontier); `deliver(item_id,
+  items)` advances a stage and, on the stage that completes the last item of the frontier page, advances
+  the frontier + grants the page's cell bundle; `cells_total()` = Σ completed pages' bundles.
+- **Generator library** (extends the existing gen/gen_bag): `library()` (owned), `deploy(gen_id)` /
+  `stow(gen_id)` moving generators between the library and the board's bounded active set; a page's
+  signature generators join the library when the page becomes frontier; evergreens are always owned.
+- **Recipes ↔ quests:** the existing giver-fence/quest delivery mechanic becomes the surface for a
+  page's **current stage recipes** — deliver the asked merge-items to advance the buildout. (Reuses
+  `quests.gd` / `board_actions.deliver_quest`; the "reward" becomes stage progress + the coin/customize
+  economy on top.)
+- **`home_zone_view.gd`** (renderer): draw the **viewed page** (foundation + items by build state,
+  painter-sorted, single input surface) — one page fit to the viewport, as today. Add a **page-turn**
+  transition and a small **page nav** (prev/next within unlocked pages). No world camera, no silhouettes.
+- **Scene (`map.gd`)**: the tap → build/customize dialogs act on the viewed page's items; a build tap
+  now shows the item's **stage recipe** (what to deliver) instead of a flat coin price. Resident dock +
+  chrome unchanged.
 
-## 9 · Testing
+## 10 · Testing
 
-- **Pure module** (headless): item unlock/customize rules (carried); `page_complete` true iff all items
-  built; frontier advances exactly once on completion; `page_cells` grant is idempotent;
-  `set_viewing` refuses pages past the frontier; save round-trip of book + item state.
-- **Renderer** (headless node-tree): the viewed page renders one item node per item at its build-state
-  texture, painter-sorted, single input surface; the page nav lists only unlocked pages; the variation
-  picker lists owned + buyable variations for a built item.
+- **Pure module** (headless): a stage advances iff its recipe is delivered (incl. cross-page line
+  items); `page_complete` true iff all items built; frontier advances exactly once; `page_cells`
+  idempotent; `set_viewing` refuses pages past the frontier; `deploy`/`stow` respect the active-slot
+  cap and never lose a library generator; save round-trip of book + gen_library + item state.
+- **Renderer** (headless node-tree): the viewed page renders one node per item at its build state,
+  painter-sorted, single input surface; the page nav lists only unlocked pages; the variation picker
+  lists owned + buyable variations for a built item; the build dialog shows the current stage recipe.
 - **Screenshots** (`quiet_godot`): 3–4 *different* pages built + mid-build, and a customized vs default
   item — proving the scenes read as genuinely distinct (the whole point) for the Dev share-gate.
 - `make test-fast` after every change; full `make test` before hand-off.
 
-## 10 · Out of scope / deferred
+## 11 · Out of scope / deferred
 
-- **Art generation** of the pages (foundations + items + all customization variations) — the pipeline's
-  job; this spec defines the *slots*, example scenes, and example variation sets, not final assets.
-- **Economy-sim re-pass** — all costs, level gates, cell bundles, variation prices are placeholders.
-- **Page roster & order** beyond the examples (a content decision); seasonal/event pages (a live-ops
-  layer on the page + variation systems).
+- **Art generation** of the pages (foundations + items + all customization variations) **and the ~20
+  generator lines** (12-tier ladders) — the pipeline's job; this spec defines the *slots*, example
+  scenes/lines, and example variation sets, not final assets.
+- **Economy-sim re-pass** — all costs, level gates, cell bundles, variation prices, **recipe sizes/tiers,
+  and the cross-zone reuse rate** are placeholders it owns.
+- **Page & generator roster/order** beyond the examples (a content decision); seasonal/event pages +
+  variation drops (a live-ops layer).
 - Retiring the leftover farm assets + the dead `map.gd` spot/mask methods (a focused cleanup pass).
 
-## 11 · Migration
+## 12 · Migration
 
 Pre-launch: bump the save schema (v5→v6), wiping to a fresh page-1 start; no migration. The farm
 (`fh_*`) buildings + `zone_farmhouse.json` are superseded by the book's pages (archived, not deleted).
