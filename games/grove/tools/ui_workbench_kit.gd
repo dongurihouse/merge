@@ -70,6 +70,7 @@ void fragment() {
 	COLOR = vec4(paper.rgb, paper.a * mask);
 }
 """
+static var _paper_mask_shader: Shader
 
 static func _meadow_path(file_name: String) -> String:
 	return Game.art(MEADOW_UI % file_name)
@@ -77,6 +78,26 @@ static func _meadow_path(file_name: String) -> String:
 static func _meadow_tex(file_name: String) -> Texture2D:
 	var path := _meadow_path(file_name)
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+static func _rounded_paper_layer(node_name: String, file_name: String, size_px: Vector2, corner_px: float, inset: float = 2.0) -> TextureRect:
+	var paper := TextureRect.new()
+	paper.name = node_name
+	paper.texture = _meadow_tex(file_name)
+	paper.position = Vector2.ONE * inset
+	paper.size = Vector2(maxf(1.0, size_px.x - inset * 2.0), maxf(1.0, size_px.y - inset * 2.0))
+	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	paper.stretch_mode = TextureRect.STRETCH_SCALE
+	paper.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _paper_mask_shader == null:
+		_paper_mask_shader = Shader.new()
+		_paper_mask_shader.code = PAPER_MASK_SHADER
+	var mask := ShaderMaterial.new()
+	mask.shader = _paper_mask_shader
+	mask.set_shader_parameter("control_size", paper.size)
+	mask.set_shader_parameter("radius_px", maxf(0.0, corner_px - inset))
+	paper.material = mask
+	return paper
 
 static func _set_texture_margins(style: StyleBoxTexture, margins: Vector4) -> void:
 	style.set_texture_margin(SIDE_LEFT, margins.x)
@@ -132,10 +153,11 @@ static func _apply_rounded_paper_surface(
 	paper.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var shader := Shader.new()
-	shader.code = PAPER_MASK_SHADER
+	if _paper_mask_shader == null:
+		_paper_mask_shader = Shader.new()
+		_paper_mask_shader.code = PAPER_MASK_SHADER
 	var material := ShaderMaterial.new()
-	material.shader = shader
+	material.shader = _paper_mask_shader
 	material.set_shader_parameter("radius_px", maxf(1.0, corner - inset))
 	paper.material = material
 	button.add_child(paper)
@@ -4410,8 +4432,8 @@ static func _info_circle_btn(icon_id: String, px: float) -> Button:
 
 ## --- the BOARD PANEL: the rounded frame the cells sit on ---------------------------------------------
 ## ONE builder shared by the live board (board.gd _make_board_mat) AND the workbench preview, so they read
-## 1:1 (the workbench shows the ACTUAL border). Two styles, chosen by board.frame_style:
-##   "meadow" (default) — the authored Meadow board-frame nine-slice with safe margins.
+## 1:1 (the workbench shows the ACTUAL border). Three styles, chosen by board.frame_style:
+##   "meadow" (default) — code-drawn slate surface + a flat paper-grain layer, light edge, and one shadow.
 ##   "badge" — the retained generated gold-badge compatibility style.
 ##   "code"  — a code-drawn rounded-rect for tuning a depth effect: cream fill, an outer border (border_w),
 ##             an optional inner hairline (inner_w = "the border of the border"), and a top inset shadow for
@@ -4424,13 +4446,17 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 	root.size = size
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var corner := int(opts.get("corner", GOLD_BADGE_CAP))
+	var frame_style := String(opts.get("frame_style", "meadow"))
+	var shadow_corner := float(corner)
+	if frame_style == "meadow":
+		shadow_corner = clampf(minf(size.x, size.y) * 0.035, 14.0, 30.0)
 	# the soft drop shadow under the WHOLE board (both styles) — the SHARED box-shadow, a sibling drawn BEHIND
 	# (show_behind_parent) so it bleeds past the edge. NinePatchRect has no native shadow. On via the toggle.
 	if bool(opts.get("shadow", false)):
-		var sh := _meadow_shadow_rect(float(corner), opts.get("shadow_params", {}))
+		var sh := _meadow_shadow_rect(shadow_corner, opts.get("shadow_params", {}))
+		sh.name = "MeadowBoardShadow"
 		sh.show_behind_parent = true
 		root.add_child(sh)
-	var frame_style := String(opts.get("frame_style", "meadow"))
 	if frame_style == "code":
 		# code-drawn rounded-rect: cream fill + a gold outer border, corners held by `corner`.
 		var border_w := int(opts.get("border_w", 4))
@@ -4498,19 +4524,23 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(np)
 	else:
-		var np := NinePatchRect.new()
-		np.name = "MeadowBoardFrame"
-		np.texture = _meadow_tex("board_frame.png")
-		np.set_anchors_preset(Control.PRESET_FULL_RECT)
-		np.patch_margin_left = int(BOARD_PATCH.x)
-		np.patch_margin_top = int(BOARD_PATCH.y)
-		np.patch_margin_right = int(BOARD_PATCH.z)
-		np.patch_margin_bottom = int(BOARD_PATCH.w)
-		np.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
-		np.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
-		np.draw_center = bool(opts.get("draw_center", true))
-		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(np)
+		# The reference board is one simple slate paper slab. Keep its silhouette, edge, and depth in code;
+		# the source image contributes only the paper grain and is clipped just inside the light rim.
+		var meadow_corner := int(shadow_corner)
+		var panel := Panel.new()
+		panel.name = "MeadowBoardSurface"
+		panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("#3F6D7D")
+		sb.border_color = Color("#F6EBDD", 0.82)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(meadow_corner)
+		sb.anti_aliasing = true
+		panel.add_theme_stylebox_override("panel", sb)
+		root.add_child(panel)
+		if bool(opts.get("draw_center", true)):
+			root.add_child(_rounded_paper_layer("MeadowBoardPaper", "texture_structural_slate.png", size, meadow_corner, 2.0))
 	return root
 
 ## The board-panel frame opts from a saved config — the frame style, its code-drawn depth knobs, and the
@@ -4529,8 +4559,8 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
-## The slot cell is ONE component card with four states. Open, locked, and unlockable states select their
-## dedicated authored Meadow shell; `next` also gets a dynamic sparkle FX.
+## The slot cell is ONE component card with four states. Open and locked states use code-drawn rounded
+## surfaces masked with flat Meadow paper grain; `next` also gets a dynamic sparkle FX.
 const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
 
 static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Color:
@@ -4542,8 +4572,8 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
 		fallback.a)
 
-## The SLOT-CELL background selects the authored open/locked/unlockable nine-slice and optionally layers
-## one shallow runtime shadow. The board, bag, and discovery ladder share this exact state mapping.
+## The SLOT-CELL background draws its rounded shape and edge in code, then clips one flat paper texture
+## inside it. Cells never cast their own shadow; only the board slab does.
 static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {}) if cfg is Dictionary else {}
 	return {
@@ -4555,9 +4585,6 @@ static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary
 		"corner_frac": clampf(float(bc.get("corner", 18.0)) / 100.0, 0.04, 0.50),
 		"depth_px": clampf(float(bc.get("depth", 4.0)), 0.0, 40.0),
 		"depth_alpha": clampf(float(bc.get("depth_alpha", 18.0)) / 100.0, 0.0, 1.0),
-		"cell_shadow": clampf(float(bc.get("cell_shadow", 16.0)) / 100.0, 0.0, 1.0),
-		"cell_shadow_size": clampf(float(bc.get("cell_shadow_size", 10.0)) / 100.0, 0.0, 0.60),
-		"cell_shadow_y": clampf(float(bc.get("cell_shadow_y", 3.0)), -40.0, 40.0),
 		"inset": clampf(float(bc.get("inset", 20.0)) / 100.0, 0.0, 1.0),
 	}
 
@@ -4582,49 +4609,40 @@ static func _slot_cell_inset_layer(name: String, size_px: Vector2, corner_px: in
 	return layer
 
 static func slot_cell_background(size_px: Vector2, state: String, frontier: bool, opts: Dictionary = {}) -> Panel:
+	const FACE_INSET := 3.0
+	var face_size := Vector2(maxf(1.0, size_px.x - FACE_INSET * 2.0), maxf(1.0, size_px.y - FACE_INSET * 2.0))
 	var base := Panel.new()
 	base.name = "SlotCellBackground"
-	base.position = Vector2.ZERO
-	base.size = size_px
+	base.position = Vector2.ONE * FACE_INSET
+	base.size = face_size
 	var open_state := state == "empty" or state == "filled"
-	var file_name := "board_cell_open.png" if open_state else ("board_cell_unlockable.png" if frontier or state == "unlockable" else "board_cell_locked.png")
-	var fs := StyleBoxTexture.new()
-	fs.texture = _meadow_tex(file_name)
-	_set_texture_margins(fs, SLOT_PATCH)
-	fs.content_margin_left = 6.0; fs.content_margin_top = 6.0
-	fs.content_margin_right = 6.0; fs.content_margin_bottom = 6.0
+	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
+	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
+	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = fill
+	fs.border_color = Color("#3F6D7D", 0.28)
+	fs.set_border_width_all(1)
+	fs.set_corner_radius_all(corner_px)
+	fs.anti_aliasing = true
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# The generated shells contain no shadow. When a caller enables one, keep it shallow and use the
-	# exact Meadow structural-slate tint at no more than 20% opacity.
-	var shadow_a := float(opts.get("cell_shadow", 0.16))
-	if shadow_a > 0.0:
-		var shadow := _meadow_shadow_rect(minf(size_px.x, size_px.y) * 0.18, {
-			"alpha": minf(shadow_a, MEADOW_SHADOW_MAX_ALPHA),
-			"blur": minf(6.0, minf(size_px.x, size_px.y) * float(opts.get("cell_shadow_size", 0.06))),
-			"offset_x": 0.0,
-			"offset_y": clampf(float(opts.get("cell_shadow_y", 2.0)), -3.0, 3.0),
-			"spread": 0.0,
-		})
-		shadow.name = "MeadowSlotShadow"
-		shadow.show_behind_parent = true
-		base.add_child(shadow)
+	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0))
 	return base
 
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
 ## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
-const SLOT_LOCKED_PLACEHOLDER_ART := "board/locked_placeholder.png"
-const SLOT_LOCKED_PLACEHOLDER_ALPHA := 0.30
-const SLOT_LOCKED_PLACEHOLDER_FRAC := 0.72
+const SLOT_LOCK_MARK_ALPHA := 0.78
+const SLOT_LOCK_MARK_FRAC := 0.58
 
-static func _slot_locked_placeholder(cw: float, ch: float) -> Control:
-	var tex := clean_tex_path(Look.kit(SLOT_LOCKED_PLACEHOLDER_ART), 512)
+static func _slot_lock_mark(cw: float, ch: float) -> TextureRect:
+	var tex := _meadow_tex("acorn_lock.svg")
 	if tex == null:
 		return null
-	var px := minf(cw, ch) * SLOT_LOCKED_PLACEHOLDER_FRAC
+	var px := minf(cw, ch) * SLOT_LOCK_MARK_FRAC
 	var tr := TextureRect.new()
-	tr.name = "SlotCellLockedPlaceholder"
+	tr.name = "SlotCellLockMark"
 	tr.texture = tex
 	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var inset_x := (cw - px) * 0.5
@@ -4635,15 +4653,9 @@ static func _slot_locked_placeholder(cw: float, ch: float) -> Control:
 	tr.offset_bottom = -inset_y
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.modulate = Color(1.0, 1.0, 1.0, SLOT_LOCKED_PLACEHOLDER_ALPHA)
+	tr.modulate = Color(1.0, 1.0, 1.0, SLOT_LOCK_MARK_ALPHA)
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var wrap := Control.new()
-	wrap.name = "SlotCellLockedPlaceholderWrap"
-	wrap.position = Vector2.ZERO
-	wrap.size = Vector2(cw, ch)
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(tr)
-	return wrap
+	return tr
 
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {})
@@ -4704,7 +4716,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var cost_scale := float(opts.get("cost_scale", 1.0))
 	var on_tap: Callable = d.get("on_tap", Callable())
 	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
-	var lockedwell := (state == "locked" or state == "unlockable")   # both show the placeholder-stamped well
+	var lockedwell := (state == "locked" or state == "unlockable")   # both show the single acorn lock mark
 
 	var tile: Control = (Button.new() if tappable else Control.new())
 	tile.custom_minimum_size = Vector2(cw, ch)
@@ -4727,9 +4739,9 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		bg.modulate = Color(0.74, 0.74, 0.74, 1.0)
 	tile.add_child(bg)
 	if lockedwell:
-		var placeholder := _slot_locked_placeholder(cw, ch)
-		if placeholder != null:
-			tile.add_child(placeholder)
+		var lock_mark := _slot_lock_mark(cw, ch)
+		if lock_mark != null:
+			tile.add_child(lock_mark)
 
 	# a MARKED cell (the discovery ladder's tapped/asked tier) wears the SAME engine sparkle the home
 	# buttons use, sitting over the well but UNDER the piece — an overlay, so the footprint never changes.

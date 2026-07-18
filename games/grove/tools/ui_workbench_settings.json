@@ -16,9 +16,6 @@
 	},
 	"bag_card": {
 		"cell_h": 120.0,
-		"cell_shadow": 0.0,
-		"cell_shadow_size": 0.0,
-		"cell_shadow_y": -20.0,
 		"cell_w": 116.0,
 		"content_frac": 91.0,
 		"corner": 4.0,

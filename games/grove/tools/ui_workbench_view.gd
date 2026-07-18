@@ -440,7 +440,7 @@ var _params := {
 			"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
 			"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
 			"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
-			"depth": 4, "depth_alpha": 18, "cell_shadow": 16, "cell_shadow_size": 10, "cell_shadow_y": 3, "inset": 20,
+			"depth": 4, "depth_alpha": 18, "inset": 20,
 			"level": 7, "cost": 120},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
@@ -2723,13 +2723,10 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["rim_sat", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["rim_val", 40, 100]))
 			_sidebar_body.add_child(_slider_row(["rim_alpha", 0, 100]))
-			_section_header("Cell background: shape, depth, shadow")
+			_section_header("Cell background: shape and depth")
 			_sidebar_body.add_child(_slider_row(["corner", 4, 50]))
 			_sidebar_body.add_child(_slider_row(["depth", 0, 24]))
 			_sidebar_body.add_child(_slider_row(["depth_alpha", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["cell_shadow", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["cell_shadow_size", 0, 40]))
-			_sidebar_body.add_child(_slider_row(["cell_shadow_y", -20, 20]))
 			_sidebar_body.add_child(_slider_row(["inset", 0, 100]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))

@@ -462,35 +462,38 @@ func _initialize() -> void:
 		and String((backdrop as TextureRect).texture.resource_path).ends_with("ui/meadow_v2/texture_sky.png") \
 		and (backdrop as TextureRect).stretch_mode == TextureRect.STRETCH_TILE, \
 		"board backdrop uses the tiled Meadow sky paper texture")
-	# The locked-cell WELL uses the shared authored Meadow shells. Frontier cells use the unlockable shell;
-	# deep locks use the receding locked shell. Any runtime shadow is a separate shallow overlay.
+	# The locked-cell WELL uses one code-drawn receding-blue paper surface. Frontier and deep cells share
+	# that quiet face; the frontier's separate gameplay highlight supplies the actionable emphasis.
 	var slot_opts := Kit.bag_card_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
 	var border_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, slot_opts)
 	var border_bg := border_slot.find_child("SlotCellBackground", true, false) as Panel
-	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxTexture
+	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxFlat
+	var border_paper := border_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect
 	var border_shadow := border_bg.find_child("MeadowSlotShadow", true, false) as Panel
-	ok(border_sb != null and border_sb.texture != null, "the locked-cell background uses authored Meadow texture art")
-	ok(border_sb != null and String(border_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_unlockable.png"),
-		"border locked cells use the Meadow unlockable shell")
-	ok(border_shadow != null, "locked cell uses a separate shallow runtime shadow when enabled")
-	ok(border_sb != null and not String(border_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_open.png"),
+	ok(border_sb != null and border_paper != null and border_paper.texture != null,
+		"the locked-cell background combines code geometry with flat Meadow paper")
+	ok(border_paper != null and String(border_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png"),
+		"border locked cells use the receding-blue paper texture")
+	ok(border_shadow == null and border_sb.shadow_size == 0, "locked cells have no per-cell shadow")
+	ok(border_sb != null and not border_sb.bg_color.is_equal_approx(Color("#A8D3B9")),
 		"locked is visually distinct from an empty cell")
 	var deep_slot: Control = Kit.slot_cell({"state": "locked", "frontier": false}, slot_opts)
 	var deep_bg := deep_slot.find_child("SlotCellBackground", true, false) as Panel
-	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxTexture
-	ok(deep_sb != null and deep_sb.texture != null
-		and String(deep_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_locked.png"),
-		"deep locked cells keep the quiet Meadow locked shell")
+	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxFlat
+	var deep_paper := deep_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect
+	ok(deep_sb != null and deep_paper != null and deep_paper.texture == border_paper.texture,
+		"deep locked cells keep the same quiet receding-blue paper surface")
 	border_slot.free()
 	deep_slot.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
 	var bramble_bg := bramble_node.find_child("SlotCellBackground", true, false) as Panel
 	ok(bramble_bg != null, "frontier locked cell paints a full-cell locked background")
-	var bramble_style := bramble_bg.get_theme_stylebox("panel") as StyleBoxTexture if bramble_bg != null else null
-	ok(bramble_style != null and bramble_style.texture != null
-		and String(bramble_style.texture.resource_path).ends_with("ui/meadow_v2/board_cell_unlockable.png")
-		and bramble_style.get_texture_margin(SIDE_LEFT) > 0.0, \
-		"frontier locked cell uses the safely patched Meadow unlockable shell")
+	var bramble_style := bramble_bg.get_theme_stylebox("panel") as StyleBoxFlat if bramble_bg != null else null
+	var bramble_paper := bramble_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect if bramble_bg != null else null
+	ok(bramble_style != null and bramble_paper != null \
+		and String(bramble_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png") \
+		and bramble_bg.find_child("MeadowSlotShadow", true, false) == null, \
+		"frontier locked cell uses the flat receding-blue paper surface without a shadow")
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
 	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")

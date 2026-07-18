@@ -111,7 +111,7 @@ func _push_tap(gpos: Vector2, viewport: Viewport = null) -> void:
 	target.push_input(up, true)
 
 func _locked_placeholder(node: Control) -> TextureRect:
-	return node.find_child("SlotCellLockedPlaceholder", true, false) as TextureRect
+	return node.find_child("SlotCellLockMark", true, false) as TextureRect
 
 # The first Button at/under `node` whose text CONTAINS `frag` (case-insensitive), or null — to read its
 # art (the normal stylebox) or assert its presence. (find_children can't match on text.)
@@ -169,7 +169,7 @@ func _piece_art_max_px(node: Control) -> float:
 func _resident_art_rect(node: Control) -> TextureRect:
 	for found in node.find_children("*", "TextureRect", true, false):
 		var art := found as TextureRect
-		if art.texture != null:
+		if art.texture != null and art.name != "SlotCellPaperTexture" and art.name != "SlotCellLockMark":
 			return art
 	return null
 
@@ -859,11 +859,11 @@ func _initialize() -> void:
 			var inhand_bar := map_scene._inhand_info_bar(Rect2(0, 0, 240, 88)) as Control
 			var inhand_frame := inhand_bar.find_child("InHandInfoBarFrame", true, false) as Panel
 			var inhand_style := inhand_frame.get_theme_stylebox("panel") if inhand_frame != null else null
-			var inhand_tex := inhand_style as StyleBoxTexture
-			ok(inhand_frame != null and inhand_tex != null and inhand_tex.texture != null \
-				and String(inhand_tex.texture.resource_path).ends_with("ui/meadow_v2/board_cell_open.png") \
+			var inhand_paper := inhand_frame.find_child("SlotCellPaperTexture", true, false) as TextureRect if inhand_frame != null else null
+			ok(inhand_frame != null and inhand_style is StyleBoxFlat and inhand_paper != null \
+				and String(inhand_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_meadow.png") \
 				and _has_button_text(inhand_bar, "Sell +5"), \
-				"place-picker resident sell bar uses the Meadow open Slot-cell shell")
+				"place-picker resident sell bar uses the flat Meadow Slot-cell paper surface")
 			var resident_info := inhand_bar.find_child("ResidentInfoButton", true, false) as Button
 			var resident_sell := _find_button(inhand_bar, "Sell +5")
 			ok(resident_info != null and not _has_label_text(inhand_bar, "Tier 1") \
@@ -923,8 +923,9 @@ func _initialize() -> void:
 		"the temporary Border cell component is removed; its knobs live on Slot cell")
 	ok(not (view._params["bag_card"] as Dictionary).has("cell_art") and not (view._params["bag_card"] as Dictionary).has("cell_slice"), \
 		"Slot cell no longer exposes stale art/slice settings")
-	ok(view._is_config("bag_card", "cell_shadow") and view._is_config("bag_card", "cell_shadow_size"), \
-		"Slot cell retains only runtime shadow tuning over authored Meadow shells")
+	ok(not (view._params["bag_card"] as Dictionary).has("cell_shadow") \
+		and not (view._params["bag_card"] as Dictionary).has("cell_shadow_size"), \
+		"Slot cell retires per-cell shadow tuning")
 	var border_opts := Kit.bag_card_opts_from_config({"bag_card": {
 		"frontier_hue": 20, "frontier_sat": 60, "frontier_val": 80,
 		"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
@@ -933,10 +934,11 @@ func _initialize() -> void:
 	}})
 	var tuned_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, border_opts)
 	var tuned_bg := tuned_slot.find_child("SlotCellBackground", true, false) as Panel
-	var tuned_sb := tuned_bg.get_theme_stylebox("panel") as StyleBoxTexture if tuned_bg != null else null
-	ok(tuned_sb != null and tuned_sb.texture != null \
-		and String(tuned_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_unlockable.png"), \
-		"stale frontier colour tuning cannot override the authored unlockable shell")
+	var tuned_sb := tuned_bg.get_theme_stylebox("panel") as StyleBoxFlat if tuned_bg != null else null
+	var tuned_paper := tuned_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect if tuned_bg != null else null
+	ok(tuned_sb != null and tuned_sb.bg_color.is_equal_approx(Color("#8296AF")) \
+		and tuned_paper != null and String(tuned_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png"), \
+		"stale frontier colour tuning cannot override the flat locked-cell paper surface")
 	tuned_slot.free()
 	ok(not _source_contains("res://engine/scripts/ui/piece_view.gd", "border_cell_opts_from_config") \
 		and _source_contains("res://engine/scripts/ui/piece_view.gd", "\"frontier\": frontier"), \
@@ -1439,21 +1441,21 @@ func _test_board_element(view) -> void:
 	view._params["bag_card"]["deep_sat"] = 12
 	view._params["bag_card"]["deep_val"] = 85
 	var board_with_locks: Control = view._make_element("board")
-	var saw_frontier_lock := false
-	var saw_deep_lock := false
+	var saw_locked_paper := false
 	var board_backgrounds := board_with_locks.find_children("SlotCellBackground", "Panel", true, false)
 	for bg in board_backgrounds:
 		var sb: StyleBox = (bg as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null:
-			var path := String((sb as StyleBoxTexture).texture.resource_path)
-			saw_frontier_lock = saw_frontier_lock or path.ends_with("ui/meadow_v2/board_cell_unlockable.png")
-			saw_deep_lock = saw_deep_lock or path.ends_with("ui/meadow_v2/board_cell_locked.png")
-	ok(saw_frontier_lock and saw_deep_lock, \
-		"the board preview shows authored unlockable and deep-locked Meadow shells")
+		var paper := (bg as Panel).find_child("SlotCellPaperTexture", true, false) as TextureRect
+		if sb is StyleBoxFlat and paper != null and paper.texture != null:
+			saw_locked_paper = saw_locked_paper or String(paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png")
+	ok(saw_locked_paper and board_with_locks.find_child("SlotCellUnlockableHighlight", true, false) != null, \
+		"the board preview uses one flat locked paper surface plus the unlockable highlight")
 	ok(board_backgrounds.size() >= int(view._params["board"].cols) * int(view._params["board"].rows), \
 		"the board preview renders every cell state through the Slot-cell background")
-	ok(_locked_placeholder(board_with_locks) != null and is_equal_approx(_locked_placeholder(board_with_locks).modulate.a, 0.30), \
-		"the board preview inherits the shared locked placeholder sprite at 30% opacity")
+	ok(_locked_placeholder(board_with_locks) != null \
+		and String(_locked_placeholder(board_with_locks).texture.resource_path).ends_with("ui/meadow_v2/acorn_lock.svg") \
+		and is_equal_approx(_locked_placeholder(board_with_locks).modulate.a, 0.78), \
+		"the board preview inherits the single combined acorn-lock mark")
 	ok(_has_class(board_with_locks, "GPUParticles2D"), \
 		"the board preview includes the unlockable Slot-cell state")
 	view._params["board"]["cell"] = 100
@@ -2372,24 +2374,27 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "TextureRect"), "the unlockable cell carries the outer bloom halo by default")
 	var co_nohalo := Kit.bag_card_opts_from_config({"bag_card": {"glow_size": 0, "next_twinkle": 0}})
 	var nohalo := Kit.slot_cell({"state": "unlockable"}, co_nohalo)
-	ok(_locked_placeholder(nohalo) != null and nohalo.find_children("*", "TextureRect", true, false).size() == 1, \
-		"glow_size 0 removes the outer bloom halo while keeping the locked placeholder")
-	# locked cells now use the code-drawn Slot-cell background — no separate lock overlay, no baked locked face.
+	ok(_locked_placeholder(nohalo) != null and nohalo.find_child("SlotCellPaperTexture", true, false) != null \
+		and nohalo.find_children("*", "TextureRect", true, false).size() == 2, \
+		"glow_size 0 removes the outer bloom halo while keeping paper grain and the acorn-lock mark")
+	# Locked cells use one code-drawn paper surface and one combined acorn-lock mark — never two symbols.
 	var locked_plain := Kit.slot_cell({"state": "locked"}, co)
 	ok(locked_plain.find_child("SlotCellBackground", true, false) is Panel \
 		and locked_plain.find_child("BagLock", true, false) == null, \
 		"the locked cell uses the code-drawn Slot-cell background")
 	var locked_placeholder := _locked_placeholder(locked_plain)
 	ok(locked_placeholder != null and locked_placeholder.texture != null \
-		and is_equal_approx(locked_placeholder.modulate.a, 0.30), \
-		"the locked cell layers the shared placeholder sprite at 30% opacity")
+		and String(locked_placeholder.texture.resource_path).ends_with("ui/meadow_v2/acorn_lock.svg") \
+		and is_equal_approx(locked_placeholder.modulate.a, 0.78), \
+		"the locked cell layers one combined acorn-lock mark")
 	var unlockable_placeholder := _locked_placeholder(unl)
 	ok(unlockable_placeholder != null and unlockable_placeholder.texture == locked_placeholder.texture \
-		and is_equal_approx(unlockable_placeholder.modulate.a, 0.30), \
-		"the unlockable cell uses the same locked placeholder sprite at 30% opacity")
+		and is_equal_approx(unlockable_placeholder.modulate.a, 0.78), \
+		"the unlockable cell uses the same single acorn-lock mark")
 	var locked_bg := locked_plain.find_child("SlotCellBackground", true, false) as Control
 	ok(locked_plain.custom_minimum_size == cwh, "the locked slot cell owns the configured cell_w/cell_h")
-	ok(locked_bg != null and locked_bg.size == cwh, "the locked background paints at the configured slot-cell size")
+	ok(locked_bg != null and locked_bg.position == Vector2(3, 3) and locked_bg.size == cwh - Vector2(6, 6), \
+		"the locked background is inset to reveal the board gutter")
 	ok(locked_bg != null and locked_bg.custom_minimum_size == Vector2.ZERO, \
 		"the locked background is paint-only and does not expand the slot cell")
 	var co_depth := Kit.bag_card_opts_from_config({"bag_card": {
@@ -2399,12 +2404,9 @@ func _test_bag_components() -> void:
 	var depth_bg := depth_cell.find_child("SlotCellBackground", true, false) as Panel
 	var depth_style: StyleBox = depth_bg.get_theme_stylebox("panel") if depth_bg != null else null
 	var runtime_shadow := depth_bg.find_child("MeadowSlotShadow", true, false) as Panel if depth_bg != null else null
-	var runtime_shadow_style := runtime_shadow.get_theme_stylebox("panel") as StyleBoxFlat if runtime_shadow != null else null
-	ok(depth_style is StyleBoxTexture and runtime_shadow_style != null \
-		and _same_rgb(runtime_shadow_style.shadow_color, Color("#294654")) \
-		and runtime_shadow_style.shadow_color.a <= 0.201 \
-		and runtime_shadow_style.shadow_offset.y <= 3.0, \
-		"Slot-cell shadows are shallow, structural-slate overlays on authored shells")
+	ok(depth_style is StyleBoxFlat and (depth_style as StyleBoxFlat).shadow_size == 0 \
+		and runtime_shadow == null and depth_bg.find_child("SlotCellPaperTexture", true, false) != null, \
+		"stale depth and shadow config cannot add a per-cell shadow to the flat paper surface")
 	var co_inset := Kit.bag_card_opts_from_config({"bag_card": {"inset": 70}})
 	var inset_cell := Kit.slot_cell({"state": "empty"}, co_inset)
 	ok(inset_cell.find_child("SlotCellInsetDark", true, false) == null \
@@ -2416,8 +2418,8 @@ func _test_bag_components() -> void:
 	root.add_child(locked_host)
 	locked_host.add_child(locked_plain)
 	await process_frame
-	ok(locked_bg != null and locked_bg.get_global_rect().size == locked_plain.get_global_rect().size, \
-		"the locked background stays inside the slot cell after layout")
+	ok(locked_bg != null and locked_bg.get_global_rect().size == locked_plain.get_global_rect().size - Vector2(6, 6), \
+		"the inset locked background stays inside the slot cell after layout")
 	var unl_bg := unl.find_child("SlotCellBackground", true, false) as Control
 	ok(unl.custom_minimum_size == cwh, "the unlockable slot cell owns the configured cell_w/cell_h")
 	ok(unl_bg != null and unl_bg.custom_minimum_size == Vector2.ZERO, \
@@ -2433,10 +2435,11 @@ func _test_bag_components() -> void:
 	await process_frame
 	side_view._selected = "bag_card"
 	side_view._rebuild_sidebar()
-	ok(_slider_max(side_view, "Depth") >= 24.0 and _slider_max(side_view, "Cell Shadow") >= 100.0 \
-		and _slider_max(side_view, "Cell Shadow Size") >= 40.0 and _slider_min(side_view, "Cell Shadow Y") <= -20.0 \
-		and _slider_max(side_view, "Inset") >= 100.0, \
-		"Slot-cell sidebar exposes depth, shadow, and inset controls")
+	ok(_slider_max(side_view, "Depth") >= 24.0 and _slider_max(side_view, "Inset") >= 100.0 \
+		and _slider_max(side_view, "Cell Shadow") == -INF \
+		and _slider_max(side_view, "Cell Shadow Size") == -INF \
+		and _slider_min(side_view, "Cell Shadow Y") == INF, \
+		"Slot-cell sidebar keeps shape controls and retires per-cell shadow controls")
 	ok(not _has_sidebar_label(side_view, "Cell art") and _slider_max(side_view, "Cell Slice") == -INF, \
 		"Slot-cell sidebar hides stale art/slice controls")
 	side_view.queue_free()
@@ -2492,16 +2495,17 @@ func _test_discovery_cell() -> void:
 	# a DISCOVERED tier → filled Slot-cell background; an UNDISCOVERED tier → locked Slot-cell background
 	ok(dlg.find_children("SlotCellBackground", "Panel", true, false).size() >= 2, \
 		"discovered and undiscovered tiers both use the shared Slot-cell background")
-	ok(_locked_placeholder(dlg) != null and is_equal_approx(_locked_placeholder(dlg).modulate.a, 0.30), \
-		"undiscovered tiers inherit the shared locked placeholder sprite at 30% opacity")
+	ok(_locked_placeholder(dlg) != null and is_equal_approx(_locked_placeholder(dlg).modulate.a, 0.78), \
+		"undiscovered tiers inherit the shared acorn-lock mark")
 	var tuned_cfg := {"bag_card": {"open_hue": 126, "open_sat": 78, "open_val": 52}}
 	var tuned_topts := Kit.tiers_opts_from_config(tuned_cfg)
 	var tuned_dlg := Kit.tiers_dialog([{"tier": 1, "seen": true, "icon": "leaf"}], 560.0, tuned_topts)
 	var tuned_bg := tuned_dlg.find_child("SlotCellBackground", true, false) as Panel
 	var tuned_style: StyleBox = tuned_bg.get_theme_stylebox("panel") if tuned_bg != null else null
-	ok(tuned_style is StyleBoxTexture and (tuned_style as StyleBoxTexture).texture != null \
-		and String((tuned_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/board_cell_open.png"), \
-		"tiers_dialog inherits the authored Meadow open-cell shell")
+	var tuned_paper := tuned_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect if tuned_bg != null else null
+	ok(tuned_style is StyleBoxFlat and tuned_paper != null and tuned_paper.texture != null \
+		and String(tuned_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_meadow.png"), \
+		"tiers_dialog inherits the flat Meadow open-cell paper surface")
 	# tier cells carry a plain number, not the decorated level-badge medal.
 	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "tiers_dialog shows plain tier numbers (3, 7)")
 	ok(dlg.find_child("lv_num", true, false) == null, "tiers_dialog omits decorated level-badge nodes")

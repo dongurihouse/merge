@@ -35,23 +35,44 @@ func _test_meadow_shared_components() -> void:
 		"pill_button defaults to the canonical Meadow primary shell")
 	default_button.free()
 
-	var board := Kit.board_panel(Vector2(420, 360), {"shadow": false})
-	var frame := board.find_child("MeadowBoardFrame", true, false) as NinePatchRect
-	ok(frame != null and _resource_suffix(frame.texture, "ui/meadow_v2/board_frame.png"),
-		"board_panel defaults to the Meadow board frame")
-	ok(frame != null and frame.patch_margin_left > 0 and frame.patch_margin_top > 0,
-		"board_panel declares safe nine-slice margins")
+	var board := Kit.board_panel(Vector2(420, 360), {"shadow": true})
+	var board_surface := board.find_child("MeadowBoardSurface", true, false) as Panel
+	var board_style := board_surface.get_theme_stylebox("panel") as StyleBoxFlat if board_surface != null else null
+	var board_paper := board.find_child("MeadowBoardPaper", true, false) as TextureRect
+	var board_shadow := board.find_child("MeadowBoardShadow", true, false) as Panel
+	ok(board_style != null and board_style.bg_color.is_equal_approx(Color("#3F6D7D")) \
+		and board_style.border_color.r == Color("#F6EBDD").r \
+		and board_style.get_border_width(SIDE_LEFT) == 2,
+		"board_panel draws one structural-slate panel with a light code edge")
+	ok(board_paper != null and _resource_suffix(board_paper.texture, "ui/meadow_v2/texture_structural_slate.png") \
+		and board_paper.material is ShaderMaterial,
+		"board_panel masks the flat structural-slate paper texture to its code shape")
+	ok(board_shadow != null and board.find_children("MeadowBoardShadow", "Panel", true, false).size() == 1 \
+		and board.find_child("MeadowBoardFrame", true, false) == null,
+		"board_panel owns one overall shadow and no pre-cut frame ring")
 	board.free()
 
-	for spec in [["empty", false, "board_cell_open.png"], ["locked", false, "board_cell_locked.png"], ["locked", true, "board_cell_unlockable.png"]]:
-		var cell := Kit.slot_cell_background(Vector2(112, 112), spec[0], spec[1], {"cell_shadow": 0.0})
+	for spec in [["empty", false, "texture_meadow.png", Color("#A8D3B9")], ["locked", false, "texture_receding_blue.png", Color("#8296AF")], ["locked", true, "texture_receding_blue.png", Color("#8296AF")]]:
+		var cell := Kit.slot_cell_background(Vector2(112, 112), spec[0], spec[1], {"cell_shadow": 1.0})
 		var style := cell.get_theme_stylebox("panel")
-		var tex := (style as StyleBoxTexture).texture if style is StyleBoxTexture else null
-		ok(style is StyleBoxTexture and _resource_suffix(tex, "ui/meadow_v2/%s" % spec[2]),
-			"slot-cell state %s/%s uses its Meadow shell" % [spec[0], spec[1]])
-		ok(style is StyleBoxTexture and (style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0,
-			"slot-cell state %s/%s declares nine-slice margins" % [spec[0], spec[1]])
+		var paper := cell.find_child("SlotCellPaperTexture", true, false) as TextureRect
+		ok(style is StyleBoxFlat and (style as StyleBoxFlat).bg_color.is_equal_approx(spec[3]) \
+			and (style as StyleBoxFlat).shadow_size == 0 \
+			and cell.position == Vector2(3.0, 3.0) and cell.size == Vector2(106.0, 106.0),
+			"slot-cell state %s/%s draws a flat code surface with no cell shadow" % [spec[0], spec[1]])
+		ok(paper != null and _resource_suffix(paper.texture, "ui/meadow_v2/%s" % spec[2]) \
+			and paper.material is ShaderMaterial \
+			and cell.find_child("MeadowSlotShadow", true, false) == null,
+			"slot-cell state %s/%s masks one flat paper texture without a shadow layer" % [spec[0], spec[1]])
 		cell.free()
+
+	var locked_cell := Kit.slot_cell({"state": "locked"}, {"cell_w": 112.0, "cell_h": 112.0})
+	var lock_marks := locked_cell.find_children("SlotCellLockMark", "TextureRect", true, false)
+	var lock_mark := lock_marks[0] as TextureRect if lock_marks.size() == 1 else null
+	ok(lock_mark != null and _resource_suffix(lock_mark.texture, "ui/meadow_v2/acorn_lock.svg") \
+		and locked_cell.find_child("SlotCellLockedPlaceholder", true, false) == null,
+		"locked cell shows one combined acorn-lock mark with no overlapping padlock")
+	locked_cell.free()
 
 	for spec in [[-8, 1], [0, 1], [1, 2], [24, 25], [99, 25]]:
 		var badge := Kit.level_badge({}, spec[0], 37, 128.0)
