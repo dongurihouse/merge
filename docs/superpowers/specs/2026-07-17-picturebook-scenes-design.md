@@ -60,8 +60,8 @@ page at a time, fit to the viewport (exactly as the home zone renders today).
 - `customizations`: `[{id, set, texture, cost:{coins|diamonds}}]` — the variation skins, offered once
   the item is **built**. Optional, never blocks page completion.
 - A minority of items may be **backdrop** (build-only, no `customizations`) where variation would read
-  as noise (drifting leaves, falling snow) — but the default is customizable, since customization is
-  the point.
+  as noise (falling snow, drifting petals, bubble streams) — but the default is customizable, since
+  customization is the point.
 
 Page completion = every item `built`. (Customization is *not* required to turn the page — it's the
 optional beautify/collection layer, available anytime, including on flipped-back pages.)
