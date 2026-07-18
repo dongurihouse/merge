@@ -4,6 +4,14 @@ extends SceneTree
 ## grove_ui_tests has unrelated storefront/layout failures.
 
 const Pal = preload("res://games/grove/grove_palette.gd")
+const MAPPING_PATH := "res://games/grove/assets/ui/meadow_v2/canonical_mapping.json"
+const MANIFEST_PATH := "res://games/grove/assets/ui/meadow_v2/manifest.json"
+const SUITE_PATH := "games/grove/tests/grove_palette_routing_tests"
+const FIXED_CONSUMERS := {
+	"rush/bottom_hint_3slice.png": {"min_aspect": 4.0, "contract": "wide three-slice"},
+	"map/left_card_frame_large.png": {"min_aspect": 1.1, "contract": "landscape map frame"},
+	"map/left_locked_preview.png": {"min_aspect": 1.1, "contract": "landscape map preview"},
+}
 
 var _pass := 0
 var _fail := 0
@@ -19,14 +27,32 @@ func ok(cond: bool, label: String) -> void:
 func _assert_color(name: String, actual: Color, expected_hex: String) -> void:
 	ok(actual == Color(expected_hex), "%s is fixed Meadow Sky %s (got %s)" % [name, expected_hex, actual.to_html(false)])
 
+func _load_json(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		ok(false, "%s opens" % path)
+		return {}
+	var parsed = JSON.parse_string(f.get_as_text())
+	ok(parsed is Dictionary, "%s parses as a JSON object" % path)
+	return parsed as Dictionary if parsed is Dictionary else {}
+
 func _assert_route(source_name: String, canonical_rel: String) -> void:
-	var source := "res://games/grove/assets/ui/meadow_v2/%s.png" % source_name
+	var source := "res://games/grove/assets/ui/meadow_v2/%s" % source_name
 	var canonical := "res://games/grove/assets/ui/%s" % canonical_rel
 	ok(FileAccess.file_exists(canonical), "%s canonical resource exists" % canonical_rel)
 	if FileAccess.file_exists(canonical):
 		ok(FileAccess.get_sha256(canonical) == FileAccess.get_sha256(source),
-			"%s routes meadow_v2/%s.png without divergence" % [canonical_rel, source_name])
+			"%s routes meadow_v2/%s without divergence" % [canonical_rel, source_name])
 		ok(ResourceLoader.exists(canonical), "%s is imported as a Godot resource" % canonical_rel)
+
+func _active_grove_suite_line() -> String:
+	var f := FileAccess.open("res://Makefile", FileAccess.READ)
+	if f == null:
+		return ""
+	for line in f.get_as_text().split("\n"):
+		if line.begins_with("GROVE_TESTS  :="):
+			return line
+	return ""
 
 func _initialize() -> void:
 	print("== Grove Meadow Sky palette/routing tests ==")
@@ -55,48 +81,48 @@ func _initialize() -> void:
 	for role in palette_roles:
 		_assert_color(role, palette_roles[role][0], palette_roles[role][1])
 
-	var routes := {
-		# Currency, navigation, and controls used by Skin.icon().
-		"water_drop": ["shared/icon_water.png"],
-		"coin": ["currency/icon_coin.png", "currency/coin.png", "rush/bar_coin.png"],
-		"acorn": ["currency/icon_gem.png", "rush/acorn.png"],
-		"nav_home": ["shared/icon_home.png", "shared/icon_house.png"],
-		"nav_board": ["shared/icon_board.png"], "nav_maps": ["shared/icon_map.png"],
-		"nav_bag": ["shared/icon_bag.png"], "nav_shop": ["shared/icon_shop.png"],
-		"button_plus": ["shared/icon_plus.png"], "button_info": ["shared/icon_info.png"],
-		"button_confirm": ["shared/icon_check.png"], "button_back": ["map/back_arrow.png"],
-		# Shared button, card, panel, progress, board-cell, and dialog atoms.
-		"button_primary": ["kit/mail_pill.png", "kit/bag_pill_green.png", "kit/shop_buy.png", "kit/level_btn.png", "board/btn_pill_green.png"],
-		"button_secondary": ["kit/mail_pill_cream.png", "kit/bag_pill.png"],
-		"resource_pill": ["shared/panel_pill.png"],
-		"button_close": ["kit/mail_close.png", "kit/shop_close.png"],
-		"card_generic": ["kit/mail_card.png", "kit/daily_card.png", "kit/bag_card.png", "rush/score_card.png", "rush/score_card_plain.png"],
-		"dialog_panel": ["shared/panel_parchment.png", "kit/panel_parchment_v2.png", "kit/bag_panel.png", "kit/tiers_panel.png", "kit/vault_panel.png"],
-		"progress_track": ["kit/prog_track.png", "map/pill_progress.png"],
-		"progress_fill": ["kit/prog_fill.png", "map/pill_progress_fill.png"],
-		"board_frame": ["board/board_frame.png", "board/panel_grid.png"],
-		"board_cell_open": ["board/slot_tile.png"],
-		"board_cell_locked": ["board/slot_locked.png"],
-		"board_cell_unlockable": ["board/slot_active.png"],
-		"icon_padlock": ["board/locked_placeholder.png"],
-		# Maps, banners, Rush, Vault, and Shop canonical consumers.
-		"maps_card_open": ["map/left_card_frame_large.png"],
-		"maps_card_locked": ["map/left_locked_preview.png"],
-		"maps_status_pill": ["map/pill_left.png"], "maps_lock_flower": ["map/lock_flower.png"],
-		"title_banner": ["mail/mail_banner.png", "rush/title_banner.png"],
-		"icon_hourglass": ["rush/hourglass.png"], "icon_multiplier_crown": ["rush/bar_crown.png", "rush/mult_medallion.png"],
-		"danger_chevron": ["rush/bottom_hint_3slice.png"],
-		"vault_jar_shell": ["kit/vault_jar.png"], "vault_plate": ["kit/vault_plate.png"],
-		"shop_product_card": ["kit/shop_card.png", "kit/shop_card_b.png", "kit/shop_card_wide.png"],
-		"acorn_pouch": ["kit/shop_acorn.png"], "shop_promo_ribbon": ["kit/shop_tag.png"],
-		"leaf_sprig": ["kit/shop_sprig.png"],
-	}
-	for source_name in routes:
-		for canonical_rel in routes[source_name]:
-			_assert_route(source_name, canonical_rel)
+	var mapping := _load_json(MAPPING_PATH)
+	var manifest := _load_json(MANIFEST_PATH)
+	var routes: Dictionary = mapping.get("source_to_canonical", {})
+	var consumer_contracts: Dictionary = mapping.get("consumer_contracts", {})
+	ok(not routes.is_empty(), "canonical mapping contains routes")
+	ok(not consumer_contracts.is_empty(), "canonical mapping declares target consumer contracts")
 
-	ok(FileAccess.file_exists("res://games/grove/assets/ui/meadow_v2/canonical_mapping.json"),
-		"deterministic one-to-many routing is documented beside the atlas manifest")
+	var source_policies := {}
+	for asset in manifest.get("assets", []):
+		if asset is Dictionary:
+			source_policies[String(asset.get("path", ""))] = String(asset.get("policy", ""))
+	var mapped_targets := {}
+	for source_name in routes:
+		ok(source_policies.has(source_name), "%s is declared in the Meadow atlas manifest" % source_name)
+		var source_policy := String(source_policies.get(source_name, ""))
+		for canonical_rel in routes[source_name]:
+			canonical_rel = String(canonical_rel)
+			mapped_targets[canonical_rel] = source_name
+			_assert_route(source_name, canonical_rel)
+			var accepted := false
+			var matched_contract := false
+			for pattern in consumer_contracts:
+				if canonical_rel.match(String(pattern)):
+					matched_contract = true
+					accepted = source_policy in consumer_contracts[pattern]
+					if accepted:
+						break
+			ok(matched_contract, "%s has a declared consumer contract" % canonical_rel)
+			ok(accepted, "%s accepts Meadow source policy %s" % [canonical_rel, source_policy])
+
+	for canonical_rel in FIXED_CONSUMERS:
+		var fixed: Dictionary = FIXED_CONSUMERS[canonical_rel]
+		ok(not mapped_targets.has(canonical_rel), "%s remains legacy-only (%s)" % [canonical_rel, fixed.contract])
+		var path := "res://games/grove/assets/ui/%s" % canonical_rel
+		var tex := load(path) as Texture2D
+		ok(tex != null, "%s legacy consumer texture loads" % canonical_rel)
+		if tex != null:
+			var aspect := float(tex.get_width()) / maxf(1.0, float(tex.get_height()))
+			ok(aspect >= float(fixed.min_aspect), "%s preserves %s aspect (%.2f)" % [canonical_rel, fixed.contract, aspect])
+
+	ok(_active_grove_suite_line().contains(SUITE_PATH),
+		"palette/routing contract is part of active GROVE_TESTS")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
