@@ -458,8 +458,10 @@ func _initialize() -> void:
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
 	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
 	var backdrop := BoardScript._field_backdrop()
-	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
-		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
+	ok(backdrop is TextureRect and (backdrop as TextureRect).texture != null \
+		and String((backdrop as TextureRect).texture.resource_path).ends_with("ui/meadow_v2/texture_sky.png") \
+		and (backdrop as TextureRect).stretch_mode == TextureRect.STRETCH_TILE, \
+		"board backdrop uses the tiled Meadow sky paper texture")
 	# The locked-cell WELL uses the shared authored Meadow shells. Frontier cells use the unlockable shell;
 	# deep locks use the receding locked shell. Any runtime shadow is a separate shallow overlay.
 	var slot_opts := Kit.bag_card_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
@@ -494,8 +496,10 @@ func _initialize() -> void:
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	ok(_all_ignore(bramble_node), "frontier locked cell ignores mouse so the board input surface receives taps")
 	bramble_node.free()
-	ok(BoardScript._quest_band_style().bg_color.is_equal_approx(Pal.SURFACE), \
-		"quest band uses the exact light Rest-plane SURFACE fill")
+	var quest_band_style: StyleBox = BoardScript._quest_band_style()
+	ok(quest_band_style is StyleBoxTexture \
+		and String((quest_band_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/card_generic.png"), \
+		"quest band uses the Meadow paper card texture")
 
 	# §1 residents: unlock reward + free-spirit grant + residents shop card data (active-suite coverage).
 	_test_unlock_rewards()

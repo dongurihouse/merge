@@ -62,7 +62,7 @@ const DEPENDENTS := {
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
-	"gold_badge": ["board", "info_bar", "map_card", "rush_bar"],   # the rush bar's cells ARE code-drawn gold badges
+	"gold_badge": ["board", "map_card", "rush_bar"],   # the rush bar's cells ARE code-drawn gold badges; info_bar now uses the authored paper tray
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
@@ -353,14 +353,14 @@ var _params := {
 		"reward_button_font": 18,
 		"reward_bar_h": 10, "reward_bar_y": 0,
 		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
-	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
-	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
+	# the QUEST-GIVER card (giver_stand.gd) — the authored Meadow paper card plus
+	# the live portrait (left) / item-in-bubble (right) / reward token the board draws on it. The
 	# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
 	# The DEMO knobs only preview: bust picks which of giver_0..15 sits on the left; tier is the asked item's
 	# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
 	# board's size; met toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
-		"card_w": 98, "card_h": 65, "card_slice_l": 46, "card_slice_t": 44, "card_slice_r": 46, "card_slice_b": 56,
+		"card_w": 98, "card_h": 65, "card_slice_l": 34, "card_slice_t": 28, "card_slice_r": 34, "card_slice_b": 28,
 		"bust_size": 94, "bust_x": 25, "bust_y": 53,
 		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
 		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
@@ -1407,7 +1407,9 @@ func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
 		flat.content_margin_bottom = pad_y
 		return flat
 	if frame_style == "meadow":
-		return Kit.meadow_board_style(pad_x, pad_y)
+		var paper: StyleBoxTexture = Kit.meadow_paper_style("dialog_panel.png", Kit.DIALOG_PATCH, pad_x, pad_y, pad_x, pad_y)
+		if paper.texture != null:
+			return paper
 	var badge: Dictionary = (bopts.get("badge", {}) as Dictionary).duplicate() if bopts.get("badge", {}) is Dictionary else {}
 	badge["content_margin_left"] = pad_x
 	badge["content_margin_right"] = pad_x
@@ -2748,10 +2750,10 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["card_w", 40, 300]))      # box width  (% of stand) — independent of height
 			_sidebar_body.add_child(_slider_row(["card_h", 40, 300]))      # box height (% of stand) — independent of width
 			_section_header("Card 9-slice (source px — corners stay crisp)")
-			_sidebar_body.add_child(_slider_row(["card_slice_l", 0, 120]))  # left patch margin (keeps the L frame + side tab base)
-			_sidebar_body.add_child(_slider_row(["card_slice_t", 0, 100]))  # top patch margin (keeps the wood top + peg holes)
+			_sidebar_body.add_child(_slider_row(["card_slice_l", 0, 120]))  # left patch margin (keeps the paper corner)
+			_sidebar_body.add_child(_slider_row(["card_slice_t", 0, 100]))  # top patch margin (keeps the paper corner)
 			_sidebar_body.add_child(_slider_row(["card_slice_r", 0, 120]))  # right patch margin
-			_sidebar_body.add_child(_slider_row(["card_slice_b", 0, 100]))  # bottom patch margin (bracket the leaf sprig)
+			_sidebar_body.add_child(_slider_row(["card_slice_b", 0, 100]))  # bottom patch margin
 			_section_header("Quest giver")
 			_sidebar_body.add_child(_slider_row(["bust_size", 50, 160]))   # size (% of box height)
 			_sidebar_body.add_child(_slider_row(["bust_x", 0, 100]))       # centre x (% of box width)

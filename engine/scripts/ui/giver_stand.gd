@@ -1,7 +1,7 @@
 extends RefCounted
 ## The giver-stand BUILDER (Wave 3, fence slice 1) — pure construction of one quest-giver
-## card on the §7 fence. Reskinned to the painted `ui/quest/card_quest.png` (board1 art): a
-## VERTICAL parchment card with a gold frame and a wooden reward plaque baked into the bottom.
+## card on the §7 fence. The stable card/bubble/reward surfaces use Meadow paper assets;
+## live content (portrait, ask item, progress, reward text, ready check) stays code-driven.
 ## The engine draws the live content ON TOP: the character portrait in the card field, the
 ## requested item in a cream ask-bubble (item over an "N/1" count) at the top-right, and the
 ## +N reward centred on the painted plaque. The per-item green ✓ overtakes the item when payable.
@@ -31,19 +31,24 @@ const STRAW = Game.PALETTE.STRAW
 const CREAM = Game.PALETTE.CREAM
 const BARK = Game.PALETTE.BARK
 const INK = Game.PALETTE.INK
+const MEADOW_UI := "ui/meadow_v2/%s"
 
-# the painted card's native size (ui/quest/card_quest.png — board1_asset3 island 34): a wide blank
-# parchment signboard in a wood frame, NO baked bubble. The card is drawn as a NINE-SLICE (see _quest_card),
-# so the rounded wood frame + peg-hole corners stay crisp while only the centre parchment stretches — this
-# native size is the reference for the slice margins (card_slice_*) and the no-distortion box shape.
-const CARD_ART_W := 369.0
-const CARD_ART_H := 209.0
-# card_quest.png pads the parchment with an ~8px TRANSPARENT border (opaque bbox x[8..360] y[8..200] of the
-# 369×209 art). The NinePatch draws those corners at native px, so the VISIBLE card sits ~8px inside its
-# layout rect — the drop-shadow insets by this so it hugs the card instead of haloing around the padded rect.
-const CARD_ART_MARGIN := 8.0
-const PLAQUE_PATH := "quest/plaque.png"   # the reusable wooden reward sign (island 6 of board1_asset2.png)
-const PLAQUE_AR := 202.0 / 110.0          # plaque art aspect, so it never stretches
+# the authored Meadow paper card's native size (ui/meadow_v2/card_generic.png): a wide blank
+# grainy card. The card is drawn as a NINE-SLICE (see _quest_card), so the rounded paper corners stay
+# crisp while only the centre parchment stretches — this native size is the reference for the slice margins
+# (card_slice_*) and the no-distortion box shape.
+const CARD_ART_W := 146.0
+const CARD_ART_H := 87.0
+const PLAQUE_AR := 1.0                    # ui/meadow_v2/reward_token.png is a square token.
+const PAPER_PATCH := Vector4(34, 28, 34, 28)
+const RESOURCE_PILL_PATCH := Vector4(52, 52, 52, 52)
+
+static func _meadow_path(file_name: String) -> String:
+	return Game.art(MEADOW_UI % file_name)
+
+static func _meadow_tex(file_name: String) -> Texture2D:
+	var path := _meadow_path(file_name)
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 # Tunable layout — ALL fractions. card_w / card_h are the box's width / height fraction of the stand,
 # INDEPENDENT (the art fills the box, so a box off the art's ~1.77:1 native shape stretches it). The rest
@@ -84,7 +89,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
 	# the box: sized DIRECTLY to card_w × card_h of the stand — width and height are INDEPENDENT, so card_h
 	# is a true height knob (the workbench tunes each). The art fills the box (STRETCH_SCALE), so a box that
-	# leaves the card art's native ~1.77:1 shape (CARD_ART_W/CARD_ART_H) stretches the frame; keep
+		# leaves the card art's native ~1.68:1 shape (CARD_ART_W/CARD_ART_H) stretches the frame; keep
 	# card_w·sw : card_h·fh near that ratio to stay undistorted. Centred in the stand.
 	var cardW: float = sw * float(L.card_w)
 	var cardH: float = fh * float(L.card_h)
@@ -153,8 +158,8 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# (The "incoming generator" reward preview was removed with the SINGLE-GENERATOR model: quests no
 	# longer carry a `reward.generators` grant — the one map-0 anchor pops every opened line, so there is
 	# no next-map tool to preview.)
-	# the reusable wooden PLAQUE — seated INSIDE the box at the bottom-centre, in FRONT of the bust, with
-	# the +N reward (flower/star + WHITE count) centred on its wooden face.
+	# the reusable reward token — seated INSIDE the box at the bottom-centre, in FRONT of the bust, with
+	# the +N reward centred on its gold paper face.
 	var plw := cardW * float(L.plaque_w)
 	var plh := plw / PLAQUE_AR
 	var pcx := cx + cardW * float(L.plaque_x)
@@ -169,7 +174,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.coins(q)
 	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.42))
-	pay_lbl.add_theme_color_override("font_color", Color.WHITE)
+	pay_lbl.add_theme_color_override("font_color", INK)
 	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid plaque behind — no halo
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pay.add_child(pay_lbl)
@@ -190,25 +195,18 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
 	return {"chip": stand, "qi": qi, "item": item_ui, "check": null, "bust": bust}
 
-# The quest card surface: the painted `ui/quest/card_quest.png` (vertical gold-framed parchment
-# card with the reward plaque baked into the bottom) stretched to the card rect; a flat parchment
-# card when the art is absent. When the UNIVERSAL Shadow toggle is on (lay.shadow), the card casts the
-# ONE SHARED shadow (Skin.shadow_rect with lay.shadow_params) — the painted art bakes none, so this is how
-# the quest card joins the same drop-shadow every other component casts (off by default → shipped card).
+# The quest card surface: a Meadow paper card stretched as a nine-slice; fallback remains a flat parchment
+# card if the art is absent.
 static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
-	var p := Look.kit("quest/card_quest.png")
-	if ResourceLoader.exists(p):
-		# NINE-SLICE the parchment: the corners (rounded wood frame + peg holes) stay crisp at any box size
-		# while only the centre parchment stretches — so card_w / card_h can grow the card without warping the
-		# frame. The slice margins are SOURCE pixels (tunable in the workbench, see giver_lay_from_config). The
-		# mid-edge details (side tabs, the bottom leaf sprig) still stretch along their own edge — set the
-		# matching margin to bracket them. Falls back to a uniform scale if the lay carries no slices.
+	var tex := _meadow_tex("card_generic.png")
+	if tex != null:
 		var t := NinePatchRect.new()
-		t.texture = load(p)
-		t.patch_margin_left = int(lay.get("card_slice_l", 46))
-		t.patch_margin_top = int(lay.get("card_slice_t", 44))
-		t.patch_margin_right = int(lay.get("card_slice_r", 46))
-		t.patch_margin_bottom = int(lay.get("card_slice_b", 56))
+		t.name = "MeadowQuestCard"
+		t.texture = tex
+		t.patch_margin_left = int(lay.get("card_slice_l", PAPER_PATCH.x))
+		t.patch_margin_top = int(lay.get("card_slice_t", PAPER_PATCH.y))
+		t.patch_margin_right = int(lay.get("card_slice_r", PAPER_PATCH.z))
+		t.patch_margin_bottom = int(lay.get("card_slice_b", PAPER_PATCH.w))
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_add_card_shadow(t, h, lay)
 		return t
@@ -218,7 +216,7 @@ static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 	sb.set_corner_radius_all(20)
 	sb.set_border_width_all(3)
 	sb.border_color = Color("#C9A66B")
-	sb.shadow_color = Color(0, 0, 0, 0.28)
+	sb.shadow_color = Color("#294654", 0.20)
 	sb.shadow_size = 7
 	sb.shadow_offset = Vector2(0, 4)
 	card.add_theme_stylebox_override("panel", sb)
@@ -232,14 +230,14 @@ static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	if not bool(lay.get("shadow", false)):
 		return
-	var sh := Look.shadow_rect(h * 0.12, lay.get("shadow_params", {}))   # corner ≈ the wood-frame radius
-	# inset to the VISIBLE card (past card_quest.png's transparent margin) so the cast is a tight directional
-	# drop matching the global shadow — not an all-around halo around the padded rect. shadow_rect is full-rect;
-	# these offsets pull each edge in by the art margin.
-	sh.offset_left = CARD_ART_MARGIN
-	sh.offset_top = CARD_ART_MARGIN
-	sh.offset_right = -CARD_ART_MARGIN
-	sh.offset_bottom = -CARD_ART_MARGIN
+	var params: Dictionary = (lay.get("shadow_params", {}) as Dictionary).duplicate() if lay.get("shadow_params", {}) is Dictionary else {}
+	params["alpha"] = minf(float(params.get("alpha", 0.20)), 0.20)
+	var sh := Look.shadow_rect(h * 0.12, params)
+	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
+	if sb != null:
+		var tint := Color("#294654", minf(float(params.get("alpha", 0.20)), 0.20))
+		sb.bg_color = tint
+		sb.shadow_color = tint
 	sh.show_behind_parent = true
 	card.add_child(sh)
 
@@ -247,16 +245,21 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 # kept, so the tail stays put) — a plain cream rounded panel when the art is absent. The caller seats
 # the asked item on it.
 static func _speech_bubble(d: float) -> Control:
-	var p := Look.kit("quest/bubble_ask.png")
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.custom_minimum_size = Vector2(d, d)
-		t.size = Vector2(d, d)
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
+	var tex := _meadow_tex("resource_pill.png")
+	if tex != null:
+		var panel := Panel.new()
+		panel.name = "MeadowAskBubble"
+		panel.custom_minimum_size = Vector2(d, d)
+		panel.size = Vector2(d, d)
+		var sb := StyleBoxTexture.new()
+		sb.texture = tex
+		sb.set_texture_margin(SIDE_LEFT, int(RESOURCE_PILL_PATCH.x))
+		sb.set_texture_margin(SIDE_TOP, int(RESOURCE_PILL_PATCH.y))
+		sb.set_texture_margin(SIDE_RIGHT, int(RESOURCE_PILL_PATCH.z))
+		sb.set_texture_margin(SIDE_BOTTOM, int(RESOURCE_PILL_PATCH.w))
+		panel.add_theme_stylebox_override("panel", sb)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return panel
 	var panel := Panel.new()
 	panel.custom_minimum_size = Vector2(d, d)
 	panel.size = Vector2(d, d)
@@ -273,12 +276,13 @@ static func _speech_bubble(d: float) -> Control:
 # StyleBox panel when the art is absent. The caller hangs it at the box's bottom-centre and
 # centres the +N reward on its face.
 static func _reward_plaque(w: float, h: float) -> Control:
-	var p := Look.kit(PLAQUE_PATH)
-	if ResourceLoader.exists(p):
+	var tex := _meadow_tex("reward_token.png")
+	if tex != null:
 		var t := TextureRect.new()
-		t.texture = load(p)
+		t.name = "MeadowRewardToken"
+		t.texture = tex
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.custom_minimum_size = Vector2(w, h)
 		t.size = Vector2(w, h)
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -305,7 +309,7 @@ static func ask_pill() -> PanelContainer:
 	ps.set_corner_radius_all(18)
 	ps.set_border_width_all(2)
 	ps.border_color = Color("#C9A66B", 0.85)
-	ps.shadow_color = Color(0, 0, 0, 0.22)
+	ps.shadow_color = Color("#294654", 0.20)
 	ps.shadow_size = 4
 	ps.shadow_offset = Vector2(0, 2)
 	ps.content_margin_left = 14.0
@@ -332,7 +336,7 @@ static func _ask_met_check(px: float) -> Panel:
 	mbg.set_corner_radius_all(int(px / 2.0))
 	mbg.set_border_width_all(3)
 	mbg.border_color = CREAM
-	mbg.shadow_color = Color(0, 0, 0, 0.28)
+	mbg.shadow_color = Color("#294654", 0.20)
 	mbg.shadow_size = 4
 	mbg.shadow_offset = Vector2(0, 2)
 	mark.add_theme_stylebox_override("panel", mbg)

@@ -44,9 +44,11 @@ static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {})
 			code.set_corner_radius_all(int(kit_opts.get("corner", 46)))
 			return _apply_padding(code, bar_h, action_opts)
 		if frame_style == "meadow":
-			return Kit.meadow_board_style(
-				roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0))),
-				roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0))))
+			var pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
+			var pad_y := roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
+			var paper: StyleBoxTexture = Kit.meadow_paper_style("dialog_panel.png", Kit.DIALOG_PATCH, pad_x, pad_y, pad_x, pad_y)
+			if paper.texture != null:
+				return paper
 		var badge_opts: Dictionary = (kit_opts.get("badge", {}) as Dictionary).duplicate() if kit_opts.get("badge", {}) is Dictionary else {}
 		badge_opts["content_margin_left"] = roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
 		badge_opts["content_margin_right"] = badge_opts["content_margin_left"]
@@ -242,7 +244,7 @@ static func action_chip(chip_opts: Dictionary, row: Control, caption_text: Strin
 	sb.border_color = Pal.BTN_PRIMARY_EDGE
 	sb.set_corner_radius_all(int(chip_opts.get("sell_badge_radius", 10)))
 	sb.set_border_width_all(Tuning.UiSkin.BTN_BORDER_W)
-	sb.shadow_color = Color(0, 0, 0, 0.16)
+	sb.shadow_color = Color("#294654", 0.16)
 	sb.shadow_size = 2
 	sb.shadow_offset = Vector2(0, 1)
 	sb.content_margin_left = 14

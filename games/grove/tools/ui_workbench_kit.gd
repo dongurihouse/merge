@@ -38,6 +38,8 @@ const MEADOW_SHADOW_MAX_ALPHA := 0.20
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
 const SLOT_PATCH := Vector4(32, 32, 32, 32)
+const RESOURCE_PILL_PATCH := Vector4(52, 52, 52, 52)
+const DIALOG_PATCH := Vector4(42, 42, 42, 42)
 
 static func _meadow_path(file_name: String) -> String:
 	return Game.art(MEADOW_UI % file_name)
@@ -60,6 +62,16 @@ static func meadow_board_style(pad_x: float = 0.0, pad_y: float = 0.0) -> StyleB
 	style.content_margin_right = pad_x
 	style.content_margin_top = pad_y
 	style.content_margin_bottom = pad_y
+	return style
+
+static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: float = 0.0, pad_top: float = 0.0, pad_right: float = 0.0, pad_bottom: float = 0.0) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = _meadow_tex(file_name)
+	_set_texture_margins(style, margins)
+	style.content_margin_left = pad_left
+	style.content_margin_top = pad_top
+	style.content_margin_right = pad_right
+	style.content_margin_bottom = pad_bottom
 	return style
 
 static func _meadow_shadow_rect(corner: float, params: Dictionary = {}) -> Panel:
@@ -1060,8 +1072,8 @@ static func _gold_badge_over(dst: Color, src: Color) -> Color:
 		(src.b * src.a + dst.b * dst.a * (1.0 - src.a)) / a,
 		a)
 
-## Shared gold currency pill. The whole capsule can be the Button; the green "+" is a passive
-## affordance. The background reuses gold_badge(); the currency glyph reuses make_icon().
+## Shared currency pill. The public name remains for compatibility, but the visible shell is the
+## Meadow paper resource pill; the currency glyph and amount stay live UI.
 static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -> Control:
 	var pill_w := float(opts.get("pill_w", 292))
 	var base_pill_h := float(opts.get("pill_h", 100))
@@ -1099,18 +1111,12 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	panel.flat = false
 	panel.focus_mode = Control.FOCUS_NONE
 	panel.add_theme_constant_override("h_separation", 0)
-	var badge_opts: Dictionary = (opts.get("badge", {}) as Dictionary).duplicate() if opts.get("badge", {}) is Dictionary else {}
-	for k in ["inner_inset", "shine", "corner", "gradient"]:
-		if opts.has(k):
-			badge_opts[k] = opts[k]
-	badge_opts["inner_shadow"] = float(opts.get("inner_shadow", badge_opts.get("inner_shadow", 30.0)))
-	badge_opts["content_margin_left"] = pad_left
-	badge_opts["content_margin_right"] = pad_x
-	badge_opts["content_margin_top"] = style_pad_y
-	badge_opts["content_margin_bottom"] = style_pad_y
-	var badge_style := gold_badge_style(badge_opts)
+	var pill_style := meadow_paper_style("resource_pill.png", RESOURCE_PILL_PATCH, pad_left, style_pad_y, pad_x, style_pad_y)
+	if pill_style.texture == null:
+		var fallback_opts := {"content_margin_left": pad_left, "content_margin_right": pad_x, "content_margin_top": style_pad_y, "content_margin_bottom": style_pad_y}
+		pill_style = gold_badge_style(fallback_opts)
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		panel.add_theme_stylebox_override(st, badge_style)
+		panel.add_theme_stylebox_override(st, pill_style)
 	if plus_action.is_valid():
 		panel.pressed.connect(plus_action)
 
@@ -1153,7 +1159,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.text = str(int(counts.get(icon_id, opts.get("count", 2450))))
 	amount.custom_minimum_size = Vector2(amount_w, content_h)
 	amount.add_theme_font_size_override("font_size", num_size)
-	amount.add_theme_color_override("font_color", Color("#3A1C12"))
+	amount.add_theme_color_override("font_color", Color("#243B4B"))
 	amount.add_theme_constant_override("outline_size", 0)
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # right-align the number; amount_x pushes it toward the pill's right edge
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1171,66 +1177,44 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5 + float(opts.get("plus_y", 0)))
 		plus_slot.add_child(plus)
 		row.add_child(plus_slot)
-	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
-	# shadow). The look is the SHARED box-shadow (offset/blur/spread/warmth), with the pill's own alpha strength
-	# folded into shadow_params by the resolver. Cast it via a holder (Look.with_shadow) rather than a
-	# behind-parent child. Cast it with the badge's OWN corner radius (the
-	# nine-patch cap, held constant in px) so the shadow stays CONCENTRIC with the pill — not a fatter capsule.
+	# Optional OVERALL drop shadow behind the capsule. The paper art itself stays shadow-free; the live
+	# shell casts one shared Meadow shadow when the caller opts in.
 	if bool(opts.get("shadow", false)):
-		return _meadow_with_shadow(panel, float(gold_badge_cap(badge_opts)), opts.get("shadow_params", {}) as Dictionary)
+		return _meadow_with_shadow(panel, pill_h * 0.5, opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	var base := float(opts.get("plus_base", 34))
 	var button_scale := float(opts.get("plus_button", 100)) / 100.0
-	var hue := float(opts.get("plus_hue", 65)) / 360.0
-	var shine := clampf(float(opts.get("plus_shine", 32)) / 100.0, 0.0, 1.0)
-	var radius_scale := float(opts.get("plus_radius", 28)) / 100.0
-	var stroke_scale := float(opts.get("plus_stroke", 2)) / 100.0
-	var font_scale := float(opts.get("plus_font", 70)) / 100.0
-	var w := base * 1.03 * button_scale
-	var h := base * 0.90 * button_scale
+	var w := base * button_scale
+	var h := w
 
-	var p := Panel.new()
+	var p := Control.new()
 	p.name = "GoldCurrencyPlusButton"
 	p.custom_minimum_size = Vector2(w, h)
+	p.size = Vector2(w, h)
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var green := Color.from_hsv(hue, 0.42, 0.40 + shine * 0.04)
-	var psb := StyleBoxFlat.new()
-	psb.bg_color = green
-	psb.border_color = green.darkened(0.28)
-	psb.set_border_width_all(1)
-	psb.set_corner_radius_all(int(base * radius_scale * button_scale))
-	psb.shadow_color = Color("#294654", 0.20)
-	psb.shadow_size = 3
-	psb.shadow_offset = Vector2(0, 2)
-	p.add_theme_stylebox_override("panel", psb)
-
-	var g := Label.new()
-	g.name = "GoldCurrencyPlusLabel"
-	g.text = "+"
-	g.add_theme_font_size_override("font_size", int(round(base * font_scale)))
-	g.add_theme_color_override("font_color", Color("#FFF6C7"))
-	g.add_theme_color_override("font_outline_color", Color(62.0 / 255.0, 73.0 / 255.0, 23.0 / 255.0, 0.54))
-	g.add_theme_constant_override("outline_size", maxi(0, int(round(base * stroke_scale))))
-	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	# Dead-centre the "+" on the green background at ANY size. A full-rect Label with valign=CENTER
-	# pins its line box to the top and overflows DOWNWARD once the glyph is taller than the button
-	# (whose height is fixed by plus_button, NOT plus_font) — so a big plus_font drifts low. Instead
-	# anchor the CONTENT-SIZED label at the button centre and grow BOTH ways: the glyph box straddles
-	# the centre and overflow is symmetric, so the "+" stays centred however large plus_font goes.
-	var dx := float(opts.get("plus_label_x", 0))   # manual nudge rides the centre point
-	var dy := float(opts.get("plus_label_y", 0))
-	g.anchor_left = 0.5; g.anchor_right = 0.5
-	g.anchor_top = 0.5; g.anchor_bottom = 0.5
-	g.offset_left = dx; g.offset_right = dx
-	g.offset_top = dy; g.offset_bottom = dy
-	g.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	g.grow_vertical = Control.GROW_DIRECTION_BOTH
-	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(g)
+	var tex := _meadow_tex("button_plus.png")
+	if tex != null:
+		var art := TextureRect.new()
+		art.name = "GoldCurrencyPlusArt"
+		art.texture = tex
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.stretch_mode = TextureRect.STRETCH_SCALE
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_child(art)
+	else:
+		var g := Label.new()
+		g.name = "GoldCurrencyPlusLabel"
+		g.text = "+"
+		g.set_anchors_preset(Control.PRESET_FULL_RECT)
+		g.add_theme_font_size_override("font_size", int(round(base * 0.70 * button_scale)))
+		g.add_theme_color_override("font_color", Color("#FFF6C7"))
+		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_child(g)
 	return p
 
 ## A unified pill BUTTON — ONE component, parameterised by state. opts:
@@ -4021,13 +4005,12 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## The bottom-bar INFO BAR style opts from a saved config — the board's centre pill (info ⓘ · selected
-## piece + name · sell cart). The LAYOUT persists here; the FRAME comes from the shared code-drawn
-## gold badge block, with the gold currency pill padding retained as the content margin.
+## piece + name · sell cart). The LAYOUT persists here; the FRAME is the authored Meadow dialog paper,
+## with the gold currency pill padding retained as the content margin.
 ## inner_scale / sell_icon / item_icon_scale are stored 0..100 and divided here to fractions of the bar height.
 static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
-	# The content margins borrow the gold wallet's padding numbers, but the visible board comes from the
-	# saved gold_badge style so the board frame and info bar can be tuned together.
+	# The content margins borrow the wallet pill's padding numbers, but the visible tray is authored paper.
 	var pill: Dictionary = gold_currency_pill_opts_from_config(cfg)
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
@@ -4044,17 +4027,16 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"sell_label_font": int(i.get("sell_label_font", 22)),       # the plain "Sell" caption above the badge
 		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the payout coin as % of the bar height
 		"sell_badge_radius": int(i.get("sell_badge_radius", 10)),   # the green badge's corner radius (softer than the full pill)
-		"vpad":        float(i.get("vpad", 8)),                      # the gold frame's top/bottom padding (its own, not the wallet's)
-		"pad_right":   float(i.get("pad_right", 16)),               # the gold frame's RIGHT padding — pins the Sell button off the edge
+		"vpad":        float(i.get("vpad", 8)),                      # the tray frame's top/bottom padding (its own, not the wallet's)
+		"pad_right":   float(i.get("pad_right", 16)),               # the tray frame's RIGHT padding — pins the Sell button off the edge
 		"pill":        pill,                                        # shared padding/margin opts retained for content spacing
-		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
 
 ## --- the bottom-bar INFO BAR: [selected piece] [name] [Sell badge], with floating [info ⓘ] -----------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
 ## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button — the word "Sell" in
 ## plain ink over a vertical green badge (the payout coin on top, the payout number below).
-## The FRAME is the shared gold badge skin, so the board border and bottom bar read as one surface.
+## The FRAME is the authored Meadow dialog paper, so the bottom bar reads as a lighter paper tray.
 ## The board AND the workbench build through this — a layout tweak (height · inner control scale · name
 ## font · separation · selected-item art scale · info button position/scale · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
 ## empty/selected state by mutating the sub-nodes exposed via meta (info_btn / info_icon / name_label /
@@ -4063,8 +4045,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 ##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
 ##     item_icon_scale (0..1+, selected art as % of bar height) · info_x/info_y ·
 ##     info_button_scale (0..1+, info-button art inside its fixed slot) · sell_font (payout number) ·
-##     sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) · badge (the shared gold badge
-##     frame opts) · pill (content margins).
+##     sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) · pill (content margins).
 static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var height := float(opts.get("height", 130.0))
 	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ slot scale with the bar
@@ -4074,9 +4055,13 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pill.custom_minimum_size.y = height
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame := gold_badge_style(opts.get("badge", {}))
 	var pad: Dictionary = opts.get("pill", {})
 	var pad_x := float(pad.get("pad_x", 18.0))
+	# The merged live action tray uses the authored Meadow dialog paper. Keep the selected-item text,
+	# info affordance, and Sell chip code-driven, but put them on the same paper material as the board bar.
+	var frame: StyleBox = meadow_paper_style("dialog_panel.png", DIALOG_PATCH, float(pad.get("pad_left", pad_x)), 0.0, float(opts.get("pad_right", 16.0)), 0.0)
+	if frame is StyleBoxTexture and (frame as StyleBoxTexture).texture == null:
+		frame = gold_badge_style(opts.get("badge", {}))
 	frame.content_margin_left = float(pad.get("pad_left", pad_x))
 	# the RIGHT padding is its OWN knob — the name label expands to fill, so this gap pins the Sell button
 	# off the right edge. Small by default so the button sits near the very right.
@@ -5742,10 +5727,10 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 		"bubble_size": float(q.get("bubble_size", 66)) / 100.0, "bubble_x": float(q.get("bubble_x", 72)) / 100.0, "bubble_y": float(q.get("bubble_y", 35)) / 100.0,
 		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 72)) / 100.0, "item_y": float(q.get("item_y", 32)) / 100.0,
 		"plaque_w":    float(q.get("plaque_w", 40)) / 100.0,    "plaque_x": float(q.get("plaque_x", 72)) / 100.0, "plaque_y": float(q.get("plaque_y", 81)) / 100.0,
-		# the card's 9-slice patch margins, in SOURCE pixels (NOT fractions) — the corners that stay crisp while
-		# the centre parchment stretches. Defaults bracket the wood frame + peg-hole corners of the 369×209 art.
-		"card_slice_l": float(q.get("card_slice_l", 46)), "card_slice_t": float(q.get("card_slice_t", 44)),
-		"card_slice_r": float(q.get("card_slice_r", 46)), "card_slice_b": float(q.get("card_slice_b", 56)),
+			# the card's 9-slice patch margins, in SOURCE pixels (NOT fractions) — the corners that stay crisp while
+			# the centre parchment stretches. Defaults bracket the rounded corners of the 146×87 Meadow paper card.
+			"card_slice_l": float(q.get("card_slice_l", 34)), "card_slice_t": float(q.get("card_slice_t", 28)),
+			"card_slice_r": float(q.get("card_slice_r", 34)), "card_slice_b": float(q.get("card_slice_b", 28)),
 		# the card's drop-shadow is the ONE SHARED shadow every component casts (Skin.shadow_rect), gated by the
 		# UNIVERSAL Shadow toggle and tuned on the Shadow item — NOT a per-card definition. `shadow` is the toggle
 		# (off by default → shipped card unchanged); `shadow_params` is the shared look read from the global

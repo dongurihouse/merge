@@ -1016,14 +1016,14 @@ func _rebuild_givers() -> void:
 	# alone once the meter empties (banked enough to restore), so an empty quest list no longer blanks it.
 	if stands == 0 and not show_purge:
 		return
-	# the fence wall — one bordered strip; busts and cards pop up over its edge
-	var wall := Control.new()
+	# the fence wall — a quiet paper strip; busts and cards pop up over its edge
+	var wall := Panel.new()
 	wall.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wall.offset_top = 64.0 * (_fence_h / FENCE_H)
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wall.add_theme_stylebox_override("panel", _quest_band_style())
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
-	# (the full-width quest-band Panel is removed — the cards ride directly on the painted backdrop.)
 	# Cards are a FIXED size (proportional to the band height, so the art never distorts) packed LEFT to
 	# right inside a horizontal ScrollContainer: the jar (purge) takes the first slot, then every metered
 	# quest card. When the jar + cards FIT the screen they sit left-aligned with spare width on the right
@@ -1434,7 +1434,7 @@ func _make_boost_badge() -> Control:
 	sb.set_border_width_all(2)
 	sb.content_margin_left = 7
 	sb.content_margin_right = 7
-	sb.shadow_color = Color(0, 0, 0, 0.22)
+	sb.shadow_color = Color("#294654", 0.20)
 	sb.shadow_size = 2
 	sb.shadow_offset = Vector2(0, 1)
 	badge.add_theme_stylebox_override("panel", sb)
@@ -2225,16 +2225,15 @@ static func _cell_style() -> StyleBoxFlat:
 	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
 	return sb
 
-# The board backdrop — the painted grove meadow (`ui/board2_bg.png`). Items + grid pop
-# against it; the dynamic givers/merchant ride over the painted fence band. Falls back to
-# the flat SURFACE field when the art is absent.
+# The board backdrop — a calm Meadow sky-paper field. Items + grid carry the saturation; the
+# background stays quiet grain. Falls back to the flat SURFACE field when the art is absent.
 static func _field_backdrop() -> Control:
-	var path := Game.art("ui/board2_bg.png")
+	var path := Game.art("ui/meadow_v2/texture_sky.png")
 	if ResourceLoader.exists(path):
 		var bg := TextureRect.new()
 		bg.texture = load(path)
 		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg.stretch_mode = TextureRect.STRETCH_TILE
 		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return bg
 	var c := ColorRect.new()
@@ -2243,18 +2242,26 @@ static func _field_backdrop() -> Control:
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return c
 
-# The quest band behind the givers (UI redesign) — a LIGHT Rest-plane strip (SURFACE_FRAME) with
-# a quiet rim + soft resting shadow, replacing the old dark wooden fence. Static so it is testable.
-static func _quest_band_style() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.SURFACE
-	sb.set_corner_radius_all(18)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(Pal.BARK, 0.22)
-	sb.shadow_color = Color(0, 0, 0, 0.12)
-	sb.shadow_size = 4
-	sb.shadow_offset = Vector2(0, 2)
-	return sb
+# The quest band behind the givers — a quiet paper strip matching the new card material.
+static func _quest_band_style() -> StyleBox:
+	var path := Game.art("ui/meadow_v2/card_generic.png")
+	if ResourceLoader.exists(path):
+		var sb := StyleBoxTexture.new()
+		sb.texture = load(path)
+		sb.set_texture_margin(SIDE_LEFT, 34)
+		sb.set_texture_margin(SIDE_TOP, 28)
+		sb.set_texture_margin(SIDE_RIGHT, 34)
+		sb.set_texture_margin(SIDE_BOTTOM, 28)
+		return sb
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Pal.SURFACE
+	flat.set_corner_radius_all(18)
+	flat.set_border_width_all(2)
+	flat.border_color = Color(Pal.BARK, 0.22)
+	flat.shadow_color = Color("#294654", 0.16)
+	flat.shadow_size = 4
+	flat.shadow_offset = Vector2(0, 2)
+	return flat
 
 func _make_bramble(cell: Vector2i) -> Control:
 	var frontier := _is_frontier_bramble(cell)

@@ -187,6 +187,11 @@ func _btn_tex(b: Button) -> Texture2D:
 	var sb := b.get_theme_stylebox("normal")
 	return (sb as StyleBoxTexture).texture if sb is StyleBoxTexture else null
 
+func _style_tex_path(style: StyleBox) -> String:
+	if style is StyleBoxTexture and (style as StyleBoxTexture).texture != null:
+		return String((style as StyleBoxTexture).texture.resource_path)
+	return ""
+
 func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
 	var found := node.find_children(pattern, klass, true, false)
 	return found[0] as Control if not found.is_empty() else null
@@ -485,10 +490,15 @@ func _initialize() -> void:
 		"plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
 		"inner_shadow": 30,
 	})
-	ok(gcp is Control and _has_label_text(gcp, "2450") and _has_label_text(gcp, "+"), \
-		"gold_currency_pill renders the sample count and plus glyph")
+	ok(gcp is Control and _has_label_text(gcp, "2450"), \
+		"gold_currency_pill renders the sample count")
 	var gcp_frame: StyleBox = (gcp as Button).get_theme_stylebox("normal")
-	ok(gcp_frame is StyleBoxTexture, "gold_currency_pill background uses the code-drawn gold badge texture")
+	ok(_style_tex_path(gcp_frame).ends_with("ui/meadow_v2/resource_pill.png"), \
+		"gold_currency_pill background uses the Meadow resource-pill paper shell")
+	var gcp_plus_art := _first_control(gcp, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
+	ok(gcp_plus_art != null and gcp_plus_art.texture != null \
+		and String(gcp_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
+		"gold_currency_pill plus token uses the Meadow plus art")
 	ok(not (gcp_frame is StyleBoxFlat) or (gcp_frame as StyleBoxFlat).shadow_size == 0, \
 		"gold_currency_pill does not add its own flat-panel shadow")
 	ok(gcp.find_children("GoldCurrencyBadge", "Control", true, false).is_empty(), \
@@ -533,7 +543,7 @@ func _initialize() -> void:
 	ok(wallet_amounts.size() == 3, \
 		"gold_currency_pill workbench preview shows the three live wallet pills")
 	ok(_has_label_text(wallet_prev, "100") and _has_label_text(wallet_prev, "0") and _has_label_text(wallet_prev, "5") \
-		and wallet_prev.find_children("GoldCurrencyPlusButton", "Panel", true, false).size() == 3, \
+		and wallet_prev.find_children("GoldCurrencyPlusButton", "Control", true, false).size() == 3, \
 		"gold_currency_pill workbench preview uses home-wallet water/coin/gem samples")
 	var wallet_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
 	var wallet_edge := float(wallet_layout.get("edge_margin_px", 18.0))
@@ -598,12 +608,13 @@ func _initialize() -> void:
 	ok(amount != null and amount.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT, \
 		"gold_currency_pill right-aligns the amount number")
 	var plus_slot := _first_control(tuned, "GoldCurrencyPlusSlot")
-	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton", "Panel")
+	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton")
 	ok(plus_slot != null and plus_btn != null and plus_btn.position.x == 12, \
 		"gold_currency_pill plus x control offsets the plus component")
-	var plus_label := _first_control(tuned, "GoldCurrencyPlusLabel", "Label") as Label
-	ok(plus_label != null and int(plus_label.get_theme_font_size("font_size")) >= 44, \
-		"gold_currency_pill plus font can be adjusted larger")
+	var plus_art := _first_control(tuned, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
+	ok(plus_art != null and plus_art.texture != null \
+		and String(plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
+		"gold_currency_pill plus component keeps the Meadow plus token art")
 	var icon_center := icon.position.y + icon.custom_minimum_size.y * 0.5
 	var amount_center := amount.position.y + amount.custom_minimum_size.y * 0.5
 	var plus_center := plus_btn.position.y + plus_btn.custom_minimum_size.y * 0.5
@@ -611,12 +622,11 @@ func _initialize() -> void:
 		"gold_currency_pill vertically centers icon and amount on one line")
 	ok(is_equal_approx(plus_center, amount_center - 8.0), \
 		"gold_currency_pill plus_y nudges the plus button off the shared centre line")
-	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as Button).get_theme_stylebox("normal") as StyleBoxTexture
-	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as Button).get_theme_stylebox("normal") as StyleBoxTexture
-	var no_px := no_inner.texture.get_image().get_pixel(58, 14)
-	var strong_px := strong_inner.texture.get_image().get_pixel(58, 14)
-	ok((strong_px.r + strong_px.g + strong_px.b) < (no_px.r + no_px.g + no_px.b), \
-		"gold_currency_pill inner_shadow darkens the badge inset groove")
+	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as Button).get_theme_stylebox("normal")
+	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as Button).get_theme_stylebox("normal")
+	ok(_style_tex_path(no_inner).ends_with("ui/meadow_v2/resource_pill.png") \
+		and _style_tex_path(strong_inner).ends_with("ui/meadow_v2/resource_pill.png"), \
+		"gold_currency_pill ignores the retired generated inner-shadow knob and keeps the paper shell")
 	var gp: Dictionary = view._params["gold_currency_pill"]
 	ok(not gp.has("icon_y") and not gp.has("amount_y") and gp.has("plus_y"), \
 		"gold_currency_pill has a plus_y vertical control but none for icon or amount")
@@ -700,19 +710,19 @@ func _initialize() -> void:
 	if live_pill_button == null:
 		live_pill_button = _first_control(hud.coin_pill, "GoldCurrencyPill", "Button") as Button
 	ok(live_pill_button != null, "live HUD gold currency pill exposes the whole pill as the button")
-	ok(hud.coin_plus is Panel and (hud.coin_plus as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, \
+	ok(hud.coin_plus is Control and (hud.coin_plus as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, \
 		"live HUD plus token is decorative and has no separate click box")
 	var live_gold_opts := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var live_amount_slot := _first_control(hud.coin_pill, "GoldCurrencyAmountSlot")
 	var live_amount := _first_control(hud.coin_pill, "GoldCurrencyAmount", "Label") as Label
-	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton", "Panel")
-	var live_plus_label := _first_control(hud.coin_pill, "GoldCurrencyPlusLabel", "Label") as Label
-	ok(live_amount_slot != null and live_amount != null and live_plus != null and live_plus_label != null \
+	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton")
+	var live_plus_art := _first_control(hud.coin_pill, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
+	ok(live_amount_slot != null and live_amount != null and live_plus != null and live_plus_art != null \
 		and absf(live_amount_slot.custom_minimum_size.x - float(live_gold_opts.amount_w)) <= 0.01 \
 		and absf(live_amount.position.x - float(live_gold_opts.amount_x)) <= 0.01 \
 		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
-		and absf(live_plus_label.offset_top - float(live_gold_opts.plus_label_y)) <= 0.01, \
-		"live HUD applies the Workbench amount box and plus location settings")
+		and String(live_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
+		"live HUD applies the Workbench amount box and Meadow plus-art location settings")
 	var wallet_rect := (hud.wallet as Control).get_global_rect()
 	var wallet_right_gap := Design.size().x - wallet_rect.end.x
 	var hud_layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -1168,14 +1178,14 @@ func _test_new_knobs(view) -> void:
 	var action_prev: Control = view._make_element("info_bar")
 	var live_action_style := ActionBar.bar_style(166.0, {}) as StyleBoxTexture
 	ok(live_action_style != null and live_action_style.texture != null
-		and String(live_action_style.texture.resource_path).ends_with("ui/meadow_v2/board_frame.png")
+		and String(live_action_style.texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
 		and live_action_style.get_texture_margin(SIDE_LEFT) > 0.0,
-		"live action bar recognizes the Meadow board-frame style with explicit slices")
+		"live action bar uses the lighter Meadow paper tray with explicit slices")
 	var preview_action_style := (action_prev as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
 	ok(preview_action_style != null and preview_action_style.texture != null
-		and String(preview_action_style.texture.resource_path).ends_with("ui/meadow_v2/board_frame.png")
+		and String(preview_action_style.texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
 		and preview_action_style.get_texture_margin(SIDE_LEFT) > 0.0,
-		"info-bar workbench preview matches the live Meadow action-bar frame")
+		"info-bar workbench preview matches the live Meadow paper action tray")
 	var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
 	var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
 	var preview_info := action_prev.find_child("ActionBarPreviewInfoBar", true, false) as PanelContainer
@@ -1203,9 +1213,9 @@ func _test_new_knobs(view) -> void:
 		and _slider_max(view, "Info Button Scale") >= 160.0, \
 		"merged info_bar sidebar exposes shared Bag/Home size but no Bag/Home x sliders")
 
-	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
-	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
-	# the shared gold-pill padding as its content margin.
+		# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
+		# and are SAVED config; `filled` is preview-only. Its frame uses the authored paper tray and retains
+		# the shared wallet-pill padding as its content margin.
 	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40, "item_icon_scale": 115, "info_y": 11, "info_button_scale": 80, "hide_info_button": true}})
 	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
 		"info_bar reads height + inner_scale (0..1)")
@@ -1218,7 +1228,8 @@ func _test_new_knobs(view) -> void:
 		"info_bar reads the info button y offset and size scale")
 	ok(ib.has("hide_info_button") and bool(ib.get("hide_info_button", false)), \
 		"info_bar reads the saved hide-info-button toggle")
-	ok(ib.has("pill") and ib.has("badge"), "info_bar reads gold-pill padding plus the shared gold_badge frame opts")
+	ok(ib.has("pill") and not ib.has("badge"), \
+		"info_bar reads wallet-pill padding without carrying the retired gold_badge frame opts")
 	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
 		"default info_bar height matches the bottom-bar wells (130)")
 	var default_ib: Dictionary = Kit.info_bar_opts_from_config({})
@@ -1272,19 +1283,19 @@ func _test_new_knobs(view) -> void:
 	ok(_has_label_text(view._make_element("info_bar"), "Hazelnut · Tier 2"), \
 		"the info-bar preview shows a sample selected item")
 
-	# gold currency pill: the plus glyph and surrounding green button are read from the new config block.
+	# gold currency pill: the plus affordance uses the Meadow plus token art; the saved size knob still scales it.
 	ok(int(Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"plus_font": 132}}).plus_font) == 132, \
-		"gold_currency_pill reads plus_font")
+		"gold_currency_pill tolerates the retired plus_font config key")
 	ok(view._is_config("gold_currency_pill", "plus_font") and view._is_config("gold_currency_pill", "plus_button"), \
-		"gold_currency_pill plus controls are saved config")
+		"gold_currency_pill keeps legacy plus controls in saved config for migration")
 	var pill132: Control = Kit.gold_currency_pill({"icon": "water", "count": 1, "show_plus": true, "plus_font": 132, "plus_button": 120}, {"water": 1})
 	var pill_default_plus: Control = Kit.gold_currency_pill({"icon": "water", "count": 1, "show_plus": true, "plus_button": 100}, {"water": 1})
-	var plus_label := _first_control(pill132, "GoldCurrencyPlusLabel", "Label") as Label
-	var plus_panel := _first_control(pill132, "GoldCurrencyPlusButton", "Panel") as Panel
-	var default_panel := _first_control(pill_default_plus, "GoldCurrencyPlusButton", "Panel") as Panel
-	var default_label := _first_control(pill_default_plus, "GoldCurrencyPlusLabel", "Label") as Label
-	ok(plus_label != null and default_label != null and plus_label.get_theme_font_size("font_size") > default_label.get_theme_font_size("font_size"), \
-		"the gold currency pill plus font can be adjusted larger")
+	var plus_art_lg := _first_control(pill132, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
+	var plus_panel := _first_control(pill132, "GoldCurrencyPlusButton") as Control
+	var default_panel := _first_control(pill_default_plus, "GoldCurrencyPlusButton") as Control
+	ok(plus_art_lg != null and plus_art_lg.texture != null \
+		and String(plus_art_lg.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
+		"the gold currency pill plus uses the Meadow plus art")
 	ok(plus_panel != null and default_panel != null and plus_panel.custom_minimum_size.x > default_panel.custom_minimum_size.x, \
 		"the gold currency pill plus button size is controlled by plus_button")
 	var compact_pill := Kit.gold_currency_pill({"pill_h": 72, "pad_y": 12, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
@@ -1506,11 +1517,11 @@ func _test_warm_shadow_port() -> void:
 	var wallet_style := wallet_shadow.get_theme_stylebox("panel") as StyleBoxFlat if wallet_shadow != null else null
 	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color("#294654")) and wallet_style.shadow_color.a <= 0.201,
 		"live wallet shell resolves to structural slate at no more than 20 percent alpha")
-	var wallet_plus := wallet.find_child("GoldCurrencyPlusButton", true, false) as Panel
-	var wallet_plus_style := wallet_plus.get_theme_stylebox("panel") as StyleBoxFlat if wallet_plus != null else null
-	ok(wallet_plus_style != null and _same_rgb(wallet_plus_style.shadow_color, Color("#294654")) \
-		and wallet_plus_style.shadow_color.a <= 0.201,
-		"the wallet's live plus affordance uses structural slate at no more than 20 percent alpha")
+	var wallet_plus := wallet.find_child("GoldCurrencyPlusButton", true, false) as Control
+	var wallet_plus_art := wallet.find_child("GoldCurrencyPlusArt", true, false) as TextureRect
+	ok(wallet_plus != null and wallet_plus_art != null and wallet_plus_art.texture != null \
+		and String(wallet_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
+		"the wallet's live plus affordance is the Meadow plus art without a separate code-drawn shadow")
 	wallet.free()
 
 	# the asset-pipeline baked shadow (shape-true, for sprites) still uses the warm tint
@@ -1730,19 +1741,15 @@ func _board_frame_image_with_badge(badge: Dictionary) -> Image:
 func _board_frame_image(shine: float) -> Image:
 	return _board_frame_image_with_badge({"inner_inset": 11, "shine": shine})
 
-func _info_bar_frame_image_with_badge(badge: Dictionary) -> Image:
+func _info_bar_frame_path_with_badge(badge: Dictionary) -> String:
 	var opts := Kit.info_bar_opts_from_config({
 		"info_bar": {},
 		"gold_badge": badge,
 	})
 	var bar := Kit.info_bar({}, opts)
-	var sb := bar.get_theme_stylebox("panel")
-	var img := ((sb as StyleBoxTexture).texture as Texture2D).get_image() if sb is StyleBoxTexture else Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	var path := _style_tex_path(bar.get_theme_stylebox("panel"))
 	bar.queue_free()
-	return img
-
-func _info_bar_frame_image(shine: float) -> Image:
-	return _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": shine})
+	return path
 
 func _map_open_frame_image(badge: Dictionary) -> Image:
 	var opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": badge})
@@ -1757,8 +1764,9 @@ func _test_gold_badge_consumers(view) -> void:
 	view._dirty.clear()
 	view._selected = "gold_badge"
 	view._apply_edit()
-	ok(view._dirty.has("board") and view._dirty.has("info_bar") and view._dirty.has("map_card"), \
-		"editing gold_badge queues the board frame, info bar, and map card to rebuild")
+	ok(view._dirty.has("board") and view._dirty.has("map_card") and view._dirty.has("rush_bar") \
+		and not view._dirty.has("info_bar"), \
+		"editing gold_badge queues badge consumers but leaves the paper action tray alone")
 	view._dirty = prev_dirty
 
 	var board_dull := _board_frame_image(0)
@@ -1766,30 +1774,30 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(_image_sparse_diff(board_dull, board_bright) > 20, \
 		"the board badge frame uses the saved gold_badge shine")
 
-	var info_dull := _info_bar_frame_image(0)
-	var info_bright := _info_bar_frame_image(160)
-	ok(_image_sparse_diff(info_dull, info_bright) > 20, \
-		"the info bar board uses the saved gold_badge shine")
+	var info_dull_path := _info_bar_frame_path_with_badge({"inner_inset": 11, "shine": 0})
+	var info_bright_path := _info_bar_frame_path_with_badge({"inner_inset": 11, "shine": 160})
+	ok(info_dull_path.ends_with("ui/meadow_v2/dialog_panel.png") and info_bright_path == info_dull_path, \
+		"the paper info bar ignores retired gold_badge shine")
 
 	var board_flat := _board_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 0})
 	var board_ramp := _board_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 100})
 	ok(_image_sparse_diff(board_flat, board_ramp) > 20, \
 		"the board badge frame uses the saved gold_badge gradient")
 
-	var info_flat := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 0})
-	var info_ramp := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 100})
-	ok(_image_sparse_diff(info_flat, info_ramp) > 20, \
-		"the info bar board uses the saved gold_badge gradient")
+	var info_flat_path := _info_bar_frame_path_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 0})
+	var info_ramp_path := _info_bar_frame_path_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 100})
+	ok(info_flat_path.ends_with("ui/meadow_v2/dialog_panel.png") and info_ramp_path == info_flat_path, \
+		"the paper info bar ignores retired gold_badge gradient")
 
 	var board_boxy := _board_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 28})
 	var board_round := _board_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
 	ok(_image_sparse_diff(board_boxy, board_round) > 20, \
 		"the board badge frame uses the saved gold_badge corner")
 
-	var info_boxy := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 28})
-	var info_round := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
-	ok(_image_sparse_diff(info_boxy, info_round) > 20, \
-		"the info bar board uses the saved gold_badge corner")
+	var info_boxy_path := _info_bar_frame_path_with_badge({"inner_inset": 11, "shine": 100, "corner": 28})
+	var info_round_path := _info_bar_frame_path_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
+	ok(info_boxy_path.ends_with("ui/meadow_v2/dialog_panel.png") and info_round_path == info_boxy_path, \
+		"the paper info bar ignores retired gold_badge corner")
 
 	# the MAP CARD's open frame is the SHARED gold-badge skin too: an open card wears the MapGoldFrame
 	# NinePatch (a locked card does not), the opts carry the shared badge + band knob, and the frame tracks
@@ -2155,14 +2163,14 @@ func _test_quest_card_config(view) -> void:
 		"giver_lay config overrides the named keys (percent → fraction)")
 	ok(is_equal_approx(float(gov.card_h), 0.65), "giver_lay leaves un-named keys at the shipped default")
 
-	# the 9-slice patch margins ride the lay as SOURCE PIXELS (NOT divided) — defaults bracket the wood frame
-	ok(is_equal_approx(float(gdf.card_slice_l), 46.0) and is_equal_approx(float(gdf.card_slice_b), 56.0), \
+	# the 9-slice patch margins ride the lay as SOURCE PIXELS (NOT divided) — defaults bracket the Meadow paper card
+	ok(is_equal_approx(float(gdf.card_slice_l), 34.0) and is_equal_approx(float(gdf.card_slice_b), 28.0), \
 		"giver_lay carries the card 9-slice margins as raw source px (not /100)")
 	var gsl: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_slice_t": 30}})
 	ok(is_equal_approx(float(gsl.card_slice_t), 30.0), "giver_lay slice margins are overridable (raw px)")
 	# the quest card casts the SHARED shadow (Skin.shadow_rect + the global shadow block), driven by the
 	# UNIVERSAL Shadow toggle — not a bespoke per-card shadow. giver_lay threads the toggle + shared params.
-	ok(bool(gdf.get("shadow", true)) == false, "giver_lay quest-card Shadow toggle is OFF by default (shipped card unchanged)")
+	ok(bool(gdf.get("shadow", true)) == false, "giver_lay quest-card Shadow toggle is OFF by default (paper art stays shadow-free unless the caller lifts it)")
 	ok(bool(Kit.giver_lay_from_config({"quest_card": {"shadow": true}}).get("shadow", false)), "giver_lay carries the quest-card Shadow toggle when set")
 	var gsp: Dictionary = Kit.giver_lay_from_config({"shadow": {"alpha": 50, "offset_y": 9}}).get("shadow_params", {})
 	ok(is_equal_approx(float(gsp.get("alpha", -1.0)), 0.50) and is_equal_approx(float(gsp.get("offset_y", -1.0)), 9.0), \
@@ -2172,30 +2180,36 @@ func _test_quest_card_config(view) -> void:
 	var wire := func(_n: Control, _a: Callable) -> void: pass
 	var qcard: Control = GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"exp": 5}}, \
 		{"ask_tap": noop, "stand_tap": noop, "wire_tap": wire, "stand_w": 480.0, "fence_h": 410.0, "lay": gdf}).chip
-	ok(qcard.find_children("*", "NinePatchRect", true, false).size() > 0, \
-		"the giver card background is a NinePatchRect (9-slice, crisp corners)")
+	var qcard_bg := qcard.find_child("MeadowQuestCard", true, false) as NinePatchRect
+	ok(qcard_bg != null and qcard_bg.texture != null \
+		and String(qcard_bg.texture.resource_path).ends_with("ui/meadow_v2/card_generic.png"), \
+		"the giver card background is the Meadow paper card NinePatch")
+	ok(qcard_bg != null and qcard_bg.patch_margin_left == int(gdf.card_slice_l) and qcard_bg.patch_margin_bottom == int(gdf.card_slice_b), \
+		"the drawn giver card consumes the Meadow paper 9-slice margins")
 	qcard.queue_free()
 
-	# the card shadow reuses the SHARED shadow: toggle OFF leaves the bare art (shipped), toggle ON casts a
-	# show_behind_parent Skin.shadow_rect with the WARM shared tint behind the card (not a bespoke black box).
+		# the card shadow reuses the SHARED Meadow slate shadow: toggle OFF leaves the bare art, toggle ON casts a
+		# show_behind_parent shadow_rect behind the card (not a bespoke black box).
 	var coff: Control = GiverStand._quest_card(300.0, 200.0, gdf)
-	ok(coff is NinePatchRect, "card Shadow toggle OFF returns the bare NinePatch — shipped card unchanged")
+	ok(coff is NinePatchRect and String((coff as NinePatchRect).texture.resource_path).ends_with("ui/meadow_v2/card_generic.png"), \
+		"card Shadow toggle OFF returns the bare Meadow paper NinePatch")
 	var on_params := Look.shadow_params({"shadow": {"offset_x": 0, "offset_y": 6, "blur": 14, "spread": 4, "alpha": 34, "warmth": 82}})
 	var con: Control = GiverStand._quest_card(300.0, 200.0, {"shadow": true, "shadow_params": on_params})
-	var warm_shadow := false
+	var slate_shadow := false
 	for p in con.find_children("*", "Panel", true, false):
 		var sb = (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 and _is_warm_shadow((sb as StyleBoxFlat).shadow_color):
-			warm_shadow = true
-	ok(warm_shadow, "card Shadow toggle ON casts the shared warm-tinted shadow behind the card")
-	# the shadow HUGS the visible card: card_quest.png pads the parchment with a transparent margin, so the
-	# shadow is inset by it (cast from the visible card edge) — a tight directional drop matching the global
-	# shadow, NOT an all-around halo around the padded NinePatch rect.
+		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 \
+			and _same_rgb((sb as StyleBoxFlat).shadow_color, Color("#294654")) \
+			and (sb as StyleBoxFlat).shadow_color.a <= 0.201:
+			slate_shadow = true
+	ok(slate_shadow, "card Shadow toggle ON casts the Meadow structural-slate shadow behind the card")
+		# the new Meadow card has no large transparent legacy art margin, so the shadow is not inset by the
+		# old card_quest padding.
 	var cins := Control.new()
 	GiverStand._add_card_shadow(cins, 200.0, {"shadow": true, "shadow_params": on_params})
 	var sins := cins.get_child(0) as Panel
-	ok(sins != null and sins.offset_left > 0.0 and sins.offset_top > 0.0 and sins.offset_right < 0.0 and sins.offset_bottom < 0.0, \
-		"the card shadow insets to hug the visible card, not the transparent-padded rect")
+	ok(sins != null and sins.offset_left == 0.0 and sins.offset_top == 0.0 and sins.offset_right == 0.0 and sins.offset_bottom == 0.0, \
+		"the card shadow no longer carries the old transparent-card inset")
 	cins.queue_free()
 	coff.queue_free()
 	con.queue_free()
@@ -2218,8 +2232,9 @@ func _test_bag_components() -> void:
 	ok(one is Button and one.name == "GoldCurrencyPill" and _pill_numbers(one) == 1, \
 		"gold_currency_pill renders the bag's single-currency balance")
 	var water := Kit.gold_currency_pill({"icon": "water", "show_plus": true}, {"water": 128})
-	ok(water is Button and water.name == "GoldCurrencyPill" and _has_label_text(water, "+"), \
-		"gold_currency_pill renders the optional plus button directly")
+	ok(water is Button and water.name == "GoldCurrencyPill" \
+		and _first_control(water, "GoldCurrencyPlusArt", "TextureRect") != null, \
+		"gold_currency_pill renders the optional plus art directly")
 	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "top.add_child(currency_pill("), \
 		"bag_dialog uses gold_currency_pill directly for the in-game balance cell")
 
