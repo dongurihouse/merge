@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djw60m2lehppf"
-path="res://.godot/imported/ui_texture_tiles_additional_v2_contact.png-5060fdeed63a12c8c10ff7df2021d7c7.ctex"
+uid="uid://4yna58nx6ilc"
+path="res://.godot/imported/texture_receding_blue_3x3_offset.png-1627d0a43fe3fa06e83d77270cccf003.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/ui_texture_tiles_additional_v2_contact.png"
-dest_files=["res://.godot/imported/ui_texture_tiles_additional_v2_contact.png-5060fdeed63a12c8c10ff7df2021d7c7.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/texture_receding_blue_3x3_offset.png"
+dest_files=["res://.godot/imported/texture_receding_blue_3x3_offset.png-1627d0a43fe3fa06e83d77270cccf003.ctex"]
 
 [params]
 

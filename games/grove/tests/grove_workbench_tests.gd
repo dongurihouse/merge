@@ -1489,6 +1489,30 @@ func _test_warm_shadow_port() -> void:
 			break
 	ok(board_meadow_shadow, "the board frame casts the normalized Meadow structural-slate shadow")
 
+	var oversized := {"alpha": 0.72, "offset_x": 5.0, "offset_y": 5.0, "blur": 14.0, "spread": -13.0, "warmth": 0.82}
+	var home := Kit.home_button({"icon": "settings"}, {"px": 120.0, "shadow": true, "shadow_params": oversized})
+	var home_shadow := home.get_child(0) as Panel if home.get_child_count() > 0 and home.get_child(0) is Panel else null
+	var home_style := home_shadow.get_theme_stylebox("panel") as StyleBoxFlat if home_shadow != null else null
+	ok(home_style != null and _same_rgb(home_style.shadow_color, Color("#294654")) and home_style.shadow_color.a <= 0.201,
+		"live home/navigation shells clamp oversized runtime shadows to Meadow structural slate")
+	home.free()
+
+	var wallet_cfg := {"gold_currency_pill": {"shadow": true, "shadow_alpha": 72.0}}
+	var wallet_opts := Kit.gold_currency_pill_opts_from_config(wallet_cfg)
+	ok(float(wallet_opts.shadow_params.alpha) <= 0.201,
+		"wallet shadow resolver clamps a saved 72 percent override to the Meadow maximum")
+	var wallet := Kit.gold_currency_pill(wallet_opts)
+	var wallet_shadow := wallet.get_child(0) as Panel if wallet.get_child_count() > 0 and wallet.get_child(0) is Panel else null
+	var wallet_style := wallet_shadow.get_theme_stylebox("panel") as StyleBoxFlat if wallet_shadow != null else null
+	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color("#294654")) and wallet_style.shadow_color.a <= 0.201,
+		"live wallet shell resolves to structural slate at no more than 20 percent alpha")
+	var wallet_plus := wallet.find_child("GoldCurrencyPlusButton", true, false) as Panel
+	var wallet_plus_style := wallet_plus.get_theme_stylebox("panel") as StyleBoxFlat if wallet_plus != null else null
+	ok(wallet_plus_style != null and _same_rgb(wallet_plus_style.shadow_color, Color("#294654")) \
+		and wallet_plus_style.shadow_color.a <= 0.201,
+		"the wallet's live plus affordance uses structural slate at no more than 20 percent alpha")
+	wallet.free()
+
 	# the asset-pipeline baked shadow (shape-true, for sprites) still uses the warm tint
 	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
 	img.fill(Color.WHITE)

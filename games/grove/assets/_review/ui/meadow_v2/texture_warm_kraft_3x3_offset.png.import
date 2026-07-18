@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ic2arwvrti4b"
-path="res://.godot/imported/texture_structural_slate_3x3_offset.png-d911375c477e6f9aaa4140d8f1f9b23d.ctex"
+uid="uid://c21yktlcxrpvd"
+path="res://.godot/imported/texture_warm_kraft_3x3_offset.png-0bb830801043da56c49704102879421b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_structural_slate_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_structural_slate_3x3_offset.png-d911375c477e6f9aaa4140d8f1f9b23d.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/texture_warm_kraft_3x3_offset.png"
+dest_files=["res://.godot/imported/texture_warm_kraft_3x3_offset.png-0bb830801043da56c49704102879421b.ctex"]
 
 [params]
 

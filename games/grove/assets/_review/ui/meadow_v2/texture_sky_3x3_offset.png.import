@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dfaprvnnjo1nx"
-path="res://.godot/imported/texture_warm_kraft_3x3_offset.png-d52f080c6e08028dfd6c7d80ad0ec8af.ctex"
+uid="uid://bu785o75acxht"
+path="res://.godot/imported/texture_sky_3x3_offset.png-f646c9871f28fdf4f9fa4f4f4af6d5e8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_warm_kraft_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_warm_kraft_3x3_offset.png-d52f080c6e08028dfd6c7d80ad0ec8af.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/texture_sky_3x3_offset.png"
+dest_files=["res://.godot/imported/texture_sky_3x3_offset.png-f646c9871f28fdf4f9fa4f4f4af6d5e8.ctex"]
 
 [params]
 

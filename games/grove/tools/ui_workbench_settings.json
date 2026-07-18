@@ -205,7 +205,7 @@
 		"plus_x": -134.0,
 		"plus_y": 17.0,
 		"shadow": true,
-		"shadow_alpha": 72.0,
+		"shadow_alpha": 20.0,
 		"shadow_blur": 14.0,
 		"shadow_offset_x": 5.0,
 		"shadow_offset_y": 5.0,

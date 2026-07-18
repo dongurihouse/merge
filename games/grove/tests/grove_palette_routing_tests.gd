@@ -8,10 +8,17 @@ const MAPPING_PATH := "res://games/grove/assets/ui/meadow_v2/canonical_mapping.j
 const MANIFEST_PATH := "res://games/grove/assets/ui/meadow_v2/manifest.json"
 const SUITE_PATH := "games/grove/tests/grove_palette_routing_tests"
 const FIXED_CONSUMERS := {
-	"rush/bottom_hint_3slice.png": {"min_aspect": 4.0, "contract": "wide three-slice"},
 	"map/left_card_frame_large.png": {"min_aspect": 1.1, "contract": "landscape map frame"},
 	"map/left_locked_preview.png": {"min_aspect": 1.1, "contract": "landscape map preview"},
 }
+const MEADOW_FOREGROUND_CONSUMERS := [
+	"shared/disc_round.png",
+	"shared/badge_rect.png",
+	"shared/play_disc.png",
+	"kit/level_frame.png",
+	"rush/exit_x.png",
+	"rush/bottom_hint_3slice.png",
+]
 
 var _pass := 0
 var _fail := 0
@@ -122,6 +129,18 @@ func _initialize() -> void:
 		if tex != null:
 			var aspect := float(tex.get_width()) / maxf(1.0, float(tex.get_height()))
 			ok(aspect >= float(fixed.min_aspect), "%s preserves %s aspect (%.2f)" % [canonical_rel, fixed.contract, aspect])
+
+	for canonical_rel in MEADOW_FOREGROUND_CONSUMERS:
+		ok(mapped_targets.has(canonical_rel), "%s is replaced by a declared Meadow v2 route" % canonical_rel)
+	var hint_tex := load("res://games/grove/assets/ui/rush/bottom_hint_3slice.png") as Texture2D
+	ok(hint_tex != null and float(hint_tex.get_width()) / maxf(1.0, float(hint_tex.get_height())) >= 4.0,
+		"Rush bottom hint preserves its wide three-slice consumer contract")
+
+	var export_text := FileAccess.get_file_as_string("res://export_presets.cfg")
+	ok(export_text.contains("games/grove/assets/_review/**"),
+		"export preset excludes generated Meadow QC review artifacts")
+	ok(not DirAccess.dir_exists_absolute("res://games/grove/assets/ui/meadow_v2/qc"),
+		"production Meadow resource tree contains no QC montage directory")
 
 	ok(_active_grove_suite_line().contains(SUITE_PATH),
 		"palette/routing contract is part of active GROVE_TESTS")

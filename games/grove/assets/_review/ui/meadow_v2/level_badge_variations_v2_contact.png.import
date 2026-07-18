@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dtnpjeqlov3l"
-path="res://.godot/imported/texture_action_green_3x3_offset.png-f303bf7d8846a6fd01dd89dc692425cf.ctex"
+uid="uid://cxn1q4fm7ppt7"
+path="res://.godot/imported/level_badge_variations_v2_contact.png-7a29e85c14912f293c829a0d5491de28.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_action_green_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_action_green_3x3_offset.png-f303bf7d8846a6fd01dd89dc692425cf.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/level_badge_variations_v2_contact.png"
+dest_files=["res://.godot/imported/level_badge_variations_v2_contact.png-7a29e85c14912f293c829a0d5491de28.ctex"]
 
 [params]
 

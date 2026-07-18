@@ -56,3 +56,11 @@ The initial `fresh` Board and `intro` Rush captures were not representative game
 - `games/grove/tests/grove_ui_tests.gd` remains in the repository's disabled suite list with known unrelated baseline failures; active equivalent coverage is in Grove info-bar/workbench/palette suites and engine badge/bake tests.
 - Nine import-generated bucket/home `.gd.uid` files remain untracked and were deliberately excluded.
 - Screenshot tools log existing shutdown resource/RID warnings. The Rush tool additionally logs audio-node setup errors during `_ready`; these did not prevent captures and were not changed in this UI-art pass.
+
+## Final integration review follow-up
+
+- Replaced the remaining visible legacy Home/navigation shells with deterministic Meadow paper shells at their exact fixed consumer dimensions; the Play CTA now uses action green, while neutral navigation uses cream.
+- Replaced Level's legacy frame with the Meadow dialog surface, Rush's exit with the Meadow close control, and Rush's fixed-aspect bottom hint with a deterministic wide three-slice derived from the Meadow secondary button.
+- Clamped live Home/navigation and wallet shadows to structural slate `#294654` at no more than 20% alpha; reset the saved wallet override from 72% to 20%.
+- Moved all 15 generated QC montages from production `assets/ui/meadow_v2/qc` to export-excluded `assets/_review/ui/meadow_v2`; the iOS export preset and active routing suite guard that boundary.
+- Re-captured `home_final_review.png`, `level_final_review.png`, and `rush_final_review.png` after refreshing baked textures. Home shells, the green Play CTA, Level frame, Rush close control, and wide hint render without clipping or fixed-aspect distortion.

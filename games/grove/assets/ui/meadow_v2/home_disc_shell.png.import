@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://h50upr3jn63s"
-path="res://.godot/imported/texture_coral_3x3_offset.png-b5c33717ef166e6adcc5fc21e0ccb1fe.ctex"
+uid="uid://ymopwg4b0vxl"
+path="res://.godot/imported/home_disc_shell.png-9af311a5175dae5eff613f4d07f84367.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_coral_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_coral_3x3_offset.png-b5c33717ef166e6adcc5fc21e0ccb1fe.ctex"]
+source_file="res://games/grove/assets/ui/meadow_v2/home_disc_shell.png"
+dest_files=["res://.godot/imported/home_disc_shell.png-9af311a5175dae5eff613f4d07f84367.ctex"]
 
 [params]
 

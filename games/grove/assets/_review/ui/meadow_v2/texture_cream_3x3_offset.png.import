@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cypojwsl6v1jj"
-path="res://.godot/imported/ui_elements_sprite_sheet_v2_contact.png-8aef0f03e172fd5b99e78a711e9a6187.ctex"
+uid="uid://bh62nfdc5er4l"
+path="res://.godot/imported/texture_cream_3x3_offset.png-410e8aead9a18c7cf63f8d9ac0738b36.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/ui_elements_sprite_sheet_v2_contact.png"
-dest_files=["res://.godot/imported/ui_elements_sprite_sheet_v2_contact.png-8aef0f03e172fd5b99e78a711e9a6187.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/texture_cream_3x3_offset.png"
+dest_files=["res://.godot/imported/texture_cream_3x3_offset.png-410e8aead9a18c7cf63f8d9ac0738b36.ctex"]
 
 [params]
 

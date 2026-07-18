@@ -1,6 +1,7 @@
 {
   "version": 2,
   "generator": "games/grove/tools/extract_meadow_ui_v2.py",
+  "review_output": "games/grove/assets/_review/ui/meadow_v2",
   "grid_boundary": "round(index * extent / count)",
   "badge_registration": {
     "canvas": [
@@ -2122,6 +2123,78 @@
         3,
         231
       ]
+    },
+    {
+      "name": "home_disc_shell",
+      "policy": "surface",
+      "path": "home_disc_shell.png",
+      "source_sheet": "derived_from_meadow_v2",
+      "source_index": -1,
+      "row": -1,
+      "column": -1,
+      "cell_bounds": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": null
+    },
+    {
+      "name": "home_rect_shell",
+      "policy": "surface",
+      "path": "home_rect_shell.png",
+      "source_sheet": "derived_from_meadow_v2",
+      "source_index": -1,
+      "row": -1,
+      "column": -1,
+      "cell_bounds": [
+        0,
+        0,
+        291,
+        298
+      ],
+      "width": 291,
+      "height": 298,
+      "key_rgb": null
+    },
+    {
+      "name": "play_disc_shell",
+      "policy": "surface",
+      "path": "play_disc_shell.png",
+      "source_sheet": "derived_from_meadow_v2",
+      "source_index": -1,
+      "row": -1,
+      "column": -1,
+      "cell_bounds": [
+        0,
+        0,
+        284,
+        287
+      ],
+      "width": 284,
+      "height": 287,
+      "key_rgb": null
+    },
+    {
+      "name": "rush_bottom_hint",
+      "policy": "surface",
+      "path": "rush_bottom_hint.png",
+      "source_sheet": "derived_from_meadow_v2",
+      "source_index": -1,
+      "row": -1,
+      "column": -1,
+      "cell_bounds": [
+        0,
+        0,
+        385,
+        73
+      ],
+      "width": 385,
+      "height": 73,
+      "key_rgb": null
     }
   ]
 }

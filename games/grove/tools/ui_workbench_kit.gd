@@ -66,12 +66,30 @@ static func _meadow_shadow_rect(corner: float, params: Dictionary = {}) -> Panel
 	var p := params.duplicate()
 	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
 	var shadow := Look.shadow_rect(corner, p)
+	_normalize_meadow_shadow(shadow, float(p["alpha"]))
+	return shadow
+
+static func _meadow_shadow_circle(diameter: float, params: Dictionary = {}) -> Panel:
+	var p := params.duplicate()
+	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
+	var shadow := Look.shadow_circle(diameter, p)
+	_normalize_meadow_shadow(shadow, float(p["alpha"]))
+	return shadow
+
+static func _normalize_meadow_shadow(shadow: Panel, alpha: float) -> void:
 	var style := shadow.get_theme_stylebox("panel") as StyleBoxFlat
 	if style != null:
-		var tint := Color(MEADOW_SHADOW_TINT, float(p["alpha"]))
+		var tint := Color(MEADOW_SHADOW_TINT, minf(alpha, MEADOW_SHADOW_MAX_ALPHA))
 		style.bg_color = tint
 		style.shadow_color = tint
-	return shadow
+
+static func _meadow_with_shadow(node: Control, corner: float, params: Dictionary = {}, circular := false) -> Control:
+	var p := params.duplicate()
+	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
+	var holder := Look.with_shadow(node, corner, p, circular)
+	if holder.get_child_count() > 0 and holder.get_child(0) is Panel:
+		_normalize_meadow_shadow(holder.get_child(0) as Panel, float(p["alpha"]))
+	return holder
 
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
@@ -1159,7 +1177,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	# behind-parent child. Cast it with the badge's OWN corner radius (the
 	# nine-patch cap, held constant in px) so the shadow stays CONCENTRIC with the pill — not a fatter capsule.
 	if bool(opts.get("shadow", false)):
-		return Look.with_shadow(panel, float(gold_badge_cap(badge_opts)), opts.get("shadow_params", {}) as Dictionary)
+		return _meadow_with_shadow(panel, float(gold_badge_cap(badge_opts)), opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
@@ -1184,7 +1202,7 @@ static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	psb.border_color = green.darkened(0.28)
 	psb.set_border_width_all(1)
 	psb.set_corner_radius_all(int(base * radius_scale * button_scale))
-	psb.shadow_color = Color(55.0 / 255.0, 53.0 / 255.0, 22.0 / 255.0, 0.34)
+	psb.shadow_color = Color("#294654", 0.20)
 	psb.shadow_size = 3
 	psb.shadow_offset = Vector2(0, 2)
 	p.add_theme_stylebox_override("panel", psb)
@@ -1401,7 +1419,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	# button — a rounded RECT for the rail / Map badges (corner = the badge corner) or a CIRCLE for disc
 	# buttons (corner = px/2). On only when the Shadow toggle is set; opts.shadow_params is the single look.
 	if bool(opts.get("shadow", false)):
-		var sh: Panel = Look.shadow_rect(float(corner), opts.get("shadow_params", {})) if shape == "rect" else Look.shadow_circle(px, opts.get("shadow_params", {}))
+		var sh: Panel = _meadow_shadow_rect(float(corner), opts.get("shadow_params", {})) if shape == "rect" else _meadow_shadow_circle(px, opts.get("shadow_params", {}))
 		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
@@ -3802,7 +3820,9 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("home_button", {})
 	var sp: Dictionary = Look.shadow_params(cfg)
 	if h.has("shadow_alpha"):
-		sp["alpha"] = clampf(float(h["shadow_alpha"]) / 100.0, 0.0, 1.0)
+		sp["alpha"] = clampf(float(h["shadow_alpha"]) / 100.0, 0.0, MEADOW_SHADOW_MAX_ALPHA)
+	else:
+		sp["alpha"] = minf(float(sp.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
 	if h.has("shadow_offset_x"):
 		sp["offset_x"] = float(h["shadow_offset_x"])
 	if h.has("shadow_offset_y"):
@@ -3955,7 +3975,9 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	# independent of the rest. Each override is opt-in: absent keys fall through to the shared values.
 	var sp: Dictionary = Look.shadow_params(cfg)
 	if g.has("shadow_alpha"):
-		sp["alpha"] = clampf(float(g["shadow_alpha"]) / 100.0, 0.0, 1.0)
+		sp["alpha"] = clampf(float(g["shadow_alpha"]) / 100.0, 0.0, MEADOW_SHADOW_MAX_ALPHA)
+	else:
+		sp["alpha"] = minf(float(sp.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
 	if g.has("shadow_offset_x"):
 		sp["offset_x"] = float(g["shadow_offset_x"])
 	if g.has("shadow_offset_y"):

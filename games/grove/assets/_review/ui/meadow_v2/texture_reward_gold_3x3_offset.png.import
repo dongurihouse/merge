@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bq8o78p1j20db"
-path="res://.godot/imported/texture_cream_3x3_offset.png-82ca04405166a57ab90b382443664311.ctex"
+uid="uid://that4lu256qv"
+path="res://.godot/imported/texture_reward_gold_3x3_offset.png-abbdecb5b1928d03510b8608a1169020.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_cream_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_cream_3x3_offset.png-82ca04405166a57ab90b382443664311.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/texture_reward_gold_3x3_offset.png"
+dest_files=["res://.godot/imported/texture_reward_gold_3x3_offset.png-abbdecb5b1928d03510b8608a1169020.ctex"]
 
 [params]
 

@@ -17,9 +17,9 @@
     "button_primary.png": ["kit/mail_pill.png", "kit/bag_pill_green.png", "kit/shop_buy.png", "kit/level_btn.png", "board/btn_pill_green.png"],
     "button_secondary.png": ["kit/mail_pill_cream.png", "kit/bag_pill.png"],
     "resource_pill.png": ["shared/panel_pill.png"],
-    "button_close.png": ["kit/mail_close.png", "kit/shop_close.png"],
+    "button_close.png": ["kit/mail_close.png", "kit/shop_close.png", "rush/exit_x.png"],
     "card_generic.png": ["kit/mail_card.png", "kit/daily_card.png", "kit/bag_card.png", "rush/score_card.png", "rush/score_card_plain.png"],
-    "dialog_panel.png": ["shared/panel_parchment.png", "kit/panel_parchment_v2.png", "kit/bag_panel.png", "kit/tiers_panel.png", "kit/vault_panel.png"],
+    "dialog_panel.png": ["shared/panel_parchment.png", "kit/panel_parchment_v2.png", "kit/bag_panel.png", "kit/tiers_panel.png", "kit/vault_panel.png", "kit/level_frame.png"],
     "progress_track.png": ["kit/prog_track.png", "map/pill_progress.png"],
     "progress_fill.png": ["kit/prog_fill.png", "map/pill_progress_fill.png"],
     "board_frame.png": ["board/board_frame.png", "board/panel_grid.png"],
@@ -37,7 +37,11 @@
     "shop_product_card.png": ["kit/shop_card.png", "kit/shop_card_b.png", "kit/shop_card_wide.png"],
     "acorn_pouch.png": ["kit/shop_acorn.png"],
     "shop_promo_ribbon.png": ["kit/shop_tag.png"],
-    "leaf_sprig.png": ["kit/shop_sprig.png"]
+    "leaf_sprig.png": ["kit/shop_sprig.png"],
+    "home_disc_shell.png": ["shared/disc_round.png"],
+    "home_rect_shell.png": ["shared/badge_rect.png"],
+    "play_disc_shell.png": ["shared/play_disc.png"],
+    "rush_bottom_hint.png": ["rush/bottom_hint_3slice.png"]
   },
   "consumer_contracts": {
     "shared/icon_*.png": ["icon"],
@@ -51,9 +55,13 @@
     "rush/hourglass.png": ["icon"],
     "rush/mult_medallion.png": ["icon"],
     "kit/*_close.png": ["icon"],
+    "rush/exit_x.png": ["icon"],
     "kit/shop_acorn.png": ["icon"],
     "kit/shop_sprig.png": ["icon"],
     "shared/panel_*.png": ["surface"],
+    "shared/disc_round.png": ["surface"],
+    "shared/badge_rect.png": ["surface"],
+    "shared/play_disc.png": ["surface"],
     "board/btn_pill_green.png": ["surface"],
     "board/board_frame.png": ["surface"],
     "board/panel_grid.png": ["surface"],
@@ -63,6 +71,7 @@
     "kit/*_panel*.png": ["surface"],
     "kit/panel_*.png": ["surface"],
     "kit/level_btn.png": ["surface"],
+    "kit/level_frame.png": ["surface"],
     "kit/prog_*.png": ["surface"],
     "kit/shop_buy.png": ["surface"],
     "kit/shop_tag.png": ["surface"],
@@ -71,6 +80,7 @@
     "mail/mail_banner.png": ["surface"],
     "map/pill_*.png": ["surface"],
     "rush/score_card*.png": ["surface"],
-    "rush/title_banner.png": ["surface"]
+    "rush/title_banner.png": ["surface"],
+    "rush/bottom_hint_3slice.png": ["surface"]
   }
 }

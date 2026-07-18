@@ -491,9 +491,11 @@ func _build_bottom_hint() -> void:
 	l.position = Vector2(cap_w * 0.65, text_nudge)
 	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3 - info_px * 1.25), strip_h)
 	l.add_theme_font_size_override("font_size", int(maxf(18.0, strip_h * RUSH_HINT_FS_FRAC)))
-	l.add_theme_color_override("font_color", Color("#F8E9D0"))
-	l.add_theme_color_override("font_outline_color", Color("#3D251B", 0.65))
-	l.add_theme_constant_override("outline_size", 2)
+	# Meadow cream carries native Ink text. The retired brown strip needed a
+	# light glyph plus dark outline; retaining that treatment destroys contrast
+	# on the new cream paper and violates the native-text style rule.
+	l.add_theme_color_override("font_color", Color("#243B4B"))
+	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	var info := _rush_info_button(info_px)
@@ -535,7 +537,7 @@ func _rush_info_button(px: float) -> Button:
 	sb.border_color = GOLD
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(int(px * 0.5))
-	sb.shadow_color = Color(0.10, 0.06, 0.03, 0.28)
+	sb.shadow_color = Color("#294654", 0.20)
 	sb.shadow_size = 4
 	sb.shadow_offset = Vector2(0, 2)
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:

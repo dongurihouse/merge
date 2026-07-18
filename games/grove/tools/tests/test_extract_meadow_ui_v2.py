@@ -208,16 +208,17 @@ class MeadowUiV2ExtractorTests(unittest.TestCase):
         magenta_fringe = (pixels[:, :, 0] > 200) & (pixels[:, :, 2] > 200) & (pixels[:, :, 1] < 160)
         self.assertFalse(np.any(magenta_fringe))
 
-    def test_regeneration_removes_stale_named_outputs_and_qc(self):
+    def test_regeneration_writes_production_assets_and_separate_review_qc(self):
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         output = Path(scratch.name) / "meadow_v2"
-        qc = output / "qc"
+        qc = Path(scratch.name) / "review" / "meadow_v2"
+        output.mkdir(parents=True)
         qc.mkdir(parents=True)
         (output / "retired_asset.png").write_bytes(b"stale")
         (qc / "retired_qc.png").write_bytes(b"stale")
 
-        manifest = run(SOURCE_ROOT, output)
+        manifest = run(SOURCE_ROOT, output, qc)
 
         self.assertEqual(manifest["badge_registration"]["visible_bounds"], [20, 20, 236, 236])
         self.assertEqual(manifest["texture_base_rgb"]["texture_sky"], [111, 169, 192])
@@ -226,12 +227,25 @@ class MeadowUiV2ExtractorTests(unittest.TestCase):
         expected_assets = {record["path"] for record in manifest["assets"]}
         actual_assets = {path.name for path in output.glob("*.png")}
         self.assertEqual(actual_assets, expected_assets)
+        self.assertFalse((output / "qc").exists())
         expected_qc = {
             f"{Path(sheet['source']).stem}_contact.png" for sheet in manifest["sheets"]
         } | {
             f"{record['name']}_3x3_offset.png" for record in manifest["assets"] if record["policy"] == "tile"
         }
         self.assertEqual({path.name for path in qc.glob("*.png")}, expected_qc)
+
+        expected_derived = {
+            "home_disc_shell": (256, 256),
+            "home_rect_shell": (291, 298),
+            "play_disc_shell": (284, 287),
+            "rush_bottom_hint": (385, 73),
+        }
+        records = {record["name"]: record for record in manifest["assets"]}
+        for name, expected_size in expected_derived.items():
+            self.assertEqual(records[name]["policy"], "surface", name)
+            with Image.open(output / f"{name}.png") as image:
+                self.assertEqual(image.size, expected_size, name)
 
         inspected = ("button_info", "icon_settings", "level_badge_17", "level_badge_18", "level_badge_19", "level_badge_20")
         badge_alpha = None
@@ -294,7 +308,7 @@ class MeadowUiV2ExtractorTests(unittest.TestCase):
         marker.write_text("keep", encoding="utf-8")
 
         with self.assertRaises(FileNotFoundError):
-            run(source, output)
+            run(source, output, root / "review")
 
         self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
 
@@ -305,7 +319,7 @@ class MeadowUiV2ExtractorTests(unittest.TestCase):
         source.mkdir()
 
         with self.assertRaisesRegex(ValueError, "must not overlap"):
-            run(source, source / "derived")
+            run(source, source / "derived", Path(scratch.name) / "review")
 
 
 if __name__ == "__main__":

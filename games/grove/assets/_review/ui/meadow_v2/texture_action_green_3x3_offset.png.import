@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dc7nn0juhj2v4"
-path="res://.godot/imported/texture_supporting_purple_3x3_offset.png-1cfaadced7741069b141adbb98cc2560.ctex"
+uid="uid://cep24dvaoh8q2"
+path="res://.godot/imported/texture_action_green_3x3_offset.png-dfcc5fcffa9d51584fb65f0ecb60fab3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_supporting_purple_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_supporting_purple_3x3_offset.png-1cfaadced7741069b141adbb98cc2560.ctex"]
+source_file="res://games/grove/assets/_review/ui/meadow_v2/texture_action_green_3x3_offset.png"
+dest_files=["res://.godot/imported/texture_action_green_3x3_offset.png-dfcc5fcffa9d51584fb65f0ecb60fab3.ctex"]
 
 [params]
 

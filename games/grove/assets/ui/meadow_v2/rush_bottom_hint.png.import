@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bh8q7jfgfok8w"
-path="res://.godot/imported/texture_ink_3x3_offset.png-dae6fbd8844ebc5e525eeeffa907f919.ctex"
+uid="uid://wanl8mkqgyjf"
+path="res://.godot/imported/rush_bottom_hint.png-ad9a7ee11835d0934a3e0869c3b31caf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/meadow_v2/qc/texture_ink_3x3_offset.png"
-dest_files=["res://.godot/imported/texture_ink_3x3_offset.png-dae6fbd8844ebc5e525eeeffa907f919.ctex"]
+source_file="res://games/grove/assets/ui/meadow_v2/rush_bottom_hint.png"
+dest_files=["res://.godot/imported/rush_bottom_hint.png-ad9a7ee11835d0934a3e0869c3b31caf.ctex"]
 
 [params]
 

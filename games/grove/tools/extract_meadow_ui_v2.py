@@ -4,8 +4,9 @@
 The generated sheets are not trusted as exact integer grids: 1254 does not
 divide evenly by five or six.  Cell edges therefore use ``round(i * n / count)``
 and connected foreground components are assigned by centroid.  The source art
-is archived separately; this tool only writes derived, named production PNGs,
-their metadata manifest, and review montages.
+is archived separately; this tool writes derived named production PNGs and
+their metadata manifest under ``assets/ui`` while review montages go under the
+export-excluded ``assets/_review`` tree.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from scipy import ndimage
 REPO = Path(__file__).resolve().parents[3]
 SOURCE_ROOT = REPO / "games/grove/assets/_originals/ui/meadow_sky_v2"
 OUTPUT_ROOT = REPO / "games/grove/assets/ui/meadow_v2"
-QC_ROOT = OUTPUT_ROOT / "qc"
+REVIEW_ROOT = REPO / "games/grove/assets/_review/ui/meadow_v2"
 CANVAS = 256
 ICON_FILL = 0.84
 FLOOD_TOLERANCE = 110.0
@@ -88,6 +89,13 @@ SHEETS = (
     ("level_badge_variations_v2.png", 5, 5, BADGE_ENTRIES),
     ("ui_components_additional_atlas_v2.png", 6, 6, COMPONENT_ENTRIES),
     ("ui_texture_tiles_additional_v2.png", 2, 3, TEXTURE_ENTRIES),
+)
+
+DERIVED_SURFACES = (
+    ("home_disc_shell", (256, 256)),
+    ("home_rect_shell", (291, 298)),
+    ("play_disc_shell", (284, 287)),
+    ("rush_bottom_hint", (385, 73)),
 )
 
 
@@ -513,6 +521,114 @@ def extract_sheet(
     return records
 
 
+def _texture_fill(texture: Image.Image, size: tuple[int, int], mask: Image.Image) -> Image.Image:
+    """Repeat an approved periodic paper tile through ``mask`` without gradients."""
+    texture = texture.convert("RGBA")
+    fill = Image.new("RGBA", size, (0, 0, 0, 0))
+    for y in range(0, size[1], texture.height):
+        for x in range(0, size[0], texture.width):
+            fill.paste(texture, (x, y))
+    fill.putalpha(mask)
+    return fill
+
+
+def _shell_mask(size: tuple[int, int], inset: int, shape: str, radius: int = 0) -> Image.Image:
+    scale = 4
+    mask = Image.new("L", (size[0] * scale, size[1] * scale), 0)
+    draw = ImageDraw.Draw(mask)
+    box = (
+        inset * scale,
+        inset * scale,
+        (size[0] - 1 - inset) * scale,
+        (size[1] - 1 - inset) * scale,
+    )
+    if shape == "ellipse":
+        draw.ellipse(box, fill=255)
+    else:
+        draw.rounded_rectangle(box, radius=radius * scale, fill=255)
+    return mask.resize(size, Image.Resampling.LANCZOS)
+
+
+def _paper_shell(
+    output_root: Path,
+    size: tuple[int, int],
+    shape: str,
+    inner_tile: str,
+    radius: int = 0,
+) -> Image.Image:
+    """Build a shadow-free cut-paper shell from approved periodic Meadow tiles."""
+    result = Image.new("RGBA", size, (0, 0, 0, 0))
+    layers = (
+        (8, "texture_structural_slate.png"),
+        (12, "texture_warm_kraft.png"),
+        (18, inner_tile),
+    )
+    for inset, tile_name in layers:
+        mask_radius = max(2, radius - inset)
+        mask = _shell_mask(size, inset, shape, mask_radius)
+        result.alpha_composite(_texture_fill(Image.open(output_root / tile_name), size, mask))
+    # Keep transparent RGB zero so the shell can be cut out without a fringe.
+    rgba = np.asarray(result).copy()
+    rgba[rgba[:, :, 3] == 0] = 0
+    return Image.fromarray(rgba, "RGBA")
+
+
+def _nine_slice_resize(source: Image.Image, size: tuple[int, int], margins: tuple[int, int, int, int]) -> Image.Image:
+    """Deterministically resize a surface while preserving authored corner geometry."""
+    source = source.convert("RGBA")
+    left, top, right, bottom = margins
+    target_w, target_h = size
+    x_src = (0, left, source.width - right, source.width)
+    y_src = (0, top, source.height - bottom, source.height)
+    x_dst = (0, left, target_w - right, target_w)
+    y_dst = (0, top, target_h - bottom, target_h)
+    output = Image.new("RGBA", size, (0, 0, 0, 0))
+    for row in range(3):
+        for col in range(3):
+            crop = source.crop((x_src[col], y_src[row], x_src[col + 1], y_src[row + 1]))
+            dst_size = (x_dst[col + 1] - x_dst[col], y_dst[row + 1] - y_dst[row])
+            if crop.size != dst_size:
+                crop = crop.resize(dst_size, Image.Resampling.LANCZOS)
+            output.alpha_composite(crop, (x_dst[col], y_dst[row]))
+    rgba = np.asarray(output).copy()
+    rgba[rgba[:, :, 3] == 0] = 0
+    return Image.fromarray(rgba, "RGBA")
+
+
+def _derive_consumer_surfaces(output_root: Path) -> list[dict]:
+    derived = {
+        "home_disc_shell": _paper_shell(output_root, (256, 256), "ellipse", "texture_cream.png"),
+        "home_rect_shell": _paper_shell(output_root, (291, 298), "rect", "texture_cream.png", 58),
+        "play_disc_shell": _paper_shell(output_root, (284, 287), "ellipse", "texture_action_green.png"),
+        "rush_bottom_hint": _nine_slice_resize(
+            Image.open(output_root / "button_secondary.png"), (385, 73), (30, 22, 30, 22)
+        ),
+    }
+    records: list[dict] = []
+    for name, size in DERIVED_SURFACES:
+        image = derived[name]
+        if image.size != size:
+            raise ValueError(f"derived surface {name} has {image.size}, expected {size}")
+        path = output_root / f"{name}.png"
+        image.save(path, optimize=True)
+        records.append(
+            {
+                "name": name,
+                "policy": "surface",
+                "path": path.name,
+                "source_sheet": "derived_from_meadow_v2",
+                "source_index": -1,
+                "row": -1,
+                "column": -1,
+                "cell_bounds": [0, 0, image.width, image.height],
+                "width": image.width,
+                "height": image.height,
+                "key_rgb": None,
+            }
+        )
+    return records
+
+
 def _contact_sheet(source_name: str, records: Sequence[dict], output_root: Path, qc_root: Path) -> None:
     columns = 6
     thumb = 112
@@ -543,17 +659,22 @@ def _tile_montage(record: dict, output_root: Path, qc_root: Path) -> None:
     Image.fromarray(pixels, "RGBA").save(qc_root / f"{record['name']}_3x3_offset.png", optimize=True)
 
 
-def run(source_root: Path = SOURCE_ROOT, output_root: Path = OUTPUT_ROOT) -> dict:
+def run(
+    source_root: Path = SOURCE_ROOT,
+    output_root: Path = OUTPUT_ROOT,
+    review_root: Path = REVIEW_ROOT,
+) -> dict:
     source_root = Path(source_root)
     output_root = Path(output_root)
+    review_root = Path(review_root)
     source_resolved = source_root.resolve()
     output_resolved = output_root.resolve()
-    if (
-        source_resolved == output_resolved
-        or source_resolved in output_resolved.parents
-        or output_resolved in source_resolved.parents
-    ):
-        raise ValueError("source and output roots must not overlap")
+    review_resolved = review_root.resolve()
+    roots = (("source", source_resolved), ("output", output_resolved), ("review", review_resolved))
+    for first_index, (first_name, first) in enumerate(roots):
+        for second_name, second in roots[first_index + 1:]:
+            if first == second or first in second.parents or second in first.parents:
+                raise ValueError(f"{first_name} and {second_name} roots must not overlap")
 
     # Validate every archived input before touching the last good derived tree.
     for filename, _, _, _ in SHEETS:
@@ -564,12 +685,14 @@ def run(source_root: Path = SOURCE_ROOT, output_root: Path = OUTPUT_ROOT) -> dic
             image.verify()
 
     output_root.parent.mkdir(parents=True, exist_ok=True)
+    review_root.parent.mkdir(parents=True, exist_ok=True)
     token = uuid.uuid4().hex
     staging_root = output_root.parent / f".{output_root.name}.tmp-{token}"
     backup_root = output_root.parent / f".{output_root.name}.backup-{token}"
+    review_staging = review_root.parent / f".{review_root.name}.tmp-{token}"
+    review_backup = review_root.parent / f".{review_root.name}.backup-{token}"
     staging_root.mkdir()
-    qc_root = staging_root / "qc"
-    qc_root.mkdir(parents=True, exist_ok=True)
+    review_staging.mkdir()
     all_records: list[dict] = []
     sheets_metadata: list[dict] = []
     try:
@@ -578,14 +701,17 @@ def run(source_root: Path = SOURCE_ROOT, output_root: Path = OUTPUT_ROOT) -> dic
             records = extract_sheet(source, rows, cols, entries, staging_root)
             all_records.extend(records)
             sheets_metadata.append({"source": filename, "rows": rows, "columns": cols, "count": len(records)})
-            _contact_sheet(filename, records, staging_root, qc_root)
+            _contact_sheet(filename, records, staging_root, review_staging)
             for record in records:
                 if record["policy"] == "tile":
-                    _tile_montage(record, staging_root, qc_root)
+                    _tile_montage(record, staging_root, review_staging)
+
+        all_records.extend(_derive_consumer_surfaces(staging_root))
 
         manifest = {
             "version": 2,
             "generator": "games/grove/tools/extract_meadow_ui_v2.py",
+            "review_output": "games/grove/assets/_review/ui/meadow_v2",
             "grid_boundary": "round(index * extent / count)",
             "badge_registration": {
                 "canvas": [CANVAS, CANVAS],
@@ -598,28 +724,59 @@ def run(source_root: Path = SOURCE_ROOT, output_root: Path = OUTPUT_ROOT) -> dic
         }
         (staging_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
+        # canonical_mapping.json is hand-authored routing metadata beside the
+        # generated manifest. Preserve it across a deterministic asset refresh.
+        mapping = output_root / "canonical_mapping.json"
+        if mapping.exists():
+            shutil.copy2(mapping, staging_root / mapping.name)
+        # Godot assigns stable resource UIDs in sidecars. The extractor owns
+        # PNG bytes, not those identities, so carry existing sidecars forward
+        # for still-present assets rather than forcing a project-wide UID churn.
+        if output_root.exists():
+            for sidecar in output_root.glob("*.png.import"):
+                if (staging_root / sidecar.name.removesuffix(".import")).exists():
+                    shutil.copy2(sidecar, staging_root / sidecar.name)
+        if review_root.exists():
+            for sidecar in review_root.glob("*.png.import"):
+                if (review_staging / sidecar.name.removesuffix(".import")).exists():
+                    shutil.copy2(sidecar, review_staging / sidecar.name)
+
         if output_root.exists():
             output_root.rename(backup_root)
+        if review_root.exists():
+            review_root.rename(review_backup)
         try:
             staging_root.rename(output_root)
+            review_staging.rename(review_root)
         except Exception:
-            if backup_root.exists() and not output_root.exists():
+            if output_root.exists():
+                shutil.rmtree(output_root)
+            if review_root.exists():
+                shutil.rmtree(review_root)
+            if backup_root.exists():
                 backup_root.rename(output_root)
+            if review_backup.exists():
+                review_backup.rename(review_root)
             raise
         if backup_root.exists():
             shutil.rmtree(backup_root)
+        if review_backup.exists():
+            shutil.rmtree(review_backup)
         return manifest
     finally:
         if staging_root.exists():
             shutil.rmtree(staging_root)
+        if review_staging.exists():
+            shutil.rmtree(review_staging)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=SOURCE_ROOT)
     parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
+    parser.add_argument("--review-root", type=Path, default=REVIEW_ROOT)
     args = parser.parse_args()
-    manifest = run(args.source_root, args.output_root)
+    manifest = run(args.source_root, args.output_root, args.review_root)
     print(f"extracted {len(manifest['assets'])} assets from {len(manifest['sheets'])} sheets -> {args.output_root}")
 
 

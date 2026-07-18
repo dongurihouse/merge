@@ -580,6 +580,9 @@ func _test_rush_intro_hint() -> void:
 	var hint := s.find_child("RushBottomHint", true, false) as Label
 	ok(hint != null, "the first Rush shows the always-on bottom hint")
 	ok(hint != null and String(hint.text).to_lower().find("fling") != -1, "the bottom hint explains the fling tap")
+	ok(hint != null and hint.get_theme_color("font_color") == Color("#243B4B") \
+		and hint.get_theme_constant("outline_size") == 0, \
+		"the Meadow cream bottom hint uses native Ink text without the legacy light outline")
 	ok(strip != null and String(strip.get_meta("slice_mode", "")) == "three", \
 		"the bottom hint uses 3-slice art, not a 9-slice/flat panel")
 	ok(strip != null \
@@ -595,6 +598,10 @@ func _test_rush_intro_hint() -> void:
 	hint = s.find_child("RushBottomHint", true, false) as Label
 	var replay := s.find_child("RushInfoButton", true, false) as Button
 	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
+	var replay_style := replay.get_theme_stylebox("normal") as StyleBoxFlat if replay != null else null
+	ok(replay_style != null and replay_style.shadow_color == Color("#294654", 0.20) \
+		and replay_style.shadow_color.a <= 0.201, \
+		"the live Rush info button uses the Meadow structural-slate shadow at no more than 20 percent alpha")
 	var replay_glyph := replay.find_child("RushInfoGlyph", true, false) as Label if replay != null else null
 	# the info button + the caption both centre on the BAR — the button geometrically, the caption via its
 	# small optical nudge (its rect centre is offset from its ink centre by that nudge, so compare the

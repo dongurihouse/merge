@@ -26,7 +26,7 @@
 - Create: `games/grove/tools/tests/test_extract_meadow_ui_v2.py`
 - Create: `games/grove/assets/_originals/ui/meadow_sky_v2/*`
 - Create: `games/grove/assets/ui/meadow_v2/manifest.json`
-- Create: `games/grove/assets/ui/meadow_v2/qc/*`
+- Create: `games/grove/assets/_review/ui/meadow_v2/*` (export-excluded QC only)
 - Modify: `docs/design/asset-intake.md`
 
 **Interfaces:**
