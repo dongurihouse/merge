@@ -492,14 +492,23 @@ func _initialize() -> void:
 	})
 	ok(gcp is Control and _has_label_text(gcp, "2450"), \
 		"gold_currency_pill renders the sample count")
-	var gcp_frame: StyleBox = (gcp as Button).get_theme_stylebox("normal")
-	ok(_style_tex_path(gcp_frame).ends_with("ui/meadow_v2/resource_pill.png"), \
-		"gold_currency_pill background uses the Meadow resource-pill paper shell")
+	var gcp_frame := (gcp as Button).get_theme_stylebox("normal") as StyleBoxFlat
+	var gcp_paper := gcp.find_child("PaperSurface", true, false) as TextureRect
+	ok(gcp_frame != null \
+		and gcp_frame.get_corner_radius(CORNER_TOP_LEFT) == 35 \
+		and gcp_frame.get_border_width(SIDE_LEFT) == 1, \
+		"gold_currency_pill draws its rounded shell and cut edge in code")
+	ok(gcp_paper != null and gcp_paper.texture != null \
+		and String(gcp_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png") \
+		and gcp_paper.material is ShaderMaterial, \
+		"gold_currency_pill masks the flat cream paper texture into the code shell")
+	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "meadow_paper_style(\"resource_pill.png\""), \
+		"live currency pills do not nine-slice the pre-cut resource pill")
 	var gcp_plus_art := _first_control(gcp, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
 	ok(gcp_plus_art != null and gcp_plus_art.texture != null \
 		and String(gcp_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
 		"gold_currency_pill plus token uses the Meadow plus art")
-	ok(not (gcp_frame is StyleBoxFlat) or (gcp_frame as StyleBoxFlat).shadow_size == 0, \
+	ok(gcp_frame != null and gcp_frame.shadow_size == 0, \
 		"gold_currency_pill does not add its own flat-panel shadow")
 	ok(gcp.find_children("GoldCurrencyBadge", "Control", true, false).is_empty(), \
 		"gold_currency_pill icon has no extra square badge background")
@@ -570,7 +579,7 @@ func _initialize() -> void:
 				pill_panel = n as Button
 				break
 			n = n.get_parent()
-		var sb := pill_panel.get_theme_stylebox("normal") as StyleBoxTexture if pill_panel != null else null
+		var sb := pill_panel.get_theme_stylebox("normal") as StyleBoxFlat if pill_panel != null else null
 		all_shared = all_shared and sb != null and is_equal_approx(float(sb.content_margin_left), expected_pad_left)
 	for tl in tuned_labels:
 		all_shared = all_shared and int((tl as Label).get_theme_font_size("font_size")) == expected_num_size
@@ -592,7 +601,7 @@ func _initialize() -> void:
 		"plus_font": 132, "plus_button": 120, "plus_round": 8, "plus_hue": 65,
 		"inner_shadow": 0,
 	})
-	var tuned_frame := (tuned as Button).get_theme_stylebox("normal") as StyleBoxTexture
+	var tuned_frame := (tuned as Button).get_theme_stylebox("normal") as StyleBoxFlat
 	ok(tuned_frame != null and int(tuned_frame.content_margin_left) == 31 and int(tuned_frame.content_margin_right) == 22 and int(tuned_frame.content_margin_top) == 14, \
 		"gold_currency_pill saved padding controls the badge frame margins")
 	var icon_slot := _first_control(tuned, "GoldCurrencyIconSlot")
@@ -622,11 +631,17 @@ func _initialize() -> void:
 		"gold_currency_pill vertically centers icon and amount on one line")
 	ok(is_equal_approx(plus_center, amount_center - 8.0), \
 		"gold_currency_pill plus_y nudges the plus button off the shared centre line")
-	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as Button).get_theme_stylebox("normal")
-	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as Button).get_theme_stylebox("normal")
-	ok(_style_tex_path(no_inner).ends_with("ui/meadow_v2/resource_pill.png") \
-		and _style_tex_path(strong_inner).ends_with("ui/meadow_v2/resource_pill.png"), \
-		"gold_currency_pill ignores the retired generated inner-shadow knob and keeps the paper shell")
+	var no_inner_pill := Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as Button
+	var strong_inner_pill := Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as Button
+	var no_inner := no_inner_pill.get_theme_stylebox("normal")
+	var strong_inner := strong_inner_pill.get_theme_stylebox("normal")
+	var no_inner_paper := no_inner_pill.find_child("PaperSurface", true, false) as TextureRect
+	var strong_inner_paper := strong_inner_pill.find_child("PaperSurface", true, false) as TextureRect
+	ok(no_inner is StyleBoxFlat and strong_inner is StyleBoxFlat \
+		and no_inner_paper != null and strong_inner_paper != null \
+		and String(no_inner_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png") \
+		and String(strong_inner_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png"), \
+		"gold_currency_pill ignores the retired generated inner-shadow knob and keeps the flat paper shell")
 	var gp: Dictionary = view._params["gold_currency_pill"]
 	ok(not gp.has("icon_y") and not gp.has("amount_y") and gp.has("plus_y"), \
 		"gold_currency_pill has a plus_y vertical control but none for icon or amount")

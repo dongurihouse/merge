@@ -35,11 +35,35 @@ const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of
 const MEADOW_UI := "ui/meadow_v2/%s"
 const MEADOW_SHADOW_TINT := Color("#294654")
 const MEADOW_SHADOW_MAX_ALPHA := 0.20
+const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
 const SLOT_PATCH := Vector4(32, 32, 32, 32)
 const RESOURCE_PILL_PATCH := Vector4(52, 52, 52, 52)
 const DIALOG_PATCH := Vector4(42, 42, 42, 42)
+
+const PAPER_MASK_SHADER := """
+shader_type canvas_item;
+
+uniform vec2 control_size = vec2(1.0);
+uniform float radius_px = 1.0;
+
+float rounded_box_distance(vec2 point, vec2 half_size, float radius) {
+	vec2 q = abs(point) - half_size + vec2(radius);
+	return min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - radius;
+}
+
+void fragment() {
+	vec4 paper = texture(TEXTURE, UV);
+	float distance_to_edge = rounded_box_distance(
+		(UV - vec2(0.5)) * control_size,
+		control_size * 0.5,
+		radius_px
+	);
+	float mask = 1.0 - smoothstep(-1.0, 1.0, distance_to_edge);
+	COLOR = vec4(paper.rgb, paper.a * mask);
+}
+"""
 
 static func _meadow_path(file_name: String) -> String:
 	return Game.art(MEADOW_UI % file_name)
@@ -53,6 +77,73 @@ static func _set_texture_margins(style: StyleBoxTexture, margins: Vector4) -> vo
 	style.set_texture_margin(SIDE_TOP, margins.y)
 	style.set_texture_margin(SIDE_RIGHT, margins.z)
 	style.set_texture_margin(SIDE_BOTTOM, margins.w)
+
+static func _sync_paper_button_state(button: Button, paper: TextureRect, alpha: float) -> void:
+	if not is_instance_valid(button) or not is_instance_valid(paper):
+		return
+	var tone := 1.0
+	match button.get_draw_mode():
+		BaseButton.DRAW_HOVER:
+			tone = 1.04
+		BaseButton.DRAW_PRESSED, BaseButton.DRAW_HOVER_PRESSED:
+			tone = 0.90
+		BaseButton.DRAW_DISABLED:
+			tone = 0.68
+	paper.self_modulate = Color(tone, tone, tone, alpha)
+
+static func _apply_rounded_paper_surface(
+	button: Button,
+	paper_name: String,
+	fill: Color,
+	corner: float,
+	margins: Vector4,
+	inset := 2.0,
+	surface_alpha := 1.0
+) -> TextureRect:
+	var base := StyleBoxFlat.new()
+	base.bg_color = Color(fill.r, fill.g, fill.b, fill.a * surface_alpha)
+	base.border_color = PAPER_EDGE
+	base.set_border_width_all(1)
+	base.set_corner_radius_all(int(round(corner)))
+	base.anti_aliasing = true
+	base.content_margin_left = margins.x
+	base.content_margin_top = margins.y
+	base.content_margin_right = margins.z
+	base.content_margin_bottom = margins.w
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, base)
+
+	var paper := TextureRect.new()
+	paper.name = "PaperSurface"
+	paper.texture = _meadow_tex(paper_name)
+	paper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	paper.offset_left = inset
+	paper.offset_top = inset
+	paper.offset_right = -inset
+	paper.offset_bottom = -inset
+	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	paper.stretch_mode = TextureRect.STRETCH_SCALE
+	paper.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var shader := Shader.new()
+	shader.code = PAPER_MASK_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	material.set_shader_parameter("radius_px", maxf(1.0, corner - inset))
+	paper.material = material
+	button.add_child(paper)
+
+	var sync_size := func() -> void:
+		if is_instance_valid(paper):
+			material.set_shader_parameter("control_size", Vector2(maxf(1.0, paper.size.x), maxf(1.0, paper.size.y)))
+	var sync_state := func() -> void:
+		_sync_paper_button_state(button, paper, surface_alpha)
+	paper.resized.connect(sync_size)
+	paper.ready.connect(sync_size)
+	paper.ready.connect(sync_state)
+	button.draw.connect(sync_state)
+	return paper
 
 static func meadow_board_style(pad_x: float = 0.0, pad_y: float = 0.0) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
@@ -1111,12 +1202,13 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	panel.flat = false
 	panel.focus_mode = Control.FOCUS_NONE
 	panel.add_theme_constant_override("h_separation", 0)
-	var pill_style := meadow_paper_style("resource_pill.png", RESOURCE_PILL_PATCH, pad_left, style_pad_y, pad_x, style_pad_y)
-	if pill_style.texture == null:
-		var fallback_opts := {"content_margin_left": pad_left, "content_margin_right": pad_x, "content_margin_top": style_pad_y, "content_margin_bottom": style_pad_y}
-		pill_style = gold_badge_style(fallback_opts)
-	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		panel.add_theme_stylebox_override(st, pill_style)
+	_apply_rounded_paper_surface(
+		panel,
+		"texture_cream.png",
+		Color("#F6EBDD"),
+		pill_h * 0.35,
+		Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
+	)
 	if plus_action.is_valid():
 		panel.pressed.connect(plus_action)
 
