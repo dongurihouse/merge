@@ -3,7 +3,9 @@
   "scene": "fairy_hollow_v3",
   "status": "rendered",
   "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/placements.json",
-  "placementAuthoritySha256": "561a076038412fcdf302012b7b5532f1fbd8862623aa95add8ae15e7f0b962f7",
+  "placementAuthoritySha256": "2195630ea7e812db0d19a097b4dc7dccf5d7e1a953a0fa3ce056341dd886e0a7",
+  "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/asset_manifest.json",
+  "manifestSha256": "5b5c00bcbdf941cbfece7c38b7b519de97be4383e362aa3bb57f9f652db17334",
   "canvas": [
     1320,
     2346

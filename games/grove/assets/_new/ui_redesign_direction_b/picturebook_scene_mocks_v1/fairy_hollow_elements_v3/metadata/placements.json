@@ -1,6 +1,17 @@
 {
   "schemaVersion": 2.0,
   "scene": "fairy_hollow_v3",
+  "pipeline": {
+    "mapMode": "scene_mode",
+    "visualModel": "layered_raster",
+    "runtimeObjectModel": [
+      "separate_props",
+      "foreground_occluders"
+    ],
+    "collisionModel": "none",
+    "visualAssetSource": "existing_assets",
+    "engineTarget": "project-native"
+  },
   "canvas": {
     "anchorConvention": "center-bottom",
     "coordinateOrigin": "top-left",

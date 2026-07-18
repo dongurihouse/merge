@@ -10,6 +10,11 @@ sizes, z order, clusters, contact dressing, and the complete tree-house
 structural rule. The compositor reads that document directly; do not edit the
 flattened reconstruction PNGs or duplicate placement values in code.
 
+The same document declares the project-native pipeline contract: `scene_mode`,
+`layered_raster`, separate props plus foreground occluders, no collision model,
+existing visual assets, and the project-native engine target. Validation
+requires every value exactly.
+
 ## Rebuild and validate
 
 Run from the repository root:
@@ -30,6 +35,10 @@ python3 games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_
 Both modes exit nonzero if manifest/placement paths, asset modes, tight-asset
 corner alpha, exact `#FF00FF` palette cleanliness, native sizes, counts,
 tree-house structure, output dimensions, or report hashes fail validation.
+Paths must be repo-relative, may not contain `..`, and must resolve inside the
+project root. Validate-only also binds the existing reconstruction to the
+current placements document, asset manifest, foundation, and every ordered
+placement source SHA-256, so source changes require a normal rebuild.
 
 ## Scene Workbench
 

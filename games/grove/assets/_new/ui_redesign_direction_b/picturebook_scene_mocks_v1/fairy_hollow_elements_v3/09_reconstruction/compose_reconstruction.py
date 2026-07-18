@@ -20,6 +20,14 @@ BUNDLE_REL = Path(
 CANVAS_SIZE = (1320, 2346)
 REVIEW_SIZE = (941, 1672)
 EXACT_KEY = (255, 0, 255)
+EXPECTED_PIPELINE = {
+    "mapMode": "scene_mode",
+    "visualModel": "layered_raster",
+    "runtimeObjectModel": ["separate_props", "foreground_occluders"],
+    "collisionModel": "none",
+    "visualAssetSource": "existing_assets",
+    "engineTarget": "project-native",
+}
 
 
 def find_project_root(start: Path) -> Path:
@@ -50,7 +58,16 @@ def sha256(path: Path) -> str:
 
 
 def resolve(project_root: Path, value: str) -> Path:
-    return project_root / Path(value)
+    relative = Path(value)
+    if relative.is_absolute():
+        raise ValueError(f"repo-relative path must not be absolute: {value}")
+    if ".." in relative.parts:
+        raise ValueError(f"repo-relative path must not contain parent traversal: {value}")
+    root = project_root.resolve()
+    resolved = (root / relative).resolve()
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"repo-relative path resolves outside project root: {value}")
+    return resolved
 
 
 def visible_key_pixels(image: Image.Image) -> int:
@@ -86,12 +103,29 @@ def preflight_inputs(
     manifest: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
-    for field in ("scene", "canvas", "base", "compositionChecks", "placements"):
+    for field in ("scene", "pipeline", "canvas", "base", "compositionChecks", "placements"):
         if field not in document:
             failures.append(f"placements document is missing {field}")
+    if document.get("pipeline") != EXPECTED_PIPELINE:
+        failures.append("placements pipeline does not match the required project-native contract")
+
+    def checked_path(label: str, value: str) -> Path | None:
+        try:
+            path = resolve(project_root, value)
+        except ValueError as error:
+            failures.append(f"{label}: {error}")
+            return None
+        if not path.is_file():
+            failures.append(f"{label}: missing {value}")
+            return None
+        return path
+
     for field in ("id", "image", "z"):
         if field not in document.get("base", {}):
             failures.append(f"placements base is missing {field}")
+    base_image = str(document.get("base", {}).get("image", ""))
+    if base_image:
+        checked_path("placements base image", base_image)
     for field in ("width", "height", "reviewWidth", "reviewHeight"):
         if field not in document.get("canvas", {}):
             failures.append(f"placements canvas is missing {field}")
@@ -99,6 +133,9 @@ def preflight_inputs(
         for field in ("id", "assetId", "category", "image", "x", "y", "w", "h", "z"):
             if field not in item:
                 failures.append(f"placement {index} is missing {field}")
+        image_value = str(item.get("image", ""))
+        if image_value:
+            checked_path(f"placement {index} image", image_value)
 
     accepted = manifest.get("accepted")
     if not isinstance(accepted, list):
@@ -111,13 +148,19 @@ def preflight_inputs(
                 failures.append(f"manifest asset {index} is missing {field}")
         for field in ("final", "source", "sourcePrompt"):
             value = str(asset.get(field, ""))
-            if not value or not resolve(project_root, value).is_file():
+            if not value:
                 failures.append(f"manifest asset {index} has missing {field}: {value}")
+            else:
+                checked_path(f"manifest asset {index} {field}", value)
         final = str(asset.get("final", ""))
-        if final and final not in checked_images and resolve(project_root, final).is_file():
+        try:
+            final_path = resolve(project_root, final) if final else None
+        except ValueError:
+            final_path = None
+        if final and final not in checked_images and final_path and final_path.is_file():
             checked_images.add(final)
             try:
-                with Image.open(resolve(project_root, final)) as image:
+                with Image.open(final_path) as image:
                     image.load()
             except OSError as error:
                 failures.append(f"manifest asset {index} has unreadable final {final}: {error}")
@@ -205,6 +248,14 @@ def compose(
         "placementAuthoritySha256": sha256(
             project_root / BUNDLE_REL / "metadata/placements.json"
         ),
+        "manifest": str(
+            (project_root / BUNDLE_REL / "metadata/asset_manifest.json").relative_to(
+                project_root
+            )
+        ),
+        "manifestSha256": sha256(
+            project_root / BUNDLE_REL / "metadata/asset_manifest.json"
+        ),
         "canvas": list(canvas_size),
         "reviewSize": list(review_size),
         "foundation": {
@@ -247,6 +298,10 @@ def validate(
 
     if document.get("schemaVersion") != 2.0:
         failures.append(f"placements schemaVersion is {document.get('schemaVersion')}, expected 2.0")
+    pipeline = document.get("pipeline")
+    pipeline_valid = pipeline == EXPECTED_PIPELINE
+    if not pipeline_valid:
+        failures.append("placements pipeline does not match the required project-native contract")
     if canvas_size != CANVAS_SIZE or review_size != REVIEW_SIZE:
         failures.append(
             f"canvas/review dimensions are {canvas_size}/{review_size}, "
@@ -490,6 +545,7 @@ def validate(
                 "placementAuthoritySha256": reconstruction.get(
                     "placementAuthoritySha256"
                 ),
+                "manifestSha256": reconstruction.get("manifestSha256"),
                 "placementCount": reconstruction.get("placementCount"),
                 "clusterCount": reconstruction.get("clusterCount"),
                 "contactPlacementCount": reconstruction.get("contactPlacementCount"),
@@ -502,6 +558,42 @@ def validate(
         placements_path = project_root / BUNDLE_REL / "metadata/placements.json"
         if reconstruction.get("placementAuthoritySha256") != sha256(placements_path):
             failures.append("reconstruction report placements hash is stale")
+        manifest_path = project_root / BUNDLE_REL / "metadata/asset_manifest.json"
+        manifest_fresh = reconstruction.get("manifestSha256") == sha256(manifest_path)
+        reconstruction_check["manifestFresh"] = manifest_fresh
+        if not manifest_fresh:
+            failures.append("reconstruction report asset manifest hash is stale")
+
+        reported_foundation = reconstruction.get("foundation", {})
+        foundation_fresh = (
+            reported_foundation.get("source") == base_path_value
+            and base_path.is_file()
+            and reported_foundation.get("sourceSha256") == sha256(base_path)
+        )
+        reconstruction_check["foundationFresh"] = foundation_fresh
+        if not foundation_fresh:
+            failures.append("reconstruction report foundation source hash is stale")
+
+        current_sources = [
+            {
+                "id": item["id"],
+                "source": item["image"],
+                "sourceSha256": sha256(resolve(project_root, item["image"])),
+            }
+            for _, item in sorted_placements(document)
+        ]
+        reported_sources = [
+            {
+                "id": item.get("id"),
+                "source": item.get("source"),
+                "sourceSha256": item.get("sourceSha256"),
+            }
+            for item in reconstruction.get("placements", [])
+        ]
+        sources_fresh = reported_sources == current_sources
+        reconstruction_check["orderedPlacementSourcesFresh"] = sources_fresh
+        if not sources_fresh:
+            failures.append("reconstruction report ordered placement source hashes are stale")
         for output_name, output_path_value in (("full", output_path), ("review", review_path)):
             hash_key = f"{output_name}Sha256"
             reported_hash = reconstruction.get("outputs", {}).get(hash_key)
@@ -515,11 +607,19 @@ def validate(
         "placementAuthority": str(
             (project_root / BUNDLE_REL / "metadata/placements.json").relative_to(project_root)
         ),
+        "placementAuthoritySha256": sha256(
+            project_root / BUNDLE_REL / "metadata/placements.json"
+        ),
         "manifest": str(
             (project_root / BUNDLE_REL / "metadata/asset_manifest.json").relative_to(project_root)
         ),
+        "manifestSha256": sha256(
+            project_root / BUNDLE_REL / "metadata/asset_manifest.json"
+        ),
         "canvas": list(canvas_size),
         "reviewSize": list(review_size),
+        "pipeline": pipeline,
+        "pipelineValid": pipeline_valid,
         "acceptedAssetCount": len(accepted),
         "placementCount": len(placement_items),
         "clusterCount": len(clusters),
