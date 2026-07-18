@@ -1299,7 +1299,9 @@ static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 		art.name = "GoldCurrencyPlusArt"
 		art.texture = tex
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_SCALE
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_child(art)
 	else:

@@ -744,6 +744,11 @@ func _initialize() -> void:
 		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
 		and String(live_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
 		"live HUD applies the Workbench amount box and Meadow plus-art location settings")
+	var live_plus_limit := (live_pill_button as Control).get_global_rect().size.y * 0.42
+	ok(live_plus_art != null and live_plus_art.expand_mode == TextureRect.EXPAND_IGNORE_SIZE \
+		and live_plus_art.get_global_rect().size.x <= live_plus_limit, \
+		"live wallet constrains the plus texture to a small in-pill token (%.1f <= %.1f)" \
+			% [live_plus_art.get_global_rect().size.x if live_plus_art != null else INF, live_plus_limit])
 	var wallet_rect := (hud.wallet as Control).get_global_rect()
 	var wallet_right_gap := Design.size().x - wallet_rect.end.x
 	var hud_layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
