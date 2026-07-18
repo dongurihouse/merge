@@ -1,0 +1,90 @@
+Use case: game-ui-asset-sheet-edit
+Asset type: production-oriented UI sprite and texture sheet
+Output: exactly one square PNG
+
+Mandatory visual references:
+- Image 1 is the precise edit target: the previous UI element sheet. Preserve its friendly icon identities and overall Meadow Sky color relationships, but rebuild it according to the new extraction rules below.
+- Image 2 is the approved Meadow Sky Board and is authoritative for palette relationships, icon language, matte cardstock, warm cut edges, cream surfaces, and cell styling. Do not copy its screen layout, text, numbers, characters, shadows, or gameplay arrangement.
+- Image 3 is the approved Meadow Sky Home and supports silhouette simplicity and cardstock material only. Do not copy its farm content, layout, UI, or shadows.
+
+Primary correction:
+Rebuild the sheet so every icon can be cleanly extracted. Remove every cast shadow, contact shadow, ambient shadow, drop shadow, glow, reflection, and detached soft edge. No sprite may contain semi-transparent shadow pixels. Use crisp closed silhouettes and flat color separation only.
+
+Isolation background:
+- Use one perfectly flat solid chroma-key magenta #FF00FF across the entire sheet outside the sprites and texture tiles.
+- The magenta must have no texture, noise, gradient, lighting, vignette, checkerboard, transparency preview, grid, or color variation.
+- Do not use magenta anywhere inside an asset.
+
+Sheet geometry:
+- Exactly 5 columns by 5 rows, read left-to-right and top-to-bottom.
+- Equal invisible cells with generous flat-magenta gutters and at least 12% safe padding around icons.
+- No visible grid lines, labels, captions, filenames, indices, measurements, or crop marks.
+- No object may touch or overlap a neighboring cell.
+
+Asset manifest:
+
+Row 1 — currency and status
+1. Rounded blue water droplet.
+2. Round reward-gold coin with a simple five-point star paper inset.
+3. Warm coral-brown acorn with structural-slate brown cap.
+4. Reward-gold five-point level badge with blank warm-cream center for runtime text.
+5. Smaller round gold reward token with star cutout, visibly distinct from the coin.
+
+Row 2 — bottom navigation icons
+6. Compact cream farmhouse with muted coral roof and one small garden-green bush accent.
+7. Simple 2 x 2 rounded-cell Board grid icon, garden green and cream, no surrounding tab.
+8. Folded cream Maps icon with restrained green/blue land shapes and one coral location pin.
+9. Supporting-purple or structural-slate Bag icon with cream clasp.
+10. Warm-cream Shop awning with restrained coral stripes and structural-slate base.
+
+Row 3 — controls
+11. Garden-green circular Plus button with thick warm-cream plus.
+12. Structural-slate circular Info button with warm-cream lowercase i.
+13. Broad structural-slate Back arrow on a warm-cream rounded-square button.
+14. Coral circular Close button with warm-cream x.
+15. Garden-green circular Confirm button with warm-cream checkmark.
+
+Row 4 — reusable empty surfaces
+16. Empty horizontal rounded warm-cream resource pill with fine locally darker cut edge; no icon, plus, number, or text.
+17. Empty rounded garden-green selected navigation-tab background; no icon or label.
+18. Empty rounded-square shared-meadow open board cell with fine locally darker cut edge; no object or glyph.
+19. Empty rounded-square receding-blue locked board cell with darker inset border and subtle same-hue acorn-lock watermark; no item.
+20. Empty warm-cream dialog/card panel, rounded rectangle, fine locally darker cut edge, no decoration or text.
+
+Row 5 — seamless repeatable paper texture tiles
+21. Warm cream #F6EBDD paper texture.
+22. Sky blue #6FA9C0 paper texture.
+23. Shared meadow #A8D3B9 paper texture.
+24. Receding blue #8296AF paper texture.
+25. Structural slate #3F6D7D paper texture.
+
+Texture-tile contract:
+- Each texture is a full square tile contained in its cell and separated from adjacent tiles by flat-magenta gutter.
+- Each tile has perfectly straight square bounds and fills its tile bounds edge-to-edge.
+- Absolutely no border, outline, rounded corner, bevel, shadow, highlight, vignette, lighting direction, central motif, edge darkening, or edge lightening.
+- Opposite edges match exactly in color, value, and fiber distribution so each tile repeats seamlessly horizontally and vertically.
+- Texture consists only of extremely subtle 2–4% matte paper-fiber/value variation. Keep it quiet enough for UI text.
+- The five texture tiles must vary by base color, not by adding patterns or ornament.
+
+Fixed palette:
+- sky/distant blue #6FA9C0
+- structural slate #3F6D7D
+- shared meadow #A8D3B9
+- receding blue #8296AF
+- warm cream #F6EBDD
+- ink/deep local edge #243B4B
+- garden/action green #5F9B6D
+- coral #D87865
+- reward gold #D6A94C
+- rare supporting purple #8677A3
+
+Material:
+- Friendly matte hand-cut cardstock with broad rounded low-complexity silhouettes.
+- One flat base color and at most one crisp same-hue internal color plane per component.
+- Fine warm cut edge and a thin locally darker outline contained fully inside the silhouette.
+- Subtle 2–4% local paper fiber.
+- Communicate layering only through nested crisp shapes and color changes, never shadows or glows.
+
+Avoid:
+all shadows, semi-transparent pixels, soft shadow edges, glow, reflection, checkerboard transparency preview, transparent background, visible grid, text, numbers, labels, extra badges, characters, animals, screen mockup, phone frame, sticker halos, thick white outlines, heavy black outlines, neon color, electric cyan, lime green, glossy plastic, 3D clay, photorealism, watercolor, gradients, bevelled metal, ornate micro-detail, detached decorations, watermark, or signatures.
+

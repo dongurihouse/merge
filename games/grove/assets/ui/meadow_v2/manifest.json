@@ -1,0 +1,2057 @@
+{
+  "version": 2,
+  "generator": "games/grove/tools/extract_meadow_ui_v2.py",
+  "grid_boundary": "round(index * extent / count)",
+  "sheets": [
+    {
+      "source": "ui_elements_sprite_sheet_v2.png",
+      "rows": 5,
+      "columns": 5,
+      "count": 25
+    },
+    {
+      "source": "level_badge_variations_v2.png",
+      "rows": 5,
+      "columns": 5,
+      "count": 25
+    },
+    {
+      "source": "ui_components_additional_atlas_v2.png",
+      "rows": 6,
+      "columns": 6,
+      "count": 36
+    },
+    {
+      "source": "ui_texture_tiles_additional_v2.png",
+      "rows": 2,
+      "columns": 3,
+      "count": 6
+    }
+  ],
+  "assets": [
+    {
+      "name": "water_drop",
+      "policy": "icon",
+      "path": "water_drop.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 0,
+      "row": 0,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        0,
+        251,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "coin",
+      "policy": "icon",
+      "path": "coin.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 1,
+      "row": 0,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        0,
+        502,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "acorn",
+      "policy": "icon",
+      "path": "acorn.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 2,
+      "row": 0,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        0,
+        752,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "level_badge_base",
+      "policy": "icon",
+      "path": "level_badge_base.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 3,
+      "row": 0,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        0,
+        1003,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "reward_token",
+      "policy": "icon",
+      "path": "reward_token.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 4,
+      "row": 0,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        0,
+        1254,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "nav_home",
+      "policy": "icon",
+      "path": "nav_home.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 5,
+      "row": 1,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        251,
+        251,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "nav_board",
+      "policy": "icon",
+      "path": "nav_board.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 6,
+      "row": 1,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        251,
+        502,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "nav_maps",
+      "policy": "icon",
+      "path": "nav_maps.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 7,
+      "row": 1,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        251,
+        752,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "nav_bag",
+      "policy": "icon",
+      "path": "nav_bag.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 8,
+      "row": 1,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        251,
+        1003,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "nav_shop",
+      "policy": "icon",
+      "path": "nav_shop.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 9,
+      "row": 1,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        251,
+        1254,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "button_plus",
+      "policy": "icon",
+      "path": "button_plus.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 10,
+      "row": 2,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        502,
+        251,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "button_info",
+      "policy": "icon",
+      "path": "button_info.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 11,
+      "row": 2,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        502,
+        502,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "button_back",
+      "policy": "icon",
+      "path": "button_back.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 12,
+      "row": 2,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        502,
+        752,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "button_close",
+      "policy": "icon",
+      "path": "button_close.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 13,
+      "row": 2,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        502,
+        1003,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "button_confirm",
+      "policy": "icon",
+      "path": "button_confirm.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 14,
+      "row": 2,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        502,
+        1254,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "resource_pill",
+      "policy": "surface",
+      "path": "resource_pill.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 15,
+      "row": 3,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        752,
+        251,
+        1003
+      ],
+      "width": 232,
+      "height": 143,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "nav_tab_selected",
+      "policy": "surface",
+      "path": "nav_tab_selected.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 16,
+      "row": 3,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        752,
+        502,
+        1003
+      ],
+      "width": 188,
+      "height": 145,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "board_cell_open",
+      "policy": "surface",
+      "path": "board_cell_open.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 17,
+      "row": 3,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        752,
+        752,
+        1003
+      ],
+      "width": 178,
+      "height": 191,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "board_cell_locked",
+      "policy": "surface",
+      "path": "board_cell_locked.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 18,
+      "row": 3,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        752,
+        1003,
+        1003
+      ],
+      "width": 184,
+      "height": 194,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "dialog_panel",
+      "policy": "surface",
+      "path": "dialog_panel.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 19,
+      "row": 3,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        752,
+        1254,
+        1003
+      ],
+      "width": 231,
+      "height": 203,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "texture_cream",
+      "policy": "tile",
+      "path": "texture_cream.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 20,
+      "row": 4,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        1003,
+        251,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "texture_sky",
+      "policy": "tile",
+      "path": "texture_sky.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 21,
+      "row": 4,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        1003,
+        502,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "texture_meadow",
+      "policy": "tile",
+      "path": "texture_meadow.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 22,
+      "row": 4,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        1003,
+        752,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "texture_receding_blue",
+      "policy": "tile",
+      "path": "texture_receding_blue.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 23,
+      "row": 4,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        1003,
+        1003,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "texture_structural_slate",
+      "policy": "tile",
+      "path": "texture_structural_slate.png",
+      "source_sheet": "ui_elements_sprite_sheet_v2.png",
+      "source_index": 24,
+      "row": 4,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        1003,
+        1254,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        244,
+        4,
+        229
+      ]
+    },
+    {
+      "name": "level_badge_01",
+      "policy": "badge",
+      "path": "level_badge_01.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 0,
+      "row": 0,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        0,
+        251,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_02",
+      "policy": "badge",
+      "path": "level_badge_02.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 1,
+      "row": 0,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        0,
+        502,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_03",
+      "policy": "badge",
+      "path": "level_badge_03.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 2,
+      "row": 0,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        0,
+        752,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_04",
+      "policy": "badge",
+      "path": "level_badge_04.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 3,
+      "row": 0,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        0,
+        1003,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_05",
+      "policy": "badge",
+      "path": "level_badge_05.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 4,
+      "row": 0,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        0,
+        1254,
+        251
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_06",
+      "policy": "badge",
+      "path": "level_badge_06.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 5,
+      "row": 1,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        251,
+        251,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_07",
+      "policy": "badge",
+      "path": "level_badge_07.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 6,
+      "row": 1,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        251,
+        502,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_08",
+      "policy": "badge",
+      "path": "level_badge_08.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 7,
+      "row": 1,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        251,
+        752,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_09",
+      "policy": "badge",
+      "path": "level_badge_09.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 8,
+      "row": 1,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        251,
+        1003,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_10",
+      "policy": "badge",
+      "path": "level_badge_10.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 9,
+      "row": 1,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        251,
+        1254,
+        502
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_11",
+      "policy": "badge",
+      "path": "level_badge_11.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 10,
+      "row": 2,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        502,
+        251,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_12",
+      "policy": "badge",
+      "path": "level_badge_12.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 11,
+      "row": 2,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        502,
+        502,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_13",
+      "policy": "badge",
+      "path": "level_badge_13.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 12,
+      "row": 2,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        502,
+        752,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_14",
+      "policy": "badge",
+      "path": "level_badge_14.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 13,
+      "row": 2,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        502,
+        1003,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_15",
+      "policy": "badge",
+      "path": "level_badge_15.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 14,
+      "row": 2,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        502,
+        1254,
+        752
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_16",
+      "policy": "badge",
+      "path": "level_badge_16.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 15,
+      "row": 3,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        752,
+        251,
+        1003
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_17",
+      "policy": "badge",
+      "path": "level_badge_17.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 16,
+      "row": 3,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        752,
+        502,
+        1003
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_18",
+      "policy": "badge",
+      "path": "level_badge_18.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 17,
+      "row": 3,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        752,
+        752,
+        1003
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_19",
+      "policy": "badge",
+      "path": "level_badge_19.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 18,
+      "row": 3,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        752,
+        1003,
+        1003
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_20",
+      "policy": "badge",
+      "path": "level_badge_20.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 19,
+      "row": 3,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        752,
+        1254,
+        1003
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_21",
+      "policy": "badge",
+      "path": "level_badge_21.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 20,
+      "row": 4,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        1003,
+        251,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_22",
+      "policy": "badge",
+      "path": "level_badge_22.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 21,
+      "row": 4,
+      "column": 1,
+      "cell_bounds": [
+        251,
+        1003,
+        502,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_23",
+      "policy": "badge",
+      "path": "level_badge_23.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 22,
+      "row": 4,
+      "column": 2,
+      "cell_bounds": [
+        502,
+        1003,
+        752,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_24",
+      "policy": "badge",
+      "path": "level_badge_24.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 23,
+      "row": 4,
+      "column": 3,
+      "cell_bounds": [
+        752,
+        1003,
+        1003,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "level_badge_25",
+      "policy": "badge",
+      "path": "level_badge_25.png",
+      "source_sheet": "level_badge_variations_v2.png",
+      "source_index": 24,
+      "row": 4,
+      "column": 4,
+      "cell_bounds": [
+        1003,
+        1003,
+        1254,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        241,
+        5,
+        226
+      ]
+    },
+    {
+      "name": "title_banner",
+      "policy": "surface",
+      "path": "title_banner.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 0,
+      "row": 0,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        0,
+        209,
+        209
+      ],
+      "width": 290,
+      "height": 88,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "nav_tab_inactive",
+      "policy": "surface",
+      "path": "nav_tab_inactive.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 1,
+      "row": 0,
+      "column": 1,
+      "cell_bounds": [
+        209,
+        0,
+        418,
+        209
+      ],
+      "width": 160,
+      "height": 67,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "button_primary",
+      "policy": "surface",
+      "path": "button_primary.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 2,
+      "row": 0,
+      "column": 2,
+      "cell_bounds": [
+        418,
+        0,
+        627,
+        209
+      ],
+      "width": 170,
+      "height": 88,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "button_secondary",
+      "policy": "surface",
+      "path": "button_secondary.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 3,
+      "row": 0,
+      "column": 3,
+      "cell_bounds": [
+        627,
+        0,
+        836,
+        209
+      ],
+      "width": 162,
+      "height": 87,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "button_danger",
+      "policy": "surface",
+      "path": "button_danger.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 4,
+      "row": 0,
+      "column": 4,
+      "cell_bounds": [
+        836,
+        0,
+        1045,
+        209
+      ],
+      "width": 162,
+      "height": 87,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "card_generic",
+      "policy": "surface",
+      "path": "card_generic.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 5,
+      "row": 0,
+      "column": 5,
+      "cell_bounds": [
+        1045,
+        0,
+        1254,
+        209
+      ],
+      "width": 146,
+      "height": 87,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "board_frame",
+      "policy": "surface",
+      "path": "board_frame.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 6,
+      "row": 1,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        209,
+        209,
+        418
+      ],
+      "width": 195,
+      "height": 179,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "board_cell_unlockable",
+      "policy": "surface",
+      "path": "board_cell_unlockable.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 7,
+      "row": 1,
+      "column": 1,
+      "cell_bounds": [
+        209,
+        209,
+        418,
+        418
+      ],
+      "width": 169,
+      "height": 176,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_padlock",
+      "policy": "icon",
+      "path": "icon_padlock.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 8,
+      "row": 1,
+      "column": 2,
+      "cell_bounds": [
+        418,
+        209,
+        627,
+        418
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "cost_pill",
+      "policy": "surface",
+      "path": "cost_pill.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 9,
+      "row": 1,
+      "column": 3,
+      "cell_bounds": [
+        627,
+        209,
+        836,
+        418
+      ],
+      "width": 124,
+      "height": 46,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "progress_track",
+      "policy": "surface",
+      "path": "progress_track.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 10,
+      "row": 1,
+      "column": 4,
+      "cell_bounds": [
+        836,
+        209,
+        1045,
+        418
+      ],
+      "width": 236,
+      "height": 58,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "progress_fill",
+      "policy": "surface",
+      "path": "progress_fill.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 11,
+      "row": 1,
+      "column": 5,
+      "cell_bounds": [
+        1045,
+        209,
+        1254,
+        418
+      ],
+      "width": 219,
+      "height": 47,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "notification_pill",
+      "policy": "surface",
+      "path": "notification_pill.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 12,
+      "row": 2,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        418,
+        209,
+        627
+      ],
+      "width": 136,
+      "height": 62,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_settings",
+      "policy": "icon",
+      "path": "icon_settings.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 13,
+      "row": 2,
+      "column": 1,
+      "cell_bounds": [
+        209,
+        418,
+        418,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_mail",
+      "policy": "icon",
+      "path": "icon_mail.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 14,
+      "row": 2,
+      "column": 2,
+      "cell_bounds": [
+        418,
+        418,
+        627,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_vault",
+      "policy": "icon",
+      "path": "icon_vault.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 15,
+      "row": 2,
+      "column": 3,
+      "cell_bounds": [
+        627,
+        418,
+        836,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_daily",
+      "policy": "icon",
+      "path": "icon_daily.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 16,
+      "row": 2,
+      "column": 4,
+      "cell_bounds": [
+        836,
+        418,
+        1045,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_expedition",
+      "policy": "icon",
+      "path": "icon_expedition.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 17,
+      "row": 2,
+      "column": 5,
+      "cell_bounds": [
+        1045,
+        418,
+        1254,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_hourglass",
+      "policy": "icon",
+      "path": "icon_hourglass.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 18,
+      "row": 3,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        627,
+        209,
+        836
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_multiplier_crown",
+      "policy": "icon",
+      "path": "icon_multiplier_crown.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 19,
+      "row": 3,
+      "column": 1,
+      "cell_bounds": [
+        209,
+        627,
+        418,
+        836
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_treefall",
+      "policy": "icon",
+      "path": "icon_treefall.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 20,
+      "row": 3,
+      "column": 2,
+      "cell_bounds": [
+        418,
+        627,
+        627,
+        836
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "danger_chevron",
+      "policy": "icon",
+      "path": "danger_chevron.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 21,
+      "row": 3,
+      "column": 3,
+      "cell_bounds": [
+        627,
+        627,
+        836,
+        836
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "maps_card_open",
+      "policy": "surface",
+      "path": "maps_card_open.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 22,
+      "row": 3,
+      "column": 4,
+      "cell_bounds": [
+        836,
+        627,
+        1045,
+        836
+      ],
+      "width": 142,
+      "height": 180,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "maps_card_locked",
+      "policy": "surface",
+      "path": "maps_card_locked.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 23,
+      "row": 3,
+      "column": 5,
+      "cell_bounds": [
+        1045,
+        627,
+        1254,
+        836
+      ],
+      "width": 137,
+      "height": 181,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "maps_status_pill",
+      "policy": "surface",
+      "path": "maps_status_pill.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 24,
+      "row": 4,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        836,
+        209,
+        1045
+      ],
+      "width": 201,
+      "height": 65,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "maps_lock_flower",
+      "policy": "icon",
+      "path": "maps_lock_flower.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 25,
+      "row": 4,
+      "column": 1,
+      "cell_bounds": [
+        209,
+        836,
+        418,
+        1045
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "cell_capacity_reward",
+      "policy": "icon",
+      "path": "cell_capacity_reward.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 26,
+      "row": 4,
+      "column": 2,
+      "cell_bounds": [
+        418,
+        836,
+        627,
+        1045
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_gift",
+      "policy": "icon",
+      "path": "icon_gift.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 27,
+      "row": 4,
+      "column": 3,
+      "cell_bounds": [
+        627,
+        836,
+        836,
+        1045
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "icon_news",
+      "policy": "icon",
+      "path": "icon_news.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 28,
+      "row": 4,
+      "column": 4,
+      "cell_bounds": [
+        836,
+        836,
+        1045,
+        1045
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "vault_jar_shell",
+      "policy": "surface",
+      "path": "vault_jar_shell.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 29,
+      "row": 4,
+      "column": 5,
+      "cell_bounds": [
+        1045,
+        836,
+        1254,
+        1045
+      ],
+      "width": 142,
+      "height": 151,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "vault_acorn_fill",
+      "policy": "surface",
+      "path": "vault_acorn_fill.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 30,
+      "row": 5,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        1045,
+        209,
+        1254
+      ],
+      "width": 182,
+      "height": 167,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "vault_plate",
+      "policy": "surface",
+      "path": "vault_plate.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 31,
+      "row": 5,
+      "column": 1,
+      "cell_bounds": [
+        209,
+        1045,
+        418,
+        1254
+      ],
+      "width": 188,
+      "height": 89,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "shop_product_card",
+      "policy": "surface",
+      "path": "shop_product_card.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 32,
+      "row": 5,
+      "column": 2,
+      "cell_bounds": [
+        418,
+        1045,
+        627,
+        1254
+      ],
+      "width": 135,
+      "height": 189,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "acorn_pouch",
+      "policy": "icon",
+      "path": "acorn_pouch.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 33,
+      "row": 5,
+      "column": 3,
+      "cell_bounds": [
+        627,
+        1045,
+        836,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "shop_promo_ribbon",
+      "policy": "surface",
+      "path": "shop_promo_ribbon.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 34,
+      "row": 5,
+      "column": 4,
+      "cell_bounds": [
+        836,
+        1045,
+        1045,
+        1254
+      ],
+      "width": 205,
+      "height": 56,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "leaf_sprig",
+      "policy": "icon",
+      "path": "leaf_sprig.png",
+      "source_sheet": "ui_components_additional_atlas_v2.png",
+      "source_index": 35,
+      "row": 5,
+      "column": 5,
+      "cell_bounds": [
+        1045,
+        1045,
+        1254,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        238,
+        3,
+        220
+      ]
+    },
+    {
+      "name": "texture_action_green",
+      "policy": "tile",
+      "path": "texture_action_green.png",
+      "source_sheet": "ui_texture_tiles_additional_v2.png",
+      "source_index": 0,
+      "row": 0,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        0,
+        418,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        242,
+        3,
+        231
+      ]
+    },
+    {
+      "name": "texture_coral",
+      "policy": "tile",
+      "path": "texture_coral.png",
+      "source_sheet": "ui_texture_tiles_additional_v2.png",
+      "source_index": 1,
+      "row": 0,
+      "column": 1,
+      "cell_bounds": [
+        418,
+        0,
+        836,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        242,
+        3,
+        231
+      ]
+    },
+    {
+      "name": "texture_reward_gold",
+      "policy": "tile",
+      "path": "texture_reward_gold.png",
+      "source_sheet": "ui_texture_tiles_additional_v2.png",
+      "source_index": 2,
+      "row": 0,
+      "column": 2,
+      "cell_bounds": [
+        836,
+        0,
+        1254,
+        627
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        242,
+        3,
+        231
+      ]
+    },
+    {
+      "name": "texture_supporting_purple",
+      "policy": "tile",
+      "path": "texture_supporting_purple.png",
+      "source_sheet": "ui_texture_tiles_additional_v2.png",
+      "source_index": 3,
+      "row": 1,
+      "column": 0,
+      "cell_bounds": [
+        0,
+        627,
+        418,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        242,
+        3,
+        231
+      ]
+    },
+    {
+      "name": "texture_ink",
+      "policy": "tile",
+      "path": "texture_ink.png",
+      "source_sheet": "ui_texture_tiles_additional_v2.png",
+      "source_index": 4,
+      "row": 1,
+      "column": 1,
+      "cell_bounds": [
+        418,
+        627,
+        836,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        242,
+        3,
+        231
+      ]
+    },
+    {
+      "name": "texture_warm_kraft",
+      "policy": "tile",
+      "path": "texture_warm_kraft.png",
+      "source_sheet": "ui_texture_tiles_additional_v2.png",
+      "source_index": 5,
+      "row": 1,
+      "column": 2,
+      "cell_bounds": [
+        836,
+        627,
+        1254,
+        1254
+      ],
+      "width": 256,
+      "height": 256,
+      "key_rgb": [
+        242,
+        3,
+        231
+      ]
+    }
+  ]
+}

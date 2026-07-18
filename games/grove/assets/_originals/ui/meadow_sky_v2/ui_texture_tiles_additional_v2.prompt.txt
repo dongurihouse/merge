@@ -1,0 +1,26 @@
+Use case: game-ui-texture-sheet
+Asset type: seamless Cut-Paper Playground texture-tile companion atlas
+Output: exactly one square PNG containing a strict 3 columns x 2 rows grid
+
+Image 1 is the existing shadow-free icons_v2 sheet. Use its fifth-row paper tiles as the exact authority for subtle fiber amount, flat-magenta gutters, square tile isolation, and quiet matte material. Do not copy its icons or existing cream/sky/meadow/receding-blue/slate tiles.
+
+Create exactly six square, borderless, repeatable paper texture tiles:
+
+Row 1:
+1. Garden/action green #5F9B6D.
+2. Coral #D87865.
+3. Reward gold #D6A94C.
+
+Row 2:
+4. Supporting purple #8677A3.
+5. Ink/deep slate #243B4B.
+6. Warm cut-edge kraft #DCC39A, a restrained neutral used only for fine paper edges and optional warm panels.
+
+Tile contract:
+- Each tile is a perfectly straight square contained in one equal cell and separated from neighboring tiles by generous flat-magenta #FF00FF gutters.
+- Each tile fills its own square bounds edge-to-edge.
+- Absolutely no border, outline, rounded corner, bevel, shadow, highlight, vignette, directional lighting, central motif, speckle pattern, ornament, or edge darkening.
+- Opposite edges match exactly in color, value, and fiber distribution so every tile repeats seamlessly horizontally and vertically.
+- Texture is only extremely subtle 2–4% matte cardstock fiber/value variation, quiet enough beneath UI text.
+- No text, labels, visible grid, checkerboard, gradient, watermark, or non-magenta background outside tiles.
+

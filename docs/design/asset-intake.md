@@ -116,6 +116,32 @@ for saturated cyan/pink sheets also punches enclosed bg pockets (gaps between th
 loudly** if any tier cell ends up empty. The per-sheet grid (`rows × cols`) lives in the `SHEETS`
 table in the script.
 
+## Meadow Sky UI v2 fixed-grid atlases
+
+The four approved Meadow Sky UI sheets are archived with their exact prompts under
+`assets/_originals/ui/meadow_sky_v2/`. They use equal conceptual cells, but their `1254 x 1254`
+canvas does not divide evenly by the 5- and 6-column grids. Regenerate the named production assets,
+manifest, contact sheets, and texture seam checks with:
+
+```bash
+python3 games/grove/tools/extract_meadow_ui_v2.py
+python3 -m unittest games.grove.tools.tests.test_extract_meadow_ui_v2 -v
+```
+
+`extract_meadow_ui_v2.py` is the source of truth for the row-major name maps and per-entry policy:
+`icon` fits a cutout onto a registered transparent `256 x 256` canvas, `surface` preserves the tight
+native aspect ratio for nine-slice use, `badge` puts all variants on an equally registered
+`256 x 256` canvas, and `tile` emits an opaque periodic `256 x 256` texture.
+
+The extractor always uses rounded fractional grid edges — `round(index * extent / count)` — and
+segments foreground on the whole sheet before assigning connected components to cells by centroid.
+It removes the noisy corner-sampled magenta ground (including high-green magenta fringe), zeros RGB
+outside alpha, and resizes cutouts through premultiplied alpha. Texture entries discard the generated
+key-contaminated perimeter, then mirror one clean quadrant horizontally and vertically. This makes
+the first/last rows and columns byte-identical. The committed `ui/meadow_v2/qc/*_contact.png` files
+prove row-major identity; every `*_3x3_offset.png` exposes both texture boundaries through the middle
+of the review image and must be fully opaque, gap-free, and free of magenta before shipping.
+
 ## Pre-baked texture polish (`make bake-textures`)
 
 Separate from intake. At runtime the UI kit's `clean_tex_path()` (in `games/grove/tools/ui_workbench_kit.gd`)

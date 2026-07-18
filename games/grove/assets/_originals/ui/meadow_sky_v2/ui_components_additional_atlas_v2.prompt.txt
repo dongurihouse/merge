@@ -1,0 +1,85 @@
+Use case: game-ui-asset-sheet
+Asset type: additional reusable Grove UI component atlas
+Output: exactly one square PNG containing a strict 6 columns x 6 rows grid
+
+Mandatory visual references:
+- Image 1 is the existing shadow-free `icons_v2` sheet. It is authoritative for flat-magenta isolation, icon scale, crisp closed silhouettes, Meadow Sky palette relationships, subtle paper fiber, and shadow-free extraction. Do not repeat its existing assets.
+- Image 2 is the approved Meadow Sky Board. It is authoritative for UI proportions, warm cut edges, cell/frame language, and friendly matte cardstock. Do not copy its screen layout, text, characters, gameplay items, or shadows.
+- Image 3 is the approved Level dialog. Use only its folded title-banner construction and shared modal/button proportions. Do not copy its farm backdrop, text, badge, progress values, reward, or dialog composition.
+
+Primary request:
+Create exactly 36 additional reusable foreground UI components needed to replace the remaining Grove UI chrome. This sheet complements Image 1; do not regenerate currencies, navigation icons, Plus/Info/Back/Close/Confirm buttons, resource pill, selected tab, open/locked board cells, generic cream panel, base textures, or level badges.
+
+Isolation and extraction:
+- Entire canvas outside sprites is perfectly flat solid chroma-key magenta #FF00FF.
+- No checkerboard, transparency preview, grid, labels, numbers, captions, shadows, glow, reflections, or background texture.
+- No asset may use magenta internally.
+- Absolutely no cast shadow, contact shadow, drop shadow, ambient shadow, semi-transparent shadow pixel, or detached soft edge. Runtime adds shadows.
+- Every component is centered in one equal invisible cell with at least 10% magenta padding and must not touch another cell.
+- No visible grid lines or crop marks.
+- All surfaces are blank: runtime supplies text, values, counts, prices, and labels.
+
+Sheet manifest, left-to-right and top-to-bottom:
+
+Row 1 — shared scalable chrome
+1. Blank shared folded title banner: warm-cream curved center face, compact structural-slate V-notched tails, tiny coral fold facets, thin reward-gold lower trim. No text. Broad horizontal silhouette.
+2. Blank inactive bottom-navigation tab surface: quiet receding-blue rounded cardstock tab, same proportions as the selected tab but no icon or label.
+3. Blank primary wide button face: garden-green rounded rectangle, fine internal cut edge, no icon/text.
+4. Blank secondary wide button face: warm-cream rounded rectangle with structural-slate inner keyline, no icon/text.
+5. Blank danger/warning wide button face: coral rounded rectangle with restrained darker same-hue inner keyline, no icon/text.
+6. Blank soft-tint card panel: neutral pale cream/sage rounded rectangle suitable for mail rows and stat cards, no icon/text.
+
+Row 2 — frames, cells, and progress
+7. Empty structural-slate board outer frame/well: rounded-square frame with a large transparent/magenta center opening and fine warm inner cut edge; no cells/items.
+8. Empty unlockable Bag cell: rounded-square receding-blue well with restrained reward-gold inner highlight, no lock/cost/text.
+9. Standalone plain padlock glyph: structural-slate lock, simple broad silhouette, no surrounding cell.
+10. Blank compact cost pill: small garden-green horizontal pill, no icon/number/text.
+11. Empty progress track: long warm-cream/receding-blue horizontal rounded track with clean magenta inner channel, no fill/text.
+12. Progress fill bar: separate long garden-green horizontal rounded fill/endcap, no track/text; sized to fit asset 11.
+
+Row 3 — status and Home live-ops icons
+13. Blank notification-count pill: compact coral rounded capsule, no number/text.
+14. Settings gear icon: structural-slate rounded gear with warm-cream center hole; no button background.
+15. Mail envelope icon: warm-cream envelope with restrained coral seal and slate edge; no button background.
+16. Vault icon: compact cream/slate treasure chest with one reward-gold acorn clasp; no scenic base.
+17. Daily calendar icon: cream calendar page with coral binding tabs and one simple garden-green check glyph; no number/text.
+18. Expedition compass icon: cream/slate round compass with coral pointer and small reward-gold center; no map/background.
+
+Row 4 — Rush and Maps chrome
+19. Rush hourglass icon: cream frame with receding-blue sand, broad simple silhouette.
+20. Rush multiplier crown icon: restrained reward-gold three-point paper crown with slate inset; no number/text.
+21. Treefall hazard tree icon: compact broad-canopy garden-green tree with coral-brown trunk, no ground or scenic base.
+22. Standalone downward danger chevron: coral broad down pointer with warm-cream inset; no surrounding panel.
+23. Blank Maps open-card frame: portrait rounded rectangle with cream border, shared-meadow inset, large magenta thumbnail opening; no labels/status.
+24. Blank Maps locked-card frame: same exact outer size as asset 23, receding-blue border/inset and large magenta thumbnail opening; no labels/status.
+
+Row 5 — Maps/status and message icons
+25. Blank Maps status pill: quiet horizontal cream/slate pill, no text; neutral and runtime-tintable.
+26. Maps lock-flower medallion: simple five-petal receding-blue flower with centered structural-slate padlock, no card/background.
+27. Cell-capacity reward glyph: one small empty rounded cell outline with a tiny reward-gold plus at upper-right; no number/text.
+28. Gift parcel icon: coral box with reward-gold ribbon and warm-cream edge, no card/background.
+29. News/spring emblem: simple supporting-purple flower with reward-gold center and two garden-green leaves; no card/background.
+30. Vault jar shell: empty transparent-looking cut-paper glass jar outline in receding blue/cream, no acorns, lid, plate, shadow, or scenic base. Center remains magenta for compositing.
+
+Row 6 — Vault, Shop, and dividers
+31. Vault acorn fill cluster: one dense connected cluster of chunky acorns sized to sit behind asset 30; no jar, plate, detached acorns, or shadow.
+32. Vault plate: one simple wide oval cream/slate display plate, isolated with no jar/acorns/shadow.
+33. Blank Shop product card: tall rounded cream card with restrained inset edge and a large magenta hero opening; no ribbon, icon, price, text, or shadow.
+34. Generic Acorn pouch hero: one medium garden-green cloth pouch filled with chunky acorns, connected silhouette, no amount/text/price/card/shadow.
+35. Blank Shop promo ribbon: compact coral banner with short notched ends, no text/icon/shadow.
+36. Decorative leaf sprig: one small connected garden-green two-leaf sprig with tiny warm-cream flower; designed to flip horizontally for dividers, no line/text/background.
+
+Scalable-surface rules:
+- Banners, tabs, buttons, cards, frames, pills, tracks, and ribbons must have quiet, consistent center areas suitable for nine-slice scaling.
+- Keep ornament and edge features confined near the perimeter. No baked text or central motifs.
+- Borders and paper edges stay inside each opaque silhouette; no detached outline or shadow.
+
+Fixed palette only:
+#6FA9C0 sky; #3F6D7D structural slate; #A8D3B9 shared meadow; #8296AF receding blue; #F6EBDD warm cream; #243B4B ink/deep edge; #5F9B6D action green; #D87865 coral; #D6A94C reward gold; #8677A3 rare purple.
+
+Material:
+Friendly matte hand-cut cardstock, broad rounded low-complexity silhouettes, one flat base and at most one crisp same-hue internal plane, subtle 2–4% fiber, fine warm cut edge, thin locally darker internal edge. Layering is shown only with crisp nested color shapes, never shadows.
+
+Avoid:
+all text/numbers/labels, repeated existing-v2 assets, gameplay items, residents, characters, animals, buildings, world scenery, screen mockups, phone frames, backgrounds, gradients, gloss, plastic, clay, watercolor, photorealism, bevels, heavy black outlines, universal white sticker halos, detached decorations, watermark, or signature.
+

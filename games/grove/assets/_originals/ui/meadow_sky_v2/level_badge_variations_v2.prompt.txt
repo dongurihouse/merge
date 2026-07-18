@@ -1,0 +1,58 @@
+Use case: game-ui-asset-sheet
+Asset type: level-badge progression sprite sheet
+Output: exactly one square PNG containing a strict 5 x 5 grid
+
+Mandatory visual references:
+- Image 1 is the approved Meadow Sky Board. Use its top-left star level badge as the silhouette and functional reference, and use the full screen for palette, matte cardstock, warm cut edges, and friendly UI proportions. Do not copy its number, text, other UI, characters, board, or shadows.
+- Image 2 is the current shadow-free UI elements v2 sheet. Use it for flat-magenta extraction background, crisp closed silhouettes, no-shadow asset treatment, paper fiber amount, and icon scale. The star badge already present on that sheet is rejected; do not repeat its thick gold frame or cream star-hole construction.
+
+Primary request:
+Create 25 coordinated variations of one Grove level star badge, arranged in a strict 5 columns x 5 rows grid. They represent level progression from lowest at top-left to highest at bottom-right.
+
+Geometry and alignment contract:
+- Every badge has exactly the same outer width, outer height, five-point rounded-star silhouette, center position, orientation, and visual footprint.
+- Every star is upright with one point centered at the top.
+- Every badge is centered identically in an equal invisible cell with generous flat-magenta padding.
+- Do not enlarge high-level badges. Do not add crowns, wings, rays, laurels, ribbons, gems, or ornaments outside the shared star boundary.
+- Leave one large, quiet, high-contrast center area blank on every badge for a runtime level number. No generated text or number.
+- Keep the center area's shape, size, and position identical across all 25 badges.
+- No object may touch another cell. No visible grid, labels, captions, indices, crop marks, or dividers.
+
+Progression design:
+- Progression comes from internal paper layers, trim colors, small corner/point accents, and restrained edge motifs only.
+- Each neighboring badge must be visibly distinct at phone size while remaining part of one family.
+- Complexity increases gradually, never abruptly.
+
+Row 1 — starter levels 1–5:
+Very simple two-layer stars. Warm cream faces with restrained reward-gold edges; minor variations in thin inner keyline, point-tip color, or tiny inset corner marks. Friendly and modest.
+
+Row 2 — early levels 6–10:
+Introduce muted coral and garden-green secondary trim in small internal areas. Add one additional crisp paper inset or simple internal edge rhythm. Still simple and mostly cream/gold.
+
+Row 3 — established levels 11–15:
+Introduce structural slate and receding blue as coordinated trim. Use stronger double-layer construction, small internal point caps, or a simple inner star keyline. Maintain a quiet blank number center.
+
+Row 4 — advanced levels 16–20:
+Use rare supporting purple sparingly with reward gold and cream. Add refined internal bands, alternating point accents, or small symmetrical cut-paper notches contained inside the silhouette. More prestigious but not ornate.
+
+Row 5 — master levels 21–25:
+Highest prestige using structural slate, warm cream, and meaningful reward gold with only small rare-purple or coral accents. Use three crisp internal paper layers and refined symmetrical point detailing. Badge 25 is the richest treatment but remains the exact same size and low-complexity Cut-Paper Playground family.
+
+Color hierarchy:
+- Fixed Meadow Sky colors only: #6FA9C0, #3F6D7D, #A8D3B9, #8296AF, #F6EBDD, #243B4B, #5F9B6D, #D87865, #D6A94C, #8677A3.
+- Gold means progress and may increase gradually, but do not make all 25 badges identical gold stars.
+- Purple remains rare and appears mainly in advanced/master rows.
+- Preserve strong readability for dark runtime numerals in the blank center.
+
+Material and extraction:
+- Friendly matte hand-cut cardstock, broad rounded low-complexity shapes.
+- Subtle 2–4% local paper fiber.
+- Fine warm cut edges and thin locally darker internal keylines.
+- Communicate layers using crisp nested shapes and flat color changes only.
+- Absolutely no cast shadow, contact shadow, drop shadow, ambient shadow, glow, reflection, bevel, gradient, or semi-transparent soft edge.
+- Entire background outside badges is perfectly flat solid chroma-key magenta #FF00FF with no texture, lighting, transparency checkerboard, grid, noise, vignette, or variation.
+- Do not use magenta inside any badge.
+
+Avoid:
+numbers, letters, labels, crowns, wings, laurels, ribbons, external gems, external sparkles, detached decorations, inconsistent sizes, rotating stars, different center sizes, deep relief, glossy plastic, metallic realism, 3D clay, watercolor, heavy black outlines, thick white sticker outlines, shadows, glow, gradients, watermark, or signature.
+
