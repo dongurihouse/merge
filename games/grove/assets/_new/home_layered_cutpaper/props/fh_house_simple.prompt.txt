@@ -1,0 +1,5 @@
+Create one isolated simple starter cottage as the lower-tier variation of the approved cut-paper farmhouse. Match its elevated three-quarter front/right camera, top-left lighting, coral roof, cream walls, honey-gold timber, cobalt windows, chunky rounded paper-clay construction, and small-screen readability.
+
+Use nearly the same ground footprint, but only one story, one main gabled roof, no dormer or cross-gable, one broad front window, one right-side window, a centered wooden door, a small canopy with two posts, and one short chimney. Keep exactly three pale stone steps permanently attached under the entrance, with their center about 40 percent across the sprite width.
+
+House and attached porch/steps only. No cast or contact shadow, dark bottom edge, grass, turf, plants, dirt, ground patch, road, path stones, scenery, text, UI, people, animals, fences, or loose objects. Lowest visible pixels must be the attached steps/foundation. Use a perfectly uniform solid #FF00FF background with generous padding and no variation.

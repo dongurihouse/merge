@@ -63,4 +63,4 @@ theme_override_constants/margin_bottom = 12
 layout_mode = 2
 theme_override_colors/font_color = Color(0.086, 0.137, 0.239, 1)
 theme_override_font_sizes/font_size = 20
-text = "HOME LAYER REVIEW\n1–7 toggle  •  A all  •  N none\nG guides  •  R reload  •  H hide help"
+text = "HOME LAYER REVIEW\n1 farmhouse  •  A all  •  N none\nG guides  •  R reload  •  H hide help"

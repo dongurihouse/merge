@@ -57,6 +57,7 @@ func reload_manifest() -> void:
 		prop.z_index = int(entry.get("sort_y", anchor.y))
 		prop.set_meta("label", String(entry.get("label", prop.name)))
 		prop.set_meta("anchor", anchor)
+		prop.set_meta("key", int(entry.get("key", 0)))
 		_props.add_child(prop)
 		guide_entries.append({"id": prop.name, "position": anchor, "size": display_size})
 
@@ -104,7 +105,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	match event.keycode:
 		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7:
-			_toggle_index(int(event.keycode - KEY_1))
+			_toggle_key(int(event.keycode - KEY_1) + 1)
 		KEY_A:
 			set_all_props_visible(true)
 		KEY_N:
@@ -117,8 +118,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			reload_manifest()
 
 
-func _toggle_index(index: int) -> void:
-	if index < 0 or index >= _props.get_child_count():
-		return
-	var prop := _props.get_child(index)
-	prop.visible = not prop.visible
+func _toggle_key(key: int) -> void:
+	for prop in _props.get_children():
+		if int(prop.get_meta("key", 0)) == key:
+			prop.visible = not prop.visible
+			return
