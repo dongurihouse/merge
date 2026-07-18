@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -24,17 +24,44 @@ SOURCE_CANVAS = (941, 1672)
 DELIVERY_CANVAS = (1320, 2346)
 TREE_HOUSE_SIZE = (730, 1291)
 RESAMPLE = Image.Resampling.LANCZOS
+EXACT_HOT_MAGENTA = (255, 0, 255)
 
 
 def repo_relative(path: Path) -> str:
     return path.relative_to(REPO_ROOT).as_posix()
 
 
+def exact_hot_magenta_mask(image: Image.Image) -> Image.Image:
+    red, green, blue, _alpha = image.convert("RGBA").split()
+    key_red, key_green, key_blue = EXACT_HOT_MAGENTA
+    red_is_key = red.point(lambda value: 255 if value == key_red else 0)
+    green_is_key = green.point(lambda value: 255 if value == key_green else 0)
+    blue_is_key = blue.point(lambda value: 255 if value == key_blue else 0)
+    return ImageChops.multiply(ImageChops.multiply(red_is_key, green_is_key), blue_is_key)
+
+
+def dekey_exact_hot_magenta(image: Image.Image) -> Image.Image:
+    """Remove only the exact #FF00FF matte, retaining every other violet tone."""
+    output = image.convert("RGBA")
+    key_mask = exact_hot_magenta_mask(output)
+    if key_mask.getbbox() is None:
+        return output
+    output.paste((0, 0, 0, 0), mask=key_mask)
+    return output
+
+
+def visible_exact_hot_magenta_pixels(image: Image.Image) -> int:
+    rgba = image.convert("RGBA")
+    visible_alpha = rgba.getchannel("A").point(lambda value: 255 if value else 0)
+    visible_key = ImageChops.multiply(exact_hot_magenta_mask(rgba), visible_alpha)
+    return int(ImageStat.Stat(visible_key).sum[0] // 255)
+
+
 def read_rgba(relative_source: str) -> Image.Image:
     path = V2_ROOT / relative_source
     if not path.is_file():
         raise FileNotFoundError(f"Accepted v2 source is missing: {path}")
-    return Image.open(path).convert("RGBA")
+    return dekey_exact_hot_magenta(Image.open(path))
 
 
 def save_rgb(source: str, destination: str) -> tuple[int, int]:
@@ -53,7 +80,7 @@ def save_full_canvas(source: str, destination: str) -> tuple[int, int]:
         raise ValueError(f"Expected source canvas for {source}, got {image.size}")
     normalized = Image.new("RGBA", SOURCE_CANVAS)
     normalized.paste(image, (0, 0))
-    output = normalized.resize(DELIVERY_CANVAS, RESAMPLE)
+    output = dekey_exact_hot_magenta(normalized.resize(DELIVERY_CANVAS, RESAMPLE))
     path = V3_ROOT / destination
     path.parent.mkdir(parents=True, exist_ok=True)
     output.save(path)
@@ -70,8 +97,11 @@ def alpha_crop(image: Image.Image, label: str) -> Image.Image:
 def save_registered_crop(source: str, destination: str) -> tuple[int, int]:
     image = read_rgba(source)
     if image.size != DELIVERY_CANVAS:
-        image = image.resize(DELIVERY_CANVAS, RESAMPLE)
-    cropped = alpha_crop(image, source)
+        raise ValueError(
+            f"Expected registered delivery plate for {source}: "
+            f"{DELIVERY_CANVAS}, got {image.size}"
+        )
+    cropped = dekey_exact_hot_magenta(alpha_crop(image, source))
     path = V3_ROOT / destination
     path.parent.mkdir(parents=True, exist_ok=True)
     cropped.save(path)
@@ -82,7 +112,7 @@ def save_tree_house(source: str, destination: str) -> tuple[int, int]:
     image = read_rgba(source)
     if image.getchannel("A").getbbox() != (0, 0, *image.size):
         raise ValueError("Tree house must remain the complete, tight host-tree asset")
-    output = image.resize(TREE_HOUSE_SIZE, RESAMPLE)
+    output = dekey_exact_hot_magenta(image.resize(TREE_HOUSE_SIZE, RESAMPLE))
     path = V3_ROOT / destination
     path.parent.mkdir(parents=True, exist_ok=True)
     output.save(path)
@@ -105,8 +135,8 @@ def save_swing_parts(source: str, support_destination: str, seat_destination: st
     seat_alpha.paste(0, (0, 0, image.width, 240))
     seat.putalpha(seat_alpha)
 
-    support = alpha_crop(support.resize(DELIVERY_CANVAS, RESAMPLE), "moon swing support")
-    seat = alpha_crop(seat.resize(DELIVERY_CANVAS, RESAMPLE), "moon swing seat")
+    support = dekey_exact_hot_magenta(alpha_crop(support.resize(DELIVERY_CANVAS, RESAMPLE), "moon swing support"))
+    seat = dekey_exact_hot_magenta(alpha_crop(seat.resize(DELIVERY_CANVAS, RESAMPLE), "moon swing seat"))
     support_path = V3_ROOT / support_destination
     seat_path = V3_ROOT / seat_destination
     support_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +164,18 @@ def asset_record(
         "transparent": transparent,
         "requiredSize": list(required_size),
     }
+
+
+def assert_clean_transparent_records(records: list[dict[str, object]]) -> None:
+    for record in records:
+        if not record["transparent"]:
+            continue
+        final_path = REPO_ROOT / str(record["final"])
+        count = visible_exact_hot_magenta_pixels(Image.open(final_path))
+        if count:
+            raise ValueError(
+                f"Visible exact #FF00FF pixels remain in {record['id']}: {count}"
+            )
 
 
 def main() -> None:
@@ -193,8 +235,10 @@ def main() -> None:
     manifest_path = V3_ROOT / "metadata/asset_manifest.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    assert_clean_transparent_records(records)
 
     print(f"Fairy Hollow v3 intake: {len(records)} accepted assets")
+    print("- exact #FF00FF key QC: 0 visible pixels in every transparent accepted asset")
     for record in records:
         print(f"- {record['id']}: {record['requiredSize']}")
 
