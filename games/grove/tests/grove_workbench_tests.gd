@@ -1523,6 +1523,28 @@ func _test_warm_shadow_port() -> void:
 		"live home/navigation shells clamp oversized runtime shadows to Meadow structural slate")
 	home.free()
 
+	var rect := Kit.home_button({"icon": "bag", "caption": ""}, {
+		"px": 140.0, "shape": "rect", "surface_role": "purple", "shadow": false,
+	})
+	var rect_style := rect.get_theme_stylebox("normal") as StyleBoxFlat
+	var rect_paper := rect.find_child("PaperSurface", true, false) as TextureRect
+	ok(rect_style != null and rect_style.get_corner_radius(CORNER_TOP_LEFT) == 31 \
+		and rect_style.get_border_width(SIDE_LEFT) == 1, \
+		"rect home_button draws its rounded-square geometry and edge in code")
+	ok(rect_paper != null and rect_paper.texture != null \
+		and String(rect_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_supporting_purple.png") \
+		and rect_paper.material is ShaderMaterial, \
+		"rect home_button resolves semantic flat-paper roles")
+	ok(not _style_tex_path(rect.get_theme_stylebox("normal")).ends_with("shared/badge_rect.png"), \
+		"rect home_button does not scale a pre-cut badge background")
+	var play := Kit.home_button({"icon": "board"}, {
+		"px": 188.0, "shape": "disc", "shell": "shared/play_disc.png", "shadow": false,
+	})
+	ok(play.get_theme_stylebox("normal") is StyleBoxTexture, \
+		"the specialized circular Play shell stays on its authored disc path")
+	rect.free()
+	play.free()
+
 	var wallet_cfg := {"gold_currency_pill": {"shadow": true, "shadow_alpha": 72.0}}
 	var wallet_opts := Kit.gold_currency_pill_opts_from_config(wallet_cfg)
 	ok(float(wallet_opts.shadow_params.alpha) <= 0.201,

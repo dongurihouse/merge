@@ -36,6 +36,12 @@ const MEADOW_UI := "ui/meadow_v2/%s"
 const MEADOW_SHADOW_TINT := Color("#294654")
 const MEADOW_SHADOW_MAX_ALPHA := 0.20
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const PAPER_SURFACES := {
+	"cream": {"texture": "texture_cream.png", "fill": Color("#F6EBDD")},
+	"sky": {"texture": "texture_sky.png", "fill": Color("#6FA9C0")},
+	"green": {"texture": "texture_action_green.png", "fill": Color("#5F9B6D")},
+	"purple": {"texture": "texture_supporting_purple.png", "fill": Color("#8677A3")},
+}
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
 const SLOT_PATCH := Vector4(32, 32, 32, 32)
@@ -1431,8 +1437,8 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 	plate.add_child(make_icon(id, icon_px))
 	return plate
 
-## --- the HOME BUTTON: the round icon button shared by the home page's side rail + bottom bar -------
-## ONE configurable atom: a cream/gold disc shell (shared/disc_round.png) carrying a CENTRED icon, an
+## --- the HOME BUTTON: the icon button shared by the home page's side rail + bottom bar ------------
+## ONE configurable atom: an authored disc or code-drawn paper tile carrying a CENTRED icon, an
 ## OPTIONAL caption tab beneath, and an OPTIONAL engine-drawn SPARKLE (a soft pulsing glow + drifting
 ## twinkles — no baked FX). Badges are attached by the caller (Look.attach_badge) since their visibility
 ## is game-state driven. The side rail AND the bottom nav both build through this, so a workbench tweak
@@ -1443,7 +1449,6 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 ##   opts (shared STYLE — see home_button_opts_from_config): px · shell · icon_scale (0..1) ·
 ##     caption_font · caption_gap · glow (0..1) · twinkle (0..1).
 const HOME_SHELL := "shared/disc_round.png"
-const RECT_SHELL := "shared/badge_rect.png"   # the ui_asset2 rounded-rect badge (rail + Map button), used when opts.shape == "rect"
 
 static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var px: float = float(opts.get("px", 140.0))
@@ -1457,40 +1462,51 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var meta_icon := String(spec.get("icon_id", spec.get("icon", "")))
 	if meta_icon != "":
 		b.set_meta("icon_id", meta_icon)
-	# the shell shape: "disc" (the round cream/gold sprite, the default) or "rect" (the ui_asset2 rounded-rect
-	# badge — the home rail + the Map button). The rect shell stacks its icon + caption INSIDE the badge; the
+	# the shell shape: "disc" (the round cream/gold sprite, the default) or "rect" (a code-drawn rounded paper
+	# tile — the home rail + the Map button). The rect shell stacks its icon + caption INSIDE the tile; the
 	# disc keeps the icon centred with the caption as an overflow tab beneath it.
 	var shape := String(opts.get("shape", "disc"))
-	# the shell sprite scaled WHOLE (a round disc / rounded square 9-slices badly at its corners), or a flat
-	# code-drawn shape when the art is missing (the kit invariant — same metrics either way). `shell_tint`
-	# modulates the whole shell (default WHITE = the raw sprite); the Play CTA passes the orange play disc.
-	# `fill_alpha` (workbench 0..100) makes the badge read translucent over the scene.
+	# Disc shells remain authored sprites. Rect shells are code-drawn rounded squares filled by a flat paper
+	# texture selected with `surface_role`, so their geometry never comes from a scaled/cut background.
+	# `fill_alpha` (workbench 0..100) makes the paper surface read translucent over the scene.
 	var shell_rel := String(opts.get("shell", HOME_SHELL))
-	if shape == "rect" and shell_rel == HOME_SHELL:
-		shell_rel = RECT_SHELL   # a rect badge defaults to the rounded-rect sprite (unless the caller named a specific shell)
 	var shell_tint: Color = opts.get("shell_tint", Color.WHITE)
 	var fill_a := clampf(float(opts.get("fill_alpha", 100)) / 100.0, 0.0, 1.0)
 	shell_tint = Color(shell_tint.r, shell_tint.g, shell_tint.b, shell_tint.a * fill_a)
-	var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))   # the Badge item's tuned polish
-	var corner := int(px * (0.22 if shape == "rect" else 0.5))               # code-drawn fallback radius
-	for st_name in ["normal", "hover", "pressed", "disabled"]:
-		if shell != null:
-			var stx := StyleBoxTexture.new()      # NO texture margins → the whole shell scales (rail badges read
-			stx.texture = shell                   # better whole-scaled than 9-sliced; the pill 9-slices on its own path)
-			if st_name == "pressed":
-				stx.modulate_color = shell_tint * Color(0.9, 0.9, 0.9)
-			elif st_name == "disabled":
-				stx.modulate_color = shell_tint * Color(0.72, 0.72, 0.72)
+	var corner := int(round(px * (0.22 if shape == "rect" else 0.5)))
+	if shape == "rect":
+		var surface_role := String(opts.get("surface_role", "cream"))
+		var surface: Dictionary = PAPER_SURFACES.get(surface_role, PAPER_SURFACES["cream"])
+		var surface_fill: Color = surface.get("fill", Color("#F6EBDD"))
+		_apply_rounded_paper_surface(
+			b,
+			String(surface.get("texture", "texture_cream.png")),
+			surface_fill,
+			float(corner),
+			Vector4.ZERO,
+			2.0,
+			fill_a
+		)
+	else:
+		var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))
+		for st_name in ["normal", "hover", "pressed", "disabled"]:
+			if shell != null:
+				var stx := StyleBoxTexture.new()
+				stx.texture = shell
+				if st_name == "pressed":
+					stx.modulate_color = shell_tint * Color(0.9, 0.9, 0.9)
+				elif st_name == "disabled":
+					stx.modulate_color = shell_tint * Color(0.72, 0.72, 0.72)
+				else:
+					stx.modulate_color = shell_tint
+				b.add_theme_stylebox_override(st_name, stx)
 			else:
-				stx.modulate_color = shell_tint
-			b.add_theme_stylebox_override(st_name, stx)
-		else:
-			var s := StyleBoxFlat.new()
-			s.bg_color = shell_tint if opts.has("shell_tint") else Color(Pal.CREAM, 0.95 * fill_a)
-			s.set_corner_radius_all(corner)
-			s.set_border_width_all(3)
-			s.border_color = Pal.STRAW
-			b.add_theme_stylebox_override(st_name, s)
+				var s := StyleBoxFlat.new()
+				s.bg_color = shell_tint if opts.has("shell_tint") else Color(Pal.CREAM, 0.95 * fill_a)
+				s.set_corner_radius_all(corner)
+				s.set_border_width_all(3)
+				s.border_color = Pal.STRAW
+				b.add_theme_stylebox_override(st_name, s)
 	# the DROP SHADOW behind the button shell (show_behind_parent): the SHARED box-shadow, SHAPED to the
 	# button — a rounded RECT for the rail / Map badges (corner = the badge corner) or a CIRCLE for disc
 	# buttons (corner = px/2). On only when the Shadow toggle is set; opts.shadow_params is the single look.
