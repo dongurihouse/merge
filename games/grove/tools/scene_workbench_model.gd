@@ -238,8 +238,33 @@ static func bundle_for(scenes_root: String, scene: String) -> String:
 			best = "%s/%s" % [scenes_root, sub]
 	return best
 
+## Every scene under a scenes root that has an openable bundle (drives the scene dropdown).
+static func scenes_in(scenes_root: String) -> Array:
+	var found := {}
+	var d := DirAccess.open(scenes_root)
+	if d == null:
+		return []
+	for sub in d.get_directories():
+		var k := sub.find("_elements_v")
+		if k <= 0:
+			continue
+		if FileAccess.file_exists("%s/%s/metadata/placements.json" % [scenes_root, sub]):
+			found[sub.substr(0, k)] = true
+	var names: Array = found.keys()
+	names.sort()
+	return names
+
+## The sidebar palette's section order (categories not listed sort after, alphabetically).
+const CATEGORY_ORDER := ["backdrop", "foundation", "environment", "terrain", "structures", "garden_items", "vegetation", "rock"]
+
+static func category_rank(category: String) -> int:
+	var k := CATEGORY_ORDER.find(category)
+	return k if k >= 0 else CATEGORY_ORDER.size()
+
 ## Every addable .png in the bundle (skips style/metadata/reconstruction dirs, review/raw/montage
-## shots and reference packs): [{id, image (repo-relative), category}].
+## shots and reference packs): [{id, image (repo-relative), category}], grouped by category then id.
+## Category = the top dir minus its NN_ prefix (04_garden_items → garden_items); descending into a
+## *_pack dir refines it to the pack name (05_dressing/vegetation_pack → vegetation).
 static func addable_assets(bundle_dir: String, repo_root: String, scene: String) -> Array:
 	var out: Array = []
 	var top := DirAccess.open(bundle_dir)
@@ -248,8 +273,18 @@ static func addable_assets(bundle_dir: String, repo_root: String, scene: String)
 	for sub in top.get_directories():
 		if sub.begins_with("00_") or sub.begins_with("09_") or sub == "metadata":
 			continue
-		_scan_pngs("%s/%s" % [bundle_dir, sub], sub.get_slice("_", 1), repo_root, scene, out)
-	out.sort_custom(func(a, b) -> bool: return String(a.id) < String(b.id))
+		var cat := sub
+		if cat.length() > 3 and cat.substr(0, 2).is_valid_int() and cat[2] == "_":
+			cat = cat.substr(3)
+		_scan_pngs("%s/%s" % [bundle_dir, sub], cat, repo_root, scene, out)
+	out.sort_custom(func(a, b) -> bool:
+		var ra := category_rank(String(a.category))
+		var rb := category_rank(String(b.category))
+		if ra != rb:
+			return ra < rb
+		if String(a.category) != String(b.category):
+			return String(a.category) < String(b.category)
+		return String(a.id) < String(b.id))
 	return out
 
 static func _scan_pngs(dir: String, category: String, repo_root: String, scene: String, out: Array) -> void:
@@ -270,4 +305,5 @@ static func _scan_pngs(dir: String, category: String, repo_root: String, scene: 
 		var abs := "%s/%s" % [dir, fn]
 		out.append({"id": id, "image": abs.trim_prefix(repo_root + "/"), "category": category})
 	for sub in d.get_directories():
-		_scan_pngs("%s/%s" % [dir, sub], category, repo_root, scene, out)
+		var cat := sub.trim_suffix("_pack") if sub.ends_with("_pack") else category
+		_scan_pngs("%s/%s" % [dir, sub], cat, repo_root, scene, out)

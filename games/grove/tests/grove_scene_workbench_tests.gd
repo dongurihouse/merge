@@ -148,6 +148,10 @@ func _initialize() -> void:
 	(vdoc.placements[0] as Dictionary)["cluster"] = "camp"
 	(vdoc.placements[1] as Dictionary)["cluster"] = "camp"
 	M.save_doc(broot + "/test_scene_elements_v1/metadata/placements.json", vdoc)
+	var other_pl := broot + "/another_elements_v2/metadata/placements.json"
+	for stale2 in [other_pl, other_pl + ".bak"]:      # idempotent across runs — the switch test re-creates it
+		if FileAccess.file_exists(stale2):
+			DirAccess.remove_absolute(stale2)
 	var view: Control = View.new()
 	ok(view.setup(broot, "test_scene"), "the view opens a synthetic bundle (art-less entries allowed)")
 	root.add_child(view)
@@ -158,7 +162,7 @@ func _initialize() -> void:
 	if row != null:
 		row.pressed.emit()                             # select via the sidebar — rebuilds the list it lives in
 		ok(is_instance_valid(row), "a pressed placed-row survives its own refresh (deferred free)")
-		ok(view._sel >= 0, "the press selected the entry")
+		ok(view._sel >= 0 or view._sel_cluster != "", "the press selected the row's unit (cluster or single)")
 	var crow_box: Node = view._cluster_box.get_child(0)
 	var crow: Button = (crow_box.get_child(0) as Button) if crow_box != null and crow_box.get_child_count() > 0 else null
 	ok(crow != null, "the clusters list built a row")
@@ -204,6 +208,54 @@ func _initialize() -> void:
 	view._on_stage_input(wheel)
 	ok(int((view.doc.placements[2] as Dictionary).w) == 306,
 		"a wheel notch over the stage resizes the selection (+2%)")
+
+	# --- cluster-first stage clicks: a click selects the whole group ------------------
+	view._select(-1)
+	var on_tree := InputEventMouseButton.new()         # canvas (420,640): inside 'tree' (camp) only
+	on_tree.button_index = MOUSE_BUTTON_LEFT
+	on_tree.pressed = true
+	on_tree.position = Vector2(420, 640) * s2
+	view._on_stage_input(on_tree)
+	ok(view._sel_cluster == "camp" and view._sel == -1,
+		"clicking a clustered item selects its whole CLUSTER")
+	var drag2 := InputEventMouseMotion.new()           # drag the group +20,+20
+	drag2.position = Vector2(440, 660) * s2
+	drag2.button_mask = MOUSE_BUTTON_MASK_LEFT
+	view._on_stage_input(drag2)
+	var t0: Dictionary = view.doc.placements[0]
+	var r0: Dictionary = view.doc.placements[1]
+	ok(int(t0.x) == 520 and int(t0.y) == 1020 and int(r0.x) == 520 and int(r0.y) == 1120,
+		"dragging with a cluster selected moves every member")
+	var up2 := InputEventMouseButton.new()
+	up2.button_index = MOUSE_BUTTON_LEFT
+	up2.pressed = false
+	up2.position = drag2.position
+	view._on_stage_input(up2)
+	view._select(-1)
+	var alt_click := InputEventMouseButton.new()       # Alt force-picks the single member
+	alt_click.button_index = MOUSE_BUTTON_LEFT
+	alt_click.pressed = true
+	alt_click.alt_pressed = true
+	alt_click.position = Vector2(440, 660) * s2
+	view._on_stage_input(alt_click)
+	ok(view._sel == 0 and view._sel_cluster == "",
+		"Alt+click force-picks the single item out of its cluster")
+
+	# --- the scene dropdown + in-place switching (unsaved edits auto-save first) ------
+	ok(view.find_child("SceneDropdown", true, false) != null, "the sidebar carries the scene dropdown")
+	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
+	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
+	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
+		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}
+	M.save_doc(broot + "/another_elements_v2/metadata/placements.json", other)
+	ok(M.scenes_in(broot) == ["another", "test_scene"], "scenes_in picks up a new bundle")
+	ok(view.dirty, "the drag left unsaved edits")
+	view._switch_scene("another")
+	ok(view.scene_name == "another" and view.doc.placements.size() == 1,
+		"switching scenes loads the other bundle in place")
+	var persisted := M.load_doc(broot + "/test_scene_elements_v1/metadata/placements.json")
+	ok(int(persisted.placements[0].x) == 520,
+		"unsaved edits were saved before the switch (nothing lost)")
 	view.queue_free()
 
 	# --- path resolution ------------------------------------------------------------
