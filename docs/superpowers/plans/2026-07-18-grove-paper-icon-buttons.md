@@ -143,11 +143,10 @@ Run:
 
 ```bash
 make test-one SUITE=games/grove/tests/grove_workbench_tests
-make test-one SUITE=games/grove/tests/grove_ui_tests
 git diff --check
 ```
 
-Expected: both suites pass; the live wallet uses `texture_cream.png` and retains all existing interaction/layout assertions.
+Expected: the registered focused suite passes; the live wallet uses `texture_cream.png` and retains all existing interaction/layout assertions.
 
 Commit:
 
@@ -311,7 +310,6 @@ Run:
 
 ```bash
 make test-one SUITE=games/grove/tests/grove_workbench_tests
-make test-one SUITE=games/grove/tests/grove_ui_tests
 make test-one SUITE=games/grove/tests/grove_board_actions_tests
 git diff --check
 ```
