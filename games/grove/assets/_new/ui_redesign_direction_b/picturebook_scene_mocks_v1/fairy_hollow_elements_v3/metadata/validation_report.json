@@ -1,0 +1,884 @@
+{
+  "schemaVersion": 1,
+  "scene": "fairy_hollow_v3",
+  "status": "pass",
+  "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/placements.json",
+  "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/asset_manifest.json",
+  "canvas": [
+    1320,
+    2346
+  ],
+  "reviewSize": [
+    941,
+    1672
+  ],
+  "acceptedAssetCount": 16,
+  "placementCount": 16,
+  "clusterCount": 7,
+  "clusters": [
+    "firefly_lanterns",
+    "glowing_mushrooms",
+    "lantern_vines",
+    "moon_swing",
+    "toadstool_cottage",
+    "tree_house",
+    "wishing_well"
+  ],
+  "contactPlacementCount": 5,
+  "contactPlacements": [
+    "lantern_contact_left",
+    "lantern_contact_right",
+    "mushrooms_contact",
+    "well_contact_left",
+    "well_contact_right"
+  ],
+  "missingAssetCount": 0,
+  "missingAssets": [],
+  "uniqueIds": true,
+  "uniqueZValues": true,
+  "fullCanvasPlacementCount": 3,
+  "fullCanvasPlacements": [
+    "background_trees",
+    "foreground_roots",
+    "midground_foliage"
+  ],
+  "visibleKeyPixels": 0,
+  "assetVisibleKeyPixels": 0,
+  "outputVisibleKeyPixels": 0,
+  "transparentCornerPolicy": "All transparent tight assets must have four zero-alpha corners; full-canvas transparent layers record corners but may intentionally touch canvas edges.",
+  "assetChecks": [
+    {
+      "id": "foundation",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": false,
+      "mode": "RGB",
+      "size": [
+        1320,
+        2346
+      ],
+      "sha256": "945519786fd74fba80d7d76234708f89a54df908c113418275ae3613bd402f1d",
+      "cornerAlpha": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "allCornersTransparent": false,
+      "alphaExtrema": [
+        255,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "background_trees",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        1320,
+        2346
+      ],
+      "sha256": "19cc34785c6d44f513874073c87b2b8344909c014b14a2dc86d0658928b7a22d",
+      "cornerAlpha": [
+        255,
+        255,
+        0,
+        0
+      ],
+      "allCornersTransparent": false,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "midground_foliage",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        1320,
+        2346
+      ],
+      "sha256": "853d4170434257f65b42eeb59aae3e227093e7872a76d1f5a2aeea176f887510",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "foreground_roots",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        1320,
+        2346
+      ],
+      "sha256": "d7dfcaecb4761309f00b230bf4d4583eadedf96cfb0598f1228a84319e189472",
+      "cornerAlpha": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "allCornersTransparent": false,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "toadstool_cottage",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        448,
+        444
+      ],
+      "sha256": "3c231e04ab732f93e1929253e96dfdfc94305ae5637b90a04968f1586d9da51d",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "wishing_well",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        249,
+        358
+      ],
+      "sha256": "80cd6e536c2615e62d0915e5c3cdd7d68a97611027590c5708199aa7099549e7",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "glowing_mushrooms",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        490,
+        308
+      ],
+      "sha256": "13fdb55aa655464073269eb69652b40dac6b7494ec3a99a191cfa227370d63df",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "firefly_lanterns",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        341,
+        407
+      ],
+      "sha256": "ec10b64b8a737ff503c117f3275dfb489dc90771774130d62545bffd1d696e07",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "lantern_vines",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        729,
+        291
+      ],
+      "sha256": "78ec6ddf01c38be89f200931692b9768d48a77d8d9ffaef004274002e1002e24",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "tree_house",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        730,
+        1291
+      ],
+      "sha256": "a21e03163b629ce6b58d43369e353b29015b4aa42118ab3b433f7ece7c1debeb",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "moon_swing_support",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        408,
+        168
+      ],
+      "sha256": "5fa7d4a66595a23cac6cb15378f55ad3633b0929ebb2851c40a610318b41be29",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "moon_swing_seat",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        303,
+        477
+      ],
+      "sha256": "311e3fec5eb2dd4911e9c3a37df9cc3d88c84117fd9bb324531f22ce03c3f032",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "ground_tuft_01",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        108,
+        55
+      ],
+      "sha256": "965ce96673d8b8c71716b64714a99982f9c407f0f1fc24ee0b2e84b2f1de4da1",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "ground_tuft_02",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        111,
+        74
+      ],
+      "sha256": "1a3b66c7074b75666d16fb9ad37afbc42307a6ae20b19558f231c38a5787ac57",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "ground_tuft_03",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        105,
+        64
+      ],
+      "sha256": "afacf70082054527afb636d62d1e775cc00f7b00d20fff0df68df1be64b6c5f0",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    },
+    {
+      "id": "ground_tuft_04",
+      "paths": {
+        "final": true,
+        "source": true,
+        "sourcePrompt": true
+      },
+      "transparent": true,
+      "mode": "RGBA",
+      "size": [
+        111,
+        80
+      ],
+      "sha256": "3d7f7f1eb606f1b047842c3df802bafe409f05ad2c168d25e09bd6f7851b059a",
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "allCornersTransparent": true,
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "visibleKeyPixels": 0
+    }
+  ],
+  "placementChecks": [
+    {
+      "id": "moon_swing_support_back",
+      "assetId": "moon_swing_support",
+      "exists": true,
+      "renderSize": [
+        408,
+        168
+      ],
+      "centerBottom": [
+        365,
+        354
+      ],
+      "sourceSize": [
+        408,
+        168
+      ],
+      "sourceBounds": [
+        161,
+        186,
+        569,
+        354
+      ]
+    },
+    {
+      "id": "background_trees",
+      "assetId": "background_trees",
+      "exists": true,
+      "renderSize": [
+        1320,
+        2346
+      ],
+      "centerBottom": [
+        660,
+        2346
+      ],
+      "sourceSize": [
+        1320,
+        2346
+      ]
+    },
+    {
+      "id": "midground_foliage",
+      "assetId": "midground_foliage",
+      "exists": true,
+      "renderSize": [
+        1320,
+        2346
+      ],
+      "centerBottom": [
+        660,
+        2346
+      ],
+      "sourceSize": [
+        1320,
+        2346
+      ]
+    },
+    {
+      "id": "toadstool_cottage",
+      "assetId": "toadstool_cottage",
+      "exists": true,
+      "renderSize": [
+        448,
+        444
+      ],
+      "centerBottom": [
+        256,
+        1245
+      ],
+      "sourceSize": [
+        448,
+        444
+      ],
+      "deliveryBounds": [
+        32,
+        801,
+        480,
+        1245
+      ]
+    },
+    {
+      "id": "tree_house",
+      "assetId": "tree_house",
+      "exists": true,
+      "renderSize": [
+        730,
+        1291
+      ],
+      "centerBottom": [
+        996,
+        1291
+      ],
+      "sourceSize": [
+        730,
+        1291
+      ]
+    },
+    {
+      "id": "moon_swing_seat_front",
+      "assetId": "moon_swing_seat",
+      "exists": true,
+      "renderSize": [
+        303,
+        477
+      ],
+      "centerBottom": [
+        363.5,
+        810
+      ],
+      "sourceSize": [
+        303,
+        477
+      ],
+      "sourceBounds": [
+        212,
+        333,
+        515,
+        810
+      ]
+    },
+    {
+      "id": "lantern_vines",
+      "assetId": "lantern_vines",
+      "exists": true,
+      "renderSize": [
+        729,
+        291
+      ],
+      "centerBottom": [
+        936.5,
+        633
+      ],
+      "sourceSize": [
+        729,
+        291
+      ],
+      "deliveryBounds": [
+        572,
+        342,
+        1301,
+        633
+      ]
+    },
+    {
+      "id": "wishing_well",
+      "assetId": "wishing_well",
+      "exists": true,
+      "renderSize": [
+        249,
+        358
+      ],
+      "centerBottom": [
+        933.5,
+        1568
+      ],
+      "sourceSize": [
+        249,
+        358
+      ],
+      "deliveryBounds": [
+        809,
+        1210,
+        1058,
+        1568
+      ]
+    },
+    {
+      "id": "glowing_mushrooms",
+      "assetId": "glowing_mushrooms",
+      "exists": true,
+      "renderSize": [
+        490,
+        308
+      ],
+      "centerBottom": [
+        326,
+        1778
+      ],
+      "sourceSize": [
+        490,
+        308
+      ],
+      "deliveryBounds": [
+        81,
+        1470,
+        571,
+        1778
+      ]
+    },
+    {
+      "id": "firefly_lanterns",
+      "assetId": "firefly_lanterns",
+      "exists": true,
+      "renderSize": [
+        341,
+        407
+      ],
+      "centerBottom": [
+        1070.5,
+        1954
+      ],
+      "sourceSize": [
+        341,
+        407
+      ],
+      "deliveryBounds": [
+        900,
+        1547,
+        1241,
+        1954
+      ]
+    },
+    {
+      "id": "mushrooms_contact",
+      "assetId": "ground_tuft_04",
+      "exists": true,
+      "renderSize": [
+        111,
+        80
+      ],
+      "centerBottom": [
+        161.5,
+        1788
+      ],
+      "sourceSize": [
+        111,
+        80
+      ],
+      "deliveryBounds": [
+        106,
+        1708,
+        217,
+        1788
+      ]
+    },
+    {
+      "id": "well_contact_left",
+      "assetId": "ground_tuft_01",
+      "exists": true,
+      "renderSize": [
+        108,
+        55
+      ],
+      "centerBottom": [
+        819,
+        1578
+      ],
+      "sourceSize": [
+        108,
+        55
+      ],
+      "deliveryBounds": [
+        765,
+        1523,
+        873,
+        1578
+      ]
+    },
+    {
+      "id": "well_contact_right",
+      "assetId": "ground_tuft_03",
+      "exists": true,
+      "renderSize": [
+        105,
+        64
+      ],
+      "centerBottom": [
+        1047.5,
+        1572
+      ],
+      "sourceSize": [
+        105,
+        64
+      ],
+      "deliveryBounds": [
+        995,
+        1508,
+        1100,
+        1572
+      ]
+    },
+    {
+      "id": "lantern_contact_left",
+      "assetId": "ground_tuft_02",
+      "exists": true,
+      "renderSize": [
+        111,
+        74
+      ],
+      "centerBottom": [
+        931.5,
+        1965
+      ],
+      "sourceSize": [
+        111,
+        74
+      ],
+      "deliveryBounds": [
+        876,
+        1891,
+        987,
+        1965
+      ]
+    },
+    {
+      "id": "lantern_contact_right",
+      "assetId": "ground_tuft_04",
+      "exists": true,
+      "renderSize": [
+        111,
+        80
+      ],
+      "centerBottom": [
+        1226.5,
+        1965
+      ],
+      "sourceSize": [
+        111,
+        80
+      ],
+      "deliveryBounds": [
+        1175,
+        1891,
+        1278,
+        1965
+      ]
+    },
+    {
+      "id": "foreground_roots",
+      "assetId": "foreground_roots",
+      "exists": true,
+      "renderSize": [
+        1320,
+        2346
+      ],
+      "centerBottom": [
+        660,
+        2346
+      ],
+      "sourceSize": [
+        1320,
+        2346
+      ]
+    }
+  ],
+  "treeHouseCheck": {
+    "exists": true,
+    "document": {
+      "placementId": "tree_house",
+      "completeHostTreeAvailable": true,
+      "initialRightEdgeClipping": true,
+      "structuralRule": "host tree and carved dwelling remain one inseparable asset"
+    },
+    "geometry": [
+      996.0,
+      1291.0,
+      730,
+      1291
+    ],
+    "rightEdge": 1361.0
+  },
+  "outputChecks": {
+    "full": {
+      "exists": true,
+      "mode": "RGB",
+      "size": [
+        1320,
+        2346
+      ],
+      "sha256": "d73366288d63361901cb42edbb3c1ae59512a4ec0ab1ed7117c036247b107397",
+      "visibleKeyPixels": 0
+    },
+    "review": {
+      "exists": true,
+      "mode": "RGB",
+      "size": [
+        941,
+        1672
+      ],
+      "sha256": "bfd600105b34cb450ec65b6e0b1e632732f6aff162f54427c767da08ff1fac8c",
+      "visibleKeyPixels": 0
+    }
+  },
+  "reconstructionReportCheck": {
+    "exists": true,
+    "scene": "fairy_hollow_v3",
+    "placementAuthoritySha256": "561a076038412fcdf302012b7b5532f1fbd8862623aa95add8ae15e7f0b962f7",
+    "placementCount": 16,
+    "clusterCount": 7,
+    "contactPlacementCount": 5
+  },
+  "failures": [],
+  "manualVisualChecks": [
+    "split moon swing support sits behind the environment while its moon seat remains in front",
+    "complete host tree remains available despite intentional initial right-edge clipping",
+    "cottage, well, mushrooms, and lantern clusters preserve readable silhouettes",
+    "five contact tufts ground their associated props",
+    "foreground roots finish the depth stack without obscuring the hero composition",
+    "scene contains no visible hot-magenta chroma key, UI, text, or border"
+  ]
+}
