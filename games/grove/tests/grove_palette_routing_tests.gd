@@ -73,13 +73,15 @@ func _initialize() -> void:
 		"SCREEN_BG": [Pal.SCREEN_BG, "6FA9C0"], "SURFACE": [Pal.SURFACE, "F6EBDD"],
 		"SURFACE_FRAME": [Pal.SURFACE_FRAME, "3F6D7D"], "CELL_EMPTY": [Pal.CELL_EMPTY, "A8D3B9"],
 		"LOCKED": [Pal.LOCKED, "8296AF"], "LOCKED_GLYPH": [Pal.LOCKED_GLYPH, "3F6D7D"],
-		"NEAR_UNLOCK": [Pal.NEAR_UNLOCK, "A8D3B9"], "NEAR_HINT": [Pal.NEAR_HINT, "5F9B6D"],
+		"NEAR_UNLOCK": [Pal.NEAR_UNLOCK, "6FA9C0"], "NEAR_HINT": [Pal.NEAR_HINT, "5F9B6D"],
 		"CARD_PEDESTAL": [Pal.CARD_PEDESTAL, "F6EBDD"], "INK_MUTED": [Pal.INK_MUTED, "3F6D7D"],
 		"ACCENT_CTA": [Pal.ACCENT_CTA, "5F9B6D"], "ACCENT_REWARD": [Pal.ACCENT_REWARD, "D6A94C"],
 		"ACCENT_ALERT": [Pal.ACCENT_ALERT, "D87865"], "ACCENT_INFO": [Pal.ACCENT_INFO, "6FA9C0"],
 	}
 	for role in palette_roles:
 		_assert_color(role, palette_roles[role][0], palette_roles[role][1])
+	ok(not Pal.NEAR_UNLOCK.is_equal_approx(Pal.CELL_EMPTY),
+		"near-unlock frontier is visually distinct from an empty meadow cell")
 
 	var mapping := _load_json(MAPPING_PATH)
 	var manifest := _load_json(MANIFEST_PATH)

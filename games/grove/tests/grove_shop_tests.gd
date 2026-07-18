@@ -519,7 +519,8 @@ func _initialize() -> void:
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	ok(_all_ignore(bramble_node), "frontier locked cell ignores mouse so the board input surface receives taps")
 	bramble_node.free()
-	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")
+	ok(BoardScript._quest_band_style().bg_color.is_equal_approx(Pal.SURFACE), \
+		"quest band uses the exact light Rest-plane SURFACE fill")
 
 	# §1 residents: unlock reward + free-spirit grant + residents shop card data (active-suite coverage).
 	_test_unlock_rewards()

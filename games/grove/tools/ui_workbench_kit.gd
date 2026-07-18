@@ -4507,6 +4507,12 @@ static func _slot_locked_placeholder(cw: float, ch: float) -> Control:
 
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {})
+	var glow_tint := Pal.STRAW
+	if bc.has("glow_hue") or bc.has("glow_sat"):
+		glow_tint = Color.from_hsv(
+			float(bc.get("glow_hue", Pal.STRAW.h * 360.0)) / 360.0,
+			float(bc.get("glow_sat", Pal.STRAW.s * 100.0)) / 100.0,
+			Pal.STRAW.v)
 	var opts := {
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
@@ -4519,10 +4525,9 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
 		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
-		# the unlockable accent COLOUR (halo + shadow), as hue + saturation knobs. Brightness is
-		# pinned to STRAW's V (0.89), so the defaults (42°, 74%) reproduce Pal.STRAW exactly — drag the
-		# saturation down toward a warm white to take the yellow out of the glow.
-		"glow_tint": Color.from_hsv(float(bc.get("glow_hue", 42)) / 360.0, float(bc.get("glow_sat", 74)) / 100.0, 0.89),
+		# With no overrides the semantic token is preserved exactly. Hue/saturation knobs reconstruct
+		# only those channels while keeping the current fixed Meadow Sky STRAW value.
+		"glow_tint": glow_tint,
 		"glow_size": float(bc.get("glow_size", 170)) / 100.0,        # the outer bloom's spread (× the cell; 0 = no halo)
 		"glow_shadow": float(bc.get("glow_shadow", 55)) / 100.0,     # the rim drop-shadow's strength (alpha; 0 = no rim glow)
 		"glow_shadow_size": float(bc.get("glow_shadow_size", 10)) / 100.0,  # ...and its size (× the cell)

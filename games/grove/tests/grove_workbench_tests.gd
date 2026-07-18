@@ -2232,13 +2232,18 @@ func _test_bag_components() -> void:
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
 	ok(_unlockable_border_width(unl) == 0, "an unlockable cell has no visible highlight border")
-	# the unlockable accent COLOUR (glow_hue / glow_sat): default (42°, 74%) reproduces Pal.STRAW within a
-	# single 8-bit level; glow_sat 0 washes it to a neutral warm white; lowering glow_hue shifts it warmer.
+	# the unlockable accent COLOUR (glow_hue / glow_sat): no overrides returns the exact semantic token;
+	# individual hue/saturation overrides preserve the other Straw channels and Straw's fixed value.
 	var def_tint := _unlockable_tint(unl)
-	ok(absf(def_tint.r - Pal.STRAW.r) < 0.01 and absf(def_tint.g - Pal.STRAW.g) < 0.01 and absf(def_tint.b - Pal.STRAW.b) < 0.01, "the default unlockable tint matches Pal.STRAW (within one level)")
+	ok(co.glow_tint == Pal.STRAW and def_tint == Pal.STRAW, "the default unlockable tint is exactly Pal.STRAW")
+	var co_pale := Kit.bag_card_opts_from_config({"bag_card": {"glow_sat": 25}})
+	ok(is_equal_approx((co_pale.glow_tint as Color).h, Pal.STRAW.h) and is_equal_approx((co_pale.glow_tint as Color).v, Pal.STRAW.v), \
+		"a saturation-only override preserves Straw hue and value")
 	var co_white := Kit.bag_card_opts_from_config({"bag_card": {"glow_sat": 0}})
 	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_white)).s < 0.02, "glow_sat 0 desaturates the unlockable accent to a warm white")
 	var co_orange := Kit.bag_card_opts_from_config({"bag_card": {"glow_hue": 20}})
+	ok(is_equal_approx((co_orange.glow_tint as Color).s, Pal.STRAW.s) and is_equal_approx((co_orange.glow_tint as Color).v, Pal.STRAW.v), \
+		"a hue-only override preserves Straw saturation and value")
 	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_orange)).h < Pal.STRAW.h, "lowering glow_hue shifts the unlockable accent toward orange")
 	# the glow INTENSITY/SIZE knobs: each glow layer can be dialled all the way out. glow_shadow 0 removes
 	# the rim drop-shadow (the glow hugging the cell); glow_size 0 removes the outer bloom halo.

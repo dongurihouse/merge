@@ -2247,7 +2247,7 @@ static func _field_backdrop() -> Control:
 # a quiet rim + soft resting shadow, replacing the old dark wooden fence. Static so it is testable.
 static func _quest_band_style() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(Pal.SURFACE_FRAME, 0.92)
+	sb.bg_color = Pal.SURFACE
 	sb.set_corner_radius_all(18)
 	sb.set_border_width_all(2)
 	sb.border_color = Color(Pal.BARK, 0.22)
