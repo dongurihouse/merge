@@ -40,7 +40,7 @@ func _initialize() -> void:
 	match mode:
 		"select":
 			# the place-picker capture needs no special save setup — unless `owned=1` is passed,
-			# which restores EVERY map's spots so completed maps render as the habitat card.
+			# which restores EVERY map's spots so the bucket dock opens at full capacity.
 			for wa in args:
 				if String(wa) == "owned=1":
 					var gsel := Save.grove()
@@ -50,7 +50,7 @@ func _initialize() -> void:
 					for z in G.MAPS.size():
 						for sp in G.MAPS[z].spots:
 							ulsel[String(sp.id)] = true
-						gates.append(z)               # record each map's gate so it reads as COMPLETE (habitat card)
+						gates.append(z)               # record each map's gate so it reads as COMPLETE (grants bucket cells)
 						claimed[String(G.MAPS[z].id)] = true   # pre-claim unlock rewards so no popup covers the picker
 					gsel["unlocks"] = ulsel
 					gsel["gates"] = gates
@@ -76,13 +76,37 @@ func _initialize() -> void:
 			var Inbox = load("res://engine/scripts/core/inbox.gd")
 			for _i in 3:
 				Inbox.add({"title": "Gift", "body": "A little something.", "icon": "coin", "reward": {"coins": 50}, "read": false})
-		"spirits":
-			var gs := Save.grove()
-			var ful := {}
-			for sp in G.MAPS[0].spots:
-				ful[String(sp.id)] = true
-			gs["unlocks"] = ful
+		"built":
+			# the home part-way through the build-and-upgrade loop: some buildings finished (props show),
+			# the wallet + coin clock funded so the next steps read buyable (badges lit).
+			var HB := load("res://engine/scripts/core/home_build.gd")
+			var Home := load("res://engine/scripts/core/home.gd")
+			Save.earn_coins(2000)                 # organic → coins + a high level (badges unlocked)
+			var hst: Dictionary = Home.state()
+			var to_build := ["fh_hearth", "fh_boxes", "fh_kitchen", "fh_well"]
+			for bid in to_build:
+				var d: Dictionary = Home.def_of(bid)
+				while HB.buy_step(hst, d):
+					pass
+			# leave fh_larder mid-build (one site step) so a SITE prop + an active badge both show
+			var larder: Dictionary = Home.def_of("fh_larder")
+			HB.buy_step(hst, larder)
 			Save.grove_write()
+		"spirits":
+			# open the resident bucket by completing home buildings (cells come from buildings now),
+			# then seed a few placed + in-hand spirits so the centered dock renders fully.
+			var HBs := load("res://engine/scripts/core/home_build.gd")
+			var Homes := load("res://engine/scripts/core/home.gd")
+			Save.earn_coins(2000)
+			var sst: Dictionary = Homes.state()
+			for sd in Homes.defs():
+				while HBs.buy_step(sst, sd):
+					pass
+			Save.grove_write()
+			var Bkt := load("res://engine/scripts/core/bucket.gd")
+			Bkt.hand_add("coin", 2) ; Bkt.hand_add("coin", 2)
+			Bkt.hand_add("water", 1)
+			Bkt.place(0) ; Bkt.place(0)
 		"vault2x":
 			# T45: the hub with the piggy-VAULT button (pip lit); the jar fills past claimable (the pip).
 			# (The old hub-collect 2x doubler is gone — it now lives on the board quest reward.)
@@ -133,11 +157,11 @@ func _initialize() -> void:
 			Save.grove_write()
 			# seed in-hand + placed spirits so the residents dialog renders fully (for UI capture): a
 			# mergeable pair left in hand + a few placed on the hub.
-			var Habitat = load("res://engine/scripts/core/habitat.gd")
+			var Bucket = load("res://engine/scripts/core/bucket.gd")
 			var hub_id := String(G.MAPS[G.hub_map()].id)
-			Habitat.hand_add("ember", 1) ; Habitat.hand_add("ember", 1) ; Habitat.hand_add("ember", 1)
-			Habitat.hand_add("sprout", 2) ; Habitat.hand_add("sprout", 2)
-			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)   # 3 Ember placed; 2 Sprout left in hand
+			Bucket.hand_add("boost", 1) ; Bucket.hand_add("boost", 1) ; Bucket.hand_add("boost", 1)
+			Bucket.hand_add("coin", 2) ; Bucket.hand_add("coin", 2)
+			Bucket.place(0) ; Bucket.place(0) ; Bucket.place(0)   # 3 boost-kin placed; 2 coin-kin left in hand
 
 	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
 	# not a popup. Must run after Save.configure_for_test (above).
@@ -153,8 +177,8 @@ func _initialize() -> void:
 	for wa in args:
 		if String(wa).begins_with("pmap="):
 			pmap = int(String(wa).split("=")[1])
-	if mode == "select":
-		scn._open_select()                # the discrete map-select screen
+	if mode == "select" or mode == "spirits":
+		scn._open_select()                # the centered resident dock (the map-select column retired)
 		await create_timer(0.4).timeout
 	elif mode == "vault2x":
 		# _ready already opened the frontier (the HUB while its gate is pending) and auto-collected,

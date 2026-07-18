@@ -4,7 +4,6 @@ extends RefCounted
 ## numbers, the quest ramp, maps/spots, waysides, variants, and all economy dials.
 ## A different game ships its own data module with the SAME const names.
 
-const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 
 const COLS := 7
 const ROWS := 9
@@ -156,7 +155,11 @@ const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board h
 # map/`lines[]` roster — the board wiring flips to it in a later step. OWNER/content dials.
 const ZONE_BASE_LINES := [1, 2, 3, 4, 5, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36, 37, 51]   # 17 base lines, in zone order (51 = Glowcaps, the map-5 base)
 const ZONE_SPECIAL_LINES := [71, 72, 73, 74, 75, 76, 77, 78]   # 8 special lines (71-75 = shelved treat art; 76-78 to author)
-const ZONE_COUNT := 25                    # 17 base + 8 special = the 25 live restoration spots ([6,4,7,4,4])
+const ZONE_COUNT := 25                    # 17 base + 8 special zones (the [6,4,7,4,4] banding below)
+# The frozen per-BAND zone counts (the retired 5-map world's spot layout). Pure banding for the
+# per-band coin/sell curves (QUEST_CLICKS_PER_COIN / SELL_MAP_BAND) — G.zone_map derives from THIS,
+# never from map data (coin-clock redesign: the content arc gates on level alone).
+const ZONE_BAND := [6, 4, 7, 4, 4]
 # (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
 # so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
@@ -240,6 +243,13 @@ const RESIDENT_LINES := {
 	"orchard": {"id": "breeze", "name": "Breeze"},        # The Mill — air / wind
 	"meadow": {"id": "starlight", "name": "Starlight"},   # The Gate — light / aether
 }
+# The GLOBAL resident bucket (grove_spec §3): four resource LINES, each arted by one of the existing
+# resident families (items/resident_<kind>/). breeze (air) is retired — legacy breeze spirits migrate
+# to the coin line. Cells come ONLY from fully-restored maps (index = map z; 8 total, no coin sink).
+const RESIDENT_LINE_KINDS := {"coin": "sprout", "water": "dewdrop", "boost": "ember", "diamond": "starlight"}
+const RESIDENT_KIND_LINES := {"sprout": "coin", "dewdrop": "water", "ember": "boost", "starlight": "diamond", "breeze": "coin"}
+const BUCKET_CELL_GRANTS := [2, 1, 2, 1, 2]
+
 # Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 resident costs coins.
 const RESIDENT_BASE_COST := 40           # 🪙 to welcome a t1 resident
 const RESIDENT_PREMIUM_COST := 3         # 💎 vestigial — no line is premium in the one-line-per-map model (kept for resident_cost compat)
@@ -331,7 +341,7 @@ const SPECIAL_ITEMS := {
 	11: {"name": "Key",   "base": "key",   "kind": "key", "desc": "Drag onto a chest to open it. Better keys improve the reward."},     # merges; opens a chest
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "top": 12, "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
-	14: {"name": "Spark", "base": "spark", "kind": "exp", "desc": "Tap again to gain exp. Merge first for more."},     # merges; tap-collect → exp
+	14: {"name": "Spark", "base": "spark", "kind": "coins", "desc": "Tap again to collect coins. Merge first for more."},     # merges; tap-collect → coins (organic, clock-advancing)
 	# wildcard — a full 12-tier line (overrides SPECIAL_TOP) so a high-tier wildcard can advance high-tier
 	# items; art PENDING (code-drawn from `color` until the 12-tier sprite lands, §6.B/#5).
 	15: {"name": "Wildcard", "base": "wildcard", "kind": "wildcard", "top": 12, "color": Color("#C77DD9"), "desc": "Drag onto a same-tier item to raise it one tier."},  # self-merges up to 12; OR advances any same-tier item
@@ -348,7 +358,7 @@ const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the
 		1: 1, 2: 2, 3: 5, 4: 11, 5: 23, 6: 52,
 		7: 113, 8: 249, 9: 549, 10: 1207, 11: 2656, 12: 5843,
 	},
-	"exp":   {1: 5, 2: 12, 3: 30},
+	"coins": {1: 5, 2: 12, 3: 30},   # the Spark (was the exp special — coin-clock redesign)
 }
 const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
 const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
@@ -397,6 +407,41 @@ const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at rando
 	"items/generator/gen_wildflowerarch.png",
 ]
 
+# --- THE HOME (build-and-upgrade redesign, spec 2026-07-17) --------------------------------------
+# One evolving home world of coin-built, level-gated buildings. Each building goes up in STEPS
+# (cost coins, gated by the coin-clock Level — the capacity brake); the completing step grants
+# its `cells` to the resident bucket. `shows` = the art state rendered once that step is PAID
+# (the zone manifest maps state ids → prop textures; home_build.state_id resolves it).
+# Ids match the layered cut-paper manifest (assets/map/home/zone_farmhouse.json).
+# ALL numbers PROVISIONAL — owned by the economy-sim re-pass (spec §4): step costs must keep
+# the no-strand invariant (an affordable next step at nominal coin flow) and total cells ≈ 8.
+const BUILDINGS := [
+	{"id": "fh_hearth", "name": "Farmhouse", "cells": 2, "steps": [
+		{"cost": 10, "min_level": 1, "shows": "site"},
+		{"cost": 25, "min_level": 2, "shows": "site"},
+		{"cost": 40, "min_level": 3, "shows": "built"}], "customizations": []},
+	{"id": "fh_boxes", "name": "Flower Boxes", "cells": 1, "steps": [
+		{"cost": 15, "min_level": 2, "shows": "site"},
+		{"cost": 30, "min_level": 3, "shows": "built"}], "customizations": []},
+	{"id": "fh_kitchen", "name": "Kitchen Garden", "cells": 1, "steps": [
+		{"cost": 30, "min_level": 4, "shows": "site"},
+		{"cost": 50, "min_level": 5, "shows": "site"},
+		{"cost": 80, "min_level": 6, "shows": "built"}], "customizations": []},
+	{"id": "fh_well", "name": "Roofed Well", "cells": 1, "steps": [
+		{"cost": 60, "min_level": 7, "shows": "site"},
+		{"cost": 100, "min_level": 8, "shows": "built"}], "customizations": []},
+	{"id": "fh_larder", "name": "Larder Shed", "cells": 1, "steps": [
+		{"cost": 90, "min_level": 9, "shows": "site"},
+		{"cost": 140, "min_level": 10, "shows": "site"},
+		{"cost": 200, "min_level": 11, "shows": "built"}], "customizations": []},
+	{"id": "fh_lantern", "name": "Lantern Gate", "cells": 1, "steps": [
+		{"cost": 160, "min_level": 12, "shows": "site"},
+		{"cost": 240, "min_level": 13, "shows": "built"}], "customizations": []},
+	{"id": "fh_porch", "name": "Doghouse", "cells": 1, "steps": [
+		{"cost": 220, "min_level": 14, "shows": "site"},
+		{"cost": 320, "min_level": 15, "shows": "built"}], "customizations": []},
+]
+
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside
 # interior; discrete maps reached via a map-select. `hub: true` marks the permanent home hub (the
@@ -426,73 +471,14 @@ static func _build_maps() -> Array:
 		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305)},
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182)},
 	]},
-	{"id": "barn", "name": "The Orchard", "spots": [
-		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},
-		{"id": "bn_stool", "name": "Milking stool", "cost": 4, "pos": Vector2(0.55, 0.30)},
-		{"id": "bn_churns", "name": "Milk churns", "cost": 4, "pos": Vector2(0.70, 0.62)},
-		{"id": "bn_trough", "name": "Water trough", "cost": 4, "pos": Vector2(0.25, 0.80)},
-		{"id": "bn_lantern", "name": "Lantern post", "cost": 4, "pos": Vector2(0.45, 0.20)},
-		{"id": "bn_cart", "name": "Hay cart", "cost": 5, "pos": Vector2(0.80, 0.78)},
-		{"id": "bn_coop", "name": "Hen coop", "cost": 5, "pos": Vector2(0.15, 0.40)},
-		{"id": "bn_plow", "name": "Old plow", "cost": 5, "pos": Vector2(0.60, 0.85)},
-	]},
-	{"id": "pond", "name": "The Garden", "spots": [
-		{"id": "pd_dock", "name": "Little dock", "cost": 4, "pos": Vector2(0.30, 0.60)},
-		{"id": "pd_lilies", "name": "Lily pads", "cost": 4, "pos": Vector2(0.60, 0.70)},
-		{"id": "pd_reeds", "name": "Reeds", "cost": 4, "pos": Vector2(0.20, 0.35)},
-		{"id": "pd_bench", "name": "Mossy bench", "cost": 4, "pos": Vector2(0.75, 0.40)},
-		{"id": "pd_stones", "name": "Stepping stones", "cost": 5, "pos": Vector2(0.45, 0.85)},
-		{"id": "pd_willow", "name": "Willow", "cost": 5, "pos": Vector2(0.85, 0.25)},
-		{"id": "pd_boat", "name": "Rowboat", "cost": 5, "pos": Vector2(0.55, 0.45)},
-		{"id": "pd_fireflies", "name": "Firefly jar", "cost": 5, "pos": Vector2(0.15, 0.75)},
-	]},
-	{"id": "orchard", "name": "The Mill", "spots": [
-		{"id": "or_rows", "name": "Apple rows", "cost": 4, "pos": Vector2(0.30, 0.50)},
-		{"id": "or_ladder", "name": "Picker's ladder", "cost": 4, "pos": Vector2(0.55, 0.35)},
-		{"id": "or_baskets", "name": "Fruit baskets", "cost": 4, "pos": Vector2(0.70, 0.70)},
-		{"id": "or_press", "name": "Cider press", "cost": 5, "pos": Vector2(0.25, 0.80)},
-		{"id": "or_hives", "name": "Beehives", "cost": 5, "pos": Vector2(0.80, 0.45)},
-		{"id": "or_swing", "name": "Tree swing", "cost": 5, "pos": Vector2(0.45, 0.20)},
-		{"id": "or_scarecrow", "name": "Scarecrow", "cost": 5, "pos": Vector2(0.15, 0.30)},
-		{"id": "or_wagon", "name": "Apple wagon", "cost": 5, "pos": Vector2(0.60, 0.85)},
-	]},
-	{"id": "meadow", "name": "The Gate", "spots": [
-		{"id": "md_path", "name": "Wildflower path", "cost": 4, "pos": Vector2(0.35, 0.60)},
-		{"id": "md_picnic", "name": "Picnic blanket", "cost": 4, "pos": Vector2(0.60, 0.75)},
-		{"id": "md_kite", "name": "Kite", "cost": 5, "pos": Vector2(0.70, 0.25)},
-		{"id": "md_brook", "name": "Brook bridge", "cost": 5, "pos": Vector2(0.25, 0.40)},
-		{"id": "md_stand", "name": "Lemonade stand", "cost": 5, "pos": Vector2(0.80, 0.55)},
-		{"id": "md_garden", "name": "Secret garden", "cost": 5, "pos": Vector2(0.15, 0.75)},
-		{"id": "md_telescope", "name": "Stargazer", "cost": 5, "pos": Vector2(0.50, 0.30)},
-		{"id": "md_arch", "name": "Rose arch", "cost": 5, "pos": Vector2(0.45, 0.85)},
-	]},
+	# Maps 2-5 (barn/pond/orchard/meadow) retired with the discrete-map model (home build-and-upgrade
+	# redesign, spec 2026-07-17): one evolving home world now. Their per-map RESIDENT_LINES / reward
+	# rows are kept as dormant data (harmless extra keys) until the economy-sim re-pass revisits them.
 	]
-	return _apply_vine_maps(maps)
-
-# Overlay the vine mask tool's maps onto the hardcoded slots, positionally: slot i becomes vine-driven
-# from the i-th maps.json entry when present. The slot KEEPS its id/name/hub (so saves + progression +
-# map_for_id stay stable); only its rendering (`vine`) and `spots` (one per region) change. Slots with
-# no matching tool entry are left exactly as-is. Any missing/unparseable tool file => no overlay (the
-# game falls back to the legacy maps), so this can never break the build.
-static func _apply_vine_maps(maps: Array) -> Array:
-	var entries := VineMaps.entries()
-	for i in range(mini(entries.size(), maps.size())):
-		var entry: Dictionary = entries[i]
-		# Guard: only overlay once the entry's base art is actually imported. A half-added map (registered
-		# in maps.json but not yet copied/imported into assets/map) leaves its legacy slot intact rather
-		# than blanking it.
-		var base := String(entry.get("base", ""))
-		if base == "" or not ResourceLoader.exists(base):
-			continue
-		# Overlay positionally: the slot keeps its id/name/hub but renders vine-driven. Spots are one per
-		# region; a map whose regions aren't authored YET overlays with an EMPTY spot list, so its clean
-		# base art shows immediately (map.gd renders base-only when there are no regions) without becoming
-		# "complete" — map_spots_done is false for a spot-less map, so it never auto-unlocks the next map
-		# or invites residents. Each region the tool authors then appears in-game on the next open.
-		maps[i]["vine"] = entry
-		maps[i].erase("home")   # vine rendering supersedes the §16 mask-reveal home for this slot
-		maps[i]["spots"] = VineMaps.spots_for(String(maps[i].id), entry)
 	return maps
+
+# (The vine-mask overlay `_apply_vine_maps` was retired with the discrete-map / mask-reveal model —
+# the home build-and-upgrade redesign renders the layered cut-paper zone instead, spec 2026-07-17.)
 
 
 # Level-up energy gift. Loosened (20 → 40) to LOOSEN THE EARLY GAME: with the front-loaded level curve below,
@@ -513,6 +499,11 @@ const LEVEL_WATER_GIFT := 40
 # grove_sim); these consts are only the absent-JSON FALLBACK. RE-TUNE on grove_sim (the pacing sim is the judge).
 const LEVEL_BASE_EXP := 40        # FALLBACK first level-up cost — the live value is economy_tuning.json (cheap early)
 const LEVEL_STEP_EXP := 3         # FALLBACK per-level ramp — the live step is higher to absorb the §7 exp ramp
+# The COIN clock (home redesign): level derives from LIFETIME ORGANIC coin earnings
+# (Save.coins_earned_lifetime) through the same gentle arithmetic curve shape.
+# PROVISIONAL — owned by the economy-sim re-pass (spec 2026-07-17 §4).
+const LEVEL_BASE_COINS := 30      # first level-up: ~a few early quests' coins
+const LEVEL_STEP_COINS := 12      # per-level ramp
 
 # (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-

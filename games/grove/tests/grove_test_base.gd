@@ -138,6 +138,9 @@ func _panel_count(area: Control) -> int:
 			n += 1
 	return n
 
+const HomeAdapter = preload("res://engine/scripts/core/home.gd")
+const HomeBld = preload("res://engine/scripts/core/home_build.gd")
+
 func fresh(name: String) -> void:
 	var dir := "user://tu_test_grove_" + name + "/"
 	if DirAccess.dir_exists_absolute(dir):
@@ -146,6 +149,15 @@ func fresh(name: String) -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
+
+# Complete EVERY home building (wallet-free), the shared way suites open the resident bucket now that
+# cells come from built buildings (spec 2026-07-17) — replaces the old "restore all map spots".
+func build_all_buildings() -> void:
+	var st := HomeAdapter.state()
+	for d in HomeAdapter.defs():
+		while HomeBld.buy_step(st, d):
+			pass
+	Save.grove_write()
 
 
 func begin(title: String) -> void:
@@ -188,18 +200,12 @@ func _test_residents() -> void:
 	ok(_rart == "" or _rart.ends_with(".png"), "resident_art resolves a type to an art path (or empty under the placeholder root)")
 
 	# 1. EARLY POPULATE GATE: can_populate opens as soon as the FIRST spot is restored (not full
-	# completion); the roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as the rest come in.
+	# completion) — it gates the acquire loop (Expedition). Bucket CELLS come only from full completion
+	# (Bucket.cells_total, BUCKET_CELL_GRANTS; covered in grove_residents_tests + bucket_adapter_tests).
 	fresh("residents_gate")
 	var first_spot := String(G.MAPS[z].spots[0].id)
-	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true                                # all spots restored
 	ok(not G.can_populate(z, {}, []), "can_populate is FALSE before any spot is restored")
 	ok(G.can_populate(z, {first_spot: true}, []), "can_populate OPENS once the first spot is restored")
-	ok(G.resident_capacity(z, {first_spot: true}) == 1, "capacity is 1 at the first restored spot")
-	ok(G.resident_capacity(z, unl) == G.RESIDENT_SLOTS_MAX, "capacity reaches RESIDENT_SLOTS_MAX when all spots are restored")
-	# (the live roster CAP is enforced by Habitat — Habitat.cap reads resident_capacity, is_full/sell guard +
-	# free slots; covered in grove_residents_tests. Here we cover the early-open + the capacity ramp only.)
 
 	# 2. WELCOME spends + adds a t1. A core welcome debits coins and pushes the t1 count to 1.
 	fresh("residents_welcome")
@@ -293,9 +299,10 @@ func _test_unlock_rewards() -> void:
 	ok(bool(wr.ok) and Save.coins() == wc_before - G.RESIDENT_BASE_COST, "welcome_resident still debits the cost")
 	ok(Save.resident_counts(mid, gid)[0] == 1, "welcome_resident still lands a t1")
 
-	# claim_unlock_reward grants coins + gems + the free spirit ONCE per map; a second claim is a no-op.
+	# claim_unlock_reward grants coins + gems ONCE per map (the free spirit moved to COMPLETION);
+	# a second claim is a no-op. claim_completion_spirit pays the spirit kind once, at completion.
 	fresh("claim_unlock_once")
-	var cz := 1                                       # map 1 (Orchard): 200 coins, 3 gems, resident line "sprout"
+	var cz := 1                                       # map 1: 200 coins, 3 gems; signature line "sprout"
 	var cmid := String(G.MAPS[cz].id)
 	var coins0 := Save.coins()
 	var gems0 := Save.diamonds()
@@ -303,12 +310,15 @@ func _test_unlock_rewards() -> void:
 	ok(int(got.coins) == 200 and int(got.gems) == 3, "first claim returns the scaled reward (200c / 3g)")
 	ok(Save.coins() == coins0 + 200, "coins credited")
 	ok(Save.diamonds() == gems0 + 3, "diamonds credited")
-	ok(Save.resident_counts(cmid, String(got.spirit))[0] == 1, "the free signature spirit lands in the roster")
+	ok(not got.has("spirit"), "the unlock claim no longer pays the free spirit (moved to completion)")
+	ok(Save.resident_counts(cmid, "sprout")[0] == 0, "no spirit lands in any roster at the unlock beat")
 	var coins1 := Save.coins()
 	var gems1 := Save.diamonds()
 	var again: Dictionary = G.claim_unlock_reward(cz)
 	ok(again.is_empty(), "a second claim returns {} (already claimed)")
 	ok(Save.coins() == coins1 and Save.diamonds() == gems1, "a second claim grants nothing more")
+	ok(G.claim_completion_spirit(cz) == "sprout", "the completion claim pays the map's signature spirit kind")
+	ok(G.claim_completion_spirit(cz) == "", "the completion spirit pays exactly once")
 
 # §1 · the residents SHOP card data: one card per offered resident, correct price/currency, and an
 # affordability flag that reflects the live wallet.

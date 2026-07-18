@@ -12,7 +12,7 @@ const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")   # map-3 free boost charges, spent on the board chip
+const Bucket = preload("res://engine/scripts/core/bucket.gd")   # boost-line charges, spent on the board chip
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -43,7 +43,7 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
-const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
+const Home = preload("res://engine/scripts/core/home.gd")   # the home build adapter (the Home CTA reads any_buyable)
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
 const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
@@ -638,14 +638,7 @@ func _load_state() -> void:
 		# asks for their line and the player lacks the generator; see Quests.due_gen / _produce_due_generators.
 		board.seed_gens(0, _quest_level())
 		save_dirty = true
-	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
-	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
-	# a save whose gate write was missed — a pre-§7 save (gate quest retired), or one whose spot ids were
-	# remapped between builds so the old one-shot `if not has("gates")` guard recorded an empty gates and
-	# then never ran again, stranding the player on a finished map.
-	if G.reconcile_gates(Save.grove()):
-		Save.grove_write()
-	if quests_map != _quest_map():        # never-seeded (pre-§7 save) or crossed into a new map
+	if quests_map != _quest_map():        # never-seeded save, or the level crossed into a new band
 		_init_quests()
 	else:
 		_refill_quests()                    # top up / trim the live fence to the current meter
@@ -717,29 +710,26 @@ func _apply_regen(now: float) -> void:
 	_regen_ts = float(r.regen_ts)
 
 # --- §7 live generated-quest fence ------------------------------------------------
-# Gates delivered so far (map indices) — the §7 completion chain; persisted in the save.
-func _gates() -> Array:
-	return Save.grove().get("gates", [])
+# The single progression total — the COIN CLOCK (cumulative organic coin earnings); drives the
+# level, the fence meter, and the vase (coin-clock redesign, spec 2026-07-17).
+func _earned() -> int:
+	return Save.coins_earned_lifetime()
 
-# The map currently being restored (its generators/lines are live). Clamped to a valid map.
+# The reward BAND the fence currently pays at (the retired "current map" axis, now level-derived).
 func _quest_map() -> int:
-	return Quests.current_map(Save.grove().get("unlocks", {}), _gates())
-
-# The single progression total — drives the cosmetic level, the fence meter, and every gate.
-func _exp() -> int:
-	return Save.exp_total()
+	return Quests.current_band(_quest_level())
 
 func _quest_level() -> int:
-	return G.level_for_exp(_exp())
+	return G.level()
 
-# §7 fence sizing: how many stands the fence shows, metered to the whole map's remaining exp.
+# §7 fence sizing: how many stands the fence shows, metered to the remaining content arc.
 func _meter_target() -> int:
-	return Quests.meter_target(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
+	return Quests.meter_target(_earned())
 
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
-# via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
+# via the rng.
 func _refill_quests() -> void:
-	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, _exp(), _quest_level(), rng, _recent_items)
+	quests = Quests.refill(quests, _quest_map(), board.gens, board.gen_bag, _earned(), _quest_level(), rng, _recent_items)
 	_assign_givers()                          # give each new quest a face distinct from every other live stand
 
 # Each quest carries a stable `giver` index (the portrait shown on its stand). A NEW quest is assigned a
@@ -779,17 +769,10 @@ func _persist() -> void:
 	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
 
-func _spots_bought() -> int:
-	return Save.grove().get("unlocks", {}).size()   # the count of home spots bought
-
-func _map_done() -> bool:                     # every map fully complete (spots + gate) — no frontier left
-	return Quests.map_done(Save.grove().get("unlocks", {}), _gates())
-
-# the restore CTA: ready once the CURRENT map's cheapest level-affordable spot is affordable.
-# Scoped to the frontier map; a fully-restored map auto-unlocks the next one (spots-done),
-# so a map with no remaining spots is NOT "ready to restore" — there is nothing left to buy.
+# the build CTA: ready when SOME home building step is buyable right now (level + wallet) —
+# the Home button breathes to say "go build" (the restore-spot read, re-pointed at the adapter).
 func _gate_ready() -> bool:
-	return Quests.gate_ready(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
+	return Home.any_buyable()
 
 # --- HUD ------------------------------------------------------------------------
 
@@ -945,7 +928,7 @@ func _update_hud() -> void:
 	# The decorate invitation now rides on the centre Home button (the standalone CTA is gone):
 	# light it up the moment the frontier map has a spot the player can afford; a fully-done
 	# game (no frontier left) leaves it resting.
-	_set_home_ready(not _map_done() and _gate_ready())
+	_set_home_ready(_gate_ready())
 
 # The Home button is the way back to the decorate hub, so the "you can afford a spot" cue lives
 # ON it now: a gentle breathe. On the board stars
@@ -1080,10 +1063,10 @@ func _rebuild_givers() -> void:
 # only once affordable — advertising progress toward the next region. It greys out until the cheapest
 # region is affordable, then lights + breathes (the SAME gate_ready signal the Home button uses).
 func _show_purge_card() -> bool:
-	return Quests.purge_state(_quest_map(), _exp(), Save.grove().get("unlocks", {}), _gates()).show
+	return Quests.purge_state(_earned()).show
 
 func _purge_progress() -> float:
-	return Quests.purge_progress(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
+	return Quests.purge_progress(_earned())
 
 # A special fence card: progress percent over the water vase, tapped to go HOME and restore regions.
 # It ALWAYS shows while a frontier remains; the vase fills from the previous claimed threshold to the
@@ -1133,7 +1116,6 @@ func _make_purge_card(stand_w: float) -> Control:
 	var purge_go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
-		HomeScene.decorate_map = _decorate_target()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 	_stand_tap(stand, purge_go)
 	stand.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -1155,9 +1137,9 @@ func _animate_purge_vase_from(previous_progress: float, show_drop: bool = false)
 	if now >= 1.0:
 		FX.breathe_once(_purge_vase)
 
-func debug_add_exp(amount: int = 5) -> void:
+func debug_add_progress(amount: int = 5) -> void:
 	var before_purge := _purge_progress()
-	G.earn_exp(amount)
+	G.earn_coins(amount)                  # organic — advances the coin clock like real play
 	if is_inside_tree():
 		_rebuild_givers()
 		_refresh_locked_cells()
@@ -1304,7 +1286,7 @@ func _refresh_giver_lights() -> void:
 # tap-to-deliver both fall quiet together — the SAME gate the giver ✓/bob read.
 func _asked_codes() -> Dictionary:
 	var out := {}
-	if Quests.fence_inert(_quest_map(), _exp(), Save.grove().get("unlocks", {})):
+	if Quests.fence_inert(_earned()):
 		return out
 	for q in quests:
 		var it := G.quest_item(q)
@@ -1315,7 +1297,7 @@ func _asked_codes() -> Dictionary:
 # The index of the first live, non-inert quest asking for `code` (the leftmost giver in fence order),
 # or -1 when nothing wants it. Drives the board-side second-tap: a focused, glowing tile delivers here.
 func _quest_for_code(code: int) -> int:
-	if Quests.fence_inert(_quest_map(), _exp(), Save.grove().get("unlocks", {})):
+	if Quests.fence_inert(_earned()):
 		return -1
 	for i in quests.size():
 		var it := G.quest_item(quests[i])
@@ -1746,7 +1728,6 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
-		HomeScene.decorate_map = _decorate_target()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn"))
 	return b
 
@@ -1871,8 +1852,6 @@ func _item_description_for_cell(cell: Vector2i, code: int) -> String:
 				return "Tap again to collect %d %s." % [amount, "acorn" if amount == 1 else "acorns"]
 			"water":
 				return "Tap again to collect %d water." % amount
-			"exp":
-				return "Tap again to gain %d exp." % amount
 	return G.item_description(code)
 
 # T54 — select a GENERATOR into the info bar (after a tap pops it): its sprite + name (+ the live boost
@@ -2018,7 +1997,7 @@ func _refresh_burst_chip() -> void:
 	if _info_burst == null or not is_instance_valid(_info_burst):
 		return
 	var cost := G.boost_cost()
-	var free := Habitat.boost_charges() > 0           # §10: a stockpiled map-3 charge pays for the next boost
+	var free := Bucket.boost_charges() > 0           # §10: a stockpiled boost-line charge pays for the next boost
 	var live := _selected_cell.x >= 0 and board.is_gen_boosted(_selected_cell)   # THIS generator already boosted
 	var ready := (free or Save.coins() >= cost) and not live   # full-color only when arming one now would work
 	for c in _info_burst_coin.get_children():
@@ -2800,8 +2779,8 @@ func _gen_boost_bonus(cell: Vector2i) -> int:
 func _activate_gen_boost(cell: Vector2i) -> bool:
 	if not board.is_gen(cell) or board.is_gen_boosted(cell):
 		return false
-	if Habitat.boost_charges() > 0:
-		Habitat.spend_boost_charge()       # §10: a free map-3 charge arms it for free (spent on the board)
+	if Bucket.boost_charges() > 0:
+		Bucket.spend_boost_charge()       # §10: a free boost-line charge arms it for free (spent on the board)
 	elif not Save.spend(G.BOOST_COST, "boost"):
 		return false
 	board.arm_gen_boost(cell, G.BOOST_TAPS)
@@ -3502,7 +3481,7 @@ func _end_bag_drag(gpos: Vector2) -> void:
 func _quest_is_inert(qi: int) -> bool:
 	if qi < 0 or qi >= quests.size():
 		return false
-	return Quests.fence_inert(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
+	return Quests.fence_inert(_earned())
 
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 	if _quest_is_inert(qi):
@@ -3548,7 +3527,6 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 	# (the ONE place exp earns), pay the coin faucet — lives in the pure, headless-tested action. The scene
 	# below is render-only: it reads the returned outcome to drive the fly, reward FX, level dialog, vase.
 	var out := BoardActions.deliver_quest(board, quests, _recent_items, qi, cell)
-	var sp_exp := int(out.exp)
 	var sp_coins := int(out.coins)
 	var levels_up := int(out.levels_up)
 	var n: Control = piece_nodes.get(cell)
@@ -3562,7 +3540,6 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 		t.chain().tween_callback(n.queue_free)
 	# (generators are no longer delivered here — they arrive when a generator tap produces a DUE tool;
 	#  see _produce_due_generators in _pop_seed.)
-	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_exp, STRAW)
 	if sp_coins > 0:
 		var quest_coin_done := func() -> void:
 			if is_instance_valid(self):
@@ -3733,7 +3710,7 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 func _grant_sale(code: int, node: Control) -> void:
 	var reward := G.sell_reward(code)        # Vector2i(coins, diamonds)
 	if reward.x > 0:
-		Save.add_coins(reward.x)
+		Save.earn_coins(reward.x)            # organic — sale coins advance the clock (sim watches sell-farming)
 	if reward.y > 0:
 		Save.add_diamonds(reward.y)
 		Vault.skim(reward.y)                  # T44 SKIM-SITE 3/3 (t8-sell): the piggy bank skims a slice of the t8 premium sale (§10)
@@ -3790,8 +3767,5 @@ func _ladder_header(line: int) -> Dictionary:
 func _ladder_line_name(line: int) -> String:
 	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))
 
-# The map→Map handoff target (req 3/4): ALWAYS the latest not-fully-unlocked map (the frontier), falling
-# back to the FIRST map once the whole grove is restored. Shared by the nav Home button and the Purge card
-# — both now take the player to the map they should be working on, not wherever they last browsed.
-func _decorate_target() -> String:
-	return Quests.home_map_id(Save.grove().get("unlocks", {}), _gates())
+# The board→Home handoff (req 3/4): ONE evolving home world now — the target is always the home
+# scene itself (the per-map decorate jump retired with the map-select).

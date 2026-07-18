@@ -28,6 +28,7 @@ const POP_LINE_CAP_Z1 = D.POP_LINE_CAP_Z1   # §6 the tighter zone-1 (Farmhouse)
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
+const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
 const GEN_TOP_TIER = D.GEN_TOP_TIER
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
@@ -103,6 +104,8 @@ const TREAT_GEN_TEX = D.TREAT_GEN_TEX
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 static var LEVEL_BASE_EXP: int = D.LEVEL_BASE_EXP   # OWNER DIAL — the level curve, live-overridable (apply_tuning)
 static var LEVEL_STEP_EXP: int = D.LEVEL_STEP_EXP   # OWNER DIAL — live-overridable (apply_tuning)
+static var LEVEL_BASE_COINS: int = D.LEVEL_BASE_COINS   # OWNER DIAL — the COIN clock curve (home redesign), live-overridable
+static var LEVEL_STEP_COINS: int = D.LEVEL_STEP_COINS   # OWNER DIAL — live-overridable
 static var ENDGAME_CLICKS: int = D.ENDGAME_CLICKS   # OWNER DIAL — whole-arc click budget (anchor; economy_tuning.json)
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 
@@ -133,6 +136,10 @@ static func apply_tuning(path: String = "") -> PackedStringArray:
 		LEVEL_BASE_EXP = maxi(1, int(t["level_base_exp"]));   applied.append("level_base_exp")
 	if t.has("level_step_exp"):
 		LEVEL_STEP_EXP = maxi(0, int(t["level_step_exp"]));   applied.append("level_step_exp")
+	if t.has("level_base_coins"):
+		LEVEL_BASE_COINS = maxi(1, int(t["level_base_coins"]));   applied.append("level_base_coins")
+	if t.has("level_step_coins"):
+		LEVEL_STEP_COINS = maxi(0, int(t["level_step_coins"]));   applied.append("level_step_coins")
 	if t.has("quest_clicks_per_exp"):
 		QUEST_CLICKS_PER_EXP = maxi(1, int(t["quest_clicks_per_exp"]));  applied.append("quest_clicks_per_exp")
 	if t.has("endgame_clicks"):
@@ -277,8 +284,17 @@ static func anchor_gen() -> String:
 # zone → which of the 5 maps it sits in. Zone = restoration spot, so a zone's map IS its spot's map:
 # derived live from the MAPS spot counts (map_for_spots), never a hardcoded distribution — so it can't
 # drift from the vine-region layout the way the old ZONE_MAP_SPOTS const did.
+# The BAND index of zone z — the retired "map" axis, kept for the per-band coin/sell curves
+# (QUEST_CLICKS_PER_COIN / SELL_MAP_BAND index). Cumulative over D.ZONE_BAND, the FROZEN
+# [6,4,7,4,4] zone counts of the retired 5-map world — so every band boundary and price
+# curve keeps its exact pre-redesign value.
 static func zone_map(z: int) -> int:
-	return map_for_spots(z)
+	var acc := 0
+	for b in D.ZONE_BAND.size():
+		acc += int(D.ZONE_BAND[b])
+		if z < acc:
+			return b
+	return D.ZONE_BAND.size() - 1
 
 # The zone a line is introduced at (inverse of zone_line); -1 if the line is not in the zone roster.
 static func zone_of_line(line: int) -> int:
@@ -451,26 +467,26 @@ static func quest_item(q: Dictionary) -> Dictionary:
 static func tier_clicks(t: int) -> int:
 	return int(pow(2, maxi(1, t) - 1))
 
-## EFFORT-BASED quest reward, keyed on the asked TIER and the MAP (§7). The whole economy is priced
-## in clicks (= the effort to build the asked item):
-##   exp   = round(clicks / QUEST_CLICKS_PER_EXP × exp_mult)             — exp_mult carries the per-line RANK ramp (1.0 at the first line)
-##   coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × depth^(tier-base)) — later maps + deeper merges pay more
-##   acorns= NONE (acorns are milestone/IAP only — Option A). `map` is 0-indexed; defaults to map 1.
-## `exp_mult` lifts EXP ONLY (coins keep their per-map curve); gen_quest supplies it via quest_reward_for_line.
-## All numbers OWNER/SIM tunables (grove_data); validated against the 100K-click budget (docs/economy_model.html).
+## EFFORT-BASED quest reward, keyed on the asked TIER and the band (§7 — COINS ONLY since the
+## coin-clock redesign, spec 2026-07-17: quests no longer pay exp; the coin faucet IS the
+## progression clock). The whole economy is priced in clicks (= the effort to build the item):
+##   coins = round(clicks / QUEST_CLICKS_PER_EXP × exp_mult)                — the folded PROGRESSION slice
+##         + round(clicks / QUEST_CLICKS_PER_COIN[map] × depth^(tier-base)) — the per-band SPENDING slice
+## The old exp component folds into coins 1:1 so the clock advances at the old exp pace; `exp_mult`
+## still carries the per-line RANK ramp (later lines pay more). PROVISIONAL — sim re-pass re-tunes.
 static func quest_reward(tier: int, map: int = 0, exp_mult: float = 1.0) -> Dictionary:
 	var c := float(tier_clicks(tier))
 	var cpc_arr: Array = QUEST_CLICKS_PER_COIN
 	var cpc: float = float(cpc_arr[clampi(map, 0, cpc_arr.size() - 1)]) if not cpc_arr.is_empty() else 8.0
 	var depth: float = pow(QUEST_COIN_DEPTH, maxi(0, tier - QUEST_TIER_BASE))
-	return {
-		"exp": maxi(1, int(round(c / float(QUEST_CLICKS_PER_EXP) * maxf(0.0, exp_mult)))),
-		"coins": maxi(0, int(round(c / cpc * depth))),
-	}
+	var progression := maxi(1, int(round(c / float(QUEST_CLICKS_PER_EXP) * maxf(0.0, exp_mult))))
+	var spending := maxi(0, int(round(c / cpc * depth)))
+	return {"coins": progression + spending}
 
-## §7 per-line EXP power ramp: a base line's exp multiplier, LINEAR from 1.0 (the first base line) to
-## QUEST_EXP_LINE_SPREAD (the last) by its rank in ZONE_BASE_LINES — later/more-powerful lines pay more exp
-## for the same tier. 1.0 for a non-base line (a special derives its reward from its sources, not this ramp).
+## §7 per-line reward power ramp: a base line's multiplier on the PROGRESSION slice of the coin
+## reward, LINEAR from 1.0 (the first base line) to QUEST_EXP_LINE_SPREAD (the last) by its rank in
+## ZONE_BASE_LINES — later/more-powerful lines pay more for the same tier. 1.0 for a non-base line
+## (a special derives its reward from its sources, not this ramp).
 static func line_exp_mult(line: int) -> float:
 	var idx := ZONE_BASE_LINES.find(int(line))
 	if idx < 0 or ZONE_BASE_LINES.size() <= 1:
@@ -478,24 +494,20 @@ static func line_exp_mult(line: int) -> float:
 	var frac := float(idx) / float(ZONE_BASE_LINES.size() - 1)   # 0..1 across the base-line roster
 	return 1.0 + (float(QUEST_EXP_LINE_SPREAD) - 1.0) * frac
 
-## §7 LINE-AWARE reward — the reward gen_quest actually pays. A BASE line scales its EXP by line_exp_mult
-## (later lines pay more) and keeps the per-map coin curve. A SPECIAL/merger line has no base reward of its
-## own: it pays QUEST_MERGE_REWARD_FACTOR × the COMBINED reward (exp AND coins) of its two recipe source lines
-## at the same tier, each valued in its OWN map — so a merger inherits all per-line scaling and is worth ~20%
-## more than its two ingredients combined. Recursion bottoms out: a special's recipe is always two BASE lines.
+## §7 LINE-AWARE reward — the reward gen_quest actually pays (COINS ONLY). A BASE line scales the
+## progression slice by line_exp_mult (later lines pay more) and keeps the per-band spending curve.
+## A SPECIAL/merger line has no base reward of its own: it pays QUEST_MERGE_REWARD_FACTOR × the
+## COMBINED coins of its two recipe source lines at the same tier, each valued in its OWN band — so a
+## merger inherits all per-line scaling and is worth ~20% more than its two ingredients combined.
+## Recursion bottoms out: a special's recipe is always two BASE lines.
 static func quest_reward_for_line(line: int, tier: int, map: int = 0) -> Dictionary:
 	if ZONE_SPECIAL_LINES.has(int(line)):
 		var z := zone_of_line(int(line))
-		var exp_sum := 0.0
 		var coin_sum := 0.0
 		for s in (zone_recipe(z) if z >= 0 else []):
 			var sr := quest_reward_for_line(int(s), tier, zone_map(zone_of_line(int(s))))
-			exp_sum += float(sr.exp)
 			coin_sum += float(sr.coins)
-		return {
-			"exp": maxi(1, int(round(exp_sum * float(QUEST_MERGE_REWARD_FACTOR)))),
-			"coins": maxi(0, int(round(coin_sum * float(QUEST_MERGE_REWARD_FACTOR)))),
-		}
+		return {"coins": maxi(1, int(round(coin_sum * float(QUEST_MERGE_REWARD_FACTOR))))}
 	return quest_reward(tier, map, line_exp_mult(int(line)))
 
 ## The diamond-priced quest-reward 2× DOUBLER (§10). Pure economy helpers — the board UI reads
@@ -555,8 +567,8 @@ static func _all_avoided(items: Array, avoid: Array) -> bool:
 ## repeats one of the previous few — variety can come from a different TIER of the same line, not only a
 ## different line. If the pool is too small to honour the whole window, it relaxes from the oldest end
 ## until one item is free, so no two asks in a row repeat while >1 item exists (anti-monotony, §7).
-## Reward is LINE-AWARE (quest_reward_for_line): exp scales by the line's RANK (later lines pay more), coins by
-## `map`; a merger/special line pays QUEST_MERGE_REWARD_FACTOR × its two sources combined. No acorns. Deterministic given `rng`.
+## Reward is LINE-AWARE (quest_reward_for_line, COINS ONLY): the progression slice scales by the line's RANK, the
+## spending slice by `map` band; a merger/special pays QUEST_MERGE_REWARD_FACTOR × its two sources combined. Deterministic given `rng`.
 ## Returns {line, tier, reward, featured}. All numbers OWNER/SIM tunables (docs/economy_model.html).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = [], map: int = 0) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
@@ -664,7 +676,8 @@ static func boost_bonus() -> int:
 
 ## Can the player welcome residents on map `z`? §1 EARLY POPULATION — opens as soon as the FIRST spot is
 ## restored (not full completion). The roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as more spots are
-## restored (`resident_capacity`). `gates` is retained for signature compatibility (no longer gates the open).
+## restored — it gates the ACQUIRE loop. `gates` is retained for signature compatibility. Bucket CELLS are
+## a separate, stricter gate: only FULL completion grants them (bucket.gd cells_total / BUCKET_CELL_GRANTS).
 static func can_populate(z: int, unlocks: Dictionary, _gates: Array = []) -> bool:
 	return map_spots_restored(z, unlocks) >= 1
 
@@ -677,21 +690,7 @@ static func map_spots_restored(z: int, unlocks: Dictionary) -> int:
 			n += 1
 	return n
 
-## The resident SLOT capacity on map `z`: 1 at the first restored spot, ramping linearly to
-## RESIDENT_SLOTS_MAX once every spot is restored. 0 before any spot (roster not open). The LIVE roster is
-## the Habitat (engine/scripts/core/habitat.gd) — Habitat.cap reads this ramp; Habitat.is_full / .sell
-## enforce + free slots (a full roster is thinned by a merge or a sell, the live "throw away").
-static func resident_capacity(z: int, unlocks: Dictionary) -> int:
-	var total := int(MAPS[z].spots.size())
-	var done := map_spots_restored(z, unlocks)
-	if done <= 0 or total <= 0:
-		return 0
-	if total <= 1:
-		return RESIDENT_SLOTS_MAX
-	return 1 + int(floor(float(RESIDENT_SLOTS_MAX - 1) * float(done - 1) / float(total - 1)))
 
-## The resident types OFFERED on map `z`: the shared core + that map's signature (each a
-## Dictionary {id, name, premium?}). Delegates to the game data, addressed by the map's id.
 static func resident_lines(z: int) -> Array:
 	return D.resident_lines(String(MAPS[z].id))
 
@@ -820,15 +819,28 @@ static func claim_unlock_reward(z: int) -> Dictionary:
 	var rew: Dictionary = D.map_unlock_reward(z)
 	var coins := int(rew.get("coins", 0))
 	var gems := int(rew.get("gems", 0))
-	var spirit := String(rew.get("spirit", ""))
 	if coins > 0:
 		Save.add_coins(coins)
 	if gems > 0:
 		Save.add_diamonds(gems)
-	var events: Array = []
-	if spirit != "":
-		events = grant_resident(z, spirit)
-	return {"coins": coins, "gems": gems, "spirit": spirit, "events": events}
+	# NOTE: the free signature SPIRIT no longer pays here — it moves in at map COMPLETION
+	# (claim_completion_spirit), the beat that also grants the bucket cells to house it.
+	return {"coins": coins, "gems": gems}
+
+## The map's free signature spirit, claimed ONCE at map COMPLETION (all spots restored — the same beat
+## that grants the bucket cells, so the gift is immediately placeable). Returns the spirit KIND, or ""
+## when already claimed / the map has none. The caller lands it in the bucket hand (content cannot
+## preload bucket.gd — bucket preloads content).
+static func claim_completion_spirit(z: int) -> String:
+	var g := Save.grove()
+	var claimed: Dictionary = g.get("completion_spirit", {})
+	var key := String(MAPS[z].id)
+	if claimed.has(key):
+		return ""
+	claimed[key] = true
+	g["completion_spirit"] = claimed
+	Save.grove_write()
+	return String(D.map_unlock_reward(z).get("spirit", ""))
 
 static func map_for_spots(i: int) -> int:
 	var acc := 0
@@ -1317,6 +1329,51 @@ static func exp_at_level(level: int) -> int:
 		return 0
 	var m := level - 1                                   # number of completed level-ups
 	return m * LEVEL_BASE_EXP + (m * (m - 1) / 2) * LEVEL_STEP_EXP
+
+# --- the COIN clock (home build-and-upgrade redesign) ---------------------------------
+# Level derives from LIFETIME ORGANIC coin earnings (Save.coins_earned_lifetime) through the
+# same gentle arithmetic curve shape: level n→n+1 costs LEVEL_BASE_COINS + (n-1)·LEVEL_STEP_COINS.
+# Purchased coins (Save.add_coins) never touch the counter, so a wallet can spend past its level
+# but never rush it — the gate reads the EARNED total, a price reads the HELD balance.
+
+static func level() -> int:
+	return level_at_coins(Save.coins_earned_lifetime())
+
+static func level_at_coins(earned: int) -> int:
+	var lvl := 1
+	while coins_at_level(lvl + 1) <= earned:
+		lvl += 1
+	return lvl
+
+# Cumulative organic coins to REACH `level` (closed form; level 1 = 0).
+static func coins_at_level(level: int) -> int:
+	if level <= 1:
+		return 0
+	var m := level - 1                                   # number of completed level-ups
+	return m * LEVEL_BASE_COINS + (m * (m - 1) / 2) * LEVEL_STEP_COINS
+
+# Earn organic coins into the clock. Returns the levels gained so the caller can show the
+# Level dialog (the earn_exp contract, carried over to the coin clock).
+static func earn_coins(n: int) -> int:
+	var before := level()
+	Save.earn_coins(n)
+	return level() - before
+
+# --- the zone ladder on the coin clock (the content arc, decoupled from map spots) --------
+# The 25-zone line/generator arc keeps its ONE-ZONE-PER-LEVEL rhythm (the retired per-spot
+# ladder started at L2): zone z unlocks at level 2+z, i.e. at the coins_at_level(2+z)
+# organic-earnings threshold. Buildings (home.gd) are the map surface and gate on their own
+# per-step min_level — they no longer drive the content arc.
+static func zone_unlock_level(z: int) -> int:
+	return 2 + z
+
+static func zone_threshold(z: int) -> int:
+	return coins_at_level(zone_unlock_level(z))
+
+# The organic-coins threshold at which the WHOLE content arc is earned (the last zone's).
+# The fence meters against this and goes inert past it (the endgame quiet).
+static func arc_finish_threshold() -> int:
+	return zone_threshold(ZONE_COUNT - 1)
 
 # --- the per-spot unlock ladder (§map-unlock) — ONE REGION PER LEVEL --------------------
 # Every restoration spot, taken in GLOBAL order (all of map 0's spots, then map 1's, …), unlocks at its

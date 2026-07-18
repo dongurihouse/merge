@@ -12,7 +12,7 @@ extends RefCounted
 # dependency the bag band below avoids — just a one-way read of a tuning constant.
 const Game = preload("res://engine/scripts/core/game.gd")
 
-const SCHEMA_VERSION := 4   # v4: force a one-time profile wipe on the new release (no migration — see load_now)
+const SCHEMA_VERSION := 5   # v5: home build-and-upgrade redesign — wipes exp/spot saves (the coin clock + `home` build state replace them; no migration — see load_now)
 # A small starting gem balance for a brand-new save, so the premium-currency wallet slot reads
 # alive (not a dead 0) and a first acquire-button tap lands the player in a non-empty store. Kept
 # deliberately small — a taste, not a giveaway. Only fresh saves get it (defaulted, never re-granted).
@@ -111,6 +111,21 @@ static func coins() -> int:
 static func add_coins(n: int) -> void:
 	_ensure_loaded()
 	data["currencies"]["coins"] = coins() + n
+	save_now()
+
+# --- the coin CLOCK (home build-and-upgrade redesign) ----------------------------
+# Lifetime ORGANIC coin earnings — the progression clock Level derives from
+# (content.level_at_coins). earn_coins is the organic-faucet path (quests, merge drops,
+# selling, resident collects); add_coins stays the neutral/purchased credit (shop packs) —
+# spendable, never clock-advancing. Only ever increases: spending never reduces it.
+static func coins_earned_lifetime() -> int:
+	return int(grove().get("coins_earned", 0))
+
+static func earn_coins(n: int) -> void:
+	_ensure_loaded()
+	var earned := maxi(0, n)
+	grove()["coins_earned"] = coins_earned_lifetime() + earned
+	data["currencies"]["coins"] = coins() + earned
 	save_now()
 
 static func spend(n: int, _reason := "") -> bool:

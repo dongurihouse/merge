@@ -127,6 +127,10 @@
 			"not_enough": "Not enough — keep tending ✿",
 			"title": "Welcome a spirit ✿",
 			"two_became_one": "Two friends became one ✿"
+		},
+		"build": {
+			"needs_coins": "Not enough coins",
+			"done": "%s built!"
 		}
 	},
 	"merchant": {

@@ -410,5 +410,32 @@ func _initialize() -> void:
 	ok(G.map_unlocked(1, rg["unlocks"], rg["gates"]), "map 2 unlocks after the reconcile")
 	ok(not G.reconcile_gates(rg), "reconcile_gates is idempotent on an already-healed save")
 
+	# 24. THE COIN CLOCK (home build-and-upgrade redesign): level derives from LIFETIME ORGANIC
+	# coin earnings. earn_coins (organic faucets) bumps balance AND the lifetime counter;
+	# add_coins (purchases/neutral credits) bumps balance only; spending never reduces the clock.
+	fresh("coin_clock")
+	ok(Save.coins_earned_lifetime() == 0, "fresh save: lifetime earned coins default 0")
+	Save.earn_coins(50)
+	ok(Save.coins() == 50 and Save.coins_earned_lifetime() == 50, \
+		"earn_coins credits the balance AND the lifetime clock")
+	Save.add_coins(150)                             # a purchased pack — spendable, clock-inert
+	ok(Save.coins() == 200 and Save.coins_earned_lifetime() == 50, \
+		"add_coins (purchased) credits the balance only — the clock never moves")
+	ok(Save.spend(120) and Save.coins_earned_lifetime() == 50, \
+		"spending never reduces the lifetime clock")
+	Save._loaded = false
+	ok(Save.coins_earned_lifetime() == 50, "the lifetime clock persists across reload")
+
+	# 25. level = f(lifetime earned coins) via the arithmetic curve (level_at_coins/coins_at_level).
+	fresh("coin_level")
+	ok(G.level() == 1, "fresh save: level 1 at 0 earned")
+	ok(G.coins_at_level(1) == 0, "curve: level 1 starts at 0")
+	ok(G.coins_at_level(3) > G.coins_at_level(2) and G.coins_at_level(2) > 0, \
+		"curve: thresholds are positive and monotone")
+	var lu := G.earn_coins(G.coins_at_level(2))     # earn exactly to the L2 threshold
+	ok(G.level() == 2 and lu == 1, "earning to the L2 threshold levels up once (reported)")
+	Save.add_coins(100000)                          # a whale-sized purchase
+	ok(G.level() == 2, "purchased coins never advance the level")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

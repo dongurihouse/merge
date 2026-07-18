@@ -141,13 +141,13 @@ func _initialize() -> void:
 	q = scn.quests[0]
 	it = G.quest_item(q)
 	code = int(it.line) * 100 + int(it.tier)
-	var reward_exp := int(Quests.exp(q))
+	var reward_coins := int(Quests.coins(q))
 	cell_a = scn.board.empty_ground_cells()[0]
 	scn.board.place(cell_a, code)
 	scn._rebuild_pieces()
 	scn._refresh_quest_ready_marks()
 	var at := _center(scn, cell_a)
-	var exp_before: int = Save.exp_total()
+	var earned_before: int = Save.coins_earned_lifetime()
 	var quests_before: int = scn.quests.size()
 
 	# FIRST tap (cell not yet focused) only FOCUSES — no delivery
@@ -160,7 +160,7 @@ func _initialize() -> void:
 	_tap(scn, at)
 	ok(scn.board.item_at(cell_a) == 0, "second tap of the focused tile consumes the item")
 	ok(not scn.quests.has(q), "second tap completes the delivered quest (it leaves the fence; the meter backfills)")
-	ok(Save.exp_total() == exp_before + reward_exp, "delivering pays the quest's exp (+%d)" % reward_exp)
+	ok(Save.coins_earned_lifetime() == earned_before + reward_coins, "delivering pays the quest's coins into the clock (+%d)" % reward_coins)
 	scn.free()
 
 	# --- Part B guard: a focused tile NOTHING wants never delivers (stays put) ---

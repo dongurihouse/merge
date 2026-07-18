@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/debug_overlay_tests.gd
 
 const Debug = preload("res://engine/scripts/ui/debug.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")
+const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -82,12 +82,12 @@ func _initialize() -> void:
 
 	fresh("resident_hand")
 	var map_host := MapScene.new()
-	var before_hand := Habitat.hand().size()
+	var before_hand := Bucket.hand().size()
 	map_host.debug_add_resident_to_hand()
-	var after_hand := Habitat.hand()
+	var after_hand := Bucket.hand()
 	ok(after_hand.size() == before_hand + 1, "map debug resident action adds one spirit to hand")
 	if after_hand.size() > before_hand:
-		ok(String(after_hand[before_hand].get("kind", "")) != "", "debug-added hand spirit has a resident kind")
+		ok(String(after_hand[before_hand].get("line", "")) != "", "debug-added hand spirit lands on a bucket line")
 	map_host.free()
 
 	var host := Control.new()

@@ -174,8 +174,8 @@ func _initialize() -> void:
 			vase_scene.queue_free()
 
 	fresh("purge_card")
-	var first_unlock := G.spot_unlock_exp(0, 0)
-	Save.grove()["exp"] = int(first_unlock / 2)
+	var first_unlock := G.coins_at_level(2)      # the vase is the level bar on the coin clock now
+	Save.grove()["coins_earned"] = int(first_unlock / 2)
 	Save.grove_write()
 	var board := BoardScene.new()
 	var purge_card := board._make_purge_card(360.0)
@@ -218,20 +218,20 @@ func _initialize() -> void:
 	board.free()
 	await process_frame
 
-	fresh("purge_debug_exp")
+	fresh("purge_debug_progress")
 	var debug_board := BoardScene.new()
 	var debug_card := debug_board._make_purge_card(360.0)
 	root.add_child(debug_card)
 	await process_frame
 	var debug_vase := debug_card.find_child("PurgeVaseWater", true, false) as VaseWaterEffect
 	var before_progress: float = debug_vase.progress_for_test() if debug_vase != null else 0.0
-	debug_board.debug_add_exp(5)
+	debug_board.debug_add_progress(5)
 	for i in 20:
 		await process_frame
-	ok(Save.exp_total() == 5, "debug board exp gain credits Save without scene reload")
+	ok(Save.coins_earned_lifetime() == 5, "debug board progress gain credits the coin clock without scene reload")
 	if debug_vase != null:
-		ok(debug_vase.progress_for_test() > before_progress, "debug board exp gain fills the visible purge vase")
-		ok(not bool(debug_vase.drop_state_for_test().visible), "debug board exp gain does not show the quest droplet")
+		ok(debug_vase.progress_for_test() > before_progress, "debug board progress gain fills the visible purge vase")
+		ok(not bool(debug_vase.drop_state_for_test().visible), "debug board progress gain does not show the quest droplet")
 	debug_card.free()
 	debug_board.free()
 	await process_frame

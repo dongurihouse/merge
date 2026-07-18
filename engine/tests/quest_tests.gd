@@ -18,41 +18,43 @@ func ok(cond: bool, label: String) -> void:
 		print("  FAIL  ", label)
 
 func _initialize() -> void:
-	# --- EFFORT-BASED reward: exp=round(clicks/7), coins=round(clicks/cpc[map]×depth), NO acorns ---
+	# --- EFFORT-BASED reward (COINS ONLY — coin-clock redesign): coins = the folded PROGRESSION
+	# slice round(clicks/QUEST_CLICKS_PER_EXP × rank) + the SPENDING slice round(clicks/cpc[map]×depth) ---
 	var r4 := G.quest_reward(4)            # t4 = 8 clicks
-	ok(int(r4.exp) == int(round(8.0 / float(G.QUEST_CLICKS_PER_EXP))) and not r4.has("gems"), "a t4 quest pays round(8/7)=1 exp and no acorns")
+	var t4_expected := maxi(1, int(round(8.0 / float(G.QUEST_CLICKS_PER_EXP)))) \
+		+ int(round(8.0 / float(G.QUEST_CLICKS_PER_COIN[0])))
+	ok(int(r4.coins) == t4_expected and not r4.has("gems") and not r4.has("exp"), \
+		"a t4 quest pays the folded coins-only reward and no acorns/exp")
 	var r8 := G.quest_reward(8)            # t8 = 128 clicks
-	ok(int(r8.exp) == int(round(128.0 / float(G.QUEST_CLICKS_PER_EXP))), "t8 exp = round(128/7) = 18 (effort-based)")
 	ok(int(r8.coins) > int(r4.coins), "a deeper-tier quest pays more coins than a shallow one")
-	ok(int(G.quest_reward(8, 4).coins) > int(G.quest_reward(8, 0).coins), "later maps pay more coins for the same tier (per-map cpc)")
+	ok(int(G.quest_reward(8, 4).coins) > int(G.quest_reward(8, 0).coins), "later bands pay more coins for the same tier (per-band cpc)")
 	var rising := true
 	var no_acorns := true
 	for L in range(5, 13):
-		if int(G.quest_reward(L).exp) <= int(G.quest_reward(L - 1).exp):
+		if int(G.quest_reward(L).coins) <= int(G.quest_reward(L - 1).coins):
 			rising = false
 		if int(G.quest_reward(L).get("gems", 0)) > 0:
 			no_acorns = false
-	ok(rising, "exp rises monotonically with tier (effort-based, uncapped)")
+	ok(rising, "coins rise monotonically with tier (effort-based, uncapped)")
 	ok(no_acorns, "no quest pays acorns across t4–t12 (Option A — milestone/IAP only)")
 
-	# --- §7 PER-LINE exp ramp + MERGER (special-line) reward: later lines pay more exp; a merger pays
-	# QUEST_MERGE_REWARD_FACTOR × its two recipe source lines' COMBINED reward (exp & coins) ---
+	# --- §7 PER-LINE ramp + MERGER (special-line) reward: later lines pay more; a merger pays
+	# QUEST_MERGE_REWARD_FACTOR × its two recipe source lines' COMBINED coins ---
 	var bases: Array = G.ZONE_BASE_LINES
 	var first_base := int(bases[0])
 	var last_base := int(bases[bases.size() - 1])
-	ok(is_equal_approx(G.line_exp_mult(first_base), 1.0), "the first base line's exp multiplier is 1.0 (baseline unchanged)")
-	ok(is_equal_approx(G.line_exp_mult(last_base), float(G.QUEST_EXP_LINE_SPREAD)), "the last base line's exp multiplier is QUEST_EXP_LINE_SPREAD")
+	ok(is_equal_approx(G.line_exp_mult(first_base), 1.0), "the first base line's rank multiplier is 1.0 (baseline unchanged)")
+	ok(is_equal_approx(G.line_exp_mult(last_base), float(G.QUEST_EXP_LINE_SPREAD)), "the last base line's rank multiplier is QUEST_EXP_LINE_SPREAD")
 	var mult_rising := true
 	for i in range(1, bases.size()):
 		if G.line_exp_mult(int(bases[i])) < G.line_exp_mult(int(bases[i - 1])):
 			mult_rising = false
 	ok(mult_rising, "line_exp_mult rises monotonically along the base-line rank")
 	ok(is_equal_approx(G.line_exp_mult(71), 1.0), "a special/merger line has no rank multiplier (1.0 — it derives its reward from its sources)")
-	# a base line: a later line pays MORE exp than the first at the same tier; coins stay map-driven (rank-free)
-	ok(int(G.quest_reward_for_line(first_base, 8, 0).exp) == int(G.quest_reward(8, 0).exp), "the first base line's t8 exp is unchanged from the flat reward")
-	ok(int(G.quest_reward_for_line(last_base, 8, 0).exp) > int(G.quest_reward_for_line(first_base, 8, 0).exp), "a later base line pays more t8 exp than the first (per-line ramp)")
-	ok(int(G.quest_reward_for_line(last_base, 8, 0).coins) == int(G.quest_reward(8, 0).coins), "the per-line ramp lifts EXP only — base-line coins still follow the per-map curve")
-	# a merger line (71): exp & coins == FACTOR × the two recipe sources' combined reward, and it beats a base ask
+	# a base line: a later line pays MORE than the first at the same tier (the ramp rides the progression slice)
+	ok(int(G.quest_reward_for_line(first_base, 8, 0).coins) == int(G.quest_reward(8, 0).coins), "the first base line's t8 coins are unchanged from the flat reward")
+	ok(int(G.quest_reward_for_line(last_base, 8, 0).coins) > int(G.quest_reward_for_line(first_base, 8, 0).coins), "a later base line pays more t8 coins than the first (per-line ramp)")
+	# a merger line (71): coins == FACTOR × the two recipe sources' combined coins, and it beats a base ask
 	var z71 := G.zone_of_line(71)
 	var srcs71: Array = G.zone_recipe(z71)
 	ok(srcs71.size() == 2, "the special line 71 resolves to two recipe source lines")
@@ -60,19 +62,19 @@ func _initialize() -> void:
 	var s1 := int(srcs71[1])
 	var sr0 := G.quest_reward_for_line(s0, 8, G.zone_map(G.zone_of_line(s0)))
 	var sr1 := G.quest_reward_for_line(s1, 8, G.zone_map(G.zone_of_line(s1)))
-	var exp_expected := maxi(1, int(round(float(G.QUEST_MERGE_REWARD_FACTOR) * (float(sr0.exp) + float(sr1.exp)))))
-	var coin_expected := maxi(0, int(round(float(G.QUEST_MERGE_REWARD_FACTOR) * (float(sr0.coins) + float(sr1.coins)))))
+	var coin_expected := maxi(1, int(round(float(G.QUEST_MERGE_REWARD_FACTOR) * (float(sr0.coins) + float(sr1.coins)))))
 	var m71 := G.quest_reward_for_line(71, 8, 0)
-	ok(int(m71.exp) == exp_expected, "a merger quest's exp = round(FACTOR × combined source exp) = %d" % exp_expected)
 	ok(int(m71.coins) == coin_expected, "a merger quest's coins = round(FACTOR × combined source coins) = %d" % coin_expected)
-	ok(int(m71.exp) > int(G.quest_reward(8, 0).exp), "a merger quest pays MORE exp than a base quest of the same tier")
-	# gen_quest wires the line-aware reward: a single-line pool always asks that line and pays its line-aware exp
+	ok(int(m71.coins) > int(G.quest_reward(8, 0).coins), "a merger quest pays MORE than a base quest of the same tier")
+	# gen_quest wires the line-aware reward: a single-line pool always asks that line and pays its line-aware coins
 	var rngm := RandomNumberGenerator.new(); rngm.seed = 77
 	var qm := G.gen_quest(20, [71], rngm)
-	ok(int(qm.line) == 71 and int(G.quest_reward_for_line(71, int(qm.tier), 0).exp) == int(qm.reward.exp), "gen_quest pays a merger line its line-aware exp")
+	var qm_base := int(qm.reward.coins) - (G.QUEST_FEATURED_COIN_BONUS if bool(qm.featured) else 0)
+	ok(int(qm.line) == 71 and int(G.quest_reward_for_line(71, int(qm.tier), 0).coins) == qm_base, "gen_quest pays a merger line its line-aware coins")
 	var rngb := RandomNumberGenerator.new(); rngb.seed = 77
 	var qb := G.gen_quest(20, [first_base], rngb)
-	ok(int(qb.line) == first_base and int(G.quest_reward(int(qb.tier), 0).exp) == int(qb.reward.exp), "gen_quest pays the first base line its (unchanged) flat exp")
+	var qb_base := int(qb.reward.coins) - (G.QUEST_FEATURED_COIN_BONUS if bool(qb.featured) else 0)
+	ok(int(qb.line) == first_base and int(G.quest_reward(int(qb.tier), 0).coins) == qb_base, "gen_quest pays the first base line its (unchanged) flat coins")
 
 	# --- gen_quest: flat {line, tier}, single item, level-scaled, deterministic ---
 	var rng := RandomNumberGenerator.new()

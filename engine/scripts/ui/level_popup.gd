@@ -33,10 +33,10 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 	if live is Control and not (live as Node).is_queued_for_deletion():
 		return live as Control
 
-	var earned := Save.exp_total()
-	var lvl := G.level_for_exp(earned)
-	var base := G.exp_at_level(lvl)              # exp to BE at this level
-	var nxt := G.exp_at_level(lvl + 1)           # exp to reach the next (the bar's bound)
+	var earned := Save.coins_earned_lifetime()   # the COIN clock (organic earnings)
+	var lvl := G.level()
+	var base := G.coins_at_level(lvl)            # earnings to BE at this level
+	var nxt := G.coins_at_level(lvl + 1)         # earnings to reach the next (the bar's bound)
 	var into := clampi(earned - base, 0, nxt - base)
 	var span := maxi(1, nxt - base)
 	var remaining := maxi(0, nxt - earned)

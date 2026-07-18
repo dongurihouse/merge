@@ -14,10 +14,11 @@ const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 
 # Deliver quest `qi` by consuming the tile at `cell`: drop the quest from the live fence, remember
-# the asked item (anti-monotony window, ≤5), advance exp (the ONE place exp earns), and pay the coin
-# reward. Mutates `board`, `quests`, and `recent_items` in place. Returns the OUTCOME the scene needs
-# to render — {code, exp, coins, levels_up, cell} — so the fly-to-giver, reward FX, coin float, and
-# Level dialog read facts off one dict instead of recomputing them.
+# the asked item (anti-monotony window, ≤5), and pay the COIN reward through the coin clock (the
+# quest coin faucet IS the progression clock — coin-clock redesign, spec 2026-07-17). Mutates
+# `board`, `quests`, and `recent_items` in place. Returns the OUTCOME the scene needs to render —
+# {code, coins, levels_up, cell} — so the fly-to-giver, reward FX, coin float, and Level dialog
+# read facts off one dict instead of recomputing them.
 static func deliver_quest(board: BoardModel, quests: Array, recent_items: Array, qi: int, cell: Vector2i) -> Dictionary:
 	var q: Dictionary = quests[qi]
 	var it: Dictionary = G.quest_item(q)
@@ -29,12 +30,9 @@ static func deliver_quest(board: BoardModel, quests: Array, recent_items: Array,
 		recent_items.append(code)                 # remember this ask so the next ≤5 quests avoid it
 		while recent_items.size() > 5:
 			recent_items.pop_front()
-	var sp_exp := Quests.exp(q)
 	var sp_coins := Quests.coins(q)
-	var levels_up := G.earn_exp(sp_exp)           # bumps the single exp total; reports levels gained
-	if sp_coins > 0:
-		Save.add_coins(sp_coins)                  # §7/§10: the quest coin faucet
-	return {"code": code, "exp": sp_exp, "coins": sp_coins, "levels_up": levels_up, "cell": cell}
+	var levels_up := G.earn_coins(sp_coins)       # organic earn — credits the wallet + the clock
+	return {"code": code, "coins": sp_coins, "levels_up": levels_up, "cell": cell}
 
 # Collect the coin at `cell`: take it off the board and credit its value (a stashed collect-reward
 # overrides the face value). Returns {got, code} for the fly-to-HUD reward FX.
@@ -42,11 +40,11 @@ static func collect_coin(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var reward := board.take_collect_reward(cell)
 	var code := board.take(cell)
 	var got := int(reward.amount) if String(reward.get("kind", "")) == "coins" else G.coin_value(code)
-	Save.add_coins(got)
+	Save.earn_coins(got)                          # organic — merge-drop/chest coins advance the clock
 	return {"got": got, "code": code}
 
-# Collect the special drop at `cell` (water / acorn / exp). A stashed collect-reward overrides the
-# item's own face reward. acorn + exp write Save here; "water" is RETURNED for the caller to fold into
+# Collect the special drop at `cell` (water / acorn / coins). A stashed collect-reward overrides the
+# item's own face reward. acorn + coins write Save here; "water" is RETURNED for the caller to fold into
 # its live water mirror (a scene field, capped — not a Save currency). Returns {} when nothing collects.
 static func collect_special(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var got: Dictionary = G.special_collect(board.item_at(cell))
@@ -60,8 +58,8 @@ static func collect_special(board: BoardModel, cell: Vector2i) -> Dictionary:
 	match String(got.kind):
 		"acorn":
 			Save.add_diamonds(amount)
-		"exp":
-			Save.add_exp(amount)
+		"coins":
+			Save.earn_coins(amount)               # organic — the Spark's coins advance the clock
 	return {"kind": String(got.kind), "amount": amount}
 
 # Birth-on-tap placement: the generator the board owes (Quests.due_gen — the anchor self-heals first,
@@ -117,5 +115,5 @@ static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var coins := G.gen_sell_coins(board.gen_tier_at(cell))
 	board.remove_gen(cell)
 	if coins > 0:
-		Save.add_coins(coins)
+		Save.earn_coins(coins)                    # organic — a sell refund advances the clock
 	return {"sold": true, "coins": coins}
