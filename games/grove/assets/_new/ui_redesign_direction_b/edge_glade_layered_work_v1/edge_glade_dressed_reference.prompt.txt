@@ -1,0 +1,7 @@
+Edit the approved Edge Glade mock while preserving its iPhone portrait canvas, Meadow Sky palette, Cut-Paper Playground rendering, elevated three-quarter camera, continuous meadow, UI-safe margins, and path-to-den concept.
+
+Make the hollow-log den significantly larger and closer, centered in the upper-middle at roughly 55–62% of canvas width. Keep the path ending exactly at its door. Add four clearly removable customization items: a doormat at the threshold, a freestanding small twig/firewood stack, an acorn mailbox near the lower approach, and a watering-can-plus-trowel garden-tool set near the berry planter.
+
+Preserve the bench, berry planter, small creature-scale lantern, mushrooms, and wildflowers, but redistribute all items through the middle play area. Every customizable object needs a clean readable silhouette, its own ground footprint, and approximately one prop-width of visible grass from neighboring props. Related objects may be near one another but must never touch, overlap, hide, or visually fuse with the den or each other. Keep the upper 15% quiet sky and the lower 13% simple path/meadow for future UI.
+
+The scene must read as a lived-in creature homestead: mailbox at approach, bench at resting area, berries and tools in gardening area, lantern on final approach, firewood in dry storage, doormat at entrance, and natural flowers/mushrooms at perimeter. No UI, text, characters, turf islands, prop grid, crowded doorway, oversized lantern, painterly gradients, glossy plastic, or photoreal miniature rendering.
