@@ -2,6 +2,76 @@
   "version": 2,
   "generator": "games/grove/tools/extract_meadow_ui_v2.py",
   "grid_boundary": "round(index * extent / count)",
+  "badge_registration": {
+    "canvas": [
+      256,
+      256
+    ],
+    "visible_bounds": [
+      20,
+      20,
+      236,
+      236
+    ],
+    "shared_alpha": true
+  },
+  "texture_base_rgb": {
+    "texture_cream": [
+      246,
+      235,
+      221
+    ],
+    "texture_sky": [
+      111,
+      169,
+      192
+    ],
+    "texture_meadow": [
+      168,
+      211,
+      185
+    ],
+    "texture_receding_blue": [
+      130,
+      150,
+      175
+    ],
+    "texture_structural_slate": [
+      63,
+      109,
+      125
+    ],
+    "texture_action_green": [
+      95,
+      155,
+      109
+    ],
+    "texture_coral": [
+      216,
+      120,
+      101
+    ],
+    "texture_reward_gold": [
+      214,
+      169,
+      76
+    ],
+    "texture_supporting_purple": [
+      134,
+      119,
+      163
+    ],
+    "texture_ink": [
+      36,
+      59,
+      75
+    ],
+    "texture_warm_kraft": [
+      221,
+      184,
+      123
+    ]
+  },
   "sheets": [
     {
       "source": "ui_elements_sprite_sheet_v2.png",

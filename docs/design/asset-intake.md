@@ -130,15 +130,27 @@ python3 -m unittest games.grove.tools.tests.test_extract_meadow_ui_v2 -v
 
 `extract_meadow_ui_v2.py` is the source of truth for the row-major name maps and per-entry policy:
 `icon` fits a cutout onto a registered transparent `256 x 256` canvas, `surface` preserves the tight
-native aspect ratio for nine-slice use, `badge` puts all variants on an equally registered
-`256 x 256` canvas, and `tile` emits an opaque periodic `256 x 256` texture.
+native aspect ratio for nine-slice use, `badge` gives all variants one canonical star alpha with an
+exact `[20, 20, 236, 236]` visible registration on a `256 x 256` canvas, and `tile` emits an opaque
+periodic `256 x 256` texture. Regeneration validates every archived input, builds a clean sibling
+staging tree, and swaps it over the derived `ui/meadow_v2/` tree only after success. Overlapping
+source/output roots are rejected, so the separate archived sources are never cleaned.
 
 The extractor always uses rounded fractional grid edges — `round(index * extent / count)` — and
 segments foreground on the whole sheet before assigning connected components to cells by centroid.
-It removes the noisy corner-sampled magenta ground (including high-green magenta fringe), zeros RGB
-outside alpha, and resizes cutouts through premultiplied alpha. Texture entries discard the generated
-key-contaminated perimeter, then mirror one clean quadrant horizontally and vertically. This makes
-the first/last rows and columns byte-identical. The committed `ui/meadow_v2/qc/*_contact.png` files
+It removes the noisy corner-sampled magenta ground, strips only exterior magenta/off-white matte
+spill, zeros RGB outside alpha, and rebuilds resampled edges from opaque interior RGB. Badges keep
+only their largest authored component before receiving the shared alpha, so generator-added external
+rings and specks cannot change their footprint. Named round controls and Settings receive a clean
+single-component silhouette; broad separable lower-right glyph shadows are reconstructed from the
+local button body. Thin crisp cut edges and nested internal paper planes remain because they are
+authored depth cues rather than cast/contact shadows.
+
+Texture entries discard the generated key-contaminated perimeter, then mirror one clean quadrant
+horizontally and vertically. Their committed means are the exact semantic Meadow Sky role RGB values
+recorded in `manifest.json`; source luminance is reduced to a bounded 2–4% fiber-only variation. Warm
+kraft uses the stable rounded mean sampled from its approved archived source. Mirroring makes the
+first/last rows and columns byte-identical. The committed `ui/meadow_v2/qc/*_contact.png` files
 prove row-major identity; every `*_3x3_offset.png` exposes both texture boundaries through the middle
 of the review image and must be fully opaque, gap-free, and free of magenta before shipping.
 

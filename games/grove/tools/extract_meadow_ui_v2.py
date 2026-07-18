@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 import bisect
 import json
+import shutil
+import uuid
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -26,8 +28,27 @@ OUTPUT_ROOT = REPO / "games/grove/assets/ui/meadow_v2"
 QC_ROOT = OUTPUT_ROOT / "qc"
 CANVAS = 256
 ICON_FILL = 0.84
-BADGE_FILL = 0.86
 FLOOD_TOLERANCE = 110.0
+BADGE_VISIBLE_SIZE = 216
+
+MEADOW_SKY_TEXTURE_COLORS: dict[str, tuple[int, int, int]] = {
+    "texture_cream": (0xF6, 0xEB, 0xDD),
+    "texture_sky": (0x6F, 0xA9, 0xC0),
+    "texture_meadow": (0xA8, 0xD3, 0xB9),
+    "texture_receding_blue": (0x82, 0x96, 0xAF),
+    "texture_structural_slate": (0x3F, 0x6D, 0x7D),
+    "texture_action_green": (0x5F, 0x9B, 0x6D),
+    "texture_coral": (0xD8, 0x78, 0x65),
+    "texture_reward_gold": (0xD6, 0xA9, 0x4C),
+    "texture_supporting_purple": (0x86, 0x77, 0xA3),
+    "texture_ink": (0x24, 0x3B, 0x4B),
+    # Stable rounded RGB mean measured from the approved archived kraft tile.
+    "texture_warm_kraft": (221, 184, 123),
+}
+
+LIGHT_GLYPH_CONTROLS = {"button_plus", "button_info", "button_close", "button_confirm"}
+DARK_GLYPH_CONTROLS = {"button_back"}
+CLEAN_SILHOUETTE_ASSETS = LIGHT_GLYPH_CONTROLS | DARK_GLYPH_CONTROLS | {"icon_settings"}
 
 
 def _entries(names: Sequence[str], policy: str) -> list[dict[str, str]]:
@@ -148,7 +169,169 @@ def _crop_component(rgba: np.ndarray, labels: np.ndarray, label_ids: Iterable[in
     # Transparent RGB is always zero.  This prevents discarded key/shadow color
     # from leaking when an engine or image tool samples beyond the alpha edge.
     cropped[~local_mask] = 0
-    return Image.fromarray(cropped, "RGBA")
+    return _strip_generated_halo(Image.fromarray(cropped, "RGBA"))
+
+
+def _magenta_spill(rgb: np.ndarray) -> np.ndarray:
+    values = rgb.astype(np.int16)
+    return (
+        (values[:, :, 0] > 175)
+        & (values[:, :, 2] > 165)
+        & (values[:, :, 1] + 15 < np.minimum(values[:, :, 0], values[:, :, 2]))
+    )
+
+
+def _white_spill(rgb: np.ndarray) -> np.ndarray:
+    return np.min(rgb.astype(np.int16), axis=2) > 228
+
+
+def _contaminated_rgb(rgb: np.ndarray) -> np.ndarray:
+    """Identify forbidden chroma-key/white fringe, not warm paper bevels."""
+    return _magenta_spill(rgb) | _white_spill(rgb)
+
+
+def _strip_generated_halo(image: Image.Image) -> Image.Image:
+    """Remove generated key/white halo pixels while retaining paper edge color."""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    mask = rgba[:, :, 3] > 0
+    padded_mask = np.pad(mask, 1, constant_values=False)
+    background_labels, _ = ndimage.label(~padded_mask, structure=np.ones((3, 3), dtype=np.uint8))
+    border_labels = np.unique(
+        np.concatenate((background_labels[0], background_labels[-1], background_labels[:, 0], background_labels[:, -1]))
+    )
+    exterior = np.isin(background_labels, border_labels[border_labels != 0])[1:-1, 1:-1]
+    distance_to_any_background = ndimage.distance_transform_edt(mask)
+    distance_to_exterior = ndimage.distance_transform_edt(~exterior)
+    magenta_spill = _magenta_spill(rgba[:, :, :3])
+    white_spill = _white_spill(rgba[:, :, :3])
+    white_has_colored_interior = np.any(mask & ~white_spill)
+    contaminated = (magenta_spill & (distance_to_any_background <= 3.0)) & mask
+    if white_has_colored_interior:
+        contaminated |= (white_spill & (distance_to_exterior <= 3.0)) & mask
+    if np.any(contaminated):
+        rgba[contaminated] = 0
+    alpha = rgba[:, :, 3]
+    ys, xs = np.where(alpha > 0)
+    if not len(xs):
+        return Image.fromarray(rgba, "RGBA")
+    return Image.fromarray(rgba[int(ys.min()):int(ys.max()) + 1, int(xs.min()):int(xs.max()) + 1], "RGBA")
+
+
+def _decontaminate_resampled_edge(image: Image.Image) -> Image.Image:
+    """Give antialiased pixels nearest opaque art RGB, preventing color bleed."""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    alpha = rgba[:, :, 3]
+    visible = alpha > 0
+    contaminated = _contaminated_rgb(rgba[:, :, :3]) & visible
+    edge = visible & (alpha < 255)
+    replace = contaminated | edge
+    safe = (alpha == 255) & ~_contaminated_rgb(rgba[:, :, :3])
+    if np.any(replace) and np.any(safe):
+        nearest = ndimage.distance_transform_edt(~safe, return_distances=False, return_indices=True)
+        rgba[replace, :3] = rgba[nearest[0][replace], nearest[1][replace], :3]
+    rgba[~visible] = 0
+    return Image.fromarray(rgba, "RGBA")
+
+
+def _largest_component(mask: np.ndarray) -> np.ndarray:
+    labels, count = ndimage.label(mask, structure=np.ones((3, 3), dtype=np.uint8))
+    if not count:
+        return np.zeros_like(mask, dtype=bool)
+    areas = np.bincount(labels.ravel())
+    areas[0] = 0
+    return labels == int(np.argmax(areas))
+
+
+def _apply_alpha_silhouette(image: Image.Image, alpha: np.ndarray) -> Image.Image:
+    """Apply a clean alpha mask and reconstruct its edge from interior RGB."""
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    visible = alpha > 0
+    original_alpha = rgba[:, :, 3]
+    key = np.array([255.0, 0.0, 255.0])
+    key_distance = np.sqrt(np.sum((rgba[:, :, :3].astype(np.float64) - key) ** 2, axis=2))
+    safe = (original_alpha > 240) & visible & (key_distance > 150.0) & ~_contaminated_rgb(rgba[:, :, :3])
+    if np.any(visible) and np.any(safe):
+        nearest = ndimage.distance_transform_edt(~safe, return_distances=False, return_indices=True)
+        replace = visible & ~safe
+        rgba[replace, :3] = rgba[nearest[0][replace], nearest[1][replace], :3]
+    rgba[:, :, 3] = alpha
+    rgba[~visible] = 0
+    return Image.fromarray(rgba, "RGBA")
+
+
+def _clean_named_silhouette(image: Image.Image, name: str) -> Image.Image:
+    """Erode generated perimeter bands and rebuild one antialiased component."""
+    if name not in CLEAN_SILHOUETTE_ASSETS:
+        return image
+    rgba = np.asarray(image.convert("RGBA"))
+    mask = _largest_component(rgba[:, :, 3] > 128)
+    clean = ndimage.binary_erosion(mask, iterations=3)
+    clean = _largest_component(clean)
+    inside_distance = ndimage.distance_transform_edt(clean)
+    alpha = np.where(clean, np.clip(inside_distance / 2.0, 0.0, 1.0) * 255.0, 0.0).astype(np.uint8)
+    return _apply_alpha_silhouette(image, alpha)
+
+
+def _shift_mask(mask: np.ndarray, dy: int, dx: int) -> np.ndarray:
+    shifted = np.zeros_like(mask)
+    source_y = slice(0, mask.shape[0] - dy) if dy else slice(None)
+    source_x = slice(0, mask.shape[1] - dx) if dx else slice(None)
+    destination_y = slice(dy, None) if dy else slice(None)
+    destination_x = slice(dx, None) if dx else slice(None)
+    shifted[destination_y, destination_x] = mask[source_y, source_x]
+    return shifted
+
+
+def _remove_control_glyph_shadow(image: Image.Image, name: str) -> Image.Image:
+    """Remove only separable lower-right glyph shadows from named controls."""
+    if name not in LIGHT_GLYPH_CONTROLS | DARK_GLYPH_CONTROLS:
+        return image
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    rgb = rgba[:, :, :3].astype(np.int16)
+    alpha = rgba[:, :, 3]
+    luminance = rgb @ np.array([0.2126, 0.7152, 0.0722])
+    if name in LIGHT_GLYPH_CONTROLS:
+        glyph = (
+            (rgb[:, :, 0] > 210)
+            & (rgb[:, :, 1] > 185)
+            & (rgb[:, :, 2] > 145)
+            & (alpha > 0)
+        )
+        body_values = luminance[(alpha > 0) & ~glyph]
+        if not body_values.size:
+            return image
+        body_luminance = float(np.median(body_values))
+        body_rgb = np.median(rgb[(alpha > 0) & ~glyph], axis=0)
+        body_distance = np.sqrt(np.sum((rgb - body_rgb) ** 2, axis=2))
+        dark_candidate = (luminance < body_luminance - 8) | (body_distance > 30)
+    else:
+        blue = (
+            (rgb[:, :, 2] > rgb[:, :, 0] + 25)
+            & (rgb[:, :, 2] > rgb[:, :, 1] + 8)
+            & (alpha > 0)
+        )
+        blue_values = luminance[blue]
+        if not blue_values.size:
+            return image
+        split = float(np.median(blue_values))
+        glyph = blue & (luminance >= split)
+        dark_candidate = blue & (luminance < split - 8)
+
+    maximum_offset = max(2, round(min(image.size) * 0.09))
+    shadow_zone = np.zeros_like(glyph)
+    for dy in range(1, maximum_offset + 1):
+        for dx in range(1, maximum_offset + 1):
+            shadow_zone |= _shift_mask(glyph, dy, dx)
+    shadow = shadow_zone & ~glyph & dark_candidate & (alpha > 0)
+    if not np.any(shadow):
+        return image
+
+    valid_body = (alpha > 0) & ~glyph & ~shadow & ~dark_candidate
+    if not np.any(valid_body):
+        return image
+    nearest = ndimage.distance_transform_edt(~valid_body, return_distances=False, return_indices=True)
+    rgba[shadow, :3] = rgba[nearest[0][shadow], nearest[1][shadow], :3]
+    return Image.fromarray(rgba, "RGBA")
 
 
 def _premultiplied_resize(image: Image.Image, size: tuple[int, int]) -> Image.Image:
@@ -164,7 +347,7 @@ def _premultiplied_resize(image: Image.Image, size: tuple[int, int]) -> Image.Im
         rgb = np.where(resized_alpha > 0, resized[:, :, :3] / resized_alpha, 0)
     result = np.concatenate((np.clip(rgb, 0, 255), resized[:, :, 3:4]), axis=2).astype(np.uint8)
     result[result[:, :, 3] == 0] = 0
-    return Image.fromarray(result, "RGBA")
+    return _decontaminate_resampled_edge(Image.fromarray(result, "RGBA"))
 
 
 def _center_on_canvas(image: Image.Image, scale: float) -> Image.Image:
@@ -173,6 +356,31 @@ def _center_on_canvas(image: Image.Image, scale: float) -> Image.Image:
     canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     canvas.alpha_composite(resized, ((CANVAS - resized.width) // 2, (CANVAS - resized.height) // 2))
     return canvas
+
+
+def _register_badge(image: Image.Image) -> Image.Image:
+    """Affine-normalize each tight badge crop to one fixed visible box."""
+    registered = _premultiplied_resize(image, (BADGE_VISIBLE_SIZE, BADGE_VISIBLE_SIZE))
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    inset = (CANVAS - BADGE_VISIBLE_SIZE) // 2
+    canvas.alpha_composite(registered, (inset, inset))
+    return canvas
+
+
+def _canonical_badge_alpha(image: Image.Image) -> np.ndarray:
+    """Derive the one shared 216-square star footprint from a clean badge."""
+    registered = np.asarray(_register_badge(image).convert("RGBA"))
+    mask = _largest_component(registered[:, :, 3] > 128)
+    mask = ndimage.binary_erosion(mask, iterations=2)
+    ys, xs = np.where(mask)
+    if not len(xs):
+        raise ValueError("canonical badge contains no clean silhouette")
+    tight = Image.fromarray((mask[int(ys.min()):int(ys.max()) + 1, int(xs.min()):int(xs.max()) + 1] * 255).astype(np.uint8), "L")
+    normalized = np.asarray(tight.resize((BADGE_VISIBLE_SIZE, BADGE_VISIBLE_SIZE), Image.Resampling.BILINEAR))
+    alpha = np.zeros((CANVAS, CANVAS), dtype=np.uint8)
+    inset = (CANVAS - BADGE_VISIBLE_SIZE) // 2
+    alpha[inset:inset + BADGE_VISIBLE_SIZE, inset:inset + BADGE_VISIBLE_SIZE] = normalized
+    return alpha
 
 
 def _periodic_tile(image: Image.Image) -> Image.Image:
@@ -190,6 +398,25 @@ def _periodic_tile(image: Image.Image) -> Image.Image:
     tile.paste(top, (0, 0))
     tile.paste(top.transpose(Image.Transpose.FLIP_TOP_BOTTOM), (0, CANVAS // 2))
     return tile.convert("RGBA")
+
+
+def _normalize_texture_color(image: Image.Image, target_rgb: tuple[int, int, int]) -> Image.Image:
+    """Set the semantic base mean while retaining quiet 2-4% fiber only."""
+    rgb = np.asarray(image.convert("RGB"), dtype=np.float64)
+    luminance = rgb @ np.array([0.2126, 0.7152, 0.0722])
+    centered = luminance - float(luminance.mean())
+    scale_reference = float(np.percentile(np.abs(centered), 95))
+    if scale_reference > 1e-6:
+        fiber = np.clip(centered * (0.03 / scale_reference), -0.04, 0.04)
+        fiber -= float(fiber.mean())
+        fiber = np.clip(fiber, -0.04, 0.04)
+    else:
+        fiber = np.zeros_like(luminance)
+    target = np.asarray(target_rgb, dtype=np.float64)
+    normalized = np.rint(target[None, None, :] * (1.0 + fiber[:, :, None]))
+    integer_limit = np.floor(target * 0.04)
+    normalized = np.clip(normalized, target - integer_limit, target + integer_limit)
+    return Image.fromarray(np.clip(normalized, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
 
 def extract_sheet(
@@ -215,23 +442,36 @@ def extract_sheet(
     for index, entry in enumerate(entries):
         row, col = divmod(index, cols)
         try:
-            crops.append(_crop_component(rgba, labels, buckets[(row, col)]))
+            label_ids = buckets[(row, col)]
+            if entry["policy"] == "badge" and label_ids:
+                label_ids = [max(label_ids, key=lambda label_id: int(np.count_nonzero(labels == label_id)))]
+            crops.append(_crop_component(rgba, labels, label_ids))
         except ValueError as error:
             raise ValueError(f"{source.name} cell {index + 1} ({row}, {col}): {error}") from error
 
-    badge_maximum = max((max(image.size) for image, entry in zip(crops, entries) if entry["policy"] == "badge"), default=1)
+    canonical_badge_alpha = next(
+        (_canonical_badge_alpha(image) for image, entry in zip(crops, entries) if entry["policy"] == "badge"),
+        None,
+    )
     records: list[dict] = []
     for index, (entry, crop) in enumerate(zip(entries, crops)):
         row, col = divmod(index, cols)
         policy = entry["policy"]
         if policy == "icon":
+            crop = _remove_control_glyph_shadow(crop, entry["name"])
             result = _center_on_canvas(crop, CANVAS * ICON_FILL / max(crop.size))
+            result = _clean_named_silhouette(result, entry["name"])
         elif policy == "badge":
-            result = _center_on_canvas(crop, CANVAS * BADGE_FILL / badge_maximum)
+            result = _register_badge(crop)
+            if canonical_badge_alpha is not None:
+                result = _apply_alpha_silhouette(result, canonical_badge_alpha)
         elif policy == "surface":
             result = crop
         elif policy == "tile":
             result = _periodic_tile(crop)
+            target = MEADOW_SKY_TEXTURE_COLORS.get(entry["name"])
+            if target is not None:
+                result = _normalize_texture_color(result, target)
         else:
             raise ValueError(f"unknown extraction policy: {policy}")
 
@@ -286,32 +526,74 @@ def _tile_montage(record: dict, output_root: Path, qc_root: Path) -> None:
 
 
 def run(source_root: Path = SOURCE_ROOT, output_root: Path = OUTPUT_ROOT) -> dict:
-    output_root.mkdir(parents=True, exist_ok=True)
-    qc_root = output_root / "qc"
-    qc_root.mkdir(parents=True, exist_ok=True)
-    all_records: list[dict] = []
-    sheets_metadata: list[dict] = []
-    for filename, rows, cols, entries in SHEETS:
+    source_root = Path(source_root)
+    output_root = Path(output_root)
+    source_resolved = source_root.resolve()
+    output_resolved = output_root.resolve()
+    if (
+        source_resolved == output_resolved
+        or source_resolved in output_resolved.parents
+        or output_resolved in source_resolved.parents
+    ):
+        raise ValueError("source and output roots must not overlap")
+
+    # Validate every archived input before touching the last good derived tree.
+    for filename, _, _, _ in SHEETS:
         source = source_root / filename
         if not source.exists():
             raise FileNotFoundError(source)
-        records = extract_sheet(source, rows, cols, entries, output_root)
-        all_records.extend(records)
-        sheets_metadata.append({"source": filename, "rows": rows, "columns": cols, "count": len(records)})
-        _contact_sheet(filename, records, output_root, qc_root)
-        for record in records:
-            if record["policy"] == "tile":
-                _tile_montage(record, output_root, qc_root)
+        with Image.open(source) as image:
+            image.verify()
 
-    manifest = {
-        "version": 2,
-        "generator": "games/grove/tools/extract_meadow_ui_v2.py",
-        "grid_boundary": "round(index * extent / count)",
-        "sheets": sheets_metadata,
-        "assets": all_records,
-    }
-    (output_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    return manifest
+    output_root.parent.mkdir(parents=True, exist_ok=True)
+    token = uuid.uuid4().hex
+    staging_root = output_root.parent / f".{output_root.name}.tmp-{token}"
+    backup_root = output_root.parent / f".{output_root.name}.backup-{token}"
+    staging_root.mkdir()
+    qc_root = staging_root / "qc"
+    qc_root.mkdir(parents=True, exist_ok=True)
+    all_records: list[dict] = []
+    sheets_metadata: list[dict] = []
+    try:
+        for filename, rows, cols, entries in SHEETS:
+            source = source_root / filename
+            records = extract_sheet(source, rows, cols, entries, staging_root)
+            all_records.extend(records)
+            sheets_metadata.append({"source": filename, "rows": rows, "columns": cols, "count": len(records)})
+            _contact_sheet(filename, records, staging_root, qc_root)
+            for record in records:
+                if record["policy"] == "tile":
+                    _tile_montage(record, staging_root, qc_root)
+
+        manifest = {
+            "version": 2,
+            "generator": "games/grove/tools/extract_meadow_ui_v2.py",
+            "grid_boundary": "round(index * extent / count)",
+            "badge_registration": {
+                "canvas": [CANVAS, CANVAS],
+                "visible_bounds": [20, 20, 236, 236],
+                "shared_alpha": True,
+            },
+            "texture_base_rgb": {name: list(rgb) for name, rgb in MEADOW_SKY_TEXTURE_COLORS.items()},
+            "sheets": sheets_metadata,
+            "assets": all_records,
+        }
+        (staging_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        if output_root.exists():
+            output_root.rename(backup_root)
+        try:
+            staging_root.rename(output_root)
+        except Exception:
+            if backup_root.exists() and not output_root.exists():
+                backup_root.rename(output_root)
+            raise
+        if backup_root.exists():
+            shutil.rmtree(backup_root)
+        return manifest
+    finally:
+        if staging_root.exists():
+            shutil.rmtree(staging_root)
 
 
 def main() -> None:
