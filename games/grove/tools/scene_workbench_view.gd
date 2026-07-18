@@ -99,9 +99,17 @@ func _layout() -> void:
 		_sidebar_panel.size = Vector2(SIDEBAR_W, vp.y)
 	_overlay.queue_redraw()
 
+## Detach + queue_free a container's children. All of these rebuilds are reachable from a child
+## Button's own `pressed` handler, so a hard free() would destroy the object MID-SIGNAL-EMISSION
+## (Godot: "Object was freed or unreferenced while a signal is being emitted"); detaching first
+## keeps this frame's layout clean and the deferred free lands after the emission unwinds.
+static func _clear_children(box: Node) -> void:
+	for c in box.get_children():
+		box.remove_child(c)
+		c.queue_free()
+
 func _rebuild_stage() -> void:
-	for c in _layers.get_children():
-		c.free()
+	_clear_children(_layers)
 	var base_rel := String((doc.get("base", {}) as Dictionary).get("image", ""))
 	if base_rel != "":
 		var b := _make_layer(base_rel, Rect2(Vector2.ZERO, M.canvas_size(doc)))
@@ -453,10 +461,8 @@ func _build_sidebar() -> void:
 func _refresh_cluster_list() -> void:
 	if _cluster_box == null:
 		return
-	for c in _cluster_actions.get_children():
-		c.free()
-	for c in _cluster_box.get_children():
-		c.free()
+	_clear_children(_cluster_actions)
+	_clear_children(_cluster_box)
 	if _sel >= 0:
 		var cl := M.cluster_of(doc, _sel)
 		if cl == "":
@@ -504,8 +510,7 @@ func _small_button(text: String, on_press: Callable) -> Button:
 func _refresh_placed_list() -> void:
 	if _placed_box == null:
 		return
-	for c in _placed_box.get_children():
-		c.free()
+	_clear_children(_placed_box)
 	var order := M.sorted_order(doc)
 	for k in range(order.size() - 1, -1, -1):          # topmost first, like layers panels read
 		var i: int = order[k]

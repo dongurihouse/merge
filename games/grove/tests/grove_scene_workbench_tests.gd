@@ -138,6 +138,36 @@ func _initialize() -> void:
 	ok(int(dz.placements[1].z) == 0 and int(dz.placements[0].z) == 20,
 		"a floored restack keeps the members' relative z")
 
+	# --- view: a sidebar row press must NOT free the emitting button ------------------
+	# (regression: the press handler rebuilds the list; a hard free() there destroys the
+	# button mid-signal-emission — "Object was freed while a signal is being emitted")
+	var View = load("res://games/grove/tools/scene_workbench_view.gd")
+	var broot := OS.get_user_data_dir() + "/scene_wb_view_test"
+	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/metadata")
+	var vdoc := _doc()
+	(vdoc.placements[0] as Dictionary)["cluster"] = "camp"
+	(vdoc.placements[1] as Dictionary)["cluster"] = "camp"
+	M.save_doc(broot + "/test_scene_elements_v1/metadata/placements.json", vdoc)
+	var view: Control = View.new()
+	ok(view.setup(broot, "test_scene"), "the view opens a synthetic bundle (art-less entries allowed)")
+	root.add_child(view)
+	if view._placed_box == null:
+		view._ready()                                  # _ready does not auto-fire under _initialize (suite convention)
+	var row := view._placed_box.get_child(0) as Button
+	ok(row != null, "the placed list built a row per entry")
+	if row != null:
+		row.pressed.emit()                             # select via the sidebar — rebuilds the list it lives in
+		ok(is_instance_valid(row), "a pressed placed-row survives its own refresh (deferred free)")
+		ok(view._sel >= 0, "the press selected the entry")
+	var crow_box: Node = view._cluster_box.get_child(0)
+	var crow: Button = (crow_box.get_child(0) as Button) if crow_box != null and crow_box.get_child_count() > 0 else null
+	ok(crow != null, "the clusters list built a row")
+	if crow != null:
+		crow.pressed.emit()
+		ok(is_instance_valid(crow), "a pressed cluster-row survives its own refresh (deferred free)")
+		ok(view._sel_cluster == "camp", "the press selected the cluster")
+	view.queue_free()
+
 	# --- path resolution ------------------------------------------------------------
 	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
 	ok(M.repo_root_of(sr) == "/repo", "repo_root_of strips the scenes suffix")
