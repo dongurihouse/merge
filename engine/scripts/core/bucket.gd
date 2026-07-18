@@ -26,9 +26,9 @@ static func line_kind(line: String) -> String:
 static func kind_line(kind: String) -> String:
 	return String(D.RESIDENT_KIND_LINES.get(kind, ""))
 
-## Cells granted so far — the sum of `cells` over COMPLETED home buildings (home.gd). The only
-## capacity source (home build-and-upgrade redesign, spec 2026-07-17): a building's final step
-## grants its cells, so capacity drips in as the home is built, gated by the level brake.
+## Cells granted so far — ONE per completed home zone (home.gd). The only capacity source
+## (decision 2026-07-17: each zone unlocks a single cell): finishing every building of a zone
+## grants its one cell, so capacity drips in zone by zone, gated by the level brake.
 static func cells_total() -> int:
 	return Home.cells_total()
 
@@ -40,6 +40,10 @@ static func state() -> Dictionary:
 		Save.grove_write()
 	var st: Dictionary = g["bucket"]
 	st["cells"] = cells_total()
+	# capacity can SHRINK under a save (per-zone redesign 2026-07-17: one cell per completed zone,
+	# down from per-building bundles) — overflow placed spirits return to the hand, nothing lost.
+	while (st["placed"] as Array).size() > int(st["cells"]):
+		RB.unplace(st, (st["placed"] as Array).size() - 1, now())
 	return st
 
 # --- migration (legacy per-map habitat -> the bucket) --------------------------------------------

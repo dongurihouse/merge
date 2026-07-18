@@ -5,8 +5,9 @@ extends RefCounted
 ## are always injected. This module preloads NOTHING — home.gd (the adapter) persists state
 ## in Save and feeds the live BUILDINGS table + G.level().
 ##
-## A building def: {id, cells, steps: [{cost, min_level, shows}], customizations: [{id, cost, currency}]}
+## A building def: {id, steps: [{cost, min_level, shows}], customizations: [{id, cost, currency}]}
 ## — `shows` is the art state rendered once that step is PAID; the final step's shows is "built".
+## A def may carry `zone` (default "farmhouse"); completing a whole zone unlocks ONE bucket cell.
 ## State: {built: {id: steps_done}, custom: {id: variant_id}}.
 
 static func make_state() -> Dictionary:
@@ -56,14 +57,20 @@ static func state_id(state: Dictionary, def: Dictionary) -> String:
 		return v if v != "" else "built"
 	return String(def.steps[done - 1].shows)
 
-## Bucket cells earned = the sum of `cells` over COMPLETED buildings. A pure re-read
-## (derived, never stored) — the bucket re-syncs from this on every access, so a grant
-## can never double-apply.
+## Bucket cells earned = ONE per completed ZONE (decision 2026-07-17: each zone unlocks a single
+## cell — never a per-building bundle). A zone is complete when EVERY building it carries is built;
+## defs group by their `zone` field (default "farmhouse" — today's single-zone world; the picture-book
+## pages slot in as zones). A pure re-read (derived, never stored) — the bucket re-syncs from this on
+## every access, so a grant can never double-apply.
 static func cells_granted(state: Dictionary, defs: Array) -> int:
-	var total := 0
+	var zone_done: Dictionary = {}          # zone -> every building so far built?
 	for def in defs:
-		if is_built(state, def):
-			total += int(def.get("cells", 0))
+		var z := String(def.get("zone", "farmhouse"))
+		zone_done[z] = bool(zone_done.get(z, true)) and is_built(state, def)
+	var total := 0
+	for z in zone_done:
+		if bool(zone_done[z]):
+			total += 1
 	return total
 
 ## Choose a customization variant — only on a BUILT building, only a variant the def offers.

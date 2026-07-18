@@ -32,24 +32,21 @@ func _build_through(n: int) -> void:
 			pass
 	Save.grove_write()
 
-# Grant "enough cells for this test" — completing the first building yields the first grant.
+# Open the bucket for a test — completing the whole zone unlocks its single cell.
 func _open_spots(_z: int) -> void:
-	_build_through(Home.defs().size() - 1)   # build everything → the full bucket
+	_build_through(Home.defs().size() - 1)   # build everything → the zone's one cell
 
-# --- cells come ONLY from completed home buildings (no per-map rosters, no coin capacity sink) -------
+# --- cells come ONLY from completed zones: 1 per zone (no per-building bundles, no coin sink) --------
 func _test_cells_from_completion() -> void:
 	fresh("bucket_cells")
 	ok(Bucket.cells_total() == 0, "a fresh save has 0 cells")
 	Bucket.hand_add("coin", 1)
-	ok(not Bucket.place(0), "placement is refused before any building completes")
+	ok(not Bucket.place(0), "placement is refused before the zone completes")
 	_build_through(0)
-	ok(Bucket.cells_total() == int(Home.defs()[0].cells), "completing the first building grants its cells")
-	ok(Bucket.place(0), "placement works once a building granted cells")
+	ok(Bucket.cells_total() == 0, "a single built building pays nothing — the ZONE must complete")
 	_build_through(Home.defs().size() - 1)
-	var want := 0
-	for d in Home.defs():
-		want += int(d.cells)
-	ok(Bucket.cells_total() == want, "completing every building grants the full bucket")
+	ok(Bucket.cells_total() == 1, "completing the whole farmhouse zone unlocks its single cell")
+	ok(Bucket.place(0), "placement works once the zone's cell is unlocked")
 
 # --- the four lines and their art kinds -----------------------------------------------------------
 func _test_hand_and_lines() -> void:
@@ -191,7 +188,18 @@ func _test_bucket_dock() -> void:
 	chip = hx.content.find_child("BucketCollectChip", true, false) as Button
 	ok(chip != null and chip.disabled, "after the collect the chip goes quiet (only a fraction banked)")
 
-	# drag the hand spirit onto the cells grid → it takes a free cell
+	# the zone's single cell is occupied by the placed spirit — unplace-drag it to the hand board
+	# first, then place-drag a hand spirit into the freed cell (capacity: 1 per completed zone).
+	var placed_orb := _placed_orb_at_index(hx, 0)
+	var hand_grid := hx.content.find_child("HandClip", true, false) as Control
+	ok(placed_orb != null and hand_grid != null, "the unplace drag test has a placed orb and the hand board")
+	if placed_orb != null and hand_grid != null:
+		_drag_select(hx, _hit_center(placed_orb), _hit_center(hand_grid))
+		await create_timer(0.06).timeout
+		ok(Bucket.placed().is_empty() and Bucket.hand().size() == 2, "dropping a placed spirit on the hand board brings it out")
+
+	# drag a hand spirit onto the cells grid → it takes the freed cell
+	await create_timer(0.05).timeout
 	var hand_orb := _hand_orb_at_index(hx, 0)
 	cells = hx.content.find_child("BucketCellsGrid", true, false) as GridContainer
 	ok(hand_orb != null and cells != null, "the place drag test has a hand orb and the grid")
@@ -199,17 +207,7 @@ func _test_bucket_dock() -> void:
 		var free_cell := cells.get_child(cells.get_child_count() - 1) as Control
 		_drag_select(hx, _hit_center(hand_orb), _hit_center(free_cell))
 		await create_timer(0.06).timeout
-		ok(Bucket.placed().size() == 2 and Bucket.hand().is_empty(), "dropping on the cells grid places into a free cell")
-
-	# drag a placed spirit onto the hand board → it comes back out
-	await create_timer(0.05).timeout
-	var placed_orb := _placed_orb_at_index(hx, 1)
-	var hand_grid := hx.content.find_child("HandClip", true, false) as Control
-	ok(placed_orb != null and hand_grid != null, "the unplace drag test has a placed orb and the hand board")
-	if placed_orb != null and hand_grid != null:
-		_drag_select(hx, _hit_center(placed_orb), _hit_center(hand_grid))
-		await create_timer(0.06).timeout
-		ok(Bucket.placed().size() == 1 and Bucket.hand().size() == 1, "dropping a placed spirit on the hand board brings it out")
+		ok(Bucket.placed().size() == 1 and Bucket.hand().size() == 1, "dropping on the cells grid places into a free cell")
 	hx.queue_free()
 
 # --- before any completion: the dock reads closed, no dead chips ----------------------------------

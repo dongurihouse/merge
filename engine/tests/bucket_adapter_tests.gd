@@ -39,20 +39,30 @@ func _build_building(i: int) -> void:
 		pass
 	Save.grove_write()
 
+# Complete EVERY building — the whole farmhouse zone (capacity: ONE cell per completed zone).
+func _build_zone() -> void:
+	for i in Home.defs().size():
+		_build_building(i)
+
 func _test_cells_from_completion() -> void:
 	fresh("cells")
 	ok(Bucket.cells_total() == 0, "a fresh save has 0 cells")
 	ok(Bucket.state().cells == 0, "state syncs the derived cell count")
 	_build_building(0)
-	ok(Bucket.cells_total() == int(Home.defs()[0].cells), "completing the first building grants its cells")
-	for i in Home.defs().size():
-		_build_building(i)
-	var want := 0
-	for d in Home.defs():
-		want += int(d.cells)
-	ok(Bucket.cells_total() == want, "completing every building grants the full 8-cell bucket")
-	ok(want == 8, "the seven farmhouse buildings grant 8 cells total")
-	ok(Bucket.state().cells == want, "state re-syncs cells after completion")
+	ok(Bucket.cells_total() == 0, "a single built building pays nothing — the ZONE must complete")
+	_build_zone()
+	ok(Bucket.cells_total() == 1, "completing the whole farmhouse zone unlocks its single cell")
+	ok(Bucket.state().cells == 1, "state re-syncs cells after completion")
+
+	# capacity SHRINK under a live save (per-zone redesign): overflow placed return to the hand
+	fresh("cells_shrink")
+	var g := Save.grove()
+	g["bucket"] = Bucket.RB.make_state(Bucket.now())
+	(g["bucket"]["placed"] as Array).append_array([{"line": "coin", "tier": 2}, {"line": "water", "tier": 1}])
+	Save.grove_write()
+	var shrunk := Bucket.state()
+	ok((shrunk["placed"] as Array).is_empty() and (shrunk["hand"] as Array).size() == 2,
+		"placed spirits past the shrunken capacity return to the hand — nothing lost")
 
 func _test_migration() -> void:
 	fresh("migration")
@@ -80,8 +90,8 @@ func _test_place_and_sell() -> void:
 	fresh("place_sell")
 	Bucket.hand_add("coin", 1)
 	ok(not Bucket.place(0), "place refuses with 0 cells")
-	_build_building(0)
-	ok(Bucket.place(0), "place succeeds once a completed building granted cells")
+	_build_zone()
+	ok(Bucket.place(0), "place succeeds once the completed zone unlocked its cell")
 	ok(Bucket.placed().size() == 1 and Bucket.hand().is_empty(), "place moved the spirit into a cell")
 	Bucket.hand_add("coin", 1)
 	ok(Bucket.place_merge(0, 0), "place_merge climbs the placed spirit")

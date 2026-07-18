@@ -29,9 +29,9 @@ func fresh(name: String) -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-## A fixture def, independent of the live grove BUILDINGS table: 3 steps, 2 cells, 1 skin.
+## A fixture def, independent of the live grove BUILDINGS table: 3 steps, 1 skin.
 func _def() -> Dictionary:
-	return {"id": "hut", "cells": 2,
+	return {"id": "hut",
 		"steps": [
 			{"cost": 10, "min_level": 1, "shows": "site"},
 			{"cost": 20, "min_level": 2, "shows": "site"},
@@ -67,8 +67,19 @@ func _initialize() -> void:
 	ok(HB.next_step(st, d).is_empty(), "next_step is empty once built")
 	ok(HB.can_buy_step(st, d, 99, 99999) == "built", "buying past the end → refused as 'built'")
 	ok(not HB.buy_step(st, d) and HB.steps_done(st, "hut") == 3, "buy_step refuses past the end")
-	ok(HB.cells_granted(st, [d]) == 2, "completion grants the def's cells")
-	ok(HB.cells_granted(st, [d]) == 2, "cells_granted is a pure re-read — never double-grants")
+	ok(HB.cells_granted(st, [d]) == 1, "completing a zone's only building completes the zone → ONE cell")
+	ok(HB.cells_granted(st, [d]) == 1, "cells_granted is a pure re-read — never double-grants")
+
+	# per-ZONE capacity (decision 2026-07-17): a zone pays its single cell only when EVERY building
+	# in it is built; each further zone is worth exactly one more cell.
+	var shed := {"id": "shed", "steps": [{"cost": 5, "min_level": 1, "shows": "built"}], "customizations": []}
+	ok(HB.cells_granted(st, [d, shed]) == 0, "an unbuilt sibling keeps the whole zone unpaid")
+	HB.buy_step(st, shed)
+	ok(HB.cells_granted(st, [d, shed]) == 1, "the zone completes with its LAST building — still one cell")
+	var barn := {"id": "barn", "zone": "meadow", "steps": [{"cost": 5, "min_level": 1, "shows": "built"}], "customizations": []}
+	ok(HB.cells_granted(st, [d, shed, barn]) == 1, "a second zone grants nothing while unbuilt")
+	HB.buy_step(st, barn)
+	ok(HB.cells_granted(st, [d, shed, barn]) == 2, "each completed zone unlocks exactly one cell")
 
 	# customization: only on a BUILT building, and it becomes the rendered state
 	var st2 := HB.make_state()
@@ -96,10 +107,16 @@ func _initialize() -> void:
 
 	while not bool(Home.buy_step(fid).get("built", false)):   # buy to completion
 		pass
-	ok(Home.cells_total() == int(first.cells), "completing the building grants its cells")
+	ok(Home.cells_total() == 0, "one built building does not complete the zone — no cell yet")
+
+	for d2 in Home.defs():                        # finish the whole farmhouse zone
+		while not Home.next_step(String(d2.id)).is_empty():
+			if not bool(Home.buy_step(String(d2.id)).ok):
+				break                             # failsafe: a refused buy must not hang the suite
+	ok(Home.cells_total() == 1, "completing every building of the zone unlocks its ONE cell")
 
 	Save._loaded = false                          # adapter state survives a reload
-	ok(Home.state_id(fid) != "empty" and Home.cells_total() == int(first.cells), \
+	ok(Home.state_id(fid) != "empty" and Home.cells_total() == 1, \
 		"home state round-trips through the save file")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])

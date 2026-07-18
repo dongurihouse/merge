@@ -40,7 +40,7 @@ static func state_id(id: String) -> String:
 static func next_step(id: String) -> Dictionary:
 	return HB.next_step(state(), def_of(id))
 
-## Bucket cells earned so far — the sum over COMPLETED buildings (the only capacity source).
+## Bucket cells earned so far — ONE per completed zone (the only capacity source).
 static func cells_total() -> int:
 	return HB.cells_granted(state(), defs())
 
