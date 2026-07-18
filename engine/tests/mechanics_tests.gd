@@ -600,6 +600,9 @@ func _initialize() -> void:
 	ok(G.art_tier_for("acorn", 2) == 5 and G.art_tier_for("acorn", 3) == 6, "acorn tiers wear the picked art (3/5/6)")
 	ok(G.art_tier_for("water", 2) == 2 and G.art_tier_for("fairy_hollow_glowshroom", 7) == 7, "unmapped bases pass tiers through unchanged")
 	ok(G.item_tex_path(13 * 100 + 1).ends_with("acorn_3.png"), "the acorn drop's t1 sprite resolves through the pick map")
+	# T55 buy-a-copy is PREMIUM-priced (owner decision 2026-07-18): ceil(tier/4) acorns, never coins
+	ok(G.buy_price(101) == Vector2i(0, 1) and G.buy_price(104) == Vector2i(0, 1), "t1-t4 copies buy for 1 acorn (no coin component)")
+	ok(G.buy_price(105) == Vector2i(0, 2) and G.buy_price(112) == Vector2i(0, 3), "t5-t8 → 2 acorns; t9-t12 → 3 acorns")
 	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
 	#  Quests.due_gen in quest_tests.gd.)
 	# generator merge ladder (task 8 logic; additive — board wiring flips later)

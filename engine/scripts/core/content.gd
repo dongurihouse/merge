@@ -957,12 +957,14 @@ static func sell_reward(code: int) -> Vector2i:
 	var band: float = TREAT_SELL_BAND if is_treat_line(code) else sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
 
-## What it costs to BUY a copy of an item via the board info bar (§10, T55): marked up over the
-## coin sale value by BUY_MARKUP. Since sell_reward no longer pays premium, the premium component
-## is always 0; buying ALWAYS costs strictly more coins than selling returns.
+## What it costs to BUY a copy of an item via the board info bar (§10, T55) — PREMIUM-priced
+## (owner decision 2026-07-18: item shortcuts are an acorn convenience, never a coin loop):
+## a tier-scaled acorn ladder, ceil(tier/4) → 1🌰 t1-4 · 2🌰 t5-8 · 3🌰 t9-12. PROVISIONAL
+## (sim re-pass owns it). Selling still pays coins, so no buy-low/sell-high loop can exist
+## across currencies by construction. Vector2i(coins, acorns) — coins now always 0.
 static func buy_price(code: int) -> Vector2i:
-	var sell := sell_reward(code)
-	return Vector2i(int(ceil(sell.x * BUY_MARKUP)), 0)
+	var tier := code % 100
+	return Vector2i(0, maxi(1, int(ceil(tier / 4.0))))
 
 ## The per-map coin band for `map` (0-indexed), clamped to the table (a map past the table
 ## reuses the last entry). Owner/sim feel dial for every item sale.

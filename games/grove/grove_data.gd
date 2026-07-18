@@ -255,9 +255,9 @@ const STARTER_ITEMS := {
 # content.sell_reward(). One entry per MAPS row.
 const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Fairy Hollow · Snowy · Oasis · Reef · Cherry-Blossom
 
-# What BUYING a copy of an item (the §10 board info-bar buy, T55) costs RELATIVE to its sell value:
-# buy_price = ceil(sell_reward × BUY_MARKUP), in the same currency split (coins sub-top, 💎 top). Must
-# be > 1 so buying always costs strictly more than selling returns (the buy-low/sell-high loop is
+# BUYING a copy of an item (the §10 board info-bar buy, T55) is PREMIUM-priced now (owner decision
+# 2026-07-18): a tier-scaled acorn ladder in content.buy_price — ceil(tier/4) acorns. BUY_MARKUP is
+# VESTIGIAL (kept only so the parked economy suite still parses; the old rule was coin-markup-over-sell,
 # impossible by construction). OWNER/SIM FEEL DIAL — re-validate the faucet/sink balance on grove_sim.
 const BUY_MARKUP := 3.0
 
