@@ -1426,4 +1426,12 @@ static func item_tex_path(code: int) -> String:
 		base = special_base(code)
 	if base == "":
 		return ""
-	return Game.art("items/%s/%s_%d.png" % [base, base, tier])
+	return Game.art("items/%s/%s_%d.png" % [base, base, art_tier_for(base, tier)])
+
+# The ART index in-game tier `tier` wears for `base` (D.ART_TIER_PICK — owner-picked looks off a
+# larger sheet, e.g. the 3-tier coin ladder wearing art 1/5/12). Unmapped bases pass through.
+static func art_tier_for(base: String, tier: int) -> int:
+	var pick: Array = D.ART_TIER_PICK.get(base, [])
+	if tier >= 1 and tier - 1 < pick.size():
+		return int(pick[tier - 1])
+	return tier

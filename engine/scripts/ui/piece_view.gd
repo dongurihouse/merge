@@ -182,7 +182,7 @@ static func make_piece(code: int, size: float, inset := ITEM_INSET) -> Control:
 	# the tier sprite is absent.
 	if G.is_coin(code):
 		var ctier := BoardModel.tier_of(code)
-		var cpath := Game.art("items/coin/coin_%d.png" % ctier)
+		var cpath := Game.art("items/coin/coin_%d.png" % G.art_tier_for("coin", ctier))
 		if cpath != "" and ResourceLoader.exists(cpath):
 			_add_sprite(holder, _content_tex(cpath), size, inset)   # coins fit the cell UNIFORMLY — same inset as every other item (was a tighter 0.06)
 		else:

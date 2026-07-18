@@ -95,6 +95,31 @@ func _initialize() -> void:
 	ok(bm.is_gen(Vector2i(4, 3)) and bm.gens.size() == 1, "seed_gens(0): the map-0 anchor satchel is live")
 	ok(bm.gen_id_at(Vector2i(4, 3)) == "gen_1", "the center cell holds the satchel")
 	ok(bm.gen_id_at(Vector2i(0, 0)) == "", "a non-generator cell has no generator id")
+	var expected_gen_tex := {
+		"gen_1": "items/generator/gen_fairy_hollow_glowshroom.png",
+		"gen_2": "items/generator/gen_fairy_hollow_wild_berries.png",
+		"gen_3": "items/generator/gen_snowy_village_snow_ice.png",
+		"gen_4": "items/generator/gen_snowy_village_woolens.png",
+		"gen_6": "items/generator/gen_oasis_desert_fruits.png",
+		"gen_7": "items/generator/gen_oasis_sand_sculptures.png",
+		"gen_16": "items/generator/gen_coral_reef_shells.png",
+		"gen_18": "items/generator/gen_cherry_blossom_koi.png",
+	}
+	for gid in expected_gen_tex:
+		var tex := G.gen_tex(String(gid))
+		ok(tex == String(expected_gen_tex[gid]) and ResourceLoader.exists("res://games/grove/assets/" + tex), \
+			"%s resolves to its imported cut-paper picture-book generator icon" % gid)
+	ok(G.gen_for_line(5) == "" and G.gen_for_line(8) == "" and G.gen_for_line(17) == "" and G.gen_for_line(19) == "", \
+		"crafted/special lines keep no board generator")
+	var retired_source_icons := [
+		"items/generator/gen_snowy_village_winter_berries.png",
+		"items/generator/gen_oasis_spices.png",
+		"items/generator/gen_coral_reef_corals.png",
+		"items/generator/gen_cherry_blossom_tea_cups.png",
+	]
+	for tex in retired_source_icons:
+		ok(not ResourceLoader.exists("res://games/grove/assets/" + tex), \
+			"%s is not shipped as a board generator icon" % tex)
 	# #1 movable: a generator relocates to an empty open cell, refuses an occupied/gen cell
 	var dest := Vector2i(4, 4)
 	bm.items[BoardModel.idx(dest)] = 0            # clear the starter item there
@@ -437,7 +462,7 @@ func _initialize() -> void:
 	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
 	ok(G.merge_top(13 * 100 + 1) == G.SPECIAL_TOP, "acorn drops merge through tier 3 (the 12-tier ladder is retired)")
-	ok(G.item_tex_path(13 * 100 + 3).ends_with("items/acorn/acorn_3.png"), "acorn t3 resolves its wired art path")
+	ok(G.item_tex_path(13 * 100 + 3).ends_with("items/acorn/acorn_6.png"), "acorn t3 resolves its PICKED art (t3 wears acorn_6)")
 	ok(ResourceLoader.exists("res://games/grove/assets/items/coin/coin_12.png"), "coin t12 art is imported")
 	ok(ResourceLoader.exists(G.item_tex_path(13 * 100 + 3)), "acorn t3 art is imported")
 	ok(not G.LINES.has(10), "a special pseudo-line is not a content LINE (never popped/asked/sold as content)")
@@ -570,6 +595,11 @@ func _initialize() -> void:
 			_starters_produceable = false
 	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
 	ok(G.base_generator(5).is_empty(), "a special line has no generator")
+	# owner art picks (2026-07-18): the 3-tier coin/acorn ladders wear chosen art off the 12-tier sheets
+	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 5 and G.art_tier_for("coin", 3) == 12, 		"coin tiers wear the picked art (1/5/12 — coin → pouch → chest)")
+	ok(G.art_tier_for("acorn", 2) == 5 and G.art_tier_for("acorn", 3) == 6, "acorn tiers wear the picked art (3/5/6)")
+	ok(G.art_tier_for("water", 2) == 2 and G.art_tier_for("fairy_hollow_glowshroom", 7) == 7, "unmapped bases pass tiers through unchanged")
+	ok(G.item_tex_path(13 * 100 + 1).ends_with("acorn_3.png"), "the acorn drop's t1 sprite resolves through the pick map")
 	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
 	#  Quests.due_gen in quest_tests.gd.)
 	# generator merge ladder (task 8 logic; additive — board wiring flips later)

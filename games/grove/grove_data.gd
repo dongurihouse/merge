@@ -49,31 +49,20 @@ const LINES := {
 	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B"), "desc": "A sweet special melon. Merge it before selling."},
 }
 
-# Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
-# (Farmhouse · Barn · Pond · Orchard · Meadow). Each generator is its map's sole producer and emits
-# its ONE line. Generators PERSIST — never handed in / consumed (§6); the next map's generator is
-# the reward of a near-end quest, auto-placed on the board. `grant_from` is vestigial (kept "" —
-# the hand-in model is retired). `cell` only seeds the FIRST map (map 0); later maps' generators
-# auto-place on the first open cell when granted, so their `cell` is unused. The map-1 anchor
-# (`seed_satchel`) is live from the first second.
-#
-# ICON NOTE — maps 3–5 still wear their OLD theme icons (gen_cattails/gen_apples/gen_glowcaps) since
-# the icon repaint is PARKED; the intended replacements are gen_honeycomb (Honey) and gen_porcini
-# (Mushroom), kept in items/generator/. Tool-shed (Garden tools) has no themed icon yet.
+# Generators — one board generator per BASE picture-book line. Generators persist: they are never handed in
+# or consumed. Crafted/special lines are made through recipes, so they have no board generator icon.
 const GENERATORS := [
 	# ONE generator per BASE line (Core §6.A), born on tap as its zone opens (§6.B). 8 base lines in
 	# zone order; `zone` = zone index, `map` = its page BAND (must equal G.zone_map(zone) — the
 	# mechanics_tests guard pins it). Specials (ZONES rows with a recipe) have NO generator (crafted).
-	# ICON NOTE — the per-line generator icon repaint for the picture-book roster is PARKED; slots
-	# reuse the existing generators_N.png icons until the new set lands.
-	{"id": "gen_1",  "line": 1,  "zone": 0,  "map": 0, "cell": Vector2i(4, 3), "anchor": true, "tex": "items/generator/generators_1.png",  "label": "glow-mushrooms"},
-	{"id": "gen_2",  "line": 2,  "zone": 1,  "map": 0, "tex": "items/generator/generators_2.png",  "label": "wild berries"},
-	{"id": "gen_3",  "line": 3,  "zone": 2,  "map": 1, "tex": "items/generator/generators_3.png",  "label": "snow & ice"},
-	{"id": "gen_4",  "line": 4,  "zone": 3,  "map": 1, "tex": "items/generator/generators_4.png",  "label": "woolens"},
-	{"id": "gen_6",  "line": 6,  "zone": 5,  "map": 2, "tex": "items/generator/generators_5.png",  "label": "desert fruits"},
-	{"id": "gen_7",  "line": 7,  "zone": 6,  "map": 2, "tex": "items/generator/generators_6.png",  "label": "sand sculptures"},
-	{"id": "gen_16", "line": 16, "zone": 8,  "map": 3, "tex": "items/generator/generators_7.png",  "label": "shells"},
-	{"id": "gen_18", "line": 18, "zone": 10, "map": 4, "tex": "items/generator/generators_8.png",  "label": "koi"},
+	{"id": "gen_1",  "line": 1,  "zone": 0,  "map": 0, "cell": Vector2i(4, 3), "anchor": true, "tex": "items/generator/gen_fairy_hollow_glowshroom.png",  "label": "glow-mushrooms"},
+	{"id": "gen_2",  "line": 2,  "zone": 1,  "map": 0, "tex": "items/generator/gen_fairy_hollow_wild_berries.png",  "label": "wild berries"},
+	{"id": "gen_3",  "line": 3,  "zone": 2,  "map": 1, "tex": "items/generator/gen_snowy_village_snow_ice.png",  "label": "snow & ice"},
+	{"id": "gen_4",  "line": 4,  "zone": 3,  "map": 1, "tex": "items/generator/gen_snowy_village_woolens.png",  "label": "woolens"},
+	{"id": "gen_6",  "line": 6,  "zone": 5,  "map": 2, "tex": "items/generator/gen_oasis_desert_fruits.png",  "label": "desert fruits"},
+	{"id": "gen_7",  "line": 7,  "zone": 6,  "map": 2, "tex": "items/generator/gen_oasis_sand_sculptures.png",  "label": "sand sculptures"},
+	{"id": "gen_16", "line": 16, "zone": 8,  "map": 3, "tex": "items/generator/gen_coral_reef_shells.png",  "label": "shells"},
+	{"id": "gen_18", "line": 18, "zone": 10, "map": 4, "tex": "items/generator/gen_cherry_blossom_koi.png",  "label": "koi"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
@@ -303,6 +292,11 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
 const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is retired)
+# Which ART file each in-game tier wears, per base — the 12-tier sheets stay on disk and the OWNER
+# picks the looks (2026-07-18: coin t1/t2/t3 wear art 1/5/12 — coin → pouch → chest; acorn wears
+# 3/5/6). A base not listed maps tier N → art N. Read via G.art_tier_for (item_tex_path + the
+# piece_view coin branch).
+const ART_TIER_PICK := {"coin": [1, 5, 12], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
