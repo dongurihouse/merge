@@ -342,7 +342,7 @@ const ACCUMULATORS := {
 # A bonus generator SIDE-SPAWNS off a main-generator tap, pops collectable board items for a random
 # BONUS_CLICKS budget, then VANISHES. (cap / secs / unlock_spot are now vestigial.) Sim-tuned dials.
 const BONUS_SPAWN_CHANCE := 0.03          # P(a main-generator tap also side-spawns a bonus gen) — the 2–5% band
-const BONUS_CLICKS := [5, 15]             # the random tap budget a bonus generator lasts [min, max]
+const BONUS_CLICKS := [1, 5]              # the random tap budget a bonus generator lasts [min, max] (owner cut from [5,15], 2026-07-18)
 
 # §6.D TEMPORARY TREAT GENERATORS — the main generator occasionally pops one out; it pops a burst of a
 # premium "treat" line (the §6.E Farm lines, which are NOT in the main pool, so they appear ONLY here) at
