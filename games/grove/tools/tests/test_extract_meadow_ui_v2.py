@@ -271,6 +271,18 @@ class MeadowUiV2ExtractorTests(unittest.TestCase):
         for index, alpha in enumerate(all_badge_alpha[1:], start=2):
             np.testing.assert_array_equal(alpha, all_badge_alpha[0], err_msg=f"level_badge_{index:02d}")
 
+        for index in range(1, 26):
+            rgba = np.asarray(Image.open(output / f"level_badge_{index:02d}.png").convert("RGBA"))
+            mask = rgba[:, :, 3] > 0
+            perimeter = mask & (ndimage.distance_transform_edt(mask) <= 12)
+            rgb = rgba[:, :, :3].astype(np.float64)[perimeter]
+            luminance = rgb @ np.array([0.2126, 0.7152, 0.0722])
+            low_saturation_gray = (rgb.max(axis=1) - rgb.min(axis=1) < 30) & (luminance < 190)
+            self.assertLess(float(luminance.std()), 38.0, f"level_badge_{index:02d}")
+            self.assertLess(float(low_saturation_gray.mean()), 0.03, f"level_badge_{index:02d}")
+            self.assertLess(float((luminance < 90).mean()), 0.04, f"level_badge_{index:02d}")
+        self.assertEqual(manifest["texture_base_rgb"]["texture_warm_kraft"], [220, 195, 154])
+
     def test_failed_regeneration_preserves_last_good_output(self):
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)

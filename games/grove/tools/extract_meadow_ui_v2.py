@@ -42,13 +42,13 @@ MEADOW_SKY_TEXTURE_COLORS: dict[str, tuple[int, int, int]] = {
     "texture_reward_gold": (0xD6, 0xA9, 0x4C),
     "texture_supporting_purple": (0x86, 0x77, 0xA3),
     "texture_ink": (0x24, 0x3B, 0x4B),
-    # Stable rounded RGB mean measured from the approved archived kraft tile.
-    "texture_warm_kraft": (221, 184, 123),
+    "texture_warm_kraft": (0xDC, 0xC3, 0x9A),
 }
 
 LIGHT_GLYPH_CONTROLS = {"button_plus", "button_info", "button_close", "button_confirm"}
 DARK_GLYPH_CONTROLS = {"button_back"}
 CLEAN_SILHOUETTE_ASSETS = LIGHT_GLYPH_CONTROLS | DARK_GLYPH_CONTROLS | {"icon_settings"}
+BADGE_PERIMETER_REPAIR = {f"level_badge_{index:02d}" for index in range(17, 21)}
 
 
 def _entries(names: Sequence[str], policy: str) -> list[dict[str, str]]:
@@ -383,6 +383,23 @@ def _canonical_badge_alpha(image: Image.Image) -> np.ndarray:
     return alpha
 
 
+def _repair_badge_perimeter(image: Image.Image, name: str) -> Image.Image:
+    """Replace generator-mottled outer bands with clean neighboring cardstock."""
+    if name not in BADGE_PERIMETER_REPAIR:
+        return image
+    rgba = np.asarray(image.convert("RGBA")).copy()
+    mask = rgba[:, :, 3] > 0
+    distance = ndimage.distance_transform_edt(mask)
+    perimeter = mask & (distance <= 12.0)
+    donor_ring = mask & (distance > 12.0) & (distance <= 18.0)
+    if not np.any(donor_ring):
+        return image
+    cardstock = np.rint(np.median(rgba[:, :, :3][donor_ring], axis=0)).astype(np.uint8)
+    rgba[perimeter, :3] = cardstock
+    rgba[~mask] = 0
+    return Image.fromarray(rgba, "RGBA")
+
+
 def _periodic_tile(image: Image.Image) -> Image.Image:
     # Build one quadrant and mirror it across both axes.  The first and last
     # rows/columns are therefore byte-identical, not merely visually similar.
@@ -465,6 +482,7 @@ def extract_sheet(
             result = _register_badge(crop)
             if canonical_badge_alpha is not None:
                 result = _apply_alpha_silhouette(result, canonical_badge_alpha)
+            result = _repair_badge_perimeter(result, entry["name"])
         elif policy == "surface":
             result = crop
         elif policy == "tile":

@@ -149,7 +149,7 @@ authored depth cues rather than cast/contact shadows.
 Texture entries discard the generated key-contaminated perimeter, then mirror one clean quadrant
 horizontally and vertically. Their committed means are the exact semantic Meadow Sky role RGB values
 recorded in `manifest.json`; source luminance is reduced to a bounded 2–4% fiber-only variation. Warm
-kraft uses the stable rounded mean sampled from its approved archived source. Mirroring makes the
+kraft uses the archived prompt base `#DCC39A` exactly. Mirroring makes the
 first/last rows and columns byte-identical. The committed `ui/meadow_v2/qc/*_contact.png` files
 prove row-major identity; every `*_3x3_offset.png` exposes both texture boundaries through the middle
 of the review image and must be fully opaque, gap-free, and free of magenta before shipping.
