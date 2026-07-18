@@ -21,6 +21,11 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const SEPARATOR_ART := "shared/action_separator.png"   # the painted divider between the bar's wells
 const SEPARATOR_FRAC := 0.24                            # separator width as a fraction of the button px
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
+const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
+const PAPER_TEXTURE := "texture_cream.png"
+const PAPER_FILL := Color("#F6EBDD")
+const PAPER_EDGE := Color("#FFF9EC")
+const PAPER_CORNER_FRAC := 0.18
 
 # The workbench-tuned action-bar opts ({} when the kit can't load — every reader falls back to a const).
 static func opts() -> Dictionary:
@@ -29,47 +34,53 @@ static func opts() -> Dictionary:
 		return {}
 	return Kit.action_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
-# The bottom action bar is a single generated tray. Bag, info, and Home stay as real controls inside it;
-# their own frames are cleared so this parent surface is the only painted box.
+# The bottom action bar is a single generated tray. Shape, light edge, and shadow are code-drawn here;
+# apply_paper_surface adds only a flat cream grain inside that shape. Bag, info, and Home stay as real
+# controls inside it; their own frames are cleared so this parent surface is the only painted box.
 static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {}) -> StyleBox:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit != null:
-		var kit_opts: Dictionary = Kit.board_panel_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		var frame_style := String(kit_opts.get("frame_style", "meadow"))
-		if frame_style == "code":
-			var code := StyleBoxFlat.new()
-			code.bg_color = Color("#FBF3E2")
-			code.border_color = Pal.STRAW
-			code.set_border_width_all(int(kit_opts.get("border_w", 4)))
-			code.set_corner_radius_all(int(kit_opts.get("corner", 46)))
-			return _apply_padding(code, bar_h, action_opts)
-		if frame_style == "meadow":
-			var pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-			var pad_y := roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
-			var paper: StyleBoxTexture = Kit.meadow_paper_style("dialog_panel.png", Kit.DIALOG_PATCH, pad_x, pad_y, pad_x, pad_y)
-			if paper.texture != null:
-				return paper
-		var badge_opts: Dictionary = (kit_opts.get("badge", {}) as Dictionary).duplicate() if kit_opts.get("badge", {}) is Dictionary else {}
-		badge_opts["content_margin_left"] = roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-		badge_opts["content_margin_right"] = badge_opts["content_margin_left"]
-		badge_opts["content_margin_top"] = roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
-		badge_opts["content_margin_bottom"] = badge_opts["content_margin_top"]
-		return Kit.gold_badge_style(badge_opts)
 	var flat := StyleBoxFlat.new()
-	flat.bg_color = Color(Pal.CREAM, 0.96)
-	flat.border_color = Pal.STRAW
-	flat.set_border_width_all(3)
-	flat.set_corner_radius_all(24)
-	return _apply_padding(flat, bar_h, action_opts)
+	flat.bg_color = PAPER_FILL
+	flat.border_color = PAPER_EDGE
+	flat.set_border_width_all(2)
+	flat.set_corner_radius_all(_bar_corner(bar_h))
+	flat.anti_aliasing = true
+	if bool(action_opts.get("shadow", true)):
+		var shadow: Dictionary = action_opts.get("shadow_params", {})
+		var alpha := minf(float(shadow.get("alpha", 0.20)), 0.20)
+		flat.shadow_color = Look.warm_shadow_color(alpha, float(shadow.get("warmth", 0.82)))
+		flat.shadow_size = maxi(1, int(roundf(maxf(1.0, float(shadow.get("blur", 14.0)) + float(shadow.get("spread", 4.0))))))
+		flat.shadow_offset = Vector2(float(shadow.get("offset_x", 0.0)), float(shadow.get("offset_y", 4.0)))
+	# The paper child is laid into this fixed inset so the light code edge remains visible.
+	flat.content_margin_left = 2.0
+	flat.content_margin_right = 2.0
+	flat.content_margin_top = 2.0
+	flat.content_margin_bottom = 2.0
+	return flat
 
-static func _apply_padding(sb: StyleBox, bar_h: float, action_opts: Dictionary) -> StyleBox:
-	var pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-	var pad_y := roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
-	sb.content_margin_left = pad_x
-	sb.content_margin_right = pad_x
-	sb.content_margin_top = pad_y
-	sb.content_margin_bottom = pad_y
-	return sb
+static func _bar_corner(bar_h: float) -> int:
+	return maxi(12, int(roundf(bar_h * PAPER_CORNER_FRAC)))
+
+static func apply_paper_surface(bar: Control, bar_h: float = BOTTOM_BAR_H) -> TextureRect:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null or bar == null:
+		return null
+	return Kit.apply_rounded_paper_panel_surface(bar, PAPER_SURFACE_NODE, PAPER_TEXTURE, float(_bar_corner(bar_h)), 2.0)
+
+# The paper always gets the shell's fixed 2px inset; optional Workbench padding belongs only to content.
+static func content_host(child: Control, bar_h: float, action_opts: Dictionary = {}, node_name: String = "ActionBarContent") -> MarginContainer:
+	var host := MarginContainer.new()
+	host.name = node_name
+	host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pad_x := maxi(0, int(roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))) - 2)
+	var pad_y := maxi(0, int(roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))) - 2)
+	host.add_theme_constant_override("margin_left", pad_x)
+	host.add_theme_constant_override("margin_right", pad_x)
+	host.add_theme_constant_override("margin_top", pad_y)
+	host.add_theme_constant_override("margin_bottom", pad_y)
+	host.add_child(child)
+	return host
 
 # Wrap a bar child in a MarginContainer offset horizontally by `x_frac` of its own min width — lets the
 # info bar nudge off-centre without disturbing the row's distribution. A ~0 frac passes the child through.

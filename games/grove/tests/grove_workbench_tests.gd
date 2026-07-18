@@ -803,6 +803,14 @@ func _initialize() -> void:
 		"board Home uses the green action-paper square")
 	ok(_paper_texture_path(board_scene.bag_btn).ends_with("ui/meadow_v2/texture_supporting_purple.png"), \
 		"board Bag uses the purple supporting-paper square")
+	var live_tray_style := (board_scene.bottom_bar as PanelContainer).get_theme_stylebox("panel") if board_scene.bottom_bar != null else null
+	var live_tray_paper := board_scene.bottom_bar.find_child("ActionBarPaperSurface", true, false) as TextureRect if board_scene.bottom_bar != null else null
+	ok(live_tray_style is StyleBoxFlat and live_tray_paper != null \
+		and not live_tray_paper.is_set_as_top_level() \
+		and board_scene.bottom_bar.get_global_rect().encloses(live_tray_paper.get_global_rect()) \
+		and live_tray_paper.material is ShaderMaterial \
+		and String(live_tray_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png"), \
+		"board action tray contains one masked flat cream-paper texture inside its code-drawn shell")
 	board_scene.queue_free()
 	_wb_build_all_buildings()         # open the bucket (cells from built buildings) so the dock fills
 	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()
@@ -1226,16 +1234,17 @@ func _test_new_knobs(view) -> void:
 		and not (view._params["info_bar"] as Dictionary).has("home_x_pct"), \
 		"merged info_bar action knobs keep one shared Bag/Home size control and no Bag/Home x controls")
 	var action_prev: Control = view._make_element("info_bar")
-	var live_action_style := ActionBar.bar_style(166.0, {}) as StyleBoxTexture
-	ok(live_action_style != null and live_action_style.texture != null
-		and String(live_action_style.texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
-		and live_action_style.get_texture_margin(SIDE_LEFT) > 0.0,
-		"live action bar uses the lighter Meadow paper tray with explicit slices")
-	var preview_action_style := (action_prev as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
-	ok(preview_action_style != null and preview_action_style.texture != null
-		and String(preview_action_style.texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
-		and preview_action_style.get_texture_margin(SIDE_LEFT) > 0.0,
-		"info-bar workbench preview matches the live Meadow paper action tray")
+	var live_action_style := ActionBar.bar_style(166.0, {})
+	ok(live_action_style is StyleBoxFlat \
+		and (live_action_style as StyleBoxFlat).border_width_left > 0 \
+		and (live_action_style as StyleBoxFlat).shadow_size > 0,
+		"live action bar uses a code-drawn cream shell with one light edge and drop shadow")
+	var preview_action_style := (action_prev as PanelContainer).get_theme_stylebox("panel")
+	var preview_action_paper := action_prev.find_child("ActionBarPaperSurface", true, false) as TextureRect
+	ok(preview_action_style is StyleBoxFlat and preview_action_paper != null \
+		and preview_action_paper.material is ShaderMaterial \
+		and String(preview_action_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png"),
+		"info-bar workbench preview matches the live code shell and flat cream-paper grain")
 	var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
 	var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
 	var preview_info := action_prev.find_child("ActionBarPreviewInfoBar", true, false) as PanelContainer

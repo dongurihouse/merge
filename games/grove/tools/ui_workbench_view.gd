@@ -21,6 +21,7 @@ const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")           # the tog
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")   # the shared persistent combo-bloom overlay
 const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
@@ -1393,31 +1394,7 @@ func _hud_layout_preview() -> Control:
 	return root
 
 func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
-	var bopts: Dictionary = Kit.board_panel_opts_from_config(_params)
-	var pad_x := roundf(bar_h * float(ao.get("pad_x_frac", 0.0)))
-	var pad_y := roundf(bar_h * float(ao.get("pad_y_frac", 0.0)))
-	var frame_style := String(bopts.get("frame_style", "meadow"))
-	if frame_style == "code":
-		var flat := StyleBoxFlat.new()
-		flat.bg_color = Color("#FBF3E2")
-		flat.border_color = Pal.STRAW
-		flat.set_border_width_all(int(bopts.get("border_w", 4)))
-		flat.set_corner_radius_all(int(bopts.get("corner", 46)))
-		flat.content_margin_left = pad_x
-		flat.content_margin_right = pad_x
-		flat.content_margin_top = pad_y
-		flat.content_margin_bottom = pad_y
-		return flat
-	if frame_style == "meadow":
-		var paper: StyleBoxTexture = Kit.meadow_paper_style("dialog_panel.png", Kit.DIALOG_PATCH, pad_x, pad_y, pad_x, pad_y)
-		if paper.texture != null:
-			return paper
-	var badge: Dictionary = (bopts.get("badge", {}) as Dictionary).duplicate() if bopts.get("badge", {}) is Dictionary else {}
-	badge["content_margin_left"] = pad_x
-	badge["content_margin_right"] = pad_x
-	badge["content_margin_top"] = pad_y
-	badge["content_margin_bottom"] = pad_y
-	return Kit.gold_badge_style(badge)
+	return ActionBar.bar_style(bar_h, ao)
 
 func _action_bar_nudge(child: Control, x_frac: float, node_name: String) -> Control:
 	if absf(x_frac) < 0.001:
@@ -1484,13 +1461,14 @@ func _action_bar_preview() -> Control:
 	var bar := PanelContainer.new()
 	bar.custom_minimum_size = Vector2(preview_w, bar_h)
 	bar.add_theme_stylebox_override("panel", _action_bar_preview_style(bar_h, ao))
+	ActionBar.apply_paper_surface(bar, bar_h)
 	var row := HBoxContainer.new()
 	row.name = "ActionBarPreviewRow"
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 0)
-	bar.add_child(row)
+	bar.add_child(ActionBar.content_host(row, bar_h, ao, "ActionBarPreviewContent"))
 
 	ho["px"] = btn_px
 	ho["shape"] = "rect"

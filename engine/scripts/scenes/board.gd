@@ -308,6 +308,7 @@ func _ready() -> void:
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
 	bar.add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
+	ActionBar.apply_paper_surface(bar, bottom_bar_h)
 	bar.set_meta("shared_action_tray", true)
 	add_child(bar)
 	bottom_bar = bar
@@ -318,7 +319,7 @@ func _ready() -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 0)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_child(row)
+	bar.add_child(ActionBar.content_host(row, bottom_bar_h, action_opts))
 	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, false)
 	if get_viewport() != null:
 		_last_action_bar_view_size = get_viewport_rect().size
@@ -1621,7 +1622,8 @@ func _relayout_action_bar() -> void:
 	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bottom_bar.offset_bottom = -14.0 - sb_inset
 	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
-	var row := bottom_bar.find_child("ActionBarRow", false, false) as HBoxContainer
+	ActionBar.apply_paper_surface(bottom_bar, bottom_bar_h)
+	var row := bottom_bar.find_child("ActionBarRow", true, false) as HBoxContainer
 	if row != null:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, true)

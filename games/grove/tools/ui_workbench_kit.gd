@@ -99,6 +99,44 @@ static func _rounded_paper_layer(node_name: String, file_name: String, size_px: 
 	paper.material = mask
 	return paper
 
+## Add one flat paper-grain layer to a code-drawn rounded panel. The parent Container lays this layer
+## into the shell's fixed inset; the shader supplies the rounded clip while the StyleBoxFlat owns the
+## actual shape, edge, and shadow.
+static func apply_rounded_paper_panel_surface(panel: Control, node_name: String, file_name: String, corner_px: float, inset: float = 2.0) -> TextureRect:
+	if panel == null:
+		return null
+	var existing := panel.find_child(node_name, false, false) as TextureRect
+	if existing != null:
+		var existing_material := existing.material as ShaderMaterial
+		if existing_material != null:
+			existing_material.set_shader_parameter("radius_px", maxf(1.0, corner_px - inset))
+		return existing
+
+	var paper := TextureRect.new()
+	paper.name = node_name
+	paper.texture = _meadow_tex(file_name)
+	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	paper.stretch_mode = TextureRect.STRETCH_SCALE
+	paper.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	if _paper_mask_shader == null:
+		_paper_mask_shader = Shader.new()
+		_paper_mask_shader.code = PAPER_MASK_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = _paper_mask_shader
+	material.set_shader_parameter("radius_px", maxf(1.0, corner_px - inset))
+	paper.material = material
+	panel.add_child(paper)
+	panel.move_child(paper, 0)
+
+	var sync_size := func() -> void:
+		if is_instance_valid(paper):
+			material.set_shader_parameter("control_size", Vector2(maxf(1.0, paper.size.x), maxf(1.0, paper.size.y)))
+	paper.resized.connect(sync_size)
+	paper.ready.connect(sync_size)
+	return paper
+
 static func _set_texture_margins(style: StyleBoxTexture, margins: Vector4) -> void:
 	style.set_texture_margin(SIDE_LEFT, margins.x)
 	style.set_texture_margin(SIDE_TOP, margins.y)
@@ -4056,6 +4094,8 @@ static func action_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pad_x_frac": clampf(float(i.get("pad_x_pct", legacy.get("pad_x_pct", 0.0))) / 100.0, 0.0, 0.30),
 		"pad_y_frac": clampf(float(i.get("pad_y_pct", legacy.get("pad_y_pct", 0.0))) / 100.0, 0.0, 0.30),
 		"info_x_frac": clampf(float(i.get("info_x_pct", legacy.get("info_x_pct", 0.0))) / 100.0, -0.50, 0.50),
+		"shadow": bool(i.get("shadow", true)),
+		"shadow_params": Look.shadow_params(cfg),
 	}
 
 static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7.0, rows := 9.0) -> Vector2:
