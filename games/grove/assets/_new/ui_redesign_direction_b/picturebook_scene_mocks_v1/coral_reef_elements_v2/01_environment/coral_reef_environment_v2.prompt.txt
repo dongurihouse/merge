@@ -1,0 +1,25 @@
+Use case: precise-object-edit
+Asset type: opaque environmental plate for a layered portrait mobile-game scene
+Input image: the visible coral-reef reference is the exact edit target and the sole authority for identity, composition, palette, materials, camera, and lighting.
+
+Primary request: Edit the reference image in place to create the same underwater paper-cut canyon environment with all removable subjects cleared away and larger, genuinely usable shelf tops for their later replacement. This must read as one coherent edited copy of the original image, not as regenerated or separately assembled canyon towers.
+
+Remove only these subjects and their cast/contact shadows: the entire sunken ship and broken mast, coral garden, anemone cluster, treasure chest, seated mermaid statue, open giant clam and pearl, kelp bed, and every bubble stream/bubble. Fill each vacated region naturally from the immediately surrounding water, attached canyon rock, sand, or seabed.
+
+Preserve exactly: the original portrait camera and framing; the central blue-water channel; the left and right canyon silhouettes; the original slate-rock morphology, layered block construction, shallow relief, ledge faces, sand pattern, fine matte paper fiber, mild printed mottling, softly imperfect hand-cut contours, warm cut edges, diffuse upper-left aquatic light, soft same-hue shadows, depth, and original muted color palette. Keep the water close to #6FA9C0, canyon slate close to #3F6D7D, receding blue close to #8296AF, sand close to #F6EBDD, and deep local edges close to #243B4B.
+
+Enlarge shelf tops without detaching or redesigning the canyon walls. At the final 1320 x 2346 display size, provide these contiguous, visually horizontal usable placement surfaces:
+- upper-left coral shelf: at least 500 px wide
+- mid-left chest shelf: 300-340 px wide
+- lower-left clam shelf: 450-500 px wide
+- upper-right anemone shelf: 300-340 px wide
+- mid-right statue shelf: 340-380 px wide
+- lower-right kelp zone: a broad continuous seabed contact area integrated into the canyon floor
+
+Shelf surfaces must look like natural widened continuations of the original ledges, with open sand/rock tops and adequate depth for props. They must not look like floating pads, pedestals, cutout discs, separate islands, or repeated geometric platforms. Keep the center navigation floor and water channel visually open.
+
+Add 12-20 irregular slate-blue layered-paper pebbles near the lower-left and lower-right seabed edges, plus only a few sparse small pebbles near the lower center. Vary size, spacing, silhouette, and rotation. Keep them grounded in the same paper style. Do not create a gravel band or uniformly scatter stones.
+
+Constraints: no ship fragments, mast, coral, anemones, chest, statue, clam, pearl, kelp, bubbles, fish, creatures, treasure, ruins, anchors, UI, labels, text, or decorative landmarks. Do not mirror, crop, rotate, zoom, change the viewpoint, replace the palette, smooth away the paper grain, sharpen into vector art, add glossy 3D materials, use black outlines, hard shadows, neon cyan water, white bubble-like dots, or generic realistic-ocean texture. No watermark.
+
+Output: one fully opaque portrait environmental plate matching the reference aspect ratio and edge-to-edge composition. Preserve as much of the untouched original image as possible; change only the listed removals, natural fills, shelf widths, and lower-edge pebble additions.
