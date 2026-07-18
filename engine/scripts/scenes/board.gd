@@ -2040,9 +2040,9 @@ func _on_burst_chip() -> void:
 				_info_label.text = _gen_info_text(board.gen_id_at(_selected_cell), _selected_cell)
 		_refresh_burst_chip()                 # now faded — a boost is live
 
-# T55 — drive the BUY chip for the selected item: its price (G.buy_price — ACORNS, the premium
-# convenience, tier-laddered), dimmed when the player can't afford it. Always offered for a
-# sellable item (buying a copy you already have is "speed, not possibility", §4).
+# T55 — drive the BUY chip for the selected item: its price (G.buy_price — the SPLIT ladder:
+# coins at 10× sell for t1-3, Fibonacci acorns from t4), dimmed when the player can't afford it.
+# Always offered for a sellable item (buying a copy you already have is "speed, not possibility", §4).
 func _refresh_buy_chip(code: int) -> void:
 	if _info_buy == null or not is_instance_valid(_info_buy):
 		return

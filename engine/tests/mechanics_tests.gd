@@ -600,9 +600,11 @@ func _initialize() -> void:
 	ok(G.art_tier_for("acorn", 2) == 5 and G.art_tier_for("acorn", 3) == 6, "acorn tiers wear the picked art (3/5/6)")
 	ok(G.art_tier_for("water", 2) == 2 and G.art_tier_for("fairy_hollow_glowshroom", 7) == 7, "unmapped bases pass tiers through unchanged")
 	ok(G.item_tex_path(13 * 100 + 1).ends_with("acorn_3.png"), "the acorn drop's t1 sprite resolves through the pick map")
-	# T55 buy-a-copy is PREMIUM-priced (owner decision 2026-07-18): ceil(tier/4) acorns, never coins
-	ok(G.buy_price(101) == Vector2i(0, 1) and G.buy_price(104) == Vector2i(0, 1), "t1-t4 copies buy for 1 acorn (no coin component)")
-	ok(G.buy_price(105) == Vector2i(0, 2) and G.buy_price(112) == Vector2i(0, 3), "t5-t8 → 2 acorns; t9-t12 → 3 acorns")
+	# T55 buy-a-copy SPLIT ladder (owner decision 2026-07-18): t1-3 coins at 10× sell; t4+ Fibonacci acorns
+	ok(G.buy_price(101) == Vector2i(G.sell_reward(101).x * 10, 0) and G.buy_price(103) == Vector2i(G.sell_reward(103).x * 10, 0), 		"t1-t3 copies buy for COINS at 10× the (band-scaled) sell value")
+	ok(G.buy_price(1803).x == G.sell_reward(1803).x * 10, "a later-band t3 copy pays the same 10× rule on ITS band's sell value")
+	ok(G.buy_price(104) == Vector2i(0, 1) and G.buy_price(105) == Vector2i(0, 2) and G.buy_price(106) == Vector2i(0, 3), 		"t4/t5/t6 copies buy for 1/2/3 acorns (the Fibonacci ramp starts)")
+	ok(G.buy_price(107) == Vector2i(0, 5) and G.buy_price(108) == Vector2i(0, 8) and G.buy_price(112) == Vector2i(0, 55), 		"t7 → 5, t8 → 8 … t12 → 55 acorns (Fibonacci)")
 	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
 	#  Quests.due_gen in quest_tests.gd.)
 	# generator merge ladder (task 8 logic; additive — board wiring flips later)
