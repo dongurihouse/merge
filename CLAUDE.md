@@ -1,15 +1,18 @@
 # Acorn Forest: Merge! (Donguri Merge) — project notes
 
-## Asset intake
+## Art & assets — read the guide first
 
-Raw art lands in `games/grove/assets/_new/`. When asked to process intake or "pick up the
-new art," follow `docs/design/asset-intake.md`: open and **classify** each drop, author a
-`plan.json`, run `make intake`, verify, archive.
+**Before generating OR processing any asset** (item tiers, icons, generators, characters, scenes,
+textures), read `docs/design/art-style-guide.md` — the single source of truth for art direction,
+palette, canvas contracts, prompt scaffolds, cutting/keying, intake workflow, and the review checklist.
+Do not hand-roll a keyer or a prompt; the guide points at the owned deterministic tools.
 
-The split is load-bearing: **scripts are deterministic** (every pixel op + every file move);
-**all judgment — classification, naming, params — goes in the plan**, authored by the agent. Scripts
-never guess. Raws are archived, never deleted. Map scenes are handed off to the §16 flow in
-`docs/design/grove_art_pipeline.md`, not auto-processed.
+Raw art lands in `games/grove/assets/_new/`. When asked to process intake or "pick up the new art,"
+follow the guide's intake workflow: open and **classify** each drop, author a `plan.json`, run
+`make intake`, verify, archive. The split is load-bearing: **scripts are deterministic** (every pixel
+op + every file move); **all judgment — classification, naming, params — goes in the plan**, authored
+by the agent. Scripts never guess. Raws are archived, never deleted. Map scenes are handed off to the
+scene pipeline in the guide, not auto-processed.
 
 ## Testing — run `make test-fast` first
 

@@ -560,6 +560,13 @@ Intended feel (core): **"floaty, breezy, settling."** **Calm Mode** (Settings) h
 
 ## 9 · Art Direction (Direction F — Acorn & Bloom)
 
+> **SUPERSEDED for new art.** The current art direction is **Meadow Sky + Cut-Paper Playground** —
+> see `docs/design/art-style-guide.md` (the single source of truth for style, palette, canvas contracts,
+> prompts, cutting, and review). The Direction-F style core, palette, and per-asset notes below are kept
+> for history; existing Direction-F art is grandfathered (guide §12). The non-style facts here — the
+> share-gate law, readability at ~100 px, the map-art round-trip pipeline, and normalized placement —
+> remain valid and are echoed in the guide.
+
 A hand-painted anime pastoral; the style is the hook (visible handcraft against the genre's glossy-3D baseline). Hard requirements: tiny-icon readability (tiers read at ~100 px), pipeline-reproducibility (fixed style suffix + locked palette), cozy warmth, **and the share-gate** — *would a player screenshot this?* Because the commercial thesis rests on the screenshot-share (§1 Positioning), **share-worthy map art is a launch-gate criterion**, not a nice-to-have: a map that doesn't earn the screenshot doesn't ship. Never name a style or IP — the look lives in ingredients.
 
 **Style core (locked, appended verbatim to every prompt):**

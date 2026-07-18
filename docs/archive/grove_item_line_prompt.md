@@ -1,3 +1,5 @@
+> **SUPERSEDED (archived 2026-07-18).** This doc was absorbed into the single `docs/design/art-style-guide.md` — the production source of truth for art direction and asset generation. Kept for history; do not treat as current.
+
 # Grove Item Line Prompt
 
 Use this as the default prompt scaffold whenever generating Grove / Acorn Forest merge-line art.
