@@ -747,6 +747,10 @@ func _test_rush_resize() -> void:
 	s._tf = {"ph": "tele", "t": 0.0, "col": 3, "next": 9.0}
 	s._apply_treefall_visual()
 	ok(s._act_warn.visible and not s._act_idle.visible, "S-RESIZE: telegraphing a treefall shows the warning strip, hides the idle rail")
+	ok(s._act_arrow is TextureRect and s._act_arrow.texture != null \
+		and String(s._act_arrow.texture.resource_path).ends_with("ui/meadow_v2/danger_chevron.png") \
+		and String(s.BOTTOM_HINT_ART).ends_with("ui/rush/bottom_hint_3slice.png"), \
+		"S-RESIZE: treefall uses the Meadow danger chevron without repurposing the bottom hint")
 	s._tf = {"ph": "idle", "t": 0.0, "col": 0, "next": 9.0}
 	s._apply_treefall_visual()
 	ok(s._act_idle.visible and not s._act_warn.visible, "S-RESIZE: clearing the treefall returns to the idle rail")

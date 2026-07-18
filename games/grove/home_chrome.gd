@@ -14,10 +14,10 @@ const ICON_RESIDENTS := "house"     # bottom-nav Residents badge → the residen
 const ICON_EXPEDITION := "expedition"  # side-rail Expedition badge → cozy map/compass shared icon
 const ICON_PLAY := "board"          # the merged Play CTA, default face (taps into the board)
 const ICON_PLAY_RESTORE := "vine"   # the Play CTA's restore-ready face (swapped in when a spot is affordable)
-const ICON_DAILY := "calendar"      # live-ops rail: the daily-login calendar
-const ICON_VAULT := "chest"         # live-ops rail: the piggy vault
+const ICON_DAILY := "daily"         # live-ops rail: Meadow daily-login icon
+const ICON_VAULT := "vault"         # live-ops rail: Meadow vault icon
 const ICON_INBOX := "mail"          # live-ops rail: the inbox
-const ICON_SETTINGS := "gear"       # HUD top-right settings (also baked in its rect-badge form)
+const ICON_SETTINGS := "settings"   # HUD top-right Meadow settings icon
 
 const PLAY_SHELL := "shared/play_disc.png"    # the orange Play disc shell (NOT the default cream disc)
 const BACK_ICON_REL := "map/back_arrow.png"   # the place-picker back arrow (kit-relative, not an icon_<id>)

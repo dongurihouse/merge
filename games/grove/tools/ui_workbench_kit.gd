@@ -30,6 +30,49 @@ const BANNER_H := 92.0
 const BANNER_MIN_W_FRAC := 0.25   # a dialog floors its banner at this fraction of the SCREEN width (banner_min_w)
 const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of the SCREEN height (mirrors the width %) — sparse states (empty mail …) never collapse to a banner slip; content dialogs (settings) clear it with only light bottom breathing room, and tall ones (daily/shop) are unaffected. An explicit opts.min_h (px) overrides.
 
+# Meadow Sky component atoms. These extracted assets are already alpha-clean and shadow-free, so shared
+# components load them directly and use explicit safe nine-slice margins rather than live image polish.
+const MEADOW_UI := "ui/meadow_v2/%s"
+const MEADOW_SHADOW_TINT := Color("#294654")
+const MEADOW_SHADOW_MAX_ALPHA := 0.20
+const BUTTON_PATCH := Vector4(34, 24, 34, 24)
+const BOARD_PATCH := Vector4(34, 34, 34, 34)
+const SLOT_PATCH := Vector4(32, 32, 32, 32)
+
+static func _meadow_path(file_name: String) -> String:
+	return Game.art(MEADOW_UI % file_name)
+
+static func _meadow_tex(file_name: String) -> Texture2D:
+	var path := _meadow_path(file_name)
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+static func _set_texture_margins(style: StyleBoxTexture, margins: Vector4) -> void:
+	style.set_texture_margin(SIDE_LEFT, margins.x)
+	style.set_texture_margin(SIDE_TOP, margins.y)
+	style.set_texture_margin(SIDE_RIGHT, margins.z)
+	style.set_texture_margin(SIDE_BOTTOM, margins.w)
+
+static func meadow_board_style(pad_x: float = 0.0, pad_y: float = 0.0) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = _meadow_tex("board_frame.png")
+	_set_texture_margins(style, BOARD_PATCH)
+	style.content_margin_left = pad_x
+	style.content_margin_right = pad_x
+	style.content_margin_top = pad_y
+	style.content_margin_bottom = pad_y
+	return style
+
+static func _meadow_shadow_rect(corner: float, params: Dictionary = {}) -> Panel:
+	var p := params.duplicate()
+	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
+	var shadow := Look.shadow_rect(corner, p)
+	var style := shadow.get_theme_stylebox("panel") as StyleBoxFlat
+	if style != null:
+		var tint := Color(MEADOW_SHADOW_TINT, float(p["alpha"]))
+		style.bg_color = tint
+		style.shadow_color = tint
+	return shadow
+
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
 
@@ -647,7 +690,9 @@ static func reward_chip(reward: Dictionary, btn_opts: Dictionary = {}) -> Contro
 ## coin*/gem* live in currency/, everything else in shared/ (with a currency/ fallback).
 static func _icon_path(id: String) -> String:
 	var rels: Array = []
-	if id == "bluegem":
+	if id in ["settings", "mail", "vault", "daily", "expedition", "gift", "news"]:
+		rels = [MEADOW_UI % ("icon_%s.png" % id)]
+	elif id == "bluegem":
 		rels = ["ui/currency/icon_gem_t3.png"]
 	elif id.begins_with("coin") or id.begins_with("gem"):
 		rels = ["ui/currency/icon_%s.png" % id]
@@ -1198,23 +1243,29 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 			b.add_theme_constant_override("h_separation", 7)
 	if bool(opts.get("static", false)):
 		b.mouse_filter = Control.MOUSE_FILTER_IGNORE      # a display chip (the cost pill): looks like the button, not pressable
-	var fill: Color = Pal.BTN_PRIMARY if bg == "green" else Pal.CREAM
-	var edge: Color = Pal.BTN_PRIMARY_EDGE if bg == "green" else Pal.STRAW
-	var ink: Color = Pal.CREAM if bg == "green" else Pal.INK
+	var primary := bg == "green"
+	var danger := bg == "danger"
+	var fill: Color = Pal.BTN_PRIMARY if primary else (Pal.ACCENT_ALERT if danger else Pal.CREAM)
+	var edge: Color = Pal.BTN_PRIMARY_EDGE if primary else (Pal.ACCENT_ALERT.darkened(0.22) if danger else Pal.STRAW)
+	var ink: Color = Pal.CREAM if primary or danger else Pal.INK
 	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(st, ink)
 	b.add_theme_color_override("font_disabled_color", Color(ink, 0.55))
 	# --- background: the sprite NINE-PATCH (nice baked borders) when "art" is on, else code-drawn ---
-	if bool(opts.get("art", false)):
-		# default badge follows the bg; a caller (button / card badge selector) can pick any kit sprite.
+	if bool(opts.get("art", true)):
+		# The default semantic roles use the extracted Meadow shells. An explicit art_rel remains supported
+		# for specialized legacy consumers, preserving the constructor's customization semantics.
 		var art_rel := String(opts.get("art_rel", ""))
+		var tex: Texture2D = null
 		if art_rel == "":
-			art_rel = "kit/mail_pill.png" if bg == "green" else "kit/mail_pill_cream.png"
-		var tex := clean_tex_path(Look.kit(art_rel), 256)   # polished; scaled WHOLE (9-slice cut pills poorly)
+			var file_name := "button_primary.png" if primary else ("button_danger.png" if danger else "button_secondary.png")
+			tex = _meadow_tex(file_name)
+		else:
+			tex = clean_tex_path(Look.kit(art_rel), 256)
 		if tex != null:
 			var stx := StyleBoxTexture.new()
 			stx.texture = tex
-			# NO texture margins → the entire sprite scales to the button, no slicing
+			_set_texture_margins(stx, BUTTON_PATCH)
 			stx.content_margin_left = 22 * pad_scale; stx.content_margin_right = 22 * pad_scale
 			stx.content_margin_top = 8 * pad_scale; stx.content_margin_bottom = 9 * pad_scale
 			b.add_theme_stylebox_override("normal", stx)
@@ -1250,7 +1301,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 static func _maybe_shadow(b: Control, on: bool, corner: float, params: Dictionary = {}) -> Control:
 	if not on:
 		return b
-	var sh := Look.shadow_rect(maxf(corner, 18.0), params)
+	var sh := _meadow_shadow_rect(maxf(corner, 18.0), params)
 	sh.show_behind_parent = true
 	b.add_child(sh)
 	return b
@@ -1933,7 +1984,7 @@ static func action_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ## DialogBannerIcon so the workbench can drag them.
 static func _banner(text: String, font: int, band_h: float, width: float, icon_on: bool,
 		icon_px: float, icon_pos, text_x: float = 0.0, text_y: float = 0.0, burn: float = 0.0,
-		banner_art: String = "mail/mail_banner.png", banner_icon_id: String = "mail",
+		banner_art: String = "meadow_v2/title_banner.png", banner_icon_id: String = "mail",
 		pad_l: float = -1.0, pad_r: float = -1.0, banner_min_w: float = 0.0) -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
@@ -1956,7 +2007,8 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	var bp := Look.kit(banner_art)
 	if ResourceLoader.exists(bp):
 		var art := NinePatchRect.new()
-		art.texture = clean_tex_path(bp, 480)   # polished ribbon
+		art.name = "MeadowTitleBanner"
+		art.texture = load(bp) as Texture2D if banner_art == "meadow_v2/title_banner.png" else clean_tex_path(bp, 480)
 		art.position = Vector2(ribbon_x, 0.0)
 		art.size = Vector2(banner_w, band_h)
 		var cap := int(round(float(art.texture.get_width()) * 0.20)) if art.texture != null else 0
@@ -2048,7 +2100,7 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## panel_art / slice / pad DEFAULTS; explicit panel_art / card_slice_* / panel_pad_* opts still win,
 ## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
 const FRAME_BORDERS := {
-	"parchment":  {"art": "kit/panel_parchment_v2.png", "slice": 48.0, "pad_x": 26.0, "pad_y": 24.0},
+	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},
 	"twig board": {"art": "kit/tiers_panel.png",        "slice": 72.0, "pad_x": 44.0, "pad_y": 30.0},
 }
@@ -2072,7 +2124,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var close_size: float = float(opts.get("close_size", 64.0))
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
 	var card_corner: float = float(opts.get("card_corner", 22.0))
-	var card_art: bool = bool(opts.get("card_art", false))
+	var card_art: bool = bool(opts.get("card_art", true))
 	var min_h_override: float = float(opts.get("min_h", -1.0))   # explicit px height floor; <0 → use DIALOG_MIN_H_FRAC of the screen height (resolved once mounted)
 	# the BORDER option supplies panel_art / slice / pad DEFAULTS; explicit opts still override (so
 	# mail/daily/shop/settings — which pass no border — stay byte-identical on parchment).
@@ -2101,7 +2153,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var panel_art: String = String(opts.get("panel_art", border["art"]))
 	var panel_pad_x: float = float(opts.get("panel_pad_x", border["pad_x"]))   # content inset from the border (L/R)
 	var panel_pad_y: float = float(opts.get("panel_pad_y", border["pad_y"]))   # content inset from the border (T/B)
-	var banner_art: String = String(opts.get("banner_art", "mail/mail_banner.png"))
+	var banner_art: String = String(opts.get("banner_art", "meadow_v2/title_banner.png"))
 	var banner_icon_id: String = String(opts.get("banner_icon_id", "mail"))
 	var close_art: String = String(opts.get("close_art", "kit/mail_close.png"))
 	# CRISP CHROME, SCALED CONTENT: `width` is the dialog's AUTHORED (design) width; the chrome
@@ -2113,6 +2165,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 
 	var wrap := Control.new()
 	var card := PanelContainer.new()
+	card.name = "MeadowDialogPanel"
 	# parchment NINE-PATCH (tunable slice) when card art is on, else CODE-DRAWN with a configurable corner.
 	var pp := Look.kit(panel_art)
 	if card_art and ResourceLoader.exists(pp):
@@ -2402,9 +2455,10 @@ static func _vault_jar(balance: int, cap: int, jar_px: float, plate_px: float) -
 	box.custom_minimum_size = Vector2(box_w, box_h)
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var plate_tex := clean_tex_path(Look.kit("kit/vault_plate.png"), 256)
+	var plate_tex := _meadow_tex("vault_plate.png")
 	if plate_tex != null:
 		var pl := TextureRect.new()
+		pl.name = "VaultPlate"
 		pl.texture = plate_tex
 		pl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pl.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -2413,15 +2467,35 @@ static func _vault_jar(balance: int, cap: int, jar_px: float, plate_px: float) -
 		pl.position = Vector2((box_w - plate_px) / 2.0, box_h - plate_h)   # plate's bottom = box bottom
 		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(pl)                                                  # added FIRST → drawn under the jar
-	var jar_tex := clean_tex_path(Look.kit("kit/vault_jar.png"), 384)
-	if jar_tex != null:
+	var jar_tex := _meadow_tex("vault_jar_shell.png")
+	var fill_tex := _meadow_tex("vault_acorn_fill.png")
+	if jar_tex != null and fill_tex != null:
+		var frac := clampf(float(balance) / float(maxi(1, cap)), 0.0, 1.0)
+		var jar_x := (box_w - jar_px) / 2.0
+		var fill_clip := Control.new()
+		fill_clip.name = "VaultAcornFill"
+		fill_clip.clip_contents = true
+		fill_clip.position = Vector2(jar_x, jar_px * (1.0 - frac))
+		fill_clip.size = Vector2(jar_px, jar_px * frac)
+		fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var fill_art := TextureRect.new()
+		fill_art.name = "VaultAcornFillArt"
+		fill_art.texture = fill_tex
+		fill_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fill_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fill_art.position = Vector2(0.0, -jar_px * (1.0 - frac))
+		fill_art.size = Vector2(jar_px, jar_px)
+		fill_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill_clip.add_child(fill_art)
+		box.add_child(fill_clip)
 		var jr := TextureRect.new()
+		jr.name = "VaultJarShell"
 		jr.texture = jar_tex
 		jr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		jr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		jr.custom_minimum_size = Vector2(jar_px, jar_px)
 		jr.size = jr.custom_minimum_size
-		jr.position = Vector2((box_w - jar_px) / 2.0, 0)                   # jar base at y=jar_px, over the plate
+		jr.position = Vector2(jar_x, 0)                                   # jar base at y=jar_px, over the plate
 		jr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(jr)
 		return box
@@ -2834,101 +2908,54 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		holder.add_child(l)
 	return holder
 
-## --- the LAYERED level badge ---------------------------------------------------------
-## Five cut parts (ui/lvl_parts/<part>_<stage>.png) composited bottom-up with the level
-## NUMBER centered. The art has 6 stages per part; a 30-tier progression groups them:
-## tier ÷ 6 = group (0..4), tier mod 6 + 1 = stage (1..6). Each GROUP draws a fixed set of
-## parts at the current stage, so the badge accretes a centerpiece every 6 tiers. Shared by
-## the workbench preview AND Look.make_level_badge (HUD chip / level dialog).
-const LEVEL_PARTS := ["circle", "leaf", "flower", "acorn", "gem"]   # z-order: circle back -> gem front
-const LEVEL_BADGE_GROUPS := [
-	["leaf"],
-	["leaf", "flower"],
-	["leaf", "acorn"],
-	["leaf", "flower", "gem"],
-	["leaf", "acorn", "gem"],
-]
-## Per-part default geometry: x/y are % of px (from the bottom-centered baseline), scale is % of the box.
-const _LEVEL_BADGE_DEFAULTS := {
-	"circle": {"x": 0.0, "y": -4.0,  "scale": 90.0},
-	"leaf":   {"x": 0.0, "y": 0.0,   "scale": 100.0},
-	"flower": {"x": 0.0, "y": -10.0, "scale": 48.0},
-	"acorn":  {"x": 0.0, "y": -8.0,  "scale": 52.0},
-	"gem":    {"x": 0.0, "y": -40.0, "scale": 36.0},
-}
+## --- the Meadow level badge ----------------------------------------------------------
+## Progression resolves one of 25 authored, shadow-free 256x256 badge bases. The public tier remains
+## zero-based and is clamped, while the native lv_num Label remains independent and player-readable.
+const LEVEL_BADGE_VARIANTS := 25
 
-## Decompose a 0-based tier into {group, stage (1..6), parts}. Clamps to the last group/stage.
+## Compatibility helper retained for callers that inspect tier progression. The old composited `parts`
+## list is intentionally empty: extracted full-badge variants are now authoritative.
 static func level_badge_tier_parts(tier: int) -> Dictionary:
-	var t := maxi(0, tier)
-	var last := LEVEL_BADGE_GROUPS.size() - 1
-	var group := mini(t / 6, last)
-	var stage := 6 if t / 6 > last else t % 6 + 1     # clamped tiers hold at the fullest stage
-	return {"group": group, "stage": stage, "parts": LEVEL_BADGE_GROUPS[group]}
+	var variant := clampi(tier, 0, LEVEL_BADGE_VARIANTS - 1) + 1
+	return {"group": 0, "stage": variant, "variant": variant, "parts": []}
 
 ## The workbench-tuned level-badge geometry from a saved config (cfg["level_badge"]). Every
 ## position/size knob is a PERCENT of the badge px so the emblem scales to any size.
 static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("level_badge", {}) if cfg is Dictionary else {}
-	var out := {
-		"size":        float(g.get("size", 100.0)),      # the common part box, % of px
+	return {
 		"num_size":    float(g.get("num_size", 32.0)),   # the level number font, % of px
 		"num_x":       float(g.get("num_x", 0.0)),       # number offset, % of px (side / margin)
-		"num_y":       float(g.get("num_y", -16.0)),
+		"num_y":       float(g.get("num_y", 5.0)),
 		"num_burn":    float(g.get("num_burn", 0.0)),    # engraved 'burn' on the number (0..100)
-		"circle_base": bool(g.get("circle_base", true)), # draw the coin behind every tier (toggleable)
-		"circle_design": String(g.get("circle_design", "auto")), # 'auto' tracks the tier; "1".."6" pins a design
 	}
-	for p in LEVEL_PARTS:
-		var dft: Dictionary = _LEVEL_BADGE_DEFAULTS[p]
-		out[p + "_x"]     = float(g.get(p + "_x", dft["x"]))
-		out[p + "_y"]     = float(g.get(p + "_y", dft["y"]))
-		out[p + "_scale"] = float(g.get(p + "_scale", dft["scale"]))
-	return out
 
-## Build the layered level badge: the tier's parts (bottom-anchored, each at its tuned
-## offset/scale) under the centered level NUMBER. `px` is the square size; `num_font` overrides
-## the number font (auto from num_size when < 0). The number Label is named "lv_num" and each part
-## TextureRect "lv_<part>" so a live caller (HUD level-up) can find and refresh them. `show_all`
-## (workbench only) draws every part regardless of the tier, so they can all be positioned at once.
+## Build one clamped Meadow badge base under the centered native level NUMBER. `px` is the square size;
+## `num_font` overrides the number font. `show_all` remains accepted for constructor compatibility.
 static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_font: int = -1, show_all: bool = false) -> Control:
 	var root := Control.new()
 	root.custom_minimum_size = Vector2(px, px)
 	root.size = Vector2(px, px)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var info := level_badge_tier_parts(tier)
-	var stage := int(info["stage"])
-	var draw_parts: Array = LEVEL_PARTS.duplicate() if show_all else (info["parts"] as Array).duplicate()
-	if not show_all and bool(opts.get("circle_base", true)) and not draw_parts.has("circle"):
-		draw_parts.append("circle")     # always-on coin behind every tier (drawn first via z-order)
-	# the coin's design: 'auto' tracks the tier stage; "1".."6" pins a fixed design from the asset.
-	var circle_design := String(opts.get("circle_design", "auto"))
-	var base_box := px * float(opts.get("size", 100.0)) / 100.0
-	for part in LEVEL_PARTS:                            # canonical z-order; draw only the active parts
-		if not draw_parts.has(part):
-			continue
-		var pstage := stage
-		if part == "circle" and circle_design != "auto":
-			pstage = clampi(int(circle_design), 1, 6)
-		var tex := Look._safe_tex(Game.art("ui/lvl_parts/%s_%d.png" % [part, pstage]))
-		if tex == null:
-			continue
-		var box := base_box * float(opts.get(part + "_scale", 100.0)) / 100.0
-		var t := TextureRect.new()
-		t.name = "lv_" + part
-		t.texture = tex
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# the 512px part art is drawn as small as ~1/9 size on a board cell; the project default NEAREST
-		# filter aliases hard when minified, so sample LINEAR + mipmaps here for a smooth shrink.
-		t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		t.size = Vector2(box, box)
-		# horizontally centered, bottom-aligned to the shared baseline, then nudged by the part's offset
-		t.position = Vector2(
-			(px - box) * 0.5 + px * float(opts.get(part + "_x", 0.0)) / 100.0,
-			(px - box) + px * float(opts.get(part + "_y", 0.0)) / 100.0)
-		root.add_child(t)
-	if root.get_child_count() == 0:                    # no art at all -> warm honey token, no blank rect
+	var variant := clampi(tier, 0, LEVEL_BADGE_VARIANTS - 1) + 1
+	var tex := _meadow_tex("level_badge_%02d.png" % variant)
+	if tex != null:
+		var art := TextureRect.new()
+		art.name = "lv_badge_art"
+		art.texture = tex
+		# The source keeps a uniform 20px cutout gutter. Scale that gutter beyond the logical box so the
+		# painted badge still honors the HUD's shared visible-edge margin.
+		var painted_span := 216.0 # 256 - 2 * 20
+		var art_px := px * 256.0 / painted_span
+		var art_gutter := px * 20.0 / painted_span
+		art.position = Vector2(-art_gutter, -art_gutter)
+		art.size = Vector2(art_px, art_px)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(art)
+	else:                                                # no art at all -> warm honey token, no blank rect
 		var coin := StyleBoxFlat.new()
 		coin.bg_color = Color("#F4CF82"); coin.set_corner_radius_all(int(px / 2.0))
 		coin.set_border_width_all(2); coin.border_color = Color("#8D6B35")
@@ -2978,7 +3005,7 @@ static func _level_badge_font(level: int, px: float, opts: Dictionary, num_font:
 		base *= 0.81
 	return int(maxf(8.0, base))
 
-## The Level MEDALLION for dialogs/previews — now the shared LAYERED level badge (the same emblem the
+## The Level MEDALLION for dialogs/previews — the shared Meadow level badge (the same emblem the
 ## HUD chip and level dialog wear), tuned by the saved level_badge config so those surfaces match. Kept
 ## as a named helper so the level dialog reads clearly; `px` is the emblem size. opts may carry
 ## `number_font` (absolute override) — otherwise the tuned num_size drives the number.
@@ -3037,7 +3064,7 @@ static func level_frame(content: Control, width: float = 460.0, opts: Dictionary
 	var wrap := Control.new()
 	wrap.custom_minimum_size.x = target_w
 	wrap.add_child(card)
-	var title := _level_title_pill(banner_text, title_font)
+	var title := _level_title_pill(banner_text, title_font, minf(target_w, 460.0))
 	wrap.add_child(title)
 	var dock := func() -> void:
 		if is_instance_valid(title) and is_instance_valid(card) and is_instance_valid(wrap):
@@ -3048,33 +3075,12 @@ static func level_frame(content: Control, width: float = 460.0, opts: Dictionary
 	wrap.ready.connect(dock)
 	return wrap
 
-## The gold "Level N" title pill (the level_title sprite scaled whole, text centered). Code STRAW fallback.
-static func _level_title_pill(text: String, font: int) -> Control:
-	var pill := PanelContainer.new()
-	pill.name = "LevelTitle"
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tp := clean_tex_path(Look.kit("kit/level_title.png"), 480)
-	if tp != null:
-		var stx := StyleBoxTexture.new()
-		stx.texture = tp
-		stx.content_margin_left = 44; stx.content_margin_right = 44
-		stx.content_margin_top = 12; stx.content_margin_bottom = 16
-		pill.add_theme_stylebox_override("panel", stx)
-	else:
-		var ps := StyleBoxFlat.new()
-		ps.bg_color = Pal.STRAW; ps.set_corner_radius_all(18)
-		ps.content_margin_left = 28; ps.content_margin_right = 28
-		ps.content_margin_top = 6; ps.content_margin_bottom = 8
-		pill.add_theme_stylebox_override("panel", ps)
-	var l := Label.new()
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font)
-	l.add_theme_color_override("font_color", Color("#4A2E14"))
-	l.add_theme_constant_override("outline_size", 0)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(l)
-	return pill
+## The Level title is the same shared Meadow ribbon atom used by Rush and the other dialogs.
+static func _level_title_pill(text: String, font: int, width: float = 360.0) -> Control:
+	var ribbon := _banner(text, font, BANNER_H, width, false, 0.0, null, 0.0, 0.0, 0.0,
+		"meadow_v2/title_banner.png", "", 54.0, 54.0, width * 0.62)
+	ribbon.name = "LevelTitle"
+	return ribbon
 
 ## The dialog CTA button — the SHARED pill_button wearing the registered "level green" badge background
 ## (Kit.BADGES["level green"], the level_btn sprite). The SAME atom for the level dialog's Collect / Got it
@@ -3615,6 +3621,7 @@ static func daily_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## grid (cols, default 3 — the 3-per-row reference layout). Used by the workbench + the game.
 static func daily_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
+	o["banner_icon_id"] = "daily"
 	o.merge(daily_card_opts_from_config(cfg), true)
 	var dl: Dictionary = cfg.get("daily", {})
 	o["cols"] = int(dl.get("cols", 3))
@@ -3685,6 +3692,7 @@ static func toggle_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## settings dialog's OWN width / row spacing. Used by the workbench preview AND the game settings card.
 static func settings_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
+	o["banner_icon_id"] = "settings"
 	o["toggle"] = toggle_card_opts_from_config(cfg)
 	var st: Dictionary = cfg.get("settings", {})
 	o["row_gap"] = float(st.get("row_gap", 12))   # gap between toggle rows
@@ -3707,7 +3715,7 @@ static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["panel_pad_x"] = float(v.get("panel_pad_x", 40))
 	o["panel_pad_y"] = float(v.get("panel_pad_y", 34))
 	o["card_art"] = true
-	o["banner_icon_id"] = "piggy"                         # reuse the existing icon_piggy sprite
+	o["banner_icon_id"] = "vault"
 	o["jar_px"] = float(v.get("jar_px", 200))
 	o["plate_px"] = float(v.get("plate_px", 250))
 	o["balance_font"] = int(v.get("balance_font", 42))
@@ -4286,8 +4294,8 @@ static func _info_circle_btn(icon_id: String, px: float) -> Button:
 ## --- the BOARD PANEL: the rounded frame the cells sit on ---------------------------------------------
 ## ONE builder shared by the live board (board.gd _make_board_mat) AND the workbench preview, so they read
 ## 1:1 (the workbench shows the ACTUAL border). Two styles, chosen by board.frame_style:
-##   "badge" (default) — the shared code-drawn gold badge, 9-sliced so the border stays thin however the
-##                       board stretches; plus a soft drop shadow under the whole board.
+##   "meadow" (default) — the authored Meadow board-frame nine-slice with safe margins.
+##   "badge" — the retained generated gold-badge compatibility style.
 ##   "code"  — a code-drawn rounded-rect for tuning a depth effect: cream fill, an outer border (border_w),
 ##             an optional inner hairline (inner_w = "the border of the border"), and a top inset shadow for
 ##             depth (top_shadow). The under-board drop shadow is the SHARED box-shadow (the `shadow` toggle).
@@ -4302,10 +4310,11 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 	# the soft drop shadow under the WHOLE board (both styles) — the SHARED box-shadow, a sibling drawn BEHIND
 	# (show_behind_parent) so it bleeds past the edge. NinePatchRect has no native shadow. On via the toggle.
 	if bool(opts.get("shadow", false)):
-		var sh := Look.shadow_rect(float(corner), opts.get("shadow_params", {}))
+		var sh := _meadow_shadow_rect(float(corner), opts.get("shadow_params", {}))
 		sh.show_behind_parent = true
 		root.add_child(sh)
-	if String(opts.get("frame_style", "badge")) == "code":
+	var frame_style := String(opts.get("frame_style", "meadow"))
+	if frame_style == "code":
 		# code-drawn rounded-rect: cream fill + a gold outer border, corners held by `corner`.
 		var border_w := int(opts.get("border_w", 4))
 		var panel := Panel.new()
@@ -4355,7 +4364,7 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 			isb.border_color = Color(Pal.STRAW, 0.55)
 			inner.add_theme_stylebox_override("panel", isb)
 			root.add_child(inner)
-	else:
+	elif frame_style == "badge":
 		var badge: Dictionary = opts.get("badge", {})
 		var frame := gold_badge_style(badge)
 		var cap := gold_badge_cap(badge)
@@ -4371,6 +4380,20 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		np.draw_center = bool(opts.get("draw_center", true))
 		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(np)
+	else:
+		var np := NinePatchRect.new()
+		np.name = "MeadowBoardFrame"
+		np.texture = _meadow_tex("board_frame.png")
+		np.set_anchors_preset(Control.PRESET_FULL_RECT)
+		np.patch_margin_left = int(BOARD_PATCH.x)
+		np.patch_margin_top = int(BOARD_PATCH.y)
+		np.patch_margin_right = int(BOARD_PATCH.z)
+		np.patch_margin_bottom = int(BOARD_PATCH.w)
+		np.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+		np.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+		np.draw_center = bool(opts.get("draw_center", true))
+		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(np)
 	return root
 
 ## The board-panel frame opts from a saved config — the frame style, its code-drawn depth knobs, and the
@@ -4378,7 +4401,7 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
 	return {
-		"frame_style": String(b.get("frame_style", "badge")),   # "badge" (gold_badge) | "code" (code-drawn)
+		"frame_style": String(b.get("frame_style", "meadow")), # "meadow" default | legacy "badge" | "code"
 		"corner":      int(b.get("frame_corner", GOLD_BADGE_CAP)),
 		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
 		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off
@@ -4389,8 +4412,8 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
-## The slot cell is ONE component card with four states. All states use the same code-drawn background
-## so the board, bag, and discovery ladder inherit one live-tunable face. `next` gets a DYNAMIC sparkle FX.
+## The slot cell is ONE component card with four states. Open, locked, and unlockable states select their
+## dedicated authored Meadow shell; `next` also gets a dynamic sparkle FX.
 const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
 
 static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Color:
@@ -4402,8 +4425,8 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
 		fallback.a)
 
-## The SLOT-CELL background: one code-drawn face for open, frontier, and deep cells. The knobs live on
-## the Slot cell workbench component (`bag_card`) so the board, bag, and discovery ladder share one style.
+## The SLOT-CELL background selects the authored open/locked/unlockable nine-slice and optionally layers
+## one shallow runtime shadow. The board, bag, and discovery ladder share this exact state mapping.
 static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {}) if cfg is Dictionary else {}
 	return {
@@ -4446,29 +4469,29 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	base.name = "SlotCellBackground"
 	base.position = Vector2.ZERO
 	base.size = size_px
-	var fs := StyleBoxFlat.new()
 	var open_state := state == "empty" or state == "filled"
-	fs.bg_color = opts.get("open_fill", Color(Pal.CREAM, 0.92)) if open_state else (opts.get("frontier_fill", Pal.NEAR_UNLOCK) if frontier else opts.get("deep_fill", Pal.LOCKED))
-	fs.set_corner_radius_all(int(maxf(10.0, minf(size_px.x, size_px.y) * float(opts.get("corner_frac", 0.18)))))
-	var rim: Color = opts.get("rim", Pal.NEAR_HINT)
-	var rim_alpha := float(opts.get("rim_alpha", 0.35)) if frontier else float(opts.get("rim_alpha", 0.35)) * 0.25
-	var depth_px := int(round(float(opts.get("depth_px", 4.0))))
-	var depth_alpha := float(opts.get("depth_alpha", 0.18))
-	fs.set_border_width_all(1 if rim_alpha > 0.0 else 0)
-	fs.border_width_bottom = maxi(fs.border_width_bottom, depth_px)
-	fs.border_color = Color(rim.r, rim.g, rim.b, maxf(rim_alpha, depth_alpha))
-	var shadow_a := float(opts.get("cell_shadow", 0.16))
-	fs.shadow_color = Color(0.16, 0.10, 0.05, shadow_a)
-	fs.shadow_size = int(round(minf(size_px.x, size_px.y) * float(opts.get("cell_shadow_size", 0.10))))
-	fs.shadow_offset = Vector2(0, float(opts.get("cell_shadow_y", 3.0)))
+	var file_name := "board_cell_open.png" if open_state else ("board_cell_unlockable.png" if frontier or state == "unlockable" else "board_cell_locked.png")
+	var fs := StyleBoxTexture.new()
+	fs.texture = _meadow_tex(file_name)
+	_set_texture_margins(fs, SLOT_PATCH)
+	fs.content_margin_left = 6.0; fs.content_margin_top = 6.0
+	fs.content_margin_right = 6.0; fs.content_margin_bottom = 6.0
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var inset := float(opts.get("inset", 0.20))
-	if inset > 0.0:
-		var corner_px := int(maxf(10.0, minf(size_px.x, size_px.y) * float(opts.get("corner_frac", 0.18))))
-		var edge_px := maxi(1, int(round(minf(size_px.x, size_px.y) * lerpf(0.025, 0.070, inset))))
-		base.add_child(_slot_cell_inset_layer("SlotCellInsetDark", size_px, corner_px, edge_px, Color(0.12, 0.08, 0.04, 0.34 * inset), true))
-		base.add_child(_slot_cell_inset_layer("SlotCellInsetLight", size_px, corner_px, maxi(1, edge_px - 1), Color(1.0, 0.96, 0.78, 0.26 * inset), false))
+	# The generated shells contain no shadow. When a caller enables one, keep it shallow and use the
+	# exact Meadow structural-slate tint at no more than 20% opacity.
+	var shadow_a := float(opts.get("cell_shadow", 0.16))
+	if shadow_a > 0.0:
+		var shadow := _meadow_shadow_rect(minf(size_px.x, size_px.y) * 0.18, {
+			"alpha": minf(shadow_a, MEADOW_SHADOW_MAX_ALPHA),
+			"blur": minf(6.0, minf(size_px.x, size_px.y) * float(opts.get("cell_shadow_size", 0.06))),
+			"offset_x": 0.0,
+			"offset_y": clampf(float(opts.get("cell_shadow_y", 2.0)), -3.0, 3.0),
+			"spread": 0.0,
+		})
+		shadow.name = "MeadowSlotShadow"
+		shadow.show_behind_parent = true
+		base.add_child(shadow)
 	return base
 
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses

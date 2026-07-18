@@ -31,6 +31,7 @@ const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
+const DANGER_CHEVRON_ART := "res://games/grove/assets/ui/meadow_v2/danger_chevron.png"
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
 const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
 const BOTTOM_HINT_TEXT_NUDGE_FRAC := -0.039  # caption optical-centre nudge (the pill sits high in the strip + the font ink sits low → nudge UP), as a fraction of the bar height
@@ -97,7 +98,7 @@ var _act_warn: Control = null          # the red treefall warning strip
 var _act_label: Label = null           # the "Ns" countdown caption on the warning strip
 var _act_fill: ColorRect = null        # the draining countdown bar
 var _act_fill_w := 0.0                 # the countdown bar's full width
-var _act_arrow: Polygon2D = null       # the down-chevron pointing from the bar at the doomed column
+var _act_arrow: TextureRect = null     # the Meadow down-chevron pointing from the bar at the doomed column
 var _act_bottom := 0.0                 # the activity bar's bottom Y — the board reserves below this
 var _hint: Control = null              # the always-on bottom hint strip
 var _hint_h := 0.0                     # its measured height — the board reserves above it
@@ -311,12 +312,16 @@ func _build_activity() -> void:
 	_act_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	track.add_child(_act_fill)
 	_act_fill_w = track_w
-	# the down-chevron (code-drawn triangle) — its x is aimed at the doomed column in _apply_treefall_visual
-	_act_arrow = Polygon2D.new()
-	_act_arrow.color = Color(0.78, 0.26, 0.20)
-	var a := h * 0.26
-	_act_arrow.polygon = PackedVector2Array([Vector2(-a, 0.0), Vector2(a, 0.0), Vector2(0.0, a)])
-	_act_arrow.position = Vector2(w * 0.5, h - 1.0)
+	# the Meadow down-chevron — its x is aimed at the doomed column in _apply_treefall_visual
+	_act_arrow = TextureRect.new()
+	_act_arrow.name = "RushDangerChevron"
+	_act_arrow.texture = load(DANGER_CHEVRON_ART) as Texture2D
+	_act_arrow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_act_arrow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var a := h * 0.58
+	_act_arrow.size = Vector2(a, a)
+	_act_arrow.position = Vector2(w * 0.5 - a * 0.5, h - a * 0.42)
+	_act_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_act_warn.add_child(_act_arrow)
 	_activity.add_child(_act_warn)
 	_act_idle.visible = true
@@ -444,7 +449,8 @@ func _apply_treefall_visual() -> void:
 	if tele and _act_arrow != null and is_instance_valid(_act_arrow) \
 			and _board != null and _activity != null:
 		var col_screen_x := _board.position.x + _cellxy(0, int(_tf.col)).x + _cell * 0.5
-		_act_arrow.position.x = clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
+		var arrow_center_x := clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
+		_act_arrow.position.x = arrow_center_x - _act_arrow.size.x * 0.5
 
 # An ALWAYS-ON info bar teaching the two secondary verbs the top popup leaves out: tap-again-to-fling
 # and clearing a column before a treefall. The source art is used as a 3-slice (fixed side caps +

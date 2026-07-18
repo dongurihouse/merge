@@ -1,8 +1,62 @@
 extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · ui — split from the grove_tests monolith; shares grove_test_base.gd.
 
+const SharedKit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+
+func _texture_path(node: Node) -> String:
+	if node is TextureRect and (node as TextureRect).texture != null:
+		return String((node as TextureRect).texture.resource_path)
+	if node is NinePatchRect and (node as NinePatchRect).texture != null:
+		return String((node as NinePatchRect).texture.resource_path)
+	return ""
+
+func _test_meadow_dialog_composition() -> void:
+	var content := Label.new()
+	content.text = "Body"
+	var dialog := SharedKit.dialog_frame(content, 520.0, {"card_art": true, "banner_icon_on": false})
+	var banner := dialog.find_child("DialogBanner", true, false)
+	var banner_art := dialog.find_child("MeadowTitleBanner", true, false) as NinePatchRect
+	ok(banner != null and banner_art != null
+		and _texture_path(banner_art).ends_with("ui/meadow_v2/title_banner.png"),
+		"shared dialogs compose the Meadow title-banner atom")
+	var dialog_card := dialog.find_child("MeadowDialogPanel", true, false) as PanelContainer
+	var dialog_style := dialog_card.get_theme_stylebox("panel") if dialog_card != null else null
+	ok(dialog_style is StyleBoxTexture
+		and String((dialog_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
+		and (dialog_style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0,
+		"shared dialogs use the Meadow panel with explicit patch margins")
+	dialog.free()
+
+	var level_body := Label.new()
+	level_body.text = "Progress"
+	var level := SharedKit.level_frame(level_body, 460.0, {"banner_text": "Level 12"})
+	var level_title := level.find_child("LevelTitle", true, false)
+	var level_banner := level.find_child("MeadowTitleBanner", true, false) as NinePatchRect
+	ok(level_title != null and level_banner != null
+		and _texture_path(level_banner).ends_with("ui/meadow_v2/title_banner.png"),
+		"the Level dialog title uses the same Meadow ribbon language")
+	level.free()
+
+	var jar := SharedKit._vault_jar(320, 500, 200.0, 250.0)
+	var shell := jar.find_child("VaultJarShell", true, false)
+	var fill := jar.find_child("VaultAcornFill", true, false) as Control
+	var fill_art := jar.find_child("VaultAcornFillArt", true, false)
+	var plate := jar.find_child("VaultPlate", true, false)
+	ok(_texture_path(shell).ends_with("ui/meadow_v2/vault_jar_shell.png")
+		and _texture_path(fill_art).ends_with("ui/meadow_v2/vault_acorn_fill.png")
+		and _texture_path(plate).ends_with("ui/meadow_v2/vault_plate.png"),
+		"the Vault jar layers shell, clipped acorn fill, and plate")
+	ok(fill != null and fill.clip_contents,
+		"the Vault acorn fill remains clipped to its balance fraction")
+	jar.free()
+
+	for icon_id in ["settings", "mail", "vault", "daily", "expedition", "gift", "news"]:
+		ok(SharedKit._icon_path(icon_id).ends_with("ui/meadow_v2/icon_%s.png" % icon_id),
+			"%s routes to its compatible Meadow icon" % icon_id)
+
 func _initialize() -> void:
 	begin("grove · ui")
+	_test_meadow_dialog_composition()
 	fresh("ladder")
 	var s6 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s6)

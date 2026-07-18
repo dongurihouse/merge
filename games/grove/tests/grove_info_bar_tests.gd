@@ -4,8 +4,123 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 
+func _resource_suffix(resource: Resource, suffix: String) -> bool:
+	return resource != null and String(resource.resource_path).ends_with(suffix)
+
+func _button_shell(button: Button) -> Texture2D:
+	var style := button.get_theme_stylebox("normal")
+	return (style as StyleBoxTexture).texture if style is StyleBoxTexture else null
+
+func _node_texture_path(node: Node) -> String:
+	if node is TextureRect and (node as TextureRect).texture != null:
+		return String((node as TextureRect).texture.resource_path)
+	if node is NinePatchRect and (node as NinePatchRect).texture != null:
+		return String((node as NinePatchRect).texture.resource_path)
+	return ""
+
+func _test_meadow_shared_components() -> void:
+	for spec in [["green", "button_primary.png"], ["cream", "button_secondary.png"], ["danger", "button_danger.png"]]:
+		var button := Kit.pill_button("Action", {"bg": spec[0], "art": true})
+		var style := button.get_theme_stylebox("normal")
+		ok(style is StyleBoxTexture and _resource_suffix(_button_shell(button), "ui/meadow_v2/%s" % spec[1]),
+			"pill_button %s uses the canonical Meadow shell" % spec[0])
+		ok(style is StyleBoxTexture and (style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0
+			and (style as StyleBoxTexture).get_texture_margin(SIDE_TOP) > 0.0,
+			"pill_button %s declares nine-slice margins" % spec[0])
+		ok(button.text == "Action" and button.mouse_filter != Control.MOUSE_FILTER_IGNORE,
+			"pill_button %s retains native text and its hit target" % spec[0])
+		button.free()
+	var default_button := Kit.pill_button("Action")
+	ok(_resource_suffix(_button_shell(default_button), "ui/meadow_v2/button_primary.png"),
+		"pill_button defaults to the canonical Meadow primary shell")
+	default_button.free()
+
+	var board := Kit.board_panel(Vector2(420, 360), {"shadow": false})
+	var frame := board.find_child("MeadowBoardFrame", true, false) as NinePatchRect
+	ok(frame != null and _resource_suffix(frame.texture, "ui/meadow_v2/board_frame.png"),
+		"board_panel defaults to the Meadow board frame")
+	ok(frame != null and frame.patch_margin_left > 0 and frame.patch_margin_top > 0,
+		"board_panel declares safe nine-slice margins")
+	board.free()
+
+	for spec in [["empty", false, "board_cell_open.png"], ["locked", false, "board_cell_locked.png"], ["locked", true, "board_cell_unlockable.png"]]:
+		var cell := Kit.slot_cell_background(Vector2(112, 112), spec[0], spec[1], {"cell_shadow": 0.0})
+		var style := cell.get_theme_stylebox("panel")
+		var tex := (style as StyleBoxTexture).texture if style is StyleBoxTexture else null
+		ok(style is StyleBoxTexture and _resource_suffix(tex, "ui/meadow_v2/%s" % spec[2]),
+			"slot-cell state %s/%s uses its Meadow shell" % [spec[0], spec[1]])
+		ok(style is StyleBoxTexture and (style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0,
+			"slot-cell state %s/%s declares nine-slice margins" % [spec[0], spec[1]])
+		cell.free()
+
+	for spec in [[-8, 1], [0, 1], [1, 2], [24, 25], [99, 25]]:
+		var badge := Kit.level_badge({}, spec[0], 37, 128.0)
+		var art := badge.find_child("lv_badge_art", true, false) as TextureRect
+		ok(art != null and _resource_suffix(art.texture, "ui/meadow_v2/level_badge_%02d.png" % spec[1]),
+			"level badge tier %d clamps to stable Meadow variant %02d" % [spec[0], spec[1]])
+		ok(art != null and art.texture.get_width() == 256 and art.texture.get_height() == 256,
+			"level badge variant %02d remains 256 x 256" % spec[1])
+		ok(badge.find_child("lv_num", true, false) is Label and badge.find_child("lv_circle", true, false) == null,
+			"level badge keeps native lv_num above one shared base")
+		badge.free()
+
+	var badge_opts := Kit.level_badge_opts_from_config({"level_badge": {
+		"num_size": 41, "leaf_x": 55, "circle_design": "6", "size": 77}})
+	ok(is_equal_approx(float(badge_opts.get("num_size", 0)), 41.0)
+		and not badge_opts.has("leaf_x") and not badge_opts.has("circle_design") and not badge_opts.has("size"),
+		"stale layered-part sliders no longer control the Meadow level badge")
+
+	var dialog_content := Label.new()
+	dialog_content.text = "Body"
+	var dialog := Kit.dialog_frame(dialog_content, 520.0, {"card_art": true, "banner_icon_on": false})
+	var dialog_banner := dialog.find_child("MeadowTitleBanner", true, false)
+	var dialog_card := dialog.find_child("MeadowDialogPanel", true, false) as PanelContainer
+	var dialog_style := dialog_card.get_theme_stylebox("panel") if dialog_card != null else null
+	ok(_node_texture_path(dialog_banner).ends_with("ui/meadow_v2/title_banner.png"),
+		"active shared-dialog coverage composes the Meadow banner atom")
+	ok(dialog_style is StyleBoxTexture and (dialog_style as StyleBoxTexture).texture != null
+		and String((dialog_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
+		and (dialog_style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0,
+		"active shared-dialog coverage uses the patched Meadow panel")
+	dialog.free()
+
+	var level_body := Label.new()
+	level_body.text = "Progress"
+	var level_frame := Kit.level_frame(level_body, 460.0, {"banner_text": "Level 12"})
+	ok(_node_texture_path(level_frame.find_child("MeadowTitleBanner", true, false)).ends_with("ui/meadow_v2/title_banner.png"),
+		"active Level-dialog coverage uses the shared Meadow ribbon")
+	level_frame.free()
+
+	var jar := Kit._vault_jar(320, 500, 200.0, 250.0)
+	var jar_fill := jar.find_child("VaultAcornFill", true, false) as Control
+	ok(_node_texture_path(jar.find_child("VaultJarShell", true, false)).ends_with("ui/meadow_v2/vault_jar_shell.png")
+		and _node_texture_path(jar.find_child("VaultAcornFillArt", true, false)).ends_with("ui/meadow_v2/vault_acorn_fill.png")
+		and _node_texture_path(jar.find_child("VaultPlate", true, false)).ends_with("ui/meadow_v2/vault_plate.png")
+		and jar_fill != null and jar_fill.clip_contents
+		and is_equal_approx(jar_fill.size.y, 128.0) and is_equal_approx(jar_fill.position.y, 72.0),
+		"active Vault coverage layers shell, clipped fill, and plate")
+	jar.free()
+	var vault := Kit.vault_dialog({"balance": 320, "cap": 500, "price": "$4.99", "claimable": true})
+	var vault_cta: Button = null
+	for candidate in vault.find_children("*", "Button", true, false):
+		if (candidate as Button).text == "$4.99":
+			vault_cta = candidate as Button
+			break
+	ok(vault_cta != null and _resource_suffix(_button_shell(vault_cta), "ui/meadow_v2/button_primary.png"),
+		"production Vault CTA inherits the canonical Meadow primary shell")
+	vault.free()
+
+	for icon_id in ["settings", "mail", "vault", "daily", "expedition", "gift", "news"]:
+		ok(Kit._icon_path(icon_id).ends_with("ui/meadow_v2/icon_%s.png" % icon_id),
+			"active icon coverage routes %s to its compatible Meadow asset" % icon_id)
+	ok(String(Kit.daily_opts_from_config({}).banner_icon_id) == "daily"
+		and String(Kit.settings_opts_from_config({}).banner_icon_id) == "settings"
+		and String(Kit.vault_opts_from_config({}).banner_icon_id) == "vault",
+		"daily, Settings, and Vault dialogs consume their compatible Meadow icons")
+
 func _initialize() -> void:
 	begin("grove · info bar")
+	_test_meadow_shared_components()
 
 	var content := G.new()
 	var has_copy_helpers := content.has_method("item_display_name") and content.has_method("item_description")

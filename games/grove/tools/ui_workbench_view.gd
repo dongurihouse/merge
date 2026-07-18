@@ -114,8 +114,7 @@ const TEST_KEYS := {
 	"mystery": ["preview"],
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
-	# the LAYERED level badge — every position/size knob (incl. circle_design + num_burn) is saved design;
-	# only preview_level (drives the tier stage + the printed number) is workbench-only.
+	# The complete Meadow level badge keeps only native-number controls; preview_level selects the variant.
 	"level_badge": ["preview_level"],
 	"tiers": [],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
@@ -162,7 +161,7 @@ const CAPTIONS := {
 	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"gold_badge": "Gold badge — CSS port",
-	"level_badge": "Level badge — layered emblem (circle·leaf·flower·acorn·gem + number)",
+	"level_badge": "Level badge — 25 Meadow progression variants + native number",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
@@ -254,9 +253,8 @@ var _params := {
 	# the live board's overall zoom; `gap` and `frame` shape live spacing. `cell`/`cols`/`rows` only size
 	# this preview. Piece size is owned by Slot-cell content_frac.
 	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
-		# the board FRAME (Kit.board_panel): "badge" = the shared gold badge skin; "code" = a code-drawn depth
-		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
-		"frame_style": "badge", "frame_corner": 46,
+		# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
+		"frame_style": "meadow", "frame_corner": 46,
 		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 	"fx": {"shadow": false},
 	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
@@ -390,19 +388,8 @@ var _params := {
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
-	# the LAYERED level badge — five cut parts (ui/lvl_parts) composited bottom-up + the level number.
-	# Every position/size knob is a PERCENT of the badge px (so the emblem scales to any size); they map
-	# 1:1 to Kit.level_badge_opts_from_config, the SAME resolver the HUD chip / level dialog
-	# read. The preview shows ALL parts at once (so you can position them together); preview_level drives
-	# the tier stage + the printed number. circle_design pins the coin (auto = grow with tier); num_burn is
-	# the engraved burn on the number.
-	"level_badge": {"size": 100, "num_size": 32, "num_x": 0, "num_y": -16, "num_burn": 0,
-		"circle_base": true, "circle_design": "auto",
-		"circle_x": 0, "circle_y": -4, "circle_scale": 90,
-		"leaf_x": 0, "leaf_y": 0, "leaf_scale": 100,
-		"flower_x": 0, "flower_y": -10, "flower_scale": 48,
-		"acorn_x": 0, "acorn_y": -8, "acorn_scale": 52,
-		"gem_x": 0, "gem_y": -40, "gem_scale": 36,
+	# One of 25 complete Meadow badge variants selected by progression, plus a native level number.
+	"level_badge": {"num_size": 32, "num_x": 0, "num_y": 5, "num_burn": 0,
 		"preview_level": 30},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon / item_icon_scale are % of that height.
@@ -1407,7 +1394,8 @@ func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
 	var bopts: Dictionary = Kit.board_panel_opts_from_config(_params)
 	var pad_x := roundf(bar_h * float(ao.get("pad_x_frac", 0.0)))
 	var pad_y := roundf(bar_h * float(ao.get("pad_y_frac", 0.0)))
-	if String(bopts.get("frame_style", "badge")) == "code":
+	var frame_style := String(bopts.get("frame_style", "meadow"))
+	if frame_style == "code":
 		var flat := StyleBoxFlat.new()
 		flat.bg_color = Color("#FBF3E2")
 		flat.border_color = Pal.STRAW
@@ -1418,6 +1406,8 @@ func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
 		flat.content_margin_top = pad_y
 		flat.content_margin_bottom = pad_y
 		return flat
+	if frame_style == "meadow":
+		return Kit.meadow_board_style(pad_x, pad_y)
 	var badge: Dictionary = (bopts.get("badge", {}) as Dictionary).duplicate() if bopts.get("badge", {}) is Dictionary else {}
 	badge["content_margin_left"] = pad_x
 	badge["content_margin_right"] = pad_x
@@ -2256,7 +2246,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
 			_group_header("Saved to config", true)
 			_section_header("Frame")
-			_sidebar_body.add_child(_option_row("Style", "frame_style", ["badge", "code"]))   # shared gold badge vs code-drawn
+			_sidebar_body.add_child(_option_row("Style", "frame_style", ["meadow", "badge", "code"]))
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
 			_section_header("Code border (when Style = code)")
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
@@ -2504,30 +2494,13 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"level_badge":
 			_group_header("Saved to config", true)
-			# every part has its own X/Y/Scale, all visible at once; the preview renders ALL parts together
-			_section_header("Circle (coin background)")
-			_sidebar_body.add_child(_toggle_row("Circle base", "circle_base"))   # draw the coin behind every tier
-			# the coin design: 'auto' grows with the level, or pin one of the 6 designs from the asset
-			_sidebar_body.add_child(_option_row("Circle design", "circle_design", ["auto", "1", "2", "3", "4", "5", "6"]))
-			_sidebar_body.add_child(_slider_row(["circle_x", -60, 60]))
-			_sidebar_body.add_child(_slider_row(["circle_y", -60, 60]))
-			_sidebar_body.add_child(_slider_row(["circle_scale", 10, 160]))
-			for pn in [["Leaf (wreath)", "leaf"], ["Flower", "flower"], ["Acorn", "acorn"], ["Gem", "gem"]]:
-				_section_header(String(pn[0]))
-				var part_key := String(pn[1])
-				var y_min := -120 if part_key == "gem" else -60
-				_sidebar_body.add_child(_slider_row([part_key + "_x", -60, 60]))      # horizontal offset (% of px)
-				_sidebar_body.add_child(_slider_row([part_key + "_y", y_min, 60]))    # vertical offset (% of px; - = up)
-				_sidebar_body.add_child(_slider_row([part_key + "_scale", 10, 160]))  # size (% of the common box)
 			_section_header("Number (the level text)")
 			_sidebar_body.add_child(_slider_row(["num_size", 8, 70]))       # font (% of px)
 			_sidebar_body.add_child(_slider_row(["num_x", -50, 50]))        # side (horizontal offset)
 			_sidebar_body.add_child(_slider_row(["num_y", -50, 50]))        # margin (vertical offset)
 			_sidebar_body.add_child(_slider_row(["num_burn", 0, 100]))      # engraved burn (dark ink + emboss + outline)
-			_section_header("Overall")
-			_sidebar_body.add_child(_slider_row(["size", 40, 120]))         # the common part box (% of px)
 			_group_header("Test only — not saved", false)
-			# preview_level drives the tier stage + the printed number (the preview shows ALL parts)
+			# preview_level drives the progression variant + printed number
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 110]))
 		"map_card":
 			_group_header("Saved to config", true)

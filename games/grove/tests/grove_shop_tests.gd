@@ -491,29 +491,35 @@ func _initialize() -> void:
 	var backdrop := BoardScript._field_backdrop()
 	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
 		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
-	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); the locked face is the simple
-	# code-drawn background. Frontier border cells get a gentle near-unlock wash and use the same
-	# tunable depth/shadow settings as the workbench Slot-cell component.
+	# The locked-cell WELL uses the shared authored Meadow shells. Frontier cells use the unlockable shell;
+	# deep locks use the receding locked shell. Any runtime shadow is a separate shallow overlay.
 	var slot_opts := Kit.bag_card_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
 	var border_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, slot_opts)
 	var border_bg := border_slot.find_child("SlotCellBackground", true, false) as Panel
-	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxFlat
-	ok(border_sb != null, "the locked-cell background is a solid StyleBoxFlat fill (not transparent art)")
-	ok(border_sb != null and border_sb.bg_color.is_equal_approx(Pal.NEAR_UNLOCK), "border locked cells use the near-unlock background")
-	ok(border_sb != null and border_sb.shadow_size > 0 and border_sb.shadow_color.a > 0.0, \
-		"locked cell uses the Slot-cell depth shadow setting")
-	ok(border_sb != null and not border_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell")
+	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxTexture
+	var border_shadow := border_bg.find_child("MeadowSlotShadow", true, false) as Panel
+	ok(border_sb != null and border_sb.texture != null, "the locked-cell background uses authored Meadow texture art")
+	ok(border_sb != null and String(border_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_unlockable.png"),
+		"border locked cells use the Meadow unlockable shell")
+	ok(border_shadow != null, "locked cell uses a separate shallow runtime shadow when enabled")
+	ok(border_sb != null and not String(border_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_open.png"),
+		"locked is visually distinct from an empty cell")
 	var deep_slot: Control = Kit.slot_cell({"state": "locked", "frontier": false}, slot_opts)
 	var deep_bg := deep_slot.find_child("SlotCellBackground", true, false) as Panel
-	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxFlat
-	ok(deep_sb != null and deep_sb.bg_color.is_equal_approx(Pal.LOCKED), "deep locked cells keep the quiet locked background")
+	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxTexture
+	ok(deep_sb != null and deep_sb.texture != null
+		and String(deep_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_locked.png"),
+		"deep locked cells keep the quiet Meadow locked shell")
 	border_slot.free()
 	deep_slot.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
 	var bramble_bg := bramble_node.find_child("SlotCellBackground", true, false) as Panel
 	ok(bramble_bg != null, "frontier locked cell paints a full-cell locked background")
-	ok(bramble_bg != null and bramble_bg.get_theme_stylebox("panel") is StyleBoxFlat, \
-		"frontier locked cell background is a solid fill, not transparent art that exposes the board gutter")
+	var bramble_style := bramble_bg.get_theme_stylebox("panel") as StyleBoxTexture if bramble_bg != null else null
+	ok(bramble_style != null and bramble_style.texture != null
+		and String(bramble_style.texture.resource_path).ends_with("ui/meadow_v2/board_cell_unlockable.png")
+		and bramble_style.get_texture_margin(SIDE_LEFT) > 0.0, \
+		"frontier locked cell uses the safely patched Meadow unlockable shell")
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
 	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")

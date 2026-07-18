@@ -58,7 +58,7 @@
 		"frame_border_w": 4.0,
 		"frame_corner": 46.0,
 		"frame_inner_w": 0.0,
-		"frame_style": "badge",
+		"frame_style": "meadow",
 		"frame_top_shadow": 0.0,
 		"gap": 11.0,
 		"scale": 97.0,
@@ -330,29 +330,11 @@
 		"title_font": 30.0
 	},
 	"level_badge": {
-		"acorn_scale": 33.0,
-		"acorn_x": 0.0,
-		"acorn_y": 4.0,
-		"circle_base": true,
-		"circle_design": "2",
-		"circle_scale": 90.0,
-		"circle_x": 0.0,
-		"circle_y": -4.0,
-		"flower_scale": 41.0,
-		"flower_x": 0.0,
-		"flower_y": 4.0,
-		"gem_scale": 25.0,
-		"gem_x": 0.0,
-		"gem_y": -64.0,
-		"leaf_scale": 94.0,
-		"leaf_x": 0.0,
-		"leaf_y": 0.0,
 		"num_burn": 99.0,
 		"num_size": 32.0,
 		"num_x": 0.0,
 		"num_y": 5.0,
-		"shadow": false,
-		"size": 105.0
+		"shadow": false
 	},
 	"map_card": {
 		"card_h_frac": 19.0,
@@ -509,7 +491,7 @@
 		"shadow": false
 	},
 	"shadow": {
-		"alpha": 46.0,
+		"alpha": 20.0,
 		"blur": 19.0,
 		"offset_x": 1.0,
 		"offset_y": 2.0,

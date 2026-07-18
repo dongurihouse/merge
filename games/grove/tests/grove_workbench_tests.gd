@@ -9,6 +9,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const Pal = preload("res://games/grove/grove_palette.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -809,14 +810,11 @@ func _initialize() -> void:
 			var inhand_bar := map_scene._inhand_info_bar(Rect2(0, 0, 240, 88)) as Control
 			var inhand_frame := inhand_bar.find_child("InHandInfoBarFrame", true, false) as Panel
 			var inhand_style := inhand_frame.get_theme_stylebox("panel") if inhand_frame != null else null
-			var inhand_flat := inhand_style as StyleBoxFlat
-			var inhand_line_w := 99
-			if inhand_flat != null:
-				inhand_line_w = maxi(maxi(inhand_flat.border_width_left, inhand_flat.border_width_right), \
-					maxi(inhand_flat.border_width_top, inhand_flat.border_width_bottom))
-			ok(inhand_frame != null and inhand_flat != null and inhand_line_w > 0 and inhand_line_w <= 2 \
+			var inhand_tex := inhand_style as StyleBoxTexture
+			ok(inhand_frame != null and inhand_tex != null and inhand_tex.texture != null \
+				and String(inhand_tex.texture.resource_path).ends_with("ui/meadow_v2/board_cell_open.png") \
 				and _has_button_text(inhand_bar, "Sell +5"), \
-				"place-picker resident sell bar uses the thin Slot-cell line border")
+				"place-picker resident sell bar uses the Meadow open Slot-cell shell")
 			var resident_info := inhand_bar.find_child("ResidentInfoButton", true, false) as Button
 			var resident_sell := _find_button(inhand_bar, "Sell +5")
 			ok(resident_info != null and not _has_label_text(inhand_bar, "Tier 1") \
@@ -876,9 +874,8 @@ func _initialize() -> void:
 		"the temporary Border cell component is removed; its knobs live on Slot cell")
 	ok(not (view._params["bag_card"] as Dictionary).has("cell_art") and not (view._params["bag_card"] as Dictionary).has("cell_slice"), \
 		"Slot cell no longer exposes stale art/slice settings")
-	ok(view._is_config("bag_card", "frontier_hue") and view._is_config("bag_card", "deep_hue") \
-		and view._is_config("bag_card", "rim_alpha") and view._is_config("bag_card", "corner"), \
-		"Slot cell owns the locked-background colour and shape knobs")
+	ok(view._is_config("bag_card", "cell_shadow") and view._is_config("bag_card", "cell_shadow_size"), \
+		"Slot cell retains only runtime shadow tuning over authored Meadow shells")
 	var border_opts := Kit.bag_card_opts_from_config({"bag_card": {
 		"frontier_hue": 20, "frontier_sat": 60, "frontier_val": 80,
 		"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
@@ -887,9 +884,10 @@ func _initialize() -> void:
 	}})
 	var tuned_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, border_opts)
 	var tuned_bg := tuned_slot.find_child("SlotCellBackground", true, false) as Panel
-	var tuned_sb := tuned_bg.get_theme_stylebox("panel") as StyleBoxFlat if tuned_bg != null else null
-	ok(tuned_sb != null and tuned_sb.bg_color.h < Pal.NEAR_UNLOCK.h, \
-		"Slot-cell frontier hue tuning changes the locked background colour")
+	var tuned_sb := tuned_bg.get_theme_stylebox("panel") as StyleBoxTexture if tuned_bg != null else null
+	ok(tuned_sb != null and tuned_sb.texture != null \
+		and String(tuned_sb.texture.resource_path).ends_with("ui/meadow_v2/board_cell_unlockable.png"), \
+		"stale frontier colour tuning cannot override the authored unlockable shell")
 	tuned_slot.free()
 	ok(not _source_contains("res://engine/scripts/ui/piece_view.gd", "border_cell_opts_from_config") \
 		and _source_contains("res://engine/scripts/ui/piece_view.gd", "\"frontier\": frontier"), \
@@ -1168,6 +1166,16 @@ func _test_new_knobs(view) -> void:
 		and not (view._params["info_bar"] as Dictionary).has("home_x_pct"), \
 		"merged info_bar action knobs keep one shared Bag/Home size control and no Bag/Home x controls")
 	var action_prev: Control = view._make_element("info_bar")
+	var live_action_style := ActionBar.bar_style(166.0, {}) as StyleBoxTexture
+	ok(live_action_style != null and live_action_style.texture != null
+		and String(live_action_style.texture.resource_path).ends_with("ui/meadow_v2/board_frame.png")
+		and live_action_style.get_texture_margin(SIDE_LEFT) > 0.0,
+		"live action bar recognizes the Meadow board-frame style with explicit slices")
+	var preview_action_style := (action_prev as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
+	ok(preview_action_style != null and preview_action_style.texture != null
+		and String(preview_action_style.texture.resource_path).ends_with("ui/meadow_v2/board_frame.png")
+		and preview_action_style.get_texture_margin(SIDE_LEFT) > 0.0,
+		"info-bar workbench preview matches the live Meadow action-bar frame")
 	var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
 	var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
 	var preview_info := action_prev.find_child("ActionBarPreviewInfoBar", true, false) as PanelContainer
@@ -1369,18 +1377,17 @@ func _test_board_element(view) -> void:
 	view._params["bag_card"]["deep_sat"] = 12
 	view._params["bag_card"]["deep_val"] = 85
 	var board_with_locks: Control = view._make_element("board")
-	var board_slot_opts := Kit.bag_card_opts_from_config(view._params)
 	var saw_frontier_lock := false
 	var saw_deep_lock := false
 	var board_backgrounds := board_with_locks.find_children("SlotCellBackground", "Panel", true, false)
 	for bg in board_backgrounds:
 		var sb: StyleBox = (bg as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat:
-			var fill := (sb as StyleBoxFlat).bg_color
-			saw_frontier_lock = saw_frontier_lock or _same_rgb(fill, board_slot_opts.frontier_fill)
-			saw_deep_lock = saw_deep_lock or _same_rgb(fill, board_slot_opts.deep_fill)
+		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null:
+			var path := String((sb as StyleBoxTexture).texture.resource_path)
+			saw_frontier_lock = saw_frontier_lock or path.ends_with("ui/meadow_v2/board_cell_unlockable.png")
+			saw_deep_lock = saw_deep_lock or path.ends_with("ui/meadow_v2/board_cell_locked.png")
 	ok(saw_frontier_lock and saw_deep_lock, \
-		"the board preview shows frontier and deep locked cells using Slot-cell background settings")
+		"the board preview shows authored unlockable and deep-locked Meadow shells")
 	ok(board_backgrounds.size() >= int(view._params["board"].cols) * int(view._params["board"].rows), \
 		"the board preview renders every cell state through the Slot-cell background")
 	ok(_locked_placeholder(board_with_locks) != null and is_equal_approx(_locked_placeholder(board_with_locks).modulate.a, 0.30), \
@@ -1472,15 +1479,15 @@ func _test_warm_shadow_port() -> void:
 		ok(st != null and _is_warm_shadow(st.shadow_color) and st.shadow_size > 0, \
 			"the shared shadow uses the warm reference shadow tint")
 
-	# a component that casts the shared shadow (board) gets the warm tint on its shadow panel
+	# Meadow components normalize runtime shadows to structural slate at <= 20% alpha.
 	var board := Kit.board_panel(Vector2(220.0, 160.0), {"shadow": true, "shadow_params": p})
-	var board_warm := false
+	var board_meadow_shadow := false
 	for pan in board.find_children("*", "Panel", true, false):
 		var sb := (pan as Panel).get_theme_stylebox("panel") as StyleBoxFlat
 		if sb != null and sb.shadow_size > 0:
-			board_warm = _is_warm_shadow(sb.shadow_color)
+			board_meadow_shadow = _same_rgb(sb.shadow_color, Color("#294654")) and sb.shadow_color.a <= 0.201
 			break
-	ok(board_warm, "the board frame casts the shared warm-tinted shadow")
+	ok(board_meadow_shadow, "the board frame casts the normalized Meadow structural-slate shadow")
 
 	# the asset-pipeline baked shadow (shape-true, for sprites) still uses the warm tint
 	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
@@ -2279,27 +2286,18 @@ func _test_bag_components() -> void:
 	var depth_cell := Kit.slot_cell({"state": "empty"}, co_depth)
 	var depth_bg := depth_cell.find_child("SlotCellBackground", true, false) as Panel
 	var depth_style: StyleBox = depth_bg.get_theme_stylebox("panel") if depth_bg != null else null
-	ok(depth_style is StyleBoxFlat and (depth_style as StyleBoxFlat).border_width_bottom == 10 \
-		and (depth_style as StyleBoxFlat).shadow_size > 0 \
-		and (depth_style as StyleBoxFlat).shadow_color.a > 0.5 \
-		and is_equal_approx((depth_style as StyleBoxFlat).shadow_offset.y, 7.0), \
-		"Slot-cell depth and shadow settings affect the code-drawn background")
+	var runtime_shadow := depth_bg.find_child("MeadowSlotShadow", true, false) as Panel if depth_bg != null else null
+	var runtime_shadow_style := runtime_shadow.get_theme_stylebox("panel") as StyleBoxFlat if runtime_shadow != null else null
+	ok(depth_style is StyleBoxTexture and runtime_shadow_style != null \
+		and _same_rgb(runtime_shadow_style.shadow_color, Color("#294654")) \
+		and runtime_shadow_style.shadow_color.a <= 0.201 \
+		and runtime_shadow_style.shadow_offset.y <= 3.0, \
+		"Slot-cell shadows are shallow, structural-slate overlays on authored shells")
 	var co_inset := Kit.bag_card_opts_from_config({"bag_card": {"inset": 70}})
 	var inset_cell := Kit.slot_cell({"state": "empty"}, co_inset)
-	var inset_dark := inset_cell.find_child("SlotCellInsetDark", true, false) as Panel
-	var inset_light := inset_cell.find_child("SlotCellInsetLight", true, false) as Panel
-	var inset_dark_style: StyleBox = inset_dark.get_theme_stylebox("panel") if inset_dark != null else null
-	var inset_light_style: StyleBox = inset_light.get_theme_stylebox("panel") if inset_light != null else null
-	ok(inset_dark != null and inset_light != null \
-		and inset_dark.size == cwh and inset_light.size == cwh \
-		and inset_dark.custom_minimum_size == Vector2.ZERO and inset_light.custom_minimum_size == Vector2.ZERO \
-		and inset_dark_style is StyleBoxFlat and (inset_dark_style as StyleBoxFlat).border_width_top > 0 \
-		and (inset_dark_style as StyleBoxFlat).border_width_left > 0 \
-		and (inset_dark_style as StyleBoxFlat).border_color.a > 0.15 \
-		and inset_light_style is StyleBoxFlat and (inset_light_style as StyleBoxFlat).border_width_bottom > 0 \
-		and (inset_light_style as StyleBoxFlat).border_width_right > 0 \
-		and (inset_light_style as StyleBoxFlat).border_color.a > 0.10, \
-		"Slot-cell inset setting draws an in-cell depressed bevel without changing the cell size")
+	ok(inset_cell.find_child("SlotCellInsetDark", true, false) == null \
+		and inset_cell.find_child("SlotCellInsetLight", true, false) == null, \
+		"stale inset tuning cannot layer a second bevel over the authored Meadow shell")
 	var locked_host := Control.new()
 	locked_host.custom_minimum_size = cwh
 	locked_host.size = cwh
@@ -2389,9 +2387,9 @@ func _test_discovery_cell() -> void:
 	var tuned_dlg := Kit.tiers_dialog([{"tier": 1, "seen": true, "icon": "leaf"}], 560.0, tuned_topts)
 	var tuned_bg := tuned_dlg.find_child("SlotCellBackground", true, false) as Panel
 	var tuned_style: StyleBox = tuned_bg.get_theme_stylebox("panel") if tuned_bg != null else null
-	var expected_fill: Color = Kit.bag_card_opts_from_config(tuned_cfg).open_fill
-	ok(tuned_style is StyleBoxFlat and _same_rgb((tuned_style as StyleBoxFlat).bg_color, expected_fill), \
-		"tiers_dialog inherits Slot-cell background colours from bag_card settings")
+	ok(tuned_style is StyleBoxTexture and (tuned_style as StyleBoxTexture).texture != null \
+		and String((tuned_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/board_cell_open.png"), \
+		"tiers_dialog inherits the authored Meadow open-cell shell")
 	# tier cells carry a plain number, not the decorated level-badge medal.
 	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "tiers_dialog shows plain tier numbers (3, 7)")
 	ok(dlg.find_child("lv_num", true, false) == null, "tiers_dialog omits decorated level-badge nodes")
@@ -2413,29 +2411,25 @@ func _test_discovery_cell() -> void:
 # dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry) and adds only its CONTENT (the
 # tier grid + the tier-cell look) — exactly like daily/shop. Edits on the shared Frame item flow to it.
 func _test_level_badge_component(view) -> void:
-	# the LAYERED level badge is a registered building block with a working preview + sidebar
+	# The badge is one of 25 complete Meadow variants plus a native level-number label.
 	ok(view._sections.has("level_badge"), "level_badge is a registered gallery item")
 	view._selected = "level_badge"
-	view._params["level_badge"]["preview_level"] = 110   # final tier (the live game would show leaf+acorn+gem)
+	view._params["level_badge"]["preview_level"] = 110
 	var prev: Control = view._make_element("level_badge")
 	var n := prev.find_child("lv_num", true, false) as Label
 	ok(n != null and n.text == "110", "level_badge preview prints the test level (110)")
-	# the preview renders ALL five parts at once so each can be positioned together
-	ok(prev.find_child("lv_leaf", true, false) != null and prev.find_child("lv_flower", true, false) != null
-		and prev.find_child("lv_acorn", true, false) != null and prev.find_child("lv_gem", true, false) != null
-		and prev.find_child("lv_circle", true, false) != null, "the preview shows ALL parts for positioning")
-	# the sidebar exposes EVERY part's X/Y/Scale at once (no dropdown), plus the number + coin controls
+	var art := prev.find_child("lv_badge_art", true, false) as TextureRect
+	ok(art != null and art.texture != null and art.texture.get_width() == 256 \
+		and String(art.texture.resource_path).ends_with("ui/meadow_v2/level_badge_25.png"), \
+		"the preview uses the clamped final 256 x 256 Meadow badge variant")
 	view._rebuild_sidebar()
-	ok(_slider_max(view, "Leaf X") >= 60.0 and _slider_max(view, "Flower X") >= 60.0
-		and _slider_max(view, "Acorn X") >= 60.0 and _slider_max(view, "Gem X") >= 60.0
-		and _slider_max(view, "Circle X") >= 60.0, "every part has its own X/Y/Scale sliders, all visible")
-	ok(_slider_min(view, "Gem Y") <= -120.0, "Gem Y can move above the old -60 cap")
+	ok(not _has_label_text(view._sidebar_body, "Leaf X") and not _has_label_text(view._sidebar_body, "Circle design"), \
+		"stale layered-part controls are absent from the level-badge sidebar")
 	ok(_slider_max(view, "Num Size") >= 70.0 and _slider_max(view, "Num Burn") >= 100.0,
 		"sidebar exposes the number size + the engraved burn slider")
 	ok(_slider_max(view, "Preview Level") >= 110.0, "sidebar exposes the test level (1..110)")
-	# circle design + burn are saved config; preview_level is test-only
-	ok(view._is_config("level_badge", "circle_design") and view._is_config("level_badge", "num_burn")
-		and view._is_config("level_badge", "leaf_x"), "part/coin/burn knobs are saved config")
+	ok(view._is_config("level_badge", "num_burn") and view._is_config("level_badge", "num_size") \
+		and not (view._params["level_badge"] as Dictionary).has("leaf_x"), "only native-number badge knobs remain saved config")
 	ok(not view._is_config("level_badge", "preview_level"), "preview_level is test-only")
 
 func _test_rush_bar_component(view) -> void:

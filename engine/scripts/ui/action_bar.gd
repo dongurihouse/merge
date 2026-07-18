@@ -35,13 +35,18 @@ static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {})
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit != null:
 		var kit_opts: Dictionary = Kit.board_panel_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		if String(kit_opts.get("frame_style", "badge")) == "code":
+		var frame_style := String(kit_opts.get("frame_style", "meadow"))
+		if frame_style == "code":
 			var code := StyleBoxFlat.new()
 			code.bg_color = Color("#FBF3E2")
 			code.border_color = Pal.STRAW
 			code.set_border_width_all(int(kit_opts.get("border_w", 4)))
 			code.set_corner_radius_all(int(kit_opts.get("corner", 46)))
 			return _apply_padding(code, bar_h, action_opts)
+		if frame_style == "meadow":
+			return Kit.meadow_board_style(
+				roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0))),
+				roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0))))
 		var badge_opts: Dictionary = (kit_opts.get("badge", {}) as Dictionary).duplicate() if kit_opts.get("badge", {}) is Dictionary else {}
 		badge_opts["content_margin_left"] = roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
 		badge_opts["content_margin_right"] = badge_opts["content_margin_left"]
