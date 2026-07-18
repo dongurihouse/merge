@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: editable 2D game map prop pack
+Primary request: Create exactly six distinct koi fish as a 2 x 3 sprite sheet: two rows and three equal columns. Each cell contains exactly one individual koi viewed directly from above, with the full fish centered and isolated.
+Reference role: Match the cherry-blossom garden reference's colorful high-contrast handmade cut-paper picture-book style, lightly fibrous paper texture, clean low-complexity shapes, crisp silhouette, and friendly premium mobile-game finish.
+Subjects: six slender koi with varied orientations and gentle swimming body curves. Use distinct traditional markings: vermilion and white, orange and white, gold, black and white, red black and white, and pale cream with orange markings.
+Water integration: Slightly soften and cool the fish colors as if seen just below clear teal pond water. Keep this treatment entirely within each fish silhouette. No external blue haze and no water patch.
+Composition: exact 2 x 3 grid, consistent fish scale, each fish occupying the central 60 to 70 percent of its cell, generous padding, nothing crossing a cell edge. Vary the direction of the fish between cells so the individual sprites can form a natural school.
+Background: perfectly flat uniform solid #FF00FF chroma-key background across the entire image.
+Constraints: no cell borders, no frames, no grid lines, no text, no labels, no UI, no water tiles, no ponds, no rocks, no vegetation, no bubbles, no ripple rings, no cast shadows, no contact shadows, no glow, and no detached effects. Do not use #FF00FF anywhere in the fish.
