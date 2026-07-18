@@ -5,6 +5,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/home_zone_view_tests.gd
 
 const HZV = preload("res://engine/scripts/ui/home_zone_view.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 
 var _pass := 0
 var _fail := 0
@@ -63,6 +64,10 @@ func _initialize() -> void:
 	var ba: Control = out.badges["b"]
 	ok(int(ba.get_meta("cost")) == 10 and int(ba.get_meta("min_level")) == 1, "the badge carries the next step's cost + level")
 	ok(String(ba.get_meta("building_id")) == "b", "the badge remembers its building id (for the tap→buy flow)")
+	var modal := Overlay.mount(parent, "HomeZoneModalTest")
+	ok(modal.z_index > ba.z_index and modal.z_index > pa.z_index, \
+		"shared modal overlays render above painter-sorted Home props and build badges")
+	modal.queue_free()
 
 	# a BUILT building: no next step → no badge, and the built prop renders full-opacity
 	var states2 := {"a": "built"}

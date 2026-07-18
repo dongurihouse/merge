@@ -12,8 +12,11 @@ extends RefCounted
 ## uses MODAL_TOP_Z. Dialogs call `mount()` instead of hand-rolling z — that is what keeps the shop (which
 ## once forgot its z and slid under the HUD) and every future dialog reliably on top.
 
-const MODAL_Z := 100      ## the modal layer — above all world/HUD/FX chrome
-const MODAL_TOP_Z := 110  ## one notch up: a layer that must sit above an open modal
+# Home's painter-sorted cut-paper props and build badges use their authored canvas y
+# (up to 1510) as z-index. Keep the shared modal band above that world range as well
+# as the ordinary HUD/FX range, so no plot label or prop can pierce a dialog veil.
+const MODAL_Z := 2048      ## the modal layer — above all world/HUD/FX chrome
+const MODAL_TOP_Z := 2110  ## one notch up: a layer that must sit above an open modal
 
 ## Create a full-rect modal overlay named `name`, stamped at the canonical modal z, mounted on `host`, and
 ## return it. Callers run their own `is_open` guard first (they have setup to skip on a re-open).
