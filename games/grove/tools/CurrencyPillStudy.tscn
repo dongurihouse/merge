@@ -1,0 +1,37 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://games/grove/tools/currency_pill_study.gd" id="1_study"]
+[ext_resource type="Texture2D" path="res://games/grove/assets/ui/meadow_v2/texture_sky.png" id="2_sky"]
+
+[node name="CurrencyPillStudy" type="Control"]
+custom_minimum_size = Vector2(941, 160)
+offset_right = 941.0
+offset_bottom = 160.0
+script = ExtResource("1_study")
+
+[node name="Stage" type="Control" parent="."]
+layout_mode = 0
+offset_right = 941.0
+offset_bottom = 160.0
+mouse_filter = 2
+
+[node name="PaperSky" type="TextureRect" parent="Stage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_sky")
+expand_mode = 1
+stretch_mode = 1
+
+[node name="Wallet" type="Control" parent="Stage"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
