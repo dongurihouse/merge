@@ -109,21 +109,21 @@ func _test_collect_coin() -> void:
 	ok(int(out.get("got", -1)) == G.coin_value(code), "collect_coin reports the coin value")
 	ok(Save.coins() == coins_b + G.coin_value(code), "collect_coin credited the coin value to the wallet")
 
-# §6.B collect a special drop (water / acorn / exp). exp+acorn write Save directly; water is RETURNED
+# §6.B collect a special drop (water / acorn). acorn writes Save directly; water is RETURNED
 # for the caller to fold into its live water mirror (a scene field, not Save). The tile always leaves.
 func _test_collect_special() -> void:
 	fresh("collect_special")
 	var board := BoardModel.new()
 	var special := 13 * 100 + 1
-	# coins special (the Spark) → Save.earn_coins (organic, clock-advancing)
+	# a stashed reward overrides the face value; the report carries kind + amount
 	var c1 := Vector2i(1, 1)
 	board.place(c1, special)
-	board.set_collect_reward(c1, "coins", 5)
-	var earned_sp := Save.coins_earned_lifetime()
+	board.set_collect_reward(c1, "acorn", 5)
+	var dia_stash := Save.diamonds()
 	var o1: Dictionary = BoardActions.collect_special(board, c1)
 	ok(board.item_at(c1) == 0, "collecting a special removes it from the board")
-	ok(String(o1.get("kind", "")) == "coins" and int(o1.get("amount", -1)) == 5, "collect_special reports kind + amount")
-	ok(Save.coins_earned_lifetime() == earned_sp + 5, "a Spark special credits coins into the clock")
+	ok(String(o1.get("kind", "")) == "acorn" and int(o1.get("amount", -1)) == 5, "collect_special reports kind + amount")
+	ok(Save.diamonds() == dia_stash + 5, "a stashed acorn reward overrides the face value")
 	# acorn special → Save.add_diamonds
 	var c2 := Vector2i(2, 2)
 	board.place(c2, special)

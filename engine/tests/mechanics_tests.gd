@@ -412,7 +412,7 @@ func _initialize() -> void:
 	ok(BoardLogic.combo_step(4, 3.0, 2.5) == 1, "combo: a gap past the window restarts at 1")
 	ok(BoardLogic.combo_step(2, 2.51, 2.5) == 1, "combo: just past the window restarts at 1")
 
-	# --- §6.B special drop items — the shared pseudo-line foundation (chest/key/water/acorn/exp) ---
+	# --- §6.B special drop items — the shared pseudo-line foundation (chest/water/acorn) ---
 	var chest_t1 := 10 * 100 + 1            # chest tier 1
 	var flower_t1 := 1 * 100 + 1           # a content line item
 	var coin_t1 := G.COIN_LINE * 100 + 1   # a coin
@@ -446,15 +446,14 @@ func _initialize() -> void:
 	var picked := {}
 	for i in 400:
 		picked[int(G.pick_special_drop(srng) / 100.0)] = true
-	ok(picked.size() >= 4 and G.special_kind(G.pick_special_drop(srng)) != "",
-		"pick_special_drop yields t1 codes spread across the special kinds")
+	ok(picked.size() == 3 and G.special_kind(G.pick_special_drop(srng)) != "",
+		"pick_special_drop yields t1 codes spread across the 3 special kinds (chest/water/acorn)")
 	# tap-collect grants the resource by tier; a chest tap-OPENS instead (no wallet credit here)
 	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
 	var expected_acorn_values := {1: 1, 2: 2, 3: 5}
 	for tier in expected_acorn_values:
 		ok(G.special_collect(13 * 100 + int(tier)) == {"kind": "acorn", "amount": int(expected_acorn_values[tier])}, \
 			"acorn t%d follows the 2.2x ladder (%d)" % [int(tier), int(expected_acorn_values[tier])])
-	ok(G.special_collect(14 * 100 + 1) == {"kind": "coins", "amount": 5}, "the Spark t1 tap-collects coins (clock-advancing)")
 	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest has no tap-collect credit (it OPENS via the board path)")
 	ok(G.is_chest(10 * 100 + 1) and G.is_collectable(10 * 100 + 1), "a chest is collectable — the second tap opens it (no key needed)")
 	# the open reward scales by the chest tier alone (the key line + its multiplier are retired)

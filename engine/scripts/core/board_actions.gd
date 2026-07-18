@@ -43,8 +43,8 @@ static func collect_coin(board: BoardModel, cell: Vector2i) -> Dictionary:
 	Save.earn_coins(got)                          # organic — merge-drop/chest coins advance the clock
 	return {"got": got, "code": code}
 
-# Collect the special drop at `cell` (water / acorn / coins). A stashed collect-reward overrides the
-# item's own face reward. acorn + coins write Save here; "water" is RETURNED for the caller to fold into
+# Collect the special drop at `cell` (water / acorn). A stashed collect-reward overrides the
+# item's own face reward. acorn writes Save here; "water" is RETURNED for the caller to fold into
 # its live water mirror (a scene field, capped — not a Save currency). Returns {} when nothing collects.
 static func collect_special(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var got: Dictionary = G.special_collect(board.item_at(cell))
@@ -58,8 +58,6 @@ static func collect_special(board: BoardModel, cell: Vector2i) -> Dictionary:
 	match String(got.kind):
 		"acorn":
 			Save.add_diamonds(amount)
-		"coins":
-			Save.earn_coins(amount)               # organic — the Spark's coins advance the clock
 	return {"kind": String(got.kind), "amount": amount}
 
 # Birth-on-tap placement: the generator the board owes (Quests.due_gen — the anchor self-heals first,

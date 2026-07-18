@@ -337,18 +337,16 @@ const SPECIAL_ITEMS := {
 	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
-	14: {"name": "Spark", "base": "spark", "kind": "coins", "desc": "Tap again to collect coins. Merge first for more."},     # merges; tap-collect → coins (organic, clock-advancing)
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
-# Tap-collect grants the resource (water/acorn/coins) per tier; a CHEST is opened by a second TAP
+# Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
 # (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1, 14: 1}   # chest·water·acorn·spark (flat; the key line is retired)
+const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1}   # chest·water·acorn (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)
-	"coins": {1: 5, 2: 12, 3: 30},   # the Spark (was the exp special — coin-clock redesign)
 }
 const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
 const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers

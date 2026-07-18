@@ -1070,7 +1070,7 @@ static func is_valid_generator_id(id: String) -> bool:
 
 ## A board piece that is POCKETED rather than merged into goods. The single hook the board's
 ## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins, the §6.B
-## resource drops (water/acorn/coins), AND the chest (tap-OPENED — the key line is retired) all
+## resource drops (water/acorn), AND the chest (tap-OPENED — the key line is retired) all
 ## resolve on the second tap of a focused cell.
 static func is_collectable(code: int) -> bool:
 	return is_coin(code) or is_chest(code) or not special_collect(code).is_empty()
@@ -1079,14 +1079,14 @@ static func is_collectable(code: int) -> bool:
 static func is_chest(code: int) -> bool:
 	return special_kind(code) == "chest"
 
-# §6.B special drop items — coin-like pseudo-lines (chest/key/water/acorn/exp). is_special gates the
+# §6.B special drop items — coin-like pseudo-lines (chest/water/acorn). is_special gates the
 # shared plumbing (merge ceiling, art, the not-content exclusions); special_kind selects the behaviour.
 static func is_special(code: int) -> bool:
 	return SPECIAL_ITEMS.has(int(code / 100.0))
 
 # §6.G RECIPE-line membership: true when `code` belongs to one of the special "treasure" lines (71-78,
 # ZONE_SPECIAL_LINES) — the premium lines CRAFTED by merging two base lines at the same tier. DISTINCT
-# from is_special() above, which gates the §6.B special-DROP pseudo-lines (chest/key/water/acorn/exp).
+# from is_special() above, which gates the §6.B special-DROP pseudo-lines (chest/water/acorn).
 # Recipe lines are ordinary content LINES; this predicate exists so a recipe-line merge can
 # fire the intensified big-moment feel at EVERY tier (T63 — board.gd _after_merge → MergeFx.apply).
 static func is_special_line(code: int) -> bool:
@@ -1123,7 +1123,7 @@ static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 
 			return int(line) * 100 + 1
 	return 10 * 100 + 1                                              # defensive: a chest t1
 
-# What TAPPING a water/acorn/coins item grants: {kind, amount}. Empty for a chest (it OPENS instead
+# What TAPPING a water/acorn item grants: {kind, amount}. Empty for a chest (it OPENS instead
 # — board._open_chest — spawning face-value reward items rather than crediting a wallet directly).
 static func special_collect(code: int) -> Dictionary:
 	var kind := special_kind(code)
