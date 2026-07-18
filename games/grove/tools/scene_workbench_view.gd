@@ -222,6 +222,9 @@ func _on_stage_input(ev: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				var hit := M.hit_at(doc, p, _opaque_at)
+				if mb.shift_pressed:
+					_shift_click(hit)                 # membership painting — never starts a drag
+					return
 				if _isolated != "" and hit >= 0 and M.cluster_of(doc, hit) != _isolated:
 					hit = -1                          # ghosted scenery is context, not clickable
 				var cl := M.cluster_of(doc, hit) if hit >= 0 else ""
@@ -262,6 +265,44 @@ func _on_stage_input(ev: InputEvent) -> void:
 			_mark_dirty()
 			_refresh_entry_rect(_sel)
 
+## Shift+click PAINTS cluster membership right on the stage:
+##   · a cluster is in context (selected or isolated) → toggle the clicked item in / out of it
+##   · a single item is selected and another is clicked → a NEW cluster is born from the pair
+##   · nothing selected → plain select (so a stray Shift never surprises)
+## Ghosted items are clickable here on purpose — painting scenery INTO the isolated cluster.
+func _shift_click(hit: int) -> void:
+	if hit < 0:
+		return
+	var target := _sel_cluster
+	if target == "":
+		target = _isolated
+	if target == "" and _sel >= 0:
+		target = M.cluster_of(doc, _sel)
+	if target != "":
+		M.toggle_cluster_member(doc, hit, target)
+		_mark_dirty()
+		_rebuild_stage()
+		_select_cluster(target)
+	elif _sel >= 0 and _sel != hit:
+		var cname := M.unique_cluster_name(doc,
+			String((M.placements(doc)[_sel] as Dictionary).get("id", "item")) + "_cluster")
+		M.set_cluster(doc, _sel, cname)
+		M.set_cluster(doc, hit, cname)
+		_mark_dirty()
+		_rebuild_stage()
+		_select_cluster(cname)
+	else:
+		_select(hit)
+
+func _new_cluster_from_selection() -> void:
+	if _sel < 0:
+		return
+	var cname := M.unique_cluster_name(doc,
+		String((M.placements(doc)[_sel] as Dictionary).get("id", "item")) + "_cluster")
+	M.set_cluster(doc, _sel, cname)
+	_mark_dirty()
+	_select_cluster(cname)
+
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and (ev as InputEventKey).pressed:
 		_key(ev as InputEventKey)
@@ -277,6 +318,8 @@ func _key(k: InputEventKey) -> void:
 			_reload()
 		KEY_I:
 			_toggle_isolation()
+		KEY_N:
+			_new_cluster_from_selection()
 		KEY_ESCAPE:
 			if _isolated != "":
 				_isolated = ""
@@ -404,7 +447,7 @@ func _refresh_status() -> void:
 			int(bb.position.x), int(bb.position.y), int(bb.size.x), int(bb.size.y)]
 		return
 	if _sel < 0 or _sel >= M.placements(doc).size():
-		_info.text = "click the scene to select a CLUSTER\n(I isolates it to edit members · Alt+click picks one item)\ndrag move · wheel resize · Z/X z-order\narrows nudge · Delete remove · R reload"
+		_info.text = "click the scene to select a CLUSTER\n(I isolates it to edit members · Alt+click picks one item)\nShift+click paints cluster membership · N new cluster\ndrag move · wheel resize · Z/X z-order\narrows nudge · Delete remove · R reload"
 		return
 	var e: Dictionary = M.placements(doc)[_sel]
 	var cl := String(e.get("cluster", ""))
@@ -531,14 +574,24 @@ func _refresh_cluster_list() -> void:
 		return
 	_clear_children(_cluster_actions)
 	_clear_children(_cluster_box)
+	if _sel_cluster != "":
+		var rn := LineEdit.new()                       # rename in place — Enter applies
+		rn.name = "ClusterRename"
+		rn.text = _sel_cluster
+		rn.tooltip_text = "rename the cluster (Enter applies)"
+		rn.add_theme_font_size_override("font_size", 13)
+		rn.text_submitted.connect(func(t: String) -> void:
+			var applied := M.rename_cluster(doc, _sel_cluster, t)
+			if applied != "":
+				if _isolated == _sel_cluster:
+					_isolated = applied
+				_mark_dirty()
+				_select_cluster.call_deferred(applied))   # deferred — this LineEdit lives in the box being rebuilt
+		_cluster_actions.add_child(rn)
 	if _sel >= 0:
 		var cl := M.cluster_of(doc, _sel)
 		if cl == "":
-			_cluster_actions.add_child(_small_button("● New cluster from selection", func() -> void:
-				var cname := M.unique_cluster_name(doc, String((M.placements(doc)[_sel] as Dictionary).get("id", "item")) + "_cluster")
-				M.set_cluster(doc, _sel, cname)
-				_mark_dirty()
-				_select_cluster(cname)))
+			_cluster_actions.add_child(_small_button("● New cluster from selection (N)", _new_cluster_from_selection))
 		else:
 			_cluster_actions.add_child(_small_button("○ Untag from '%s'" % cl, func() -> void:
 				M.set_cluster(doc, _sel, "")

@@ -114,6 +114,25 @@ func _initialize() -> void:
 	ok(M.cluster_of(dc, 0) == "" and not (dc.placements[0] as Dictionary).has("cluster"),
 		"untagging erases the key (files stay byte-stable)")
 
+	# membership toggling + renaming (the easy create/update paths)
+	var dm := _doc()
+	M.set_cluster(dm, 0, "camp")
+	ok(M.toggle_cluster_member(dm, 1, "camp") and M.cluster_of(dm, 1) == "camp",
+		"toggle joins an untagged entry to the cluster")
+	ok(not M.toggle_cluster_member(dm, 1, "camp") and M.cluster_of(dm, 1) == "",
+		"toggling a member removes it")
+	M.set_cluster(dm, 2, "other")
+	ok(M.toggle_cluster_member(dm, 2, "camp") and M.cluster_of(dm, 2) == "camp",
+		"toggle re-tags an entry away from another cluster")
+	ok(M.rename_cluster(dm, "camp", "base camp") == "base_camp"
+		and M.cluster_of(dm, 0) == "base_camp" and M.cluster_of(dm, 2) == "base_camp",
+		"rename re-tags every member (spaces normalize to underscores)")
+	M.set_cluster(dm, 1, "taken")
+	ok(M.rename_cluster(dm, "base_camp", "taken") == "taken_2",
+		"a rename collision unique-ifies the applied name")
+	ok(M.rename_cluster(dm, "ghost", "x") == "" and M.rename_cluster(dm, "taken", "") == "",
+		"renaming a missing cluster or to an empty name is a no-op")
+
 	# scale about the group footing: two 100-px squares side by side double together
 	var ds := _doc()
 	ds.placements[0] = {"id": "a", "image": "a.png", "x": 400, "y": 1000, "w": 100, "h": 100, "z": 1, "cluster": "duo"}
@@ -240,6 +259,44 @@ func _initialize() -> void:
 	view._on_stage_input(alt_click)
 	ok(view._sel == 0 and view._sel_cluster == "",
 		"Alt+click force-picks the single item out of its cluster")
+
+	# --- Shift+click paints membership on the stage -----------------------------------
+	view._select(-1)
+	var click_tree := InputEventMouseButton.new()      # (440,660): tree only (member of camp)
+	click_tree.button_index = MOUSE_BUTTON_LEFT
+	click_tree.pressed = true
+	click_tree.position = Vector2(440, 660) * s2
+	view._on_stage_input(click_tree)
+	ok(view._sel_cluster == "camp", "setup: the camp cluster is selected")
+	var shift_gate := InputEventMouseButton.new()      # (540,920): gate on top (untagged)
+	shift_gate.button_index = MOUSE_BUTTON_LEFT
+	shift_gate.pressed = true
+	shift_gate.shift_pressed = true
+	shift_gate.position = Vector2(540, 920) * s2
+	view._on_stage_input(shift_gate)
+	ok(M.cluster_of(view.doc, 2) == "camp" and view._sel_cluster == "camp",
+		"Shift+click on an outsider paints it INTO the selected cluster")
+	view._on_stage_input(shift_gate)
+	ok(M.cluster_of(view.doc, 2) == "",
+		"Shift+click on a member paints it back OUT")
+	view._select(-1)
+	view._select(2)                                    # a single selected + Shift+click another single…
+	var shift_tree := InputEventMouseButton.new()
+	shift_tree.button_index = MOUSE_BUTTON_LEFT
+	shift_tree.pressed = true
+	shift_tree.shift_pressed = true
+	shift_tree.position = Vector2(440, 660) * s2
+	view._on_stage_input(shift_tree)
+	ok(view._sel_cluster == "gate_cluster" and M.cluster_of(view.doc, 2) == "gate_cluster"
+		and M.cluster_of(view.doc, 0) == "gate_cluster",
+		"…births a new cluster from the pair (re-tagging the hit if needed)")
+	var rn := view.find_child("ClusterRename", true, false) as LineEdit
+	ok(rn != null and rn.text == "gate_cluster", "a selected cluster offers the rename field")
+	if rn != null:
+		rn.text_submitted.emit("shrine")
+		await process_frame                            # the rename reselects deferred (field lives in the rebuilt box)
+		ok(M.clusters(view.doc).has("shrine") and view._sel_cluster == "shrine",
+			"submitting the field renames the cluster and follows the selection")
 
 	# --- the scene dropdown + in-place switching (unsaved edits auto-save first) ------
 	ok(view.find_child("SceneDropdown", true, false) != null, "the sidebar carries the scene dropdown")

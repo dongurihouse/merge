@@ -78,10 +78,15 @@ its grounding — e.g. a tent = `tent` + surrounding rocks + vegetation + its sh
 - **Isolation** (`I`, or `make sw … CLUSTER=<name>`): the rest of the scene ghosts; clicks now
   pick individual members for fine placement, and **palette adds auto-join the cluster**.
 - `Alt+click` force-picks a single item without isolating. `Esc` exits isolation / deselects.
+- **Shift+click paints membership**: with a cluster in context (selected or isolated), Shift+click
+  any item — even ghosted scenery — to toggle it in/out of the cluster; with only a single item
+  selected, Shift+click a second item to birth a new cluster from the pair.
+- `N` makes a new cluster from the selected single; a selected cluster shows a **rename field**
+  in the sidebar (type + Enter — members re-tag, collisions unique-ify).
 
-**Building a new cluster from scratch**: add the hero asset from the palette → sidebar
-"● New cluster from selection" → `I` to isolate → add rocks / vegetation / shadow (each lands in
-the cluster) → wheel + drag each member into place → `Esc`, then place the whole cluster.
+**Building a new cluster from scratch**: add the hero asset from the palette → `N` (or Shift+click
+the second piece) → `I` to isolate → add rocks / vegetation / shadow (each lands in the cluster)
+→ wheel + drag each member into place → `Esc`, then place the whole cluster.
 
 ## 4 · The loop (interactive)
 
