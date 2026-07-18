@@ -616,20 +616,5 @@ func _initialize() -> void:
 		"a normal generator / accumulator is NOT a treat generator")
 	ok(G.gen_tex(G.treat_gen_id(61)).begins_with("items/generator/gen_"), "a treat gen resolves a wired icon")
 
-	# --- §6.B wildcard ---
-	var wild_t3 := 15 * 100 + 3
-	var flower_t3 := 1 * 100 + 3
-	ok(G.is_wildcard(wild_t3) and not G.is_wildcard(flower_t3), "is_wildcard gates only the wildcard")
-	ok(G.merge_top(wild_t3) == G.TOP_TIER and G.merge_top(10 * 100 + 1) == G.SPECIAL_TOP,
-		"a wildcard self-merges the full 12 tiers; other special items still cap at SPECIAL_TOP")
-	# wildcard advances a same-tier item one tier (consuming the wildcard)
-	ok(G.wildcard_advance_code(wild_t3, flower_t3) == 1 * 100 + 4, "a wildcard advances a same-tier item one tier")
-	ok(G.wildcard_advance_code(wild_t3, 1 * 100 + 5) == 0, "a wildcard does NOT apply to a different-tier item")
-	ok(G.wildcard_advance_code(wild_t3, 15 * 100 + 3) == 0, "two wildcards do NOT 'advance' (they merge normally)")
-	# two wildcards CAN self-merge
-	var wbm := BoardModel.new()
-	wbm.place(Vector2i(5, 2), 15 * 100 + 1); wbm.place(Vector2i(5, 4), 15 * 100 + 1)
-	ok(wbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two wildcards self-merge")
-
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

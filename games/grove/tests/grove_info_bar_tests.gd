@@ -15,8 +15,6 @@ func _initialize() -> void:
 		ok(String(content.call("item_description", 6101)).contains("early quests"), "regular lines carry a player-useful hint")
 		ok(content.call("item_display_name", 1201) == "Water drop", "special drops have real display names")
 		ok(String(content.call("item_description", 1202)).contains("20 water"), "collectable special drops describe their tier reward")
-		ok(content.call("item_display_name", 1501) == "Wildcard", "wildcards have a real display name")
-		ok(String(content.call("item_description", 1501)).contains("same-tier"), "wildcards explain their drag rule")
 		ok(content.call("item_display_name", 902) == "Coin", "coin items have a real display name")
 		ok(String(content.call("item_description", 902)).contains("4 coins"), "coin items explain their collect value")
 		for special_line in G.SPECIAL_ITEMS:

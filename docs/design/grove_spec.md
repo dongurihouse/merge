@@ -177,12 +177,12 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 > assigned to a map when the world grows past map 4.)*
 >
 > **Special drop items — SHIPPED (Core §6.B):** chest · key (drag a key onto a chest → coins+acorns) ·
-> water · acorn · exp (tap-collect) · wildcard (a **full 12-tier** line — self-merge + same-tier
-> substitute) · coins. *(The brainstorm's tool item was cut.)* **Utility accumulators — SHIPPED (Core
+> water · acorn · exp (tap-collect) · coins. *(The brainstorm's tool item was cut; the wildcard was cut
+> 2026-07-17 — there are no wildcards.)* **Utility accumulators — SHIPPED (Core
 > §6.C):** water · coin · exp · acorn — capped accumulators, no energy cost, tap-collect, bag-stowable.
 >
-> Art: the special items, the 4 accumulator + 5 treat-generator icons, the 5 treasure lines (incl. the
-> 12-tier wildcard), and the multi-line-per-map regular sets all shipped via the intake pipeline; a line
+> Art: the special items, the 4 accumulator + 5 treat-generator icons, the 5 treasure lines, and the
+> multi-line-per-map regular sets all shipped via the intake pipeline; a line
 > still renders code-drawn from its `color` until its tier sprites land.
 
 The grove runs on an **open-ended roster of themed lines** — each the core's exponential **8-tier** ladder (t8 ≈ 128 t1-equivalents, a rare trophy). The **home grove (v1) seeds it with 24 lines across 12 generators**; the roster then grows **without a cap** — every post-launch *place* adds its set, and live-ops events add limited-time lines (Core §17). Codes `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`. **Map 1's lines** (the first four — with art bases + palette; later lines get bases as each map is built):

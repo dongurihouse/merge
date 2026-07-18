@@ -398,8 +398,7 @@ func _tick_bonus_gen() -> void:
 
 # A §6.B special item shaken loose by a merge (or a treat tap). Modeled at its t1 collect value — a
 # conservative FLOOR (real play merges drops up first). water → extends the session pop-budget; exp → the
-# exp faucet (levels up); acorn → premium. chest+key pair and OPEN for coins+acorns (paired across drops);
-# wildcard ≈ a free advance, negligible to the water/exp/coin invariants.
+# exp faucet (levels up); acorn → premium. chest+key pair and OPEN for coins+acorns (paired across drops).
 func _credit_special_drop(code: int, src: String = "drop") -> void:
 	match G.special_kind(code):
 		"water":

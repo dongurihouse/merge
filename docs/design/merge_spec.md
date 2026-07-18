@@ -244,7 +244,7 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > items in the bag to craft after one retires). v1 scale: **23 zones = 16 base + 7 special** (specials on
 > zones 3·6·9·12·15·18·21); 5 special art sets ready (the shelved 71–75), ~2 to author; ~4 new generator
 > icons. The 23 zones **map onto the ~23 existing restoration spots** (one line per spot — see the zone↔spot
-> note in `grove_spec` §2/§3). *(No recipe mechanic existed; the wildcard is unrelated.)*
+> note in `grove_spec` §2/§3). *(No recipe mechanic existed.)*
 >
 > **Tier dialog.** The line's tier dialog **names the generator** that makes it, lets the player **buy any
 > seen tier** (existing 3×-sell `buy_price`), and **shows the recipe** for special lines.
@@ -285,9 +285,9 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > occasional surprises (`SPECIAL_DROP_RATE` / `SPECIAL_DROP_WEIGHTS`), each behaving differently:
 > **chest** (merges; opened by a **key** for a coins+acorns reward that scales with both tiers) · **key**
 > (merges; opens a chest) · **water** · **acorn** · **exp** (each merges, **tap-collect** → the currency)
-> · **wildcard** (a **full 12-tier line**: self-merges, and substitutes any same-tier item of any line) ·
-> **coins** (already shipped). chest/key/water/acorn/exp cap at `SPECIAL_TOP` (3); the wildcard runs the
-> full 12 via a per-item `top`. *(The brainstorm's **tool** item was cut from scope.)*
+> · **coins** (already shipped). chest/key/water/exp cap at `SPECIAL_TOP` (3); the acorn runs the
+> full 12 via a per-item `top`. *(The brainstorm's **tool** item was cut from scope; the **wildcard**
+> was cut 2026-07-17 — there are no wildcards.)*
 >
 > **C. Utility / resource accumulators — SHIPPED.** Dedicated **water · coin · exp · acorn** generators
 > (`ACCUMULATORS`) that **cost no energy** and **bank over real time up to a small cap**; the player

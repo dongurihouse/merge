@@ -1082,8 +1082,8 @@ static func is_special(code: int) -> bool:
 
 # §6.G RECIPE-line membership: true when `code` belongs to one of the special "treasure" lines (71-78,
 # ZONE_SPECIAL_LINES) — the premium lines CRAFTED by merging two base lines at the same tier. DISTINCT
-# from is_special() above, which gates the §6.B special-DROP pseudo-lines (chest/key/water/acorn/exp/
-# wildcard). Recipe lines are ordinary content LINES; this predicate exists so a recipe-line merge can
+# from is_special() above, which gates the §6.B special-DROP pseudo-lines (chest/key/water/acorn/exp).
+# Recipe lines are ordinary content LINES; this predicate exists so a recipe-line merge can
 # fire the intensified big-moment feel at EVERY tier (T63 — board.gd _after_merge → MergeFx.apply).
 static func is_special_line(code: int) -> bool:
 	return ZONE_SPECIAL_LINES.has(int(code / 100.0))
@@ -1093,20 +1093,6 @@ static func special_kind(code: int) -> String:
 
 static func special_base(code: int) -> String:
 	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("base", ""))
-
-static func is_wildcard(code: int) -> bool:
-	return special_kind(code) == "wildcard"
-
-# A WILDCARD advances ANY same-tier non-wildcard item one tier, consuming the wildcard. (Two wildcards
-# instead merge normally via can_merge.) Returns the advanced target code, or 0 if it can't apply here.
-static func wildcard_advance_code(wild: int, target: int) -> int:
-	if not is_wildcard(wild) or target <= 0 or is_wildcard(target):
-		return 0
-	if (wild % 100) != (target % 100):                 # must match the target's tier
-		return 0
-	if (target % 100) >= merge_top(target):            # target already at its merge ceiling
-		return 0
-	return target + 1
 
 # The merge CEILING for a code: coins + special items cap low (3); content lines reach TOP_TIER. One
 # place so can_merge / openable-pair logic agree (board_model, board_logic).
