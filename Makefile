@@ -14,7 +14,7 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/palette_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests games/grove/tests/grove_palette_routing_tests
+GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests games/grove/tests/grove_palette_routing_tests games/grove/tests/grove_scene_workbench_tests
 GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
@@ -22,7 +22,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 .DEFAULT_GOAL := help
 
 .PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
-        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers \
+        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -52,6 +52,12 @@ editor: ## open the project in the Godot editor
 
 w: ## see + test the UI workbench live (a real window you can click)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
+
+sw: ## place + fine-tune a picture-book scene (drag/resize/wheel/z; ⌘S saves placements.json):  make sw [SCENE=cherry_blossom_garden] [ROOT=<scenes dir>]
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),cherry_blossom_garden) $(or $(ROOT),auto)
+
+shot-sw: ## quiet screenshot of the scene workbench:  make shot-sw [SCENE=...] [OUT=/tmp/scene_workbench.png]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),cherry_blossom_garden) $(or $(ROOT),auto) $(or $(OUT),/tmp/scene_workbench.png)
 
 fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
 	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
