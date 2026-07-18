@@ -189,7 +189,8 @@ static func home_well(px: float, icon_id: String, fallback_art: String, count: S
 		return tray_well(px, fallback_art)
 	var home_opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	home_opts["px"] = px
-	home_opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
+	home_opts["shape"] = "rect"               # the board's Home + Bag wells are code-drawn rounded paper tiles
+	home_opts["surface_role"] = "purple" if icon_id == "bag" else "green"
 	home_opts["shadow"] = false               # the shared action tray now owns the lift/shadow
 	if not action_opts.is_empty():
 		home_opts["icon_scale"] = float(action_opts.get("icon_scale", home_opts.get("icon_scale", 0.5)))

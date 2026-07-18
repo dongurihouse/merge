@@ -2043,8 +2043,8 @@ func _build_chrome() -> void:
 	add_child(_select_back)
 	_select_back.visible = false
 
-# The Map button (bottom nav, index 0) — opens the place-picker. The shared home button in its ROUNDED-RECT
-# form: the ui_asset2 badge with the map icon over a "Map" label, both inside the badge (ui_mock2).
+# The Map button (bottom nav, index 0) — opens the place-picker. The shared home button in its code-drawn
+# ROUNDED-RECT form, filled with sky paper and carrying the map icon.
 func _make_map_button() -> Button:
 	var open := func() -> void:
 		Audio.play("button_tap", -2.0)
@@ -2054,7 +2054,8 @@ func _make_map_button() -> Button:
 		return NavBar._make_nav_button("nav_map.png", 140.0, open)   # defensive: the baked map disc
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = _hud_button_px()
-	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
+	opts["shape"] = "rect"
+	opts["surface_role"] = "sky"
 	opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": "", "tooltip": Strings.t("map.nav.map"), "action": open}, opts)
@@ -2371,7 +2372,8 @@ func _make_back_button(sb: float) -> Button:
 	var b: Button
 	if Kit != null:
 		var opts := _home_opts.duplicate()
-		opts["shape"] = "rect"               # the rounded-rect badge, matching the Map button (no longer a disc)
+		opts["shape"] = "rect"
+		opts["surface_role"] = "sky"
 		opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, opts)
 	else:
@@ -2460,7 +2462,8 @@ func _build_liveops_rail() -> void:
 	_rail_disc_px = _rail_px
 	_rail_opts = _home_opts.duplicate()
 	_rail_opts["px"] = _rail_disc_px
-	_rail_opts["shape"] = "rect"   # the rail tiles are ROUNDED-RECT badges (icon over label inside), not discs (ui_mock2)
+	_rail_opts["shape"] = "rect"
+	_rail_opts["surface_role"] = "cream"
 	_rail_opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
 	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).

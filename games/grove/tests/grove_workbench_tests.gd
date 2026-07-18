@@ -192,6 +192,12 @@ func _style_tex_path(style: StyleBox) -> String:
 		return String((style as StyleBoxTexture).texture.resource_path)
 	return ""
 
+func _paper_texture_path(node: Control) -> String:
+	if node == null:
+		return ""
+	var paper := node.find_child("PaperSurface", true, false) as TextureRect
+	return String(paper.texture.resource_path) if paper != null and paper.texture != null else ""
+
 func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
 	var found := node.find_children(pattern, klass, true, false)
 	return found[0] as Control if not found.is_empty() else null
@@ -788,6 +794,10 @@ func _initialize() -> void:
 		board_scene._ready()
 	await process_frame
 	ok(not _has_label_text(board_scene, "Settings"), "board screen hides the settings tile with the rest of the side rail")
+	ok(_paper_texture_path(board_scene.home_btn).ends_with("ui/meadow_v2/texture_action_green.png"), \
+		"board Home uses the green action-paper square")
+	ok(_paper_texture_path(board_scene.bag_btn).ends_with("ui/meadow_v2/texture_supporting_purple.png"), \
+		"board Bag uses the purple supporting-paper square")
 	board_scene.queue_free()
 	_wb_build_all_buildings()         # open the bucket (cells from built buildings) so the dock fills
 	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()
@@ -801,6 +811,8 @@ func _initialize() -> void:
 	ok(map_scene._gear != null and String((map_scene._gear as Button).tooltip_text) == "Settings" and map_scene._chrome_nodes.has(map_scene._gear) \
 		and absf(settings_gap - edge_margin) <= 1.0, \
 		"map Settings tile is built through the side rail chrome path")
+	ok(_paper_texture_path(map_scene._gear).ends_with("ui/meadow_v2/texture_cream.png"), \
+		"map side-rail tiles use the cream paper square")
 	if map_scene._gear != null and map_scene._hud_panels.size() > 0:
 		var map_wallet := map_scene._hud_panels[0] as Control
 		var rail_gap: float = map_scene._gear.get_global_rect().position.y - (map_wallet.get_child(0) as Control).get_global_rect().end.y
@@ -809,6 +821,8 @@ func _initialize() -> void:
 	var map_button := _find_button_with_label(map_scene, "Map")
 	if map_button != null:
 		var map_button_rect := map_button.get_global_rect()
+		ok(_paper_texture_path(map_button).ends_with("ui/meadow_v2/texture_sky.png"), \
+			"map navigation uses the sky paper square")
 		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0 \
 			and absf(map_screen_h - map_button_rect.end.y - edge_margin) <= 1.0, \
 			"map button uses the shared side/bottom margin")
@@ -816,10 +830,15 @@ func _initialize() -> void:
 		var play_button_rect := play_button.get_global_rect() if play_button != null else Rect2()
 		ok(play_button != null and absf(map_button_rect.end.y - play_button_rect.end.y) <= 1.0, \
 			"map button bottom-aligns with the Play CTA")
+		ok(play_button != null and _paper_texture_path(play_button) == "" \
+			and play_button.get_theme_stylebox("normal") is StyleBoxTexture, \
+			"live Play CTA keeps its authored circular shell")
 		map_scene._open_select()
 		await process_frame
 		if map_scene._select_back != null:
 			var back_rect := (map_scene._select_back as Control).get_global_rect()
+			ok(_paper_texture_path(map_scene._select_back).ends_with("ui/meadow_v2/texture_sky.png"), \
+				"place-picker Back uses the sky paper square")
 			ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
 				and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
 				"place-picker back button uses the shared side/bottom margin")
