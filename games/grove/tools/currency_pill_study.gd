@@ -2,18 +2,46 @@
 extends Control
 ## Standalone, reference-sized reconstruction of the Maps mock's three currency pills.
 ##
-## This study deliberately does not import the live HUD or the UI Workbench kit. The shell,
-## currency glyphs, plus token, and paper background are authored Meadow Sky art; fixed layout,
-## live amounts, and the shallow structural-slate shadow remain native Godot controls.
+## This study deliberately does not import the live HUD or the UI Workbench kit. The currency
+## glyphs, plus token, and flat paper grain are authored Meadow Sky art; the pill geometry,
+## edge, shadow, fixed layout, and live amounts remain native Godot controls.
 
 const DESIGN_SIZE := Vector2(941, 160)
 const PAPER_ROOT := "res://games/grove/assets/ui/meadow_v2/"
-const SHELL_PATH := PAPER_ROOT + "resource_pill.png"
+const PAPER_TEXTURE_PATH := PAPER_ROOT + "texture_cream.png"
 const PLUS_PATH := PAPER_ROOT + "button_plus.png"
 const INK := Color("#243B4B")
 const SHADOW_TINT := Color("#294654", 0.20)
-const PATCH_MARGIN := 52
+const SHELL_FILL := Color("#F6EBDD")
+const SHELL_EDGE := Color("#3F6D7D", 0.35)
+const SHELL_RADIUS := 28
+const PAPER_INSET := 2.0
+const PAPER_RADIUS := 26.0
 const AMOUNT_FONT_SIZE := 42
+
+const PAPER_MASK_SHADER := """
+shader_type canvas_item;
+
+uniform vec2 control_size = vec2(1.0);
+uniform float radius_px = 1.0;
+uniform float feather_px = 1.0;
+
+float rounded_box_distance(vec2 point, vec2 half_size, float radius) {
+	vec2 q = abs(point) - half_size + vec2(radius);
+	return min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - radius;
+}
+
+void fragment() {
+	vec4 paper = texture(TEXTURE, UV);
+	float distance_to_edge = rounded_box_distance(
+		(UV - vec2(0.5)) * control_size,
+		control_size * 0.5,
+		radius_px
+	);
+	float mask = 1.0 - smoothstep(-feather_px, feather_px, distance_to_edge);
+	COLOR = vec4(paper.rgb, paper.a * mask);
+}
+"""
 
 const PILL_SPECS := [
 	{
@@ -94,9 +122,11 @@ func _make_pill(spec: Dictionary) -> Control:
 	shell.name = "Shell"
 	shell.add_theme_stylebox_override("panel", _shell_style())
 	shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shell.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	shell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.add_child(shell)
+
+	var paper := _paper_texture(spec.size)
+	pill.add_child(paper)
 
 	var icon := _art_rect("Icon", String(spec.icon), spec.icon_rect)
 	pill.add_child(icon)
@@ -140,18 +170,40 @@ func _shadow_style() -> StyleBoxFlat:
 	style.shadow_color = SHADOW_TINT
 	style.shadow_size = 3
 	style.shadow_offset = Vector2(1, 4)
-	style.set_corner_radius_all(40)
+	style.set_corner_radius_all(SHELL_RADIUS)
 	return style
 
 
-func _shell_style() -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = load(SHELL_PATH) as Texture2D
-	style.set_texture_margin(SIDE_LEFT, PATCH_MARGIN)
-	style.set_texture_margin(SIDE_TOP, PATCH_MARGIN)
-	style.set_texture_margin(SIDE_RIGHT, PATCH_MARGIN)
-	style.set_texture_margin(SIDE_BOTTOM, PATCH_MARGIN)
+func _shell_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = SHELL_FILL
+	style.border_color = SHELL_EDGE
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(SHELL_RADIUS)
+	style.anti_aliasing = true
 	return style
+
+
+func _paper_texture(pill_size: Vector2) -> TextureRect:
+	var paper := TextureRect.new()
+	paper.name = "PaperTexture"
+	paper.texture = load(PAPER_TEXTURE_PATH) as Texture2D
+	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	paper.stretch_mode = TextureRect.STRETCH_SCALE
+	paper.position = Vector2.ONE * PAPER_INSET
+	paper.size = pill_size - Vector2.ONE * PAPER_INSET * 2.0
+	paper.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var shader := Shader.new()
+	shader.code = PAPER_MASK_SHADER
+	var mask := ShaderMaterial.new()
+	mask.shader = shader
+	mask.set_shader_parameter("control_size", paper.size)
+	mask.set_shader_parameter("radius_px", PAPER_RADIUS)
+	mask.set_shader_parameter("feather_px", 1.0)
+	paper.material = mask
+	return paper
 
 
 func _make_study_theme() -> Theme:

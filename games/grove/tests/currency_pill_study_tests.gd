@@ -5,6 +5,8 @@ const SCRIPT_PATH := "res://games/grove/tools/currency_pill_study.gd"
 const SHOT_PATH := "res://games/grove/tools/currency_pill_study_shot.gd"
 const INK := Color("#243B4B")
 const SHADOW_TINT := Color("#294654")
+const SHELL_FILL := Color("#F6EBDD")
+const SHELL_EDGE := Color("#3F6D7D")
 
 var passed := 0
 var failed := 0
@@ -42,6 +44,8 @@ func _initialize() -> void:
 	ok(source.find("ui_workbench_kit") == -1 and source.find("action_bar") == -1 \
 		and source.find("engine/scenes/Board") == -1 and source.find("hud.gd") == -1,
 		"study is isolated from the existing game wallet and board UI")
+	ok(source.find("resource_pill.png") == -1 and source.find("StyleBoxTexture") == -1,
+		"pill shell does not reuse or nine-slice a pre-cut capsule image")
 	if FileAccess.file_exists(SHOT_PATH):
 		var shot_source := FileAccess.get_file_as_string(SHOT_PATH)
 		ok(shot_source.find(SCENE_PATH) != -1 and shot_source.find("Vector2i(941, 160)") != -1,
@@ -101,15 +105,34 @@ func _initialize() -> void:
 			"%s uses the shallow 20 percent slate shadow" % pill_name)
 
 		var shell := pill.get_node_or_null("Shell") as Panel
-		var shell_style := shell.get_theme_stylebox("panel") as StyleBoxTexture if shell != null else null
-		ok(shell_style != null and shell_style.texture != null \
-			and String(shell_style.texture.resource_path).ends_with("ui/meadow_v2/resource_pill.png") \
-			and shell_style.get_texture_margin(SIDE_LEFT) == 52 \
-			and shell_style.get_texture_margin(SIDE_TOP) == 52 \
-			and shell_style.get_texture_margin(SIDE_RIGHT) == 52 \
-			and shell_style.get_texture_margin(SIDE_BOTTOM) == 52 \
+		var shell_style := shell.get_theme_stylebox("panel") as StyleBoxFlat if shell != null else null
+		ok(shell_style != null and same_rgb(shell_style.bg_color, SHELL_FILL) \
+			and same_rgb(shell_style.border_color, SHELL_EDGE) \
+			and absf(shell_style.border_color.a - 0.35) <= 0.002 \
+			and shell_style.get_border_width(SIDE_LEFT) == 1 \
+			and shell_style.get_border_width(SIDE_TOP) == 1 \
+			and shell_style.get_border_width(SIDE_RIGHT) == 1 \
+			and shell_style.get_border_width(SIDE_BOTTOM) == 1 \
+			and shell_style.get_corner_radius(CORNER_TOP_LEFT) == 28 \
+			and shell_style.get_corner_radius(CORNER_TOP_RIGHT) == 28 \
+			and shell_style.get_corner_radius(CORNER_BOTTOM_LEFT) == 28 \
+			and shell_style.get_corner_radius(CORNER_BOTTOM_RIGHT) == 28 \
 			and near_vec(shell.size, pill.size),
-			"%s uses the paper-grain resource shell with safe nine-slices" % pill_name)
+			"%s draws its rounded fill, edge, and radius in code" % pill_name)
+
+		var paper := pill.get_node_or_null("PaperTexture") as TextureRect
+		var paper_material := paper.material as ShaderMaterial if paper != null else null
+		var paper_shader := paper_material.shader if paper_material != null else null
+		var paper_size: Vector2 = spec.size - Vector2(4, 4)
+		ok(paper != null and paper.texture != null \
+			and String(paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png") \
+			and near_vec(paper.position, Vector2(2, 2)) \
+			and near_vec(paper.size, paper_size) \
+			and paper_material != null and paper_shader != null \
+			and String(paper_shader.code).find("rounded_box_distance") != -1 \
+			and near_vec(paper_material.get_shader_parameter("control_size"), paper_size) \
+			and absf(float(paper_material.get_shader_parameter("radius_px")) - 26.0) <= 0.01,
+			"%s masks the flat cream paper texture with code-defined pill geometry" % pill_name)
 
 		var icon := pill.get_node_or_null("Icon") as TextureRect
 		ok(icon != null and icon.texture != null \
