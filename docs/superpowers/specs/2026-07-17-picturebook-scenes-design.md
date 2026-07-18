@@ -155,6 +155,10 @@ slot cap** (~5), not the library size.
 *Evergreen (all pages):* Wildflower · Acorn-caps. *Example recipe* (Fairy Hollow, "toadstool cottage",
 stage 2): `4× Glow-mushroom·t5 + 2× Pinecone·t4 (Snowy Village) + 2× Wildflower·t6`.
 
+The **full line roster (20 base + 6 specials), the cross-zone borrow web, and every item's stage
+recipes** for the 6-page v1 are authored in `docs/design/picturebook_lines_recipes.md` (tiers/quantities
+PROVISIONAL — the sim re-pass owns them).
+
 **Economy integration** is deferred to the sim re-pass: recipes are the primary sink, coins/level the
 pacing + customization sink; recipe sizes, tiers, coin costs, and the cross-zone reuse rate are its
 numbers to tune. This spec fixes the STRUCTURE (accumulate + library/deploy + multi-stage recipes +
