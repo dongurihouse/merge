@@ -31,22 +31,49 @@ func _initialize() -> void:
 		ok(view.has_method("set_guides_visible"), "workbench exposes guide visibility")
 		ok(view.has_method("prop_count"), "workbench exposes prop count")
 		ok(view.has_method("canvas_size"), "workbench exposes canvas size")
-		ok(int(view.call("prop_count")) == 7, "manifest creates all seven separate props")
+		ok(int(view.call("prop_count")) == 33, "checkpoint manifest creates the house and modular ground props")
 		ok(view.call("canvas_size") == Vector2i(941, 1672), "workbench keeps the exact Home art canvas")
 
 		var base := view.find_child("HomeBase", true, false) as TextureRect
 		var props := view.find_child("Props", true, false) as Control
 		var guides := view.find_child("Guides", true, false) as Control
 		var help := view.find_child("Help", true, false) as PanelContainer
+		var help_label := help.find_child("Label", true, false) as Label
 		ok(base != null and base.texture != null, "building-free foundation is present")
-		ok(props != null and props.get_child_count() == 7, "props live in a separate seven-child layer")
+		ok(
+			base != null
+			and base.texture != null
+			and base.texture.resource_path.ends_with("home_base_no_road.png"),
+			"workbench loads the exact road-free background"
+		)
+		ok(props != null and props.get_child_count() == 33, "house, road stones, and grass live in separate prop entries")
+		var house := props.find_child("fh_hearth", false, false) as TextureRect
+		var first_road := props.find_child("fh_road_01", false, false) as TextureRect
+		ok(house != null, "checkpoint contains the farmhouse")
+		ok(
+			house != null
+			and house.texture != null
+			and house.texture.resource_path.ends_with("fh_hearth_shadowless_v3.png"),
+			"checkpoint loads the exact shadowless farmhouse"
+		)
 		var textured_props := 0
 		for prop in props.get_children():
 			if prop is TextureRect and prop.texture != null:
 				textured_props += 1
-		ok(textured_props == 7, "all seven separate prop textures are importable")
-		ok(guides.z_index > 1510, "placement guides render above every prop")
+		ok(textured_props == 33, "all modular checkpoint textures are importable")
+		ok(house != null and guides.z_index > house.z_index, "placement guides render above the house")
 		ok(help.z_index > guides.z_index, "help overlay renders above guides and props")
+		ok(help_label != null and "1 farmhouse" in help_label.text, "help names the available farmhouse hotkey")
+
+		var house_key := InputEventKey.new()
+		house_key.keycode = KEY_1
+		house_key.pressed = true
+		view.call("_unhandled_key_input", house_key)
+		await process_frame
+		ok(house != null and not house.visible, "key 1 toggles the manifest-tagged farmhouse")
+		ok(first_road != null and first_road.visible, "key 1 does not toggle the first road entry")
+		view.call("_unhandled_key_input", house_key)
+		await process_frame
 
 		view.call("set_all_props_visible", false)
 		await process_frame
@@ -54,7 +81,7 @@ func _initialize() -> void:
 		for prop in props.get_children():
 			if not prop.visible:
 				hidden_count += 1
-		ok(hidden_count == 7, "all structures can be hidden to inspect the background alone")
+		ok(hidden_count == 33, "all modular props can be hidden to inspect the road-free background")
 
 		view.call("set_all_props_visible", true)
 		await process_frame
@@ -62,7 +89,7 @@ func _initialize() -> void:
 		for prop in props.get_children():
 			if prop.visible:
 				shown_count += 1
-		ok(shown_count == 7, "all seven structures can be restored together")
+		ok(shown_count == 33, "all modular props can be restored")
 		view.queue_free()
 
 		var native_viewport := SubViewport.new()

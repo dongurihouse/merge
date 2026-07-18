@@ -3,7 +3,8 @@ extends RefCounted
 ##
 ## This is the PURE model + a cross-scene run-state holder; the three Explore screens render over it.
 ## The Rush board is abstract merge tiles played for SCORE — it is NOT the spirits. Score converts to
-## spirits at the Rewards screen via trade_count (floor(score / TRADE_RATE), min 1 if any score).
+## spirits at the Rewards screen via trade_count (floor(score / TRADE_RATE), min 1 if any score,
+## capped at TRADE_MAX per run).
 ##
 ## Numbers are the feel-prototype's PROVISIONAL values (docs/design/prototypes/expedition_rush.html);
 ## the Rush sim retunes them later (parked).
@@ -43,7 +44,12 @@ const RUSH_INTRO_SHOWS := 1      # show the Rush how-to image on the player's fi
 static func rush_intro_should_show(seen: int) -> bool:
 	return seen < RUSH_INTRO_SHOWS
 
-const TRADE_RATE := 200          # score → spirits at the Rewards screen: floor(score / TRADE_RATE), min 1 if any score
+# Score → spirits at the Rewards screen: floor(score / TRADE_RATE), min 1 if any score, capped at
+# TRADE_MAX. Retuned 2026-07-17: bucket capacity is now ONE cell per completed zone (~5 across the v1
+# picture book), so the old uncapped rate (200 — tuned when capacity was 8 slots × 5 maps) flooded the
+# hand with 10-30 spirits per run. A run now pays 1 (any score) / 2 (good) / 3 (great).
+const TRADE_RATE := 800
+const TRADE_MAX := 3
 
 # === Loadout math ================================================================================
 ## Total coin cost of the currently-equipped boosts.
@@ -245,8 +251,9 @@ static func add_score(pts: int) -> void:
 	_run["score"] = score() + pts
 
 ## Convert a run's score to a spirit count for the Rewards screen: floor(score / TRADE_RATE), but at
-## least 1 whenever the run scored anything (a run always pays out); 0 only for a literal 0 score.
+## least 1 whenever the run scored anything (a run always pays out) and never more than TRADE_MAX
+## (capacity is the brake — see the dial comment above); 0 only for a literal 0 score.
 static func trade_count(score: int) -> int:
 	if score <= 0:
 		return 0
-	return maxi(1, score / TRADE_RATE)
+	return clampi(score / TRADE_RATE, 1, TRADE_MAX)

@@ -62,7 +62,7 @@ fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
 	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
 
-home-layers: ## review the modular cut-paper Home background and seven props
+home-layers: ## review the modular cut-paper Home background and one-house checkpoint
 	$(GODOT) --path $(PROJECT) res://games/grove/tools/HomeLayerWorkbench.tscn
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------

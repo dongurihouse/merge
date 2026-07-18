@@ -594,7 +594,7 @@ doc = f"""<!doctype html><html><head><meta charset="utf-8"><title>Grove asset gr
 </header>
 <main>
 {grouped_items()}
-{section("Special / drop items", rows_special, "Chest·key·water·acorn·spark·wildcard·coin — short pseudo-lines (merge to a small top).")}
+{section("Special / drop items", rows_special, "Chest·key·water·acorn·spark·coin — short pseudo-lines (merge to a small top).")}
 {section("Characters — residents", rows_resid, "One spirit-folk family per map; merges 2-of-a-kind up a 12-tier ladder. base = resident_<id>.").replace("</section>", givers_html()+"</section>")}
 {gen_html()}
 {orphans_html()}

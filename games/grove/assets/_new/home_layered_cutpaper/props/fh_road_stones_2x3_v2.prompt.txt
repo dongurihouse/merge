@@ -1,0 +1,1 @@
+Precise layout correction of the six-stone 2x3 pack: preserve each design and order, but shrink and recenter every stone inside the central 55 percent of its equal cell. Leave at least 18 percent flat #FF00FF margin from every invisible cell boundary. No stone may touch or cross a cell edge. Preserve one connected silhouette per cell and all prior material/style constraints.

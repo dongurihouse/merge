@@ -342,16 +342,13 @@ const SPECIAL_ITEMS := {
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "top": 12, "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
 	14: {"name": "Spark", "base": "spark", "kind": "coins", "desc": "Tap again to collect coins. Merge first for more."},     # merges; tap-collect → coins (organic, clock-advancing)
-	# wildcard — a full 12-tier line (overrides SPECIAL_TOP) so a high-tier wildcard can advance high-tier
-	# items; art PENDING (code-drawn from `color` until the 12-tier sprite lands, §6.B/#5).
-	15: {"name": "Wildcard", "base": "wildcard", "kind": "wildcard", "top": 12, "color": Color("#C77DD9"), "desc": "Drag onto a same-tier item to raise it one tier."},  # self-merges up to 12; OR advances any same-tier item
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
 # (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 15: 1}   # chest·key·water·acorn·exp·wildcard (flat — water/exp no longer double-weighted, they over-fed the faucets)
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 1, 13: 1, 14: 1}   # chest·key·water·acorn·spark (flat — water/exp no longer double-weighted, they over-fed the faucets)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {

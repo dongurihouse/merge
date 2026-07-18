@@ -1,5 +1,10 @@
 # Acorn Forest — The Lantern Trail (Journey + Customization) Design Spec
 
+> **⚠️ SUPERSEDED (2026-07-17)** by `2026-07-17-picturebook-scenes-design.md`. The journey/keystone/
+> reveal framing was cut — the zones felt too similar and the "leading home" thread added no purpose.
+> Replaced by a **picture book of completely-different pages** (complete a page → turn to the next).
+> Kept here for the customization thinking, which carried forward.
+
 **Date:** 2026-07-17
 **Builds on:** the home build-and-upgrade map (`docs/superpowers/specs/2026-07-17-home-build-upgrade-map-design.md`, shipped).
 **Decision:** Replace the single "evolving farmstead" with a **journey across the forest** — an ordered
