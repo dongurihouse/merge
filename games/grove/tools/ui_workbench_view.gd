@@ -273,7 +273,7 @@ var _params := {
 	# piece_view's shipped READY_GLOW (warm amber fill + soft halo). Flows live via Kit.ready_glow_opts_from_config.
 	"ready_glow": {"color": "FFB12E", "fill_a": 55, "halo_a": 60, "corner_pct": 22, "halo_pct": 16, "cell": 150},
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
-	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
+	# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
 	# config["badge"]); its icon uses the global icon clean.
@@ -726,12 +726,14 @@ func _make_element(id: String) -> Control:
 			# live (the live bag well is this exact rect-with-count form — board.gd _home_well).
 			var co := ho.duplicate()
 			co["shape"] = "rect"
+			co["surface_role"] = "purple"
 			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "count": String(p.get("count", ""))}, co))
 			# the RECT rail tile as the live side rail + Map button build it (shape:"rect"): icon over label
 			# INSIDE the rounded-rect, carrying a SAMPLE red badge so badge_dx / badge_dy (+ dot/num size) tune
 			# live — the same Look.attach_badge the rail uses (count 0 → bare dot, ≥1 → count pill).
 			var ro := ho.duplicate()
 			ro["shape"] = "rect"
+			ro["surface_role"] = "cream"
 			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ro)
 			var bcount := int(p.get("badge_count", 3))
 			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
@@ -1494,7 +1496,9 @@ func _action_bar_preview() -> Control:
 	ho["shape"] = "rect"
 	ho["shadow"] = false
 	ho["icon_scale"] = float(ao.get("icon_scale", 0.5))
-	var home_btn := Kit.home_button({"icon": "house", "caption": ""}, ho.duplicate())
+	var home_opts := ho.duplicate()
+	home_opts["surface_role"] = "green"
+	var home_btn := Kit.home_button({"icon": "house", "caption": ""}, home_opts)
 	home_btn.name = "ActionBarPreviewHome"
 	home_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1524,7 +1528,9 @@ func _action_bar_preview() -> Control:
 		(ib.get_meta("sell_btn") as Button).visible = false
 	row.add_child(_action_bar_nudge(ib, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
 	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorInfoBag"))
-	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, ho.duplicate())
+	var bag_opts := ho.duplicate()
+	bag_opts["surface_role"] = "purple"
+	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, bag_opts)
 	bag_btn.name = "ActionBarPreviewBag"
 	bag_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	bag_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER

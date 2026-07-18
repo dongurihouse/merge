@@ -1112,8 +1112,17 @@ func _test_new_knobs(view) -> void:
 		"badge offset is saved config")
 	ok(not view._is_config("home_button", "badge_count"), "the sample badge count is preview-only (not saved)")
 	# the home-button preview carries a SAMPLE count badge so the offset is tunable live (default count 3).
-	ok(_has_label_text(view._make_element("home_button"), "3"), \
+	var home_button_preview: Control = view._make_element("home_button")
+	ok(_has_label_text(home_button_preview, "3"), \
 		"the home-button preview shows a sample count badge")
+	var preview_surface_paths: Array[String] = []
+	for preview_button in home_button_preview.find_children("*", "Button", true, false):
+		var preview_path := _paper_texture_path(preview_button as Control)
+		if preview_path != "":
+			preview_surface_paths.append(preview_path)
+	ok(preview_surface_paths.any(func(path: String) -> bool: return path.ends_with("ui/meadow_v2/texture_supporting_purple.png")) \
+		and preview_surface_paths.any(func(path: String) -> bool: return path.ends_with("ui/meadow_v2/texture_cream.png")), \
+		"home-button Workbench preview shows the live purple Bag and cream rail roles")
 	# the in-disc COUNT overlay (the Bag's "x/y"): its offset + font are read by the shared resolver, default
 	# to the shipped placement, and are SAVED config; the sample "x/y" string is preview-only and renders on
 	# the nav disc so the offset is tunable live.
@@ -1228,6 +1237,9 @@ func _test_new_knobs(view) -> void:
 	var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
 	var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
 	var preview_info := action_prev.find_child("ActionBarPreviewInfoBar", true, false) as PanelContainer
+	ok(_paper_texture_path(preview_home).ends_with("ui/meadow_v2/texture_action_green.png") \
+		and _paper_texture_path(preview_bag).ends_with("ui/meadow_v2/texture_supporting_purple.png"), \
+		"info-bar Workbench preview matches the live green Home and purple Bag roles")
 	ok(action_prev is PanelContainer \
 		and action_prev.find_child("ActionBarPreviewSeparatorHomeInfo", true, false) != null \
 		and action_prev.find_child("ActionBarPreviewSeparatorInfoBag", true, false) != null, \
