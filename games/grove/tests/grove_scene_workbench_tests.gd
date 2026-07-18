@@ -95,6 +95,49 @@ func _initialize() -> void:
 		"placements round-trip through save/load")
 	ok(M.load_doc(dir + "/nope.json").is_empty(), "a missing file loads as an empty doc")
 
+	# --- clusters (a tent + its rocks/vegetation/shadow manage as ONE thing) ---------
+	var dc := _doc()
+	ok(M.clusters(dc).is_empty(), "no tags → no clusters")
+	M.set_cluster(dc, 0, "camp")
+	M.set_cluster(dc, 1, "camp")
+	ok(M.clusters(dc).get("camp", []) == [0, 1], "clusters groups member indices by tag")
+	ok(M.cluster_of(dc, 0) == "camp" and M.cluster_of(dc, 2) == "", "cluster_of reads the tag")
+	ok(M.unique_cluster_name(dc, "camp") == "camp_2", "unique_cluster_name de-duplicates")
+	# tree: rect(400,600 200x400) + rock: rect(450,1000 100x100) → merged bbox
+	ok(M.cluster_bbox(dc, "camp") == Rect2(400, 600, 200, 500), "cluster_bbox merges member rects")
+	M.move_cluster(dc, "camp", Vector2(10, -20))
+	ok(int(dc.placements[0].x) == 510 and int(dc.placements[1].x) == 510
+		and int(dc.placements[0].y) == 980 and int(dc.placements[1].y) == 1080,
+		"move_cluster shifts every member together")
+	ok(int(dc.placements[2].x) == 520, "an untagged neighbour never moves with a cluster")
+	M.set_cluster(dc, 0, "")
+	ok(M.cluster_of(dc, 0) == "" and not (dc.placements[0] as Dictionary).has("cluster"),
+		"untagging erases the key (files stay byte-stable)")
+
+	# scale about the group footing: two 100-px squares side by side double together
+	var ds := _doc()
+	ds.placements[0] = {"id": "a", "image": "a.png", "x": 400, "y": 1000, "w": 100, "h": 100, "z": 1, "cluster": "duo"}
+	ds.placements[1] = {"id": "b", "image": "b.png", "x": 600, "y": 1000, "w": 100, "h": 100, "z": 2, "cluster": "duo"}
+	M.scale_cluster(ds, "duo", 2.0)
+	ok(int(ds.placements[0].w) == 200 and int(ds.placements[1].w) == 200,
+		"scale_cluster resizes every member")
+	ok(int(ds.placements[0].x) == 300 and int(ds.placements[1].x) == 700
+		and int(ds.placements[0].y) == 1000 and int(ds.placements[1].y) == 1000,
+		"scale_cluster spreads anchors about the group footing (bottom stays put)")
+	M.scale_cluster(ds, "duo", 0.001)
+	ok(int(ds.placements[0].w) >= 8, "scale_cluster clamps at the grabbable floor")
+
+	# z restack preserves relative order and floors as a group
+	var dz := _doc()
+	M.set_cluster(dz, 0, "grp")                       # z 30
+	M.set_cluster(dz, 1, "grp")                       # z 10
+	M.bump_cluster_z(dz, "grp", 5)
+	ok(int(dz.placements[0].z) == 35 and int(dz.placements[1].z) == 15,
+		"bump_cluster_z shifts members together")
+	M.bump_cluster_z(dz, "grp", -999)
+	ok(int(dz.placements[1].z) == 0 and int(dz.placements[0].z) == 20,
+		"a floored restack keeps the members' relative z")
+
 	# --- path resolution ------------------------------------------------------------
 	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
 	ok(M.repo_root_of(sr) == "/repo", "repo_root_of strips the scenes suffix")

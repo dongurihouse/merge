@@ -19,7 +19,10 @@ func _initialize() -> void:
 	var ua := OS.get_cmdline_user_args()
 	var scene: String = String(ua[0]) if ua.size() >= 1 and String(ua[0]) != "" else "cherry_blossom_garden"
 	var root_arg: String = String(ua[1]) if ua.size() >= 2 else "auto"
-	var out: String = String(ua[2]) if ua.size() >= 3 else "/tmp/scene_workbench.png"
+	var cluster: String = String(ua[2]) if ua.size() >= 3 else "none"
+	if cluster == "none":
+		cluster = ""                                   # CLUSTER= opens selected + isolated on that group
+	var out: String = String(ua[3]) if ua.size() >= 4 else "/tmp/scene_workbench.png"
 
 	var scenes_root := ""
 	if root_arg != "" and root_arg != "auto":
@@ -49,7 +52,7 @@ func _initialize() -> void:
 	DisplayServer.window_set_title("Scene workbench — " + scene)
 
 	var view: Control = View.new()
-	if not view.setup(scenes_root, scene):
+	if not view.setup(scenes_root, scene, cluster):
 		quit(1)
 		return
 	root.add_child(view)

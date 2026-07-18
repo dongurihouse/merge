@@ -110,6 +110,96 @@ static func unique_id(doc: Dictionary, base: String) -> String:
 		n += 1
 	return "%s_%d" % [base, n]
 
+# --- CLUSTERS -------------------------------------------------------------------------------------
+# A cluster is a named GROUP of placements (entry key "cluster") that manages as one thing — the
+# canonical example: a tent with its surrounding rocks, vegetation and shadow. Members keep their own
+# entries; cluster ops fan out over them (move together, scale about the shared footing, restack
+# preserving relative z). "" / absent = unclustered.
+
+## name -> Array of placement indices (in list order).
+static func clusters(doc: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	var pl := placements(doc)
+	for i in pl.size():
+		var c := String((pl[i] as Dictionary).get("cluster", ""))
+		if c == "":
+			continue
+		if not out.has(c):
+			out[c] = []
+		(out[c] as Array).append(i)
+	return out
+
+static func cluster_of(doc: Dictionary, i: int) -> String:
+	return String((placements(doc)[i] as Dictionary).get("cluster", ""))
+
+## Tag / untag ("" clears the key so untouched files stay byte-stable).
+static func set_cluster(doc: Dictionary, i: int, name: String) -> void:
+	var e: Dictionary = placements(doc)[i]
+	if name == "":
+		e.erase("cluster")
+	else:
+		e["cluster"] = name
+
+static func unique_cluster_name(doc: Dictionary, base: String) -> String:
+	var taken := clusters(doc)
+	if not taken.has(base):
+		return base
+	var n := 2
+	while taken.has("%s_%d" % [base, n]):
+		n += 1
+	return "%s_%d" % [base, n]
+
+## The members' combined canvas rect ({} members → zero rect).
+static func cluster_bbox(doc: Dictionary, name: String) -> Rect2:
+	var idx: Array = clusters(doc).get(name, [])
+	if idx.is_empty():
+		return Rect2()
+	var r := entry_rect(placements(doc)[idx[0]])
+	for k in range(1, idx.size()):
+		r = r.merge(entry_rect(placements(doc)[idx[k]]))
+	return r
+
+static func move_cluster(doc: Dictionary, name: String, delta: Vector2) -> void:
+	for i in clusters(doc).get(name, []):
+		move(doc, i, delta)
+
+## Uniform cluster resize about the group's FOOTING (bbox bottom-center): anchors converge on it,
+## sizes scale with it; the factor is clamped so no member dips under the grabbable floor.
+static func scale_cluster(doc: Dictionary, name: String, factor: float) -> void:
+	var idx: Array = clusters(doc).get(name, [])
+	if idx.is_empty():
+		return
+	var f := factor
+	for i in idx:
+		var e: Dictionary = placements(doc)[i]
+		var side := minf(float(e.get("w", 0)), float(e.get("h", 0)))
+		if side > 0.0:
+			f = maxf(f, MIN_SIZE_PX / side)
+	var bb := cluster_bbox(doc, name)
+	var foot := Vector2(bb.position.x + bb.size.x * 0.5, bb.end.y)
+	for i in idx:
+		var e: Dictionary = placements(doc)[i]
+		var a := Vector2(float(e.get("x", 0)), float(e.get("y", 0)))
+		var na := foot + (a - foot) * f
+		e["x"] = int(round(na.x))
+		e["y"] = int(round(na.y))
+		e["w"] = int(round(float(e.get("w", 0)) * f))
+		e["h"] = int(round(float(e.get("h", 0)) * f))
+
+## Restack the whole cluster; a downward bump is clamped so the LOWEST member floors at z 0
+## (relative z inside the cluster always survives).
+static func bump_cluster_z(doc: Dictionary, name: String, dz: int) -> void:
+	var idx: Array = clusters(doc).get(name, [])
+	if idx.is_empty():
+		return
+	var low := int((placements(doc)[idx[0]] as Dictionary).get("z", 0))
+	for i in idx:
+		low = mini(low, int((placements(doc)[i] as Dictionary).get("z", 0)))
+	var d := maxi(dz, -low)
+	for i in idx:
+		var e: Dictionary = placements(doc)[i]
+		e["z"] = int(e.get("z", 0)) + d
+
 ## Topmost hit at canvas point `p`: walk the paint order back to front; `opaque_at` refines a
 ## rect hit with an alpha test — opaque_at(entry_index, uv: Vector2) -> bool (uv in 0..1).
 static func hit_at(doc: Dictionary, p: Vector2, opaque_at: Callable) -> int:
