@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply asset-intake plan.json files: dispatch to godot image tools, archive raws.
 
-Deterministic runner for the asset-intake process (docs/design/asset-intake.md).
+Deterministic runner for the asset-intake process (docs/design/art-style-guide.md §9).
 All judgment lives in the plan; this script only executes it.
 
   python3 games/tools/intake_apply.py [--godot godot] [--plan FILE] [--no-import]
@@ -184,8 +184,8 @@ def process_plan(plan_path: Path, godot: str) -> None:
     src_rel = plan["source"]
 
     if cat == "scene":
-        print(f"  SCENE {src_rel} — handed off to the §16 map flow "
-              f"(docs/design/grove_art_pipeline.md); not processed by make intake.")
+        print(f"  SCENE {src_rel} — handed off to the scene pipeline "
+              f"(docs/design/art-style-guide.md §11); not processed by make intake.")
         return
 
     src_abs = abspath(src_rel)

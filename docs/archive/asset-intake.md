@@ -1,3 +1,5 @@
+> **SUPERSEDED (archived 2026-07-18).** This doc was absorbed into the single `docs/design/art-style-guide.md` — the production source of truth for art direction and asset generation. Kept for history; do not treat as current.
+
 # Asset intake — runbook
 
 How to take a raw image from "dropped in a folder" to "processed, renamed, filed." Design +

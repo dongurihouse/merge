@@ -1,3 +1,5 @@
+> **SUPERSEDED (archived 2026-07-18).** This doc was absorbed into the single `docs/design/art-style-guide.md` — the production source of truth for art direction and asset generation. Kept for history; do not treat as current.
+
 # Shop / currency icon prompts — ready-to-paste (T47 tail)
 
 > Authored for the **"cleaner shop icons"** T46/T47 tail. Per `grove_art_pipeline §2` the

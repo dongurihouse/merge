@@ -588,6 +588,13 @@ Assist features (idle hint, discovery ladder, ready-✓, sell hints, generator p
 
 ## 16 · Designing for LLM Asset Generation
 
+> **Art authority moved.** The concrete art rules — style, palette, canvas contracts, prompt scaffolds,
+> the cut/keying pipeline, intake workflow, and the review checklist — now live in the single
+> `docs/design/art-style-guide.md`. The engine-level **laws** in this section (self-contained scenes,
+> floor-standing objects, composite-don't-regenerate, cut-friendly separation, no text in art, normalized
+> placement, locked style suffix) remain valid and are the foundation the guide builds on. Generate/process
+> assets by the guide; keep obeying these laws.
+
 The game's art is **LLM-generated**, so generation is a **design input, not a downstream step**: the design must be something an LLM can reliably produce, keep consistent across separate renders, and let us iterate fast. A design that fights the generator (e.g. a picture frame skewed to "hang" on a wall) is a bug in the *design*, not the prompt.
 
 **The LLM limits that drive the rules:** it can't generate one large *consistent* world; separate generations **drift** in style/shape/lighting/scale; it is **bad at precise perspective/skew** on placed objects; it **garbles text/numerals**; each generation is a slow round-trip.
