@@ -103,6 +103,52 @@ func _initialize() -> void:
 	ok(soft != null and soft.get_width() < prop2.texture.get_width(), \
 		"the silhouette stamp is a downsampled copy (bilinear upscale is the blur)")
 
+	# --- locked-plot COVERINGS (scene_coverings.gd): an "empty" plot hides under a seeded
+	# scatter of scene-themed cover sprites; a mid-build or built plot carries none. ---
+	var frames: Array = []
+	for i in range(1, 6):
+		frames.append("res://games/grove/assets/map/coverings/hollow_grass_%02d.png" % i)
+	var parent_cv := Control.new()
+	get_root().add_child(parent_cv)
+	var out_cv := HZV.build(parent_cv, m, state_of, next_of, frames)
+	ok(not out_cv.coverings.has("a") and out_cv.coverings.has("b"), \
+		"only a fully locked (empty) plot grows a covering; a mid-build site carries none")
+	var cover: Control = out_cv.coverings["b"]
+	ok(cover.name == "cover_b" and cover.position == Vector2(400 - 50, 1200 - 100) \
+		and cover.size == Vector2(100, 100), "the covering group spans the plot envelope")
+	var n_sprites := cover.get_child_count()
+	ok(n_sprites >= 3 and n_sprites <= 8, "the scatter lays 3-8 cover sprites (got %d)" % n_sprites)
+	var textured := true
+	for c in cover.get_children():
+		textured = textured and (c as TextureRect) != null and (c as TextureRect).texture != null
+	ok(textured, "every cover sprite loads one of the scene's covering frames")
+	ok(cover.get_index() < (out_cv.badges["b"] as Control).get_index(), \
+		"the covering paints beneath the plot's build badge (the buy button stays tappable)")
+	# determinism: a rebuild (resize / another plot's purchase) lays the exact same scatter
+	var out_cv2 := HZV.build(parent_cv, m, state_of, next_of, frames)
+	var cover2: Control = out_cv2.coverings["b"]
+	var same := cover2.get_child_count() == n_sprites
+	for i in cover2.get_child_count():
+		var s1 := cover.get_child(i) as Control
+		var s2 := cover2.get_child(i) as Control
+		same = same and s1 != null and s2 != null \
+			and s1.position.is_equal_approx(s2.position) and s1.size.is_equal_approx(s2.size)
+	ok(same, "the scatter is seeded per plot — a rebuild lays the identical covering")
+	# no frames → no covering layer at all (pages without cover art keep today's rendering)
+	var out_nf := HZV.build(parent_cv, m, state_of, next_of)
+	ok((out_nf.coverings as Dictionary).is_empty(), "no covering frames -> no covering groups")
+	# reveal(): the group is adopted by the host (so the stage rebuild can't kill the tween)
+	# and every sprite starts its pop-out tween
+	var host := Control.new()
+	get_root().add_child(host)
+	var SC = preload("res://engine/scripts/ui/scene_coverings.gd")
+	SC.reveal(cover2, host)
+	ok(cover2.get_parent() == host, "reveal() reparents the covering to the host before animating")
+	SC.reveal(null, host)   # a page with no covering for the plot is a safe no-op
+	ok(true, "reveal() on a missing covering is a no-op")
+	host.queue_free()
+	parent_cv.queue_free()
+
 	# a BUILT building: no next step → no badge, and the built prop renders full-opacity
 	var states2 := {"a": "built"}
 	var steps2 := {"a": {}}

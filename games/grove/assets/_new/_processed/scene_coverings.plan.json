@@ -1,0 +1,32 @@
+{
+  "source": "_new/ui_redesign_direction_b/scene_coverings_v1/scene_coverings_5x5_transparent_2560.png",
+  "category": "grid",
+  "outputs": [
+    { "island": 0,  "name": "hollow_grass_01", "path": "map/coverings/hollow_grass_01.png", "post": "icon:512" },
+    { "island": 1,  "name": "hollow_grass_02", "path": "map/coverings/hollow_grass_02.png", "post": "icon:512" },
+    { "island": 2,  "name": "hollow_grass_03", "path": "map/coverings/hollow_grass_03.png", "post": "icon:512" },
+    { "island": 3,  "name": "hollow_grass_04", "path": "map/coverings/hollow_grass_04.png", "post": "icon:512" },
+    { "island": 4,  "name": "hollow_grass_05", "path": "map/coverings/hollow_grass_05.png", "post": "icon:512" },
+    { "island": 5,  "name": "winter_ice_01",   "path": "map/coverings/winter_ice_01.png",   "post": "icon:512" },
+    { "island": 6,  "name": "winter_ice_02",   "path": "map/coverings/winter_ice_02.png",   "post": "icon:512" },
+    { "island": 7,  "name": "winter_ice_03",   "path": "map/coverings/winter_ice_03.png",   "post": "icon:512" },
+    { "island": 8,  "name": "winter_ice_04",   "path": "map/coverings/winter_ice_04.png",   "post": "icon:512" },
+    { "island": 9,  "name": "winter_ice_05",   "path": "map/coverings/winter_ice_05.png",   "post": "icon:512" },
+    { "island": 10, "name": "desert_palm_01",  "path": "map/coverings/desert_palm_01.png",  "post": "icon:512" },
+    { "island": 11, "name": "desert_palm_02",  "path": "map/coverings/desert_palm_02.png",  "post": "icon:512" },
+    { "island": 12, "name": "desert_palm_03",  "path": "map/coverings/desert_palm_03.png",  "post": "icon:512" },
+    { "island": 13, "name": "desert_palm_04",  "path": "map/coverings/desert_palm_04.png",  "post": "icon:512" },
+    { "island": 14, "name": "desert_palm_05",  "path": "map/coverings/desert_palm_05.png",  "post": "icon:512" },
+    { "island": 15, "name": "coral_shells_01", "path": "map/coverings/coral_shells_01.png", "post": "icon:512" },
+    { "island": 16, "name": "coral_shells_02", "path": "map/coverings/coral_shells_02.png", "post": "icon:512" },
+    { "island": 17, "name": "coral_shells_03", "path": "map/coverings/coral_shells_03.png", "post": "icon:512" },
+    { "island": 18, "name": "coral_shells_04", "path": "map/coverings/coral_shells_04.png", "post": "icon:512" },
+    { "island": 19, "name": "coral_shells_05", "path": "map/coverings/coral_shells_05.png", "post": "icon:512" },
+    { "island": 20, "name": "cherry_petals_01", "path": "map/coverings/cherry_petals_01.png", "post": "icon:512" },
+    { "island": 21, "name": "cherry_petals_02", "path": "map/coverings/cherry_petals_02.png", "post": "icon:512" },
+    { "island": 22, "name": "cherry_petals_03", "path": "map/coverings/cherry_petals_03.png", "post": "icon:512" },
+    { "island": 23, "name": "cherry_petals_04", "path": "map/coverings/cherry_petals_04.png", "post": "icon:512" },
+    { "island": 24, "name": "cherry_petals_05", "path": "map/coverings/cherry_petals_05.png", "post": "icon:512" }
+  ],
+  "archive": "_originals/map/scene_coverings_5x5_transparent_2560.png"
+}

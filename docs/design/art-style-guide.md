@@ -203,6 +203,7 @@ dark edges. One background is never enough.
 | Punch enclosed background pockets a border flood-fill can't reach | `games/tools/cutout_holes.gd` |
 | Strip a baked white/bright matte background | `games/tools/cutout_bg.gd` |
 | Chroma-key a saturated flat background | `games/tools/chroma_key.gd` (or `key`/`tol` in a `matte` plan) |
+| Kill an OPAQUE chroma halo a keyer can't reach (pre-keyed/upscaled drop) | `games/tools/erode_edge.py` (alpha erode + soften; colour-blind, so same-hue art is safe) |
 | Trim/center one cutout to a square icon | `process_icon` (`icon:512`), then bake to 256 |
 | Meadow v2 fixed-grid atlases | `games/grove/tools/extract_meadow_ui_v2.py` (row-major name maps + per-entry policy live here) |
 
