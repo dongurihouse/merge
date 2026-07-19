@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -97,13 +98,107 @@ def sorted_placements(document: dict[str, Any]) -> list[tuple[int, dict[str, Any
     return sorted(indexed, key=lambda pair: (int(pair[1]["z"]), pair[0]))
 
 
+def authored_render_size(item: dict[str, Any]) -> tuple[int, int]:
+    return (
+        max(1, round(float(item["w"]))),
+        max(1, round(float(item["h"]))),
+    )
+
+
+def manifest_by_final(accepted: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    result: dict[str, list[dict[str, Any]]] = {}
+    for asset in accepted:
+        result.setdefault(str(asset.get("final", "")), []).append(asset)
+    return result
+
+
+def placement_asset(
+    item: dict[str, Any],
+    assets_by_final: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    image = str(item.get("image", ""))
+    candidates = assets_by_final.get(image, [])
+    if len(candidates) != 1:
+        raise ValueError(
+            f"{item.get('id')}: image maps to {len(candidates)} accepted manifest assets: {image}"
+        )
+    asset = candidates[0]
+    declared = item.get("assetId")
+    if declared not in (None, "") and str(declared) != str(asset.get("id")):
+        raise ValueError(
+            f"{item.get('id')}: assetId {declared} does not match derived {asset.get('id')}"
+        )
+    return asset
+
+
+def workbench_png_inventory(project_root: Path, bundle_root: Path) -> set[str]:
+    inventory: set[str] = set()
+    for path in bundle_root.rglob("*.png"):
+        relative_to_bundle = path.relative_to(bundle_root)
+        top_level = relative_to_bundle.parts[0]
+        if top_level.startswith(("00_", "09_")) or top_level == "metadata":
+            continue
+        if "references" in relative_to_bundle.parts[:-1]:
+            continue
+        filename = path.name
+        if any(token in filename for token in ("_review", "_raw", "montage", "contact")):
+            continue
+        inventory.add(path.resolve().relative_to(project_root.resolve()).as_posix())
+    return inventory
+
+
+def composition_metrics(document: dict[str, Any]) -> dict[str, Any]:
+    placements = document.get("placements", [])
+    clusters = sorted({str(item["cluster"]) for item in placements if item.get("cluster")})
+    contacts = sorted(
+        str(item["id"]) for item in placements if item.get("contact") is True
+    )
+    full_canvas = sorted(
+        str(item["id"])
+        for item in placements
+        if authored_render_size(item) == CANVAS_SIZE
+    )
+    return {
+        "placementCount": len(placements),
+        "clusterCount": len(clusters),
+        "contactPlacementCount": len(contacts),
+        "clusters": clusters,
+        "contactPlacements": contacts,
+        "fullCanvasPlacements": full_canvas,
+    }
+
+
+def checkpoint_comparison(document: dict[str, Any]) -> dict[str, bool]:
+    checkpoint = document.get("initialCheckpoint", {})
+    current = composition_metrics(document)
+    return {
+        key: current.get(key) == checkpoint.get(key)
+        for key in (
+            "placementCount",
+            "clusterCount",
+            "contactPlacementCount",
+            "clusters",
+            "contactPlacements",
+            "fullCanvasPlacements",
+        )
+    }
+
+
 def preflight_inputs(
     project_root: Path,
     document: dict[str, Any],
     manifest: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
-    for field in ("scene", "pipeline", "canvas", "base", "compositionChecks", "placements"):
+    for field in (
+        "scene",
+        "pipeline",
+        "canvas",
+        "base",
+        "initialCheckpoint",
+        "structuralRules",
+        "placements",
+    ):
         if field not in document:
             failures.append(f"placements document is missing {field}")
     if document.get("pipeline") != EXPECTED_PIPELINE:
@@ -130,22 +225,67 @@ def preflight_inputs(
         if field not in document.get("canvas", {}):
             failures.append(f"placements canvas is missing {field}")
     for index, item in enumerate(document.get("placements", [])):
-        for field in ("id", "assetId", "category", "image", "x", "y", "w", "h", "z"):
+        for field in ("id", "category", "image", "x", "y", "w", "h", "z"):
             if field not in item:
                 failures.append(f"placement {index} is missing {field}")
         image_value = str(item.get("image", ""))
         if image_value:
             checked_path(f"placement {index} image", image_value)
 
+        try:
+            x = float(item["x"])
+            y = float(item["y"])
+            width = float(item["w"])
+            height = float(item["h"])
+            int(item["z"])
+        except (KeyError, TypeError, ValueError):
+            failures.append(f"placement {index} has invalid numeric geometry")
+        else:
+            if not all(math.isfinite(value) for value in (x, y, width, height)):
+                failures.append(f"placement {index} geometry is not finite")
+            if width <= 0 or height <= 0:
+                failures.append(f"placement {index} has non-positive grabbable geometry")
+
+    for field in ("schemaVersion", "scene", "visualAssetSource", "accepted"):
+        if field not in manifest:
+            failures.append(f"asset manifest is missing {field}")
+    if manifest.get("schemaVersion") != 1:
+        failures.append("asset manifest schemaVersion is not 1")
+    if manifest.get("scene") != document.get("scene"):
+        failures.append("asset manifest scene does not match placements")
+    if manifest.get("visualAssetSource") != "existing_assets":
+        failures.append("asset manifest visualAssetSource is not existing_assets")
     accepted = manifest.get("accepted")
     if not isinstance(accepted, list):
         failures.append("asset manifest accepted is not a list")
         accepted = []
     checked_images: set[str] = set()
+    bundle_root = (project_root / BUNDLE_REL).resolve()
     for index, asset in enumerate(accepted):
-        for field in ("id", "final", "source", "sourcePrompt", "transparent", "requiredSize"):
+        for field in (
+            "id",
+            "category",
+            "final",
+            "source",
+            "sourcePrompt",
+            "transparent",
+            "requiredSize",
+        ):
             if field not in asset:
                 failures.append(f"manifest asset {index} is missing {field}")
+        if not isinstance(asset.get("id"), str) or not asset.get("id"):
+            failures.append(f"manifest asset {index} has invalid id")
+        if not isinstance(asset.get("category"), str) or not asset.get("category"):
+            failures.append(f"manifest asset {index} has invalid category")
+        if not isinstance(asset.get("transparent"), bool):
+            failures.append(f"manifest asset {index} has invalid transparent flag")
+        required_size = asset.get("requiredSize")
+        if not (
+            isinstance(required_size, list)
+            and len(required_size) == 2
+            and all(isinstance(value, int) and value > 0 for value in required_size)
+        ):
+            failures.append(f"manifest asset {index} has invalid requiredSize")
         for field in ("final", "source", "sourcePrompt"):
             value = str(asset.get(field, ""))
             if not value:
@@ -157,13 +297,45 @@ def preflight_inputs(
             final_path = resolve(project_root, final) if final else None
         except ValueError:
             final_path = None
+        if final_path and not final_path.is_relative_to(bundle_root):
+            failures.append(f"manifest asset {index} final is outside the v3 bundle: {final}")
         if final and final not in checked_images and final_path and final_path.is_file():
             checked_images.add(final)
             try:
                 with Image.open(final_path) as image:
                     image.load()
+                    if (
+                        asset.get("transparent") is True
+                        and image.convert("RGBA").getchannel("A").getextrema()[1] == 0
+                    ):
+                        failures.append(
+                            f"manifest asset {index} final is fully transparent: {final}"
+                        )
             except OSError as error:
                 failures.append(f"manifest asset {index} has unreadable final {final}: {error}")
+
+    assets_by_final = manifest_by_final(accepted)
+    for final, records in assets_by_final.items():
+        if final and len(records) != 1:
+            failures.append(f"manifest final is not unique: {final}")
+    for item in document.get("placements", []):
+        try:
+            placement_asset(item, assets_by_final)
+        except ValueError as error:
+            failures.append(str(error))
+
+    accepted_finals = {str(asset.get("final", "")) for asset in accepted if asset.get("final")}
+    try:
+        inventory = workbench_png_inventory(project_root, bundle_root)
+    except ValueError as error:
+        failures.append(f"Workbench PNG inventory escapes the project root: {error}")
+    else:
+        extras = sorted(inventory - accepted_finals)
+        missing = sorted(accepted_finals - inventory)
+        if extras:
+            failures.append(f"Workbench PNG inventory has unmanifested files: {extras}")
+        if missing:
+            failures.append(f"asset manifest finals missing from Workbench inventory: {missing}")
     return failures
 
 
@@ -187,6 +359,7 @@ def write_preflight_failure(
 def compose(
     project_root: Path,
     document: dict[str, Any],
+    manifest: dict[str, Any],
     output_path: Path,
     review_path: Path,
     report_path: Path,
@@ -202,11 +375,13 @@ def compose(
         raise ValueError(f"Foundation is {result.size}; expected {canvas_size}")
 
     render_log: list[dict[str, Any]] = []
+    assets_by_final = manifest_by_final(manifest["accepted"])
     for list_index, item in sorted_placements(document):
+        asset = placement_asset(item, assets_by_final)
         image_path = resolve(project_root, item["image"])
         with Image.open(image_path) as opened:
             source = opened.convert("RGBA")
-        render_size = (int(item["w"]), int(item["h"]))
+        render_size = authored_render_size(item)
         rendered = source
         if source.size != render_size:
             rendered = source.resize(render_size, Image.Resampling.LANCZOS)
@@ -217,7 +392,7 @@ def compose(
         render_log.append(
             {
                 "id": item["id"],
-                "assetId": item["assetId"],
+                "assetId": asset["id"],
                 "category": item["category"],
                 "cluster": item.get("cluster"),
                 "contact": bool(item.get("contact", False)),
@@ -269,6 +444,8 @@ def compose(
         "clusters": clusters,
         "contactPlacementCount": sum(item["contact"] for item in render_log),
         "categoryCounts": dict(sorted(Counter(item["category"] for item in render_log).items())),
+        "initialCheckpoint": document.get("initialCheckpoint", {}),
+        "initialCheckpointMatch": checkpoint_comparison(document),
         "placements": render_log,
         "outputs": {
             "full": str(output_path.relative_to(project_root)),
@@ -317,6 +494,16 @@ def validate(
     if len(manifest_ids) != len(set(manifest_ids)):
         failures.append("asset manifest ids are not unique")
     manifest_by_id = {str(item["id"]): item for item in accepted if item.get("id")}
+    assets_by_final = manifest_by_final(accepted)
+    bundle_root = (project_root / BUNDLE_REL).resolve()
+    accepted_finals = {str(item["final"]) for item in accepted}
+    inventory = workbench_png_inventory(project_root, bundle_root)
+    inventory_extras = sorted(inventory - accepted_finals)
+    inventory_missing = sorted(accepted_finals - inventory)
+    if inventory_extras:
+        failures.append(f"Workbench PNG inventory has unmanifested files: {inventory_extras}")
+    if inventory_missing:
+        failures.append(f"asset manifest finals missing from Workbench inventory: {inventory_missing}")
 
     asset_checks: list[dict[str, Any]] = []
     asset_key_pixels = 0
@@ -367,6 +554,8 @@ def validate(
                 failures.append(f"{asset['id']}: {key_pixels} visible exact #FF00FF pixels")
             if asset.get("transparent") and alpha_extrema[0] != 0:
                 failures.append(f"{asset['id']}: transparent asset has no transparent pixels")
+            if asset.get("transparent") and alpha_extrema[1] == 0:
+                failures.append(f"{asset['id']}: transparent asset is fully transparent")
             if asset.get("transparent") and size != CANVAS_SIZE and corners != [0, 0, 0, 0]:
                 failures.append(f"{asset['id']}: tight asset corners are not transparent")
         asset_checks.append(result)
@@ -384,56 +573,47 @@ def validate(
         failures.append(f"missing foundation {base_path_value}")
 
     placement_items = document.get("placements", [])
-    composition_checks = document.get("compositionChecks", {})
-    expected_placement_count = int(composition_checks.get("expectedPlacementCount", -1))
-    expected_cluster_count = int(composition_checks.get("expectedClusterCount", -1))
-    expected_contact_count = int(
-        composition_checks.get("expectedContactPlacementCount", -1)
-    )
-    expected_clusters = set(composition_checks.get("expectedClusters", []))
-    expected_contacts = set(composition_checks.get("expectedContactPlacements", []))
-    expected_full_canvas = set(
-        composition_checks.get("expectedFullCanvasPlacements", [])
-    )
+    initial_checkpoint = document.get("initialCheckpoint", {})
+    structural_rules = document.get("structuralRules", {})
     placement_ids = [str(item.get("id", "")) for item in placement_items]
     z_values = [int(base.get("z", -1)), *(int(item.get("z", -1)) for item in placement_items)]
     if len(placement_ids) != len(set(placement_ids)):
         failures.append("placement ids are not unique")
     if len(z_values) != len(set(z_values)):
         failures.append("base and placement z values are not unique")
-    if len(placement_items) != expected_placement_count:
-        failures.append(
-            f"placement count is {len(placement_items)}, expected {expected_placement_count}"
-        )
 
     clusters = {str(item["cluster"]) for item in placement_items if item.get("cluster")}
     contacts = {str(item["id"]) for item in placement_items if item.get("contact") is True}
-    if len(clusters) != expected_cluster_count or clusters != expected_clusters:
-        failures.append(f"clusters are {sorted(clusters)}, expected {sorted(expected_clusters)}")
-    if len(contacts) != expected_contact_count or contacts != expected_contacts:
-        failures.append(
-            f"contact placements are {sorted(contacts)}, expected {sorted(expected_contacts)}"
-        )
 
     full_canvas_ids: set[str] = set()
     placement_checks: list[dict[str, Any]] = []
     for item in placement_items:
-        asset_id = str(item.get("assetId", ""))
-        asset = manifest_by_id.get(asset_id)
+        try:
+            asset = placement_asset(item, assets_by_final)
+        except ValueError as error:
+            asset = None
+            failures.append(str(error))
         image_value = str(item.get("image", ""))
         image_path = resolve(project_root, image_value)
-        render_size = (int(item.get("w", 0)), int(item.get("h", 0)))
+        render_size = authored_render_size(item)
+        center_bottom = (float(item.get("x", 0)), float(item.get("y", 0)))
+        render_left = round(center_bottom[0] - render_size[0] / 2)
+        render_top = round(center_bottom[1] - render_size[1])
         result = {
             "id": item.get("id"),
-            "assetId": asset_id,
+            "assetId": asset.get("id") if asset else None,
+            "declaredAssetId": item.get("assetId"),
             "exists": image_path.is_file(),
             "renderSize": list(render_size),
-            "centerBottom": [item.get("x"), item.get("y")],
+            "centerBottom": list(center_bottom),
+            "renderBounds": [
+                render_left,
+                render_top,
+                render_left + render_size[0],
+                render_top + render_size[1],
+            ],
+            "grabbableGeometry": render_size[0] > 0 and render_size[1] > 0,
         }
-        if not asset:
-            failures.append(f"{item.get('id')}: unknown assetId {asset_id}")
-        elif asset.get("final") != image_value:
-            failures.append(f"{item.get('id')}: placement path does not match assetId {asset_id}")
         if not image_path.is_file():
             missing_paths.add(image_value)
             failures.append(f"{item.get('id')}: missing placement image {image_value}")
@@ -441,36 +621,16 @@ def validate(
             with Image.open(image_path) as image:
                 source_size = image.size
             result["sourceSize"] = list(source_size)
-            if source_size != render_size:
-                failures.append(
-                    f"{item.get('id')}: render size {render_size} is not native {source_size}"
-                )
         if render_size == CANVAS_SIZE:
             full_canvas_ids.add(str(item.get("id")))
-            if (
-                float(item.get("x", -1)) != 660
-                or float(item.get("y", -1)) != 2346
-                or item.get("cluster") is not None
-            ):
-                failures.append(f"{item.get('id')}: invalid full-canvas placement metadata")
         for bounds_key in ("sourceBounds", "deliveryBounds"):
             if bounds_key not in item:
                 continue
-            left, top, right, bottom = (float(value) for value in item[bounds_key])
-            expected_x = (left + right) / 2
-            if float(item.get("x", -1)) != expected_x or float(item.get("y", -1)) != bottom:
-                failures.append(f"{item.get('id')}: center-bottom anchor does not match {bounds_key}")
-            result[bounds_key] = item[bounds_key]
+            result.setdefault("intakeProvenance", {})[bounds_key] = item[bounds_key]
         placement_checks.append(result)
 
-    if full_canvas_ids != expected_full_canvas:
-        failures.append(
-            f"full-canvas placements are {sorted(full_canvas_ids)}, "
-            f"expected {sorted(expected_full_canvas)}"
-        )
-
     tree = next((item for item in placement_items if item.get("id") == "tree_house"), None)
-    tree_metadata = composition_checks.get("treeHouse", {})
+    tree_metadata = structural_rules.get("treeHouse", {})
     tree_check: dict[str, Any] = {"exists": tree is not None, "document": tree_metadata}
     if tree is None:
         failures.append("missing tree_house placement")
@@ -483,18 +643,24 @@ def validate(
         )
         tree_right = tree_geometry[0] + tree_geometry[2] / 2
         tree_check.update({"geometry": list(tree_geometry), "rightEdge": tree_right})
-        if tree_metadata.get("initialRightEdgeClipping") is True and tree_right <= canvas_size[0]:
-            failures.append("tree_house does not retain the approved initial right-edge clipping")
+        try:
+            tree_asset = placement_asset(tree, assets_by_final)
+        except ValueError as error:
+            tree_asset = None
+            failures.append(str(error))
+        tree_check["assetId"] = tree_asset.get("id") if tree_asset else None
+        if not tree_asset or tree_asset.get("id") != "tree_house":
+            failures.append("tree_house placement does not use the complete host-tree asset")
         if tree.get("structuralUnit") != "complete_host_tree_and_carved_dwelling":
             failures.append("tree_house structuralUnit metadata is missing or invalid")
         if tree.get("completeHostTreeAvailable") is not True:
             failures.append("tree_house does not declare completeHostTreeAvailable")
         if tree_metadata.get("placementId") != "tree_house":
-            failures.append("compositionChecks.treeHouse placementId is invalid")
+            failures.append("structuralRules.treeHouse placementId is invalid")
         if tree_metadata.get("completeHostTreeAvailable") is not True:
-            failures.append("compositionChecks.treeHouse does not preserve the complete host tree")
+            failures.append("structuralRules.treeHouse does not preserve the complete host tree")
         if tree_metadata.get("structuralRule") != "host tree and carved dwelling remain one inseparable asset":
-            failures.append("compositionChecks.treeHouse structuralRule is invalid")
+            failures.append("structuralRules.treeHouse structuralRule is invalid")
 
     output_checks: dict[str, Any] = {}
     output_key_pixels = 0
@@ -621,6 +787,13 @@ def validate(
         "pipeline": pipeline,
         "pipelineValid": pipeline_valid,
         "acceptedAssetCount": len(accepted),
+        "workbenchPngInventory": {
+            "count": len(inventory),
+            "acceptedFinalCount": len(accepted_finals),
+            "extras": inventory_extras,
+            "missing": inventory_missing,
+            "status": "pass" if not inventory_extras and not inventory_missing else "fail",
+        },
         "placementCount": len(placement_items),
         "clusterCount": len(clusters),
         "clusters": sorted(clusters),
@@ -632,6 +805,8 @@ def validate(
         "uniqueZValues": len(z_values) == len(set(z_values)),
         "fullCanvasPlacementCount": len(full_canvas_ids),
         "fullCanvasPlacements": sorted(full_canvas_ids),
+        "initialCheckpoint": initial_checkpoint,
+        "initialCheckpointMatch": checkpoint_comparison(document),
         "visibleKeyPixels": asset_key_pixels + output_key_pixels,
         "assetVisibleKeyPixels": asset_key_pixels,
         "outputVisibleKeyPixels": output_key_pixels,
@@ -647,9 +822,9 @@ def validate(
         "failures": failures,
         "manualVisualChecks": [
             "split moon swing support sits behind the environment while its moon seat remains in front",
-            "complete host tree remains available despite intentional initial right-edge clipping",
+            "complete host tree and carved dwelling remain available as one inseparable asset",
             "cottage, well, mushrooms, and lantern clusters preserve readable silhouettes",
-            "five contact tufts ground their associated props",
+            "contact dressing grounds its associated props",
             "foreground roots finish the depth stack without obscuring the hero composition",
             "scene contains no visible hot-magenta chroma key, UI, text, or border",
         ],
@@ -703,6 +878,7 @@ def main() -> None:
             compose(
                 project_root,
                 document,
+                manifest,
                 output_path,
                 review_path,
                 reconstruction_report_path,

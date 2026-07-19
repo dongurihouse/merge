@@ -5,7 +5,7 @@ consumes the canonical PNGs registered by `metadata/asset_manifest.json` and
 keeps editable scene composition separate from generated review artifacts.
 
 `metadata/placements.json` is the sole composition authority. Its schema-v2
-document owns the canvas, foundation, center-bottom anchors, native display
+document owns the canvas, foundation, editable center-bottom anchors and display
 sizes, z order, clusters, contact dressing, and the complete tree-house
 structural rule. The compositor reads that document directly; do not edit the
 flattened reconstruction PNGs or duplicate placement values in code.
@@ -33,12 +33,20 @@ python3 games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_
 ```
 
 Both modes exit nonzero if manifest/placement paths, asset modes, tight-asset
-corner alpha, exact `#FF00FF` palette cleanliness, native sizes, counts,
+corner alpha, exact `#FF00FF` palette cleanliness, positive editable geometry,
 tree-house structure, output dimensions, or report hashes fail validation.
 Paths must be repo-relative, may not contain `..`, and must resolve inside the
 project root. Validate-only also binds the existing reconstruction to the
 current placements document, asset manifest, foundation, and every ordered
 placement source SHA-256, so source changes require a normal rebuild.
+
+Every Workbench-addable PNG in the v3 palette folders must have exactly one
+accepted manifest record, and every accepted `final` must exist inside this
+bundle. Inventory discovery follows the Workbench exclusions for style,
+reconstruction, metadata, references, raw, review, montage, and contact files.
+Fully transparent accepted RGBA files are rejected. Placement `assetId` is
+optional: the compositor derives it uniquely from `image`; when present, it must
+match that derived manifest asset.
 
 ## Scene Workbench
 
@@ -49,18 +57,23 @@ make shot-sw SCENE=fairy_hollow ROOT=/Users/xup/dh/merge/.worktrees/codex-ui-red
 make sw SCENE=fairy_hollow ROOT=/Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1
 ```
 
-The seven cluster names let the workbench move each hero assembly as one unit.
+The checked-in initial checkpoint contains 16 placements, seven clusters, and
+five contact placements. Those values are report context, not immutable
+validation limits: Workbench edits may add, remove, move, or resize placements.
+The initial seven cluster names let the workbench move each hero assembly as one unit.
 The split moon swing intentionally renders its support at z 10 and its seat at
 z 270 while both remain members of `moon_swing`. The tree-house asset remains a
 complete `730 x 1291` host tree; its initial x position clips the right edge to
-match the approved composition, but moving the cluster reveals the full asset.
+match the approved composition, but its saved x/y/w/h are editable and moving
+the cluster reveals the full asset. `sourceBounds`, `deliveryBounds`, and native
+PNG dimensions are intake provenance only; rebuilds render the saved geometry.
 
 ## Deterministic outputs
 
 - `09_reconstruction/fairy_hollow_reconstruction_v3_1320x2346.png` — full-size RGB QA flatten.
 - `09_reconstruction/fairy_hollow_reconstruction_v3_review_941x1672.png` — phone-review RGB flatten.
 - `09_reconstruction/reconstruction_report.json` — ordered render bounds and input/output hashes.
-- `metadata/validation_report.json` — machine-readable manifest, geometry, transparency, palette, count, and output validation.
+- `metadata/validation_report.json` — machine-readable manifest, inventory, geometry, transparency, palette, checkpoint, and output validation.
 
 Generated outputs are review evidence only. Make composition changes in
 `metadata/placements.json`, rerun the compositor, and inspect both preview

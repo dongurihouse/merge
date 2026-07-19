@@ -3,7 +3,7 @@
   "scene": "fairy_hollow_v3",
   "status": "pass",
   "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/placements.json",
-  "placementAuthoritySha256": "2195630ea7e812db0d19a097b4dc7dccf5d7e1a953a0fa3ce056341dd886e0a7",
+  "placementAuthoritySha256": "2276b3498f0bc868875e4cd9b12a02587783e6ae13d0904a0eff667845c064bc",
   "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/asset_manifest.json",
   "manifestSha256": "5b5c00bcbdf941cbfece7c38b7b519de97be4383e362aa3bb57f9f652db17334",
   "canvas": [
@@ -27,6 +27,13 @@
   },
   "pipelineValid": true,
   "acceptedAssetCount": 16,
+  "workbenchPngInventory": {
+    "count": 16,
+    "acceptedFinalCount": 16,
+    "extras": [],
+    "missing": [],
+    "status": "pass"
+  },
   "placementCount": 16,
   "clusterCount": 7,
   "clusters": [
@@ -56,6 +63,41 @@
     "foreground_roots",
     "midground_foliage"
   ],
+  "initialCheckpoint": {
+    "placementCount": 16,
+    "clusterCount": 7,
+    "contactPlacementCount": 5,
+    "clusters": [
+      "firefly_lanterns",
+      "glowing_mushrooms",
+      "lantern_vines",
+      "moon_swing",
+      "toadstool_cottage",
+      "tree_house",
+      "wishing_well"
+    ],
+    "contactPlacements": [
+      "lantern_contact_left",
+      "lantern_contact_right",
+      "mushrooms_contact",
+      "well_contact_left",
+      "well_contact_right"
+    ],
+    "fullCanvasPlacements": [
+      "background_trees",
+      "foreground_roots",
+      "midground_foliage"
+    ],
+    "note": "Checked-in approved v3 composition metrics; Workbench edits may change them."
+  },
+  "initialCheckpointMatch": {
+    "placementCount": true,
+    "clusterCount": true,
+    "contactPlacementCount": true,
+    "clusters": true,
+    "contactPlacements": true,
+    "fullCanvasPlacements": true
+  },
   "visibleKeyPixels": 0,
   "assetVisibleKeyPixels": 0,
   "outputVisibleKeyPixels": 0,
@@ -498,38 +540,56 @@
     {
       "id": "moon_swing_support_back",
       "assetId": "moon_swing_support",
+      "declaredAssetId": "moon_swing_support",
       "exists": true,
       "renderSize": [
         408,
         168
       ],
       "centerBottom": [
-        365,
-        354
+        365.0,
+        354.0
       ],
-      "sourceSize": [
-        408,
-        168
-      ],
-      "sourceBounds": [
+      "renderBounds": [
         161,
         186,
         569,
         354
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        408,
+        168
+      ],
+      "intakeProvenance": {
+        "sourceBounds": [
+          161,
+          186,
+          569,
+          354
+        ]
+      }
     },
     {
       "id": "background_trees",
       "assetId": "background_trees",
+      "declaredAssetId": "background_trees",
       "exists": true,
       "renderSize": [
         1320,
         2346
       ],
       "centerBottom": [
-        660,
+        660.0,
+        2346.0
+      ],
+      "renderBounds": [
+        0,
+        0,
+        1320,
         2346
       ],
+      "grabbableGeometry": true,
       "sourceSize": [
         1320,
         2346
@@ -538,15 +598,23 @@
     {
       "id": "midground_foliage",
       "assetId": "midground_foliage",
+      "declaredAssetId": "midground_foliage",
       "exists": true,
       "renderSize": [
         1320,
         2346
       ],
       "centerBottom": [
-        660,
+        660.0,
+        2346.0
+      ],
+      "renderBounds": [
+        0,
+        0,
+        1320,
         2346
       ],
+      "grabbableGeometry": true,
       "sourceSize": [
         1320,
         2346
@@ -555,38 +623,56 @@
     {
       "id": "toadstool_cottage",
       "assetId": "toadstool_cottage",
+      "declaredAssetId": "toadstool_cottage",
       "exists": true,
       "renderSize": [
         448,
         444
       ],
       "centerBottom": [
-        256,
-        1245
+        256.0,
+        1245.0
       ],
-      "sourceSize": [
-        448,
-        444
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         32,
         801,
         480,
         1245
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        448,
+        444
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          32,
+          801,
+          480,
+          1245
+        ]
+      }
     },
     {
       "id": "tree_house",
       "assetId": "tree_house",
+      "declaredAssetId": "tree_house",
       "exists": true,
       "renderSize": [
         730,
         1291
       ],
       "centerBottom": [
-        996,
+        996.0,
+        1291.0
+      ],
+      "renderBounds": [
+        631,
+        0,
+        1361,
         1291
       ],
+      "grabbableGeometry": true,
       "sourceSize": [
         730,
         1291
@@ -595,6 +681,7 @@
     {
       "id": "moon_swing_seat_front",
       "assetId": "moon_swing_seat",
+      "declaredAssetId": "moon_swing_seat",
       "exists": true,
       "renderSize": [
         303,
@@ -602,22 +689,32 @@
       ],
       "centerBottom": [
         363.5,
-        810
+        810.0
       ],
-      "sourceSize": [
-        303,
-        477
-      ],
-      "sourceBounds": [
+      "renderBounds": [
         212,
         333,
         515,
         810
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        303,
+        477
+      ],
+      "intakeProvenance": {
+        "sourceBounds": [
+          212,
+          333,
+          515,
+          810
+        ]
+      }
     },
     {
       "id": "lantern_vines",
       "assetId": "lantern_vines",
+      "declaredAssetId": "lantern_vines",
       "exists": true,
       "renderSize": [
         729,
@@ -625,22 +722,32 @@
       ],
       "centerBottom": [
         936.5,
-        633
+        633.0
       ],
-      "sourceSize": [
-        729,
-        291
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         572,
         342,
         1301,
         633
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        729,
+        291
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          572,
+          342,
+          1301,
+          633
+        ]
+      }
     },
     {
       "id": "wishing_well",
       "assetId": "wishing_well",
+      "declaredAssetId": "wishing_well",
       "exists": true,
       "renderSize": [
         249,
@@ -648,45 +755,65 @@
       ],
       "centerBottom": [
         933.5,
-        1568
+        1568.0
       ],
-      "sourceSize": [
-        249,
-        358
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         809,
         1210,
         1058,
         1568
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        249,
+        358
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          809,
+          1210,
+          1058,
+          1568
+        ]
+      }
     },
     {
       "id": "glowing_mushrooms",
       "assetId": "glowing_mushrooms",
+      "declaredAssetId": "glowing_mushrooms",
       "exists": true,
       "renderSize": [
         490,
         308
       ],
       "centerBottom": [
-        326,
-        1778
+        326.0,
+        1778.0
       ],
-      "sourceSize": [
-        490,
-        308
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         81,
         1470,
         571,
         1778
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        490,
+        308
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          81,
+          1470,
+          571,
+          1778
+        ]
+      }
     },
     {
       "id": "firefly_lanterns",
       "assetId": "firefly_lanterns",
+      "declaredAssetId": "firefly_lanterns",
       "exists": true,
       "renderSize": [
         341,
@@ -694,22 +821,32 @@
       ],
       "centerBottom": [
         1070.5,
-        1954
+        1954.0
       ],
-      "sourceSize": [
-        341,
-        407
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         900,
         1547,
         1241,
         1954
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        341,
+        407
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          900,
+          1547,
+          1241,
+          1954
+        ]
+      }
     },
     {
       "id": "mushrooms_contact",
       "assetId": "ground_tuft_04",
+      "declaredAssetId": "ground_tuft_04",
       "exists": true,
       "renderSize": [
         111,
@@ -717,45 +854,65 @@
       ],
       "centerBottom": [
         161.5,
-        1788
+        1788.0
       ],
-      "sourceSize": [
-        111,
-        80
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         106,
         1708,
         217,
         1788
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        111,
+        80
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          106,
+          1708,
+          217,
+          1788
+        ]
+      }
     },
     {
       "id": "well_contact_left",
       "assetId": "ground_tuft_01",
+      "declaredAssetId": "ground_tuft_01",
       "exists": true,
       "renderSize": [
         108,
         55
       ],
       "centerBottom": [
-        819,
-        1578
+        819.0,
+        1578.0
       ],
-      "sourceSize": [
-        108,
-        55
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         765,
         1523,
         873,
         1578
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        108,
+        55
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          765,
+          1523,
+          873,
+          1578
+        ]
+      }
     },
     {
       "id": "well_contact_right",
       "assetId": "ground_tuft_03",
+      "declaredAssetId": "ground_tuft_03",
       "exists": true,
       "renderSize": [
         105,
@@ -763,22 +920,32 @@
       ],
       "centerBottom": [
         1047.5,
-        1572
+        1572.0
       ],
-      "sourceSize": [
-        105,
-        64
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         995,
         1508,
         1100,
         1572
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        105,
+        64
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          995,
+          1508,
+          1100,
+          1572
+        ]
+      }
     },
     {
       "id": "lantern_contact_left",
       "assetId": "ground_tuft_02",
+      "declaredAssetId": "ground_tuft_02",
       "exists": true,
       "renderSize": [
         111,
@@ -786,22 +953,32 @@
       ],
       "centerBottom": [
         931.5,
-        1965
+        1965.0
       ],
-      "sourceSize": [
-        111,
-        74
-      ],
-      "deliveryBounds": [
+      "renderBounds": [
         876,
         1891,
         987,
         1965
-      ]
+      ],
+      "grabbableGeometry": true,
+      "sourceSize": [
+        111,
+        74
+      ],
+      "intakeProvenance": {
+        "deliveryBounds": [
+          876,
+          1891,
+          987,
+          1965
+        ]
+      }
     },
     {
       "id": "lantern_contact_right",
       "assetId": "ground_tuft_04",
+      "declaredAssetId": "ground_tuft_04",
       "exists": true,
       "renderSize": [
         111,
@@ -809,31 +986,48 @@
       ],
       "centerBottom": [
         1226.5,
+        1965.0
+      ],
+      "renderBounds": [
+        1171,
+        1885,
+        1282,
         1965
       ],
+      "grabbableGeometry": true,
       "sourceSize": [
         111,
         80
       ],
-      "deliveryBounds": [
-        1175,
-        1891,
-        1278,
-        1965
-      ]
+      "intakeProvenance": {
+        "deliveryBounds": [
+          1175,
+          1891,
+          1278,
+          1965
+        ]
+      }
     },
     {
       "id": "foreground_roots",
       "assetId": "foreground_roots",
+      "declaredAssetId": "foreground_roots",
       "exists": true,
       "renderSize": [
         1320,
         2346
       ],
       "centerBottom": [
-        660,
+        660.0,
+        2346.0
+      ],
+      "renderBounds": [
+        0,
+        0,
+        1320,
         2346
       ],
+      "grabbableGeometry": true,
       "sourceSize": [
         1320,
         2346
@@ -845,7 +1039,6 @@
     "document": {
       "placementId": "tree_house",
       "completeHostTreeAvailable": true,
-      "initialRightEdgeClipping": true,
       "structuralRule": "host tree and carved dwelling remain one inseparable asset"
     },
     "geometry": [
@@ -854,7 +1047,8 @@
       730,
       1291
     ],
-    "rightEdge": 1361.0
+    "rightEdge": 1361.0,
+    "assetId": "tree_house"
   },
   "outputChecks": {
     "full": {
@@ -881,7 +1075,7 @@
   "reconstructionReportCheck": {
     "exists": true,
     "scene": "fairy_hollow_v3",
-    "placementAuthoritySha256": "2195630ea7e812db0d19a097b4dc7dccf5d7e1a953a0fa3ce056341dd886e0a7",
+    "placementAuthoritySha256": "2276b3498f0bc868875e4cd9b12a02587783e6ae13d0904a0eff667845c064bc",
     "manifestSha256": "5b5c00bcbdf941cbfece7c38b7b519de97be4383e362aa3bb57f9f652db17334",
     "placementCount": 16,
     "clusterCount": 7,
@@ -893,9 +1087,9 @@
   "failures": [],
   "manualVisualChecks": [
     "split moon swing support sits behind the environment while its moon seat remains in front",
-    "complete host tree remains available despite intentional initial right-edge clipping",
+    "complete host tree and carved dwelling remain available as one inseparable asset",
     "cottage, well, mushrooms, and lantern clusters preserve readable silhouettes",
-    "five contact tufts ground their associated props",
+    "contact dressing grounds its associated props",
     "foreground roots finish the depth stack without obscuring the hero composition",
     "scene contains no visible hot-magenta chroma key, UI, text, or border"
   ]

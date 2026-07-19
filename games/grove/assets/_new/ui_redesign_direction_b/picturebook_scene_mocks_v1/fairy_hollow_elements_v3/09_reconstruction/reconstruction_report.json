@@ -3,7 +3,7 @@
   "scene": "fairy_hollow_v3",
   "status": "rendered",
   "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/placements.json",
-  "placementAuthoritySha256": "2195630ea7e812db0d19a097b4dc7dccf5d7e1a953a0fa3ce056341dd886e0a7",
+  "placementAuthoritySha256": "2276b3498f0bc868875e4cd9b12a02587783e6ae13d0904a0eff667845c064bc",
   "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/metadata/asset_manifest.json",
   "manifestSha256": "5b5c00bcbdf941cbfece7c38b7b519de97be4383e362aa3bb57f9f652db17334",
   "canvas": [
@@ -41,6 +41,41 @@
     "garden_item": 5,
     "structure": 2,
     "vegetation": 5
+  },
+  "initialCheckpoint": {
+    "placementCount": 16,
+    "clusterCount": 7,
+    "contactPlacementCount": 5,
+    "clusters": [
+      "firefly_lanterns",
+      "glowing_mushrooms",
+      "lantern_vines",
+      "moon_swing",
+      "toadstool_cottage",
+      "tree_house",
+      "wishing_well"
+    ],
+    "contactPlacements": [
+      "lantern_contact_left",
+      "lantern_contact_right",
+      "mushrooms_contact",
+      "well_contact_left",
+      "well_contact_right"
+    ],
+    "fullCanvasPlacements": [
+      "background_trees",
+      "foreground_roots",
+      "midground_foliage"
+    ],
+    "note": "Checked-in approved v3 composition metrics; Workbench edits may change them."
+  },
+  "initialCheckpointMatch": {
+    "placementCount": true,
+    "clusterCount": true,
+    "contactPlacementCount": true,
+    "clusters": true,
+    "contactPlacements": true,
+    "fullCanvasPlacements": true
   },
   "placements": [
     {

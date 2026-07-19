@@ -26,11 +26,11 @@
     "opaque": true,
     "z": 0
   },
-  "compositionChecks": {
-    "expectedPlacementCount": 16,
-    "expectedClusterCount": 7,
-    "expectedContactPlacementCount": 5,
-    "expectedClusters": [
+  "initialCheckpoint": {
+    "placementCount": 16,
+    "clusterCount": 7,
+    "contactPlacementCount": 5,
+    "clusters": [
       "firefly_lanterns",
       "glowing_mushrooms",
       "lantern_vines",
@@ -39,22 +39,24 @@
       "tree_house",
       "wishing_well"
     ],
-    "expectedContactPlacements": [
+    "contactPlacements": [
       "lantern_contact_left",
       "lantern_contact_right",
       "mushrooms_contact",
       "well_contact_left",
       "well_contact_right"
     ],
-    "expectedFullCanvasPlacements": [
+    "fullCanvasPlacements": [
       "background_trees",
       "foreground_roots",
       "midground_foliage"
     ],
+    "note": "Checked-in approved v3 composition metrics; Workbench edits may change them."
+  },
+  "structuralRules": {
     "treeHouse": {
       "placementId": "tree_house",
       "completeHostTreeAvailable": true,
-      "initialRightEdgeClipping": true,
       "structuralRule": "host tree and carved dwelling remain one inseparable asset"
     }
   },
