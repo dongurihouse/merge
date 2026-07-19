@@ -2313,8 +2313,17 @@ func _test_bag_components() -> void:
 	ok(flat_board_unlockable.find_child("SlotCellUnlockableHighlight", true, false) == null \
 		and not _has_class(flat_board_unlockable, "GPUParticles2D"), \
 		"flat board cells keep the acorn lock contained with no outer glow or sparkle")
-	# (The unlockable glow/shadow/sparkle tuning — glow_hue/glow_sat/glow_shadow/glow_size/next_* — was
-	# retired with the overlay it drove; slot_cell no longer reads any of those keys.)
+	# ...but the openable-NOW cell must still READ as highlighted: a contained warm-gold well (the paper
+	# retinted warm, r >> b) plus a bright gold face rim — both drawn ON the inset face, so no gutter spill.
+	# (This face cue REPLACED the old full-cell glow/sparkle overlay + its glow_hue/glow_shadow/glow_size
+	# tuning, which only ever showed in the workbench; those knobs and the overlay are retired.)
+	var fb_unl_tint: Color = _paper_tint.call(flat_board_unlockable)
+	ok(fb_unl_tint.r > 1.0 and fb_unl_tint.r > fb_unl_tint.b + 0.4, \
+		"the board's unlockable cell wears a warm-gold well, distinct from the untinted locked face")
+	var fb_unl_bg := flat_board_unlockable.find_child("SlotCellBackground", true, false) as Panel
+	var fb_rim := (fb_unl_bg.get_theme_stylebox("panel") as StyleBoxFlat).border_color
+	ok(fb_rim.r > 0.85 and fb_rim.g > 0.75 and fb_rim.b < fb_rim.r, \
+		"the board's unlockable cell wears a bright warm-gold rim (a contained highlight ring)")
 	# Locked cells use one code-drawn paper surface and one combined acorn-lock mark — never two symbols.
 	var locked_plain := Kit.slot_cell({"state": "locked"}, co)
 	ok(locked_plain.find_child("SlotCellBackground", true, false) is Panel \

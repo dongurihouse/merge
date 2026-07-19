@@ -1,0 +1,16 @@
+Use case: precise-object-edit
+Asset type: production background plate for the Grove Scene Workbench.
+
+Layer decomposition for `cherry_blossom_garden_temple_concept_v1.png`:
+
+- Keep only the peach paper sky, cream cloud cutouts, and distant blue-gray
+  mountain bands.
+- Remove every garden-object layer: trees, shrubs, flowers, grass, rocks,
+  lanterns, both torii, purification pavilion, shrine, fences, paths, stepping
+  stones, koi pond, bridge, petals, and ground objects.
+- Repair the revealed area as an empty, continuous warm cream cardstock field
+  matching the source's subtle paper-fiber grain.
+
+Preserve the portrait framing, source palette, cloud/mountain language, and
+matte paper construction. Do not add landscape elements, text, labels, logos,
+or watermarks.

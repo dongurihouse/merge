@@ -1024,6 +1024,7 @@ func _slot_cell_gallery(p: Dictionary) -> Control:
 	col.add_child(_slot_row("board wells (flat)", [
 		["empty", {"state": "empty"}],
 		["filled", {"state": "filled", "icon": "leaf"}],
+		["openable", {"state": "unlockable"}],   # the contained warm-gold well + rim (the board's highlight)
 		["frontier lock", {"state": "locked", "frontier": true}],
 		["deep lock", {"state": "locked", "dim": 0.6}],
 	], board_opts))

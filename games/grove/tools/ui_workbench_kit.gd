@@ -4684,6 +4684,9 @@ const MEADOW_PAPER_BASE := Color("#A8D3B9")
 const DIALOG_CELL_LOCKED_FILL := Color("#91A0B3")
 ## ...and the nominal colour of ui/meadow_v2/texture_receding_blue.png, its own grain sheet.
 const RECEDING_PAPER_BASE := Color("#8296AF")
+## The OPENABLE-NOW board well: a warm gold, deep enough that the cream acorn lock still reads on top.
+## Paired with a bright STRAW rim (slot_cell_background) as the board's contained unlockable highlight.
+const BOARD_UNLOCKABLE_FILL := Color("#C79A4E")
 ## How far dim_bg recedes an inactive well (the multiply the old, ineffective modulate asked for).
 const DIM_BG_FACTOR := 0.74
 
@@ -4701,11 +4704,18 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	# opt is dialog-scoped (opts.dialog_cells, threaded in by the dialog opt builders) precisely so the
 	# playable grid — which passes flat_board_cells — is never repainted.
 	var dialog_cells := bool(opts.get("dialog_cells", false)) and not flat_board_cells
+	# An OPENABLE-NOW board cell (frontier + level reached) wears a contained WARM highlight: the well
+	# turns gold and its rim brightens, all inside the inset face, so the "pop" can't spill across the
+	# board's tight gutters the way the old full-cell glow/sparkle overlay did (that overlay is why the
+	# board highlight was disabled — this replaces it in a gutter-safe way, drawn ON the face).
+	var unlockable_flat := flat_board_cells and state == "unlockable"
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
 	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
 	if dialog_cells:
 		fill = DIALOG_CELL_OPEN_FILL if open_state else DIALOG_CELL_LOCKED_FILL
+	if unlockable_flat:
+		fill = BOARD_UNLOCKABLE_FILL   # a warm gold well over the receding-blue grain sheet
 	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = fill
@@ -4713,6 +4723,9 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	# remaining wholly inside the cell (unlike the Bag's unlockable halo).
 	fs.border_color = Color("#3F6D7D", 0.52 if flat_board_cells else 0.28)
 	fs.set_border_width_all(2 if flat_board_cells else 1)
+	if unlockable_flat:
+		fs.border_color = Color("#F4D58C")   # a light warm-gold rim that reads as a ring over the gold well
+		fs.set_border_width_all(3)
 	fs.set_corner_radius_all(corner_px)
 	fs.anti_aliasing = true
 	base.add_theme_stylebox_override("panel", fs)
@@ -4724,6 +4737,9 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	if dialog_cells:
 		var base_c: Color = MEADOW_PAPER_BASE if open_state else RECEDING_PAPER_BASE
 		paper_tint = Color(fill.r / base_c.r, fill.g / base_c.g, fill.b / base_c.b)
+	elif unlockable_flat:
+		# retint the receding-blue grain sheet to the warm well (the sheet IS the visible face)
+		paper_tint = Color(fill.r / RECEDING_PAPER_BASE.r, fill.g / RECEDING_PAPER_BASE.g, fill.b / RECEDING_PAPER_BASE.b)
 	# dim_bg (the Producing dialog's discovered-but-inactive lines) recedes the WELL. It has to ride the
 	# SAME tint the recolour uses: the paper sheet IS the visible face and the mask shader writes COLOR
 	# wholesale, so a modulate on the parent Panel only ever dimmed the 1px border.

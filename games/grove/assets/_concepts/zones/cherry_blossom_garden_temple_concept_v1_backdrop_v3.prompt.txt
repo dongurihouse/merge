@@ -1,0 +1,10 @@
+Use case: precise-object-edit
+Asset type: portrait Grove Scene Workbench background plate.
+
+Use `cherry_blossom_garden_temple_concept_v1.png` as the foreground-removal
+target and `cherry_blossom_garden_original_mock_v1.png` only as the raked
+zen-sand ground-material reference. Retain the temple concept's peach sky,
+clouds, blue-gray mountain bands, paper grain, and framing. Remove every game
+object, then replace the cleared lower and middle area with continuous pale
+warm zen sand, including the original mock's fine flowing rake grooves and
+subtle cardstock relief. Do not copy objects or layout from the reference.
