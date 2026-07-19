@@ -4729,14 +4729,16 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0))
-	if flat_board_cells:
-		# board tiles cast the ONE SHARED drop-shadow (the pill look) so the grid reads as raised
-		# paper. The tile's clip allows only ~face_inset px of feather past the face, and the board
-		# field behind is already dark — so the shared spread/alpha are compensated here or the
-		# shadow vanishes entirely (measured: <2% pixel delta with the raw shared params).
+	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
+	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
+	# a board tile CLIPS to ~face_inset px of feather over an already-dark field, so the shared
+	# spread/alpha are compensated there or the shadow vanishes (measured: <2% pixel delta with the
+	# raw params); the bag's cells sit unclipped on cream parchment and take the shared look as-is.
+	if bool(opts.get("cell_shadow", true)):
 		var sp: Dictionary = Look.shadow_params(load_config(CONFIG_PATH)).duplicate()
-		sp["spread"] = maxf(float(sp.get("spread", 4.0)), -6.0)
-		sp["alpha"] = maxf(float(sp.get("alpha", 0.2)), 0.3)
+		if flat_board_cells:
+			sp["spread"] = maxf(float(sp.get("spread", 4.0)), -6.0)
+			sp["alpha"] = maxf(float(sp.get("alpha", 0.2)), 0.3)
 		var sh: Panel = Look.shadow_rect(float(corner_px), sp)
 		sh.name = "SlotCellShadow"
 		sh.show_behind_parent = true
@@ -5004,11 +5006,7 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# (no acorn-balance pill: the HUD already carries the acorn counter, and the only price in the dialog
-<<<<<<< Updated upstream
 	# is the next slot's own cost chip. `balance` stays in the signature for the callers/tests.)
-=======
-	# is the next slot's own cost chip. `balance` is kept in the signature for the callers/tests.)
->>>>>>> Stashed changes
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the

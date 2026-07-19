@@ -1106,7 +1106,9 @@ func _test_info_reuses_mail(view) -> void:
 	var mail_foot := Kit.mail_dialog(Kit.DEMO_MAIL, 480.0, {"got_it": "Got it"})
 	var foot := _find_button(mail_foot, "Got it")
 	ok(foot != null, "mail_dialog adds a Got-it footer button when opts.got_it is set")
-	ok(_btn_tex(foot) == cta_tex, "the mail Got-it footer reuses the level cta_button sprite")
+	var foot_paper := foot.find_child("ButtonPaperSurface", true, false) as TextureRect if foot != null else null
+	ok(foot_paper != null and foot_paper.texture == cta_paper.texture, \
+		"the mail Got-it footer reuses the cta_button atom (same paper)")
 
 	# 3. mail_card — an info-style entry carries a read-only `chip` (icon + amount) and NO Claim button; a
 	#    reward entry still shows its Claim (the existing inbox path is unchanged).

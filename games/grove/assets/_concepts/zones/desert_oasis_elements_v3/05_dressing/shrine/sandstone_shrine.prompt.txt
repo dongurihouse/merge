@@ -1,0 +1,6 @@
+Use case: stylized-concept.
+Asset type: reusable world object sprite.
+Input images: original Desert Oasis mock for source style/camera/scale; Meadow Sky palette/material board; Meadow Sky farm camera/detail board.
+Primary request: create exactly one small sandstone desert shrine from the original lower-right landmark: a broad two-level stepped sandstone silhouette, small arched doorway, two shallow windows, tiny dome cap; two or three big masses, readable at phone size.
+Style: Meadow Sky + Cut-Paper Playground: friendly matte hand-cut cardstock; broad, rounded low-complexity silhouette; two or three dominant masses; flat base colors with one same-hue shadow plane; subtle paper fiber; fine warm cut edge; no painterly, clay, glossy 3D, sticker outline, or heavy black outline.
+Output: perfectly flat #FF00FF chroma-key background only, generous padding, no floor/sand/vegetation/rocks/scenic base/text/watermark, and no cast/contact shadow.
