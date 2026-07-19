@@ -72,7 +72,6 @@ const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales f
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
 const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
 const BOARD_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_board.png"
-const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
@@ -294,6 +293,8 @@ func _ready() -> void:
 	# centre info bar — its name, an info button that opens the Tiers ladder, and a trashcan that sells it
 	# for coins when it's a deletable (non-generator) item. Selling moved here from the old drag-to-merchant
 	# well. Bag stays a drag-to-stash target; Home returns to the Map.
+	# The row holder itself is TRANSPARENT: the Home and Bag tiles are free-standing paper tiles at the two
+	# ends, and the painted cream tray is the info bar alone, filling the centre between them.
 	var bar := PanelContainer.new()
 	bar.anchor_left = 0.0
 	bar.anchor_right = 0.0
@@ -310,8 +311,7 @@ func _ready() -> void:
 	bar.offset_right = _view_size().x - bar_margin
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
-	bar.add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
-	ActionBar.apply_paper_surface(bar, bottom_bar_h)
+	bar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	bar.set_meta("shared_action_tray", true)
 	add_child(bar)
 	bottom_bar = bar
@@ -320,7 +320,7 @@ func _ready() -> void:
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 0)
+	row.add_theme_constant_override("separation", ActionBar.well_gap(bottom_btn_px))
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.add_child(ActionBar.content_host(row, bottom_bar_h, action_opts))
 	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, false)
@@ -1583,13 +1583,14 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 	for child in row.get_children():
 		row.remove_child(child)
 		child.queue_free()
-	home_btn = _home_nav_button(bottom_btn_px, action_opts)     # left: the Home disc (lit when a spot is affordable)
+	row.add_theme_constant_override("separation", ActionBar.well_gap(bottom_btn_px))
+	home_btn = _home_nav_button(bottom_btn_px, action_opts)     # left: the Home tile, OUTSIDE the info tray
 	row.add_child(home_btn)
-	row.add_child(ActionBar.separator(bottom_btn_px, "ActionBarSeparatorHomeInfo"))
-	row.add_child(ActionBar.offset_slot(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), \
-		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))  # centre: the selected-item info bar
-	row.add_child(ActionBar.separator(bottom_btn_px, "ActionBarSeparatorInfoBag"))
-	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag well + the x/y count
+	# centre: the painted cream tray, holding the selected-item info bar and nothing else
+	row.add_child(ActionBar.offset_slot( \
+		ActionBar.info_tray(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), bottom_bar_h, action_opts), \
+		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))
+	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag tile, OUTSIDE the info tray
 	if preserve_selection and prior_selection.x >= 0 and board != null:
 		if board.is_gen(prior_selection):
 			_select_generator(prior_selection)
@@ -1615,8 +1616,7 @@ func _relayout_action_bar() -> void:
 	bottom_bar.offset_right = _view_size().x - bar_margin
 	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bottom_bar.offset_bottom = -14.0 - sb_inset
-	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", ActionBar.bar_style(bottom_bar_h, action_opts))
-	ActionBar.apply_paper_surface(bottom_bar, bottom_bar_h)
+	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var row := bottom_bar.find_child("ActionBarRow", true, false) as HBoxContainer
 	if row != null:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1697,13 +1697,6 @@ func _quest_row_h_px() -> float:
 	# Cards pack to fit the WIDTH (see _rebuild_givers), so the band height no longer keys off width.
 	return clampf(roundf(_view_size().y * frac), QUEST_H_MIN, QUEST_H_MAX)
 
-func _info_bar_w_px() -> float:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return maxf(1.0, roundf(_view_size().x * 0.70))
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	return maxf(1.0, roundf(_view_size().x * float(layout.get("info_bar_w_frac", 0.70))))
-
 func _view_size() -> Vector2:
 	if is_inside_tree():
 		var v := get_viewport_rect().size
@@ -1738,12 +1731,9 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
 	pill.name = "ActionBarInfoBar"
-	var tray_pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-	# The bar insets to the board's side margins, so the flexible middle (this pill) gives back that same
-	# width — the two fixed end buttons then sit flush to the board's edges instead of overflowing the bar.
-	var info_w := _info_bar_w_px() - 2.0 * _tray_side_margin_px()
-	pill.custom_minimum_size.x = maxf(1.0, info_w - ActionBar.separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
-	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pill.custom_minimum_size.x = 1.0
+	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pill.add_theme_stylebox_override("panel", ActionBar.info_bar_frame(opts))
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)

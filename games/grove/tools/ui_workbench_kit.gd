@@ -4384,14 +4384,13 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	sell_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sell_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge_col.add_child(sell_count)
-	# the badge wears the game's STANDARD green primary-CTA fill (Pal.BTN_PRIMARY) — the same leaf-green pill
-	# Look.button(primary) uses — so the bottom bar speaks one button language. (Previously the green dressed
-	# the whole button; now it's only the badge, with "Sell" sitting above it on the bar surface.)
+	# the badge wears the palette's ALERT red (Pal.ACCENT_ALERT — the same clay Look.button(danger) uses), so
+	# Sell reads as the destructive action and stays distinct from the green Buy/Burst chips beside it.
 	var badge := PanelContainer.new()
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ts := StyleBoxFlat.new()
-	ts.bg_color = Pal.BTN_PRIMARY
-	ts.border_color = Pal.BTN_PRIMARY_EDGE
+	ts.bg_color = Pal.ACCENT_ALERT
+	ts.border_color = Pal.ACCENT_ALERT.darkened(0.22)
 	ts.set_corner_radius_all(int(opts.get("sell_badge_radius", 10)))   # a softer rounded-rect, not the full pill
 	ts.set_border_width_all(Tune.BTN_BORDER_W)
 	ts.shadow_color = Color(0, 0, 0, 0.16)                             # very minimal lift (was the heavy SHADOW_RAISED)

@@ -38,15 +38,20 @@ func _initialize() -> void:
 	ok(ss.home_btn != null and is_instance_valid(ss.home_btn) and vp.encloses(ss.home_btn.get_global_rect()), \
 		"S1: the Home button sits fully on-screen")
 	ok(ss.bottom_bar is PanelContainer and bool(ss.bottom_bar.get_meta("shared_action_tray", false)), \
-		"S1: the bottom action bar paints one shared extended tray background")
-	var tray_sb: StyleBox = ss.bottom_bar.get_theme_stylebox("panel")
+		"S1: the bottom action bar hosts the shared Home · info tray · Bag row")
+	var info_tray := ss.bottom_bar.find_child("ActionBarInfoTray", true, false) as PanelContainer
+	var tray_sb: StyleBox = info_tray.get_theme_stylebox("panel") if info_tray != null else null
 	var tray_tex: Texture2D = (tray_sb as StyleBoxTexture).texture if tray_sb is StyleBoxTexture else null
 	var tray_tex_path := String(tray_tex.resource_path) if tray_tex != null else ""
 	ok((tray_sb is StyleBoxTexture or tray_sb is StyleBoxFlat) and not tray_tex_path.ends_with("badge_rect.png"), \
-		"S1: the bottom action bar uses the board's code-drawn frame, not the old button badge art")
+		"S1: the centre info tray uses the board's code-drawn frame, not the old button badge art")
 	var action_seps: Array = ss.bottom_bar.find_children("ActionBarSeparator*", "TextureRect", true, false)
-	ok(action_seps.size() == 2, \
-		"S1: the shared action tray uses separators between Bag, Info, and Home")
+	ok(action_seps.is_empty(), \
+		"S1: the bottom bar has no painted vertical dividers")
+	ok(info_tray != null \
+		and not info_tray.get_global_rect().intersects(ss.home_btn.get_global_rect()) \
+		and not info_tray.get_global_rect().intersects(ss.bag_btn.get_global_rect()), \
+		"S1: the Home and Bag tiles sit OUTSIDE the centre info tray")
 	ok(ss.home_btn.has_meta("icon_px") and ss.bag_btn.has_meta("icon_px") \
 			and absf(float(ss.home_btn.get_meta("icon_px")) - float(ss.bag_btn.get_meta("icon_px"))) < 0.01, \
 			"S1: the board Home and Bag icons use the same size")
@@ -81,8 +86,8 @@ func _initialize() -> void:
 	ok(ss._decorate_target() == "barn", "Home/Decorate target the LAST played map, not the hub")
 	Save.grove().erase("last_map")
 	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
-	# the Bag well remains the same hit target, but its own frame is transparent now: the shared
-	# action tray behind it is the only painted background.
+	# the Bag well remains the same hit target, and its Button frame stays transparent: the paper tile
+	# it paints comes from the shared home_button surface, not a theme stylebox.
 	var bag_sb: StyleBox = ss.bag_btn.get_theme_stylebox("normal")
 	ok(bag_sb is StyleBoxEmpty, \
 		"S1: the bag well leaves the shared action tray as the only painted background")
