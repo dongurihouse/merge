@@ -1,0 +1,22 @@
+Use case: precise-object-edit
+Asset type: shippable portrait mobile-game board-view palette study
+Input image: Image 1 is the edit target.
+Primary request: Recolor Image 1 into Palette A — MEADOW SKY, a calmer Cut-Paper Playground color system. This is a controlled color-and-material edit, not a redesign.
+Change only: large-area colors, panel/card surface tints, paper cut-edge treatment, and shadow intensity.
+Preserve exactly: 931x1690 portrait framing and crop; every UI element's position, size, silhouette and spacing; the star level badge; three resource pills and numbers; all three resident characters and their requested flowers; reward values; the entire 7x7 board geometry; every locked/open cell; every gameplay item and its position; the “Soft Feather” information strip; all five bottom navigation tabs, icons and labels; all existing text and numbers verbatim. Do not add, remove, move, redraw, or replace any object.
+Cut-Paper Playground definition: friendly matte hand-cut colored paper, limited base inks, subtle local paper fiber, quiet structural layers, vivid color reserved for playable items and feedback. One consistent upper-left light source.
+Palette role mapping:
+- full-screen page background #6FA9C0
+- board frame/well #3F6D7D
+- open playable cells #A8D3B9
+- locked cells #8296AF with darker same-hue acorn lock glyphs
+- cream cards/pills/info surfaces #F6EBDD
+- ink/text #243B4B
+- primary/selected action green #5F9B6D
+- coral accent #D87865
+- reward gold #D6A94C
+- story purple #8677A3
+- tinted shadow #294654 at about 18–20% opacity
+Color hierarchy: keep large backgrounds and structural chrome moderately saturated; retain the existing gameplay items as the highest-chroma elements. Resident-card panels become soft tints of coral, sky, and purple rather than fully saturated slabs. Bottom navigation uses related softly tinted paper surfaces, with the selected Board tab receiving the strongest green accent. Avoid equal-strength rainbow tabs.
+Materials: matte cardstock, only 2–4% visible fiber/value texture. Replace thick universal white sticker outlines with a fine warm cut edge and a thin locally darker paper edge; visible cream backing only where a piece is literally layered. Panel shadows 4–6 px down-right with soft blur; tile shadows 3–4 px, both much lighter than Image 1.
+Constraints: preserve text legibility and exact wording; no new decoration, no extra badges, no layout changes, no crop changes, no watermark. Do not turn the image pastel or monochrome. The final should remain colorful, friendly, tactile and energetic, but calmer than Image 1.
