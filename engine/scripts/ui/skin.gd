@@ -246,9 +246,7 @@ static func kit_panel(kind: String) -> StyleBox:
 			sb.set_corner_radius_all(Tune.RADIUS_CARD)
 			sb.set_border_width_all(Tune.PLANK_BORDER_W)
 			sb.border_color = Pal.PLANK_EDGE
-			sb.shadow_color = Tune.SHADOW_RESTING
-			sb.shadow_size = Tune.SHADOW_RESTING_SIZE
-			sb.shadow_offset = Tune.SHADOW_RESTING_OFFSET
+			apply_box_shadow(sb)
 			sb.content_margin_left = Tune.PLANK_PAD_X
 			sb.content_margin_right = Tune.PLANK_PAD_X
 			sb.content_margin_top = Tune.PLANK_PAD_Y
@@ -258,9 +256,7 @@ static func kit_panel(kind: String) -> StyleBox:
 			sb.set_corner_radius_all(Tune.RADIUS_CARD)
 			sb.set_border_width_all(Tune.PARCH_BORDER_W)
 			sb.border_color = Pal.BARK
-			sb.shadow_color = Tune.SHADOW_RAISED
-			sb.shadow_size = Tune.SHADOW_RAISED_SIZE
-			sb.shadow_offset = Tune.SHADOW_RAISED_OFFSET
+			apply_box_shadow(sb)
 			sb.content_margin_left = Tune.PARCH_PAD_X
 			sb.content_margin_right = Tune.PARCH_PAD_X
 			sb.content_margin_top = Tune.PARCH_PAD_T
@@ -312,8 +308,7 @@ static func title_ribbon(text: String, font_px: int = Tune.TITLE_SIZE) -> PanelC
 	sb.set_corner_radius_all(Tune.TITLE_RADIUS)
 	sb.set_border_width_all(Tune.TITLE_BORDER_W)
 	sb.border_color = Color(Pal.PILL_EDGE, Tune.TITLE_EDGE_ALPHA)
-	sb.shadow_color = Tune.TITLE_SHADOW
-	sb.shadow_size = Tune.TITLE_SHADOW_SIZE
+	apply_box_shadow(sb)
 	sb.content_margin_left = Tune.TITLE_PAD_X
 	sb.content_margin_right = Tune.TITLE_PAD_X
 	sb.content_margin_top = Tune.TITLE_PAD_T
@@ -372,15 +367,8 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 		b.add_theme_color_override("font_hover_color", Pal.INK)
 	s.set_corner_radius_all(Tune.BTN_RADIUS)
 	s.set_border_width_all(Tune.BTN_BORDER_W)
-	# Sticker shadow tier: a primary CTA FLOATS (raised); a secondary RESTS.
-	if primary:
-		s.shadow_color = Tune.SHADOW_RAISED
-		s.shadow_size = Tune.SHADOW_RAISED_SIZE
-		s.shadow_offset = Tune.SHADOW_RAISED_OFFSET
-	else:
-		s.shadow_color = Tune.SHADOW_RESTING
-		s.shadow_size = Tune.SHADOW_RESTING_SIZE
-		s.shadow_offset = Tune.SHADOW_RESTING_OFFSET
+	# ONE shadow (the saved workbench block) — no raised/resting tiers.
+	apply_box_shadow(s)
 	s.content_margin_left = Tune.BTN_PAD_X
 	s.content_margin_right = Tune.BTN_PAD_X
 	s.content_margin_top = Tune.BTN_PAD_T
@@ -391,7 +379,7 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 	# a raised button drops toward the surface, a resting one stays low.
 	var sp := s.duplicate()
 	sp.bg_color = s.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
-	sp.shadow_color = Tune.SHADOW_RESTING
+	sp.shadow_color = shadow_color(float(saved_shadow_params().alpha))
 	sp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
 	sp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
 	b.add_theme_stylebox_override("pressed", sp)
@@ -451,9 +439,7 @@ static func card_button(min_size: Vector2, art: String = "kit/shop_card.png") ->
 	s.set_corner_radius_all(TuneShop.CARD_RADIUS)
 	s.set_border_width_all(TuneShop.CARD_BORDER_W)
 	s.border_color = Color(Pal.BARK, TuneShop.CARD_EDGE_ALPHA)
-	s.shadow_color = TuneShop.CARD_SHADOW
-	s.shadow_size = TuneShop.CARD_SHADOW_SIZE
-	s.shadow_offset = TuneShop.CARD_SHADOW_OFFSET
+	apply_box_shadow(s)
 	b.add_theme_stylebox_override("normal", s)
 	b.add_theme_stylebox_override("hover", s)
 	var sp: StyleBoxFlat = s.duplicate()
@@ -637,24 +623,36 @@ static func shadow_params(cfg: Dictionary) -> Dictionary:
 		"alpha":    clampf(float(s.get("alpha", SHADOW_DEFAULTS.alpha)) / 100.0, 0.0, 1.0),
 	}
 
+## THE SAVED shadow block — the workbench Shadow item's sliders, persisted to the kit config.
+## EVERY shadow path resolves through this, so tuning + saving in the workbench restyles the
+## whole game on next build; SHADOW_DEFAULTS is only the absent-config/kit fallback.
+static func saved_shadow_params() -> Dictionary:
+	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return shadow_params({})
+	return shadow_params(Kit.load_config(Kit.CONFIG_PATH))
+
 ## Re-point an existing shared-shadow Panel at a new element corner radius — for elements whose
 ## corner is derived at relayout time (the unlock strip), so the shadow's rounding always matches.
 static func set_shadow_corner(sh: Panel, corner: float) -> void:
 	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
 	if sb != null:
-		sb.set_corner_radius_all(int(maxf(corner + SHADOW_DEFAULTS.spread, 0.0)))
+		sb.set_corner_radius_all(int(maxf(corner + float(saved_shadow_params().spread), 0.0)))
 
 ## How far THE uniform shadow reaches below an element's bottom edge (cast + feather + spread) —
 ## clipping ancestors (ScrollContainers) must leave this much room or the cast is sliced off flat.
 static func shadow_bottom_reach() -> float:
-	return SHADOW_DEFAULTS.offset_y + SHADOW_DEFAULTS.blur + SHADOW_DEFAULTS.spread
+	var p := saved_shadow_params()
+	return float(p.offset_y) + float(p.blur) + float(p.spread)
 
 ## Stamp THE uniform shadow onto a StyleBoxFlat — for elements whose chrome is a native StyleBox
-## (buttons, framed panels) rather than a behind-panel. Same numbers, same tint, one look.
+## (buttons, framed panels) rather than a behind-panel. Reads the SAVED workbench block, so the
+## Shadow item drives these too. (StyleBox natives have no spread knob — spread is behind-panel only.)
 static func apply_box_shadow(sb: StyleBoxFlat) -> void:
-	sb.shadow_color = shadow_color(SHADOW_DEFAULTS.alpha / 100.0)
-	sb.shadow_size = int(SHADOW_DEFAULTS.blur)
-	sb.shadow_offset = Vector2(SHADOW_DEFAULTS.offset_x, SHADOW_DEFAULTS.offset_y)
+	var p := saved_shadow_params()
+	sb.shadow_color = shadow_color(float(p.alpha))
+	sb.shadow_size = int(float(p.blur))
+	sb.shadow_offset = Vector2(float(p.offset_x), float(p.offset_y))
 
 ## A RECTANGULAR shared shadow behind an element of corner radius `corner`. `p` is shadow_params().
 static func shadow_rect(corner: float, p: Dictionary) -> Panel:

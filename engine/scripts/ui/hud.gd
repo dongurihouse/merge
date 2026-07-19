@@ -354,8 +354,7 @@ static func _build_home_chip(left: HBoxContainer, opts: Dictionary) -> Button:
 	sb.set_corner_radius_all(Tune.PILL_RADIUS)
 	sb.set_border_width_all(Tune.PILL_BORDER_W)
 	sb.border_color = Tune.PILL_BORDER
-	sb.shadow_color = Tune.PILL_SHADOW
-	sb.shadow_size = Tune.PILL_SHADOW_SIZE
+	Look.apply_box_shadow(sb)
 	sb.content_margin_left = Tune.PILL_PAD_Y          # square padding → a round chip
 	sb.content_margin_right = Tune.PILL_PAD_Y
 	sb.content_margin_top = Tune.PILL_PAD_Y
