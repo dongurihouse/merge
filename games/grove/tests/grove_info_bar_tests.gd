@@ -19,8 +19,8 @@ func _node_texture_path(node: Node) -> String:
 	return ""
 
 func _test_meadow_shared_components() -> void:
-	# cream / danger keep their baked nine-patch shells …
-	for spec in [["cream", "button_secondary.png"], ["danger", "button_danger.png"]]:
+	# danger keeps its baked nine-patch shell …
+	for spec in [["danger", "button_danger.png"]]:
 		var button := Kit.pill_button("Action", {"bg": spec[0], "art": true})
 		var style := button.get_theme_stylebox("normal")
 		ok(style is StyleBoxTexture and _resource_suffix(_button_shell(button), "ui/meadow_v2/%s" % spec[1]),
@@ -31,6 +31,20 @@ func _test_meadow_shared_components() -> void:
 		ok(button.text == "Action" and button.mouse_filter != Control.MOUSE_FILTER_IGNORE,
 			"pill_button %s retains native text and its hit target" % spec[0])
 		button.free()
+	# … while CREAM is now the flat paper-cut surface too — texture_cream masked to the button's rounded
+	# rect and drawn BEHIND the label — so a cream chip and a green Claim read as cut from the same paper.
+	var cream := Kit.pill_button("Action", {"bg": "cream", "art": true})
+	var cream_style := cream.get_theme_stylebox("normal")
+	var cream_paper := cream.find_child("ButtonPaperSurface", true, false) as TextureRect
+	ok(cream_paper != null and _resource_suffix(cream_paper.texture, "ui/meadow_v2/texture_cream.png") \
+		and cream_paper.material is ShaderMaterial and cream_paper.show_behind_parent,
+		"pill_button cream wears the flat cream paper, masked and drawn behind its label")
+	ok(cream_style is StyleBoxFlat and not (cream_style as StyleBoxFlat).draw_center \
+		and (cream_style as StyleBoxFlat).get_corner_radius(CORNER_TOP_LEFT) > 0,
+		"the cream button's stylebox contributes only the rounded edge — the paper is the fill")
+	ok(cream.text == "Action" and cream.mouse_filter != Control.MOUSE_FILTER_IGNORE,
+		"pill_button cream retains native text and its hit target")
+	cream.free()
 	# … while GREEN (the primary action role) is the flat paper-cut surface: the action-green paper
 	# masked to the button's rounded rect, drawn BEHIND the button's own text, plus a drop shadow.
 	var green := Kit.pill_button("Action", {"bg": "green", "art": true})

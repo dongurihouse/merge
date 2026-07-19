@@ -869,29 +869,24 @@ static func reward_chip(reward: Dictionary, btn_opts: Dictionary = {}) -> Contro
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(l)
 		col.add_child(cell)
+	# The multi-currency stack rides the SAME flat cream paper-cut as the single pill_button cream chip
+	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer) — the baked mail_pill_cream.png
+	# glossy shell is retired for it, so every cream chip beside a green Claim reads as cut from one paper.
 	var frame := PanelContainer.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var made := false
-	if bool(btn_opts.get("art", false)):
-		var tex := clean_tex_path(Look.kit("kit/mail_pill_cream.png"), 256)   # cream by role (not the badge)
-		if tex != null:
-			var stx := StyleBoxTexture.new()
-			stx.texture = tex
-			stx.content_margin_left = 18; stx.content_margin_right = 18
-			stx.content_margin_top = 8; stx.content_margin_bottom = 9
-			frame.add_theme_stylebox_override("panel", stx)
-			made = true
-	if not made:
-		var cf := StyleBoxFlat.new()
-		cf.bg_color = Pal.CREAM
-		cf.border_color = Pal.STRAW
-		cf.set_corner_radius_all(int(btn_opts.get("corner", 16)))
-		cf.set_border_width_all(2)
-		cf.content_margin_left = 14; cf.content_margin_right = 14
-		cf.content_margin_top = 7; cf.content_margin_bottom = 8
-		frame.add_theme_stylebox_override("panel", cf)
+	var chip_corner := int(btn_opts.get("corner", 16))
+	var cf := StyleBoxFlat.new()
+	cf.bg_color = Pal.CREAM
+	cf.border_color = PAPER_EDGE
+	cf.set_corner_radius_all(chip_corner)
+	cf.set_border_width_all(1)
+	cf.anti_aliasing = true
+	cf.content_margin_left = 16; cf.content_margin_right = 16
+	cf.content_margin_top = 7; cf.content_margin_bottom = 8
+	frame.add_theme_stylebox_override("panel", cf)
 	frame.add_child(col)
+	apply_rounded_paper_panel_surface(frame, "RewardChipPaper", "texture_cream.png", float(chip_corner), 2.0)
 	return frame
 
 ## (The old nine-patch claim_button was REMOVED — the mail Claim is now the shared pill_button below,
@@ -1438,6 +1433,12 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var border_px := float(opts.get("border", 1.0))
 	var primary := bg == "green"
 	var danger := bg == "danger"
+	# The CREAM role is now a flat paper-cut surface BY DEFAULT — the same construction as the green CTA,
+	# so a cream chip and a green Claim read as cut from the same paper (the baked button_secondary.png
+	# glossy pill is retired for it). A caller that still wants the nine-patch shell passes an explicit
+	# `art_rel`; danger keeps its shell.
+	if not primary and not danger and paper_role == "" and String(opts.get("art_rel", "")) == "":
+		paper_role = "cream"
 	var fill: Color = Pal.BTN_PRIMARY if primary else (Pal.ACCENT_ALERT if danger else Pal.CREAM)
 	var edge: Color = Pal.BTN_PRIMARY_EDGE if primary else (Pal.ACCENT_ALERT.darkened(0.22) if danger else Pal.STRAW)
 	var ink: Color = Pal.CREAM if primary or danger else Pal.INK
