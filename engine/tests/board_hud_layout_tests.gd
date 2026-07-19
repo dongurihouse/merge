@@ -113,8 +113,9 @@ func _initialize() -> void:
 		"board fits vertically above the bottom bar at every aspect")
 
 	# Portrait screens fill (most of) the width: the board is width-governed, occupying nearly the whole
-	# screen width (a small height-cap margin is allowed once the bottom-anchored bands take their room).
-	ok(m1080.board_total_w >= m1080.view.x * 0.92 and mtall.board_total_w >= mtall.view.x * 0.92, \
+	# screen width (a small height-cap margin is allowed once the bottom-anchored bands take their room;
+	# the NEXT UNLOCK strip under the HUD — UI redesign direction B — widened that margin a step).
+	ok(m1080.board_total_w >= m1080.view.x * 0.88 and mtall.board_total_w >= mtall.view.x * 0.88, \
 		"board fills (most of) the screen width on portrait screens")
 
 	# Quest band height now scales with screen HEIGHT (taller screens → taller band, absorbing spare

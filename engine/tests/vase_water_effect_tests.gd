@@ -1,5 +1,5 @@
 extends SceneTree
-## Headless tests for the acorn-vase water FX component and the board purge card.
+## Headless tests for the acorn-vase water FX component and the board's NEXT UNLOCK strip.
 ##   godot --headless --path . -s res://engine/tests/vase_water_effect_tests.gd
 
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
@@ -173,66 +173,60 @@ func _initialize() -> void:
 				"vase water scene contains the animated vase water effect")
 			vase_scene.queue_free()
 
-	fresh("purge_card")
-	var first_unlock := G.coins_at_level(2)      # the vase is the level bar on the coin clock now
+	fresh("unlock_bar")
+	var first_unlock := G.coins_at_level(2)      # the strip is the level bar on the coin clock
 	Save.grove()["coins_earned"] = int(first_unlock / 2)
 	Save.grove_write()
 	var board := BoardScene.new()
-	var purge_card := board._make_purge_card(360.0)
-	var purge_vase := purge_card.find_child("PurgeVaseWater", true, false) as VaseWaterEffect
-	var percent_label := _find_label(purge_card, "PurgeProgressLabel")
-	ok(purge_vase != null, "purge card contains the vase water animation")
-	if purge_vase != null:
-		ok(absf(purge_vase.progress_for_test() - 0.5) < 0.06, "purge vase initializes from exp progress")
-		var lay: Dictionary = board._giver_lay()
-		var card_h := purge_card.custom_minimum_size.y * float(lay.get("card_h", 1.0))
-		ok(purge_vase.size.y >= card_h * 0.96, "purge vase is full height inside the card slot")
-		var slot_h := purge_card.custom_minimum_size.y
-		ok(purge_vase.size.y >= slot_h * 0.96, "purge vase fills the whole Purge slot height")
-		ok(purge_vase.position.y <= slot_h * 0.02, "purge vase starts at the top of the Purge slot")
-		# The jar card now HUGS the vase: the old layout left a wide dead strip on the vase's right (the
-		# card was a full giver-card width and the vase aligned under the level badge's drop source) — that
-		# badge is gone from the board, so the card is trimmed to the vase's right edge plus a small pad.
-		var purge_vase_right := purge_vase.position.x + purge_vase.size.x
-		var expected_card_w := purge_vase_right + board._fence_h * board.JAR_RIGHT_PAD_FRAC
-		ok(absf(purge_card.custom_minimum_size.x - expected_card_w) < 0.5,
-			"purge (jar) card width hugs the vase's right edge plus a small pad")
-		var right_pad := purge_card.custom_minimum_size.x - purge_vase_right
-		ok(right_pad <= purge_vase.size.x * 0.12,
-			"the jar's right padding is small (hugs the vase, not a wide dead strip)")
-		ok(not purge_vase.show_shadow, "the board jar draws no contact shadow")
-		if purge_vase.has_method("visible_vase_rect_for_test"):
-			var purge_visible_rect: Rect2 = purge_vase.call("visible_vase_rect_for_test")
-			ok(purge_visible_rect.size.y >= purge_vase.size.y * 0.96, "visible purge vase art fills the whole slot height")
-		ok(purge_card.modulate == Color.WHITE, "not-ready purge card keeps the vase full color")
-		ok(purge_vase.modulate == Color.WHITE, "not-ready purge vase is not locally faded")
-	ok(percent_label != null and percent_label.text == "50%", "purge card shows readable percent progress")
-	if purge_vase != null and percent_label != null:
-		var vase_rect := _control_rect(purge_vase)
-		var label_rect := _control_rect(percent_label)
-		ok(vase_rect.has_point(label_rect.get_center()), "purge percent label is centered inside the vase")
-	ok(not _has_label_text(purge_card, str(Save.exp_total())), "purge card removes the old star count label")
-	ok(not _has_card_frame(purge_card), "purge card removes the old framed background")
-	ok(not _has_button(purge_card), "purge card replaces the text CTA button with the vase")
-	purge_card.free()
+	board._build_unlock_bar()
+	var bar: Control = board._unlock_bar
+	ok(bar != null and bar.name == "NextUnlockBar", "board builds the NEXT UNLOCK strip")
+	if bar != null:
+		bar.size = Vector2(900.0, 120.0)   # force a concrete layout off-tree
+		bar._relayout()
+		ok(bar.visible, "the strip shows while the zone arc still runs")
+		ok(absf(bar.progress_for_test() - 0.5) < 0.06, "strip fill initializes from the coin-clock progress")
+		var percent_label := _find_label(bar, "UnlockPct")
+		ok(percent_label != null and percent_label.text == "50%", "strip shows readable percent progress")
+		var level_label := _find_label(bar, "UnlockLevel")
+		ok(level_label != null and level_label.text.to_upper().contains("2"),
+			"strip names the NEXT level it unlocks")
+		var title_label := _find_label(bar, "UnlockTitle")
+		ok(title_label != null and title_label.text == title_label.text.to_upper(),
+			"strip title reads as the mock's caps NEXT UNLOCK")
+		var badge := bar.find_child("UnlockBadge", true, false) as TextureRect
+		ok(badge != null and badge.texture != null, "strip carries the lock-flower badge art")
+		var track := bar.find_child("UnlockTrack", true, false) as Control
+		var fill := bar.find_child("UnlockFill", true, false) as Control
+		ok(track != null and fill != null, "strip has a track and a fill bar")
+		if track != null and fill != null:
+			ok(absf(fill.size.x - track.size.x * 0.5) <= track.size.y,
+				"fill width tracks the 50% progress")
+			ok(fill.size.x < track.size.x, "half progress leaves visible empty track")
+			ok(track.position.x > 0.0 and track.position.x + track.size.x <= bar.size.x,
+				"track sits inside the strip")
+		ok(bar.mouse_filter == Control.MOUSE_FILTER_STOP, "the whole strip is the Home tap target")
+		bar.set_progress(1.0)
+		ok(percent_label != null and percent_label.text == "100%", "full progress reads 100%")
+		if track != null and fill != null:
+			ok(absf(fill.size.x - track.size.x) < 1.0, "full progress fills the whole track")
 	board.free()
 	await process_frame
 
-	fresh("purge_debug_progress")
+	fresh("unlock_bar_debug_progress")
 	var debug_board := BoardScene.new()
-	var debug_card := debug_board._make_purge_card(360.0)
-	root.add_child(debug_card)
+	debug_board._build_unlock_bar()
+	var debug_bar: Control = debug_board._unlock_bar
+	debug_board.remove_child(debug_bar)
+	root.add_child(debug_bar)             # in-tree so animate_progress_to can tween
 	await process_frame
-	var debug_vase := debug_card.find_child("PurgeVaseWater", true, false) as VaseWaterEffect
-	var before_progress: float = debug_vase.progress_for_test() if debug_vase != null else 0.0
+	var before_progress: float = debug_bar.progress_for_test()
 	debug_board.debug_add_progress(5)
 	for i in 20:
 		await process_frame
 	ok(Save.coins_earned_lifetime() == 5, "debug board progress gain credits the coin clock without scene reload")
-	if debug_vase != null:
-		ok(debug_vase.progress_for_test() > before_progress, "debug board progress gain fills the visible purge vase")
-		ok(not bool(debug_vase.drop_state_for_test().visible), "debug board progress gain does not show the quest droplet")
-	debug_card.free()
+	ok(debug_bar.progress_for_test() > before_progress, "debug board progress gain fills the visible strip")
+	debug_bar.free()
 	debug_board.free()
 	await process_frame
 

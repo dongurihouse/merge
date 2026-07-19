@@ -43,6 +43,9 @@
 		"purge": {
 			"cta": "Purge"
 		},
+		"unlock": {
+			"next": "Next Unlock"
+		},
 		"refill": {
 			"free": "Rain ☔ free refill",
 			"paid": "Rain ☔ %d🌰",
