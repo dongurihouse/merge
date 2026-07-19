@@ -2315,6 +2315,13 @@ static func _title_header(text: String, font: int, band_h: float, width: float) 
 	lbl.add_theme_font_size_override("font_size", font)
 	lbl.add_theme_color_override("font_color", Pal.INK)
 	lbl.add_theme_constant_override("outline_size", 0)
+	# BURN-IN DEBOSS — the shared dialog title reads as pressed into the parchment: a low-alpha warm-dark
+	# shadow nudged a hair down/right (the same technique the daily day-labels use in login.gd::_cell_label,
+	# scaled to THIS title's font size so every dialog matches).
+	lbl.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45))
+	lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(font * 0.05)))
+	lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(font * 0.07)))
+	lbl.add_theme_constant_override("shadow_outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_child(lbl)
 	return header
