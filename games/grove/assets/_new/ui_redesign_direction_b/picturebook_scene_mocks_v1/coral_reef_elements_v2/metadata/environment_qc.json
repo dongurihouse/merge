@@ -1,0 +1,86 @@
+{
+  "asset": "../01_environment/coral_reef_environment_v2.png",
+  "raw_asset": "../01_environment/coral_reef_environment_v2_raw.png",
+  "edit_target": "../00_source/coral_reef_reference.png",
+  "canvas": {
+    "width": 1320,
+    "height": 2346,
+    "mode": "RGB",
+    "opaque": true
+  },
+  "raw_canvas": {
+    "width": 941,
+    "height": 1672,
+    "mode": "RGB",
+    "untouched_generation": true
+  },
+  "normalization": {
+    "operation": "RGB conversion and deterministic Lanczos resize only",
+    "source_size": [941, 1672],
+    "target_size": [1320, 2346]
+  },
+  "shelf_measurement": {
+    "method": "Manual visual measurement on the final 1320 x 2346 plate. Usable width is the clear contiguous prop-contact span inside the ledge silhouette, excluding edge rolloff and large blocking boulders; it is not the full decorative ledge width.",
+    "shelves": {
+      "upper_left_coral": {
+        "target_px": {"minimum": 500},
+        "measured_usable_width_px": 560,
+        "pass": true
+      },
+      "mid_left_chest": {
+        "target_px": {"minimum": 300, "maximum": 340},
+        "measured_usable_width_px": 330,
+        "pass": true
+      },
+      "lower_left_clam": {
+        "target_px": {"minimum": 450, "maximum": 500},
+        "measured_usable_width_px": 470,
+        "pass": true
+      },
+      "upper_right_anemone": {
+        "target_px": {"minimum": 300, "maximum": 340},
+        "measured_usable_width_px": 335,
+        "pass": true
+      },
+      "mid_right_statue": {
+        "target_px": {"minimum": 340, "maximum": 380},
+        "measured_usable_width_px": 365,
+        "pass": true
+      },
+      "lower_right_kelp": {
+        "target": "broad continuous seabed contact zone",
+        "measured_continuous_width_px": 420,
+        "pass": true
+      }
+    },
+    "all_pass": true
+  },
+  "visual_qc": {
+    "removed_subjects": {
+      "sunken_ship_and_mast": true,
+      "coral_garden": true,
+      "anemones": true,
+      "treasure_chest": true,
+      "mermaid_statue": true,
+      "giant_clam_and_pearl": true,
+      "kelp_bed": true
+    },
+    "all_bubbles_removed": true,
+    "canyon_walls_coherent": true,
+    "shelves_attached_to_walls": true,
+    "original_paper_grain_visible": true,
+    "original_muted_palette_retained": true,
+    "center_navigation_floor_open": true,
+    "new_lower_edge_pebbles_estimated_count": 18,
+    "pebbles_irregular_and_edge_weighted": true,
+    "no_uniform_gravel_band": true,
+    "no_ui_text_or_extra_landmarks": true,
+    "pass": true
+  },
+  "hashes_sha256": {
+    "edit_target": "4ec525e584324604c5b2b82e42c0081630c7c66c2bdcbdab2d6c9277489c1a48",
+    "raw_asset": "c841ea14ffc2b456056df895de57cbafafe1ab6a96e7654168fd0ed251805b6e",
+    "final_asset": "d7c28aa97654613026df6d70d1b5c871913caccd9133aaf55f04fa1e397b898e"
+  },
+  "overall_pass": true
+}

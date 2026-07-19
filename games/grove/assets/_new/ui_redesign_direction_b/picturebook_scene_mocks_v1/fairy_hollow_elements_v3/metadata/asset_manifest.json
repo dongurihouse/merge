@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "scene": "fairy_hollow_v3",
+  "visualAssetSource": "existing_assets",
+  "accepted": [
+    {
+      "id": "foundation",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/01_backdrop/foundation/fairy_hollow_foundation_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/01_backdrop/fairy_hollow_floor_only_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/01_backdrop/fairy_hollow_floor_only.prompt.txt",
+      "transparent": false,
+      "requiredSize": [
+        1320,
+        2346
+      ]
+    },
+    {
+      "id": "background_trees",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/01_environment/background_trees/fairy_hollow_background_trees_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/background_trees/background_trees_v2_alpha.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/background_trees/background_trees_v2.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        1320,
+        2346
+      ]
+    },
+    {
+      "id": "midground_foliage",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/01_environment/midground_foliage/fairy_hollow_midground_foliage_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/midground_foliage/midground_foliage_alpha.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/midground_foliage/midground_foliage.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        1320,
+        2346
+      ]
+    },
+    {
+      "id": "foreground_roots",
+      "category": "dressing",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/05_dressing/foreground_roots/fairy_hollow_foreground_roots_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/foreground_roots/foreground_roots_alpha.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/foreground_roots/foreground_roots.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        1320,
+        2346
+      ]
+    },
+    {
+      "id": "toadstool_cottage",
+      "category": "structure",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/03_structures/toadstool_cottage/fairy_hollow_toadstool_cottage_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/toadstool_cottage/toadstool_cottage_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/toadstool_cottage/toadstool_cottage.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        448,
+        444
+      ]
+    },
+    {
+      "id": "wishing_well",
+      "category": "garden_item",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/04_garden_items/wishing_well/fairy_hollow_wishing_well_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/wishing_well/wishing_well_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/wishing_well/wishing_well.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        249,
+        358
+      ]
+    },
+    {
+      "id": "glowing_mushrooms",
+      "category": "garden_item",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/04_garden_items/glowing_mushrooms/fairy_hollow_glowing_mushrooms_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/glowing_mushrooms/glowing_mushrooms_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/glowing_mushrooms/glowing_mushrooms.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        490,
+        308
+      ]
+    },
+    {
+      "id": "firefly_lanterns",
+      "category": "garden_item",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/04_garden_items/firefly_lanterns/fairy_hollow_firefly_lanterns_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/firefly_lanterns/firefly_lanterns_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/firefly_lanterns/firefly_lanterns.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        341,
+        407
+      ]
+    },
+    {
+      "id": "lantern_vines",
+      "category": "dressing",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/05_dressing/lantern_vines/fairy_hollow_lantern_vines_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/lantern_vines/lantern_vines_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/lantern_vines/lantern_vines.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        729,
+        291
+      ]
+    },
+    {
+      "id": "tree_house",
+      "category": "structure",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/03_structures/tree_house/fairy_hollow_tree_house_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/tree_house/tree_house_tight_alpha.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/tree_house/tree_house.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        730,
+        1291
+      ]
+    },
+    {
+      "id": "moon_swing_support",
+      "category": "garden_item",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/04_garden_items/moon_swing/fairy_hollow_moon_swing_support_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/moon_swing/moon_swing_registered_941x1672.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/moon_swing/moon_swing.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        408,
+        168
+      ]
+    },
+    {
+      "id": "moon_swing_seat",
+      "category": "garden_item",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/04_garden_items/moon_swing/fairy_hollow_moon_swing_seat_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/moon_swing/moon_swing_registered_941x1672.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/moon_swing/moon_swing.prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        303,
+        477
+      ]
+    },
+    {
+      "id": "ground_tuft_01",
+      "category": "vegetation",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/05_dressing/vegetation_pack/ground_tuft_01/fairy_hollow_ground_tuft_01_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_well_left_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_foliage_prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        108,
+        55
+      ]
+    },
+    {
+      "id": "ground_tuft_02",
+      "category": "vegetation",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/05_dressing/vegetation_pack/ground_tuft_02/fairy_hollow_ground_tuft_02_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_lantern_left_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_foliage_prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        111,
+        74
+      ]
+    },
+    {
+      "id": "ground_tuft_03",
+      "category": "vegetation",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/05_dressing/vegetation_pack/ground_tuft_03/fairy_hollow_ground_tuft_03_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_well_right_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_foliage_prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        105,
+        64
+      ]
+    },
+    {
+      "id": "ground_tuft_04",
+      "category": "vegetation",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v3/05_dressing/vegetation_pack/ground_tuft_04/fairy_hollow_ground_tuft_04_v3.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_mushrooms_left_registered_1320x2346.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v2/02_layers/contact_foliage/contact_foliage_prompt.txt",
+      "transparent": true,
+      "requiredSize": [
+        111,
+        80
+      ]
+    }
+  ]
+}

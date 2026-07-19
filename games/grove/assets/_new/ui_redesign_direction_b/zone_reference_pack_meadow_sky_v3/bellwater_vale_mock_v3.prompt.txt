@@ -1,0 +1,77 @@
+Use case: stylized-concept
+Asset type: reference-only baked 2D game environment mock; not a runtime layered map
+Primary request: Create Bellwater Vale as a peaceful side-loaded basin for Acorn Forest. Its exclusive signature is: right-edge cropped basin / short diagonal spillway / bent dead-end path / two outer clusters / quiet center.
+
+Input images:
+- Image 1, the Meadow Sky palette study board: authoritative reference for the exact palette, matte cut-cardstock material language, shallow upper-left cast shadows, warm paper edges, and restrained texture.
+- Image 2, the approved working Farm: authoritative reference for camera pitch, portrait framing, object scale, shallow upper-left shadows, matte paper texture, and low environmental detail budget only. Do not reuse the Farm's crossroads, looping paths, garden plots, scattered building arrangement, or repeated coral roofs.
+
+Canvas and viewpoint:
+- Exactly 941 x 1672 pixels, portrait logical canvas, full-bleed environment art with no interface.
+- Preserve the approved Farm's elevated three-quarter top-down camera pitch and readable cozy-game object scale.
+- Show the full zone from boundary to boundary. Keep every principal structure readable at thumbnail scale and safely inside the frame except for the deliberately right-cropped water basin.
+
+Required topology and composition:
+- The middle-right is one large calm millpond basin cropped decisively by the right edge, so the viewer understands that water continues beyond the canvas.
+- A short, broad spill channel leaves only the pond's lower-left corner and runs diagonally down-left, exiting through the lower-left edge. It is a compact spillway, not a river.
+- Water must never form a full-height river, a vertical centerline, a winding S shape, a second pond, or a water loop.
+- One cream-paper path enters at the top-left, bends once toward Bellwater Millhall beside the pond, and ends at the mill. It is a bent dead-end path, not a loop and not a shoreline-following promenade. Add no more than two very short dead-end access spurs; no crossroads, ring, circuit, or branch network.
+- Place the six principal structures exactly once as two compact, uneven outer-third clusters of three: one loose upper-left cluster around the path entrance and one denser lower-right / pond-edge cluster. Do not scatter buildings evenly. Do not place a pavilion or cottage in the visual center.
+- Leave the middle of the canvas quiet and spacious, dominated by open sage meadow plus calm pond water. At least 50% of the entire image must be uninterrupted meadow, path, or water.
+- Use continuous low hedges, soft meadow boundaries, a few low shrubs, sparse flat lilies, and only a few small trees as natural framing. Keep decorations sparse and consolidated; no circular clearing, rectangular building pad, flower ring, garden plot, or building-specific scenic base.
+
+Exactly six principal structures, each with a distinct required thumbnail silhouette:
+1. Bellwater Millhall — squat hall with a bold wedge roof and one oversized flat slate mill wheel; silhouette reads WEDGE-AND-WHEEL. Keep the body to two or three major paper masses and place it at the dead end of the main path next to the millpond.
+2. Welcome Bell Arch — roofless open pi-shaped frame with two independent plain uprights and one lintel holding a single flat gold bell; silhouette reads OPEN FRAME. The path remains visibly open through it.
+3. Millbridge Meeting House — one long, low covered crossing with a shallow chevron roof and simple bankside contacts; silhouette reads LONG CHEVRON. It is an enclosed/railed crossing form, not another four-post shelter.
+4. Lilybell Pavilion — wide diamond canopy on exactly four plain posts; silhouette reads DIAMOND CANOPY. This is the zone's one and only four-post open shelter and the only coral roof plane in the whole image.
+5. Lanternkeeper's Nook — compact slate square body with one oversized flat cream cap; silhouette reads FLAT-CAP SQUARE.
+6. Otter Landing — low receding-blue arch shell attached to one simple straight dock tongue at the pond edge; silhouette reads LOW ARCH-AND-TONGUE.
+- No extra buildings, cottages, sheds, gazebos, arches, docks, shelters, mills, or decorative architecture.
+- Use coral #D87865 as the roof color only on Lilybell Pavilion. No other structure may have a coral, red, orange, or terracotta roof. Coral may appear only as tiny door or awning accents elsewhere.
+
+Style and material:
+- Clean HD 2D game environment illustration made from shallow layered matte cut cardstock, not pixel art and not a 3D render.
+- Fixed Meadow Sky palette only: #6FA9C0, #3F6D7D, #A8D3B9, #8296AF, #F6EBDD, #243B4B, #5F9B6D, #D87865, #D6A94C, #8677A3.
+- Cast shadows use #294654 at approximately 18–20% opacity, short and shallow, consistently cast away from one upper-left light.
+- Subtle 2–4% paper fiber, warm cut edges, broad clean shapes, softly rounded cut-paper contours, and restrained tonal variation.
+- Two or three major architectural masses per building. Consolidate tiny ornaments. Preserve strong, non-overlapping silhouettes and the approved Farm's low detail budget.
+
+Avoid:
+- No UI, top bar, bottom navigation, buttons, labels, lettering, numbers, icons, borders, frames, watermark, or screen chrome.
+- No people, residents, characters, animals, birds, fish, or faces.
+- No white sticker outlines or halos, black outlines, glossy plastic, shine, glassy rendering, neon, watercolor, photorealism, pixel art, or deep stacked paper sculpture.
+- No turf islands, scenic grass skirts, shaped building pads, isolated circular lawns, repeated coral cottages, or building-specific flower/rock bases.
+- No portal-like boundary frame, no second artificial exit edge, and no composition copied from any other zone.
+
+Output intent: A polished reference-only Bellwater Vale scene for pairwise composition QA. The topology must read immediately at thumbnail size as SIDE-LOADED RIGHT BASIN + SHORT DIAGONAL SPILLWAY + BENT DEAD-END PATH + TWO OUTER STRUCTURE CLUSTERS + QUIET CENTER.
+
+FINAL TARGETED STRUCTURAL CORRECTION (authoritative for the accepted v3 image):
+- Treat the current Bellwater PNG as the precise edit target. Change only water continuity and the spacing of the three lower structures; preserve all other scene content, framing, scale, style, and topology.
+- Make the water unmistakably one continuous body: the single large right-edge millpond basin must visibly narrow at its lower-left corner into one short, broad diagonal spillway, remain visibly unbroken as it passes beneath Millbridge Meeting House, and exit through the lower-left edge. Otter Landing must remain on the visibly same continuous basin edge. Remove every land strip, hedge seam, bank closure, or ambiguous gap that makes the upper pond, lower-right water, or lower-left channel read as separate bodies. Do not add a second pond, island, S-river, full-height river, center water spine, or extra channel.
+- Tighten the lower working-water cluster. Move Millbridge Meeting House east/right from its isolated far-left position and place it immediately at the basin-to-spillway neck in the lower outer third. Keep Lilybell Pavilion close beside it on dry meadow and Otter Landing close southeast on the same basin edge. Their centers must occupy one compact lower-third neighborhood around the water junction, not a full-width row. Preserve generous uninterrupted meadow in the center.
+- Preserve exactly six principal structures and every passed silhouette without redesign: upper cluster remains Lanternkeeper's Nook + Welcome Bell Arch + Bellwater Millhall; lower cluster remains long-chevron Meeting House + the one coral diamond-canopy four-post Pavilion + low arch-and-tongue Otter Landing. Do not add, remove, duplicate, recolor, or restyle structures.
+- Preserve the top-left path entering through the Bell Arch, bending once, and ending at Millhall; no loop, shoreline promenade, crossroads, or branch network. Preserve the single coral roof, one four-post shelter maximum, fixed Meadow Sky palette, approved Farm camera pitch and object scale, matte shallow cut-cardstock material, upper-left light and shallow shadows, low detail budget, and quiet open center.
+- Preserve all prohibitions: no UI, text, labels, characters, animals, white sticker outlines, glossy surfaces, deep paper sculpture, turf islands, shaped pads, building-specific scenic bases, even structure scatter, or composition copied from another zone.
+
+FINAL AUTHORIZED GEOMETRY CLARIFICATION:
+- The slate-blue water must be one unmistakable, physically joined, single connected shape in the image. A viewer tracing the visible blue water with one finger must be able to move continuously from the waterwheel, down the right-edge basin past Otter Landing, leftward through one broad visible basin neck, beneath the covered Meeting House, and diagonally to the lower-left exit without crossing meadow, hedge, rocks, or any bank.
+- Relocate the Meeting House to the lower-right water junction. Its right-hand opening must show blue water continuing immediately and directly into the right-edge basin; its left-hand opening must show the very same blue water continuing diagonally down-left to the lower-left edge. No dry land may separate either bridge opening from that water system.
+- Completely remove the old isolated far-left bridge/channel arrangement. The spillway may reach the lower-left boundary only after visibly originating from the basin neck beneath the relocated Meeting House; it must never enter from the mid-left edge as a separate stream.
+- Keep the Meeting House, Pavilion, and Otter Landing centers within one compact lower outer-third neighborhood around that visible joined-water junction: Meeting House immediately west of the neck, Pavilion immediately above or southwest on dry meadow, Landing immediately southeast on the same basin shore. No broad empty gap may separate them.
+
+FINAL WHOLE-BRANCH CORRECTION — AUTHORITATIVE FINAL EDIT:
+- Input role for this final call: the prior `bellwater_vale_mock_v3.png` is Image 1 and is the precise edit target/composition source. The approved Meadow Sky board is Image 2 and is mandatory only for palette and material. The approved working Farm is Image 3 and is mandatory only for camera pitch, object scale, shallow paper shadows, and detail budget.
+- Change only the lower water and Millbridge Meeting House area. Keep the upper two-thirds and its three-structure cluster unchanged.
+- The one continuous right-edge millpond/basin must narrow at its lower end into one short broad diagonal spill channel that passes beneath the Meeting House crossing and exits only through the lower-left side edge. Water must not touch or exit the bottom frame anywhere. The entire bottom edge, corner to corner, must be continuous pale-sage meadow with a visible meadow strip below every lower structure. No second outlet, bottom outlet, bottom river, S-shaped water spine, or disconnected water.
+- Keep Millbridge Meeting House at bottom-center in the compact lower cluster and preserve its covered bridge/crossing function. Make it unmistakably the largest and dominant focal structure, visibly larger than upper-right Bellwater Millhall. Its roof must be a long, low, straight-edged shallow chevron/folded slate-blue form with two broad planar slopes and one clear horizontal ridge; no barrel roof, rounded roof, tunnel roof, or repeated arc roof grammar. Keep the crossing/deck broad and simple; simplify tiny ornament rather than adding detail.
+- Preserve Lilybell Pavilion and Otter Landing, their identities, the one coral diamond canopy, and the low arch-and-dock-tongue silhouette in the same compact lower neighborhood, allowing only minimal bank healing required by the corrected channel.
+- Preserve exactly six principal structures: Lanternkeeper's Nook, Welcome Bell Arch, and Bellwater Millhall above; Lilybell Pavilion, Millbridge Meeting House, and Otter Landing below. Preserve the top-left bent dead-end path ending at Millhall, quiet open center, right-edge basin continuity, fixed palette, 941 x 1672 portrait framing, approved camera, matte cut-cardstock material, upper-left lighting, object scale, and detail budget. No UI or characters.
+- Preserve all exclusions: no global redesign, bottom-edge water, second outlet, disconnected pond, full-width river, S river, rounded Meeting House roof, moving or shrinking Meeting House, scattered lower cluster, extra or lost structures, extra coral roofs, characters, animals, UI, text, labels, glossy surfaces, deep paper sculpture, black outlines, white sticker halos, turf islands, or scenic bases.
+
+FINAL BOTTOM-EDGE CORRECTION — AUTHORITATIVE FINAL EDIT:
+- Input role for this final call: the current committed `bellwater_vale_mock_v3.png` is Image 1 and the precise edit target/composition source. The approved Meadow Sky board is Image 2 and is mandatory only for palette and material. The approved working Farm is Image 3 and is mandatory only for camera pitch, object scale, shallow paper shadows, and detail budget.
+- Change only the bottommost terrain seam and lower-left spillway exit. Replace both prior bottom-frame blue contacts, at the bottom-left and bottom-right, with continuous pale-sage meadow matching the adjacent ground. The entire final bottom row from x=0 through x=940 must be meadow/ground. No blue water, pond, channel, reflection, wet bank, blue flower, or shoreline may touch the bottom frame anywhere. Keep any simple low seam-healing shrubs above the bottom row.
+- Preserve the one connected water body from the right-edge basin, past Otter Landing, and beneath Millbridge Meeting House. Redirect only the downstream spillway after the Meeting House so it curves left and exits through the left side edge above the bottom-left corner. It must terminate at that side edge and never continue downward to the bottom frame. Close the basin's lower-right tail above the bottom-right corner with meadow; do not create another outlet.
+- Preserve exactly all six structures without any move, resize, redraw, duplication, removal, or roof change. Preserve Meeting House geometry, dominant size, bottom-center placement, shallow-chevron roof and horizontal ridge, bridge function, compact lower cluster, upper cluster, bent dead-end path, quiet center, connected basin, hero hierarchy, silhouette roster, one coral/open shelter, 941 x 1672 framing, camera, fixed palette, matte cut-cardstock material, upper-left lighting, and low detail budget.
+- Preserve all exclusions: no global redesign, building change, bottom-edge water, bottom outlet, second outlet, disconnected water, new pond, S river, full-width river, bottom shoreline, added or lost structures, characters, animals, UI, text, labels, glossy surfaces, black outlines, white sticker halos, turf islands, shaped pads, or scenic bases.

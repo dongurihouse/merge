@@ -1,0 +1,18 @@
+{
+  "canvas": {
+    "width": 941,
+    "height": 1672
+  },
+  "bounds": {
+    "ship": [160, 262, 858, 800],
+    "coral_garden": [0, 405, 385, 875],
+    "anemones": [783, 683, 941, 858],
+    "treasure_chest": [103, 939, 258, 1075],
+    "mermaid_statue": [634, 889, 801, 1100],
+    "giant_clam": [89, 1133, 357, 1422],
+    "kelp_bed": [532, 914, 941, 1520],
+    "bubble_left": [270, 82, 307, 346],
+    "bubble_upper_center": [518, 41, 561, 525],
+    "bubble_lower_center": [465, 843, 506, 1267]
+  }
+}

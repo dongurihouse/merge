@@ -1,0 +1,52 @@
+Use case: precise-object-edit
+Asset type: reference-only baked 2D game environment scene mock, not a runtime layered map
+
+Primary request: Precisely correct the committed Appleblossom Commons terraced crescent mock while preserving its composition and every approved invariant. The exclusive signature remains: right-edge stream / open promenade / two unequal edge groups / upper-center tree hero / central quiet lawn.
+
+Input images:
+- Image 1 is the mandatory Meadow Sky board reference. Use it only for the fixed palette, matte cut-cardstock material language, warm cut edges, subtle paper fiber, and friendly low-detail finish. Ignore all UI, text, icons, characters, grid layout, and sticker outlines.
+- Image 2 is the mandatory approved Farm reference. Preserve its camera pitch, portrait world framing, matte cut-cardstock texture, shallow upper-left shadows, object scale, and low detail budget. Do not reuse its crossroads, evenly scattered buildings, repeated cottages, farm plots, UI, or composition.
+- Image 3 is the committed Appleblossom Commons PNG and the precise edit target. Preserve its central quiet lawn, right-edge stream, lower-right pond, upper-center Storytree hero, six intended silhouette designs, palette, camera, paper finish, lighting, orchard terraces, and all geometry outside the two explicitly named correction areas. Do not regenerate or recompose the scene.
+
+Canvas and viewpoint: exactly 941 x 1672 pixels, portrait, full-bleed environment only. Show the whole zone from the same high three-quarter top-down camera pitch as Image 2. No interface frame and no cropped-off principal structure.
+
+Composition and topology:
+- A crescent orchard ridge terraces across and frames the upper third.
+- Keep one broad, calm, uninterrupted social lawn in the visual center. At least 45% of the entire zone must remain quiet lawn, path, orchard floor, or water.
+- A single broad promenade begins near the upper-left orchard seam, descends around only the left and lower edges of the central lawn, and terminates at a lower-right pond. It must stay visibly open-ended: never close into a loop, never encircle the lawn, never branch, and never form a Farm-like crossroads.
+- A narrow stream stays pressed against the far-right boundary, feeding the lower-right pond. It must never become a central or S-shaped water spine.
+- Place the six principal structures along the crescent and outer edges in two clearly unequal clustered groups with an explicit 4+2 split, not evenly scattered, not a 3+3 split, and not surrounding the lawn symmetrically. Put Blossom Hall, Petal Conservatory, Storytree Library, and Kite Hill Playhouse together as the larger upper-crescent edge group. Put Orchard Tea Pavilion and Rainwatch House as the smaller lower-edge group near the pond side of the promenade. Preserve the large central quiet field.
+- The Storytree Library is the unmistakable upper-center hero and largest focal silhouette, at least two visual cells away from the Farm's lower-right cottage emphasis.
+- At the upper-left seam, let mature orchard trees, a shared path, and irrigation water disappear beneath one dense hedge/root culvert before reappearing in this zone.
+
+Exactly six principal structures, with these six distinct thumbnail silhouettes:
+1. Blossom Hall: a low semicircular public hall with a broad sage arc roof. Thumbnail silhouette: arc.
+2. Petal Conservatory: a long, low capsule/barrel form with opaque mint paper panels. Thumbnail silhouette: barrel.
+3. Storytree Library: one large apple canopy over a low ring-shaped reading shelter, centered in the upper portion as the hero. Thumbnail silhouette: tree-ring.
+4. Orchard Tea Pavilion: one wide, low parasol-like cream roof supported by exactly four plain posts. Thumbnail silhouette: parasol. This is the zone's only four-post open shelter.
+5. Rainwatch House: an asymmetrical folded slate canopy opening toward the pond. Thumbnail silhouette: folded canopy.
+6. Kite Hill Playhouse: a compact round drum with a shallow lavender-blue cone roof. Thumbnail silhouette: drum.
+
+Style and materials: Match the approved Farm's simplified, cozy mobile-game world scale and restrained density. Matte cut cardstock with subtle 2–4% paper fiber, warm cut edges, two or three major masses per building, consolidated ornamental detail, one upper-left light, and shallow upper-left cast shadows using #294654 at approximately 18–20%. Keep landforms broad and flat, with only gentle cardstock layering; no deep paper sculpture.
+
+Fixed Meadow Sky palette only: #6FA9C0, #3F6D7D, #A8D3B9, #8296AF, #F6EBDD, #243B4B, #5F9B6D, #D87865, #D6A94C, #8677A3. Use coral #D87865 only as a restrained accent on doors or small awnings, never as a repeated roof plane. Zero repeated coral gable roofs. No more than one structure may read as a conventional coral-roof cottage; preferably none.
+
+Constraints: Reference-only flattened scenic mock. No UI, text, labels, numbers, icons, badges, callouts, arrows, legends, characters, people, residents, animals, vehicles, white sticker outlines, black outlines, glossy plastic, glossy surfaces, neon color, watercolor rendering, photorealism, deep paper sculpture, turf islands, circular clearings, rectangular building pads, building-specific scenic bases, grass skirts, repeated coral roofs, conventional cottage repetition, central pavilion, closed promenade loop, branching paths, crossroads, centered river, evenly scattered buildings, or dense filler in the central lawn. Maximum one four-post open shelter in the entire zone.
+
+Output intent: a polished in-world Appleblossom Commons reference mock suitable for pairwise composition QA against the approved Farm while remaining unmistakably different in water topology, path topology, building distribution, hero location, and negative-space location.
+
+Final corrective edit — apply exactly these two removals to Image 3 and nothing else:
+
+1. Remove only the extra upper-right folded slate building that sits immediately to the right of the small lavender-blue drum-shaped Kite Hill Playhouse and immediately left of the far-right stream. Remove that duplicate building, its shadow, steps, fence, and building-specific planting footprint. Heal only that footprint into quiet orchard floor and a few consolidated low plant masses matching the surrounding upper orchard. Preserve the intended lower-right Rainwatch House beside the pond completely unchanged. Preserve the other five intended structures completely unchanged. The final image must contain exactly six principal structures in a clear 4+2 distribution: upper group = Blossom Hall, Petal Conservatory, Storytree Library, Kite Hill Playhouse; lower group = Orchard Tea Pavilion, Rainwatch House. Do not add or duplicate any structure.
+
+2. Remove only the stone-path continuation that forks below the cream four-post parasol pavilion and exits through the bottom edge. Remove every paving stone from that lower fork to the bottom canvas edge and heal only that strip into continuous quiet meadow matching the adjacent lawn. Retain one continuous open promenade from the upper-left orchard seam, down the left and lower lawn edge, past the parasol, ending at the pond/Rainwatch area. The final promenade must have no loop, fork, branch, crossroads, or bottom exit.
+
+Where these two removals touch the scene, consolidate tiny ornamental marks into broad quiet orchard-floor, low-planting, or meadow shapes. Do not globally simplify, restyle, recolor, relight, crop, resize, move, redraw, or alter any other part of Image 3. Preserve exact 941 x 1672 dimensions, camera pitch, paper texture, shadows, fixed Meadow Sky palette, central lawn, right-edge water, pond, upper-center tree hero, all six silhouette families, and the absence of UI, text, labels, characters, and animals.
+
+FINAL WHOLE-BRANCH CORRECTION — AUTHORITATIVE FINAL EDIT:
+- Input role for this final call: the prior `appleblossom_commons_mock_v3.png` is Image 1 and is the precise edit target/composition source. The approved Meadow Sky board is Image 2 and is mandatory only for palette and material. The approved working Farm is Image 3 and is mandatory only for camera pitch, object scale, shallow paper shadows, and detail budget.
+- Change only the lower Tea Pavilion path/base area. Remove the short pale path spur/Y connection from the main promenade into the Tea Pavilion and heal that footprint to uninterrupted pale-sage meadow. Remove the entire circular paved pad beneath and around the pavilion. Set the same four plain posts directly on shared meadow with tight shallow contact shadows only.
+- The only pale path must remain one continuous, unbranched route entering at the upper-left, descending around the left and lower side of the central lawn, and terminating at Rainwatch House/pond. No spur, fork, Y, loop, crossroads, circular route, or bottom-frame exit.
+- Preserve the Tea Pavilion's location, scale, cream parasol silhouette, four posts, and furniture. No turf island, circular clearing, paved pad, scenic base, or flower ring. Simplify tiny pavilion ornament if necessary; do not add detail.
+- Preserve exactly six principal structures and the accepted 4+2 grouping; preserve every structure location, scale, and silhouette; preserve the upper-center Storytree Library hero, broad quiet central lawn, right-edge stream and lower-right pond, orchard crescent, clouds, hills, fixed palette, 941 x 1672 portrait framing, approved camera, matte cut-cardstock material, upper-left lighting, object scale, and detail budget. Do not add, remove, duplicate, replace, move, or redesign a structure, and do not alter water topology or scene boundaries.
+- Preserve all exclusions: no global redesign, new paths, new paving, pads, rings, turf islands, extra or lost structures, characters, animals, UI, text, labels, glossy surfaces, deep paper sculpture, black outlines, white sticker halos, or added ornament.
