@@ -127,7 +127,8 @@ static func make_level_badge(level: int, px: float, num_font: int = -1, cfg_over
 		art_img.resize(int(art.size.x), int(art.size.y), Image.INTERPOLATE_BILINEAR)
 		var res: Dictionary = Kit.silhouette_shadow(art_img, {
 			"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
-			"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha)})
+			"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha),
+			"shadow_spread": float(sp.spread)})
 		var pad := float(res.pad)
 		var shr := TextureRect.new()
 		shr.name = "lv_badge_shadow"

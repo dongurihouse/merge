@@ -7,7 +7,7 @@
 	"bag": {
 		"acorn_x": -37.0,
 		"caption": "Open a slot with acorns.",
-		"cell_gap": 5.0,
+		"cell_gap": 16.0,
 		"cols": 5.0,
 		"grid_inset": 70.0,
 		"list_max_h": 0.0,
