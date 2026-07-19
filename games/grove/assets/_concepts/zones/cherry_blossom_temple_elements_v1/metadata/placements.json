@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 2,
+  "scene": "cherry_blossom_temple",
+  "pipeline": {
+    "mapMode": "scene_mode",
+    "visualModel": "layered_raster",
+    "runtimeObjectModel": ["separate_props", "grouped_local_dressing", "reusable_decals"],
+    "collisionModel": "none",
+    "visualAssetSource": "image_gen",
+    "engineTarget": "project-native"
+  },
+  "canvas": {
+    "width": 1320,
+    "height": 2346,
+    "reviewWidth": 941,
+    "reviewHeight": 1672,
+    "anchorConvention": "center-bottom",
+    "coordinateOrigin": "top-left"
+  },
+  "base": {
+    "id": "zen_sand_foundation",
+    "image": "games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/01_backdrop/cherry_blossom_temple_foundation_v1.png",
+    "opaque": true,
+    "z": 0
+  },
+  "placements": [
+    {"id":"upper_garden","assetId":"upper_garden_pine","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/upper_garden_pine.png","x":335,"y":760,"w":430,"h":376,"z":80,"layer":"environment_back","cluster":"upper_garden"},
+    {"id":"upper_garden_bonsai","assetId":"garden_prop_8","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bonsai/garden_prop-8.png","x":540,"y":810,"w":175,"h":175,"z":81,"layer":"environment_back","cluster":"upper_garden"},
+    {"id":"upper_garden_rock","assetId":"garden_prop_2","category":"rock","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/rocks/garden_prop-2.png","x":170,"y":820,"w":145,"h":145,"z":82,"layer":"environment_back","cluster":"upper_garden"},
+
+    {"id":"shrine_hall","assetId":"shrine_hall","category":"structures","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/03_structures/shrine_hall.png","x":1005,"y":900,"w":485,"h":442,"z":150,"layer":"structures","cluster":"shrine_hall"},
+    {"id":"shrine_hall_bush","assetId":"garden_prop_5","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-5.png","x":1125,"y":945,"w":165,"h":165,"z":151,"layer":"structures_dressing","cluster":"shrine_hall"},
+    {"id":"shrine_hall_rock","assetId":"garden_prop_3","category":"rock","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/rocks/garden_prop-3.png","x":1225,"y":1030,"w":150,"h":150,"z":152,"layer":"structures_dressing","cluster":"shrine_hall"},
+
+    {"id":"left_sakura","assetId":"cherry_tree_left","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/cherry_tree_left.png","x":185,"y":1160,"w":495,"h":450,"z":175,"layer":"environment_mid","cluster":"left_sakura"},
+    {"id":"left_sakura_bush","assetId":"garden_prop_6","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-6.png","x":115,"y":1305,"w":185,"h":185,"z":176,"layer":"environment_mid","cluster":"left_sakura"},
+    {"id":"left_sakura_rock","assetId":"garden_prop_1","category":"rock","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/rocks/garden_prop-1.png","x":320,"y":1340,"w":140,"h":140,"z":177,"layer":"environment_mid","cluster":"left_sakura"},
+
+    {"id":"pond","assetId":"koi_pond","category":"garden_items","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/04_garden_items/koi_pond.png","x":350,"y":1625,"w":545,"h":409,"z":230,"layer":"garden_items","cluster":"pond_bridge"},
+    {"id":"pond_bridge","assetId":"red_bridge","category":"garden_items","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/04_garden_items/red_bridge.png","x":360,"y":1635,"w":455,"h":303,"z":245,"layer":"garden_items","cluster":"pond_bridge"},
+    {"id":"pond_rock_west","assetId":"garden_prop_2","category":"rock","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/rocks/garden_prop-2.png","x":88,"y":1680,"w":165,"h":165,"z":246,"layer":"ground_dressing","cluster":"pond_bridge"},
+    {"id":"pond_bush_east","assetId":"garden_prop_4","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-4.png","x":580,"y":1700,"w":150,"h":150,"z":247,"layer":"ground_dressing","cluster":"pond_bridge"},
+
+    {"id":"temizuya","assetId":"temizuya_pavilion","category":"structures","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/03_structures/temizuya_pavilion.png","x":970,"y":1550,"w":425,"h":425,"z":290,"layer":"structures","cluster":"temizuya"},
+    {"id":"temizuya_bush","assetId":"garden_prop_5","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-5.png","x":1155,"y":1645,"w":150,"h":150,"z":291,"layer":"structures_dressing","cluster":"temizuya"},
+    {"id":"temizuya_bonsai","assetId":"garden_prop_7","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bonsai/garden_prop-7.png","x":795,"y":1655,"w":165,"h":165,"z":292,"layer":"structures_dressing","cluster":"temizuya"},
+
+    {"id":"right_sakura","assetId":"cherry_tree_right","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/cherry_tree_right.png","x":1120,"y":2030,"w":360,"h":654,"z":350,"layer":"foreground_dressing","cluster":"right_sakura"},
+    {"id":"right_sakura_bush","assetId":"garden_prop_6","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-6.png","x":1190,"y":2135,"w":180,"h":180,"z":351,"layer":"foreground_dressing","cluster":"right_sakura"},
+    {"id":"right_sakura_rock","assetId":"garden_prop_3","category":"rock","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/rocks/garden_prop-3.png","x":980,"y":2155,"w":145,"h":145,"z":352,"layer":"foreground_dressing","cluster":"right_sakura"},
+
+    {"id":"torii_gate","assetId":"torii_gate","category":"structures","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/03_structures/torii_gate.png","x":510,"y":2200,"w":565,"h":565,"z":430,"layer":"foreground_structure","cluster":"torii_gate"},
+    {"id":"torii_lantern_left","assetId":"stone_lantern_left","category":"garden_items","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/04_garden_items/stone_lantern_left.png","x":267,"y":2255,"w":170,"h":309,"z":431,"layer":"foreground_dressing","cluster":"torii_gate"},
+    {"id":"torii_lantern_right","assetId":"stone_lantern_right","category":"garden_items","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/04_garden_items/stone_lantern_right.png","x":748,"y":2255,"w":170,"h":309,"z":431,"layer":"foreground_dressing","cluster":"torii_gate"},
+    {"id":"torii_bush_left","assetId":"garden_prop_4","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-4.png","x":120,"y":2290,"w":175,"h":175,"z":432,"layer":"foreground_dressing","cluster":"torii_gate"},
+    {"id":"torii_bush_right","assetId":"garden_prop_5","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-5.png","x":890,"y":2300,"w":175,"h":175,"z":432,"layer":"foreground_dressing","cluster":"torii_gate"},
+
+    {"id":"path_stone_01","assetId":"stepping_stone_1","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-1.png","x":542,"y":2030,"w":115,"h":115,"z":390,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_02","assetId":"stepping_stone_2","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-2.png","x":610,"y":1940,"w":125,"h":125,"z":391,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_03","assetId":"stepping_stone_3","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-3.png","x":560,"y":1840,"w":105,"h":105,"z":392,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_04","assetId":"stepping_stone_4","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-4.png","x":492,"y":1760,"w":122,"h":122,"z":393,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_05","assetId":"stepping_stone_2","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-2.png","x":535,"y":1665,"w":112,"h":112,"z":394,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_06","assetId":"stepping_stone_1","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-1.png","x":620,"y":1570,"w":108,"h":108,"z":395,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_07","assetId":"stepping_stone_3","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-3.png","x":690,"y":1475,"w":115,"h":115,"z":396,"layer":"path_decals","cluster":"pilgrim_path"},
+    {"id":"path_stone_08","assetId":"stepping_stone_4","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-4.png","x":750,"y":1380,"w":108,"h":108,"z":397,"layer":"path_decals","cluster":"pilgrim_path"}
+  ]
+}
