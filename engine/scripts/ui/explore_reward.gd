@@ -100,7 +100,7 @@ static func build(Kit: GDScript, granted: Array, width: float, vh: float, press:
 	score_chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(score_chip)
 
-	var caption := _label("Revealing your spirits…", FS.FOOTNOTE)
+	var caption := _label("Revealing your spirits…", FS.FINE)
 	caption.name = "RewardCaption"
 	caption.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -192,7 +192,7 @@ static func _more_cell(n: int, cw: float, ch: float) -> Control:
 	cell.name = "RewardMore"
 	cell.custom_minimum_size = Vector2(cw, ch)
 	cell.add_theme_stylebox_override("panel", SlotReel.cell_stylebox())
-	var l := _label("+%d" % n, FS.LARGE, true)
+	var l := _label("+%d" % n, FS.HEADING, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cell.add_child(l)
 	return cell

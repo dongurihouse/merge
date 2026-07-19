@@ -298,7 +298,7 @@ static func _tab_bar(refs: Dictionary, w: float) -> Control:
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.add_theme_font_override("font", Kit.bold_font())
-		b.add_theme_font_size_override("font_size", FS.EMPHASIS)
+		b.add_theme_font_size_override("font_size", FS.BODY)
 		b.add_theme_color_override("font_color", CREAM if on else INK)
 		b.add_theme_color_override("font_hover_color", CREAM if on else INK)
 		b.add_theme_color_override("font_pressed_color", CREAM if on else INK)
@@ -329,7 +329,7 @@ static func _section_header(Kit: GDScript, caption: String, badge: String) -> Co
 	row.add_theme_constant_override("separation", 14)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.custom_minimum_size = Vector2(0, 74)   # the mock's generous air above/below a section title
-	var l := _ink_label(Kit, caption.to_upper(), FS.SUBHEADING)
+	var l := _ink_label(Kit, caption.to_upper(), FS.HEADING)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -346,7 +346,7 @@ static func _section_header(Kit: GDScript, caption: String, badge: String) -> Co
 		var bl := Label.new()
 		bl.text = badge.to_upper()
 		bl.add_theme_font_override("font", Kit.bold_font())
-		bl.add_theme_font_size_override("font_size", FS.SMALL)
+		bl.add_theme_font_size_override("font_size", FS.FINE)
 		bl.add_theme_color_override("font_color", CREAM)
 		bl.add_theme_constant_override("outline_size", 0)
 		bl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -431,7 +431,7 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 		var count := int(d.get("count", 0))
 		var amount_text := _commas(count) if count > 0 else String(d.get("label", ""))
 		if amount_text != "":
-			var al := _ink_label(Kit, amount_text, FS.DISPLAY if count > 0 else FS.EMPHASIS)
+			var al := _ink_label(Kit, amount_text, FS.DISPLAY if count > 0 else FS.BODY)
 			al.name = "ShopOfferAmount"
 			al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			al.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -440,7 +440,7 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 			var nl := Label.new()
 			nl.text = String(d.note)
 			nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			nl.add_theme_font_size_override("font_size", FS.CAPTION)
+			nl.add_theme_font_size_override("font_size", FS.FINE)
 			nl.add_theme_color_override("font_color", Color(BARK, 0.9))
 			nl.add_theme_constant_override("outline_size", 0)
 			nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -498,7 +498,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 	if bool(d.get("cash", false)):
 		b.set_meta("shop_cash", true)
 	b.add_theme_font_override("font", Kit.bold_font())
-	b.add_theme_font_size_override("font_size", FS.MEDIUM)
+	b.add_theme_font_size_override("font_size", FS.BODY)
 	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(c, CREAM)
 	b.add_theme_constant_override("outline_size", 0)
@@ -526,7 +526,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 		pl.text = String(d.price)
 		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		pl.add_theme_font_override("font", Kit.bold_font())
-		pl.add_theme_font_size_override("font_size", FS.MEDIUM)
+		pl.add_theme_font_size_override("font_size", FS.BODY)
 		pl.add_theme_color_override("font_color", CREAM)
 		pl.add_theme_constant_override("outline_size", 0)
 		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -555,7 +555,7 @@ static func _amount_chip(Kit: GDScript, ch: Dictionary) -> Control:
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(Kit.make_icon(String(ch.get("icon", "gem")), 48.0))
-	h.add_child(_ink_label(Kit, _commas(int(ch.get("amount", 0))), FS.EMPHASIS))
+	h.add_child(_ink_label(Kit, _commas(int(ch.get("amount", 0))), FS.BODY))
 	p.add_child(h)
 	return p
 
@@ -579,7 +579,7 @@ static func _info_disc(Kit: GDScript, on_info: Callable) -> Button:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.add_theme_font_override("font", Kit.bold_font())
-	l.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	l.add_theme_font_size_override("font_size", FS.BODY)
 	l.add_theme_color_override("font_color", CREAM)
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -620,7 +620,7 @@ static func _footer_note(refs: Dictionary) -> Control:
 	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	dl.add_theme_font_override("font", Kit.bold_font())
-	dl.add_theme_font_size_override("font_size", FS.SMALL)
+	dl.add_theme_font_size_override("font_size", FS.FINE)
 	dl.add_theme_color_override("font_color", CREAM)
 	dl.add_theme_constant_override("outline_size", 0)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -630,7 +630,7 @@ static func _footer_note(refs: Dictionary) -> Control:
 	t.text = Strings.t("shop.premium.first_buy_note")
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_font_size_override("font_size", FS.SMALL)
+	t.add_theme_font_size_override("font_size", FS.FINE)
 	t.add_theme_color_override("font_color", INK)
 	t.add_theme_constant_override("outline_size", 0)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE

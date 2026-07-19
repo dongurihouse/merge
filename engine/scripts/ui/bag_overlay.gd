@@ -278,7 +278,7 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if bold != null:
 		title.add_theme_font_override("font", bold)          # the mock bolds every dialog title
-	title.add_theme_font_size_override("font_size", FS.SUBHEADING)
+	title.add_theme_font_size_override("font_size", FS.HEADING)
 	title.add_theme_color_override("font_color", INK)
 	title.add_theme_constant_override("outline_size", 0)
 	col.add_child(title)
@@ -295,12 +295,12 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	if plain != null:
 		body.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
 		body.add_theme_constant_override("outline_size", 0)
-	body.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	body.add_theme_font_size_override("font_size", FS.BODY)
 	body.add_theme_color_override("font_color", BARK)
 	col.add_child(body)
 	# the have / needed chip — the SAME cream amount_chip the mail cards wear
 	var chip: Control = Kit.amount_chip(ACORN_ICON, "%d / %d" % [have, price], \
-		{"font": FS.STAT, "corner": 14.0, "paper": "cream", "border": 0.0})
+		{"font": FS.TITLE, "corner": 14.0, "paper": "cream", "border": 0.0})
 	# cream paper on a cream card would vanish, so wash the chip's paper a shade warmer — it still reads
 	# as an inset well without an outline. `modulate` is safe here: the kit drives state through
 	# self_modulate, so the two don't fight.
@@ -316,13 +316,13 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	btns.add_theme_constant_override("separation", int(cw * 0.04))
 	col.add_child(btns)
 	var later: Button = Kit.pill_button(Strings.t("bag.need_more.later"), \
-		{"bg": "cream", "font": FS.SUBHEADING, "corner": 18.0, "shadow": true, \
+		{"bg": "cream", "font": FS.HEADING, "corner": 18.0, "shadow": true, \
 		"paper": "cream", "border": 0.0})
 	later.custom_minimum_size = Vector2(cw * 0.42, cw * 0.155)
 	later.pressed.connect(func() -> void: overlay.queue_free())
 	btns.add_child(later)
 	var shop: Button = Kit.cta_button(Strings.t("bag.need_more.shop"), \
-		{"btn": {"font": FS.SUBHEADING, "corner": 18.0, "border": 0.0}})
+		{"btn": {"font": FS.HEADING, "corner": 18.0, "border": 0.0}})
 	shop.custom_minimum_size = Vector2(cw * 0.42, cw * 0.155)
 	shop.pressed.connect(func() -> void:
 		overlay.queue_free()
@@ -367,7 +367,7 @@ static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, g
 				return gicon
 			var fallback := Label.new()    # no art → the generator id, like the pre-kit overlay
 			fallback.text = gid_str
-			fallback.add_theme_font_size_override("font_size", FS.FOOTNOTE)
+			fallback.add_theme_font_size_override("font_size", FS.FINE)
 			fallback.add_theme_color_override("font_color", INK)
 			fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE

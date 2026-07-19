@@ -237,8 +237,8 @@ static func home_well(px: float, icon_id: String, fallback_art: String, count: S
 static func action_chip(chip_opts: Dictionary, row: Control, caption_text: String, on_press: Callable, content_align: int = BoxContainer.ALIGNMENT_CENTER) -> Dictionary:
 	var height := float(chip_opts.get("height", 130.0))
 	var icon_px := height * float(chip_opts.get("sell_icon", 0.30))
-	var label_font := int(chip_opts.get("sell_label_font", FS.SMALL))
-	var num_font := int(chip_opts.get("sell_font", FS.LARGE))
+	var label_font := int(chip_opts.get("sell_label_font", FS.FINE))
+	var num_font := int(chip_opts.get("sell_font", FS.HEADING))
 	var btn := Button.new()
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER

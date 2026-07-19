@@ -531,12 +531,12 @@ func _build_ref_panel() -> void:
 	add_child(_ref_panel)
 	_ref_strip = null
 	_ref_img = null
-	var head := _label("Reference", FS.TINY, true)
+	var head := _label("Reference", FS.TOOL, true)
 	head.position = Vector2(REF_PAD, 8)
 	_ref_panel.add_child(head)
 	_ref_paths = M.reference_images(_scenes_root, bundle_dir, scene_name)
 	if _ref_paths.is_empty():
-		var none := _label("no mocks found", FS.DEBUG)
+		var none := _label("no mocks found", FS.TOOL)
 		none.position = Vector2(REF_PAD, 40)
 		_ref_panel.add_child(none)
 		return
@@ -635,14 +635,14 @@ func _build_sidebar() -> void:
 	col.add_theme_constant_override("separation", 8)
 	scroll.add_child(col)
 
-	col.add_child(_label(scene_name, FS.TINY, true))
+	col.add_child(_label(scene_name, FS.TOOL, true))
 
 	_save_btn = Button.new()
 	_save_btn.focus_mode = Control.FOCUS_NONE          # keys stay on the stage (arrows nudge, not focus-walk)
 	_save_btn.pressed.connect(_save)
 	col.add_child(_save_btn)
 
-	col.add_child(_label("Clusters", FS.TINY, true))
+	col.add_child(_label("Clusters", FS.TOOL, true))
 	_cluster_actions = VBoxContainer.new()
 	_cluster_actions.add_theme_constant_override("separation", 2)
 	col.add_child(_cluster_actions)
@@ -661,7 +661,7 @@ func _build_scene_strip() -> void:
 	sb.bg_color = PAPER
 	_scene_strip_panel.add_theme_stylebox_override("panel", sb)
 	add_child(_scene_strip_panel)
-	var head := _label("Scenes", FS.TINY, true)
+	var head := _label("Scenes", FS.TOOL, true)
 	head.position = Vector2(REF_PAD, 8)
 	_scene_strip_panel.add_child(head)
 	var scroll := ScrollContainer.new()
@@ -729,7 +729,7 @@ func _refresh_cluster_list() -> void:
 		rn.name = "ClusterRename"
 		rn.text = _sel_cluster
 		rn.tooltip_text = "rename the cluster (Enter applies)"
-		rn.add_theme_font_size_override("font_size", FS.DEBUG)
+		rn.add_theme_font_size_override("font_size", FS.TOOL)
 		rn.text_submitted.connect(func(t: String) -> void:
 			var applied := M.rename_cluster(doc, _sel_cluster, t)
 			if applied != "":
@@ -802,7 +802,7 @@ func _refresh_cluster_list() -> void:
 ## art on recovered bundles) as an iconed list — clicking one drops a NEW member at the cluster's
 ## footing, joined and selected for immediate placement.
 func _add_palette_rows(cname: String) -> void:
-	_cluster_box.add_child(_label("      add to '%s'" % cname, FS.DEBUG, true))
+	_cluster_box.add_child(_label("      add to '%s'" % cname, FS.TOOL, true))
 	for a in M.addable_assets(bundle_dir, repo_root, scene_name):
 		var b := _small_button("      + " + String(a.id), _add_asset_to_cluster.bind(a, cname))
 		b.icon = _thumb_for(String(a.image))
@@ -861,7 +861,7 @@ func _small_button(text: String, on_press: Callable) -> Button:
 	b.text = text
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", FS.DEBUG)
+	b.add_theme_font_size_override("font_size", FS.TOOL)
 	b.pressed.connect(on_press)
 	return b
 

@@ -631,7 +631,7 @@ func _map_title_plank_fallback(z: int) -> Control:
 	if map_spots_done(z):
 		var lbl := Label.new()
 		lbl.text = Strings.t("map.plank.restored")
-		lbl.add_theme_font_size_override("font_size", FS.SMALL)
+		lbl.add_theme_font_size_override("font_size", FS.FINE)
 		lbl.add_theme_color_override("font_color", STRAW)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1067,7 +1067,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	bag_opts["dialog_cells"] = true   # a DIALOG surface → the shared sage cell face, not the board's mint
 
 	# --- the CELLS (the one global bucket) — placed spirits, then free capacity ----------------------
-	var title := _dock_label("Spirits", FS.MEDIUM, true)
+	var title := _dock_label("Spirits", FS.BODY, true)
 	title.position = Vector2(cx, ctop)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(title)
@@ -1076,7 +1076,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var placed: Array = Bucket.placed()
 	var cells_h := 0.0
 	if cells_total <= 0:
-		var closed := _dock_label("Complete a map to open the habitat.", FS.TINY)
+		var closed := _dock_label("Complete a map to open the habitat.", FS.FINE)
 		closed.name = "BucketCellsClosedHint"
 		closed.autowrap_mode = TextServer.AUTOWRAP_WORD
 		closed.position = Vector2(cx + 2.0, cells_top)
@@ -1189,7 +1189,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		chip_y = cells_top + cells_h - chip_h - 8.0      # no chips yet — hand the row back to the grid
 
 	# --- the IN-HAND grid, scrollable between the chips and the info bar ------------------------------
-	var hand_title := _dock_label("In hand", FS.SMALL, true)
+	var hand_title := _dock_label("In hand", FS.FINE, true)
 	hand_title.position = Vector2(cx, chip_y + chip_h + 8.0)
 	hand_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(hand_title)
@@ -1210,7 +1210,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(clip)
 	if hand.is_empty():
-		var empty := _dock_label("Empty —\nfind spirits on Expedition.", FS.TINY)
+		var empty := _dock_label("Empty —\nfind spirits on Expedition.", FS.FINE)
 		empty.position = Vector2(2.0, 2.0)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD
 		empty.size = Vector2(cw - 4.0, view_h)
@@ -1257,7 +1257,7 @@ func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
 	btn.text = text
 	btn.disabled = not enabled
 	btn.focus_mode = Control.FOCUS_NONE
-	btn.add_theme_font_size_override("font_size", FS.FOOTNOTE)
+	btn.add_theme_font_size_override("font_size", FS.FINE)
 	btn.add_theme_color_override("font_color", Color("#F4FBE9"))
 	btn.add_theme_color_override("font_outline_color", Color("#173404"))
 	btn.add_theme_constant_override("outline_size", 3)
@@ -1303,7 +1303,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	bar.add_child(bg)
 	var pad := 8.0
 	if _sel_orb.is_empty():
-		var hint := _dock_label("Tap a spirit", FS.SMALL)
+		var hint := _dock_label("Tap a spirit", FS.FINE)
 		hint.position = Vector2(pad + 4.0, (rect.size.y - 22.0) * 0.5)
 		hint.modulate = Color(1, 1, 1, 0.65)
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1339,7 +1339,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		var sell := Button.new()
 		sell.name = "ResidentSellButton"
 		sell.text = "Sell +%d" % (Bucket.SELL_PER_TIER * tier)
-		sell.add_theme_font_size_override("font_size", FS.SMALL)
+		sell.add_theme_font_size_override("font_size", FS.FINE)
 		sell.add_theme_color_override("font_color", Color("#F4FBE9"))
 		sell.add_theme_color_override("font_outline_color", Color("#173404"))
 		sell.add_theme_constant_override("outline_size", 3)
@@ -1408,7 +1408,7 @@ func _line_icon(line: String) -> String:
 		_: return "leaf"
 
 func _card_sub(text: String) -> Label:
-	var l := _dock_label(text, FS.SMALL, true)
+	var l := _dock_label(text, FS.FINE, true)
 	l.modulate = Color(1, 1, 1, 0.92)
 	return l
 
@@ -1587,7 +1587,7 @@ func _resolve_drop(gpos: Vector2) -> void:
 		if _cells_grid != null and is_instance_valid(_cells_grid) and _cells_grid.get_global_rect().grow(8.0).has_point(gpos):
 			if Bucket.is_full():
 				_invalid_at(_cells_grid)
-				FX.floating_text(self, gpos - Vector2(120, 60), "Full", Color(CREAM, 0.9), FS.MEDIUM)
+				FX.floating_text(self, gpos - Vector2(120, 60), "Full", Color(CREAM, 0.9), FS.BODY)
 			elif Bucket.place(int(d.idx)):
 				Audio.play("tidy_poof", -3.0, 1.05)
 				_after_habitat_action()
@@ -1803,7 +1803,7 @@ func _on_build_tap(building_id: String, node: Control, at: Vector2) -> void:
 		var msg := Strings.t("map.spot.needs_level") % int(step.get("min_level", 1)) if String(out.reason) == "level" \
 			else Strings.t("map.build.needs_coins") if String(out.reason) == "coins" else ""
 		if msg != "":
-			FX.floating_text(self, at - Vector2(120, 64), msg, Color(CREAM, 0.9), FS.LARGE)
+			FX.floating_text(self, at - Vector2(120, 64), msg, Color(CREAM, 0.9), FS.HEADING)
 		return
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
@@ -2458,7 +2458,7 @@ func _build_bottom_bar(specs: Array) -> Dictionary:
 	opts["shadow"] = true
 	# the caption has to survive a 7-tile row: scale it off the tile width rather than the design font,
 	# and tighten the icon so the two still stack inside the tile.
-	opts["caption_font"] = int(clampf(tile_w * 0.16, 11.0, float(FS.SMALL)))
+	opts["caption_font"] = int(clampf(tile_w * 0.16, 11.0, float(FS.FINE)))
 	opts["icon_scale"] = 0.46
 	opts["rect_pad"] = 0.10
 	for i in specs.size():

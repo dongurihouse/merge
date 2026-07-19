@@ -961,7 +961,7 @@ func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", FS.MICRO)
+	l.add_theme_font_size_override("font_size", FS.TOOL)
 	l.add_theme_color_override("font_color", Pal.INK if color.get_luminance() > 0.45 else Pal.CREAM)
 	l.add_theme_constant_override("outline_size", 0)
 	l.clip_text = true
@@ -1364,14 +1364,14 @@ func _sidebar_notes(_id: String) -> void:
 	if _selected == "daily_card":
 		var note := Label.new()
 		note.text = "This single day card is reused by the Daily dialog. (The Claim is the shared Button.) Preview a state below; the badges show on today / milestone."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "toggle_card":
 		var note := Label.new()
 		note.text = "This single setting row is reused by the Settings dialog. (The switch is the shared kit switch.) Label + value below just preview the row."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
@@ -1383,42 +1383,42 @@ func _sidebar_notes(_id: String) -> void:
 		elif _selected == "settings":
 			card_src = " the card is on the Toggle card item;"
 		note.text = "The frame (banner · border · ✕ · scroll · padding) is SHARED — edit it on the Frame item.%s Here: this dialog's content." % card_src
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "card" or _selected == "dialog":
 		var note := Label.new()
 		note.text = "Claim inherits the Button's STYLE (font / corner / art / shadow). Its badge + icon are the Card's own saved choice."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
 		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the code-drawn locked background, with a plain lower-right tier number; marked tiers sparkle. The piece size + well/background look are inherited from the Slot cell item — only the square cell size, tier-number toggle, sparkle, and grid are tuned here. A plain grid — no vines."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
 		note.text = "ONE cell shared by the Bag dialog AND the board: empty / filled use the cream well; locked / unlockable use the code-drawn locked background. Unlockable = the highlight (glow + dynamic sparkle). Add a level badge (board) or an acorn cost (bag) below."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "bag":
 		var note := Label.new()
 		note.text = "Reuses the SHARED frame (banner · border · ✕ — edit on the Frame item) + the REUSED currency pill (the acorn balance — edit on the Currency pill item). The tile is the Bag cell item. Here: the grid + the preview ladder."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "board":
 		var note := Label.new()
 		note.text = "A live preview of the merge board: the frame + the shared Slot cell states (open wells, frontier locks, deep locks) + demo pieces. Edit piece size and cell background on the Slot cell item. SCALE zooms the live board; CELL/COLS/ROWS are preview-only."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
+		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
@@ -1433,7 +1433,7 @@ func _sidebar_common_rows(_id: String) -> void:
 		_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
 		var sn := Label.new()
 		sn.text = "Casts the shared drop shadow — tune its look on the Shadow item."
-		sn.add_theme_font_size_override("font_size", FS.DEBUG)
+		sn.add_theme_font_size_override("font_size", FS.TOOL)
 		sn.add_theme_color_override("font_color", Color(Pal.STRAW, 0.7))
 		sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(sn)

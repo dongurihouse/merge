@@ -650,7 +650,7 @@ func _initialize() -> void:
 	view._selected = "gold_currency_pill"
 	view._rebuild_sidebar()
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
-	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
+	ok(_slider_max(view, "Plus Font") >= float(FS.BANNER), "gold_currency_pill sidebar allows a larger plus font")
 	# A font slider is TIER-QUANTIZED: every stop is a FontScale const, so a size tuned here and
 	# saved to ui_workbench_settings.json can never be a loose px. A pre-existing loose value
 	# (77 below) migrates to its nearest tier when the sidebar rebuilds.

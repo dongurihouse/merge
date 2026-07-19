@@ -406,7 +406,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	var nm := Label.new()
 	nm.text = String(face.get("label", line)).to_upper()
 	nm.add_theme_font_override("font", Kit.bold_font())
-	nm.add_theme_font_size_override("font_size", FS.SMALL)
+	nm.add_theme_font_size_override("font_size", FS.FINE)
 	nm.add_theme_color_override("font_color", Pal.INK)
 	nm.add_theme_constant_override("outline_size", 0)
 	tcol.add_child(nm)
@@ -414,7 +414,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	val.name = "ResourceBankValue_" + line
 	val.text = "%d / %d" % [int(floor(float(rep.pending))), int(round(float(rep.cap)))]
 	val.add_theme_font_override("font", Kit.bold_font())
-	val.add_theme_font_size_override("font_size", FS.SUBHEADING)
+	val.add_theme_font_size_override("font_size", FS.HEADING)
 	val.add_theme_color_override("font_color", Pal.INK)
 	val.add_theme_constant_override("outline_size", 0)
 	tcol.add_child(val)
@@ -433,7 +433,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	state.name = "ResourceBankState_" + line
 	state.text = _bank_state_text(line, rep)
 	state.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	state.add_theme_font_size_override("font_size", FS.TINY)
+	state.add_theme_font_size_override("font_size", FS.FINE)
 	state.add_theme_color_override("font_color", Color(Pal.INK, 0.85))
 	state.add_theme_constant_override("outline_size", 0)
 	col.add_child(state)
@@ -461,7 +461,7 @@ static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
 	btn.disabled = not enabled
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.add_theme_font_override("font", Kit.bold_font())
-	btn.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	btn.add_theme_font_size_override("font_size", FS.BODY)
 	btn.add_theme_color_override("font_color", Pal.CREAM)
 	btn.add_theme_color_override("font_disabled_color", Color(Pal.CREAM, 0.85))
 	btn.add_theme_constant_override("outline_size", 0)
@@ -507,7 +507,7 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 	var badge := Label.new()
 	badge.name = "SpiritTierBadge"
 	badge.text = str(tier)
-	badge.add_theme_font_size_override("font_size", FS.TINY)
+	badge.add_theme_font_size_override("font_size", FS.FINE)
 	badge.add_theme_color_override("font_color", Pal.CREAM)
 	badge.add_theme_constant_override("outline_size", 0)
 	var bsb := StyleBoxFlat.new()
@@ -650,7 +650,7 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 		hint.text = "Tap a resident"
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		hint.add_theme_font_size_override("font_size", int(FS.SMALL * s))
+		hint.add_theme_font_size_override("font_size", int(FS.FINE * s))
 		hint.add_theme_color_override("font_color", Color(Pal.INK, 0.65))
 		hint.add_theme_constant_override("outline_size", 0)
 		insp.add_child(hint)
@@ -668,7 +668,7 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	nm.name = "ResidentsInspectorName"
 	nm.text = "%s · T%d" % [_kind_name(kind), tier]
 	nm.add_theme_font_override("font", Kit.bold_font())
-	nm.add_theme_font_size_override("font_size", int(FS.EMPHASIS * s))
+	nm.add_theme_font_size_override("font_size", int(FS.BODY * s))
 	nm.add_theme_color_override("font_color", Pal.INK)
 	nm.add_theme_constant_override("outline_size", 0)
 	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -729,7 +729,7 @@ static func _inspector_pill(Kit: GDScript, s: float, text: String, accent: Color
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_override("font", Kit.bold_font())
-	b.add_theme_font_size_override("font_size", int(FS.EMPHASIS * s))
+	b.add_theme_font_size_override("font_size", int(FS.BODY * s))
 	b.add_theme_color_override("font_color", accent)
 	b.add_theme_constant_override("outline_size", 0)
 	var sb := StyleBoxFlat.new()
@@ -749,7 +749,7 @@ static func _section_label(Kit: GDScript, text: String) -> Label:
 	l.text = text.to_upper()
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_override("font", Kit.bold_font())
-	l.add_theme_font_size_override("font_size", FS.SMALL)
+	l.add_theme_font_size_override("font_size", FS.FINE)
 	l.add_theme_color_override("font_color", Pal.INK)
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE

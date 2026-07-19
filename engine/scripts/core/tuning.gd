@@ -7,42 +7,39 @@ extends RefCounted
 ## A consumer aliases its own section, e.g.  const Tune = preload(this).Ambient → Tune.X
 
 class FontScale:
-	## The global type scale. BASE is the theme default font size (installed by ui_font.gd);
-	## every named tier is a fixed percentage of BASE, so retuning BASE rescales ALL text.
-	## Sizes that instead track an ELEMENT's box (e.g. `int(h * 0.3)`) stay proportional to
-	## that element and do NOT belong here. EVERY authored font size uses a named tier.
-	const BASE := 40                     # 100% — the theme default font size
+	## The game's TYPE SCALE — SIX tiers, derived from the 1080x1920 concept screens in
+	## games/grove/assets/_concepts/screens/. Those mocks are 1:1 with the game canvas, so each
+	## tier is a real measurement: cap heights were measured off the mocks and converted with the
+	## live face's own cap/em ratio (0.744, measured by font_calibrate_shot.gd — not assumed).
+	## Every tier is a fixed % of BASE, so retuning BASE rescales ALL text.
+	##
+	##   tier      px   cap   what the mocks show at this size
+	##   FINE      28    21   nav labels ("HOME"), "NEXT UNLOCK", fine print
+	##   BODY      32    24   status pills ("IN PROGRESS"), "LEVEL 3", "67%"
+	##   HEADING   40    30   card titles ("Snowy Village"), item names, button labels ("CONTINUE")
+	##   TITLE     52    39   currency numbers ("91"), card hero titles ("Fairy Hollow"), counts
+	##   DISPLAY   64    48   the level-badge number, oversized decorative glyphs
+	##   BANNER   120    89   the full-screen wordmark ("MAPS")
+	##
+	## A size that is not one of these is a bug. Sizes that instead track an ELEMENT's box
+	## (e.g. `int(h * 0.3)`) stay proportional to that element and do NOT belong here.
+	const BASE := 40                     # 100% — the theme default, and the HEADING tier
 
-	const DISPLAY := int(BASE * 1.15)    # 46 — hero numbers / biggest headings
-	const FLOAT := int(BASE * 1.10)      # 44 — floating gain/merge text
-	const TITLE := BASE                  # 40 — screen/storefront titles
-	const STAT := int(BASE * 0.90)       # 36 — big stat/amount numbers
-	const HEADING := int(BASE * 0.85)    # 34 — section headings, currency numbers
-	const SUBHEADING := int(BASE * 0.80) # 32 — dialog titles, button labels
-	const BODY := int(BASE * 0.80)       # 32 — default body text (raised from 60% 2026-07-18; ties SUBHEADING)
-	const LARGE := int(BASE * 0.75)      # 30 — large accents (close ✕)
-	const EMPHASIS := int(BASE * 0.70)   # 28 — emphasized inline text
-	const MEDIUM := int(BASE * 0.65)     # 26 — prices, level numbers
-	const SMALL := int(BASE * 0.55)      # 22 — secondary notes, badges
-	const CAPTION := int(BASE * 0.50)    # 20 — captions, help text
-	const FOOTNOTE := int(BASE * 0.45)   # 18 — fine print, info chips
-	const TINY := int(BASE * 0.40)       # 16 — smallest shipped UI text
-	const MICRO := int(BASE * 0.35)      # 14 — count-pill numbers
-	const DEBUG := int(BASE * 0.30)      # 12 — dev/debug overlays only
-	# Oversized DECORATIVE glyphs — a watermark ✓ or a big "+", never running text. Kept as a
-	# separate band so the text ramp above stays readable, and wide enough to cover the range the
-	# workbench's glyph sliders authored (up to 160px) — every stop still a named const.
-	const GLYPH_SM := int(BASE * 1.60)   # 64 — full-card watermark glyphs (the veil ✓)
-	const GLYPH_MD := int(BASE * 1.75)   # 70 — the calendar's big "+" glyph
-	const GLYPH_LG := int(BASE * 2.50)   # 100
-	const GLYPH_XL := int(BASE * 4.00)   # 160
+	const FINE := int(BASE * 0.70)       # 28
+	const BODY := int(BASE * 0.80)       # 32
+	const HEADING := BASE                # 40
+	const TITLE := int(BASE * 1.30)      # 52
+	const DISPLAY := int(BASE * 1.60)    # 64
+	const BANNER := int(BASE * 3.00)     # 120
+
+	## Dev-tool CHROME only — workbench sidebars and shot-tool captions, which are dense and
+	## never ship. Deliberately OUTSIDE the design scale: holding tool chrome to the game's
+	## type ramp would either balloon the sidebars or drag the game's smallest text down.
+	const TOOL := int(BASE * 0.40)       # 16
 
 	## Every tier as an ascending px ladder — the ONLY legal font sizes. The dev workbench
 	## quantizes its font sliders to this, so a tuned-and-saved size is always a tier.
-	## (Tiers that currently share a px value appear twice; the readers below tolerate it.)
-	const TIERS := [DEBUG, MICRO, TINY, FOOTNOTE, CAPTION, SMALL, MEDIUM, EMPHASIS, LARGE,
-		SUBHEADING, BODY, HEADING, STAT, TITLE, FLOAT, DISPLAY,
-		GLYPH_SM, GLYPH_MD, GLYPH_LG, GLYPH_XL]
+	const TIERS := [TOOL, FINE, BODY, HEADING, TITLE, DISPLAY, BANNER]
 
 	## The nearest tier to an arbitrary px (ties round UP). Use for MIGRATING loose data
 	## (saved workbench configs); authored code should name its tier directly.
@@ -186,7 +183,7 @@ class FX:
 	const BREATHE_PERIOD := 0.9           # default seconds per breath
 
 	# --- floating_text -----------------------------------------------------------------
-	const FLOAT_SIZE := FontScale.FLOAT   # default font size
+	const FLOAT_SIZE := FontScale.TITLE   # default font size
 	const FLOAT_OUTLINE := 10
 	const FLOAT_Z := 60
 	const FLOAT_SCALE_START := 0.4
@@ -384,7 +381,7 @@ class Hud:
 
 	# --- the "+" acquire button (opens the store) --------------------------------------
 	const PLUS_BOX := 26.0                # the little round +-token diameter
-	const PLUS_SIZE := FontScale.SMALL    # the "+" glyph font size
+	const PLUS_SIZE := FontScale.FINE    # the "+" glyph font size
 	const PLUS_GAP := 2                   # gap between a currency number and its + button
 	const PLUS_BG := Color("#4E7C46")     # leaf green (the primary-CTA language → "get more")
 	const PLUS_BORDER := Color("#3C6037")
@@ -398,8 +395,8 @@ class Hud:
 	const LV_PX := 48.0                   # the round level "coin" diameter
 	const LV_TOKEN_BG := Color("#EAD49C") # honey token (de-greened — green is reserved for the CTA); gold ring + ink number
 	const LV_TOKEN_BORDER := Color("#C9A66B")  # warm gold ring
-	const LV_NUM_SIZE := FontScale.MEDIUM  # the level number inside the token
-	const LVL_PROG_SIZE := FontScale.EMPHASIS  # the level-progress fraction to its right
+	const LV_NUM_SIZE := FontScale.BODY  # the level number inside the token
+	const LVL_PROG_SIZE := FontScale.BODY  # the level-progress fraction to its right
 	const LVL_PROG_INK_ALPHA := 0.85      # level-progress text = Color(INK, this)
 
 
@@ -437,7 +434,7 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const STAT_NUM_SIZE := FontScale.HEADING
 
 	# --- title ribbon ------------------------------------------------------------------
-	const TITLE_SIZE := FontScale.SUBHEADING  # default title font size
+	const TITLE_SIZE := FontScale.HEADING  # default title font size
 	const TITLE_BG_ALPHA := 0.96          # bg = Color(Pal.PILL, this)
 	const TITLE_RADIUS := 20
 	const TITLE_BORDER_W := 3
@@ -457,7 +454,7 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 
 	# --- buttons -----------------------------------------------------------------------
 	const BTN_MIN_SIZE := Vector2(190, 88)
-	const BTN_SIZE := FontScale.SUBHEADING  # label font size
+	const BTN_SIZE := FontScale.HEADING  # label font size
 	const BTN_RADIUS := 28
 	const BTN_BORDER_W := 3
 	const BTN_PILL_ALPHA := 0.97          # secondary bg = Color(Pal.PILL, this)
@@ -508,9 +505,9 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const BADGE_DOT_PX := 14               # the bare red dot diameter
 	const BADGE_RIM := Color(1, 1, 1, 0.95)  # cream/white ring so it reads on any colour
 	const BADGE_RIM_W := 2
-	const BADGE_PILL_H := 22               # count-pill height
+	const BADGE_PILL_H := 34               # count-pill height — must clear BADGE_NUM_SIZE's cap + padding
 	const BADGE_PILL_PAD_X := 6.0          # count-pill horizontal padding
-	const BADGE_NUM_SIZE := FontScale.MICRO  # count-pill number font size
+	const BADGE_NUM_SIZE := FontScale.FINE  # count-pill number font size
 	# Top-right corner-overhang: how far the badge pokes PAST its host's top-right corner
 	# (x = past the right edge, y = above the top edge), both positive = outside the host.
 	const BADGE_OVERHANG := Vector2(6, 6)
@@ -548,7 +545,7 @@ class Shop:
 	# --- header / title ----------------------------------------------------------------
 	const HEADER_H := 140                 # the stall banner band height
 	const TITLE_SIZE := FontScale.TITLE   # storefront title font
-	const CONFIRM_TITLE_SIZE := FontScale.SUBHEADING  # confirm dialog title font
+	const CONFIRM_TITLE_SIZE := FontScale.HEADING  # confirm dialog title font
 	const RIBBON_TOP := 4.0               # title chip inset from the band top
 
 	# --- rows --------------------------------------------------------------------------
@@ -559,7 +556,7 @@ class Shop:
 
 	# --- the close (✕) button ----------------------------------------------------------
 	const X_BTN := 64.0                   # round close button size
-	const X_FONT := FontScale.LARGE
+	const X_FONT := FontScale.HEADING
 	const X_MARGIN := 12.0                # inset from the card's top-right corner
 	const X_RADIUS := 32
 	const X_BORDER_W := 3
@@ -591,10 +588,10 @@ class Shop:
 	const ICON_PLATE := 108.0             # the soft disc behind the hero icon
 	const ICON_PLATE_BG := Color("#F2EFDC")  # pale disc under card items — matches the grove CARD_PEDESTAL role value
 	const ICON_PLATE_EDGE_ALPHA := 0.16   # disc rim = Color(BARK, this)
-	const HELP_TITLE_SIZE := FontScale.EMPHASIS
-	const HELP_CAP_SIZE := FontScale.CAPTION
+	const HELP_TITLE_SIZE := FontScale.BODY
+	const HELP_CAP_SIZE := FontScale.FINE
 	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
-	const HELP_PRICE_SIZE := FontScale.MEDIUM  # gem price chip number
+	const HELP_PRICE_SIZE := FontScale.BODY  # gem price chip number
 
 	# (FEATURED_CARD — the item-shortcut offer card size — was removed 2026-06-23 with the
 	# shop's item-buying; that moves to the board's item info bar.)
@@ -612,7 +609,7 @@ class Shop:
 	const POP_RADIUS := 10                # "Popular" badge
 	const POP_PAD_X := 10.0
 	const POP_PAD_Y := 2.0
-	const POP_SIZE := FontScale.FOOTNOTE
+	const POP_SIZE := FontScale.FINE
 	const GEM_ICON := 64.0
 	# The cash packs scale their gem cluster by tier so a bigger pack LOOKS bigger (same art, grown
 	# size) — the value ladder reads at a glance instead of six identical clusters. Lerped MIN→MAX
@@ -629,7 +626,7 @@ class Shop:
 	const BUY_PAD_X := 16.0
 	const BUY_PAD_T := 6.0
 	const BUY_PAD_B := 7.0
-	const BUY_SIZE := FontScale.MEDIUM    # price number font
+	const BUY_SIZE := FontScale.BODY    # price number font
 	const BUY_SHADOW := Color("#29465461")
 	const BUY_SHADOW_SIZE := 10
 	const BUY_SHADOW_OFFSET := Vector2(3, 7)
@@ -665,7 +662,7 @@ class Shop:
 	const INFO_BG := Color("#5FA8D8")     # soft blue (the reference info-badge language)
 	const INFO_EDGE := Color("#3E83AD")
 	const INFO_BORDER_W := 2
-	const INFO_FONT := FontScale.FOOTNOTE
+	const INFO_FONT := FontScale.FINE
 	const INFO_MARGIN := 7.0
 	# (the item-detail sheet's width/body-font consts moved to the workbench-tuned `info` config —
 	#  see Kit.info_opts_from_config; the sheet face is now the shared Kit.mail_dialog, no Claim + a Got it.)
@@ -679,4 +676,4 @@ class Shop:
 	# --- cash confirm ------------------------------------------------------------------
 	const CONFIRM_GEM_ICON := 36.0
 	const CONFIRM_AMOUNT_SIZE := FontScale.HEADING
-	const CONFIRM_NOTE_SIZE := FontScale.SMALL
+	const CONFIRM_NOTE_SIZE := FontScale.FINE

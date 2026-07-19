@@ -229,7 +229,7 @@ static func _dbg_readout() -> Control:
 	pc.add_theme_stylebox_override("panel", s)
 	var l := Label.new()
 	l.name = "DbgReadout"
-	l.add_theme_font_size_override("font_size", FS.FOOTNOTE)
+	l.add_theme_font_size_override("font_size", FS.FINE)
 	l.add_theme_color_override("font_color", Color("#FFF3B8"))
 	pc.add_child(l)
 	return pc
@@ -239,7 +239,7 @@ static func _dbg_button(text: String, bg: Color) -> Button:
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(184, 44)
-	b.add_theme_font_size_override("font_size", FS.CAPTION)
+	b.add_theme_font_size_override("font_size", FS.FINE)
 	b.add_theme_color_override("font_color", Color.WHITE)
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(bg, 0.92)

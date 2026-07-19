@@ -50,7 +50,7 @@ func _build_ui() -> void:
 
 	var title := Label.new()
 	title.text = "Button Shadow"
-	title.add_theme_font_size_override("font_size", FS.SMALL)
+	title.add_theme_font_size_override("font_size", FS.FINE)
 	title.add_theme_color_override("font_color", Color("#3A2012"))
 	stack.add_child(title)
 

@@ -909,7 +909,7 @@ func _cue_empty_water() -> void:
 	var anchor: Control = _water_icon if _water_icon != null and is_instance_valid(_water_icon) else water_label
 	if anchor == null or not is_instance_valid(anchor):
 		return
-	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, FS.LARGE)
+	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, FS.HEADING)
 
 func _on_refill() -> void:
 	if water > 0:
@@ -1221,7 +1221,7 @@ func _note_item_landed(code: int) -> void:
 		return
 	g["seen_sell_hint"] = true
 	FX.floating_text(self, Vector2(get_global_rect().get_center().x - 250, 220),
-		Strings.t("board.hints.sell_spares"), CREAM, FS.EMPHASIS)
+		Strings.t("board.hints.sell_spares"), CREAM, FS.BODY)
 
 # The one notion of "deliverable" — the single asked item is on the board RIGHT NOW.
 # A pure boolean, asserted by tests, that both the ✓ and the bob read so they can never diverge.
@@ -3558,7 +3558,7 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	sub.add_child(Look.icon("coin", 22.0))
 	var sn0 := Label.new()
 	sn0.text = str(got)                                  # the "before" — the reward as it stands now
-	sn0.add_theme_font_size_override("font_size", FS.SMALL)
+	sn0.add_theme_font_size_override("font_size", FS.FINE)
 	sn0.add_theme_color_override("font_color", Color(Pal.INK, 0.5))
 	sn0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	sub.add_child(sn0)

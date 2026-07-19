@@ -61,7 +61,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	body.custom_minimum_size = Vector2(360, 0)
 	body.add_theme_font_override("font", plain)
 	body.add_theme_constant_override("outline_size", 0)
-	body.add_theme_font_size_override("font_size", FS.FOOTNOTE)
+	body.add_theme_font_size_override("font_size", FS.FINE)
 	body.add_theme_color_override("font_color", BARK)
 	col.add_child(body)
 

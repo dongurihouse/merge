@@ -112,7 +112,7 @@ func _build_panel() -> void:
 
 	var title := Label.new()
 	title.text = "Unlock zones (order = unlock order)"
-	title.add_theme_font_size_override("font_size", FS.TINY)
+	title.add_theme_font_size_override("font_size", FS.FINE)
 	stack.add_child(title)
 
 	zone_list = ZoneListPanel.new()
@@ -133,7 +133,7 @@ func _build_panel() -> void:
 
 	save_status = Label.new()
 	save_status.name = "SaveStatus"
-	save_status.add_theme_font_size_override("font_size", FS.DEBUG)
+	save_status.add_theme_font_size_override("font_size", FS.TOOL)
 	save_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(save_status)
 	add_child(panel)

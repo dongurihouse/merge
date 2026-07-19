@@ -425,7 +425,7 @@ func _feel_hint(text: String, pos: Vector2) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_color_override("font_color", FEEL_INK)
-	l.add_theme_font_size_override("font_size", FS.TINY)
+	l.add_theme_font_size_override("font_size", FS.FINE)
 	l.position = pos
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
@@ -465,7 +465,7 @@ func _feel_trigger_button(label: String, play: Callable) -> void:
 	var b := Button.new()
 	b.text = label
 	b.set_meta("wb_active", true)
-	b.add_theme_font_size_override("font_size", FS.FOOTNOTE)
+	b.add_theme_font_size_override("font_size", FS.FINE)
 	b.pressed.connect(play)
 	_sidebar_body.add_child(b)
 
@@ -484,7 +484,7 @@ func _feel_fx_sidebar(effects: Array, knobs: Dictionary) -> void:
 			var t := Label.new()
 			t.text = tip
 			t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			t.add_theme_font_size_override("font_size", FS.DEBUG)
+			t.add_theme_font_size_override("font_size", FS.TOOL)
 			t.add_theme_color_override("font_color", Color(Pal.CREAM, 0.6))
 			_sidebar_body.add_child(t)
 		_sidebar_body.add_child(_toggle_row("On", fid))
@@ -495,7 +495,7 @@ func _fx_sidebar() -> void:
 	var saved := Label.new()
 	saved.name = "WorkbenchFxSavedSettingsHeader"
 	saved.text = "●  Saved to config"
-	saved.add_theme_font_size_override("font_size", FS.CAPTION)
+	saved.add_theme_font_size_override("font_size", FS.FINE)
 	saved.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(saved)
 	_section_header("Action gates")
@@ -518,7 +518,7 @@ func _fx_sidebar() -> void:
 	var test := Label.new()
 	test.name = "WorkbenchFxTestSettingsHeader"
 	test.text = "○  Test only — not saved"
-	test.add_theme_font_size_override("font_size", FS.CAPTION)
+	test.add_theme_font_size_override("font_size", FS.FINE)
 	test.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
 	_sidebar_body.add_child(test)
 	_sidebar_body.add_child(_fx_action_row())
@@ -762,7 +762,7 @@ func _make_element(id: String) -> Control:
 			var tile_ctr := Vector2(tcx, tiles_y + tpx * 0.5)
 			var btn := Button.new()
 			btn.text = "▶  Replay all"
-			btn.add_theme_font_size_override("font_size", FS.SMALL)
+			btn.add_theme_font_size_override("font_size", FS.FINE)
 			btn.custom_minimum_size = Vector2(190.0, 52.0) ; btn.size = btn.custom_minimum_size
 			btn.position = Vector2(tcx - 95.0, tiles_y + tpx + 14.0)
 			btn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
@@ -804,7 +804,7 @@ func _element_sidebar(_id: String) -> void:
 				rb.name = "RushFxReplay_%s" % fid
 				rb.text = "▶  Replay"
 				rb.set_meta("wb_active", true)
-				rb.add_theme_font_size_override("font_size", FS.TINY)
+				rb.add_theme_font_size_override("font_size", FS.FINE)
 				rb.pressed.connect(func() -> void: _rush_fx_play(fid))
 				_sidebar_body.add_child(rb)
 				for spec in RUSH_FX_KNOBS.get(fid, []):

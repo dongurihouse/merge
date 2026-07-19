@@ -267,7 +267,7 @@ func _section(id: String) -> Control:
 	var cap := Label.new()
 	# short caption in the gallery (the full description rides the sidebar) so paired sections stay narrow
 	cap.text = ("●  " if id == _selected else "") + String(_captions()[id]).split(" — ")[0]
-	cap.add_theme_font_size_override("font_size", FS.TINY)
+	cap.add_theme_font_size_override("font_size", FS.FINE)
 	cap.add_theme_color_override("font_color", Pal.STRAW if id == _selected else Color(Pal.CREAM, 0.8))
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(cap)
@@ -388,7 +388,7 @@ func _rebuild_sidebar() -> void:
 		c.queue_free()
 	var head := Label.new()
 	head.text = "Options"
-	head.add_theme_font_size_override("font_size", FS.MEDIUM)
+	head.add_theme_font_size_override("font_size", FS.BODY)
 	_sidebar_body.add_child(head)
 	var save := Button.new()
 	save.text = "Save settings"
@@ -396,7 +396,7 @@ func _rebuild_sidebar() -> void:
 	_sidebar_body.add_child(save)
 	var sub := Label.new()
 	sub.text = String(_captions()[_selected])
-	sub.add_theme_font_size_override("font_size", FS.MICRO)
+	sub.add_theme_font_size_override("font_size", FS.FINE)
 	sub.add_theme_color_override("font_color", Color(Pal.CREAM, 0.65))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sidebar_body.add_child(sub)
@@ -426,7 +426,7 @@ func _wrap_sidebar_row_label(label: Label) -> void:
 func _sidebar_note(text: String, color := Color(Pal.STRAW, 0.85)) -> void:
 	var note := Label.new()
 	note.text = text
-	note.add_theme_font_size_override("font_size", FS.DEBUG)
+	note.add_theme_font_size_override("font_size", FS.TOOL)
 	note.add_theme_color_override("font_color", color)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sidebar_body.add_child(note)
@@ -436,7 +436,7 @@ func _group_header(title: String, saved: bool) -> void:
 	_sidebar_body.add_child(HSeparator.new())
 	var l := Label.new()
 	l.text = ("●  " if saved else "○  ") + title
-	l.add_theme_font_size_override("font_size", FS.CAPTION)
+	l.add_theme_font_size_override("font_size", FS.FINE)
 	l.add_theme_color_override("font_color", Pal.STRAW if saved else Color(Pal.CREAM, 0.5))
 	_sidebar_body.add_child(l)
 
@@ -445,7 +445,7 @@ func _section_header(title: String) -> void:
 	_sidebar_body.add_child(HSeparator.new())
 	var l := Label.new()
 	l.text = title
-	l.add_theme_font_size_override("font_size", FS.TINY)
+	l.add_theme_font_size_override("font_size", FS.FINE)
 	l.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(l)
 
