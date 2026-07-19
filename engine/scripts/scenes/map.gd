@@ -1064,6 +1064,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var cbot := rect.size.y - 62.0
 
 	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg) if Kit != null else {}
+	bag_opts["dialog_cells"] = true   # a DIALOG surface → the shared sage cell face, not the board's mint
 
 	# --- the CELLS (the one global bucket) — placed spirits, then free capacity ----------------------
 	var title := _dock_label("Spirits", FS.MEDIUM, true)
@@ -1284,6 +1285,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	var bg: Panel
 	if Kit != null:
 		var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
+		bag_opts["dialog_cells"] = true   # matches the cells this bar sits under
 		bg = Kit.slot_cell_background(rect.size, "empty", false, bag_opts) as Panel
 	else:
 		bg = Panel.new()

@@ -58,6 +58,9 @@ shader_type canvas_item;
 
 uniform vec2 control_size = vec2(1.0);
 uniform float radius_px = 1.0;
+// Retint of the grain sheet, as a straight multiply. Default white → every existing caller's pixels
+// are unchanged; only a dialog cell asking for the sage face passes anything else.
+uniform vec4 tint = vec4(1.0);
 
 float rounded_box_distance(vec2 point, vec2 half_size, float radius) {
 	vec2 q = abs(point) - half_size + vec2(radius);
@@ -72,7 +75,7 @@ void fragment() {
 		radius_px
 	);
 	float mask = 1.0 - smoothstep(-1.0, 1.0, distance_to_edge);
-	COLOR = vec4(paper.rgb, paper.a * mask);
+	COLOR = vec4(paper.rgb * tint.rgb, paper.a * mask);
 }
 """
 static var _paper_mask_shader: Shader
@@ -84,7 +87,7 @@ static func _meadow_tex(file_name: String) -> Texture2D:
 	var path := _meadow_path(file_name)
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
-static func _rounded_paper_layer(node_name: String, file_name: String, size_px: Vector2, corner_px: float, inset: float = 2.0) -> TextureRect:
+static func _rounded_paper_layer(node_name: String, file_name: String, size_px: Vector2, corner_px: float, inset: float = 2.0, tint: Color = Color.WHITE) -> TextureRect:
 	var paper := TextureRect.new()
 	paper.name = node_name
 	paper.texture = _meadow_tex(file_name)
@@ -106,6 +109,7 @@ static func _rounded_paper_layer(node_name: String, file_name: String, size_px: 
 	mask.shader = _paper_mask_shader
 	mask.set_shader_parameter("control_size", paper.size)
 	mask.set_shader_parameter("radius_px", maxf(0.0, corner_px - inset))
+	mask.set_shader_parameter("tint", tint)
 	paper.material = mask
 	return paper
 
@@ -2264,6 +2268,26 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 			env.position = Vector2(ribbon_x + banner_w * 0.14 - icon_px / 2.0, band_h / 2.0 - icon_px / 2.0)
 	return header
 
+## The dialog mocks' DISPLAY TITLE, as a fraction of the card width — measured off the tiers mock
+## (a ~98px cap-box on a 995px card) and consistent across the shop / residents / level sheets.
+const DIALOG_TITLE_FONT_FRAC := 0.098
+## ...and the band one such line needs, × its font size.
+const DIALOG_TITLE_LINE_FRAC := 1.02
+
+## The display title's font size for a sheet `target_w` px wide, SHRUNK to fit when the title is long
+## (the tiers mock's "WILDFLOWER" is 10 characters; "GLOW MUSHROOMS" at that size runs off both edges).
+## Public so a dialog that sizes its own title band (the tiers crest) can ask for the same number.
+static func dialog_title_font(text: String, target_w: float, pad_x: float, frac: float = DIALOG_TITLE_FONT_FRAC) -> int:
+	var fsz: int = maxi(12, int(round(target_w * frac)))
+	var f: Font = bold_font()
+	if f == null:
+		return fsz
+	var room: float = maxf(1.0, target_w - 2.0 * pad_x)
+	var tw: float = f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
+	if tw > room:
+		fsz = maxi(12, int(floor(float(fsz) * room / tw)))
+	return fsz
+
 ## The SIMPLE dialog header (dialog mock set v2): the uppercased title in plain chunky ink, centered
 ## in the top band of the sheet — no ribbon art, no icon. Named DialogBanner so the workbench and the
 ## frame tests keep finding the header by the established handle.
@@ -2387,6 +2411,16 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# target (see the ScaleContainer below). content_scale == 1 → byte-identical to the old frame.
 	var content_scale: float = maxf(0.01, float(opts.get("content_scale", 1.0)))
 	var target_w: float = width * content_scale
+
+	# THE SHARED DISPLAY TITLE. Every dialog mock heads its sheet with the same large navy all-caps
+	# line, sized as a fraction of the CARD (not a fixed px), so the shared frame — not each dialog —
+	# owns it. opts.banner_font_frac = 0 opts a caller back out to a literal banner_font.
+	var title_frac: float = float(opts.get("banner_font_frac", DIALOG_TITLE_FONT_FRAC))
+	if title_frac > 0.0:
+		banner_font = dialog_title_font(banner_text, target_w, panel_pad_x, title_frac)
+		# the band has to hold the line it now carries; a caller that already sized its own band
+		# taller (the tiers crest rides above the title) keeps its value.
+		banner_h = maxf(banner_h, float(banner_font) * DIALOG_TITLE_LINE_FRAC)
 
 	var wrap := Control.new()
 	var card := PanelContainer.new()
@@ -3830,6 +3864,10 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"empty_font": int(d.get("empty_font", FS.EMPHASIS)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
+		# every DIALOG's slot cells wear the mocks' sage face (see DIALOG_CELL_OPEN_FILL). This builder is
+		# the dialogs' shared root — the board builds its cells from bag_card_opts_from_config instead, so
+		# the playable grid never picks this up.
+		"dialog_cells": true,
 	}
 
 ## The day-CARD opts from config (cell size/art + the today/milestone highlight badges). The daily card
@@ -4650,6 +4688,14 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
 		fallback.a)
 
+## The DIALOG cell face — the warm sage the dialog mocks paint their open/discovered cells with,
+## measured (median of a flat patch) off games/grove/assets/_concepts/dialogs/: tiers #CCCEAA,
+## merged_line_tiers #CBCFA8, resident_management_dialog_v2 #CDC8A5. The board's own open cell keeps
+## the Meadow-Sky mint below and is unaffected.
+const DIALOG_CELL_OPEN_FILL := Color("#CCCEAA")
+## ...and the nominal colour of ui/meadow_v2/texture_meadow.png, the grain sheet drawn over the face.
+const MEADOW_PAPER_BASE := Color("#A8D3B9")
+
 ## The SLOT-CELL background draws its rounded shape and edge in code, then clips one flat paper texture
 ## inside it. Cells never cast their own shadow; only the board slab does.
 static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4696,9 +4742,15 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	base.name = "SlotCellBackground"
 	base.position = Vector2.ONE * face_inset
 	base.size = face_size
+	# DIALOG cells wear the mocks' warmer SAGE face; the BOARD keeps its Meadow mint untouched. The
+	# opt is dialog-scoped (opts.dialog_cells, threaded in by the dialog opt builders) precisely so the
+	# playable grid — which passes flat_board_cells — is never repainted.
+	var dialog_cells := bool(opts.get("dialog_cells", false)) and not flat_board_cells
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
 	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
+	if open_state and dialog_cells:
+		fill = DIALOG_CELL_OPEN_FILL
 	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = fill
@@ -4710,7 +4762,13 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	fs.anti_aliasing = true
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0))
+	# the paper layer IS the visible colour (texture_meadow.png is an opaque #A8D3B9 grain sheet), so a
+	# recoloured face has to retint it too — as a modulate ratio off the texture's own base, which is
+	# exactly Color.WHITE when the fill is unchanged (the board stays byte-identical).
+	var paper_tint := Color.WHITE
+	if open_state and dialog_cells:
+		paper_tint = Color(fill.r / MEADOW_PAPER_BASE.r, fill.g / MEADOW_PAPER_BASE.g, fill.b / MEADOW_PAPER_BASE.b)
+	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0, paper_tint))
 	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
 	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
 	# a board tile CLIPS to ~face_inset px of feather over an already-dark field, so the shared
@@ -4732,14 +4790,38 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
 const SLOT_LOCK_MARK_ALPHA := 0.78
 const SLOT_LOCK_MARK_FRAC := 0.58
+## The DIALOG lock: the mocks stamp an undiscovered cell with a flat navy padlock, not the house acorn.
+## The art is games/grove/assets/ui/kit/tiers_lock.png, cut by games/grove/tools/cut_tiers_ornaments.py;
+## the metrics are the tiers mock's (105 / 276 of the cell, at the cut art's own 143:105 aspect).
+const DIALOG_LOCK_PATH := "res://games/grove/assets/ui/kit/tiers_lock.png"
+const DIALOG_LOCK_W_FRAC := 0.38
+const DIALOG_LOCK_ASPECT := 143.0 / 105.0
 
-static func _slot_lock_mark(cw: float, ch: float) -> TextureRect:
+## The locked cell's stamp. `dialog_cells` picks the mocks' flat padlock; everything else (the board, the
+## bag's gated wells, any non-dialog caller) keeps the house acorn lock, unchanged.
+static func _slot_lock_mark(cw: float, ch: float, dialog_cells: bool = false) -> TextureRect:
+	var tr := TextureRect.new()
+	tr.name = "SlotCellLockMark"
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE     # before any size/anchor work — the min-size cache clamps otherwise
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if dialog_cells and ResourceLoader.exists(DIALOG_LOCK_PATH):
+		var lock_tex: Texture2D = load(DIALOG_LOCK_PATH)
+		if lock_tex != null:
+			tr.texture = lock_tex
+			# FRACTIONAL anchors, zero offsets: the mark then tracks whatever size the cell settles at
+			# (a dialog grid fits its cells deferred) instead of freezing today's pixel inset.
+			var hf: float = DIALOG_LOCK_W_FRAC * DIALOG_LOCK_ASPECT * (cw / maxf(1.0, ch))
+			tr.anchor_left = 0.5 - DIALOG_LOCK_W_FRAC * 0.5
+			tr.anchor_right = 0.5 + DIALOG_LOCK_W_FRAC * 0.5
+			tr.anchor_top = 0.5 - hf * 0.5
+			tr.anchor_bottom = 0.5 + hf * 0.5
+			tr.offset_left = 0.0; tr.offset_top = 0.0; tr.offset_right = 0.0; tr.offset_bottom = 0.0
+			return tr
 	var tex := _meadow_tex("acorn_lock.svg")
 	if tex == null:
 		return null
 	var px := minf(cw, ch) * SLOT_LOCK_MARK_FRAC
-	var tr := TextureRect.new()
-	tr.name = "SlotCellLockMark"
 	tr.texture = tex
 	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var inset_x := (cw - px) * 0.5
@@ -4748,10 +4830,7 @@ static func _slot_lock_mark(cw: float, ch: float) -> TextureRect:
 	tr.offset_top = inset_y
 	tr.offset_right = -inset_x
 	tr.offset_bottom = -inset_y
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.modulate = Color(1.0, 1.0, 1.0, SLOT_LOCK_MARK_ALPHA)
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4841,7 +4920,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		bg.modulate = Color(0.74, 0.74, 0.74, 1.0)
 	tile.add_child(bg)
 	if lockedwell:
-		var lock_mark := _slot_lock_mark(cw, ch)
+		var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
 		if lock_mark != null:
 			tile.add_child(lock_mark)
 

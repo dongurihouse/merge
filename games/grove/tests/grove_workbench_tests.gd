@@ -2675,8 +2675,12 @@ func _test_discovery_cell() -> void:
 	# a DISCOVERED tier → filled Slot-cell background; an UNDISCOVERED tier → locked Slot-cell background
 	ok(dlg.find_children("SlotCellBackground", "Panel", true, false).size() >= 2, \
 		"discovered and undiscovered tiers both use the shared Slot-cell background")
-	ok(_locked_placeholder(dlg) != null and is_equal_approx(_locked_placeholder(dlg).modulate.a, 0.78), \
-		"undiscovered tiers inherit the shared acorn-lock mark")
+	# a DIALOG's locked cell wears the shared kit's flat padlock (the mocks' mark), not the board's
+	# house acorn lock — one mechanism in the kit, keyed off opts.dialog_cells.
+	ok(_locked_placeholder(dlg) != null \
+		and String(_locked_placeholder(dlg).texture.resource_path).ends_with("ui/kit/tiers_lock.png") \
+		and is_equal_approx(_locked_placeholder(dlg).modulate.a, 1.0), \
+		"undiscovered tiers inherit the shared DIALOG padlock mark")
 	var tuned_cfg := {"bag_card": {"open_hue": 126, "open_sat": 78, "open_val": 52}}
 	var tuned_topts := Kit.tiers_opts_from_config(tuned_cfg)
 	var tuned_dlg := Kit.tiers_dialog([{"tier": 1, "seen": true, "icon": "leaf"}], 560.0, tuned_topts)

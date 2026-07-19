@@ -267,6 +267,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	# --- HABITAT CELLS: granted cells (placed spirits first, then free), locked to the mock's row ---
 	body.add_child(_section_label(Kit, "Habitat cells"))
 	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
+	bag_opts["dialog_cells"] = true   # this is a DIALOG's grid → the shared sage cell face, not the board's mint
 	var placed: Array = Bucket.placed()
 	var cells_total: int = Bucket.cells_total()
 	var slots: int = maxi(HABITAT_SLOTS_SHOWN, cells_total)
