@@ -178,11 +178,11 @@
 	},
 	"gold_currency_pill": {
 		"amount_w": 95.0,
-		"amount_x": 47.0,
+		"amount_x": 51.0,
 		"gap": 10.0,
 		"icon_box": 23.0,
 		"icon_size": 64.0,
-		"icon_x": -15.0,
+		"icon_x": -5.0,
 		"inner_shadow": 24.0,
 		"num_size": 46.0,
 		"overall_scale": 116.0,
@@ -191,11 +191,11 @@
 		"pad_y": 4.0,
 		"pill_h": 74.0,
 		"pill_w": 193.0,
-		"plus_button": 61.0,
+		"plus_button": 96.0,
 		"plus_font": 70.0,
 		"plus_hue": 64.0,
 		"plus_label_y": -1.0,
-		"plus_radius": 22.0,
+		"plus_radius": 19.0,
 		"plus_round": 8.0,
 		"plus_shine": 58.0,
 		"plus_stroke": 2.0,
@@ -258,7 +258,9 @@
 		"shadow": false,
 		"top_band_h_pct": 15.0
 	},
-	"icon": {},
+	"icon": {
+
+	},
 	"info": {
 		"shadow": false
 	},
@@ -273,7 +275,6 @@
 		"inner_scale": 52.0,
 		"item_icon_scale": 119.0,
 		"name_font": 32.0,
-		"desc_font": 18.0,
 		"pad_right": 0.0,
 		"pad_x_pct": 0.0,
 		"pad_y_pct": 0.0,

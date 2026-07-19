@@ -1,0 +1,25 @@
+Use case: stylized-concept.
+Asset type: original full-scene mock for a mobile game picture-book page, to be saved as the source concept before decomposition.
+Scene: Cherry-Blossom Garden, page 5 of a cozy decorate-and-turn picture book game.
+
+Primary request: Generate one complete original scene mock, portrait iPhone aspect ratio, no UI and no text. This is a single full-scene concept mock, not a layered composite and not a prop sheet. It should show the whole page as the player would imagine it when mostly built, with 7 customizable page items visible and separated enough to be later extracted or replaced.
+
+Scene composition: a tranquil spring garden that feels completely different from forest, winter, desert, and coral scenes. Use one continuous soft meadow/cream ground plane with a koi pond as the main calm feature. Include these native page items: sakura trees, koi pond, red arched bridge, tea pavilion, stone lanterns, torii gate, and drifting petals as atmospheric backdrop. Put the tea pavilion as the hero structure in the upper-middle or upper-right, the koi pond and bridge through the middle, a torii gate as a threshold or entrance near the lower/side approach, and stone lanterns placed where they would actually mark the path. The path should enter from the lower edge, pass under or near the torii gate, cross/approach the bridge, and lead naturally to the pavilion. Items must be large enough to tap and visually distinct; leave about one prop-width of visible ground or water between customizable items. No object-specific grass pads, no sticker bases, no forced scenic islands.
+
+Input images:
+- Image 1 is the mandatory Meadow Sky palette/material authority: warm cream, meadow greens, sky/slate blues, reward gold, sparse purple, matte paper surfaces, shallow shadows.
+- Image 2 is the mandatory camera/scale/detail-budget authority: elevated three-quarter mobile-game scene, coherent object scale, gentle integrated landscape, simple readable vegetation. Do not copy its farm buildings or farm theme.
+
+Palette: fixed Meadow Sky roles only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Cherry petals should use soft coral and warm cream, not hot pink. The bridge/torii can use coral accents; keep the rest balanced with meadow green, slate-blue water, cream paths, and quiet gold lantern light.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Avoid: UI chrome, buttons, cards, labels, numbers, watermark, characters posing for camera, dense clutter, tiny props, farm/forest/desert/coral composition, object-specific flower rings or bases, neon pink, glossy plastic, clay render, watercolor, painterly brush texture, heavy outlines.

@@ -1,0 +1,11 @@
+Use case: illustration-story
+Asset type: Grove zone concept mock, portrait mobile game scene
+Primary request: Regenerate the visible Coral Reef mock as a polished full-scene concept image, using the provided image as the exact composition and art-direction reference.
+Input image role: preserve the camera, overall layout, object identities, underwater canyon, shipwreck, clam, treasure chest, mermaid statue, kelp, corals, bubble streams, paper grain, and high-contrast colorful cut-paper picturebook style.
+Scene/backdrop: vertical underwater canyon with blue rock shelves and sandy lower path, bright turquoise water, soft top-left light shafts.
+Additions: add subtle extra scene dressing only: a small rusted anchor and coiled rope near/below the shipwreck, 2-3 broken ship plank fragments integrated near the wreck, more small blue-gray pebble clusters near the lower sandy path and ledge edges, a few tiny seaweed tufts around the chest/clam/statue bases, one small pearl sparkle or coin glint near the clam/chest, and very subtle suspended water specks.
+Style/medium: colorful high-contrast cut-paper/picturebook 2D game art, clean low-complexity shapes, visible paper grain, crisp silhouettes, soft watercolor-like contact shadows, playful but polished casual mobile game zone mock.
+Composition/framing: portrait composition matching the reference, keep the center water channel readable and not crowded, keep the major hero props in the same places and sizes, add details as integrated environmental dressing.
+Lighting/mood: bright, inviting underwater glow, soft light shafts from top-left, no gloomy realism.
+Color palette: turquoise water, blue-gray rocks, coral orange, cream, lavender, kelp greens, warm wood and gold accents.
+Constraints: no UI, no text, no labels, no borders, no icons, no characters/animals, no photorealism, no pixel art, no dark muddy palette, no floating pasted sticker feel, no new giant hero objects, no extra buildings or land objects.

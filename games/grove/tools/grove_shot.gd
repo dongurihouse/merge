@@ -309,6 +309,16 @@ func _initialize() -> void:
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
 			await create_timer(0.6).timeout
+		"baggen":
+			# the bag overlay WITH the stored-generators row below the grid — the tiles there must
+			# match the slot cells above them exactly (they share the dialog's fitted cell opts).
+			Save.add_diamonds(132)
+			scn.bag = [101, 201, 301]
+			scn.board.gen_bag = ["acorn", "acorn"]
+			scn.board.gen_bag_tiers = [1, 2]
+			scn._rebuild_bag()
+			scn._open_bag_overlay()
+			await create_timer(0.6).timeout
 		"bagwell":
 			# the bottom-nav Bag WELL with items stashed (overlay CLOSED): proves the in-well
 			# item preview size + the count badge.
