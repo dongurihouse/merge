@@ -343,10 +343,10 @@ func _test_residents_dialog() -> void:
 	ok(collect != null and collect.disabled, "after the collect the button goes quiet")
 
 	# tap a hand card → the inspector arms; Sell pays and frees the slot
-	var card := ov.find_child("OnHandCard_00", true, false) as Button
-	ok(card != null, "a hand card is tappable")
+	var card = ov.find_child("OnHandCard_00", true, false)
+	ok(card != null and card.has_method("tap"), "a hand card is a tappable drag card")
 	if card != null:
-		card.pressed.emit()
+		card.tap()
 		await create_timer(0.1).timeout
 	var sell := ov.find_child("ResidentsSellButton", true, false) as Button
 	ok(sell != null, "a selected spirit surfaces Sell")
@@ -357,6 +357,53 @@ func _test_residents_dialog() -> void:
 		await create_timer(0.1).timeout
 		ok(Bucket.hand().size() == hand_before - 1 and Save.coins() > coins_before,
 			"Sell pays coins and removes the spirit")
+
+	# drag-to-merge: drop a matching hand spirit onto its twin → the TARGET slot climbs a tier.
+	# Seeded through the model, so close and reopen the dialog to re-read state.
+	st = Bucket.state()
+	st["hand"] = []
+	Save.grove_write()
+	Bucket.hand_add("water", 1)
+	Bucket.hand_add("coin", 1)
+	Bucket.hand_add("water", 1)
+	ov.free()
+	UI.open(host, {})
+	await create_timer(0.15).timeout
+	ov = host.get_node_or_null("ResidentsOverlay")
+	ok(ov != null, "the dialog reopens for the drag tests")
+	var target = ov.find_child("OnHandCard_00", true, false)
+	var source = ov.find_child("OnHandCard_02", true, false)
+	ok(target != null and source != null, "the merge test has a source and a target card")
+	if target != null and source != null:
+		var payload: Dictionary = source._get_drag_data(Vector2.ZERO)
+		ok(payload is Dictionary and bool(payload.get("residents_drag", false)), "a hand card yields drag data")
+		ok(bool(target._can_drop_data(Vector2.ZERO, payload)), "its twin accepts the drop")
+		ok(not bool(ov.find_child("OnHandCard_01", true, false)._can_drop_data(Vector2.ZERO, payload)),
+			"a different line refuses the drop")
+		target._drop_data(Vector2.ZERO, payload)
+		await create_timer(0.1).timeout
+		var h := Bucket.hand()
+		ok(h.size() == 2 and String(h[0].line) == "water" and int(h[0].tier) == 2,
+			"the drop merges into the target slot a tier up")
+
+	# drag-to-place: a hand spirit dropped on a free habitat cell moves in
+	var free = ov.find_child("HabitatCellFree_00", true, false)
+	var mover = ov.find_child("OnHandCard_00", true, false)
+	if free == null:
+		# the placed boost from earlier still holds the only cell on a 1-cell save — sell it via the model to free one
+		Bucket.sell_placed(0)
+		ov.free()
+		UI.open(host, {})
+		await create_timer(0.15).timeout
+		ov = host.get_node_or_null("ResidentsOverlay")
+		free = ov.find_child("HabitatCellFree_00", true, false)
+		mover = ov.find_child("OnHandCard_00", true, false)
+	ok(free != null and mover != null, "the place test has a free cell and a hand card")
+	if free != null and mover != null:
+		var placed_before := Bucket.placed().size()
+		free._drop_data(Vector2.ZERO, mover._get_drag_data(Vector2.ZERO))
+		await create_timer(0.1).timeout
+		ok(Bucket.placed().size() == placed_before + 1, "dropping on a free cell places the spirit")
 	host.queue_free()
 	await create_timer(0.05).timeout
 

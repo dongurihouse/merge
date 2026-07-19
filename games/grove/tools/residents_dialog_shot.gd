@@ -67,9 +67,9 @@ func _initialize() -> void:
 
 	# select a hand card so the inspector arms (tap the first hand card's button)
 	var ov: Control = scn.get_node_or_null("ResidentsOverlay")
-	var card: Button = ov.find_child("OnHandCard_00", true, false) as Button if ov != null else null
-	if card != null:
-		card.pressed.emit()
+	var card: Control = ov.find_child("OnHandCard_00", true, false) if ov != null else null
+	if card != null and card.has_method("tap"):
+		card.tap()
 	await create_timer(0.4).timeout
 	RenderingServer.force_draw()
 	var img2 := root.get_texture().get_image()
