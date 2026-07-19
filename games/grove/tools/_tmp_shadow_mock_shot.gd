@@ -67,10 +67,10 @@ func _initialize() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
 	var cands := [
-		["G  off(2,5) blur10 a24", {"offset_x": 2.0, "offset_y": 5.0, "blur": 10.0, "spread": -2.0, "alpha": 0.24}],
-		["H  off(4,6) blur12 a28", {"offset_x": 4.0, "offset_y": 6.0, "blur": 12.0, "spread": -3.0, "alpha": 0.28}],
+		["I  off(3,7) blur10 a38", {"offset_x": 3.0, "offset_y": 7.0, "blur": 10.0, "spread": -2.0, "alpha": 0.38}],
+		["J  off(2,6) blur9 a32", {"offset_x": 2.0, "offset_y": 6.0, "blur": 9.0, "spread": -2.0, "alpha": 0.32}],
 	]
-	for bgc in [Color("#EFE6D2"), Color("#7FB2CF")]:
+	for bgc in [Color("#EFE6D2"), Color("#6FA9C0")]:
 		var panel := ColorRect.new()
 		panel.color = bgc
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
