@@ -148,7 +148,7 @@ func _initialize() -> void:
 
 		var amount := pill.get_node_or_null("Amount") as Label
 		ok(amount != null and amount.text == spec.amount \
-			and amount.get_theme_font_size("font_size") == 42 \
+			and amount.get_theme_font_size("font_size") == preload(SCRIPT_PATH).AMOUNT_FONT_SIZE \
 			and same_rgb(amount.get_theme_color("font_color"), INK) \
 			and amount.get_theme_constant("outline_size") == 0 \
 			and amount.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT \

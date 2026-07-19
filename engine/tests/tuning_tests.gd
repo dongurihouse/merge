@@ -82,13 +82,13 @@ func _initialize() -> void:
 	ok(FS.BASE == 40, "FontScale.BASE is the 40px theme default")
 	var ramp := {FS.DISPLAY: 46, FS.FLOAT: 44, FS.TITLE: 40, FS.STAT: 36, FS.HEADING: 34,
 		FS.SUBHEADING: 32, FS.LARGE: 30, FS.EMPHASIS: 28, FS.MEDIUM: 26, FS.BODY: 24,
-		FS.SMALL: 22, FS.CAPTION: 20, FS.FOOTNOTE: 18, FS.TINY: 16, FS.MICRO: 14, FS.DEBUG: 12}
+		FS.SMALL: 22, FS.CAPTION: 20, FS.FOOTNOTE: 18, FS.TINY: 16, FS.MICRO: 14, FS.DEBUG: 12,
+		FS.HUGE: 64, FS.GIANT: 70}
 	var ramp_ok := true
 	for got in ramp:
 		if got != ramp[got]:
 			ramp_ok = false
 	ok(ramp_ok, "every FontScale tier resolves to its documented pixel size")
-	ok(FS.pct(95) == 38, "FontScale.pct(95) gives the between-tier 38px")
 	ok(UiFont.make().default_font_size == FS.BASE, "the installed theme default follows FontScale.BASE")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])

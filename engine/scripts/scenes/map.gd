@@ -1026,7 +1026,7 @@ func _placeholder_tile(spot: Dictionary, fs: float) -> Control:
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.add_theme_font_size_override("font_size", FS.pct(57.5))
+	lbl.add_theme_font_size_override("font_size", FS.BODY)
 	lbl.add_theme_color_override("font_color", INK)
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	lbl.offset_left = 12.0
@@ -1476,7 +1476,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var placed: Array = Bucket.placed()
 	var cells_h := 0.0
 	if cells_total <= 0:
-		var closed := _dock_label("Complete a map to open the habitat.", FS.pct(37.5))
+		var closed := _dock_label("Complete a map to open the habitat.", FS.TINY)
 		closed.name = "BucketCellsClosedHint"
 		closed.autowrap_mode = TextServer.AUTOWRAP_WORD
 		closed.position = Vector2(cx + 2.0, cells_top)
@@ -1610,7 +1610,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(clip)
 	if hand.is_empty():
-		var empty := _dock_label("Empty —\nfind spirits on Expedition.", FS.pct(37.5))
+		var empty := _dock_label("Empty —\nfind spirits on Expedition.", FS.TINY)
 		empty.position = Vector2(2.0, 2.0)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD
 		empty.size = Vector2(cw - 4.0, view_h)
@@ -1657,7 +1657,7 @@ func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
 	btn.text = text
 	btn.disabled = not enabled
 	btn.focus_mode = Control.FOCUS_NONE
-	btn.add_theme_font_size_override("font_size", FS.pct(42.5))
+	btn.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	btn.add_theme_color_override("font_color", Color("#F4FBE9"))
 	btn.add_theme_color_override("font_outline_color", Color("#173404"))
 	btn.add_theme_constant_override("outline_size", 3)
@@ -1807,7 +1807,7 @@ func _line_icon(line: String) -> String:
 		_: return "leaf"
 
 func _card_sub(text: String) -> Label:
-	var l := _dock_label(text, FS.pct(52.5), true)
+	var l := _dock_label(text, FS.SMALL, true)
 	l.modulate = Color(1, 1, 1, 0.92)
 	return l
 

@@ -1846,7 +1846,7 @@ static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
 ## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
 ## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
-static func mail_card(entry: Dictionary, title_font: int = FS.CAPTION, body_font: int = FS.pct(37.5), btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
+static func mail_card(entry: Dictionary, title_font: int = FS.CAPTION, body_font: int = FS.TINY, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
 	var panel := PanelContainer.new()
 	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
 	if box != null:
@@ -2557,7 +2557,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	var bnum := Label.new()
 	bnum.text = str(int(state.get("balance", 0)))
 	bnum.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", FS.pct(105))))
+	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", FS.FLOAT)))
 	bnum.add_theme_color_override("font_color", Pal.INK)
 	bnum.add_theme_constant_override("outline_size", 0)
 	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -3549,7 +3549,7 @@ static func _kit_divider(caption: String) -> Control:
 		row.add_child(_div_sprig(sp, false))           # leaves point INWARD, toward the title
 	var cap := Label.new()
 	cap.text = caption
-	cap.add_theme_font_size_override("font_size", FS.pct(57.5))
+	cap.add_theme_font_size_override("font_size", FS.BODY)
 	cap.add_theme_color_override("font_color", Color(Pal.INK, 0.95))
 	cap.add_theme_constant_override("outline_size", 0)
 	cap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -3898,7 +3898,7 @@ static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["banner_icon_id"] = "vault"
 	o["jar_px"] = float(v.get("jar_px", 200))
 	o["plate_px"] = float(v.get("plate_px", 250))
-	o["balance_font"] = int(v.get("balance_font", FS.pct(105)))
+	o["balance_font"] = int(v.get("balance_font", FS.FLOAT))
 	o["row_gap"] = float(v.get("row_gap", 12))
 	return o
 
@@ -4175,7 +4175,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
 		"plus_stroke": float(g.get("plus_stroke", 2.0)) * scale,
-		"plus_font": float(g.get("plus_font", FS.pct(175))) * scale,
+		"plus_font": float(g.get("plus_font", FS.GIANT)) * scale,
 		"plus_button": float(g.get("plus_button", 100.0)) * scale,
 		"plus_round": float(g.get("plus_round", 8.0)),
 		"plus_hue": float(g.get("plus_hue", 65.0)),
@@ -5809,7 +5809,7 @@ static func _map_place_mark(opts: Dictionary) -> Control:
 	var mark := Label.new()
 	mark.name = "PlaceMark"
 	mark.text = "✿"
-	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", FS.pct(160))))
+	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", FS.HUGE)))
 	mark.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
 	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -5872,7 +5872,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"reward_icon_size": float(c.get("reward_icon_size", 24)),
 		"reward_icon_x":    float(c.get("reward_icon_x", 0)),
 		"reward_icon_y":    float(c.get("reward_icon_y", 0)),
-		"reward_label_font": int(c.get("reward_label_font", FS.pct(52.5))),
+		"reward_label_font": int(c.get("reward_label_font", FS.SMALL)),
 		"reward_label_x":   float(c.get("reward_label_x", 0)),
 		"reward_label_y":   float(c.get("reward_label_y", 0)),
 		"reward_button_w":  float(c.get("reward_button_w", 116)),

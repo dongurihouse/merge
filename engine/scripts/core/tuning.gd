@@ -10,7 +10,7 @@ class FontScale:
 	## The global type scale. BASE is the theme default font size (installed by ui_font.gd);
 	## every named tier is a fixed percentage of BASE, so retuning BASE rescales ALL text.
 	## Sizes that instead track an ELEMENT's box (e.g. `int(h * 0.3)`) stay proportional to
-	## that element and do NOT belong here. One-off odd sizes use pct() with the % noted.
+	## that element and do NOT belong here. EVERY authored font size uses a named tier.
 	const BASE := 40                     # 100% — the theme default font size
 
 	const DISPLAY := int(BASE * 1.15)    # 46 — hero numbers / biggest headings
@@ -29,10 +29,9 @@ class FontScale:
 	const TINY := int(BASE * 0.40)       # 16 — smallest shipped UI text
 	const MICRO := int(BASE * 0.35)      # 14 — count-pill numbers
 	const DEBUG := int(BASE * 0.30)      # 12 — dev/debug overlays only
-
-	## One-off sizes between tiers: FontScale.pct(95) → 38. Keeps every size relative to BASE.
-	static func pct(p: float) -> int:
-		return int(round(BASE * p / 100.0))
+	# oversized decorative glyphs (not running text):
+	const HUGE := int(BASE * 1.60)       # 64 — full-card watermark glyphs (the veil ✓)
+	const GIANT := int(BASE * 1.75)      # 70 — the calendar's big "+" glyph
 
 
 class Ambient:
@@ -548,7 +547,7 @@ class Shop:
 	const TAB_PAD_T := 4.0
 	const TAB_PAD_B := 5.0
 	# (DIV_CAP_SIZE / DIV_CAP_INK_ALPHA removed 2026-07-18 — dead; the kit's _kit_divider owns the
-	#  section caption and renders it at FS.pct(57.5) = 23px with its own ink alpha.)
+	#  section caption and renders it at FS.BODY with its own ink alpha.)
 	const VINE_H := 40                    # divider vine height — COVERED fills the gap at this height, showing most of the leafy strip
 	const LINE_H := 3                     # ...else a flat rule this tall
 	const LINE_ALPHA := 0.35              # rule = Color(BARK, this)
@@ -563,7 +562,7 @@ class Shop:
 	const ICON_PLATE := 108.0             # the soft disc behind the hero icon
 	const ICON_PLATE_BG := Color("#F2EFDC")  # pale disc under card items — matches the grove CARD_PEDESTAL role value
 	const ICON_PLATE_EDGE_ALPHA := 0.16   # disc rim = Color(BARK, this)
-	const HELP_TITLE_SIZE := int(FontScale.BASE * 0.675)  # 27 — hand-tuned between tiers
+	const HELP_TITLE_SIZE := FontScale.EMPHASIS
 	const HELP_CAP_SIZE := FontScale.CAPTION
 	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
 	const HELP_PRICE_SIZE := FontScale.MEDIUM  # gem price chip number

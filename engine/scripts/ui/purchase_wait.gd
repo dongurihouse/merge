@@ -46,7 +46,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	spinner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	spinner.add_theme_font_override("font", plain)
 	spinner.add_theme_constant_override("outline_size", 0)
-	spinner.add_theme_font_size_override("font_size", FS.pct(95))
+	spinner.add_theme_font_size_override("font_size", FS.TITLE)
 	spinner.add_theme_color_override("font_color", STRAW)
 	col.add_child(spinner)
 	_start_spinner(spinner, overlay)

@@ -358,7 +358,7 @@ func _ready() -> void:
 	if _winback:
 		_winback = false
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
-			Strings.t("board.winback.rained"), CREAM, FS.pct(95))
+			Strings.t("board.winback.rained"), CREAM, FS.TITLE)
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)

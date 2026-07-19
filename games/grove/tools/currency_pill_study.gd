@@ -18,7 +18,7 @@ const SHELL_EDGE := Color("#3F6D7D", 0.35)
 const SHELL_RADIUS := 28
 const PAPER_INSET := 2.0
 const PAPER_RADIUS := 26.0
-const AMOUNT_FONT_SIZE := int(FS.BASE * 1.05)  # 42
+const AMOUNT_FONT_SIZE := FS.FLOAT
 
 const PAPER_MASK_SHADER := """
 shader_type canvas_item;
