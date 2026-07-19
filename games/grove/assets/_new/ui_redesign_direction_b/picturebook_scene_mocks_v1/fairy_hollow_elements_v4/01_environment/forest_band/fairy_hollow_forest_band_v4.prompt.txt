@@ -1,0 +1,21 @@
+Use case: stylized-concept
+Asset type: registered transparent environment plate for a layered vertical mobile game scene
+Input images:
+- Image 1: precise Fairy Hollow composition authority. Match its portrait camera, conifer scale, forest-band horizon position, and night depth.
+- Image 2: mandatory Meadow Sky palette and Cut-Paper material authority only; do not copy UI.
+- Image 3: mandatory elevated three-quarter camera, common scale, silhouette simplicity, vegetation ceiling, and detail-budget authority only; do not copy farm content or UI.
+Primary request: create ONLY the distant conifer and forest-band plate from the visible Fairy Hollow mock.
+Canvas: exact 1320 x 2346 portrait, top-left registered to Image 1. The forest band sits only across the upper horizon in front of later distant hills and behind all heroes, with the rest of the canvas flat key color.
+Subject: a layered band of simplified distant conifer silhouettes and a few broad rounded distant woodland masses. Use structural slate #3F6D7D, deep teal/ink-blue variants, and restrained garden green accents. Keep the lower edge as one clean overlapping silhouette band. Low detail, no individual hero tree.
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Chroma-key: background must be 100% perfectly flat solid #FF00FF, one uniform color, no gradients, texture, shadows, reflections, floor plane, or lighting variation. Do not use #FF00FF anywhere in the forest. Keep clean removable edges. Leave visible #FF00FF at all four corners.
+Constraints: match the visible original mock; no ground-contact heroes or UI. No cottage, buildings, bridge, furniture, mushrooms, lanterns, animals, flowers, foreground bushes, large framing trees, trunks, branches, canopy, moon, stars, hills, sky paint, meadow, creek, paths, stones, text, labels, watermark, cast shadow, scenic base, or extra object.
+Output only this single registered distant forest-band plate on flat #FF00FF.

@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 2.0,
+  "scene": "fairy_hollow_v4",
+  "canvas": {
+    "width": 1320.0,
+    "height": 2346.0,
+    "reviewWidth": 941.0,
+    "reviewHeight": 1672.0,
+    "anchorConvention": "center-bottom",
+    "coordinateOrigin": "top-left"
+  },
+  "pipeline": {
+    "mapMode": "scene_mode",
+    "visualModel": "layered_raster",
+    "runtimeObjectModel": ["separate_props", "foreground_occluders"],
+    "collisionModel": "none",
+    "visualAssetSource": "image_gen",
+    "engineTarget": "project-native"
+  },
+  "base": {
+    "id": "foundation",
+    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_backdrop/foundation/fairy_hollow_foundation_v4.png",
+    "opaque": true,
+    "z": 0
+  },
+  "structuralRules": {
+    "composition": "Original mock arrangement is the authority: a large readable upper-center cottage, right den, readable left well, lower-left bridge, central picnic, golden mushrooms at the lower-right, and base-blending dressing only.",
+    "depth": "Layer the horizon plates into a dense upper and mid woodland. Keep the single foreground foliage crop edge-anchored so it frames the scene rather than forming detached turf islands; local dressing overlaps hero bases without global dark shadows."
+  },
+  "placements": [
+    {
+      "id": "distant_hills", "assetId": "distant_hills", "category": "environment", "layer": "horizon", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/distant_hills/fairy_hollow_distant_hills_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 10
+    },
+    {
+      "id": "forest_band", "assetId": "forest_band", "category": "environment", "layer": "mid_woodland", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.png", "sourceCrop": [0, 300, 1320, 542], "sourceCropFeatherBottom": 150, "x": 660, "y": 1280, "w": 1320, "h": 720, "z": 11
+    },
+    {
+      "id": "frame_trees", "assetId": "frame_trees", "category": "environment", "layer": "framing", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/frame_trees/fairy_hollow_frame_trees_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 12
+    },
+    {
+      "id": "sky_dressing", "assetId": "sky_dressing", "category": "environment", "layer": "sky", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/sky_dressing/fairy_hollow_sky_dressing_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 13
+    },
+    {
+      "id": "cottage_ground_dressing", "assetId": "ground_dressing_01", "category": "dressing", "layer": "contact_dressing", "cluster": "toadstool_cottage", "contact": true, "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_01/fairy_hollow_ground_dressing_01_v4.png", "x": 735, "y": 1052, "w": 410, "h": 193, "z": 241
+    },
+    {
+      "id": "toadstool_cottage", "assetId": "toadstool_cottage", "category": "structure", "layer": "hero_structure", "cluster": "toadstool_cottage", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/03_structures/toadstool_cottage/fairy_hollow_toadstool_cottage_v4.png", "x": 735, "y": 1050, "w": 680, "h": 800, "z": 250
+    },
+    {
+      "id": "cottage_lantern", "assetId": "cottage_lantern", "category": "garden_item", "layer": "hanging_detail", "cluster": "toadstool_cottage", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/cottage_lantern/fairy_hollow_cottage_lantern_v4.png", "x": 520, "y": 806, "w": 78, "h": 92, "z": 251
+    },
+    {
+      "id": "cottage_fence", "assetId": "cottage_fence", "category": "garden_item", "layer": "rear_side_detail", "cluster": "toadstool_cottage", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/cottage_fence/fairy_hollow_cottage_fence_v4.png", "x": 1010, "y": 1030, "w": 205, "h": 137, "z": 249
+    },
+    {
+      "id": "den_ground_dressing", "assetId": "ground_dressing_02", "category": "dressing", "layer": "contact_dressing", "cluster": "fox_den", "contact": true, "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_02/fairy_hollow_ground_dressing_02_v4.png", "x": 1050, "y": 1342, "w": 315, "h": 162, "z": 270
+    },
+    {
+      "id": "fox_den", "assetId": "fox_den", "category": "structure", "layer": "hero_structure", "cluster": "fox_den", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/03_structures/fox_den/fairy_hollow_fox_den_v4.png", "x": 1050, "y": 1330, "w": 625, "h": 558, "z": 280
+    },
+    {
+      "id": "sleeping_fox_cushion", "assetId": "sleeping_fox_cushion", "category": "garden_item", "layer": "den_detail", "cluster": "fox_den", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/sleeping_fox_cushion/fairy_hollow_sleeping_fox_cushion_v4.png", "x": 1052, "y": 1328, "w": 215, "h": 215, "z": 281
+    },
+    {
+      "id": "den_lantern", "assetId": "den_lantern", "category": "garden_item", "layer": "den_detail", "cluster": "fox_den", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/den_lantern/fairy_hollow_den_lantern_v4.png", "x": 1175, "y": 1188, "w": 82, "h": 91, "z": 282
+    },
+    {
+      "id": "well_ground_dressing", "assetId": "ground_dressing_03", "category": "dressing", "layer": "contact_dressing", "cluster": "wishing_well", "contact": true, "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_03/fairy_hollow_ground_dressing_03_v4.png", "x": 205, "y": 1542, "w": 320, "h": 154, "z": 290
+    },
+    {
+      "id": "wishing_well", "assetId": "wishing_well", "category": "garden_item", "layer": "hero_prop", "cluster": "wishing_well", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/wishing_well/fairy_hollow_wishing_well_v4.png", "x": 205, "y": 1540, "w": 400, "h": 578, "z": 300
+    },
+    {
+      "id": "bridge_ground_dressing", "assetId": "ground_dressing_04", "category": "dressing", "layer": "contact_dressing", "cluster": "stone_bridge", "contact": true, "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_04/fairy_hollow_ground_dressing_04_v4.png", "x": 284, "y": 2035, "w": 320, "h": 162, "z": 310
+    },
+    {
+      "id": "stone_bridge", "assetId": "stone_bridge", "category": "garden_item", "layer": "hero_prop", "cluster": "stone_bridge", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/stone_bridge/fairy_hollow_stone_bridge_v4.png", "x": 285, "y": 2020, "w": 470, "h": 470, "z": 320
+    },
+    {
+      "id": "picnic_ground_dressing", "assetId": "ground_dressing_05", "category": "dressing", "layer": "contact_dressing", "cluster": "picnic_set", "contact": true, "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_05/fairy_hollow_ground_dressing_05_v4.png", "x": 775, "y": 1685, "w": 300, "h": 126, "z": 330
+    },
+    {
+      "id": "picnic_table", "assetId": "picnic_table", "category": "garden_item", "layer": "hero_prop", "cluster": "picnic_set", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/picnic_table/fairy_hollow_picnic_table_v4.png", "x": 778, "y": 1670, "w": 300, "h": 300, "z": 340
+    },
+    {
+      "id": "picnic_stools", "assetId": "picnic_stools", "category": "garden_item", "layer": "hero_prop", "cluster": "picnic_set", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/picnic_stools/fairy_hollow_picnic_stools_v4.png", "x": 778, "y": 1695, "w": 340, "h": 304, "z": 341
+    },
+    {
+      "id": "bluebell_pot", "assetId": "bluebell_pot", "category": "garden_item", "layer": "picnic_detail", "cluster": "picnic_set", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/bluebell_pot/fairy_hollow_bluebell_pot_v4.png", "x": 778, "y": 1568, "w": 105, "h": 116, "z": 342
+    },
+    {
+      "id": "main_mushroom_ground_dressing", "assetId": "ground_dressing_06", "category": "dressing", "layer": "contact_dressing", "cluster": "glowing_mushrooms", "contact": true, "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_06/fairy_hollow_ground_dressing_06_v4.png", "x": 1120, "y": 1785, "w": 325, "h": 130, "z": 350
+    },
+    {
+      "id": "glowing_mushrooms", "assetId": "glowing_mushrooms", "category": "garden_item", "layer": "hero_prop", "cluster": "glowing_mushrooms", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/glowing_mushrooms/fairy_hollow_glowing_mushrooms_v4.png", "x": 1120, "y": 1775, "w": 350, "h": 338, "z": 360
+    },
+    {
+      "id": "well_mushrooms", "assetId": "well_mushrooms", "category": "garden_item", "layer": "hero_prop", "cluster": "well_mushrooms", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/well_mushrooms/fairy_hollow_well_mushrooms_v4.png", "x": 370, "y": 1600, "w": 175, "h": 175, "z": 370
+    },
+    {
+      "id": "golden_mushrooms", "assetId": "golden_mushrooms", "category": "garden_item", "layer": "hero_prop", "cluster": "golden_mushrooms", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/golden_mushrooms/fairy_hollow_golden_mushrooms_v4.png", "x": 985, "y": 2075, "w": 330, "h": 330, "z": 380
+    },
+    {
+      "id": "lantern_branch", "assetId": "lantern_branch", "category": "garden_item", "layer": "hanging_detail", "cluster": "lantern_branch", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/lantern_branch/fairy_hollow_lantern_branch_v4.png", "x": 145, "y": 760, "w": 210, "h": 315, "z": 390
+    },
+    {
+      "id": "fireflies", "assetId": "fireflies", "category": "dressing", "layer": "atmosphere", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/fireflies/fairy_hollow_fireflies_v4.png", "x": 660, "y": 2310, "w": 1250, "h": 2250, "z": 420
+    },
+    {
+      "id": "foreground_foliage", "assetId": "foreground_foliage", "category": "dressing", "layer": "foreground_occluder", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/foreground_foliage/fairy_hollow_foreground_foliage_v4.png", "sourceCrop": [1080, 185, 535, 605], "x": 1140, "y": 2346, "w": 360, "h": 407, "z": 500
+    }
+  ],
+  "initialCheckpoint": {
+    "placementCount": 27,
+    "clusterCount": 9,
+    "contactPlacementCount": 6,
+    "clusters": ["fox_den", "glowing_mushrooms", "golden_mushrooms", "lantern_branch", "picnic_set", "stone_bridge", "toadstool_cottage", "well_mushrooms", "wishing_well"],
+    "contactPlacements": ["bridge_ground_dressing", "cottage_ground_dressing", "den_ground_dressing", "main_mushroom_ground_dressing", "picnic_ground_dressing", "well_ground_dressing"],
+    "fullCanvasPlacements": ["distant_hills", "frame_trees", "sky_dressing"],
+    "note": "Refined v4 composition checkpoint. All accepted assets appear once; the enlarged forest-band crop carries the enclosed mid-woodland behind the cottage and den, while foreground foliage remains a single edge framing crop."
+  }
+}

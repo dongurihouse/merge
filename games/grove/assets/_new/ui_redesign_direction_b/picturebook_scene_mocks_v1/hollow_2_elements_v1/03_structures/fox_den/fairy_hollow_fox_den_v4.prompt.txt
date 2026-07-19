@@ -1,0 +1,1 @@
+Reference: fairy_hollow_original_mock_v1.png. Generate only the right-side fox den at the original mock's camera angle and visual scale, as a clean Meadow Sky / cut-paper storybook cutout on #FF00FF; no ground platform or cast shadow. Remove chroma key after generation.
