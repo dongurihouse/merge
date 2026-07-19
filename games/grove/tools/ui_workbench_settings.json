@@ -63,7 +63,7 @@
 	},
 	"button": {
 		"art": true,
-		"font": 27.0,
+		"font": 28.0,
 		"shadow": false
 	},
 	"card": {
@@ -113,7 +113,7 @@
 	},
 	"frame": {
 		"banner_burn": 62.0,
-		"banner_font": 37.0,
+		"banner_font": 36.0,
 		"banner_h": 92.0,
 		"banner_icon": 54.0,
 		"banner_icon_on": false,
@@ -192,7 +192,7 @@
 		"pill_h": 74.0,
 		"pill_w": 193.0,
 		"plus_button": 61.0,
-		"plus_font": 77.0,
+		"plus_font": 70.0,
 		"plus_hue": 64.0,
 		"plus_label_y": -1.0,
 		"plus_radius": 22.0,
@@ -230,7 +230,7 @@
 		"caption_pad_y": 5.0,
 		"count_dx": -2.0,
 		"count_dy": 35.0,
-		"count_font": 31.0,
+		"count_font": 32.0,
 		"fill_alpha": 90.0,
 		"glow": 45.0,
 		"icon_scale": 50.0,
@@ -258,9 +258,7 @@
 		"shadow": false,
 		"top_band_h_pct": 15.0
 	},
-	"icon": {
-
-	},
+	"icon": {},
 	"info": {
 		"shadow": false
 	},
@@ -280,7 +278,7 @@
 		"pad_x_pct": 0.0,
 		"pad_y_pct": 0.0,
 		"sell_badge_radius": 10.0,
-		"sell_font": 37.0,
+		"sell_font": 36.0,
 		"sell_icon": 39.0,
 		"sell_label_font": 32.0,
 		"sep": 7.0,
@@ -314,7 +312,7 @@
 	},
 	"level": {
 		"banner_text": "Level",
-		"btn_font": 38.0,
+		"btn_font": 40.0,
 		"frame_pad": 26.0,
 		"frame_slice": 56.0,
 		"frame_top_pad": 70.0,
@@ -517,7 +515,7 @@
 		"switch_h": 44.0
 	},
 	"vault": {
-		"balance_font": 42.0,
+		"balance_font": 44.0,
 		"card_slice": 64.0,
 		"jar_px": 200.0,
 		"panel_pad_x": 40.0,

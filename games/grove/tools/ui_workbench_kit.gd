@@ -4175,7 +4175,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
 		"plus_stroke": float(g.get("plus_stroke", 2.0)) * scale,
-		"plus_font": float(g.get("plus_font", FS.GIANT)) * scale,
+		"plus_font": float(g.get("plus_font", FS.GLYPH_MD)) * scale,
 		"plus_button": float(g.get("plus_button", 100.0)) * scale,
 		"plus_round": float(g.get("plus_round", 8.0)),
 		"plus_hue": float(g.get("plus_hue", 65.0)),
@@ -5809,7 +5809,7 @@ static func _map_place_mark(opts: Dictionary) -> Control:
 	var mark := Label.new()
 	mark.name = "PlaceMark"
 	mark.text = "✿"
-	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", FS.HUGE)))
+	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", FS.GLYPH_SM)))
 	mark.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
 	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
