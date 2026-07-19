@@ -3370,13 +3370,19 @@ func _on_bag_slot_input(event: InputEvent, i: int) -> void:
 	Audio.play("item_pickup", -6.0)
 
 func _input(event: InputEvent) -> void:
-	if _bag_drag_idx < 0 or _drag_node == null:
+	if _bag_drag_idx >= 0 and _drag_node != null:
+		if event is InputEventMouseMotion or event is InputEventScreenDrag:
+			_drag_node.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
+		elif (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
+				or (event is InputEventScreenTouch and not event.pressed):
+			_end_bag_drag(get_global_mouse_position())
 		return
-	if event is InputEventMouseMotion or event is InputEventScreenDrag:
-		_drag_node.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
-	elif (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
-			or (event is InputEventScreenTouch and not event.pressed):
-		_end_bag_drag(get_global_mouse_position())
+	var board_release: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
+		or (event is InputEventScreenTouch and not event.pressed)
+	if _pressing and board_release and board_area != null and is_instance_valid(board_area):
+		_pressing = false
+		var local: Vector2 = board_area.get_global_transform().affine_inverse() * event.position
+		_on_release(local)
 
 # Resolve a bag drag-back at the global release point: place on the board cell under the cursor
 # if it is empty ground, else snap the item back into the bag (no loss).
