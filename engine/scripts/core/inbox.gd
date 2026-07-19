@@ -225,5 +225,7 @@ static func _grant(rew: Dictionary) -> void:
 		Save.add_diamonds(int(rew.gems))         # persists
 	if int(rew.get("water", 0)) > 0:
 		var g := Save.grove()
-		g["water"] = mini(int(D.WATER_CAP), int(g.get("water", 0)) + int(rew.water))
+		# Top-up to the cap, never a drain: an already over-cap can (banked over-fill) is left as-is.
+		var cur := int(g.get("water", 0))
+		g["water"] = maxi(cur, mini(int(D.WATER_CAP), cur + int(rew.water)))
 		Save.grove_write()
