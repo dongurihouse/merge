@@ -46,9 +46,8 @@ const BODY_TAIL_FRAC := 0.020        # breathing room under the last row (mock: 
 const CHIP_FRAC := 0.275             # chip edge, × the cell (mock: 76 / 276)
 const CHIP_FONT_FRAC := 0.66         # the number, × the chip
 const CHIP_LOCKED_FILL := Color("#CECED2")
-const LOCK_PATH := "res://games/grove/assets/ui/kit/tiers_lock.png"
-const LOCK_W_FRAC := 0.38            # the locked-tier padlock, × the cell (mock: 105 / 276)
-const LOCK_ASPECT := 143.0 / 105.0   # ...and the cut art's own aspect
+# the locked-tier padlock is the SHARED kit's dialog lock mark now (Kit._slot_lock_mark under
+# opts.dialog_cells) — this dialog no longer swaps it in itself.
 const CELL_FACE_INSET := 3.0         # slot_cell_background's face inset — the chip sits ON the face
 const CELL_CORNER_FRAC := 0.18       # ...and its corner radius, so the chip's outer corner matches
 
@@ -191,26 +190,6 @@ static func _dress_cells(grid: Control, cells: Array) -> void:
 				_tier_chip(cell as Control, cells[i])
 			i += 1
 
-## Swap the shared slot cell's acorn lock mark for the mock's flat padlock silhouette. Done HERE (not
-## in the kit) because the acorn lock is the board's and the bag's house mark too — only this dialog's
-## mock calls for the plain padlock.
-static func _mock_lock(cell: Control) -> Control:
-	var mark := cell.find_child("SlotCellLockMark", true, false) as Control
-	if mark == null or not ResourceLoader.exists(LOCK_PATH):
-		return null
-	mark.visible = false
-	var tex: Texture2D = load(LOCK_PATH)
-	if tex == null:
-		return null
-	var tr := TextureRect.new()
-	tr.name = "TiersLockMark"
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE     # before size — the min-size cache clamps otherwise
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.texture = tex
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(tr)
-	return tr
-
 static func _tier_chip(cell: Control, d: Dictionary) -> void:
 	var tier := int(d.get("tier", 0))
 	if tier <= 0:
@@ -234,7 +213,6 @@ static func _tier_chip(cell: Control, d: Dictionary) -> void:
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chip.add_child(num)
 	cell.add_child(chip)
-	var lock: Control = null if seen else _mock_lock(cell)
 	# the grid sizes its cells DEFERRED (its own resize fit), so the chip follows the live cell rect:
 	# flush with the cell FACE's lower-right corner, its outer corner matching the face's radius.
 	var dock := func() -> void:
@@ -246,11 +224,6 @@ static func _tier_chip(cell: Control, d: Dictionary) -> void:
 		var cs := s.x * CHIP_FRAC
 		chip.size = Vector2(cs, cs)
 		chip.position = Vector2(s.x - CELL_FACE_INSET - cs, s.y - CELL_FACE_INSET - cs)
-		if lock != null and is_instance_valid(lock):
-			var lw := s.x * LOCK_W_FRAC
-			var lh := lw * LOCK_ASPECT
-			lock.size = Vector2(lw, lh)
-			lock.position = Vector2((s.x - lw) * 0.5, (s.y - lh) * 0.5)
 		var face_corner := int(round((minf(s.x, s.y) - CELL_FACE_INSET * 2.0) * CELL_CORNER_FRAC))
 		sb.set_corner_radius_all(int(round(cs * 0.28)))
 		sb.corner_radius_bottom_right = face_corner

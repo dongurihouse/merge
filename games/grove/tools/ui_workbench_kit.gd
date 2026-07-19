@@ -4815,14 +4815,38 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
 const SLOT_LOCK_MARK_ALPHA := 0.78
 const SLOT_LOCK_MARK_FRAC := 0.58
+## The DIALOG lock: the mocks stamp an undiscovered cell with a flat navy padlock, not the house acorn.
+## The art is games/grove/assets/ui/kit/tiers_lock.png, cut by games/grove/tools/cut_tiers_ornaments.py;
+## the metrics are the tiers mock's (105 / 276 of the cell, at the cut art's own 143:105 aspect).
+const DIALOG_LOCK_PATH := "res://games/grove/assets/ui/kit/tiers_lock.png"
+const DIALOG_LOCK_W_FRAC := 0.38
+const DIALOG_LOCK_ASPECT := 143.0 / 105.0
 
-static func _slot_lock_mark(cw: float, ch: float) -> TextureRect:
+## The locked cell's stamp. `dialog_cells` picks the mocks' flat padlock; everything else (the board, the
+## bag's gated wells, any non-dialog caller) keeps the house acorn lock, unchanged.
+static func _slot_lock_mark(cw: float, ch: float, dialog_cells: bool = false) -> TextureRect:
+	var tr := TextureRect.new()
+	tr.name = "SlotCellLockMark"
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE     # before any size/anchor work — the min-size cache clamps otherwise
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if dialog_cells and ResourceLoader.exists(DIALOG_LOCK_PATH):
+		var lock_tex: Texture2D = load(DIALOG_LOCK_PATH)
+		if lock_tex != null:
+			tr.texture = lock_tex
+			# FRACTIONAL anchors, zero offsets: the mark then tracks whatever size the cell settles at
+			# (a dialog grid fits its cells deferred) instead of freezing today's pixel inset.
+			var hf: float = DIALOG_LOCK_W_FRAC * DIALOG_LOCK_ASPECT * (cw / maxf(1.0, ch))
+			tr.anchor_left = 0.5 - DIALOG_LOCK_W_FRAC * 0.5
+			tr.anchor_right = 0.5 + DIALOG_LOCK_W_FRAC * 0.5
+			tr.anchor_top = 0.5 - hf * 0.5
+			tr.anchor_bottom = 0.5 + hf * 0.5
+			tr.offset_left = 0.0; tr.offset_top = 0.0; tr.offset_right = 0.0; tr.offset_bottom = 0.0
+			return tr
 	var tex := _meadow_tex("acorn_lock.svg")
 	if tex == null:
 		return null
 	var px := minf(cw, ch) * SLOT_LOCK_MARK_FRAC
-	var tr := TextureRect.new()
-	tr.name = "SlotCellLockMark"
 	tr.texture = tex
 	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var inset_x := (cw - px) * 0.5
@@ -4831,10 +4855,7 @@ static func _slot_lock_mark(cw: float, ch: float) -> TextureRect:
 	tr.offset_top = inset_y
 	tr.offset_right = -inset_x
 	tr.offset_bottom = -inset_y
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.modulate = Color(1.0, 1.0, 1.0, SLOT_LOCK_MARK_ALPHA)
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4924,7 +4945,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		bg.modulate = Color(0.74, 0.74, 0.74, 1.0)
 	tile.add_child(bg)
 	if lockedwell:
-		var lock_mark := _slot_lock_mark(cw, ch)
+		var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
 		if lock_mark != null:
 			tile.add_child(lock_mark)
 
