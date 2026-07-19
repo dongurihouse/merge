@@ -71,7 +71,7 @@ const TEST_KEYS := {
 	"focus_ring": ["cell"],
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
-	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
+	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge", "paper", "border", "pad_scale", "static"],
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
 	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
 	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
@@ -115,7 +115,7 @@ const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
 	"board": "Board — merge grid (frame · cells · pieces · scale)",
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
-	"button": "Button — shared (bg · icon · state)",
+	"button": "Button — the shared kit button in every shape it builds (bg · paper · badge · chip)",
 	"home_button": "Home bottom bar — the six paper tiles (icon · caption · badge) as map.gd builds them",
 	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
 	"gold_badge": "Gold badge — CSS port",
@@ -200,7 +200,8 @@ func _default_params() -> Dictionary:
 		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
 		"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
-		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
+		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto",
+			"paper": "none", "border": true, "pad_scale": 100, "static": false},
 		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
 		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
@@ -438,7 +439,7 @@ func _make_element(id: String) -> Control:
 			fwrap.add_child(stack)
 			return fwrap
 		"button":
-			return Kit.pill_button(String(p.text), _btn_opts())
+			return _button_gallery(p)
 		"home_button":
 			return _home_bar_preview(p)
 		"hud_layout":
@@ -1137,7 +1138,64 @@ func _btn_opts(overrides := {}) -> Dictionary:
 	if badge != "auto" and Kit.BADGES.has(badge) and String(Kit.BADGES[badge]) != "":
 		o["art"] = true
 		o["art_rel"] = String(Kit.BADGES[badge])
+	# the hidden kit options, exposed as preview knobs: a paper role routes through the flat paper-cut
+	# surface (borderless when Border is off), pad_scale shrinks/grows padding, static makes a display chip.
+	var role := String(b.get("paper", "none"))
+	if role != "none":
+		o["paper"] = role
+		o["art"] = false                            # paper + baked nine-patch are mutually exclusive
+		o.erase("art_rel")
+		if String(o["bg"]) == "green":              # the green primary branch wins over paper — step off it
+			o["bg"] = "cream"
+	if not bool(b.get("border", true)):
+		o["border"] = 0.0
+	o["pad_scale"] = float(b.get("pad_scale", 100)) / 100.0
+	if bool(b.get("static", false)):
+		o["static"] = true
 	return o
+
+# The shared button in every shape the KIT can already build — so the workbench governs the whole family,
+# not one green pill. The FIRST tile is the live-tunable button (drives every sidebar knob); the rest are
+# fixed samples of the other constructions (danger red, the cta_button's level-badge CTA, the paper roles,
+# a static display chip, and the reward/amount chips) so their looks are visible in one place.
+func _button_gallery(_p: Dictionary) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	col.custom_minimum_size = Vector2(300, 0)
+	# 1) the LIVE button — every saved + test knob drives this one.
+	col.add_child(_button_sample("● tunable (your knobs)", Kit.pill_button(String(_params["button"].text), _btn_opts())))
+	# 2) the three code-drawn bg roles.
+	col.add_child(_button_sample("green — primary CTA", Kit.pill_button("Claim", _btn_opts({"bg": "green"}))))
+	col.add_child(_button_sample("cream — secondary", Kit.pill_button("Cancel", _btn_opts({"bg": "cream"}))))
+	col.add_child(_button_sample("danger — alert", Kit.pill_button("Delete", _btn_opts({"bg": "danger"}))))
+	# 3) cta_button — the green level-badge CTA (level/mail/shop footers).
+	col.add_child(_button_sample("cta_button — badged CTA", Kit.cta_button("Collect", {})))
+	# 4) the paper-cut roles, borderless (the dialog "Not now" style).
+	var paper_row := HBoxContainer.new()
+	paper_row.add_theme_constant_override("separation", 10)
+	for role in ["purple", "coral", "gold"]:
+		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
+	col.add_child(_button_sample("paper roles (borderless)", paper_row))
+	# 5) the static display chips — reward_chip (currency reward) + amount_chip (any icon/text).
+	var chip_row := HBoxContainer.new()
+	chip_row.add_theme_constant_override("separation", 10)
+	chip_row.add_child(Kit.reward_chip({"coins": 120}))
+	chip_row.add_child(Kit.amount_chip("water", "60"))
+	col.add_child(_button_sample("static chips (reward · amount)", chip_row))
+	return col
+
+func _button_sample(label: String, btn: Control) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 3)
+	var l := Label.new()
+	l.text = label
+	l.add_theme_font_size_override("font_size", FS.TOOL)
+	l.add_theme_color_override("font_color", Color(Pal.INK, 0.7))
+	box.add_child(l)
+	var holder := HBoxContainer.new()
+	holder.add_child(btn)
+	box.add_child(holder)
+	return box
 
 ## The Button style + the Card's OWN saved badge / icon / claim text — drives the cost pill + Claim in
 ## both the Card preview and every dialog row. Delegates to the SAME kit builder the game uses, so the
@@ -1345,7 +1403,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["font", 12, 40]))
 			_group_header("Test only — not saved", false)      # preview props; text/badge/icon live on the Card
 			_sidebar_body.add_child(_text_row("Text", "text"))
-			_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream"]))
+			_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream", "danger"]))
 			if bool(_params["button"]["art"]):
 				_sidebar_body.add_child(_option_row("Badge", "badge", Kit.BADGES.keys()))
 			else:
@@ -1353,6 +1411,11 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS))
 			_sidebar_body.add_child(_slider_row(["icon_size", 8, 60]))
 			_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
+			_section_header("Paper-cut surface (overrides bg/art)")
+			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
+			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button
+			_sidebar_body.add_child(_slider_row(["pad_scale", 40, 140]))  # % padding (the cost chip uses < 100 to fit a card)
+			_sidebar_body.add_child(_toggle_row("Static (display chip)", "static"))   # looks like a button, not pressable
 		"home_button":
 			_group_header("Saved to config", true)              # the shared shell / icon / caption / sparkle style
 			_sidebar_body.add_child(_slider_row(["px", 90, 260]))
