@@ -155,18 +155,22 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 						on_retrieve.call(idx)
 					dismiss.call()
 			"next":
+				# the next slot is the ONLY tile showing a price, and it wears no highlight — the
+				# lone acorn cost in the ladder is the cue.
 				d["cost"] = int(e.price)
+				d["no_highlight"] = true
 				d["on_tap"] = func() -> void:
 					if on_buy_slot.is_valid():
 						on_buy_slot.call()
 					dismiss.call()
-			"locked":
-				d["cost"] = int(e.price)
 		entries.append(d)
 
 	# the generators section (game-only — no analogue in bag.png), inserted below the grid by the kit.
+	# Passed as a Callable so the kit hands it the dialog's FITTED cell opts: the generator tiles then
+	# come out exactly the size of the slot cells above them.
 	if not gen_bag.is_empty():
-		opts["extra"] = _gen_section(host, Kit, gen_bag, gen_bag_tiers, on_place_gen, dismiss)
+		opts["extra"] = func(cell_opts: Dictionary) -> Control:
+			return _gen_section(Kit, cell_opts, gen_bag, gen_bag_tiers, on_place_gen, dismiss)
 
 	var dialog: Control = Kit.bag_dialog(entries, balance, width, opts)
 	cc.add_child(dialog)
@@ -176,7 +180,9 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 # The stored-generators row (a "Generators" label + a row of generator tiles) — built on the SAME
 # bag_card surface as the slots: each tile carries the generator's sprite (sized to the fitted cell via
 # make_content) and taps to place it.
-static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
+## `cell_opts` are the dialog's FITTED cell opts (handed over by bag_dialog), so these tiles come out
+## exactly the size of the slot cells in the grid above.
+static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	var label := Label.new()
@@ -189,7 +195,7 @@ static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, gen_bag_t
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	col.add_child(row)
-	var co: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var co: Dictionary = cell_opts
 	for i in gen_bag.size():
 		var gid_str := String(gen_bag[i])
 		var tier := int(gen_bag_tiers[i]) if i < gen_bag_tiers.size() else 1

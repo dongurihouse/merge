@@ -1,12 +1,16 @@
 extends RefCounted
 ## The RESIDENTS management dialog (resident_management_dialog_v2 mock) — opened from the home
 ## screen's Residents rail tile. One modal sheet over the map:
-##   · RESOURCE BANKS — a 2×2 grid of per-line bank cards (icon · name · n/cap · progress · full-in)
-##   · COLLECT ALL   — the single collection action (no per-card collect buttons)
+##   · RESOURCE BANKS — a 2×2 grid of per-line bank cards (large icon · name · n/cap · thick bar · full-in)
+##   · COLLECT ALL   — the single collection action (a plain action-green pill)
 ##   · HABITAT CELLS — one row: placed spirits · free cells · locked cells
-##   · ON HAND       — the scrollable 4-column hand grid (tap to select)
-##   · the bottom INSPECTOR — the selected spirit's portrait · name · info · SELL
-## The MODEL is entirely engine/scripts/core/bucket.gd; this file is render + taps only.
+##   · ON HAND       — the 4-column hand grid (tap to select, DRAG to merge/place)
+##   · the INSPECTOR — a flat full-width strip flush with the sheet's bottom edge:
+##     selected portrait · name · info · SELL
+## Drags use Godot's native DnD via the DragCard wrapper: a hand spirit dragged onto a same
+## line+tier hand spirit MERGES (Bucket.hand_merge), onto a matching placed spirit climbs it
+## (place_merge), onto a free habitat cell moves in (place).
+## The MODEL is entirely engine/scripts/core/bucket.gd; this file is render + taps + drags only.
 ## Layering: ui/ may import core/ + ui/, never scenes/. The kit is loaded by PATH at runtime
 ## (the settings.gd/inbox.gd idiom) so this file keeps no hard dependency on a tools script.
 
@@ -17,6 +21,7 @@ const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
@@ -26,6 +31,8 @@ const OVERLAY_NAME := "ResidentsOverlay"
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
+const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
+const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {
@@ -34,6 +41,44 @@ const LINE_FACE := {
 	"boost":   {"icon": "star",  "label": "Boost",    "fill": Color("#5F9B6D")},
 	"diamond": {"icon": "gem",   "label": "Diamonds", "fill": Color("#8677A3")},
 }
+
+## A spirit/free-cell wrapper that owns ALL input for its card: tap-to-select plus Godot-native
+## drag & drop. The wrapped kit cell underneath is made mouse-transparent, so the wrapper is the
+## one control the viewport talks to. `data` = {src: "hand"|"placed"|"free", idx, line, tier}.
+class DragCard:
+	extends Control
+	var data: Dictionary = {}
+	var on_tap: Callable = Callable()
+	var can_take: Callable = Callable()     # (src_data, my_data) -> bool
+	var on_take: Callable = Callable()      # (src_data, my_data) -> void
+	var make_preview: Callable = Callable() # () -> Control (the drag ghost)
+
+	func _get_drag_data(_pos: Vector2) -> Variant:
+		if String(data.get("src", "")) != "hand":     # only hand spirits drag (the model's merge/place ops)
+			return null
+		if make_preview.is_valid():
+			set_drag_preview(make_preview.call())
+		return {"residents_drag": true, "data": data}
+
+	func _can_drop_data(_pos: Vector2, d: Variant) -> bool:
+		return d is Dictionary and bool(d.get("residents_drag", false)) \
+			and can_take.is_valid() and bool(can_take.call(d.get("data", {}), data))
+
+	func _drop_data(_pos: Vector2, d: Variant) -> void:
+		if on_take.is_valid():
+			on_take.call(d.get("data", {}), data)
+
+	## A plain click selects. (While a native drag is live the viewport swallows the release, so
+	## this never double-fires after a drop.)
+	func _gui_input(ev: InputEvent) -> void:
+		var click := (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (ev as InputEventMouseButton).pressed) \
+			or (ev is InputEventScreenTouch and not (ev as InputEventScreenTouch).pressed)
+		if click:
+			tap()
+
+	func tap() -> void:
+		if on_tap.is_valid():
+			on_tap.call()
 
 ## Open the dialog. opts: refresh (Callable — the host re-reads wallet/badges after collect/sell),
 ## on_info (Callable(kind, tier) — the host opens the resident tier ladder).
@@ -68,69 +113,106 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var scale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "residents"))
 	var inner: float = width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
 
-	# session view-state shared by every rebuild: the selected spirit {src: "hand"|"placed", idx}.
-	var view := {"sel": {}}
+	# the render context every repaint reads: selection + the two rebuildable surfaces.
+	var ctx := {"sel": {}, "body": null, "insp": null, "scale": scale,
+		"kit": Kit, "cfg": cfg, "inner": inner, "overlay": overlay, "opts": opts}
+
 	var body := VBoxContainer.new()
 	body.name = "ResidentsBody"
 	body.add_theme_constant_override("separation", 14)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_rebuild(body, Kit, cfg, inner, view, overlay, opts)
+	ctx["body"] = body
 
 	var fopts: Dictionary = Kit.dialog_opts_from_config(cfg)
 	fopts["banner_text"] = "Residents"
-	fopts["content_scale"] = Kit.dialog_content_scale(cfg, "residents")
+	fopts["content_scale"] = scale
 	fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
 	fopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 	var dialog: Control = Kit.dialog_frame(body, width, fopts)
 	cc.add_child(dialog)
+
+	# the INSPECTOR rides the frame's wrap OUTSIDE the padded scroll, pinned flush to the sheet's
+	# bottom edge (mock: a flat full-width strip, no side margins, no border) — repositioned with
+	# the card, rebuilt by every repaint.
+	var card: Control = dialog.find_child("MeadowDialogPanel", true, false)
+	var insp := PanelContainer.new()
+	insp.name = "ResidentsInspector"
+	var corner := int(float(fopts.get("card_corner", 28.0)))
+	var isb := StyleBoxFlat.new()
+	isb.bg_color = Pal.CREAM.darkened(0.05)
+	isb.corner_radius_bottom_left = corner
+	isb.corner_radius_bottom_right = corner
+	isb.content_margin_left = 20.0 * scale; isb.content_margin_right = 20.0 * scale
+	isb.content_margin_top = 12.0 * scale; isb.content_margin_bottom = 12.0 * scale
+	insp.add_theme_stylebox_override("panel", isb)
+	dialog.add_child(insp)
+	ctx["insp"] = insp
+	var dock_insp := func() -> void:
+		if is_instance_valid(insp) and is_instance_valid(card):
+			var h := INSPECTOR_H * scale
+			insp.position = Vector2(card.position.x, card.position.y + card.size.y - h)
+			insp.size = Vector2(card.size.x, h)
+	card.resized.connect(dock_insp)
+	insp.resized.connect(dock_insp)
+	dock_insp.call_deferred()
+
+	_repaint(ctx)
 	FX.pop_in(dialog)
 
-## Repaint the whole body from the live bucket state (collect / sell / select all land here).
-static func _rebuild(body: VBoxContainer, Kit: GDScript, cfg: Dictionary, width: float,
-		view: Dictionary, overlay: Control, opts: Dictionary) -> void:
-	# queue_free (not free): a repaint fires from INSIDE a child button's pressed signal — freeing the
-	# emitting button mid-emission is an error, so detach now and let the tree reap it.
-	for ch in body.get_children():
-		body.remove_child(ch)
+## Repaint BOTH live surfaces (the scroll body and the bottom inspector) from the bucket state.
+static func _repaint(ctx: Dictionary) -> void:
+	if ctx.body != null and is_instance_valid(ctx.body):
+		_rebuild_body(ctx)
+	if ctx.insp != null and is_instance_valid(ctx.insp):
+		_rebuild_inspector(ctx)
+	var refresh_host: Callable = (ctx.opts as Dictionary).get("refresh", Callable())
+	if refresh_host.is_valid():
+		refresh_host.call()
+
+static func _clear(node: Control) -> void:
+	# queue_free (not free): a repaint fires from INSIDE a child's input/pressed signal — freeing
+	# the emitting control mid-emission is an error, so detach now and let the tree reap it.
+	for ch in node.get_children():
+		node.remove_child(ch)
 		ch.queue_free()
-	var refresh_host: Callable = opts.get("refresh", Callable())
-	var repaint := func() -> void:
-		if is_instance_valid(body):
-			_rebuild(body, Kit, cfg, width, view, overlay, opts)
-		if refresh_host.is_valid():
-			refresh_host.call()
+
+static func _rebuild_body(ctx: Dictionary) -> void:
+	var body: VBoxContainer = ctx.body
+	var Kit: GDScript = ctx.kit
+	var cfg: Dictionary = ctx.cfg
+	var width: float = ctx.inner
+	_clear(body)
+	var sp: Dictionary = Look.shadow_params(cfg)
 
 	# --- RESOURCE BANKS: the 2×2 mini bank cards + the one Collect-all action -----------------------
-	body.add_child(_section_label("Resource banks"))
+	body.add_child(_section_label(Kit, "Resource banks"))
 	var banks := GridContainer.new()
 	banks.name = "ResourceBanksGrid"
 	banks.columns = 2
-	banks.add_theme_constant_override("h_separation", 12)
-	banks.add_theme_constant_override("v_separation", 12)
-	banks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	banks.add_theme_constant_override("h_separation", 14)
+	banks.add_theme_constant_override("v_separation", 14)
+	banks.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var ready_total := 0
 	for line in Bucket.LINES:
 		var rep: Dictionary = Bucket.line_report(String(line))
 		ready_total += int(rep.ready)
-		banks.add_child(_bank_card(Kit, String(line), rep, (width - 12.0) * 0.5))
+		banks.add_child(_bank_card(Kit, String(line), rep, (width - 14.0) * 0.5, sp))
 	body.add_child(banks)
 
-	var collect: Button = Kit.cta_button("Collect all", {"btn": Kit.card_btn_opts(cfg)})
-	collect.name = "CollectAllButton"
-	collect.disabled = ready_total <= 0
+	var collect := _collect_all_button(Kit, ready_total > 0, sp)
 	collect.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		Bucket.collect()
-		repaint.call())
+		_repaint(ctx))
 	var crow := HBoxContainer.new()
 	crow.alignment = BoxContainer.ALIGNMENT_CENTER
 	crow.add_child(collect)
 	body.add_child(crow)
 
 	# --- HABITAT CELLS: granted cells (placed spirits first, then free), locked to the mock's row ---
-	body.add_child(_section_label("Habitat cells"))
+	body.add_child(_section_label(Kit, "Habitat cells"))
 	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
 	var placed: Array = Bucket.placed()
 	var cells_total: int = Bucket.cells_total()
@@ -147,24 +229,21 @@ static func _rebuild(body: VBoxContainer, Kit: GDScript, cfg: Dictionary, width:
 		var cell: Control
 		if i < placed.size():
 			var inst: Dictionary = placed[i]
-			var idx := i
-			cell = _spirit_card(Kit, cbag, String(inst.line), int(inst.tier), cell_px,
-				_is_sel(view, "placed", i), func() -> void:
-					view["sel"] = {"src": "placed", "idx": idx}
-					repaint.call())
+			cell = _spirit_card(ctx, cbag, "placed", i, String(inst.line), int(inst.tier), cell_px, sp)
 			cell.name = "HabitatCell_%02d" % i
 		elif i < cells_total:
-			cell = Kit.slot_cell({"state": "empty"}, cbag)
+			cell = _free_cell(ctx, cbag, cell_px, sp)
 			cell.name = "HabitatCellFree_%02d" % i
 		else:
 			cell = Kit.slot_cell({"state": "locked"}, cbag)
+			cell.custom_minimum_size = Vector2(cell_px, cell_px)
 			cell.name = "HabitatCellLocked_%02d" % i
-		cell.custom_minimum_size = Vector2(cell_px, cell_px)
+			_shadow_cell(Kit, cell, sp)
 		cells.add_child(cell)
 	body.add_child(cells)
 
-	# --- ON HAND: the 4-column tap-to-select grid ---------------------------------------------------
-	body.add_child(_section_label("On hand"))
+	# --- ON HAND: the 4-column tap-to-select / drag-to-merge grid -----------------------------------
+	body.add_child(_section_label(Kit, "On hand"))
 	var hand: Array = Bucket.hand()
 	var hand_px: float = (width - 10.0 * float(HAND_COLS - 1)) / float(HAND_COLS)
 	var hbag: Dictionary = bag_opts.duplicate(true)
@@ -177,49 +256,53 @@ static func _rebuild(body: VBoxContainer, Kit: GDScript, cfg: Dictionary, width:
 	grid.add_theme_constant_override("v_separation", 10)
 	for i in hand.size():
 		var inst: Dictionary = hand[i]
-		var idx := i
-		var card := _spirit_card(Kit, hbag, String(inst.line), int(inst.tier), hand_px,
-			_is_sel(view, "hand", i), func() -> void:
-				view["sel"] = {"src": "hand", "idx": idx}
-				repaint.call())
+		var card := _spirit_card(ctx, hbag, "hand", i, String(inst.line), int(inst.tier), hand_px, sp)
 		card.name = "OnHandCard_%02d" % i
 		grid.add_child(card)
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
+		# empty filler tiles carry NO shadow: their face is transparent, so a filled shadow panel
+		# would read as a solid slab through it.
 		grid.add_child(Kit.slot_cell({"state": "empty"}, hbag))
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(grid)
 
-	# --- the INSPECTOR: selected portrait · name · info · SELL --------------------------------------
-	body.add_child(_inspector(Kit, cfg, width, view, repaint, opts))
+	# breathing room so the last hand row scrolls clear of the bottom inspector strip
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(0, INSPECTOR_H + 10.0)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(pad)
 
-## One RESOURCE BANK mini card: icon + name + "n / cap" + the line-coloured bar + the state line.
-## A full bank wears the reward-gold rim (the mock's completed-bank accent).
-static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -> Control:
+## One RESOURCE BANK mini card (mock v2): the LARGE resource icon beside the name + value, a thick
+## line-coloured bar spanning the card, and the state line. Full banks wear the reward-gold rim.
+## Casts the ONE SHARED drop-shadow.
+static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float, sp: Dictionary) -> Control:
 	var face: Dictionary = LINE_FACE.get(line, {})
 	var full := bool(rep.full)
 	var card := PanelContainer.new()
 	card.name = "ResourceBankCard_" + line
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Pal.CREAM.darkened(0.03)
-	sb.set_corner_radius_all(16)
-	sb.set_border_width_all(3 if full else 2)
-	sb.border_color = Pal.STRAW if full else Color(Pal.BARK, 0.25)
-	sb.content_margin_left = 12; sb.content_margin_right = 12
-	sb.content_margin_top = 10; sb.content_margin_bottom = 10
+	sb.set_corner_radius_all(int(CELL_CORNER))
+	sb.set_border_width_all(3 if full else 0)
+	sb.border_color = Pal.STRAW
+	sb.content_margin_left = 14; sb.content_margin_right = 14
+	sb.content_margin_top = 12; sb.content_margin_bottom = 12
 	card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(w, 0)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
+	col.add_theme_constant_override("separation", 8)
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 8)
-	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), 44.0)
+	top.add_theme_constant_override("separation", 12)
+	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), 68.0)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(icon)
 	var tcol := VBoxContainer.new()
 	tcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tcol.alignment = BoxContainer.ALIGNMENT_CENTER
 	var nm := Label.new()
 	nm.text = String(face.get("label", line)).to_upper()
+	nm.add_theme_font_override("font", Kit.bold_font())
 	nm.add_theme_font_size_override("font_size", FS.SMALL)
 	nm.add_theme_color_override("font_color", Pal.INK)
 	nm.add_theme_constant_override("outline_size", 0)
@@ -227,7 +310,8 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	var val := Label.new()
 	val.name = "ResourceBankValue_" + line
 	val.text = "%d / %d" % [int(floor(float(rep.pending))), int(round(float(rep.cap)))]
-	val.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	val.add_theme_font_override("font", Kit.bold_font())
+	val.add_theme_font_size_override("font_size", FS.SUBHEADING)
 	val.add_theme_color_override("font_color", Pal.INK)
 	val.add_theme_constant_override("outline_size", 0)
 	tcol.add_child(val)
@@ -236,7 +320,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 
 	var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
 	var bar: Control = Kit.progress_bar(frac, {
-		"height": 16.0, "width": w - 24.0, "art": false,
+		"height": 24.0, "width": w - 28.0, "art": false,
 		"fill_color": face.get("fill", Pal.STRAW),
 	})
 	bar.name = "ResourceBankBar_" + line
@@ -251,7 +335,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	state.add_theme_constant_override("outline_size", 0)
 	col.add_child(state)
 	card.add_child(col)
-	return card
+	return Kit._meadow_with_shadow(card, CELL_CORNER, sp)
 
 ## The bank's state line: "FULL" · "FULL IN 2H 18M" (rate-derived) · "IDLE" (nothing producing).
 static func _bank_state_text(line: String, rep: Dictionary) -> String:
@@ -266,14 +350,49 @@ static func _bank_state_text(line: String, rep: Dictionary) -> String:
 		return "FULL IN %dH %dM" % [mins / 60, mins % 60]
 	return "FULL IN %dM" % maxi(mins, 1)
 
-## A tappable spirit card: the shared slot cell + the spirit's per-tier art + a tier badge; the
-## selected card wears an ink rim.
-static func _spirit_card(Kit: GDScript, bag_opts: Dictionary, line: String, tier: int, px: float,
-		selected: bool, on_tap: Callable) -> Control:
+## The single collection action — a PLAIN action-green pill (mock v2), with the shared shadow.
+static func _collect_all_button(Kit: GDScript, enabled: bool, sp: Dictionary) -> Button:
+	var btn := Button.new()
+	btn.name = "CollectAllButton"
+	btn.text = "COLLECT ALL"
+	btn.disabled = not enabled
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.add_theme_font_override("font", Kit.bold_font())
+	btn.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	btn.add_theme_color_override("font_color", Pal.CREAM)
+	btn.add_theme_color_override("font_disabled_color", Color(Pal.CREAM, 0.85))
+	btn.add_theme_constant_override("outline_size", 0)
+	var gsb := StyleBoxFlat.new()
+	gsb.bg_color = Pal.LEAF if enabled else Pal.LEAF.lerp(Pal.BRAMBLE_BG, 0.55)
+	gsb.set_corner_radius_all(22)
+	gsb.content_margin_left = 34; gsb.content_margin_right = 34
+	gsb.content_margin_top = 10; gsb.content_margin_bottom = 10
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		btn.add_theme_stylebox_override(st, gsb)
+	var sh: Panel = Kit._meadow_shadow_rect(22.0, sp)
+	sh.name = "CollectAllShadow"
+	sh.show_behind_parent = true
+	btn.add_child(sh)
+	return btn
+
+## Give a plain kit cell the ONE SHARED drop-shadow (behind-parent, hugging the tile corner).
+static func _shadow_cell(Kit: GDScript, cell: Control, sp: Dictionary) -> void:
+	var sh: Panel = Kit._meadow_shadow_rect(CELL_CORNER, sp)
+	sh.name = "SpiritCellShadow"
+	sh.show_behind_parent = true
+	cell.add_child(sh)
+
+## A spirit card wrapped in the DragCard input shell: tap selects; hand spirits drag; matching
+## targets merge/climb. The kit cell + art underneath is fully mouse-transparent.
+static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx: int,
+		line: String, tier: int, px: float, sp: Dictionary) -> Control:
+	var Kit: GDScript = ctx.kit
 	var kind := Bucket.line_kind(line)
-	var cell: Control = Kit.slot_cell({"state": "filled", "on_tap": on_tap,
+	var cell: Control = Kit.slot_cell({"state": "filled",
 		"make_content": func(pp: float) -> Control: return _spirit_art(kind, tier, pp)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
+	_ignore_input(cell)
+	_shadow_cell(Kit, cell, sp)
 	var badge := Label.new()
 	badge.name = "SpiritTierBadge"
 	badge.text = str(tier)
@@ -296,7 +415,7 @@ static func _spirit_card(Kit: GDScript, bag_opts: Dictionary, line: String, tier
 			bp.position = Vector2((cell.size.x - bp.size.x) * 0.5, cell.size.y - bp.size.y - 4.0)
 	bp.resized.connect(dock)
 	cell.resized.connect(dock)
-	if selected:
+	if _is_sel(ctx, src, idx):
 		var rim := Panel.new()
 		rim.name = "SpiritSelectedRim"
 		var rsb := StyleBoxFlat.new()
@@ -308,9 +427,80 @@ static func _spirit_card(Kit: GDScript, bag_opts: Dictionary, line: String, tier
 		rim.set_anchors_preset(Control.PRESET_FULL_RECT)
 		rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(rim)
-	return cell
 
-## The spirit's per-tier ladder art, centred in its box (trimmed to the used rect by content.gd).
+	var dc := DragCard.new()
+	dc.custom_minimum_size = Vector2(px, px)
+	dc.mouse_filter = Control.MOUSE_FILTER_STOP
+	dc.data = {"src": src, "idx": idx, "line": line, "tier": tier}
+	dc.on_tap = func() -> void:
+		ctx["sel"] = {"src": src, "idx": idx}
+		_repaint(ctx)
+	dc.make_preview = func() -> Control:
+		var ghost := _spirit_art(kind, tier, px * 0.9)
+		ghost.modulate = Color(1, 1, 1, 0.85)
+		return ghost
+	# a same line+tier spirit dropped HERE merges: hand→hand keeps this slot a tier up;
+	# hand→placed climbs the housed spirit.
+	dc.can_take = func(from: Dictionary, me: Dictionary) -> bool:
+		return String(from.get("src", "")) == "hand" \
+			and not (String(me.src) == "hand" and int(from.get("idx", -1)) == int(me.idx)) \
+			and String(from.get("line", "")) == String(me.line) and int(from.get("tier", -1)) == int(me.tier)
+	dc.on_take = func(from: Dictionary, me: Dictionary) -> void:
+		var did := false
+		if String(me.src) == "hand":
+			did = Bucket.hand_merge(int(me.idx), int(from.idx))
+		else:
+			did = Bucket.place_merge(int(from.idx), int(me.idx))
+		if did:
+			Audio.play("button_tap", -2.0)
+			ctx["sel"] = {}
+			_repaint(ctx)
+	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dc.add_child(cell)
+	return dc
+
+## A FREE habitat cell — accepts any hand spirit (Bucket.place moves it in).
+static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float, _sp: Dictionary) -> Control:
+	var Kit: GDScript = ctx.kit
+	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
+	cell.custom_minimum_size = Vector2(px, px)
+	_ignore_input(cell)
+	var dc := DragCard.new()
+	dc.custom_minimum_size = Vector2(px, px)
+	dc.mouse_filter = Control.MOUSE_FILTER_STOP
+	dc.data = {"src": "free"}
+	dc.can_take = func(from: Dictionary, _me: Dictionary) -> bool:
+		return String(from.get("src", "")) == "hand"
+	dc.on_take = func(from: Dictionary, _me: Dictionary) -> void:
+		if Bucket.place(int(from.idx)):
+			Audio.play("button_tap", -2.0)
+			ctx["sel"] = {}
+			_repaint(ctx)
+	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dc.add_child(cell)
+	return dc
+
+## The spirit's per-tier ladder art, centred in its box — TRIMMED to its used rect (the raw canvas
+## carries transparent padding that would shrink the sprite), cached per path like the map dock.
+static var _art_cache: Dictionary = {}
+static func _spirit_tex(path: String) -> Texture2D:
+	if _art_cache.has(path):
+		return _art_cache[path]
+	var tex: Texture2D = load(path)
+	var result: Texture2D = tex
+	if tex != null:
+		var img := tex.get_image()
+		if img != null:
+			var used := img.get_used_rect()
+			var full := Vector2i(tex.get_width(), tex.get_height())
+			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != full):
+				var at := AtlasTexture.new()
+				at.atlas = tex
+				at.region = Rect2(used)
+				result = at
+	_art_cache[path] = result
+	return result
+
 static func _spirit_art(kind: String, tier: int, px: float) -> Control:
 	var t := TextureRect.new()
 	t.custom_minimum_size = Vector2(px, px)
@@ -320,55 +510,49 @@ static func _spirit_art(kind: String, tier: int, px: float) -> Control:
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art := G.resident_art(kind, tier)
 	if art != "" and ResourceLoader.exists(art):
-		t.texture = load(art)
+		t.texture = _spirit_tex(art)
 	return t
 
-## The bottom inspector: the selected spirit's portrait + name + info (tier ladder) + SELL — or a
-## quiet hint when nothing is selected.
-static func _inspector(Kit: GDScript, cfg: Dictionary, width: float, view: Dictionary,
-		repaint: Callable, opts: Dictionary) -> Control:
-	var card := PanelContainer.new()
-	card.name = "ResidentsInspector"
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM.darkened(0.03)
-	sb.set_corner_radius_all(16)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(Pal.BARK, 0.25)
-	sb.content_margin_left = 12; sb.content_margin_right = 12
-	sb.content_margin_top = 10; sb.content_margin_bottom = 10
-	card.add_theme_stylebox_override("panel", sb)
-	card.custom_minimum_size = Vector2(width, 0)
-
-	var sel: Dictionary = view.get("sel", {})
+## The bottom inspector CONTENT (the flat strip itself is built once in open()): the selected
+## spirit's portrait + name + info + a big SELL — or a quiet hint when nothing is selected.
+## The strip sits OUTSIDE the frame's ScaleContainer, so px sizes here scale by ctx.scale.
+static func _rebuild_inspector(ctx: Dictionary) -> void:
+	var insp: PanelContainer = ctx.insp
+	var Kit: GDScript = ctx.kit
+	var s: float = ctx.scale
+	_clear(insp)
+	var sel: Dictionary = ctx.get("sel", {})
 	var inst := _sel_inst(sel)
 	if inst.is_empty():
 		var hint := Label.new()
 		hint.name = "ResidentsInspectorHint"
 		hint.text = "Tap a resident"
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hint.add_theme_font_size_override("font_size", FS.SMALL)
+		hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hint.add_theme_font_size_override("font_size", int(FS.SMALL * s))
 		hint.add_theme_color_override("font_color", Color(Pal.INK, 0.65))
 		hint.add_theme_constant_override("outline_size", 0)
-		card.add_child(hint)
-		return card
+		insp.add_child(hint)
+		return
 
 	var line := String(inst.line)
 	var tier := int(inst.tier)
 	var kind := Bucket.line_kind(line)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var portrait := _spirit_art(kind, tier, 56.0)
+	row.add_theme_constant_override("separation", int(12.0 * s))
+	var portrait := _spirit_art(kind, tier, 68.0 * s)
 	portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(portrait)
 	var nm := Label.new()
 	nm.name = "ResidentsInspectorName"
 	nm.text = "%s · T%d" % [_kind_name(kind), tier]
-	nm.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	nm.add_theme_font_override("font", Kit.bold_font())
+	nm.add_theme_font_size_override("font_size", int(FS.EMPHASIS * s))
 	nm.add_theme_color_override("font_color", Pal.INK)
 	nm.add_theme_constant_override("outline_size", 0)
 	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(nm)
-	var on_info: Callable = opts.get("on_info", Callable())
+	var on_info: Callable = (ctx.opts as Dictionary).get("on_info", Callable())
 	if on_info.is_valid():
 		var info := Button.new()
 		info.name = "ResidentsInfoButton"
@@ -377,9 +561,10 @@ static func _inspector(Kit: GDScript, cfg: Dictionary, width: float, view: Dicti
 		var empty := StyleBoxEmpty.new()
 		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 			info.add_theme_stylebox_override(st, empty)
-		info.custom_minimum_size = Vector2(40, 40)
-		var ii: Control = Kit.make_icon("info", 34.0)
-		ii.position = Vector2(3, 3)
+		var ipx := 44.0 * s
+		info.custom_minimum_size = Vector2(ipx, ipx)
+		var ii: Control = Kit.make_icon("info", ipx * 0.86)
+		ii.position = Vector2(ipx * 0.07, ipx * 0.07)
 		ii.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		info.add_child(ii)
 		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -389,21 +574,22 @@ static func _inspector(Kit: GDScript, cfg: Dictionary, width: float, view: Dicti
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
-	# SELL — the coral-outline pill (mock): pays SELL_PER_TIER × tier and frees the slot.
+	# SELL — the coral-outline pill (mock), sized as the strip's dominant action.
 	var sell := Button.new()
 	sell.name = "ResidentsSellButton"
-	sell.text = "Sell +%d" % (Bucket.SELL_PER_TIER * tier)
+	sell.text = "SELL +%d" % (Bucket.SELL_PER_TIER * tier)
 	sell.focus_mode = Control.FOCUS_NONE
-	sell.add_theme_font_size_override("font_size", FS.SMALL)
+	sell.add_theme_font_override("font", Kit.bold_font())
+	sell.add_theme_font_size_override("font_size", int(FS.EMPHASIS * s))
 	sell.add_theme_color_override("font_color", Pal.CLAY)
 	sell.add_theme_constant_override("outline_size", 0)
 	var ssb := StyleBoxFlat.new()
 	ssb.bg_color = Pal.CREAM
-	ssb.set_corner_radius_all(14)
-	ssb.set_border_width_all(3)
+	ssb.set_corner_radius_all(int(18.0 * s))
+	ssb.set_border_width_all(int(maxf(3.0, 4.0 * s)))
 	ssb.border_color = Pal.CLAY
-	ssb.content_margin_left = 16; ssb.content_margin_right = 16
-	ssb.content_margin_top = 6; ssb.content_margin_bottom = 6
+	ssb.content_margin_left = 26.0 * s; ssb.content_margin_right = 26.0 * s
+	ssb.content_margin_top = 10.0 * s; ssb.content_margin_bottom = 10.0 * s
 	for st in ["normal", "hover", "pressed", "focus"]:
 		sell.add_theme_stylebox_override(st, ssb)
 	sell.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -413,25 +599,33 @@ static func _inspector(Kit: GDScript, cfg: Dictionary, width: float, view: Dicti
 			Bucket.sell_placed(int(sel.get("idx", -1)))
 		else:
 			Bucket.sell_hand(int(sel.get("idx", -1)))
-		view["sel"] = {}
-		repaint.call())
+		ctx["sel"] = {}
+		_repaint(ctx))
 	row.add_child(sell)
-	card.add_child(row)
-	return card
+	insp.add_child(row)
 
 # --- small helpers --------------------------------------------------------------------------------
-static func _section_label(text: String) -> Label:
+static func _section_label(Kit: GDScript, text: String) -> Label:
 	var l := Label.new()
 	l.text = text.to_upper()
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", Kit.bold_font())
 	l.add_theme_font_size_override("font_size", FS.SMALL)
 	l.add_theme_color_override("font_color", Pal.INK)
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
-static func _is_sel(view: Dictionary, src: String, idx: int) -> bool:
-	var sel: Dictionary = view.get("sel", {})
+## Make a built kit cell fully mouse-transparent so the DragCard wrapper owns all input.
+static func _ignore_input(n: Node) -> void:
+	if n is Control:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		(n as Control).focus_mode = Control.FOCUS_NONE
+	for c in n.get_children():
+		_ignore_input(c)
+
+static func _is_sel(ctx: Dictionary, src: String, idx: int) -> bool:
+	var sel: Dictionary = ctx.get("sel", {})
 	return String(sel.get("src", "")) == src and int(sel.get("idx", -1)) == idx
 
 ## The live instance behind the selection — {} when the selection is stale (sold/moved under it).

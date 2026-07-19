@@ -1,0 +1,61 @@
+Use the layout guide image as a layout-only reference. Use it only to understand
+the rows, columns, equal invisible frame slots, centering, spacing, and the small
+safe boxes. Do not reproduce the guide: no visible boxes, safe-area rectangles,
+center marks, labels, borders, or guide background.
+
+Generate a production-ready character portrait sprite sheet for the Grove quest
+giver portrait pool, 5 rows x 5 columns, square PNG. Background must be one
+uniform solid flat bright green #00FF00 only, chosen as a chroma-key color because
+the portraits include purple and pink. Do not use pure #00FF00 anywhere in the
+characters.
+
+Draw each bust smaller than usual. Each bust, including ears, hats, wings, tools,
+shoulders, and base, must fit completely inside the small safe box area of its
+invisible cell. Leave large uninterrupted #00FF00 gutters around every portrait.
+The finished rounded base must have a clear horizontal band of green below it
+inside the same cell. No portrait can touch the bottom, top, left, or right edge
+of its invisible cell. No portrait can touch another portrait. No visible grid.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte
+hand-cut cardstock - never plastic, clay, sticker, watercolor, gouache, visible
+brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad,
+rounded, low-complexity silhouettes; two or three dominant masses per object;
+each surface one flat base color plus at most one same-hue shadow plane; subtle
+paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin
+locally-darker edge. No universal white sticker outline and no heavy black outline.
+One upper-left light source. Consolidate leaves, shingles, stones, and ornament
+into a few readable shapes; never render thousands of tiny details. Features stay
+legible at phone size. Use the fixed Meadow Sky role palette. No text, labels,
+numerals, or watermark.
+
+Asset contract for every cell: exactly one friendly character bust, head +
+shoulders + upper torso, ending in an AUTHORED rounded cut-paper base, a deliberate
+curved paper edge that completes the silhouette. The base is part of the drawing,
+never an implied crop. Reject flat straight bottoms; every lower edge must be
+rounded and fully visible with green background below it.
+
+No full bodies, no ground props, no cast shadows, no contact shadows, no floor
+shadows, no drop shadows, no glow, no aura, no particles, no smoke, no sparkles,
+no detached FX. No text, labels, numerals, watermark, frames, panels, borders, or
+visible grid.
+
+Fill row-major, five quest givers for each scene:
+Row 1 Fairy Hollow: mooncap mushroom guide with crescent cap; berry-hood sprite
+with attached berry cluster; acorn-cap lantern keeper holding a lantern tight to
+chest, no glow; leafy moth sprite with folded wings kept inside safe box; fern-
+cloak scroll keeper.
+Row 2 Snowy Village: snowflake-hood child with rounded flake collar; woolen bear-
+hood elder with scarf; igloo-hat mason with tiny attached trowel; pine-tree parka
+villager with pinecone clasp; blue winter-lantern helper holding lantern tight to
+chest, no glow.
+Row 3 Oasis: cactus-flower wanderer; date-palm hood trader with small attached
+date cluster; sandcastle-crown guard with tiny attached shovel; spice-jar merchant
+with cork hat; scarab-armor courier with brass shoulder plates.
+Row 4 Coral Reef: shell-collar shy guide; branching coral headdress spirit;
+seaweed-haired keeper with woven sash; turtle-shell scholar with round glasses;
+koi-mask messenger with broad side fins kept inside safe box.
+Row 5 Cherry Blossom: mushroom-tea guest with small teacup held tight to chest;
+blossom-hair host with petal collar; tea-cup-hat server with small fan; bridge-
+cloak traveler with tiny bridge clasp; origami-crane hat festival guide.
+
+Output only the image sheet.
