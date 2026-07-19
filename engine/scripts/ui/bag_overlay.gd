@@ -50,6 +50,10 @@ const NEED_MORE_NAME := "BagNeedMorePrompt"     ## the short-of-acorns prompt ra
 const CARD_W_FRAC := 0.62     ## card width as a fraction of the SCREEN width (NARROWER than the bag
                               ## it sits on, so it reads as a card ON the dialog, not a replacement)
 const MEDAL_FRAC := 0.26      ## medallion diameter as a fraction of the CARD width
+## the SHOP's acorn sprite (the one on its first pouch card) — the prompt sends the player there, so it
+## shows the same nut. Falls back to the plain wallet acorn if the ladder art is ever stripped.
+const ACORN_ICON := "gem_t1"
+const CHIP_WASH := Color(0.94, 0.89, 0.81)   ## the have/needed chip's paper, a shade warmer than the card
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 
@@ -252,10 +256,22 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	col.add_theme_constant_override("separation", int(cw * 0.06))
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	pad.add_child(col)
-	# the acorn medallion — the shared plated icon on the round disc badge
-	var medal: Control = Kit.plated_icon("gem", cw * MEDAL_FRAC)
-	medal.self_modulate = Pal.SKY          # tints the DISC only; the acorn on top keeps its own colour
+	# the acorn medallion — a FLAT sky disc (code-drawn, no rim art) carrying the SHOP's acorn sprite,
+	# so the prompt shows the player the very same acorn the storefront sells.
+	var medal_px: float = cw * MEDAL_FRAC
+	var medal := PanelContainer.new()
+	var disc := StyleBoxFlat.new()
+	disc.bg_color = Pal.SKY
+	disc.set_corner_radius_all(int(medal_px))     # ≥ half the box → a circle
+	disc.set_border_width_all(0)                  # no ring: the mock's disc is a plain paper cut
+	disc.anti_aliasing = true
+	var inset: float = medal_px * 0.19
+	disc.content_margin_left = inset; disc.content_margin_right = inset
+	disc.content_margin_top = inset; disc.content_margin_bottom = inset
+	medal.add_theme_stylebox_override("panel", disc)
+	medal.custom_minimum_size = Vector2(medal_px, medal_px)
 	medal.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	medal.add_child(Kit.make_icon(ACORN_ICON, medal_px * 0.62))
 	col.add_child(medal)
 	var title := Label.new()
 	title.text = Strings.t("bag.need_more.ribbon")
@@ -283,7 +299,14 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	body.add_theme_color_override("font_color", BARK)
 	col.add_child(body)
 	# the have / needed chip — the SAME cream amount_chip the mail cards wear
-	var chip: Control = Kit.amount_chip("gem", "%d / %d" % [have, price], {"font": FS.STAT, "corner": 14.0})
+	var chip: Control = Kit.amount_chip(ACORN_ICON, "%d / %d" % [have, price], \
+		{"font": FS.STAT, "corner": 14.0, "paper": "cream", "border": 0.0})
+	# cream paper on a cream card would vanish, so wash the chip's paper a shade warmer — it still reads
+	# as an inset well without an outline. `modulate` is safe here: the kit drives state through
+	# self_modulate, so the two don't fight.
+	var chip_paper := chip.get_node_or_null("ButtonPaperSurface")
+	if chip_paper != null:
+		(chip_paper as CanvasItem).modulate = CHIP_WASH
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	chip.custom_minimum_size.x = cw * 0.54
 	col.add_child(chip)
@@ -293,12 +316,13 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	btns.add_theme_constant_override("separation", int(cw * 0.04))
 	col.add_child(btns)
 	var later: Button = Kit.pill_button(Strings.t("bag.need_more.later"), \
-		{"bg": "cream", "font": FS.SUBHEADING, "corner": 18.0, "shadow": true})
+		{"bg": "cream", "font": FS.SUBHEADING, "corner": 18.0, "shadow": true, \
+		"paper": "cream", "border": 0.0})
 	later.custom_minimum_size = Vector2(cw * 0.42, cw * 0.155)
 	later.pressed.connect(func() -> void: overlay.queue_free())
 	btns.add_child(later)
 	var shop: Button = Kit.cta_button(Strings.t("bag.need_more.shop"), \
-		{"btn": {"font": FS.SUBHEADING, "corner": 18.0}})
+		{"btn": {"font": FS.SUBHEADING, "corner": 18.0, "border": 0.0}})
 	shop.custom_minimum_size = Vector2(cw * 0.42, cw * 0.155)
 	shop.pressed.connect(func() -> void:
 		overlay.queue_free()
