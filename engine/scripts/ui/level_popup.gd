@@ -176,7 +176,7 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	wrap.ready.connect(dock)
 	return wrap
 
-## The mock's tinted drop-shadow (#294654 at ~19%, short and soft), applied ON the element's own
+## THE uniform shadow (skin.gd), applied ON the element's own
 ## StyleBoxFlat so it follows the box's exact rounded corners. The same recipe as residents.gd.
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
 	Look.apply_box_shadow(sb)
