@@ -485,8 +485,12 @@ func _initialize() -> void:
 	# --- path resolution ------------------------------------------------------------
 	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
 	ok(M.repo_root_of(sr) == "/repo", "repo_root_of strips the scenes suffix")
+	ok(M.repo_root_of("/repo/games/grove/assets/_concepts/zones") == "/repo",
+		"a custom scenes root under games resolves repo-relative artwork from the repository root")
+	ok(M.repo_root_of("games/grove/assets/_concepts/zones") == ".",
+		"a relative custom scenes root under games resolves repo-relative artwork from the project root")
 	ok(M.repo_root_of("/elsewhere/scenes") == "/elsewhere/scenes",
-		"a custom root resolves relative to itself")
+		"a root outside a repository keeps its own relative-art base")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
