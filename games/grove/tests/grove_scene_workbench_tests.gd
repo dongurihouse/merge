@@ -174,14 +174,11 @@ func _initialize() -> void:
 	var view: Control = View.new()
 	ok(view.setup(broot, "test_scene"), "the view opens a synthetic bundle (art-less entries allowed)")
 	root.add_child(view)
-	if view._placed_box == null:
+	if view._cluster_box == null:
 		view._ready()                                  # _ready does not auto-fire under _initialize (suite convention)
-	var row := view._placed_box.get_child(0) as Button
-	ok(row != null, "the placed list built a row per entry")
-	if row != null:
-		row.pressed.emit()                             # select via the sidebar — rebuilds the list it lives in
-		ok(is_instance_valid(row), "a pressed placed-row survives its own refresh (deferred free)")
-		ok(view._sel >= 0 or view._sel_cluster != "", "the press selected the row's unit (cluster or single)")
+	ok(view.find_child("SceneDropdown", true, false) != null
+		and view._cluster_box != null,
+		"the lean sidebar is dropdown + save + clusters only (no placed list, no palette)")
 	var crow_box: Node = view._cluster_box.get_child(0)
 	var crow: Button = (crow_box.get_child(0) as Button) if crow_box != null and crow_box.get_child_count() > 0 else null
 	ok(crow != null, "the clusters list built a row")
@@ -189,6 +186,35 @@ func _initialize() -> void:
 		crow.pressed.emit()
 		ok(is_instance_valid(crow), "a pressed cluster-row survives its own refresh (deferred free)")
 		ok(view._sel_cluster == "camp", "the press selected the cluster")
+	# selecting a cluster EXPANDS its member rows: [select-item button][✕ remove]
+	var member_rows: Array = []
+	for c in view._cluster_box.get_children():
+		if c is HBoxContainer and c.get_child_count() == 2 and (c.get_child(0) as Button).text.contains("· "):
+			member_rows.append(c)
+	ok(member_rows.size() == 2, "the selected cluster lists its two member elements")
+	if member_rows.size() == 2:
+		var mbtn := (member_rows[0] as HBoxContainer).get_child(0) as Button
+		mbtn.pressed.emit()
+		ok(is_instance_valid(mbtn), "a pressed member-row survives its own refresh (deferred free)")
+		ok(view._sel >= 0 and view._sel_cluster == "" and M.cluster_of(view.doc, view._sel) == "camp",
+			"clicking a member row selects that single item for move/resize")
+		ok(view._cluster_box.get_child_count() >= 3,
+			"the member list stays expanded while one of its items is selected")
+		var doc_snapshot: Dictionary = view.doc.duplicate(true)   # the kill test must not shift downstream indices
+		var n_before: int = view.doc.placements.size()
+		# member_rows follow paint order: [rock (z10, index 1), tree (z30, index 0)] — kill the tree row
+		var kill := (member_rows[1] as HBoxContainer).get_child(1) as Button
+		var kill_id := String((view.doc.placements[0] as Dictionary).id)
+		kill.pressed.emit()
+		ok(view.doc.placements.size() == n_before - 1, "the ✕ removes that element from the scene")
+		var left := {}
+		for e in view.doc.placements:
+			left[String((e as Dictionary).id)] = true
+		ok(not left.has(kill_id), "the removed element is the one whose ✕ was pressed")
+		ok(view._sel_cluster == "camp", "the cluster stays selected after a member remove")
+		view.doc = doc_snapshot                        # restore the fixture for the tests downstream
+		view._rebuild_stage()
+		view._select(-1)
 
 	# --- view: click-select + drag-move + wheel-resize through the stage input surface -
 	# (regression: "dragging doesn't work" — mouse input formerly relied on _unhandled_input

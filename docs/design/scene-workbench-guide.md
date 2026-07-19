@@ -22,10 +22,11 @@ opens the highest `v<N>` that carries `metadata/placements.json`.
 ```
 
 - Element art: one keyed PNG per element, named `<scene>_<element>_v<N>.png`, nested anywhere
-  under the numbered dirs. The palette skips `00_style/`, `09_reconstruction/`, `metadata/`,
-  any `references/` dir, and files containing `_raw`, `_review`, `montage`, or `contact`.
-- Palette **category** = the top dir minus its `NN_` prefix (`04_garden_items` → `garden_items`);
-  a `*_pack` subdir refines it (`vegetation_pack` → `vegetation`).
+  under the numbered dirs. (Asset discovery — `M.addable_assets` — skips `00_style/`,
+  `09_reconstruction/`, `metadata/`, any `references/` dir, and files containing `_raw`,
+  `_review`, `montage`, or `contact`; **category** = the top dir minus its `NN_` prefix,
+  refined by a `*_pack` subdir. The in-tool add palette was removed 2026-07-18 — new elements
+  enter via `M.add_entry` scripted edits or by hand in placements.json, then `R` reloads.)
 - **Scenes root**: the launcher auto-resolves to the repo copy of
   `games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1`, falling back to
   the codex mocks worktree (`.worktrees/codex-ui-redesign-rush-maps-mocks/...`). `ROOT=<dir>`
@@ -76,7 +77,9 @@ its grounding — e.g. a tent = `tent` + surrounding rocks + vegetation + its sh
 - A stage **click selects the whole cluster**; drag moves it, wheel resizes it about its footing,
   `Z`/`X` restack it with relative z preserved.
 - **Isolation** (`I`, or `make sw … CLUSTER=<name>`): the rest of the scene ghosts; clicks now
-  pick individual members for fine placement, and **palette adds auto-join the cluster**.
+  pick individual members for fine placement.
+- **The sidebar is cluster-driven**: selecting a cluster expands its MEMBER rows — click one to
+  select that single item (drag/wheel/arrows act on just it), press its `✕` to remove it.
 - `Alt+click` force-picks a single item without isolating. `Esc` exits isolation / deselects.
 - **Shift+click paints membership**: with a cluster in context (selected or isolated), Shift+click
   any item — even ghosted scenery — to toggle it in/out of the cluster; with only a single item
@@ -84,9 +87,9 @@ its grounding — e.g. a tent = `tent` + surrounding rocks + vegetation + its sh
 - `N` makes a new cluster from the selected single; a selected cluster shows a **rename field**
   in the sidebar (type + Enter — members re-tag, collisions unique-ify).
 
-**Building a new cluster from scratch**: add the hero asset from the palette → `N` (or Shift+click
-the second piece) → `I` to isolate → add rocks / vegetation / shadow (each lands in the cluster)
-→ wheel + drag each member into place → `Esc`, then place the whole cluster.
+**Building a new cluster**: select the hero item → `N` (or Shift+click the second piece) → `I` to
+isolate → Shift+click the surrounding rocks / vegetation into the cluster → wheel + drag each
+member into place → `Esc`, then place the whole cluster.
 
 ## 4 · The loop (interactive)
 
@@ -121,7 +124,6 @@ id uniqueness, the grabbable-size floor, and the backup. After tool changes run
 - A cluster's downward restack floors the LOWEST member at z 0 (relative order survives).
 - Clearing a cluster tag erases the key — files without clusters stay byte-identical.
 - Missing art still occupies its rect (select it via the sidebar, not the stage).
-- First open of a scene decodes every palette thumbnail once — a few seconds is normal.
 - Coral/desert `v2` bundles have no `placements.json` yet — the tool opens their `v1`; add a
   minimal placements file to a `v2` (schema above) to start composing it.
 

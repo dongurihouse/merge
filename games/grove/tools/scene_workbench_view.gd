@@ -1,7 +1,8 @@
 extends Control
 ## Scene-placement workbench — the interactive surface over scene_workbench_model.gd.
-## Left: the scene stage (fit to window). Right: sidebar — the scene dropdown, save, the selection's
-## numbers, the CLUSTER list (the unit of work), and the bundle palette grouped with thumbnails.
+## Left: the scene stage (fit to window). Right: sidebar — the scene dropdown, save, and the
+## CLUSTER list (the ONLY unit of work): selecting a cluster expands its member rows, each with a
+## ✕ remove; clicking a member selects that single item for move/resize on the stage.
 ##
 ## The model is CLUSTER-FIRST: a stage click selects the whole cluster under the point (an untagged
 ## entry acts as its own one-item cluster). Members are edited inside ISOLATION (I), where clicks
@@ -28,7 +29,6 @@ var dirty := false
 
 var _tex: Dictionary = {}           # abs path -> Texture2D (null cached as false)
 var _hit: Dictionary = {}           # abs path -> downsampled Image for alpha tests
-var _thumb: Dictionary = {}         # abs path -> small ImageTexture for palette rows
 var _sel := -1                      # index into doc.placements (item selection)
 var _sel_cluster := ""              # cluster selection — mutually exclusive with _sel
 var _isolated := ""                 # isolation: this cluster edits alone, the rest of the scene ghosts
@@ -39,11 +39,7 @@ var _drag_last := Vector2.ZERO      # last canvas point (cluster drags are delta
 var _stage: Control = null
 var _layers: Control = null         # one TextureRect per placement, child order = paint order
 var _overlay: Control = null        # selection outline
-var _status: Label = null
-var _info: Label = null
 var _save_btn: Button = null
-var _placed_box: VBoxContainer = null
-var _add_box: VBoxContainer = null
 var _cluster_box: VBoxContainer = null
 var _cluster_actions: VBoxContainer = null
 var _open_cluster := ""             # CLUSTER= launch arg — select + isolate once ready
@@ -89,7 +85,8 @@ func _ready() -> void:
 	_stage.add_child(_overlay)
 	_build_sidebar()
 	_rebuild_stage()
-	get_viewport().size_changed.connect(_layout)
+	if get_viewport() != null:                         # null under the suites' manual-_ready convention
+		get_viewport().size_changed.connect(_layout)
 	_layout()
 	if _open_cluster != "" and M.clusters(doc).has(_open_cluster):
 		_select_cluster(_open_cluster)
@@ -150,7 +147,6 @@ func _rebuild_stage() -> void:
 				sh.modulate = Color(1, 1, 1, 0.22)
 			_layers.add_child(sh)                    # added just before its prop → paints beneath it
 		_layers.add_child(n)
-	_refresh_placed_list()
 	_refresh_cluster_list()
 	_refresh_status()
 	_overlay.queue_redraw()
@@ -245,8 +241,11 @@ func _on_stage_input(ev: InputEvent) -> void:
 					hit = -1                          # ghosted scenery is context, not clickable
 				var cl := M.cluster_of(doc, hit) if hit >= 0 else ""
 				# CLUSTER-FIRST: a click selects the whole group; members are picked inside
-				# isolation (or force-picked with Alt). An untagged entry is its own unit.
-				if _isolated != "" or mb.alt_pressed or cl == "":
+				# isolation, with Alt, or via the sidebar member rows. An untagged entry is
+				# its own unit; the already-selected member drags directly.
+				if hit >= 0 and hit == _sel:
+					pass                              # keep the member selection — drag moves just it
+				elif _isolated != "" or mb.alt_pressed or cl == "":
 					_select(hit)
 				elif cl != _sel_cluster:
 					_select_cluster(cl)
@@ -398,28 +397,11 @@ func _toggle_isolation() -> void:
 		_select_cluster(_isolated)
 	_rebuild_stage()
 
-func _add_asset(a: Dictionary) -> void:
-	var canvas := M.canvas_size(doc)
-	var t := _texture(String(a.image))
-	var sz := Vector2(300, 300) if t == null else Vector2(t.get_size())
-	var cap := canvas.y * 0.35                        # a new drop lands readable, never scene-swallowing
-	if sz.y > cap:
-		sz *= cap / sz.y
-	var entry := {"id": String(a.id), "category": String(a.category), "image": String(a.image),
-		"x": int(canvas.x / 2.0), "y": int(canvas.y * 0.7), "w": int(sz.x), "h": int(sz.y), "layer": ""}
-	if _isolated != "":
-		entry["cluster"] = _isolated                  # building a cluster alone → new pieces join it
-	var i := M.add_entry(doc, entry)
-	_mark_dirty()
-	_rebuild_stage()
-	_select(i)
-
 # --- selection / save -----------------------------------------------------------------------------
 
 func _select(i: int) -> void:
 	_sel = i
 	_sel_cluster = ""
-	_refresh_placed_list()
 	_refresh_cluster_list()
 	_refresh_status()
 	_overlay.queue_redraw()
@@ -427,7 +409,6 @@ func _select(i: int) -> void:
 func _select_cluster(name: String) -> void:
 	_sel = -1
 	_sel_cluster = name
-	_refresh_placed_list()
 	_refresh_cluster_list()
 	_refresh_status()
 	_overlay.queue_redraw()
@@ -448,29 +429,8 @@ func _reload() -> void:
 	_rebuild_stage()
 
 func _refresh_status() -> void:
-	if _status == null:
-		return
-	_status.text = "%s%s" % [scene_name, "  •  UNSAVED" if dirty else ""]
 	if _save_btn != null:
-		_save_btn.text = "Save (⌘S)" + ("  •" if dirty else "")
-	if _info == null:
-		return
-	if _sel_cluster != "":
-		var idx: Array = M.clusters(doc).get(_sel_cluster, [])
-		var bb: Rect2 = M.cluster_bbox(doc, _sel_cluster)
-		_info.text = "CLUSTER %s  (%d items)%s\nbbox %d,%d  %d×%d\ndrag/wheel/Z/X act on the group · I isolates" % [
-			_sel_cluster, idx.size(), "  •  ISOLATED" if _isolated == _sel_cluster else "",
-			int(bb.position.x), int(bb.position.y), int(bb.size.x), int(bb.size.y)]
-		return
-	if _sel < 0 or _sel >= M.placements(doc).size():
-		_info.text = "click the scene to select a CLUSTER\n(I isolates it to edit members · Alt+click picks one item)\nShift+click paints cluster membership · N new cluster\ndrag move · wheel resize · Z/X z-order\narrows nudge · Delete remove · R reload"
-		return
-	var e: Dictionary = M.placements(doc)[_sel]
-	var cl := String(e.get("cluster", ""))
-	_info.text = "%s  (%s)\nx %d   y %d\nw %d   h %d\nz %d   %s%s" % [String(e.get("id", "")),
-		String(e.get("category", "")), int(e.get("x", 0)), int(e.get("y", 0)),
-		int(e.get("w", 0)), int(e.get("h", 0)), int(e.get("z", 0)), String(e.get("layer", "")),
-		"\ncluster: " + cl if cl != "" else ""]
+		_save_btn.text = "Save (⌘S)" + ("  •  UNSAVED" if dirty else "")
 
 # --- sidebar --------------------------------------------------------------------------------------
 
@@ -508,14 +468,10 @@ func _build_sidebar() -> void:
 			_switch_scene.call_deferred(String(scenes[i])))   # deferred — the dropdown lives in the sidebar being rebuilt
 	col.add_child(dd)
 
-	_status = _label("", 20, true)
-	col.add_child(_status)
 	_save_btn = Button.new()
 	_save_btn.focus_mode = Control.FOCUS_NONE          # keys stay on the stage (arrows nudge, not focus-walk)
 	_save_btn.pressed.connect(_save)
 	col.add_child(_save_btn)
-	_info = _label("", 14)
-	col.add_child(_info)
 
 	col.add_child(_label("Clusters", 16, true))
 	_cluster_actions = VBoxContainer.new()
@@ -524,27 +480,6 @@ func _build_sidebar() -> void:
 	_cluster_box = VBoxContainer.new()
 	_cluster_box.add_theme_constant_override("separation", 2)
 	col.add_child(_cluster_box)
-
-	col.add_child(_label("Placed (paint order)", 16, true))
-	_placed_box = VBoxContainer.new()
-	_placed_box.add_theme_constant_override("separation", 2)
-	col.add_child(_placed_box)
-
-	# the ADD PALETTE — the bundle's assets grouped by kind, a thumbnail on every row
-	col.add_child(_label("Add from bundle", 16, true))
-	_add_box = VBoxContainer.new()
-	_add_box.add_theme_constant_override("separation", 2)
-	col.add_child(_add_box)
-	var last_cat := ""
-	for a in M.addable_assets(bundle_dir, repo_root, scene_name):
-		if String(a.category) != last_cat:
-			last_cat = String(a.category)
-			_add_box.add_child(_label(last_cat.capitalize(), 13, true))
-		var b := _small_button("+ " + String(a.id), _add_asset.bind(a))
-		b.icon = _thumb_for(String(a.image))
-		b.add_theme_constant_override("icon_max_width", 30)
-		b.add_theme_constant_override("h_separation", 8)
-		_add_box.add_child(b)
 	_refresh_status()
 
 ## Switch the workbench to another scene bundle in place (unsaved edits are saved first —
@@ -560,7 +495,6 @@ func _switch_scene(scene: String) -> void:
 	dirty = false
 	_tex.clear()
 	_hit.clear()
-	_thumb.clear()
 	if _sidebar_panel != null:
 		_sidebar_panel.queue_free()
 	_build_sidebar()
@@ -569,22 +503,9 @@ func _switch_scene(scene: String) -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_title("Scene workbench — " + scene)
 
-## A small palette thumbnail for an asset (decoded once, downscaled, cached).
-func _thumb_for(rel: String) -> Texture2D:
-	var abs := repo_root + "/" + rel
-	if _thumb.has(abs):
-		return _thumb[abs]
-	var img := Image.load_from_file(abs) if FileAccess.file_exists(abs) else null
-	if img == null:
-		_thumb[abs] = null
-		return null
-	var w := 60
-	img.resize(w, maxi(1, img.get_height() * w / img.get_width()))
-	var t := ImageTexture.create_from_image(img)
-	_thumb[abs] = t
-	return t
-
-## The cluster section: action buttons for the current selection + one row per cluster.
+## The cluster section: action buttons for the current selection + one row per cluster; the
+## cluster in context (selected, or owning the selected item) expands its MEMBER rows — each
+## selects its single item for move/resize, with a ✕ that removes it from the scene.
 func _refresh_cluster_list() -> void:
 	if _cluster_box == null:
 		return
@@ -622,6 +543,10 @@ func _refresh_cluster_list() -> void:
 	if _sel_cluster != "" or (_sel >= 0 and M.cluster_of(doc, _sel) != ""):
 		_cluster_actions.add_child(_small_button(
 			"▣ Exit isolation (I)" if _isolated != "" else "▣ Isolate (I)", _toggle_isolation))
+	# the cluster whose members are EXPANDED: the selected one, or the one owning the selected item
+	var expanded := _sel_cluster
+	if expanded == "" and _sel >= 0:
+		expanded = M.cluster_of(doc, _sel)
 	var cls := M.clusters(doc)
 	for cname_v in cls.keys():
 		var cname := String(cname_v)
@@ -640,6 +565,35 @@ func _refresh_cluster_list() -> void:
 			join.tooltip_text = "add the selected item to this cluster"
 			row.add_child(join)
 		_cluster_box.add_child(row)
+		if cname != expanded:
+			continue
+		for k in M.sorted_order(doc):                 # member rows, paint order — click = edit that item
+			if M.cluster_of(doc, k) != cname:
+				continue
+			var e: Dictionary = M.placements(doc)[k]
+			var mrow := HBoxContainer.new()
+			var mb := _small_button("      %s%s   z%d" % ["▸ " if k == _sel else "· ",
+				String(e.get("id", "?")), int(e.get("z", 0))], _select.bind(k))
+			mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if k == _sel:
+				mb.add_theme_color_override("font_color", Color("#B05A00"))
+			mrow.add_child(mb)
+			var kill := _small_button("✕", _remove_member.bind(k, cname))
+			kill.tooltip_text = "remove this element from the scene"
+			mrow.add_child(kill)
+			_cluster_box.add_child(mrow)
+
+## Remove ONE member from the scene (the ✕ on a member row); the cluster stays selected so the
+## remaining members keep their list open.
+func _remove_member(i: int, cname: String) -> void:
+	M.remove_at(doc, i)
+	_sel = -1
+	_mark_dirty()
+	_rebuild_stage()
+	if M.clusters(doc).has(cname):
+		_select_cluster(cname)
+	else:
+		_select(-1)                                   # the last member went — the cluster is gone too
 
 func _small_button(text: String, on_press: Callable) -> Button:
 	var b := Button.new()
@@ -648,50 +602,6 @@ func _small_button(text: String, on_press: Callable) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 13)
 	b.pressed.connect(on_press)
-	return b
-
-## CLUSTER-LEVEL by default (each cluster one row, untagged entries as their own rows, topmost
-## first); inside isolation it lists the isolated cluster's MEMBERS for fine-tuning.
-func _refresh_placed_list() -> void:
-	if _placed_box == null:
-		return
-	_clear_children(_placed_box)
-	if _isolated != "":
-		var member_order: Array = []
-		for i in M.sorted_order(doc):
-			if M.cluster_of(doc, i) == _isolated:
-				member_order.append(i)
-		for k in range(member_order.size() - 1, -1, -1):
-			_placed_box.add_child(_placed_item_row(member_order[k]))
-		return
-	var rows: Array = []                              # {z, cluster} | {z, index}
-	var cls := M.clusters(doc)
-	for cname in cls.keys():
-		var top := 0
-		for i in cls[cname]:
-			top = maxi(top, int((M.placements(doc)[i] as Dictionary).get("z", 0)))
-		rows.append({"z": top, "cluster": String(cname)})
-	for i in M.placements(doc).size():
-		if M.cluster_of(doc, i) == "":
-			rows.append({"z": int((M.placements(doc)[i] as Dictionary).get("z", 0)), "index": i})
-	rows.sort_custom(func(a, b) -> bool: return int(a.z) > int(b.z))   # topmost first
-	for r in rows:
-		if r.has("cluster"):
-			var cname := String(r.cluster)
-			var b := _small_button("%s◆ %s  (%d)   z%d" % ["▸ " if cname == _sel_cluster else "  ",
-				cname, (cls[cname] as Array).size(), int(r.z)], _select_cluster.bind(cname))
-			if cname == _sel_cluster:
-				b.add_theme_color_override("font_color", Color("#B05A00"))
-			_placed_box.add_child(b)
-		else:
-			_placed_box.add_child(_placed_item_row(int(r.index)))
-
-func _placed_item_row(i: int) -> Button:
-	var e: Dictionary = M.placements(doc)[i]
-	var b := _small_button("%s%s   z%d" % ["▸ " if i == _sel else "  ", String(e.get("id", "?")),
-		int(e.get("z", 0))], _select.bind(i))
-	if i == _sel:
-		b.add_theme_color_override("font_color", Color("#B05A00"))
 	return b
 
 func _label(text: String, size: int, bold := false) -> Label:
