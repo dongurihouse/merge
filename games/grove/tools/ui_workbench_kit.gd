@@ -5025,15 +5025,8 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.add_theme_constant_override("separation", int(opts.get("row_gap", 14)))
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# the acorn BALANCE chip (bag mock): a cream pill carrying the acorn icon + the count, docked to the
-	# content's RIGHT edge directly under the title. opts.balance_chip = false drops it.
-	if bool(opts.get("balance_chip", true)):
-		var chip_row := HBoxContainer.new()
-		chip_row.name = "BagBalanceRow"
-		chip_row.alignment = BoxContainer.ALIGNMENT_END
-		chip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip_row.add_child(bag_balance_chip(balance, opts))
-		content.add_child(chip_row)
+	# (no acorn-balance pill: the HUD already carries the acorn counter, and the only price in the dialog
+	# is the next slot's own cost chip. `balance` stays in the signature for the callers/tests.)
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the
@@ -5077,69 +5070,27 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.add_child(_bag_footer(String(opts.get("caption", "Open a slot with acorns."))))
 	return dialog_frame(content, width, opts)
 
-## The BAG BALANCE chip (bag mock): a cream rounded pill — acorn icon, then the count in bold ink —
-## sitting under the title, right-aligned with the slot grid. Its own atom so the workbench preview and
-## the game render the SAME chip.
-static func bag_balance_chip(balance: int, opts: Dictionary = {}) -> Control:
-	var h := float(opts.get("balance_chip_h", 68.0))
-	var chip := PanelContainer.new()
-	chip.name = "BagBalanceChip"
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM.lightened(0.35)
-	sb.set_corner_radius_all(int(h * 0.26))
-	sb.content_margin_left = h * 0.22; sb.content_margin_right = h * 0.34
-	sb.content_margin_top = h * 0.10; sb.content_margin_bottom = h * 0.10
-	sb.shadow_color = Color(MEADOW_SHADOW_TINT, 0.18)
-	sb.shadow_size = 8
-	sb.shadow_offset = Vector2(0, 4)
-	chip.add_theme_stylebox_override("panel", sb)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(h * 0.22))
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := make_icon("gem", h * 0.72)
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(icon)
-	var num := Label.new()
-	num.name = "BagBalanceCount"
-	num.text = str(balance)
-	num.add_theme_font_override("font", bold_font())
-	num.add_theme_font_size_override("font_size", FS.DISPLAY)
-	num.add_theme_color_override("font_color", Pal.INK)
-	num.add_theme_constant_override("outline_size", 0)
-	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(num)
-	chip.add_child(row)
-	return chip
-
-# The bag footer (mock): a full-width hairline rule, then the caption centred in bold ink.
+# The bag footer caption flanked by the bag leaf sprigs (bag_leaf_l/r.png), or text alone when absent.
 static func _bag_footer(text: String) -> Control:
-	var col := VBoxContainer.new()
-	col.name = "BagFooter"
-	col.add_theme_constant_override("separation", 20)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var rule := Panel.new()
-	rule.name = "BagFooterRule"
-	rule.custom_minimum_size = Vector2(0, 2)
-	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var rsb := StyleBoxFlat.new()
-	rsb.bg_color = Color(Pal.BARK, 0.18)
-	rule.add_theme_stylebox_override("panel", rsb)
-	col.add_child(rule)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ll := _bag_leaf("kit/bag_leaf_l.png", false)
+	if ll != null:
+		row.add_child(ll)
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_override("font", bold_font())
-	lbl.add_theme_font_size_override("font_size", FS.TITLE)
-	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_font_size_override("font_size", FS.BODY)
+	lbl.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
 	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(lbl)
-	return col
+	row.add_child(lbl)
+	var lr := _bag_leaf("kit/bag_leaf_r.png", true)
+	if lr != null:
+		row.add_child(lr)
+	return row
 
 static func _bag_leaf(rel: String, flip: bool) -> Control:
 	var p := Look.kit(rel)
