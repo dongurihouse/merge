@@ -1,0 +1,6 @@
+Use case: stylized-concept
+Asset type: editable 2D game-scene structure cutout
+Input images: the original mock is a visual style and camera reference; match it closely.
+Primary request: Generate only the lower-left torii gate as one isolated object: two slightly weathered coral-red cylindrical pillars, rectangular red crossbeam, dark desaturated teal gently upturned top beam, central small gold-framed dark teal plaque, short protruding tie beams, and chunky carved gray stone square bases. Use the mock's storybook painted game-asset style, 3/4 slightly top-down front view, symmetric frontal composition, coral red and dark teal palette, and soft textured shading.
+Scene/backdrop: perfectly flat solid #FF00FF magenta chroma-key background only.
+Constraints: centered with generous padding; no ground, water, vegetation, rocks other than the structural bases, petals, people, animals, lanterns, buildings, text, borders, reflections, floor plane, cast shadow, contact shadow, or ambient occlusion outside the object. Do not use magenta in the object.

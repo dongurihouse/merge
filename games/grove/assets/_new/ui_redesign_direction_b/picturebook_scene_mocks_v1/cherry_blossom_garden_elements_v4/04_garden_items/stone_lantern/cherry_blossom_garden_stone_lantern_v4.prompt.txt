@@ -1,0 +1,8 @@
+Use case: illustration-story
+Asset type: isolated 2D game garden prop, one-by-one cutout
+Input images: the first image just shown is the visual reference; the second image is the accepted matching teahouse asset. Match the original reference's Japanese cherry-blossom garden picture-book paper-cut material language, soft layered cut-paper depth, weathered stone surface treatment, warm light, and 3/4 elevated camera.
+Primary request: Create ONLY one reusable traditional Japanese stone garden lantern (tōrō), matching the two lanterns in the reference. It has a squat square weathered gray stone base, arched open lower pedestal, square central glowing amber lantern chamber with four small square window openings and pale cream paper-like light inside, a broad gently curved gray stone pagoda roof, and a small stacked faceted stone finial. Use a clean centered front-left 3/4 view, full lantern visible, well-proportioned and tall/narrow like the reference, generous magenta padding.
+Scene/backdrop: perfectly flat solid #FF00FF chroma-key background only.
+Style/medium: project-native layered paper-cut picture-book illustration, not pixel art, no photorealism.
+Lighting/mood: gentle warm diffuse storybook light within the lantern only.
+Constraints: background must be one uniform #FF00FF color, no gradients, texture, floor plane, ground, plants, bushes, cherry blossoms, rocks, water, petals, cast shadow, contact shadow, reflection, text, border, frame, UI, watermark, or extra objects. Do not use magenta anywhere in the lantern. Crisp fully separated silhouette with no detached parts.
