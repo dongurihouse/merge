@@ -189,7 +189,7 @@ func _default_params() -> Dictionary:
 		# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
 		# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
 		# spread are px; alpha is percent. Defaults are THE uniform shadow (skin.gd SHADOW_DEFAULTS).
-		"shadow": {"offset_x": 2, "offset_y": 6, "blur": 10, "spread": -2, "alpha": 20},
+		"shadow": {"offset_x": 1, "offset_y": 5, "blur": 7, "spread": -1, "alpha": 28},
 		# the BOARD preview — a live merge grid (frame · the shared slot-cell well · demo pieces). `scale` is
 		# the live board's overall zoom; `gap` and `frame` shape live spacing. `cell`/`cols`/`rows` only size
 		# this preview. Piece size is owned by Slot-cell content_frac.

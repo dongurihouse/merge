@@ -475,7 +475,7 @@ static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
 		btn.add_theme_stylebox_override(st, gsb)
 	return btn
 
-## The mock's tinted drop-shadow (#294654 at ~19%, short and soft), applied ON the element's own
+## THE uniform shadow (skin.gd), applied ON the element's own
 ## StyleBoxFlat — so it follows the box's exact rounded corners instead of a separate sharp panel.
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
 	Look.apply_box_shadow(sb)
