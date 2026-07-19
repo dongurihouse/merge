@@ -1,6 +1,0 @@
-Use case: stylized-concept
-Asset type: editable 2D game-scene structure cutout
-Input images: a bridge-only crop from the original mock is the exact visual/camera reference; match its construction and painted material language closely.
-Primary request: Generate only the red-and-stone arched garden bridge as one isolated cutout. Reproduce the oblique 3/4 isometric-like view: the bridge spans lower-left/front to upper-right/back, is visibly wider than tall, and has a pale cream stone deck with five broad shallow slab bands. Expose the medium cool-gray stone curved arch/support under the right-facing outer side. Coral-red wooden railings trace both long sides; each has two gently arched horizontal rails, short balusters, three sturdy red posts, and round dark blue-charcoal caps. Match the mock's softly textured storybook painted mobile-game-asset style.
-Scene/backdrop: perfectly flat solid #FF00FF magenta chroma-key background only.
-Constraints: centered with generous padding; no water, land, grass, vegetation, rocks other than integral bridge stone, flowers, petals, fish, people, animals, lanterns, buildings, paths, text, borders, reflections, floor plane, cast or contact shadow, or extra props. Do not use magenta in the bridge.

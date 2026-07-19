@@ -1,8 +1,0 @@
-Use case: illustration-story
-Asset type: isolated 2D game scene prop, one-by-one cutout
-Input images: the image just shown is the visual reference. Match its Japanese cherry-blossom garden picture-book paper-cut material language, hand-painted cut-paper texture, soft dimensional edge layering, and 3/4 elevated camera.
-Primary request: Create ONLY the upper-right Japanese teahouse / garden pavilion from the reference as a single reusable isolated prop. Preserve its character: deep teal-blue curved ceramic tiled hip roof with raised eaves and small gold finial, thin dark teal structural posts, cream shoji wall panels, warm wood trim, circular lattice window, rich muted coral-red veranda railings with round gold caps, a hanging warm amber paper lantern at the left eave, low dark wood tea table with a blue teapot and one small tea cup, pale wooden veranda floor with two thin green tatami-like border lines, and a centered set of four charcoal-gray front steps. Front-left-facing 3/4 view, camera slightly above, composition centered and full structure visible with generous padding.
-Scene/backdrop: perfectly flat solid #FF00FF chroma-key background only.
-Style/medium: project-native layered paper-cut picture-book illustration, not pixel art, no photorealism.
-Lighting/mood: gentle warm diffuse storybook light within the object only.
-Constraints: background must be one uniform #FF00FF color, no gradients, texture, floor plane, ground, bushes, cherry trees, rocks, water, koi, petals, cast shadow, contact shadow, reflection, text, border, frame, UI, watermark, or extra objects. Do not use magenta anywhere in the pavilion. Crisp fully separated silhouette; preserve all intended architectural details but no detached elements.

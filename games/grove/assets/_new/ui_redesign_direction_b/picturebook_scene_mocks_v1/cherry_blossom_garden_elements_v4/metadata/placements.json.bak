@@ -1,0 +1,106 @@
+{
+ "base": {
+  "id": "river_foundation_v4",
+  "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/01_backdrop/foundation/cherry_blossom_garden_river_foundation_v4.png",
+  "opaque": true,
+  "z": 0
+ },
+ "canvas": {
+  "anchorConvention": "center-bottom",
+  "coordinateOrigin": "top-left",
+  "height": 2400,
+  "reviewHeight": 1691,
+  "reviewWidth": 930,
+  "width": 1320
+ },
+ "pipeline": {
+  "collisionModel": "none",
+  "mapMode": "scene_mode",
+  "runtimeObjectModel": [
+   "separate_props",
+   "foreground_occluders"
+  ],
+  "visualModel": "layered_raster"
+ },
+ "placements": [
+  {
+   "category": "environment",
+   "h": 2400,
+   "id": "cherry_tree_formation",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/04_garden_items/cherry_trees/cherry_blossom_garden_tree_overlay_v4.png",
+   "layer": "rear_props",
+   "w": 1320,
+   "x": 660,
+   "y": 2400,
+   "z": 100
+  },
+  {
+   "category": "environment",
+   "h": 2400,
+   "id": "garden_dressing",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/05_dressing/cherry_blossom_garden_garden_dressing_overlay_v4.png",
+   "layer": "terrain_dressing",
+   "w": 1320,
+   "x": 660,
+   "y": 2400,
+   "z": 180
+  },
+  {
+   "category": "structure",
+   "h": 650,
+   "id": "teahouse",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/03_structures/teahouse/cherry_blossom_garden_teahouse_v4.png",
+   "layer": "hero_props",
+   "w": 610,
+   "x": 1015,
+   "y": 990,
+   "z": 280
+  },
+  {
+   "category": "structure",
+   "h": 480,
+   "id": "red_arch_bridge",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/03_structures/red_arch_bridge/cherry_blossom_garden_red_arch_bridge_v4.png",
+   "layer": "hero_props",
+   "w": 680,
+   "x": 690,
+   "y": 1470,
+   "z": 310
+  },
+  {
+   "category": "structure",
+   "h": 570,
+   "id": "torii_gate",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/03_structures/torii_gate/cherry_blossom_garden_torii_gate_v4.png",
+   "layer": "hero_props",
+   "w": 475,
+   "x": 255,
+   "y": 1960,
+   "z": 340
+  },
+  {
+   "category": "garden_item",
+   "h": 280,
+   "id": "stone_lantern_left",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/04_garden_items/stone_lantern/cherry_blossom_garden_stone_lantern_v4.png",
+   "layer": "hero_props",
+   "w": 155,
+   "x": 150,
+   "y": 1320,
+   "z": 360
+  },
+  {
+   "category": "garden_item",
+   "h": 320,
+   "id": "stone_lantern_right",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v4/04_garden_items/stone_lantern/cherry_blossom_garden_stone_lantern_v4.png",
+   "layer": "foreground_props",
+   "w": 180,
+   "x": 1050,
+   "y": 1995,
+   "z": 380
+  }
+ ],
+ "scene": "cherry_blossom_garden_v4",
+ "schemaVersion": 2
+}
