@@ -582,6 +582,16 @@ static func silhouette_shadow(img: Image, opts: Dictionary = {}) -> Dictionary:
 	var off: Vector2 = opts.get("shadow_offset", Vector2(0.04, 0.07) * float(w))
 	var blur: float = float(opts.get("shadow_blur", maxf(2.0, float(w) * 0.035)))
 	var alpha: float = clampf(float(opts.get("shadow_alpha", 0.5)), 0.0, 1.0)
+	# negative spread ERODES the silhouette (the box-shadow's expand_margin analogue) so the tinted
+	# plateau starts inside the art edge instead of hugging it as a dark rim on intricate outlines.
+	var spread: float = minf(0.0, float(opts.get("shadow_spread", 0.0)))
+	if spread < -0.5 and w + int(spread) * 2 > 2 and h + int(spread) * 2 > 2:
+		var er := int(-spread)
+		var small := img.duplicate()
+		small.resize(w - er * 2, h - er * 2, Image.INTERPOLATE_BILINEAR)
+		var recentred := Image.create(w, h, false, Image.FORMAT_RGBA8)
+		recentred.blit_rect(small, Rect2i(0, 0, small.get_width(), small.get_height()), Vector2i(er, er))
+		img = recentred
 	var sh_color := Look.shadow_color(alpha)
 	var pad: int = int(opts.get("shadow_pad", int(ceil(blur)) + int(maxf(absf(off.x), absf(off.y))) + 2))
 	var nw := w + pad * 2
@@ -4802,17 +4812,11 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 		fs.bg_color = fill
 		paper_tint = Color(paper_tint.r * dim, paper_tint.g * dim, paper_tint.b * dim, paper_tint.a)
 	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0, paper_tint))
-	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
-	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
-	# a board tile CLIPS to ~face_inset px of feather over an already-dark field, so the shared
-	# spread/alpha are compensated there or the shadow vanishes (measured: <2% pixel delta with the
-	# raw params); the bag's cells sit unclipped on cream parchment and take the shared look as-is.
+	# EVERY slot cell casts the ONE SHARED drop-shadow so a grid of them reads as raised paper —
+	# the board's flat tiles and the bag's dialog cells alike, un-clipped: the cast flows into the
+	# grid gaps (the mock board's look) and the next tile's face covers the rest.
 	if bool(opts.get("cell_shadow", true)):
-		var sp: Dictionary = Look.shadow_params(load_config(CONFIG_PATH)).duplicate()
-		if flat_board_cells:
-			sp["spread"] = maxf(float(sp.get("spread", 4.0)), -6.0)
-			sp["alpha"] = maxf(float(sp.get("alpha", 0.2)), 0.3)
-		var sh: Panel = Look.shadow_rect(float(corner_px), sp)
+		var sh: Panel = Look.shadow_rect(float(corner_px), Look.shadow_params(load_config(CONFIG_PATH)))
 		sh.name = "SlotCellShadow"
 		sh.show_behind_parent = true
 		base.add_child(sh)
@@ -4934,8 +4938,6 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	tile.custom_minimum_size = Vector2(cw, ch)
 	tile.size = Vector2(cw, ch)            # explicit, so the board (absolute layout) sizes it; a grid overrides
 	tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	if flat_board_cells:
-		tile.clip_contents = true
 	if tile is Button:
 		var b := tile as Button
 		b.focus_mode = Control.FOCUS_NONE
@@ -5116,7 +5118,7 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the
 	# tiers/daily grids); every cell metric scales from that fitted cell_w. A partial last row centres.
 	var cols := maxi(1, int(opts.get("cols", 6)))
-	var gap := int(opts.get("cell_gap", 12))
+	var gap := int(opts.get("cell_gap", 16))   # >= the shadow reach so casts breathe between cells
 	var inset := float(opts.get("grid_inset", 70.0))
 	var base_w := float(opts.get("cell_w", 116.0))
 	var aspect := float(opts.get("cell_h", 120.0)) / maxf(1.0, base_w)

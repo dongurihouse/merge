@@ -823,11 +823,19 @@ func _initialize() -> void:
 			or not bramble_view.find_children("*", "GPUParticles2D", true, false).is_empty()
 	ok(not board_bramble_bleeds, \
 		"live board lock cells stay contained: no per-cell glow, shadow, or particle bleed into neighbours")
-	var all_live_board_slots_clip := true
+	# Board cells are UN-clipped now — the shared shadow must flow into the grid gutter (the mock's
+	# raised-paper look; a clip sliced it flat). Containment shifts to construction: the paper layer
+	# itself must stay inside the cell rect.
+	var slots_ok := true
 	for slot in board_scene.slot_nodes.values():
-		all_live_board_slots_clip = all_live_board_slots_clip and (slot as Control).clip_contents
-	ok(all_live_board_slots_clip, \
-		"live board cells clip their own paper layers so no texture can paint across the shared gutter")
+		var sc := slot as Control
+		var paper := sc.find_child("SlotCellPaperTexture", true, false) as Control
+		var contained: bool = paper == null \
+			or Rect2(Vector2.ZERO, sc.size).grow(1.0).encloses(Rect2(paper.position + (paper.get_parent() as Control).position, paper.size))
+		slots_ok = slots_ok and not sc.clip_contents \
+			and sc.find_child("SlotCellShadow", true, false) != null and contained
+	ok(slots_ok, \
+		"live board cells cast the un-clipped shared shadow while their paper layer stays inside the cell")
 	var smallest_open_well_gap := INF
 	for cell in board_scene.slot_nodes:
 		var right_cell := Vector2i(cell) + Vector2i(0, 1)
