@@ -413,7 +413,10 @@ func _initialize() -> void:
 		view._rebuild_stage()
 
 	# --- scene switching: ⌘S is the ONLY writer — a switch DISCARDS unsaved edits ------
-	ok(view.find_child("SceneIcons", true, false) != null, "the sidebar carries the scene icon row")
+	var icon_list := view.find_child("SceneIcons", true, false)
+	ok(icon_list != null, "the sidebar carries the scene icon list")
+	ok(icon_list is VBoxContainer,
+		"the scene list stacks vertically — every scene stays visible however many there are")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},

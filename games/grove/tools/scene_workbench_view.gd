@@ -626,9 +626,10 @@ func _build_sidebar() -> void:
 	col.add_theme_constant_override("separation", 8)
 	scroll.add_child(col)
 
-	# the SCENE icon row — one thumbnail per openable bundle; picking one switches in place
+	# the SCENE list — one thumbnail+name per openable bundle, stacked vertically so every
+	# scene stays visible however many there are; picking one switches in place
 	var scenes := M.scenes_in(_scenes_root)
-	var srow := HBoxContainer.new()
+	var srow := VBoxContainer.new()
 	srow.name = "SceneIcons"
 	srow.add_theme_constant_override("separation", 4)
 	for i in scenes.size():
@@ -636,7 +637,8 @@ func _build_sidebar() -> void:
 		var b := Button.new()
 		b.name = "SceneIcon_" + sc
 		b.focus_mode = Control.FOCUS_NONE
-		b.tooltip_text = sc
+		b.text = sc
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.icon = _scene_icon(sc)
 		b.add_theme_constant_override("icon_max_width", 54)
 		b.modulate = Color(1, 1, 1, 1.0 if sc == scene_name else 0.5)
