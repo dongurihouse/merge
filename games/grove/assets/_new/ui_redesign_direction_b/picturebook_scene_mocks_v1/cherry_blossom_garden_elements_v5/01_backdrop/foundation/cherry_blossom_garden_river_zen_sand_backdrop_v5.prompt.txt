@@ -1,2 +1,2 @@
 Reference: cherry_blossom_garden_original_mock_v1.png.
-Edit target: original mock. Remove all props, trees, vegetation, rocks, lanterns, structures, and koi; retain the exact sky, clouds, mountain layers, warm zen-sand floor, raked-sand linework, stepping path, petals, lily pads, river footprint, and individual stone river edging. Opaque output, resized mechanically from 930x1691 to 1320x2400.
+Edit target: original mock. Remove all props, trees, vegetation, rocks, lanterns, structures, and koi; retain the exact sky, clouds, mountain layers, pale ivory-white zen-sand floor, raked-sand linework, stepping path, petals, lily pads, river footprint, and individual stone river edging. Opaque output, resized mechanically from 930x1691 to 1320x2400.
