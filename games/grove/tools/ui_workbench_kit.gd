@@ -2291,6 +2291,26 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 			env.position = Vector2(ribbon_x + banner_w * 0.14 - icon_px / 2.0, band_h / 2.0 - icon_px / 2.0)
 	return header
 
+## The dialog mocks' DISPLAY TITLE, as a fraction of the card width — measured off the tiers mock
+## (a ~98px cap-box on a 995px card) and consistent across the shop / residents / level sheets.
+const DIALOG_TITLE_FONT_FRAC := 0.098
+## ...and the band one such line needs, × its font size.
+const DIALOG_TITLE_LINE_FRAC := 1.02
+
+## The display title's font size for a sheet `target_w` px wide, SHRUNK to fit when the title is long
+## (the tiers mock's "WILDFLOWER" is 10 characters; "GLOW MUSHROOMS" at that size runs off both edges).
+## Public so a dialog that sizes its own title band (the tiers crest) can ask for the same number.
+static func dialog_title_font(text: String, target_w: float, pad_x: float, frac: float = DIALOG_TITLE_FONT_FRAC) -> int:
+	var fsz: int = maxi(12, int(round(target_w * frac)))
+	var f: Font = bold_font()
+	if f == null:
+		return fsz
+	var room: float = maxf(1.0, target_w - 2.0 * pad_x)
+	var tw: float = f.get_string_size(text.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
+	if tw > room:
+		fsz = maxi(12, int(floor(float(fsz) * room / tw)))
+	return fsz
+
 ## The SIMPLE dialog header (dialog mock set v2): the uppercased title in plain chunky ink, centered
 ## in the top band of the sheet — no ribbon art, no icon. Named DialogBanner so the workbench and the
 ## frame tests keep finding the header by the established handle.
@@ -2415,6 +2435,16 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# target (see the ScaleContainer below). content_scale == 1 → byte-identical to the old frame.
 	var content_scale: float = maxf(0.01, float(opts.get("content_scale", 1.0)))
 	var target_w: float = width * content_scale
+
+	# THE SHARED DISPLAY TITLE. Every dialog mock heads its sheet with the same large navy all-caps
+	# line, sized as a fraction of the CARD (not a fixed px), so the shared frame — not each dialog —
+	# owns it. opts.banner_font_frac = 0 opts a caller back out to a literal banner_font.
+	var title_frac: float = float(opts.get("banner_font_frac", DIALOG_TITLE_FONT_FRAC))
+	if title_frac > 0.0:
+		banner_font = dialog_title_font(banner_text, target_w, panel_pad_x, title_frac)
+		# the band has to hold the line it now carries; a caller that already sized its own band
+		# taller (the tiers crest rides above the title) keeps its value.
+		banner_h = maxf(banner_h, float(banner_font) * DIALOG_TITLE_LINE_FRAC)
 
 	var wrap := Control.new()
 	var card := PanelContainer.new()

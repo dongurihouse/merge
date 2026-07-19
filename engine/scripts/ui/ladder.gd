@@ -32,8 +32,8 @@ const CREST_PATH := "res://games/grove/assets/ui/kit/tiers_crest.png"
 const CREST_W_FRAC := 0.458          # the twig-and-coin sprig: 456 / 995
 const CREST_ASPECT := 96.0 / 456.0   # ...and its own aspect (the cut art's)
 const CREST_GAP_FRAC := 0.016        # crest → title
-const TITLE_FONT_FRAC := 0.098       # the big navy all-caps line name: ~98px cap-box / 995
-const TITLE_LINE_FRAC := 1.02        # ...and the band it needs, × its font size
+# the big navy all-caps line name is the SHARED frame's display title (Kit.DIALOG_TITLE_FONT_FRAC /
+# Kit.dialog_title_font) — this dialog only reads its size back to make room for the crest above it.
 const PAD_X_FRAC := 0.049            # the sheet's side inset (mock: cell left 89 − card left 40)
 const PAD_Y_FRAC := 0.028            # ...and its top/bottom inset
 const GEN_PX_FRAC := 0.31            # the generator art box (its art lands at ~0.23 of the card)
@@ -110,20 +110,12 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	var pad_x: float = target_w * PAD_X_FRAC
 	dopts["panel_pad_x"] = pad_x
 	dopts["panel_pad_y"] = target_w * PAD_Y_FRAC
-	# the big all-caps line name, SHRUNK to fit when the name is long (the mock's "WILDFLOWER" is 10
-	# characters; "GLOW MUSHROOMS" at the mock's size would run off both edges).
-	var title_text: String = String(header.get("name", Strings.t("ladder.title"))).to_upper()
-	var title_font: Font = Kit.bold_font()
-	var fsz: int = int(round(target_w * TITLE_FONT_FRAC))
-	if title_font != null:
-		var tw: float = title_font.get_string_size(title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
-		var room: float = maxf(1.0, target_w - 2.0 * pad_x)
-		if tw > room:
-			fsz = maxi(12, int(floor(float(fsz) * room / tw)))
+	# the big all-caps line name IS the shared frame's display title now — this dialog only asks the
+	# kit what size that title lands at, so its own band can hold the crest ABOVE it.
+	var fsz: int = Kit.dialog_title_font(String(header.get("name", Strings.t("ladder.title"))), target_w, pad_x)
 	var crest_h: float = target_w * CREST_W_FRAC * CREST_ASPECT
-	dopts["banner_font"] = fsz
 	# the band = crest + gap + one title line, so the body starts exactly under the name (mock).
-	dopts["banner_h"] = crest_h + target_w * CREST_GAP_FRAC + float(fsz) * TITLE_LINE_FRAC
+	dopts["banner_h"] = crest_h + target_w * CREST_GAP_FRAC + float(fsz) * Kit.DIALOG_TITLE_LINE_FRAC
 	dopts["show_num"] = false            # the plain kit number is replaced by this dialog's corner CHIP
 	dopts["cell_gap"] = int(round(width * CELL_GAP_FRAC))
 
