@@ -1326,12 +1326,16 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Wallet metadata: opts this label into K/M abbreviation + shrink-to-fit (FX.format_amount / FX.fit_amount).
-	# The design font size travels with the label so a live refresh can re-fit as digits grow. The fit budget
-	# is NOT the bare amount_w slot — the number is right-aligned and nudged by amount_x, and overflows LEFT
-	# across the gap toward the icon, so its true room is (icon's right edge → the number's right edge) =
-	# gap + amount_w + amount_x. Abbreviation already caps the width, so fit only ever shrinks a genuine spill.
+	# Wallet metadata: opts this label into K/M abbreviation + shrink-to-fit + right-anchor
+	# (FX.format_amount / FX.fit_amount). The design font size travels with the label so a live refresh
+	# can re-fit as digits grow. The fit budget is NOT the bare amount_w slot — the number is right-aligned
+	# and nudged by amount_x, and overflows LEFT across the gap toward the icon, so its true room is
+	# (icon's right edge → the number's right edge) = gap + amount_w + amount_x. Abbreviation already caps
+	# the width, so fit only ever shrinks a genuine spill. amount_right_x/amount_slot_w let fit_amount pin
+	# the right edge (amount_x + amount_w in slot coords) so a wider "10.1K" grows LEFT, not past the pill.
 	amount.set_meta("amount_max_w", amount_w + float(gap) + maxf(0.0, amount_x))
+	amount.set_meta("amount_slot_w", amount_w)
+	amount.set_meta("amount_right_x", amount_x + amount_w)
 	amount.set_meta("amount_base_font", num_size)
 	amount.set_meta("amount_value", amount_value)
 	amount_slot.add_child(amount)

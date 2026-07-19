@@ -478,10 +478,12 @@ static func format_amount(v: int) -> String:
 static func _amount_text(label: Label, v: int) -> String:
 	return format_amount(v) if label.has_meta("amount_max_w") else str(v)
 
-## Shrink a wallet amount's font so the text never spills past its cell. Steps down from the
-## label's design font size until the string fits `amount_max_w`; no-ops on labels without the
-## wallet metadata. `probe` overrides the string measured (used mid-tick to size for the widest
-## endpoint before animating). Honours the request that the number always stay inside the pill.
+## Fit + right-anchor a wallet amount. First shrinks the font until the string fits `amount_max_w`
+## (no-ops without the wallet metadata). Then pins the RIGHT edge: the label box is left-positioned
+## and grows with its text, so a wider string ("10.1K" vs "1770") would otherwise push its right edge
+## outward and overrun the pill — instead the box is sized to the widest string it must show and slid
+## left, so every amount keeps the SAME right padding. `probe` is that widest string (a count-tween's
+## endpoint); "" measures the current text.
 static func fit_amount(label: Label, probe := "") -> void:
 	if label == null or not label.has_meta("amount_max_w"):
 		return
@@ -492,11 +494,18 @@ static func fit_amount(label: Label, probe := "") -> void:
 	if font == null:
 		return
 	var base := int(label.get_meta("amount_base_font", label.get_theme_font_size("font_size")))
-	var s := probe if probe != "" else label.text
+	var layout := probe if probe != "" else label.text
 	var size := base
-	while size > 8 and font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
+	while size > 8 and font.get_string_size(layout, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
 		size -= 1
 	label.add_theme_font_size_override("font_size", size)
+	if label.has_meta("amount_right_x"):
+		# box = the widest string's width (never below the design slot), so shorter intermediate tween
+		# frames stay right-aligned in a fixed box and the right edge doesn't wander during a count.
+		var slot_w := float(label.get_meta("amount_slot_w", max_w))
+		var box_w := maxf(slot_w, font.get_string_size(layout, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x)
+		label.custom_minimum_size.x = box_w
+		label.position.x = float(label.get_meta("amount_right_x")) - box_w
 
 ## A wallet number counts toward its target and its chip pulses once.
 static func tick(label: Label, to_value: int, dur := Tune.TICK_T_COUNT) -> void:
