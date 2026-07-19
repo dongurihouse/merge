@@ -1,0 +1,10 @@
+Use case: precise-object-edit
+Asset type: portrait mobile game-scene backdrop for the Grove Scene Workbench.
+
+Extract and reconstruct only the distant scenic backdrop from
+`cherry_blossom_garden_temple_concept_v1.png`. Preserve the 930x1691 portrait
+framing, peach paper sky, cloud cutouts, distant blue-gray mountain silhouette,
+warm morning light, fine paper grain, and layered-cardstock shadows. Remove all
+foreground and midground garden objects, leaving an empty atmospheric plate for
+workbench scene composition. Do not add decoration, text, paths, water, or
+objects.
