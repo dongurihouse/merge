@@ -1,0 +1,29 @@
+{
+  "sheet": "dialog_level_daily_sheet_1536.png",
+  "frames_dir": "final_frames",
+  "canvas": "1536x1536",
+  "cell_master": "512x512",
+  "alpha_qc": {
+    "visible_magenta_fringe_px": 0,
+    "opaque_canvas_edge_px": 0,
+    "nonzero_rgb_outside_alpha_px": 0,
+    "edge_touch_frames": []
+  },
+  "row_major": [
+    "level_medallion_base",
+    "level_progress_star",
+    "level_milestone_reward",
+    "daily_coin_stack",
+    "daily_water_droplet",
+    "daily_acorn",
+    "daily_mystery_gift",
+    "daily_mystery_chest",
+    "daily_claimed_check"
+  ],
+  "contracts": {
+    "background": "transparent after processing",
+    "shadow": "none",
+    "anchor": "center",
+    "style": "Meadow Sky + Cut-Paper Playground"
+  }
+}

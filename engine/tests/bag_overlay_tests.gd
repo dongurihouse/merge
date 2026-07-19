@@ -121,12 +121,15 @@ func _initialize() -> void:
 	ok(not _has_label(overlay, "132"), "the bag overlay never repeats the balance the HUD already shows")
 	ok(overlay.find_child("SlotCellUnlockableHighlight", true, false) == null, \
 		"the next slot wears no highlight — only its acorn price marks it")
-	var priced := 0
+	# the price rides the cost CHIP (a static pill_button), so it is Button text, not a Label.
+	var prices_shown: Array = []
 	for b in overlay.find_children("*", "Button", true, false):
-		if String((b as Button).text) != "" and String((b as Button).text).is_valid_int():
-			priced += 1
-	ok(priced == 1 and _has_label(overlay, str(int(prices[0]))), \
-		"exactly ONE tile shows a price — the next slot, at the first ladder rung (%d)" % int(prices[0]))
+		var bt := String((b as Button).text)
+		if bt != "" and bt.is_valid_int():
+			prices_shown.append(int(bt))
+	ok(prices_shown == [int(prices[0])], \
+		"exactly ONE tile shows a price — the next slot, at the first ladder rung (%d), got %s" \
+			% [int(prices[0]), str(prices_shown)])
 	overlay.queue_free()
 	host.queue_free()
 

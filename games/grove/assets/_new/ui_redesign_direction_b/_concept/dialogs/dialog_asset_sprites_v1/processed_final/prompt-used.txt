@@ -1,0 +1,26 @@
+Use case: stylized-concept.
+Asset type: production-oriented 2D game UI prop pack, one 3x3 cutout sprite sheet for later deterministic extraction.
+
+Input images:
+- Image 1: level-dialog visual reference. Preserve its matte cut-paper language, level medallion silhouette, blue/slate/meadow role relationships, and friendly proportion. Do not copy any text, panel, button, or background.
+- Image 2: Daily-dialog visual reference. Preserve its simple reward icon language—gold coin stack, blue water droplet, brown acorn, mystery gift/chest and green claimed check—but render only detached cutout assets.
+- Image 3: layout-only guide. Use it only for nine equal invisible cells, centering, spacing and safe margins. Do not reproduce its visible boxes, center marks, labels, borders, or guide background.
+
+Primary request: generate exactly nine separate standalone UI sprites arranged as a clean 3x3 grid. One complete cutout prop centered in each invisible cell. The sheet background must be exactly 100% flat solid #FF00FF magenta, with no gradient, texture, floor plane, shadow, reflection, label, text, numeral, UI panel, or watermark. Leave a generous magenta gutter on all four sides of every cell and between every sprite. Do not let any pixels touch or cross a cell edge. All sprites must be front-facing, centered, legible at phone size, and have no baked cast/contact shadows.
+
+Exact row-major sprite order:
+1. Level medallion base: a large cream ring around a slate-blue center, backed by a broad meadow-green leaf wreath with a tiny daisy at bottom. NO numeral inside—runtime adds level number.
+2. Level progress star: a single compact reward-gold five-point star medal, small cream inset and locally darker gold edge.
+3. Level milestone reward: a compact warm-cream reward envelope/pouch with a blue water droplet and brown acorn together, no count badges or text.
+4. Daily coin reward: readable stack of three reward-gold coins with a simple embossed acorn/star motif, no numeral.
+5. Daily water reward: one big sky-blue water droplet, simple two-plane paper surface.
+6. Daily acorn reward: one large warm brown acorn with a gold cap accent.
+7. Daily mystery gift: a wrapped blue-and-cream gift box, blue ribbon, tiny gold seal; no lock, no question mark, no text.
+8. Daily mystery chest: compact slate-blue chest with warm-cream and gold trim, closed, no lock, no text.
+9. Daily claimed state: one circular action-green check badge with a warm-cream check mark.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate ornament into a few readable shapes. Features stay legible at phone size. Use the fixed Meadow Sky role palette.
+
+Color palette only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3. Do not use pure white, black, neon, or any magenta in the sprites.
+
+Constraints: exact 3x3 sprite grid, complete subject contained in its own cell, same visual weight across all nine sprites, no overlapping/fused adjacent objects, no detached sparkles, no text or numerals, no panels, no shadows.

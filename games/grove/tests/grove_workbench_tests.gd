@@ -1106,7 +1106,9 @@ func _test_info_reuses_mail(view) -> void:
 	var mail_foot := Kit.mail_dialog(Kit.DEMO_MAIL, 480.0, {"got_it": "Got it"})
 	var foot := _find_button(mail_foot, "Got it")
 	ok(foot != null, "mail_dialog adds a Got-it footer button when opts.got_it is set")
-	ok(_btn_tex(foot) == cta_tex, "the mail Got-it footer reuses the level cta_button sprite")
+	var foot_paper := foot.find_child("ButtonPaperSurface", true, false) as TextureRect if foot != null else null
+	ok(foot_paper != null and foot_paper.texture == cta_paper.texture, \
+		"the mail Got-it footer reuses the cta_button atom (same paper)")
 
 	# 3. mail_card — an info-style entry carries a read-only `chip` (icon + amount) and NO Claim button; a
 	#    reward entry still shows its Claim (the existing inbox path is unchanged).
@@ -2591,13 +2593,13 @@ func _test_bag_components() -> void:
 	side_view.queue_free()
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
-	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("*", "CenterContainer", true, false))
-	var costN := (Kit.slot_cell({"state": "locked", "cost": 5}, co_y).find_children("*", "CenterContainer", true, false))
+	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("SlotCellCostCluster", "VBoxContainer", true, false))
+	var costN := (Kit.slot_cell({"state": "locked", "cost": 5}, co_y).find_children("SlotCellCostCluster", "VBoxContainer", true, false))
 	ok(not cost0.is_empty() and not costN.is_empty(), "a cell with a cost has a cost cluster")
 	ok(is_equal_approx((costN[0] as Control).offset_top - (cost0[0] as Control).offset_top, 24.0), "cost_y shifts the cost cluster down by the given pixels")
 	# cost_x nudges it horizontally — a positive value shifts the cluster RIGHT by that many px
 	var co_x := co.duplicate(); co_x["cost_x"] = 18.0
-	var costX := (Kit.slot_cell({"state": "locked", "cost": 5}, co_x).find_children("*", "CenterContainer", true, false))
+	var costX := (Kit.slot_cell({"state": "locked", "cost": 5}, co_x).find_children("SlotCellCostCluster", "VBoxContainer", true, false))
 	ok(is_equal_approx((costX[0] as Control).offset_left - (cost0[0] as Control).offset_left, 18.0), "cost_x shifts the cost cluster right by the given pixels")
 	# cost_scale shrinks the WHOLE cost pill (font + padding) so it FITS the card. It must shrink the real
 	# FOOTPRINT (a smaller font_size + smaller min size), NOT lean on Control.scale — a CenterContainer
