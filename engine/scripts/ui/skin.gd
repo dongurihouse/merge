@@ -625,7 +625,7 @@ static func shadow(corner: float, offset_x: float, offset_y: float, blur: float,
 ## are THE uniform shadow (measured from the picturebook mocks — bottom-right cast, slate tint), so an
 ## absent block still casts the standard shadow. alpha is stored 0..100 in config and returned as 0..1.
 ## The shadow_rect / shadow_circle builders consume this.
-const SHADOW_DEFAULTS := {"offset_x": 0.0, "offset_y": 6.0, "blur": 5.0, "spread": -1.0, "alpha": 30.0}
+const SHADOW_DEFAULTS := {"offset_x": 0.0, "offset_y": 5.0, "blur": 6.0, "spread": -2.0, "alpha": 20.0}
 
 static func shadow_params(cfg: Dictionary) -> Dictionary:
 	var s: Dictionary = cfg.get("shadow", {}) if cfg is Dictionary else {}
