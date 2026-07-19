@@ -6,9 +6,9 @@ extends Control
 ## (variants priced in coins/diamonds).
 ## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
 ## home. Buying advances your level; level-ups gift water+diamonds. A pinned garden button
-## leads to the board. Every map renders through ONE path (_build_map → _build_map_base + _seat_spots):
-## a map that ships §16 home art (clean/broken + per-building masks) reveals the clean art per restored
-## building (_build_home_spot); any other map draws cutout sprites / placeholder tiles via _make_spot.
+## leads to the board. Every map renders through ONE path (_build_map → HomeZoneView): the layered
+## cut-paper zone renderer draws the foundation + one painter-sorted prop per building, plus a build
+## badge over each unbuilt plot (taps route via spot_hits → _map_tap → _on_build_tap).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
@@ -55,7 +55,6 @@ const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   #
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/home/zone_farmhouse.json"
 
-const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
 # is semi-transparent; the shards are captured at this crisper alpha so the break reads clearly.
@@ -100,7 +99,6 @@ var _last_view_size := Vector2.ZERO   # viewport size at the last fit — guards
 var _relayout_queued := false         # coalesces a burst of size_changed into one rebuild per frame
 var _map_idx := 0                # the map being viewed
 var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS rect)
-var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var maps_hits: Array = []        # [{node, z, locked}] — the MAPS page cards (locked cards wobble; open cards open)
@@ -397,8 +395,8 @@ func _debug_resident_line() -> String:
 
 # THE home render path (build-and-upgrade redesign, spec 2026-07-17): one evolving home world of
 # coin-built, level-gated buildings rendered through the layered cut-paper pipeline. The old §16
-# mask-reveal + per-spot claim machinery (_build_map_base / _seat_spots / _make_spot) is
-# retired. HomeZoneView draws the foundation + one painter-sorted prop per building (its current
+# mask-reveal + per-spot claim machinery is retired and deleted.
+# HomeZoneView draws the foundation + one painter-sorted prop per building (its current
 # build state) + a coin/level BADGE over each unbuilt plot; build badges register into spot_hits so
 # the shared _map_tap resolves a tap to _on_build_tap.
 func _build_map(animate := true) -> void:
@@ -408,7 +406,6 @@ func _build_map(animate := true) -> void:
 	select_hits.clear()
 	# the stable canvas is a centered, design-aspect rect that COVER-FILLS the viewport (see _map_image_rect).
 	_map_rect = _map_image_rect()
-	_map_art_rect = _map_rect
 
 	var manifest := _home_manifest()
 	var holder := Control.new()
@@ -492,133 +489,6 @@ func _habitat_members(z: int) -> Array:
 		out.append({"type": Bucket.line_kind(String(inst.line)), "tier": int(inst.tier)})
 	return out
 
-# Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).
-# A §16 home (home != {}) renders the per-building reveal/badge into `frame`; any other map renders the
-# cutout sprite/ghost via _make_spot. Either way the hit lands in content + spot_hits.
-func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
-	var has_home := not home.is_empty()
-	var by_id := _home_buildings(home) if has_home else {}
-	for k in G.MAPS[z].spots.size():
-		var hit: Control
-		if has_home:
-			hit = _build_home_spot(z, k, home, frame, by_id)
-		else:
-			hit = _make_spot(z, k, _map_rect)
-		content.add_child(hit)
-		spot_hits.append({"node": hit, "z": z, "k": k})
-
-# --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
-
-const _HOME_MASK_SHADER := "shader_type canvas_item;
-uniform sampler2D mask;
-void fragment() {
-	COLOR = texture(TEXTURE, UV);
-	COLOR.a *= texture(mask, UV).a;
-}"
-var _home_mask: Shader
-
-# The unified base layer for ANY map: a §16 overgrown-home base (broken art, clipped — the per-building
-# mask reveals stack into the returned frame), else the map's own `bg`/convention art (cover-fit), else a
-# flat fallback panel. Returns the clipped frame the §16 reveals attach to (null for the panel — only a
-# §16 home needs it). `home` is {} for a map that ships no §16 home art.
-func _build_map_base(z: int, home: Dictionary) -> Control:
-	var broken := String(home.get("broken", ""))
-	if broken != "":
-		var frame := _clip_frame()
-		_add_fill_layer(frame, broken)                              # overgrown base
-		return frame
-	# a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
-	var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
-	if ResourceLoader.exists(art_path):
-		var frame := _clip_frame()
-		_add_cover_layer(frame, art_path)
-		return frame
-	var fallback := Panel.new()
-	fallback.position = _map_art_rect.position
-	fallback.size = _map_art_rect.size
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = MEADOW
-	fs.set_corner_radius_all(28)
-	fs.set_border_width_all(5)
-	fs.border_color = MEADOW.lerp(LEAF, 0.4)
-	fallback.add_theme_stylebox_override("panel", fs)
-	fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(fallback)
-	return null
-
-# A clipped frame AT the map-art rect; layers fill it via full-rect anchors (cover/scale fit) so the
-# painting + buildings stay locked together on any window aspect.
-func _clip_frame() -> Control:
-	var frame := Control.new()
-	frame.position = _map_art_rect.position
-	frame.size = _map_art_rect.size
-	frame.clip_contents = true
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(frame)
-	return frame
-
-# The per-building mask data a §16 home ships (farm_home.json → {spot_id: {mask, pos, …}}); {} if absent.
-func _home_buildings(home: Dictionary) -> Dictionary:
-	var data = _read_json_file(String(home.get("data", "")))
-	var by_id := {}
-	if typeof(data) == TYPE_DICTIONARY:
-		for b in data.get("buildings", []):
-			by_id[String(b.get("spot", ""))] = b
-	return by_id
-
-# ONE §16 home spot at index k: owned → reveal the clean art through its baked mask (into `frame`) + an
-# invisible tap marker carrying the inline customize strip; unowned → the ✿cost badge into the buy flow.
-func _build_home_spot(z: int, k: int, home: Dictionary, frame: Control, by_id: Dictionary) -> Control:
-	var sid := String(G.MAPS[z].spots[k].id)
-	var b = by_id.get(sid, null)
-	if not spot_owned(sid):
-		return _home_badge(z, k, b)
-	var mtex: Texture2D = load(Game.art("map/farm/" + String(b.get("mask", "")))) if b != null else null
-	if mtex != null:
-		# clean art, masked to THIS building. Guard the mask load: a null mask (e.g. a checkout that
-		# hasn't re-imported the assets) must NOT fall back to a full-opaque reveal — that would clean
-		# the WHOLE image off one restore. No mask → skip the reveal (stays overgrown).
-		var rev := _add_fill_layer(frame, String(home.get("clean", "")))
-		var mat := ShaderMaterial.new()
-		mat.shader = _home_mask_shader()
-		mat.set_shader_parameter("mask", mtex)
-		rev.material = mat
-	return _home_owned_item(z, k, b)
-
-func _home_mask_shader() -> Shader:
-	if _home_mask == null:
-		_home_mask = Shader.new(); _home_mask.code = _HOME_MASK_SHADER
-	return _home_mask
-
-func _add_fill_layer(frame: Control, path: String) -> TextureRect:
-	var t := TextureRect.new()
-	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_SCALE       # SCALE → UV [0,1] = full texture, so masks align
-	t.texture = load(path)
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(t)
-	return t
-
-# An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on the
-# building. An unowned spot shows badge_cost.png with a "+" stacked over the star cost "★ N". Built through
-# the grove kit from the workbench-saved style (disc size + proportions), so a tweak there flows here.
-# Rendered mouse-IGNORE to keep the map's single-input-surface invariant: the tap routes centrally via
-# _map_tap → spot_hits → _on_spot_tap (the buy), exactly as the baked badge did. Kit missing → that fallback.
-func _home_badge(z: int, k: int, b) -> Control:
-	# The unowned-spot hit is now a transparent, mouse-ignored marker at the spot centroid;
-	# restoring is driven by the SINGLE bottom Unlock button
-	# (no per-spot cost disc any more). Kept as a sized hit so spot_hits stays
-	# index-aligned and the central router can still route a tap to _on_spot_tap.
-	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
-	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
-	var d := _map_rect.size.x * 0.16
-	var node := Control.new()
-	node.size = Vector2(d, d)
-	node.position = ctr - Vector2(d, d) * 0.5
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return node
-
 # Force a control subtree mouse-transparent — the map routes every spot tap through its single input
 # surface, so any seated affordance (the kit unlock disc) must not eat the press before _map_tap.
 func _force_ignore(n: Control) -> void:
@@ -626,23 +496,6 @@ func _force_ignore(n: Control) -> void:
 	for c in n.get_children():
 		if c is Control:
 			_force_ignore(c)
-
-# An owned building's affordance node at its position — a spot_hit (keeps the list index-aligned with
-# the spots) that also carries the upgrade pill + the inline customize strip, exactly like _make_spot.
-func _home_owned_item(z: int, k: int, b) -> Control:
-	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
-	var pos := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
-	var item := Control.new()
-	item.size = Vector2(180, 150)                    # match _make_spot's box so the pill/strip place the same
-	item.position = pos - Vector2(90, 40)
-	item.pivot_offset = Vector2(90, 50)
-	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return item
-
-func _read_json_file(path: String):
-	if path == "" or not FileAccess.file_exists(path):
-		return null
-	return JSON.parse_string(FileAccess.get_file_as_string(path))
 
 # The available area below the HUD and above the bottom chrome; the map image COVER-FILLS the full
 # viewport at the design aspect, centered.
@@ -664,19 +517,6 @@ static func map_rect_for(view: Vector2, aspect: float) -> Rect2:
 	var h := w / aspect
 	return Rect2(((view - Vector2(w, h)) * 0.5).floor(), Vector2(w, h).floor())
 
-func _map_placed_rect(_z: int, base: Rect2) -> Rect2:
-	return base
-
-# Add a full-rect, cover-fit, click-through TextureRect under `parent` (a map-rect frame). Used for the
-# base background so layers share the exact same fit.
-func _add_cover_layer(parent: Control, path: String) -> void:
-	var t := TextureRect.new()
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	t.texture = load(path)
-	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(t)
 
 # Item 5 — the map's progress PILL (the farm_ui mockup), centered near the top of the map image
 # (an IGNORE visual; never eats a press). The cream pill (pill_progress.png — green groove + flower +
@@ -798,71 +638,6 @@ func _map_title_plank_fallback(z: int) -> Control:
 	else:
 		plank.add_child(_restore_left_row(G.MAPS[z].spots.size() - owned_count(z), STRAW, 22))
 	return plank
-
-# A code-drawn stand-in for an owned spot that ships no cutout art (the non-hub maps):
-# a footprint-sized rounded tile in the map palette, centered on the plot exactly like
-# the real sprite, with the spot's name. Honours the chosen variant wash + gem accent.
-# Carries the "placeholder" meta so tests/tools can tell it from a real sprite.
-func _placeholder_tile(spot: Dictionary, fs: float) -> Control:
-	var tile := Panel.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = CLAY.lerp(Color.WHITE, 0.18)
-	sb.set_corner_radius_all(int(clampf(fs * 0.14, 12.0, 30.0)))
-	sb.set_border_width_all(3)
-	sb.border_color = BARK
-	tile.add_theme_stylebox_override("panel", sb)
-	tile.size = Vector2(fs, fs)
-	tile.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot, like the real sprite
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.set_meta("placeholder", true)
-	var lbl := Label.new()
-	lbl.text = tr(spot.name)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.add_theme_font_size_override("font_size", FS.BODY)
-	lbl.add_theme_color_override("font_color", INK)
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.offset_left = 12.0
-	lbl.offset_top = 12.0
-	lbl.offset_right = -12.0
-	lbl.offset_bottom = -12.0
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.add_child(lbl)
-	return tile
-
-# One spot ON the map image: a code-generated placeholder tile when owned, else the
-# price-pin + name.
-func _make_spot(z: int, k: int, rect: Rect2) -> Control:
-	var spot: Dictionary = G.MAPS[z].spots[k]
-	# `pos` (center fraction of the map canvas) comes from grove_data.MAPS. No spot ships a
-	# cutout: an owned spot draws a code-generated placeholder tile, an empty one the price-pin.
-	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
-	var fs_eff := 240.0 * (rect.size.x / Design.size().x)   # placeholder footprint, scaled from the design-width canvas
-	var item := Control.new()
-	item.size = Vector2(180, 150)
-	item.position = pos - Vector2(90, 40)
-	item.pivot_offset = Vector2(90, 50)
-	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var owned := spot_owned(String(spot.id))
-	if owned:
-		# Owned spots draw a code-generated placeholder so the restored plot reads as filled.
-		item.add_child(_placeholder_tile(spot, fs_eff))
-	else:
-		# Unowned spots show just their NAME centered under the plot — no per-spot cost chip. The
-		# single bottom Unlock button is the restore CTA, gated by each spot's exp threshold.
-		var stack := VBoxContainer.new()
-		stack.anchor_left = 0.0
-		stack.anchor_right = 1.0
-		stack.offset_top = SPOT_NAME_DY
-		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var name_l := _lbl(tr(spot.name), 24, CREAM)
-		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_l.autowrap_mode = TextServer.AUTOWRAP_WORD
-		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		stack.add_child(name_l)
-		item.add_child(stack)
-	return item
 
 # --- THE SPIRITS DOCK VIEW (home build-and-upgrade redesign, spec 2026-07-17) -----------
 # One evolving home means there is no map-select atlas any more; this view IS the resident
