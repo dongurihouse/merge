@@ -17,7 +17,7 @@ const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the gam
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const SIDEBAR_W := 340.0
-const REF_W := 300.0                # the LEFT reference column (the scene's mocks + reconstructions)
+const REF_W := 340.0                # the LEFT reference column — same width as the right sidebar
 const HIT_MAX_W := 192              # alpha hit-test images downsample to this width (memory)
 const INK := Color("#2B2B33")
 const PAPER := Color("#F4EDE1")
@@ -441,6 +441,8 @@ func _refresh_status() -> void:
 # --- the LEFT reference column: the scene's mocks + reconstruction composites -----------------------
 
 var _ref_panel: PanelContainer = null
+var _ref_paths: Array = []
+var _ref_idx := 0                   # the mock the dropdown has picked
 
 func _build_ref_panel() -> void:
 	_ref_panel = PanelContainer.new()
@@ -460,25 +462,46 @@ func _build_ref_panel() -> void:
 	col.add_theme_constant_override("separation", 8)
 	scroll.add_child(col)
 	col.add_child(_label("Reference", FS.TINY, true))
-	var inner_w := REF_W - 28.0
-	var refs := M.reference_images(_scenes_root, bundle_dir, scene_name)
-	if refs.is_empty():
+	_ref_paths = M.reference_images(_scenes_root, bundle_dir, scene_name)
+	if _ref_paths.is_empty():
 		col.add_child(_label("no mocks found for this scene", FS.DEBUG))
-	for p in refs:
-		var img := Image.load_from_file(String(p)) if FileAccess.file_exists(String(p)) else null
-		if img == null:
-			continue
-		var w := int(inner_w * 2.0)                    # decode once, hold a modest 2x for crispness
-		if img.get_width() > w:
-			img.resize(w, maxi(1, img.get_height() * w / img.get_width()), Image.INTERPOLATE_BILINEAR)
-		col.add_child(_label(String(p).get_file(), FS.DEBUG))
-		var tr := TextureRect.new()
-		tr.texture = ImageTexture.create_from_image(img)
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		tr.custom_minimum_size = Vector2(inner_w, inner_w * float(img.get_height()) / maxf(float(img.get_width()), 1.0))
-		col.add_child(tr)
+		return
+	_ref_idx = clampi(_ref_idx, 0, _ref_paths.size() - 1)
+	if _ref_paths.size() > 1:
+		var dd := OptionButton.new()                   # multiple mocks → pick one, shown big
+		dd.name = "RefDropdown"
+		dd.focus_mode = Control.FOCUS_NONE
+		for i in _ref_paths.size():
+			dd.add_item(String(_ref_paths[i]).get_file(), i)
+		dd.select(_ref_idx)
+		dd.item_selected.connect(func(i: int) -> void:
+			_ref_idx = i
+			_rebuild_ref_panel.call_deferred())        # deferred — the dropdown lives in the panel being rebuilt
+		col.add_child(dd)
+	else:
+		col.add_child(_label(String(_ref_paths[0]).get_file(), FS.DEBUG))
+	var p := String(_ref_paths[_ref_idx])
+	var img := Image.load_from_file(p) if FileAccess.file_exists(p) else null
+	if img == null:
+		col.add_child(_label("could not load " + p.get_file(), FS.DEBUG))
+		return
+	var inner_w := REF_W - 28.0
+	var w := int(inner_w * 2.0)                        # decode once, hold a modest 2x for crispness
+	if img.get_width() > w:
+		img.resize(w, maxi(1, img.get_height() * w / img.get_width()), Image.INTERPOLATE_BILINEAR)
+	var tr := TextureRect.new()
+	tr.texture = ImageTexture.create_from_image(img)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	tr.custom_minimum_size = Vector2(inner_w, inner_w * float(img.get_height()) / maxf(float(img.get_width()), 1.0))
+	col.add_child(tr)
+
+func _rebuild_ref_panel() -> void:
+	if _ref_panel != null:
+		_ref_panel.queue_free()
+	_build_ref_panel()
+	_layout()
 
 # --- sidebar --------------------------------------------------------------------------------------
 
@@ -547,6 +570,7 @@ func _switch_scene(scene: String) -> void:
 		_sidebar_panel.queue_free()
 	if _ref_panel != null:
 		_ref_panel.queue_free()
+	_ref_idx = 0                                       # a new scene starts on its first mock
 	_build_sidebar()
 	_build_ref_panel()
 	_rebuild_stage()
