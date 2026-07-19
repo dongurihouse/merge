@@ -18,6 +18,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
+const SHADOW_TINT := Color("#294654")   # the dialog mocks' tinted shadow role (~18% opacity), as ui/residents.gd
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching inbox.gd's guarded idiom.
@@ -142,7 +143,7 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 		var lines: Array = header.get("lines", [])
 		overlay.set_meta("ladder_kind", "recipe")
 		overlay.set_meta("recipe_lines", lines)
-		dialog = Kit.dialog_frame(_recipe_body(lines, mark_tier, grid, width, on_pick), width, dopts)
+		dialog = Kit.dialog_frame(_recipe_body(Kit, lines, mark_tier, grid, width, dopts, on_pick), width, dopts)
 	else:
 		var gid := String(header.get("gid", ""))
 		overlay.set_meta("ladder_kind", "tiers")
@@ -262,42 +263,105 @@ static func _tier_chip(cell: Control, d: Dictionary) -> void:
 # grid the base-line screen uses). The ingredients are smaller than the grid-less view so both fit the frame.
 static func _recipe_body(lines: Array, tier: int, grid: Control, width: float, on_pick: Callable) -> Control:
 	var col := VBoxContainer.new()
+=======
+# The MERGED-line recipe view (mock: merged_line_tiers_1080x1920) — the two same-tier ingredient items, each
+# on its OWN pale rounded card, with a big ink "+" between them, stacked ABOVE the merged line's OWN tier grid
+# (the same shared grid the base-line screen uses). Each card is a tappable button that opens THAT line's tier
+# screen via on_pick. The cards are sized to the GRID's own column width so the header row and the grid below
+# read as one column rhythm (the mock's ingredient card is exactly one grid cell wide).
+static func _recipe_body(Kit: GDScript, lines: Array, tier: int, grid: Control, width: float,
+		dopts: Dictionary, on_pick: Callable) -> Control:
+	var cols: int = maxi(1, int(dopts.get("cols", 3)))
+	var gap: float = float(dopts.get("cell_gap", 16))
+	var card_px := _cell_px(width, cols, gap, Kit, dopts)
+	var col := VBoxContainer.new()
+	col.name = "RecipeBody"
+	# NO forced min width: the body lays out inside the frame's ScaleContainer, whose width is the
+	# sheet's inner width in layout space (design width MINUS the sheet's pads / content_scale). Pinning
+	# it to the design width pushed the grid's right column past the scroll's clip line.
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+>>>>>>> mock-dialog-genlines
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", int(width * 0.025))
+	col.add_theme_constant_override("separation", int(card_px * 0.17))
 	var row := HBoxContainer.new()
+	row.name = "RecipeRow"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(width * 0.05))
-	var icon_px := width * 0.20
+	row.add_theme_constant_override("separation", int(card_px * 0.05))
+	var cards: Array = []
 	for i in lines.size():
 		var line := int(lines[i])
-		row.add_child(_ingredient_button(line, tier, icon_px, on_pick))
+		var c := _ingredient_button(line, tier, card_px, on_pick)
+		cards.append(c)
+		row.add_child(c)
 		if i < lines.size() - 1:
-			var plus := Label.new()
-			plus.text = "+"
-			plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			plus.add_theme_font_size_override("font_size", int(icon_px * 0.55))
-			plus.add_theme_color_override("font_color", Color(0.36, 0.26, 0.18))
-			row.add_child(plus)
+			row.add_child(_recipe_plus(card_px))
 	col.add_child(row)
 	col.add_child(grid)
+<<<<<<< HEAD
 	col.add_child(_tail(width))
+=======
+	# re-derive the card size from the ACTUAL laid-out width, exactly as the kit's tier grid does for its
+	# cells — so an ingredient card stays one grid column wide at any frame width.
+	var fit := func() -> void:
+		if not is_instance_valid(col):
+			return
+		var cw := maxf(40.0, (col.size.x - (cols - 1) * gap) / float(cols))
+		for c in cards:
+			if is_instance_valid(c):
+				(c as Control).custom_minimum_size = Vector2(cw, cw * 0.93)
+	col.resized.connect(fit)
+	fit.call_deferred()
+>>>>>>> mock-dialog-genlines
 	return col
 
-static func _ingredient_button(line: int, tier: int, icon_px: float, on_pick: Callable) -> Button:
+# One grid column's width, derived the SAME way the kit's tier grid derives it (content width minus the
+# sheet's L/R inset, split across `cols` with `cell_gap` between) — the pre-layout estimate `fit` refines.
+static func _cell_px(width: float, cols: int, gap: float, Kit: GDScript, dopts: Dictionary) -> float:
+	var pad: float = float(dopts.get("panel_pad_x",
+		Kit.frame_border(String(dopts.get("border", "parchment"))).get("pad_x", 26.0)))
+	var avail: float = maxf(48.0, width - 2.0 * pad)
+	return maxf(40.0, (avail - (cols - 1) * gap) / float(cols))
+
+# The "+" joining the two ingredients — plain ink, sized off the card (mock: a heavy navy plus, no ornament).
+static func _recipe_plus(card_px: float) -> Label:
+	var plus := Label.new()
+	plus.name = "RecipePlus"
+	plus.text = "+"
+	plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plus.custom_minimum_size = Vector2(card_px * 0.27, 0.0)
+	plus.add_theme_font_size_override("font_size", int(card_px * 0.46))
+	plus.add_theme_color_override("font_color", Pal.INK)
+	plus.add_theme_constant_override("outline_size", 0)
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return plus
+
+# One ingredient: a pale rounded card (a shade lighter than the sheet, with the house tinted drop shadow),
+# the item art filling it, the whole card tappable. `card_px` is the grid column width; the mock's card is a
+# touch shorter than it is wide, and the art sits generously inside.
+static func _ingredient_button(line: int, tier: int, card_px: float, on_pick: Callable) -> Button:
 	var btn := Button.new()
-	btn.flat = true
+	btn.name = "IngredientCard_%d" % line
 	btn.focus_mode = Control.FOCUS_NONE
-	btn.custom_minimum_size = Vector2(icon_px, icon_px)
+	btn.custom_minimum_size = Vector2(card_px, card_px * 0.93)
 	btn.set_meta("ingredient_line", line)
 	var item_tier := maxi(1, tier)
 	var code := line * 100 + item_tier
 	btn.set_meta("ingredient_tier", item_tier)
 	btn.set_meta("ingredient_code", code)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CREAM.lightened(0.42)
+	sb.set_corner_radius_all(int(card_px * 0.13))
+	sb.shadow_color = Color(SHADOW_TINT, 0.18)
+	sb.shadow_size = int(maxf(6.0, card_px * 0.04))
+	sb.shadow_offset = Vector2(0, maxf(3.0, card_px * 0.02))
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		btn.add_theme_stylebox_override(st, sb)
 	var holder := CenterContainer.new()
 	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(holder)
-	var piece: Control = PieceView.make_piece(code, icon_px)
+	var piece: Control = PieceView.make_piece(code, card_px * 0.78)
 	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(piece)
 	if on_pick.is_valid():
