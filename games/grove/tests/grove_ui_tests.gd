@@ -13,18 +13,21 @@ func _texture_path(node: Node) -> String:
 func _test_meadow_dialog_composition() -> void:
 	var content := Label.new()
 	content.text = "Body"
-	var dialog := SharedKit.dialog_frame(content, 520.0, {"card_art": true, "banner_icon_on": false})
+	var dialog := SharedKit.dialog_frame(content, 520.0, {"banner_text": "Mail"})
 	var banner := dialog.find_child("DialogBanner", true, false)
-	var banner_art := dialog.find_child("MeadowTitleBanner", true, false) as NinePatchRect
-	ok(banner != null and banner_art != null
-		and _texture_path(banner_art).ends_with("ui/meadow_v2/title_banner.png"),
-		"shared dialogs compose the Meadow title-banner atom")
+	var title := dialog.find_child("DialogTitle", true, false) as Label
+	ok(banner != null and title != null and title.text == "MAIL"
+		and title.get_theme_color("font_color") == SharedKit.Pal.INK,
+		"shared dialogs wear the simple v2 header: uppercased ink title, no ribbon art")
+	ok(dialog.find_child("MeadowTitleBanner", true, false) == null,
+		"the retired ribbon art is gone from the shared frame")
 	var dialog_card := dialog.find_child("MeadowDialogPanel", true, false) as PanelContainer
 	var dialog_style := dialog_card.get_theme_stylebox("panel") if dialog_card != null else null
-	ok(dialog_style is StyleBoxTexture
-		and String((dialog_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
-		and (dialog_style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0,
-		"shared dialogs use the Meadow panel with explicit patch margins")
+	ok(dialog_style is StyleBoxFlat
+		and (dialog_style as StyleBoxFlat).bg_color == SharedKit.Pal.CREAM
+		and (dialog_style as StyleBoxFlat).corner_radius_top_left > 0
+		and (dialog_style as StyleBoxFlat).shadow_size > 0,
+		"shared dialogs draw the simple cream sheet with rounded corners and a tinted shadow")
 	dialog.free()
 
 	var level_body := Label.new()

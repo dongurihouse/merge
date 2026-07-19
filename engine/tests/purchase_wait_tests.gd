@@ -33,7 +33,7 @@ func _initialize() -> void:
 		and wait.anchor_right == 1.0 and wait.anchor_bottom == 1.0,
 		"overlay fills the host rect")
 	ok(wait.z_index >= Overlay.MODAL_TOP_Z, "overlay sits at the modal layer")
-	ok(_has_label(wait, "Opening App Store"), "overlay shows the title")
+	ok(_has_label(wait, "OPENING APP STORE"), "overlay shows the title (the v2 header uppercases it)")
 	ok(_has_label(wait, "Please wait..."), "overlay shows the wait message")
 	ok(_has_non_empty_label_named(wait, "PurchaseWaitSpinner"), "overlay includes a visible spinner glyph")
 	ok(wait.find_child("DialogBanner", true, false) != null, "wait sheet uses the shared dialog banner")

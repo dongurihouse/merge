@@ -93,16 +93,15 @@ func _test_meadow_shared_components() -> void:
 
 	var dialog_content := Label.new()
 	dialog_content.text = "Body"
-	var dialog := Kit.dialog_frame(dialog_content, 520.0, {"card_art": true, "banner_icon_on": false})
-	var dialog_banner := dialog.find_child("MeadowTitleBanner", true, false)
+	var dialog := Kit.dialog_frame(dialog_content, 520.0, {"banner_text": "Mail"})
+	var dialog_title := dialog.find_child("DialogTitle", true, false) as Label
 	var dialog_card := dialog.find_child("MeadowDialogPanel", true, false) as PanelContainer
 	var dialog_style := dialog_card.get_theme_stylebox("panel") if dialog_card != null else null
-	ok(_node_texture_path(dialog_banner).ends_with("ui/meadow_v2/title_banner.png"),
-		"active shared-dialog coverage composes the Meadow banner atom")
-	ok(dialog_style is StyleBoxTexture and (dialog_style as StyleBoxTexture).texture != null
-		and String((dialog_style as StyleBoxTexture).texture.resource_path).ends_with("ui/meadow_v2/dialog_panel.png")
-		and (dialog_style as StyleBoxTexture).get_texture_margin(SIDE_LEFT) > 0.0,
-		"active shared-dialog coverage uses the patched Meadow panel")
+	ok(dialog_title != null and dialog_title.text == "MAIL"
+		and dialog.find_child("MeadowTitleBanner", true, false) == null,
+		"active shared-dialog coverage composes the simple v2 ink title (ribbon retired)")
+	ok(dialog_style is StyleBoxFlat and (dialog_style as StyleBoxFlat).shadow_size > 0,
+		"active shared-dialog coverage draws the simple cream sheet")
 	dialog.free()
 
 	var level_body := Label.new()
