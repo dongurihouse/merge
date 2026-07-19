@@ -29,6 +29,7 @@ const PILL_TEX := Vector2(46, 34)
 const PILL_PAD := Vector4(14, 6, 14, 6)
 const CLAIM_PAD := Vector4(24, 8, 24, 8)
 const BANNER_H := 92.0
+const CONTENT_TAIL_PAD := 16.0    # bottom breathing room inside the clipping scroll so the last card's drop shadow isn't sliced
 const BANNER_MIN_W_FRAC := 0.25   # a dialog floors its banner at this fraction of the SCREEN width (banner_min_w)
 const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of the SCREEN height (mirrors the width %) — sparse states (empty mail …) never collapse to a banner slip; content dialogs (settings) clear it with only light bottom breathing room, and tall ones (daily/shop) are unaffected. An explicit opts.min_h (px) overrides.
 
@@ -1325,9 +1326,16 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Wallet metadata: opts this label into K/M abbreviation + shrink-to-fit (FX.format_amount / FX.fit_amount).
-	# The cell width and design font size travel with the label so a live refresh can re-fit as digits grow.
-	amount.set_meta("amount_max_w", amount_w)
+	# Wallet metadata: opts this label into K/M abbreviation + shrink-to-fit + right-anchor
+	# (FX.format_amount / FX.fit_amount). The design font size travels with the label so a live refresh
+	# can re-fit as digits grow. The fit budget is NOT the bare amount_w slot — the number is right-aligned
+	# and nudged by amount_x, and overflows LEFT across the gap toward the icon, so its true room is
+	# (icon's right edge → the number's right edge) = gap + amount_w + amount_x. Abbreviation already caps
+	# the width, so fit only ever shrinks a genuine spill. amount_right_x/amount_slot_w let fit_amount pin
+	# the right edge (amount_x + amount_w in slot coords) so a wider "10.1K" grows LEFT, not past the pill.
+	amount.set_meta("amount_max_w", amount_w + float(gap) + maxf(0.0, amount_x))
+	amount.set_meta("amount_slot_w", amount_w)
+	amount.set_meta("amount_right_x", amount_x + amount_w)
 	amount.set_meta("amount_base_font", num_size)
 	amount.set_meta("amount_value", amount_value)
 	amount_slot.add_child(amount)
@@ -1917,20 +1925,24 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 18)
 	panel.add_child(row)
 
-	# the left icon gets vertical breathing room (margin top/bottom) so it isn't cramped against the row edges
+	# LEFT: the LARGE hero icon (mock v1) — the reward art itself, unplated, seated big at the card's left
+	# and vertically centred over the whole row. `icon_px` is workbench-tunable via btn_opts.card_icon_px.
+	var icon_px := float(btn_opts.get("card_icon_px", 108.0))
 	var ic_wrap := MarginContainer.new()
-	ic_wrap.add_theme_constant_override("margin_top", 10)
-	ic_wrap.add_theme_constant_override("margin_bottom", 10)
+	ic_wrap.add_theme_constant_override("margin_top", 6)
+	ic_wrap.add_theme_constant_override("margin_bottom", 6)
 	ic_wrap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ic_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ic_wrap.add_child(plated_icon(String(entry.get("icon", "star")), 56.0, icon_badge))
+	ic_wrap.add_child(make_icon(String(entry.get("icon", "star")), icon_px))
 	row.add_child(ic_wrap)
 
+	# RIGHT: the text column — title over body, then the reward+Claim action row beneath (mock v1 stacks
+	# the reward cards + the big green Claim UNDER the copy, not inline beside it).
 	var text := VBoxContainer.new()
-	text.add_theme_constant_override("separation", 2)
+	text.add_theme_constant_override("separation", 6)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1952,45 +1964,77 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART             # wrap → never forces card wider
 	text.add_child(body)
 
-	# The reward affordance: a cream reward chip + (when the gift is unclaimed) the GREEN Claim. Both are
-	# the shared pill_button driven by btn_opts; a claimed gift shows a quiet "Claimed" tag; a plain note
-	# (no reward) shows neither. The Claim is green BY ROLE (cost pill is cream) — a fixed kit role colour,
-	# not a saved knob, so it never depends on the Button preview's background (a chosen badge still wins).
+	# The reward affordance: a row of SMALL per-currency reward cards on the left + (when unclaimed) the
+	# big GREEN Claim on the right, both under the copy. A claimed gift swaps the Claim for a quiet
+	# "Claimed" tag; a plain note (no reward) shows neither. The Claim is green BY ROLE.
 	var reward: Dictionary = entry.get("reward", {})
 	if _reward_total(reward) > 0:
-		var chip := reward_chip(reward, btn_opts)
-		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(chip)
+		var action := HBoxContainer.new()
+		action.add_theme_constant_override("separation", 12)
+		action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cards := _reward_cards(reward, btn_opts)
+		cards.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		action.add_child(cards)
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		action.add_child(gap)
 		if bool(entry.get("claimed", false)):
 			var done := Label.new()
 			done.text = String(entry.get("claimed_text", "Claimed"))
-			done.add_theme_font_size_override("font_size", FS.FINE)   # "Claimed" tag — readable next to the card body (was a tiny hardcoded 14)
+			done.add_theme_font_size_override("font_size", FS.FINE)   # "Claimed" tag — readable next to the card body
 			done.add_theme_color_override("font_color", Color(Pal.LEAF.darkened(0.1), 0.95))
 			done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			done.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			row.add_child(done)
+			action.add_child(done)
 			panel.modulate = Color(1, 1, 1, 0.7)
 		else:
+			# the big green Claim — the shared pill_button pushed up a font tier + a roomier pad/corner
+			# (mock v1's Claim reads much larger than the small reward cards beside it).
 			var claim_opts := btn_opts.duplicate()
 			claim_opts["bg"] = "green"
+			claim_opts["font"] = int(btn_opts.get("card_claim_font", maxi(FS.BODY, title_font)))   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
+			claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
+			claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
 			var claim := pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
 			claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			var on_claim: Callable = entry.get("on_claim", Callable())
 			if on_claim.is_valid():
 				claim.pressed.connect(func() -> void: on_claim.call())
-			row.add_child(claim)
+			action.add_child(claim)
+		text.add_child(action)
 	else:
 		# the INFO variant: a read-only amount chip (icon + text) and NO Claim button. A plain note (no
 		# reward, no chip) adds neither, exactly as before.
 		var chip_spec: Dictionary = entry.get("chip", {})
 		var chip_text := String(chip_spec.get("text", ""))
 		if chip_text != "":
+			var info_row := HBoxContainer.new()
+			info_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var ac := amount_chip(String(chip_spec.get("icon", "")), chip_text, btn_opts)
 			ac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			row.add_child(ac)
+			info_row.add_child(ac)
+			text.add_child(info_row)
 	# the texture_cream grain layer behind the row (drawn at child index 0), completing the paper cut.
 	apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
 	return panel
+
+## The mock's per-reward CURRENCY CARDS: one SMALL cream amount_chip per currency present, laid out in a
+## row (coin · water · gem). Each is the shared cream amount_chip (icon + count), so a Button-style knob
+## change flows here too. Used for the mail card reward line — a claimed multi-currency gift reads as
+## discrete little cards, matching the mock, instead of one stacked pill.
+static func _reward_cards(reward: Dictionary, btn_opts: Dictionary = {}) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for pr in [["coin", int(reward.get("coins", 0))], ["water", int(reward.get("water", 0))], ["gem", int(reward.get("gems", 0))]]:
+		if int(pr[1]) > 0:
+			var chip := amount_chip(String(pr[0]), str(int(pr[1])), btn_opts)
+			chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			row.add_child(chip)
+	return row
 
 ## A TOGGLE CARD — a card type (sibling of mail_card / daily_card): one persisted setting as a row,
 ## its name on the LEFT and the shared Look.toggle_switch on the RIGHT, riding the SAME kit/mail_card.png
@@ -2321,15 +2365,11 @@ static func _title_header(text: String, font: int, band_h: float, width: float) 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", Pal.INK)
+	# BURN-IN (no drop shadow) — the shared dialog title reads as pressed into the parchment purely via a
+	# slightly deeper, warmer ink (the same treatment the daily day-labels use in login.gd::_cell_label),
+	# NOT a cast shadow.
+	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
 	lbl.add_theme_constant_override("outline_size", 0)
-	# BURN-IN DEBOSS — the shared dialog title reads as pressed into the parchment: a low-alpha warm-dark
-	# shadow nudged a hair down/right (the same technique the daily day-labels use in login.gd::_cell_label,
-	# scaled to THIS title's font size so every dialog matches).
-	lbl.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45))
-	lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(font * 0.05)))
-	lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(font * 0.07)))
-	lbl.add_theme_constant_override("shadow_outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_child(lbl)
 	return header
@@ -2426,6 +2466,11 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	banner_pos.y = maxf(0.0, banner_pos.y)
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
+	# an optional PINNED FOOTER control (mail's big Claim All): it rides a cream band docked to the card's
+	# bottom edge, ALWAYS on-screen while the card list scrolls behind it. Off by default (settings/info/…
+	# are unchanged). footer_gap = breathing room between the last row and the footer band.
+	var footer: Control = opts.get("footer", null)
+	var footer_gap: float = float(opts.get("footer_gap", 10.0))
 	var center_content: bool = bool(opts.get("center_content", false))   # stretch a sparse content block to fill the floored body so it centers (empty mail note)
 	var on_close: Callable = opts.get("on_close", Callable())
 	var banner_text: String = String(opts.get("banner_text", "Mail"))
@@ -2498,7 +2543,40 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		scaler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scaler.add_child(content)
 		rows.add_child(scaler)
+	# a small BOTTOM tail INSIDE the clipping scroll so the LAST card's drop shadow (and gold rim) clears
+	# the clip edge instead of being sliced off — the vertical counterpart to each dialog's side inset.
+	# Applies to every dialog built on this frame (daily capstone, mail's last row, shop's last section …).
+	var tail := Control.new()
+	tail.custom_minimum_size = Vector2(0, CONTENT_TAIL_PAD)
+	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.add_child(tail)
+	# reserve a scroll-bottom spacer equal to the pinned footer's height so the last row can scroll fully
+	# clear of it (its height is finalised in relayout, once the footer has measured).
+	var foot_spacer: Control = null
+	if footer != null:
+		foot_spacer = Control.new()
+		foot_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rows.add_child(foot_spacer)
 	scroll.add_child(rows)
+
+	# the PINNED FOOTER band — a cream strip (masks the rows scrolling behind it) carrying the footer
+	# control, docked to the card's bottom in relayout. Added after the scroll → drawn over it.
+	var footer_band: PanelContainer = null
+	if footer != null:
+		footer_band = PanelContainer.new()
+		var fb := StyleBoxFlat.new()
+		fb.bg_color = Pal.CREAM
+		fb.content_margin_top = footer_gap
+		fb.content_margin_left = 0; fb.content_margin_right = 0; fb.content_margin_bottom = 0
+		footer_band.add_theme_stylebox_override("panel", fb)
+		footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		footer_band.add_child(footer)
+		# dock the band to inner's BOTTOM edge via anchors (not manual positioning): Godot then keeps it
+		# glued to the card bottom every layout pass, so it can't lag a stale inner height and float free
+		# (the single-card bug — inner shrinks to fit but a manually-placed band stayed at the tall cap).
+		footer_band.anchor_left = 0.0; footer_band.anchor_right = 1.0
+		footer_band.anchor_top = 1.0; footer_band.anchor_bottom = 1.0   # offset_top (= -height) set in relayout, once measured
+		inner.add_child(footer_band)
 
 	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable
 	var header := _title_header(banner_text, banner_font, banner_h, target_w)
@@ -2534,6 +2612,17 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 				if absf(content.custom_minimum_size.y - fill_inner) > 1.0:
 					content.custom_minimum_size.y = fill_inner
 		inner.custom_minimum_size.y = (minf(rows.size.y, banner_h + list_max_h) if list_max_h > 0.0 else rows.size.y)
+		# dock the pinned footer to the bottom of the content area, and reserve its height as the list's
+		# bottom spacer so rows can scroll fully clear of it (delta-guarded so it converges).
+		if is_instance_valid(footer_band):
+			# anchored to inner's bottom edge (see build) — we only feed it the measured height as the top
+			# offset, and reserve the same height as the list's bottom spacer so rows scroll clear of it.
+			var fh: float = footer_band.get_combined_minimum_size().y
+			if absf(footer_band.offset_top - (-fh)) > 1.0:
+				footer_band.offset_top = -fh
+			footer_band.offset_left = 0.0; footer_band.offset_right = 0.0; footer_band.offset_bottom = 0.0
+			if is_instance_valid(foot_spacer) and absf(foot_spacer.custom_minimum_size.y - fh) > 1.0:
+				foot_spacer.custom_minimum_size.y = fh
 		wrap.custom_minimum_size = card.size
 		close.position = Vector2(card.size.x - close_size - close_poke.x, close_poke.y)   # docked INSIDE the corner (mock v2)
 	rows.resized.connect(relayout)
@@ -2585,6 +2674,25 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		fl.add_theme_constant_override("outline_size", 0)
 		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(fl)
+	# an optional CLAIM ALL footer — the big full-width green button of mock v1 (envelope + label), PINNED
+	# to the card's bottom (dialog_frame's footer slot) so it stays on-screen while the list scrolls. Shown
+	# only when the caller wires on_claim_all AND there is an unclaimed gift (claim_all_text set); it grabs
+	# every gift at once. Off by default so the workbench preview / info sheet are unchanged.
+	var claim_all_cb: Callable = opts.get("on_claim_all", Callable())
+	var claim_all_text := String(opts.get("claim_all_text", ""))
+	if claim_all_cb.is_valid() and claim_all_text != "":
+		var ca_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+		ca_opts["bg"] = "green"
+		ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
+		ca_opts["font"] = int(opts.get("claim_all_font", FS.HEADING))
+		ca_opts["shadow"] = true
+		ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
+		ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
+		var ca := pill_button(claim_all_text, ca_opts)
+		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ca.pressed.connect(func() -> void: claim_all_cb.call())
+		opts = opts.duplicate()
+		opts["footer"] = ca
 	# an optional GOT-IT footer button — the SHARED level cta_button, fired by opts.on_close (same as the
 	# ✕). Off by default → the inbox is unchanged; the info sheet sets opts.got_it to close itself.
 	var got_it_text := String(opts.get("got_it", ""))

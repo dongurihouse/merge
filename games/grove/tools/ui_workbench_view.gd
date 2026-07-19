@@ -189,7 +189,7 @@ func _default_params() -> Dictionary:
 		# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
 		# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
 		# spread are px; alpha is percent. Defaults are THE uniform shadow (skin.gd SHADOW_DEFAULTS).
-		"shadow": {"offset_x": 1, "offset_y": 5, "blur": 7, "spread": -1, "alpha": 28},
+		"shadow": {"offset_x": 0, "offset_y": 5, "blur": 6, "spread": -2, "alpha": 20},
 		# the BOARD preview — a live merge grid (frame · the shared slot-cell well · demo pieces). `scale` is
 		# the live board's overall zoom; `gap` and `frame` shape live spacing. `cell`/`cols`/`rows` only size
 		# this preview. Piece size is owned by Slot-cell content_frac.
@@ -1209,14 +1209,15 @@ func _button_gallery(_p: Dictionary) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	col.custom_minimum_size = Vector2(300, 0)
-	# 1) the LIVE button — every saved + test knob drives this one.
-	col.add_child(_button_sample("● tunable (your knobs)", Kit.pill_button(String(_params["button"].text), _btn_opts())))
-	# 2) the three code-drawn bg roles.
-	col.add_child(_button_sample("green — primary CTA", Kit.pill_button("Claim", _btn_opts({"bg": "green"}))))
+	# 1) the LIVE button — every saved + test knob drives this one, INCLUDING its bg (green/cream/danger).
+	# The old separate "green" and "cta_button" samples were dropped: they rendered identically to a green
+	# tunable button. pill_button's `if primary` (bg=="green") branch returns the paper-cut green surface
+	# before any bg-sprite / art_rel path, so cta_button's level-green art_rel never shows — every shipped
+	# green CTA (Claim / Collect / the cta_button footers) is this one paper-cut green pill.
+	col.add_child(_button_sample("● tunable (your knobs — bg green/cream/danger)", Kit.pill_button(String(_params["button"].text), _btn_opts())))
+	# 2) the other two code-drawn bg roles, as fixed references beside the live one.
 	col.add_child(_button_sample("cream — secondary", Kit.pill_button("Cancel", _btn_opts({"bg": "cream"}))))
 	col.add_child(_button_sample("danger — alert", Kit.pill_button("Delete", _btn_opts({"bg": "danger"}))))
-	# 3) cta_button — the green level-badge CTA (level/mail/shop footers).
-	col.add_child(_button_sample("cta_button — badged CTA", Kit.cta_button("Collect", {})))
 	# 4) the paper-cut roles, borderless (the dialog "Not now" style).
 	var paper_row := HBoxContainer.new()
 	paper_row.add_theme_constant_override("separation", 10)

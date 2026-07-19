@@ -65,6 +65,7 @@
 	},
 	"inbox": {
 		"banner_text": "Mail",
+		"claim_all_text": "Claim All",
 		"claimed_text": "Claimed",
 		"empty_text": "No mail right now — check back soon."
 	},

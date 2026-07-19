@@ -44,7 +44,16 @@ const SLOT_SAGE := [1, 3, 6]
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
 const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
-const BANNER_ASPECT := 1.26       # capstone banner height / cell width
+const BANNER_ASPECT := 1.70       # capstone banner height / cell width — taller so the big day-7 chest has room
+
+# Fixed layout lines for a day cell (fractions of the cell HEIGHT). The reward icon and its amount are
+# pinned to these constant lines so they land in the SAME place on every card — claimed, today, or future
+# alike — while the state marker (CLAIM · ✓ · nothing) floats at the bottom OUT of the flow so its
+# presence never shifts the icon/amount up. (Day 7 is the wide capstone; it lays out on its own.)
+const REWARD_ICON_FRAC := 0.42    # the reward icon's vertical CENTRE
+const REWARD_AMOUNT_FRAC := 0.72  # the amount label's vertical centre
+const REWARD_ACTION_FRAC := 0.88  # the CLAIM pill / ✓ marker's vertical centre
+const REWARD_ICON_PX := 0.70      # the reward icon size (fraction of cell width) — uniform across all states
 
 # The day-reward art: the cut-paper redesign sprites (Direction B) for the daily surface only — coins as a
 # gold acorn-coin stack, water a sky droplet, the premium (gem) as the grove acorn. Other ids (cosmetic
@@ -261,49 +270,52 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 
 	# NOTE: no min-size here — the panel's own custom_minimum_size already carries the cell box, and
 	# a min-size on the padded content would ADD the stylebox margins on top (cells overflowing the sheet).
+	# Every piece is pinned to a FIXED fractional line of `inner` (not stacked in a flow), so the icon and
+	# amount land in the SAME place whatever the state, and the bottom marker never pushes them around.
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(inner)
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.add_theme_constant_override("separation", int(cw * 0.03))
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(col)
 
-	col.add_child(_cell_label(Kit, String(d.get("label", "")), cw))
+	# "DAY N" — pinned to the top edge, full-width centred.
+	var label := _cell_label(Kit, String(d.get("label", "")), cw)
+	label.anchor_left = 0.0; label.anchor_right = 1.0
+	label.anchor_top = 0.0; label.anchor_bottom = 0.0
+	label.grow_vertical = Control.GROW_DIRECTION_END
+	inner.add_child(label)
 
-	# the reward block — art + (single-currency) amount — floats in the cell's middle
-	var mid := VBoxContainer.new()
-	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mid.alignment = BoxContainer.ALIGNMENT_CENTER
-	mid.add_theme_constant_override("separation", int(cw * 0.04))
-	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# a card carrying a bottom marker (today's CLAIM · a done ✓) shrinks its art so everything fits the
-	# uniform SHORT tile; an amount-only / bare card gives the art the full box.
-	var has_action := today or state == "done"
-	var art_px: float = cw * (0.56 if has_action else 0.80)
+	# the reward ICON — its CENTRE pinned to REWARD_ICON_FRAC (constant across every state).
 	var art: Control
 	if mystery:
-		art = _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), art_px)
+		art = _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), cw * REWARD_ICON_PX)
 	else:
-		art = _reward_art(Kit, d.get("reward", {}), art_px)
-	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	mid.add_child(art)
+		art = _reward_art(Kit, d.get("reward", {}), cw * REWARD_ICON_PX)
+	var art_holder := CenterContainer.new()
+	art_holder.anchor_left = 0.0; art_holder.anchor_right = 1.0
+	art_holder.anchor_top = REWARD_ICON_FRAC; art_holder.anchor_bottom = REWARD_ICON_FRAC
+	art_holder.grow_vertical = Control.GROW_DIRECTION_BOTH
+	art_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_holder.add_child(art)
+	inner.add_child(art_holder)
+
+	# the single-currency AMOUNT — its centre pinned to REWARD_AMOUNT_FRAC.
 	var amount := _amount_text(d.get("reward", {})) if not mystery else ""
 	if amount != "":
 		var amt := Label.new()
 		amt.name = "DailyAmount"
 		amt.text = amount
 		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		amt.anchor_left = 0.0; amt.anchor_right = 1.0
+		amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
+		amt.grow_vertical = Control.GROW_DIRECTION_BOTH
 		amt.add_theme_font_override("font", Kit.bold_font())
 		amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
 		amt.add_theme_color_override("font_color", Pal.INK)
 		amt.add_theme_constant_override("outline_size", 0)
 		amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mid.add_child(amt)
-	col.add_child(mid)
+		inner.add_child(amt)
 
-	# the bottom marker: today claims, a done day wears the ✓ disc, a plain future day shows nothing
+	# the state MARKER — today's CLAIM pill · a done ✓ · nothing — floats at REWARD_ACTION_FRAC, OUT of the
+	# icon/amount flow so its presence never nudges them.
 	var act: Control = null
 	if today:
 		act = _claim_button(Kit, cw, d.get("on_claim", Callable()))
@@ -311,9 +323,12 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		act = _sprite(Kit, ART_CHECK, cw * 0.34)
 	if act != null:
 		var wrap := CenterContainer.new()
+		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
+		wrap.anchor_top = REWARD_ACTION_FRAC; wrap.anchor_bottom = REWARD_ACTION_FRAC
+		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
 		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		wrap.add_child(act)
-		col.add_child(wrap)
+		inner.add_child(wrap)
 
 	if today:
 		_scatter_sparks(inner, cw * 0.11, [Vector2(0.10, 0.09), Vector2(0.90, 0.20),
@@ -348,11 +363,13 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(h * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.62)
+	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.52)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.70))
-	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.62)
+	# the chest has NO vertical size flag, so it FILLS the (now taller) row height — much larger than before;
+	# its px is just a floor kept under the row so it never forces an overflow.
+	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.60))
+	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.52)
 	sprig_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_r)
 	col.add_child(row)

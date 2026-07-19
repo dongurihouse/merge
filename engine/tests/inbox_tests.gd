@@ -117,6 +117,21 @@ func _initialize() -> void:
 	ok(int(g.get("gems", 0)) == 3 and Save.diamonds() == d0 + 3, "claim grants gems to the wallet")
 	ok(int(Save.grove().get("water", 0)) == w0 + 5, "claim tops up the grove water")
 
+	# 5c. CLAIM_ALL grabs every unclaimed gift at once, returns the AGGREGATE, and leaves nothing to claim.
+	fresh("claim_all")
+	Inbox.add({"id": "g1", "title": "One", "body": "x", "reward": {"coins": 40}})
+	Inbox.add({"id": "g2", "title": "Two", "body": "y", "reward": {"coins": 10, "gems": 2, "water": 3}})
+	# the seed already carries an unclaimed 100-coin starter gift, so claim_all sweeps all three.
+	var ac0 := Save.coins()
+	var ad0 := Save.diamonds()
+	var total := Inbox.claim_all()
+	ok(int(total.get("coins", 0)) >= 150, "claim_all returns the aggregate coins (40 + 10 + seed 100)")
+	ok(int(total.get("gems", 0)) == 2, "claim_all returns the aggregate gems")
+	ok(Save.coins() == ac0 + int(total.coins) and Save.diamonds() == ad0 + int(total.gems), \
+		"claim_all grants the aggregate to the wallet")
+	ok(not Inbox.has_unclaimed(), "after claim_all nothing is left to claim")
+	ok(Inbox.claim_all().is_empty(), "a second claim_all is a safe no-op")
+
 	# 6. PERSISTENCE: a claimed flag + an added message survive a reload.
 	fresh("persist")
 	Inbox.add({"id": "keep", "title": "Keep me", "body": "x", "reward": {"coins": 20}})
