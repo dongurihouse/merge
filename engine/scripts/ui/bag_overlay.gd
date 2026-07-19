@@ -45,10 +45,16 @@ const Pal = Game.PALETTE
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the shared ui kit (frame · cell · pill)
 const OVERLAY_NAME := "BagOverlay"
 const NEED_MORE_NAME := "BagNeedMorePrompt"     ## the short-of-acorns prompt raised over an open bag
+# the prompt card's proportions, read off the authored mock (card ≈ 3/4 of the frame, the medallion
+# ≈ 1/4 of the card). Fractions, never px — the card tracks the screen like every other dialog.
+const CARD_W_FRAC := 0.62     ## card width as a fraction of the SCREEN width (NARROWER than the bag
+                              ## it sits on, so it reads as a card ON the dialog, not a replacement)
+const MEDAL_FRAC := 0.26      ## medallion diameter as a fraction of the CARD width
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 
 const INK = Pal.INK
+const BARK = Pal.BARK
 
 # --- the slot ladder (pure, headless-testable) ------------------------------------
 # The 💎 price to UNLOCK 1-based slot `k`: index the ladder by how many expansions precede it.
@@ -185,7 +191,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 						var have := balance
 						if on_balance.is_valid():
 							have = int(on_balance.call())
-						_need_more(host, price - have, on_open_shop, dismiss)
+						_need_more(host, have, price, on_open_shop, dismiss)
 		entries.append(d)
 
 	# the generators section (game-only — no analogue in bag.png), inserted below the grid by the kit.
@@ -203,10 +209,16 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 # The short-of-acorns prompt — raised OVER the open bag when the next slot's buy is refused, so the
 # tap explains itself instead of just dismissing the bag. "Not now" closes only this card (the bag is
 # still there, unchanged); the shop button closes both and hands off to `on_open_shop`.
-static func _need_more(host: Control, short: int, on_open_shop: Callable, dismiss_bag: Callable) -> Control:
+#
+# The face follows the authored mock (_concept/dialogs/insufficient_acorns_v1): a portrait parchment
+# card carrying a plated acorn MEDALLION, a bold title, the two-line shortfall, a cream have/needed
+# CHIP, and the two footer buttons. Every one of those is a SHARED kit atom (plated_icon · amount_chip
+# · cta_button · pill_button), so a workbench knob change reaches this card too.
+static func _need_more(host: Control, have: int, price: int, on_open_shop: Callable, dismiss_bag: Callable) -> Control:
 	Audio.play("invalid_soft", -4.0)
 	var Kit: GDScript = load(KIT_PATH)
 	var plain: Font = Kit.plain_font() if Kit != null else null
+	var bold: Font = Kit.bold_font() if Kit != null else null
 	var overlay := Control.new()
 	overlay.name = NEED_MORE_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -224,37 +236,77 @@ static func _need_more(host: Control, short: int, on_open_shop: Callable, dismis
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
+	# the card is sized as a FRACTION of the screen (the mock's card is ~3/4 of the frame), never fixed px.
+	var vw: float = host.get_viewport_rect().size.x
+	var cw: float = vw * CARD_W_FRAC
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	card.custom_minimum_size = Vector2(cw, 0)
 	cc.add_child(card)
+	# the mock's card is PORTRAIT: generous inner margin + wide gaps between the five stacked parts.
+	var pad := MarginContainer.new()
+	for side in ["margin_top", "margin_bottom", "margin_left", "margin_right"]:
+		pad.add_theme_constant_override(side, int(cw * 0.05))
+	card.add_child(pad)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", int(cw * 0.06))
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	card.add_child(col)
-	var ribbon := Look.title_ribbon(Strings.t("bag.need_more.ribbon"), FS.SUBHEADING)
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ribbon)
+	pad.add_child(col)
+	# the acorn medallion — the shared plated icon on the round disc badge
+	var medal: Control = Kit.plated_icon("gem", cw * MEDAL_FRAC)
+	medal.self_modulate = Pal.SKY          # tints the DISC only; the acorn on top keeps its own colour
+	medal.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(medal)
+	var title := Label.new()
+	title.text = Strings.t("bag.need_more.ribbon")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if bold != null:
+		title.add_theme_font_override("font", bold)          # the mock bolds every dialog title
+	title.add_theme_font_size_override("font_size", FS.SUBHEADING)
+	title.add_theme_color_override("font_color", INK)
+	title.add_theme_constant_override("outline_size", 0)
+	col.add_child(title)
 	var body := Label.new()
-	var n: int = max(short, 0)
+	var n: int = max(price - have, 0)
 	body.text = Strings.t("bag.need_more.body_one" if n == 1 else "bag.need_more.body") % n
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# an autowrap Label reports a min HEIGHT for its CURRENT width, so bound BOTH: a fixed wrap width
+	# and a line cap, or a transient narrow width blows the card up (see the Godot min-size gotcha).
+	body.custom_minimum_size.x = cw * 0.62
+	body.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # take the MIN width → the text wraps there
+	body.max_lines_visible = 3
 	if plain != null:
 		body.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
 		body.add_theme_constant_override("outline_size", 0)
-	body.add_theme_font_size_override("font_size", FS.BODY)
-	body.add_theme_color_override("font_color", INK)
+	body.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	body.add_theme_color_override("font_color", BARK)
 	col.add_child(body)
+	# the have / needed chip — the SAME cream amount_chip the mail cards wear
+	var chip: Control = Kit.amount_chip("gem", "%d / %d" % [have, price], {"font": FS.STAT, "corner": 14.0})
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	chip.custom_minimum_size.x = cw * 0.54
+	col.add_child(chip)
+	# the footer: a cream "Not now" beside the green shop CTA, each half the card wide (mock proportions)
 	var btns := HBoxContainer.new()
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	btns.add_theme_constant_override("separation", 12)
+	btns.add_theme_constant_override("separation", int(cw * 0.04))
 	col.add_child(btns)
-	btns.add_child(Look.button(Strings.t("bag.need_more.later"), func() -> void: overlay.queue_free(), false))
-	btns.add_child(Look.button(Strings.t("bag.need_more.shop"), func() -> void:
+	var later: Button = Kit.pill_button(Strings.t("bag.need_more.later"), \
+		{"bg": "cream", "font": FS.SUBHEADING, "corner": 18.0, "shadow": true})
+	later.custom_minimum_size = Vector2(cw * 0.42, cw * 0.155)
+	later.pressed.connect(func() -> void: overlay.queue_free())
+	btns.add_child(later)
+	var shop: Button = Kit.cta_button(Strings.t("bag.need_more.shop"), \
+		{"btn": {"font": FS.SUBHEADING, "corner": 18.0}})
+	shop.custom_minimum_size = Vector2(cw * 0.42, cw * 0.155)
+	shop.pressed.connect(func() -> void:
 		overlay.queue_free()
 		if dismiss_bag.is_valid():
 			dismiss_bag.call()                              # the shop replaces the bag, never stacks on it
 		if on_open_shop.is_valid():
-			on_open_shop.call(), true))
+			on_open_shop.call())
+	btns.add_child(shop)
 	FX.pop_in(card)
 	return overlay
 
