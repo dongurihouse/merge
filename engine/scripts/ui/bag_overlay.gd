@@ -2,8 +2,8 @@ extends RefCounted
 ## The full-bag OVERLAY builder — the modal that replaces the always-on inline bag row (BagView):
 ## the bottom-bar bag icon opens THIS, a dimmed-backdrop modal showing the WHOLE slot ladder (§5) as a
 ## grid of tiles — every owned slot (filled = a bagged piece, empty = an owned vacancy), the next
-## purchasable slot (gold-tinted, its 💎 price shown inside), and every locked future slot beyond it
-## (a padlock + its 💎 price below). Built on the SHARED ui kit (games/grove/tools/ui_workbench_kit.gd),
+## purchasable slot (its 💎 price shown inside — no highlight; the price is the cue), and every locked
+## future slot beyond it (a padlock, no price). Built on the SHARED ui kit (games/grove/tools/ui_workbench_kit.gd),
 ## the SAME builder the workbench previews and the game's vault/settings/hud read: the parchment frame
 ## (Kit.dialog_frame — banner · border · ✕ · scroll), the slot tile (Kit.bag_card), and the reused
 ## gold wallet pill. So the engine and the design tool render one
@@ -179,9 +179,8 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 
 # The stored-generators row (a "Generators" label + a row of generator tiles) — built on the SAME
 # bag_card surface as the slots: each tile carries the generator's sprite (sized to the fitted cell via
-# make_content) and taps to place it.
-## `cell_opts` are the dialog's FITTED cell opts (handed over by bag_dialog), so these tiles come out
-## exactly the size of the slot cells in the grid above.
+# make_content) and taps to place it. `cell_opts` are the dialog's FITTED cell opts (handed over by
+# bag_dialog), so these tiles come out exactly the size of the slot cells in the grid above.
 static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)

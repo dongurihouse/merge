@@ -314,7 +314,7 @@ func _initialize() -> void:
 			# match the slot cells above them exactly (they share the dialog's fitted cell opts).
 			Save.add_diamonds(132)
 			scn.bag = [101, 201, 301]
-			scn.board.gen_bag = ["acorn", "acorn"]
+			scn.board.gen_bag = ["gen_1", "gen_2"]
 			scn.board.gen_bag_tiers = [1, 2]
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
