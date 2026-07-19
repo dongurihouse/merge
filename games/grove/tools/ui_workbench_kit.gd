@@ -2295,9 +2295,10 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the ONE SHARED drop-shadow (the pill look) — circular, slightly inset so
-	# the feather hugs the art's round face (same recipe as the level badge emblem).
-	var sh := _meadow_shadow_circle(size * 0.92, Look.shadow_params(load_config(CONFIG_PATH)))
+	# the coral disc casts the mock's tinted drop-shadow — circular, short and soft (#294654 ~19%),
+	# slightly inset so the feather hugs the art's round face.
+	var sh := _meadow_shadow_circle(size * 0.92,
+		{"offset_x": 0.0, "offset_y": 5.0, "blur": 10.0, "spread": 0.0, "alpha": 0.19})
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)
@@ -4379,6 +4380,10 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.clip_text = false
+	# An autowrap Label reports a minimum HEIGHT computed for its CURRENT width, so at a momentarily
+	# narrow layout width it claims hundreds of lines (~1000px). Cap it at the line budget the tray is
+	# designed for — the same limits grove_info_bar_tests already asserts, so rendering is unchanged.
+	name_label.max_lines_visible = 2
 	text_stack.add_child(name_label)
 	var desc_label := Label.new()                                # one-line player-use hint; hidden when empty
 	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", FS.FOOTNOTE)))
@@ -4387,6 +4392,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_label.clip_text = false
+	desc_label.max_lines_visible = 3     # see name_label above; matches the ≤3-line guard in grove_info_bar_tests
 	desc_label.visible = false
 	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_stack.add_child(desc_label)
@@ -4729,14 +4735,16 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0))
-	if flat_board_cells:
-		# board tiles cast the ONE SHARED drop-shadow (the pill look) so the grid reads as raised
-		# paper. The tile's clip allows only ~face_inset px of feather past the face, and the board
-		# field behind is already dark — so the shared spread/alpha are compensated here or the
-		# shadow vanishes entirely (measured: <2% pixel delta with the raw shared params).
+	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
+	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
+	# a board tile CLIPS to ~face_inset px of feather over an already-dark field, so the shared
+	# spread/alpha are compensated there or the shadow vanishes (measured: <2% pixel delta with the
+	# raw params); the bag's cells sit unclipped on cream parchment and take the shared look as-is.
+	if bool(opts.get("cell_shadow", true)):
 		var sp: Dictionary = Look.shadow_params(load_config(CONFIG_PATH)).duplicate()
-		sp["spread"] = maxf(float(sp.get("spread", 4.0)), -6.0)
-		sp["alpha"] = maxf(float(sp.get("alpha", 0.2)), 0.3)
+		if flat_board_cells:
+			sp["spread"] = maxf(float(sp.get("spread", 4.0)), -6.0)
+			sp["alpha"] = maxf(float(sp.get("alpha", 0.2)), 0.3)
 		var sh: Panel = Look.shadow_rect(float(corner_px), sp)
 		sh.name = "SlotCellShadow"
 		sh.show_behind_parent = true
@@ -4899,23 +4907,30 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# WHOLE pill (incl. padding) to fit inside a card — scaled about its centre so it stays put.
 	var cost := int(d.get("cost", 0))
 	if cost > 0 and lockedwell:
-		var cwrap := CenterContainer.new()
-		cwrap.anchor_left = 0.0; cwrap.anchor_right = 1.0
-		cwrap.anchor_top = 1.0; cwrap.anchor_bottom = 1.0
-		cwrap.offset_left = cost_x; cwrap.offset_right = cost_x
-		cwrap.offset_top = -float(cost_font) - ch * 0.12 + cost_y
-		cwrap.offset_bottom = -ch * 0.06 + cost_y
-		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# cost_scale shrinks the WHOLE pill — font, icon, padding AND corner — so the CenterContainer lays it
-		# out at the smaller size natively. (Control.scale would be wiped: a Container resets a managed child's
-		# scale/pivot in fit_child_in_rect, so the shrink never stuck.)
+		# cost_scale shrinks/grows the WHOLE pill — font, icon, padding AND corner — so the CenterContainer
+		# lays it out at that size natively. (Control.scale would be wiped: a Container resets a managed
+		# child's scale/pivot in fit_child_in_rect, so the shrink never stuck.)
 		var cbo := (opts.get("btn", {}) as Dictionary).duplicate()
 		cbo["bg"] = "green"; cbo["icon"] = "gem"; cbo["static"] = true
 		cbo["font"] = maxi(1, int(round(float(cost_font) * cost_scale)))
 		cbo["icon_size"] = maxi(1, int(round(cost_icon * cost_scale)))
 		cbo["pad_scale"] = cost_scale
 		cbo["corner"] = float(cbo.get("corner", 16.0)) * cost_scale
-		cwrap.add_child(pill_button(str(cost), cbo))
+		var chip := pill_button(str(cost), cbo)
+		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		# The chip DOCKS to the cell's lower edge (a bottom-aligned box), rather than being centred in a
+		# band derived from cost_font: past ~80% cost_scale the pill is taller than such a band, and a
+		# CenterContainer centres that overflow — spilling the chip below the cell. Bottom-aligning it
+		# keeps the chip inside the cell at ANY scale while cost_x / cost_y stay pure nudges (they move
+		# the cluster's offsets, so the sidebar sliders read exactly as before).
+		var cwrap := VBoxContainer.new()
+		cwrap.name = "SlotCellCostCluster"
+		cwrap.alignment = BoxContainer.ALIGNMENT_END
+		cwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cwrap.offset_left = cost_x; cwrap.offset_right = cost_x
+		cwrap.offset_top = cost_y; cwrap.offset_bottom = -ch * 0.06 + cost_y
+		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cwrap.add_child(chip)
 		tile.add_child(cwrap)
 
 	# the level badge (board) — the SAME HUD level medal, carrying THIS cell's level, docked lower-right.
@@ -5004,11 +5019,7 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# (no acorn-balance pill: the HUD already carries the acorn counter, and the only price in the dialog
-<<<<<<< Updated upstream
 	# is the next slot's own cost chip. `balance` stays in the signature for the callers/tests.)
-=======
-	# is the next slot's own cost chip. `balance` is kept in the signature for the callers/tests.)
->>>>>>> Stashed changes
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the

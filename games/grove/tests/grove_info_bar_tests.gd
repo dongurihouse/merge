@@ -594,6 +594,44 @@ func _initialize() -> void:
 	await create_timer(0.6).timeout
 	ok(not board_scene.animating, "a STUCK animating gate self-heals (watchdog re-enables board input)")
 
+	# Lost-release guard: on mobile, a press can begin on the board but the release can be delivered
+	# through scene-level input when another surface wins the GUI hit. That must still settle the board
+	# gesture; otherwise `_pressing` stays true and every future board press is ignored.
+	fresh("lost_release")
+	var lost_board = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(lost_board)
+	if lost_board.board == null:
+		lost_board._ready()
+	await process_frame
+	var release_cell := Vector2i(-1, -1)
+	for x in range(G.ROWS):
+		for y in range(G.COLS):
+			var c := Vector2i(x, y)
+			if lost_board.board.is_open(c) and not lost_board.board.is_gen(c):
+				lost_board.board.take(c)
+				release_cell = c
+				break
+		if release_cell.x >= 0:
+			break
+	ok(release_cell.x >= 0, "lost-release test found an open non-generator cell")
+	if release_cell.x >= 0:
+		lost_board.board.place(release_cell, 101)
+		lost_board._rebuild_pieces()
+		var lat: Vector2 = lost_board._cell_pos(release_cell) + Vector2(lost_board.csz, lost_board.csz) / 2.0
+		_press_emulated(lost_board, lat)
+		ok(lost_board._pressing and lost_board._drag_node != null, "lost-release setup starts an in-flight board press")
+		var lost_up := InputEventMouseButton.new()
+		lost_up.button_index = MOUSE_BUTTON_LEFT
+		lost_up.pressed = false
+		lost_up.position = Vector2(5, 5)
+		lost_up.global_position = lost_up.position
+		lost_board._input(lost_up)
+		ok(not lost_board._pressing and lost_board._drag_node == null, \
+			"scene-level release settles the board gesture so future taps remain responsive")
+		_tap_emulated(lost_board, lat)
+		ok(lost_board._selected_cell == release_cell, "a board tap after the recovered release still focuses the tile")
+	lost_board.queue_free()
+
 	# Bundle A (tactile) board drag: the merge-target TELEGRAPH and the held-tile LEAN.
 	_test_drag_feel()
 

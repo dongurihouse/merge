@@ -47,7 +47,20 @@ func _initialize() -> void:
 		and body.get_theme_font("font") == Kit.plain_font(),
 		"wait message uses the standard plain UI font")
 
-	PurchaseWait.close(wait)
+	# Self-close guard: a stuck StoreKit request must never block play forever.
+	var timeout := wait.get_node_or_null("PurchaseWaitTimeout") as Timer
+	ok(timeout != null and timeout.one_shot and timeout.wait_time > 0.0,
+		"overlay has a one-shot self-close timer so StoreKit can never block play forever")
+	if timeout != null:
+		await process_frame
+		timeout.stop()
+		timeout.start(0.01)
+		await create_timer(0.05).timeout
+		await process_frame
+		ok(not is_instance_valid(wait), "self-close timer frees a stuck wait overlay")
+
+	if is_instance_valid(wait):
+		PurchaseWait.close(wait)
 	await process_frame
 	ok(not is_instance_valid(wait), "close frees the overlay")
 

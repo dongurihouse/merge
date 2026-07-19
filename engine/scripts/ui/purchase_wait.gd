@@ -12,6 +12,7 @@ const STRAW := Game.PALETTE.STRAW
 const OVERLAY_NAME := "PurchaseWaitOverlay"
 const SPINNER_FRAMES := [".", "..", "..."]
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const WAIT_TIMEOUT_SECS := 12.0
 
 static func show(host: Control, title: String, message: String) -> Control:
 	if host == null:
@@ -50,6 +51,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	spinner.add_theme_color_override("font_color", STRAW)
 	col.add_child(spinner)
 	_start_spinner(spinner, overlay)
+	_start_timeout(overlay)
 
 	var body := Label.new()
 	body.name = "PurchaseWaitMessage"
@@ -92,4 +94,14 @@ static func _start_spinner(label: Label, overlay: Control) -> void:
 		var frame := (int(label.get_meta("spinner_frame", 0)) + 1) % SPINNER_FRAMES.size()
 		label.set_meta("spinner_frame", frame)
 		label.text = SPINNER_FRAMES[frame])
+	overlay.add_child(timer)
+
+static func _start_timeout(overlay: Control) -> void:
+	var timer := Timer.new()
+	timer.name = "PurchaseWaitTimeout"
+	timer.wait_time = WAIT_TIMEOUT_SECS
+	timer.one_shot = true
+	timer.autostart = true
+	timer.timeout.connect(func() -> void:
+		close(overlay))
 	overlay.add_child(timer)

@@ -354,12 +354,17 @@ func _test_residents_dialog() -> void:
 	var source = ov.find_child("OnHandCard_02", true, false)
 	ok(target != null and source != null, "the merge test has a source and a target card")
 	if target != null and source != null:
-		var payload: Dictionary = source._get_drag_data(Vector2.ZERO)
-		ok(payload is Dictionary and bool(payload.get("residents_drag", false)), "a hand card yields drag data")
-		ok(bool(target._can_drop_data(Vector2.ZERO, payload)), "its twin accepts the drop")
-		ok(not bool(ov.find_child("OnHandCard_01", true, false)._can_drop_data(Vector2.ZERO, payload)),
-			"a different line refuses the drop")
-		target._drop_data(Vector2.ZERO, payload)
+		# the manual-drag state machine: a press + a move past the slop arms the drag (the real
+		# geometry hit-test is exercised through the renderer by residents_dialog_shot.gd)
+		source._press(Vector2.ZERO)
+		source._move(Vector2(40.0, 0.0))
+		ok(bool(source._dragging), "a press + move past the slop starts a hand drag")
+		source._release(Vector2(40.0, 0.0))         # empty space: drag ends, nothing happens
+		ok(not bool(source._dragging) and Bucket.hand().size() == 3, "a drop on nothing is a no-op")
+		ok(bool(target.can_take.call(source.data, target.data)), "its twin accepts the drop")
+		ok(not bool(ov.find_child("OnHandCard_01", true, false).can_take.call(source.data,
+			ov.find_child("OnHandCard_01", true, false).data)), "a different line refuses the drop")
+		target.on_take.call(source.data, target.data)
 		await create_timer(0.1).timeout
 		var h := Bucket.hand()
 		ok(h.size() == 2 and String(h[0].line) == "water" and int(h[0].tier) == 2,
@@ -380,7 +385,8 @@ func _test_residents_dialog() -> void:
 	ok(free != null and mover != null, "the place test has a free cell and a hand card")
 	if free != null and mover != null:
 		var placed_before := Bucket.placed().size()
-		free._drop_data(Vector2.ZERO, mover._get_drag_data(Vector2.ZERO))
+		ok(bool(free.can_take.call(mover.data, free.data)), "a free cell accepts any hand spirit")
+		free.on_take.call(mover.data, free.data)
 		await create_timer(0.1).timeout
 		ok(Bucket.placed().size() == placed_before + 1, "dropping on a free cell places the spirit")
 	host.queue_free()

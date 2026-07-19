@@ -344,6 +344,12 @@ func _has_script_path(node: Node, script_path: String) -> bool:
 			return true
 	return false
 
+func _class_count(node: Node, klass: String) -> int:
+	var total := 1 if node.is_class(klass) else 0
+	for c in node.get_children():
+		total += _class_count(c, klass)
+	return total
+
 func _id_of(view: Control, key: String) -> int:
 	var n = view._sections.get(key)
 	return n.get_instance_id() if n != null else 0
@@ -379,6 +385,8 @@ func _initialize() -> void:
 	root.add_child(view)
 	await process_frame
 	await process_frame   # _ready -> _build -> _rebuild_gallery populates _sections
+
+	ok(_class_count(root, "AudioStreamPlayer") == 0, "Rush FX workbench preview does not spawn sound players")
 
 	var sidebar := _sidebar_panel(view)
 	ok(sidebar != null and is_equal_approx(sidebar.custom_minimum_size.x, 348.0) \
@@ -793,7 +801,10 @@ func _initialize() -> void:
 		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
 		and String(live_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
 		"live HUD applies the Workbench amount box and Meadow plus-art location settings")
-	var live_plus_limit := (live_pill_button as Control).get_global_rect().size.y * 0.42
+	# The guard catches the plus TextureRect escaping to its native texture size (a min-size cache clamp
+	# renders it several times the pill). It is not a tuning limit — the workbench `plus_button` slider is
+	# hand-tuned (96% → 44% of pill height), so the ceiling sits above that, well under a runaway.
+	var live_plus_limit := (live_pill_button as Control).get_global_rect().size.y * 0.46
 	ok(live_plus_art != null and live_plus_art.expand_mode == TextureRect.EXPAND_IGNORE_SIZE \
 		and live_plus_art.get_global_rect().size.x <= live_plus_limit, \
 		"live wallet constrains the plus texture to a small in-pill token (%.1f <= %.1f)" \
@@ -1106,7 +1117,9 @@ func _test_info_reuses_mail(view) -> void:
 	var mail_foot := Kit.mail_dialog(Kit.DEMO_MAIL, 480.0, {"got_it": "Got it"})
 	var foot := _find_button(mail_foot, "Got it")
 	ok(foot != null, "mail_dialog adds a Got-it footer button when opts.got_it is set")
-	ok(_btn_tex(foot) == cta_tex, "the mail Got-it footer reuses the level cta_button sprite")
+	var foot_paper := foot.find_child("ButtonPaperSurface", true, false) as TextureRect if foot != null else null
+	ok(foot_paper != null and foot_paper.texture == cta_paper.texture, \
+		"the mail Got-it footer reuses the cta_button atom (same paper)")
 
 	# 3. mail_card — an info-style entry carries a read-only `chip` (icon + amount) and NO Claim button; a
 	#    reward entry still shows its Claim (the existing inbox path is unchanged).
@@ -2591,13 +2604,13 @@ func _test_bag_components() -> void:
 	side_view.queue_free()
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
-	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("*", "CenterContainer", true, false))
-	var costN := (Kit.slot_cell({"state": "locked", "cost": 5}, co_y).find_children("*", "CenterContainer", true, false))
+	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("SlotCellCostCluster", "VBoxContainer", true, false))
+	var costN := (Kit.slot_cell({"state": "locked", "cost": 5}, co_y).find_children("SlotCellCostCluster", "VBoxContainer", true, false))
 	ok(not cost0.is_empty() and not costN.is_empty(), "a cell with a cost has a cost cluster")
 	ok(is_equal_approx((costN[0] as Control).offset_top - (cost0[0] as Control).offset_top, 24.0), "cost_y shifts the cost cluster down by the given pixels")
 	# cost_x nudges it horizontally — a positive value shifts the cluster RIGHT by that many px
 	var co_x := co.duplicate(); co_x["cost_x"] = 18.0
-	var costX := (Kit.slot_cell({"state": "locked", "cost": 5}, co_x).find_children("*", "CenterContainer", true, false))
+	var costX := (Kit.slot_cell({"state": "locked", "cost": 5}, co_x).find_children("SlotCellCostCluster", "VBoxContainer", true, false))
 	ok(is_equal_approx((costX[0] as Control).offset_left - (cost0[0] as Control).offset_left, 18.0), "cost_x shifts the cost cluster right by the given pixels")
 	# cost_scale shrinks the WHOLE cost pill (font + padding) so it FITS the card. It must shrink the real
 	# FOOTPRINT (a smaller font_size + smaller min size), NOT lean on Control.scale — a CenterContainer
