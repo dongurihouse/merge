@@ -19,6 +19,7 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const SIDEBAR_W := 340.0
 const REF_STRIP_W := 76.0           # the far-left mock ICON strip (one thumbnail per reference)
 const REF_PAD := 14.0               # reference pane inner padding
+const SCENE_STRIP_W := 76.0         # the far-right SCENE icon strip (one thumbnail per bundle)
 const HIT_MAX_W := 192              # alpha hit-test images downsample to this width (memory)
 const INK := Color("#2B2B33")
 const PAPER := Color("#F4EDE1")
@@ -91,6 +92,7 @@ func _ready() -> void:
 	_stage.add_child(_overlay)
 	_build_sidebar()
 	_build_ref_panel()
+	_build_scene_strip()
 	_rebuild_stage()
 	if get_viewport() != null:                         # null under the suites' manual-_ready convention
 		get_viewport().size_changed.connect(_layout)
@@ -113,15 +115,22 @@ func _layout() -> void:
 	var vp := get_viewport_rect().size
 	var canvas := M.canvas_size(doc)
 	var ref_w := _ref_pane_w(vp)
-	var avail := Vector2(vp.x - SIDEBAR_W - ref_w, vp.y)   # stage sits between references and sidebar
+	var avail := Vector2(vp.x - SIDEBAR_W - SCENE_STRIP_W - ref_w, vp.y)   # stage sits between references and sidebar
 	var s := maxf(minf(avail.x / canvas.x, avail.y / canvas.y), 0.02)   # never zero/negative (tiny or headless viewports)
 	_stage.position = Vector2(ref_w + (avail.x - canvas.x * s) * 0.5, (vp.y - canvas.y * s) * 0.5)
 	_stage.size = canvas * s
 	_layers.scale = Vector2(s, s)
 	_overlay.scale = Vector2(s, s)
 	if _sidebar_panel != null:
-		_sidebar_panel.position = Vector2(vp.x - SIDEBAR_W, 0)
+		_sidebar_panel.position = Vector2(vp.x - SCENE_STRIP_W - SIDEBAR_W, 0)
 		_sidebar_panel.size = Vector2(SIDEBAR_W, vp.y)
+	if _scene_strip_panel != null:
+		_scene_strip_panel.position = Vector2(vp.x - SCENE_STRIP_W, 0)
+		_scene_strip_panel.size = Vector2(SCENE_STRIP_W, vp.y)
+		var strip: Control = _scene_strip_panel.get_node_or_null("SceneStrip")
+		if strip != null:
+			strip.position = Vector2(REF_PAD, 36.0)
+			strip.size = Vector2(SCENE_STRIP_W - REF_PAD, vp.y - 44.0)
 	if _ref_panel != null:
 		_ref_panel.position = Vector2.ZERO
 		_ref_panel.size = Vector2(ref_w, vp.y)
@@ -626,27 +635,6 @@ func _build_sidebar() -> void:
 	col.add_theme_constant_override("separation", 8)
 	scroll.add_child(col)
 
-	# the SCENE list — one thumbnail+name per openable bundle, stacked vertically so every
-	# scene stays visible however many there are; picking one switches in place
-	var scenes := M.scenes_in(_scenes_root)
-	var srow := VBoxContainer.new()
-	srow.name = "SceneIcons"
-	srow.add_theme_constant_override("separation", 4)
-	for i in scenes.size():
-		var sc := String(scenes[i])
-		var b := Button.new()
-		b.name = "SceneIcon_" + sc
-		b.focus_mode = Control.FOCUS_NONE
-		b.text = sc
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.icon = _scene_icon(sc)
-		b.add_theme_constant_override("icon_max_width", 54)
-		b.modulate = Color(1, 1, 1, 1.0 if sc == scene_name else 0.5)
-		b.pressed.connect(func() -> void:
-			if sc != scene_name:
-				_switch_scene.call_deferred(sc))       # deferred — the row lives in the sidebar being rebuilt
-		srow.add_child(b)
-	col.add_child(srow)
 	col.add_child(_label(scene_name, FS.TINY, true))
 
 	_save_btn = Button.new()
@@ -662,6 +650,42 @@ func _build_sidebar() -> void:
 	_cluster_box.add_theme_constant_override("separation", 2)
 	col.add_child(_cluster_box)
 	_refresh_status()
+
+# --- the far-RIGHT scene column: one icon per openable bundle, mirroring the mock strip ------------
+
+var _scene_strip_panel: Panel = null
+
+func _build_scene_strip() -> void:
+	_scene_strip_panel = Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PAPER
+	_scene_strip_panel.add_theme_stylebox_override("panel", sb)
+	add_child(_scene_strip_panel)
+	var head := _label("Scenes", FS.TINY, true)
+	head.position = Vector2(REF_PAD, 8)
+	_scene_strip_panel.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.name = "SceneStrip"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scene_strip_panel.add_child(scroll)
+	var strip_col := VBoxContainer.new()
+	strip_col.name = "SceneIcons"
+	strip_col.add_theme_constant_override("separation", 6)
+	scroll.add_child(strip_col)
+	var scenes := M.scenes_in(_scenes_root)
+	for i in scenes.size():
+		var sc := String(scenes[i])
+		var b := Button.new()
+		b.name = "SceneIcon_" + sc
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = sc
+		b.icon = _scene_icon(sc)
+		b.add_theme_constant_override("icon_max_width", int(SCENE_STRIP_W - REF_PAD - 14.0))
+		b.modulate = Color(1, 1, 1, 1.0 if sc == scene_name else 0.55)
+		b.pressed.connect(func() -> void:
+			if sc != scene_name:
+				_switch_scene.call_deferred(sc))       # deferred — the strip is rebuilt by the switch
+		strip_col.add_child(b)
 
 ## Switch the workbench to another scene bundle in place. ⌘S is the ONLY writer: unsaved edits
 ## are DISCARDED on a switch — never silently committed to disk (2026-07-19, after an auto-save
@@ -682,8 +706,11 @@ func _switch_scene(scene: String) -> void:
 	if _ref_panel != null:
 		_ref_panel.queue_free()
 	_ref_idx = 0                                       # a new scene starts on its first mock
+	if _scene_strip_panel != null:
+		_scene_strip_panel.queue_free()
 	_build_sidebar()
 	_build_ref_panel()
+	_build_scene_strip()
 	_rebuild_stage()
 	_layout()
 	if DisplayServer.get_name() != "headless":

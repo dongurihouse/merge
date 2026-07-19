@@ -414,9 +414,19 @@ func _initialize() -> void:
 
 	# --- scene switching: ⌘S is the ONLY writer — a switch DISCARDS unsaved edits ------
 	var icon_list := view.find_child("SceneIcons", true, false)
-	ok(icon_list != null, "the sidebar carries the scene icon list")
+	ok(icon_list != null, "the workbench carries the scene icon list")
 	ok(icon_list is VBoxContainer,
 		"the scene list stacks vertically — every scene stays visible however many there are")
+	# structural check (not instance identity — the suite convention can leave two _ready
+	# generations in the tree): SceneIcons sits in the SceneStrip scroll of its own plain
+	# Panel, while the sidebar is a PanelContainer.
+	ok(icon_list.get_parent().name == "SceneStrip" and icon_list.get_parent().get_parent() is Panel,
+		"the scene list lives in its own far-right column, not the sidebar")
+	var icon_only := true
+	for sb_c in icon_list.get_children():
+		if sb_c is Button and (sb_c as Button).text != "":
+			icon_only = false
+	ok(icon_only, "scene buttons are icon-only, matching the mock strip")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
