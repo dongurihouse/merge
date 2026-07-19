@@ -461,14 +461,55 @@ static func scatter_in(nodes: Array, base_delay := 0.0) -> void:
 		tw.tween_interval(base_delay + Tune.SCATTER_STAGGER * i)
 		tw.tween_property(n, "scale", Vector2.ONE, Tune.SCATTER_T).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
+## Wallet amounts ABBREVIATE once they pass four digits: 2105 stays "2105", 12 345 → "12.3K",
+## 2 500 000 → "2.5M" (one decimal, "x.x"). Four digits and under render in full.
+static func format_amount(v: int) -> String:
+	var n := absi(v)
+	var sign := "-" if v < 0 else ""
+	if n < 10000:
+		return sign + str(n)
+	if n < 999950:   # rounds below 1000.0K — stay in K
+		return sign + ("%.1fK" % (float(n) / 1000.0))
+	return sign + ("%.1fM" % (float(n) / 1000000.0))
+
+## A wallet amount label opts into abbreviation + auto-fit by carrying its cell width and
+## design font size as metadata (set when the pill is built). Plain labels (level, rush score)
+## have no such meta and render straight `str(v)`.
+static func _amount_text(label: Label, v: int) -> String:
+	return format_amount(v) if label.has_meta("amount_max_w") else str(v)
+
+## Shrink a wallet amount's font so the text never spills past its cell. Steps down from the
+## label's design font size until the string fits `amount_max_w`; no-ops on labels without the
+## wallet metadata. `probe` overrides the string measured (used mid-tick to size for the widest
+## endpoint before animating). Honours the request that the number always stay inside the pill.
+static func fit_amount(label: Label, probe := "") -> void:
+	if label == null or not label.has_meta("amount_max_w"):
+		return
+	var max_w := float(label.get_meta("amount_max_w"))
+	if max_w <= 0.0:
+		return
+	var font := label.get_theme_font("font")
+	if font == null:
+		return
+	var base := int(label.get_meta("amount_base_font", label.get_theme_font_size("font_size")))
+	var s := probe if probe != "" else label.text
+	var size := base
+	while size > 8 and font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_w:
+		size -= 1
+	label.add_theme_font_size_override("font_size", size)
+
 ## A wallet number counts toward its target and its chip pulses once.
 static func tick(label: Label, to_value: int, dur := Tune.TICK_T_COUNT) -> void:
+	var from := int(label.get_meta("amount_value")) if label.has_meta("amount_value") \
+		else (int(label.text) if label.text.is_valid_int() else 0)
+	label.set_meta("amount_value", to_value)
+	# size the font once for whichever endpoint is the widest string, so the count-up/down never spills.
+	fit_amount(label, _amount_text(label, from) if _amount_text(label, from).length() >= _amount_text(label, to_value).length() else _amount_text(label, to_value))
 	if not Features.on("wallet_tick"):
-		label.text = str(to_value)
+		label.text = _amount_text(label, to_value)
 		return
-	var from := int(label.text) if label.text.is_valid_int() else 0
 	var tw := label.create_tween()
-	tw.tween_method(func(v: float) -> void: label.text = str(int(v)), float(from), float(to_value), dur)
+	tw.tween_method(func(v: float) -> void: label.text = _amount_text(label, int(v)), float(from), float(to_value), dur)
 	var chip: Node = label.get_parent()
 	while chip != null and not chip is PanelContainer:
 		chip = chip.get_parent()
