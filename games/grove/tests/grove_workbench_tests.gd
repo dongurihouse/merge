@@ -194,13 +194,13 @@ func _paper_shadow_style(node: Control) -> StyleBoxFlat:
 	return null
 
 func _is_reference_paper_shadow(style: StyleBoxFlat) -> bool:
-	# THE uniform shadow (skin.gd SHADOW_DEFAULTS): neutral black at 30%, size 5, offset (0,6)
+	# THE uniform shadow (skin.gd SHADOW_DEFAULTS): neutral black at 20%, size 6, offset (0,5)
 	return style != null \
 		and _same_rgb(style.shadow_color, Color(0, 0, 0)) \
-		and absf(style.shadow_color.a - 0.30) <= 0.01 \
-		and style.shadow_offset.is_equal_approx(Vector2(0, 6)) \
-		and style.shadow_size == 5 \
-		and absf(style.get_expand_margin(SIDE_BOTTOM) - (-1.0)) <= 0.01
+		and absf(style.shadow_color.a - 0.20) <= 0.01 \
+		and style.shadow_offset.is_equal_approx(Vector2(0, 5)) \
+		and style.shadow_size == 6 \
+		and absf(style.get_expand_margin(SIDE_BOTTOM) - (-2.0)) <= 0.01
 
 func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
 	var found := node.find_children(pattern, klass, true, false)
@@ -1553,7 +1553,7 @@ func _test_warm_shadow_port() -> void:
 	var p := Look.shadow_params({})
 	for sh in [Look.shadow_rect(40.0, p), Look.shadow_circle(140.0, p)]:
 		var st := (sh as Panel).get_theme_stylebox("panel") as StyleBoxFlat
-		ok(st != null and _same_rgb(st.shadow_color, Color(0, 0, 0)) and st.shadow_size == 5, \
+		ok(st != null and _same_rgb(st.shadow_color, Color(0, 0, 0)) and st.shadow_size == 6, \
 			"the shared shadow uses the neutral reference shadow tint")
 
 	# every component casts THE uniform shadow — per-component overrides are retired.
@@ -1562,7 +1562,7 @@ func _test_warm_shadow_port() -> void:
 	for pan in board.find_children("*", "Panel", true, false):
 		var sb := (pan as Panel).get_theme_stylebox("panel") as StyleBoxFlat
 		if sb != null and sb.shadow_size > 0:
-			board_meadow_shadow = _same_rgb(sb.shadow_color, Color(0, 0, 0)) and absf(sb.shadow_color.a - 0.30) <= 0.01
+			board_meadow_shadow = _same_rgb(sb.shadow_color, Color(0, 0, 0)) and absf(sb.shadow_color.a - 0.20) <= 0.01
 			break
 	ok(board_meadow_shadow, "the board frame casts the normalized Meadow structural-slate shadow")
 
@@ -1573,7 +1573,7 @@ func _test_warm_shadow_port() -> void:
 	var home := Kit.home_button({"icon": "settings"}, home_opts)
 	var home_shadow := home.get_child(0) as Panel if home.get_child_count() > 0 and home.get_child(0) is Panel else null
 	var home_style := home_shadow.get_theme_stylebox("panel") as StyleBoxFlat if home_shadow != null else null
-	ok(home_style != null and _same_rgb(home_style.shadow_color, Color(0, 0, 0)) and absf(home_style.shadow_color.a - 0.30) <= 0.01,
+	ok(home_style != null and _same_rgb(home_style.shadow_color, Color(0, 0, 0)) and absf(home_style.shadow_color.a - 0.20) <= 0.01,
 		"live home/navigation shells cast THE uniform shadow from the shared block")
 	home.free()
 
@@ -1601,12 +1601,12 @@ func _test_warm_shadow_port() -> void:
 
 	var wallet_cfg := {"gold_currency_pill": {"shadow": true, "shadow_alpha": 72.0}}
 	var wallet_opts := Kit.gold_currency_pill_opts_from_config(wallet_cfg)
-	ok(absf(float(wallet_opts.shadow_params.alpha) - 0.30) <= 0.01,
+	ok(absf(float(wallet_opts.shadow_params.alpha) - 0.20) <= 0.01,
 		"wallet shadow resolver ignores saved overrides — THE uniform shadow only")
 	var wallet := Kit.gold_currency_pill(wallet_opts)
 	var wallet_shadow := wallet.get_child(0) as Panel if wallet.get_child_count() > 0 and wallet.get_child(0) is Panel else null
 	var wallet_style := wallet_shadow.get_theme_stylebox("panel") as StyleBoxFlat if wallet_shadow != null else null
-	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color(0, 0, 0)) and absf(wallet_style.shadow_color.a - 0.30) <= 0.01,
+	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color(0, 0, 0)) and absf(wallet_style.shadow_color.a - 0.20) <= 0.01,
 		"live wallet shell resolves to the uniform slate shadow")
 	var wallet_plus := wallet.find_child("GoldCurrencyPlusButton", true, false) as Control
 	var wallet_plus_art := wallet.find_child("GoldCurrencyPlusArt", true, false) as TextureRect
@@ -2206,7 +2206,7 @@ func _test_quest_card_config(view) -> void:
 		var sb = (p as Panel).get_theme_stylebox("panel")
 		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 \
 			and _same_rgb((sb as StyleBoxFlat).shadow_color, Color(0, 0, 0)) \
-			and absf((sb as StyleBoxFlat).shadow_color.a - 0.30) <= 0.01:
+			and absf((sb as StyleBoxFlat).shadow_color.a - 0.20) <= 0.01:
 			slate_shadow = true
 	ok(slate_shadow, "card Shadow toggle ON casts the Meadow structural-slate shadow behind the card")
 		# the new Meadow card has no large transparent legacy art margin, so the shadow is not inset by the

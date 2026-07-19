@@ -608,7 +608,7 @@ func _test_rush_intro_hint() -> void:
 	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
 	var replay_style := replay.get_theme_stylebox("normal") as StyleBoxFlat if replay != null else null
 	ok(replay_style != null and replay_style.shadow_color.is_equal_approx(Color(0, 0, 0, replay_style.shadow_color.a)) \
-		and absf(replay_style.shadow_color.a - 0.30) <= 0.01, \
+		and absf(replay_style.shadow_color.a - 0.20) <= 0.01, \
 		"the live Rush info button casts THE uniform neutral shadow")
 	var replay_glyph := replay.find_child("RushInfoGlyph", true, false) as Label if replay != null else null
 	# the info button + the caption both centre on the BAR — the button geometrically, the caption via its

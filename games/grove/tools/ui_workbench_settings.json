@@ -434,11 +434,11 @@
     "shadow": true
   },
   "shadow": {
-    "alpha": 30.0,
-    "blur": 5.0,
+    "alpha": 20.0,
+    "blur": 6.0,
     "offset_x": 0.0,
-    "offset_y": 6.0,
-    "spread": -1.0
+    "offset_y": 5.0,
+    "spread": -2.0
   },
   "shop": {
     "cell_h": 150.0,
