@@ -43,7 +43,7 @@ static func build_all(cfg: Dictionary) -> Array:
 ## The icon ids come from HomeChrome (the SAME constant map.gd's chrome builders read), so this list can't
 ## drift from what the home actually renders. The back button carries its arrow via icon_rel; the Play CTA
 ## (board/vine on the orange play_disc) + the calendar/chest rail icons all polish a sprite live on a cold
-## boot unless baked. (grove_vine_tests._test_boot_does_zero_live_work backstops any remaining drift.)
+## boot unless baked.
 static func _chrome(cfg: Dictionary) -> Array:
 	var opts := Kit.home_button_opts_from_config(cfg)
 	var out: Array = []

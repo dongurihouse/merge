@@ -685,7 +685,7 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 ## present, so the runtime pays only a plain texture load. A missing bake silently degrades to the
 ## live polish below — correct, just slower on first open.
 static var _clean_cache: Dictionary = {}
-# Boot perf guard (see grove_vine_tests._test_boot_does_zero_live_work): every "path@cap" that hit the
+# Boot perf guard: every "path@cap" that hit the
 # LIVE defringe/feather fallback below — i.e. a bakeable sprite that was NOT pre-baked. On a shipped boot
 # this must stay empty; an entry means a new asset polishes live on cold boot (run `make bake-textures`).
 static var _live_polish_log: Array = []
