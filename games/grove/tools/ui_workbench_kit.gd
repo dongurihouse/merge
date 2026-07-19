@@ -2230,6 +2230,26 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 			env.position = Vector2(ribbon_x + banner_w * 0.14 - icon_px / 2.0, band_h / 2.0 - icon_px / 2.0)
 	return header
 
+## The SIMPLE dialog header (dialog mock set v2): the uppercased title in plain chunky ink, centered
+## in the top band of the sheet — no ribbon art, no icon. Named DialogBanner so the workbench and the
+## frame tests keep finding the header by the established handle.
+static func _title_header(text: String, font: int, band_h: float, width: float) -> Control:
+	var header := Control.new()
+	header.name = "DialogBanner"
+	header.custom_minimum_size = Vector2(width, band_h)
+	var lbl := Label.new()
+	lbl.name = "DialogTitle"
+	lbl.text = text.to_upper()
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", font)
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(lbl)
+	return header
+
 ## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
 ## close_art overrides the sprite so another dialog (tiers) can dock its own ✕ disc.
 static func _close_button(size: float, cb: Callable, close_art: String = "kit/mail_close.png") -> Button:
@@ -2288,51 +2308,37 @@ const FRAME_BORDERS := {
 static func frame_border(name: String) -> Dictionary:
 	return FRAME_BORDERS.get(name, FRAME_BORDERS["parchment"])
 
-## The SHARED dialog frame — built ONCE and reused by every dialog (mail, daily, …). It draws the
-## parchment card, the gold banner overlay (on top, draggable), the docked ✕, and the clipping scroll
-## with a top spacer so `content` tucks behind the banner; one relayout caps the height, centres the
-## wrap, and docks the ✕. `content` is whatever scrolls inside (mail → a column of cards; daily → a
-## grid). The named DialogBanner / DialogBannerIcon / DialogClose let the workbench drag the handles.
+## The SHARED dialog frame — built ONCE and reused by every dialog (mail, daily, …). Dialog mock set v2
+## (2026-07-18): the frame is now the SIMPLE warm-cream sheet — one flat rounded card with a shallow
+## tinted shadow, the uppercased title in plain ink centered at the top, and the coral ✕ docked INSIDE
+## the top-right corner. The parchment nine-patch borders and the gold banner ribbon are retired; the
+## banner_art / banner_icon / border opts are accepted but ignored so existing callers keep working.
+## One relayout caps the height, centres the wrap, and docks the ✕. `content` is whatever scrolls
+## inside. The named DialogBanner / DialogClose let the workbench drag the handles.
 static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionary = {}) -> Control:
 	var banner_font: int = int(opts.get("banner_font", FS.SUBHEADING))
 	var banner_h: float = float(opts.get("banner_h", BANNER_H))
-	var banner_icon: float = float(opts.get("banner_icon", 54.0))
-	var banner_icon_on: bool = bool(opts.get("banner_icon_on", true))
-	var banner_icon_pos = opts.get("banner_icon_pos", null)
 	var close_size: float = float(opts.get("close_size", 64.0))
+	# close_poke is reinterpreted as the ✕'s INSET from the card's top-right corner (mock v2 docks the
+	# disc inside the sheet, not poking past it) — the workbench's saved close_x/close_y keep meaning.
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
-	var card_corner: float = float(opts.get("card_corner", 22.0))
-	var card_art: bool = bool(opts.get("card_art", true))
+	close_poke = Vector2(maxf(8.0, close_poke.x), maxf(8.0, close_poke.y))
+	var card_corner: float = float(opts.get("card_corner", 28.0))
 	var min_h_override: float = float(opts.get("min_h", -1.0))   # explicit px height floor; <0 → use DIALOG_MIN_H_FRAC of the screen height (resolved once mounted)
-	# the BORDER option supplies panel_art / slice / pad DEFAULTS; explicit opts still override (so
-	# mail/daily/shop/settings — which pass no border — stay byte-identical on parchment).
+	# the retired BORDER registry still supplies the content-pad DEFAULTS (so every caller's inset is
+	# unchanged); its art/slice fields are ignored — the sheet is code-drawn now.
 	var border: Dictionary = frame_border(String(opts.get("border", "parchment")))
-	var sl_l: float = float(opts.get("card_slice_l", border["slice"]))
-	var sl_t: float = float(opts.get("card_slice_t", border["slice"]))
-	var sl_r: float = float(opts.get("card_slice_r", border["slice"]))
-	var sl_b: float = float(opts.get("card_slice_b", border["slice"]))
-	var hstr: int = int(opts.get("card_h_stretch", 0))
-	var vstr: int = int(opts.get("card_v_stretch", 0))
-	var banner_pos = opts.get("banner_pos", Vector2.ZERO)
-	var banner_text_x: float = float(opts.get("banner_text_x", 0.0))
-	var banner_text_y: float = float(opts.get("banner_text_y", 0.0))
-	var banner_text_pad_l: float = float(opts.get("banner_text_pad_l", -1.0))   # title↔left-tail room (−1 = auto)
-	var banner_text_pad_r: float = float(opts.get("banner_text_pad_r", -1.0))   # title↔right-tail room (−1 = auto)
-	var banner_min_w: float = float(opts.get("banner_min_w", 0.0))              # ribbon floor in px (dialogs pass 25% of the screen)
-	var banner_burn: float = float(opts.get("banner_burn", 0.0))
+	# saved workbench offsets were tuned for the OLD overhanging ribbon/✕ — the v2 sheet keeps its
+	# title and close INSIDE the card, so negative offsets are floored instead of clipping above it.
+	var banner_pos: Vector2 = opts.get("banner_pos", Vector2.ZERO)
+	banner_pos.y = maxf(0.0, banner_pos.y)
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
 	var center_content: bool = bool(opts.get("center_content", false))   # stretch a sparse content block to fill the floored body so it centers (empty mail note)
 	var on_close: Callable = opts.get("on_close", Callable())
 	var banner_text: String = String(opts.get("banner_text", "Mail"))
-	# the frame's CHROME ART — defaults are the parchment border + mail ribbon + mail ✕ (mail/daily/shop
-	# pass nothing). A different dialog (e.g. tiers/discovery) overrides these to swap in its own border,
-	# banner ribbon and close disc, while reusing all the SAME frame mechanics (banner overlay, scroll, ✕).
-	var panel_art: String = String(opts.get("panel_art", border["art"]))
-	var panel_pad_x: float = float(opts.get("panel_pad_x", border["pad_x"]))   # content inset from the border (L/R)
-	var panel_pad_y: float = float(opts.get("panel_pad_y", border["pad_y"]))   # content inset from the border (T/B)
-	var banner_art: String = String(opts.get("banner_art", "meadow_v2/title_banner.png"))
-	var banner_icon_id: String = String(opts.get("banner_icon_id", "mail"))
+	var panel_pad_x: float = float(opts.get("panel_pad_x", border["pad_x"]))   # content inset from the sheet edge (L/R)
+	var panel_pad_y: float = float(opts.get("panel_pad_y", border["pad_y"]))   # content inset from the sheet edge (T/B)
 	var close_art: String = String(opts.get("close_art", "kit/mail_close.png"))
 	# CRISP CHROME, SCALED CONTENT: `width` is the dialog's AUTHORED (design) width; the chrome
 	# (card border, banner, ✕) is built at the real on-screen TARGET width = design × content_scale,
@@ -2344,25 +2350,17 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var wrap := Control.new()
 	var card := PanelContainer.new()
 	card.name = "MeadowDialogPanel"
-	# parchment NINE-PATCH (tunable slice) when card art is on, else CODE-DRAWN with a configurable corner.
-	var pp := Look.kit(panel_art)
-	if card_art and ResourceLoader.exists(pp):
-		var st := StyleBoxTexture.new()
-		st.texture = load(pp)
-		st.set_texture_margin(SIDE_LEFT, sl_l); st.set_texture_margin(SIDE_TOP, sl_t)
-		st.set_texture_margin(SIDE_RIGHT, sl_r); st.set_texture_margin(SIDE_BOTTOM, sl_b)
-		st.axis_stretch_horizontal = hstr; st.axis_stretch_vertical = vstr
-		st.content_margin_left = panel_pad_x; st.content_margin_right = panel_pad_x
-		st.content_margin_top = panel_pad_y; st.content_margin_bottom = panel_pad_y
-		card.add_theme_stylebox_override("panel", st)
-	else:
-		var cf := StyleBoxFlat.new()
-		cf.bg_color = Pal.CREAM; cf.border_color = Pal.BARK
-		cf.set_corner_radius_all(int(card_corner)); cf.set_border_width_all(3)
-		cf.content_margin_left = 18; cf.content_margin_right = 18
-		cf.content_margin_top = 18; cf.content_margin_bottom = 18
-		card.add_theme_stylebox_override("panel", cf)
-	var pad_y_eff: float = panel_pad_y if (card_art and ResourceLoader.exists(pp)) else 18.0   # the panel's top+bottom content inset (for the centered-fill math)
+	# the SIMPLE SHEET (mock set v2): one flat warm-cream rounded card with a shallow tinted shadow.
+	var cf := StyleBoxFlat.new()
+	cf.bg_color = Pal.CREAM
+	cf.set_corner_radius_all(int(card_corner))
+	cf.shadow_color = Color(Pal.INK, 0.18)
+	cf.shadow_size = 12
+	cf.shadow_offset = Vector2(0, 6)
+	cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
+	cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
+	card.add_theme_stylebox_override("panel", cf)
+	var pad_y_eff: float = panel_pad_y   # the panel's top+bottom content inset (for the centered-fill math)
 	card.custom_minimum_size = Vector2(target_w, maxf(0.0, min_h_override))   # width = the global target; height floor finalised in relayout (needs the viewport for the %)
 	card.position = Vector2.ZERO
 	wrap.custom_minimum_size.x = target_w      # robust horizontal centring even before relayout runs
@@ -2400,8 +2398,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		rows.add_child(scaler)
 	scroll.add_child(rows)
 
-	# the banner overlays the TOP (added after the scroll → drawn on top), draggable
-	var header := _banner(banner_text, banner_font, banner_h, target_w, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id, banner_text_pad_l, banner_text_pad_r, banner_min_w)
+	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable
+	var header := _title_header(banner_text, banner_font, banner_h, target_w)
 	header.position = banner_pos
 	inner.add_child(header)
 
@@ -2435,7 +2433,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 					content.custom_minimum_size.y = fill_inner
 		inner.custom_minimum_size.y = (minf(rows.size.y, banner_h + list_max_h) if list_max_h > 0.0 else rows.size.y)
 		wrap.custom_minimum_size = card.size
-		close.position = Vector2(card.size.x - close_size + close_poke.x, -close_poke.y)
+		close.position = Vector2(card.size.x - close_size - close_poke.x, close_poke.y)   # docked INSIDE the corner (mock v2)
 	rows.resized.connect(relayout)
 	rows.ready.connect(relayout)
 	card.resized.connect(relayout)
@@ -2973,6 +2971,9 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 	var h: float = float(opts.get("height", 20.0))     # the DISPLAY height the bar shrinks to fit
 	var f: float = clampf(frac, 0.0, 1.0)
 	var use_art: bool = bool(opts.get("art", true))
+	# fill_color re-hues the fill (a resource bank's line colour): art mode tints the honey capsule,
+	# the code-drawn fallback paints it directly. Absent → the classic honey/straw fill.
+	var fill_color: Color = opts.get("fill_color", Color(0, 0, 0, 0))
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -3005,6 +3006,8 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		fill.texture = fill_tex
 		fill.patch_margin_left = f_margin; fill.patch_margin_right = f_margin
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if fill_color.a > 0.0:
+			fill.self_modulate = fill_color
 		fill_clip.add_child(fill)
 		var lay_art := func() -> void:
 			if not (is_instance_valid(holder) and is_instance_valid(stage)):
@@ -3041,7 +3044,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		holder.add_child(fill_clip)
 		var fill := Panel.new()
 		var fsb := StyleBoxFlat.new()
-		fsb.bg_color = Pal.STRAW
+		fsb.bg_color = fill_color if fill_color.a > 0.0 else Pal.STRAW
 		fsb.set_corner_radius_all(int(h * 0.5))
 		fill.add_theme_stylebox_override("panel", fsb)
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3703,6 +3706,7 @@ const DIALOG_DESIGN_PCT := {
 	"dialog": 75.0, "daily": 75.0, "bag": 75.0,
 	"shop": 85.0, "tiers": 85.0, "vault": 80.0,
 	"settings": 50.0, "level": 50.0, "info": 58.0,
+	"residents": 85.0,
 }
 
 ## The ONE global dialog width, as a % of the screen — read from the shared frame config
