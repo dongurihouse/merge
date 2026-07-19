@@ -4167,9 +4167,14 @@ static func focus_ring_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"halo": bool(f.get("halo", true)),
 	}
 
+# The quest-ready glow's SHAPE is fixed: the rounded-fill corner radius and the halo spill, as fractions
+# of the cell. They were tunable knobs; the shipped values never moved off these, so they are constants
+# now and only COLOUR + opacity stay tunable (see ready_glow_opts_from_config).
+const READY_GLOW_CORNER_FRAC := 0.22
+const READY_GLOW_HALO_FRAC := 0.16
+
 ## The QUEST-READY glow (a board tile a live quest wants) tuning from the workbench. Colour is a 6-digit
-## hex string (no '#'); fill_a/halo_a are whole-percent opacities; corner_pct/halo_pct are the rounded-fill
-## corner radius and the halo spill as percents of the cell. Flows to the live board via board.gd
+## hex string (no '#'); fill_a/halo_a are whole-percent opacities. Flows to the live board via board.gd
 ## _ready_glow_opts → PieceView.add_ready_glow. An absent section returns the shipped READY_GLOW look.
 static func ready_glow_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var r: Dictionary = cfg.get("ready_glow", {}) if cfg is Dictionary else {}
@@ -4177,8 +4182,8 @@ static func ready_glow_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"color": _hex_color(String(r.get("color", "FFB12E"))),
 		"fill_a": clampf(float(r.get("fill_a", 55.0)) / 100.0, 0.0, 1.0),
 		"halo_a": clampf(float(r.get("halo_a", 60.0)) / 100.0, 0.0, 1.0),
-		"corner_frac": clampf(float(r.get("corner_pct", 22.0)) / 100.0, 0.0, 0.50),
-		"halo_frac": clampf(float(r.get("halo_pct", 16.0)) / 100.0, 0.0, 0.50),
+		"corner_frac": READY_GLOW_CORNER_FRAC,
+		"halo_frac": READY_GLOW_HALO_FRAC,
 	}
 
 ## Parse a 6-digit hex string (with or without a leading '#') into a Color; falls back to white.

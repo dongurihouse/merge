@@ -2,7 +2,7 @@
 extends "res://games/grove/tools/workbench_view.gd"
 ## FX Workbench — every motion/juice component in one gallery.
 ##
-## `make fx-workbench` opens this. Left column: the six FEEL VERBS — the four board verbs (land · merge ·
+## `make fx` opens this. Left column: the six FEEL VERBS — the four board verbs (land · merge ·
 ## launch · move), the grab highlight, and the Expedition's screen juice. Right column: the shared reward
 ## FLIGHT (Coin Flow). CLICK an element to select it; the sidebar then holds that element's toggles,
 ## knobs, and a ▶ trigger to feel it. Every saved knob is read by the GAME (`{Land,Merge,…}Fx.from_config`,
@@ -11,13 +11,14 @@ extends "res://games/grove/tools/workbench_view.gd"
 ##
 ## The gallery/sidebar/persistence framework is the shared base (workbench_view.gd).
 
-const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the demo stages
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces + generators for the demo stages
 
-const IDS := ["rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx", "fx"]
+const IDS := ["rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx", "generator", "ready_glow", "fx"]
 # LEFT column: the feel verbs, one per row. RIGHT column: the reward flight (a tall preview of its own).
 const COLUMNS := [
 	[["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["grab_fx"], ["rush_fx"]],
-	[["fx"]],
+	# the board-tile glows: the generator highlight and the quest-ready glow, then the reward flight.
+	[["generator"], ["ready_glow"], ["fx"]],
 ]
 const TEST_KEYS := {
 	"rush_fx": [],          # every key is a saved toggle (no preview-only state)
@@ -30,6 +31,12 @@ const TEST_KEYS := {
 	"move_fx": ["kind"],
 	"grab_fx": [],   # every toggle + knob is saved (read by GrabFx.from_config)
 	"fx": [],        # the reward flight round-trips through FX.reward_fx_* (see _save_extras), not this block
+	# the GENERATOR highlight sandbox: glow / outline / sparkle persist (they flow to the live board via
+	# Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
+	"generator": ["preview", "cell"],
+	# the READY GLOW (quest-wanted board tile): colour + opacity persist (they flow to the live board via
+	# Kit.ready_glow_opts_from_config); `cell` is the preview size only. Its SHAPE is fixed in the kit.
+	"ready_glow": ["cell"],
 }
 const CAPTIONS := {
 	"fx": "Coin Flow — reward arrivals in board, map, and home context",
@@ -38,6 +45,8 @@ const CAPTIONS := {
 	"merge_fx": "Merge feel — two tiles fuse: squash · flash · hitstop · burst · shake · sound · ripple · punch. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"launch_fx": "Launch feel — a generator emits a tile: recoil · muzzle puff · toss sound. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"move_fx": "Move feel — a tile travels (slide · arc · fall): cast shadow · motion trail · motion lean. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"generator": "Generator highlight — the glow · outline · sparkle a live generator wears on the board",
+	"ready_glow": "Ready glow — the amber glow a board tile wears when a live quest wants it",
 	"grab_fx": "Grab feel — a tile is picked up: soft glow halo · white silhouette outline · light haptic tap. Toggle + tune, ▶ to feel it, save (the game honours it).",
 }
 
@@ -707,6 +716,12 @@ func _default_params() -> Dictionary:
 		# move_fx ALSO carries the preview-only KIND selector (slide/arc/fall) — excluded from save via TEST_KEYS.
 		"move_fx": _move_fx_defaults(),
 		"grab_fx": GrabFx.defaults(),
+		"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A",
+			"outline_w": 26, "outline_a": 70, "outline_blur": 18, "outline_color": "FFE7A8",
+			"sparkle_count": 3, "sparkle_size": 100, "sparkle_speed": 60, "sparkle_color": "FFF4C2",
+			"preview": "seed_satchel", "cell": 170},
+		# the quest-ready glow: COLOUR + opacity only — the corner radius and halo spill are kit constants.
+		"ready_glow": {"color": "FFB12E", "fill_a": 55, "halo_a": 60, "cell": 150},
 		# the reward flight has no params of its own here — FX owns its config (see _save_extras).
 		"fx": {},
 	}
@@ -726,6 +741,7 @@ func _shared_bar_opts() -> Dictionary:
 
 ## Build the live element for an id from its current params.
 func _make_element(id: String) -> Control:
+	var p: Dictionary = _params[id]
 	match id:
 		"fx":
 			var fx := FxWorkbenchView.new()
@@ -785,11 +801,59 @@ func _make_element(id: String) -> Control:
 			return _move_fx_preview()
 		"grab_fx":
 			return _grab_fx_preview()
+		"generator":
+			# the live board generator (engine make_generator) with its highlight tuned by the knobs, through
+			# the SAME Kit transform the board reads — so the preview is 1:1 with the game.
+			var ghl := Kit.gen_highlight_opts_from_config({"generator": p})
+			var gcell := float(p.get("cell", 170))
+			var gwrap := CenterContainer.new()
+			gwrap.custom_minimum_size = Vector2(gcell + 90, gcell + 90)
+			gwrap.add_child(PieceView.make_generator(String(p.get("preview", "seed_satchel")), gcell, ghl))
+			return gwrap
+		"ready_glow":
+			# a sample board item wearing the quest-ready glow, tuned through the SAME Kit transform the board
+			# reads — so the preview matches the live wanted-tile look 1:1 (the glow seats BEHIND the sprite).
+			var rgo := Kit.ready_glow_opts_from_config({"ready_glow": p})
+			var rgcell := float(p.get("cell", 150))
+			var rgwrap := CenterContainer.new()
+			rgwrap.custom_minimum_size = Vector2(rgcell + 90, rgcell + 90)
+			var rgpiece := PieceView.make_piece(104, rgcell)
+			PieceView.add_ready_glow(rgpiece, rgcell, rgo)
+			rgwrap.add_child(rgpiece)
+			return rgwrap
 		_:
 			return Control.new()
 
 func _element_sidebar(_id: String) -> void:
 	match _selected:
+		"generator":
+			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.gen_highlight_opts_from_config)
+			_section_header("Glow halo")
+			_sidebar_body.add_child(_slider_row(["glow_scale", 60, 160]))    # halo size, % of cell
+			_sidebar_body.add_child(_slider_row(["glow_a", 0, 80]))          # halo opacity %
+			_sidebar_body.add_child(_color_row("Glow", "glow_color"))        # halo tint
+			_section_header("Outline (traces the art)")
+			_sidebar_body.add_child(_slider_row(["outline_w", 0, 90]))       # rim thickness (per-mille of cell)
+			_sidebar_body.add_child(_slider_row(["outline_a", 0, 100]))      # rim opacity %
+			_sidebar_body.add_child(_slider_row(["outline_blur", 0, 60]))    # rim feather (per-mille of cell)
+			_sidebar_body.add_child(_color_row("Outline", "outline_color")) # rim tint
+			_section_header("Sparkle")
+			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
+			_sidebar_body.add_child(_slider_row(["sparkle_size", 50, 250]))  # twinkle size, % of default
+			_sidebar_body.add_child(_slider_row(["sparkle_speed", 0, 150]))  # twinkle speed (/100 cyc/s)
+			_sidebar_body.add_child(_color_row("Sparkle", "sparkle_color"))  # twinkle tint
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "tool_shed", "bee_skep", "mushroom_ring"]))
+			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
+		"ready_glow":
+			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.ready_glow_opts_from_config)
+			_section_header("Colour")
+			_sidebar_body.add_child(_color_row("Glow", "color"))            # the amber glow tint (fill + halo)
+			_sidebar_body.add_child(_slider_row(["fill_a", 0, 100]))        # rounded cell-fill opacity %
+			_sidebar_body.add_child(_slider_row(["halo_a", 0, 100]))        # soft halo (spill past the cell) opacity %
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
+
 		"fx":
 			_fx_sidebar()
 		"rush_fx":

@@ -163,7 +163,6 @@
 		"outline_blur": 54.0,
 		"outline_color": "c97648",
 		"outline_w": 29.0,
-		"shadow": false,
 		"sparkle_color": "FFF4C2",
 		"sparkle_count": 7.0,
 		"sparkle_size": 250.0,
@@ -315,8 +314,7 @@
 		"num_burn": 99.0,
 		"num_size": 32.0,
 		"num_x": 0.0,
-		"num_y": 5.0,
-		"shadow": true
+		"num_y": 5.0
 	},
 	"map_card": {
 		"card_h_frac": 19.0,
@@ -348,7 +346,6 @@
 		"reward_shelf_h_frac": 33.0,
 		"reward_shelf_w_frac": 100.0,
 		"reward_shelf_y_frac": 7.0,
-		"shadow": true,
 		"title_font": 15.0,
 		"title_h": 40.0,
 		"title_pad_x": 24.0,
@@ -424,11 +421,8 @@
 	},
 	"ready_glow": {
 		"color": "FFB12E",
-		"corner_pct": 22.0,
 		"fill_a": 55.0,
-		"halo_a": 60.0,
-		"halo_pct": 16.0,
-		"shadow": false
+		"halo_a": 60.0
 	},
 	"rush_bar": {
 		"burn": 55.0,

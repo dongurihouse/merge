@@ -13,6 +13,7 @@ const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 
 const FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
@@ -159,6 +160,8 @@ func _initialize() -> void:
 	_test_rush_fx_knobs()
 	_test_feel_fx()
 	_test_shared_settings_merge()
+	_test_generator_highlight_controls()
+	_test_ready_glow_controls()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
@@ -339,3 +342,98 @@ func _test_feel_fx() -> void:
 	view._grab_fx_play()
 	ok(true, "all five feel-verb play functions fire without error")
 	view.queue_free()
+
+# The bag-screen kit pieces: the single-acorn currency pill, the bag-cell card in each state, and the
+# bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same
+# transform the game reads), asserting structure — pixels are a screenshot job, not here.
+## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
+## live scale/frame/gap knobs plus preview-only `cell`/`cols`/`rows`. Piece size comes from Slot-cell
+## content_frac, the same source the live board uses.
+# The READY GLOW (quest-wanted board tile highlight) workbench section: colour + fill/halo opacity +
+# live-tunable here and flowing to the LIVE board via Kit.ready_glow_opts_from_config.
+func _test_ready_glow_controls() -> void:
+	var view: Control = _fx_view()
+	var opts: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": {
+		"color": "77CCFF", "fill_a": 40, "halo_a": 90,
+	}})
+	var color_v = opts.get("color", null)
+	ok(color_v is Color and (color_v as Color).is_equal_approx(Color("#77CCFF")) \
+		and is_equal_approx(float(opts.fill_a), 0.40) and is_equal_approx(float(opts.halo_a), 0.90), \
+		"ready glow reads colour + fill/halo opacity from workbench config")
+	ok(is_equal_approx(float(opts.corner_frac), Kit.READY_GLOW_CORNER_FRAC) \
+		and is_equal_approx(float(opts.halo_frac), Kit.READY_GLOW_HALO_FRAC), \
+		"ready glow SHAPE is fixed in the kit — corner roundness + halo spill are no longer tunable")
+	var shape_ignored: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": {"corner_pct": 5, "halo_pct": 45}})
+	ok(is_equal_approx(float(shape_ignored.corner_frac), Kit.READY_GLOW_CORNER_FRAC) \
+		and is_equal_approx(float(shape_ignored.halo_frac), Kit.READY_GLOW_HALO_FRAC), \
+		"a stale saved corner_pct/halo_pct cannot move the shipped glow shape")
+	# an absent section still yields the shipped look (the kit defaults map 1:1 to piece_view's READY_GLOW)
+	var def: Dictionary = Kit.ready_glow_opts_from_config({})
+	ok(def.color is Color and (def.color as Color).is_equal_approx(Color("#FFB12E")) \
+		and is_equal_approx(float(def.fill_a), 0.55) and is_equal_approx(float(def.halo_a), 0.60), \
+		"ready glow with no config returns the shipped amber defaults")
+	# registered as a gallery element; the look knobs are saved config, the preview cell size is not
+	ok(Gallery.IDS.has("ready_glow") and view._sections.has("ready_glow"), "the ready glow is a registered workbench element")
+	ok(view._is_config("ready_glow", "fill_a") and view._is_config("ready_glow", "color") \
+		and not view._is_config("ready_glow", "cell"), "ready glow look knobs are saved config; preview cell is not")
+	# the sidebar exposes a colour picker; a colour edit flows through the SAME kit transform the board reads
+	view._selected = "ready_glow"
+	view._rebuild_sidebar()
+	ok(view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 1, \
+		"the ready glow sidebar exposes a colour picker")
+	view._params["ready_glow"]["color"] = "FF8800"
+	view._apply_edit()
+	var rg_opts: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": view._params["ready_glow"]})
+	ok(rg_opts.color.is_equal_approx(Color("#FF8800")), "a workbench ready-glow colour edit flows through the kit transform the board reads")
+	ok(view._make_element("ready_glow") != null, "the ready glow preview element builds")
+
+func _test_generator_highlight_controls() -> void:
+	var view: Control = _fx_view()
+	var opts: Dictionary = Kit.gen_highlight_opts_from_config({"generator": {
+		"glow_scale": 122, "glow_a": 80, "glow_color": "77CCFF",
+		"outline_w": 35, "outline_a": 85,
+		"sparkle_count": 7, "sparkle_speed": 150,
+		"sparkle_size": 180, "sparkle_color": "FF66CC",
+	}})
+	var glow_color_v = opts.get("glow_color", null)
+	var sparkle_color_v = opts.get("sparkle_color", null)
+	ok(is_equal_approx(float(opts.glow_scale), 1.22) \
+		and glow_color_v is Color and (glow_color_v as Color).is_equal_approx(Color("#77CCFF")) \
+		and is_equal_approx(float(opts.glow_a), 0.80), \
+		"generator highlight reads glow halo scale, alpha, and color from workbench config")
+	ok(opts.has("sparkle_size") and is_equal_approx(float(opts.get("sparkle_size", 0.0)), 1.80) \
+		and sparkle_color_v is Color and (sparkle_color_v as Color).is_equal_approx(Color("#FF66CC")) \
+		and int(opts.sparkle_count) == 7, \
+		"generator highlight reads sparkle count, size, speed, and color from workbench config")
+	ok((view._params["generator"] as Dictionary).has("sparkle_size") \
+		and (view._params["generator"] as Dictionary).has("sparkle_color") \
+		and (view._params["generator"] as Dictionary).has("glow_color") \
+		and view._is_config("generator", "sparkle_size") \
+		and view._is_config("generator", "sparkle_color") \
+		and view._is_config("generator", "glow_color"), \
+		"generator glow and sparkle color/size controls are saved config")
+	view._selected = "generator"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Sparkle Size") >= 250.0 \
+		and view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 2, \
+		"generator sidebar exposes sparkle size plus glow/sparkle color pickers")
+
+
+## A live FX-workbench instance for the element tests (built + in-tree, so _sections is populated).
+func _fx_view() -> Control:
+	var v: Control = Gallery.new()
+	get_root().add_child(v)
+	if v.get_child_count() == 0:
+		v._ready()
+	return v
+
+func _slider_max(view, label: String) -> float:
+	for row in view._sidebar_body.get_children():
+		if not (row is HBoxContainer):
+			continue
+		var lbl := (row as HBoxContainer).get_child(0) as Label
+		if lbl != null and lbl.text == label:
+			for c in (row as HBoxContainer).get_children():
+				if c is HSlider:
+					return (c as HSlider).max_value
+	return -1.0
