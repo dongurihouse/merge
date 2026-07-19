@@ -11,6 +11,7 @@ extends RefCounted
 ## Home.state_id / Home.next_step; a test passes stubs.
 
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")
+const Coverings = preload("res://engine/scripts/ui/scene_coverings.gd")
 
 # Parse a zone manifest JSON into a Dictionary ({} on any parse failure).
 static func load_manifest(path: String) -> Dictionary:
@@ -20,9 +21,12 @@ static func load_manifest(path: String) -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 # Build the zone into `parent` (cleared first). `state_of` and `next_step_of` are Callables keyed by
-# building id. Returns {stage, base, props, badges} — `stage` is the canvas-sized Control the props
-# sit in (the caller fits/positions it), `props`/`badges` are id→node maps for later state refresh.
-static func build(parent: Control, manifest: Dictionary, state_of: Callable, next_step_of: Callable) -> Dictionary:
+# building id. Returns {stage, base, props, badges, coverings} — `stage` is the canvas-sized Control
+# the props sit in (the caller fits/positions it), `props`/`badges`/`coverings` are id→node maps for
+# later state refresh. `covering_frames` (the scene's themed cover art, scene_coverings.gd) scatters
+# a seeded cover over every still-locked ("empty") plot; empty list → no coverings.
+static func build(parent: Control, manifest: Dictionary, state_of: Callable, next_step_of: Callable,
+		covering_frames: Array = []) -> Dictionary:
 	for c in parent.get_children():
 		c.queue_free()
 	var canvas: Dictionary = manifest.get("canvas", {})
@@ -45,6 +49,7 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 
 	var props := {}
 	var badges := {}
+	var coverings := {}
 	# Painter order is sort_y (ties: manifest order) realized as CHILD ORDER at z 0 — never as
 	# z_index. Raw sort_y used to be stamped into z_index, and the tall page canvases pushed it
 	# past every chrome band (HUD side 30 / wallet 40, nav, even the 2048 modal layer), so the
@@ -103,11 +108,19 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 			badge.position = anchor - badge.size * 0.5
 			pending_badges.append(badge)
 			badges[id] = badge
+		# a fully LOCKED plot (nothing bought yet) hides under its scene-themed covering scatter,
+		# mounted at the plot's own painter slot; buying the first step reveal()s it away.
+		if state == "empty" and not step.is_empty():
+			var cover := Coverings.scatter(b, covering_frames)
+			if cover != null:
+				stage.add_child(cover)
+				coverings[id] = cover
 	# the badges are BUTTONS — mounted after every prop so no scenery ever paints over them.
 	for badge_node in pending_badges:
 		stage.add_child(badge_node)
 
-	return {"stage": stage, "base": base, "props": props, "badges": badges, "canvas": native}
+	return {"stage": stage, "base": base, "props": props, "badges": badges,
+		"coverings": coverings, "canvas": native}
 
 # The art path for a building's current state: its states map, falling back to "built" then "".
 static func _state_texture(b: Dictionary, state: String) -> String:

@@ -51,6 +51,7 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
 const HomeBuild = preload("res://engine/scripts/core/home.gd")   # the build-and-upgrade adapter (the map surface)
 const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
+const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
 const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/home/zone_farmhouse.json"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
@@ -404,7 +405,9 @@ func _build_map(animate := true) -> void:
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(holder)
-	var built := HomeZoneView.build(holder, manifest, Callable(self, "_home_state_id"), Callable(self, "_home_next_step"))
+	var built := HomeZoneView.build(holder, manifest, Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
+		G.MAPS[_map_idx].get("covering_frames", []))
+	_zone_coverings = built.coverings   # id → covering group, revealed away on the plot's first buy
 	# fit the native canvas into the cover-filled map rect (uniform scale keeps the cut-paper aspect).
 	var stage: Control = built.stage
 	var native: Vector2 = built.canvas
@@ -457,6 +460,7 @@ func _add_page_arrows() -> void:
 # PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
 # (assets/map/pages/zone_<id>.json); the farmhouse manifest is the legacy fallback.
 var _home_manifest_cache: Dictionary = {}   # path -> parsed manifest
+var _zone_coverings: Dictionary = {}        # building id -> its locked-plot covering group (this page)
 func _home_manifest() -> Dictionary:
 	var path := String(G.MAPS[_map_idx].get("zone_manifest", HOME_ZONE_MANIFEST))
 	if not _home_manifest_cache.has(path):
@@ -1876,6 +1880,7 @@ func _on_build_tap(building_id: String, node: Control, at: Vector2) -> void:
 	var step := HomeBuild.next_step(building_id)
 	if step.is_empty():
 		return                                # already built — inert (customization opens elsewhere)
+	var was_covered := HomeBuild.state_id(building_id) == "empty"   # first buy clears the covering
 	var out := HomeBuild.buy_step(building_id)
 	if not bool(out.ok):
 		Audio.play("invalid_soft", -4.0)
@@ -1893,6 +1898,11 @@ func _on_build_tap(building_id: String, node: Control, at: Vector2) -> void:
 		if Features.on("big_moment_shake"):
 			FX.shake(self)
 		Audio.play("level_complete", -2.0)
+	if was_covered:
+		# the plot's covering pops out; reparented to the scene first so the rebuild below
+		# (which frees the whole zone stage) can't cut the animation short.
+		SceneCoverings.reveal(_zone_coverings.get(building_id), self)
+		_zone_coverings.erase(building_id)
 	_persist()
 	_build_map(false)                     # rebuild the plot in place (the prop advances a state)
 	_refresh_play_cta()

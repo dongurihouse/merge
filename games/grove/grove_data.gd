@@ -427,6 +427,7 @@ static func _build_maps() -> Array:
 	# the frontier gate arrives with that same task.
 	{"id": "fairy_hollow", "name": "Fairy Hollow", "hub": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow.json",
+		"covering_frames": _covering_frames("hollow_grass"),
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
 		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379)},
@@ -437,15 +438,27 @@ static func _build_maps() -> Array:
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182)},
 	]},
 	{"id": "snowy_village", "name": "Snowy Village", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_snowy_village.json", "spots": []},
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_snowy_village.json",
+		"covering_frames": _covering_frames("winter_ice"), "spots": []},
 	{"id": "desert_oasis", "name": "Desert Oasis", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_desert_oasis.json", "spots": []},
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_desert_oasis.json",
+		"covering_frames": _covering_frames("desert_palm"), "spots": []},
 	{"id": "coral_reef", "name": "Coral Reef", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_coral_reef.json", "spots": []},
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_coral_reef.json",
+		"covering_frames": _covering_frames("coral_shells"), "spots": []},
 	{"id": "cherry_blossom_garden", "name": "Cherry-Blossom Garden", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_cherry_blossom_garden.json", "spots": []},
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_cherry_blossom_garden.json",
+		"covering_frames": _covering_frames("cherry_petals"), "spots": []},
 	]
 	return maps
+
+# The scene's five locked-plot covering sprites (assets/map/coverings, scene_coverings_v1 intake):
+# scene-themed variants scattered over every still-locked plot (ui/scene_coverings.gd).
+static func _covering_frames(prefix: String) -> Array:
+	var out: Array = []
+	for i in range(1, 6):
+		out.append("res://games/grove/assets/map/coverings/%s_%02d.png" % [prefix, i])
+	return out
 
 # (The vine-mask overlay `_apply_vine_maps` was retired with the discrete-map / mask-reveal model —
 # the home build-and-upgrade redesign renders the layered cut-paper zone instead, spec 2026-07-17.)

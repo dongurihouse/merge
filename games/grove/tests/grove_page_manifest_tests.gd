@@ -41,6 +41,12 @@ func _initialize() -> void:
 		ok(missing == 0, "page '%s': every prop texture imports (%d props)" % [id, props.size()])
 		ok(z == 0 or bool(G.MAPS[z].get("open", false)),
 			"page '%s' is browsable (interim `open` until the frontier gate lands)" % id)
+		# every page names its five scene-themed locked-plot covering sprites (scene_coverings.gd)
+		var frames: Array = G.MAPS[z].get("covering_frames", [])
+		var frames_ok := frames.size() == 5
+		for f in frames:
+			frames_ok = frames_ok and ResourceLoader.exists(String(f))
+		ok(frames_ok, "page '%s': five covering frames all import" % id)
 		ok(G.resident_lines(z).size() == 1, "page '%s' carries its resident line" % id)
 	# the hub page still carries the interim build surface (farmhouse items + spots)
 	var hub_m := HomeZoneView.load_manifest(String(G.MAPS[0].zone_manifest))
