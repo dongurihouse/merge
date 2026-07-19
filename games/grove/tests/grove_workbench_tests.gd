@@ -801,7 +801,10 @@ func _initialize() -> void:
 		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
 		and String(live_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
 		"live HUD applies the Workbench amount box and Meadow plus-art location settings")
-	var live_plus_limit := (live_pill_button as Control).get_global_rect().size.y * 0.42
+	# The guard catches the plus TextureRect escaping to its native texture size (a min-size cache clamp
+	# renders it several times the pill). It is not a tuning limit — the workbench `plus_button` slider is
+	# hand-tuned (96% → 44% of pill height), so the ceiling sits above that, well under a runaway.
+	var live_plus_limit := (live_pill_button as Control).get_global_rect().size.y * 0.46
 	ok(live_plus_art != null and live_plus_art.expand_mode == TextureRect.EXPAND_IGNORE_SIZE \
 		and live_plus_art.get_global_rect().size.x <= live_plus_limit, \
 		"live wallet constrains the plus texture to a small in-pill token (%.1f <= %.1f)" \
