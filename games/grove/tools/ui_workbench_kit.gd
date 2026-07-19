@@ -4906,23 +4906,34 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# WHOLE pill (incl. padding) to fit inside a card — scaled about its centre so it stays put.
 	var cost := int(d.get("cost", 0))
 	if cost > 0 and lockedwell:
-		var cwrap := CenterContainer.new()
-		cwrap.anchor_left = 0.0; cwrap.anchor_right = 1.0
-		cwrap.anchor_top = 1.0; cwrap.anchor_bottom = 1.0
-		cwrap.offset_left = cost_x; cwrap.offset_right = cost_x
-		cwrap.offset_top = -float(cost_font) - ch * 0.12 + cost_y
-		cwrap.offset_bottom = -ch * 0.06 + cost_y
-		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# cost_scale shrinks the WHOLE pill — font, icon, padding AND corner — so the CenterContainer lays it
-		# out at the smaller size natively. (Control.scale would be wiped: a Container resets a managed child's
-		# scale/pivot in fit_child_in_rect, so the shrink never stuck.)
+		# cost_scale shrinks/grows the WHOLE pill — font, icon, padding AND corner — so the CenterContainer
+		# lays it out at that size natively. (Control.scale would be wiped: a Container resets a managed
+		# child's scale/pivot in fit_child_in_rect, so the shrink never stuck.)
 		var cbo := (opts.get("btn", {}) as Dictionary).duplicate()
 		cbo["bg"] = "green"; cbo["icon"] = "gem"; cbo["static"] = true
 		cbo["font"] = maxi(1, int(round(float(cost_font) * cost_scale)))
 		cbo["icon_size"] = maxi(1, int(round(cost_icon * cost_scale)))
 		cbo["pad_scale"] = cost_scale
 		cbo["corner"] = float(cbo.get("corner", 16.0)) * cost_scale
-		cwrap.add_child(pill_button(str(cost), cbo))
+		var chip := pill_button(str(cost), cbo)
+		# The chip is DOCKED to the cell's lower edge from its own measured height, rather than centred
+		# in a band derived from cost_font: past ~80% cost_scale the pill is taller than such a band and
+		# a CenterContainer centres the overflow, spilling it below the cell. Measuring only works once
+		# the chip is IN TREE (an out-of-tree Button has no theme, so its minimum size is meaningless) —
+		# hence the ready/resized hook. cost_x / cost_y stay pure nudges at any scale.
+		var cwrap := Control.new()
+		cwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cwrap.add_child(chip)
+		var dock := func() -> void:
+			if not is_instance_valid(chip):
+				return
+			var want := chip.get_combined_minimum_size()
+			if not chip.size.is_equal_approx(want):
+				chip.size = want
+			chip.position = Vector2((cw - want.x) * 0.5 + cost_x, ch - want.y - ch * 0.06 + cost_y)
+		chip.ready.connect(dock)
+		chip.resized.connect(dock)
 		tile.add_child(cwrap)
 
 	# the level badge (board) — the SAME HUD level medal, carrying THIS cell's level, docked lower-right.
