@@ -98,14 +98,10 @@ smoke: ## scene smoke test (instantiates the UI + board)
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
 
-bake: bake-textures bake-vine   ## pre-bake every runtime art cache: kit texture polish + vine region maps
+bake: bake-textures   ## pre-bake every runtime art cache: kit texture polish
 
 bake-textures: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_textures.gd
-	$(GODOT) --headless --path $(PROJECT) --import
-
-bake-vine: ## pre-bake the warped vine region-index maps (auto-discovered from every vine map) so the first home render skips the ~1.1s raster
-	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_vine_region_maps.gd
 	$(GODOT) --headless --path $(PROJECT) --import
 
 intake: ## apply intake plans in assets/_new/ (agent authors plan.json first): make intake [PLAN=path]
