@@ -83,10 +83,15 @@ static func _rounded_paper_layer(node_name: String, file_name: String, size_px: 
 	var paper := TextureRect.new()
 	paper.name = node_name
 	paper.texture = _meadow_tex(file_name)
-	paper.position = Vector2.ONE * inset
-	paper.size = Vector2(maxf(1.0, size_px.x - inset * 2.0), maxf(1.0, size_px.y - inset * 2.0))
+	# ORDER MATTERS: expand_mode before size, and position last. Touching position (or size) first
+	# caches the texture's native px (256) as the Control's minimum size; the expand_mode change only
+	# invalidates that cache DEFERRED, so a same-frame `size` set still clamps up to 256 — the paper
+	# then overflows the ~122px cell face and the corner mask + tile clip cut it flat (the "clipped
+	# cell" bug).
 	paper.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	paper.stretch_mode = TextureRect.STRETCH_SCALE
+	paper.size = Vector2(maxf(1.0, size_px.x - inset * 2.0), maxf(1.0, size_px.y - inset * 2.0))
+	paper.position = Vector2.ONE * inset
 	paper.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _paper_mask_shader == null:
