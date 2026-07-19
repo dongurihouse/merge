@@ -111,6 +111,7 @@ var _hand_scroll_max := 0.0      # 0 when the hand fits its column; else grid_h 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
 var _residents_btn: Button = null  # side-rail Expedition badge; visible on maps ready for the acquisition loop
+var _residents_dlg_btn: Button = null  # side-rail Residents tile → the Residents management dialog (ui/residents.gd)
 var _daily_btn: Button = null
 var _vault_btn: Button = null
 var _inbox_btn: Button = null
@@ -2033,6 +2034,10 @@ func _refresh_residents_btn() -> void:
 		var HC: GDScript = load(HOME_CHROME_PATH)
 		if HC != null:
 			_residents_btn.set_meta("icon_id", HC.ICON_EXPEDITION)
+	if _residents_dlg_btn != null and is_instance_valid(_residents_dlg_btn):
+		# the management dialog earns its rail slot once the bucket EXISTS — a granted cell or a
+		# first spirit in hand — matching the rail's progressive disclosure (Expedition's gate).
+		_residents_dlg_btn.visible = Bucket.cells_total() > 0 or not Bucket.hand().is_empty()
 	_layout_liveops_rail()
 
 func _layout_liveops_rail() -> void:
@@ -2044,10 +2049,10 @@ func _layout_liveops_rail() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn) and _residents_btn.visible:
 		_place_rail(_residents_btn, _rail_top_px, slot, _rail_step_px)
 		slot += 1
-	var ordered := [_daily_btn, _vault_btn, _inbox_btn]
+	var ordered := [_residents_dlg_btn, _daily_btn, _vault_btn, _inbox_btn]
 	for node in ordered:
 		var b := node as Button
-		if b == null or not is_instance_valid(b):
+		if b == null or not is_instance_valid(b) or not b.visible:
 			continue
 		_place_rail(b, _rail_top_px, slot, _rail_step_px)
 		slot += 1
@@ -2448,6 +2453,9 @@ func _build_liveops_rail() -> void:
 	# The bottom-nav Map button now opens the MAPS gallery, so this rail tile is the dock's entry.
 	_residents_btn = _rail_button(HC.ICON_EXPEDITION, "Expedition", func() -> void:
 		_open_select())
+	# Residents — the management dialog (resource banks + habitat cells + hand): ui/residents.gd over
+	# the shared v2 frame. The house icon is the declared ICON_RESIDENTS chrome id (home_chrome.gd).
+	_residents_dlg_btn = _rail_button(HC.ICON_RESIDENTS, "Residents", _open_residents)
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	_daily_btn = _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_daily_badge = Look.badge("dot", 0, bopts)
@@ -2515,6 +2523,17 @@ func _refresh_liveops_badges() -> void:
 
 # Daily rail tap: open the login calendar on demand (the persistent entry the auto-popup lacked).
 # Refreshes the wallet + the day-badge on close (a just-claimed day drops its cue).
+# Residents rail tap: the management dialog (ui/residents.gd — resource banks · habitat cells ·
+# on-hand · sell). Refresh re-reads the wallet (collect/sell credit currencies); info opens the
+# shared resident tier ladder.
+func _open_residents() -> void:
+	load("res://engine/scripts/ui/residents.gd").open(self, {
+		"refresh": func() -> void:
+			_update_hud()
+			_refresh_liveops_badges(),
+		"on_info": func(kind: String, tier: int) -> void:
+			_open_resident_ladder(kind, tier)})
+
 func _open_daily() -> void:
 	Audio.play("button_tap", -2.0)
 	LoginUI.open(self, {"refresh": func() -> void:

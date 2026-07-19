@@ -18,6 +18,7 @@ func _initialize() -> void:
 	await _test_dock_closed_state()
 	await _test_map_tap_over_ambient()
 	await _test_completion_grants_gift_spirit()
+	await _test_residents_dialog()
 	finish()
 
 const Home = preload("res://engine/scripts/core/home.gd")
@@ -289,6 +290,75 @@ func _test_completion_grants_gift_spirit() -> void:
 	ok(Bucket.cells_total() > 0, "the same beat grants the cells that house it")
 	dummy.queue_free()
 	hx.queue_free()
+
+# --- the RESIDENTS management dialog (ui/residents.gd, mock v2): banks · cells · hand · sell -------
+func _test_residents_dialog() -> void:
+	fresh("residents_dialog")
+	_open_spots(0)
+	Bucket.hand_add("boost", 1)
+	Bucket.place(0)
+	Bucket.hand_add("coin", 2)
+	Bucket.hand_add("water", 1)
+	var st := Bucket.state()
+	st["banks"] = {"coin": 3.2}
+	Save.grove_write()
+
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	var UI = load("res://engine/scripts/ui/residents.gd")
+	UI.open(host, {})
+	await create_timer(0.15).timeout
+	var ov := host.get_node_or_null("ResidentsOverlay")
+	ok(ov != null, "the Residents dialog mounts its overlay")
+	if ov == null:
+		host.queue_free()
+		return
+	var title := ov.find_child("DialogTitle", true, false) as Label
+	ok(title != null and title.text == "RESIDENTS", "the dialog wears the v2 title header")
+	for line in Bucket.LINES:
+		ok(ov.find_child("ResourceBankCard_" + String(line), true, false) != null,
+			"the banks grid shows the %s bank card" % line)
+	var boost_state := ov.find_child("ResourceBankState_boost", true, false) as Label
+	ok(boost_state != null and boost_state.text.begins_with("FULL IN"),
+		"a producing line reads its FULL IN timer (got '%s')" % (boost_state.text if boost_state != null else ""))
+	var coin_state := ov.find_child("ResourceBankState_coin", true, false) as Label
+	ok(coin_state != null and coin_state.text == "IDLE",
+		"a stocked line with nothing placed reads IDLE (got '%s')" % (coin_state.text if coin_state != null else ""))
+	var collect := ov.find_child("CollectAllButton", true, false) as Button
+	ok(collect != null and not collect.disabled, "Collect all is live with matured stock")
+	ok(ov.find_child("HabitatCell_00", true, false) != null, "the placed spirit shows in a habitat cell")
+	ok(ov.find_child("HabitatCellLocked_%02d" % (UI.HABITAT_SLOTS_SHOWN - 1), true, false) != null,
+		"ungranted slots read locked")
+	ok(ov.find_child("OnHandGrid", true, false) != null
+		and ov.find_child("OnHandCard_01", true, false) != null, "the hand grid carries the hand spirits")
+	ok(ov.find_child("ResidentsInspectorHint", true, false) != null, "no selection → the inspector hints")
+
+	# collect through the one action: credits whole coins, then goes quiet
+	var coins_before := Save.coins()
+	collect.pressed.emit()
+	await create_timer(0.1).timeout
+	ok(Save.coins() == coins_before + 3, "Collect all credits the matured coins")
+	collect = ov.find_child("CollectAllButton", true, false) as Button
+	ok(collect != null and collect.disabled, "after the collect the button goes quiet")
+
+	# tap a hand card → the inspector arms; Sell pays and frees the slot
+	var card := ov.find_child("OnHandCard_00", true, false) as Button
+	ok(card != null, "a hand card is tappable")
+	if card != null:
+		card.pressed.emit()
+		await create_timer(0.1).timeout
+	var sell := ov.find_child("ResidentsSellButton", true, false) as Button
+	ok(sell != null, "a selected spirit surfaces Sell")
+	var hand_before := Bucket.hand().size()
+	coins_before = Save.coins()
+	if sell != null:
+		sell.pressed.emit()
+		await create_timer(0.1).timeout
+		ok(Bucket.hand().size() == hand_before - 1 and Save.coins() > coins_before,
+			"Sell pays coins and removes the spirit")
+	host.queue_free()
+	await create_timer(0.05).timeout
 
 # --- place-picker drag test helpers -------------------------------------------------
 # A drag through the REAL select input surface: press on `from`, one lift-off motion to `to`, release on `to`.

@@ -2322,12 +2322,16 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# close_poke is reinterpreted as the ✕'s INSET from the card's top-right corner (mock v2 docks the
 	# disc inside the sheet, not poking past it) — the workbench's saved close_x/close_y keep meaning.
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
+	close_poke = Vector2(maxf(8.0, close_poke.x), maxf(8.0, close_poke.y))
 	var card_corner: float = float(opts.get("card_corner", 28.0))
 	var min_h_override: float = float(opts.get("min_h", -1.0))   # explicit px height floor; <0 → use DIALOG_MIN_H_FRAC of the screen height (resolved once mounted)
 	# the retired BORDER registry still supplies the content-pad DEFAULTS (so every caller's inset is
 	# unchanged); its art/slice fields are ignored — the sheet is code-drawn now.
 	var border: Dictionary = frame_border(String(opts.get("border", "parchment")))
-	var banner_pos = opts.get("banner_pos", Vector2.ZERO)
+	# saved workbench offsets were tuned for the OLD overhanging ribbon/✕ — the v2 sheet keeps its
+	# title and close INSIDE the card, so negative offsets are floored instead of clipping above it.
+	var banner_pos: Vector2 = opts.get("banner_pos", Vector2.ZERO)
+	banner_pos.y = maxf(0.0, banner_pos.y)
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
 	var center_content: bool = bool(opts.get("center_content", false))   # stretch a sparse content block to fill the floored body so it centers (empty mail note)
@@ -2967,6 +2971,9 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 	var h: float = float(opts.get("height", 20.0))     # the DISPLAY height the bar shrinks to fit
 	var f: float = clampf(frac, 0.0, 1.0)
 	var use_art: bool = bool(opts.get("art", true))
+	# fill_color re-hues the fill (a resource bank's line colour): art mode tints the honey capsule,
+	# the code-drawn fallback paints it directly. Absent → the classic honey/straw fill.
+	var fill_color: Color = opts.get("fill_color", Color(0, 0, 0, 0))
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -2999,6 +3006,8 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		fill.texture = fill_tex
 		fill.patch_margin_left = f_margin; fill.patch_margin_right = f_margin
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if fill_color.a > 0.0:
+			fill.self_modulate = fill_color
 		fill_clip.add_child(fill)
 		var lay_art := func() -> void:
 			if not (is_instance_valid(holder) and is_instance_valid(stage)):
@@ -3035,7 +3044,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		holder.add_child(fill_clip)
 		var fill := Panel.new()
 		var fsb := StyleBoxFlat.new()
-		fsb.bg_color = Pal.STRAW
+		fsb.bg_color = fill_color if fill_color.a > 0.0 else Pal.STRAW
 		fsb.set_corner_radius_all(int(h * 0.5))
 		fill.add_theme_stylebox_override("panel", fsb)
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
