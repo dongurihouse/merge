@@ -2269,6 +2269,7 @@ static func _title_header(text: String, font: int, band_h: float, width: float) 
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
 	lbl.add_theme_color_override("font_color", Pal.INK)
 	lbl.add_theme_constant_override("outline_size", 0)
@@ -2294,6 +2295,12 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
+	# the coral disc casts the ONE SHARED drop-shadow (the pill look) — circular, slightly inset so
+	# the feather hugs the art's round face (same recipe as the level badge emblem).
+	var sh := _meadow_shadow_circle(size * 0.92, Look.shadow_params(load_config(CONFIG_PATH)))
+	sh.name = "DialogCloseShadow"
+	sh.show_behind_parent = true
+	b.add_child(sh)
 	return b
 
 ## A tidier scrollbar: a rounded bark grabber on a faint track (vs the default chunky bar).
@@ -3765,6 +3772,18 @@ static func plain_font() -> Font:
 	sys.generate_mipmaps = true
 	_plain_cache = sys
 	return _plain_cache
+
+## The BOLD display face — the cozy theme font pushed heavier, for dialog/section TITLES (mock v2
+## bolds every title). Public so ui/ dialogs (loaded by path) share the SAME face. Cached per session.
+static var _bold_cache: Font = null
+static func bold_font() -> Font:
+	if _bold_cache != null:
+		return _bold_cache
+	var fv := FontVariation.new()
+	fv.base_font = load("res://engine/scripts/ui/ui_font.gd")._face()
+	fv.variation_embolden = 0.6
+	_bold_cache = fv
+	return _bold_cache
 
 ## The full mail_dialog STYLE opts from a saved config (card art/slice/stretch, banner, close, list,
 ## card fonts, and the Claim/cost-pill btn opts). Callers add entries_count / on_close / empty_text /
