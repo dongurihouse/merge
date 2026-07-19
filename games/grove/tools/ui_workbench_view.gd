@@ -27,6 +27,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge p
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -921,7 +922,7 @@ func _make_element(id: String) -> Control:
 			var tile_ctr := Vector2(tcx, tiles_y + tpx * 0.5)
 			var btn := Button.new()
 			btn.text = "▶  Replay all"
-			btn.add_theme_font_size_override("font_size", 22)
+			btn.add_theme_font_size_override("font_size", FS.SMALL)
 			btn.custom_minimum_size = Vector2(190.0, 52.0) ; btn.size = btn.custom_minimum_size
 			btn.position = Vector2(tcx - 95.0, tiles_y + tpx + 14.0)
 			btn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
@@ -1329,7 +1330,7 @@ func _feel_hint(text: String, pos: Vector2) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_color_override("font_color", FEEL_INK)
-	l.add_theme_font_size_override("font_size", 17)
+	l.add_theme_font_size_override("font_size", FS.TINY)
 	l.position = pos
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
@@ -1536,7 +1537,7 @@ func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_font_size_override("font_size", FS.MICRO)
 	l.add_theme_color_override("font_color", Pal.INK if color.get_luminance() > 0.45 else Pal.CREAM)
 	l.add_theme_constant_override("outline_size", 0)
 	l.clip_text = true
@@ -1895,7 +1896,7 @@ func _section(id: String) -> Control:
 	var cap := Label.new()
 	# short caption in the gallery (the full description rides the sidebar) so paired sections stay narrow
 	cap.text = ("●  " if id == _selected else "") + String(CAPTIONS[id]).split(" — ")[0]
-	cap.add_theme_font_size_override("font_size", 15)
+	cap.add_theme_font_size_override("font_size", FS.TINY)
 	cap.add_theme_color_override("font_color", Pal.STRAW if id == _selected else Color(Pal.CREAM, 0.8))
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(cap)
@@ -2112,7 +2113,7 @@ func _rebuild_sidebar() -> void:
 		c.queue_free()
 	var head := Label.new()
 	head.text = "Options"
-	head.add_theme_font_size_override("font_size", 26)
+	head.add_theme_font_size_override("font_size", FS.MEDIUM)
 	_sidebar_body.add_child(head)
 	var save := Button.new()
 	save.text = "Save settings"
@@ -2120,21 +2121,21 @@ func _rebuild_sidebar() -> void:
 	_sidebar_body.add_child(save)
 	var sub := Label.new()
 	sub.text = String(CAPTIONS[_selected])
-	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_font_size_override("font_size", FS.MICRO)
 	sub.add_theme_color_override("font_color", Color(Pal.CREAM, 0.65))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sidebar_body.add_child(sub)
 	if _selected == "daily_card":
 		var note := Label.new()
 		note.text = "This single day card is reused by the Daily dialog. (The Claim is the shared Button.) Preview a state below; the badges show on today / milestone."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "toggle_card":
 		var note := Label.new()
 		note.text = "This single setting row is reused by the Settings dialog. (The switch is the shared kit switch.) Label + value below just preview the row."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
@@ -2146,49 +2147,49 @@ func _rebuild_sidebar() -> void:
 		elif _selected == "settings":
 			card_src = " the card is on the Toggle card item;"
 		note.text = "The frame (banner · border · ✕ · scroll · padding) is SHARED — edit it on the Frame item.%s Here: this dialog's content." % card_src
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "card" or _selected == "dialog":
 		var note := Label.new()
 		note.text = "Claim inherits the Button's STYLE (font / corner / art / shadow). Its badge + icon are the Card's own saved choice."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
 		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the code-drawn locked background, with a plain lower-right tier number; marked tiers sparkle. The piece size + well/background look are inherited from the Slot cell item — only the square cell size, tier-number toggle, sparkle, and grid are tuned here. A plain grid — no vines."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
 		note.text = "ONE cell shared by the Bag dialog AND the board: empty / filled use the cream well; locked / unlockable use the code-drawn locked background. Unlockable = the highlight (glow + dynamic sparkle). Add a level badge (board) or an acorn cost (bag) below."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "bag":
 		var note := Label.new()
 		note.text = "Reuses the SHARED frame (banner · border · ✕ — edit on the Frame item) + the REUSED currency pill (the acorn balance — edit on the Currency pill item). The tile is the Bag cell item. Here: the grid + the preview ladder."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "board":
 		var note := Label.new()
 		note.text = "A live preview of the merge board: the frame + the shared Slot cell states (open wells, frontier locks, deep locks) + demo pieces. Edit piece size and cell background on the Slot cell item. SCALE zooms the live board; CELL/COLS/ROWS are preview-only."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
 	if _selected == "fx":
 		var note := Label.new()
 		note.text = "Coin Flow is one shared reward-flight component. Saved settings tune the shared feel and gate which actions use it; test settings only change this preview."
-		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_font_size_override("font_size", FS.DEBUG)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
@@ -2200,7 +2201,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
 		var sn := Label.new()
 		sn.text = "Casts the shared drop shadow — tune its look on the Shadow item."
-		sn.add_theme_font_size_override("font_size", 11)
+		sn.add_theme_font_size_override("font_size", FS.DEBUG)
 		sn.add_theme_color_override("font_color", Color(Pal.STRAW, 0.7))
 		sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(sn)
@@ -2575,7 +2576,7 @@ func _rebuild_sidebar() -> void:
 				rb.name = "RushFxReplay_%s" % fid
 				rb.text = "▶  Replay"
 				rb.set_meta("wb_active", true)
-				rb.add_theme_font_size_override("font_size", 16)
+				rb.add_theme_font_size_override("font_size", FS.TINY)
 				rb.pressed.connect(func() -> void: _rush_fx_play(fid))
 				_sidebar_body.add_child(rb)
 				for spec in RUSH_FX_KNOBS.get(fid, []):
@@ -2780,7 +2781,7 @@ func _group_header(title: String, saved: bool) -> void:
 	_sidebar_body.add_child(HSeparator.new())
 	var l := Label.new()
 	l.text = ("●  " if saved else "○  ") + title
-	l.add_theme_font_size_override("font_size", 20)
+	l.add_theme_font_size_override("font_size", FS.CAPTION)
 	l.add_theme_color_override("font_color", Pal.STRAW if saved else Color(Pal.CREAM, 0.5))
 	_sidebar_body.add_child(l)
 
@@ -2789,7 +2790,7 @@ func _section_header(title: String) -> void:
 	_sidebar_body.add_child(HSeparator.new())
 	var l := Label.new()
 	l.text = title
-	l.add_theme_font_size_override("font_size", 17)
+	l.add_theme_font_size_override("font_size", FS.TINY)
 	l.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(l)
 
@@ -2799,7 +2800,7 @@ func _feel_trigger_button(label: String, play: Callable) -> void:
 	var b := Button.new()
 	b.text = label
 	b.set_meta("wb_active", true)
-	b.add_theme_font_size_override("font_size", 18)
+	b.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	b.pressed.connect(play)
 	_sidebar_body.add_child(b)
 
@@ -2818,7 +2819,7 @@ func _feel_fx_sidebar(effects: Array, knobs: Dictionary) -> void:
 			var t := Label.new()
 			t.text = tip
 			t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			t.add_theme_font_size_override("font_size", 12)
+			t.add_theme_font_size_override("font_size", FS.DEBUG)
 			t.add_theme_color_override("font_color", Color(Pal.CREAM, 0.6))
 			_sidebar_body.add_child(t)
 		_sidebar_body.add_child(_toggle_row("On", fid))
@@ -3021,7 +3022,7 @@ func _fx_sidebar() -> void:
 	var saved := Label.new()
 	saved.name = "WorkbenchFxSavedSettingsHeader"
 	saved.text = "●  Saved to config"
-	saved.add_theme_font_size_override("font_size", 20)
+	saved.add_theme_font_size_override("font_size", FS.CAPTION)
 	saved.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(saved)
 	_section_header("Action gates")
@@ -3044,7 +3045,7 @@ func _fx_sidebar() -> void:
 	var test := Label.new()
 	test.name = "WorkbenchFxTestSettingsHeader"
 	test.text = "○  Test only — not saved"
-	test.add_theme_font_size_override("font_size", 20)
+	test.add_theme_font_size_override("font_size", FS.CAPTION)
 	test.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
 	_sidebar_body.add_child(test)
 	_sidebar_body.add_child(_fx_action_row())

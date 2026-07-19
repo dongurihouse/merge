@@ -8,6 +8,7 @@ extends RefCounted
 
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const INK := Color("#43352B")
 const GOLD := Color("#FFD166")
@@ -88,7 +89,7 @@ static func cell_pop(cell: Control, pct := 100) -> void:
 		FX.squash_pop(cell, maxf(0.0, pct / 100.0))
 
 ## The COMBO callout; `base_size` is the floor, the streak grows it (gold → straw → hot-orange).
-static func combo_heat(host: Control, gpos: Vector2, combo: int, base_size := 24) -> void:
+static func combo_heat(host: Control, gpos: Vector2, combo: int, base_size := FS.BODY) -> void:
 	var col := GOLD if combo < 5 else (STRAW if combo < 8 else HOT)
 	var sz := clampi(base_size + combo * 3, base_size, base_size + 30)
 	FX.floating_text(host, gpos, "COMBO ×%d" % combo, col, sz)

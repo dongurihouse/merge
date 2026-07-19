@@ -5,6 +5,7 @@ extends SceneTree
 ##   make shot TOOL=games/grove/tools/resident_tier_shot ARGS="ember /tmp/resident_ember.png"
 ## args: [line_id=ember] [out_png=/tmp/resident_<line>.png]
 
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
 		print("REFUSED: run via engine/tools/quiet_godot.sh (born-minimized window). See ~/.claude/CLAUDE.md")
@@ -38,7 +39,7 @@ func _initialize() -> void:
 		var p := "res://games/grove/assets/items/resident_%s/resident_%s_%d.png" % [line_id, line_id, t]
 		var tex: Texture2D = load(p) if ResourceLoader.exists(p) else null
 		var spr := _sprite(tex, SPR); spr.position = Vector2(x, y); canvas.add_child(spr)
-		canvas.add_child(_label("t%d" % t, Vector2(MARGIN + col * CELL + 6.0, 56.0 + rowi * CELL + 4.0), 14, Color("#8a8a8a")))
+		canvas.add_child(_label("t%d" % t, Vector2(MARGIN + col * CELL + 6.0, 56.0 + rowi * CELL + 4.0), FS.MICRO, Color("#8a8a8a")))
 
 	var sv := SubViewport.new()
 	sv.size = Vector2i(int(w), int(h))

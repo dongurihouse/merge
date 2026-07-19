@@ -6,6 +6,7 @@ extends SceneTree
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
 func _row(title: String, sh: Dictionary) -> Control:
@@ -13,7 +14,7 @@ func _row(title: String, sh: Dictionary) -> Control:
 	box.add_theme_constant_override("separation", 10)
 	var lab := Label.new()
 	lab.text = title
-	lab.add_theme_font_size_override("font_size", 26)
+	lab.add_theme_font_size_override("font_size", FS.MEDIUM)
 	lab.add_theme_color_override("font_color", Pal.INK)
 	box.add_child(lab)
 	var pair := HBoxContainer.new()

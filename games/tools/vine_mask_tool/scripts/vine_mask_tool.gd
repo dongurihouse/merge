@@ -4,6 +4,7 @@ const RegionEditorOverlay := preload("res://games/tools/vine_mask_tool/scripts/r
 const RegionListPanel := preload("res://games/tools/vine_mask_tool/scripts/region_list_panel.gd")
 const VineMapView := preload("res://games/grove/vine/vine_map_view.gd")
 const VineMaps := preload("res://games/grove/vine/vine_maps.gd")   # shared cost ladder (legacy default)
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const MAPS_PATH := "res://games/tools/vine_mask_tool/maps/maps.json"
 const DEFAULT_MAP_ID := "map1_farm"
 const DEFAULT_STARS := 3            # stars cost a freshly drawn polygon starts at (the cheapest rung)
@@ -342,7 +343,7 @@ func _build_panel() -> void:
 
 	var title := Label.new()
 	title.text = "Vine Region Tuning"
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", FS.TINY)
 	stack.add_child(title)
 
 	_add_region_controls(stack)
@@ -454,7 +455,7 @@ func _add_region_controls(stack: VBoxContainer) -> void:
 
 	save_status_label = Label.new()
 	save_status_label.name = "SaveStatus"
-	save_status_label.add_theme_font_size_override("font_size", 12)
+	save_status_label.add_theme_font_size_override("font_size", FS.DEBUG)
 	save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(save_status_label)
 

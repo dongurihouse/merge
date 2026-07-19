@@ -17,6 +17,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
@@ -81,7 +82,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		var ff := Button.new()
 		ff.text = "⏭ Next day (debug)"
 		ff.focus_mode = Control.FOCUS_NONE
-		ff.add_theme_font_size_override("font_size", 16)
+		ff.add_theme_font_size_override("font_size", FS.TINY)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(Pal.INK, 0.82)
 		sb.set_corner_radius_all(14)

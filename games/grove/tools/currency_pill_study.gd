@@ -6,6 +6,7 @@ extends Control
 ## glyphs, plus token, and flat paper grain are authored Meadow Sky art; the pill geometry,
 ## edge, shadow, fixed layout, and live amounts remain native Godot controls.
 
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const DESIGN_SIZE := Vector2(941, 160)
 const PAPER_ROOT := "res://games/grove/assets/ui/meadow_v2/"
 const PAPER_TEXTURE_PATH := PAPER_ROOT + "texture_cream.png"
@@ -17,7 +18,7 @@ const SHELL_EDGE := Color("#3F6D7D", 0.35)
 const SHELL_RADIUS := 28
 const PAPER_INSET := 2.0
 const PAPER_RADIUS := 26.0
-const AMOUNT_FONT_SIZE := 42
+const AMOUNT_FONT_SIZE := int(FS.BASE * 1.05)  # 42
 
 const PAPER_MASK_SHADER := """
 shader_type canvas_item;

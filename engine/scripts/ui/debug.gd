@@ -22,6 +22,7 @@ const Login = preload("res://engine/scripts/core/login.gd")   # the daily calend
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud       # EDGE_MARGIN — the level badge's top inset
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 # The level-badge BOX height — mirrors Hud.LV_BADGE_PX (NOT preloaded: hud.gd ↔ scene preloads form a cycle).
 # The debug menu sits just below the badge box; keep this in sync if the HUD badge size changes.
 const LV_BADGE_BOX := 225.0
@@ -232,7 +233,7 @@ static func _dbg_readout() -> Control:
 	pc.add_theme_stylebox_override("panel", s)
 	var l := Label.new()
 	l.name = "DbgReadout"
-	l.add_theme_font_size_override("font_size", 18)
+	l.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	l.add_theme_color_override("font_color", Color("#FFF3B8"))
 	pc.add_child(l)
 	return pc
@@ -242,7 +243,7 @@ static func _dbg_button(text: String, bg: Color) -> Button:
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(184, 44)
-	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_font_size_override("font_size", FS.CAPTION)
 	b.add_theme_color_override("font_color", Color.WHITE)
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(bg, 0.92)
