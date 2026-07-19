@@ -525,59 +525,6 @@ static func banner_title(text: String, font_px: int = Tune.TITLE_SIZE, band_h: f
 	header.add_child(lbl)
 	return header
 
-## A circular chrome button with the sticker recipe — light inner rim + RAISED shadow +
-## a fully-circular radius + a centred icon. Prefers the kit's btn_round.png nine-patch
-## (no flat chrome then — the art carries it); falls back to a code-built INK disc.
-## opts: { "px": float (diameter), "icon_px": float, "bg": Color, "tap": Callable }.
-## A LATER wave adopts this in map.gd's chrome — it is NOT wired there yet (per task).
-static func round_button(icon_id: String, cb: Callable, opts: Dictionary = {}) -> Button:
-	var px: float = float(opts.get("px", Tune.ROUND_BTN_PX))
-	var icon_px: float = float(opts.get("icon_px", Tune.ROUND_BTN_ICON_PX))
-	var tap: Callable = opts.get("tap", Callable())
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, px)
-	var p := kit("shared/btn_round.png")
-	if ResourceLoader.exists(p):
-		var st := StyleBoxTexture.new()
-		st.texture = load(p)
-		st.set_texture_margin_all(Tune.KIT_TEX_MARGIN / 4.0)   # 512 source vs ~76px button
-		b.add_theme_stylebox_override("normal", st)
-		b.add_theme_stylebox_override("hover", st)
-		b.add_theme_stylebox_override("pressed", st)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = opts.get("bg", Tune.ROUND_BTN_BG)
-		s.set_corner_radius_all(int(px / 2.0))             # circular
-		s.set_border_width_all(Tune.ROUND_BTN_BORDER_W)
-		s.border_color = Color(Pal.PILL_EDGE, Tune.BTN_EDGE_ALPHA)
-		s.shadow_color = Tune.SHADOW_RAISED                # round chrome buttons FLOAT
-		s.shadow_size = Tune.SHADOW_RAISED_SIZE
-		s.shadow_offset = Tune.SHADOW_RAISED_OFFSET
-		b.add_theme_stylebox_override("normal", s)
-		b.add_theme_stylebox_override("hover", s)
-		var sp := s.duplicate()
-		sp.bg_color = s.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
-		sp.shadow_color = Tune.SHADOW_RESTING              # pressed → settle toward surface
-		sp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
-		sp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
-		b.add_theme_stylebox_override("pressed", sp)
-		# the circular light inner rim (radius = px/2)
-		b.add_child(rim_overlay(px / 2.0, Tune.ROUND_BTN_BORDER_W))
-	# the icon, centred full-rect over the disc
-	var ic := icon(icon_id, icon_px)
-	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-	if ic is Label:
-		(ic as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		(ic as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	b.add_child(ic)
-	add_press_juice(b)
-	b.pressed.connect(func() -> void:
-		if tap.is_valid():
-			tap.call()
-		cb.call())
-	return b
-
 ## --- badges ---------------------------------------------------------------------------
 ## A small alert mark for "something new" / a count. kind:
 ##   "dot"  → a bare red dot with a cream/white rim (no number)

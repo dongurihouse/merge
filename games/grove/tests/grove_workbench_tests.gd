@@ -456,13 +456,10 @@ func _initialize() -> void:
 	_test_discovery_frame()
 	_test_board_element(view)
 	_test_quest_card_config(view)
-	_test_generator_highlight_controls(view)
-	_test_ready_glow_controls(view)
 	_test_new_knobs(view)
 	await _test_action_tray_icon_scale_centers(view)
 	_test_warm_shadow_port()
 	_test_mystery_preview(view)
-	_test_level_badge_component(view)
 	_test_rush_bar_component(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
@@ -1134,74 +1131,6 @@ func _test_unlock_reward_reuses_mail_dialog() -> void:
 	ok(_source_contains(map_src, "Overlay.mount(self, \"UnlockRewardOverlay\")"), \
 		"the restored-place popup mounts on the shared modal layer (kept above map badges)")
 
-# The bag-screen kit pieces: the single-acorn currency pill, the bag-cell card in each state, and the
-# bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same
-# transform the game reads), asserting structure — pixels are a screenshot job, not here.
-## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
-## live scale/frame/gap knobs plus preview-only `cell`/`cols`/`rows`. Piece size comes from Slot-cell
-## content_frac, the same source the live board uses.
-# The READY GLOW (quest-wanted board tile highlight) workbench section: colour + fill/halo opacity +
-# roundness/halo-size, live-tunable here and flowing to the LIVE board via Kit.ready_glow_opts_from_config.
-func _test_ready_glow_controls(view) -> void:
-	var opts: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": {
-		"color": "77CCFF", "fill_a": 40, "halo_a": 90, "corner_pct": 30, "halo_pct": 25,
-	}})
-	var color_v = opts.get("color", null)
-	ok(color_v is Color and (color_v as Color).is_equal_approx(Color("#77CCFF")) \
-		and is_equal_approx(float(opts.fill_a), 0.40) and is_equal_approx(float(opts.halo_a), 0.90), \
-		"ready glow reads colour + fill/halo opacity from workbench config")
-	ok(is_equal_approx(float(opts.corner_frac), 0.30) and is_equal_approx(float(opts.halo_frac), 0.25), \
-		"ready glow reads corner roundness + halo size from workbench config")
-	# an absent section still yields the shipped look (the kit defaults map 1:1 to piece_view's READY_GLOW)
-	var def: Dictionary = Kit.ready_glow_opts_from_config({})
-	ok(def.color is Color and (def.color as Color).is_equal_approx(Color("#FFB12E")) \
-		and is_equal_approx(float(def.fill_a), 0.55) and is_equal_approx(float(def.halo_a), 0.60), \
-		"ready glow with no config returns the shipped amber defaults")
-	# registered as a gallery element; the look knobs are saved config, the preview cell size is not
-	ok(View.IDS.has("ready_glow") and view._sections.has("ready_glow"), "the ready glow is a registered workbench element")
-	ok(view._is_config("ready_glow", "fill_a") and view._is_config("ready_glow", "color") \
-		and not view._is_config("ready_glow", "cell"), "ready glow look knobs are saved config; preview cell is not")
-	# the sidebar exposes a colour picker; a colour edit flows through the SAME kit transform the board reads
-	view._selected = "ready_glow"
-	view._rebuild_sidebar()
-	ok(view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 1, \
-		"the ready glow sidebar exposes a colour picker")
-	view._params["ready_glow"]["color"] = "FF8800"
-	view._apply_edit()
-	var rg_opts: Dictionary = Kit.ready_glow_opts_from_config({"ready_glow": view._params["ready_glow"]})
-	ok(rg_opts.color.is_equal_approx(Color("#FF8800")), "a workbench ready-glow colour edit flows through the kit transform the board reads")
-	ok(view._make_element("ready_glow") != null, "the ready glow preview element builds")
-
-func _test_generator_highlight_controls(view) -> void:
-	var opts: Dictionary = Kit.gen_highlight_opts_from_config({"generator": {
-		"glow_scale": 122, "glow_a": 80, "glow_color": "77CCFF",
-		"outline_w": 35, "outline_a": 85,
-		"sparkle_count": 7, "sparkle_speed": 150,
-		"sparkle_size": 180, "sparkle_color": "FF66CC",
-	}})
-	var glow_color_v = opts.get("glow_color", null)
-	var sparkle_color_v = opts.get("sparkle_color", null)
-	ok(is_equal_approx(float(opts.glow_scale), 1.22) \
-		and glow_color_v is Color and (glow_color_v as Color).is_equal_approx(Color("#77CCFF")) \
-		and is_equal_approx(float(opts.glow_a), 0.80), \
-		"generator highlight reads glow halo scale, alpha, and color from workbench config")
-	ok(opts.has("sparkle_size") and is_equal_approx(float(opts.get("sparkle_size", 0.0)), 1.80) \
-		and sparkle_color_v is Color and (sparkle_color_v as Color).is_equal_approx(Color("#FF66CC")) \
-		and int(opts.sparkle_count) == 7, \
-		"generator highlight reads sparkle count, size, speed, and color from workbench config")
-	ok((view._params["generator"] as Dictionary).has("sparkle_size") \
-		and (view._params["generator"] as Dictionary).has("sparkle_color") \
-		and (view._params["generator"] as Dictionary).has("glow_color") \
-		and view._is_config("generator", "sparkle_size") \
-		and view._is_config("generator", "sparkle_color") \
-		and view._is_config("generator", "glow_color"), \
-		"generator glow and sparkle color/size controls are saved config")
-	view._selected = "generator"
-	view._rebuild_sidebar()
-	ok(_slider_max(view, "Sparkle Size") >= 250.0 \
-		and view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 2, \
-		"generator sidebar exposes sparkle size plus glow/sparkle color pickers")
-
 # The new workbench knobs (this branch): home-button caption padding + side-rail badge offset, and the
 # currency pill's "+" size. Each must be SAVED config the kit resolver reads, default to the shipped look,
 # and (for the badge) render a sample badge on the home-button preview so the offset is tunable live.
@@ -1222,31 +1151,33 @@ func _test_new_knobs(view) -> void:
 	ok(view._is_config("home_button", "badge_dx") and view._is_config("home_button", "badge_dy"), \
 		"badge offset is saved config")
 	ok(not view._is_config("home_button", "badge_count"), "the sample badge count is preview-only (not saved)")
-	# the home-button preview carries a SAMPLE count badge so the offset is tunable live (default count 3).
+	# the preview is the real bottom bar: six tiles, one per HomeChrome destination, each on its own paper
+	# role — so a multi-role sweep proves the tiles mirror the shipped strip (map.gd's specs), not one tile.
 	var home_button_preview: Control = view._make_element("home_button")
-	ok(_has_label_text(home_button_preview, "3"), \
-		"the home-button preview shows a sample count badge")
 	var preview_surface_paths: Array[String] = []
 	for preview_button in home_button_preview.find_children("*", "Button", true, false):
 		var preview_path := _paper_texture_path(preview_button as Control)
 		if preview_path != "":
 			preview_surface_paths.append(preview_path)
-	ok(preview_surface_paths.any(func(path: String) -> bool: return path.ends_with("ui/meadow_v2/texture_supporting_purple.png")) \
-		and preview_surface_paths.any(func(path: String) -> bool: return path.ends_with("ui/meadow_v2/texture_cream.png")), \
-		"home-button Workbench preview shows the live purple Bag and cream rail roles")
-	# the in-disc COUNT overlay (the Bag's "x/y"): its offset + font are read by the shared resolver, default
-	# to the shipped placement, and are SAVED config; the sample "x/y" string is preview-only and renders on
-	# the nav disc so the offset is tunable live.
+	ok(preview_surface_paths.size() == 6, "the home-button preview renders the six shipped bottom-bar tiles")
+	for role_tex in ["texture_sky.png", "texture_action_green.png", "texture_reward_gold.png", "texture_supporting_purple.png", "texture_warm_kraft.png", "texture_coral.png"]:
+		ok(preview_surface_paths.any(func(path: String) -> bool: return path.ends_with(role_tex)), \
+			"home-button bottom-bar preview carries the shipped %s tile role" % role_tex)
+	# the sample count feeds ONLY the Mail pill; Daily + Vault wear the bare dot (no number), matching the game.
+	ok(_has_label_text(home_button_preview, "3"), \
+		"the Mail tile shows the sample count pill (map.gd builds Mail as a numbered pill)")
+	# the in-tile COUNT overlay (the board bag/home well's "x/y"): its offset + font are read by the shared
+	# resolver, default to the shipped placement, and are SAVED config the board wells read (action_bar.gd).
+	# The bottom-bar preview has no bag well, so those knobs are tuned by number rather than previewed here.
 	var hbn: Dictionary = Kit.home_button_opts_from_config({"home_button": {"count_dx": 5, "count_dy": 20, "count_font": 30}})
 	ok(is_equal_approx(float(hbn.count_dx), 5.0) and is_equal_approx(float(hbn.count_dy), 20.0) and int(hbn.count_font) == 30, \
 		"home_button reads count_dx / count_dy / count_font")
 	ok(is_equal_approx(float(Kit.home_button_opts_from_config({}).count_dy), 38.0), \
-		"default count_dy reproduces the shipped in-disc placement (38)")
+		"default count_dy reproduces the shipped in-well placement (38)")
 	ok(view._is_config("home_button", "count_dx") and view._is_config("home_button", "count_dy") and view._is_config("home_button", "count_font"), \
-		"the bag-count offset + font are saved config")
-	ok(not view._is_config("home_button", "count"), "the sample bag-count string is preview-only (not saved)")
-	ok(_has_label_text(view._make_element("home_button"), "1/6"), \
-		"the home-button preview shows the sample bag count inside the disc")
+		"the well-count offset + font are saved config")
+	# the orange play disc is retired: every shipped tile is a rect now, so the preview builds no play_px disc.
+	ok(not (view._params["home_button"] as Dictionary).has("play_px"), "the retired play-disc size knob is gone")
 	view._selected = "home_button"
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Px") >= 260.0, "the home_button sidebar allows larger shared button sizes")
@@ -1255,52 +1186,57 @@ func _test_new_knobs(view) -> void:
 	# bottom-anchored, so the old manual board+quest POSITION and board-HEIGHT knobs are retired. Only the
 	# band heights the live layout still reads remain tunable.
 	var hud_default: Dictionary = (view._params["hud_layout"] as Dictionary).duplicate()
-	var live_knobs := ["quest_bar_h_pct", "bottom_row_h_pct", "button_w_pct", "info_bar_w_pct", "level_w_pct"]
+	var live_knobs := ["quest_bar_h_pct", "bottom_row_h_pct", "button_w_pct", "currency_area_pct", "currency_pill_w_pct", "edge_margin_px"]
 	var has_live := true
 	for k in live_knobs:
 		has_live = has_live and (view._params["hud_layout"] as Dictionary).has(k) and view._is_config("hud_layout", k)
-	ok(has_live, "hud_layout keeps the live band-height controls (quest/bottom/button/info/level)")
-	var dead_knobs := ["quest_bar_x_pct", "quest_bar_y_pct", "board_x_pct", "board_y_pct", "board_h_pct"]
+	ok(has_live, "hud_layout keeps the controls the live board reads (quest/bottom/button/wallet/edge)")
+	var dead_knobs := ["quest_bar_x_pct", "quest_bar_y_pct", "board_x_pct", "board_y_pct", "board_h_pct", "level_w_pct", "top_band_h_pct", "info_bar_w_pct"]
 	var dead_gone := true
 	for k in dead_knobs:
 		dead_gone = dead_gone and not (view._params["hud_layout"] as Dictionary).has(k)
-	ok(dead_gone, "retired board/quest position + board-height knobs are gone from hud_layout defaults")
+	ok(dead_gone, "retired position/height knobs + the preview-only level/top-band/info-bar knobs are gone")
 
 	# resolver: the quest band height still resolves to a fraction; the retired geometry fracs are dropped.
 	var stack_layout := Kit.hud_layout_opts_from_config({"hud_layout": {"quest_bar_h_pct": 11}})
 	ok(stack_layout.has("quest_bar_h_frac") and is_equal_approx(float(stack_layout.quest_bar_h_frac), 0.11) \
 		and not stack_layout.has("board_h_frac") and not stack_layout.has("quest_bar_y_frac") \
-		and not stack_layout.has("board_x_frac"), \
-		"hud_layout resolver exposes the quest band height fraction and drops the retired geometry fracs")
+		and not stack_layout.has("board_x_frac") \
+		and not stack_layout.has("level_w_frac") and not stack_layout.has("top_band_h_frac") \
+		and not stack_layout.has("info_bar_w_frac"), \
+		"hud_layout resolver keeps the live fracs and drops every retired / preview-only frac")
 
 	# preview: board + quest are BOTTOM-ANCHORED — quest above board, board above the bottom row, the board
 	# fills (most of) the width, and the quest still clears the currency pills (board is height-capped).
-	var preview_w := 1080.0 * 0.26
-	var preview_h := 1920.0 * 0.26
 	var default_hud_preview: Control = view._make_element("hud_layout")
 	var default_quest_box := default_hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
 	var default_board_box := default_hud_preview.find_child("HudLayoutBoard", true, false) as Control
 	var default_bottom_box := default_hud_preview.find_child("HudLayoutBottomRow", true, false) as Control
+	var default_info_box := default_hud_preview.find_child("HudLayoutInfoBar", true, false) as Control
+	var default_unlock_box := default_hud_preview.find_child("HudLayoutUnlockBar", true, false) as Control
 	ok(default_quest_box != null and default_board_box != null and default_bottom_box != null \
 		and _has_label_text(default_quest_box, "quest") and _has_label_text(default_board_box, "board"), \
 		"hud_layout preview draws the quest bar, board, and bottom row")
+	# the preview now shows the board's real regions: the next-unlock strip is present, the phantom side
+	# rail is gone (it belonged to map.gd, not the board), and the info bar fills between the two wells.
+	ok(default_unlock_box != null and _has_label_text(default_unlock_box, "next unlock"), \
+		"hud_layout preview draws the next-unlock strip the board reserves for")
+	ok(default_info_box != null and _has_label_text(default_info_box, "info (fills)"), \
+		"hud_layout preview info bar fills the gap between the wells (board.gd SIZE_EXPAND_FILL)")
 	ok(default_quest_box.position.y + default_quest_box.custom_minimum_size.y <= default_board_box.position.y + 1.0, \
 		"hud_layout preview quest bar sits above the board (bottom-anchored stack)")
-	var default_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
-	var default_bottom_bar_h := preview_h * float(default_layout.get("bottom_row_h_frac", 0.0))
-	var default_edge := float(default_layout.get("edge_margin_px", 18.0)) * 0.26
-	var btn_w := preview_w * float(view._params["hud_layout"].get("button_w_pct", 15)) / 100.0
-	var bottom_y := preview_h - maxf(btn_w, default_bottom_bar_h) - default_edge
-	ok(default_board_box.position.y + default_board_box.custom_minimum_size.y <= bottom_y + 2.0, \
-		"hud_layout preview board sits above the bottom row")
-	ok(absf(default_bottom_box.custom_minimum_size.y - maxf(btn_w, default_bottom_bar_h)) <= 1.0, \
-		"hud_layout preview bottom row uses the saved percent-of-screen height")
-	ok(default_board_box.custom_minimum_size.x >= preview_w * 0.85, \
+	# the info bar spans exactly the width between the bag well (left) and the home well (right)
+	ok(default_bottom_box.custom_minimum_size.x > 0.0 \
+		and absf(default_info_box.position.x - default_bottom_box.custom_minimum_size.x) <= 1.0 \
+		and default_info_box.custom_minimum_size.x >= default_board_box.custom_minimum_size.x * 0.5, \
+		"hud_layout preview info bar starts at the bag well and takes the middle span")
+	ok(default_board_box.custom_minimum_size.x >= (1080.0 * 0.26) * 0.85, \
 		"hud_layout preview board fills most of the width")
-	var currency_boxes := _controls_with_label(default_hud_preview, "%d%%" % int(view._params["hud_layout"].get("currency_pill_w_pct", 25)))
-	ok(currency_boxes.size() >= 3 \
-		and default_quest_box.position.y >= (currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y - 0.5, \
-		"hud_layout preview quest bar clears the currency pills")
+	# the wallet pills are CENTRED in the currency band and the quest clears them (board is height-capped)
+	var pill_boxes := _controls_with_label(default_hud_preview, "pill")
+	ok(pill_boxes.size() >= 3 \
+		and default_quest_box.position.y >= (pill_boxes[0] as Control).position.y + (pill_boxes[0] as Control).custom_minimum_size.y - 0.5, \
+		"hud_layout preview quest bar clears the centred currency pills")
 
 	# sidebar: the live height sliders remain; the retired position + board-height sliders are gone.
 	view._selected = "hud_layout"
@@ -1956,7 +1892,7 @@ func _test_gold_badge_consumers(view) -> void:
 	view._dirty.clear()
 	view._selected = "gold_badge"
 	view._apply_edit()
-	ok(view._dirty.has("board") and view._dirty.has("map_card") and view._dirty.has("rush_bar") \
+	ok(view._dirty.has("board") and view._dirty.has("rush_bar") \
 		and not view._dirty.has("info_bar"), \
 		"editing gold_badge queues badge consumers but leaves the paper action tray alone")
 	view._dirty = prev_dirty
@@ -1999,115 +1935,23 @@ func _test_gold_badge_consumers(view) -> void:
 		"map_card opts carry the shared gold_badge skin BOTH card states' frame wears")
 	ok(not map_opts.has("card_w_frac"), \
 		"map_card opts no longer carry an obsolete width fraction; two-column layout owns card width")
-	ok(not view._params["map_card"].has("card_w_frac") and not _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"card_w_frac\""), \
-		"the Workbench map-card sidebar no longer exposes a width slider")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_select_layout") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_select_layout") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "Kit.map_select_layout(Vector2(PHONE_W, PHONE_H)"), \
-		"Workbench and game derive map-card preview geometry from the same two-column layout helper")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_card_art_path") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_card_art_path") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "Kit.map_card_art_path(Game.DATA.MAPS[0])"), \
-		"Workbench and game resolve the open map-card artwork through the same helper")
 	ok(map_opts.has("resident_slot_px") and map_opts.has("resident_slot_gap"), \
 		"map_card opts carry saved resident rail slot size and slot gap")
-	var map_slot_opts: Dictionary = map_opts.get("slot_cell", {})
-	ok(map_slot_opts.has("cell_w") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"bag_card\": _params[\"bag_card\"]"), \
-		"map_card opts carry the shared square Slot-cell style used by the Workbench right column")
-	ok(view._params["map_card"].has("resident_slot_px") and view._params["map_card"].has("resident_slot_gap") \
-		and view._is_config("map_card", "resident_slot_px") and view._is_config("map_card", "resident_slot_gap"), \
-		"the map-card resident rail knobs are saved Workbench config")
+	ok(map_opts.get("slot_cell", {}).has("cell_w"), "map_card opts carry the shared square Slot-cell style")
 	ok(map_opts.has("reward_shelf_w_frac") and map_opts.has("reward_shelf_h_frac") and map_opts.has("reward_shelf_y_frac"), \
 		"map_card opts carry saved completed-map reward shelf size and lift knobs")
-	ok(view._params["map_card"].has("reward_shelf_w_frac") and view._params["map_card"].has("reward_shelf_h_frac") \
-		and view._params["map_card"].has("reward_shelf_y_frac") and view._is_config("map_card", "reward_shelf_w_frac") \
-		and view._is_config("map_card", "reward_shelf_h_frac") and view._is_config("map_card", "reward_shelf_y_frac"), \
-		"the completed-map reward shelf knobs are saved Workbench config")
 	var shelf_part_keys := ["reward_icon_size", "reward_icon_x", "reward_icon_y", "reward_label_font", "reward_label_x", "reward_label_y", "reward_button_w", "reward_button_h", "reward_button_x", "reward_button_y", "reward_button_font", "reward_bar_h", "reward_bar_y"]
 	var shelf_part_knobs_saved := true
 	for k in shelf_part_keys:
-		shelf_part_knobs_saved = shelf_part_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
+		shelf_part_knobs_saved = shelf_part_knobs_saved and map_opts.has(k)
 	ok(shelf_part_knobs_saved, \
 		"map_card opts carry saved reward shelf icon/text/button size and location knobs")
 	var expedition_keys := ["expedition_button_w", "expedition_button_h", "expedition_button_x", "expedition_button_y", "expedition_button_font"]
 	var expedition_knobs_saved := true
 	for k in expedition_keys:
-		expedition_knobs_saved = expedition_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
+		expedition_knobs_saved = expedition_knobs_saved and map_opts.has(k)
 	ok(expedition_knobs_saved, "map_card opts carry saved shelf Expedition button size, font, and position knobs")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
-		"the Workbench map-card sidebar exposes resident slot-size and gap sliders")
-	view._selected = "map_card"
 	view._rebuild_sidebar()
-	ok(_slider_max(view, "Resident Slot Px") >= 148.0, \
-		"the map-card resident slot-size slider can grow to double the old cap")
-	ok(_slider_max(view, "Reward Shelf H Frac") >= 60.0, \
-		"the map-card reward shelf height slider can grow beyond the old 30% cap")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_w_frac\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_h_frac\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_y_frac\""), \
-		"the Workbench map-card sidebar exposes completed-map reward shelf sliders")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_icon_size\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_icon_x\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_label_font\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_label_x\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_button_w\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_button_x\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_button_font\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_h\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_y\""), \
-		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_w\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_h\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_x\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_y\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"expedition_button_font\""), \
-		"the Workbench map-card sidebar exposes shelf Expedition button sliders")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": bool(p.open) and bool(p.done)"), \
-		"the Workbench map-card preview requests the resident-slot overlay only for DONE (completed habitat) cards")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open) and bool(p.done)"), \
-		"the Workbench map-card preview shows the collection progress shelf only for DONE (restored) map cards")
-	# Drive the REAL preview path (_make_element) so the count-pill knobs are proven to reach a rendered pill.
-	# An OPEN, in-progress (not-done) card is the state the game shows the count pill in — the workbench must
-	# render it there so its sliders have a target; a DONE card swaps it for the habitat reward shelf.
-	var mc_params: Dictionary = view._params["map_card"]
-	var saved_mc_open: bool = bool(mc_params.get("open", true))
-	var saved_mc_done: bool = bool(mc_params.get("done", false))
-	var saved_mc_pill_y: float = float(mc_params.get("pill_y_frac", 13))
-	mc_params["open"] = true
-	mc_params["done"] = false
-	var inprogress_card: Control = view._make_element("map_card")
-	var inprogress_pill := inprogress_card.find_child("MapCardCountPill", true, false) as Control
-	ok(inprogress_pill != null, \
-		"the Workbench open/in-progress map-card preview renders the count pill so its sliders have a target")
-	# the game's in-progress card has NO resident rail (that's a completed-habitat element), so the preview
-	# must hide it too — otherwise the pill is shoved aside to dodge a rail the player never sees there.
-	ok(inprogress_card.find_child("MapResidentRailPreview", true, false) == null, \
-		"the Workbench open/in-progress map-card preview hides the resident rail to match the game")
-	mc_params["pill_y_frac"] = 3
-	var low_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
-	mc_params["pill_y_frac"] = 30
-	var high_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
-	ok(low_pill != null and high_pill != null and high_pill.position.y < low_pill.position.y, \
-		"the Workbench count-pill lift slider (pill_y_frac) moves the rendered preview pill up the card")
-	mc_params["pill_y_frac"] = saved_mc_pill_y
-	mc_params["done"] = true
-	var done_card: Control = view._make_element("map_card")
-	ok(done_card.find_child("MapHabitatRewardShelf", true, false) != null \
-		and done_card.find_child("MapCardCountPill", true, false) == null, \
-		"the Workbench done/restored map-card preview swaps the count pill for the habitat reward shelf")
-	ok(done_card.find_child("MapResidentRailPreview", true, false) != null, \
-		"the Workbench done/restored map-card preview shows the resident rail (the completed habitat card)")
-	ok(done_card.find_child("MapCardExpeditionButtonPreview", true, false) == null, \
-		"the Workbench done/restored map-card preview no longer shows the old floating Expedition icon button")
-	var done_exp := done_card.find_child("MapHabitatExpeditionButton", true, false) as Button
-	var done_exp_label := done_card.find_child("MapHabitatExpeditionButtonLabel", true, false) as Label
-	var done_exp_icon := done_card.find_child("MapHabitatExpeditionButtonIcon", true, false) as Control
-	ok(done_exp != null and done_exp_label != null and done_exp_label.text == "Expedition" and done_exp_icon == null, \
-		"the Workbench done/restored map-card preview shows a plain green Expedition shelf button")
-	mc_params["open"] = saved_mc_open
-	mc_params["done"] = saved_mc_done
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	var preview_small := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
@@ -2248,14 +2092,6 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(base_title_lbl != null and tuned_title_lbl != null \
 		and base_title_lbl.position == Vector2(24.0, 2.0) and tuned_title_lbl.position == Vector2(36.0, 6.0), \
 		"title-plate padding knobs set the label inset inside the plate")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_font\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_w\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_h\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_x\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_y\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_pad_x\"") \
-		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_pad_y\""), \
-		"the Workbench map-card sidebar exposes the seven title-plate sliders")
 	ok(locked_card.find_child("MapCardShadow", true, false) is Control and locked_card.find_child("MapCardOuterBorder", true, false) is Control, \
 		"a LOCKED map card has an outer shadow and dark rim behind the golden border")
 	ok(ResourceLoader.exists(Look.kit("map/left_locked_preview_inner.png")), \
@@ -2687,31 +2523,6 @@ func _test_discovery_cell() -> void:
 	no_num["show_num"] = false
 	ok(not _has_label_text(Kit.tiers_dialog([{"tier": 4, "seen": true, "icon": "leaf"}], 560.0, no_num), "4"),
 		"show_num off hides the plain tier number")
-
-# The DISCOVERY dialog uses the STANDARD shared frame, with NO bespoke chrome override: it inherits
-# dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry) and adds only its CONTENT (the
-# tier grid + the tier-cell look) — exactly like daily/shop. Edits on the shared Frame item flow to it.
-func _test_level_badge_component(view) -> void:
-	# The badge is one of 25 complete Meadow variants plus a native level-number label.
-	ok(view._sections.has("level_badge"), "level_badge is a registered gallery item")
-	view._selected = "level_badge"
-	view._params["level_badge"]["preview_level"] = 110
-	var prev: Control = view._make_element("level_badge")
-	var n := prev.find_child("lv_num", true, false) as Label
-	ok(n != null and n.text == "110", "level_badge preview prints the test level (110)")
-	var art := prev.find_child("lv_badge_art", true, false) as TextureRect
-	ok(art != null and art.texture != null and art.texture.get_width() == 256 \
-		and String(art.texture.resource_path).ends_with("ui/meadow_v2/level_badge_25.png"), \
-		"the preview uses the clamped final 256 x 256 Meadow badge variant")
-	view._rebuild_sidebar()
-	ok(not _has_label_text(view._sidebar_body, "Leaf X") and not _has_label_text(view._sidebar_body, "Circle design"), \
-		"stale layered-part controls are absent from the level-badge sidebar")
-	ok(_slider_max(view, "Num Size") >= 70.0 and _slider_max(view, "Num Burn") >= 100.0,
-		"sidebar exposes the number size + the engraved burn slider")
-	ok(_slider_max(view, "Preview Level") >= 110.0, "sidebar exposes the test level (1..110)")
-	ok(view._is_config("level_badge", "num_burn") and view._is_config("level_badge", "num_size") \
-		and not (view._params["level_badge"] as Dictionary).has("leaf_x"), "only native-number badge knobs remain saved config")
-	ok(not view._is_config("level_badge", "preview_level"), "preview_level is test-only")
 
 func _test_rush_bar_component(view) -> void:
 	ok(view._sections.has("rush_bar"), "rush_bar is a registered gallery item")

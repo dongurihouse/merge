@@ -494,12 +494,6 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const RADIUS_CARD := 24               # unified corner radius for rectangular surfaces
 	const RADIUS_CHIP := 14               # unified corner radius for small chips/pills
 
-	# --- round chrome button (Look.round_button) ---------------------------------------
-	const ROUND_BTN_PX := 76.0            # default diameter of a circular chrome button
-	const ROUND_BTN_ICON_PX := 36.0       # icon size centred inside it
-	const ROUND_BTN_BG := Color(0.2, 0.251, 0.184, 0.6)  # = Color(Pal.INK, 0.6), matches map gear fallback
-	const ROUND_BTN_BORDER_W := 3
-
 	# --- badges (Look.badge) -----------------------------------------------------------
 	const BADGE_COLOR := Color("#E24B4A")  # alert red — "something new" / counts
 	const BADGE_DOT_PX := 14               # the bare red dot diameter

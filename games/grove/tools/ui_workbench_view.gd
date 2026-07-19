@@ -20,7 +20,7 @@ const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the 
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "generator", "focus_ring", "ready_glow", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -28,7 +28,7 @@ const IDS := ["board", "generator", "focus_ring", "ready_glow", "button", "home_
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["focus_ring"], ["ready_glow"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["gold_currency_pill"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -46,7 +46,7 @@ const DEPENDENTS := {
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
-	"gold_badge": ["board", "map_card", "rush_bar"],   # the rush bar's cells ARE code-drawn gold badges; info_bar now uses the authored paper tray
+	"gold_badge": ["board", "rush_bar"],   # the rush bar's cells ARE code-drawn gold badges; info_bar now uses the authored paper tray
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
@@ -54,35 +54,28 @@ const DEPENDENTS := {
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
-# Icons the HOME button can show (the home page's rail + nav set; all resolve via the kit's _icon_tex).
-const HOME_ICONS := ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "daisy", "leaf"]
+# Icons the HOME button can show — the real home-surface set (mirrors HomeChrome.BAKE_ICONS + the bag/well
+# icons the board wells use), so the preview picker can only choose ids the game actually renders.
+const HOME_ICONS := ["map", "house", "daily", "vault", "mail", "board", "vine", "expedition", "settings", "bag", "shop", "piggy", "gift", "faucet"]
 # Each element's params split into two buckets: anything listed here is TEST-ONLY scaffolding (sample
 # content, preview counts, tool helpers) and is NOT written to / read from the config file; everything
 # else is real design config that IS persisted. The sidebar mirrors this split under two headers.
 #   button — icon/size/enabled are just to eyeball the shape; the REAL claim icon lives on the Card.
-#   icon   — the whole element is a polish-tuning sandbox (the shipped recipe is fixed in the kit).
 #   dialog — entries is a preview count, snap is the drag grid.
 const TEST_KEYS := {
 	# the BOARD preview — scale/gap/frame/frame-style are saved live-board design. cell/cols/rows are
 	# preview scaffolding because the live board derives cell size from screen fit and uses G.COLS×G.ROWS.
 	"board": ["pieces", "cell", "cols", "rows"],
-	# the GENERATOR highlight sandbox: glow / outline / sparkle knobs persist (they flow to the live board
-	# via Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
-	"generator": ["preview", "cell"],
 	# the FOCUS RING (selected-cell corner brackets): colour/halo/proportions persist (they flow to the
 	# live board via Kit.focus_ring_opts_from_config); `cell` is the preview size only.
 	"focus_ring": ["cell"],
-	# the READY GLOW (quest-wanted board tile): colour/opacity/roundness/halo-size persist (they flow to
-	# the live board via Kit.ready_glow_opts_from_config); `cell` is the preview size only.
-	"ready_glow": ["cell"],
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
-	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
+	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge", "paper", "border", "pad_scale", "static"],
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
 	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
 	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
 	"hud_layout": [],
-	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"gold_badge": ["px"],                  # px is preview-only; inset + shine are saved and shared by board/info
@@ -97,8 +90,6 @@ const TEST_KEYS := {
 	"mystery": ["preview"],
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
-	# The complete Meadow level badge keeps only native-number controls; preview_level selects the variant.
-	"level_badge": ["preview_level"],
 	"tiers": [],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
 	# the FRAME is the shared gold badge skin; gold_currency_pill padding controls its content margin. `filled` previews the
@@ -107,9 +98,6 @@ const TEST_KEYS := {
 	# the RUSH BAR — every size/spacing knob is saved design; the preview values (time/score/mult) are static demo, not params
 	"rush_bar": [],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
-	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
-	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
-	"map_card": ["open", "done", "owned_zones", "total_zones"],
 	# the quest-giver card — the LAYOUT block (card/bust/bubble/item/plaque fractions) IS saved config now:
 	# the board reads it via Kit.giver_lay_from_config, so a tweak here flows to the live giver card. Only
 	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
@@ -126,22 +114,17 @@ const TEST_KEYS := {
 const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
 	"board": "Board — merge grid (frame · cells · pieces · scale)",
-	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
-	"ready_glow": "Ready glow — quest-wanted board tile (colour · fill · halo · roundness)",
-	"button": "Button — shared (bg · icon · state)",
-	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
-	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
-	"icon": "Icon — edge polish (raw vs cleaned)",
+	"button": "Button — the shared kit button in every shape it builds (bg · paper · badge · chip)",
+	"home_button": "Home bottom bar — the six paper tiles (icon · caption · badge) as map.gd builds them",
+	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
 	"gold_badge": "Gold badge — CSS port",
-	"level_badge": "Level badge — 25 Meadow progression variants + native number",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
 	"bag_card": "Slot cell — bag · board · discovery (empty · filled · unlockable · locked)",
 	"toggle_card": "Toggle card — label + switch",
-	"map_card": "Map card — place-picker (gold frame / locked panel)",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
@@ -214,39 +197,27 @@ func _default_params() -> Dictionary:
 			# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
 			"frame_style": "meadow", "frame_corner": 46,
 			"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
-		# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
-		# Saved knobs (glow scale/alpha/color, outline width/alpha, sparkle count/size/speed/color) flow to
-		# the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's GEN_* consts.
-		# `preview` (which generator) + `cell` (preview px) are test-only.
-		"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A",
-			"outline_w": 35, "outline_a": 85, "outline_blur": 0, "outline_color": "E8BE5C",
-			"sparkle_count": 5, "sparkle_size": 100, "sparkle_speed": 70, "sparkle_color": "FFF4C2",
-			"preview": "seed_satchel", "cell": 170},
 		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
 		"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
-		# the READY GLOW — the amber highlight a board tile wears when a live quest wants it. Colour is 6-digit
-		# hex (no '#'); fill_a/halo_a are % opacities; corner_pct/halo_pct are % of the cell. Defaults reproduce
-		# piece_view's shipped READY_GLOW (warm amber fill + soft halo). Flows live via Kit.ready_glow_opts_from_config.
-		"ready_glow": {"color": "FFB12E", "fill_a": 55, "halo_a": 60, "corner_pct": 22, "halo_pct": 16, "cell": 150},
-		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
+		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto",
+			"paper": "none", "border": true, "pad_scale": 100, "static": false},
 		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
 		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
 		# config["badge"]); its icon uses the global icon clean.
 		"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-			"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
+			"fill_alpha": 100, "rect_pad": 13,
 			"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 			"count_dx": 0, "count_dy": 38, "count_font": 26,
-			"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
+			"icon": "daily", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 		# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
 		# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
 		# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
-		"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
+		"hud_layout": {"currency_area_pct": 75, "currency_pill_w_pct": 25,
 			"edge_margin_px": 18,
-			"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70, "bottom_row_h_pct": 10,
+			"button_w_pct": 15, "bottom_row_h_pct": 10,
 			"quest_bar_h_pct": 11},
-		"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 		# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 		"badge": {"defringe": false, "shadow": false, "feather": 0},
@@ -292,22 +263,6 @@ func _default_params() -> Dictionary:
 		# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
 		# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
 		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
-		# the MAP-SELECT place-picker card (spec §8). The two-column picker owns card width; this block tunes
-		# card height and in-card presentation. Fracs are scaled integers for sliders (see
-		# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
-		"map_card": {"use_art": true, "card_h_frac": 16, "edge_sparkle": 60,
-			"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
-			"title_font": 0, "title_w": 0, "title_h": 0, "title_x": 0, "title_y": 0, "title_pad_x": 24, "title_pad_y": 2,
-			"resident_slot_px": 58, "resident_slot_gap": 10,
-			"expedition_button_w": 116, "expedition_button_h": 36, "expedition_button_x": 0, "expedition_button_y": 0,
-			"expedition_button_font": 18,
-			"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
-			"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
-			"reward_label_font": 21, "reward_label_x": 0, "reward_label_y": 0,
-			"reward_button_w": 116, "reward_button_h": 36, "reward_button_x": 0, "reward_button_y": 0,
-			"reward_button_font": 18,
-			"reward_bar_h": 10, "reward_bar_y": 0,
-			"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
 		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
 		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
 		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
@@ -343,9 +298,6 @@ func _default_params() -> Dictionary:
 		# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 		"tiers": {"cols": 3, "cell_gap": 16, "list_max_h": 0,
 			"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
-		# One of 25 complete Meadow badge variants selected by progression, plus a native level number.
-		"level_badge": {"num_size": 32, "num_x": 0, "num_y": 5, "num_burn": 0,
-			"preview_level": 30},
 		# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 		# height matches the Bag/Home wells; inner_scale / sell_icon / item_icon_scale are % of that height.
 		# `filled` previews state.
@@ -462,15 +414,6 @@ func _make_element(id: String) -> Control:
 			return _shadow_preview()
 		"board":
 			return _make_board_preview()
-		"generator":
-			# the live board generator (engine make_generator) with its highlight tuned by the knobs, through
-			# the SAME Kit transform the board reads — so the preview is 1:1 with the game.
-			var ghl := Kit.gen_highlight_opts_from_config({"generator": p})
-			var gcell := float(p.get("cell", 170))
-			var gwrap := CenterContainer.new()
-			gwrap.custom_minimum_size = Vector2(gcell + 90, gcell + 90)
-			gwrap.add_child(PieceView.make_generator(String(p.get("preview", "seed_satchel")), gcell, ghl))
-			return gwrap
 		"focus_ring":
 			# a sample board cell (the shared slot well + a coin) wearing the focus ring, tuned through the
 			# SAME Kit transform the board reads — so the preview matches the focused-cell look in-game 1:1.
@@ -495,83 +438,16 @@ func _make_element(id: String) -> Control:
 			stack.add_child(ring)
 			fwrap.add_child(stack)
 			return fwrap
-		"ready_glow":
-			# a sample board item wearing the quest-ready glow, tuned through the SAME Kit transform the board
-			# reads — so the preview matches the live wanted-tile look 1:1 (the glow seats BEHIND the sprite).
-			var rgo := Kit.ready_glow_opts_from_config({"ready_glow": p})
-			var rgcell := float(p.get("cell", 150))
-			var rgwrap := CenterContainer.new()
-			rgwrap.custom_minimum_size = Vector2(rgcell + 90, rgcell + 90)
-			var rgpiece := PieceView.make_piece(104, rgcell)
-			PieceView.add_ready_glow(rgpiece, rgcell, rgo)
-			rgwrap.add_child(rgpiece)
-			return rgwrap
 		"button":
-			return Kit.pill_button(String(p.text), _btn_opts())
+			return _button_gallery(p)
 		"home_button":
-			# the shared home button as the LIVE rail + nav + board build it, from the SAME kit transform the
-			# game reads. Every live surface is a ROUNDED-RECT tile now (icon over label INSIDE the badge):
-			# the bag well (in-tile "x/y" count), the rail/Map tile (caption + a red badge), plus the orange
-			# Play disc. (The old circular disc-with-caption/-count form is retired — the rail moved to rect.)
-			# include the shell edge polish (config["badge"], tuned under this item's Shell-polish knobs) so
-			# the home button reflects it LIVE — the same link the game uses
-			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 30)
-			# the RECT bag well carries the Bag's in-tile "x/y" COUNT so count_dx / count_dy / count_font tune
-			# live (the live bag well is this exact rect-with-count form — board.gd _home_well).
-			var co := ho.duplicate()
-			co["shape"] = "rect"
-			co["surface_role"] = "purple"
-			co["shadow"] = true
-			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "count": String(p.get("count", ""))}, co))
-			# the RECT rail tile as the live side rail + Map button build it (shape:"rect"): icon over label
-			# INSIDE the rounded-rect, carrying a SAMPLE red badge so badge_dx / badge_dy (+ dot/num size) tune
-			# live — the same Look.attach_badge the rail uses (count 0 → bare dot, ≥1 → count pill).
-			var ro := ho.duplicate()
-			ro["shape"] = "rect"
-			ro["surface_role"] = "cream"
-			ro["shadow"] = true
-			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ro)
-			var bcount := int(p.get("badge_count", 3))
-			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
-			var bg := Look.badge("pill", bcount, bopts) if bcount >= 1 else Look.badge("dot", 0, bopts)
-			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
-			row.add_child(rail_btn)
-			# the orange PLAY disc (bottom-right CTA) at its tuned size + art, so play_px adjusts live here.
-			var po := ho.duplicate()
-			po["px"] = float(ho.get("play_px", 188))
-			po["shell"] = "shared/play_disc.png"
-			po["icon_scale"] = 0.52
-			row.add_child(Kit.home_button({"icon": "board", "caption": ""}, po))
-			var mc := MarginContainer.new()
-			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
-			mc.add_child(row)
-			return mc
+			return _home_bar_preview(p)
 		"hud_layout":
 			return _hud_layout_preview()
-		"icon":
-			var box := HBoxContainer.new()
-			box.add_theme_constant_override("separation", 28)
-			box.add_child(_icon_preview("Raw", {"defringe": false, "feather": 0.0, "supersample": 1}))
-			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample)}))
-			return box
 		"gold_badge":
 			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)), float(p.get("corner", 58)), float(p.get("gradient", 100)))
 		"gold_currency_pill":
 			return _gold_currency_wallet_preview(p)
-		"level_badge":
-			# the shared LAYERED level badge, from the SAME resolver the HUD chip / dialog read.
-			# preview_level -> the tier stage (+ the printed number). The workbench draws ALL parts (show_all)
-			# so every part can be positioned together; the live game draws only the tier's group.
-			var lbpx := 320.0
-			var lopts := Kit.level_badge_opts_from_config({"level_badge": p})
-			var lblvl := int(p.get("preview_level", 30))
-			var lbadge := Kit.level_badge(lopts, Look.level_badge_index(lblvl), lblvl, lbpx, -1, true)
-			var wrap := CenterContainer.new()
-			wrap.custom_minimum_size = Vector2(lbpx + 20.0, lbpx + 20.0)
-			wrap.add_child(lbadge)
-			return wrap
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
 			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
@@ -651,40 +527,6 @@ func _make_element(id: String) -> Control:
 				"mode": String(p.mode), "gift": {"water": 30, "gems": 1},
 			}
 			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
-		"map_card":
-			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
-			# exactly what the game renders). The open preview uses the real Farm art; locked state still
-			# passes no art so the veiled panel + prerequisite row remain checkable.
-			# pass the shared gold_badge skin so the open card's frame previews the SAME tuning as board/info-bar.
-			var mco := Kit.map_card_opts_from_config({"map_card": p, "gold_badge": _params["gold_badge"], "bag_card": _params["bag_card"]})
-			# Build at the SAME two-column geometry as map.gd, then uniformly scale the whole preview so
-			# resident slots, count pill, title plate, and rail stay in the same proportions as the game.
-			var live_layout := Kit.map_select_layout(Vector2(PHONE_W, PHONE_H), mco)
-			var live_w := float(live_layout.card_w)
-			var live_h := maxf(float(live_layout.base_card_h) * (1.045 if bool(p.open) else 0.965), 132.0)
-			var scale := minf(1.0, 460.0 / maxf(1.0, live_w))
-			var mw := live_w
-			var mh := live_h
-			var art_path := Kit.map_card_art_path(Game.DATA.MAPS[0]) if bool(p.open) else ""
-			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": art_path,
-				# A not-yet-done OPEN card previews the in-progress vista the game renders: the count pill (the
-				# pill sliders' target), no resident rail. Flipping Done previews the COMPLETED habitat card —
-				# the resident rail plus the reward shelf — which share the lower edge and replace the pill. So
-				# both overlays are Done-gated together, and each state mirrors what map.gd actually draws.
-				"title": "The Farm", "resident_preview": bool(p.open) and bool(p.done), "habitat_preview": bool(p.open) and bool(p.done),
-				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
-				"prereq": "✿ after Meadow", "map_id": String(Game.DATA.MAPS[0].id)}
-			var card := Kit.map_card(mdata, mco, mw, mh)
-			if scale >= 0.999:
-				return card
-			var wrap := Control.new()
-			wrap.name = "MapCardLiveLayoutPreview"
-			wrap.custom_minimum_size = Vector2(mw * scale, mh * scale)
-			wrap.size = wrap.custom_minimum_size
-			wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			card.scale = Vector2(scale, scale)
-			wrap.add_child(card)
-			return wrap
 		"rush_bar":
 			# the Expedition top HUD, from the SAME kit builder the game uses: code-drawn gold-badge cells
 			# (Time · Score · Mult) + the asset leaf / coin / crown. Pass the shared gold_badge skin so the
@@ -776,6 +618,57 @@ func _make_element(id: String) -> Control:
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
 
+# The home BOTTOM BAR exactly as map.gd builds it (`_build_bottom_bar`): the real HomeChrome tile set,
+# each on its own paper role, icon over caption inside a rect Kit.home_button, with the shipped badges —
+# a bare red DOT on Daily + Vault, a numbered pill only on Mail — at the same halved offset the game uses
+# (map.gd:2342 `badge_dx * 0.5`). No orange play disc: every shipped tile is a rect now, Board included.
+const HOME_BAR_TILES := [
+	{"icon": "map", "caption": "Map", "surface": "sky"},
+	{"icon": "house", "caption": "Residents", "surface": "green"},
+	{"icon": "daily", "caption": "Daily", "surface": "gold", "badge": "dot"},
+	{"icon": "vault", "caption": "Vault", "surface": "purple", "badge": "dot"},
+	{"icon": "mail", "caption": "Mail", "surface": "kraft", "badge": "pill"},
+	{"icon": "board", "caption": "Play", "surface": "coral"},
+]
+func _home_bar_preview(p: Dictionary) -> Control:
+	# include the shell edge polish (config["badge"], tuned under Shell-polish) so the tiles reflect it
+	# live — the same link the game uses via Kit.home_button_opts_from_config.
+	var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
+	var tile := float(p.get("px", 158))
+	var badge_off := Vector2(float(ho.get("badge_dx", -26.0)) * 0.5, float(ho.get("badge_dy", -26.0)) * 0.5)
+	var badge_opts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	for spec in HOME_BAR_TILES:
+		var o := ho.duplicate()
+		o["shape"] = "rect"
+		o["surface_role"] = String(spec.surface)
+		o["shadow"] = true
+		var btn := Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption), "sparkle": bool(p.sparkle)}, o)
+		if spec.has("badge"):
+			# the SAMPLE badge count only feeds a "pill" tile (Mail); a "dot" tile is always the bare dot,
+			# exactly as the game builds them (map.gd Daily/Vault → dot, Mail → pill).
+			var bg := Look.badge("pill", maxi(1, int(p.get("badge_count", 3))), badge_opts) if String(spec.badge) == "pill" else Look.badge("dot", 0, badge_opts)
+			Look.attach_badge(btn, bg, badge_off)
+		row.add_child(btn)
+	var mc := MarginContainer.new()
+	mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
+	mc.add_child(row)
+	return mc
+
+# The board's own layout law, mirrored so the preview shows what the board WILL render (board wins): the
+# same absolute-px clamps board.gd applies, computed on the real 1080×1920 viewport then scaled to the
+# preview. Only the knobs the live board actually reads drive a region — level width, the wallet band, the
+# side rail, and the info-bar width are NOT board knobs, so they draw nothing here (they were preview-only).
+const HUD_BOTTOM_BAR_H := 166.0     # board.gd BOTTOM_BAR_H (fallback bar height)
+const HUD_BOTTOM_BTN_PX := 130.0    # board.gd BOTTOM_BTN_PX (fallback well size)
+const HUD_BOTTOM_BAR_MIN := 150.0   # board.gd BOTTOM_BAR_MIN / MAX
+const HUD_BOTTOM_BAR_MAX := 200.0
+const HUD_BOTTOM_BTN_MIN := 110.0
+const HUD_QUEST_H_MIN := 150.0      # board.gd QUEST_H_MIN / MAX
+const HUD_QUEST_H_MAX := 300.0
+const HUD_UNLOCK_BAR_TOP := 122.0   # board.gd UNLOCK_BAR_TOP — the next-unlock strip's top, below the pills
+const HUD_UNLOCK_BAR_H := 108.0     # a representative next-unlock strip height (board's _unlock_bar_h_px band)
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
 	var layout := Kit.hud_layout_opts_from_config({"hud_layout": p})
@@ -790,33 +683,44 @@ func _hud_layout_preview() -> Control:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
-	var top_h := h * float(p.get("top_band_h_pct", 15)) / 100.0
-	root.add_child(_layout_preview_box(Rect2(0, 0, w, top_h), Color("#D9E8D2", 0.18), "top %d%%" % int(p.get("top_band_h_pct", 15))))
-	var level_w := w * float(p.get("level_w_pct", 25)) / 100.0
 	var edge := float(p.get("edge_margin_px", 18)) * s
-	root.add_child(_layout_preview_box(Rect2(0, edge, level_w, level_w), Color("#F6C76F", 0.72), "Lv %d%%" % int(p.get("level_w_pct", 25))))
-	var wallet_w := w * float(p.get("currency_area_pct", 75)) / 100.0
+
+	# --- top HUD: the level badge (sized to the currency pill height, hud.gd) + the wallet band, whose 3
+	# pills are CENTRED in the currency area (hud.gd centres them; they are not left-packed). ---
+	var pill_slot_w := PHONE_W * float(layout.get("currency_pill_w_frac", 0.25))
+	var pill_body_w := maxf(1.0, pill_slot_w - float(p.get("edge_margin_px", 18))) * s
+	var pill_h := 74.0 * s   # the shipped gold-currency-pill height (hud.gd sizes the badge to it)
+	var pill_gap := float(p.get("edge_margin_px", 18)) * s
+	var wallet_w := w * clampf(float(layout.get("currency_area_frac", 0.75)), 0.0, 1.0)
 	var wallet_x := w - wallet_w
-	var pill_w := w * float(p.get("currency_pill_w_pct", 25)) / 100.0
-	var pill_h := maxf(34.0, top_h * 0.46)
-	var pill_body_w := maxf(1.0, pill_w - edge)
-	var pill_y := edge
+	var pill_run := pill_body_w * 3.0 + pill_gap * 2.0
+	var pills_x := wallet_x + maxf(0.0, (wallet_w - pill_run) / 2.0)   # CENTRED in the currency band
 	for i in 3:
-		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, pill_y, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
-	var wallet_clear_y := pill_y + pill_h + edge
-	# The board + quest stack is BOTTOM-ANCHORED in the live game (packed above the bottom bar; spare room
-	# falls to the top) and the board fills the width / auto-rotates — so the preview derives their boxes
-	# from the live layout, not from manual x·y·h knobs (those are retired).
-	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
-	var bottom_h := maxf(btn_w, h * float(layout.get("bottom_row_h_frac", 0.0)))
-	var bottom_y := h - bottom_h - edge
-	# The quest + board fill the space between the cleared HUD top (wallet_clear_y, the preview's
-	# HUD_CLEARANCE) and the bottom row, packed to the bottom. The board is height-capped to that room
-	# (keeping its aspect) so the quest always clears the pills — exactly like the live layout.
+		root.add_child(_layout_preview_box(Rect2(pills_x + (pill_body_w + pill_gap) * i, edge, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "pill"))
+	# the level badge is a pill-height SQUARE tucked at the top-left margin (hud.gd: lv_px = pill.pill_h)
+	root.add_child(_layout_preview_box(Rect2(edge, edge, pill_h, pill_h), Color("#F6C76F", 0.72), "Lv"))
+	var hud_clear_y := edge + pill_h + edge
+
+	# --- the NEXT-UNLOCK strip: the board's single largest top-reserve consumer, below the pills. ---
+	var unlock_y := HUD_UNLOCK_BAR_TOP * s
+	var unlock_h := HUD_UNLOCK_BAR_H * s
+	root.add_child(_layout_preview_box(Rect2(edge, unlock_y, w - edge * 2.0, unlock_h), Color("#CBB89A", 0.34), "next unlock", "HudLayoutUnlockBar"))
+	var stack_top := maxf(hud_clear_y, unlock_y + unlock_h + 8.0 * s)
+
+	# --- bottom bar + quest + board: bottom-anchored, with the board's REAL absolute-px clamps applied on
+	# the full viewport then scaled — so the sliders show what the board will actually render, not a raw %. ---
+	var btn_px := clampf(roundf(PHONE_W * float(layout.get("button_w_frac", 0.15))), HUD_BOTTOM_BTN_MIN, HUD_BOTTOM_BAR_MAX - (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
+	var bottom_raw := maxf(HUD_BOTTOM_BAR_H, btn_px + (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
+	var bottom_frac := float(layout.get("bottom_row_h_frac", 0.0))
+	if bottom_frac > 0.0:
+		bottom_raw = maxf(btn_px, roundf(PHONE_H * bottom_frac))
+	var bottom_h := clampf(bottom_raw, HUD_BOTTOM_BAR_MIN, HUD_BOTTOM_BAR_MAX) * s
+	var btn_w := btn_px * s
+	var quest_h := clampf(roundf(PHONE_H * float(layout.get("quest_bar_h_frac", 0.13))), HUD_QUEST_H_MIN, HUD_QUEST_H_MAX) * s
 	var gap := 8.0 * s
-	var quest_h := h * float(p.get("quest_bar_h_pct", 11)) / 100.0
+	var bottom_y := h - bottom_h - edge
 	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
-	var board_max_h := maxf(1.0, (bottom_y - wallet_clear_y) - quest_h - gap * 2.0)
+	var board_max_h := maxf(1.0, (bottom_y - stack_top) - quest_h - gap * 2.0)
 	var board_h := minf(live_board_size.y, board_max_h)
 	var board_w := minf(w, live_board_size.x * board_h / maxf(1.0, live_board_size.y))   # keep aspect if capped
 	var board_x := (w - board_w) / 2.0
@@ -827,14 +731,13 @@ func _hud_layout_preview() -> Control:
 	var quest_w := maxf(1.0, w - quest_x * 2.0)
 	var quest_y := board_y - gap - quest_h
 	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
-	var side_x := w - edge - btn_w
-	var rail_top := wallet_clear_y
-	for i in 4:
-		root.add_child(_layout_preview_box(Rect2(side_x, rail_top + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
-	var info_w := w * float(p.get("info_bar_w_pct", 70)) / 100.0
+	# the bottom bar: a Bag well (left) + Home well (right), the info bar FILLING the space between them
+	# (board.gd: the tray is SIZE_EXPAND_FILL — it takes whatever is left between the two wells).
+	var info_x := btn_w
+	var info_w := maxf(1.0, w - btn_w * 2.0)
 	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "bag", "HudLayoutBottomRow"))
-	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, bottom_h), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
-	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "home"))
+	root.add_child(_layout_preview_box(Rect2(info_x, bottom_y, info_w, bottom_h), Color("#F2D59A", 0.78), "info (fills)", "HudLayoutInfoBar"))
+	root.add_child(_layout_preview_box(Rect2(w - btn_w, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "home"))
 	return root
 
 func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
@@ -1208,55 +1111,6 @@ func _frame_placeholder() -> Control:
 		v.add_child(bar)
 	return v
 
-## One labelled icon preview (raw or polished) for the Icon element.
-func _icon_preview(label: String, opts: Dictionary) -> Control:
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	var l := Label.new()
-	l.text = label
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.8))
-	v.add_child(l)
-	var tr := TextureRect.new()
-	tr.custom_minimum_size = Vector2(170, 170)
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	opts["size"] = 160
-	var key := "icon|%s|%s|%s|%s" % [opts.get("defringe", false), opts.get("feather", 0.0), opts.get("supersample", 1), opts.get("shadow", false)]
-	_set_polished(tr, key, Game.art("ui/currency/icon_gem.png"), opts, false)
-	v.add_child(tr)
-	return v
-
-## One labelled badge (disc-shell) preview (raw or polished) for the Badge element — the SAME shell the
-## home button uses, polished by the SAME kit transform, so what you see here is what the rail/nav get.
-## Drive a preview TextureRect from the worker-thread polish cache: show the finished texture if it's
-## ready, else show the RAW sprite now and mark this element awaiting — the pump rebuilds it (picking up
-## the cached polish) once the worker lands. Keeps the polish sliders responsive (no per-tick main-thread bake).
-func _set_polished(tr: TextureRect, key: String, path: String, opts: Dictionary, aspect: bool) -> void:
-	var tex := Kit.polished_cached(key)            # cheap peek — skip the source decode on a cache hit
-	if tex != null:
-		tr.texture = tex
-		return
-	var src := _src_image(path)
-	if src == null:
-		tr.texture = null                          # art absent: nothing to bake, and DON'T await (no rebuild loop)
-		return
-	tex = Kit.polish_async(key, src, opts, aspect)
-	if tex != null:
-		tr.texture = tex
-	else:
-		tr.texture = load(path)                    # raw placeholder while the worker bakes
-		if _building != "":
-			_awaiting[_building] = true
-			set_process(true)
-
-## Load a sprite's RAW Image on the MAIN thread (ResourceLoader isn't threaded here), null-tolerant.
-func _src_image(path: String) -> Image:
-	if path == "" or not ResourceLoader.exists(path):
-		return null
-	var t := load(path) as Texture2D
-	return t.get_image() if t != null else null
-
 ## The shared Button's params as a kit opts dict. The card + dialog Claim are built ENTIRELY from
 ## this (no styling of their own), so editing the Button item updates every Claim automatically.
 ## The shared Button's STYLE (art / bg / corner / font / shadow) as a kit opts dict. The Button's own
@@ -1284,7 +1138,64 @@ func _btn_opts(overrides := {}) -> Dictionary:
 	if badge != "auto" and Kit.BADGES.has(badge) and String(Kit.BADGES[badge]) != "":
 		o["art"] = true
 		o["art_rel"] = String(Kit.BADGES[badge])
+	# the hidden kit options, exposed as preview knobs: a paper role routes through the flat paper-cut
+	# surface (borderless when Border is off), pad_scale shrinks/grows padding, static makes a display chip.
+	var role := String(b.get("paper", "none"))
+	if role != "none":
+		o["paper"] = role
+		o["art"] = false                            # paper + baked nine-patch are mutually exclusive
+		o.erase("art_rel")
+		if String(o["bg"]) == "green":              # the green primary branch wins over paper — step off it
+			o["bg"] = "cream"
+	if not bool(b.get("border", true)):
+		o["border"] = 0.0
+	o["pad_scale"] = float(b.get("pad_scale", 100)) / 100.0
+	if bool(b.get("static", false)):
+		o["static"] = true
 	return o
+
+# The shared button in every shape the KIT can already build — so the workbench governs the whole family,
+# not one green pill. The FIRST tile is the live-tunable button (drives every sidebar knob); the rest are
+# fixed samples of the other constructions (danger red, the cta_button's level-badge CTA, the paper roles,
+# a static display chip, and the reward/amount chips) so their looks are visible in one place.
+func _button_gallery(_p: Dictionary) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	col.custom_minimum_size = Vector2(300, 0)
+	# 1) the LIVE button — every saved + test knob drives this one.
+	col.add_child(_button_sample("● tunable (your knobs)", Kit.pill_button(String(_params["button"].text), _btn_opts())))
+	# 2) the three code-drawn bg roles.
+	col.add_child(_button_sample("green — primary CTA", Kit.pill_button("Claim", _btn_opts({"bg": "green"}))))
+	col.add_child(_button_sample("cream — secondary", Kit.pill_button("Cancel", _btn_opts({"bg": "cream"}))))
+	col.add_child(_button_sample("danger — alert", Kit.pill_button("Delete", _btn_opts({"bg": "danger"}))))
+	# 3) cta_button — the green level-badge CTA (level/mail/shop footers).
+	col.add_child(_button_sample("cta_button — badged CTA", Kit.cta_button("Collect", {})))
+	# 4) the paper-cut roles, borderless (the dialog "Not now" style).
+	var paper_row := HBoxContainer.new()
+	paper_row.add_theme_constant_override("separation", 10)
+	for role in ["purple", "coral", "gold"]:
+		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
+	col.add_child(_button_sample("paper roles (borderless)", paper_row))
+	# 5) the static display chips — reward_chip (currency reward) + amount_chip (any icon/text).
+	var chip_row := HBoxContainer.new()
+	chip_row.add_theme_constant_override("separation", 10)
+	chip_row.add_child(Kit.reward_chip({"coins": 120}))
+	chip_row.add_child(Kit.amount_chip("water", "60"))
+	col.add_child(_button_sample("static chips (reward · amount)", chip_row))
+	return col
+
+func _button_sample(label: String, btn: Control) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 3)
+	var l := Label.new()
+	l.text = label
+	l.add_theme_font_size_override("font_size", FS.TOOL)
+	l.add_theme_color_override("font_color", Color(Pal.INK, 0.7))
+	box.add_child(l)
+	var holder := HBoxContainer.new()
+	holder.add_child(btn)
+	box.add_child(holder)
+	return box
 
 ## The Button style + the Card's OWN saved badge / icon / claim text — drives the cost pill + Claim in
 ## both the Card preview and every dialog row. Delegates to the SAME kit builder the game uses, so the
@@ -1473,25 +1384,6 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
 			_sidebar_body.add_child(_slider_row(["frame_inner_w", 0, 10]))        # inner hairline — the border of the border
 			_sidebar_body.add_child(_slider_row(["frame_top_shadow", 0, 100]))    # top inset shadow — depth near the top
-		"generator":
-			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.gen_highlight_opts_from_config)
-			_section_header("Glow halo")
-			_sidebar_body.add_child(_slider_row(["glow_scale", 60, 160]))    # halo size, % of cell
-			_sidebar_body.add_child(_slider_row(["glow_a", 0, 80]))          # halo opacity %
-			_sidebar_body.add_child(_color_row("Glow", "glow_color"))        # halo tint
-			_section_header("Outline (traces the art)")
-			_sidebar_body.add_child(_slider_row(["outline_w", 0, 90]))       # rim thickness (per-mille of cell)
-			_sidebar_body.add_child(_slider_row(["outline_a", 0, 100]))      # rim opacity %
-			_sidebar_body.add_child(_slider_row(["outline_blur", 0, 60]))    # rim feather (per-mille of cell)
-			_sidebar_body.add_child(_color_row("Outline", "outline_color")) # rim tint
-			_section_header("Sparkle")
-			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
-			_sidebar_body.add_child(_slider_row(["sparkle_size", 50, 250]))  # twinkle size, % of default
-			_sidebar_body.add_child(_slider_row(["sparkle_speed", 0, 150]))  # twinkle speed (/100 cyc/s)
-			_sidebar_body.add_child(_color_row("Sparkle", "sparkle_color"))  # twinkle tint
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "tool_shed", "bee_skep", "mushroom_ring"]))
-			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"focus_ring":
 			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.focus_ring_opts_from_config)
 			_section_header("Colour")
@@ -1505,24 +1397,13 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["pad_pct", 0, 20]))        # inset from the cell edge
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
-		"ready_glow":
-			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.ready_glow_opts_from_config)
-			_section_header("Colour")
-			_sidebar_body.add_child(_color_row("Glow", "color"))            # the amber glow tint (fill + halo)
-			_sidebar_body.add_child(_slider_row(["fill_a", 0, 100]))        # rounded cell-fill opacity %
-			_sidebar_body.add_child(_slider_row(["halo_a", 0, 100]))        # soft halo (spill past the cell) opacity %
-			_section_header("Shape (% of cell)")
-			_sidebar_body.add_child(_slider_row(["corner_pct", 0, 50]))     # fill corner roundness
-			_sidebar_body.add_child(_slider_row(["halo_pct", 0, 50]))       # how far the halo spills past the cell
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"button":
 			_group_header("Saved to config", true)            # only the shared STYLE persists
 			_sidebar_body.add_child(_toggle_row("Use art", "art", true))   # sprite (scaled whole) vs code-drawn
 			_sidebar_body.add_child(_slider_row(["font", 12, 40]))
 			_group_header("Test only — not saved", false)      # preview props; text/badge/icon live on the Card
 			_sidebar_body.add_child(_text_row("Text", "text"))
-			_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream"]))
+			_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream", "danger"]))
 			if bool(_params["button"]["art"]):
 				_sidebar_body.add_child(_option_row("Badge", "badge", Kit.BADGES.keys()))
 			else:
@@ -1530,6 +1411,11 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS))
 			_sidebar_body.add_child(_slider_row(["icon_size", 8, 60]))
 			_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
+			_section_header("Paper-cut surface (overrides bg/art)")
+			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
+			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button
+			_sidebar_body.add_child(_slider_row(["pad_scale", 40, 140]))  # % padding (the cost chip uses < 100 to fit a card)
+			_sidebar_body.add_child(_toggle_row("Static (display chip)", "static"))   # looks like a button, not pressable
 		"home_button":
 			_group_header("Saved to config", true)              # the shared shell / icon / caption / sparkle style
 			_sidebar_body.add_child(_slider_row(["px", 90, 260]))
@@ -1541,14 +1427,12 @@ func _element_sidebar(_id: String) -> void:
 			_section_header("Rect badge (rail + Map — shape:\"rect\")")
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))         # the rect-badge OPACITY (%)
 			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
-			_section_header("Play disc (bottom-right CTA)")
-			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
-			_section_header("Side-rail badge (red dot / count)")
+			_section_header("Tile badge (dot on Daily/Vault, count pill on Mail)")
 			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dot_px", 8, 28]))     # the bare-dot badge diameter
 			_sidebar_body.add_child(_slider_row(["badge_num_size", 8, 28]))   # the count-badge number size (pill tracks it)
-			_section_header("Bag count (in-disc \"x/y\")")
+			_section_header("Board bag/home well count (the in-tile \"x/y\", board screen)")
 			_sidebar_body.add_child(_slider_row(["count_dx", -60, 60]))   # count x offset from the disc centre
 			_sidebar_body.add_child(_slider_row(["count_dy", -60, 60]))   # count y offset from the disc centre (+ = lower)
 			_sidebar_body.add_child(_slider_row(["count_font", 14, 40]))  # the "x/y" font size
@@ -1564,19 +1448,15 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
-			_sidebar_body.add_child(_slider_row(["badge_count", 0, 99]))   # sample badge count (0 = dot, ≥1 = count pill)
-			_sidebar_body.add_child(_text_row("Bag count", "count"))   # sample "x/y" on the nav disc (empty = none)
+			_sidebar_body.add_child(_slider_row(["badge_count", 1, 99]))   # sample count for the Mail pill (dot tiles ignore it)
 		"hud_layout":
 			_group_header("Saved to config", true)
 			_section_header("Top HUD")
-			_sidebar_body.add_child(_slider_row(["level_w_pct", 10, 40]))          # Lv badge slot width (% screen width)
 			_sidebar_body.add_child(_slider_row(["currency_area_pct", 50, 90]))    # wallet's right-side band (% screen width)
 			_sidebar_body.add_child(_slider_row(["currency_pill_w_pct", 12, 35]))  # each currency pill width (% screen width)
 			_sidebar_body.add_child(_slider_row(["edge_margin_px", 0, 48]))        # shared wallet + rail right-edge inset (px)
-			_sidebar_body.add_child(_slider_row(["top_band_h_pct", 5, 30]))        # vertical band reserved before rail/settings
 			_section_header("Buttons + board bottom")
 			_sidebar_body.add_child(_slider_row(["button_w_pct", 8, 25]))          # rail/nav/back/bag/home width (% screen width)
-			_sidebar_body.add_child(_slider_row(["info_bar_w_pct", 40, 85]))       # board info-bar width (% screen width)
 			_sidebar_body.add_child(_slider_row(["bottom_row_h_pct", 8, 22]))      # board-only bottom tray height (% screen height)
 			_section_header("Quest bar")
 			# Position/board-height knobs retired — the board fills the width / auto-rotates and the quest+board
@@ -1592,11 +1472,6 @@ func _element_sidebar(_id: String) -> void:
 				_sidebar_body.add_child(_option_row("Icon", "icon", ICONS.slice(1)))   # ICONS minus "none"
 			_sidebar_body.add_child(_slider_row(["title", 12, 30]))
 			_sidebar_body.add_child(_slider_row(["body", 10, 24]))
-		"icon":
-			_group_header("Test only — not saved", false)   # a polish-tuning sandbox; the recipe is fixed in the kit
-			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
-			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
-			_sidebar_body.add_child(_slider_row(["supersample", 1, 4]))
 		"gold_badge":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["corner", 12, 134]))
@@ -1706,72 +1581,6 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
 			_sidebar_body.add_child(_slider_row(["into", 0, 30]))
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
-		"level_badge":
-			_group_header("Saved to config", true)
-			_section_header("Number (the level text)")
-			_sidebar_body.add_child(_slider_row(["num_size", 8, 70]))       # font (% of px)
-			_sidebar_body.add_child(_slider_row(["num_x", -50, 50]))        # side (horizontal offset)
-			_sidebar_body.add_child(_slider_row(["num_y", -50, 50]))        # margin (vertical offset)
-			_sidebar_body.add_child(_slider_row(["num_burn", 0, 100]))      # engraved burn (dark ink + emboss + outline)
-			_group_header("Test only — not saved", false)
-			# preview_level drives the progression variant + printed number
-			_sidebar_body.add_child(_slider_row(["preview_level", 1, 110]))
-		"map_card":
-			_group_header("Saved to config", true)
-			# card SIZE: width comes from the live two-column place-picker layout; height remains a saved
-			# percent of screen height, and the picker scrolls when tall cards overflow the band.
-			_sidebar_body.add_child(_slider_row(["card_h_frac", 5, 50]))      # card height (% of screen height; width is layout-derived)
-			# the count pill's painted art (pill_left) vs a code-drawn cream pill — both card frames + the
-			# locked interior are code-drawn now, so this toggle only governs the count pill.
-			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
-			_sidebar_body.add_child(_slider_row(["edge_sparkle", 0, 100]))    # twinkles ringing an ACTIVE open card's gold band (% — 0 = off)
-			_sidebar_body.add_child(_slider_row(["pill_w_frac", 10, 60]))     # count-pill width (% of card width)
-			_sidebar_body.add_child(_slider_row(["pill_min", 80, 360]))       # …clamped to this min px
-			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
-			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
-			_section_header("Title plate")                                   # the "The Farm" name plate, top-left of an open card
-			_sidebar_body.add_child(_slider_row(["title_font", -10, 20]))     # grow/shrink the map-name text (px nudge)
-			_sidebar_body.add_child(_slider_row(["title_w", -120, 200]))      # widen/narrow the plate from its auto width (px)
-			_sidebar_body.add_child(_slider_row(["title_h", -20, 40]))        # taller/shorter plate (px)
-			_sidebar_body.add_child(_slider_row(["title_x", -60, 160]))       # move the plate right/left (px)
-			_sidebar_body.add_child(_slider_row(["title_y", -40, 100]))       # move the plate down/up (px)
-			_sidebar_body.add_child(_slider_row(["title_pad_x", 0, 80]))      # text inset left/right inside the plate (px)
-			_sidebar_body.add_child(_slider_row(["title_pad_y", -10, 24]))    # text inset vertical (px)
-			_section_header("Resident rail")
-			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 148])) # completed-card square slot size px
-			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card resident slots px
-			_section_header("Reward shelf")
-			_sidebar_body.add_child(_slider_row(["reward_shelf_w_frac", 45, 100])) # completed-card shelf width (% of left lane)
-			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 60]))   # completed-card shelf height (% of card height)
-			_sidebar_body.add_child(_slider_row(["reward_shelf_y_frac", 0, 35]))   # lift the shelf upward from the bottom (% of height)
-			_section_header("Expedition button")
-			_sidebar_body.add_child(_slider_row(["expedition_button_w", 70, 200]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_h", 24, 70]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_x", -120, 120]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_y", -50, 50]))
-			_sidebar_body.add_child(_slider_row(["expedition_button_font", 10, 34]))
-			_section_header("Reward icon")
-			_sidebar_body.add_child(_slider_row(["reward_icon_size", 12, 60]))
-			_sidebar_body.add_child(_slider_row(["reward_icon_x", -60, 60]))
-			_sidebar_body.add_child(_slider_row(["reward_icon_y", -40, 40]))
-			_section_header("Reward text")
-			_sidebar_body.add_child(_slider_row(["reward_label_font", 10, 34]))
-			_sidebar_body.add_child(_slider_row(["reward_label_x", -90, 90]))
-			_sidebar_body.add_child(_slider_row(["reward_label_y", -40, 40]))
-			_section_header("Progress bar")
-			_sidebar_body.add_child(_slider_row(["reward_bar_h", 4, 32]))
-			_sidebar_body.add_child(_slider_row(["reward_bar_y", -40, 40]))
-			_section_header("Collect button")
-			_sidebar_body.add_child(_slider_row(["reward_button_w", 70, 200]))
-			_sidebar_body.add_child(_slider_row(["reward_button_h", 24, 70]))
-			_sidebar_body.add_child(_slider_row(["reward_button_x", -120, 120]))
-			_sidebar_body.add_child(_slider_row(["reward_button_y", -50, 50]))
-			_sidebar_body.add_child(_slider_row(["reward_button_font", 10, 34]))
-			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
-			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
-			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))
-			_sidebar_body.add_child(_slider_row(["owned_zones", 0, 12]))
-			_sidebar_body.add_child(_slider_row(["total_zones", 0, 12]))
 		"rush_bar":
 			_group_header("Saved to config", true)
 			_section_header("Cells — code-drawn gold badge (tune the FRAME on the Gold badge item)")

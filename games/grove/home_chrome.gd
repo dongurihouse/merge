@@ -19,7 +19,6 @@ const ICON_VAULT := "vault"         # live-ops rail: Meadow vault icon
 const ICON_INBOX := "mail"          # live-ops rail: the inbox
 const ICON_SETTINGS := "settings"   # HUD top-right Meadow settings icon
 
-const PLAY_SHELL := "shared/play_disc.png"    # the orange Play disc shell (NOT the default cream disc)
 const BACK_ICON_REL := "map/back_arrow.png"   # the place-picker back arrow (kit-relative, not an icon_<id>)
 
 # The COMPLETE set of home-surface icon ids that home_button polishes via clean_tex_path — the bake iterates

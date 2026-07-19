@@ -232,16 +232,6 @@ static func _apply_rounded_paper_surface(
 	button.draw.connect(sync_state)
 	return paper
 
-static func meadow_board_style(pad_x: float = 0.0, pad_y: float = 0.0) -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = _meadow_tex("board_frame.png")
-	_set_texture_margins(style, BOARD_PATCH)
-	style.content_margin_left = pad_x
-	style.content_margin_right = pad_x
-	style.content_margin_top = pad_y
-	style.content_margin_bottom = pad_y
-	return style
-
 static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: float = 0.0, pad_top: float = 0.0, pad_right: float = 0.0, pad_bottom: float = 0.0) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
 	style.texture = _meadow_tex(file_name)
@@ -530,17 +520,6 @@ static func _polish_icon_aspect(img: Image, opts: Dictionary) -> Image:
 	return img
 
 ## --- icon edge polish (defringe / feather / supersample) -----------------------------------------
-## Clean up a generated icon's rough alpha edge. opts: defringe (bool), feather (px), supersample
-## (1-4), size (working/output px). Returns a polished Texture2D (or the raw texture on failure).
-static func polish_icon_tex(id_or_path: String, opts: Dictionary = {}) -> Texture2D:
-	var path := id_or_path
-	if not path.begins_with("res://"):
-		path = Game.art("ui/currency/icon_%s.png" % id_or_path)
-	if not ResourceLoader.exists(path):
-		return null
-	var img := (load(path) as Texture2D).get_image()
-	return ImageTexture.create_from_image(polish_image(img, opts))
-
 static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 	var do_defringe: bool = bool(opts.get("defringe", false))
 	var feather: float = float(opts.get("feather", 0.0))
@@ -3195,12 +3174,6 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 ## zero-based and is clamped, while the native lv_num Label remains independent and player-readable.
 const LEVEL_BADGE_VARIANTS := 25
 
-## Compatibility helper retained for callers that inspect tier progression. The old composited `parts`
-## list is intentionally empty: extracted full-badge variants are now authoritative.
-static func level_badge_tier_parts(tier: int) -> Dictionary:
-	var variant := clampi(tier, 0, LEVEL_BADGE_VARIANTS - 1) + 1
-	return {"group": 0, "stage": variant, "variant": variant, "parts": []}
-
 ## The workbench-tuned level-badge geometry from a saved config (cfg["level_badge"]). Every
 ## position/size knob is a PERCENT of the badge px so the emblem scales to any size.
 static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4149,12 +4122,9 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
 	return {
-		"level_w_frac": clampf(float(h.get("level_w_pct", 25.0)) / 100.0, 0.05, 0.80),
 		"currency_area_frac": clampf(float(h.get("currency_area_pct", 75.0)) / 100.0, 0.10, 1.0),
 		"currency_pill_w_frac": clampf(float(h.get("currency_pill_w_pct", 25.0)) / 100.0, 0.05, 0.60),
-		"top_band_h_frac": clampf(float(h.get("top_band_h_pct", 15.0)) / 100.0, 0.0, 0.50),
 		"button_w_frac": clampf(float(h.get("button_w_pct", 15.0)) / 100.0, 0.05, 0.50),
-		"info_bar_w_frac": clampf(float(h.get("info_bar_w_pct", 70.0)) / 100.0, 0.10, 0.95),
 		"bottom_row_h_frac": clampf(float(h.get("bottom_row_h_pct", 0.0)) / 100.0, 0.0, 0.40),
 		# quest band height (% screen height); board.gd clamps it to [QUEST_H_MIN, QUEST_H_MAX]. The old
 		# quest/board x·y and board-height fracs are retired — the live layout is responsive + bottom-anchored.
@@ -4177,9 +4147,14 @@ static func focus_ring_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"halo": bool(f.get("halo", true)),
 	}
 
+# The quest-ready glow's SHAPE is fixed: the rounded-fill corner radius and the halo spill, as fractions
+# of the cell. They were tunable knobs; the shipped values never moved off these, so they are constants
+# now and only COLOUR + opacity stay tunable (see ready_glow_opts_from_config).
+const READY_GLOW_CORNER_FRAC := 0.22
+const READY_GLOW_HALO_FRAC := 0.16
+
 ## The QUEST-READY glow (a board tile a live quest wants) tuning from the workbench. Colour is a 6-digit
-## hex string (no '#'); fill_a/halo_a are whole-percent opacities; corner_pct/halo_pct are the rounded-fill
-## corner radius and the halo spill as percents of the cell. Flows to the live board via board.gd
+## hex string (no '#'); fill_a/halo_a are whole-percent opacities. Flows to the live board via board.gd
 ## _ready_glow_opts → PieceView.add_ready_glow. An absent section returns the shipped READY_GLOW look.
 static func ready_glow_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var r: Dictionary = cfg.get("ready_glow", {}) if cfg is Dictionary else {}
@@ -4187,8 +4162,8 @@ static func ready_glow_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"color": _hex_color(String(r.get("color", "FFB12E"))),
 		"fill_a": clampf(float(r.get("fill_a", 55.0)) / 100.0, 0.0, 1.0),
 		"halo_a": clampf(float(r.get("halo_a", 60.0)) / 100.0, 0.0, 1.0),
-		"corner_frac": clampf(float(r.get("corner_pct", 22.0)) / 100.0, 0.0, 0.50),
-		"halo_frac": clampf(float(r.get("halo_pct", 16.0)) / 100.0, 0.0, 0.50),
+		"corner_frac": READY_GLOW_CORNER_FRAC,
+		"halo_frac": READY_GLOW_HALO_FRAC,
 	}
 
 ## Parse a 6-digit hex string (with or without a leading '#') into a Color; falls back to white.
@@ -4224,15 +4199,6 @@ static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7
 	var cell_h := (view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows
 	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
-
-static func live_quest_bar_top_y(safe_top := 0.0) -> float:
-	return safe_top + 44.0 + 10.0
-
-static func live_quest_bar_height() -> float:
-	return 215.0
-
-static func live_board_frame_top_y(safe_top := 0.0) -> float:
-	return live_quest_bar_top_y(safe_top) + live_quest_bar_height() + 10.0
 
 ## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench
 ## all build the same gold_badge-backed component directly from this block.
