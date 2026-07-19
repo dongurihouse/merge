@@ -142,10 +142,16 @@ func _initialize() -> void:
 	var expected_badge_w := roundf(float(pill_opts.get("pill_h", 100.0)))
 	var badge_rect := lv_slot.get_global_rect() if lv_slot != null else Rect2()
 	ok(lv_slot != null
-		and absf(badge_rect.position.x) <= 1.0
 		and absf(badge_rect.size.x - expected_badge_w) <= 1.0,
 		"HUD level badge slot matches the currency pill height (%.1f ~= %.1f)" % [
 			badge_rect.size.x, expected_badge_w])
+	# the badge's PAINTED left edge honors the same edge margin the wallet uses on the right
+	var layout_opts := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var expected_left := float(layout_opts.get("edge_margin_px", 18.0))
+	var painted_left := badge_rect.position.x + Hud._painted_left_offset(lv_slot)
+	ok(lv_slot != null and absf(painted_left - expected_left) <= 1.0,
+		"HUD level badge painted left honors the edge margin (%.1f ~= %.1f)" % [
+			painted_left, expected_left])
 	ok(lv_slot != null and lv_slot.visible, "the level badge shows by default (the Map keeps it)")
 	align_host.free()
 

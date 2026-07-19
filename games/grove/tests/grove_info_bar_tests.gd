@@ -19,7 +19,8 @@ func _node_texture_path(node: Node) -> String:
 	return ""
 
 func _test_meadow_shared_components() -> void:
-	for spec in [["green", "button_primary.png"], ["cream", "button_secondary.png"], ["danger", "button_danger.png"]]:
+	# cream / danger keep their baked nine-patch shells …
+	for spec in [["cream", "button_secondary.png"], ["danger", "button_danger.png"]]:
 		var button := Kit.pill_button("Action", {"bg": spec[0], "art": true})
 		var style := button.get_theme_stylebox("normal")
 		ok(style is StyleBoxTexture and _resource_suffix(_button_shell(button), "ui/meadow_v2/%s" % spec[1]),
@@ -30,9 +31,25 @@ func _test_meadow_shared_components() -> void:
 		ok(button.text == "Action" and button.mouse_filter != Control.MOUSE_FILTER_IGNORE,
 			"pill_button %s retains native text and its hit target" % spec[0])
 		button.free()
+	# … while GREEN (the primary action role) is the flat paper-cut surface: the action-green paper
+	# masked to the button's rounded rect, drawn BEHIND the button's own text, plus a drop shadow.
+	var green := Kit.pill_button("Action", {"bg": "green", "art": true})
+	var green_style := green.get_theme_stylebox("normal")
+	var green_paper := green.find_child("ButtonPaperSurface", true, false) as TextureRect
+	ok(green_paper != null and _resource_suffix(green_paper.texture, "ui/meadow_v2/texture_action_green.png") \
+		and green_paper.material is ShaderMaterial and green_paper.show_behind_parent,
+		"pill_button green wears the flat action-green paper, masked and drawn behind its label")
+	ok(green_style is StyleBoxFlat and not (green_style as StyleBoxFlat).draw_center \
+		and (green_style as StyleBoxFlat).get_corner_radius(CORNER_TOP_LEFT) > 0,
+		"the green button's stylebox contributes only the rounded edge — the paper is the fill")
+	ok(green.find_children("", "Panel", true, false).size() >= 1,
+		"pill_button green casts the shared drop shadow")
+	ok(green.text == "Action" and green.mouse_filter != Control.MOUSE_FILTER_IGNORE,
+		"pill_button green retains native text and its hit target")
+	green.free()
 	var default_button := Kit.pill_button("Action")
-	ok(_resource_suffix(_button_shell(default_button), "ui/meadow_v2/button_primary.png"),
-		"pill_button defaults to the canonical Meadow primary shell")
+	ok(default_button.find_child("ButtonPaperSurface", true, false) != null,
+		"pill_button defaults to the green paper-cut surface")
 	default_button.free()
 
 	var board := Kit.board_panel(Vector2(420, 360), {"shadow": true})
@@ -126,8 +143,9 @@ func _test_meadow_shared_components() -> void:
 		if (candidate as Button).text == "$4.99":
 			vault_cta = candidate as Button
 			break
-	ok(vault_cta != null and _resource_suffix(_button_shell(vault_cta), "ui/meadow_v2/button_primary.png"),
-		"production Vault CTA inherits the canonical Meadow primary shell")
+	var vault_paper := vault_cta.find_child("ButtonPaperSurface", true, false) as TextureRect if vault_cta != null else null
+	ok(vault_paper != null and _resource_suffix(vault_paper.texture, "ui/meadow_v2/texture_action_green.png"),
+		"production Vault CTA inherits the green paper-cut surface")
 	vault.free()
 
 	for icon_id in ["settings", "mail", "vault", "daily", "expedition", "gift", "news"]:

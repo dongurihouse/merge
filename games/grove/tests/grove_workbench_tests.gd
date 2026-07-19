@@ -1085,15 +1085,19 @@ func _initialize() -> void:
 # surface: the cta_button atom, the optional mail footer, the read-only amount chip, the re-pointed
 # workbench preview, and that the old info_dialog / _info_row / _info_divider builders are GONE.
 func _test_info_reuses_mail(view) -> void:
-	# 1. cta_button — the SHARED green level-badge button atom (one source, reused everywhere).
+	# 1. cta_button — the SHARED green button atom (one source, reused everywhere). Like every green
+	#    button it now wears the flat action-green PAPER surface, not a baked sprite shell.
 	var cta := Kit.cta_button("Got it", {})
 	ok(cta is Button and String((cta as Button).text) == "Got it", "cta_button builds a labelled Button")
-	var cta_tex := _btn_tex(cta)
-	ok(cta_tex != null, "cta_button wears the baked level-badge sprite (a StyleBoxTexture, not a flat pill)")
-	# the level dialog's bottom button IS this same atom → SAME sprite texture (proves reuse, not a copy)
+	var cta_paper := cta.find_child("ButtonPaperSurface", true, false) as TextureRect
+	ok(cta_paper != null and String(cta_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_action_green.png"), \
+		"cta_button wears the flat action-green paper surface")
+	# the level dialog's bottom button IS this same atom → SAME paper texture (proves reuse, not a copy)
 	var lv := Kit.level_dialog({"level": 1, "earned": 0, "next": 6, "into": 0, "span": 6, "remaining": 6, "mode": "info"}, 460.0, Kit.level_opts_from_config(view._params))
 	var lv_got := _find_button(lv, "Got it")
-	ok(lv_got != null and _btn_tex(lv_got) == cta_tex, "the level dialog's bottom button IS the cta_button atom (same sprite)")
+	var lv_paper := lv_got.find_child("ButtonPaperSurface", true, false) as TextureRect if lv_got != null else null
+	ok(lv_paper != null and lv_paper.texture == cta_paper.texture, \
+		"the level dialog's bottom button IS the cta_button atom (same paper)")
 
 	# 2. mail_dialog — an OPTIONAL Got-it footer: off by default (the inbox is unchanged), a centered
 	#    cta_button below the cards when opts.got_it is set (the info sheet's close affordance).
@@ -2616,9 +2620,10 @@ func _test_bag_components() -> void:
 	ok(dlg is Control, "bag_dialog builds a Control")
 	ok(dlg.find_child("DialogBanner", true, false) != null, "the bag dialog reuses the SHARED frame banner")
 	ok(_grid_cells(dlg) == entries.size(), "the bag grid has one cell per entry (%d)" % entries.size())
-	var balance_pill := dlg.find_child("GoldCurrencyPill", true, false) as Control
-	ok(balance_pill != null and _pill_numbers(balance_pill) == 1, "bag_dialog renders the direct gold currency pill for the balance")
-	ok(_has_label_text(dlg, "132"), "the gold currency pill shows the acorn balance (132)")
+	# NO balance pill: the HUD already carries the acorn counter, so the dialog's only price is the
+	# next slot's own cost chip.
+	ok(dlg.find_child("GoldCurrencyPill", true, false) == null, "bag_dialog shows no acorn-balance pill")
+	ok(not _has_label_text(dlg, "132"), "the bag dialog never repeats the balance the HUD already shows")
 
 # The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
 # tier wears the filled Slot-cell background holding its piece; an undiscovered tier uses the same

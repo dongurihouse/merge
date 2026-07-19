@@ -5004,7 +5004,11 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# (no acorn-balance pill: the HUD already carries the acorn counter, and the only price in the dialog
+<<<<<<< Updated upstream
 	# is the next slot's own cost chip. `balance` stays in the signature for the callers/tests.)
+=======
+	# is the next slot's own cost chip. `balance` is kept in the signature for the callers/tests.)
+>>>>>>> Stashed changes
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the

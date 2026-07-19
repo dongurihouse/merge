@@ -59,6 +59,24 @@ static func _painted_top_offset(node: Control) -> float:
 		top = minf(top, (tr as TextureRect).position.y + float(used.position.y) * scale_y)
 	return 0.0 if top == INF else top
 
+## The X mirror of _painted_top_offset: how far the badge's first painted pixel sits from its
+## own left edge, so the PAINTED edge (not the transparent bounding box) can honor the margin.
+static func _painted_left_offset(node: Control) -> float:
+	if node == null:
+		return 0.0
+	var left := INF
+	for tr in node.find_children("*", "TextureRect", true, false):
+		var tex := (tr as TextureRect).texture
+		var img := tex.get_image() if tex != null else null
+		if img == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+			continue
+		var used := img.get_used_rect()
+		if used.size.x <= 0 or used.size.y <= 0:
+			continue
+		var scale_x := (tr as TextureRect).size.x / float(tex.get_width())
+		left = minf(left, (tr as TextureRect).position.x + float(used.position.x) * scale_x)
+	return 0.0 if left == INF else left
+
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned gold pill look (padding / font / icon box / plus)
 	var Kit = load(KIT_PATH)
@@ -168,6 +186,12 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		return av
 	var avatar: Control = build_badge.call(lvl0)
 	place_level_row.call(top_edge - float(avatar.get_meta("painted_top_offset", 0.0)))
+	# the badge's painted left edge honors the same edge margin the wallet uses on the right,
+	# so the top band is inset symmetrically instead of the badge hugging the screen edge.
+	var left_w := left.size.x
+	var left_edge := edge_margin - _painted_left_offset(avatar)
+	left.offset_left = left_edge
+	left.offset_right = left_edge + left_w
 	# the rebuildable badge bits, shared with `refresh` via a dict (closures capture it by reference)
 	var badge_state := {"avatar": avatar, "level": avatar.get_node_or_null("lv_num") as Label,
 		"tier": Look.level_badge_index(lvl0)}
