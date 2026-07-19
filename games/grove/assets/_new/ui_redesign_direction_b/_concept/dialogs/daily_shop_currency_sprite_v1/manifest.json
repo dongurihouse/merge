@@ -1,0 +1,24 @@
+{
+  "sheet": "daily_shop_currency_sheet_1536.png",
+  "frames_dir": "final_frames",
+  "canvas": "1536x1536",
+  "cell_master": "512x512",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "row_major": [
+    "acorn_single_512.png",
+    "acorn_bundle_512.png",
+    "acorn_coin_pouch_512.png",
+    "coin_single_512.png",
+    "coin_stack_512.png",
+    "coin_pouch_512.png",
+    "water_droplet_512.png",
+    "watering_can_512.png",
+    "mystery_gift_512.png"
+  ],
+  "alpha_qc": {
+    "visible_magenta_fringe_px": 0,
+    "opaque_canvas_edge_px": 0,
+    "nonzero_rgb_outside_alpha_px": 0,
+    "edge_touch_frames": []
+  }
+}
