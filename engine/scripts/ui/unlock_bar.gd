@@ -25,6 +25,7 @@ const FILL_TWEEN_S := 0.55
 var _progress := 0.0
 var _ready_fx := false
 var _bg: Panel
+var _shadow: Panel
 var _badge: TextureRect
 var _title: Label
 var _level: Label
@@ -42,11 +43,12 @@ func _init() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg.add_theme_stylebox_override("panel", _band_style(18.0))   # provisional; _relayout re-derives from height
 	add_child(_bg)
-	# the ONE SHARED drop-shadow (the pill look) behind the strip
+	# THE uniform shadow behind the strip; _relayout re-points its corner at the band's derived
+	# rounding so the shadow's corners always match the pill shape.
 	var ShadowKit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var sh := Look.shadow_rect(18.0, Look.shadow_params(ShadowKit.load_config(ShadowKit.CONFIG_PATH)))
-	sh.show_behind_parent = true
-	_bg.add_child(sh)
+	_shadow = Look.shadow_rect(18.0, Look.shadow_params(ShadowKit.load_config(ShadowKit.CONFIG_PATH)))
+	_shadow.show_behind_parent = true
+	_bg.add_child(_shadow)
 	_badge = TextureRect.new()
 	_badge.name = "UnlockBadge"
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -169,6 +171,8 @@ func _relayout() -> void:
 		return
 	var corner := maxf(12.0, h * PAPER_CORNER_FRAC)
 	_bg.add_theme_stylebox_override("panel", _band_style(corner))
+	if _shadow != null:
+		Look.set_shadow_corner(_shadow, corner)
 	_apply_paper_surface(corner)
 	var badge_s := h * 1.06
 	_badge.size = Vector2(badge_s, badge_s)

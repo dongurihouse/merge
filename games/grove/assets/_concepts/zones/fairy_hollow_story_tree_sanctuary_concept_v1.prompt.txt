@@ -1,0 +1,6 @@
+Use case: illustration-story
+Asset type: vertical mobile game-zone concept, full scene
+Reference: fairy_hollow_original_mock_v1.png is material and palette authority only; do not copy its layout or landmarks.
+Primary request: Ancient Story-Tree Sanctuary — a colossal old tree with a glowing story niche, circular rune-stone gathering clearing, paper wish-tags and lanterns, stepped waterfall pool, fallen log bridge, spiral stone approach, fern fans, and jewel-toned flowers.
+Style: Meadow Sky + Cut-Paper Playground: tactile matte paper grain, layered warm cut-paper edges, readable silhouettes, saturated teal, blue, and green with coral and gold highlights, controlled high contrast, upper-left moonlight.
+Avoid: mushroom cottage, fox den, well, picnic table, market stall, UI, text, watermark, glossy 3D, clay, watercolor, photorealism, visible brush strokes.

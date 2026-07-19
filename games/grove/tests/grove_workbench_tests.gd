@@ -1659,12 +1659,15 @@ func _test_warm_shadow_port() -> void:
 			break
 	ok(board_meadow_shadow, "the board frame casts the normalized Meadow structural-slate shadow")
 
-	var oversized := {"alpha": 0.72, "offset_x": 5.0, "offset_y": 5.0, "blur": 14.0, "spread": -13.0}
-	var home := Kit.home_button({"icon": "settings"}, {"px": 120.0, "shadow": true, "shadow_params": oversized})
+	# config-derived opts carry the ONE shared block (no per-component override keys exist any more)
+	var home_opts: Dictionary = Kit.home_button_opts_from_config({"home_button": {"shadow": true}})
+	home_opts["px"] = 120.0
+	home_opts["shadow"] = true
+	var home := Kit.home_button({"icon": "settings"}, home_opts)
 	var home_shadow := home.get_child(0) as Panel if home.get_child_count() > 0 and home.get_child(0) is Panel else null
 	var home_style := home_shadow.get_theme_stylebox("panel") as StyleBoxFlat if home_shadow != null else null
 	ok(home_style != null and _same_rgb(home_style.shadow_color, Color("#294654")) and absf(home_style.shadow_color.a - 0.38) <= 0.01,
-		"live home/navigation shells ignore runtime overrides and cast THE uniform shadow")
+		"live home/navigation shells cast THE uniform shadow from the shared block")
 	home.free()
 
 	var rect := Kit.home_button({"icon": "bag", "caption": ""}, {
@@ -2473,8 +2476,30 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
+	# dim_bg recedes the WELL through the paper layer's OWN tint. The mask shader writes COLOR wholesale,
+	# so the old `bg.modulate` never reached the face — assert the tint, not the modulate.
+	var dim_opts := co.duplicate(true)
+	dim_opts["dialog_cells"] = true
+	var _paper_tint := func(cell: Control) -> Color:
+		var paper := cell.find_child("SlotCellPaperTexture", true, false) as Control
+		if paper == null or paper.material == null:
+			return Color.WHITE
+		var t: Variant = (paper.material as ShaderMaterial).get_shader_parameter("tint")
+		return t if t is Color else Color.WHITE
+	var lit: Color = _paper_tint.call(Kit.slot_cell({"state": "filled"}, dim_opts))
+	var dimmed: Color = _paper_tint.call(Kit.slot_cell({"state": "filled", "dim_bg": true}, dim_opts))
+	ok(dimmed.r < lit.r and dimmed.g < lit.g and dimmed.b < lit.b, \
+		"dim_bg recedes the cell FACE (the paper tint), not just its border")
+	# ...and the dialogs' locked well is the mocks' lighter receding blue, while the board keeps its own
+	var dlg_locked: Control = Kit.slot_cell({"state": "locked"}, dim_opts)
+	var dlg_locked_tint: Color = _paper_tint.call(dlg_locked)
+	ok(dlg_locked_tint.r > 1.0, "a dialog's locked cell lifts off the board's receding blue")
 	var flat_board_opts := co.duplicate(true)
 	flat_board_opts["flat_board_cells"] = true
+	flat_board_opts["dialog_cells"] = true
+	var board_locked_tint: Color = _paper_tint.call(Kit.slot_cell({"state": "locked"}, flat_board_opts))
+	ok(board_locked_tint.is_equal_approx(Color.WHITE), \
+		"the BOARD's locked cell ignores dialog_cells and keeps its untinted face")
 	var flat_board_unlockable := Kit.slot_cell({"state": "unlockable"}, flat_board_opts)
 	ok(flat_board_unlockable.find_child("SlotCellUnlockableHighlight", true, false) == null \
 		and not _has_class(flat_board_unlockable, "GPUParticles2D"), \

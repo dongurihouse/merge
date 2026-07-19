@@ -252,7 +252,8 @@ static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	if not bool(lay.get("shadow", false)):
 		return
-	var sh := Look.shadow_rect(h * 0.12, Look.shadow_params({}))
+	var params: Dictionary = lay.get("shadow_params", {}) as Dictionary
+	var sh := Look.shadow_rect(h * 0.12, params if not params.is_empty() else Look.shadow_params({}))
 	sh.show_behind_parent = true
 	card.add_child(sh)
 

@@ -252,16 +252,20 @@ static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: fl
 	style.content_margin_bottom = pad_bottom
 	return style
 
-## THE uniform shadow (skin.gd owns tint + numbers) — these are thin aliases kept so call sites read
-## as "the shared shadow"; per-call overrides are retired, one look everywhere.
-static func _meadow_shadow_rect(corner: float, _params: Dictionary = {}) -> Panel:
-	return Look.shadow_rect(corner, Look.shadow_params({}))
+## THE uniform shadow (skin.gd owns tint + numbers) — thin aliases so call sites read as "the shared
+## shadow". `params` is the ONE shared block (a live workbench preview passes its unsaved sliders);
+## when absent, the saved config's block (falling back to skin.gd defaults). No per-component overrides.
+static func _shared_shadow_params(params: Dictionary = {}) -> Dictionary:
+	return params if not params.is_empty() else Look.shadow_params(load_config(CONFIG_PATH))
 
-static func _meadow_shadow_circle(diameter: float, _params: Dictionary = {}) -> Panel:
-	return Look.shadow_circle(diameter, Look.shadow_params({}))
+static func _meadow_shadow_rect(corner: float, params: Dictionary = {}) -> Panel:
+	return Look.shadow_rect(corner, _shared_shadow_params(params))
 
-static func _meadow_with_shadow(node: Control, corner: float, _params: Dictionary = {}, circular := false) -> Control:
-	return Look.with_shadow(node, corner, Look.shadow_params({}), circular)
+static func _meadow_shadow_circle(diameter: float, params: Dictionary = {}) -> Panel:
+	return Look.shadow_circle(diameter, _shared_shadow_params(params))
+
+static func _meadow_with_shadow(node: Control, corner: float, params: Dictionary = {}, circular := false) -> Control:
+	return Look.with_shadow(node, corner, _shared_shadow_params(params), circular)
 
 # The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
 # only the interior differs. An OPEN place shows its locale art COVER-filled inside the frame + a "★ N
@@ -566,7 +570,11 @@ static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 ## sprite's own alpha, offset + blurred + warm-tinted — sits beneath it. opts: shadow_offset (Vector2
 ## px at this image's scale), shadow_blur (px), shadow_alpha (0..1), shadow_pad (px). The shape-true
 ## shadow (follows the sprite's silhouette) is why icons bake it instead of using a rounded-rect panel.
-static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
+## The SHAPE-TRUE shadow layer alone (no art composited): the sprite's alpha silhouette, slate-tinted,
+## offset and feathered. Returns {"image": Image, "pad": int} — the image is (w+2pad)×(h+2pad) and the
+## caller places it at (-pad, -pad) relative to the art. Irregular cutouts (the star level badge) use
+## this so THE uniform shadow follows their real outline instead of boxing them.
+static func silhouette_shadow(img: Image, opts: Dictionary = {}) -> Dictionary:
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
 	var w := img.get_width()
@@ -599,7 +607,15 @@ static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
 			sh_data[si + 3] = int(a * sh_color.a)
 	shadow.set_data(nw, nh, false, Image.FORMAT_RGBA8, sh_data)
 	_feather_alpha(shadow, blur)
-	shadow.blend_rect(img, Rect2i(0, 0, w, h), Vector2i(pad, pad))   # sprite OVER the shadow (alpha blend)
+	return {"image": shadow, "pad": pad}
+
+static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var res: Dictionary = silhouette_shadow(img, opts)
+	var shadow: Image = res.image
+	var pad: int = res.pad
+	shadow.blend_rect(img, Rect2i(0, 0, img.get_width(), img.get_height()), Vector2i(pad, pad))   # sprite OVER the shadow (alpha blend)
 	return shadow
 
 ## Bleed the nearest opaque colour outward into the semi-transparent edge pixels (keeping their
@@ -4695,6 +4711,14 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 const DIALOG_CELL_OPEN_FILL := Color("#CCCEAA")
 ## ...and the nominal colour of ui/meadow_v2/texture_meadow.png, the grain sheet drawn over the face.
 const MEADOW_PAPER_BASE := Color("#A8D3B9")
+## The LOCKED dialog cell, measured the same way off the same mocks: tiers #91A0B3, merged_line_tiers
+## #97A6B9, resident_management_dialog_v2 #8B9FB2 — a lighter, warmer receding blue than the board's.
+## The board's locked well keeps #8296AF below.
+const DIALOG_CELL_LOCKED_FILL := Color("#91A0B3")
+## ...and the nominal colour of ui/meadow_v2/texture_receding_blue.png, its own grain sheet.
+const RECEDING_PAPER_BASE := Color("#8296AF")
+## How far dim_bg recedes an inactive well (the multiply the old, ineffective modulate asked for).
+const DIM_BG_FACTOR := 0.74
 
 ## The SLOT-CELL background draws its rounded shape and edge in code, then clips one flat paper texture
 ## inside it. Cells never cast their own shadow; only the board slab does.
@@ -4749,8 +4773,8 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
 	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
-	if open_state and dialog_cells:
-		fill = DIALOG_CELL_OPEN_FILL
+	if dialog_cells:
+		fill = DIALOG_CELL_OPEN_FILL if open_state else DIALOG_CELL_LOCKED_FILL
 	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = fill
@@ -4766,8 +4790,17 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	# recoloured face has to retint it too — as a modulate ratio off the texture's own base, which is
 	# exactly Color.WHITE when the fill is unchanged (the board stays byte-identical).
 	var paper_tint := Color.WHITE
-	if open_state and dialog_cells:
-		paper_tint = Color(fill.r / MEADOW_PAPER_BASE.r, fill.g / MEADOW_PAPER_BASE.g, fill.b / MEADOW_PAPER_BASE.b)
+	if dialog_cells:
+		var base_c: Color = MEADOW_PAPER_BASE if open_state else RECEDING_PAPER_BASE
+		paper_tint = Color(fill.r / base_c.r, fill.g / base_c.g, fill.b / base_c.b)
+	# dim_bg (the Producing dialog's discovered-but-inactive lines) recedes the WELL. It has to ride the
+	# SAME tint the recolour uses: the paper sheet IS the visible face and the mask shader writes COLOR
+	# wholesale, so a modulate on the parent Panel only ever dimmed the 1px border.
+	var dim: float = clampf(float(opts.get("dim", 1.0)), 0.0, 1.0)
+	if dim < 1.0:
+		fill = Color(fill.r * dim, fill.g * dim, fill.b * dim, fill.a)
+		fs.bg_color = fill
+		paper_tint = Color(paper_tint.r * dim, paper_tint.g * dim, paper_tint.b * dim, paper_tint.a)
 	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0, paper_tint))
 	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
 	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
@@ -4913,11 +4946,14 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# the cell FACE — one code-drawn Slot-cell background for every state, so the Workbench knobs apply
 	# consistently to board, bag, and discovery cells.
 	var frontier := bool(d.get("frontier", state == "unlockable"))
-	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, opts)
 	# dim_bg recedes JUST THE WELL (the Producing dialog's discovered-but-inactive lines): the piece is added
-	# later as its own child, so darkening the background here leaves the full-colour item untouched.
+	# later as its own child, so darkening the background here leaves the full-colour item untouched. It goes
+	# in through the background's OWN dim opt — a modulate on the returned Panel cannot reach the paper face.
+	var bg_opts: Dictionary = opts
 	if bool(d.get("dim_bg", false)):
-		bg.modulate = Color(0.74, 0.74, 0.74, 1.0)
+		bg_opts = opts.duplicate()
+		bg_opts["dim"] = DIM_BG_FACTOR
+	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)
 	tile.add_child(bg)
 	if lockedwell:
 		var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)

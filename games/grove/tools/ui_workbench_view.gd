@@ -1001,41 +1001,55 @@ func _maybe_wrap_shadow(el: Control, id: String) -> Control:
 
 ## The SHARED shadow on its own — a circle sample + a rounded-rect sample, both casting it, over a light cell.
 func _shadow_preview() -> Control:
-	var p := Look.shadow_params({"shadow": _params["shadow"]})
+	# THE shadow previewed on the REAL elements that cast it (not abstract shapes): the star level
+	# badge (shape-true silhouette), a live currency pill, and the giver quest card — each built by
+	# the SAME builder the game calls, reading the LIVE (unsaved) shadow sliders. What this shows is
+	# exactly what ships when saved.
 	var cell := ColorRect.new()
 	cell.color = Color("#EFE6D2")                # a light parchment so the dark soft shadow reads
-	cell.custom_minimum_size = Vector2(560, 340)
-	var row := HBoxContainer.new()
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 90)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(row)
-	row.add_child(_shadow_sample(true, p))       # circular
-	row.add_child(_shadow_sample(false, p))      # rounded rect
+	cell.custom_minimum_size = Vector2(560, 700)
+	var col := VBoxContainer.new()
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 44)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(col)
+	var center := func(node: Control) -> Control:
+		var h := CenterContainer.new()
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(node)
+		return h
+	# the star level badge — irregular cutout, so its shadow is the baked alpha silhouette
+	var live_cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH).duplicate(true)
+	live_cfg["shadow"] = _params["shadow"]
+	col.add_child(center.call(Look.make_level_badge(8, 120, -1, live_cfg)))
+	# a live currency pill (the wallet builder)
+	var popts := Kit.gold_currency_pill_opts_from_config({
+		"gold_currency_pill": _params["gold_currency_pill"],
+		"gold_badge": _params["gold_badge"],
+		"shadow": _params["shadow"],
+	})
+	popts["icon"] = "water"
+	popts["count"] = 128
+	popts["shadow"] = true
+	col.add_child(center.call(Kit.gold_currency_pill(popts, {"water": 128})))
+	# the giver quest card (the board's own GiverStand.make)
+	var qp: Dictionary = _params["quest_card"]
+	var noop := func(_a: Variant, _b: Variant) -> void: pass
+	var demo_q := {"line": maxi(1, int(qp.bust)), "tier": int(qp.tier), "reward": {"stars": int(qp.stars)}}
+	var qlay: Dictionary = Kit.giver_lay_from_config({"quest_card": qp, "shadow": _params["shadow"]})
+	qlay["shadow"] = true
+	var qcfg := {
+		"ask_tap": noop, "stand_tap": noop,
+		"wire_tap": func(node: Control, action: Callable) -> void:
+			node.gui_input.connect(func(ev: InputEvent) -> void:
+				if ev is InputEventMouseButton and not (ev as InputEventMouseButton).pressed:
+					action.call()),
+		"stand_w": float(qp.stand_w) * 0.75, "fence_h": float(qp.fence_h) * 0.75,
+		"lay": qlay,
+	}
+	col.add_child(center.call(GiverStand.make(maxi(1, int(qp.bust)), demo_q, qcfg).chip))
 	return cell
-
-## ONE sample for the Shadow preview: a cream disc (circular) or rounded-rect badge with the shared shadow
-## cast behind it (show_behind_parent — a Panel is not a Container, so the child draws cleanly underneath).
-func _shadow_sample(circular: bool, p: Dictionary) -> Control:
-	var holder := CenterContainer.new()
-	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := Panel.new()
-	var box_px := 150.0
-	box.custom_minimum_size = Vector2(box_px, box_px)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM
-	sb.border_color = Pal.STRAW
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(int(box_px / 2.0) if circular else 34)
-	box.add_theme_stylebox_override("panel", sb)
-	var sh := Look.shadow_circle(box_px, p) if circular else Look.shadow_rect(34.0, p)
-	sh.show_behind_parent = true
-	box.add_child(sh)
-	holder.add_child(box)
-	return holder
 
 func _make_board_preview() -> Control:
 	var p: Dictionary = _params["board"]
