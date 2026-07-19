@@ -1236,8 +1236,7 @@ func _maps_zone_thumb(z: int, size: Vector2) -> Control:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var back := ColorRect.new()
 	back.color = SKY.lerp(INK, 0.08)
-	back.set_anchors_preset(Control.PRESET_FULL_RECT)
-	back.size = size
+	back.size = size          # plain-position fill (anchors + manual size would fight after _ready)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(back)
 	var holder := Control.new()
