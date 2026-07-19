@@ -96,7 +96,9 @@
 			"continue": "CONTINUE",
 			"in_progress": "IN PROGRESS",
 			"locked": "LOCKED",
-			"title": "MAPS"
+			"nav_board": "BOARD",
+			"nav_expedition": "EXPEDITION",
+			"nav_home": "HOME"
 		},
 		"pill": {
 			"restored": "restored ✿ 🎁",
