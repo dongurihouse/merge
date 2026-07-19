@@ -76,18 +76,21 @@ func _initialize() -> void:
 	h._build_maps_page()   # a rebuild never duplicates hits
 	ok(h.maps_hits.size() == G.MAPS.size(), "a gallery rebuild seats exactly one hit per map")
 
-	# the gallery chrome (mock): NO heading label, a HOME · BOARD nav row instead. (The third
-	# EXPEDITION tile retired with the bucket dock it opened — spec 2026-07-18.)
+	# the gallery chrome: NO heading label; it wears the SAME bottom bar as the home screen, with the
+	# leading Map tile swapped for a Home tile (the gallery IS the map). Home · Residents · Daily · Vault
+	# · Board, plus Mail when the inbox build is present.
 	ok(not _label_texts(h.content).has("MAPS"), "the gallery carries no MAPS heading")
 	var caps := _label_texts(h.content)
-	for cap in ["HOME", "BOARD"]:
-		ok(caps.has(Strings.t("map.page.nav_%s" % cap.to_lower())), "the gallery nav carries %s" % cap)
-	ok(not caps.has(Strings.t("map.page.nav_expedition")), "the gallery nav no longer carries EXPEDITION")
-	ok(h._select_back == null or not h._select_back.visible, "the gallery hides the back arrow (HOME is the way back)")
-	# HOME steps back to the map you were viewing
+	for cap in ["home", "residents", "board"]:
+		ok(caps.has(Strings.t("map.nav.%s" % cap)), "the gallery nav carries %s" % cap)
+	ok(caps.has(Strings.t("map.rail.daily")), "the gallery nav carries Daily")
+	ok(caps.has(Strings.t("map.rail.vault")), "the gallery nav carries Vault")
+	ok(not caps.has(Strings.t("map.nav.map")), "the gallery nav drops the Map tile (Home takes its slot)")
+	ok(h._select_back == null or not h._select_back.visible, "the gallery hides the back arrow (Home is the way back)")
+	# Home steps back to the map you were viewing
 	var home_btn: Button = null
 	for b in h.content.find_children("*", "Button", true, false):
-		if _label_texts(b).has(Strings.t("map.page.nav_home")):
+		if _label_texts(b).has(Strings.t("map.nav.home")):
 			home_btn = b
 	ok(home_btn != null, "the HOME nav tile is a real button")
 	if home_btn != null:
