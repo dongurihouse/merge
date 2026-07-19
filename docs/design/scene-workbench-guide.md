@@ -27,7 +27,9 @@ opens the highest `v<N>` that carries `metadata/placements.json`.
   `_review`, `montage`, or `contact`; **category** = the top dir minus its `NN_` prefix,
   refined by a `*_pack` subdir. The in-tool add palette was removed 2026-07-18 — new elements
   enter via `M.add_entry` scripted edits or by hand in placements.json, then `R` reloads.)
-- **Scenes root**: the launcher auto-resolves to the repo copy of
+- **Scenes root**: the launcher scores every candidate root (repo copy, mocks worktree — relative
+  and absolute) and opens the one with the MOST openable scenes, so a partially-intaken repo copy
+  never shadows the full set; `ROOT=` overrides. The repo copy of
   `games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1`, falling back to
   the codex mocks worktree (`.worktrees/codex-ui-redesign-rush-maps-mocks/...`). `ROOT=<dir>`
   overrides. New bundles land through the art intake workflow (see `art-style-guide.md`).
@@ -141,3 +143,9 @@ make test-fast                                      # grove_page_manifest_tests 
 adds the page-turn chevrons. The first page carries the interim farmhouse build items until the
 pages build system lands. Verify with a real in-game render:
 `engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- fresh /tmp/page.png page=<scene id>`.
+
+## 8 · The reference column
+
+The left column shows the scene's REFERENCE images — the root-level mocks (`<scene>*.png`) and
+the bundle's `09_reconstruction` composites — the composition/style authorities to match while
+placing. It rebuilds on scene switch; scroll for the alternates (market variants etc.).

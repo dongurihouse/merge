@@ -16,6 +16,7 @@ const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
 
 const SIDEBAR_W := 340.0
+const REF_W := 300.0                # the LEFT reference column (the scene's mocks + reconstructions)
 const HIT_MAX_W := 192              # alpha hit-test images downsample to this width (memory)
 const INK := Color("#2B2B33")
 const PAPER := Color("#F4EDE1")
@@ -84,6 +85,7 @@ func _ready() -> void:
 	_overlay.draw.connect(_draw_overlay)
 	_stage.add_child(_overlay)
 	_build_sidebar()
+	_build_ref_panel()
 	_rebuild_stage()
 	if get_viewport() != null:                         # null under the suites' manual-_ready convention
 		get_viewport().size_changed.connect(_layout)
@@ -98,15 +100,18 @@ func _ready() -> void:
 func _layout() -> void:
 	var vp := get_viewport_rect().size
 	var canvas := M.canvas_size(doc)
-	var avail := Vector2(vp.x - SIDEBAR_W, vp.y)
+	var avail := Vector2(vp.x - SIDEBAR_W - REF_W, vp.y)   # stage sits between references and sidebar
 	var s := maxf(minf(avail.x / canvas.x, avail.y / canvas.y), 0.02)   # never zero/negative (tiny or headless viewports)
-	_stage.position = Vector2((avail.x - canvas.x * s) * 0.5, (vp.y - canvas.y * s) * 0.5)
+	_stage.position = Vector2(REF_W + (avail.x - canvas.x * s) * 0.5, (vp.y - canvas.y * s) * 0.5)
 	_stage.size = canvas * s
 	_layers.scale = Vector2(s, s)
 	_overlay.scale = Vector2(s, s)
 	if _sidebar_panel != null:
 		_sidebar_panel.position = Vector2(vp.x - SIDEBAR_W, 0)
 		_sidebar_panel.size = Vector2(SIDEBAR_W, vp.y)
+	if _ref_panel != null:
+		_ref_panel.position = Vector2.ZERO
+		_ref_panel.size = Vector2(REF_W, vp.y)
 	_overlay.queue_redraw()
 
 ## Detach + queue_free a container's children. All of these rebuilds are reachable from a child
@@ -432,6 +437,48 @@ func _refresh_status() -> void:
 	if _save_btn != null:
 		_save_btn.text = "Save (⌘S)" + ("  •  UNSAVED" if dirty else "")
 
+# --- the LEFT reference column: the scene's mocks + reconstruction composites -----------------------
+
+var _ref_panel: PanelContainer = null
+
+func _build_ref_panel() -> void:
+	_ref_panel = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PAPER
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	_ref_panel.add_theme_stylebox_override("panel", sb)
+	add_child(_ref_panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_ref_panel.add_child(scroll)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 8)
+	scroll.add_child(col)
+	col.add_child(_label("Reference", 16, true))
+	var inner_w := REF_W - 28.0
+	var refs := M.reference_images(_scenes_root, bundle_dir, scene_name)
+	if refs.is_empty():
+		col.add_child(_label("no mocks found for this scene", 12))
+	for p in refs:
+		var img := Image.load_from_file(String(p)) if FileAccess.file_exists(String(p)) else null
+		if img == null:
+			continue
+		var w := int(inner_w * 2.0)                    # decode once, hold a modest 2x for crispness
+		if img.get_width() > w:
+			img.resize(w, maxi(1, img.get_height() * w / img.get_width()), Image.INTERPOLATE_BILINEAR)
+		col.add_child(_label(String(p).get_file(), 11))
+		var tr := TextureRect.new()
+		tr.texture = ImageTexture.create_from_image(img)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		tr.custom_minimum_size = Vector2(inner_w, inner_w * float(img.get_height()) / maxf(float(img.get_width()), 1.0))
+		col.add_child(tr)
+
 # --- sidebar --------------------------------------------------------------------------------------
 
 var _sidebar_panel: PanelContainer = null
@@ -497,7 +544,10 @@ func _switch_scene(scene: String) -> void:
 	_hit.clear()
 	if _sidebar_panel != null:
 		_sidebar_panel.queue_free()
+	if _ref_panel != null:
+		_ref_panel.queue_free()
 	_build_sidebar()
+	_build_ref_panel()
 	_rebuild_stage()
 	_layout()
 	if DisplayServer.get_name() != "headless":

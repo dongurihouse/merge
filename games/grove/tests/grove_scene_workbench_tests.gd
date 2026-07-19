@@ -369,6 +369,27 @@ func _initialize() -> void:
 		"unsaved edits were saved before the switch (nothing lost)")
 	view.queue_free()
 
+	# --- root scoring + reference images ----------------------------------------------
+	var partial := OS.get_user_data_dir() + "/scene_wb_partial_root"
+	DirAccess.make_dir_recursive_absolute(partial + "/test_scene_elements_v1/metadata")
+	# the partial root has a dir but NO placements.json → 0 openable scenes
+	ok(M.pick_root([partial, broot]) == broot,
+		"pick_root prefers the root with the most OPENABLE scenes (a partial intake never shadows the full one)")
+	ok(M.pick_root([broot, partial]) == broot, "…regardless of candidate order")
+	ok(M.pick_root([partial + "/nope"]) == "", "no openable scenes anywhere → empty (the launcher errors out)")
+	var mock := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	mock.save_png(broot + "/test_scene.png")
+	mock.save_png(broot + "/test_scene_market_v2.png")
+	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/09_reconstruction")
+	mock.save_png(broot + "/test_scene_elements_v1/09_reconstruction/recon.png")
+	var refs: Array = M.reference_images(broot, broot + "/test_scene_elements_v1", "test_scene")
+	ok(refs.size() == 3, "reference_images collects the root mocks + the reconstruction composites")
+	var has_recon := false
+	for rp in refs:
+		if String(rp).ends_with("recon.png"):
+			has_recon = true
+	ok(has_recon, "the reconstruction rides along with the scene mocks")
+
 	# --- path resolution ------------------------------------------------------------
 	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
 	ok(M.repo_root_of(sr) == "/repo", "repo_root_of strips the scenes suffix")

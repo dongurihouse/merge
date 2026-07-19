@@ -12,6 +12,9 @@ const View = preload("res://games/grove/tools/scene_workbench_view.gd")
 const ROOT_CANDIDATES := [
 	"res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
 	"res://.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
+	# absolute fallback so the tool works from any git worktree (same convention as
+	# build_page_manifests.py — the mocks worktree hangs off the primary checkout)
+	"/Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
 ]
 
 func _initialize() -> void:
@@ -28,22 +31,24 @@ func _initialize() -> void:
 	if root_arg != "" and root_arg != "auto":
 		scenes_root = root_arg
 	else:
+		# the root with the MOST openable scenes wins — a partially-intaken repo copy must
+		# never shadow the full mocks worktree (that read as "the scenes are broken/missing")
+		var Model = preload("res://games/grove/tools/scene_workbench_model.gd")
+		var cands: Array = []
 		for cand in ROOT_CANDIDATES:
-			var abs := ProjectSettings.globalize_path(cand)
-			if DirAccess.dir_exists_absolute(abs):
-				scenes_root = abs
-				break
+			cands.append(ProjectSettings.globalize_path(cand))
+		scenes_root = Model.pick_root(cands)
 	if scenes_root == "":
-		push_error("no picturebook_scene_mocks_v1 root found — pass ROOT=<dir>")
+		push_error("no picturebook_scene_mocks_v1 root with openable scenes — pass ROOT=<dir>")
 		quit(1)
 		return
 
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	var screen := DisplayServer.screen_get_size()
-	var win := Vector2i(1000, 1100)                    # portrait canvas + the 340px sidebar
+	var win := Vector2i(1300, 1100)                    # references + portrait canvas + the sidebar
 	if screen.x > 0 and screen.y > 0:
 		win.y = clampi(screen.y - 130, 760, 1400)
-		win.x = clampi(int((win.y - 40) * 1320.0 / 2346.0) + 380, 800, screen.x - 80)
+		win.x = clampi(int((win.y - 40) * 1320.0 / 2346.0) + 380 + 300, 1000, screen.x - 80)
 	DisplayServer.window_set_size(win)
 	DisplayServer.window_set_position((screen - win) / 2)
 	if quiet:

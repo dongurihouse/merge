@@ -284,6 +284,35 @@ static func scenes_in(scenes_root: String) -> Array:
 	names.sort()
 	return names
 
+## Choose the scenes root among candidates: the one with the MOST openable scenes wins (ties →
+## the earlier candidate). Guards against a partially-intaken repo copy shadowing a full root.
+static func pick_root(candidates: Array) -> String:
+	var best := ""
+	var best_n := 0
+	for cand in candidates:
+		var n := scenes_in(String(cand)).size()
+		if n > best_n:
+			best_n = n
+			best = String(cand)
+	return best
+
+## The scene's REFERENCE images (the left column): the root-level mocks named <scene>*.png plus
+## the bundle's 09_reconstruction composites — the composition/style authorities while placing.
+static func reference_images(scenes_root: String, bundle_dir: String, scene: String) -> Array:
+	var out: Array = []
+	var d := DirAccess.open(scenes_root)
+	if d != null:
+		for fn in d.get_files():
+			if fn.begins_with(scene) and fn.ends_with(".png"):
+				out.append("%s/%s" % [scenes_root, fn])
+	var rec := DirAccess.open(bundle_dir + "/09_reconstruction")
+	if rec != null:
+		for fn in rec.get_files():
+			if fn.ends_with(".png"):
+				out.append("%s/09_reconstruction/%s" % [bundle_dir, fn])
+	out.sort()
+	return out
+
 ## The sidebar palette's section order (categories not listed sort after, alphabetically).
 const CATEGORY_ORDER := ["backdrop", "foundation", "environment", "terrain", "structures", "garden_items", "vegetation", "rock"]
 
