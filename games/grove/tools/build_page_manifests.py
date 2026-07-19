@@ -19,7 +19,8 @@ Re-run after fine-tuning in `make sw`, then `make import`:
 import argparse, json, os, shutil, struct, sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-DEFAULT_ROOT = "/Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
+# the repo mocks root (the codex mocks worktree that once held the bundles was deleted 2026-07-18)
+DEFAULT_ROOT = os.path.join(REPO, "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
 OUT_DIR = os.path.join(REPO, "games/grove/assets/map/pages")
 FARMHOUSE_MANIFEST = os.path.join(REPO, "games/grove/assets/map/home/zone_farmhouse.json")
 
@@ -59,7 +60,8 @@ def copy_asset(src, scene, name):
     dst_dir = os.path.join(OUT_DIR, scene)
     os.makedirs(dst_dir, exist_ok=True)
     dst = os.path.join(dst_dir, name + ".png")
-    shutil.copyfile(src, dst)
+    if os.path.abspath(src) != os.path.abspath(dst):   # recovered bundles already point AT the pages art
+        shutil.copyfile(src, dst)
     return "res://" + os.path.relpath(dst, REPO)
 
 
