@@ -1637,6 +1637,7 @@ func _make_board_preview() -> Control:
 	var opts: Dictionary = Kit.bag_card_opts_from_config(_params)
 	opts["cell_w"] = cell
 	opts["cell_h"] = cell
+	opts["flat_board_cells"] = true
 	var demo_by_cell := {}
 	if bool(p.pieces):
 		for d in BOARD_DEMO:

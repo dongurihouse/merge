@@ -821,6 +821,40 @@ func _initialize() -> void:
 		"board Home uses the green action-paper square")
 	ok(_paper_texture_path(board_scene.bag_btn).ends_with("ui/meadow_v2/texture_supporting_purple.png"), \
 		"board Bag uses the purple supporting-paper square")
+	var board_bramble_bleeds := false
+	for bramble in board_scene.bramble_nodes.values():
+		var bramble_view := bramble as Control
+		board_bramble_bleeds = board_bramble_bleeds \
+			or bramble_view.find_child("SlotCellUnlockableHighlight", true, false) != null \
+			or not bramble_view.find_children("*", "GPUParticles2D", true, false).is_empty()
+	ok(not board_bramble_bleeds, \
+		"live board lock cells stay contained: no per-cell glow, shadow, or particle bleed into neighbours")
+	var all_live_board_slots_clip := true
+	for slot in board_scene.slot_nodes.values():
+		all_live_board_slots_clip = all_live_board_slots_clip and (slot as Control).clip_contents
+	ok(all_live_board_slots_clip, \
+		"live board cells clip their own paper layers so no texture can paint across the shared gutter")
+	var smallest_open_well_gap := INF
+	for cell in board_scene.slot_nodes:
+		var right_cell := Vector2i(cell) + Vector2i(0, 1)
+		if not board_scene.slot_nodes.has(right_cell):
+			continue
+		var left_bg := (board_scene.slot_nodes[cell] as Control).find_child("SlotCellBackground", true, false) as Control
+		var right_bg := (board_scene.slot_nodes[right_cell] as Control).find_child("SlotCellBackground", true, false) as Control
+		if left_bg != null and right_bg != null:
+			smallest_open_well_gap = minf(smallest_open_well_gap, right_bg.get_global_rect().position.x - left_bg.get_global_rect().end.x)
+	ok(smallest_open_well_gap < INF and smallest_open_well_gap >= 20.0, \
+		"adjacent open board wells leave a visible slate gutter instead of joining into a block (%.1fpx)" % smallest_open_well_gap)
+	var first_board_well := (board_scene.slot_nodes.values().front() as Control).find_child("SlotCellBackground", true, false) as Panel
+	var first_board_well_style := first_board_well.get_theme_stylebox("panel") if first_board_well != null else null
+	ok(first_board_well_style is StyleBoxFlat \
+		and (first_board_well_style as StyleBoxFlat).border_width_left >= 2 \
+		and (first_board_well_style as StyleBoxFlat).border_color.a >= 0.45, \
+		"live board wells use a contained slate rim so adjacent paper faces remain individually readable")
+	var board_paper := board_scene.find_child("MeadowBoardPaper", true, false) as TextureRect
+	ok(board_paper != null and board_paper.texture != null \
+		and String(board_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_structural_slate.png"), \
+		"the board slab uses a darker teal paper tone so its gutters stay distinct from the locked cells")
 	var live_tray_style := (board_scene.bottom_bar as PanelContainer).get_theme_stylebox("panel") if board_scene.bottom_bar != null else null
 	var live_tray_paper := board_scene.bottom_bar.find_child("ActionBarPaperSurface", true, false) as TextureRect if board_scene.bottom_bar != null else null
 	ok(live_tray_style is StyleBoxFlat and live_tray_paper != null \
@@ -1484,16 +1518,16 @@ func _test_board_element(view) -> void:
 		var paper := (bg as Panel).find_child("SlotCellPaperTexture", true, false) as TextureRect
 		if sb is StyleBoxFlat and paper != null and paper.texture != null:
 			saw_locked_paper = saw_locked_paper or String(paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png")
-	ok(saw_locked_paper and board_with_locks.find_child("SlotCellUnlockableHighlight", true, false) != null, \
-		"the board preview uses one flat locked paper surface plus the unlockable highlight")
+	ok(saw_locked_paper and board_with_locks.find_child("SlotCellUnlockableHighlight", true, false) == null, \
+		"the board preview uses one flat locked paper surface with no overlap-causing unlockable highlight")
 	ok(board_backgrounds.size() >= int(view._params["board"].cols) * int(view._params["board"].rows), \
 		"the board preview renders every cell state through the Slot-cell background")
 	ok(_locked_placeholder(board_with_locks) != null \
 		and String(_locked_placeholder(board_with_locks).texture.resource_path).ends_with("ui/meadow_v2/acorn_lock.svg") \
 		and is_equal_approx(_locked_placeholder(board_with_locks).modulate.a, 0.78), \
 		"the board preview inherits the single combined acorn-lock mark")
-	ok(_has_class(board_with_locks, "GPUParticles2D"), \
-		"the board preview includes the unlockable Slot-cell state")
+	ok(not _has_class(board_with_locks, "GPUParticles2D"), \
+		"the board preview keeps every cell effect inside its own bounds")
 	view._params["board"]["cell"] = 100
 	view._params["board"]["scale"] = 100
 	view._params["board"]["pieces"] = true
@@ -2388,6 +2422,12 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
+	var flat_board_opts := co.duplicate(true)
+	flat_board_opts["flat_board_cells"] = true
+	var flat_board_unlockable := Kit.slot_cell({"state": "unlockable"}, flat_board_opts)
+	ok(flat_board_unlockable.find_child("SlotCellUnlockableHighlight", true, false) == null \
+		and not _has_class(flat_board_unlockable, "GPUParticles2D"), \
+		"flat board cells keep the acorn lock contained with no outer glow or sparkle")
 	ok(_unlockable_border_width(unl) == 0, "an unlockable cell has no visible highlight border")
 	# the unlockable accent COLOUR (glow_hue / glow_sat): no overrides returns the exact semantic token;
 	# individual hue/saturation overrides preserve the other Straw channels and Straw's fixed value.

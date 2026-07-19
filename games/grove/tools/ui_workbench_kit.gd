@@ -3120,10 +3120,12 @@ static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_
 		var painted_span := 216.0 # 256 - 2 * 20
 		var art_px := px * 256.0 / painted_span
 		var art_gutter := px * 20.0 / painted_span
-		art.position = Vector2(-art_gutter, -art_gutter)
-		art.size = Vector2(art_px, art_px)
+		# expand_mode must be set BEFORE size: with the default KEEP mode the texture's own pixel
+		# size is the rect's minimum, so a smaller art.size silently clamps back up to 256.
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.position = Vector2(-art_gutter, -art_gutter)
+		art.size = Vector2(art_px, art_px)
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(art)
@@ -4650,10 +4652,13 @@ static func _slot_cell_inset_layer(name: String, size_px: Vector2, corner_px: in
 
 static func slot_cell_background(size_px: Vector2, state: String, frontier: bool, opts: Dictionary = {}) -> Panel:
 	const FACE_INSET := 3.0
-	var face_size := Vector2(maxf(1.0, size_px.x - FACE_INSET * 2.0), maxf(1.0, size_px.y - FACE_INSET * 2.0))
+	const BOARD_FACE_INSET := 6.0
+	var flat_board_cells := bool(opts.get("flat_board_cells", false))
+	var face_inset := BOARD_FACE_INSET if flat_board_cells else FACE_INSET
+	var face_size := Vector2(maxf(1.0, size_px.x - face_inset * 2.0), maxf(1.0, size_px.y - face_inset * 2.0))
 	var base := Panel.new()
 	base.name = "SlotCellBackground"
-	base.position = Vector2.ONE * FACE_INSET
+	base.position = Vector2.ONE * face_inset
 	base.size = face_size
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
@@ -4661,8 +4666,10 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = fill
-	fs.border_color = Color("#3F6D7D", 0.28)
-	fs.set_border_width_all(1)
+	# The board is a flat paper grid: a stronger *inset* rim keeps its tiles separate while
+	# remaining wholly inside the cell (unlike the Bag's unlockable halo).
+	fs.border_color = Color("#3F6D7D", 0.52 if flat_board_cells else 0.28)
+	fs.set_border_width_all(2 if flat_board_cells else 1)
 	fs.set_corner_radius_all(corner_px)
 	fs.anti_aliasing = true
 	base.add_theme_stylebox_override("panel", fs)
@@ -4754,6 +4761,9 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var cost_y := float(opts.get("cost_y", 0.0))
 	var cost_x := float(opts.get("cost_x", 0.0))
 	var cost_scale := float(opts.get("cost_scale", 1.0))
+	# Board cells are deliberately quieter than the Bag's purchase cells: the board mock uses a plain
+	# paper tile plus one lock mark, so no halo or particle may spill across its gutters.
+	var flat_board_cells := bool(opts.get("flat_board_cells", false))
 	var on_tap: Callable = d.get("on_tap", Callable())
 	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
 	var lockedwell := (state == "locked" or state == "unlockable")   # both show the single acorn lock mark
@@ -4762,6 +4772,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	tile.custom_minimum_size = Vector2(cw, ch)
 	tile.size = Vector2(cw, ch)            # explicit, so the board (absolute layout) sizes it; a grid overrides
 	tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	if flat_board_cells:
+		tile.clip_contents = true
 	if tile is Button:
 		var b := tile as Button
 		b.focus_mode = Control.FOCUS_NONE
@@ -4855,7 +4867,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 
 	# unlockable — the shared HIGHLIGHT: a warm-gold glow (the board's "pop") AND the dynamic
 	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
-	if state == "unlockable":
+	if state == "unlockable" and not flat_board_cells:
 		# the accent COLOUR — halo and shadow share one tint (config: glow_hue/glow_sat); the
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)

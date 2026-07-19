@@ -187,9 +187,10 @@ func _initialize() -> void:
 	var sb_d: StyleBoxFlat = g_default.get_theme_stylebox("panel")
 	ok(sb_d != null and sb_d.bg_color.is_equal_approx(Color(Color("#FFB12E"), 0.55)), \
 		"default ready glow fills with the shipped amber at 0.55")
-	ok(sb_d != null and is_equal_approx(sb_d.shadow_color.a, 0.6) \
-		and sb_d.shadow_size == int(100.0 * 0.16) and sb_d.corner_radius_top_left == int(100.0 * 0.22), \
-		"default ready glow keeps the shipped halo alpha / size / corner")
+	ok(sb_d != null and is_zero_approx(sb_d.shadow_color.a) and sb_d.shadow_size == 0 \
+		and g_default.position == Vector2(6.0, 6.0) and g_default.size == Vector2(88.0, 88.0) \
+		and sb_d.corner_radius_top_left == int(88.0 * 0.22), \
+		"default ready glow stays inside the cell face with no halo crossing a neighbour's gutter")
 
 	var holder2 := Control.new()
 	get_root().add_child(holder2)
@@ -198,10 +199,10 @@ func _initialize() -> void:
 	var sb_t: StyleBoxFlat = g_tuned.get_theme_stylebox("panel")
 	ok(sb_t != null and sb_t.bg_color.is_equal_approx(Color(Color("#1188FF"), 0.30)), \
 		"a tuned ready glow takes the workbench colour + fill opacity")
-	ok(sb_t != null and sb_t.shadow_color.is_equal_approx(Color(Color("#1188FF"), 0.90)), \
-		"a tuned ready glow takes the workbench halo opacity + colour")
-	ok(sb_t != null and sb_t.corner_radius_top_left == int(100.0 * 0.10) and sb_t.shadow_size == int(100.0 * 0.25), \
-		"a tuned ready glow takes the workbench corner roundness + halo size")
+	ok(sb_t != null and is_zero_approx(sb_t.shadow_color.a) and sb_t.shadow_size == 0, \
+		"a tuned ready glow remains a contained flat face with no external halo")
+	ok(sb_t != null and sb_t.corner_radius_top_left == int(88.0 * 0.10), \
+		"a tuned ready glow applies its corner roundness to the contained face")
 	holder.free(); holder2.free()
 
 	# --- Part E: the wanted ITEM itself breathes (a whole-tile pulse like a generator), not only its halo ---

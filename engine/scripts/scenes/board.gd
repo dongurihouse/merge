@@ -1337,7 +1337,8 @@ func _refresh_quest_ready_marks() -> void:
 			if glow == null:
 				var g := PieceView.add_ready_glow(node, csz, _ready_glow_opts)
 				if g != null:
-					FX.breathe(g)
+					# The paper face stays fixed inside its cell; only the item art pulses.
+					# Scaling the overlay can otherwise bridge the deliberate board gutters.
 					FX.breathe(art)
 		elif glow != null:
 			FX.breathe_stop(glow)
@@ -1577,6 +1578,8 @@ func _make_slot(cell: Vector2i) -> Control:
 	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
+	# Board wells use the contained, flat-paper treatment: a crisp inset rim, never an outer shadow.
+	opts["flat_board_cells"] = true
 	var slot: Control = Kit.slot_cell({"state": "empty"}, opts)
 	slot.position = _cell_pos(cell)
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE

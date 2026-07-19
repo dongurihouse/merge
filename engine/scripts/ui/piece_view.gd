@@ -316,6 +316,7 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
+	opts["flat_board_cells"] = true
 	var d := {"state": ("unlockable" if unlockable else "locked"), "frontier": frontier}
 	var cell_view: Control = Kit.slot_cell(d, opts)
 	cell_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -409,17 +410,16 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 	glow.modulate = glow_color
 	holder.add_child(glow)
 
-# A warm AMBER "a quest wants this" highlight — the board-side twin of the giver's ✓/bob. A soft rounded
-# cell FILL plus a glow shadow spilling past the cell; a pale halo BEHIND the item washed out on the
-# cream board (its bright core hid behind the sprite). Seated just ABOVE the contact shadow so it sits
-# BEHIND the sprite — never child(0), preserving make_piece's shadow-at-0 invariant. The board breathes
-# it (FX.breathe) and clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
+# A warm AMBER "a quest wants this" highlight — the board-side twin of the giver's ✓/bob. It is an
+# inset, rounded FACE behind the item. Keeping it inside the same 3px inset as the Slot-cell background
+# preserves every board gutter: quest markers must not join adjacent paper cells or cast cell shadows.
+# It sits just above the contact shadow and behind the sprite, preserving make_piece's shadow-at-0
+# invariant. The board clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
 # node, or null when the holder already wears one (idempotent).
-# color is a hex string; fill_a/halo_a are 0..1 opacities; corner_frac/halo_frac are the rounded-fill
-# corner radius and the halo spill, each as a FRACTION of the cell. The workbench "ready_glow" section
-# overrides these live via the `hl` dict (board.gd → Kit.ready_glow_opts_from_config); an absent config
-# leaves every key here, so the shipped look is byte-identical.
+# color and fill_a are live style controls; the legacy halo values remain accepted in `hl` for saved
+# workbench compatibility but intentionally do not draw outside the cell face.
 const READY_GLOW := {"color": "#FFB12E", "fill_a": 0.55, "halo_a": 0.6, "corner_frac": 0.22, "halo_frac": 0.16}
+const READY_GLOW_FACE_INSET := 6.0
 static func add_ready_glow(holder: Control, size: float, hl: Dictionary = {}) -> Control:
 	if holder.has_node("ReadyGlow"):
 		return null
@@ -431,12 +431,14 @@ static func add_ready_glow(holder: Control, size: float, hl: Dictionary = {}) ->
 	var glow := Panel.new()
 	glow.name = "ReadyGlow"
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glow.size = Vector2(size, size)
+	var face_size := maxf(1.0, size - READY_GLOW_FACE_INSET * 2.0)
+	glow.position = Vector2.ONE * READY_GLOW_FACE_INSET
+	glow.size = Vector2.ONE * face_size
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(col, float(hl.get("fill_a", READY_GLOW["fill_a"])))
-	sb.set_corner_radius_all(int(size * float(hl.get("corner_frac", READY_GLOW["corner_frac"]))))
-	sb.shadow_color = Color(col, float(hl.get("halo_a", READY_GLOW["halo_a"])))
-	sb.shadow_size = int(size * float(hl.get("halo_frac", READY_GLOW["halo_frac"])))   # the soft glow spilling past the cell
+	sb.set_corner_radius_all(int(face_size * float(hl.get("corner_frac", READY_GLOW["corner_frac"]))))
+	sb.shadow_color = Color.TRANSPARENT
+	sb.shadow_size = 0
 	glow.add_theme_stylebox_override("panel", sb)
 	holder.add_child(glow)
 	holder.move_child(glow, below)
