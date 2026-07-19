@@ -41,22 +41,22 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 28639,
+      "selected_component_area": 28878,
       "selected_component_bbox": [
         119,
         72,
-        405,
+        406,
         439
       ],
       "crop_bbox": [
         116,
         69,
-        408,
+        409,
         442
       ],
       "edge_touch": false,
       "output_size": [
-        129,
+        130,
         165
       ],
       "paste_position": [
@@ -77,7 +77,7 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 26624,
+      "selected_component_area": 26939,
       "selected_component_bbox": [
         25,
         172,
@@ -113,27 +113,27 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 30737,
+      "selected_component_area": 32278,
       "selected_component_bbox": [
-        88,
+        87,
         90,
-        361,
-        459
+        360,
+        460
       ],
       "crop_bbox": [
-        85,
+        84,
         87,
-        364,
-        462
+        363,
+        463
       ],
       "edge_touch": false,
       "output_size": [
         124,
-        166
+        167
       ],
       "paste_position": [
         66,
-        45
+        44
       ]
     },
     {
@@ -149,7 +149,7 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 29348,
+      "selected_component_area": 29298,
       "selected_component_bbox": [
         100,
         91,
@@ -185,26 +185,26 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 28584,
+      "selected_component_area": 28806,
       "selected_component_bbox": [
-        111,
+        109,
         81,
-        421,
-        364
+        424,
+        365
       ],
       "crop_bbox": [
-        108,
+        106,
         78,
-        424,
-        367
+        427,
+        368
       ],
       "edge_touch": false,
       "output_size": [
-        140,
+        142,
         128
       ],
       "paste_position": [
-        58,
+        57,
         64
       ]
     },
@@ -221,22 +221,22 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 30211,
+      "selected_component_area": 30114,
       "selected_component_bbox": [
         102,
-        30,
-        267,
-        422
+        31,
+        266,
+        423
       ],
       "crop_bbox": [
         99,
-        27,
-        270,
-        425
+        28,
+        269,
+        426
       ],
       "edge_touch": false,
       "output_size": [
-        76,
+        75,
         176
       ],
       "paste_position": [
