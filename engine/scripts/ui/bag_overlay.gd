@@ -283,14 +283,10 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 						var have := balance
 						if on_balance.is_valid():
 							have = int(on_balance.call())
-<<<<<<< HEAD
 						_need_more(host, have, price, on_open_shop, dismiss)
-=======
-						_need_more(host, price - have, on_open_shop, dismiss)
 			"locked":
 				# the mock gives every locked slot its own acorn cost pill (not just the next one)
 				d["bag_price"] = int(e.price)
->>>>>>> mock-dialog-bag
 		entries.append(d)
 
 	# the generators section (game-only — no analogue in bag.png), inserted below the grid by the kit.
