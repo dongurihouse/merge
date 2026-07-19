@@ -32,7 +32,7 @@
       "id": "distant_hills", "assetId": "distant_hills", "category": "environment", "layer": "horizon", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/distant_hills/fairy_hollow_distant_hills_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 10
     },
     {
-      "id": "forest_band", "assetId": "forest_band", "category": "environment", "layer": "mid_woodland", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.png", "sourceCrop": [0, 300, 1320, 542], "x": 660, "y": 1280, "w": 1320, "h": 720, "z": 11
+      "id": "forest_band", "assetId": "forest_band", "category": "environment", "layer": "mid_woodland", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.png", "sourceCrop": [0, 300, 1320, 542], "sourceCropFeatherBottom": 150, "x": 660, "y": 1280, "w": 1320, "h": 720, "z": 11
     },
     {
       "id": "frame_trees", "assetId": "frame_trees", "category": "environment", "layer": "framing", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/frame_trees/fairy_hollow_frame_trees_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 12

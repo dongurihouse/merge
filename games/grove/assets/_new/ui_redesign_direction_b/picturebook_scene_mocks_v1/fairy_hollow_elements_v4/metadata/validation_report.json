@@ -3,7 +3,7 @@
   "scene": "fairy_hollow_v4",
   "status": "pass",
   "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/metadata/placements.json",
-  "placementAuthoritySha256": "43d9f8850f47ceaad7ec89f8a9227c7696c264a13a3b3411fd8d71be0daf0378",
+  "placementAuthoritySha256": "35b2e9ad5064ddd1675a5b11bba018b97ea5f7d42145d0da640f2b5aed92410a",
   "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/metadata/asset_manifest.json",
   "manifestSha256": "07567acb040d714f29728b59a34a1f33e77a9de1ce26a9d555889e3160c1da13",
   "canvas": [
@@ -1563,7 +1563,7 @@
         1320,
         2346
       ],
-      "sha256": "1b5310617ec3e3e92ceb01087e9c01462e07d969af9bbc3a47b5f713499c138d",
+      "sha256": "58ed0b93abb37667bfcd670de6475fe12892a9a284bc29910829858f0549bc72",
       "visibleKeyPixels": 0
     },
     "review": {
@@ -1573,14 +1573,14 @@
         941,
         1672
       ],
-      "sha256": "139fe19e9f7cf47ed4e429b85e3f0e397db043570887b3fcb263114a93fd8650",
+      "sha256": "9b0f311d5f6433872e77f572105f858f45c08cbc9ec42ca487ce90116c478e7d",
       "visibleKeyPixels": 0
     }
   },
   "reconstructionReportCheck": {
     "exists": true,
     "scene": "fairy_hollow_v4",
-    "placementAuthoritySha256": "43d9f8850f47ceaad7ec89f8a9227c7696c264a13a3b3411fd8d71be0daf0378",
+    "placementAuthoritySha256": "35b2e9ad5064ddd1675a5b11bba018b97ea5f7d42145d0da640f2b5aed92410a",
     "manifestSha256": "07567acb040d714f29728b59a34a1f33e77a9de1ce26a9d555889e3160c1da13",
     "placementCount": 27,
     "clusterCount": 9,

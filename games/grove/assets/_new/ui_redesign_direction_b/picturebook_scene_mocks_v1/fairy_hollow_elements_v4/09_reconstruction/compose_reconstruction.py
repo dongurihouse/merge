@@ -130,6 +130,25 @@ def source_crop_box(
     return (left, top, right, bottom)
 
 
+def apply_bottom_crop_feather(image: Image.Image, height: int) -> Image.Image:
+    """Feather only the bottom of a cropped environment plate into its backdrop."""
+    if height <= 0 or height > image.height:
+        raise ValueError(
+            f"sourceCropFeatherBottom must be between 1 and {image.height}; got {height}"
+        )
+    result = image.copy()
+    alpha = result.getchannel("A")
+    start = image.height - height
+    fade = Image.new("L", image.size, 255)
+    pixels = fade.load()
+    for y in range(start, image.height):
+        opacity = round(255 * (image.height - 1 - y) / max(1, height - 1))
+        for x in range(image.width):
+            pixels[x, y] = opacity
+    result.putalpha(ImageChops.multiply(alpha, fade))
+    return result
+
+
 def manifest_by_final(accepted: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     result: dict[str, list[dict[str, Any]]] = {}
     for asset in accepted:
@@ -281,6 +300,25 @@ def preflight_inputs(
             and crop[3] > 0
         ):
             failures.append(f"placement {index} has invalid sourceCrop")
+        feather = item.get("sourceCropFeatherBottom")
+        valid_crop_height = (
+            crop[3]
+            if isinstance(crop, list)
+            and len(crop) == 4
+            and isinstance(crop[3], int)
+            and not isinstance(crop[3], bool)
+            else None
+        )
+        if feather is not None and not (
+            isinstance(feather, int)
+            and not isinstance(feather, bool)
+            and feather > 0
+            and valid_crop_height is not None
+            and feather <= valid_crop_height
+        ):
+            failures.append(
+                f"placement {index} sourceCropFeatherBottom must be a positive integer within sourceCrop height"
+            )
 
     for field in ("schemaVersion", "scene", "visualAssetSource", "accepted"):
         if field not in manifest:
@@ -420,6 +458,9 @@ def compose(
         crop_box = source_crop_box(item, source.size)
         if crop_box:
             source = source.crop(crop_box)
+        feather_height = item.get("sourceCropFeatherBottom")
+        if feather_height is not None:
+            source = apply_bottom_crop_feather(source, feather_height)
         render_size = authored_render_size(item)
         rendered = source
         if source.size != render_size:
