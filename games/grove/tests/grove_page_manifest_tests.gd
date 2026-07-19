@@ -48,7 +48,8 @@ func _initialize() -> void:
 			frames_ok = frames_ok and ResourceLoader.exists(String(f))
 		ok(frames_ok, "page '%s': five covering frames all import" % id)
 		ok(G.resident_lines(z).size() == 1, "page '%s' carries its resident line" % id)
-	# the hub page still carries the interim build surface (farmhouse items + spots)
+	# pages are STRICTLY the scene-workbench scenes (decision 2026-07-18): no farmhouse build
+	# items ride any page — unlockables arrive via the zoning tool + coverings instead.
 	var hub_m := HomeZoneView.load_manifest(String(G.MAPS[0].zone_manifest))
 	var hub_ids := {}
 	for b in hub_m.get("buildings", []):
@@ -57,7 +58,7 @@ func _initialize() -> void:
 	for d in Home.defs():
 		if hub_ids.has(String(d.id)):
 			carried += 1
-	ok(carried == Home.defs().size(), "the hub page carries every farmhouse build item (interim build surface)")
+	ok(carried == 0, "no page carries the retired farmhouse build items (pages are pure sw scenes)")
 	ok((G.MAPS[0].spots as Array).size() == Home.defs().size(), "the hub page keeps the build spots for save-compat")
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
