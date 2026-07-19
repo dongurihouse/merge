@@ -246,15 +246,16 @@ func _test_map_card_expedition_chrome() -> void:
 	await create_timer(0.05).timeout
 	ok(_home_chrome_button(locked, "Expedition") == null, "locked/unpopulatable home maps hide Expedition from the side rail")
 	ok(locked.content.find_child("MapHomeExpeditionButton", true, false) == null, "locked/unpopulatable home maps do not show Expedition")
-	var settings := _home_chrome_button(locked, "Settings")
-	var daily := _home_chrome_button(locked, "Daily")
-	ok(settings != null, "locked rail still shows Settings")
-	ok(daily != null, "locked rail still shows Daily")
+	# The rail is gone: Settings is a gear in the TOP-right chrome, Daily a tile in the BOTTOM bar, so
+	# they no longer stack. What still matters on a locked map is that both are reachable, and that they
+	# sit at opposite ends of the screen rather than in one column.
+	var settings := locked.get_node_or_null("SettingsGear") as Button
+	var daily := locked.get_node_or_null("DailyTile") as Button
+	ok(settings != null, "a locked map still exposes Settings")
+	ok(daily != null, "a locked map still exposes Daily")
 	if settings != null and daily != null:
-		var y_step := daily.get_global_rect().position.y - settings.get_global_rect().position.y
-		var max_packed_step := maxf(settings.get_global_rect().size.y, daily.get_global_rect().size.y) + 36.0
-		ok(y_step <= max_packed_step,
-			"locked rail packs Daily directly below Settings (step %.1f <= %.1f)" % [y_step, max_packed_step])
+		ok(settings.get_global_rect().end.y < daily.get_global_rect().position.y,
+			"Settings rides the top chrome, well above the bottom bar's Daily tile")
 	locked._open_select()
 	await create_timer(0.05).timeout
 	ok(locked.content.find_child("BucketExpeditionButton", true, false) == null, "the dock hides Expedition before the loop opens")
@@ -283,7 +284,7 @@ func _test_map_card_expedition_chrome() -> void:
 
 	# the BOTTOM BAR tiles: icon over caption inside a rounded paper tile, each on its own texture.
 	var tiles := {"MapTile": "sky", "ResidentsTile": "green", "DailyTile": "gold",
-		"VaultTile": "purple", "SettingsTile": "slate", "BoardTile": "coral"}
+		"VaultTile": "purple", "BoardTile": "coral"}
 	for tile_name in tiles:
 		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
 		ok(btn != null, "the bottom bar carries the %s" % tile_name)
@@ -292,13 +293,20 @@ func _test_map_card_expedition_chrome() -> void:
 		# captions are the mock's read (unlike the old icon-only rail discs), so text IS expected now
 		ok(_button_has_visible_text(btn), "%s carries its caption" % tile_name)
 		ok(_button_icon_is_centered_x(btn), "%s icon is centered horizontally over its caption" % tile_name)
+	# Settings left the bar for a plain gear pinned top-right, under the wallet pills
+	ok(hx.get_node_or_null("SettingsTile") == null, "Settings is no longer a bottom-bar tile")
+	var gear := hx.get_node_or_null("SettingsGear") as Button
+	ok(gear != null, "Settings is a plain gear in the top-right chrome")
+	ok(gear != null and not _button_has_visible_text(gear), "the gear carries no caption — icon only")
 	# Board is LAST, so it lands in the bottom-right corner
 	var board := hx.get_node_or_null("BoardTile") as Button
-	var settings_tile := hx.get_node_or_null("SettingsTile") as Button
-	ok(board != null and settings_tile != null and board.position.x > settings_tile.position.x,
+	var prev_tile := hx.get_node_or_null("VaultTile") as Button
+	ok(board != null and prev_tile != null and board.position.x > prev_tile.position.x,
 		"Board is the right-most tile (the bottom-right corner)")
-	ok(board != null and is_equal_approx(board.size.x, settings_tile.size.x),
+	ok(board != null and prev_tile != null and is_equal_approx(board.size.x, prev_tile.size.x),
 		"Board wears the same tile size as its neighbours — no oversized disc")
+	ok(gear != null and board != null and gear.get_global_rect().end.y < board.get_global_rect().position.y,
+		"the gear sits well above the bottom bar, not in it")
 	# the row fills the width: last tile's right edge sits within a margin of the screen edge
 	if board != null:
 		var view_w: float = hx.get_viewport_rect().size.x

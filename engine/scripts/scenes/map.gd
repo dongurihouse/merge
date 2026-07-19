@@ -2368,10 +2368,8 @@ func _build_bottom_chrome() -> void:
 	if _has_inbox:
 		specs.append({"name": "MailTile", "icon": HC.ICON_INBOX, "caption": Strings.t("map.nav.mail"),
 			"surface": "kraft", "action": _open_inbox})
-	specs.append({"name": "SettingsTile", "icon": HC.ICON_SETTINGS, "caption": Strings.t("settings.title"),
-		"surface": "slate", "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_settings()})
+	# (Settings is NOT a bar tile: it is a bare gear pinned top-right under the wallet — see
+	#  _build_settings_gear. It is a utility, not a destination, so it stays off the destination row.)
 	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It is no longer the big orange
 	# disc: it wears the same rect tile geometry as its neighbours (coral paper) and keeps breathing, and
 	# _refresh_play_cta still swaps its icon/action between Play and Restore.
@@ -2384,8 +2382,8 @@ func _build_bottom_chrome() -> void:
 	_daily_btn = built.get("DailyTile", null)
 	_vault_btn = built.get("VaultTile", null)
 	_inbox_btn = built.get("MailTile", null)
-	_gear = built.get("SettingsTile", null)
 	_play_btn = built.get("BoardTile", null)
+	_build_settings_gear()
 	# the badges ride the tiles' TOP-RIGHT corners, the same relative spot they held on the rail discs.
 	if _daily_btn != null:
 		_daily_badge = Look.badge("dot", 0, bopts)
@@ -2398,6 +2396,48 @@ func _build_bottom_chrome() -> void:
 		Look.attach_badge(_inbox_btn, _inbox_badge, bover)
 	_refresh_piggy_pip()
 	_refresh_liveops_badges()
+
+# SETTINGS — a PLAIN gear pinned to the top-right corner, one shared margin below the wallet pills.
+# Deliberately NOT a bottom-bar tile and NOT a paper button: the bar is the row of destinations, and
+# settings is a utility you reach rarely, so it wears no tile, no caption, no shadow — just the gear
+# glyph. Sized off the shared button metric so it reads as chrome, not as a nav target.
+func _build_settings_gear() -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	var HC: GDScript = load(HOME_CHROME_PATH)
+	var px := maxf(24.0, roundf(_rail_px * 0.62))
+	var b := Button.new()
+	b.name = "SettingsGear"
+	b.focus_mode = Control.FOCUS_NONE
+	b.tooltip_text = Strings.t("settings.title")
+	b.custom_minimum_size = Vector2(px, px)
+	b.size = Vector2(px, px)
+	# flat: no stylebox in any state, so the gear art is the whole button
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(st, empty)
+	b.flat = true
+	if Kit != null and HC != null:
+		var ic: Control = Kit.make_icon(String(HC.ICON_SETTINGS), px)
+		if ic != null:
+			ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+			b.add_child(ic)
+	b.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_settings())
+	# pinned to the RIGHT edge at the shared margin, one margin below the wallet's bottom
+	var margin := _hud_edge_margin_px()
+	b.anchor_left = 1.0
+	b.anchor_right = 1.0
+	b.anchor_top = 0.0
+	b.anchor_bottom = 0.0
+	b.offset_left = -margin - px
+	b.offset_right = -margin
+	b.offset_top = _wallet_bottom_y() + margin
+	b.offset_bottom = b.offset_top + px
+	add_child(b)
+	_chrome_nodes.append(b)
+	_gear = b
 
 # Build the bottom bar from `specs` (each {name, icon, caption, surface, action}) and return
 # {name: Button}. Tiles are the SHARED Kit.home_button in its rect form — icon over caption inside a
