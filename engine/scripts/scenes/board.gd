@@ -36,7 +36,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")      # (workbench-t
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")        # the toggleable Grab (pickup) highlight
-const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
+const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -77,7 +77,9 @@ const GIVER_COLS := 4            # legacy fence-slot count (kept for the workben
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
-const JAR_RIGHT_PAD_FRAC := 0.03 # the jar card hugs the vase: dead space kept on the vase's RIGHT, as a fraction of fence height (was ~0.17 implicit)
+const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
+const UNLOCK_BAR_TOP := 122.0    # the strip's top edge below the HUD pills (tucked tighter than HUD_CLEARANCE — the strip carries its own breathing room)
+const UNLOCK_BAR_GAP := 8.0      # breathing room between the strip and the stack region below it
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -96,7 +98,7 @@ const STRAW = Pal.STRAW
 # "step back" read — a soft difference, never harsh — so the eye lands on what's live.
 const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
 const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
-const PURGE_DIM := Color(0.62, 0.62, 0.62, 0.85)  # the Purge card while it can't yet afford a region — greyed (no padlock)
+const PURGE_DIM := Color(0.62, 0.62, 0.62, 0.85)  # an inert (endgame) fence card — greyed (no padlock)
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
@@ -131,7 +133,7 @@ var _regen_ts := 0.0               # regen anchor (unix); advances as water accr
 var _winback := false              # set on load when away >= WINBACK_HOURS
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
 var _gate_ready_seen := false      # skip the cue on the first (load-time) call
-var _purge_vase: VaseWaterEffect
+var _unlock_bar: UnlockBar
 
 var csz := 86.0
 var board_area: Control
@@ -302,7 +304,7 @@ func _ready() -> void:
 	var bottom_btn_px := _bottom_button_px()
 	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
 	var action_opts := ActionBar.opts()
-	var bar_margin := _board_side_margin_px()
+	var bar_margin := _tray_side_margin_px()
 	bar.offset_left = bar_margin
 	bar.offset_right = _view_size().x - bar_margin
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
@@ -442,6 +444,12 @@ func _board_h() -> float:
 func _board_side_margin_px() -> float:
 	return maxf(0.0, (_view_size().x - (_board_w() + FRAME_OUT * 2.0)) * 0.5)
 
+# The bottom tray's side inset. It follows the board's sides while the board is width-governed, but
+# is CAPPED so a height-capped (narrower) board — e.g. once the NEXT UNLOCK strip takes top room —
+# can't starve the tray of the width its info copy needs.
+func _tray_side_margin_px() -> float:
+	return minf(_board_side_margin_px(), roundf(_view_size().x * 0.022))
+
 # Live aspect + grid read-out for the debug overlay (you read this to pick the rotation cutoff).
 func debug_layout_info() -> String:
 	var v := _view_size()
@@ -464,7 +472,12 @@ func _recompute_board_geometry() -> void:
 	const BOARD_BREATHING := 12.0
 	# The bottom-anchored stack region: top below the HUD, bottom just above the floating bottom bar.
 	# The quest fence + board pack to the BOTTOM of this region (spare room falls to the top).
-	var top_reserve := HUD_CLEARANCE + Look.safe_top(self)
+	# the NEXT UNLOCK strip sits between the HUD pills and the stack region — reserve its height too
+	# (UNLOCK_BAR_TOP tucks it closer to the pills than the old HUD_CLEARANCE fence start, giving some
+	# of the strip's height back to the board).
+	var bar_h := _unlock_bar_h_px()
+	_place_unlock_bar(bar_h)
+	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self) + bar_h + UNLOCK_BAR_GAP
 	var bottom_reserve := bottom_bar_h + 14.0 + Look.safe_bottom(self)
 	if _stack != null and is_instance_valid(_stack):
 		_stack.offset_top = top_reserve
@@ -791,6 +804,7 @@ func _build_hud() -> void:
 		# the board hides the level badge (player status reads on the Map); no on_level tap target here.
 		"hide_level": true})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
+	_build_unlock_bar()
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
 	level_label = hud.level          # S10: store the board's Lv chip (set at build; level is static here)
@@ -814,7 +828,8 @@ func _build_water_hud() -> void:
 	_refill_stack = VBoxContainer.new()
 	_refill_stack.add_theme_constant_override("separation", 8)
 	_refill_stack.offset_left = 16.0
-	_refill_stack.offset_top = 16.0 + safe_top + 130.0 + 16.0
+	# below the NEXT UNLOCK strip (which now owns the band right under the HUD pills)
+	_refill_stack.offset_top = UNLOCK_BAR_TOP + safe_top + _unlock_bar_h_px() + 16.0
 	_refill_stack.visible = false
 	add_child(_refill_stack)
 	refill_btn = Look.button(Strings.t("board.refill.free"), _on_refill, true)
@@ -974,7 +989,7 @@ func _ready_first_order(idx: Array) -> Array:
 
 # Live reorder of the rendered giver cards to match _ready_first_order, run on the refresh beat so a quest
 # going deliverable (via a merge) floats to the front WITHOUT a full rebuild. Moves the existing card nodes
-# (FX/bust state intact); the leading Purge card, if any, keeps slot 0. Reads each card's `ready` flag
+# (FX/bust state intact). Reads each card's `ready` flag
 # stamped by _refresh_giver_lights. No-op when the flag is off, the row is gone, or the order is unchanged.
 func _reorder_giver_row() -> void:
 	if not Features.on("quest_ready_front"):
@@ -997,7 +1012,7 @@ func _reorder_giver_row() -> void:
 			break
 	if not changed:
 		return
-	var base := _giver_row.get_child_count() - giver_chips.size()   # leading non-card children (the Purge card) stay ahead
+	var base := _giver_row.get_child_count() - giver_chips.size()   # any leading non-card children stay ahead
 	for k in range(order.size()):
 		var chip: Control = order[k].chip
 		if is_instance_valid(chip):
@@ -1012,10 +1027,9 @@ func _rebuild_givers() -> void:
 	_refill_quests()                          # §7: size the live fence to the meter before rendering
 	var qidx := _ready_first_order(_active_quest_idx())   # deliverable quests render at the FRONT of the fence
 	var stands := qidx.size()
-	var show_purge := _show_purge_card()
-	# the fence renders while there are quests OR the Purge card is showing — the Purge card now stands
-	# alone once the meter empties (banked enough to restore), so an empty quest list no longer blanks it.
-	if stands == 0 and not show_purge:
+	_update_unlock_bar()                      # the level-progress strip lives above the fence now, not in it
+	# the fence renders only while quests remain — level progress moved to the NEXT UNLOCK strip.
+	if stands == 0:
 		return
 	# the fence wall — a quiet paper strip; busts and cards pop up over its edge
 	var wall := Panel.new()
@@ -1026,8 +1040,8 @@ func _rebuild_givers() -> void:
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
 	# Cards are a FIXED size (proportional to the band height, so the art never distorts) packed LEFT to
-	# right inside a horizontal ScrollContainer: the jar (purge) takes the first slot, then every metered
-	# quest card. When the jar + cards FIT the screen they sit left-aligned with spare width on the right
+	# right inside a horizontal ScrollContainer, one per metered quest. When the cards FIT the screen they
+	# sit left-aligned with spare width on the right
 	# (no scroll, as before). When they OVERFLOW a narrow screen the row scrolls horizontally and the next
 	# card is left half-visible — the peek that signals "more to the right". Vertical scroll is off, so the
 	# busts (which sit within the band height) are never clipped.
@@ -1037,7 +1051,7 @@ func _rebuild_givers() -> void:
 	scroll.anchor_right = 1.0
 	scroll.anchor_top = 0.0
 	scroll.anchor_bottom = 1.0
-	scroll.offset_left = 0.0                                                  # extend the scroll viewport to BOTH screen edges so the jar/cards stay visible right up to the left and right edges as the row scrolls
+	scroll.offset_left = 0.0                                                  # extend the scroll viewport to BOTH screen edges so the cards stay visible right up to the left and right edges as the row scrolls
 	scroll.offset_right = 0.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER   # drag-scrollable; the scrollbar itself stays hidden
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED       # the band never scrolls vertically (busts stay un-clipped)
@@ -1050,8 +1064,6 @@ func _rebuild_givers() -> void:
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
 	scroll.add_child(row)
 	_giver_row = row
-	if show_purge:
-		row.add_child(_make_purge_card(stand_w))
 	var quest_slots := mini(int(G.MAX_GIVERS), qidx.size())
 	for k in range(quest_slots):
 		var qi: int = qidx[k]
@@ -1060,83 +1072,68 @@ func _rebuild_givers() -> void:
 		giver_chips.append(stand)
 	_refresh_giver_lights()
 
-# The Purge card (fence slot 0) shows whenever a frontier remains (the map is not done) — ALWAYS, not
-# only once affordable — advertising progress toward the next region. It greys out until the cheapest
-# region is affordable, then lights + breathes (the SAME gate_ready signal the Home button uses).
-func _show_purge_card() -> bool:
+# The NEXT UNLOCK strip shows whenever the zone arc still runs (the same gate the old Purge jar
+# used) — ALWAYS, not only once affordable — advertising progress toward the next level unlock.
+func _show_unlock_bar() -> bool:
 	return Quests.purge_state(_earned()).show
 
 func _purge_progress() -> float:
 	return Quests.purge_progress(_earned())
 
-# A special fence card: progress percent over the water vase, tapped to go HOME and restore regions.
-# It ALWAYS shows while a frontier remains; the vase fills from the previous claimed threshold to the
-# next unlock threshold, then glows + sparkles once that next region is affordable.
-func _make_purge_card(stand_w: float) -> Control:
-	var stand := Control.new()
-	stand.mouse_filter = Control.MOUSE_FILTER_PASS   # drag-scrollable like the giver cards — the touch reaches the ScrollContainer (see giver_stand.gd)
-	stand.custom_minimum_size = Vector2(stand_w, _fence_h)
-	# Keep the same footprint as giver cards so the Purge slot still sits flush in the fence row, but let
-	# the vase art carry the surface instead of another card frame.
-	var L := _giver_lay()
-	var cardW := stand_w * float(L.card_w)
-	var ready := _gate_ready()                     # affordable → light + breathe; else grey + still
-	var progress := _purge_progress()
-	var vase := VaseWaterEffect.new()
-	vase.name = "PurgeVaseWater"
-	vase.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vase.show_shadow = false                        # no contact shadow under the board jar
-	vase.set_progress(progress)
-	vase.set_ready(ready)
-	_purge_vase = vase
-	var vase_h := _fence_h
-	var vase_w := minf(cardW * 0.98, vase_h)
-	vase.size = Vector2(vase_w, vase_h)
-	var vase_center_x := clampf(stand_w * 0.32 + 5.0, vase_w * 0.5, stand_w - vase_w * 0.5)
-	vase.position = Vector2(vase_center_x - vase_w / 2.0, 0.0)
-	stand.add_child(vase)
-	# Hug the vase: trim the dead space on the jar's RIGHT so the first quest card sits closer (the jar
-	# stand was a full giver-card width; the vase only fills its left ~85%). A small right pad remains.
-	stand.custom_minimum_size.x = vase.position.x + vase_w + _fence_h * JAR_RIGHT_PAD_FRAC
-	var pct := Label.new()
-	pct.name = "PurgeProgressLabel"
-	pct.text = "%d%%" % int(round(progress * 100.0))
-	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pct.add_theme_font_size_override("font_size", int(vase_h * 0.18))
-	pct.add_theme_color_override("font_color", Color("#FFF3B8"))
-	pct.add_theme_color_override("font_outline_color", Color("#241407"))
-	pct.add_theme_constant_override("outline_size", maxi(4, int(vase_h * 0.036)))
-	var pct_size := Vector2(vase_w * 0.76, vase_h * 0.20)
-	pct.size = pct_size
-	pct.position = Vector2(
-		vase.position.x + vase_w * 0.5 - pct_size.x * 0.5,
-		vase.position.y + vase_h * 0.44 - pct_size.y * 0.5)
-	stand.add_child(pct)
-	var purge_go := func() -> void:
+# The strip's height scales with the screen like the rest of the HUD (mock ≈ 10% of width),
+# clamped so a wide/landscape viewport doesn't balloon it.
+func _unlock_bar_h_px() -> float:
+	return clampf(roundf(_view_size().x * UNLOCK_BAR_H_FRAC), 84.0, 132.0)
+
+# Pin the strip full-width under the HUD pills (same side margins as the board / bottom bar).
+func _place_unlock_bar(bar_h: float) -> void:
+	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
+		return
+	var side := QUEST_SIDE   # near full-width like the HUD pills row (mock), not the board's side margin
+	var top := UNLOCK_BAR_TOP + Look.safe_top(self)
+	_unlock_bar.offset_left = side
+	_unlock_bar.offset_right = _view_size().x - side
+	_unlock_bar.offset_top = top
+	_unlock_bar.offset_bottom = top + bar_h
+
+# The NEXT UNLOCK strip (mock: ui_redesign_direction_b/board_next_unlock_v1) — replaces the fence
+# jar. Fills toward the next level threshold on the coin clock; tapped, it goes HOME to restore
+# regions (the jar's tap), and it breathes + turns gold once the next unlock is affordable.
+func _build_unlock_bar() -> void:
+	_unlock_bar = UnlockBar.new()
+	_unlock_bar.name = "NextUnlockBar"
+	_unlock_bar.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	add_child(_unlock_bar)
+	_place_unlock_bar(_unlock_bar_h_px())
+	var unlock_go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
-	_stand_tap(stand, purge_go)
-	stand.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	# ready → a gentle breathe (like a payable giver card); not yet → full colour + still.
-	stand.modulate = Color.WHITE
-	if ready:
-		FX.breathe_once(vase)
-	return stand
+	_stand_tap(_unlock_bar, unlock_go)
+	_update_unlock_bar()
+	if _gate_ready():
+		FX.breathe_once(_unlock_bar)
 
-func _animate_purge_vase_from(previous_progress: float, show_drop: bool = false) -> void:
-	if _purge_vase == null or not is_instance_valid(_purge_vase):
+# Refresh the strip's static face (visibility / next level / ready tint) + snap the fill.
+func _update_unlock_bar() -> void:
+	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
+		return
+	_unlock_bar.visible = _show_unlock_bar()
+	_unlock_bar.set_next_level(G.level_at_coins(_earned()) + 1)
+	_unlock_bar.set_ready(_gate_ready())
+	_unlock_bar.set_progress(_purge_progress())
+
+func _animate_unlock_bar_from(previous_progress: float) -> void:
+	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
 		return
 	var now := _purge_progress()
-	_purge_vase.set_ready(_gate_ready())
-	_purge_vase.set_progress(previous_progress)
-	_purge_vase.animate_progress_to(now)
-	if show_drop:
-		_purge_vase.play_drop()
+	_unlock_bar.visible = _show_unlock_bar()
+	_unlock_bar.set_next_level(G.level_at_coins(_earned()) + 1)
+	_unlock_bar.set_ready(_gate_ready())
+	_unlock_bar.set_progress(previous_progress)
+	_unlock_bar.animate_progress_to(now)
 	if now >= 1.0:
-		FX.breathe_once(_purge_vase)
+		FX.breathe_once(_unlock_bar)
 
 func debug_add_progress(amount: int = 5) -> void:
 	var before_purge := _purge_progress()
@@ -1145,7 +1142,7 @@ func debug_add_progress(amount: int = 5) -> void:
 		_rebuild_givers()
 		_refresh_locked_cells()
 		_update_hud()
-	_animate_purge_vase_from(before_purge)
+	_animate_unlock_bar_from(before_purge)
 
 # A tap fires on a still RELEASE so scrolling the row never delivers by accident.
 func _stand_tap(stand: Control, action: Callable) -> void:
@@ -1182,8 +1179,7 @@ func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dict
 	return GiverStand.make(qi, q, cfg)
 
 # The resolved giver-card layout: GiverStand's baked defaults with the workbench config (the quest_card
-# block) merged over them. Shared by the giver stands AND the Purge card (#1) so the Purge slot is sized
-# and framed identically to the quest cards. Absent kit → the bare GiverStand.LAY defaults.
+# block) merged over them. Absent kit → the bare GiverStand.LAY defaults.
 func _giver_lay() -> Dictionary:
 	var L: Dictionary = GiverStand.LAY.duplicate()
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
@@ -1616,7 +1612,7 @@ func _relayout_action_bar() -> void:
 	bottom_bar.anchor_top = 1.0
 	bottom_bar.anchor_bottom = 1.0
 	bottom_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bar_margin := _board_side_margin_px()
+	var bar_margin := _tray_side_margin_px()
 	bottom_bar.offset_left = bar_margin
 	bottom_bar.offset_right = _view_size().x - bar_margin
 	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
@@ -1747,7 +1743,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	var tray_pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
 	# The bar insets to the board's side margins, so the flexible middle (this pill) gives back that same
 	# width — the two fixed end buttons then sit flush to the board's edges instead of overflowing the bar.
-	var info_w := _info_bar_w_px() - 2.0 * _board_side_margin_px()
+	var info_w := _info_bar_w_px() - 2.0 * _tray_side_margin_px()
 	pill.custom_minimum_size.x = maxf(1.0, info_w - ActionBar.separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pill.add_theme_stylebox_override("panel", ActionBar.info_bar_frame(opts))
@@ -3485,7 +3481,7 @@ func _deliver_from_board(cell: Vector2i) -> void:
 # flies it to `chip`, pays the quest's reward (exp + coins + level-up), and drops the quest from the
 # fence. `cell` is explicit so a board-tap consumes the EXACT tile tapped, not just first_item_of(code).
 func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
-	# Snapshot the purge-vase meter BEFORE the action mutates exp/quests — the animation tweens from it.
+	# Snapshot the unlock-bar meter BEFORE the action mutates exp/quests — the animation tweens from it.
 	var purge_before := _purge_progress()
 	# RULE: the whole state transition — consume the tile, drop the quest, remember the ask, advance exp
 	# (the ONE place exp earns), pay the coin faucet — lives in the pure, headless-tested action. The scene
@@ -3528,7 +3524,7 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
 	if sp_coins <= 0:
 		_update_hud()
-	_animate_purge_vase_from(purge_before, true)
+	_animate_unlock_bar_from(purge_before)
 	# §10: a quest's coin overflow is the surviving lump coin faucet. Offer to DOUBLE it for a few
 	# 💎 — but only when the reward is big enough that the deal beats the shop (G.collect_2x_offered).
 	if sp_coins > 0:

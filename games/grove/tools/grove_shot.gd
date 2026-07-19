@@ -104,6 +104,14 @@ func _initialize() -> void:
 			scn._update_water_hud()                # shows the offer + breathes the pill
 			scn._cue_empty_water()                 # + the drifting hint anchored to the water pill
 			await create_timer(0.35).timeout       # catch the hint floater mid-rise (before it fades)
+		"unlock":
+			# the board's NEXT UNLOCK strip mid-arc: the coin clock banked to ~67% of the next
+			# level threshold (matches the board_next_unlock_v1 mock face).
+			var gu := Save.grove()
+			gu["coins_earned"] = int(round(float(G.coins_at_level(2)) * 0.67))
+			Save.grove_write()
+			scn._update_unlock_bar()
+			await create_timer(0.2).timeout
 		"level":
 			# the level screen (tapping the Lv badge or a locked cell): banked partway to the
 			# next level so the tally + progress bar show a real fraction.
