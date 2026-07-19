@@ -1,0 +1,23 @@
+Use case: stylized-concept
+Asset type: registered foundation plate for a layered vertical mobile game environment
+Input images:
+- Image 1: precise Fairy Hollow composition authority. Preserve its elevated three-quarter camera, portrait framing, night-sky-to-meadow division, creek course, and winding stepping-stone route.
+- Image 2: mandatory Meadow Sky palette and Cut-Paper material authority only; do not copy its UI or board layout.
+- Image 3: mandatory elevated three-quarter camera, common scale, landscape integration, silhouette simplicity, and detail-budget authority only; do not copy its farm content, buildings, paths, or UI.
+Primary request: create a clean foundation-only Fairy Hollow plate matching the visible original mock.
+Canvas: exact 1320 x 2346 portrait composition, top-left registered. Fill the entire canvas; opaque image.
+Required content only: one completely plain deep-blue night-sky paper field with ZERO celestial decoration; one continuous softly radiant meadow ground plane; the narrow creek following the original lower-left-to-lower-center course; the winding cream stepping-stone route entering at bottom center, crossing beside the creek, curving through the picnic clearing, and terminating at the original cottage threshold; low cottage threshold stones; low picnic-area cobbles. Preserve clear empty footprints for every later object.
+Camera/composition: same elevated three-quarter camera and scale as Image 1. Preserve the original route flow and open clearing. Ground details are flat and low, never separate props. No path loops, branches, or extra destinations.
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Palette: sky/distant atmosphere #6FA9C0 shifted darker for night; structural slate #3F6D7D; meadow #A8D3B9; warm cream #F6EBDD; ink #243B4B; tinted shadow #294654 at 18-20%. Low saturation across the broad ground and sky.
+Absolute sky rule: the sky is an empty unadorned blue paper field. Do not draw any stars, dots, sparkles, moon, clouds, hills, silhouettes, or objects in it.
+Hard exclusions: no buildings, cottage, tree house, animal den, bridge, well, table, stools, picnic furniture, potted plant, mushrooms, lanterns, fireflies, animals, fox, foliage masses, bushes, flowers, trees, trunks, branches, canopy, hills, forest band, moon, stars, dots, sparkles, clouds, UI, text, labels, borders, watermark, scenic bases, turf islands, object shadows, or isolated props.
+Output only the clean opaque foundation plate.

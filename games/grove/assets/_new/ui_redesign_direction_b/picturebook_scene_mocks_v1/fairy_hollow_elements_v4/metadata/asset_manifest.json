@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "scene": "fairy_hollow_v4",
+  "visualAssetSource": "image_gen",
+  "accepted": [
+    {
+      "id": "foundation",
+      "category": "backdrop",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_backdrop/foundation/fairy_hollow_foundation_v4.png",
+      "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_backdrop/foundation/fairy_hollow_foundation_v4.prompt.txt",
+      "transparent": false,
+      "requiredSize": [1320, 2346]
+    },
+    {
+      "id": "distant_hills",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/distant_hills/fairy_hollow_distant_hills_v4.png",
+      "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/distant_hills/fairy_hollow_distant_hills_v4.prompt.txt",
+      "transparent": true,
+      "requiredSize": [1320, 2346]
+    },
+    {
+      "id": "forest_band",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.png",
+      "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.prompt.txt",
+      "transparent": true,
+      "requiredSize": [1320, 2346]
+    },
+    {
+      "id": "frame_trees",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/frame_trees/fairy_hollow_frame_trees_v4.png",
+      "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/frame_trees/fairy_hollow_frame_trees_v4.prompt.txt",
+      "transparent": true,
+      "requiredSize": [1320, 2346]
+    },
+    {
+      "id": "sky_dressing",
+      "category": "environment",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/sky_dressing/fairy_hollow_sky_dressing_v4.png",
+      "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/sky_dressing/fairy_hollow_sky_dressing_v4.prompt.txt",
+      "transparent": true,
+      "requiredSize": [1320, 2346]
+    }
+  ]
+}
