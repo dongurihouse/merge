@@ -1,0 +1,53 @@
+Use case: ui-mockup.
+Asset type: polished high-fidelity mobile game mail dialog mock, portrait iPhone composition.
+
+Input images:
+- Image 1 is the legacy mail-dialog content reference only. Preserve the concept of a MAIL modal containing claimable messages with reward values and a close action. Do not copy its landscape canvas, sparse empty space, tiny row, old rendering, colors, or proportions.
+- Image 2 is the fixed Meadow Sky palette and Cut-Paper Playground UI authority. Match its restrained saturation, warm-cream surfaces, ink typography, shallow tinted shadows, paper edges, and phone-size readability. Do not copy its board layout.
+- Image 3 is the approved portrait dialog composition authority. Match its generous modal scale, clear section rhythm, rounded paper-card construction, and coral close control. Do not copy its residents, resource banks, content, or labels.
+- Image 4 is the camera, scene-detail, and world-background authority. Use it only to create a softly blurred and darkened game-world background behind the modal. Do not copy its UI or foreground layout.
+
+Primary request: redesign the MAIL dialog as a scalable portrait inbox for a cozy merge game. It should feel cheerful, useful, and immediately readable, with three claimable mail cards and clear reward hierarchy.
+
+Canvas and background: full iPhone vertical aspect ratio, designed for `1080x1920`. Behind the modal, show a softly blurred and darkened Meadow Sky game-world scene. The modal is the only focus. No bottom navigation or currency bar is visible.
+
+Dialog frame: centered warm-cream rounded paper modal occupying about 88% of the screen width and 70% of the screen height. Fine warm cut edge, thin locally darker edge, and shallow tinted down-right shadow. Header has exact title `MAIL`, a small friendly envelope emblem to the left of the title, and a coral circular close button with a cream X at upper-right.
+
+Inbox layout: below the header, show exactly three large message cards in one vertical column with even gutters. Each card uses a soft cream or lightly tinted paper surface, a large simple icon at left, title and one-line preview in the middle, reward pills below or beside the preview, and one large action-green pill button aligned at right or lower-right. The cards are spacious but compact enough that all three and the bottom action fit without crowding. Add a tiny coral unread dot only to the first two cards. Do not use checkboxes or radio buttons.
+
+Exact visible text, preserving spelling and capitalization:
+- Title: `MAIL`
+- Card 1 title: `A little something`
+- Card 1 preview: `A handful of coins to get you started.`
+- Card 1 reward: `100`
+- Card 2 title: `Garden delivery`
+- Card 2 preview: `Supplies from your woodland friends.`
+- Card 2 rewards: `3` and `1`
+- Card 3 title: `A cozy surprise`
+- Card 3 preview: `A small gift is waiting for you.`
+- Individual action label on all three cards: `CLAIM`
+- Bottom action label: `CLAIM ALL`
+
+Reward icon mapping: Card 1 has one reward-gold coin pill with coin icon and `100`. Card 2 has two compact pills: blue water droplet with `3`, and brown acorn with `1`. Card 3 has one small warm-gold gift-chest icon as its reward; do not add a numeric count to the chest.
+
+Bottom action: place one wide action-green `CLAIM ALL` button across the bottom of the modal beneath the cards. Add a small envelope-with-spark icon inside the button. This is the strongest action on the screen. Leave comfortable safe-area space below it.
+
+Visual hierarchy: title first, unread messages second, reward icons and individual claims third, claim-all action as the final anchor. Keep the dialog full and balanced; no hollow center and no oversized decorative illustration. Use large touch targets and high contrast while keeping most surfaces quiet.
+
+Palette: fixed Meadow Sky roles only: sky `#6FA9C0`, structural slate `#3F6D7D`, meadow `#A8D3B9`, receding blue `#8296AF`, warm cream `#F6EBDD`, ink `#243B4B`, action green `#5F9B6D`, coral `#D87865`, reward gold `#D6A94C`, rare purple `#8677A3`, tinted shadow `#294654` at about 18-20% opacity. Warm cream dominates the modal. Reserve green for claims, coral for close and unread dots, and gold for rewards.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: include only the exact UI text and numbers specified above.
+
+Constraints: practical shippable game UI, one scrollable message column, exactly three visible mail cards, consistent card anatomy, readable English, clean spacing, no content touching the modal edges.
+
+Avoid: landscape popup proportions, the old single tiny mail row, large empty areas, bottom navigation, currency pills, character portraits, residents, resource-bank charts, inbox tabs, delete buttons, pagination, extra labels, extra counters, extra buttons, tiny text, text overflow, glossy plastic, clay, watercolor, painterly gradients, heavy black outlines, universal white sticker outlines, watermark.

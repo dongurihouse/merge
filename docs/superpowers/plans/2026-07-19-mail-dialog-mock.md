@@ -30,22 +30,22 @@
 - Consumes: legacy mail screenshot and the tracked Meadow Sky reference images.
 - Produces: a self-contained review mock and reusable generation prompt.
 
-- [ ] **Step 1: Generate the portrait source**
+- [x] **Step 1: Generate the portrait source**
 
   Use the built-in image generator with the exact saved prompt and all references assigned explicit roles.
 
-- [ ] **Step 2: Inspect the generated source**
+- [x] **Step 2: Inspect the generated source**
 
   Confirm the dialog has one title, three message cards, individual claim actions, one claim-all action, no bottom navigation, and no obvious style drift.
 
-- [ ] **Step 3: Export the review copy**
+- [x] **Step 3: Export the review copy**
 
   Run `magick mail_dialog_v1_source.png -resize 1080x1920^ -gravity center -extent 1080x1920 mail_dialog_v1_1080x1920.png`.
 
-- [ ] **Step 4: Verify the archive**
+- [x] **Step 4: Verify the archive**
 
   Run `identify mail_dialog_v1_source.png mail_dialog_v1_1080x1920.png` and confirm the review copy is exactly `1080x1920`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   Run `git add docs/superpowers/specs/2026-07-19-mail-dialog-mock-design.md docs/superpowers/plans/2026-07-19-mail-dialog-mock.md games/grove/assets/_concepts/dialogs && git commit -m "art: add Meadow Sky mail dialog mock"`.
