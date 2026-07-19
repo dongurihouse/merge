@@ -42,6 +42,7 @@ const SPARK_TINT := Color("#E6BC5E")
 const SLOT_SAGE := [1, 3, 6]
 
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
+const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
 const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
 const BANNER_ASPECT := 1.26       # capstone banner height / cell width
 
@@ -225,7 +226,10 @@ static func _rebuild(Kit: GDScript, body: VBoxContainer, inner: float, days: Arr
 	for ch in body.get_children():
 		body.remove_child(ch)
 		ch.queue_free()
-	var cw: float = (inner - GAP * float(COLS - 1)) / float(COLS)
+	# Reserve breathing room on both sides so the OUTER cards' gold rims + drop shadows aren't clipped by
+	# the sheet's content edge (the grid + capstone lay out at `usable`, centred within the full `inner`).
+	var usable: float = maxf(48.0, inner - 2.0 * CARD_EDGE_INSET)
+	var cw: float = (usable - GAP * float(COLS - 1)) / float(COLS)
 	var grid := GridContainer.new()
 	grid.name = "DailyGrid"
 	grid.columns = COLS
@@ -240,7 +244,7 @@ static func _rebuild(Kit: GDScript, body: VBoxContainer, inner: float, days: Arr
 		grid.add_child(_day_cell(Kit, d, cw, ch_px))
 	body.add_child(grid)
 	if days.size() > 0:
-		body.add_child(_capstone(Kit, days[days.size() - 1], inner, cw * BANNER_ASPECT))
+		body.add_child(_capstone(Kit, days[days.size() - 1], usable, cw * BANNER_ASPECT))
 
 ## One day cell (mock): a tinted rounded tile — "DAY N" in ink at the top, the reward art centred with
 ## its amount under it, and the state marker at the bottom (✓ disc · green CLAIM pill · nothing).
@@ -309,30 +313,19 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		wrap.add_child(act)
 		col.add_child(wrap)
 
-	# a still-locked mystery day carries the mock's lock glyph over the gift's lower edge
-	if mystery and state != "today" and state != "done":
-		var lock := _sprite(Kit, "shared/icon_lock.png", cw * 0.40)
-		lock.modulate = Pal.BARK   # the mock's slate lock (a full INK multiply crushes the keyhole to a blob)
-		inner.add_child(lock)
-		var dock := func() -> void:
-			if is_instance_valid(lock) and is_instance_valid(inner):
-				lock.position = Vector2((inner.size.x - lock.size.x) * 0.5, inner.size.y * 0.55)
-		inner.resized.connect(dock)
-		lock.resized.connect(dock)
-		dock.call_deferred()
-
 	if today:
 		_scatter_sparks(inner, cw * 0.11, [Vector2(0.10, 0.09), Vector2(0.90, 0.20),
 			Vector2(0.09, 0.62), Vector2(0.92, 0.66)])
 	return panel
 
 ## The week's LAST slot as the mock's wide capstone banner: a full-width amber plaque with the gold
-## rim, "DAY N" at the top, the chest flanked by leaf sprigs, and a sparkle in each corner.
+## rim, "DAY N" at the top, the chest centred, and a sparkle in each corner.
 static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
 	var state := String(d.get("state", "future"))
 	var panel := PanelContainer.new()
 	panel.name = "DailyCapstone"
 	panel.custom_minimum_size = Vector2(w, h)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # hold `w` (usable) and centre, leaving side margin for its rim/shadow
 	var cw := w / float(COLS)
 	panel.add_theme_stylebox_override("panel", _cell_box(CELL_TODAY, cw, true))
 
@@ -393,9 +386,10 @@ static func _cell_tint(d: Dictionary) -> Color:
 		return CELL_MYSTERY
 	return CELL_SAGE if int(d.get("slot", 1)) in SLOT_SAGE else CELL_SKY
 
-## "DAY N" — the ink, PLAIN-weight (not bold), all-caps cell heading, a touch larger, pressed into the
-## card with a soft "burn-in" deboss: a warm dark shadow nudged down/right reads as the letters sunk into
-## the parchment rather than floating on it.
+## "DAY N" — the ink, PLAIN-weight (not bold), all-caps cell heading, a touch larger. NO drop shadow —
+## just a faint "burn-in": the letters sit in a slightly deeper, warmer ink so they read as scorched a
+## touch into the parchment rather than printed flat on top of it.
+const DAY_LABEL_INK := Color("#1B2C38")   # INK deepened a step — the subtle burn-in tone
 static func _cell_label(Kit: GDScript, text: String, cw: float) -> Label:
 	var l := Label.new()
 	l.name = "DailyDayLabel"
@@ -403,13 +397,8 @@ static func _cell_label(Kit: GDScript, text: String, cw: float) -> Label:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_override("font", Kit.plain_font())
 	l.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.185)))
-	l.add_theme_color_override("font_color", Pal.INK)
+	l.add_theme_color_override("font_color", DAY_LABEL_INK)
 	l.add_theme_constant_override("outline_size", 0)
-	# burn-in deboss — a low-alpha warm-dark shadow offset a hair down/right (scales with the card).
-	l.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45))
-	l.add_theme_constant_override("shadow_offset_x", maxi(1, int(cw * 0.015)))
-	l.add_theme_constant_override("shadow_offset_y", maxi(1, int(cw * 0.02)))
-	l.add_theme_constant_override("shadow_outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
