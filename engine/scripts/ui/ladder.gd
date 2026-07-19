@@ -261,9 +261,6 @@ static func _tier_chip(cell: Control, d: Dictionary) -> void:
 # The MERGED-line recipe view: the two same-tier ingredient items (with a "+" between) — each a tappable button that
 # opens THAT line's tier screen via on_pick — stacked ABOVE the merged line's OWN tier grid (the same shared
 # grid the base-line screen uses). The ingredients are smaller than the grid-less view so both fit the frame.
-static func _recipe_body(lines: Array, tier: int, grid: Control, width: float, on_pick: Callable) -> Control:
-	var col := VBoxContainer.new()
-=======
 # The MERGED-line recipe view (mock: merged_line_tiers_1080x1920) — the two same-tier ingredient items, each
 # on its OWN pale rounded card, with a big ink "+" between them, stacked ABOVE the merged line's OWN tier grid
 # (the same shared grid the base-line screen uses). Each card is a tappable button that opens THAT line's tier
@@ -280,7 +277,6 @@ static func _recipe_body(Kit: GDScript, lines: Array, tier: int, grid: Control, 
 	# sheet's inner width in layout space (design width MINUS the sheet's pads / content_scale). Pinning
 	# it to the design width pushed the grid's right column past the scroll's clip line.
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
->>>>>>> mock-dialog-genlines
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", int(card_px * 0.17))
 	var row := HBoxContainer.new()
@@ -297,9 +293,7 @@ static func _recipe_body(Kit: GDScript, lines: Array, tier: int, grid: Control, 
 			row.add_child(_recipe_plus(card_px))
 	col.add_child(row)
 	col.add_child(grid)
-<<<<<<< HEAD
 	col.add_child(_tail(width))
-=======
 	# re-derive the card size from the ACTUAL laid-out width, exactly as the kit's tier grid does for its
 	# cells — so an ingredient card stays one grid column wide at any frame width.
 	var fit := func() -> void:
@@ -311,7 +305,6 @@ static func _recipe_body(Kit: GDScript, lines: Array, tier: int, grid: Control, 
 				(c as Control).custom_minimum_size = Vector2(cw, cw * 0.93)
 	col.resized.connect(fit)
 	fit.call_deferred()
->>>>>>> mock-dialog-genlines
 	return col
 
 # One grid column's width, derived the SAME way the kit's tier grid derives it (content width minus the
