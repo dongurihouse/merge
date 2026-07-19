@@ -799,15 +799,20 @@ func _maps_card_shell(rect: Rect2) -> Panel:
 # over a sky backing. The frame is a rounded Panel whose `clip_children` masks the whole preview to its
 # drawn shape — so `corner` rounds the thumb's own corners (a bleeding thumb then keeps the card's
 # rounded silhouette; `corner` 0 is a plain rectangular clip, matching the old behaviour).
-func _maps_zone_thumb(z: int, size: Vector2, corner := 0.0) -> Control:
+func _maps_zone_thumb(z: int, size: Vector2, corner := 0.0, right_square := false) -> Control:
 	var frame := Panel.new()
 	frame.size = size
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# the mask shape: a rounded box drawn only to the clip buffer (CLIP_CHILDREN_ONLY), never to screen —
-	# the `back` fill below is the visible backing, so the panel colour here is irrelevant.
+	# the `back` fill below is the visible backing, so the panel colour here is irrelevant. `right_square`
+	# keeps the two RIGHT corners square (the featured thumb's straight seam against the text column).
 	var mask := StyleBoxFlat.new()
 	mask.bg_color = Color.WHITE
-	mask.set_corner_radius_all(int(round(corner)))
+	var r := int(round(corner))
+	mask.corner_radius_top_left = r
+	mask.corner_radius_bottom_left = r
+	mask.corner_radius_top_right = 0 if right_square else r
+	mask.corner_radius_bottom_right = 0 if right_square else r
 	frame.add_theme_stylebox_override("panel", mask)
 	frame.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
 	var back := ColorRect.new()
@@ -838,7 +843,7 @@ func _maps_featured_card(z: int, rect: Rect2) -> Control:
 	# corner), rounded to the card radius so the left corners follow the panel; its right edge is the
 	# straight seam against the text column.
 	var thumb_px := rect.size.y
-	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER)
+	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER, true)   # right side square: the text-column seam
 	thumb.position = Vector2.ZERO
 	card.add_child(thumb)
 	var col_x := thumb_px + inset
