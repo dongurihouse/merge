@@ -1,0 +1,25 @@
+{
+  "art_guide": "docs/design/art-style-guide.md",
+  "generator": "built-in image generation",
+  "primary_generated_source": "mail_icons_3x3_generated_source.png",
+  "primary_prompt": "prompt-used.txt",
+  "replacement_generated_source": "ribbon_gift_chest_generated_source.png",
+  "replacement_prompt": "ribbon_gift_chest.prompt.txt",
+  "replacement_reason": "The first sheet's chest bow crossed its cell boundary, so the chest was regenerated independently.",
+  "processor": "/Users/xup/.codex/skills/generate2dsprite/scripts/generate2dsprite.py",
+  "processor_settings": {
+    "grid": "3x3",
+    "cell_size": 512,
+    "alignment": "center",
+    "shared_scale": true,
+    "component_mode_for_primary_sheet": "largest",
+    "edge_cleanup_radius": 1
+  },
+  "assembler": "assemble_mail_icon_pack.py",
+  "outputs": {
+    "transparent_atlas": "mail_icons_3x3_transparent.png",
+    "magenta_keyed_atlas": "mail_icons_3x3_raw.png",
+    "transparent_frames": "frames/",
+    "review_previews": "previews/"
+  }
+}

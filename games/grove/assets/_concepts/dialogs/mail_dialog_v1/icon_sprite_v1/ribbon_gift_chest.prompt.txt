@@ -1,0 +1,28 @@
+Use case: stylized-concept.
+Asset type: one production UI icon master for a cozy mobile game.
+
+Input images:
+- Image 1 is the approved Mail-dialog identity reference. Recreate only the ribbon-wrapped gift chest shown on the third message card. Preserve its object identity, proportions, and friendly visual language. Do not copy the dialog, text, buttons, rewards, or background.
+- Image 2 is the fixed Meadow Sky palette and Cut-Paper Playground material authority. Match its matte paper surfaces, warm cut edges, locally darker edges, restrained saturation, and phone-size readability.
+
+Primary request: create exactly one compact small reward-gold treasure chest made of warm wood, wrapped vertically with one coral ribbon and a simple coral bow. Keep the bow compact and attached to the chest lid. A tiny cream daisy at the ribbon clasp is allowed, matching the approved mock. Use a flat front-on or very mild three-quarter UI glyph view.
+
+Composition: perfectly square high-resolution image. Center the complete chest in the central 50% of the canvas in its longest dimension. Leave an extremely wide, uniform magenta gutter on all four sides. The full chest base, lid, bow loops, ribbon tails, and any flower petals must remain completely inside the central safe area. Nothing may touch the canvas edge.
+
+Background: perfectly flat solid `#FF00FF` across the entire image. No texture, gradient, floor, horizon, panel, border, shadow, reflection, or lighting variation in the background. Do not use `#FF00FF` inside the icon.
+
+Icon rendering: crisp complete silhouette, broad rounded low-complexity forms, no cast shadow, no contact shadow, no glow, no detached sparkles, no floating pieces, no white sticker outline, no heavy black outline, no text, no watermark.
+
+Palette: reward gold `#D6A94C`, coral `#D87865`, warm cream `#F6EBDD`, ink `#243B4B`, plus warm muted wood compatible with the approved mock.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Avoid: multiple chests, oversized bow, detached ribbon, clipped bow, clipped base, edge touching, decorative scene, card background, ground shadow, cast shadow, glow, text, watermark, glossy plastic, clay, watercolor, painterly brushwork.

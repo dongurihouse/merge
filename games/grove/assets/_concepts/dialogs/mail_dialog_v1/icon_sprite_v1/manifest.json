@@ -1,0 +1,82 @@
+{
+  "name": "mail_dialog_icon_sprite_v1",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "layout": {
+    "rows": 3,
+    "columns": 3,
+    "cell_width": 512,
+    "cell_height": 512,
+    "atlas_width": 1536,
+    "atlas_height": 1536,
+    "order": "row-major"
+  },
+  "atlases": {
+    "transparent": "mail_icons_3x3_transparent.png",
+    "magenta_keyed": "mail_icons_3x3_raw.png"
+  },
+  "icons": [
+    {
+      "index": 0,
+      "row": 0,
+      "column": 0,
+      "id": "mail_envelope_leaf",
+      "file": "frames/mail_envelope_leaf_512.png"
+    },
+    {
+      "index": 1,
+      "row": 0,
+      "column": 1,
+      "id": "reward_star_coin",
+      "file": "frames/reward_star_coin_512.png"
+    },
+    {
+      "index": 2,
+      "row": 0,
+      "column": 2,
+      "id": "garden_delivery_crate",
+      "file": "frames/garden_delivery_crate_512.png"
+    },
+    {
+      "index": 3,
+      "row": 1,
+      "column": 0,
+      "id": "water_drop",
+      "file": "frames/water_drop_512.png"
+    },
+    {
+      "index": 4,
+      "row": 1,
+      "column": 1,
+      "id": "acorn",
+      "file": "frames/acorn_512.png"
+    },
+    {
+      "index": 5,
+      "row": 1,
+      "column": 2,
+      "id": "ribbon_gift_chest",
+      "file": "frames/ribbon_gift_chest_512.png"
+    },
+    {
+      "index": 6,
+      "row": 2,
+      "column": 0,
+      "id": "claim_all_envelope",
+      "file": "frames/claim_all_envelope_512.png"
+    },
+    {
+      "index": 7,
+      "row": 2,
+      "column": 1,
+      "id": "close_x",
+      "file": "frames/close_x_512.png"
+    },
+    {
+      "index": 8,
+      "row": 2,
+      "column": 2,
+      "id": "unread_dot",
+      "file": "frames/unread_dot_512.png"
+    }
+  ]
+}
