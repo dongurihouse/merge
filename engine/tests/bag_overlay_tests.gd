@@ -134,20 +134,23 @@ func _initialize() -> void:
 	ok(overlay.find_child("DialogBanner", true, false) != null, "the bag overlay rides the SHARED kit frame banner")
 	ok(overlay.find_child("DialogClose", true, false) != null, "the shared frame's ✕ disc is docked on the bag card")
 	ok(_grid_cells(overlay) == cap, "the slot ladder is a grid of one tile per slot (%d)" % cap)
-	# the dialog carries NO balance pill (the HUD owns the acorn counter), the NEXT slot is the only
-	# tile with a price, and it wears no unlockable highlight — that lone price is the whole cue.
-	ok(not _has_label(overlay, "132"), "the bag overlay never repeats the balance the HUD already shows")
+	# the mock's chrome: the acorn BALANCE chip sits under the title, and every unowned slot (the
+	# amber next one plus each locked one) carries its own acorn price pill. The next slot still
+	# wears no sparkle highlight — the amber face and the price are the cue.
+	ok(overlay.find_child("BagBalanceChip", true, false) != null and _has_label(overlay, "132"), \
+		"the bag overlay carries the mock's acorn balance chip")
 	ok(overlay.find_child("SlotCellUnlockableHighlight", true, false) == null, \
-		"the next slot wears no highlight — only its acorn price marks it")
-	# the price rides the cost CHIP (a static pill_button), so it is Button text, not a Label.
+		"the next slot wears no sparkle highlight — the amber face + its price are the cue")
+	# one price pill per unowned slot, in ladder order, each at its own rung.
 	var prices_shown: Array = []
-	for b in overlay.find_children("*", "Button", true, false):
-		var bt := String((b as Button).text)
-		if bt != "" and bt.is_valid_int():
-			prices_shown.append(int(bt))
-	ok(prices_shown == [int(prices[0])], \
-		"exactly ONE tile shows a price — the next slot, at the first ladder rung (%d), got %s" \
-			% [int(prices[0]), str(prices_shown)])
+	for p in overlay.find_children("BagSlotPricePill", "Panel", true, false):
+		for l in (p as Control).find_children("*", "Label", true, false):
+			prices_shown.append(int(String((l as Label).text)))
+	var want_prices: Array = []
+	for k in range(start + 1, cap + 1):
+		want_prices.append(BagOverlay._price_at(k, prices, start))
+	ok(prices_shown == want_prices, \
+		"every unowned slot shows its own ladder price (%s), got %s" % [str(want_prices), str(prices_shown)])
 	overlay.queue_free()
 	host.queue_free()
 
