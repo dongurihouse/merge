@@ -21,7 +21,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench zones home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
@@ -65,8 +65,8 @@ fx: ## watch the breaking-glass FX live, looping (a real window; close it to qui
 fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
 
-vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
-	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
+zones: ## draw a page's unlock zones over the real scene (a real window):  make zones
+	$(GODOT) --path $(PROJECT) res://games/tools/zone_workbench/ZoneWorkbench.tscn
 
 home-layers: ## review the modular cut-paper Home background and one-house checkpoint
 	$(GODOT) --path $(PROJECT) res://games/grove/tools/HomeLayerWorkbench.tscn
