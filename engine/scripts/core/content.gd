@@ -1427,7 +1427,10 @@ static func grant_level_gift(gift: Dictionary) -> void:
 	if water <= 0 and gems <= 0:
 		return
 	var g := Save.grove()
-	g["water"] = mini(WATER_CAP, int(g.get("water", WATER_CAP)) + water)
+	# A level gift is a TOP-UP to the cap, never a drain: if the can is already banked OVER
+	# WATER_CAP (free-refill over-fill, water drops), clamping to the cap alone would REDUCE it.
+	var cur := int(g.get("water", WATER_CAP))
+	g["water"] = maxi(cur, mini(WATER_CAP, cur + water))
 	Save.grove_write()
 	if gems > 0:
 		Save.add_diamonds(gems)

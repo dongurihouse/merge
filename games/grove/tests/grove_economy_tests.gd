@@ -492,6 +492,12 @@ func _initialize() -> void:
 	ok(int(Save.grove()["water"]) == 10 + G.LEVEL_WATER_GIFT and Save.diamonds() == G.LEVEL_DIAMONDS, \
 		"grant_level_gift applies the water + diamonds (what Collect does)")
 	ok(G.earn_exp(1) == 0, "earning within a level gains no level (no extra gift)")
+	# A level-up gift is a TOP-UP: when the can is already banked OVER the cap (free refill
+	# over-fill, water drops), Collect must NOT drain it back down to WATER_CAP.
+	var over := G.WATER_CAP + 30
+	Save.grove()["water"] = over
+	G.grant_level_gift({"water": G.LEVEL_WATER_GIFT})
+	ok(int(Save.grove()["water"]) >= over, "grant_level_gift never reduces water below an already over-cap total")
 
 	# 14. P3 — the HOME scene (NEW map model): a map IS one image with restoration
 	# SPOTS placed on it; discrete maps via the map-select. boot → buy → gate → resume.
