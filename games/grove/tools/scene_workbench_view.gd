@@ -31,8 +31,10 @@ var scene_name := ""
 var dirty := false
 
 var _tex: Dictionary = {}           # abs path -> Texture2D (null cached as false)
+var _placed_tex: Dictionary = {}    # source + crop/feather contract -> placed Texture2D
 var _thumb: Dictionary = {}         # abs path -> small ImageTexture for the add-palette rows
 var _hit: Dictionary = {}           # abs path -> downsampled Image for alpha tests
+var _placed_hit: Dictionary = {}    # placed texture contract -> downsampled Image for alpha tests
 var _sel := -1                      # index into doc.placements (item selection)
 var _sel_cluster := ""              # cluster selection — mutually exclusive with _sel
 var _isolated := ""                 # isolation: this cluster edits alone, the rest of the scene ghosts
@@ -149,7 +151,7 @@ func _rebuild_stage() -> void:
 			_layers.add_child(b)
 	for i in M.sorted_order(doc):
 		var e: Dictionary = M.placements(doc)[i]
-		var n := _make_layer(String(e.get("image", "")), M.entry_rect(e))
+		var n := _make_layer(String(e.get("image", "")), M.entry_rect(e), e)
 		if n == null:
 			n = TextureRect.new()                    # missing art still occupies its rect (pickable via list)
 			var r := M.entry_rect(e)
@@ -173,8 +175,8 @@ func _rebuild_stage() -> void:
 	_refresh_status()
 	_overlay.queue_redraw()
 
-func _make_layer(rel: String, rect: Rect2) -> TextureRect:
-	var t := _texture(rel)
+func _make_layer(rel: String, rect: Rect2, entry := {}) -> TextureRect:
+	var t := _placed_texture(rel, entry)
 	if t == null:
 		return null
 	var n := TextureRect.new()
@@ -219,11 +221,58 @@ func _texture(rel: String) -> Texture2D:
 	_hit[abs] = hit
 	return t
 
+## A placement can use only part of a source plate, then fade its cropped bottom edge into
+## the foundation. This is deliberately resolved before constructing the TextureRect so the
+## live workbench, alpha hit-testing, and deterministic compositor share one placement contract.
+func _placed_texture(rel: String, entry: Dictionary) -> Texture2D:
+	var crop = entry.get("sourceCrop")
+	var feather = entry.get("sourceCropFeatherBottom")
+	if crop == null and feather == null:
+		return _texture(rel)
+	var abs := repo_root + "/" + rel
+	var key := abs + "|" + JSON.stringify(crop) + "|" + JSON.stringify(feather)
+	if _placed_tex.has(key):
+		return _placed_tex[key] if _placed_tex[key] is Texture2D else null
+	var source := _texture(rel)
+	if source == null:
+		_placed_tex[key] = false
+		return null
+	var image := source.get_image()
+	if crop is Array and crop.size() == 4:
+		var left := int(crop[0])
+		var top := int(crop[1])
+		var width := int(crop[2])
+		var height := int(crop[3])
+		if left >= 0 and top >= 0 and width > 0 and height > 0 \
+			and left + width <= image.get_width() and top + height <= image.get_height():
+			image = image.get_region(Rect2i(left, top, width, height))
+	# JSON parses every number as a float. Round numeric values to the same whole-pixel
+	# contract used by placement geometry, while keeping invalid/negative values inert.
+	var feather_px := maxi(0, int(round(float(feather)))) if feather is int or feather is float else 0
+	if feather_px > 0 and feather_px <= image.get_height():
+		var start := image.get_height() - feather_px
+		for y in range(start, image.get_height()):
+			var opacity := float(image.get_height() - 1 - y) / float(maxi(1, feather_px - 1))
+			for x in range(image.get_width()):
+				var px := image.get_pixel(x, y)
+				image.set_pixel(x, y, Color(px.r, px.g, px.b, px.a * opacity))
+	var placed := ImageTexture.create_from_image(image)
+	_placed_tex[key] = placed
+	return placed
+
 func _opaque_at(i: int, uv: Vector2) -> bool:
-	var abs := repo_root + "/" + String((M.placements(doc)[i] as Dictionary).get("image", ""))
-	if not _hit.has(abs):
-		return true                                  # no image → the whole rect is grabbable
-	var img: Image = _hit[abs]
+	var entry: Dictionary = M.placements(doc)[i]
+	var rel := String(entry.get("image", ""))
+	var key := repo_root + "/" + rel + "|" + JSON.stringify(entry.get("sourceCrop")) + "|" + JSON.stringify(entry.get("sourceCropFeatherBottom"))
+	if not _placed_hit.has(key):
+		var texture := _placed_texture(rel, entry)
+		if texture == null:
+			return true                                  # no image → the whole rect is grabbable
+		var image := texture.get_image()
+		if image.get_width() > HIT_MAX_W:
+			image.resize(HIT_MAX_W, maxi(1, image.get_height() * HIT_MAX_W / image.get_width()))
+		_placed_hit[key] = image
+	var img: Image = _placed_hit[key]
 	var px := Vector2i(clampi(int(uv.x * img.get_width()), 0, img.get_width() - 1),
 		clampi(int(uv.y * img.get_height()), 0, img.get_height() - 1))
 	return img.get_pixel(px.x, px.y).a > 0.05

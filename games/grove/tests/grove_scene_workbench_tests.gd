@@ -352,6 +352,39 @@ func _initialize() -> void:
 		"shadow off erases the key (untagged files stay byte-stable)")
 	view._rebuild_stage()
 
+	# --- runtime source crop + crop-bottom feather ------------------------------------
+	# The placement metadata is the rendering contract: the interactive workbench must show
+	# the SAME cropped, bottom-feathered plate as the deterministic reconstruction, rather
+	# than loading the complete source image into the placed TextureRect.
+	var crop_art := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	for y in range(8):
+		for x in range(8):
+			crop_art.set_pixel(x, y, Color(float(x) / 8.0, float(y) / 8.0, 0.5, 1.0))
+	crop_art.save_png(broot + "/crop_art.png")
+	var crop_entry: Dictionary = view.doc.placements[2]
+	crop_entry["image"] = "crop_art.png"
+	crop_entry["sourceCrop"] = [1, 1, 4, 4]
+	# JSON numbers deserialize as floats, even when authored as an integral value.
+	# The live workbench must honor the same crop-bottom feather as the compositor.
+	crop_entry["sourceCropFeatherBottom"] = 2.0
+	view._rebuild_stage()
+	var cropped_node: TextureRect = null
+	for c in view._layers.get_children():
+		if c.has_meta("pi") and int(c.get_meta("pi")) == 2:
+			cropped_node = c as TextureRect
+	var cropped := cropped_node.texture.get_image() if cropped_node != null else Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	ok(cropped.get_width() == 4 and cropped.get_height() == 4,
+		"a placed sourceCrop renders its cropped texture, not the full source image")
+	ok(absf(cropped.get_pixel(0, 0).r - 1.0 / 8.0) < 0.01
+		and absf(cropped.get_pixel(0, 0).g - 1.0 / 8.0) < 0.01,
+		"the placed crop starts at the declared source pixel")
+	ok(cropped.get_pixel(0, 2).a > 0.99 and cropped.get_pixel(0, 3).a < 0.01,
+		"a placed sourceCropFeatherBottom fades only the crop's bottom edge")
+	crop_entry.erase("sourceCrop")
+	crop_entry.erase("sourceCropFeatherBottom")
+	crop_entry["image"] = "art.png"
+	view._rebuild_stage()
+
 	# --- add-to-cluster palette (iconed, scoped to the selected cluster) ---------------
 	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/03_structures")
 	art.save_png(broot + "/test_scene_elements_v1/03_structures/test_scene_lantern_v1.png")

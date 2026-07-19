@@ -25,6 +25,7 @@ const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const D = Game.DATA                                               # the active game's data (§10 IAP ladder)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const OVERLAY_NAME := "ShopOverlay"
@@ -178,24 +179,26 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 			if is_instance_valid(pair[0]):
 				(pair[0] as CanvasItem).z_index = int(pair[1]))
 
-	# The storefront FACE is the SHARED kit shop_dialog (frame + centred-title dividers + cells), authored
-	# in the workbench — same chrome as the mail + daily dialogs. Width is a % of the SCREEN (responsive).
+	# The storefront FACE is the SHARED mock-true frame (Kit.dialog_frame — the same warm-cream sheet,
+	# ink title and coral ✕ every restyled dialog wears); the shop's own BODY (balance chips · stall tabs ·
+	# section headers · the 2-up offer grid · the info footer) is built here, per the shop_dialog_v1 mock.
+	# Width is a % of the SCREEN (responsive).
 	var vw: float = host.get_viewport_rect().size.x
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var shop_cfg: Dictionary = cfg.get("shop", {})
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
-	# the hero size for the game-injected previews (piece art / the welcome bundle): matches the kit's own
-	# icon ratio at the computed cell width, so the injected art reads the same size as the kit's gem icons.
-	var cols: int = maxi(1, int(shop_cfg.get("cols", 3)))
-	var hero_px: float = maxf(40.0, (width - 56.0 - float(cols - 1) * 12.0) / float(cols) * 0.52)
+	# the CONTENT lays out at the design width MINUS the sheet's insets (the frame scales it by
+	# content_scale, so the pads count at 1/scale in layout space) — the residents.gd idiom.
+	var cscale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "shop"))
+	var inner: float = width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / cscale
 
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
 		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
-		"overlay": overlay, "opts": opts, "host": host, "hero_px": hero_px, "kind": kind}
+		"overlay": overlay, "opts": opts, "host": host, "kind": kind,
+		"kit": Kit, "cfg": cfg, "inner": inner}
 
-	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
-	# affordability, the first-buy ribbon, and the starter's one-time availability (the login.gd pattern).
+	# (re)build the storefront from the live wallet + stock; a buy (or a stall TAB) rebuilds it in place to
+	# refresh balances, affordability, the merchandising ribbons, and the starter's one-time availability.
 	var rb := {"fn": Callable(), "first": true}
 	refs["rb"] = rb
 	rb.fn = func() -> void:
@@ -203,37 +206,464 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 			return
 		for c in cc.get_children():
 			c.queue_free()
-		var sopts: Dictionary = Kit.shop_opts_from_config(cfg)
-		sopts["content_scale"] = Kit.dialog_content_scale(cfg, "shop")
-		sopts["banner_text"] = host.tr(_banner_for(kind))
-		sopts["on_close"] = func() -> void: overlay.queue_free()
-		# the workbench leaves list_max_h 0 (grow to fit, the gallery scrolls); on a PHONE the full ladder
-		# is taller than the screen, so cap the inner height to the viewport — the shop then scrolls inside.
-		if float(sopts.get("list_max_h", 0)) <= 0.0:
-			sopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
-		var dialog: Control = Kit.shop_dialog(_sections(refs), width, sopts)
+		var fopts: Dictionary = Kit.dialog_opts_from_config(cfg)
+		fopts["content_scale"] = cscale
+		fopts["banner_text"] = Strings.t("shop.title")
+		fopts["on_close"] = func() -> void: overlay.queue_free()
+		# on a PHONE the full ladder is taller than the screen, so cap the inner height to the
+		# viewport — the shop then scrolls inside the sheet.
+		fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
+		var dialog: Control = Kit.dialog_frame(_build_body(refs), width, fopts)
 		cc.add_child(dialog)
-		_tag_buy_buttons(dialog)
 		if rb.first:
 			FX.pop_in(dialog)
 			rb.first = false
 	rb.fn.call()
 
-# Tag the storefront's buy CTAs with the `shop_buy` meta the UI-shape smoke (_shop_rows) counts. The kit
-# builds the buttons (no Button handed back), so we mark them here: a buy CTA is the only Button carrying
-# TEXT (its price) — the info "i" is a textless icon Button, the ✕ is the textless DialogClose. This keeps
-# the "survives storefront restyles" contract after the kit restyle moved button construction.
-static func _tag_buy_buttons(dialog: Control) -> void:
-	for b in dialog.find_children("*", "Button", true, false):
-		if b is Button and String((b as Button).text) != "":
-			b.set_meta("shop_buy", true)
+# --- the mock-true storefront body (shop_dialog_v1) ----------------------------------
+# Colours sampled from the mock; the sheet/title/✕ come from the shared frame and are NOT re-specified.
+const SAGE := Color("#E4DEBD")        # an offer card's sage face
+const PILL_GREEN := Color("#5C8A57")  # the price pill + the active stall tab
+const TAB_IDLE := Color("#F4E9D1")    # a resting stall tab
+const CHIP_CREAM := Color("#F8ECD5")  # the balance chip / bundle amount chip
+const FOOTER_CREAM := Color("#EDE2C1")
+const SHADOW_TINT := Color("#294654") # the house tinted drop shadow (residents.gd's _mock_shadow)
+const CARD_CORNER := 18.0
+const GRID_GAP := 14.0
+# The stall TABS, in the mock's order: the three shops share one sheet, the tab bar swaps `kind`.
+const STALLS := [["water", "Water"], ["coin", "Coins"], ["premium", "Acorns"]]
+# The balance row's three currency chips (mock: water · coins · acorns under the title).
+const BALANCES := ["water", "coin", "gem"]
 
-# The banner title for each stall (the centred kit dialog header).
-static func _banner_for(kind: String) -> String:
-	match kind:
-		"water": return "Water"
-		"coin": return "Coins"
-		_: return "Acorns"
+# The whole scrolling body: balance chips · stall tabs · each section's header + offer grid · the footer.
+static func _build_body(refs: Dictionary) -> Control:
+	var Kit: GDScript = refs.kit
+	var w: float = refs.inner
+	var col := VBoxContainer.new()
+	col.name = "ShopBody"
+	col.add_theme_constant_override("separation", 16)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(_balance_row(Kit, w))
+	col.add_child(_tab_bar(refs, w))
+	for sec in _sections(refs):
+		var s := sec as Dictionary
+		col.add_child(_section_header(Kit, String(s.get("caption", "")), String(s.get("badge", ""))))
+		col.add_child(_offer_grid(refs, s.get("cards", []), w))
+	var foot := _footer_note(refs)
+	if foot != null:
+		col.add_child(foot)
+	return col
+
+# The BALANCE row — three read-only currency chips (water · coins · acorns) straight off Save, so the
+# sheet always states what the player actually holds while they shop.
+static func _balance_row(Kit: GDScript, w: float) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "ShopBalanceRow"
+	row.add_theme_constant_override("separation", int(GRID_GAP))
+	row.custom_minimum_size = Vector2(w, 0)
+	var counts := {"water": Save.water(), "coin": Save.coins(), "gem": Save.diamonds()}
+	for id in BALANCES:
+		var chip := PanelContainer.new()
+		chip.name = "ShopBalanceChip_" + String(id)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = CHIP_CREAM
+		sb.set_corner_radius_all(int(CARD_CORNER))
+		sb.content_margin_left = 18; sb.content_margin_right = 18
+		sb.content_margin_top = 10; sb.content_margin_bottom = 10
+		_mock_shadow(sb)
+		chip.add_theme_stylebox_override("panel", sb)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var h := HBoxContainer.new()
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_theme_constant_override("separation", 12)
+		h.add_child(Kit.make_icon(String(id), 54.0))
+		h.add_child(_ink_label(Kit, _commas(int(counts[id])), FS.HEADING))
+		chip.add_child(h)
+		row.add_child(chip)
+	return row
+
+# The stall TAB bar — WATER / COINS / ACORNS. The active tab is the green one; tapping a resting tab
+# swaps the open stall in place (the three stalls have always been one dialog with a different `kind`).
+static func _tab_bar(refs: Dictionary, w: float) -> Control:
+	var Kit: GDScript = refs.kit
+	var row := HBoxContainer.new()
+	row.name = "ShopTabBar"
+	row.add_theme_constant_override("separation", int(GRID_GAP))
+	row.custom_minimum_size = Vector2(w, 0)
+	for entry in STALLS:
+		var id := String(entry[0])
+		var on := id == String(refs.get("kind", "premium"))
+		var b := Button.new()
+		b.name = "ShopTab_" + id
+		b.text = Strings.t("shop.tab.%s" % id).to_upper()
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_override("font", Kit.bold_font())
+		b.add_theme_font_size_override("font_size", FS.EMPHASIS)
+		b.add_theme_color_override("font_color", CREAM if on else INK)
+		b.add_theme_color_override("font_hover_color", CREAM if on else INK)
+		b.add_theme_color_override("font_pressed_color", CREAM if on else INK)
+		b.add_theme_constant_override("outline_size", 0)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = PILL_GREEN if on else TAB_IDLE
+		sb.corner_radius_top_left = int(CARD_CORNER); sb.corner_radius_top_right = int(CARD_CORNER)
+		sb.content_margin_top = 14; sb.content_margin_bottom = 14
+		sb.content_margin_left = 8; sb.content_margin_right = 8
+		for st in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(st, sb)
+		if not on:
+			b.pressed.connect(func() -> void:
+				Audio.play("button_tap", -2.0)
+				refs["kind"] = id
+				var rb: Dictionary = refs.get("rb", {})
+				if rb.has("fn") and (rb.fn as Callable).is_valid():
+					(rb.fn as Callable).call())
+		row.add_child(b)
+	return row
+
+# A section HEADER — the mock's centred navy all-caps title, with an optional gold merchandising
+# badge beside it (only ever driven by live offer data, e.g. the first-purchase doubler being unspent).
+static func _section_header(Kit: GDScript, caption: String, badge: String) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "ShopSectionHeader"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.custom_minimum_size = Vector2(0, 74)   # the mock's generous air above/below a section title
+	var l := _ink_label(Kit, caption.to_upper(), FS.SUBHEADING)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	if badge != "":
+		var p := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = STRAW
+		sb.set_corner_radius_all(10)
+		sb.content_margin_left = 16; sb.content_margin_right = 16
+		sb.content_margin_top = 5; sb.content_margin_bottom = 6
+		p.add_theme_stylebox_override("panel", sb)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var bl := Label.new()
+		bl.text = badge.to_upper()
+		bl.add_theme_font_override("font", Kit.bold_font())
+		bl.add_theme_font_size_override("font_size", FS.SMALL)
+		bl.add_theme_color_override("font_color", CREAM)
+		bl.add_theme_constant_override("outline_size", 0)
+		bl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_child(bl)
+		row.add_child(p)
+	return row
+
+# One section's offers as the mock's TWO-column grid. A card marked `wide` (the Welcome bundle) takes a
+# full row of its own; the rest pair up.
+static func _offer_grid(refs: Dictionary, cards: Array, w: float) -> Control:
+	var col := VBoxContainer.new()
+	col.name = "ShopOfferGrid"
+	col.add_theme_constant_override("separation", int(GRID_GAP))
+	var half: float = (w - GRID_GAP) * 0.5
+	var row: HBoxContainer = null
+	for c in cards:
+		var d := c as Dictionary
+		# a lone offer (the water/coin stalls) gets the Welcome bundle's full-row proportions rather
+		# than a half-width tile stretched across the row.
+		if bool(d.get("wide", false)) or cards.size() == 1:
+			row = null
+			col.add_child(_offer_card(refs, d, w, true))
+			continue
+		if row == null or row.get_child_count() >= 2:
+			row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", int(GRID_GAP))
+			col.add_child(row)
+		row.add_child(_offer_card(refs, d, half, false))
+	return col
+
+# ONE offer card (the mock's product tile): a sage rounded face with the product ART on the left and,
+# on the right, the amount in large navy type over the green price pill. Optional: a merchandising
+# ribbon over the top-left corner (live flags only) and the navy "i" info disc top-right.
+# d keys: icon · count · label · note · price · price_icon · affordable · ribbon · chips · on_buy · on_info.
+static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -> Control:
+	var Kit: GDScript = refs.kit
+	var h: float = w * (0.34 if wide else 0.58)
+	var card := PanelContainer.new()
+	card.name = "ShopOfferCard"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = SAGE
+	sb.set_corner_radius_all(int(CARD_CORNER))
+	sb.content_margin_left = 16; sb.content_margin_right = 16
+	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	_mock_shadow(sb)
+	card.add_theme_stylebox_override("panel", sb)
+	card.custom_minimum_size = Vector2(w, h)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 10)
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# capped: a full-row card is tall enough to blow a plain currency glyph (the water/coin stalls sell a
+	# small UI icon, not a painted pack) up past its source resolution, which reads flat and soft.
+	var art_px: float = minf(h * (0.86 if wide else 0.66), 210.0)
+	var art: Control = Kit.make_icon(String(d.get("icon", "gem")), art_px)
+	art.custom_minimum_size = Vector2(art_px, art_px)
+	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(art)
+
+	# a BUNDLE (the Welcome gift) states each granted currency on its own cream chip, mirroring the mock;
+	# a single-product pack states one big amount. Both sit left of the price pill.
+	if d.has("chips"):
+		var chipcol := VBoxContainer.new()
+		chipcol.alignment = BoxContainer.ALIGNMENT_CENTER
+		chipcol.add_theme_constant_override("separation", 10)
+		chipcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chipcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		chipcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for ch in d.chips:
+			chipcol.add_child(_amount_chip(Kit, ch as Dictionary))
+		body.add_child(chipcol)
+	else:
+		var textcol := VBoxContainer.new()
+		textcol.alignment = BoxContainer.ALIGNMENT_CENTER
+		textcol.add_theme_constant_override("separation", 8)
+		textcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		textcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		textcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var count := int(d.get("count", 0))
+		var amount_text := _commas(count) if count > 0 else String(d.get("label", ""))
+		if amount_text != "":
+			var al := _ink_label(Kit, amount_text, FS.DISPLAY if count > 0 else FS.EMPHASIS)
+			al.name = "ShopOfferAmount"
+			al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			al.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			textcol.add_child(al)
+		if String(d.get("note", "")) != "":
+			var nl := Label.new()
+			nl.text = String(d.note)
+			nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			nl.add_theme_font_size_override("font_size", FS.CAPTION)
+			nl.add_theme_color_override("font_color", Color(BARK, 0.9))
+			nl.add_theme_constant_override("outline_size", 0)
+			nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			textcol.add_child(nl)
+		var pill := _price_pill(refs, d)
+		if pill != null:
+			var pw := CenterContainer.new()
+			pw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			pw.add_child(pill)
+			textcol.add_child(pw)
+		body.add_child(textcol)
+	if d.has("chips"):
+		var wpill := _price_pill(refs, d)
+		if wpill != null:
+			wpill.size_flags_vertical = Control.SIZE_SHRINK_END
+			body.add_child(wpill)
+	card.add_child(body)
+
+	# the card's own overlay layer: the merchandising ribbon (top-left) + the info disc (top-right).
+	var outer := Control.new()
+	outer.custom_minimum_size = Vector2(w, h)
+	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outer.add_child(card)
+	if String(d.get("ribbon", "")) != "":
+		# the shared kit ribbon art (kit/shop_tag.png), sized to the mock's banner and hung over the
+		# card's top-left corner so it overhangs the edge exactly as the mock draws it.
+		var rb: Control = Kit._ribbon_badge(String(d.ribbon), 2.0)
+		rb.name = "ShopOfferRibbon"
+		rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rb.position = Vector2(-10.0, 10.0)
+		outer.add_child(rb)
+	var on_info: Callable = d.get("on_info", Callable())
+	if on_info.is_valid():
+		var ib := _info_disc(Kit, on_info)
+		ib.anchor_left = 1.0; ib.anchor_right = 1.0
+		ib.offset_left = -58.0; ib.offset_right = -12.0
+		ib.offset_top = 12.0; ib.offset_bottom = 58.0
+		outer.add_child(ib)
+	return outer
+
+# The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
+# `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
+static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
+	if String(d.get("price", "")) == "":
+		return null
+	var Kit: GDScript = refs.kit
+	var icon_id := String(d.get("price_icon", ""))
+	var b := Button.new()
+	b.name = "ShopBuyButton"
+	b.text = "" if icon_id != "" else String(d.price)
+	b.focus_mode = Control.FOCUS_NONE
+	b.set_meta("shop_buy", true)
+	if bool(d.get("cash", false)):
+		b.set_meta("shop_cash", true)
+	b.add_theme_font_override("font", Kit.bold_font())
+	b.add_theme_font_size_override("font_size", FS.MEDIUM)
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(c, CREAM)
+	b.add_theme_constant_override("outline_size", 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PILL_GREEN
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 26; sb.content_margin_right = 26
+	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	_mock_shadow(sb)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.custom_minimum_size = Vector2(190, 62)   # the mock's pills read as one consistent slab, not text-snug
+	# a 💎/🪙-priced CTA carries its currency glyph beside the number (the USD packs print the price alone).
+	if icon_id != "":
+		var h := HBoxContainer.new()
+		h.set_anchors_preset(Control.PRESET_FULL_RECT)
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_theme_constant_override("separation", 10)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ic: Control = Kit.make_icon(icon_id, 38.0)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(ic)
+		var pl := Label.new()
+		pl.text = String(d.price)
+		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pl.add_theme_font_override("font", Kit.bold_font())
+		pl.add_theme_font_size_override("font_size", FS.MEDIUM)
+		pl.add_theme_color_override("font_color", CREAM)
+		pl.add_theme_constant_override("outline_size", 0)
+		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(pl)
+		b.add_child(h)
+	if d.has("affordable") and not bool(d.get("affordable", true)):
+		b.modulate = Color(1, 1, 1, 0.45)   # can't afford → the CTA greys (still pressable: the wallet wiggles)
+	var cb: Callable = d.get("on_buy", Callable())
+	if cb.is_valid():
+		b.pressed.connect(func() -> void: cb.call())
+	return b
+
+# A bundle's per-currency amount chip (mock: cream pill · icon · count) — one per granted currency.
+static func _amount_chip(Kit: GDScript, ch: Dictionary) -> Control:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = CHIP_CREAM
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 16; sb.content_margin_right = 22
+	sb.content_margin_top = 6; sb.content_margin_bottom = 6
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(Kit.make_icon(String(ch.get("icon", "gem")), 48.0))
+	h.add_child(_ink_label(Kit, _commas(int(ch.get("amount", 0))), FS.EMPHASIS))
+	p.add_child(h)
+	return p
+
+# The navy "i" disc (mock) — a textless icon Button, so the buy-CTA smoke never miscounts it.
+static func _info_disc(Kit: GDScript, on_info: Callable) -> Button:
+	var b := Button.new()
+	b.name = "ShopInfoButton"
+	b.focus_mode = Control.FOCUS_NONE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = INK
+	sb.set_corner_radius_all(23)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	var psb: StyleBoxFlat = sb.duplicate()
+	psb.bg_color = INK.lightened(0.15)
+	b.add_theme_stylebox_override("pressed", psb)
+	b.add_theme_stylebox_override("focus", sb)
+	var l := Label.new()
+	l.text = "i"
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", Kit.bold_font())
+	l.add_theme_font_size_override("font_size", FS.EMPHASIS)
+	l.add_theme_color_override("font_color", CREAM)
+	l.add_theme_constant_override("outline_size", 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(l)
+	b.pressed.connect(func() -> void: on_info.call())
+	return b
+
+# The sheet's INFO FOOTER — a cream strip stating the one live offer rule that isn't visible on a card
+# (the first-purchase doubler). Absent when the doubler is spent; never states an offer that isn't live.
+static func _footer_note(refs: Dictionary) -> Control:
+	if String(refs.get("kind", "premium")) != "premium" or not first_buy_doubled():
+		return null
+	var Kit: GDScript = refs.kit
+	var p := PanelContainer.new()
+	p.name = "ShopFooterNote"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = FOOTER_CREAM
+	sb.set_corner_radius_all(int(CARD_CORNER))
+	sb.content_margin_left = 20; sb.content_margin_right = 20
+	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 16)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var disc := Panel.new()
+	var dsb := StyleBoxFlat.new()
+	dsb.bg_color = INK
+	dsb.set_corner_radius_all(20)
+	disc.add_theme_stylebox_override("panel", dsb)
+	disc.custom_minimum_size = Vector2(40, 40)
+	disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dl := Label.new()
+	dl.text = "i"
+	dl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	dl.add_theme_font_override("font", Kit.bold_font())
+	dl.add_theme_font_size_override("font_size", FS.SMALL)
+	dl.add_theme_color_override("font_color", CREAM)
+	dl.add_theme_constant_override("outline_size", 0)
+	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	disc.add_child(dl)
+	h.add_child(disc)
+	var t := Label.new()
+	t.text = Strings.t("shop.premium.first_buy_note")
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.add_theme_font_size_override("font_size", FS.SMALL)
+	t.add_theme_color_override("font_color", INK)
+	t.add_theme_constant_override("outline_size", 0)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(t)
+	p.add_child(h)
+	return p
+
+# A bold navy label (the mock's one type voice for titles, headers, amounts).
+static func _ink_label(Kit: GDScript, text: String, size: int) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", Kit.bold_font())
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", INK)
+	l.add_theme_constant_override("outline_size", 0)
+	return l
+
+# The mock's tinted drop shadow, applied ON the element's own StyleBoxFlat so it follows the exact
+# rounded corners (the same values residents.gd uses — one house shadow, not a parallel one).
+static func _mock_shadow(sb: StyleBoxFlat) -> void:
+	sb.shadow_color = Color(SHADOW_TINT, 0.19)
+	sb.shadow_size = 10
+	sb.shadow_offset = Vector2(0, 5)
+
+# Thousands separators on a pack's amount ("13000" → "13,000"), as the mock prints them.
+static func _commas(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
 
 # Build the live shop SECTIONS for the kit dialog, filtered to the open shop's KIND: the water stall
 # shows the Fill-water card; the coin stall the Coin pouch; the premium stall the free-acorn
@@ -256,7 +686,7 @@ static func _water_sections(refs: Dictionary) -> Array:
 	var secs: Array = [{"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]}]
 	# the 💎 fill — top the can to full
 	var card := {
-		"icon": "water", "label": Strings.t("shop.water.fill_label"),
+		"icon": "water", "count": int(G.WATER_CAP),   # the mock's card states the AMOUNT it grants (a full can)
 		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
 		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
 		"on_buy": func() -> void: _flow_water(refs),
@@ -268,52 +698,27 @@ static func _water_sections(refs: Dictionary) -> Array:
 	return secs
 
 # The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
-# drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall) —
-# mirroring the free-acorn card. on_buy re-checks the gate so a stale press can't over-grant.
+# drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall).
+# on_buy re-checks the gate so a stale press can't over-grant.
 static func _refill_card(refs: Dictionary) -> Dictionary:
 	var host: Control = refs.host
 	var st := refill_status()
 	var card := {
-		"node": _refill_content(refs, st),
+		"icon": "water", "count": refill_amount(),
 		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.refill.info_title"), [{
 			"icon": "water", "label": Strings.t("shop.refill.info_row_label"), "amount": str(refill_amount()),
 			"note": Strings.t("shop.refill.info_row_note")}],
 			Strings.t("shop.refill.info_note"))}
 	if bool(st.available):
 		card["price"] = Strings.t("shop.refill.cta")
-		card["price_icon"] = ""
 		card["affordable"] = true
 		card["on_buy"] = func() -> void:
 			if refill_status().available:
 				_flow_free_refill(refs)
+	else:
+		card["note"] = Strings.t("shop.refill.back_tomorrow") if String(st.kind) == "capped" \
+			else Strings.t("shop.refill.ready_in") % int(st.minutes)
 	return card
-
-# The free-refill card's centre: the 💧 full-can reward (icon + count), mirroring the free-acorn hero.
-# When the faucet is cooling/capped it carries a small muted line ("Ready in 23m" / "Back tomorrow")
-# under the count, in place of a CTA — so the resting state is quiet plain text, never a greyed button.
-static func _refill_content(refs: Dictionary, st: Dictionary) -> Control:
-	var px: float = float(refs.hero_px)
-	var col := VBoxContainer.new()
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", int(maxf(2.0, px * 0.06)))
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(Look.icon("water", px * 0.62))
-	var n := Label.new()
-	n.text = str(refill_amount())
-	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	n.add_theme_font_size_override("font_size", int(maxf(16.0, px * 0.34)))
-	n.add_theme_color_override("font_color", INK)
-	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(n)
-	if not bool(st.available):
-		var t := Label.new()
-		t.text = Strings.t("shop.refill.back_tomorrow") if String(st.kind) == "capped" else Strings.t("shop.refill.ready_in") % int(st.minutes)
-		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		t.add_theme_font_size_override("font_size", int(maxf(11.0, px * 0.2)))
-		t.add_theme_color_override("font_color", Color(BARK, 0.9))
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(t)
-	return col
 
 # COIN shop — the Coin pouch (turn 💎 into coins). (The coin-priced item shortcuts were removed
 # 2026-06-23 — item-buying is moving to the board's item info bar.)
@@ -321,7 +726,7 @@ static func _coin_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var gems := Save.diamonds()
 	var pouch := {
-		"icon": "coin", "label": Strings.t("shop.coin.pouch_label"),
+		"icon": "coin", "count": COIN_PACK,           # the mock's card states the AMOUNT it grants
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs),
@@ -341,28 +746,34 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
 	# breakdown (acorns + water) lives in the info sheet (the "i"), not crammed into the hero.
 	if starter_available():
+		var chips: Array = [{"icon": "gem", "amount": int(STARTER_PACK.get("gems", 0))}]
+		if int(STARTER_PACK.get("water", 0)) > 0:
+			chips.append({"icon": "water", "amount": int(STARTER_PACK.get("water", 0))})
 		secs.append({"caption": Strings.t("shop.premium.welcome_gift_caption"), "cards": [{
-			"icon": _starter_icon_id(),
+			"icon": _starter_icon_id(), "wide": true, "cash": true, "chips": chips,
 			"ribbon": Strings.t("shop.premium.welcome_ribbon"),
 			"price": Iap.usd(String(STARTER_PACK.get("key", ""))),
 			"on_buy": func() -> void: _confirm_starter(host, refs),
 			"on_info": func() -> void: _starter_info(host)}]})
-	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbon)
+	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbons). The
+	# first-purchase doubler is a SECTION badge + the footer note (the mock), not a ribbon on every card —
+	# so the per-card ribbons stay what the pack DATA says (pop / the ladder top), never a fabricated flag.
 	var packs: Array = []
 	for i in CASH_PACKS.size():
 		var pack: Dictionary = CASH_PACKS[i]
 		var card := {
-			"icon": _gem_icon_id(i), "count": int(pack.gems),
+			"icon": _gem_icon_id(i), "count": int(pack.gems), "cash": true,
 			"price": Iap.usd(String(pack.key)),
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)}
-		if first_buy_doubled():
-			card["ribbon"] = Strings.t("shop.premium.ribbon_first_buy")
-		elif bool(pack.get("pop", false)):
+		if bool(pack.get("pop", false)):
 			card["ribbon"] = Strings.t("shop.premium.ribbon_popular")
 		elif i == CASH_PACKS.size() - 1:
 			card["ribbon"] = Strings.t("shop.premium.ribbon_best_value")
 		packs.append(card)
-	secs.append({"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs})
+	var sec := {"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs}
+	if first_buy_doubled():
+		sec["badge"] = Strings.t("shop.premium.ribbon_first_buy")
+	secs.append(sec)
 	return secs
 
 # The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
