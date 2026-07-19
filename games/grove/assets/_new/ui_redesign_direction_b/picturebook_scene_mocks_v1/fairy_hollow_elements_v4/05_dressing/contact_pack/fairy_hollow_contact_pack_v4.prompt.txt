@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: compact separated contact-dressing pack, shadow-free
+Input roles: Image 1 exact Fairy Hollow local vegetation/stone language and object relationships; Image 2 accepted foundation ground colors/camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: create exactly six clearly separated compact asymmetric contact-dressing clusters: cottage contact, den contact, wishing-well contact, stone-bridge contact, picnic-furniture contact, and mushroom contact. Each cluster uses only a few low overlapping cut-paper elements such as short garden-green leaves, tiny cream/coral flowers, small warm-cream stones, or moss tabs appropriate to that object. These are independent overlays that lightly overlap feet/bases after placement.
+Layout: six clusters only in a clean 3-by-2 arrangement, each entirely inside its own implied cell with broad uniform magenta gutters on all four sides; no grid lines, labels, borders, overlap, touching, or shared platform. Each cluster must have a distinct compact silhouette and substantial transparent space around it.
+Hard exclusions: no cast/contact shadows, dark smears, continuous grass strip, turf plates, circular clearings, flower rings, scenic islands, doors, decks, structures, furniture, mushrooms, lanterns, water, paths, text, or UI.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, glow, reflection, or lighting variation. Do not use key magenta in any cluster.

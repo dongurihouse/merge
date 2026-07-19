@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: standalone shadow-free branch-lantern assembly sprite
+Input roles: Image 1 exact Fairy Hollow left branch/lantern identity/camera/scale; Image 2 foundation camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: one complete placeable crooked warm-brown cut-paper branch assembly with a short vine curl and one hanging warm-gold paper lantern, matching the prominent upper-left source lantern. Include the whole branch from its attachment end through the lantern hook and complete lantern. Elevated three-quarter view, center-bottom/attachment-aware anchor, generous key gutter.
+No tree trunk, canopy, grass, turf plate, flowers, separate lanterns, fireflies, cast/contact shadow, external glow cloud, text, or unrelated props. Lantern may contain a restrained warm cream inner light but no large halo.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, reflection, or lighting variation. One asset only.
+Critical output format: one isolated assembled branch with exactly one hanging lantern only, not a scene, sheet, catalog, or variants. Preserve only the main source branch and its lantern. Omit the tree trunk, vines beyond the branch, foliage, flowers, other lanterns, fireflies, ground, and shadows. Flat #FF00FF only behind it.

@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: standalone shadow-free potted plant sprite
+Input roles: Image 1 exact Fairy Hollow bluebell-pot identity/camera/scale; Image 2 foundation camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: one complete small warm-cream paper flowerpot holding three or four arching bluebell stems with broad garden-green leaves and muted rare-purple/blue bell flowers, matching the source table centerpiece. Elevated three-quarter view, center-bottom anchor, full crisp silhouette, generous key gutter.
+No table, grass, turf plate, soil spill, scenic base, flower ring, cast/contact shadow, glow, text, or unrelated props.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, glow, reflection, or lighting variation. Keep all purple/blue petals clearly distinct from the magenta key. One asset only.
+Critical output format: one isolated potted bluebell plant only, not a scene, sheet, catalog, or variant set. Preserve only the pot and its bluebell plant from Image 1. Omit the table, green placemat, stools, mushrooms, den, ground, and shadows. Flat #FF00FF only behind it.

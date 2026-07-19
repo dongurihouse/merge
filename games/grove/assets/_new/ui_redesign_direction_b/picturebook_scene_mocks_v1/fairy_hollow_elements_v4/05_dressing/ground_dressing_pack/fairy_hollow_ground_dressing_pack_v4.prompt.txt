@@ -1,0 +1,26 @@
+Use case: stylized-concept
+Asset type: compact separated ground-dressing pack, shadow-free
+Input roles: Image 1 exact Fairy Hollow local vegetation/stone language; Image 2 accepted foundation ground colors/camera; Image 3 Meadow Sky palette/material; Image 4 scale/detail budget.
+Primary request: create exactly six clearly separated compact asymmetric ground-contact dressing clusters for cottage, den, wishing well, stone bridge, picnic furniture, and mushrooms. Each cluster uses only a few low overlapping cut-paper elements such as short garden-green leaves, tiny cream/coral flowers, small warm-cream stones, or moss tabs. These are independent overlays that lightly overlap object feet/bases after placement.
+Layout: exactly six clusters in a clean 3-by-2 arrangement, each entirely inside its own implied cell with broad uniform magenta gutters on all four sides; no grid lines, labels, borders, overlap, touching, or shared platform.
+Hard exclusions: no cast/contact shadows, dark smears, continuous grass strip, turf plates, circular clearings, flower rings, scenic islands, doors, decks, structures, furniture, mushrooms, lanterns, water, paths, text, or UI.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, glow, reflection, or lighting variation.
+Critical output format: exactly six small separated ground-dressing clusters only, arranged 3 by 2 on flat #FF00FF. This is not a scene, catalog of props, or landscaping platform. Each cluster is low, compact, asymmetric, independently cuttable, and shadow-free.
+
+Accepted corrective edit prompt:
+Use case: precise-object-edit
+Edit target: the visible 3-by-2 pack of six clusters on magenta.
+Keep exactly six separated clusters in exactly the same cell layout and scale, but simplify every cell into low ground-contact dressing only.
+Remove all full-size identifiable props: remove every mushroom, flowerpot, bluebell plant, stump, pond/water patch, sign, large boulder, and tall flower. Replace those removed objects with only a few low leaves, tiny flowers, moss tabs, and two or three small warm-cream pebbles per cluster.
+Each cluster must stay compact, asymmetric, low to the ground, independently cuttable, and separated by broad uniform magenta gutters. No shared base or continuous grass strip.
+No structures, furniture, mushrooms, pots, water, signs, boulders, cast/contact shadows, dark smears, text, labels, grid lines, or borders.
+Preserve the matte Meadow Sky cut-paper material and palette. Background perfectly flat uniform solid #FF00FF only, with no gradient, texture, floor, shadow, glow, or reflection.

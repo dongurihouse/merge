@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: standalone shadow-free hanging lantern sprite
+Input roles: Image 1 exact Fairy Hollow den-lantern identity/camera/scale; Image 2 foundation camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: one complete compact warm-gold cut-paper lantern on a tiny curved warm-brown hanger, matching the lantern beside the fox den. Include the full hanger, loop, cap, frame, and warm-cream inner panel. Elevated three-quarter view, crisp full silhouette, generous key gutter.
+No den, fox, branch, grass, flowers, fireflies, cast/contact shadow, external glow cloud, text, or unrelated props. Restrained internal paper-light only.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, reflection, or lighting variation. One asset only.
+Critical output format: one isolated compact hanging lantern with its tiny hanger only, not a scene, sheet, catalog, or variants. Preserve only the source den lantern/hanger and omit den, fox, bedding, foliage, flowers, ground, glow cloud, and shadows. Flat #FF00FF only behind and through it.
