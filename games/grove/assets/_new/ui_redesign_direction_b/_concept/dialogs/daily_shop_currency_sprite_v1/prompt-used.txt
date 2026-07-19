@@ -1,0 +1,6 @@
+Use case: stylized-concept
+Asset type: reusable 2D game UI currency and reward sprite sheet, master icons
+
+Create exactly a 3 by 3 grid of nine separate cut-paper game UI icon sprites, row-major: (1) one premium brown acorn, (2) three premium acorns in a small clustered bundle, (3) a soft brown coin pouch with one gold coin peeking out; (4) one reward-gold coin with a simple acorn emboss, (5) a short stack of three reward-gold coins, (6) a fuller tied coin pouch with several gold coins; (7) one sky-blue water droplet, (8) a small sky-blue watering can for the shop refill, (9) a blue-and-cream mystery reward gift box with a small gold seal. These assets are for the daily-rewards and shop dialogs.
+
+Style: Meadow Sky + Cut-Paper Playground; matte hand-cut cardstock, broad low-complexity silhouettes, one upper-left light, fine warm cut edge, thin locally darker edge, subtle 2-4% paper fiber, fixed Meadow Sky palette. No plastic, clay, sticker outline, watercolor, painterly gradients, glossy 3D, text, UI, panels, shadows, glows, detached FX, watermark, or cell-border contact. Generated on a flat #FF00FF key background and deterministically cut to alpha.
