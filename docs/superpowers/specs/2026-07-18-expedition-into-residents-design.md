@@ -259,6 +259,22 @@ re-pointed at the new tiles.
 
 ---
 
+## Status (2026-07-19)
+
+Done and verified (`make test`: 56 suites, 3497 passed, 0 failed):
+
+- **A-additive** — `4d0f54ef`: Bring out, the Expedition pill, the wrapping habitat grid.
+- **B** — `bf037135`: the bottom bar replaces the rail and the two-button nav; the maps-page
+  EXPEDITION tile is gone.
+
+**Not done: the dock's code removal.** The bucket dock is now UNREACHABLE from the game — no rail
+tile, no maps-nav tile — but its code still sits in `map.gd`. Excising it is a larger job than this
+spec first assumed: beyond the ~400 lines of builders and the drag layer, `_open_select()` is called
+directly by 7 test/tool files (`map_shot.gd`'s spirits mode, `residents_shot.gd`,
+`grove_explore_tests`, `grove_workbench_tests`, `grove_residents_tests`, plus two parked suites),
+each of which needs rewriting rather than deleting. `_sel_orb` alone has 24 references and
+`_force_ignore` is a shared helper, so the dead set has to be verified and cut in one pass.
+
 ## Phasing
 
 Four green commits, `make test` clean at each:
