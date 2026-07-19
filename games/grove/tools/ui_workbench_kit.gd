@@ -1912,19 +1912,21 @@ static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}
 ## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
 ## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
 static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: int = FS.FINE, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
+	# The row panel is a plain flat paper surface — the SAME cut-paper construction the buttons/chips wear
+	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer), matching the mocks' clean
+	# card rows. The baked kit/mail_card.png nine-patch (an embossed border + a pink underline artifact) is
+	# retired for it; the card keeps its padding (CARD_PAD) and layout, only the background changes.
 	var panel := PanelContainer.new()
-	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
-	if box != null:
-		panel.add_theme_stylebox_override("panel", box)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Color(Pal.CREAM, 0.6)
-		s.set_corner_radius_all(14)
-		s.set_border_width_all(1)
-		s.border_color = Color(Pal.BARK, 0.4)
-		s.content_margin_left = 14; s.content_margin_right = 14
-		s.content_margin_top = 10; s.content_margin_bottom = 10
-		panel.add_theme_stylebox_override("panel", s)
+	var card_corner := 18.0
+	var s := StyleBoxFlat.new()
+	s.bg_color = Pal.CREAM
+	s.border_color = PAPER_EDGE
+	s.set_corner_radius_all(int(card_corner))
+	s.set_border_width_all(1)
+	s.anti_aliasing = true
+	s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
+	s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
+	panel.add_theme_stylebox_override("panel", s)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row := HBoxContainer.new()
@@ -1999,6 +2001,8 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			var ac := amount_chip(String(chip_spec.get("icon", "")), chip_text, btn_opts)
 			ac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(ac)
+	# the texture_cream grain layer behind the row (drawn at child index 0), completing the paper cut.
+	apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
 	return panel
 
 ## A TOGGLE CARD — a card type (sibling of mail_card / daily_card): one persisted setting as a row,
