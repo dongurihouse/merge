@@ -4916,24 +4916,20 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		cbo["pad_scale"] = cost_scale
 		cbo["corner"] = float(cbo.get("corner", 16.0)) * cost_scale
 		var chip := pill_button(str(cost), cbo)
-		# The chip is DOCKED to the cell's lower edge from its own measured height, rather than centred
-		# in a band derived from cost_font: past ~80% cost_scale the pill is taller than such a band and
-		# a CenterContainer centres the overflow, spilling it below the cell. Measuring only works once
-		# the chip is IN TREE (an out-of-tree Button has no theme, so its minimum size is meaningless) —
-		# hence the ready/resized hook. cost_x / cost_y stay pure nudges at any scale.
-		var cwrap := Control.new()
+		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		# The chip DOCKS to the cell's lower edge (a bottom-aligned box), rather than being centred in a
+		# band derived from cost_font: past ~80% cost_scale the pill is taller than such a band, and a
+		# CenterContainer centres that overflow — spilling the chip below the cell. Bottom-aligning it
+		# keeps the chip inside the cell at ANY scale while cost_x / cost_y stay pure nudges (they move
+		# the cluster's offsets, so the sidebar sliders read exactly as before).
+		var cwrap := VBoxContainer.new()
+		cwrap.name = "SlotCellCostCluster"
+		cwrap.alignment = BoxContainer.ALIGNMENT_END
 		cwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cwrap.offset_left = cost_x; cwrap.offset_right = cost_x
+		cwrap.offset_top = cost_y; cwrap.offset_bottom = -ch * 0.06 + cost_y
 		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cwrap.add_child(chip)
-		var dock := func() -> void:
-			if not is_instance_valid(chip):
-				return
-			var want := chip.get_combined_minimum_size()
-			if not chip.size.is_equal_approx(want):
-				chip.size = want
-			chip.position = Vector2((cw - want.x) * 0.5 + cost_x, ch - want.y - ch * 0.06 + cost_y)
-		chip.ready.connect(dock)
-		chip.resized.connect(dock)
 		tile.add_child(cwrap)
 
 	# the level badge (board) — the SAME HUD level medal, carrying THIS cell's level, docked lower-right.
