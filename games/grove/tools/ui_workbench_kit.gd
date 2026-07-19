@@ -29,6 +29,7 @@ const PILL_TEX := Vector2(46, 34)
 const PILL_PAD := Vector4(14, 6, 14, 6)
 const CLAIM_PAD := Vector4(24, 8, 24, 8)
 const BANNER_H := 92.0
+const CONTENT_TAIL_PAD := 16.0    # bottom breathing room inside the clipping scroll so the last card's drop shadow isn't sliced
 const BANNER_MIN_W_FRAC := 0.25   # a dialog floors its banner at this fraction of the SCREEN width (banner_min_w)
 const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of the SCREEN height (mirrors the width %) — sparse states (empty mail …) never collapse to a banner slip; content dialogs (settings) clear it with only light bottom breathing room, and tall ones (daily/shop) are unaffected. An explicit opts.min_h (px) overrides.
 
@@ -2357,15 +2358,11 @@ static func _title_header(text: String, font: int, band_h: float, width: float) 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", Pal.INK)
+	# BURN-IN (no drop shadow) — the shared dialog title reads as pressed into the parchment purely via a
+	# slightly deeper, warmer ink (the same treatment the daily day-labels use in login.gd::_cell_label),
+	# NOT a cast shadow.
+	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
 	lbl.add_theme_constant_override("outline_size", 0)
-	# BURN-IN DEBOSS — the shared dialog title reads as pressed into the parchment: a low-alpha warm-dark
-	# shadow nudged a hair down/right (the same technique the daily day-labels use in login.gd::_cell_label,
-	# scaled to THIS title's font size so every dialog matches).
-	lbl.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45))
-	lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(font * 0.05)))
-	lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(font * 0.07)))
-	lbl.add_theme_constant_override("shadow_outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_child(lbl)
 	return header
@@ -2539,6 +2536,13 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		scaler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scaler.add_child(content)
 		rows.add_child(scaler)
+	# a small BOTTOM tail INSIDE the clipping scroll so the LAST card's drop shadow (and gold rim) clears
+	# the clip edge instead of being sliced off — the vertical counterpart to each dialog's side inset.
+	# Applies to every dialog built on this frame (daily capstone, mail's last row, shop's last section …).
+	var tail := Control.new()
+	tail.custom_minimum_size = Vector2(0, CONTENT_TAIL_PAD)
+	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.add_child(tail)
 	# reserve a scroll-bottom spacer equal to the pinned footer's height so the last row can scroll fully
 	# clear of it (its height is finalised in relayout, once the footer has measured).
 	var foot_spacer: Control = null
