@@ -116,7 +116,17 @@ func _initialize() -> void:
 	ok(overlay.find_child("DialogBanner", true, false) != null, "the bag overlay rides the SHARED kit frame banner")
 	ok(overlay.find_child("DialogClose", true, false) != null, "the shared frame's ✕ disc is docked on the bag card")
 	ok(_grid_cells(overlay) == cap, "the slot ladder is a grid of one tile per slot (%d)" % cap)
-	ok(_has_label(overlay, "132"), "the reused acorn pill shows the balance (132)")
+	# the dialog carries NO balance pill (the HUD owns the acorn counter), the NEXT slot is the only
+	# tile with a price, and it wears no unlockable highlight — that lone price is the whole cue.
+	ok(not _has_label(overlay, "132"), "the bag overlay never repeats the balance the HUD already shows")
+	ok(overlay.find_child("SlotCellUnlockableHighlight", true, false) == null, \
+		"the next slot wears no highlight — only its acorn price marks it")
+	var priced := 0
+	for b in overlay.find_children("*", "Button", true, false):
+		if String((b as Button).text) != "" and String((b as Button).text).is_valid_int():
+			priced += 1
+	ok(priced == 1 and _has_label(overlay, str(int(prices[0]))), \
+		"exactly ONE tile shows a price — the next slot, at the first ladder rung (%d)" % int(prices[0]))
 	overlay.queue_free()
 	host.queue_free()
 
