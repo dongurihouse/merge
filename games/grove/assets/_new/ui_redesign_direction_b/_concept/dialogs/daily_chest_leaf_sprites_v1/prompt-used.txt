@@ -1,0 +1,3 @@
+Generate four small standalone paper-cut oak-leaf sprigs in an invisible 2 x 2 arrangement: tall left, tall right, short left, short right. Use the Meadow Sky + Cut-Paper Playground material language: matte cardstock, rounded low-complexity leaves, subtle paper grain, warm cut edge, locally darker edge, one upper-left light, garden and shared-meadow greens with two tiny cream berries.
+
+All sprites stay in the central 35% of their respective cell with generous flat #FF00FF on every side. There are no chests, text, UI panels, borders, dividers, shadows, sparkles, or detached leaves. The keyed raw art was deterministically processed to transparent 512px masters.
