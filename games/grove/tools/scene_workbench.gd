@@ -45,10 +45,10 @@ func _initialize() -> void:
 
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	var screen := DisplayServer.screen_get_size()
-	var win := Vector2i(1300, 1100)                    # references + portrait canvas + the sidebar
+	var win := Vector2i(1420, 1100)                    # references (340) + portrait canvas + sidebar (340)
 	if screen.x > 0 and screen.y > 0:
 		win.y = clampi(screen.y - 130, 760, 1400)
-		win.x = clampi(int((win.y - 40) * 1320.0 / 2346.0) + 380 + 300, 1000, screen.x - 80)
+		win.x = clampi(int((win.y - 40) * 1320.0 / 2346.0) + 340 + 340 + 60, 1100, screen.x - 80)
 	DisplayServer.window_set_size(win)
 	DisplayServer.window_set_position((screen - win) / 2)
 	if quiet:

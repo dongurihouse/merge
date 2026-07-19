@@ -146,6 +146,9 @@ pages build system lands. Verify with a real in-game render:
 
 ## 8 · The reference column
 
-The left column shows the scene's REFERENCE images — the root-level mocks (`<scene>*.png`) and
-the bundle's `09_reconstruction` composites — the composition/style authorities to match while
-placing. It rebuilds on scene switch; scroll for the alternates (market variants etc.).
+The left column (sidebar-width) shows ONE reference at a time; a dropdown picks among the
+scene's mocks — the root-level `<scene>*.png` images plus the bundle's `09_reconstruction`
+composites. The original AI mocks died with the codex worktree (2026-07-18);
+`bake_scene_composites.py` bakes a faithful `_baked_composite` + `_baked_props_only` pair per
+scene from the live placements — re-run it after big composition changes so the references
+track the scene.

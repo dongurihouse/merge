@@ -389,6 +389,9 @@ func _initialize() -> void:
 		if String(rp).ends_with("recon.png"):
 			has_recon = true
 	ok(has_recon, "the reconstruction rides along with the scene mocks")
+	view._rebuild_ref_panel()                          # broot now carries 3 refs → the picker appears
+	ok(view.find_child("RefDropdown", true, false) != null,
+		"multiple mocks offer a reference dropdown (one shown big at sidebar width)")
 
 	# --- path resolution ------------------------------------------------------------
 	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
