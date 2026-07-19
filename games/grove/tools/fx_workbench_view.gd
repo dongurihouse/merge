@@ -8,6 +8,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
 const SIDEBAR_W := 360.0
@@ -157,10 +158,10 @@ func _make_stage() -> Control:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 12)
 	body.add_child(header)
-	header.add_child(_label("Coin Flow", 30, Pal.INK))
+	header.add_child(_label("Coin Flow", FS.LARGE, Pal.INK))
 	var pill := PanelContainer.new()
 	pill.add_theme_stylebox_override("panel", _box(Pal.PILL, 16, 2, Pal.PILL_EDGE, 4))
-	pill.add_child(_label("shared reward flow", 16, Pal.INK))
+	pill.add_child(_label("shared reward flow", FS.TINY, Pal.INK))
 	header.add_child(pill)
 
 	var stage_panel := PanelContainer.new()
@@ -182,8 +183,8 @@ func _rebuild_controls() -> void:
 	for c in _controls.get_children():
 		_controls.remove_child(c)
 		c.queue_free()
-	_controls.add_child(_label("Coin Flow", 28, Pal.CREAM))
-	var note := _label("One shared reward-flight component. Toggle which game actions use it, then test different sources.", 14, Color(Pal.CREAM, 0.76))
+	_controls.add_child(_label("Coin Flow", FS.EMPHASIS, Pal.CREAM))
+	var note := _label("One shared reward-flight component. Toggle which game actions use it, then test different sources.", FS.MICRO, Color(Pal.CREAM, 0.76))
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_controls.add_child(note)
 
@@ -195,7 +196,7 @@ func _rebuild_controls() -> void:
 		toggle.name = "FxActionToggle_%s" % id
 		toggle.text = String((entry as Dictionary).get("label", id))
 		toggle.button_pressed = FX.reward_fx_enabled(id)
-		toggle.add_theme_font_size_override("font_size", 18)
+		toggle.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 		toggle.add_theme_color_override("font_color", Pal.CREAM)
 		toggle.toggled.connect(func(on: bool) -> void:
 			_set_fx_enabled(id, on))
@@ -210,7 +211,7 @@ func _rebuild_controls() -> void:
 	replay.name = "ReplayButton"
 	replay.text = "Replay"
 	replay.custom_minimum_size = Vector2(0, 42)
-	replay.add_theme_font_size_override("font_size", 18)
+	replay.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	replay.disabled = not _is_fx_enabled(_preview_action)
 	replay.pressed.connect(_play_selected)
 	_controls.add_child(replay)
@@ -220,31 +221,31 @@ func _rebuild_controls() -> void:
 	auto.name = "AutoReplayToggle"
 	auto.text = "Auto replay"
 	auto.button_pressed = bool(_settings.get("auto_replay", false))
-	auto.add_theme_font_size_override("font_size", 18)
+	auto.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	auto.add_theme_color_override("font_color", Pal.CREAM)
 	auto.toggled.connect(func(on: bool) -> void:
 		_set_auto_replay(on))
 	_controls.add_child(auto)
 
 func _header(name_text: String, text: String, saved: bool) -> Label:
-	var l := _label(("●  " if saved else "○  ") + text, 20, Pal.STRAW if saved else Color(Pal.CREAM, 0.5))
+	var l := _label(("●  " if saved else "○  ") + text, FS.CAPTION, Pal.STRAW if saved else Color(Pal.CREAM, 0.5))
 	l.name = name_text
 	return l
 
 func _section_label(text: String) -> Label:
-	return _label(text, 17, Pal.STRAW)
+	return _label(text, FS.TINY, Pal.STRAW)
 
 func _action_option() -> Control:
 	var row := HBoxContainer.new()
 	row.name = "PreviewActionRow"
 	row.add_theme_constant_override("separation", 10)
-	var lbl := _label("Preview action", 15, Pal.CREAM)
+	var lbl := _label("Preview action", FS.TINY, Pal.CREAM)
 	lbl.custom_minimum_size = Vector2(118, 0)
 	row.add_child(lbl)
 	var opt := OptionButton.new()
 	opt.name = "PreviewActionOption"
 	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opt.add_theme_font_size_override("font_size", 18)
+	opt.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	for i in FX_DEFS.size():
 		var def: Dictionary = FX_DEFS[i]
 		opt.add_item(String(def.get("label", def.get("id", ""))), i)
@@ -263,11 +264,11 @@ func _slider_row(label: String, key: String, min_value: float, max_value: float,
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
 	row.add_child(top)
-	var l := _label(label, 15, Pal.CREAM)
+	var l := _label(label, FS.TINY, Pal.CREAM)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(l)
 	var current_value := int(_settings.get(key, min_value))
-	var value := _label(str(current_value), 15, Color(Pal.STRAW, 0.95))
+	var value := _label(str(current_value), FS.TINY, Color(Pal.STRAW, 0.95))
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value.custom_minimum_size = Vector2(54, 0)
 	top.add_child(value)
@@ -396,7 +397,7 @@ func _home_backdrop() -> Control:
 	return c
 
 func _add_preview_hud(title_text: String, target_ids: Array) -> void:
-	var title := Look.title_ribbon("Coin Flow - %s" % title_text, 24)
+	var title := Look.title_ribbon("Coin Flow - %s" % title_text, FS.BODY)
 	title.name = "PreviewTitle"
 	title.position = Vector2(26, 24)
 	_preview_root.add_child(title)
@@ -421,7 +422,7 @@ func _wallet_chip(id: String) -> PanelContainer:
 	chip.add_child(row)
 	row.add_child(Look.icon(id, 36))
 	var total := int(_totals.get(id, 0))
-	var lbl := _label(str(total), 25, Pal.INK)
+	var lbl := _label(str(total), FS.MEDIUM, Pal.INK)
 	lbl.name = "%sWalletAmount" % _pascal_id(id)
 	row.add_child(lbl)
 	_target_labels[id] = lbl
@@ -505,9 +506,9 @@ func _map_place_card(text: String, active: bool) -> PanelContainer:
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
 	row.add_child(Look.icon("leaf", 38))
-	row.add_child(_label(text, 22, Pal.INK))
+	row.add_child(_label(text, FS.SMALL, Pal.INK))
 	if active:
-		row.add_child(_label("Ready", 18, Pal.BTN_PRIMARY))
+		row.add_child(_label("Ready", FS.FOOTNOTE, Pal.BTN_PRIMARY))
 	return card
 
 func _add_home_surface(_def: Dictionary) -> void:
@@ -539,7 +540,7 @@ func _make_source_button(text: String) -> Button:
 	b.text = text
 	b.size = Vector2(164, 72)
 	b.custom_minimum_size = b.size
-	b.add_theme_font_size_override("font_size", 22)
+	b.add_theme_font_size_override("font_size", FS.SMALL)
 	b.add_theme_stylebox_override("normal", _box(Pal.BTN_PRIMARY, 22, 2, Pal.BTN_PRIMARY_EDGE, 6))
 	b.add_theme_color_override("font_color", Pal.CREAM)
 	return b
@@ -558,8 +559,8 @@ func _make_action_card(title: String, icon_id: String, caption: String) -> Panel
 	top.add_theme_constant_override("separation", 8)
 	box.add_child(top)
 	top.add_child(Look.icon(icon_id, 34))
-	top.add_child(_label(title, 25, Pal.INK))
-	var cap := _label(caption, 16, Color(Pal.INK, 0.72))
+	top.add_child(_label(title, FS.MEDIUM, Pal.INK))
+	var cap := _label(caption, FS.TINY, Color(Pal.INK, 0.72))
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(cap)
 	return card
@@ -585,7 +586,7 @@ func _add_bottom_bar(text: String) -> void:
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
 	row.add_child(Look.icon(String(_fx_def(_preview_action).get("target", "coin")), 30))
-	row.add_child(_label(text, 20, Pal.INK))
+	row.add_child(_label(text, FS.CAPTION, Pal.INK))
 
 func _play_selected() -> void:
 	if not _is_fx_enabled(_preview_action):
@@ -649,7 +650,7 @@ func _show_disabled_badge() -> void:
 	badge.position = Vector2((PREVIEW_W - 210) / 2.0, 114)
 	badge.size = Vector2(210, 56)
 	badge.add_theme_stylebox_override("panel", _box(Color(Pal.INK, 0.82), 20, 2, Color(Pal.CREAM, 0.22), 8))
-	var label := _label("Effect off", 20, Pal.CREAM)
+	var label := _label("Effect off", FS.CAPTION, Pal.CREAM)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	badge.add_child(label)
 	_preview_root.add_child(badge)

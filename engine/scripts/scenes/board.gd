@@ -49,6 +49,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
@@ -357,7 +358,7 @@ func _ready() -> void:
 	if _winback:
 		_winback = false
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
-			Strings.t("board.winback.rained"), CREAM, 38)
+			Strings.t("board.winback.rained"), CREAM, FS.pct(95))
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
@@ -905,7 +906,7 @@ func _cue_empty_water() -> void:
 	var anchor: Control = _water_icon if _water_icon != null and is_instance_valid(_water_icon) else water_label
 	if anchor == null or not is_instance_valid(anchor):
 		return
-	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, 30)
+	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, FS.LARGE)
 
 func _on_refill() -> void:
 	if water > 0:
@@ -1214,7 +1215,7 @@ func _note_item_landed(code: int) -> void:
 		return
 	g["seen_sell_hint"] = true
 	FX.floating_text(self, Vector2(get_global_rect().get_center().x - 250, 220),
-		Strings.t("board.hints.sell_spares"), CREAM, 28)
+		Strings.t("board.hints.sell_spares"), CREAM, FS.EMPHASIS)
 
 # The one notion of "deliverable" — the single asked item is on the board RIGHT NOW.
 # A pure boolean, asserted by tests, that both the ✓ and the bob read so they can never diverge.
@@ -2018,7 +2019,7 @@ func _on_burst_chip() -> void:
 	if Save.coins() < G.boost_cost():
 		FX.wobble(_info_burst)
 		Audio.play("invalid_soft", -4.0)
-		FX.floating_text(self, _info_burst.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.burst_need"), CREAM, 24)
+		FX.floating_text(self, _info_burst.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.burst_need"), CREAM, FS.BODY)
 		return
 	if _activate_gen_boost(_selected_cell):    # spend + arm THIS generator + persist
 		Audio.play("button_tap", -2.0)
@@ -2071,7 +2072,7 @@ func _on_buy_pressed() -> void:
 	if have < cost:
 		FX.wobble(_info_buy)
 		Audio.play("invalid_soft", -4.0)
-		FX.floating_text(self, _info_buy.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.buy_need"), CREAM, 24)
+		FX.floating_text(self, _info_buy.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.buy_need"), CREAM, FS.BODY)
 		return
 	# pick a destination first — the board's first empty (non-generator) cell, else the bag — so we never
 	# spend without a place to put the copy.
@@ -2084,7 +2085,7 @@ func _on_buy_pressed() -> void:
 	if to_bag and bag.size() >= _bag_capacity():
 		FX.wobble(_info_buy)                       # board AND bag are full — nowhere to land
 		Audio.play("invalid_soft", -4.0)
-		FX.floating_text(self, _info_buy.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.no_room"), CREAM, 24)
+		FX.floating_text(self, _info_buy.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.no_room"), CREAM, FS.BODY)
 		return
 	if not (Save.spend_diamonds(cost) if use_gem else Save.spend(cost, "buy_item")):
 		return                                    # safety: affordability re-checked at the spend
@@ -2896,7 +2897,7 @@ func _open_bramble(cell: Vector2i) -> void:
 	var t2 := n.create_tween()
 	t2.tween_property(n, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	FX.burst(board_area, _cell_pos(cell) + Vector2(csz, csz) / 2.0, Color("#7FA65A"), 16)
-	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), Strings.t("board.feedback.cleared"), CREAM, 34)
+	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), Strings.t("board.feedback.cleared"), CREAM, FS.HEADING)
 	Audio.play("tidy_poof", -2.0)
 
 func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
@@ -3024,7 +3025,7 @@ func _open_chest(target: Vector2i, node: Control) -> void:
 	if got_acorns > 0:
 		Save.add_diamonds(got_acorns)
 		Vault.skim(got_acorns)               # premium earned in play skims the piggy bank (T44)
-		FX.floating_reward(self, at + Vector2(0, 40), "gem", got_acorns, Color("#BFE6F2"), 34)
+		FX.floating_reward(self, at + Vector2(0, 40), "gem", got_acorns, Color("#BFE6F2"), FS.HEADING)
 	Audio.play("level_complete", -4.0, 1.15)
 	_persist()
 	_update_hud()
@@ -3290,7 +3291,7 @@ func _stash(from: Vector2i, node: Control) -> void:
 	if bag_btn != null and is_instance_valid(bag_btn):
 		# no completion callback: _rebuild_bag() above already refreshed the bottom-bar count.
 		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "stash_to_bag")
-		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, 24)
+		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, FS.BODY)
 	_refresh_giver_lights()
 
 # §5 expansion: buy ONE more slot with 💎 at the schedule price, then regrow the bar. A refusal
@@ -3505,7 +3506,7 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 	if sp_coins > 0:
 		_maybe_offer_2x(sp_coins, chip.get_global_rect().get_center())
 	if _gate_ready() and home_btn != null and is_instance_valid(home_btn):
-		FX.floating_text(self, home_btn.get_global_rect().get_center() - Vector2(140, 120), Strings.t("board.feedback.ready_to_restore"), STRAW, 40)
+		FX.floating_text(self, home_btn.get_global_rect().get_center() - Vector2(140, 120), Strings.t("board.feedback.ready_to_restore"), STRAW, FS.TITLE)
 
 # The cozy, optional 2× DOUBLER card on the quest COIN reward (the surviving lump coin faucet,
 # §7/§10). Shown after a quest pays `got` coins, but ONLY when the reward is big enough that paying
@@ -3539,7 +3540,7 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	col.add_child(pitch)
 	var pl := Label.new()
 	pl.text = Strings.t("board.double.pitch")
-	pl.add_theme_font_size_override("font_size", 24)
+	pl.add_theme_font_size_override("font_size", FS.BODY)
 	pl.add_theme_color_override("font_color", Pal.INK)
 	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pitch.add_child(pl)
@@ -3554,20 +3555,20 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	sub.add_child(Look.icon("coin", 22.0))
 	var sn0 := Label.new()
 	sn0.text = str(got)                                  # the "before" — the reward as it stands now
-	sn0.add_theme_font_size_override("font_size", 22)
+	sn0.add_theme_font_size_override("font_size", FS.SMALL)
 	sn0.add_theme_color_override("font_color", Color(Pal.INK, 0.5))
 	sn0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	sub.add_child(sn0)
 	var arrow := Label.new()
 	arrow.text = "→"                                     # the "becomes"
-	arrow.add_theme_font_size_override("font_size", 24)
+	arrow.add_theme_font_size_override("font_size", FS.BODY)
 	arrow.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	sub.add_child(arrow)
 	sub.add_child(Look.icon("coin", 32.0))
 	var sn1 := Label.new()
 	sn1.text = str(got * 2)                              # the "after" — the doubled total
-	sn1.add_theme_font_size_override("font_size", 34)
+	sn1.add_theme_font_size_override("font_size", FS.HEADING)
 	sn1.add_theme_color_override("font_color", STRAW)
 	sn1.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	sub.add_child(sn1)

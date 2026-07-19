@@ -36,6 +36,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the shared ui kit (frame · cell · pill)
 const OVERLAY_NAME := "BagOverlay"
@@ -180,7 +181,7 @@ static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, gen_bag_t
 	col.add_theme_constant_override("separation", 8)
 	var label := Label.new()
 	label.text = Strings.t("bag.generators")
-	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_font_size_override("font_size", FS.BODY)
 	label.add_theme_color_override("font_color", Color(INK, 0.75))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(label)
@@ -204,7 +205,7 @@ static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, gen_bag_t
 				return gicon
 			var fallback := Label.new()    # no art → the generator id, like the pre-kit overlay
 			fallback.text = gid_str
-			fallback.add_theme_font_size_override("font_size", 18)
+			fallback.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 			fallback.add_theme_color_override("font_color", INK)
 			fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE

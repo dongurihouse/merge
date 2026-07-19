@@ -38,6 +38,7 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 # IAP: the crack routes through StoreKit (via core/iap.gd → core/store.gd) when the plugin is in the
 # build; without it, the honest non-charging test path. Product id + price live in data/iap_products.json.
 const Iap = preload("res://engine/scripts/core/iap.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const PIGGY_KEY := "piggybank"
 
 # --- the storefront jar -------------------------------------------------------------
@@ -120,7 +121,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	col.add_theme_constant_override("separation", 14)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	card.add_child(col)
-	var ribbon := Look.title_ribbon(Strings.t("vault.crack.ribbon"), 32)
+	var ribbon := Look.title_ribbon(Strings.t("vault.crack.ribbon"), FS.SUBHEADING)
 	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(ribbon)
 	var what := HBoxContainer.new()
@@ -133,7 +134,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	if plain != null:
 		amount.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
 		amount.add_theme_constant_override("outline_size", 0)
-	amount.add_theme_font_size_override("font_size", 36)
+	amount.add_theme_font_size_override("font_size", FS.STAT)
 	amount.add_theme_color_override("font_color", INK)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	what.add_child(amount)
@@ -146,7 +147,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	if plain != null:
 		note.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
 		note.add_theme_constant_override("outline_size", 0)
-	note.add_theme_font_size_override("font_size", 20)
+	note.add_theme_font_size_override("font_size", FS.CAPTION)
 	note.add_theme_color_override("font_color", BARK)
 	col.add_child(note)
 	var btns := HBoxContainer.new()

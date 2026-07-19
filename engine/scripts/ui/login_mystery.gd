@@ -16,6 +16,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
@@ -96,7 +97,7 @@ static func build_reveal(options: Array, winners: Array, width: float, opts: Dic
 	caption.name = "MysteryCaption"
 	caption.text = Strings.t("mystery.spinning")
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_font_size_override("font_size", 18)
+	caption.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	caption.add_theme_color_override("font_color", Pal.INK)
 	caption.add_theme_constant_override("outline_size", 0)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -202,7 +203,7 @@ static func _claim_button() -> Button:
 	b.disabled = true
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = Strings.t("mystery.claim")
-	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_font_size_override("font_size", FS.CAPTION)
 	b.add_theme_color_override("font_color", Pal.CREAM)
 	b.add_theme_color_override("font_disabled_color", Color(Pal.CREAM, 0.7))
 	b.custom_minimum_size = Vector2(190, 52)
@@ -289,7 +290,7 @@ static func _set_reel_selected(reel: Control, sel: bool) -> void:
 		badge = Label.new()
 		badge.name = "PickCheck"
 		badge.text = "✓"
-		badge.add_theme_font_size_override("font_size", 22)
+		badge.add_theme_font_size_override("font_size", FS.SMALL)
 		badge.add_theme_color_override("font_color", Pal.CREAM)
 		var bsb := StyleBoxFlat.new()
 		bsb.bg_color = Pal.BTN_PRIMARY

@@ -6,6 +6,35 @@ extends RefCounted
 ##
 ## A consumer aliases its own section, e.g.  const Tune = preload(this).Ambient → Tune.X
 
+class FontScale:
+	## The global type scale. BASE is the theme default font size (installed by ui_font.gd);
+	## every named tier is a fixed percentage of BASE, so retuning BASE rescales ALL text.
+	## Sizes that instead track an ELEMENT's box (e.g. `int(h * 0.3)`) stay proportional to
+	## that element and do NOT belong here. One-off odd sizes use pct() with the % noted.
+	const BASE := 40                     # 100% — the theme default font size
+
+	const DISPLAY := int(BASE * 1.15)    # 46 — hero numbers / biggest headings
+	const FLOAT := int(BASE * 1.10)      # 44 — floating gain/merge text
+	const TITLE := BASE                  # 40 — screen/storefront titles
+	const STAT := int(BASE * 0.90)       # 36 — big stat/amount numbers
+	const HEADING := int(BASE * 0.85)    # 34 — section headings, currency numbers
+	const SUBHEADING := int(BASE * 0.80) # 32 — dialog titles, button labels
+	const LARGE := int(BASE * 0.75)      # 30 — large accents (close ✕)
+	const EMPHASIS := int(BASE * 0.70)   # 28 — emphasized inline text
+	const MEDIUM := int(BASE * 0.65)     # 26 — prices, level numbers
+	const BODY := int(BASE * 0.60)       # 24 — default body text
+	const SMALL := int(BASE * 0.55)      # 22 — secondary notes, badges
+	const CAPTION := int(BASE * 0.50)    # 20 — captions, help text
+	const FOOTNOTE := int(BASE * 0.45)   # 18 — fine print, info chips
+	const TINY := int(BASE * 0.40)       # 16 — smallest shipped UI text
+	const MICRO := int(BASE * 0.35)      # 14 — count-pill numbers
+	const DEBUG := int(BASE * 0.30)      # 12 — dev/debug overlays only
+
+	## One-off sizes between tiers: FontScale.pct(95) → 38. Keeps every size relative to BASE.
+	static func pct(p: float) -> int:
+		return int(round(BASE * p / 100.0))
+
+
 class Ambient:
 	# --- characters --------------------------------------------------------------------
 	const CHAR_SIZE := Vector2(84, 84)            # a character's on-screen box
@@ -129,7 +158,7 @@ class FX:
 	const BREATHE_PERIOD := 0.9           # default seconds per breath
 
 	# --- floating_text -----------------------------------------------------------------
-	const FLOAT_SIZE := 44                # default font size
+	const FLOAT_SIZE := FontScale.FLOAT   # default font size
 	const FLOAT_OUTLINE := 10
 	const FLOAT_Z := 60
 	const FLOAT_SCALE_START := 0.4
@@ -317,7 +346,7 @@ class Hud:
 	const GEM_OPTICAL := 1.0              # premium acorn: round, same weight as the coin
 	const CHIP_ROW_SEP := 4               # constant icon↔number gap (shared centerline)
 	const PAIR_SEP := 14                  # gap BETWEEN currency pairs (was the row's ROW_SEP=6)
-	const NUM_SIZE := 34                  # currency number font size
+	const NUM_SIZE := FontScale.HEADING   # currency number font size
 
 	# --- identity tints (modulate over the sprites) ---
 	# Soft currency = a GOLD COIN, premium = a GOLDEN ACORN (the grove's premium). Both art
@@ -327,7 +356,7 @@ class Hud:
 
 	# --- the "+" acquire button (opens the store) --------------------------------------
 	const PLUS_BOX := 26.0                # the little round +-token diameter
-	const PLUS_SIZE := 22                 # the "+" glyph font size
+	const PLUS_SIZE := FontScale.SMALL    # the "+" glyph font size
 	const PLUS_GAP := 2                   # gap between a currency number and its + button
 	const PLUS_BG := Color("#4E7C46")     # leaf green (the primary-CTA language → "get more")
 	const PLUS_BORDER := Color("#3C6037")
@@ -341,8 +370,8 @@ class Hud:
 	const LV_PX := 48.0                   # the round level "coin" diameter
 	const LV_TOKEN_BG := Color("#EAD49C") # honey token (de-greened — green is reserved for the CTA); gold ring + ink number
 	const LV_TOKEN_BORDER := Color("#C9A66B")  # warm gold ring
-	const LV_NUM_SIZE := 26               # the level number inside the token
-	const LVL_PROG_SIZE := 28             # the level-progress fraction to its right
+	const LV_NUM_SIZE := FontScale.MEDIUM  # the level number inside the token
+	const LVL_PROG_SIZE := FontScale.EMPHASIS  # the level-progress fraction to its right
 	const LVL_PROG_INK_ALPHA := 0.85      # level-progress text = Color(INK, this)
 
 
@@ -377,10 +406,10 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	# --- icons & stat chip -------------------------------------------------------------
 	const ICON_PX := 28.0                 # default icon size (glyph or sprite)
 	const CHIP_ROW_SEP := 6               # icon↔number separation in a stat chip
-	const STAT_NUM_SIZE := 34
+	const STAT_NUM_SIZE := FontScale.HEADING
 
 	# --- title ribbon ------------------------------------------------------------------
-	const TITLE_SIZE := 32                # default title font size
+	const TITLE_SIZE := FontScale.SUBHEADING  # default title font size
 	const TITLE_BG_ALPHA := 0.96          # bg = Color(Pal.PILL, this)
 	const TITLE_RADIUS := 20
 	const TITLE_BORDER_W := 3
@@ -400,7 +429,7 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 
 	# --- buttons -----------------------------------------------------------------------
 	const BTN_MIN_SIZE := Vector2(190, 88)
-	const BTN_SIZE := 32                  # label font size
+	const BTN_SIZE := FontScale.SUBHEADING  # label font size
 	const BTN_RADIUS := 28
 	const BTN_BORDER_W := 3
 	const BTN_PILL_ALPHA := 0.97          # secondary bg = Color(Pal.PILL, this)
@@ -453,7 +482,7 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const BADGE_RIM_W := 2
 	const BADGE_PILL_H := 22               # count-pill height
 	const BADGE_PILL_PAD_X := 6.0          # count-pill horizontal padding
-	const BADGE_NUM_SIZE := 14             # count-pill number font size
+	const BADGE_NUM_SIZE := FontScale.MICRO  # count-pill number font size
 	# Top-right corner-overhang: how far the badge pokes PAST its host's top-right corner
 	# (x = past the right edge, y = above the top edge), both positive = outside the host.
 	const BADGE_OVERHANG := Vector2(6, 6)
@@ -490,8 +519,8 @@ class Shop:
 
 	# --- header / title ----------------------------------------------------------------
 	const HEADER_H := 140                 # the stall banner band height
-	const TITLE_SIZE := 40                # storefront title font
-	const CONFIRM_TITLE_SIZE := 32        # confirm dialog title font
+	const TITLE_SIZE := FontScale.TITLE   # storefront title font
+	const CONFIRM_TITLE_SIZE := FontScale.SUBHEADING  # confirm dialog title font
 	const RIBBON_TOP := 4.0               # title chip inset from the band top
 
 	# --- rows --------------------------------------------------------------------------
@@ -502,7 +531,7 @@ class Shop:
 
 	# --- the close (✕) button ----------------------------------------------------------
 	const X_BTN := 64.0                   # round close button size
-	const X_FONT := 30
+	const X_FONT := FontScale.LARGE
 	const X_MARGIN := 12.0                # inset from the card's top-right corner
 	const X_RADIUS := 32
 	const X_BORDER_W := 3
@@ -518,7 +547,7 @@ class Shop:
 	const TAB_PAD_X := 14.0
 	const TAB_PAD_T := 4.0
 	const TAB_PAD_B := 5.0
-	const DIV_CAP_SIZE := 25              # bolder section caption (was 23)
+	const DIV_CAP_SIZE := int(FontScale.BASE * 0.625)  # 25 — bolder section caption (was 23), hand-tuned between tiers
 	const DIV_CAP_INK_ALPHA := 0.95       # caption = Color(INK, this)
 	const VINE_H := 40                    # divider vine height — COVERED fills the gap at this height, showing most of the leafy strip
 	const LINE_H := 3                     # ...else a flat rule this tall
@@ -534,10 +563,10 @@ class Shop:
 	const ICON_PLATE := 108.0             # the soft disc behind the hero icon
 	const ICON_PLATE_BG := Color("#F2EFDC")  # pale disc under card items — matches the grove CARD_PEDESTAL role value
 	const ICON_PLATE_EDGE_ALPHA := 0.16   # disc rim = Color(BARK, this)
-	const HELP_TITLE_SIZE := 27
-	const HELP_CAP_SIZE := 20
+	const HELP_TITLE_SIZE := int(FontScale.BASE * 0.675)  # 27 — hand-tuned between tiers
+	const HELP_CAP_SIZE := FontScale.CAPTION
 	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
-	const HELP_PRICE_SIZE := 26           # gem price chip number
+	const HELP_PRICE_SIZE := FontScale.MEDIUM  # gem price chip number
 
 	# (FEATURED_CARD — the item-shortcut offer card size — was removed 2026-06-23 with the
 	# shop's item-buying; that moves to the board's item info bar.)
@@ -555,14 +584,14 @@ class Shop:
 	const POP_RADIUS := 10                # "Popular" badge
 	const POP_PAD_X := 10.0
 	const POP_PAD_Y := 2.0
-	const POP_SIZE := 18
+	const POP_SIZE := FontScale.FOOTNOTE
 	const GEM_ICON := 64.0
 	# The cash packs scale their gem cluster by tier so a bigger pack LOOKS bigger (same art, grown
 	# size) — the value ladder reads at a glance instead of six identical clusters. Lerped MIN→MAX
 	# across the pack list; GEM_ICON stays the starter-banner size.
 	const GEM_ICON_MIN := 46.0            # the entry pack's cluster
 	const GEM_ICON_MAX := 82.0            # the whale pack's cluster
-	const GEM_COUNT_SIZE := 40
+	const GEM_COUNT_SIZE := FontScale.TITLE
 	# The BUY capsule — ONE source for every price on a card (help / featured / cosmetic / cash /
 	# starter). White text on leaf-GREEN (Pal.BTN_PRIMARY, the established primary-CTA colour), fully
 	# rounded with a raised shadow, so the price reads as the tappable buy button. The whole card
@@ -572,7 +601,7 @@ class Shop:
 	const BUY_PAD_X := 16.0
 	const BUY_PAD_T := 6.0
 	const BUY_PAD_B := 7.0
-	const BUY_SIZE := 26                  # price number font
+	const BUY_SIZE := FontScale.MEDIUM    # price number font
 	const BUY_SHADOW := Color(0, 0, 0, 0.22)
 	const BUY_SHADOW_SIZE := 5
 	const BUY_SHADOW_OFFSET := Vector2(0, 3)
@@ -608,7 +637,7 @@ class Shop:
 	const INFO_BG := Color("#5FA8D8")     # soft blue (the reference info-badge language)
 	const INFO_EDGE := Color("#3E83AD")
 	const INFO_BORDER_W := 2
-	const INFO_FONT := 18
+	const INFO_FONT := FontScale.FOOTNOTE
 	const INFO_MARGIN := 7.0
 	# (the item-detail sheet's width/body-font consts moved to the workbench-tuned `info` config —
 	#  see Kit.info_opts_from_config; the sheet face is now the shared Kit.mail_dialog, no Claim + a Got it.)
@@ -621,5 +650,5 @@ class Shop:
 
 	# --- cash confirm ------------------------------------------------------------------
 	const CONFIRM_GEM_ICON := 36.0
-	const CONFIRM_AMOUNT_SIZE := 34
-	const CONFIRM_NOTE_SIZE := 22
+	const CONFIRM_AMOUNT_SIZE := FontScale.HEADING
+	const CONFIRM_NOTE_SIZE := FontScale.SMALL

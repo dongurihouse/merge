@@ -6,6 +6,8 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/tuning_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
+const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 
 var _pass := 0
 var _fail := 0
@@ -73,6 +75,21 @@ func _initialize() -> void:
 	G.MIN_LEVEL = g0
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	ok(G.exp_at_level(3) == b0 * 2 + s0, "the live dials are restored after the suite")
+
+	# --- the global font scale (FontScale) -----------------------------------------------
+	# every tier is a fixed % of BASE; these pin the ramp at today's BASE=40 so an accidental
+	# tier nudge (which would resize text ACROSS the app) fails loudly.
+	ok(FS.BASE == 40, "FontScale.BASE is the 40px theme default")
+	var ramp := {FS.DISPLAY: 46, FS.FLOAT: 44, FS.TITLE: 40, FS.STAT: 36, FS.HEADING: 34,
+		FS.SUBHEADING: 32, FS.LARGE: 30, FS.EMPHASIS: 28, FS.MEDIUM: 26, FS.BODY: 24,
+		FS.SMALL: 22, FS.CAPTION: 20, FS.FOOTNOTE: 18, FS.TINY: 16, FS.MICRO: 14, FS.DEBUG: 12}
+	var ramp_ok := true
+	for got in ramp:
+		if got != ramp[got]:
+			ramp_ok = false
+	ok(ramp_ok, "every FontScale tier resolves to its documented pixel size")
+	ok(FS.pct(95) == 38, "FontScale.pct(95) gives the between-tier 38px")
+	ok(UiFont.make().default_font_size == FS.BASE, "the installed theme default follows FontScale.BASE")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

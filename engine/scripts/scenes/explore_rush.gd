@@ -28,6 +28,7 @@ const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D: the warm streak screen-bloom overlay
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
@@ -689,7 +690,7 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	# bundle D: poke the screen-bloom — the scene owns the world reaction, the verb stays parameter-light.
 	if _combo_bloom != null and is_instance_valid(_combo_bloom):
 		_combo_bloom.bump(_combo)
-	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
+	FX.floating_text(self, ctr, "+%d" % pts, PARCH, FS.SMALL)
 	if RushFx.on(_fx, "score_pulse"):
 		RushFx.cell_pop(_score_cell, RushFx.knob(_fx, "score_pulse_pct"))
 	if RushFx.on(_fx, "mult_pop") and _mult > pre_mult + 0.001:
@@ -698,7 +699,7 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 		if RushFx.on(_fx, "combo_heat"):
 			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo, RushFx.knob(_fx, "combo_heat_size"))
 		else:
-			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
+			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, FS.MEDIUM)
 	# (the win-cell neighbour ripple + the big-merge board punch now fire INSIDE MergeFx.apply above —
 	# the neighbours are gathered there BEFORE the settle, skipping the falling lose column; the separate
 	# scene-side Feel.ripple / Feel.board_punch calls were removed to avoid double-firing. Note Rush caps

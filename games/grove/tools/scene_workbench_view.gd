@@ -14,6 +14,7 @@ extends Control
 
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const SIDEBAR_W := 340.0
 const REF_W := 300.0                # the LEFT reference column (the scene's mocks + reconstructions)
@@ -458,11 +459,11 @@ func _build_ref_panel() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 8)
 	scroll.add_child(col)
-	col.add_child(_label("Reference", 16, true))
+	col.add_child(_label("Reference", FS.TINY, true))
 	var inner_w := REF_W - 28.0
 	var refs := M.reference_images(_scenes_root, bundle_dir, scene_name)
 	if refs.is_empty():
-		col.add_child(_label("no mocks found for this scene", 12))
+		col.add_child(_label("no mocks found for this scene", FS.DEBUG))
 	for p in refs:
 		var img := Image.load_from_file(String(p)) if FileAccess.file_exists(String(p)) else null
 		if img == null:
@@ -470,7 +471,7 @@ func _build_ref_panel() -> void:
 		var w := int(inner_w * 2.0)                    # decode once, hold a modest 2x for crispness
 		if img.get_width() > w:
 			img.resize(w, maxi(1, img.get_height() * w / img.get_width()), Image.INTERPOLATE_BILINEAR)
-		col.add_child(_label(String(p).get_file(), 11))
+		col.add_child(_label(String(p).get_file(), FS.DEBUG))
 		var tr := TextureRect.new()
 		tr.texture = ImageTexture.create_from_image(img)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -520,7 +521,7 @@ func _build_sidebar() -> void:
 	_save_btn.pressed.connect(_save)
 	col.add_child(_save_btn)
 
-	col.add_child(_label("Clusters", 16, true))
+	col.add_child(_label("Clusters", FS.TINY, true))
 	_cluster_actions = VBoxContainer.new()
 	_cluster_actions.add_theme_constant_override("separation", 2)
 	col.add_child(_cluster_actions)
@@ -566,7 +567,7 @@ func _refresh_cluster_list() -> void:
 		rn.name = "ClusterRename"
 		rn.text = _sel_cluster
 		rn.tooltip_text = "rename the cluster (Enter applies)"
-		rn.add_theme_font_size_override("font_size", 13)
+		rn.add_theme_font_size_override("font_size", FS.DEBUG)
 		rn.text_submitted.connect(func(t: String) -> void:
 			var applied := M.rename_cluster(doc, _sel_cluster, t)
 			if applied != "":
@@ -650,7 +651,7 @@ func _small_button(text: String, on_press: Callable) -> Button:
 	b.text = text
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_font_size_override("font_size", FS.DEBUG)
 	b.pressed.connect(on_press)
 	return b
 

@@ -4,6 +4,7 @@ extends RefCounted
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const INK := Game.PALETTE.INK
 const BARK := Game.PALETTE.BARK
@@ -45,7 +46,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	spinner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	spinner.add_theme_font_override("font", plain)
 	spinner.add_theme_constant_override("outline_size", 0)
-	spinner.add_theme_font_size_override("font_size", 38)
+	spinner.add_theme_font_size_override("font_size", FS.pct(95))
 	spinner.add_theme_color_override("font_color", STRAW)
 	col.add_child(spinner)
 	_start_spinner(spinner, overlay)
@@ -58,7 +59,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	body.custom_minimum_size = Vector2(360, 0)
 	body.add_theme_font_override("font", plain)
 	body.add_theme_constant_override("outline_size", 0)
-	body.add_theme_font_size_override("font_size", 18)
+	body.add_theme_font_size_override("font_size", FS.FOOTNOTE)
 	body.add_theme_color_override("font_color", BARK)
 	col.add_child(body)
 

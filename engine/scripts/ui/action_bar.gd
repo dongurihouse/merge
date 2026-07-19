@@ -13,6 +13,7 @@ extends RefCounted
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Tuning = preload("res://engine/scripts/core/tuning.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 # The gold-pill / action-bar look is tuned in the UI Workbench and saved to the shared kit config.
 # Loaded at runtime (matches hud.gd / nav_bar) to avoid a preload cycle (engine → game-tool bridge).
@@ -217,8 +218,8 @@ static func home_well(px: float, icon_id: String, fallback_art: String, count: S
 static func action_chip(chip_opts: Dictionary, row: Control, caption_text: String, on_press: Callable, content_align: int = BoxContainer.ALIGNMENT_CENTER) -> Dictionary:
 	var height := float(chip_opts.get("height", 130.0))
 	var icon_px := height * float(chip_opts.get("sell_icon", 0.30))
-	var label_font := int(chip_opts.get("sell_label_font", 22))
-	var num_font := int(chip_opts.get("sell_font", 30))
+	var label_font := int(chip_opts.get("sell_label_font", FS.SMALL))
+	var num_font := int(chip_opts.get("sell_font", FS.LARGE))
 	var btn := Button.new()
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER

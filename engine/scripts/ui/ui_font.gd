@@ -7,6 +7,7 @@ extends RefCounted
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 static var _done := false
 
 ## The cozy UI face: the active game's variable TTF pinned to SemiBold (grove ships none today),
@@ -38,7 +39,7 @@ static func _face() -> Font:
 static func make() -> Theme:
 	var th := Theme.new()
 	th.default_font = _face()
-	th.default_font_size = 40
+	th.default_font_size = FS.BASE
 	for t in ["Label", "Button", "RichTextLabel", "LineEdit"]:
 		th.set_color("font_outline_color", t, Pal.BG_DEEP)
 		th.set_constant("outline_size", t, 4)
