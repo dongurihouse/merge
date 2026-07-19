@@ -54,8 +54,9 @@ const DEPENDENTS := {
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
-# Icons the HOME button can show (the home page's rail + nav set; all resolve via the kit's _icon_tex).
-const HOME_ICONS := ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "daisy", "leaf"]
+# Icons the HOME button can show — the real home-surface set (mirrors HomeChrome.BAKE_ICONS + the bag/well
+# icons the board wells use), so the preview picker can only choose ids the game actually renders.
+const HOME_ICONS := ["map", "house", "daily", "vault", "mail", "board", "vine", "expedition", "settings", "bag", "shop", "piggy", "gift", "faucet"]
 # Each element's params split into two buckets: anything listed here is TEST-ONLY scaffolding (sample
 # content, preview counts, tool helpers) and is NOT written to / read from the config file; everything
 # else is real design config that IS persisted. The sidebar mirrors this split under two headers.
@@ -115,7 +116,7 @@ const CAPTIONS := {
 	"board": "Board — merge grid (frame · cells · pieces · scale)",
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
 	"button": "Button — shared (bg · icon · state)",
-	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
+	"home_button": "Home bottom bar — the six paper tiles (icon · caption · badge) as map.gd builds them",
 	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
 	"gold_badge": "Gold badge — CSS port",
 	"gold_currency_pill": "Gold currency pills — home wallet",
@@ -205,10 +206,10 @@ func _default_params() -> Dictionary:
 		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
 		# config["badge"]); its icon uses the global icon clean.
 		"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-			"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
+			"fill_alpha": 100, "rect_pad": 13,
 			"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 			"count_dx": 0, "count_dy": 38, "count_font": 26,
-			"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
+			"icon": "daily", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 		# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
 		# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
 		# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
@@ -439,45 +440,7 @@ func _make_element(id: String) -> Control:
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"home_button":
-			# the shared home button as the LIVE rail + nav + board build it, from the SAME kit transform the
-			# game reads. Every live surface is a ROUNDED-RECT tile now (icon over label INSIDE the badge):
-			# the bag well (in-tile "x/y" count), the rail/Map tile (caption + a red badge), plus the orange
-			# Play disc. (The old circular disc-with-caption/-count form is retired — the rail moved to rect.)
-			# include the shell edge polish (config["badge"], tuned under this item's Shell-polish knobs) so
-			# the home button reflects it LIVE — the same link the game uses
-			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 30)
-			# the RECT bag well carries the Bag's in-tile "x/y" COUNT so count_dx / count_dy / count_font tune
-			# live (the live bag well is this exact rect-with-count form — board.gd _home_well).
-			var co := ho.duplicate()
-			co["shape"] = "rect"
-			co["surface_role"] = "purple"
-			co["shadow"] = true
-			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "count": String(p.get("count", ""))}, co))
-			# the RECT rail tile as the live side rail + Map button build it (shape:"rect"): icon over label
-			# INSIDE the rounded-rect, carrying a SAMPLE red badge so badge_dx / badge_dy (+ dot/num size) tune
-			# live — the same Look.attach_badge the rail uses (count 0 → bare dot, ≥1 → count pill).
-			var ro := ho.duplicate()
-			ro["shape"] = "rect"
-			ro["surface_role"] = "cream"
-			ro["shadow"] = true
-			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ro)
-			var bcount := int(p.get("badge_count", 3))
-			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
-			var bg := Look.badge("pill", bcount, bopts) if bcount >= 1 else Look.badge("dot", 0, bopts)
-			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
-			row.add_child(rail_btn)
-			# the orange PLAY disc (bottom-right CTA) at its tuned size + art, so play_px adjusts live here.
-			var po := ho.duplicate()
-			po["px"] = float(ho.get("play_px", 188))
-			po["shell"] = "shared/play_disc.png"
-			po["icon_scale"] = 0.52
-			row.add_child(Kit.home_button({"icon": "board", "caption": ""}, po))
-			var mc := MarginContainer.new()
-			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
-			mc.add_child(row)
-			return mc
+			return _home_bar_preview(p)
 		"hud_layout":
 			return _hud_layout_preview()
 		"gold_badge":
@@ -653,6 +616,44 @@ func _make_element(id: String) -> Control:
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
+
+# The home BOTTOM BAR exactly as map.gd builds it (`_build_bottom_bar`): the real HomeChrome tile set,
+# each on its own paper role, icon over caption inside a rect Kit.home_button, with the shipped badges —
+# a bare red DOT on Daily + Vault, a numbered pill only on Mail — at the same halved offset the game uses
+# (map.gd:2342 `badge_dx * 0.5`). No orange play disc: every shipped tile is a rect now, Board included.
+const HOME_BAR_TILES := [
+	{"icon": "map", "caption": "Map", "surface": "sky"},
+	{"icon": "house", "caption": "Residents", "surface": "green"},
+	{"icon": "daily", "caption": "Daily", "surface": "gold", "badge": "dot"},
+	{"icon": "vault", "caption": "Vault", "surface": "purple", "badge": "dot"},
+	{"icon": "mail", "caption": "Mail", "surface": "kraft", "badge": "pill"},
+	{"icon": "board", "caption": "Play", "surface": "coral"},
+]
+func _home_bar_preview(p: Dictionary) -> Control:
+	# include the shell edge polish (config["badge"], tuned under Shell-polish) so the tiles reflect it
+	# live — the same link the game uses via Kit.home_button_opts_from_config.
+	var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
+	var tile := float(p.get("px", 158))
+	var badge_off := Vector2(float(ho.get("badge_dx", -26.0)) * 0.5, float(ho.get("badge_dy", -26.0)) * 0.5)
+	var badge_opts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	for spec in HOME_BAR_TILES:
+		var o := ho.duplicate()
+		o["shape"] = "rect"
+		o["surface_role"] = String(spec.surface)
+		o["shadow"] = true
+		var btn := Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption), "sparkle": bool(p.sparkle)}, o)
+		if spec.has("badge"):
+			# the SAMPLE badge count only feeds a "pill" tile (Mail); a "dot" tile is always the bare dot,
+			# exactly as the game builds them (map.gd Daily/Vault → dot, Mail → pill).
+			var bg := Look.badge("pill", maxi(1, int(p.get("badge_count", 3))), badge_opts) if String(spec.badge) == "pill" else Look.badge("dot", 0, badge_opts)
+			Look.attach_badge(btn, bg, badge_off)
+		row.add_child(btn)
+	var mc := MarginContainer.new()
+	mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
+	mc.add_child(row)
+	return mc
 
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
@@ -1340,14 +1341,12 @@ func _element_sidebar(_id: String) -> void:
 			_section_header("Rect badge (rail + Map — shape:\"rect\")")
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))         # the rect-badge OPACITY (%)
 			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
-			_section_header("Play disc (bottom-right CTA)")
-			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
-			_section_header("Side-rail badge (red dot / count)")
+			_section_header("Tile badge (dot on Daily/Vault, count pill on Mail)")
 			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dot_px", 8, 28]))     # the bare-dot badge diameter
 			_sidebar_body.add_child(_slider_row(["badge_num_size", 8, 28]))   # the count-badge number size (pill tracks it)
-			_section_header("Bag count (in-disc \"x/y\")")
+			_section_header("Board bag/home well count (the in-tile \"x/y\", board screen)")
 			_sidebar_body.add_child(_slider_row(["count_dx", -60, 60]))   # count x offset from the disc centre
 			_sidebar_body.add_child(_slider_row(["count_dy", -60, 60]))   # count y offset from the disc centre (+ = lower)
 			_sidebar_body.add_child(_slider_row(["count_font", 14, 40]))  # the "x/y" font size
@@ -1363,8 +1362,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
-			_sidebar_body.add_child(_slider_row(["badge_count", 0, 99]))   # sample badge count (0 = dot, ≥1 = count pill)
-			_sidebar_body.add_child(_text_row("Bag count", "count"))   # sample "x/y" on the nav disc (empty = none)
+			_sidebar_body.add_child(_slider_row(["badge_count", 1, 99]))   # sample count for the Mail pill (dot tiles ignore it)
 		"hud_layout":
 			_group_header("Saved to config", true)
 			_section_header("Top HUD")

@@ -1143,31 +1143,33 @@ func _test_new_knobs(view) -> void:
 	ok(view._is_config("home_button", "badge_dx") and view._is_config("home_button", "badge_dy"), \
 		"badge offset is saved config")
 	ok(not view._is_config("home_button", "badge_count"), "the sample badge count is preview-only (not saved)")
-	# the home-button preview carries a SAMPLE count badge so the offset is tunable live (default count 3).
+	# the preview is the real bottom bar: six tiles, one per HomeChrome destination, each on its own paper
+	# role — so a multi-role sweep proves the tiles mirror the shipped strip (map.gd's specs), not one tile.
 	var home_button_preview: Control = view._make_element("home_button")
-	ok(_has_label_text(home_button_preview, "3"), \
-		"the home-button preview shows a sample count badge")
 	var preview_surface_paths: Array[String] = []
 	for preview_button in home_button_preview.find_children("*", "Button", true, false):
 		var preview_path := _paper_texture_path(preview_button as Control)
 		if preview_path != "":
 			preview_surface_paths.append(preview_path)
-	ok(preview_surface_paths.any(func(path: String) -> bool: return path.ends_with("ui/meadow_v2/texture_supporting_purple.png")) \
-		and preview_surface_paths.any(func(path: String) -> bool: return path.ends_with("ui/meadow_v2/texture_cream.png")), \
-		"home-button Workbench preview shows the live purple Bag and cream rail roles")
-	# the in-disc COUNT overlay (the Bag's "x/y"): its offset + font are read by the shared resolver, default
-	# to the shipped placement, and are SAVED config; the sample "x/y" string is preview-only and renders on
-	# the nav disc so the offset is tunable live.
+	ok(preview_surface_paths.size() == 6, "the home-button preview renders the six shipped bottom-bar tiles")
+	for role_tex in ["texture_sky.png", "texture_action_green.png", "texture_reward_gold.png", "texture_supporting_purple.png", "texture_warm_kraft.png", "texture_coral.png"]:
+		ok(preview_surface_paths.any(func(path: String) -> bool: return path.ends_with(role_tex)), \
+			"home-button bottom-bar preview carries the shipped %s tile role" % role_tex)
+	# the sample count feeds ONLY the Mail pill; Daily + Vault wear the bare dot (no number), matching the game.
+	ok(_has_label_text(home_button_preview, "3"), \
+		"the Mail tile shows the sample count pill (map.gd builds Mail as a numbered pill)")
+	# the in-tile COUNT overlay (the board bag/home well's "x/y"): its offset + font are read by the shared
+	# resolver, default to the shipped placement, and are SAVED config the board wells read (action_bar.gd).
+	# The bottom-bar preview has no bag well, so those knobs are tuned by number rather than previewed here.
 	var hbn: Dictionary = Kit.home_button_opts_from_config({"home_button": {"count_dx": 5, "count_dy": 20, "count_font": 30}})
 	ok(is_equal_approx(float(hbn.count_dx), 5.0) and is_equal_approx(float(hbn.count_dy), 20.0) and int(hbn.count_font) == 30, \
 		"home_button reads count_dx / count_dy / count_font")
 	ok(is_equal_approx(float(Kit.home_button_opts_from_config({}).count_dy), 38.0), \
-		"default count_dy reproduces the shipped in-disc placement (38)")
+		"default count_dy reproduces the shipped in-well placement (38)")
 	ok(view._is_config("home_button", "count_dx") and view._is_config("home_button", "count_dy") and view._is_config("home_button", "count_font"), \
-		"the bag-count offset + font are saved config")
-	ok(not view._is_config("home_button", "count"), "the sample bag-count string is preview-only (not saved)")
-	ok(_has_label_text(view._make_element("home_button"), "1/6"), \
-		"the home-button preview shows the sample bag count inside the disc")
+		"the well-count offset + font are saved config")
+	# the orange play disc is retired: every shipped tile is a rect now, so the preview builds no play_px disc.
+	ok(not (view._params["home_button"] as Dictionary).has("play_px"), "the retired play-disc size knob is gone")
 	view._selected = "home_button"
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Px") >= 260.0, "the home_button sidebar allows larger shared button sizes")
