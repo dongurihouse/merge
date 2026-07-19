@@ -352,6 +352,33 @@ func _initialize() -> void:
 		"shadow off erases the key (untagged files stay byte-stable)")
 	view._rebuild_stage()
 
+	# --- add-to-cluster palette (iconed, scoped to the selected cluster) ---------------
+	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/03_structures")
+	art.save_png(broot + "/test_scene_elements_v1/03_structures/test_scene_lantern_v1.png")
+	view._select(-1)
+	view._select_cluster("camp")
+	var add_btns: Array = []
+	for c in view._cluster_box.get_children():
+		if c is Button and (c as Button).text.contains("+ "):
+			add_btns.append(c)
+	ok(add_btns.size() >= 1, "a selected cluster offers the iconed add palette")
+	if add_btns.size() >= 1:
+		var count_before: int = view.doc.placements.size()
+		(add_btns[0] as Button).pressed.emit()
+		ok(view.doc.placements.size() == count_before + 1, "pressing a palette row adds a new element")
+		ok(M.cluster_of(view.doc, view._sel) == "camp",
+			"the added element joins the selected cluster and is in hand")
+		var camp_idx: Array = M.clusters(view.doc).get("camp", [])
+		var top_z := 0
+		for ci in camp_idx:
+			if ci != view._sel:
+				top_z = maxi(top_z, int((view.doc.placements[ci] as Dictionary).get("z", 0)))
+		ok(int((view.doc.placements[view._sel] as Dictionary).get("z", 0)) == top_z + 1,
+			"the new member lands just above its cluster's z band")
+		M.remove_at(view.doc, view._sel)               # restore the fixture for downstream tests
+		view._select(-1)
+		view._rebuild_stage()
+
 	# --- the scene dropdown + in-place switching (unsaved edits auto-save first) ------
 	ok(view.find_child("SceneDropdown", true, false) != null, "the sidebar carries the scene dropdown")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
