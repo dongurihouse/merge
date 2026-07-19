@@ -344,6 +344,12 @@ func _has_script_path(node: Node, script_path: String) -> bool:
 			return true
 	return false
 
+func _class_count(node: Node, klass: String) -> int:
+	var total := 1 if node.is_class(klass) else 0
+	for c in node.get_children():
+		total += _class_count(c, klass)
+	return total
+
 func _id_of(view: Control, key: String) -> int:
 	var n = view._sections.get(key)
 	return n.get_instance_id() if n != null else 0
@@ -379,6 +385,8 @@ func _initialize() -> void:
 	root.add_child(view)
 	await process_frame
 	await process_frame   # _ready -> _build -> _rebuild_gallery populates _sections
+
+	ok(_class_count(root, "AudioStreamPlayer") == 0, "Rush FX workbench preview does not spawn sound players")
 
 	var sidebar := _sidebar_panel(view)
 	ok(sidebar != null and is_equal_approx(sidebar.custom_minimum_size.x, 348.0) \
