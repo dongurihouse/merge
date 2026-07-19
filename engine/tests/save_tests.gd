@@ -397,18 +397,25 @@ func _initialize() -> void:
 	# and the last-spot auto-record could never re-fire (no unclaimed spot left to tap). The boot reconcile
 	# must back-fill the missing gate, and it must be idempotent.
 	fresh("reconcile_gates")
+	# The picture-book pages after the first are `open` (browse freely), so the classic stuck
+	# state can't occur at z=1 in live data — exercise the reconcile against a TEMP gated map
+	# appended past the pages (the machinery is data-independent and must stay healthy for the
+	# frontier gate the pages build system brings back).
+	G.MAPS.append({"id": "_test_gated", "name": "Test Gated", "spots": []})
+	var gated_z := G.MAPS.size() - 1
 	var rg := Save.grove()
 	var rul := {}
 	for rsp in G.MAPS[0].spots:                 # claim every spot of map 0 → map 0 spots-done
 		rul[String(rsp.id)] = true
 	rg["unlocks"] = rul
 	rg["gates"] = []                            # spots done, gate never recorded — the stranded state
-	ok(G.map_spots_done(0, rul) and not G.map_unlocked(1, rul, rg["gates"]), \
-		"precondition: map 0 spots done but map 1 locked (empty gates) — the stuck state")
+	ok(G.map_spots_done(0, rul) and not G.map_unlocked(gated_z, rul, rg["gates"]), \
+		"precondition: predecessor spots done but the gated map stays locked (empty gates) — the stuck state")
 	ok(G.reconcile_gates(rg), "reconcile_gates back-fills the missing gate for map 0")
 	ok(G.gate_recorded(rg["gates"], 0), "map 0 is now recorded in gates")
-	ok(G.map_unlocked(1, rg["unlocks"], rg["gates"]), "map 2 unlocks after the reconcile")
+	ok(G.map_unlocked(1, rg["unlocks"], rg["gates"]), "the next page unlocks after the reconcile")
 	ok(not G.reconcile_gates(rg), "reconcile_gates is idempotent on an already-healed save")
+	G.MAPS.remove_at(gated_z)
 
 	# 24. THE COIN CLOCK (home build-and-upgrade redesign): level derives from LIFETIME ORGANIC
 	# coin earnings. earn_coins (organic faucets) bumps balance AND the lifetime counter;

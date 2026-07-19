@@ -124,3 +124,18 @@ id uniqueness, the grabbable-size floor, and the backup. After tool changes run
 - First open of a scene decodes every palette thumbnail once — a few seconds is normal.
 - Coral/desert `v2` bundles have no `placements.json` yet — the tool opens their `v1`; add a
   minimal placements file to a `v2` (schema above) to start composing it.
+
+## 7 · Shipping a scene to the game
+
+The game renders each page from a GENERATED zone manifest — after fine-tuning in `make sw`:
+
+```bash
+python3 games/grove/tools/build_page_manifests.py   # placements.json -> assets/map/pages/* + manifests
+make import                                         # import the copied element art
+make test-fast                                      # grove_page_manifest_tests guards the wiring
+```
+
+`grove_data._build_maps()` names the five pages; `map.gd` renders the current page's manifest and
+adds the page-turn chevrons. The first page carries the interim farmhouse build items until the
+pages build system lands. Verify with a real in-game render:
+`engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- fresh /tmp/page.png page=<scene id>`.
