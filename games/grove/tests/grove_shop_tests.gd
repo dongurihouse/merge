@@ -214,9 +214,11 @@ func _initialize() -> void:
 	get_root().add_child(wh)
 	var saw_refill := false
 	var saw_fill := false
-	for sec in Shop._water_sections({"host": wh, "hero_px": 100.0, "opts": {}}):
+	for sec in Shop._water_sections({"host": wh, "opts": {}}):
 		for cardx in (sec as Dictionary).get("cards", []):
-			if (cardx as Dictionary).has("node"):                                    # the free-refill card (custom node)
+			# the free-refill card states the full can it pours and carries NO currency price
+			if int((cardx as Dictionary).get("count", 0)) == Shop.refill_amount() \
+					and String((cardx as Dictionary).get("price_icon", "")) == "":
 				saw_refill = true
 			elif String((cardx as Dictionary).get("price_icon", "")) == "gem":       # the 💎 fill card
 				saw_fill = true
