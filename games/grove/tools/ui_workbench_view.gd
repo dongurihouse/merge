@@ -117,7 +117,7 @@ const CAPTIONS := {
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home bottom bar — the six paper tiles (icon · caption · badge) as map.gd builds them",
-	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
+	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
 	"gold_badge": "Gold badge — CSS port",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
@@ -213,9 +213,9 @@ func _default_params() -> Dictionary:
 		# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
 		# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
 		# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
-		"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
+		"hud_layout": {"currency_area_pct": 75, "currency_pill_w_pct": 25,
 			"edge_margin_px": 18,
-			"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70, "bottom_row_h_pct": 10,
+			"button_w_pct": 15, "bottom_row_h_pct": 10,
 			"quest_bar_h_pct": 11},
 		# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -655,6 +655,19 @@ func _home_bar_preview(p: Dictionary) -> Control:
 	mc.add_child(row)
 	return mc
 
+# The board's own layout law, mirrored so the preview shows what the board WILL render (board wins): the
+# same absolute-px clamps board.gd applies, computed on the real 1080×1920 viewport then scaled to the
+# preview. Only the knobs the live board actually reads drive a region — level width, the wallet band, the
+# side rail, and the info-bar width are NOT board knobs, so they draw nothing here (they were preview-only).
+const HUD_BOTTOM_BAR_H := 166.0     # board.gd BOTTOM_BAR_H (fallback bar height)
+const HUD_BOTTOM_BTN_PX := 130.0    # board.gd BOTTOM_BTN_PX (fallback well size)
+const HUD_BOTTOM_BAR_MIN := 150.0   # board.gd BOTTOM_BAR_MIN / MAX
+const HUD_BOTTOM_BAR_MAX := 200.0
+const HUD_BOTTOM_BTN_MIN := 110.0
+const HUD_QUEST_H_MIN := 150.0      # board.gd QUEST_H_MIN / MAX
+const HUD_QUEST_H_MAX := 300.0
+const HUD_UNLOCK_BAR_TOP := 122.0   # board.gd UNLOCK_BAR_TOP — the next-unlock strip's top, below the pills
+const HUD_UNLOCK_BAR_H := 108.0     # a representative next-unlock strip height (board's _unlock_bar_h_px band)
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
 	var layout := Kit.hud_layout_opts_from_config({"hud_layout": p})
@@ -669,33 +682,44 @@ func _hud_layout_preview() -> Control:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
-	var top_h := h * float(p.get("top_band_h_pct", 15)) / 100.0
-	root.add_child(_layout_preview_box(Rect2(0, 0, w, top_h), Color("#D9E8D2", 0.18), "top %d%%" % int(p.get("top_band_h_pct", 15))))
-	var level_w := w * float(p.get("level_w_pct", 25)) / 100.0
 	var edge := float(p.get("edge_margin_px", 18)) * s
-	root.add_child(_layout_preview_box(Rect2(0, edge, level_w, level_w), Color("#F6C76F", 0.72), "Lv %d%%" % int(p.get("level_w_pct", 25))))
-	var wallet_w := w * float(p.get("currency_area_pct", 75)) / 100.0
+
+	# --- top HUD: the level badge (sized to the currency pill height, hud.gd) + the wallet band, whose 3
+	# pills are CENTRED in the currency area (hud.gd centres them; they are not left-packed). ---
+	var pill_slot_w := PHONE_W * float(layout.get("currency_pill_w_frac", 0.25))
+	var pill_body_w := maxf(1.0, pill_slot_w - float(p.get("edge_margin_px", 18))) * s
+	var pill_h := 74.0 * s   # the shipped gold-currency-pill height (hud.gd sizes the badge to it)
+	var pill_gap := float(p.get("edge_margin_px", 18)) * s
+	var wallet_w := w * clampf(float(layout.get("currency_area_frac", 0.75)), 0.0, 1.0)
 	var wallet_x := w - wallet_w
-	var pill_w := w * float(p.get("currency_pill_w_pct", 25)) / 100.0
-	var pill_h := maxf(34.0, top_h * 0.46)
-	var pill_body_w := maxf(1.0, pill_w - edge)
-	var pill_y := edge
+	var pill_run := pill_body_w * 3.0 + pill_gap * 2.0
+	var pills_x := wallet_x + maxf(0.0, (wallet_w - pill_run) / 2.0)   # CENTRED in the currency band
 	for i in 3:
-		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, pill_y, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
-	var wallet_clear_y := pill_y + pill_h + edge
-	# The board + quest stack is BOTTOM-ANCHORED in the live game (packed above the bottom bar; spare room
-	# falls to the top) and the board fills the width / auto-rotates — so the preview derives their boxes
-	# from the live layout, not from manual x·y·h knobs (those are retired).
-	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
-	var bottom_h := maxf(btn_w, h * float(layout.get("bottom_row_h_frac", 0.0)))
-	var bottom_y := h - bottom_h - edge
-	# The quest + board fill the space between the cleared HUD top (wallet_clear_y, the preview's
-	# HUD_CLEARANCE) and the bottom row, packed to the bottom. The board is height-capped to that room
-	# (keeping its aspect) so the quest always clears the pills — exactly like the live layout.
+		root.add_child(_layout_preview_box(Rect2(pills_x + (pill_body_w + pill_gap) * i, edge, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "pill"))
+	# the level badge is a pill-height SQUARE tucked at the top-left margin (hud.gd: lv_px = pill.pill_h)
+	root.add_child(_layout_preview_box(Rect2(edge, edge, pill_h, pill_h), Color("#F6C76F", 0.72), "Lv"))
+	var hud_clear_y := edge + pill_h + edge
+
+	# --- the NEXT-UNLOCK strip: the board's single largest top-reserve consumer, below the pills. ---
+	var unlock_y := HUD_UNLOCK_BAR_TOP * s
+	var unlock_h := HUD_UNLOCK_BAR_H * s
+	root.add_child(_layout_preview_box(Rect2(edge, unlock_y, w - edge * 2.0, unlock_h), Color("#CBB89A", 0.34), "next unlock", "HudLayoutUnlockBar"))
+	var stack_top := maxf(hud_clear_y, unlock_y + unlock_h + 8.0 * s)
+
+	# --- bottom bar + quest + board: bottom-anchored, with the board's REAL absolute-px clamps applied on
+	# the full viewport then scaled — so the sliders show what the board will actually render, not a raw %. ---
+	var btn_px := clampf(roundf(PHONE_W * float(layout.get("button_w_frac", 0.15))), HUD_BOTTOM_BTN_MIN, HUD_BOTTOM_BAR_MAX - (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
+	var bottom_raw := maxf(HUD_BOTTOM_BAR_H, btn_px + (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
+	var bottom_frac := float(layout.get("bottom_row_h_frac", 0.0))
+	if bottom_frac > 0.0:
+		bottom_raw = maxf(btn_px, roundf(PHONE_H * bottom_frac))
+	var bottom_h := clampf(bottom_raw, HUD_BOTTOM_BAR_MIN, HUD_BOTTOM_BAR_MAX) * s
+	var btn_w := btn_px * s
+	var quest_h := clampf(roundf(PHONE_H * float(layout.get("quest_bar_h_frac", 0.13))), HUD_QUEST_H_MIN, HUD_QUEST_H_MAX) * s
 	var gap := 8.0 * s
-	var quest_h := h * float(p.get("quest_bar_h_pct", 11)) / 100.0
+	var bottom_y := h - bottom_h - edge
 	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
-	var board_max_h := maxf(1.0, (bottom_y - wallet_clear_y) - quest_h - gap * 2.0)
+	var board_max_h := maxf(1.0, (bottom_y - stack_top) - quest_h - gap * 2.0)
 	var board_h := minf(live_board_size.y, board_max_h)
 	var board_w := minf(w, live_board_size.x * board_h / maxf(1.0, live_board_size.y))   # keep aspect if capped
 	var board_x := (w - board_w) / 2.0
@@ -706,14 +730,13 @@ func _hud_layout_preview() -> Control:
 	var quest_w := maxf(1.0, w - quest_x * 2.0)
 	var quest_y := board_y - gap - quest_h
 	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
-	var side_x := w - edge - btn_w
-	var rail_top := wallet_clear_y
-	for i in 4:
-		root.add_child(_layout_preview_box(Rect2(side_x, rail_top + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
-	var info_w := w * float(p.get("info_bar_w_pct", 70)) / 100.0
+	# the bottom bar: a Bag well (left) + Home well (right), the info bar FILLING the space between them
+	# (board.gd: the tray is SIZE_EXPAND_FILL — it takes whatever is left between the two wells).
+	var info_x := btn_w
+	var info_w := maxf(1.0, w - btn_w * 2.0)
 	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "bag", "HudLayoutBottomRow"))
-	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, bottom_h), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
-	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "home"))
+	root.add_child(_layout_preview_box(Rect2(info_x, bottom_y, info_w, bottom_h), Color("#F2D59A", 0.78), "info (fills)", "HudLayoutInfoBar"))
+	root.add_child(_layout_preview_box(Rect2(w - btn_w, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "home"))
 	return root
 
 func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
@@ -1366,14 +1389,11 @@ func _element_sidebar(_id: String) -> void:
 		"hud_layout":
 			_group_header("Saved to config", true)
 			_section_header("Top HUD")
-			_sidebar_body.add_child(_slider_row(["level_w_pct", 10, 40]))          # Lv badge slot width (% screen width)
 			_sidebar_body.add_child(_slider_row(["currency_area_pct", 50, 90]))    # wallet's right-side band (% screen width)
 			_sidebar_body.add_child(_slider_row(["currency_pill_w_pct", 12, 35]))  # each currency pill width (% screen width)
 			_sidebar_body.add_child(_slider_row(["edge_margin_px", 0, 48]))        # shared wallet + rail right-edge inset (px)
-			_sidebar_body.add_child(_slider_row(["top_band_h_pct", 5, 30]))        # vertical band reserved before rail/settings
 			_section_header("Buttons + board bottom")
 			_sidebar_body.add_child(_slider_row(["button_w_pct", 8, 25]))          # rail/nav/back/bag/home width (% screen width)
-			_sidebar_body.add_child(_slider_row(["info_bar_w_pct", 40, 85]))       # board info-bar width (% screen width)
 			_sidebar_body.add_child(_slider_row(["bottom_row_h_pct", 8, 22]))      # board-only bottom tray height (% screen height)
 			_section_header("Quest bar")
 			# Position/board-height knobs retired — the board fills the width / auto-rotates and the quest+board

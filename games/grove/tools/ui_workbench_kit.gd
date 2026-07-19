@@ -4139,12 +4139,9 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
 	return {
-		"level_w_frac": clampf(float(h.get("level_w_pct", 25.0)) / 100.0, 0.05, 0.80),
 		"currency_area_frac": clampf(float(h.get("currency_area_pct", 75.0)) / 100.0, 0.10, 1.0),
 		"currency_pill_w_frac": clampf(float(h.get("currency_pill_w_pct", 25.0)) / 100.0, 0.05, 0.60),
-		"top_band_h_frac": clampf(float(h.get("top_band_h_pct", 15.0)) / 100.0, 0.0, 0.50),
 		"button_w_frac": clampf(float(h.get("button_w_pct", 15.0)) / 100.0, 0.05, 0.50),
-		"info_bar_w_frac": clampf(float(h.get("info_bar_w_pct", 70.0)) / 100.0, 0.10, 0.95),
 		"bottom_row_h_frac": clampf(float(h.get("bottom_row_h_pct", 0.0)) / 100.0, 0.0, 0.40),
 		# quest band height (% screen height); board.gd clamps it to [QUEST_H_MIN, QUEST_H_MAX]. The old
 		# quest/board x·y and board-height fracs are retired — the live layout is responsive + bottom-anchored.

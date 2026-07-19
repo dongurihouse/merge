@@ -1178,52 +1178,57 @@ func _test_new_knobs(view) -> void:
 	# bottom-anchored, so the old manual board+quest POSITION and board-HEIGHT knobs are retired. Only the
 	# band heights the live layout still reads remain tunable.
 	var hud_default: Dictionary = (view._params["hud_layout"] as Dictionary).duplicate()
-	var live_knobs := ["quest_bar_h_pct", "bottom_row_h_pct", "button_w_pct", "info_bar_w_pct", "level_w_pct"]
+	var live_knobs := ["quest_bar_h_pct", "bottom_row_h_pct", "button_w_pct", "currency_area_pct", "currency_pill_w_pct", "edge_margin_px"]
 	var has_live := true
 	for k in live_knobs:
 		has_live = has_live and (view._params["hud_layout"] as Dictionary).has(k) and view._is_config("hud_layout", k)
-	ok(has_live, "hud_layout keeps the live band-height controls (quest/bottom/button/info/level)")
-	var dead_knobs := ["quest_bar_x_pct", "quest_bar_y_pct", "board_x_pct", "board_y_pct", "board_h_pct"]
+	ok(has_live, "hud_layout keeps the controls the live board reads (quest/bottom/button/wallet/edge)")
+	var dead_knobs := ["quest_bar_x_pct", "quest_bar_y_pct", "board_x_pct", "board_y_pct", "board_h_pct", "level_w_pct", "top_band_h_pct", "info_bar_w_pct"]
 	var dead_gone := true
 	for k in dead_knobs:
 		dead_gone = dead_gone and not (view._params["hud_layout"] as Dictionary).has(k)
-	ok(dead_gone, "retired board/quest position + board-height knobs are gone from hud_layout defaults")
+	ok(dead_gone, "retired position/height knobs + the preview-only level/top-band/info-bar knobs are gone")
 
 	# resolver: the quest band height still resolves to a fraction; the retired geometry fracs are dropped.
 	var stack_layout := Kit.hud_layout_opts_from_config({"hud_layout": {"quest_bar_h_pct": 11}})
 	ok(stack_layout.has("quest_bar_h_frac") and is_equal_approx(float(stack_layout.quest_bar_h_frac), 0.11) \
 		and not stack_layout.has("board_h_frac") and not stack_layout.has("quest_bar_y_frac") \
-		and not stack_layout.has("board_x_frac"), \
-		"hud_layout resolver exposes the quest band height fraction and drops the retired geometry fracs")
+		and not stack_layout.has("board_x_frac") \
+		and not stack_layout.has("level_w_frac") and not stack_layout.has("top_band_h_frac") \
+		and not stack_layout.has("info_bar_w_frac"), \
+		"hud_layout resolver keeps the live fracs and drops every retired / preview-only frac")
 
 	# preview: board + quest are BOTTOM-ANCHORED — quest above board, board above the bottom row, the board
 	# fills (most of) the width, and the quest still clears the currency pills (board is height-capped).
-	var preview_w := 1080.0 * 0.26
-	var preview_h := 1920.0 * 0.26
 	var default_hud_preview: Control = view._make_element("hud_layout")
 	var default_quest_box := default_hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
 	var default_board_box := default_hud_preview.find_child("HudLayoutBoard", true, false) as Control
 	var default_bottom_box := default_hud_preview.find_child("HudLayoutBottomRow", true, false) as Control
+	var default_info_box := default_hud_preview.find_child("HudLayoutInfoBar", true, false) as Control
+	var default_unlock_box := default_hud_preview.find_child("HudLayoutUnlockBar", true, false) as Control
 	ok(default_quest_box != null and default_board_box != null and default_bottom_box != null \
 		and _has_label_text(default_quest_box, "quest") and _has_label_text(default_board_box, "board"), \
 		"hud_layout preview draws the quest bar, board, and bottom row")
+	# the preview now shows the board's real regions: the next-unlock strip is present, the phantom side
+	# rail is gone (it belonged to map.gd, not the board), and the info bar fills between the two wells.
+	ok(default_unlock_box != null and _has_label_text(default_unlock_box, "next unlock"), \
+		"hud_layout preview draws the next-unlock strip the board reserves for")
+	ok(default_info_box != null and _has_label_text(default_info_box, "info (fills)"), \
+		"hud_layout preview info bar fills the gap between the wells (board.gd SIZE_EXPAND_FILL)")
 	ok(default_quest_box.position.y + default_quest_box.custom_minimum_size.y <= default_board_box.position.y + 1.0, \
 		"hud_layout preview quest bar sits above the board (bottom-anchored stack)")
-	var default_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
-	var default_bottom_bar_h := preview_h * float(default_layout.get("bottom_row_h_frac", 0.0))
-	var default_edge := float(default_layout.get("edge_margin_px", 18.0)) * 0.26
-	var btn_w := preview_w * float(view._params["hud_layout"].get("button_w_pct", 15)) / 100.0
-	var bottom_y := preview_h - maxf(btn_w, default_bottom_bar_h) - default_edge
-	ok(default_board_box.position.y + default_board_box.custom_minimum_size.y <= bottom_y + 2.0, \
-		"hud_layout preview board sits above the bottom row")
-	ok(absf(default_bottom_box.custom_minimum_size.y - maxf(btn_w, default_bottom_bar_h)) <= 1.0, \
-		"hud_layout preview bottom row uses the saved percent-of-screen height")
-	ok(default_board_box.custom_minimum_size.x >= preview_w * 0.85, \
+	# the info bar spans exactly the width between the bag well (left) and the home well (right)
+	ok(default_bottom_box.custom_minimum_size.x > 0.0 \
+		and absf(default_info_box.position.x - default_bottom_box.custom_minimum_size.x) <= 1.0 \
+		and default_info_box.custom_minimum_size.x >= default_board_box.custom_minimum_size.x * 0.5, \
+		"hud_layout preview info bar starts at the bag well and takes the middle span")
+	ok(default_board_box.custom_minimum_size.x >= (1080.0 * 0.26) * 0.85, \
 		"hud_layout preview board fills most of the width")
-	var currency_boxes := _controls_with_label(default_hud_preview, "%d%%" % int(view._params["hud_layout"].get("currency_pill_w_pct", 25)))
-	ok(currency_boxes.size() >= 3 \
-		and default_quest_box.position.y >= (currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y - 0.5, \
-		"hud_layout preview quest bar clears the currency pills")
+	# the wallet pills are CENTRED in the currency band and the quest clears them (board is height-capped)
+	var pill_boxes := _controls_with_label(default_hud_preview, "pill")
+	ok(pill_boxes.size() >= 3 \
+		and default_quest_box.position.y >= (pill_boxes[0] as Control).position.y + (pill_boxes[0] as Control).custom_minimum_size.y - 0.5, \
+		"hud_layout preview quest bar clears the centred currency pills")
 
 	# sidebar: the live height sliders remain; the retired position + board-height sliders are gone.
 	view._selected = "hud_layout"
