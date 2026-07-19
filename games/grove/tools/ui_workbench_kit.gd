@@ -2358,9 +2358,11 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the mock's tinted drop-shadow — circular, short and soft (#294654 ~19%),
-	# slightly inset so the feather hugs the art's round face.
-	var sh := _meadow_shadow_circle(size * 0.92)
+	# the coral disc casts the mock's TIGHT shadow — a small, soft, short down-right cast that HUGS the
+	# disc, not the app's full-size shared box-shadow (too heavy on a ~64px disc: it read as a dark halo).
+	# A negative spread pulls the footprint inside the disc, with a small feather + low alpha + a short
+	# offset, matching the compact coral ✕ in every dialog mock. Same slate tint as the shared shadow.
+	var sh := Look.shadow(size * 0.5, size * 0.03, size * 0.055, size * 0.09, -size * 0.07, 0.24)
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)
