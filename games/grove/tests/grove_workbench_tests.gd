@@ -888,14 +888,28 @@ func _initialize() -> void:
 	ok(board_paper != null and board_paper.texture != null \
 		and String(board_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_structural_slate.png"), \
 		"the board slab uses a darker teal paper tone so its gutters stay distinct from the locked cells")
-	var live_tray_style := (board_scene.bottom_bar as PanelContainer).get_theme_stylebox("panel") if board_scene.bottom_bar != null else null
-	var live_tray_paper := board_scene.bottom_bar.find_child("ActionBarPaperSurface", true, false) as TextureRect if board_scene.bottom_bar != null else null
+	# the painted cream tray is the CENTRE info tray only — the Home and Bag tiles stand outside it.
+	var live_tray := board_scene.bottom_bar.find_child("ActionBarInfoTray", true, false) as PanelContainer if board_scene.bottom_bar != null else null
+	var live_tray_style := live_tray.get_theme_stylebox("panel") if live_tray != null else null
+	var live_tray_paper := live_tray.find_child("ActionBarPaperSurface", true, false) as TextureRect if live_tray != null else null
 	ok(live_tray_style is StyleBoxFlat and live_tray_paper != null \
 		and not live_tray_paper.is_set_as_top_level() \
-		and board_scene.bottom_bar.get_global_rect().encloses(live_tray_paper.get_global_rect()) \
+		and live_tray.get_global_rect().encloses(live_tray_paper.get_global_rect()) \
 		and live_tray_paper.material is ShaderMaterial \
 		and String(live_tray_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png"), \
-		"board action tray contains one masked flat cream-paper texture inside its code-drawn shell")
+		"board info tray contains one masked flat cream-paper texture inside its code-drawn shell")
+	ok(board_scene.bottom_bar.get_theme_stylebox("panel") is StyleBoxEmpty, \
+		"the bottom-bar holder itself paints nothing — only the centre info tray wears the cream shell")
+	var live_home_rect: Rect2 = board_scene.home_btn.get_global_rect()
+	var live_bag_rect: Rect2 = board_scene.bag_btn.get_global_rect()
+	ok(live_tray != null \
+		and not live_tray.get_global_rect().intersects(live_home_rect) \
+		and not live_tray.get_global_rect().intersects(live_bag_rect) \
+		and live_home_rect.end.x <= live_tray.get_global_rect().position.x \
+		and live_bag_rect.position.x >= live_tray.get_global_rect().end.x, \
+		"the Home and Bag tiles sit OUTSIDE the info tray, one at each end of the bottom row")
+	ok(board_scene.bottom_bar.find_children("ActionBarSeparator*", "TextureRect", true, false).is_empty(), \
+		"no painted vertical dividers remain in the bottom bar")
 	ok(_is_reference_paper_shadow(_paper_shadow_style(board_scene.home_btn)) \
 		and _is_reference_paper_shadow(_paper_shadow_style(board_scene.bag_btn)), \
 		"board Home and Bag paper squares cast their own visible downward shadows")
@@ -1333,7 +1347,8 @@ func _test_new_knobs(view) -> void:
 		and (live_action_style as StyleBoxFlat).border_width_left > 0 \
 		and (live_action_style as StyleBoxFlat).shadow_size > 0,
 		"live action bar uses a code-drawn cream shell with one light edge and drop shadow")
-	var preview_action_style := (action_prev as PanelContainer).get_theme_stylebox("panel")
+	var preview_tray := action_prev.find_child("ActionBarPreviewInfoTray", true, false) as PanelContainer
+	var preview_action_style := preview_tray.get_theme_stylebox("panel") if preview_tray != null else null
 	var preview_action_paper := action_prev.find_child("ActionBarPaperSurface", true, false) as TextureRect
 	ok(preview_action_style is StyleBoxFlat and preview_action_paper != null \
 		and preview_action_paper.material is ShaderMaterial \
@@ -1346,9 +1361,12 @@ func _test_new_knobs(view) -> void:
 		and _paper_texture_path(preview_bag).ends_with("ui/meadow_v2/texture_supporting_purple.png"), \
 		"info-bar Workbench preview matches the live green Home and purple Bag roles")
 	ok(action_prev is PanelContainer \
-		and action_prev.find_child("ActionBarPreviewSeparatorHomeInfo", true, false) != null \
-		and action_prev.find_child("ActionBarPreviewSeparatorInfoBag", true, false) != null, \
-		"merged info_bar preview renders the shared tray with Home/Info/Bag separators")
+		and (action_prev as PanelContainer).get_theme_stylebox("panel") is StyleBoxEmpty \
+		and preview_tray != null and preview_info != null \
+		and preview_tray.is_ancestor_of(preview_info) \
+		and not preview_tray.is_ancestor_of(preview_home) and not preview_tray.is_ancestor_of(preview_bag) \
+		and action_prev.find_children("ActionBarPreviewSeparator*", "TextureRect", true, false).is_empty(), \
+		"merged info_bar preview stands Home/Bag outside a centre-only info tray, with no dividers")
 	ok(preview_home != null and preview_bag != null and preview_info != null \
 		and preview_home.get_index() < preview_info.get_index() \
 		and preview_info.get_index() < preview_bag.get_index() \
