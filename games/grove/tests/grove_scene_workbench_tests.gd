@@ -364,7 +364,9 @@ func _initialize() -> void:
 	var crop_entry: Dictionary = view.doc.placements[2]
 	crop_entry["image"] = "crop_art.png"
 	crop_entry["sourceCrop"] = [1, 1, 4, 4]
-	crop_entry["sourceCropFeatherBottom"] = 2
+	# JSON numbers deserialize as floats, even when authored as an integral value.
+	# The live workbench must honor the same crop-bottom feather as the compositor.
+	crop_entry["sourceCropFeatherBottom"] = 2.0
 	view._rebuild_stage()
 	var cropped_node: TextureRect = null
 	for c in view._layers.get_children():

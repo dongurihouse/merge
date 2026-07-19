@@ -246,7 +246,9 @@ func _placed_texture(rel: String, entry: Dictionary) -> Texture2D:
 		if left >= 0 and top >= 0 and width > 0 and height > 0 \
 			and left + width <= image.get_width() and top + height <= image.get_height():
 			image = image.get_region(Rect2i(left, top, width, height))
-	var feather_px := int(feather) if feather is int else 0
+	# JSON parses every number as a float. Round numeric values to the same whole-pixel
+	# contract used by placement geometry, while keeping invalid/negative values inert.
+	var feather_px := maxi(0, int(round(float(feather)))) if feather is int or feather is float else 0
 	if feather_px > 0 and feather_px <= image.get_height():
 		var start := image.get_height() - feather_px
 		for y in range(start, image.get_height()):
