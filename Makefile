@@ -14,14 +14,14 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/palette_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests games/grove/tests/grove_palette_routing_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_page_manifest_tests games/grove/tests/grove_maps_page_tests games/grove/tests/currency_pill_study_tests
+GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests games/grove/tests/grove_palette_routing_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_page_manifest_tests games/grove/tests/grove_maps_page_tests games/grove/tests/grove_zone_workbench_tests games/grove/tests/currency_pill_study_tests
 GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench zones home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
@@ -65,8 +65,8 @@ fx: ## watch the breaking-glass FX live, looping (a real window; close it to qui
 fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
 
-vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
-	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
+zones: ## draw a page's unlock zones over the real scene (a real window):  make zones
+	$(GODOT) --path $(PROJECT) res://games/tools/zone_workbench/ZoneWorkbench.tscn
 
 home-layers: ## review the modular cut-paper Home background and one-house checkpoint
 	$(GODOT) --path $(PROJECT) res://games/grove/tools/HomeLayerWorkbench.tscn
@@ -98,14 +98,10 @@ smoke: ## scene smoke test (instantiates the UI + board)
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
 
-bake: bake-textures bake-vine   ## pre-bake every runtime art cache: kit texture polish + vine region maps
+bake: bake-textures   ## pre-bake every runtime art cache: kit texture polish
 
 bake-textures: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_textures.gd
-	$(GODOT) --headless --path $(PROJECT) --import
-
-bake-vine: ## pre-bake the warped vine region-index maps (auto-discovered from every vine map) so the first home render skips the ~1.1s raster
-	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_vine_region_maps.gd
 	$(GODOT) --headless --path $(PROJECT) --import
 
 intake: ## apply intake plans in assets/_new/ (agent authors plan.json first): make intake [PLAN=path]

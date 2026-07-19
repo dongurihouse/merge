@@ -116,10 +116,6 @@ static func mount(host: Control) -> void:
 		_action(menu, host, "+1 resident", _act_add_resident)
 	_weather_action(menu, host)
 	_action(menu, host, "-25 water", _act_reduce_water)
-	if host.has_method("debug_cycle_vine_fx"):
-		_action(menu, host, "Vine FX mode", _act_vine_fx_mode)
-	if host.has_method("debug_vine_diag"):
-		_action(menu, host, "Vine diag", _act_vine_diag)
 	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
 		_action(menu, host, "Drop coin", _act_drop_coin)
 	if host.has_method("debug_drop_acorn"):      # board-only: spawn an acorn to exercise premium collectables
@@ -348,11 +344,3 @@ static func _act_weather(host: Control) -> void:
 	Ambient.debug_cycle_weather()
 	if host.has_method("debug_refresh_weather"):
 		host.call("debug_refresh_weather")
-
-static func _act_vine_fx_mode(host: Control) -> void:
-	if host.has_method("debug_cycle_vine_fx"):
-		host.call("debug_cycle_vine_fx")
-
-static func _act_vine_diag(host: Control) -> void:
-	if host.has_method("debug_vine_diag"):
-		host.call("debug_vine_diag")

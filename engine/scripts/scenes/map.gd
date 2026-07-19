@@ -56,13 +56,10 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/home/zone_farmhouse.json"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
-const ZONE_LEVEL_BADGE_NODE := "ZoneLevelBadge"
 
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
 # is semi-transparent; the shards are captured at this crisper alpha so the break reads clearly.
 const SHATTER_VEIL_ALPHA := 0.72
-const VINE_DIAG_PREFIX := "VINE_DIAG "
-const VINE_DEBUG_MODES := ["all", "no_lock", "lock_only", "vines_only", "off"]
 
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
 # consumes it and opens that map BEFORE the first draw — no map-select flash.
@@ -150,7 +147,6 @@ var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
-var _vine_debug_mode_idx := 0
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
 # this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
@@ -401,7 +397,7 @@ func _debug_resident_line() -> String:
 
 # THE home render path (build-and-upgrade redesign, spec 2026-07-17): one evolving home world of
 # coin-built, level-gated buildings rendered through the layered cut-paper pipeline. The old §16
-# mask-reveal + per-spot claim machinery (_build_map_base / _seat_spots / _make_spot / vines) is
+# mask-reveal + per-spot claim machinery (_build_map_base / _seat_spots / _make_spot) is
 # retired. HomeZoneView draws the foundation + one painter-sorted prop per building (its current
 # build state) + a coin/level BADGE over each unbuilt plot; build badges register into spot_hits so
 # the shared _map_tap resolves a tap to _on_build_tap.
@@ -501,91 +497,15 @@ func _habitat_members(z: int) -> Array:
 # cutout sprite/ghost via _make_spot. Either way the hit lands in content + spot_hits.
 func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
 	var has_home := not home.is_empty()
-	var is_vine := typeof(G.MAPS[z].get("vine", null)) == TYPE_DICTIONARY
 	var by_id := _home_buildings(home) if has_home else {}
-	# For a vine map, the READY-to-claim region gets a hit that covers its WHOLE zone (its polygon bounding
-	# box) instead of the small centroid disc, so a tap anywhere on the highlighted zone restores it.
-	var vregions: Array = []
-	var visize := Vector2.ONE
-	var ready_k := -1
-	if is_vine:
-		var Grove := load("res://games/grove/vine/vine_maps.gd")
-		var vine = G.MAPS[z].get("vine", null)
-		vregions = Grove.regions_for(vine)
-		visize = Grove.image_size_for(vine)
-		var nxt := G.map_next_unlock(z, unlocks)
-		if int(nxt.k) != -1 and Save.exp_total() >= int(nxt.exp):
-			ready_k = int(nxt.k)
 	for k in G.MAPS[z].spots.size():
 		var hit: Control
-		if is_vine:
-			hit = _build_vine_spot(z, k, ready_k, vregions, visize)
-		elif has_home:
+		if has_home:
 			hit = _build_home_spot(z, k, home, frame, by_id)
 		else:
 			hit = _make_spot(z, k, _map_rect)
 		content.add_child(hit)
 		spot_hits.append({"node": hit, "z": z, "k": k})
-
-# A vine map's per-region affordance: unowned -> a tap target that routes the restore via spot_hits;
-# owned -> an inert marker (keeps spot_hits index-aligned). The READY spot (k == ready_k) takes a
-# full-zone hit so tapping anywhere on the lit zone claims it; other zones keep the compact centroid disc.
-func _build_vine_spot(z: int, k: int, ready_k: int = -1, regions: Array = [], isize: Vector2 = Vector2.ONE) -> Control:
-	var spot: Dictionary = G.MAPS[z].spots[k]
-	# adapt the spot's Vector2 pos to the home-building dict's [x, y] list form that _home_badge reads.
-	var b := {"pos": [float(spot.pos.x), float(spot.pos.y)]}
-	if spot_owned(String(spot.id)):
-		return _home_owned_item(z, k, b)
-	if k == ready_k and k < regions.size():
-		var zone := _region_zone_hit(regions[k], isize)
-		if zone != null:
-			return zone
-	var hit := _home_badge(z, k, b)
-	_add_zone_level_badge_if_locked(hit, z, k)
-	return hit
-
-# A tap surface covering a vine region's whole zone: the polygon's bounding box, normalized by the
-# region image size and mapped into the live map rect. Returns null when the region carries no polygon
-# (the caller then falls back to the centroid disc). Mouse-ignored — the central router resolves the tap.
-func _region_zone_hit(region, isize: Vector2) -> Control:
-	if not (region is Dictionary):
-		return null
-	var pts: Array = (region as Dictionary).get("points", [])
-	var mn := Vector2(INF, INF)
-	var mx := Vector2(-INF, -INF)
-	for p in pts:
-		if p is Array and (p as Array).size() >= 2:
-			var v := Vector2(clampf(float(p[0]) / isize.x, 0.0, 1.0), clampf(float(p[1]) / isize.y, 0.0, 1.0))
-			mn = mn.min(v); mx = mx.max(v)
-	if mn.x > mx.x:
-		return null
-	var tl := _map_rect.position + mn * _map_rect.size
-	var br := _map_rect.position + mx * _map_rect.size
-	var node := Control.new()
-	node.position = tl
-	node.size = br - tl
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return node
-
-func _add_zone_level_badge_if_locked(node: Control, z: int, k: int) -> void:
-	var need_level := G.spot_unlock_level(z, k)
-	if G.level_for_exp(Save.exp_total()) >= need_level:
-		return
-	node.add_child(_zone_level_badge(need_level, node.size))
-
-func _zone_level_badge(level: int, host_size: Vector2) -> Control:
-	var px := clampf(_map_rect.size.x * 0.102, 80.0, 112.0)   # larger locked-zone badge → a bigger level number
-	var wrap := Control.new()
-	wrap.name = ZONE_LEVEL_BADGE_NODE
-	wrap.size = Vector2(px, px)
-	wrap.custom_minimum_size = wrap.size
-	wrap.position = ((host_size - wrap.size) * 0.5).floor()
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.z_index = 6
-	var badge := Look.make_level_badge(level, px)
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(badge)
-	return wrap
 
 # --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
 
@@ -602,49 +522,6 @@ var _home_mask: Shader
 # flat fallback panel. Returns the clipped frame the §16 reveals attach to (null for the panel — only a
 # §16 home needs it). `home` is {} for a map that ships no §16 home art.
 func _build_map_base(z: int, home: Dictionary) -> Control:
-	var vine = G.MAPS[z].get("vine", null)
-	if typeof(vine) == TYPE_DICTIONARY:
-		var vframe := _clip_frame()
-		_add_cover_layer(vframe, String(vine.get("base", "")))      # clean base (e.g. map1.png)
-		var Grove := load("res://games/grove/vine/vine_maps.gd")
-		var regions: Array = Grove.regions_for(vine)
-		# A registered map whose regions aren't authored yet shows its CLEAN base only — skip the overlay.
-		# (VineMapView forces region_count to max(1), so a zero-region view would paint vines across the
-		# whole mask, i.e. fully overgrown — the opposite of "clean base art".) The overlay appears once
-		# the tool authors regions for this map.
-		if regions.is_empty():
-			return vframe
-		var VineView := load("res://games/grove/vine/vine_map_view.gd")
-		var view: Control = VineView.new()
-		view.name = "VineMapView"
-		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var mask_offset: Vector2 = Grove.mask_offset_for(vine)
-		view.mask_offset = mask_offset
-		view.load_map(vine, regions)                                # sets size to image_size (for the tool's use)
-		# the game seats the view full-rect over the clip frame; clear the image-size hint so the frame
-		# (not the image) drives geometry — base cover layer + vine overlays then fill the SAME frame.
-		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		view.custom_minimum_size = Vector2.ZERO
-		# owned regions show clean (vines off); unowned show vines.
-		for i in range(view.region_count()):
-			var sid := "%s_r%d" % [String(G.MAPS[z].id), i]
-			view.set_region_enabled(i, not spot_owned(sid))
-		# the spot that's READY to claim (enough exp banked) is lit hotter than the other locked zones —
-		# a stronger glow halo + denser, brighter vines — so the eye lands on the one you can restore now.
-		var ready := G.map_next_unlock(z, unlocks)
-		if int(ready.k) != -1 and Save.exp_total() >= int(ready.exp) and int(ready.k) < view.region_count():
-			var rk := int(ready.k)
-			view.write_shader_value("glow", "opacity", 0.6, rk)          # default 0.28 — a stronger highlight halo
-			view.write_shader_value("glow", "glow_strength", 2.3, rk)    # default 1.15 — brighter
-			view.write_shader_value("vines", "opacity", 0.9, rk)         # default 0.48 — denser vines
-			view.write_shader_value("vines", "glow_strength", 1.1, rk)   # default 0.42 — hotter vine cores
-			view.set_region_lock_alpha(rk, 0.75)                         # default 0.34 — the claimable zone's overall purple shape reads as a near-SOLID pane ready to shatter (75% — far more opaque than a locked zone), not a faded film
-		vframe.add_child(view)
-		view.set_mask_offset(mask_offset)
-		_apply_vine_debug_mode(view)
-		if _vine_diag_enabled():
-			_print_vine_diag.call_deferred("map_open")
-		return vframe
 	var broken := String(home.get("broken", ""))
 	if broken != "":
 		var frame := _clip_frame()
@@ -729,9 +606,9 @@ func _add_fill_layer(frame: Control, path: String) -> TextureRect:
 # Rendered mouse-IGNORE to keep the map's single-input-surface invariant: the tap routes centrally via
 # _map_tap → spot_hits → _on_spot_tap (the buy), exactly as the baked badge did. Kit missing → that fallback.
 func _home_badge(z: int, k: int, b) -> Control:
-	# The unowned-spot hit is now a transparent, mouse-ignored marker at the spot centroid. The
-	# "locked" read is the region veil (VineMapView); restoring is driven by the SINGLE bottom
-	# Unlock button (no per-spot cost disc any more). Kept as a sized hit so spot_hits stays
+	# The unowned-spot hit is now a transparent, mouse-ignored marker at the spot centroid;
+	# restoring is driven by the SINGLE bottom Unlock button
+	# (no per-spot cost disc any more). Kept as a sized hit so spot_hits stays
 	# index-aligned and the central router can still route a tap to _on_spot_tap.
 	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
 	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
@@ -766,89 +643,6 @@ func _read_json_file(path: String):
 	if path == "" or not FileAccess.file_exists(path):
 		return null
 	return JSON.parse_string(FileAccess.get_file_as_string(path))
-
-func debug_cycle_vine_fx() -> void:
-	_vine_debug_mode_idx = (_vine_debug_mode_idx + 1) % VINE_DEBUG_MODES.size()
-	var view := _active_vine_view()
-	_apply_vine_debug_mode(view)
-	_print_vine_diag("cycle")
-
-func debug_vine_diag() -> void:
-	_print_vine_diag("manual")
-
-func _active_vine_view() -> Control:
-	if content == null:
-		return null
-	return content.find_child("VineMapView", true, false) as Control
-
-func _apply_vine_debug_mode(view: Control) -> void:
-	if view == null or not view.has_method("set_debug_layer_mode"):
-		return
-	view.call("set_debug_layer_mode", String(VINE_DEBUG_MODES[_vine_debug_mode_idx]))
-
-func _vine_diag_enabled() -> bool:
-	if DisplayServer.get_name() == "headless":
-		return false
-	if OS.get_environment("TU_VINE_DIAG") == "1":
-		return true
-	return OS.has_feature("mobile") and OS.is_debug_build()
-
-func _print_vine_diag(reason: String) -> void:
-	var view := _active_vine_view()
-	if view == null:
-		print(VINE_DIAG_PREFIX + JSON.stringify({"reason": reason, "vine_view": false}))
-		return
-	print(VINE_DIAG_PREFIX + JSON.stringify(_vine_diag_payload(view, reason)))
-
-func _vine_diag_payload(view: Control, reason: String) -> Dictionary:
-	var vp := get_viewport_rect().size
-	var win := DisplayServer.window_get_size()
-	var ready := G.map_next_unlock(_map_idx, unlocks)
-	var vine_summary := {}
-	if view.has_method("diagnostic_summary"):
-		vine_summary = view.call("diagnostic_summary")
-	return {
-		"reason": reason,
-		"os": OS.get_name(),
-		"display": DisplayServer.get_name(),
-		"features": {
-			"mobile": OS.has_feature("mobile"),
-			"ios": OS.has_feature("ios"),
-			"debug": OS.is_debug_build(),
-		},
-		"window": [win.x, win.y],
-		"viewport": [roundi(vp.x), roundi(vp.y)],
-		"map": {
-			"index": _map_idx,
-			"id": String(G.MAPS[_map_idx].id),
-			"rect": _rect_diag(_map_rect),
-			"art_rect": _rect_diag(_map_art_rect),
-			"base_exists": _vine_base_exists(_map_idx),
-		},
-		"progress": {
-			"exp": Save.exp_total(),
-			"level": G.level_for_exp(Save.exp_total()),
-			"ready_k": int(ready.k),
-			"ready_exp": int(ready.exp),
-			"owned_count": owned_count(_map_idx),
-			"spot_count": G.MAPS[_map_idx].spots.size(),
-		},
-		"wallet": {
-			"water": Save.water(),
-			"coins": Save.coins(),
-			"diamonds": Save.diamonds(),
-		},
-		"vine": vine_summary,
-	}
-
-func _vine_base_exists(z: int) -> bool:
-	var vine = G.MAPS[z].get("vine", null)
-	if typeof(vine) != TYPE_DICTIONARY:
-		return false
-	return ResourceLoader.exists(String((vine as Dictionary).get("base", "")))
-
-func _rect_diag(rect: Rect2) -> Array:
-	return [roundi(rect.position.x), roundi(rect.position.y), roundi(rect.size.x), roundi(rect.size.y)]
 
 # The available area below the HUD and above the bottom chrome; the map image COVER-FILLS the full
 # viewport at the design aspect, centered.
@@ -1116,7 +910,7 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	if opts.is_empty():     # standalone callers (no _build_select context) resolve the saved look themselves
 		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	var open := map_unlocked(z)
-	# One zone per vine region — the badge reports honest restore progress over every region (owned/total),
+	# One zone per map spot — the badge reports honest restore progress over every zone (owned/total),
 	# and a map is "done" only when all of them are restored (map_spots_done). No phantom base-region offset.
 	var total_zones: int = G.MAPS[z].spots.size()
 	var d := {

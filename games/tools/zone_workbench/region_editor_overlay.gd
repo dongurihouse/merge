@@ -11,7 +11,7 @@ const CLOSE_RADIUS := 20.0   # a draw click this close to the first vertex close
 const BUTTON_RADIUS := 11.0  # the unlock-disc marker (gold), drawn bigger + distinct from vertex handles
 const BUTTON_HIT_RADIUS := 18.0
 
-var image_size := Vector2(941.0, 1672.0)
+var image_size := Vector2(1320.0, 2346.0)
 var regions: Array = []
 var edit_enabled := false
 var selected_region := 0

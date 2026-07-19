@@ -5,8 +5,8 @@ extends RefCounted
 ## adding it here bakes it (bake_targets iterates BAKE_ICONS) AND map.gd renders it from the same name — no
 ## second list to drift out of sync.
 ##
-## The backstop if something is added to map.gd but NOT here: grove_vine_tests._test_boot_does_zero_live_work
-## builds the real home and fails loudly, naming any sprite that polished live on boot because it wasn't baked.
+## If something is added to map.gd but NOT here, its sprite polishes live on boot instead of loading
+## from the bake — watch for the live-polish log line when adding chrome.
 
 # Named ids the renderer references at its specific call sites (keeps map.gd's chrome builders literal-free).
 const ICON_MAP := "map"             # bottom-nav Map badge → the place-picker
