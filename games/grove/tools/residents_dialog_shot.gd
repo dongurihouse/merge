@@ -74,7 +74,7 @@ func _initialize() -> void:
 	if drag_src != null and drag_dst != null:
 		var a := drag_src.get_global_rect().get_center()
 		var b := drag_dst.get_global_rect().get_center()
-			var down := InputEventMouseButton.new()
+		var down := InputEventMouseButton.new()
 		down.button_index = MOUSE_BUTTON_LEFT; down.pressed = true; down.position = a
 		get_root().push_input(down, true)
 		for i in 6:
