@@ -176,7 +176,7 @@ func _initialize() -> void:
 	root.add_child(view)
 	if view._cluster_box == null:
 		view._ready()                                  # _ready does not auto-fire under _initialize (suite convention)
-	ok(view.find_child("SceneDropdown", true, false) != null
+	ok(view.find_child("SceneIcons", true, false) != null
 		and view._cluster_box != null,
 		"the lean sidebar is dropdown + save + clusters only (no placed list, no palette)")
 	var crow_box: Node = view._cluster_box.get_child(0)
@@ -380,7 +380,7 @@ func _initialize() -> void:
 		view._rebuild_stage()
 
 	# --- the scene dropdown + in-place switching (unsaved edits auto-save first) ------
-	ok(view.find_child("SceneDropdown", true, false) != null, "the sidebar carries the scene dropdown")
+	ok(view.find_child("SceneIcons", true, false) != null, "the sidebar carries the scene icon row")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},

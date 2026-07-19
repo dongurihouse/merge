@@ -536,6 +536,11 @@ func _rebuild_ref_panel() -> void:
 	_build_ref_panel()
 	_layout()
 
+## A scene's face for the sidebar icon row — its FIRST reference image (concept mock first).
+func _scene_icon(scene: String) -> Texture2D:
+	var refs := M.reference_images(_scenes_root, M.bundle_for(_scenes_root, scene), scene)
+	return _thumb_for_abs(String(refs[0])) if not refs.is_empty() else null
+
 ## A strip thumbnail from an ABSOLUTE path (the shared _thumb cache, repo-relative helper below).
 func _thumb_for_abs(abs: String) -> Texture2D:
 	if _thumb.has(abs):
@@ -572,19 +577,26 @@ func _build_sidebar() -> void:
 	col.add_theme_constant_override("separation", 8)
 	scroll.add_child(col)
 
-	# the SCENE dropdown — every openable bundle under the root; picking one switches in place
+	# the SCENE icon row — one thumbnail per openable bundle; picking one switches in place
 	var scenes := M.scenes_in(_scenes_root)
-	var dd := OptionButton.new()
-	dd.name = "SceneDropdown"
-	dd.focus_mode = Control.FOCUS_NONE
+	var srow := HBoxContainer.new()
+	srow.name = "SceneIcons"
+	srow.add_theme_constant_override("separation", 4)
 	for i in scenes.size():
-		dd.add_item(String(scenes[i]), i)
-		if String(scenes[i]) == scene_name:
-			dd.select(i)
-	dd.item_selected.connect(func(i: int) -> void:
-		if String(scenes[i]) != scene_name:
-			_switch_scene.call_deferred(String(scenes[i])))   # deferred — the dropdown lives in the sidebar being rebuilt
-	col.add_child(dd)
+		var sc := String(scenes[i])
+		var b := Button.new()
+		b.name = "SceneIcon_" + sc
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = sc
+		b.icon = _scene_icon(sc)
+		b.add_theme_constant_override("icon_max_width", 54)
+		b.modulate = Color(1, 1, 1, 1.0 if sc == scene_name else 0.5)
+		b.pressed.connect(func() -> void:
+			if sc != scene_name:
+				_switch_scene.call_deferred(sc))       # deferred — the row lives in the sidebar being rebuilt
+		srow.add_child(b)
+	col.add_child(srow)
+	col.add_child(_label(scene_name, FS.TINY, true))
 
 	_save_btn = Button.new()
 	_save_btn.focus_mode = Control.FOCUS_NONE          # keys stay on the stage (arrows nudge, not focus-walk)

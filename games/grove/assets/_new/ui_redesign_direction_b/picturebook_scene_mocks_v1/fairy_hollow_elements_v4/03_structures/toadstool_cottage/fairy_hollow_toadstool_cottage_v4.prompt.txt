@@ -1,0 +1,29 @@
+Use case: stylized-concept
+Asset type: standalone shadow-free world-object sprite
+Input images:
+- Image 1: exact Fairy Hollow source authority for cottage identity, proportions, camera, and intended scene scale.
+- Image 2: accepted clean foundation authority for the matching elevated three-quarter camera and empty placement surface.
+- Image 3: mandatory Meadow Sky palette and matte Cut-Paper material authority only; do not copy its UI.
+- Image 4: mandatory camera pitch, common object scale, silhouette simplicity, and detail-budget authority only; do not copy farm content.
+Primary request: generate one complete freestanding toadstool cottage matching the source: warm-cream rounded stem house, large coral-red mushroom cap with a few cream spots, cream chimney, teal-blue rounded door and windows, small flower box, and complete wooden entry steps.
+Composition: one centered complete cottage, elevated three-quarter view, center-bottom anchor, generous flat-key gutter on every side. Preserve the source's broad cap silhouette and readable door-facing orientation. The full chimney, cap, wall, door, windows, flower box, and all steps must be visible and connected.
+Shadow/base rule: color sprite only. No cast shadow, contact shadow, dark bottom smear, grass skirt, turf plate, scenic base, flower ring, path, stones, water, or detached ground dressing.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Palette: warm cream #F6EBDD, coral #D87865, structural slate #3F6D7D, ink #243B4B, garden green #5F9B6D, reward gold #D6A94C, rare purple #8677A3 only as a tiny flower accent.
+Background: perfectly uniform solid #FF00FF, with no gradient, texture, shadow, glow, reflection, floor plane, or lighting variation. Do not use #FF00FF in the subject. Output one asset only.
+
+Accepted corrective edit prompt:
+Use case: precise-object-edit
+Edit target: the visible generated toadstool cottage on magenta.
+Primary request: preserve the cottage exactly, but remove every detached or ground-contact decoration that is not part of the building. Remove all leafy bushes, flowers, fence, hanging lantern, bell, hooks, ropes, and any ground shadow. Keep only the complete cream stem house, coral spotted mushroom cap, chimney, windows, flower box attached directly beneath the window, teal door, and complete wooden entry steps.
+Reconstruct clean complete building edges and clean lower wall/step edges wherever vegetation was removed. The final bottom silhouette ends at the building wall and wooden steps, never in foliage or a grass skirt.
+Replace the entire background with perfectly flat uniform solid #FF00FF. No gradient, texture, floor plane, shadow, glow, reflection, or lighting variation. No cast shadow or contact shadow anywhere.
+This is one isolated assembled building asset, not a sheet, catalog, component breakdown, or scene. No text, watermark, or additional objects.

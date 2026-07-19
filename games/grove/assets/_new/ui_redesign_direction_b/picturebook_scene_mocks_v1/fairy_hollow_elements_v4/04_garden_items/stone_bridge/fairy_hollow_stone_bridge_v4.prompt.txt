@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: standalone wide shadow-free bridge sprite
+Input roles: Image 1 exact Fairy Hollow bridge identity/camera/scale; Image 2 accepted foundation creek/camera authority; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: one complete compact arched pedestrian stone bridge matching the source, built from a few broad warm-cream and structural-slate cut-paper masonry shapes, with a readable shallow arch opening and complete left and right ends. Elevated three-quarter camera aligned to span the source creek. Wide independent silhouette, center-bottom anchor, generous key gutter.
+No water, creek bank, grass, turf plate, moss skirt, flower ring, scenic base, path extension, cast/contact shadow, dark underside smear beyond the structural arch interior, railings, characters, text, or unrelated props.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only, with no gradient, texture, floor, shadow, glow, reflection, or lighting variation. Do not use #FF00FF in the bridge. One asset only.
+Critical output format: one isolated assembled bridge only, not a scene, sheet, catalog, or variant set. Preserve only the bridge from Image 1 and omit all creek water, banks, foliage, flowers, path stones, ground, and shadows. Flat #FF00FF only behind and through the arch.

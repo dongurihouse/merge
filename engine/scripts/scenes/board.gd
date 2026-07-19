@@ -198,6 +198,7 @@ var level_label: Label            # S10: the shared Lv chip, wired in BOTH scene
 var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
+var _open_shop: Callable = Callable()   # opens the acorn (premium) stall — the bag's short-of-acorns prompt
 var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
 var bottom_bar: Control          # the board bottom bar row (Home · info bar · Bag+count)
 var _action_bar_relayout_queued := false
@@ -817,6 +818,7 @@ func _build_hud() -> void:
 	_water_icon = hud.water_icon
 	_water_pill = hud.water_pill     # the whole Water pill panel — breathes while the can is empty (below)
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
+	_open_shop = hud.open_shop       # the acorn stall — where the bag sends a player who is short
 	_hud_refresh = hud.refresh       # tick the wallet + fire on_refresh (re-sync the live water cache from Save)
 	_update_hud()
 
@@ -2176,6 +2178,10 @@ func _open_bag_overlay() -> void:
 		"prices": G.BAG_SLOT_PRICES,              # the per-expansion 💎 price ladder
 		"on_retrieve": func(i: int) -> void: _retrieve_to_first_empty(i),
 		"on_buy_slot": _buy_bag_slot,
+		"on_open_shop": func() -> void:
+			if _open_shop.is_valid():
+				_open_shop.call(),
+		"on_balance": func() -> int: return Save.diamonds(),
 		"gen_bag": board.gen_bag,
 		"gen_bag_tiers": board.gen_bag_tiers,
 		"on_place_gen": func(id: String) -> void:
@@ -3285,20 +3291,19 @@ func _stash(from: Vector2i, node: Control) -> void:
 		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, FS.BODY)
 	_refresh_giver_lights()
 
-# §5 expansion: buy ONE more slot with 💎 at the schedule price, then regrow the bar. A refusal
-# (broke or already maxed) just wobbles — convenience, never a wall (§4/§5).
-func _buy_bag_slot() -> void:
+# §5 expansion: buy ONE more slot with 💎 at the schedule price, then regrow the bar. Returns whether
+# the slot was bought — a refusal (broke) is answered by the bag overlay's shop prompt, not here; the
+# bag button is behind that modal, so there is nothing to wobble. Convenience, never a wall (§4/§5).
+func _buy_bag_slot() -> bool:
 	var price := G.next_bag_slot_price(Save.bag_slots())
-	if price > 0 and Save.buy_bag_slot(price):
-		Audio.play("level_complete", -4.0, 1.2)
-		if bag_btn != null and is_instance_valid(bag_btn):
-			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.bag_plus_one"), STRAW)
-		_build_bag_bar()              # one more owned slot → refresh the bag well
-		_update_hud()
-	else:
-		if bag_btn != null and is_instance_valid(bag_btn):
-			FX.wobble(bag_btn)
-		Audio.play("invalid_soft", -4.0)
+	if price <= 0 or not Save.buy_bag_slot(price):
+		return false
+	Audio.play("level_complete", -4.0, 1.2)
+	if bag_btn != null and is_instance_valid(bag_btn):
+		FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.bag_plus_one"), STRAW)
+	_build_bag_bar()              # one more owned slot → refresh the bag well
+	_update_hud()
+	return true
 
 # §5 drag-back retrieve (the model half — also the headless-test seam): drop bagged item `i`
 # onto board `cell`. The cell must be empty ground; returns whether it was placed.

@@ -1,6 +1,0 @@
-Use case: stylized-concept.
-Asset type: two separate reusable world object sprites on one source sheet.
-Input images: original Desert Oasis mock for palm silhouette/camera/scale; Meadow Sky palette/material board; Meadow Sky farm camera/detail board.
-Primary request: generate two distinct full palms separated by a broad #FF00FF gutter: left is a short broad palm like the original left-edge palm; right is a taller vertical foreground palm like the original lower-right palm, complete and uncropped. Use chunky green fronds and segmented brown trunks, with two or three broad leaf masses.
-Style: Meadow Sky + Cut-Paper Playground: friendly matte hand-cut cardstock; broad, rounded low-complexity silhouette; two or three dominant masses; flat base colors with one same-hue shadow plane; subtle paper fiber; fine warm cut edge; no painterly, clay, glossy 3D, sticker outline, or heavy black outline.
-Output: perfectly flat #FF00FF chroma-key background only, generous padding, no ground/sand/rocks/vegetation skirt/scene/text/watermark, and no cast/contact shadow.

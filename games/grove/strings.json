@@ -2,7 +2,14 @@
 	"bag": {
 		"banner_text": "Bag",
 		"caption": "Open a slot with acorns.",
-		"generators": "Generators"
+		"generators": "Generators",
+		"need_more": {
+			"ribbon": "Not enough acorns",
+			"body": "You need %d more acorns to open this slot.",
+			"body_one": "You need %d more acorn to open this slot.",
+			"shop": "Go to shop",
+			"later": "Not now"
+		}
 	},
 	"board": {
 		"double": {

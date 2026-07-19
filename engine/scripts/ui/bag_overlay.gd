@@ -23,7 +23,11 @@ extends RefCounted
 ##     start_slots: int,      # the starting slot count (G.BAG_START_SLOTS) — prices index from here
 ##     prices: Array,         # the per-expansion 💎 price ladder (G.BAG_SLOT_PRICES)
 ##     on_retrieve: Callable, # (index: int) -> a filled slot was tapped: pull the piece back out
-##     on_buy_slot: Callable, # () -> the next (gold) tile was tapped: buy the next slot
+##     on_buy_slot: Callable, # () -> bool: the next (gold) tile was tapped: buy the next slot. FALSE
+##                            #   (short of acorns) keeps the bag open + raises the shop prompt.
+##     on_open_shop: Callable,# (optional) () -> the shop-prompt's button: open the acorn shop
+##     on_balance: Callable,  # (optional) () -> int: the LIVE acorn balance (the shortfall is read
+##                            #   through this, since `balance` above is only an open-time snapshot)
 ##     gen_bag: Array,        # (optional) stored generator ids — a row below the grid (game-only)
 ##     gen_bag_tiers: Array,  # (optional) tiers parallel to gen_bag
 ##     on_place_gen: Callable,# (optional) (id: String) -> a generator tile was tapped: place it
@@ -40,6 +44,9 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the shared ui kit (frame · cell · pill)
 const OVERLAY_NAME := "BagOverlay"
+const NEED_MORE_NAME := "BagNeedMorePrompt"     ## the short-of-acorns prompt raised over an open bag
+const Look = preload("res://engine/scripts/ui/skin.gd")
+const Audio = preload("res://engine/scripts/core/audio.gd")
 
 const INK = Pal.INK
 
@@ -85,6 +92,8 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var on_retrieve: Callable = cfg.get("on_retrieve", Callable())
 	var on_buy_slot: Callable = cfg.get("on_buy_slot", Callable())
 	var on_close: Callable = cfg.get("on_close", Callable())
+	var on_open_shop: Callable = cfg.get("on_open_shop", Callable())
+	var on_balance: Callable = cfg.get("on_balance", Callable())
 	var gen_bag: Array = cfg.get("gen_bag", [])
 	var gen_bag_tiers: Array = cfg.get("gen_bag_tiers", [])
 	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
@@ -157,12 +166,26 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 			"next":
 				# the next slot is the ONLY tile showing a price, and it wears no highlight — the
 				# lone acorn cost in the ladder is the cue.
-				d["cost"] = int(e.price)
+				var price: int = int(e.price)
+				d["cost"] = price
 				d["no_highlight"] = true
 				d["on_tap"] = func() -> void:
+					# on_buy_slot reports whether the slot was actually bought (a legacy void callback
+					# reads as bought). Below the cap a refusal only ever means "you're short", so keep
+					# the bag open and offer the shop instead of silently dismissing.
+					var bought := true
 					if on_buy_slot.is_valid():
-						on_buy_slot.call()
-					dismiss.call()
+						var res: Variant = on_buy_slot.call()
+						bought = res == null or bool(res)
+					if bought:
+						dismiss.call()
+					else:
+						# read the balance FRESH (the one passed to open() is a snapshot that can have
+						# moved since — a quest payout, a sold item), so the shortfall is true.
+						var have := balance
+						if on_balance.is_valid():
+							have = int(on_balance.call())
+						_need_more(host, price - have, on_open_shop, dismiss)
 		entries.append(d)
 
 	# the generators section (game-only — no analogue in bag.png), inserted below the grid by the kit.
@@ -175,6 +198,64 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var dialog: Control = Kit.bag_dialog(entries, balance, width, opts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
+	return overlay
+
+# The short-of-acorns prompt — raised OVER the open bag when the next slot's buy is refused, so the
+# tap explains itself instead of just dismissing the bag. "Not now" closes only this card (the bag is
+# still there, unchanged); the shop button closes both and hands off to `on_open_shop`.
+static func _need_more(host: Control, short: int, on_open_shop: Callable, dismiss_bag: Callable) -> Control:
+	Audio.play("invalid_soft", -4.0)
+	var Kit: GDScript = load(KIT_PATH)
+	var plain: Font = Kit.plain_font() if Kit != null else null
+	var overlay := Control.new()
+	overlay.name = NEED_MORE_NAME
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = Overlay.MODAL_TOP_Z          # one notch above the bag it explains
+	host.add_child(overlay)
+	var veil := ColorRect.new()
+	veil.color = Color(INK, 0.5)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	# the veil dismisses THIS card only — the bag underneath stays open (a dead end would strand the tap).
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			overlay.queue_free())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	cc.add_child(card)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(col)
+	var ribbon := Look.title_ribbon(Strings.t("bag.need_more.ribbon"), FS.SUBHEADING)
+	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(ribbon)
+	var body := Label.new()
+	var n: int = max(short, 0)
+	body.text = Strings.t("bag.need_more.body_one" if n == 1 else "bag.need_more.body") % n
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if plain != null:
+		body.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
+		body.add_theme_constant_override("outline_size", 0)
+	body.add_theme_font_size_override("font_size", FS.BODY)
+	body.add_theme_color_override("font_color", INK)
+	col.add_child(body)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	btns.add_theme_constant_override("separation", 12)
+	col.add_child(btns)
+	btns.add_child(Look.button(Strings.t("bag.need_more.later"), func() -> void: overlay.queue_free(), false))
+	btns.add_child(Look.button(Strings.t("bag.need_more.shop"), func() -> void:
+		overlay.queue_free()
+		if dismiss_bag.is_valid():
+			dismiss_bag.call()                              # the shop replaces the bag, never stacks on it
+		if on_open_shop.is_valid():
+			on_open_shop.call(), true))
+	FX.pop_in(card)
 	return overlay
 
 # The stored-generators row (a "Generators" label + a row of generator tiles) — built on the SAME

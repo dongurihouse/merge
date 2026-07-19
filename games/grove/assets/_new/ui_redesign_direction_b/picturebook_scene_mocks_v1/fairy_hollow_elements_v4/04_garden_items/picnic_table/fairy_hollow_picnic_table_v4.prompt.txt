@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: standalone large shadow-free picnic table sprite
+Input roles: Image 1 exact Fairy Hollow stump-table identity/camera/scale; Image 2 foundation camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: one complete round low stump picnic table matching the source: a broad circular warm wooden slab top made from a few readable planks, thick cut-stump pedestal/base, softly irregular handmade edges. The potted bluebells and stools are separate assets and must not appear. Elevated three-quarter view, center-bottom anchor, full independent silhouette, generous key gutter.
+No grass, moss turf cap, scenic base, flower ring, stones, crockery, food, plant, stool, cast/contact shadow, dark ground smear, text, or unrelated props.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, glow, or reflection. Do not use #FF00FF in the subject. One asset only.
+Critical output format: one isolated assembled round stump table only, not a scene, sheet, catalog, or variant set. Preserve only the table from Image 1 and omit the flowerpot, green placemat, all stools, stone floor, foliage, mushrooms, den, ground, and shadows. The tabletop itself must be bare wood. Flat #FF00FF only behind it.

@@ -1,0 +1,24 @@
+Use case: stylized-concept
+Asset type: compact three-prop pack, shadow-free
+Input roles: Image 1 exact Fairy Hollow stump-stool identity/camera/scale; Image 2 foundation camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: exactly three compact low cut-stump picnic stools matching the source, arranged as a clean separated pack. Each stool has a distinct complete silhouette, warm wooden bark side, simple circular top, and small shape variation. Elevated three-quarter view and consistent scale.
+Layout: three objects only, separated by broad uniform magenta gutters on all sides and between stools; no overlap, touching, shared base, grid lines, labels, or borders. Each stool can be cut and placed independently.
+No grass or moss turf caps, scenic base, flower ring, stones, table, plant, cast/contact shadows, dark smears, text, or unrelated props.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, glow, or reflection. Do not use #FF00FF in the subjects.
+Critical output format: exactly three isolated separated stump stools only, not a scene or catalog. Preserve only the three stools from Image 1 and omit table, flowerpot, den, mushrooms, stone ground, path, foliage, and shadows. Flat #FF00FF behind and between all three stools.
+
+Accepted corrective edit prompt:
+Use case: precise-object-edit
+Edit target: the visible three-stool pack on magenta.
+Primary request: keep exactly three separated stump stools in exactly the same positions, sizes, and camera. Remove the green leafy/turf caps entirely. Replace each green top with a bare warm wooden circular cut-stump seat, with simple growth-ring paper shapes and softly irregular edge. Preserve the complete bark sides.
+Keep broad flat magenta gutters around and between all stools. Background must be perfectly flat uniform solid #FF00FF, no gradient, texture, floor, shadows, glow, or reflection.
+No moss, grass, leaves, turf, flowers, stones, scenic base, contact/cast shadow, table, plant, text, watermark, or any other object. Exactly three stools only.

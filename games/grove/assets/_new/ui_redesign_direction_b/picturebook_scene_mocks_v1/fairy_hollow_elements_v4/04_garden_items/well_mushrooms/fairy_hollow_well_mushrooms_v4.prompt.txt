@@ -1,0 +1,23 @@
+Use case: stylized-concept
+Asset type: standalone shadow-free small mushroom cluster sprite
+Input roles: Image 1 exact Fairy Hollow well-side mushroom identity/camera/scale; Image 2 foundation camera; Image 3 Meadow Sky palette/material; Image 4 common scale/detail budget.
+Primary request: one compact cluster of exactly three small cut-paper mushrooms matching the source near the wishing well: one coral cap with cream spots, one muted rare-purple cap, and one tiny cream/coral companion. Complete separate stems and caps, elevated three-quarter view, center-bottom anchor, generous key gutter.
+No well, grass, turf island, scenic base, stones, flowers, cast/contact shadow, external glow, text, or unrelated props.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Background: perfectly flat uniform solid #FF00FF only; no gradient, texture, floor, shadow, glow, or reflection. Do not use key magenta in the subjects. One asset only.
+Critical output format: one isolated compact cluster of exactly three small mushrooms only, not a scene, sheet, catalog, or variants. Preserve only the source mushrooms and omit the well, foliage, path, stones, ground, fireflies, and shadows. Flat #FF00FF only behind and between them.
+
+Accepted key-color correction prompt:
+Use case: precise-object-edit
+Edit target: the visible isolated cluster of exactly three mushrooms on magenta.
+Change only the background color. Preserve the three mushrooms pixel-for-pixel in identity, positions, scale, colors, paper texture, silhouettes, camera, and lighting, especially preserving the muted rare-purple left cap.
+Replace all background with perfectly flat uniform solid #00FF00 green for chroma-key removal, including behind and between the mushrooms. No gradient, texture, floor, shadow, glow, reflection, or lighting variation.
+Do not add, remove, recolor, restyle, resize, move, or alter any mushroom. No text, watermark, or other objects.

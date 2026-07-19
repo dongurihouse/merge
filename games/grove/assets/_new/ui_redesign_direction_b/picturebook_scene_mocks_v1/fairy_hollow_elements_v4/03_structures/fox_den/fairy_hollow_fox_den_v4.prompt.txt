@@ -1,0 +1,22 @@
+Use case: stylized-concept
+Asset type: standalone shadow-free world-object sprite
+Input images:
+- Image 1: exact Fairy Hollow source authority for den identity, proportions, camera, and intended scale.
+- Image 2: accepted foundation authority for matching camera and placement surface.
+- Image 3: Meadow Sky palette and matte Cut-Paper material authority only.
+- Image 4: elevated three-quarter camera, common scale, silhouette simplicity, and detail-budget authority only.
+Primary request: generate one complete cozy fox-den mound without any animal: a broad low earthen-and-root arch with a deep readable arched entrance, warm layered wooden inner rim, soft mossy leafy cap, a few integrated cream and coral paper flowers, and a small flat bedding cushion just inside the opening.
+Composition: one centered complete den, elevated three-quarter view, center-bottom anchor, broad asymmetric mound, generous flat-key gutter. The full outer mound, opening, threshold, and interior cushion remain visible; no sleeping fox or other creature.
+Shadow/base rule: no cast or contact shadow, grass skirt, turf island, flower ring, path, rocks spread into a platform, water, or unrelated prop. Any moss/flowers belong to the mound itself and do not form a removable-ground plate.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Palette: structural slate #3F6D7D and ink #243B4B for depth, garden green #5F9B6D, warm cream #F6EBDD, muted reward gold #D6A94C, sparse coral #D87865 and rare purple #8677A3.
+Background: perfectly uniform solid #FF00FF with no gradient, texture, floor, shadow, glow, reflection, or lighting variation. Do not use #FF00FF in the subject. Output one asset only.
+Critical output format: single isolated den only, not a scene, sheet, catalog, or variant set. Preserve the den from Image 1 but omit the fox, lantern, all surrounding plants, all ground, all shadows, and all scenic dressing. Flat #FF00FF only behind it.
