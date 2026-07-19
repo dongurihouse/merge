@@ -1,0 +1,6 @@
+Use case: illustration-story
+Asset type: vertical mobile game-zone concept, full scene
+Reference: fairy_hollow_original_mock_v1.png is material and palette authority only; do not copy its layout or landmarks.
+Primary request: Mushroom Night Market — a midnight clearing with an S-shaped footpath through a tea-and-herb stall, glowing curiosity stall, pastry cart, central mushroom-lantern pavilion, lantern strings, footbridge, flower crates, and sparkling stream.
+Style: Meadow Sky + Cut-Paper Playground: matte layered cardstock, fine tactile paper grain, warm cut edges, rounded low-complexity silhouettes, saturated jewel greens, teals, coral, and gold against a deep night blue.
+Avoid: red mushroom cottage, fox den, well, picnic table, copied landmarks, UI, text, watermark, glossy 3D, clay, watercolor, photorealism, visible brush strokes.
