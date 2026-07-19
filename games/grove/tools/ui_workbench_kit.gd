@@ -60,6 +60,9 @@ shader_type canvas_item;
 
 uniform vec2 control_size = vec2(1.0);
 uniform float radius_px = 1.0;
+// Retint of the grain sheet, as a straight multiply. Default white → every existing caller's pixels
+// are unchanged; only a dialog cell asking for the sage face passes anything else.
+uniform vec4 tint = vec4(1.0);
 
 float rounded_box_distance(vec2 point, vec2 half_size, float radius) {
 	vec2 q = abs(point) - half_size + vec2(radius);
@@ -74,7 +77,7 @@ void fragment() {
 		radius_px
 	);
 	float mask = 1.0 - smoothstep(-1.0, 1.0, distance_to_edge);
-	COLOR = vec4(paper.rgb, paper.a * mask);
+	COLOR = vec4(paper.rgb * tint.rgb, paper.a * mask);
 }
 """
 static var _paper_mask_shader: Shader
@@ -86,7 +89,7 @@ static func _meadow_tex(file_name: String) -> Texture2D:
 	var path := _meadow_path(file_name)
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
-static func _rounded_paper_layer(node_name: String, file_name: String, size_px: Vector2, corner_px: float, inset: float = 2.0) -> TextureRect:
+static func _rounded_paper_layer(node_name: String, file_name: String, size_px: Vector2, corner_px: float, inset: float = 2.0, tint: Color = Color.WHITE) -> TextureRect:
 	var paper := TextureRect.new()
 	paper.name = node_name
 	paper.texture = _meadow_tex(file_name)
@@ -108,6 +111,7 @@ static func _rounded_paper_layer(node_name: String, file_name: String, size_px: 
 	mask.shader = _paper_mask_shader
 	mask.set_shader_parameter("control_size", paper.size)
 	mask.set_shader_parameter("radius_px", maxf(0.0, corner_px - inset))
+	mask.set_shader_parameter("tint", tint)
 	paper.material = mask
 	return paper
 
@@ -3854,6 +3858,10 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"empty_font": int(d.get("empty_font", FS.EMPHASIS)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
+		# every DIALOG's slot cells wear the mocks' sage face (see DIALOG_CELL_OPEN_FILL). This builder is
+		# the dialogs' shared root — the board builds its cells from bag_card_opts_from_config instead, so
+		# the playable grid never picks this up.
+		"dialog_cells": true,
 	}
 
 ## The day-CARD opts from config (cell size/art + the today/milestone highlight badges). The daily card
@@ -4705,6 +4713,14 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
 		fallback.a)
 
+## The DIALOG cell face — the warm sage the dialog mocks paint their open/discovered cells with,
+## measured (median of a flat patch) off games/grove/assets/_concepts/dialogs/: tiers #CCCEAA,
+## merged_line_tiers #CBCFA8, resident_management_dialog_v2 #CDC8A5. The board's own open cell keeps
+## the Meadow-Sky mint below and is unaffected.
+const DIALOG_CELL_OPEN_FILL := Color("#CCCEAA")
+## ...and the nominal colour of ui/meadow_v2/texture_meadow.png, the grain sheet drawn over the face.
+const MEADOW_PAPER_BASE := Color("#A8D3B9")
+
 ## The SLOT-CELL background draws its rounded shape and edge in code, then clips one flat paper texture
 ## inside it. Cells never cast their own shadow; only the board slab does.
 static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4751,9 +4767,15 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	base.name = "SlotCellBackground"
 	base.position = Vector2.ONE * face_inset
 	base.size = face_size
+	# DIALOG cells wear the mocks' warmer SAGE face; the BOARD keeps its Meadow mint untouched. The
+	# opt is dialog-scoped (opts.dialog_cells, threaded in by the dialog opt builders) precisely so the
+	# playable grid — which passes flat_board_cells — is never repainted.
+	var dialog_cells := bool(opts.get("dialog_cells", false)) and not flat_board_cells
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
 	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
+	if open_state and dialog_cells:
+		fill = DIALOG_CELL_OPEN_FILL
 	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = fill
@@ -4765,7 +4787,13 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	fs.anti_aliasing = true
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0))
+	# the paper layer IS the visible colour (texture_meadow.png is an opaque #A8D3B9 grain sheet), so a
+	# recoloured face has to retint it too — as a modulate ratio off the texture's own base, which is
+	# exactly Color.WHITE when the fill is unchanged (the board stays byte-identical).
+	var paper_tint := Color.WHITE
+	if open_state and dialog_cells:
+		paper_tint = Color(fill.r / MEADOW_PAPER_BASE.r, fill.g / MEADOW_PAPER_BASE.g, fill.b / MEADOW_PAPER_BASE.b)
+	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0, paper_tint))
 	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
 	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
 	# a board tile CLIPS to ~face_inset px of feather over an already-dark field, so the shared
