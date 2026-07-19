@@ -71,11 +71,31 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 			c.queue_free()
 		var opts: Dictionary = Kit.dialog_opts_from_config(cfg)
 		opts["content_scale"] = Kit.dialog_content_scale(cfg, "dialog")
+		# the mock's TALL sheet: the mail cards are now large (hero icon + reward cards + big Claim), so the
+		# list rides a taller cap (~half the screen) — ~3 cards show above the pinned Claim All before it
+		# scrolls, instead of the old compact 425px.
+		opts["list_max_h"] = maxf(float(opts.get("list_max_h", 0.0)), host.get_viewport_rect().size.y * 0.5)
 		opts["on_close"] = func() -> void:
 			if is_instance_valid(overlay): overlay.queue_free()
 		opts["empty_text"] = Strings.t("inbox.empty_text")
 		opts["banner_text"] = Strings.t("inbox.banner_text")
 		(opts["btn"] as Dictionary)["text"] = host.tr(String((opts["btn"] as Dictionary).get("text", "Claim")))
+		# CLAIM ALL — shown only when a gift is still unclaimed; grabs them all, celebrates the aggregate,
+		# refreshes the wallet, and rebuilds the list in place (mirrors the per-card claim path).
+		if Inbox.has_unclaimed():
+			opts["claim_all_text"] = host.tr(Strings.t("inbox.claim_all_text"))
+			opts["on_claim_all"] = func() -> void:
+				var granted: Dictionary = Inbox.claim_all()
+				if not granted.is_empty():
+					var fx_host: Control = rb.get("fx_host", host)
+					if not is_instance_valid(fx_host):
+						fx_host = host
+					_celebrate(fx_host, fx_host.get_viewport_rect().size * 0.5, granted)
+					var ho: Dictionary = rb.get("host_opts", {})
+					if ho.has("refresh"):
+						(ho.refresh as Callable).call()
+				if rb.fn.is_valid():
+					rb.fn.call()
 		var dialog: Control = Kit.mail_dialog(_entries(host, rb), width, opts)
 		cc.add_child(dialog)
 		if rb.first:
