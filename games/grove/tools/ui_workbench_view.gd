@@ -106,7 +106,7 @@ const TEST_KEYS := {
 	"info": [],   # the demo line items are fixed in the preview; every knob is saved style
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
-	"bag_card": ["preview", "level", "cost"],
+	"bag_card": [],
 	# the bag DIALOG — grid/caption persist; balance/owned/filled just preview the slot ladder (the game
 	# sets each from save: the 💎 balance, how many slots owned, how many hold a piece).
 	"bag": ["balance", "owned", "filled"],
@@ -123,7 +123,7 @@ const CAPTIONS := {
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
-	"bag_card": "Slot cell — bag · board · discovery (empty · filled · unlockable · locked)",
+	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
 	"toggle_card": "Toggle card — label + switch",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"frame": "Dialog frame — shared chrome",
@@ -323,16 +323,8 @@ func _default_params() -> Dictionary:
 		"info": {},
 		# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
 		# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
-		"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120,
-			"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
-				"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
-				"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
-				"open_hue": 43, "open_sat": 10, "open_val": 92,
-				"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
-				"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
-				"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
-				"depth": 4, "depth_alpha": 18, "inset": 20,
-				"level": 7, "cost": 120},
+		"bag_card": {"cell_w": 116, "cell_h": 120,
+			"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -597,17 +589,7 @@ func _make_element(id: String) -> Control:
 				{"icon": "water", "title": "Water", "body": "tops up your watering can", "chip": {"icon": "water", "text": "60"}}]
 			return Kit.mail_dialog(demo, _dlg_px("info"), iopts)
 		"bag_card":
-			# The slot tile in a chosen preview state, rendered at the original 2x Workbench preview size so
-			# it stays comfortable to edit while the saved cell_w/cell_h remain the live game size.
-			var bco := Kit.bag_card_opts_from_config(_params)
-			var z := 2.0
-			bco["cell_w"] = float(bco["cell_w"]) * z
-			bco["cell_h"] = float(bco["cell_h"]) * z
-			bco["cost_font"] = int(float(bco["cost_font"]) * z)
-			bco["cost_icon"] = float(bco["cost_icon"]) * z
-			bco["cost_y"] = float(bco["cost_y"]) * z
-			bco["cost_x"] = float(bco["cost_x"]) * z   # cost_scale is a ratio; it stays unzoomed.
-			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
+			return _slot_cell_gallery(p)
 		"bag":
 			# the SHARED frame + the reused gold currency pill + a grid of bag cells (the SAME builder the game's
 			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
@@ -1020,6 +1002,70 @@ func _bag_preview_cell(state: String, level: int, cost: int) -> Dictionary:
 			d["cost"] = cost
 	return d
 
+# The slot cell in every state + treatment the SHIPPED game renders — so the workbench shows the real
+# repertoire, not one editable cell. Two rows: the BOARD treatment (flat_board_cells — the merge grid's
+# thicker inset + double-weight rim) and the DIALOG treatment (dialog_cells — the sage face the bag /
+# discovery / residents grids draw), plus the discovery `marked` sparkle and the Producing `dim_bg` well.
+# Rendered at 2× so the cells stay comfortable to edit while the saved cell_w/cell_h stay the game size.
+func _slot_cell_gallery(p: Dictionary) -> Control:
+	var z := 2.0
+	var base := Kit.bag_card_opts_from_config(_params)
+	base["cell_w"] = float(base["cell_w"]) * z
+	base["cell_h"] = float(base["cell_h"]) * z
+	base["cost_font"] = int(float(base["cost_font"]) * z)
+	base["cost_icon"] = float(base["cost_icon"]) * z
+	base["cost_y"] = float(base["cost_y"]) * z
+	base["cost_x"] = float(base["cost_x"]) * z   # cost_scale is a ratio; it stays unzoomed.
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	# BOARD wells — the merge grid (board.gd / piece_view.gd pass flat_board_cells). A deep lock recedes.
+	var board_opts := base.duplicate()
+	board_opts["flat_board_cells"] = true
+	col.add_child(_slot_row("board wells (flat)", [
+		["empty", {"state": "empty"}],
+		["filled", {"state": "filled", "icon": "leaf"}],
+		["frontier lock", {"state": "locked", "frontier": true}],
+		["deep lock", {"state": "locked", "dim": 0.6}],
+	], board_opts))
+	# DIALOG cells — the bag / discovery / residents grids (dialog_cells: the sage face + thin rim).
+	var dlg_opts := base.duplicate()
+	dlg_opts["dialog_cells"] = true
+	col.add_child(_slot_row("dialog cells", [
+		["empty", {"state": "empty"}],
+		["filled", {"state": "filled", "icon": "leaf"}],
+		["locked + cost", {"state": "locked", "cost": 120}],
+		["marked", {"state": "filled", "icon": "leaf", "marked": true}],
+	], dlg_opts))
+	# PRODUCING line — the gen_lines dialog recedes just the well behind a full-colour piece (dim_bg).
+	col.add_child(_slot_row("producing (dim_bg)", [
+		["dim well", {"state": "filled", "icon": "leaf", "dim_bg": true}],
+	], dlg_opts))
+	return col
+
+func _slot_row(label: String, cells: Array, opts: Dictionary) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	var l := Label.new()
+	l.text = label
+	l.add_theme_font_size_override("font_size", FS.TOOL)
+	l.add_theme_color_override("font_color", Color(Pal.INK, 0.7))
+	box.add_child(l)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	for entry in cells:
+		var cell_box := VBoxContainer.new()
+		cell_box.add_theme_constant_override("separation", 2)
+		cell_box.add_child(Kit.slot_cell((entry[1] as Dictionary), opts))
+		var cl := Label.new()
+		cl.text = String(entry[0])
+		cl.add_theme_font_size_override("font_size", FS.TOOL)
+		cl.add_theme_color_override("font_color", Color(Pal.INK, 0.5))
+		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cell_box.add_child(cl)
+		row.add_child(cell_box)
+	box.add_child(row)
+	return box
+
 ## The demo slot ladder for the Bag dialog preview — classified exactly like the game's slot_plan: the
 ## first `filled` slots hold a piece, the rest of the `owned` slots are empty, slot owned+1 is the gold
 ## "next" buy, the remainder are locked. Demo costs mirror G.BAG_SLOT_PRICES; the cap is 18 slots.
@@ -1314,7 +1360,7 @@ func _sidebar_notes(_id: String) -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
-		note.text = "ONE cell shared by the Bag dialog AND the board: empty / filled use the cream well; locked / unlockable use the code-drawn locked background. Unlockable = the highlight (glow + dynamic sparkle). Add a level badge (board) or an acorn cost (bag) below."
+		note.text = "ONE cell shared by the board wells and every dialog grid (bag · discovery · residents). The preview shows both treatments — the board's flat wells and the dialogs' sage cells — plus the discovery marked sparkle and the Producing dim-well. The well faces + rim are fixed in the kit; only the sizes below are tunable."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1663,40 +1709,10 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cost_y", -60, 60]))        # nudge the acorn cost up(-) / down(+)
 			_sidebar_body.add_child(_slider_row(["cost_x", -60, 60]))        # nudge the acorn cost left(-) / right(+)
 			_sidebar_body.add_child(_slider_row(["cost_scale", 30, 130]))    # the cost pill's overall size (% — shrink to fit the card)
-			_section_header("Unlockable highlight (engine FX — no baked art)")
-			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the unlockable cell's glow halo
-			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
-			_sidebar_body.add_child(_slider_row(["glow_hue", 0, 60]))         # accent tone: 0 orange → 42 straw → 60 yellow
-			_sidebar_body.add_child(_slider_row(["glow_sat", 0, 100]))        # accent saturation: 0 warm-white → 100 full gold
-			_sidebar_body.add_child(_slider_row(["glow_size", 0, 250]))       # outer-bloom spread (% of cell; 100 = cell-sized, 0 = no halo)
-			_sidebar_body.add_child(_slider_row(["glow_shadow", 0, 100]))     # rim-shadow strength (0 = no glow hugging the cell)
-			_sidebar_body.add_child(_slider_row(["glow_shadow_size", 0, 40])) # rim-shadow size (% of cell)
-			_section_header("Cell background: open fill")
-			_sidebar_body.add_child(_slider_row(["open_hue", 0, 90]))
-			_sidebar_body.add_child(_slider_row(["open_sat", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["open_val", 40, 100]))
-			_section_header("Cell background: frontier fill")
-			_sidebar_body.add_child(_slider_row(["frontier_hue", 0, 90]))
-			_sidebar_body.add_child(_slider_row(["frontier_sat", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["frontier_val", 40, 100]))
-			_section_header("Cell background: deep fill")
-			_sidebar_body.add_child(_slider_row(["deep_hue", 0, 90]))
-			_sidebar_body.add_child(_slider_row(["deep_sat", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["deep_val", 40, 100]))
-			_section_header("Cell background: frontier rim")
-			_sidebar_body.add_child(_slider_row(["rim_hue", 0, 140]))
-			_sidebar_body.add_child(_slider_row(["rim_sat", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["rim_val", 40, 100]))
-			_sidebar_body.add_child(_slider_row(["rim_alpha", 0, 100]))
-			_section_header("Cell background: shape and depth")
-			_sidebar_body.add_child(_slider_row(["corner", 4, 50]))
-			_sidebar_body.add_child(_slider_row(["depth", 0, 24]))
-			_sidebar_body.add_child(_slider_row(["depth_alpha", 0, 100]))
-			_sidebar_body.add_child(_slider_row(["inset", 0, 100]))
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))
-			_sidebar_body.add_child(_slider_row(["level", 0, 25]))           # 0 = no level badge; >0 docks it (board)
-			_sidebar_body.add_child(_slider_row(["cost", 0, 999]))           # 0 = no cost; >0 shows the acorn cost (bag)
+			# (The cell background fills + rim + depth and the old unlockable glow/sparkle were retired: the
+			# kit hard-codes the well faces, and every shipped caller suppresses the highlight — the sliders
+			# tuned nothing the game read. The preview above shows the real board / dialog / marked / dim_bg
+			# states instead.)
 		"bag":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))

@@ -4671,15 +4671,6 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## surfaces masked with flat Meadow paper grain; `next` also gets a dynamic sparkle FX.
 const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
 
-static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Color:
-	if not c.has(prefix + "_hue") and not c.has(prefix + "_sat") and not c.has(prefix + "_val"):
-		return fallback
-	return Color.from_hsv(
-		float(c.get(prefix + "_hue", roundf(fallback.h * 360.0))) / 360.0,
-		float(c.get(prefix + "_sat", roundf(fallback.s * 100.0))) / 100.0,
-		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
-		fallback.a)
-
 ## The DIALOG cell face — the warm sage the dialog mocks paint their open/discovered cells with,
 ## measured (median of a flat patch) off games/grove/assets/_concepts/dialogs/: tiers #CCCEAA,
 ## merged_line_tiers #CBCFA8, resident_management_dialog_v2 #CDC8A5. The board's own open cell keeps
@@ -4695,42 +4686,6 @@ const DIALOG_CELL_LOCKED_FILL := Color("#91A0B3")
 const RECEDING_PAPER_BASE := Color("#8296AF")
 ## How far dim_bg recedes an inactive well (the multiply the old, ineffective modulate asked for).
 const DIM_BG_FACTOR := 0.74
-
-## The SLOT-CELL background draws its rounded shape and edge in code, then clips one flat paper texture
-## inside it. Cells never cast their own shadow; only the board slab does.
-static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
-	var bc: Dictionary = cfg.get("bag_card", {}) if cfg is Dictionary else {}
-	return {
-		"open_fill": _hsv_setting(bc, "open", Color(Pal.CREAM, 0.92)),
-		"frontier_fill": _hsv_setting(bc, "frontier", Pal.NEAR_UNLOCK),
-		"deep_fill": _hsv_setting(bc, "deep", Pal.LOCKED),
-		"rim": _hsv_setting(bc, "rim", Pal.NEAR_HINT),
-		"rim_alpha": clampf(float(bc.get("rim_alpha", 35.0)) / 100.0, 0.0, 1.0),
-		"corner_frac": clampf(float(bc.get("corner", 18.0)) / 100.0, 0.04, 0.50),
-		"depth_px": clampf(float(bc.get("depth", 4.0)), 0.0, 40.0),
-		"depth_alpha": clampf(float(bc.get("depth_alpha", 18.0)) / 100.0, 0.0, 1.0),
-		"inset": clampf(float(bc.get("inset", 20.0)) / 100.0, 0.0, 1.0),
-	}
-
-static func _slot_cell_inset_layer(name: String, size_px: Vector2, corner_px: int, edge_px: int, color: Color, dark_edge: bool) -> Panel:
-	var layer := Panel.new()
-	layer.name = name
-	layer.position = Vector2.ZERO
-	layer.size = size_px
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Color.TRANSPARENT
-	fs.draw_center = false
-	fs.set_corner_radius_all(corner_px)
-	fs.border_color = color
-	if dark_edge:
-		fs.border_width_top = edge_px
-		fs.border_width_left = edge_px
-	else:
-		fs.border_width_bottom = edge_px
-		fs.border_width_right = edge_px
-	layer.add_theme_stylebox_override("panel", fs)
-	return layer
 
 static func slot_cell_background(size_px: Vector2, state: String, frontier: bool, opts: Dictionary = {}) -> Panel:
 	const FACE_INSET := 3.0
@@ -4838,12 +4793,6 @@ static func _slot_lock_mark(cw: float, ch: float, dialog_cells: bool = false) ->
 
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {})
-	var glow_tint := Pal.STRAW
-	if bc.has("glow_hue") or bc.has("glow_sat"):
-		glow_tint = Color.from_hsv(
-			float(bc.get("glow_hue", Pal.STRAW.h * 360.0)) / 360.0,
-			float(bc.get("glow_sat", Pal.STRAW.s * 100.0)) / 100.0,
-			Pal.STRAW.v)
 	var opts := {
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
@@ -4854,17 +4803,8 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cost_x": float(bc.get("cost_x", 0)),                        # nudge the acorn cost left(-) / right(+), px
 		"cost_scale": float(bc.get("cost_scale", 100)) / 100.0,      # the cost pill's overall size (% — shrinks the WHOLE button to fit the card)
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
-		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
-		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
-		# With no overrides the semantic token is preserved exactly. Hue/saturation knobs reconstruct
-		# only those channels while keeping the current fixed Meadow Sky STRAW value.
-		"glow_tint": glow_tint,
-		"glow_size": float(bc.get("glow_size", 170)) / 100.0,        # the outer bloom's spread (× the cell; 0 = no halo)
-		"glow_shadow": float(bc.get("glow_shadow", 55)) / 100.0,     # the rim drop-shadow's strength (alpha; 0 = no rim glow)
-		"glow_shadow_size": float(bc.get("glow_shadow_size", 10)) / 100.0,  # ...and its size (× the cell)
 		"btn": card_btn_opts(cfg),                                   # the SHARED button style (art/shadow/corner) — the cost chip rides it
 	}
-	opts.merge(slot_cell_background_opts_from_config(cfg), true)
 	return opts
 
 ## One SLOT CELL — the shared bag + board cell, on the board's cream-well art. `d.state` (or the legacy
@@ -5005,36 +4945,10 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(badge)
 
-	# unlockable — the shared HIGHLIGHT: a warm-gold glow (the board's "pop") AND the dynamic
-	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
-	# d.no_highlight opts a cell out of it while keeping the tap (the bag's next slot: quiet tile, price only).
-	if state == "unlockable" and not flat_board_cells and not bool(d.get("no_highlight", false)):
-		# the accent COLOUR — halo and shadow share one tint (config: glow_hue/glow_sat); the
-		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
-		var tint: Color = opts.get("glow_tint", Pal.STRAW)
-		var pop := Panel.new()
-		pop.name = "SlotCellUnlockableHighlight"
-		pop.position = Vector2.ZERO
-		pop.size = Vector2(cw, ch)
-		var ps := StyleBoxFlat.new()
-		ps.bg_color = Color(0, 0, 0, 0)
-		ps.set_border_width_all(0)
-		ps.border_color = tint
-		ps.set_corner_radius_all(int(maxf(10.0, cw * 0.18)))
-		# the rim drop-shadow — its own strength (alpha) + size knobs, so it can be dialled all the way
-		# out. glow_shadow 0 (or glow_shadow_size 0) removes the glow hugging the cell entirely.
-		var sh_a := float(opts.get("glow_shadow", 0.55))
-		ps.shadow_color = Color(tint, sh_a)
-		ps.shadow_size = int(maxf(0.0, cw * float(opts.get("glow_shadow_size", 0.10)))) if sh_a > 0.0 else 0
-		pop.add_theme_stylebox_override("panel", ps)
-		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile.add_child(pop)
-		var glow := float(opts.get("next_glow", 0.45))
-		var twinkle := float(opts.get("next_twinkle", 0.55))
-		if glow > 0.0 or twinkle > 0.0:
-			var spk := _sparkle_overlay(cw, glow, twinkle, tint, float(opts.get("glow_size", 1.7)))
-			spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			tile.add_child(spk)
+	# (The old "unlockable" glow+sparkle highlight was retired: every shipped caller suppresses it —
+	# the board passes flat_board_cells, the bag's next slot passes no_highlight — so it only ever showed
+	# in the workbench. Its tuning knobs and the overlay are gone; an unlockable cell reads as the locked
+	# well plus whatever cost/level the caller passes, exactly as the game renders it.)
 
 	# the board's deep (non-frontier) locks recede — the caller passes d.dim (1.0 = full opacity).
 	var dim := float(d.get("dim", 1.0))
