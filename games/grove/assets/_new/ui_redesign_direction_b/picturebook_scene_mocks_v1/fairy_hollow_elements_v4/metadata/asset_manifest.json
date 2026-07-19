@@ -63,6 +63,13 @@
       "transparent": true, "requiredSize": [1327, 1185]
     },
     {
+      "id": "sleeping_fox_cushion", "category": "garden_item",
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/sleeping_fox_cushion/fairy_hollow_sleeping_fox_cushion_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/fox_cushion_raw/fairy_hollow_sleeping_fox_cushion_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/sleeping_fox_cushion/fairy_hollow_sleeping_fox_cushion_v4.prompt.txt",
+      "transparent": true, "requiredSize": [1254, 1254]
+    },
+    {
       "id": "wishing_well", "category": "garden_item",
       "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/wishing_well/fairy_hollow_wishing_well_v4.png",
       "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
@@ -147,11 +154,46 @@
       "transparent": true, "requiredSize": [1536, 1024]
     },
     {
-      "id": "ground_dressing_pack", "category": "dressing", "contact": true,
-      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_pack/fairy_hollow_ground_dressing_pack_v4.png",
-      "source": "games/grove/assets/_concepts/zones/fairy_hollow_original_mock_v1.png",
-      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_pack/fairy_hollow_ground_dressing_pack_v4.prompt.txt",
-      "transparent": true, "requiredSize": [1536, 1024]
+      "id": "ground_dressing_01", "category": "dressing", "contact": true,
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_01/fairy_hollow_ground_dressing_01_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/ground_dressing_raw/fairy_hollow_ground_dressing_pack_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_01/fairy_hollow_ground_dressing_01_v4.prompt.txt",
+      "transparent": true, "requiredSize": [425, 200]
+    },
+    {
+      "id": "ground_dressing_02", "category": "dressing", "contact": true,
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_02/fairy_hollow_ground_dressing_02_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/ground_dressing_raw/fairy_hollow_ground_dressing_pack_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_02/fairy_hollow_ground_dressing_02_v4.prompt.txt",
+      "transparent": true, "requiredSize": [340, 175]
+    },
+    {
+      "id": "ground_dressing_03", "category": "dressing", "contact": true,
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_03/fairy_hollow_ground_dressing_03_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/ground_dressing_raw/fairy_hollow_ground_dressing_pack_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_03/fairy_hollow_ground_dressing_03_v4.prompt.txt",
+      "transparent": true, "requiredSize": [365, 175]
+    },
+    {
+      "id": "ground_dressing_04", "category": "dressing", "contact": true,
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_04/fairy_hollow_ground_dressing_04_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/ground_dressing_raw/fairy_hollow_ground_dressing_pack_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_04/fairy_hollow_ground_dressing_04_v4.prompt.txt",
+      "transparent": true, "requiredSize": [335, 170]
+    },
+    {
+      "id": "ground_dressing_05", "category": "dressing", "contact": true,
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_05/fairy_hollow_ground_dressing_05_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/ground_dressing_raw/fairy_hollow_ground_dressing_pack_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_05/fairy_hollow_ground_dressing_05_v4.prompt.txt",
+      "transparent": true, "requiredSize": [345, 145]
+    },
+    {
+      "id": "ground_dressing_06", "category": "dressing", "contact": true,
+      "final": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_06/fairy_hollow_ground_dressing_06_v4.png",
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/08_sources/ground_dressing_raw/fairy_hollow_ground_dressing_pack_v4_raw.png",
+      "sourcePrompt": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/ground_dressing_06/fairy_hollow_ground_dressing_06_v4.prompt.txt",
+      "transparent": true, "requiredSize": [375, 150]
     },
     {
       "id": "fireflies", "category": "dressing",
