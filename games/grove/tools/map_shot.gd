@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
-## modes: fresh | select | closeup | progress | owned | shop | settings | spirits | vault
+## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -57,6 +57,18 @@ func _initialize() -> void:
 					gsel["task_reward"] = claimed
 					gsel["exp"] = 400
 					Save.grove_write()
+		"maps":
+			# the MAPS gallery page in a representative mid-game state: a couple of Fairy Hollow
+			# buildings finished so the featured card reads in-progress (n/m + a part-filled bar).
+			var HBm := load("res://engine/scripts/core/home_build.gd")
+			var Homem := load("res://engine/scripts/core/home.gd")
+			Save.earn_coins(2000)
+			var mst: Dictionary = Homem.state()
+			for bid in ["fh_hearth", "fh_boxes"]:
+				var dm: Dictionary = Homem.def_of(bid)
+				while HBm.buy_step(mst, dm):
+					pass
+			Save.grove_write()
 		"hub":
 			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
 			# no overlays. Unlock the hub spots, seed the reference wallet (★256 🪙132 💧87) and a
@@ -181,7 +193,10 @@ func _initialize() -> void:
 	for wa in args:
 		if String(wa).begins_with("pmap="):
 			pmap = int(String(wa).split("=")[1])
-	if mode == "select" or mode == "spirits":
+	if mode == "maps":
+		scn._open_maps()                  # the cards-only MAPS gallery
+		await create_timer(0.4).timeout
+	elif mode == "select" or mode == "spirits":
 		scn._open_select()                # the centered resident dock (the map-select column retired)
 		await create_timer(0.4).timeout
 	elif mode == "vault2x":
