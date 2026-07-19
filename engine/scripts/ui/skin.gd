@@ -660,6 +660,11 @@ static func shadow_params(cfg: Dictionary) -> Dictionary:
 		"alpha":    clampf(float(s.get("alpha", SHADOW_DEFAULTS.alpha)) / 100.0, 0.0, 1.0),
 	}
 
+## How far THE uniform shadow reaches below an element's bottom edge (cast + feather + spread) —
+## clipping ancestors (ScrollContainers) must leave this much room or the cast is sliced off flat.
+static func shadow_bottom_reach() -> float:
+	return SHADOW_DEFAULTS.offset_y + SHADOW_DEFAULTS.blur + SHADOW_DEFAULTS.spread
+
 ## Stamp THE uniform shadow onto a StyleBoxFlat — for elements whose chrome is a native StyleBox
 ## (buttons, framed panels) rather than a behind-panel. Same numbers, same tint, one look.
 static func apply_box_shadow(sb: StyleBoxFlat) -> void:

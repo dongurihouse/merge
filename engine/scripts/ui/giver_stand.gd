@@ -252,14 +252,7 @@ static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	if not bool(lay.get("shadow", false)):
 		return
-	var params: Dictionary = (lay.get("shadow_params", {}) as Dictionary).duplicate() if lay.get("shadow_params", {}) is Dictionary else {}
-	params["alpha"] = minf(float(params.get("alpha", 0.20)), 0.20)
-	var sh := Look.shadow_rect(h * 0.12, params)
-	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
-	if sb != null:
-		var tint := Look.shadow_color(Look.SHADOW_DEFAULTS.alpha / 100.0)
-		sb.bg_color = tint
-		sb.shadow_color = tint
+	var sh := Look.shadow_rect(h * 0.12, Look.shadow_params({}))
 	sh.show_behind_parent = true
 	card.add_child(sh)
 

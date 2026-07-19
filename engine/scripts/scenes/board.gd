@@ -1050,6 +1050,9 @@ func _rebuild_givers() -> void:
 	scroll.anchor_bottom = 1.0
 	scroll.offset_left = 0.0                                                  # extend the scroll viewport to BOTH screen edges so the cards stay visible right up to the left and right edges as the row scrolls
 	scroll.offset_right = 0.0
+	# A ScrollContainer ALWAYS clips its children, and the card's shared shadow casts below the card —
+	# extend the viewport past the band's bottom edge by the shadow's reach so the cast isn't sliced flat.
+	scroll.offset_bottom = Look.shadow_bottom_reach()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER   # drag-scrollable; the scrollbar itself stays hidden
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED       # the band never scrolls vertically (busts stay un-clipped)
 	giver_bar.add_child(scroll)
