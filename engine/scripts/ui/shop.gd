@@ -180,7 +180,7 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 				(pair[0] as CanvasItem).z_index = int(pair[1]))
 
 	# The storefront FACE is the SHARED mock-true frame (Kit.dialog_frame — the same warm-cream sheet,
-	# ink title and coral ✕ every restyled dialog wears); the shop's own BODY (balance chips · stall tabs ·
+	# ink title and coral ✕ every restyled dialog wears); the shop's own BODY (stall tabs ·
 	# section headers · the 2-up offer grid · the info footer) is built here, per the shop_dialog_v1 mock.
 	# Width is a % of the SCREEN (responsive).
 	var vw: float = host.get_viewport_rect().size.x
@@ -225,16 +225,14 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 const SAGE := Color("#E4DEBD")        # an offer card's sage face
 const PILL_GREEN := Color("#5C8A57")  # the price pill + the active stall tab
 const TAB_IDLE := Color("#F4E9D1")    # a resting stall tab
-const CHIP_CREAM := Color("#F8ECD5")  # the balance chip / bundle amount chip
+const CHIP_CREAM := Color("#F8ECD5")  # the bundle amount chip
 const FOOTER_CREAM := Color("#EDE2C1")
 const CARD_CORNER := 18.0
 const GRID_GAP := 14.0
 # The stall TABS, in the mock's order: the three shops share one sheet, the tab bar swaps `kind`.
 const STALLS := [["water", "Water"], ["coin", "Coins"], ["premium", "Acorns"]]
-# The balance row's three currency chips (mock: water · coins · acorns under the title).
-const BALANCES := ["water", "coin", "gem"]
 
-# The whole scrolling body: balance chips · stall tabs · each section's header + offer grid · the footer.
+# The whole scrolling body: stall tabs · each section's header + offer grid · the footer.
 static func _build_body(refs: Dictionary) -> Control:
 	var Kit: GDScript = refs.kit
 	var w: float = refs.inner
@@ -242,7 +240,6 @@ static func _build_body(refs: Dictionary) -> Control:
 	col.name = "ShopBody"
 	col.add_theme_constant_override("separation", 16)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(_balance_row(Kit, w))
 	col.add_child(_tab_bar(refs, w))
 	for sec in _sections(refs):
 		var s := sec as Dictionary
@@ -252,34 +249,6 @@ static func _build_body(refs: Dictionary) -> Control:
 	if foot != null:
 		col.add_child(foot)
 	return col
-
-# The BALANCE row — three read-only currency chips (water · coins · acorns) straight off Save, so the
-# sheet always states what the player actually holds while they shop.
-static func _balance_row(Kit: GDScript, w: float) -> Control:
-	var row := HBoxContainer.new()
-	row.name = "ShopBalanceRow"
-	row.add_theme_constant_override("separation", int(GRID_GAP))
-	row.custom_minimum_size = Vector2(w, 0)
-	var counts := {"water": Save.water(), "coin": Save.coins(), "gem": Save.diamonds()}
-	for id in BALANCES:
-		var chip := PanelContainer.new()
-		chip.name = "ShopBalanceChip_" + String(id)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = CHIP_CREAM
-		sb.set_corner_radius_all(int(CARD_CORNER))
-		sb.content_margin_left = 18; sb.content_margin_right = 18
-		sb.content_margin_top = 10; sb.content_margin_bottom = 10
-		_mock_shadow(sb)
-		chip.add_theme_stylebox_override("panel", sb)
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var h := HBoxContainer.new()
-		h.alignment = BoxContainer.ALIGNMENT_CENTER
-		h.add_theme_constant_override("separation", 12)
-		h.add_child(Kit.make_icon(String(id), 54.0))
-		h.add_child(_ink_label(Kit, _commas(int(counts[id])), FS.HEADING))
-		chip.add_child(h)
-		row.add_child(chip)
-	return row
 
 # The stall TAB bar — WATER / COINS / ACORNS. The active tab is the green one; tapping a resting tab
 # swaps the open stall in place (the three stalls have always been one dialog with a different `kind`).
