@@ -17,7 +17,8 @@ const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the gam
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const SIDEBAR_W := 340.0
-const REF_W := 340.0                # the LEFT reference column — same width as the right sidebar
+const REF_STRIP_W := 76.0           # the far-left mock ICON strip (one thumbnail per reference)
+const REF_PAD := 14.0               # reference pane inner padding
 const HIT_MAX_W := 192              # alpha hit-test images downsample to this width (memory)
 const INK := Color("#2B2B33")
 const PAPER := Color("#F4EDE1")
@@ -99,12 +100,20 @@ func _ready() -> void:
 
 # --- layout / render ------------------------------------------------------------------------------
 
+## The reference pane's width follows the SELECTED mock: icon strip + the mock fitted FULL-HEIGHT
+## (as tall as the sidebar), so the reference reads at the same scale as the working canvas.
+func _ref_pane_w(vp: Vector2) -> float:
+	if _ref_paths.is_empty():
+		return REF_STRIP_W + REF_PAD * 2.0
+	return REF_STRIP_W + (vp.y - 44.0) * _ref_aspect + REF_PAD * 2.0
+
 func _layout() -> void:
 	var vp := get_viewport_rect().size
 	var canvas := M.canvas_size(doc)
-	var avail := Vector2(vp.x - SIDEBAR_W - REF_W, vp.y)   # stage sits between references and sidebar
+	var ref_w := _ref_pane_w(vp)
+	var avail := Vector2(vp.x - SIDEBAR_W - ref_w, vp.y)   # stage sits between references and sidebar
 	var s := maxf(minf(avail.x / canvas.x, avail.y / canvas.y), 0.02)   # never zero/negative (tiny or headless viewports)
-	_stage.position = Vector2(REF_W + (avail.x - canvas.x * s) * 0.5, (vp.y - canvas.y * s) * 0.5)
+	_stage.position = Vector2(ref_w + (avail.x - canvas.x * s) * 0.5, (vp.y - canvas.y * s) * 0.5)
 	_stage.size = canvas * s
 	_layers.scale = Vector2(s, s)
 	_overlay.scale = Vector2(s, s)
@@ -113,7 +122,13 @@ func _layout() -> void:
 		_sidebar_panel.size = Vector2(SIDEBAR_W, vp.y)
 	if _ref_panel != null:
 		_ref_panel.position = Vector2.ZERO
-		_ref_panel.size = Vector2(REF_W, vp.y)
+		_ref_panel.size = Vector2(ref_w, vp.y)
+		if _ref_strip != null:
+			_ref_strip.position = Vector2(REF_PAD, 36.0)
+			_ref_strip.size = Vector2(REF_STRIP_W - REF_PAD, vp.y - 44.0)
+		if _ref_img != null:
+			_ref_img.position = Vector2(REF_STRIP_W + REF_PAD, 36.0)
+			_ref_img.size = Vector2((vp.y - 44.0) * _ref_aspect, vp.y - 44.0)
 	_overlay.queue_redraw()
 
 ## Detach + queue_free a container's children. All of these rebuilds are reachable from a child
@@ -441,68 +456,99 @@ func _refresh_status() -> void:
 
 # --- the LEFT reference column: the scene's mocks + reconstruction composites -----------------------
 
-var _ref_panel: PanelContainer = null
+var _ref_panel: Panel = null
 var _ref_paths: Array = []
 var _ref_idx := 0                   # the mock the dropdown has picked
 
+var _ref_strip: ScrollContainer = null
+var _ref_img: TextureRect = null
+var _ref_aspect := 941.0 / 1672.0   # w/h of the selected mock (drives the pane width)
+var _ref_big: Dictionary = {}       # abs path -> full-height display texture
+
 func _build_ref_panel() -> void:
-	_ref_panel = PanelContainer.new()
+	_ref_panel = Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = PAPER
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 10
-	sb.content_margin_bottom = 10
 	_ref_panel.add_theme_stylebox_override("panel", sb)
 	add_child(_ref_panel)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_ref_panel.add_child(scroll)
-	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 8)
-	scroll.add_child(col)
-	col.add_child(_label("Reference", FS.TINY, true))
+	_ref_strip = null
+	_ref_img = null
+	var head := _label("Reference", FS.TINY, true)
+	head.position = Vector2(REF_PAD, 8)
+	_ref_panel.add_child(head)
 	_ref_paths = M.reference_images(_scenes_root, bundle_dir, scene_name)
 	if _ref_paths.is_empty():
-		col.add_child(_label("no mocks found for this scene", FS.DEBUG))
+		var none := _label("no mocks found", FS.DEBUG)
+		none.position = Vector2(REF_PAD, 40)
+		_ref_panel.add_child(none)
 		return
 	_ref_idx = clampi(_ref_idx, 0, _ref_paths.size() - 1)
-	if _ref_paths.size() > 1:
-		var dd := OptionButton.new()                   # multiple mocks → pick one, shown big
-		dd.name = "RefDropdown"
-		dd.focus_mode = Control.FOCUS_NONE
-		for i in _ref_paths.size():
-			dd.add_item(String(_ref_paths[i]).get_file(), i)
-		dd.select(_ref_idx)
-		dd.item_selected.connect(func(i: int) -> void:
-			_ref_idx = i
-			_rebuild_ref_panel.call_deferred())        # deferred — the dropdown lives in the panel being rebuilt
-		col.add_child(dd)
-	else:
-		col.add_child(_label(String(_ref_paths[0]).get_file(), FS.DEBUG))
+	# the far-left ICON strip — one thumbnail button per mock, the picked one framed
+	_ref_strip = ScrollContainer.new()
+	_ref_strip.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var strip_col := VBoxContainer.new()
+	strip_col.add_theme_constant_override("separation", 6)
+	_ref_strip.add_child(strip_col)
+	for i in _ref_paths.size():
+		var b := Button.new()
+		b.name = "RefIcon_%d" % i
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = String(_ref_paths[i]).get_file()
+		b.icon = _thumb_for_abs(String(_ref_paths[i]))
+		b.add_theme_constant_override("icon_max_width", int(REF_STRIP_W - REF_PAD - 14.0))
+		b.modulate = Color(1, 1, 1, 1.0 if i == _ref_idx else 0.55)
+		b.pressed.connect(_show_ref.bind(i))
+		strip_col.add_child(b)
+	_ref_panel.add_child(_ref_strip)
+	_ref_img = TextureRect.new()
+	_ref_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ref_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_ref_img.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_ref_img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ref_panel.add_child(_ref_img)
+	_show_ref(_ref_idx)
+
+## Swap the big mock IN PLACE (no panel rebuild — the strip buttons stay alive) + re-layout,
+## since the pane's width follows the mock's aspect.
+func _show_ref(i: int) -> void:
+	if _ref_paths.is_empty():
+		return                                        # a scene without mocks (or a stale strip button)
+	_ref_idx = clampi(i, 0, _ref_paths.size() - 1)
+	if _ref_strip != null:
+		var col: Node = _ref_strip.get_child(0)
+		for k in col.get_child_count():
+			(col.get_child(k) as Control).modulate = Color(1, 1, 1, 1.0 if k == _ref_idx else 0.55)
 	var p := String(_ref_paths[_ref_idx])
-	var img := Image.load_from_file(p) if FileAccess.file_exists(p) else null
-	if img == null:
-		col.add_child(_label("could not load " + p.get_file(), FS.DEBUG))
-		return
-	var inner_w := REF_W - 28.0
-	var w := int(inner_w * 2.0)                        # decode once, hold a modest 2x for crispness
-	if img.get_width() > w:
-		img.resize(w, maxi(1, img.get_height() * w / img.get_width()), Image.INTERPOLATE_BILINEAR)
-	var tr := TextureRect.new()
-	tr.texture = ImageTexture.create_from_image(img)
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	tr.custom_minimum_size = Vector2(inner_w, inner_w * float(img.get_height()) / maxf(float(img.get_width()), 1.0))
-	col.add_child(tr)
+	if not _ref_big.has(p):
+		var img := Image.load_from_file(p) if FileAccess.file_exists(p) else null
+		if img != null and img.get_height() > 2200:    # decode once, hold ~full-height resolution
+			img.resize(int(img.get_width() * 2200.0 / img.get_height()), 2200, Image.INTERPOLATE_BILINEAR)
+		_ref_big[p] = null if img == null else ImageTexture.create_from_image(img)
+	var t: Texture2D = _ref_big[p]
+	if _ref_img != null:
+		_ref_img.texture = t
+	_ref_aspect = (float(t.get_width()) / maxf(float(t.get_height()), 1.0)) if t != null else 941.0 / 1672.0
+	_layout()
 
 func _rebuild_ref_panel() -> void:
 	if _ref_panel != null:
 		_ref_panel.queue_free()
 	_build_ref_panel()
 	_layout()
+
+## A strip thumbnail from an ABSOLUTE path (the shared _thumb cache, repo-relative helper below).
+func _thumb_for_abs(abs: String) -> Texture2D:
+	if _thumb.has(abs):
+		return _thumb[abs]
+	var img := Image.load_from_file(abs) if FileAccess.file_exists(abs) else null
+	if img == null:
+		_thumb[abs] = null
+		return null
+	var w := 60
+	img.resize(w, maxi(1, img.get_height() * w / img.get_width()))
+	var t := ImageTexture.create_from_image(img)
+	_thumb[abs] = t
+	return t
 
 # --- sidebar --------------------------------------------------------------------------------------
 
@@ -568,6 +614,7 @@ func _switch_scene(scene: String) -> void:
 	_tex.clear()
 	_hit.clear()
 	_thumb.clear()
+	_ref_big.clear()
 	if _sidebar_panel != null:
 		_sidebar_panel.queue_free()
 	if _ref_panel != null:

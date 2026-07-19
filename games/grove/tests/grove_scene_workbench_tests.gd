@@ -404,6 +404,9 @@ func _initialize() -> void:
 		"pick_root prefers the root with the most OPENABLE scenes (a partial intake never shadows the full one)")
 	ok(M.pick_root([broot, partial]) == broot, "…regardless of candidate order")
 	ok(M.pick_root([partial + "/nope"]) == "", "no openable scenes anywhere → empty (the launcher errors out)")
+	var stale_concept := broot + "/games/grove/assets/_concepts/zones/test_scene_original_mock_v1.png"
+	if FileAccess.file_exists(stale_concept):          # idempotent across runs — created again below
+		DirAccess.remove_absolute(stale_concept)
 	var mock := Image.create(4, 4, false, Image.FORMAT_RGBA8)
 	mock.save_png(broot + "/test_scene.png")
 	mock.save_png(broot + "/test_scene_market_v2.png")
@@ -422,9 +425,13 @@ func _initialize() -> void:
 	refs = M.reference_images(broot, broot + "/test_scene_elements_v1", "test_scene")
 	ok(refs.size() == 4 and String(refs[0]).ends_with("test_scene_original_mock_v1.png"),
 		"the _concepts/zones original mock joins the references, listed first")
-	view._rebuild_ref_panel()                          # broot now carries 3 refs → the picker appears
-	ok(view.find_child("RefDropdown", true, false) != null,
-		"multiple mocks offer a reference dropdown (one shown big at sidebar width)")
+	view._switch_scene("test_scene")                   # the dropdown test left the view on 'another'
+	ok(view.find_child("RefIcon_1", true, false) != null,
+		"multiple mocks build the far-left icon strip (one thumb per reference)")
+	(view.find_child("RefIcon_1", true, false) as Button).pressed.emit()
+	ok(view._ref_idx == 1, "pressing a strip icon swaps the full-height mock in place")
+	ok(view._ref_img != null and is_instance_valid(view._ref_img),
+		"the big mock swaps without rebuilding the panel (the strip stays alive)")
 
 	# --- path resolution ------------------------------------------------------------
 	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
