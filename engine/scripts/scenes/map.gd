@@ -78,6 +78,8 @@ const STRAW = Pal.STRAW
 const BARK = Pal.BARK
 const CLAY = Pal.CLAY
 
+const CARD_CORNER := 22.0   # the maps-card panel radius; edge-bleed thumbs round to match it
+
 # --- map-select place-picker CARD ----------------------------------------------------------------------
 # The CARD recipe (the SHARED gold-badge frame over the locale art for an OPEN place, or over a dark
 # gradient + lock medallion for a LOCKED one / cream count pill `pill_left` / the rounded-corner art clip)
@@ -731,8 +733,11 @@ func _build_maps_page(animate := true) -> void:
 	var feat_card := _maps_featured_card(feat, feat_rect)
 	content.add_child(feat_card)
 	maps_hits.append({"node": feat_card, "z": feat, "locked": false})
-	# the remaining maps as a 2-column grid, filling down to the bottom-nav band
-	var nav_h := _hud_button_px() * 0.78
+	# the remaining maps as a 2-column grid, filling down to the bottom-nav band. The gallery wears the
+	# SAME bottom bar as the home screen (Map swapped for Home), so reserve its band from that bar's
+	# square-tile height — a pure function of the tile count.
+	var bar_specs := _bottom_bar_specs(true)
+	var nav_h := _bottom_bar_tile_px(bar_specs.size())
 	var others: Array = []
 	for z in G.MAPS.size():
 		if z != feat:
@@ -750,49 +755,11 @@ func _build_maps_page(animate := true) -> void:
 			var card := _maps_grid_card(z2, rect, locked)
 			content.add_child(card)
 			maps_hits.append({"node": card, "z": z2, "locked": locked})
-	_build_maps_nav(view, nav_h)
+	_build_bottom_bar(bar_specs, content, false)   # the shared row, parented to the page (not chrome)
 	if _select_back != null and is_instance_valid(_select_back):
 		_select_back.visible = false     # the gallery's HOME nav button is the way back (mock chrome)
 	if animate:
 		FX.pop_in(content)
-
-# The gallery's bottom nav (mock chrome): HOME · BOARD as wide cream paper tiles (the shared
-# configurable home button, rect shape, icon over caption). Rebuilt with the page — it lives inside
-# `content`, real buttons above the tap surface (the chip exception). (The third EXPEDITION tile
-# retired with the bucket dock it opened; Expedition now lives in the Residents dialog.)
-func _build_maps_nav(view: Vector2, nav_h: float) -> void:
-	var Kit: GDScript = load(KIT_PATH)
-	var HC: GDScript = load(HOME_CHROME_PATH)
-	var go_home := func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_map(_map_idx)
-	var specs := [
-		{"icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.page.nav_home"), "action": go_home},
-		{"icon": HC.ICON_PLAY, "caption": Strings.t("map.page.nav_board"), "action": _on_board},
-	]
-	var side := NavBar.SIDE_INSET
-	var btn_gap := clampf(view.x * 0.03, 10.0, 26.0)
-	var btn_w := (view.x - side * 2.0 - btn_gap * float(specs.size() - 1)) / float(specs.size())
-	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - nav_h
-	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
-	opts["px"] = nav_h
-	opts["shape"] = "rect"
-	opts["surface_role"] = "cream"
-	opts["shadow"] = true
-	for i in specs.size():
-		var spec: Dictionary = specs[i]
-		var b: Button
-		if Kit != null:
-			b = Kit.home_button(spec, opts)
-		else:
-			b = Button.new()                 # defensive fallback (kit absent): a bare labeled tile
-			b.text = String(spec.caption)
-			b.focus_mode = Control.FOCUS_NONE
-			b.pressed.connect(spec.action)
-		b.custom_minimum_size = Vector2(btn_w, nav_h)
-		b.size = Vector2(btn_w, nav_h)
-		b.position = Vector2(side + (btn_w + btn_gap) * float(i), y)
-		content.add_child(b)
 
 # Buildable progress on a page: built / total over the manifest buildings that carry a build def
 # (scene props render "built" and don't count). Vector2i(built, total); total 0 = no build system yet.
@@ -822,19 +789,27 @@ func _maps_card_shell(rect: Rect2) -> Panel:
 	p.size = rect.size
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = CREAM
-	sb.set_corner_radius_all(22)
+	sb.set_corner_radius_all(int(CARD_CORNER))
 	Look.apply_box_shadow(sb)
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p
 
-# A LIVE zone thumbnail: the page's manifest rendered through HomeZoneView (badges hidden),
-# cover-fitted + clipped into `size`, over a rounded sky backing.
-func _maps_zone_thumb(z: int, size: Vector2) -> Control:
-	var frame := Control.new()
+# A LIVE zone thumbnail: the page's manifest rendered through HomeZoneView (badges hidden), cover-fitted
+# over a sky backing. The frame is a rounded Panel whose `clip_children` masks the whole preview to its
+# drawn shape — so `corner` rounds the thumb's own corners (a bleeding thumb then keeps the card's
+# rounded silhouette; `corner` 0 is a plain rectangular clip, matching the old behaviour).
+func _maps_zone_thumb(z: int, size: Vector2, corner := 0.0) -> Control:
+	var frame := Panel.new()
 	frame.size = size
-	frame.clip_contents = true
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the mask shape: a rounded box drawn only to the clip buffer (CLIP_CHILDREN_ONLY), never to screen —
+	# the `back` fill below is the visible backing, so the panel colour here is irrelevant.
+	var mask := StyleBoxFlat.new()
+	mask.bg_color = Color.WHITE
+	mask.set_corner_radius_all(int(round(corner)))
+	frame.add_theme_stylebox_override("panel", mask)
+	frame.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
 	var back := ColorRect.new()
 	back.color = SKY.lerp(INK, 0.08)
 	back.size = size          # plain-position fill (anchors + manual size would fight after _ready)
@@ -859,11 +834,14 @@ func _maps_zone_thumb(z: int, size: Vector2) -> Control:
 func _maps_featured_card(z: int, rect: Rect2) -> Control:
 	var card := _maps_card_shell(rect)
 	var inset := clampf(rect.size.y * 0.08, 10.0, 22.0)
-	var thumb_px := rect.size.y - inset * 2.0
-	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px))
-	thumb.position = Vector2(inset, inset)
+	# the preview bleeds to the card's LEFT · TOP · BOTTOM edges (a full-height square flush to the
+	# corner), rounded to the card radius so the left corners follow the panel; its right edge is the
+	# straight seam against the text column.
+	var thumb_px := rect.size.y
+	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER)
+	thumb.position = Vector2.ZERO
 	card.add_child(thumb)
-	var col_x := inset + thumb_px + inset
+	var col_x := thumb_px + inset
 	var col_w := rect.size.x - col_x - inset
 	var name_font := int(clampf(rect.size.y * 0.135, 18.0, 40.0))
 	var name := Label.new()
@@ -932,14 +910,18 @@ func _maps_featured_card(z: int, rect: Rect2) -> Control:
 func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
 	var card := _maps_card_shell(rect)
 	var inset := clampf(rect.size.y * 0.055, 8.0, 16.0)
-	var thumb := _maps_zone_thumb(z, rect.size - Vector2(inset * 2.0, inset * 2.0))
-	thumb.position = Vector2(inset, inset)
+	# the preview fills the card edge-to-edge, rounded to the card radius; name + pills ride over it.
+	var thumb := _maps_zone_thumb(z, rect.size, CARD_CORNER)
+	thumb.position = Vector2.ZERO
 	card.add_child(thumb)
 	if locked:
-		var veil := ColorRect.new()                 # the cool "asleep" veil over a locked thumb
-		veil.color = Color(Pal.LOCKED, 0.38)
-		veil.position = thumb.position
-		veil.size = thumb.size
+		var veil := Panel.new()                      # the cool "asleep" veil over a locked thumb
+		veil.position = Vector2.ZERO                  # rounded to the card so it tracks the edge-bleed thumb
+		veil.size = rect.size
+		var vs := StyleBoxFlat.new()
+		vs.bg_color = Color(Pal.LOCKED, 0.38)
+		vs.set_corner_radius_all(int(CARD_CORNER))
+		veil.add_theme_stylebox_override("panel", vs)
 		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(veil)
 	var name_font := int(clampf(rect.size.y * 0.105, 15.0, 30.0))
@@ -2328,30 +2310,25 @@ func _wallet_bottom_y() -> float:
 				return wallet.get_global_rect().position.y + h
 	return Look.safe_top(self) + 16.0
 
-func _build_bottom_chrome() -> void:
-	# Load the shared home-button style ONCE (the same transform the workbench reads).
-	var Kit: GDScript = load(KIT_PATH)
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
-	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
-	# the shared workbench button size — still read by the place-picker's back button.
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {
-		"button_w_frac": RAIL_PX / Design.size().x, "edge_margin_px": RAIL_MARGIN}
-	_rail_px = maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
-	# the workbench-tuned badge offset: on a rect tile it tucks the dot IN over the top-right corner
-	# (the old value was tuned against a disc's transparent art margin, so it is pulled in tighter).
-	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)) * 0.5, float(_home_opts.get("badge_dy", -26.0)) * 0.5)
-	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
-	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
+# The shared bottom-bar destination list — the ONE row of paper tiles used by both the home screen and
+# the MAPS gallery. Order runs navigation → liveops → utility → primary, with Board pinned right.
+# `on_maps` swaps the leading Map tile (which opens the gallery) for a Home tile (which returns to the
+# board), since the gallery IS the map — a Map tile there would point at the page you are already on.
+func _bottom_bar_specs(on_maps: bool) -> Array:
 	var HC: GDScript = load(HOME_CHROME_PATH)
-	# The BOTTOM BAR (home_screen_meadow_sky_v2_working_farm): one full-width row of paper tiles, each on
-	# its OWN texture, icon over caption. This replaces both the old top-right LiveOps rail and the
-	# two-button Map/Play nav — every home destination now lives in one strip along the bottom edge.
-	# Order runs navigation → liveops → utility → primary, with Board pinned in the right-hand corner.
-	var specs: Array = [
-		{"name": "MapTile", "icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"),
+	var lead: Dictionary
+	if on_maps:
+		lead = {"name": "HomeTile", "icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.home"),
 			"surface": "sky", "action": func() -> void:
 				Audio.play("button_tap", -2.0)
-				_open_maps()},
+				_open_map(_map_idx)}
+	else:
+		lead = {"name": "MapTile", "icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"),
+			"surface": "sky", "action": func() -> void:
+				Audio.play("button_tap", -2.0)
+				_open_maps()}
+	var specs: Array = [
+		lead,
 		# Residents is ALWAYS present — the bottom bar is fixed furniture (a tab bar, not a progressive
 		# list). The old rail hid it until the bucket existed; hiding a tile here either punches a hole
 		# in the row or reflows every destination out from under the player's thumb.
@@ -2368,11 +2345,30 @@ func _build_bottom_chrome() -> void:
 			"surface": "kraft", "action": _open_inbox})
 	# (Settings is NOT a bar tile: it is a bare gear pinned top-right under the wallet — see
 	#  _build_settings_gear. It is a utility, not a destination, so it stays off the destination row.)
-	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It is no longer the big orange
-	# disc: it wears the same rect tile geometry as its neighbours (coral paper) and keeps breathing, and
-	# _refresh_play_cta still swaps its icon/action between Play and Restore.
+	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It wears the same rect tile
+	# geometry as its neighbours (coral paper); _refresh_play_cta swaps its icon/action Play↔Restore.
 	specs.append({"name": "BoardTile", "icon": HC.ICON_PLAY, "caption": Strings.t("map.nav.board"),
 		"surface": "coral", "action": _on_board})
+	return specs
+
+func _build_bottom_chrome() -> void:
+	# Load the shared home-button style ONCE (the same transform the workbench reads).
+	var Kit: GDScript = load(KIT_PATH)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
+	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
+	# the shared workbench button size — still read by the place-picker's back button.
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {
+		"button_w_frac": RAIL_PX / Design.size().x, "edge_margin_px": RAIL_MARGIN}
+	_rail_px = maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
+	# the workbench-tuned badge offset: on a rect tile it tucks the dot IN over the top-right corner
+	# (the old value was tuned against a disc's transparent art margin, so it is pulled in tighter).
+	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)) * 0.5, float(_home_opts.get("badge_dy", -26.0)) * 0.5)
+	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
+	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
+	# The BOTTOM BAR (home_screen_meadow_sky_v2_working_farm): one full-width row of paper tiles, each on
+	# its OWN texture, icon over caption. This replaces both the old top-right LiveOps rail and the
+	# two-button Map/Play nav — every home destination now lives in one strip along the bottom edge.
+	var specs := _bottom_bar_specs(false)
 
 	var built := _build_bottom_bar(specs)
 	_map_btn = built.get("MapTile", null)
@@ -2437,11 +2433,23 @@ func _build_settings_gear() -> void:
 	_chrome_nodes.append(b)
 	_gear = b
 
+# The bottom-bar tile edge (a square tile): the row fills the width between the safe-area insets, so
+# the tile size is a pure function of the tile COUNT. The MAPS page reserves its nav band from this so
+# its grid stops exactly above the bar the shared builder will lay down.
+func _bottom_bar_tile_px(n: int) -> float:
+	if n <= 0:
+		return 0.0
+	var view := _view_size()
+	var side := _hud_edge_margin_px()
+	var gap := clampf(view.x * 0.012, 6.0, 16.0)
+	return (view.x - side * 2.0 - gap * (float(n) - 1.0)) / float(n)
+
 # Build the bottom bar from `specs` (each {name, icon, caption, surface, action}) and return
 # {name: Button}. Tiles are the SHARED Kit.home_button in its rect form — icon over caption inside a
-# rounded paper tile — sized so the row fills the width between the safe-area insets exactly. Every
-# tile is parented to `self` and tracked as chrome, so a rebuild clears them with the rest.
-func _build_bottom_bar(specs: Array) -> Dictionary:
+# rounded paper tile — sized so the row fills the width between the safe-area insets exactly. Tiles
+# parent to `parent` (the home screen uses `self`; the gallery passes `content` so a page rebuild frees
+# them). When `track` they join `_chrome_nodes`, so `_set_map_chrome_visible` toggles them with the map.
+func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dictionary:
 	var out := {}
 	if specs.is_empty():
 		return out
@@ -2450,7 +2458,7 @@ func _build_bottom_bar(specs: Array) -> Dictionary:
 	var side := _hud_edge_margin_px()
 	var gap := clampf(view.x * 0.012, 6.0, 16.0)
 	var n := float(specs.size())
-	var tile_w := (view.x - side * 2.0 - gap * (n - 1.0)) / n
+	var tile_w := _bottom_bar_tile_px(specs.size())
 	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	opts["px"] = tile_w
@@ -2483,8 +2491,9 @@ func _build_bottom_bar(specs: Array) -> Dictionary:
 		b.name = String(spec.name)
 		b.position = Vector2(side + float(i) * (tile_w + gap), y)
 		b.size = Vector2(tile_w, tile_w)
-		add_child(b)
-		_chrome_nodes.append(b)
+		parent.add_child(b)
+		if track:
+			_chrome_nodes.append(b)
 		out[String(spec.name)] = b
 	return out
 
