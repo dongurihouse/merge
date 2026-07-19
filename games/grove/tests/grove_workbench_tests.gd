@@ -284,32 +284,6 @@ func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
 	return (grids[0] as GridContainer).get_child_count() if not grids.is_empty() else -1
 
-# The unlockable cell's highlight pop style. Returns null if the cell carries no such pop (not unlockable).
-func _unlockable_highlight_style(node: Control) -> StyleBoxFlat:
-	for p in node.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
-		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat:
-			return sb as StyleBoxFlat
-	return null
-
-# The unlockable cell's accent colour — shared by the glow/shadow highlight. Returns transparent if the
-# cell carries no such pop (not unlockable).
-func _unlockable_tint(node: Control) -> Color:
-	var sb := _unlockable_highlight_style(node)
-	return sb.border_color if sb != null else Color(0, 0, 0, 0)
-
-# The unlockable highlight pop's rim drop-shadow size (px). -1 if the cell has no such pop.
-func _unlockable_shadow_size(node: Control) -> int:
-	var sb := _unlockable_highlight_style(node)
-	return sb.shadow_size if sb != null else -1
-
-# The unlockable highlight's visible border width. -1 if the cell has no such pop.
-func _unlockable_border_width(node: Control) -> int:
-	var sb := _unlockable_highlight_style(node)
-	if sb == null:
-		return -1
-	return maxi(maxi(sb.border_width_left, sb.border_width_right), maxi(sb.border_width_top, sb.border_width_bottom))
-
 func _same_rgb(a: Color, b: Color, eps := 0.01) -> bool:
 	return absf(a.r - b.r) <= eps and absf(a.g - b.g) <= eps and absf(a.b - b.b) <= eps
 
@@ -1002,23 +976,18 @@ func _initialize() -> void:
 		map_scene.queue_free()
 	await process_frame
 
-	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
-	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
-	# scale) with no pill to act on — they look broken.
-	ok(String(view._params["bag_card"]["preview"]) == "locked", \
-		"the Slot-cell preview defaults to the plain locked background state")
-	ok(int(view._params["bag_card"]["cost"]) > 0, "the Slot-cell preview defaults to a visible cost (the cost sliders have a pill to act on)")
-	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
-		"the default Slot-cell preview actually renders the cost pill")
+	# the Slot-cell preview is a GALLERY of the states the game renders — board wells (flat), dialog cells,
+	# marked, and dim_bg — instead of one editable cell. It carries a cost pill (the locked+cost sample) so
+	# the cost_* sliders have a target, and a level-badge sample state is not needed here (board passes it live).
 	var bag_card_preview := view._make_element("bag_card") as Control
-	var bag_card_opts := Kit.bag_card_opts_from_config(view._params)
-	ok(bag_card_preview.custom_minimum_size == Vector2(float(bag_card_opts.cell_w) * 2.0, float(bag_card_opts.cell_h) * 2.0), \
-		"the Slot-cell workbench preview keeps the original 2x display size")
-	var bag_card_section := view._sections["bag_card"] as Control
-	var bag_card_body := bag_card_section.get_child(0) as VBoxContainer if bag_card_section != null and bag_card_section.get_child_count() > 0 else null
-	var bag_card_holder := bag_card_body.get_child(1) as Control if bag_card_body != null and bag_card_body.get_child_count() > 1 else null
-	ok(bag_card_holder != null and bag_card_holder.custom_minimum_size == bag_card_preview.custom_minimum_size, \
-		"the Slot-cell gallery section reserves the full preview footprint")
+	ok(_has_button_text(bag_card_preview, "120"), \
+		"the Slot-cell preview renders a locked+cost cell so the cost sliders have a pill to act on")
+	ok(bag_card_preview.find_child("SlotCellUnlockableHighlight", true, false) == null, \
+		"the Slot-cell preview shows no retired unlockable highlight overlay (the marked cell's own sparkle stays)")
+	# every gallery cell is one of the two real treatments — a flat board well or a dialog cell — proven by
+	# the presence of both the untinted board face and the tinted dialog face among the rendered cells.
+	var slot_papers := bag_card_preview.find_children("SlotCellPaperTexture", "TextureRect", true, false)
+	ok(slot_papers.size() >= 6, "the Slot-cell preview renders the full state gallery (board + dialog rows)")
 	ok(not View.IDS.has("border_cell") and not view._sections.has("border_cell") and not view._params.has("border_cell"), \
 		"the temporary Border cell component is removed; its knobs live on Slot cell")
 	ok(not (view._params["bag_card"] as Dictionary).has("cell_art") and not (view._params["bag_card"] as Dictionary).has("cell_slice"), \
@@ -1483,13 +1452,6 @@ func _test_board_element(view) -> void:
 	var w0: float = base.custom_minimum_size.x
 	ok(w0 > 0.0, "the board preview reports a real footprint")
 
-	var bag_default: Dictionary = (view._params["bag_card"] as Dictionary).duplicate()
-	view._params["bag_card"]["frontier_hue"] = 20
-	view._params["bag_card"]["frontier_sat"] = 60
-	view._params["bag_card"]["frontier_val"] = 80
-	view._params["bag_card"]["deep_hue"] = 44
-	view._params["bag_card"]["deep_sat"] = 12
-	view._params["bag_card"]["deep_val"] = 85
 	var board_with_locks: Control = view._make_element("board")
 	var saw_locked_paper := false
 	var board_backgrounds := board_with_locks.find_children("SlotCellBackground", "Panel", true, false)
@@ -1511,6 +1473,7 @@ func _test_board_element(view) -> void:
 	view._params["board"]["cell"] = 100
 	view._params["board"]["scale"] = 100
 	view._params["board"]["pieces"] = true
+	var bag_default: Dictionary = (view._params["bag_card"] as Dictionary).duplicate()
 	view._params["bag_card"]["content_frac"] = 30
 	var small_piece_px := _piece_holder_max_px(view._make_element("board"))
 	var small_art_px := _piece_art_max_px(view._make_element("board"))
@@ -2306,8 +2269,9 @@ func _test_bag_components() -> void:
 		if Kit.bag_card({"kind": kind, "icon": "leaf", "cost": 15}, co).custom_minimum_size != cwh:
 			same = false
 	ok(same, "every bag-cell state is exactly cell_w × cell_h (one shared card, cost inside)")
-	# the NEXT (buyable) cell carries a DYNAMIC sparkle FX (engine-drawn particles); locked does not.
-	ok(_has_class(Kit.bag_card({"kind": "next", "cost": 10}, co), "GPUParticles2D"), "the next cell has a dynamic sparkle FX")
+	# the retired unlockable HIGHLIGHT: no shipped caller shows it (board passes flat_board_cells, the bag's
+	# next slot passes no_highlight), so slot_cell no longer draws any glow/sparkle overlay for it at all.
+	ok(not _has_class(Kit.bag_card({"kind": "next", "cost": 10}, co), "GPUParticles2D"), "the next cell no longer carries the retired highlight sparkle")
 	ok(not _has_class(Kit.bag_card({"kind": "locked", "cost": 25}, co), "GPUParticles2D"), "a locked cell has no sparkle FX")
 
 	# --- the shared slot cell (bag + board): slot_cell is the unified name, bag_card a thin alias ---
@@ -2315,9 +2279,10 @@ func _test_bag_components() -> void:
 	ok(Kit.bag_card({"kind": "next", "cost": 10}, co) is Control, "bag_card alias still builds")
 	# a board-style LEVEL BADGE docks lower-right when d.level is set (the SAME HUD level-badge medal)
 	ok(_has_label_text(Kit.slot_cell({"state": "locked", "level": 7}, co), "7"), "a cell with d.level shows the level-badge number")
-	# the board's UNLOCKABLE state: highlighted (the shared sparkle), tappable, and NO cost when none given
+	# the board's UNLOCKABLE state: tappable, NO cost when none given, and NO highlight overlay (retired)
 	var unl := Kit.slot_cell({"state": "unlockable", "on_tap": func() -> void: pass}, co)
-	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
+	ok(not _has_class(unl, "GPUParticles2D") and unl.find_child("SlotCellUnlockableHighlight", true, false) == null, \
+		"an unlockable cell carries no highlight overlay (every shipped caller suppressed it)")
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
 	# dim_bg recedes the WELL through the paper layer's OWN tint. The mask shader writes COLOR wholesale,
@@ -2350,7 +2315,8 @@ func _test_bag_components() -> void:
 		"flat board cells keep the acorn lock contained with no outer glow or sparkle")
 	# ...but the openable-NOW cell must still READ as highlighted: a contained warm-gold well (the paper
 	# retinted warm, r >> b) plus a bright gold face rim — both drawn ON the inset face, so no gutter spill.
-	# This is the regression guard for "the unlockable cells don't have the highlight anymore".
+	# (This face cue REPLACED the old full-cell glow/sparkle overlay + its glow_hue/glow_shadow/glow_size
+	# tuning, which only ever showed in the workbench; those knobs and the overlay are retired.)
 	var fb_unl_tint: Color = _paper_tint.call(flat_board_unlockable)
 	ok(fb_unl_tint.r > 1.0 and fb_unl_tint.r > fb_unl_tint.b + 0.4, \
 		"the board's unlockable cell wears a warm-gold well, distinct from the untinted locked face")
@@ -2358,31 +2324,6 @@ func _test_bag_components() -> void:
 	var fb_rim := (fb_unl_bg.get_theme_stylebox("panel") as StyleBoxFlat).border_color
 	ok(fb_rim.r > 0.85 and fb_rim.g > 0.75 and fb_rim.b < fb_rim.r, \
 		"the board's unlockable cell wears a bright warm-gold rim (a contained highlight ring)")
-	ok(_unlockable_border_width(unl) == 0, "an unlockable cell has no visible highlight border")
-	# the unlockable accent COLOUR (glow_hue / glow_sat): no overrides returns the exact semantic token;
-	# individual hue/saturation overrides preserve the other Straw channels and Straw's fixed value.
-	var def_tint := _unlockable_tint(unl)
-	ok(co.glow_tint == Pal.STRAW and def_tint == Pal.STRAW, "the default unlockable tint is exactly Pal.STRAW")
-	var co_pale := Kit.bag_card_opts_from_config({"bag_card": {"glow_sat": 25}})
-	ok(is_equal_approx((co_pale.glow_tint as Color).h, Pal.STRAW.h) and is_equal_approx((co_pale.glow_tint as Color).v, Pal.STRAW.v), \
-		"a saturation-only override preserves Straw hue and value")
-	var co_white := Kit.bag_card_opts_from_config({"bag_card": {"glow_sat": 0}})
-	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_white)).s < 0.02, "glow_sat 0 desaturates the unlockable accent to a warm white")
-	var co_orange := Kit.bag_card_opts_from_config({"bag_card": {"glow_hue": 20}})
-	ok(is_equal_approx((co_orange.glow_tint as Color).s, Pal.STRAW.s) and is_equal_approx((co_orange.glow_tint as Color).v, Pal.STRAW.v), \
-		"a hue-only override preserves Straw saturation and value")
-	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_orange)).h < Pal.STRAW.h, "lowering glow_hue shifts the unlockable accent toward orange")
-	# the glow INTENSITY/SIZE knobs: each glow layer can be dialled all the way out. glow_shadow 0 removes
-	# the rim drop-shadow (the glow hugging the cell); glow_size 0 removes the outer bloom halo.
-	ok(_unlockable_shadow_size(unl) > 0, "the unlockable cell has a rim drop-shadow by default")
-	var co_noshadow := Kit.bag_card_opts_from_config({"bag_card": {"glow_shadow": 0}})
-	ok(_unlockable_shadow_size(Kit.slot_cell({"state": "unlockable"}, co_noshadow)) == 0, "glow_shadow 0 removes the rim drop-shadow")
-	ok(_has_class(unl, "TextureRect"), "the unlockable cell carries the outer bloom halo by default")
-	var co_nohalo := Kit.bag_card_opts_from_config({"bag_card": {"glow_size": 0, "next_twinkle": 0}})
-	var nohalo := Kit.slot_cell({"state": "unlockable"}, co_nohalo)
-	ok(_locked_placeholder(nohalo) != null and nohalo.find_child("SlotCellPaperTexture", true, false) != null \
-		and nohalo.find_children("*", "TextureRect", true, false).size() == 2, \
-		"glow_size 0 removes the outer bloom halo while keeping paper grain and the acorn-lock mark")
 	# Locked cells use one code-drawn paper surface and one combined acorn-lock mark — never two symbols.
 	var locked_plain := Kit.slot_cell({"state": "locked"}, co)
 	ok(locked_plain.find_child("SlotCellBackground", true, false) is Panel \
@@ -2430,24 +2371,22 @@ func _test_bag_components() -> void:
 	ok(unl.custom_minimum_size == cwh, "the unlockable slot cell owns the configured cell_w/cell_h")
 	ok(unl_bg != null and unl_bg.custom_minimum_size == Vector2.ZERO, \
 		"the unlockable background is paint-only and does not expand the slot cell")
-	var unlockable_pop: Control = null
-	for p in unl.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
-		unlockable_pop = p as Control
-		break
-	ok(unlockable_pop != null and unlockable_pop.custom_minimum_size == Vector2.ZERO, \
-		"the unlockable highlight overlay is paint-only and does not expand the slot cell")
 	var side_view := View.new()
 	root.add_child(side_view)
 	await process_frame
 	side_view._selected = "bag_card"
 	side_view._rebuild_sidebar()
-	ok(_slider_max(side_view, "Depth") >= 24.0 and _slider_max(side_view, "Inset") >= 100.0 \
-		and _slider_max(side_view, "Cell Shadow") == -INF \
-		and _slider_max(side_view, "Cell Shadow Size") == -INF \
-		and _slider_min(side_view, "Cell Shadow Y") == INF, \
-		"Slot-cell sidebar keeps shape controls and retires per-cell shadow controls")
-	ok(not _has_sidebar_label(side_view, "Cell art") and _slider_max(side_view, "Cell Slice") == -INF, \
-		"Slot-cell sidebar hides stale art/slice controls")
+	# the Slot-cell sidebar keeps ONLY the sizes the game reads; the dead background-fill/rim/depth/inset
+	# and unlockable-glow groups are gone (they tuned nothing), along with the older art/slice/shadow knobs.
+	ok(_slider_max(side_view, "Content Frac") >= 30.0 and _slider_max(side_view, "Level Frac") >= 20.0, \
+		"Slot-cell sidebar keeps the live piece/level size controls")
+	ok(_slider_max(side_view, "Depth") == -INF and _slider_max(side_view, "Inset") == -INF \
+		and _slider_max(side_view, "Open Hue") == -INF and _slider_max(side_view, "Glow Size") == -INF \
+		and _slider_max(side_view, "Rim Alpha") == -INF, \
+		"Slot-cell sidebar drops the dead background-fill / rim / depth / glow controls")
+	ok(not _has_sidebar_label(side_view, "Cell art") and _slider_max(side_view, "Cell Slice") == -INF \
+		and _slider_max(side_view, "Cell Shadow") == -INF, \
+		"Slot-cell sidebar hides stale art/slice/shadow controls")
 	side_view.queue_free()
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
