@@ -1,6 +1,0 @@
-Use case: stylized-concept.
-Asset type: compact 3x3 reusable cutout sprite pack.
-Input images: original Desert Oasis mock for style/camera/scale; Meadow Sky palette/material board; Meadow Sky farm camera/detail board.
-Primary request: nine separated compact desert dressing objects in a strict 3 by 3 grid with wide #FF00FF gutters. Row 1: blue-green agave clump, yellow flowering desert plant, purple flowering desert plant. Row 2: prickly-pear cactus, compact reed clump, small rounded gray-tan rock cluster. Row 3: medium irregular sandy rock cluster, tiny three-stone scatter, agave-and-two-rock contact cluster. Each is one compact object without a scenic base.
-Style: Meadow Sky + Cut-Paper Playground: friendly matte hand-cut cardstock; broad, rounded low-complexity silhouettes; two or three dominant masses; flat base colors with one same-hue shadow plane; subtle paper fiber; fine warm cut edge; no painterly, clay, glossy 3D, sticker outline, or heavy black outline.
-Output: perfectly flat #FF00FF chroma-key background only, all objects fully contained with visible key-color gutter, no floor/scene/text/watermark, and no cast/contact shadow.
