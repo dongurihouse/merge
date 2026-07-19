@@ -1,0 +1,38 @@
+Use case: ui-mockup.
+Asset type: polished high-fidelity mobile game dialog mock, 1080x1920 portrait runtime composition.
+
+Input images:
+- Image 1 is the old vault dialog content reference only: preserve the concept of a vault jar, a claim price, and the note that it fills at 30. Do not copy the old sparse layout, weak contrast, scroll bar, or empty center.
+- Image 2 is the Fairy Hollow backdrop/style context: use it only as a dimmed modal background cue and for the cut-paper game-world feeling. Do not copy its composition into the dialog.
+
+Primary request: recreate the VAULT dialog in the fixed Meadow Sky + Cut-Paper Playground style. Make it feel like a premium-bank dialog for a cozy merge game: earned premium currency collects inside a glassy paper jar, then the player can claim it all for $2.99.
+
+Canvas and background: full iPhone vertical aspect ratio, 1080x1920. Behind the modal, show a softly blurred and darkened Fairy Hollow scene background, enough to recognize forest/toadstool shapes but not compete with the dialog. No visible bottom nav.
+
+Dialog frame: centered large warm-cream rounded paper modal occupying about 78% screen width and 56% screen height. Use a fine warm cut edge, thin locally darker edge, and shallow tinted down-right shadow. Close button at top right: coral circular paper button with a cream X glyph.
+
+Exact visible text to include, preserving spelling:
+- Title: "VAULT"
+- Main copy: "Premium you've earned, saved up"
+- Price button: "$2.99"
+- Helper note: "Keep playing - it fills at 30"
+
+Layout: top title, then a large hero jar centered. The jar should be about 24% of modal height, much larger than the old one. It is a rounded transparent-looking cut-paper jar with slate-blue rim and cream highlights, containing visible reward gold acorns/coins/premium pieces partly filling the bottom, with a small warm sparkle. Beneath jar, add a compact reward summary tray: three small resource chips with icons only plus counts, e.g. gold coin pile "84", water droplet "3", acorn "1". Then main copy in ink/slate. Then one large action-green pill button with a small acorn icon and exact label "$2.99". Then helper note below in smaller slate text with a tiny acorn icon before 30. Keep all tap targets large and centered.
+
+Visual hierarchy: jar is emotional center; price button is only primary action; helper note is secondary. More filled and premium-feeling than old image, but not busy. High contrast and readable on phone. No scroll bar. No extra buttons.
+
+Palette: fixed Meadow Sky roles only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Use warm cream for modal, ink/slate for text, action green for claim button, coral only for close/accent, gold for the earned premium in jar.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: include only the exact UI text and numbers specified above.
+
+Avoid: old sparse empty layout, scroll bar, tiny jar, text overflow, extra labels, extra prices, extra buttons, resource charts, real app store UI, glossy 3D, clay, watercolor, painterly brushwork, universal white sticker outline, heavy black outline, watermark.
