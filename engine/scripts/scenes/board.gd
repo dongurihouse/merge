@@ -802,8 +802,9 @@ func _build_hud() -> void:
 				water = Save.water()
 				_regen_ts = Time.get_unix_time_from_system()
 			_update_water_hud(),
-		# the board hides the level badge (player status reads on the Map); no on_level tap target here.
-		"hide_level": true})
+		# the board shows the shared level badge top-left (mock: board_next_unlock_v1) — tap → the
+		# level screen, same as the map.
+		"on_level": func() -> void: LevelPopup.open(self)})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
 	_build_unlock_bar()
 	coins_label = hud.coins
