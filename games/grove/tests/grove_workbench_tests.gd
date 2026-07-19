@@ -2348,6 +2348,16 @@ func _test_bag_components() -> void:
 	ok(flat_board_unlockable.find_child("SlotCellUnlockableHighlight", true, false) == null \
 		and not _has_class(flat_board_unlockable, "GPUParticles2D"), \
 		"flat board cells keep the acorn lock contained with no outer glow or sparkle")
+	# ...but the openable-NOW cell must still READ as highlighted: a contained warm-gold well (the paper
+	# retinted warm, r >> b) plus a bright gold face rim — both drawn ON the inset face, so no gutter spill.
+	# This is the regression guard for "the unlockable cells don't have the highlight anymore".
+	var fb_unl_tint: Color = _paper_tint.call(flat_board_unlockable)
+	ok(fb_unl_tint.r > 1.0 and fb_unl_tint.r > fb_unl_tint.b + 0.4, \
+		"the board's unlockable cell wears a warm-gold well, distinct from the untinted locked face")
+	var fb_unl_bg := flat_board_unlockable.find_child("SlotCellBackground", true, false) as Panel
+	var fb_rim := (fb_unl_bg.get_theme_stylebox("panel") as StyleBoxFlat).border_color
+	ok(fb_rim.r > 0.85 and fb_rim.g > 0.75 and fb_rim.b < fb_rim.r, \
+		"the board's unlockable cell wears a bright warm-gold rim (a contained highlight ring)")
 	ok(_unlockable_border_width(unl) == 0, "an unlockable cell has no visible highlight border")
 	# the unlockable accent COLOUR (glow_hue / glow_sat): no overrides returns the exact semantic token;
 	# individual hue/saturation overrides preserve the other Straw channels and Straw's fixed value.
