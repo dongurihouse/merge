@@ -1,0 +1,19 @@
+{
+  "sheet": "daily_chest_leaf_sprigs_sheet_1024.png",
+  "frames_dir": "final_frames",
+  "canvas": "1024x1024",
+  "cell_master": "512x512",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "row_major": [
+    "chest_leaf_tall_left_512.png",
+    "chest_leaf_tall_right_512.png",
+    "chest_leaf_short_left_512.png",
+    "chest_leaf_short_right_512.png"
+  ],
+  "alpha_qc": {
+    "visible_magenta_fringe_px": 0,
+    "opaque_canvas_edge_px": 0,
+    "nonzero_rgb_outside_alpha_px": 0,
+    "edge_touch_frames": []
+  }
+}
