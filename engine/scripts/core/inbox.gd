@@ -215,6 +215,24 @@ static func claim(id: String) -> Dictionary:
 		return rew
 	return {}
 
+## Claim EVERY unclaimed gift at once (the mailbox's "Claim All"). Grants each in turn, marks them
+## claimed, persists, and returns the AGGREGATE granted reward {coins,gems,water} so the UI can play a
+## single celebration. A no-op (returns {}) when nothing is claimable.
+static func claim_all() -> Dictionary:
+	var total := {"coins": 0, "gems": 0, "water": 0}
+	var any := false
+	for m in messages():
+		if not _is_unclaimed_gift(m):
+			continue
+		var granted: Dictionary = claim(String(m.get("id", "")))
+		if granted.is_empty():
+			continue
+		any = true
+		total.coins += int(granted.get("coins", 0))
+		total.gems += int(granted.get("gems", 0))
+		total.water += int(granted.get("water", 0))
+	return total if any else {}
+
 # Pay out a reward dict. Coins/gems go straight to the wallet (each persists); water tops up the
 # grove can, CAPPED at WATER_CAP (a modest top-up, never self-sustaining — the §4/§10 invariant
 # the login ladder obeys). Returns nothing; the final grove_write flushes the water grant.
