@@ -1031,14 +1031,7 @@ func _rebuild_givers() -> void:
 	# the fence renders only while quests remain — level progress moved to the NEXT UNLOCK strip.
 	if stands == 0:
 		return
-	# the fence wall — a quiet paper strip; busts and cards pop up over its edge
-	var wall := Panel.new()
-	wall.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wall.offset_top = 64.0 * (_fence_h / FENCE_H)
-	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wall.add_theme_stylebox_override("panel", _quest_band_style())
-	giver_bar.add_child(wall)
-	giver_bar.move_child(wall, 0)
+	# (the full-width fence "wall" paper strip is retired — the cards stand on their own)
 	# Cards are a FIXED size (proportional to the band height, so the art never distorts) packed LEFT to
 	# right inside a horizontal ScrollContainer, one per metered quest. When the cards FIT the screen they
 	# sit left-aligned with spare width on the right
@@ -1056,7 +1049,7 @@ func _rebuild_givers() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER   # drag-scrollable; the scrollbar itself stays hidden
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED       # the band never scrolls vertically (busts stay un-clipped)
 	giver_bar.add_child(scroll)
-	giver_bar.move_child(scroll, 1)
+	giver_bar.move_child(scroll, 0)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE   # transparent: a card-touch (PASS) must propagate THROUGH the row to the ScrollContainer — a STOP row (the default) would block the drag and only the gaps would scroll
 	row.size_flags_vertical = Control.SIZE_FILL
@@ -2242,27 +2235,6 @@ static func _field_backdrop() -> Control:
 	c.set_anchors_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return c
-
-# The quest band behind the givers — a quiet paper strip matching the new card material.
-static func _quest_band_style() -> StyleBox:
-	var path := Game.art("ui/meadow_v2/card_generic.png")
-	if ResourceLoader.exists(path):
-		var sb := StyleBoxTexture.new()
-		sb.texture = load(path)
-		sb.set_texture_margin(SIDE_LEFT, 34)
-		sb.set_texture_margin(SIDE_TOP, 28)
-		sb.set_texture_margin(SIDE_RIGHT, 34)
-		sb.set_texture_margin(SIDE_BOTTOM, 28)
-		return sb
-	var flat := StyleBoxFlat.new()
-	flat.bg_color = Pal.SURFACE
-	flat.set_corner_radius_all(18)
-	flat.set_border_width_all(2)
-	flat.border_color = Color(Pal.BARK, 0.22)
-	flat.shadow_color = Color("#294654", 0.16)
-	flat.shadow_size = 4
-	flat.shadow_offset = Vector2(0, 2)
-	return flat
 
 func _make_bramble(cell: Vector2i) -> Control:
 	var frontier := _is_frontier_bramble(cell)
