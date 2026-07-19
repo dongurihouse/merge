@@ -17,7 +17,6 @@ func _initialize() -> void:
 	await _test_bucket_dock()
 	await _test_dock_closed_state()
 	await _test_map_tap_over_ambient()
-	await _test_completion_grants_gift_spirit()
 	await _test_residents_dialog()
 	finish()
 
@@ -259,38 +258,18 @@ func _test_map_tap_over_ambient() -> void:
 		"_map_tap skips non-Control ambient children instead of crashing on the driver")
 	hx.queue_free()
 
-# --- completing a map lands its gift spirit in the bucket hand, same beat as the cells ------------
-func _test_completion_grants_gift_spirit() -> void:
-	fresh("bucket_completion_gift")
-	var g := Save.grove()
-	g["exp"] = 999999
-	var unl := {}
-	for i in range(G.MAPS[0].spots.size() - 1):
-		unl[String(G.MAPS[0].spots[i].id)] = true          # every farm spot but the last
-	g["unlocks"] = unl
-	Save.grove_write()
-	G.claim_unlock_reward(0)                               # consume the unlock beat (coins/gems only now)
-	var hand_before := Bucket.hand().size()
-
-	var hx = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hx)
-	hx._login_shown_launch = true
-	await create_timer(0.1).timeout
-	hx.unlocks = unl
-	hx._open_map(0)
-	await create_timer(0.08).timeout
-	var dummy := Control.new()
-	get_root().add_child(dummy)
-	await hx._on_spot_tap(0, G.MAPS[0].spots.size() - 1, dummy, Vector2(60.0, 60.0))
-	await create_timer(0.05).timeout
-	var h := Bucket.hand()
-	ok(h.size() == hand_before + 1, "completing a map lands its gift spirit in the bucket hand")
-	ok(h.size() > 0 and String(h[h.size() - 1].line) == Bucket.kind_line("ember"), "the farm's gift is its signature kind on its line")
-	ok(G.claim_completion_spirit(0) == "", "the completion gift pays exactly once")
-	ok(Bucket.cells_total() > 0, "the same beat grants the cells that house it")
-	dummy.queue_free()
-	hx.queue_free()
-
+# --- RETIRED: _test_completion_grants_gift_spirit -------------------------------------------------
+# This drove the scene through `hx._on_spot_tap(...)`, the per-spot claim removed by 65ce97fa along
+# with the rest of the §16 mask-reveal machinery. The tap now routes spot_hits -> _map_tap ->
+# _on_build_tap (the build-and-upgrade home, spec 2026-07-17), and that path grants a finished
+# building's bucket CELLS but never lands a gift spirit — G.claim_completion_spirit has no caller
+# outside tests, and no gameplay path calls Bucket.hand_add at all. So there is no current path to
+# re-point this test at; asserting the old beat would pin behaviour the game no longer has.
+#
+# Still covered: the model-level contract (pays the signature kind, pays exactly once) lives in
+# games/grove/tests/grove_test_base.gd; the cells-on-build beat lives in engine/tests/home_build_tests
+# and _test_cells_from_completion above. Whether the gift spirit should return as part of the build
+# beat is a design call, not a test call — see the note raised with the Dev.
 # --- the RESIDENTS management dialog (ui/residents.gd, mock v2): banks · cells · hand · sell -------
 func _test_residents_dialog() -> void:
 	fresh("residents_dialog")

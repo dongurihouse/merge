@@ -618,6 +618,8 @@ static func _pick_tex(color: Color) -> Texture2D:
 static func burst(host: Node, center: Vector2, color: Color, amount: int = Tune.BURST_AMOUNT, scale_pct := 100) -> void:
 	if not Features.on("celebrate_bursts"):
 		return
+	if not (host and is_instance_valid(host)):
+		return                                   # same host guard as flash/shake — a freed or null host is a no-op
 	var tex := _pick_tex(color)
 	var grove := tex != _dot_tex
 	var sk := float(scale_pct) / 100.0       # caller-tunable sprite size (100 = the Tune defaults)

@@ -9,11 +9,19 @@ Env:
   GODOT   godot binary (default: godot)
   JOBS    max concurrent suites (default: 4 — over-subscription thrashes cores)
 
-Exit code is non-zero if ANY suite fails. Failure detection is summary-based:
-a suite that reaches its "== N passed, M failed ==" line with M==0 and exits 0
-PASSED — even if it logged SCRIPT ERROR / GDScript backtrace noise along the way
-(the suites deliberately exercise error paths). A suite that never reaches that
-summary line CRASHED (it died early — a real failure, regardless of exit code).
+Exit code is non-zero if ANY suite fails. A suite PASSES only when it reaches its
+"== N passed, M failed ==" line with M==0, exits 0, AND logged no SCRIPT ERROR.
+A suite that never reaches that summary line CRASHED (it died early — a real
+failure, regardless of exit code).
+
+SCRIPT ERROR IS A FAILURE. It used to be tolerated on the theory that suites
+deliberately exercise error paths, but that tolerance hid real breakage: a
+`await hx._some_removed_method(...)` aborts the enclosing test function, so its
+asserts never run and never print — the suite still reaches its summary and
+reports a healthy-looking "all passed". Coverage silently dies while CI stays
+green. Measured across every active suite, none legitimately need the tolerance:
+a test that means to exercise an error path should assert the guarded no-op
+rather than let the engine log an error.
 
 HANG GUARD: each suite is bounded by TIMEOUT seconds (default 120). A SceneTree
 test that hits an uncaught SCRIPT ERROR mid-`_initialize()` aborts the function
@@ -38,8 +46,11 @@ SUITES = sys.argv[1:]
 
 SUMMARY = re.compile(r"== (\d+) passed, (\d+) failed ==")
 # the first uncaught error + its location — the usual reason a suite hangs (the
-# error aborts _initialize before quit(), so the process never exits).
+# error aborts _initialize before quit(), so the process never exits). Even when
+# the suite survives to its summary, an error here means some test function was
+# cut short mid-way, so it counts as a failure on its own.
 SCRIPT_ERR = re.compile(r"(SCRIPT ERROR:.*)\n\s*(at: .*)")
+ANY_SCRIPT_ERR = re.compile(r"SCRIPT ERROR:")
 
 
 def run(suite):
@@ -69,12 +80,15 @@ def run(suite):
     reached_end = m is not None and not timed_out
     nfail = int(m.group(2)) if reached_end else sum(1 for ln in lines if ln.startswith("  FAIL"))
     crashed = not reached_end
-    ok = reached_end and nfail == 0 and code == 0
+    # an error mid-run aborts the enclosing test function — its asserts silently
+    # never run, so a clean summary does NOT mean the suite is healthy.
+    n_script_err = len(ANY_SCRIPT_ERR.findall(out))
+    ok = reached_end and nfail == 0 and code == 0 and n_script_err == 0
     em = SCRIPT_ERR.search(out)
     err = f"{em.group(1).strip()} {em.group(2).strip()}" if em else ""
     return {"suite": suite, "dt": dt, "pass": npass, "fail": nfail,
             "crashed": crashed, "timed_out": timed_out, "code": code,
-            "ok": ok, "out": out, "err": err}
+            "script_err": n_script_err, "ok": ok, "out": out, "err": err}
 
 
 def main():
@@ -106,8 +120,12 @@ def main():
             status = "TIMEOUT"
         elif r["crashed"]:
             status = "CRASH"
-        else:
+        elif r["fail"]:
             status = f"FAIL×{r['fail']}"
+        elif r["script_err"]:
+            status = f"ERR×{r['script_err']}"
+        else:
+            status = f"exit {r['code']}"
         print(f"  {r['dt']:7.2f}s  {r['pass']:>5}  {status:<7} {r['suite']}")
     print("  " + "-" * 60)
     print(f"  wall {wall:6.2f}s  (sum of suite-times {cpu_sum:6.2f}s, "
@@ -123,6 +141,9 @@ def main():
                 why = "crashed before summary"
             elif r["fail"]:
                 why = f"{r['fail']} failed"
+            elif r["script_err"]:
+                why = (f"{r['script_err']} SCRIPT ERROR — a test function was cut "
+                       "short, so its asserts never ran")
             else:
                 why = f"exit {r['code']}"
             print(f"   • {r['suite']} ({why})")
@@ -143,6 +164,19 @@ def main():
                 for ln in r["out"].splitlines():
                     if ln.startswith("  FAIL"):
                         print(f"       {ln.strip()[:110]}")
+                if r["script_err"]:
+                    # show each distinct error + the line it fired on: that call site is
+                    # where the enclosing test function stopped executing.
+                    lines = r["out"].splitlines()
+                    seen = set()
+                    for i, ln in enumerate(lines):
+                        if "SCRIPT ERROR:" not in ln or ln in seen:
+                            continue
+                        seen.add(ln)
+                        print(f"       {ln.strip()[:110]}")
+                        at = lines[i + 1].strip() if i + 1 < len(lines) else ""
+                        if at.startswith("at:"):
+                            print(f"         {at[:110]}")
         return 1
     print("\n  ALL SUITES PASSED")
     return 0
