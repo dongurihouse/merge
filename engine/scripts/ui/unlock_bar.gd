@@ -7,6 +7,7 @@ extends Control
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const Pal = Game.PALETTE
 
 const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
@@ -41,6 +42,11 @@ func _init() -> void:
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg.add_theme_stylebox_override("panel", _band_style(18.0))   # provisional; _relayout re-derives from height
 	add_child(_bg)
+	# the ONE SHARED drop-shadow (the pill look) behind the strip
+	var ShadowKit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var sh := Look.shadow_rect(18.0, Look.shadow_params(ShadowKit.load_config(ShadowKit.CONFIG_PATH)))
+	sh.show_behind_parent = true
+	_bg.add_child(sh)
 	_badge = TextureRect.new()
 	_badge.name = "UnlockBadge"
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE

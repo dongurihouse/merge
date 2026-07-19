@@ -4681,6 +4681,18 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0))
+	if flat_board_cells:
+		# board tiles cast the ONE SHARED drop-shadow (the pill look) so the grid reads as raised
+		# paper. The tile's clip allows only ~face_inset px of feather past the face, and the board
+		# field behind is already dark — so the shared spread/alpha are compensated here or the
+		# shadow vanishes entirely (measured: <2% pixel delta with the raw shared params).
+		var sp: Dictionary = Look.shadow_params(load_config(CONFIG_PATH)).duplicate()
+		sp["spread"] = maxf(float(sp.get("spread", 4.0)), -6.0)
+		sp["alpha"] = maxf(float(sp.get("alpha", 0.2)), 0.3)
+		var sh: Panel = Look.shadow_rect(float(corner_px), sp)
+		sh.name = "SlotCellShadow"
+		sh.show_behind_parent = true
+		base.add_child(sh)
 	return base
 
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
