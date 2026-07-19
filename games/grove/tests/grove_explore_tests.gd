@@ -201,6 +201,14 @@ func _button_icon_is_centered(btn: Button) -> bool:
 	var c := icon.get_global_rect().get_center()
 	return absf(b.x - c.x) <= 3.0 and absf(b.y - c.y) <= 3.0
 
+## A CAPTIONED tile centres its icon horizontally only — the icon rides the upper half, above the
+## label, so the vertical centres deliberately disagree. (Icon-only buttons use the both-axes check.)
+func _button_icon_is_centered_x(btn: Button) -> bool:
+	var icon := _button_icon_node(btn)
+	if icon == null:
+		return false
+	return absf(btn.get_global_rect().get_center().x - icon.get_global_rect().get_center().x) <= 3.0
+
 func _button_icon_is_large(btn: Button) -> bool:
 	if not btn.has_meta("icon_px"):
 		return false
@@ -269,43 +277,35 @@ func _test_map_card_expedition_chrome() -> void:
 	hx.unlocks = unl
 	hx._open_map(z)
 	await create_timer(0.05).timeout
-	var home_exp := _home_chrome_button(hx, "Expedition")
-	ok(home_exp != null, "eligible home maps expose Expedition in the home chrome rail")
-	ok(home_exp != null and String(home_exp.get_meta("map_id", "")) == String(G.MAPS[z].id), "home Expedition rail button records its source map")
-	ok(home_exp != null and String(home_exp.get_meta("icon_id", "")) == "expedition", "home Expedition rail button uses the dedicated expedition icon")
+	# Expedition has NO home entry any more (spec 2026-07-18): it moved into the Residents dialog, and
+	# the side rail that carried it was replaced by the bottom bar.
+	ok(_home_chrome_button(hx, "Expedition") == null, "home no longer carries an Expedition rail tile")
 
-	var labels := ["Map", "Settings", "Daily", "Vault"]
-	if _home_chrome_button(hx, "Inbox") != null:
-		labels.append("Inbox")
-	if home_exp != null:
-		labels.append("Expedition")
-	for label in labels:
-		var btn := _home_chrome_button(hx, label)
-		ok(btn != null, "%s button is present" % label)
+	# the BOTTOM BAR tiles: icon over caption inside a rounded paper tile, each on its own texture.
+	var tiles := {"MapTile": "sky", "ResidentsTile": "green", "DailyTile": "gold",
+		"VaultTile": "purple", "SettingsTile": "slate", "BoardTile": "coral"}
+	for tile_name in tiles:
+		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
+		ok(btn != null, "the bottom bar carries the %s" % tile_name)
 		if btn == null:
 			continue
-		ok(not _button_has_visible_text(btn), "%s button has no visible text" % label)
-		ok(_button_icon_is_large(btn), "%s icon fills the button footprint" % label)
-		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
+		# captions are the mock's read (unlike the old icon-only rail discs), so text IS expected now
+		ok(_button_has_visible_text(btn), "%s carries its caption" % tile_name)
+		ok(_button_icon_is_centered_x(btn), "%s icon is centered horizontally over its caption" % tile_name)
+	# Board is LAST, so it lands in the bottom-right corner
+	var board := hx.get_node_or_null("BoardTile") as Button
+	var settings_tile := hx.get_node_or_null("SettingsTile") as Button
+	ok(board != null and settings_tile != null and board.position.x > settings_tile.position.x,
+		"Board is the right-most tile (the bottom-right corner)")
+	ok(board != null and is_equal_approx(board.size.x, settings_tile.size.x),
+		"Board wears the same tile size as its neighbours — no oversized disc")
+	# the row fills the width: last tile's right edge sits within a margin of the screen edge
+	if board != null:
+		var view_w: float = hx.get_viewport_rect().size.x
+		ok(board.position.x + board.size.x > view_w * 0.82,
+			"the bottom row spans the full width (right edge at %.0f of %.0f)" % [board.position.x + board.size.x, view_w])
 	ok(hx.content.find_child("MapHomeExpeditionButton", true, false) == null, "eligible home maps do not hide Expedition as a map-art overlay")
-	if home_exp != null:
-		# the rail tile now opens the spirit DOCK (the Map nav button owns the MAPS gallery);
-		# the loadout itself opens from the dock's Expedition chip, asserted below.
-		home_exp.pressed.emit()
-		await create_timer(0.05).timeout
-		ok(hx._view == "select", "pressing the home Expedition rail button opens the spirit dock")
-	else:
-		hx._open_select()
-		await create_timer(0.05).timeout
 	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "map cards no longer carry a floating Expedition icon button")
-	ok(hx.content.find_child("MapHabitatExpeditionButton", true, false) == null, "the per-card habitat Expedition button is retired (bucket dock owns it)")
-	var exp := hx.content.find_child("BucketExpeditionButton", true, false) as Button
-	ok(exp != null, "the bucket dock exposes the Expedition entry once the loop is open")
-	ok(exp != null and exp.text == "Expedition", "the dock Expedition chip uses a plain text label")
-	if exp != null:
-		exp.pressed.emit()
-		await process_frame
-		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the dock Expedition chip opens loadout")
 	hx.queue_free()
 
 func _test_dock_collect_chip() -> void:

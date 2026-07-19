@@ -76,11 +76,13 @@ func _initialize() -> void:
 	h._build_maps_page()   # a rebuild never duplicates hits
 	ok(h.maps_hits.size() == G.MAPS.size(), "a gallery rebuild seats exactly one hit per map")
 
-	# the gallery chrome (mock): NO heading label, a HOME · BOARD · EXPEDITION nav row instead
+	# the gallery chrome (mock): NO heading label, a HOME · BOARD nav row instead. (The third
+	# EXPEDITION tile retired with the bucket dock it opened — spec 2026-07-18.)
 	ok(not _label_texts(h.content).has("MAPS"), "the gallery carries no MAPS heading")
 	var caps := _label_texts(h.content)
-	for cap in ["HOME", "BOARD", "EXPEDITION"]:
+	for cap in ["HOME", "BOARD"]:
 		ok(caps.has(Strings.t("map.page.nav_%s" % cap.to_lower())), "the gallery nav carries %s" % cap)
+	ok(not caps.has(Strings.t("map.page.nav_expedition")), "the gallery nav no longer carries EXPEDITION")
 	ok(h._select_back == null or not h._select_back.visible, "the gallery hides the back arrow (HOME is the way back)")
 	# HOME steps back to the map you were viewing
 	var home_btn: Button = null
@@ -92,19 +94,6 @@ func _initialize() -> void:
 		home_btn.pressed.emit()
 		await create_timer(0.05).timeout
 		ok(h._view == "map", "HOME returns to the map view")
-
-	# EXPEDITION opens the spirit dock
-	h._open_maps()
-	await create_timer(0.05).timeout
-	var dock_btn: Button = null
-	for b in h.content.find_children("*", "Button", true, false):
-		if _label_texts(b).has(Strings.t("map.page.nav_expedition")):
-			dock_btn = b
-	ok(dock_btn != null, "the EXPEDITION nav tile is a real button")
-	if dock_btn != null:
-		dock_btn.pressed.emit()
-		await create_timer(0.05).timeout
-		ok(h._view == "select", "EXPEDITION opens the spirit dock")
 
 	finish()
 
