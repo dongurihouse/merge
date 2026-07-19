@@ -202,7 +202,7 @@ static func home_well(px: float, icon_id: String, fallback_art: String, count: S
 	home_opts["px"] = px
 	home_opts["shape"] = "rect"               # the board's Home + Bag wells are code-drawn rounded paper tiles
 	home_opts["surface_role"] = "purple" if icon_id == "bag" else "green"
-	home_opts["shadow"] = false               # the shared action tray now owns the lift/shadow
+	home_opts["shadow"] = true                # each paper tile keeps the mock's compact directional cast
 	if not action_opts.is_empty():
 		home_opts["icon_scale"] = float(action_opts.get("icon_scale", home_opts.get("icon_scale", 0.5)))
 	if icon_scale > 0.0:

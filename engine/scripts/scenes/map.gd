@@ -2056,6 +2056,7 @@ func _make_map_button() -> Button:
 	opts["px"] = _hud_button_px()
 	opts["shape"] = "rect"
 	opts["surface_role"] = "sky"
+	opts["shadow"] = true
 	opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": "", "tooltip": Strings.t("map.nav.map"), "action": open}, opts)
@@ -2374,6 +2375,7 @@ func _make_back_button(sb: float) -> Button:
 		var opts := _home_opts.duplicate()
 		opts["shape"] = "rect"
 		opts["surface_role"] = "sky"
+		opts["shadow"] = true
 		opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, opts)
 	else:
@@ -2464,6 +2466,7 @@ func _build_liveops_rail() -> void:
 	_rail_opts["px"] = _rail_disc_px
 	_rail_opts["shape"] = "rect"
 	_rail_opts["surface_role"] = "cream"
+	_rail_opts["shadow"] = true
 	_rail_opts["icon_scale"] = HOME_ICON_ONLY_SCALE
 	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
 	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).

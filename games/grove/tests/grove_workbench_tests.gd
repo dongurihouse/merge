@@ -198,6 +198,22 @@ func _paper_texture_path(node: Control) -> String:
 	var paper := node.find_child("PaperSurface", true, false) as TextureRect
 	return String(paper.texture.resource_path) if paper != null and paper.texture != null else ""
 
+func _paper_shadow_style(node: Control) -> StyleBoxFlat:
+	if node == null:
+		return null
+	for found in node.find_children("*", "Panel", true, false):
+		var style := (found as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+		if style != null and style.shadow_color.a > 0.0 and style.shadow_size > 0:
+			return style
+	return null
+
+func _is_reference_paper_shadow(style: StyleBoxFlat) -> bool:
+	return style != null \
+		and style.shadow_color.a >= 0.26 and style.shadow_color.a <= 0.321 \
+		and style.shadow_offset.y >= 6.0 \
+		and style.shadow_size >= 6 and style.shadow_size <= 10 \
+		and style.get_expand_margin(SIDE_BOTTOM) >= 0.0
+
 func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
 	var found := node.find_children(pattern, klass, true, false)
 	return found[0] as Control if not found.is_empty() else null
@@ -749,6 +765,8 @@ func _initialize() -> void:
 		and live_plus_art.get_global_rect().size.x <= live_plus_limit, \
 		"live wallet constrains the plus texture to a small in-pill token (%.1f <= %.1f)" \
 			% [live_plus_art.get_global_rect().size.x if live_plus_art != null else INF, live_plus_limit])
+	ok(_is_reference_paper_shadow(_paper_shadow_style(hud.coin_pill)), \
+		"live currency pills cast the compact downward paper shadow from the mock")
 	var wallet_rect := (hud.wallet as Control).get_global_rect()
 	var wallet_right_gap := Design.size().x - wallet_rect.end.x
 	var hud_layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -811,6 +829,9 @@ func _initialize() -> void:
 		and live_tray_paper.material is ShaderMaterial \
 		and String(live_tray_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png"), \
 		"board action tray contains one masked flat cream-paper texture inside its code-drawn shell")
+	ok(_is_reference_paper_shadow(_paper_shadow_style(board_scene.home_btn)) \
+		and _is_reference_paper_shadow(_paper_shadow_style(board_scene.bag_btn)), \
+		"board Home and Bag paper squares cast their own visible downward shadows")
 	board_scene.queue_free()
 	_wb_build_all_buildings()         # open the bucket (cells from built buildings) so the dock fills
 	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()
@@ -826,6 +847,8 @@ func _initialize() -> void:
 		"map Settings tile is built through the side rail chrome path")
 	ok(_paper_texture_path(map_scene._gear).ends_with("ui/meadow_v2/texture_cream.png"), \
 		"map side-rail tiles use the cream paper square")
+	ok(_is_reference_paper_shadow(_paper_shadow_style(map_scene._gear)), \
+		"map side-rail paper tiles cast a visible downward shadow")
 	if map_scene._gear != null and map_scene._hud_panels.size() > 0:
 		var map_wallet := map_scene._hud_panels[0] as Control
 		var rail_gap: float = map_scene._gear.get_global_rect().position.y - (map_wallet.get_child(0) as Control).get_global_rect().end.y
@@ -836,6 +859,8 @@ func _initialize() -> void:
 		var map_button_rect := map_button.get_global_rect()
 		ok(_paper_texture_path(map_button).ends_with("ui/meadow_v2/texture_sky.png"), \
 			"map navigation uses the sky paper square")
+		ok(_is_reference_paper_shadow(_paper_shadow_style(map_button)), \
+			"map navigation paper square casts a visible downward shadow")
 		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0 \
 			and absf(map_screen_h - map_button_rect.end.y - edge_margin) <= 1.0, \
 			"map button uses the shared side/bottom margin")
@@ -852,6 +877,8 @@ func _initialize() -> void:
 			var back_rect := (map_scene._select_back as Control).get_global_rect()
 			ok(_paper_texture_path(map_scene._select_back).ends_with("ui/meadow_v2/texture_sky.png"), \
 				"place-picker Back uses the sky paper square")
+			ok(_is_reference_paper_shadow(_paper_shadow_style(map_scene._select_back)), \
+				"place-picker Back paper square casts a visible downward shadow")
 			ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
 				and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
 				"place-picker back button uses the shared side/bottom margin")
@@ -1552,13 +1579,13 @@ func _test_warm_shadow_port() -> void:
 		ok(st != null and _is_warm_shadow(st.shadow_color) and st.shadow_size > 0, \
 			"the shared shadow uses the warm reference shadow tint")
 
-	# Meadow components normalize runtime shadows to structural slate at <= 20% alpha.
+	# Meadow components normalize runtime shadows to structural slate at <= 32% alpha.
 	var board := Kit.board_panel(Vector2(220.0, 160.0), {"shadow": true, "shadow_params": p})
 	var board_meadow_shadow := false
 	for pan in board.find_children("*", "Panel", true, false):
 		var sb := (pan as Panel).get_theme_stylebox("panel") as StyleBoxFlat
 		if sb != null and sb.shadow_size > 0:
-			board_meadow_shadow = _same_rgb(sb.shadow_color, Color("#294654")) and sb.shadow_color.a <= 0.201
+			board_meadow_shadow = _same_rgb(sb.shadow_color, Color("#294654")) and sb.shadow_color.a <= 0.321
 			break
 	ok(board_meadow_shadow, "the board frame casts the normalized Meadow structural-slate shadow")
 
@@ -1566,7 +1593,7 @@ func _test_warm_shadow_port() -> void:
 	var home := Kit.home_button({"icon": "settings"}, {"px": 120.0, "shadow": true, "shadow_params": oversized})
 	var home_shadow := home.get_child(0) as Panel if home.get_child_count() > 0 and home.get_child(0) is Panel else null
 	var home_style := home_shadow.get_theme_stylebox("panel") as StyleBoxFlat if home_shadow != null else null
-	ok(home_style != null and _same_rgb(home_style.shadow_color, Color("#294654")) and home_style.shadow_color.a <= 0.201,
+	ok(home_style != null and _same_rgb(home_style.shadow_color, Color("#294654")) and home_style.shadow_color.a <= 0.321,
 		"live home/navigation shells clamp oversized runtime shadows to Meadow structural slate")
 	home.free()
 
@@ -1594,13 +1621,13 @@ func _test_warm_shadow_port() -> void:
 
 	var wallet_cfg := {"gold_currency_pill": {"shadow": true, "shadow_alpha": 72.0}}
 	var wallet_opts := Kit.gold_currency_pill_opts_from_config(wallet_cfg)
-	ok(float(wallet_opts.shadow_params.alpha) <= 0.201,
+	ok(float(wallet_opts.shadow_params.alpha) <= 0.321,
 		"wallet shadow resolver clamps a saved 72 percent override to the Meadow maximum")
 	var wallet := Kit.gold_currency_pill(wallet_opts)
 	var wallet_shadow := wallet.get_child(0) as Panel if wallet.get_child_count() > 0 and wallet.get_child(0) is Panel else null
 	var wallet_style := wallet_shadow.get_theme_stylebox("panel") as StyleBoxFlat if wallet_shadow != null else null
-	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color("#294654")) and wallet_style.shadow_color.a <= 0.201,
-		"live wallet shell resolves to structural slate at no more than 20 percent alpha")
+	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color("#294654")) and wallet_style.shadow_color.a <= 0.321,
+		"live wallet shell resolves to structural slate at no more than 32 percent alpha")
 	var wallet_plus := wallet.find_child("GoldCurrencyPlusButton", true, false) as Control
 	var wallet_plus_art := wallet.find_child("GoldCurrencyPlusArt", true, false) as TextureRect
 	ok(wallet_plus != null and wallet_plus_art != null and wallet_plus_art.texture != null \
@@ -2284,7 +2311,7 @@ func _test_quest_card_config(view) -> void:
 		var sb = (p as Panel).get_theme_stylebox("panel")
 		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 \
 			and _same_rgb((sb as StyleBoxFlat).shadow_color, Color("#294654")) \
-			and (sb as StyleBoxFlat).shadow_color.a <= 0.201:
+			and (sb as StyleBoxFlat).shadow_color.a <= 0.321:
 			slate_shadow = true
 	ok(slate_shadow, "card Shadow toggle ON casts the Meadow structural-slate shadow behind the card")
 		# the new Meadow card has no large transparent legacy art margin, so the shadow is not inset by the

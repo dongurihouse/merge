@@ -34,7 +34,7 @@ const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of
 # components load them directly and use explicit safe nine-slice margins rather than live image polish.
 const MEADOW_UI := "ui/meadow_v2/%s"
 const MEADOW_SHADOW_TINT := Color("#294654")
-const MEADOW_SHADOW_MAX_ALPHA := 0.20
+const MEADOW_SHADOW_MAX_ALPHA := 0.32
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const PAPER_SURFACES := {
 	"cream": {"texture": "texture_cream.png", "fill": Color("#F6EBDD")},

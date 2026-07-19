@@ -728,6 +728,7 @@ func _make_element(id: String) -> Control:
 			var co := ho.duplicate()
 			co["shape"] = "rect"
 			co["surface_role"] = "purple"
+			co["shadow"] = true
 			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "count": String(p.get("count", ""))}, co))
 			# the RECT rail tile as the live side rail + Map button build it (shape:"rect"): icon over label
 			# INSIDE the rounded-rect, carrying a SAMPLE red badge so badge_dx / badge_dy (+ dot/num size) tune
@@ -735,6 +736,7 @@ func _make_element(id: String) -> Control:
 			var ro := ho.duplicate()
 			ro["shape"] = "rect"
 			ro["surface_role"] = "cream"
+			ro["shadow"] = true
 			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ro)
 			var bcount := int(p.get("badge_count", 3))
 			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
@@ -1472,7 +1474,7 @@ func _action_bar_preview() -> Control:
 
 	ho["px"] = btn_px
 	ho["shape"] = "rect"
-	ho["shadow"] = false
+	ho["shadow"] = true
 	ho["icon_scale"] = float(ao.get("icon_scale", 0.5))
 	var home_opts := ho.duplicate()
 	home_opts["surface_role"] = "green"
