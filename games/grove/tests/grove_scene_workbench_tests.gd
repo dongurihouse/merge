@@ -298,6 +298,34 @@ func _initialize() -> void:
 		ok(M.clusters(view.doc).has("shrine") and view._sel_cluster == "shrine",
 			"submitting the field renames the cluster and follows the selection")
 
+	# --- dynamic silhouette shadows render in the stage (same PropShadow as the game) --
+	var art := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	art.fill(Color(1, 1, 1, 1))
+	art.save_png(broot + "/art.png")
+	(view.doc.placements[2] as Dictionary)["image"] = "art.png"
+	M.set_shadow(view.doc, 2, true)
+	view._rebuild_stage()
+	var sh_node: Control = null
+	var prop_node: Control = null
+	for c in view._layers.get_children():
+		if c.has_meta("pi_shadow") and int(c.get_meta("pi_shadow")) == 2:
+			sh_node = c
+		elif c.has_meta("pi") and int(c.get_meta("pi")) == 2:
+			prop_node = c
+	ok(sh_node != null and prop_node != null and sh_node.get_index() == prop_node.get_index() - 1,
+		"a shadow-tagged entry draws the dynamic shadow just beneath its layer")
+	ok(sh_node != null and sh_node.position == Vector2(540, 1060),
+		"the shadow sits at the entry's footing")
+	M.move(view.doc, 2, Vector2(10, 0))
+	view._refresh_entry_rect(2)
+	ok(sh_node != null and sh_node.position == Vector2(550, 1060),
+		"the shadow follows a dragged prop's footing")
+	M.move(view.doc, 2, Vector2(-10, 0))
+	M.set_shadow(view.doc, 2, false)
+	ok(not (view.doc.placements[2] as Dictionary).has("shadow"),
+		"shadow off erases the key (untagged files stay byte-stable)")
+	view._rebuild_stage()
+
 	# --- the scene dropdown + in-place switching (unsaved edits auto-save first) ------
 	ok(view.find_child("SceneDropdown", true, false) != null, "the sidebar carries the scene dropdown")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")

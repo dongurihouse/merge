@@ -149,6 +149,15 @@ static func unique_cluster_name(doc: Dictionary, base: String) -> String:
 		n += 1
 	return "%s_%d" % [base, n]
 
+## Toggle the DYNAMIC SILHOUETTE SHADOW flag (prop_shadow.gd renders it in the game and in the
+## workbench stage). Off erases the key, so untouched files stay byte-stable.
+static func set_shadow(doc: Dictionary, i: int, on: bool) -> void:
+	var e: Dictionary = placements(doc)[i]
+	if on:
+		e["shadow"] = true
+	else:
+		e.erase("shadow")
+
 ## Toggle one entry's membership in `name`: a member leaves, anything else joins (re-tagging
 ## away from another cluster is allowed). Returns true when the entry is now a member.
 static func toggle_cluster_member(doc: Dictionary, i: int, name: String) -> bool:

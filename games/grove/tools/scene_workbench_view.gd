@@ -12,6 +12,7 @@ extends Control
 ##         I = isolate the current cluster   Cmd/Ctrl+S = save   R = reload   Esc = deselect / exit
 
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
+const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
 
 const SIDEBAR_W := 340.0
 const HIT_MAX_W := 192              # alpha hit-test images downsample to this width (memory)
@@ -136,8 +137,18 @@ func _rebuild_stage() -> void:
 			n.position = r.position
 			n.size = r.size
 		n.set_meta("pi", i)
-		if _isolated != "" and M.cluster_of(doc, i) != _isolated:
+		var ghosted := _isolated != "" and M.cluster_of(doc, i) != _isolated
+		if ghosted:
 			n.modulate = Color(1, 1, 1, 0.22)        # isolation: the rest of the scene ghosts for context
+		if bool(e.get("shadow", false)) and n.texture != null:
+			var sh: Control = PropShadow.new()       # the SAME dynamic shadow the game renders
+			sh.texture = n.texture
+			sh.disp = M.entry_rect(e).size
+			sh.position = Vector2(float(e.get("x", 0)), float(e.get("y", 0)))
+			sh.set_meta("pi_shadow", i)
+			if ghosted:
+				sh.modulate = Color(1, 1, 1, 0.22)
+			_layers.add_child(sh)                    # added just before its prop → paints beneath it
 		_layers.add_child(n)
 	_refresh_placed_list()
 	_refresh_cluster_list()
@@ -160,11 +171,16 @@ func _make_layer(rel: String, rect: Rect2) -> TextureRect:
 
 ## Refresh ONE moved/resized entry without rebuilding everything (drag feel).
 func _refresh_entry_rect(i: int) -> void:
+	var e: Dictionary = M.placements(doc)[i]
+	var r := M.entry_rect(e)
 	for n in _layers.get_children():
 		if n.has_meta("pi") and int(n.get_meta("pi")) == i:
-			var r := M.entry_rect(M.placements(doc)[i])
 			n.position = r.position
 			n.size = r.size
+		elif n.has_meta("pi_shadow") and int(n.get_meta("pi_shadow")) == i:
+			n.position = Vector2(float(e.get("x", 0)), float(e.get("y", 0)))   # the shadow rides the footing
+			n.set("disp", r.size)
+			(n as Control).queue_redraw()
 	_overlay.queue_redraw()
 	_refresh_status()
 
@@ -589,6 +605,12 @@ func _refresh_cluster_list() -> void:
 				_select_cluster.call_deferred(applied))   # deferred — this LineEdit lives in the box being rebuilt
 		_cluster_actions.add_child(rn)
 	if _sel >= 0:
+		var shadow_on := bool((M.placements(doc)[_sel] as Dictionary).get("shadow", false))
+		_cluster_actions.add_child(_small_button("◐ Shadow: %s" % ("ON" if shadow_on else "off"), func() -> void:
+			M.set_shadow(doc, _sel, not bool((M.placements(doc)[_sel] as Dictionary).get("shadow", false)))
+			_mark_dirty()
+			_rebuild_stage()
+			_select(_sel)))
 		var cl := M.cluster_of(doc, _sel)
 		if cl == "":
 			_cluster_actions.add_child(_small_button("● New cluster from selection (N)", _new_cluster_from_selection))
