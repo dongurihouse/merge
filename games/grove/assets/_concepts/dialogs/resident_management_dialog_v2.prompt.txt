@@ -1,0 +1,46 @@
+Use case: ui-mockup
+Asset type: polished high-fidelity vertical mobile game dialog, 1080 x 1920.
+
+Input images:
+- Image 1 is the edit target and composition authority: the existing RESIDENTS dialog. Preserve its full-screen modal framing, title, close button, habitat cells, resident card art and scale, on-hand inventory rhythm, selected Coin-kin inspector, palette, paper edges, lighting, and overall visual identity.
+- Image 2 is the fixed Meadow Sky palette and Cut-Paper Playground UI authority. Match its restrained saturation, warm-cream surfaces, ink typography, shallow tinted shadows, and clean phone-size readability. Do not copy its board layout.
+
+Primary request: create a new version of the Residents management dialog. Redesign only the top collection area so every resident production line has its own bank progress and clearly communicates when it will become full. Keep the remainder of the dialog recognizable and coherent, tightening the inventory vertically only as much as required.
+
+Dialog frame and title: retain the large warm-cream modal sheet, exact title "RESIDENTS", and the coral circular close X in the upper-right. No bottom navigation is visible behind the modal.
+
+Resource section: replace the old single READY TO COLLECT strip with a section titled exactly "RESOURCE BANKS". Under the title, show exactly four equal mini bank cards in a clean 2 x 2 grid. Each mini card contains one large resource icon, the resource name, a current/cap value, a thick rounded horizontal progress track, and a short state line. All text must be large enough to read on a phone.
+
+Exact bank cards and states:
+- Gold coin icon. Exact label "COINS". Exact value "84 / 120". Bar about 70% full in reward gold. Exact state "FULL IN 2H 18M".
+- Blue water droplet icon. Exact label "WATER". Exact value "3 / 8". Bar about 38% full in water blue. Exact state "FULL IN 5H 40M".
+- Small warm-gold generator-boost spark icon. Exact label "BOOST". Exact value "1 / 3". Bar about 33% full in action green with a gold spark. Exact state "FULL IN 8H 10M".
+- Faceted rare-purple diamond icon. Exact label "DIAMONDS". Exact value "2 / 2". Bar completely full in rare purple. Exact state "FULL" with a restrained reward-gold rim/glow to distinguish the completed bank.
+
+Place one clear action-green button centered directly beneath the four bank cards, exact label "COLLECT ALL". It is the only collection action. Do not add separate collect buttons to the bank cards. The four bars must read as independent timers, not one shared meter.
+
+Habitat section: retain exact heading "HABITAT CELLS" and exactly five cells in one horizontal row. Cell 1 contains the coin resident, cell 2 contains the water resident, cells 3-5 are locked with slate lock icons. Keep residents large and fully contained.
+
+Inventory section: retain exact heading "ON HAND" and a scrollable four-column resident-card grid. Preserve the coin, water, boost, and diamond resident families, soft-tinted card backgrounds, tier badges, generous tap targets, scrollbar, and partial lower row. Slightly shorten the visible inventory area to accommodate the new resource banks without making the residents tiny.
+
+Inspector: retain the bottom selected-resident bar with Coin-kin portrait, exact name "Coin-kin", circular info icon, and coral-outline exact button "SELL". Keep it visually separated from COLLECT ALL.
+
+Composition: vertical iPhone framing. Resource Banks about 29% of the inner dialog, Habitat Cells about 16%, On Hand about 39%, inspector about 10%, with consistent margins and gutters. Four mini bank cards must be the clearest change and immediately comparable. Avoid nested card clutter: the bank mini cards are individual repeated items inside an unframed resource section.
+
+Palette: fixed Meadow Sky roles only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Keep most chrome soft; use stronger chroma only for resource icons, progress fills, COLLECT ALL, and the full bank state.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: include only the exact UI text, values, tier numerals, and time states specified above or already present in the preserved lower dialog.
+
+Constraints: change only the top production/collection area and the minimum vertical reflow needed below it. Preserve the established residents, habitat-cell count/state, inspector content, modal framing, and art direction. Use practical game UI, not concept art.
+
+Avoid: old READY TO COLLECT layout, acorn as a production line, shared progress meter, circular timer rings, per-map rosters, maps, resource-rate formulas, separate collect buttons, tiny text, extra buttons, extra resource lines, extra residents, bottom navigation, glossy plastic, clay, watercolor, painterly gradients, heavy black outlines, universal white sticker outlines, watermark.

@@ -1,0 +1,41 @@
+Use case: ui-mockup.
+Asset type: polished high-fidelity vertical mobile game dialog overlay, 1080 x 1920 runtime composition.
+
+Input images:
+- Image 1: resident-card and soft-tinted UI reference. Use only for resident scale and friendly card rhythm; do not copy its maps-page layout.
+- Image 2: mandatory Meadow Sky palette and Cut-Paper UI/material authority. Match its warm-cream surfaces, ink typography, shallow tinted shadows, and restrained saturation. Do not copy its board layout.
+- Image 3: mandatory elevated three-quarter camera, common object scale, paper material, and detail-budget authority. Do not copy its farm setting or navigation.
+
+Primary request: create one full-screen Residents management dialog overlay for the global resident bucket. It is a modal panel over a gently dimmed, blurred Meadow Sky game background. This is one shared habitat surface, not a map-specific roster.
+
+Dialog frame: large warm-cream rounded paper sheet with a thin local darker edge and shallow tinted down-right shadow. Keep broad rounded corners. Put a simple coral circular close X button in the upper-right. Exact title: "RESIDENTS".
+
+Collection section at the top: a compact cream panel titled exactly "READY TO COLLECT". Show three readable resource rewards together: coin stack with exact amount "84", water droplet with exact amount "3", and acorn reward with exact amount "1". Put one clear action-green button labeled exactly "COLLECT ALL". It must read as a single consolidated collection action; no per-map collection cards, timers, resource rates, or separate collect buttons.
+
+Global cells section: heading exactly "HABITAT CELLS". Show exactly five large equal cells in one horizontal row.
+- Cell 1 is unlocked and contains a friendly coin squirrel resident cutout.
+- Cell 2 is unlocked and contains a friendly blue water frog resident cutout.
+- Cells 3, 4, and 5 are locked: soft receding-blue card surface with a large slate lock icon only.
+Each cell has a complete, readable silhouette; do not overlap residents across cells. The cells are global capacity slots, not tied to maps. Do not show map labels, cell rewards, production rates, or timer badges.
+
+Hand section: heading exactly "ON HAND" followed by a large scrollable resident inventory area. Show two full rows of four soft-tinted resident cards, with a partial third row implied at the lower edge to communicate vertical scrolling and that many residents can be held. Residents vary across the four lines: coin squirrel / otter, water frog, boost firefly, rare purple-blue diamond moth. Use friendly broad cut-paper silhouettes and small tier badges only: exact visible tiers "1", "2", "3", "2", "1", "4", "2", "3". No resource-rate copy in the cards. Leave consistent gutters and large tap targets.
+
+Selection/action bar: at the bottom of the dialog, a compact warm-cream inspector bar showing one selected resident. Use a small coin squirrel portrait at left, exact name "Coin-kin", a circular ink info "i" icon, and a coral outline button with a small coin-minus/sell icon plus exact label "SELL". This is the only sell affordance. Keep it clearly separated from the collect action so the player does not confuse selling a resident with collecting resources.
+
+Composition: upper screen title/collection about 24%; cells about 18%; hand inventory about 43%; inspector bar about 10%; padded dialog margins. No bottom navigation visible behind the modal. High readability at phone size. Keep the middle dense but not cramped; the inventory owns the most space.
+
+Palette: fixed Meadow Sky roles only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Resident/card colors are soft-tinted; only rewards, Collect All, and selected detail get stronger accents.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: include only the exact UI text, amounts, and tier numerals specified above.
+
+Avoid: world-scene cards, maps, per-map rosters, resident-cell rewards, five unlocked cells, resident production charts, resource-rate math, countdown timers, separate collect buttons, bag/shop/home navigation, huge portrait heads, tiny residents, excessive decoration, glossy plastic, clay render, watercolor, heavy black outline, universal white sticker outline, extra labels, watermark.
