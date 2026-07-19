@@ -14,15 +14,15 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/palette_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_home_layer_workbench_tests games/grove/tests/grove_palette_routing_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_page_manifest_tests games/grove/tests/grove_maps_page_tests games/grove/tests/grove_zone_workbench_tests games/grove/tests/currency_pill_study_tests
+GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests games/grove/tests/grove_residents_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_info_bar_tests games/grove/tests/grove_ladder_tests games/grove/tests/grove_board_actions_tests games/grove/tests/grove_generator_swap_tests games/grove/tests/grove_palette_routing_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_page_manifest_tests games/grove/tests/grove_maps_page_tests games/grove/tests/grove_zone_workbench_tests games/grove/tests/currency_pill_study_tests
 GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run g-phone editor fx fx-workbench zones home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures \
-        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers sw shot-sw \
+.PHONY: help run g-phone editor fx zones test test-fast test-engine test-grove test-one smoke import bake bake-textures \
+        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -59,17 +59,11 @@ sw: ## place + fine-tune a picture-book scene (drag/resize/wheel/z, clusters; �
 shot-sw: ## quiet screenshot of the scene workbench:  make shot-sw [SCENE=...] [CLUSTER=...] [OUT=/tmp/scene_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),cherry_blossom_garden) $(or $(ROOT),auto) $(or $(CLUSTER),none) $(or $(OUT),/tmp/scene_workbench.png)
 
-fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
-	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
-
-fx-workbench: ## see + tune every Grove FX live — the feel verbs (land · merge · launch · move · grab), the Expedition juice, and the reward flight
+fx: ## see + tune every Grove FX live — the feel verbs (land · merge · launch · move · grab), the Expedition juice, and the reward flight
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
 
 zones: ## draw a page's unlock zones over the real scene (a real window):  make zones
 	$(GODOT) --path $(PROJECT) res://games/tools/zone_workbench/ZoneWorkbench.tscn
-
-home-layers: ## review the modular cut-paper Home background and one-house checkpoint
-	$(GODOT) --path $(PROJECT) res://games/grove/tools/HomeLayerWorkbench.tscn
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
@@ -141,9 +135,6 @@ shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [O
 
 shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png] [EL=merge_fx]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png) $(EL)
-
-shot-home-layers: ## capture modular Home: MODE=all|base|prop:fh_hearth
-	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/home_layer_shot.gd -- $(or $(MODE),all) $(or $(OUT),/tmp/home_layers.png)
 
 ## --- iOS -------------------------------------------------------------------
 # `make ios 1.2.3` / `make release-ios 1.2.3` pass the version as a positional goal (also accepts

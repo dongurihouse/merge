@@ -1,7 +1,7 @@
 extends SceneTree
 ## FX Workbench — standalone runner for the Grove motion/juice lab: the feel verbs (land · merge ·
 ## launch · move · grab), the Expedition screen juice, and the shared reward flight.
-##   live:             make fx-workbench
+##   live:             make fx
 ##   quiet screenshot: make shot-fx-workbench [OUT=/tmp/fx_workbench.png] [EL=<id>]   (EL captures JUST
 ##                     that one element centred — a clean, repeatable single-component shot)
 

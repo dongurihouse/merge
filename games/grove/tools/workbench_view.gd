@@ -3,7 +3,7 @@ extends Control
 ## Workbench base — the shared gallery + inspector-sidebar framework.
 ##
 ## Two workbenches ride on this: the UI workbench (`make w`, components + dialogs) and the FX
-## workbench (`make fx-workbench`, the reward flight + the six feel verbs). A subclass supplies its
+## workbench (`make fx`, the reward flight + the six feel verbs). A subclass supplies its
 ## own element set (`_ids` / `_columns_spec` / `_captions` / `_test_keys` / `_default_params`), builds
 ## each element (`_make_element`) and each element's inspector (`_element_sidebar`); everything else —
 ## the two-column scrolling gallery, click-to-select, per-element in-place rebuilds, the sidebar row
