@@ -11,8 +11,8 @@ Treat the source as a reference, not an edit target. Generate three independent 
 Every call attaches three images with explicit roles:
 
 1. `games/grove/assets/_concepts/zones/snowy_village_v2.png` — winter mood and scene-family reference only. It may suggest snow, warmth, portrait rhythm, and playful seasonal storytelling, but its exact pond, cabins, and props must not be copied as a checklist.
-2. `games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png` — palette and matte cut-paper material authority only. Do not copy its UI or board layout.
-3. `games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png` — elevated three-quarter camera, common object scale, shallow shadow, and detail-budget authority only. Do not copy its farm content or UI.
+2. `games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png` — palette and matte cut-paper material authority only. This is the checked-in equivalent of the guide's currently absent `_new/.../palette_studies_board_v1/` path. Do not copy its UI or board layout.
+3. `games/grove/assets/_concepts/screens/home_screen_meadow_sky_v2_working_farm.png` — elevated three-quarter camera, common object scale, shallow shadow, and detail-budget authority only. This is the checked-in equivalent of the guide's currently absent `_new/.../screen_reference_pack_meadow_sky_v1/` path. Do not copy its farm content or UI.
 
 ## Variations
 

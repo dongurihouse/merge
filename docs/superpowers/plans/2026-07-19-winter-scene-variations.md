@@ -12,8 +12,8 @@
 
 - Work only in `/Users/xup/dh/merge/.worktrees/codex-winter-scene-variations` on branch `codex/winter-scene-variations`.
 - Use `games/grove/assets/_concepts/zones/snowy_village_v2.png` only as winter mood and scene-family reference.
-- Use `games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png` only as palette and material authority.
-- Use `games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png` only as camera, common scale, shallow shadow, and detail-budget authority.
+- Use `games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png`, the checked-in equivalent of the guide's absent `_new/.../palette_studies_board_v1/` path, only as palette and material authority.
+- Use `games/grove/assets/_concepts/screens/home_screen_meadow_sky_v2_working_farm.png`, the checked-in equivalent of the guide's absent `_new/.../screen_reference_pack_meadow_sky_v1/` path, only as camera, common scale, shallow shadow, and detail-budget authority.
 - Generate one asset per built-in image-generation call; do not use CLI batch mode.
 - Save every accepted asset beside its exact `.prompt.txt` file.
 - Final PNG dimensions must be exactly 941 x 1672.
