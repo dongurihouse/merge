@@ -100,10 +100,15 @@ func _initialize() -> void:
 	# _land_puff_count: LAND_PUFF_N * intensity (floored to int); 0 at intensity 0.
 	ok(Feel._land_puff_count(0.0) == 0, "land puff count is 0 at intensity 0")
 	ok(Feel._land_puff_count(1.0) == int(Tune.LAND_PUFF_N), "land puff count at intensity 1 = LAND_PUFF_N")
-	# land() must be a safe no-op on an invalid/null node. A QUIET land is squash-only, so it never
-	# reaches the flash/puff/sound path — fully headless-safe even with a null host + node.
+	# land() must be a safe no-op on an invalid/null node. A quiet land is NOT squash-only: it still
+	# fires the dust puff (only the sound/flash/haptic are deduped), so it reaches FX.burst with a null
+	# host — which must guard rather than error. These two lines are crash-freedom checks; they hold
+	# only because run_suites.py fails a suite on any SCRIPT ERROR, so a lost guard shows up as a
+	# failure here instead of as silent engine log noise.
 	Feel.land(null, null, Vector2.ZERO, 0.8, true)
-	ok(true, "quiet land(null, null, ...) is a safe no-op (squash-only, no sound/flash/puff)")
+	ok(true, "quiet land(null, null, ...) is a safe no-op (the puff's null host is guarded)")
+	Feel.land(null, null, Vector2.ZERO, 0.8, false)
+	ok(true, "loud land(null, null, ...) is a safe no-op (puff + flash + sound all null-guarded)")
 
 	# --- feel.launch -------------------------------------------------------------
 	# _launch_puff_count: LAUNCH_PUFF_N * intensity (floored to int); 0 at intensity 0 (no puff).

@@ -169,9 +169,14 @@ static func _apply_rounded_paper_surface(
 	corner: float,
 	margins: Vector4,
 	inset := 2.0,
-	surface_alpha := 1.0
+	surface_alpha := 1.0,
+	behind := false
 ) -> TextureRect:
+	# `behind` = the paper draws BEHIND the button's own canvas item, for buttons whose content is the
+	# Button's native text/icon (pill_button) rather than child nodes (the rect nav buttons): the
+	# stylebox then contributes only its border + content margins, and the paper is the fill.
 	var base := StyleBoxFlat.new()
+	base.draw_center = not behind
 	base.bg_color = Color(fill.r, fill.g, fill.b, fill.a * surface_alpha)
 	base.border_color = PAPER_EDGE
 	base.set_border_width_all(1)
@@ -186,6 +191,7 @@ static func _apply_rounded_paper_surface(
 
 	var paper := TextureRect.new()
 	paper.name = "PaperSurface"
+	paper.show_behind_parent = behind
 	paper.texture = _meadow_tex(paper_name)
 	paper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	paper.offset_left = inset
@@ -1419,6 +1425,26 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(st, ink)
 	b.add_theme_color_override("font_disabled_color", Color(ink, 0.55))
+	# --- background: the GREEN action role is a flat PAPER-CUT surface (texture_action_green masked to
+	# the button's rounded rect) plus the shared drop shadow — the same construction as the rect home-rail
+	# buttons and the slot cells, so every primary CTA in the game is cut from the one green paper. The
+	# baked button_primary.png shell is retired for it; cream/danger keep their nine-patch shells.
+	if primary:
+		var surface: Dictionary = PAPER_SURFACES["green"]
+		# the shadow goes on FIRST: both it and the paper draw behind the button's own text/icon, and
+		# behind-parent siblings draw in child order — shadow (index 0) under paper (index 1).
+		_maybe_shadow(b, true, corner, opts.get("shadow_params", {}))
+		var paper := _apply_rounded_paper_surface(
+			b,
+			String(surface.get("texture", "texture_action_green.png")),
+			surface.get("fill", Color("#5F9B6D")),
+			corner,
+			Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale),
+			0.0,
+			1.0,
+			true)
+		paper.name = "ButtonPaperSurface"
+		return b
 	# --- background: the sprite NINE-PATCH (nice baked borders) when "art" is on, else code-drawn ---
 	if bool(opts.get("art", true)):
 		# The default semantic roles use the extracted Meadow shells. An explicit art_rel remains supported
@@ -4403,14 +4429,13 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	sell_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sell_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge_col.add_child(sell_count)
-	# the badge wears the game's STANDARD green primary-CTA fill (Pal.BTN_PRIMARY) — the same leaf-green pill
-	# Look.button(primary) uses — so the bottom bar speaks one button language. (Previously the green dressed
-	# the whole button; now it's only the badge, with "Sell" sitting above it on the bar surface.)
+	# the badge wears the palette's ALERT red (Pal.ACCENT_ALERT — the same clay Look.button(danger) uses), so
+	# Sell reads as the destructive action and stays distinct from the green Buy/Burst chips beside it.
 	var badge := PanelContainer.new()
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ts := StyleBoxFlat.new()
-	ts.bg_color = Pal.BTN_PRIMARY
-	ts.border_color = Pal.BTN_PRIMARY_EDGE
+	ts.bg_color = Pal.ACCENT_ALERT
+	ts.border_color = Pal.ACCENT_ALERT.darkened(0.22)
 	ts.set_corner_radius_all(int(opts.get("sell_badge_radius", 10)))   # a softer rounded-rect, not the full pill
 	ts.set_border_width_all(Tune.BTN_BORDER_W)
 	ts.shadow_color = Color(0, 0, 0, 0.16)                             # very minimal lift (was the heavy SHADOW_RAISED)
@@ -4908,7 +4933,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 
 	# unlockable — the shared HIGHLIGHT: a warm-gold glow (the board's "pop") AND the dynamic
 	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
-	if state == "unlockable" and not flat_board_cells:
+	# d.no_highlight opts a cell out of it while keeping the tap (the bag's next slot: quiet tile, price only).
+	if state == "unlockable" and not flat_board_cells and not bool(d.get("no_highlight", false)):
 		# the accent COLOUR — halo and shadow share one tint (config: glow_hue/glow_sat); the
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)
@@ -4977,31 +5003,8 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.add_theme_constant_override("separation", int(opts.get("row_gap", 14)))
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# the acorn-balance pill, docked top-right — the REUSED gold currency pill in single-currency mode.
-	var top := HBoxContainer.new()
-	top.alignment = BoxContainer.ALIGNMENT_END
-	top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pill_opts: Dictionary = (opts.get("pill", {}) as Dictionary).duplicate()
-	pill_opts["icon"] = "gem"
-	pill_opts["icon_size"] = float(opts.get("balance_icon", pill_opts.get("icon_size", 38.0)))
-	pill_opts["count"] = balance
-	pill_opts["show_plus"] = false
-	var pill: Control = gold_currency_pill(pill_opts, {"gem": balance})
-	# the acorn box keeps its docked-right footprint via a fixed SLOT (so the row layout is unchanged), while
-	# the pill itself can be nudged horizontally inside it — acorn_x (+right / −left), the amount_x idiom.
-	var acorn_x := float(opts.get("acorn_x", 0.0))
-	if acorn_x != 0.0:
-		var pill_slot := Control.new()
-		pill_slot.custom_minimum_size = pill.custom_minimum_size
-		pill_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pill.size = pill.custom_minimum_size
-		pill.position = Vector2(acorn_x, 0.0)
-		pill_slot.add_child(pill)
-		top.add_child(pill_slot)
-	else:
-		top.add_child(pill)
-	content.add_child(top)
+	# (no acorn-balance pill: the HUD already carries the acorn counter, and the only price in the dialog
+	# is the next slot's own cost chip. `balance` stays in the signature for the callers/tests.)
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the
@@ -5031,9 +5034,16 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	grid_wrap.add_child(grid)
 	content.add_child(grid_wrap)
 
-	# an optional game-only section (the stored-generators row) below the grid
-	if opts.get("extra") is Control:
-		content.add_child(opts.get("extra"))
+	# an optional game-only section (the stored-generators row) below the grid. A Callable gets THIS
+	# dialog's FITTED cell opts, so a section built from bag_card matches the grid's cell size exactly;
+	# a plain Control is added as-is.
+	var extra: Variant = opts.get("extra")
+	if extra is Callable:
+		var built: Variant = (extra as Callable).call(cell_opts)
+		if built is Control:
+			content.add_child(built)
+	elif extra is Control:
+		content.add_child(extra)
 
 	content.add_child(_bag_footer(String(opts.get("caption", "Open a slot with acorns."))))
 	return dialog_frame(content, width, opts)

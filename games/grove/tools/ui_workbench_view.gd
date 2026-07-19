@@ -1431,23 +1431,6 @@ func _action_bar_transparent_info_frame(opts: Dictionary) -> StyleBoxEmpty:
 	empty.content_margin_bottom = vpad
 	return empty
 
-func _action_bar_separator_preview(px: float, node_name: String) -> Control:
-	var slot := CenterContainer.new()
-	slot.name = node_name + "Slot"
-	slot.custom_minimum_size = Vector2(maxf(18.0, px * 0.24), px)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sep := TextureRect.new()
-	sep.name = node_name
-	sep.custom_minimum_size = Vector2(maxf(18.0, px * 0.24), px * 0.94)
-	sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sep.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var p := Look.kit("shared/action_separator.png")
-	if ResourceLoader.exists(p):
-		sep.texture = load(p)
-	slot.add_child(sep)
-	return slot
-
 func _action_bar_preview() -> Control:
 	var p: Dictionary = _params["info_bar"]
 	var ao := Kit.action_bar_opts_from_config({"info_bar": p})
@@ -1456,21 +1439,18 @@ func _action_bar_preview() -> Control:
 	var preview_w := PHONE_W
 	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.get("button_w_frac", 0.15))))))
 	var bar_h := maxf(166.0, btn_px + 36.0)
-	var sep_w := maxf(18.0, btn_px * 0.24)
-	var tray_pad_x := roundf(bar_h * float(ao.get("pad_x_frac", 0.0)))
-	var fit_slop := 12.0
-	var info_w := maxf(120.0, preview_w * float(layout.get("info_bar_w_frac", 0.70)) - sep_w * 2.0 - tray_pad_x * 2.0 - fit_slop)
 
+	# Mirrors the live board: a TRANSPARENT holder, with the Home/Bag tiles standing free at the two ends and
+	# the painted cream tray (the info bar alone) filling the centre between them.
 	var bar := PanelContainer.new()
 	bar.custom_minimum_size = Vector2(preview_w, bar_h)
-	bar.add_theme_stylebox_override("panel", _action_bar_preview_style(bar_h, ao))
-	ActionBar.apply_paper_surface(bar, bar_h)
+	bar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var row := HBoxContainer.new()
 	row.name = "ActionBarPreviewRow"
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 0)
+	row.add_theme_constant_override("separation", ActionBar.well_gap(btn_px))
 	bar.add_child(ActionBar.content_host(row, bar_h, ao, "ActionBarPreviewContent"))
 
 	ho["px"] = btn_px
@@ -1485,11 +1465,12 @@ func _action_bar_preview() -> Control:
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_action_bar_clear_button_frame(home_btn)
 	row.add_child(home_btn)
-	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorHomeInfo"))
 	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
 	var ib: PanelContainer = Kit.info_bar({}, io)
 	ib.name = "ActionBarPreviewInfoBar"
-	ib.custom_minimum_size.x = info_w
+	ib.custom_minimum_size.x = 1.0
+	ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ib.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	ib.add_theme_stylebox_override("panel", _action_bar_transparent_info_frame(io))
 	var inner := float(ib.get_meta("inner_px", 62.0))
 	var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
@@ -1507,8 +1488,10 @@ func _action_bar_preview() -> Control:
 		(ib.get_meta("name_label") as Label).text = "Tap an item to inspect it"
 		(ib.get_meta("info_btn") as Button).disabled = true
 		(ib.get_meta("sell_btn") as Button).visible = false
-	row.add_child(_action_bar_nudge(ib, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
-	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorInfoBag"))
+	var ib_tray := ActionBar.info_tray(ib, bar_h, ao)
+	ib_tray.name = "ActionBarPreviewInfoTray"
+	ib_tray.add_theme_stylebox_override("panel", _action_bar_preview_style(bar_h, ao))
+	row.add_child(_action_bar_nudge(ib_tray, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
 	var bag_opts := ho.duplicate()
 	bag_opts["surface_role"] = "purple"
 	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, bag_opts)

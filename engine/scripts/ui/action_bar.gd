@@ -1,9 +1,11 @@
 extends RefCounted
 ## The board's BOTTOM ACTION BAR — the shared, stateless visual builders (owner: a standalone module
-## reused by the board scene). The tray's styled surface, the separators between wells, the offset slot,
-## the round nav/Home/Bag wells, and the green action-chip recipe (burst / buy) all live here so the
-## board scene keeps only the ORCHESTRATION (which wells, in what order, wired to which handlers + state).
-## Usage:  row.add_child(ActionBar.separator(px, "ActionBarSeparatorHomeInfo"))
+## reused by the board scene). The centre tray's styled surface, the offset slot, the round nav/Home/Bag
+## wells, and the green action-chip recipe (burst / buy) all live here so the board scene keeps only the
+## ORCHESTRATION (which wells, in what order, wired to which handlers + state).
+## The bar reads as THREE free-standing pieces: the Home tile, the cream info tray, the Bag tile. Only the
+## centre tray is painted here — the Home/Bag tiles carry their own paper surface (Kit.home_button).
+## Usage:  row.add_child(ActionBar.offset_slot(info_bar, x_frac, "ActionBarInfoOffset"))
 ##         var chip := ActionBar.action_chip(opts, row, caption, on_press)   # → {btn, sb, count, coin}
 ## Every builder is a pure static func: params in, a node (or value) out — no board state is read or
 ## written here, so the board owns selection/refresh and passes press handlers in as Callables.
@@ -19,9 +21,8 @@ const Pal = Game.PALETTE
 # Loaded at runtime (matches hud.gd / nav_bar) to avoid a preload cycle (engine → game-tool bridge).
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
-const SEPARATOR_ART := "shared/action_separator.png"   # the painted divider between the bar's wells
-const SEPARATOR_FRAC := 0.24                            # separator width as a fraction of the button px
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
+const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray
 const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Color("#F6EBDD")
@@ -35,9 +36,9 @@ static func opts() -> Dictionary:
 		return {}
 	return Kit.action_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
-# The bottom action bar is a single generated tray. Shape, light edge, and shadow are code-drawn here;
-# apply_paper_surface adds only a flat cream grain inside that shape. Bag, info, and Home stay as real
-# controls inside it; their own frames are cleared so this parent surface is the only painted box.
+# The CENTRE info tray's cream surface. Shape, light edge, and shadow are code-drawn here;
+# apply_paper_surface adds only a flat cream grain inside that shape. The Home and Bag tiles sit OUTSIDE
+# this box (their own paper tiles), so the tray spans only the middle of the bottom row.
 static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {}) -> StyleBox:
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = PAPER_FILL
@@ -104,26 +105,10 @@ static func offset_slot(child: Control, x_frac: float, node_name: String) -> Con
 	slot.add_child(child)
 	return slot
 
-static func separator_w(px: float) -> float:
-	return maxf(28.0, roundf(px * SEPARATOR_FRAC))
-
-static func separator(px: float, node_name: String) -> Control:
-	var slot := CenterContainer.new()
-	slot.name = node_name + "Slot"
-	slot.custom_minimum_size = Vector2(separator_w(px), px)
-	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sep := TextureRect.new()
-	sep.name = node_name
-	sep.custom_minimum_size = Vector2(separator_w(px), px * 0.94)
-	sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sep.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var p := Look.kit(SEPARATOR_ART)
-	if ResourceLoader.exists(p):
-		sep.texture = load(p)
-	slot.add_child(sep)
-	return slot
+# The breathing room between each outer tile and the centre tray (the old painted dividers are retired —
+# the three pieces are separated by open space now).
+static func well_gap(px: float) -> int:
+	return maxi(12, int(roundf(px * WELL_GAP_FRAC)))
 
 static func clear_button_frame(b: Button) -> void:
 	var empty := StyleBoxEmpty.new()
@@ -140,6 +125,21 @@ static func info_bar_frame(info_opts: Dictionary) -> StyleBoxEmpty:
 	empty.content_margin_top = vpad
 	empty.content_margin_bottom = vpad
 	return empty
+
+# The painted cream tray that now holds ONLY the info bar — the Home and Bag tiles stand outside it, so the
+# tray spans just the centre of the bottom row. It wears the same shape/edge/shadow/paper the full-width bar
+# used to, and the info pill keeps its own transparent padding frame inside.
+static func info_tray(info_bar: Control, bar_h: float, action_opts: Dictionary = {}) -> PanelContainer:
+	var tray := PanelContainer.new()
+	tray.name = "ActionBarInfoTray"
+	tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tray.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tray.custom_minimum_size = Vector2(1.0, bar_h)
+	tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tray.add_theme_stylebox_override("panel", bar_style(bar_h, action_opts))
+	apply_paper_surface(tray, bar_h)
+	tray.add_child(info_bar)
+	return tray
 
 # The per-cell empty well's stylebox: the kit tile-slot sprite as a nine-patch, falling back to a code
 # well. Used as the round tray-well's painted fallback when its `nav/<art>` sprite is absent.
