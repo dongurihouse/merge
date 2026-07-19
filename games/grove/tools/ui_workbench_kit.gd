@@ -34,8 +34,6 @@ const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of
 # Meadow Sky component atoms. These extracted assets are already alpha-clean and shadow-free, so shared
 # components load them directly and use explicit safe nine-slice margins rather than live image polish.
 const MEADOW_UI := "ui/meadow_v2/%s"
-const MEADOW_SHADOW_TINT := Color("#294654")
-const MEADOW_SHADOW_MAX_ALPHA := 0.32
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const PAPER_SURFACES := {
 	"cream": {"texture": "texture_cream.png", "fill": Color("#F6EBDD")},
@@ -250,37 +248,16 @@ static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: fl
 	style.content_margin_bottom = pad_bottom
 	return style
 
-static func _meadow_shadow_rect(corner: float, params: Dictionary = {}) -> Panel:
-	var p := params.duplicate()
-	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
-	var shadow := Look.shadow_rect(corner, p)
-	_normalize_meadow_shadow(shadow, float(p["alpha"]))
-	return shadow
+## THE uniform shadow (skin.gd owns tint + numbers) — these are thin aliases kept so call sites read
+## as "the shared shadow"; per-call overrides are retired, one look everywhere.
+static func _meadow_shadow_rect(corner: float, _params: Dictionary = {}) -> Panel:
+	return Look.shadow_rect(corner, Look.shadow_params({}))
 
-static func _meadow_shadow_circle(diameter: float, params: Dictionary = {}) -> Panel:
-	var p := params.duplicate()
-	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
-	var shadow := Look.shadow_circle(diameter, p)
-	_normalize_meadow_shadow(shadow, float(p["alpha"]))
-	return shadow
+static func _meadow_shadow_circle(diameter: float, _params: Dictionary = {}) -> Panel:
+	return Look.shadow_circle(diameter, Look.shadow_params({}))
 
-static func _normalize_meadow_shadow(shadow: Panel, alpha: float) -> void:
-	var style := shadow.get_theme_stylebox("panel") as StyleBoxFlat
-	if style != null:
-		var tint := Color(MEADOW_SHADOW_TINT, minf(alpha, MEADOW_SHADOW_MAX_ALPHA))
-		style.bg_color = tint
-		style.shadow_color = tint
-
-static func _meadow_with_shadow(node: Control, corner: float, params: Dictionary = {}, circular := false) -> Control:
-	var p := params.duplicate()
-	p["alpha"] = minf(float(p.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
-	var holder := Look.with_shadow(node, corner, p, circular)
-	if holder.get_child_count() > 0 and holder.get_child(0) is Panel:
-		_normalize_meadow_shadow(holder.get_child(0) as Panel, float(p["alpha"]))
-	return holder
-
-static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
-	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
+static func _meadow_with_shadow(node: Control, corner: float, _params: Dictionary = {}, circular := false) -> Control:
+	return Look.with_shadow(node, corner, Look.shadow_params({}), circular)
 
 # The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
 # only the interior differs. An OPEN place shows its locale art COVER-filled inside the frame + a "★ N
@@ -593,7 +570,7 @@ static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
 	var off: Vector2 = opts.get("shadow_offset", Vector2(0.04, 0.07) * float(w))
 	var blur: float = float(opts.get("shadow_blur", maxf(2.0, float(w) * 0.035)))
 	var alpha: float = clampf(float(opts.get("shadow_alpha", 0.5)), 0.0, 1.0)
-	var sh_color := Look.warm_shadow_color(alpha, _shadow_warmth(opts))
+	var sh_color := Look.shadow_color(alpha)
 	var pad: int = int(opts.get("shadow_pad", int(ceil(blur)) + int(maxf(absf(off.x), absf(off.y))) + 2))
 	var nw := w + pad * 2
 	var nh := h + pad * 2
@@ -2328,8 +2305,7 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		if cb.is_valid(): cb.call())
 	# the coral disc casts the mock's tinted drop-shadow — circular, short and soft (#294654 ~19%),
 	# slightly inset so the feather hugs the art's round face.
-	var sh := _meadow_shadow_circle(size * 0.92,
-		{"offset_x": 0.0, "offset_y": 5.0, "blur": 10.0, "spread": 0.0, "alpha": 0.19})
+	var sh := _meadow_shadow_circle(size * 0.92)
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)
@@ -4061,21 +4037,7 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## to the 0..1 the builder wants. The caller overrides `px` per call site (rail vs nav).
 static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("home_button", {})
-	var sp: Dictionary = Look.shadow_params(cfg)
-	if h.has("shadow_alpha"):
-		sp["alpha"] = clampf(float(h["shadow_alpha"]) / 100.0, 0.0, MEADOW_SHADOW_MAX_ALPHA)
-	else:
-		sp["alpha"] = minf(float(sp.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
-	if h.has("shadow_offset_x"):
-		sp["offset_x"] = float(h["shadow_offset_x"])
-	if h.has("shadow_offset_y"):
-		sp["offset_y"] = float(h["shadow_offset_y"])
-	if h.has("shadow_blur"):
-		sp["blur"] = float(h["shadow_blur"])
-	if h.has("shadow_spread"):
-		sp["spread"] = float(h["shadow_spread"])
-	if h.has("shadow_warmth"):
-		sp["warmth"] = clampf(float(h["shadow_warmth"]) / 100.0, 0.0, 1.0)
+	var sp: Dictionary = Look.shadow_params(cfg)   # THE uniform shadow — no per-component overrides
 	return {
 		"px": float(h.get("px", 140)),
 		"shell": HOME_SHELL,
@@ -4215,24 +4177,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var scale := maxf(0.01, float(g.get("overall_scale", 100.0)) / 100.0)
 	var icon_box := float(g.get("icon_box", 54.0)) * scale
 	var icon_size := float(g.get("icon_size", 34.0)) * scale
-	# the OVERALL drop shadow starts from the shared shadow look, but the pill can OVERRIDE any of
-	# its knobs (strength/offset/blur/spread/warmth) — so the wallet capsule can cast its own shadow
-	# independent of the rest. Each override is opt-in: absent keys fall through to the shared values.
-	var sp: Dictionary = Look.shadow_params(cfg)
-	if g.has("shadow_alpha"):
-		sp["alpha"] = clampf(float(g["shadow_alpha"]) / 100.0, 0.0, MEADOW_SHADOW_MAX_ALPHA)
-	else:
-		sp["alpha"] = minf(float(sp.get("alpha", MEADOW_SHADOW_MAX_ALPHA)), MEADOW_SHADOW_MAX_ALPHA)
-	if g.has("shadow_offset_x"):
-		sp["offset_x"] = float(g["shadow_offset_x"])
-	if g.has("shadow_offset_y"):
-		sp["offset_y"] = float(g["shadow_offset_y"])
-	if g.has("shadow_blur"):
-		sp["blur"] = float(g["shadow_blur"])
-	if g.has("shadow_spread"):
-		sp["spread"] = float(g["shadow_spread"])
-	if g.has("shadow_warmth"):
-		sp["warmth"] = clampf(float(g["shadow_warmth"]) / 100.0, 0.0, 1.0)
+	var sp: Dictionary = Look.shadow_params(cfg)   # THE uniform shadow — no per-component overrides
 	return {
 		"shadow": bool(g.get("shadow", false)),
 		"shadow_params": sp,

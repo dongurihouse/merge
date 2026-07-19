@@ -1429,9 +1429,7 @@ func _make_boost_badge() -> Control:
 	sb.set_border_width_all(2)
 	sb.content_margin_left = 7
 	sb.content_margin_right = 7
-	sb.shadow_color = Color("#294654", 0.20)
-	sb.shadow_size = 2
-	sb.shadow_offset = Vector2(0, 1)
+	Look.apply_box_shadow(sb)
 	badge.add_theme_stylebox_override("panel", sb)
 	var count := Label.new()
 	count.name = "Count"

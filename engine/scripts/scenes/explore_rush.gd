@@ -538,9 +538,7 @@ func _rush_info_button(px: float) -> Button:
 	sb.border_color = GOLD
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(int(px * 0.5))
-	sb.shadow_color = Color("#294654", 0.20)
-	sb.shadow_size = 4
-	sb.shadow_offset = Vector2(0, 2)
+	Look.apply_box_shadow(sb)
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		b.add_theme_stylebox_override(state, sb)
 	var glyph := Label.new()

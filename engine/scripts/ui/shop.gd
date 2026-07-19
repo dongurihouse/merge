@@ -227,7 +227,6 @@ const PILL_GREEN := Color("#5C8A57")  # the price pill + the active stall tab
 const TAB_IDLE := Color("#F4E9D1")    # a resting stall tab
 const CHIP_CREAM := Color("#F8ECD5")  # the balance chip / bundle amount chip
 const FOOTER_CREAM := Color("#EDE2C1")
-const SHADOW_TINT := Color("#294654") # the house tinted drop shadow (residents.gd's _mock_shadow)
 const CARD_CORNER := 18.0
 const GRID_GAP := 14.0
 # The stall TABS, in the mock's order: the three shops share one sheet, the tab bar swaps `kind`.
@@ -652,9 +651,7 @@ static func _ink_label(Kit: GDScript, text: String, size: int) -> Label:
 # The mock's tinted drop shadow, applied ON the element's own StyleBoxFlat so it follows the exact
 # rounded corners (the same values residents.gd uses — one house shadow, not a parallel one).
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
-	sb.shadow_color = Color(SHADOW_TINT, 0.19)
-	sb.shadow_size = 10
-	sb.shadow_offset = Vector2(0, 5)
+	Look.apply_box_shadow(sb)
 
 # Thousands separators on a pack's amount ("13000" → "13,000"), as the mock prints them.
 static func _commas(n: int) -> String:

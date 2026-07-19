@@ -823,9 +823,7 @@ func _maps_card_shell(rect: Rect2) -> Panel:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = CREAM
 	sb.set_corner_radius_all(22)
-	sb.shadow_color = Look.warm_shadow_color(0.20)
-	sb.shadow_size = 8
-	sb.shadow_offset = Vector2(0.0, 5.0)
+	Look.apply_box_shadow(sb)
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p
@@ -960,9 +958,7 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
 		var ms := StyleBoxFlat.new()
 		ms.bg_color = CREAM
 		ms.set_corner_radius_all(int(med_h * 0.5))
-		ms.shadow_color = Look.warm_shadow_color(0.18)
-		ms.shadow_size = 5
-		ms.shadow_offset = Vector2(0.0, 3.0)
+		Look.apply_box_shadow(ms)
 		med.add_theme_stylebox_override("panel", ms)
 		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(med)

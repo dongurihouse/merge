@@ -9,8 +9,7 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics
 const TuneShop = preload("res://engine/scripts/core/tuning.gd").Shop # popup-chrome dials (card/✕/banner), shared by every modal
 
-const SHADOW_WARM := Color("#5A371B")
-const SHADOW_COOL := Color("#1D1720")
+const SHADOW_TINT := Color("#294654")   # THE shadow colour — cool slate, measured from the picturebook mocks
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
@@ -34,10 +33,8 @@ static func safe_bottom(ctrl: Control) -> float:
 	var inset := win.y - (safe.position.y + safe.size.y)
 	return ctrl.get_viewport_rect().size.y * float(maxi(inset, 0)) / float(win.y)
 
-static func warm_shadow_color(alpha: float, warmth: float = 0.82) -> Color:
-	var c := SHADOW_WARM.lerp(SHADOW_COOL, 1.0 - clampf(warmth, 0.0, 1.0))
-	c.a = clampf(alpha, 0.0, 1.0)
-	return c
+static func shadow_color(alpha: float) -> Color:
+	return Color(SHADOW_TINT, clampf(alpha, 0.0, 1.0))
 
 ## --- THE KIT — one source for panels, icons, chips. ------------------------------
 ## Everything ships twice: kit art when generated, code-drawn fallback with the
@@ -625,17 +622,17 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 ## A single drop-shadow Panel to place BEHIND an element (full-rect of the SAME holder). ONE model
 ## drives every component (the workbench Shadow item is its only tuning surface): `offset_x` / `offset_y`
 ## cast the shadow (px), `blur` softens it (px feather), `spread` grows it on all sides (px), `alpha`
-## (0..1) is opacity, `warmth` (0..1) tints warm-brown ↔ cool. Because the look is OFFSET-based (not
+## (0..1) is opacity; the tint is always SHADOW_TINT. Because the look is OFFSET-based (not
 ## per-side reach tied to one element size) it carries naturally across element sizes. The footprint is
 ## FILLED (draw_center) so there is no hollow gap, and the corner is grown WITH the spread so a circle
 ## stays a circle / a rounded rect stays concentric. The opaque element sits on top, hiding the fill, so
 ## only the cast that pokes past the element shows. NOTE: the fill is solid, so a TRANSLUCENT element
 ## (the workbench fill_alpha < 100 preview) lets it read through — shipped elements are opaque.
-static func shadow(corner: float, offset_x: float, offset_y: float, blur: float, spread: float, alpha: float, warmth: float = 0.82) -> Panel:
+static func shadow(corner: float, offset_x: float, offset_y: float, blur: float, spread: float, alpha: float) -> Panel:
 	var sh := Panel.new()
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var tint := warm_shadow_color(alpha, warmth)
+	var tint := shadow_color(alpha)
 	var ssb := StyleBoxFlat.new()
 	ssb.draw_center = true                                   # FILL the footprint — no hollow gap
 	ssb.bg_color = tint
@@ -648,26 +645,35 @@ static func shadow(corner: float, offset_x: float, offset_y: float, blur: float,
 	return sh
 
 ## The shared shadow params from a saved config's single "shadow" block (box-shadow model). Defaults
-## reproduce the shipped look, so an absent block leaves every element unchanged. alpha / warmth are
-## stored 0..100 in config and returned as 0..1. The shadow_rect / shadow_circle builders consume this.
+## are THE uniform shadow (measured from the picturebook mocks — bottom-right cast, slate tint), so an
+## absent block still casts the standard shadow. alpha is stored 0..100 in config and returned as 0..1.
+## The shadow_rect / shadow_circle builders consume this.
+const SHADOW_DEFAULTS := {"offset_x": 3.0, "offset_y": 7.0, "blur": 10.0, "spread": -2.0, "alpha": 38.0}
+
 static func shadow_params(cfg: Dictionary) -> Dictionary:
 	var s: Dictionary = cfg.get("shadow", {}) if cfg is Dictionary else {}
 	return {
-		"offset_x": float(s.get("offset_x", 0.0)),
-		"offset_y": float(s.get("offset_y", 4.0)),
-		"blur":     float(s.get("blur", 14.0)),
-		"spread":   float(s.get("spread", 4.0)),
-		"alpha":    clampf(float(s.get("alpha", 34.0)) / 100.0, 0.0, 1.0),
-		"warmth":   clampf(float(s.get("warmth", 82.0)) / 100.0, 0.0, 1.0),
+		"offset_x": float(s.get("offset_x", SHADOW_DEFAULTS.offset_x)),
+		"offset_y": float(s.get("offset_y", SHADOW_DEFAULTS.offset_y)),
+		"blur":     float(s.get("blur", SHADOW_DEFAULTS.blur)),
+		"spread":   float(s.get("spread", SHADOW_DEFAULTS.spread)),
+		"alpha":    clampf(float(s.get("alpha", SHADOW_DEFAULTS.alpha)) / 100.0, 0.0, 1.0),
 	}
+
+## Stamp THE uniform shadow onto a StyleBoxFlat — for elements whose chrome is a native StyleBox
+## (buttons, framed panels) rather than a behind-panel. Same numbers, same tint, one look.
+static func apply_box_shadow(sb: StyleBoxFlat) -> void:
+	sb.shadow_color = shadow_color(SHADOW_DEFAULTS.alpha / 100.0)
+	sb.shadow_size = int(SHADOW_DEFAULTS.blur)
+	sb.shadow_offset = Vector2(SHADOW_DEFAULTS.offset_x, SHADOW_DEFAULTS.offset_y)
 
 ## A RECTANGULAR shared shadow behind an element of corner radius `corner`. `p` is shadow_params().
 static func shadow_rect(corner: float, p: Dictionary) -> Panel:
-	return shadow(corner, float(p.get("offset_x", 0.0)), float(p.get("offset_y", 4.0)), float(p.get("blur", 14.0)), float(p.get("spread", 4.0)), float(p.get("alpha", 0.34)), float(p.get("warmth", 0.82)))
+	return shadow(corner, float(p.get("offset_x", SHADOW_DEFAULTS.offset_x)), float(p.get("offset_y", SHADOW_DEFAULTS.offset_y)), float(p.get("blur", SHADOW_DEFAULTS.blur)), float(p.get("spread", SHADOW_DEFAULTS.spread)), float(p.get("alpha", SHADOW_DEFAULTS.alpha / 100.0)))
 
 ## A CIRCULAR shared shadow behind a round element of diameter `diameter` (corner = radius). `p` is shadow_params().
 static func shadow_circle(diameter: float, p: Dictionary) -> Panel:
-	return shadow(diameter / 2.0, float(p.get("offset_x", 0.0)), float(p.get("offset_y", 4.0)), float(p.get("blur", 14.0)), float(p.get("spread", 4.0)), float(p.get("alpha", 0.34)), float(p.get("warmth", 0.82)))
+	return shadow(diameter / 2.0, float(p.get("offset_x", SHADOW_DEFAULTS.offset_x)), float(p.get("offset_y", SHADOW_DEFAULTS.offset_y)), float(p.get("blur", SHADOW_DEFAULTS.blur)), float(p.get("spread", SHADOW_DEFAULTS.spread)), float(p.get("alpha", SHADOW_DEFAULTS.alpha / 100.0)))
 
 ## Wrap `node` in a holder that draws the shared shadow BEHIND it — for CONTAINER nodes (PanelContainer
 ## etc.) that manage their own children, where a behind-parent child would fight the layout. `size` is the

@@ -33,7 +33,6 @@ const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
 const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
-const SHADOW_TINT := Color("#294654")   # the mock's tinted shadow role (18-20% opacity)
 const MEADOW_GREEN := Color("#5F9B6D")   # the action-green the Bring out / Expedition pills wear
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
@@ -478,9 +477,7 @@ static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
 ## The mock's tinted drop-shadow (#294654 at ~19%, short and soft), applied ON the element's own
 ## StyleBoxFlat — so it follows the box's exact rounded corners instead of a separate sharp panel.
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
-	sb.shadow_color = Color(SHADOW_TINT, 0.19)
-	sb.shadow_size = 10
-	sb.shadow_offset = Vector2(0, 5)
+	Look.apply_box_shadow(sb)
 
 ## Shadow a kit slot cell: the visible face is the inset SlotCellBackground panel — put the mock
 ## shadow on ITS stylebox (duplicated: slot_cell styleboxes are shared), so the shadow hugs the

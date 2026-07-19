@@ -7,12 +7,12 @@ extends Control
 ## edge, shadow, fixed layout, and live amounts remain native Godot controls.
 
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const DESIGN_SIZE := Vector2(941, 160)
 const PAPER_ROOT := "res://games/grove/assets/ui/meadow_v2/"
 const PAPER_TEXTURE_PATH := PAPER_ROOT + "texture_cream.png"
 const PLUS_PATH := PAPER_ROOT + "button_plus.png"
 const INK := Color("#243B4B")
-const SHADOW_TINT := Color("#294654", 0.20)
 const SHELL_FILL := Color("#F6EBDD")
 const SHELL_EDGE := Color("#3F6D7D", 0.35)
 const SHELL_RADIUS := 28
@@ -168,9 +168,7 @@ func _art_rect(node_name: String, path: String, rect: Rect2) -> TextureRect:
 func _shadow_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0)
-	style.shadow_color = SHADOW_TINT
-	style.shadow_size = 3
-	style.shadow_offset = Vector2(1, 4)
+	Look.apply_box_shadow(style)
 	style.set_corner_radius_all(SHELL_RADIUS)
 	return style
 

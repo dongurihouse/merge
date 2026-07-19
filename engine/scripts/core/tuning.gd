@@ -88,8 +88,8 @@ class Ambient:
 	const BODY_SIZE := Vector2(56, 56)              # the rounded body panel
 	const BODY_OFFSET := Vector2(14, 18)            # its inset within CHAR_SIZE
 	const BODY_COLOR := Color("#6B7B52", 0.92)      # soft moss green
-	const BODY_SHADOW := Color(0, 0, 0, 0.2)
-	const BODY_SHADOW_SIZE := 4
+	const BODY_SHADOW := Color("#29465461")
+	const BODY_SHADOW_SIZE := 10
 	const EYE_COUNT := 2
 	const EYE_SIZE := Vector2(7, 9)
 	const EYE_COLOR := Color("#E8B23C")             # warm amber
@@ -357,8 +357,8 @@ class Hud:
 	const PILL_RADIUS := 40
 	const PILL_BORDER_W := 3
 	const PILL_BORDER := Color("#C9A66B", 0.9)      # warm gold (matches the ask pills)
-	const PILL_SHADOW := Color(0, 0, 0, 0.22)
-	const PILL_SHADOW_SIZE := 5
+	const PILL_SHADOW := Color("#29465461")
+	const PILL_SHADOW_SIZE := 10
 	const CLUSTER_PAD_X := 18.0           # currency pill horizontal content margin
 	const PILL_PAD_X := 16.0              # level pill horizontal content margin
 	const PILL_PAD_Y := 12.0              # vertical content margin (both pills)
@@ -427,9 +427,9 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const PARCH_PAD_B := 22.0             # parchment is bottom-heavy
 	const PARCH_RADIUS := 26
 	const PARCH_BORDER_W := 5
-	const PARCH_SHADOW := Color(0, 0, 0, 0.3)
-	const PARCH_SHADOW_SIZE := 8
-	const PARCH_SHADOW_OFFSET := Vector2(0, 5)
+	const PARCH_SHADOW := Color("#29465461")
+	const PARCH_SHADOW_SIZE := 10
+	const PARCH_SHADOW_OFFSET := Vector2(3, 7)
 
 	# --- icons & stat chip -------------------------------------------------------------
 	const ICON_PX := 28.0                 # default icon size (glyph or sprite)
@@ -442,8 +442,8 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const TITLE_RADIUS := 20
 	const TITLE_BORDER_W := 3
 	const TITLE_EDGE_ALPHA := 0.9         # border = Color(Pal.PILL_EDGE, this)
-	const TITLE_SHADOW := Color(0, 0, 0, 0.22)
-	const TITLE_SHADOW_SIZE := 5
+	const TITLE_SHADOW := Color("#29465461")
+	const TITLE_SHADOW_SIZE := 10
 	const TITLE_PAD_X := 30.0
 	const TITLE_PAD_T := 7.0
 	const TITLE_PAD_B := 9.0
@@ -462,9 +462,9 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const BTN_BORDER_W := 3
 	const BTN_PILL_ALPHA := 0.97          # secondary bg = Color(Pal.PILL, this)
 	const BTN_EDGE_ALPHA := 0.9           # secondary border = Color(Pal.PILL_EDGE, this)
-	const BTN_SHADOW := Color(0, 0, 0, 0.3)
-	const BTN_SHADOW_SIZE := 5
-	const BTN_SHADOW_OFFSET := Vector2(0, 3)
+	const BTN_SHADOW := Color("#29465461")
+	const BTN_SHADOW_SIZE := 10
+	const BTN_SHADOW_OFFSET := Vector2(3, 7)
 	const BTN_PAD_X := 30.0
 	const BTN_PAD_T := 12.0
 	const BTN_PAD_B := 14.0
@@ -480,12 +480,12 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	# raised surface back to the resting shadow (it visually settles toward the surface).
 	const RIM_LIGHT := Color(0.984, 0.953, 0.918, 0.7)   # = Color(Pal.CREAM, 0.7) — the inner highlight
 	const RIM_LIGHT_W := 2                                # inner highlight thickness (px)
-	const SHADOW_RESTING := Color(0, 0, 0, 0.16)         # chips / pills / secondary
-	const SHADOW_RESTING_SIZE := 4
-	const SHADOW_RESTING_OFFSET := Vector2(0, 2)
-	const SHADOW_RAISED := Color(0, 0, 0, 0.28)          # primary CTA / floating round buttons
+	const SHADOW_RESTING := Color("#29465461")         # THE uniform shadow (slate, 0.38)
+	const SHADOW_RESTING_SIZE := 10
+	const SHADOW_RESTING_OFFSET := Vector2(3, 7)
+	const SHADOW_RAISED := Color("#29465461")          # same as Resting — one shadow, no tiers
 	const SHADOW_RAISED_SIZE := 10
-	const SHADOW_RAISED_OFFSET := Vector2(0, 5)
+	const SHADOW_RAISED_OFFSET := Vector2(3, 7)
 	# --- Sunk tier (UI redesign): the recessive plane BELOW Resting --------------------
 	# Locked/sealed cells + empty wells live here — they float NOTHING (no drop shadow) and
 	# read as carved-in via a faint top inset line, receding under playable content.
@@ -630,9 +630,9 @@ class Shop:
 	const BUY_PAD_T := 6.0
 	const BUY_PAD_B := 7.0
 	const BUY_SIZE := FontScale.MEDIUM    # price number font
-	const BUY_SHADOW := Color(0, 0, 0, 0.22)
-	const BUY_SHADOW_SIZE := 5
-	const BUY_SHADOW_OFFSET := Vector2(0, 3)
+	const BUY_SHADOW := Color("#29465461")
+	const BUY_SHADOW_SIZE := 10
+	const BUY_SHADOW_OFFSET := Vector2(3, 7)
 	const BUY_NEED_MODULATE := Color(0.74, 0.77, 0.72, 0.95)  # can't-afford → dim the PILL only (the card stays bright)
 	const PRICE_ICON := 28.0              # the coin/gem glyph inside the BUY pill (cost = icon + number)
 	const PRICE_ROW_SEP := 6             # gap between that glyph and the number
@@ -643,9 +643,9 @@ class Shop:
 	const CARD_RADIUS := 20
 	const CARD_BORDER_W := 3
 	const CARD_EDGE_ALPHA := 0.55         # border = Color(BARK, this)
-	const CARD_SHADOW := Color(0, 0, 0, 0.18)
-	const CARD_SHADOW_SIZE := 4
-	const CARD_SHADOW_OFFSET := Vector2(0, 3)
+	const CARD_SHADOW := Color("#29465461")
+	const CARD_SHADOW_SIZE := 10
+	const CARD_SHADOW_OFFSET := Vector2(3, 7)
 
 	# --- kit-art nine-patch margins (used when the sliced shop sprites are present) ------
 	# Each art slot keeps its code-drawn fallback; these only size the StyleBoxTexture's

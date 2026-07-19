@@ -47,11 +47,7 @@ static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {})
 	flat.set_corner_radius_all(_bar_corner(bar_h))
 	flat.anti_aliasing = true
 	if bool(action_opts.get("shadow", true)):
-		var shadow: Dictionary = action_opts.get("shadow_params", {})
-		var alpha := minf(float(shadow.get("alpha", 0.20)), 0.20)
-		flat.shadow_color = Look.warm_shadow_color(alpha, float(shadow.get("warmth", 0.82)))
-		flat.shadow_size = maxi(1, int(roundf(maxf(1.0, float(shadow.get("blur", 14.0)) + float(shadow.get("spread", 4.0))))))
-		flat.shadow_offset = Vector2(float(shadow.get("offset_x", 0.0)), float(shadow.get("offset_y", 4.0)))
+		Look.apply_box_shadow(flat)
 	# The paper child is laid into this fixed inset so the light code edge remains visible.
 	flat.content_margin_left = 2.0
 	flat.content_margin_right = 2.0
@@ -280,9 +276,7 @@ static func action_chip(chip_opts: Dictionary, row: Control, caption_text: Strin
 	sb.border_color = Pal.BTN_PRIMARY_EDGE
 	sb.set_corner_radius_all(int(chip_opts.get("sell_badge_radius", 10)))
 	sb.set_border_width_all(Tuning.UiSkin.BTN_BORDER_W)
-	sb.shadow_color = Color("#294654", 0.16)
-	sb.shadow_size = 2
-	sb.shadow_offset = Vector2(0, 1)
+	Look.apply_box_shadow(sb)
 	sb.content_margin_left = 14
 	sb.content_margin_right = 14
 	sb.content_margin_top = 4

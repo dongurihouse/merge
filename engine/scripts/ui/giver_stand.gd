@@ -257,7 +257,7 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	var sh := Look.shadow_rect(h * 0.12, params)
 	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
 	if sb != null:
-		var tint := Color("#294654", minf(float(params.get("alpha", 0.20)), 0.20))
+		var tint := Look.shadow_color(Look.SHADOW_DEFAULTS.alpha / 100.0)
 		sb.bg_color = tint
 		sb.shadow_color = tint
 	sh.show_behind_parent = true
@@ -310,9 +310,7 @@ static func ask_pill() -> PanelContainer:
 	ps.set_corner_radius_all(18)
 	ps.set_border_width_all(2)
 	ps.border_color = Color("#C9A66B", 0.85)
-	ps.shadow_color = Color("#294654", 0.20)
-	ps.shadow_size = 4
-	ps.shadow_offset = Vector2(0, 2)
+	Look.apply_box_shadow(ps)
 	ps.content_margin_left = 14.0
 	ps.content_margin_right = 16.0
 	ps.content_margin_top = 7.0
@@ -337,9 +335,7 @@ static func _ask_met_check(px: float) -> Panel:
 	mbg.set_corner_radius_all(int(px / 2.0))
 	mbg.set_border_width_all(3)
 	mbg.border_color = CREAM
-	mbg.shadow_color = Color("#294654", 0.20)
-	mbg.shadow_size = 4
-	mbg.shadow_offset = Vector2(0, 2)
+	Look.apply_box_shadow(mbg)
 	mark.add_theme_stylebox_override("panel", mbg)
 	var mi := Look.icon("check", px * 0.7)
 	mi.set_anchors_preset(Control.PRESET_FULL_RECT)
