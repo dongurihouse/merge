@@ -391,6 +391,22 @@ func _test_residents_dialog() -> void:
 		free.on_take.call(mover.data, free.data)
 		await create_timer(0.1).timeout
 		ok(Bucket.placed().size() == placed_before + 1, "dropping on a free cell places the spirit")
+
+	# drag-to-unplace: a PLACED spirit dropped on the hand zone comes back to the hand
+	var housed = ov.find_child("HabitatCell_00", true, false)
+	var zone = ov.find_child("OnHandDropZone", true, false)
+	ok(housed != null and zone != null, "the unplace test has a housed card and the hand drop zone")
+	if housed != null and zone != null:
+		ok(String(housed.data.get("src", "")) == "placed", "the housed card carries placed drag data")
+		ok(bool(zone.can_take.call(housed.data, zone.data)), "the hand zone accepts a placed spirit")
+		ok(not bool(zone.can_take.call({"src": "hand", "idx": 0}, zone.data)),
+			"the hand zone refuses a hand spirit (nothing to unplace)")
+		var hand_n := Bucket.hand().size()
+		var placed_n := Bucket.placed().size()
+		zone.on_take.call(housed.data, zone.data)
+		await create_timer(0.1).timeout
+		ok(Bucket.placed().size() == placed_n - 1 and Bucket.hand().size() == hand_n + 1,
+			"dropping a placed spirit on the hand zone unplaces it")
 	host.queue_free()
 	await create_timer(0.05).timeout
 
