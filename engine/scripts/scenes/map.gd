@@ -1151,24 +1151,18 @@ func _build_maps_page(animate := true) -> void:
 	var view := get_viewport_rect().size
 	var margin := clampf(view.x * 0.045, 14.0, 40.0)
 	var gap := clampf(view.x * 0.03, 10.0, 26.0)
-	# heading under the wallet HUD
-	var title_font := int(clampf(view.x * 0.105, 34.0, 96.0))
-	var title := _lbl(Strings.t("map.page.title"), title_font, INK)
-	title.position = Vector2(0.0, Look.safe_top(self) + 74.0)
-	title.size = Vector2(view.x, title_font * 1.25)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(title)
 	# the featured frontier card (all restored → the last map stays featured as the home anchor)
 	var feat := _frontier_map()
 	if feat < 0:
 		feat = G.MAPS.size() - 1
-	var feat_y := title.position.y + title.size.y + gap
-	var feat_h := clampf(view.y * 0.235, 150.0, 380.0)
+	var feat_y := Look.safe_top(self) + 140.0    # clears the wallet pills + Lv star (design units; no heading)
+	var feat_h := clampf(view.y * 0.25, 150.0, 400.0)
 	var feat_rect := Rect2(margin, feat_y, view.x - margin * 2.0, feat_h)
 	var feat_card := _maps_featured_card(feat, feat_rect)
 	content.add_child(feat_card)
 	maps_hits.append({"node": feat_card, "z": feat, "locked": false})
-	# the remaining maps as a 2-column grid, filling down to the back-button band
+	# the remaining maps as a 2-column grid, filling down to the bottom-nav band
+	var nav_h := _hud_button_px() * 0.78
 	var others: Array = []
 	for z in G.MAPS.size():
 		if z != feat:
@@ -1176,7 +1170,7 @@ func _build_maps_page(animate := true) -> void:
 	var rows := int(ceil(others.size() / 2.0))
 	if rows > 0:
 		var grid_top := feat_y + feat_h + gap
-		var grid_bot := view.y - Look.safe_bottom(self) - _rail_px - _rail_margin_px * 2.0
+		var grid_bot := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - nav_h - gap
 		var cell_h := maxf(120.0, (grid_bot - grid_top - gap * float(rows - 1)) / float(rows))
 		var cell_w := (view.x - margin * 2.0 - gap) * 0.5
 		for i in others.size():
@@ -1186,10 +1180,51 @@ func _build_maps_page(animate := true) -> void:
 			var card := _maps_grid_card(z2, rect, locked)
 			content.add_child(card)
 			maps_hits.append({"node": card, "z": z2, "locked": locked})
+	_build_maps_nav(view, nav_h)
 	if _select_back != null and is_instance_valid(_select_back):
-		_select_back.visible = true
+		_select_back.visible = false     # the gallery's HOME nav button is the way back (mock chrome)
 	if animate:
 		FX.pop_in(content)
+
+# The gallery's bottom nav (mock chrome): HOME · BOARD · EXPEDITION as wide cream paper tiles
+# (the shared configurable home button, rect shape, icon over caption). Rebuilt with the page —
+# it lives inside `content`, real buttons above the tap surface (the chip exception).
+func _build_maps_nav(view: Vector2, nav_h: float) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	var HC: GDScript = load(HOME_CHROME_PATH)
+	var go_home := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_map(_map_idx)
+	var go_dock := func() -> void:
+		_open_select()
+	var specs := [
+		{"icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.page.nav_home"), "action": go_home},
+		{"icon": HC.ICON_PLAY, "caption": Strings.t("map.page.nav_board"), "action": _on_board},
+		{"icon": HC.ICON_EXPEDITION, "caption": Strings.t("map.page.nav_expedition"), "action": go_dock},
+	]
+	var side := NavBar.SIDE_INSET
+	var btn_gap := clampf(view.x * 0.03, 10.0, 26.0)
+	var btn_w := (view.x - side * 2.0 - btn_gap * float(specs.size() - 1)) / float(specs.size())
+	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - nav_h
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	opts["px"] = nav_h
+	opts["shape"] = "rect"
+	opts["surface_role"] = "cream"
+	opts["shadow"] = true
+	for i in specs.size():
+		var spec: Dictionary = specs[i]
+		var b: Button
+		if Kit != null:
+			b = Kit.home_button(spec, opts)
+		else:
+			b = Button.new()                 # defensive fallback (kit absent): a bare labeled tile
+			b.text = String(spec.caption)
+			b.focus_mode = Control.FOCUS_NONE
+			b.pressed.connect(spec.action)
+		b.custom_minimum_size = Vector2(btn_w, nav_h)
+		b.size = Vector2(btn_w, nav_h)
+		b.position = Vector2(side + (btn_w + btn_gap) * float(i), y)
+		content.add_child(b)
 
 # Buildable progress on a page: built / total over the manifest buildings that carry a build def
 # (scene props render "built" and don't count). Vector2i(built, total); total 0 = no build system yet.
