@@ -2633,10 +2633,11 @@ func _test_bag_components() -> void:
 	ok(dlg is Control, "bag_dialog builds a Control")
 	ok(dlg.find_child("DialogBanner", true, false) != null, "the bag dialog reuses the SHARED frame banner")
 	ok(_grid_cells(dlg) == entries.size(), "the bag grid has one cell per entry (%d)" % entries.size())
-	# NO balance pill: the HUD already carries the acorn counter, so the dialog's only price is the
-	# next slot's own cost chip.
-	ok(dlg.find_child("GoldCurrencyPill", true, false) == null, "bag_dialog shows no acorn-balance pill")
-	ok(not _has_label_text(dlg, "132"), "the bag dialog never repeats the balance the HUD already shows")
+	# the bag mock's acorn BALANCE chip sits under the title, right-aligned with the grid (its own
+	# cream atom — not the HUD's gold currency pill).
+	ok(dlg.find_child("GoldCurrencyPill", true, false) == null, "bag_dialog does not reuse the HUD currency pill")
+	ok(dlg.find_child("BagBalanceChip", true, false) != null and _has_label_text(dlg, "132"), \
+		"bag_dialog carries the mock's acorn balance chip")
 
 # The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
 # tier wears the filled Slot-cell background holding its piece; an undiscovered tier uses the same
