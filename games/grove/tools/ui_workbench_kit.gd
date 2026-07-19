@@ -232,16 +232,6 @@ static func _apply_rounded_paper_surface(
 	button.draw.connect(sync_state)
 	return paper
 
-static func meadow_board_style(pad_x: float = 0.0, pad_y: float = 0.0) -> StyleBoxTexture:
-	var style := StyleBoxTexture.new()
-	style.texture = _meadow_tex("board_frame.png")
-	_set_texture_margins(style, BOARD_PATCH)
-	style.content_margin_left = pad_x
-	style.content_margin_right = pad_x
-	style.content_margin_top = pad_y
-	style.content_margin_bottom = pad_y
-	return style
-
 static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: float = 0.0, pad_top: float = 0.0, pad_right: float = 0.0, pad_bottom: float = 0.0) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
 	style.texture = _meadow_tex(file_name)
@@ -530,17 +520,6 @@ static func _polish_icon_aspect(img: Image, opts: Dictionary) -> Image:
 	return img
 
 ## --- icon edge polish (defringe / feather / supersample) -----------------------------------------
-## Clean up a generated icon's rough alpha edge. opts: defringe (bool), feather (px), supersample
-## (1-4), size (working/output px). Returns a polished Texture2D (or the raw texture on failure).
-static func polish_icon_tex(id_or_path: String, opts: Dictionary = {}) -> Texture2D:
-	var path := id_or_path
-	if not path.begins_with("res://"):
-		path = Game.art("ui/currency/icon_%s.png" % id_or_path)
-	if not ResourceLoader.exists(path):
-		return null
-	var img := (load(path) as Texture2D).get_image()
-	return ImageTexture.create_from_image(polish_image(img, opts))
-
 static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 	var do_defringe: bool = bool(opts.get("defringe", false))
 	var feather: float = float(opts.get("feather", 0.0))
@@ -3185,12 +3164,6 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 ## zero-based and is clamped, while the native lv_num Label remains independent and player-readable.
 const LEVEL_BADGE_VARIANTS := 25
 
-## Compatibility helper retained for callers that inspect tier progression. The old composited `parts`
-## list is intentionally empty: extracted full-badge variants are now authoritative.
-static func level_badge_tier_parts(tier: int) -> Dictionary:
-	var variant := clampi(tier, 0, LEVEL_BADGE_VARIANTS - 1) + 1
-	return {"group": 0, "stage": variant, "variant": variant, "parts": []}
-
 ## The workbench-tuned level-badge geometry from a saved config (cfg["level_badge"]). Every
 ## position/size knob is a PERCENT of the badge px so the emblem scales to any size.
 static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4216,15 +4189,6 @@ static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7
 	var cell_h := (view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows
 	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
-
-static func live_quest_bar_top_y(safe_top := 0.0) -> float:
-	return safe_top + 44.0 + 10.0
-
-static func live_quest_bar_height() -> float:
-	return 215.0
-
-static func live_board_frame_top_y(safe_top := 0.0) -> float:
-	return live_quest_bar_top_y(safe_top) + live_quest_bar_height() + 10.0
 
 ## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench
 ## all build the same gold_badge-backed component directly from this block.

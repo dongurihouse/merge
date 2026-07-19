@@ -10,7 +10,7 @@ extends Node2D
 ##             the region are transparent and simply don't draw). The host's local origin must
 ##             line up with the texture's pixel origin (caller passes a full-view snapshot).
 ##
-## Look-dev lives in engine/tools/fx_demo.gd (make fx / make shot), which drives this same code.
+## No standalone look-dev harness ships for it any more (the old engine/tools/fx_demo.gd was retired).
 
 # --- tuning (promote to Tune.FX when locked) ----------------------------------------
 const SPOKES_MIN := 11
