@@ -2532,7 +2532,10 @@ func _open_residents() -> void:
 			_update_hud()
 			_refresh_liveops_badges(),
 		"on_info": func(kind: String, tier: int) -> void:
-			_open_resident_ladder(kind, tier)})
+			_open_resident_ladder(kind, tier),
+		# the acquire entry the bucket dock's chip used to own — same frontier-map target
+		"on_expedition": func() -> void:
+			_open_expedition(_frontier_map())})
 
 func _open_daily() -> void:
 	Audio.play("button_tap", -2.0)

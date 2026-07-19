@@ -32,8 +32,9 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
-const CELL_CORNER := 16.0           # the bank card corner radius
+const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
 const SHADOW_TINT := Color("#294654")   # the mock's tinted shadow role (18-20% opacity)
+const MEADOW_GREEN := Color("#5F9B6D")   # the action-green the Bring out / Expedition pills wear
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {
@@ -131,7 +132,8 @@ class DragCard:
 			on_tap.call()
 
 ## Open the dialog. opts: refresh (Callable — the host re-reads wallet/badges after collect/sell),
-## on_info (Callable(kind, tier) — the host opens the resident tier ladder).
+## on_info (Callable(kind, tier) — the host opens the resident tier ladder), on_expedition
+## (Callable — the host opens the Load out dialog; the Expedition pill is omitted without it).
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
@@ -267,14 +269,18 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	var placed: Array = Bucket.placed()
 	var cells_total: int = Bucket.cells_total()
 	var slots: int = maxi(HABITAT_SLOTS_SHOWN, cells_total)
-	var cell_px: float = (width - 10.0 * float(slots - 1)) / float(slots)
+	# the cells WRAP at HABITAT_SLOTS_SHOWN per row: sized against the row width (not the slot count),
+	# a late-game habitat keeps mock-sized cells and grows downward instead of shrinking to slivers.
+	var cell_px: float = (width - 10.0 * float(HABITAT_SLOTS_SHOWN - 1)) / float(HABITAT_SLOTS_SHOWN)
 	var cbag: Dictionary = bag_opts.duplicate(true)
 	cbag["cell_w"] = cell_px
 	cbag["cell_h"] = cell_px
-	var cells := HBoxContainer.new()
+	var cells := GridContainer.new()
 	cells.name = "HabitatCellsRow"
-	cells.add_theme_constant_override("separation", 10)
-	cells.alignment = BoxContainer.ALIGNMENT_CENTER
+	cells.columns = HABITAT_SLOTS_SHOWN
+	cells.add_theme_constant_override("h_separation", 10)
+	cells.add_theme_constant_override("v_separation", 10)
+	cells.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	for i in slots:
 		var cell: Control
 		if i < placed.size():
@@ -315,6 +321,25 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		grid.add_child(Kit.slot_cell({"state": "empty"}, hbag))
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(grid)
+
+	# --- EXPEDITION: the acquire entry, moved here from the retired bucket dock ----------------------
+	# Gated exactly as the dock's chip was — the loop opens once a completed building grants a cell.
+	# Sits at the body's foot rather than in the inspector strip: the strip is selection-contextual,
+	# and Expedition is always available once open.
+	var on_expedition: Callable = (ctx.opts as Dictionary).get("on_expedition", Callable())
+	if on_expedition.is_valid() and cells_total > 0:
+		var exped := _inspector_pill(Kit, 1.0, "EXPEDITION", MEADOW_GREEN)
+		exped.name = "ResidentsExpeditionButton"
+		exped.pressed.connect(func() -> void:
+			Audio.play("button_tap", -2.0)
+			var ov: Control = ctx.overlay
+			if is_instance_valid(ov):
+				ov.queue_free()          # close Residents first — Load out mounts on the same host
+			on_expedition.call())
+		var erow := HBoxContainer.new()
+		erow.alignment = BoxContainer.ALIGNMENT_CENTER
+		erow.add_child(exped)
+		body.add_child(erow)
 
 	# breathing room so the last hand row scrolls clear of the bottom inspector strip
 	var pad := Control.new()
@@ -647,25 +672,21 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
+	# BRING OUT — placed spirits only: the one way back to the hand (Bucket.unplace). A drag would need
+	# a "drop into the hand" target, and the on-hand grid's filler tiles are not drop-capable; one tap
+	# is simpler. Wears Sell's pill in meadow green so the destructive Sell stays the coral one.
+	if String(sel.get("src", "")) == "placed":
+		var out := _inspector_pill(Kit, s, "BRING OUT", MEADOW_GREEN)
+		out.name = "ResidentsBringOutButton"
+		out.pressed.connect(func() -> void:
+			Audio.play("button_tap", -2.0)
+			if Bucket.unplace(int(sel.get("idx", -1))):
+				ctx["sel"] = {}
+			_repaint(ctx))
+		row.add_child(out)
 	# SELL — the coral-outline pill (mock), sized as the strip's dominant action.
-	var sell := Button.new()
+	var sell := _inspector_pill(Kit, s, "SELL +%d" % (Bucket.SELL_PER_TIER * tier), Pal.CLAY)
 	sell.name = "ResidentsSellButton"
-	sell.text = "SELL +%d" % (Bucket.SELL_PER_TIER * tier)
-	sell.focus_mode = Control.FOCUS_NONE
-	sell.add_theme_font_override("font", Kit.bold_font())
-	sell.add_theme_font_size_override("font_size", int(FS.EMPHASIS * s))
-	sell.add_theme_color_override("font_color", Pal.CLAY)
-	sell.add_theme_constant_override("outline_size", 0)
-	var ssb := StyleBoxFlat.new()
-	ssb.bg_color = Pal.CREAM
-	ssb.set_corner_radius_all(int(18.0 * s))
-	ssb.set_border_width_all(int(maxf(3.0, 4.0 * s)))
-	ssb.border_color = Pal.CLAY
-	ssb.content_margin_left = 26.0 * s; ssb.content_margin_right = 26.0 * s
-	ssb.content_margin_top = 10.0 * s; ssb.content_margin_bottom = 10.0 * s
-	for st in ["normal", "hover", "pressed", "focus"]:
-		sell.add_theme_stylebox_override(st, ssb)
-	sell.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	sell.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		if String(sel.get("src", "")) == "placed":
@@ -678,6 +699,28 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	insp.add_child(row)
 
 # --- small helpers --------------------------------------------------------------------------------
+## One inspector-strip action pill: the cream face with a coloured outline and matching label. The
+## colour is the whole difference between Sell (coral) and Bring out (meadow green).
+static func _inspector_pill(Kit: GDScript, s: float, text: String, accent: Color) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_override("font", Kit.bold_font())
+	b.add_theme_font_size_override("font_size", int(FS.EMPHASIS * s))
+	b.add_theme_color_override("font_color", accent)
+	b.add_theme_constant_override("outline_size", 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CREAM
+	sb.set_corner_radius_all(int(18.0 * s))
+	sb.set_border_width_all(int(maxf(3.0, 4.0 * s)))
+	sb.border_color = accent
+	sb.content_margin_left = 26.0 * s; sb.content_margin_right = 26.0 * s
+	sb.content_margin_top = 10.0 * s; sb.content_margin_bottom = 10.0 * s
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return b
+
 static func _section_label(Kit: GDScript, text: String) -> Label:
 	var l := Label.new()
 	l.text = text.to_upper()
