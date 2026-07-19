@@ -2525,8 +2525,30 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
+	# dim_bg recedes the WELL through the paper layer's OWN tint. The mask shader writes COLOR wholesale,
+	# so the old `bg.modulate` never reached the face — assert the tint, not the modulate.
+	var dim_opts := co.duplicate(true)
+	dim_opts["dialog_cells"] = true
+	var _paper_tint := func(cell: Control) -> Color:
+		var paper := cell.find_child("SlotCellPaperTexture", true, false) as Control
+		if paper == null or paper.material == null:
+			return Color.WHITE
+		var t: Variant = (paper.material as ShaderMaterial).get_shader_parameter("tint")
+		return t if t is Color else Color.WHITE
+	var lit: Color = _paper_tint.call(Kit.slot_cell({"state": "filled"}, dim_opts))
+	var dimmed: Color = _paper_tint.call(Kit.slot_cell({"state": "filled", "dim_bg": true}, dim_opts))
+	ok(dimmed.r < lit.r and dimmed.g < lit.g and dimmed.b < lit.b, \
+		"dim_bg recedes the cell FACE (the paper tint), not just its border")
+	# ...and the dialogs' locked well is the mocks' lighter receding blue, while the board keeps its own
+	var dlg_locked: Control = Kit.slot_cell({"state": "locked"}, dim_opts)
+	var dlg_locked_tint: Color = _paper_tint.call(dlg_locked)
+	ok(dlg_locked_tint.r > 1.0, "a dialog's locked cell lifts off the board's receding blue")
 	var flat_board_opts := co.duplicate(true)
 	flat_board_opts["flat_board_cells"] = true
+	flat_board_opts["dialog_cells"] = true
+	var board_locked_tint: Color = _paper_tint.call(Kit.slot_cell({"state": "locked"}, flat_board_opts))
+	ok(board_locked_tint.is_equal_approx(Color.WHITE), \
+		"the BOARD's locked cell ignores dialog_cells and keeps its untinted face")
 	var flat_board_unlockable := Kit.slot_cell({"state": "unlockable"}, flat_board_opts)
 	ok(flat_board_unlockable.find_child("SlotCellUnlockableHighlight", true, false) == null \
 		and not _has_class(flat_board_unlockable, "GPUParticles2D"), \
