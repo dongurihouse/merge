@@ -612,11 +612,10 @@ func _build_sidebar() -> void:
 	col.add_child(_cluster_box)
 	_refresh_status()
 
-## Switch the workbench to another scene bundle in place (unsaved edits are saved first —
-## a .bak of the pre-session file always exists, so nothing is silently lost either way).
+## Switch the workbench to another scene bundle in place. ⌘S is the ONLY writer: unsaved edits
+## are DISCARDED on a switch — never silently committed to disk (2026-07-19, after an auto-save
+## here surprised the owner by persisting un-⌘S'd moves across a restart).
 func _switch_scene(scene: String) -> void:
-	if dirty:
-		_save()
 	if not setup(_scenes_root, scene):
 		return
 	_sel = -1

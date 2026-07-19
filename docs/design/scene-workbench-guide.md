@@ -103,7 +103,8 @@ make sw SCENE=cherry_blossom_garden          # or any scene in the dropdown
 make sw SCENE=desert_oasis CLUSTER=oasis_pool  # open isolated on one cluster
 ```
 
-1. Pick the scene (dropdown switches in place; unsaved edits auto-save first).
+1. Pick the scene from the icon row. ⌘S is the ONLY writer — switching (or quitting) DISCARDS
+   unsaved edits; the header reads UNSAVED until you press it.
 2. Rough-place clusters, back to front, respecting the z bands.
 3. Isolate each cluster and fine-tune members (arrows nudge 1px, Shift 10).
 4. `⌘S` saves. The header shows `UNSAVED` until you do.

@@ -379,7 +379,7 @@ func _initialize() -> void:
 		view._select(-1)
 		view._rebuild_stage()
 
-	# --- the scene dropdown + in-place switching (unsaved edits auto-save first) ------
+	# --- scene switching: ⌘S is the ONLY writer — a switch DISCARDS unsaved edits ------
 	ok(view.find_child("SceneIcons", true, false) != null, "the sidebar carries the scene icon row")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
@@ -392,8 +392,11 @@ func _initialize() -> void:
 	ok(view.scene_name == "another" and view.doc.placements.size() == 1,
 		"switching scenes loads the other bundle in place")
 	var persisted := M.load_doc(broot + "/test_scene_elements_v1/metadata/placements.json")
-	ok(int(persisted.placements[0].x) == 520,
-		"unsaved edits were saved before the switch (nothing lost)")
+	ok(int(persisted.placements[2].x) == 520,
+		"the un-⌘S'd move never reached disk — a switch DISCARDS unsaved edits")
+	view._switch_scene("test_scene")
+	ok(int((view.doc.placements[2] as Dictionary).x) == 520,
+		"switching back reloads the last SAVED state (the move is gone)")
 	view.queue_free()
 
 	# --- root scoring + reference images ----------------------------------------------
