@@ -176,7 +176,8 @@ static func _apply_rounded_paper_surface(
 	margins: Vector4,
 	inset := 2.0,
 	surface_alpha := 1.0,
-	behind := false
+	behind := false,
+	border_px := 1.0
 ) -> TextureRect:
 	# `behind` = the paper draws BEHIND the button's own canvas item, for buttons whose content is the
 	# Button's native text/icon (pill_button) rather than child nodes (the rect nav buttons): the
@@ -185,7 +186,7 @@ static func _apply_rounded_paper_surface(
 	base.draw_center = not behind
 	base.bg_color = Color(fill.r, fill.g, fill.b, fill.a * surface_alpha)
 	base.border_color = PAPER_EDGE
-	base.set_border_width_all(1)
+	base.set_border_width_all(int(border_px))     # 0 = a BARE paper cut, no hairline edge at all
 	base.set_corner_radius_all(int(round(corner)))
 	base.anti_aliasing = true
 	base.content_margin_left = margins.x
@@ -1423,6 +1424,11 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 			b.add_theme_constant_override("h_separation", 7)
 	if bool(opts.get("static", false)):
 		b.mouse_filter = Control.MOUSE_FILTER_IGNORE      # a display chip (the cost pill): looks like the button, not pressable
+	# `paper` routes ANY registered PAPER_SURFACES role through the flat paper-cut surface (the
+	# construction the green CTA already uses) instead of a baked nine-patch shell; `border` = 0 cuts
+	# the hairline edge with it, for the borderless paper buttons the dialog mocks call for.
+	var paper_role := String(opts.get("paper", ""))
+	var border_px := float(opts.get("border", 1.0))
 	var primary := bg == "green"
 	var danger := bg == "danger"
 	var fill: Color = Pal.BTN_PRIMARY if primary else (Pal.ACCENT_ALERT if danger else Pal.CREAM)
@@ -1448,9 +1454,27 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 			Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale),
 			0.0,
 			1.0,
-			true)
+			true,
+			border_px)
 		paper.name = "ButtonPaperSurface"
 		return b
+	# a NON-green paper role (e.g. the cream secondary): same paper-cut construction as the green CTA.
+	if paper_role != "" and PAPER_SURFACES.has(paper_role):
+		var proll: Dictionary = PAPER_SURFACES[paper_role]
+		_maybe_shadow(b, shadow, corner, opts.get("shadow_params", {}))
+		var proll_paper := _apply_rounded_paper_surface(
+			b,
+			String(proll.get("texture", "texture_cream.png")),
+			proll.get("fill", Pal.CREAM),
+			corner,
+			Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale),
+			0.0,
+			1.0,
+			true,
+			border_px)
+		proll_paper.name = "ButtonPaperSurface"
+		return b
+
 	# --- background: the sprite NINE-PATCH (nice baked borders) when "art" is on, else code-drawn ---
 	if bool(opts.get("art", true)):
 		# The default semantic roles use the extracted Meadow shells. An explicit art_rel remains supported
