@@ -90,7 +90,7 @@ class DragCard:
 		_down_gp = gp
 
 	func _move(gp: Vector2) -> void:
-		if not _dragging and String(data.get("src", "")) == "hand" \
+		if not _dragging and String(data.get("src", "")) in ["hand", "placed"] \
 				and gp.distance_to(_down_gp) > DRAG_START_PX:
 			_dragging = true
 			if make_preview.is_valid() and drag_layer != null and is_instance_valid(drag_layer):
@@ -112,18 +112,20 @@ class DragCard:
 		# resolve LAST: on_take/on_tap repaint the dialog, which queue_frees this very card.
 		if was_drag:
 			var t := _target_at(gp)
-			if t != null and t.can_take.is_valid() and bool(t.can_take.call(data, t.data)) \
-					and t.on_take.is_valid():
+			if t != null and t.on_take.is_valid():
 				t.on_take.call(data, t.data)
 		else:
 			tap()
 
+	## The first registered card under `gp` that ACCEPTS this payload — rejecting targets fall
+	## through, so a placed spirit dropped over a hand card still reaches the hand zone behind it.
 	func _target_at(gp: Vector2) -> DragCard:
 		if not targets.is_valid():
 			return null
 		for c in targets.call():
 			if c != self and c != null and is_instance_valid(c) \
-					and (c as Control).get_global_rect().has_point(gp):
+					and (c as Control).get_global_rect().has_point(gp) \
+					and c.can_take.is_valid() and bool(c.can_take.call(data, c.data)):
 				return c
 		return null
 
@@ -319,8 +321,31 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		# empty filler tiles carry NO shadow: their face is transparent, so a filled shadow panel
 		# would read as a solid slab through it.
 		grid.add_child(Kit.slot_cell({"state": "empty"}, hbag))
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	body.add_child(grid)
+	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
+	# spirit dropped anywhere over it (cards included: their can_take rejects "placed", so the
+	# hit-test falls through) comes back to the hand. Registered AFTER the cards, so specific
+	# merge targets win first.
+	var zone := DragCard.new()
+	zone.name = "OnHandDropZone"
+	zone.mouse_filter = Control.MOUSE_FILTER_STOP
+	zone.data = {"src": "handzone"}
+	zone.can_take = func(from: Dictionary, _me: Dictionary) -> bool:
+		return String(from.get("src", "")) == "placed"
+	zone.on_take = func(from: Dictionary, _me: Dictionary) -> void:
+		if Bucket.unplace(int(from.idx)):
+			Audio.play("button_tap", -2.0)
+			ctx["sel"] = {}
+			_repaint(ctx)
+	_register_card(ctx, zone)
+	grid.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	zone.add_child(grid)
+	var size_zone := func() -> void:
+		if is_instance_valid(zone) and is_instance_valid(grid):
+			zone.custom_minimum_size = grid.get_combined_minimum_size()
+	size_zone.call()
+	grid.minimum_size_changed.connect(size_zone)
+	zone.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	body.add_child(zone)
 
 	# --- EXPEDITION: the acquire entry, moved here from the retired bucket dock ----------------------
 	# Gated exactly as the dock's chip was — the loop opens once a completed building grants a cell.

@@ -76,20 +76,43 @@ func _initialize() -> void:
 		var b := drag_dst.get_global_rect().get_center()
 		var down := InputEventMouseButton.new()
 		down.button_index = MOUSE_BUTTON_LEFT; down.pressed = true; down.position = a
-		get_root().push_input(down)
+		get_root().push_input(down, true)
 		for i in 6:
 			var mv := InputEventMouseMotion.new()
 			mv.position = a.lerp(b, float(i + 1) / 6.0)
 			mv.button_mask = MOUSE_BUTTON_MASK_LEFT
-			get_root().push_input(mv)
+			get_root().push_input(mv, true)
 			await create_timer(0.03).timeout
 		var up := InputEventMouseButton.new()
 		up.button_index = MOUSE_BUTTON_LEFT; up.pressed = false; up.position = b
-		get_root().push_input(up)
+		get_root().push_input(up, true)
 		await create_timer(0.3).timeout
 	var hand_after := Bucket.hand().size()
 	print("DRAG hand %d -> %d (merge %s)" % [hand_before, hand_after,
 		"OK" if hand_after == hand_before - 1 else "FAILED"])
+
+	# REAL-PATH unplace: sweep the housed spirit down onto the hand grid, release — placed frees up.
+	var housed_c: Control = ovd.find_child("HabitatCell_00", true, false) if ovd != null else null
+	var zone_c: Control = ovd.find_child("OnHandDropZone", true, false) if ovd != null else null
+	var placed_before := Bucket.placed().size()
+	if housed_c != null and zone_c != null:
+		var a2 := housed_c.get_global_rect().get_center()
+		var b2 := zone_c.get_global_rect().get_center()
+		var down2 := InputEventMouseButton.new()
+		down2.button_index = MOUSE_BUTTON_LEFT; down2.pressed = true; down2.position = a2
+		get_root().push_input(down2, true)
+		for i in 6:
+			var mv2 := InputEventMouseMotion.new()
+			mv2.position = a2.lerp(b2, float(i + 1) / 6.0)
+			mv2.button_mask = MOUSE_BUTTON_MASK_LEFT
+			get_root().push_input(mv2, true)
+			await create_timer(0.03).timeout
+		var up2 := InputEventMouseButton.new()
+		up2.button_index = MOUSE_BUTTON_LEFT; up2.pressed = false; up2.position = b2
+		get_root().push_input(up2, true)
+		await create_timer(0.3).timeout
+	print("DRAG placed %d -> %d (unplace %s)" % [placed_before, Bucket.placed().size(),
+		"OK" if Bucket.placed().size() == placed_before - 1 else "FAILED"])
 
 	# select a hand card so the inspector arms (tap the first hand card's button)
 	var ov: Control = scn.get_node_or_null("ResidentsOverlay")
