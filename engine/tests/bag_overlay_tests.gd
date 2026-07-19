@@ -9,6 +9,7 @@ extends SceneTree
 
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 
 var _pass := 0
 var _fail := 0
@@ -41,6 +42,23 @@ func _texture_paths(overlay: Control) -> Array:
 		if tex != null:
 			out.append(String(tex.resource_path))
 	return out
+
+# Tap the gold "next" slot tile — the kit lays the ladder out in bag order, so the tile at the
+# owned count IS the next slot (a Button only because it is tappable).
+func _tap_next_slot(overlay: Control) -> void:
+	var grids := overlay.find_children("*", "GridContainer", true, false)
+	if grids.is_empty():
+		return
+	var tile := (grids[0] as GridContainer).get_child(G.BAG_START_SLOTS)
+	if tile is Button:
+		(tile as Button).pressed.emit()
+
+# Press the first Button in `n`'s subtree carrying exactly `text`.
+func _press_button(n: Control, text: String) -> void:
+	for b in n.find_children("*", "Button", true, false):
+		if String((b as Button).text) == text:
+			(b as Button).pressed.emit()
+			return
 
 # Pull every slot of a given kind out of a plan, in order.
 func _of_kind(plan: Array, kind: String) -> Array:
@@ -156,6 +174,48 @@ func _initialize() -> void:
 		"stored accumulator generator tiles do not fall back to raw ids")
 	gen_overlay.queue_free()
 	gen_host.queue_free()
+
+	# 8. a REFUSED buy (not enough acorns) must not silently close the bag: the next tile's tap keeps
+	#    the bag open and raises the "go to the shop" prompt, whose shop button routes on_open_shop.
+	var poor_host := Control.new()
+	poor_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(poor_host)
+	var shop_opens: Array = [0]
+	var poor := BagOverlay.open(poor_host, {
+		"bag": [], "owned": start, "balance": 2,
+		"max_slots": cap, "start_slots": start, "prices": prices,
+		"on_retrieve": func(_i: int) -> void: pass,
+		"on_buy_slot": func() -> bool: return false,          # broke: the board refuses the buy
+		"on_open_shop": func() -> void: shop_opens[0] += 1,
+	})
+	_tap_next_slot(poor)
+	ok(is_instance_valid(poor) and not poor.is_queued_for_deletion(), \
+		"a refused unlock keeps the bag overlay open (it no longer just closes)")
+	var prompt: Node = poor_host.find_child(BagOverlay.NEED_MORE_NAME, true, false)
+	ok(prompt != null, "a refused unlock raises the not-enough-acorns prompt")
+	var short_txt := Strings.t("bag.need_more.body") % (int(prices[0]) - 2)
+	ok(prompt != null and _has_label(prompt as Control, short_txt), \
+		"the prompt names the shortfall (%s)" % short_txt)
+	_press_button(prompt as Control, Strings.t("bag.need_more.shop"))
+	ok(shop_opens[0] == 1, "the prompt's shop button routes to the shop")
+	ok(not is_instance_valid(poor) or poor.is_queued_for_deletion(), \
+		"heading to the shop closes the bag behind it")
+	poor_host.queue_free()
+
+	# 9. an ACCEPTED buy still closes the bag (the pre-existing behaviour is untouched).
+	var rich_host := Control.new()
+	rich_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(rich_host)
+	var rich := BagOverlay.open(rich_host, {
+		"bag": [], "owned": start, "balance": 999,
+		"max_slots": cap, "start_slots": start, "prices": prices,
+		"on_retrieve": func(_i: int) -> void: pass,
+		"on_buy_slot": func() -> bool: return true,
+	})
+	_tap_next_slot(rich)
+	ok(not is_instance_valid(rich) or rich.is_queued_for_deletion(), "a successful unlock closes the bag as before")
+	ok(rich_host.find_child(BagOverlay.NEED_MORE_NAME, true, false) == null, "a successful unlock raises no prompt")
+	rich_host.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

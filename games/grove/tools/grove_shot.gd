@@ -309,6 +309,28 @@ func _initialize() -> void:
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
 			await create_timer(0.6).timeout
+		"bagbroke", "bagshop":
+				# the short-of-acorns prompt: a player with too few 💎 taps the gold next slot — the
+				# bag stays open behind the card that sends them to the shop.
+				Save.spend_diamonds(Save.diamonds())      # broke: 0 acorns against the 10 the slot costs
+				scn._update_hud()                          # the wallet must show the emptied purse
+				scn.bag = [101, 201]
+				scn._rebuild_bag()
+				scn._open_bag_overlay()
+				await create_timer(0.4).timeout
+				var bag_ov: Node = scn.find_child("BagOverlay", true, false)
+				var grids: Array = bag_ov.find_children("*", "GridContainer", true, false)
+				var next_tile: Node = (grids[0] as GridContainer).get_child(G.BAG_START_SLOTS)
+				(next_tile as Button).pressed.emit()
+				await create_timer(0.6).timeout
+				if mode == "bagshop":
+					# ...and follow the prompt through: the shop button must land on the acorn stall.
+					var prompt: Node = scn.find_child("BagNeedMorePrompt", true, false)
+					for b in prompt.find_children("*", "Button", true, false):
+						if String((b as Button).text) == "Go to shop":
+							(b as Button).pressed.emit()
+							break
+					await create_timer(0.8).timeout
 		"baggen":
 			# the bag overlay WITH the stored-generators row below the grid — the tiles there must
 			# match the slot cells above them exactly (they share the dialog's fitted cell opts).
