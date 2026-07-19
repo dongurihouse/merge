@@ -1,0 +1,1 @@
+Reference: fairy_hollow_original_mock_v1.png. Generate only a sparse field of tiny warm fireflies as a clean Meadow Sky / cut-paper storybook overlay on #FF00FF; no ground platform, cast shadow, or other props. Remove chroma key after generation.

@@ -1,0 +1,1 @@
+Reference: fairy_hollow_original_mock_v1.png. Generate only the short cottage fence, in the mock's camera angle, as a clean Meadow Sky / cut-paper storybook cutout on #FF00FF; no ground platform or cast shadow. Remove chroma key after generation.
