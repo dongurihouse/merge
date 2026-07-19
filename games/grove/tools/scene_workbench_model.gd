@@ -250,6 +250,14 @@ static func repo_root_of(scenes_root: String) -> String:
 	var s := scenes_root.trim_suffix("/")
 	if s.ends_with(SCENES_SUFFIX):
 		return s.trim_suffix(SCENES_SUFFIX).trim_suffix("/")
+	# ROOT= also accepts a scene root under an arbitrary repository asset folder, such as
+	# games/grove/assets/_concepts/zones. Its placement documents still carry repo-relative
+	# image paths, so derive the repository prefix instead of treating the scenes root as it.
+	var games_at := s.find("/games/")
+	if games_at >= 0:
+		return s.substr(0, games_at)
+	if s.begins_with("games/"):
+		return "."
 	return s
 
 ## Pick the bundle dir for a scene: the highest <scene>_elements_vN carrying metadata/placements.json.
