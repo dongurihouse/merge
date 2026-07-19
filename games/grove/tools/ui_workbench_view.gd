@@ -2909,6 +2909,12 @@ func _slider_row(spec: Array, target := "") -> Control:
 	lbl.custom_minimum_size = Vector2(118, 0)
 	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
+	# An ABSOLUTE font size is quantized to the FontScale ladder — the slider steps tier by tier,
+	# so a tuned-and-saved size can only ever be a named tier (the app has no other legal sizes).
+	# Relative font knobs are excluded: a ± px NUDGE (lo < 0) or a % (its key isn't a font size).
+	var tiers: Array = FS.tiers_in(lo, hi) if (key == "font" or key.ends_with("_font")) and lo >= 0.0 else []
+	if tiers.size() >= 2:
+		return _tier_slider_row(row, params, key, tiers)
 	var s := HSlider.new()
 	s.min_value = lo
 	s.max_value = hi
@@ -2927,6 +2933,34 @@ func _slider_row(spec: Array, target := "") -> Control:
 	s.value_changed.connect(func(x: float) -> void:
 		params[key] = x
 		val.text = "%d" % int(x)
+		_apply_edit())
+	return row
+
+## A font-size slider that steps over the FontScale TIERS instead of raw px: the slider's value is
+## an INDEX into `tiers`, so every stop is a named tier and the saved config can't hold a loose size.
+## The readout shows the px it resolves to. Any pre-existing loose value snaps to its nearest tier.
+func _tier_slider_row(row: HBoxContainer, params: Dictionary, key: String, tiers: Array) -> Control:
+	var idx := maxi(0, tiers.find(FS.snap(float(params[key]))))
+	params[key] = float(tiers[idx])          # migrate a loose saved value onto the ladder
+	var s := HSlider.new()
+	s.min_value = 0
+	s.max_value = tiers.size() - 1
+	s.step = 1
+	s.value = idx
+	s.set_meta("font_tiers", tiers)   # the px ladder this index-slider steps over (read by tests/tooling)
+	s.custom_minimum_size = Vector2(0, 28)
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(s)
+	var val := Label.new()
+	val.text = "%d" % int(params[key])
+	val.custom_minimum_size = Vector2(44, 0)
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(val)
+	s.value_changed.connect(func(x: float) -> void:
+		var px: int = int(tiers[clampi(int(x), 0, tiers.size() - 1)])
+		params[key] = float(px)
+		val.text = "%d" % px
 		_apply_edit())
 	return row
 

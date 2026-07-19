@@ -80,16 +80,34 @@ func _initialize() -> void:
 	# every tier is a fixed % of BASE; these pin the ramp at today's BASE=40 so an accidental
 	# tier nudge (which would resize text ACROSS the app) fails loudly.
 	ok(FS.BASE == 40, "FontScale.BASE is the 40px theme default")
-	var ramp := {FS.DISPLAY: 46, FS.FLOAT: 44, FS.TITLE: 40, FS.STAT: 36, FS.HEADING: 34,
-		FS.SUBHEADING: 32, FS.LARGE: 30, FS.EMPHASIS: 28, FS.MEDIUM: 26, FS.BODY: 24,
-		FS.SMALL: 22, FS.CAPTION: 20, FS.FOOTNOTE: 18, FS.TINY: 16, FS.MICRO: 14, FS.DEBUG: 12,
-		FS.HUGE: 64, FS.GIANT: 70}
+	# PAIRS, not a dict keyed by px — BODY and SUBHEADING share 32px, which a dict would collapse.
+	var ramp := [[FS.DISPLAY, 46], [FS.FLOAT, 44], [FS.TITLE, 40], [FS.STAT, 36], [FS.HEADING, 34],
+		[FS.SUBHEADING, 32], [FS.BODY, 32], [FS.LARGE, 30], [FS.EMPHASIS, 28], [FS.MEDIUM, 26],
+		[FS.SMALL, 22], [FS.CAPTION, 20], [FS.FOOTNOTE, 18], [FS.TINY, 16], [FS.MICRO, 14],
+		[FS.DEBUG, 12], [FS.GLYPH_SM, 64], [FS.GLYPH_MD, 70], [FS.GLYPH_LG, 100], [FS.GLYPH_XL, 160]]
 	var ramp_ok := true
-	for got in ramp:
-		if got != ramp[got]:
+	for pair in ramp:
+		if pair[0] != pair[1]:
 			ramp_ok = false
 	ok(ramp_ok, "every FontScale tier resolves to its documented pixel size")
 	ok(UiFont.make().default_font_size == FS.BASE, "the installed theme default follows FontScale.BASE")
+
+	# TIERS is the whole ladder, ascending — the workbench's font sliders step over exactly this.
+	var tiers_sorted := true
+	for i in range(1, FS.TIERS.size()):
+		if FS.TIERS[i] < FS.TIERS[i - 1]:
+			tiers_sorted = false
+	ok(tiers_sorted and FS.TIERS.size() == ramp.size(), "FontScale.TIERS lists every tier, ascending")
+	# snap() migrates a loose px onto the ladder; ties round UP.
+	# 24px is NOT a stop any more (BODY moved to 80% = 32), so 23 lands on SMALL 22, not 24.
+	ok(FS.snap(23) == 22 and FS.snap(37) == 36 and FS.snap(13) == 14 and FS.snap(1000) == FS.GLYPH_XL,
+		"FontScale.snap rounds a loose px to the nearest tier (ties up, clamped to the ladder)")
+	ok(not FS.TIERS.has(24), "24px left the ladder when BODY moved to 80% — no tier sits there now")
+	var in_range: Array = FS.tiers_in(16, 34)
+	ok(in_range.front() == 16 and in_range.back() == 34 and not in_range.has(14) and not in_range.has(36),
+		"FontScale.tiers_in returns only the tiers inside the range")
+	# BODY and SUBHEADING are both 32 today, but the ladder must offer that stop only ONCE.
+	ok(FS.tiers_in(32, 32) == [32], "FontScale.tiers_in de-duplicates tiers that share a px value")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

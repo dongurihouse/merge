@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless -s res://games/grove/tests/grove_workbench_tests.gd
 
 const View = preload("res://games/grove/tools/ui_workbench_view.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
@@ -226,13 +227,28 @@ func _ancestor_named(n: Node, node_name: String) -> Control:
 		p = p.get_parent()
 	return null
 
+func _slider(view: Control, label: String) -> HSlider:
+	for row in view._sidebar_body.find_children("*", "HBoxContainer", true, false):
+		var kids := (row as HBoxContainer).get_children()
+		if kids.size() >= 2 and kids[0] is Label and String((kids[0] as Label).text) == label:
+			for kid in kids:
+				if kid is HSlider:
+					return kid as HSlider
+	return null
+
+# A FONT slider is quantized to the FontScale ladder, so its raw min/max are INDEXES. Both helpers
+# resolve those back to the reachable PX range (via the slider's font_tiers meta), so every caller
+# keeps asking the question it means: "how large/small can this knob actually go?"
 func _slider_max(view: Control, label: String) -> float:
 	for row in view._sidebar_body.find_children("*", "HBoxContainer", true, false):
 		var kids := (row as HBoxContainer).get_children()
 		if kids.size() >= 2 and kids[0] is Label and String((kids[0] as Label).text) == label:
 			for kid in kids:
 				if kid is HSlider:
-					return (kid as HSlider).max_value
+					var s := kid as HSlider
+					if s.has_meta("font_tiers"):
+						return float((s.get_meta("font_tiers") as Array).back())
+					return s.max_value
 	return -INF
 
 func _slider_min(view: Control, label: String) -> float:
@@ -241,7 +257,10 @@ func _slider_min(view: Control, label: String) -> float:
 		if kids.size() >= 2 and kids[0] is Label and String((kids[0] as Label).text) == label:
 			for kid in kids:
 				if kid is HSlider:
-					return (kid as HSlider).min_value
+					var s := kid as HSlider
+					if s.has_meta("font_tiers"):
+						return float((s.get_meta("font_tiers") as Array).front())
+					return s.min_value
 	return INF
 
 func _button_icon_art(button: Button) -> Control:
@@ -674,6 +693,20 @@ func _initialize() -> void:
 	view._rebuild_sidebar()
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
+	# A font slider is TIER-QUANTIZED: every stop is a FontScale const, so a size tuned here and
+	# saved to ui_workbench_settings.json can never be a loose px. A pre-existing loose value
+	# (77 below) migrates to its nearest tier when the sidebar rebuilds.
+	view._params["gold_currency_pill"]["plus_font"] = 77.0
+	view._rebuild_sidebar()
+	var plus_slider := _slider(view, "Plus Font")
+	var stops: Array = plus_slider.get_meta("font_tiers", []) if plus_slider != null else []
+	var all_tiers := stops.size() > 0
+	for stop in stops:
+		if not FS.TIERS.has(stop):
+			all_tiers = false
+	ok(all_tiers, "every stop on a workbench font slider is a FontScale tier")
+	ok(FS.TIERS.has(int(view._params["gold_currency_pill"]["plus_font"])),
+		"a loose saved font size (77) migrates onto the tier ladder when the sidebar builds")
 	ok(_slider_max(view, "Num Size") >= 70.0, "gold_currency_pill sidebar allows a larger amount number")
 	ok(_slider_max(view, "Amount X") >= 100.0, "gold_currency_pill sidebar lets the amount push further right")
 	ok(_slider_min(view, "Plus X") <= -100.0, "gold_currency_pill sidebar lets the plus button move far to the left")

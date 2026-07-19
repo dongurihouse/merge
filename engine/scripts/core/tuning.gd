@@ -19,19 +19,48 @@ class FontScale:
 	const STAT := int(BASE * 0.90)       # 36 — big stat/amount numbers
 	const HEADING := int(BASE * 0.85)    # 34 — section headings, currency numbers
 	const SUBHEADING := int(BASE * 0.80) # 32 — dialog titles, button labels
+	const BODY := int(BASE * 0.80)       # 32 — default body text (raised from 60% 2026-07-18; ties SUBHEADING)
 	const LARGE := int(BASE * 0.75)      # 30 — large accents (close ✕)
 	const EMPHASIS := int(BASE * 0.70)   # 28 — emphasized inline text
 	const MEDIUM := int(BASE * 0.65)     # 26 — prices, level numbers
-	const BODY := int(BASE * 0.60)       # 24 — default body text
 	const SMALL := int(BASE * 0.55)      # 22 — secondary notes, badges
 	const CAPTION := int(BASE * 0.50)    # 20 — captions, help text
 	const FOOTNOTE := int(BASE * 0.45)   # 18 — fine print, info chips
 	const TINY := int(BASE * 0.40)       # 16 — smallest shipped UI text
 	const MICRO := int(BASE * 0.35)      # 14 — count-pill numbers
 	const DEBUG := int(BASE * 0.30)      # 12 — dev/debug overlays only
-	# oversized decorative glyphs (not running text):
-	const HUGE := int(BASE * 1.60)       # 64 — full-card watermark glyphs (the veil ✓)
-	const GIANT := int(BASE * 1.75)      # 70 — the calendar's big "+" glyph
+	# Oversized DECORATIVE glyphs — a watermark ✓ or a big "+", never running text. Kept as a
+	# separate band so the text ramp above stays readable, and wide enough to cover the range the
+	# workbench's glyph sliders authored (up to 160px) — every stop still a named const.
+	const GLYPH_SM := int(BASE * 1.60)   # 64 — full-card watermark glyphs (the veil ✓)
+	const GLYPH_MD := int(BASE * 1.75)   # 70 — the calendar's big "+" glyph
+	const GLYPH_LG := int(BASE * 2.50)   # 100
+	const GLYPH_XL := int(BASE * 4.00)   # 160
+
+	## Every tier as an ascending px ladder — the ONLY legal font sizes. The dev workbench
+	## quantizes its font sliders to this, so a tuned-and-saved size is always a tier.
+	## (Tiers that currently share a px value appear twice; the readers below tolerate it.)
+	const TIERS := [DEBUG, MICRO, TINY, FOOTNOTE, CAPTION, SMALL, MEDIUM, EMPHASIS, LARGE,
+		SUBHEADING, BODY, HEADING, STAT, TITLE, FLOAT, DISPLAY,
+		GLYPH_SM, GLYPH_MD, GLYPH_LG, GLYPH_XL]
+
+	## The nearest tier to an arbitrary px (ties round UP). Use for MIGRATING loose data
+	## (saved workbench configs); authored code should name its tier directly.
+	static func snap(px: float) -> int:
+		var best: int = TIERS[0]
+		for t in TIERS:
+			if absf(float(t) - px) <= absf(float(best) - px) and t >= best:
+				best = t
+		return best
+
+	## The tiers inside an inclusive px range, sorted ascending (empty when none fit).
+	static func tiers_in(lo: float, hi: float) -> Array:
+		var out: Array = []
+		for t in TIERS:
+			if float(t) >= lo and float(t) <= hi and not out.has(t):
+				out.append(t)
+		out.sort()
+		return out
 
 
 class Ambient:
