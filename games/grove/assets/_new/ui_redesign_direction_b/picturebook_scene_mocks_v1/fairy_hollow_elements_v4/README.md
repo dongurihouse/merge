@@ -12,7 +12,10 @@ threshold stones, and picnic cobbles. Environment plates occupy z 10–13. Major
 follow the original mock: upper-center `toadstool_cottage`, right `fox_den`, left
 `wishing_well`, lower-left `stone_bridge`, center `picnic_set`, and the three mushroom clusters.
 Each local ground-dressing member is in the same cluster as the prop it blends into. There is no
-global dark contact shadow. `foreground_foliage` is the only 500+ occluder.
+global dark contact shadow. `foreground_foliage` is the only 500+ occluder; its authored
+`sourceCrop` selects one edge-anchored clump from its source strip, so it frames the lower-right
+edge instead of reading as three detached turf islands. The rear-side cottage fence sits behind
+the enlarged cottage, preserving the open doorstep and path.
 
 Every generated element is listed in `metadata/asset_manifest.json` with the exact source mock
 and its accepted generation prompt (`*.prompt.txt`). The initial document places every manifest
@@ -35,5 +38,6 @@ python3 games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_
 
 The compositor reads only `placements.json` and the manifest, paints in `(z, authoring order)`,
 and writes the full PNG, 941 × 1672 review PNG, `reconstruction_report.json`, and validation
-report. It rejects missing, absolute, parent-traversal, duplicate-manifest, invalid-geometry,
+report. It rejects missing, absolute, parent-traversal, duplicate-manifest, invalid-geometry or
+out-of-bounds source crop,
 asset-id/image mismatch, fully transparent, missing-inventory, and visible `#FF00FF` inputs.

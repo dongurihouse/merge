@@ -3,7 +3,7 @@
   "scene": "fairy_hollow_v4",
   "status": "rendered",
   "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/metadata/placements.json",
-  "placementAuthoritySha256": "6372a55bee9d5087bb4193f6a02897bbeb2f2d93519147b507f725f662fb0af4",
+  "placementAuthoritySha256": "9e39665ae148a741e9e1938f18f28bb3aa0df836cafe0f4ada5e7c28244810b8",
   "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/metadata/asset_manifest.json",
   "manifestSha256": "07567acb040d714f29728b59a34a1f33e77a9de1ce26a9d555889e3160c1da13",
   "canvas": [
@@ -24,9 +24,8 @@
     "listIndex"
   ],
   "placementCount": 27,
-  "clusterCount": 10,
+  "clusterCount": 9,
   "clusters": [
-    "cottage_fence",
     "fox_den",
     "glowing_mushrooms",
     "golden_mushrooms",
@@ -46,10 +45,9 @@
   },
   "initialCheckpoint": {
     "placementCount": 27,
-    "clusterCount": 10,
+    "clusterCount": 9,
     "contactPlacementCount": 6,
     "clusters": [
-      "cottage_fence",
       "fox_den",
       "glowing_mushrooms",
       "golden_mushrooms",
@@ -70,11 +68,10 @@
     ],
     "fullCanvasPlacements": [
       "distant_hills",
-      "forest_band",
       "frame_trees",
       "sky_dressing"
     ],
-    "note": "Initial v4 composition checkpoint. All accepted assets appear once; later workbench edits may change this."
+    "note": "Refined v4 composition checkpoint. All accepted assets appear once; the forest band and foreground foliage use bounded source crops for layered woodland and edge framing."
   },
   "initialCheckpointMatch": {
     "placementCount": true,
@@ -99,6 +96,7 @@
         1320,
         2346
       ],
+      "sourceCrop": null,
       "renderSize": [
         1320,
         2346
@@ -122,17 +120,23 @@
       "sourceSha256": "8d23ff23efd1a466dcfb06b8c84be3700e19b0a7b457aa467464191c86cef1bc",
       "sourceSize": [
         1320,
-        2346
+        456
+      ],
+      "sourceCrop": [
+        0,
+        386,
+        1320,
+        456
       ],
       "renderSize": [
         1320,
-        2346
+        520
       ],
       "bounds": [
         0,
-        0,
+        430,
         1320,
-        2346
+        950
       ]
     },
     {
@@ -149,6 +153,7 @@
         1320,
         2346
       ],
+      "sourceCrop": null,
       "renderSize": [
         1320,
         2346
@@ -174,6 +179,7 @@
         1320,
         2346
       ],
+      "sourceCrop": null,
       "renderSize": [
         1320,
         2346
@@ -199,15 +205,42 @@
         425,
         200
       ],
+      "sourceCrop": null,
       "renderSize": [
-        330,
-        155
+        410,
+        193
       ],
       "bounds": [
-        583,
-        865,
-        913,
-        1020
+        530,
+        859,
+        940,
+        1052
+      ]
+    },
+    {
+      "id": "cottage_fence",
+      "assetId": "cottage_fence",
+      "category": "garden_item",
+      "cluster": "toadstool_cottage",
+      "contact": false,
+      "z": 249,
+      "listIndex": 7,
+      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/cottage_fence/fairy_hollow_cottage_fence_v4.png",
+      "sourceSha256": "b1ace995229eefb72186a5d16cb8d2da7103447f745ac7eef785473b6351816b",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "sourceCrop": null,
+      "renderSize": [
+        205,
+        137
+      ],
+      "bounds": [
+        908,
+        893,
+        1113,
+        1030
       ]
     },
     {
@@ -224,15 +257,16 @@
         1154,
         1363
       ],
+      "sourceCrop": null,
       "renderSize": [
-        555,
-        655
+        680,
+        800
       ],
       "bounds": [
-        470,
-        355,
-        1025,
-        1010
+        395,
+        250,
+        1075,
+        1050
       ]
     },
     {
@@ -249,6 +283,7 @@
         1162,
         1353
       ],
+      "sourceCrop": null,
       "renderSize": [
         78,
         92
@@ -258,31 +293,6 @@
         714,
         559,
         806
-      ]
-    },
-    {
-      "id": "cottage_fence",
-      "assetId": "cottage_fence",
-      "category": "garden_item",
-      "cluster": "cottage_fence",
-      "contact": false,
-      "z": 260,
-      "listIndex": 7,
-      "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/04_garden_items/cottage_fence/fairy_hollow_cottage_fence_v4.png",
-      "sourceSha256": "b1ace995229eefb72186a5d16cb8d2da7103447f745ac7eef785473b6351816b",
-      "sourceSize": [
-        1536,
-        1024
-      ],
-      "renderSize": [
-        420,
-        280
-      ],
-      "bounds": [
-        560,
-        802,
-        980,
-        1082
       ]
     },
     {
@@ -299,15 +309,16 @@
         340,
         175
       ],
+      "sourceCrop": null,
       "renderSize": [
-        270,
-        139
+        315,
+        162
       ],
       "bounds": [
-        933,
-        1263,
-        1203,
-        1402
+        892,
+        1180,
+        1207,
+        1342
       ]
     },
     {
@@ -324,15 +335,16 @@
         1327,
         1185
       ],
+      "sourceCrop": null,
       "renderSize": [
-        575,
-        514
+        625,
+        558
       ],
       "bounds": [
+        738,
         772,
-        876,
-        1347,
-        1390
+        1363,
+        1330
       ]
     },
     {
@@ -349,15 +361,16 @@
         1254,
         1254
       ],
+      "sourceCrop": null,
       "renderSize": [
-        200,
-        200
+        215,
+        215
       ],
       "bounds": [
-        962,
-        1185,
-        1162,
-        1385
+        944,
+        1113,
+        1159,
+        1328
       ]
     },
     {
@@ -374,15 +387,16 @@
         1189,
         1323
       ],
+      "sourceCrop": null,
       "renderSize": [
         82,
         91
       ],
       "bounds": [
-        1139,
-        1154,
-        1221,
-        1245
+        1134,
+        1097,
+        1216,
+        1188
       ]
     },
     {
@@ -399,15 +413,16 @@
         365,
         175
       ],
+      "sourceCrop": null,
       "renderSize": [
-        250,
-        120
+        320,
+        154
       ],
       "bounds": [
-        85,
-        1416,
-        335,
-        1536
+        45,
+        1388,
+        365,
+        1542
       ]
     },
     {
@@ -424,15 +439,16 @@
         1044,
         1506
       ],
+      "sourceCrop": null,
       "renderSize": [
-        285,
-        410
+        400,
+        578
       ],
       "bounds": [
-        62,
-        1110,
-        347,
-        1520
+        5,
+        962,
+        405,
+        1540
       ]
     },
     {
@@ -449,6 +465,7 @@
         335,
         170
       ],
+      "sourceCrop": null,
       "renderSize": [
         320,
         162
@@ -474,6 +491,7 @@
         1254,
         1254
       ],
+      "sourceCrop": null,
       "renderSize": [
         470,
         470
@@ -499,6 +517,7 @@
         345,
         145
       ],
+      "sourceCrop": null,
       "renderSize": [
         300,
         126
@@ -524,6 +543,7 @@
         1254,
         1254
       ],
+      "sourceCrop": null,
       "renderSize": [
         300,
         300
@@ -549,6 +569,7 @@
         1326,
         1186
       ],
+      "sourceCrop": null,
       "renderSize": [
         340,
         304
@@ -574,6 +595,7 @@
         1193,
         1318
       ],
+      "sourceCrop": null,
       "renderSize": [
         105,
         116
@@ -599,6 +621,7 @@
         375,
         150
       ],
+      "sourceCrop": null,
       "renderSize": [
         325,
         130
@@ -624,6 +647,7 @@
         1277,
         1232
       ],
+      "sourceCrop": null,
       "renderSize": [
         350,
         338
@@ -649,6 +673,7 @@
         1254,
         1254
       ],
+      "sourceCrop": null,
       "renderSize": [
         175,
         175
@@ -674,15 +699,16 @@
         1254,
         1254
       ],
+      "sourceCrop": null,
       "renderSize": [
-        260,
-        260
+        330,
+        330
       ],
       "bounds": [
-        800,
-        2000,
-        1060,
-        2260
+        820,
+        1745,
+        1150,
+        2075
       ]
     },
     {
@@ -699,6 +725,7 @@
         1023,
         1537
       ],
+      "sourceCrop": null,
       "renderSize": [
         210,
         315
@@ -724,6 +751,7 @@
         934,
         1683
       ],
+      "sourceCrop": null,
       "renderSize": [
         1250,
         2250
@@ -746,16 +774,22 @@
       "source": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/05_dressing/foreground_foliage/fairy_hollow_foreground_foliage_v4.png",
       "sourceSha256": "f74c0ef2eb5ec1f58848ed41a8382e270ce32be352316700ba961c43133d27ad",
       "sourceSize": [
-        1660,
-        948
+        535,
+        605
+      ],
+      "sourceCrop": [
+        1080,
+        185,
+        535,
+        605
       ],
       "renderSize": [
-        1320,
-        755
+        360,
+        407
       ],
       "bounds": [
-        0,
-        1591,
+        960,
+        1939,
         1320,
         2346
       ]
@@ -763,8 +797,8 @@
   ],
   "outputs": {
     "full": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/09_reconstruction/fairy_hollow_reconstruction_v4_1320x2346.png",
-    "fullSha256": "409293757f901920136b546d868eac16dfb85929bb8c8c7a1d6ae5919e767268",
+    "fullSha256": "ac5c1f75f5719f013ee43e0c8549008247db10d0c1bf601a8b559411962cbbda",
     "review": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/09_reconstruction/fairy_hollow_reconstruction_v4_review_941x1672.png",
-    "reviewSha256": "f7a9b7c2cf740adca4700f4ce772e57e211be74082d5685344a78bb408fc9b85"
+    "reviewSha256": "931953499d26e7f6603b682565470454d3d977fdbf5190a8411e402b24ea9890"
   }
 }

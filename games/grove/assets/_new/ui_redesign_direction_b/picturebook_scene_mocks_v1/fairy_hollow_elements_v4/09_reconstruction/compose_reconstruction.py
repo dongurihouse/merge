@@ -105,6 +105,31 @@ def authored_render_size(item: dict[str, Any]) -> tuple[int, int]:
     )
 
 
+def source_crop_box(
+    item: dict[str, Any], source_size: tuple[int, int]
+) -> tuple[int, int, int, int] | None:
+    """Return a validated (left, top, right, bottom) crop for an authored asset."""
+    crop = item.get("sourceCrop")
+    if crop is None:
+        return None
+    if not (
+        isinstance(crop, list)
+        and len(crop) == 4
+        and all(isinstance(value, int) and not isinstance(value, bool) for value in crop)
+    ):
+        raise ValueError(f"{item.get('id')}: sourceCrop must be four integer values")
+    left, top, width, height = crop
+    if left < 0 or top < 0 or width <= 0 or height <= 0:
+        raise ValueError(f"{item.get('id')}: sourceCrop must be in-bounds with positive size")
+    right = left + width
+    bottom = top + height
+    if right > source_size[0] or bottom > source_size[1]:
+        raise ValueError(
+            f"{item.get('id')}: sourceCrop {crop} exceeds source image {source_size}"
+        )
+    return (left, top, right, bottom)
+
+
 def manifest_by_final(accepted: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     result: dict[str, list[dict[str, Any]]] = {}
     for asset in accepted:
@@ -245,6 +270,17 @@ def preflight_inputs(
                 failures.append(f"placement {index} geometry is not finite")
             if width <= 0 or height <= 0:
                 failures.append(f"placement {index} has non-positive grabbable geometry")
+        crop = item.get("sourceCrop")
+        if crop is not None and not (
+            isinstance(crop, list)
+            and len(crop) == 4
+            and all(isinstance(value, int) and not isinstance(value, bool) for value in crop)
+            and crop[0] >= 0
+            and crop[1] >= 0
+            and crop[2] > 0
+            and crop[3] > 0
+        ):
+            failures.append(f"placement {index} has invalid sourceCrop")
 
     for field in ("schemaVersion", "scene", "visualAssetSource", "accepted"):
         if field not in manifest:
@@ -381,6 +417,9 @@ def compose(
         image_path = resolve(project_root, item["image"])
         with Image.open(image_path) as opened:
             source = opened.convert("RGBA")
+        crop_box = source_crop_box(item, source.size)
+        if crop_box:
+            source = source.crop(crop_box)
         render_size = authored_render_size(item)
         rendered = source
         if source.size != render_size:
@@ -401,6 +440,7 @@ def compose(
                 "source": item["image"],
                 "sourceSha256": sha256(image_path),
                 "sourceSize": list(source.size),
+                "sourceCrop": item.get("sourceCrop"),
                 "renderSize": list(render_size),
                 "bounds": [left, top, left + render_size[0], top + render_size[1]],
             }
@@ -619,6 +659,13 @@ def validate(
             with Image.open(image_path) as image:
                 source_size = image.size
             result["sourceSize"] = list(source_size)
+            try:
+                crop_box = source_crop_box(item, source_size)
+            except ValueError as error:
+                failures.append(str(error))
+            else:
+                if crop_box:
+                    result["sourceCrop"] = item["sourceCrop"]
         if render_size == CANVAS_SIZE:
             full_canvas_ids.add(str(item.get("id")))
         for bounds_key in ("sourceBounds", "deliveryBounds"):
