@@ -374,10 +374,18 @@ static func _build_home_chip(left: HBoxContainer, opts: Dictionary) -> Button:
 	left.add_child(pill)
 	return home_btn
 
-# Numbers TICK when they change (spec §7) and set silently when they don't.
+# Numbers TICK when they change (spec §7) and set silently when they don't. Wallet labels carry
+# their prior value as metadata (their visible text may be an abbreviation like "12.3K", so it
+# can't be read back as an int); FX handles the K/M formatting + fit-to-cell for those.
 static func _set_or_tick(lbl: Label, v: int) -> void:
-	if lbl.text.is_valid_int() and int(lbl.text) != v and lbl.is_inside_tree():
+	var prev := int(lbl.get_meta("amount_value")) if lbl.has_meta("amount_value") \
+		else (int(lbl.text) if lbl.text.is_valid_int() else -1)
+	lbl.set_meta("amount_value", v)
+	if prev >= 0 and prev != v and lbl.is_inside_tree():
 		FX.tick(lbl, v)
+	elif lbl.has_meta("amount_max_w"):
+		lbl.text = FX.format_amount(v)
+		FX.fit_amount(lbl)
 	else:
 		lbl.text = str(v)
 
