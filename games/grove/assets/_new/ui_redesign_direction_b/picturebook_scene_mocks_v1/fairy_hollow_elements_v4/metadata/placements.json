@@ -32,7 +32,7 @@
       "id": "distant_hills", "assetId": "distant_hills", "category": "environment", "layer": "horizon", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/distant_hills/fairy_hollow_distant_hills_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 10
     },
     {
-      "id": "forest_band", "assetId": "forest_band", "category": "environment", "layer": "mid_woodland", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.png", "sourceCrop": [0, 386, 1320, 456], "x": 660, "y": 950, "w": 1320, "h": 520, "z": 11
+      "id": "forest_band", "assetId": "forest_band", "category": "environment", "layer": "mid_woodland", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/forest_band/fairy_hollow_forest_band_v4.png", "sourceCrop": [0, 300, 1320, 542], "x": 660, "y": 1280, "w": 1320, "h": 720, "z": 11
     },
     {
       "id": "frame_trees", "assetId": "frame_trees", "category": "environment", "layer": "framing", "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/01_environment/frame_trees/fairy_hollow_frame_trees_v4.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 12
@@ -117,6 +117,6 @@
     "clusters": ["fox_den", "glowing_mushrooms", "golden_mushrooms", "lantern_branch", "picnic_set", "stone_bridge", "toadstool_cottage", "well_mushrooms", "wishing_well"],
     "contactPlacements": ["bridge_ground_dressing", "cottage_ground_dressing", "den_ground_dressing", "main_mushroom_ground_dressing", "picnic_ground_dressing", "well_ground_dressing"],
     "fullCanvasPlacements": ["distant_hills", "frame_trees", "sky_dressing"],
-    "note": "Refined v4 composition checkpoint. All accepted assets appear once; the forest band and foreground foliage use bounded source crops for layered woodland and edge framing."
+    "note": "Refined v4 composition checkpoint. All accepted assets appear once; the enlarged forest-band crop carries the enclosed mid-woodland behind the cottage and den, while foreground foliage remains a single edge framing crop."
   }
 }

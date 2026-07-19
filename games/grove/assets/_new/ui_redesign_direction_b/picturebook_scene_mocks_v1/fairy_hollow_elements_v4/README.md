@@ -8,7 +8,9 @@ separate assets rather than a flattened zone mock.
 ## Layering and clusters
 
 The opaque `foundation` holds only the stable night sky, meadow, creek, stepping-stone path,
-threshold stones, and picnic cobbles. Environment plates occupy z 10–13. Major scene clusters
+threshold stones, and picnic cobbles. Environment plates occupy z 10–13: the enlarged bounded
+forest-band crop carries the mid-woodland down behind the cottage and den, while the distant hills
+and edge trees retain the sky and side framing. Major scene clusters
 follow the original mock: upper-center `toadstool_cottage`, right `fox_den`, left
 `wishing_well`, lower-left `stone_bridge`, center `picnic_set`, and the three mushroom clusters.
 Each local ground-dressing member is in the same cluster as the prop it blends into. There is no

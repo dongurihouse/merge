@@ -3,7 +3,7 @@
   "scene": "fairy_hollow_v4",
   "status": "rendered",
   "placementAuthority": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/metadata/placements.json",
-  "placementAuthoritySha256": "9e39665ae148a741e9e1938f18f28bb3aa0df836cafe0f4ada5e7c28244810b8",
+  "placementAuthoritySha256": "43d9f8850f47ceaad7ec89f8a9227c7696c264a13a3b3411fd8d71be0daf0378",
   "manifest": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/metadata/asset_manifest.json",
   "manifestSha256": "07567acb040d714f29728b59a34a1f33e77a9de1ce26a9d555889e3160c1da13",
   "canvas": [
@@ -71,7 +71,7 @@
       "frame_trees",
       "sky_dressing"
     ],
-    "note": "Refined v4 composition checkpoint. All accepted assets appear once; the forest band and foreground foliage use bounded source crops for layered woodland and edge framing."
+    "note": "Refined v4 composition checkpoint. All accepted assets appear once; the enlarged forest-band crop carries the enclosed mid-woodland behind the cottage and den, while foreground foliage remains a single edge framing crop."
   },
   "initialCheckpointMatch": {
     "placementCount": true,
@@ -120,23 +120,23 @@
       "sourceSha256": "8d23ff23efd1a466dcfb06b8c84be3700e19b0a7b457aa467464191c86cef1bc",
       "sourceSize": [
         1320,
-        456
+        542
       ],
       "sourceCrop": [
         0,
-        386,
+        300,
         1320,
-        456
+        542
       ],
       "renderSize": [
         1320,
-        520
+        720
       ],
       "bounds": [
         0,
-        430,
+        560,
         1320,
-        950
+        1280
       ]
     },
     {
@@ -797,8 +797,8 @@
   ],
   "outputs": {
     "full": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/09_reconstruction/fairy_hollow_reconstruction_v4_1320x2346.png",
-    "fullSha256": "ac5c1f75f5719f013ee43e0c8549008247db10d0c1bf601a8b559411962cbbda",
+    "fullSha256": "1b5310617ec3e3e92ceb01087e9c01462e07d969af9bbc3a47b5f713499c138d",
     "review": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/fairy_hollow_elements_v4/09_reconstruction/fairy_hollow_reconstruction_v4_review_941x1672.png",
-    "reviewSha256": "931953499d26e7f6603b682565470454d3d977fdbf5190a8411e402b24ea9890"
+    "reviewSha256": "139fe19e9f7cf47ed4e429b85e3f0e397db043570887b3fcb263114a93fd8650"
   }
 }
