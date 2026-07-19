@@ -48,17 +48,14 @@ func _initialize() -> void:
 	# The three-plane depth ladder: Sunk (locked/empty wells) floats nothing and recedes
 	# below Resting (chips/pills), which sits below Raised (items/CTA).
 	var sk := (preload("res://engine/scripts/core/tuning.gd").UiSkin as GDScript).get_script_constant_map()
+	# ONE uniform shadow (skin.gd saved_shadow_params) — the only tuning.gd shadow role left is
+	# Sunk, the "casts nothing" tier for locked cells and wells.
 	ok(sk.has("SHADOW_SUNK") and sk.has("SHADOW_SUNK_SIZE"), "Sunk elevation tier present")
 	var sunk_sz: int = sk.get("SHADOW_SUNK_SIZE", -1)
-	var rest_sz: int = sk.get("SHADOW_RESTING_SIZE", 0)
-	var raised_sz: int = sk.get("SHADOW_RAISED_SIZE", 0)
-	ok(sunk_sz <= rest_sz and rest_sz <= raised_sz,
-		"shadow sizes ordered Sunk<=Rest<=Raised (%d<=%d<=%d)" % [sunk_sz, rest_sz, raised_sz])
 	var sunk_a: float = (sk.get("SHADOW_SUNK", Color(0, 0, 0, 1)) as Color).a
-	var rest_a: float = (sk.get("SHADOW_RESTING", Color(0, 0, 0, 0)) as Color).a
-	var raised_a: float = (sk.get("SHADOW_RAISED", Color(0, 0, 0, 0)) as Color).a
-	ok(sunk_a <= rest_a and rest_a <= raised_a,
-		"shadow alphas ordered Sunk<=Rest<=Raised (%.2f<=%.2f<=%.2f)" % [sunk_a, rest_a, raised_a])
+	ok(sunk_sz == 0 and sunk_a == 0.0, "Sunk casts nothing (size 0, alpha 0)")
+	ok(not sk.has("SHADOW_RESTING") and not sk.has("SHADOW_RAISED"),
+		"the retired Resting/Raised shadow tiers stay deleted (one uniform shadow)")
 	# --- HUD: the level token is de-greened (green is reserved for the CTA) ---
 	var hud := (preload("res://engine/scripts/core/tuning.gd").Hud as GDScript).get_script_constant_map()
 	var lvbg: Color = hud.get("LV_TOKEN_BG", Color.BLACK)
