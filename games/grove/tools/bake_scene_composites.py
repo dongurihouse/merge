@@ -11,7 +11,7 @@ Re-run after big composition changes to refresh the references:
     python3 games/grove/tools/bake_scene_composites.py
 """
 import json, os
-from PIL import Image
+from PIL import Image, ImageChops
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 ROOT = os.path.join(REPO, "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
@@ -31,6 +31,30 @@ def bundle_for(scene):
         if v > best_v and os.path.exists(os.path.join(ROOT, sub, "metadata/placements.json")):
             best, best_v = os.path.join(ROOT, sub), v
     return best
+
+
+def placement_image(source, entry):
+    """Resolve the source crop/feather declared by a placed scene element."""
+    image = source.convert("RGBA")
+    crop = entry.get("sourceCrop")
+    if isinstance(crop, list) and len(crop) == 4:
+        left, top, width, height = (int(v) for v in crop)
+        if (
+            left >= 0 and top >= 0 and width > 0 and height > 0
+            and left + width <= image.width and top + height <= image.height
+        ):
+            image = image.crop((left, top, left + width, top + height))
+    feather = entry.get("sourceCropFeatherBottom")
+    if isinstance(feather, int) and 0 < feather <= image.height:
+        fade = Image.new("L", image.size, 255)
+        start = image.height - feather
+        pixels = fade.load()
+        for y in range(start, image.height):
+            opacity = round(255 * (image.height - 1 - y) / max(1, feather - 1))
+            for x in range(image.width):
+                pixels[x, y] = opacity
+        image.putalpha(ImageChops.multiply(image.getchannel("A"), fade))
+    return image
 
 
 def bake(scene):
@@ -56,7 +80,7 @@ def bake(scene):
         if not os.path.exists(p) or w <= 0 or h <= 0:
             skipped += 1
             continue
-        img = Image.open(p).convert("RGBA").resize((w, h), Image.LANCZOS)
+        img = placement_image(Image.open(p), e).resize((w, h), Image.LANCZOS)
         out.alpha_composite(img, (int(e["x"]) - w // 2, int(e["y"]) - h))   # center-bottom anchor
     out = out.resize((REVIEW_W, int(ch * REVIEW_W / cw)), Image.LANCZOS)
     dst = os.path.join(ROOT, f"{scene}_baked_composite.png")
@@ -69,7 +93,7 @@ def bake(scene):
         w, h = int(e.get("w", 0)), int(e.get("h", 0))
         if int(e.get("z", 0)) < 100 or not os.path.exists(p) or w <= 0 or h <= 0:
             continue
-        img = Image.open(p).convert("RGBA").resize((w, h), Image.LANCZOS)
+        img = placement_image(Image.open(p), e).resize((w, h), Image.LANCZOS)
         props.alpha_composite(img, (int(e["x"]) - w // 2, int(e["y"]) - h))
     props = props.resize((REVIEW_W, int(ch * REVIEW_W / cw)), Image.LANCZOS)
     props.convert("RGB").save(os.path.join(ROOT, f"{scene}_baked_props_only.png"), optimize=True)
