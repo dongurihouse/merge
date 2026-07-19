@@ -14,13 +14,6 @@ const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
-const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")
-const LandFx = preload("res://engine/scripts/ui/land_fx.gd")
-const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")
-const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
-const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
-const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")
-const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 
 var _pass := 0
 var _fail := 0
@@ -82,14 +75,6 @@ func _fresh_fx_settings(name: String) -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	_fx_settings_path = dir + "ui_workbench_settings.json"
 	FX.configure_reward_fx_config_for_test(_fx_settings_path)
-
-func _saved_fx_config() -> Dictionary:
-	if not FileAccess.file_exists(_fx_settings_path):
-		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_fx_settings_path))
-	if parsed is Dictionary and parsed.has("fx") and parsed["fx"] is Dictionary:
-		return parsed["fx"]
-	return {}
 
 # The first Button at or under `node` (the tappable surface), or null.
 func _first_button(node: Control) -> Button:
@@ -346,12 +331,6 @@ func _has_script_path(node: Node, script_path: String) -> bool:
 			return true
 	return false
 
-func _class_count(node: Node, klass: String) -> int:
-	var total := 1 if node.is_class(klass) else 0
-	for c in node.get_children():
-		total += _class_count(c, klass)
-	return total
-
 func _id_of(view: Control, key: String) -> int:
 	var n = view._sections.get(key)
 	return n.get_instance_id() if n != null else 0
@@ -388,7 +367,6 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame   # _ready -> _build -> _rebuild_gallery populates _sections
 
-	ok(_class_count(root, "AudioStreamPlayer") == 0, "Rush FX workbench preview does not spawn sound players")
 
 	var sidebar := _sidebar_panel(view)
 	ok(sidebar != null and is_equal_approx(sidebar.custom_minimum_size.x, 348.0) \
@@ -413,12 +391,6 @@ func _initialize() -> void:
 	ok(not View.IDS.has("currency_pill"), "legacy currency_pill gallery id is removed")
 	ok(not view._sections.has("currency_pill"), "legacy currency_pill gallery section is removed")
 	ok(not view._params.has("currency_pill"), "legacy currency_pill settings block is removed from the workbench")
-	ok(View.IDS.has("fx"), "Coin Flow is registered as the UI Workbench FX component")
-	ok(view._sections.has("fx"), "Coin Flow gallery section is built")
-	ok(view.find_child("FxWorkbenchRoot", true, false) == null, "Coin Flow does not embed the special FX mini-app in the gallery")
-	ok(view.find_child("CoinFlowPreview", true, false) != null, "Coin Flow gallery section uses a native workbench component preview")
-	ok(view.find_child("CoinFlowSource", true, false) != null, "Coin Flow preview shows the shared source")
-	ok(view.find_child("CoinWalletTarget", true, false) != null, "Coin Flow preview shows the wallet target")
 	# the FOCUS RING group — the selected-cell corner brackets, live-tunable here, flowing to the board.
 	ok(View.IDS.has("focus_ring") and view._sections.has("focus_ring"), "the focus ring is a registered workbench element")
 	view._selected = "focus_ring"
@@ -433,28 +405,6 @@ func _initialize() -> void:
 	ok(fr_opts.color.is_equal_approx(Color("#FF8800")), "a workbench bracket-colour edit flows through the kit transform the board reads")
 	ok(view._make_element("focus_ring") != null, "the focus ring preview element builds")
 
-	view._selected = "fx"
-	view._rebuild_sidebar()
-	await process_frame
-	ok(view._sidebar_body.find_child("WorkbenchFxList_coin_pickup", true, false) == null, "Coin Flow sidebar has no duplicated per-action list")
-	ok(view._sidebar_body.find_child("WorkbenchFxSavedSettingsHeader", true, false) != null, "Coin Flow sidebar has a saved-settings section")
-	ok(view._sidebar_body.find_child("WorkbenchFxTestSettingsHeader", true, false) != null, "Coin Flow sidebar has a test-settings section")
-	ok(view._sidebar_body.find_child("WorkbenchFxActionToggle_coin_pickup", true, false) != null, "Coin Flow sidebar keeps per-action on/off toggles in settings")
-	ok(view._sidebar_body.find_child("WorkbenchFxIconSizeSlider", true, false) != null, "Coin Flow sidebar shows saved feel sliders")
-	ok(view._sidebar_body.find_child("WorkbenchFxAmountSlider", true, false) != null, "Coin Flow sidebar shows preview-only amount slider")
-	ok(view._sidebar_body.find_child("WorkbenchFxReplayButton", true, false) != null, "Coin Flow sidebar shows replay in the test section")
-	var fx_preview := view.find_child("FxWorkbenchComponent", true, false) as Control
-	if fx_preview != null:
-		fx_preview.get_parent().remove_child(fx_preview)
-		fx_preview.queue_free()
-		await process_frame
-	view._fx_set_global_setting("amount", 91)
-	view._fx_set_global_setting("coin_size", 133)
-	view._fx_set_auto_replay(true)
-	var fallback_fx_cfg := _saved_fx_config()
-	ok(not fallback_fx_cfg.has("amount"), "Coin Flow amount remains test-only when the embedded preview is absent")
-	ok(not fallback_fx_cfg.has("source_size"), "Coin Flow source size remains test-only when the embedded preview is absent")
-	ok(not fallback_fx_cfg.has("auto_replay"), "Coin Flow auto replay remains test-only when the embedded preview is absent")
 	var currency_ids := []
 	for id in View.IDS:
 		if String(id).find("currency_pill") != -1:
@@ -514,8 +464,6 @@ func _initialize() -> void:
 	_test_mystery_preview(view)
 	_test_level_badge_component(view)
 	_test_rush_bar_component(view)
-	_test_rush_fx_knobs()
-	_test_feel_fx()
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -2796,96 +2744,3 @@ func _test_discovery_frame() -> void:
 	var dlg := Kit.tiers_dialog(Kit.DEMO_TIERS, 620.0, topts)
 	ok(dlg.find_child("DialogBanner", true, false) != null, "the discovery dialog wraps the shared frame")
 
-func _test_rush_fx_knobs() -> void:
-	var view = load("res://games/grove/tools/UiWorkbench.tscn").instantiate()
-	get_root().add_child(view)
-	if view.get_child_count() == 0:
-		view._ready()
-	# params carry every rush_fx knob, defaulted from RushFx.KNOBS
-	var p: Dictionary = view._params["rush_fx"]
-	for k in RushFx.KNOBS.keys():
-		ok(p.has(k) and int(p[k]) == int(RushFx.KNOBS[k]), "rush_fx params include knob %s at its default" % k)
-	# selecting rush_fx builds a ▶ Replay per effect + the knob sliders
-	view._selected = "rush_fx"
-	view._rebuild_sidebar()
-	var replays: Array = view._sidebar_body.find_children("RushFxReplay_*", "Button", true, false)
-	ok(replays.size() == RushFx.EFFECTS.size(), "one ▶ Replay button per effect (%d)" % RushFx.EFFECTS.size())
-	var sliders: Array = view._sidebar_body.find_children("*", "HSlider", true, false)
-	ok(sliders.size() == RushFx.KNOBS.size(), "one knob slider per knob (%d)" % RushFx.KNOBS.size())
-	# firing one effect does not error and does not require the toggle on
-	view._params["rush_fx"]["merge_burst"] = false
-	view._rush_fx_play("merge_burst")
-	ok(true, "per-effect replay fires without error even when the effect toggle is off")
-	view.queue_free()
-
-## The FOUR feel-verb gallery components (land/merge/launch/move): params carry the registry defaults,
-## the preview stage builds + stores its ctx, the sidebar builds, and the play function fires clean.
-func _test_feel_fx() -> void:
-	var view = load("res://games/grove/tools/UiWorkbench.tscn").instantiate()
-	get_root().add_child(view)
-	if view.get_child_count() == 0:
-		view._ready()
-	var registries := {"land_fx": LandFx, "merge_fx": MergeFx, "launch_fx": LaunchFx, "move_fx": MoveFx, "grab_fx": GrabFx}
-	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx"]:
-		var reg = registries[id]
-		var p: Dictionary = view._params[id]
-		# every registry key (enabled + effect toggles + knobs) is present so from_config reads it back
-		for k in reg.defaults().keys():
-			ok(p.has(k), "%s params include the registry key %s" % [id, k])
-		if id == "merge_fx":
-			ok(p.has("merge_slide_ms") and int(p["merge_slide_ms"]) == int(MergeFx.KNOBS.get("merge_slide_ms", -1)), \
-				"merge_fx params include the saved merge-slide duration")
-		# the preview stage builds and stores its ctx (so the play function has its node refs)
-		var prev: Control = view._make_element(id)
-		ok(prev != null, "%s preview stage builds" % id)
-		var ctx: Dictionary = view.get("_%s_ctx" % id)
-		ok(not ctx.is_empty(), "%s preview stores its stage ctx" % id)
-		if id == "merge_fx":
-			ok(ctx.get("bloom") is ComboBloom, "merge_fx preview stores the shared ComboBloom node")
-			ok(ctx.get("bloom") != null and ctx["bloom"].get_parent() == ctx.get("field"), \
-				"merge_fx preview mounts ComboBloom inside the preview field")
-		# the sidebar builds with a master toggle + per-effect On toggles (+ a ▶ trigger button)
-		view._selected = id
-		view._rebuild_sidebar()
-		var toggles: Array = view._sidebar_body.find_children("*", "CheckButton", true, false)
-		ok(toggles.size() >= reg.EFFECTS.size() + 1, "%s sidebar has master + per-effect toggles" % id)
-	# merge_fx carries the preview-only tier/combo; move_fx carries the preview-only kind — not saved
-	ok(view._params["merge_fx"].has("tier") and view._params["merge_fx"].has("combo"), "merge_fx carries tier/combo")
-	ok(not view._is_config("merge_fx", "tier") and not view._is_config("merge_fx", "combo"), "merge_fx tier/combo excluded from save")
-	ok(view._params["move_fx"].has("kind") and not view._is_config("move_fx", "kind"), "move_fx kind is preview-only")
-	var view_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_view.gd")
-	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
-	ok(view_src.find("_slider_row([\"merge_slide_ms\"") != -1, "merge_fx sidebar exposes a saved merge-slide duration slider")
-	ok(view_src.find("MoveFx.apply(a, a.position, merge_top, \"slide\", _params[\"move_fx\"], MergeFx.knob(p, \"merge_slide_ms\"))") != -1, \
-		"merge_fx preview uses the same MoveFx slide override as the board")
-	ok(view_src.find("_merge_fx_pulse_bloom") == -1, "merge_fx preview no longer uses a separate local bloom pulse")
-	ok(board_src.find("MergeFx.knob(_merge_opts, \"merge_slide_ms\")") != -1, \
-		"board merge slide duration reads the saved merge_fx knob")
-	ok(board_src.find("MERGE_SLIDE_MS") == -1, "board no longer has a hard-coded merge slide duration constant")
-	# the saved block's keys are EXACTLY the registry's from_config keys (the game's read path), so the
-	# saved out[id] round-trips. Every saved key is a registry default; tier/combo/kind are the only excludes.
-	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx"]:
-		var reg2 = registries[id]
-		for k in view._params[id].keys():
-			# `shadow` is injected into EVERY component by _ensure_shadow_keys (like rush_fx) — from_config
-			# ignores unknown keys, so it is harmless; every OTHER saved key must be a registry default.
-			if view._is_config(id, k) and k != "shadow":
-				ok(reg2.defaults().has(k), "%s saved key %s is a registry default (from_config reads it)" % [id, k])
-	# the GRAB panel + the LAND ripple knob are registered like the others
-	ok(View.IDS.has("grab_fx") and view._sections.has("grab_fx"), "grab_fx is a registered workbench panel")
-	ok(view_src.find("\"ripple\": [[\"ripple_pct\"") != -1, "the Land panel exposes a saved ripple_pct slider")
-	ok(view_src.find("_feel_fx_sidebar(GrabFx.EFFECTS, GRAB_FX_KNOBS)") != -1, "the Grab panel auto-builds its toggles + knobs from the registry")
-	# board wiring: grab highlight on pickup + clear on drop, and the plain drop routes through LandFx
-	ok(board_src.find("_grab_opts = GrabFx.from_config(") != -1, "board resolves the grab_fx config once")
-	ok(board_src.find("GrabFx.grab(") != -1, "board fires the grab highlight on pickup")
-	ok(board_src.find("GrabFx.release(") != -1, "board clears the grab highlight on drop")
-	ok(board_src.find("LandFx.apply.bind(board_area, node, land_ctr, _land_opts, 1.0, false, _orthogonal_neighbour_nodes(b))") != -1, \
-		"board's plain drop (_commit_move) routes through LandFx.apply with the cell's neighbours (squash + ripple)")
-	# firing each play function does not error (reads the live _params; no rebuild needed)
-	view._land_fx_play()
-	view._merge_fx_play()
-	view._launch_fx_play()
-	view._move_fx_play()
-	view._grab_fx_play()
-	ok(true, "all five feel-verb play functions fire without error")
-	view.queue_free()

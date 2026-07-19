@@ -21,7 +21,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench zones home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures \
+.PHONY: help run g-phone editor fx fx-workbench zones home-layers test test-fast test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench shot-home-layers sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
@@ -62,7 +62,7 @@ shot-sw: ## quiet screenshot of the scene workbench:  make shot-sw [SCENE=...] [
 fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
 	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
 
-fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
+fx-workbench: ## see + tune every Grove FX live — the feel verbs (land · merge · launch · move · grab), the Expedition juice, and the reward flight
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
 
 zones: ## draw a page's unlock zones over the real scene (a real window):  make zones
@@ -139,8 +139,8 @@ shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot
 shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png] [EL=mystery]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png) $(EL)
 
-shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png]
-	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
+shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png] [EL=merge_fx]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png) $(EL)
 
 shot-home-layers: ## capture modular Home: MODE=all|base|prop:fh_hearth
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/home_layer_shot.gd -- $(or $(MODE),all) $(or $(OUT),/tmp/home_layers.png)

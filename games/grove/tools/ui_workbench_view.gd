@@ -1,25 +1,16 @@
 @tool
-extends Control
+extends "res://games/grove/tools/workbench_view.gd"
 ## UI Workbench — gallery + inspector sidebar.
 ##
-## `make workbench` opens this. The left column is a scroll of the fundamental components, built
+## `make w` opens this. The left column is a scroll of the fundamental components, built
 ## bottom-up from the self-contained kit (cost pill → mail card → mail dialog). CLICK an element to
 ## select it; the right SIDEBAR then shows that element's own options/sliders. Changing a slider
 ## rebuilds just that element — and because the components compose, a dialog's pill size still flows
 ## down into every row.
+##
+## The gallery/sidebar/persistence framework lives in the shared base (workbench_view.gd); this script
+## is the UI element set. The FX elements moved out to their own workbench (fx_workbench_view.gd).
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
-const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
-const Game = preload("res://engine/scripts/core/game.gd")
-const FX = preload("res://engine/scripts/ui/fx.gd")
-const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")           # the toggleable Rush screen-juice effects
-const LandFx = preload("res://engine/scripts/ui/land_fx.gd")           # the toggleable Land (touchdown) feel
-const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")         # the toggleable Merge (fuse) feel
-const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")       # the toggleable Launch (emit) feel
-const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")           # the toggleable Move (travel) feel
-const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")           # the toggleable Grab (pickup) highlight
-const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")   # the shared persistent combo-bloom overlay
-const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
@@ -27,17 +18,9 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge p
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
-const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
-const Pal = Game.PALETTE
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
-const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
-                          # screen in-game), so the workbench previews the same responsive width the game uses
-const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
-const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
-
-const IDS := ["board", "fx", "generator", "focus_ring", "ready_glow", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "grab_fx", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "focus_ring", "ready_glow", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -45,11 +28,10 @@ const IDS := ["board", "fx", "generator", "focus_ring", "ready_glow", "button", 
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	# … the Rush FX juice tester, then the FOUR feel-verb testers (land · merge · launch · move) grouped beside it.
-	[["shadow"], ["generator"], ["focus_ring"], ["ready_glow"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["grab_fx"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["focus_ring"], ["ready_glow"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
-	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
+	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -84,7 +66,6 @@ const TEST_KEYS := {
 	# the BOARD preview — scale/gap/frame/frame-style are saved live-board design. cell/cols/rows are
 	# preview scaffolding because the live board derives cell size from screen fit and uses G.COLS×G.ROWS.
 	"board": ["pieces", "cell", "cols", "rows"],
-	"fx": [],
 	# the GENERATOR highlight sandbox: glow / outline / sparkle knobs persist (they flow to the live board
 	# via Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
 	"generator": ["preview", "cell"],
@@ -125,15 +106,6 @@ const TEST_KEYS := {
 	"info_bar": ["filled"],
 	# the RUSH BAR — every size/spacing knob is saved design; the preview values (time/score/mult) are static demo, not params
 	"rush_bar": [],
-	"rush_fx": [],          # every key is a saved toggle (no preview-only state)
-	# the FOUR feel-verb testers — every toggle + knob is saved (read by {Land,Merge,Launch,Move}Fx.from_config).
-	"land_fx": [],
-	# merge_fx: tier/combo drive the escalation in the preview but are NOT saved (the game passes the live tier/combo).
-	"merge_fx": ["tier", "combo"],
-	"launch_fx": [],
-	# move_fx: `kind` (slide/arc/fall) picks the preview travel; the game passes the live kind, so it is NOT saved.
-	"move_fx": ["kind"],
-	"grab_fx": [],   # every toggle + knob is saved (read by GrabFx.from_config)
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
@@ -154,7 +126,6 @@ const TEST_KEYS := {
 const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
 	"board": "Board — merge grid (frame · cells · pieces · scale)",
-	"fx": "FX Workbench — reward arrivals in board, map, and home context",
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
 	"ready_glow": "Ready glow — quest-wanted board tile (colour · fill · halo · roundness)",
@@ -181,308 +152,245 @@ const CAPTIONS := {
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
 	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): cell size · text · icon · leaf · crown",
-	"rush_fx": "Rush FX — screen juice for the Expedition: toggle each effect, Replay to feel it, save (the game honours it)",
-	"land_fx": "Land feel — a tile touches down (incl. the player's drop into an empty cell): squash · puff · flash · sound · haptic · neighbour ripple. Toggle + tune, ▶ to feel it, save (the game honours it).",
-	"merge_fx": "Merge feel — two tiles fuse: squash · flash · hitstop · burst · shake · sound · ripple · punch. Toggle + tune, ▶ to feel it, save (the game honours it).",
-	"launch_fx": "Launch feel — a generator emits a tile: recoil · muzzle puff · toss sound. Toggle + tune, ▶ to feel it, save (the game honours it).",
-	"move_fx": "Move feel — a tile travels (slide · arc · fall): cast shadow · motion trail · motion lean. Toggle + tune, ▶ to feel it, save (the game honours it).",
-	"grab_fx": "Grab feel — a tile is picked up: soft glow halo · white silhouette outline · light haptic tap. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
-# per-effect knob slider specs for the rush_fx inspector: effect id → [[param, lo, hi], …]
-const RUSH_FX_KNOBS := {
-	"merge_burst": [["merge_burst_count", 4, 40]],
-	"score_tick": [["score_tick_ms", 80, 600]],
-	"score_pulse": [["score_pulse_pct", 40, 180]],
-	"mult_pop": [["mult_pop_pct", 40, 180]],
-	"combo_heat": [["combo_heat_size", 18, 60]],
-	"timer_low": [["timer_low_secs", 3, 20]],
-	"treefall_crack": [["treefall_debris", 4, 40], ["treefall_shake", 0, 40], ["treefall_hitstop_ms", 0, 160]],
-}
-var _rush_fx_ctx: Dictionary = {}
-# per-effect knob slider specs for the feel-verb inspectors: effect id → [[param, lo, hi], …] (mirror the standalone _KNOBS_FOR).
-const LAND_FX_KNOBS := {
-	"squash": [["squash_pct", 0, 200], ["squash_ms", 60, 600]],
-	"puff":   [["puff_count", 0, 30]],
-	"flash":  [["flash_pct", 0, 100]],
-	"sound":  [["sound_db", -24, 0]],
-	"haptic": [],
-	"ripple": [["ripple_pct", 0, 100]],
-}
-const MERGE_FX_KNOBS := {
-	"squash":      [],
-	"flash":       [["flash_pct", 0, 100]],
-	"hitstop":     [["hitstop_ms", 0, 120]],
-	"burst":       [["burst_count", 0, 60]],
-	"shake":       [["shake_amp", 0, 20]],
-	"sound":       [["pitch_base_pct", 80, 160]],
-	"ripple":      [["ripple_pct", 0, 100]],
-	"board_punch": [["punch_pct", 0, 100]],
-	"world_puff":  [["puff_count", 0, 20], ["puff_size_pct", 40, 300]],
-	"combo_words": [["words_size", 16, 60]],
-	"combo_bloom": [["bloom_pct", 0, 200]],
-}
-const LAUNCH_FX_KNOBS := {
-	"recoil": [["recoil_pct", 0, 200]],
-	"puff":   [["puff_count", 0, 30]],
-	"sound":  [["sound_db", -24, 0]],
-}
-const MOVE_FX_KNOBS := {
-	"shadow": [["shadow_alpha_pct", 0, 60]],
-	"trail":  [["trail_count", 0, 8]],
-	"lean":   [["lean_deg", 0, 20]],
-}
-const GRAB_FX_KNOBS := {
-	"glow":    [["glow_pct", 0, 200]],
-	"outline": [["outline_w", 0, 12], ["outline_a", 0, 100]],
-	"haptic":  [],
-}
-const MoveFx_KINDS := ["slide", "arc", "fall"]   # the move preview's travel kinds (preview-only; the game passes the live kind)
-var _land_fx_ctx: Dictionary = {}
-var _merge_fx_ctx: Dictionary = {}
-var _grab_fx_ctx: Dictionary = {}
-var _launch_fx_ctx: Dictionary = {}
-var _move_fx_ctx: Dictionary = {}
-var _params := {
-	# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
-	# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
-	# spread are px; alpha is percent. Defaults are THE uniform shadow (skin.gd SHADOW_DEFAULTS).
-	"shadow": {"offset_x": 3, "offset_y": 7, "blur": 10, "spread": -2, "alpha": 38},
-	# the BOARD preview — a live merge grid (frame · the shared slot-cell well · demo pieces). `scale` is
-	# the live board's overall zoom; `gap` and `frame` shape live spacing. `cell`/`cols`/`rows` only size
-	# this preview. Piece size is owned by Slot-cell content_frac.
-	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
-		# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
-		"frame_style": "meadow", "frame_corner": 46,
-		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
-	"fx": {"shadow": false},
-	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
-	# Saved knobs (glow scale/alpha/color, outline width/alpha, sparkle count/size/speed/color) flow to
-	# the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's GEN_* consts.
-	# `preview` (which generator) + `cell` (preview px) are test-only.
-	"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A",
-		"outline_w": 35, "outline_a": 85, "outline_blur": 0, "outline_color": "E8BE5C",
-		"sparkle_count": 5, "sparkle_size": 100, "sparkle_speed": 70, "sparkle_color": "FFF4C2",
-		"preview": "seed_satchel", "cell": 170},
-	# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
-	# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
-	"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
-	# the READY GLOW — the amber highlight a board tile wears when a live quest wants it. Colour is 6-digit
-	# hex (no '#'); fill_a/halo_a are % opacities; corner_pct/halo_pct are % of the cell. Defaults reproduce
-	# piece_view's shipped READY_GLOW (warm amber fill + soft halo). Flows live via Kit.ready_glow_opts_from_config.
-	"ready_glow": {"color": "FFB12E", "fill_a": 55, "halo_a": 60, "corner_pct": 22, "halo_pct": 16, "cell": 150},
-	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
-	# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
-	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
-	# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
-	# config["badge"]); its icon uses the global icon clean.
-	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
-		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
-		"count_dx": 0, "count_dy": 38, "count_font": 26,
-		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
-	# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
-	# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
-	# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
-	"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
-		"edge_margin_px": 18,
-		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70, "bottom_row_h_pct": 10,
-		"quest_bar_h_pct": 11},
-	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
-	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
-	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
-	"badge": {"defringe": false, "shadow": false, "feather": 0},
-	"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
-	"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
-		"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
-		"amount_w": 88, "num_size": 30, "amount_x": 0,
-		"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
-		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
-		"plus_label_y": 0,
-		"inner_shadow": 30},
-	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
-	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
-	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
-	"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
-	# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
-	# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
-	# carries its own width. snap is the drag-grid for the banner/✕ handles.
-	"frame": {
-		"width_pct": 75,   # the GLOBAL dialog width (% of screen) — drives EVERY dialog
-		"border": "parchment", "card_corner": 22, "card_art": true,
-		"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
-		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
-		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
-		"banner_text_x": 0, "banner_text_y": 0, "banner_burn": 60,
-		"banner_text_pad_l": 50, "banner_text_pad_r": 50,   # title↔tail room (the auto-sizing ribbon's L/R padding)
-		"banner_x": 0, "banner_y": 0,
-		"banner_icon_x": 130, "banner_icon_y": 19,
-		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
-		"list_max_h": 0, "list_top_pad": 0,
-		"preview_text": "Frame",   # TEST-only: type any title to preview the ribbon's letter-count width-scaling
-	},
-	# the mail DIALOG = the shared frame + the mail cards. width_pct = the dialog's width as a % of the
-	# SCREEN (responsive — the game multiplies by the live viewport width; here it previews against the
-	# 1080 portrait base). entries = the preview count.
-	"dialog": {"entries": 4, "empty_font": 28},
-	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
-	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
-	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
-		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
-		"label_y": 12, "label_x": 0, "claim_y": 14, "info_icon": false,
-		"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
-	# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
-	# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
-	"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
-	# the MAP-SELECT place-picker card (spec §8). The two-column picker owns card width; this block tunes
-	# card height and in-card presentation. Fracs are scaled integers for sliders (see
-	# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
-	"map_card": {"use_art": true, "card_h_frac": 16, "edge_sparkle": 60,
-		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
-		"title_font": 0, "title_w": 0, "title_h": 0, "title_x": 0, "title_y": 0, "title_pad_x": 24, "title_pad_y": 2,
-		"resident_slot_px": 58, "resident_slot_gap": 10,
-		"expedition_button_w": 116, "expedition_button_h": 36, "expedition_button_x": 0, "expedition_button_y": 0,
-		"expedition_button_font": 18,
-		"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
-		"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
-		"reward_label_font": 21, "reward_label_x": 0, "reward_label_y": 0,
-		"reward_button_w": 116, "reward_button_h": 36, "reward_button_x": 0, "reward_button_y": 0,
-		"reward_button_font": 18,
-		"reward_bar_h": 10, "reward_bar_y": 0,
-		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
-	# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
-	# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
-	# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
-	# The DEMO knobs only preview: bust picks from the scene's giver pool on the left; tier is the asked item's
-	# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
-	# board's size; met toggles the ready ✓.
-	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
-		"card_w": 92, "card_h": 65,
-		"bust_size": 94, "bust_x": 27, "bust_y": 53,
-		"bubble_size": 66, "bubble_x": 70, "bubble_y": 35,
-		"item_size": 32, "item_x": 70, "item_y": 32, "plaque_w": 40, "plaque_x": 70, "plaque_y": 81},
-	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
-	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
-	"daily": {"cols": 3, "list_max_h": 0},
-	# the MYSTERY spin-reveal dialog (login_mystery.gd) — the shared frame + a row of reward cards the spin
-	# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
-	# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
-	"mystery": {"preview": "day 7 · revealed"},
-	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
-	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-	"shop": {"cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
-	# the LEVEL dialog — its OWN dedicated frame (title pill · ornate border, NOT the shared frame),
-	# the medallion (wreath + ring + number), the reusable progress bar, and the Collect/Got-it button.
-	# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
-	"level": {"banner_text": "Level", "title_font": 30,
-		"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
-		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "btn_font": 22, "gap": 14,
-		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
-	# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
-	# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
-	# piece size + well face are INHERITED from the Slot cell item; only the discovery-specific knobs live
-	# here — the square cell size, plain tier number, and marked-tier sparkle (percents for the sliders).
-	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
-	"tiers": {"cols": 3, "cell_gap": 16, "list_max_h": 0,
-		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
-	# One of 25 complete Meadow badge variants selected by progression, plus a native level number.
-	"level_badge": {"num_size": 32, "num_x": 0, "num_y": 5, "num_burn": 0,
-		"preview_level": 30},
-	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
-	# height matches the Bag/Home wells; inner_scale / sell_icon / item_icon_scale are % of that height.
-	# `filled` previews state.
-	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "info_y": 0, "info_button_scale": 100, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
-		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
-		"hide_info_button": false,
-		"filled": true},
-	# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
-	"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
-		"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16, "burn": 0},
-	# the RUSH FX toggles — the master switch + one per screen-juice effect (RushFx.EFFECTS)
-	"rush_fx": {"enabled": true, "merge_burst": true, "score_tick": true, "score_pulse": true, "mult_pop": true,
-		"combo_heat": true, "timer_low": true, "treefall_crack": true,
-		"merge_burst_count": 20, "score_tick_ms": 400, "score_pulse_pct": 100, "mult_pop_pct": 100,
-		"combo_heat_size": 24, "timer_low_secs": 10,
-		"treefall_debris": 18, "treefall_shake": 16, "treefall_hitstop_ms": 60,
-	},
-	# the FOUR feel-verb testers — defaults pulled straight from each registry (enabled + per-effect toggles +
-	# knobs), so the saved block's keys match {Land,Merge,Launch,Move}Fx.from_config exactly.
-	"land_fx": LandFx.defaults(),
-	# merge_fx ALSO carries the two preview-only test sliders (tier/combo) — excluded from save via TEST_KEYS.
-	"merge_fx": _merge_fx_defaults(),
-	"launch_fx": LaunchFx.defaults(),
-	# move_fx ALSO carries the preview-only KIND selector (slide/arc/fall) — excluded from save via TEST_KEYS.
-	"move_fx": _move_fx_defaults(),
-	"grab_fx": GrabFx.defaults(),
-	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
-	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
-	"settings": {"row_gap": 12},
-	# the VAULT dialog — the shared frame in the NEW twig border + the jar hero. width_pct + the twig
-	# slice/pad + the jar/plate sizes are saved; balance/claimable just preview the read. The banner / ✕
-	# styling is inherited from the Frame item (like the other dialogs).
-	"vault": {"card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
-		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
-		"balance": 320, "claimable": true},
-	# the INFO detail sheet — now the shared MAIL DIALOG (parchment cards, NO Claim) with a "Got it" footer.
-	# Its face is inherited wholesale from the Frame/Card elements; only the sheet WIDTH is info-specific (a
-	# 1–2 row sheet is narrower than the inbox). Read by the game's _info_sheet via Kit.info_opts_from_config.
-	"info": {},
-	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
-	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
-	"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120,
-		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
-			"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
-			"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
-			"open_hue": 43, "open_sat": 10, "open_val": 92,
-			"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
-			"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
-			"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
-			"depth": 4, "depth_alpha": 18, "inset": 20,
-			"level": 7, "cost": 120},
-	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
-	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
-	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
-	"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
-		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
-}
-# merge_fx defaults = the registry defaults PLUS the preview-only escalation sliders (tier/combo, not saved).
-static func _merge_fx_defaults() -> Dictionary:
-	var d := MergeFx.defaults()
-	d["tier"] = 3
-	d["combo"] = 0
-	return d
+func _ids() -> Array:
+	return IDS
 
-# move_fx defaults = the registry defaults PLUS the preview-only KIND selector (slide/arc/fall, not saved).
-static func _move_fx_defaults() -> Dictionary:
-	var d := MoveFx.defaults()
-	d["kind"] = "slide"
-	return d
+func _columns_spec() -> Array:
+	return COLUMNS
 
-var _selected := "button"
-var _fx_selected := "coin_pickup"
-var _focus_only := ""             # if set (a component id), _build() renders JUST that element centred — a
-                                  # focused, repeatable capture (make shot-workbench EL=<id>); "" = full gallery
-var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
-var _sidebar_body: VBoxContainer = null
-var _sections: Dictionary = {}    # id -> the element's gallery section (PanelContainer), for in-place rebuilds
-var _dirty: Dictionary = {}       # id -> true: linked elements queued to rebuild, one per frame (coalesced)
-var _awaiting: Dictionary = {}    # id -> true: elements showing a raw placeholder until a worker polish lands
-var _building := ""               # the id whose section is mid-build (so the polish previews know who to await)
+func _captions() -> Dictionary:
+	return CAPTIONS
 
+func _test_keys() -> Dictionary:
+	return TEST_KEYS
+
+func _dependents() -> Dictionary:
+	return DEPENDENTS
+
+func _default_selected() -> String:
+	return "button"
+
+## The DIALOG column is sized to the global dialog width (every dialog now shares it) + chrome, so no
+## dialog is clipped inside its column; the building-blocks column takes the remaining width.
+func _last_column_width() -> float:
+	return PHONE_W * Kit.frame_width_pct(_params) / 100.0 + 96.0
+
+## Only the FRAME keeps its banner / banner-icon / ✕ grabbable (the other dialogs reuse it read-only).
+func _keep_handles(id: String) -> bool:
+	return id == "frame"
+
+func _wrap_element(el: Control, id: String) -> Control:
+	return _maybe_wrap_shadow(el, id)
+
+func _before_load() -> void:
+	_ensure_shadow_keys()
+
+## MIGRATION: the shared frame's keys used to live under "dialog"; they're a standalone "frame" now.
+## An older file has them under "dialog" — lift those into "frame" so prior tuning isn't lost.
+func _load_migrate(data: Dictionary) -> void:
+	if data.has("dialog") and data["dialog"] is Dictionary and not data.has("frame"):
+		var fr := {}
+		for k in (_params["frame"] as Dictionary).keys():
+			if (data["dialog"] as Dictionary).has(k):
+				fr[k] = data["dialog"][k]
+		if not fr.is_empty():
+			data["frame"] = fr
+
+func _default_params() -> Dictionary:
+		return {
+		# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
+		# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
+		# spread are px; alpha is percent. Defaults are THE uniform shadow (skin.gd SHADOW_DEFAULTS).
+		"shadow": {"offset_x": 3, "offset_y": 7, "blur": 10, "spread": -2, "alpha": 38},
+		# the BOARD preview — a live merge grid (frame · the shared slot-cell well · demo pieces). `scale` is
+		# the live board's overall zoom; `gap` and `frame` shape live spacing. `cell`/`cols`/`rows` only size
+		# this preview. Piece size is owned by Slot-cell content_frac.
+		"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
+			# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
+			"frame_style": "meadow", "frame_corner": 46,
+			"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
+		# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
+		# Saved knobs (glow scale/alpha/color, outline width/alpha, sparkle count/size/speed/color) flow to
+		# the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's GEN_* consts.
+		# `preview` (which generator) + `cell` (preview px) are test-only.
+		"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A",
+			"outline_w": 35, "outline_a": 85, "outline_blur": 0, "outline_color": "E8BE5C",
+			"sparkle_count": 5, "sparkle_size": 100, "sparkle_speed": 70, "sparkle_color": "FFF4C2",
+			"preview": "seed_satchel", "cell": 170},
+		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
+		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
+		"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
+		# the READY GLOW — the amber highlight a board tile wears when a live quest wants it. Colour is 6-digit
+		# hex (no '#'); fill_a/halo_a are % opacities; corner_pct/halo_pct are % of the cell. Defaults reproduce
+		# piece_view's shipped READY_GLOW (warm amber fill + soft halo). Flows live via Kit.ready_glow_opts_from_config.
+		"ready_glow": {"color": "FFB12E", "fill_a": 55, "halo_a": 60, "corner_pct": 22, "halo_pct": 16, "cell": 150},
+		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
+		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
+		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
+		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
+		# config["badge"]); its icon uses the global icon clean.
+		"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
+			"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
+			"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
+			"count_dx": 0, "count_dy": 38, "count_font": 26,
+			"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
+		# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
+		# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
+		# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
+		"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
+			"edge_margin_px": 18,
+			"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70, "bottom_row_h_pct": 10,
+			"quest_bar_h_pct": 11},
+		"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
+		# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
+		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
+		"badge": {"defringe": false, "shadow": false, "feather": 0},
+		"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
+		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
+			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
+			"amount_w": 88, "num_size": 30, "amount_x": 0,
+			"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
+			"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
+			"plus_label_y": 0,
+			"inner_shadow": 30},
+		# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
+		# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
+		"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
+		"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
+		# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
+		# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
+		# carries its own width. snap is the drag-grid for the banner/✕ handles.
+		"frame": {
+			"width_pct": 75,   # the GLOBAL dialog width (% of screen) — drives EVERY dialog
+			"border": "parchment", "card_corner": 22, "card_art": true,
+			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
+			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
+			"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
+			"banner_text_x": 0, "banner_text_y": 0, "banner_burn": 60,
+			"banner_text_pad_l": 50, "banner_text_pad_r": 50,   # title↔tail room (the auto-sizing ribbon's L/R padding)
+			"banner_x": 0, "banner_y": 0,
+			"banner_icon_x": 130, "banner_icon_y": 19,
+			"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
+			"list_max_h": 0, "list_top_pad": 0,
+			"preview_text": "Frame",   # TEST-only: type any title to preview the ribbon's letter-count width-scaling
+		},
+		# the mail DIALOG = the shared frame + the mail cards. width_pct = the dialog's width as a % of the
+		# SCREEN (responsive — the game multiplies by the live viewport width; here it previews against the
+		# 1080 portrait base). entries = the preview count.
+		"dialog": {"entries": 4, "empty_font": 28},
+		# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
+		# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
+		"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
+			"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
+			"label_y": 12, "label_x": 0, "claim_y": 14, "info_icon": false,
+			"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
+		# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
+		# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
+		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
+		# the MAP-SELECT place-picker card (spec §8). The two-column picker owns card width; this block tunes
+		# card height and in-card presentation. Fracs are scaled integers for sliders (see
+		# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
+		"map_card": {"use_art": true, "card_h_frac": 16, "edge_sparkle": 60,
+			"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
+			"title_font": 0, "title_w": 0, "title_h": 0, "title_x": 0, "title_y": 0, "title_pad_x": 24, "title_pad_y": 2,
+			"resident_slot_px": 58, "resident_slot_gap": 10,
+			"expedition_button_w": 116, "expedition_button_h": 36, "expedition_button_x": 0, "expedition_button_y": 0,
+			"expedition_button_font": 18,
+			"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
+			"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
+			"reward_label_font": 21, "reward_label_x": 0, "reward_label_y": 0,
+			"reward_button_w": 116, "reward_button_h": 36, "reward_button_x": 0, "reward_button_y": 0,
+			"reward_button_font": 18,
+			"reward_bar_h": 10, "reward_bar_y": 0,
+			"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
+		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
+		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
+		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
+		# The DEMO knobs only preview: bust picks from the scene's giver pool on the left; tier is the asked item's
+		# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
+		# board's size; met toggles the ready ✓.
+		"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
+			"card_w": 92, "card_h": 65,
+			"bust_size": 94, "bust_x": 27, "bust_y": 53,
+			"bubble_size": 66, "bubble_x": 70, "bubble_y": 35,
+			"item_size": 32, "item_x": 70, "item_y": 32, "plaque_w": 40, "plaque_x": 70, "plaque_y": 81},
+		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
+		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
+		"daily": {"cols": 3, "list_max_h": 0},
+		# the MYSTERY spin-reveal dialog (login_mystery.gd) — the shared frame + a row of reward cards the spin
+		# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
+		# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
+		"mystery": {"preview": "day 7 · revealed"},
+		# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
+		# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
+		"shop": {"cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+		# the LEVEL dialog — its OWN dedicated frame (title pill · ornate border, NOT the shared frame),
+		# the medallion (wreath + ring + number), the reusable progress bar, and the Collect/Got-it button.
+		# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
+		"level": {"banner_text": "Level", "title_font": 30,
+			"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
+			"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "btn_font": 22, "gap": 14,
+			"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
+		# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
+		# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
+		# piece size + well face are INHERITED from the Slot cell item; only the discovery-specific knobs live
+		# here — the square cell size, plain tier number, and marked-tier sparkle (percents for the sliders).
+		# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
+		"tiers": {"cols": 3, "cell_gap": 16, "list_max_h": 0,
+			"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
+		# One of 25 complete Meadow badge variants selected by progression, plus a native level number.
+		"level_badge": {"num_size": 32, "num_x": 0, "num_y": 5, "num_burn": 0,
+			"preview_level": 30},
+		# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
+		# height matches the Bag/Home wells; inner_scale / sell_icon / item_icon_scale are % of that height.
+		# `filled` previews state.
+		"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "info_y": 0, "info_button_scale": 100, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
+			"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
+			"hide_info_button": false,
+			"filled": true},
+		# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
+		"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
+			"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16, "burn": 0},
+		# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
+		# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
+		"settings": {"row_gap": 12},
+		# the VAULT dialog — the shared frame in the NEW twig border + the jar hero. width_pct + the twig
+		# slice/pad + the jar/plate sizes are saved; balance/claimable just preview the read. The banner / ✕
+		# styling is inherited from the Frame item (like the other dialogs).
+		"vault": {"card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
+			"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
+			"balance": 320, "claimable": true},
+		# the INFO detail sheet — now the shared MAIL DIALOG (parchment cards, NO Claim) with a "Got it" footer.
+		# Its face is inherited wholesale from the Frame/Card elements; only the sheet WIDTH is info-specific (a
+		# 1–2 row sheet is narrower than the inbox). Read by the game's _info_sheet via Kit.info_opts_from_config.
+		"info": {},
+		# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
+		# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
+		"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120,
+			"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
+				"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
+				"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
+				"open_hue": 43, "open_sat": 10, "open_val": 92,
+				"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
+				"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
+				"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
+				"depth": 4, "depth_alpha": 18, "inset": 20,
+				"level": 7, "cost": 120},
+		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
+		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
+		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
+		"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
+			"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
+	}
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
 var _drag_node: Control = null
 var _drag_grab := Vector2.ZERO
-
-func _ready() -> void:
-	if Engine.is_editor_hint():
-		theme = UiFont.make()
-	_ensure_shadow_keys()
-	_load_settings()
-	_build()
 
 ## Give EVERY component a `shadow` on/off key (default ON for the elements that ship a drop shadow, OFF
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
@@ -494,108 +402,6 @@ func _ensure_shadow_keys() -> void:
 			continue
 		if not (_params[id] as Dictionary).has("shadow"):
 			_params[id]["shadow"] = bool(on_by_default.get(id, false))
-
-func _build() -> void:
-	if not is_inside_tree():
-		return
-	# Headless editor (`godot --import` / `--export`) instantiates this @tool scene but has no UI to
-	# show. Building the gallery there is pointless AND fatal: it kicks off polish_async
-	# WorkerThreadPool tasks whose GDScript lambdas are still pending when the import process exits,
-	# crashing the pool's destructor at shutdown (SIGSEGV). The interactive workbench, the in-editor
-	# @tool, and the headless `-s` tests are NOT editor-hint+headless, so they still build.
-	if Engine.is_editor_hint() and DisplayServer.get_name() == "headless":
-		return
-	for c in get_children():
-		remove_child(c)
-		c.queue_free()
-
-	var bg := ColorRect.new()
-	bg.color = Pal.BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
-
-	# FOCUS capture: render JUST one element, centred, with no sidebar/gallery chrome — a clean, repeatable
-	# single-component shot (make shot-workbench EL=<id>). Used to capture the mystery spin-reveal dialog
-	# (and any other component) for visual regression without cropping it out of the full gallery.
-	if _focus_only != "" and IDS.has(_focus_only):
-		var cc := CenterContainer.new()
-		cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-		add_child(cc)
-		cc.add_child(_make_element(_focus_only))
-		return
-
-	var hb := HBoxContainer.new()
-	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
-	hb.add_theme_constant_override("separation", 0)
-	add_child(hb)
-
-	# right — the gallery: each COLUMN gets its OWN vertical scroll (both fill the window height), so the
-	# tall dialogs column scrolls INDEPENDENTLY of the building-blocks column. The dialog column is a
-	# fixed-width panel on the right; the building blocks take the remaining width.
-	var gal_row := HBoxContainer.new()
-	gal_row.add_theme_constant_override("separation", 0)
-	gal_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gal_row.size_flags_vertical = Control.SIZE_FILL
-	hb.add_child(gal_row)
-	# the DIALOG column is sized to the global dialog width (every dialog now shares it) + chrome, so no
-	# dialog is clipped inside its column; the building-blocks column takes the remaining width.
-	var dlg_w := PHONE_W * Kit.frame_width_pct(_params) / 100.0
-	var dlg_col_w: float = dlg_w + 96.0
-	_columns.clear()
-	for ci in COLUMNS.size():
-		var col_scroll := ScrollContainer.new()
-		col_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO   # a too-wide column scrolls sideways
-		col_scroll.size_flags_vertical = Control.SIZE_FILL                      # window-height → its own vertical scroll
-		if ci == COLUMNS.size() - 1:
-			col_scroll.custom_minimum_size = Vector2(dlg_col_w, 0)              # the DIALOG column: fits the widest dialog
-			col_scroll.size_flags_horizontal = Control.SIZE_FILL
-		else:
-			col_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL         # building blocks take the rest
-		gal_row.add_child(col_scroll)
-		var col_margin := MarginContainer.new()
-		col_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		for side in ["left", "right", "top", "bottom"]:
-			col_margin.add_theme_constant_override("margin_" + side, 24)
-		col_scroll.add_child(col_margin)
-		var colbox := VBoxContainer.new()
-		colbox.add_theme_constant_override("separation", 18)
-		colbox.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		col_margin.add_child(colbox)
-		_columns.append(colbox)
-
-	# left — the options sidebar (fixed width)
-	var side := PanelContainer.new()
-	side.name = "WorkbenchSidebar"
-	side.custom_minimum_size = Vector2(SIDEBAR_W, 0)
-	side.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	side.size_flags_vertical = Control.SIZE_FILL
-	var ssb := StyleBoxFlat.new()
-	ssb.bg_color = Color(0, 0, 0, 0.42)
-	ssb.border_width_right = 2
-	ssb.border_color = Color(Pal.CREAM, 0.12)
-	ssb.set_content_margin_all(18)
-	side.add_theme_stylebox_override("panel", ssb)
-	# scope a SMALL font to the sidebar — the global 40px default made the row labels balloon and
-	# crowd the sliders out. Keep the rounded face, drop the heavy outline for small text.
-	var st := UiFont.make()
-	st.default_font_size = 16
-	for t in ["Label", "Button", "LineEdit", "OptionButton", "CheckButton"]:
-		st.set_constant("outline_size", t, 0)
-	side.theme = st
-	hb.add_child(side)
-	hb.move_child(side, 0)   # sidebar on the LEFT, gallery to its right
-	var side_scroll := ScrollContainer.new()
-	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	side_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side.add_child(side_scroll)
-	_sidebar_body = VBoxContainer.new()
-	_sidebar_body.add_theme_constant_override("separation", 10)
-	_sidebar_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	side_scroll.add_child(_sidebar_body)
-
-	_rebuild_gallery()
-	_rebuild_sidebar()
 
 ## A dialog's preview width in PIXELS at its AUTHORED design baseline (Kit.DIALOG_DESIGN_PCT). The frame
 ## then scales content to the SINGLE global width (_dlg_scale); in-game the same baseline × the live
@@ -656,16 +462,6 @@ func _make_element(id: String) -> Control:
 			return _shadow_preview()
 		"board":
 			return _make_board_preview()
-		"fx":
-			var fx := FxWorkbenchView.new()
-			fx.name = "FxWorkbenchComponent"
-			fx.embedded = true
-			fx.show_sidebar = false
-			fx.preview_scale = 0.68
-			fx.set("_preview_action", _fx_selected)
-			fx.custom_minimum_size = Vector2(540, 760)
-			fx.size = fx.custom_minimum_size
-			return fx
 		"generator":
 			# the live board generator (engine make_generator) with its highlight tuned by the knobs, through
 			# the SAME Kit transform the board reads — so the preview is 1:1 with the game.
@@ -895,54 +691,6 @@ func _make_element(id: String) -> Control:
 			# cells preview the SAME tuning as the board / map-card frame.
 			var rbo := Kit.rush_bar_opts_from_config({"rush_bar": p, "gold_badge": _params["gold_badge"]})
 			return Kit.rush_bar(rbo, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
-		"rush_fx":
-			# the screen-juice tester: a sample bar + two demo TILES (so the merge burst lands on a board-like
-			# spot). The sidebar has a ▶ Replay per effect + that effect's knobs; this "▶ Replay all" button fires
-			# every ENABLED effect. The game reads the SAME toggles + knobs (RushFx). No auto-play — replay on demand.
-			var fbo := Kit.rush_bar_opts_from_config({"rush_bar": _params["rush_bar"], "gold_badge": _params["gold_badge"]})
-			var demo: Control = Kit.rush_bar(fbo, {"time": "0:30", "score": "0", "mult": "×1.0"})
-			var bsc := 0.6
-			demo.scale = Vector2(bsc, bsc)
-			var tpx := 76.0
-			var wrap := Control.new()
-			wrap.custom_minimum_size = Vector2(maxf(demo.size.x * bsc, tpx * 3.0) + 40.0, demo.size.y * bsc + tpx + 132.0)
-			var tcx := wrap.custom_minimum_size.x * 0.5
-			demo.position = Vector2(tcx - demo.size.x * bsc * 0.5, 14.0)
-			wrap.add_child(demo)
-			# the two demo tiles — the "merge" happens between them, so the leaf burst reads on a real tile
-			var tiles_y := demo.size.y * bsc + 22.0
-			var ta := PieceView.make_piece(101, tpx)
-			ta.position = Vector2(tcx - tpx - 6.0, tiles_y) ; ta.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			wrap.add_child(ta)
-			var tb := PieceView.make_piece(201, tpx)
-			tb.position = Vector2(tcx + 6.0, tiles_y) ; tb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			wrap.add_child(tb)
-			var tile_ctr := Vector2(tcx, tiles_y + tpx * 0.5)
-			var btn := Button.new()
-			btn.text = "▶  Replay all"
-			btn.add_theme_font_size_override("font_size", FS.SMALL)
-			btn.custom_minimum_size = Vector2(190.0, 52.0) ; btn.size = btn.custom_minimum_size
-			btn.position = Vector2(tcx - 95.0, tiles_y + tpx + 14.0)
-			btn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
-			wrap.add_child(btn)
-			_rush_fx_ctx = {
-				"score_label": demo.get_meta("score_label"), "mult_label": demo.get_meta("mult_label"),
-				"time_label": demo.get_meta("time_label"), "score_cell": demo.get_meta("score_cell"),
-				"mult_cell": demo.get_meta("mult_cell"), "tile_a": ta, "tile_b": tb,
-				"wrap": wrap, "demo": demo, "tile_ctr": tile_ctr, "tile_px": tpx,
-			}
-			btn.pressed.connect(func() -> void: _rush_fx_play("__all__"))
-			return wrap
-		"land_fx":
-			return _land_fx_preview()
-		"merge_fx":
-			return _merge_fx_preview()
-		"launch_fx":
-			return _launch_fx_preview()
-		"move_fx":
-			return _move_fx_preview()
-		"grab_fx":
-			return _grab_fx_preview()
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
 			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
@@ -1027,311 +775,6 @@ func _make_element(id: String) -> Control:
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
-
-# --- the FOUR feel-verb stages (ported from the standalone {land,merge,launch,move}_workbench_view) ---
-# Each builds a parchment field with a clickable generator / tile / field that TRIGGERS the verb's play
-# function, stores its node refs in a per-component ctx member (rebuilt fresh on every slider change via
-# _apply_edit → _make_element, exactly like _rush_fx_ctx), and reads the LIVE _params[id] when it fires —
-# so a knob change takes effect on the next trigger without a manual rebuild.
-const FEEL_INK := Color("#43352B")
-const FEEL_PARCH := Color("#F3E7CE")
-const FEEL_CSZ := 116.0                       # the demo tile / cell size in the gallery (compact)
-const FEEL_FIELD := Vector2(440, 540)         # the parchment field, compact for the gallery cell
-
-## A parchment field backdrop sized FEEL_FIELD, with clip off so bursts/shadows spill freely.
-func _feel_field() -> Control:
-	var field := Control.new()
-	field.custom_minimum_size = FEEL_FIELD
-	field.size = FEEL_FIELD
-	field.clip_contents = false
-	var card := ColorRect.new()
-	card.color = FEEL_PARCH
-	card.size = FEEL_FIELD
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	field.add_child(card)
-	return field
-
-## A faint cell marker (rounded inset square) centred at `center`, field-local.
-func _feel_cell_marker(center: Vector2) -> Panel:
-	var cell := Panel.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(FEEL_INK.r, FEEL_INK.g, FEEL_INK.b, 0.06)
-	sb.set_corner_radius_all(16)
-	sb.set_border_width_all(3)
-	sb.border_color = Color(FEEL_INK.r, FEEL_INK.g, FEEL_INK.b, 0.18)
-	cell.add_theme_stylebox_override("panel", sb)
-	cell.size = Vector2(FEEL_CSZ, FEEL_CSZ)
-	cell.position = center - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return cell
-
-# --- LAND: click the generator → a tile flies down + LANDS in the cell ------------------------
-func _land_fx_preview() -> Control:
-	var gen_pos := Vector2(FEEL_FIELD.x * 0.5, 120.0)
-	var land_pos := Vector2(FEEL_FIELD.x * 0.5, FEEL_FIELD.y - 150.0)
-	var field := _feel_field()
-	field.add_child(_feel_cell_marker(land_pos))
-	var gbtn := Button.new()
-	gbtn.flat = true
-	gbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
-	gbtn.position = gen_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	gbtn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
-	var gart := PieceView.make_generator("seed_satchel", FEEL_CSZ)
-	gart.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gbtn.add_child(gart)
-	field.add_child(gbtn)
-	var hint := _feel_hint("Click the generator ↑ — or ▶ Drop", gen_pos + Vector2(-90, FEEL_CSZ / 2.0 + 6))
-	field.add_child(hint)
-	_land_fx_ctx = {"field": field, "gen_pos": gen_pos, "land_pos": land_pos, "tile": null}
-	gbtn.pressed.connect(_land_fx_play)
-	return field
-
-# Drop a fresh tile from the generator, accelerate into the impact, then fire LandFx.apply at touchdown.
-func _land_fx_play() -> void:
-	if _land_fx_ctx.is_empty():
-		return
-	var c := _land_fx_ctx
-	var field: Control = c["field"]
-	if not (field != null and is_instance_valid(field)):
-		return
-	if c.get("tile") != null and is_instance_valid(c["tile"]):
-		c["tile"].queue_free()
-	var tile := PieceView.make_piece(102, FEEL_CSZ)
-	var gen_top: Vector2 = c["gen_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	var land_top: Vector2 = c["land_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	tile.position = gen_top
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	field.add_child(tile)
-	c["tile"] = tile
-	var tw := tile.create_tween()
-	tw.tween_property(tile, "position", land_top, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func() -> void:
-		LandFx.apply(field, tile, c["land_pos"], _params["land_fx"]))
-
-# --- GRAB: click the tile → it lights up (glow + white rim + a tap), then settles -------------
-func _grab_fx_preview() -> Control:
-	var tile_pos := Vector2(FEEL_FIELD.x * 0.5, FEEL_FIELD.y * 0.5)
-	var field := _feel_field()
-	field.add_child(_feel_cell_marker(tile_pos))
-	var tbtn := Button.new()
-	tbtn.flat = true
-	tbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
-	tbtn.position = tile_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	tbtn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
-	var tile := PieceView.make_piece(102, FEEL_CSZ)
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tbtn.add_child(tile)
-	field.add_child(tbtn)
-	var hint := _feel_hint("Click the tile — or ▶ Grab", tile_pos + Vector2(-70, FEEL_CSZ / 2.0 + 6))
-	field.add_child(hint)
-	_grab_fx_ctx = {"field": field, "tile": tile}
-	tbtn.pressed.connect(_grab_fx_play)
-	return field
-
-# Light the preview tile up with the LIVE grab_fx toggles/knobs, then drop the highlight after a beat so
-# it reads as a pickup-then-settle the designer can feel. Mirrors the board: grab() on, release() on drop.
-func _grab_fx_play() -> void:
-	if _grab_fx_ctx.is_empty():
-		return
-	var tile: Control = _grab_fx_ctx.get("tile")
-	if not (tile != null and is_instance_valid(tile)):
-		return
-	GrabFx.release(tile)                          # clear any prior preview highlight first (idempotent)
-	GrabFx.grab(tile, _params["grab_fx"])
-	tile.pivot_offset = tile.size / 2.0
-	tile.scale = Vector2(1.12, 1.12)             # the same lift pop the board uses on pickup
-	var tw := tile.create_tween()
-	tw.tween_property(tile, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(func() -> void: GrabFx.release(tile))
-
-# --- MERGE: click the field → tile A slides into tile B + the two FUSE ------------------------
-func _merge_fx_preview() -> Control:
-	var merge_pos := Vector2(FEEL_FIELD.x * 0.5 + 60.0, FEEL_FIELD.y * 0.5)
-	var src_pos := Vector2(FEEL_FIELD.x * 0.5 - 130.0, FEEL_FIELD.y * 0.5)
-	var nb_off := [Vector2(0, -FEEL_CSZ + 6), Vector2(0, FEEL_CSZ - 6), Vector2(-FEEL_CSZ + 6, 0), Vector2(FEEL_CSZ - 6, 0)]
-	var field := _feel_field()
-	var bloom := ComboBloom.new()
-	field.add_child(bloom)
-	field.add_child(_feel_cell_marker(merge_pos))
-	field.add_child(_feel_cell_marker(src_pos))
-	var mbtn := Button.new()                       # the whole field is clickable → merge
-	mbtn.flat = true
-	mbtn.size = FEEL_FIELD
-	mbtn.position = Vector2.ZERO
-	mbtn.mouse_filter = Control.MOUSE_FILTER_PASS
-	mbtn.set_meta("wb_active", true)
-	field.add_child(mbtn)
-	var hint := _feel_hint("Click the field — or ▶ Merge", Vector2(40, 40))
-	field.add_child(hint)
-	_merge_fx_ctx = {"field": field, "merge_pos": merge_pos, "src_pos": src_pos, "nb_off": nb_off,
-		"tile_a": null, "tile_b": null, "neighbors": [], "bloom": bloom}
-	_merge_fx_spawn()
-	mbtn.pressed.connect(_merge_fx_play)
-	return field
-
-# (Re)spawn the two matching tiles + the four dummy neighbours at their start cells.
-func _merge_fx_spawn() -> void:
-	if _merge_fx_ctx.is_empty():
-		return
-	var c := _merge_fx_ctx
-	var field: Control = c["field"]
-	if not (field != null and is_instance_valid(field)):
-		return
-	for n in c["neighbors"]:
-		if n != null and is_instance_valid(n):
-			n.queue_free()
-	c["neighbors"] = []
-	for k in ["tile_a", "tile_b"]:
-		if c.get(k) != null and is_instance_valid(c[k]):
-			c[k].queue_free()
-	for off in c["nb_off"]:
-		var nb := PieceView.make_piece(201, FEEL_CSZ)
-		nb.position = (c["merge_pos"] + off) - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-		nb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		field.add_child(nb)
-		c["neighbors"].append(nb)
-	var b := PieceView.make_piece(101, FEEL_CSZ)
-	b.position = c["merge_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	field.add_child(b)
-	c["tile_b"] = b
-	var a := PieceView.make_piece(101, FEEL_CSZ)
-	a.position = c["src_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	field.add_child(a)
-	c["tile_a"] = a
-
-# Replay: respawn, slide A into B, then fire MergeFx.apply with the live tier/combo + neighbours/board.
-func _merge_fx_play() -> void:
-	if _merge_fx_ctx.is_empty():
-		return
-	_merge_fx_spawn()
-	var c := _merge_fx_ctx
-	var field: Control = c["field"]
-	var a: Control = c["tile_a"]
-	var b: Control = c["tile_b"]
-	if not (a != null and is_instance_valid(a) and b != null and is_instance_valid(b)):
-		return
-	var merge_top: Vector2 = c["merge_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	var p: Dictionary = _params["merge_fx"]
-	var finish := func() -> void:
-		if a != null and is_instance_valid(a):
-			a.queue_free()
-		var nb_nodes: Array = []
-		for n in c["neighbors"]:
-			if n != null and is_instance_valid(n):
-				nb_nodes.append(n)
-		MergeFx.apply(field, b, c["merge_pos"], int(p.get("tier", 3)), int(p.get("combo", 0)), nb_nodes, field, p)
-		var bloom_node: ComboBloom = c.get("bloom") as ComboBloom
-		if MergeFx.on(p, "combo_bloom") and bloom_node != null and is_instance_valid(bloom_node):
-			bloom_node.bump(int(p.get("combo", 0)), MergeFx.knob(p, "bloom_pct"))
-	var tw := MoveFx.apply(a, a.position, merge_top, "slide", _params["move_fx"], MergeFx.knob(p, "merge_slide_ms"))
-	if tw != null:
-		tw.tween_callback(finish)
-	else:
-		finish.call()
-
-# --- LAUNCH: click the generator → a tile is EMITTED (pops up-and-away) ------------------------
-func _launch_fx_preview() -> Control:
-	var gen_pos := Vector2(FEEL_FIELD.x * 0.5, FEEL_FIELD.y * 0.5 + 60.0)
-	var field := _feel_field()
-	var gbtn := Button.new()
-	gbtn.flat = true
-	gbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
-	gbtn.position = gen_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	gbtn.set_meta("wb_active", true)
-	var gart := PieceView.make_generator("seed_satchel", FEEL_CSZ)
-	gart.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gbtn.add_child(gart)
-	field.add_child(gbtn)
-	var hint := _feel_hint("Click the generator ↑ — or ▶ Launch", gen_pos + Vector2(-90, FEEL_CSZ / 2.0 + 6))
-	field.add_child(hint)
-	_launch_fx_ctx = {"field": field, "gen_pos": gen_pos, "gen_art": gart, "tile": null}
-	gbtn.pressed.connect(_launch_fx_play)
-	return field
-
-# Emit a fresh tile: fire LaunchFx.apply as it LEAVES the emitter, then pop it up-and-away.
-func _launch_fx_play() -> void:
-	if _launch_fx_ctx.is_empty():
-		return
-	var c := _launch_fx_ctx
-	var field: Control = c["field"]
-	if not (field != null and is_instance_valid(field)):
-		return
-	if c.get("tile") != null and is_instance_valid(c["tile"]):
-		c["tile"].queue_free()
-	var tile := PieceView.make_piece(102, FEEL_CSZ)
-	var start: Vector2 = c["gen_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	tile.position = start
-	tile.pivot_offset = Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	tile.scale = Vector2(0.4, 0.4)
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	field.add_child(tile)
-	c["tile"] = tile
-	LaunchFx.apply(c["gen_art"], tile, c["gen_pos"], _params["launch_fx"])
-	var up := start + Vector2(70, -110)
-	var settle := start + Vector2(70, -34)
-	var tw := tile.create_tween()
-	tw.parallel().tween_property(tile, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(tile, "position", up, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(tile, "position", settle, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-
-# --- MOVE: click the tile → it TRAVELS across the field (slide / arc / fall) -------------------
-func _move_fx_preview() -> Control:
-	var start_pos := Vector2(120.0, 150.0)
-	var dest_pos := Vector2(FEEL_FIELD.x - 120.0, FEEL_FIELD.y - 130.0)
-	var field := _feel_field()
-	field.add_child(_feel_cell_marker(dest_pos))
-	var sbtn := Button.new()
-	sbtn.flat = true
-	sbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
-	sbtn.position = start_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	sbtn.set_meta("wb_active", true)
-	field.add_child(sbtn)
-	var hint := _feel_hint("Click the tile ↓ — or ▶ Send", start_pos + Vector2(-66, -FEEL_CSZ / 2.0 - 30))
-	field.add_child(hint)
-	_move_fx_ctx = {"field": field, "start_pos": start_pos, "dest_pos": dest_pos, "tile": null}
-	_move_fx_reset()
-	sbtn.pressed.connect(_move_fx_play)
-	return field
-
-# Reset the travelling tile to the start cell so the move replays repeatedly.
-func _move_fx_reset() -> void:
-	if _move_fx_ctx.is_empty():
-		return
-	var c := _move_fx_ctx
-	var field: Control = c["field"]
-	if not (field != null and is_instance_valid(field)):
-		return
-	if c.get("tile") != null and is_instance_valid(c["tile"]):
-		c["tile"].queue_free()
-	var tile := PieceView.make_piece(102, FEEL_CSZ)
-	tile.position = c["start_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	tile.rotation = 0.0
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	field.add_child(tile)
-	c["tile"] = tile
-
-# Send the tile across with the live kind + tunables via MoveFx.apply.
-func _move_fx_play() -> void:
-	if _move_fx_ctx.is_empty():
-		return
-	_move_fx_reset()
-	var c := _move_fx_ctx
-	var p: Dictionary = _params["move_fx"]
-	var start_top: Vector2 = c["start_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	var dest_top: Vector2 = c["dest_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
-	MoveFx.apply(c["tile"], start_top, dest_top, String(p.get("kind", "slide")), p)
-
-# A small INK hint label placed at `pos`, field-local (mouse-transparent).
-func _feel_hint(text: String, pos: Vector2) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_color_override("font_color", FEEL_INK)
-	l.add_theme_font_size_override("font_size", FS.TINY)
-	l.position = pos
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
 
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
@@ -1851,124 +1294,6 @@ func _card_btn_opts() -> Dictionary:
 
 ## --- gallery (left) ------------------------------------------------------------------------------
 
-func _rebuild_gallery() -> void:
-	if _columns.is_empty():
-		return
-	for ci in COLUMNS.size():
-		var colbox := _columns[ci] as VBoxContainer
-		if not is_instance_valid(colbox):
-			continue
-		for c in colbox.get_children():
-			colbox.remove_child(c)
-			c.queue_free()
-		for row in COLUMNS[ci]:                # each ROW is a line of side-by-side element sections
-			var line := HBoxContainer.new()
-			line.add_theme_constant_override("separation", 18)
-			line.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-			for id in row:
-				line.add_child(_section(id))
-			colbox.add_child(line)
-		# scroll-past room at the bottom of EACH column, so the last element never sits flush against the
-		# window edge — you can scroll a little past it to see its full base.
-		var tail := Control.new()
-		tail.custom_minimum_size = Vector2(0, 200)
-		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		colbox.add_child(tail)
-
-func _section(id: String) -> Control:
-	var sec := PanelContainer.new()
-	sec.add_theme_stylebox_override("panel", _section_style(id == _selected))
-	sec.mouse_filter = Control.MOUSE_FILTER_STOP            # catches clicks on the non-button areas
-	sec.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	sec.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN   # natural width so a row pairs sit side by side
-	sec.size_flags_vertical = Control.SIZE_SHRINK_BEGIN     # top-align within the row
-	sec.gui_input.connect(_on_section_input.bind(id))
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sec.add_child(v)
-	var cap := Label.new()
-	# short caption in the gallery (the full description rides the sidebar) so paired sections stay narrow
-	cap.text = ("●  " if id == _selected else "") + String(CAPTIONS[id]).split(" — ")[0]
-	cap.add_theme_font_size_override("font_size", FS.TINY)
-	cap.add_theme_color_override("font_color", Pal.STRAW if id == _selected else Color(Pal.CREAM, 0.8))
-	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(cap)
-	var holder := CenterContainer.new()
-	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_building = id                          # so the polish previews know which element to mark awaiting
-	var el := _make_element(id)
-	_building = ""
-	el = _maybe_wrap_shadow(el, id)         # cast the SHARED shadow behind the preview when this component's Shadow toggle is on
-	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
-	holder.custom_minimum_size = el.custom_minimum_size
-	holder.add_child(el)
-	v.add_child(holder)
-	_sections[id] = sec
-	return sec
-
-## Apply an edit to the SELECTED element: rebuild it NOW (live feedback on the control you're dragging),
-## then queue its dependents to rebuild one-per-frame (post-change, so the sliders never freeze). The
-## queue is a Set, so a fast drag that fires many times just re-marks the same ids — no rebuild backlog.
-func _apply_edit() -> void:
-	_rebuild_element(_selected)
-	_mark_dirty(DEPENDENTS.get(_selected, []))
-
-## Queue ids to rebuild on the staggered pump (see _process). Coalesced via the _dirty Set.
-func _mark_dirty(ids: Array) -> void:
-	for id in ids:
-		_dirty[id] = true
-	if not _dirty.is_empty():
-		set_process(true)
-
-# Drain the dirty queue ONE element per frame (so the screen keeps repainting between heavy linked
-# rebuilds instead of freezing through all of them), then settle elements waiting on a worker polish:
-# once their off-thread bake lands, rebuild them so the raw placeholder swaps to the polished texture.
-func _process(_delta: float) -> void:
-	if not _dirty.is_empty():
-		var id: String = String(_dirty.keys()[0])
-		_dirty.erase(id)
-		_rebuild_element(id)
-	elif not _awaiting.is_empty() and Kit.pump_polish() == 0:
-		var ids: Array = _awaiting.keys()
-		_awaiting.clear()
-		for id in ids:
-			_rebuild_element(id)
-	if _dirty.is_empty() and _awaiting.is_empty():
-		set_process(false)
-
-## Rebuild a single element's section in place (swap the node at its position in the row), leaving every
-## OTHER section untouched. No-op if the gallery hasn't been built yet (the initial _rebuild_gallery does).
-func _rebuild_element(id: String) -> void:
-	var old: Node = _sections.get(id)
-	if old == null or not is_instance_valid(old):
-		return
-	var parent := (old as Control).get_parent()
-	if parent == null:
-		return
-	var idx := (old as Control).get_index()
-	var fresh := _section(id)          # also re-registers _sections[id] = fresh
-	parent.add_child(fresh)
-	parent.move_child(fresh, idx)
-	old.queue_free()
-
-## Make EVERYTHING in the section mouse-transparent, so a click ANYWHERE — even on top of the component
-## itself (a card, a button, the banner) — falls through to the section and selects it. The ONE
-## exception: the FRAME element keeps its banner / banner-icon / ✕ active so those handles stay
-## draggable there (the other dialogs reuse the frame read-only, so their banner is NOT draggable).
-func _make_clickthrough(n: Node, keep_handles: bool) -> void:
-	for c in n.get_children():
-		if c is Control:
-			var is_handle: bool = String(c.name) in ["DialogBanner", "DialogBannerIcon", "DialogClose"]
-			var keep_active: bool = (c as Control).has_meta("wb_active")   # an interactive preview control (e.g. Rush FX ▶ Replay)
-			if not ((keep_handles and is_handle) or keep_active):
-				(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_make_clickthrough(c, keep_handles)
-
-## --- drag-to-move with snap (dialog banner icon + ✕) ---------------------------------------------
-
 ## Make the dialog's named handles draggable. Re-run on every dialog rebuild (new nodes each time).
 func _attach_dialog_drag(d: Control) -> void:
 	var banner: Control = d.find_child("DialogBanner", true, false)
@@ -2034,92 +1359,8 @@ func _store_drag(kind: String, local: Vector2) -> void:
 		p["close_x"] = local.x - (cw - _drag_node.size.x)             # inverse of the kit's dock() formula
 		p["close_y"] = -local.y
 
-func _on_section_input(ev: InputEvent, id: String) -> void:
-	var hit: bool = (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
-	hit = hit or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed)
-	if hit:
-		select(id)
-
-func select(id: String) -> void:
-	if id == _selected:
-		return
-	var prev := _selected
-	_selected = id
-	# DEFER: select() runs inside a section's gui_input dispatch — rebuilding (freeing the very
-	# section that is mid-emit) here would hit "Object is locked and can't be freed". Defer so the
-	# tree is mutated only after the input dispatch returns. Refresh ONLY the two sections whose
-	# highlight changed (the old + the new selection), not the whole gallery.
-	_rebuild_element.call_deferred(prev)
-	_rebuild_element.call_deferred(id)
-	_rebuild_sidebar.call_deferred()      # swap in this element's options
-
-func _section_style(selected: bool) -> StyleBox:
-	# LIGHT cell so a dark drop-shadow reads against it (a dark cell hid the shadow knobs' effect). A cool
-	# light slate also keeps the cream badges legible (cream-on-cream would wash out).
-	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(12)
-	sb.set_content_margin_all(14)
-	if selected:
-		sb.bg_color = Color("#E3ECEF")
-		sb.set_border_width_all(2)
-		sb.border_color = Pal.STRAW
-	else:
-		sb.bg_color = Color("#C7D4DB")
-		sb.set_border_width_all(1)
-		sb.border_color = Color(Pal.INK, 0.18)
-	return sb
-
-## --- sidebar (right) -----------------------------------------------------------------------------
-
-# Fire one rush_fx effect (or "__all__") on the live demo context, reading current knob values
-# from _params. A single id fires regardless of its toggle (an explicit test trigger);
-# "__all__" respects the enabled toggles, mirroring the game.
-func _rush_fx_play(which: String) -> void:
-	if _rush_fx_ctx.is_empty():
-		return
-	var p: Dictionary = _params["rush_fx"]
-	var c := _rush_fx_ctx
-	var sl: Label = c.get("score_label")
-	var ml: Label = c.get("mult_label")
-	var tl: Label = c.get("time_label")
-	if sl != null: sl.text = "0"
-	if ml != null: ml.text = "×1.0"
-	if tl != null: tl.text = "0:30"
-	var want := func(id: String) -> bool:
-		return which == id or (which == "__all__" and RushFx.on(p, id))
-	if c.get("tile_a") != null: FX.squash_pop(c["tile_a"])
-	if c.get("tile_b") != null: FX.squash_pop(c["tile_b"])
-	if want.call("merge_burst"): RushFx.merge_burst(c["wrap"], c["tile_ctr"], 3, int(p["merge_burst_count"]))
-	if want.call("score_tick"): RushFx.score_tick(sl, 1250, int(p["score_tick_ms"]))
-	elif which == "__all__" and sl != null: sl.text = "1,250"
-	if want.call("score_pulse"): RushFx.cell_pop(c.get("score_cell"), int(p["score_pulse_pct"]))
-	if ml != null: ml.text = "×2.0"
-	if want.call("mult_pop"): RushFx.cell_pop(c.get("mult_cell"), int(p["mult_pop_pct"]))
-	if want.call("combo_heat"): RushFx.combo_heat(c["wrap"], c["tile_ctr"] - Vector2(0.0, c["tile_px"]), 6, int(p["combo_heat_size"]))
-	if tl != null: tl.text = "0:06"
-	if want.call("timer_low"): RushFx.timer_low(tl, 6, true, int(p["timer_low_secs"]))
-	if want.call("treefall_crack"): RushFx.treefall_crack(c["wrap"], c["demo"], c["tile_ctr"], true, int(p["treefall_debris"]), float(p["treefall_shake"]), int(p["treefall_hitstop_ms"]))
-
-func _rebuild_sidebar() -> void:
-	if _sidebar_body == null or not is_instance_valid(_sidebar_body):
-		return
-	for c in _sidebar_body.get_children():
-		_sidebar_body.remove_child(c)
-		c.queue_free()
-	var head := Label.new()
-	head.text = "Options"
-	head.add_theme_font_size_override("font_size", FS.MEDIUM)
-	_sidebar_body.add_child(head)
-	var save := Button.new()
-	save.text = "Save settings"
-	save.pressed.connect(_save_settings)
-	_sidebar_body.add_child(save)
-	var sub := Label.new()
-	sub.text = String(CAPTIONS[_selected])
-	sub.add_theme_font_size_override("font_size", FS.MICRO)
-	sub.add_theme_color_override("font_color", Color(Pal.CREAM, 0.65))
-	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sidebar_body.add_child(sub)
+## The per-element explanatory notes shown under the caption.
+func _sidebar_notes(_id: String) -> void:
 	if _selected == "daily_card":
 		var note := Label.new()
 		note.text = "This single day card is reused by the Daily dialog. (The Claim is the shared Button.) Preview a state below; the badges show on today / milestone."
@@ -2181,18 +1422,14 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
-	if _selected == "fx":
-		var note := Label.new()
-		note.text = "Coin Flow is one shared reward-flight component. Saved settings tune the shared feel and gate which actions use it; test settings only change this preview."
-		note.add_theme_font_size_override("font_size", FS.DEBUG)
-		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_sidebar_body.add_child(note)
-	_sidebar_body.add_child(HSeparator.new())
+
+## The UNIVERSAL Shadow toggle — every component casts the ONE shared shadow (tuned on the Shadow item).
+## Skipped on the Shadow item itself (that IS the editor).
+func _sidebar_common_rows(_id: String) -> void:
 
 	# the UNIVERSAL Shadow toggle — every component casts the ONE shared shadow (tuned on the Shadow item).
 	# Skipped on the Shadow item itself (that IS the editor).
-	if _selected != "shadow" and _selected != "fx":
+	if _selected != "shadow":
 		_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
 		var sn := Label.new()
 		sn.text = "Casts the shared drop shadow — tune its look on the Shadow item."
@@ -2204,9 +1441,9 @@ func _rebuild_sidebar() -> void:
 
 	# Every element splits its controls into the two buckets (see TEST_KEYS): the persisted design
 	# config first, then the transient test/preview scaffolding that the config file never touches.
+
+func _element_sidebar(_id: String) -> void:
 	match _selected:
-		"fx":
-			_fx_sidebar()
 		"shadow":
 			_group_header("Saved to config", true)
 			_section_header("Cast (offset-based — size-independent)")
@@ -2551,56 +1788,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_size", 20, 100]))  # the score coin
 			_sidebar_body.add_child(_slider_row(["leaf_size", 30, 160]))  # the flank oak-leaf clusters
 			_sidebar_body.add_child(_slider_row(["crown_size", 30, 160])) # the acorn crown over the centre
-		"rush_fx":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_toggle_row("All effects (master)", "enabled"))
-			_section_header("Each effect — flip · tune · ▶ to feel it (the game honours these)")
-			for e in RushFx.EFFECTS:
-				var fid := String(e.get("id", ""))
-				_section_header(String(e.get("label", fid)))
-				_sidebar_body.add_child(_toggle_row("On", fid))
-				var rb := Button.new()
-				rb.name = "RushFxReplay_%s" % fid
-				rb.text = "▶  Replay"
-				rb.set_meta("wb_active", true)
-				rb.add_theme_font_size_override("font_size", FS.TINY)
-				rb.pressed.connect(func() -> void: _rush_fx_play(fid))
-				_sidebar_body.add_child(rb)
-				for spec in RUSH_FX_KNOBS.get(fid, []):
-					_sidebar_body.add_child(_slider_row(spec))
-		"land_fx":
-			_feel_trigger_button("▶  Drop", _land_fx_play)
-			_feel_fx_sidebar(LandFx.EFFECTS, LAND_FX_KNOBS)
-		"merge_fx":
-			_feel_trigger_button("▶  Merge", _merge_fx_play)
-			_group_header("Saved to config", true)
-			_section_header("Approach")
-			_sidebar_body.add_child(_slider_row(["merge_slide_ms", 60, 260]))
-			_group_header("Preview only — not saved", false)
-			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))    # drives colour / flash / pitch escalation
-			_sidebar_body.add_child(_slider_row(["combo", 0, 10]))   # climbs the pentatonic ladder + gates hitstop
-			_feel_fx_sidebar(MergeFx.EFFECTS, MERGE_FX_KNOBS)
-		"launch_fx":
-			_feel_trigger_button("▶  Launch", _launch_fx_play)
-			_feel_fx_sidebar(LaunchFx.EFFECTS, LAUNCH_FX_KNOBS)
-		"move_fx":
-			_feel_trigger_button("▶  Send", _move_fx_play)
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_toggle_row("All cues (master)", "enabled"))
-			_group_header("Preview only — not saved", false)
-			_sidebar_body.add_child(_option_row("Kind", "kind", MoveFx_KINDS))   # slide / arc / fall (the game passes the live kind)
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["duration_ms", 60, 600]))       # travel speed — applies to every kind
-			_section_header("Each cue — flip · tune · ▶ to feel it (the game honours these)")
-			for e in MoveFx.EFFECTS:
-				var mfid := String(e.get("id", ""))
-				_section_header(String(e.get("label", mfid)))
-				_sidebar_body.add_child(_toggle_row("On", mfid))
-				for spec in MOVE_FX_KNOBS.get(mfid, []):
-					_sidebar_body.add_child(_slider_row(spec))
-		"grab_fx":
-			_feel_trigger_button("▶  Grab", _grab_fx_play)
-			_feel_fx_sidebar(GrabFx.EFFECTS, GRAB_FX_KNOBS)
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")
@@ -2747,71 +1934,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["fence_h", 160, 460]))    # preview stand height
 			_sidebar_body.add_child(_toggle_row("Ready (✓)", "met"))       # preview the deliverable state
 
-	_constrain_sidebar_text(_sidebar_body)
-
-func _constrain_sidebar_text(node: Node) -> void:
-	if node is Label:
-		var label := node as Label
-		if label.autowrap_mode != TextServer.AUTOWRAP_OFF or label.get_parent() == _sidebar_body:
-			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			label.custom_minimum_size.x = 0.0
-			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for child in node.get_children():
-		_constrain_sidebar_text(child)
-
-func _wrap_sidebar_row_label(label: Label) -> void:
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-
-## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
-func _group_header(title: String, saved: bool) -> void:
-	_sidebar_body.add_child(HSeparator.new())
-	var l := Label.new()
-	l.text = ("●  " if saved else "○  ") + title
-	l.add_theme_font_size_override("font_size", FS.CAPTION)
-	l.add_theme_color_override("font_color", Pal.STRAW if saved else Color(Pal.CREAM, 0.5))
-	_sidebar_body.add_child(l)
-
-## A small section header in the sidebar (a separator + an accent label), to group settings.
-func _section_header(title: String) -> void:
-	_sidebar_body.add_child(HSeparator.new())
-	var l := Label.new()
-	l.text = title
-	l.add_theme_font_size_override("font_size", FS.TINY)
-	l.add_theme_color_override("font_color", Pal.STRAW)
-	_sidebar_body.add_child(l)
-
-## A ▶ trigger button for a feel-verb inspector (Drop / Merge / Launch / Send) — fires `play` on the live
-## stage ctx, exactly like the rush_fx ▶ Replay. `wb_active` keeps it clickable inside the gallery.
-func _feel_trigger_button(label: String, play: Callable) -> void:
-	var b := Button.new()
-	b.text = label
-	b.set_meta("wb_active", true)
-	b.add_theme_font_size_override("font_size", FS.FOOTNOTE)
-	b.pressed.connect(play)
-	_sidebar_body.add_child(b)
-
-## The shared feel-verb inspector body (mirrors the rush_fx case): the master toggle, then per-effect a
-## label · "On" toggle · the effect's knob sliders (from the *_FX_KNOBS spec). Every key is saved to config.
-## (move_fx builds its own variant inline because it inserts a KIND selector + duration under the master.)
-func _feel_fx_sidebar(effects: Array, knobs: Dictionary) -> void:
-	_group_header("Saved to config", true)
-	_sidebar_body.add_child(_toggle_row("All cues (master)", "enabled"))
-	_section_header("Each cue — flip · tune · ▶ to feel it (the game honours these)")
-	for e in effects:
-		var fid := String(e.get("id", ""))
-		_section_header(String(e.get("label", fid)))
-		var tip := String(e.get("tip", ""))
-		if tip != "":
-			var t := Label.new()
-			t.text = tip
-			t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			t.add_theme_font_size_override("font_size", FS.DEBUG)
-			t.add_theme_color_override("font_color", Color(Pal.CREAM, 0.6))
-			_sidebar_body.add_child(t)
-		_sidebar_body.add_child(_toggle_row("On", fid))
-		for spec in knobs.get(fid, []):
-			_sidebar_body.add_child(_slider_row(spec))
 
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.
 func _frame_sidebar() -> void:
@@ -2874,114 +1996,6 @@ func _vault_sidebar() -> void:
 	_sidebar_body.add_child(_slider_row(["balance", 0, 999]))       # the previewed gem read
 	_sidebar_body.add_child(_toggle_row("Claimable", "claimable"))  # toggles the CTA dim + hint
 
-func _slider_row(spec: Array, target := "") -> Control:
-	var key: String = spec[0]
-	var lo: float = float(spec[1])
-	var hi: float = float(spec[2])
-	var params: Dictionary = _params[target if target != "" else _selected]
-	if not params.has(key):
-		params[key] = clampf(lo, lo, hi)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = key.replace("_", " ").capitalize()
-	lbl.custom_minimum_size = Vector2(118, 0)
-	_wrap_sidebar_row_label(lbl)
-	row.add_child(lbl)
-	# An ABSOLUTE font size is quantized to the FontScale ladder — the slider steps tier by tier,
-	# so a tuned-and-saved size can only ever be a named tier (the app has no other legal sizes).
-	# Relative font knobs are excluded: a ± px NUDGE (lo < 0) or a % (its key isn't a font size).
-	var tiers: Array = FS.tiers_in(lo, hi) if (key == "font" or key.ends_with("_font")) and lo >= 0.0 else []
-	if tiers.size() >= 2:
-		return _tier_slider_row(row, params, key, tiers)
-	var s := HSlider.new()
-	s.min_value = lo
-	s.max_value = hi
-	s.step = 1
-	s.value = float(params[key])
-	params[key] = s.value          # keep the param in sync if the value was out of range (clamped)
-	s.custom_minimum_size = Vector2(0, 28)
-	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(s)
-	var val := Label.new()
-	val.text = "%d" % int(params[key])
-	val.custom_minimum_size = Vector2(44, 0)
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(val)
-	s.value_changed.connect(func(x: float) -> void:
-		params[key] = x
-		val.text = "%d" % int(x)
-		_apply_edit())
-	return row
-
-## A font-size slider that steps over the FontScale TIERS instead of raw px: the slider's value is
-## an INDEX into `tiers`, so every stop is a named tier and the saved config can't hold a loose size.
-## The readout shows the px it resolves to. Any pre-existing loose value snaps to its nearest tier.
-func _tier_slider_row(row: HBoxContainer, params: Dictionary, key: String, tiers: Array) -> Control:
-	var idx := maxi(0, tiers.find(FS.snap(float(params[key]))))
-	params[key] = float(tiers[idx])          # migrate a loose saved value onto the ladder
-	var s := HSlider.new()
-	s.min_value = 0
-	s.max_value = tiers.size() - 1
-	s.step = 1
-	s.value = idx
-	s.set_meta("font_tiers", tiers)   # the px ladder this index-slider steps over (read by tests/tooling)
-	s.custom_minimum_size = Vector2(0, 28)
-	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(s)
-	var val := Label.new()
-	val.text = "%d" % int(params[key])
-	val.custom_minimum_size = Vector2(44, 0)
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(val)
-	s.value_changed.connect(func(x: float) -> void:
-		var px: int = int(tiers[clampi(int(x), 0, tiers.size() - 1)])
-		params[key] = float(px)
-		val.text = "%d" % px
-		_apply_edit())
-	return row
-
-func _text_row(label: String, key: String) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.custom_minimum_size = Vector2(118, 0)
-	_wrap_sidebar_row_label(lbl)
-	row.add_child(lbl)
-	var le := LineEdit.new()
-	le.text = String(_params[_selected].get(key, ""))
-	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	le.text_changed.connect(func(t: String) -> void:
-		_params[_selected][key] = t
-		_apply_edit())
-	row.add_child(le)
-	return row
-
-# A colour swatch row: a ColorPickerButton bound to a 6-digit hex param (no '#', no alpha). Writes the
-# hex back on change and re-renders the preview live — the only colour control in the workbench so far.
-func _color_row(label: String, key: String, target := "") -> Control:
-	var params: Dictionary = _params[target if target != "" else _selected]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.custom_minimum_size = Vector2(118, 0)
-	_wrap_sidebar_row_label(lbl)
-	row.add_child(lbl)
-	var btn := ColorPickerButton.new()
-	btn.custom_minimum_size = Vector2(0, 28)
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.edit_alpha = false
-	btn.color = Color.from_string("#" + String(params.get(key, "FFFFFF")).lstrip("#"), Color.WHITE)
-	btn.color_changed.connect(func(c: Color) -> void:
-		params[key] = c.to_html(false)   # store "rrggbb" (6 hex digits, no '#', no alpha)
-		_apply_edit())
-	row.add_child(btn)
-	return row
-
 # Slot-well opts for the focus-ring preview: the SAME shared slot cell the board draws, sized to the
 # preview cell so the brackets frame a real board well.
 func _focus_slot_opts(fcell: float) -> Dictionary:
@@ -2990,275 +2004,3 @@ func _focus_slot_opts(fcell: float) -> Dictionary:
 	o["cell_h"] = fcell
 	return o
 
-func _toggle_row(label: String, key: String, rebuild_sidebar := false, target := "") -> Control:
-	var params: Dictionary = _params[target if target != "" else _selected]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.custom_minimum_size = Vector2(118, 0)
-	_wrap_sidebar_row_label(lbl)
-	row.add_child(lbl)
-	var cb := CheckButton.new()
-	cb.button_pressed = bool(params.get(key, false))
-	cb.toggled.connect(func(on: bool) -> void:
-		params[key] = on
-		_apply_edit()
-		if rebuild_sidebar:
-			_rebuild_sidebar.call_deferred())   # defer — we're inside this toggle's own signal
-	row.add_child(cb)
-	return row
-
-func _option_row(label: String, key: String, options: Array, rebuild_sidebar := false) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.custom_minimum_size = Vector2(118, 0)
-	_wrap_sidebar_row_label(lbl)
-	row.add_child(lbl)
-	var ob := OptionButton.new()
-	var cur := String(_params[_selected].get(key, options[0]))
-	for i in options.size():
-		ob.add_item(String(options[i]).capitalize(), i)
-		if String(options[i]) == cur:
-			ob.select(i)
-	ob.item_selected.connect(func(idx: int) -> void:
-		_params[_selected][key] = String(options[idx])
-		_apply_edit()
-		if rebuild_sidebar:
-			_rebuild_sidebar.call_deferred())   # defer — we're inside this option's own signal
-	row.add_child(ob)
-	return row
-
-func _fx_sidebar() -> void:
-	var saved := Label.new()
-	saved.name = "WorkbenchFxSavedSettingsHeader"
-	saved.text = "●  Saved to config"
-	saved.add_theme_font_size_override("font_size", FS.CAPTION)
-	saved.add_theme_color_override("font_color", Pal.STRAW)
-	_sidebar_body.add_child(saved)
-	_section_header("Action gates")
-	for entry in FxWorkbenchView.FX_DEFS:
-		var def: Dictionary = entry
-		var fx_id := String(def.get("id", ""))
-		var toggle := CheckButton.new()
-		toggle.name = "WorkbenchFxActionToggle_%s" % fx_id
-		toggle.text = String(def.get("label", fx_id))
-		toggle.button_pressed = FX.reward_fx_enabled(fx_id)
-		toggle.add_theme_color_override("font_color", Pal.CREAM)
-		toggle.toggled.connect(func(on: bool) -> void:
-			_fx_set_enabled(fx_id, on))
-		_sidebar_body.add_child(toggle)
-
-	_section_header("Feel")
-	_sidebar_body.add_child(_fx_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
-	_sidebar_body.add_child(_fx_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
-
-	var test := Label.new()
-	test.name = "WorkbenchFxTestSettingsHeader"
-	test.text = "○  Test only — not saved"
-	test.add_theme_font_size_override("font_size", FS.CAPTION)
-	test.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
-	_sidebar_body.add_child(test)
-	_sidebar_body.add_child(_fx_action_row())
-	var replay := Button.new()
-	replay.name = "WorkbenchFxReplayButton"
-	replay.text = "Replay"
-	replay.disabled = not FX.reward_fx_enabled(_fx_selected)
-	replay.pressed.connect(_fx_replay)
-	_sidebar_body.add_child(replay)
-	_sidebar_body.add_child(_fx_slider_row("Amount", "amount", FX.REWARD_FX_MIN_AMOUNT, FX.REWARD_FX_MAX_AMOUNT, 1))
-	_sidebar_body.add_child(_fx_slider_row("Source size", "coin_size", FX.REWARD_FX_MIN_SOURCE_SIZE, FX.REWARD_FX_MAX_SOURCE_SIZE, 1))
-	var auto := CheckButton.new()
-	auto.name = "WorkbenchFxAutoReplayToggle"
-	auto.text = "Auto replay"
-	var preview := _fx_preview()
-	auto.button_pressed = bool(preview.get("_settings").get("auto_replay", false)) if preview != null else false
-	auto.add_theme_color_override("font_color", Pal.CREAM)
-	auto.toggled.connect(func(on: bool) -> void:
-		_fx_set_auto_replay(on))
-	_sidebar_body.add_child(auto)
-
-func _fx_action_row() -> Control:
-	var row := HBoxContainer.new()
-	row.name = "WorkbenchFxPreviewActionRow"
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = "Preview action"
-	lbl.custom_minimum_size = Vector2(118, 0)
-	row.add_child(lbl)
-	var opt := OptionButton.new()
-	opt.name = "WorkbenchFxPreviewActionOption"
-	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in FxWorkbenchView.FX_DEFS.size():
-		var def: Dictionary = FxWorkbenchView.FX_DEFS[i]
-		opt.add_item(String(def.get("label", def.get("id", ""))), i)
-		if String(def.get("id", "")) == _fx_selected:
-			opt.select(i)
-	opt.item_selected.connect(func(index: int) -> void:
-		var def: Dictionary = FxWorkbenchView.FX_DEFS[index]
-		_fx_select(String(def.get("id", "coin_pickup"))))
-	row.add_child(opt)
-	return row
-
-func _fx_slider_row(label: String, key: String, lo: float, hi: float, step: float) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.custom_minimum_size = Vector2(118, 0)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(lbl)
-	var s := HSlider.new()
-	s.name = "WorkbenchFx%sSlider" % _pascal_fx_key(key)
-	s.min_value = lo
-	s.max_value = hi
-	s.step = step
-	s.value = float(_fx_global_value(key))
-	s.custom_minimum_size = Vector2(0, 28)
-	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(s)
-	var val := Label.new()
-	val.text = "%d" % int(round(s.value))
-	val.custom_minimum_size = Vector2(44, 0)
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(val)
-	s.value_changed.connect(func(x: float) -> void:
-		var iv := int(round(x))
-		val.text = "%d" % iv
-		_fx_set_global_setting(key, iv))
-	return row
-
-func _pascal_fx_key(key: String) -> String:
-	var out := ""
-	for part in key.split("_"):
-		out += String(part).capitalize()
-	return out
-
-func _fx_global_value(key: String) -> int:
-	var preview := _fx_preview()
-	if preview != null and preview.has_method("_set_global_setting"):
-		var settings: Dictionary = preview.get("_settings")
-		if settings.has(key):
-			return int(round(float(settings.get(key, 0))))
-	match key:
-		"amount":
-			return FX.reward_fx_amount()
-		"icon_size":
-			return int(round(FX.reward_fx_icon_size()))
-		"trail_count":
-			return FX.reward_fx_trail_count()
-		"coin_size":
-			return int(round(FX.reward_fx_source_size()))
-		_:
-			return 0
-
-func _fx_preview() -> Control:
-	return find_child("FxWorkbenchComponent", true, false) as Control
-
-func _fx_select(id: String) -> void:
-	_fx_selected = id
-	var preview := _fx_preview()
-	if preview != null and is_instance_valid(preview):
-		preview.call("_select_action", id)
-	else:
-		_rebuild_element("fx")
-	_rebuild_sidebar.call_deferred()
-
-func _fx_set_enabled(id: String, on: bool) -> void:
-	var preview := _fx_preview()
-	if preview != null and is_instance_valid(preview):
-		preview.call("_set_fx_enabled", id, on)
-	else:
-		FX.set_reward_fx_enabled(id, on)
-	_rebuild_sidebar.call_deferred()
-
-func _fx_set_global_setting(key: String, value: int) -> void:
-	var preview := _fx_preview()
-	if preview != null and is_instance_valid(preview):
-		preview.call("_set_global_setting", key, value)
-		return
-	match key:
-		"amount":
-			FX.set_reward_fx_amount(value)
-		"icon_size":
-			FX.set_reward_fx_icon_size(float(value))
-		"trail_count":
-			FX.set_reward_fx_trail_count(value)
-		"coin_size":
-			FX.set_reward_fx_source_size(float(value))
-
-func _fx_set_auto_replay(on: bool) -> void:
-	var preview := _fx_preview()
-	if preview != null and is_instance_valid(preview):
-		preview.call("_set_auto_replay", on)
-	else:
-		FX.set_reward_fx_auto_replay(on)
-
-func _fx_replay() -> void:
-	var preview := _fx_preview()
-	if preview != null and is_instance_valid(preview):
-		preview.call("_play_selected")
-
-func _fx_def(id: String) -> Dictionary:
-	for entry in FxWorkbenchView.FX_DEFS:
-		var def: Dictionary = entry
-		if String(def.get("id", "")) == id:
-			return def
-	return FxWorkbenchView.FX_DEFS[0]
-
-## --- persistence -------------------------------------------------------------------------------
-
-## Is this element/key a persisted design setting (vs transient test scaffolding from TEST_KEYS)?
-func _is_config(id: String, key: String) -> bool:
-	return not (key in TEST_KEYS.get(id, []))
-
-func _save_settings() -> void:
-	# write ONLY the config bucket — test/preview scaffolding (button icon, dialog entries, …) is excluded
-	var out := {}
-	for id in _params.keys():
-		if id == "fx":
-			continue
-		var sub := {}
-		for k in (_params[id] as Dictionary).keys():
-			if _is_config(id, k):
-				sub[k] = _params[id][k]
-		out[id] = sub
-	out["fx"] = FX.reward_fx_config()
-	var f := FileAccess.open(SETTINGS, FileAccess.WRITE)
-	if f == null:
-		push_warning("UI Workbench: could not write %s" % SETTINGS)
-		return
-	f.store_string(JSON.stringify(out, "\t"))
-	f.close()
-	Kit.clear_config_cache(SETTINGS)   # so any live Kit reader picks up the new file (not the stale cache)
-	print("WORKBENCH: settings saved -> %s" % SETTINGS)
-
-## Merge the saved file over the defaults, copying ONLY config keys present in both — so test
-## scaffolding is never restored, and an older or newer settings file can't corrupt the live schema.
-func _load_settings() -> void:
-	if not FileAccess.file_exists(SETTINGS):
-		return
-	var f := FileAccess.open(SETTINGS, FileAccess.READ)
-	if f == null:
-		return
-	var data = JSON.parse_string(f.get_as_text())
-	f.close()
-	if not (data is Dictionary):
-		return
-	# MIGRATION: the shared frame's keys used to live under "dialog"; they're a standalone "frame" now.
-	# An older file has them under "dialog" — lift those into "frame" so prior tuning isn't lost.
-	if data.has("dialog") and data["dialog"] is Dictionary and not data.has("frame"):
-		var fr := {}
-		for k in (_params["frame"] as Dictionary).keys():
-			if (data["dialog"] as Dictionary).has(k):
-				fr[k] = data["dialog"][k]
-		if not fr.is_empty():
-			data["frame"] = fr
-	for id in _params.keys():
-		if data.has(id) and data[id] is Dictionary:
-			for k in (_params[id] as Dictionary).keys():
-				if _is_config(id, k) and (data[id] as Dictionary).has(k):
-					_params[id][k] = data[id][k]
