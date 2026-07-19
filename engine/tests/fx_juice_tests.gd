@@ -176,5 +176,20 @@ func _initialize() -> void:
 		"fit_amount: a wide string shrinks the font until it fits the cell")
 	wl.queue_free()
 
+	# --- fit_amount right-anchors: wider strings grow LEFT, keeping a constant right edge ---
+	var ra := Label.new(); ra.add_theme_font_size_override("font_size", 30)
+	ra.set_meta("amount_base_font", 30); ra.set_meta("amount_max_w", 400.0)
+	ra.set_meta("amount_slot_w", 40.0); ra.set_meta("amount_right_x", 100.0)
+	get_root().add_child(ra)
+	ra.text = "100"; FX.fit_amount(ra)
+	var edge_short := ra.position.x + ra.custom_minimum_size.x
+	var pos_short := ra.position.x
+	ra.text = "12.3K"; FX.fit_amount(ra)
+	var edge_wide := ra.position.x + ra.custom_minimum_size.x
+	ok(is_equal_approx(edge_short, 100.0) and is_equal_approx(edge_wide, 100.0), \
+		"fit_amount: the right edge stays pinned at amount_right_x for both a short and a wide amount")
+	ok(ra.position.x < pos_short, "fit_amount: a wider amount slides its box LEFT (grows toward the icon)")
+	ra.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

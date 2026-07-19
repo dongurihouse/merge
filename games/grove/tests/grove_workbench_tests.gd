@@ -718,7 +718,8 @@ func _initialize() -> void:
 	var live_plus_art := _first_control(hud.coin_pill, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
 	ok(live_amount_slot != null and live_amount != null and live_plus != null and live_plus_art != null \
 		and absf(live_amount_slot.custom_minimum_size.x - float(live_gold_opts.amount_w)) <= 0.01 \
-		and absf(live_amount.position.x - float(live_gold_opts.amount_x)) <= 0.01 \
+		and absf((live_amount.position.x + live_amount.custom_minimum_size.x) \
+			- (float(live_gold_opts.amount_x) + float(live_gold_opts.amount_w))) <= 0.5 \
 		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
 		and String(live_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
 		"live HUD applies the Workbench amount box and Meadow plus-art location settings")
