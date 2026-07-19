@@ -57,6 +57,8 @@ const REWARD_ART := {
 const ART_CHEST := "kit/daily_reward_chest.png"   # day-7 capstone / future milestone
 const ART_GIFT := "kit/daily_reward_gift.png"     # slot-4 mystery day (the wrapped box)
 const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
+const ART_LEAF_L := "kit/daily_chest_leaf_l.png"  # day-7 chest decal — cut-paper oak sprig, left
+const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-paper oak sprig, right
 
 ## A small four-point sparkle, code-drawn (the mock scatters them over today's cell and the capstone
 ## banner). Code-drawn rather than art so it scales cleanly with the cell.
@@ -339,12 +341,20 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	inner.add_child(col)
 	col.add_child(_cell_label(Kit, String(d.get("label", "")), cw))
 
-	# the chest sits centred on the banner. (The flanking leaf sprigs were removed — the chest reads on
-	# its own for now.)
-	var row := CenterContainer.new()
+	# the chest sits centred on the banner, flanked by the cut-paper oak sprigs (Direction-B decal). The
+	# sprites carry their own colour + gold berries, so no modulate tint — they read as-is beside the chest.
+	var row := HBoxContainer.new()
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(h * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.62)
+	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(sprig_l)
 	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.70))
+	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.62)
+	sprig_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(sprig_r)
 	col.add_child(row)
 
 	if state == "today":
