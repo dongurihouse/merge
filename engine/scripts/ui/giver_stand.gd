@@ -4,7 +4,7 @@ extends RefCounted
 ## live content (portrait, ask item, progress, reward text, ready check) stays code-driven.
 ## The engine draws the live content ON TOP: the character portrait in the card field, the
 ## requested item in a cream ask-bubble (item over an "N/1" count) at the top-right, and the
-## +N reward centred on the painted plaque. The per-item green ✓ overtakes the item when payable.
+## +N reward centred on the paper reward pill. The per-item green ✓ overtakes the item when payable.
 ## (Featured-ness is NOT surfaced here — the flag/bonus pay out silently; see the note in make().)
 ## Stateless: state (the quests array, payability) stays in the board coordinator; this only
 ## assembles nodes and returns their refs. Tap behaviour is injected as `Callable`s so this
@@ -33,15 +33,17 @@ const BARK = Game.PALETTE.BARK
 const INK = Game.PALETTE.INK
 const MEADOW_UI := "ui/meadow_v2/%s"
 
-# the authored Meadow paper card's native size (ui/meadow_v2/card_generic.png): a wide blank
-# grainy card. The card is drawn as a NINE-SLICE (see _quest_card), so the rounded paper corners stay
-# crisp while only the centre parchment stretches — this native size is the reference for the slice margins
-# (card_slice_*) and the no-distortion box shape.
-const CARD_ART_W := 146.0
-const CARD_ART_H := 87.0
-const PLAQUE_AR := 1.0                    # ui/meadow_v2/reward_token.png is a square token.
-const PAPER_PATCH := Vector4(34, 28, 34, 28)
-const RESOURCE_PILL_PATCH := Vector4(52, 52, 52, 52)
+# The card surface wears the HUD pills' shared paper look (flat cream + thin PAPER_EDGE rim +
+# a texture_cream grain layer from the UI kit) — see _paper_panel. The kit is loaded at runtime
+# (matches hud.gd / action_bar.gd) to avoid a preload cycle. card_slice_* lay keys are retired
+# with the old card_generic nine-slice but still accepted (ignored) from saved configs.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const PAPER_TEXTURE := "texture_cream.png"
+const PAPER_FILL := Color("#F6EBDD")
+const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const CARD_CORNER_FRAC := 0.12            # card corner radius as a fraction of the card height
+const BUBBLE_PATH := "ui/quest/bubble_ask.png"   # the real speech bubble (tail toward the character)
+const PLAQUE_AR := 2.1                    # the reward is a wide paper pill (w : h), not a square token
 
 static func _meadow_path(file_name: String) -> String:
 	return Game.art(MEADOW_UI % file_name)
@@ -53,7 +55,7 @@ static func _meadow_tex(file_name: String) -> Texture2D:
 # Tunable layout — ALL fractions. card_w / card_h are the box's width / height fraction of the stand,
 # INDEPENDENT (the art fills the box, so a box off the art's ~1.77:1 native shape stretches it). The rest
 # are a size (×cardH) and a centre x/y (×cardW, ×cardH): the bust fills the LEFT half, the standalone speech
-# bubble + the asked item ride the upper RIGHT, and the wooden plaque hangs just below the bubble. These are
+# bubble + the asked item ride the upper RIGHT, and the reward pill hangs just below the bubble. These are
 # the SHIPPED DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved config
 # (Kit.giver_lay_from_config), overriding per key — so designers tune + Save in the workbench, not here.
 # card_h 0.65 keeps the board card at its native shape (card_w·sw : card_h·fh ≈ 1.77 on the live fence).
@@ -65,9 +67,9 @@ const LAY := {
 	"plaque_w": 0.40, "plaque_x": 0.72, "plaque_y": 0.81,
 }
 
-# A wide blank parchment signboard (board1_asset3 art). The character bust fills the LEFT HALF (free to
+# A paper card in the HUD pills' family (_paper_panel). The character bust fills the LEFT HALF (free to
 # overflow the box edges); the asked item sits on a STANDALONE speech bubble (board1_asset1, tail toward
-# the character) in the upper RIGHT; the +N reward sits on the wooden plaque hung just BELOW the bubble.
+# the character) in the upper RIGHT; the +N reward sits on the paper reward pill hung just BELOW the bubble.
 # The bubble is a fixed-size sprite, so it never stretches with the card. No level badge, no count. No
 # separate stand-level check — the per-item ✓ is the ready signal.
 static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
@@ -88,9 +90,8 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
 	# the box: sized DIRECTLY to card_w × card_h of the stand — width and height are INDEPENDENT, so card_h
-	# is a true height knob (the workbench tunes each). The art fills the box (STRETCH_SCALE), so a box that
-		# leaves the card art's native ~1.68:1 shape (CARD_ART_W/CARD_ART_H) stretches the frame; keep
-	# card_w·sw : card_h·fh near that ratio to stay undistorted. Centred in the stand.
+	# is a true height knob (the workbench tunes each). The surface is code-drawn paper (_paper_panel), so
+	# any box shape stays crisp. Centred in the stand.
 	var cardW: float = sw * float(L.card_w)
 	var cardH: float = fh * float(L.card_h)
 	var cx := (sw - cardW) / 2.0
@@ -158,24 +159,24 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# (The "incoming generator" reward preview was removed with the SINGLE-GENERATOR model: quests no
 	# longer carry a `reward.generators` grant — the one map-0 anchor pops every opened line, so there is
 	# no next-map tool to preview.)
-	# the reusable reward token — seated INSIDE the box at the bottom-centre, in FRONT of the bust, with
-	# the +N reward centred on its gold paper face.
+	# the reward pill — seated INSIDE the box at the bottom, in FRONT of the bust, with the
+	# coin + "+N" reward centred on its paper face.
 	var plw := cardW * float(L.plaque_w)
 	var plh := plw / PLAQUE_AR
 	var pcx := cx + cardW * float(L.plaque_x)
-	var pcy := cy + cardH * float(L.plaque_y)        # the plaque sprite (= wood face) centre
+	var pcy := cy + cardH * float(L.plaque_y)        # the reward pill centre
 	var plaque := _reward_plaque(plw, plh)
 	plaque.position = Vector2(pcx - plw / 2.0, pcy - plh / 2.0)
 	stand.add_child(plaque)
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 3)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pay.add_child(Look.icon("coin", plh * 0.50))
+	pay.add_child(Look.icon("coin", plh * 0.62))
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.coins(q)
-	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.42))
+	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.52))
 	pay_lbl.add_theme_color_override("font_color", INK)
-	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid plaque behind — no halo
+	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid pill behind — no halo
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pay.add_child(pay_lbl)
 	# centre the pair on the plaque face. Driven by resized — fires only while `pay` is alive + in-tree
@@ -195,32 +196,37 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
 	return {"chip": stand, "qi": qi, "item": item_ui, "check": null, "bust": bust}
 
-# The quest card surface: a Meadow paper card stretched as a nine-slice; fallback remains a flat parchment
-# card if the art is absent.
-static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
-	var tex := _meadow_tex("card_generic.png")
-	if tex != null:
-		var t := NinePatchRect.new()
-		t.name = "MeadowQuestCard"
-		t.texture = tex
-		t.patch_margin_left = int(lay.get("card_slice_l", PAPER_PATCH.x))
-		t.patch_margin_top = int(lay.get("card_slice_t", PAPER_PATCH.y))
-		t.patch_margin_right = int(lay.get("card_slice_r", PAPER_PATCH.z))
-		t.patch_margin_bottom = int(lay.get("card_slice_b", PAPER_PATCH.w))
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_add_card_shadow(t, h, lay)
-		return t
-	var card := Panel.new()
+# One paper-family surface (shared by the card and the reward pill): a flat cream rounded panel
+# with the thin PAPER_EDGE rim, carrying the kit's texture_cream grain layer clipped to the same
+# corners — the exact recipe the HUD pills wear, so every quest surface sits in the pills' family.
+static func _paper_panel(node_name: String, corner: float) -> Panel:
+	var panel := Panel.new()
+	panel.name = node_name
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FBF1D8", 0.98)
-	sb.set_corner_radius_all(20)
-	sb.set_border_width_all(3)
-	sb.border_color = Color("#C9A66B")
-	sb.shadow_color = Color("#294654", 0.20)
-	sb.shadow_size = 7
-	sb.shadow_offset = Vector2(0, 4)
-	card.add_theme_stylebox_override("panel", sb)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sb.bg_color = PAPER_FILL
+	sb.border_color = PAPER_EDGE
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(int(round(corner)))
+	sb.anti_aliasing = true
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit != null:
+		var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(panel, node_name + "Paper", PAPER_TEXTURE, corner, 2.0)
+		if paper != null:
+			# a plain Panel has no container layout — anchor the grain into the 2px rim inset ourselves
+			paper.set_anchors_preset(Control.PRESET_FULL_RECT)
+			paper.offset_left = 2.0
+			paper.offset_top = 2.0
+			paper.offset_right = -2.0
+			paper.offset_bottom = -2.0
+	return panel
+
+# The quest card surface: the shared paper panel at the card's corner radius (the mock's plain-border
+# paper card). lay is still consulted for the shared shadow toggle; card_slice_* keys are ignored.
+static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
+	var card := _paper_panel("MeadowQuestCard", maxf(10.0, h * CARD_CORNER_FRAC))
+	_add_card_shadow(card, h, lay)
 	return card
 
 # Cast the ONE SHARED drop-shadow behind the card when the universal Shadow toggle is on (lay.shadow). Reuses
@@ -245,21 +251,17 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 # kept, so the tail stays put) — a plain cream rounded panel when the art is absent. The caller seats
 # the asked item on it.
 static func _speech_bubble(d: float) -> Control:
-	var tex := _meadow_tex("resource_pill.png")
-	if tex != null:
-		var panel := Panel.new()
-		panel.name = "MeadowAskBubble"
-		panel.custom_minimum_size = Vector2(d, d)
-		panel.size = Vector2(d, d)
-		var sb := StyleBoxTexture.new()
-		sb.texture = tex
-		sb.set_texture_margin(SIDE_LEFT, int(RESOURCE_PILL_PATCH.x))
-		sb.set_texture_margin(SIDE_TOP, int(RESOURCE_PILL_PATCH.y))
-		sb.set_texture_margin(SIDE_RIGHT, int(RESOURCE_PILL_PATCH.z))
-		sb.set_texture_margin(SIDE_BOTTOM, int(RESOURCE_PILL_PATCH.w))
-		panel.add_theme_stylebox_override("panel", sb)
-		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return panel
+	var path := Game.art(BUBBLE_PATH)
+	if ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.name = "MeadowAskBubble"
+		t.texture = load(path)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.custom_minimum_size = Vector2(d, d)
+		t.size = Vector2(d, d)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
 	var panel := Panel.new()
 	panel.custom_minimum_size = Vector2(d, d)
 	panel.size = Vector2(d, d)
@@ -272,32 +274,15 @@ static func _speech_bubble(d: float) -> Control:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return panel
 
-# The reusable wooden reward plaque (ui/quest/plaque.png) sized to the card — a flat wooden
-# StyleBox panel when the art is absent. The caller hangs it at the box's bottom-centre and
-# centres the +N reward on its face.
+# The reward pill: the shared paper panel at full pill rounding (the mock's reward chip). The
+# caller hangs it at the card's bottom-right and centres the coin + "+N" row on its face — the
+# pill itself carries NO coin, so the row's coin icon is the only one (the old reward_token.png
+# backing was itself a big coin, doubling the row's coin icon behind the text).
 static func _reward_plaque(w: float, h: float) -> Control:
-	var tex := _meadow_tex("reward_token.png")
-	if tex != null:
-		var t := TextureRect.new()
-		t.name = "MeadowRewardToken"
-		t.texture = tex
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.custom_minimum_size = Vector2(w, h)
-		t.size = Vector2(w, h)
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var panel := Panel.new()
-	panel.custom_minimum_size = Vector2(w, h)
-	panel.size = Vector2(w, h)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = BARK
-	sb.set_corner_radius_all(8)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#6B4A2B")
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return panel
+	var pill := _paper_panel("MeadowRewardPill", h * 0.5)
+	pill.custom_minimum_size = Vector2(w, h)
+	pill.size = Vector2(w, h)
+	return pill
 
 # AB2: the shared ask pill — content-sized cream tray (StyleBoxFlat, soft warm
 # border + shadow), anchored to center on its parent's x and grow both ways.

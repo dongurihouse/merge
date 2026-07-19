@@ -5901,10 +5901,8 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 		"bubble_size": float(q.get("bubble_size", 66)) / 100.0, "bubble_x": float(q.get("bubble_x", 72)) / 100.0, "bubble_y": float(q.get("bubble_y", 35)) / 100.0,
 		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 72)) / 100.0, "item_y": float(q.get("item_y", 32)) / 100.0,
 		"plaque_w":    float(q.get("plaque_w", 40)) / 100.0,    "plaque_x": float(q.get("plaque_x", 72)) / 100.0, "plaque_y": float(q.get("plaque_y", 81)) / 100.0,
-			# the card's 9-slice patch margins, in SOURCE pixels (NOT fractions) — the corners that stay crisp while
-			# the centre parchment stretches. Defaults bracket the rounded corners of the 146×87 Meadow paper card.
-			"card_slice_l": float(q.get("card_slice_l", 34)), "card_slice_t": float(q.get("card_slice_t", 28)),
-			"card_slice_r": float(q.get("card_slice_r", 34)), "card_slice_b": float(q.get("card_slice_b", 28)),
+		# (card_slice_* knobs retired with the card_generic nine-slice: the card surface is now the
+		# code-drawn shared paper panel, so there are no patch margins to tune. Old saved values are ignored.)
 		# the card's drop-shadow is the ONE SHARED shadow every component casts (Skin.shadow_rect), gated by the
 		# UNIVERSAL Shadow toggle and tuned on the Shadow item — NOT a per-card definition. `shadow` is the toggle
 		# (off by default → shipped card unchanged); `shadow_params` is the shared look read from the global
