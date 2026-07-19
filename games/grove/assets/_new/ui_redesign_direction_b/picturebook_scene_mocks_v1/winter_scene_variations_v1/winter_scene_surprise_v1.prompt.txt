@@ -1,0 +1,32 @@
+Use case: stylized-concept
+Asset type: reference-only vertical mobile game environment mock; baked scene mode
+
+Input images:
+- Image 1: winter mood reference only. Preserve its inviting warmth against cool snow, portrait picture-book readability, playful seasonal tone, and visible paper grain. Do not copy or require its village, pond, cabins, tree, snowmen, stall, sled, skates, lanterns, sculptures, or layout.
+- Image 2: mandatory Meadow Sky palette and matte cut-paper material authority only. Do not copy its UI or board layout.
+- Image 3: mandatory elevated three-quarter camera, common object scale, shallow shadow, silhouette simplicity, and detail-budget authority only. Do not copy its farm theme, buildings, paths, or UI.
+
+Primary request: invent an original storybook winter place with broad creative freedom. Choose the location type, terrain, hero destination, landmarks, route, winter activity, and supporting details yourself. It does not need to be a village and does not need a pond. The result should feel surprising yet immediately believable as a place someone could approach and use. Preserve the shared visual language, not the source content.
+
+Scene purpose and spatial story: create a clear approach -> activity -> threshold -> destination sequence. Decide what the winter place is for and let that fictional use govern every major shape. Establish one memorable hero destination, one readable activity relationship, and a natural perimeter. Use imaginative content, but keep the scene warm, friendly, coherent, and grounded rather than surreal or decorative for its own sake.
+
+Composition: exact 941 x 1672 portrait canvas; elevated three-quarter camera; one unmistakable hero destination; a gently revealing route entering from a plausible lower boundary and terminating exactly at the hero; asymmetric broad masses; intentional breathing room; no hollow central showcase oval. Keep all major silhouettes fully inside the canvas and legible at phone size. Dressed reference-only scene with no UI.
+
+Palette and lighting: use the Meadow Sky role relationships from Image 2, adapted for winter: sky blue #6FA9C0, structural slate #3F6D7D, receding blue #8296AF, warm cream #F6EBDD, garden/action green #5F9B6D, restrained coral #D87865, meaningful reward gold #D6A94C, rare purple #8677A3, and tinted shadow #294654. Keep most of the scene moderately desaturated and reserve stronger chroma for the hero and small meaningful accents. One upper-left light; short, soft, shallow down-right contact shadows.
+
+Style:
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Grounding: one continuous believable winter ground plane with matched camera pitch, scale, light, and shadow. Every object has a fictional reason to be where it is. No individual turf islands, circular clearings, rectangular pads, sticker halos, object-specific flower rings, scenic bases, or disconnected floating terrain.
+
+Constraints: content is intentionally open; prioritize a fresh strong concept over resemblance to Image 1's object list. Favor roughly 5-8 distinct prop or landmark families. No people or characters. No text, labels, numerals, UI, logo, border, or watermark.
+
+Avoid: defaulting to the source village composition; nonsensical fantasy collage; inventory-display layout; arbitrary grid; hollow center; paths that loop, fork, miss, or continue behind their destination; unrelated props placed only for balance; floating or pasted-on objects; malformed structures; inconsistent camera, scale, light, or shadows; clipped hero elements; photorealism; glossy plastic; clay; sticker rendering; watercolor; gouache; brushwork; painterly gradients; dense micro-detail; heavy black outlines; dark cinematic lighting.
