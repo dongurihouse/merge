@@ -314,6 +314,15 @@ func _test_residents_dialog() -> void:
 	ok(ov.find_child("OnHandGrid", true, false) != null
 		and ov.find_child("OnHandCard_01", true, false) != null, "the hand grid carries the hand spirits")
 	ok(ov.find_child("ResidentsInspectorHint", true, false) != null, "no selection → the inspector hints")
+	# the resident art is now the SHARED board cell (PieceView) — its contact shadow grounds each spirit.
+	var hand_card0 = ov.find_child("OnHandCard_00", true, false)
+	ok(hand_card0 != null and hand_card0.find_child("ContactShadow", true, false) != null,
+		"a hand cell renders the board's contact shadow under the spirit art")
+	var habitat0 = ov.find_child("HabitatCell_00", true, false)
+	ok(habitat0 != null and habitat0.find_child("ContactShadow", true, false) != null,
+		"a habitat cell renders the board's contact shadow too")
+	ok(ov.find_child("SpiritTierBadge", true, false) == null,
+		"the per-cell tier badge is retired")
 
 	# collect through the one action: credits whole coins, then goes quiet
 	var coins_before := Save.coins()
@@ -410,7 +419,7 @@ func _test_residents_dialog() -> void:
 	host.queue_free()
 	await create_timer(0.05).timeout
 
-# --- Bring out (unplace) + the Expedition entry, both moved off the retired bucket dock -----------
+# --- the retired Bring-out pill + the Expedition entry --------------------------------------------
 func _test_residents_bring_out_and_expedition() -> void:
 	fresh("residents_bring_out")
 	_open_spots(0)
@@ -431,37 +440,16 @@ func _test_residents_bring_out_and_expedition() -> void:
 		host.queue_free()
 		return
 
-	# nothing selected → no Bring out
-	ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
-		"with no selection the inspector offers no Bring out")
-
-	# a HAND selection offers Sell but NOT Bring out (placing is the drag, not a pill)
-	var hand_card = ov.find_child("OnHandCard_00", true, false)
-	ok(hand_card != null, "the bring-out test has a hand card")
-	if hand_card != null:
-		hand_card.tap()
-		await create_timer(0.1).timeout
-	ok(ov.find_child("ResidentsSellButton", true, false) != null, "a hand selection still offers Sell")
-	ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
-		"a hand selection offers no Bring out — it is already in hand")
-
-	# a PLACED selection offers Bring out, and it returns the spirit to the hand
+	# the Bring-out pill is RETIRED (spec 2026-07-19): a placed selection surfaces only Sell — the
+	# tap-to-hand path is gone (drag a placed spirit onto the hand zone to unplace it instead).
 	var placed_card = ov.find_child("HabitatCell_00", true, false)
 	ok(placed_card != null, "the placed spirit renders in a habitat cell")
 	if placed_card != null:
 		placed_card.tap()
 		await create_timer(0.1).timeout
-	var out := ov.find_child("ResidentsBringOutButton", true, false) as Button
-	ok(out != null, "a placed selection surfaces Bring out")
-	if out != null:
-		var placed_before := Bucket.placed().size()
-		var hand_before := Bucket.hand().size()
-		out.pressed.emit()
-		await create_timer(0.1).timeout
-		ok(Bucket.placed().size() == placed_before - 1 and Bucket.hand().size() == hand_before + 1,
-			"Bring out returns the placed spirit to the hand")
-		ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
-			"the selection clears after Bring out, so the pill goes away")
+	ok(ov.find_child("ResidentsSellButton", true, false) != null, "a placed selection surfaces Sell")
+	ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
+		"the Bring-out pill is gone — placed spirits have no tap-to-hand path")
 
 	# the EXPEDITION entry: present once the habitat is open, and it fires the host callback
 	var exped := ov.find_child("ResidentsExpeditionButton", true, false) as Button
