@@ -10,6 +10,8 @@ extends RefCounted
 ## `next_step_of(id) -> Dictionary` ({} when built; else {cost, min_level, shows}). The scene passes
 ## Home.state_id / Home.next_step; a test passes stubs.
 
+const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")
+
 # Parse a zone manifest JSON into a Dictionary ({} on any parse failure).
 static func load_manifest(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
@@ -58,6 +60,16 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 			var prop := TextureRect.new()
 			prop.name = id
 			prop.texture = load(tex_path) as Texture2D
+			# {"shadow": true} → a DYNAMIC ground shadow stamped from the prop's own silhouette
+			# (prop_shadow.gd), added first at the same z so it paints beneath its prop.
+			if bool(b.get("shadow", false)) and prop.texture != null:
+				var shadow: Control = PropShadow.new()
+				shadow.name = id + "_shadow"
+				shadow.texture = prop.texture
+				shadow.disp = disp
+				shadow.position = anchor
+				shadow.z_index = sort_y
+				stage.add_child(shadow)
 			prop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			prop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			prop.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS

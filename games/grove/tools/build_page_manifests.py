@@ -91,14 +91,17 @@ def build_page(root, scene, label, carry_home):
                 print(f"  ! {scene}: skipping {e.get('id')} — missing {src}")
                 continue
             tex = copy_asset(src, scene, str(e["id"]))
-            buildings.append({
+            entry = {
                 "id": str(e["id"]), "label": str(e["id"]).replace("_", " "),
                 "position": [int(e["x"]), int(e["y"])],
                 "display_size": [int(e["w"]), int(e["h"])],
                 "sort_y": int(e.get("z", 0)),          # explicit scene z IS the paint order
                 "cluster": str(e.get("cluster", "")),
                 "states": {"built": tex},
-            })
+            }
+            if e.get("shadow"):                        # dynamic silhouette shadow (prop_shadow.gd)
+                entry["shadow"] = True
+            buildings.append(entry)
     else:
         mock = os.path.join(root, scene + ".png")
         if not os.path.exists(mock):

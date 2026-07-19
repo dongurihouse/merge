@@ -13,7 +13,7 @@
    "label": "mountain far",
    "position": [
     660,
-    2346
+    2126
    ],
    "display_size": [
     1320,
@@ -30,7 +30,7 @@
    "label": "mountain middle",
    "position": [
     660,
-    2346
+    2126
    ],
    "display_size": [
     1320,
@@ -47,7 +47,7 @@
    "label": "mountain near",
    "position": [
     660,
-    2346
+    2126
    ],
    "display_size": [
     1320,
@@ -64,7 +64,7 @@
    "label": "horizon vegetation rear",
    "position": [
     660,
-    2346
+    2126
    ],
    "display_size": [
     1320,
@@ -81,7 +81,7 @@
    "label": "horizon vegetation near",
    "position": [
     660,
-    2346
+    2126
    ],
    "display_size": [
     1320,
@@ -686,6 +686,91 @@
    "cluster": "",
    "states": {
     "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_foreground_right.png"
+   }
+  },
+  {
+   "id": "koi_vermilion_white",
+   "label": "koi vermilion white",
+   "position": [
+    270,
+    1450
+   ],
+   "display_size": [
+    112,
+    112
+   ],
+   "sort_y": 200,
+   "cluster": "koi",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_vermilion_white.png"
+   }
+  },
+  {
+   "id": "koi_orange_white",
+   "label": "koi orange white",
+   "position": [
+    500,
+    1495
+   ],
+   "display_size": [
+    96,
+    96
+   ],
+   "sort_y": 201,
+   "cluster": "koi",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_orange_white.png"
+   }
+  },
+  {
+   "id": "koi_gold",
+   "label": "koi gold",
+   "position": [
+    365,
+    1625
+   ],
+   "display_size": [
+    122,
+    122
+   ],
+   "sort_y": 202,
+   "cluster": "koi",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_gold.png"
+   }
+  },
+  {
+   "id": "koi_black_white",
+   "label": "koi black white",
+   "position": [
+    590,
+    1690
+   ],
+   "display_size": [
+    102,
+    102
+   ],
+   "sort_y": 203,
+   "cluster": "koi",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_black_white.png"
+   }
+  },
+  {
+   "id": "koi_tricolor",
+   "label": "koi tricolor",
+   "position": [
+    395,
+    1790
+   ],
+   "display_size": [
+    108,
+    108
+   ],
+   "sort_y": 204,
+   "cluster": "koi",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_tricolor.png"
    }
   }
  ]

@@ -264,23 +264,6 @@
    }
   },
   {
-   "id": "palm_projected_shadow",
-   "label": "palm projected shadow",
-   "position": [
-    1079,
-    802
-   ],
-   "display_size": [
-    481,
-    238
-   ],
-   "sort_y": 295,
-   "cluster": "palm_grove",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/desert_oasis/palm_projected_shadow.png"
-   }
-  },
-  {
    "id": "palm_cluster",
    "label": "palm cluster",
    "position": [
@@ -295,7 +278,8 @@
    "cluster": "palm_grove",
    "states": {
     "built": "res://games/grove/assets/map/pages/desert_oasis/palm_cluster.png"
-   }
+   },
+   "shadow": true
   },
   {
    "id": "lantern_posts",

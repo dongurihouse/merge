@@ -69,6 +69,28 @@ func _initialize() -> void:
 		"shared modal overlays render above painter-sorted Home props and build badges")
 	modal.queue_free()
 
+	# --- dynamic silhouette shadows ({"shadow": true} — replaces static shadow plates) ---
+	var ms := _manifest()
+	(ms.buildings[0] as Dictionary)["shadow"] = true
+	var parent_sh := Control.new()
+	get_root().add_child(parent_sh)
+	var out_sh := HZV.build(parent_sh, ms, func(_id): return "built", func(_id): return {})
+	var stage2: Control = out_sh.stage
+	var shadow: Control = stage2.find_child("a_shadow", true, false)
+	ok(shadow != null, "a shadow-tagged prop grows its dynamic silhouette shadow node")
+	var prop2: Control = out_sh.props["a"]
+	ok(shadow != null and shadow.z_index == prop2.z_index \
+		and shadow.get_index() < prop2.get_index(), \
+		"the shadow paints beneath its own prop (same z, earlier child)")
+	ok(shadow != null and shadow.position == Vector2(200, 800), \
+		"the shadow sits at the prop's FOOTING (the transform lays it on the ground)")
+	ok(shadow != null and shadow.get("texture") == prop2.get("texture"), \
+		"the shadow stamps the prop's own sprite (no shadow art asset)")
+	ok(stage2.find_child("b_shadow", true, false) == null, "untagged props stay shadow-free")
+	var soft: Texture2D = load("res://engine/scripts/ui/prop_shadow.gd")._soft_silhouette(prop2.texture)
+	ok(soft != null and soft.get_width() < prop2.texture.get_width(), \
+		"the silhouette stamp is a downsampled copy (bilinear upscale is the blur)")
+
 	# a BUILT building: no next step → no badge, and the built prop renders full-opacity
 	var states2 := {"a": "built"}
 	var steps2 := {"a": {}}

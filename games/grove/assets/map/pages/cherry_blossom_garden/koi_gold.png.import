@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8vkkc3hca0bg"
-path="res://.godot/imported/palm_projected_shadow.png-415dad07b4b010fafeac96a27da8ba67.ctex"
+uid="uid://b7bhybqpwfmid"
+path="res://.godot/imported/koi_gold.png-6233b6fdc1cd1d904bf7ae393718e9fc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/pages/desert_oasis/palm_projected_shadow.png"
-dest_files=["res://.godot/imported/palm_projected_shadow.png-415dad07b4b010fafeac96a27da8ba67.ctex"]
+source_file="res://games/grove/assets/map/pages/cherry_blossom_garden/koi_gold.png"
+dest_files=["res://.godot/imported/koi_gold.png-6233b6fdc1cd1d904bf7ae393718e9fc.ctex"]
 
 [params]
 
