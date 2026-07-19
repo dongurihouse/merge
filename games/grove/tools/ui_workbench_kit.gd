@@ -848,29 +848,24 @@ static func reward_chip(reward: Dictionary, btn_opts: Dictionary = {}) -> Contro
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(l)
 		col.add_child(cell)
+	# The multi-currency stack rides the SAME flat cream paper-cut as the single pill_button cream chip
+	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer) — the baked mail_pill_cream.png
+	# glossy shell is retired for it, so every cream chip beside a green Claim reads as cut from one paper.
 	var frame := PanelContainer.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var made := false
-	if bool(btn_opts.get("art", false)):
-		var tex := clean_tex_path(Look.kit("kit/mail_pill_cream.png"), 256)   # cream by role (not the badge)
-		if tex != null:
-			var stx := StyleBoxTexture.new()
-			stx.texture = tex
-			stx.content_margin_left = 18; stx.content_margin_right = 18
-			stx.content_margin_top = 8; stx.content_margin_bottom = 9
-			frame.add_theme_stylebox_override("panel", stx)
-			made = true
-	if not made:
-		var cf := StyleBoxFlat.new()
-		cf.bg_color = Pal.CREAM
-		cf.border_color = Pal.STRAW
-		cf.set_corner_radius_all(int(btn_opts.get("corner", 16)))
-		cf.set_border_width_all(2)
-		cf.content_margin_left = 14; cf.content_margin_right = 14
-		cf.content_margin_top = 7; cf.content_margin_bottom = 8
-		frame.add_theme_stylebox_override("panel", cf)
+	var chip_corner := int(btn_opts.get("corner", 16))
+	var cf := StyleBoxFlat.new()
+	cf.bg_color = Pal.CREAM
+	cf.border_color = PAPER_EDGE
+	cf.set_corner_radius_all(chip_corner)
+	cf.set_border_width_all(1)
+	cf.anti_aliasing = true
+	cf.content_margin_left = 16; cf.content_margin_right = 16
+	cf.content_margin_top = 7; cf.content_margin_bottom = 8
+	frame.add_theme_stylebox_override("panel", cf)
 	frame.add_child(col)
+	apply_rounded_paper_panel_surface(frame, "RewardChipPaper", "texture_cream.png", float(chip_corner), 2.0)
 	return frame
 
 ## (The old nine-patch claim_button was REMOVED — the mail Claim is now the shared pill_button below,
@@ -1417,6 +1412,12 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var border_px := float(opts.get("border", 1.0))
 	var primary := bg == "green"
 	var danger := bg == "danger"
+	# The CREAM role is now a flat paper-cut surface BY DEFAULT — the same construction as the green CTA,
+	# so a cream chip and a green Claim read as cut from the same paper (the baked button_secondary.png
+	# glossy pill is retired for it). A caller that still wants the nine-patch shell passes an explicit
+	# `art_rel`; danger keeps its shell.
+	if not primary and not danger and paper_role == "" and String(opts.get("art_rel", "")) == "":
+		paper_role = "cream"
 	var fill: Color = Pal.BTN_PRIMARY if primary else (Pal.ACCENT_ALERT if danger else Pal.CREAM)
 	var edge: Color = Pal.BTN_PRIMARY_EDGE if primary else (Pal.ACCENT_ALERT.darkened(0.22) if danger else Pal.STRAW)
 	var ink: Color = Pal.CREAM if primary or danger else Pal.INK
@@ -1890,19 +1891,21 @@ static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}
 ## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
 ## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
 static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: int = FS.FINE, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
+	# The row panel is a plain flat paper surface — the SAME cut-paper construction the buttons/chips wear
+	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer), matching the mocks' clean
+	# card rows. The baked kit/mail_card.png nine-patch (an embossed border + a pink underline artifact) is
+	# retired for it; the card keeps its padding (CARD_PAD) and layout, only the background changes.
 	var panel := PanelContainer.new()
-	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
-	if box != null:
-		panel.add_theme_stylebox_override("panel", box)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Color(Pal.CREAM, 0.6)
-		s.set_corner_radius_all(14)
-		s.set_border_width_all(1)
-		s.border_color = Color(Pal.BARK, 0.4)
-		s.content_margin_left = 14; s.content_margin_right = 14
-		s.content_margin_top = 10; s.content_margin_bottom = 10
-		panel.add_theme_stylebox_override("panel", s)
+	var card_corner := 18.0
+	var s := StyleBoxFlat.new()
+	s.bg_color = Pal.CREAM
+	s.border_color = PAPER_EDGE
+	s.set_corner_radius_all(int(card_corner))
+	s.set_border_width_all(1)
+	s.anti_aliasing = true
+	s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
+	s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
+	panel.add_theme_stylebox_override("panel", s)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row := HBoxContainer.new()
@@ -1977,6 +1980,8 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			var ac := amount_chip(String(chip_spec.get("icon", "")), chip_text, btn_opts)
 			ac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(ac)
+	# the texture_cream grain layer behind the row (drawn at child index 0), completing the paper cut.
+	apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
 	return panel
 
 ## A TOGGLE CARD — a card type (sibling of mail_card / daily_card): one persisted setting as a row,
@@ -2332,9 +2337,11 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the mock's tinted drop-shadow — circular, short and soft (#294654 ~19%),
-	# slightly inset so the feather hugs the art's round face.
-	var sh := _meadow_shadow_circle(size * 0.92)
+	# the coral disc casts the mock's TIGHT shadow — a small, soft, short down-right cast that HUGS the
+	# disc, not the app's full-size shared box-shadow (too heavy on a ~64px disc: it read as a dark halo).
+	# A negative spread pulls the footprint inside the disc, with a small feather + low alpha + a short
+	# offset, matching the compact coral ✕ in every dialog mock. Same slate tint as the shared shadow.
+	var sh := Look.shadow(size * 0.5, size * 0.03, size * 0.055, size * 0.09, -size * 0.07, 0.24)
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)
