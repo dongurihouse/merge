@@ -210,7 +210,8 @@
 			"ribbon_first_buy": "First buy x2",
 			"ribbon_popular": "Popular",
 			"welcome_gift_caption": "Welcome gift",
-			"welcome_ribbon": "Welcome"
+			"welcome_ribbon": "Welcome",
+			"first_buy_note": "Your first Acorn pouch is doubled."
 		},
 		"refill": {
 			"back_tomorrow": "Back tomorrow",
@@ -240,6 +241,12 @@
 			"info_row_label": "Water",
 			"info_row_note": "refills your watering can to full right away",
 			"info_title": "Fill your water"
+		},
+		"title": "Shop",
+		"tab": {
+			"water": "Water",
+			"coin": "Coins",
+			"premium": "Acorns"
 		}
 	},
 	"vault": {
