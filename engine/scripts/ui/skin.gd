@@ -9,7 +9,10 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics
 const TuneShop = preload("res://engine/scripts/core/tuning.gd").Shop # popup-chrome dials (card/✕/banner), shared by every modal
 
-const SHADOW_TINT := Color("#294654")   # THE shadow colour — cool slate, measured from the picturebook mocks
+const SHADOW_TINT := Color(0, 0, 0)     # THE shadow colour — NEUTRAL black: it dims whatever ground it falls on
+                                        # (cream -> warm tan, board blue -> deep blue), which is how the mocks
+                                        # paint shadows — per-surface, hue-preserving. A fixed hue (the old slate)
+                                        # read green-grey on cream dialogs.
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
@@ -622,7 +625,7 @@ static func shadow(corner: float, offset_x: float, offset_y: float, blur: float,
 ## are THE uniform shadow (measured from the picturebook mocks — bottom-right cast, slate tint), so an
 ## absent block still casts the standard shadow. alpha is stored 0..100 in config and returned as 0..1.
 ## The shadow_rect / shadow_circle builders consume this.
-const SHADOW_DEFAULTS := {"offset_x": 2.0, "offset_y": 6.0, "blur": 10.0, "spread": -2.0, "alpha": 20.0}
+const SHADOW_DEFAULTS := {"offset_x": 1.0, "offset_y": 5.0, "blur": 7.0, "spread": -1.0, "alpha": 28.0}
 
 static func shadow_params(cfg: Dictionary) -> Dictionary:
 	var s: Dictionary = cfg.get("shadow", {}) if cfg is Dictionary else {}

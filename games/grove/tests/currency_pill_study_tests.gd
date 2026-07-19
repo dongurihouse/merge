@@ -4,7 +4,7 @@ const SCENE_PATH := "res://games/grove/tools/CurrencyPillStudy.tscn"
 const SCRIPT_PATH := "res://games/grove/tools/currency_pill_study.gd"
 const SHOT_PATH := "res://games/grove/tools/currency_pill_study_shot.gd"
 const INK := Color("#243B4B")
-const SHADOW_TINT := Color("#294654")
+const SHADOW_TINT := Color(0, 0, 0)
 const SHELL_FILL := Color("#F6EBDD")
 const SHELL_EDGE := Color("#3F6D7D")
 
@@ -100,8 +100,8 @@ func _initialize() -> void:
 		var shadow := pill.get_node_or_null("Shadow") as Panel
 		var shadow_style := shadow.get_theme_stylebox("panel") as StyleBoxFlat if shadow != null else null
 		ok(shadow_style != null and same_rgb(shadow_style.shadow_color, SHADOW_TINT) \
-			and absf(shadow_style.shadow_color.a - 0.20) <= 0.01 \
-			and shadow_style.shadow_size == 10 and near_vec(shadow_style.shadow_offset, Vector2(2, 6)),
+			and absf(shadow_style.shadow_color.a - 0.28) <= 0.01 \
+			and shadow_style.shadow_size == 7 and near_vec(shadow_style.shadow_offset, Vector2(1, 5)),
 			"%s casts THE uniform slate shadow" % pill_name)
 
 		var shell := pill.get_node_or_null("Shell") as Panel
