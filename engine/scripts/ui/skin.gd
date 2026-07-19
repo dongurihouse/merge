@@ -116,6 +116,12 @@ static func make_level_badge(level: int, px: float, num_font: int = -1) -> Contr
 	var opts: Dictionary = Kit.level_badge_opts_from_config(cfg)
 	var badge: Control = Kit.level_badge(opts, level_badge_index(level), level, px, num_font)
 	badge.name = "LevelBadge"
+	# the ONE SHARED drop-shadow (the pill look) under the emblem — circular, slightly inset so the
+	# soft edge hugs the star art rather than boxing it.
+	var sh := shadow_circle(px * 0.92, shadow_params(cfg))
+	sh.show_behind_parent = true
+	badge.add_child(sh)
+	badge.move_child(sh, 0)
 	return badge
 
 ## Resolve a texture path to a REAL image (rejects the import placeholder + degenerate empty

@@ -97,6 +97,11 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var cardH: float = fh * float(L.card_h)
 	var cx := (sw - cardW) / 2.0
 	var cy := (fh - cardH) / 2.0
+	# The stand keeps the LEFT margin (cx) but trims the dead space RIGHT of the card, so
+	# neighbouring cards pack closer — the row gap alone separates them.
+	var stand_trim_w := cx + cardW
+	stand.custom_minimum_size.x = stand_trim_w
+	stand.pivot_offset = Vector2(stand_trim_w / 2.0, fh * 0.5)
 	var card := _quest_card(cardW, cardH, L)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
