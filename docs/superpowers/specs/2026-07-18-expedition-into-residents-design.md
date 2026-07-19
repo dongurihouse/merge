@@ -36,7 +36,25 @@ its drag layer: `map.gd:1551-1610` is the sole call site in the game for `Bucket
 
 So the dock cannot simply be deleted — its mutations must land in the Residents dialog first.
 
-## Interaction model: tap-select, then tap-target
+## REVISED 2026-07-18 — the dialog already drags
+
+While this spec was being written, `c092b3ea polish(residents): drag-to-merge + mock-v2 visual
+pass` landed on main. The Residents dialog now carries a `DragCard` wrapper implementing Godot's
+native drag protocol, and already performs:
+
+- hand → hand merge (`Bucket.hand_merge`), `residents.gd:451`
+- hand → placed merge (`Bucket.place_merge`), `residents.gd:453`
+- hand → free cell place (`Bucket.place`), `residents.gd:475`
+
+Only **unplace** is still missing: `_get_drag_data` returns `null` unless the drag source is a hand
+spirit, so a placed spirit cannot come back out.
+
+**The tap-select/tap-target model below is therefore withdrawn.** Duplicating the existing drag
+idiom as a second, parallel interaction would make the dialog harder to use, not easier. Part A
+reduces to three pieces: the Bring-out action, the Expedition pill, and the habitat wrap. The
+withdrawn model is kept below for the record.
+
+## WITHDRAWN — Interaction model: tap-select, then tap-target
 
 The dialog already carries session state `view.sel = {src: "hand"|"placed", idx: int}` and repaints
 the whole body on every change. Extend that rather than porting the dock's drag machinery — the
@@ -64,16 +82,17 @@ Rules:
 - Free habitat cells become tap targets. `Kit.slot_cell` only wires `on_tap` for the `filled`
   state, so an empty cell is wrapped in a transparent, focus-less `Button` sized to the cell.
 
-## Inspector: one contextual pill
+## Inspector: the Bring-out pill
 
-The inspector row stays `portrait · name · info · [contextual] · Sell`. The new pill sits left of
-Sell and depends on the selection source:
+The inspector row becomes `portrait · name · info · [Bring out] · Sell`. The new pill appears only
+when the selection is a **placed** spirit (`ResidentsBringOutButton`, "Bring out") and calls
+`Bucket.unplace(idx)`.
 
-- **hand** selection → `ResidentsPlaceButton` ("Place"), disabled when `Bucket.is_full()`
-- **placed** selection → `ResidentsBringOutButton` ("Bring out") → `Bucket.unplace(idx)`
+Unplace gets a pill rather than a drag: a placed spirit would need an unambiguous "drop into the
+hand" region, and the on-hand grid is a wrapping container whose empty cells are not drop targets.
+A pill is one tap and needs no new drop plumbing.
 
-Unplace gets a pill rather than a tap-target: a container layout offers no unambiguous "drop into
-the hand" region.
+Hand selections get no pill — placing already works by dragging onto a free cell.
 
 Both wear the cream/ink pill face already used for Sell, with the green accent instead of coral, so
 the destructive Sell stays visually distinct.
@@ -124,14 +143,12 @@ info-bar icon roster test and costs nothing.
 
 ## Tests
 
-`games/grove/tests/grove_residents_tests.gd` (new cases, headless, through the real dialog):
+`games/grove/tests/grove_residents_tests.gd` (new cases, headless, through the real dialog). The
+existing drag cases (merge, place, refused cross-line drop) already cover what landed in
+`c092b3ea` and stay as they are. New:
 
-- tap a hand spirit then a free cell → placed count climbs, hand shrinks;
-- tap a hand spirit then a matching hand spirit → one spirit at tier+1;
-- tap a hand spirit then a matching placed spirit → placed tier climbs;
-- a refused merge (mismatched line/tier) selects the target instead of mutating;
-- Place is disabled when the habitat is full;
-- Bring out returns a placed spirit to hand;
+- selecting a placed spirit surfaces Bring out; a hand selection does not;
+- Bring out returns a placed spirit to hand (placed shrinks, hand grows);
 - `ResidentsExpeditionButton` exists with a callback and is absent when `cells_total == 0`;
 - pressing it closes the overlay and fires `on_expedition`.
 
@@ -246,9 +263,9 @@ re-pointed at the new tiles.
 
 Four green commits, `make test` clean at each:
 
-1. **A-additive.** `residents.gd` gains the tap-target mutations, the contextual pill, the wrapped
-   habitat grid, and the Expedition pill; `map.gd::_open_residents` passes `on_expedition`. Every
-   existing surface still works — the dock and both nav tiles are untouched. New tests land here.
+1. **A-additive.** `residents.gd` gains the Bring-out pill, the wrapped habitat grid, and the
+   Expedition pill; `map.gd::_open_residents` passes `on_expedition`. Every existing surface still
+   works — the dock and both nav tiles are untouched. New tests land here.
 2. **A-flip.** The Part A removals, plus the test updates.
 3. **B-additive.** The four new `PAPER_SURFACES` roles and the bottom-bar builder, built beside the
    existing rail so both render; the new tiles are asserted headlessly.
