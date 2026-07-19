@@ -336,6 +336,22 @@ static func addable_assets(bundle_dir: String, repo_root: String, scene: String)
 		if cat.length() > 3 and cat.substr(0, 2).is_valid_int() and cat[2] == "_":
 			cat = cat.substr(3)
 		_scan_pngs("%s/%s" % [bundle_dir, sub], cat, repo_root, scene, out)
+	# RECOVERED bundles carry no element dirs — the surviving per-scene page art (the game's
+	# copies) doubles as the palette so adding stays possible. De-duped against bundle finds.
+	var seen := {}
+	for a in out:
+		seen[String((a as Dictionary).id)] = true
+	var pages_dir := "%s/games/grove/assets/map/pages/%s" % [repo_root, scene]
+	var pd := DirAccess.open(pages_dir)
+	if pd != null:
+		for fn in pd.get_files():
+			if not fn.ends_with(".png") or fn == "foundation.png":
+				continue
+			var pid := fn.get_basename()
+			if seen.has(pid):
+				continue
+			out.append({"id": pid, "image": ("%s/%s" % [pages_dir, fn]).trim_prefix(repo_root + "/"),
+				"category": "page_art"})
 	out.sort_custom(func(a, b) -> bool:
 		var ra := category_rank(String(a.category))
 		var rb := category_rank(String(b.category))

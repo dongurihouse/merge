@@ -30,6 +30,7 @@ var scene_name := ""
 var dirty := false
 
 var _tex: Dictionary = {}           # abs path -> Texture2D (null cached as false)
+var _thumb: Dictionary = {}         # abs path -> small ImageTexture for the add-palette rows
 var _hit: Dictionary = {}           # abs path -> downsampled Image for alpha tests
 var _sel := -1                      # index into doc.placements (item selection)
 var _sel_cluster := ""              # cluster selection — mutually exclusive with _sel
@@ -566,6 +567,7 @@ func _switch_scene(scene: String) -> void:
 	dirty = false
 	_tex.clear()
 	_hit.clear()
+	_thumb.clear()
 	if _sidebar_panel != null:
 		_sidebar_panel.queue_free()
 	if _ref_panel != null:
@@ -657,6 +659,54 @@ func _refresh_cluster_list() -> void:
 			kill.tooltip_text = "remove this element from the scene"
 			mrow.add_child(kill)
 			_cluster_box.add_child(mrow)
+		if cname == _sel_cluster:
+			_add_palette_rows(cname)
+
+## The ADD palette, scoped to the selected cluster: the bundle's assets (plus the surviving page
+## art on recovered bundles) as an iconed list — clicking one drops a NEW member at the cluster's
+## footing, joined and selected for immediate placement.
+func _add_palette_rows(cname: String) -> void:
+	_cluster_box.add_child(_label("      add to '%s'" % cname, FS.DEBUG, true))
+	for a in M.addable_assets(bundle_dir, repo_root, scene_name):
+		var b := _small_button("      + " + String(a.id), _add_asset_to_cluster.bind(a, cname))
+		b.icon = _thumb_for(String(a.image))
+		b.add_theme_constant_override("icon_max_width", 30)
+		b.add_theme_constant_override("h_separation", 8)
+		_cluster_box.add_child(b)
+
+func _add_asset_to_cluster(a: Dictionary, cname: String) -> void:
+	var bb := M.cluster_bbox(doc, cname)
+	var foot := Vector2(bb.position.x + bb.size.x * 0.5, bb.end.y) if bb.size != Vector2.ZERO \
+		else M.canvas_size(doc) * 0.5
+	var t := _texture(String(a.image))
+	var sz := Vector2(300, 300) if t == null else Vector2(t.get_size())
+	var cap := M.canvas_size(doc).y * 0.25             # a new drop lands readable, never scene-swallowing
+	if sz.y > cap:
+		sz *= cap / sz.y
+	var top_z := 0
+	for k in M.clusters(doc).get(cname, []):
+		top_z = maxi(top_z, int((M.placements(doc)[k] as Dictionary).get("z", 0)))
+	var i := M.add_entry(doc, {"id": String(a.id), "category": String(a.category),
+		"image": String(a.image), "x": int(foot.x + 40), "y": int(foot.y),
+		"w": int(sz.x), "h": int(sz.y), "z": top_z + 1, "cluster": cname, "layer": ""})
+	_mark_dirty()
+	_rebuild_stage()
+	_select(i)                                        # the new member is in hand — drag it into place
+
+## A small palette thumbnail (decoded once per asset, downscaled, cached).
+func _thumb_for(rel: String) -> Texture2D:
+	var abs := repo_root + "/" + rel
+	if _thumb.has(abs):
+		return _thumb[abs]
+	var img := Image.load_from_file(abs) if FileAccess.file_exists(abs) else null
+	if img == null:
+		_thumb[abs] = null
+		return null
+	var w := 60
+	img.resize(w, maxi(1, img.get_height() * w / img.get_width()))
+	var t := ImageTexture.create_from_image(img)
+	_thumb[abs] = t
+	return t
 
 ## Remove ONE member from the scene (the ✕ on a member row); the cluster stays selected so the
 ## remaining members keep their list open.

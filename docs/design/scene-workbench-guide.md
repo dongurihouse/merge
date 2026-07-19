@@ -81,7 +81,10 @@ its grounding — e.g. a tent = `tent` + surrounding rocks + vegetation + its sh
 - **Isolation** (`I`, or `make sw … CLUSTER=<name>`): the rest of the scene ghosts; clicks now
   pick individual members for fine placement.
 - **The sidebar is cluster-driven**: selecting a cluster expands its MEMBER rows — click one to
-  select that single item (drag/wheel/arrows act on just it), press its `✕` to remove it.
+  select that single item (drag/wheel/arrows act on just it), press its `✕` to remove it — and
+  below them the ICONED add palette scoped to that cluster: clicking an asset drops a new member
+  at the cluster's footing (top of its z band), joined and selected for immediate placement.
+  (Recovered bundles feed the palette from the surviving page art.)
 - `Alt+click` force-picks a single item without isolating. `Esc` exits isolation / deselects.
 - **Shift+click paints membership**: with a cluster in context (selected or isolated), Shift+click
   any item — even ghosted scenery — to toggle it in/out of the cluster; with only a single item
