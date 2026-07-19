@@ -52,8 +52,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/01_backdrop/mountain_far/cherry_blossom_garden_mountain_far_v2.png",
    "layer": "environment_far",
    "w": 1320.0,
-   "x": 660,
-   "y": 2126,
+   "x": 660.0,
+   "y": 2126.0,
    "z": 10.0
   },
   {
@@ -63,8 +63,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/01_backdrop/mountain_middle/cherry_blossom_garden_mountain_middle_v2.png",
    "layer": "environment_middle",
    "w": 1320.0,
-   "x": 660,
-   "y": 2126,
+   "x": 660.0,
+   "y": 2126.0,
    "z": 11.0
   },
   {
@@ -74,8 +74,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/01_backdrop/mountain_near/cherry_blossom_garden_mountain_near_v2.png",
    "layer": "environment_near",
    "w": 1320.0,
-   "x": 660,
-   "y": 2126,
+   "x": 660.0,
+   "y": 2126.0,
    "z": 12.0
   },
   {
@@ -85,8 +85,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/01_backdrop/horizon_vegetation_rear/cherry_blossom_garden_horizon_vegetation_rear_v2.png",
    "layer": "environment_rear_vegetation",
    "w": 1320.0,
-   "x": 660,
-   "y": 2126,
+   "x": 649.0,
+   "y": 2108.0,
    "z": 13.0
   },
   {
@@ -96,8 +96,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/01_backdrop/horizon_vegetation_near/cherry_blossom_garden_horizon_vegetation_near_v2.png",
    "layer": "environment_near_vegetation",
    "w": 1320.0,
-   "x": 660,
-   "y": 2126,
+   "x": 672.0,
+   "y": 2084.0,
    "z": 14.0
   },
   {
@@ -109,8 +109,8 @@
    "layer": "rear_props",
    "scaleVsV1": 1.28,
    "w": 640.0,
-   "x": 170.0,
-   "y": 945.0,
+   "x": 166.0,
+   "y": 685.0,
    "z": 100.0
   },
   {
@@ -147,8 +147,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/vegetation_pack/sprites/tree-base-flowering-patch/prop.png",
    "layer": "rear_contacts",
    "w": 245.0,
-   "x": 180.0,
-   "y": 958.0,
+   "x": 176.0,
+   "y": 698.0,
    "z": 110.0
   },
   {
@@ -196,8 +196,8 @@
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/rock_pack/sprites/large-boulder-trio/prop.png",
    "layer": "rear_contacts",
    "w": 170.0,
-   "x": 60.0,
-   "y": 975.0,
+   "x": 56.0,
+   "y": 715.0,
    "z": 120.0
   },
   {
@@ -531,62 +531,62 @@
   {
    "category": "dressing",
    "cluster": "koi",
-   "h": 112,
+   "h": 168,
    "id": "koi_vermilion_white",
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/koi_pack/koi-1.png",
    "layer": "koi",
-   "w": 112,
-   "x": 270,
-   "y": 1450,
-   "z": 200
+   "w": 168,
+   "x": 270.0,
+   "y": 1450.0,
+   "z": 200.0
   },
   {
    "category": "dressing",
    "cluster": "koi",
-   "h": 96,
+   "h": 144,
    "id": "koi_orange_white",
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/koi_pack/koi-2.png",
    "layer": "koi",
-   "w": 96,
-   "x": 500,
-   "y": 1495,
-   "z": 201
+   "w": 144,
+   "x": 500.0,
+   "y": 1495.0,
+   "z": 201.0
   },
   {
    "category": "dressing",
    "cluster": "koi",
-   "h": 122,
+   "h": 183,
    "id": "koi_gold",
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/koi_pack/koi-3.png",
    "layer": "koi",
-   "w": 122,
-   "x": 365,
-   "y": 1625,
-   "z": 202
+   "w": 183,
+   "x": 365.0,
+   "y": 1625.0,
+   "z": 202.0
   },
   {
    "category": "dressing",
    "cluster": "koi",
-   "h": 102,
+   "h": 153,
    "id": "koi_black_white",
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/koi_pack/koi-4.png",
    "layer": "koi",
-   "w": 102,
-   "x": 590,
-   "y": 1690,
-   "z": 203
+   "w": 153,
+   "x": 590.0,
+   "y": 1690.0,
+   "z": 203.0
   },
   {
    "category": "dressing",
    "cluster": "koi",
-   "h": 108,
+   "h": 162,
    "id": "koi_tricolor",
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/cherry_blossom_garden_elements_v2/05_dressing/koi_pack/koi-5.png",
    "layer": "koi",
-   "w": 108,
-   "x": 395,
-   "y": 1790,
-   "z": 204
+   "w": 162,
+   "x": 395.0,
+   "y": 1790.0,
+   "z": 204.0
   }
  ],
  "scene": "cherry_blossom_garden_v2",
