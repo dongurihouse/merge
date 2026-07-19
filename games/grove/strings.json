@@ -95,7 +95,9 @@
 			"prereq": "✿ after %s"
 		},
 		"nav": {
+			"board": "Board",
 			"map": "Map",
+			"mail": "Mail",
 			"play": "Play",
 			"residents": "Residents"
 		},

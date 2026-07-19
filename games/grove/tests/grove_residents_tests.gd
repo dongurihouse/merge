@@ -18,6 +18,8 @@ func _initialize() -> void:
 	await _test_dock_closed_state()
 	await _test_map_tap_over_ambient()
 	await _test_residents_dialog()
+	await _test_residents_bring_out_and_expedition()
+	await _test_residents_expedition_gate()
 	finish()
 
 const Home = preload("res://engine/scripts/core/home.gd")
@@ -389,6 +391,98 @@ func _test_residents_dialog() -> void:
 		free.on_take.call(mover.data, free.data)
 		await create_timer(0.1).timeout
 		ok(Bucket.placed().size() == placed_before + 1, "dropping on a free cell places the spirit")
+	host.queue_free()
+	await create_timer(0.05).timeout
+
+# --- Bring out (unplace) + the Expedition entry, both moved off the retired bucket dock -----------
+func _test_residents_bring_out_and_expedition() -> void:
+	fresh("residents_bring_out")
+	_open_spots(0)
+	Bucket.hand_add("boost", 1)
+	Bucket.place(0)
+	Bucket.hand_add("coin", 1)
+
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	var UI = load("res://engine/scripts/ui/residents.gd")
+	var fired := {"n": 0}
+	UI.open(host, {"on_expedition": func() -> void: fired.n += 1})
+	await create_timer(0.15).timeout
+	var ov := host.get_node_or_null("ResidentsOverlay")
+	ok(ov != null, "the dialog mounts for the bring-out test")
+	if ov == null:
+		host.queue_free()
+		return
+
+	# nothing selected → no Bring out
+	ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
+		"with no selection the inspector offers no Bring out")
+
+	# a HAND selection offers Sell but NOT Bring out (placing is the drag, not a pill)
+	var hand_card = ov.find_child("OnHandCard_00", true, false)
+	ok(hand_card != null, "the bring-out test has a hand card")
+	if hand_card != null:
+		hand_card.tap()
+		await create_timer(0.1).timeout
+	ok(ov.find_child("ResidentsSellButton", true, false) != null, "a hand selection still offers Sell")
+	ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
+		"a hand selection offers no Bring out — it is already in hand")
+
+	# a PLACED selection offers Bring out, and it returns the spirit to the hand
+	var placed_card = ov.find_child("HabitatCell_00", true, false)
+	ok(placed_card != null, "the placed spirit renders in a habitat cell")
+	if placed_card != null:
+		placed_card.tap()
+		await create_timer(0.1).timeout
+	var out := ov.find_child("ResidentsBringOutButton", true, false) as Button
+	ok(out != null, "a placed selection surfaces Bring out")
+	if out != null:
+		var placed_before := Bucket.placed().size()
+		var hand_before := Bucket.hand().size()
+		out.pressed.emit()
+		await create_timer(0.1).timeout
+		ok(Bucket.placed().size() == placed_before - 1 and Bucket.hand().size() == hand_before + 1,
+			"Bring out returns the placed spirit to the hand")
+		ok(ov.find_child("ResidentsBringOutButton", true, false) == null,
+			"the selection clears after Bring out, so the pill goes away")
+
+	# the EXPEDITION entry: present once the habitat is open, and it fires the host callback
+	var exped := ov.find_child("ResidentsExpeditionButton", true, false) as Button
+	ok(exped != null, "an open habitat surfaces the Expedition entry")
+	if exped != null:
+		exped.pressed.emit()
+		await create_timer(0.1).timeout
+		ok(fired.n == 1, "Expedition fires the host's on_expedition callback")
+		ok(host.get_node_or_null("ResidentsOverlay") == null,
+			"Expedition closes the Residents dialog before the Load out opens")
+	host.queue_free()
+	await create_timer(0.05).timeout
+
+# The Expedition pill is GATED: no cells (the acquire loop shut) → no entry. Also absent when the
+# host supplies no callback at all.
+func _test_residents_expedition_gate() -> void:
+	fresh("residents_expedition_gate")
+	Bucket.hand_add("coin", 1)
+	ok(Bucket.cells_total() == 0, "the gate test starts with a shut habitat")
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	var UI = load("res://engine/scripts/ui/residents.gd")
+	UI.open(host, {"on_expedition": func() -> void: pass})
+	await create_timer(0.15).timeout
+	var ov := host.get_node_or_null("ResidentsOverlay")
+	ok(ov != null and ov.find_child("ResidentsExpeditionButton", true, false) == null,
+		"a shut habitat hides the Expedition entry")
+	if ov != null:
+		ov.free()
+
+	_open_spots(0)
+	UI.open(host, {})
+	await create_timer(0.15).timeout
+	ov = host.get_node_or_null("ResidentsOverlay")
+	ok(ov != null and ov.find_child("ResidentsExpeditionButton", true, false) == null,
+		"without an on_expedition callback the entry is omitted")
 	host.queue_free()
 	await create_timer(0.05).timeout
 

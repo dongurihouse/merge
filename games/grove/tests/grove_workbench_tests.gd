@@ -933,36 +933,44 @@ func _initialize() -> void:
 	await process_frame
 	var map_screen_w: float = map_scene.get_viewport_rect().size.x
 	var map_screen_h: float = map_scene.get_viewport_rect().size.y
-	var settings_gap: float = map_screen_w - (map_scene._gear as Control).get_global_rect().end.x if map_scene._gear != null else INF
-	ok(map_scene._gear != null and String((map_scene._gear as Button).tooltip_text) == "Settings" and map_scene._chrome_nodes.has(map_scene._gear) \
-		and absf(settings_gap - edge_margin) <= 1.0, \
-		"map Settings tile is built through the side rail chrome path")
-	ok(_paper_texture_path(map_scene._gear).ends_with("ui/meadow_v2/texture_cream.png"), \
-		"map side-rail tiles use the cream paper square")
+	# The side rail retired into the BOTTOM BAR (spec 2026-07-18): Settings is a tile in that row, on
+	# its own slate paper, no longer pinned top-right under the wallet.
+	ok(map_scene._gear != null and String((map_scene._gear as Button).tooltip_text) == "Settings" \
+		and map_scene._chrome_nodes.has(map_scene._gear), \
+		"map Settings tile is built through the bottom-bar chrome path")
+	ok(_paper_texture_path(map_scene._gear).ends_with("ui/meadow_v2/texture_structural_slate.png"), \
+		"the Settings tile wears its own slate paper (every tile has a distinct texture)")
 	ok(_is_reference_paper_shadow(_paper_shadow_style(map_scene._gear)), \
-		"map side-rail paper tiles cast a visible downward shadow")
-	if map_scene._gear != null and map_scene._hud_panels.size() > 0:
-		var map_wallet := map_scene._hud_panels[0] as Control
-		var rail_gap: float = map_scene._gear.get_global_rect().position.y - (map_wallet.get_child(0) as Control).get_global_rect().end.y
-		ok(absf(rail_gap - edge_margin) <= 1.0, \
-			"map side rail starts one shared margin below the currency pills (%.1f ~= %.1f)" % [rail_gap, edge_margin])
-	var map_button := _find_button_with_label(map_scene, "Map")
+		"map bottom-bar paper tiles cast a visible downward shadow")
+	# every tile shares one bottom edge — the row is a single band along the screen's foot
+	var bar_tiles := ["MapTile", "ResidentsTile", "DailyTile", "VaultTile", "SettingsTile", "BoardTile"]
+	var bottoms: Array = []
+	for tile_name in bar_tiles:
+		var t := map_scene.get_node_or_null(NodePath(tile_name)) as Control
+		if t != null:
+			bottoms.append(t.get_global_rect().end.y)
+	ok(bottoms.size() >= 6, "the bottom bar built every expected tile")
+	if bottoms.size() >= 2:
+		ok(absf(float(bottoms.max()) - float(bottoms.min())) <= 1.0, \
+			"every bottom-bar tile shares one bottom edge")
+	var map_button := map_scene.get_node_or_null("MapTile") as Button
 	if map_button != null:
 		var map_button_rect := map_button.get_global_rect()
 		ok(_paper_texture_path(map_button).ends_with("ui/meadow_v2/texture_sky.png"), \
 			"map navigation uses the sky paper square")
 		ok(_is_reference_paper_shadow(_paper_shadow_style(map_button)), \
 			"map navigation paper square casts a visible downward shadow")
-		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0 \
-			and absf(map_screen_h - map_button_rect.end.y - edge_margin) <= 1.0, \
-			"map button uses the shared side/bottom margin")
+		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0, \
+			"the row's first tile starts at the shared side margin")
 		var play_button := map_scene.get("_play_btn") as Button
 		var play_button_rect := play_button.get_global_rect() if play_button != null else Rect2()
 		ok(play_button != null and absf(map_button_rect.end.y - play_button_rect.end.y) <= 1.0, \
-			"map button bottom-aligns with the Play CTA")
-		ok(play_button != null and _paper_texture_path(play_button) == "" \
-			and play_button.get_theme_stylebox("normal") is StyleBoxTexture, \
-			"live Play CTA keeps its authored circular shell")
+			"map tile bottom-aligns with the Board tile")
+		# the big orange disc is GONE: Board is a coral paper tile the same size as its neighbours
+		ok(play_button != null and _paper_texture_path(play_button).ends_with("ui/meadow_v2/texture_coral.png"), \
+			"the Board CTA wears the coral paper tile, not the authored circular shell")
+		ok(play_button != null and absf(play_button_rect.size.x - map_button_rect.size.x) <= 1.0, \
+			"the Board tile is the same size as the other tiles")
 		map_scene._open_select()
 		await process_frame
 		if map_scene._select_back != null:

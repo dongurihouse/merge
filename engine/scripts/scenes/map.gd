@@ -108,13 +108,14 @@ var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll)
 var _hand_scroll := 0.0          # current scroll offset of the in-hand orb grid (px from the top)
 var _hand_scroll_max := 0.0      # 0 when the hand fits its column; else grid_h - viewport_h
 
-var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
-var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
-var _residents_btn: Button = null  # side-rail Expedition badge; visible on maps ready for the acquisition loop
-var _residents_dlg_btn: Button = null  # side-rail Residents tile → the Residents management dialog (ui/residents.gd)
+var _chrome_nodes: Array = []    # the bottom bar's tiles (every home destination lives there now)
+# The BOTTOM BAR tiles, left to right. Board is last so it lands in the bottom-right corner.
+var _map_btn: Button = null            # Map tile → the MAPS gallery
+var _residents_dlg_btn: Button = null  # Residents tile → the Residents management dialog (ui/residents.gd)
 var _daily_btn: Button = null
 var _vault_btn: Button = null
-var _inbox_btn: Button = null
+var _inbox_btn: Button = null          # Mail tile (guarded: only when the inbox system ships)
+var _play_btn: Button                  # the MERGED Board tile: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
 # THE map-view spirit dock (replaces the standalone habitat dialog). The place-picker carries an in-hand
 # COLUMN on the right, and every completed map's housed orbs as a vertical STRIP down the card's right side.
 # Spirits are managed by DRAG through the single input surface: hand→a map places, hand→a matching orb
@@ -318,7 +319,6 @@ func _open_map(z: int) -> void:
 	_build_map()
 	_refresh_chrome_badges()             # Daily · Vault · Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
-	_refresh_residents_btn()             # Expedition is a per-map home-rail action
 
 func _open_select() -> void:
 	_view = "select"
@@ -756,21 +756,19 @@ func _build_maps_page(animate := true) -> void:
 	if animate:
 		FX.pop_in(content)
 
-# The gallery's bottom nav (mock chrome): HOME · BOARD · EXPEDITION as wide cream paper tiles
-# (the shared configurable home button, rect shape, icon over caption). Rebuilt with the page —
-# it lives inside `content`, real buttons above the tap surface (the chip exception).
+# The gallery's bottom nav (mock chrome): HOME · BOARD as wide cream paper tiles (the shared
+# configurable home button, rect shape, icon over caption). Rebuilt with the page — it lives inside
+# `content`, real buttons above the tap surface (the chip exception). (The third EXPEDITION tile
+# retired with the bucket dock it opened; Expedition now lives in the Residents dialog.)
 func _build_maps_nav(view: Vector2, nav_h: float) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	var go_home := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_map(_map_idx)
-	var go_dock := func() -> void:
-		_open_select()
 	var specs := [
 		{"icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.page.nav_home"), "action": go_home},
 		{"icon": HC.ICON_PLAY, "caption": Strings.t("map.page.nav_board"), "action": _on_board},
-		{"icon": HC.ICON_EXPEDITION, "caption": Strings.t("map.page.nav_expedition"), "action": go_dock},
 	]
 	var side := NavBar.SIDE_INSET
 	var btn_gap := clampf(view.x * 0.03, 10.0, 26.0)
@@ -1972,90 +1970,22 @@ func _cheapest_buyable() -> String:
 	return best
 
 func _build_chrome() -> void:
-	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
-	# board sizing — side buttons 140, the centred primary (Play) 184 — so the two screens' bottom bars
-	# match. Order: Map · Play. PLAY is the way into the garden/board (the prominent leaf). Shop opens
-	# from the top pills' "+", and Settings/Piggy live in the LiveOps side rail (_build_liveops_rail).
+	# ONE bottom bar carries every home destination now (spec 2026-07-18): Map · Residents · Daily ·
+	# Vault · Mail · Settings · Board, as full-width paper tiles on their own textures. The old
+	# top-right LiveOps rail and the two-button Map/Play nav row are both gone — Shop still opens from
+	# the top pills' "+".
 	var sb := Look.safe_bottom(self)
-	var edge := _hud_edge_margin_px()
-	# The flanking Map button is the SHARED configurable home button in its ROUNDED-RECT form (icon + "Map"
-	# label inside the badge — ui_mock2); Play is the big CIRCULAR orange CTA (the only round bottom button).
-	var nav := NavBar.build(self, [
-		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
-		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
-		# (Residents management folded into the place-picker — the map view's right-hand in-hand column +
-		# each map's housed strip — so there is no longer a standalone Residents button or dialog.)
-		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
-		{"make": _make_play_button, "label": Strings.t("map.nav.play")}],
-		{"side": edge, "bottom": edge})
-	for b in nav.buttons:
-		_chrome_nodes.append(b)
-	_chrome_nodes.append(nav.row)
+	_build_bottom_chrome()
 	_refresh_play_cta()                  # confirm the merged CTA's Play↔Restore state for the open map
-	# the Play disc breathes so the primary action reads — kept whether it shows board or vine. (Target by
-	# identity, not nav index: the Residents button shifts Play's position in the row.)
+	# the Board tile breathes so the primary action still reads, disc or not — kept whether it shows
+	# board or vine.
 	if is_instance_valid(_play_btn):
 		FX.breathe_once(_play_btn)
-	# the LiveOps rail: Settings · Daily · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
-	# bank lives here now (moved off the bottom bar); its claimable ready-pip is attached there. (The
-	# premium pill's "new offer" red dot and the rail "Free" faucet were removed — Free moved to the shop.)
-	_build_liveops_rail()
 	# the place-picker's bottom-left BACK arrow (map.png) — returns to the map you were viewing. A real
 	# Button on `self` (chrome), NOT under the content input surface; hidden on a map, shown in select.
 	_select_back = _make_back_button(sb)
 	add_child(_select_back)
 	_select_back.visible = false
-
-# The Map button (bottom nav, index 0) — opens the place-picker. The shared home button in its code-drawn
-# ROUNDED-RECT form, filled with sky paper and carrying the map icon.
-func _make_map_button() -> Button:
-	var open := func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_maps()
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return NavBar._make_nav_button("nav_map.png", 140.0, open)   # defensive: the baked map disc
-	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	opts["px"] = _hud_button_px()
-	opts["shape"] = "rect"
-	opts["surface_role"] = "sky"
-	opts["shadow"] = true
-	opts["icon_scale"] = HOME_ICON_ONLY_SCALE
-	var HC: GDScript = load(HOME_CHROME_PATH)
-	return Kit.home_button({"icon": HC.ICON_MAP, "caption": "", "tooltip": Strings.t("map.nav.map"), "action": open}, opts)
-
-# Show the Expedition rail button once the acquire loop is open — i.e. the bucket has cells
-# (a home building is completed; spec 2026-07-17). Was gated on a restored map spot.
-func _refresh_residents_btn() -> void:
-	if _residents_btn != null and is_instance_valid(_residents_btn):
-		var ready := Bucket.cells_total() > 0
-		_residents_btn.visible = ready
-		_residents_btn.set_meta("map_id", String(G.MAPS[_map_idx].id))
-		var HC: GDScript = load(HOME_CHROME_PATH)
-		if HC != null:
-			_residents_btn.set_meta("icon_id", HC.ICON_EXPEDITION)
-	if _residents_dlg_btn != null and is_instance_valid(_residents_dlg_btn):
-		# the management dialog earns its rail slot once the bucket EXISTS — a granted cell or a
-		# first spirit in hand — matching the rail's progressive disclosure (Expedition's gate).
-		_residents_dlg_btn.visible = Bucket.cells_total() > 0 or not Bucket.hand().is_empty()
-	_layout_liveops_rail()
-
-func _layout_liveops_rail() -> void:
-	if _gear == null or not is_instance_valid(_gear):
-		return
-	var slot := 0
-	_place_rail(_gear, _rail_top_px, slot, _rail_step_px)
-	slot += 1
-	if _residents_btn != null and is_instance_valid(_residents_btn) and _residents_btn.visible:
-		_place_rail(_residents_btn, _rail_top_px, slot, _rail_step_px)
-		slot += 1
-	var ordered := [_residents_dlg_btn, _daily_btn, _vault_btn, _inbox_btn]
-	for node in ordered:
-		var b := node as Button
-		if b == null or not is_instance_valid(b) or not b.visible:
-			continue
-		_place_rail(b, _rail_top_px, slot, _rail_step_px)
-		slot += 1
 
 # --- the spirit DOCK constants (shared by the place-picker's housed strip + in-hand column) ------
 # The map view IS the residents surface now: the place-picker carries every completed map's housed orbs
@@ -2307,24 +2237,9 @@ func _open_expedition(z: int = -1) -> void:
 # REMOVED: the live residents surface is the Expedition (acquire) → Habitat dialog (place/sell/yield). The
 # welcome_resident MODEL stays for the unlock-gift grant + the pacing sim.)
 
-# The Play button (bottom nav, index 1) — the home screen's primary CTA, and the MERGED restore button: the
-# big ORANGE play disc (ui_asset2 play_disc), CAPTIONLESS. It wears the board+acorn mark and taps into the
-# board by default, but flips to the ui_asset3 VINE mark + the restore action the moment the open map's next
-# spot is affordable (_unlock_ready). _refresh_play_cta swaps the icon/action in place; the disc breathes in
-# either state. Stored in _play_btn so the refresh can find it.
-func _make_play_button() -> Button:
-	var ready := _unlock_ready()
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return NavBar._make_nav_button("nav_leaf.png", 188.0, _on_board)   # defensive: the baked leaf pill
-	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	opts["px"] = float(opts.get("play_px", 188))   # the workbench-tuned Play-disc size (bigger than the 140 Map badge)
-	var HC: GDScript = load(HOME_CHROME_PATH)
-	opts["shell"] = HC.PLAY_SHELL             # the orange play disc (no green tint — the art carries the colour)
-	opts["icon_scale"] = 0.52                 # the centred mark (board+acorn, or the vine when a restore is ready)
-	var action: Callable = _on_unlock_pressed if ready else _on_board
-	_play_btn = Kit.home_button({"icon": (HC.ICON_PLAY_RESTORE if ready else HC.ICON_PLAY), "caption": "", "action": action}, opts)
-	return _play_btn
+# (The big ORANGE play DISC retired with the side rail: Board is now the last tile of the bottom bar,
+# the same rect paper tile as its neighbours. _refresh_play_cta still swaps its icon/action between
+# Play and Restore in place, and it still breathes — see _build_bottom_chrome.)
 
 # The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
 # bottom nav + the live-ops rail build from, in its ROUNDED-RECT form (shape:"rect") — matching the Map
@@ -2415,101 +2330,127 @@ func _wallet_bottom_y() -> float:
 				return wallet.get_global_rect().position.y + h
 	return Look.safe_top(self) + 16.0
 
-func _build_liveops_rail() -> void:
-	# Load the shared home-button style ONCE (the same transform the bottom nav + workbench read).
+func _build_bottom_chrome() -> void:
+	# Load the shared home-button style ONCE (the same transform the workbench reads).
 	var Kit: GDScript = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
 	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
+	# the shared workbench button size — still read by the place-picker's back button.
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {
-		"button_w_frac": RAIL_PX / Design.size().x,
-		"edge_margin_px": RAIL_MARGIN,
-		"top_band_h_frac": 0.15,
-	}
+		"button_w_frac": RAIL_PX / Design.size().x, "edge_margin_px": RAIL_MARGIN}
 	_rail_px = maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
-	_rail_margin_px = float(layout.get("edge_margin_px", RAIL_MARGIN))
-	# the rail tiles now use the same screen-width percentage as Map / Back / board Bag+Home.
-	_rail_disc_px = _rail_px
-	_rail_opts = _home_opts.duplicate()
-	_rail_opts["px"] = _rail_disc_px
-	_rail_opts["shape"] = "rect"
-	_rail_opts["surface_role"] = "cream"
-	_rail_opts["shadow"] = true
-	_rail_opts["icon_scale"] = HOME_ICON_ONLY_SCALE
-	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
-	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).
-	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)), float(_home_opts.get("badge_dy", -26.0)))
+	# the workbench-tuned badge offset: on a rect tile it tucks the dot IN over the top-right corner
+	# (the old value was tuned against a disc's transparent art margin, so it is pulled in tighter).
+	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)) * 0.5, float(_home_opts.get("badge_dy", -26.0)) * 0.5)
 	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
 	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
-	_rail_step_px = _rail_disc_px + RAIL_CAP_H + RAIL_GAP
-	_rail_top_px = _wallet_bottom_y() + _rail_margin_px
 	var HC: GDScript = load(HOME_CHROME_PATH)
-	# Settings — first rail tile, using the same builder/placement as the rest of the side rail.
-	_gear = _rail_button(HC.ICON_SETTINGS, Strings.t("settings.title"), func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_settings())
-	# Expedition — map-specific acquisition entry. It appears directly under Settings only when the open map
-	# has at least one restored spot; hidden maps do not reserve a rail slot.
-	# Spirits — opens the bucket dock (the residents surface; its chips carry Collect + Expedition).
-	# The bottom-nav Map button now opens the MAPS gallery, so this rail tile is the dock's entry.
-	_residents_btn = _rail_button(HC.ICON_EXPEDITION, "Expedition", func() -> void:
-		_open_select())
-	# Residents — the management dialog (resource banks + habitat cells + hand): ui/residents.gd over
-	# the shared v2 frame. The house icon is the declared ICON_RESIDENTS chrome id (home_chrome.gd).
-	_residents_dlg_btn = _rail_button(HC.ICON_RESIDENTS, "Residents", _open_residents)
-	# Daily — opens the login calendar on demand; badge when today is unclaimed.
-	_daily_btn = _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
-	_daily_badge = Look.badge("dot", 0, bopts)
-	Look.attach_badge(_daily_btn, _daily_badge, bover)
-	# (The free "Free" gem faucet moved off the rail into the premium/acorn shop — its lead card.
-	#  See shop.gd `_free_gems_card`. The rail is the navigation/liveops column only now.)
-	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
-	# Vault.claimable() (driven by _refresh_piggy_pip).
-	_vault_btn = _rail_button(HC.ICON_VAULT, Strings.t("map.rail.vault"), _open_vault)
-	_piggy_pip = Look.badge("dot", 0, bopts)
-	Look.attach_badge(_vault_btn, _piggy_pip, bover)
-	_refresh_piggy_pip()
-	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
+	# The BOTTOM BAR (home_screen_meadow_sky_v2_working_farm): one full-width row of paper tiles, each on
+	# its OWN texture, icon over caption. This replaces both the old top-right LiveOps rail and the
+	# two-button Map/Play nav — every home destination now lives in one strip along the bottom edge.
+	# Order runs navigation → liveops → utility → primary, with Board pinned in the right-hand corner.
+	var specs: Array = [
+		{"name": "MapTile", "icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"),
+			"surface": "sky", "action": func() -> void:
+				Audio.play("button_tap", -2.0)
+				_open_maps()},
+		# Residents is ALWAYS present — the bottom bar is fixed furniture (a tab bar, not a progressive
+		# list). The old rail hid it until the bucket existed; hiding a tile here either punches a hole
+		# in the row or reflows every destination out from under the player's thumb.
+		{"name": "ResidentsTile", "icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.residents"),
+			"surface": "green", "action": _open_residents},
+		{"name": "DailyTile", "icon": HC.ICON_DAILY, "caption": Strings.t("map.rail.daily"),
+			"surface": "gold", "action": _open_daily},
+		{"name": "VaultTile", "icon": HC.ICON_VAULT, "caption": Strings.t("map.rail.vault"),
+			"surface": "purple", "action": _open_vault},
+	]
+	# Mail — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
-		_inbox_btn = _rail_button(HC.ICON_INBOX, Strings.t("map.rail.inbox"), _open_inbox)
+		specs.append({"name": "MailTile", "icon": HC.ICON_INBOX, "caption": Strings.t("map.nav.mail"),
+			"surface": "kraft", "action": _open_inbox})
+	specs.append({"name": "SettingsTile", "icon": HC.ICON_SETTINGS, "caption": Strings.t("settings.title"),
+		"surface": "slate", "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_settings()})
+	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It is no longer the big orange
+	# disc: it wears the same rect tile geometry as its neighbours (coral paper) and keeps breathing, and
+	# _refresh_play_cta still swaps its icon/action between Play and Restore.
+	specs.append({"name": "BoardTile", "icon": HC.ICON_PLAY, "caption": Strings.t("map.nav.board"),
+		"surface": "coral", "action": _on_board})
+
+	var built := _build_bottom_bar(specs)
+	_map_btn = built.get("MapTile", null)
+	_residents_dlg_btn = built.get("ResidentsTile", null)
+	_daily_btn = built.get("DailyTile", null)
+	_vault_btn = built.get("VaultTile", null)
+	_inbox_btn = built.get("MailTile", null)
+	_gear = built.get("SettingsTile", null)
+	_play_btn = built.get("BoardTile", null)
+	# the badges ride the tiles' TOP-RIGHT corners, the same relative spot they held on the rail discs.
+	if _daily_btn != null:
+		_daily_badge = Look.badge("dot", 0, bopts)
+		Look.attach_badge(_daily_btn, _daily_badge, bover)
+	if _vault_btn != null:
+		_piggy_pip = Look.badge("dot", 0, bopts)
+		Look.attach_badge(_vault_btn, _piggy_pip, bover)
+	if _inbox_btn != null:
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(_inbox_btn, _inbox_badge, bover)
-	_refresh_residents_btn()
+	_refresh_piggy_pip()
 	_refresh_liveops_badges()
 
-# One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +
-# caption tab, tuned in the workbench. `sparkle` opts the disc into the engine-drawn glow/twinkle. Falls
-# back to a plain cream disc when the kit can't load. Parented to self + tracked as chrome.
-func _rail_button(icon_id: String, label: String, cb: Callable, sparkle := false, extra_spec: Dictionary = {}) -> Button:
+# Build the bottom bar from `specs` (each {name, icon, caption, surface, action}) and return
+# {name: Button}. Tiles are the SHARED Kit.home_button in its rect form — icon over caption inside a
+# rounded paper tile — sized so the row fills the width between the safe-area insets exactly. Every
+# tile is parented to `self` and tracked as chrome, so a rebuild clears them with the rest.
+func _build_bottom_bar(specs: Array) -> Dictionary:
+	var out := {}
+	if specs.is_empty():
+		return out
 	var Kit: GDScript = load(KIT_PATH)
-	var b: Button
-	if Kit != null:
-		var spec := {"icon": icon_id, "caption": "", "tooltip": label, "action": cb, "sparkle": sparkle}
-		for k in extra_spec.keys():
-			spec[k] = extra_spec[k]
-		b = Kit.home_button(spec, _rail_opts)
-	else:
-		b = Button.new()                          # defensive fallback (kit absent): a bare disc
-		b.focus_mode = Control.FOCUS_NONE
-		b.tooltip_text = label
-		b.custom_minimum_size = Vector2(_rail_disc_px, _rail_disc_px)
-		b.pressed.connect(cb)
-	add_child(b)
-	_chrome_nodes.append(b)
-	return b
+	var view := _view_size()
+	var side := _hud_edge_margin_px()
+	var gap := clampf(view.x * 0.012, 6.0, 16.0)
+	var n := float(specs.size())
+	var tile_w := (view.x - side * 2.0 - gap * (n - 1.0)) / n
+	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	opts["px"] = tile_w
+	opts["shape"] = "rect"
+	opts["shadow"] = true
+	# the caption has to survive a 7-tile row: scale it off the tile width rather than the design font,
+	# and tighten the icon so the two still stack inside the tile.
+	opts["caption_font"] = int(clampf(tile_w * 0.16, 11.0, float(FS.SMALL)))
+	opts["icon_scale"] = 0.46
+	opts["rect_pad"] = 0.10
+	for i in specs.size():
+		var spec: Dictionary = specs[i]
+		var o := opts.duplicate(true)
+		var role := String(spec.get("surface", "cream"))
+		o["surface_role"] = role
+		# the slate paper is the one DARK tile face — ink-on-slate is the weakest caption in the row,
+		# so it takes the cream text instead (verified against the rendered bar, not assumed).
+		if role == "slate":
+			o["caption_color"] = Pal.CREAM
+		var b: Button
+		if Kit != null:
+			b = Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption),
+				"tooltip": String(spec.caption), "action": spec.action}, o)
+		else:
+			b = Button.new()                          # defensive fallback (kit absent): a bare tile
+			b.focus_mode = Control.FOCUS_NONE
+			b.text = String(spec.caption)
+			b.custom_minimum_size = Vector2(tile_w, tile_w)
+			b.pressed.connect(spec.action)
+		b.name = String(spec.name)
+		b.position = Vector2(side + float(i) * (tile_w + gap), y)
+		b.size = Vector2(tile_w, tile_w)
+		add_child(b)
+		_chrome_nodes.append(b)
+		out[String(spec.name)] = b
+	return out
 
-# Pin a rail button to the TOP-right edge, stacked DOWNWARD (slot 0 highest) from `top` px below the
-# safe-top. The caption tab overflows into the `step` gap beneath each disc.
-func _place_rail(b: Button, top: float, slot: int, step: float) -> void:
-	b.anchor_left = 1.0
-	b.anchor_right = 1.0
-	b.anchor_top = 0.0
-	b.anchor_bottom = 0.0
-	b.offset_right = -_rail_margin_px
-	b.offset_left = -_rail_margin_px - _rail_disc_px
-	b.offset_top = top + slot * step
-	b.offset_bottom = b.offset_top + _rail_disc_px
-
-# Light each rail badge ONLY when its surface is actionable (the calm rule: the badge pulls, not the
+# Light each bottom-bar badge ONLY when its surface is actionable (the calm rule: the badge pulls, not the
 # button). Daily = today unclaimed; Inbox = unread count (guarded).
 func _refresh_liveops_badges() -> void:
 	if _daily_badge != null and is_instance_valid(_daily_badge):
@@ -2532,7 +2473,10 @@ func _open_residents() -> void:
 			_update_hud()
 			_refresh_liveops_badges(),
 		"on_info": func(kind: String, tier: int) -> void:
-			_open_resident_ladder(kind, tier)})
+			_open_resident_ladder(kind, tier),
+		# the acquire entry the bucket dock's chip used to own — same frontier-map target
+		"on_expedition": func() -> void:
+			_open_expedition(_frontier_map())})
 
 func _open_daily() -> void:
 	Audio.play("button_tap", -2.0)

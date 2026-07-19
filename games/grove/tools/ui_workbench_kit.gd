@@ -42,6 +42,12 @@ const PAPER_SURFACES := {
 	"sky": {"texture": "texture_sky.png", "fill": Color("#6FA9C0")},
 	"green": {"texture": "texture_action_green.png", "fill": Color("#5F9B6D")},
 	"purple": {"texture": "texture_supporting_purple.png", "fill": Color("#8677A3")},
+	# the remaining shipped paper roles, registered so the bottom bar can give every tile its own
+	# texture (the mock's multi-coloured nav strip). Fills mirror the Meadow Sky palette roles.
+	"coral": {"texture": "texture_coral.png", "fill": Color("#D87865")},
+	"gold": {"texture": "texture_reward_gold.png", "fill": Color("#D6A94C")},
+	"kraft": {"texture": "texture_warm_kraft.png", "fill": Color("#C9A886")},
+	"slate": {"texture": "texture_structural_slate.png", "fill": Color("#8296AF")},
 }
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
@@ -1654,7 +1660,8 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			var cl := Label.new()
 			cl.text = caption
 			cl.add_theme_font_size_override("font_size", int(opts.get("caption_font", FS.SMALL)))
-			cl.add_theme_color_override("font_color", Pal.INK)
+			# ink by default; a DARK paper role (slate) passes a light colour so the caption still reads.
+			cl.add_theme_color_override("font_color", opts.get("caption_color", Pal.INK))
 			cl.add_theme_constant_override("outline_size", 0)   # solid badge = the contrast (panel-text law)
 			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
