@@ -2567,6 +2567,11 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		footer_band.add_theme_stylebox_override("panel", fb)
 		footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		footer_band.add_child(footer)
+		# dock the band to inner's BOTTOM edge via anchors (not manual positioning): Godot then keeps it
+		# glued to the card bottom every layout pass, so it can't lag a stale inner height and float free
+		# (the single-card bug — inner shrinks to fit but a manually-placed band stayed at the tall cap).
+		footer_band.anchor_left = 0.0; footer_band.anchor_right = 1.0
+		footer_band.anchor_top = 1.0; footer_band.anchor_bottom = 1.0   # offset_top (= -height) set in relayout, once measured
 		inner.add_child(footer_band)
 
 	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable
@@ -2606,9 +2611,12 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		# dock the pinned footer to the bottom of the content area, and reserve its height as the list's
 		# bottom spacer so rows can scroll fully clear of it (delta-guarded so it converges).
 		if is_instance_valid(footer_band):
+			# anchored to inner's bottom edge (see build) — we only feed it the measured height as the top
+			# offset, and reserve the same height as the list's bottom spacer so rows scroll clear of it.
 			var fh: float = footer_band.get_combined_minimum_size().y
-			footer_band.size = Vector2(inner.size.x, fh)
-			footer_band.position = Vector2(0, maxf(0.0, inner.size.y - fh))
+			if absf(footer_band.offset_top - (-fh)) > 1.0:
+				footer_band.offset_top = -fh
+			footer_band.offset_left = 0.0; footer_band.offset_right = 0.0; footer_band.offset_bottom = 0.0
 			if is_instance_valid(foot_spacer) and absf(foot_spacer.custom_minimum_size.y - fh) > 1.0:
 				foot_spacer.custom_minimum_size.y = fh
 		wrap.custom_minimum_size = card.size
