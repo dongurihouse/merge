@@ -2295,9 +2295,10 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the ONE SHARED drop-shadow (the pill look) — circular, slightly inset so
-	# the feather hugs the art's round face (same recipe as the level badge emblem).
-	var sh := _meadow_shadow_circle(size * 0.92, Look.shadow_params(load_config(CONFIG_PATH)))
+	# the coral disc casts the mock's tinted drop-shadow — circular, short and soft (#294654 ~19%),
+	# slightly inset so the feather hugs the art's round face.
+	var sh := _meadow_shadow_circle(size * 0.92,
+		{"offset_x": 0.0, "offset_y": 5.0, "blur": 10.0, "spread": 0.0, "alpha": 0.19})
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)

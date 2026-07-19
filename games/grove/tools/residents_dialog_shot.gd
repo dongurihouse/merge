@@ -42,7 +42,7 @@ func _initialize() -> void:
 		while HB.buy_step(st, d):
 			pass
 	Save.grove_write()
-	for spec in [["boost", 2], ["coin", 1], ["coin", 3], ["water", 2], ["diamond", 1], ["boost", 1], ["water", 1]]:
+	for spec in [["boost", 2], ["coin", 1], ["coin", 3], ["water", 2], ["diamond", 1], ["boost", 1], ["water", 1], ["water", 2]]:
 		Bucket.hand_add(String(spec[0]), int(spec[1]))
 	Bucket.place(0)   # seat the boost t2 into the zone cell
 	var bst := Bucket.state()
@@ -64,6 +64,32 @@ func _initialize() -> void:
 	RenderingServer.force_draw()
 	var img1 := root.get_texture().get_image()
 	var e1 := img1.save_png(out_dir + "residents_dialog.png")
+
+	# REAL-PATH drag check: press on the water t2 twin, sweep to its match, release — through the
+	# viewport's input routing (the same path a finger takes), then read the model.
+	var ovd: Control = scn.get_node_or_null("ResidentsOverlay")
+	var drag_src: Control = ovd.find_child("OnHandCard_06", true, false) if ovd != null else null
+	var drag_dst: Control = ovd.find_child("OnHandCard_02", true, false) if ovd != null else null
+	var hand_before := Bucket.hand().size()
+	if drag_src != null and drag_dst != null:
+		var a := drag_src.get_global_rect().get_center()
+		var b := drag_dst.get_global_rect().get_center()
+		var down := InputEventMouseButton.new()
+		down.button_index = MOUSE_BUTTON_LEFT; down.pressed = true; down.position = a
+		get_root().push_input(down)
+		for i in 6:
+			var mv := InputEventMouseMotion.new()
+			mv.position = a.lerp(b, float(i + 1) / 6.0)
+			mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+			get_root().push_input(mv)
+			await create_timer(0.03).timeout
+		var up := InputEventMouseButton.new()
+		up.button_index = MOUSE_BUTTON_LEFT; up.pressed = false; up.position = b
+		get_root().push_input(up)
+		await create_timer(0.3).timeout
+	var hand_after := Bucket.hand().size()
+	print("DRAG hand %d -> %d (merge %s)" % [hand_before, hand_after,
+		"OK" if hand_after == hand_before - 1 else "FAILED"])
 
 	# select a hand card so the inspector arms (tap the first hand card's button)
 	var ov: Control = scn.get_node_or_null("ResidentsOverlay")

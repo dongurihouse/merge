@@ -32,7 +32,8 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
-const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
+const CELL_CORNER := 16.0           # the bank card corner radius
+const SHADOW_TINT := Color("#294654")   # the mock's tinted shadow role (18-20% opacity)
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {
@@ -42,39 +43,88 @@ const LINE_FACE := {
 	"diamond": {"icon": "gem",   "label": "Diamonds", "fill": Color("#8677A3")},
 }
 
-## A spirit/free-cell wrapper that owns ALL input for its card: tap-to-select plus Godot-native
-## drag & drop. The wrapped kit cell underneath is made mouse-transparent, so the wrapper is the
-## one control the viewport talks to. `data` = {src: "hand"|"placed"|"free", idx, line, tier}.
+## A spirit/free-cell wrapper that owns ALL input for its card: tap-to-select plus a MANUAL drag
+## (press → move past a threshold → ghost follows → release resolves the drop target). Manual, not
+## Godot-native DnD: the project runs pointing/emulate_touch_from_mouse, which feeds Controls touch
+## events the native mouse-driven drag machinery never sees — so drags silently did nothing in the
+## real app. The wrapped kit cell underneath is mouse-transparent, so this wrapper is the one
+## control the viewport talks to. `data` = {src: "hand"|"placed"|"free", idx, line, tier}.
 class DragCard:
 	extends Control
+	const DRAG_START_PX := 14.0             # press slop before a drag begins (below = a tap)
 	var data: Dictionary = {}
 	var on_tap: Callable = Callable()
 	var can_take: Callable = Callable()     # (src_data, my_data) -> bool
 	var on_take: Callable = Callable()      # (src_data, my_data) -> void
 	var make_preview: Callable = Callable() # () -> Control (the drag ghost)
+	var targets: Callable = Callable()      # () -> Array of live DragCards (the drop registry)
+	var drag_layer: Control = null          # the overlay the ghost rides (above the dialog)
+	var _down := false
+	var _dragging := false
+	var _down_gp := Vector2.ZERO
+	var _ghost: Control = null
 
-	func _get_drag_data(_pos: Vector2) -> Variant:
-		if String(data.get("src", "")) != "hand":     # only hand spirits drag (the model's merge/place ops)
-			return null
-		if make_preview.is_valid():
-			set_drag_preview(make_preview.call())
-		return {"residents_drag": true, "data": data}
-
-	func _can_drop_data(_pos: Vector2, d: Variant) -> bool:
-		return d is Dictionary and bool(d.get("residents_drag", false)) \
-			and can_take.is_valid() and bool(can_take.call(d.get("data", {}), data))
-
-	func _drop_data(_pos: Vector2, d: Variant) -> void:
-		if on_take.is_valid():
-			on_take.call(d.get("data", {}), data)
-
-	## A plain click selects. (While a native drag is live the viewport swallows the release, so
-	## this never double-fires after a drop.)
+	## With emulate_touch_from_mouse BOTH the mouse event and its emulated touch arrive — the
+	## _down/_dragging flags make the second press/release of a pair a no-op.
 	func _gui_input(ev: InputEvent) -> void:
-		var click := (ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (ev as InputEventMouseButton).pressed) \
-			or (ev is InputEventScreenTouch and not (ev as InputEventScreenTouch).pressed)
-		if click:
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_press(_gp(ev.position)) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
+			accept_event()
+		elif ev is InputEventScreenTouch:
+			_press(_gp(ev.position)) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
+			accept_event()
+		elif (ev is InputEventMouseMotion or ev is InputEventScreenDrag) and _down:
+			_move(_gp(ev.position))
+			accept_event()
+
+	## _gui_input positions are LOCAL — the drag runs in global space.
+	func _gp(local: Vector2) -> Vector2:
+		return get_global_transform() * local
+
+	func _press(gp: Vector2) -> void:
+		if _down:
+			return
+		_down = true
+		_dragging = false
+		_down_gp = gp
+
+	func _move(gp: Vector2) -> void:
+		if not _dragging and String(data.get("src", "")) == "hand" \
+				and gp.distance_to(_down_gp) > DRAG_START_PX:
+			_dragging = true
+			if make_preview.is_valid() and drag_layer != null and is_instance_valid(drag_layer):
+				_ghost = make_preview.call()
+				_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				drag_layer.add_child(_ghost)
+		if _dragging and _ghost != null and is_instance_valid(_ghost):
+			_ghost.global_position = gp - _ghost.size * 0.5
+
+	func _release(gp: Vector2) -> void:
+		if not _down:
+			return
+		var was_drag := _dragging
+		_down = false
+		_dragging = false
+		if _ghost != null and is_instance_valid(_ghost):
+			_ghost.queue_free()
+		_ghost = null
+		# resolve LAST: on_take/on_tap repaint the dialog, which queue_frees this very card.
+		if was_drag:
+			var t := _target_at(gp)
+			if t != null and t.can_take.is_valid() and bool(t.can_take.call(data, t.data)) \
+					and t.on_take.is_valid():
+				t.on_take.call(data, t.data)
+		else:
 			tap()
+
+	func _target_at(gp: Vector2) -> DragCard:
+		if not targets.is_valid():
+			return null
+		for c in targets.call():
+			if c != self and c != null and is_instance_valid(c) \
+					and (c as Control).get_global_rect().has_point(gp):
+				return c
+		return null
 
 	func tap() -> void:
 		if on_tap.is_valid():
@@ -184,7 +234,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	var cfg: Dictionary = ctx.cfg
 	var width: float = ctx.inner
 	_clear(body)
-	var sp: Dictionary = Look.shadow_params(cfg)
+	ctx["cards"] = []   # the drop-target registry — every DragCard this rebuild creates
 
 	# --- RESOURCE BANKS: the 2×2 mini bank cards + the one Collect-all action -----------------------
 	body.add_child(_section_label(Kit, "Resource banks"))
@@ -198,10 +248,10 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	for line in Bucket.LINES:
 		var rep: Dictionary = Bucket.line_report(String(line))
 		ready_total += int(rep.ready)
-		banks.add_child(_bank_card(Kit, String(line), rep, (width - 14.0) * 0.5, sp))
+		banks.add_child(_bank_card(Kit, String(line), rep, (width - 14.0) * 0.5))
 	body.add_child(banks)
 
-	var collect := _collect_all_button(Kit, ready_total > 0, sp)
+	var collect := _collect_all_button(Kit, ready_total > 0)
 	collect.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		Bucket.collect()
@@ -229,16 +279,16 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		var cell: Control
 		if i < placed.size():
 			var inst: Dictionary = placed[i]
-			cell = _spirit_card(ctx, cbag, "placed", i, String(inst.line), int(inst.tier), cell_px, sp)
+			cell = _spirit_card(ctx, cbag, "placed", i, String(inst.line), int(inst.tier), cell_px)
 			cell.name = "HabitatCell_%02d" % i
 		elif i < cells_total:
-			cell = _free_cell(ctx, cbag, cell_px, sp)
+			cell = _free_cell(ctx, cbag, cell_px)
 			cell.name = "HabitatCellFree_%02d" % i
 		else:
 			cell = Kit.slot_cell({"state": "locked"}, cbag)
 			cell.custom_minimum_size = Vector2(cell_px, cell_px)
 			cell.name = "HabitatCellLocked_%02d" % i
-			_shadow_cell(Kit, cell, sp)
+			_shadow_cell(cell)
 		cells.add_child(cell)
 	body.add_child(cells)
 
@@ -256,7 +306,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	for i in hand.size():
 		var inst: Dictionary = hand[i]
-		var card := _spirit_card(ctx, hbag, "hand", i, String(inst.line), int(inst.tier), hand_px, sp)
+		var card := _spirit_card(ctx, hbag, "hand", i, String(inst.line), int(inst.tier), hand_px)
 		card.name = "OnHandCard_%02d" % i
 		grid.add_child(card)
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
@@ -272,10 +322,10 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(pad)
 
-## One RESOURCE BANK mini card (mock v2): the LARGE resource icon beside the name + value, a thick
-## line-coloured bar spanning the card, and the state line. Full banks wear the reward-gold rim.
-## Casts the ONE SHARED drop-shadow.
-static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float, sp: Dictionary) -> Control:
+## One RESOURCE BANK mini card (mock v2): the LARGE resource icon OWNS the card's left side (spanning
+## the name + value block), a thick line-coloured bar spanning the card, and the state line. Full
+## banks wear the reward-gold rim. Shadow = the mock's tinted stylebox shadow (follows the corners).
+static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -> Control:
 	var face: Dictionary = LINE_FACE.get(line, {})
 	var full := bool(rep.full)
 	var card := PanelContainer.new()
@@ -285,16 +335,19 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float, s
 	sb.set_corner_radius_all(int(CELL_CORNER))
 	sb.set_border_width_all(3 if full else 0)
 	sb.border_color = Pal.STRAW
-	sb.content_margin_left = 14; sb.content_margin_right = 14
+	sb.content_margin_left = 16; sb.content_margin_right = 16
 	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	_mock_shadow(sb)
 	card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(w, 0)
 
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 12)
-	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), 68.0)
+	top.add_theme_constant_override("separation", 14)
+	# the large icon takes the LEFT side of the card, vertically centred against the text block
+	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), 96.0)
+	icon.custom_minimum_size = Vector2(96.0, 96.0)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(icon)
 	var tcol := VBoxContainer.new()
@@ -335,7 +388,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float, s
 	state.add_theme_constant_override("outline_size", 0)
 	col.add_child(state)
 	card.add_child(col)
-	return Kit._meadow_with_shadow(card, CELL_CORNER, sp)
+	return card
 
 ## The bank's state line: "FULL" · "FULL IN 2H 18M" (rate-derived) · "IDLE" (nothing producing).
 static func _bank_state_text(line: String, rep: Dictionary) -> String:
@@ -350,8 +403,8 @@ static func _bank_state_text(line: String, rep: Dictionary) -> String:
 		return "FULL IN %dH %dM" % [mins / 60, mins % 60]
 	return "FULL IN %dM" % maxi(mins, 1)
 
-## The single collection action — a PLAIN action-green pill (mock v2), with the shared shadow.
-static func _collect_all_button(Kit: GDScript, enabled: bool, sp: Dictionary) -> Button:
+## The single collection action — a PLAIN action-green pill (mock v2), with the mock shadow.
+static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
 	var btn := Button.new()
 	btn.name = "CollectAllButton"
 	btn.text = "COLLECT ALL"
@@ -367,32 +420,42 @@ static func _collect_all_button(Kit: GDScript, enabled: bool, sp: Dictionary) ->
 	gsb.set_corner_radius_all(22)
 	gsb.content_margin_left = 34; gsb.content_margin_right = 34
 	gsb.content_margin_top = 10; gsb.content_margin_bottom = 10
+	_mock_shadow(gsb)
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(st, gsb)
-	var sh: Panel = Kit._meadow_shadow_rect(22.0, sp)
-	sh.name = "CollectAllShadow"
-	sh.show_behind_parent = true
-	btn.add_child(sh)
 	return btn
 
-## Give a plain kit cell the ONE SHARED drop-shadow (behind-parent, hugging the tile corner).
-static func _shadow_cell(Kit: GDScript, cell: Control, sp: Dictionary) -> void:
-	var sh: Panel = Kit._meadow_shadow_rect(CELL_CORNER, sp)
-	sh.name = "SpiritCellShadow"
-	sh.show_behind_parent = true
-	cell.add_child(sh)
+## The mock's tinted drop-shadow (#294654 at ~19%, short and soft), applied ON the element's own
+## StyleBoxFlat — so it follows the box's exact rounded corners instead of a separate sharp panel.
+static func _mock_shadow(sb: StyleBoxFlat) -> void:
+	sb.shadow_color = Color(SHADOW_TINT, 0.19)
+	sb.shadow_size = 10
+	sb.shadow_offset = Vector2(0, 5)
+
+## Shadow a kit slot cell: the visible face is the inset SlotCellBackground panel — put the mock
+## shadow on ITS stylebox (duplicated: slot_cell styleboxes are shared), so the shadow hugs the
+## face's real rounded corners.
+static func _shadow_cell(cell: Control) -> void:
+	var bg := cell.find_child("SlotCellBackground", true, false) as Panel
+	if bg == null:
+		return
+	var sb := bg.get_theme_stylebox("panel")
+	if sb is StyleBoxFlat:
+		var dsb: StyleBoxFlat = (sb as StyleBoxFlat).duplicate()
+		_mock_shadow(dsb)
+		bg.add_theme_stylebox_override("panel", dsb)
 
 ## A spirit card wrapped in the DragCard input shell: tap selects; hand spirits drag; matching
 ## targets merge/climb. The kit cell + art underneath is fully mouse-transparent.
 static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx: int,
-		line: String, tier: int, px: float, sp: Dictionary) -> Control:
+		line: String, tier: int, px: float) -> Control:
 	var Kit: GDScript = ctx.kit
 	var kind := Bucket.line_kind(line)
 	var cell: Control = Kit.slot_cell({"state": "filled",
 		"make_content": func(pp: float) -> Control: return _spirit_art(kind, tier, pp)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
-	_shadow_cell(Kit, cell, sp)
+	_shadow_cell(cell)
 	var badge := Label.new()
 	badge.name = "SpiritTierBadge"
 	badge.text = str(tier)
@@ -455,12 +518,13 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 			Audio.play("button_tap", -2.0)
 			ctx["sel"] = {}
 			_repaint(ctx)
+	_register_card(ctx, dc)
 	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dc.add_child(cell)
 	return dc
 
 ## A FREE habitat cell — accepts any hand spirit (Bucket.place moves it in).
-static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float, _sp: Dictionary) -> Control:
+static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float) -> Control:
 	var Kit: GDScript = ctx.kit
 	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
@@ -476,9 +540,18 @@ static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float, _sp: Di
 			Audio.play("button_tap", -2.0)
 			ctx["sel"] = {}
 			_repaint(ctx)
+	_register_card(ctx, dc)
 	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dc.add_child(cell)
 	return dc
+
+## Register a DragCard as a live drop target and hand it the shared drag context (the ghost layer
+## and the registry accessor — read lazily so every card sees the CURRENT rebuild's list).
+static func _register_card(ctx: Dictionary, dc: DragCard) -> void:
+	dc.drag_layer = ctx.overlay
+	dc.targets = func() -> Array:
+		return ctx.get("cards", [])
+	(ctx["cards"] as Array).append(dc)
 
 ## The spirit's per-tier ladder art, centred in its box — TRIMMED to its used rect (the raw canvas
 ## carries transparent padding that would shrink the sprite), cached per path like the map dock.
