@@ -4695,6 +4695,14 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 const DIALOG_CELL_OPEN_FILL := Color("#CCCEAA")
 ## ...and the nominal colour of ui/meadow_v2/texture_meadow.png, the grain sheet drawn over the face.
 const MEADOW_PAPER_BASE := Color("#A8D3B9")
+## The LOCKED dialog cell, measured the same way off the same mocks: tiers #91A0B3, merged_line_tiers
+## #97A6B9, resident_management_dialog_v2 #8B9FB2 — a lighter, warmer receding blue than the board's.
+## The board's locked well keeps #8296AF below.
+const DIALOG_CELL_LOCKED_FILL := Color("#91A0B3")
+## ...and the nominal colour of ui/meadow_v2/texture_receding_blue.png, its own grain sheet.
+const RECEDING_PAPER_BASE := Color("#8296AF")
+## How far dim_bg recedes an inactive well (the multiply the old, ineffective modulate asked for).
+const DIM_BG_FACTOR := 0.74
 
 ## The SLOT-CELL background draws its rounded shape and edge in code, then clips one flat paper texture
 ## inside it. Cells never cast their own shadow; only the board slab does.
@@ -4749,8 +4757,8 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
 	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
-	if open_state and dialog_cells:
-		fill = DIALOG_CELL_OPEN_FILL
+	if dialog_cells:
+		fill = DIALOG_CELL_OPEN_FILL if open_state else DIALOG_CELL_LOCKED_FILL
 	var corner_px := int(roundf(minf(face_size.x, face_size.y) * 0.18))
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = fill
@@ -4766,8 +4774,17 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	# recoloured face has to retint it too — as a modulate ratio off the texture's own base, which is
 	# exactly Color.WHITE when the fill is unchanged (the board stays byte-identical).
 	var paper_tint := Color.WHITE
-	if open_state and dialog_cells:
-		paper_tint = Color(fill.r / MEADOW_PAPER_BASE.r, fill.g / MEADOW_PAPER_BASE.g, fill.b / MEADOW_PAPER_BASE.b)
+	if dialog_cells:
+		var base_c: Color = MEADOW_PAPER_BASE if open_state else RECEDING_PAPER_BASE
+		paper_tint = Color(fill.r / base_c.r, fill.g / base_c.g, fill.b / base_c.b)
+	# dim_bg (the Producing dialog's discovered-but-inactive lines) recedes the WELL. It has to ride the
+	# SAME tint the recolour uses: the paper sheet IS the visible face and the mask shader writes COLOR
+	# wholesale, so a modulate on the parent Panel only ever dimmed the 1px border.
+	var dim: float = clampf(float(opts.get("dim", 1.0)), 0.0, 1.0)
+	if dim < 1.0:
+		fill = Color(fill.r * dim, fill.g * dim, fill.b * dim, fill.a)
+		fs.bg_color = fill
+		paper_tint = Color(paper_tint.r * dim, paper_tint.g * dim, paper_tint.b * dim, paper_tint.a)
 	base.add_child(_rounded_paper_layer("SlotCellPaperTexture", file_name, face_size, corner_px, 1.0, paper_tint))
 	# EVERY slot cell casts the ONE SHARED drop-shadow (the pill look) so a grid of them reads as
 	# raised paper — the board's flat tiles and the bag's dialog cells alike. Only the params differ:
@@ -4913,11 +4930,14 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# the cell FACE — one code-drawn Slot-cell background for every state, so the Workbench knobs apply
 	# consistently to board, bag, and discovery cells.
 	var frontier := bool(d.get("frontier", state == "unlockable"))
-	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, opts)
 	# dim_bg recedes JUST THE WELL (the Producing dialog's discovered-but-inactive lines): the piece is added
-	# later as its own child, so darkening the background here leaves the full-colour item untouched.
+	# later as its own child, so darkening the background here leaves the full-colour item untouched. It goes
+	# in through the background's OWN dim opt — a modulate on the returned Panel cannot reach the paper face.
+	var bg_opts: Dictionary = opts
 	if bool(d.get("dim_bg", false)):
-		bg.modulate = Color(0.74, 0.74, 0.74, 1.0)
+		bg_opts = opts.duplicate()
+		bg_opts["dim"] = DIM_BG_FACTOR
+	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)
 	tile.add_child(bg)
 	if lockedwell:
 		var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
