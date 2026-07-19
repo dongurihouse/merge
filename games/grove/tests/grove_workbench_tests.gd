@@ -2308,11 +2308,10 @@ func _test_quest_card_config(view) -> void:
 		"giver_lay config overrides the named keys (percent → fraction)")
 	ok(is_equal_approx(float(gov.card_h), 0.65), "giver_lay leaves un-named keys at the shipped default")
 
-	# the 9-slice patch margins ride the lay as SOURCE PIXELS (NOT divided) — defaults bracket the Meadow paper card
-	ok(is_equal_approx(float(gdf.card_slice_l), 34.0) and is_equal_approx(float(gdf.card_slice_b), 28.0), \
-		"giver_lay carries the card 9-slice margins as raw source px (not /100)")
-	var gsl: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_slice_t": 30}})
-	ok(is_equal_approx(float(gsl.card_slice_t), 30.0), "giver_lay slice margins are overridable (raw px)")
+	# the card_slice_* knobs are RETIRED with the card_generic nine-slice (the card is now the shared
+	# code-drawn paper panel) — giver_lay no longer emits them, and an old saved value is ignored
+	ok(not gdf.has("card_slice_l") and not Kit.giver_lay_from_config({"quest_card": {"card_slice_t": 30}}).has("card_slice_t"), \
+		"giver_lay no longer emits the retired card_slice_* knobs (old saved values are ignored)")
 	# the quest card casts the SHARED shadow (Skin.shadow_rect + the global shadow block), driven by the
 	# UNIVERSAL Shadow toggle — not a bespoke per-card shadow. giver_lay threads the toggle + shared params.
 	ok(bool(gdf.get("shadow", true)) == false, "giver_lay quest-card Shadow toggle is OFF by default (paper art stays shadow-free unless the caller lifts it)")
@@ -2320,24 +2319,40 @@ func _test_quest_card_config(view) -> void:
 	var gsp: Dictionary = Kit.giver_lay_from_config({"shadow": {"alpha": 50, "offset_y": 9}}).get("shadow_params", {})
 	ok(is_equal_approx(float(gsp.get("alpha", -1.0)), 0.50) and is_equal_approx(float(gsp.get("offset_y", -1.0)), 9.0), \
 		"giver_lay carries the shared shadow_params from the global shadow block (single source of truth)")
-	# the card background is built as a NINE-SLICE so the frame corners stay crisp while the centre stretches
+	# the card background wears the HUD pills' shared paper surface: a flat cream panel with the thin
+	# PAPER_EDGE rim, carrying the kit's texture_cream grain layer (no nine-slice art)
 	var noop := func(_a: Variant, _b: Variant) -> void: pass
 	var wire := func(_n: Control, _a: Callable) -> void: pass
 	var qcard: Control = GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"exp": 5}}, \
 		{"ask_tap": noop, "stand_tap": noop, "wire_tap": wire, "stand_w": 480.0, "fence_h": 410.0, "lay": gdf}).chip
-	var qcard_bg := qcard.find_child("MeadowQuestCard", true, false) as NinePatchRect
-	ok(qcard_bg != null and qcard_bg.texture != null \
-		and String(qcard_bg.texture.resource_path).ends_with("ui/meadow_v2/card_generic.png"), \
-		"the giver card background is the Meadow paper card NinePatch")
-	ok(qcard_bg != null and qcard_bg.patch_margin_left == int(gdf.card_slice_l) and qcard_bg.patch_margin_bottom == int(gdf.card_slice_b), \
-		"the drawn giver card consumes the Meadow paper 9-slice margins")
+	var qcard_bg := qcard.find_child("MeadowQuestCard", true, false) as Panel
+	var qsb := qcard_bg.get_theme_stylebox("panel") as StyleBoxFlat if qcard_bg != null else null
+	ok(qsb != null and _same_rgb(qsb.bg_color, GiverStand.PAPER_FILL) and qsb.border_width_left == 1, \
+		"the giver card background is the pills' flat cream paper panel with the thin rim")
+	var qgrain := qcard_bg.find_child("MeadowQuestCardPaper", false, false) as TextureRect if qcard_bg != null else null
+	ok(qgrain != null and qgrain.texture != null \
+		and String(qgrain.texture.resource_path).ends_with("ui/meadow_v2/texture_cream.png"), \
+		"the giver card carries the pills' texture_cream grain layer")
+	# the ask bubble is the REAL speech bubble sprite (tail toward the character), not a stretched pill
+	var qbub := qcard.find_child("MeadowAskBubble", true, false) as TextureRect
+	ok(qbub != null and qbub.texture != null \
+		and String(qbub.texture.resource_path).ends_with("ui/quest/bubble_ask.png"), \
+		"the ask bubble is the real speech-bubble sprite (bubble_ask.png)")
+	# the reward backing is a paper PILL, not the coin token — the pay row's coin icon is the only coin
+	ok(qcard.find_child("MeadowRewardToken", true, false) == null \
+		and (qcard.find_child("MeadowRewardPill", true, false) as Panel) != null, \
+		"the reward backing is the paper pill (no reward_token coin doubling the pay row's coin icon)")
 	qcard.queue_free()
 
 		# the card shadow reuses the SHARED Meadow slate shadow: toggle OFF leaves the bare art, toggle ON casts a
 		# show_behind_parent shadow_rect behind the card (not a bespoke black box).
 	var coff: Control = GiverStand._quest_card(300.0, 200.0, gdf)
-	ok(coff is NinePatchRect and String((coff as NinePatchRect).texture.resource_path).ends_with("ui/meadow_v2/card_generic.png"), \
-		"card Shadow toggle OFF returns the bare Meadow paper NinePatch")
+	var coff_shadowed := false
+	for p in coff.find_children("*", "Panel", true, false):
+		var psb = (p as Panel).get_theme_stylebox("panel")
+		if psb is StyleBoxFlat and (psb as StyleBoxFlat).shadow_size > 0:
+			coff_shadowed = true
+	ok(coff is Panel and not coff_shadowed, "card Shadow toggle OFF returns the bare paper panel (no shadow)")
 	var on_params := Look.shadow_params({"shadow": {"offset_x": 0, "offset_y": 6, "blur": 14, "spread": 4, "alpha": 34, "warmth": 82}})
 	var con: Control = GiverStand._quest_card(300.0, 200.0, {"shadow": true, "shadow_params": on_params})
 	var slate_shadow := false

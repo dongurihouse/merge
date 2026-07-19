@@ -10,7 +10,14 @@ const Strings = preload("res://engine/scripts/core/strings.gd")
 const Pal = Game.PALETTE
 
 const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
-const CARD_PATH := "ui/meadow_v2/card_generic.png"
+# The band wears the HUD pills' shared paper surface (flat cream + thin PAPER_EDGE rim + a
+# texture_cream grain layer from the UI kit) so it reads as one family with the pills above it.
+# The kit is loaded at runtime (matches hud.gd / action_bar.gd) to avoid a preload cycle.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const PAPER_TEXTURE := "texture_cream.png"
+const PAPER_FILL := Color("#F6EBDD")
+const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const PAPER_CORNER_FRAC := 0.28             # band corner radius as a fraction of the band height
 const TRACK_BG := Color("#E0CFB6")          # the empty track — CREAM knocked back a step (must read at 0%)
 const FILL_TWEEN_S := 0.55
 
@@ -32,7 +39,7 @@ func _init() -> void:
 	_bg.name = "UnlockBg"
 	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bg.add_theme_stylebox_override("panel", _band_style())
+	_bg.add_theme_stylebox_override("panel", _band_style(18.0))   # provisional; _relayout re-derives from height
 	add_child(_bg)
 	_badge = TextureRect.new()
 	_badge.name = "UnlockBadge"
@@ -67,26 +74,31 @@ func _label(lname: String, color: Color) -> Label:
 	add_child(l)
 	return l
 
-# The same paper-card band the quest fence wall uses, so the strip sits in the HUD's family.
-func _band_style() -> StyleBox:
-	var path := Game.art(CARD_PATH)
-	if ResourceLoader.exists(path):
-		var sb := StyleBoxTexture.new()
-		sb.texture = load(path)
-		sb.set_texture_margin(SIDE_LEFT, 34)
-		sb.set_texture_margin(SIDE_TOP, 28)
-		sb.set_texture_margin(SIDE_RIGHT, 34)
-		sb.set_texture_margin(SIDE_BOTTOM, 28)
-		return sb
+# The pills' paper look: a flat cream rounded panel with the thin PAPER_EDGE rim. The grain layer
+# is a separate child (see _apply_paper_surface) because a StyleBox can't carry the shader mask.
+func _band_style(corner: float) -> StyleBox:
 	var flat := StyleBoxFlat.new()
-	flat.bg_color = Pal.SURFACE
-	flat.set_corner_radius_all(18)
-	flat.set_border_width_all(2)
-	flat.border_color = Color(Pal.BARK, 0.22)
-	flat.shadow_color = Color("#294654", 0.16)
-	flat.shadow_size = 4
-	flat.shadow_offset = Vector2(0, 2)
+	flat.bg_color = PAPER_FILL
+	flat.border_color = PAPER_EDGE
+	flat.set_border_width_all(1)
+	flat.set_corner_radius_all(int(round(corner)))
+	flat.anti_aliasing = true
 	return flat
+
+# The texture_cream grain inside the band, rounded-clipped by the kit's paper-mask shader.
+# Idempotent: the kit helper updates the radius on the existing layer, so _relayout can re-call it.
+func _apply_paper_surface(corner: float) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
+	var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(_bg, "UnlockPaperSurface", PAPER_TEXTURE, corner, 2.0)
+	if paper != null:
+		# _bg is a plain Panel (no container layout) — anchor the grain into the 2px rim inset ourselves
+		paper.set_anchors_preset(Control.PRESET_FULL_RECT)
+		paper.offset_left = 2.0
+		paper.offset_top = 2.0
+		paper.offset_right = -2.0
+		paper.offset_bottom = -2.0
 
 func _rounded(color: Color, radius: float, outlined: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -149,6 +161,9 @@ func _relayout() -> void:
 	var w := size.x
 	if h <= 0.0 or w <= 0.0:
 		return
+	var corner := maxf(12.0, h * PAPER_CORNER_FRAC)
+	_bg.add_theme_stylebox_override("panel", _band_style(corner))
+	_apply_paper_surface(corner)
 	var badge_s := h * 1.06
 	_badge.size = Vector2(badge_s, badge_s)
 	_badge.position = Vector2(h * 0.16, (h - badge_s) * 0.5)
