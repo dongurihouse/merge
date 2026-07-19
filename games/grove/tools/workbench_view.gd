@@ -25,6 +25,9 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
+# The settings file this workbench reads/writes. Overridable so a test can redirect the round-trip at a
+# scratch copy instead of the repo's live design config.
+var _settings_path := SETTINGS
 var _params := {}
 var _selected := ""
 var _focus_only := ""             # if set (a component id), _build() renders JUST that element centred — a
@@ -605,8 +608,8 @@ func _is_config(id: String, key: String) -> bool:
 ## there — the other workbench owns the ids we don't. Test/preview scaffolding is excluded.
 func _save_settings() -> void:
 	var out := {}
-	if FileAccess.file_exists(SETTINGS):
-		var prev = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS))
+	if FileAccess.file_exists(_settings_path):
+		var prev = JSON.parse_string(FileAccess.get_file_as_string(_settings_path))
 		if prev is Dictionary:
 			out = prev
 	for id in _params.keys():
@@ -616,21 +619,21 @@ func _save_settings() -> void:
 				sub[k] = _params[id][k]
 		out[id] = sub
 	_save_extras(out)
-	var f := FileAccess.open(SETTINGS, FileAccess.WRITE)
+	var f := FileAccess.open(_settings_path, FileAccess.WRITE)
 	if f == null:
-		push_warning("Workbench: could not write %s" % SETTINGS)
+		push_warning("Workbench: could not write %s" % _settings_path)
 		return
 	f.store_string(JSON.stringify(out, "\t"))
 	f.close()
-	Kit.clear_config_cache(SETTINGS)   # so any live Kit reader picks up the new file (not the stale cache)
-	print("WORKBENCH: settings saved -> %s" % SETTINGS)
+	Kit.clear_config_cache(_settings_path)   # so any live Kit reader picks up the new file (not the stale cache)
+	print("WORKBENCH: settings saved -> %s" % _settings_path)
 
 ## Merge the saved file over the defaults, copying ONLY config keys present in both — so test
 ## scaffolding is never restored, and an older or newer settings file can't corrupt the live schema.
 func _load_settings() -> void:
-	if not FileAccess.file_exists(SETTINGS):
+	if not FileAccess.file_exists(_settings_path):
 		return
-	var f := FileAccess.open(SETTINGS, FileAccess.READ)
+	var f := FileAccess.open(_settings_path, FileAccess.READ)
 	if f == null:
 		return
 	var data = JSON.parse_string(f.get_as_text())

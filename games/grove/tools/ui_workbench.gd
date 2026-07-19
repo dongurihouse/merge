@@ -3,7 +3,7 @@ extends SceneTree
 ## Loads UiWorkbench.tscn (the @tool preview scene) so ONE scene serves three uses:
 ##   editor live-edit:   make editor → open games/grove/tools/UiWorkbench.tscn, then drag the
 ##                        Inspector "Size" knobs and watch the real button update live.
-##   standalone window:  make workbench
+##   standalone window:  make w
 ##   quiet screenshot:   make shot-workbench [OUT=/tmp/ui_workbench.png] [EL=<id>]   (born-minimized; no
 ##                        focus steal). EL=<id> captures JUST that one component centred (e.g. EL=mystery
 ##                        for the spin-reveal dialog) — a clean, repeatable single-component shot.
