@@ -44,7 +44,7 @@ const SLOT_SAGE := [1, 3, 6]
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
 const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
-const BANNER_ASPECT := 1.26       # capstone banner height / cell width
+const BANNER_ASPECT := 1.70       # capstone banner height / cell width — taller so the big day-7 chest has room
 
 # The day-reward art: the cut-paper redesign sprites (Direction B) for the daily surface only — coins as a
 # gold acorn-coin stack, water a sky droplet, the premium (gem) as the grove acorn. Other ids (cosmetic
@@ -348,11 +348,13 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(h * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.62)
+	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.52)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.70))
-	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.62)
+	# the chest has NO vertical size flag, so it FILLS the (now taller) row height — much larger than before;
+	# its px is just a floor kept under the row so it never forces an overflow.
+	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.60))
+	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.52)
 	sprig_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_r)
 	col.add_child(row)
