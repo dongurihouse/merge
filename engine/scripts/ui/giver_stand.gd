@@ -58,13 +58,14 @@ static func _meadow_tex(file_name: String) -> Texture2D:
 # bubble + the asked item ride the upper RIGHT, and the reward pill hangs just below the bubble. These are
 # the SHIPPED DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved config
 # (Kit.giver_lay_from_config), overriding per key — so designers tune + Save in the workbench, not here.
-# card_h 0.65 keeps the board card at its native shape (card_w·sw : card_h·fh ≈ 1.77 on the live fence).
+# card_w 0.92 leaves side padding between neighbouring cards on the fence; bust/bubble/pill x are
+# pulled slightly inboard so the content keeps a margin from the card's side edges.
 const LAY := {
-	"card_w": 0.98, "card_h": 0.65,
-	"bust_size": 0.94, "bust_x": 0.25, "bust_y": 0.53,
-	"bubble_size": 0.66, "bubble_x": 0.72, "bubble_y": 0.35,
-	"item_w": 0.32, "item_h": 0.32, "item_x": 0.72, "item_y": 0.32,
-	"plaque_w": 0.40, "plaque_x": 0.72, "plaque_y": 0.81,
+	"card_w": 0.92, "card_h": 0.65,
+	"bust_size": 0.94, "bust_x": 0.27, "bust_y": 0.53,
+	"bubble_size": 0.66, "bubble_x": 0.70, "bubble_y": 0.35,
+	"item_w": 0.32, "item_h": 0.32, "item_x": 0.70, "item_y": 0.32,
+	"plaque_w": 0.40, "plaque_x": 0.70, "plaque_y": 0.81,
 }
 
 # A paper card in the HUD pills' family (_paper_panel). The character bust fills the LEFT HALF (free to
@@ -111,8 +112,18 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var giver_idx := int(q.get("giver", int(it.line) if not it.is_empty() else qi))
 	# the giver POOL is map-specific (map 0 keeps the original cast; maps ≥1 use their own themed sheet)
 	var bust := Bust.make(giver_idx, bsz, int(cfg.get("map_idx", 0)))
-	bust.position = Vector2(cx + cardW * float(L.bust_x) - bsz / 2.0, cy + cardH * float(L.bust_y) - bsz / 2.0)
-	stand.add_child(bust)
+	# the portrait is CLIPPED to the card rect (mock: the character is cut by the card edge like a
+	# sticker laid under the frame) — a dedicated clip layer, NOT clip_contents on the card itself,
+	# so the card's show_behind_parent shared shadow keeps drawing outside the rect.
+	var bust_clip := Control.new()
+	bust_clip.name = "BustClip"
+	bust_clip.position = Vector2(cx, cy)
+	bust_clip.size = Vector2(cardW, cardH)
+	bust_clip.clip_contents = true
+	bust_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bust.position = Vector2(cardW * float(L.bust_x) - bsz / 2.0, cardH * float(L.bust_y) - bsz / 2.0)
+	bust_clip.add_child(bust)
+	stand.add_child(bust_clip)
 	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
 	bust.tree_entered.connect(func() -> void:
 		if is_instance_valid(bust) and bust.is_inside_tree():
@@ -171,10 +182,10 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 3)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pay.add_child(Look.icon("coin", plh * 0.62))
+	pay.add_child(Look.icon("coin", plh * 0.66))
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.coins(q)
-	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.52))
+	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.64))
 	pay_lbl.add_theme_color_override("font_color", INK)
 	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid pill behind — no halo
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
