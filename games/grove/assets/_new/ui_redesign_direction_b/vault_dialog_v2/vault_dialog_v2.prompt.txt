@@ -1,0 +1,40 @@
+Use case: ui-mockup.
+Asset type: high-fidelity mobile game dialog mock, full iPhone portrait canvas.
+
+Input images:
+- Image 1 is the primary composition and dialog-style reference. Match its focused modal scale, dimmed background treatment, top circular icon badge, big friendly headline, compact subcopy, centered resource meter, and two-button action row. Do not copy its acorn-shortage content.
+- Image 2 is the old vault content reference only. Preserve the vault idea: a premium jar, claim price, and fill-at-30 note. Do not copy its sparse layout, scroll bar, or tiny jar.
+
+Primary request: Generate a new VAULT dialog mock using the Image 1 dialog language. The dialog should feel like a premium savings jar that fills through play and can be claimed for $2.99.
+
+Canvas/background: full 1080x1920-style vertical phone screen. Dim and blur the underlying game screen, similar to Image 1. Behind the modal, hint at the bag/grid screen or Fairy Hollow game scene, but it must stay subdued and blue-tinted so the modal is the focus. No visible bottom navigation.
+
+Dialog frame: centered warm-cream paper modal, similar size/proportions to Image 1, with broad rounded corners, fine warm cut edge, thin locally darker edge, and shallow down-right tinted shadow. Coral circular close X button floats at the upper-right corner, matching Image 1.
+
+Top badge: at the top center overlapping or sitting just inside the modal, show a circular slate-blue badge containing a simple cut-paper vault jar icon. The jar should be readable at small size: cream rim, slate-blue glass body, reward-gold acorns/coins visible inside.
+
+Exact visible text:
+- Title: "Vault"
+- Subcopy: "Premium you've earned, saved up"
+- Meter text: "24 / 30"
+- Secondary button: "Not now"
+- Primary button: "$2.99"
+- Helper note: "Claim all now"
+
+Layout details: Title below the badge, large and centered in ink. Subcopy below title, two lines max. Center resource meter below subcopy: a warm-cream inset rounded rectangle with the jar/acorn icon at left and exact text "24 / 30" large in ink. Under the meter, put a tiny helper note "Claim all now" above the action row. Bottom row has two large buttons like Image 1: left secondary cream button with slate outline labeled "Not now"; right primary action-green button labeled "$2.99" with a small acorn icon. Keep strong readable contrast and generous spacing.
+
+Palette: Meadow Sky roles only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Use warm cream for modal, ink/slate for text, action green for primary button, coral only for close/accent, reward gold for earned premium.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: include only the exact UI text and numbers listed above.
+
+Avoid: old vault sparse panel, huge empty center, scrollbar, oversized poster-like jar, resource-summary tray with multiple unrelated resources, extra buttons, extra labels, text overflow, all-caps title, tiny unreadable text, glossy plastic, clay, watercolor, painterly brushwork, heavy black outlines, watermark.
