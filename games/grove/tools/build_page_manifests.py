@@ -9,12 +9,12 @@ home_zone_view.gd renders (canvas + background + center-bottom props; sort_y car
 explicit z so paint order survives the y-sorted renderer).
 
 A scene with no placements yet (snowy_village; fairy_hollow's are empty) falls back to the bundle
-root's full-scene mock PNG as a single background. --carry-home appends zone_farmhouse.json's
-buildings to the FIRST page so the interim build loop (badges -> coins -> the zone's bucket cell)
-stays reachable until the pages build system lands.
+root's full-scene mock PNG as a single background. Pages are STRICTLY the scene-workbench scenes
+(decision 2026-07-18): the old --carry-home pass that appended zone_farmhouse.json's buildings to
+the first page is retired — unlockables arrive via the zoning tool + coverings instead.
 
 Re-run after fine-tuning in `make sw`, then `make import`:
-    python3 games/grove/tools/build_page_manifests.py [--root <scenes root>] [--no-carry-home]
+    python3 games/grove/tools/build_page_manifests.py [--root <scenes root>]
 """
 import argparse, json, os, shutil, struct, sys
 
@@ -22,7 +22,6 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.a
 # the repo mocks root (the codex mocks worktree that once held the bundles was deleted 2026-07-18)
 DEFAULT_ROOT = os.path.join(REPO, "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
 OUT_DIR = os.path.join(REPO, "games/grove/assets/map/pages")
-FARMHOUSE_MANIFEST = os.path.join(REPO, "games/grove/assets/map/home/zone_farmhouse.json")
 
 PAGES = [  # play order (picturebook_lines_recipes.md)
     ("fairy_hollow", "Fairy Hollow"),
@@ -65,7 +64,7 @@ def copy_asset(src, scene, name):
     return "res://" + os.path.relpath(dst, REPO)
 
 
-def build_page(root, scene, label, carry_home):
+def build_page(root, scene, label):
     bundle = bundle_for(root, scene)
     doc = {}
     if bundle:
@@ -112,20 +111,6 @@ def build_page(root, scene, label, carry_home):
         cw, ch = png_size(mock)
         print(f"  ~ {scene}: no placements yet — the full-scene mock ships as the page")
 
-    if carry_home:  # interim: the farmhouse build items ride the first page (coins -> the zone cell)
-        with open(FARMHOUSE_MANIFEST) as f:
-            farm = json.load(f)
-        fw = int(farm.get("canvas", {}).get("width", 941))
-        fh = int(farm.get("canvas", {}).get("height", 1672))
-        sx, sy = cw / fw, ch / fh
-        for b in farm.get("buildings", []):
-            nb = json.loads(json.dumps(b))             # deep copy; keep states/res paths verbatim
-            nb["position"] = [int(round(b["position"][0] * sx)), int(round(b["position"][1] * sy))]
-            nb["display_size"] = [int(round(b["display_size"][0] * sx)), int(round(b["display_size"][1] * sy))]
-            nb["sort_y"] = 1000 + int(b.get("sort_y", 0))   # the build layer rides above the scenery
-            buildings.append(nb)
-        print(f"  + {scene}: carried the {len(farm.get('buildings', []))} farmhouse build items (interim build surface)")
-
     manifest = {"version": 1, "id": scene, "label": label,
                 "canvas": {"width": cw, "height": ch},
                 "background": background, "buildings": buildings}
@@ -140,12 +125,11 @@ def build_page(root, scene, label, carry_home):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=DEFAULT_ROOT)
-    ap.add_argument("--no-carry-home", action="store_true")
     args = ap.parse_args()
     if not os.path.isdir(args.root):
         raise SystemExit(f"scenes root not found: {args.root}")
-    for i, (scene, label) in enumerate(PAGES):
-        build_page(args.root, scene, label, carry_home=(i == 0 and not args.no_carry_home))
+    for scene, label in PAGES:
+        build_page(args.root, scene, label)
 
 
 if __name__ == "__main__":

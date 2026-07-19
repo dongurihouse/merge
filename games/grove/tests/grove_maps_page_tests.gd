@@ -54,11 +54,12 @@ func _initialize() -> void:
 		await create_timer(0.05).timeout
 		ok(h._view == "map" and h._map_idx == int(feat_hit.z), "CONTINUE opens the frontier map")
 
-	# build progress moves a card out of LOCKED: finish one Fairy Hollow building, then a
-	# non-frontier map with progress would read open. (The frontier itself always reads featured;
-	# progress on it feeds the featured count + bar instead.)
+	# pages are STRICTLY the scene-workbench scenes (decision 2026-07-18): no page carries the
+	# retired farmhouse build items, so every page — the frontier included — reads total 0
+	# ("no build system yet") until the zoning-tool unlockables land. Buying farmhouse steps
+	# off-page must not move page progress either.
 	var p0: Vector2i = h._page_progress(int(feat_hit.z))
-	ok(p0.y > 0 and p0.x == 0, "the frontier page reports buildable progress (0 built on fresh)")
+	ok(p0 == Vector2i(0, 0), "the frontier page reports no build system yet (pages are pure sw scenes)")
 	Save.earn_coins(2000)
 	var hst: Dictionary = HomeBuild.state()
 	var d: Dictionary = HomeBuild.def_of("fh_hearth")
@@ -67,7 +68,7 @@ func _initialize() -> void:
 		pass
 	Save.grove_write()
 	var p1: Vector2i = h._page_progress(int(feat_hit.z))
-	ok(p1.x == p0.x + 1, "finishing a building advances the page's built count")
+	ok(p1 == Vector2i(0, 0), "farmhouse build state no longer feeds page progress")
 
 	# the bottom-nav Map button routes to the gallery (not the spirit dock)
 	h._open_map(int(feat_hit.z))

@@ -420,11 +420,11 @@ static func _build_maps() -> Array:
 	# THE PICTURE BOOK (2026-07-18): the world is the five scene PAGES, in play order, replacing the
 	# farm maps. Each page renders its generated zone manifest (assets/map/pages/zone_<id>.json —
 	# built from the scene-workbench bundles by tools/build_page_manifests.py; re-run it after
-	# fine-tuning in `make sw`, then `make import`). Page 1 (Fairy Hollow, the FTUE anchor) is the
-	# hub and INTERIM build surface: it carries the farmhouse spots + build items verbatim so the
-	# coin build loop and the zone's bucket cell stay reachable until the pages build system
-	# (recipes/frontier, picturebook spec §9) lands. Pages 2-5 are `open` for book browsing —
-	# the frontier gate arrives with that same task.
+	# fine-tuning in `make sw`, then `make import`). Pages are STRICTLY the scene-workbench scenes
+	# (decision 2026-07-18): the farmhouse build items no longer ride page 1 — unlockables arrive
+	# via the zoning tool + coverings instead. Page 1 (Fairy Hollow, the FTUE anchor) stays the hub;
+	# its `spots` list is kept for save-compat only. Pages 2-5 are `open` for book browsing —
+	# the frontier gate arrives with the pages build system (recipes/frontier, picturebook spec §9).
 	{"id": "fairy_hollow", "name": "Fairy Hollow", "hub": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow.json",
 		"covering_frames": _covering_frames("hollow_grass"),
