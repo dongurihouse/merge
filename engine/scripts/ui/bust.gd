@@ -1,7 +1,7 @@
 extends RefCounted
-## Giver / merchant PORTRAIT busts — a frameless cutout lifted off the painted scene with a
-## soft drop-shadow + cream rim (scaled silhouette copies behind), or a plain round placeholder
-## chip when the art is absent. Pure view builder: inputs in, a Control out, no scene/instance state.
+## Giver / merchant PORTRAIT busts — the frameless cut-paper cutout (the art carries its own
+## white sticker rim), or a plain round placeholder chip when the art is absent.
+## Pure view builder: inputs in, a Control out, no scene/instance state.
 ## Layering: ui/ never imports scenes/ — see docs/design/merge_spec.md §15.
 
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -32,21 +32,9 @@ static func make(which: int, px: float = 124.0, map_idx: int = 0) -> Control:
 	var path := giver_path(which, map_idx)
 	if ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
-		# owner 2026-06-13: the frameless cutout blended into the painted scene.
-		# A soft drop shadow + a cream rim (scaled silhouette copies behind) lift it
-		# off the background without a hard square frame.
-		var center := Vector2(px / 2.0, px / 2.0)
-		var shadow := layer(tex)
-		shadow.modulate = Color(0, 0, 0, 0.40)
-		shadow.pivot_offset = center
-		shadow.scale = Vector2(1.04, 1.04)
-		shadow.position = Vector2(0, 7)
-		face.add_child(shadow)
-		var rim := layer(tex)
-		rim.modulate = CREAM
-		rim.pivot_offset = center
-		rim.scale = Vector2(1.11, 1.11)
-		face.add_child(rim)
+		# The cut-paper art already carries its own white sticker rim, so the bust is just the
+		# cutout — the old code-drawn drop-shadow + cream-rim silhouette copies doubled that
+		# painted rim (a visible offset "double" under the character) and are gone.
 		face.add_child(layer(tex))
 	else:
 		var chip := Panel.new()                 # round, not square
@@ -64,8 +52,7 @@ static func make(which: int, px: float = 124.0, map_idx: int = 0) -> Control:
 		face.add_child(chip)
 	return face
 
-# one full-rect, aspect-centered copy of a bust texture (used for the bust itself plus its
-# drop-shadow and cream-rim layers).
+# one full-rect, aspect-centered copy of a bust texture.
 static func layer(tex: Texture2D) -> TextureRect:
 	var t := TextureRect.new()
 	t.texture = tex

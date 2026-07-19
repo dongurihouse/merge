@@ -362,10 +362,10 @@ var _params := {
 	# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
 	# board's size; met toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
-		"card_w": 98, "card_h": 65,
-		"bust_size": 94, "bust_x": 25, "bust_y": 53,
-		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
-		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
+		"card_w": 92, "card_h": 65,
+		"bust_size": 94, "bust_x": 27, "bust_y": 53,
+		"bubble_size": 66, "bubble_x": 70, "bubble_y": 35,
+		"item_size": 32, "item_x": 70, "item_y": 32, "plaque_w": 40, "plaque_x": 70, "plaque_y": 81},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"cols": 3, "list_max_h": 0},
