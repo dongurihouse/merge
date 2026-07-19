@@ -416,6 +416,12 @@ func _initialize() -> void:
 		if String(rp).ends_with("recon.png"):
 			has_recon = true
 	ok(has_recon, "the reconstruction rides along with the scene mocks")
+	# original concept mocks (assets/_concepts/zones under the repo root) list FIRST — primary refs
+	DirAccess.make_dir_recursive_absolute(broot + "/games/grove/assets/_concepts/zones")
+	mock.save_png(broot + "/games/grove/assets/_concepts/zones/test_scene_original_mock_v1.png")
+	refs = M.reference_images(broot, broot + "/test_scene_elements_v1", "test_scene")
+	ok(refs.size() == 4 and String(refs[0]).ends_with("test_scene_original_mock_v1.png"),
+		"the _concepts/zones original mock joins the references, listed first")
 	view._rebuild_ref_panel()                          # broot now carries 3 refs → the picker appears
 	ok(view.find_child("RefDropdown", true, false) != null,
 		"multiple mocks offer a reference dropdown (one shown big at sidebar width)")

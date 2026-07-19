@@ -296,21 +296,36 @@ static func pick_root(candidates: Array) -> String:
 			best = String(cand)
 	return best
 
-## The scene's REFERENCE images (the left column): the root-level mocks named <scene>*.png plus
-## the bundle's 09_reconstruction composites — the composition/style authorities while placing.
+## The scene's REFERENCE images (the left column), primary first: the ORIGINAL concept mocks in
+## assets/_concepts/zones (untouched full-scene sources, .png/.jpg), then the mocks-root images
+## named <scene>*.png (incl. the baked composites), then the bundle's 09_reconstruction pass.
 static func reference_images(scenes_root: String, bundle_dir: String, scene: String) -> Array:
 	var out: Array = []
+	var concepts := "%s/games/grove/assets/_concepts/zones" % repo_root_of(scenes_root)
+	var cd := DirAccess.open(concepts)
+	if cd != null:
+		var firsts: Array = []
+		for fn in cd.get_files():
+			if fn.begins_with(scene) and (fn.ends_with(".png") or fn.ends_with(".jpg")):
+				firsts.append("%s/%s" % [concepts, fn])
+		firsts.sort()
+		out.append_array(firsts)
+	var roots: Array = []
 	var d := DirAccess.open(scenes_root)
 	if d != null:
 		for fn in d.get_files():
 			if fn.begins_with(scene) and fn.ends_with(".png"):
-				out.append("%s/%s" % [scenes_root, fn])
+				roots.append("%s/%s" % [scenes_root, fn])
+	roots.sort()
+	out.append_array(roots)
+	var recs: Array = []
 	var rec := DirAccess.open(bundle_dir + "/09_reconstruction")
 	if rec != null:
 		for fn in rec.get_files():
 			if fn.ends_with(".png"):
-				out.append("%s/09_reconstruction/%s" % [bundle_dir, fn])
-	out.sort()
+				recs.append("%s/09_reconstruction/%s" % [bundle_dir, fn])
+	recs.sort()
+	out.append_array(recs)
 	return out
 
 ## The sidebar palette's section order (categories not listed sort after, alphabetically).
