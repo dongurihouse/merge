@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "sheet": "scene_coverings_5x5_transparent_2560.png",
+  "rows": 5,
+  "columns": 5,
+  "cell_size": [512, 512],
+  "anchor": "center",
+  "baked_shadow": false,
+  "placement": "randomized within locked scene areas",
+  "rows_manifest": [
+    {
+      "scene": "fairy_hollow",
+      "covering": "grass",
+      "frames": ["hollow_grass_01.png", "hollow_grass_02.png", "hollow_grass_03.png", "hollow_grass_04.png", "hollow_grass_05.png"]
+    },
+    {
+      "scene": "snowy_village",
+      "covering": "ice",
+      "frames": ["winter_ice_01.png", "winter_ice_02.png", "winter_ice_03.png", "winter_ice_04.png", "winter_ice_05.png"]
+    },
+    {
+      "scene": "desert_oasis",
+      "covering": "palm",
+      "frames": ["desert_palm_01.png", "desert_palm_02.png", "desert_palm_03.png", "desert_palm_04.png", "desert_palm_05.png"]
+    },
+    {
+      "scene": "coral_reef",
+      "covering": "shells",
+      "frames": ["coral_shells_01.png", "coral_shells_02.png", "coral_shells_03.png", "coral_shells_04.png", "coral_shells_05.png"]
+    },
+    {
+      "scene": "cherry_blossom_garden",
+      "covering": "petals",
+      "frames": ["cherry_petals_01.png", "cherry_petals_02.png", "cherry_petals_03.png", "cherry_petals_04.png", "cherry_petals_05.png"]
+    }
+  ],
+  "runtime_note": "These are static cover sprites. On unlock, animate the selected placed instance out; no animation is baked into the art."
+}

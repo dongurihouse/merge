@@ -1,0 +1,19 @@
+Use case: stylized-concept.
+Asset type: 1024 x 1024 mobile game app icon master artwork.
+Input images:
+- Image 1: current shipped app icon; use only as subject-history reference, not as style or detail authority.
+- Image 2: Meadow Sky palette and matte cut-paper material authority; do not copy its UI.
+- Image 3: approved new splash; use its simplified orange squirrel as the character authority and preserve the friendly brand tone, but recompose for a small square icon.
+Primary request: create a text-free close-up app icon of the friendly orange cut-paper squirrel mascot hugging one reward-gold acorn. Show head, upper torso, curled tail, paws, and acorn only.
+Composition: the squirrel's smiling face is the main focal point and remains instantly readable at 48 px; face and acorn together occupy about 72-78% of the square. One simple Meadow Sky blue background with a broad cream paper halo behind the head. Strong asymmetrical silhouette from the curled tail. Full-bleed square artwork, generous safety margin, no baked rounded-square mask and no transparent corners.
+Palette: #6FA9C0 sky, #3F6D7D slate, #F6EBDD cream, #243B4B facial ink, #D87865 plus warm orange-coral for squirrel, #D6A94C acorn, #5F9B6D one tiny leaf accent, #294654 shallow tinted shadow.
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Avoid: full-body distant character, realistic fur, individual fur strands, complex forest scene, many props, detailed flowers, glossy eyes, clay render, sticker border, icon mask, text, numerals, watermark.

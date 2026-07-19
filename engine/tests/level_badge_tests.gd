@@ -137,14 +137,15 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 	var lv_slot: Control = hud.get("lv_panel") as Control
-	var layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var expected_badge_w := roundf(Design.size().x * float(layout.get("level_w_frac", 0.25)))
+	# the badge slot matches the currency pill HEIGHT — one top-band scale across the HUD
+	var pill_opts := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var expected_badge_w := roundf(float(pill_opts.get("pill_h", 100.0)))
 	var badge_rect := lv_slot.get_global_rect() if lv_slot != null else Rect2()
 	ok(lv_slot != null
 		and absf(badge_rect.position.x) <= 1.0
 		and absf(badge_rect.size.x - expected_badge_w) <= 1.0,
-		"HUD level badge uses %.0f%% screen width from the left edge (%.1f ~= %.1f)" % [
-			float(layout.get("level_w_frac", 0.25)) * 100.0, badge_rect.size.x, expected_badge_w])
+		"HUD level badge slot matches the currency pill height (%.1f ~= %.1f)" % [
+			badge_rect.size.x, expected_badge_w])
 	ok(lv_slot != null and lv_slot.visible, "the level badge shows by default (the Map keeps it)")
 	align_host.free()
 

@@ -8,13 +8,13 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const CREAM = Pal.CREAM
 
-# The giver-portrait pool: characters/giver_0.png .. giver_<GIVER_COUNT-1>.png (the forest cast
-# sliced from characters_1.png). `which` is any selector (a quest line, a slot index) — it is
+# The giver-portrait pool: characters/giver_0.png .. giver_<GIVER_COUNT-1>.png (the scene cast
+# sliced from the current 5x5 quest-giver sheet). `which` is any selector (a quest line, a slot index) — it is
 # folded into the pool here, so callers don't need to know the count.
-const GIVER_COUNT := 16
+const GIVER_COUNT := 5
 
-# Each map has its OWN themed 16-face cast: map 0 (The Farm) uses characters/giver_<n>.png; maps ≥1
-# use characters/giver_m<map>_<n>.png (cut from _originals/characters/quest<map+1>.png). `map_idx`
+# Each map has its OWN themed 5-face cast: map 0 uses characters/giver_<n>.png; maps ≥1
+# use characters/giver_m<map>_<n>.png (one row per scene in the cut-paper sheet). `map_idx`
 # selects the pool; a missing per-map tile falls back to the map-0 face so the fence never blanks.
 static func giver_path(which: int, map_idx: int = 0) -> String:
 	var n := which % GIVER_COUNT

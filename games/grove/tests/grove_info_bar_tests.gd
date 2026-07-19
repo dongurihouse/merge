@@ -437,10 +437,11 @@ func _initialize() -> void:
 		ok(bool(lit[0].seen) and int(lit[0].code) == probe * 100 + 1, "a seen line shows its lowest-seen tier piece")
 		board_scene.board.gen_tiers[gcell] = 2
 		board_scene._rebuild_all()
-		ok(_has_texture_suffix(board_scene.gen_nodes.get(gcell), "generators_18.png"), "tier-2 generator uses upgraded board art")
+		var tier2_gen_file := G.gen_tex(gid, 2).get_file()
+		ok(_has_texture_suffix(board_scene.gen_nodes.get(gcell), tier2_gen_file), "tier-2 generator uses resolved board art")
 		board_scene._select_generator(gcell)
 		ok(desc_label != null and desc_label.visible and desc_label.text.begins_with("Tier 2"), "generator info bar shows the selected generator tier")
-		ok(_has_texture_suffix(board_scene._info_icon, "generators_18.png"), "generator info bar preview uses upgraded tier art")
+		ok(_has_texture_suffix(board_scene._info_icon, tier2_gen_file), "generator info bar preview uses resolved tier art")
 		# wiring: selecting the generator enables ⓘ, and ⓘ opens the Producing overlay (feature is on).
 		board_scene._select_generator(gcell)
 		ok(board_scene._info_btn.disabled == live_hides_info, "selecting a generator applies the configured info button visibility")

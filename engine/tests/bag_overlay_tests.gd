@@ -138,7 +138,7 @@ func _initialize() -> void:
 	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_rainbarrel.png"), "stored water accumulator renders rain barrel art")
 	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_coinpress.png"), "stored coin accumulator renders coin press art")
 	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_crystalfont.png"), "stored exp accumulator renders crystal font art")
-	ok(tex_paths.has("res://games/grove/assets/items/generator/generators_18.png"), "stored tier-2 base generator renders upgraded art")
+	ok(tex_paths.has("res://games/grove/assets/" + G.gen_tex("gen_1", 2)), "stored tier-2 base generator renders resolved art")
 	ok(not _has_label(gen_overlay, "acc_water") and not _has_label(gen_overlay, "acc_coins") and not _has_label(gen_overlay, "acc_exp"),
 		"stored accumulator generator tiles do not fall back to raw ids")
 	gen_overlay.queue_free()

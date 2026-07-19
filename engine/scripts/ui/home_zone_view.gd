@@ -45,14 +45,28 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 
 	var props := {}
 	var badges := {}
+	# Painter order is sort_y (ties: manifest order) realized as CHILD ORDER at z 0 — never as
+	# z_index. Raw sort_y used to be stamped into z_index, and the tall page canvases pushed it
+	# past every chrome band (HUD side 30 / wallet 40, nav, even the 2048 modal layer), so the
+	# scene art painted OVER the buttons. The whole zone staying at z 0 keeps every button and
+	# overlay band above it by construction.
+	var entries: Array = []
 	for entry_v in manifest.get("buildings", []):
-		if not entry_v is Dictionary:
-			continue
-		var b: Dictionary = entry_v
+		if entry_v is Dictionary:
+			entries.append(entry_v)
+	var order: Array = range(entries.size())
+	order.sort_custom(func(ia: int, ib: int) -> bool:
+		var ea: Dictionary = entries[ia]
+		var eb: Dictionary = entries[ib]
+		var sa := int(ea.get("sort_y", _vec(ea.get("position", [0, 0])).y))
+		var sb := int(eb.get("sort_y", _vec(eb.get("position", [0, 0])).y))
+		return sa < sb if sa != sb else ia < ib)   # index tiebreak keeps the sort stable
+	var pending_badges: Array = []
+	for i in order:
+		var b: Dictionary = entries[i]
 		var id := String(b.get("id", ""))
 		var anchor := _vec(b.get("position", [0, 0]))
 		var disp := _vec(b.get("display_size", [100, 100]))
-		var sort_y := int(b.get("sort_y", anchor.y))
 
 		var state := String(state_of.call(id))
 		var tex_path := _state_texture(b, state)
@@ -61,14 +75,13 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 			prop.name = id
 			prop.texture = load(tex_path) as Texture2D
 			# {"shadow": true} → a DYNAMIC ground shadow stamped from the prop's own silhouette
-			# (prop_shadow.gd), added first at the same z so it paints beneath its prop.
+			# (prop_shadow.gd), added just before its prop so it paints beneath it.
 			if bool(b.get("shadow", false)) and prop.texture != null:
 				var shadow: Control = PropShadow.new()
 				shadow.name = id + "_shadow"
 				shadow.texture = prop.texture
 				shadow.disp = disp
 				shadow.position = anchor
-				shadow.z_index = sort_y
 				stage.add_child(shadow)
 			prop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			prop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -76,7 +89,6 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 			prop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			prop.size = disp
 			prop.position = anchor - Vector2(disp.x * 0.5, disp.y)
-			prop.z_index = sort_y
 			# an unfinished SITE reads dimmer than the finished building (placeholder until the
 			# pipeline ships true site art — PROVISIONAL, spec §8).
 			if state == "site":
@@ -89,9 +101,11 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 		if not step.is_empty():
 			var badge := _build_badge(id, int(step.get("cost", 0)), int(step.get("min_level", 1)))
 			badge.position = anchor - badge.size * 0.5
-			badge.z_index = sort_y + 1
-			stage.add_child(badge)
+			pending_badges.append(badge)
 			badges[id] = badge
+	# the badges are BUTTONS — mounted after every prop so no scenery ever paints over them.
+	for badge_node in pending_badges:
+		stage.add_child(badge_node)
 
 	return {"stage": stage, "base": base, "props": props, "badges": badges, "canvas": native}
 

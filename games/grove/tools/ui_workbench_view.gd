@@ -357,7 +357,7 @@ var _params := {
 	# the QUEST-GIVER card (giver_stand.gd) — the authored Meadow paper card plus
 	# the live portrait (left) / item-in-bubble (right) / reward token the board draws on it. The
 	# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
-	# The DEMO knobs only preview: bust picks which of giver_0..15 sits on the left; tier is the asked item's
+	# The DEMO knobs only preview: bust picks from the scene's giver pool on the left; tier is the asked item's
 	# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
 	# board's size; met toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,

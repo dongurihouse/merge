@@ -156,7 +156,7 @@ resident_bases = {"resident_"+i for i in re.findall(r'"id":\s*"(\w+)"', block("R
 try:
     GIVER_COUNT = int(re.search(r'GIVER_COUNT\s*:=\s*(\d+)', open(os.path.join(ENGINE,"scripts/ui/bust.gd")).read()).group(1))
 except Exception:
-    GIVER_COUNT = 16
+    GIVER_COUNT = 5
 
 def _maxtier(b):
     if b in spec_defs: return spec_defs[b]
@@ -178,6 +178,8 @@ def is_referenced(rel):
     if rel.startswith("items/generator/"): return name in gen_refs
     g=re.match(r'characters/giver_(\d+)\.png$', rel)
     if g: return int(g.group(1))<GIVER_COUNT
+    gm=re.match(r'characters/giver_m(\d+)_(\d+)\.png$', rel)
+    if gm: return 1<=int(gm.group(1))<=4 and int(gm.group(2))<GIVER_COUNT
     snr=re.sub(r'@\d+$','',stem)
     return (stem in CORP) or (snr in CORP) or _dyn(stem) or _dyn(snr)
 
@@ -194,8 +196,15 @@ orphans.sort()
 
 # giver (quest-giver character) portraits on disk
 giver_dir=os.path.join(ASSETS,"characters")
-givers=sorted([f for f in os.listdir(giver_dir) if re.match(r'giver_\d+\.png$',f)],
-              key=lambda x:int(re.search(r'(\d+)',x).group(1))) if os.path.isdir(giver_dir) else []
+def _giver_sort_key(name):
+    m=re.match(r'giver_(\d+)\.png$', name)
+    if m: return (0, int(m.group(1)))
+    mm=re.match(r'giver_m(\d+)_(\d+)\.png$', name)
+    if mm: return (int(mm.group(1)), int(mm.group(2)))
+    return (99, 99)
+givers=sorted([f for f in os.listdir(giver_dir)
+               if re.match(r'giver_\d+\.png$',f) or re.match(r'giver_m\d+_\d+\.png$',f)],
+              key=_giver_sort_key) if os.path.isdir(giver_dir) else []
 
 # ── disk scan helpers ─────────────────────────────────────────────────────────
 def tiers_on_disk(base):
@@ -404,9 +413,9 @@ def gcell(abspath, caplabel, referenced, cls_extra=""):
 
 def givers_html():
     if not givers: return ""
-    cells = "".join(gcell(os.path.join(giver_dir,f), re.search(r'(\d+)',f).group(1), "True") for f in givers)
-    return (f'<h3>Quest givers — giver_0…{len(givers)-1} <span class="count">{len(givers)} portraits · '
-            f'all in use (random pool of {GIVER_COUNT}, picked per quest)</span></h3>'
+    cells = "".join(gcell(os.path.join(giver_dir,f), f[:-4], "True") for f in givers)
+    return (f'<h3>Quest givers — 5 scenes x {GIVER_COUNT} <span class="count">{len(givers)} portraits · '
+            f'scene-themed pool of {GIVER_COUNT}, picked per quest</span></h3>'
             f'<div class="tiers gengrid">{cells}</div>')
 
 def orphans_html():

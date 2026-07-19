@@ -101,7 +101,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	stand.add_child(card)
 	# the character portrait — LARGE on the LEFT, filling the box top↔bottom and free to overflow its
 	# edges. Drawn before the plaque so the plaque sits in FRONT of it. Its FACE is keyed off the quest's
-	# asked line, so the fence draws a varied frameless cast from the giver pool (characters/giver_0..15)
+	# asked line, so the fence draws a varied frameless cast from the scene's giver pool.
 	# — stable for the life of the quest. Falls back to the slot index for an item-less quest.
 	var it: Dictionary = G.quest_item(q)
 	var bsz := cardH * float(L.bust_size)

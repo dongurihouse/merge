@@ -18,14 +18,19 @@ func ok(cond: bool, label: String) -> void:
 		print("  FAIL  ", label)
 
 func _initialize() -> void:
-	# map 0 is the original cast — no prefix
+	ok(Bust.GIVER_COUNT == 5, "the cut-paper quest-giver cast has 5 portraits per scene")
+	# map 0 is the first scene cast — no prefix
 	ok(Bust.giver_path(3, 0).ends_with("characters/giver_3.png"), "map 0 uses the original giver_<n> pool")
-	# the selector folds into the 16-face pool
-	ok(Bust.giver_path(19, 0).ends_with("characters/giver_3.png"), "the face index wraps mod GIVER_COUNT")
-	# maps 1..4 use their own themed sheet (these tiles ship in characters/)
+	# the selector folds into the 5-face scene pool
+	ok(Bust.giver_path(7, 0).ends_with("characters/giver_2.png"), "the face index wraps mod the 5-face scene pool")
+	ok(ResourceLoader.exists("res://games/grove/assets/characters/giver_4.png"), "map 0 ships the fifth cut-paper giver")
+	ok(not ResourceLoader.exists("res://games/grove/assets/characters/giver_5.png"), "map 0 no longer ships retired extra giver faces")
+	# maps 1..4 use their own themed 5-face row from the cut-paper sheet
 	for m in [1, 2, 3, 4]:
-		ok(Bust.giver_path(5, m).ends_with("characters/giver_m%d_5.png" % m),
+		ok(Bust.giver_path(4, m).ends_with("characters/giver_m%d_4.png" % m),
 			"map %d uses its own giver_m%d_<n> pool" % [m, m])
+		ok(not ResourceLoader.exists("res://games/grove/assets/characters/giver_m%d_5.png" % m),
+			"map %d no longer ships retired extra giver faces" % m)
 	# a map with no per-map art falls back to the map-0 face (the fence never blanks)
 	ok(Bust.giver_path(2, 99).ends_with("characters/giver_2.png"), "an unmapped map falls back to the map-0 pool")
 	# make() builds a portrait Control for a map-specific pick

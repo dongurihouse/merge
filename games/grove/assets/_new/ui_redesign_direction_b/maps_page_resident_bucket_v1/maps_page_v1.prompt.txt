@@ -1,0 +1,42 @@
+Use case: ui-mockup.
+Asset type: polished high-fidelity 1080 x 1920 vertical mobile game screen mockup.
+
+Input images:
+- Image 1: previous Maps screen composition reference. Replace its retired farm/orchard/garden/mill/gate content and remove its per-map resident-cell rewards. Use only its overall phone UI scale and card readability as historical context.
+- Image 2: mandatory Meadow Sky palette and Cut-Paper UI/material authority. Match its warm cream pills, ink typography, matte paper surfaces, shallow tinted shadows, and restrained saturation. Do not copy its board layout.
+- Image 3: mandatory camera, common object scale, scene-thumbnail detail ceiling, and landscape-integration authority. Do not copy its farm content, paths, buildings, or bottom navigation.
+
+Primary request: recreate the complete Maps page for the new five-page picture-book system and the one global resident bucket. The screen must feel like a usable game UI, not a poster.
+
+Top chrome: reserve the top approximately 155 px. At far left show a reward-gold star-shaped level badge with exact numeral "2". To its right show three warm-cream resource pills with exact values: water droplet "91", reward coin "51", acorn currency "7". Each pill has a small green plus button. Keep all four elements on one readable row.
+
+Page title: exact heading "MAPS" in dark ink cut-paper lettering, compact enough to leave room for the actual content. No subtitle paragraph.
+
+Map-card area: show exactly five separate clickable map cards, all fully visible on the screen.
+- One large featured card for exact title "Fairy Hollow". Thumbnail: distinct night-forest picture-book scene with a toadstool cottage, glowing paper lantern mushrooms, and teal/slate foliage; still use the fixed Meadow Sky palette rather than neon. This is the only unlocked map. Show exact status "IN PROGRESS", exact progress "2/6", one horizontal progress bar filled about one-third in action green, and one clear action button labeled exactly "CONTINUE".
+- Four smaller equal locked cards arranged as a clean 2 x 2 grid beneath or beside the featured card. Exact titles: "Snowy Village", "Desert Oasis", "Coral Reef", and "Cherry-Blossom Garden". Each has a visually distinct simple thumbnail matching its biome, a large centered lock badge, and exact label "LOCKED". Do not show progress bars, fractions, percentages, collect buttons, rewards, cell grants, or resident information inside these four cards.
+- The five cards should clearly look tappable through raised cream framing and shallow shadows. Keep the locked thumbnails softly desaturated/receding blue, but still recognizable.
+
+Global resident bucket: below the map cards, create a warm-cream panel titled exactly "RESIDENT SLOTS". Show exactly five same-size placement cells in one horizontal row. Because the first map is still in progress and no map is complete, all five cells are locked and empty. Each cell contains only a simple slate lock symbol. Beneath the cells show the concise exact helper text "Complete maps to unlock slots". This is one global bucket, not one roster per map.
+
+On-hand roster: below the bucket, create a shallow horizontally scrollable tray titled exactly "ON HAND". Show five large readable resident cards/cutouts with varied friendly woodland residents representing the four resource lines: a coin squirrel, a water frog, a boost firefly, a rare purple-blue diamond moth, and one second coin resident. The resident silhouettes must remain readable and draggable at phone size. Use softly tinted card backgrounds; do not put the residents inside map cards. Allow the final card to crop slightly at the right edge to communicate horizontal scrolling. No selling, collecting, production timers, resource rates, or merge tutorial text on this screen.
+
+Bottom navigation: fixed bottom bar with exactly three large destinations, evenly spaced and labeled exactly "HOME", "BOARD", and "EXPEDITION". Use a house icon, four-cell board icon, and compass/backpack trail icon respectively. These are navigation buttons, not map cards. Keep the bar within the bottom safe area.
+
+Composition hierarchy: modern iPhone portrait. Top chrome 8%; compact title 5%; map cards approximately 48%; resident cells approximately 13%; on-hand tray approximately 14%; bottom navigation approximately 12%. Use warm-cream cards on a calm Meadow Sky blue field. Maintain generous gutters, consistent rounded corners, large tap targets, and legible text. Avoid any hollow dead center.
+
+Palette: fixed Meadow Sky roles only: sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9, receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Keep most chrome below about 45% saturation; reserve stronger colors for the active map, progress, resident characters, currency, and Continue button.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception to the style block's no-text rule: include only the exact interface labels, values, map names, and progress copy specified above because this is a complete UI mockup.
+
+Avoid: retired Farm/Orchard/Garden/Mill/Gate maps, per-map resident rosters, per-map collection, map-card resident slots, cell reward badges, five simultaneous progress bars, unlock progress on locked maps, shop or bag navigation, resident production rates, dense decorative foliage behind UI, glossy plastic, clay render, painterly gradients, high-contrast electric blue, universal white sticker outlines, tiny unreadable text, extra buttons, invented labels, watermark.

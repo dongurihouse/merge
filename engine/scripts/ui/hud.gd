@@ -68,9 +68,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var edge_margin := float(layout.get("edge_margin_px", 18.0))
 	var safe_top := float(opts.get("_safe_top_for_test", Look.safe_top(host)))
 	var top_edge := edge_margin + safe_top
-	var lv_px := _screen_w_px(view, float(layout.level_w_frac))
 	var pill_slot_w := _screen_w_px(view, float(layout.currency_pill_w_frac))
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
+	# the Lv badge slot matches the currency pill HEIGHT — one top-band scale for the whole HUD
+	# (it was its own screen-width % and read more than twice the wallet's height).
+	var lv_px := maxf(1.0, roundf(float(pill.pill_h)))
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
 	var icon_size := float(pill.get("icon_size", icon_box))   # the workbench-tuned icon SPRITE px (defaults to fill the box)
@@ -153,7 +155,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# "on_level". The badge's children ignore input, so the avatar itself catches the tap.
 	var on_level: Variant = opts.get("on_level")
 	var build_badge := func(lvl: int) -> Control:
-		var av := Look.make_level_badge(lvl, lv_px, _lv_font_size(lvl))
+		var av := Look.make_level_badge(lvl, lv_px, _lv_font_size(lvl, lv_px))
 		av.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		av.set_meta("painted_top_offset", _painted_top_offset(av))
 		if on_level is Callable and (on_level as Callable).is_valid():
@@ -211,7 +213,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		var lnum: Label = badge_state["level"]
 		if lnum != null:
 			_set_or_tick(lnum, lvl)
-			lnum.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside as digits grow
+			lnum.add_theme_font_size_override("font_size", _lv_font_size(lvl, lv_px))   # keep the number inside as digits grow
 		# host hook: a scene that keeps live state derived from Save (the board's water cache + its
 		# empty-water refill stack) re-syncs here, so a shop grant lands without per-currency callbacks.
 		var host_refresh: Variant = opts.get("on_refresh")
@@ -390,10 +392,13 @@ static func _safe_tex(path: String) -> Texture2D:
 # The level number sits in the badge's open centre, which is tighter than the plain
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold
 # ring (and clear the crown/laurel on the high badges) instead of crowding it.
-static func _lv_font_size(level: int) -> int:
+static func _lv_font_size(level: int, px: float) -> int:
 	# Scaled to the HUD badge art so digits stay centred in the medal's open centre as it grows.
+	# The per-digit-count sizes were tuned on a 216 px badge (the old 20%-of-1080 slot); they now
+	# scale with the actual slot so the digits track the pill-height-matched badge.
+	var base := 92.0
 	if level >= 100:
-		return 57
-	if level >= 10:
-		return 72
-	return 92
+		base = 57.0
+	elif level >= 10:
+		base = 72.0
+	return maxi(8, roundi(base * px / 216.0))

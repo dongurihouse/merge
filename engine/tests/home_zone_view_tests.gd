@@ -54,7 +54,19 @@ func _initialize() -> void:
 	# `a` has a site prop; `b` is empty so it has NO prop, only a badge.
 	ok(out.props.has("a") and not out.props.has("b"), "a mid-build plot renders its prop; an empty plot renders none")
 	var pa: TextureRect = out.props["a"]
-	ok(pa.z_index == 800, "the prop's z-index is its sort_y (painter order)")
+	ok(pa.z_index == 0, "props stay at z 0 (painter order is child order, so chrome bands stay above the scene)")
+	# painter order = sort_y as CHILD order: with the manifest listed back-to-front, the low-sort_y
+	# prop still mounts before the high one, and badges mount after every prop (buttons on top).
+	var rev := _manifest()
+	(rev.buildings as Array).reverse()
+	var out_rev := HZV.build(parent, rev, func(_id): return "built", \
+		func(id): return {"cost": 5, "min_level": 1} if id == "a" else {})
+	var ra: TextureRect = out_rev.props["a"]
+	var rb: TextureRect = out_rev.props["b"]
+	ok(ra.z_index == 0 and rb.z_index == 0 and ra.get_index() < rb.get_index(), \
+		"a reversed manifest still paints low-sort_y props first (stable sort_y child order)")
+	var rev_badge: Control = out_rev.badges["a"]
+	ok(rev_badge.get_index() > rb.get_index(), "build badges mount after every prop (a button is never painted over)")
 	ok(is_equal_approx(pa.position.x, 200 - 50) and is_equal_approx(pa.position.y, 800 - 100), \
 		"the prop is center-bottom anchored (x-half-width, y-full-height)")
 	ok(pa.modulate.a < 1.0, "a SITE prop renders dimmer than a finished building")

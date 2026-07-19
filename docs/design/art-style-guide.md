@@ -18,7 +18,7 @@ The docs this replaces disagreed. These are the decisions; the rest of the guide
 | Merge ladder | **12 tiers** (the 8-tier / 24-line era is retired). |
 | Baked shadow on gameplay sprites | **None.** Item tiers, merge icons, UI/shop icons, generators, and movable world objects ship shadow-free. Layered scenes use a separate registered contact-shadow sprite or a runtime shadow; only a permanently flattened scene may bake shadows into the scene (§6). |
 | Icon size | **512² master → 256 runtime.** Generate/store at 512²; the runtime UI glyph is 256 via the bake/clean path (§8). |
-| Keying | Flat `#FF00FF`, removed deterministically **including enclosed pockets** (§8). |
+| Keying | Flat `#FF00FF` by default, removed deterministically **including enclosed pockets**. Switch to a subject-safe flat key (for example `#00FF00` behind purple assets) when the default key overlaps legitimate subject color (§8). |
 | Content roster | The **picture-book 5-page / 12-line** roster (§10). Old Farm/Orchard/Garden/Mill/Gate and 24-line rosters are retired. |
 | Existing painted art | **Legacy.** Not retro-fitted on a schedule; replaced opportunistically as lines are redone (§10). The engine scales sprites, so mismatched master sizes (e.g. 250² generators) are not a forced re-cut. |
 
@@ -102,6 +102,7 @@ Use the exact canvas of the consuming scene/manifest when it specifies one; othe
 | **Merge / UI / shop icon (master)** | `512²` transparent | transparent | none | flat front-on glyph — no horizon/scene/perspective |
 | **UI glyph (runtime)** | `256²` | transparent | none | derived from the 512² master via bake/clean (§8); `Look.icon(id, px)` |
 | **Generator sprite (master)** | `512²` transparent | flat `#FF00FF` or transparent | none | legacy `250²` grandfathered; engine scales |
+| **Character bust (giver / portrait pool)** | `256²` transparent | sheet on flat `#FF00FF` | none | complete silhouette ending in an **authored rounded paper base** — never a grid-line truncation; consistent visual weight across the pool; key gutter visible on **all four sides** of every face in the sheet (§8 containment) |
 | **Meadow atlas `icon`** | `256²` transparent | (in-sheet) | none | cutout fit onto the 256² canvas |
 | **Meadow atlas `badge`** | `256²`, visible reg `[20,20,236,236]` | (in-sheet) | none | one canonical star alpha across variants |
 | **Meadow atlas `tile`** | `256²` **opaque**, periodic | (in-sheet) | n/a | seam-verified via `*_3x3_offset.png` |
@@ -156,11 +157,43 @@ approaches, lives in, and uses the location.
 Raw art is generated on a flat removable background and cut **deterministically** — the scripts do every
 pixel op; judgment lives in the plan (§9). Always inspect the alpha edge before integration.
 
-**Keying rule.** Flat `#FF00FF` (or a corner-sampled flat key). Remove the outer field **and enclosed
+**Containment — check the SHEET before cutting anything.** Every subject must sit fully inside its grid
+cell with visible key-color gutter on **all four sides** — including *below* a character's torso. Measure,
+don't eyeball: if any subject pixel lies on a cell boundary line, the sheet is defective — **reject and
+regenerate it**. A silhouette truncated by a cell line (the classic flat-bottomed bust) was never drawn by
+the generator; no cutter can recover art that doesn't exist, and re-cutting only preserves the defect.
+Character/bust sheets are the high-risk case: the prompt must demand an authored rounded base with clear
+key color visible under every character (§10e).
+
+**Keying rule.** Flat `#FF00FF` by default (or another corner-sampled flat key chosen to be absent from
+the subject). Purple, violet, pink, and translucent warm-glow assets may require a flat green key instead;
+never let magenta despill gray or erase legitimate purple pixels. Remove the outer field **and enclosed
 pockets** (gaps between legs/rungs, a cog's center, a bell arch, the wedge between two stems). Border
 flood-fill alone leaves those pockets opaque — the classic "hole" bug. Small light highlights fully
 enclosed by the subject survive; large enclosed background regions are punched. Zero RGB outside alpha
 and rebuild resampled edges from opaque interior RGB (no color fringe).
+
+**Edge treatment (despill) — every keyed cut, whatever tool.** A binary key leaves the anti-aliased edge
+band contaminated with the key color (a magenta halo on every silhouette). Three steps, always:
+1. **Soft alpha ramp** — alpha from key-distance over a band (e.g. magenta-excess `min(R,B)−G` mapped
+   30→110 to opaque→transparent), never a hard threshold.
+2. **Despill** — in every still-visible pixel with residual key tint, clamp the key channels toward the
+   subject (magenta key: `R,B ≤ G+δ`, δ≈15). Skip pixels whose color is legitimate (see the green-key
+   exception above for purple/pink subjects).
+3. **Zero RGB outside alpha**; rebuild resampled edge RGB from opaque interior color.
+
+**Acceptance gate — measured, not eyeballed (visual review alone has missed every one of these at least
+once).** A cut sprite ships only when all four counts are **zero**:
+| Check | Metric |
+|---|---|
+| No key fringe | visible px (`A>16`) with key excess (magenta: `min(R,B)−G > 40`) = 0 |
+| No edge clipping | opaque px (`A>16`) on any canvas edge row/column = 0 |
+| No leftover pockets | enclosed background regions (key-colored **or** flat sheet-white) with area > ~200 px = 0 |
+| Sheet containment | subject px on any raw-sheet cell boundary = 0 (checked pre-cut, see above) |
+
+Then **inspect over three backgrounds** — dark, light, and the shipping surface (board cream `#ECDFC2` /
+warm cream `#F6EBDD`): a light checkerboard hides white leftovers, cream hides cream fringe, dark hides
+dark edges. One background is never enough.
 
 **Use the owned tools — do not hand-roll a keyer:**
 
@@ -303,6 +336,25 @@ teal/sky dewdrop; **water** = clear sky-blue droplet; **rain** = tin watering ca
 Hook-up: process → 512² master → drop at the engine path → `make import` → bake to 256 → verify at the real
 sizes (`PRICE_ICON 28`, `HERO_ICON 72`, HUD pill). No code change — `Look.icon(id)` resolves the PNG.
 
+### 10e · Character bust / portrait pool sheet
+
+```text
+Generate a character portrait sheet for [POOL_PURPOSE], [ROWS] rows x [COLS] columns on a solid flat
+#FF00FF background.
+Style: <PASTE THE §2 STYLE BLOCK>.
+Each cell contains exactly one character bust: head + shoulders + upper torso, ending in an AUTHORED
+rounded cut-paper base — a deliberate curved paper edge that completes the silhouette. The base is part
+of the drawing, never an implied crop.
+CONTAINMENT (hard requirement): every character floats fully inside its own cell with clear magenta
+visible on ALL FOUR sides — above the hat, beside the arms, and BELOW the finished base. No character
+may touch or cross a cell boundary. Characters never touch each other.
+Consistency: all characters share the same scale, camera, and visual weight; distinct silhouettes via
+headwear/costume/species, not size. No text, labels, props on the ground, cast shadows, or watermark.
+```
+
+Reject the returned sheet on sight if any bust bottom is a straight line coinciding with its cell
+boundary — that is a generation truncation, not a base; it cannot be repaired in post (§8 containment).
+
 ## 11 · Generation & review workflow
 
 1. Read the scene's design spec; identify each element's role before prompting.
@@ -396,6 +448,7 @@ until it "looks about right" in the preview; that hides camera/scale drift and m
 | Mountains look flat | One mountain layer or too-similar values | Split far/middle/near bands with distinct shades and layer horizon foliage over their bases |
 | Large objects crop or shrink in a pack | Square prop pack is the wrong container | Generate large or collision-important objects one by one with their own registered envelope |
 | Magenta holes remain inside props | Border-only flood fill removed only the outside field | Use the deterministic key/hole workflow and validate enclosed transparent pockets |
+| Purple asset turns gray or loses its rim | The subject color is too close to the magenta key and despill treats it as contamination | Regenerate on a flat green key (or another absent hue); do not compensate by weakening alpha QC |
 | Scene quality drifts late | Too many assets generated before visual approval | Gate the pipeline: dressed mock -> backdrop+one hero test -> remaining assets -> final reconstruction |
 | "Extracted" object changes size or angle | A generative redraw was used for an exact source-preservation task | Mask the approved source in full-canvas coordinates; reserve generation for edge repair or an explicitly new variation |
 | Horizon layer covers the lake or playable floor | A full-width plate contains foreground terrain below its intended band | Crop/mask it to its registered horizon band and validate the alpha footprint before compositing |
@@ -411,8 +464,11 @@ until it "looks about right" in the preview; that hides camera/scale drift and m
   common, or gold used without meaning?
 - Detail dominated by tiny leaves/shingles/outlines/texture? Result glossy, painterly, clay-, sticker-, or
   photo-like? Any un-requested UI, text, characters, badges, or landmarks?
-- **Cut quality:** magenta/white left in an enclosed pocket; color fringe/halo at the alpha edge; subject
-  eaten; a tier cell empty or off-center.
+- **Sheet containment (pre-cut):** any subject touching or crossing a grid-cell boundary — especially a
+  bust whose bottom is a straight line on the cell line (a generation truncation, unrecoverable in post)?
+- **Cut quality (the §8 gate, measured not eyeballed):** magenta/white left in an enclosed pocket; key
+  fringe/halo at the alpha edge (despill missing); opaque pixels on a canvas edge; subject eaten; a tier
+  cell empty or off-center. Inspected over dark + light + shipping backgrounds?
 
 ## 12 · Content roster & legacy
 

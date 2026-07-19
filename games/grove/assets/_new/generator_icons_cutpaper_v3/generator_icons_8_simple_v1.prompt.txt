@@ -1,0 +1,29 @@
+Use case: stylized-concept. Asset type: simplified Grove / Acorn Forest generator icon sprite sheet.
+
+Input image roles:
+- Image 1 is the Meadow Sky palette and matte cut-paper material authority. Match palette relationships, cardstock texture, warm cut edges, rounded shapes, and low detail budget.
+- Image 2 is the camera/scale/detail-budget authority. Use its elevated three-quarter game-object language and simple readable proportions, but do not copy buildings, UI, paths, or farm content.
+- Image 3 is the current generator sheet for content reference only. Make the new sheet clearly SIMPLER: fewer parts, fewer panels, fewer decorations, chunkier silhouettes, cleaner phone-size readability.
+
+Generate a production-ready 2D game asset sheet for ONLY the live base/original Grove picture-book generators. Do not include crafted/merged-line generators.
+Canvas: exact 1536x768 PNG, arranged as a 4 columns x 2 rows grid with generous gutters. No visible grid. Background: solid flat #FF00FF only.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock -- never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+Simplification rule: each generator must be one compact source object with ONE big body shape plus ONE large identifying motif. Avoid extra drawers, repeated plaques, tiny emblems, many latches, many leaves, many stones, complex handles, multi-object piles, and decorative clutter. Each icon should read in one glance at 64px.
+
+Sprite rules: each cell contains exactly one centered generator/source object, one connected cutout-friendly silhouette, same visual footprint across all 8 cells, generous padding, no cropped edges. These are generators: each should look like a simple container, nursery, box, mold, or source object that produces its item line. Do NOT make the generator a larger copy of the produced item.
+
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no scenic base, no grass skirt, no labels, no numerals.
+
+Fill cells row-major in this exact order, live base/original lines only:
+1. Glowshroom generator: a simple rounded stump-box with one broad purple mushroom-cap lid and one small acorn latch. One large moon-shaped cut-paper motif on the front. No extra plaques.
+2. Wild berry generator: a simple rounded wicker berry basket with one leafy lid and one big berry cluster motif attached to the front. No arch, no drawers.
+3. Snow and ice generator: a simple squat ice chest with igloo-dome lid and one large snowflake motif on the front. One attached ice-cube latch only.
+4. Woolens generator: a simple cozy wool hamper with one rolled fleece visible and one broad woven front panel. No scarf strap, no loose yarn strings, no extra rolls.
+5. Desert vegetation generator: a simple warm sandstone planter box with one cactus-pad motif and one sun clasp. Yellowish desert palette, not berry-like.
+6. Sand sculpture generator: a simple sand mold bucket/chest with one castle-wall motif and one attached scoop shape. No shell/moon motifs.
+7. Shells generator: a simple tidepool creel chest with one large scallop-shell latch and blue lid. No side shells, no pile of shells.
+8. Koi generator: a simple lacquer koi feeding box with one large fish-scale roof/lid pattern and one water-drop clasp. Do not draw an actual koi fish as the main object.
+
+Output only the image sheet. Do not add explanatory text in the image.

@@ -181,10 +181,10 @@ static func ready_first(items: Array, ready: Array) -> Array:
 
 # --- §7 stand PORTRAIT (the giver face) ---------------------------------------------------------------
 # Each quest carries a stable `giver` index (0..pool-1): the character portrait drawn on its stand. The
-# rule the board needs ("no same quest giver on screen") is on-screen UNIQUENESS — no two LIVE quests share
-# a face. pick_giver enforces that as a HARD exclusion (`used` = faces already on the fence) and treats the
+# rule the board prefers is on-screen variety: do not reuse a face already on the fence while the scene pool
+# still has an unused portrait. pick_giver treats `used` as hard until every face is live, and treats the
 # rolling recency window (`recent` = the last ≤GIVER_RECENT assigned) as a SOFT preference, relaxed BEFORE
-# uniqueness when the pool is too small to honour both. Pure: pool size + rng in, an index out.
+# an unavoidable repeat. Pure: pool size + rng in, an index out.
 const GIVER_RECENT := 5
 
 # Faces in [0,pool) that are in neither `used` (on a live quest) nor `recent` (recently shown).
@@ -195,9 +195,9 @@ static func _free_faces(pool: int, used: Array, recent: Array) -> Array:
 			out.append(g)
 	return out
 
-# Pick a face for a NEW stand: never one already on a live quest (hard), and not a recently-shown one when
-# the pool allows (soft). Layered fallback always returns a valid index — drop recency first, then (only if
-# every face is in use) allow an unavoidable repeat.
+# Pick a face for a NEW stand: avoid one already on a live quest while the pool allows, and avoid a recently
+# shown one when there is still room. Layered fallback always returns a valid index — drop recency first,
+# then allow an unavoidable repeat only if every face is already in use.
 static func pick_giver(used: Array, recent: Array, pool: int, rng: RandomNumberGenerator) -> int:
 	var avail := _free_faces(pool, used, recent)
 	if avail.is_empty():
@@ -215,8 +215,8 @@ static func _live_givers(quests: Array, skip: int) -> Array:
 	return out
 
 # Give every quest that lacks a face one, AND reassign any whose face collides with an EARLIER live quest
-# (a save written before on-screen-uniqueness existed could carry duplicates) — so no two live quests share
-# a face. An already-distinct fence is left untouched (faces stay stable across refills). Each fresh pick is
+# when another face is available. Once every face is already live, repeats are allowed so a full fence still
+# renders. An already-distinct fence is left untouched (faces stay stable across refills). Each fresh pick is
 # pushed into the board's rolling `recent` window (capped). Mutates `quests` + `recent` in place.
 static func assign_givers(quests: Array, recent: Array, pool: int, rng: RandomNumberGenerator) -> void:
 	for i in range(quests.size()):
