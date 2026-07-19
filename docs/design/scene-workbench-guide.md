@@ -155,3 +155,128 @@ composites. The original AI mocks died with the codex worktree (2026-07-18);
 `bake_scene_composites.py` bakes a faithful `_baked_composite` + `_baked_props_only` pair per
 scene from the live placements — re-run it after big composition changes so the references
 track the scene.
+
+## 9 · Deconstructing a source mock
+
+The best source is one coherent full-scene mock where the camera, palette, lighting, and object
+scale already agree. Deconstruction means turning that mock into a clean foundation plus separate
+runtime-controllable sprites without losing the feeling that everything was painted together.
+
+**First pass rules**
+
+- Store the untouched source under `00_source/` or, for review-only concepts, under
+  `games/grove/assets/_concepts/zones/` with the prompt beside it.
+- Record source-space object bounds in `metadata/source_bounds.json`. Those boxes are the first
+  placement truth: scale them from source size to the 1320 x 2346 canvas, then convert from
+  top-left boxes into center-bottom anchors for `placements.json`.
+- Keep v1/v2/v3 bundles side-by-side. Never overwrite an accepted bundle while trying a new
+  decomposition.
+- Do not generate a full batch before checking one visible round trip: foundation + one hero
+  object + grounding. If that looks forced, fix the method before making the remaining assets.
+
+**Foundation rules**
+
+- The foundation is stable scenery only: water/sky, ground or sand, paths, cliffs, ledges,
+  low terrain markings, and other non-runtime surfaces.
+- Do not bake in objects that should move, unlock, animate, be replaced, receive collision, or
+  layer independently: buildings, shipwrecks, chests, statues, plants, signs, fences, gates,
+  foreground occluders, reward props, bubbles, or UI.
+- If the source geometry matters, prefer localized editing/patching over a full-scene redraw.
+  A full redraw can preserve the general style while drifting ledge shape, perspective, usable
+  platforms, and object sockets.
+- Keep usable placement surfaces large enough for the intended objects. A beautiful ledge that
+  cannot hold the sprite without overlap is not a usable foundation.
+
+**Sprite extraction rules**
+
+- Generate or edit sprites as if extracting from the source: preserve silhouette, direction,
+  proportion, palette, paper grain, printed mottling, and lighting. Only reconstruct small
+  occluded parts when needed.
+- Use one-by-one generation for large, wide, tall, identity-sensitive, or direction-sensitive
+  objects. Shipwrecks, houses, statues, large trees, bridges, gates, and kelp beds do not belong
+  in square prop packs.
+- Use compact prop packs only for small related dressing: pebbles, tufts, small corals, flowers,
+  debris, barrels, or small rocks. Do not mix hero props with tiny dressing in one pack.
+- Raw sprite generations use a flat `#FF00FF` background, then chroma cleanup to RGBA. Validate
+  transparent corners, non-empty alpha, and zero visible magenta-like pixels.
+- Be careful with despill: it can desaturate purple/blue/lavender assets into gray. If palette
+  loss appears, redo the matte without despill or with a tighter edge contract.
+- Avoid baked floors, grass pads, sand pads, heavy drop shadows, and scenic bases around sprites.
+  They create the "pasted on" or "forced to be put there" feeling.
+
+**Grounding rules**
+
+- Grounding should be separate cluster members, not baked into the hero sprite: soft contact
+  shadows, small grass/seaweed tufts, pebble strips, flower patches, sand dust, or edge dressing.
+- Shadows must match the scene material and light. Prefer soft watercolor/contact shadows in the
+  local palette over dark black slabs.
+- Use environmental trims to integrate edges: grass around houses, pebbles around underwater
+  props, snow mounds around cabins, blossom petals around garden objects. Generate these as small
+  reusable sprites where possible.
+- Roads, stepping stones, fences, and other alignment-sensitive paths should be separate terrain
+  or strip assets. Do not bake them into a hero object unless the object always owns that path.
+
+**Atmosphere rules**
+
+- Atmosphere layers can be full-scene or tall overlays: bubbles, light shafts, haze, drifting
+  specks, mist, snowfall, petals, or dust. Keep them low contrast enough to belong to the
+  background.
+- Match color to the foundation. For example, underwater bubbles should sit close to the water
+  color and often need reduced alpha; bright white bubbles read like stickers.
+- Animated candidates should remain separate layers: bubbles, clouds, snow, petals, water glints,
+  and light rays.
+
+## 10 · Reconstructing and judging the scene
+
+`metadata/placements.json` is the scene authority. The flat reconstruction is only a QA artifact,
+but it is the fastest way to catch bad extraction, bad placement, or bad grounding.
+
+**Placement rules**
+
+- Convert every placement to center-bottom anchors: `x = left + w/2`, `y = top + h`.
+- Keep related pieces in clusters. A hero object should usually be a cluster containing the object
+  plus its shadow/tufts/pebbles/contact trim. Move and scale the cluster first; isolate only for
+  fine adjustment.
+- Use z bands consistently: atmosphere/environment behind, contact shadows immediately below their
+  object, hero props in the 250-420 range, foreground occluders at 500+.
+- Keep source-facing directions unless there is a strong design reason to change them. A chest,
+  shell, building, or ship facing the wrong way breaks the illusion faster than a small scale error.
+
+**Pasted-on checks**
+
+Reject or revise when:
+
+- the sprite has its own floor pad, grass island, sand island, or heavy dark bottom shadow;
+- the road/path does not lead to the object entrance;
+- the object base does not match the ledge, slope, or perspective beneath it;
+- the object palette is sharper, duller, warmer, or colder than the foundation;
+- paper grain/noise density differs enough that the object reads from another source;
+- bubbles, haze, or glows are too bright compared with the backdrop;
+- the final scene feels crowded enough that the main gameplay spaces are hard to read.
+
+**Checkpoint order**
+
+1. Show the source mock or concept mock.
+2. Show the foundation-only pass.
+3. Show one hero-object reconstruction with grounding.
+4. Generate simple-to-fancy variants for critical hero objects if direction is uncertain.
+5. Add remaining hero props.
+6. Add small dressing and atmosphere.
+7. Run the deterministic compositor and `make shot-sw`; inspect the actual images before calling
+   the scene done.
+
+**Verification**
+
+- Parse every JSON file touched.
+- Check foundation/reconstruction dimensions are `1320 x 2346`.
+- Check sprite PNGs are RGBA, have transparent corners, and no visible magenta-like fringe.
+- Run the bundle's `09_reconstruction/compose_reconstruction.py` when present.
+- Run:
+  ```bash
+  make shot-sw SCENE=<scene> ROOT=<picturebook_scene_mocks_v1 root> OUT=/tmp/<scene>_sw.png
+  ```
+  Then look at the screenshot. It must open the intended highest-version bundle, show the expected
+  clusters, and keep palette entries limited to addable production assets.
+- Move raw, rejected, old checkpoint, and crop/reference PNGs under `references/`, `00_source/`,
+  `09_reconstruction/`, or filenames containing `_raw`, `_review`, `montage`, or `contact` so
+  they do not clutter the addable palette.
