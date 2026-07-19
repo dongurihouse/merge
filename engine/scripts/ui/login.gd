@@ -39,13 +39,23 @@ const CELL_MYSTERY := Color("#C3B6D9")
 const CELL_TODAY := Color("#F2DCA6")
 const CELL_RIM := Color("#E0B451")
 const SPARK_TINT := Color("#E6BC5E")
-const SPRIG_TINT := Color("#8FA96B")
 const SLOT_SAGE := [1, 3, 6]
 
-const GAP := 14.0                 # design-space gutter between cells
-const CELL_ASPECT := 2.12         # cell height / cell width (the mock's tall portrait tile)
-const CELL_ASPECT_BARE := 1.68    # a row with no bottom markers is the mock's SHORTER tile
+const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
+const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
 const BANNER_ASPECT := 1.26       # capstone banner height / cell width
+
+# The day-reward art: the cut-paper redesign sprites (Direction B) for the daily surface only — coins as a
+# gold acorn-coin stack, water a sky droplet, the premium (gem) as the grove acorn. Other ids (cosmetic
+# star) fall back to the shared glyph via Kit.make_icon.
+const REWARD_ART := {
+	"coin": "kit/daily_reward_coin.png",
+	"gem": "kit/daily_reward_acorn.png",
+	"water": "kit/daily_reward_water.png",
+}
+const ART_CHEST := "kit/daily_reward_chest.png"   # day-7 capstone / future milestone
+const ART_GIFT := "kit/daily_reward_gift.png"     # slot-4 mystery day (the wrapped box)
+const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
 
 ## A small four-point sparkle, code-drawn (the mock scatters them over today's cell and the capstone
 ## banner). Code-drawn rather than art so it scales cleanly with the cell.
@@ -177,7 +187,7 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 			d["mystery"] = true
 			# slot 4 (day 4 of each week) reads as a wrapped GIFT BOX rather than the shared chest.
 			if Login.slot_of(day) == 4:
-				d["mystery_icon"] = "shared/icon_gift.png"
+				d["mystery_icon"] = ART_GIFT
 		elif Login.is_milestone(day) and st == "future":
 			d["mystery"] = true
 		if st == "today":
@@ -222,17 +232,12 @@ static func _rebuild(Kit: GDScript, body: VBoxContainer, inner: float, days: Arr
 	grid.add_theme_constant_override("h_separation", int(GAP))
 	grid.add_theme_constant_override("v_separation", int(GAP))
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# the mock gives a row its height from whether it carries bottom markers — a row of claimed/
-	# claimable days is the tall tile, a row of bare future days the short one.
+	# every one of the six day cards is the SAME (shorter) tile height — a uniform grid, whether or not a
+	# row carries a bottom marker (the tall/short-by-row split read as ragged).
 	var grid_days: Array = days.slice(0, days.size() - 1)
-	for r in int(ceil(float(grid_days.size()) / float(COLS))):
-		var row: Array = grid_days.slice(r * COLS, mini((r + 1) * COLS, grid_days.size()))
-		var tall := false
-		for d in row:
-			if String((d as Dictionary).get("state", "")) in ["today", "done"]:
-				tall = true
-		for d in row:
-			grid.add_child(_day_cell(Kit, d, cw, cw * (CELL_ASPECT if tall else CELL_ASPECT_BARE)))
+	var ch_px: float = cw * CELL_ASPECT
+	for d in grid_days:
+		grid.add_child(_day_cell(Kit, d, cw, ch_px))
 	body.add_child(grid)
 	if days.size() > 0:
 		body.add_child(_capstone(Kit, days[days.size() - 1], inner, cw * BANNER_ASPECT))
@@ -267,11 +272,15 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	mid.alignment = BoxContainer.ALIGNMENT_CENTER
 	mid.add_theme_constant_override("separation", int(cw * 0.04))
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# a card carrying a bottom marker (today's CLAIM · a done ✓) shrinks its art so everything fits the
+	# uniform SHORT tile; an amount-only / bare card gives the art the full box.
+	var has_action := today or state == "done"
+	var art_px: float = cw * (0.56 if has_action else 0.80)
 	var art: Control
 	if mystery:
-		art = _sprite(Kit, String(d.get("mystery_icon", "shared/icon_chest.png")), cw * 0.80)
+		art = _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), art_px)
 	else:
-		art = _reward_art(Kit, d.get("reward", {}), cw * 0.80)
+		art = _reward_art(Kit, d.get("reward", {}), art_px)
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	mid.add_child(art)
 	var amount := _amount_text(d.get("reward", {})) if not mystery else ""
@@ -293,7 +302,7 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	if today:
 		act = _claim_button(Kit, cw, d.get("on_claim", Callable()))
 	elif state == "done":
-		act = _sprite(Kit, "shared/icon_check.png", cw * 0.30)
+		act = _sprite(Kit, ART_CHECK, cw * 0.34)
 	if act != null:
 		var wrap := CenterContainer.new()
 		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -337,20 +346,12 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	inner.add_child(col)
 	col.add_child(_cell_label(Kit, String(d.get("label", "")), cw))
 
-	var row := HBoxContainer.new()
+	# the chest sits centred on the banner. (The flanking leaf sprigs were removed — the chest reads on
+	# its own for now.)
+	var row := CenterContainer.new()
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(cw * 0.02))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sprig_l := _sprite(Kit, "kit/bag_leaf_l.png", h * 0.44)
-	sprig_l.modulate = SPRIG_TINT
-	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(sprig_l)
-	row.add_child(_sprite(Kit, String(d.get("mystery_icon", "shared/icon_chest.png")), h * 0.70))
-	var sprig_r := _sprite(Kit, "kit/bag_leaf_r.png", h * 0.44)
-	sprig_r.modulate = SPRIG_TINT
-	sprig_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(sprig_r)
+	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.70))
 	col.add_child(row)
 
 	if state == "today":
@@ -361,7 +362,7 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	elif state == "done":
 		var wrap2 := CenterContainer.new()
 		wrap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap2.add_child(_sprite(Kit, "shared/icon_check.png", cw * 0.30))
+		wrap2.add_child(_sprite(Kit, ART_CHECK, cw * 0.34))
 		col.add_child(wrap2)
 
 	_scatter_sparks(inner, cw * 0.11, [Vector2(0.045, 0.20), Vector2(0.955, 0.20),
@@ -392,16 +393,23 @@ static func _cell_tint(d: Dictionary) -> Color:
 		return CELL_MYSTERY
 	return CELL_SAGE if int(d.get("slot", 1)) in SLOT_SAGE else CELL_SKY
 
-## "DAY N" — the mock's ink, bold, all-caps cell heading.
+## "DAY N" — the ink, PLAIN-weight (not bold), all-caps cell heading, a touch larger, pressed into the
+## card with a soft "burn-in" deboss: a warm dark shadow nudged down/right reads as the letters sunk into
+## the parchment rather than floating on it.
 static func _cell_label(Kit: GDScript, text: String, cw: float) -> Label:
 	var l := Label.new()
 	l.name = "DailyDayLabel"
 	l.text = text.to_upper()
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", Kit.bold_font())
-	l.add_theme_font_size_override("font_size", maxi(9, int(cw * 0.16)))
+	l.add_theme_font_override("font", Kit.plain_font())
+	l.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.185)))
 	l.add_theme_color_override("font_color", Pal.INK)
 	l.add_theme_constant_override("outline_size", 0)
+	# burn-in deboss — a low-alpha warm-dark shadow offset a hair down/right (scales with the card).
+	l.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45))
+	l.add_theme_constant_override("shadow_offset_x", maxi(1, int(cw * 0.015)))
+	l.add_theme_constant_override("shadow_offset_y", maxi(1, int(cw * 0.02)))
+	l.add_theme_constant_override("shadow_outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -410,15 +418,22 @@ static func _cell_label(Kit: GDScript, text: String, cw: float) -> Label:
 static func _reward_art(Kit: GDScript, reward: Dictionary, px: float) -> Control:
 	var ids := _reward_ids(reward)
 	if ids.size() <= 1:
-		return Kit.make_icon(ids[0] if ids.size() == 1 else "coin", px)
+		return _reward_icon(Kit, String(ids[0]) if ids.size() == 1 else "coin", px)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(-px * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# a pair has to SHARE the cell's width, so each icon takes a bit under half the single-icon box
 	for id in ids:
-		row.add_child(Kit.make_icon(String(id), px * 0.54))
+		row.add_child(_reward_icon(Kit, String(id), px * 0.54))
 	return row
+
+## One reward icon: the Direction-B cut-paper sprite when this currency has one (REWARD_ART), else the
+## shared glyph via Kit.make_icon (a cosmetic star, or any id the pack doesn't cover).
+static func _reward_icon(Kit: GDScript, id: String, px: float) -> Control:
+	if REWARD_ART.has(id):
+		return _sprite(Kit, String(REWARD_ART[id]), px)
+	return Kit.make_icon(id, px)
 
 ## The currencies a rung pays, premium → coins → water (the mock's reading order).
 static func _reward_ids(reward: Dictionary) -> Array:
