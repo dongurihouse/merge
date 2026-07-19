@@ -2295,9 +2295,10 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the ONE SHARED drop-shadow (the pill look) — circular, slightly inset so
-	# the feather hugs the art's round face (same recipe as the level badge emblem).
-	var sh := _meadow_shadow_circle(size * 0.92, Look.shadow_params(load_config(CONFIG_PATH)))
+	# the coral disc casts the mock's tinted drop-shadow — circular, short and soft (#294654 ~19%),
+	# slightly inset so the feather hugs the art's round face.
+	var sh := _meadow_shadow_circle(size * 0.92,
+		{"offset_x": 0.0, "offset_y": 5.0, "blur": 10.0, "spread": 0.0, "alpha": 0.19})
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)
@@ -5004,11 +5005,7 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# (no acorn-balance pill: the HUD already carries the acorn counter, and the only price in the dialog
-<<<<<<< Updated upstream
 	# is the next slot's own cost chip. `balance` stays in the signature for the callers/tests.)
-=======
-	# is the next slot's own cost chip. `balance` is kept in the signature for the callers/tests.)
->>>>>>> Stashed changes
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
 	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the
