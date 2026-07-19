@@ -149,5 +149,32 @@ func _initialize() -> void:
 	ok(tl2.text == "0", "tick: flag on defers to the count tween (custom dur, no immediate snap)")
 	tl2.queue_free()
 
+	# --- format_amount: full below 5 digits, then K, then M -------------------------
+	ok(FX.format_amount(0) == "0" and FX.format_amount(83) == "83" and FX.format_amount(2105) == "2105", \
+		"format_amount: four digits and under render in full")
+	ok(FX.format_amount(9999) == "9999" and FX.format_amount(10000) == "10.0K", \
+		"format_amount: the fifth digit flips to K")
+	ok(FX.format_amount(12345) == "12.3K" and FX.format_amount(2105000) == "2.1M", \
+		"format_amount: K keeps one decimal, millions flip to M")
+	ok(FX.format_amount(-12345) == "-12.3K", "format_amount: preserves a negative sign")
+
+	# --- fit_amount: shrinks the font only for a wallet label whose text overruns its cell ---
+	var plain := Label.new(); plain.text = "123456"; get_root().add_child(plain)
+	FX.fit_amount(plain)
+	ok(not plain.has_theme_font_size_override("font_size"), "fit_amount: no-ops on a label without wallet metadata")
+	plain.queue_free()
+	var wl := Label.new(); wl.text = "8"; wl.add_theme_font_size_override("font_size", 40)
+	wl.set_meta("amount_base_font", 40); wl.set_meta("amount_max_w", 60.0)
+	get_root().add_child(wl)
+	FX.fit_amount(wl)
+	ok(wl.get_theme_font_size("font_size") == 40, "fit_amount: a single digit keeps the design font")
+	wl.text = "1888.8K"
+	FX.fit_amount(wl)
+	var wl_font := wl.get_theme_font("font")
+	var fitted := wl.get_theme_font_size("font_size")
+	ok(fitted < 40 and (wl_font == null or wl_font.get_string_size(wl.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fitted).x <= 60.0), \
+		"fit_amount: a wide string shrinks the font until it fits the cell")
+	wl.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

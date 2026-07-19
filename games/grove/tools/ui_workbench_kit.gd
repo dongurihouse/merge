@@ -19,6 +19,7 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
 const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
 const ScaleContainer = preload("res://engine/scripts/ui/scale_container.gd")   # uniform content scaling inside the frame
+const FX = preload("res://engine/scripts/ui/fx.gd")   # shared wallet number formatting (K/M) + fit-to-cell
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
@@ -1314,7 +1315,8 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var amount := Label.new()
 	amount.name = "GoldCurrencyAmount"
-	amount.text = str(int(counts.get(icon_id, opts.get("count", 2450))))
+	var amount_value := int(counts.get(icon_id, opts.get("count", 2450)))
+	amount.text = FX.format_amount(amount_value)
 	amount.custom_minimum_size = Vector2(amount_w, content_h)
 	amount.add_theme_font_size_override("font_size", num_size)
 	amount.add_theme_color_override("font_color", Color("#243B4B"))
@@ -1323,7 +1325,13 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Wallet metadata: opts this label into K/M abbreviation + shrink-to-fit (FX.format_amount / FX.fit_amount).
+	# The cell width and design font size travel with the label so a live refresh can re-fit as digits grow.
+	amount.set_meta("amount_max_w", amount_w)
+	amount.set_meta("amount_base_font", num_size)
+	amount.set_meta("amount_value", amount_value)
 	amount_slot.add_child(amount)
+	FX.fit_amount(amount)
 	row.add_child(amount_slot)
 
 	if show_plus:
