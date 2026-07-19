@@ -100,9 +100,9 @@ func _initialize() -> void:
 		var shadow := pill.get_node_or_null("Shadow") as Panel
 		var shadow_style := shadow.get_theme_stylebox("panel") as StyleBoxFlat if shadow != null else null
 		ok(shadow_style != null and same_rgb(shadow_style.shadow_color, SHADOW_TINT) \
-			and absf(shadow_style.shadow_color.a - 0.20) <= 0.002 \
-			and shadow_style.shadow_size == 3 and near_vec(shadow_style.shadow_offset, Vector2(1, 4)),
-			"%s uses the shallow 20 percent slate shadow" % pill_name)
+			and absf(shadow_style.shadow_color.a - 0.38) <= 0.01 \
+			and shadow_style.shadow_size == 10 and near_vec(shadow_style.shadow_offset, Vector2(3, 7)),
+			"%s casts THE uniform slate shadow" % pill_name)
 
 		var shell := pill.get_node_or_null("Shell") as Panel
 		var shell_style := shell.get_theme_stylebox("panel") as StyleBoxFlat if shell != null else null

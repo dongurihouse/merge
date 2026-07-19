@@ -40,7 +40,6 @@ const CELL_TODAY := Color("#F2DCA6")
 const CELL_RIM := Color("#E0B451")
 const SPARK_TINT := Color("#E6BC5E")
 const SPRIG_TINT := Color("#8FA96B")
-const SHADOW_TINT := Color("#294654")   # the mock's tinted shadow role (residents.gd's house shadow)
 const SLOT_SAGE := [1, 3, 6]
 
 const GAP := 14.0                 # design-space gutter between cells
@@ -381,9 +380,7 @@ static func _cell_box(tint: Color, cw: float, rim: bool) -> StyleBoxFlat:
 	var pad := cw * 0.07
 	sb.content_margin_left = pad; sb.content_margin_right = pad
 	sb.content_margin_top = pad; sb.content_margin_bottom = pad
-	sb.shadow_color = Color(SHADOW_TINT, 0.19)
-	sb.shadow_size = 10
-	sb.shadow_offset = Vector2(0, 5)
+	Look.apply_box_shadow(sb)
 	return sb
 
 ## The mock's decorative cell tint (see SLOT_SAGE): lavender = a mystery day, amber = today or the
@@ -463,9 +460,7 @@ static func _claim_button(Kit: GDScript, cw: float, cb: Callable) -> Button:
 	sb.set_corner_radius_all(int(cw * 0.08))
 	sb.content_margin_left = cw * 0.10; sb.content_margin_right = cw * 0.10
 	sb.content_margin_top = cw * 0.06; sb.content_margin_bottom = cw * 0.06
-	sb.shadow_color = Color(SHADOW_TINT, 0.19)
-	sb.shadow_size = 8
-	sb.shadow_offset = Vector2(0, 4)
+	Look.apply_box_shadow(sb)
 	for st in ["normal", "hover", "pressed", "focus"]:
 		btn.add_theme_stylebox_override(st, sb)
 	if cb.is_valid():

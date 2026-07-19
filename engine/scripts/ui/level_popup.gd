@@ -179,9 +179,7 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 ## The mock's tinted drop-shadow (#294654 at ~19%, short and soft), applied ON the element's own
 ## StyleBoxFlat so it follows the box's exact rounded corners. The same recipe as residents.gd.
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
-	sb.shadow_color = Color(SHADOW_TINT, 0.19)
-	sb.shadow_size = 10
-	sb.shadow_offset = Vector2(0, 5)
+	Look.apply_box_shadow(sb)
 
 ## One centred navy display line (the tally / the hint).
 static func _line(nm: String, text: String, font: int, col: Color) -> Label:
@@ -319,7 +317,7 @@ static func _ribbon(text: String, w: float, h: float) -> Control:
 	var bsb := StyleBoxFlat.new()
 	bsb.bg_color = RIBBON_BAND
 	bsb.set_corner_radius_all(int(h * 0.10))
-	bsb.shadow_color = Color(SHADOW_TINT, 0.16)
+	bsb.shadow_color = Look.shadow_color(Look.SHADOW_DEFAULTS.alpha / 100.0)
 	bsb.shadow_size = 8
 	bsb.shadow_offset = Vector2(0, 4)
 	band.add_theme_stylebox_override("panel", bsb)

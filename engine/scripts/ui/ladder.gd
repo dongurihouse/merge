@@ -12,13 +12,13 @@ extends RefCounted
 ## NO vines — just the cards, in a plain grid. Only the open-gate + the entry→cell mapping live here.
 
 const Strings = preload("res://engine/scripts/core/strings.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
-const SHADOW_TINT := Color("#294654")   # the dialog mocks' tinted shadow role (~18% opacity), as ui/residents.gd
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching inbox.gd's guarded idiom.
@@ -345,9 +345,7 @@ static func _ingredient_button(line: int, tier: int, card_px: float, on_pick: Ca
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Pal.CREAM.lightened(0.42)
 	sb.set_corner_radius_all(int(card_px * 0.13))
-	sb.shadow_color = Color(SHADOW_TINT, 0.18)
-	sb.shadow_size = int(maxf(6.0, card_px * 0.04))
-	sb.shadow_offset = Vector2(0, maxf(3.0, card_px * 0.02))
+	Look.apply_box_shadow(sb)
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(st, sb)
 	var holder := CenterContainer.new()
