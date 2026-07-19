@@ -4334,6 +4334,10 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.clip_text = false
+	# An autowrap Label reports a minimum HEIGHT computed for its CURRENT width, so at a momentarily
+	# narrow layout width it claims hundreds of lines (~1000px). Cap it at the line budget the tray is
+	# designed for — the same limits grove_info_bar_tests already asserts, so rendering is unchanged.
+	name_label.max_lines_visible = 2
 	text_stack.add_child(name_label)
 	var desc_label := Label.new()                                # one-line player-use hint; hidden when empty
 	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", FS.FOOTNOTE)))
@@ -4342,6 +4346,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_label.clip_text = false
+	desc_label.max_lines_visible = 3     # see name_label above; matches the ≤3-line guard in grove_info_bar_tests
 	desc_label.visible = false
 	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_stack.add_child(desc_label)

@@ -69,11 +69,32 @@ static func apply_paper_surface(bar: Control, bar_h: float = BOTTOM_BAR_H) -> Te
 	return Kit.apply_rounded_paper_panel_surface(bar, PAPER_SURFACE_NODE, PAPER_TEXTURE, float(_bar_corner(bar_h)), 2.0)
 
 # The paper always gets the shell's fixed 2px inset; optional Workbench padding belongs only to content.
-static func content_host(child: Control, bar_h: float, action_opts: Dictionary = {}, node_name: String = "ActionBarContent") -> MarginContainer:
+#
+# The tray's height is a SCREEN-DERIVED BUDGET (board.gd:_bottom_bar_h_px), not a suggestion — but Godot
+# has no maximum size. A Control's rect is max(anchors, combined_minimum_size), and minimums propagate up
+# from every child, so a child taller than the budget pushes the anchored tray past it; with the tray's
+# grow_vertical = GROW_DIRECTION_BEGIN the excess grows UPWARD, across the board. An autowrap Label is
+# exactly such a child: it reports a minimum HEIGHT computed for its CURRENT width, so mid-relayout —
+# while the info bar is momentarily ~1px wide — the empty-state prompts each reported ~1000px and the
+# tray covered the whole screen (the reported bug).
+#
+# So the outer host is a PLAIN CONTROL: it reports a zero minimum whatever its children claim, severing
+# that propagation, and the tray's height comes from its anchors alone. The padding MarginContainer lives
+# inside it, anchored to fill (a plain Control does not lay its children out).
+#
+# The trade: the tray no longer auto-grows for genuinely taller content — such content would overflow
+# rather than shove the tray. That is deliberate for a fixed-height tray, and board_hud_layout_tests
+# asserts the row's own minimum still fits the budget so a config bump fails loudly instead of shipping
+# as overflow. (Deliberately NOT clip_contents: the free-standing Home/Bag tiles cast shadows past the
+# tray bounds, and clipping here would cut them.)
+static func content_host(child: Control, bar_h: float, action_opts: Dictionary = {}, node_name: String = "ActionBarContent") -> Control:
+	var clamp_host := Control.new()
+	clamp_host.name = node_name
+	clamp_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clamp_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	clamp_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var host := MarginContainer.new()
-	host.name = node_name
-	host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	host.name = node_name + "Pad"
 	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pad_x := maxi(0, int(roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))) - 2)
 	var pad_y := maxi(0, int(roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))) - 2)
@@ -82,7 +103,9 @@ static func content_host(child: Control, bar_h: float, action_opts: Dictionary =
 	host.add_theme_constant_override("margin_top", pad_y)
 	host.add_theme_constant_override("margin_bottom", pad_y)
 	host.add_child(child)
-	return host
+	clamp_host.add_child(host)
+	host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return clamp_host
 
 # Wrap a bar child in a MarginContainer offset horizontally by `x_frac` of its own min width — lets the
 # info bar nudge off-centre without disturbing the row's distribution. A ~0 frac passes the child through.
