@@ -1,0 +1,896 @@
+{
+ "version": 1,
+ "id": "desert_oasis",
+ "label": "Desert Oasis",
+ "canvas": {
+  "width": 1320,
+  "height": 2346
+ },
+ "background": "res://games/grove/assets/map/pages/desert_oasis/foundation.png",
+ "buildings": [
+  {
+   "id": "sky",
+   "label": "sky",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 10,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/sky.png"
+   }
+  },
+  {
+   "id": "dunes",
+   "label": "dunes",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 11,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/dunes.png"
+   }
+  },
+  {
+   "id": "rugs",
+   "label": "rugs",
+   "position": [
+    480,
+    954
+   ],
+   "display_size": [
+    391,
+    192
+   ],
+   "sort_y": 210,
+   "cluster": "tent_camp",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/rugs.png"
+   }
+  },
+  {
+   "id": "environment_detail_01",
+   "label": "environment detail 01",
+   "position": [
+    855,
+    823
+   ],
+   "display_size": [
+    103,
+    110
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_01.png"
+   }
+  },
+  {
+   "id": "environment_detail_02",
+   "label": "environment detail 02",
+   "position": [
+    1064,
+    771
+   ],
+   "display_size": [
+    44,
+    30
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_02.png"
+   }
+  },
+  {
+   "id": "environment_detail_03",
+   "label": "environment detail 03",
+   "position": [
+    96,
+    899
+   ],
+   "display_size": [
+    44,
+    46
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_03.png"
+   }
+  },
+  {
+   "id": "environment_detail_04",
+   "label": "environment detail 04",
+   "position": [
+    1181,
+    881
+   ],
+   "display_size": [
+    39,
+    28
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_04.png"
+   }
+  },
+  {
+   "id": "environment_detail_05",
+   "label": "environment detail 05",
+   "position": [
+    758,
+    890
+   ],
+   "display_size": [
+    36,
+    23
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_05.png"
+   }
+  },
+  {
+   "id": "environment_detail_06",
+   "label": "environment detail 06",
+   "position": [
+    617,
+    1022
+   ],
+   "display_size": [
+    103,
+    113
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_06.png"
+   }
+  },
+  {
+   "id": "environment_detail_07",
+   "label": "environment detail 07",
+   "position": [
+    190,
+    992
+   ],
+   "display_size": [
+    36,
+    26
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_07.png"
+   }
+  },
+  {
+   "id": "environment_detail_08",
+   "label": "environment detail 08",
+   "position": [
+    437,
+    1034
+   ],
+   "display_size": [
+    39,
+    26
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_08.png"
+   }
+  },
+  {
+   "id": "environment_detail_09",
+   "label": "environment detail 09",
+   "position": [
+    1101,
+    1146
+   ],
+   "display_size": [
+    117,
+    138
+   ],
+   "sort_y": 230,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_09.png"
+   }
+  },
+  {
+   "id": "environment_detail_15",
+   "label": "environment detail 15",
+   "position": [
+    483,
+    1592
+   ],
+   "display_size": [
+    33,
+    23
+   ],
+   "sort_y": 260,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_15.png"
+   }
+  },
+  {
+   "id": "environment_detail_16",
+   "label": "environment detail 16",
+   "position": [
+    730,
+    1690
+   ],
+   "display_size": [
+    36,
+    23
+   ],
+   "sort_y": 260,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_16.png"
+   }
+  },
+  {
+   "id": "environment_detail_17",
+   "label": "environment detail 17",
+   "position": [
+    1126,
+    1875
+   ],
+   "display_size": [
+    42,
+    26
+   ],
+   "sort_y": 260,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_17.png"
+   }
+  },
+  {
+   "id": "palm_projected_shadow",
+   "label": "palm projected shadow",
+   "position": [
+    1079,
+    802
+   ],
+   "display_size": [
+    481,
+    238
+   ],
+   "sort_y": 295,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/palm_projected_shadow.png"
+   }
+  },
+  {
+   "id": "palm_cluster",
+   "label": "palm cluster",
+   "position": [
+    1059,
+    864
+   ],
+   "display_size": [
+    482,
+    621
+   ],
+   "sort_y": 300,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/palm_cluster.png"
+   }
+  },
+  {
+   "id": "lantern_posts",
+   "label": "lantern posts",
+   "position": [
+    673,
+    782
+   ],
+   "display_size": [
+    370,
+    291
+   ],
+   "sort_y": 305,
+   "cluster": "lantern_posts",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/lantern_posts.png"
+   }
+  },
+  {
+   "id": "contact_blend_02",
+   "label": "contact blend 02",
+   "position": [
+    800,
+    753
+   ],
+   "display_size": [
+    60,
+    29
+   ],
+   "sort_y": 315,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_02.png"
+   }
+  },
+  {
+   "id": "contact_blend_03",
+   "label": "contact blend 03",
+   "position": [
+    960,
+    895
+   ],
+   "display_size": [
+    145,
+    140
+   ],
+   "sort_y": 315,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_03.png"
+   }
+  },
+  {
+   "id": "contact_blend_04",
+   "label": "contact blend 04",
+   "position": [
+    1090,
+    857
+   ],
+   "display_size": [
+    124,
+    95
+   ],
+   "sort_y": 315,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_04.png"
+   }
+  },
+  {
+   "id": "contact_blend_05",
+   "label": "contact blend 05",
+   "position": [
+    868,
+    825
+   ],
+   "display_size": [
+    75,
+    35
+   ],
+   "sort_y": 315,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_05.png"
+   }
+  },
+  {
+   "id": "contact_blend_06",
+   "label": "contact blend 06",
+   "position": [
+    1225,
+    882
+   ],
+   "display_size": [
+    127,
+    88
+   ],
+   "sort_y": 315,
+   "cluster": "palm_grove",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_06.png"
+   }
+  },
+  {
+   "id": "tent",
+   "label": "tent",
+   "position": [
+    285,
+    997
+   ],
+   "display_size": [
+    570,
+    456
+   ],
+   "sort_y": 320,
+   "cluster": "tent_camp",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/tent.png"
+   }
+  },
+  {
+   "id": "contact_blend_01",
+   "label": "contact blend 01",
+   "position": [
+    533,
+    757
+   ],
+   "display_size": [
+    61,
+    33
+   ],
+   "sort_y": 335,
+   "cluster": "tent_camp",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_01.png"
+   }
+  },
+  {
+   "id": "contact_blend_07",
+   "label": "contact blend 07",
+   "position": [
+    538,
+    910
+   ],
+   "display_size": [
+    84,
+    71
+   ],
+   "sort_y": 335,
+   "cluster": "tent_camp",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_07.png"
+   }
+  },
+  {
+   "id": "contact_blend_08",
+   "label": "contact blend 08",
+   "position": [
+    443,
+    913
+   ],
+   "display_size": [
+    67,
+    32
+   ],
+   "sort_y": 335,
+   "cluster": "tent_camp",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_08.png"
+   }
+  },
+  {
+   "id": "contact_blend_09",
+   "label": "contact blend 09",
+   "position": [
+    84,
+    1000
+   ],
+   "display_size": [
+    89,
+    84
+   ],
+   "sort_y": 335,
+   "cluster": "tent_camp",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_09.png"
+   }
+  },
+  {
+   "id": "camel",
+   "label": "camel",
+   "position": [
+    225,
+    1313
+   ],
+   "display_size": [
+    321,
+    312
+   ],
+   "sort_y": 400,
+   "cluster": "camel",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/camel.png"
+   }
+  },
+  {
+   "id": "contact_blend_10",
+   "label": "contact blend 10",
+   "position": [
+    321,
+    1251
+   ],
+   "display_size": [
+    58,
+    29
+   ],
+   "sort_y": 410,
+   "cluster": "camel",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_10.png"
+   }
+  },
+  {
+   "id": "contact_blend_11",
+   "label": "contact blend 11",
+   "position": [
+    119,
+    1281
+   ],
+   "display_size": [
+    56,
+    30
+   ],
+   "sort_y": 410,
+   "cluster": "camel",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_11.png"
+   }
+  },
+  {
+   "id": "environment_detail_10",
+   "label": "environment detail 10",
+   "position": [
+    512,
+    1282
+   ],
+   "display_size": [
+    33,
+    22
+   ],
+   "sort_y": 430,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_10.png"
+   }
+  },
+  {
+   "id": "environment_detail_11",
+   "label": "environment detail 11",
+   "position": [
+    164,
+    1292
+   ],
+   "display_size": [
+    39,
+    25
+   ],
+   "sort_y": 430,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_11.png"
+   }
+  },
+  {
+   "id": "environment_detail_12",
+   "label": "environment detail 12",
+   "position": [
+    779,
+    1327
+   ],
+   "display_size": [
+    36,
+    25
+   ],
+   "sort_y": 430,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_12.png"
+   }
+  },
+  {
+   "id": "environment_detail_13",
+   "label": "environment detail 13",
+   "position": [
+    1012,
+    1428
+   ],
+   "display_size": [
+    39,
+    28
+   ],
+   "sort_y": 430,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_13.png"
+   }
+  },
+  {
+   "id": "environment_detail_14",
+   "label": "environment detail 14",
+   "position": [
+    1216,
+    1532
+   ],
+   "display_size": [
+    110,
+    89
+   ],
+   "sort_y": 430,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_14.png"
+   }
+  },
+  {
+   "id": "market_stall",
+   "label": "market stall",
+   "position": [
+    253,
+    1742
+   ],
+   "display_size": [
+    377,
+    419
+   ],
+   "sort_y": 500,
+   "cluster": "market_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/market_stall.png"
+   }
+  },
+  {
+   "id": "fountain",
+   "label": "fountain",
+   "position": [
+    1096,
+    1759
+   ],
+   "display_size": [
+    426,
+    246
+   ],
+   "sort_y": 510,
+   "cluster": "fountain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/fountain.png"
+   }
+  },
+  {
+   "id": "contact_blend_12",
+   "label": "contact blend 12",
+   "position": [
+    77,
+    1759
+   ],
+   "display_size": [
+    103,
+    78
+   ],
+   "sort_y": 515,
+   "cluster": "market_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_12.png"
+   }
+  },
+  {
+   "id": "contact_blend_14",
+   "label": "contact blend 14",
+   "position": [
+    366,
+    1773
+   ],
+   "display_size": [
+    92,
+    78
+   ],
+   "sort_y": 515,
+   "cluster": "market_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_14.png"
+   }
+  },
+  {
+   "id": "well",
+   "label": "well",
+   "position": [
+    226,
+    2052
+   ],
+   "display_size": [
+    391,
+    357
+   ],
+   "sort_y": 520,
+   "cluster": "well",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/well.png"
+   }
+  },
+  {
+   "id": "contact_blend_13",
+   "label": "contact blend 13",
+   "position": [
+    1151,
+    1769
+   ],
+   "display_size": [
+    95,
+    88
+   ],
+   "sort_y": 525,
+   "cluster": "fountain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_13.png"
+   }
+  },
+  {
+   "id": "contact_blend_15",
+   "label": "contact blend 15",
+   "position": [
+    953,
+    1772
+   ],
+   "display_size": [
+    61,
+    28
+   ],
+   "sort_y": 525,
+   "cluster": "fountain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_15.png"
+   }
+  },
+  {
+   "id": "contact_blend_16",
+   "label": "contact blend 16",
+   "position": [
+    352,
+    2108
+   ],
+   "display_size": [
+    120,
+    110
+   ],
+   "sort_y": 535,
+   "cluster": "well",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_16.png"
+   }
+  },
+  {
+   "id": "contact_blend_17",
+   "label": "contact blend 17",
+   "position": [
+    113,
+    2138
+   ],
+   "display_size": [
+    143,
+    137
+   ],
+   "sort_y": 535,
+   "cluster": "well",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/contact_blend_17.png"
+   }
+  },
+  {
+   "id": "environment_detail_18",
+   "label": "environment detail 18",
+   "position": [
+    883,
+    1955
+   ],
+   "display_size": [
+    33,
+    22
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_18.png"
+   }
+  },
+  {
+   "id": "environment_detail_19",
+   "label": "environment detail 19",
+   "position": [
+    246,
+    1972
+   ],
+   "display_size": [
+    36,
+    25
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_19.png"
+   }
+  },
+  {
+   "id": "environment_detail_20",
+   "label": "environment detail 20",
+   "position": [
+    568,
+    2274
+   ],
+   "display_size": [
+    342,
+    291
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_20.png"
+   }
+  },
+  {
+   "id": "environment_detail_21",
+   "label": "environment detail 21",
+   "position": [
+    131,
+    2159
+   ],
+   "display_size": [
+    173,
+    162
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_21.png"
+   }
+  },
+  {
+   "id": "environment_detail_22",
+   "label": "environment detail 22",
+   "position": [
+    1129,
+    2302
+   ],
+   "display_size": [
+    244,
+    270
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_22.png"
+   }
+  },
+  {
+   "id": "environment_detail_23",
+   "label": "environment detail 23",
+   "position": [
+    894,
+    2239
+   ],
+   "display_size": [
+    138,
+    137
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_23.png"
+   }
+  },
+  {
+   "id": "environment_detail_24",
+   "label": "environment detail 24",
+   "position": [
+    523,
+    2135
+   ],
+   "display_size": [
+    25,
+    23
+   ],
+   "sort_y": 540,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/desert_oasis/environment_detail_24.png"
+   }
+  }
+ ]
+}

@@ -421,21 +421,55 @@ func _build_map(animate := true) -> void:
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
+	_add_page_arrows()
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
 
-var _home_manifest_cache: Dictionary = {}
-func _home_manifest() -> Dictionary:
-	if _home_manifest_cache.is_empty():
-		_home_manifest_cache = HomeZoneView.load_manifest(HOME_ZONE_MANIFEST)
-	return _home_manifest_cache
+# ── picture-book PAGE-TURN arrows (interim browsing; the frontier gate lands with the pages
+# build system). One soft chevron per adjacent unlocked page, mid-height at the screen edges.
+func _add_page_arrows() -> void:
+	var view := get_viewport_rect().size
+	for d: int in [-1, 1]:
+		var z: int = _map_idx + d
+		if z < 0 or z >= G.MAPS.size() or not map_unlocked(z):
+			continue
+		var b := Button.new()
+		b.name = "PageArrowPrev" if d < 0 else "PageArrowNext"
+		b.text = "‹" if d < 0 else "›"
+		b.tooltip_text = String(G.MAPS[z].name)
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 46)
+		b.add_theme_color_override("font_color", INK)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(CREAM, 0.82)
+		sb.set_corner_radius_all(18)
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.custom_minimum_size = Vector2(52, 92)
+		b.position = Vector2(10.0 if d < 0 else view.x - 62.0, view.y * 0.5 - 46.0)
+		var dest: int = z
+		b.pressed.connect(func() -> void:
+			Audio.play("button_tap", -4.0)
+			_open_map(dest))
+		content.add_child(b)
 
-# The zone renderer's injected state resolvers (thin adapters over home.gd).
+# PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
+# (assets/map/pages/zone_<id>.json); the farmhouse manifest is the legacy fallback.
+var _home_manifest_cache: Dictionary = {}   # path -> parsed manifest
+func _home_manifest() -> Dictionary:
+	var path := String(G.MAPS[_map_idx].get("zone_manifest", HOME_ZONE_MANIFEST))
+	if not _home_manifest_cache.has(path):
+		_home_manifest_cache[path] = HomeZoneView.load_manifest(path)
+	return _home_manifest_cache[path]
+
+# The zone renderer's injected state resolvers (thin adapters over home.gd). Scene PROPS (page
+# scenery from the workbench bundles) are not buildings — they render "built" and take no badge.
 func _home_state_id(id: String) -> String:
-	return HomeBuild.state_id(id)
+	return HomeBuild.state_id(id) if not HomeBuild.def_of(id).is_empty() else "built"
 
 func _home_next_step(id: String) -> Dictionary:
-	return HomeBuild.next_step(id)
+	return HomeBuild.next_step(id) if not HomeBuild.def_of(id).is_empty() else {}
 
 # The GLOBAL bucket roster as ambient members ({type, tier}) — rendered on any COMPLETED map (the
 # "roster wanders the map you're viewing" polish, grove_spec §3): one wanderer per placed spirit,

@@ -931,6 +931,10 @@ static func reconcile_gates(grove: Dictionary) -> bool:
 # claimed as exp crosses their thresholds, and the next map's first threshold is higher than
 # this map's last — so the chain advances exactly as exp climbs through the global ladder.
 static func map_unlocked(z: int, unlocks: Dictionary, gates: Array = []) -> bool:
+	# `open` pages browse freely (interim picture-book: the frontier gate lands with the pages
+	# build system); otherwise the classic chain — a map opens when its predecessor completes.
+	if bool(MAPS[z].get("open", false)):
+		return true
 	return z == 0 or map_complete(z - 1, unlocks, gates)
 
 static func owned_count(z: int, unlocks: Dictionary) -> int:

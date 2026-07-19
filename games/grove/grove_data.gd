@@ -203,15 +203,15 @@ const BOOST_COST := 120                   # coins to activate one boost (the §1
 const RESIDENT_MAX_TIER := 12             # t1 welcomed → merges up to this tier (cascading)
 const RESIDENT_SLOTS_MAX := 8            # §1 a map's roster CAP: scales 1 (first spot restored) → this (all spots); a full roster forces a merge or discard
 const RESIDENT_ART := "items/resident_%s/resident_%s_%d.png"   # (id, id, tier) → per-tier ladder art (item-line convention)
-# ONE resident line per map — keyed by the stable slot id (ids stay fixed for save-stability; the
-# DISPLAYED map follows the art: barn=Orchard, pond=Garden, orchard=Mill, meadow=Gate). Each is a
-# nature-elemental spirit-folk family; its 12 tiers are arted at items/resident_<id>/resident_<id>_<tier>.png.
+# ONE resident line per map — keyed by the PAGE id (picture-book world, 2026-07-18; the spirit KIND
+# ids stay fixed for save-stability — only the map keys were re-homed from the retired farm slots).
+# Each is a nature-elemental spirit-folk family; 12 tiers at items/resident_<id>/resident_<id>_<tier>.png.
 const RESIDENT_LINES := {
-	"farmhouse": {"id": "ember", "name": "Ember"},        # The Farm — fire / hearth-warmth
-	"barn": {"id": "sprout", "name": "Sprout"},           # The Orchard — earth / green growth
-	"pond": {"id": "dewdrop", "name": "Dewdrop"},         # The Garden — water / pond-dew
-	"orchard": {"id": "breeze", "name": "Breeze"},        # The Mill — air / wind
-	"meadow": {"id": "starlight", "name": "Starlight"},   # The Gate — light / aether
+	"fairy_hollow": {"id": "ember", "name": "Ember"},              # fire / hearth-warmth
+	"snowy_village": {"id": "sprout", "name": "Sprout"},           # earth / green growth
+	"desert_oasis": {"id": "dewdrop", "name": "Dewdrop"},          # water / oasis-dew
+	"coral_reef": {"id": "breeze", "name": "Breeze"},              # air / current
+	"cherry_blossom_garden": {"id": "starlight", "name": "Starlight"},   # light / aether
 }
 # The GLOBAL resident bucket (grove_spec §3): four resource LINES, each arted by one of the existing
 # resident families (items/resident_<kind>/). breeze (air) is retired — legacy breeze spirits migrate
@@ -417,15 +417,16 @@ static var MAPS: Array = _build_maps()
 
 static func _build_maps() -> Array:
 	var maps: Array = [
-	# Map 1 — the home hub. Spots carry gameplay only (id/name/kind/cost/pos); the hub renders
-	# via the §16 mask-reveal `home` below (not per-spot cutouts), so spots need no `art`/`fsize`.
-	# Display names follow each slot's vine ART (farm/orchard/garden/mill/gate); the `id`s stay fixed
-	# (farmhouse/barn/pond/orchard/meadow) for save + progression stability, so e.g. id `orchard` shows
-	# "The Mill" and id `barn` shows "The Orchard". See RESIDENT_LINES for each map's resident spirit-line.
-	{"id": "farmhouse", "name": "The Farm", "hub": true,
-		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
-		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home_spot).
-		"home": {"clean": "res://games/grove/assets/map/farm/farm.png", "broken": "res://games/grove/assets/map/farm/farm_brokenv2.png", "data": "res://games/grove/assets/map/farm/farm_home.json"},
+	# THE PICTURE BOOK (2026-07-18): the world is the five scene PAGES, in play order, replacing the
+	# farm maps. Each page renders its generated zone manifest (assets/map/pages/zone_<id>.json —
+	# built from the scene-workbench bundles by tools/build_page_manifests.py; re-run it after
+	# fine-tuning in `make sw`, then `make import`). Page 1 (Fairy Hollow, the FTUE anchor) is the
+	# hub and INTERIM build surface: it carries the farmhouse spots + build items verbatim so the
+	# coin build loop and the zone's bucket cell stay reachable until the pages build system
+	# (recipes/frontier, picturebook spec §9) lands. Pages 2-5 are `open` for book browsing —
+	# the frontier gate arrives with that same task.
+	{"id": "fairy_hollow", "name": "Fairy Hollow", "hub": true,
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow.json",
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
 		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379)},
@@ -435,9 +436,14 @@ static func _build_maps() -> Array:
 		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305)},
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182)},
 	]},
-	# Maps 2-5 (barn/pond/orchard/meadow) retired with the discrete-map model (home build-and-upgrade
-	# redesign, spec 2026-07-17): one evolving home world now. Their per-map RESIDENT_LINES / reward
-	# rows are kept as dormant data (harmless extra keys) until the economy-sim re-pass revisits them.
+	{"id": "snowy_village", "name": "Snowy Village", "open": true,
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_snowy_village.json", "spots": []},
+	{"id": "desert_oasis", "name": "Desert Oasis", "open": true,
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_desert_oasis.json", "spots": []},
+	{"id": "coral_reef", "name": "Coral Reef", "open": true,
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_coral_reef.json", "spots": []},
+	{"id": "cherry_blossom_garden", "name": "Cherry-Blossom Garden", "open": true,
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_cherry_blossom_garden.json", "spots": []},
 	]
 	return maps
 

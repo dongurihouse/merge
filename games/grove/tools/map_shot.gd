@@ -165,9 +165,13 @@ func _initialize() -> void:
 
 	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
 	# not a popup. Must run after Save.configure_for_test (above).
+	# page=<map id>: boot on that picture-book page (writes last_map; the page must be unlocked).
 	for wa in args:
 		if String(wa) == "noftue=1":
 			load("res://engine/scripts/core/login.gd").claim_today()
+		elif String(wa).begins_with("page="):
+			# boot on that picture-book page: the decorate-jump static is the boot-map lever
+			load("res://engine/scripts/scenes/map.gd").decorate_map = String(wa).get_slice("=", 1)
 
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(scn)

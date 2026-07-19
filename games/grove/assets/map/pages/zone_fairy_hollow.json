@@ -1,0 +1,403 @@
+{
+ "version": 1,
+ "id": "fairy_hollow",
+ "label": "Fairy Hollow",
+ "canvas": {
+  "width": 1320,
+  "height": 2346
+ },
+ "background": "res://games/grove/assets/map/pages/fairy_hollow/foundation.png",
+ "buildings": [
+  {
+   "id": "moon_swing_support_back",
+   "label": "moon swing support back",
+   "position": [
+    365,
+    354
+   ],
+   "display_size": [
+    408,
+    168
+   ],
+   "sort_y": 10,
+   "cluster": "moon_swing",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/moon_swing_support_back.png"
+   }
+  },
+  {
+   "id": "background_trees",
+   "label": "background trees",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 20,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/background_trees.png"
+   }
+  },
+  {
+   "id": "midground_foliage",
+   "label": "midground foliage",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 30,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/midground_foliage.png"
+   }
+  },
+  {
+   "id": "toadstool_cottage",
+   "label": "toadstool cottage",
+   "position": [
+    256,
+    1245
+   ],
+   "display_size": [
+    448,
+    444
+   ],
+   "sort_y": 250,
+   "cluster": "toadstool_cottage",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/toadstool_cottage.png"
+   }
+  },
+  {
+   "id": "tree_house",
+   "label": "tree house",
+   "position": [
+    996,
+    1291
+   ],
+   "display_size": [
+    730,
+    1291
+   ],
+   "sort_y": 260,
+   "cluster": "tree_house",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/tree_house.png"
+   }
+  },
+  {
+   "id": "moon_swing_seat_front",
+   "label": "moon swing seat front",
+   "position": [
+    363,
+    810
+   ],
+   "display_size": [
+    303,
+    477
+   ],
+   "sort_y": 270,
+   "cluster": "moon_swing",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/moon_swing_seat_front.png"
+   }
+  },
+  {
+   "id": "lantern_vines",
+   "label": "lantern vines",
+   "position": [
+    936,
+    633
+   ],
+   "display_size": [
+    729,
+    291
+   ],
+   "sort_y": 280,
+   "cluster": "lantern_vines",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/lantern_vines.png"
+   }
+  },
+  {
+   "id": "wishing_well",
+   "label": "wishing well",
+   "position": [
+    933,
+    1568
+   ],
+   "display_size": [
+    249,
+    358
+   ],
+   "sort_y": 300,
+   "cluster": "wishing_well",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/wishing_well.png"
+   }
+  },
+  {
+   "id": "glowing_mushrooms",
+   "label": "glowing mushrooms",
+   "position": [
+    326,
+    1778
+   ],
+   "display_size": [
+    490,
+    308
+   ],
+   "sort_y": 310,
+   "cluster": "glowing_mushrooms",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/glowing_mushrooms.png"
+   }
+  },
+  {
+   "id": "firefly_lanterns",
+   "label": "firefly lanterns",
+   "position": [
+    1070,
+    1954
+   ],
+   "display_size": [
+    341,
+    407
+   ],
+   "sort_y": 320,
+   "cluster": "firefly_lanterns",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/firefly_lanterns.png"
+   }
+  },
+  {
+   "id": "mushrooms_contact",
+   "label": "mushrooms contact",
+   "position": [
+    161,
+    1788
+   ],
+   "display_size": [
+    111,
+    80
+   ],
+   "sort_y": 330,
+   "cluster": "glowing_mushrooms",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/mushrooms_contact.png"
+   }
+  },
+  {
+   "id": "well_contact_left",
+   "label": "well contact left",
+   "position": [
+    819,
+    1578
+   ],
+   "display_size": [
+    108,
+    55
+   ],
+   "sort_y": 331,
+   "cluster": "wishing_well",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/well_contact_left.png"
+   }
+  },
+  {
+   "id": "well_contact_right",
+   "label": "well contact right",
+   "position": [
+    1047,
+    1572
+   ],
+   "display_size": [
+    105,
+    64
+   ],
+   "sort_y": 332,
+   "cluster": "wishing_well",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/well_contact_right.png"
+   }
+  },
+  {
+   "id": "lantern_contact_left",
+   "label": "lantern contact left",
+   "position": [
+    931,
+    1965
+   ],
+   "display_size": [
+    111,
+    74
+   ],
+   "sort_y": 333,
+   "cluster": "firefly_lanterns",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/lantern_contact_left.png"
+   }
+  },
+  {
+   "id": "lantern_contact_right",
+   "label": "lantern contact right",
+   "position": [
+    1226,
+    1965
+   ],
+   "display_size": [
+    111,
+    80
+   ],
+   "sort_y": 334,
+   "cluster": "firefly_lanterns",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/lantern_contact_right.png"
+   }
+  },
+  {
+   "id": "foreground_roots",
+   "label": "foreground roots",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 500,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow/foreground_roots.png"
+   }
+  },
+  {
+   "id": "fh_hearth",
+   "label": "Farmhouse",
+   "position": [
+    659,
+    982
+   ],
+   "display_size": [
+    729,
+    678
+   ],
+   "sort_y": 1700,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_hearth.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_hearth.png"
+   }
+  },
+  {
+   "id": "fh_larder",
+   "label": "Larder Shed",
+   "position": [
+    1129,
+    982
+   ],
+   "display_size": [
+    351,
+    355
+   ],
+   "sort_y": 1700,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_larder.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_larder.png"
+   }
+  },
+  {
+   "id": "fh_boxes",
+   "label": "Flower Boxes",
+   "position": [
+    231,
+    1368
+   ],
+   "display_size": [
+    365,
+    283
+   ],
+   "sort_y": 1975,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_boxes.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_boxes.png"
+   }
+  },
+  {
+   "id": "fh_kitchen",
+   "label": "Kitchen Garden",
+   "position": [
+    954,
+    1515
+   ],
+   "display_size": [
+    701,
+    519
+   ],
+   "sort_y": 2080,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_kitchen.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_kitchen.png"
+   }
+  },
+  {
+   "id": "fh_well",
+   "label": "Roofed Well",
+   "position": [
+    267,
+    1866
+   ],
+   "display_size": [
+    435,
+    449
+   ],
+   "sort_y": 2330,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_well.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_well.png"
+   }
+  },
+  {
+   "id": "fh_lantern",
+   "label": "Lantern Gate",
+   "position": [
+    1129,
+    1978
+   ],
+   "display_size": [
+    295,
+    319
+   ],
+   "sort_y": 2410,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_lantern.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_lantern.png"
+   }
+  },
+  {
+   "id": "fh_porch",
+   "label": "Doghouse",
+   "position": [
+    842,
+    2119
+   ],
+   "display_size": [
+    337,
+    302
+   ],
+   "sort_y": 2510,
+   "states": {
+    "built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_porch.png",
+    "site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_porch.png"
+   }
+  }
+ ]
+}

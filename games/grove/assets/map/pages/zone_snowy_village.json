@@ -1,0 +1,1423 @@
+{
+ "version": 1,
+ "id": "snowy_village",
+ "label": "Snowy Village",
+ "canvas": {
+  "width": 1320,
+  "height": 2346
+ },
+ "background": "res://games/grove/assets/map/pages/snowy_village/foundation.png",
+ "buildings": [
+  {
+   "id": "cloud_large_center",
+   "label": "cloud large center",
+   "position": [
+    560,
+    353
+   ],
+   "display_size": [
+    325,
+    325
+   ],
+   "sort_y": 10,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/cloud_large_center.png"
+   }
+  },
+  {
+   "id": "cloud_small_right",
+   "label": "cloud small right",
+   "position": [
+    1160,
+    410
+   ],
+   "display_size": [
+    300,
+    300
+   ],
+   "sort_y": 10,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/cloud_small_right.png"
+   }
+  },
+  {
+   "id": "ridge_left",
+   "label": "ridge left",
+   "position": [
+    120,
+    610
+   ],
+   "display_size": [
+    768,
+    768
+   ],
+   "sort_y": 11,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/ridge_left.png"
+   }
+  },
+  {
+   "id": "ridge_center_left",
+   "label": "ridge center left",
+   "position": [
+    500,
+    640
+   ],
+   "display_size": [
+    768,
+    768
+   ],
+   "sort_y": 11,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/ridge_center_left.png"
+   }
+  },
+  {
+   "id": "ridge_center_right",
+   "label": "ridge center right",
+   "position": [
+    890,
+    625
+   ],
+   "display_size": [
+    768,
+    768
+   ],
+   "sort_y": 11,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/ridge_center_right.png"
+   }
+  },
+  {
+   "id": "ridge_right",
+   "label": "ridge right",
+   "position": [
+    1270,
+    645
+   ],
+   "display_size": [
+    768,
+    768
+   ],
+   "sort_y": 11,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/ridge_right.png"
+   }
+  },
+  {
+   "id": "distant_pine_far_left",
+   "label": "distant pine far left",
+   "position": [
+    25,
+    760
+   ],
+   "display_size": [
+    270,
+    270
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_far_left.png"
+   }
+  },
+  {
+   "id": "distant_pine_left_1",
+   "label": "distant pine left 1",
+   "position": [
+    119,
+    725
+   ],
+   "display_size": [
+    235,
+    235
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_left_1.png"
+   }
+  },
+  {
+   "id": "distant_pine_left_2",
+   "label": "distant pine left 2",
+   "position": [
+    219,
+    755
+   ],
+   "display_size": [
+    255,
+    255
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_left_2.png"
+   }
+  },
+  {
+   "id": "distant_pine_center_left",
+   "label": "distant pine center left",
+   "position": [
+    380,
+    690
+   ],
+   "display_size": [
+    210,
+    210
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_center_left.png"
+   }
+  },
+  {
+   "id": "distant_pine_center_right",
+   "label": "distant pine center right",
+   "position": [
+    949,
+    700
+   ],
+   "display_size": [
+    215,
+    215
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_center_right.png"
+   }
+  },
+  {
+   "id": "distant_pine_right_1",
+   "label": "distant pine right 1",
+   "position": [
+    1100,
+    750
+   ],
+   "display_size": [
+    250,
+    250
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_right_1.png"
+   }
+  },
+  {
+   "id": "distant_pine_right_2",
+   "label": "distant pine right 2",
+   "position": [
+    1205,
+    730
+   ],
+   "display_size": [
+    245,
+    245
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_right_2.png"
+   }
+  },
+  {
+   "id": "distant_pine_far_right",
+   "label": "distant pine far right",
+   "position": [
+    1300,
+    770
+   ],
+   "display_size": [
+    270,
+    270
+   ],
+   "sort_y": 12,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/distant_pine_far_right.png"
+   }
+  },
+  {
+   "id": "medium_pine_far_left",
+   "label": "medium pine far left",
+   "position": [
+    15,
+    850
+   ],
+   "display_size": [
+    405,
+    405
+   ],
+   "sort_y": 13,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/medium_pine_far_left.png"
+   }
+  },
+  {
+   "id": "medium_pine_left",
+   "label": "medium pine left",
+   "position": [
+    180,
+    825
+   ],
+   "display_size": [
+    390,
+    390
+   ],
+   "sort_y": 13,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/medium_pine_left.png"
+   }
+  },
+  {
+   "id": "medium_pine_mid_left",
+   "label": "medium pine mid left",
+   "position": [
+    335,
+    805
+   ],
+   "display_size": [
+    370,
+    370
+   ],
+   "sort_y": 13,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/medium_pine_mid_left.png"
+   }
+  },
+  {
+   "id": "medium_pine_mid_right",
+   "label": "medium pine mid right",
+   "position": [
+    990,
+    805
+   ],
+   "display_size": [
+    370,
+    370
+   ],
+   "sort_y": 13,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/medium_pine_mid_right.png"
+   }
+  },
+  {
+   "id": "medium_pine_right",
+   "label": "medium pine right",
+   "position": [
+    1140,
+    830
+   ],
+   "display_size": [
+    390,
+    390
+   ],
+   "sort_y": 13,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/medium_pine_right.png"
+   }
+  },
+  {
+   "id": "medium_pine_far_right",
+   "label": "medium pine far right",
+   "position": [
+    1305,
+    855
+   ],
+   "display_size": [
+    405,
+    405
+   ],
+   "sort_y": 13,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/medium_pine_far_right.png"
+   }
+  },
+  {
+   "id": "snowbank_left",
+   "label": "snowbank left",
+   "position": [
+    60,
+    875
+   ],
+   "display_size": [
+    520,
+    520
+   ],
+   "sort_y": 14,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snowbank_left.png"
+   }
+  },
+  {
+   "id": "snowbank_center_left",
+   "label": "snowbank center left",
+   "position": [
+    430,
+    860
+   ],
+   "display_size": [
+    510,
+    510
+   ],
+   "sort_y": 14,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snowbank_center_left.png"
+   }
+  },
+  {
+   "id": "snowbank_center_right",
+   "label": "snowbank center right",
+   "position": [
+    900,
+    860
+   ],
+   "display_size": [
+    510,
+    510
+   ],
+   "sort_y": 14,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snowbank_center_right.png"
+   }
+  },
+  {
+   "id": "snowbank_right",
+   "label": "snowbank right",
+   "position": [
+    1260,
+    880
+   ],
+   "display_size": [
+    520,
+    520
+   ],
+   "sort_y": 14,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snowbank_right.png"
+   }
+  },
+  {
+   "id": "lit_pine_short_left",
+   "label": "lit pine short left",
+   "position": [
+    225,
+    840
+   ],
+   "display_size": [
+    300,
+    374
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lit_pine_short_left.png"
+   }
+  },
+  {
+   "id": "garland_segment_left",
+   "label": "garland segment left",
+   "position": [
+    314,
+    664
+   ],
+   "display_size": [
+    368,
+    164
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/garland_segment_left.png"
+   }
+  },
+  {
+   "id": "lit_pine_tall_left_center",
+   "label": "lit pine tall left center",
+   "position": [
+    390,
+    848
+   ],
+   "display_size": [
+    330,
+    540
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lit_pine_tall_left_center.png"
+   }
+  },
+  {
+   "id": "lit_pine_medium_left_center",
+   "label": "lit pine medium left center",
+   "position": [
+    570,
+    843
+   ],
+   "display_size": [
+    290,
+    480
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lit_pine_medium_left_center.png"
+   }
+  },
+  {
+   "id": "garland_segment_middle",
+   "label": "garland segment middle",
+   "position": [
+    608,
+    699
+   ],
+   "display_size": [
+    356,
+    164
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/garland_segment_middle.png"
+   }
+  },
+  {
+   "id": "lit_pine_short_right_center",
+   "label": "lit pine short right center",
+   "position": [
+    745,
+    841
+   ],
+   "display_size": [
+    320,
+    400
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lit_pine_short_right_center.png"
+   }
+  },
+  {
+   "id": "garland_segment_right",
+   "label": "garland segment right",
+   "position": [
+    871,
+    735
+   ],
+   "display_size": [
+    303,
+    165
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/garland_segment_right.png"
+   }
+  },
+  {
+   "id": "lit_pine_tall_right_center",
+   "label": "lit pine tall right center",
+   "position": [
+    920,
+    846
+   ],
+   "display_size": [
+    310,
+    506
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lit_pine_tall_right_center.png"
+   }
+  },
+  {
+   "id": "lit_pine_medium_right",
+   "label": "lit pine medium right",
+   "position": [
+    1090,
+    846
+   ],
+   "display_size": [
+    270,
+    447
+   ],
+   "sort_y": 15,
+   "cluster": "lit_pine_garland",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lit_pine_medium_right.png"
+   }
+  },
+  {
+   "id": "small_cabin",
+   "label": "small cabin",
+   "position": [
+    280,
+    1012
+   ],
+   "display_size": [
+    500,
+    390
+   ],
+   "sort_y": 100,
+   "cluster": "small_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/small_cabin.png"
+   }
+  },
+  {
+   "id": "large_cabin",
+   "label": "large cabin",
+   "position": [
+    985,
+    1011
+   ],
+   "display_size": [
+    720,
+    440
+   ],
+   "sort_y": 101,
+   "cluster": "large_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/large_cabin.png"
+   }
+  },
+  {
+   "id": "small_cabin_chimney",
+   "label": "small cabin chimney",
+   "position": [
+    358,
+    765
+   ],
+   "display_size": [
+    144,
+    122
+   ],
+   "sort_y": 102,
+   "cluster": "small_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/small_cabin_chimney.png"
+   }
+  },
+  {
+   "id": "small_cabin_smoke",
+   "label": "small cabin smoke",
+   "position": [
+    358,
+    664
+   ],
+   "display_size": [
+    125,
+    125
+   ],
+   "sort_y": 103,
+   "cluster": "small_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/small_cabin_smoke.png"
+   }
+  },
+  {
+   "id": "scatter_snowball_left_bank",
+   "label": "scatter snowball left bank",
+   "position": [
+    35,
+    1207
+   ],
+   "display_size": [
+    82,
+    82
+   ],
+   "sort_y": 200,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_snowball_left_bank.png"
+   }
+  },
+  {
+   "id": "scatter_stone_right_upper",
+   "label": "scatter stone right upper",
+   "position": [
+    1270,
+    1179
+   ],
+   "display_size": [
+    92,
+    92
+   ],
+   "sort_y": 201,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_stone_right_upper.png"
+   }
+  },
+  {
+   "id": "scatter_indent_left_shore",
+   "label": "scatter indent left shore",
+   "position": [
+    80,
+    1516
+   ],
+   "display_size": [
+    78,
+    78
+   ],
+   "sort_y": 202,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_indent_left_shore.png"
+   }
+  },
+  {
+   "id": "scatter_stone_right_shore",
+   "label": "scatter stone right shore",
+   "position": [
+    1250,
+    1594
+   ],
+   "display_size": [
+    90,
+    90
+   ],
+   "sort_y": 203,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_stone_right_shore.png"
+   }
+  },
+  {
+   "id": "scatter_snow_clump_left_lower",
+   "label": "scatter snow clump left lower",
+   "position": [
+    55,
+    2003
+   ],
+   "display_size": [
+    88,
+    88
+   ],
+   "sort_y": 204,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_snow_clump_left_lower.png"
+   }
+  },
+  {
+   "id": "scatter_indent_below_lake",
+   "label": "scatter indent below lake",
+   "position": [
+    565,
+    2066
+   ],
+   "display_size": [
+    76,
+    76
+   ],
+   "sort_y": 205,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_indent_below_lake.png"
+   }
+  },
+  {
+   "id": "scatter_snow_clump_lower_center",
+   "label": "scatter snow clump lower center",
+   "position": [
+    690,
+    2197
+   ],
+   "display_size": [
+    82,
+    82
+   ],
+   "sort_y": 206,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_snow_clump_lower_center.png"
+   }
+  },
+  {
+   "id": "scatter_twig_near_sled",
+   "label": "scatter twig near sled",
+   "position": [
+    500,
+    2239
+   ],
+   "display_size": [
+    94,
+    94
+   ],
+   "sort_y": 207,
+   "cluster": "sled_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_twig_near_sled.png"
+   }
+  },
+  {
+   "id": "scatter_snowball_lower_right",
+   "label": "scatter snowball lower right",
+   "position": [
+    760,
+    2295
+   ],
+   "display_size": [
+    74,
+    74
+   ],
+   "sort_y": 208,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_snowball_lower_right.png"
+   }
+  },
+  {
+   "id": "scatter_indent_stall_side",
+   "label": "scatter indent stall side",
+   "position": [
+    1280,
+    2317
+   ],
+   "display_size": [
+    80,
+    80
+   ],
+   "sort_y": 209,
+   "cluster": "gift_stall_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/scatter_indent_stall_side.png"
+   }
+  },
+  {
+   "id": "snow_clump_small_cabin_threshold_left",
+   "label": "snow clump small cabin threshold left",
+   "position": [
+    92,
+    1133
+   ],
+   "display_size": [
+    118,
+    118
+   ],
+   "sort_y": 210,
+   "cluster": "small_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_small_cabin_threshold_left.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_small_cabin_outer",
+   "label": "winter vegetation small cabin outer",
+   "position": [
+    61,
+    1129
+   ],
+   "display_size": [
+    155,
+    155
+   ],
+   "sort_y": 211,
+   "cluster": "small_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_small_cabin_outer.png"
+   }
+  },
+  {
+   "id": "snow_clump_between_cabins",
+   "label": "snow clump between cabins",
+   "position": [
+    520,
+    1034
+   ],
+   "display_size": [
+    142,
+    142
+   ],
+   "sort_y": 212,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_between_cabins.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_large_cabin_outer",
+   "label": "winter vegetation large cabin outer",
+   "position": [
+    1248,
+    1133
+   ],
+   "display_size": [
+    150,
+    150
+   ],
+   "sort_y": 213,
+   "cluster": "large_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_large_cabin_outer.png"
+   }
+  },
+  {
+   "id": "snow_clump_left_lake_bank_upper",
+   "label": "snow clump left lake bank upper",
+   "position": [
+    160,
+    1264
+   ],
+   "display_size": [
+    112,
+    112
+   ],
+   "sort_y": 214,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_left_lake_bank_upper.png"
+   }
+  },
+  {
+   "id": "snow_clump_right_lake_bank_upper",
+   "label": "snow clump right lake bank upper",
+   "position": [
+    1148,
+    1279
+   ],
+   "display_size": [
+    104,
+    104
+   ],
+   "sort_y": 215,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_right_lake_bank_upper.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_left_lake_bank",
+   "label": "winter vegetation left lake bank",
+   "position": [
+    34,
+    1462
+   ],
+   "display_size": [
+    138,
+    138
+   ],
+   "sort_y": 216,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_left_lake_bank.png"
+   }
+  },
+  {
+   "id": "snow_clump_right_lake_bank_mid",
+   "label": "snow clump right lake bank mid",
+   "position": [
+    1220,
+    1620
+   ],
+   "display_size": [
+    112,
+    112
+   ],
+   "sort_y": 217,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_right_lake_bank_mid.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_snowmen_left_edge",
+   "label": "winter vegetation snowmen left edge",
+   "position": [
+    26,
+    1897
+   ],
+   "display_size": [
+    132,
+    132
+   ],
+   "sort_y": 218,
+   "cluster": "snowmen_pair",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_snowmen_left_edge.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_right_lake_bank_lower",
+   "label": "winter vegetation right lake bank lower",
+   "position": [
+    1185,
+    1785
+   ],
+   "display_size": [
+    118,
+    118
+   ],
+   "sort_y": 219,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_right_lake_bank_lower.png"
+   }
+  },
+  {
+   "id": "snow_clump_below_lake_center",
+   "label": "snow clump below lake center",
+   "position": [
+    654,
+    2065
+   ],
+   "display_size": [
+    92,
+    92
+   ],
+   "sort_y": 220,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_below_lake_center.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_below_lake_right",
+   "label": "winter vegetation below lake right",
+   "position": [
+    892,
+    2091
+   ],
+   "display_size": [
+    128,
+    128
+   ],
+   "sort_y": 221,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_below_lake_right.png"
+   }
+  },
+  {
+   "id": "snow_clump_stall_left_snowfield",
+   "label": "snow clump stall left snowfield",
+   "position": [
+    808,
+    2181
+   ],
+   "display_size": [
+    104,
+    104
+   ],
+   "sort_y": 222,
+   "cluster": "gift_stall_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_stall_left_snowfield.png"
+   }
+  },
+  {
+   "id": "snow_clump_sled_near",
+   "label": "snow clump sled near",
+   "position": [
+    306,
+    2271
+   ],
+   "display_size": [
+    105,
+    105
+   ],
+   "sort_y": 223,
+   "cluster": "sled_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_sled_near.png"
+   }
+  },
+  {
+   "id": "snow_clump_lower_snowfield",
+   "label": "snow clump lower snowfield",
+   "position": [
+    610,
+    2299
+   ],
+   "display_size": [
+    78,
+    78
+   ],
+   "sort_y": 224,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_clump_lower_snowfield.png"
+   }
+  },
+  {
+   "id": "large_snowman",
+   "label": "large snowman",
+   "position": [
+    165,
+    1752
+   ],
+   "display_size": [
+    430,
+    430
+   ],
+   "sort_y": 250,
+   "cluster": "snowmen_pair",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/large_snowman.png"
+   }
+  },
+  {
+   "id": "small_snowman",
+   "label": "small snowman",
+   "position": [
+    350,
+    1744
+   ],
+   "display_size": [
+    360,
+    360
+   ],
+   "sort_y": 251,
+   "cluster": "snowmen_pair",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/small_snowman.png"
+   }
+  },
+  {
+   "id": "sled",
+   "label": "sled",
+   "position": [
+    250,
+    2214
+   ],
+   "display_size": [
+    450,
+    450
+   ],
+   "sort_y": 252,
+   "cluster": "sled_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/sled.png"
+   }
+  },
+  {
+   "id": "gift_stall",
+   "label": "gift stall",
+   "position": [
+    1070,
+    2282
+   ],
+   "display_size": [
+    578,
+    578
+   ],
+   "sort_y": 253,
+   "cluster": "gift_stall_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/gift_stall.png"
+   }
+  },
+  {
+   "id": "lantern_top_right",
+   "label": "lantern top right",
+   "position": [
+    1150,
+    1182
+   ],
+   "display_size": [
+    190,
+    190
+   ],
+   "sort_y": 254,
+   "cluster": "lantern_chain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lantern_top_right.png"
+   }
+  },
+  {
+   "id": "lantern_upper_right",
+   "label": "lantern upper right",
+   "position": [
+    1240,
+    1362
+   ],
+   "display_size": [
+    190,
+    190
+   ],
+   "sort_y": 255,
+   "cluster": "lantern_chain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lantern_upper_right.png"
+   }
+  },
+  {
+   "id": "lantern_middle_right",
+   "label": "lantern middle right",
+   "position": [
+    1160,
+    1552
+   ],
+   "display_size": [
+    190,
+    190
+   ],
+   "sort_y": 256,
+   "cluster": "lantern_chain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lantern_middle_right.png"
+   }
+  },
+  {
+   "id": "lantern_lower_right",
+   "label": "lantern lower right",
+   "position": [
+    1030,
+    1732
+   ],
+   "display_size": [
+    190,
+    190
+   ],
+   "sort_y": 257,
+   "cluster": "lantern_chain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lantern_lower_right.png"
+   }
+  },
+  {
+   "id": "lantern_near_stall",
+   "label": "lantern near stall",
+   "position": [
+    825,
+    1907
+   ],
+   "display_size": [
+    190,
+    190
+   ],
+   "sort_y": 258,
+   "cluster": "lantern_chain",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/lantern_near_stall.png"
+   }
+  },
+  {
+   "id": "shrub_small_cabin_outer",
+   "label": "shrub small cabin outer",
+   "position": [
+    55,
+    1071
+   ],
+   "display_size": [
+    240,
+    240
+   ],
+   "sort_y": 500,
+   "cluster": "small_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_small_cabin_outer.png"
+   }
+  },
+  {
+   "id": "shrub_large_cabin_outer",
+   "label": "shrub large cabin outer",
+   "position": [
+    1270,
+    1101
+   ],
+   "display_size": [
+    240,
+    240
+   ],
+   "sort_y": 501,
+   "cluster": "large_cabin_home",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_large_cabin_outer.png"
+   }
+  },
+  {
+   "id": "shrub_snowmen_left",
+   "label": "shrub snowmen left",
+   "position": [
+    20,
+    1809
+   ],
+   "display_size": [
+    210,
+    210
+   ],
+   "sort_y": 502,
+   "cluster": "snowmen_pair",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_snowmen_left.png"
+   }
+  },
+  {
+   "id": "shrub_stall_right",
+   "label": "shrub stall right",
+   "position": [
+    1300,
+    2261
+   ],
+   "display_size": [
+    240,
+    240
+   ],
+   "sort_y": 503,
+   "cluster": "gift_stall_cluster",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_stall_right.png"
+   }
+  },
+  {
+   "id": "shrub_bottom_left_1",
+   "label": "shrub bottom left 1",
+   "position": [
+    45,
+    2348
+   ],
+   "display_size": [
+    260,
+    260
+   ],
+   "sort_y": 504,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_bottom_left_1.png"
+   }
+  },
+  {
+   "id": "shrub_bottom_left_2",
+   "label": "shrub bottom left 2",
+   "position": [
+    205,
+    2355
+   ],
+   "display_size": [
+    230,
+    230
+   ],
+   "sort_y": 505,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_bottom_left_2.png"
+   }
+  },
+  {
+   "id": "shrub_bottom_right",
+   "label": "shrub bottom right",
+   "position": [
+    1275,
+    2352
+   ],
+   "display_size": [
+    250,
+    250
+   ],
+   "sort_y": 506,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/shrub_bottom_right.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_bottom_left_extra",
+   "label": "winter vegetation bottom left extra",
+   "position": [
+    360,
+    2345
+   ],
+   "display_size": [
+    128,
+    128
+   ],
+   "sort_y": 507,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_bottom_left_extra.png"
+   }
+  },
+  {
+   "id": "winter_vegetation_bottom_right_extra",
+   "label": "winter vegetation bottom right extra",
+   "position": [
+    1134,
+    2340
+   ],
+   "display_size": [
+    135,
+    135
+   ],
+   "sort_y": 508,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/winter_vegetation_bottom_right_extra.png"
+   }
+  },
+  {
+   "id": "snow_seam_lip_large_snowman",
+   "label": "snow seam lip large snowman",
+   "position": [
+    165,
+    1772
+   ],
+   "display_size": [
+    230,
+    230
+   ],
+   "sort_y": 509,
+   "cluster": "snowmen_pair",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_seam_lip_large_snowman.png"
+   }
+  },
+  {
+   "id": "snow_seam_lip_small_snowman",
+   "label": "snow seam lip small snowman",
+   "position": [
+    350,
+    1761
+   ],
+   "display_size": [
+    190,
+    190
+   ],
+   "sort_y": 510,
+   "cluster": "snowmen_pair",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/snow_seam_lip_small_snowman.png"
+   }
+  },
+  {
+   "id": "falling_snow",
+   "label": "falling snow",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 600,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/snowy_village/falling_snow.png"
+   }
+  }
+ ]
+}
