@@ -19,6 +19,7 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
 const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
 const ScaleContainer = preload("res://engine/scripts/ui/scale_container.gd")   # uniform content scaling inside the frame
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
 const CARD_TEX := Vector2(30, 30)
@@ -843,7 +844,7 @@ static func reward_chip(reward: Dictionary, btn_opts: Dictionary = {}) -> Contro
 		cell.add_child(make_icon(String(p[0]), 22))
 		var l := Label.new()
 		l.text = str(int(p[1]))
-		l.add_theme_font_size_override("font_size", 18)   # reward amount — readable beside the 22px icon (was 15)
+		l.add_theme_font_size_override("font_size", FS.FOOTNOTE)   # reward amount — readable beside the 22px icon (was 15)
 		l.add_theme_color_override("font_color", Pal.INK)
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(l)
@@ -1392,7 +1393,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var bg := String(opts.get("bg", "green"))
 	var icon_id := String(opts.get("icon", ""))
 	var enabled: bool = bool(opts.get("enabled", true))
-	var font_px := int(opts.get("font", 22))
+	var font_px := int(opts.get("font", FS.SMALL))
 	var corner := float(opts.get("corner", 16.0))      # low = rectangular; ≥ height/2 = capsule
 	var shadow: bool = bool(opts.get("shadow", false)) # a soft drop shadow under the pill
 	var pad_scale := float(opts.get("pad_scale", 1.0)) # shrink/grow the padding (the cost chip uses < 1 to fit a card)
@@ -1626,7 +1627,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			vb.add_child(icwrap)
 			var cl := Label.new()
 			cl.text = caption
-			cl.add_theme_font_size_override("font_size", int(opts.get("caption_font", 22)))
+			cl.add_theme_font_size_override("font_size", int(opts.get("caption_font", FS.SMALL)))
 			cl.add_theme_color_override("font_color", Pal.INK)
 			cl.add_theme_constant_override("outline_size", 0)   # solid badge = the contrast (panel-text law)
 			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1639,7 +1640,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		b.add_child(icwrap)
 		# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
 		if caption != "":
-			var cap_font := int(opts.get("caption_font", 22))
+			var cap_font := int(opts.get("caption_font", FS.SMALL))
 			var cap_pad_x := float(opts.get("caption_pad_x", 30.0))
 			var cap_pad_y := float(opts.get("caption_pad_y", 8.0))
 			var capwrap := CenterContainer.new()
@@ -1677,7 +1678,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	if count != "":
 		var cnt := Label.new()
 		cnt.text = count
-		cnt.add_theme_font_size_override("font_size", int(opts.get("count_font", 26)))
+		cnt.add_theme_font_size_override("font_size", int(opts.get("count_font", FS.MEDIUM)))
 		cnt.add_theme_color_override("font_color", Pal.CREAM)
 		cnt.add_theme_color_override("font_outline_color", Color("#4A3B24"))
 		cnt.add_theme_constant_override("outline_size", 6)
@@ -1845,7 +1846,7 @@ static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
 ## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
 ## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
-static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 15, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
+static func mail_card(entry: Dictionary, title_font: int = FS.CAPTION, body_font: int = FS.pct(37.5), btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
 	var panel := PanelContainer.new()
 	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
 	if box != null:
@@ -1909,7 +1910,7 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 		if bool(entry.get("claimed", false)):
 			var done := Label.new()
 			done.text = String(entry.get("claimed_text", "Claimed"))
-			done.add_theme_font_size_override("font_size", 18)   # "Claimed" tag — readable next to the card body (was a tiny hardcoded 14)
+			done.add_theme_font_size_override("font_size", FS.FOOTNOTE)   # "Claimed" tag — readable next to the card body (was a tiny hardcoded 14)
 			done.add_theme_color_override("font_color", Color(Pal.LEAF.darkened(0.1), 0.95))
 			done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			done.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1944,7 +1945,7 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 ##   entry: label/title/body/icon/cost · value (bool, current state) · on_toggle (Callable(on: bool)).
 ##   opts:  label_font/body_font (px) · switch_h (px, the switch height) · card_art (bool, parchment vs pill).
 static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
-	var label_font := int(opts.get("label_font", 28))
+	var label_font := int(opts.get("label_font", FS.EMPHASIS))
 	var body_font := int(opts.get("body_font", maxi(13, label_font - 4)))
 	var switch_h := float(opts.get("switch_h", 44.0))
 	var card_art := bool(opts.get("card_art", true))
@@ -2006,7 +2007,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 		if entry.has("cost"):
 			var cost := amount_chip("coin", "%d" % int(entry.get("cost", 0)), {
 				"art": true,
-				"font": int(opts.get("cost_font", 18)),
+				"font": int(opts.get("cost_font", FS.FOOTNOTE)),
 				"icon_size": int(opts.get("cost_icon", 22)),
 				"pad_scale": float(opts.get("cost_pad", 0.72)),
 			})
@@ -2075,7 +2076,7 @@ static func _row_panel(card_art: bool) -> PanelContainer:
 ## no switch. The settings dialog uses it for non-interactive lines (e.g. the Game Center id).
 ##   entry: label · value (both String) · id? (String metadata). opts: label_font (px) · card_art (bool).
 static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
-	var label_font := int(opts.get("label_font", 28))
+	var label_font := int(opts.get("label_font", FS.EMPHASIS))
 	var card_art := bool(opts.get("card_art", true))
 	var info_id := String(entry.get("id", ""))
 	var panel := _row_panel(card_art)
@@ -2118,7 +2119,7 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ## dialog uses it for the debug Reset save row (destructive tint).
 ##   entry: label · confirm_label? · destructive? (bool) · on_action (Callable()). opts: label_font · card_art.
 static func action_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
-	var label_font := int(opts.get("label_font", 28))
+	var label_font := int(opts.get("label_font", FS.EMPHASIS))
 	var card_art := bool(opts.get("card_art", true))
 	var panel := _row_panel(card_art)
 	var base_label := String(entry.get("label", ""))
@@ -2293,7 +2294,7 @@ static func frame_border(name: String) -> Dictionary:
 ## wrap, and docks the ✕. `content` is whatever scrolls inside (mail → a column of cards; daily → a
 ## grid). The named DialogBanner / DialogBannerIcon / DialogClose let the workbench drag the handles.
 static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionary = {}) -> Control:
-	var banner_font: int = int(opts.get("banner_font", 32))
+	var banner_font: int = int(opts.get("banner_font", FS.SUBHEADING))
 	var banner_h: float = float(opts.get("banner_h", BANNER_H))
 	var banner_icon: float = float(opts.get("banner_icon", 54.0))
 	var banner_icon_on: bool = bool(opts.get("banner_icon_on", true))
@@ -2458,7 +2459,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 			var empty := Label.new()
 			empty.text = empty_text
 			empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			empty.add_theme_font_size_override("font_size", int(opts.get("empty_font", 28)))   # empty-state headline — overridable; default sized to read against the floored card (was a tiny hardcoded 17)
+			empty.add_theme_font_size_override("font_size", int(opts.get("empty_font", FS.EMPHASIS)))   # empty-state headline — overridable; default sized to read against the floored card (was a tiny hardcoded 17)
 			empty.add_theme_color_override("font_color", Color(Pal.BARK, 0.9))
 			empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2479,7 +2480,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fl.add_theme_font_override("font", plain_font())          # standard text, not the chunky display face
-		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 16)))
+		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", FS.TINY)))
 		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 		fl.add_theme_constant_override("outline_size", 0)
 		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2525,7 +2526,7 @@ static func settings_dialog(entries: Array, width: float = 540.0, opts: Dictiona
 		link.text = footer_text
 		link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
 		link.add_theme_font_override("font", plain_font())
-		link.add_theme_font_size_override("font_size", int(opts.get("footer_font", 18)))   # privacy link — readable default (was 14)
+		link.add_theme_font_size_override("font_size", int(opts.get("footer_font", FS.FOOTNOTE)))   # privacy link — readable default (was 14)
 		link.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
 		link.add_theme_color_override("font_hover_color", Color(Pal.BARK, 1.0))
 		var on_footer: Callable = opts.get("on_footer", Callable())
@@ -2556,7 +2557,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	var bnum := Label.new()
 	bnum.text = str(int(state.get("balance", 0)))
 	bnum.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", 42)))
+	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", FS.pct(105))))
 	bnum.add_theme_color_override("font_color", Pal.INK)
 	bnum.add_theme_constant_override("outline_size", 0)
 	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2574,7 +2575,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 26)))   # vault pitch — enlarged (was 20)
+	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", FS.MEDIUM)))   # vault pitch — enlarged (was 20)
 	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	pitch.add_theme_constant_override("outline_size", 0)
 	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2583,7 +2584,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	# the green price CTA — the SHARED pill_button (reused), claimable-gated (dim + a hint below)
 	var claimable: bool = bool(state.get("claimable", true))
 	var cta := pill_button(String(state.get("price", "")), {"bg": "green", "icon": "gem",
-		"font": int(opts.get("cta_font", 30)), "enabled": true, "shadow": true, "corner": 22.0})
+		"font": int(opts.get("cta_font", FS.LARGE)), "enabled": true, "shadow": true, "corner": 22.0})
 	cta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	cta.modulate = Color(1, 1, 1, 1.0 if claimable else 0.55)
 	var on_claim: Callable = state.get("on_claim", Callable())
@@ -2598,7 +2599,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		var hl := Label.new()
 		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
 		hl.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hl.add_theme_font_size_override("font_size", 26)   # vault "keep playing" hint — enlarged (was 20)
+		hl.add_theme_font_size_override("font_size", FS.MEDIUM)   # vault "keep playing" hint — enlarged (was 20)
 		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
 		hl.add_theme_constant_override("outline_size", 0)
 		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2608,7 +2609,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		var hn := Label.new()
 		hn.text = str(int(state.get("claim_min", 0)))
 		hn.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hn.add_theme_font_size_override("font_size", 26)   # matches the hint text (was 20)
+		hn.add_theme_font_size_override("font_size", FS.MEDIUM)   # matches the hint text (was 20)
 		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
 		hn.add_theme_constant_override("outline_size", 0)
 		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2785,7 +2786,7 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var count_font := maxi(8, int(21.0 * s))
 	# the bottom action is the SHARED pill_button — so its font tracks the Button component (opts.btn.font),
 	# scaled to the card like everything else, instead of a constant. Edit the Button slider, every card follows.
-	var claim_font := maxi(8, int(float(btn_opts.get("font", 18)) * s))
+	var claim_font := maxi(8, int(float(btn_opts.get("font", FS.FOOTNOTE)) * s))
 	var label_y: float = float(opts.get("label_y", 12.0)) * s
 	var claim_y: float = float(opts.get("claim_y", 14.0)) * s
 
@@ -3200,7 +3201,7 @@ static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}
 ## banner_text, title_font, slice (nine-patch), pad, top_pad (room under the title pill).
 static func level_frame(content: Control, width: float = 460.0, opts: Dictionary = {}) -> Control:
 	var banner_text := String(opts.get("banner_text", "Level"))
-	var title_font := int(opts.get("title_font", 30))
+	var title_font := int(opts.get("title_font", FS.LARGE))
 	var sl := float(opts.get("slice", 56.0))
 	var pad := float(opts.get("pad", 26.0))
 	var top_pad := float(opts.get("top_pad", 70.0))
@@ -3292,7 +3293,7 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 	var tally := Label.new()
 	tally.text = TranslationServer.translate("%d / %d ★ earned") % [int(data.get("earned", 0)), int(data.get("next", 0))]
 	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tally.add_theme_font_size_override("font_size", int(opts.get("tally_font", 28)))
+	tally.add_theme_font_size_override("font_size", int(opts.get("tally_font", FS.EMPHASIS)))
 	tally.add_theme_color_override("font_color", Pal.INK)
 	tally.add_theme_constant_override("outline_size", 0)
 	col.add_child(tally)
@@ -3314,7 +3315,7 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 		var nxt := Label.new()
 		nxt.text = TranslationServer.translate("%d more ★ to reach Level %d") % [int(data.get("remaining", 0)), lvl + 1]
 		nxt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nxt.add_theme_font_size_override("font_size", int(opts.get("hint_font", 22)))
+		nxt.add_theme_font_size_override("font_size", int(opts.get("hint_font", FS.SMALL)))
 		nxt.add_theme_color_override("font_color", Pal.BARK)
 		nxt.add_theme_constant_override("outline_size", 0)
 		col.add_child(nxt)
@@ -3548,7 +3549,7 @@ static func _kit_divider(caption: String) -> Control:
 		row.add_child(_div_sprig(sp, false))           # leaves point INWARD, toward the title
 	var cap := Label.new()
 	cap.text = caption
-	cap.add_theme_font_size_override("font_size", 23)
+	cap.add_theme_font_size_override("font_size", FS.pct(57.5))
 	cap.add_theme_color_override("font_color", Color(Pal.INK, 0.95))
 	cap.add_theme_constant_override("outline_size", 0)
 	cap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -3675,7 +3676,7 @@ static func card_btn_opts(cfg: Dictionary) -> Dictionary:
 		"icon": (String(c.get("icon", "gem")) if bool(c.get("icon_on", false)) else ""),
 		"icon_size": int(b.get("icon_size", 30)),
 		"enabled": true,
-		"font": int(b.get("font", 22)),
+		"font": int(b.get("font", FS.SMALL)),
 		"corner": int(b.get("corner", 16)),
 		"art": bool(b.get("art", true)),
 		"shadow": bool(b.get("shadow", false)),
@@ -3754,7 +3755,7 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"card_v_stretch": int(strmap.get(String(d.get("card_v_stretch", "stretch")), 0)),
 		"card_title": int(c.get("title", 20)),
 		"card_body": int(c.get("body", 15)),
-		"banner_font": int(d.get("banner_font", 32)),
+		"banner_font": int(d.get("banner_font", FS.SUBHEADING)),
 		"banner_h": float(d.get("banner_h", 92)),
 		"banner_icon": float(d.get("banner_icon", 54)),
 		"banner_icon_on": bool(d.get("banner_icon_on", true)),
@@ -3769,7 +3770,7 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"close_poke": Vector2(float(d.get("close_x", 12)), float(d.get("close_y", 12))),
 		"list_max_h": float(d.get("list_max_h", 0)),
 		"list_top_pad": float(d.get("list_top_pad", 0)),
-		"empty_font": int(d.get("empty_font", 28)),   # the empty-state note size — the Mail item's "Empty font" slider
+		"empty_font": int(d.get("empty_font", FS.EMPHASIS)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
 	}
@@ -3862,7 +3863,7 @@ static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 static func toggle_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var tc: Dictionary = cfg.get("toggle_card", {})
 	return {
-		"label_font": int(tc.get("label_font", 28)),
+		"label_font": int(tc.get("label_font", FS.EMPHASIS)),
 		"switch_h": float(tc.get("switch_h", 44)),
 		"card_art": bool(tc.get("card_art", true)),
 	}
@@ -3897,7 +3898,7 @@ static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["banner_icon_id"] = "vault"
 	o["jar_px"] = float(v.get("jar_px", 200))
 	o["plate_px"] = float(v.get("plate_px", 250))
-	o["balance_font"] = int(v.get("balance_font", 42))
+	o["balance_font"] = int(v.get("balance_font", FS.pct(105)))
 	o["row_gap"] = float(v.get("row_gap", 12))
 	return o
 
@@ -3929,14 +3930,14 @@ static func level_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var lv: Dictionary = cfg.get("level", {})
 	return {
 		"banner_text": String(lv.get("banner_text", "Level")),
-		"title_font": int(lv.get("title_font", 30)),
+		"title_font": int(lv.get("title_font", FS.LARGE)),
 		"slice": float(lv.get("frame_slice", 56)),
 		"pad": float(lv.get("frame_pad", 26)),
 		"top_pad": float(lv.get("frame_top_pad", 70)),
 		"medallion_px": float(lv.get("medallion_px", 120)),
 		"ring_dy": float(lv.get("ring_dy", 0)),
-		"tally_font": int(lv.get("tally_font", 28)),
-		"hint_font": int(lv.get("hint_font", 22)),
+		"tally_font": int(lv.get("tally_font", FS.EMPHASIS)),
+		"hint_font": int(lv.get("hint_font", FS.SMALL)),
 		"gap": int(lv.get("gap", 14)),
 		"progress": progress_bar_opts_from_config(cfg),
 		"btn": _level_btn_opts(cfg),
@@ -3948,7 +3949,7 @@ static func level_opts_from_config(cfg: Dictionary) -> Dictionary:
 static func _level_btn_opts(cfg: Dictionary) -> Dictionary:
 	var lv: Dictionary = cfg.get("level", {})
 	var btn: Dictionary = card_btn_opts(cfg)
-	btn["font"] = int(lv.get("btn_font", int(btn.get("font", 22))))
+	btn["font"] = int(lv.get("btn_font", int(btn.get("font", FS.SMALL))))
 	return btn
 
 ## The GENERATOR HIGHLIGHT opts from a saved config — the glow halo / silhouette outline / sparkle that
@@ -3998,7 +3999,7 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"px": float(h.get("px", 140)),
 		"shell": HOME_SHELL,
 		"icon_scale": float(h.get("icon_scale", 50)) / 100.0,
-		"caption_font": int(h.get("caption_font", 22)),
+		"caption_font": int(h.get("caption_font", FS.SMALL)),
 		"caption_gap": float(h.get("caption_gap", 4)),
 		# the caption tab's OWN padding (overrides the shared title-ribbon margins for the home button only);
 		# defaults reproduce the shipped ribbon (Tune.TITLE_PAD_X / ~T+B) so an absent config is unchanged.
@@ -4026,7 +4027,7 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# and its font. Only a button GIVEN count text (the bag) draws it; everything else ignores these.
 		"count_dx": float(h.get("count_dx", 0)),
 		"count_dy": float(h.get("count_dy", 38)),
-		"count_font": int(h.get("count_font", 26)),
+		"count_font": int(h.get("count_font", FS.MEDIUM)),
 		# the count/dot BADGE size (px): the bare-dot diameter, and the count-pill number font (the pill height
 		# tracks it). Defaults mirror Tune.BADGE_DOT_PX / BADGE_NUM_SIZE so an absent config renders the shipped badge.
 		"badge_dot_px": int(h.get("badge_dot_px", 14)),
@@ -4174,7 +4175,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
 		"plus_stroke": float(g.get("plus_stroke", 2.0)) * scale,
-		"plus_font": float(g.get("plus_font", 70.0)) * scale,
+		"plus_font": float(g.get("plus_font", FS.pct(175))) * scale,
 		"plus_button": float(g.get("plus_button", 100.0)) * scale,
 		"plus_round": float(g.get("plus_round", 8.0)),
 		"plus_hue": float(g.get("plus_hue", 65.0)),
@@ -4199,11 +4200,11 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"info_y":      float(i.get("info_y", 0)),                   # nudge the info ⓘ button up(−) / down(+)
 		"info_button_scale": clampf(float(i.get("info_button_scale", 100)) / 100.0, 0.25, 2.0),
 		"hide_info_button": bool(i.get("hide_info_button", false)),
-		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
-		"desc_font":   int(i.get("desc_font", 18)),                 # the compact player-use hint under the selected item name (kept SMALLER than the title so long descriptions fit the narrow bar)
+		"name_font":   int(i.get("name_font", FS.SUBHEADING)),                 # the "<name> · Tier N" font
+		"desc_font":   int(i.get("desc_font", FS.FOOTNOTE)),                 # the compact player-use hint under the selected item name (kept SMALLER than the title so long descriptions fit the narrow bar)
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
-		"sell_font":   int(i.get("sell_font", 30)),                 # the sell badge's payout number font
-		"sell_label_font": int(i.get("sell_label_font", 22)),       # the plain "Sell" caption above the badge
+		"sell_font":   int(i.get("sell_font", FS.LARGE)),                 # the sell badge's payout number font
+		"sell_label_font": int(i.get("sell_label_font", FS.SMALL)),       # the plain "Sell" caption above the badge
 		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the payout coin as % of the bar height
 		"sell_badge_radius": int(i.get("sell_badge_radius", 10)),   # the green badge's corner radius (softer than the full pill)
 		"vpad":        float(i.get("vpad", 8)),                      # the tray frame's top/bottom padding (its own, not the wallet's)
@@ -4322,7 +4323,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	info_slot.add_child(info_btn)
 	info_overlay.add_child(info_slot)
 	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
-	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", 32)))
+	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", FS.SUBHEADING)))
 	name_label.add_theme_color_override("font_color", Pal.INK)
 	name_label.add_theme_constant_override("outline_size", 0)
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -4331,7 +4332,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.clip_text = false
 	text_stack.add_child(name_label)
 	var desc_label := Label.new()                                # one-line player-use hint; hidden when empty
-	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", 18)))
+	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", FS.FOOTNOTE)))
 	desc_label.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 	desc_label.add_theme_constant_override("outline_size", 0)
 	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -4344,8 +4345,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	sell_btn.focus_mode = Control.FOCUS_NONE
 	sell_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var sell_icon_px := height * float(opts.get("sell_icon", 0.30))
-	var sell_label_font := int(opts.get("sell_label_font", 22))
-	var sell_num_font := int(opts.get("sell_font", 30))
+	var sell_label_font := int(opts.get("sell_label_font", FS.SMALL))
+	var sell_num_font := int(opts.get("sell_font", FS.LARGE))
 	# content STACK: the word "Sell" in plain ink ABOVE a vertical green badge (coin on top, the payout number
 	# below). The label rides on the bar surface — the green is only the badge. A mouse-ignoring centered
 	# stack so the WHOLE button stays the single tap target (children pass their clicks through).
@@ -4721,7 +4722,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
-		"cost_font": int(bc.get("cost_font", 24)),                   # the acorn-cost number
+		"cost_font": int(bc.get("cost_font", FS.BODY)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
 		"cost_y": float(bc.get("cost_y", 0)),                        # nudge the acorn cost up(-) / down(+), px
 		"cost_x": float(bc.get("cost_x", 0)),                        # nudge the acorn cost left(-) / right(+), px
@@ -4761,7 +4762,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		state = "unlockable"          # the bag's "next" == the board's highlighted openable
 	var cw := float(opts.get("cell_w", 116.0))
 	var ch := float(opts.get("cell_h", 120.0))
-	var cost_font := int(opts.get("cost_font", 24))
+	var cost_font := int(opts.get("cost_font", FS.BODY))
 	var cost_icon := float(opts.get("cost_icon", 26.0))
 	var cost_y := float(opts.get("cost_y", 0.0))
 	var cost_x := float(opts.get("cost_x", 0.0))
@@ -4980,7 +4981,7 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	var cell_opts := opts.duplicate()
 	cell_opts["cell_w"] = cw
 	cell_opts["cell_h"] = cw * aspect
-	cell_opts["cost_font"] = int(float(opts.get("cost_font", 26)) * fit_scale)
+	cell_opts["cost_font"] = int(float(opts.get("cost_font", FS.MEDIUM)) * fit_scale)
 	cell_opts["cost_icon"] = float(opts.get("cost_icon", 30.0)) * fit_scale
 	var grid := GridContainer.new()
 	grid.columns = cols
@@ -5013,7 +5014,7 @@ static func _bag_footer(text: String) -> Control:
 		row.add_child(ll)
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 24)
+	lbl.add_theme_font_size_override("font_size", FS.BODY)
 	lbl.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
 	lbl.add_theme_constant_override("outline_size", 0)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -5808,7 +5809,7 @@ static func _map_place_mark(opts: Dictionary) -> Control:
 	var mark := Label.new()
 	mark.name = "PlaceMark"
 	mark.text = "✿"
-	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", 64.0)))
+	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", FS.pct(160))))
 	mark.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
 	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -5863,7 +5864,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"expedition_button_h":  float(c.get("expedition_button_h", 36)),
 		"expedition_button_x":  float(c.get("expedition_button_x", 0)),
 		"expedition_button_y":  float(c.get("expedition_button_y", 0)),
-		"expedition_button_font": int(c.get("expedition_button_font", 18)),
+		"expedition_button_font": int(c.get("expedition_button_font", FS.FOOTNOTE)),
 		"slot_cell":       bag_card_opts_from_config(cfg),               # completed-card resident cells match the right-column square slots
 		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
 		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)
@@ -5871,14 +5872,14 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"reward_icon_size": float(c.get("reward_icon_size", 24)),
 		"reward_icon_x":    float(c.get("reward_icon_x", 0)),
 		"reward_icon_y":    float(c.get("reward_icon_y", 0)),
-		"reward_label_font": int(c.get("reward_label_font", 21)),
+		"reward_label_font": int(c.get("reward_label_font", FS.pct(52.5))),
 		"reward_label_x":   float(c.get("reward_label_x", 0)),
 		"reward_label_y":   float(c.get("reward_label_y", 0)),
 		"reward_button_w":  float(c.get("reward_button_w", 116)),
 		"reward_button_h":  float(c.get("reward_button_h", 36)),
 		"reward_button_x":  float(c.get("reward_button_x", 0)),
 		"reward_button_y":  float(c.get("reward_button_y", 0)),
-		"reward_button_font": int(c.get("reward_button_font", 18)),
+		"reward_button_font": int(c.get("reward_button_font", FS.FOOTNOTE)),
 		"reward_bar_h":     float(c.get("reward_bar_h", 10)),
 		"reward_bar_y":     float(c.get("reward_bar_y", 0)),
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)

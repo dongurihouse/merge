@@ -52,6 +52,7 @@ const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrom
 const HomeBuild = preload("res://engine/scripts/core/home.gd")   # the build-and-upgrade adapter (the map surface)
 const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/home/zone_farmhouse.json"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
@@ -453,7 +454,7 @@ func _add_page_arrows() -> void:
 		b.text = "‹" if d < 0 else "›"
 		b.tooltip_text = String(G.MAPS[z].name)
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 46)
+		b.add_theme_font_size_override("font_size", FS.DISPLAY)
 		b.add_theme_color_override("font_color", INK)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(CREAM, 0.82)
@@ -995,7 +996,7 @@ func _map_title_plank_fallback(z: int) -> Control:
 	if map_spots_done(z):
 		var lbl := Label.new()
 		lbl.text = Strings.t("map.plank.restored")
-		lbl.add_theme_font_size_override("font_size", 22)
+		lbl.add_theme_font_size_override("font_size", FS.SMALL)
 		lbl.add_theme_color_override("font_color", STRAW)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1025,7 +1026,7 @@ func _placeholder_tile(spot: Dictionary, fs: float) -> Control:
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.add_theme_font_size_override("font_size", 23)
+	lbl.add_theme_font_size_override("font_size", FS.pct(57.5))
 	lbl.add_theme_color_override("font_color", INK)
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	lbl.offset_left = 12.0
@@ -1467,7 +1468,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg) if Kit != null else {}
 
 	# --- the CELLS (the one global bucket) — placed spirits, then free capacity ----------------------
-	var title := _dock_label("Spirits", 26, true)
+	var title := _dock_label("Spirits", FS.MEDIUM, true)
 	title.position = Vector2(cx, ctop)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(title)
@@ -1476,7 +1477,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var placed: Array = Bucket.placed()
 	var cells_h := 0.0
 	if cells_total <= 0:
-		var closed := _dock_label("Complete a map to open the habitat.", 15)
+		var closed := _dock_label("Complete a map to open the habitat.", FS.pct(37.5))
 		closed.name = "BucketCellsClosedHint"
 		closed.autowrap_mode = TextServer.AUTOWRAP_WORD
 		closed.position = Vector2(cx + 2.0, cells_top)
@@ -1589,7 +1590,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		chip_y = cells_top + cells_h - chip_h - 8.0      # no chips yet — hand the row back to the grid
 
 	# --- the IN-HAND grid, scrollable between the chips and the info bar ------------------------------
-	var hand_title := _dock_label("In hand", 22, true)
+	var hand_title := _dock_label("In hand", FS.SMALL, true)
 	hand_title.position = Vector2(cx, chip_y + chip_h + 8.0)
 	hand_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(hand_title)
@@ -1610,7 +1611,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(clip)
 	if hand.is_empty():
-		var empty := _dock_label("Empty —\nfind spirits on Expedition.", 15)
+		var empty := _dock_label("Empty —\nfind spirits on Expedition.", FS.pct(37.5))
 		empty.position = Vector2(2.0, 2.0)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD
 		empty.size = Vector2(cw - 4.0, view_h)
@@ -1657,7 +1658,7 @@ func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
 	btn.text = text
 	btn.disabled = not enabled
 	btn.focus_mode = Control.FOCUS_NONE
-	btn.add_theme_font_size_override("font_size", 17)
+	btn.add_theme_font_size_override("font_size", FS.pct(42.5))
 	btn.add_theme_color_override("font_color", Color("#F4FBE9"))
 	btn.add_theme_color_override("font_outline_color", Color("#173404"))
 	btn.add_theme_constant_override("outline_size", 3)
@@ -1702,7 +1703,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	bar.add_child(bg)
 	var pad := 8.0
 	if _sel_orb.is_empty():
-		var hint := _dock_label("Tap a spirit", 22)
+		var hint := _dock_label("Tap a spirit", FS.SMALL)
 		hint.position = Vector2(pad + 4.0, (rect.size.y - 22.0) * 0.5)
 		hint.modulate = Color(1, 1, 1, 0.65)
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1738,7 +1739,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		var sell := Button.new()
 		sell.name = "ResidentSellButton"
 		sell.text = "Sell +%d" % (Bucket.SELL_PER_TIER * tier)
-		sell.add_theme_font_size_override("font_size", 22)
+		sell.add_theme_font_size_override("font_size", FS.SMALL)
 		sell.add_theme_color_override("font_color", Color("#F4FBE9"))
 		sell.add_theme_color_override("font_outline_color", Color("#173404"))
 		sell.add_theme_constant_override("outline_size", 3)
@@ -1807,7 +1808,7 @@ func _line_icon(line: String) -> String:
 		_: return "leaf"
 
 func _card_sub(text: String) -> Label:
-	var l := _dock_label(text, 21, true)
+	var l := _dock_label(text, FS.pct(52.5), true)
 	l.modulate = Color(1, 1, 1, 0.92)
 	return l
 
@@ -1986,7 +1987,7 @@ func _resolve_drop(gpos: Vector2) -> void:
 		if _cells_grid != null and is_instance_valid(_cells_grid) and _cells_grid.get_global_rect().grow(8.0).has_point(gpos):
 			if Bucket.is_full():
 				_invalid_at(_cells_grid)
-				FX.floating_text(self, gpos - Vector2(120, 60), "Full", Color(CREAM, 0.9), 26)
+				FX.floating_text(self, gpos - Vector2(120, 60), "Full", Color(CREAM, 0.9), FS.MEDIUM)
 			elif Bucket.place(int(d.idx)):
 				Audio.play("tidy_poof", -3.0, 1.05)
 				_after_habitat_action()
@@ -2202,7 +2203,7 @@ func _on_build_tap(building_id: String, node: Control, at: Vector2) -> void:
 		var msg := Strings.t("map.spot.needs_level") % int(step.get("min_level", 1)) if String(out.reason) == "level" \
 			else Strings.t("map.build.needs_coins") if String(out.reason) == "coins" else ""
 		if msg != "":
-			FX.floating_text(self, at - Vector2(120, 64), msg, Color(CREAM, 0.9), 30)
+			FX.floating_text(self, at - Vector2(120, 64), msg, Color(CREAM, 0.9), FS.LARGE)
 		return
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
@@ -3067,7 +3068,7 @@ func _task_reward_fx(coins: int, gems: int) -> void:
 			if is_instance_valid(self):
 				_update_hud()
 		FX.reward_arrival(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"), coins_label, map_coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "map_task_reward")
-	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, 24)
+	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, FS.BODY)
 	if gems <= 0 and coins <= 0:
 		_update_hud()
 

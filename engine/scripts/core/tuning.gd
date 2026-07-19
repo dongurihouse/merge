@@ -547,8 +547,8 @@ class Shop:
 	const TAB_PAD_X := 14.0
 	const TAB_PAD_T := 4.0
 	const TAB_PAD_B := 5.0
-	const DIV_CAP_SIZE := int(FontScale.BASE * 0.625)  # 25 — bolder section caption (was 23), hand-tuned between tiers
-	const DIV_CAP_INK_ALPHA := 0.95       # caption = Color(INK, this)
+	# (DIV_CAP_SIZE / DIV_CAP_INK_ALPHA removed 2026-07-18 — dead; the kit's _kit_divider owns the
+	#  section caption and renders it at FS.pct(57.5) = 23px with its own ink alpha.)
 	const VINE_H := 40                    # divider vine height — COVERED fills the gap at this height, showing most of the leafy strip
 	const LINE_H := 3                     # ...else a flat rule this tall
 	const LINE_ALPHA := 0.35              # rule = Color(BARK, this)
