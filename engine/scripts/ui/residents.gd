@@ -23,6 +23,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the SHARED board cell (holder + contact shadow + lift)
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const D = Game.DATA
@@ -33,7 +34,6 @@ const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
 const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
-const MEADOW_GREEN := Color("#5F9B6D")   # the action-green the Bring out / Expedition pills wear
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {
@@ -179,7 +179,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var fopts: Dictionary = Kit.dialog_opts_from_config(cfg)
 	fopts["banner_text"] = "Residents"
 	fopts["content_scale"] = scale
-	fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
+	fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.82   # taller sheet: the board-sized cells (items 3/4) need the extra height budget
 	fopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
@@ -277,6 +277,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	var cbag: Dictionary = bag_opts.duplicate(true)
 	cbag["cell_w"] = cell_px
 	cbag["cell_h"] = cell_px
+	cbag["content_frac"] = 1.0   # the resident art fills the cell like a BOARD tile (its own 0.16 inset governs the margin), not the bag's 0.62
 	var cells := GridContainer.new()
 	cells.name = "HabitatCellsRow"
 	cells.columns = HABITAT_SLOTS_SHOWN
@@ -307,6 +308,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	var hbag: Dictionary = bag_opts.duplicate(true)
 	hbag["cell_w"] = hand_px
 	hbag["cell_h"] = hand_px
+	hbag["content_frac"] = 1.0   # board-sized art (see the habitat cbag note)
 	var grid := GridContainer.new()
 	grid.name = "OnHandGrid"
 	grid.columns = HAND_COLS
@@ -336,6 +338,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 			Audio.play("button_tap", -2.0)
 			ctx["sel"] = {}
 			_repaint(ctx)
+			_pop_after(ctx, "OnHandCard_%02d" % (Bucket.hand().size() - 1))   # the spirit settles back into the hand with a pop
 	_register_card(ctx, zone)
 	grid.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	zone.add_child(grid)
@@ -353,7 +356,8 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	# and Expedition is always available once open.
 	var on_expedition: Callable = (ctx.opts as Dictionary).get("on_expedition", Callable())
 	if on_expedition.is_valid() and cells_total > 0:
-		var exped := _inspector_pill(Kit, 1.0, "EXPEDITION", MEADOW_GREEN)
+		# the flat WHITE/PAPER twin of the green Collect all — identical pill geometry, cream surface (item 6).
+		var exped := _action_pill(Kit, "EXPEDITION", true, false)
 		exped.name = "ResidentsExpeditionButton"
 		exped.pressed.connect(func() -> void:
 			Audio.play("button_tap", -2.0)
@@ -423,7 +427,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 
 	var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
 	var bar: Control = Kit.progress_bar(frac, {
-		"height": 24.0, "width": w - 28.0, "art": false,
+		"height": 36.0, "width": w - 28.0, "art": false,   # chunkier bar per the mock (per-call height; the shared default is untouched)
 		"fill_color": face.get("fill", Pal.STRAW),
 	})
 	bar.name = "ResourceBankBar_" + line
@@ -453,26 +457,25 @@ static func _bank_state_text(line: String, rep: Dictionary) -> String:
 		return "FULL IN %dH %dM" % [mins / 60, mins % 60]
 	return "FULL IN %dM" % maxi(mins, 1)
 
-## The single collection action — a PLAIN action-green pill (mock v2), with the mock shadow.
+## The two big body actions — Collect all (green) and Expedition (cream/paper, item 6) — are SIBLINGS:
+## the SAME flat paper-cut pill_button geometry (corner, font, drop shadow, padding), differing only in
+## colour. Routing both through one builder is the only way they read as identical siblings; pill_button's
+## green role is the game's standard flat action-green CTA (mock v2's Collect all), its cream role the flat
+## white/paper surface (mock v2's Expedition twin).
+const ACTION_PILL_CORNER := 22.0
+static func _action_pill(Kit: GDScript, text: String, enabled: bool, green: bool) -> Button:
+	return Kit.pill_button(text, {
+		"bg": "green" if green else "cream",
+		"enabled": enabled,
+		"font": FS.BODY,
+		"corner": ACTION_PILL_CORNER,
+		"shadow": true,
+	})
+
+## The single collection action — the flat action-green pill (mock v2).
 static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
-	var btn := Button.new()
+	var btn := _action_pill(Kit, "COLLECT ALL", enabled, true)
 	btn.name = "CollectAllButton"
-	btn.text = "COLLECT ALL"
-	btn.disabled = not enabled
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.add_theme_font_override("font", Kit.bold_font())
-	btn.add_theme_font_size_override("font_size", FS.BODY)
-	btn.add_theme_color_override("font_color", Pal.CREAM)
-	btn.add_theme_color_override("font_disabled_color", Color(Pal.CREAM, 0.85))
-	btn.add_theme_constant_override("outline_size", 0)
-	var gsb := StyleBoxFlat.new()
-	gsb.bg_color = Pal.LEAF if enabled else Pal.LEAF.lerp(Pal.BRAMBLE_BG, 0.55)
-	gsb.set_corner_radius_all(22)
-	gsb.content_margin_left = 34; gsb.content_margin_right = 34
-	gsb.content_margin_top = 10; gsb.content_margin_bottom = 10
-	_mock_shadow(gsb)
-	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		btn.add_theme_stylebox_override(st, gsb)
 	return btn
 
 ## The mock's tinted drop-shadow (#294654 at ~19%, short and soft), applied ON the element's own
@@ -499,33 +502,12 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 		line: String, tier: int, px: float) -> Control:
 	var Kit: GDScript = ctx.kit
 	var kind := Bucket.line_kind(line)
+	# the art is now a REAL board piece (holder + contact shadow), not a flat TextureRect — item 3/4.
 	var cell: Control = Kit.slot_cell({"state": "filled",
-		"make_content": func(pp: float) -> Control: return _spirit_art(kind, tier, pp)}, bag_opts)
+		"make_content": func(pp: float) -> Control: return _spirit_piece(kind, tier, pp)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
 	_shadow_cell(cell)
-	var badge := Label.new()
-	badge.name = "SpiritTierBadge"
-	badge.text = str(tier)
-	badge.add_theme_font_size_override("font_size", FS.FINE)
-	badge.add_theme_color_override("font_color", Pal.CREAM)
-	badge.add_theme_constant_override("outline_size", 0)
-	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = Color(Pal.BARK, 0.9)
-	bsb.set_corner_radius_all(9)
-	bsb.content_margin_left = 7; bsb.content_margin_right = 7
-	bsb.content_margin_top = 1; bsb.content_margin_bottom = 1
-	var bp := PanelContainer.new()
-	bp.add_theme_stylebox_override("panel", bsb)
-	bp.add_child(badge)
-	bp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(bp)
-	var dock := func() -> void:
-		if is_instance_valid(bp) and is_instance_valid(cell):
-			bp.position = Vector2((cell.size.x - bp.size.x) * 0.5, cell.size.y - bp.size.y - 4.0)
-	bp.resized.connect(dock)
-	cell.resized.connect(dock)
 	if _is_sel(ctx, src, idx):
 		var rim := Panel.new()
 		rim.name = "SpiritSelectedRim"
@@ -547,8 +529,11 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 		ctx["sel"] = {"src": src, "idx": idx}
 		_repaint(ctx)
 	dc.make_preview = func() -> Control:
-		var ghost := _spirit_art(kind, tier, px * 0.9)
-		ghost.modulate = Color(1, 1, 1, 0.85)
+		# the drag GHOST is a real board piece, LIFTED via the board's set_lifted — the art rises off a
+		# spread contact shadow, the exact pickup feel a board tile has when grabbed.
+		var ghost := _spirit_piece(kind, tier, px)
+		PieceView.set_lifted(ghost, true)
+		ghost.modulate = Color(1, 1, 1, 0.92)
 		return ghost
 	# a same line+tier spirit dropped HERE merges: hand→hand keeps this slot a tier up;
 	# hand→placed climbs the housed spirit.
@@ -558,14 +543,18 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 			and String(from.get("line", "")) == String(me.line) and int(from.get("tier", -1)) == int(me.tier)
 	dc.on_take = func(from: Dictionary, me: Dictionary) -> void:
 		var did := false
+		var target := ""
 		if String(me.src) == "hand":
 			did = Bucket.hand_merge(int(me.idx), int(from.idx))
+			target = "OnHandCard_%02d" % int(me.idx)
 		else:
 			did = Bucket.place_merge(int(from.idx), int(me.idx))
+			target = "HabitatCell_%02d" % int(me.idx)
 		if did:
 			Audio.play("button_tap", -2.0)
 			ctx["sel"] = {}
 			_repaint(ctx)
+			_pop_after(ctx, target)   # the merged tile POPS — the board's produced-tile impact
 	_register_card(ctx, dc)
 	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dc.add_child(cell)
@@ -588,6 +577,7 @@ static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float) -> Cont
 			Audio.play("button_tap", -2.0)
 			ctx["sel"] = {}
 			_repaint(ctx)
+			_pop_after(ctx, "HabitatCell_%02d" % (Bucket.placed().size() - 1))   # the newly-housed spirit settles with a pop
 	_register_card(ctx, dc)
 	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dc.add_child(cell)
@@ -621,6 +611,28 @@ static func _spirit_tex(path: String) -> Texture2D:
 				result = at
 	_art_cache[path] = result
 	return result
+
+## The resident cell's ART, rendered through the SHARED board pipeline (PieceView.make_piece_from_texture):
+## a cell-sized holder carrying the board's CONTACT SHADOW under the centered sprite, at the board's own
+## ITEM_INSET — so a habitat / hand cell grounds and LIFTS (set_lifted) exactly like a board tile, and any
+## future board-cell change propagates here for free. Resident art resolves via G.resident_art (a path,
+## not a board item code), so it goes through the texture seam rather than make_piece(code,...).
+static func _spirit_piece(kind: String, tier: int, px: float) -> Control:
+	var art := G.resident_art(kind, tier)
+	var tex: Texture2D = _spirit_tex(art) if (art != "" and ResourceLoader.exists(art)) else null
+	return PieceView.make_piece_from_texture(tex, px, PieceView.ITEM_INSET)
+
+## Pop a just-rebuilt cell by name (the board's produced-tile impact). Deferred one frame so the repaint's
+## fresh node exists AND has its rect (FX.pop centres on the node's size).
+static func _pop_after(ctx: Dictionary, cell_name: String) -> void:
+	var body: Control = ctx.get("body")
+	if body == null or not is_instance_valid(body):
+		return
+	(func() -> void:
+		if is_instance_valid(body):
+			var n := body.find_child(cell_name, true, false)
+			if n is Control:
+				FX.pop(n)).call_deferred()
 
 static func _spirit_art(kind: String, tier: int, px: float) -> Control:
 	var t := TextureRect.new()
@@ -695,20 +707,10 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
-	# BRING OUT — placed spirits only: the one way back to the hand (Bucket.unplace). A drag would need
-	# a "drop into the hand" target, and the on-hand grid's filler tiles are not drop-capable; one tap
-	# is simpler. Wears Sell's pill in meadow green so the destructive Sell stays the coral one.
-	if String(sel.get("src", "")) == "placed":
-		var out := _inspector_pill(Kit, s, "BRING OUT", MEADOW_GREEN)
-		out.name = "ResidentsBringOutButton"
-		out.pressed.connect(func() -> void:
-			Audio.play("button_tap", -2.0)
-			if Bucket.unplace(int(sel.get("idx", -1))):
-				ctx["sel"] = {}
-			_repaint(ctx))
-		row.add_child(out)
-	# SELL — the coral-outline pill (mock), sized as the strip's dominant action.
-	var sell := _inspector_pill(Kit, s, "SELL +%d" % (Bucket.SELL_PER_TIER * tier), Pal.CLAY)
+	# NOTE: the "Bring out" pill is retired (spec 2026-07-19) — placed spirits no longer have a tap-to-hand
+	# path (drag a placed spirit onto the hand zone to unplace it). Only Sell remains in the strip.
+	# SELL — the coral-outline pill (mock), sized as the strip's dominant action; carries the coin icon (item 8).
+	var sell := _inspector_pill(Kit, s, "SELL +%d" % (Bucket.SELL_PER_TIER * tier), Pal.CLAY, "coin")
 	sell.name = "ResidentsSellButton"
 	sell.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
@@ -724,7 +726,7 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 # --- small helpers --------------------------------------------------------------------------------
 ## One inspector-strip action pill: the cream face with a coloured outline and matching label. The
 ## colour is the whole difference between Sell (coral) and Bring out (meadow green).
-static func _inspector_pill(Kit: GDScript, s: float, text: String, accent: Color) -> Button:
+static func _inspector_pill(Kit: GDScript, s: float, text: String, accent: Color, icon_id: String = "") -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
@@ -732,6 +734,14 @@ static func _inspector_pill(Kit: GDScript, s: float, text: String, accent: Color
 	b.add_theme_font_size_override("font_size", int(FS.BODY * s))
 	b.add_theme_color_override("font_color", accent)
 	b.add_theme_constant_override("outline_size", 0)
+	# an optional leading currency icon (Sell prepends the coin) — the SAME square-icon + icon_max_width
+	# path the kit's currency pills use, so the coin renders identically to the rest of the UI.
+	if icon_id != "":
+		var itex: Texture2D = Kit._square_icon(icon_id)
+		if itex != null:
+			b.icon = itex
+			b.add_theme_constant_override("icon_max_width", int(FS.BODY * s))
+			b.add_theme_constant_override("h_separation", int(8.0 * s))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Pal.CREAM
 	sb.set_corner_radius_all(int(18.0 * s))
