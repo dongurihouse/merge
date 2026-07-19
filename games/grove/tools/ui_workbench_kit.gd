@@ -252,16 +252,20 @@ static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: fl
 	style.content_margin_bottom = pad_bottom
 	return style
 
-## THE uniform shadow (skin.gd owns tint + numbers) — these are thin aliases kept so call sites read
-## as "the shared shadow"; per-call overrides are retired, one look everywhere.
-static func _meadow_shadow_rect(corner: float, _params: Dictionary = {}) -> Panel:
-	return Look.shadow_rect(corner, Look.shadow_params({}))
+## THE uniform shadow (skin.gd owns tint + numbers) — thin aliases so call sites read as "the shared
+## shadow". `params` is the ONE shared block (a live workbench preview passes its unsaved sliders);
+## when absent, the saved config's block (falling back to skin.gd defaults). No per-component overrides.
+static func _shared_shadow_params(params: Dictionary = {}) -> Dictionary:
+	return params if not params.is_empty() else Look.shadow_params(load_config(CONFIG_PATH))
 
-static func _meadow_shadow_circle(diameter: float, _params: Dictionary = {}) -> Panel:
-	return Look.shadow_circle(diameter, Look.shadow_params({}))
+static func _meadow_shadow_rect(corner: float, params: Dictionary = {}) -> Panel:
+	return Look.shadow_rect(corner, _shared_shadow_params(params))
 
-static func _meadow_with_shadow(node: Control, corner: float, _params: Dictionary = {}, circular := false) -> Control:
-	return Look.with_shadow(node, corner, Look.shadow_params({}), circular)
+static func _meadow_shadow_circle(diameter: float, params: Dictionary = {}) -> Panel:
+	return Look.shadow_circle(diameter, _shared_shadow_params(params))
+
+static func _meadow_with_shadow(node: Control, corner: float, params: Dictionary = {}, circular := false) -> Control:
+	return Look.with_shadow(node, corner, _shared_shadow_params(params), circular)
 
 # The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
 # only the interior differs. An OPEN place shows its locale art COVER-filled inside the frame + a "★ N
@@ -566,7 +570,11 @@ static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 ## sprite's own alpha, offset + blurred + warm-tinted — sits beneath it. opts: shadow_offset (Vector2
 ## px at this image's scale), shadow_blur (px), shadow_alpha (0..1), shadow_pad (px). The shape-true
 ## shadow (follows the sprite's silhouette) is why icons bake it instead of using a rounded-rect panel.
-static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
+## The SHAPE-TRUE shadow layer alone (no art composited): the sprite's alpha silhouette, slate-tinted,
+## offset and feathered. Returns {"image": Image, "pad": int} — the image is (w+2pad)×(h+2pad) and the
+## caller places it at (-pad, -pad) relative to the art. Irregular cutouts (the star level badge) use
+## this so THE uniform shadow follows their real outline instead of boxing them.
+static func silhouette_shadow(img: Image, opts: Dictionary = {}) -> Dictionary:
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
 	var w := img.get_width()
@@ -599,7 +607,15 @@ static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
 			sh_data[si + 3] = int(a * sh_color.a)
 	shadow.set_data(nw, nh, false, Image.FORMAT_RGBA8, sh_data)
 	_feather_alpha(shadow, blur)
-	shadow.blend_rect(img, Rect2i(0, 0, w, h), Vector2i(pad, pad))   # sprite OVER the shadow (alpha blend)
+	return {"image": shadow, "pad": pad}
+
+static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var res: Dictionary = silhouette_shadow(img, opts)
+	var shadow: Image = res.image
+	var pad: int = res.pad
+	shadow.blend_rect(img, Rect2i(0, 0, img.get_width(), img.get_height()), Vector2i(pad, pad))   # sprite OVER the shadow (alpha blend)
 	return shadow
 
 ## Bleed the nearest opaque colour outward into the semi-transparent edge pixels (keeping their

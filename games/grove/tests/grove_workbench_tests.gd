@@ -1711,12 +1711,15 @@ func _test_warm_shadow_port() -> void:
 			break
 	ok(board_meadow_shadow, "the board frame casts the normalized Meadow structural-slate shadow")
 
-	var oversized := {"alpha": 0.72, "offset_x": 5.0, "offset_y": 5.0, "blur": 14.0, "spread": -13.0}
-	var home := Kit.home_button({"icon": "settings"}, {"px": 120.0, "shadow": true, "shadow_params": oversized})
+	# config-derived opts carry the ONE shared block (no per-component override keys exist any more)
+	var home_opts: Dictionary = Kit.home_button_opts_from_config({"home_button": {"shadow": true}})
+	home_opts["px"] = 120.0
+	home_opts["shadow"] = true
+	var home := Kit.home_button({"icon": "settings"}, home_opts)
 	var home_shadow := home.get_child(0) as Panel if home.get_child_count() > 0 and home.get_child(0) is Panel else null
 	var home_style := home_shadow.get_theme_stylebox("panel") as StyleBoxFlat if home_shadow != null else null
 	ok(home_style != null and _same_rgb(home_style.shadow_color, Color("#294654")) and absf(home_style.shadow_color.a - 0.38) <= 0.01,
-		"live home/navigation shells ignore runtime overrides and cast THE uniform shadow")
+		"live home/navigation shells cast THE uniform shadow from the shared block")
 	home.free()
 
 	var rect := Kit.home_button({"icon": "bag", "caption": ""}, {

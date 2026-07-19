@@ -107,18 +107,44 @@ static func level_badge_index(level: int) -> int:
 ## `px` is the square size; `num_font` overrides the number font (auto-scaled from num_size when < 0).
 ## The number Label is named "lv_num" and each part TextureRect "lv_<part>" so a live caller (the HUD
 ## level-up) can rebuild/refresh them. Falls back to a warm honey token when the part art is absent.
-static func make_level_badge(level: int, px: float, num_font: int = -1) -> Control:
+static func make_level_badge(level: int, px: float, num_font: int = -1, cfg_override: Dictionary = {}) -> Control:
 	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = cfg_override if not cfg_override.is_empty() else Kit.load_config(Kit.CONFIG_PATH)
 	var opts: Dictionary = Kit.level_badge_opts_from_config(cfg)
 	var badge: Control = Kit.level_badge(opts, level_badge_index(level), level, px, num_font)
 	badge.name = "LevelBadge"
-	# the ONE SHARED drop-shadow (the pill look) under the emblem — circular, slightly inset so the
-	# soft edge hugs the star art rather than boxing it.
-	var sh := shadow_circle(px * 0.92, shadow_params(cfg))
-	sh.show_behind_parent = true
-	badge.add_child(sh)
-	badge.move_child(sh, 0)
+	# THE uniform shadow, SHAPE-TRUE: the badge is an irregular star cutout, so a box/circle shadow
+	# would poke past its outline. Bake the art's own alpha silhouette (slate, offset, feathered) at
+	# display resolution and lay it behind — same numbers as every other element, following the star.
+	var sp := shadow_params(cfg)
+	var art := badge.get_node_or_null("lv_badge_art") as TextureRect
+	var art_img: Image = art.texture.get_image() if art != null and art.texture != null else null
+	if art_img != null:
+		art_img = art_img.duplicate()
+		if art_img.is_compressed():
+			art_img.decompress()
+		art_img.convert(Image.FORMAT_RGBA8)
+		art_img.resize(int(art.size.x), int(art.size.y), Image.INTERPOLATE_BILINEAR)
+		var res: Dictionary = Kit.silhouette_shadow(art_img, {
+			"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
+			"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha)})
+		var pad := float(res.pad)
+		var shr := TextureRect.new()
+		shr.name = "lv_badge_shadow"
+		shr.texture = ImageTexture.create_from_image(res.image)
+		shr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		shr.stretch_mode = TextureRect.STRETCH_SCALE
+		shr.position = art.position - Vector2(pad, pad)
+		shr.size = art.size + Vector2(pad * 2.0, pad * 2.0)
+		shr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_child(shr)
+		badge.move_child(shr, 0)
+	else:
+		# no art (honey-token fallback) — the token IS a circle, so the circular shared shadow fits
+		var sh := shadow_circle(px * 0.92, sp)
+		sh.show_behind_parent = true
+		badge.add_child(sh)
+		badge.move_child(sh, 0)
 	return badge
 
 ## Resolve a texture path to a REAL image (rejects the import placeholder + degenerate empty
@@ -659,6 +685,13 @@ static func shadow_params(cfg: Dictionary) -> Dictionary:
 		"spread":   float(s.get("spread", SHADOW_DEFAULTS.spread)),
 		"alpha":    clampf(float(s.get("alpha", SHADOW_DEFAULTS.alpha)) / 100.0, 0.0, 1.0),
 	}
+
+## Re-point an existing shared-shadow Panel at a new element corner radius — for elements whose
+## corner is derived at relayout time (the unlock strip), so the shadow's rounding always matches.
+static func set_shadow_corner(sh: Panel, corner: float) -> void:
+	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
+	if sb != null:
+		sb.set_corner_radius_all(int(maxf(corner + SHADOW_DEFAULTS.spread, 0.0)))
 
 ## How far THE uniform shadow reaches below an element's bottom edge (cast + feather + spread) —
 ## clipping ancestors (ScrollContainers) must leave this much room or the cast is sliced off flat.
