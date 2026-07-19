@@ -9,11 +9,23 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 
 const BOARD_MARGIN := 6.0   # mirrors board.gd: breathing room each side when width binds
 const QUEST_H_MIN := 150.0  # mirrors board.gd quest-band clamp
 const QUEST_H_MAX := 300.0
+const BOTTOM_BAR_MAX := 200.0  # mirrors board.gd: the tray's hard height ceiling
+
+# A desktop-window resize sweep, both axes, in both directions. The tray blow-up this guards is a
+# RACE latched during relayout, so a single resize is not enough to catch it — this mix reproduced
+# it 4/30 before the fix.
+const RESIZE_SWEEP: Array[Vector2i] = [
+	Vector2i(1080, 2400), Vector2i(1080, 1920), Vector2i(1400, 1920), Vector2i(1920, 1080),
+	Vector2i(1080, 1920), Vector2i(1200, 2400), Vector2i(1080, 2000), Vector2i(1080, 1920),
+	Vector2i(1600, 1600), Vector2i(1080, 2289), Vector2i(1080, 1920), Vector2i(1300, 2100),
+	Vector2i(1080, 2600), Vector2i(1080, 1920), Vector2i(1500, 1700), Vector2i(1080, 2200),
+]
 
 var _pass := 0
 var _fail := 0
@@ -212,6 +224,69 @@ func _initialize() -> void:
 		ok(card_count >= 1, "the quest fence holds at least one card to scroll (%d)" % card_count)
 		ok(offenders.is_empty(), "no STOP control blocks the quest-bar drag — a card-touch reaches the scroll (offenders: %s)" % str(offenders))
 	_free_board(qb)
+	await process_frame
+
+	# --- the bottom tray's height is a screen-derived BUDGET, not a suggestion -------------------
+	# Godot has no maximum size: a Control's rect is max(anchors, combined_minimum_size), and minimums
+	# propagate up from every child. The tray is anchored to the bottom with GROW_DIRECTION_BEGIN, so a
+	# child minimum taller than the budget grows the tray UPWARD, over the board. An autowrap Label does
+	# exactly that — it reports a minimum HEIGHT for its CURRENT width, so mid-relayout, while the info
+	# bar is momentarily ~1px wide, the empty-state prompts each reported ~1000px and the tray covered
+	# the whole screen (the reported bug). Guard both layers: the structural sever and the leaf bound.
+
+	# (a) structural: content_host must report a ZERO minimum no matter how tall its child claims to be,
+	# so the tray's height can only ever come from its anchors.
+	var greedy := Label.new()
+	greedy.text = "wrap ".repeat(300)
+	greedy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	greedy.clip_text = false
+	var host: Control = ActionBar.content_host(greedy, 166.0, {})
+	get_root().add_child(host)
+	host.size = Vector2(1.0, 10.0)   # the pathological 1px width that makes the label report ~1000px
+	await process_frame
+	await process_frame
+	ok(host.get_combined_minimum_size().y <= 1.0, \
+		"content_host severs child min-height propagation (reported %.0f, want 0)" % host.get_combined_minimum_size().y)
+	get_root().remove_child(host)
+	host.free()
+	await process_frame
+
+	# (b) live: sweep desktop-window resizes and assert the tray is ALWAYS exactly its budget.
+	# The live config sets bottom_row_h_pct, so this exercises the screen-fraction branch of
+	# _bottom_bar_h_px that the tests above deliberately skip.
+	Kit._config_cache[Kit.CONFIG_PATH] = {"hud_layout": {
+		"bottom_row_h_pct": 10, "button_w_pct": 15, "info_bar_w_pct": 70, "quest_bar_h_pct": 11}}
+	var sweep_board: Control = await _build_board_at(Vector2i(1080, 1920))
+	var over_budget: Array[String] = []
+	var off_budget: Array[String] = []
+	for sz in RESIZE_SWEEP:
+		for _i in 8:
+			get_root().size = sz
+			await process_frame
+			if get_root().size == sz:
+				break
+		for _i in 6:
+			await process_frame
+		var h: float = sweep_board.bottom_bar.size.y
+		var want: float = sweep_board._bottom_bar_h_px(sweep_board._bottom_button_px())
+		if h > BOTTOM_BAR_MAX + 1.0:
+			over_budget.append("%s->%.0fpx" % [str(sz), h])
+		elif absf(h - want) > 1.0:
+			off_budget.append("%s->%.0f(want %.0f)" % [str(sz), h, want])
+	ok(over_budget.is_empty(), \
+		"the tray never exceeds its %.0fpx ceiling across a resize sweep (offenders: %s)" % [BOTTOM_BAR_MAX, str(over_budget)])
+	ok(off_budget.is_empty(), \
+		"the tray is exactly its screen-derived height at every resize (offenders: %s)" % str(off_budget))
+
+	# (c) the flip side of severing: the tray no longer auto-grows, so content that outgrows the budget
+	# would CLIP silently. Fail loudly here instead, so a config bump (info_bar.height, button_w_pct)
+	# is caught at test time rather than shipping as a clipped tray.
+	var row: Control = sweep_board.bottom_bar.find_child("ActionBarRow", true, false) as Control
+	var row_min: float = row.get_combined_minimum_size().y if row != null else 0.0
+	var budget: float = sweep_board._bottom_bar_h_px(sweep_board._bottom_button_px())
+	ok(row != null and row_min <= budget + 1.0, \
+		"the tray's content fits its budget without clipping (row min %.0f <= %.0f)" % [row_min, budget])
+	_free_board(sweep_board)
 	await process_frame
 
 	get_root().size = prior_size
