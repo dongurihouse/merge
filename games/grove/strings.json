@@ -80,6 +80,10 @@
 		"day_label": "Day %d"
 	},
 	"map": {
+		"build": {
+			"needs_coins": "Not enough coins",
+			"done": "%s built!"
+		},
 		"card": {
 			"prereq": "✿ after %s"
 		},
@@ -87,6 +91,12 @@
 			"map": "Map",
 			"play": "Play",
 			"residents": "Residents"
+		},
+		"page": {
+			"continue": "CONTINUE",
+			"in_progress": "IN PROGRESS",
+			"locked": "LOCKED",
+			"title": "MAPS"
 		},
 		"pill": {
 			"restored": "restored ✿ 🎁",
@@ -130,10 +140,6 @@
 			"not_enough": "Not enough — keep tending ✿",
 			"title": "Welcome a spirit ✿",
 			"two_became_one": "Two friends became one ✿"
-		},
-		"build": {
-			"needs_coins": "Not enough coins",
-			"done": "%s built!"
 		}
 	},
 	"merchant": {

@@ -97,7 +97,7 @@ var unlocks := {}
 # THE one input surface. Rebuilding a view clears + repopulates it; every visual
 # descendant is MOUSE_FILTER_IGNORE (the single-input-surface rule; a test asserts it).
 var content: Control
-var _view := "map"               # "map" | "select"
+var _view := "map"               # "map" | "select" | "maps"
 var _last_view_size := Vector2.ZERO   # viewport size at the last fit — guards the resize re-fit
 var _relayout_queued := false         # coalesces a burst of size_changed into one rebuild per frame
 var _map_idx := 0                # the map being viewed
@@ -105,6 +105,7 @@ var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS 
 var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
+var maps_hits: Array = []        # [{node, z, locked}] — the MAPS page cards (locked cards wobble; open cards open)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
 var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll); else total_h - column_h
@@ -333,6 +334,17 @@ func _open_select() -> void:
 	_end_drag()
 	_build_select()
 
+# The MAPS page (maps_page_v2_cards_only mock): a full-screen map gallery — the in-progress
+# frontier as a large featured card (art + progress + CONTINUE), every other map as a locked
+# grid card. Cards only — the resident bucket stays on its own surface (_open_select).
+func _open_maps() -> void:
+	_view = "maps"
+	_set_map_chrome_visible(false)        # the gallery is a calm chooser — no map chrome, no weather
+	_set_level_chip_visible(true)         # the Lv star rides the MAPS page (mock top-left)
+	Audio.play("button_tap", -4.0)
+	_end_drag()
+	_build_maps_page()
+
 # The top-left player-Lv chip rides the map, NOT the place-picker (the picker is the spirit-management
 # surface — its right column carries the read). Toggled on map↔picker nav; the wallet stays in both.
 func _set_level_chip_visible(on: bool) -> void:
@@ -462,10 +474,7 @@ func _add_page_arrows() -> void:
 var _home_manifest_cache: Dictionary = {}   # path -> parsed manifest
 var _zone_coverings: Dictionary = {}        # building id -> its locked-plot covering group (this page)
 func _home_manifest() -> Dictionary:
-	var path := String(G.MAPS[_map_idx].get("zone_manifest", HOME_ZONE_MANIFEST))
-	if not _home_manifest_cache.has(path):
-		_home_manifest_cache[path] = HomeZoneView.load_manifest(path)
-	return _home_manifest_cache[path]
+	return _page_manifest(_map_idx)
 
 # The zone renderer's injected state resolvers (thin adapters over home.gd). Scene PROPS (page
 # scenery from the workbench bundles) are not buildings — they render "built" and take no badge.
@@ -1121,6 +1130,308 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	}
 	return Kit.map_card(d, opts, card_w, card_h)
 
+# --- the MAPS page (maps_page_v2_cards_only mock) -------------------------------------------------
+# A full-screen gallery over the sky: the "MAPS" heading, the frontier map as a large featured
+# card (thumb + IN PROGRESS + built/total + progress bar + CONTINUE), and every other map as a
+# grid card — locked cards wear a dimmed thumb + padlock medallion + LOCKED pill. Card thumbs are
+# LIVE zone renders (HomeZoneView over the page's manifest), so the gallery always shows the real
+# scene state — no baked thumbnails to fall stale. Cards IGNORE the mouse (the single input
+# surface resolves taps via maps_hits); only CONTINUE and the back arrow are real buttons.
+func _build_maps_page(animate := true) -> void:
+	for c in content.get_children():
+		c.queue_free()
+	spot_hits.clear()
+	select_hits.clear()
+	maps_hits.clear()
+	_hand_orbs.clear()
+	_placed_orbs.clear()
+	_hand_panel = null
+	_cells_grid = null
+	var view := get_viewport_rect().size
+	var margin := clampf(view.x * 0.045, 14.0, 40.0)
+	var gap := clampf(view.x * 0.03, 10.0, 26.0)
+	# heading under the wallet HUD
+	var title_font := int(clampf(view.x * 0.105, 34.0, 96.0))
+	var title := _lbl(Strings.t("map.page.title"), title_font, INK)
+	title.position = Vector2(0.0, Look.safe_top(self) + 74.0)
+	title.size = Vector2(view.x, title_font * 1.25)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(title)
+	# the featured frontier card (all restored → the last map stays featured as the home anchor)
+	var feat := _frontier_map()
+	if feat < 0:
+		feat = G.MAPS.size() - 1
+	var feat_y := title.position.y + title.size.y + gap
+	var feat_h := clampf(view.y * 0.235, 150.0, 380.0)
+	var feat_rect := Rect2(margin, feat_y, view.x - margin * 2.0, feat_h)
+	var feat_card := _maps_featured_card(feat, feat_rect)
+	content.add_child(feat_card)
+	maps_hits.append({"node": feat_card, "z": feat, "locked": false})
+	# the remaining maps as a 2-column grid, filling down to the back-button band
+	var others: Array = []
+	for z in G.MAPS.size():
+		if z != feat:
+			others.append(z)
+	var rows := int(ceil(others.size() / 2.0))
+	if rows > 0:
+		var grid_top := feat_y + feat_h + gap
+		var grid_bot := view.y - Look.safe_bottom(self) - _rail_px - _rail_margin_px * 2.0
+		var cell_h := maxf(120.0, (grid_bot - grid_top - gap * float(rows - 1)) / float(rows))
+		var cell_w := (view.x - margin * 2.0 - gap) * 0.5
+		for i in others.size():
+			var z2: int = others[i]
+			var rect := Rect2(margin + (cell_w + gap) * float(i % 2), grid_top + (cell_h + gap) * floorf(i * 0.5), cell_w, cell_h)
+			var locked := _page_progress(z2).x == 0     # untouched pages read LOCKED (the mock's gated state)
+			var card := _maps_grid_card(z2, rect, locked)
+			content.add_child(card)
+			maps_hits.append({"node": card, "z": z2, "locked": locked})
+	if _select_back != null and is_instance_valid(_select_back):
+		_select_back.visible = true
+	if animate:
+		FX.pop_in(content)
+
+# Buildable progress on a page: built / total over the manifest buildings that carry a build def
+# (scene props render "built" and don't count). Vector2i(built, total); total 0 = no build system yet.
+func _page_progress(z: int) -> Vector2i:
+	var manifest: Dictionary = _page_manifest(z)
+	var built := 0
+	var total := 0
+	for b in manifest.get("buildings", []):
+		var id := String(b.get("id", ""))
+		if HomeBuild.def_of(id).is_empty():
+			continue
+		total += 1
+		if HomeBuild.next_step(id).is_empty():
+			built += 1
+	return Vector2i(built, total)
+
+func _page_manifest(z: int) -> Dictionary:
+	var path := String(G.MAPS[z].get("zone_manifest", HOME_ZONE_MANIFEST))
+	if not _home_manifest_cache.has(path):
+		_home_manifest_cache[path] = HomeZoneView.load_manifest(path)
+	return _home_manifest_cache[path]
+
+# The shared cream card shell: rounded cut-paper panel + a shallow warm drop shadow.
+func _maps_card_shell(rect: Rect2) -> Panel:
+	var p := Panel.new()
+	p.position = rect.position
+	p.size = rect.size
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = CREAM
+	sb.set_corner_radius_all(22)
+	sb.shadow_color = Look.warm_shadow_color(0.20)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0.0, 5.0)
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
+
+# A LIVE zone thumbnail: the page's manifest rendered through HomeZoneView (badges hidden),
+# cover-fitted + clipped into `size`, over a rounded sky backing.
+func _maps_zone_thumb(z: int, size: Vector2) -> Control:
+	var frame := Control.new()
+	frame.size = size
+	frame.clip_contents = true
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var back := ColorRect.new()
+	back.color = SKY.lerp(INK, 0.08)
+	back.set_anchors_preset(Control.PRESET_FULL_RECT)
+	back.size = size
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(back)
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(holder)
+	var built := HomeZoneView.build(holder, _page_manifest(z), Callable(self, "_home_state_id"), \
+		Callable(self, "_home_next_step"), G.MAPS[z].get("covering_frames", []))
+	for id in built.badges:                       # a thumbnail carries no build badges
+		(built.badges[id] as Control).visible = false
+	var stage: Control = built.stage
+	var native: Vector2 = built.canvas
+	var factor := maxf(size.x / native.x, size.y / native.y)
+	stage.scale = Vector2.ONE * factor
+	stage.position = (size - native * factor) * 0.5
+	return frame
+
+# The FEATURED card: thumb on the left; name · IN PROGRESS pill · built/total · progress bar ·
+# CONTINUE stacked on the right. CONTINUE (a real button) and a card tap both open the map.
+func _maps_featured_card(z: int, rect: Rect2) -> Control:
+	var card := _maps_card_shell(rect)
+	var inset := clampf(rect.size.y * 0.08, 10.0, 22.0)
+	var thumb_px := rect.size.y - inset * 2.0
+	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px))
+	thumb.position = Vector2(inset, inset)
+	card.add_child(thumb)
+	var col_x := inset + thumb_px + inset
+	var col_w := rect.size.x - col_x - inset
+	var name_font := int(clampf(rect.size.y * 0.135, 18.0, 40.0))
+	var name := Label.new()
+	name.text = tr(G.MAPS[z].name)
+	name.add_theme_font_size_override("font_size", name_font)
+	name.add_theme_color_override("font_color", INK)
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD
+	name.position = Vector2(col_x, inset)
+	name.size = Vector2(col_w, name_font * 2.3)
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(name)
+	var y := inset + name_font * 1.35
+	var pill := _maps_pill(Strings.t("map.page.in_progress"), INK.lerp(SKY, 0.45), CREAM, int(name_font * 0.52))
+	pill.position = Vector2(col_x, y)
+	card.add_child(pill)
+	y += pill.size.y + rect.size.y * 0.045
+	var p := _page_progress(z)
+	if p.y > 0:
+		var count := Label.new()
+		count.text = "%d/%d" % [p.x, p.y]
+		count.add_theme_font_size_override("font_size", int(name_font * 0.72))
+		count.add_theme_color_override("font_color", INK)
+		count.position = Vector2(col_x, y)
+		count.size = Vector2(col_w, name_font * 0.95)
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(count)
+		y += count.size.y + rect.size.y * 0.03
+		var bar_h := clampf(rect.size.y * 0.075, 10.0, 20.0)
+		var track := Panel.new()
+		track.position = Vector2(col_x, y)
+		track.size = Vector2(col_w, bar_h)
+		var ts := StyleBoxFlat.new()
+		ts.bg_color = CREAM.lerp(BARK, 0.12)
+		ts.set_corner_radius_all(int(bar_h * 0.5))
+		ts.set_border_width_all(2)
+		ts.border_color = Color(BARK, 0.55)
+		track.add_theme_stylebox_override("panel", ts)
+		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(track)
+		var frac := clampf(float(p.x) / float(p.y), 0.0, 1.0)
+		if frac > 0.0:
+			var fill := Panel.new()
+			fill.position = Vector2(col_x, y)
+			fill.size = Vector2(maxf(bar_h, col_w * frac), bar_h)
+			var fs := StyleBoxFlat.new()
+			fs.bg_color = LEAF
+			fs.set_corner_radius_all(int(bar_h * 0.5))
+			fill.add_theme_stylebox_override("panel", fs)
+			fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			card.add_child(fill)
+		y += bar_h
+	# CONTINUE — the solid grove primary pill (a real button; the chip exception to card IGNORE)
+	var open_feat := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_map(z)
+	var go := Look.button(Strings.t("map.page.continue"), open_feat, true)
+	var btn_h := clampf(rect.size.y * 0.21, 40.0, 64.0)
+	go.custom_minimum_size = Vector2(col_w, btn_h)
+	go.size = Vector2(col_w, btn_h)
+	go.position = Vector2(col_x, rect.size.y - inset - btn_h)
+	card.add_child(go)
+	return card
+
+# A GRID card: the map name over its live thumb. Locked → cool-dimmed thumb + the padlock
+# medallion + a LOCKED pill; open (any build progress) → lit thumb + a built/total line.
+func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
+	var card := _maps_card_shell(rect)
+	var inset := clampf(rect.size.y * 0.055, 8.0, 16.0)
+	var thumb := _maps_zone_thumb(z, rect.size - Vector2(inset * 2.0, inset * 2.0))
+	thumb.position = Vector2(inset, inset)
+	card.add_child(thumb)
+	if locked:
+		var veil := ColorRect.new()                 # the cool "asleep" veil over a locked thumb
+		veil.color = Color(Pal.LOCKED, 0.38)
+		veil.position = thumb.position
+		veil.size = thumb.size
+		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(veil)
+	var name_font := int(clampf(rect.size.y * 0.105, 15.0, 30.0))
+	var name := _lbl(tr(G.MAPS[z].name), name_font, INK)
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD
+	name.position = Vector2(inset, inset + rect.size.y * 0.025)
+	name.size = Vector2(rect.size.x - inset * 2.0, name_font * 2.4)
+	card.add_child(name)
+	if locked:
+		# the padlock medallion: a cream ellipse carrying the slate padlock (mock emblem)
+		var med_h := clampf(rect.size.y * 0.34, 56.0, 170.0)
+		var med_w := med_h * 0.82
+		var med := Panel.new()
+		med.position = Vector2((rect.size.x - med_w) * 0.5, (rect.size.y - med_h) * 0.5 - rect.size.y * 0.02)
+		med.size = Vector2(med_w, med_h)
+		var ms := StyleBoxFlat.new()
+		ms.bg_color = CREAM
+		ms.set_corner_radius_all(int(med_h * 0.5))
+		ms.shadow_color = Look.warm_shadow_color(0.18)
+		ms.shadow_size = 5
+		ms.shadow_offset = Vector2(0.0, 3.0)
+		med.add_theme_stylebox_override("panel", ms)
+		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(med)
+		var pad_path := Game.art("ui/meadow_v2/icon_padlock.png")
+		if ResourceLoader.exists(pad_path):
+			var pad := TextureRect.new()
+			pad.texture = load(pad_path)
+			pad.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			pad.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			var pd := med_h * 0.56
+			pad.position = (med.size - Vector2(pd, pd)) * 0.5
+			pad.size = Vector2(pd, pd)
+			pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			med.add_child(pad)
+		var lock_pill := _maps_pill(Strings.t("map.page.locked"), Pal.LOCKED, CREAM, int(name_font * 0.82))
+		lock_pill.position = Vector2((rect.size.x - lock_pill.size.x) * 0.5, rect.size.y - inset - lock_pill.size.y - rect.size.y * 0.03)
+		card.add_child(lock_pill)
+	else:
+		var p := _page_progress(z)
+		if p.y > 0:
+			var count_pill := _maps_pill("%d/%d" % [p.x, p.y], CREAM.lerp(BARK, 0.10), INK, int(name_font * 0.82))
+			count_pill.position = Vector2((rect.size.x - count_pill.size.x) * 0.5, rect.size.y - inset - count_pill.size.y - rect.size.y * 0.03)
+			card.add_child(count_pill)
+	return card
+
+# A small rounded status pill (IN PROGRESS / LOCKED / built-count), sized to its text.
+func _maps_pill(text: String, bg: Color, fg: Color, font_px: int) -> Control:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", font_px)
+	lbl.add_theme_color_override("font_color", fg)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pill := Panel.new()
+	var pad_x := font_px * 0.9
+	var w := lbl.get_theme_font("font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x + pad_x * 2.0
+	var h := font_px * 1.9
+	pill.size = Vector2(w, h)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(int(h * 0.5))
+	pill.add_theme_stylebox_override("panel", sb)
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.position = Vector2.ZERO
+	lbl.size = pill.size
+	pill.add_child(lbl)
+	return pill
+
+# The MAPS page input: a still-tap resolves against maps_hits — a locked card wobbles,
+# an open card opens that map. (CONTINUE and the back arrow are real buttons above this.)
+func _on_maps_input(event: InputEvent) -> void:
+	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
+		or event is InputEventScreenTouch
+	if pressed and event.pressed:
+		_press = event.position
+	elif pressed and not event.pressed and event.position.distance_to(_press) <= 18.0:
+		_maps_tap(content.get_global_transform() * event.position)
+
+func _maps_tap(gpos: Vector2) -> void:
+	for hit in maps_hits:
+		var n: Control = hit.node
+		if n == null or not is_instance_valid(n) or not n.get_global_rect().has_point(gpos):
+			continue
+		if bool(hit.locked):
+			Audio.play("button_tap", -8.0)
+			FX.wobble(n)
+		else:
+			Audio.play("button_tap", -2.0)
+			_open_map(int(hit.z))
+		return
+
 # The BUCKET dock on the place-picker's right — the global habitat surface (grove_spec §3): the placed
 # CELLS on top (the one bucket, grown by map completion), a Collect chip with per-line ready badges and the
 # Expedition entry under them, then the unbounded IN-HAND grid above a bottom INFO BAR (tier + Sell). Tap a
@@ -1527,6 +1838,9 @@ func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 func _on_input(event: InputEvent) -> void:
 	if _view == "select":
 		_on_select_input(event)
+		return
+	if _view == "maps":
+		_on_maps_input(event)
 		return
 	# a MAP: a still-tap resolves straight to spots / wandering spirits (no drag surface here).
 	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
@@ -2092,7 +2406,7 @@ func _build_chrome() -> void:
 func _make_map_button() -> Button:
 	var open := func() -> void:
 		Audio.play("button_tap", -2.0)
-		_open_select()
+		_open_maps()
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return NavBar._make_nav_button("nav_map.png", 140.0, open)   # defensive: the baked map disc
@@ -2526,9 +2840,10 @@ func _build_liveops_rail() -> void:
 		_open_settings())
 	# Expedition — map-specific acquisition entry. It appears directly under Settings only when the open map
 	# has at least one restored spot; hidden maps do not reserve a rail slot.
+	# Spirits — opens the bucket dock (the residents surface; its chips carry Collect + Expedition).
+	# The bottom-nav Map button now opens the MAPS gallery, so this rail tile is the dock's entry.
 	_residents_btn = _rail_button(HC.ICON_EXPEDITION, "Expedition", func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_expedition(_map_idx))
+		_open_select())
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	_daily_btn = _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_daily_badge = Look.badge("dot", 0, bopts)
@@ -2816,9 +3131,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	# OS back gesture). Mirrors _notification(WM_GO_BACK_REQUEST).
 	if event.is_action_pressed("ui_cancel"):
 		if _view == "map":
-			_open_select()
+			_open_maps()
 			get_viewport().set_input_as_handled()
-		elif _view == "select" and get_tree() != null:
+		elif _view == "select":
+			_open_map(_map_idx)          # the spirit dock steps back to the map it rode on
+			get_viewport().set_input_as_handled()
+		elif get_tree() != null:
 			get_tree().quit()
 
 # A window/orientation resize fires size_changed (often many times per drag). Coalesce to one
@@ -2839,15 +3157,19 @@ func _relayout_after_resize() -> void:
 	_last_view_size = sz
 	if _view == "map":
 		_build_map(false)                 # re-fit WITHOUT the pop-in (a resize is not a navigation)
+	elif _view == "maps":
+		_build_maps_page(false)
 	else:
 		_build_select(false)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _view == "map":
-			_open_select()               # step back to the place-picker
+			_open_maps()                 # step back to the MAPS gallery
+		elif _view == "select":
+			_open_map(_map_idx)          # the spirit dock steps back to the map it rode on
 		elif get_tree() != null:
-			get_tree().quit()            # from the picker, the default we disabled (by hand)
+			get_tree().quit()            # from the gallery, the default we disabled (by hand)
 
 func _lbl(t: String, size: int, col: Color) -> Label:
 	var l := Label.new()

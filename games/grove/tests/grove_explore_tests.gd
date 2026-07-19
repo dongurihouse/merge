@@ -289,15 +289,14 @@ func _test_map_card_expedition_chrome() -> void:
 		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
 	ok(hx.content.find_child("MapHomeExpeditionButton", true, false) == null, "eligible home maps do not hide Expedition as a map-art overlay")
 	if home_exp != null:
+		# the rail tile now opens the spirit DOCK (the Map nav button owns the MAPS gallery);
+		# the loadout itself opens from the dock's Expedition chip, asserted below.
 		home_exp.pressed.emit()
-		await process_frame
-		ok(hx.get_node_or_null("ExpeditionOverlay") != null, "pressing the home Expedition rail button opens loadout")
-		var home_overlay: Node = hx.get_node_or_null("ExpeditionOverlay")
-		if home_overlay != null:
-			home_overlay.queue_free()
-			await process_frame
-	hx._open_select()
-	await create_timer(0.05).timeout
+		await create_timer(0.05).timeout
+		ok(hx._view == "select", "pressing the home Expedition rail button opens the spirit dock")
+	else:
+		hx._open_select()
+		await create_timer(0.05).timeout
 	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "map cards no longer carry a floating Expedition icon button")
 	ok(hx.content.find_child("MapHabitatExpeditionButton", true, false) == null, "the per-card habitat Expedition button is retired (bucket dock owns it)")
 	var exp := hx.content.find_child("BucketExpeditionButton", true, false) as Button
