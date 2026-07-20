@@ -69,3 +69,21 @@ static func play(name: String, volume_db: float = 0.0, pitch: float = 1.0) -> vo
 	pl.pitch_scale = jitter_pitch(pitch)         # center on caller's pitch, jitter on top
 	pl.volume_db = volume_db + randf_range(-Tune.GAIN_JITTER_DB, Tune.GAIN_JITTER_DB)
 	pl.play()
+
+## Play variant `idx` of a MELODIC cue exactly as baked: indexed (not round-robin),
+## NO pitch jitter (the notes are tuned to the shared pentatonic key — random detune
+## would sour a combo run), gain jitter only. `pitch` transposes uniformly (the
+## workbench knob) so relative tuning across a run is preserved. `idx` clamps.
+static func play_note(name: String, idx: int, volume_db: float = 0.0, pitch: float = 1.0) -> void:
+	if not Save.get_setting("sfx", true):
+		return
+	_ensure()
+	var variants: Array = _sounds.get(name, [])
+	if variants.is_empty():
+		return
+	var pl: AudioStreamPlayer = _players[_next]
+	_next = (_next + 1) % _players.size()
+	pl.stream = variants[clampi(idx, 0, variants.size() - 1)]
+	pl.pitch_scale = pitch
+	pl.volume_db = volume_db + randf_range(-Tune.GAIN_JITTER_DB, Tune.GAIN_JITTER_DB)
+	pl.play()

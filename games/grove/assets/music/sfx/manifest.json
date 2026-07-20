@@ -11,6 +11,8 @@
     "item_pickup": 3,
     "item_slide": 1,
     "level_complete": 1,
+    "merge_note": 10,
+    "merge_shine": 1,
     "merge_soft": 3,
     "merge_success": 3,
     "quest_complete": 1,

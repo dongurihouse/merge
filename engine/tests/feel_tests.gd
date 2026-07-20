@@ -54,31 +54,18 @@ func _initialize() -> void:
 	ok(Feel._merge_hitstop(4, 0, 0.5, 0) < Feel._merge_hitstop(4, 0, 1.0, 0), "hitstop scales down with intensity")
 	ok(Feel._merge_hitstop(20, 0, 1.0, 0) <= Tune.HITSTOP_MAX, "hitstop never exceeds HITSTOP_MAX")
 
-	# --- _merge_sound: tier<4 soft, tier>=4 success ---
-	ok(Feel._merge_sound(3) == "merge_soft", "tier 3 picks merge_soft")
-	ok(Feel._merge_sound(4) == "merge_success", "tier 4 picks merge_success")
-	ok(Feel._merge_sound(9) == "merge_success", "tier 9 picks merge_success")
-
 	# --- _merge_weight: soft/firm/heavy ladder ---
 	ok(Feel._merge_weight(1) == "soft", "tier 1 haptic weight is soft")
 	ok(Feel._merge_weight(4) == "firm", "tier 4 haptic weight is firm")
 	ok(Feel._merge_weight(Tune.ESCALATE_TIER) == "heavy", "big-moment tier haptic weight is heavy")
 
-	# --- _ladder_pitch: pure pentatonic ladder indexed by the combo degree ---
-	ok(approx(Feel._ladder_pitch(1.0, 0), 1.0), "ladder degree 0 (combo 0) returns base unchanged (factor 1.0)")
-	ok(approx(Feel._ladder_pitch(1.2, 0), 1.2), "ladder at combo 0 returns the base for any base")
-	ok(approx(Feel._ladder_pitch(1.0, 1), pow(2.0, Tune.PENTA[1] / 12.0)), "ladder degree 1 = base * 2^(PENTA[1]/12)")
-	ok(approx(Feel._ladder_pitch(1.0, 3), pow(2.0, Tune.PENTA[3] / 12.0)), "ladder degree 3 = base * 2^(PENTA[3]/12)")
-	ok(Feel._ladder_pitch(1.0, 2) > Feel._ladder_pitch(1.0, 1), "ladder rises with the combo degree")
-	# degree clamps at the top of PENTA — combo past the array tops out, never indexes out of bounds.
-	ok(approx(Feel._ladder_pitch(1.0, Tune.PENTA.size() - 1), Feel._ladder_pitch(1.0, 999)), "ladder degree clamps at the top of PENTA")
-
-	# --- _merge_pitch: tier base, then the pentatonic ladder when merge_combo is on ---
-	ok(approx(Feel._merge_pitch(4, 0), clampf(0.95 + 0.03 * 4, 0.9, 1.3)), "base pitch matches board curve at combo 0")
-	var _base4 := clampf(0.95 + 0.03 * 4, 0.9, 1.3)
-	ok(approx(Feel._merge_pitch(4, 8), Feel._ladder_pitch(_base4, 8)), "merge pitch applies the ladder over the tier base")
-	ok(Feel._merge_pitch(4, 8) > Feel._merge_pitch(4, 0), "a live streak climbs the ladder above the base")
-	ok(approx(Feel._merge_pitch(4, 999), Feel._ladder_pitch(_base4, Tune.PENTA.size() - 1)), "a huge streak tops out at the ladder ceiling")
+	# --- _merge_degree: the combo melody indexes the baked note ladder ---
+	# (default feature flags have merge_combo ON — the streak degree is the combo count)
+	ok(Feel._merge_degree(0) == 0, "combo 0 plays the root note (degree 0)")
+	ok(Feel._merge_degree(1) == 1, "combo 1 plays degree 1 — the run climbs one note per merge")
+	ok(Feel._merge_degree(2) > Feel._merge_degree(1), "the run rises with the combo degree")
+	ok(Feel._merge_degree(Tune.MERGE_NOTES - 1) == Tune.MERGE_NOTES - 1, "top of the ladder is reachable")
+	ok(Feel._merge_degree(999) == Tune.MERGE_NOTES - 1, "a huge streak sustains the ceiling note (clamped, never out of bounds)")
 
 	# --- _merge_burst_count: base curve + bonuses, intensity-scaled ---
 	# (combo + big-moment bonuses are feature-gated; with the default flags on they apply)
