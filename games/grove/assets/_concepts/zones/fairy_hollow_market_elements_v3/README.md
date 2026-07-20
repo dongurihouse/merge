@@ -1,9 +1,11 @@
 # Fairy Hollow Market v3 — unlock canopy
 
 This is the locked-state companion to the accepted v2 Fairy Hollow Market scene.
-The original market remains in `primary_objects`; each paper-leaf cover is a separate cluster in
-the fixed `foreground_objects` layer. Remove one complete `unlock_canopy_*` cluster when that
-part of the scene unlocks. Never bake the cover into the foundation.
+The original market remains in `primary_objects`; the paper-leaf cover is divided into six
+`unlock_region_<primary_object>` clusters in the fixed `coverup` layer. Remove one
+complete region cluster to uncover its corresponding market object: mushroom hall, tea stall,
+crystal-map stall, stream bridge, flower crate, or lantern gate. Never bake the cover into the
+foundation.
 
 Open it with:
 
