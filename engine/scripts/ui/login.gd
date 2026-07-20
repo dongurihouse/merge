@@ -44,7 +44,7 @@ const SLOT_SAGE := [1, 3, 6]
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
 const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
-const BANNER_ASPECT := 2.15       # capstone banner height / cell width — tall so the big day-7 chest fills it
+const BANNER_ASPECT := 1.35       # capstone banner height / cell width — a small, compact box
 
 # Fixed layout lines for a day cell (fractions of the cell HEIGHT). The reward icon and its amount are
 # pinned to these constant lines so they land in the SAME place on every card — claimed, today, or future
@@ -363,13 +363,16 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(h * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.44)
+	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.62)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	# the chest is the hero — no vertical size flag, so it FILLS the (tall) row height, landing big and
-	# centred below the label. Its px is just a floor kept under the row so it never forces an overflow.
-	row.add_child(_sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 0.60))
-	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.44)
+	# the chest FILLS the small box as fully as possible: the art carries ~30% transparent padding, so we
+	# oversize the control past the row height (shrink-centred) and let that padding absorb the overflow —
+	# the VISIBLE chest lands ≈ the box height, without the sprite spilling onto the label.
+	var chest := _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 1.02)
+	chest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(chest)
+	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.62)
 	sprig_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_r)
 	col.add_child(row)
