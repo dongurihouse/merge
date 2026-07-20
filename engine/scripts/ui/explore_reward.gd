@@ -186,12 +186,12 @@ static func _spirit_tile(sym, w: float, h: float) -> Control:
 	var d: Dictionary = sym
 	return _spirit_icon(String(d.get("kind", "")), minf(w, h))
 
-# the overflow tile: a parchment cell reading "+N" for the spirits past the row cap (all still in the hand).
+# the overflow tile: a paper cell reading "+N" for the spirits past the row cap (all still in the hand).
 static func _more_cell(n: int, cw: float, ch: float) -> Control:
 	var cell := PanelContainer.new()
 	cell.name = "RewardMore"
 	cell.custom_minimum_size = Vector2(cw, ch)
-	cell.add_theme_stylebox_override("panel", SlotReel.cell_stylebox())
+	SlotReel.apply_cell_paper(cell, ch)
 	var l := _label("+%d" % n, FS.HEADING, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cell.add_child(l)
