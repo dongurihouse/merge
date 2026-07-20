@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless guard for the layered HOME zone renderer (ui/home_zone_view.gd): it builds the
 ## foundation + one painter-sorted prop per building from a manifest + injected state resolvers,
-## and a build badge over every unbuilt plot. Also checks the shipped zone_farmhouse.json manifest.
+## and a build badge over every unbuilt plot. Also checks the shipped zone_fairy_hollow.json manifest.
 ##   godot --headless --path . -s res://engine/tests/home_zone_view_tests.gd
 
 const HZV = preload("res://engine/scripts/ui/home_zone_view.gd")
@@ -21,13 +21,13 @@ func ok(cond: bool, label: String) -> void:
 func _manifest() -> Dictionary:
 	return {
 		"canvas": {"width": 941, "height": 1672},
-		"background": "res://games/grove/assets/map/home_layered_cutpaper/home_base.png",
+		"background": "res://games/grove/assets/map/pages/fairy_hollow/foundation.png",
 		"buildings": [
 			{"id": "a", "position": [200, 800], "display_size": [100, 100], "sort_y": 800,
-				"states": {"built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_hearth.png",
-					"site": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_hearth.png"}},
+				"states": {"built": "res://games/grove/assets/map/pages/fairy_hollow/moon_swing_seat_front.png",
+					"site": "res://games/grove/assets/map/pages/fairy_hollow/moon_swing_seat_front.png"}},
 			{"id": "b", "position": [400, 1200], "display_size": [100, 100], "sort_y": 1200,
-				"states": {"built": "res://games/grove/assets/map/home_layered_cutpaper/props/fh_well.png"}},
+				"states": {"built": "res://games/grove/assets/map/pages/fairy_hollow/glowing_mushrooms.png"}},
 		],
 	}
 
@@ -158,11 +158,11 @@ func _initialize() -> void:
 	ok(out2.props.has("a") and not out2.badges.has("a"), "a built building shows its prop with no badge")
 	ok(is_equal_approx((out2.props["a"] as TextureRect).modulate.a, 1.0), "a built prop renders full opacity")
 
-	# the SHIPPED farmhouse manifest parses and carries the 7 buildings at the cut-paper anchors
-	var shipped := HZV.load_manifest("res://games/grove/assets/map/home/zone_farmhouse.json")
-	ok(not shipped.is_empty(), "the shipped zone_farmhouse.json manifest parses")
-	ok((shipped.get("buildings", []) as Array).size() == 7, "the shipped manifest carries the 7 farmhouse buildings")
-	ok(int(shipped.canvas.width) == 941 and int(shipped.canvas.height) == 1672, "the shipped manifest matches the cut-paper canvas")
+	# the SHIPPED home page manifest (Fairy Hollow, the hub) parses and carries its layered buildings
+	var shipped := HZV.load_manifest("res://games/grove/assets/map/pages/zone_fairy_hollow.json")
+	ok(not shipped.is_empty(), "the shipped zone_fairy_hollow.json manifest parses")
+	ok((shipped.get("buildings", []) as Array).size() == 16, "the shipped manifest carries the 16 Fairy Hollow buildings")
+	ok(int(shipped.canvas.width) == 1320 and int(shipped.canvas.height) == 2346, "the shipped manifest matches the page canvas")
 
 	parent.queue_free()
 	print("== %d passed, %d failed ==" % [_pass, _fail])

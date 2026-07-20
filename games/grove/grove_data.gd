@@ -376,7 +376,7 @@ const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at rando
 # exactly ONE cell (home_build.cells_granted; defs default to the single "farmhouse" zone — the
 # picture-book pages arrive as further zones, 1 cell each). `shows` = the art state rendered once
 # that step is PAID (the zone manifest maps state ids → prop textures; home_build.state_id
-# resolves it). Ids match the layered cut-paper manifest (assets/map/home/zone_farmhouse.json).
+# resolves it). Ids match each page's layered manifest (assets/map/pages/zone_<id>.json).
 # ALL numbers PROVISIONAL — owned by the economy-sim re-pass (spec §4): step costs must keep
 # the no-strand invariant (an affordable next step at nominal coin flow).
 const BUILDINGS := [

@@ -53,7 +53,7 @@ const HomeBuild = preload("res://engine/scripts/core/home.gd")   # the build-and
 const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
-const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/home/zone_farmhouse.json"
+const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/pages/zone_fairy_hollow.json"   # `.get()` fallback only — every map in G.MAPS names its own `zone_manifest`
 
 
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
