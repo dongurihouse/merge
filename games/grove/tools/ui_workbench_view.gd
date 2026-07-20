@@ -1210,17 +1210,15 @@ func _button_gallery(_p: Dictionary) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	col.custom_minimum_size = Vector2(300, 0)
-	# 1) the cream SECONDARY — the one bordered non-green role (the dialog "Cancel").
-	col.add_child(_button_sample("cream — secondary", Kit.pill_button("Cancel", _btn_opts({"bg": "cream"}))))
-	# 2) the paper-cut ROLES — green + purple + coral + gold, all the SAME borderless paper surface. The
-	# green tile is the LIVE, knob-driven one (the primary CTA is just the green paper role): every shipped
-	# green CTA (Claim / Collect) resolves to it, so it lives here with the other paper roles, not apart.
-	# (The old separate "green" / "cta_button" / "danger" tiles are gone — green folds in here, danger was
-	# unused by the game.)
+	# 1) the paper-cut ROLES — green + cream + purple + coral + gold, all the SAME borderless paper surface.
+	# The green tile is the LIVE, knob-driven one (the primary CTA is just the green paper role): every
+	# shipped green CTA (Claim / Collect) resolves to it, and the cream "Cancel" secondary is likewise just
+	# the cream paper role — so they all live in this one row, not as separate tiles.
+	# (The old separate green / cta_button / danger / cream tiles are gone — danger was unused by the game.)
 	var paper_row := HBoxContainer.new()
 	paper_row.add_theme_constant_override("separation", 10)
 	paper_row.add_child(Kit.pill_button(String(_params["button"].text), _btn_opts({"bg": "green", "paper": "green", "border": 0.0})))
-	for role in ["purple", "coral", "gold"]:
+	for role in ["cream", "purple", "coral", "gold"]:
 		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
 	col.add_child(_button_sample("paper roles (borderless) — ● green is live", paper_row))
 	# 5) the static display chips — reward_chip (currency reward) + amount_chip (any icon/text).
