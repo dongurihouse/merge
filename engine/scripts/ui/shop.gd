@@ -229,20 +229,32 @@ const GRID_GAP := 14.0
 
 # The whole scrolling body: each section's header + offer grid.
 static func _build_body(refs: Dictionary) -> Control:
-	return build_body(refs.kit, refs.inner, _sections(refs))
+	return build_body(refs.kit, refs.inner, _sections(refs), shop_layout(refs.get("cfg", {})))
 
 ## The shop BODY — the VBox of section headers + offer grids, built purely from section DATA (each
 ## {caption, cards[]}). SHARED: the game (_build_body) computes the sections from live state and passes
 ## them here; the workbench "shop" element passes demo sections. So the tool renders the real shop layout.
-static func build_body(Kit: GDScript, w: float, sections: Array) -> Control:
+## The shop LAYOUT knobs read from the saved config's "shop" block — the offer-card metrics the workbench
+## tunes and the game honours: icon size (% of default art), card padding, the grid gap/margin, and the
+## card corner. Absent keys reproduce the mock-measured constants exactly.
+static func shop_layout(cfg: Dictionary) -> Dictionary:
+	var sh: Dictionary = (cfg as Dictionary).get("shop", {}) if cfg is Dictionary else {}
+	return {
+		"icon_size": float(sh.get("icon_size", 100)) / 100.0,   # art size, % of the default
+		"card_pad": float(sh.get("card_pad", 12)),              # inner padding (px)
+		"grid_gap": float(sh.get("grid_gap", GRID_GAP)),        # gap between cards + sections (px)
+		"corner": float(sh.get("corner", CARD_CORNER)),         # card corner radius (px)
+	}
+
+static func build_body(Kit: GDScript, w: float, sections: Array, lay: Dictionary = {}) -> Control:
 	var col := VBoxContainer.new()
 	col.name = "ShopBody"
-	col.add_theme_constant_override("separation", 16)
+	col.add_theme_constant_override("separation", int(float(lay.get("grid_gap", GRID_GAP)) + 2.0))
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for sec in sections:
 		var s := sec as Dictionary
 		col.add_child(_section_header(Kit, String(s.get("caption", ""))))
-		col.add_child(_offer_grid(Kit, s.get("cards", []), w))
+		col.add_child(_offer_grid(Kit, s.get("cards", []), w, lay))
 	return col
 
 # A section HEADER — the mock's centred navy all-caps title.
@@ -262,11 +274,12 @@ static func _section_header(Kit: GDScript, caption: String) -> Control:
 
 # One section's offers as the mock's TWO-column grid. A card marked `wide` (the Welcome bundle) takes a
 # full row of its own; the rest pair up.
-static func _offer_grid(Kit: GDScript, cards: Array, w: float) -> Control:
+static func _offer_grid(Kit: GDScript, cards: Array, w: float, lay: Dictionary = {}) -> Control:
 	var col := VBoxContainer.new()
 	col.name = "ShopOfferGrid"
 	col.add_theme_constant_override("separation", int(GRID_GAP))
-	var half: float = (w - GRID_GAP) * 0.5
+	var gap: float = float(lay.get("grid_gap", GRID_GAP))
+	var half: float = (w - gap) * 0.5
 	var row: HBoxContainer = null
 	for c in cards:
 		var d := c as Dictionary
@@ -274,28 +287,29 @@ static func _offer_grid(Kit: GDScript, cards: Array, w: float) -> Control:
 		# than a half-width tile stretched across the row.
 		if bool(d.get("wide", false)) or cards.size() == 1:
 			row = null
-			col.add_child(_offer_card(Kit, d, w, true))
+			col.add_child(_offer_card(Kit, d, w, true, lay))
 			continue
 		if row == null or row.get_child_count() >= 2:
 			row = HBoxContainer.new()
-			row.add_theme_constant_override("separation", int(GRID_GAP))
+			row.add_theme_constant_override("separation", int(gap))
 			col.add_child(row)
-		row.add_child(_offer_card(Kit, d, half, false))
+		row.add_child(_offer_card(Kit, d, half, false, lay))
 	return col
 
 # ONE offer card (the mock's product tile): a sage rounded face with the product ART filling the left
 # and, on the right, the amount in large navy type over the green buy CTA. Tight padding — the art and
 # the CTA carry the card.
 # d keys: title · icon · count · label · note · price · price_icon · affordable · cash · on_buy.
-static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool) -> Control:
+static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay: Dictionary = {}) -> Control:
 	var h: float = w * (0.26 if wide else 0.54)
 	var card := PanelContainer.new()
 	card.name = "ShopOfferCard"
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = SAGE
-	sb.set_corner_radius_all(int(CARD_CORNER))
-	sb.content_margin_left = 12; sb.content_margin_right = 12
-	sb.content_margin_top = 8; sb.content_margin_bottom = 8
+	sb.set_corner_radius_all(int(float(lay.get("corner", CARD_CORNER))))
+	var pad: float = float(lay.get("card_pad", 12))
+	sb.content_margin_left = pad; sb.content_margin_right = pad
+	sb.content_margin_top = pad * 0.67; sb.content_margin_bottom = pad * 0.67
 	_mock_shadow(sb)
 	card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(w, h)
@@ -306,7 +320,7 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool) -> C
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# the art FILLS the card's left side (mock); capped so a 512px master never upscales past crisp.
-	var art_px: float = minf(h * (0.95 if wide else 0.78), 240.0)
+	var art_px: float = minf(h * (0.95 if wide else 0.78), 240.0) * float(lay.get("icon_size", 1.0))
 	var art: Control = Kit.make_icon(String(d.get("icon", "gem")), art_px)
 	art.custom_minimum_size = Vector2(art_px, art_px)
 	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER

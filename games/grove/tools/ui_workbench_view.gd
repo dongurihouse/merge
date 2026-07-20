@@ -287,7 +287,7 @@ func _default_params() -> Dictionary:
 		"mystery": {"preview": "day 7 · revealed"},
 		# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 		# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-		"shop": {"cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+		"shop": {"icon_size": 100, "card_pad": 12, "grid_gap": 14, "corner": 18},
 		# the LEVEL dialog — the game's REAL sheet (level_popup.gd), screen-fraction sized off the shared
 		# frame-width knob: NO own saved knobs (the old parchment level_dialog's fonts/pads are retired).
 		# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
@@ -507,7 +507,7 @@ func _make_element(id: String) -> Control:
 			fopts["content_scale"] = scale
 			fopts["clip_below_banner"] = true   # rows clip UNDER the title band, like the game
 			fopts["list_max_h"] = 2600.0        # show the whole storefront (the game caps to 72% of the viewport)
-			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections()), width, fopts)
+			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections(), ShopUI.shop_layout(_params)), width, fopts)
 		"level":
 			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
 			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
@@ -1668,10 +1668,14 @@ func _element_sidebar(_id: String) -> void:
 			mplay.pressed.connect(_play_mystery_spin)
 			_sidebar_body.add_child(mplay)
 		"shop":
-			# the shop is the game's real storefront (shop.gd Shop.build_body) inside the shared frame — its
-			# card/grid layout (sage art-left cards, 2-col grid, green price slabs) is fixed in shop.gd, so
-			# there are no grid knobs here. Edit the shared frame (banner · border · ✕) on the Frame item.
-			_sidebar_note("The shop is the game's real storefront (shop.gd). The offer cards + 2-column grid + price slabs are fixed there; the shared frame is edited on the Frame item.")
+			# the shop is the game's real storefront (shop.gd Shop.build_body). Each offer-card metric is
+			# SAVED config the game reads (shop.gd shop_layout), so tuning here flows to the live shop:
+			# the product icon size, the card's inner padding, the grid gap/margin, and the card corner.
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["icon_size", 50, 160]))   # product art size, % of default
+			_sidebar_body.add_child(_slider_row(["card_pad", 2, 40]))      # inner padding (px)
+			_sidebar_body.add_child(_slider_row(["grid_gap", 2, 48]))      # gap / margin between cards + sections (px)
+			_sidebar_body.add_child(_slider_row(["corner", 0, 40]))        # card corner radius (px)
 		"level":
 			# the sheet is the game's real level_popup.gd. Each element's SIZE (% of its default) and its
 			# vertical NUDGE (px, +down) are SAVED — the game reads them from the level config, so tuning
