@@ -713,28 +713,24 @@ func _initialize() -> void:
 	ok(live_pill_button != null, "live HUD gold currency pill exposes the whole pill as the button")
 	ok(hud.coin_plus is Control and (hud.coin_plus as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, \
 		"live HUD plus token is decorative and has no separate click box")
-	var live_gold_opts := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var live_amount_slot := _first_control(hud.coin_pill, "GoldCurrencyAmountSlot")
+	# The live wallet now uses the cut-paper SPRITE pill (CurrencyPillSprite): a single flat pill PNG —
+	# icon + green "+" baked in — painted as the button's StyleBoxTexture, with the number laid over the
+	# empty body. So the drawn-pill sub-parts (amount slot box, GoldCurrencyPlusArt token, code paper-shadow)
+	# are gone; assert the sprite contract instead.
 	var live_amount := _first_control(hud.coin_pill, "GoldCurrencyAmount", "Label") as Label
 	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton")
-	var live_plus_art := _first_control(hud.coin_pill, "GoldCurrencyPlusArt", "TextureRect") as TextureRect
-	ok(live_amount_slot != null and live_amount != null and live_plus != null and live_plus_art != null \
-		and absf(live_amount_slot.custom_minimum_size.x - float(live_gold_opts.amount_w)) <= 0.01 \
-		and absf((live_amount.position.x + live_amount.custom_minimum_size.x) \
-			- (float(live_gold_opts.amount_x) + float(live_gold_opts.amount_w))) <= 0.5 \
-		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
-		and String(live_plus_art.texture.resource_path).ends_with("ui/meadow_v2/button_plus.png"), \
-		"live HUD applies the Workbench amount box and Meadow plus-art location settings")
-	# The guard catches the plus TextureRect escaping to its native texture size (a min-size cache clamp
-	# renders it several times the pill). It is not a tuning limit — the workbench `plus_button` slider is
-	# hand-tuned (96% → 44% of pill height), so the ceiling sits above that, well under a runaway.
-	var live_plus_limit := (live_pill_button as Control).get_global_rect().size.y * 0.46
-	ok(live_plus_art != null and live_plus_art.expand_mode == TextureRect.EXPAND_IGNORE_SIZE \
-		and live_plus_art.get_global_rect().size.x <= live_plus_limit, \
-		"live wallet constrains the plus texture to a small in-pill token (%.1f <= %.1f)" \
-			% [live_plus_art.get_global_rect().size.x if live_plus_art != null else INF, live_plus_limit])
-	ok(_is_reference_paper_shadow(_paper_shadow_style(hud.coin_pill)), \
-		"live currency pills cast the compact downward paper shadow from the mock")
+	var live_icon := _first_control(hud.coin_pill, "GoldCurrencyIcon")
+	var live_bg := (live_pill_button as Button).get_theme_stylebox("normal") as StyleBoxTexture
+	var live_pill_w := (live_pill_button as Control).get_global_rect().size.x
+	ok(live_amount != null and live_plus != null and live_icon != null and live_bg != null \
+		and live_bg.texture != null \
+		and String(live_bg.texture.resource_path).ends_with("ui/wallet/pill_coin.png"), \
+		"live HUD coin pill wraps the wallet sprite (StyleBoxTexture) with the amount, icon marker, and decorative plus")
+	# The number sits in the pill's empty body (right of the baked icon + "+", left ~38% of the pill).
+	ok(live_amount != null and live_pill_w > 0.0 \
+		and live_amount.get_global_rect().position.x - (live_pill_button as Control).get_global_rect().position.x \
+			>= live_pill_w * 0.30, \
+		"live HUD coin amount is laid into the pill's empty body, clear of the baked icon")
 	var wallet_rect := (hud.wallet as Control).get_global_rect()
 	var wallet_right_gap := Design.size().x - wallet_rect.end.x
 	var hud_layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
