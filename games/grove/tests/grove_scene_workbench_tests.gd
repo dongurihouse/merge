@@ -402,6 +402,7 @@ func _initialize() -> void:
 	art.save_png(broot + "/art.png")
 	(view.doc.placements[2] as Dictionary)["image"] = "art.png"
 	M.set_shadow(view.doc, 2, true)
+	(view.doc.placements[2] as Dictionary)["shadowOpacity"] = 0.45
 	view._rebuild_stage()
 	var sh_node: Control = null
 	var prop_node: Control = null
@@ -414,6 +415,8 @@ func _initialize() -> void:
 		"a shadow-tagged entry draws the dynamic shadow just beneath its layer")
 	ok(sh_node != null and sh_node.position == Vector2(540, 1060),
 		"the shadow sits at the entry's footing")
+	ok(sh_node != null and is_equal_approx(sh_node.modulate.a, 0.45),
+		"a shadowOpacity placement value lightens the dynamic silhouette shadow")
 	M.move(view.doc, 2, Vector2(10, 0))
 	view._refresh_entry_rect(2)
 	ok(sh_node != null and sh_node.position == Vector2(550, 1060),

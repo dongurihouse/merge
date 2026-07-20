@@ -176,6 +176,7 @@ func _rebuild_stage() -> void:
 			var sh: Control = PropShadow.new()       # the SAME dynamic shadow the game renders
 			sh.texture = n.texture
 			sh.disp = M.entry_rect(e).size
+			sh.modulate.a = clampf(float(e.get("shadowOpacity", 1.0)), 0.0, 1.0)
 			sh.position = Vector2(float(e.get("x", 0)), float(e.get("y", 0)))
 			sh.set_meta("pi_shadow", i)
 			if ghosted:
