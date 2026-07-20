@@ -1589,9 +1589,11 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 	row.add_theme_constant_override("separation", ActionBar.well_gap(bottom_btn_px))
 	home_btn = _home_nav_button(bottom_btn_px, action_opts)     # left: the Home tile, OUTSIDE the info tray
 	row.add_child(home_btn)
-	# centre: the painted cream tray, holding the selected-item info bar and nothing else
+	# centre: the painted cream tray, holding the selected-item info bar and nothing else. The tray is
+	# sized to the SAME px box as the Home/Bag tiles beside it, so all three read as one row of equals
+	# (bottom_bar_h only sets the band the row centres in).
 	row.add_child(ActionBar.offset_slot( \
-		ActionBar.info_tray(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), bottom_bar_h, action_opts), \
+		ActionBar.info_tray(_build_info_bar(bottom_btn_px, action_opts, bottom_btn_px), bottom_btn_px, action_opts), \
 		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))
 	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag tile, OUTSIDE the info tray
 	if preserve_selection and prior_selection.x >= 0 and board != null:
