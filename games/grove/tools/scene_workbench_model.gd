@@ -2,12 +2,42 @@ extends RefCounted
 ## Scene-placement workbench — the PURE model, no rendering, no window.
 ## A "doc" is the parsed placements.json Dictionary (schema v2, see the cherry v2 bundle):
 ##   {canvas:{width,height,anchorConvention:"center-bottom"}, base:{image,...}, placements:[entry]}
-##   entry: {id, category, image (repo-relative), x, y, w, h, z, layer} — (x,y) is the CENTER-BOTTOM
-##   anchor on the canvas; unknown keys on the doc and on entries are preserved through save.
+##   entry: {id, category, image (repo-relative), x, y, w, h, z, clusterZ, layer} — (x,y) is the
+##   CENTER-BOTTOM anchor on the canvas; unknown keys on the doc and on entries are preserved.
 ## The view owns textures + input; every mutation goes through these ops so the tests can gate them.
+##
+## PAINT ORDER is a three-level nest, the same shape at every scale (item → cluster → layer → scene):
+##   1. `layer`   — one of LAYERS below, a FIXED back→front band (sky … foreground). Cluster-wide.
+##   2. `clusterZ`— the cluster's order WITHIN its layer, shared by every member of the cluster.
+##   3. `z`       — the item's order WITHIN its cluster.
+## Effective order = (layer_rank, clusterZ, z, list index). Both new keys degrade gracefully on
+## legacy docs — a missing `layer` reads as DEFAULT_LAYER, a missing `clusterZ` falls back to `z` —
+## so a scene authored before layers renders byte-identically until you actually reassign it.
 
 const SCENES_SUFFIX := "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
+
+# The predefined layers, back (painted first) → front (painted last). A cluster lives in exactly one.
+const LAYERS := ["sky", "backdrop", "far_mountains", "background_objects", "primary_objects", "foreground_objects"]
+const LAYER_LABELS := {
+	"sky": "Sky", "backdrop": "Backdrop", "far_mountains": "Far Mountains",
+	"background_objects": "Background Objects", "primary_objects": "Primary Objects",
+	"foreground_objects": "Foreground Objects"}
+const DEFAULT_LAYER := "primary_objects"   # where an unassigned (legacy) entry reads as / a new one lands
+
+static func layer_rank(slug: String) -> int:
+	var k := LAYERS.find(slug)
+	return k if k >= 0 else LAYERS.find(DEFAULT_LAYER)
+
+## An entry's layer, normalized — an absent or unknown value reads as DEFAULT_LAYER.
+static func entry_layer(e: Dictionary) -> String:
+	var l := String(e.get("layer", ""))
+	return l if LAYERS.has(l) else DEFAULT_LAYER
+
+## An entry's cluster order — legacy entries with no clusterZ fall back to their own item z, so a
+## pre-layers doc (every entry its own singleton) keeps its exact global-z paint order.
+static func entry_cluster_z(e: Dictionary) -> int:
+	return int(e.get("clusterZ", e.get("z", 0)))
 
 static func load_doc(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
@@ -40,13 +70,24 @@ static func canvas_size(doc: Dictionary) -> Vector2:
 	var c: Dictionary = doc.get("canvas", {})
 	return Vector2(float(c.get("width", 1320)), float(c.get("height", 2346)))
 
-## Paint order: indices sorted by (z, list index) — stable, so equal z keeps authoring order.
+## Paint order: indices sorted by (layer_rank, clusterZ, z, list index) — stable, so an exact tie
+## keeps authoring order. The three levels nest: a layer band, then clusters within it, then items.
 static func sorted_order(doc: Dictionary) -> Array:
 	var idx: Array = range(placements(doc).size())
 	var pl := placements(doc)
 	idx.sort_custom(func(a, b) -> bool:
-		var za := int((pl[a] as Dictionary).get("z", 0))
-		var zb := int((pl[b] as Dictionary).get("z", 0))
+		var ea := pl[a] as Dictionary
+		var eb := pl[b] as Dictionary
+		var ra := layer_rank(entry_layer(ea))
+		var rb := layer_rank(entry_layer(eb))
+		if ra != rb:
+			return ra < rb
+		var ca := entry_cluster_z(ea)
+		var cb := entry_cluster_z(eb)
+		if ca != cb:
+			return ca < cb
+		var za := int(ea.get("z", 0))
+		var zb := int(eb.get("z", 0))
 		return za < zb if za != zb else a < b)
 	return idx
 
@@ -83,9 +124,30 @@ static func scale_by(doc: Dictionary, i: int, factor: float) -> void:
 	e["w"] = int(round(w * f))
 	e["h"] = int(round(h * f))
 
+## Item order WITHIN its cluster (Z / X on a single selection). Floors at 0.
 static func bump_z(doc: Dictionary, i: int, dz: int) -> void:
 	var e: Dictionary = placements(doc)[i]
 	e["z"] = maxi(0, int(e.get("z", 0)) + dz)
+
+## Move an entry to `slug` (one of LAYERS) — applied CLUSTER-WIDE so a cluster never straddles two
+## layers; an untagged entry moves alone. A no-op if `slug` is not a real layer.
+static func set_layer(doc: Dictionary, i: int, slug: String) -> void:
+	if not LAYERS.has(slug):
+		return
+	for m in _unit_of(doc, i):
+		(placements(doc)[m] as Dictionary)["layer"] = slug
+
+## Shift the selection's layer by `dir` (±1, clamped to the band ends). Returns the applied slug.
+static func bump_layer(doc: Dictionary, i: int, dir: int) -> String:
+	var cur := layer_rank(entry_layer(placements(doc)[i]))
+	var slug: String = LAYERS[clampi(cur + dir, 0, LAYERS.size() - 1)]
+	set_layer(doc, i, slug)
+	return slug
+
+## The member indices an entry op fans out over: its cluster, or just itself when untagged.
+static func _unit_of(doc: Dictionary, i: int) -> Array:
+	var name := cluster_of(doc, i)
+	return clusters(doc).get(name, [i]) if name != "" else [i]
 
 static func remove_at(doc: Dictionary, i: int) -> Dictionary:
 	return placements(doc).pop_at(i)
@@ -216,19 +278,27 @@ static func scale_cluster(doc: Dictionary, name: String, factor: float) -> void:
 		e["w"] = int(round(float(e.get("w", 0)) * f))
 		e["h"] = int(round(float(e.get("h", 0)) * f))
 
-## Restack the whole cluster; a downward bump is clamped so the LOWEST member floors at z 0
-## (relative z inside the cluster always survives).
+## The cluster's shared order within its layer (the lowest member's clusterZ, in case a legacy doc
+## left them out of sync). {} members → 0.
+static func cluster_z(doc: Dictionary, name: String) -> int:
+	var idx: Array = clusters(doc).get(name, [])
+	if idx.is_empty():
+		return 0
+	var lo := entry_cluster_z(placements(doc)[idx[0]])
+	for i in idx:
+		lo = mini(lo, entry_cluster_z(placements(doc)[i]))
+	return lo
+
+## Restack the CLUSTER among its layer's clusters (Z / X on a cluster selection): every member gets
+## the same new `clusterZ`, floored at 0. The members' own `z` (their order inside the cluster) is
+## untouched, so the cluster moves as one block without disturbing its internal stacking.
 static func bump_cluster_z(doc: Dictionary, name: String, dz: int) -> void:
 	var idx: Array = clusters(doc).get(name, [])
 	if idx.is_empty():
 		return
-	var low := int((placements(doc)[idx[0]] as Dictionary).get("z", 0))
+	var nv := maxi(0, cluster_z(doc, name) + dz)
 	for i in idx:
-		low = mini(low, int((placements(doc)[i] as Dictionary).get("z", 0)))
-	var d := maxi(dz, -low)
-	for i in idx:
-		var e: Dictionary = placements(doc)[i]
-		e["z"] = int(e.get("z", 0)) + d
+		(placements(doc)[i] as Dictionary)["clusterZ"] = nv
 
 ## Topmost hit at canvas point `p`: walk the paint order back to front; `opaque_at` refines a
 ## rect hit with an alpha test — opaque_at(entry_index, uv: Vector2) -> bool (uv in 0..1).

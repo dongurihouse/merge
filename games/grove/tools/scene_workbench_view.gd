@@ -9,8 +9,10 @@ extends Control
 ## pick individual members and added assets join the cluster. Alt+click force-picks a single item.
 ##
 ## Mouse:  click = select cluster (alpha-aware, topmost)   drag = move   wheel = resize ±2% (Shift ±10%)
-## Keys:   arrows = nudge 1px (Shift 10)   Z / X = z-index −1 / +1 (Shift 10)   Delete = remove item
-##         I = isolate the current cluster   Cmd/Ctrl+S = save   R = reload   Esc = deselect / exit
+## Keys:   arrows = nudge 1px (Shift 10)   Z / X = order −1 / +1 within the current level (Shift 10):
+##         a cluster selection restacks the cluster in its layer, an item selection restacks it in its
+##         cluster.   [ / ] = move the selection to the previous / next LAYER (cluster-wide).
+##         Delete = remove item   I = isolate   Cmd/Ctrl+S = save   R = reload   Esc = deselect / exit
 
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
@@ -430,6 +432,8 @@ func _key(k: InputEventKey) -> void:
 				KEY_DOWN: _nudge(Vector2(0, step))
 				KEY_Z: _bump_z(-zstep)
 				KEY_X: _bump_z(zstep)
+				KEY_BRACKETLEFT: _bump_layer(-1)
+				KEY_BRACKETRIGHT: _bump_layer(1)
 				KEY_DELETE, KEY_BACKSPACE: _remove_selected()
 
 func _nudge(d: Vector2) -> void:
@@ -451,6 +455,20 @@ func _bump_z(dz: int) -> void:
 		return
 	_mark_dirty()
 	_rebuild_stage()                                  # paint order changed
+
+## [ / ] move the selection to an adjacent LAYER — cluster-wide (a cluster never straddles layers).
+func _bump_layer(dir: int) -> void:
+	var i := _sel
+	if _sel_cluster != "":
+		var members: Array = M.clusters(doc).get(_sel_cluster, [])
+		if members.is_empty():
+			return
+		i = members[0]
+	if i < 0:
+		return
+	M.bump_layer(doc, i, dir)
+	_mark_dirty()
+	_rebuild_stage()
 
 func _remove_selected() -> void:
 	if _sel < 0:
@@ -756,47 +774,70 @@ func _refresh_cluster_list() -> void:
 	if _sel_cluster != "" or (_sel >= 0 and M.cluster_of(doc, _sel) != ""):
 		_cluster_actions.add_child(_small_button(
 			"▣ Exit isolation (I)" if _isolated != "" else "▣ Isolate (I)", _toggle_isolation))
+	# The selection's layer + the [ / ] hint, so a stage-picked singleton (no sidebar row) still
+	# shows where it lives and how to move it between bands.
+	var sel_i := -1
+	if _sel_cluster != "":
+		var mm: Array = M.clusters(doc).get(_sel_cluster, [])
+		sel_i = mm[0] if not mm.is_empty() else -1
+	elif _sel >= 0:
+		sel_i = _sel
+	if sel_i >= 0:
+		_cluster_actions.add_child(_label(
+			"layer: %s   ( [ / ] )" % M.LAYER_LABELS.get(M.entry_layer(M.placements(doc)[sel_i]), "?"), FS.TOOL))
 	# the cluster whose members are EXPANDED: the selected one, or the one owning the selected item
 	var expanded := _sel_cluster
 	if expanded == "" and _sel >= 0:
 		expanded = M.cluster_of(doc, _sel)
+	# Clusters grouped under the six fixed layers, back → front (sky first, matching the paint stack).
+	var by_layer: Dictionary = {}                     # layer slug -> [cluster name] (sorted by clusterZ)
 	var cls := M.clusters(doc)
 	for cname_v in cls.keys():
-		var cname := String(cname_v)
-		var row := HBoxContainer.new()
-		var b := _small_button("%s%s  (%d)" % ["▸ " if cname == _sel_cluster else "  ", cname, (cls[cname] as Array).size()],
-			_select_cluster.bind(cname))
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if cname == _sel_cluster:
-			b.add_theme_color_override("font_color", Color("#B05A00"))
-		row.add_child(b)
-		if _sel >= 0 and M.cluster_of(doc, _sel) != cname:
-			var join := _small_button("+", func() -> void:
-				M.set_cluster(doc, _sel, cname)
-				_mark_dirty()
-				_select(_sel))
-			join.tooltip_text = "add the selected item to this cluster"
-			row.add_child(join)
-		_cluster_box.add_child(row)
-		if cname != expanded:
-			continue
-		for k in M.sorted_order(doc):                 # member rows, paint order — click = edit that item
-			if M.cluster_of(doc, k) != cname:
+		var cn := String(cname_v)
+		var lyr: String = M.entry_layer(M.placements(doc)[(cls[cn] as Array)[0]])
+		if not by_layer.has(lyr):
+			by_layer[lyr] = []
+		(by_layer[lyr] as Array).append(cn)
+	for names in by_layer.values():
+		(names as Array).sort_custom(func(x, y) -> bool: return M.cluster_z(doc, x) < M.cluster_z(doc, y))
+	for slug in M.LAYERS:
+		var hdr := _label("— %s —" % M.LAYER_LABELS.get(slug, slug), FS.TOOL, true)
+		_cluster_box.add_child(hdr)
+		for cname in by_layer.get(slug, []):
+			var row := HBoxContainer.new()
+			var b := _small_button("%s%s  (%d)  z%d" % ["▸ " if cname == _sel_cluster else "  ",
+				cname, (cls[cname] as Array).size(), M.cluster_z(doc, cname)], _select_cluster.bind(cname))
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if cname == _sel_cluster:
+				b.add_theme_color_override("font_color", Color("#B05A00"))
+			row.add_child(b)
+			if _sel >= 0 and M.cluster_of(doc, _sel) != cname:
+				var join := _small_button("+", func() -> void:
+					M.set_cluster(doc, _sel, cname)
+					_mark_dirty()
+					_select(_sel))
+				join.tooltip_text = "add the selected item to this cluster"
+				row.add_child(join)
+			_cluster_box.add_child(row)
+			if cname != expanded:
 				continue
-			var e: Dictionary = M.placements(doc)[k]
-			var mrow := HBoxContainer.new()
-			var mb := _small_button("      %s%s   z%d" % ["▸ " if k == _sel else "· ",
-				String(e.get("id", "?")), int(e.get("z", 0))], _select.bind(k))
-			mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			if k == _sel:
-				mb.add_theme_color_override("font_color", Color("#B05A00"))
-			mrow.add_child(mb)
-			var kill := _small_button("✕", _remove_member.bind(k, cname))
-			kill.tooltip_text = "remove this element from the scene"
-			mrow.add_child(kill)
-			_cluster_box.add_child(mrow)
-		if cname == _sel_cluster:
-			_add_palette_rows(cname)
+			for k in M.sorted_order(doc):             # member rows, paint order — click = edit that item
+				if M.cluster_of(doc, k) != cname:
+					continue
+				var e: Dictionary = M.placements(doc)[k]
+				var mrow := HBoxContainer.new()
+				var mb := _small_button("      %s%s   z%d" % ["▸ " if k == _sel else "· ",
+					String(e.get("id", "?")), int(e.get("z", 0))], _select.bind(k))
+				mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				if k == _sel:
+					mb.add_theme_color_override("font_color", Color("#B05A00"))
+				mrow.add_child(mb)
+				var kill := _small_button("✕", _remove_member.bind(k, cname))
+				kill.tooltip_text = "remove this element from the scene"
+				mrow.add_child(kill)
+				_cluster_box.add_child(mrow)
+			if cname == _sel_cluster:
+				_add_palette_rows(cname)
 
 ## The ADD palette, scoped to the selected cluster: the bundle's assets (plus the surviving page
 ## art on recovered bundles) as an iconed list — clicking one drops a NEW member at the cluster's
@@ -819,12 +860,17 @@ func _add_asset_to_cluster(a: Dictionary, cname: String) -> void:
 	var cap := M.canvas_size(doc).y * 0.25             # a new drop lands readable, never scene-swallowing
 	if sz.y > cap:
 		sz *= cap / sz.y
+	var members: Array = M.clusters(doc).get(cname, [])
 	var top_z := 0
-	for k in M.clusters(doc).get(cname, []):
+	for k in members:
 		top_z = maxi(top_z, int((M.placements(doc)[k] as Dictionary).get("z", 0)))
+	# The new member inherits the cluster's layer + cluster-order so it lands in the same band,
+	# just above the cluster's top item.
+	var layer: String = M.entry_layer(M.placements(doc)[members[0]]) if not members.is_empty() else M.DEFAULT_LAYER
 	var i := M.add_entry(doc, {"id": String(a.id), "category": String(a.category),
 		"image": String(a.image), "x": int(foot.x + 40), "y": int(foot.y),
-		"w": int(sz.x), "h": int(sz.y), "z": top_z + 1, "cluster": cname, "layer": ""})
+		"w": int(sz.x), "h": int(sz.y), "z": top_z + 1, "clusterZ": M.cluster_z(doc, cname),
+		"cluster": cname, "layer": layer})
 	_mark_dirty()
 	_rebuild_stage()
 	_select(i)                                        # the new member is in hand — drag it into place

@@ -15,6 +15,12 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
+func _has_label_text(node: Node, text: String) -> bool:
+	for l in node.find_children("*", "Label", true, false):
+		if String((l as Label).text) == text:
+			return true
+	return false
+
 func _doc() -> Dictionary:
 	return {
 		"schemaVersion": 2,
@@ -146,16 +152,55 @@ func _initialize() -> void:
 	M.scale_cluster(ds, "duo", 0.001)
 	ok(int(ds.placements[0].w) >= 8, "scale_cluster clamps at the grabbable floor")
 
-	# z restack preserves relative order and floors as a group
+	# cluster restack moves the CLUSTER among its layer's clusters — a shared clusterZ on every
+	# member, leaving each member's own z (its order INSIDE the cluster) untouched.
 	var dz := _doc()
 	M.set_cluster(dz, 0, "grp")                       # z 30
 	M.set_cluster(dz, 1, "grp")                       # z 10
+	ok(M.cluster_z(dz, "grp") == 10, "cluster_z is the cluster's shared order (legacy → lowest member z)")
 	M.bump_cluster_z(dz, "grp", 5)
-	ok(int(dz.placements[0].z) == 35 and int(dz.placements[1].z) == 15,
-		"bump_cluster_z shifts members together")
+	ok(int(dz.placements[0].clusterZ) == 15 and int(dz.placements[1].clusterZ) == 15,
+		"bump_cluster_z gives every member the same new clusterZ")
+	ok(int(dz.placements[0].z) == 30 and int(dz.placements[1].z) == 10,
+		"members keep their own z (order inside the cluster is undisturbed)")
 	M.bump_cluster_z(dz, "grp", -999)
-	ok(int(dz.placements[1].z) == 0 and int(dz.placements[0].z) == 20,
-		"a floored restack keeps the members' relative z")
+	ok(int(dz.placements[0].clusterZ) == 0 and int(dz.placements[1].clusterZ) == 0,
+		"a floored restack clamps the shared clusterZ at 0")
+
+	# --- layers (item → cluster → LAYER → scene, the fixed back→front band) ------------
+	ok(M.LAYERS.size() == 6 and M.LAYERS[0] == "sky" and M.LAYERS[5] == "foreground_objects",
+		"the six predefined layers run sky (back) → foreground (front)")
+	ok(M.layer_rank("sky") == 0 and M.layer_rank("foreground_objects") == 5,
+		"layer_rank orders the band back → front")
+	ok(M.layer_rank("nonsense") == M.layer_rank(M.DEFAULT_LAYER),
+		"an unknown/legacy layer reads as the default band")
+	ok(M.entry_layer({}) == M.DEFAULT_LAYER, "a layerless entry reads as the default band")
+	ok(M.entry_cluster_z({"z": 7}) == 7, "a clusterZ-less entry falls back to its own item z")
+	ok(M.entry_cluster_z({"z": 7, "clusterZ": 3}) == 3, "clusterZ wins when present")
+
+	# a legacy doc (no layer/clusterZ anywhere) keeps its exact global-z paint order
+	ok(M.sorted_order(_doc()) == [1, 0, 2],
+		"a pre-layers doc paints in the same order as before (graceful fallback)")
+
+	# layer dominates clusterZ dominates z: push 'gate' to the back layer and it paints first
+	var dl := _doc()
+	M.set_layer(dl, 2, "sky")
+	ok(String(dl.placements[2].layer) == "sky", "set_layer assigns the band")
+	ok(M.sorted_order(dl) == [2, 1, 0],
+		"a lower layer paints first regardless of z (sky gate under the rear props)")
+
+	# set_layer is cluster-wide; bump_layer walks the band and clamps at its ends
+	var dla := _doc()
+	M.set_cluster(dla, 0, "camp")
+	M.set_cluster(dla, 1, "camp")
+	M.set_layer(dla, 0, "backdrop")
+	ok(String(dla.placements[0].layer) == "backdrop" and String(dla.placements[1].layer) == "backdrop",
+		"set_layer moves the whole cluster into one band")
+	ok(M.bump_layer(dla, 1, -1) == "sky" and String(dla.placements[0].layer) == "sky",
+		"bump_layer steps the cluster back a band, cluster-wide")
+	ok(M.bump_layer(dla, 0, -5) == "sky", "bump_layer clamps at the back of the band")
+	M.set_layer(dla, 0, "foreground_objects")
+	ok(M.bump_layer(dla, 0, 3) == "foreground_objects", "bump_layer clamps at the front of the band")
 
 	# --- view: a sidebar row press must NOT free the emitting button ------------------
 	# (regression: the press handler rebuilds the list; a hard free() there destroys the
@@ -179,9 +224,15 @@ func _initialize() -> void:
 	ok(view.find_child("SceneIcons", true, false) != null
 		and view._cluster_box != null,
 		"the lean sidebar is dropdown + save + clusters only (no placed list, no palette)")
-	var crow_box: Node = view._cluster_box.get_child(0)
-	var crow: Button = (crow_box.get_child(0) as Button) if crow_box != null and crow_box.get_child_count() > 0 else null
-	ok(crow != null, "the clusters list built a row")
+	# the cluster list now groups rows under the six fixed LAYER headers (Label nodes); find the
+	# 'camp' cluster row (an HBox whose first Button names the cluster) beneath its header.
+	ok(_has_label_text(view._cluster_box, "— Primary Objects —"),
+		"the cluster list is grouped under the predefined layer headers")
+	var crow: Button = null
+	for c in view._cluster_box.get_children():
+		if c is HBoxContainer and c.get_child_count() >= 1 and (c.get_child(0) as Button).text.contains("camp"):
+			crow = c.get_child(0) as Button
+	ok(crow != null, "the clusters list built a row under its layer header")
 	if crow != null:
 		crow.pressed.emit()
 		ok(is_instance_valid(crow), "a pressed cluster-row survives its own refresh (deferred free)")
@@ -253,6 +304,27 @@ func _initialize() -> void:
 	view._on_stage_input(wheel)
 	ok(int((view.doc.placements[2] as Dictionary).w) == 306,
 		"a wheel notch over the stage resizes the selection (+2%)")
+
+	# --- [ / ] move the selection between layers ---------------------------------------
+	# 'gate' (index 2) is still selected from the drag/wheel test; it starts in the default band.
+	view._select(2)
+	ok(M.entry_layer(view.doc.placements[2]) == M.DEFAULT_LAYER, "setup: the item starts in the default layer")
+	var lbrack := InputEventKey.new()
+	lbrack.keycode = KEY_BRACKETLEFT
+	lbrack.pressed = true
+	view._key(lbrack)
+	ok(String(view.doc.placements[2].layer) == "background_objects" and view.dirty,
+		"[ moves the selection back one layer")
+	var rbrack := InputEventKey.new()
+	rbrack.keycode = KEY_BRACKETRIGHT
+	rbrack.pressed = true
+	view._key(rbrack)
+	ok(String(view.doc.placements[2].layer) == M.DEFAULT_LAYER, "] moves it forward one layer")
+	# the sidebar surfaces the selection's current band
+	ok(_has_label_text(view._cluster_actions, "layer: Primary Objects   ( [ / ] )"),
+		"the sidebar shows the selection's layer + the [ / ] hint")
+	view.doc.placements[2].erase("layer")                 # restore the fixture (byte-stable) for downstream tests
+	view._select(-1)
 
 	# --- cluster-first stage clicks: a click selects the whole group ------------------
 	view._select(-1)
