@@ -285,7 +285,9 @@ func _test_map_card_expedition_chrome() -> void:
 
 	# the BOTTOM BAR tiles: icon over caption inside a rounded paper tile, each on its own texture.
 	var tiles := {"MapTile": "sky", "ResidentsTile": "green", "DailyTile": "gold",
-		"VaultTile": "purple", "BoardTile": "coral"}
+		"BoardTile": "coral"}
+	# Vault is parked (`piggy_vault` flag OFF) — its tile stays off the bar.
+	ok(hx.get_node_or_null("VaultTile") == null, "the parked Vault carries no bottom-bar tile")
 	for tile_name in tiles:
 		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
 		ok(btn != null, "the bottom bar carries the %s" % tile_name)
@@ -301,7 +303,7 @@ func _test_map_card_expedition_chrome() -> void:
 	ok(gear != null and not _button_has_visible_text(gear), "the gear carries no caption — icon only")
 	# Board is LAST, so it lands in the bottom-right corner
 	var board := hx.get_node_or_null("BoardTile") as Button
-	var prev_tile := hx.get_node_or_null("VaultTile") as Button
+	var prev_tile := hx.get_node_or_null("DailyTile") as Button
 	ok(board != null and prev_tile != null and board.position.x > prev_tile.position.x,
 		"Board is the right-most tile (the bottom-right corner)")
 	ok(board != null and prev_tile != null and is_equal_approx(board.size.x, prev_tile.size.x),

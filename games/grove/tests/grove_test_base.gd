@@ -487,9 +487,11 @@ func _test_t45_wiring() -> void:
 	# the §8 home-hub loop is gone (population sub-game now). The 💎-priced "2×" doubler is covered by
 	# _test_2x_doubler_rehome on the board instead. See grove_spec §10.)
 
-	# 2. THE PIGGY-VAULT CHROME ENTRY. The map chrome carries a piggy button that opens the jar;
-	# its ready-pip reflects Vault.claimable(). Drive _open_vault() → a parchment overlay appears.
+	# 2. THE PIGGY-VAULT CHROME ENTRY. Parked behind the `piggy_vault` flag (OFF by default) —
+	# the wiring is still proven with the flag flipped ON (an N3 flip smoke); the shipped default
+	# (no tile, no skim) is asserted by grove_explore_tests / grove_maps_page_tests.
 	fresh("t45_vault")
+	Feat.FLAGS["piggy_vault"] = true
 	var hv = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hv)
 	if hv.content == null:
@@ -507,6 +509,7 @@ func _test_t45_wiring() -> void:
 	ok(vov.find_children("*", "PanelContainer", true, false).size() >= 1, "the vault opens as a framed parchment jar card (diegetic, §13)")
 	ok(_press_label(vov, "Claim"), "the opened vault shows a Claim button (the jar surface, reachable from the hub)")
 	hv.queue_free()
+	Feat.FLAGS["piggy_vault"] = false          # restore the shipped default (parked)
 
 	# 3. THE DAILY-LOGIN AUTO-POPUP. Past the FTUE (a spot owned) and unclaimed today, the day's
 	# first hub open auto-shows the calendar ONCE; already-claimed → it stays shut.

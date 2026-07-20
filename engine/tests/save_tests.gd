@@ -4,6 +4,7 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy-bank accrual vault
+const Feat = preload("res://engine/scripts/core/features.gd") # the vault is parked (flag OFF); flipped ON for its section
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
 const G = preload("res://engine/scripts/core/content.gd")     # map-progression queries (gate/unlock chain)
@@ -137,6 +138,12 @@ func _initialize() -> void:
 	# crack price is fixed. Vault.crack() releases the banked diamonds and resets.
 	var SK_N := Vault.skim_num()
 	var SK_D := Vault.skim_den()
+	# The feature is parked (`piggy_vault` OFF): skim is a no-op at the default. Prove that
+	# first, then flip the flag ON for the accrual math below (an N3 flip smoke).
+	fresh("vault_parked")
+	Vault.skim(40)
+	ok(Vault.balance() == 0, "with the piggy_vault flag OFF, skim banks nothing (the jar sleeps)")
+	Feat.FLAGS["piggy_vault"] = true
 
 	# 19a. a fresh vault is empty.
 	fresh("vault_fresh")
@@ -202,6 +209,7 @@ func _initialize() -> void:
 	ok(not Vault.claimable(), "a fresh (sub-threshold) vault is not claimable")
 	Vault.skim(Vault.claim_min() * SK_D / SK_N + SK_D)   # earn well past the threshold
 	ok(Vault.balance() >= Vault.claim_min() and Vault.claimable(), "the vault is claimable once it fills past the threshold")
+	Feat.FLAGS["piggy_vault"] = false          # restore the shipped default (parked)
 
 	# ── T44 · the daily login calendar — the forgiving streak (§18) ─────────────
 	# Login reads Save.daily()'s streak and pays an ESCALATING ladder with day-7/30

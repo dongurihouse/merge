@@ -19,6 +19,7 @@ extends RefCounted
 ## banked total is always floor(total_earned × num/den) — no loss, no over-credit.
 
 const Save = preload("res://engine/scripts/core/save.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Iap = preload("res://engine/scripts/core/iap.gd")   # the crack price + product id (data/iap_products.json)
 const D = Game.DATA                                  # the active game's data (§10 VAULT_*)
@@ -52,6 +53,8 @@ static func cap() -> int:
 ## carried units convert to 1 whole banked 💎 (the remainder stays carried for next time).
 ## A skim of 0 / negative is a safe no-op. Clamped to the cap. Persists in one write.
 static func skim(earned: int) -> void:
+	if not Features.on("piggy_vault"):
+		return                     # feature parked (flag OFF): the jar sleeps — nothing accrues
 	if earned <= 0:
 		return
 	var num := skim_num()

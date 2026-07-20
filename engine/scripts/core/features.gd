@@ -46,6 +46,7 @@ static var FLAGS := {
 	"ftue_free_pops": false,      # retired: water now costs from the first pop (no 10-pop free intro)
 	# (ftue_feature_spotlight flag removed 2026-06-23 with the dormant spotlight subsystem — redesign
 	#  specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-gesture-spotlight-design.md)
+	"piggy_vault": false,         # §10: the accrual vault (piggy bank) — OFF for now by owner's word (2026-07-19): no bottom-bar tile, no skim; flip back on to restore both
 	"daily_login_popup": true,    # T45: the day's first hub open auto-shows the login calendar once (§18 — after a rewarding moment, skips the cold first FTUE session)
 	"daily_debug": true,          # T46: the calendar's "⏭ Next day" debug fast-forward (ALSO gated by OS.is_debug_build — never reachable in a release build)
 }

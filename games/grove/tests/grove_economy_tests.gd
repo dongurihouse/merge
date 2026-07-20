@@ -774,6 +774,7 @@ func _initialize() -> void:
 	if h5.content == null:
 		h5._ready()
 	var d0 := Save.diamonds()
+	Feat.FLAGS["piggy_vault"] = true   # the vault is parked (flag OFF); flip on to prove the skim-site wiring
 	var vault0 := Vault.balance() * Vault.skim_den() + Save.vault_carry()   # total skimmed-units before
 	Save.grove()["exp"] = G.exp_at_level(2) - 1                # one exp short of L2
 	var lvg := G.earn_exp(1)                                   # crosses into L2 (no grant yet)
@@ -783,6 +784,7 @@ func _initialize() -> void:
 	# level-up premium — the banked-units pool advanced by exactly LEVEL_DIAMONDS × num.
 	var vault1 := Vault.balance() * Vault.skim_den() + Save.vault_carry()
 	ok(vault1 - vault0 == G.LEVEL_DIAMONDS * Vault.skim_num(), "granting the gift SKIMS its premium into the piggy bank (§10)")
+	Feat.FLAGS["piggy_vault"] = false  # restore the shipped default (parked)
 
 	# 11e. A BOOSTED bonus-generator collect must SPEND a boost tap (regression P2). The collect uses the
 	# boosted burst odds to MULTIPLY its payout, so — exactly like a charged generator tap — it has to decay

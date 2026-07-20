@@ -885,13 +885,13 @@ func _initialize() -> void:
 			ok(absf(below - edge_margin) <= 1.0, \
 				"the gear sits one shared margin below the currency pills (%.1f ~= %.1f)" % [below, edge_margin])
 	# every tile shares one bottom edge — the row is a single band along the screen's foot
-	var bar_tiles := ["MapTile", "ResidentsTile", "DailyTile", "VaultTile", "BoardTile"]
+	var bar_tiles := ["MapTile", "ResidentsTile", "DailyTile", "BoardTile"]   # Vault is parked (flag OFF)
 	var bottoms: Array = []
 	for tile_name in bar_tiles:
 		var t := map_scene.get_node_or_null(NodePath(tile_name)) as Control
 		if t != null:
 			bottoms.append(t.get_global_rect().end.y)
-	ok(bottoms.size() >= 5, "the bottom bar built every expected tile")
+	ok(bottoms.size() >= 4, "the bottom bar built every expected tile")
 	if bottoms.size() >= 2:
 		ok(absf(float(bottoms.max()) - float(bottoms.min())) <= 1.0, \
 			"every bottom-bar tile shares one bottom edge")
@@ -911,7 +911,9 @@ func _initialize() -> void:
 		# the big orange disc is GONE: Board is a coral paper tile the same size as its neighbours
 		ok(play_button != null and _paper_texture_path(play_button).ends_with("ui/meadow_v2/texture_coral.png"), \
 			"the Board CTA wears the coral paper tile, not the authored circular shell")
-		ok(play_button != null and absf(play_button_rect.size.x - map_button_rect.size.x) <= 1.0, \
+		# compare the LAID-OUT sizes, not global rects: the breathe_cta animation scales the Board
+		# tile a fraction of a percent, which on today's larger tiles overflows a 1px rect tolerance.
+		ok(play_button != null and absf(play_button.size.x - map_button.size.x) <= 1.0, \
 			"the Board tile is the same size as the other tiles")
 		map_scene._open_select()
 		await process_frame

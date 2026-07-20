@@ -77,14 +77,14 @@ func _initialize() -> void:
 	ok(h.maps_hits.size() == G.MAPS.size(), "a gallery rebuild seats exactly one hit per map")
 
 	# the gallery chrome: NO heading label; it wears the SAME bottom bar as the home screen, with the
-	# leading Map tile swapped for a Home tile (the gallery IS the map). Home · Residents · Daily · Vault
-	# · Board, plus Mail when the inbox build is present.
+	# leading Map tile swapped for a Home tile (the gallery IS the map). Home · Residents · Daily
+	# · Board, plus Mail when the inbox build is present (Vault is parked behind its OFF flag).
 	ok(not _label_texts(h.content).has("MAPS"), "the gallery carries no MAPS heading")
 	var caps := _label_texts(h.content)
 	for cap in ["home", "residents", "board"]:
 		ok(caps.has(Strings.t("map.nav.%s" % cap)), "the gallery nav carries %s" % cap)
 	ok(caps.has(Strings.t("map.rail.daily")), "the gallery nav carries Daily")
-	ok(caps.has(Strings.t("map.rail.vault")), "the gallery nav carries Vault")
+	ok(not caps.has(Strings.t("map.rail.vault")), "the gallery nav drops the parked Vault (flag OFF)")
 	ok(not caps.has(Strings.t("map.nav.map")), "the gallery nav drops the Map tile (Home takes its slot)")
 	ok(h._select_back == null or not h._select_back.visible, "the gallery hides the back arrow (Home is the way back)")
 	# Home steps back to the map you were viewing
