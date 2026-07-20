@@ -302,11 +302,20 @@ static func bump_cluster_z(doc: Dictionary, name: String, dz: int) -> void:
 
 ## Topmost hit at canvas point `p`: walk the paint order back to front; `opaque_at` refines a
 ## rect hit with an alpha test — opaque_at(entry_index, uv: Vector2) -> bool (uv in 0..1).
-static func hit_at(doc: Dictionary, p: Vector2, opaque_at: Callable) -> int:
+## `hidden_clusters` / `hidden_layers` are workbench-only view filters: an entry whose cluster or
+## layer is hidden is not rendered, so it must not catch stage clicks either — the pick falls
+## through to whatever sits behind it.
+static func hit_at(doc: Dictionary, p: Vector2, opaque_at: Callable,
+		hidden_clusters := {}, hidden_layers := {}) -> int:
 	var order := sorted_order(doc)
 	for k in range(order.size() - 1, -1, -1):
 		var i: int = order[k]
-		var r := entry_rect(placements(doc)[i])
+		var e: Dictionary = placements(doc)[i]
+		if not hidden_clusters.is_empty() and hidden_clusters.has(cluster_of(doc, i)):
+			continue
+		if not hidden_layers.is_empty() and hidden_layers.has(entry_layer(e)):
+			continue
+		var r := entry_rect(e)
 		if not r.has_point(p):
 			continue
 		var uv := (p - r.position) / r.size

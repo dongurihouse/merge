@@ -23,6 +23,7 @@ const REF_STRIP_W := 76.0           # the far-left mock ICON strip (one thumbnai
 const REF_PAD := 14.0               # reference pane inner padding
 const SCENE_STRIP_W := 76.0         # the far-right SCENE icon strip (one thumbnail per bundle)
 const HIT_MAX_W := 192              # alpha hit-test images downsample to this width (memory)
+const DRAG_THRESHOLD := 3.0         # canvas px a re-click must travel before it counts as a drag, not a deselect
 const INK := Color("#2B2B33")
 const PAPER := Color("#F4EDE1")
 
@@ -44,6 +45,10 @@ var _isolated := ""                 # isolation: this cluster edits alone, the r
 var _dragging := false
 var _drag_grab := Vector2.ZERO      # canvas-space offset from the entry anchor at grab time
 var _drag_last := Vector2.ZERO      # last canvas point (cluster drags are delta-based)
+var _pending_deselect := false      # armed on re-clicking the selected cluster; a real drag cancels it
+var _press_point := Vector2.ZERO    # canvas point of the current left press (deselect-vs-drag threshold)
+var _hidden: Dictionary = {}        # workbench-only: cluster name -> true; not persisted, cleared on reload
+var _hidden_layers: Dictionary = {} # workbench-only: layer slug -> true; not persisted, cleared on reload
 
 var _stage: Control = null
 var _layers: Control = null         # one TextureRect per placement, child order = paint order
@@ -162,6 +167,8 @@ func _rebuild_stage() -> void:
 			_layers.add_child(b)
 	for i in M.sorted_order(doc):
 		var e: Dictionary = M.placements(doc)[i]
+		if _is_hidden(i):
+			continue                                 # workbench-only: cluster or layer hidden
 		var n := _make_layer(String(e.get("image", "")), M.entry_rect(e), e)
 		if n == null:
 			n = TextureRect.new()                    # missing art still occupies its rect (pickable via list)
@@ -316,13 +323,15 @@ func _on_stage_input(ev: InputEvent) -> void:
 		var p := mb.position / s
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
-				var hit := M.hit_at(doc, p, _opaque_at)
+				var hit := M.hit_at(doc, p, _opaque_at, _hidden, _hidden_layers)
 				if mb.shift_pressed:
 					_shift_click(hit)                 # membership painting — never starts a drag
 					return
 				if _isolated != "" and hit >= 0 and M.cluster_of(doc, hit) != _isolated:
 					hit = -1                          # ghosted scenery is context, not clickable
 				var cl := M.cluster_of(doc, hit) if hit >= 0 else ""
+				_pending_deselect = false
+				_press_point = p
 				# CLUSTER-FIRST: a click selects the whole group; members are picked inside
 				# isolation, with Alt, or via the sidebar member rows. An untagged entry is
 				# its own unit; the already-selected member drags directly.
@@ -332,13 +341,19 @@ func _on_stage_input(ev: InputEvent) -> void:
 					_select(hit)
 				elif cl != _sel_cluster:
 					_select_cluster(cl)
-				# else: the selected cluster was clicked again — keep it, the drag moves the group
+				else:
+					# the selected cluster was clicked again — a plain click deselects, a drag moves
+					# the group. Arm the deselect; the first past-threshold motion cancels it.
+					_pending_deselect = true
 				_dragging = hit >= 0 or _sel_cluster != ""
 				_drag_last = p
 				if _sel >= 0:
 					var e: Dictionary = M.placements(doc)[_sel]
 					_drag_grab = Vector2(float(e.get("x", 0)), float(e.get("y", 0))) - p
 			else:
+				if _pending_deselect:
+					_select(-1)                       # click-again on the selected cluster, no drag
+				_pending_deselect = false
 				_dragging = false
 		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			var up := mb.button_index == MOUSE_BUTTON_WHEEL_UP
@@ -353,6 +368,10 @@ func _on_stage_input(ev: InputEvent) -> void:
 				_refresh_entry_rect(_sel)
 	elif ev is InputEventMouseMotion and _dragging:
 		var p := (ev as InputEventMouseMotion).position / s
+		if _pending_deselect:
+			if p.distance_to(_press_point) < DRAG_THRESHOLD:
+				return                                # sub-threshold jitter is still a click, not a drag
+			_pending_deselect = false                 # crossed the threshold — this is a drag
 		if _sel_cluster != "":
 			M.move_cluster(doc, _sel_cluster, p - _drag_last)
 			_drag_last = p
@@ -418,6 +437,8 @@ func _key(k: InputEventKey) -> void:
 			_toggle_isolation()
 		KEY_N:
 			_new_cluster_from_selection()
+		KEY_H:
+			_hide_selected_cluster()
 		KEY_ESCAPE:
 			if _isolated != "":
 				_isolated = ""
@@ -512,6 +533,52 @@ func _select_cluster(name: String) -> void:
 	_refresh_status()
 	_overlay.queue_redraw()
 
+## --- hiding (workbench-only view state; never written to the doc) ---------------------------------
+
+func _is_hidden(i: int) -> bool:
+	var e: Dictionary = M.placements(doc)[i]
+	return _hidden.has(M.cluster_of(doc, i)) or _hidden_layers.has(M.entry_layer(e))
+
+func _selected_cluster() -> String:
+	if _sel_cluster != "":
+		return _sel_cluster
+	if _sel >= 0:
+		return M.cluster_of(doc, _sel)
+	return ""
+
+func _hide_selected_cluster() -> void:
+	var name := _selected_cluster()
+	if name == "":
+		return
+	_toggle_cluster_hidden(name, true)
+
+func _toggle_cluster_hidden(name: String, force_hide := false) -> void:
+	if name == "":
+		return
+	if not force_hide and _hidden.has(name):
+		_hidden.erase(name)
+	else:
+		_hidden[name] = true
+		if _selected_cluster() == name:
+			_select(-1)                              # cannot edit what is not shown
+	_rebuild_stage()
+
+func _toggle_layer_hidden(slug: String) -> void:
+	if _hidden_layers.has(slug):
+		_hidden_layers.erase(slug)
+	else:
+		_hidden_layers[slug] = true
+		var sc := _selected_cluster()
+		var sel_i := -1
+		if sc != "":
+			var mm: Array = M.clusters(doc).get(sc, [])
+			sel_i = mm[0] if not mm.is_empty() else -1
+		elif _sel >= 0:
+			sel_i = _sel
+		if sel_i >= 0 and M.entry_layer(M.placements(doc)[sel_i]) == slug:
+			_select(-1)
+	_rebuild_stage()
+
 func _mark_dirty() -> void:
 	dirty = true
 	_refresh_status()
@@ -524,6 +591,9 @@ func _save() -> void:
 func _reload() -> void:
 	doc = M.load_doc(placements_path)
 	_sel = -1
+	_sel_cluster = ""
+	_hidden.clear()                                  # hiding is workbench-only view state — reload shows all
+	_hidden_layers.clear()
 	dirty = false
 	_rebuild_stage()
 
@@ -802,16 +872,31 @@ func _refresh_cluster_list() -> void:
 	for names in by_layer.values():
 		(names as Array).sort_custom(func(x, y) -> bool: return M.cluster_z(doc, x) < M.cluster_z(doc, y))
 	for slug in M.LAYERS:
+		var lhidden := _hidden_layers.has(slug)
+		var hdr_row := HBoxContainer.new()
 		var hdr := _label("— %s —" % M.LAYER_LABELS.get(slug, slug), FS.TOOL, true)
-		_cluster_box.add_child(hdr)
+		hdr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if lhidden:
+			hdr.add_theme_color_override("font_color", Color("#9A9488"))
+		hdr_row.add_child(hdr)
+		var leye := _small_button("◌" if lhidden else "◉", _toggle_layer_hidden.bind(slug))
+		leye.tooltip_text = "show this layer" if lhidden else "hide the whole layer"
+		hdr_row.add_child(leye)
+		_cluster_box.add_child(hdr_row)
 		for cname in by_layer.get(slug, []):
+			var chidden := _hidden.has(cname)
 			var row := HBoxContainer.new()
 			var b := _small_button("%s%s  (%d)  z%d" % ["▸ " if cname == _sel_cluster else "  ",
 				cname, (cls[cname] as Array).size(), M.cluster_z(doc, cname)], _select_cluster.bind(cname))
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			if cname == _sel_cluster:
 				b.add_theme_color_override("font_color", Color("#B05A00"))
+			elif chidden:
+				b.add_theme_color_override("font_color", Color("#9A9488"))
 			row.add_child(b)
+			var eye := _small_button("◌" if chidden else "◉", _toggle_cluster_hidden.bind(cname))
+			eye.tooltip_text = "show this cluster" if chidden else "hide this cluster"
+			row.add_child(eye)
 			if _sel >= 0 and M.cluster_of(doc, _sel) != cname:
 				var join := _small_button("+", func() -> void:
 					M.set_cluster(doc, _sel, cname)
