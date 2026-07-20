@@ -47,7 +47,7 @@ const DEPENDENTS := {
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
-	"gold_badge": ["board", "rush_bar"],   # the rush bar's cells ARE code-drawn gold badges; info_bar now uses the authored paper tray
+	"gold_badge": ["board"],   # the rush bar + info_bar both wear the plain paper look now, not the gold badge
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
@@ -135,7 +135,7 @@ const CAPTIONS := {
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
-	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): cell size · text · icon · leaf · crown",
+	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): plain paper cards, cell size · text",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -306,9 +306,9 @@ func _default_params() -> Dictionary:
 			"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
 			"hide_info_button": false,
 			"filled": true},
-		# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
+		# the RUSH BAR — plain cut-paper cards (Time · Score · Mult); the leaf / coin / crown deco art is retired
 		"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
-			"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16, "burn": 0},
+			"pad": 16, "burn": 0},
 		# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 		# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 		"settings": {"row_gap": 12},
@@ -512,10 +512,9 @@ func _make_element(id: String) -> Control:
 			}
 			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
 		"rush_bar":
-			# the Expedition top HUD, from the SAME kit builder the game uses: code-drawn gold-badge cells
-			# (Time · Score · Mult) + the asset leaf / coin / crown. Pass the shared gold_badge skin so the
-			# cells preview the SAME tuning as the board / map-card frame.
-			var rbo := Kit.rush_bar_opts_from_config({"rush_bar": p, "gold_badge": _params["gold_badge"]})
+			# the Expedition top HUD, from the SAME kit builder the game uses: plain cut-paper cards
+			# (Time · Score · Mult) on the shared flat paper recipe.
+			var rbo := Kit.rush_bar_opts_from_config({"rush_bar": p})
 			return Kit.rush_bar(rbo, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
@@ -1646,7 +1645,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"rush_bar":
 			_group_header("Saved to config", true)
-			_section_header("Cells — code-drawn gold badge (tune the FRAME on the Gold badge item)")
+			_section_header("Cells — plain cut-paper cards")
 			_sidebar_body.add_child(_slider_row(["height", 60, 180]))    # cell height
 			_sidebar_body.add_child(_slider_row(["score_w", 160, 460]))  # centred Score cell width
 			_sidebar_body.add_child(_slider_row(["side_w", 120, 380]))   # Time / Mult cell width
@@ -1656,10 +1655,6 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["label_size", 12, 48]))  # the Time / Score / Mult caption
 			_sidebar_body.add_child(_slider_row(["value_size", 20, 80]))  # the numerals
 			_sidebar_body.add_child(_slider_row(["burn", 0, 100]))         # engraved burn (dark ink + emboss + outline)
-			_section_header("Asset decorations — leaf · coin · crown")
-			_sidebar_body.add_child(_slider_row(["icon_size", 20, 100]))  # the score coin
-			_sidebar_body.add_child(_slider_row(["leaf_size", 30, 160]))  # the flank oak-leaf clusters
-			_sidebar_body.add_child(_slider_row(["crown_size", 30, 160])) # the acorn crown over the centre
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")

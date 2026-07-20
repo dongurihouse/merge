@@ -17,7 +17,6 @@ const MEADOW_FOREGROUND_CONSUMERS := [
 	"shared/play_disc.png",
 	"kit/level_frame.png",
 	"rush/exit_x.png",
-	"rush/bottom_hint_3slice.png",
 ]
 
 var _pass := 0
@@ -132,10 +131,6 @@ func _initialize() -> void:
 
 	for canonical_rel in MEADOW_FOREGROUND_CONSUMERS:
 		ok(mapped_targets.has(canonical_rel), "%s is replaced by a declared Meadow v2 route" % canonical_rel)
-	var hint_tex := load("res://games/grove/assets/ui/rush/bottom_hint_3slice.png") as Texture2D
-	ok(hint_tex != null and float(hint_tex.get_width()) / maxf(1.0, float(hint_tex.get_height())) >= 4.0,
-		"Rush bottom hint preserves its wide three-slice consumer contract")
-
 	var export_text := FileAccess.get_file_as_string("res://export_presets.cfg")
 	ok(export_text.contains("games/grove/assets/_review/**"),
 		"export preset excludes generated Meadow QC review artifacts")

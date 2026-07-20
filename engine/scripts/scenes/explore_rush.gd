@@ -18,6 +18,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juic
 const Feel = preload("res://engine/scripts/ui/feel.gd")  # the unified feel verbs — merge juice routes through Feel.merge
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the board bottom bar's shared tray surface
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
@@ -31,11 +32,9 @@ const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
-const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
 const DANGER_CHEVRON_ART := "res://games/grove/assets/ui/meadow_v2/danger_chevron.png"
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
 const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
-const BOTTOM_HINT_TEXT_NUDGE_FRAC := -0.039  # caption optical-centre nudge (the pill sits high in the strip + the font ink sits low → nudge UP), as a fraction of the bar height
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
 
 # --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
@@ -227,9 +226,9 @@ func _relayout_after_resize() -> void:
 		return                            # no real change — skip the rebuild
 	_layout()
 
-# The rush_concept top bar: three CODE-DRAWN gold-badge cells — Time | SCORE (centred, larger) | Mult —
-# built by the SHARED kit (Kit.rush_bar, workbench-tunable) with the rush_bar_asset art used only for the
-# leaf clusters, the score coin, and the acorn crown. The bar is scaled to the BOARD width (so it spans the
+# The rush top bar: three PLAIN CUT-PAPER cards — Time | SCORE (centred, larger) | Mult — built by the
+# SHARED kit (Kit.rush_bar, workbench-tunable) on the same flat paper recipe as the board's bottom tray.
+# The bar is scaled to the BOARD width (so it spans the
 # same width as the grid below it) and centred at the top of its reserved slot; uniform scale keeps its
 # aspect, so a wider bar is proportionally taller. The value Labels come back via meta so _refresh_readouts
 # updates them. The big EXIT × hugs the top-right corner ABOVE the bar (sized like the home map nav button).
@@ -454,53 +453,48 @@ func _apply_treefall_visual() -> void:
 		_act_arrow.position.x = arrow_center_x - _act_arrow.size.x * 0.5
 
 # An ALWAYS-ON info bar teaching the two secondary verbs the top popup leaves out: tap-again-to-fling
-# and clearing a column before a treefall. The source art is used as a 3-slice (fixed side caps +
-# horizontally stretched center). Sized to the board width and ~2× the old height (pure %), and centred
-# vertically in the bottom SECTION (board bottom → screen bottom) so it sits in the open band below the grid.
+# and clearing a column before a treefall. The tray surface is the SAME shared recipe the board's bottom
+# info bar wears (ActionBar.bar_style — flat cream + light edge + THE uniform shadow — with the kit's
+# paper-grain layer). Sized to the board width (pure %), and centred vertically in the bottom SECTION
+# (board bottom → screen bottom) so it sits in the open band below the grid.
 func _build_bottom_hint() -> void:
 	var vw: float = float(_band.vw)
-	var tex := load(BOTTOM_HINT_ART) as Texture2D
-	var tex_w := float(tex.get_width())
-	var tex_h := float(tex.get_height())
 	var strip_w := _board_w()                  # match the board (and the bars) width
-	var strip_h: float = float(_band.hint_h)   # ~2× the old height, pure %
-	var src_cap_w := minf(roundf(tex_h * 1.12), floorf((tex_w - 1.0) * 0.5))
-	var cap_w := src_cap_w * (strip_h / tex_h)
-	var center_w := maxf(1.0, strip_w - cap_w * 2.0)
-	var center_src_w := maxf(1.0, tex_w - src_cap_w * 2.0)
+	var strip_h: float = float(_band.hint_h)
 	var strip := Control.new()
 	strip.name = "RushBottomHintStrip"
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.size = Vector2(strip_w, strip_h)
 	strip.custom_minimum_size = strip.size
-	strip.set_meta("slice_mode", "three")
-	strip.set_meta("cap_source_px", src_cap_w)
-	strip.add_child(_bottom_hint_slice("RushBottomHintLeftCap", tex, Rect2(0.0, 0.0, src_cap_w, tex_h), Vector2.ZERO, Vector2(cap_w, strip_h)))
-	strip.add_child(_bottom_hint_slice("RushBottomHintCenterSlice", tex, Rect2(src_cap_w, 0.0, center_src_w, tex_h), Vector2(cap_w, 0.0), Vector2(center_w, strip_h)))
-	strip.add_child(_bottom_hint_slice("RushBottomHintRightCap", tex, Rect2(tex_w - src_cap_w, 0.0, src_cap_w, tex_h), Vector2(cap_w + center_w, 0.0), Vector2(cap_w, strip_h)))
+	# the tray: a PanelContainer (it lays the paper-grain layer into the shell's fixed inset) wearing the
+	# board bottom bar's shared style — the hint caption and info button ride on the strip above it.
+	var tray := PanelContainer.new()
+	tray.name = "RushBottomHintTray"
+	tray.position = Vector2.ZERO
+	tray.size = Vector2(strip_w, strip_h)
+	tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tray.add_theme_stylebox_override("panel", ActionBar.bar_style(strip_h))
+	ActionBar.apply_paper_surface(tray, strip_h)
+	strip.add_child(tray)
+	var pad := strip_h * 0.55
+	var info_px := strip_h * 0.74
 	var l := Label.new()
 	l.name = "RushBottomHint"
 	l.text = "Tap again to fling · avoid treefall"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# centre the caption on the strip's vertical centre (= the pill centre): the box FILLS the strip so the
-	# centring is symmetric (no top-only pad that shoved the text low), plus a small downward nudge that
-	# optically centres the caps (a single line's caps otherwise read slightly high).
-	var info_px := strip_h * 0.74
-	var text_nudge := strip_h * BOTTOM_HINT_TEXT_NUDGE_FRAC
-	l.position = Vector2(cap_w * 0.65, text_nudge)
-	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3 - info_px * 1.25), strip_h)
+	# the caption box FILLS the strip so the centring is symmetric; the code-drawn tray has no painted
+	# pill offset, so no optical nudge is needed.
+	l.position = Vector2(pad, 0.0)
+	l.size = Vector2(maxf(1.0, strip_w - pad * 2.0 - info_px * 1.25), strip_h)
 	l.add_theme_font_size_override("font_size", int(maxf(18.0, strip_h * RUSH_HINT_FS_FRAC)))
-	# Meadow cream carries native Ink text. The retired brown strip needed a
-	# light glyph plus dark outline; retaining that treatment destroys contrast
-	# on the new cream paper and violates the native-text style rule.
 	l.add_theme_color_override("font_color", Color("#243B4B"))
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	var info := _rush_info_button(info_px)
-	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, (strip_h - info_px) * 0.5)
+	info.position = Vector2(strip_w - pad * 0.65 - info_px, (strip_h - info_px) * 0.5)
 	strip.add_child(info)
 	add_child(strip)
 	# centred vertically in the bottom SECTION: the open band between the board's bottom and the screen
@@ -509,21 +503,6 @@ func _build_bottom_hint() -> void:
 	strip.position = Vector2((vw - strip_w) * 0.5, strip_y)
 	_hint = strip
 	_hint_h = strip_h
-
-func _bottom_hint_slice(node_name: String, tex: Texture2D, src: Rect2, pos: Vector2, sz: Vector2) -> TextureRect:
-	var atlas := AtlasTexture.new()
-	atlas.atlas = tex
-	atlas.region = src
-	var t := TextureRect.new()
-	t.name = node_name
-	t.texture = atlas
-	t.position = pos
-	t.size = sz
-	t.custom_minimum_size = sz
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_SCALE
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return t
 
 func _rush_info_button(px: float) -> Button:
 	var b := Button.new()
