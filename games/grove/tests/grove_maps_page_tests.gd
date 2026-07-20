@@ -44,10 +44,13 @@ func _initialize() -> void:
 	# the featured CONTINUE button also opens the frontier (a real button — the chip exception)
 	h._open_maps()
 	await create_timer(0.05).timeout
-	var go: Button = null
-	for b in h.content.find_children("*", "Button", true, false):
-		if (b as Button).text.findn(Strings.t("map.page.continue")) != -1:
-			go = b
+	# the CONTINUE button is now the baked cut-paper sprite button (named "ContinueButton", no text);
+	# fall back to matching the caption for the drawn Look.button variant.
+	var go: Button = h.content.find_child("ContinueButton", true, false) as Button
+	if go == null:
+		for b in h.content.find_children("*", "Button", true, false):
+			if (b as Button).text.findn(Strings.t("map.page.continue")) != -1:
+				go = b
 	ok(go != null, "the featured card carries a CONTINUE button")
 	if go != null:
 		go.pressed.emit()

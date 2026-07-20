@@ -912,10 +912,17 @@ func _maps_featured_card(z: int, rect: Rect2) -> Control:
 	var open_feat := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_map(z)
-	var go := Look.button(Strings.t("map.page.continue"), open_feat, true)
 	var btn_h := clampf(rect.size.y * 0.21, 40.0, 64.0)
-	go.custom_minimum_size = Vector2(col_w, btn_h)
-	go.size = Vector2(col_w, btn_h)
+	var go: Button
+	var cont_path := "res://games/grove/assets/ui/card/continue.png"
+	if ResourceLoader.exists(cont_path):
+		# the cut-paper CONTINUE sprite (baked word + flower); stretched to the card's button slot
+		go = SpriteButton.build(load(cont_path), Vector2(col_w, btn_h), open_feat,
+			{"name": "ContinueButton", "tooltip": Strings.t("map.page.continue")})
+	else:
+		go = Look.button(Strings.t("map.page.continue"), open_feat, true)
+		go.custom_minimum_size = Vector2(col_w, btn_h)
+		go.size = Vector2(col_w, btn_h)
 	go.position = Vector2(col_x, rect.size.y - inset - btn_h)
 	card.add_child(go)
 	return card
@@ -948,7 +955,10 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
 	if locked:
 		# the slate padlock, centred on the veiled thumb (no backing plate)
 		var med_h := clampf(rect.size.y * 0.34, 56.0, 170.0)
-		var pad_path := Game.art("ui/meadow_v2/icon_padlock.png")
+		# the cut-paper scalloped keyhole sprite (falls back to the drawn padlock if the sprite is absent)
+		var pad_path := "res://games/grove/assets/ui/card/lock.png"
+		if not ResourceLoader.exists(pad_path):
+			pad_path = Game.art("ui/meadow_v2/icon_padlock.png")
 		if ResourceLoader.exists(pad_path):
 			var pad := TextureRect.new()
 			pad.texture = load(pad_path)
