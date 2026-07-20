@@ -622,7 +622,10 @@ static func shadow_params(cfg: Dictionary) -> Dictionary:
 		"offset_x": float(s.get("offset_x", SHADOW_DEFAULTS.offset_x)),
 		"offset_y": float(s.get("offset_y", SHADOW_DEFAULTS.offset_y)),
 		"blur":     float(s.get("blur", SHADOW_DEFAULTS.blur)),
-		"spread":   float(s.get("spread", SHADOW_DEFAULTS.spread)),
+		# spread only ever TIGHTENS (<= 0): the shadow body is a FILLED panel behind the element,
+		# so a positive spread pokes past the element as a uniform dark collar on all four sides —
+		# a border, not a cast. The mocks never grow a shadow outward; clamp the footgun away.
+		"spread":   minf(float(s.get("spread", SHADOW_DEFAULTS.spread)), 0.0),
 		"alpha":    clampf(float(s.get("alpha", SHADOW_DEFAULTS.alpha)) / 100.0, 0.0, 1.0),
 	}
 

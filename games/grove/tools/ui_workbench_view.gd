@@ -1410,7 +1410,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["offset_y", -40, 40]))   # vertical cast (px): −up / +down
 			_section_header("Shape")
 			_sidebar_body.add_child(_slider_row(["blur", 0, 40]))         # soft feather radius (px)
-			_sidebar_body.add_child(_slider_row(["spread", -20, 40]))     # grow(+) / shrink(−) the shadow on every side (px)
+			_sidebar_body.add_child(_slider_row(["spread", -20, 0]))      # tighten the shadow (px; 0 = full blur reach — growing outward reads as a collar, so it is not offered)
 			_section_header("Tint")
 			_sidebar_body.add_child(_slider_row(["alpha", 0, 80]))        # opacity (%) — the tint is fixed slate (skin.gd)
 		"board":
