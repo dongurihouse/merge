@@ -1,0 +1,20 @@
+Use case: stylized-concept
+Asset type: production-oriented 2D game UI prop atlas for the Grove level dialog
+
+Create exactly six separate reusable Level dialog artwork assets in one 3-column by 2-row sprite sheet. Use the approved Level dialog mock as the identity and composition reference, the Meadow Sky board as palette and material authority, and the 2x3 guide only for invisible sheet geometry.
+
+Exact row-major contents:
+1. Number-free mint scalloped rosette base with warm-cream ring and sky-blue center.
+2. Round layered gold star coin.
+3. Cream daisy medallion with a small layered gold star coin center.
+4. Left muted-meadow-green oak-leaf sprig.
+5. Mirrored right muted-meadow-green oak-leaf sprig.
+6. Standalone layered golden milestone star.
+
+Meadow Sky + Cut-Paper Playground style: friendly matte hand-cut cardstock, never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad rounded low-complexity silhouettes; two or three dominant masses per object; one flat base color plus at most one same-hue shadow plane; subtle 2-4% paper fiber; fine warm cut edge and thin locally darker edge. No universal white sticker outline or heavy black outline. One upper-left light source. Consolidated readable details. Fixed Meadow Sky role palette. Legible at phone size.
+
+Exactly 3 equal columns by 2 equal rows. No dividers, boxes, labels, center marks, or cell frames. Each object is centered in its invisible cell, fully contained, and surrounded by generous margin. Nothing crosses a cell edge. No detached effects.
+
+Background is perfectly flat solid #FF00FF with no gradients, texture, shadows, floor plane, reflections, vignette, or lighting variation. Do not use #FF00FF in the artwork. No cast shadow, contact shadow, glow, or halo.
+
+No text, labels, numbers, numerals, UI panels, progress bars, buttons, pills, watermarks, extra decorations, or extra objects.
