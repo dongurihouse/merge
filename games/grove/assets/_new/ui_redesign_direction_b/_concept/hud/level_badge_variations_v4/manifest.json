@@ -1,0 +1,27 @@
+{
+  "name": "hud_level_badge_variations_v4",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "sheet": {
+    "file": "level_badge_variations_3x3_1536.png",
+    "width": 1536,
+    "height": 1536,
+    "columns": 3,
+    "rows": 3,
+    "cell_width": 512,
+    "cell_height": 512,
+    "order": "row-major",
+    "purpose": "concept selection; not a runtime atlas"
+  },
+  "cells": [
+    {"index": 1, "name": "crown_rosette"},
+    {"index": 2, "name": "petal_seal"},
+    {"index": 3, "name": "gentle_shield"},
+    {"index": 4, "name": "double_rosette"},
+    {"index": 5, "name": "acorn_cap_crest"},
+    {"index": 6, "name": "leaf_compass"},
+    {"index": 7, "name": "quilted_plaque"},
+    {"index": 8, "name": "sunburst_medallion"},
+    {"index": 9, "name": "award_seal"}
+  ],
+  "runtime_overlay": "centered level numeral in warm cream with dark-navy edge or shadow"
+}

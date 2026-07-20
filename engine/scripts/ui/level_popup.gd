@@ -6,13 +6,12 @@ extends RefCounted
 ##                                        "COLLECT" button GRANTS it (grant_level_gift) then closes.
 ##                                        NOT veil-dismissable (only Collect closes) so the reward
 ##                                        can't be lost.
-## The SHEET is built here (the residents.gd house pattern — a ui/ file owning its own mock-true
-## surface), not by Kit.level_dialog: this mock is a flat cream card with NO ✕ and an ink title
-## INSIDE the card, which neither the shared dialog_frame nor the old parchment level_frame draws.
-## The medallion is the baked v2 art set (kit/level_rosette + sprigs + daisy; intake of
-## level_dialog_assets_v2). Shared Kit ATOMS are still reused (bold_font, reward_chip, the tinted
-## mock shadow recipe). The model is untouched — content.gd/save.gd supply every number, exactly
-## as before.
+## The sheet is the SHARED frame (Kit.dialog_frame — the same cream card + big navy title band every
+## dialog wears), built with show_close = false since the mock carries no ✕ (dismissed by veil tap /
+## Collect instead). Only the CONTENT is owned here: the medallion (the baked v2 art set —
+## kit/level_rosette + sprigs + daisy, intake of level_dialog_assets_v2), the star-token tally pill,
+## the progress bar, the hint / reward, and the CTA. The model is untouched — content.gd/save.gd
+## supply every number, exactly as before.
 
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -32,9 +31,9 @@ const BAR_REMAIN := Color("#8FA6C9")      # the progress bar's un-earned remaind
 const PILL_FACE := Color("#FBF4E8")       # the tally pill, a touch lighter than the card cream
 
 # --- proportions, as fractions of the sheet WIDTH (screen-fraction sizing, not fixed px) ---
-const CARD_CORNER_F := 0.049
+# PAD_X_F / PAD_BOT_F are handed to the shared frame as its content inset (so the bar/pill fractions
+# below stay valid); the frame owns the card corner + the top title band.
 const PAD_X_F := 0.062
-const PAD_TOP_F := 0.075                  # the ink title sits INSIDE the card (no ribbon to clear)
 const PAD_BOT_F := 0.062
 const GAP_F := 0.036
 const MEDALLION_F := 0.540                # the rosette's diameter
@@ -118,13 +117,15 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 	var dialog := _sheet(width, {
 		"level": lvl, "earned": earned, "next": nxt, "into": into, "span": span,
 		"remaining": remaining, "mode": mode, "gift": gift, "on_button": on_button,
+		"frame_cfg": cfg,   # the shared frame reads its chrome (card corner, title, shadow) from this
 	})
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
 	return overlay
 
-## The whole sheet: the cream card holding the ink title + medallion + the star-token tally pill +
-## progress bar + the "N more to reach Level N+1" hint (info) / reward chip (levelup) + the CTA.
+## The whole sheet: the SHARED frame (card + the big navy "LEVEL N" title band, no ✕) wrapping the
+## content column — medallion, the star-token tally pill, the progress bar, the "N more to reach
+## Level N+1" hint (info) / reward chip (levelup), and the CTA.
 static func _sheet(w: float, d: Dictionary) -> Control:
 	var lvl := int(d.get("level", 1))
 	var mode := String(d.get("mode", "info"))
@@ -134,9 +135,6 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	col.add_theme_constant_override("separation", int(w * GAP_F))
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	# the mock's title is large navy ink INSIDE the card, not a ribbon
-	col.add_child(_line("LevelTitle", (Strings.t("level.banner") % lvl).to_upper(), FS.TITLE, Pal.INK))
 
 	var med := _medallion(lvl, w * MEDALLION_F)
 	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -169,20 +167,22 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	brow.add_child(btn)
 	col.add_child(brow)
 
-	# the card: ONE flat warm-cream rounded sheet with the mock's shallow tinted shadow (the same
-	# surface the shared v2 frame draws) — no parchment nine-patch, no ribbon, no ✕.
-	var card := PanelContainer.new()
-	card.name = "LevelDialog"
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM
-	sb.set_corner_radius_all(int(w * CARD_CORNER_F))
-	sb.content_margin_left = w * PAD_X_F; sb.content_margin_right = w * PAD_X_F
-	sb.content_margin_top = w * PAD_TOP_F; sb.content_margin_bottom = w * PAD_BOT_F
-	_mock_shadow(sb)
-	card.add_theme_stylebox_override("panel", sb)
-	card.custom_minimum_size = Vector2(w, 0)
-	card.add_child(col)
-	return card
+	# wrap the content in the SHARED frame — the same cream card + big navy title band every dialog
+	# wears. No ✕ (show_close = false; the mock has none — veil tap / Collect dismisses). The card
+	# hugs its content (min_h 0, like the mock), and the level's own L/R + bottom insets are kept so
+	# the bar/pill width fractions stay valid; the frame reserves the top band for the title.
+	var cfg: Dictionary = d.get("frame_cfg", null) if d.get("frame_cfg", null) is Dictionary else Kit.load_config(Kit.CONFIG_PATH)
+	var fo: Dictionary = Kit.dialog_opts_from_config(cfg)
+	fo["banner_text"] = Strings.t("level.banner") % lvl
+	fo["show_close"] = false
+	fo["min_h"] = 0.0
+	# the level sheet never scrolls — it hugs its content. A large fixed list cap keeps the frame's
+	# height math STABLE (the list_max_h == 0 path ties the cap to the live rows size, a moving target
+	# that settles on a stale mid-layout height and slices the card short).
+	fo["list_max_h"] = 100000.0
+	fo["panel_pad_x"] = w * PAD_X_F
+	fo["panel_pad_y"] = w * PAD_BOT_F
+	return Kit.dialog_frame(col, w, fo)
 
 ## THE uniform shadow (skin.gd), applied ON the element's own
 ## StyleBoxFlat so it follows the box's exact rounded corners. The same recipe as residents.gd.

@@ -1,0 +1,7 @@
+Create exactly nine distinct number-free level badge concepts in a 3x3 sprite sheet for the top-left Grove HUD.
+
+Each option must reserve a large empty sky-blue center for runtime level numerals, with a warm-cream separation ring and compact phone-scale silhouette. Row-major concepts: crown rosette, petal seal, gentle shield, double rosette, acorn-cap crest, leaf compass, quilted plaque, sunburst medallion, award seal.
+
+Use Meadow Sky + Cut-Paper Playground: friendly matte hand-cut cardstock, broad rounded low-complexity shapes, two or three dominant layers, subtle paper fiber, warm cut edges, no plastic, clay, watercolor, gouache, visible brushwork, glossy 3D, heavy black outline, or white sticker outline.
+
+Background is perfectly flat #FF00FF with no texture, lighting variation, gradients, cast shadows, text, labels, numerals, watermarks, panels, or grid lines. All nine badges are fully contained in equal invisible cells with generous margins.
