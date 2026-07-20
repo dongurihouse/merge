@@ -374,6 +374,17 @@ static func pick_root(candidates: Array) -> String:
 			best = String(cand)
 	return best
 
+## Prefer a candidate that actually contains the requested scene. This lets a newly-intaken
+## one-off concept bundle open through plain `make sw SCENE=<name>` instead of requiring ROOT=.
+## When no candidate has it, keep the established richest-root fallback for the existing scene set.
+static func pick_root_for_scene(candidates: Array, scene: String) -> String:
+	var matching: Array = []
+	for cand in candidates:
+		var root := String(cand)
+		if bundle_for(root, scene) != "":
+			matching.append(root)
+	return pick_root(matching) if not matching.is_empty() else pick_root(candidates)
+
 ## The scene's REFERENCE images (the left column), primary first: the ORIGINAL concept mocks in
 ## assets/_concepts/zones (untouched full-scene sources, .png/.jpg), then the mocks-root images
 ## named <scene>*.png (incl. the baked composites), then the bundle's 09_reconstruction pass.

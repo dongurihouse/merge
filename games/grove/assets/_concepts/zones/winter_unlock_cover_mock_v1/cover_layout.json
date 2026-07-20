@@ -1,0 +1,21 @@
+{
+  "canvas": { "width": 941, "height": 1672 },
+  "anchorConvention": "center",
+  "purpose": "Fully covered winter-scene preview. Use the opaque drift grid as the removable base coverage, then optionally place the decorative snowflakes above it.",
+  "baseCoverageGrid": {
+    "image": "covers/cover_scalloped_drift_v1.png",
+    "centersX": [90, 470, 850],
+    "centersY": [45, 390, 735, 1080, 1425, 1625],
+    "width": 570,
+    "height": 492,
+    "zStart": 10,
+    "note": "The grid deliberately overlaps by more than 200 px on both axes so the locked scene has no reveal cracks."
+  },
+  "decorativeTopTiles": [
+    { "id": "crystal_top", "image": "covers/cover_crystal_snowflake_v1.png", "x": 170, "y": 270, "w": 300, "h": 316, "z": 100 },
+    { "id": "rosette_upper", "image": "covers/cover_rosette_snowflake_v1.png", "x": 730, "y": 500, "w": 305, "h": 336, "z": 101 },
+    { "id": "flurry_middle", "image": "covers/cover_flurry_cluster_v1.png", "x": 220, "y": 880, "w": 325, "h": 290, "z": 102 },
+    { "id": "crystal_lower", "image": "covers/cover_crystal_snowflake_v1.png", "x": 745, "y": 1165, "w": 320, "h": 337, "z": 103 },
+    { "id": "rosette_bottom", "image": "covers/cover_rosette_snowflake_v1.png", "x": 470, "y": 1500, "w": 290, "h": 320, "z": 104 }
+  ]
+}

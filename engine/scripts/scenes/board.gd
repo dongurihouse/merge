@@ -552,7 +552,7 @@ func _apply_board_config(b: Dictionary) -> void:
 	# Slot-cell content_frac = visible piece width as a % of its cell. Fall back to legacy board.item only
 	# for older settings files that predate the shared Slot-cell control.
 	var content_pct := float(b.get("content_frac", b.get("item", 68.0)))
-	_board_item_inset = clampf((1.0 - content_pct / 100.0) / 2.0, 0.0, 0.45)
+	_board_item_inset = PieceView.inset_from_content_pct(content_pct)
 
 # (The old per-axis fence/board vertical NUDGES — board_layout.json's fence_dy/board_dy, applied on
 # sort — were retired with the bottom-anchored layout: the stack now packs to the bottom and the board

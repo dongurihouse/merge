@@ -1,0 +1,41 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest 12-tier item-line PNG sheet for a merge game.
+Primary request: Generate a NEW production-ready Oasis Desert Fruits item-line sheet. It must clearly own desert fruit, melon, date, cactus fruit, fig, lime, honeydew, pomegranate, and jeweled desert melon language, so those shapes do not belong in Wild Berries.
+
+Input images:
+- /Users/xup/dh/merge/games/grove/assets/_originals/items/item_lines_cutpaper_v2/fairy_hollow_glowshroom/line_fairy_hollow_glowshroom_v3.png
+  Role: accepted v2 cut-paper Grove item-line style reference only, especially matte hand-cut cardstock, broad low-detail silhouettes, subtle paper texture, warm cut edges, clean outlines, and matched footprints.
+- /Users/xup/dh/merge/games/grove/assets/_originals/items/item_lines_cutpaper_v2/fairy_hollow_wild_berries/line_fairy_hollow_wild_berries_v3.png
+  Role: negative/boundary reference. Do not copy its berry, strawberry, blueberry, berry-cluster, or generic small-fruit language; use it only to avoid overlap.
+- /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png
+  Role: Meadow Sky palette reference.
+- /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png
+  Role: Meadow Sky UI style reference.
+
+Canvas/layout: exact 1024x1536 PNG, portrait, arranged as exactly 3 columns x 4 rows, row-major order from tier 1 top-left to tier 12 bottom-right. No visible grid, no borders, no frames, no labels. Keep generous gutters and magenta margin around every object.
+Background: one perfectly flat, connected, solid #FF00FF background only. No gradients, no texture, no lighting variation, no floor plane.
+Style/medium: v2 Meadow Sky + Cut-Paper Playground Grove item-line style. Matte hand-cut cardstock pieces, broad low-detail silhouettes, crisp continuous dark outline, warm cut edges, simple color blocking, subtle embossed paper texture inside the objects only. Do not make pixel art. No realistic rendering.
+Color palette: oasis greens, coral fruit, honeydew pale green, date amber, pomegranate coral, and restrained gold late-tier accents.
+Sizing/containment: exactly one connected portable whole fruit object per cell. Center each object. All 12 objects must have the same visual footprint and fill the same amount of each cell. Early tiers may be simpler but not smaller. Nothing may cross a cell edge.
+
+Tier content, exactly one clean whole object per cell in this row-major order:
+1. cactus fruit bud: closed oval coral bud hugged by two or three broad attached cactus-green bracts, not a flower.
+2. half-grown prickly pear: squat oval prickly pear fruit with desert green lower half and coral blush top, a few broad attached cactus pad marks, no loose seeds.
+3. whole prickly pear: plump coral pear-shaped cactus fruit with tiny attached oval areoles indicated as large flat cardstock marks, not strawberry seeds.
+4. plump date: single amber-brown elongated date fruit with smooth broad ridges and a small attached cap, no cluster.
+5. desert fig, whole not cut: single round desert fig with muted oasis-green skin, pale patch or blush as a broad attached cardstock panel, closed skin only.
+6. oasis lime: whole round lime in rich oasis green with one attached pale highlight panel and chunky leaf cap, not a berry.
+7. whole round fairy watermelon with chunky stripes: round melon, deep oasis green with broad pale-green chunky vertical stripes, one attached stem cap, no slice or interior.
+8. whole pale honeydew melon: round pale honeydew-green melon with broad raised rind panels, attached cap, no cut interior.
+9. whole desert pomegranate, closed not split: whole coral pomegranate with crowned calyx top, closed skin, broad paneling, no exposed seeds.
+10. crescent oasis melon: single crescent-shaped whole fantasy melon, pale honeydew body with teal-green rind edge, attached cap, no slice/interior impression.
+11. sun melon with broad panels, no glow: whole round coral-and-gold melon with large broad cardstock panels and restrained gold rim/panel accents, no sun rays, no glow, no sparkle.
+12. premium rainbow jeweled desert melon: whole round premium melon with teal, coral, honeydew, and restrained gold broad panels plus one bold central attached jewel-like cardstock motif, no acorn emblem.
+
+Strict constraints:
+- No acorn emblem anywhere.
+- Whole portable fruit only.
+- No baskets, bowls, piles, cut interiors, slices, juice, loose seeds, detached leaves, detached vines, or clusters.
+- Avoid small berry-only language: no strawberry, no blueberry, no raspberry, no blackberry, no gooseberry, no cloudberry, no cranberry, no grape clusters, and no eggplant silhouettes.
+- No shadows of any kind, no grounding marks, no reflections, no glow, no sparkles, no particles, no smoke, no aura, no text, no labels, no watermark.
+- Output only the image sheet.
