@@ -15,6 +15,8 @@ const ROOT_CANDIDATES := [
 	# absolute fallback so the tool works from any git worktree (same convention as
 	# build_page_manifests.py — the mocks worktree hangs off the primary checkout)
 	"/Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
+	# Intaken scene bundles can live under concepts while their art direction is still under review.
+	"res://games/grove/assets/_concepts/zones",
 ]
 
 func _initialize() -> void:
@@ -31,13 +33,13 @@ func _initialize() -> void:
 	if root_arg != "" and root_arg != "auto":
 		scenes_root = root_arg
 	else:
-		# the root with the MOST openable scenes wins — a partially-intaken repo copy must
-		# never shadow the full mocks worktree (that read as "the scenes are broken/missing")
+		# The requested scene wins across roots. If it is absent everywhere, fall back to the
+		# root with the most openable scenes so a partial intake never shadows the full mock set.
 		var Model = preload("res://games/grove/tools/scene_workbench_model.gd")
 		var cands: Array = []
 		for cand in ROOT_CANDIDATES:
 			cands.append(ProjectSettings.globalize_path(cand))
-		scenes_root = Model.pick_root(cands)
+		scenes_root = Model.pick_root_for_scene(cands, scene)
 	if scenes_root == "":
 		push_error("no picturebook_scene_mocks_v1 root with openable scenes — pass ROOT=<dir>")
 		quit(1)
