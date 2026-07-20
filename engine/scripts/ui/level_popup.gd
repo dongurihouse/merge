@@ -1,5 +1,5 @@
 extends RefCounted
-## The LEVEL dialog (mock: _concepts/dialogs/level_1080x1920.png). Two modes, one dialog:
+## The LEVEL dialog (mock: _concepts/dialogs/level_dialog_meadow_sky_v2.png). Two modes, one dialog:
 ##   LevelPopup.open(host)              — INFO: tap-to-view (HUD level badge / locked cell). "GOT IT",
 ##                                        veil-dismissable, no reward.
 ##   LevelPopup.open_levelup(host, n)   — LEVELUP: auto on a level gain. Shows the earned gift; the
@@ -7,10 +7,12 @@ extends RefCounted
 ##                                        NOT veil-dismissable (only Collect closes) so the reward
 ##                                        can't be lost.
 ## The SHEET is built here (the residents.gd house pattern — a ui/ file owning its own mock-true
-## surface), not by Kit.level_dialog: this mock's frame is a blue RIBBON over a flat cream card with
-## NO ✕, which neither the shared dialog_frame nor the old parchment level_frame draws. Shared Kit
-## ATOMS are still reused (bold_font, reward_chip, the tinted mock shadow recipe). The model is
-## untouched — content.gd/save.gd supply every number, exactly as before.
+## surface), not by Kit.level_dialog: this mock is a flat cream card with NO ✕ and an ink title
+## INSIDE the card, which neither the shared dialog_frame nor the old parchment level_frame draws.
+## The medallion is the baked v2 art set (kit/level_rosette + sprigs + daisy; intake of
+## level_dialog_assets_v2). Shared Kit ATOMS are still reused (bold_font, reward_chip, the tinted
+## mock shadow recipe). The model is untouched — content.gd/save.gd supply every number, exactly
+## as before.
 
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -26,23 +28,42 @@ const OVERLAY_NAME = "LevelPopupOverlay"
 
 # --- the mock's roles (Meadow Sky) -------------------------------------------------------
 const SHADOW_TINT := Color("#294654")     # the shared tinted shadow role (residents.gd), ~19%
-const RIBBON_BAND := Color("#6E9FBE")     # the banner's front face
 const BAR_REMAIN := Color("#8FA6C9")      # the progress bar's un-earned remainder (muted periwinkle)
+const PILL_FACE := Color("#FBF4E8")       # the tally pill, a touch lighter than the card cream
 
 # --- proportions, as fractions of the sheet WIDTH (screen-fraction sizing, not fixed px) ---
 const CARD_CORNER_F := 0.049
 const PAD_X_F := 0.062
-const PAD_TOP_F := 0.225                  # clears the ribbon, which overlaps the card's top edge
+const PAD_TOP_F := 0.075                  # the ink title sits INSIDE the card (no ribbon to clear)
 const PAD_BOT_F := 0.062
 const GAP_F := 0.036
-const RIBBON_W_F := 0.880
-const RIBBON_H_F := 0.220
-const RIBBON_Y_F := 0.055                 # the ribbon's top, below the card's top edge
-const MEDALLION_F := 0.620                # the rosette's diameter
+const MEDALLION_F := 0.540                # the rosette's diameter
+const SPRIG_F := 0.66                     # each leaf sprig's span, fraction of the rosette diameter
+const DAISY_F := 0.27                     # the daisy medallion, fraction of the rosette diameter
+const PILL_W_F := 0.720
+const PILL_ICON_F := 0.088                # the star token inside the tally pill
 const BAR_W_F := 0.880
 const BAR_H_F := 0.130
 const BTN_W_F := 0.520
 const BTN_CORNER_F := 0.030
+
+# --- the v2 medallion art (intake: level_dialog_assets_v2) + the caps it is baked at -------
+const ART := {
+	"rosette": ["kit/level_rosette.png", 512],
+	"sprig_l": ["kit/level_sprig_l.png", 512],
+	"sprig_r": ["kit/level_sprig_r.png", 512],
+	"daisy":   ["kit/level_daisy.png", 256],
+	"token":   ["kit/level_star_token.png", 256],
+}
+
+## Every sprite this dialog polishes, with its cap — driven by BakeTargets.build_all so the bake
+## covers them and kit_bake_tests holds them baked (no first-open freeze). Same pattern as LoginUI.
+static func bake_sprites() -> Array:
+	return ART.values()
+
+static func _art(id: String) -> Texture2D:
+	var spec: Array = ART[id]
+	return Kit.clean_tex_path(Look.kit(String(spec[0])), int(spec[1]))
 
 static func open(host: Control) -> Control:
 	return _build(host, "info", 0)
@@ -102,8 +123,8 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 	FX.pop_in(dialog)
 	return overlay
 
-## The whole sheet: the cream card (ribbon docked over its top edge) + medallion + tally + progress
-## bar + the "N more to reach Level N+1" hint (info) / reward chip (levelup) + the CTA.
+## The whole sheet: the cream card holding the ink title + medallion + the star-token tally pill +
+## progress bar + the "N more to reach Level N+1" hint (info) / reward chip (levelup) + the CTA.
 static func _sheet(w: float, d: Dictionary) -> Control:
 	var lvl := int(d.get("level", 1))
 	var mode := String(d.get("mode", "info"))
@@ -114,12 +135,14 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
+	# the mock's title is large navy ink INSIDE the card, not a ribbon
+	col.add_child(_line("LevelTitle", (Strings.t("level.banner") % lvl).to_upper(), FS.TITLE, Pal.INK))
+
 	var med := _medallion(lvl, w * MEDALLION_F)
 	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(med)
 
-	col.add_child(_line("LevelTally", "%d / %d earned" % [int(d.get("earned", 0)), int(d.get("next", 0))],
-		FS.DISPLAY, Pal.INK))
+	col.add_child(_tally_pill("%d / %d earned" % [int(d.get("earned", 0)), int(d.get("next", 0))], w))
 
 	var span: int = maxi(1, int(d.get("span", 1)))
 	col.add_child(_bar(clampf(float(int(d.get("into", 0))) / float(span), 0.0, 1.0), w))
@@ -147,11 +170,9 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	col.add_child(brow)
 
 	# the card: ONE flat warm-cream rounded sheet with the mock's shallow tinted shadow (the same
-	# surface the shared v2 frame draws) — no parchment nine-patch, no ✕ (the mock has neither).
-	var wrap := Control.new()
-	wrap.name = "LevelDialog"
+	# surface the shared v2 frame draws) — no parchment nine-patch, no ribbon, no ✕.
 	var card := PanelContainer.new()
-	card.name = "LevelDialogPanel"
+	card.name = "LevelDialog"
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Pal.CREAM
 	sb.set_corner_radius_all(int(w * CARD_CORNER_F))
@@ -161,20 +182,7 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(w, 0)
 	card.add_child(col)
-	wrap.custom_minimum_size.x = w
-	wrap.add_child(card)
-
-	# the ribbon overlaps the card's top edge, centred (added after the card → drawn over it)
-	var ribbon := _ribbon(Strings.t("level.banner") % lvl, w * RIBBON_W_F, w * RIBBON_H_F)
-	wrap.add_child(ribbon)
-	var dock := func() -> void:
-		if is_instance_valid(ribbon) and is_instance_valid(card) and is_instance_valid(wrap):
-			ribbon.position = Vector2((card.size.x - ribbon.size.x) * 0.5, w * RIBBON_Y_F)
-			wrap.custom_minimum_size = card.size
-	card.resized.connect(dock)
-	ribbon.resized.connect(dock)
-	wrap.ready.connect(dock)
-	return wrap
+	return card
 
 ## THE uniform shadow (skin.gd), applied ON the element's own
 ## StyleBoxFlat so it follows the box's exact rounded corners. The same recipe as residents.gd.
@@ -278,103 +286,77 @@ static func _bar(frac: float, w: float) -> Control:
 	holder.ready.connect(lay)
 	return holder
 
-## The title RIBBON — a blue band on two folded, notched tails, drawn in code (the mock's banner is a
-## solid mid-blue ribbon; the shipped title_banner sprite is the cream-faced variant).
-class Ribbon:
-	extends Control
-	const TAIL := Color("#4E7E9E")
-	func _draw() -> void:
-		var w := size.x
-		var h := size.y
-		var band_w := w * 0.83
-		var bx := (w - band_w) * 0.5
-		var top := h * 0.17          # the tails ride below the band's top edge
-		var tail_h := h * 0.46
-		var slant := h * 0.10        # the outer end hangs a touch lower
-		var notch := w * 0.045       # the V cut in each tail's outer end
-		for s in [-1.0, 1.0]:
-			var inner: float = (bx + band_w * 0.06) if s < 0.0 else (bx + band_w * 0.94)
-			var outer: float = 0.0 if s < 0.0 else w
-			var nx: float = notch if s < 0.0 else w - notch
-			draw_colored_polygon(PackedVector2Array([
-				Vector2(inner, top),
-				Vector2(outer, top + slant),
-				Vector2(nx, top + slant + tail_h * 0.5),
-				Vector2(outer, top + slant + tail_h),
-				Vector2(inner, top + tail_h),
-			]), TAIL)
+## The tally PILL (mock): a raised light-cream capsule carrying the gold star token and the
+## "X / Y earned" line.
+static func _tally_pill(text: String, w: float) -> Control:
+	var pill := PanelContainer.new()
+	pill.name = "LevelTally"
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PILL_FACE
+	sb.set_corner_radius_all(int(w * 0.06))
+	sb.content_margin_left = w * 0.055; sb.content_margin_right = w * 0.055
+	sb.content_margin_top = w * 0.026; sb.content_margin_bottom = w * 0.026
+	_mock_shadow(sb)
+	pill.add_theme_stylebox_override("panel", sb)
+	pill.custom_minimum_size = Vector2(w * PILL_W_F, 0)
 
-static func _ribbon(text: String, w: float, h: float) -> Control:
-	var r := Ribbon.new()
-	r.name = "LevelRibbon"
-	r.custom_minimum_size = Vector2(w, h)
-	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var band := Panel.new()
-	band.name = "LevelRibbonBand"
-	band.position = Vector2(w * 0.085, 0.0)
-	band.size = Vector2(w * 0.83, h * 0.64)
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = RIBBON_BAND
-	bsb.set_corner_radius_all(int(h * 0.10))
-	bsb.shadow_color = Look.shadow_color(Look.SHADOW_DEFAULTS.alpha / 100.0)
-	bsb.shadow_size = 8
-	bsb.shadow_offset = Vector2(0, 4)
-	band.add_theme_stylebox_override("panel", bsb)
-	r.add_child(band)
-	var lbl := _line("LevelRibbonTitle", text.to_upper(), FS.TITLE, Pal.INK)
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	band.add_child(lbl)
-	return r
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(w * 0.028))
+	var token := _sprite("LevelTallyToken", "token", w * PILL_ICON_F)
+	if token != null:
+		row.add_child(token)
+	var lbl := _line("LevelTallyText", text, FS.DISPLAY, Pal.INK)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lbl)
+	pill.add_child(row)
+	return pill
 
-## The mock's MEDALLION: a sage scalloped rosette carrying a cream-ringed sky disc and the level
-## numeral, seated in the laurel wreath with a daisy at its foot.
-class Rosette:
-	extends Control
-	const BUMPS := 18
-	const SAGE := Color("#A8D3B9")
-	const RING := Color("#F6EBDD")
-	const DISC := Color("#6FA9C0")
-	func _draw() -> void:
-		var r := size.x * 0.5
-		var c := size * 0.5
-		var bump := r * 0.135
-		var base := r - bump
-		for i in BUMPS:
-			var a := TAU * float(i) / float(BUMPS)
-			draw_circle(c + Vector2(cos(a), sin(a)) * base, bump, SAGE)
-		draw_circle(c, base, SAGE)
-		draw_circle(c, r * 0.77, RING)         # the cream ring
-		draw_circle(c, r * 0.71, DISC)           # the disc the numeral sits on
+## One polished medallion sprite at `px` wide (height follows the texture's aspect), or null when
+## the art is missing (the dialog still builds; the layout simply omits the sprite).
+static func _sprite(nm: String, art_id: String, px: float) -> TextureRect:
+	var tex: Texture2D = _art(art_id)
+	if tex == null:
+		return null
+	var tr := TextureRect.new()
+	tr.name = nm
+	tr.texture = tex
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE          # BEFORE size/position (min-size cache)
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var h := px * float(tex.get_height()) / maxf(1.0, float(tex.get_width()))
+	tr.custom_minimum_size = Vector2(px, h)
+	tr.size = Vector2(px, h)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
 
+## The mock's MEDALLION, assembled from the baked v2 art: the scalloped rosette base carrying the
+## runtime level numeral, an oak-leaf sprig flanking each lower side, and the daisy medallion
+## seated on the rosette's foot.
 static func _medallion(level: int, m: float) -> Control:
+	var sprig_w := m * SPRIG_F
+	var daisy_px := m * DAISY_F
+	var bw := m + sprig_w * 1.04          # each sprig reaches ~half its span beyond the rosette
+	var bh := m + daisy_px * 0.45         # the daisy hangs below the rosette's foot
 	var block := Control.new()
 	block.name = "LevelMedallion"
-	block.custom_minimum_size = Vector2(m * 1.165, m * 1.06)
+	block.custom_minimum_size = Vector2(bw, bh)
 	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the laurel sits BEHIND the rosette, its foot flush with the block's bottom
-	var wreath_tex: Texture2D = Kit.clean_tex_path(Look.kit("kit/level_wreath.png"), 512)
-	if wreath_tex != null:
-		var wr := TextureRect.new()
-		wr.name = "LevelWreath"
-		wr.texture = wreath_tex
-		wr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE          # BEFORE size/position (min-size cache)
-		wr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var ww := m * 1.165
-		var wh := ww * float(wreath_tex.get_height()) / maxf(1.0, float(wreath_tex.get_width()))
-		wr.size = Vector2(ww, wh)
-		wr.position = Vector2(0.0, block.custom_minimum_size.y - wh)
-		wr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		block.add_child(wr)
+	# the sprigs sit BEHIND the rosette, splayed from its lower half toward the corners
+	var sprig_l := _sprite("LevelSprigL", "sprig_l", sprig_w)
+	if sprig_l != null:
+		sprig_l.position = Vector2(0.0, m * 0.92 - sprig_l.size.y * 0.5)
+		block.add_child(sprig_l)
+	var sprig_r := _sprite("LevelSprigR", "sprig_r", sprig_w)
+	if sprig_r != null:
+		sprig_r.position = Vector2(bw - sprig_w, m * 0.92 - sprig_r.size.y * 0.5)
+		block.add_child(sprig_r)
 
-	var rose := Rosette.new()
-	rose.name = "LevelRosette"
-	rose.size = Vector2(m, m)
-	rose.position = Vector2((block.custom_minimum_size.x - m) * 0.5, 0.0)
-	rose.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	block.add_child(rose)
+	var rose := _sprite("LevelRosette", "rosette", m)
+	if rose != null:
+		rose.position = Vector2((bw - m) * 0.5, 0.0)
+		block.add_child(rose)
 
 	var num := Label.new()
 	num.name = "LevelNumber"
@@ -382,24 +364,16 @@ static func _medallion(level: int, m: float) -> Control:
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	num.add_theme_font_override("font", Kit.bold_font())
-	num.add_theme_font_size_override("font_size", int(m * 0.50))
+	num.add_theme_font_size_override("font_size", int(m * (0.46 if level < 100 else 0.36)))
 	num.add_theme_color_override("font_color", Pal.CREAM)
 	num.add_theme_constant_override("outline_size", 0)
 	num.size = Vector2(m, m)
-	num.position = rose.position
+	num.position = Vector2((bw - m) * 0.5, 0.0)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	block.add_child(num)
 
-	var daisy_tex: Texture2D = Kit.clean_tex_path(Look.kit("kit/shop_daisy.png"), 256)
-	if daisy_tex != null:
-		var dz := TextureRect.new()
-		dz.name = "LevelDaisy"
-		dz.texture = daisy_tex
-		dz.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		dz.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var dp := m * 0.26
-		dz.size = Vector2(dp, dp)
-		dz.position = Vector2((block.custom_minimum_size.x - dp) * 0.5, block.custom_minimum_size.y - dp)
-		dz.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		block.add_child(dz)
+	var daisy := _sprite("LevelDaisy", "daisy", daisy_px)
+	if daisy != null:
+		daisy.position = Vector2((bw - daisy_px) * 0.5, bh - daisy.size.y)
+		block.add_child(daisy)
 	return block
