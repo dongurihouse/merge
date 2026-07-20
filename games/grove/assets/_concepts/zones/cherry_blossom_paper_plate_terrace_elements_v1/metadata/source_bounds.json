@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "sourceReference": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_mock_v2/cherry_blossom_paper_plate_terrace_v2.png",
+  "sourceSha256": "77a13c924263f3fc4c3ba38d56aaf7b31ff14c1eddef45189ac1812f572bc026",
+  "sourceCanvas": {"width": 930, "height": 1691},
+  "sceneCanvas": {"width": 1320, "height": 2346},
+  "socketBounds": {
+    "pavilion": {"x": 300, "y": 150, "w": 570, "h": 440},
+    "pond_bridge": {"x": -65, "y": 590, "w": 540, "h": 540},
+    "temizuya": {"x": 495, "y": 595, "w": 440, "h": 540},
+    "torii": {"x": 250, "y": 1080, "w": 570, "h": 575}
+  },
+  "notes": "Socket bounds are in source-reference pixels. Alpha bounds of the isolated clusters are fitted to these bounds before placement."
+}

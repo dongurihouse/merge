@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "scene": "cherry_blossom_paper_plate_terrace",
+  "pipeline": {
+    "mapMode": "scene_mode",
+    "visualModel": "layered_raster",
+    "runtimeObjectModel": ["separate_props", "foreground_occluders"],
+    "collisionModel": "none",
+    "visualAssetSource": "image_gen",
+    "engineTarget": "project-native"
+  },
+  "canvas": {
+    "width": 1320,
+    "height": 2346,
+    "reviewWidth": 941,
+    "reviewHeight": 1672,
+    "anchorConvention": "center-bottom",
+    "coordinateOrigin": "top-left"
+  },
+  "base": {
+    "id": "peach_sky",
+    "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/01_backdrop/sky_plate.png",
+    "opaque": true,
+    "z": 0
+  },
+  "placements": [
+    {"id": "foundation", "assetId": "zen_sand_mountain_foundation", "category": "backdrop", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/01_backdrop/foundation_plate.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 10, "layer": "stable_foundation", "cluster": "foundation"},
+    {"id": "clouds", "assetId": "clouds_plate", "category": "atmosphere", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/02_atmosphere/clouds_plate.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 20, "layer": "stable_atmosphere", "cluster": "sky"},
+    {"id": "pavilion", "assetId": "pavilion_plate", "category": "structures", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/03_structures/pavilion_plate.png", "x": 831, "y": 893, "w": 900, "h": 758, "z": 100, "layer": "replaceable_structure", "cluster": "pavilion"},
+    {"id": "pond_bridge", "assetId": "pond_bridge_plate", "category": "garden_items", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/04_garden_items/pond_bridge_plate.png", "x": 291, "y": 1640, "w": 852, "h": 893, "z": 110, "layer": "replaceable_garden_item", "cluster": "pond_bridge"},
+    {"id": "temizuya", "assetId": "temizuya_plate", "category": "structures", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/03_structures/temizuya_plate.png", "x": 1015, "y": 1617, "w": 782, "h": 833, "z": 120, "layer": "replaceable_structure", "cluster": "temizuya"},
+    {"id": "torii", "assetId": "torii_plate", "category": "structures", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/03_structures/torii_plate.png", "x": 760, "y": 2350, "w": 900, "h": 906, "z": 130, "layer": "replaceable_structure", "cluster": "torii"},
+    {"id": "edge_cover", "assetId": "cherry_edge_cover", "category": "cover", "image": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/05_cover/edge_cover.png", "x": 660, "y": 2346, "w": 1320, "h": 2346, "z": 900, "layer": "fixed_foreground_occluder", "cluster": "edge_cover"}
+  ]
+}
