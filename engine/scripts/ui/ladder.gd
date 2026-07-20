@@ -82,11 +82,24 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	# every dialog renders at the SINGLE global frame width; content scales from this dialog's authored
+	# baseline (Kit.DIALOG_DESIGN_PCT) to that width. The dialog body itself is built by _build (shared
+	# with the workbench preview, so the tool matches the game exactly).
 	var vw: float = host.get_viewport_rect().size.x
-	# every dialog renders at the SINGLE global frame width; content scales from this dialog's
-	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
+	var dialog: Control = _build(Kit, width, opts, overlay)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
+
+## Build the Discovery-ladder dialog Control (the shared tiers chrome + the corner tier CHIPs + the
+## generator/recipe header) at design `width`, from `opts` (header · entries · mark_tier · on_pick ·
+## on_gen). SHARED: Ladder._render mounts it in its modal overlay; the workbench "tiers" element renders
+## it standalone. `overlay` (optional) receives the rebuild metadata + drives the ✕ close; pass null for
+## a static preview (no overlay, ✕ inert).
+static func _build(Kit: GDScript, width: float, opts: Dictionary, overlay: Control = null) -> Control:
+	var header: Dictionary = opts.get("header", {})
+	var on_pick: Callable = opts.get("on_pick", Callable())
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 
 	# the shared TIERS chrome (twig border + ladder ribbon + ✕ + slot-cell look) from the saved config.
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
@@ -94,7 +107,7 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	dopts["content_scale"] = scale
 	dopts["banner_text"] = String(header.get("name", Strings.t("ladder.title")))
 	dopts["on_close"] = func() -> void:
-		if is_instance_valid(overlay): overlay.queue_free()
+		if overlay != null and is_instance_valid(overlay): overlay.queue_free()
 
 	# --- the MOCK's face (tiers_1080x1920) -------------------------------------------------------
 	# the chrome (banner band + ✕) is built at the on-screen TARGET width; the body is laid out at
@@ -118,20 +131,21 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	_dress_cells(grid, cells)
 
 	var dialog: Control
-	overlay.set_meta("mark_tier", mark_tier)
+	if overlay != null:
+		overlay.set_meta("mark_tier", mark_tier)
 	if String(header.get("kind", "")) == "recipe":
 		var lines: Array = header.get("lines", [])
-		overlay.set_meta("ladder_kind", "recipe")
-		overlay.set_meta("recipe_lines", lines)
+		if overlay != null:
+			overlay.set_meta("ladder_kind", "recipe")
+			overlay.set_meta("recipe_lines", lines)
 		dialog = Kit.dialog_frame(_recipe_body(Kit, lines, mark_tier, grid, width, dopts, on_pick), width, dopts)
 	else:
 		var gid := String(header.get("gid", ""))
-		overlay.set_meta("ladder_kind", "tiers")
-		overlay.set_meta("header_gid", gid)
+		if overlay != null:
+			overlay.set_meta("ladder_kind", "tiers")
+			overlay.set_meta("header_gid", gid)
 		dialog = Kit.dialog_frame(_tiers_body(gid, grid, width, opts.get("on_gen", Callable()), dopts["on_close"]), width, dopts)
-
-	cc.add_child(dialog)
-	FX.pop_in(dialog)
+	return dialog
 
 ## Dress every built tier cell to the mock: the corner NUMBER CHIP, plus (on an undiscovered tier)
 ## the mock's flat navy PADLOCK in place of the kit's pale acorn lock. The kit's grid is a VBox of

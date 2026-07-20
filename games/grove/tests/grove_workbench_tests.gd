@@ -351,7 +351,7 @@ func _initialize() -> void:
 	view._selected = "tiers"
 	view._rebuild_sidebar()
 	await process_frame
-	var long_sidebar_note := _sidebar_label_containing(view, "The tiles ARE the SHARED slot cell")
+	var long_sidebar_note := _sidebar_label_containing(view, "the game's REAL Discovery ladder")
 	ok(long_sidebar_note != null \
 		and long_sidebar_note.autowrap_mode != TextServer.AUTOWRAP_OFF \
 		and long_sidebar_note.size_flags_horizontal == Control.SIZE_EXPAND_FILL \

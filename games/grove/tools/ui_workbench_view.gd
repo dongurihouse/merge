@@ -19,6 +19,7 @@ const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the sel
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
+const LadderUI = preload("res://engine/scripts/ui/ladder.gd")          # the REAL discovery-ladder renderer (corner tier chips + generator header)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -529,11 +530,16 @@ func _make_element(id: String) -> Control:
 					met.visible = true
 			return stand
 		"tiers":
-			# the STANDARD shared frame (no override) + the tier-cell grid (NO vines). The banner text is the line name.
-			var topts := Kit.tiers_opts_from_config(_params)
-			topts["banner_text"] = "Wildflower"
-			topts["content_scale"] = _dlg_scale("tiers")
-			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
+			# the REAL Discovery ladder (ladder.gd) — the SAME renderer the game opens: corner tier CHIPs
+			# (cream seen / grey locked), a generator-icon header, mock-measured layout. The old
+			# Kit.tiers_dialog here showed a plain-number grid with no chip/header (the game diverged to
+			# ladder.gd for the flagship discovery screen). Demo: line 1, seen through tier 6, tier 6 marked.
+			var tentries: Array = []
+			for t in range(1, 13):
+				tentries.append({"tier": t, "code": 100 + t, "seen": t <= 6})
+			return LadderUI._build(Kit, _dlg_px("tiers"), {
+				"header": {"kind": "tiers", "name": "Wildflower", "gid": "seed_satchel"},
+				"mark_tier": 6, "entries": tentries})
 		"info_bar":
 			# The merged Workbench target previews the LIVE board bottom bar as one shared tray: Home · Info ·
 			# Bag. The inner Home/Info/Bag frames are transparent so only the parent tray paints a border.
@@ -1392,7 +1398,7 @@ func _sidebar_notes(_id: String) -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the code-drawn locked background, with a plain lower-right tier number; marked tiers sparkle. The piece size + well/background look are inherited from the Slot cell item — only the square cell size, tier-number toggle, sparkle, and grid are tuned here. A plain grid — no vines."
+		note.text = "This is the game's REAL Discovery ladder (ladder.gd): each cell wears a corner tier CHIP (cream when seen, grey when locked), a generator-icon header sits on top, and the layout is mock-measured — all fixed in ladder.gd. The grid + cell knobs below tune the SHARED tiers style (also used by the resident ladder + the Producing dialog); the Discovery ladder overrides the cell gap + swaps the plain tier number for its chip, so those two do not change this preview."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
