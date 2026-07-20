@@ -101,7 +101,7 @@ func _initialize() -> void:
 		var shadow_style := shadow.get_theme_stylebox("panel") as StyleBoxFlat if shadow != null else null
 		ok(shadow_style != null and same_rgb(shadow_style.shadow_color, SHADOW_TINT) \
 			and absf(shadow_style.shadow_color.a - 0.20) <= 0.01 \
-			and shadow_style.shadow_size == 6 and near_vec(shadow_style.shadow_offset, Vector2(0, 5)),
+			and shadow_style.shadow_size == 4 and near_vec(shadow_style.shadow_offset, Vector2(0, 5)),
 			"%s casts THE uniform slate shadow" % pill_name)
 
 		var shell := pill.get_node_or_null("Shell") as Panel

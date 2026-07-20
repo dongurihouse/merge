@@ -647,11 +647,13 @@ static func shadow_bottom_reach() -> float:
 
 ## Stamp THE uniform shadow onto a StyleBoxFlat — for elements whose chrome is a native StyleBox
 ## (buttons, framed panels) rather than a behind-panel. Reads the SAVED workbench block, so the
-## Shadow item drives these too. (StyleBox natives have no spread knob — spread is behind-panel only.)
+## Shadow item drives these too. StyleBoxFlat has no spread knob, so spread is FOLDED into the
+## feather size (size = blur + spread): both paths then share the same reach — offset+blur+spread —
+## and a spread that cancels the blur kills the shadow on this path too, matching the behind-panel.
 static func apply_box_shadow(sb: StyleBoxFlat) -> void:
 	var p := saved_shadow_params()
 	sb.shadow_color = shadow_color(float(p.alpha))
-	sb.shadow_size = int(float(p.blur))
+	sb.shadow_size = maxi(0, int(roundf(float(p.blur) + float(p.spread))))
 	sb.shadow_offset = Vector2(float(p.offset_x), float(p.offset_y))
 
 ## A RECTANGULAR shared shadow behind an element of corner radius `corner`. `p` is shadow_params().
