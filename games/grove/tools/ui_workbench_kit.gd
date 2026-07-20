@@ -121,6 +121,7 @@ static func _rounded_paper_layer(node_name: String, file_name: String, size_px: 
 static func apply_rounded_paper_panel_surface(panel: Control, node_name: String, file_name: String, corner_px: float, inset: float = 2.0) -> TextureRect:
 	if panel == null:
 		return null
+	panel.set_meta(Look.SHADOW_CORNER_META, corner_px)   # the element's real rounding — shadow wrappers read this
 	var existing := panel.find_child(node_name, false, false) as TextureRect
 	if existing != null:
 		var existing_material := existing.material as ShaderMaterial
@@ -183,6 +184,7 @@ static func _apply_rounded_paper_surface(
 	behind := false,
 	border_px := 1.0
 ) -> TextureRect:
+	button.set_meta(Look.SHADOW_CORNER_META, corner)   # the element's real rounding — shadow wrappers read this
 	# `behind` = the paper draws BEHIND the button's own canvas item, for buttons whose content is the
 	# Button's native text/icon (pill_button) rather than child nodes (the rect nav buttons): the
 	# stylebox then contributes only its border + content margins, and the paper is the fill.
@@ -257,6 +259,7 @@ static func _meadow_shadow_circle(diameter: float, params: Dictionary = {}) -> P
 	return Look.shadow_circle(diameter, _shared_shadow_params(params))
 
 static func _meadow_with_shadow(node: Control, corner: float, params: Dictionary = {}, circular := false) -> Control:
+	# with_shadow itself prefers the node's stamped rounding (Look.SHADOW_CORNER_META) over `corner`
 	return Look.with_shadow(node, corner, _shared_shadow_params(params), circular)
 
 # The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
@@ -1505,7 +1508,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 static func _maybe_shadow(b: Control, on: bool, corner: float, params: Dictionary = {}) -> Control:
 	if not on:
 		return b
-	var sh := _meadow_shadow_rect(maxf(corner, 18.0), params)
+	var sh := _meadow_shadow_rect(Look.shape_corner(b, maxf(corner, 18.0)), params)
 	sh.show_behind_parent = true
 	b.add_child(sh)
 	return b
@@ -1615,7 +1618,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	# button — a rounded RECT for the rail / Map badges (corner = the badge corner) or a CIRCLE for disc
 	# buttons (corner = px/2). On only when the Shadow toggle is set; opts.shadow_params is the single look.
 	if bool(opts.get("shadow", false)):
-		var sh: Panel = _meadow_shadow_rect(float(corner), opts.get("shadow_params", {})) if shape == "rect" else _meadow_shadow_circle(px, opts.get("shadow_params", {}))
+		var sh: Panel = _meadow_shadow_rect(Look.shape_corner(b, float(corner)), opts.get("shadow_params", {})) if shape == "rect" else _meadow_shadow_circle(Look.shape_corner(b, px), opts.get("shadow_params", {}))
 		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.

@@ -669,6 +669,14 @@ static func shadow_rect(corner: float, p: Dictionary) -> Panel:
 static func shadow_circle(diameter: float, p: Dictionary) -> Panel:
 	return shadow(diameter / 2.0, float(p.get("offset_x", SHADOW_DEFAULTS.offset_x)), float(p.get("offset_y", SHADOW_DEFAULTS.offset_y)), float(p.get("blur", SHADOW_DEFAULTS.blur)), float(p.get("spread", SHADOW_DEFAULTS.spread)), float(p.get("alpha", SHADOW_DEFAULTS.alpha / 100.0)))
 
+## An element's chrome builder stamps the radius it actually applied under this meta key; every
+## shadow wrapper prefers it over a hand-passed corner, so the shadow's shape can never drift
+## from the element's real rounding (the pill bug: shell 0.35h, hand-passed shadow corner 0.5h).
+const SHADOW_CORNER_META := "shadow_corner"
+
+static func shape_corner(node: Control, fallback: float) -> float:
+	return float(node.get_meta(SHADOW_CORNER_META, fallback)) if node != null else fallback
+
 ## Wrap `node` in a holder that draws the shared shadow BEHIND it — for CONTAINER nodes (PanelContainer
 ## etc.) that manage their own children, where a behind-parent child would fight the layout. `size` is the
 ## element corner (rect) or diameter (circle). The holder hugs the node's size, so the parent layout still
@@ -679,7 +687,8 @@ static func with_shadow(node: Control, size: float, p: Dictionary, circular := f
 	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the node owns its input
 	holder.size_flags_horizontal = node.size_flags_horizontal
 	holder.size_flags_vertical = node.size_flags_vertical
-	holder.add_child(shadow_circle(size, p) if circular else shadow_rect(size, p))   # behind (added first)
+	var c := shape_corner(node, size)                         # the element's OWN rounding wins over the hand-passed size
+	holder.add_child(shadow_circle(c, p) if circular else shadow_rect(c, p))   # behind (added first)
 	holder.add_child(node)
 	node.set_anchors_preset(Control.PRESET_FULL_RECT)         # the node fills the holder; the holder is sized to the node
 	var sync := func() -> void:
