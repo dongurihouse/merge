@@ -99,5 +99,24 @@ func _initialize() -> void:
 		"higher banner_burn deepens the title ink")
 	flat.queue_free(); hot.queue_free()
 
+	# long-title shrink: the title row's max width is the card minus the docked ✕ zone on BOTH sides,
+	# so a long name auto-shrinks to fit instead of running under the disc ("WINTER BERRIES" bug).
+	var tw := 400.0
+	var close_size := 64.0
+	var close_inset := 12.0
+	var long_name := "Winter berries"
+	var ldlg2: Control = Kit.dialog_frame(VBoxContainer.new(), tw, {"banner_text": long_name})
+	var tlong := ldlg2.find_child("DialogTitle", true, false) as Label
+	ok(tlong != null, "long-title dialog builds a DialogTitle")
+	if tlong != null:
+		var f: Font = tlong.get_theme_font("font")
+		var fsz: int = tlong.get_theme_font_size("font_size")
+		var room := tw - 2.0 * (close_inset + close_size + Kit.TITLE_CLOSE_GAP)
+		var painted := f.get_string_size(long_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
+		ok(painted <= room + 0.5, "long title shrinks inside the ✕-bounded row (%.0f <= %.0f)" % [painted, room])
+		var short_fsz: int = Kit.dialog_title_font("Mail", tw, close_inset + close_size + Kit.TITLE_CLOSE_GAP)
+		ok(short_fsz == int(round(tw * Kit.DIALOG_TITLE_FONT_FRAC)), "short title keeps the full display size")
+	ldlg2.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
