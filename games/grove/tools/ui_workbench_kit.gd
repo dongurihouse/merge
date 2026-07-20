@@ -5253,6 +5253,31 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	return dialog_frame(content, width, opts)
 
 # The bag footer caption flanked by the bag leaf sprigs (bag_leaf_l/r.png), or text alone when absent.
+## The bag's stored-GENERATORS section — a centred label + a row of generator cells. SHARED: the game's
+## bag (bag_overlay._gen_section) builds the live generator cells and passes them here; the workbench
+## preview passes demo cells. `cells` is an array of bag_card entry dicts; `cell_opts` is the dialog's
+## FITTED cell opts, so the generator tiles match the grid's cell size. Fed to bag_dialog via opts.extra.
+static func bag_generators_section(label_text: String, cells: Array, cell_opts: Dictionary) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", FS.BODY)
+	label.add_theme_color_override("font_color", Color(Pal.INK, 0.75))
+	label.add_theme_constant_override("outline_size", 0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(label)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(row)
+	for c in cells:
+		row.add_child(bag_card(c as Dictionary, cell_opts))
+	return col
+
 static func _bag_footer(text: String) -> Control:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

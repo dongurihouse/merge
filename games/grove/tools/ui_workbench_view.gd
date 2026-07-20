@@ -19,6 +19,8 @@ const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the sel
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
+const LadderUI = preload("res://engine/scripts/ui/ladder.gd")          # the REAL discovery-ladder renderer (corner tier chips + generator header)
+const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — sage art-left cards)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -111,7 +113,7 @@ const TEST_KEYS := {
 	"bag_card": [],
 	# the bag DIALOG — grid/caption persist; balance/owned/filled just preview the slot ladder (the game
 	# sets each from save: the 💎 balance, how many slots owned, how many hold a piece).
-	"bag": ["balance", "owned", "filled"],
+	"bag": ["owned", "filled"],
 }
 const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
@@ -327,8 +329,8 @@ func _default_params() -> Dictionary:
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
-		"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
-			"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
+		"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0,
+			"caption": "Open a slot with acorns.", "owned": 8, "filled": 5},
 	}
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -491,11 +493,19 @@ func _make_element(id: String) -> Control:
 			# (no shuffle) so the capture is repeatable. Frame edits flow through via frame_cfg: _params.
 			return _mystery_preview(String(p.preview))
 		"shop":
-			# the SAME shared frame + the SAME small card — just shop data (icon+count+price+ribbon)
-			var sopts := Kit.shop_opts_from_config(_params)
-			sopts["banner_text"] = "Shop"
-			sopts["content_scale"] = _dlg_scale("shop")
-			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
+			# the REAL game storefront (shop.gd) — the SAME Shop.build_body the shop screen renders: sage
+			# art-left offer cards, a 2-column grid, plain navy all-caps section headers, bespoke green price
+			# slabs. The old Kit.shop_dialog here was orphaned (3-col daily-card cells, sprig dividers,
+			# ribbons) — the game diverged to shop.gd. Demo data mirrors the game's sections.
+			var width := _dlg_px("shop")
+			var scale := _dlg_scale("shop")
+			var inner := width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
+			var fopts := Kit.dialog_opts_from_config(_params)
+			fopts["banner_text"] = "Shop"
+			fopts["content_scale"] = scale
+			fopts["clip_below_banner"] = true   # rows clip UNDER the title band, like the game
+			fopts["list_max_h"] = 2600.0        # show the whole storefront (the game caps to 72% of the viewport)
+			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections()), width, fopts)
 		"level":
 			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
 			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
@@ -529,11 +539,16 @@ func _make_element(id: String) -> Control:
 					met.visible = true
 			return stand
 		"tiers":
-			# the STANDARD shared frame (no override) + the tier-cell grid (NO vines). The banner text is the line name.
-			var topts := Kit.tiers_opts_from_config(_params)
-			topts["banner_text"] = "Wildflower"
-			topts["content_scale"] = _dlg_scale("tiers")
-			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
+			# the REAL Discovery ladder (ladder.gd) — the SAME renderer the game opens: corner tier CHIPs
+			# (cream seen / grey locked), a generator-icon header, mock-measured layout. The old
+			# Kit.tiers_dialog here showed a plain-number grid with no chip/header (the game diverged to
+			# ladder.gd for the flagship discovery screen). Demo: line 1, seen through tier 6, tier 6 marked.
+			var tentries: Array = []
+			for t in range(1, 13):
+				tentries.append({"tier": t, "code": 100 + t, "seen": t <= 6})
+			return LadderUI._build(Kit, _dlg_px("tiers"), {
+				"header": {"kind": "tiers", "name": "Wildflower", "gid": "seed_satchel"},
+				"mark_tier": 6, "entries": tentries})
 		"info_bar":
 			# The merged Workbench target previews the LIVE board bottom bar as one shared tray: Home · Info ·
 			# Bag. The inner Home/Info/Bag frames are transparent so only the parent tray paints a border.
@@ -571,13 +586,22 @@ func _make_element(id: String) -> Control:
 		"bag_card":
 			return _slot_cell_gallery(p)
 		"bag":
-			# the SHARED frame + the reused gold currency pill + a grid of bag cells (the SAME builder the game's
-			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
+			# the SHARED frame + a grid of bag cells + the stored-generators row — the SAME Kit.bag_dialog the
+			# game's bag_overlay.gd builds. owned/filled compose the slot ladder; the generators row is fed
+			# through opts.extra (like the game) via the shared Kit.bag_generators_section, with demo generators.
 			var bopts := Kit.bag_opts_from_config(_params)
 			bopts["banner_text"] = "Bag"
 			bopts["content_scale"] = _dlg_scale("bag")
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
-			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
+			bopts["extra"] = func(co: Dictionary) -> Control:
+				var gens: Array = []
+				for gid in ["seed_satchel", "hen_coop"]:
+					var gid_str := String(gid)
+					# real generator art via make_content (the game does the same) so the demo isn't a "?" icon
+					gens.append({"kind": "filled", "icon": gid_str,
+						"make_content": func(sz: float) -> Control: return PieceView.make_generator(gid_str, sz)})
+				return Kit.bag_generators_section("Generators", gens, co)
+			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), 0, _dlg_px("bag"), bopts)
 	return Control.new()
 
 # The home BOTTOM BAR exactly as map.gd builds it (`_build_bottom_bar`): the real HomeChrome tile set,
@@ -1116,6 +1140,24 @@ func _level_dialog_preview(p: Dictionary) -> Control:
 		"mode": String(p.mode), "gift": {"water": 30, "gems": 1}, "on_button": Callable(),
 	})
 
+## Demo section data for the shop preview — the SAME {caption, cards[]} shape shop.gd builds from live
+## state (Free refill · Quick help · Acorn pouches), so Shop.build_body renders the real storefront.
+func _shop_demo_sections() -> Array:
+	return [
+		{"caption": "Free refill", "cards": [
+			{"icon": "shop_can", "count": 30, "price": "Free", "affordable": true}]},
+		{"caption": "Quick help", "cards": [
+			{"title": "Fill water", "icon": "shop_can", "count": 30, "price": "25", "price_icon": "gem"},
+			{"title": "Coin pouch", "icon": "shop_pouch", "count": 150, "price": "5", "price_icon": "gem"}]},
+		{"caption": "Acorn pouches", "cards": [
+			{"icon": "pack_t1", "count": 80, "cash": true, "price": "$0.99"},
+			{"icon": "pack_t2", "count": 450, "cash": true, "price": "$4.99"},
+			{"icon": "pack_t3", "count": 1000, "cash": true, "price": "$9.99"},
+			{"icon": "pack_t4", "count": 2200, "cash": true, "price": "$19.99"},
+			{"icon": "pack_t5", "count": 6000, "cash": true, "price": "$49.99"},
+			{"icon": "pack_t6", "count": 13000, "cash": true, "price": "$99.99"}]},
+	]
+
 func _daily_dialog_preview() -> Control:
 	var width := _dlg_px("daily")
 	var scale := _dlg_scale("daily")
@@ -1383,7 +1425,7 @@ func _sidebar_notes(_id: String) -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the code-drawn locked background, with a plain lower-right tier number; marked tiers sparkle. The piece size + well/background look are inherited from the Slot cell item — only the square cell size, tier-number toggle, sparkle, and grid are tuned here. A plain grid — no vines."
+		note.text = "This is the game's REAL Discovery ladder (ladder.gd): each cell wears a corner tier CHIP (cream when seen, grey when locked), a generator-icon header sits on top, and the layout is mock-measured — all fixed in ladder.gd. The grid + cell knobs below tune the SHARED tiers style (also used by the resident ladder + the Producing dialog); the Discovery ladder overrides the cell gap + swaps the plain tier number for its chip, so those two do not change this preview."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1620,12 +1662,10 @@ func _element_sidebar(_id: String) -> void:
 			mplay.pressed.connect(_play_mystery_spin)
 			_sidebar_body.add_child(mplay)
 		"shop":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
-			_sidebar_body.add_child(_slider_row(["cell_w", 80, 160]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
-			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
-			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+			# the shop is the game's real storefront (shop.gd Shop.build_body) inside the shared frame — its
+			# card/grid layout (sage art-left cards, 2-col grid, green price slabs) is fixed in shop.gd, so
+			# there are no grid knobs here. Edit the shared frame (banner · border · ✕) on the Frame item.
+			_sidebar_note("The shop is the game's real storefront (shop.gd). The offer cards + 2-column grid + price slabs are fixed there; the shared frame is edited on the Frame item.")
 		"level":
 			# no saved knobs: the sheet is the game's level_popup.gd, sized by the shared frame-width
 			# knob (Frame item) with every part a fraction of that width. Only preview state lives here.
@@ -1721,12 +1761,12 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 40]))
 			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 200]))    # how far the parchment border eats the grid width
-			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))        # gap between pill / grid / footer
-			_sidebar_body.add_child(_slider_row(["acorn_x", -200, 80]))     # nudge the acorn-balance pill left(−) / right(+)
+			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))        # gap between grid / generators / footer
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1200]))   # height cap; 0 = no scroll
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_group_header("Test only — not saved", false)                  # the game sets each from save
-			_sidebar_body.add_child(_slider_row(["balance", 0, 9999]))      # the 💎 acorn balance the pill shows
+			# (the bag has no acorn-balance pill — the HUD carries the counter; the only price is the next
+			# slot's cost chip, so the old balance / acorn_x knobs were dead and are removed.)
 			_sidebar_body.add_child(_slider_row(["owned", 0, 18]))          # how many slots are owned
 			_sidebar_body.add_child(_slider_row(["filled", 0, 18]))         # how many owned slots hold a piece
 		"quest_card":
