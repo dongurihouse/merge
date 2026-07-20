@@ -17,7 +17,7 @@ worktree): per-entry category/layer labels, the 00-05 element source dirs, and m
 import json, os
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-ROOT = os.path.join(REPO, "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
+ROOT = os.path.join(REPO, "games/grove/assets/_concepts/zones")
 PAGES = os.path.join(REPO, "games/grove/assets/map/pages")
 
 SCENES = ["fairy_hollow", "snowy_village", "desert_oasis", "coral_reef", "cherry_blossom_garden"]

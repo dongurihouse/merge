@@ -14,7 +14,7 @@ import json, os
 from PIL import Image, ImageChops
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-ROOT = os.path.join(REPO, "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
+ROOT = os.path.join(REPO, "games/grove/assets/_concepts/zones")
 SCENES = ["fairy_hollow", "snowy_village", "desert_oasis", "coral_reef", "cherry_blossom_garden"]
 REVIEW_W = 941                     # the classic review size (941x1672 for the 1320x2346 canvas)
 

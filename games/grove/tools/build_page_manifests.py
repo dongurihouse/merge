@@ -20,7 +20,7 @@ import argparse, json, os, shutil, struct, sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 # the repo mocks root (the codex mocks worktree that once held the bundles was deleted 2026-07-18)
-DEFAULT_ROOT = os.path.join(REPO, "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
+DEFAULT_ROOT = os.path.join(REPO, "games/grove/assets/_concepts/zones")
 OUT_DIR = os.path.join(REPO, "games/grove/assets/map/pages")
 
 PAGES = [  # play order (picturebook_lines_recipes.md)

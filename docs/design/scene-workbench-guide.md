@@ -57,7 +57,7 @@ opens the highest `v<N>` that carries `metadata/placements.json`.
 - **Scenes root**: the launcher scores every candidate root (repo copy, mocks worktree — relative
   and absolute) and opens the one with the MOST openable scenes, so a partially-intaken repo copy
   never shadows the full set; `ROOT=` overrides. The repo copy of
-  `games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1`, falling back to
+  `games/grove/assets/_concepts/zones`, falling back to
   the codex mocks worktree (`.worktrees/codex-ui-redesign-rush-maps-mocks/...`). `ROOT=<dir>`
   overrides. New bundles land through the art intake workflow (see `art-style-guide.md`).
 
