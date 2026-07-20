@@ -1,0 +1,14 @@
+Use case: precise-object-edit
+Asset type: reusable mobile-game level badge base, standalone cutout.
+Input image: the supplied screenshot is the exact badge silhouette, relative layers, and palette reference.
+Primary request: Rebuild only the star-shaped level badge as a clean standalone asset. Keep the rounded
+five-point golden-yellow cardstock star, its fine warm darker cut edge, and the attached pale-cream
+offset paper backing/outline visible around the star. Match the Meadow Sky + Cut-Paper Playground
+material language: matte paper fiber, broad low-complexity silhouette, gentle upper-left light, crisp
+phone-size readability.
+Change: remove the numeral completely. Leave the star blank because the level number is runtime UI text.
+Do not include: teal scene background, app UI, any other objects, a universal white sticker outline,
+text, numerals, watermark, cast shadow, contact shadow, reflection, floor plane, glow, or extra decoration.
+Composition: one centered complete badge, square canvas, about 65% canvas wide with generous even padding.
+Background: perfectly flat solid #FF00FF chroma-key background, exactly uniform, no texture/gradient/lighting
+variation. Do not use magenta in the badge.

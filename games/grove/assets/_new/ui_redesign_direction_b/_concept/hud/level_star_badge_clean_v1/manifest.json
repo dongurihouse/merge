@@ -1,0 +1,13 @@
+{
+  "asset": "level_star_badge_clean_v1",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "purpose": "Blank reusable base for the runtime level badge",
+  "primary": "level_star_badge_base_512.png",
+  "variants": [
+    { "file": "level_star_badge_base_256.png", "size": "256x256", "alpha": true },
+    { "file": "level_star_badge_base_512.png", "size": "512x512", "alpha": true },
+    { "file": "level_star_badge_base_master.png", "size": "1254x1254", "alpha": true }
+  ],
+  "runtime_text": "Overlay the current level numeral; do not bake it into the base.",
+  "shadow": "No external cast or contact shadow."
+}
