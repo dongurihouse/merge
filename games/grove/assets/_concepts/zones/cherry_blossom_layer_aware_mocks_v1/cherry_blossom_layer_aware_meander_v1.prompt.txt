@@ -1,0 +1,23 @@
+Use case: stylized-concept
+Asset type: portrait mobile game environment dressed reference mock for a later layered-raster scene.
+
+Input images:
+- Image 1 is the primary composition, content, relative object-scale, and portrait-rhythm reference: the Japanese temple-garden concept with torii, temizuya, pond, bridge, and pavilion.
+- Image 2 is the secondary material, palette, elevated three-quarter camera, upper-left lighting, and cut-paper-grain reference: the original cherry blossom garden mock.
+- Treat both images as references, not edit targets. Create a new layer-aware composition.
+
+Primary request: Create a gentle S-curve version of the same cherry-blossom temple garden family, with the same four hero groups as Image 1 but more open negative space and an unmistakably extractable layer structure.
+
+Composition: Exact portrait canvas, elevated three-quarter top-down view. Place one modest blue-gray tiled tea or prayer pavilion on the upper-left terrace, one connected turquoise koi pond precinct across the upper-right to middle-right with lily pads and exactly one small vermilion arched bridge across its narrow waist, one open temizuya purification pavilion at middle-left with a large stone basin, bamboo water spout, visible flowing water, and two ladles, and one large vermilion torii gate in the lower-left/center foreground. A permanent stepping-stone path makes one elegant readable S-curve from below the gate through its opening, past the temizuya approach, across calm zen sand, and uphill to the pavilion. Leave a generous quiet sand field between the temizuya and pond.
+
+Layer-aware object sockets: Include exactly four customizable hero groups: pavilion, temizuya group, torii gate, and pond-with-bridge-and-koi group. Each hero group must occupy its own distinct region, not touch another hero group, and retain a clearly readable mostly unobstructed silhouette. Do not make any foliage shared between hero groups. Fixed bushes, low flowers, moss, and stone clusters may cover only the bottom 5-10 percent of structural footings or the outer 5-10 percent of the pond bank. Never cover the pavilion entrance or deck, temizuya basin rim/spout/ladles, torii opening, bridge deck, roof silhouettes, or koi.
+
+Stable backdrop language: one continuous pale-ivory raked zen-sand garden, permanent stepping stones, subtle broad rake arcs and flowing bands, low ground markings, simple layered blue-gray mountains and horizon greenery. A peach or pale-blue paper sky and two or three simple paper clouds may appear in the dressed mock for reference, but keep them confined to the top band and do not overlap hero objects.
+
+Fixed covering layer language: two or three broad cherry-blossom canopies clipped by page edges, with medium cohesive bush-and-rock masses forming an outer frame and small contact overlaps at the four sockets. Preserve the open center and avoid scattered decoration.
+
+Style/medium: Grove Meadow Sky + Cut-Paper Playground. Friendly matte hand-cut cardstock, broad rounded silhouettes, tactile layered paper edges, thin locally darker cut edges, fine visible fibrous paper tooth, lightly mottled printed pigment, and short soft down-right contact shadows. No universal outline. Warm ivory sand, vermilion red, muted blue-gray roofs and mountains, deep garden greens, coral-pink blossoms, restrained turquoise water.
+
+Constraints: exactly one pavilion, exactly one temizuya, exactly one torii, exactly one connected pond with one bridge and visible koi. All four must be large and readable at phone size. The S-curve and empty sand field must be immediately legible.
+
+Avoid: no shrine hall beyond the one pavilion, no lanterns, no statues, no foxes, no fences, no bonsai pots, no signs, no benches, no extra bridge, no extra pond, no extra stream, no waterwheel, no bell, no pagoda, no people, no animals outside the koi, no scattered micro-flowers or loose rocks, no text, labels, numerals, UI, logo, border, or watermark. Avoid photorealism, glossy plastic, clay, sticker rendering, watercolor, gouache, visible brushwork, heavy black outlines, dense ornamental clutter, and dark cinematic lighting.
