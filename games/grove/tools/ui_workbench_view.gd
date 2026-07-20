@@ -1221,12 +1221,15 @@ func _button_gallery(_p: Dictionary) -> Control:
 	for role in ["cream", "purple", "coral", "gold"]:
 		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
 	col.add_child(_button_sample("paper roles (borderless) — ● green is live", paper_row))
-	# 5) the static display chips — reward_chip (currency reward) + amount_chip (any icon/text).
+	# 2) a static display CHIP is NOT a separate component — it is a paper role (cream) + an icon in front
+	# + static (looks like a button, not pressable). The game's reward / shop / bag / cost chips
+	# (Kit.reward_chip / amount_chip) are exactly pill_button(text, {bg:"cream", icon:…, static:true}), so
+	# they show here as the same paper button with an icon, not a distinct mechanism.
 	var chip_row := HBoxContainer.new()
 	chip_row.add_theme_constant_override("separation", 10)
-	chip_row.add_child(Kit.reward_chip({"coins": 120}))
-	chip_row.add_child(Kit.amount_chip("water", "60"))
-	col.add_child(_button_sample("static chips (reward · amount)", chip_row))
+	chip_row.add_child(Kit.pill_button("120", {"bg": "cream", "icon": "coin", "static": true, "border": 0.0, "font": int(_params["button"].font)}))
+	chip_row.add_child(Kit.pill_button("60", {"bg": "cream", "icon": "water", "static": true, "border": 0.0, "font": int(_params["button"].font)}))
+	col.add_child(_button_sample("cream role + icon + static (= the game's chips)", chip_row))
 	return col
 
 func _button_sample(label: String, btn: Control) -> Control:
