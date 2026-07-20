@@ -1,0 +1,92 @@
+{
+  "mushroom_hall": {
+    "sourceImage": "fairy_hollow_market_paper_plate_source_v1.png",
+    "bbox": {
+      "left": 410,
+      "top": 45,
+      "right": 770,
+      "bottom": 565
+    },
+    "canvasBbox": {
+      "left": 580,
+      "top": 63,
+      "right": 1089,
+      "bottom": 786
+    }
+  },
+  "tea_stall": {
+    "sourceImage": "fairy_hollow_market_paper_plate_source_v1.png",
+    "bbox": {
+      "left": 0,
+      "top": 360,
+      "right": 355,
+      "bottom": 900
+    },
+    "canvasBbox": {
+      "left": 0,
+      "top": 501,
+      "right": 502,
+      "bottom": 1252
+    }
+  },
+  "crystal_map_stall": {
+    "sourceImage": "fairy_hollow_market_paper_plate_source_v1.png",
+    "bbox": {
+      "left": 540,
+      "top": 465,
+      "right": 930,
+      "bottom": 1015
+    },
+    "canvasBbox": {
+      "left": 764,
+      "top": 647,
+      "right": 1316,
+      "bottom": 1412
+    }
+  },
+  "stream_bridge": {
+    "sourceImage": "fairy_hollow_market_paper_plate_source_v1.png",
+    "bbox": {
+      "left": 0,
+      "top": 995,
+      "right": 335,
+      "bottom": 1415
+    },
+    "canvasBbox": {
+      "left": 0,
+      "top": 1385,
+      "right": 474,
+      "bottom": 1969
+    }
+  },
+  "flower_crate": {
+    "sourceImage": "fairy_hollow_market_paper_plate_source_v1.png",
+    "bbox": {
+      "left": 575,
+      "top": 1265,
+      "right": 932,
+      "bottom": 1680
+    },
+    "canvasBbox": {
+      "left": 814,
+      "top": 1760,
+      "right": 1319,
+      "bottom": 2338
+    }
+  },
+  "lantern_gate": {
+    "sourceImage": "fairy_hollow_market_paper_plate_source_v1.png",
+    "bbox": {
+      "left": 340,
+      "top": 1350,
+      "right": 620,
+      "bottom": 1685
+    },
+    "canvasBbox": {
+      "left": 481,
+      "top": 1878,
+      "right": 877,
+      "bottom": 2345
+    }
+  }
+}
