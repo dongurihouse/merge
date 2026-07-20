@@ -31,6 +31,12 @@ Use `layout.json` as the composition contract. It records the 160 x 145 logical
 card, overflowing portrait rectangle, note and tag rectangles, dynamic content
 safe areas, pivots, rotation range, and layer order.
 
+The reward tag is tapered, so its alpha bounding box is not itself a safe
+content area. Use the smaller boxes recorded in `layout.json`: the complete
+`content_safe_rect` and `value_box` must fall on tag alpha of at least 128, and
+the circular coin must fit inside the ellipse inscribed by `coin_box`. Do not
+expand those boxes into the tag's transparent upper corners.
+
 ## Trim-before-fit contract
 
 Treat every `source_region` in `layout.json` as the alpha bounding box in the
@@ -70,6 +76,8 @@ zero. Exact processing settings and measured results are in `qc_report.json`.
 
 - Apply the trim-before-fit contract above; do not fit transparent full-canvas
   texture bounds directly into the destination rectangles.
+- Treat reward-tag safety as an alpha-mask contract, not rectangular alpha-bbox
+  containment. Use the exact content, coin, and value boxes in `layout.json`.
 - Preserve aspect ratio for every sprite.
 - Do not clip the portrait to the card; its authored rounded base overlaps the
   lower-left card edge.

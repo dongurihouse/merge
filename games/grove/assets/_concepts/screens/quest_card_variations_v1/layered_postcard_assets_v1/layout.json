@@ -115,23 +115,28 @@
     },
     "fit_alignment": "center",
     "preserve_aspect": true,
+    "safe_region_contract": {
+      "mask": "rendered_reward_tag_alpha",
+      "opaque_threshold": 128,
+      "rule": "Every point in content_safe_rect and value_box, and every point in the inscribed ellipse of coin_box, must land on alpha >= opaque_threshold after trim and fit."
+    },
     "content_safe_rect": {
-      "x": 106,
-      "y": 103,
-      "width": 46,
-      "height": 29
+      "x": 111,
+      "y": 110,
+      "width": 38,
+      "height": 18
     },
     "coin_box": {
-      "x": 106,
-      "y": 106,
+      "x": 111,
+      "y": 110,
       "width": 18,
       "height": 18
     },
     "value_box": {
-      "x": 123,
-      "y": 102,
-      "width": 29,
-      "height": 25
+      "x": 129,
+      "y": 110,
+      "width": 20,
+      "height": 18
     },
     "shadow": "runtime_alpha_silhouette_shallow"
   },

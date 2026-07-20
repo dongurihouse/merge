@@ -270,5 +270,48 @@
     ],
     "cell_boundary_opaque_pixels": 0,
     "empty_sixth_cell_opaque_pixels": 0
+  },
+  "composition_contract": {
+    "reward_tag_alpha_mask": {
+      "runtime_asset": "final/quest_reward_seed_tag_256.png",
+      "runtime_destination_rect": [
+        100,
+        81,
+        59,
+        63
+      ],
+      "source_region": [
+        39,
+        11,
+        177,
+        234
+      ],
+      "sampling": "0.1 logical-pixel cell centers mapped through trim-then-contain; nearest source alpha",
+      "opaque_threshold": 128,
+      "content_safe_rect": [
+        111,
+        110,
+        38,
+        18
+      ],
+      "content_safe_samples": 68400,
+      "content_safe_samples_below_threshold": 0,
+      "coin_disc_box": [
+        111,
+        110,
+        18,
+        18
+      ],
+      "coin_disc_samples": 25448,
+      "coin_disc_samples_below_threshold": 0,
+      "value_box": [
+        129,
+        110,
+        20,
+        18
+      ],
+      "value_box_samples": 36000,
+      "value_box_samples_below_threshold": 0
+    }
   }
 }
