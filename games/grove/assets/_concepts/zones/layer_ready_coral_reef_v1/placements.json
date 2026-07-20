@@ -1,17 +1,21 @@
 {
-  "canvas": { "width": 941, "height": 1672 },
+  "canvas": {
+    "width": 941,
+    "height": 1672
+  },
   "renderOrder": [
     "foundation",
     "props sorted by sortY",
     "coverOverlay"
   ],
-  "foundation": "foundation.png",
+  "foundation": "foundation_no_extra_plates_v2.png",
   "coverOverlay": "cover_overlay_no_bubbles.png",
-  "preview": "layered_preview_with_cover_no_bubbles.png",
+  "preview": "layered_preview_no_extra_plates_v2.png",
   "notes": [
     "First layer-ready pass based on coral_reef_layered_mock_v3_a_shipwreck_cove_paper_plates.png.",
     "Each hero prop includes its own thin irregular paper base plate, following the approved desert-oasis paper-plate idea.",
-    "Bubbles are intentionally excluded from the cleaner cover overlay because the first chroma-key pass left visible edge artifacts."
+    "Bubbles are intentionally excluded from the cleaner cover overlay because the first chroma-key pass left visible edge artifacts.",
+    "2026-07-20: foundation_no_extra_plates_v2 removes raised socket/cap plates from stone platforms; plates now belong only to modular props."
   ],
   "props": [
     {

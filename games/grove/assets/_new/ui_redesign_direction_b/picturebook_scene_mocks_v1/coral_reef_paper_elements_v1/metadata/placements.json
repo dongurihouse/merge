@@ -20,17 +20,18 @@
  },
  "base": {
   "id": "foundation",
-  "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/01_backdrop/coral_reef_paper_foundation_v1.png",
+  "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/01_backdrop/coral_reef_paper_foundation_no_extra_plates_v2.png",
   "opaque": true,
   "z": 0
  },
  "source": {
   "approvedMock": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/00_source/coral_reef_paper_approved_mock_v3.png",
-  "reconstructionPreview": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/09_reconstruction/coral_reef_paper_reconstruction_with_cover_v1.png",
+  "reconstructionPreview": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/09_reconstruction/coral_reef_paper_reconstruction_with_cover_no_extra_plates_v2.png",
   "notes": [
    "Layer-ready Coral Reef paper-craft scene created from games/grove/assets/_concepts/zones/layer_ready_coral_reef_v1.",
    "Every hero prop includes its own thin irregular paper base plate, following the approved desert-oasis modular plate direction.",
-   "The clean cover overlay intentionally excludes bubbles because the first bubble chroma-key pass left visible fringe artifacts."
+   "The clean cover overlay intentionally excludes bubbles because the first bubble chroma-key pass left visible fringe artifacts.",
+   "2026-07-20: foundation replaced with no-extra-plates v2 so prop-owned paper plates do not double-stack on backdrop socket plates."
   ]
  },
  "placements": [
