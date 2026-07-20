@@ -715,6 +715,8 @@ func _initialize() -> void:
 	var ov: Control = LevelPopupS.open(lp_host)
 	ok(ov != null and is_instance_valid(ov), "LevelPopup.open builds the info overlay")
 	ok(_find_button_text(ov, "Got it") != null, "info overlay shows Got it")
+	# the dialog is the SHARED frame, unmodified — it carries the standard ✕ disc.
+	ok(ov.find_child("DialogClose", true, false) != null, "the level dialog carries the shared frame's ✕ disc")
 	ov.queue_free()
 	await create_timer(0.02).timeout
 	var dia0 := Save.diamonds()
@@ -724,6 +726,15 @@ func _initialize() -> void:
 	if collect != null:
 		collect.emit_signal("pressed")
 	ok(Save.diamonds() == dia0 + G.LEVEL_DIAMONDS, "Collect grants the level-up diamond gift once")
+	# the ✕ closes AND grants (same callback as Collect), so dismissing by the disc never loses the
+	# reward — the invariant the levelup mode's non-veil-dismissal used to protect on its own.
+	var dia1 := Save.diamonds()
+	var ov3: Control = LevelPopupS.open_levelup(lp_host, 1)
+	var xclose := ov3.find_child("DialogClose", true, false) as Button
+	ok(xclose != null, "levelup overlay carries the ✕ disc")
+	if xclose != null:
+		xclose.emit_signal("pressed")
+	ok(Save.diamonds() == dia1 + G.LEVEL_DIAMONDS, "the ✕ grants the level-up gift too (reward can't be lost)")
 	lp_host.queue_free()
 	# (T54 — the info-bar burst-chip board test lives in grove_economy_tests, which runs to completion;
 	#  this suite crashes earlier on a pre-existing map `_unlock_btn` error before it could be reached.)
