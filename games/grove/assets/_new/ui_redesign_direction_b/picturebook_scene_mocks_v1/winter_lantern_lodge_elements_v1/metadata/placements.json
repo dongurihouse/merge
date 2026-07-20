@@ -27,10 +27,10 @@
   {
    "id": "lodge",
    "category": "structures",
-   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/lodge.png",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/lodge_paper_plate_v2.png",
    "x": 470,
    "y": 505,
-   "w": 320,
+   "w": 328,
    "h": 346,
    "z": 100,
    "layer": "hero"
@@ -38,10 +38,10 @@
   {
    "id": "gazebo",
    "category": "structures",
-   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/gazebo.png",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/gazebo_paper_plate_v2.png",
    "x": 172,
    "y": 786,
-   "w": 236,
+   "w": 271,
    "h": 329,
    "z": 110,
    "layer": "hero"
@@ -49,10 +49,10 @@
   {
    "id": "bridge",
    "category": "structures",
-   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/bridge.png",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/bridge_paper_plate_v2.png",
    "x": 765,
    "y": 747,
-   "w": 312,
+   "w": 354,
    "h": 212,
    "z": 120,
    "layer": "hero"
@@ -60,10 +60,10 @@
   {
    "id": "dock_rowboat",
    "category": "structures",
-   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/dock_rowboat.png",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/dock_rowboat_paper_plate_v2.png",
    "x": 760,
    "y": 1164,
-   "w": 266,
+   "w": 294,
    "h": 252,
    "z": 130,
    "layer": "hero"
@@ -71,10 +71,10 @@
   {
    "id": "entrance_arch",
    "category": "structures",
-   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/entrance_arch.png",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/entrance_arch_paper_plate_v2.png",
    "x": 470,
    "y": 1492,
-   "w": 392,
+   "w": 409,
    "h": 399,
    "z": 140,
    "layer": "hero"
