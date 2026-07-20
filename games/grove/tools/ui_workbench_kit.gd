@@ -2482,7 +2482,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# unchanged); its art/slice fields are ignored — the sheet is code-drawn now.
 	var border: Dictionary = frame_border(String(opts.get("border", "parchment")))
 	# saved workbench offsets were tuned for the OLD overhanging ribbon/✕ — the v2 sheet keeps its
-	# title and close INSIDE the card, so negative offsets are floored instead of clipping above it.
+	# title and close INSIDE the card, so negative y offsets are floored instead of clipping above
+	# it, and the x offset is ignored entirely: the v2 title band spans the full card with a CENTRED
+	# label, so any horizontal nudge (the saved ribbon-era banner_x) just de-centres the title.
 	var banner_pos: Vector2 = opts.get("banner_pos", Vector2.ZERO)
 	banner_pos.y = maxf(0.0, banner_pos.y)
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
@@ -2604,9 +2606,11 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		footer_band.anchor_top = 1.0; footer_band.anchor_bottom = 1.0   # offset_top (= -height) set in relayout, once measured
 		inner.add_child(footer_band)
 
-	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable
+	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable.
+	# `inner` is inset by the card's content pad while the band spans the CARD width — pull it back
+	# to the card's left edge, or every centred title sits panel_pad_x right of the card centre.
 	var header := _title_header(banner_text, banner_font, banner_h, target_w, float(opts.get("banner_burn", 0.0)))
-	header.position = banner_pos
+	header.position = Vector2(-panel_pad_x, banner_pos.y)
 	inner.add_child(header)
 
 	# the ✕ disc poles past the card's top-right corner. The game passes on_close; the workbench prints.
