@@ -160,11 +160,13 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = host.get_viewport_rect().size.x
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["residents"] / 100.0
-	# the CONTENT lays out at the design width MINUS the sheet's insets (the frame scales it by
-	# content_scale, so the pads count at 1/scale in layout space) — sized against `width` alone the
-	# fixed-size cards overflow the sheet's right edge.
+	# the CONTENT lays out at the design width MINUS the sheet's insets AND the scrollbar
+	# (the frame scales it by content_scale, so those real-px widths count at 1/scale in
+	# layout space) — sized against `width` alone the fixed-size cards overflow the sheet's
+	# right edge; the scroll's vertical bar, when shown, eats its width from the child area.
 	var scale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "residents"))
-	var inner: float = width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
+	var inner: float = width \
+		- (2.0 * float(Kit.frame_border("parchment")["pad_x"]) + float(Kit.SCROLLBAR_W)) / scale
 
 	# the render context every repaint reads: selection + the two rebuildable surfaces.
 	var ctx := {"sel": {}, "body": null, "insp": null, "scale": scale,
@@ -427,9 +429,13 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 
 	var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
 	var bar: Control = Kit.progress_bar(frac, {
-		"height": 36.0, "width": w - 28.0, "art": false,   # chunkier bar per the mock (per-call height; the shared default is untouched)
+		"height": 36.0, "width": 0.0, "art": false,   # chunkier bar per the mock (per-call height; the shared default is untouched)
 		"fill_color": face.get("fill", Pal.STRAW),
 	})
+	# the bar FILLS the card's inner width instead of carrying its own fixed width: a fixed
+	# width that overshoots the panel pads inflates the card's minimum past its allotted w,
+	# and the grid then pokes past the frame's right clip (the clipped-cards bug).
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.name = "ResourceBankBar_" + line
 	col.add_child(bar)
 

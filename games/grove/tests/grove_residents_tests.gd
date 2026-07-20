@@ -308,6 +308,26 @@ func _test_residents_dialog() -> void:
 		"a stocked line with nothing placed reads IDLE (got '%s')" % (coin_state.text if coin_state != null else ""))
 	var collect := ov.find_child("CollectAllButton", true, false) as Button
 	ok(collect != null and not collect.disabled, "Collect all is live with matured stock")
+	# GEOMETRY: nothing in the body may poke past the frame's clip. A bank card whose INNER
+	# content (the fixed-width bar + the panel pads) demands more than its allotted width
+	# inflates the grid, the body clamps to that minimum, and the whole overflow lands on the
+	# right edge where the frame's scroll clips it (the clipped Water/Diamonds cards bug).
+	for line in Bucket.LINES:
+		var bc := ov.find_child("ResourceBankCard_" + String(line), true, false) as Control
+		ok(bc != null and bc.get_combined_minimum_size().x <= bc.custom_minimum_size.x + 0.5,
+			"the %s bank card's content fits its allotted width (min %.1f vs %.1f)" % [line,
+			bc.get_combined_minimum_size().x if bc != null else -1.0,
+			bc.custom_minimum_size.x if bc != null else -1.0])
+	var panel := ov.find_child("MeadowDialogPanel", true, false) as Control
+	var clip: ScrollContainer = null
+	for n in panel.find_children("*", "ScrollContainer", true, false):
+		clip = n; break
+	var banks_grid := ov.find_child("ResourceBanksGrid", true, false) as Control
+	ok(clip != null and banks_grid != null
+		and banks_grid.get_global_rect().end.x <= clip.get_global_rect().end.x + 0.5,
+		"the banks grid stays inside the frame's clip (grid right %.1f vs clip %.1f)" % [
+		banks_grid.get_global_rect().end.x if banks_grid != null else -1.0,
+		clip.get_global_rect().end.x if clip != null else -1.0])
 	ok(ov.find_child("HabitatCell_00", true, false) != null, "the placed spirit shows in a habitat cell")
 	ok(ov.find_child("HabitatCellLocked_%02d" % (UI.HABITAT_SLOTS_SHOWN - 1), true, false) != null,
 		"ungranted slots read locked")
