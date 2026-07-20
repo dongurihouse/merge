@@ -1,0 +1,42 @@
+Use case: identity-preserve
+Asset type: raw square character-bust source for a mobile game quest-card portrait pool
+
+Input images and roles:
+- Image 1: PRECISE EDIT TARGET and absolute identity authority. Preserve this exact sandcastle-crowned child’s identity, face, expression, hair, headwear silhouette and openings, oval gold gem detail, colors, proportions, upper-body pose, visual weight, and authored rounded paper base.
+- Image 2: COMPOSITION REFERENCE ONLY. Use the sandcastle-crowned third resident only to understand the desired prop-free, natural empty-hand presentation and complete rounded bust base. Do not copy its card, note, reward tag, requested item, background, layout, text, or other residents.
+- Image 3: MANDATORY PALETTE AND MATERIAL AUTHORITY ONLY. Use its Meadow Sky palette relationships, matte cardstock treatment, subtle paper fiber, fine warm cut edges, and restrained flat shading. Do not copy its board, UI, content, characters, or layout.
+- Image 4: MANDATORY DETAIL-BUDGET AUTHORITY ONLY. Use it only to keep broad low-complexity silhouettes and strong phone-size legibility. Do not copy its world, farm content, UI, camera, perspective, objects, or layout.
+
+Primary request: Edit Image 1 only. Remove exactly the held gray shovel and the held round gold shield. Restore natural empty hands in their place and reconstruct the green-and-gold costume surfaces that were hidden behind the removed props. The hands should rest naturally near the lower torso, matching the existing upper-body pose. Do not add or substitute any prop.
+
+Identity preservation lock:
+- Keep the same child, same centered front-facing bust, same friendly expression, same face shape and facial-feature placement, same brown hair, same skin tone, same sandcastle headwear, same castle openings and crenellated silhouette, same oval gold gem detail, same teal-green scarf, same green-and-gold costume palette, same proportions, same scale, same upper-body pose, and same complete authored rounded cut-paper base.
+- Change only the shovel, shield, newly exposed hands, and the small costume areas directly hidden by those two props.
+- Do not redesign, rotate, mirror, recenter, zoom, crop, age, or change the character’s expression.
+- Do not invent a replacement prop, badge, weapon, tool, accessory, floor, frame, or scene.
+
+Composition and output:
+- Output exactly one square image containing exactly one complete character bust: head, shoulders, upper torso, both natural empty hands, and the entire authored rounded paper base.
+- Center the character at the same visual scale and weight as Image 1.
+- The rounded base must be a deliberate completed curved paper edge, never a straight crop.
+- Keep a clearly visible flat-key gutter on ALL FOUR SIDES: above the tallest crown point, beside both shoulders and hands, and especially BELOW the finished rounded base.
+- Background must be one perfectly flat, solid, uniform #FF00FF field only, fully opaque and identical into every corner.
+- No transparency processing in this output.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Shadow and separability constraints:
+- No cast shadow, no contact shadow, no grounding shadow, no floor plane, and no glow.
+- Keep the full silhouette clean and separated from the key color.
+- The #FF00FF background must have no texture, gradient, vignette, lighting variation, reflection, or shadow.
+- Do not use #FF00FF anywhere inside the character.
+
+Avoid: shovel, spade, shield, buckler, tool, weapon, replacement object, held item, extra object, missing hand, cropped hand, straight-cut torso, cropped base, cropped crown, touching canvas edge, sticker halo, universal white outline, heavy black outline, embossed or sculpted volume, clay, plastic, glossy 3D, watercolor, gouache, painterly rendering, dense ornament, floor, frame, scene, text, label, numeral, logo, watermark.

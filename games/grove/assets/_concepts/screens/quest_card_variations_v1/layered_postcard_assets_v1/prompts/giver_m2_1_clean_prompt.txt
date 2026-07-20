@@ -1,0 +1,28 @@
+Use case: precise-object-edit
+Asset type: identity-preserving raw character bust source for a mobile game quest-card portrait pool
+
+Input images:
+- Image 1 is the precise edit target and absolute identity authority. Preserve this exact character's leaf hood, large upper leaf crown, cream layered head covering, green forehead band, oval reward-gold gem, brown hair, face, expression, skin tone, proportions, frontal upper-body pose, green-and-cream costume, warm cut edges, scale, and complete authored rounded paper base.
+- Image 2 is the Layered Postcard composition reference only. Use its fourth leaf-hooded resident only to understand the desired prop-free presentation with natural empty hands, unobstructed costume, and a complete rounded bust base. Do not copy the card, request note, pine cone, reward tag, text, background, or any other resident.
+- Image 3 is the mandatory Meadow Sky palette and Cut-Paper material authority only. It controls restrained palette relationships, matte cardstock, fine warm cut edges, subtle paper fiber, and shallow internal paper planes. Do not copy its board, UI, characters, objects, or layout.
+- Image 4 is the mandatory scale and detail-budget authority only. Use it only to keep broad low-complexity silhouettes, consolidated ornament, and phone-size legibility. Do not copy its world, farm content, UI, camera, buildings, paths, or layout.
+
+Primary edit: remove only the held brown acorn cluster from Image 1. Reconstruct the small hidden lower-left portion of the costume and restore natural empty hands consistent with the character's existing upper-body pose. Do not place anything in either hand and do not invent a replacement prop. Preserve the character's identity and every unaffected feature exactly. Do not redesign, rotate, mirror, recenter, change expression, change costume colors, change the hood silhouette, change the oval gold gem, change proportions, or change the authored rounded base.
+
+Output composition: one single complete character bust on a square canvas. Show head, shoulders, upper torso, both natural empty hands, and the entire deliberate rounded cut-paper base. The finished character must float fully inside the square with generous perfectly flat solid #FF00FF key-color gutter on all four sides: above every leaf tip, beside both shoulders and hands, and clearly BELOW the complete rounded base. No part of the subject may touch or cross the canvas edge. The lower base must be a deliberate curved paper edge, never a straight crop or edge-aligned truncation.
+
+Background: one perfectly uniform flat solid #FF00FF field only. No gradients, texture, lighting variation, shadows, reflection, floor, frame, vignette, scenery, or additional colors in the background. Keep #FF00FF absent from the character itself.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Shadow rule: no cast shadow, no contact shadow, no floor shadow, no glow, and no shadow baked into the outer silhouette. Internal same-hue paper shadow planes may remain only where needed to preserve the target's existing flat layered-cardstock construction.
+
+Hard constraints: exactly one character; exact m2_1 identity; remove only the held acorn cluster; natural empty hands; restore only costume previously hidden by the cluster; complete authored rounded paper base; clear magenta gutter below the base. No acorns, nuts, pine cones, seeds, fruit, flowers, jars, bags, tools, food, animals, replacement props, detached ornament, extra character, speech bubble, card, note, reward tag, UI, floor, scene, frame, text, label, numeral, logo, watermark, sticker halo, universal white outline, heavy black outline, cast shadow, or contact shadow.

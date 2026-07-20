@@ -1,0 +1,55 @@
+INITIAL GENERATION PROMPT
+
+Use case: identity-preserve
+Asset type: raw Grove resident portrait for the Layered Postcard quest-card asset bundle
+
+Input images:
+- Image 1 is the precise identity and edit target. Preserve this exact giver_m2_3 character: the same purple cork-like cylindrical headwear and layered purple hood, the same centered oval gold setting with teal-blue gem, the same face, expression, hair, proportions, colors, upper-body pose, costume, and authored rounded paper base.
+- Image 2 is composition guidance only for how the prop-free purple resident reads as a complete Layered Postcard bust. Do not copy its card, rabbit, note, reward tag, text, background, or surrounding characters.
+- Image 3 is the mandatory Meadow Sky palette and Cut-Paper Playground material authority only. Do not copy its board layout, UI, characters, objects, labels, or composition.
+- Image 4 is the mandatory phone-size detail-budget authority only. Use it only to keep the silhouette broad and readable. Do not copy its farm, camera, world layout, UI, buildings, paths, objects, or scenery.
+
+Primary request: Edit Image 1 by removing only the held jar. Restore natural empty hands and the hidden purple-and-coral costume beneath the jar. The hands should rest naturally and symmetrically near the lower torso, matching the existing upper-body pose. Do not invent or substitute any replacement prop. Preserve the character identity and all non-jar design details exactly.
+
+Composition and containment: Create exactly one centered character bust on a square canvas. Show the complete head, shoulders, upper torso, both empty hands, and the complete deliberate rounded cut-paper base. The bust must float fully inside the canvas with a wide, visibly uninterrupted key-color gutter on all four sides, especially below the finished rounded base. Do not crop, truncate, enlarge to an edge, or use a straight cut at the bottom.
+
+Background: one perfectly flat, uniform solid #00FF00 chroma-key field only. No texture, gradient, lighting variation, vignette, floor plane, frame, shadow, halo, reflection, or scenery. Do not use #00FF00 anywhere in the character.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Hard invariants: preserve the purple cork-like headwear, layered hood silhouette, oval gold gem, facial identity, expression, hair, skin tone, costume palette, proportions, upper-body pose, and authored rounded base. Remove the jar completely with no residue. Restore plausible empty hands and hidden costume only. No added object, requested item, bottle, vessel, cup, pouch, badge, ornament, card, speech bubble, note, tag, coin, text, label, watermark, cast shadow, contact shadow, floor, frame, scene, or sticker halo.
+
+FINAL TARGETED CORRECTION PROMPT
+
+Use case: precise-object-edit
+Asset type: final raw Grove resident portrait for the Layered Postcard quest-card asset bundle
+
+Input images:
+- Image 1 is the precise edit target. Preserve the complete prop-free character visually unchanged: exact identity, purple cork-like cylindrical headwear, layered purple hood, centered oval gold setting with teal-blue gem, face, expression, hair, proportions, colors, costume, two empty hands, upper-body pose, scale, position, authored rounded paper base, material, and edge shape.
+- Image 2 is identity confirmation only for giver_m2_3. Do not restore its held jar or copy any prop.
+- Image 3 is the mandatory Meadow Sky palette and Cut-Paper Playground material authority only. Do not copy its board layout, UI, characters, objects, labels, or composition.
+- Image 4 is the mandatory phone-size detail-budget authority only. Do not copy its farm, camera, world layout, UI, buildings, paths, objects, or scenery.
+
+Primary request: Change only the green background of Image 1 into one perfectly uniform, perfectly flat solid #00FF00 chroma-key field. Remove every trace of background gradient, vignette, glow, lighting variation, texture, noise, shadow, or tonal shift. Every background pixel outside the character must be the same pure #00FF00 color. Do not alter, redraw, move, resize, crop, relight, simplify, or restyle the character.
+
+Composition and containment: Keep exactly one centered character bust on the same square canvas. Preserve the wide, visibly uninterrupted green gutter on all four sides, especially below the complete rounded paper base. No part of the subject touches any canvas edge.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Hard constraints: keep the jar completely absent; keep both natural empty hands and restored costume intact; no replacement prop; no added object. No cast shadow, contact shadow, floor, frame, scene, text, label, watermark, sticker halo, glow, reflection, or background texture. Do not use #00FF00 anywhere inside the character. Return only the preserved portrait on the exact uniform solid #00FF00 field.
