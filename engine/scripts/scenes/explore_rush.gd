@@ -96,7 +96,7 @@ var _activity: Control = null          # the treefall activity bar (between the 
 var _act_idle: Control = null          # the calm "no treefall" rail
 var _act_warn: Control = null          # the red treefall warning strip
 var _act_label: Label = null           # the "Ns" countdown caption on the warning strip
-var _act_fill: ColorRect = null        # the draining countdown bar
+var _act_fill: Control = null          # the draining countdown bar (a rounded Panel; drained via size.x)
 var _act_fill_w := 0.0                 # the countdown bar's full width
 var _act_arrow: TextureRect = null     # the Meadow down-chevron pointing from the bar at the doomed column
 var _act_bottom := 0.0                 # the activity bar's bottom Y — the board reserves below this
@@ -290,37 +290,53 @@ func _build_activity() -> void:
 	il.position = Vector2.ZERO ; il.size = Vector2(w, h)
 	_act_idle.add_child(il)
 	_activity.add_child(_act_idle)
-	# WARNING — a red strip: a left caption, a right "Ns" countdown over a draining bar, a down-chevron
-	_act_warn = _act_panel(Vector2(w, h), Color(0.78, 0.26, 0.20, 0.95), Color(0.45, 0.12, 0.10))
+	# WARNING — the mock's coral cut-paper capsule: the caption on the left, a large "Ns" countdown beside
+	# a thick rounded draining track on the right, and the Meadow chevron tail hanging below the pill.
+	_act_warn = _act_panel(Vector2(w, h), Color("#DC6A55"), Color("#C8563F"), h * 0.5)
+	var warn_sb := (_act_warn as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+	Look.apply_box_shadow(warn_sb)                    # the pill floats on the sheet like every paper card
+	var wpad := h * 0.62                              # the capsule's rounded ends need a deeper text inset
 	var wl := _act_text("Treefall incoming", fs, PARCH)
-	wl.position = Vector2(pad, 0.0) ; wl.size = Vector2(w * 0.55 - pad, h)
+	wl.position = Vector2(wpad, 0.0) ; wl.size = Vector2(w * 0.55 - wpad, h)
 	wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_act_warn.add_child(wl)
-	_act_label = _act_text("", fs, PARCH)
-	_act_label.position = Vector2(w * 0.55, 0.0) ; _act_label.size = Vector2(w * 0.45 - pad, h * 0.56)
-	_act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_act_warn.add_child(_act_label)
-	var track_w := w * 0.45 - pad
-	var track := ColorRect.new()
-	track.color = Color(1, 1, 1, 0.28)
-	track.position = Vector2(w * 0.55, h * 0.66) ; track.size = Vector2(track_w, h * 0.14)
+	# the rounded countdown track hugs the pill's right end; the big "Ns" sits just left of it
+	var track_w := w * 0.20
+	var track_h := h * 0.32
+	var track_x := w - wpad - track_w
+	var track := Panel.new()
+	var track_sb := StyleBoxFlat.new()
+	track_sb.bg_color = Color(1, 1, 1, 0.30)
+	track_sb.set_corner_radius_all(int(track_h * 0.5))
+	track_sb.anti_aliasing = true
+	track.add_theme_stylebox_override("panel", track_sb)
+	track.position = Vector2(track_x, (h - track_h) * 0.5) ; track.size = Vector2(track_w, track_h)
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_act_warn.add_child(track)
-	_act_fill = ColorRect.new()
-	_act_fill.color = PARCH
-	_act_fill.position = Vector2.ZERO ; _act_fill.size = Vector2(track_w, h * 0.14)
-	_act_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track.add_child(_act_fill)
+	var fill := Panel.new()
+	var fill_sb := StyleBoxFlat.new()
+	fill_sb.bg_color = PARCH
+	fill_sb.set_corner_radius_all(int(track_h * 0.5))
+	fill_sb.anti_aliasing = true
+	fill.add_theme_stylebox_override("panel", fill_sb)
+	fill.position = Vector2.ZERO ; fill.size = Vector2(track_w, track_h)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.add_child(fill)
+	_act_fill = fill
 	_act_fill_w = track_w
-	# the Meadow down-chevron — its x is aimed at the doomed column in _apply_treefall_visual
+	_act_label = _act_text("", int(h * 0.52), PARCH)
+	_act_label.position = Vector2(w * 0.45, 0.0) ; _act_label.size = Vector2(track_x - h * 0.30 - w * 0.45, h)
+	_act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_act_warn.add_child(_act_label)
+	# the Meadow down-chevron tail — its x is aimed at the doomed column in _apply_treefall_visual
 	_act_arrow = TextureRect.new()
 	_act_arrow.name = "RushDangerChevron"
 	_act_arrow.texture = load(DANGER_CHEVRON_ART) as Texture2D
 	_act_arrow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_act_arrow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var a := h * 0.58
+	var a := h * 1.05
 	_act_arrow.size = Vector2(a, a)
-	_act_arrow.position = Vector2(w * 0.5 - a * 0.5, h - a * 0.42)
+	_act_arrow.position = Vector2(w * 0.5 - a * 0.5, h - a * 0.34)
 	_act_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_act_warn.add_child(_act_arrow)
 	_activity.add_child(_act_warn)
@@ -328,16 +344,18 @@ func _build_activity() -> void:
 	_act_warn.visible = false
 
 # A flat rounded panel for an activity-bar state (children are positioned absolutely, so a Panel — which
-# does NOT arrange children like PanelContainer would — is the right base).
-func _act_panel(size: Vector2, bg: Color, border: Color) -> Panel:
+# does NOT arrange children like PanelContainer would — is the right base). `corner` < 0 keeps the
+# default soft rounding; pass size.y * 0.5 for a full capsule.
+func _act_panel(size: Vector2, bg: Color, border: Color, corner: float = -1.0) -> Panel:
 	var p := Panel.new()
 	p.position = Vector2.ZERO ; p.size = size ; p.custom_minimum_size = size
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
-	sb.set_corner_radius_all(int(clampf(size.y * 0.28, 8.0, 18.0)))
+	sb.set_corner_radius_all(int(corner if corner >= 0.0 else clampf(size.y * 0.28, 8.0, 18.0)))
 	sb.set_border_width_all(2)
 	sb.border_color = border
+	sb.anti_aliasing = true
 	p.add_theme_stylebox_override("panel", sb)
 	return p
 
