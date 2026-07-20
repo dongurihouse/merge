@@ -48,6 +48,10 @@ static func build_all(cfg: Dictionary) -> Array:
 	# same live-polish trap. LevelPopup.bake_sprites declares [rel, cap] pairs (caps differ per sprite).
 	for spec in LevelPopup.bake_sprites():
 		Kit.clean_tex_path(Look.kit(String(spec[0])), int(spec[1]))
+	# The HUD's top-left star level badge (Look.make_star_level_badge) polishes its sprite on first draw
+	# like the dialogs; bake it so the board/map open freeze-free (kit_bake_tests holds it baked). @256
+	# matches the make_star_level_badge clean_tex_path cap.
+	Kit.clean_tex_path(Look.kit(Look.STAR_BADGE_ART), 256)
 	return out
 
 ## The home-screen CHROME — the bottom nav + the live-ops rail — is what cost ~480ms to build on a cold

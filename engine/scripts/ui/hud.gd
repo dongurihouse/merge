@@ -173,7 +173,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# "on_level". The badge's children ignore input, so the avatar itself catches the tap.
 	var on_level: Variant = opts.get("on_level")
 	var build_badge := func(lvl: int) -> Control:
-		var av := Look.make_level_badge(lvl, lv_px, _lv_font_size(lvl, lv_px))
+		# the top-left badge is the cut-paper gold STAR base with the level number in WHITE
+		var av := Look.make_star_level_badge(lvl, lv_px, _lv_font_size(lvl, lv_px))
 		av.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		av.set_meta("painted_top_offset", _painted_top_offset(av))
 		if on_level is Callable and (on_level as Callable).is_valid():
