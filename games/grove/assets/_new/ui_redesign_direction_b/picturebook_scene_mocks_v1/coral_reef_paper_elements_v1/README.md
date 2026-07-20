@@ -14,6 +14,7 @@ This bundle was created from:
 The scene uses:
 
 - `01_backdrop/coral_reef_paper_foundation_v1.png` as the fixed foundation.
+- `01_backdrop/coral_reef_paper_foundation_no_extra_plates_v2.png` is now the active corrected foundation in `metadata/placements.json`; it removes extra raised platform cap plates so only modular props own visible paper plates.
 - Five modular paper-plate hero props in `03_structures/`.
 - `05_coverings/coral_reef_paper_cover_overlay_no_bubbles_v1.png` as the foreground occluder.
 - `metadata/placements.json` as the workbench authority.

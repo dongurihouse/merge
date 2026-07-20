@@ -1,0 +1,5 @@
+See source prompt:
+
+games/grove/assets/_concepts/zones/layer_ready_coral_reef_v1/foundation_no_extra_plates_v2.prompt.txt
+
+Purpose: corrected scene-workbench foundation for `coral_reef_paper`, removing extra raised cap/socket plates from the stone platforms so the modular prop-owned paper plates do not double-stack.

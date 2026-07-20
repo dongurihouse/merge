@@ -1,0 +1,24 @@
+Use case: stylized-concept
+Asset type: corrected foundation/base layer for a vertical mobile layered raster game scene, 941:1672 portrait.
+Primary request: Recreate the Coral Reef FOUNDATION/BACKDROP ONLY, correcting the current problem: the backdrop must NOT have extra raised paper plates or white-rimmed cap plates sitting on top of the stone platforms. The props already include their own paper base plates, so the foundation platforms must be bare exposed blue stone/cardstock shelves.
+
+Must preserve:
+- vertical 3/4 top-down Coral Reef scene composition;
+- turquoise underwater canyon, bright cyan water at top, diagonal paper light rays;
+- left and right stacked blue cardstock rock formations;
+- central vertical sandy seabed/water corridor from bottom upward;
+- broad usable stone platform areas at upper-middle, mid-left, lower-left, mid-right, and center-right for separate paper-plate props.
+
+Critical correction:
+- Platform tops should be bare blue stone/cardstock surfaces integrated into the rock columns, NOT separate floating plates.
+- No white/cream rim around the platform tops.
+- No raised socket plates, no oval/cloud-shaped top pads, no detachable blue slabs on top of platforms.
+- The only paper plates in the final scene should come from the separate props, not the foundation.
+
+Layer requirements:
+- BASE/FONDATION ONLY: water, canyon rock columns, bare platform top surfaces, sandy corridor, subtle paper texture, low terrain markings.
+- Do NOT include customizable props: no shipwreck, clam, pearl, treasure chest, anchor, rope, statue, or hero object plates.
+- Do NOT include large cover elements: no big coral fans, no kelp curtains, no sponge clusters on object sockets.
+- Very small low pebbles along the bottom corridor are okay, but keep object sockets clean and flat.
+
+Avoid: UI, text, labels, borders, callouts, hero props, animals/characters, extra raised platform plates, white cap rims, floating slabs, paper islands on top of platforms, painterly realism, photorealism, plastic 3D render, pixel art, flat vector art, harsh black shadows, cluttered tiny debris.

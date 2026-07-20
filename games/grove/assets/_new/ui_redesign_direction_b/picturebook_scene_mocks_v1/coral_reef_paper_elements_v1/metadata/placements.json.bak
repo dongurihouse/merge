@@ -1,0 +1,116 @@
+{
+ "schemaVersion": 2,
+ "scene": "coral_reef_paper",
+ "canvas": {
+  "width": 941,
+  "height": 1672,
+  "anchorConvention": "center-bottom",
+  "coordinateOrigin": "top-left"
+ },
+ "pipeline": {
+  "mapMode": "scene_mode",
+  "visualModel": "layered_raster",
+  "runtimeObjectModel": [
+   "separate_props",
+   "foreground_occluders"
+  ],
+  "collisionModel": "none",
+  "visualAssetSource": "image_gen",
+  "engineTarget": "project-native"
+ },
+ "base": {
+  "id": "foundation",
+  "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/01_backdrop/coral_reef_paper_foundation_no_extra_plates_v2.png",
+  "opaque": true,
+  "z": 0
+ },
+ "source": {
+  "approvedMock": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/00_source/coral_reef_paper_approved_mock_v3.png",
+  "reconstructionPreview": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/09_reconstruction/coral_reef_paper_reconstruction_with_cover_no_extra_plates_v2.png",
+  "notes": [
+   "Layer-ready Coral Reef paper-craft scene created from games/grove/assets/_concepts/zones/layer_ready_coral_reef_v1.",
+   "Every hero prop includes its own thin irregular paper base plate, following the approved desert-oasis modular plate direction.",
+   "The clean cover overlay intentionally excludes bubbles because the first bubble chroma-key pass left visible fringe artifacts.",
+   "2026-07-20: foundation replaced with no-extra-plates v2 so prop-owned paper plates do not double-stack on backdrop socket plates."
+  ]
+ },
+ "placements": [
+  {
+   "id": "shipwreck",
+   "assetId": "shipwreck",
+   "category": "structure",
+   "layer": "hero_prop",
+   "cluster": "shipwreck",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_shipwreck_v1.png",
+   "x": 500,
+   "y": 765,
+   "w": 765,
+   "h": 545,
+   "z": 250
+  },
+  {
+   "id": "chest",
+   "assetId": "chest",
+   "category": "structure",
+   "layer": "hero_prop",
+   "cluster": "chest",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_chest_v1.png",
+   "x": 235,
+   "y": 1090,
+   "w": 230,
+   "h": 184,
+   "z": 270
+  },
+  {
+   "id": "anchor",
+   "assetId": "anchor",
+   "category": "structure",
+   "layer": "hero_prop",
+   "cluster": "anchor",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_anchor_v1.png",
+   "x": 575,
+   "y": 1012,
+   "w": 220,
+   "h": 258,
+   "z": 280
+  },
+  {
+   "id": "statue",
+   "assetId": "statue",
+   "category": "structure",
+   "layer": "hero_prop",
+   "cluster": "statue",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_statue_v1.png",
+   "x": 660,
+   "y": 1240,
+   "w": 230,
+   "h": 257,
+   "z": 300
+  },
+  {
+   "id": "clam",
+   "assetId": "clam",
+   "category": "structure",
+   "layer": "hero_prop",
+   "cluster": "clam",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_clam_v1.png",
+   "x": 255,
+   "y": 1450,
+   "w": 320,
+   "h": 338,
+   "z": 320
+  },
+  {
+   "id": "cover_overlay",
+   "assetId": "cover_overlay",
+   "category": "covering",
+   "layer": "foreground_occluder",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/coral_reef_paper_elements_v1/05_coverings/coral_reef_paper_cover_overlay_no_bubbles_v1.png",
+   "x": 470,
+   "y": 1672,
+   "w": 941,
+   "h": 1672,
+   "z": 500
+  }
+ ]
+}
