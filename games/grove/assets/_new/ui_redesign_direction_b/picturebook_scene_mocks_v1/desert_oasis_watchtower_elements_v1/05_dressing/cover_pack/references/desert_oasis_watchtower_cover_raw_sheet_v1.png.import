@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bvwt7r8v56c77"
-path="res://.godot/imported/desert_oasis_cover-8.png-53592ea234c9bc8c084933e0ae28c24c.ctex"
+uid="uid://bx4uug23j32y8"
+path="res://.godot/imported/desert_oasis_watchtower_cover_raw_sheet_v1.png-4addf7c316001bb87442202c30be3f92.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v1/05_dressing/cover_pack/desert_oasis_cover-8.png"
-dest_files=["res://.godot/imported/desert_oasis_cover-8.png-53592ea234c9bc8c084933e0ae28c24c.ctex"]
+source_file="res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/desert_oasis_watchtower_elements_v1/05_dressing/cover_pack/references/desert_oasis_watchtower_cover_raw_sheet_v1.png"
+dest_files=["res://.godot/imported/desert_oasis_watchtower_cover_raw_sheet_v1.png-4addf7c316001bb87442202c30be3f92.ctex"]
 
 [params]
 

@@ -10,7 +10,7 @@ metadata={
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v1/05_dressing/cover_pack/desert_oasis_cover-9.png"
+source_file="res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/desert_oasis_watchtower_elements_v1/05_dressing/cover_pack/desert_oasis_cover-9.png"
 dest_files=["res://.godot/imported/desert_oasis_cover-9.png-f93044fc0931ec08e407db3d189fea86.ctex"]
 
 [params]
