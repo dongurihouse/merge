@@ -1,0 +1,131 @@
+FINAL COMPLIANCE-EDIT REFERENCE FILES
+- Image 1: quest_cards_c_layered_postcard.png (precise edit target)
+- Image 2: games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png (palette/material authority)
+- Image 3: games/grove/assets/_concepts/screens/home_screen_meadow_sky_v2_working_farm.png (scale/detail-budget authority)
+
+Use case: ui-mockup
+Asset type: high-resolution landscape comparison mock for a mobile merge-game quest-card concept
+
+Input images:
+- Image 1 is the content, scale, and current-board context authority. Use it to preserve the four resident/request/reward examples and believable phone-game legibility. Do not reproduce, extend, or copy the whole board, HUD, progress bar, navigation, grid, or surrounding screen.
+- Image 2 is the Meadow Sky palette and Cut-Paper material authority only. Use its palette relationships, matte paper grain, warm cut edges, cream surfaces, ink, reward gold, and shallow tinted shadows. Do not copy its board composition, characters, quest-card layout, controls, or other content.
+
+Primary request: Create Variation C, Layered Postcard, as one polished comparison image. Show exactly one single horizontal row of four complete quest cards centered on a quiet flat Meadow Sky blue surface (#6FA9C0), with generous clean outer margin above, below, left, and right and clear gaps between cards. All four cards must be fully visible and uncropped. Each card is a compact landscape rectangle at roughly 1.1:1 width-to-height proportions, visually equivalent to about 160 x 145 logical pixels and legible at phone size. No title or caption outside the cards.
+
+Exact left-to-right card content:
+1. Flower-crowned forest child requesting one blue-green herb, reward text "+5".
+2. Purple-cloaked child requesting one white winter rabbit, reward text "+24".
+3. Sandcastle-crowned child requesting one green sprig, reward text "+34".
+4. Leaf-hooded child requesting one pine cone, reward text "+12".
+
+Layered Postcard structure, identical on all four cards:
+- One softly tinted rounded base card only, with no split background fields and no internal panel division.
+- The resident portrait overlaps the lower-left edge of the base card. Each resident is fully drawn and fully visible, with head, shoulders, upper torso, and a deliberate authored rounded cut-paper base below the torso; never crop or truncate the resident at a straight card edge.
+- The single requested item sits alone on a separate small warm-cream paper note in the upper-right. Rotate each cream note only a few degrees for a natural layered-paper feel. The note is not a speech bubble: no pointer, tail, dialogue shape, or text.
+- Near the lower-right, attach one small seed-shaped hanging paper tag with a fine reward-gold edge. Place the exact reward text in bold dark ink on that tag: "+5", "+24", "+34", "+12" respectively. These four reward values are the only text or numerals anywhere in the image.
+- Preserve the hierarchy: resident first, requested item second, reward tag third. Keep item and reward fully clear of the resident and each other.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Style-block exception: the only permitted text or numerals are the four exact reward strings "+5", "+24", "+34", and "+12", each appearing exactly once on its corresponding hanging tag. Render them cleanly and legibly in dark ink; invent no other text.
+
+Color and material: use warm cream #F6EBDD for the separate request notes, ink #243B4B for reward text and deepest local edges, garden/action green #5F9B6D for restrained foliage accents, coral #D87865 only as a small accent, reward gold #D6A94C only for the hanging-tag edges and meaningful reward detail, rare purple #8677A3 primarily on the second resident, and shallow down-right tinted shadows based on #294654 at about 18–20% opacity. Keep base cards softly tinted and low saturation rather than fully saturated slabs. Use no pure white or pure black.
+
+Composition and output: clean high-resolution landscape image, straight-on UI presentation, single row only, four equal-scale complete cards, balanced spacing, generous blue negative space, no mock phone frame. The image must remain readable when reduced to phone-game size.
+
+Hard constraints: absolutely no speech bubbles; absolutely no split background fields; no board recreation; no HUD; no level badge; no currency bar; no progress bar; no navigation; no inventory grid; no names; no quest descriptions; no timers; no rarity; no progress counters; no extra counters; no buttons; no labels; no captions; no unrelated objects; no extra residents; no extra requested items; no extra reward tags; no logos; no watermark. All four resident silhouettes, all four cream request notes, all four requested items, all four hanging reward tags, and all four base cards must be complete and uncropped within the image.
+
+---
+TARGETED CORRECTION PROMPT APPLIED ONCE TO THE INITIAL RENDER ABOVE
+---
+
+Use case: precise-object-edit
+Asset type: targeted correction to an existing high-resolution landscape mobile-game quest-card comparison mock
+
+Input images:
+- Image 1 is the precise edit target. Preserve its full canvas, quiet blue background, single horizontal four-card row, card order, resident identities, softly tinted base cards, rotated cream request notes, requested-item art, seed-shaped hanging reward tags, exact reward strings, cut-paper rendering, palette, lighting, shadows, spacing, and generous outer margin except for the explicit corrections below.
+- Image 2 is content, scale, and current-board context authority only. Use it only to confirm the four resident/request/reward identities and phone-game legibility. Do not reproduce the board, HUD, progress bar, navigation, grid, or surrounding screen.
+- Image 3 is Meadow Sky palette and Cut-Paper material authority only. Do not copy its board layout, characters, controls, or other content.
+
+Make only these targeted Layered Postcard corrections:
+1. Remove all unrelated handheld or foreground props from the resident portraits: remove the jar from the purple-cloaked second child, remove the shovel and bucket from the sandcastle-crowned third child, and remove the extra bunch of pine cones from the leaf-hooded fourth child. Restore the exposed areas as matching empty hands, costume, and rounded torso-base paper. Do not remove or alter the requested herb, white winter rabbit, green sprig, or pine cone shown on the separate upper-right cream notes.
+2. Make each resident portrait clearly overlap the lower-left outer edge of its softly tinted base card as a separate foreground paper layer. Each complete resident silhouette must visibly cross the card's left and/or lower boundary, while remaining fully drawn and fully visible within the overall landscape canvas. Preserve each deliberate authored rounded paper base below the torso; no straight-edge truncation or cropping.
+3. Make each base card subtly wider than tall, approximately 1.1:1 width-to-height, while keeping all four cards complete, uncropped, equal-scale, clearly separated, and centered in the same single row.
+
+Preserve exactly: left-to-right content is flower-crowned forest child + blue-green herb + "+5"; purple-cloaked child + white winter rabbit + "+24"; sandcastle-crowned child + green sprig + "+34"; leaf-hooded child + pine cone + "+12". Keep one softly tinted unsplit base card, one separate slightly rotated cream request note in the upper-right, and one small gold-edged seed-shaped hanging reward tag near the lower-right per card. The only text or numerals are the four exact reward strings, each exactly once.
+
+Hard invariants: absolutely no speech bubbles, pointers, tails, or dialogue shapes; no split background fields or internal panel divisions; no full-board recreation; no HUD, level badge, currency bar, progress bar, navigation, inventory grid, names, descriptions, timers, rarity, extra counters, buttons, labels, captions, unrelated objects, extra residents, extra requested items, extra reward tags, logos, or watermark. Do not crop any card, resident, note, item, or tag. Keep matte hand-cut cardstock, broad rounded low-complexity silhouettes, subtle paper fiber, fine warm cut edges, thin locally darker edges, upper-left light, shallow down-right tinted shadows, restrained Meadow Sky palette, and phone-size legibility. No glossy plastic, clay, sticker outline, watercolor, gouache, painterly gradient, heavy black outline, pure white, or pure black.
+
+---
+REVIEW REVISION PROMPT APPLIED ONCE TO THE CURRENT PNG ABOVE
+---
+
+Use case: precise-object-edit
+Asset type: one final targeted revision of the existing high-resolution landscape mobile-game quest-card comparison mock
+
+Input images:
+- Image 1 is the precise edit target. Preserve its 1774 x 887 landscape canvas, single centered horizontal row of four complete cards, generous outer margin, card order, four resident identities, four requested items, separate rotated cream notes, seed-shaped hanging reward tags, exact reward values, and absence of surrounding board UI except where explicitly changed below.
+- Image 2 is the Meadow Sky palette and Cut-Paper material authority only. Use its restrained palette relationships, matte cardstock, warm cut edges, subtle paper fiber, cream UI surfaces, ink, reward gold, and shallow tinted shadows. Do not copy its board layout, characters, controls, quest-card composition, or other content.
+
+Primary request: Revise Image 1 in place while preserving the accepted Layered Postcard information layout. Make exactly these three visual changes across all four cards:
+
+1. EXPLICIT LOWER-LEFT PORTRAIT OVERLAP. Each resident bust must be a separate foreground paper layer that visibly crosses over and extends slightly beyond the base card's lower-left outer boundary. The base card outline must disappear behind the resident, then become visible again around it. Extend each complete bust approximately 6–10% of card height below the card's bottom edge and slightly left of the card's left edge, with the quiet blue background visibly surrounding the protruding authored rounded paper base. Keep the full head, shoulders, upper torso, empty hands, and deliberate rounded paper base completely drawn and uncropped. Never end a bust on a straight card edge. Keep protruding portraits clear of neighboring cards, request notes, and reward tags; preserve generous overall canvas margin.
+
+2. QUIET MEADOW SKY BACKGROUND. Replace the current bright cyan-blue field with a calm muted, flat Meadow Sky blue matching #6FA9C0. Allow only 2–4% subtle local paper-fiber variation. No cyan glow, saturated turquoise, gradient, vignette, lighting bloom, or dimensional backdrop.
+
+3. UNMISTAKABLY FLAT CUT-PAPER PLAYGROUND MATERIAL. Redraw the residents, requested items, cards, notes, and tags as friendly matte hand-cut cardstock, not embossed or sculpted illustration. Use broad rounded low-complexity silhouettes and only two or three dominant paper masses per object. Each surface gets one flat base color plus at most one simple same-hue shadow plane. Use subtle paper fiber at about 2–4% local value variation, a fine warm cut edge, and a thin locally darker edge. Use one upper-left light source and only short, soft, shallow down-right tinted contact shadows at about 18–20% opacity to explain layer order. Flatten facial features, costumes, leaves, rabbit fur, pine cone scales, crown details, notes, tags, and reward medallions into clean paper shapes. Remove all bevels, embossing, deep relief, molded volume, carved ridges, realistic fur, realistic botanical texture, glossy highlights, specular shine, thick drop shadows, and 3D sculpting. No clay, plastic, sticker outline, watercolor, gouache, painterly gradient, realistic miniature diorama, heavy black outline, pure white, or pure black.
+
+Preserve exact left-to-right content and text:
+1. Flower-crowned forest child requesting one blue-green herb; reward text "+5".
+2. Purple-cloaked child requesting one white winter rabbit; reward text "+24".
+3. Sandcastle-crowned child requesting one green sprig; reward text "+34".
+4. Leaf-hooded child requesting one pine cone; reward text "+12".
+
+Preserve the Layered Postcard structure on every card: one softly tinted unsplit rounded base card; one complete resident overlapping the lower-left outer edge; one separate small warm-cream paper note in the upper-right, rotated only a few degrees, containing the single requested item; one small gold-edged seed-shaped hanging paper tag near the lower-right containing the exact reward value. Keep resident first, request second, reward third. The four reward values are the only text or numerals anywhere.
+
+Hard invariants: all four cards, residents, rounded portrait bases, cream notes, requested items, and hanging tags remain complete and uncropped. Keep one row only. Absolutely no speech bubbles, tails, pointers, or dialogue shapes. No split background fields or internal card divisions. No board recreation, HUD, level badge, currency bar, progress bar, navigation, inventory grid, names, descriptions, timers, rarity, extra counters, buttons, labels, captions, extra residents, extra requested items, extra reward tags, unrelated objects, logos, or watermark. Preserve the exact reward strings "+5", "+24", "+34", and "+12" cleanly and legibly, each appearing exactly once on its corresponding tag.
+
+---
+FINAL COMPLIANCE-EDIT PROMPT — BOTH MANDATORY AUTHORITIES ATTACHED
+---
+
+Use case: precise-object-edit
+Asset type: final compliance-preserving edit of an approved high-resolution mobile-game quest-card comparison mock
+
+Input images:
+- Image 1 is the precise edit target and the absolute authority for identity, content, straight-on UI composition, geometry, card proportions, canvas, crop, spacing, portrait overlap, note rotations, tag placement, exact text, colors, and background. Preserve it visually unchanged unless a minute adjustment is strictly necessary to reconcile the two supporting authorities below.
+- Image 2 is the mandatory Meadow Sky palette and Cut-Paper material authority only. It controls palette relationships, matte paper treatment, warm cut edges, cream UI surfaces, ink, reward gold, subtle fiber, and shallow shadows. Do not copy its board composition, resident designs, quest-card layout, controls, icons, or other content.
+- Image 3 is the mandatory scale and detail-budget authority only. For this straight-on UI card row, use it only to limit micro-detail and maintain clear phone-size legibility. Do not copy its world, UI, farm content, elevated camera, buildings, paths, objects, screen layout, or composition.
+
+Primary request: Perform a compliance-preserving edit of Image 1 with no intentional content, layout, geometry, color, or style changes. The output should be visually equivalent to Image 1 or better. Preserve the exact 1774 x 887 landscape canvas and the exact quiet Meadow Sky #6FA9C0 background. Preserve the single centered horizontal row of four complete cards, generous outer margin, equal scale, spacing, softly tinted unsplit rounded base cards, resident bust overlap, complete authored rounded portrait bases extending slightly below the lower-left card edges, separate slightly rotated cream request notes, requested items, seed-shaped gold-edged hanging reward tags, shallow contact shadows, and flat cut-paper rendering.
+
+Preserve exact left-to-right content and text:
+1. Flower-crowned forest child requesting one blue-green herb; reward text "+5".
+2. Purple-cloaked child requesting one white winter rabbit; reward text "+24".
+3. Sandcastle-crowned child requesting one green sprig; reward text "+34".
+4. Leaf-hooded child requesting one pine cone; reward text "+12".
+
+Canonical STYLE BLOCK — apply verbatim:
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Required text exception to the canonical STYLE BLOCK: the only permitted text or numerals are the four exact reward strings "+5", "+24", "+34", and "+12", each appearing exactly once on its corresponding hanging tag. Preserve their current clean dark-ink typography and legibility exactly. Do not invent any other text.
+
+Preservation lock: keep all four base cards, residents, complete rounded portrait bases, cream notes, requested items, and hanging tags fully visible and uncropped. Keep the current portrait silhouettes extending below and slightly left of their card boundaries, with the card edges visibly occluded behind them. Preserve current facial expressions, costumes, item silhouettes, tag shapes, reward medallions, note rotations, local palette, material flatness, and shallow shadow direction. Preserve one flat base color plus at most one same-hue shadow plane per surface, subtle 2–4% paper fiber, fine warm cut edges, thin locally darker edges, one upper-left light, and short soft shallow down-right tinted contact shadows only.
+
+Hard constraints: no intentional redesign; no rearrangement; no zoom; no crop; no changed canvas; no changed card count; no changed reward values; no changed item identity; no new content. Absolutely no speech bubbles, tails, pointers, dialogue shapes, split background fields, internal card divisions, full-board recreation, HUD, level badge, currency bar, progress bar, navigation, inventory grid, names, descriptions, timers, rarity, extra counters, buttons, labels, captions, extra residents, extra requested items, extra reward tags, unrelated objects, logos, or watermark. No embossed or sculpted volume, deep shadows, realistic fur, glossy surfaces, clay, plastic, sticker outline, watercolor, gouache, visible brushwork, painterly gradient, realistic miniature diorama, heavy black outline, pure white, or pure black.
