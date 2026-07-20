@@ -1,0 +1,33 @@
+Generate a production-ready 2D game asset sheet for the Snowy Village Snowball / Ice Sculptures line, matching the v2 Meadow Sky + Cut-Paper Playground Grove item-line style.
+
+Reference roles:
+- Use /Users/xup/dh/merge/games/grove/assets/_originals/items/item_lines_cutpaper_v2/fairy_hollow_glowshroom/line_fairy_hollow_glowshroom_v2.png as the accepted v2 item-line style reference for matte cut-paper game icons on magenta. Use its cardstock material, broad silhouettes, warm cut edges, crisp separated object reads, equal 3 columns x 4 rows spacing, and no visible grid, but do not copy mushroom content.
+- Use /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png and /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png as Meadow Sky palette/UI references. Use their cream, powder blue, teal-blue, slate, lavender, coral, and soft gold color family and cozy paper texture.
+
+Canvas: exact 1024x1536 PNG, portrait, arranged as 3 columns x 4 rows, exactly 12 cells in row-major order. Use generous invisible gutters and centered items. Background must be solid flat #FF00FF only, one uniform chroma-key color edge to edge.
+
+Style: v2 Meadow Sky + Cut-Paper Playground Grove item-line style. Matte hand-cut cardstock, broad low-detail silhouettes, clean continuous dark outline, warm cream paper cut edges, soft printed-paper texture on the objects only, cozy hand-painted game icon readability. Cream/blue/slate/gold contrast with restrained lavender and blue-purple only on premium tiers. Do not make pixel art.
+
+Sizing: all 12 elements must have the same visual footprint and fill the same amount of each cell. Early tiers are simpler but not smaller. Premium tiers are richer through silhouette, material, palette, and one bold motif, not extra clutter.
+
+Create exactly one clean connected portable item icon per cell, in this order:
+1. packed snowball - a single rounded compact hand-packed snow sphere with one cream paper rim accent, no loose snow bits
+2. snow puck - a single flattened rounded snow disk, smooth cream edge, no pile, no crumbs
+3. molded snow acorn - one natural acorn-shaped packed snow form with a simple attached cap ridge, no real acorn colors except subtle cream edge
+4. smooth ice lump - one rounded translucent-looking blue ice pebble shape made as opaque paper layers, no reflections or shine rays
+5. tiny snow creature sculpture - one small connected rounded snow critter sculpture with attached ears and simple dot impressions, no separate parts, no loose snow
+6. blue ice block - one compact beveled blue ice block, upright portable item, connected silhouette
+7. carved ice lantern-shape with no glow - one squat lantern-like carved ice form with a handle-shaped cut-paper top attached, absolutely no light or glow
+8. ice bird sculpture - one stylized bird-shaped blue ice carving, wings tucked into the main silhouette, no feathers flying, no snow
+9. snow-keystone sculpture - one upright keystone-shaped snow carving with a broad slate-blue inset motif, connected and portable
+10. gold-edged ice token - one roundish blue ice token with attached soft-gold rim and one clear Grove acorn emblem recessed in the center as the natural emblem slot
+11. blue-purple ice guardian token - one shield-like blue-purple ice token with slate face/guardian motif and one clear Grove acorn emblem integrated in the center, no extra badges
+12. premium rainbow-prism ice sculpture - one compact faceted rainbow-prism ice sculpture with soft gold rim and one central Grove acorn emblem, premium but still one connected cutout-friendly object
+
+Important constraints:
+- One connected object per cell only. No scenes, scenery, landscape pieces, village buildings, furniture, built-in architecture, full environments, bundles, crossed tools, piles, clusters, containers, jars, loose snow bits, or unrelated props.
+- No visible grid, no borders, no frames between cells, no labels, no text, no watermark.
+- No cast shadow, contact shadow, drop shadow, floor shadow, ground smudge, grounding, reflection, shine streaks, glow, sparkles, particles, snowflakes, falling snow, aura, smoke, mist, water, puddles, or detached FX.
+- Keep all details broad and attached. Avoid hairline cuts, tiny chips, crumbs, loose facets, tiny snow granules, thin strings, thin antennae, or many small separated decorations.
+- The entire object must fit fully inside its cell with magenta margin on all four sides. Nothing may cross cell edges. Same silhouette scale and same visual footprint in every cell.
+- Output only the image sheet.

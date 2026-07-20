@@ -1,0 +1,46 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest reusable 2D merge item line sheet
+
+Input images:
+- Image 1 is the accepted Fairy Hollow Glowshroom v3 sheet at /Users/xup/dh/merge/games/grove/assets/_originals/items/item_lines_cutpaper_v2/fairy_hollow_glowshroom/line_fairy_hollow_glowshroom_v3.png: preserve its successful v2 item-line spacing, matte cut-paper rendering quality, warm cut edges, broad low-detail silhouettes, clean readable row-major tier layout, and flat magenta cutter background. Use it as style and layout reference only, not content.
+- Image 2 is the mandatory Meadow Sky palette authority at /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png: use its palette relationships, cream/ink neutral balance, coral accents, soft straw/sun gold, teal/slate shadows, and restrained rare-purple accents. Do not copy its UI, board layout, labels, icons, or composition.
+- Image 3 is the mandatory Meadow Sky world/reference screen at /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png: use its friendly phone-size readability, shallow handcrafted detail budget, matte cardstock texture, and cozy Grove object simplicity. Do not copy its farm content, UI, buildings, paths, scene layout, or shadows.
+
+Primary request:
+Generate the Cherry-Blossom line 11: Koi item-line sheet in the v2 Meadow Sky + Cut-Paper Playground Grove asset style. Make all twelve tiers whole intact koi fish icons only.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous invisible gutters. No visible grid.
+Background: solid flat #FF00FF only.
+
+Style:
+Cozy matte hand-cut cardstock fish icons, broad low-detail silhouettes, simple paper color blocking, subtle 2-4% paper-fiber value variation inside the objects only, warm cream cut edges, thin locally darker ink edge. Use cream koi bodies, coral/orange markings, soft straw gold, teal/slate fins and shadows, restrained rare purple on late tiers, and a premium final rainbow tier. No universal white sticker outlines, no heavy black outlines, no glossy plastic, no watercolor, no clay, no 3D render.
+
+Koi silhouette rules:
+Each cell contains one connected whole koi only, seen as a clean board-size icon with a compact side-facing or gentle top-down fish silhouette. Fins, tail, whiskers, and markings must stay attached to the main body silhouette. Use rounded tails and broad attached fins, not thin detached fins. Keep every fish intact: no sliced fish, no skeleton, no interior cutaway, no dead fish, no fish head only.
+
+Hard cutter constraints:
+No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark. Absolutely no water, splashes, ripples, pond, bowl, lotus, lily pads, bubbles, waves, rocks, grass, cherry blossoms, flower petals, nets, hooks, plates, or scenery. Do not include any Grove acorn emblem.
+
+Sizing:
+All 12 koi must have the same visual footprint and fill the same amount of each grid cell. Tier 1 is a simple young koi but must not be much smaller than later tiers. Center every item with generous magenta padding and no cropped edges.
+
+Create exactly one clean cutout-friendly koi item per cell, in this row-major order:
+1. Tiny white koi fry: a simple young cream-white koi with tiny attached teal fins, broad rounded body, one small coral dot near the head, same visual footprint as the others.
+2. Orange koi: warm orange koi with cream belly patch, attached teal/slate fins, simple rounded tail.
+3. White-orange koi: cream-white body with two broad coral-orange patches, teal fins, clean connected silhouette.
+4. Golden koi: soft straw-gold koi with cream edge accents and muted orange dorsal patch, no shine or glow.
+5. Black-white koi: cream-white koi with broad slate-black patches, slate fins, friendly rounded silhouette.
+6. Long-fin koi: cream body with coral patches and long flowing but still broad attached teal fins and tail, no detached strands.
+7. Red-capped koi: cream-white koi with one bold coral-red cap marking on the head and teal/slate fins.
+8. Tri-color koi: cream koi with large coral-orange, slate-black, and teal markings; markings are broad cut-paper panels, not tiny spots.
+9. Blue-shadow koi: cream body with muted sky-blue and slate shadow panels, teal fins, calm premium silhouette.
+10. Gold-accent koi: cream and coral koi with soft gold trim panels on fins and tail, rich but uncluttered, no acorn emblem.
+11. Rare purple-white koi: cream-white koi with restrained rare-purple patches and slate-teal fins, elegant premium silhouette, no glow.
+12. Premium rainbow koi: strongest final koi with cream base and large attached rainbow cut-paper panels using coral red, straw gold, meadow green, teal blue, and rare purple across body and fins; still one whole intact fish, premium and readable, no effects.
+
+Important constraints:
+- One connected fish object per cell only. No scenes, no containers, no water features, no flowers, no petals, no props, no detached symbols, no repeated fish, no pairs, no schools, no piles, no background elements.
+- Keep details broad and attached. Avoid many tiny scales, dots, hairline whiskers, thread fins, thin whiskers, loose specks, separated ornaments, or small detached fins.
+- High tiers 10-12 must be more distinct through silhouette, palette, and broad material accents only, not through extra clutter or effects.
+- Make the whole sheet readable at mobile board-item size, with each tier clearly a different koi variant while keeping one coherent Cherry-Blossom Koi family.
+- Output only the image sheet. Do not add explanatory text in the image.

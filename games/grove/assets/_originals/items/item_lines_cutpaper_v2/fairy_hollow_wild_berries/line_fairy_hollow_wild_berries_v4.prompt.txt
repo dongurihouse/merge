@@ -1,0 +1,37 @@
+Use case: stylized-concept
+Asset type: Grove / Acorn Forest 12-tier item-line sheet
+Primary request: Generate a production-ready 2D game asset sheet for the Fairy Hollow Wild Berries line, matching the accepted v2 Meadow Sky + Cut-Paper Playground Grove item-line style. This version must read as berries only, clearly different from Oasis Desert Fruits and earlier Wild Berries versions.
+
+Input images:
+- Reference image 1: accepted v2 item-line style reference only, not content: /Users/xup/dh/merge/games/grove/assets/_originals/items/item_lines_cutpaper_v2/fairy_hollow_glowshroom/line_fairy_hollow_glowshroom_v3.png
+- Reference image 2: Meadow Sky board palette reference: /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png
+- Reference image 3: Meadow Sky home screen material and color reference: /Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: matte hand-cut cardstock game icons, crisp continuous dark outline, warm cut-paper rim edges, broad low-detail silhouettes, strong contrast, soft Meadow Sky colors, subtle internal paper texture, warm painterly color blocking. No cast shadow, no contact shadow, no drop shadow, no floor shadow, no ground smudge, no reflection, no background texture, no glow, no sparkles, no particles, no smoke, no aura, no detached FX, no text, no labels, no watermark.
+Sizing: all 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers may be simpler, but they must not be smaller than later tiers. Center every item.
+
+Create exactly one clean connected cutout-friendly berry object per cell, in this row-major order:
+1. Closed berry bud, a small round berry form mostly wrapped by attached green calyx leaves.
+2. Half-ripe green-to-red berry, one round berry with attached leaf cap and simple color transition.
+3. Wild strawberry, one heart-like red berry with broad attached calyx cap and only a few large embedded seed marks.
+4. Round blueberry, one blue berry with a single broad star-shaped crown attached on top.
+5. Small cranberry or lingonberry, one compact deep red berry with a tiny attached calyx dimple.
+6. Raspberry, one single berry silhouette made from a few large fused lobes under one continuous outline, not many bead grapes.
+7. Blackberry, one single dark berry silhouette made from a few large fused lobes under one continuous outline, not a grape cluster.
+8. Gooseberry, one translucent pale green round berry with simple broad ribbing and attached calyx.
+9. Golden cloudberry, one amber berry made from large fused lobes with a tiny attached leaf cap.
+10. Coral salmonberry, one coral-orange berry with broad fused lobes and an attached calyx, premium color blocking but still a single fruit.
+11. Pale snowberry or moonberry, one ivory-lavender round berry with a simple attached star/calyx crown.
+12. Premium rainbow fairy berry, one single berry object with berry scale and berry silhouette, soft rainbow paper panels or fused lobes, attached calyx cap, no acorn emblem.
+
+Important constraints:
+- One connected object per cell only. Each tier must be a whole portable berry object.
+- Attached calyx, leaf cap, or tiny stem nub is allowed only when physically connected to the berry.
+- Keep details broad and attached. Avoid many tiny leaves, many seeds, thin stems, brambles, vines, loose leaves, loose stems, loose garnish, loose seeds, piles, clusters of separate berries, bowls, baskets, jars, labels, strings, tassels, or hairline decoration.
+- For raspberry, blackberry, cloudberry, salmonberry, and fairy berry, use a few large attached lobes with one continuous silhouette. Do not make grape-like bead clusters.
+- Make this line visually different from Oasis Desert Fruits: no large rind panels, no melon stripes, no pear/gourd/pomegranate body language, no desert-fruit caps.
+- Do not include watermelon, honeydew, date, cactus fruit, prickly pear, melon, pomegranate, fig, citrus, grapes, eggplant silhouettes, or large desert fruits.
+- Do not add a Grove acorn emblem; these organic berries have no natural emblem slot.
+- Output only the image sheet. Do not add explanatory text in the image.
