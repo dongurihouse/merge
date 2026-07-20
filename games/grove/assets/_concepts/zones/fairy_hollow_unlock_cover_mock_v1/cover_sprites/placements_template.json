@@ -1,0 +1,14 @@
+{
+  "canvas": {"width": 941, "height": 1672, "anchorConvention": "top-left"},
+  "assetRoot": "cover_sprites/processed",
+  "overlapRule": "Overlap adjacent pieces by 8-18 percent; never leave a regular grid seam.",
+  "removalRule": "A cover entry is removed whole; underlying scene art is never replaced by a socket.",
+  "variationRules": {
+    "round_leaf": "Use 2-4 times, scale 0.70-1.25, rotate -20 to +20 degrees.",
+    "monstera_leaf": "Use 2-4 times, scale 0.65-1.15, rotate -30 to +30 degrees.",
+    "fern_fan": "Use 1-3 times as tall diagonals, scale 0.65-1.10, rotate -35 to +35 degrees.",
+    "flower_clump": "Use 1-3 times as colorful small interrupters, scale 0.55-0.90, rotate -20 to +20 degrees.",
+    "scalloped_vine": "Use 1-3 times as seam bridges, scale 0.60-1.00, rotate -25 to +25 degrees.",
+    "corner_canopy": "Use once or twice at corners, scale 0.75-1.20, rotate only when its corner silhouette remains useful."
+  }
+}
