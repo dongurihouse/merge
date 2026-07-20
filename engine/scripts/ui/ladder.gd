@@ -27,13 +27,8 @@ const OVERLAY_NAME := "LadderOverlay"
 
 # --- the tiers mock (games/grove/assets/_concepts/dialogs/tiers_1080x1920.png) ---------------------
 # Every metric below is a fraction of the mock's CARD WIDTH (995px there), so the face holds at any
-# frame width. Measured off the mock, not eyeballed.
-const CREST_PATH := "res://games/grove/assets/ui/kit/tiers_crest.png"
-const CREST_W_FRAC := 0.458          # the twig-and-coin sprig: 456 / 995
-const CREST_ASPECT := 96.0 / 456.0   # ...and its own aspect (the cut art's)
-const CREST_GAP_FRAC := 0.016        # crest → title
-# the big navy all-caps line name is the SHARED frame's display title (Kit.DIALOG_TITLE_FONT_FRAC /
-# Kit.dialog_title_font) — this dialog only reads its size back to make room for the crest above it.
+# frame width. Measured off the mock, not eyeballed. The header is the shared frame's standard title
+# band (no crest dressing).
 const PAD_X_FRAC := 0.049            # the sheet's side inset (mock: cell left 89 − card left 40)
 const PAD_Y_FRAC := 0.028            # ...and its top/bottom inset
 const GEN_PX_FRAC := 0.31            # the generator art box (its art lands at ~0.23 of the card)
@@ -110,12 +105,6 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	var pad_x: float = target_w * PAD_X_FRAC
 	dopts["panel_pad_x"] = pad_x
 	dopts["panel_pad_y"] = target_w * PAD_Y_FRAC
-	# the big all-caps line name IS the shared frame's display title now — this dialog only asks the
-	# kit what size that title lands at, so its own band can hold the crest ABOVE it.
-	var fsz: int = Kit.dialog_title_font(String(header.get("name", Strings.t("ladder.title"))), target_w, pad_x)
-	var crest_h: float = target_w * CREST_W_FRAC * CREST_ASPECT
-	# the band = crest + gap + one title line, so the body starts exactly under the name (mock).
-	dopts["banner_h"] = crest_h + target_w * CREST_GAP_FRAC + float(fsz) * Kit.DIALOG_TITLE_LINE_FRAC
 	dopts["show_num"] = false            # the plain kit number is replaced by this dialog's corner CHIP
 	dopts["cell_gap"] = int(round(width * CELL_GAP_FRAC))
 
@@ -141,35 +130,8 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 		overlay.set_meta("header_gid", gid)
 		dialog = Kit.dialog_frame(_tiers_body(gid, grid, width), width, dopts)
 
-	_dress_banner(dialog, target_w)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
-
-## The mock's HEADER: the twig-and-coin crest riding above the big navy all-caps line name. The
-## shared frame draws one centred title band (DialogBanner/DialogTitle) — this dresses THAT band in
-## place (crest on top, title pushed into the lower half) rather than forking the shared frame.
-static func _dress_banner(dialog: Control, target_w: float) -> void:
-	var banner := dialog.find_child("DialogBanner", true, false) as Control
-	if banner == null:
-		return
-	var crest_w := target_w * CREST_W_FRAC
-	var crest_h := crest_w * CREST_ASPECT
-	var tex: Texture2D = load(CREST_PATH) if ResourceLoader.exists(CREST_PATH) else null
-	if tex != null:
-		var tr := TextureRect.new()
-		tr.name = "TiersCrest"
-		# expand_mode BEFORE size: a TextureRect's min-size cache otherwise clamps the set size up
-		# to the texture's native pixels.
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tr.texture = tex
-		tr.size = Vector2(crest_w, crest_h)
-		tr.position = Vector2((target_w - crest_w) * 0.5, 0.0)
-		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		banner.add_child(tr)
-	var title := banner.find_child("DialogTitle", true, false) as Label
-	if title != null:
-		title.offset_top = crest_h + target_w * CREST_GAP_FRAC
 
 ## Dress every built tier cell to the mock: the corner NUMBER CHIP, plus (on an undiscovered tier)
 ## the mock's flat navy PADLOCK in place of the kit's pale acorn lock. The kit's grid is a VBox of
