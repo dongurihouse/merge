@@ -1,0 +1,14 @@
+{
+  "source": "_new/ui_redesign_direction_b/_concept/dialogs/level_dialog_assets_v2/final_frames/level_star_token_512.png",
+  "category": "icon",
+  "params": {
+    "size": 512
+  },
+  "outputs": [
+    {
+      "name": "level_star_token",
+      "path": "ui/kit/level_star_token.png"
+    }
+  ],
+  "archive": "_originals/ui/level_dialog_v2/level_star_token_512.png"
+}

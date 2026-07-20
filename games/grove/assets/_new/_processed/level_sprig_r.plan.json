@@ -1,0 +1,14 @@
+{
+  "source": "_new/ui_redesign_direction_b/_concept/dialogs/level_dialog_assets_v2/final_frames/level_leaf_sprig_right_512.png",
+  "category": "icon",
+  "params": {
+    "size": 512
+  },
+  "outputs": [
+    {
+      "name": "level_sprig_r",
+      "path": "ui/kit/level_sprig_r.png"
+    }
+  ],
+  "archive": "_originals/ui/level_dialog_v2/level_leaf_sprig_right_512.png"
+}

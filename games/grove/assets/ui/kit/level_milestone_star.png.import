@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b556iot4gvhmy"
-path="res://.godot/imported/level_wreath.png-2072d8f3ca7dabbd5df6af900363995c.ctex"
+uid="uid://beod050kqc40w"
+path="res://.godot/imported/level_milestone_star.png-13997415c3efa415d8ddfd8a4590c255.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/kit/level_wreath.png"
-dest_files=["res://.godot/imported/level_wreath.png-2072d8f3ca7dabbd5df6af900363995c.ctex"]
+source_file="res://games/grove/assets/ui/kit/level_milestone_star.png"
+dest_files=["res://.godot/imported/level_milestone_star.png-13997415c3efa415d8ddfd8a4590c255.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.88
+compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

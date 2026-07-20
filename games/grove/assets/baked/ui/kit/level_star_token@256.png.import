@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://f184xc4i8akd"
-path="res://.godot/imported/level_wreath@512.png-f20ebcda7550e7e880c64a69e9edd23f.ctex"
+uid="uid://b53jrb3ljhd88"
+path="res://.godot/imported/level_star_token@256.png-1a212fa402ea1c6b34d9885e56e65377.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/baked/ui/kit/level_wreath@512.png"
-dest_files=["res://.godot/imported/level_wreath@512.png-f20ebcda7550e7e880c64a69e9edd23f.ctex"]
+source_file="res://games/grove/assets/baked/ui/kit/level_star_token@256.png"
+dest_files=["res://.godot/imported/level_star_token@256.png-1a212fa402ea1c6b34d9885e56e65377.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
-compress/lossy_quality=0.88
+compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
