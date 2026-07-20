@@ -2335,6 +2335,8 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 const DIALOG_TITLE_FONT_FRAC := 0.098
 ## ...and the band one such line needs, × its font size.
 const DIALOG_TITLE_LINE_FRAC := 1.02
+## Breathing room between a shrunk long title and the docked ✕ disc (px at target width).
+const TITLE_CLOSE_GAP := 14.0
 
 ## The display title's font size for a sheet `target_w` px wide, SHRUNK to fit when the title is long
 ## (the tiers mock's "WILDFLOWER" is 10 characters; "GLOW MUSHROOMS" at that size runs off both edges).
@@ -2508,7 +2510,12 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# owns it. opts.banner_font_frac = 0 opts a caller back out to a literal banner_font.
 	var title_frac: float = float(opts.get("banner_font_frac", DIALOG_TITLE_FONT_FRAC))
 	if title_frac > 0.0:
-		banner_font = dialog_title_font(banner_text, target_w, panel_pad_x, title_frac)
+		# the title row's MAX WIDTH is the card minus the ✕ ZONE, not just the sheet pad: the coral
+		# disc is docked INSIDE the same top band, so both sides reserve (inset + disc + a breathing
+		# gap) — symmetric, keeping the centred title centred — and a long name auto-shrinks instead
+		# of running under it.
+		var title_pad: float = maxf(panel_pad_x, close_poke.x + close_size + TITLE_CLOSE_GAP)
+		banner_font = dialog_title_font(banner_text, target_w, title_pad, title_frac)
 		# the band has to hold the line it now carries; a caller that already sized its own band
 		# taller (the tiers crest rides above the title) keeps its value.
 		banner_h = maxf(banner_h, float(banner_font) * DIALOG_TITLE_LINE_FRAC)
