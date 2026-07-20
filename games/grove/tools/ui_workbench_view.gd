@@ -20,6 +20,7 @@ const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the 
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
 const LadderUI = preload("res://engine/scripts/ui/ladder.gd")          # the REAL discovery-ladder renderer (corner tier chips + generator header)
+const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — sage art-left cards)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -492,11 +493,19 @@ func _make_element(id: String) -> Control:
 			# (no shuffle) so the capture is repeatable. Frame edits flow through via frame_cfg: _params.
 			return _mystery_preview(String(p.preview))
 		"shop":
-			# the SAME shared frame + the SAME small card — just shop data (icon+count+price+ribbon)
-			var sopts := Kit.shop_opts_from_config(_params)
-			sopts["banner_text"] = "Shop"
-			sopts["content_scale"] = _dlg_scale("shop")
-			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
+			# the REAL game storefront (shop.gd) — the SAME Shop.build_body the shop screen renders: sage
+			# art-left offer cards, a 2-column grid, plain navy all-caps section headers, bespoke green price
+			# slabs. The old Kit.shop_dialog here was orphaned (3-col daily-card cells, sprig dividers,
+			# ribbons) — the game diverged to shop.gd. Demo data mirrors the game's sections.
+			var width := _dlg_px("shop")
+			var scale := _dlg_scale("shop")
+			var inner := width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
+			var fopts := Kit.dialog_opts_from_config(_params)
+			fopts["banner_text"] = "Shop"
+			fopts["content_scale"] = scale
+			fopts["clip_below_banner"] = true   # rows clip UNDER the title band, like the game
+			fopts["list_max_h"] = 2600.0        # show the whole storefront (the game caps to 72% of the viewport)
+			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections()), width, fopts)
 		"level":
 			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
 			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
@@ -1131,6 +1140,24 @@ func _level_dialog_preview(p: Dictionary) -> Control:
 		"mode": String(p.mode), "gift": {"water": 30, "gems": 1}, "on_button": Callable(),
 	})
 
+## Demo section data for the shop preview — the SAME {caption, cards[]} shape shop.gd builds from live
+## state (Free refill · Quick help · Acorn pouches), so Shop.build_body renders the real storefront.
+func _shop_demo_sections() -> Array:
+	return [
+		{"caption": "Free refill", "cards": [
+			{"icon": "shop_can", "count": 30, "price": "Free", "affordable": true}]},
+		{"caption": "Quick help", "cards": [
+			{"title": "Fill water", "icon": "shop_can", "count": 30, "price": "25", "price_icon": "gem"},
+			{"title": "Coin pouch", "icon": "shop_pouch", "count": 150, "price": "5", "price_icon": "gem"}]},
+		{"caption": "Acorn pouches", "cards": [
+			{"icon": "pack_t1", "count": 80, "cash": true, "price": "$0.99"},
+			{"icon": "pack_t2", "count": 450, "cash": true, "price": "$4.99"},
+			{"icon": "pack_t3", "count": 1000, "cash": true, "price": "$9.99"},
+			{"icon": "pack_t4", "count": 2200, "cash": true, "price": "$19.99"},
+			{"icon": "pack_t5", "count": 6000, "cash": true, "price": "$49.99"},
+			{"icon": "pack_t6", "count": 13000, "cash": true, "price": "$99.99"}]},
+	]
+
 func _daily_dialog_preview() -> Control:
 	var width := _dlg_px("daily")
 	var scale := _dlg_scale("daily")
@@ -1635,12 +1662,10 @@ func _element_sidebar(_id: String) -> void:
 			mplay.pressed.connect(_play_mystery_spin)
 			_sidebar_body.add_child(mplay)
 		"shop":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
-			_sidebar_body.add_child(_slider_row(["cell_w", 80, 160]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
-			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
-			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+			# the shop is the game's real storefront (shop.gd Shop.build_body) inside the shared frame — its
+			# card/grid layout (sage art-left cards, 2-col grid, green price slabs) is fixed in shop.gd, so
+			# there are no grid knobs here. Edit the shared frame (banner · border · ✕) on the Frame item.
+			_sidebar_note("The shop is the game's real storefront (shop.gd). The offer cards + 2-column grid + price slabs are fixed there; the shared frame is edited on the Frame item.")
 		"level":
 			# no saved knobs: the sheet is the game's level_popup.gd, sized by the shared frame-width
 			# knob (Frame item) with every part a fraction of that width. Only preview state lives here.

@@ -229,16 +229,20 @@ const GRID_GAP := 14.0
 
 # The whole scrolling body: each section's header + offer grid.
 static func _build_body(refs: Dictionary) -> Control:
-	var Kit: GDScript = refs.kit
-	var w: float = refs.inner
+	return build_body(refs.kit, refs.inner, _sections(refs))
+
+## The shop BODY — the VBox of section headers + offer grids, built purely from section DATA (each
+## {caption, cards[]}). SHARED: the game (_build_body) computes the sections from live state and passes
+## them here; the workbench "shop" element passes demo sections. So the tool renders the real shop layout.
+static func build_body(Kit: GDScript, w: float, sections: Array) -> Control:
 	var col := VBoxContainer.new()
 	col.name = "ShopBody"
 	col.add_theme_constant_override("separation", 16)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for sec in _sections(refs):
+	for sec in sections:
 		var s := sec as Dictionary
 		col.add_child(_section_header(Kit, String(s.get("caption", ""))))
-		col.add_child(_offer_grid(refs, s.get("cards", []), w))
+		col.add_child(_offer_grid(Kit, s.get("cards", []), w))
 	return col
 
 # A section HEADER — the mock's centred navy all-caps title.
@@ -258,7 +262,7 @@ static func _section_header(Kit: GDScript, caption: String) -> Control:
 
 # One section's offers as the mock's TWO-column grid. A card marked `wide` (the Welcome bundle) takes a
 # full row of its own; the rest pair up.
-static func _offer_grid(refs: Dictionary, cards: Array, w: float) -> Control:
+static func _offer_grid(Kit: GDScript, cards: Array, w: float) -> Control:
 	var col := VBoxContainer.new()
 	col.name = "ShopOfferGrid"
 	col.add_theme_constant_override("separation", int(GRID_GAP))
@@ -270,21 +274,20 @@ static func _offer_grid(refs: Dictionary, cards: Array, w: float) -> Control:
 		# than a half-width tile stretched across the row.
 		if bool(d.get("wide", false)) or cards.size() == 1:
 			row = null
-			col.add_child(_offer_card(refs, d, w, true))
+			col.add_child(_offer_card(Kit, d, w, true))
 			continue
 		if row == null or row.get_child_count() >= 2:
 			row = HBoxContainer.new()
 			row.add_theme_constant_override("separation", int(GRID_GAP))
 			col.add_child(row)
-		row.add_child(_offer_card(refs, d, half, false))
+		row.add_child(_offer_card(Kit, d, half, false))
 	return col
 
 # ONE offer card (the mock's product tile): a sage rounded face with the product ART filling the left
 # and, on the right, the amount in large navy type over the green buy CTA. Tight padding — the art and
 # the CTA carry the card.
 # d keys: title · icon · count · label · note · price · price_icon · affordable · cash · on_buy.
-static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -> Control:
-	var Kit: GDScript = refs.kit
+static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool) -> Control:
 	var h: float = w * (0.26 if wide else 0.54)
 	var card := PanelContainer.new()
 	card.name = "ShopOfferCard"
@@ -330,7 +333,7 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 		nl.add_theme_constant_override("outline_size", 0)
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		textcol.add_child(nl)
-	var pill := _price_pill(refs, d)
+	var pill := _price_pill(Kit, d)
 	if pill != null and wide:
 		# a WIDE single-product card lays out as the mock's one row: art left · the amount
 		# centred in the open middle · the green CTA docked at the right edge.
@@ -365,10 +368,9 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 
 # The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
 # `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
-static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
+static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
 	if String(d.get("price", "")) == "":
 		return null
-	var Kit: GDScript = refs.kit
 	var icon_id := String(d.get("price_icon", ""))
 	var b := Button.new()
 	b.name = "ShopBuyButton"
