@@ -14,7 +14,7 @@ Code map: `games/grove/tools/scene_workbench.gd` (launcher) · `scene_workbench_
 Paint order is a three-level nest — the same shape at every scale, **item → cluster → layer →
 scene**. Effective order = `(layer_rank, clusterZ, z)`, back to front; higher paints on top.
 
-1. **`layer`** — one of six FIXED back→front bands. A cluster lives in exactly ONE. Order:
+1. **`layer`** — one of seven FIXED back→front bands. A cluster lives in exactly ONE. Order:
 
    | rank | slug | for |
    |---|---|---|
@@ -23,7 +23,8 @@ scene**. Effective order = `(layer_rank, clusterZ, z)`, back to front; higher pa
    | 2 | `far_mountains` | far ridgelines, silhouetted hills |
    | 3 | `background_objects` | mid-distance trees, buildings behind the action |
    | 4 | `primary_objects` | the hero props the player reads first |
-   | 5 (front) | `foreground_objects` | occluders that frame the scene, near dressing |
+   | 5 | `foreground_objects` | occluders that frame the scene, near dressing |
+   | 6 (front) | `coverup` | topmost cover pieces painted over everything else |
 
 2. **`clusterZ`** — the cluster's order WITHIN its layer, shared by every member of the cluster.
 3. **`z`** — the item's order WITHIN its cluster.

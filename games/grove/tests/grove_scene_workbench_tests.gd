@@ -168,10 +168,11 @@ func _initialize() -> void:
 		"a floored restack clamps the shared clusterZ at 0")
 
 	# --- layers (item → cluster → LAYER → scene, the fixed back→front band) ------------
-	ok(M.LAYERS.size() == 6 and M.LAYERS[0] == "sky" and M.LAYERS[5] == "foreground_objects",
-		"the six predefined layers run sky (back) → foreground (front)")
-	ok(M.layer_rank("sky") == 0 and M.layer_rank("foreground_objects") == 5,
-		"layer_rank orders the band back → front")
+	ok(M.LAYERS.size() == 7 and M.LAYERS[0] == "sky" and M.LAYERS[6] == "coverup",
+		"the predefined layers run sky (back) → coverup (front)")
+	ok(M.layer_rank("sky") == 0 and M.layer_rank("coverup") == 6
+		and M.layer_rank("foreground_objects") == 5,
+		"layer_rank orders the band back → front, coverup frontmost")
 	ok(M.layer_rank("nonsense") == M.layer_rank(M.DEFAULT_LAYER),
 		"an unknown/legacy layer reads as the default band")
 	ok(M.entry_layer({}) == M.DEFAULT_LAYER, "a layerless entry reads as the default band")
@@ -199,8 +200,8 @@ func _initialize() -> void:
 	ok(M.bump_layer(dla, 1, -1) == "sky" and String(dla.placements[0].layer) == "sky",
 		"bump_layer steps the cluster back a band, cluster-wide")
 	ok(M.bump_layer(dla, 0, -5) == "sky", "bump_layer clamps at the back of the band")
-	M.set_layer(dla, 0, "foreground_objects")
-	ok(M.bump_layer(dla, 0, 3) == "foreground_objects", "bump_layer clamps at the front of the band")
+	M.set_layer(dla, 0, "coverup")
+	ok(M.bump_layer(dla, 0, 3) == "coverup", "bump_layer clamps at the front of the band")
 
 	# --- view: a sidebar row press must NOT free the emitting button ------------------
 	# (regression: the press handler rebuilds the list; a hard free() there destroys the
