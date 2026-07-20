@@ -1,0 +1,11 @@
+Create one compact top-left HUD level badge in the Meadow Sky + Cut-Paper Playground style.
+
+Use a front-facing circular medallion with a broad mint-meadow scalloped rosette outer edge, a narrow warm-cream separator ring, and a calm medium sky-blue circular center reserved for a runtime numeral. Add one restrained golden five-point star crown centered at the top edge. Keep the star secondary and outside the numeral field.
+
+Friendly matte hand-cut cardstock; broad rounded low-complexity shapes; two or three dominant layers; one flat base color plus at most one same-hue shadow plane; subtle 2-4% paper fiber; fine warm cut edge and thin locally darker edge. No universal white sticker outline, heavy black outline, plastic, clay, watercolor, gouache, visible brushwork, glossy 3D, or miniature diorama rendering.
+
+The badge must remain legible at 96-120 screen pixels. No leaves, wreaths, flowers, ribbons, side wings, currency symbols, numeral, text, labels, panels, buttons, or extra ornaments.
+
+Generate on a perfectly flat solid #FF00FF background with no background texture, gradient, shadow, floor plane, reflection, or vignette. No cast shadow, contact shadow, glow, halo, or detached pieces.
+
+Refinement: reduce the star by approximately 25% and move it upward so it overlaps only the outer mint scallops and topmost sliver of the cream ring, preserving all other badge geometry and styling.

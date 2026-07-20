@@ -1,0 +1,37 @@
+{
+  "name": "hud_level_badge_v3",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "runtime_text": {
+    "content": "player level",
+    "position": "centered, optically shifted slightly downward",
+    "face_color": "warm cream",
+    "edge_color": "dark navy"
+  },
+  "assets": [
+    {
+      "file": "level_badge_base_master_1254.png",
+      "width": 1254,
+      "height": 1254,
+      "usage": "source master"
+    },
+    {
+      "file": "level_badge_base_1024.png",
+      "width": 1024,
+      "height": 1024,
+      "usage": "large export"
+    },
+    {
+      "file": "level_badge_base_512.png",
+      "width": 512,
+      "height": 512,
+      "usage": "standard export"
+    },
+    {
+      "file": "level_badge_base_256.png",
+      "width": 256,
+      "height": 256,
+      "usage": "HUD export"
+    }
+  ],
+  "preview": "level_badge_board_preview_v3.png"
+}
