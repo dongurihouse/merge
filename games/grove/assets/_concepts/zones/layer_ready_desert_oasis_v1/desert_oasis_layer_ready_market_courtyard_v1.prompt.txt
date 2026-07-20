@@ -1,0 +1,13 @@
+Use case: illustration-story
+Asset type: preview-only concept mock for a mobile game scene, portrait 9:16 (approximately 941 x 1672)
+Primary request: Create one complete Desert Oasis scene concept called “Market Courtyard”, intentionally designed as a 3-layer assembly blueprint while appearing as one polished picture-book scene.
+
+Static foundation: quiet open golden-sand basin, winding pale stone path from bottom center to upper middle, stable turquoise pond at lower center-left, broad layered dunes and simple blue mountains. Sky and small cream paper clouds are reference atmosphere only.
+
+Show only five separate hero objects with generous open sand between them: one unified adobe caravanserai gatehouse, one spice-market stall, one textile-market stall, one small tea canopy with low table, and one loaded camel cart. Keep each modestly detailed, contained, and non-overlapping.
+
+Static cover dressing: sparse paper-cut palms, small rock clusters, agaves, and tiny flowers only at scene edges, foreground, and a few socket edges. No attached grass pads or ground slabs.
+
+Style: high-contrast handmade children’s picture-book illustration made from matte cut cardstock; crisp layered cut edges, subtle printed paper fiber, simple shadow planes, paper collage depth. Not plastic, clay, watercolor, or glossy.
+
+No people, UI, labels, wells, fountains, scattered jars/crates, extra buildings/stalls, clutter, grid, border, or watermark.

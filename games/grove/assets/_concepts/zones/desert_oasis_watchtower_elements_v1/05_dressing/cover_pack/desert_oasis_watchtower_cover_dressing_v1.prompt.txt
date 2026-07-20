@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: a 3×3 game prop pack of static foreground-cover dressing sprites for the Desert Oasis Watchtower scene.
+
+Use the Desert Oasis Watchtower reference as the project-native style, palette, material, and camera reference. Generate exactly a 3×3 grid on a perfectly flat solid #FF00FF magenta background. Each cell is a separate compact, bottom-anchored cut-paper dressing sprite with padding and no edge crossing:
+
+1. sandstone rocks with thin turquoise-green reeds
+2. lakeshore stones with three small green reeds
+3. flowering agave with coral flowers and pebbles
+4. medium sandstone rocks with jade agave
+5. compact round flowering desert shrub
+6. short flowering prickly pear cactus with base rocks
+7. fuller foreground rock-and-agave cluster
+8. low flowering bush and reed tuft for pond shore
+9. desert plant cluster with two rocks, jade leaves, and golden flower stalks
+
+Match the warm high-contrast paper-cut cardstock style: matte hand-cut layers, subtle printed paper fiber, crisp warm edges, shallow upper-left lighting. No sand ground island, rectangle, building, tent, people, animals, jars, UI, text, watermark, glossy 3D, clay, photorealism, painterly gradients, or dark bottom shadows.

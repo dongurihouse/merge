@@ -1,0 +1,11 @@
+Use case: stylized-concept
+Asset type: Desert Oasis layer-ready composite concept preview for a mobile portrait game scene.
+Primary request: Generate “Shrine Oasis,” expressly designed as a three-layer assembly blueprint while showing the complete final composite in one image.
+
+Foundation: quiet golden sand basin, broad open cardstock terrain, simple pale stepping-stone path, fixed turquoise pond at lower center-left, layered sandy dunes and distant muted blue mountains. Sky and clouds are visual reference only.
+
+Exactly five replaceable hero landmarks, isolated by generous quiet sand: one domed desert pavilion-temple, one open ruined sandstone arch, one small blue-tiled water kiosk at the pond edge, one compact carpet-market canopy, and one camel cargo wagon.
+
+Static cover dressing: sparse palms, rock clusters, agaves, a few cactus plants, and small desert flowers, mainly at the outer edges of hero sockets, foreground, and perimeter. Preserve readable entrances and open sand.
+
+Style: warm, high-contrast matte hand-cut paper/cardstock, clear stacked silhouettes, warm cut edges, subtle printed paper fiber, shallow soft layer shadows, upper-left light. No people, UI, labels, text, tiny clutter, wells, fountains, extra buildings, or large props beyond the five landmarks.

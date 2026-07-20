@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "referenceImage": "games/grove/assets/_concepts/zones/desert_oasis_watchtower_layer_plan_v1/00_source/reference/desert_oasis_watchtower_caravan_reference_v1.png",
+  "referenceCanvas": {"width": 941, "height": 1672},
+  "targetCanvas": {"width": 1320, "height": 2346},
+  "anchorConvention": "center-bottom",
+  "foundation": {
+    "permanent": [
+      "golden sand terrain and subtle paper grain",
+      "pale stepping-stone path from lower center to upper middle",
+      "turquoise pond and shoreline in lower center-left",
+      "distant sand dunes and blue mountain horizon"
+    ],
+    "separateAtmosphere": ["sky", "clouds"],
+    "mustNotContain": ["buildings", "stalls", "tent", "camel cart", "trees", "cactus", "rocks", "flowers", "object shadows"]
+  },
+  "heroSockets": [
+    {
+      "id": "trading_house",
+      "sourceBounds": {"left": 55, "top": 450, "width": 330, "height": 285},
+      "targetAnchor": {"x": 309, "y": 1031},
+      "targetSize": {"width": 463, "height": 400},
+      "zBand": [270, 310]
+    },
+    {
+      "id": "watchtower",
+      "sourceBounds": {"left": 570, "top": 280, "width": 275, "height": 462},
+      "targetAnchor": {"x": 992, "y": 1040},
+      "targetSize": {"width": 386, "height": 648},
+      "zBand": [280, 320]
+    },
+    {
+      "id": "market_stall",
+      "sourceBounds": {"left": 50, "top": 750, "width": 305, "height": 270},
+      "targetAnchor": {"x": 284, "y": 1431},
+      "targetSize": {"width": 428, "height": 379},
+      "zBand": [320, 350]
+    },
+    {
+      "id": "desert_tent",
+      "sourceBounds": {"left": 570, "top": 790, "width": 350, "height": 325},
+      "targetAnchor": {"x": 1045, "y": 1564},
+      "targetSize": {"width": 491, "height": 456},
+      "zBand": [340, 370]
+    },
+    {
+      "id": "camel_supply_cart",
+      "sourceBounds": {"left": 520, "top": 1135, "width": 380, "height": 300},
+      "targetAnchor": {"x": 926, "y": 2013},
+      "targetSize": {"width": 533, "height": 421},
+      "zBand": [390, 420]
+    }
+  ],
+  "coverZones": [
+    {"id": "left_horizon_palms", "sourceBounds": {"left": 0, "top": 320, "width": 185, "height": 365}, "zBand": [180, 220]},
+    {"id": "right_horizon_palms", "sourceBounds": {"left": 755, "top": 395, "width": 186, "height": 335}, "zBand": [180, 220]},
+    {"id": "foreground_left_rocks_and_agave", "sourceBounds": {"left": 0, "top": 1325, "width": 450, "height": 347}, "zBand": [500, 540]},
+    {"id": "foreground_right_cactus_and_agave", "sourceBounds": {"left": 650, "top": 1370, "width": 291, "height": 302}, "zBand": [500, 540]},
+    {"id": "socket_contact_trims", "rule": "small reusable vegetation and rock clusters may overlap hero feet, but must not be baked into the heroes", "zBand": [240, 430]}
+  ]
+}
