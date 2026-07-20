@@ -772,6 +772,15 @@ func _test_rush_resize() -> void:
 	ok(s._act_arrow is TextureRect and s._act_arrow.texture != null \
 		and String(s._act_arrow.texture.resource_path).ends_with("ui/meadow_v2/danger_chevron.png"), \
 		"S-RESIZE: treefall uses the Meadow danger chevron without repurposing the bottom hint")
+	# the warning strip is the mock's coral cut-paper CAPSULE: fully-rounded ends + THE uniform shadow,
+	# with a rounded (not square ColorRect) countdown fill.
+	var warn_sb := (s._act_warn as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+	ok(warn_sb != null and warn_sb.get_corner_radius(CORNER_TOP_LEFT) == int(s._act_warn.size.y * 0.5) \
+		and warn_sb.shadow_size > 0, \
+		"S-RESIZE: the treefall warning is a capsule pill wearing the shared shadow")
+	var fill_sb := (s._act_fill as Panel).get_theme_stylebox("panel") as StyleBoxFlat if s._act_fill is Panel else null
+	ok(fill_sb != null and fill_sb.get_corner_radius(CORNER_TOP_LEFT) > 0, \
+		"S-RESIZE: the treefall countdown fill has rounded capsule ends")
 	s._tf = {"ph": "idle", "t": 0.0, "col": 0, "next": 9.0}
 	s._apply_treefall_visual()
 	ok(s._act_idle.visible and not s._act_warn.visible, "S-RESIZE: clearing the treefall returns to the idle rail")

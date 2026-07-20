@@ -3,6 +3,7 @@ extends SceneTree
 ## with the rush-start teaching popup ("Tap to Merge!") + the always-on bottom hint.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/rush_shot.gd -- <mode> <out.png> [WxH]
 ## modes: intro (default — popup mid-HOLD + bottom hint) | retired (4th rush: bottom hint only, no popup)
+##        | treefall (retired + a telegraphed treefall at ~4s — the warning pill + danger column)
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
@@ -30,7 +31,7 @@ func _initialize() -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
-	if mode == "retired":
+	if mode == "retired" or mode == "treefall":
 		for _i in Explore.RUSH_INTRO_SHOWS:        # spend the popup gate → only the bottom hint should remain
 			Save.mark_rush_intro_seen()
 	Explore.begin_run({})
@@ -42,6 +43,11 @@ func _initialize() -> void:
 	for _i in 6:                                    # seed a few tiles so the board reads as a live rush
 		scn._spawn()
 	await create_timer(0.4).timeout                 # tiles settle; the popup sits in its ~0.9s HOLD window
+	if mode == "treefall":                          # telegraph a treefall mid-countdown (~4s remaining)
+		scn._tf = {"ph": "tele", "t": maxf(0.0, float(Explore.WARN) - 4.0), "col": 3, "next": 9.0}
+		scn._apply_treefall_visual()
+		scn._refresh_readouts()
+		await create_timer(0.1).timeout
 
 	RenderingServer.force_draw()
 	var img := root.get_texture().get_image()
