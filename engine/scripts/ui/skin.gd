@@ -591,13 +591,16 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 ## stays a circle / a rounded rect stays concentric. The opaque element sits on top, hiding the fill, so
 ## only the cast that pokes past the element shows. NOTE: the fill is solid, so a TRANSLUCENT element
 ## (the workbench fill_alpha < 100 preview) lets it read through — shipped elements are opaque.
-static func shadow(corner: float, offset_x: float, offset_y: float, blur: float, spread: float, alpha: float) -> Panel:
+static func shadow(corner: float, offset_x: float, offset_y: float, blur: float, spread: float, alpha: float, fill: bool = true) -> Panel:
 	var sh := Panel.new()
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var tint := shadow_color(alpha)
 	var ssb := StyleBoxFlat.new()
-	ssb.draw_center = true                                   # FILL the footprint — no hollow gap
+	# fill=true FILLS the footprint (a shadow BEHIND a translucent shape, so no hollow gap shows through).
+	# fill=false casts ONLY the soft feather — for an OPAQUE shape whose art already covers the fill, where
+	# a filled footprint sized to the box would peek past smaller art as a hard second ring.
+	ssb.draw_center = fill
 	ssb.bg_color = tint
 	ssb.shadow_color = tint                                  # the soft feather past the filled rect, same tint
 	ssb.shadow_size = int(maxf(blur, 0.0))                  # blur = the soft feather radius

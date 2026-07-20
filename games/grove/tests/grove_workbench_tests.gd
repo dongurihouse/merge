@@ -1133,6 +1133,18 @@ func _test_new_knobs(view) -> void:
 	for role_tex in ["texture_sky.png", "texture_action_green.png", "texture_reward_gold.png", "texture_supporting_purple.png", "texture_warm_kraft.png", "texture_coral.png"]:
 		ok(preview_surface_paths.any(func(path: String) -> bool: return path.ends_with(role_tex)), \
 			"home-button bottom-bar preview carries the shipped %s tile role" % role_tex)
+	# SINGLE SOURCE: the preview tile geometry comes from Kit.home_bar_tile_opts — the SAME helper the
+	# game's bottom bar calls — so the caption font / icon scale / padding are derived (not the raw saved
+	# font), and a long caption fits + centres exactly as it does in-game (the "Residents" alignment fix).
+	var tile_opts := Kit.home_bar_tile_opts({"home_button": view._params["home_button"]}, 158.0)
+	ok(int(tile_opts.caption_font) == int(clampf(158.0 * 0.16, 11.0, float(FS.FINE))) \
+		and is_equal_approx(float(tile_opts.icon_scale), 0.46) and is_equal_approx(float(tile_opts.rect_pad), 0.10), \
+		"home_bar_tile_opts derives caption font / icon scale / padding from the tile width")
+	ok(int(tile_opts.caption_font) < int(view._params["home_button"].get("caption_font", 28)) + 1, \
+		"the derived bottom-bar caption is no larger than the design font (long captions like Residents fit)")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "Kit.home_bar_tile_opts") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "Kit.home_bar_tile_opts"), \
+		"the game bottom bar AND the workbench preview both build tiles through the one shared helper")
 	# the sample count feeds ONLY the Mail pill; Daily + Vault wear the bare dot (no number), matching the game.
 	ok(_has_label_text(home_button_preview, "3"), \
 		"the Mail tile shows the sample count pill (map.gd builds Mail as a numbered pill)")

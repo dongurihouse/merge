@@ -2465,15 +2465,9 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var n := float(specs.size())
 	var tile_w := _bottom_bar_tile_px(specs.size())
 	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
-	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
-	opts["px"] = tile_w
-	opts["shape"] = "rect"
-	opts["shadow"] = true
-	# the caption has to survive a 7-tile row: scale it off the tile width rather than the design font,
-	# and tighten the icon so the two still stack inside the tile.
-	opts["caption_font"] = int(clampf(tile_w * 0.16, 11.0, float(FS.FINE)))
-	opts["icon_scale"] = 0.46
-	opts["rect_pad"] = 0.10
+	# the shared tile-opts helper (Kit.home_bar_tile_opts) owns the tile geometry — the same call the
+	# workbench home-button preview makes, so the two render identically off one source.
+	var opts: Dictionary = Kit.home_bar_tile_opts(Kit.load_config(Kit.CONFIG_PATH), tile_w) if Kit != null else {}
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
 		var o := opts.duplicate(true)
