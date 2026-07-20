@@ -87,6 +87,19 @@ const ITEM_INSET := 0.16   # margin so art sits INSIDE the cell, not bleeding to
 static func inset_from_content_pct(pct: float) -> float:
 	return clampf((1.0 - pct / 100.0) / 2.0, 0.0, 0.45)
 
+# THE one rule for the board item's fill %: Slot-cell owns piece size via bag_card.content_frac
+# (the board wells reuse the bag card's cell), falling back to a board-block content_frac, the legacy
+# board.item, then the shipped 68%. Any surface that must frame art exactly like a board cell reads
+# this same source (board.gd for the live grid, residents for habitat/hand cells) so they never diverge.
+static func board_content_pct(cfg: Dictionary) -> float:
+	var b: Dictionary = cfg.get("board", {})
+	var bc: Dictionary = cfg.get("bag_card", {})
+	return float(bc.get("content_frac", b.get("content_frac", b.get("item", 68.0))))
+
+# The board item's per-side inset, resolved from config through the shared rule above.
+static func board_item_inset(cfg: Dictionary) -> float:
+	return inset_from_content_pct(board_content_pct(cfg))
+
 # THE shared board-item pipeline. Every board item — piece, coin, or generator — is a cell-sized
 # holder built the SAME way: a soft contact shadow underneath (when item_backing is on), then the
 # centered sprite on top. make_piece / make_generator only choose WHICH art goes through it.

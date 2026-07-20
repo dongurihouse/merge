@@ -441,22 +441,31 @@ func _test_residents_dialog() -> void:
 	await create_timer(0.05).timeout
 
 # --- the retired Bring-out pill + the Expedition entry --------------------------------------------
-# The habitat/hand cells frame their art with the SAME saved knob the live board reads
-# (board.content_frac → PieceView.inset_from_content_pct) — placement can't drift from board cells.
+# The habitat/hand cells frame their art at the SAME fill % the live board resolves — the board's
+# real source is bag_card.content_frac (Slot-cell owns piece size), NOT the board block. This guards the
+# regression where residents read board.content_frac (absent → 68% → tiny spirits) while the board used
+# bag_card.content_frac (91% → full). Both now go through PieceView.board_item_inset.
 func _test_resident_cell_inset_matches_board() -> void:
 	var UI = load("res://engine/scripts/ui/residents.gd")
 	var PV = load("res://engine/scripts/ui/piece_view.gd")
-	ok(is_equal_approx(UI._board_piece_inset({}), PV.ITEM_INSET), \
-		"an unset board block yields the shipped 0.16 board inset")
-	ok(is_equal_approx(UI._board_piece_inset({"board": {"content_frac": 91.0}}), 0.045), \
-		"residents follow board.content_frac exactly like the live board")
+	# the LIVE source is bag_card.content_frac
+	ok(is_equal_approx(UI._board_piece_inset({"bag_card": {"content_frac": 91.0}}), 0.045), \
+		"residents read the board's REAL source (bag_card.content_frac), not the board block")
+	# bag_card wins over a board-block content_frac, mirroring board.gd's resolution order
+	ok(is_equal_approx(UI._board_piece_inset({"bag_card": {"content_frac": 91.0}, "board": {"content_frac": 60.0}}), 0.045), \
+		"bag_card.content_frac takes precedence over a board-block content_frac")
+	# fallbacks: board.content_frac, then legacy board.item, then the shipped 68% default
+	ok(is_equal_approx(UI._board_piece_inset({"board": {"content_frac": 68.0}}), PV.ITEM_INSET), \
+		"falls back to board.content_frac, then the 68% shipped default")
 	ok(is_equal_approx(UI._board_piece_inset({"board": {"item": 56.0}}), 0.22), \
-		"the legacy board.item fallback maps through the same shared formula")
+		"legacy board.item is the last fallback through the same formula")
+	# board and residents resolve the IDENTICAL inset from one config (the live-shaped case)
+	var live := {"bag_card": {"content_frac": 91.0}, "board": {"gap": 11.0}}
 	var board_scene = load("res://engine/scripts/scenes/board.gd").new()
-	board_scene._apply_board_config({"content_frac": 91.0})
-	ok(is_equal_approx(float(board_scene.get("_board_item_inset")), \
-		UI._board_piece_inset({"board": {"content_frac": 91.0}})), \
-		"board and residents derive the identical inset from one config")
+	board_scene._load_from(live) if board_scene.has_method("_load_from") else \
+		board_scene._apply_board_config({"content_frac": PV.board_content_pct(live)})
+	ok(is_equal_approx(float(board_scene.get("_board_item_inset")), UI._board_piece_inset(live)), \
+		"board and residents derive the identical inset from one live config")
 	board_scene.free()
 
 func _test_residents_bring_out_and_expedition() -> void:

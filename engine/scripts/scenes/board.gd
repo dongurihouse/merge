@@ -539,9 +539,9 @@ func _load_board_config() -> void:
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	if cfg.has("board") and cfg["board"] is Dictionary:
 		var b: Dictionary = (cfg["board"] as Dictionary).duplicate()
-		var bc: Dictionary = cfg.get("bag_card", {})
-		if bc.has("content_frac"):
-			b["content_frac"] = bc["content_frac"]
+		# Slot-cell owns piece size via bag_card.content_frac — resolve it through the shared rule so the
+		# live board and the residents dialog (PieceView.board_item_inset) can't drift apart.
+		b["content_frac"] = PieceView.board_content_pct(cfg)
 		_apply_board_config(b)
 
 # Map a saved "board" block onto the live geometry. Split out so it is unit-testable without a file.

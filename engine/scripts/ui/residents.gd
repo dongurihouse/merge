@@ -625,13 +625,12 @@ static func _spirit_tex(path: String) -> Texture2D:
 ## ITEM_INSET — so a habitat / hand cell grounds and LIFTS (set_lifted) exactly like a board tile, and any
 ## future board-cell change propagates here for free. Resident art resolves via G.resident_art (a path,
 ## not a board item code), so it goes through the texture seam rather than make_piece(code,...).
-## The saved board cell inset, derived from the SAME workbench knob the live board reads
-## (board.content_frac, legacy board.item, shipped default 68%) through the shared PieceView
-## mapping — so a habitat / hand cell always frames its art exactly like a board cell, including
-## when the workbench knob is retuned.
+## The board item's inset, read from the SAME source the live board resolves (bag_card.content_frac,
+## via PieceView.board_item_inset) — so a habitat / hand cell frames its art exactly like a board cell,
+## at the same fill %, including when the workbench knob is retuned. (The dialog's slot_cell content_frac
+## stays 1.0 so the piece spans the full cell; this inset alone governs the margin, as on the board.)
 static func _board_piece_inset(cfg: Dictionary) -> float:
-	var b: Dictionary = cfg.get("board", {})
-	return PieceView.inset_from_content_pct(float(b.get("content_frac", b.get("item", 68.0))))
+	return PieceView.board_item_inset(cfg)
 
 static func _spirit_piece(kind: String, tier: int, px: float, inset: float = PieceView.ITEM_INSET) -> Control:
 	var art := G.resident_art(kind, tier)
