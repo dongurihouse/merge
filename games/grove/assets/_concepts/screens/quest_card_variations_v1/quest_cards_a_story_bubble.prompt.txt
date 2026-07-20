@@ -1,0 +1,29 @@
+Use case: precise-object-edit
+Asset type: Grove board quest-card comparison mock, Variation A Story Bubble
+Input images:
+- Image 1: precise edit target. Preserve its exact 1935 x 813 landscape canvas, crop, quiet blue outer background, strict single row of four equal cards, card positions and sizes, subject identities, left-to-right order, requested items, reward values, and Story Bubble geometry.
+- Image 2: Meadow Sky palette and Cut-Paper Playground material authority only. Apply its restrained palette relationships and flat matte cardstock language. Do not copy its board layout, HUD, characters, objects, labels, or scene composition.
+Primary request: Edit Image 1 in place to remove the overly volumetric, detailed, sculpted look and make the four cards unmistakably flat Meadow Sky Cut-Paper Playground. Preserve the strong accepted composition while simplifying every resident, requested item, speech bubble, pill, and card field into broad low-complexity cardstock shapes.
+Exact preserved content, left to right:
+1. flower-crowned forest child; one blue-green herb in the speech bubble; reward text "+5"
+2. purple-cloaked child; one white winter rabbit in the speech bubble; reward text "+24"
+3. sandcastle-crowned child; one green sprig in the speech bubble; reward text "+34"
+4. leaf-hooded child; one pine cone in the speech bubble; reward text "+12"
+Story Bubble layout lock: resident fills the left half of each card; one large warm-cream speech bubble occupies the upper-right and points naturally toward the resident; exactly one requested item is centered in that bubble; one compact warm-cream reward pill remains fully inside the lower-right. Preserve the existing card proportions, spacing, generous outer margin, phone-size hierarchy, and complete uncropped silhouettes.
+Card field colors: replace the cream card bases with softly tinted matte resident fields, in exact left-to-right order: muted sage, muted lavender, muted straw, muted sage. These tint fields should sit clearly behind the resident. Keep each speech bubble warm cream #F6EBDD so it visibly layers above the tinted field. Keep reward pills warm cream and reward accents meaningful gold #D6A94C.
+Resident cleanup: remove the held jar from card 2, the held shovel from card 3, and the held acorn/fruit cluster from card 4. Do not replace them. Residents may have only their defining crown/hood/cloak clothing. Each card must show only three data roles: resident, one requested item in the speech bubble, and reward pill.
+Flat material correction: redraw all forms as friendly matte hand-cut cardstock. Use broad rounded silhouettes and only 2–3 dominant masses per object. Every surface gets one flat base color plus at most one same-hue flat shadow plane. Use only subtle paper fiber at about 2–4% local value variation. Use a fine warm cut edge plus a thin locally darker edge. Use one upper-left light and only a very shallow, short, soft down-right tinted contact shadow around whole paper layers, never interior sculpting.
+Requested-item simplification: make the blue-green herb a few broad attached sprigs, the rabbit a simple white paper silhouette with at most one pale-blue shadow plane, the green sprig three or four broad leaves, and the pine cone a simple flat graphic made from 2–3 large brown paper masses rather than many individually modeled scales.
+Text (verbatim): preserve exactly and only "+5", "+24", "+34", "+12", once each in the corresponding reward pill, in dark ink. No other text or numerals.
+Style lock: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Style-lock exception: the only allowed text/numerals are the four exact reward strings above.
+Constraints: change only the material flatness, requested tint fields, removal of the three held props, and corresponding shape simplification. Preserve all accepted layout and content invariants. All four cards and shadows remain complete and uncropped. No extra elements.
+Avoid: embossed or debossed surfaces, bevels, sculpted forms, rounded clay volume, realistic fur, individual pinecone-scale modeling, realistic botanical micro-detail, deep shadows, ambient occlusion, glossy surfaces, specular highlights, 3D rendering, pillow-like inflation, thick foam layers, gradients, painterly shading, heavy texture, sticker outlines, pure white, pure black, held props, jars, shovels, fruit clusters, extra requested items, extra counters, labels, names, descriptions, buttons, HUD, progress bars, navigation, board grid, watermark.
