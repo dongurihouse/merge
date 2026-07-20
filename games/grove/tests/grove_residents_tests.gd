@@ -18,6 +18,7 @@ func _initialize() -> void:
 	await _test_dock_closed_state()
 	await _test_map_tap_over_ambient()
 	await _test_residents_dialog()
+	_test_resident_cell_inset_matches_board()
 	await _test_residents_bring_out_and_expedition()
 	await _test_residents_expedition_gate()
 	finish()
@@ -440,6 +441,24 @@ func _test_residents_dialog() -> void:
 	await create_timer(0.05).timeout
 
 # --- the retired Bring-out pill + the Expedition entry --------------------------------------------
+# The habitat/hand cells frame their art with the SAME saved knob the live board reads
+# (board.content_frac → PieceView.inset_from_content_pct) — placement can't drift from board cells.
+func _test_resident_cell_inset_matches_board() -> void:
+	var UI = load("res://engine/scripts/ui/residents.gd")
+	var PV = load("res://engine/scripts/ui/piece_view.gd")
+	ok(is_equal_approx(UI._board_piece_inset({}), PV.ITEM_INSET), \
+		"an unset board block yields the shipped 0.16 board inset")
+	ok(is_equal_approx(UI._board_piece_inset({"board": {"content_frac": 91.0}}), 0.045), \
+		"residents follow board.content_frac exactly like the live board")
+	ok(is_equal_approx(UI._board_piece_inset({"board": {"item": 56.0}}), 0.22), \
+		"the legacy board.item fallback maps through the same shared formula")
+	var board_scene = load("res://engine/scripts/scenes/board.gd").new()
+	board_scene._apply_board_config({"content_frac": 91.0})
+	ok(is_equal_approx(float(board_scene.get("_board_item_inset")), \
+		UI._board_piece_inset({"board": {"content_frac": 91.0}})), \
+		"board and residents derive the identical inset from one config")
+	board_scene.free()
+
 func _test_residents_bring_out_and_expedition() -> void:
 	fresh("residents_bring_out")
 	_open_spots(0)

@@ -170,7 +170,8 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 
 	# the render context every repaint reads: selection + the two rebuildable surfaces.
 	var ctx := {"sel": {}, "body": null, "insp": null, "scale": scale,
-		"kit": Kit, "cfg": cfg, "inner": inner, "overlay": overlay, "opts": opts}
+		"kit": Kit, "cfg": cfg, "inner": inner, "overlay": overlay, "opts": opts,
+		"piece_inset": _board_piece_inset(cfg)}
 
 	var body := VBoxContainer.new()
 	body.name = "ResidentsBody"
@@ -509,8 +510,9 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 	var Kit: GDScript = ctx.kit
 	var kind := Bucket.line_kind(line)
 	# the art is now a REAL board piece (holder + contact shadow), not a flat TextureRect — item 3/4.
+	var inset := float(ctx.get("piece_inset", PieceView.ITEM_INSET))
 	var cell: Control = Kit.slot_cell({"state": "filled",
-		"make_content": func(pp: float) -> Control: return _spirit_piece(kind, tier, pp)}, bag_opts)
+		"make_content": func(pp: float) -> Control: return _spirit_piece(kind, tier, pp, inset)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
 	_shadow_cell(cell)
@@ -537,7 +539,7 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 	dc.make_preview = func() -> Control:
 		# the drag GHOST is a real board piece, LIFTED via the board's set_lifted — the art rises off a
 		# spread contact shadow, the exact pickup feel a board tile has when grabbed.
-		var ghost := _spirit_piece(kind, tier, px)
+		var ghost := _spirit_piece(kind, tier, px, inset)
 		PieceView.set_lifted(ghost, true)
 		ghost.modulate = Color(1, 1, 1, 0.92)
 		return ghost
@@ -623,10 +625,18 @@ static func _spirit_tex(path: String) -> Texture2D:
 ## ITEM_INSET — so a habitat / hand cell grounds and LIFTS (set_lifted) exactly like a board tile, and any
 ## future board-cell change propagates here for free. Resident art resolves via G.resident_art (a path,
 ## not a board item code), so it goes through the texture seam rather than make_piece(code,...).
-static func _spirit_piece(kind: String, tier: int, px: float) -> Control:
+## The saved board cell inset, derived from the SAME workbench knob the live board reads
+## (board.content_frac, legacy board.item, shipped default 68%) through the shared PieceView
+## mapping — so a habitat / hand cell always frames its art exactly like a board cell, including
+## when the workbench knob is retuned.
+static func _board_piece_inset(cfg: Dictionary) -> float:
+	var b: Dictionary = cfg.get("board", {})
+	return PieceView.inset_from_content_pct(float(b.get("content_frac", b.get("item", 68.0))))
+
+static func _spirit_piece(kind: String, tier: int, px: float, inset: float = PieceView.ITEM_INSET) -> Control:
 	var art := G.resident_art(kind, tier)
 	var tex: Texture2D = _spirit_tex(art) if (art != "" and ResourceLoader.exists(art)) else null
-	return PieceView.make_piece_from_texture(tex, px, PieceView.ITEM_INSET)
+	return PieceView.make_piece_from_texture(tex, px, inset)
 
 ## Pop a just-rebuilt cell by name (the board's produced-tile impact). Deferred one frame so the repaint's
 ## fresh node exists AND has its rect (FX.pop centres on the node's size).
