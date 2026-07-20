@@ -2392,11 +2392,11 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the mock's TIGHT shadow — a small, soft, short down-right cast that HUGS the
-	# disc, not the app's full-size shared box-shadow (too heavy on a ~64px disc: it read as a dark halo).
-	# A negative spread pulls the footprint inside the disc, with a small feather + low alpha + a short
-	# offset, matching the compact coral ✕ in every dialog mock. Same slate tint as the shared shadow.
-	var sh := Look.shadow(size * 0.5, size * 0.03, size * 0.055, size * 0.09, -size * 0.07, 0.24)
+	# the coral disc casts the mock's TIGHT shadow — a small, soft, short down-right cast. fill=FALSE: the
+	# disc art is opaque and fills only ~0.78 of the button box (transparent margin around it), so a FILLED
+	# shadow footprint sized to the box peeked past the smaller art as a hard grey RING (a second shadow
+	# over the soft cast). Cast-only (the feather, no solid core) leaves one clean soft shadow.
+	var sh := Look.shadow(size * 0.5, size * 0.03, size * 0.08, size * 0.11, -size * 0.07, 0.28, false)
 	sh.name = "DialogCloseShadow"
 	sh.show_behind_parent = true
 	b.add_child(sh)
@@ -4244,6 +4244,22 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge_num_size": int(h.get("badge_num_size", 14)),
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
+
+## The BOTTOM-BAR tile opts: the shared home-button config, then the per-tile-width scaling a multi-tile
+## row needs so the icon + caption fit (the caption keys off the tile width, not the design font, and the
+## icon tightens). This is the SINGLE source for the bar's tile geometry — map.gd's _build_bottom_bar AND
+## the workbench home-button preview both call it, so the preview and the game render identically.
+static func home_bar_tile_opts(cfg: Dictionary, tile_w: float) -> Dictionary:
+	var opts := home_button_opts_from_config(cfg)
+	opts["px"] = tile_w
+	opts["shape"] = "rect"
+	opts["shadow"] = true
+	# scale the caption off the tile width (a 6–7 tile row is far narrower than a single button), and
+	# tighten the icon + inner padding so the two still stack inside the tile.
+	opts["caption_font"] = int(clampf(tile_w * 0.16, 11.0, float(FS.FINE)))
+	opts["icon_scale"] = 0.46
+	opts["rect_pad"] = 0.10
+	return opts
 
 ## Screen-relative HUD layout from the workbench. These are OUTER geometry slots, not the art recipe:
 ## level badge width, wallet band/pill widths, top band reserved before side rail/settings, shared nav

@@ -613,10 +613,11 @@ const HOME_BAR_TILES := [
 	{"icon": "board", "caption": "Play", "surface": "coral"},
 ]
 func _home_bar_preview(p: Dictionary) -> Control:
-	# include the shell edge polish (config["badge"], tuned under Shell-polish) so the tiles reflect it
-	# live — the same link the game uses via Kit.home_button_opts_from_config.
-	var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
+	# build the tiles through the SAME shared helper the game's bottom bar uses (Kit.home_bar_tile_opts),
+	# so the caption font / icon scale / padding are derived from the tile width identically — the preview
+	# and the shipped bar align exactly (a long caption like "Residents" fits + centres the same way).
 	var tile := float(p.get("px", 158))
+	var ho := Kit.home_bar_tile_opts({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]}, tile)
 	var badge_off := Vector2(float(ho.get("badge_dx", -26.0)) * 0.5, float(ho.get("badge_dy", -26.0)) * 0.5)
 	var badge_opts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
 	var row := HBoxContainer.new()
@@ -1209,21 +1210,19 @@ func _button_gallery(_p: Dictionary) -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	col.custom_minimum_size = Vector2(300, 0)
-	# 1) the LIVE button — every saved + test knob drives this one, INCLUDING its bg (green/cream/danger).
-	# The old separate "green" and "cta_button" samples were dropped: they rendered identically to a green
-	# tunable button. pill_button's `if primary` (bg=="green") branch returns the paper-cut green surface
-	# before any bg-sprite / art_rel path, so cta_button's level-green art_rel never shows — every shipped
-	# green CTA (Claim / Collect / the cta_button footers) is this one paper-cut green pill.
-	col.add_child(_button_sample("● tunable (your knobs — bg green/cream/danger)", Kit.pill_button(String(_params["button"].text), _btn_opts())))
-	# 2) the other two code-drawn bg roles, as fixed references beside the live one.
+	# 1) the cream SECONDARY — the one bordered non-green role (the dialog "Cancel").
 	col.add_child(_button_sample("cream — secondary", Kit.pill_button("Cancel", _btn_opts({"bg": "cream"}))))
-	col.add_child(_button_sample("danger — alert", Kit.pill_button("Delete", _btn_opts({"bg": "danger"}))))
-	# 4) the paper-cut roles, borderless (the dialog "Not now" style).
+	# 2) the paper-cut ROLES — green + purple + coral + gold, all the SAME borderless paper surface. The
+	# green tile is the LIVE, knob-driven one (the primary CTA is just the green paper role): every shipped
+	# green CTA (Claim / Collect) resolves to it, so it lives here with the other paper roles, not apart.
+	# (The old separate "green" / "cta_button" / "danger" tiles are gone — green folds in here, danger was
+	# unused by the game.)
 	var paper_row := HBoxContainer.new()
 	paper_row.add_theme_constant_override("separation", 10)
+	paper_row.add_child(Kit.pill_button(String(_params["button"].text), _btn_opts({"bg": "green", "paper": "green", "border": 0.0})))
 	for role in ["purple", "coral", "gold"]:
 		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
-	col.add_child(_button_sample("paper roles (borderless)", paper_row))
+	col.add_child(_button_sample("paper roles (borderless) — ● green is live", paper_row))
 	# 5) the static display chips — reward_chip (currency reward) + amount_chip (any icon/text).
 	var chip_row := HBoxContainer.new()
 	chip_row.add_theme_constant_override("separation", 10)
