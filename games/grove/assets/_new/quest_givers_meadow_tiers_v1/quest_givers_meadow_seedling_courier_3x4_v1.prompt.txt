@@ -1,0 +1,22 @@
+Use case: stylized-concept
+Asset type: production source sheet for twelve 256px game character busts
+Primary request: create exactly one 1024x1536 PNG sprite sheet with three columns and four rows, twelve different evolution tiers of the SAME Meadow forest quest giver called the Seedling Courier. Every cell contains one complete waist-up character bust, centered, isolated, and fully inside its cell. Read row-major left to right, top to bottom: tier 1 at top-left and tier 12 at bottom-right.
+Input image: the existing Grove quest-giver montage is a style-only reference; do not copy any individual character.
+Style/medium: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. No text, labels, numerals, or watermark.
+Color palette: warm cream #F6EBDD, ink #243B4B, structural slate #3F6D7D, meadow #A8D3B9, garden green #5F9B6D, small coral #D87865 accents, meaningful reward gold #D6A94C, and sparse purple #8677A3. Avoid neon, white sticker rims, large black areas, and equal-strength rainbow color.
+Scene/backdrop: one perfectly uniform flat #FF00FF chroma-key field only. Absolutely no texture, gradient, floor, horizon, lighting variation, shadow, contact shadow, reflection, glow, sparkles, smoke, aura, or detached effects. Do not use #FF00FF within the characters.
+Composition/framing: a rigid 3 columns by 4 rows layout with generous magenta gutters. Give every bust visible magenta on all four sides including below its torso. No portrait may touch or cross a row/column boundary. All twelve portraits must use the same approximately 75 percent cell-height visual footprint and end in a complete authored rounded paper base, not a flat crop at a grid line.
+Subject continuity: same friendly young forest courier with a simple rounded face and dark chestnut hair, recognizable at every tier. Only costume silhouette and attached accessories progress. Keep one connected character silhouette per cell; no separate floating props.
+Tier 1: leaf hood, simple moss tunic.
+Tier 2: leaf hood with stitched warm-cream collar.
+Tier 3: attached seed satchel and a tiny coral sprout pin.
+Tier 4: layered leaf cape with one berry clasp.
+Tier 5: flower-trimmed hood and sage satchel.
+Tier 6: acorn-shaped courier clasp.
+Tier 7: short attached acorn-topped staff and slate-green shoulder cape.
+Tier 8: oak-leaf mantle with gold-edged acorn clasp.
+Tier 9: tall leaf-and-acorn hood and one broad folded-paper shoulder panel.
+Tier 10: ceremonial oakwarden mantle with one integrated gold acorn emblem.
+Tier 11: rich cream-and-sage steward cape with one larger integrated acorn emblem.
+Tier 12: grand Meadow steward with oak-canopy hood, warm-cream collar, muted coral flower trim, and one central integrated acorn emblem.
+Constraints: same character identity, twelve clear tiers, stronger silhouette and material distinctions at tiers 10-12 without increasing scale or detail clutter. Output only this clean sprite sheet. No labels, tier numbers, frames, borders, decorative dividers, or watermark.
