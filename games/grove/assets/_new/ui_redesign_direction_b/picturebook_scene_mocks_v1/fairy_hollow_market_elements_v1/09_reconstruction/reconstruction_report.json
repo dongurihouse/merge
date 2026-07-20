@@ -1,0 +1,17 @@
+{
+  "scene": "fairy_hollow_market_v1",
+  "canvas": [
+    1320,
+    2346
+  ],
+  "placements": 6,
+  "clusters": [
+    "crystal_map_stall",
+    "flower_crate",
+    "lantern_gate",
+    "mushroom_hall",
+    "stream_bridge",
+    "tea_stall"
+  ],
+  "note": "First-pass reconstruction from generated empty-plate foundation plus source-aligned paper-plate crops."
+}
