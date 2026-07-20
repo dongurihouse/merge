@@ -9,6 +9,33 @@ Code map: `games/grove/tools/scene_workbench.gd` (launcher) · `scene_workbench_
 · `scene_workbench_model.gd` (PURE ops — use it directly for scripted edits) · gated by
 `games/grove/tests/grove_scene_workbench_tests.gd`.
 
+## 0 · Layering model (read this first)
+
+Paint order is a three-level nest — the same shape at every scale, **item → cluster → layer →
+scene**. Effective order = `(layer_rank, clusterZ, z)`, back to front; higher paints on top.
+
+1. **`layer`** — one of six FIXED back→front bands. A cluster lives in exactly ONE. Order:
+
+   | rank | slug | for |
+   |---|---|---|
+   | 0 (back) | `sky` | sky wash, horizon glow |
+   | 1 | `backdrop` | painted backdrop, distant water |
+   | 2 | `far_mountains` | far ridgelines, silhouetted hills |
+   | 3 | `background_objects` | mid-distance trees, buildings behind the action |
+   | 4 | `primary_objects` | the hero props the player reads first |
+   | 5 (front) | `foreground_objects` | occluders that frame the scene, near dressing |
+
+2. **`clusterZ`** — the cluster's order WITHIN its layer, shared by every member of the cluster.
+3. **`z`** — the item's order WITHIN its cluster.
+
+**Controls**: `[` / `]` move the selection to the previous / next layer (cluster-wide). `Z` / `X`
+reorder within the current level — the cluster among its layer's clusters when a cluster is
+selected, the item within its cluster when a single item is selected (Shift = ±10). The sidebar
+groups every cluster under its layer header and shows each cluster's `clusterZ`.
+
+**Legacy scenes** (no `layer`/`clusterZ`) read as `primary_objects` with `clusterZ` falling back to
+`z`, so a pre-layers scene paints identically until you reassign it — assign layers as you go.
+
 ## 1 · The bundle contract
 
 A scene is a **bundle directory**: `<scene>_elements_v<N>/` under the scenes root. The workbench
@@ -57,18 +84,20 @@ Each entry in `placements`:
 | `image` | **repo-relative** PNG path (resolved against the root that contains `games/`) |
 | `x`, `y` | the **CENTER-BOTTOM anchor** on the canvas (top-left origin) — items stand on `y` |
 | `w`, `h` | drawn size in canvas px (aspect is locked by the tool's resize) |
-| `z` | paint order (higher = on top; ties keep list order) |
+| `layer` | one of the six FIXED bands (§0); missing reads as `primary_objects`. Cluster-wide. |
+| `clusterZ` | the cluster's order within its layer, shared by members; missing falls back to `z` |
+| `z` | the item's order within its cluster (higher = on top; ties keep list order) |
 | `cluster` | optional group tag — the unit of selection (absent = a one-item unit) |
-| `category`, `layer` | descriptive; preserved but not behavioral |
+| `category` | descriptive; preserved but not behavioral |
 
 Unknown keys on the doc or entries round-trip untouched. Saves write `.json` with a one-time
 sibling `placements.json.bak` (the pre-session state). Never hand-edit the JSON while the
 workbench is open — press `R` in the tool to reload instead.
 
-**Z-band convention** (follow cherry v2 so scenes stay consistent):
-`0` base · `10–19` environment (mountains, horizon) · `100s` rear props + their contacts ·
-`200s` terrain surface + its contacts · `250–420` hero props (structures, garden items) + contacts
-· `500+` foreground occluders.
+**Coarse stacking is the `layer` band (§0)**; use `clusterZ`/`z` only for fine order inside a
+layer. A rough back→front pass: `sky`/`backdrop` washes · `far_mountains` ridgelines ·
+`background_objects` distant props · `primary_objects` hero props (structures, garden items) with
+each prop's contact shadow just under it via `z` · `foreground_objects` occluders.
 
 ## 3 · Clusters are the unit of work
 
@@ -77,7 +106,8 @@ its grounding — e.g. a tent = `tent` + surrounding rocks + vegetation + its sh
 `"cluster": "tent_camp"`. Backdrop layers (mountains, foundation-wide vegetation) stay untagged.
 
 - A stage **click selects the whole cluster**; drag moves it, wheel resizes it about its footing,
-  `Z`/`X` restack it with relative z preserved.
+  `Z`/`X` restack it among its layer's clusters (its `clusterZ`; members' internal `z` untouched),
+  `[`/`]` move it to an adjacent layer (§0).
 - **Isolation** (`I`, or `make sw … CLUSTER=<name>`): the rest of the scene ghosts; clicks now
   pick individual members for fine placement.
 - **The sidebar is cluster-driven**: selecting a cluster expands its MEMBER rows — click one to
@@ -105,8 +135,9 @@ make sw SCENE=desert_oasis CLUSTER=oasis_pool  # open isolated on one cluster
 
 1. Pick the scene from the icon row. ⌘S is the ONLY writer — switching (or quitting) DISCARDS
    unsaved edits; the header reads UNSAVED until you press it.
-2. Rough-place clusters, back to front, respecting the z bands.
-3. Isolate each cluster and fine-tune members (arrows nudge 1px, Shift 10).
+2. Assign each cluster a layer (`[`/`]`) and rough-place back to front (§0); order clusters in a
+   layer with `Z`/`X`.
+3. Isolate each cluster and fine-tune members (arrows nudge 1px, Shift 10; `Z`/`X` = item `z`).
 4. `⌘S` saves. The header shows `UNSAVED` until you do.
 
 ## 5 · Agent verification (headless — never steal focus)
@@ -127,7 +158,8 @@ id uniqueness, the grabbable-size floor, and the backup. After tool changes run
 ## 6 · Gotchas
 
 - `x,y` anchor the **bottom-center** — placing by top-left will sink items by their height.
-- A cluster's downward restack floors the LOWEST member at z 0 (relative order survives).
+- A cluster's downward restack (`Z`) floors its shared `clusterZ` at 0; members keep their own `z`.
+- `layer` is coarse stacking, `clusterZ`/`z` are fine — reach for `[`/`]` before nudging `z`.
 - Clearing a cluster tag erases the key — files without clusters stay byte-identical.
 - Missing art still occupies its rect (select it via the sidebar, not the stage).
 - Coral/desert `v2` bundles have no `placements.json` yet — the tool opens their `v1`; add a
@@ -238,8 +270,9 @@ but it is the fastest way to catch bad extraction, bad placement, or bad groundi
 - Keep related pieces in clusters. A hero object should usually be a cluster containing the object
   plus its shadow/tufts/pebbles/contact trim. Move and scale the cluster first; isolate only for
   fine adjustment.
-- Use z bands consistently: atmosphere/environment behind, contact shadows immediately below their
-  object, hero props in the 250-420 range, foreground occluders at 500+.
+- Use the layer bands (§0): atmosphere/environment in `sky`…`background_objects`, hero props in
+  `primary_objects` with each contact shadow immediately below its object via `z`, framing
+  occluders in `foreground_objects`.
 - Keep source-facing directions unless there is a strong design reason to change them. A chest,
   shell, building, or ship facing the wrong way breaks the illusion faster than a small scale error.
 
