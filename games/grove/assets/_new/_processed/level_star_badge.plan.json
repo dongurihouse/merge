@@ -1,0 +1,7 @@
+{
+  "source": "_new/ui_redesign_direction_b/_concept/hud/level_star_badge_clean_v1/level_star_badge_base_512.png",
+  "category": "icon",
+  "params": { "size": 512 },
+  "outputs": [ { "name": "level_star_badge", "path": "ui/kit/level_star_badge.png" } ],
+  "archive": "_originals/ui/hud/level_star_badge_base_512.png"
+}

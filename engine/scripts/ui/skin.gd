@@ -121,34 +121,95 @@ static func make_level_badge(level: int, px: float, num_font: int = -1, cfg_over
 	# display resolution and lay it behind — same numbers as every other element, following the star.
 	var sp := shadow_params(cfg)
 	var art := badge.get_node_or_null("lv_badge_art") as TextureRect
-	var art_img: Image = art.texture.get_image() if art != null and art.texture != null else null
-	if art_img != null:
-		art_img = art_img.duplicate()
-		if art_img.is_compressed():
-			art_img.decompress()
-		art_img.convert(Image.FORMAT_RGBA8)
-		art_img.resize(int(art.size.x), int(art.size.y), Image.INTERPOLATE_BILINEAR)
-		var res: Dictionary = Kit.silhouette_shadow(art_img, {
-			"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
-			"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha),
-			"shadow_spread": float(sp.spread)})
-		var pad := float(res.pad)
-		var shr := TextureRect.new()
-		shr.name = "lv_badge_shadow"
-		shr.texture = ImageTexture.create_from_image(res.image)
-		shr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		shr.stretch_mode = TextureRect.STRETCH_SCALE
-		shr.position = art.position - Vector2(pad, pad)
-		shr.size = art.size + Vector2(pad * 2.0, pad * 2.0)
-		shr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		badge.add_child(shr)
-		badge.move_child(shr, 0)
+	if art != null and art.texture != null:
+		_lay_silhouette_shadow(badge, art, sp)
 	else:
 		# no art (honey-token fallback) — the token IS a circle, so the circular shared shadow fits
 		var sh := shadow_circle(px * 0.92, sp)
 		sh.show_behind_parent = true
 		badge.add_child(sh)
 		badge.move_child(sh, 0)
+	return badge
+
+## Bake the shared SHAPE-TRUE shadow — the sprite's own alpha silhouette, slate/offset/feathered per the
+## saved shadow block `sp` — and lay it directly behind `art` inside `badge` (as child 0, "lv_badge_shadow").
+## Shared by every layered level badge (the meadow tiers + the HUD star), so an irregular cutout casts
+## along its real outline instead of a box.
+static func _lay_silhouette_shadow(badge: Control, art: TextureRect, sp: Dictionary) -> void:
+	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var art_img: Image = art.texture.get_image() if art != null and art.texture != null else null
+	if art_img == null:
+		return
+	art_img = art_img.duplicate()
+	if art_img.is_compressed():
+		art_img.decompress()
+	art_img.convert(Image.FORMAT_RGBA8)
+	art_img.resize(maxi(1, int(art.size.x)), maxi(1, int(art.size.y)), Image.INTERPOLATE_BILINEAR)
+	var res: Dictionary = Kit.silhouette_shadow(art_img, {
+		"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
+		"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha),
+		"shadow_spread": float(sp.spread)})
+	var pad := float(res.pad)
+	var shr := TextureRect.new()
+	shr.name = "lv_badge_shadow"
+	shr.texture = ImageTexture.create_from_image(res.image)
+	shr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shr.stretch_mode = TextureRect.STRETCH_SCALE
+	shr.position = art.position - Vector2(pad, pad)
+	shr.size = art.size + Vector2(pad * 2.0, pad * 2.0)
+	shr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(shr)
+	badge.move_child(shr, 0)
+
+## The HUD's top-left LEVEL badge: the cut-paper gold STAR base (ui/kit/level_star_badge.png) with the
+## level number in WHITE over it. A single reusable base (no tiers — the number is rendered live, never
+## baked). Same node contract as make_level_badge (root "LevelBadge", art "lv_badge_art", number "lv_num",
+## the shared silhouette shadow at child 0) so the HUD's refresh + painted-offset alignment work unchanged.
+const STAR_BADGE_ART := "kit/level_star_badge.png"
+const STAR_BADGE_PAINTED_SPAN := 0.90     # the painted star's span as a fraction of its square canvas
+static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg_override: Dictionary = {}) -> Control:
+	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var cfg: Dictionary = cfg_override if not cfg_override.is_empty() else Kit.load_config(Kit.CONFIG_PATH)
+	var badge := Control.new()
+	badge.name = "LevelBadge"
+	badge.custom_minimum_size = Vector2(px, px)
+	badge.size = Vector2(px, px)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var tex: Texture2D = Kit.clean_tex_path(kit(STAR_BADGE_ART), 256)
+	if tex != null:
+		var art := TextureRect.new()
+		art.name = "lv_badge_art"
+		art.texture = tex
+		# expand_mode BEFORE size (min-size cache): scale the art up so the painted star (which sits in a
+		# transparent gutter) fills the px slot, honoring the HUD's shared visible-edge margin.
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var art_px := px / STAR_BADGE_PAINTED_SPAN
+		art.size = Vector2(art_px, art_px)
+		art.position = Vector2(-(art_px - px) * 0.5, -(art_px - px) * 0.5)
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_child(art)
+
+	# the level number, WHITE, centered — a thin ink outline keeps it legible on the gold star.
+	var num := Label.new()
+	num.name = "lv_num"
+	num.text = str(level)
+	num.set_anchors_preset(Control.PRESET_FULL_RECT)
+	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	num.add_theme_font_override("font", Kit.bold_font())
+	num.add_theme_font_size_override("font_size", num_font if num_font > 0 else int(px * 0.42))
+	num.add_theme_color_override("font_color", Color.WHITE)
+	num.add_theme_color_override("font_outline_color", Color(Pal.INK, 0.45))
+	num.add_theme_constant_override("outline_size", maxi(2, int(round(px * 0.03))))
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(num)
+
+	var art2 := badge.get_node_or_null("lv_badge_art") as TextureRect
+	if art2 != null and art2.texture != null:
+		_lay_silhouette_shadow(badge, art2, shadow_params(cfg))
 	return badge
 
 ## Resolve a texture path to a REAL image (rejects the import placeholder + degenerate empty
