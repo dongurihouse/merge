@@ -739,30 +739,25 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	b.add_theme_stylebox_override("hover", empty)
 	b.add_theme_stylebox_override("pressed", empty)
 	b.set_meta("on", is_on)
-	if ResourceLoader.exists(kit("kit/switch_on.png")) and ResourceLoader.exists(kit("kit/switch_off.png")):
-		var art := TextureRect.new()
-		art.name = "sw_art"
-		art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(art)
-	else:
-		var track := Panel.new()                       # the rounded capsule (recoloured per state)
-		track.name = "sw_track"
-		track.set_anchors_preset(Control.PRESET_FULL_RECT)
-		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(track)
-		var knob := Panel.new()                        # the cream knob (slid left/right per state)
-		knob.name = "sw_knob"
-		var ks := StyleBoxFlat.new()
-		ks.bg_color = Pal.CREAM
-		ks.set_corner_radius_all(int(px_h))
-		ks.set_border_width_all(2)
-		ks.border_color = Color(Pal.BARK, 0.5)
-		knob.add_theme_stylebox_override("panel", ks)
-		knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(knob)
+	# CODE-DRAWN switch (the retired switch_on/off.png art read muddy-brown when off): a clean rounded
+	# track — leaf green when ON, a soft neutral slate when OFF — with a cream knob that slides across.
+	var track := Panel.new()                       # the rounded capsule (recoloured per state)
+	track.name = "sw_track"
+	track.set_anchors_preset(Control.PRESET_FULL_RECT)
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(track)
+	var knob := Panel.new()                        # the cream knob (slid left/right per state)
+	knob.name = "sw_knob"
+	var ks := StyleBoxFlat.new()
+	ks.bg_color = Pal.CREAM
+	ks.set_corner_radius_all(int(px_h))
+	ks.anti_aliasing = true
+	ks.shadow_color = Color(SHADOW_TINT, 0.28)     # a soft lift instead of the old hard bark ring
+	ks.shadow_size = int(maxf(2.0, px_h * 0.10))
+	ks.shadow_offset = Vector2(0, maxf(1.0, px_h * 0.04))
+	knob.add_theme_stylebox_override("panel", ks)
+	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(knob)
 	_switch_paint(b, is_on, px_h)
 	add_press_juice(b)
 	b.pressed.connect(func() -> void:
@@ -775,17 +770,15 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 ## Repaint a toggle_switch for `is_on`: swap the sliced sprite, or (fallback) recolour the
 ## track + slide the knob to the on/off end.
 static func _switch_paint(b: Button, is_on: bool, px_h: float) -> void:
-	var art := b.get_node_or_null("sw_art") as TextureRect
-	if art != null:
-		art.texture = load(kit("kit/switch_%s.png" % ("on" if is_on else "off")))
-		return
 	var track := b.get_node_or_null("sw_track") as Panel
 	var knob := b.get_node_or_null("sw_knob") as Panel
 	if track == null or knob == null:
 		return
 	var ts := StyleBoxFlat.new()
-	ts.bg_color = Pal.BTN_PRIMARY if is_on else Color(Pal.BARK, Tune.SWITCH_OFF_ALPHA)
+	# ON = leaf green; OFF = a soft neutral slate (a desaturated ink), NOT the old muddy bark brown.
+	ts.bg_color = Pal.BTN_PRIMARY if is_on else Color(Pal.INK, 0.22)
 	ts.set_corner_radius_all(int(px_h))
+	ts.anti_aliasing = true
 	track.add_theme_stylebox_override("panel", ts)
 	var inset := Tune.SWITCH_KNOB_INSET
 	var d := px_h - inset * 2.0

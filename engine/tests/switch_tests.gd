@@ -8,6 +8,7 @@ extends SceneTree
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Pal = Game.PALETTE
 
 var _pass := 0
 var _fail := 0
@@ -24,22 +25,28 @@ func _initialize() -> void:
 	OS.set_environment("GAME", "grove")   # the switch art lives in grove's clothes (Game.art root)
 	print("== Toggle switch guard ==")
 
-	# --- the sliced sprites resolve as grove art (the art branch, not the fallback) ---
-	ok(ResourceLoader.exists(Game.art("ui/kit/switch_on.png")), "switch_on.png resolves as grove art")
-	ok(ResourceLoader.exists(Game.art("ui/kit/switch_off.png")), "switch_off.png resolves as grove art")
+	# --- the switch is CODE-DRAWN now (the muddy switch_on/off.png art is retired): a track + a knob ----
+	var track_color := func(sw: Button) -> Color:
+		var tr := sw.get_node("sw_track") as Panel
+		return (tr.get_theme_stylebox("panel") as StyleBoxFlat).bg_color
 
 	# --- the builder seeds the requested state -----------------------------------
 	var on_sw := Look.toggle_switch(true, func(_v: bool) -> void: pass)
 	ok(bool(on_sw.get_meta("on")) == true, "built ON -> meta on == true")
-	ok(on_sw.get_node_or_null("sw_art") != null, "art present -> sw_art TextureRect (not the fallback)")
+	ok(on_sw.get_node_or_null("sw_art") == null and on_sw.get_node_or_null("sw_track") != null \
+		and on_sw.get_node_or_null("sw_knob") != null, "code-drawn: a track + knob, not the retired sprite")
+	ok(track_color.call(on_sw).is_equal_approx(Pal.BTN_PRIMARY), "ON track is leaf green")
 	var off_sw := Look.toggle_switch(false, func(_v: bool) -> void: pass)
 	ok(bool(off_sw.get_meta("on")) == false, "built OFF -> meta on == false")
 
-	# --- the painted sprite matches the state ------------------------------------
-	var off_art := off_sw.get_node("sw_art") as TextureRect
-	ok(off_art.texture != null, "OFF switch paints a texture")
-	ok(off_art.texture.resource_path.ends_with("switch_off.png"),
-		"OFF paints switch_off.png (got %s)" % off_art.texture.resource_path)
+	# --- the OFF track is a clean neutral slate, NOT the old muddy bark brown ----
+	var off_c: Color = track_color.call(off_sw)
+	ok(not off_c.is_equal_approx(Pal.BTN_PRIMARY), "OFF track is not the ON green")
+	ok(off_c.is_equal_approx(Color(Pal.INK, 0.22)), "OFF track is the clean neutral slate (not bark brown)")
+	# the knob slides to the two ends per state (OFF left of ON)
+	var off_knob := off_sw.get_node("sw_knob") as Panel
+	var on_knob := on_sw.get_node("sw_knob") as Panel
+	ok(off_knob.position.x < on_knob.position.x, "the knob sits left when OFF, right when ON")
 
 	# --- a press flips the state, repaints, and fires on_changed(new) -------------
 	var seen: Array = []
@@ -47,8 +54,7 @@ func _initialize() -> void:
 	sw.pressed.emit()
 	ok(bool(sw.get_meta("on")) == true, "press OFF->ON flips meta to true")
 	ok(seen.size() == 1 and bool(seen[0]) == true, "press fires on_changed(true)")
-	ok((sw.get_node("sw_art") as TextureRect).texture.resource_path.ends_with("switch_on.png"),
-		"press repaints to switch_on.png")
+	ok(track_color.call(sw).is_equal_approx(Pal.BTN_PRIMARY), "press repaints the track to ON green")
 	sw.pressed.emit()
 	ok(bool(sw.get_meta("on")) == false, "second press flips back to false")
 	ok(seen.size() == 2 and bool(seen[1]) == false, "second press fires on_changed(false)")
