@@ -197,7 +197,7 @@ static func _open(host: Control, opts: Dictionary) -> void:
 		"kit": Kit, "cfg": cfg, "inner": inner}
 
 	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
-	# balances, affordability, the merchandising ribbons, and the starter's one-time availability.
+	# balances and affordability.
 	var rb := {"fn": Callable(), "first": true}
 	refs["rb"] = rb
 	rb.fn = func() -> void:
@@ -208,6 +208,7 @@ static func _open(host: Control, opts: Dictionary) -> void:
 		var fopts: Dictionary = Kit.dialog_opts_from_config(cfg)
 		fopts["content_scale"] = cscale
 		fopts["banner_text"] = Strings.t("shop.title")
+		fopts["clip_below_banner"] = true   # the list clips UNDER the title band — rows never ride behind "SHOP"
 		fopts["on_close"] = func() -> void: overlay.queue_free()
 		# on a PHONE the full ladder is taller than the screen, so cap the inner height to the
 		# viewport — the shop then scrolls inside the sheet.
@@ -223,12 +224,10 @@ static func _open(host: Control, opts: Dictionary) -> void:
 # Colours sampled from the mock; the sheet/title/✕ come from the shared frame and are NOT re-specified.
 const SAGE := Color("#E4DEBD")        # an offer card's sage face
 const PILL_GREEN := Color("#5C8A57")  # the price pill
-const CHIP_CREAM := Color("#F8ECD5")  # the bundle amount chip
-const FOOTER_CREAM := Color("#EDE2C1")
 const CARD_CORNER := 18.0
 const GRID_GAP := 14.0
 
-# The whole scrolling body: each section's header + offer grid · the footer.
+# The whole scrolling body: each section's header + offer grid.
 static func _build_body(refs: Dictionary) -> Control:
 	var Kit: GDScript = refs.kit
 	var w: float = refs.inner
@@ -238,16 +237,12 @@ static func _build_body(refs: Dictionary) -> Control:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for sec in _sections(refs):
 		var s := sec as Dictionary
-		col.add_child(_section_header(Kit, String(s.get("caption", "")), String(s.get("badge", ""))))
+		col.add_child(_section_header(Kit, String(s.get("caption", ""))))
 		col.add_child(_offer_grid(refs, s.get("cards", []), w))
-	var foot := _footer_note(refs)
-	if foot != null:
-		col.add_child(foot)
 	return col
 
-# A section HEADER — the mock's centred navy all-caps title, with an optional gold merchandising
-# badge beside it (only ever driven by live offer data, e.g. the first-purchase doubler being unspent).
-static func _section_header(Kit: GDScript, caption: String, badge: String) -> Control:
+# A section HEADER — the mock's centred navy all-caps title.
+static func _section_header(Kit: GDScript, caption: String) -> Control:
 	var row := HBoxContainer.new()
 	row.name = "ShopSectionHeader"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -259,24 +254,6 @@ static func _section_header(Kit: GDScript, caption: String, badge: String) -> Co
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(l)
-	if badge != "":
-		var p := PanelContainer.new()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = STRAW
-		sb.set_corner_radius_all(10)
-		sb.content_margin_left = 16; sb.content_margin_right = 16
-		sb.content_margin_top = 5; sb.content_margin_bottom = 6
-		p.add_theme_stylebox_override("panel", sb)
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var bl := Label.new()
-		bl.text = badge.to_upper()
-		bl.add_theme_font_override("font", Kit.bold_font())
-		bl.add_theme_font_size_override("font_size", FS.FINE)
-		bl.add_theme_color_override("font_color", CREAM)
-		bl.add_theme_constant_override("outline_size", 0)
-		bl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		p.add_child(bl)
-		row.add_child(p)
 	return row
 
 # One section's offers as the mock's TWO-column grid. A card marked `wide` (the Welcome bundle) takes a
@@ -302,93 +279,71 @@ static func _offer_grid(refs: Dictionary, cards: Array, w: float) -> Control:
 		row.add_child(_offer_card(refs, d, half, false))
 	return col
 
-# ONE offer card (the mock's product tile): a sage rounded face with the product ART on the left and,
-# on the right, the amount in large navy type over the green price pill. Optional: a merchandising
-# ribbon over the top-left corner (live flags only) and the navy "i" info disc top-right.
-# d keys: icon · count · label · note · price · price_icon · affordable · ribbon · chips · on_buy · on_info.
+# ONE offer card (the mock's product tile): a sage rounded face with the product ART filling the left
+# and, on the right, the amount in large navy type over the green buy CTA. Tight padding — the art and
+# the CTA carry the card.
+# d keys: title · icon · count · label · note · price · price_icon · affordable · cash · on_buy.
 static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -> Control:
 	var Kit: GDScript = refs.kit
-	var h: float = w * (0.30 if wide else 0.58)
+	var h: float = w * (0.26 if wide else 0.54)
 	var card := PanelContainer.new()
 	card.name = "ShopOfferCard"
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = SAGE
 	sb.set_corner_radius_all(int(CARD_CORNER))
-	sb.content_margin_left = 16; sb.content_margin_right = 16
-	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	sb.content_margin_left = 12; sb.content_margin_right = 12
+	sb.content_margin_top = 8; sb.content_margin_bottom = 8
 	_mock_shadow(sb)
 	card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(w, h)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", 10)
+	body.add_theme_constant_override("separation", 8)
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# capped: keeps a full-row card's art from blowing up past its source resolution (which reads flat
-	# and soft) — the shop_item_icons_v1 masters are 512px.
-	var art_px: float = minf(h * (0.86 if wide else 0.66), 210.0)
+	# the art FILLS the card's left side (mock); capped so a 512px master never upscales past crisp.
+	var art_px: float = minf(h * (0.95 if wide else 0.78), 240.0)
 	var art: Control = Kit.make_icon(String(d.get("icon", "gem")), art_px)
 	art.custom_minimum_size = Vector2(art_px, art_px)
 	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(art)
 
-	# a BUNDLE (the Welcome gift) states each granted currency on its own cream chip, mirroring the mock;
-	# a single-product pack states one big amount. Both sit left of the price pill.
-	if d.has("chips"):
-		var chipcol := VBoxContainer.new()
-		chipcol.alignment = BoxContainer.ALIGNMENT_CENTER
-		chipcol.add_theme_constant_override("separation", 10)
-		chipcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		chipcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		chipcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for ch in d.chips:
-			chipcol.add_child(_amount_chip(Kit, ch as Dictionary))
-		body.add_child(chipcol)
+	var textcol := VBoxContainer.new()
+	textcol.alignment = BoxContainer.ALIGNMENT_CENTER
+	textcol.add_theme_constant_override("separation", 6)
+	textcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	textcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	textcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var count := int(d.get("count", 0))
+	var amount_text := _commas(count) if count > 0 else String(d.get("label", ""))
+	if amount_text != "":
+		var al := _amount_label(amount_text, FS.DISPLAY if count > 0 else FS.BODY)
+		textcol.add_child(al)
+	if String(d.get("note", "")) != "":
+		var nl := Label.new()
+		nl.text = String(d.note)
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.add_theme_font_size_override("font_size", FS.FINE)
+		nl.add_theme_color_override("font_color", Color(BARK, 0.9))
+		nl.add_theme_constant_override("outline_size", 0)
+		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		textcol.add_child(nl)
+	var pill := _price_pill(refs, d)
+	if pill != null and wide:
+		# a WIDE single-product card lays out as the mock's one row: art left · the amount
+		# centred in the open middle · the green CTA docked at the right edge.
+		body.add_child(textcol)
+		pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pill.custom_minimum_size.x = 230.0
+		body.add_child(pill)
 	else:
-		var textcol := VBoxContainer.new()
-		textcol.alignment = BoxContainer.ALIGNMENT_CENTER
-		textcol.add_theme_constant_override("separation", 8)
-		textcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		textcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		textcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var count := int(d.get("count", 0))
-		var amount_text := _commas(count) if count > 0 else String(d.get("label", ""))
-		if amount_text != "":
-			var al := _ink_label(Kit, amount_text, FS.DISPLAY if count > 0 else FS.BODY)
-			al.name = "ShopOfferAmount"
-			al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			al.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			textcol.add_child(al)
-		if String(d.get("note", "")) != "":
-			var nl := Label.new()
-			nl.text = String(d.note)
-			nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			nl.add_theme_font_size_override("font_size", FS.FINE)
-			nl.add_theme_color_override("font_color", Color(BARK, 0.9))
-			nl.add_theme_constant_override("outline_size", 0)
-			nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			textcol.add_child(nl)
-		var pill := _price_pill(refs, d)
-		if pill != null and wide:
-			# a WIDE single-product card lays out as the mock's one row: art left · the amount
-			# centred in the open middle · the green CTA docked at the right edge.
-			body.add_child(textcol)
-			pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			body.add_child(pill)
-		else:
-			if pill != null:
-				var pw := CenterContainer.new()
-				pw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				pw.add_child(pill)
-				textcol.add_child(pw)
-			body.add_child(textcol)
-	if d.has("chips"):
-		var wpill := _price_pill(refs, d)
-		if wpill != null:
-			wpill.size_flags_vertical = Control.SIZE_SHRINK_END
-			body.add_child(wpill)
+		if pill != null:
+			# the CTA spans the card's right column (mock: the green slab owns the bottom-right half)
+			pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			textcol.add_child(pill)
+		body.add_child(textcol)
 	# a TITLED card (the mock's Quick-help pair) heads itself with a small centred navy caps line
 	# ("FILL WATER" / "COIN POUCH") above the icon+amount body; untitled cards are unchanged.
 	if String(d.get("title", "")) != "":
@@ -406,30 +361,7 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 		card.add_child(titled)
 	else:
 		card.add_child(body)
-
-	# the card's own overlay layer: the merchandising ribbon (top-left) + the info disc (top-right).
-	var outer := Control.new()
-	outer.custom_minimum_size = Vector2(w, h)
-	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	outer.add_child(card)
-	if String(d.get("ribbon", "")) != "":
-		# the shared kit ribbon art (kit/shop_tag.png), sized to the mock's banner and hung over the
-		# card's top-left corner so it overhangs the edge exactly as the mock draws it.
-		var rb: Control = Kit._ribbon_badge(String(d.ribbon), 2.0)
-		rb.name = "ShopOfferRibbon"
-		rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rb.position = Vector2(-10.0, 10.0)
-		outer.add_child(rb)
-	var on_info: Callable = d.get("on_info", Callable())
-	if on_info.is_valid():
-		var ib := _info_disc(Kit, on_info)
-		ib.anchor_left = 1.0; ib.anchor_right = 1.0
-		ib.offset_left = -58.0; ib.offset_right = -12.0
-		ib.offset_top = 12.0; ib.offset_bottom = 58.0
-		outer.add_child(ib)
-	return outer
+	return card
 
 # The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
 # `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
@@ -440,25 +372,25 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 	var icon_id := String(d.get("price_icon", ""))
 	var b := Button.new()
 	b.name = "ShopBuyButton"
-	b.text = "" if icon_id != "" else String(d.price)
+	b.text = "" if icon_id != "" else String(d.price).to_upper()   # "Free" prints as FREE (mock)
 	b.focus_mode = Control.FOCUS_NONE
 	b.set_meta("shop_buy", true)
 	if bool(d.get("cash", false)):
 		b.set_meta("shop_cash", true)
 	b.add_theme_font_override("font", Kit.bold_font())
-	b.add_theme_font_size_override("font_size", FS.BODY)
+	b.add_theme_font_size_override("font_size", FS.HEADING)
 	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
 	b.add_theme_constant_override("outline_size", 0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = PILL_GREEN
-	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 26; sb.content_margin_right = 26
-	sb.content_margin_top = 12; sb.content_margin_bottom = 12
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 20; sb.content_margin_right = 20
+	sb.content_margin_top = 14; sb.content_margin_bottom = 14
 	_mock_shadow(sb)
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, sb)
-	b.custom_minimum_size = Vector2(190, 62)   # the mock's pills read as one consistent slab, not text-snug
+	b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
 	# a 💎/🪙-priced CTA carries its currency glyph beside the number (the USD packs print the price alone).
 	if icon_id != "":
 		var h := HBoxContainer.new()
@@ -466,7 +398,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 		h.alignment = BoxContainer.ALIGNMENT_CENTER
 		h.add_theme_constant_override("separation", 10)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ic: Control = Kit.make_icon(icon_id, 38.0)
+		var ic: Control = Kit.make_icon(icon_id, 44.0)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(ic)
@@ -474,7 +406,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 		pl.text = String(d.price)
 		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		pl.add_theme_font_override("font", Kit.bold_font())
-		pl.add_theme_font_size_override("font_size", FS.BODY)
+		pl.add_theme_font_size_override("font_size", FS.HEADING)
 		pl.add_theme_color_override("font_color", Color.WHITE)
 		pl.add_theme_constant_override("outline_size", 0)
 		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -487,106 +419,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 		b.pressed.connect(func() -> void: cb.call())
 	return b
 
-# A bundle's per-currency amount chip (mock: cream pill · icon · count) — one per granted currency.
-static func _amount_chip(Kit: GDScript, ch: Dictionary) -> Control:
-	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = CHIP_CREAM
-	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 16; sb.content_margin_right = 22
-	sb.content_margin_top = 6; sb.content_margin_bottom = 6
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 12)
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(Kit.make_icon(String(ch.get("icon", "gem")), 48.0))
-	h.add_child(_ink_label(Kit, _commas(int(ch.get("amount", 0))), FS.BODY))
-	p.add_child(h)
-	return p
-
-# The navy "i" disc (mock) — a textless icon Button, so the buy-CTA smoke never miscounts it.
-static func _info_disc(Kit: GDScript, on_info: Callable) -> Button:
-	var b := Button.new()
-	b.name = "ShopInfoButton"
-	b.focus_mode = Control.FOCUS_NONE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = INK
-	sb.set_corner_radius_all(23)
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	var psb: StyleBoxFlat = sb.duplicate()
-	psb.bg_color = INK.lightened(0.15)
-	b.add_theme_stylebox_override("pressed", psb)
-	b.add_theme_stylebox_override("focus", sb)
-	var l := Label.new()
-	l.text = "i"
-	l.set_anchors_preset(Control.PRESET_FULL_RECT)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", Kit.bold_font())
-	l.add_theme_font_size_override("font_size", FS.BODY)
-	l.add_theme_color_override("font_color", CREAM)
-	l.add_theme_constant_override("outline_size", 0)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(l)
-	b.pressed.connect(func() -> void: on_info.call())
-	return b
-
-# The sheet's INFO FOOTER — a cream strip stating the one live offer rule that isn't visible on a card
-# (the first-purchase doubler). Absent when the doubler is spent; never states an offer that isn't live.
-static func _footer_note(refs: Dictionary) -> Control:
-	if not first_buy_doubled():
-		return null
-	var Kit: GDScript = refs.kit
-	var p := PanelContainer.new()
-	p.name = "ShopFooterNote"
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = FOOTER_CREAM
-	sb.set_corner_radius_all(int(CARD_CORNER))
-	sb.content_margin_left = 20; sb.content_margin_right = 20
-	sb.content_margin_top = 12; sb.content_margin_bottom = 12
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 16)
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var disc := Panel.new()
-	var dsb := StyleBoxFlat.new()
-	dsb.bg_color = INK
-	dsb.set_corner_radius_all(20)
-	disc.add_theme_stylebox_override("panel", dsb)
-	disc.custom_minimum_size = Vector2(40, 40)
-	disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var dl := Label.new()
-	dl.text = "i"
-	dl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	dl.add_theme_font_override("font", Kit.bold_font())
-	dl.add_theme_font_size_override("font_size", FS.FINE)
-	dl.add_theme_color_override("font_color", CREAM)
-	dl.add_theme_constant_override("outline_size", 0)
-	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	disc.add_child(dl)
-	h.add_child(disc)
-	var t := Label.new()
-	t.text = Strings.t("shop.premium.first_buy_note")
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.add_theme_font_size_override("font_size", FS.FINE)
-	t.add_theme_color_override("font_color", INK)
-	t.add_theme_constant_override("outline_size", 0)
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(t)
-	p.add_child(h)
-	return p
-
-# A bold navy label (the mock's one type voice for titles, headers, amounts).
+# A bold navy label (the mock's one type voice for titles and headers).
 static func _ink_label(Kit: GDScript, text: String, size: int) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -594,6 +427,18 @@ static func _ink_label(Kit: GDScript, text: String, size: int) -> Label:
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", INK)
 	l.add_theme_constant_override("outline_size", 0)
+	return l
+
+# A card's AMOUNT — large navy, in the standard (not bold) face, centred.
+static func _amount_label(text: String, size: int) -> Label:
+	var l := Label.new()
+	l.name = "ShopOfferAmount"
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", INK)
+	l.add_theme_constant_override("outline_size", 0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
 # The mock's tinted drop shadow, applied ON the element's own StyleBoxFlat so it follows the exact
@@ -630,35 +475,21 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 		"icon": "shop_can", "count": int(G.WATER_CAP),   # the mock's card states the AMOUNT it grants (a full can)
 		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
 		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
-		"on_buy": func() -> void: _flow_water(refs),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.water.info_title"), [{
-			"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
-			"note": Strings.t("shop.water.info_row_note")}],
-			Strings.t("shop.water.info_note"))}
+		"on_buy": func() -> void: _flow_water(refs)}
 	var pouch := {
 		"title": Strings.t("shop.coin.pouch_label"),
 		"icon": "shop_pouch", "count": COIN_PACK,        # the mock's card states the AMOUNT it grants
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
-		"on_buy": func() -> void: _flow_coins(refs),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.coin.info_title"), [{
-			"icon": "coin", "label": Strings.t("shop.coin.info_row_label"), "amount": str(COIN_PACK),
-			"note": Strings.t("shop.coin.info_row_note")}],
-			Strings.t("shop.coin.info_note"))}
+		"on_buy": func() -> void: _flow_coins(refs)}
 	return {"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [water, pouch]}
 
 # The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
 # drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall).
 # on_buy re-checks the gate so a stale press can't over-grant.
 static func _refill_card(refs: Dictionary) -> Dictionary:
-	var host: Control = refs.host
 	var st := refill_status()
-	var card := {
-		"icon": "shop_can", "count": refill_amount(),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.refill.info_title"), [{
-			"icon": "water", "label": Strings.t("shop.refill.info_row_label"), "amount": str(refill_amount()),
-			"note": Strings.t("shop.refill.info_row_note")}],
-			Strings.t("shop.refill.info_note"))}
+	var card := {"icon": "shop_can", "count": refill_amount()}
 	if bool(st.available):
 		card["price"] = Strings.t("shop.refill.cta")
 		card["affordable"] = true
@@ -670,57 +501,25 @@ static func _refill_card(refs: Dictionary) -> Dictionary:
 			else Strings.t("shop.refill.ready_in") % int(st.minutes)
 	return card
 
-# PREMIUM sections — the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
-# (The 💎-priced item shortcut was removed 2026-06-23 — item-buying is moving to the board's item info bar.)
+# PREMIUM section — the cash → 💎 Acorn-pouch ladder. Plain cards (the merchandising ribbons, the
+# first-buy badge and the Welcome bundle card were dropped with the v3 clean-up; the starter GRANT
+# machinery stays for the backend/tests).
 static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
-	var secs: Array = []
-	# (The free-acorn faucet card was retired 2026-06-23 — acorns are precious/earned-only, Option A.)
-	# Welcome — the one-time, high-value starter bundle (new players only, until claimed). The shop card art
-	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
-	# breakdown (acorns + water) lives in the info sheet (the "i"), not crammed into the hero.
-	if starter_available():
-		var chips: Array = [{"icon": "gem", "amount": int(STARTER_PACK.get("gems", 0))}]
-		if int(STARTER_PACK.get("water", 0)) > 0:
-			chips.append({"icon": "water", "amount": int(STARTER_PACK.get("water", 0))})
-		secs.append({"caption": Strings.t("shop.premium.welcome_gift_caption"), "cards": [{
-			"icon": _starter_icon_id(), "wide": true, "cash": true, "chips": chips,
-			"ribbon": Strings.t("shop.premium.welcome_ribbon"),
-			"price": Iap.usd(String(STARTER_PACK.get("key", ""))),
-			"on_buy": func() -> void: _confirm_starter(host, refs),
-			"on_info": func() -> void: _starter_info(host)}]})
-	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbons). The
-	# first-purchase doubler is a SECTION badge + the footer note (the mock), not a ribbon on every card —
-	# so the per-card ribbons stay what the pack DATA says (pop / the ladder top), never a fabricated flag.
 	var packs: Array = []
 	for i in CASH_PACKS.size():
 		var pack: Dictionary = CASH_PACKS[i]
-		var card := {
+		packs.append({
 			"icon": _pack_icon_id(i), "count": int(pack.gems), "cash": true,
 			"price": Iap.usd(String(pack.key)),
-			"on_buy": func() -> void: _confirm_cash(host, refs, i)}
-		if bool(pack.get("pop", false)):
-			card["ribbon"] = Strings.t("shop.premium.ribbon_popular")
-		elif i == CASH_PACKS.size() - 1:
-			card["ribbon"] = Strings.t("shop.premium.ribbon_best_value")
-		packs.append(card)
-	var sec := {"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs}
-	if first_buy_doubled():
-		sec["badge"] = Strings.t("shop.premium.ribbon_first_buy")
-	secs.append(sec)
-	return secs
+			"on_buy": func() -> void: _confirm_cash(host, refs, i)})
+	return [{"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs}]
 
 # The escalating acorn-pack art id for ladder pack i (pack_t1… — the cut-paper container ladder from
 # shop_item_icons_v1), falling back to the plain gem when the grove has more packs than tier sprites.
 static func _pack_icon_id(i: int) -> String:
 	var art := "pack_t%d" % (i + 1)
 	return art if ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % art)) else "gem"
-
-# The Welcome bundle's hero ICON id. The card art holds ONE item, so the bundle shows a single hero (the
-# acorns + water breakdown lives in the info sheet). Prefers a baked welcome sprite (ui/shared/icon_welcome
-# .png) once it exists; until then the in-style gift icon stands in (the same resolver fallback as the gems).
-static func _starter_icon_id() -> String:
-	return "welcome" if ResourceLoader.exists(Game.art("ui/shared/icon_welcome.png")) else "gift"
 
 # The Welcome bundle's contents as info-sheet ROWS (the card shows only the hero + price now). One row per
 # currency the bundle grants, read live from STARTER_PACK so the copy never drifts from what it grants.
@@ -733,11 +532,6 @@ static func starter_info_items(host: Control) -> Array:
 		items.append({"icon": "water", "label": Strings.t("shop.starter.water_label"), "amount": str(water),
 			"note": Strings.t("shop.starter.water_note")})
 	return items
-
-# The Welcome card's "i" → the bundle's detail sheet (the parchment info modal the other shop cards use).
-static func _starter_info(host: Control) -> void:
-	_info_sheet(host, Strings.t("shop.starter.info_title"), starter_info_items(host),
-		Strings.t("shop.starter.info_note"))
 
 # --- buy flows (kit cards have no Button to hand the old _try_buy; these take refs + rebuild) --------
 # A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the
@@ -917,17 +711,6 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	_confirm_gem_grant(host, refs, Strings.t("shop.cash.confirm_title"),
 		Strings.t("shop.cash.confirm_line") % [gems, Iap.usd(key)], sub, key, func() -> void:
 			grant_cash_pack(i))
-
-# The starter-pack confirm: same honest parchment confirm; confirming grants the bundle
-# (💎 now + the water credit the board applies on open) exactly once.
-static func _confirm_starter(host: Control, refs: Dictionary) -> void:
-	var key := String(STARTER_PACK.get("key", ""))
-	var gems := int(STARTER_PACK.get("gems", 0))
-	var water_amt := int(STARTER_PACK.get("water", 0))
-	var line := Strings.t("shop.starter.confirm_line") % [gems, Iap.usd(key)]
-	var sub := Strings.t("shop.starter.confirm_sub") % water_amt if water_amt > 0 else ""
-	_confirm_gem_grant(host, refs, Strings.t("shop.starter.confirm_title"), line, sub, key, func() -> void:
-		grant_starter())
 
 # The shared honest cash-confirm body (§10): parchment card, ribbon title, the 💎 line,
 # an optional sub-line, the "(test build — nothing is charged)" note, Cancel/Confirm. On

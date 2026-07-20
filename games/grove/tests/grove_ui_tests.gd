@@ -133,10 +133,9 @@ func _initialize() -> void:
 	ok(s7.get_child_count() == k + 1, "the storefront opens over the board")
 	var rows_full := _shop_rows(s7)
 	# the free-refill CTA is present only while the claim is offerable (cooling/capped → a plain note).
-	var want_full := (1 if Shop.refill_status().available else 0) + 2 \
-		+ (1 if Shop.starter_available() else 0) + Shop.CASH_PACKS.size()
+	var want_full := (1 if Shop.refill_status().available else 0) + 2 + Shop.CASH_PACKS.size()
 	ok(rows_full == want_full, \
-		"storefront = Free refill + Quick help pair + Welcome + the acorn ladder (%d == %d)" % [rows_full, want_full])
+		"storefront = Free refill + Quick help pair + the acorn ladder (%d == %d)" % [rows_full, want_full])
 	# every pill's + opens the SAME unified storefront — the coin and water openers show the identical
 	# card set (the stall split is gone). Close the live overlay between opens (a second open bails
 	# while one is already mounted).

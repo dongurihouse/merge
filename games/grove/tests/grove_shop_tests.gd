@@ -236,7 +236,7 @@ func _initialize() -> void:
 	Save.set_water(G.WATER_CAP)                            # full → a refill banks a spare
 	ShopS.open_water(wsh, {})
 	var w_overlay: Control = wsh.find_child("ShopOverlay", true, false)
-	ok(w_overlay != null and _press_label(w_overlay, "Free"), "the water stall shows a green 'Free' refill CTA")
+	ok(w_overlay != null and _press_label(w_overlay, "FREE"), "the storefront shows a green 'FREE' refill CTA")
 	ok(Save.water() == G.WATER_CAP * 2, "pressing the free refill banks a full can over-cap via Save (%d💧)" % Save.water())
 	wsh.queue_free()
 	# T-J(v): the stall is reachable from BOTH the board AND the hub (map), and grants through Save from
@@ -254,7 +254,7 @@ func _initialize() -> void:
 		ok(h._open_water.is_valid(), "the %s HUD wires an _open_water callable" % where)
 		h._open_water.call()                               # the exact path the water pill + fires
 		var ov: Control = h.find_child("ShopOverlay", true, false)
-		ok(ov != null and _press_label(ov, "Free"), "the %s water stall shows the free-refill CTA" % where)
+		ok(ov != null and _press_label(ov, "FREE"), "the %s storefront shows the free-refill CTA" % where)
 		ok(Save.water() == G.WATER_CAP * 2, "...and pressing it grants a full can over-cap via Save (%s)" % where)
 		h.queue_free()
 	# T-J(vi): the board keeps a live water cache for gameplay; when a shop grant ticks the HUD refresh,
@@ -521,18 +521,17 @@ func _initialize() -> void:
 	ok(not saw_coin_card, "the storefront carries no coin-priced card (the boost is a board action now)")
 	bhost.queue_free()
 
-	# GEOMETRY: a merchandising ribbon deliberately overhangs its card's top-left corner — the frame
-	# must not slice it (the leftmost column's ribbon used to lose its tip to the scroll's clip).
-	fresh("ribbon_unclipped")
+	# v3 clean-up: the storefront carries NO merchandising chrome — no ribbons, no info discs, no
+	# Welcome card (the starter grant machinery stays backend-only).
+	fresh("no_merch_chrome")
 	var rhost := Control.new()
 	rhost.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(rhost)
 	ShopS.open(rhost, {})
 	await create_timer(0.15).timeout
-	var ribbons: Array = rhost.find_children("ShopOfferRibbon", "", true, false)
-	ok(ribbons.size() > 0, "the full shop shows at least one merchandising ribbon")
-	for rb in ribbons:
-		assert_unclipped(rb as Control, "h", 0.5, "shop ribbon on %s" % (rb.get_parent().name))
+	ok(rhost.find_children("ShopOfferRibbon", "", true, false).is_empty(), "no merchandising ribbons")
+	ok(rhost.find_children("ShopInfoButton", "", true, false).is_empty(), "no per-card info discs")
+	ok(rhost.find_children("ShopFooterNote", "", true, false).is_empty(), "no first-buy footer note")
 	rhost.queue_free()
 
 	finish()

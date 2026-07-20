@@ -2473,6 +2473,10 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	banner_pos.y = maxf(0.0, banner_pos.y)
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
+	# clip_below_banner: the scroll's clip window starts UNDER the title band instead of at the card
+	# top, so scrolled rows disappear below the title rather than riding up behind it (the shop). Off
+	# by default — every other dialog keeps the slide-behind-the-banner look.
+	var clip_below_banner: bool = bool(opts.get("clip_below_banner", false))
 	# an optional PINNED FOOTER control (mail's big Claim All): it rides a cream band docked to the card's
 	# bottom edge, ALWAYS on-screen while the card list scrolls behind it. Off by default (settings/info/…
 	# are unchanged). footer_gap = breathing room between the last row and the footer band.
@@ -2545,6 +2549,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	clipw.set_anchors_preset(Control.PRESET_FULL_RECT)
 	clipw.offset_left = -panel_pad_x
 	clipw.offset_right = panel_pad_x
+	if clip_below_banner:
+		clipw.offset_top = maxf(0.0, banner_pos.y + banner_h)   # the window opens under the title band
 	clipw.clip_contents = true
 	clipw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(clipw)
@@ -2559,7 +2565,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var rows := VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var spacer := Control.new()
-	var spacer_h: float = maxf(0.0, banner_pos.y + banner_h) + list_top_pad
+	# with the clip window already opening under the band, the spacer only carries list_top_pad —
+	# else it would double-reserve the banner height.
+	var spacer_h: float = (0.0 if clip_below_banner else maxf(0.0, banner_pos.y + banner_h)) + list_top_pad
 	spacer.custom_minimum_size = Vector2(0, maxf(0.0, spacer_h))
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rows.add_child(spacer)
@@ -2642,7 +2650,10 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 				var fill_inner: float = fill / content_scale
 				if absf(content.custom_minimum_size.y - fill_inner) > 1.0:
 					content.custom_minimum_size.y = fill_inner
-		inner.custom_minimum_size.y = (minf(rows.size.y, banner_h + list_max_h) if list_max_h > 0.0 else rows.size.y)
+		# rows sit below the band when clipping under it, so the band height is added back on top.
+		var band_h: float = maxf(0.0, banner_pos.y + banner_h) if clip_below_banner else 0.0
+		var rows_cap: float = (banner_h + list_max_h - band_h) if list_max_h > 0.0 else rows.size.y
+		inner.custom_minimum_size.y = band_h + minf(rows.size.y, rows_cap)
 		# dock the pinned footer to the bottom of the content area, and reserve its height as the list's
 		# bottom spacer so rows can scroll fully clear of it (delta-guarded so it converges).
 		if is_instance_valid(footer_band):

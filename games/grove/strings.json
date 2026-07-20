@@ -206,13 +206,7 @@
 		},
 		"premium": {
 			"acorn_pouches_caption": "Acorn pouches",
-			"free_acorns_caption": "Free acorns",
-			"ribbon_best_value": "Best value",
-			"ribbon_first_buy": "First buy x2",
-			"ribbon_popular": "Popular",
-			"welcome_gift_caption": "Welcome gift",
-			"welcome_ribbon": "Welcome",
-			"first_buy_note": "Your first Acorn pouch is doubled."
+			"free_acorns_caption": "Free acorns"
 		},
 		"refill": {
 			"back_tomorrow": "Back tomorrow",
@@ -227,9 +221,6 @@
 		"starter": {
 			"acorns_label": "Acorns",
 			"acorns_note": "premium currency for shortcuts",
-			"confirm_line": "%d for %s",
-			"confirm_sub": "+%d water — a warm welcome",
-			"confirm_title": "Welcome gift",
 			"info_note": "Claimable just once — a warm start to the grove.",
 			"info_title": "Welcome",
 			"water_label": "Water",
