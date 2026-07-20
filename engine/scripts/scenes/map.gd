@@ -32,6 +32,7 @@ const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut
 # Bottom-nav tiles re-skinned as baked cut-paper sprites (icon + label in one PNG), keyed by spec name.
 # A spec with no entry here (e.g. the maps-page HomeTile) falls back to the drawn Kit.home_button tile.
 const NAV_SPRITE := {
+	"HomeTile": "res://games/grove/assets/ui/nav/nav_home.png",
 	"MapTile": "res://games/grove/assets/ui/nav/nav_map.png",
 	"ResidentsTile": "res://games/grove/assets/ui/nav/nav_residents.png",
 	"DailyTile": "res://games/grove/assets/ui/nav/nav_daily.png",
