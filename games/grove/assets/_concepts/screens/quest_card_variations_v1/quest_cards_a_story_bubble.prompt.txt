@@ -1,3 +1,8 @@
+FINAL COMPLIANCE-EDIT REFERENCE FILES
+- Image 1: quest_cards_a_story_bubble.png (precise edit target)
+- Image 2: games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png (palette/material authority)
+- Image 3: games/grove/assets/_concepts/screens/home_screen_meadow_sky_v2_working_farm.png (scale/detail-budget authority)
+
 Use case: precise-object-edit
 Asset type: Grove board quest-card comparison mock, Variation A Story Bubble
 Input images:
@@ -27,3 +32,34 @@ or watermark.
 Style-lock exception: the only allowed text/numerals are the four exact reward strings above.
 Constraints: change only the material flatness, requested tint fields, removal of the three held props, and corresponding shape simplification. Preserve all accepted layout and content invariants. All four cards and shadows remain complete and uncropped. No extra elements.
 Avoid: embossed or debossed surfaces, bevels, sculpted forms, rounded clay volume, realistic fur, individual pinecone-scale modeling, realistic botanical micro-detail, deep shadows, ambient occlusion, glossy surfaces, specular highlights, 3D rendering, pillow-like inflation, thick foam layers, gradients, painterly shading, heavy texture, sticker outlines, pure white, pure black, held props, jars, shovels, fruit clusters, extra requested items, extra counters, labels, names, descriptions, buttons, HUD, progress bars, navigation, board grid, watermark.
+
+
+=== FINAL COMPLIANCE EDIT PROMPT — BOTH MANDATORY AUTHORITIES ===
+
+Use case: precise-object-edit
+Asset type: final compliance pass for Grove board quest-card comparison mock, Variation A Story Bubble
+Input images:
+- Image 1: PRECISE EDIT TARGET and sole composition/content authority. Preserve it exactly: the 1935 x 813 landscape canvas, crop, quiet Meadow Sky blue background, generous margins, strict single row of four cards, every card position and proportion, every resident identity and pose, every requested item, every speech-bubble and reward-pill shape/placement, every color, all flat cut-paper shapes, paper texture, light, shadow, and all text.
+- Image 2: mandatory palette and material authority ONLY. It confirms the Meadow Sky role palette, matte cardstock treatment, warm cut edges, cream UI surfaces, subtle paper fiber, and shallow tinted shadows already present in Image 1. Do not copy its board, HUD, characters, objects, labels, navigation, or layout.
+- Image 3: mandatory scale and detail-budget authority ONLY. For this straight-on horizontal UI row, use it solely to confirm restrained silhouette complexity and phone-size legibility already present in Image 1. Do not copy its world, UI, farm content, camera, perspective, scene composition, paths, buildings, vegetation, objects, or layout.
+Primary request: reproduce Image 1 as a precise compliance edit with no intentional visual changes. Do not redesign, reinterpret, restyle, add, remove, move, resize, rotate, recolor, relight, crop, or recompose anything. The only purpose of this generation pass is to attach and acknowledge every mandatory authority while preserving the accepted image.
+Composition lock: keep exactly four complete uncropped cards in one horizontal row against the same quiet blue background. Preserve the exact sage, lavender, straw, sage card-field order. Preserve the current residents on the left, cream Story Bubble on the upper-right with its tail toward the resident, one requested item centered in each bubble, and one compact cream reward pill inside each lower-right.
+Content lock, left to right:
+1. flower-crowned forest child; blue-green herb; exact reward text "+5"
+2. purple-cloaked child; white winter rabbit; exact reward text "+24"
+3. sandcastle-crowned child; green sprig; exact reward text "+34"
+4. leaf-hooded child; pine cone; exact reward text "+12"
+Text (verbatim): preserve exactly and only "+5", "+24", "+34", "+12", once each, with the same typography, spacing, scale, dark-ink color, and corresponding gold reward icon as Image 1. No other text or numerals.
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+Style-block exception: the only allowed text/numerals are the four exact reward strings already present in Image 1.
+Invariants: preserve Image 1's current flat cut-paper style, broad low-complexity shapes, soft tint fields, cream bubbles and pills, warm cut edges, subtle paper fiber, shallow down-right tinted shadows, exact background, exact geometry, exact content, exact colors, exact text, and current absence of held props.
+Avoid: any intentional visual change; new or removed objects; changed residents; changed expressions or clothing; held jar; shovel; fruit/acorn cluster; changed asks; changed rewards; misspelled or altered text; extra text; fifth card; cropped card; layout drift; camera/perspective change; board HUD; farm scene; navigation; progress bars; resource counters; board grid; extra decoration; embossed forms; clay volume; glossy surfaces; deep shadows; realistic fur; detailed pinecone modeling; painterly gradients; sticker outlines; watermark.
+Output intent: return only the visually preserved landscape mock, with all four cards complete and every invariant intact.
