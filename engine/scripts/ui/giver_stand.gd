@@ -225,6 +225,7 @@ static func _paper_panel(node_name: String, corner: float) -> Panel:
 	sb.set_corner_radius_all(int(round(corner)))
 	sb.anti_aliasing = true
 	panel.add_theme_stylebox_override("panel", sb)
+	panel.set_meta(Look.SHADOW_CORNER_META, corner)   # the card's real rounding — the shadow reads this
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit != null:
@@ -253,7 +254,7 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	if not bool(lay.get("shadow", false)):
 		return
 	var params: Dictionary = lay.get("shadow_params", {}) as Dictionary
-	var sh := Look.shadow_rect(h * 0.12, params if not params.is_empty() else Look.shadow_params({}))
+	var sh := Look.shadow_rect(Look.shape_corner(card, h * 0.12), params if not params.is_empty() else Look.shadow_params({}))
 	sh.show_behind_parent = true
 	card.add_child(sh)
 

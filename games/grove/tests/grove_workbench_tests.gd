@@ -1638,6 +1638,13 @@ func _test_warm_shadow_port() -> void:
 	var wallet_style := wallet_shadow.get_theme_stylebox("panel") as StyleBoxFlat if wallet_shadow != null else null
 	ok(wallet_style != null and _same_rgb(wallet_style.shadow_color, Color(0, 0, 0)) and absf(wallet_style.shadow_color.a - float(Look.shadow_params({}).alpha)) <= 0.01,
 		"live wallet shell resolves to the uniform shadow (defaults — its cfg carries no shadow block)")
+	# the shadow's SHAPE comes from the element's own stamped rounding (Look.SHADOW_CORNER_META,
+	# stamped by the paper-surface applier) — a hand-passed corner can never drift it again.
+	var wallet_body := wallet.find_child("GoldCurrencyPill", true, false) as Control
+	var wallet_stamp := float(wallet_body.get_meta(Look.SHADOW_CORNER_META, -1.0)) if wallet_body != null else -1.0
+	var wallet_expect := int(maxf(wallet_stamp + float(wallet_opts.shadow_params.spread), 0.0))
+	ok(wallet_body != null and wallet_stamp > 0.0 		and wallet_style != null and wallet_style.get_corner_radius(CORNER_TOP_LEFT) == wallet_expect,
+		"pill shadow corner matches the shell's stamped rounding (stamp %.0f -> corner %d)" % [wallet_stamp, wallet_expect])
 	var wallet_plus := wallet.find_child("GoldCurrencyPlusButton", true, false) as Control
 	var wallet_plus_art := wallet.find_child("GoldCurrencyPlusArt", true, false) as TextureRect
 	ok(wallet_plus != null and wallet_plus_art != null and wallet_plus_art.texture != null \
