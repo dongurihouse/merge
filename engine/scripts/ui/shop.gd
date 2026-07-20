@@ -98,7 +98,7 @@ static func grant_starter() -> int:
 # (The free-ACORN faucet was retired 2026-06-23 — acorns are precious/earned-only at 1024🪙 each, Option A.
 # Only the free WATER refill remains a free claim; water isn't acorns.)
 
-# --- the free WATER refill (§4/§10): a full can, free, capped + cooled, in the water stall. Pours a
+# --- the free WATER refill (§4/§10): a full can, free, capped + cooled, leading the storefront. Pours a
 # full can ON TOP of the current water (additive, over-cap ok). Shares the Claims "refill_water" row.
 
 # The free-refill faucet's display state, same shape as free_gems_status (ready/cooldown/capped).
@@ -124,23 +124,22 @@ static func _claim_status(kind: String) -> Dictionary:
 	return {"available": false, "kind": "cooldown", "minutes": maxi(1, ceili(left / 60.0))}
 
 # --- the storefront ----------------------------------------------------------------
-# Three focused stalls share ONE dialog (one set of buy flows + chrome): the WATER pill's + opens the
-# water shop, the COIN pill's + the coin shop, the GEM pill's + the premium (acorn) shop. Each is `_open`
-# with a different `kind` — the section list (`_sections`) and banner are filtered to that kind.
+# ONE unified storefront (shop_dialog_v3_unified_storefront mock): every currency pill's + opens the
+# SAME dialog — the stall tabs are gone; the sections (Free refill · Quick help · Welcome · Acorn
+# pouches) all ride one scrolling sheet. The three named openers stay as entry points for the HUD.
 static func open_water(host: Control, opts: Dictionary = {}) -> void:
-	_open(host, opts, "water")
+	_open(host, opts)
 
 static func open_coin(host: Control, opts: Dictionary = {}) -> void:
-	_open(host, opts, "coin")
+	_open(host, opts)
 
 static func open_premium(host: Control, opts: Dictionary = {}) -> void:
-	_open(host, opts, "premium")
+	_open(host, opts)
 
-# Back-compat / generic entry: the kind comes from opts (defaults to the premium stall).
 static func open(host: Control, opts: Dictionary = {}) -> void:
-	_open(host, opts, String(opts.get("kind", "premium")))
+	_open(host, opts)
 
-static func _open(host: Control, opts: Dictionary, kind: String) -> void:
+static func _open(host: Control, opts: Dictionary) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
 	var Kit: GDScript = load(KIT_PATH)
@@ -180,8 +179,8 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 				(pair[0] as CanvasItem).z_index = int(pair[1]))
 
 	# The storefront FACE is the SHARED mock-true frame (Kit.dialog_frame — the same warm-cream sheet,
-	# ink title and coral ✕ every restyled dialog wears); the shop's own BODY (stall tabs ·
-	# section headers · the 2-up offer grid · the info footer) is built here, per the shop_dialog_v1 mock.
+	# ink title and coral ✕ every restyled dialog wears); the shop's own BODY (section headers · the
+	# 2-up offer grid · the info footer) is built here, per the shop_dialog_v3_unified_storefront mock.
 	# Width is a % of the SCREEN (responsive).
 	var vw: float = host.get_viewport_rect().size.x
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
@@ -194,11 +193,11 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
 		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
-		"overlay": overlay, "opts": opts, "host": host, "kind": kind,
+		"overlay": overlay, "opts": opts, "host": host,
 		"kit": Kit, "cfg": cfg, "inner": inner}
 
-	# (re)build the storefront from the live wallet + stock; a buy (or a stall TAB) rebuilds it in place to
-	# refresh balances, affordability, the merchandising ribbons, and the starter's one-time availability.
+	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
+	# balances, affordability, the merchandising ribbons, and the starter's one-time availability.
 	var rb := {"fn": Callable(), "first": true}
 	refs["rb"] = rb
 	rb.fn = func() -> void:
@@ -220,19 +219,16 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 			rb.first = false
 	rb.fn.call()
 
-# --- the mock-true storefront body (shop_dialog_v1) ----------------------------------
+# --- the mock-true storefront body (shop_dialog_v3_unified_storefront) ---------------
 # Colours sampled from the mock; the sheet/title/✕ come from the shared frame and are NOT re-specified.
 const SAGE := Color("#E4DEBD")        # an offer card's sage face
-const PILL_GREEN := Color("#5C8A57")  # the price pill + the active stall tab
-const TAB_IDLE := Color("#F4E9D1")    # a resting stall tab
+const PILL_GREEN := Color("#5C8A57")  # the price pill
 const CHIP_CREAM := Color("#F8ECD5")  # the bundle amount chip
 const FOOTER_CREAM := Color("#EDE2C1")
 const CARD_CORNER := 18.0
 const GRID_GAP := 14.0
-# The stall TABS, in the mock's order: the three shops share one sheet, the tab bar swaps `kind`.
-const STALLS := [["water", "Water"], ["coin", "Coins"], ["premium", "Acorns"]]
 
-# The whole scrolling body: stall tabs · each section's header + offer grid · the footer.
+# The whole scrolling body: each section's header + offer grid · the footer.
 static func _build_body(refs: Dictionary) -> Control:
 	var Kit: GDScript = refs.kit
 	var w: float = refs.inner
@@ -240,7 +236,6 @@ static func _build_body(refs: Dictionary) -> Control:
 	col.name = "ShopBody"
 	col.add_theme_constant_override("separation", 16)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(_tab_bar(refs, w))
 	for sec in _sections(refs):
 		var s := sec as Dictionary
 		col.add_child(_section_header(Kit, String(s.get("caption", "")), String(s.get("badge", ""))))
@@ -249,45 +244,6 @@ static func _build_body(refs: Dictionary) -> Control:
 	if foot != null:
 		col.add_child(foot)
 	return col
-
-# The stall TAB bar — WATER / COINS / ACORNS. The active tab is the green one; tapping a resting tab
-# swaps the open stall in place (the three stalls have always been one dialog with a different `kind`).
-static func _tab_bar(refs: Dictionary, w: float) -> Control:
-	var Kit: GDScript = refs.kit
-	var row := HBoxContainer.new()
-	row.name = "ShopTabBar"
-	row.add_theme_constant_override("separation", int(GRID_GAP))
-	row.custom_minimum_size = Vector2(w, 0)
-	for entry in STALLS:
-		var id := String(entry[0])
-		var on := id == String(refs.get("kind", "premium"))
-		var b := Button.new()
-		b.name = "ShopTab_" + id
-		b.text = Strings.t("shop.tab.%s" % id).to_upper()
-		b.focus_mode = Control.FOCUS_NONE
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_override("font", Kit.bold_font())
-		b.add_theme_font_size_override("font_size", FS.BODY)
-		b.add_theme_color_override("font_color", CREAM if on else INK)
-		b.add_theme_color_override("font_hover_color", CREAM if on else INK)
-		b.add_theme_color_override("font_pressed_color", CREAM if on else INK)
-		b.add_theme_constant_override("outline_size", 0)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = PILL_GREEN if on else TAB_IDLE
-		sb.corner_radius_top_left = int(CARD_CORNER); sb.corner_radius_top_right = int(CARD_CORNER)
-		sb.content_margin_top = 14; sb.content_margin_bottom = 14
-		sb.content_margin_left = 8; sb.content_margin_right = 8
-		for st in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(st, sb)
-		if not on:
-			b.pressed.connect(func() -> void:
-				Audio.play("button_tap", -2.0)
-				refs["kind"] = id
-				var rb: Dictionary = refs.get("rb", {})
-				if rb.has("fn") and (rb.fn as Callable).is_valid():
-					(rb.fn as Callable).call())
-		row.add_child(b)
-	return row
 
 # A section HEADER — the mock's centred navy all-caps title, with an optional gold merchandising
 # badge beside it (only ever driven by live offer data, e.g. the first-purchase doubler being unspent).
@@ -333,7 +289,7 @@ static func _offer_grid(refs: Dictionary, cards: Array, w: float) -> Control:
 	var row: HBoxContainer = null
 	for c in cards:
 		var d := c as Dictionary
-		# a lone offer (the water/coin stalls) gets the Welcome bundle's full-row proportions rather
+		# a lone offer (the Free-refill lead) gets the Welcome bundle's full-row proportions rather
 		# than a half-width tile stretched across the row.
 		if bool(d.get("wide", false)) or cards.size() == 1:
 			row = null
@@ -352,7 +308,7 @@ static func _offer_grid(refs: Dictionary, cards: Array, w: float) -> Control:
 # d keys: icon · count · label · note · price · price_icon · affordable · ribbon · chips · on_buy · on_info.
 static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -> Control:
 	var Kit: GDScript = refs.kit
-	var h: float = w * (0.34 if wide else 0.58)
+	var h: float = w * (0.30 if wide else 0.58)
 	var card := PanelContainer.new()
 	card.name = "ShopOfferCard"
 	var sb := StyleBoxFlat.new()
@@ -369,8 +325,8 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 	body.add_theme_constant_override("separation", 10)
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# capped: a full-row card is tall enough to blow a plain currency glyph (the water/coin stalls sell a
-	# small UI icon, not a painted pack) up past its source resolution, which reads flat and soft.
+	# capped: keeps a full-row card's art from blowing up past its source resolution (which reads flat
+	# and soft) — the shop_item_icons_v1 masters are 512px.
 	var art_px: float = minf(h * (0.86 if wide else 0.66), 210.0)
 	var art: Control = Kit.make_icon(String(d.get("icon", "gem")), art_px)
 	art.custom_minimum_size = Vector2(art_px, art_px)
@@ -415,18 +371,41 @@ static func _offer_card(refs: Dictionary, d: Dictionary, w: float, wide: bool) -
 			nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			textcol.add_child(nl)
 		var pill := _price_pill(refs, d)
-		if pill != null:
-			var pw := CenterContainer.new()
-			pw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			pw.add_child(pill)
-			textcol.add_child(pw)
-		body.add_child(textcol)
+		if pill != null and wide:
+			# a WIDE single-product card lays out as the mock's one row: art left · the amount
+			# centred in the open middle · the green CTA docked at the right edge.
+			body.add_child(textcol)
+			pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			body.add_child(pill)
+		else:
+			if pill != null:
+				var pw := CenterContainer.new()
+				pw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				pw.add_child(pill)
+				textcol.add_child(pw)
+			body.add_child(textcol)
 	if d.has("chips"):
 		var wpill := _price_pill(refs, d)
 		if wpill != null:
 			wpill.size_flags_vertical = Control.SIZE_SHRINK_END
 			body.add_child(wpill)
-	card.add_child(body)
+	# a TITLED card (the mock's Quick-help pair) heads itself with a small centred navy caps line
+	# ("FILL WATER" / "COIN POUCH") above the icon+amount body; untitled cards are unchanged.
+	if String(d.get("title", "")) != "":
+		var titled := VBoxContainer.new()
+		titled.add_theme_constant_override("separation", 2)
+		titled.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tl := _ink_label(Kit, String(d.title).to_upper(), FS.BODY)
+		tl.name = "ShopOfferTitle"
+		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		titled.add_child(tl)
+		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		titled.add_child(body)
+		card.add_child(titled)
+	else:
+		card.add_child(body)
 
 	# the card's own overlay layer: the merchandising ribbon (top-left) + the info disc (top-right).
 	var outer := Control.new()
@@ -469,7 +448,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 	b.add_theme_font_override("font", Kit.bold_font())
 	b.add_theme_font_size_override("font_size", FS.BODY)
 	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
-		b.add_theme_color_override(c, CREAM)
+		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
 	b.add_theme_constant_override("outline_size", 0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = PILL_GREEN
@@ -496,7 +475,7 @@ static func _price_pill(refs: Dictionary, d: Dictionary) -> Button:
 		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		pl.add_theme_font_override("font", Kit.bold_font())
 		pl.add_theme_font_size_override("font_size", FS.BODY)
-		pl.add_theme_color_override("font_color", CREAM)
+		pl.add_theme_color_override("font_color", Color.WHITE)
 		pl.add_theme_constant_override("outline_size", 0)
 		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(pl)
@@ -559,7 +538,7 @@ static func _info_disc(Kit: GDScript, on_info: Callable) -> Button:
 # The sheet's INFO FOOTER — a cream strip stating the one live offer rule that isn't visible on a card
 # (the first-purchase doubler). Absent when the doubler is spent; never states an offer that isn't live.
 static func _footer_note(refs: Dictionary) -> Control:
-	if String(refs.get("kind", "premium")) != "premium" or not first_buy_doubled():
+	if not first_buy_doubled():
 		return null
 	var Kit: GDScript = refs.kit
 	var p := PanelContainer.new()
@@ -631,28 +610,24 @@ static func _commas(n: int) -> String:
 		s = s.substr(0, s.length() - 3)
 	return ("-" if n < 0 else "") + s + out
 
-# Build the live shop SECTIONS for the kit dialog, filtered to the open shop's KIND: the water stall
-# shows the Fill-water card; the coin stall the Coin pouch; the premium stall the free-acorn
-# faucet + the one-time Welcome bundle + the Acorn-pouch ladder. Each card carries its data +
-# buy/info callbacks + a build-time `affordable` flag (the kit dims the price when broke). Rebuilt on every buy.
+# Build the live shop SECTIONS for the unified storefront (shop_dialog_v3): the FREE refill leads,
+# then Quick help (the 💎 Fill-water + the Coin pouch, side by side), then the one-time Welcome
+# bundle + the Acorn-pouch cash ladder. Each card carries its data + buy/info callbacks + a
+# build-time `affordable` flag (the price dims when broke). Rebuilt on every buy.
 static func _sections(refs: Dictionary) -> Array:
-	match String(refs.get("kind", "premium")):
-		"water": return _water_sections(refs)
-		"coin": return _coin_sections(refs)
-		_: return _premium_sections(refs)
+	var secs: Array = [{"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]}]
+	secs.append(_quick_help_section(refs))
+	secs.append_array(_premium_sections(refs))
+	return secs
 
-# WATER shop — the FREE daily refill (a full can, capped + cooled) leads, then the 💎 fill. Water is a
-# Save-backed currency now (like coins/gems): both cards grant through Save (set/add_water), so the stall
-# is host-agnostic — it shows the same from the board AND the hub, with no per-scene callbacks to forget.
-# The board re-syncs its live water cache via the HUD refresh. The boost is no longer sold here (T57).
-static func _water_sections(refs: Dictionary) -> Array:
+# QUICK HELP — the mock's titled pair: FILL WATER (💎 → a full can; water is Save-backed, so the card is
+# host-agnostic — the board re-syncs its live cache via the HUD refresh) and COIN POUCH (💎 → coins).
+static func _quick_help_section(refs: Dictionary) -> Dictionary:
 	var host: Control = refs.host
 	var gems := Save.diamonds()
-	# the FREE refill faucet — the lead card
-	var secs: Array = [{"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]}]
-	# the 💎 fill — top the can to full
-	var card := {
-		"icon": "water", "count": int(G.WATER_CAP),   # the mock's card states the AMOUNT it grants (a full can)
+	var water := {
+		"title": Strings.t("shop.water.fill_label"),
+		"icon": "shop_can", "count": int(G.WATER_CAP),   # the mock's card states the AMOUNT it grants (a full can)
 		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
 		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
 		"on_buy": func() -> void: _flow_water(refs),
@@ -660,8 +635,17 @@ static func _water_sections(refs: Dictionary) -> Array:
 			"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
 			"note": Strings.t("shop.water.info_row_note")}],
 			Strings.t("shop.water.info_note"))}
-	secs.append({"caption": Strings.t("shop.water.caption"), "cards": [card]})
-	return secs
+	var pouch := {
+		"title": Strings.t("shop.coin.pouch_label"),
+		"icon": "shop_pouch", "count": COIN_PACK,        # the mock's card states the AMOUNT it grants
+		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
+		"affordable": gems >= COIN_PACK_GEM_COST,
+		"on_buy": func() -> void: _flow_coins(refs),
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.coin.info_title"), [{
+			"icon": "coin", "label": Strings.t("shop.coin.info_row_label"), "amount": str(COIN_PACK),
+			"note": Strings.t("shop.coin.info_row_note")}],
+			Strings.t("shop.coin.info_note"))}
+	return {"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [water, pouch]}
 
 # The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
 # drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall).
@@ -670,7 +654,7 @@ static func _refill_card(refs: Dictionary) -> Dictionary:
 	var host: Control = refs.host
 	var st := refill_status()
 	var card := {
-		"icon": "water", "count": refill_amount(),
+		"icon": "shop_can", "count": refill_amount(),
 		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.refill.info_title"), [{
 			"icon": "water", "label": Strings.t("shop.refill.info_row_label"), "amount": str(refill_amount()),
 			"note": Strings.t("shop.refill.info_row_note")}],
@@ -686,23 +670,7 @@ static func _refill_card(refs: Dictionary) -> Dictionary:
 			else Strings.t("shop.refill.ready_in") % int(st.minutes)
 	return card
 
-# COIN shop — the Coin pouch (turn 💎 into coins). (The coin-priced item shortcuts were removed
-# 2026-06-23 — item-buying is moving to the board's item info bar.)
-static func _coin_sections(refs: Dictionary) -> Array:
-	var host: Control = refs.host
-	var gems := Save.diamonds()
-	var pouch := {
-		"icon": "coin", "count": COIN_PACK,           # the mock's card states the AMOUNT it grants
-		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
-		"affordable": gems >= COIN_PACK_GEM_COST,
-		"on_buy": func() -> void: _flow_coins(refs),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.coin.info_title"), [{
-			"icon": "coin", "label": Strings.t("shop.coin.info_row_label"), "amount": str(COIN_PACK),
-			"note": Strings.t("shop.coin.info_row_note")}],
-			Strings.t("shop.coin.info_note"))}
-	return [{"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [pouch]}]
-
-# PREMIUM shop — the free-acorn faucet, the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
+# PREMIUM sections — the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
 # (The 💎-priced item shortcut was removed 2026-06-23 — item-buying is moving to the board's item info bar.)
 static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
@@ -728,7 +696,7 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	for i in CASH_PACKS.size():
 		var pack: Dictionary = CASH_PACKS[i]
 		var card := {
-			"icon": _gem_icon_id(i), "count": int(pack.gems), "cash": true,
+			"icon": _pack_icon_id(i), "count": int(pack.gems), "cash": true,
 			"price": Iap.usd(String(pack.key)),
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)}
 		if bool(pack.get("pop", false)):
@@ -742,10 +710,10 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	secs.append(sec)
 	return secs
 
-# The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
-# has more packs than tier sprites — mirrors the old _gem_card art ladder.
-static func _gem_icon_id(i: int) -> String:
-	var art := "gem_t%d" % (i + 1)
+# The escalating acorn-pack art id for ladder pack i (pack_t1… — the cut-paper container ladder from
+# shop_item_icons_v1), falling back to the plain gem when the grove has more packs than tier sprites.
+static func _pack_icon_id(i: int) -> String:
+	var art := "pack_t%d" % (i + 1)
 	return art if ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % art)) else "gem"
 
 # The Welcome bundle's hero ICON id. The card art holds ONE item, so the bundle shows a single hero (the

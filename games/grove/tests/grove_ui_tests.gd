@@ -125,32 +125,29 @@ func _initialize() -> void:
 	get_root().add_child(s7)
 	if s7.board == null:
 		s7._ready()
-	# The shop is THREE stalls now (water / coin / premium), each opened from its own currency pill's +.
-	# Each carries ONLY its corresponding cards — asserted against the same data the stalls read.
+	# The shop is ONE unified storefront now (shop_dialog_v3): every currency pill's + opens the SAME
+	# dialog carrying ALL the sections — Free refill · Quick help (Fill water + Coin pouch) · Welcome ·
+	# the acorn ladder. Asserted against the same data the storefront reads.
 	var k: int = s7.get_child_count()
 	Shop.open_premium(s7, {})
-	ok(s7.get_child_count() == k + 1, "the premium stall opens over the board")
-	var rows_premium := _shop_rows(s7)
-	# +1 for the Free-acorn faucet card (the rewarded watch moved off the side rail into the stall's lead
-	# slot; its CTA is always present — "Free" when offerable, the cozy timer when cooling/capped).
-	# (Item-shortcut cards were removed 2026-06-23 — item-buying moves to the board's item info bar.)
-	var want_premium := 1 \
+	ok(s7.get_child_count() == k + 1, "the storefront opens over the board")
+	var rows_full := _shop_rows(s7)
+	# the free-refill CTA is present only while the claim is offerable (cooling/capped → a plain note).
+	var want_full := (1 if Shop.refill_status().available else 0) + 2 \
 		+ (1 if Shop.starter_available() else 0) + Shop.CASH_PACKS.size()
-	ok(rows_premium == want_premium, \
-		"premium stall = Free faucet + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
-	# the coin stall = JUST the Coin pouch, and NOTHING else (no acorn ladder, no shortcuts):
-	# the exact count proves the split — it equals the single pouch, so no cash/💎 card leaked in.
+	ok(rows_full == want_full, \
+		"storefront = Free refill + Quick help pair + Welcome + the acorn ladder (%d == %d)" % [rows_full, want_full])
+	# every pill's + opens the SAME unified storefront — the coin and water openers show the identical
+	# card set (the stall split is gone). Close the live overlay between opens (a second open bails
+	# while one is already mounted).
+	s7.find_child("ShopOverlay", true, false).free()
 	k = s7.get_child_count()
 	Shop.open_coin(s7, {})
-	ok(s7.get_child_count() == k + 1, "the coin stall opens over the board")
-	var rows_coin := _shop_rows(s7)
-	var want_coin := 1
-	ok(rows_coin == want_coin, \
-		"coin stall = just the Coin pouch, no ladder (%d == %d)" % [rows_coin, want_coin])
-	# the water stall: the free refill + the 💎 Fill-water card. Water is Save-backed now, so the stall is
-	# host-agnostic — no water_grant/water_add to pass (the boost moved to the board's generator bar, T57).
+	ok(s7.get_child_count() == k + 1, "the coin + opens the storefront over the board")
+	ok(_shop_rows(s7) == want_full, "the coin + shows the same unified card set")
+	s7.find_child("ShopOverlay", true, false).free()
 	Shop.open_water(s7, {})
-	ok(_shop_rows(s7) == 2, "the water stall = the free refill + the 💎 Fill-water card (host-agnostic)")
+	ok(_shop_rows(s7) == want_full, "the water + shows the same unified card set (host-agnostic)")
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()

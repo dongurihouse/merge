@@ -207,22 +207,23 @@ func _initialize() -> void:
 	ok(Save.fill_water() == G.WATER_CAP * 2, "the 💎 fill never trims a banked over-cap spare")
 	Save.set_water(30)
 	ok(Save.fill_water() == G.WATER_CAP, "the 💎 fill tops a low can to full")
-	# T-J(iii): the water stall is HOST-AGNOSTIC now — it ALWAYS shows the free refill + the 💎 fill, with
-	# no per-scene `water_add`/`water_grant` gate (water grants through Save). _water_sections is the source.
+	# T-J(iii): the water cards are HOST-AGNOSTIC — the unified storefront ALWAYS shows the free refill +
+	# the 💎 fill, with no per-scene `water_add`/`water_grant` gate (water grants through Save).
 	fresh("refill_card")
 	var wh := Control.new()
 	get_root().add_child(wh)
 	var saw_refill := false
 	var saw_fill := false
-	for sec in Shop._water_sections({"host": wh, "opts": {}}):
+	for sec in Shop._sections({"host": wh, "opts": {}}):
 		for cardx in (sec as Dictionary).get("cards", []):
 			# the free-refill card states the full can it pours and carries NO currency price
 			if int((cardx as Dictionary).get("count", 0)) == Shop.refill_amount() \
 					and String((cardx as Dictionary).get("price_icon", "")) == "":
 				saw_refill = true
-			elif String((cardx as Dictionary).get("price_icon", "")) == "gem":       # the 💎 fill card
+			elif int((cardx as Dictionary).get("count", 0)) == int(G.WATER_CAP) \
+					and String((cardx as Dictionary).get("price_icon", "")) == "gem":   # the 💎 fill card
 				saw_fill = true
-	ok(saw_refill, "the water stall offers the free-refill card (no host callback needed)")
+	ok(saw_refill, "the storefront offers the free-refill card (no host callback needed)")
 	ok(saw_fill, "...and the 💎 fill card")
 	wh.queue_free()
 	# T-J(iv): pressing the free refill in the REAL stall GRANTS THROUGH SAVE (over-cap), end-to-end —
@@ -507,17 +508,17 @@ func _initialize() -> void:
 	_test_unlock_rewards()
 	_test_residents_shop_cards()
 
-	# T57 — the boost moved off the water shop onto the board's generator info bar. The water stall
+	# T57 — the boost moved off the water shop onto the board's generator info bar. The storefront
 	# carries the water refill + 💎 fill (water grants through Save now), but NO coin-priced card.
 	fresh("burst_shop")
 	var bhost := Control.new()
 	get_root().add_child(bhost)
 	var saw_coin_card := false
-	for sec in Shop._water_sections({"host": bhost, "hero_px": 100.0, "opts": {}}):
+	for sec in Shop._sections({"host": bhost, "hero_px": 100.0, "opts": {}}):
 		for cardx in (sec as Dictionary).get("cards", []):
 			if String((cardx as Dictionary).get("price_icon", "")) == "coin":
 				saw_coin_card = true
-	ok(not saw_coin_card, "the water stall carries no coin-priced card (the boost is a board action now)")
+	ok(not saw_coin_card, "the storefront carries no coin-priced card (the boost is a board action now)")
 	bhost.queue_free()
 
 	# GEOMETRY: a merchandising ribbon deliberately overhangs its card's top-left corner — the frame
