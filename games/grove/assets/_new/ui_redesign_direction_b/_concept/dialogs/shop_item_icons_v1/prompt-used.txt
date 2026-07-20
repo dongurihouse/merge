@@ -1,0 +1,31 @@
+Create one production sprite sheet containing exactly nine isolated shop-item
+icons in a precise 3 x 3 grid, row-major:
+
+1. Blue watering can.
+2. Green coin pouch containing gold acorn coins.
+3. Single brown acorn currency glyph.
+4. Compact cluster of three acorns on simple green leaves.
+5. Small green tied acorn pouch.
+6. Tan burlap acorn sack.
+7. Woven acorn basket.
+8. Wooden acorn crate.
+9. Blue-green treasure chest with restrained gold trim, filled with acorns.
+
+Use the Meadow Sky palette and Cut-Paper Playground style: matte hand-cut
+cardstock, broad rounded low-complexity shapes, two to three primary masses,
+subtle two-to-four-percent paper grain, warm cut edges plus a local darker edge,
+upper-left light, and friendly high legibility at small UI size. Match the
+existing Grove item-line simplicity. Use only two to five explicit acorns in a
+container and imply the remainder as one broad fill mass. Distinguish higher
+value packs through container silhouette, material, and color rather than more
+clutter. Keep every icon as one coherent connected object with a consistent
+visual footprint. Center each object in its cell and leave wide gutters.
+
+Flat pure #FF00FF background only. No cast shadows, floor, scenery, labels,
+numbers, text, UI panels, sparkles, glow, universal white sticker outline,
+plastic, clay, watercolor, gouache, glossy 3D rendering, or heavy black outline.
+
+Revision: preserve all nine designs and ordering, reduce every object by about
+15 percent, recenter each icon precisely, and leave an uninterrupted magenta
+gutter around each object. In particular, keep the crate and treasure chest
+clear of their shared cell boundary.
