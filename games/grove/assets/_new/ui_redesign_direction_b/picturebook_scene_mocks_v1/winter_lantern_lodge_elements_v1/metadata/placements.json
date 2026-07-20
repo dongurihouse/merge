@@ -47,13 +47,13 @@
    "layer": "hero"
   },
   {
-   "id": "bridge",
+   "id": "christmas_tree",
    "category": "structures",
-   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/bridge_paper_plate_v2.png",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/christmas_tree_paper_plate_v1.png",
    "x": 765,
    "y": 747,
-   "w": 354,
-   "h": 212,
+   "w": 252,
+   "h": 290,
    "z": 120,
    "layer": "hero"
   },

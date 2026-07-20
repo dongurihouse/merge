@@ -1,0 +1,11 @@
+Use case: stylized-concept
+Asset type: preview-only portrait game-zone concept mock, a three-layer assembly blueprint for a mobile game.
+Primary request: Create “Watchtower Caravan Stop” as one cohesive full composite reference image visibly designed for later layer separation and replacement.
+
+Foundation: calm golden sand floor with broad quiet open regions, single pale curved stepping-stone path, small fixed turquoise pond at lower center-left, distant low sand dunes and muted blue mountains. Blue sky and two simple cream clouds are reference only.
+
+Exactly five clear replaceable hero sockets: a tall adobe watchtower in the upper-right, a low walled ochre trading house in the upper-left, one fabric-awning market stall in the mid-left, one simple desert tent in the mid-right, and a small camel-and-supply cart in the lower-right. Each needs a quiet, uncluttered sand footprint.
+
+Static cover dressing: a few palms, cactus silhouettes, agave/flower clusters, and low rock strips only at outer edges, foreground, and select socket seams; they may overlap hero bases lightly. Keep the full scene spacious and readable.
+
+Style: warm high-contrast cut-paper cardstock picture-book art, flat layered silhouettes, matte edges, subtle printed paper fiber, restrained 2D shading, upper-left light. No people, UI, text, wells, fountains, extra stalls/buildings, loose tiny props, or deep dark shadows.
