@@ -3,7 +3,7 @@
   "mode": "prop_pack",
   "prompt": "",
   "role": "",
-  "input": "games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v1/05_dressing/cover_pack/references/desert_oasis_watchtower_cover_dressing_raw_v1.png",
+  "input": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/desert_oasis_watchtower_elements_v1/05_dressing/cover_pack/references/desert_oasis_watchtower_cover_dressing_raw_v1.png",
   "threshold": 100,
   "edge_threshold": 150,
   "duration": 200,
