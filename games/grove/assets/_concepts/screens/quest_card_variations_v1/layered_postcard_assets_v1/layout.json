@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "coordinate_space": {
+    "origin": "top_left",
+    "units": "logical_pixels",
+    "card_size": {
+      "width": 160,
+      "height": 145
+    }
+  },
+  "base_card": {
+    "implementation": "code_drawn_rounded_panel",
+    "texture_tiles": [
+      "res://games/grove/assets/ui/meadow_v2/texture_cream.png",
+      "res://games/grove/assets/ui/meadow_v2/texture_meadow.png",
+      "res://games/grove/assets/ui/meadow_v2/texture_supporting_purple.png",
+      "res://games/grove/assets/ui/meadow_v2/texture_warm_kraft.png"
+    ],
+    "tintable": true,
+    "baked_shadow": false
+  },
+  "portrait": {
+    "rect": {
+      "x": -8,
+      "y": 10,
+      "width": 110,
+      "height": 144
+    },
+    "anchor": "bottom_center",
+    "preserve_aspect": true,
+    "clip_to_card": false,
+    "bottom_overflow": 9,
+    "shadow": "runtime_shared_shallow"
+  },
+  "request_note": {
+    "asset": "final/quest_request_note_256x288.png",
+    "rect": {
+      "x": 97,
+      "y": 8,
+      "width": 61,
+      "height": 69
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "preserve_aspect": true,
+    "rotation_degrees": {
+      "min": -3,
+      "max": 3,
+      "seed": "stable_quest_id"
+    },
+    "item_safe_rect": {
+      "x": 106,
+      "y": 18,
+      "width": 44,
+      "height": 48
+    },
+    "shadow": "runtime_shared_shallow"
+  },
+  "reward_tag": {
+    "asset": "final/quest_reward_seed_tag_256.png",
+    "rect": {
+      "x": 100,
+      "y": 81,
+      "width": 59,
+      "height": 63
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.5
+    },
+    "preserve_aspect": true,
+    "content_safe_rect": {
+      "x": 106,
+      "y": 103,
+      "width": 46,
+      "height": 29
+    },
+    "coin_box": {
+      "x": 106,
+      "y": 106,
+      "width": 18,
+      "height": 18
+    },
+    "value_box": {
+      "x": 123,
+      "y": 102,
+      "width": 29,
+      "height": 25
+    },
+    "shadow": "runtime_alpha_silhouette_shallow"
+  },
+  "dynamic_content": {
+    "requested_item": "PieceView.make_piece(...) inside request_note.item_safe_rect",
+    "reward_coin": "res://games/grove/assets/ui/meadow_v2/coin.png",
+    "reward_text": "code_drawn_plus_value",
+    "ready_overlay": "existing dynamic ready check",
+    "card_tint": "runtime quest family tint",
+    "note_rotation": "runtime stable quest id"
+  },
+  "layer_order": [
+    "card_shadow",
+    "base_card",
+    "portrait",
+    "request_note_shadow",
+    "request_note",
+    "requested_item",
+    "reward_tag_shadow",
+    "reward_tag",
+    "reward_coin",
+    "reward_text",
+    "ready_overlay"
+  ]
+}

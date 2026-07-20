@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "bundle": "layered_postcard_assets_v1",
+  "status": "concept_assets_not_runtime_integrated",
+  "approved_concept": "../quest_cards_c_layered_postcard.png",
+  "style_guide": "../../../../../../../docs/design/art-style-guide.md",
+  "reference_roles": {
+    "composition": "../quest_cards_c_layered_postcard.png",
+    "palette_and_material": "../../palette_a_meadow_sky_board.png",
+    "scale_and_detail_budget": "../../home_screen_meadow_sky_v2_working_farm.png"
+  },
+  "generation": {
+    "method": "built_in_image_gen",
+    "default_key": "#FF00FF",
+    "subject_safe_override": {
+      "giver_m2_3_clean_raw.png": "#00FF00"
+    },
+    "shadow_policy": "no_baked_shadow"
+  },
+  "assets": [
+    {
+      "id": "quest_request_note",
+      "generated_source": "raw/generated_sources/quest_request_note_generated.png",
+      "raw": "raw/quest_request_note_raw.png",
+      "prompt": "prompts/quest_request_note_prompt.txt",
+      "master": "final/quest_request_note_512x576.png",
+      "master_size": [512, 576],
+      "runtime": "final/quest_request_note_256x288.png",
+      "runtime_size": [256, 288]
+    },
+    {
+      "id": "quest_reward_seed_tag",
+      "generated_source": "raw/generated_sources/quest_reward_seed_tag_generated.png",
+      "raw": "raw/quest_reward_seed_tag_raw.png",
+      "prompt": "prompts/quest_reward_seed_tag_prompt.txt",
+      "master": "final/quest_reward_seed_tag_512.png",
+      "master_size": [512, 512],
+      "runtime": "final/quest_reward_seed_tag_256.png",
+      "runtime_size": [256, 256],
+      "required_transparency": "punched_hole"
+    },
+    {
+      "id": "giver_m2_1_clean",
+      "source_identity": "../../../../characters/giver_m2_1.png",
+      "generated_source": "raw/generated_sources/giver_m2_1_clean_generated.png",
+      "raw": "raw/giver_m2_1_clean_raw.png",
+      "prompt": "prompts/giver_m2_1_clean_prompt.txt",
+      "master": "final/giver_m2_1_clean_256.png",
+      "master_size": [256, 256],
+      "removed_props": ["acorn_cluster"]
+    },
+    {
+      "id": "giver_m2_2_clean",
+      "source_identity": "../../../../characters/giver_m2_2.png",
+      "generated_source": "raw/generated_sources/giver_m2_2_clean_generated.png",
+      "raw": "raw/giver_m2_2_clean_raw.png",
+      "prompt": "prompts/giver_m2_2_clean_prompt.txt",
+      "master": "final/giver_m2_2_clean_256.png",
+      "master_size": [256, 256],
+      "removed_props": ["shovel", "shield"]
+    },
+    {
+      "id": "giver_m2_3_clean",
+      "source_identity": "../../../../characters/giver_m2_3.png",
+      "generated_source": "raw/generated_sources/giver_m2_3_clean_generated.png",
+      "raw": "raw/giver_m2_3_clean_raw.png",
+      "prompt": "prompts/giver_m2_3_clean_prompt.txt",
+      "master": "final/giver_m2_3_clean_256.png",
+      "master_size": [256, 256],
+      "removed_props": ["jar"]
+    }
+  ],
+  "reused": [
+    "res://games/grove/assets/characters/giver_m2_0.png",
+    "res://games/grove/assets/ui/meadow_v2/texture_cream.png",
+    "res://games/grove/assets/ui/meadow_v2/texture_meadow.png",
+    "res://games/grove/assets/ui/meadow_v2/texture_supporting_purple.png",
+    "res://games/grove/assets/ui/meadow_v2/texture_warm_kraft.png",
+    "res://games/grove/assets/ui/meadow_v2/coin.png",
+    "Bust.make(...) portrait selection",
+    "PieceView.make_piece(...) request rendering",
+    "shared runtime shadows"
+  ],
+  "review": "layered_postcard_assets_review_3x2.png",
+  "quality_report": "qc_report.json"
+}

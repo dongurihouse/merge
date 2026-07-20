@@ -247,6 +247,8 @@
         "key": "green",
         "visible_key_fringe_pixels": 0
       }
-    ]
+    ],
+    "cell_boundary_opaque_pixels": 0,
+    "empty_sixth_cell_opaque_pixels": 0
   }
 }
