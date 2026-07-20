@@ -4,6 +4,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## coverage; the real-time Rush *feel* needs an interactive run. Active suite (in GROVE_TESTS).
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const ActionBarKit = preload("res://engine/scripts/ui/action_bar.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
@@ -594,13 +595,16 @@ func _test_rush_intro_hint() -> void:
 	ok(hint != null and hint.get_theme_color("font_color") == Color("#243B4B") \
 		and hint.get_theme_constant("outline_size") == 0, \
 		"the Meadow cream bottom hint uses native Ink text without the legacy light outline")
-	ok(strip != null and String(strip.get_meta("slice_mode", "")) == "three", \
-		"the bottom hint uses 3-slice art, not a 9-slice/flat panel")
-	ok(strip != null \
-		and strip.find_child("RushBottomHintLeftCap", true, false) is TextureRect \
-		and strip.find_child("RushBottomHintCenterSlice", true, false) is TextureRect \
-		and strip.find_child("RushBottomHintRightCap", true, false) is TextureRect, \
-		"the bottom hint preserves fixed side caps with a stretchable centre")
+	# the tray is the SHARED board bottom-bar surface (ActionBar.bar_style + the kit paper-grain layer),
+	# not the retired 3-slice art strip.
+	var hint_tray := strip.find_child("RushBottomHintTray", true, false) as PanelContainer if strip != null else null
+	var hint_tray_style := hint_tray.get_theme_stylebox("panel") as StyleBoxFlat if hint_tray != null else null
+	ok(hint_tray != null and hint_tray_style != null \
+		and hint_tray_style.bg_color.is_equal_approx(ActionBarKit.PAPER_FILL), \
+		"the bottom hint wears the board info tray's shared flat cream style")
+	ok(hint_tray != null \
+		and hint_tray.find_child(ActionBarKit.PAPER_SURFACE_NODE, true, false) is TextureRect, \
+		"the bottom hint carries the shared paper-grain surface layer")
 	ok(Save.rush_intro_seen() == 1, "the first Rush marks the tutorial seen once")
 	var first_overlay: Node = s.find_child("RushTutorialOverlay", true, false)
 	if first_overlay != null:
@@ -766,8 +770,7 @@ func _test_rush_resize() -> void:
 	s._apply_treefall_visual()
 	ok(s._act_warn.visible and not s._act_idle.visible, "S-RESIZE: telegraphing a treefall shows the warning strip, hides the idle rail")
 	ok(s._act_arrow is TextureRect and s._act_arrow.texture != null \
-		and String(s._act_arrow.texture.resource_path).ends_with("ui/meadow_v2/danger_chevron.png") \
-		and String(s.BOTTOM_HINT_ART).ends_with("ui/rush/bottom_hint_3slice.png"), \
+		and String(s._act_arrow.texture.resource_path).ends_with("ui/meadow_v2/danger_chevron.png"), \
 		"S-RESIZE: treefall uses the Meadow danger chevron without repurposing the bottom hint")
 	s._tf = {"ph": "idle", "t": 0.0, "col": 0, "next": 9.0}
 	s._apply_treefall_visual()

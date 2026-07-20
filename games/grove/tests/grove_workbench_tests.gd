@@ -1885,9 +1885,9 @@ func _test_gold_badge_consumers(view) -> void:
 	view._dirty.clear()
 	view._selected = "gold_badge"
 	view._apply_edit()
-	ok(view._dirty.has("board") and view._dirty.has("rush_bar") \
-		and not view._dirty.has("info_bar"), \
-		"editing gold_badge queues badge consumers but leaves the paper action tray alone")
+	ok(view._dirty.has("board") \
+		and not view._dirty.has("rush_bar") and not view._dirty.has("info_bar"), \
+		"editing gold_badge queues badge consumers but leaves the paper rush bar + action tray alone")
 	view._dirty = prev_dirty
 
 	var board_dull := _board_frame_image(0)
@@ -2524,6 +2524,18 @@ func _test_rush_bar_component(view) -> void:
 		"rush_bar burn applies engraved styling to dynamic values")
 	ok(caption != null and int(caption.get_theme_constant("outline_size")) > 0, \
 		"rush_bar burn applies engraved styling to captions")
+	# the cells are PLAIN CUT-PAPER cards: flat cream + PAPER_EDGE hairline + the paper-grain layer;
+	# the gold-badge skin and the leaf / coin / crown deco art are retired.
+	var score_cell := bar.get_meta("score_cell") as Control
+	var cell_panel := score_cell.get_child(0) as PanelContainer if score_cell != null else null
+	var cell_style := cell_panel.get_theme_stylebox("panel") as StyleBoxFlat if cell_panel != null else null
+	ok(cell_style != null and cell_style.bg_color.is_equal_approx(Pal.CREAM) \
+		and cell_style.border_color.is_equal_approx(Kit.PAPER_EDGE), \
+		"rush_bar cells wear the plain cut-paper card (flat cream + hairline edge)")
+	ok(cell_panel != null and cell_panel.find_child("RushCellPaper", false, false) is TextureRect, \
+		"rush_bar cells carry the shared paper-grain surface layer")
+	ok(not opts.has("gold") and bar.find_children("*", "TextureRect", true, false).size() == 3, \
+		"rush_bar carries no gold-badge skin or deco art (only the three grain layers)")
 
 func _test_discovery_frame() -> void:
 	var dopts := Kit.dialog_opts_from_config({})

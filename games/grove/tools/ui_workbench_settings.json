@@ -400,12 +400,9 @@
 	},
 	"rush_bar": {
 		"burn": 55.0,
-		"crown_size": 76.0,
 		"gap": 18.0,
 		"height": 116.0,
-		"icon_size": 52.0,
 		"label_size": 24.0,
-		"leaf_size": 92.0,
 		"pad": 16.0,
 		"score_w": 300.0,
 		"shadow": true,
