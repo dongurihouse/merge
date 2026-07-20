@@ -1178,6 +1178,15 @@ func _test_new_knobs(view) -> void:
 	ok(_has_label_text(level_preview, "9"), "the previewed level number renders on the medallion")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "LevelPopup._sheet"), \
 		"the workbench draws the level dialog through the game's level_popup.gd renderer, not the parchment kit dialog")
+	# the level sheet is built on the SHARED frame — the standard cream card + the frame's navy title
+	# band ("LEVEL 9") — with NO ✕ (show_close = false; the mock has none), not a bespoke card.
+	ok(level_preview.find_child("MeadowDialogPanel", true, false) != null, \
+		"the level dialog uses the shared frame card (MeadowDialogPanel)")
+	var lvl_title := level_preview.find_child("DialogTitle", true, false) as Label
+	ok(lvl_title != null and lvl_title.text == "LEVEL 9", \
+		"the level dialog wears the shared frame title band (\"LEVEL 9\")")
+	ok(level_preview.find_child("DialogClose", true, false) == null, \
+		"the level dialog has no ✕ (show_close = false)")
 	# the in-tile COUNT overlay (the board bag/home well's "x/y"): its offset + font are read by the shared
 	# resolver, default to the shipped placement, and are SAVED config the board wells read (action_bar.gd).
 	# The bottom-bar preview has no bag well, so those knobs are tuned by number rather than previewed here.
