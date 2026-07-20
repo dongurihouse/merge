@@ -214,16 +214,22 @@ static func _cta(text: String, w: float) -> Button:
 	btn.add_theme_font_size_override("font_size", FS.HEADING)
 	btn.add_theme_color_override("font_color", Pal.CREAM)
 	btn.add_theme_constant_override("outline_size", 0)
+	var corner := w * BTN_CORNER_F
 	var gsb := StyleBoxFlat.new()
 	gsb.bg_color = Pal.LEAF
-	gsb.set_corner_radius_all(int(w * BTN_CORNER_F))
+	gsb.set_corner_radius_all(int(corner))
 	gsb.content_margin_top = w * 0.030; gsb.content_margin_bottom = w * 0.030
-	_mock_shadow(gsb)
 	for st in ["normal", "hover", "focus"]:
 		btn.add_theme_stylebox_override(st, gsb)
 	var psb: StyleBoxFlat = gsb.duplicate()
 	psb.bg_color = Pal.LEAF.darkened(0.10)
 	btn.add_theme_stylebox_override("pressed", psb)
+	# THE shared shadow, the BUTTON way (the pill_button standard): a behind-parent shadow panel at
+	# the button's own rounding, from the saved workbench block — a Shadow-item edit restyles it too.
+	btn.set_meta(Look.SHADOW_CORNER_META, corner)
+	var bsh := Look.shadow_rect(corner, Look.saved_shadow_params())
+	bsh.show_behind_parent = true
+	btn.add_child(bsh)
 	return btn
 
 ## The progress bar (mock): a cream capsule frame holding a muted-periwinkle remainder track with a
@@ -270,6 +276,11 @@ static func _bar(frac: float, w: float) -> Control:
 	lsb.bg_color = Pal.LEAF
 	lsb.set_corner_radius_all(int(inner_h * 0.5))
 	fill.add_theme_stylebox_override("panel", lsb)
+	# the earned fill casts THE shared shadow onto the track (behind-parent, full-rect of the fill —
+	# it follows the fill's live width), from the saved workbench block like every other element
+	var fsh := Look.shadow_rect(inner_h * 0.5, Look.saved_shadow_params())
+	fsh.show_behind_parent = true
+	fill.add_child(fsh)
 	holder.add_child(fill)
 
 	var f := clampf(frac, 0.0, 1.0)
@@ -313,6 +324,46 @@ static func _tally_pill(text: String, w: float) -> Control:
 	pill.add_child(row)
 	return pill
 
+## THE uniform shadow, SHAPE-TRUE, for one medallion sprite: the sprite's own alpha silhouette baked
+## at display size (the Look.make_level_badge recipe — a box shadow would square the leaves), driven
+## by the SAVED workbench shadow block so a Shadow-item edit restyles these too. Returns null when
+## the sprite has no readable image (the layout simply omits the shadow).
+static func _sprite_shadow(tr: TextureRect) -> TextureRect:
+	if tr == null or tr.texture == null:
+		return null
+	var img: Image = tr.texture.get_image()
+	if img == null:
+		return null
+	var sp := Look.saved_shadow_params()
+	img = img.duplicate()
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	img.resize(maxi(1, int(tr.size.x)), maxi(1, int(tr.size.y)), Image.INTERPOLATE_BILINEAR)
+	var res: Dictionary = Kit.silhouette_shadow(img, {
+		"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
+		"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha),
+		"shadow_spread": float(sp.spread)})
+	var pad := float(res.pad)
+	var shr := TextureRect.new()
+	shr.name = String(tr.name) + "Shadow"
+	shr.texture = ImageTexture.create_from_image(res.image)
+	shr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shr.stretch_mode = TextureRect.STRETCH_SCALE
+	shr.position = tr.position - Vector2(pad, pad)
+	shr.size = tr.size + Vector2(pad * 2.0, pad * 2.0)
+	shr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return shr
+
+## Add `tr` to `block` with its shape-true uniform shadow laid directly beneath it.
+static func _add_shadowed(block: Control, tr: TextureRect) -> void:
+	if tr == null:
+		return
+	var sh := _sprite_shadow(tr)
+	if sh != null:
+		block.add_child(sh)
+	block.add_child(tr)
+
 ## One polished medallion sprite at `px` wide (height follows the texture's aspect), or null when
 ## the art is missing (the dialog still builds; the layout simply omits the sprite).
 static func _sprite(nm: String, art_id: String, px: float) -> TextureRect:
@@ -336,27 +387,31 @@ static func _sprite(nm: String, art_id: String, px: float) -> TextureRect:
 static func _medallion(level: int, m: float) -> Control:
 	var sprig_w := m * SPRIG_F
 	var daisy_px := m * DAISY_F
-	var bw := m + sprig_w * 1.04          # each sprig reaches ~half its span beyond the rosette
-	var bh := m + daisy_px * 0.45         # the daisy hangs below the rosette's foot
+	# the sprigs tuck IN behind the daisy: each inner edge reaches just past centre, so the block
+	# spans two sprig widths minus their overlap; the daisy hangs below the rosette's foot
+	var tuck := daisy_px * 0.10           # how far each sprig's inner edge crosses the block centre
+	var bw := (sprig_w + tuck) * 2.0
+	var bh := m + daisy_px * 0.45
 	var block := Control.new()
 	block.name = "LevelMedallion"
 	block.custom_minimum_size = Vector2(bw, bh)
 	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the sprigs sit BEHIND the rosette, splayed from its lower half toward the corners
+	# the sprigs sit BEHIND the rosette AND the daisy, raised so their inner stems end right below
+	# the daisy — each rests its foot on the block's bottom line, splayed toward the corners
 	var sprig_l := _sprite("LevelSprigL", "sprig_l", sprig_w)
 	if sprig_l != null:
-		sprig_l.position = Vector2(0.0, m * 0.92 - sprig_l.size.y * 0.5)
-		block.add_child(sprig_l)
+		sprig_l.position = Vector2(bw * 0.5 + tuck - sprig_w, bh - sprig_l.size.y)
+		_add_shadowed(block, sprig_l)
 	var sprig_r := _sprite("LevelSprigR", "sprig_r", sprig_w)
 	if sprig_r != null:
-		sprig_r.position = Vector2(bw - sprig_w, m * 0.92 - sprig_r.size.y * 0.5)
-		block.add_child(sprig_r)
+		sprig_r.position = Vector2(bw * 0.5 - tuck, bh - sprig_r.size.y)
+		_add_shadowed(block, sprig_r)
 
 	var rose := _sprite("LevelRosette", "rosette", m)
 	if rose != null:
 		rose.position = Vector2((bw - m) * 0.5, 0.0)
-		block.add_child(rose)
+		_add_shadowed(block, rose)
 
 	var num := Label.new()
 	num.name = "LevelNumber"
@@ -375,5 +430,5 @@ static func _medallion(level: int, m: float) -> Control:
 	var daisy := _sprite("LevelDaisy", "daisy", daisy_px)
 	if daisy != null:
 		daisy.position = Vector2((bw - daisy_px) * 0.5, bh - daisy.size.y)
-		block.add_child(daisy)
+		_add_shadowed(block, daisy)
 	return block
