@@ -120,5 +120,20 @@ func _initialize() -> void:
 		ok(short_fsz == int(round(tw * Kit.DIALOG_TITLE_FONT_FRAC)), "short title keeps the full display size")
 	ldlg2.queue_free()
 
+	# the title band is centred ON THE CARD: `inner` is inset by the card's content pad while the band
+	# spans the card width, so the band must sit at -pad — and the saved ribbon-era banner_x nudge is
+	# ignored. Regression for the visibly off-centre "GLOW MUSHROOMS" title.
+	var ndlg: Control = Kit.dialog_frame(VBoxContainer.new(), 400.0,
+		{"banner_text": "N", "banner_pos": Vector2(-24, 0), "panel_pad_x": 40.0})
+	get_root().add_child(ndlg)
+	for _i in 4:
+		await process_frame
+	var ncard := ndlg.find_child("MeadowDialogPanel", true, false) as Control
+	var nband := ndlg.find_child("DialogBanner", true, false) as Control
+	var band_c := nband.global_position.x + nband.size.x / 2.0
+	var card_c := ncard.global_position.x + ncard.size.x / 2.0
+	ok(absf(band_c - card_c) < 0.5, "title band centre == card centre (%.1f vs %.1f)" % [band_c, card_c])
+	ndlg.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
