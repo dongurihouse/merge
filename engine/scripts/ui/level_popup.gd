@@ -129,6 +129,12 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 static func _sheet(w: float, d: Dictionary) -> Control:
 	var lvl := int(d.get("level", 1))
 	var mode := String(d.get("mode", "info"))
+	# per-element layout — each part's SIZE (a % of its default) and a vertical NUDGE (px, +down), read
+	# from the saved "level" config block so the workbench Level item can tune them and the game honours
+	# it. Defaults (100 / 0) reproduce the fraction constants exactly, so an un-tuned config is unchanged.
+	var lay: Dictionary = (d.get("frame_cfg", {}) as Dictionary).get("level", {}) if d.get("frame_cfg", null) is Dictionary else {}
+	var sz := func(key: String) -> float: return float(lay.get(key, 100)) / 100.0
+	var dy := func(key: String) -> int: return int(lay.get(key, 0))
 
 	var col := VBoxContainer.new()
 	col.name = "LevelColumn"
@@ -136,14 +142,16 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var med := _medallion(lvl, w * MEDALLION_F)
+	var med := _medallion(lvl, w * MEDALLION_F * sz.call("med_size"))
 	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(med)
+	col.add_child(_nudge(med, dy.call("med_dy"), "LevelMedallionSlot"))
 
-	col.add_child(_tally_pill("%d / %d earned" % [int(d.get("earned", 0)), int(d.get("next", 0))], w))
+	col.add_child(_nudge(_tally_pill("%d / %d earned" % [int(d.get("earned", 0)), int(d.get("next", 0))], \
+		w * sz.call("earned_size")), dy.call("earned_dy"), "LevelEarnedSlot"))
 
 	var span: int = maxi(1, int(d.get("span", 1)))
-	col.add_child(_bar(clampf(float(int(d.get("into", 0))) / float(span), 0.0, 1.0), w))
+	col.add_child(_nudge(_bar(clampf(float(int(d.get("into", 0))) / float(span), 0.0, 1.0), \
+		w * sz.call("bar_size")), dy.call("bar_dy"), "LevelBarSlot"))
 
 	if mode == "levelup":
 		var gift: Dictionary = d.get("gift", {})
@@ -153,10 +161,10 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 			var rrow: Control = Kit.reward_chip(reward,
 				{"font": FS.HEADING, "icon_size": 46, "corner": 22, "art": true})
 			rrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-			col.add_child(rrow)
+			col.add_child(_nudge(rrow, dy.call("hint_dy"), "LevelHintSlot"))
 	else:
-		col.add_child(_line("LevelHint", "%d more to reach Level %d" % [int(d.get("remaining", 0)), lvl + 1],
-			FS.HEADING, Pal.INK))
+		col.add_child(_nudge(_line("LevelHint", "%d more to reach Level %d" % [int(d.get("remaining", 0)), lvl + 1], \
+			int(FS.HEADING * sz.call("hint_size")), Pal.INK), dy.call("hint_dy"), "LevelHintSlot"))
 
 	var btn := _cta("COLLECT" if mode == "levelup" else "GOT IT", w)
 	var cb: Callable = d.get("on_button", Callable())
@@ -190,6 +198,19 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 ## StyleBoxFlat so it follows the box's exact rounded corners. The same recipe as residents.gd.
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
 	Look.apply_box_shadow(sb)
+
+## Wrap an element in a MarginContainer whose TOP margin nudges it down by `dy` px (the level layout's
+## per-element vertical position). dy == 0 returns the element unwrapped, so the default layout is untouched.
+static func _nudge(el: Control, dy: int, slot_name: String) -> Control:
+	if dy == 0:
+		return el
+	var m := MarginContainer.new()
+	m.name = slot_name
+	m.add_theme_constant_override("margin_top", maxi(0, dy))
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(el)
+	return m
 
 ## One centred navy display line (the tally / the hint).
 static func _line(nm: String, text: String, font: int, col: Color) -> Label:

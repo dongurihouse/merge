@@ -93,7 +93,7 @@ const TEST_KEYS := {
 	# Frame item) and sizes by the engine's min(560, 94%) rule; `preview` just picks which pool + state to show.
 	"mystery": ["preview"],
 	"shop": [],
-	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
+	"level": ["preview_level", "into", "span", "mode"],   # preview state; the size/dy layout knobs are SAVED
 	"tiers": [],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
 	# the FRAME is the shared gold badge skin; gold_currency_pill padding controls its content margin. `filled` previews the
@@ -287,11 +287,13 @@ func _default_params() -> Dictionary:
 		"mystery": {"preview": "day 7 · revealed"},
 		# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 		# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-		"shop": {"cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+		"shop": {"icon_size": 100, "card_pad": 12, "grid_gap": 14, "corner": 18},
 		# the LEVEL dialog — the game's REAL sheet (level_popup.gd), screen-fraction sized off the shared
 		# frame-width knob: NO own saved knobs (the old parchment level_dialog's fonts/pads are retired).
 		# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
-		"level": {"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
+		"level": {"preview_level": 1, "into": 0, "span": 6, "mode": "info",
+			"med_size": 100, "med_dy": 0, "earned_size": 100, "earned_dy": 0,
+			"bar_size": 100, "bar_dy": 0, "hint_size": 100, "hint_dy": 0},
 		# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
 		# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
 		# piece size + well face are INHERITED from the Slot cell item; only the discovery-specific knobs live
@@ -505,7 +507,7 @@ func _make_element(id: String) -> Control:
 			fopts["content_scale"] = scale
 			fopts["clip_below_banner"] = true   # rows clip UNDER the title band, like the game
 			fopts["list_max_h"] = 2600.0        # show the whole storefront (the game caps to 72% of the viewport)
-			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections()), width, fopts)
+			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections(), ShopUI.shop_layout(_params)), width, fopts)
 		"level":
 			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
 			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
@@ -595,9 +597,10 @@ func _make_element(id: String) -> Control:
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			bopts["extra"] = func(co: Dictionary) -> Control:
 				var gens: Array = []
-				for gid in ["seed_satchel", "hen_coop"]:
+				# REAL generator ids from the game roster (Game.DATA.GENERATORS) so the demo shows the
+				# actual generator art, not a "?" placeholder — the game does the same via make_content.
+				for gid in ["gen_1", "gen_2"]:
 					var gid_str := String(gid)
-					# real generator art via make_content (the game does the same) so the demo isn't a "?" icon
 					gens.append({"kind": "filled", "icon": gid_str,
 						"make_content": func(sz: float) -> Control: return PieceView.make_generator(gid_str, sz)})
 				return Kit.bag_generators_section("Generators", gens, co)
@@ -1140,6 +1143,7 @@ func _level_dialog_preview(p: Dictionary) -> Control:
 		"level": maxi(1, int(p.preview_level)), "earned": into, "next": span,
 		"into": into, "span": span, "remaining": maxi(0, span - into),
 		"mode": String(p.mode), "gift": {"water": 30, "gems": 1}, "on_button": Callable(),
+		"frame_cfg": _params,   # carries the saved "level" layout block (per-element size/dy) into _sheet
 	})
 
 ## Demo section data for the shop preview — the SAME {caption, cards[]} shape shop.gd builds from live
@@ -1664,13 +1668,31 @@ func _element_sidebar(_id: String) -> void:
 			mplay.pressed.connect(_play_mystery_spin)
 			_sidebar_body.add_child(mplay)
 		"shop":
-			# the shop is the game's real storefront (shop.gd Shop.build_body) inside the shared frame — its
-			# card/grid layout (sage art-left cards, 2-col grid, green price slabs) is fixed in shop.gd, so
-			# there are no grid knobs here. Edit the shared frame (banner · border · ✕) on the Frame item.
-			_sidebar_note("The shop is the game's real storefront (shop.gd). The offer cards + 2-column grid + price slabs are fixed there; the shared frame is edited on the Frame item.")
+			# the shop is the game's real storefront (shop.gd Shop.build_body). Each offer-card metric is
+			# SAVED config the game reads (shop.gd shop_layout), so tuning here flows to the live shop:
+			# the product icon size, the card's inner padding, the grid gap/margin, and the card corner.
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["icon_size", 50, 160]))   # product art size, % of default
+			_sidebar_body.add_child(_slider_row(["card_pad", 2, 40]))      # inner padding (px)
+			_sidebar_body.add_child(_slider_row(["grid_gap", 2, 48]))      # gap / margin between cards + sections (px)
+			_sidebar_body.add_child(_slider_row(["corner", 0, 40]))        # card corner radius (px)
 		"level":
-			# no saved knobs: the sheet is the game's level_popup.gd, sized by the shared frame-width
-			# knob (Frame item) with every part a fraction of that width. Only preview state lives here.
+			# the sheet is the game's real level_popup.gd. Each element's SIZE (% of its default) and its
+			# vertical NUDGE (px, +down) are SAVED — the game reads them from the level config, so tuning
+			# here flows to the live level-up dialog. (Title font + position are the shared Frame banner.)
+			_group_header("Saved to config", true)
+			_section_header("Medallion")
+			_sidebar_body.add_child(_slider_row(["med_size", 40, 160]))   # % of the default rosette diameter
+			_sidebar_body.add_child(_slider_row(["med_dy", -40, 80]))     # nudge down(+) / up(−), px
+			_section_header("Earned pill")
+			_sidebar_body.add_child(_slider_row(["earned_size", 50, 160]))
+			_sidebar_body.add_child(_slider_row(["earned_dy", -40, 80]))
+			_section_header("Progress bar")
+			_sidebar_body.add_child(_slider_row(["bar_size", 50, 160]))
+			_sidebar_body.add_child(_slider_row(["bar_dy", -40, 80]))
+			_section_header("Hint / reward line")
+			_sidebar_body.add_child(_slider_row(["hint_size", 50, 160]))
+			_sidebar_body.add_child(_slider_row(["hint_dy", -40, 80]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Mode", "mode", ["info", "levelup"]))
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
