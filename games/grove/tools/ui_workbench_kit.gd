@@ -2418,9 +2418,13 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 	return b
 
 ## A tidier scrollbar: a rounded bark grabber on a faint track (vs the default chunky bar).
+## SCROLLBAR_W is public: a dialog that lays fixed-width content against the frame's inner
+## width must reserve this much (the ScrollContainer subtracts a visible bar from the child
+## area, and an unreserved bar pushes fixed-width rows past the right clip).
+const SCROLLBAR_W := 10.0
 static func _style_scrollbar(scroll: ScrollContainer) -> void:
 	var vb := scroll.get_v_scroll_bar()
-	vb.custom_minimum_size.x = 10
+	vb.custom_minimum_size.x = SCROLLBAR_W
 	var grab := StyleBoxFlat.new()
 	grab.bg_color = Color(Pal.BARK, 0.55)
 	grab.set_corner_radius_all(5)
