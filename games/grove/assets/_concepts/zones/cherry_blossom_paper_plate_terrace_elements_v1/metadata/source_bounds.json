@@ -10,5 +10,10 @@
     "temizuya": {"x": 495, "y": 595, "w": 440, "h": 540},
     "torii": {"x": 250, "y": 1080, "w": 570, "h": 575}
   },
-  "notes": "Socket bounds are in source-reference pixels. Alpha bounds of the isolated clusters are fitted to these bounds before placement."
+  "horizonBounds": {
+    "left": {"x": -50, "y": 295, "w": 400, "h": 100},
+    "center": {"x": 280, "y": 305, "w": 380, "h": 85},
+    "right": {"x": 620, "y": 285, "w": 360, "h": 110}
+  },
+  "notes": "Socket and horizon bounds are in source-reference pixels. Alpha bounds of isolated clusters are fitted to these bounds before placement. The v2 foundation is vertically fitted to restore the reference mountain horizon while preserving its curved stepping path."
 }

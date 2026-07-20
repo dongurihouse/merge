@@ -1,0 +1,5 @@
+Registered stable foundation layer for the Cherry Blossom Paper-Plate Terrace scene.
+
+Match the source mock's pale ivory raked zen sand, blue-gray paper mountains, and especially its gently meandering stepping-stone route: small stones begin near the pavilion, bend subtly left through the middle, then ease right again while approaching the torii. Preserve the full vertical canvas registration. The mountain layer must stop cleanly above the sand; do not include horizon bushes, clouds, sky, cherry trees, structures, ponds, torii, or foreground cover.
+
+Use #FF00FF only for the empty sky above the mountains so it can be keyed to transparent alpha.

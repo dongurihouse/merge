@@ -1,0 +1,3 @@
+One isolated horizon foliage cluster for the right side of the Cherry Blossom Paper-Plate Terrace scene.
+
+Use layered broad green Japanese garden shrubs, a low irregular silhouette, a few small pink flowers, paper grain, and thin contact shadows. This is a ground-to-mountain seam cluster: it should be wider than tall and never rise high enough to cover a mountain peak. No tree, rocks, plate base, sky, sand field, or structure. All empty pixels are #FF00FF.

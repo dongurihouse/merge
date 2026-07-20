@@ -1,0 +1,3 @@
+One isolated horizon foliage cluster for the center of the Cherry Blossom Paper-Plate Terrace scene.
+
+Use layered low green Japanese garden shrubs with a slightly concave upper silhouette, paper grain, and thin contact shadows. This bridges the mountain-to-sand seam behind the pavilion but must stay low enough not to cover the pavilion roof or mountain peaks. No tree, rocks, plate base, sky, sand field, or structure. All empty pixels are #FF00FF.

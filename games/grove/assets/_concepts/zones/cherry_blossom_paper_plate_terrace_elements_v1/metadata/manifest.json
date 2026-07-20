@@ -5,12 +5,15 @@
   "sourceReference": "games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_reference_v2.png",
   "layers": [
     {"id": "sky", "role": "stable", "asset": "01_backdrop/sky_plate.png"},
-    {"id": "foundation", "role": "stable", "asset": "01_backdrop/foundation_plate.png"},
+    {"id": "foundation", "role": "stable", "asset": "01_backdrop/foundation_plate_v2.png"},
     {"id": "clouds", "role": "stable", "asset": "02_atmosphere/clouds_plate.png"},
+    {"id": "horizon_bush_left", "role": "stable_horizon_cluster", "asset": "02_horizon_bushes/horizon_bush_left.png"},
+    {"id": "horizon_bush_center", "role": "stable_horizon_cluster", "asset": "02_horizon_bushes/horizon_bush_center.png"},
+    {"id": "horizon_bush_right", "role": "stable_horizon_cluster", "asset": "02_horizon_bushes/horizon_bush_right.png"},
     {"id": "pavilion", "role": "replaceable_cluster", "asset": "03_structures/pavilion_plate.png"},
     {"id": "pond_bridge", "role": "replaceable_cluster", "asset": "04_garden_items/pond_bridge_plate.png"},
     {"id": "temizuya", "role": "replaceable_cluster", "asset": "03_structures/temizuya_plate.png"},
-    {"id": "torii", "role": "replaceable_cluster", "asset": "03_structures/torii_plate.png"},
+    {"id": "torii", "role": "replaceable_cluster", "asset": "03_structures/torii_plate_v2.png"},
     {"id": "edge_cover", "role": "fixed_foreground_occluder", "asset": "05_cover/edge_cover.png"}
   ]
 }
