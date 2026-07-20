@@ -1165,6 +1165,19 @@ func _test_new_knobs(view) -> void:
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "LoginUI._day_cell") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "LoginUI._rebuild"), \
 		"the workbench draws the daily card + dialog through the game's login.gd renderer, not the orphaned kit")
+
+	# the LEVEL dialog preview is the game's REAL sheet (level_popup.gd), not the old parchment
+	# Kit.level_dialog: it carries level_popup's named medallion + tally pill, and the previewed
+	# level number renders on the rosette.
+	view._params["level"]["preview_level"] = 9
+	var level_preview: Control = view._make_element("level")
+	ok(level_preview.find_child("LevelMedallion", true, false) != null, \
+		"the level-dialog preview is the game's real sheet (carries level_popup's LevelMedallion)")
+	ok(level_preview.find_child("LevelTally", true, false) != null, \
+		"the level-dialog preview carries level_popup's star-token tally pill")
+	ok(_has_label_text(level_preview, "9"), "the previewed level number renders on the medallion")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "LevelPopup._sheet"), \
+		"the workbench draws the level dialog through the game's level_popup.gd renderer, not the parchment kit dialog")
 	# the in-tile COUNT overlay (the board bag/home well's "x/y"): its offset + font are read by the shared
 	# resolver, default to the shipped placement, and are SAVED config the board wells read (action_bar.gd).
 	# The bottom-bar preview has no bag well, so those knobs are tuned by number rather than previewed here.

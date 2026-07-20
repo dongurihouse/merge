@@ -19,6 +19,7 @@ const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the sel
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
+const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
 const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
@@ -132,7 +133,7 @@ const CAPTIONS := {
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
 	"mystery": "Mystery — slot reveal (reels spin · premium shines · pick N)",
 	"shop": "Shop — packs (shared frame)",
-	"level": "Level — dialog (medallion · bar · collect)",
+	"level": "Level — the game's real dialog (level_popup: medallion · tally pill · bar · CTA)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
 	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): plain paper cards, cell size · text",
@@ -285,13 +286,10 @@ func _default_params() -> Dictionary:
 		# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 		# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 		"shop": {"cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
-		# the LEVEL dialog — its OWN dedicated frame (title pill · ornate border, NOT the shared frame),
-		# the medallion (wreath + ring + number), the reusable progress bar, and the Collect/Got-it button.
+		# the LEVEL dialog — the game's REAL sheet (level_popup.gd), screen-fraction sized off the shared
+		# frame-width knob: NO own saved knobs (the old parchment level_dialog's fonts/pads are retired).
 		# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
-		"level": {"banner_text": "Level", "title_font": 30,
-			"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
-			"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "btn_font": 22, "gap": 14,
-			"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
+		"level": {"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
 		# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
 		# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
 		# piece size + well face are INHERITED from the Slot cell item; only the discovery-specific knobs live
@@ -499,18 +497,9 @@ func _make_element(id: String) -> Control:
 			sopts["content_scale"] = _dlg_scale("shop")
 			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
 		"level":
-			# the dedicated level dialog, from the SAME config transform the game (level_popup) reads
-			var lo := Kit.level_opts_from_config(_params)
-			lo["banner_text"] = TranslationServer.translate("Level %d") % int(p.preview_level)
-			lo["content_scale"] = _dlg_scale("level")
-			var lv_into: int = int(p.into)
-			var lv_span: int = maxi(1, int(p.span))
-			var lv_data := {
-				"level": int(p.preview_level), "earned": lv_into, "next": lv_span,
-				"into": lv_into, "span": lv_span, "remaining": maxi(0, lv_span - lv_into),
-				"mode": String(p.mode), "gift": {"water": 30, "gems": 1},
-			}
-			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
+			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
+			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
+			return _level_dialog_preview(p)
 		"rush_bar":
 			# the Expedition top HUD, from the SAME kit builder the game uses: plain cut-paper cards
 			# (Time · Score · Mult) on the shared flat paper recipe.
@@ -1115,6 +1104,18 @@ func _daily_demo_days() -> Array:
 
 ## The daily dialog exactly as the game builds it: the shared dialog frame (edited on the Frame item)
 ## wrapping LoginUI's own grid + capstone (LoginUI._rebuild), so the preview matches the daily login screen.
+## The REAL level dialog sheet at the game's width rule (viewport width × the shared frame-width
+## knob — level_popup.gd sizes every part as a fraction of that width, no other config).
+func _level_dialog_preview(p: Dictionary) -> Control:
+	var w: float = PHONE_W * Kit.frame_width_pct(_params) / 100.0
+	var into: int = maxi(0, int(p.into))
+	var span: int = maxi(1, int(p.span))
+	return LevelPopup._sheet(w, {
+		"level": maxi(1, int(p.preview_level)), "earned": into, "next": span,
+		"into": into, "span": span, "remaining": maxi(0, span - into),
+		"mode": String(p.mode), "gift": {"water": 30, "gems": 1}, "on_button": Callable(),
+	})
+
 func _daily_dialog_preview() -> Control:
 	var width := _dlg_px("daily")
 	var scale := _dlg_scale("daily")
@@ -1626,18 +1627,8 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 		"level":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_text_row("Banner text", "banner_text"))
-			_sidebar_body.add_child(_slider_row(["title_font", 16, 48]))
-			_sidebar_body.add_child(_slider_row(["medallion_px", 80, 180]))
-			_sidebar_body.add_child(_slider_row(["ring_dy", -60, 60]))     # nudge the ring within the wreath
-			_sidebar_body.add_child(_slider_row(["tally_font", 16, 40]))
-			_sidebar_body.add_child(_slider_row(["hint_font", 12, 32]))
-			_sidebar_body.add_child(_slider_row(["btn_font", 16, 48]))    # the Got-it / Collect button label size
-			_sidebar_body.add_child(_slider_row(["frame_slice", 0, 160]))   # nine-patch corner slice
-			_sidebar_body.add_child(_slider_row(["frame_pad", 8, 60]))
-			_sidebar_body.add_child(_slider_row(["frame_top_pad", 20, 140]))   # room under the title pill
-			_sidebar_body.add_child(_slider_row(["gap", 4, 40]))
+			# no saved knobs: the sheet is the game's level_popup.gd, sized by the shared frame-width
+			# knob (Frame item) with every part a fraction of that width. Only preview state lives here.
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Mode", "mode", ["info", "levelup"]))
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
