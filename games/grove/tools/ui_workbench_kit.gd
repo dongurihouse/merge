@@ -2368,22 +2368,37 @@ static func _title_header(text: String, font: int, band_h: float, width: float, 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	# The title reads as pressed into the parchment via a letterpress DEBOSS whose intensity the "Banner
-	# Burn" slider drives (banner_burn 0..1). This is the pre-06ee7155 treatment: a Pal.BARK shadow nudged
-	# down/right (NOT a white emboss highlight or outline). burn == 0 is the flat cool-ink baseline (no cast
-	# shadow); rising burn scales the shadow alpha + offset, with t == 1 restoring the old full-strength look
-	# (alpha 0.45, offset font*0.05/0.07). Geometry scales to THIS title's font so every dialog matches.
+	# The title reads pressed INTO the parchment via a CARVED GROOVE whose depth the "Banner Burn" slider
+	# drives (banner_burn 0..1). Not a cast drop shadow (that floats the text ABOVE the sheet) — a two-layer
+	# deboss: a cream "lower lip" copy nudged down behind the ink (light catching the bottom of the groove)
+	# + a faint dark shadow on the ink's TOP edge (the groove's shaded upper wall). burn == 0 is the flat
+	# baseline (single flat label). Depth scales with t and with THIS title's font so every dialog matches.
 	# burn is sourced from the workbench config (dialog_opts_from_config → banner_burn).
 	var t := clampf(burn, 0.0, 1.0)
 	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
 	lbl.add_theme_constant_override("outline_size", 0)
-	if t > 0.0:
-		lbl.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45 * t))
-		lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(round(font * 0.05 * t))))
-		lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(round(font * 0.07 * t))))
-		lbl.add_theme_constant_override("shadow_outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(lbl)
+	if t > 0.0:
+		var dy := maxi(1, int(round(font * 0.045 * t)))          # groove depth (px), scales with font + burn
+		var lip := Label.new()                                    # the cream lower lip, BEHIND the ink
+		lip.name = "DialogTitleLip"
+		lip.text = lbl.text
+		lip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lip.add_theme_font_override("font", bold_font())
+		lip.add_theme_font_size_override("font_size", font)
+		lip.add_theme_color_override("font_color", Color("#FBF1D8"))
+		lip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lip.set_anchors_preset(Control.PRESET_FULL_RECT)
+		lip.offset_top = dy; lip.offset_bottom = dy              # shift the whole rect down → centred text drops dy
+		lip.modulate.a = t                                       # the lip fades in with burn
+		header.add_child(lip)                                    # added first → sits behind the ink
+		# the ink's shaded top edge — a faint dark shadow nudged UP (deepens the groove, no down-right float).
+		lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.32 * t))
+		lbl.add_theme_constant_override("shadow_offset_x", 0)
+		lbl.add_theme_constant_override("shadow_offset_y", -maxi(1, int(round(font * 0.02 * t))))
+		lbl.add_theme_constant_override("shadow_outline_size", 0)
+	header.add_child(lbl)                                        # the ink face, on top of the lip
 	return header
 
 ## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
@@ -2483,7 +2498,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# unchanged); its art/slice fields are ignored — the sheet is code-drawn now.
 	var border: Dictionary = frame_border(String(opts.get("border", "parchment")))
 	# saved workbench offsets were tuned for the OLD overhanging ribbon/✕ — the v2 sheet keeps its
-	# title and close INSIDE the card, so negative offsets are floored instead of clipping above it.
+	# title and close INSIDE the card, so negative y offsets are floored instead of clipping above
+	# it, and the x offset is ignored entirely: the v2 title band spans the full card with a CENTRED
+	# label, so any horizontal nudge (the saved ribbon-era banner_x) just de-centres the title.
 	var banner_pos: Vector2 = opts.get("banner_pos", Vector2.ZERO)
 	banner_pos.y = maxf(0.0, banner_pos.y)
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
@@ -2548,12 +2565,29 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 
 	# the content scrolls and FILLS the card; it clips, so content slides up BEHIND the banner. A top
 	# spacer (banner bottom + list_top_pad) keeps content below the banner to begin with.
+	# THE CLIP WINDOW: the scroll's own clip would slice content at the PADDED edge, but cards carry
+	# deliberate horizontal overhangs — a shop card's ribbon, a marked cell's glow, every card's side
+	# shadow — that must land on the parchment margin, exactly like CONTENT_TAIL_PAD lets the LAST
+	# row's shadow clear the bottom edge. So the horizontal clip moves OUT to the card's edge: a
+	# wrapper spanning the side pads clips instead, and the scroll (kept at its exact old rect, so
+	# every dialog's layout is untouched) no longer clips itself. Vertical bounds match the scroll —
+	# the vertical clip is unchanged.
+	var clipw := Control.new()
+	clipw.name = "DialogClipWindow"
+	clipw.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clipw.offset_left = -panel_pad_x
+	clipw.offset_right = panel_pad_x
+	clipw.clip_contents = true
+	clipw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(clipw)
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = panel_pad_x
+	scroll.offset_right = -panel_pad_x
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.clip_contents = true
+	scroll.clip_contents = false
 	_style_scrollbar(scroll)
-	inner.add_child(scroll)
+	clipw.add_child(scroll)
 	var rows := VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var spacer := Control.new()
@@ -2605,9 +2639,11 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		footer_band.anchor_top = 1.0; footer_band.anchor_bottom = 1.0   # offset_top (= -height) set in relayout, once measured
 		inner.add_child(footer_band)
 
-	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable
+	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable.
+	# `inner` is inset by the card's content pad while the band spans the CARD width — pull it back
+	# to the card's left edge, or every centred title sits panel_pad_x right of the card centre.
 	var header := _title_header(banner_text, banner_font, banner_h, target_w, float(opts.get("banner_burn", 0.0)))
-	header.position = banner_pos
+	header.position = Vector2(-panel_pad_x, banner_pos.y)
 	inner.add_child(header)
 
 	# the ✕ disc poles past the card's top-right corner. The game passes on_close; the workbench prints.
@@ -3711,8 +3747,13 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 	# the cells fill the panel's INNER width — the card width minus the border's content padding on BOTH
 	# sides. The discovery dialog uses the standard frame (no panel_pad override), so resolve the padding
 	# from the chosen border — the SAME value dialog_frame pads to — keeping the right column inside it.
+	# The pads (and the scrollbar reserve) are REAL px on the scaled card, so in layout space they cost
+	# 1/content_scale — reserving them raw undersized the reserve, the row minimum then exceeded the true
+	# available width, the body clamped UP to that minimum, and the right column poked past the clip
+	# (fit() below re-derives from the clamped — still too wide — width, so it could not recover).
 	var pad: float = float(opts.get("panel_pad_x", frame_border(String(opts.get("border", "parchment"))).get("pad_x", 26.0)))
-	var avail: float = maxf(48.0, width - 2.0 * pad)
+	var g_scale: float = maxf(0.01, float(opts.get("content_scale", 1.0)))
+	var avail: float = maxf(48.0, width - (2.0 * pad + SCROLLBAR_W) / g_scale)
 	var cw: float = maxf(40.0, (avail - (cols - 1) * gap) / float(cols))
 	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 150.0)))
 	var co := opts.duplicate()

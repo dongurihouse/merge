@@ -1,0 +1,9 @@
+Variation C — Snowcap Observatory Garden
+
+Generate a coherent 941×1672 portrait winter paper-cut mock as a visual reference for four compositing
+passes: separate sky/atmosphere; a foundation-only terraced snowy hill, winding path, small frozen pond,
+mountains and perimeter spruces; exactly five isolated hero cutouts (observatory, stone viewing pavilion,
+pond bridge, wayfinding monolith, entrance gate); and fixed edge-only spruce/bush/rock/snowbank coverings.
+Keep one object-width of exposed ground between heroes. No labels, UI, people, animals, loose lanterns,
+benches, flags, flowers, crates, or micro-clutter. Use the Meadow Sky + Cut-Paper Playground material,
+warm cut edges, 2–4% paper fiber, simple silhouettes, upper-left light and shallow down-right contacts.
