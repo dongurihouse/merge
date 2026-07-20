@@ -1166,6 +1166,26 @@ func _test_new_knobs(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "LoginUI._rebuild"), \
 		"the workbench draws the daily card + dialog through the game's login.gd renderer, not the orphaned kit")
 
+	# the SHOP / DISCOVERY / BAG previews are the game's real renderers, not the orphaned/stale kit:
+	# shop = shop.gd's Shop.build_body (sage art-left offer cards), discovery = ladder.gd's ladder (corner
+	# tier CHIPs + generator header), bag = bag_dialog WITH the shared generators row.
+	var shop_preview: Control = view._make_element("shop")
+	ok(shop_preview.find_child("ShopOfferCard", true, false) != null \
+		and shop_preview.find_child("ShopBuyButton", true, false) != null, \
+		"the shop preview is the game's real storefront (shop.gd ShopOfferCard + ShopBuyButton)")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "ShopUI.build_body"), \
+		"the workbench draws the shop through shop.gd's shared Shop.build_body, not the orphaned Kit.shop_dialog")
+	var tiers_preview: Control = view._make_element("tiers")
+	ok(tiers_preview.find_child("TierChip", true, false) != null, \
+		"the discovery preview is the game's real ladder (ladder.gd's corner tier chip)")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "LadderUI._build"), \
+		"the workbench draws discovery through ladder.gd's shared _build, not the plain-number Kit.tiers_dialog")
+	var bag_preview: Control = view._make_element("bag")
+	ok(_has_label_text(bag_preview, "Generators"), \
+		"the bag preview includes the shared generators row (Kit.bag_generators_section)")
+	ok(not (view._params["bag"] as Dictionary).has("balance") and not (view._params["bag"] as Dictionary).has("acorn_x"), \
+		"the dead bag balance / acorn_x knobs are gone")
+
 	# the LEVEL dialog preview is the game's REAL sheet (level_popup.gd), not the old parchment
 	# Kit.level_dialog: it carries level_popup's named medallion + tally pill, and the previewed
 	# level number renders on the rosette.
