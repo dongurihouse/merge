@@ -15,7 +15,17 @@ extends RefCounted
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const Pal = Game.PALETTE
+
+# Soft downward paper shadow: a few dark copies of the pill's own silhouette, each nudged down and fading
+# out, so the cut-paper pill lifts off the scene along its REAL outline (the mock's compact drop shadow).
+# {dy = fraction of pill height it drops, a = shadow-tint alpha}. Reuses the shared Look.shadow_color tint.
+const SHADOW := [
+	{"dy": 0.035, "a": 0.16},
+	{"dy": 0.075, "a": 0.12},
+	{"dy": 0.115, "a": 0.08},
+]
 
 # Empty-body horizontal band (fraction of pill width) the number is laid into. The icon + "+" own
 # the left ~38%; the number gets the rest, left-aligned so a growing count fills the reserved space.
@@ -44,22 +54,24 @@ static func build(opts: Dictionary) -> Button:
 
 	var panel := Button.new()
 	panel.name = "GoldCurrencyPill"
-	panel.flat = false   # NOT flat: a flat Button skips its styleboxes, and the pill sprite IS the "normal" stylebox
+	panel.flat = true   # the pill art is child TextureRects; the button draws no chrome of its own
 	panel.focus_mode = Control.FOCUS_NONE
 	panel.custom_minimum_size = Vector2(w, height)   # natural size for a free-standing pill; the HUD slot-sizes width
-	# The sprite IS the button background, painted as a StyleBoxTexture (stretched to the button rect).
-	# A child TextureRect would report the texture's NATIVE width as its min size on some frames (a deferred
-	# min-size cache clamp) and balloon the pill; a stylebox imposes no min size — the pill stays at whatever
-	# width the HUD slot-sizes it to. The baked icon/"+"/body then map to fixed panel fractions (anchors below).
-	var sb := StyleBoxTexture.new()
-	sb.texture = tex
 	for st in ["normal", "hover", "pressed", "focus"]:
-		panel.add_theme_stylebox_override(st, sb)
+		panel.add_theme_stylebox_override(st, StyleBoxEmpty.new())
 	if plus_action is Callable and (plus_action as Callable).is_valid():
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		panel.pressed.connect(plus_action as Callable)
 	else:
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Shadow FIRST (behind), then the pill sprite. Both are full-rect TextureRects stretched to the panel
+	# (STRETCH_SCALE), so the baked icon/"+"/body map to fixed panel fractions at any slot width, and the
+	# shadow tracks the pill's outline. A child TextureRect can't drive the pill width to native px here:
+	# the panel is a Button (children don't feed its min) and the HUD slot-sizes it via EXPAND_FILL.
+	for layer in SHADOW:
+		panel.add_child(_sprite_layer(tex, Look.shadow_color(float(layer["a"])), height * float(layer["dy"])))
+	panel.add_child(_sprite_layer(tex, Color.WHITE, 0.0))
 
 	# Icon + "+" FX-anchor markers over the baked art (mouse-ignoring; the board flies water to the
 	# icon marker, the shop flies buys to the plus marker). Anchored, so they follow the panel size.
@@ -92,6 +104,21 @@ static func build(opts: Dictionary) -> Button:
 	num.set_meta("amount_value", count)
 	panel.add_child(num)
 	return panel
+
+## One full-pill TextureRect stretched to the panel, tinted by `mod` and dropped `dy` px down. The pill
+## art passes Color.WHITE / dy 0; the shadow copies pass a slate-tint alpha and a small downward drop.
+static func _sprite_layer(tex: Texture2D, mod: Color, dy: float) -> TextureRect:
+	var tr := TextureRect.new()
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # BEFORE anchors, so the texture's native px never drives min size
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.texture = tex
+	tr.modulate = mod
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.offset_top += dy
+	tr.offset_bottom += dy
+	tr.custom_minimum_size = Vector2.ZERO
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
 
 static func _marker(node_name: String, c: Vector2, sz: Vector2) -> Control:
 	var m := Control.new()

@@ -713,19 +713,21 @@ func _initialize() -> void:
 	ok(live_pill_button != null, "live HUD gold currency pill exposes the whole pill as the button")
 	ok(hud.coin_plus is Control and (hud.coin_plus as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, \
 		"live HUD plus token is decorative and has no separate click box")
-	# The live wallet now uses the cut-paper SPRITE pill (CurrencyPillSprite): a single flat pill PNG —
-	# icon + green "+" baked in — painted as the button's StyleBoxTexture, with the number laid over the
-	# empty body. So the drawn-pill sub-parts (amount slot box, GoldCurrencyPlusArt token, code paper-shadow)
-	# are gone; assert the sprite contract instead.
+	# The live wallet now uses the cut-paper SPRITE pill (CurrencyPillSprite): a flat pill PNG — icon +
+	# green "+" baked in — as child TextureRects (the pill sprite over a soft downward silhouette shadow),
+	# with the number laid over the empty body. So the drawn-pill sub-parts (amount slot box,
+	# GoldCurrencyPlusArt token, code paper-shadow style) are gone; assert the sprite contract instead.
 	var live_amount := _first_control(hud.coin_pill, "GoldCurrencyAmount", "Label") as Label
 	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton")
 	var live_icon := _first_control(hud.coin_pill, "GoldCurrencyIcon")
-	var live_bg := (live_pill_button as Button).get_theme_stylebox("normal") as StyleBoxTexture
+	var live_sprites: Array = (live_pill_button as Control).find_children("*", "TextureRect", true, false)
+	var live_pill_tex := live_sprites.any(func(tr: TextureRect) -> bool:
+		return tr.texture != null and String(tr.texture.resource_path).ends_with("ui/wallet/pill_coin.png"))
+	# the pill lifts off the scene with a soft drop shadow: extra dark (alpha < 1) copies of the sprite.
+	var live_shadow := live_sprites.any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99)
 	var live_pill_w := (live_pill_button as Control).get_global_rect().size.x
-	ok(live_amount != null and live_plus != null and live_icon != null and live_bg != null \
-		and live_bg.texture != null \
-		and String(live_bg.texture.resource_path).ends_with("ui/wallet/pill_coin.png"), \
-		"live HUD coin pill wraps the wallet sprite (StyleBoxTexture) with the amount, icon marker, and decorative plus")
+	ok(live_amount != null and live_plus != null and live_icon != null and live_pill_tex and live_shadow, \
+		"live HUD coin pill wraps the wallet sprite (+ drop shadow) with the amount, icon marker, and decorative plus")
 	# The number sits in the pill's empty body (right of the baked icon + "+", left ~38% of the pill).
 	ok(live_amount != null and live_pill_w > 0.0 \
 		and live_amount.get_global_rect().position.x - (live_pill_button as Control).get_global_rect().position.x \
