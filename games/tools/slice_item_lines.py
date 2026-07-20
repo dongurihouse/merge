@@ -84,6 +84,13 @@ SHEETS = {
     "oasis_desert_fruits": (4, 3),
     "oasis_sand_sculptures": (4, 3),
     "oasis_spices": (4, 3),
+    # Picture-book resident spirit ladders (grove_data RESIDENT_LINES) — one 12-tier cut-paper roster
+    # per page, cut from the quest_givers_<zone>_roster_3x4_v4 sheets (1024x1536 magenta).
+    "resident_ember": (4, 3),        # fairy_hollow (meadow sheet)
+    "resident_sprout": (4, 3),       # snowy_village (winter sheet)
+    "resident_dewdrop": (4, 3),      # desert_oasis (oasis sheet)
+    "resident_breeze": (4, 3),       # coral_reef
+    "resident_starlight": (4, 3),    # cherry_blossom_garden
 }
 
 SIZE = 512          # output canvas (square)
@@ -141,6 +148,27 @@ def clean(rgba: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return fg, bg
 
 
+def despill_edge(arr: np.ndarray, band: int = 3, excess: int = 20, delta: int = 12) -> np.ndarray:
+    """Kill residual key tint in the alpha-edge band (art-style-guide §8 step 2).
+
+    The flood/broadened key misses DARKER magenta anti-alias pixels (R<150) blended
+    into the silhouette edge; they survive as a dark-pink rim. Clamp R and B toward G
+    for visible pixels with magenta excess, but ONLY within `band` px of transparency —
+    interior pink/purple art is never touched (enclosed key is the pocket check's job).
+    """
+    out = arr.copy()
+    r = out[:, :, 0].astype(np.int32)
+    g = out[:, :, 1].astype(np.int32)
+    b = out[:, :, 2].astype(np.int32)
+    a = out[:, :, 3]
+    edge = ndimage.binary_dilation(a < 16, iterations=band) & (a >= 16)
+    spill = edge & ((np.minimum(r, b) - g) > excess)
+    cap = g + delta
+    out[:, :, 0] = np.where(spill, np.minimum(r, cap), r).astype(np.uint8)
+    out[:, :, 2] = np.where(spill, np.minimum(b, cap), b).astype(np.uint8)
+    return out
+
+
 def premult_resize(arr: np.ndarray, nw: int, nh: int) -> Image.Image:
     """LANCZOS resize through premultiplied alpha — no dark or bg-colour halo."""
     a = arr[:, :, 3:4].astype(np.float64) / 255.0
@@ -194,12 +222,18 @@ def slice_sheet(family: str, rows: int, cols: int, out_dir: Path,
             y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
             sub = rgba[y0:y1, x0:x1].copy()
             sub[:, :, 3] = np.where(mask[y0:y1, x0:x1], sub[:, :, 3], 0)
+            if bool(bg[0] > 180 and bg[2] > 170 and bg[1] < 90):   # magenta key → despill the edge band
+                sub = despill_edge(sub)
             bw, bh = x1 - x0, y1 - y0
             sc = SIZE * FILL / max(bw, bh)
             nw, nh = max(1, round(bw * sc)), max(1, round(bh * sc))
             obj = premult_resize(sub, nw, nh)
             frame = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
             frame.alpha_composite(obj, ((SIZE - nw) // 2, (SIZE - nh) // 2))
+            if bool(bg[0] > 180 and bg[2] > 170 and bg[1] < 90):
+                # second despill AFTER resize: un-premultiplying at tiny alpha re-amplifies
+                # residual key tint into the resampled edge band; clamp it again at output res.
+                frame = Image.fromarray(despill_edge(np.asarray(frame)), "RGBA")
             frame.save(out_dir / f"{family}_{tier}.png")
             tiles.append(frame)
 
