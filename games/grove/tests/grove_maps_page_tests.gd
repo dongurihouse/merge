@@ -81,9 +81,16 @@ func _initialize() -> void:
 	# · Board, plus Mail when the inbox build is present (Vault is parked behind its OFF flag).
 	ok(not _label_texts(h.content).has("MAPS"), "the gallery carries no MAPS heading")
 	var caps := _label_texts(h.content)
-	for cap in ["home", "residents", "board"]:
-		ok(caps.has(Strings.t("map.nav.%s" % cap)), "the gallery nav carries %s" % cap)
-	ok(caps.has(Strings.t("map.rail.daily")), "the gallery nav carries Daily")
+	# Home leads the gallery — it has no baked sprite, so it stays the drawn Kit tile (with its caption).
+	ok(caps.has(Strings.t("map.nav.home")), "the gallery nav carries home")
+	# Residents · Daily · Board are baked cut-paper sprite tiles now (icon + label in the PNG, no caption
+	# Label), so assert the tile NODE wears its nav sprite instead of reading caption text.
+	for pair in [["ResidentsTile", "nav_residents"], ["DailyTile", "nav_daily"], ["BoardTile", "nav_board"]]:
+		var tile := h.content.find_child(String(pair[0]), true, false) as Control
+		var wears := tile != null and tile.find_children("*", "TextureRect", true, false).any( \
+			func(tr: TextureRect) -> bool: \
+				return tr.texture != null and String(tr.texture.resource_path).ends_with(String(pair[1]) + ".png"))
+		ok(wears, "the gallery nav carries %s (baked sprite)" % pair[0])
 	ok(not caps.has(Strings.t("map.rail.vault")), "the gallery nav drops the parked Vault (flag OFF)")
 	ok(not caps.has(Strings.t("map.nav.map")), "the gallery nav drops the Map tile (Home takes its slot)")
 	ok(h._select_back == null or not h._select_back.visible, "the gallery hides the back arrow (Home is the way back)")

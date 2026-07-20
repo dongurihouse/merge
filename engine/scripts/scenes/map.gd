@@ -28,6 +28,16 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-o
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (nav)
+# Bottom-nav tiles re-skinned as baked cut-paper sprites (icon + label in one PNG), keyed by spec name.
+# A spec with no entry here (e.g. the maps-page HomeTile) falls back to the drawn Kit.home_button tile.
+const NAV_SPRITE := {
+	"MapTile": "res://games/grove/assets/ui/nav/nav_map.png",
+	"ResidentsTile": "res://games/grove/assets/ui/nav/nav_residents.png",
+	"DailyTile": "res://games/grove/assets/ui/nav/nav_daily.png",
+	"MailTile": "res://games/grove/assets/ui/nav/nav_mail.png",
+	"BoardTile": "res://games/grove/assets/ui/nav/nav_board.png",
+}
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
@@ -2469,7 +2479,12 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 		if role == "slate":
 			o["caption_color"] = Pal.CREAM
 		var b: Button
-		if Kit != null:
+		var sprite_path := String(NAV_SPRITE.get(String(spec.name), ""))
+		if sprite_path != "" and ResourceLoader.exists(sprite_path):
+			# the re-skinned cut-paper sprite tile (baked icon + label), stretched to the square tile
+			b = SpriteButton.build(load(sprite_path), Vector2(tile_w, tile_w), spec.action,
+				{"name": String(spec.name), "tooltip": String(spec.caption)})
+		elif Kit != null:
 			b = Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption),
 				"tooltip": String(spec.caption), "action": spec.action}, o)
 		else:

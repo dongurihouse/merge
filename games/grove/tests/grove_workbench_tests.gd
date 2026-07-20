@@ -896,19 +896,24 @@ func _initialize() -> void:
 	var map_button := map_scene.get_node_or_null("MapTile") as Button
 	if map_button != null:
 		var map_button_rect := map_button.get_global_rect()
-		ok(_paper_texture_path(map_button).ends_with("ui/meadow_v2/texture_sky.png"), \
-			"map navigation uses the sky paper square")
-		ok(_is_reference_paper_shadow(_paper_shadow_style(map_button)), \
-			"map navigation paper square casts a visible downward shadow")
+		# the bottom-nav tiles are baked cut-paper SPRITES now (icon + label in one PNG over a drop shadow).
+		var map_sprites: Array = map_button.find_children("*", "TextureRect", true, false)
+		ok(map_sprites.any(func(tr: TextureRect) -> bool: \
+				return tr.texture != null and String(tr.texture.resource_path).ends_with("nav_map.png")), \
+			"map navigation wears its baked cut-paper nav sprite")
+		ok(map_sprites.any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99), \
+			"map navigation sprite casts a soft downward drop shadow")
 		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0, \
 			"the row's first tile starts at the shared side margin")
 		var play_button := map_scene.get("_play_btn") as Button
 		var play_button_rect := play_button.get_global_rect() if play_button != null else Rect2()
 		ok(play_button != null and absf(map_button_rect.end.y - play_button_rect.end.y) <= 1.0, \
 			"map tile bottom-aligns with the Board tile")
-		# the big orange disc is GONE: Board is a coral paper tile the same size as its neighbours
-		ok(play_button != null and _paper_texture_path(play_button).ends_with("ui/meadow_v2/texture_coral.png"), \
-			"the Board CTA wears the coral paper tile, not the authored circular shell")
+		# the big orange disc is GONE: Board is a same-size tile — now its baked cut-paper board sprite.
+		ok(play_button != null and play_button.find_children("*", "TextureRect", true, false).any( \
+				func(tr: TextureRect) -> bool: \
+					return tr.texture != null and String(tr.texture.resource_path).ends_with("nav_board.png")), \
+			"the Board CTA wears its baked cut-paper sprite, not the authored circular shell")
 		# compare the LAID-OUT sizes, not global rects: the breathe_cta animation scales the Board
 		# tile a fraction of a percent, which on today's larger tiles overflows a 1px rect tolerance.
 		ok(play_button != null and absf(play_button.size.x - map_button.size.x) <= 1.0, \
