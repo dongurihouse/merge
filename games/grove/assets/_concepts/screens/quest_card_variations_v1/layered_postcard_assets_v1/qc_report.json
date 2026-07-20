@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "processing": {
+    "remove_chroma_key": {
+      "auto_key": "corners",
+      "soft_matte": true,
+      "transparent_threshold": 12,
+      "opaque_threshold": 220,
+      "despill": true,
+      "edge_contract": 1
+    },
+    "master_erode_edge_radius": 2,
+    "derivative_and_review_erode_edge_radius": 1,
+    "resampling": "premultiplied-alpha Lanczos"
+  },
+  "assets": [
+    {
+      "file": "quest_request_note_512x576.png",
+      "mode": "RGBA",
+      "size": [
+        512,
+        576
+      ],
+      "expected_size": [
+        512,
+        576
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        58,
+        24,
+        454,
+        551
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": []
+    },
+    {
+      "file": "quest_reward_seed_tag_512.png",
+      "mode": "RGBA",
+      "size": [
+        512,
+        512
+      ],
+      "expected_size": [
+        512,
+        512
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        79,
+        21,
+        433,
+        490
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": [
+        1374,
+        522
+      ]
+    },
+    {
+      "file": "giver_m2_1_clean_256.png",
+      "mode": "RGBA",
+      "size": [
+        256,
+        256
+      ],
+      "expected_size": [
+        256,
+        256
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        50,
+        9,
+        205,
+        247
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": []
+    },
+    {
+      "file": "giver_m2_2_clean_256.png",
+      "mode": "RGBA",
+      "size": [
+        256,
+        256
+      ],
+      "expected_size": [
+        256,
+        256
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        56,
+        9,
+        200,
+        247
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": []
+    },
+    {
+      "file": "giver_m2_3_clean_256.png",
+      "mode": "RGBA",
+      "size": [
+        256,
+        256
+      ],
+      "expected_size": [
+        256,
+        256
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        40,
+        9,
+        216,
+        247
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": []
+    },
+    {
+      "file": "quest_request_note_256x288.png",
+      "mode": "RGBA",
+      "size": [
+        256,
+        288
+      ],
+      "expected_size": [
+        256,
+        288
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        29,
+        12,
+        227,
+        275
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": []
+    },
+    {
+      "file": "quest_reward_seed_tag_256.png",
+      "mode": "RGBA",
+      "size": [
+        256,
+        256
+      ],
+      "expected_size": [
+        256,
+        256
+      ],
+      "size_ok": true,
+      "alpha_bbox": [
+        39,
+        11,
+        216,
+        245
+      ],
+      "visible_key_fringe_pixels": 0,
+      "opaque_canvas_edge_pixels": 0,
+      "rgb_outside_alpha_pixels": 0,
+      "transparent_corners": 4,
+      "enclosed_transparent_components_over_50px": [
+        379,
+        144
+      ]
+    }
+  ],
+  "review_sheet": {
+    "file": "layered_postcard_assets_review_3x2.png",
+    "mode": "RGBA",
+    "size": [
+      1536,
+      1024
+    ],
+    "expected_size": [
+      1536,
+      1024
+    ],
+    "size_ok": true,
+    "alpha_bbox": [
+      94,
+      41,
+      1418,
+      983
+    ],
+    "visible_key_fringe_pixels": 0,
+    "opaque_canvas_edge_pixels": 0,
+    "rgb_outside_alpha_pixels": 0,
+    "transparent_corners": 4,
+    "enclosed_transparent_components_over_50px": [
+      1269,
+      497
+    ],
+    "fringe_metric": "per-cell subject-safe key excess",
+    "cell_fringe": [
+      {
+        "cell": 0,
+        "asset": "quest_request_note",
+        "key": "magenta",
+        "visible_key_fringe_pixels": 0
+      },
+      {
+        "cell": 1,
+        "asset": "quest_reward_seed_tag",
+        "key": "magenta",
+        "visible_key_fringe_pixels": 0
+      },
+      {
+        "cell": 2,
+        "asset": "giver_m2_1_clean",
+        "key": "magenta",
+        "visible_key_fringe_pixels": 0
+      },
+      {
+        "cell": 3,
+        "asset": "giver_m2_2_clean",
+        "key": "magenta",
+        "visible_key_fringe_pixels": 0
+      },
+      {
+        "cell": 4,
+        "asset": "giver_m2_3_clean",
+        "key": "green",
+        "visible_key_fringe_pixels": 0
+      }
+    ]
+  }
+}
