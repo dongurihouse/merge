@@ -466,6 +466,10 @@ func _initialize() -> void:
 		"pick_root prefers the root with the most OPENABLE scenes (a partial intake never shadows the full one)")
 	ok(M.pick_root([broot, partial]) == broot, "…regardless of candidate order")
 	ok(M.pick_root([partial + "/nope"]) == "", "no openable scenes anywhere → empty (the launcher errors out)")
+	ok(M.pick_root_for_scene([broot, partial], "test_scene") == broot,
+		"pick_root_for_scene chooses the root that actually contains the requested scene")
+	ok(M.pick_root_for_scene([broot, partial], "missing_scene") == broot,
+		"pick_root_for_scene falls back to the richest root when the requested scene is absent")
 	var stale_concept := broot + "/games/grove/assets/_concepts/zones/test_scene_original_mock_v1.png"
 	if FileAccess.file_exists(stale_concept):          # idempotent across runs — created again below
 		DirAccess.remove_absolute(stale_concept)
