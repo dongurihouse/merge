@@ -189,7 +189,22 @@ func _initialize() -> void:
 	for b in dialog.find_children("", "Button", true, false):
 		if (b as Button).has_meta("on"):
 			switches += 1
-	ok(switches == Kit.DEMO_SETTINGS.size(), "settings_dialog renders one toggle row per flag (%d)" % switches)
+	# the demo now carries info + action rows too (mirroring the game's settings screen), so count only
+	# the TOGGLE entries — every one should render exactly one switch.
+	var toggle_count := 0
+	for e in Kit.DEMO_SETTINGS:
+		if String((e as Dictionary).get("kind", "toggle")) == "toggle":
+			toggle_count += 1
+	ok(switches == toggle_count and toggle_count >= 1, "settings_dialog renders one toggle row per toggle flag (%d)" % switches)
+	# the info + action rows render on the SAME shared row surface as the toggles (no switch of their own):
+	# Game Center / Version read-only values + the Reset save button.
+	ok(_has_label_text(dialog, "not signed in") and _has_label_text(dialog, "1.1.10"), \
+		"settings_dialog renders the info rows (Game Center · Version) with their values")
+	var reset_btn: Button = null
+	for b in dialog.find_children("", "Button", true, false):
+		if not (b as Button).has_meta("on") and String((b as Button).text) == "Reset save":
+			reset_btn = b
+	ok(reset_btn != null, "settings_dialog renders the Reset save action row")
 
 	# --- settings_dialog renders an optional footer LINK (privacy policy) ----------
 	var tapped: Array = [false]
