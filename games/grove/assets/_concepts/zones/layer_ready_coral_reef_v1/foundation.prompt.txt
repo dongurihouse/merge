@@ -1,0 +1,23 @@
+Use case: stylized-concept
+Asset type: foundation/base layer for a vertical mobile layered raster game scene, 941:1672 portrait.
+Primary request: Create the FOUNDATION/BACKDROP ONLY for the approved Coral Reef paper-craft mock. Use the visible approved Coral mock as the exact layout reference; use the winter and desert references for tactile cut-paper/cardstock material quality. This output is the empty runtime base layer, not a finished dressed illustration.
+
+Must preserve from the Coral mock: vertical 3/4 top-down composition, turquoise underwater canyon, broad stacked blue cardstock rock shelves on left and right, open cyan water at the top, diagonal paper light rays, central vertical sandy seabed/water corridor from bottom to top, large shelf areas where shipwreck/chest/clam/statue/anchor paper props will later be placed.
+
+Layer requirements:
+- BASE/FONDATION ONLY: terrain, water, rock shelf structure, sandy corridor, subtle paper texture, broad empty sockets/terraces.
+- Do NOT include any customizable props: no shipwreck, no clam, no pearl, no treasure chest, no anchor, no rope, no statue, no separate hero object paper plates.
+- Do NOT include foreground cover objects that would block props: no large kelp curtains, no large coral fans on object sockets, no sponge-tube clusters in the middle of sockets.
+- You MAY include very low, flat ground-level pebble marks and subtle shelf-edge paper shapes only if they do not become standalone props.
+
+Style/material: physical cut-paper diorama, thick layered cardstock, visible paper fiber, rounded hand-cut edges, raised shelf layers, soft ambient occlusion shadows between paper pieces, simple chunky silhouettes, high contrast colorful.
+
+Composition details:
+- Leave a large upper-middle blue shelf/socket for the shipwreck base plate.
+- Leave a mid-left shelf/socket for the chest base plate.
+- Leave a lower-left broad shelf/socket for the clam base plate.
+- Leave a mid-right shelf/socket for the statue base plate.
+- Leave a center-right shelf/socket for the anchor base plate.
+- Keep the central sandy corridor open and readable.
+
+Avoid: UI, text, labels, borders, callouts, finished hero objects, animals/characters, painterly realism, airbrushed detail, photorealism, 3D plastic render, pixel art, flat vector art, harsh black shadows, cluttered tiny debris.

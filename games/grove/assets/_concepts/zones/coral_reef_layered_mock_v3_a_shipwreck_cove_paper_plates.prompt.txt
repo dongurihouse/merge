@@ -1,0 +1,25 @@
+Use case: stylized-concept
+Asset type: vertical mobile game zone concept mock, 941:1672 portrait, for later layered reconstruction.
+Primary request: Regenerate Coral Reef layered mock variation A again. Use the DESERT OASIS reference for the object treatment: every major modular item sits on its own thin irregular paper island/base plate, like a handcrafted paper prop placed onto a paper scene. Use the WINTER reference for tactile cut-paper material, thick layered cardstock edges, soft physical shadows, and simple chunky silhouettes. Use the CORAL reference for subject matter and general underwater layout.
+
+Critical art direction:
+- This must look like a physical cut-paper diorama / layered cardstock craft, not a painted illustration.
+- Every customizable hero object must have a visible thin paper-like base plate under it, similar to the desert oasis mock: irregular rounded cardstock plate, slightly raised edge, soft shadow, matching the local terrain color. For Coral these plates can be sandy beige reef plates or blue rock-shelf plates, with small coral/pebble/seaweed tabs around their edges.
+- The base plates should make each object feel intentionally modular and paper-toy-like, but still coherent in the scene. They should not look like muddy halos, random grass patches, or dark pasted shadows.
+
+Layer plan to visualize naturally, without labels:
+1) Foundation/backdrop layer: turquoise underwater canyon with broad stacked blue cardstock rock shelves, central sandy seabed/water corridor, open top water with simple paper light rays and bubble dots. Keep the foundation lower-detail and reusable.
+2) Customizable object layer: exactly five large replaceable paper props, each with its own thin raised irregular base plate:
+   - large wooden paper-cut shipwreck across the upper middle on a blue reef shelf plate;
+   - giant clam with pearl on a sandy/blue lower-left base plate;
+   - treasure chest on a small mid-left sandy paper plate;
+   - small sea-spirit stone statue on a mid-right blue/sandy paper plate;
+   - anchor with rope on a small center-right reef plate near the shipwreck.
+3) Covering/blending layer: non-customizable paper coral fans, sponge coral tubes, broad ribbon kelp, seaweed tufts, rounded pebbles, bubble dots, and soft haze. Put cover elements around the edges of the object plates so future replacements can tuck behind them.
+
+Composition: keep the useful Coral A layout: vertical mobile 3/4 top-down scene, open cyan water and light rays at top, shipwreck upper-middle, terraced shelves left/right, central vertical corridor, clam lower-left, chest mid-left, statue mid-right, anchor near center-right, kelp and coral cover in lower foreground. Keep platforms and plates large enough for later asset placement.
+
+Style/material details: thick cardstock layers, visible paper fiber, embossed texture, hand-cut rounded edges, slight bevels from stacked paper, soft studio contact shadows, simplified silhouettes, high contrast and colorful.
+Color palette: bright cyan/turquoise water, saturated blue and teal paper rocks, cream sand plates, honey-brown wood, coral orange, lavender sponge coral, kelp green, pearl gold.
+Constraints: no UI, no text, no labels, no borders, no callouts. Low component complexity, big readable objects, fewer tiny fragments, no animals/characters. Preserve clear separability: foundation, modular props with plates, top cover layer.
+Avoid: painterly/airbrushed look, realistic underwater painting, photorealism, plastic 3D render, pixel art, flat vector art, harsh black shadows, muddy object halos, grass-like bases, too many tiny planks, cluttered micro-detail.

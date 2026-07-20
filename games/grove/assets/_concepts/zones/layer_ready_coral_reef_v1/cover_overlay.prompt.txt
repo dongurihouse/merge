@@ -1,0 +1,7 @@
+Use case: background-extraction
+Asset type: full-canvas transparent-ready foreground covering layer, 941:1672 portrait.
+Primary request: Create ONLY the foreground/covering layer for the Coral Reef paper-craft reconstruction. Use the visible reconstruction preview and approved mock as positional references. This layer will be placed on top of the foundation and modular props, so it should contain only seam-hiding cover elements: cut-paper kelp, coral fans, sponge tubes, small rounded pebbles, and bubble dots.
+
+Critical: output should be a full 941:1672-style vertical canvas with a perfectly flat solid #FF00FF magenta background everywhere except the cover elements. Do not draw the blue canyon foundation, shipwreck, clam, chest, statue, anchor, water background, or any paper plates as complete objects. Only draw overlay pieces.
+
+Postprocess note: bubble dots showed chroma-key edge artifacts in the first pass; use `cover_overlay_no_bubbles.png` / `layered_preview_with_cover_no_bubbles.png` as the cleaner review artifacts until a dedicated bubble FX layer is regenerated.

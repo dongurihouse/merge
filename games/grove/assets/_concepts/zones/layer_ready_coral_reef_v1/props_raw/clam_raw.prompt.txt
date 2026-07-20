@@ -1,0 +1,5 @@
+Create ONE modular Coral Reef paper-craft prop: giant open clam with pearl on its own thin irregular sandy/blue reef paper base plate, matching the approved Coral mock and foundation style.
+
+Subject: large open clam shell with creamy layered cardstock shell, lavender outer shell edge, golden pearl centered inside. The clam sits on a broad irregular raised cardstock base plate, partly cream sand and partly blue reef, with small blue paper pebbles and tiny orange coral tabs around the edge.
+
+Background for extraction: perfectly flat solid #FF00FF magenta background only. No gradients, no texture, no floor plane, no external cast shadow on the magenta. Full object visible, centered, generous margin, no part touching image edges.

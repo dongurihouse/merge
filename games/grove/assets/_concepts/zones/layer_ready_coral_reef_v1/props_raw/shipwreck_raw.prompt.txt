@@ -1,0 +1,5 @@
+Create ONE large modular Coral Reef paper-craft prop: the wooden shipwreck with its thin irregular blue reef paper base plate, matching the visible foundation and approved Coral mock.
+
+Subject: large broken wooden shipwreck, same 3/4 top-down angle and general silhouette as the approved mock: curled bow on left, broken middle hull, mast leaning upward, stern on right. Built from thick honey-brown cardstock planks with visible raised paper edges and fiber texture. It sits on a thin irregular blue reef cardstock plate with small paper pebbles and tiny coral tabs around the plate edge.
+
+Background for extraction: perfectly flat solid #FF00FF magenta background only. No gradients, no texture, no floor plane, no external cast shadow on the magenta. Full object visible, centered, generous margin, no part touching image edges.

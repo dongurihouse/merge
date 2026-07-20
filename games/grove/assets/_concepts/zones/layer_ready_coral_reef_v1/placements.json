@@ -1,0 +1,78 @@
+{
+  "canvas": { "width": 941, "height": 1672 },
+  "renderOrder": [
+    "foundation",
+    "props sorted by sortY",
+    "coverOverlay"
+  ],
+  "foundation": "foundation.png",
+  "coverOverlay": "cover_overlay_no_bubbles.png",
+  "preview": "layered_preview_with_cover_no_bubbles.png",
+  "notes": [
+    "First layer-ready pass based on coral_reef_layered_mock_v3_a_shipwreck_cove_paper_plates.png.",
+    "Each hero prop includes its own thin irregular paper base plate, following the approved desert-oasis paper-plate idea.",
+    "Bubbles are intentionally excluded from the cleaner cover overlay because the first chroma-key pass left visible edge artifacts."
+  ],
+  "props": [
+    {
+      "id": "shipwreck",
+      "image": "props/shipwreck.png",
+      "raw": "props_raw/shipwreck_raw.png",
+      "x": 500,
+      "y": 765,
+      "w": 765,
+      "h": 545,
+      "sortY": 765,
+      "layer": "props",
+      "role": "customizable_hero_object"
+    },
+    {
+      "id": "chest",
+      "image": "props/chest.png",
+      "raw": "props_raw/chest_raw.png",
+      "x": 235,
+      "y": 1090,
+      "w": 230,
+      "h": 184,
+      "sortY": 1090,
+      "layer": "props",
+      "role": "customizable_hero_object"
+    },
+    {
+      "id": "anchor",
+      "image": "props/anchor.png",
+      "raw": "props_raw/anchor_raw.png",
+      "x": 575,
+      "y": 1012,
+      "w": 220,
+      "h": 258,
+      "sortY": 1012,
+      "layer": "props",
+      "role": "customizable_hero_object"
+    },
+    {
+      "id": "statue",
+      "image": "props/statue.png",
+      "raw": "props_raw/statue_raw.png",
+      "x": 660,
+      "y": 1240,
+      "w": 230,
+      "h": 257,
+      "sortY": 1240,
+      "layer": "props",
+      "role": "customizable_hero_object"
+    },
+    {
+      "id": "clam",
+      "image": "props/clam.png",
+      "raw": "props_raw/clam_raw.png",
+      "x": 255,
+      "y": 1450,
+      "w": 320,
+      "h": 338,
+      "sortY": 1450,
+      "layer": "props",
+      "role": "customizable_hero_object"
+    }
+  ]
+}

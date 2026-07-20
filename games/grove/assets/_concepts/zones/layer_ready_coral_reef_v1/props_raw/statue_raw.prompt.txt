@@ -1,0 +1,5 @@
+Create ONE modular Coral Reef paper-craft prop: small sea-spirit stone statue on its own thin irregular sandy/blue reef paper base plate, matching the approved Coral mock and foundation style.
+
+Subject: small serene sea-spirit / mermaid-like stone statue, simplified cute carved silhouette, closed eyes, shell flower detail in hair, seated form. It should read as a stone paper-craft statue, not a living character. The statue sits on a thin irregular raised cardstock base plate, partly sandy cream and partly blue reef, with small blue paper pebbles and green seaweed tabs around the edge.
+
+Background for extraction: perfectly flat solid #FF00FF magenta background only. No gradients, no texture, no floor plane, no external cast shadow on the magenta. Full object visible, centered, generous margin, no part touching image edges.

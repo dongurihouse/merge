@@ -1,0 +1,19 @@
+Use case: stylized-concept
+Asset type: vertical mobile game zone concept mock, 941:1672 portrait composition, for later layered reconstruction.
+Primary request: Regenerate Coral Reef layered mock variation A, using the visible WINTER mock as the primary material/style reference and the visible CORAL mock as the subject/composition reference. The new Coral image must feel much more like physical cut paper / paper craft / layered cardstock diorama, not a painted illustration with texture.
+
+Style priority:
+- Match the winter reference's tactile construction: thick stacked cardstock pieces, visible raised cut-paper edges, rounded hand-cut silhouettes, soft ambient occlusion shadows between paper layers, embossed paper fiber, simple chunky shapes, toy-theater/diorama feeling.
+- Keep Coral Reef subject matter: underwater canyon, bright turquoise water, blue rock shelves, shipwreck, clam pearl, treasure chest, anchor, sea-spirit statue, coral fans, kelp, bubbles.
+- Convert every coral object into paper craft: coral fans as layered flat paper leaves with visible outlines, kelp as broad ribbon cutouts, rocks as stacked blue paper blocks, shipwreck as layered brown paper planks with simple readable geometry.
+
+Layer plan to visualize naturally, without labels:
+1) Foundation/backdrop layer: broad stepped underwater canyon shelves made from stacked blue paper layers; simple sandy seabed corridor through the center; large clean placement sockets on shelves. Foundation should be reusable and not overloaded with tiny bits.
+2) Customizable object layer: exactly five large replaceable hero objects, like the previous A composition: large wooden paper-cut shipwreck across upper middle, giant clam with pearl on lower-left shelf, treasure chest on mid-left shelf, small stone sea-spirit statue on mid-right shelf, anchor with rope near the shipwreck. Make them coherent single-piece sprites visually, seated naturally without separate pads.
+3) Covering/blending layer: top cover objects made from paper cutouts: orange coral fans, lavender sponge coral, green kelp ribbons, pebble clusters, bubbles and haze. Use these at object bases and shelf edges to hide future seams.
+
+Composition: preserve the useful Coral A layout: open turquoise water at top with light rays, shipwreck upper-middle, terraced shelves left/right, central vertical water/sandy corridor, clam lower-left, kelp lower-right, chest/statue/anchor mid-level. Keep major object platforms generous and readable.
+Color palette: high-contrast luminous cyan water, deep teal/blue paper rocks, cream sand, warm honey-brown paper wood, coral orange, lavender, seaweed green, pearl gold.
+Lighting: soft studio-like paper diorama lighting, gentle contact shadows between cardstock layers, no harsh black shadows, no realistic underwater painting.
+Constraints: no UI, no text, no labels, no borders. Low component complexity, large simple silhouettes, fewer tiny decorations, strong paper grain and cut edges throughout. Objects should look designed to be separated later.
+Avoid: painterly rendering, airbrushed detail, photorealism, 3D plastic render, pixel art, flat vector art, heavy dark drop shadows, pasted-on object pads/halos, too many small planks/fragments, characters or animals.

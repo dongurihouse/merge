@@ -1,0 +1,5 @@
+Create ONE modular Coral Reef paper-craft prop: treasure chest on its own thin irregular sandy paper base plate, matching the approved Coral mock and foundation style.
+
+Subject: warm wooden treasure chest with golden cardstock bands and lock, chunky cut-paper construction, slightly angled 3/4 top-down view. The chest sits on a small cream-sand irregular raised cardstock plate with a few blue paper pebbles, tiny orange coral tabs, and a small green seaweed tuft around the edge.
+
+Background for extraction: perfectly flat solid #FF00FF magenta background only. No gradients, no texture, no floor plane, no external cast shadow on the magenta. Full object visible, centered, generous margin, no part touching image edges.

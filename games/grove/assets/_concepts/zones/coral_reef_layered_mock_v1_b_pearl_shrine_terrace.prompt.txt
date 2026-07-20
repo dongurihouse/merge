@@ -1,0 +1,14 @@
+Use case: stylized-concept
+Asset type: vertical mobile game zone concept mock, 941:1672 portrait composition, for later layered reconstruction.
+Primary request: Create Coral Reef layer-first mock variation B: Pearl Shrine Terrace. Use the provided Coral Reef images as visual references for the same colorful high-contrast cut-paper picturebook art, visible paper grain, underwater cyan atmosphere, blue rock shelves, and cozy game readability. This should feel like the same zone family but a different art direction from the shipwreck-heavy mock.
+
+Layer plan to visualize naturally, without labels:
+1) Foundation/backdrop layer: stable underwater canyon with broad terraced rock shelves, sandy floor texture, central open water/soft path, and large clear placement sockets. The base should be simple enough to later repaint without hero objects. No sky/cloud/UI/text; only underwater atmosphere and light rays.
+2) Customizable object layer: exactly five large replaceable hero objects, simple silhouettes and easy to regenerate separately: a pearl shrine made from ancient pale stone columns and a shell arch on the upper center shelf, a giant open clam with glowing pearl lower-left, a treasure chest lower-right/mid-right angled like the reference chest, a coral-framed relic door or shell gate on mid-left, and an anchor or broken mast marker near the center path. Keep each object as one coherent object, not scattered pieces.
+3) Covering/blending layer: non-customizable coral fans, soft sponge corals, seaweed tufts, pebble clusters, bubbles, and translucent kelp veils placed on shelf edges and object bases so later sprites can be tucked behind them. Covering elements should feel like part of the reef, not decorative stickers.
+
+Composition: vertical 3/4 top-down cozy map. Upper third open turquoise water with light rays; middle has the pearl shrine terrace and side sockets; lower third has clam/chest/foreground cover with an open sandy walkable basin. Keep platforms generous, not small islands.
+Style/medium: cut-paper collage, layered paper edges, subtle embossed paper fiber texture, clean HD 2D game concept, whimsical but not childish, no pixel art.
+Color palette: turquoise/cyan water, deep blue and teal rocks, creamy shell ivory, peach/orange coral, lavender sponge coral, green kelp, warm gold accents on pearl/chest.
+Constraints: visually plan for foundation layer + customizable object layer + top cover layer. Low object complexity, large readable shapes, soft integrated contact shadows only, no heavy dark bottom shadow, no baked pads around objects.
+Avoid: UI, text, numbers, labels, borders, callouts, characters/animals, tiny clutter, excessive small coral fragments, harsh black shadows, pasted-on bases/halos, photorealism, 3D render, pixel art, flat vector art.

@@ -1,0 +1,14 @@
+Use case: stylized-concept
+Asset type: vertical mobile game zone concept mock, 941:1672 portrait composition, for later layered reconstruction.
+Primary request: Create Coral Reef layer-first mock variation A: Shipwreck Cove. Use the provided Coral Reef images as visual references for cut-paper picturebook style, paper grain, high contrast, bright readable palette, blue rock shelves, turquoise water, soft underwater light rays, and cozy game feel. This is a full-scene mock for art direction approval, but it must be designed as if it will later be split into 3 layers.
+
+Layer plan to visualize naturally, without labels:
+1) Foundation/backdrop layer: stable underwater canyon floor and tiered rock shelves, sandy path/open central water channel, clear flat-ish placement sockets on shelves. No UI, no text, no labels. The foundation should have large usable object areas, not tiny platforms.
+2) Customizable object layer: exactly five large replaceable hero objects, all clearly readable and not broken into many small pieces: a large wooden shipwreck across the upper middle, a giant clam with pearl on the lower-left shelf, a treasure chest on the mid-left shelf, a small mermaid or sea-spirit stone statue on the mid-right shelf, and an anchor with rope relic near the shipwreck. These objects should sit naturally in the scene, with light contact shadows only; do not paint separate grass/sand pads underneath them.
+3) Covering/blending layer: stable coral fans, seaweed tufts, kelp curtains, small rock and pebble clusters, soft bubbles, and haze placed around object bases and shelf edges to help hide future seams. Foreground cover should not obscure hero-object identities.
+
+Composition: vertical mobile portrait, 3/4 top-down cozy map angle. Leave a readable central water corridor from top to bottom. Keep top third airy blue water and rays; middle has shipwreck; lower third has clam, kelp, pebbles, and open sandy floor.
+Style/medium: colorful high-contrast cut-paper collage, crisp layered paper edges, subtle paper fiber grain, child-friendly picturebook, clean HD 2D game concept, no pixel art.
+Color palette: luminous cyan and teal water, deep blue slate rocks, warm orange coral, soft lavender coral, seafoam highlights, warm honey-brown wood, creamy sand.
+Constraints: objects must be large, simple silhouettes, low component complexity, easy to regenerate as separate sprites later. Keep shadows soft and integrated, not dark heavy drop shadows. Use paper texture throughout.
+Avoid: UI, text, numbers, labels, borders, callouts, characters/animals, tiny clutter, dense micro-details, harsh black shadows, pasted-on object bases, grass/sand halos around individual objects, photorealism, 3D render, pixel art, flat vector art.
