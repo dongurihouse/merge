@@ -37,7 +37,11 @@ static func merge(host: Node, node: Control, center: Vector2, tier: int, combo: 
 	var hs := _merge_hitstop(tier, combo, intensity, hitstop_gate)
 	if hs > 0.0:
 		FX.hitstop(minf(hs, Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless
-	Audio.play(_merge_sound(tier), -1.0, _merge_pitch(tier, combo))
+	# The combo MELODY: play the baked pentatonic note at the streak degree — exact tuning,
+	# no pitch warping (see _merge_degree). Tier escalates VOICING (the shine layer), never pitch.
+	Audio.play_note("merge_note", _merge_degree(combo), Tune.MERGE_NOTE_DB)
+	if tier >= Tune.MERGE_SHINE_TIER:
+		Audio.play_note("merge_shine", 0, Tune.MERGE_SHINE_DB)
 	haptic(_merge_weight(tier))
 
 # --- pure helpers (no scene tree — unit-tested in feel_tests.gd) ----------------------
@@ -47,10 +51,6 @@ static func _merge_color(tier: int) -> Color:
 	if tier >= Tune.MERGE_BURST_HOT_TIER:
 		return HOT
 	return STRAW if tier >= 4 else LEAF
-
-## Pick "merge_success" for the big sounds (tier>=4), "merge_soft" for the small ones.
-static func _merge_sound(tier: int) -> String:
-	return "merge_success" if tier >= 4 else "merge_soft"
 
 ## Haptic weight ladder: heavy at the big-moment tier, firm at 4..7, soft below.
 static func _merge_weight(tier: int) -> String:
@@ -87,25 +87,18 @@ static func _merge_burst_count(tier: int, combo: int, intensity: float) -> int:
 		n += Tune.COMBO_BURST_BONUS
 	return int(n * intensity)
 
-## Merge audio pitch: the board's `clampf(0.95 + 0.03*tier, 0.9, 1.3)` tier base, then — when
-## merge_combo is on — the MUSICAL PENTATONIC LADDER on top. Each consecutive merge climbs one
-## degree of the PENTA scale (degree = the live combo count, which the game increments per merge in
-## the streak window and resets when the window lapses), so a streak literally plays a rising
-## pentatonic run and snaps back to the base when it breaks. Stateless + deterministic: the degree
-## is the combo already handed in, no separate ladder counter or timer. Audio.play applies its own
-## jitter on top — the board relied on that, so this returns the plain center pitch.
-static func _merge_pitch(tier: int, combo: int) -> float:
-	var base := clampf(0.95 + 0.03 * tier, 0.9, 1.3)
-	if Features.on("merge_combo"):
-		return _ladder_pitch(base, combo)
-	return base
-
-## The pure pentatonic ladder: shift `base` up by the PENTA semitone at degree `combo`, clamped to
-## the array (a streak past the top sustains the ceiling note). `combo == 0` → degree 0 → PENTA[0]
-## (0 semitones) → factor 1.0 → base unchanged. Pure (no scene tree / global state) — unit-tested.
-static func _ladder_pitch(base: float, combo: int) -> float:
-	var semitones: float = float(Tune.PENTA[clampi(combo, 0, Tune.PENTA.size() - 1)])
-	return base * pow(2.0, semitones / 12.0)
+## The combo MELODY degree: which baked merge_note plays. Degree = the live combo count
+## (the game increments it per merge in the streak window and resets when the window
+## lapses), clamped to the baked ladder — so a fast streak literally plays a rising
+## pentatonic run (a streak past the top sustains the ceiling note) and snaps back to the
+## root when it breaks. With merge_combo OFF every merge plays the root note. The notes
+## are BAKED at exact pitches and played untransposed (Audio.play_note, no jitter) — the
+## old pitch_scale ladder detuned by tier base + random jitter and could never harmonize.
+## Stateless + deterministic: the degree is the combo already handed in. Pure — unit-tested.
+static func _merge_degree(combo: int) -> int:
+	if not Features.on("merge_combo"):
+		return 0
+	return clampi(combo, 0, Tune.MERGE_NOTES - 1)
 
 ## The land IMPACT — a tile that traveled then touched down. ALWAYS does the squash + a small
 ## dust PUFF (the cheap visual that actually reads a touchdown). `quiet` only suppresses the

@@ -1,8 +1,10 @@
 """Render every recipe to mono 44.1k Int16 WAVs + manifest.json.
 
 Deterministic: each cue/variant gets its own rng seeded from a base + index,
-so output is byte-stable and appending a cue never shifts existing ones.
-Hot cues bake 3 variants; others bake one. Usage:  python3 -m tools.sfx_synth.bake
+so output is byte-stable. Variant counts come from recipes.VARIANTS (the
+merge_note ladder bakes 10 degrees; hot foley cues bake 3 takes); peak levels
+come from recipes.PEAKS (loudness maps to meaning — spec §4).
+Usage:  python3 -m tools.sfx_synth.bake
 """
 import os
 import sys
@@ -13,11 +15,12 @@ from tools.sfx_synth import recipes as R
 from tools.sfx_synth.primitives import SR, normalize
 
 BASE_SEED = 1729
+SEED_STRIDE = 16   # > max variant count so cue seeds never collide
 DEFAULT_OUT = os.path.join("games", "grove", "assets", "music", "sfx")
 
 
-def _write(path, sig):
-    sig = normalize(sig, peak_dbfs=-3.0)
+def _write(path, sig, peak_dbfs):
+    sig = normalize(sig, peak_dbfs=peak_dbfs)
     wavfile.write(path, SR, (sig * 32767).astype(np.int16))
 
 
@@ -26,15 +29,14 @@ def bake(out_dir=DEFAULT_OUT):
     manifest = {}
     for i, name in enumerate(R.CUES):
         fn = R.RECIPES[name]
-        if name in R.HOT:
-            manifest[name] = 3
-            for v in range(3):
-                rng = np.random.default_rng(BASE_SEED + i * 10 + v)
-                _write(os.path.join(out_dir, f"{name}_{v + 1}.wav"), fn(rng, v))
-        else:
-            manifest[name] = 1
-            rng = np.random.default_rng(BASE_SEED + i * 10)
-            _write(os.path.join(out_dir, f"{name}.wav"), fn(rng, 0))
+        count = R.VARIANTS.get(name, 1)
+        peak = R.PEAKS.get(name, -6.0)
+        manifest[name] = count
+        for v in range(count):
+            rng = np.random.default_rng(BASE_SEED + i * SEED_STRIDE + v)
+            out = os.path.join(out_dir, f"{name}.wav" if count == 1
+                               else f"{name}_{v + 1}.wav")
+            _write(out, fn(rng, v), peak)
     with open(os.path.join(out_dir, "manifest.json"), "w") as f:
         json.dump({"cues": manifest}, f, indent=2, sort_keys=True)
     return manifest

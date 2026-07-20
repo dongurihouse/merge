@@ -132,8 +132,14 @@ static func apply(host: Node, node: Control, center: Vector2, tier: int, combo: 
 	if on(opts, "shake") or force_big:
 		FX.shake(host, float(knob(opts, "shake_amp")) * intensity)
 	if on(opts, "sound"):
-		var base_pitch := clampf(0.95 + 0.03 * eff, 0.9, 1.3) * float(knob(opts, "pitch_base_pct")) / 100.0
-		Audio.play("merge_success" if eff >= 4 else "merge_soft", -1.0, base_pitch)
+		# The combo MELODY: the baked pentatonic note at the streak degree, played untransposed
+		# (no jitter, exact tuning — see feel._merge_degree). The pitch knob transposes the whole
+		# ladder uniformly, so relative tuning across a run is preserved. Tier escalates VOICING
+		# (the shine layer at eff>=MERGE_SHINE_TIER), never the root pitch.
+		var knob_pitch := float(knob(opts, "pitch_base_pct")) / 100.0
+		Audio.play_note("merge_note", Feel._merge_degree(combo), Tune.MERGE_NOTE_DB, knob_pitch)
+		if eff >= Tune.MERGE_SHINE_TIER:
+			Audio.play_note("merge_shine", 0, Tune.MERGE_SHINE_DB, knob_pitch)
 		Feel.haptic(_weight(eff))   # the tactile spine feel.merge fired — weight ladders by tier
 	if on(opts, "ripple"):
 		Feel.ripple(neighbors, center, float(knob(opts, "ripple_pct")) / 100.0 * intensity)

@@ -160,7 +160,7 @@ class Audio:
 	# --- the SFX player pool -----------------------------------------------------------
 	const VOICES := 8                    # round-robin player pool → max overlapping sounds
 	# --- per-trigger "juice" variation -------------------------------------------------
-	const PITCH_JITTER_CENTS := 35.0     # ± random detune per trigger (musical, subtle)
+	const PITCH_JITTER_CENTS := 12.0     # ± random detune per trigger (NON-melodic cues only; play_note never jitters)
 	const GAIN_JITTER_DB := 1.2          # ± random level per trigger
 	const HOT_VARIANTS := 3              # baked take-variants for high-frequency cues
 
@@ -327,7 +327,12 @@ class FX:
 	const PUNCH := 0.03
 	const PUNCH_T := 0.09
 	# --- bundle D: combo / world ---
-	const PENTA := [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]
+	# The combo MELODY is baked as discrete tuned notes (merge_note_1..MERGE_NOTES on the
+	# C-major pentatonic); the streak degree indexes the note — no pitch_scale warping.
+	const MERGE_NOTES := 10              # baked ladder length (merge_note variants)
+	const MERGE_NOTE_DB := -1.0          # merge note level (call-site offset)
+	const MERGE_SHINE_TIER := 4          # tier >= this layers the merge_shine shimmer
+	const MERGE_SHINE_DB := -6.0         # shimmer level under the note
 	const COMBO_BLOOM_MAX := 0.28
 	const COMBO_BLOOM_RISE := 0.12
 	const COMBO_BLOOM_DECAY := 0.5

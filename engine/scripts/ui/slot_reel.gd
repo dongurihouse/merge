@@ -199,7 +199,8 @@ static func _land_reel(reel: Control, idx: int, total: int, dialog: Control, qui
 	_flash(reel, top)
 	if top and is_instance_valid(dialog):
 		FX.shake(dialog, FX.Tune.SHAKE_BIG_AMP)
-	Audio.play("merge_success", -4.0, 1.04 + float(idx) / float(maxi(1, total)) * 0.5)
+	# each reveal climbs the baked pentatonic ladder — in tune, unlike the old pitch-warped rise
+	Audio.play_note("merge_note", idx, -4.0)
 
 # A quick impact flash over a landed reel (gold + bigger for the top prize); fades out fast.
 static func _flash(reel: Control, strong: bool) -> void:
