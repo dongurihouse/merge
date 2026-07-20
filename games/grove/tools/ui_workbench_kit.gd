@@ -2353,7 +2353,7 @@ static func dialog_title_font(text: String, target_w: float, pad_x: float, frac:
 ## The SIMPLE dialog header (dialog mock set v2): the uppercased title in plain chunky ink, centered
 ## in the top band of the sheet — no ribbon art, no icon. Named DialogBanner so the workbench and the
 ## frame tests keep finding the header by the established handle.
-static func _title_header(text: String, font: int, band_h: float, width: float) -> Control:
+static func _title_header(text: String, font: int, band_h: float, width: float, burn: float = 0.0) -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
@@ -2365,11 +2365,20 @@ static func _title_header(text: String, font: int, band_h: float, width: float) 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	# BURN-IN (no drop shadow) — the shared dialog title reads as pressed into the parchment purely via a
-	# slightly deeper, warmer ink (the same treatment the daily day-labels use in login.gd::_cell_label),
-	# NOT a cast shadow.
-	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
+	# The title reads as pressed into the parchment via an engrave whose intensity the "Banner Burn"
+	# slider drives (banner_burn 0..1). burn == 0 is the flat cool-ink baseline (no cast shadow); burn > 0
+	# deepens the ink and adds a white lower emboss + soft dark outline — the SAME letterpress treatment as
+	# the coin num_burn / value-bar _bar_label, with the geometry scaled to THIS title's font so every
+	# dialog matches. burn is sourced from the workbench config (dialog_opts_from_config → banner_burn).
+	var t := clampf(burn, 0.0, 1.0)
+	lbl.add_theme_color_override("font_color", Color("#1B2C38").darkened(0.30 * t))
 	lbl.add_theme_constant_override("outline_size", 0)
+	if t > 0.0:
+		lbl.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.25 + 0.40 * t))
+		lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(round(font * 0.035 * t))))
+		lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(round(font * 0.055 * t))))
+		lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.12 + 0.30 * t))
+		lbl.add_theme_constant_override("outline_size", maxi(1, int(round(font * 0.03 * t))))
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_child(lbl)
 	return header
@@ -2392,12 +2401,18 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the mock's TIGHT shadow — a small, soft, short down-right cast. fill=FALSE: the
-	# disc art is opaque and fills only ~0.78 of the button box (transparent margin around it), so a FILLED
-	# shadow footprint sized to the box peeked past the smaller art as a hard grey RING (a second shadow
-	# over the soft cast). Cast-only (the feather, no solid core) leaves one clean soft shadow.
-	var sh := Look.shadow(size * 0.5, size * 0.03, size * 0.08, size * 0.11, -size * 0.07, 0.28, false)
+	# the coral disc casts THE shared shadow (the saved workbench block — same mechanism as every
+	# element). The disc ART is opaque but fills only ~0.78 of the button box (transparent margin
+	# around it), so the shadow panel's FOOTPRINT is sized to the art's visible disc — per-element
+	# geometry, like a corner radius — instead of the full box, whose fill peeked past the art as a
+	# hard grey ring (the old double-shadow bug).
+	const CLOSE_ART_FRAC := 0.78
+	var d := size * CLOSE_ART_FRAC
+	var sh := _meadow_shadow_circle(d)
 	sh.name = "DialogCloseShadow"
+	sh.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	sh.position = Vector2((size - d) / 2.0, (size - d) / 2.0)
+	sh.size = Vector2(d, d)
 	sh.show_behind_parent = true
 	b.add_child(sh)
 	return b
@@ -2579,7 +2594,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		inner.add_child(footer_band)
 
 	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable
-	var header := _title_header(banner_text, banner_font, banner_h, target_w)
+	var header := _title_header(banner_text, banner_font, banner_h, target_w, float(opts.get("banner_burn", 0.0)))
 	header.position = banner_pos
 	inner.add_child(header)
 

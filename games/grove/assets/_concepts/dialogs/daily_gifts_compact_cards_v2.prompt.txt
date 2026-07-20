@@ -1,0 +1,11 @@
+Use case: ui-mockup
+Asset: portrait mobile-game Daily Gifts dialog
+Edit target: daily_gifts_source.png
+
+Preserve the Meadow Sky / Cut-Paper Playground dialog, seven-day reward sequence, title, close button, and Day 7 finale. Rebuild Days 1–6 as a compact 3 x 2 grid with six identical cards approximately 22–25% shorter than the source.
+
+Every small card uses the same fixed vertical anatomy: day label, reward-icon well, quantity-pill row, and state-control slot. Icon centers, quantity pills, and state slots align across each row. Claimed checkmarks, the Day 3 CLAIM button, and empty future states occupy the same reserved footer height and never shift the reward content.
+
+Use compact warm-cream quantity pills: coin 50, water 8, coin 100, blank reserved pill for the Day 4 mystery gift, coin 150, and separate acorn 1 / coin 60 pills for Day 6. Day 4 has no padlock or lock overlay. Pull the second row and Day 7 upward, keep the Day 7 chest and leaf sprigs, and reduce the overall panel height so the phone background has breathing room above and below.
+
+Style: fixed Meadow Sky palette, matte hand-cut cardstock, subtle paper fiber, warm cut edges, ink typography, shallow tinted shadows, one upper-left light. No extra text, locks on Days 1–6, free-floating amounts, uneven card heights, watermark, plastic, clay, watercolor, or glossy 3D.

@@ -3,6 +3,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## Rush scoring, grid helpers, the box/unlocked-pool seam, and cross-scene run state). Pure-model
 ## coverage; the real-time Rush *feel* needs an interactive run. Active suite (in GROVE_TESTS).
 
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
@@ -608,7 +609,7 @@ func _test_rush_intro_hint() -> void:
 	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
 	var replay_style := replay.get_theme_stylebox("normal") as StyleBoxFlat if replay != null else null
 	ok(replay_style != null and replay_style.shadow_color.is_equal_approx(Color(0, 0, 0, replay_style.shadow_color.a)) \
-		and absf(replay_style.shadow_color.a - 0.20) <= 0.01, \
+		and absf(replay_style.shadow_color.a - float(Look.saved_shadow_params().alpha)) <= 0.01, \
 		"the live Rush info button casts THE uniform neutral shadow")
 	var replay_glyph := replay.find_child("RushInfoGlyph", true, false) as Label if replay != null else null
 	# the info button + the caption both centre on the BAR — the button geometrically, the caption via its

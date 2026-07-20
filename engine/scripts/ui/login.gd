@@ -69,6 +69,16 @@ const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
 const ART_LEAF_L := "kit/daily_chest_leaf_l.png"  # day-7 chest decal — cut-paper oak sprig, left
 const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-paper oak sprig, right
 
+## Every kit sprite THIS dialog polishes on open (_sprite → Kit.clean_tex_path). Sourced here, from
+## the same consts the draws use, so the texture bake and its guard cover the REAL runtime dialog —
+## not the workbench daily_card mock, which draws a different, older sprite set. Without this, all of
+## these get defringe/feather'd live on the main thread on first open (the slow-open hitch).
+## Registered in games/tools/bake_targets.gd; held baked by engine/tests/kit_bake_tests.gd.
+static func bake_sprites() -> Array:
+	var out: Array = [ART_CHEST, ART_GIFT, ART_CHECK, ART_LEAF_L, ART_LEAF_R]
+	out.append_array(REWARD_ART.values())
+	return out
+
 ## A small four-point sparkle, code-drawn (the mock scatters them over today's cell and the capstone
 ## banner). Code-drawn rather than art so it scales cleanly with the cell.
 class Spark:
@@ -349,44 +359,57 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(inner)
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.add_theme_constant_override("separation", int(cw * 0.03))
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(col)
-	col.add_child(_cell_label(Kit, String(d.get("label", "")), cw))
 
-	# the chest sits centred on the banner, flanked by the cut-paper oak sprigs (Direction-B decal). The
-	# sprites carry their own colour + gold berries, so no modulate tint — they read as-is beside the chest.
+	# "DAY N" — pinned to the top edge (overlaid, out of the flow) so it never pushes the chest off-centre.
+	var label := _cell_label(Kit, String(d.get("label", "")), cw)
+	label.anchor_left = 0.0; label.anchor_right = 1.0
+	label.anchor_top = 0.0; label.anchor_bottom = 0.0
+	label.grow_vertical = Control.GROW_DIRECTION_END
+	inner.add_child(label)
+
+	# the chest, DEAD-CENTRE of the box, flanked by the cut-paper oak sprigs sitting right beside it. The
+	# sprites carry their own colour + gold berries, so no modulate tint — they read as-is. A negative
+	# separation pulls the leaves in past the chest art's transparent side margin so they hug the chest.
 	var row := HBoxContainer.new()
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(h * 0.06))
+	# a small negative gutter tucks the leaves under the chest art's transparent side margin so they sit
+	# right against the visible chest.
+	row.add_theme_constant_override("separation", int(-h * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sprig_l := _sprite(Kit, ART_LEAF_L, h * 0.62)
+	# the leaves are CROPPED to their content (see _sprite_cropped), so the visible sprig fills its control
+	# and hugs the chest — big and immediately left/right of it.
+	var sprig_l := _sprite_cropped(Kit, ART_LEAF_L, h * 0.82)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	# the chest FILLS the small box as fully as possible: the art carries ~30% transparent padding, so we
-	# oversize the control past the row height (shrink-centred) and let that padding absorb the overflow —
-	# the VISIBLE chest lands ≈ the box height, without the sprite spilling onto the label.
+	# the chest FILLS the box as fully as possible: the art carries ~30% transparent padding, so we oversize
+	# the control (shrink-centred) and let that padding absorb the overflow — the VISIBLE chest lands ≈ the
+	# box height without the sprite spilling onto the label.
 	var chest := _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 1.02)
 	chest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chest)
-	var sprig_r := _sprite(Kit, ART_LEAF_R, h * 0.62)
+	var sprig_r := _sprite_cropped(Kit, ART_LEAF_R, h * 0.82)
 	sprig_r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_r)
-	col.add_child(row)
+	var row_center := CenterContainer.new()
+	row_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row_center.add_child(row)
+	inner.add_child(row_center)
 
+	# today's CLAIM / a done ✓ — floated near the bottom, out of the centred chest's flow.
+	var mark: Control = null
 	if state == "today":
-		var wrap := CenterContainer.new()
-		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap.add_child(_claim_button(Kit, cw, d.get("on_claim", Callable())))
-		col.add_child(wrap)
+		mark = _claim_button(Kit, cw, d.get("on_claim", Callable()))
 	elif state == "done":
-		var wrap2 := CenterContainer.new()
-		wrap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap2.add_child(_sprite(Kit, ART_CHECK, cw * 0.34))
-		col.add_child(wrap2)
+		mark = _sprite(Kit, ART_CHECK, cw * 0.34)
+	if mark != null:
+		var wrap := CenterContainer.new()
+		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
+		wrap.anchor_top = 0.86; wrap.anchor_bottom = 0.86
+		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
+		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wrap.add_child(mark)
+		inner.add_child(wrap)
 
 	_scatter_sparks(inner, cw * 0.11, [Vector2(0.045, 0.20), Vector2(0.955, 0.20),
 		Vector2(0.045, 0.82), Vector2(0.955, 0.82)])
@@ -529,6 +552,34 @@ static func _sprite(Kit: GDScript, rel: String, px: float) -> Control:
 	t.custom_minimum_size = Vector2(px, px)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	t.texture = Kit.clean_tex_path(Look.kit(rel), 256)
+	return t
+
+## A kit sprite CROPPED to its opaque content (transparent margins trimmed via an AtlasTexture region) and
+## sized to `height` at the content's own aspect. Used for the day-7 leaf sprigs: the sprig art is a narrow
+## tall shape with wide transparent side margins, so a square control would strand the visible leaf far from
+## the chest — cropping lets the control hug its neighbour and controls the real on-screen size directly.
+static func _sprite_cropped(Kit: GDScript, rel: String, height: float) -> Control:
+	var t := TextureRect.new()
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tex: Texture2D = Kit.clean_tex_path(Look.kit(rel), 256)
+	var aspect := 1.0
+	if tex != null:
+		var img := tex.get_image()
+		if img != null:
+			var used := img.get_used_rect()
+			if used.size.x > 0 and used.size.y > 0:
+				var at := AtlasTexture.new()
+				at.atlas = tex
+				at.region = Rect2(used.position, used.size)
+				t.texture = at
+				aspect = float(used.size.x) / float(used.size.y)
+			else:
+				t.texture = tex
+		else:
+			t.texture = tex
+	t.custom_minimum_size = Vector2(height * aspect, height)
 	return t
 
 static func _dismiss(overlay: Control, opts: Dictionary) -> void:

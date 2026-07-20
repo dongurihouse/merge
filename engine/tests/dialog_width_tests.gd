@@ -84,5 +84,20 @@ func _initialize() -> void:
 	ok(lscaler != null and is_equal_approx(float(lscaler.scale_factor), 1.5), "level_frame wraps content in a ScaleContainer")
 	ldlg.queue_free()
 
+	# banner_burn wiring: the "Banner Burn" slider (banner_burn opt) must reach the DialogTitle engrave.
+	# burn == 0 is the flat baseline (no cast shadow / outline); burn > 0 deepens the ink and adds the
+	# emboss shadow + outline. Guards the consumer — the opt was once plumbed but silently ignored.
+	var flat: Control = Kit.dialog_frame(VBoxContainer.new(), 400.0, {"banner_text": "Z", "banner_burn": 0.0})
+	var hot: Control = Kit.dialog_frame(VBoxContainer.new(), 400.0, {"banner_text": "Z", "banner_burn": 1.0})
+	var tflat := flat.find_child("DialogTitle", true, false) as Label
+	var thot := hot.find_child("DialogTitle", true, false) as Label
+	ok(tflat != null and not tflat.has_theme_color_override("font_shadow_color") and tflat.get_theme_constant("outline_size") == 0,
+		"banner_burn 0 = flat title (no engrave shadow/outline)")
+	ok(thot != null and thot.get_theme_color("font_shadow_color").a > 0.0 and thot.get_theme_constant("outline_size") > 0,
+		"banner_burn 1 engraves the title (slider reaches the label)")
+	ok(tflat != null and thot != null and thot.get_theme_color("font_color").v < tflat.get_theme_color("font_color").v,
+		"higher banner_burn deepens the title ink")
+	flat.queue_free(); hot.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
