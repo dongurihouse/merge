@@ -128,7 +128,7 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 		var gid := String(header.get("gid", ""))
 		overlay.set_meta("ladder_kind", "tiers")
 		overlay.set_meta("header_gid", gid)
-		dialog = Kit.dialog_frame(_tiers_body(gid, grid, width), width, dopts)
+		dialog = Kit.dialog_frame(_tiers_body(gid, grid, width, opts.get("on_gen", Callable()), dopts["on_close"]), width, dopts)
 
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
@@ -287,7 +287,11 @@ static func _ingredient_button(line: int, tier: int, card_px: float, on_pick: Ca
 	return btn
 
 # The BASE-line tier screen body: the GENERATOR icon centred atop the unchanged tier grid (gid "" → grid only).
-static func _tiers_body(gid: String, grid: Control, width: float) -> Control:
+# The icon is a TAP TARGET when `on_gen` is valid: on_gen(gid) -> bool asks the board to SHOW the generator
+# (select it on the board, or pull it from the gen bag); true → the tap acted, so `close` dismisses the modal.
+# A false return (e.g. no empty cell to place into) leaves the screen open, untouched.
+static func _tiers_body(gid: String, grid: Control, width: float, on_gen: Callable = Callable(),
+		close: Callable = Callable()) -> Control:
 	if gid == "":
 		return grid
 	var col := VBoxContainer.new()
@@ -306,9 +310,23 @@ static func _tiers_body(gid: String, grid: Control, width: float) -> Control:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.size = Vector2(box, box)
 	holder.add_child(icon)
+	var btn: Button = null
+	if on_gen.is_valid():
+		btn = Button.new()
+		btn.name = "LadderGeneratorButton"
+		btn.focus_mode = Control.FOCUS_NONE
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			btn.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+		btn.pressed.connect(func() -> void:
+			if bool(on_gen.call(gid)) and close.is_valid():
+				close.call())
+		holder.add_child(btn)
 	var dock := func() -> void:
 		if is_instance_valid(icon) and is_instance_valid(holder):
 			icon.position = Vector2((holder.size.x - box) * 0.5, (holder.size.y - box) * 0.5)
+			if btn != null and is_instance_valid(btn):
+				btn.position = icon.position
+				btn.size = Vector2(box, box)
 	holder.resized.connect(dock)
 	dock.call_deferred()
 	col.add_child(holder)
