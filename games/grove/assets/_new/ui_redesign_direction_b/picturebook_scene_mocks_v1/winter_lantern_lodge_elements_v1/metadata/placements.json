@@ -33,8 +33,7 @@
    "w": 320,
    "h": 346,
    "z": 100,
-   "layer": "hero",
-   "shadow": true
+   "layer": "hero"
   },
   {
    "id": "gazebo",
@@ -45,8 +44,7 @@
    "w": 236,
    "h": 329,
    "z": 110,
-   "layer": "hero",
-   "shadow": true
+   "layer": "hero"
   },
   {
    "id": "bridge",
@@ -57,8 +55,7 @@
    "w": 312,
    "h": 212,
    "z": 120,
-   "layer": "hero",
-   "shadow": true
+   "layer": "hero"
   },
   {
    "id": "dock_rowboat",
@@ -69,8 +66,7 @@
    "w": 266,
    "h": 252,
    "z": 130,
-   "layer": "hero",
-   "shadow": true
+   "layer": "hero"
   },
   {
    "id": "entrance_arch",
@@ -81,8 +77,7 @@
    "w": 392,
    "h": 399,
    "z": 140,
-   "layer": "hero",
-   "shadow": true
+   "layer": "hero"
   },
   {
    "id": "edge_coverings",
