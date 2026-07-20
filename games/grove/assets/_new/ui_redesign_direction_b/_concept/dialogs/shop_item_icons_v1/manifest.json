@@ -1,0 +1,29 @@
+{
+  "name": "shop_item_icons_v1",
+  "style": "Meadow Sky / Cut-Paper Playground",
+  "sheet": "shop_item_icons_sheet_1536.png",
+  "sheet_size": [1536, 1536],
+  "grid": {
+    "rows": 3,
+    "columns": 3,
+    "cell_size": [512, 512]
+  },
+  "frames": [
+    {"row": 0, "column": 0, "id": "watering_can", "file": "final_frames/watering_can_512.png"},
+    {"row": 0, "column": 1, "id": "coin_pouch", "file": "final_frames/coin_pouch_512.png"},
+    {"row": 0, "column": 2, "id": "acorn_currency", "file": "final_frames/acorn_currency_512.png"},
+    {"row": 1, "column": 0, "id": "acorn_pack_80", "file": "final_frames/acorn_pack_80_512.png"},
+    {"row": 1, "column": 1, "id": "acorn_pack_450", "file": "final_frames/acorn_pack_450_512.png"},
+    {"row": 1, "column": 2, "id": "acorn_pack_1000", "file": "final_frames/acorn_pack_1000_512.png"},
+    {"row": 2, "column": 0, "id": "acorn_pack_2200", "file": "final_frames/acorn_pack_2200_512.png"},
+    {"row": 2, "column": 1, "id": "acorn_pack_6000", "file": "final_frames/acorn_pack_6000_512.png"},
+    {"row": 2, "column": 2, "id": "acorn_pack_13000", "file": "final_frames/acorn_pack_13000_512.png"}
+  ],
+  "qc": {
+    "edge_touch_frames": [],
+    "visible_magenta_fringe_pixels": 0,
+    "opaque_canvas_edge_pixels": 0,
+    "nonzero_rgb_outside_alpha": 0
+  },
+  "runtime_integrated": false
+}
