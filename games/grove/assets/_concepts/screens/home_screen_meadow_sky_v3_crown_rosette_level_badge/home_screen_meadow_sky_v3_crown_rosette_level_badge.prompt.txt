@@ -1,0 +1,7 @@
+Regenerate the Grove Farm home screen as a polished vertical mobile UI mockup in the Meadow Sky + Cut-Paper Playground style.
+
+Retain the readable working-farm composition: farmhouse upper center-left, barn and silo upper-right, orchard along the left, chicken coop lower-left, greenhouse right-center, separate corn/pumpkin/tomato/cabbage plots, well lower-left, workshop lower-right, and pale stone paths connecting each object. Keep cosmetic world objects visibly separated and keep the center alive but not crowded.
+
+Use compact top HUD currency pills: water 91, coin 51, acorn 7. Replace the old yellow star level icon with the Crown Rosette level badge: mint scalloped circle, warm-cream ring, sky-blue center, small gold star at the top, and cream numeral 2 with a dark navy edge. It sits at top-left with clear separation from the resource pills.
+
+Use bottom navigation tiles with the labels Home, Board, Maps, Bag, Shop. Meadow Sky + Cut-Paper Playground means friendly matte hand-cut cardstock; broad rounded low-complexity silhouettes; flat base colors plus one same-hue shadow plane; subtle paper fiber; warm cut edges; no plastic, clay, watercolor, gouache, visible brushwork, glossy 3D, or heavy black outline.
