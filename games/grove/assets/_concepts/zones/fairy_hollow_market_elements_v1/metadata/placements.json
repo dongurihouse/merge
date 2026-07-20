@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "scene": "fairy_hollow_market_v1",
+  "canvas": {
+    "width": 1320,
+    "height": 2346,
+    "anchorConvention": "center-bottom"
+  },
+  "base": {
+    "id": "foundation",
+    "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/01_backdrop/foundation/fairy_hollow_market_foundation_v1.png",
+    "opaque": true,
+    "z": 0
+  },
+  "placements": [
+    {
+      "id": "mushroom_hall",
+      "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/03_structures/mushroom_hall/fairy_hollow_market_mushroom_hall_v1.png",
+      "x": 834.5,
+      "y": 786,
+      "w": 509,
+      "h": 723,
+      "z": 310,
+      "cluster": "mushroom_hall",
+      "category": "structure",
+      "layer": "customizable_object_first_pass_crop"
+    },
+    {
+      "id": "tea_stall",
+      "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/03_structures/tea_stall/fairy_hollow_market_tea_stall_v1.png",
+      "x": 251.0,
+      "y": 1252,
+      "w": 502,
+      "h": 751,
+      "z": 300,
+      "cluster": "tea_stall",
+      "category": "structure",
+      "layer": "customizable_object_first_pass_crop"
+    },
+    {
+      "id": "crystal_map_stall",
+      "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/03_structures/crystal_map_stall/fairy_hollow_market_crystal_map_stall_v1.png",
+      "x": 1040.0,
+      "y": 1412,
+      "w": 552,
+      "h": 765,
+      "z": 305,
+      "cluster": "crystal_map_stall",
+      "category": "structure",
+      "layer": "customizable_object_first_pass_crop"
+    },
+    {
+      "id": "stream_bridge",
+      "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/04_garden_items/stream_bridge/fairy_hollow_market_stream_bridge_v1.png",
+      "x": 237.0,
+      "y": 1969,
+      "w": 474,
+      "h": 584,
+      "z": 290,
+      "cluster": "stream_bridge",
+      "category": "garden_item",
+      "layer": "customizable_object_first_pass_crop"
+    },
+    {
+      "id": "flower_crate",
+      "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/04_garden_items/flower_crate/fairy_hollow_market_flower_crate_v1.png",
+      "x": 1066.5,
+      "y": 2338,
+      "w": 505,
+      "h": 578,
+      "z": 330,
+      "cluster": "flower_crate",
+      "category": "garden_item",
+      "layer": "customizable_object_first_pass_crop"
+    },
+    {
+      "id": "lantern_gate",
+      "image": "games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v1/04_garden_items/lantern_gate/fairy_hollow_market_lantern_gate_v1.png",
+      "x": 679.0,
+      "y": 2345,
+      "w": 396,
+      "h": 467,
+      "z": 315,
+      "cluster": "lantern_gate",
+      "category": "garden_item",
+      "layer": "customizable_object_first_pass_crop"
+    }
+  ]
+}

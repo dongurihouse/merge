@@ -3,19 +3,12 @@ extends SceneTree
 ##   interactive:       make sw [SCENE=cherry_blossom_garden] [ROOT=<scenes dir>]
 ##   quiet screenshot:  make shot-sw [SCENE=...] [OUT=/tmp/scene_workbench.png]   (born-minimized)
 ##
-## The five picture-book scene bundles live under …/picturebook_scene_mocks_v1 (one dir per
-## <scene>_elements_vN, highest version with metadata/placements.json wins). Until intake lands
-## them in this repo they sit in the codex mocks worktree — both roots are tried, ROOT= overrides.
+## Every picture-book scene bundle lives under …/_concepts/zones (one dir per
+## <scene>_elements_vN, highest version with metadata/placements.json wins). ROOT= overrides.
 
 const View = preload("res://games/grove/tools/scene_workbench_view.gd")
 
 const ROOT_CANDIDATES := [
-	"res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
-	"res://.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
-	# absolute fallback so the tool works from any git worktree (same convention as
-	# build_page_manifests.py — the mocks worktree hangs off the primary checkout)
-	"/Users/xup/dh/merge/.worktrees/codex-ui-redesign-rush-maps-mocks/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1",
-	# Intaken scene bundles can live under concepts while their art direction is still under review.
 	"res://games/grove/assets/_concepts/zones",
 ]
 
@@ -41,7 +34,7 @@ func _initialize() -> void:
 			cands.append(ProjectSettings.globalize_path(cand))
 		scenes_root = Model.pick_root_for_scene(cands, scene)
 	if scenes_root == "":
-		push_error("no picturebook_scene_mocks_v1 root with openable scenes — pass ROOT=<dir>")
+		push_error("no _concepts/zones root with openable scenes — pass ROOT=<dir>")
 		quit(1)
 		return
 

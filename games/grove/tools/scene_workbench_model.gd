@@ -14,7 +14,7 @@ extends RefCounted
 ## legacy docs — a missing `layer` reads as DEFAULT_LAYER, a missing `clusterZ` falls back to `z` —
 ## so a scene authored before layers renders byte-identically until you actually reassign it.
 
-const SCENES_SUFFIX := "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
+const SCENES_SUFFIX := "games/grove/assets/_concepts/zones"
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
 
 # The predefined layers, back (painted first) → front (painted last). A cluster lives in exactly one.
@@ -315,11 +315,12 @@ static func hit_at(doc: Dictionary, p: Vector2, opaque_at: Callable) -> int:
 	return -1
 
 ## The repo root a bundle's repo-relative image paths resolve against, derived from the
-## scenes root itself (…/<repo>/games/grove/assets/_new/…/picturebook_scene_mocks_v1).
+## scenes root itself (…/<repo>/games/grove/assets/_concepts/zones).
 static func repo_root_of(scenes_root: String) -> String:
 	var s := scenes_root.trim_suffix("/")
 	if s.ends_with(SCENES_SUFFIX):
-		return s.trim_suffix(SCENES_SUFFIX).trim_suffix("/")
+		var root := s.trim_suffix(SCENES_SUFFIX).trim_suffix("/")
+		return root if root != "" else "."   # a relative root that IS the suffix → project root
 	# ROOT= also accepts a scene root under an arbitrary repository asset folder, such as
 	# games/grove/assets/_concepts/zones. Its placement documents still carry repo-relative
 	# image paths, so derive the repository prefix instead of treating the scenes root as it.

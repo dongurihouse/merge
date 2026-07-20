@@ -500,10 +500,10 @@ func _initialize() -> void:
 			icon_only = false
 	ok(icon_only, "scene buttons are icon-only, matching the mock strip")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
-	var live_scenes := M.scenes_in("res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
+	var live_scenes := M.scenes_in("res://games/grove/assets/_concepts/zones")
 	ok(live_scenes.has("winter_lantern_lodge"),
 		"the modular Lantern Lodge bundle is available as its own Scene Workbench scene")
-	var lantern_doc := M.load_doc("res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/metadata/placements.json")
+	var lantern_doc := M.load_doc("res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/metadata/placements.json")
 	var gazebo_z := -1
 	var upper_left_cover_z := -1
 	for e in M.placements(lantern_doc):
@@ -572,7 +572,7 @@ func _initialize() -> void:
 		"the big mock swaps without rebuilding the panel (the strip stays alive)")
 
 	# --- path resolution ------------------------------------------------------------
-	var sr := "/repo/games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1"
+	var sr := "/repo/games/grove/assets/_concepts/zones"
 	ok(M.repo_root_of(sr) == "/repo", "repo_root_of strips the scenes suffix")
 	ok(M.repo_root_of("/repo/games/grove/assets/_concepts/zones") == "/repo",
 		"a custom scenes root under games resolves repo-relative artwork from the repository root")
