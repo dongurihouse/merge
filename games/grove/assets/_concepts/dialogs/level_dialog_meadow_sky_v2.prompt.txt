@@ -1,0 +1,10 @@
+Use case: ui-mockup
+Asset: portrait mobile-game Level Progress dialog
+Content reference: supplied Level 6 dialog
+Style reference: daily_gifts_compact_cards_v2.png
+
+Regenerate the Level 6 dialog in the same Meadow Sky / Cut-Paper Playground UI system as the compact Daily Gifts mock. Preserve the exact content: LEVEL 6, the large numeral 6, 283 / 360 earned, 77 more to reach Level 7, and GOT IT.
+
+Use a compact warm-cream rounded panel over a softly blurred and dimmed game backdrop. Replace the old title ribbon and painted wreath with bold ink title typography and one coherent paper rosette: meadow-green scalloped backing, cream ring, sky/slate-blue center, restrained oak-leaf sprigs, and a small cream-and-gold ornament. Place the progress summary in a cream pill with a gold reward glyph. Render the garden-green progress fill at approximately 79% over a receding-blue remainder, then show the remaining-distance text and a compact green primary button.
+
+Style: matte hand-cut cardstock, broad rounded silhouettes, subtle 2–4% paper grain, fine warm cut edges, thin locally darker edges, shallow tinted shadows, and one upper-left light. Use the fixed Meadow Sky palette. No ribbon, mismatched painted botanicals, incorrect tiny progress fill, extra buttons, close icon, extra text, plastic, clay, watercolor, glossy 3D, or watermark.
