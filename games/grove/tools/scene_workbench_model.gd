@@ -18,11 +18,11 @@ const SCENES_SUFFIX := "games/grove/assets/_concepts/zones"
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
 
 # The predefined layers, back (painted first) → front (painted last). A cluster lives in exactly one.
-const LAYERS := ["sky", "backdrop", "far_mountains", "background_objects", "primary_objects", "foreground_objects"]
+const LAYERS := ["sky", "backdrop", "far_mountains", "background_objects", "primary_objects", "foreground_objects", "coverup"]
 const LAYER_LABELS := {
 	"sky": "Sky", "backdrop": "Backdrop", "far_mountains": "Far Mountains",
 	"background_objects": "Background Objects", "primary_objects": "Primary Objects",
-	"foreground_objects": "Foreground Objects"}
+	"foreground_objects": "Foreground Objects", "coverup": "Coverup"}
 const DEFAULT_LAYER := "primary_objects"   # where an unassigned (legacy) entry reads as / a new one lands
 
 static func layer_rank(slug: String) -> int:
