@@ -2392,12 +2392,18 @@ static func _close_button(size: float, cb: Callable, close_art: String = "kit/ma
 		b.add_theme_stylebox_override("pressed", sp)
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
-	# the coral disc casts the mock's TIGHT shadow — a small, soft, short down-right cast. fill=FALSE: the
-	# disc art is opaque and fills only ~0.78 of the button box (transparent margin around it), so a FILLED
-	# shadow footprint sized to the box peeked past the smaller art as a hard grey RING (a second shadow
-	# over the soft cast). Cast-only (the feather, no solid core) leaves one clean soft shadow.
-	var sh := Look.shadow(size * 0.5, size * 0.03, size * 0.08, size * 0.11, -size * 0.07, 0.28, false)
+	# the coral disc casts THE shared shadow (the saved workbench block — same mechanism as every
+	# element). The disc ART is opaque but fills only ~0.78 of the button box (transparent margin
+	# around it), so the shadow panel's FOOTPRINT is sized to the art's visible disc — per-element
+	# geometry, like a corner radius — instead of the full box, whose fill peeked past the art as a
+	# hard grey ring (the old double-shadow bug).
+	const CLOSE_ART_FRAC := 0.78
+	var d := size * CLOSE_ART_FRAC
+	var sh := _meadow_shadow_circle(d)
 	sh.name = "DialogCloseShadow"
+	sh.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	sh.position = Vector2((size - d) / 2.0, (size - d) / 2.0)
+	sh.size = Vector2(d, d)
 	sh.show_behind_parent = true
 	b.add_child(sh)
 	return b
