@@ -428,6 +428,9 @@ func _initialize() -> void:
 			icon_only = false
 	ok(icon_only, "scene buttons are icon-only, matching the mock strip")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
+	var live_scenes := M.scenes_in("res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
+	ok(live_scenes.has("winter_lantern_lodge"),
+		"the modular Lantern Lodge bundle is available as its own Scene Workbench scene")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
 		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}

@@ -1,0 +1,99 @@
+{
+ "schemaVersion": 2,
+ "scene": "winter_lantern_lodge",
+ "canvas": {
+  "width": 941,
+  "height": 1672,
+  "anchorConvention": "center-bottom"
+ },
+ "base": {
+  "id": "sky_atmosphere",
+  "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/01_underlay/sky_atmosphere.png",
+  "opaque": true,
+  "z": 0
+ },
+ "placements": [
+  {
+   "id": "foundation",
+   "category": "backdrop",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/02_backdrop/foundation.png",
+   "x": 470,
+   "y": 1672,
+   "w": 941,
+   "h": 1672,
+   "z": 10,
+   "layer": "backdrop"
+  },
+  {
+   "id": "lodge",
+   "category": "structures",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/lodge.png",
+   "x": 470,
+   "y": 505,
+   "w": 320,
+   "h": 346,
+   "z": 100,
+   "layer": "hero",
+   "shadow": true
+  },
+  {
+   "id": "gazebo",
+   "category": "structures",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/gazebo.png",
+   "x": 172,
+   "y": 786,
+   "w": 236,
+   "h": 329,
+   "z": 110,
+   "layer": "hero",
+   "shadow": true
+  },
+  {
+   "id": "bridge",
+   "category": "structures",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/bridge.png",
+   "x": 765,
+   "y": 747,
+   "w": 312,
+   "h": 212,
+   "z": 120,
+   "layer": "hero",
+   "shadow": true
+  },
+  {
+   "id": "dock_rowboat",
+   "category": "structures",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/dock_rowboat.png",
+   "x": 760,
+   "y": 1164,
+   "w": 266,
+   "h": 252,
+   "z": 130,
+   "layer": "hero",
+   "shadow": true
+  },
+  {
+   "id": "entrance_arch",
+   "category": "structures",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/03_structures/entrance_arch.png",
+   "x": 470,
+   "y": 1492,
+   "w": 392,
+   "h": 399,
+   "z": 140,
+   "layer": "hero",
+   "shadow": true
+  },
+  {
+   "id": "edge_coverings",
+   "category": "vegetation",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png",
+   "x": 470,
+   "y": 1672,
+   "w": 941,
+   "h": 1672,
+   "z": 200,
+   "layer": "covering"
+  }
+ ]
+}
