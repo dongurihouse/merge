@@ -111,7 +111,7 @@ const TEST_KEYS := {
 	"bag_card": [],
 	# the bag DIALOG — grid/caption persist; balance/owned/filled just preview the slot ladder (the game
 	# sets each from save: the 💎 balance, how many slots owned, how many hold a piece).
-	"bag": ["balance", "owned", "filled"],
+	"bag": ["owned", "filled"],
 }
 const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
@@ -327,8 +327,8 @@ func _default_params() -> Dictionary:
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
-		"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
-			"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
+		"bag": {"cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0,
+			"caption": "Open a slot with acorns.", "owned": 8, "filled": 5},
 	}
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -571,13 +571,22 @@ func _make_element(id: String) -> Control:
 		"bag_card":
 			return _slot_cell_gallery(p)
 		"bag":
-			# the SHARED frame + the reused gold currency pill + a grid of bag cells (the SAME builder the game's
-			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
+			# the SHARED frame + a grid of bag cells + the stored-generators row — the SAME Kit.bag_dialog the
+			# game's bag_overlay.gd builds. owned/filled compose the slot ladder; the generators row is fed
+			# through opts.extra (like the game) via the shared Kit.bag_generators_section, with demo generators.
 			var bopts := Kit.bag_opts_from_config(_params)
 			bopts["banner_text"] = "Bag"
 			bopts["content_scale"] = _dlg_scale("bag")
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
-			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
+			bopts["extra"] = func(co: Dictionary) -> Control:
+				var gens: Array = []
+				for gid in ["seed_satchel", "hen_coop"]:
+					var gid_str := String(gid)
+					# real generator art via make_content (the game does the same) so the demo isn't a "?" icon
+					gens.append({"kind": "filled", "icon": gid_str,
+						"make_content": func(sz: float) -> Control: return PieceView.make_generator(gid_str, sz)})
+				return Kit.bag_generators_section("Generators", gens, co)
+			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), 0, _dlg_px("bag"), bopts)
 	return Control.new()
 
 # The home BOTTOM BAR exactly as map.gd builds it (`_build_bottom_bar`): the real HomeChrome tile set,
@@ -1721,12 +1730,12 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 40]))
 			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 200]))    # how far the parchment border eats the grid width
-			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))        # gap between pill / grid / footer
-			_sidebar_body.add_child(_slider_row(["acorn_x", -200, 80]))     # nudge the acorn-balance pill left(−) / right(+)
+			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))        # gap between grid / generators / footer
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1200]))   # height cap; 0 = no scroll
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_group_header("Test only — not saved", false)                  # the game sets each from save
-			_sidebar_body.add_child(_slider_row(["balance", 0, 9999]))      # the 💎 acorn balance the pill shows
+			# (the bag has no acorn-balance pill — the HUD carries the counter; the only price is the next
+			# slot's cost chip, so the old balance / acorn_x knobs were dead and are removed.)
 			_sidebar_body.add_child(_slider_row(["owned", 0, 18]))          # how many slots are owned
 			_sidebar_body.add_child(_slider_row(["filled", 0, 18]))         # how many owned slots hold a piece
 		"quest_card":

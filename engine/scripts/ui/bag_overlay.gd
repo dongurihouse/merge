@@ -339,19 +339,9 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 # make_content) and taps to place it. `cell_opts` are the dialog's FITTED cell opts (handed over by
 # bag_dialog), so these tiles come out exactly the size of the slot cells in the grid above.
 static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 8)
-	var label := Label.new()
-	label.text = Strings.t("bag.generators")
-	label.add_theme_font_size_override("font_size", FS.BODY)
-	label.add_theme_color_override("font_color", Color(INK, 0.75))
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(label)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	col.add_child(row)
-	var co: Dictionary = cell_opts
+	# build the live generator cell dicts, then hand them to the SHARED kit row builder (the layout —
+	# label + centred row — lives in Kit.bag_generators_section, so the workbench preview matches).
+	var cells: Array = []
 	for i in gen_bag.size():
 		var gid_str := String(gen_bag[i])
 		var tier := int(gen_bag_tiers[i]) if i < gen_bag_tiers.size() else 1
@@ -372,9 +362,9 @@ static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, g
 			fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			return fallback
-		row.add_child(Kit.bag_card({"kind": "filled", "make_content": make_gen, "icon": gid_str,
+		cells.append({"kind": "filled", "make_content": make_gen, "icon": gid_str,
 			"on_tap": func() -> void:
 				if on_place_gen.is_valid():
 					on_place_gen.call(gid_str)
-				dismiss.call()}, co))
-	return col
+				dismiss.call()})
+	return Kit.bag_generators_section(Strings.t("bag.generators"), cells, cell_opts)
