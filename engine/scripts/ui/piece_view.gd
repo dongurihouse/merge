@@ -81,6 +81,12 @@ static func _content_tex(path: String) -> Texture2D:
 
 const ITEM_INSET := 0.16   # margin so art sits INSIDE the cell, not bleeding to its edge
 
+# THE one content_frac → inset mapping (Slot-cell "visible piece width as % of cell" → per-side
+# margin). Owned here so every cell surface (live board, residents habitat/hand, previews) derives
+# its inset from the SAME saved knob with the same clamp — they can't drift apart.
+static func inset_from_content_pct(pct: float) -> float:
+	return clampf((1.0 - pct / 100.0) / 2.0, 0.0, 0.45)
+
 # THE shared board-item pipeline. Every board item — piece, coin, or generator — is a cell-sized
 # holder built the SAME way: a soft contact shadow underneath (when item_backing is on), then the
 # centered sprite on top. make_piece / make_generator only choose WHICH art goes through it.
