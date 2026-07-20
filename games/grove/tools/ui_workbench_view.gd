@@ -595,9 +595,10 @@ func _make_element(id: String) -> Control:
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			bopts["extra"] = func(co: Dictionary) -> Control:
 				var gens: Array = []
-				for gid in ["seed_satchel", "hen_coop"]:
+				# REAL generator ids from the game roster (Game.DATA.GENERATORS) so the demo shows the
+				# actual generator art, not a "?" placeholder — the game does the same via make_content.
+				for gid in ["gen_1", "gen_2"]:
 					var gid_str := String(gid)
-					# real generator art via make_content (the game does the same) so the demo isn't a "?" icon
 					gens.append({"kind": "filled", "icon": gid_str,
 						"make_content": func(sz: float) -> Control: return PieceView.make_generator(gid_str, sz)})
 				return Kit.bag_generators_section("Generators", gens, co)
