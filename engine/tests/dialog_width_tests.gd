@@ -84,20 +84,22 @@ func _initialize() -> void:
 	ok(lscaler != null and is_equal_approx(float(lscaler.scale_factor), 1.5), "level_frame wraps content in a ScaleContainer")
 	ldlg.queue_free()
 
-	# banner_burn wiring: the "Banner Burn" slider (banner_burn opt) must reach the DialogTitle engrave.
-	# burn == 0 is the flat baseline (no cast shadow / outline); burn > 0 deepens the ink and adds the
-	# emboss shadow + outline. Guards the consumer — the opt was once plumbed but silently ignored.
+	# banner_burn wiring: the "Banner Burn" slider (banner_burn opt) must reach the DialogTitle deboss.
+	# burn == 0 is the flat baseline (no cast shadow); burn > 0 casts a Pal.BARK deboss shadow whose alpha
+	# and offset grow with the slider. Guards the consumer — the opt was once plumbed but silently ignored.
 	var flat: Control = Kit.dialog_frame(VBoxContainer.new(), 400.0, {"banner_text": "Z", "banner_burn": 0.0})
+	var mid: Control = Kit.dialog_frame(VBoxContainer.new(), 400.0, {"banner_text": "Z", "banner_burn": 0.5})
 	var hot: Control = Kit.dialog_frame(VBoxContainer.new(), 400.0, {"banner_text": "Z", "banner_burn": 1.0})
 	var tflat := flat.find_child("DialogTitle", true, false) as Label
+	var tmid := mid.find_child("DialogTitle", true, false) as Label
 	var thot := hot.find_child("DialogTitle", true, false) as Label
-	ok(tflat != null and not tflat.has_theme_color_override("font_shadow_color") and tflat.get_theme_constant("outline_size") == 0,
-		"banner_burn 0 = flat title (no engrave shadow/outline)")
-	ok(thot != null and thot.get_theme_color("font_shadow_color").a > 0.0 and thot.get_theme_constant("outline_size") > 0,
-		"banner_burn 1 engraves the title (slider reaches the label)")
-	ok(tflat != null and thot != null and thot.get_theme_color("font_color").v < tflat.get_theme_color("font_color").v,
-		"higher banner_burn deepens the title ink")
-	flat.queue_free(); hot.queue_free()
+	ok(tflat != null and not tflat.has_theme_color_override("font_shadow_color"),
+		"banner_burn 0 = flat title (no deboss shadow)")
+	ok(thot != null and thot.get_theme_color("font_shadow_color").a > 0.0 and thot.get_theme_constant("shadow_offset_y") > 0,
+		"banner_burn 1 casts the deboss shadow (slider reaches the label)")
+	ok(tmid != null and thot != null and thot.get_theme_color("font_shadow_color").a > tmid.get_theme_color("font_shadow_color").a,
+		"higher banner_burn deepens the deboss")
+	flat.queue_free(); mid.queue_free(); hot.queue_free()
 
 	# long-title shrink: the title row's max width is the card minus the docked ✕ zone on BOTH sides,
 	# so a long name auto-shrinks to fit instead of running under the disc ("WINTER BERRIES" bug).
