@@ -936,19 +936,8 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
 	name.size = Vector2(rect.size.x - inset * 2.0, name_font * 2.4)
 	card.add_child(name)
 	if locked:
-		# the padlock medallion: a cream ellipse carrying the slate padlock (mock emblem)
+		# the slate padlock, centred on the veiled thumb (no backing plate)
 		var med_h := clampf(rect.size.y * 0.34, 56.0, 170.0)
-		var med_w := med_h * 0.82
-		var med := Panel.new()
-		med.position = Vector2((rect.size.x - med_w) * 0.5, (rect.size.y - med_h) * 0.5 - rect.size.y * 0.02)
-		med.size = Vector2(med_w, med_h)
-		var ms := StyleBoxFlat.new()
-		ms.bg_color = CREAM
-		ms.set_corner_radius_all(int(med_h * 0.5))
-		Look.apply_box_shadow(ms)
-		med.add_theme_stylebox_override("panel", ms)
-		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(med)
 		var pad_path := Game.art("ui/meadow_v2/icon_padlock.png")
 		if ResourceLoader.exists(pad_path):
 			var pad := TextureRect.new()
@@ -956,10 +945,10 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
 			pad.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			pad.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			var pd := med_h * 0.56
-			pad.position = (med.size - Vector2(pd, pd)) * 0.5
+			pad.position = Vector2((rect.size.x - pd) * 0.5, (rect.size.y - pd) * 0.5 - rect.size.y * 0.02)
 			pad.size = Vector2(pd, pd)
 			pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			med.add_child(pad)
+			card.add_child(pad)
 		var lock_pill := _maps_pill(Strings.t("map.page.locked"), Pal.LOCKED, CREAM, int(name_font * 0.82))
 		lock_pill.position = Vector2((rect.size.x - lock_pill.size.x) * 0.5, rect.size.y - inset - lock_pill.size.y - rect.size.y * 0.03)
 		card.add_child(lock_pill)
