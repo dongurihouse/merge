@@ -72,8 +72,71 @@ func _initialize() -> void:
 			"tapping a tier-3 ingredient keeps that tier marked on its own screen")
 		ok(_count_ladder_overlays(b) == 1, "navigation REPLACES — only ever one ladder modal open")
 
+	# --- generator-icon tap: close the tier screen and SHOW the generator on the board ---
+	# on board → select (highlight) it; bagged → pull it to the first empty cell and select it;
+	# bagged with a FULL board → nothing happens (the screen stays open, the gen stays bagged).
+	b._clear_selection()
+	b._open_ladder(1, 1)
+	await create_timer(0.1).timeout
+	var ov_tap: Node = _ladder_overlay(b)
+	var gen_btn: Button = _gen_button(ov_tap)
+	ok(gen_btn != null, "the base tier screen's generator icon is tappable")
+	var gen_cell := _gen_cell(b, "gen_1")
+	ok(gen_cell.x >= 0, "gen_1 sits on the seeded board")
+	if gen_btn != null and gen_cell.x >= 0:
+		gen_btn.pressed.emit()
+		await create_timer(0.1).timeout
+		ok(_ladder_overlay(b) == null, "tapping the generator icon closes the tier screen")
+		ok(b._selected_cell == gen_cell, "…and highlights (selects) that generator on the board")
+
+		# bagged generator → the tap pulls it out to the first empty cell and highlights it there
+		b._clear_selection()
+		ok(b.board.store_gen(gen_cell), "gen_1 stores into the generator bag")
+		b._rebuild_all()
+		b._open_ladder(1, 1)
+		await create_timer(0.1).timeout
+		var btn2: Button = _gen_button(_ladder_overlay(b))
+		if btn2 != null:
+			btn2.pressed.emit()
+			await create_timer(0.1).timeout
+		var out_cell := _gen_cell(b, "gen_1")
+		ok(_ladder_overlay(b) == null, "tapping a BAGGED generator's icon closes the tier screen")
+		ok(out_cell.x >= 0 and not b.board.gen_bag.has("gen_1"), \
+			"…pulls the generator out of the bag onto the board")
+		ok(b._selected_cell == out_cell, "…and highlights it on its new cell")
+
+		# bagged generator + FULL board → the tap does nothing (screen stays open, gen stays bagged)
+		b._clear_selection()
+		ok(b.board.store_gen(out_cell), "gen_1 stores back into the bag")
+		for cell in b.board.empty_ground_cells():
+			b.board.place(Vector2i(cell), 101)   # brick every empty ground cell with a t1 item
+		b._rebuild_all()
+		b._open_ladder(1, 1)
+		await create_timer(0.1).timeout
+		var btn3: Button = _gen_button(_ladder_overlay(b))
+		if btn3 != null:
+			btn3.pressed.emit()
+			await create_timer(0.1).timeout
+		ok(_ladder_overlay(b) != null, "no empty cell → the tier screen STAYS open")
+		ok(b.board.gen_bag.has("gen_1") and _gen_cell(b, "gen_1").x < 0, \
+			"…and the generator stays in the bag, nothing placed")
+
 	b.queue_free()
 	finish()
+
+# the tappable generator-icon button in a base-line tier screen
+func _gen_button(overlay: Node) -> Button:
+	if overlay == null:
+		return null
+	var found: Array = (overlay as Control).find_children("LadderGeneratorButton", "Button", true, false)
+	return found[0] as Button if found.size() > 0 else null
+
+# the board cell holding generator `gid`, or (-1,-1) when it is not out
+func _gen_cell(b: Node, gid: String) -> Vector2i:
+	for c in b.board.gens:
+		if String(b.board.gens[c]) == gid:
+			return Vector2i(c)
+	return Vector2i(-1, -1)
 
 # the single live ladder overlay mounted on the board (mount name is "LadderOverlay")
 func _ladder_overlay(b: Node) -> Node:

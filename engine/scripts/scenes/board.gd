@@ -3690,9 +3690,30 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 		"header": header,
 		"mark_tier": mark_tier,
 		"on_pick": func(l: int) -> void: _open_ladder(l, mark_tier),
+		"on_gen": func(g: String) -> bool: return _reveal_generator(g),
 		"entries": _ladder_entries(line),   # the line's own tier ladder — shown under the recipe for a merged line
 	}
 	Ladder.open(self, opts)
+
+# Tier-screen generator tap: SHOW the generator — select (highlight) it if it is out on the board;
+# if it is bagged, pull it to the first empty ground cell and select it there. Returns whether the
+# tap acted (the ladder closes on true); a full board or an absent generator refuses and the tier
+# screen stays put.
+func _reveal_generator(gid: String) -> bool:
+	for c in board.gens:
+		if String(board.gens[c]) == gid:
+			_select_generator(Vector2i(c))
+			return true
+	if board.gen_bag.has(gid):
+		var cells := board.empty_ground_cells()
+		if cells.is_empty() or not board.place_gen_from_bag(gid, Vector2i(cells[0])):
+			Audio.play("invalid_soft", -6.0)
+			return false
+		_persist()
+		_rebuild_all()
+		_select_generator(Vector2i(cells[0]))
+		return true
+	return false
 
 # #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
 # the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
