@@ -11,6 +11,8 @@ extends RefCounted
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const HomeChrome = preload("res://games/grove/home_chrome.gd")   # the canonical home-chrome icon set (shared with map.gd)
+const LoginUI = preload("res://engine/scripts/ui/login.gd")      # the REAL runtime daily dialog (not the daily_card mock)
+const Look = preload("res://engine/scripts/ui/skin.gd")
 
 static func _level_data(mode: String) -> Dictionary:
 	return {
@@ -34,6 +36,13 @@ static func build_all(cfg: Dictionary) -> Array:
 		Kit.level_dialog(_level_data("levelup"), 460.0, Kit.level_opts_from_config(cfg)),
 	]
 	out.append_array(_chrome(cfg))
+	# The REAL daily-login dialog (engine/scripts/ui/login.gd) draws a DIFFERENT sprite set than the
+	# daily_card mock above — its reward + leaf sprites polish live on first open unless baked. It needs
+	# a host + live state to build headless, so instead we drive clean_tex_path over the exact sprites it
+	# declares (LoginUI.bake_sprites): that lands them in Kit._clean_cache the same way, so the bake writes
+	# their mirrors and the guard test holds them baked. @256 matches _sprite's clean_tex_path cap.
+	for rel in LoginUI.bake_sprites():
+		Kit.clean_tex_path(Look.kit(String(rel)), 256)
 	return out
 
 ## The home-screen CHROME — the bottom nav + the live-ops rail — is what cost ~480ms to build on a cold

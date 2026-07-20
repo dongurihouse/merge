@@ -69,6 +69,16 @@ const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
 const ART_LEAF_L := "kit/daily_chest_leaf_l.png"  # day-7 chest decal — cut-paper oak sprig, left
 const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-paper oak sprig, right
 
+## Every kit sprite THIS dialog polishes on open (_sprite → Kit.clean_tex_path). Sourced here, from
+## the same consts the draws use, so the texture bake and its guard cover the REAL runtime dialog —
+## not the workbench daily_card mock, which draws a different, older sprite set. Without this, all of
+## these get defringe/feather'd live on the main thread on first open (the slow-open hitch).
+## Registered in games/tools/bake_targets.gd; held baked by engine/tests/kit_bake_tests.gd.
+static func bake_sprites() -> Array:
+	var out: Array = [ART_CHEST, ART_GIFT, ART_CHECK, ART_LEAF_L, ART_LEAF_R]
+	out.append_array(REWARD_ART.values())
+	return out
+
 ## A small four-point sparkle, code-drawn (the mock scatters them over today's cell and the capstone
 ## banner). Code-drawn rather than art so it scales cleanly with the cell.
 class Spark:
