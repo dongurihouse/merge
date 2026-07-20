@@ -1,0 +1,20 @@
+Use case: stylized-concept.
+Asset type: full-scene vertical mobile game-zone concept mock, layer-aware production blueprint, no UI.
+Primary request: Fairy Hollow variation 3, "Story Tree Spring Hollow". Generate one complete cut-paper scene mock that shows an ancient fairy story-tree clearing with a spring, designed from the start to become a three-layer game scene.
+
+Input image roles:
+- fairy_hollow_original_mock_v1.png is Fairy Hollow mood/material continuity.
+- palette_a_meadow_sky_board.png is palette and matte paper authority.
+- home_screen_meadow_sky_v2_working_farm.png is elevated camera, object scale, and detail-budget authority only; do not copy farm content.
+- fairy_hollow_story_tree_sanctuary_concept_v1.png is previous Hollow content reference but simplified and made more layer-friendly.
+
+Layer plan to imply visually, without labels or text:
+1. Stable backdrop layer: continuous moss floor with soft terrain texture, a small clear spring/river lower-left, broad curved stepping-stone path, and exactly five naturally empty placement sockets visible in the terrain. No object outlines, no labels, no UI.
+2. Customizable object layer: exactly five replaceable hero clusters, each large and self-contained: ancient hollow story-tree house upper-middle, small vine bridge lower-left over spring, stone circle reading nook mid-lower center, seed-and-scroll kiosk mid-right, lantern shrine or bell post upper-left.
+3. Covering layer planned above: large foreground fern leaves, bluebells, mossy stone clusters, low root curls, hanging leaf curtains, and flower patches that overlap lower object edges and can remain when objects swap.
+
+Composition: portrait iPhone page, elevated three-quarter camera, full scene, no UI, no text. Keep the center active with path and spring, not empty. Use the same light direction and ground plane for all objects. Make sockets readable by composition and negative space, but never draw marker rings or construction outlines. Avoid crowded tiny details; each object should be tappable and extractable later.
+
+Style block: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock - never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+Avoid: UI chrome, readable writing, labels, numerals, watermark, dense micro foliage, many tiny trinkets, object-specific pads, circular flower rings, sticker bases, dark black shadows, hollow empty oval center, perspective mismatch, glossy 3D, clay, watercolor, brush strokes.

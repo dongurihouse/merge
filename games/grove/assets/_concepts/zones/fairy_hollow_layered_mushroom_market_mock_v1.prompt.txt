@@ -1,0 +1,20 @@
+Use case: stylized-concept.
+Asset type: full-scene vertical mobile game-zone concept mock, layer-aware production blueprint, no UI.
+Primary request: Fairy Hollow variation 2, "Mushroom Market Hollow". Generate one complete cut-paper scene mock that feels like a cozy fairy forest market, but designed from the beginning for later layer separation.
+
+Input image roles:
+- fairy_hollow_original_mock_v1.png is Fairy Hollow mood/material continuity.
+- palette_a_meadow_sky_board.png is palette and material authority.
+- home_screen_meadow_sky_v2_working_farm.png is elevated camera, object scale, and readable detail-budget authority; do not copy farm content.
+- fairy_hollow_mushroom_night_market_concept_v1.png is previous Hollow content reference but simplified substantially.
+
+Layer plan to imply visually, without labels or text:
+1. Stable backdrop layer: continuous dark-green moss floor, one broad S-shaped sandy path, a narrow glowing stream along the left lower side, low terrain markings, and six clear object sockets shaped naturally into the ground. No sky/clouds should be necessary in the future; keep upper background as removable atmosphere/reference only.
+2. Customizable object layer: exactly six large replaceable hero clusters, separated with visible ground between them: a central giant mushroom hall upper-middle, a left tea stall under a small mushroom cap, a right crystal/map stall under a red mushroom cap, a small wooden bridge over the stream lower-left, a flower-crate garden bed lower-right, and a lantern gate or signpost near the lower entry.
+3. Covering layer planned above: reusable foreground flowers, fern fronds, rock clusters, mushroom tufts, vine strings, and low leaves that partially overlap the lower object edges to integrate them.
+
+Composition: portrait iPhone page, elevated three-quarter camera, full scene no UI, no text, no labels. Fewer bigger pieces than a normal busy market. Leave clear ground between hero objects. The path should explain how a player visually travels from lower entry to market hall. Objects should sit on the same terrain plane, not on separate circular platforms.
+
+Style block: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock - never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+Avoid: UI chrome, readable writing, labels, numerals, watermark, lots of tiny shop goods, crowded miniature clutter, individual flower rings around each object, turf pads, dark black contact shadows, pasted-on scenic bases, glossy 3D, clay, watercolor, brush strokes.
