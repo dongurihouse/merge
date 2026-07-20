@@ -31,6 +31,27 @@ Use `layout.json` as the composition contract. It records the 160 x 145 logical
 card, overflowing portrait rectangle, note and tag rectangles, dynamic content
 safe areas, pivots, rotation range, and layer order.
 
+## Trim-before-fit contract
+
+Treat every `source_region` in `layout.json` as the alpha bounding box in the
+runtime texture. First trim logically to that region, then aspect-preserving
+contain the trimmed region inside the unchanged destination `rect`. Center the
+note and tag in their destination rectangles; bottom-center each portrait so
+its visible base reaches the authored bottom edge.
+
+| Asset | Runtime texture | Alpha bbox | Source region | Alignment |
+|---|---|---|---|---|
+| Request note | `final/quest_request_note_256x288.png` | `[29, 12, 227, 275]` | `x=29, y=12, w=198, h=263` | center |
+| Reward tag | `final/quest_reward_seed_tag_256.png` | `[39, 11, 216, 245]` | `x=39, y=11, w=177, h=234` | center |
+| Leaf-hood portrait | `final/giver_m2_1_clean_256.png` | `[50, 9, 205, 247]` | `x=50, y=9, w=155, h=238` | bottom-center |
+| Sandcastle portrait | `final/giver_m2_2_clean_256.png` | `[56, 9, 200, 247]` | `x=56, y=9, w=144, h=238` | bottom-center |
+| Purple-hood portrait | `final/giver_m2_3_clean_256.png` | `[40, 9, 216, 247]` | `x=40, y=9, w=176, h=238` | bottom-center |
+
+Fitting the raw full-canvas texture is wrong: its transparent gutters become
+part of the fit calculation, shrinking and shifting the visible artwork. That
+breaks the note/tag safe-area contract and prevents portrait bases from
+reaching the intended `y=154` bottom, nine pixels beyond the card.
+
 ## Source and processing
 
 Every accepted raw image and exact built-in image-generation prompt is retained
@@ -47,6 +68,8 @@ zero. Exact processing settings and measured results are in `qc_report.json`.
 
 ## Integration notes
 
+- Apply the trim-before-fit contract above; do not fit transparent full-canvas
+  texture bounds directly into the destination rectangles.
 - Preserve aspect ratio for every sprite.
 - Do not clip the portrait to the card; its authored rounded base overlaps the
   lower-left card edge.

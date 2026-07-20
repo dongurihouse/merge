@@ -63,6 +63,16 @@
       "enclosed_transparent_components_over_50px": [
         1374,
         522
+      ],
+      "enclosed_transparent_component_labels": [
+        {
+          "label": "punched_hole",
+          "area": 1374
+        },
+        {
+          "label": "loop_aperture",
+          "area": 522
+        }
       ]
     },
     {
@@ -186,6 +196,16 @@
       "enclosed_transparent_components_over_50px": [
         379,
         144
+      ],
+      "enclosed_transparent_component_labels": [
+        {
+          "label": "punched_hole",
+          "area": 379
+        },
+        {
+          "label": "loop_aperture",
+          "area": 144
+        }
       ]
     }
   ],

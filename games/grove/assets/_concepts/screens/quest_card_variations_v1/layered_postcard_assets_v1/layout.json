@@ -8,6 +8,15 @@
       "height": 145
     }
   },
+  "sprite_fit_contract": {
+    "source_region": "runtime_texture_alpha_bbox",
+    "operation_order": [
+      "trim_to_source_region",
+      "aspect_preserving_contain_in_destination_rect"
+    ],
+    "fit_mode": "contain",
+    "preserve_aspect": true
+  },
   "base_card": {
     "implementation": "code_drawn_rounded_panel",
     "texture_tiles": [
@@ -26,6 +35,27 @@
       "width": 110,
       "height": 144
     },
+    "source_regions": {
+      "giver_m2_1_clean_256.png": {
+        "x": 50,
+        "y": 9,
+        "width": 155,
+        "height": 238
+      },
+      "giver_m2_2_clean_256.png": {
+        "x": 56,
+        "y": 9,
+        "width": 144,
+        "height": 238
+      },
+      "giver_m2_3_clean_256.png": {
+        "x": 40,
+        "y": 9,
+        "width": 176,
+        "height": 238
+      }
+    },
+    "fit_alignment": "bottom_center",
     "anchor": "bottom_center",
     "preserve_aspect": true,
     "clip_to_card": false,
@@ -34,6 +64,12 @@
   },
   "request_note": {
     "asset": "final/quest_request_note_256x288.png",
+    "source_region": {
+      "x": 29,
+      "y": 12,
+      "width": 198,
+      "height": 263
+    },
     "rect": {
       "x": 97,
       "y": 8,
@@ -44,6 +80,7 @@
       "x": 0.5,
       "y": 0.5
     },
+    "fit_alignment": "center",
     "preserve_aspect": true,
     "rotation_degrees": {
       "min": -3,
@@ -60,6 +97,12 @@
   },
   "reward_tag": {
     "asset": "final/quest_reward_seed_tag_256.png",
+    "source_region": {
+      "x": 39,
+      "y": 11,
+      "width": 177,
+      "height": 234
+    },
     "rect": {
       "x": 100,
       "y": 81,
@@ -70,6 +113,7 @@
       "x": 0.5,
       "y": 0.5
     },
+    "fit_alignment": "center",
     "preserve_aspect": true,
     "content_safe_rect": {
       "x": 106,
