@@ -1,0 +1,9 @@
+Variation A — Lantern Lodge Plaza
+
+Generate a coherent 941×1672 portrait winter paper-cut mock as a visual reference for four compositing
+passes: separate sky/atmosphere; a foundation-only snow, pond, path, mountain and perimeter-spruce
+backdrop; exactly five isolated hero cutouts (lodge, gazebo, stone bridge, dock with tied rowboat,
+entrance arch); and fixed edge-only spruce/bush/rock/snowbank coverings. Keep one object-width of exposed
+ground between heroes. No labels, UI, people, animals, micro-props, loose lanterns, scattered furniture,
+or decorative clutter. Use the Meadow Sky + Cut-Paper Playground material, warm cut edges, 2–4% paper
+fiber, simple silhouettes, upper-left light and shallow down-right contacts.
