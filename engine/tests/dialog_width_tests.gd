@@ -71,6 +71,22 @@ func _initialize() -> void:
 	ok(_find_scaler(dlg2) == null, "identity content_scale inserts no ScaleContainer")
 	dlg2.queue_free()
 
+	# show_close: the ✕ disc is on by default and suppressed when a sheet opts out (the level screen).
+	var closebody := VBoxContainer.new(); closebody.add_child(Label.new())
+	var closedlg: Control = Kit.dialog_frame(closebody, 400.0, {"banner_text": "Z"})
+	get_root().add_child(closedlg)
+	for _i in 4:
+		await process_frame
+	ok(closedlg.find_child("DialogClose", true, false) != null, "dialog_frame docks the ✕ by default")
+	closedlg.queue_free()
+	var noclosebody := VBoxContainer.new(); noclosebody.add_child(Label.new())
+	var noclosedlg: Control = Kit.dialog_frame(noclosebody, 400.0, {"banner_text": "Z", "show_close": false})
+	get_root().add_child(noclosedlg)
+	for _i in 4:
+		await process_frame
+	ok(noclosedlg.find_child("DialogClose", true, false) == null, "show_close = false drops the ✕ disc")
+	noclosedlg.queue_free()
+
 	# level_frame mirrors dialog_frame: crisp chrome at target, content scaled.
 	var lbody := VBoxContainer.new()
 	lbody.add_child(Label.new())

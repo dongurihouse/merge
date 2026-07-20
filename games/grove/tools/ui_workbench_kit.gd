@@ -2484,6 +2484,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var footer_gap: float = float(opts.get("footer_gap", 10.0))
 	var center_content: bool = bool(opts.get("center_content", false))   # stretch a sparse content block to fill the floored body so it centers (empty mail note)
 	var on_close: Callable = opts.get("on_close", Callable())
+	# most dialogs dock a ✕ in the top-right; a few mock sheets (the level screen) carry none and are
+	# dismissed another way (veil tap / a Collect button). show_close == false drops the disc entirely.
+	var show_close: bool = bool(opts.get("show_close", true))
 	var banner_text: String = String(opts.get("banner_text", "Mail"))
 	var panel_pad_x: float = float(opts.get("panel_pad_x", border["pad_x"]))   # content inset from the sheet edge (L/R)
 	var panel_pad_y: float = float(opts.get("panel_pad_y", border["pad_y"]))   # content inset from the sheet edge (T/B)
@@ -2622,15 +2625,18 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	header.position = Vector2(-panel_pad_x, banner_pos.y)
 	inner.add_child(header)
 
-	# the ✕ disc poles past the card's top-right corner. The game passes on_close; the workbench prints.
-	var close_cb: Callable = on_close if on_close.is_valid() else (func() -> void: print("WORKBENCH: dialog closed"))
-	var close := _close_button(close_size, close_cb, close_art)
-	wrap.add_child(close)
+	# the ✕ disc docks inside the card's top-right corner. The game passes on_close; the workbench prints.
+	# A sheet that opts out (show_close == false — the level screen) gets no disc at all.
+	var close: Button = null
+	if show_close:
+		var close_cb: Callable = on_close if on_close.is_valid() else (func() -> void: print("WORKBENCH: dialog closed"))
+		close = _close_button(close_size, close_cb, close_art)
+		wrap.add_child(close)
 
 	# ONE relayout: cap the content height (so it scrolls behind the banner), size the wrap to the card
 	# so the gallery centres it, and dock the ✕.
 	var relayout := func() -> void:
-		if not (is_instance_valid(inner) and is_instance_valid(rows) and is_instance_valid(card) and is_instance_valid(close)):
+		if not (is_instance_valid(inner) and is_instance_valid(rows) and is_instance_valid(card)):
 			return
 		# Resolve the HEIGHT floor once the card is mounted (needs the viewport for the %): an explicit
 		# px min_h wins, else DIALOG_MIN_H_FRAC of the screen height. Guarded by a 1px delta so setting
@@ -2666,7 +2672,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 			if is_instance_valid(foot_spacer) and absf(foot_spacer.custom_minimum_size.y - fh) > 1.0:
 				foot_spacer.custom_minimum_size.y = fh
 		wrap.custom_minimum_size = card.size
-		close.position = Vector2(card.size.x - close_size - close_poke.x, close_poke.y)   # docked INSIDE the corner (mock v2)
+		if is_instance_valid(close):
+			close.position = Vector2(card.size.x - close_size - close_poke.x, close_poke.y)   # docked INSIDE the corner (mock v2)
 	rows.resized.connect(relayout)
 	rows.ready.connect(relayout)
 	card.resized.connect(relayout)
