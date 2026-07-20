@@ -41,6 +41,8 @@
     {"id":"path_stone_16","assetId":"stepping_stone_2","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-2.png","x":485,"y":2265,"w":208,"h":208,"z":135,"layer":"path_decals","cluster":"stepping_path"},
     {"id":"path_stone_17","assetId":"stepping_stone_4","category":"terrain","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/stepping_stones/stepping_stone-4.png","x":505,"y":2345,"w":214,"h":214,"z":136,"layer":"path_decals","cluster":"stepping_path"},
 
-    {"id":"gate","assetId":"torii_gate","category":"structures","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/03_structures/torii_gate.png","x":505,"y":2010,"w":610,"h":610,"z":300,"layer":"foreground_structure","cluster":"gate"}
+    {"id":"gate","assetId":"torii_gate","category":"structures","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/03_structures/torii_gate.png","x":482,"y":2210,"w":1100,"h":960,"z":300,"layer":"foreground_structure","cluster":"gate"},
+    {"id":"gate_footing_vegetation_left","assetId":"garden_prop_6","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-6.png","x":325,"y":2160,"w":340,"h":340,"z":310,"layer":"foreground_dressing","cluster":"gate"},
+    {"id":"gate_footing_vegetation_right","assetId":"garden_prop_5","category":"vegetation","image":"games/grove/assets/_concepts/zones/cherry_blossom_temple_elements_v1/05_dressing/bushes/garden_prop-5.png","x":670,"y":2150,"w":300,"h":300,"z":311,"layer":"foreground_dressing","cluster":"gate"}
   ]
 }

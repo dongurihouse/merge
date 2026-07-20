@@ -437,7 +437,205 @@ scene canvas with a shared top-left origin, even when a tight-cropped source spr
 the crop box, center-bottom anchor, intended display size, and z-order in metadata. Never resize one layer
 until it "looks about right" in the preview; that hides camera/scale drift and makes reconstruction fragile.
 
-### 11b · Common generation failures and fixes
+### 11b · Exact source-mock extraction and Scene Workbench reconstruction
+
+Use this workflow when an approved mock is the composition authority and the deliverable must reproduce
+its backdrop, object sizes, facing directions, angles, paths, and occlusion in Scene Workbench (`make sw`).
+This is a **registered reconstruction task**, not a loose style-transfer task. General resemblance is a
+failure when the source measurements can be preserved.
+
+#### Lock one source authority
+
+- Write the exact source path at the top of the bundle README and metadata before extracting anything.
+  Similar names such as `*_original_mock_*`, `*_concept_*`, and `*_backdrop_*` are not interchangeable.
+- Show that exact source in the Workbench reference column and in every extraction review. Do not extract
+  from one mock and judge the reconstruction against another.
+- Preserve an untouched copy under `00_source/` or `00_style/`. Record its pixel dimensions and the target
+  Workbench canvas dimensions. The source controls composition, camera, object scale, facing, angle,
+  spacing, and light; this guide continues to control material and processing quality.
+- Make a source inventory before prompting: backdrop surfaces, terrain features, hero objects, reusable
+  decals, local contact dressing, broad environmental framing, and atmosphere. The inventory is also the
+  explicit removal list for the backdrop pass.
+
+#### Choose extraction versus generation correctly
+
+| Need | Correct method |
+|---|---|
+| Preserve visible pixels, silhouette, size, and angle exactly | Full-canvas mask/segmentation from the approved mock |
+| Preserve an object but complete small occluded or cropped edges | Mask the source pixels first; use image generation only for the missing edge repair |
+| Remove foreground objects while preserving the original ground/horizon | Full-canvas edit of the approved mock with an explicit removal inventory and preservation lock |
+| Create a new variation inspired by the mock | Reference-based image generation; treat it as new art requiring approval |
+
+Do not prompt image generation to "extract" or "cut out" an object when exact preservation is required.
+The model commonly redraws, recenters, rotates, mirrors, changes scale, simplifies detail, or invents a
+scenic base. A clean generated cutout may still be the wrong asset if it no longer registers to the mock.
+
+#### Marked-reference protocol
+
+When image generation is needed for an occlusion repair or a subject that cannot be segmented cleanly:
+
+1. Attach the untouched full mock as the camera, scale, lighting, palette, and context authority.
+2. Create a second review-only copy with **one** rectangle, ellipse, or translucent highlight around the
+   target. The mark identifies the target; it does not define its silhouette.
+3. When useful, attach a tight crop as a detail reference, but never use the crop alone: a crop loses the
+   scene camera, relative scale, and facing context.
+4. State the target's exact identity and exclusions. Say which nearby pixels belong to other objects and
+   must not be included.
+5. Require the original facing, three-quarter angle, proportions, light direction, and paper grain. Forbid
+   rotation, mirroring, straightening, front-facing redesign, recentering, scenic floors, and extra props.
+6. Generate on a perfectly flat subject-safe chroma key with generous clearance on all four sides, then
+   apply the deterministic §8 keying/despill workflow. The highlight never appears in the generated asset.
+
+Suggested extraction/repair prompt lock:
+
+```text
+The untouched full mock is the exact identity, camera, scale, facing, three-quarter angle, palette,
+paper-grain, and upper-left-light authority. The marked image identifies only the target object.
+Reconstruct only that object, preserving its source silhouette, aspect ratio, direction, visible planes,
+and proportions. Complete only the small parts hidden in the source. Do not rotate, mirror, straighten,
+front-face, redesign, simplify, add a floor/base/shadow, or include neighboring scenery. Show the complete
+object with generous clearance on a perfectly flat solid #FF00FF background.
+```
+
+#### Backdrop extraction
+
+The backdrop pass starts from the approved full mock, not from a prose description and not from a newly
+generated blank scene. Give image generation the original image as the **edit target** and name every item
+to remove. "Remove the foreground" is too ambiguous: it often removes the ground texture as well.
+
+```text
+Edit the approved mock in place. Remove only: <complete enumerated object list>.
+Preserve exactly: canvas, crop, camera, horizon, mountains/sky, continuous ground geometry, ground color,
+raked-sand/path texture, paper grain, lighting, and all low terrain markings named as permanent.
+Fill every exposed hole with the immediately surrounding source material and directional texture.
+Do not smooth, flatten, recolor, zoom, crop, repaint, or add any object.
+```
+
+- Decide explicitly whether ponds, roads, bridges, stairs, and paths are permanent terrain or removable
+  plates. If they must be editable in Workbench, remove them from the backdrop and extract them separately.
+- Keep the edited backdrop at the exact source canvas size. Reject any result that changes the horizon,
+  loses the ground texture, alters raked-line direction, leaves object ghosts, or invents clean empty pads.
+- Compare source and backdrop at equal size. Inspect every removed object's footprint at 100%, especially
+  patterned ground, water banks, stairs, fences, and contact shadows.
+
+#### Measure instead of eyeballing
+
+Record each source-space object rectangle as `(left, top, width, height)` in
+`metadata/source_bounds.json`. For a source `Sw x Sh` reconstructed on a Workbench canvas `Cw x Ch`:
+
+```text
+scale_x = Cw / Sw
+scale_y = Ch / Sh
+target_visible_left   = source_left   * scale_x
+target_visible_top    = source_top    * scale_y
+target_visible_width  = source_width  * scale_x
+target_visible_height = source_height * scale_y
+target_visible_center_x = target_visible_left + target_visible_width / 2
+target_visible_bottom   = target_visible_top  + target_visible_height
+```
+
+Scene Workbench uses a center-bottom anchor:
+
+```text
+x = target_visible_left + target_visible_width / 2
+y = target_visible_top + target_visible_height
+```
+
+Do not assume the PNG canvas equals its visible subject bounds. Chroma-keyed sprites and processed decals
+often retain transparent padding. Measure the alpha bounding box `(Ax, Ay, Aw, Ah)` inside the asset canvas
+`Iw x Ih`, then compensate when setting the Workbench envelope:
+
+```text
+placement_w = target_visible_width  * Iw / Aw
+placement_h = target_visible_height * Ih / Ah
+placement_x = target_visible_center_x - (Ax + Aw / 2 - Iw / 2) * placement_w / Iw
+placement_y = target_visible_bottom   + (Ih - (Ay + Ah)) * placement_h / Ih
+```
+
+This compensation is mandatory for paths and small decals: setting `w` to the desired visible stone width
+can render the actual stone at half size when half the PNG is transparent. Store source bounds, alpha
+bounds, final center-bottom anchor, display envelope, z, facing, and any approved tolerance in metadata.
+
+#### Identify atomic assets and groups
+
+Inventory the mock in this order:
+
+1. **Backdrop:** continuous, non-selectable surfaces and permanent low terrain.
+2. **Terrain features:** ponds, roads, stairs, bridges, cliffs, and paths that may need independent control.
+3. **Hero objects:** buildings, gates, washing stations, large trees, statues, and other scale-setting props.
+4. **Reusable decals:** individual stones, rocks, bushes, petals, flowers, and small bonsai/ornaments.
+5. **Local contact dressing:** small pieces that visually ground one hero.
+6. **Broad environment/foreground:** edge vegetation, canopies, horizon bands, and atmosphere that frame the
+   whole scene rather than belonging to one object.
+
+Extract atomic assets first; create Workbench groups second. Do not bake a bridge into a pond, a whole path
+into one sprite, or broad vegetation into a building merely because they overlap in the mock.
+
+A Workbench cluster represents a semantic move/scale unit:
+
+- A hero cluster contains the hero plus only the contact shadow, tufts, rocks, petals, or trim that should
+  always move with it.
+- A path cluster contains separate stone entries so the route can move as a whole while each stone remains
+  individually adjustable.
+- A pond and bridge remain separate atomic assets. Cluster them only after their independent alignment is
+  approved and only if product behavior says they always move together.
+- Broad edge vegetation, horizon plates, and atmosphere do not join the nearest hero cluster.
+- Visual proximity alone does not imply ownership. Ask: "If this hero moved or were replaced, should this
+  piece move too?" If not, it belongs to another cluster or remains unclustered.
+
+For dense scenes, first make a marked inventory image with one numbered/colored region per proposed atomic
+asset. Review group boundaries before generating. A useful grouping plan names the hero, its inseparable
+parts, optional local dressing, and excluded neighboring scenery.
+
+#### Reconstruct procedurally in Scene Workbench
+
+`metadata/placements.json` is the composition authority. Reconstruct in visible checkpoints; never populate
+the whole scene in one pass:
+
+1. **Backdrop only.** Open and render it. Confirm canvas, horizon, texture direction, and absence of ghosts.
+2. **One scale anchor.** Add the largest or most central hero at its measured source bounds. Fix extraction,
+   alpha bounds, anchor, scale, and angle before adding anything else.
+3. **Bare major layout.** Add only the other major terrain/hero objects. No trees, bushes, rocks, lanterns,
+   or contact dressing yet. Match normalized position and visible size against the source.
+4. **Paths and repeated decals.** Rebuild them from individual variants using measured center points,
+   spacing, count, direction, and perspective scale. Do not extract a whole stepping-stone path as one image.
+5. **Occlusion order.** Give paths/ground decals lower z than structures that cover them in the mock. Match
+   where a route disappears behind a pond bank, pavilion, gate, tree, or foreground frame and reappears.
+6. **Local clusters.** Add only approved contact dressing and assign it the hero's `cluster` value.
+7. **Broad framing and atmosphere last.** These should complete the composition, not hide inaccurate anchors.
+
+For paths specifically, trace the source route as a polyline of stone centers. Record every center, visible
+width/height, variant/facing, and z. Preserve the source count and gaps unless an occluded stone is inferred.
+Scale foreground stones only when the mock shows perspective growth. If Workbench has no rotation control,
+generate/extract angle variants; do not fake direction by stretching a stone's width and height.
+
+After every checkpoint:
+
+```sh
+make import
+make shot-sw SCENE=<scene> ROOT=<scene-root> OUT=/tmp/<scene>-review.png
+```
+
+View the Workbench capture with the correct source visible in the reference column. Compare landmark boxes,
+path centerline, visible alpha bounds, spacing, occlusion, and phone-size readability. Save named checkpoint
+renders (`backdrop`, `major-layout`, `path-v1`, `path-v2`, `dressed`) rather than overwriting the evidence.
+When the reconstruction drifts, remove later layers and correct the earliest wrong checkpoint; do not hide
+bad geometry under vegetation.
+
+#### Acceptance gate
+
+- Correct source mock is visible and named; no similarly named reference was substituted.
+- Backdrop retains source ground/horizon texture and contains none of the enumerated removable objects.
+- Every hero preserves source facing, camera angle, visible aspect, and size within the scene-specific
+  tolerance; exact-preservation assets use source pixels rather than a redraw.
+- Placement envelopes compensate for transparent padding; comparison uses visible alpha bounds.
+- Clusters express semantic ownership, not incidental proximity.
+- Paths match source count, centerline, spacing, direction, perspective scaling, and occlusion breaks.
+- The minimal major-layout checkpoint matches before dressing is allowed.
+- A fresh `make shot-sw` capture has been visually compared against the correct source; JSON parses and the
+  relevant Workbench/project tests pass before integration.
+
+### 11c · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|

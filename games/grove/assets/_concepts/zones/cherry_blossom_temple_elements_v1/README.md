@@ -12,6 +12,6 @@ The current placed scene intentionally contains only:
 - seventeen individual stepping stones (`stepping_path`), arranged as the mock's upper-right descent, middle S-curve, and lower gate approach
 - pond (`pond`)
 - washing station / temizuya (`washing_station`)
-- torii gate (`gate`)
+- torii gate with two footing-vegetation members (`gate`)
 
-There is no bridge, shrine, lantern, tree, rock, bush, fence, or surroundings group in the placement document. Other extracted assets remain available in the bundle for later procedural additions, but they are not placed in this checkpoint.
+There is no bridge, shrine, lantern, tree, rock, fence, or broad surroundings group in the placement document. The only placed bushes are the two compact members owned by the gate cluster. Other extracted assets remain available in the bundle for later procedural additions, but they are not placed in this checkpoint.
