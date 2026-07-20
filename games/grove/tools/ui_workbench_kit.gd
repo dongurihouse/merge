@@ -2564,12 +2564,29 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 
 	# the content scrolls and FILLS the card; it clips, so content slides up BEHIND the banner. A top
 	# spacer (banner bottom + list_top_pad) keeps content below the banner to begin with.
+	# THE CLIP WINDOW: the scroll's own clip would slice content at the PADDED edge, but cards carry
+	# deliberate horizontal overhangs — a shop card's ribbon, a marked cell's glow, every card's side
+	# shadow — that must land on the parchment margin, exactly like CONTENT_TAIL_PAD lets the LAST
+	# row's shadow clear the bottom edge. So the horizontal clip moves OUT to the card's edge: a
+	# wrapper spanning the side pads clips instead, and the scroll (kept at its exact old rect, so
+	# every dialog's layout is untouched) no longer clips itself. Vertical bounds match the scroll —
+	# the vertical clip is unchanged.
+	var clipw := Control.new()
+	clipw.name = "DialogClipWindow"
+	clipw.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clipw.offset_left = -panel_pad_x
+	clipw.offset_right = panel_pad_x
+	clipw.clip_contents = true
+	clipw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(clipw)
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = panel_pad_x
+	scroll.offset_right = -panel_pad_x
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.clip_contents = true
+	scroll.clip_contents = false
 	_style_scrollbar(scroll)
-	inner.add_child(scroll)
+	clipw.add_child(scroll)
 	var rows := VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var spacer := Control.new()
@@ -3729,8 +3746,13 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 	# the cells fill the panel's INNER width — the card width minus the border's content padding on BOTH
 	# sides. The discovery dialog uses the standard frame (no panel_pad override), so resolve the padding
 	# from the chosen border — the SAME value dialog_frame pads to — keeping the right column inside it.
+	# The pads (and the scrollbar reserve) are REAL px on the scaled card, so in layout space they cost
+	# 1/content_scale — reserving them raw undersized the reserve, the row minimum then exceeded the true
+	# available width, the body clamped UP to that minimum, and the right column poked past the clip
+	# (fit() below re-derives from the clamped — still too wide — width, so it could not recover).
 	var pad: float = float(opts.get("panel_pad_x", frame_border(String(opts.get("border", "parchment"))).get("pad_x", 26.0)))
-	var avail: float = maxf(48.0, width - 2.0 * pad)
+	var g_scale: float = maxf(0.01, float(opts.get("content_scale", 1.0)))
+	var avail: float = maxf(48.0, width - (2.0 * pad + SCROLLBAR_W) / g_scale)
 	var cw: float = maxf(40.0, (avail - (cols - 1) * gap) / float(cols))
 	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 150.0)))
 	var co := opts.duplicate()

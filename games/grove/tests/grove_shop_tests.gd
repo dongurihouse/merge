@@ -520,6 +520,20 @@ func _initialize() -> void:
 	ok(not saw_coin_card, "the water stall carries no coin-priced card (the boost is a board action now)")
 	bhost.queue_free()
 
+	# GEOMETRY: a merchandising ribbon deliberately overhangs its card's top-left corner — the frame
+	# must not slice it (the leftmost column's ribbon used to lose its tip to the scroll's clip).
+	fresh("ribbon_unclipped")
+	var rhost := Control.new()
+	rhost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(rhost)
+	ShopS.open(rhost, {})
+	await create_timer(0.15).timeout
+	var ribbons: Array = rhost.find_children("ShopOfferRibbon", "", true, false)
+	ok(ribbons.size() > 0, "the full shop shows at least one merchandising ribbon")
+	for rb in ribbons:
+		assert_unclipped(rb as Control, "h", 0.5, "shop ribbon on %s" % (rb.get_parent().name))
+	rhost.queue_free()
+
 	finish()
 
 func _button_with_text(overlay: Control, text: String) -> Button:
