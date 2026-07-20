@@ -1150,6 +1150,19 @@ func _test_new_knobs(view) -> void:
 	# the sample count feeds ONLY the Mail pill; Daily + Vault wear the bare dot (no number), matching the game.
 	ok(_has_label_text(home_button_preview, "3"), \
 		"the Mail tile shows the sample count pill (map.gd builds Mail as a numbered pill)")
+
+	# the DAILY card + dialog are the game's REAL login renderer (login.gd), not the orphaned Kit.daily_card:
+	# the today card carries login.gd's named DailyClaimButton, and the dialog is login.gd's DailyGrid + capstone.
+	view._params["daily_card"]["preview"] = "today"
+	var daily_card_preview: Control = view._make_element("daily_card")
+	ok(daily_card_preview.find_child("DailyClaimButton", true, false) != null, \
+		"the daily-card preview is the game's real login cell (carries login.gd's DailyClaimButton)")
+	var daily_dialog_preview: Control = view._make_element("daily")
+	ok(daily_dialog_preview.find_child("DailyGrid", true, false) != null, \
+		"the daily-dialog preview is the game's real login screen (login.gd's DailyGrid + capstone)")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "LoginUI._day_cell") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "LoginUI._rebuild"), \
+		"the workbench draws the daily card + dialog through the game's login.gd renderer, not the orphaned kit")
 	# the in-tile COUNT overlay (the board bag/home well's "x/y"): its offset + font are read by the shared
 	# resolver, default to the shipped placement, and are SAVED config the board wells read (action_bar.gd).
 	# The bottom-bar preview has no bag well, so those knobs are tuned by number rather than previewed here.

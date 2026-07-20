@@ -18,6 +18,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge p
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
+const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
 const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
@@ -42,7 +43,7 @@ const DEPENDENTS := {
 	"button": ["card", "dialog", "daily", "shop", "settings", "info"],
 	"card": ["dialog", "daily", "shop", "settings", "info"],
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info", "level", "vault"],
-	"daily_card": ["daily", "shop"],
+	"daily_card": ["shop"],
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
@@ -122,13 +123,13 @@ const CAPTIONS := {
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
-	"daily_card": "Daily card — one day (badges)",
+	"daily_card": "Daily card — the game's real login day cell (today · done · mystery · future)",
 	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
 	"toggle_card": "Toggle card — label + switch",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
-	"daily": "Daily — day grid (shared frame)",
+	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
 	"mystery": "Mystery — slot reveal (reels spin · premium shines · pick N)",
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
@@ -469,19 +470,11 @@ func _make_element(id: String) -> Control:
 			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
 			return Kit.mail_dialog(Kit.DEMO_MAIL, _dlg_px("dialog"), opts)
 		"daily_card":
-			# the shared small card in a chosen preview state (incl. a shop pack). Rendered at 2× (bigger
-			# cell + fonts; the icons scale with cell_w) — a preview ZOOM so the small card is comfortable
-			# to edit. The real daily/shop dialogs still use the saved (smaller) size.
-			# a preview ZOOM: only the cell SIZE is enlarged — every content size + offset scales from cell_w
-			# inside daily_card, so the zoomed preview shows the EXACT proportions the dialog will.
-			var co := Kit.daily_card_opts_from_config(_params)
-			var z := 2.0
-			co["cell_w"] = float(co["cell_w"]) * z
-			co["cell_h"] = float(co["cell_h"]) * z
-			var day := _daily_preview_day(String(p.preview))
-			if String(p.ribbon) != "":
-				day["ribbon"] = String(p.ribbon)
-			return Kit.daily_card(day, co)
+			# the REAL game daily cell — the SAME LoginUI._day_cell the daily login screen draws, so the
+			# preview matches the game exactly (the old Kit.daily_card here was orphaned: the game diverged
+			# to login.gd's bespoke cell, which reads no config). One cell in the chosen preview state, at a
+			# comfortable size; the game cell scales all its content off the cell width.
+			return LoginUI._day_cell(Kit, _daily_preview_day(String(p.preview)), 232.0, 232.0 * 1.62)
 		"toggle_card":
 			# one settings ROW, standalone — a label + the shared switch, at a representative width (it always
 			# lives width-constrained in the Settings dialog). label_font / switch_h / card_art are saved.
@@ -490,11 +483,10 @@ func _make_element(id: String) -> Control:
 			tcard.custom_minimum_size.x = 460
 			return tcard
 		"daily":
-			# SHARED frame config (from the Dialog item) + the separately-defined day card + grid knobs
-			var dopts := Kit.daily_opts_from_config(_params)
-			dopts["banner_text"] = "Daily"
-			dopts["content_scale"] = _dlg_scale("daily")
-			return Kit.daily_dialog(Kit.DEMO_DAILY, _dlg_px("daily"), dopts)   # frame edited on the Frame item
+			# the REAL game daily dialog — the shared frame (edited on the Frame item) wrapping LoginUI's
+			# own grid + capstone (LoginUI._rebuild), the SAME renderer the daily login screen uses. The
+			# old Kit.daily_dialog here was orphaned (the game builds this from login.gd, not the kit).
+			return _daily_dialog_preview()
 		"mystery":
 			# the spin-reveal dialog (login_mystery.gd build_reveal) — the SAME face the game animates, rendered
 			# STATIC so it's visual-checkable. The preview picks a pool + a state; the demo roll is DETERMINISTIC
@@ -1096,13 +1088,49 @@ func _bag_price(k: int, prices: Array, start: int) -> int:
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
 ## mystery shows the milestone badge + chest).
+## A demo day dict for the LoginUI cell preview — the SAME fields login.gd's _days() builds, hand-made so
+## the preview needs no live save state. `state` picks which rung to show.
 func _daily_preview_day(state: String) -> Dictionary:
 	match state:
 		"done":    return {"day": 2, "label": "Day 2", "reward": {"water": 10}, "state": "done"}
 		"future":  return {"day": 5, "label": "Day 5", "reward": {"coins": 100}, "state": "future"}
-		"mystery": return {"day": 7, "label": "Day 7", "reward": {"gems": 30}, "state": "future", "mystery": true}
-		"shop":    return {"icon": "gem", "count": 500, "price": "$4.99"}   # the SAME card as a shop pack
-		_:         return {"day": 4, "label": "Day 4", "reward": {"coins": 150}, "state": "today"}
+		"mystery": return {"day": 4, "label": "Day 4", "reward": {"gems": 30}, "state": "today", "mystery": true, "mystery_icon": LoginUI.ART_GIFT}
+		_:         return {"day": 3, "label": "Day 3", "reward": {"coins": 150}, "state": "today"}
+
+## The full 7-day demo ladder for the daily-dialog preview — days 1-2 done, day 3 today (claimable), a
+## slot-4 mystery gift, days 5-6 future, day 7 the capstone milestone.
+func _daily_demo_days() -> Array:
+	var rewards := [{"water": 10}, {"coins": 50}, {"coins": 150}, {"gems": 30}, {"coins": 100}, {"water": 40}, {"gems": 100}]
+	var out: Array = []
+	for i in 7:
+		var day := i + 1
+		var st := "done" if day < 3 else ("today" if day == 3 else "future")
+		var d := {"day": day, "label": "Day %d" % day, "reward": rewards[i], "state": st}
+		if day == 4:
+			d["mystery"] = true
+			d["mystery_icon"] = LoginUI.ART_GIFT   # slot-4 mystery gift
+		if day == 7:
+			d["mystery"] = true                    # the capstone milestone chest
+		out.append(d)
+	return out
+
+## The daily dialog exactly as the game builds it: the shared dialog frame (edited on the Frame item)
+## wrapping LoginUI's own grid + capstone (LoginUI._rebuild), so the preview matches the daily login screen.
+func _daily_dialog_preview() -> Control:
+	var width := _dlg_px("daily")
+	var scale := _dlg_scale("daily")
+	var inner := width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
+	var body := VBoxContainer.new()
+	body.name = "DailyBody"
+	body.add_theme_constant_override("separation", int(LoginUI.GAP))
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var fo := Kit.dialog_opts_from_config(_params)
+	fo["banner_text"] = "Daily"
+	fo["content_scale"] = scale
+	fo["list_max_h"] = 2000.0   # tall enough to show the whole 7-day grid + capstone (the game caps to 84% of the viewport)
+	var dialog := Kit.dialog_frame(body, width, fo)
+	LoginUI._rebuild(Kit, body, inner, _daily_demo_days())
+	return dialog
 
 ## The MYSTERY slot-reveal dialog, rendered STATIC for a repeatable visual check (T54). `which` selects
 ## the pool (day 4 = 3 reels / pick 1 · day 7 = 5 reels / pick 2) and the state: "revealed" = every reel
@@ -1322,7 +1350,7 @@ func _store_drag(kind: String, local: Vector2) -> void:
 func _sidebar_notes(_id: String) -> void:
 	if _selected == "daily_card":
 		var note := Label.new()
-		note.text = "This single day card is reused by the Daily dialog. (The Claim is the shared Button.) Preview a state below; the badges show on today / milestone."
+		note.text = "This is the game's REAL daily cell (login.gd _day_cell) — the same one the Daily dialog stacks. It reads no config; pick a state to preview. today = green Claim + sparkles · done = ✓ · mystery = gift/chest · future = dimmed."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1573,28 +1601,15 @@ func _element_sidebar(_id: String) -> void:
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["entries", 0, 12]))   # how many rows to preview (0 = the empty state)
 		"daily_card":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
-			_sidebar_body.add_child(_option_row("Milestone badge", "milestone_badge", Kit.DAY_BADGES))
-			_sidebar_body.add_child(_toggle_row("Info icon (top-right)", "info_icon"))
-			_sidebar_body.add_child(_slider_row(["label_y", 0, 90]))      # the "Day N" text drop from the top
-			_sidebar_body.add_child(_slider_row(["label_x", -80, 80]))    # the text horizontal position
-			_sidebar_body.add_child(_slider_row(["claim_y", 0, 90]))      # how far the action lifts in from the base
-			_sidebar_body.add_child(_slider_row(["ribbon_scale", 50, 220]))  # the ribbon SIZE (%)
-			_sidebar_body.add_child(_slider_row(["ribbon_x", -150, 150]))    # the ribbon horizontal position
-			_sidebar_body.add_child(_slider_row(["ribbon_y", -40, 40]))      # the ribbon vertical position (over the top)
-			_sidebar_body.add_child(_slider_row(["cell_w", 60, 160]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 70, 180]))
-			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))
-			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
+			# the daily card is the game's real login cell (LoginUI._day_cell) — it reads NO workbench
+			# config, so this element is preview-only (like the Mystery reveal). Pick which rung to show.
 			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_toggle_row("Sparkle (today)", "sparkle"))   # preview only — always on in-game
-			_sidebar_body.add_child(_option_row("Preview", "preview", ["today", "mystery", "done", "future", "shop"]))
-			_sidebar_body.add_child(_option_row("Ribbon", "ribbon", Kit.POPULAR_BADGES))   # the popular badge
+			_sidebar_body.add_child(_option_row("Preview", "preview", ["today", "mystery", "done", "future"]))
 		"daily":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["cols", 1, 7]))
-			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+			# the daily dialog is the game's real login screen (LoginUI's grid + capstone) inside the shared
+			# frame. The frame (banner · border · ✕) is edited on the Frame item; the day grid + capstone
+			# layout is fixed in login.gd, so there are no grid knobs here.
+			_sidebar_note("The daily dialog is the game's real login screen (login.gd) — the day grid + capstone are fixed there. Edit the shared frame on the Frame item.")
 		"mystery":
 			# no saved knobs: the frame is shared (Frame item), width is the engine's min(560, 94%) cap.
 			# The preview-state picker (which pool · revealed-vs-pick) + "▶ Play spin" to watch the real animation.
