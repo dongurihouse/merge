@@ -1,0 +1,8 @@
+Use case: ui-mockup
+Asset type: polished vertical mobile game Board screen concept, 1080x1920 portrait.
+
+Primary request: Redraw the Board screen as meticulous matte hand-cut paper, Meadow Sky plus Layered Storybook HUD, not plastic app UI. Preserve this hierarchy: top-left gold layered flower/star level rosette with exact text "2"; three non-identical cream paper resource tags with green plus tabs and exact values 91 (blue water drop), 51 (gold coin), and 7 (acorn); short scalloped stitched NEXT UNLOCK paper trail with a leaf-green segmented progress strip; three small overlapping resident request postcards; central dark-slate irregular-cut board with a paper-cell grid, muted blue-gray locked acorn/padlock cells, pale meadow open cells, and a few match items; folded cream selected-item flap; five overlapping bottom tabs labeled exactly Home, Board, Explore, Bag, Shop, with Board selected and raised.
+
+Style: hand-cut layered cardstock, crafted storybook mobile UI, fine warm cut edges, tactile paper fibers and grain, multiple thin layers, shallow shadows down-right only. Palette: Meadow Sky #6FA9C0, slate #3F6D7D, meadow #A8D3B9, cream #F6EBDD, ink #243B4B, green #5F9B6D, coral #D87865, gold #D6A94C, purple #8677A3.
+
+Avoid: glossy plastic pills, generic smooth white cards, smooth rounded rectangles, thick black outlines, universal white sticker outlines, 3D clay, watercolor/brush texture, watermark, or extra readable text.
