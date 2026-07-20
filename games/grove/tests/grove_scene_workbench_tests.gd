@@ -512,6 +512,7 @@ func _initialize() -> void:
 	var upper_left_cover_z := -1
 	var unlock_cover_count := 0
 	var lowest_unlock_cover_z := -1
+	var unlock_clusters := {}
 	for e in M.placements(lantern_doc):
 		if String((e as Dictionary).get("id", "")) == "gazebo":
 			gazebo_z = int((e as Dictionary).get("z", -1))
@@ -520,10 +521,15 @@ func _initialize() -> void:
 		if String((e as Dictionary).get("layer", "")) == "unlock_cover":
 			unlock_cover_count += 1
 			lowest_unlock_cover_z = maxi(lowest_unlock_cover_z, int((e as Dictionary).get("z", -1)))
+			var unlock_cluster := String((e as Dictionary).get("cluster", ""))
+			unlock_clusters[unlock_cluster] = int(unlock_clusters.get(unlock_cluster, 0)) + 1
 	ok(upper_left_cover_z >= 0 and upper_left_cover_z < gazebo_z,
 		"the Lantern Lodge upper-left cover stays behind the gazebo roof")
 	ok(unlock_cover_count == 23 and lowest_unlock_cover_z > 200,
 		"the Lantern Lodge unlock cover is a topmost 23-piece removable layer")
+	ok(unlock_clusters == {"unlock_lodge": 5, "unlock_gazebo": 3, "unlock_christmas_tree": 3,
+		"unlock_dock": 5, "unlock_entrance_arch": 7},
+		"the Lantern Lodge unlock cover clusters each piece by the primary object region it hides")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
 		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}
