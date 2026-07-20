@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "sourceSheet": "raw/coral_cover_pieces_3x3_raw.png",
+  "cleanSheet": "raw/coral_cover_pieces_3x3_clean.png",
+  "pieces": [
+    {
+      "id": "01_large_blue_shell_cap",
+      "image": "cover_pieces/01_large_blue_shell_cap.png",
+      "sourceCell": [
+        1,
+        1
+      ],
+      "size": {
+        "width": 398,
+        "height": 407
+      },
+      "bbox": [
+        31,
+        96,
+        429,
+        503
+      ]
+    },
+    {
+      "id": "02_orange_coral_fan_mat",
+      "image": "cover_pieces/02_orange_coral_fan_mat.png",
+      "sourceCell": [
+        1,
+        2
+      ],
+      "size": {
+        "width": 368,
+        "height": 429
+      },
+      "bbox": [
+        430,
+        92,
+        798,
+        521
+      ]
+    },
+    {
+      "id": "03_green_kelp_curtain",
+      "image": "cover_pieces/03_green_kelp_curtain.png",
+      "sourceCell": [
+        1,
+        3
+      ],
+      "size": {
+        "width": 340,
+        "height": 484
+      },
+      "bbox": [
+        815,
+        24,
+        1155,
+        508
+      ]
+    },
+    {
+      "id": "04_lavender_sponge_cluster",
+      "image": "cover_pieces/04_lavender_sponge_cluster.png",
+      "sourceCell": [
+        2,
+        1
+      ],
+      "size": {
+        "width": 336,
+        "height": 360
+      },
+      "bbox": [
+        28,
+        505,
+        364,
+        865
+      ]
+    },
+    {
+      "id": "05_shell_pebble_rubble_oval",
+      "image": "cover_pieces/05_shell_pebble_rubble_oval.png",
+      "sourceCell": [
+        2,
+        2
+      ],
+      "size": {
+        "width": 388,
+        "height": 217
+      },
+      "bbox": [
+        389,
+        640,
+        777,
+        857
+      ]
+    },
+    {
+      "id": "06_mixed_coral_kelp_patch",
+      "image": "cover_pieces/06_mixed_coral_kelp_patch.png",
+      "sourceCell": [
+        2,
+        3
+      ],
+      "size": {
+        "width": 364,
+        "height": 374
+      },
+      "bbox": [
+        791,
+        511,
+        1155,
+        885
+      ]
+    },
+    {
+      "id": "07_large_orange_coral_wall",
+      "image": "cover_pieces/07_large_orange_coral_wall.png",
+      "sourceCell": [
+        3,
+        1
+      ],
+      "size": {
+        "width": 344,
+        "height": 418
+      },
+      "bbox": [
+        39,
+        860,
+        383,
+        1278
+      ]
+    },
+    {
+      "id": "08_blue_pebble_purple_coral_mound",
+      "image": "cover_pieces/08_blue_pebble_purple_coral_mound.png",
+      "sourceCell": [
+        3,
+        2
+      ],
+      "size": {
+        "width": 361,
+        "height": 275
+      },
+      "bbox": [
+        397,
+        1003,
+        758,
+        1278
+      ]
+    },
+    {
+      "id": "09_shell_fragment_kelp_cluster",
+      "image": "cover_pieces/09_shell_fragment_kelp_cluster.png",
+      "sourceCell": [
+        3,
+        3
+      ],
+      "size": {
+        "width": 370,
+        "height": 347
+      },
+      "bbox": [
+        784,
+        931,
+        1154,
+        1278
+      ]
+    }
+  ]
+}

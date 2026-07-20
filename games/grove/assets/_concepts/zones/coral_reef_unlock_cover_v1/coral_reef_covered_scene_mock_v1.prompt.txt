@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: full covered locked-state mock for a vertical mobile game scene, 941:1672 portrait.
+Primary request: Create a covered/locked-state mock for the Coral Reef paper-craft scene. Use the visible unlocked Coral scene as the underlying scene reference, but show it as mostly covered by removable cut-paper occlusion pieces. This mock shows the intended final locked look before the player unlocks areas.
+
+Gameplay idea to visualize: the scene is covered by repeated modular cut-paper reef pieces. When an area unlocks, the game removes one patch of covering from that part of the screen, revealing the normal scene underneath. The cover should look intentionally made from repeated reusable pieces, not random paint or fog.
+
+Covering material: physical cut-paper/cardstock pieces in the same style: thick raised edges, visible paper fiber, soft shadows, chunky hand-cut silhouettes. Use large shells, scallop-shell clusters, coral fans, sponge-tube clusters, kelp ribbons, pebble mats, and reef rubble sheets. Make them feel like removable paper stickers/plates laid over the scene.
+
+Composition:
+- Preserve the unlocked Coral scene underneath: shipwreck upper middle, chest mid-left, anchor center-right, statue lower-right, clam lower-left, blue rock platforms, sandy center corridor.
+- Cover most of the screen, about 65-75%, but leave small partial glimpses of the shipwreck bow, pearl, chest top, anchor tip, and sandy corridor so players can sense something underneath.
+- Use 8-12 larger cover patches, not hundreds of tiny pieces. Patches should overlap like paper layers.
+- Make the patches repeatable families: large shell cap, coral fan mat, kelp curtain, sponge/pebble clump, reef rubble oval.
+- Avoid making every patch unique; the design should imply a small set of variations reused at different scales/rotations.
+
+Constraints: no UI, no text, no labels, no borders, no icons. No black fog, no gray blur, no smoke. This should be charming paper-craft reef covering, not a dark mask.

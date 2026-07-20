@@ -1,0 +1,25 @@
+Use case: background-extraction
+Asset type: 3x3 prop pack of reusable Coral Reef locked-cover pieces for a vertical mobile game scene.
+Primary request: Create a 3x3 grid sprite sheet containing NINE separate reusable cut-paper reef covering pieces. These pieces will be repeated, rotated, scaled, and removed as unlockable occlusion patches over the Coral Reef scene. Match the covered-scene mock and unlocked Coral paper-craft style.
+
+Grid/content requirements:
+- Exactly 3 columns by 3 rows, nine separate pieces, each centered in its own invisible cell with generous spacing.
+- Do not draw grid lines, labels, numbers, borders, or text.
+- Each piece is a self-contained raised cardstock patch/sticker with irregular rounded edges and paper texture.
+- Use a perfectly flat solid #FF00FF magenta background everywhere outside the pieces for later transparency removal.
+- Leave clear magenta separation between all nine pieces; no touching or overlap between cells.
+
+Nine piece variations:
+1. Large pale blue scallop shell cap on a thin teal paper reef backing.
+2. Orange coral fan mat with blue pebbles and a few lavender sponge tubes.
+3. Tall green kelp curtain cluster with rounded base pebbles.
+4. Lavender sponge-tube cluster with blue/cream pebbles.
+5. Cream shell-and-pebble rubble oval, low and broad.
+6. Mixed teal reef patch with orange coral tabs and green seaweed, medium size.
+7. Large orange coral fan wall, broad and tall, for screen edges.
+8. Blue pebble mound with tiny purple corals, low cover patch.
+9. Curved shell fragment cluster with green kelp and cream stones.
+
+Style/material: physical cut-paper diorama, thick layered cardstock, raised cut-paper edges, visible paper fiber, rounded hand-cut silhouettes, soft internal paper shadows, colorful high contrast, cozy mobile game readability.
+
+Constraints: pieces should be compact or medium-large, low complexity, reusable, no hero objects like shipwreck/chest/clam/statue/anchor, no animals/characters, no UI. No external shadow on magenta background.
