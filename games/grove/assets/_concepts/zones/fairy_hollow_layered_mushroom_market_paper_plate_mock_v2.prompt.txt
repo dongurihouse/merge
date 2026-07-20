@@ -1,0 +1,19 @@
+Use case: precise-object-edit.
+Asset type: full-scene vertical mobile game-zone concept mock, v2 art direction test.
+Primary request: Edit fairy_hollow_layered_mushroom_market_mock_v1.png into a stronger cut-paper style version inspired by desert_oasis_layer_ready_watchtower_caravan_v1.png. Preserve the overall Fairy Hollow composition, object roster, path flow, and vertical mobile framing from the Hollow mock, but make the whole scene look more obviously like layered hand-cut cardstock.
+
+Input image roles:
+- fairy_hollow_layered_mushroom_market_mock_v1.png is the edit target and composition authority.
+- desert_oasis_layer_ready_watchtower_caravan_v1.png is supporting style/process reference only: copy the idea of visible paper plates/bases under each major replaceable item, and the stronger cut-paper material language; do not copy desert content, palette, sand, buildings, camels, oasis, or sky.
+
+Required change: Add a visible warm paper plate/base underneath each major replaceable object cluster in the Fairy Hollow mock: central giant mushroom hall, left tea stall, right crystal/map stall, wooden bridge/stream crossing, lower flower crate/garden bed, and lower lantern gate/signpost. Each plate should be an irregular flat cardstock island or oval following the perspective of the ground plane, like a physical cut paper piece placed on top of the backdrop. Plates should be visible enough to read as intentional cut-paper construction, with warm cut edges and subtle local shadow, but not huge turf pads or dark drop shadows.
+
+Style change: Increase the explicit cut-paper look across the image: cleaner separated paper shapes, visible warm cut edges, layered cardstock overlaps, flatter color planes, less painterly blending, slightly higher contrast, more tactile paper grain, simpler leaf/stall/details. Keep it colorful, cozy, high contrast, and readable on phone.
+
+Layer-aware requirements: The scene should still read as a 3-layer production mock: stable moss/path/stream backdrop, 5-6 large customizable objects on paper plates, and a non-customizable covering layer of foreground flowers, stones, fern fronds, vines, mushroom tufts, and low leaves that overlaps lower object edges. The paper plates are part of the object/socket design language.
+
+Composition constraints: Keep portrait aspect ratio, no UI, no text, no labels, no numerals, no watermark. Keep the broad S-shaped path and left-side stream. Keep objects separated with visible ground between clusters. Do not add many tiny shop goods or extra buildings. Do not turn the scene into desert.
+
+Style block: Meadow Sky + Cut-Paper Playground style: friendly matte hand-cut cardstock; broad rounded low-complexity silhouettes; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber about 2-4%; fine warm cut edge plus thin locally darker edge; no universal white sticker outline and no heavy black outline; one upper-left light source; features stay legible at phone size.
+
+Avoid: glossy 3D, clay render, watercolor, gouache, visible brush strokes, painterly gradients, photorealism, UI chrome, labels, signs with writing, marker rings, black shadows, object-specific grass pads, fused objects, dense tiny clutter.
