@@ -1,0 +1,29 @@
+Use case: stylized-concept
+Asset type: layer-aware portrait mobile-game scene mock
+Input images: Image 1 is the exact Japanese garden composition and object-set authority. Image 2 is the construction-language reference only: every major object is seated on a visible, irregular layered paper base plate with a crisp cut edge and soft cast shadow.
+
+Primary request: regenerate Image 1 as a cherry blossom temple garden in a much stronger handmade paper-cut collage style, retaining the same four-object composition while giving every major object its own paper plate below it.
+
+Composition and content:
+- Portrait mobile scene, same aspect ratio and elevated three-quarter camera as Image 1.
+- Keep the same quiet warm peach paper sky, two ivory paper clouds, blue-gray layered mountains, pale ivory raked zen-sand garden, and central near-vertical chain of rounded stepping stones.
+- Keep the same approximate object locations and visual hierarchy: tea pavilion in the upper-center/right, turquoise koi pond with its small vermilion bridge in the left-middle, temizuya water-cleansing shelter in the right-middle, and large vermilion torii in the lower-middle foreground.
+- Keep pink cherry blossom trees, green bushes, small flowers, and gray rock clusters around the outer framing edges; do not clutter the central path.
+
+Paper-plate construction:
+- Under the pavilion: a broad irregular pale-stone and ivory paper terrace plate, with 3 visible stacked cut-paper contours and a thin warm gray shadow cast onto the sand.
+- Under the pond and bridge: one irregular shoreline-shaped pale-sand paper base plate, subtly larger than the stone rim, with two visible layered rims and a clean soft shadow.
+- Under the temizuya: a compact irregular pale-stone paper base plate, with 2-3 exposed stacked layers and a shadow that grounds its feet.
+- Under the torii: a long shallow irregular ivory threshold plate spanning both footings, with 2 exposed cut-paper layers and a soft shadow; it must not obscure the stepping stones passing through the gate.
+- Treat nearby bushes, stone clusters, and small flowers as grouped companions on the same local plate when they touch an object; do not create dozens of tiny plates.
+- All four plates should look deliberate, organic, and cut by hand—not perfect ovals, stickers, pedestals, or 3D plinths.
+
+Style and material:
+- Strong flat layered paper-cut collage, physically cut cardstock, visible 1-3 mm stepped paper edges, embossed pulp/fiber grain, tiny separation shadows, and restrained paper relief.
+- Shapes are simplified and graphic; use layered color planes instead of smooth 3D rendering.
+- The paper plates must make the modular objects immediately readable as separate removable groups while still belonging to the same garden.
+
+Constraints:
+- Preserve the Japanese garden subject matter, scene order, color family, and portrait composition from Image 1.
+- No desert objects, palms, camel, tents, castle, market, water tower, or sand-dune imagery from Image 2.
+- No photorealism, plastic/clay render, glossy 3D, isometric toy model, painted brushwork, text, labels, UI, border, watermark, or contact sheet.
