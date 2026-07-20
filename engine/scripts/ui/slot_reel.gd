@@ -10,7 +10,13 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-const CELL_ART := "res://games/grove/assets/ui/kit/daily_card.png"
+
+# The cell surface wears the HUD pills' shared paper look (flat cream + thin PAPER_EDGE rim + a
+# texture_cream grain layer from the UI kit) — see apply_cell_paper. The kit is loaded at runtime
+# (matches giver_stand.gd / unlock_bar.gd) to avoid a preload cycle.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const PAPER_TEXTURE := "texture_cream.png"
+const PAPER_EDGE := Color("#3F6D7D", 0.35)
 
 # reel spin pacing (owner feel dial). Reels ALL start together and STOP one-by-one (left→right): reel i
 # whirs longer → lands later; the last hangs an extra beat. cfg passed to spin_reels overrides any of these.
@@ -37,7 +43,7 @@ static func build_reel(pool: Array, target, cw: float, ch: float, index: int, ma
 	var bg := PanelContainer.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.add_theme_stylebox_override("panel", cell_stylebox())
+	apply_cell_paper(bg, ch)
 	reel.add_child(bg)
 
 	var inset: float = 8.0
@@ -93,27 +99,43 @@ static func _reel_symbols(pool: Array, target, count: int, offset: int) -> Array
 	syms.append(target)
 	return syms
 
-## The shared parchment-cell stylebox (the daily_card look; a code fallback if the art is absent).
-static func cell_stylebox() -> StyleBox:
-	if ResourceLoader.exists(CELL_ART):
-		var st := StyleBoxTexture.new()
-		st.texture = load(CELL_ART)
-		st.set_texture_margin_all(28.0)
-		st.content_margin_left = 8
-		st.content_margin_right = 8
-		st.content_margin_top = 7
-		st.content_margin_bottom = 7
-		return st
+## The cell's corner radius for a cell `ch` px tall — one place so the stylebox shape and the
+## grain layer's shader clip always agree.
+static func cell_corner(ch: float) -> float:
+	return maxf(10.0, ch * 0.14)
+
+## The shared reveal-cell stylebox: flat cream + the thin PAPER_EDGE hairline (the HUD pills'
+## paper family; the daily_card parchment nine-slice is retired). Callers wanting the full look
+## (with the grain layer) go through apply_cell_paper.
+static func cell_stylebox(corner: float = 14.0) -> StyleBox:
 	var cf := StyleBoxFlat.new()
-	cf.bg_color = Color(Pal.CREAM, 0.9)
-	cf.set_corner_radius_all(12)
+	cf.bg_color = Pal.CREAM
+	cf.border_color = PAPER_EDGE
+	cf.set_corner_radius_all(int(round(corner)))
 	cf.set_border_width_all(1)
-	cf.border_color = Color(Pal.BARK, 0.4)
+	cf.anti_aliasing = true
 	cf.content_margin_left = 8
 	cf.content_margin_right = 8
 	cf.content_margin_top = 7
 	cf.content_margin_bottom = 7
 	return cf
+
+## Dress `panel` as one reveal cell in the shared paper family: the flat cream stylebox plus the
+## kit's texture_cream grain layer, both clipped to the same corners for a cell `ch` px tall.
+static func apply_cell_paper(panel: Control, ch: float) -> void:
+	var corner: float = cell_corner(ch)
+	panel.add_theme_stylebox_override("panel", cell_stylebox(corner))
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
+	var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(panel, "CellPaper", PAPER_TEXTURE, corner, 2.0)
+	if paper != null and not (panel is Container):
+		# a plain Panel has no container layout — anchor the grain into the rim inset ourselves
+		paper.set_anchors_preset(Control.PRESET_FULL_RECT)
+		paper.offset_left = 2.0
+		paper.offset_top = 2.0
+		paper.offset_right = -2.0
+		paper.offset_bottom = -2.0
 
 # --- spin ---------------------------------------------------------------------------
 

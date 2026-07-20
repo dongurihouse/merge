@@ -7,7 +7,7 @@ extends RefCounted
 ## The roll MATH lives in core/login.gd (pure, tested headless); this is its face. `roll.winners` is
 ## only the NON-interactive default (the instant/headless grant); the interactive UI passes the
 ## PLAYER's picks. Pass {instant:true} to skip the spin + pick and grant the default winners (the test
-## path). The reel cell + frame are the SHARED workbench kit, so the reveal keeps the parchment look.
+## path). The reel cell + frame are the SHARED workbench kit, so the reveal wears the paper-grain look.
 
 const Login = preload("res://engine/scripts/core/login.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
@@ -148,14 +148,14 @@ static func _top_value_index(options: Array) -> int:
 			best_v = v; best = i
 	return best
 
-# A reveal card: the parchment cell + the reward as icon(s)+AMOUNT (kept for the static card preview/tests).
+# A reveal card: the paper cell + the reward as icon(s)+AMOUNT (kept for the static card preview/tests).
 static func _reveal_card(reward: Dictionary, cw: float, ch: float) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(cw, ch)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	panel.add_theme_stylebox_override("panel", SlotReel.cell_stylebox())
+	SlotReel.apply_cell_paper(panel, ch)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
