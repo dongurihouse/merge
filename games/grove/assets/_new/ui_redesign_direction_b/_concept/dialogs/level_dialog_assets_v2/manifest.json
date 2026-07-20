@@ -1,0 +1,61 @@
+{
+  "name": "level_dialog_assets_v2",
+  "style": "Meadow Sky + Cut-Paper Playground",
+  "sheet": {
+    "file": "level_dialog_assets_sheet_1536x1024.png",
+    "width": 1536,
+    "height": 1024,
+    "columns": 3,
+    "rows": 2,
+    "cell_width": 512,
+    "cell_height": 512,
+    "order": "row-major"
+  },
+  "assets": [
+    {
+      "id": "level_rosette_base",
+      "row": 0,
+      "column": 0,
+      "file": "final_frames/level_rosette_base_512.png",
+      "runtime_overlay": "level numeral"
+    },
+    {
+      "id": "level_star_token",
+      "row": 0,
+      "column": 1,
+      "file": "final_frames/level_star_token_512.png"
+    },
+    {
+      "id": "level_daisy_medallion",
+      "row": 0,
+      "column": 2,
+      "file": "final_frames/level_daisy_medallion_512.png"
+    },
+    {
+      "id": "level_leaf_sprig_left",
+      "row": 1,
+      "column": 0,
+      "file": "final_frames/level_leaf_sprig_left_512.png"
+    },
+    {
+      "id": "level_leaf_sprig_right",
+      "row": 1,
+      "column": 1,
+      "file": "final_frames/level_leaf_sprig_right_512.png"
+    },
+    {
+      "id": "level_milestone_star",
+      "row": 1,
+      "column": 2,
+      "file": "final_frames/level_milestone_star_512.png"
+    }
+  ],
+  "runtime_surfaces": [
+    "dialog panel",
+    "level numeral",
+    "earned summary pill",
+    "progress track and fill",
+    "labels",
+    "buttons"
+  ]
+}
