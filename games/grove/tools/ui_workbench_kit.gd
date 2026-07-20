@@ -2367,20 +2367,20 @@ static func _title_header(text: String, font: int, band_h: float, width: float, 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	# The title reads as pressed into the parchment via an engrave whose intensity the "Banner Burn"
-	# slider drives (banner_burn 0..1). burn == 0 is the flat cool-ink baseline (no cast shadow); burn > 0
-	# deepens the ink and adds a white lower emboss + soft dark outline — the SAME letterpress treatment as
-	# the coin num_burn / value-bar _bar_label, with the geometry scaled to THIS title's font so every
-	# dialog matches. burn is sourced from the workbench config (dialog_opts_from_config → banner_burn).
+	# The title reads as pressed into the parchment via a letterpress DEBOSS whose intensity the "Banner
+	# Burn" slider drives (banner_burn 0..1). This is the pre-06ee7155 treatment: a Pal.BARK shadow nudged
+	# down/right (NOT a white emboss highlight or outline). burn == 0 is the flat cool-ink baseline (no cast
+	# shadow); rising burn scales the shadow alpha + offset, with t == 1 restoring the old full-strength look
+	# (alpha 0.45, offset font*0.05/0.07). Geometry scales to THIS title's font so every dialog matches.
+	# burn is sourced from the workbench config (dialog_opts_from_config → banner_burn).
 	var t := clampf(burn, 0.0, 1.0)
-	lbl.add_theme_color_override("font_color", Color("#1B2C38").darkened(0.30 * t))
+	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
 	lbl.add_theme_constant_override("outline_size", 0)
 	if t > 0.0:
-		lbl.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.25 + 0.40 * t))
-		lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(round(font * 0.035 * t))))
-		lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(round(font * 0.055 * t))))
-		lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.12 + 0.30 * t))
-		lbl.add_theme_constant_override("outline_size", maxi(1, int(round(font * 0.03 * t))))
+		lbl.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45 * t))
+		lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(round(font * 0.05 * t))))
+		lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(round(font * 0.07 * t))))
+		lbl.add_theme_constant_override("shadow_outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_child(lbl)
 	return header
