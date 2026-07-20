@@ -1,0 +1,20 @@
+Use case: stylized-concept.
+Asset type: full-scene vertical mobile game-zone concept mock, layer-aware production blueprint, no UI.
+Primary request: Fairy Hollow variation 1, "Willow Workshop Hollow". Generate one complete cut-paper scene mock that is beautiful as a full mock but designed from the start to be split into layers later.
+
+Input image roles:
+- fairy_hollow_original_mock_v1.png is Fairy Hollow mood/material continuity.
+- palette_a_meadow_sky_board.png is palette and UI-material authority only.
+- home_screen_meadow_sky_v2_working_farm.png is elevated camera, scale, and readable detail-budget authority only; do not copy farm content.
+- fairy_hollow_moonlit_firefly_grove_concept_v1.png is previous Hollow freedom/content reference only.
+
+Layer plan to imply visually, without labels or text:
+1. Stable backdrop layer: continuous mossy forest floor, one winding pale stone path, shallow crescent creek/pond edge, soft terrain texture, and 5 clear object sockets shaped by the ground; no object outlines or labels.
+2. Customizable object layer: exactly five large replaceable hero clusters, separated with visible ground between them: a hollow willow workshop cottage in upper-left, a moss-roof tea hut in upper-right, a tiny arched bridge over the creek lower-left, a round wishing well lower-mid, and a lantern-stump picnic table mid-right.
+3. Covering layer planned above: foreground fern fronds, bluebell clusters, small stones, moss tufts, and leaf branches that overlap only the lower edges of objects to blend them into the backdrop.
+
+Composition: portrait iPhone page, elevated three-quarter camera, full scene no UI, no text. Keep upper area open enough for sky/cloud layers to be painted separately later, but this mock may show night forest atmosphere for reference. The path should enter from lower center and terminate at the cottage/tea hut thresholds. Objects should sit in authored sockets, not on separate grass islands or scenic pads.
+
+Style block: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock - never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+Avoid: UI chrome, labels, numerals, watermark, tiny clutter, too many individual trinkets, fused objects, object-specific turf pads, dark black drop shadows, circular flower rings around each object, perspective mismatch, dense brushy foliage, glossy 3D, clay, watercolor, painterly strokes.
