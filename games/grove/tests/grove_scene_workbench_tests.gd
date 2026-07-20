@@ -431,6 +431,16 @@ func _initialize() -> void:
 	var live_scenes := M.scenes_in("res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1")
 	ok(live_scenes.has("winter_lantern_lodge"),
 		"the modular Lantern Lodge bundle is available as its own Scene Workbench scene")
+	var lantern_doc := M.load_doc("res://games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/metadata/placements.json")
+	var gazebo_z := -1
+	var upper_left_cover_z := -1
+	for e in M.placements(lantern_doc):
+		if String((e as Dictionary).get("id", "")) == "gazebo":
+			gazebo_z = int((e as Dictionary).get("z", -1))
+		if String((e as Dictionary).get("id", "")) == "edge_covering_upper_left":
+			upper_left_cover_z = int((e as Dictionary).get("z", -1))
+	ok(upper_left_cover_z >= 0 and upper_left_cover_z < gazebo_z,
+		"the Lantern Lodge upper-left cover stays behind the gazebo roof")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
 		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}

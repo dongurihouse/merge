@@ -80,13 +80,62 @@
    "layer": "hero"
   },
   {
-   "id": "edge_coverings",
+   "id": "edge_covering_upper_left",
    "category": "vegetation",
    "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png",
-   "x": 470,
+   "sourceCrop": [0, 0, 360, 570],
+   "x": 180,
+   "y": 570,
+   "w": 360,
+   "h": 570,
+   "z": 90,
+   "layer": "covering_rear"
+  },
+  {
+   "id": "edge_covering_upper_right",
+   "category": "vegetation",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png",
+   "sourceCrop": [580, 0, 361, 570],
+   "x": 760,
+   "y": 570,
+   "w": 361,
+   "h": 570,
+   "z": 200,
+   "layer": "covering"
+  },
+  {
+   "id": "edge_covering_mid_left",
+   "category": "vegetation",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png",
+   "sourceCrop": [0, 730, 220, 300],
+   "x": 110,
+   "y": 1030,
+   "w": 220,
+   "h": 300,
+   "z": 200,
+   "layer": "covering"
+  },
+  {
+   "id": "edge_covering_lower_left",
+   "category": "vegetation",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png",
+   "sourceCrop": [0, 1050, 360, 622],
+   "x": 180,
    "y": 1672,
-   "w": 941,
-   "h": 1672,
+   "w": 360,
+   "h": 622,
+   "z": 200,
+   "layer": "covering"
+  },
+  {
+   "id": "edge_covering_lower_right",
+   "category": "vegetation",
+   "image": "games/grove/assets/_new/ui_redesign_direction_b/picturebook_scene_mocks_v1/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png",
+   "sourceCrop": [580, 1100, 361, 572],
+   "x": 760,
+   "y": 1672,
+   "w": 361,
+   "h": 572,
    "z": 200,
    "layer": "covering"
   }
