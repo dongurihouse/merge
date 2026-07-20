@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "canvas": { "width": 941, "height": 1672, "anchor": "top_left" },
+  "source_mock": "games/grove/assets/_concepts/zones/winter_layered_mock_variations_v1/winter_layered_lantern_lodge_plaza_v1.png",
+  "render_order": ["sky_atmosphere", "foundation", "heroes", "edge_coverings"],
+  "layers": {
+    "sky_atmosphere": {
+      "image": "underlay/sky_atmosphere.png",
+      "purpose": "Optional independently painted atmosphere; never fused into terrain."
+    },
+    "foundation": {
+      "image": "backdrop/foundation.png",
+      "purpose": "Stable terrain, ponds, path, far mountains, and distant spruces; no customizable objects."
+    },
+    "edge_coverings": {
+      "image": "coverings/edge_coverings.png",
+      "purpose": "Fixed edge masks that hide object seams without obscuring the object identity."
+    }
+  },
+  "hero_slots": [
+    { "id": "lodge", "image": "heroes/lodge.png", "x": 470, "y": 505, "w": 320, "h": 346, "z": 100 },
+    { "id": "gazebo", "image": "heroes/gazebo.png", "x": 172, "y": 786, "w": 236, "h": 329, "z": 110 },
+    { "id": "bridge", "image": "heroes/bridge.png", "x": 765, "y": 747, "w": 312, "h": 212, "z": 120 },
+    { "id": "dock_rowboat", "image": "heroes/dock_rowboat.png", "x": 760, "y": 1164, "w": 266, "h": 252, "z": 130 },
+    { "id": "entrance_arch", "image": "heroes/entrance_arch.png", "x": 470, "y": 1492, "w": 392, "h": 399, "z": 140 }
+  ],
+  "placement_rule": "Hero x/y are centre-bottom anchors. Replace only one hero file at a time, preserve the slot's target w/h and z, and leave the fixed coverings above it."
+}
