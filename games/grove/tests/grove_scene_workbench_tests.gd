@@ -230,7 +230,7 @@ func _initialize() -> void:
 		"the cluster list is grouped under the predefined layer headers")
 	var crow: Button = null
 	for c in view._cluster_box.get_children():
-		if c is HBoxContainer and c.get_child_count() >= 1 and (c.get_child(0) as Button).text.contains("camp"):
+		if c is HBoxContainer and c.get_child_count() >= 1 and c.get_child(0) is Button and (c.get_child(0) as Button).text.contains("camp"):
 			crow = c.get_child(0) as Button
 	ok(crow != null, "the clusters list built a row under its layer header")
 	if crow != null:
@@ -240,7 +240,7 @@ func _initialize() -> void:
 	# selecting a cluster EXPANDS its member rows: [select-item button][✕ remove]
 	var member_rows: Array = []
 	for c in view._cluster_box.get_children():
-		if c is HBoxContainer and c.get_child_count() == 2 and (c.get_child(0) as Button).text.contains("· "):
+		if c is HBoxContainer and c.get_child_count() == 2 and c.get_child(0) is Button and (c.get_child(0) as Button).text.contains("· "):
 			member_rows.append(c)
 	ok(member_rows.size() == 2, "the selected cluster lists its two member elements")
 	if member_rows.size() == 2:
@@ -538,6 +538,85 @@ func _initialize() -> void:
 	view._switch_scene("test_scene")
 	ok(int((view.doc.placements[2] as Dictionary).x) == 520,
 		"switching back reloads the last SAVED state (the move is gone)")
+
+	# --- click a selected cluster again to deselect; a drag still moves it -------------
+	# the reloaded test_scene has 'camp' on placements[0] (tree) and [1] (rock).
+	var s3: float = view._layers.scale.x
+	var tree_pt := Vector2(420, 640) * s3               # inside 'tree' (a camp member)
+	view._select_cluster("camp")
+	var reclick := InputEventMouseButton.new()          # press on the ALREADY-selected cluster
+	reclick.button_index = MOUSE_BUTTON_LEFT
+	reclick.pressed = true
+	reclick.position = tree_pt
+	view._on_stage_input(reclick)
+	var reclick_up := InputEventMouseButton.new()        # …released without moving → deselect
+	reclick_up.button_index = MOUSE_BUTTON_LEFT
+	reclick_up.pressed = false
+	reclick_up.position = tree_pt
+	view._on_stage_input(reclick_up)
+	ok(view._sel_cluster == "" and view._sel == -1,
+		"clicking a selected cluster again (no drag) deselects it")
+	# a press + past-threshold drag on the selected cluster must NOT deselect — it moves
+	view._select_cluster("camp")
+	var tx0 := int((view.doc.placements[0] as Dictionary).x)
+	var dpress := InputEventMouseButton.new()
+	dpress.button_index = MOUSE_BUTTON_LEFT
+	dpress.pressed = true
+	dpress.position = tree_pt
+	view._on_stage_input(dpress)
+	var dmove := InputEventMouseMotion.new()             # +30 canvas px, well past the ~3px threshold
+	dmove.position = (Vector2(420, 640) + Vector2(30, 0)) * s3
+	dmove.button_mask = MOUSE_BUTTON_MASK_LEFT
+	view._on_stage_input(dmove)
+	var dup := InputEventMouseButton.new()
+	dup.button_index = MOUSE_BUTTON_LEFT
+	dup.pressed = false
+	dup.position = dmove.position
+	view._on_stage_input(dup)
+	ok(view._sel_cluster == "camp", "a drag on the selected cluster keeps it selected (no deselect)")
+	ok(int((view.doc.placements[0] as Dictionary).x) == tx0 + 30, "the drag moved the cluster")
+
+	# --- hide a cluster (workbench-only view state) ------------------------------------
+	view._select_cluster("camp")
+	var hk := InputEventKey.new()                        # H hides the selected cluster
+	hk.keycode = KEY_H
+	hk.pressed = true
+	view._key(hk)
+	ok(view._hidden.has("camp") and view._sel_cluster == "",
+		"H hides the selected cluster and deselects it")
+	var camp_rendered := false
+	for c in view._layers.get_children():
+		if c.has_meta("pi") and int(c.get_meta("pi")) in [0, 1]:
+			camp_rendered = true
+	ok(not camp_rendered, "a hidden cluster's props leave the render stack")
+	view._on_stage_input(reclick)                        # a click where 'tree' was falls through — it is hidden
+	view._on_stage_input(reclick_up)
+	ok(view._sel_cluster == "" and view._sel == -1, "a hidden cluster does not catch stage clicks")
+	# the restore row survives in the sidebar
+	var restore_row := false
+	for c in view._cluster_box.get_children():
+		if c is HBoxContainer and c.get_child_count() >= 1 and c.get_child(0) is Button and (c.get_child(0) as Button).text.contains("camp"):
+			restore_row = true
+	ok(restore_row, "a hidden cluster keeps its sidebar row so it can be restored")
+	view._toggle_cluster_hidden("camp")                  # show it again
+	ok(not view._hidden.has("camp"), "toggling the row restores a hidden cluster")
+
+	# --- hide a whole layer -----------------------------------------------------------
+	var band := M.entry_layer(view.doc.placements[0])    # camp's normalized band (legacy 'rear' → default)
+	view._toggle_layer_hidden(band)
+	ok(view._hidden_layers.has(band), "toggling a layer header hides the whole band")
+	var rear_rendered := false
+	for c in view._layers.get_children():
+		if c.has_meta("pi") and int(c.get_meta("pi")) in [0, 1]:
+			rear_rendered = true
+	ok(not rear_rendered, "hiding a layer removes every entry in that band from the render stack")
+	view._on_stage_input(reclick)
+	view._on_stage_input(reclick_up)
+	ok(view._sel_cluster == "" and view._sel == -1, "a hidden layer's entries do not catch stage clicks")
+	view._reload()
+	ok(view._hidden.is_empty() and view._hidden_layers.is_empty(),
+		"reload clears all workbench-only hidden state (everything shows again)")
+
 	view.queue_free()
 
 	# --- root scoring + reference images ----------------------------------------------
