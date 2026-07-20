@@ -1,0 +1,9 @@
+Use the v1 Board as the content/layout edit target and the v1 Home as a style/UI-hierarchy reference. Preserve the central irregular slate cut-paper merge grid, top resources, level rosette, and Board-selected bottom navigation.
+
+Replace the organic unlock trail with a mostly rectangular warm-cream paper plaque: text NEXT UNLOCK, simple leaf-green horizontal fill bar, 67% at right, no seedling, house, flower, milestone, or any other decorative icon in or around the bar.
+
+Keep exactly three quest cards and add a clearly attached small gold/cream reward plaque to the lower-right of each: +2, +5, +9. Make these plaques functional UI rather than illustration detail.
+
+Make the lower selected-item bar nearly full safe width. It includes a green feather icon panel, Soft Feather label, information icon, and a distinct acorn sell action button labelled SELL 25.
+
+Meadow Sky + Cut-Paper Playground: matte hand-cut cardstock, fine warm cut edges, subtle 2–4% fibre, low-complexity silhouettes, shallow down-right paper shadow, no plastic, glossy gradient, generic smooth rounded UI cards, heavy dark outline, white sticker border, clay, watercolor, or watermark.
