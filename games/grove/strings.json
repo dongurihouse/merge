@@ -243,12 +243,7 @@
 			"info_row_note": "refills your watering can to full right away",
 			"info_title": "Fill your water"
 		},
-		"title": "Shop",
-		"tab": {
-			"water": "Water",
-			"coin": "Coins",
-			"premium": "Acorns"
-		}
+		"title": "Shop"
 	},
 	"vault": {
 		"banner": "Vault",

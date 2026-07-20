@@ -422,19 +422,19 @@ static func demo_shop() -> Array:
 	var D := Game.DATA
 	# Quick help — refill water + a coin pouch (a row of just TWO), both paid in gems
 	var help: Array = [
-		{"icon": "water", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"},
-		{"icon": "coin", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"},
+		{"icon": "shop_can", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"},
+		{"icon": "shop_pouch", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"},
 	]
 	# Acorn pouches — the cash → gems ladder (a 3-wide grid; the merchandised packs wear ribbons)
 	var packs: Array = []
 	for i in (D.CASH_PACKS as Array).size():
 		var pk: Dictionary = D.CASH_PACKS[i]
-		# the escalating gem-TIER icon the REAL ladder draws (mirrors Shop._gem_icon_id) — replicated here
-		# so the bake auto-discovers gem_t1…gem_tN; else they live-polish on first shop open (the freeze).
-		var gem_art := "gem_t%d" % (i + 1)
-		if not ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % gem_art)):
-			gem_art = "gem"
-		var card := {"icon": gem_art, "count": int(pk.get("gems", 0)), "price": Iap.usd(String(pk.get("key", "")))}
+		# the escalating acorn-PACK icon the REAL ladder draws (mirrors Shop._pack_icon_id) — replicated
+		# here so the bake auto-discovers pack_t1…pack_tN; else they live-polish on first shop open (the freeze).
+		var pack_art := "pack_t%d" % (i + 1)
+		if not ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % pack_art)):
+			pack_art = "gem"
+		var card := {"icon": pack_art, "count": int(pk.get("gems", 0)), "price": Iap.usd(String(pk.get("key", "")))}
 		if bool(pk.get("pop", false)):
 			card["ribbon"] = "Popular"               # the merchandised mid anchor
 		elif i == (D.CASH_PACKS as Array).size() - 1:
