@@ -79,6 +79,29 @@ func assert_centered(box: Control, content: Control, axes: String, tol: float, l
 	ok(bad == "", "%s — content centered (%s, ±%.0f)%s" % [label, axes, tol, bad])
 	return bad == ""
 
+# `node` renders fully UNCUT: its global rect sits inside every clip_contents ancestor's
+# rect (± tol). Guards the dialog bug class where decorative overhangs (a card's ribbon,
+# a marked cell's gold ring, a bank card's bar) poke past the shared frame's clip and get
+# sliced at the edge. Call after layout has settled (await a frame first).
+func assert_unclipped(node: Control, axes: String, tol: float, label: String) -> bool:
+	var r := node.get_global_rect()
+	var bad := ""
+	var anc: Node = node.get_parent()
+	while anc != null:
+		if anc is Control and (anc as Control).clip_contents:
+			var cr := (anc as Control).get_global_rect()
+			var checks := []
+			if "h" in axes:
+				checks += [["left", cr.position.x - r.position.x], ["right", r.end.x - cr.end.x]]
+			if "v" in axes:   # NOTE: content scrolled out of a vertical window is a legit "cut" — only
+				checks += [["top", cr.position.y - r.position.y], ["bottom", r.end.y - cr.end.y]]   # ask for "v" on non-scrolling clips
+			for pair in checks:
+				if float(pair[1]) > tol:
+					bad += " %s cut %.1f by %s" % [pair[0], pair[1], anc.name]
+		anc = anc.get_parent()
+	ok(bad == "", "%s — renders unclipped (%s, ±%.1f)%s" % [label, axes, tol, bad])
+	return bad == ""
+
 # The map's single-input-surface invariant: every Control under `node` must
 # IGNORE the mouse, or it silently eats taps before clip.gui_input (bug class ×3).
 func _all_ignore(node: Node) -> bool:

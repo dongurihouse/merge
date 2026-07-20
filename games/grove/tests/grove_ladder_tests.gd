@@ -20,12 +20,27 @@ func _initialize() -> void:
 		"a merged line's header descriptor is the 2-ingredient recipe [2,3]")
 
 	# --- routing: a base line opens the tier grid (carrying its generator); a merged line the recipe view ---
+	# one frame first: the ladder sizes itself from the live viewport at open, and before the window's
+	# first layout pass that reads as 0-wide — the geometry asserts below need the real-width dialog.
+	await process_frame
 	b._open_ladder(1, 1)
 	var ov_base: Node = _ladder_overlay(b)
 	ok(ov_base != null and String(ov_base.get_meta("ladder_kind", "")) == "tiers", \
 		"a base line opens the tier-grid screen")
 	ok(String(ov_base.get_meta("header_gid", "")) == "gen_1", \
 		"the base tier screen carries its generator icon (gen_1)")
+
+	# GEOMETRY: no tier cell may be sliced by the frame's clip — the right column used to poke a
+	# few px past the scroll edge (the grid's initial width math ignored content_scale on the pads).
+	# The grid's deferred fit() → resize → refit cascade needs a few frames beyond the usual 0.1s.
+	await create_timer(0.25).timeout
+	if ov_base != null:
+		var cell_bgs: Array = ov_base.find_children("SlotCellBackground", "", true, false)
+		ok(cell_bgs.size() > 0, "the tier grid built its slot cells")
+		for cb in cell_bgs:
+			var tile := (cb as Control).get_parent() as Control
+			if not assert_unclipped(tile, "h", 0.5, "tier cell tile"):
+				break
 
 	b._open_ladder(5, 3)
 	await create_timer(0.1).timeout   # let the prior base-line grid's deferred queue_free settle before counting cells
