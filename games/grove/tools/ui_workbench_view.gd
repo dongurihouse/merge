@@ -1088,9 +1088,11 @@ func _bag_demo_entries(owned: int, filled: int) -> Array:
 			else:
 				out.append({"kind": "empty"})
 		elif k == owned + 1:
+			# the NEXT slot is the ONLY tile that shows its acorn cost — matches bag_overlay.gd (the lone
+			# price in the ladder is the buy cue); every deeper locked slot is a bare padlock, no cost.
 			out.append({"kind": "next", "cost": _bag_price(k, PRICES, START)})
 		else:
-			out.append({"kind": "locked", "cost": _bag_price(k, PRICES, START)})
+			out.append({"kind": "locked"})
 	return out
 
 ## The acorn price to unlock 1-based slot `k` (0 for a starting/past slot) — mirrors BagOverlay._price_at.
