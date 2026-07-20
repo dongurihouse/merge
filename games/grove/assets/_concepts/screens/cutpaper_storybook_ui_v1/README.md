@@ -10,6 +10,7 @@ Both mocks replace the earlier smooth, pill-heavy chrome with a **Layered Storyb
 
 - `board_cutpaper_storybook_ui_v1.png` — merge Board with a torn/scalloped unlock trail, request postcards, irregular slate paper board, folded selected-item flap, and selected Board tab.
 - `home_cutpaper_storybook_ui_v1.png` — farm Home screen with compact edge utilities, a lower-right build/customization rosette, and selected Home tab.
+- `map_cutpaper_storybook_ui_v1.png` — map selection screen with a raised Fairy Hollow progress card, four paired locked scene cards, and selected Explore tab.
 - `*.prompt.txt` — exact source prompt recorded beside each output.
 
 ## Reference roles

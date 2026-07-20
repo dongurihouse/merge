@@ -1,0 +1,8 @@
+Use case: ui-mockup
+Asset type: Grove mobile map-selection screen concept, 1080 x 1920 portrait.
+
+Input roles: current map composition and content hierarchy only; Layered Storybook Home mock for HUD style; Meadow Sky palette board for material; Desert Oasis scene for detailed paper craft.
+
+Create a Layered Storybook version of the existing map composition. Use a small level rosette, three individual cream die-cut resource tags, a wide raised Fairy Hollow active card with forest/mushroom scene on the left, exact labels "Fairy Hollow", "IN PROGRESS", and "CONTINUE" on the right, then a paired 2 x 2 grid of locked Snowy Village, Desert Oasis, Coral Reef, and Cherry Blossom Garden cards. Every locked card has a paper title label, flower-shaped paper lock medallion, and exact "LOCKED" tag. Add overlapping bottom paper tabs labelled Home, Board, Explore, Bag, Shop, with Explore raised as selected.
+
+Meadow Sky + Cut-Paper Playground style: friendly matte hand-cut cardstock; broad rounded silhouettes, one flat base with at most one same-hue shadow plane, 2–4% paper fibre, fine warm cut edge, thin darker local edge, upper-left light, shallow down-right shadows. Use sky blue, structural slate, meadow, warm cream, ink, action green, coral, reward gold, and sparse purple. Never use plastic, clay, glossy 3D, smooth white pills, generic modern rounded cards, white sticker outlines, heavy black outlines, watercolor, brushwork, or watermarks.
