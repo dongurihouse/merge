@@ -2367,22 +2367,37 @@ static func _title_header(text: String, font: int, band_h: float, width: float, 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	# The title reads as pressed into the parchment via a letterpress DEBOSS whose intensity the "Banner
-	# Burn" slider drives (banner_burn 0..1). This is the pre-06ee7155 treatment: a Pal.BARK shadow nudged
-	# down/right (NOT a white emboss highlight or outline). burn == 0 is the flat cool-ink baseline (no cast
-	# shadow); rising burn scales the shadow alpha + offset, with t == 1 restoring the old full-strength look
-	# (alpha 0.45, offset font*0.05/0.07). Geometry scales to THIS title's font so every dialog matches.
+	# The title reads pressed INTO the parchment via a CARVED GROOVE whose depth the "Banner Burn" slider
+	# drives (banner_burn 0..1). Not a cast drop shadow (that floats the text ABOVE the sheet) — a two-layer
+	# deboss: a cream "lower lip" copy nudged down behind the ink (light catching the bottom of the groove)
+	# + a faint dark shadow on the ink's TOP edge (the groove's shaded upper wall). burn == 0 is the flat
+	# baseline (single flat label). Depth scales with t and with THIS title's font so every dialog matches.
 	# burn is sourced from the workbench config (dialog_opts_from_config → banner_burn).
 	var t := clampf(burn, 0.0, 1.0)
 	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
 	lbl.add_theme_constant_override("outline_size", 0)
-	if t > 0.0:
-		lbl.add_theme_color_override("font_shadow_color", Color(Pal.BARK, 0.45 * t))
-		lbl.add_theme_constant_override("shadow_offset_x", maxi(1, int(round(font * 0.05 * t))))
-		lbl.add_theme_constant_override("shadow_offset_y", maxi(1, int(round(font * 0.07 * t))))
-		lbl.add_theme_constant_override("shadow_outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(lbl)
+	if t > 0.0:
+		var dy := maxi(1, int(round(font * 0.045 * t)))          # groove depth (px), scales with font + burn
+		var lip := Label.new()                                    # the cream lower lip, BEHIND the ink
+		lip.name = "DialogTitleLip"
+		lip.text = lbl.text
+		lip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lip.add_theme_font_override("font", bold_font())
+		lip.add_theme_font_size_override("font_size", font)
+		lip.add_theme_color_override("font_color", Color("#FBF1D8"))
+		lip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lip.set_anchors_preset(Control.PRESET_FULL_RECT)
+		lip.offset_top = dy; lip.offset_bottom = dy              # shift the whole rect down → centred text drops dy
+		lip.modulate.a = t                                       # the lip fades in with burn
+		header.add_child(lip)                                    # added first → sits behind the ink
+		# the ink's shaded top edge — a faint dark shadow nudged UP (deepens the groove, no down-right float).
+		lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.32 * t))
+		lbl.add_theme_constant_override("shadow_offset_x", 0)
+		lbl.add_theme_constant_override("shadow_offset_y", -maxi(1, int(round(font * 0.02 * t))))
+		lbl.add_theme_constant_override("shadow_outline_size", 0)
+	header.add_child(lbl)                                        # the ink face, on top of the lip
 	return header
 
 ## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
