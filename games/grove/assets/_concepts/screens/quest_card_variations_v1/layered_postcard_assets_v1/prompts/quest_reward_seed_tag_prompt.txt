@@ -1,0 +1,23 @@
+Use case: stylized-concept.
+Asset type: reusable mobile game UI sprite.
+Input images:
+- Image 1 is the approved Layered Postcard quest-card composition authority. Recreate only the EMPTY hanging reward tag shown at the lower right of each quest card; do not copy the resident, request note, requested item, card, coin, number, text, or background.
+- Image 2 is the mandatory Meadow Sky palette and Cut-Paper material authority. It controls paper color, restrained reward-gold edge, paper grain, and warm cut construction only.
+- Image 3 is the mandatory scale/detail-budget authority. It controls simple, phone-readable paper construction only; do not copy its scene, buildings, UI, or farm content.
+Primary request: create exactly one EMPTY seed-shaped hanging reward tag for a mobile quest card.
+Subject: one plump rounded seed/acorn-drop-shaped warm-cream cardstock tag, broad enough inside for a dynamic coin plus short reward value. A restrained thin reward-gold #D6A94C cut-paper rim follows the cream silhouette. At the top is one clearly open circular punched hole showing the background completely through it, with a short simple reward-gold paper loop passing through and rising above the tag. The loop and tag are a single visually coherent connected asset.
+Composition/framing: flat front-on orthographic UI glyph, centered, upright, whole silhouette and full loop visible, generous gutter on all four sides. Fill roughly 72% of square canvas height. Keep the central and lower interior empty.
+Scene/backdrop: perfectly flat solid #FF00FF chroma-key field for deterministic removal. The field and punched hole are the same one uniform exact #FF00FF with no texture, gradient, lighting variation, floor, reflection, or shadow. Do not use #FF00FF in the tag.
+Color palette: warm cream #F6EBDD, restrained reward gold #D6A94C, fine warm cut edge. Gold is only the thin rim and small loop.
+Materials/textures: matte hand-cut cardstock, broad low-complexity shapes, subtle paper fiber around 2-4% local value variation.
+Constraints: tag interior completely empty. No coin, acorn emblem, star, reward number, plus sign, text, label, stitching, ribbon, bow, leaf, item, face, button, cast shadow, contact shadow, glow, sticker halo, scene, watermark, or second object. No baked shadow. Do not crop or touch canvas edges. The punched hole must be a genuine open negative-space hole, not a dark painted circle.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.

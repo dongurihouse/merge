@@ -1,0 +1,23 @@
+Use case: stylized-concept.
+Asset type: reusable mobile game UI sprite.
+Input images:
+- Image 1 is the approved Layered Postcard quest-card composition authority. Recreate only its small cream request-note paper surface; do not copy the resident, item, card, tag, coin, text, or background.
+- Image 2 is the mandatory Meadow Sky palette and Cut-Paper material authority. It controls paper color, grain, warm cut edge, and restrained shading only.
+- Image 3 is the mandatory scale/detail-budget authority. It controls simple, phone-readable paper construction only; do not copy its scene, buildings, UI, or farm content.
+Primary request: create exactly one EMPTY warm-cream cut-paper request note for the quest card.
+Subject: a simple upright portrait-format paper scrap, almost rectangular but with a subtly hand-cut softly deckled perimeter and slightly softened corners. Broad generous empty center suitable for a dynamic gameplay item. One fine warm cut edge and one thin locally darker edge.
+Composition/framing: front-on orthographic UI glyph, centered, upright with no rotation, whole silhouette visible, generous gutter on all four sides. The paper should fill roughly 68% of the square canvas height and 58% of its width.
+Scene/backdrop: perfectly flat solid #FF00FF chroma-key field for deterministic removal. The field is one uniform exact color with no texture, gradient, lighting variation, floor, reflection, or shadow. Do not use #FF00FF in the paper.
+Color palette: warm cream #F6EBDD with extremely restrained warm edge and local paper-value variation only.
+Materials/textures: matte hand-cut cardstock, subtle paper fiber around 2-4% local value variation.
+Constraints: the note interior must be completely empty. No item, leaf, icon, pin, tape, string, hole, text, symbol, numeral, label, fold, border frame, cast shadow, contact shadow, glow, sticker halo, scene, watermark, or second object. No baked shadow. Do not crop or touch the canvas edge.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
