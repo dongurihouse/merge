@@ -602,7 +602,17 @@ static func shadow(corner: float, offset_x: float, offset_y: float, blur: float,
 	ssb.shadow_color = tint                                  # the soft feather past the filled rect, same tint
 	ssb.shadow_size = int(maxf(blur, 0.0))                  # blur = the soft feather radius
 	ssb.shadow_offset = Vector2(offset_x, offset_y)         # the cast direction + distance
-	ssb.set_corner_radius_all(int(maxf(corner + spread, 0.0)))   # grow the corner WITH the spread → shape stays concentric
+	# TOP corners stay concentric with the element (they're hidden behind it). BOTTOM corners go
+	# SQUARER: a shape-true capsule shadow shifted down only shows as a crescent that tapers to
+	# nothing at the rounded ends — the pill looked like it floated on a shadow narrower than
+	# itself. Squarer bottom corners make the pool run the FULL width of the element's bottom,
+	# the grounded "sits in its shadow" read the mocks have.
+	var r := int(maxf(corner + spread, 0.0))
+	var rb := int(maxf((corner + spread) * 0.45, 0.0))   # ~half the element rounding: fills the bottom without a hard corner poking past the silhouette
+	ssb.corner_radius_top_left = r
+	ssb.corner_radius_top_right = r
+	ssb.corner_radius_bottom_left = rb
+	ssb.corner_radius_bottom_right = rb
 	ssb.set_expand_margin_all(spread)                       # spread grows (or, negative, shrinks) the filled rect on every side
 	sh.add_theme_stylebox_override("panel", ssb)
 	return sh
