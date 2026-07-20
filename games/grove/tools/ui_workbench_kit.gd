@@ -2048,23 +2048,24 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", FS.BODY))
 	var body_font := int(opts.get("body_font", maxi(13, label_font - 4)))
 	var switch_h := float(opts.get("switch_h", 44.0))
-	var card_art := bool(opts.get("card_art", true))
 	var rich := entry.has("title") or entry.has("body") or entry.has("icon") or entry.has("cost")
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box: StyleBox = Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD) if card_art else null
-	if box != null:
-		panel.add_theme_stylebox_override("panel", box)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Color(Pal.CREAM, 0.6)
-		s.set_corner_radius_all(18)
-		s.set_border_width_all(1)
-		s.border_color = Color(Pal.BARK, 0.4)
-		s.content_margin_left = 22; s.content_margin_right = 18
-		s.content_margin_top = 12; s.content_margin_bottom = 12
-		panel.add_theme_stylebox_override("panel", s)
+	# the row is the SAME flat cut-paper surface the mail cards + buttons now wear — a soft sage tile with
+	# a thin PAPER_EDGE hairline and the shared drop shadow, so a settings row reads as one clean cut-paper
+	# card on the cream sheet. The old kit/mail_card.png nine-patch (an embossed border + a pink underline
+	# artifact) is retired, matching the mocks' clean rows.
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color("#DCE7C8")          # a soft sage, distinct from the cream sheet, in the daily-cell family
+	s.border_color = PAPER_EDGE
+	s.set_border_width_all(1)
+	s.set_corner_radius_all(18)
+	s.anti_aliasing = true
+	s.content_margin_left = 22; s.content_margin_right = 18
+	s.content_margin_top = 12; s.content_margin_bottom = 12
+	Look.apply_box_shadow(s)
+	panel.add_theme_stylebox_override("panel", s)
 
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -7,6 +7,7 @@ extends SceneTree
 ## and the config transforms read defaults + saved overrides — so the workbench's saved JSON drives it.
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Settings = preload("res://engine/scripts/ui/settings.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -212,8 +213,8 @@ func _initialize() -> void:
 
 	# --- the config transforms: defaults + saved overrides ------------------------
 	var d := Kit.toggle_card_opts_from_config({})
-	ok(int(d.get("label_font", 0)) == 28 and float(d.get("switch_h", 0)) == 44.0 and bool(d.get("card_art", false)) == true,
-		"toggle_card_opts defaults (label_font 28 · switch_h 44 · card_art on)")
+	ok(int(d.get("label_font", 0)) == FS.BODY and float(d.get("switch_h", 0)) == 44.0 and bool(d.get("card_art", false)) == true,
+		"toggle_card_opts defaults (label_font FS.BODY · switch_h 44 · card_art on)")
 	var o := Kit.toggle_card_opts_from_config({"toggle_card": {"label_font": 30, "switch_h": 50, "card_art": false}})
 	ok(int(o.get("label_font", 0)) == 30 and float(o.get("switch_h", 0)) == 50.0 and bool(o.get("card_art", true)) == false,
 		"toggle_card_opts reads saved overrides")
