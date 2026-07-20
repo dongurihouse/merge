@@ -1,29 +1,17 @@
-# Cherry Blossom Temple — Scene Workbench bundle
+# Cherry Blossom Temple — minimal Scene Workbench checkpoint
 
-Open the scene with:
+Open with:
 
 ```sh
 make sw SCENE=cherry_blossom_temple ROOT=games/grove/assets/_concepts/zones
 ```
 
-The scene preserves the paper-cut grain and zen-sand backdrop of the original mock, but is rebuilt from independently placeable assets.
+The current placed scene intentionally contains only:
 
-## Major grouped placements
+- zen-sand backdrop
+- seventeen individual stepping stones (`stepping_path`), arranged as the mock's upper-right descent, middle S-curve, and lower gate approach
+- pond (`pond`)
+- washing station / temizuya (`washing_station`)
+- torii gate (`gate`)
 
-Every major placement is a Scene Workbench `cluster`, so its nearby visual dressing travels, scales, and re-stacks as one unit:
-
-- `upper_garden` — upper pine garden, local bonsai, and rock.
-- `shrine_hall` — hall, rear bush, and foundation rock.
-- `left_sakura` / `right_sakura` — each cherry tree with its own bush-and-rock footing.
-- `pond_bridge` — clean pond, separate bridge, and only edge dressing; the pond asset itself has no bridge or lower-right vegetation.
-- `temizuya` — water-cleansing pavilion with its bamboo basin, plus local bonsai and bush.
-- `torii_gate` — gate, the two front lanterns, and the two approach-side bushes.
-
-## Reusable decals
-
-- `05_dressing/stepping_stones/` has four individual stone variations. The placed route is `pilgrim_path`, a cluster of independent stone decals, never a baked path image.
-- `05_dressing/rocks/` has three rock-cluster variations.
-- `05_dressing/bushes/` has three bush-cluster variations.
-- `05_dressing/bonsai/` has three bonsai variations.
-
-Unused variations remain in the Workbench palette for further local dressing. Associate a decal with its nearby major group by assigning the same `cluster` value in `metadata/placements.json`.
+There is no bridge, shrine, lantern, tree, rock, bush, fence, or surroundings group in the placement document. Other extracted assets remain available in the bundle for later procedural additions, but they are not placed in this checkpoint.
