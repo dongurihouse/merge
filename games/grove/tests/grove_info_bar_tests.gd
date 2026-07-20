@@ -257,6 +257,13 @@ func _initialize() -> void:
 		"the empty info-bar title stays inside the outer Meadow action tray")
 	ok(board_scene.bottom_bar != null and desc_label != null and live_tray_rect.encloses(desc_label.get_global_rect()), \
 		"the empty info-bar help copy stays inside the outer Meadow action tray")
+	var live_info_tray := board_scene.bottom_bar.find_child("ActionBarInfoTray", true, false) as Control
+	ok(live_info_tray != null and board_scene.home_btn != null \
+			and absf(live_info_tray.get_global_rect().size.y - board_scene.home_btn.get_global_rect().size.y) <= 1.0, \
+		"the centre info tray stands the same height as the Home tile beside it")
+	ok(live_info_tray != null and board_scene.bag_btn != null \
+			and absf(live_info_tray.get_global_rect().size.y - board_scene.bag_btn.get_global_rect().size.y) <= 1.0, \
+		"the centre info tray stands the same height as the Bag tile beside it")
 	ok(board_scene._info_label.get_line_count() <= 2, \
 		"the empty info-bar title fits in at most two lines at the phone viewport")
 	ok(desc_label != null and desc_label.get_line_count() <= 3, \
