@@ -392,6 +392,7 @@ func _initialize() -> void:
 	# REAL tree-attached host so the kit + viewport resolve, then drive the actual buttons
 	# end-to-end: the piggy-bank Claim→Confirm cracks the jar; the calendar Claim claims today's rung.
 	fresh("vault_surface")
+	Feat.FLAGS["piggy_vault"] = true   # the vault is parked (flag OFF); flip on to drive its surface
 	var vhost = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(vhost)
 	if vhost.has_method("_ready") and vhost.content == null:
@@ -412,6 +413,7 @@ func _initialize() -> void:
 	ok(Save.diamonds() == v_before + v_banked and Vault.balance() == 0, \
 		"cracking the jar through the surface grants the banked 💎 and empties it")
 	vhost.queue_free()
+	Feat.FLAGS["piggy_vault"] = false  # restore the shipped default (parked)
 
 	fresh("login_surface")
 	var lhost = load("res://engine/scenes/Map.tscn").instantiate()

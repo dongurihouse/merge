@@ -64,6 +64,7 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 |---|---|---|---|
 | `item_backing` | AF3: ON — re-purposed as a soft warm contact shadow under each piece | `engine/scripts/scenes/board.gd` `_make_piece()` (L1219) | keep — default ON, owner review pending |
 | `drag_swap` | drop an item on another occupied cell → swap (P) | `engine/scripts/scenes/board.gd` `_on_release()` (L1554) | keep — default ON, owner review pending |
+| `piggy_vault` | §10 — the accrual vault (piggy bank): the bottom-bar tile + pip and the premium skim | `engine/scripts/scenes/map.gd` `_bottom_bar_specs()`; `engine/scripts/core/vault.gd` `skim()` | parked — default OFF by owner's word (2026-07-19) |
 
 ## ftue
 

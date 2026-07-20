@@ -2341,9 +2341,11 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 			"surface": "green", "action": _open_residents},
 		{"name": "DailyTile", "icon": HC.ICON_DAILY, "caption": Strings.t("map.rail.daily"),
 			"surface": "gold", "action": _open_daily},
-		{"name": "VaultTile", "icon": HC.ICON_VAULT, "caption": Strings.t("map.rail.vault"),
-			"surface": "purple", "action": _open_vault},
 	]
+	# Vault — behind the `piggy_vault` flag (OFF for now): the tile, its pip, and the skim all sleep.
+	if Features.on("piggy_vault"):
+		specs.append({"name": "VaultTile", "icon": HC.ICON_VAULT, "caption": Strings.t("map.rail.vault"),
+			"surface": "purple", "action": _open_vault})
 	# Mail — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
 		specs.append({"name": "MailTile", "icon": HC.ICON_INBOX, "caption": Strings.t("map.nav.mail"),
