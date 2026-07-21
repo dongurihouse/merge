@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://crkvlo0x3c86w"
-path="res://.godot/imported/gazebo_paper_plate_v2.png-ff36e6b8e34cb7a768bcc03e999db266.ctex"
+uid="uid://cfd1dvkup66n7"
+path="res://.godot/imported/dock_rowboat.png-8b7a5bab8529266c8207c9387207fe12.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/03_structures/gazebo_paper_plate_v2.png"
-dest_files=["res://.godot/imported/gazebo_paper_plate_v2.png-ff36e6b8e34cb7a768bcc03e999db266.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/03_structures/dock_rowboat.png"
+dest_files=["res://.godot/imported/dock_rowboat.png-8b7a5bab8529266c8207c9387207fe12.ctex"]
 
 [params]
 

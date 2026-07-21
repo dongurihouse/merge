@@ -505,20 +505,23 @@ func _initialize() -> void:
 	ok(icon_only, "scene buttons are icon-only, matching the mock strip")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
 	var live_scenes := M.scenes_in("res://games/grove/assets/_concepts/zones")
-	ok(live_scenes.has("winter_lantern_lodge"),
-		"the modular Lantern Lodge bundle is available as its own Scene Workbench scene")
-	var lantern_doc := M.load_doc("res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/metadata/placements.json")
+	ok(live_scenes.has("winter"),
+		"the modular winter bundle is available as its own Scene Workbench scene")
+	var lantern_doc := M.load_doc("res://games/grove/assets/_concepts/zones/winter_elements_v1/metadata/placements.json")
 	var gazebo_z := -1
 	var upper_left_cover_z := -1
 	var unlock_cover_count := 0
 	var unlock_coverup_count := 0
 	var lowest_unlock_cover_z := -1
 	var unlock_clusters := {}
+	var hero_clusters := {}
 	for e in M.placements(lantern_doc):
 		if String((e as Dictionary).get("id", "")) == "gazebo":
 			gazebo_z = int((e as Dictionary).get("z", -1))
 		if String((e as Dictionary).get("id", "")) == "edge_covering_upper_left":
 			upper_left_cover_z = int((e as Dictionary).get("z", -1))
+		if M.entry_layer(e as Dictionary) == "primary_objects":
+			hero_clusters[String((e as Dictionary).get("cluster", ""))] = true
 		if String((e as Dictionary).get("category", "")) == "unlock_cover":
 			unlock_cover_count += 1
 			lowest_unlock_cover_z = maxi(lowest_unlock_cover_z, int((e as Dictionary).get("z", -1)))
@@ -527,12 +530,14 @@ func _initialize() -> void:
 			if String((e as Dictionary).get("layer", "")) == "coverup":
 				unlock_coverup_count += 1
 	ok(upper_left_cover_z >= 0 and upper_left_cover_z < gazebo_z,
-		"the Lantern Lodge upper-left cover stays behind the gazebo roof")
+		"the winter upper-left cover stays behind the gazebo roof")
 	ok(unlock_cover_count == 23 and unlock_coverup_count == 23 and lowest_unlock_cover_z > 200,
-		"the Lantern Lodge unlock cover is a topmost 23-piece removable Coverup layer")
+		"the winter unlock cover is a topmost 23-piece removable Coverup layer")
 	ok(unlock_clusters == {"unlock_lodge": 5, "unlock_gazebo": 3, "unlock_christmas_tree": 3,
 		"unlock_dock": 5, "unlock_entrance_arch": 7},
-		"the Lantern Lodge unlock cover clusters each piece by the primary object region it hides")
+		"the winter unlock cover clusters each piece by the primary object region it hides")
+	ok(hero_clusters == {"lodge": true, "gazebo": true, "christmas_tree": true, "dock": true, "entrance_arch": true},
+		"the winter hero structures sit on primary_objects, each tagged with its unlock region")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
 		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}

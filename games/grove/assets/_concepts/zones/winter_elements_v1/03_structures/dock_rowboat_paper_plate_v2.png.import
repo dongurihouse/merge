@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dwqi2xqa7ehju"
-path="res://.godot/imported/foundation.png-9451c67c8d812fcae6b8c081158312fe.ctex"
+uid="uid://b8ffpkan5evjc"
+path="res://.godot/imported/dock_rowboat_paper_plate_v2.png-f6b8e89df98c12041d9a1c13c866c18e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/02_backdrop/foundation.png"
-dest_files=["res://.godot/imported/foundation.png-9451c67c8d812fcae6b8c081158312fe.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/03_structures/dock_rowboat_paper_plate_v2.png"
+dest_files=["res://.godot/imported/dock_rowboat_paper_plate_v2.png-f6b8e89df98c12041d9a1c13c866c18e.ctex"]
 
 [params]
 

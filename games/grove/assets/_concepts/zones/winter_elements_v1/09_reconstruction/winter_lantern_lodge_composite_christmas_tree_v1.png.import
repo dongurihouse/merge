@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d4hng7g8njetj"
-path="res://.godot/imported/edge_coverings.png-5bc4442241fa4df9ef4f71ce137f1fe5.ctex"
+uid="uid://ck4hhsdy8naaj"
+path="res://.godot/imported/winter_lantern_lodge_composite_christmas_tree_v1.png-96a5eb2a0dcdb68957f4d7e8a29f8581.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/05_coverings/edge_coverings.png"
-dest_files=["res://.godot/imported/edge_coverings.png-5bc4442241fa4df9ef4f71ce137f1fe5.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/09_reconstruction/winter_lantern_lodge_composite_christmas_tree_v1.png"
+dest_files=["res://.godot/imported/winter_lantern_lodge_composite_christmas_tree_v1.png-96a5eb2a0dcdb68957f4d7e8a29f8581.ctex"]
 
 [params]
 
