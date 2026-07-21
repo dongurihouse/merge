@@ -1886,6 +1886,27 @@ static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
 ## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
 ## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
+# The cut-paper dialog RE-SKIN assets (extracted from the mail mock). Absent files → the drawn fallback.
+const MAIL_SKIN := "res://games/grove/assets/ui/dialogs/mail/"
+static func _mail_skin_tex(key: String) -> Texture2D:
+	var p := MAIL_SKIN + key + ".png"
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
+
+## A reskinned action button: the extracted GREEN/CREAM cut-paper button background with the label drawn
+## on top (TextSpriteButton), sized to the label. Returns null when the sprite is absent so callers fall
+## back to pill_button. `color_key` is "green" or "cream".
+static func _skin_button(text: String, color_key: String, font_px: int) -> Button:
+	var tex := _mail_skin_tex("btn_" + color_key)
+	if tex == null:
+		return null
+	var TSB = load("res://engine/scripts/ui/text_sprite_button.gd")
+	var h := roundf(font_px * 2.0)
+	var w := roundf(text.length() * font_px * 0.62 + font_px * 2.0)
+	var col: Color = Pal.CREAM if color_key == "green" else Pal.INK   # cream on green, ink on cream
+	var b: Button = TSB.build(tex, text, Vector2(w, h), Callable(), {"font": font_px, "color": col, "name": "SkinButton"})
+	b.mouse_filter = Control.MOUSE_FILTER_STOP   # the caller wires `.pressed`
+	return b
+
 static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: int = FS.FINE, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
 	# The row panel is a plain flat paper surface — the SAME cut-paper construction the buttons/chips wear
 	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer), matching the mocks' clean
