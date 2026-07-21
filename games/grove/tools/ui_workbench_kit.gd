@@ -48,6 +48,10 @@ const PAPER_SURFACES := {
 	"gold": {"texture": "texture_reward_gold.png", "fill": Color("#D6A94C")},
 	"kraft": {"texture": "texture_warm_kraft.png", "fill": Color("#C9A886")},
 	"slate": {"texture": "texture_structural_slate.png", "fill": Color("#8296AF")},
+	# WHITE paper: a truly white fibre for the deckle path (its own `tile`, desaturated + lifted from the
+	# cream fibre) so a white fill reads white, not cream. The deckle-off shader path falls back to the cream
+	# grain (multiplied by the white fill) — deckle is on by default, so the white tile is what shows.
+	"white": {"texture": "texture_cream.png", "fill": Color("#FBFBFB"), "tile": CUT_PAPER_TILE_WHITE},
 }
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
@@ -248,7 +252,8 @@ static func _apply_deckle_button_surface(
 	corner: float,
 	cp_opts: Dictionary,
 	margins: Vector4,
-	enabled: bool = true
+	enabled: bool = true,
+	tile: Texture2D = null       # per-role paper fibre; null → the shared cream tile (cut_paper_tile)
 ) -> Control:
 	button.set_meta(Look.SHADOW_CORNER_META, corner)
 	# transparent styleboxes: the panel behind is the visible face; the stylebox only holds the content
@@ -269,7 +274,7 @@ static func _apply_deckle_button_surface(
 	panel.show_behind_parent = true
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.configure(cp_opts, base_fill, null, cut_paper_tile())   # the ONE shared edge applier
+	panel.configure(cp_opts, base_fill, null, tile if tile != null else cut_paper_tile())   # the ONE shared edge applier (role tile, else the shared cream fibre)
 	panel.corner = corner                                          # the button's own corner (may be an explicit opt)
 	button.add_child(panel)
 
@@ -1209,15 +1214,18 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var icon_id := String(opts.get("icon", ""))
 	var enabled: bool = bool(opts.get("enabled", true))
 	var font_px := int(opts.get("font", FS.FINE))
-	var corner := float(opts.get("corner", 16.0))      # low = rectangular; ≥ height/2 = capsule
 	var shadow: bool = bool(opts.get("shadow", false)) # a soft drop shadow under the pill
 	var pad_scale := float(opts.get("pad_scale", 1.0)) # shrink/grow the padding (the cost chip uses < 1 to fit a card)
 	# CODE-DRAWN rugged edge: the paper roles wear the SAME shared cut-paper edge as the dialog frame + the
 	# settings rows. `cp` is the ONE normalized knob set (Kit.cut_paper_opts_from_config) — passed in by a
-	# caller, else read from the cached config's `button` block. `corner` above already feeds the surface.
+	# caller, else read from the cached config's `button` block.
 	var cp: Dictionary = opts.get("cp", {})
 	if cp.is_empty():
 		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "button", BUTTON_CP_DEFAULTS)
+	# `corner` is part of that shared edge set: a caller may override it explicitly (the card Claim wants a
+	# roomier corner), but ABSENT one it falls back to the shared cp corner — so the sibling paper buttons
+	# and chips track the workbench Corner knob instead of a hardcoded 16 (which only the live tile escaped).
+	var corner := float(opts.get("corner", cp.get("corner", 16.0)))   # low = rectangular; ≥ height/2 = capsule
 	var deckle: bool = bool(opts.get("deckle", cp.get("deckle", true)))
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
@@ -1284,7 +1292,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 		var proll: Dictionary = PAPER_SURFACES[paper_role]
 		var proll_fill: Color = proll.get("fill", Pal.CREAM)
 		if deckle:
-			_apply_deckle_button_surface(b, proll_fill, corner, cp, paper_margins, enabled)
+			_apply_deckle_button_surface(b, proll_fill, corner, cp, paper_margins, enabled, _paper_role_tile(proll))
 			return b
 		_maybe_shadow(b, shadow, corner, opts.get("shadow_params", {}))
 		var proll_paper := _apply_rounded_paper_surface(
@@ -2006,15 +2014,17 @@ const ROW_SAGE_EDGE := Color("#BFD09E")   # a deeper sage for the torn cut-edge 
 ## the dialog frame, and the settings toggle bar (row + switch). Each entry is BOTH a row in the workbench
 ## inspector (via _cut_paper_section) AND a field the reader parses + the applier consumes. Add a knob here
 ## → it appears in every component's inspector and is read + applied everywhere, no per-component edits.
-## `key` = the config/opts key; `kind` = "toggle" | "slider"; sliders carry min/max; `freq` marks a percent
-## slider the reader divides by 100 (CutPaperPanel wants a raw frequency). Per-component VALUES live in each
-## component's own config block; this only fixes the SET + ranges + fallback defaults.
+## `key` = the config/opts key; `kind` = "toggle" | "slider" | "color"; sliders carry min/max; `freq` marks
+## a percent slider the reader divides by 100 (CutPaperPanel wants a raw frequency); a "color" knob saves a
+## 6-hex string and the reader parses it to a Color. Per-component VALUES live in each component's own config
+## block; this only fixes the SET + ranges + fallback defaults.
 const CUT_PAPER_KNOBS := [
 	{"key": "deckle",      "kind": "toggle", "label": "Cut-paper edge", "default": true},
 	{"key": "corner",      "kind": "slider", "label": "Corner",      "min": 0, "max": 60, "default": 16},
 	{"key": "deckle_amp",  "kind": "slider", "label": "Deckle amp",  "min": 0, "max": 20, "default": 5},
 	{"key": "deckle_freq", "kind": "slider", "label": "Deckle freq", "min": 1, "max": 20, "default": 5, "freq": true},
 	{"key": "rim_width",   "kind": "slider", "label": "Rim width",   "min": 0, "max": 8,  "default": 2},
+	{"key": "rim_color",   "kind": "color",  "label": "Rim color",   "default": "E7D6BC"},
 	{"key": "edge_shadow", "kind": "toggle", "label": "Edge shadow", "default": true},
 	# the drop-shadow itself is tunable: how far it reaches below the sheet (px) and its per-copy darkness
 	# (a percent → alpha). Both only bite when Edge shadow is on. CutPaperPanel.configure consumes them.
@@ -2035,8 +2045,11 @@ static func cut_paper_opts_from_config(cfg: Dictionary, block: String, overrides
 		var k: String = knob["key"]
 		var fallback: Variant = overrides.get(k, knob["default"])
 		var raw: Variant = d.get(k, _cut_paper_legacy(d, k, fallback))
-		if String(knob.get("kind", "slider")) == "toggle":
+		var kind := String(knob.get("kind", "slider"))
+		if kind == "toggle":
 			o[k] = bool(raw)
+		elif kind == "color":
+			o[k] = Color.from_string("#" + String(raw).lstrip("#"), Color.WHITE)
 		elif bool(knob.get("freq", false)):
 			o[k] = float(raw) / 100.0
 		else:
@@ -2056,6 +2069,12 @@ static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> 
 ## stays free of grove asset paths.
 static func cut_paper_tile() -> Texture2D:
 	return load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
+
+## A paper role's OWN deckle fibre when it registers one (e.g. the white role), else null so the deckle
+## surface falls back to the shared cream tile. Keeps per-role grain (white paper) out of the engine applier.
+static func _paper_role_tile(surface: Dictionary) -> Texture2D:
+	var p := String(surface.get("tile", ""))
+	return load(p) as Texture2D if p != "" and ResourceLoader.exists(p) else null
 
 ## Per-component fallback defaults for the shared cut-paper edge (used as `overrides` for the reader; the
 ## saved config wins over these, and the schema default wins when a component omits a key). Only the values
@@ -2411,6 +2430,7 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## panel_art / slice / pad DEFAULTS; explicit panel_art / card_slice_* / panel_pad_* opts still win,
 ## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
 const CUT_PAPER_TILE := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"   # code-drawn sheet's paper fibre
+const CUT_PAPER_TILE_WHITE := "res://games/grove/assets/ui/dialogs/paper_tile_white.png"   # the white paper role's fibre (desaturated + lifted from the cream tile)
 const FRAME_BORDERS := {
 	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},

@@ -70,8 +70,13 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	if o.has("shadow_strength"):
 		shadow_alpha = float(o["shadow_strength"]) / 100.0
 	paper_color = fill
+	# rim precedence: an explicit `rim` arg (a per-caller computed edge, e.g. the mail card's tinted rim)
+	# wins; otherwise the shared `rim_color` edge knob in the opts dict applies, so the workbench picker
+	# flows to every button that doesn't compute its own rim. Absent both → keep the current rim.
 	if rim != null:
 		rim_color = rim
+	elif o.has("rim_color"):
+		rim_color = o["rim_color"]
 	if tile != null:
 		paper_tex = tile
 	queue_redraw()
