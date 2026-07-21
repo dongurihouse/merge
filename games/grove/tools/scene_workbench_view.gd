@@ -889,6 +889,7 @@ func _refresh_cluster_list() -> void:
 			var b := _small_button("%s%s  (%d)  z%d" % ["▸ " if cname == _sel_cluster else "  ",
 				cname, (cls[cname] as Array).size(), M.cluster_z(doc, cname)], _select_cluster.bind(cname))
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.clip_text = true                                # long names clip, never push the eye off-panel
 			if cname == _sel_cluster:
 				b.add_theme_color_override("font_color", Color("#B05A00"))
 			elif chidden:
@@ -915,6 +916,7 @@ func _refresh_cluster_list() -> void:
 				var mb := _small_button("      %s%s   z%d" % ["▸ " if k == _sel else "· ",
 					String(e.get("id", "?")), int(e.get("z", 0))], _select.bind(k))
 				mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				mb.clip_text = true
 				if k == _sel:
 					mb.add_theme_color_override("font_color", Color("#B05A00"))
 				mrow.add_child(mb)
