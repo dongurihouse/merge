@@ -161,7 +161,9 @@ func _initialize() -> void:
 	# the SHIPPED home page manifest (Fairy Hollow, the hub) parses and carries its layered buildings
 	var shipped := HZV.load_manifest("res://games/grove/assets/map/pages/zone_fairy_hollow.json")
 	ok(not shipped.is_empty(), "the shipped zone_fairy_hollow.json manifest parses")
-	ok((shipped.get("buildings", []) as Array).size() == 16, "the shipped manifest carries the 16 Fairy Hollow buildings")
+	# building count tracks whatever the generator currently emits from the latest fairy_hollow_elements_v*
+	# bundle (27, from v4) — not a hand-picked number, so a bundle bump doesn't silently break this suite.
+	ok((shipped.get("buildings", []) as Array).size() == 27, "the shipped manifest carries the 27 Fairy Hollow buildings")
 	ok(int(shipped.canvas.width) == 1320 and int(shipped.canvas.height) == 2346, "the shipped manifest matches the page canvas")
 
 	parent.queue_free()

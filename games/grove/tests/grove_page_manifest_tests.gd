@@ -18,6 +18,15 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
+# TOP-DOWN unlock order per coverup page (scenes 2-5 wiring, 2026-07-20) — see BRIEF-scenes.md.
+const TOP_DOWN_CLUSTERS := {
+	"fairy_hollow": ["mushroom_hall", "tea_stall", "crystal_map_stall", "stream_bridge", "flower_crate", "lantern_gate"],
+	"snowy_village": ["lodge", "christmas_tree", "gazebo", "dock", "entrance_arch"],
+	"desert_oasis": ["adobe", "watchtower", "market_stall", "travel_tent", "caravan"],
+	"coral_reef": ["shipwreck", "anchor", "chest", "statue", "clam"],
+	"cherry_blossom_garden": ["pavilion", "pond_bridge", "temizuya", "torii"],
+}
+
 func _initialize() -> void:
 	print("== Grove page manifests ==")
 	ok(G.MAPS.size() == 5, "the world is the five picture-book pages")
@@ -50,6 +59,13 @@ func _initialize() -> void:
 			for c in covs:
 				covs_ok = covs_ok and ResourceLoader.exists(String((c as Dictionary).get("image", "")))
 			ok(covs_ok, "page '%s': authored coverup canopy imports (%d sprites)" % [id, covs.size()])
+			# Task 2 (scenes 2-5 wiring, 2026-07-20): every coverup page's clusters() ids match the
+			# authored TOP-DOWN unlock order exactly (BRIEF-scenes.md's per-scene cluster table).
+			var want_order: Array = TOP_DOWN_CLUSTERS.get(id, [])
+			var got_order: Array = []
+			for c in G.clusters(z):
+				got_order.append(String((c as Dictionary).id))
+			ok(got_order == want_order, "page '%s': clusters() top-down order is %s (got %s)" % [id, want_order, got_order])
 		else:
 			var frames: Array = G.MAPS[z].get("covering_frames", [])
 			var frames_ok := frames.size() == 5
@@ -123,10 +139,44 @@ func _initialize() -> void:
 	ok(G.next_locked_cluster(0, ul) == "mushroom_hall", "market: top cluster first in the sequence")
 	ok(G.cluster_locked(0, "tea_stall", ul), "market: tea_stall starts locked")
 	ok(not G.cluster_ready(0, "mushroom_hall", ul, 0, 0), "market: under-leveled/too-poor is not ready")
-	ok(G.cluster_ready(0, "mushroom_hall", ul, 1, 10), "market: gate met -> ready")
+	# min_level is now a FORMULA (2 + global_cluster_index) — mushroom_hall, the very first cluster
+	# across every coverup page, lands at L2, not L1.
+	ok(not G.cluster_ready(0, "mushroom_hall", ul, 1, 10), "market: L1 is under the formula's L2 floor")
+	ok(G.cluster_ready(0, "mushroom_hall", ul, 2, 10), "market: gate met (L2) -> ready")
 	ok(not G.cluster_ready(0, "tea_stall", ul, 9, 9999), "market: a later cluster is never ready (strict sequence)")
 	ul["mushroom_hall"] = true
 	ok(G.next_locked_cluster(0, ul) == "tea_stall", "market: the sequence advances after an unlock")
 	ok(G.cluster_ready(0, "tea_stall", ul, 9, 9999), "market: the next cluster becomes ready")
+
+	# Task 3 (scenes 2-5 wiring, 2026-07-20): the GLOBAL consecutive-level formula + the cross-scene
+	# gate (content.gd). Pure data/logic — no scene.
+	ok(G.coverup_pages() == [0, 1, 2, 3, 4], "every page is a coverup page, in MAPS order")
+	ok(G.cluster_min_level(0, "mushroom_hall") == 2, "market's first cluster unlocks at L2")
+	ok(G.cluster_min_level(0, "tea_stall") == 3, "market's second cluster unlocks at L3")
+	ok(G.cluster_min_level(0, "lantern_gate") == 7, "market's last (6th) cluster unlocks at L7")
+	# winter is MAPS[1] — its first cluster sits 6 slots after the market's 6 clusters: L2 + 6 = L8.
+	var winter_z := 1
+	ok(String(G.MAPS[winter_z].id) == "snowy_village", "MAPS[1] is snowy_village (winter)")
+	ok(G.cluster_min_level(winter_z, "lodge") == 2 + 6, "winter's first cluster (lodge) unlocks at L8 (2 + 6 market clusters)")
+	# desert is MAPS[2] — its first cluster sits 11 slots after market(6) + winter(5).
+	var desert_z := 2
+	ok(String(G.MAPS[desert_z].id) == "desert_oasis", "MAPS[2] is desert_oasis")
+	ok(G.cluster_min_level(desert_z, "adobe") == 2 + 6 + 5, "desert's first cluster (adobe) unlocks at L13 (2 + 6 + 5)")
+
+	# The cross-scene gate: winter's clusters can't be ready until EVERY market cluster is unlocked,
+	# no matter how high the level/coins — a scene's padlocks don't go live until the previous scene
+	# is fully restored.
+	ok(not G.coverup_scene_open(winter_z, {}), "winter is gated shut with no market clusters unlocked")
+	ok(not G.cluster_ready(winter_z, "lodge", {}, 99, 99999), "winter's first cluster is NOT ready while gated, even overpowered")
+	var market_done := {}
+	for c in G.clusters(0):
+		market_done[String((c as Dictionary).id)] = true
+	ok(G.coverup_scene_open(winter_z, market_done), "winter opens once every market cluster is unlocked")
+	ok(G.cluster_ready(winter_z, "lodge", market_done, 99, 99999), "winter's first cluster becomes ready once its scene opens (+ level/coins met)")
+	# desert stays gated even though winter's OWN gate (the market) is satisfied — desert also needs
+	# winter's own clusters finished first.
+	ok(not G.coverup_scene_open(desert_z, market_done), "desert stays gated until winter's own clusters are also unlocked")
+	ok(not G.cluster_ready(desert_z, "adobe", market_done, 99, 99999), "desert's first cluster is NOT ready until winter finishes too")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
