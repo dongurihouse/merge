@@ -211,7 +211,7 @@ const RESIDENT_LINES := {
 	"snowy_village": {"id": "sprout", "name": "Sprout"},           # earth / green growth
 	"desert_oasis": {"id": "dewdrop", "name": "Dewdrop"},          # water / oasis-dew
 	"coral_reef": {"id": "breeze", "name": "Breeze"},              # air / current
-	"cherry_blossom_garden": {"id": "starlight", "name": "Starlight"},   # light / aether
+	"sakura": {"id": "starlight", "name": "Starlight"},   # light / aether
 }
 # The GLOBAL resident bucket (grove_spec §3): four resource LINES, each arted by one of the existing
 # resident families (items/resident_<kind>/). breeze (air) is retired — legacy breeze spirits migrate
@@ -487,10 +487,10 @@ static func _build_maps() -> Array:
 			{"id": "clam", "cost": 4000},
 		],
 		"spots": []},
-	{"id": "cherry_blossom_garden", "name": "Cherry-Blossom Garden", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_cherry_blossom_garden.json",
+	{"id": "sakura", "name": "Cherry-Blossom Garden", "open": true,
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_sakura.json",
 		"covering_frames": [], "coverup_mode": true,
-		# TOP-DOWN unlock order (cherry_blossom_paper_plate_terrace bundle, unlock_region_ prefix).
+		# TOP-DOWN unlock order (sakura bundle, unlock_region_ prefix).
 		"clusters": [
 			{"id": "pavilion", "cost": 4600},
 			{"id": "pond_bridge", "cost": 5300},

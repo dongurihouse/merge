@@ -1,6 +1,0 @@
-Use case: stylized-concept
-Asset type: portrait mobile game environment concept art.
-
-Contemplative Japanese temple-side water garden suggesting a hidden pilgrim route. A low stone torii entrance with guardian fox statues leads past a bamboo shishi-odoshi water feature and stone wash basin, then a koi canal and red footbridge, ema wish rack, tea-and-incense pavilion, weathered stone pagoda, bell chime, and secluded moon-viewing pond near an uphill shrine roof.
-
-Style reference: cherry_blossom_garden_original_mock_v1.png. Retain the tactile layered paper-cut feel, warm palette, tidy game readability, and fine paper-fiber grain, while freely inventing the route and scene content. No people, UI, text, labels, logos, watermarks, or real-temple copy.

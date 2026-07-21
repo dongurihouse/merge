@@ -699,7 +699,7 @@ texture erased; reject it rather than compensating with a new unrelated floor.
    bare socket or hole.
 
 The accepted Cherry Blossom implementation keeps the reusable petal family and its placements with the
-scene bundle at `games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/`.
+scene bundle at `games/grove/assets/_concepts/zones/sakura_elements_v1/` (the single `sakura` scene).
 `metadata/placements.json` is the authority for `primary_objects` and `coverup`; prompt sidecars and raw
 keyed sources preserve the ability to regenerate a variation without losing the composition contract.
 

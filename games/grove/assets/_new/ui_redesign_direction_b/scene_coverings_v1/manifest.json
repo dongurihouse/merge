@@ -29,7 +29,7 @@
       "frames": ["coral_shells_01.png", "coral_shells_02.png", "coral_shells_03.png", "coral_shells_04.png", "coral_shells_05.png"]
     },
     {
-      "scene": "cherry_blossom_garden",
+      "scene": "sakura",
       "covering": "petals",
       "frames": ["cherry_petals_01.png", "cherry_petals_02.png", "cherry_petals_03.png", "cherry_petals_04.png", "cherry_petals_05.png"]
     }

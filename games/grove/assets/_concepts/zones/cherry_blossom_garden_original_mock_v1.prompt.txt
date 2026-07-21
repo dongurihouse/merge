@@ -1,5 +1,0 @@
-Use case: precise-object-edit
-Asset type: canonical full-scene concept mock for a portrait mobile-game picture-book page
-Input image: cherry_blossom_garden_original_mock_v1.png is the edit target.
-Primary request: Move the two stone lanterns from their former pond-side and lower-right positions to the foreground beside the bottom-left torii gate. Place one fully visible stone lantern on each side of the gate, just in front of its posts, so they frame the gate approach at matching scale.
-Constraints: change only the lantern placement. Preserve the exact portrait canvas, camera, zen sand, rake marks, stepping stones, gate, water, bridge, pavilion, trees, plants, rocks, petals, sky, mountains, colors, lighting, shadows, and paper-cut style. Preserve the lantern design and match its original material, lighting, scale, and soft ground shadow. No extra lanterns, props, text, UI, watermark, or composition changes.

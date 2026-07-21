@@ -28,7 +28,7 @@ PAGES = [  # play order (picturebook_lines_recipes.md)
     ("snowy_village", "Snowy Village"),
     ("desert_oasis", "Desert Oasis"),
     ("coral_reef", "Coral Reef"),
-    ("cherry_blossom_garden", "Cherry-Blossom Garden"),
+    ("sakura", "Cherry-Blossom Garden"),
 ]
 
 # Scene → bundle-prefix map (2026-07-20, scenes 2-5 wiring): each scene's authored elements bundle
@@ -39,7 +39,7 @@ SCENE_BUNDLES = {
     "snowy_village": "winter",
     "desert_oasis": "desert_oasis_watchtower",
     "coral_reef": "coral",
-    "cherry_blossom_garden": "cherry_blossom_paper_plate_terrace",
+    # `sakura` needs no entry — its bundle prefix equals its scene id (sakura_elements_v*).
 }
 
 # Coverup region-id prefixes the scene workbench uses to link a coverup piece to its unlock cluster —

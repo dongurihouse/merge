@@ -1,6 +1,0 @@
-Use case: stylized-concept
-Asset type: portrait mobile game environment concept art.
-
-Japanese temple bell-and-prayer garden in peak sakura season. A roofed bell pavilion with bronze bell and braided rope is the focal point. Add a wooden ema prayer-plaque rack, a stone rinse basin fed by a bamboo kakei spout, a stone-lined rill with waterwheel, a mossy pagoda lantern, a bench under cherry branches, and a distant vermilion shrine doorway.
-
-Style reference: cherry_blossom_garden_original_mock_v1.png. Retain its cozy layered-cut-cardstock construction, soft physical shadows, and natural paper grain, but create a distinct asymmetric garden route. No people, UI, legible writing, labels, logos, watermarks, or literal real temple recreation.

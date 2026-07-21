@@ -24,7 +24,7 @@ const TOP_DOWN_CLUSTERS := {
 	"snowy_village": ["lodge", "christmas_tree", "gazebo", "dock", "entrance_arch"],
 	"desert_oasis": ["adobe", "watchtower", "market_stall", "travel_tent", "caravan"],
 	"coral_reef": ["shipwreck", "anchor", "chest", "statue", "clam"],
-	"cherry_blossom_garden": ["pavilion", "pond_bridge", "temizuya", "torii"],
+	"sakura": ["pavilion", "pond_bridge", "temizuya", "torii"],
 }
 
 func _initialize() -> void:

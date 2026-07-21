@@ -20,7 +20,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.a
 ROOT = os.path.join(REPO, "games/grove/assets/_concepts/zones")
 PAGES = os.path.join(REPO, "games/grove/assets/map/pages")
 
-SCENES = ["fairy_hollow", "snowy_village", "desert_oasis", "coral_reef", "cherry_blossom_garden"]
+SCENES = ["fairy_hollow", "snowy_village", "desert_oasis", "coral_reef", "sakura"]
 
 
 def openable(scene):

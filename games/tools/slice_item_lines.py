@@ -90,7 +90,7 @@ SHEETS = {
     "resident_sprout": (4, 3),       # snowy_village (winter sheet)
     "resident_dewdrop": (4, 3),      # desert_oasis (oasis sheet)
     "resident_breeze": (4, 3),       # coral_reef
-    "resident_starlight": (4, 3),    # cherry_blossom_garden
+    "resident_starlight": (4, 3),    # sakura
 }
 
 SIZE = 512          # output canvas (square)
