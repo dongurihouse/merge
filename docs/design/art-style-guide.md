@@ -989,9 +989,9 @@ socket or a truncated silhouette.
 
 Fairy Hollow records how to add a completely locked state to an already accepted modular scene without
 redrawing, flattening, or destabilizing the unlocked composition. The working scene is
-`games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v3/`; its
-`metadata/placements.json` is the placement authority. The concept and source family are retained at
-`games/grove/assets/_concepts/zones/fairy_hollow_unlock_cover_mock_v1/`.
+`games/grove/assets/_concepts/zones/hollow_elements_v3/` (renamed from `fairy_hollow_market` on
+2026-07-21); its `metadata/placements.json` is the placement authority. The concept and source family
+are archived at `games/grove/assets/_archive/fairy_hollow_unlock_cover_mock_v1/`.
 
 #### Generate the lock as a second composition, not a paint-over
 
@@ -1048,8 +1048,8 @@ sidebar a clear unlock plan rather than an unmanageable sprite list.
 
 #### Reconstruction and review gate
 
-1. Render the fully covered scene with `make shot-sw SCENE=fairy_hollow_market
-   ROOT=res://games/grove/assets/_concepts/zones OUT=/tmp/fairy-hollow-cover.png` and compare it against the
+1. Render the fully covered scene with `make shot-sw SCENE=hollow
+   ROOT=res://games/grove/assets/_concepts/zones OUT=/tmp/hollow-cover.png` and compare it against the
    covered concept mock.
 2. In Scene Workbench, hide each `unlock_region_*` cluster one at a time. The removed cluster must reveal
    its complete primary object and owned paper plate; the remaining leaves must still read as intentional
