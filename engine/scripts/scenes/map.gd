@@ -28,16 +28,12 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-o
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
-const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (nav)
-# Bottom-nav tiles re-skinned as baked cut-paper sprites (icon + label in one PNG), keyed by spec name.
-# A spec with no entry here (e.g. the maps-page HomeTile) falls back to the drawn Kit.home_button tile.
-const NAV_SPRITE := {
-	"HomeTile": "res://games/grove/assets/ui/nav/nav_home.png",
-	"MapTile": "res://games/grove/assets/ui/nav/nav_map.png",
-	"ResidentsTile": "res://games/grove/assets/ui/nav/nav_residents.png",
-	"DailyTile": "res://games/grove/assets/ui/nav/nav_daily.png",
-	"MailTile": "res://games/grove/assets/ui/nav/nav_mail.png",
-	"BoardTile": "res://games/grove/assets/ui/nav/nav_board.png",
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (Back/gear)
+# The bottom-bar tiles build through the shared code-drawn Kit.action_button (rugged edge + glyph) —
+# the baked nav_<x>.png sprites are retired. Map each bottom-bar node name to its action role.
+const NAV_ROLE := {
+	"HomeTile": "home", "MapTile": "map", "ResidentsTile": "residents",
+	"DailyTile": "daily", "VaultTile": "vault", "MailTile": "mail", "BoardTile": "play",
 }
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
@@ -2548,27 +2544,18 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var n := float(specs.size())
 	var tile_w := _bottom_bar_tile_px(specs.size())
 	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
-	# the shared tile-opts helper (Kit.home_bar_tile_opts) owns the tile geometry — the same call the
-	# workbench home-button preview makes, so the two render identically off one source.
-	var opts: Dictionary = Kit.home_bar_tile_opts(Kit.load_config(Kit.CONFIG_PATH), tile_w) if Kit != null else {}
+	# the shared action-button opts, built ONCE from the saved config (the same call the workbench
+	# action_button preview makes, so the two render identically off one source) — duplicated per tile below.
+	var action_opts: Dictionary = Kit.action_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
-		var o := opts.duplicate(true)
-		var role := String(spec.get("surface", "cream"))
-		o["surface_role"] = role
-		# the slate paper is the one DARK tile face — ink-on-slate is the weakest caption in the row,
-		# so it takes the cream text instead (verified against the rendered bar, not assumed).
-		if role == "slate":
-			o["caption_color"] = Pal.CREAM
 		var b: Button
-		var sprite_path := String(NAV_SPRITE.get(String(spec.name), ""))
-		if sprite_path != "" and ResourceLoader.exists(sprite_path):
-			# the re-skinned cut-paper sprite tile (baked icon + label), stretched to the square tile
-			b = SpriteButton.build(load(sprite_path), Vector2(tile_w, tile_w), spec.action,
-				{"name": String(spec.name), "tooltip": String(spec.caption)})
-		elif Kit != null:
-			b = Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption),
-				"tooltip": String(spec.caption), "action": spec.action}, o)
+		var role := String(NAV_ROLE.get(String(spec.name), ""))
+		if Kit != null and role != "":
+			var o := action_opts.duplicate(true)
+			o["name"] = String(spec.name)
+			o["tooltip"] = String(spec.caption)
+			b = Kit.action_button(role, Vector2(tile_w, tile_w), spec.action, o)
 		else:
 			b = Button.new()                          # defensive fallback (kit absent): a bare tile
 			b.focus_mode = Control.FOCUS_NONE
