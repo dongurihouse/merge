@@ -2166,19 +2166,15 @@ const SETTINGS_ROW_TEX := "res://games/grove/assets/ui/dialogs/settings/settings
 static func _row_panel(_unused: bool = true) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# RESKIN: the baked cut-paper sage row sprite, 9-sliced so the rounded caps hold while the middle
-	# stretches to the row width. Falls back to the drawn sage box when the sprite is absent.
+	# RESKIN: the baked cut-paper sage row sprite STRETCHED WHOLE (no 9-slice); its soft drop shadow is
+	# baked into the PNG's bottom margin. Falls back to the drawn sage box when the sprite is absent.
 	if ResourceLoader.exists(SETTINGS_ROW_TEX):
 		var rtex := load(SETTINGS_ROW_TEX) as Texture2D
 		var st := StyleBoxTexture.new()
-		st.texture = rtex
-		var cap := float(rtex.get_height()) * 0.5   # the pill's rounded end
-		st.texture_margin_left = cap
-		st.texture_margin_right = cap
-		st.texture_margin_top = float(rtex.get_height()) * 0.35
-		st.texture_margin_bottom = float(rtex.get_height()) * 0.35
+		st.texture = rtex   # no texture_margin → the whole sprite scales to the row (no slice)
+		# the baked shadow lives in the sprite's lower margin; bias the content padding UP into the pill.
 		st.content_margin_left = 26; st.content_margin_right = 22
-		st.content_margin_top = 22; st.content_margin_bottom = 22   # chunkier rows, matching the mock
+		st.content_margin_top = 20; st.content_margin_bottom = 34
 		panel.add_theme_stylebox_override("panel", st)
 		return panel
 	var s := StyleBoxFlat.new()
