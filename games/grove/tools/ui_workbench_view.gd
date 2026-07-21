@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "gol
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["gold_currency_pill"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -50,7 +50,6 @@ const DEPENDENTS := {
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
-	"gold_badge": ["board"],   # the rush bar + info_bar both wear the plain paper look now, not the gold badge
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
@@ -82,7 +81,6 @@ const TEST_KEYS := {
 	"hud_layout": [],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
-	"gold_badge": ["px"],                  # px is preview-only; inset + shine are saved and shared by board/info
 	"gold_currency_pill": ["icon", "count"],   # standalone pill study; sample icon/count are preview-only
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
@@ -122,7 +120,6 @@ const CAPTIONS := {
 	"button": "Button — the shared kit button in every shape it builds (bg · paper · badge · chip)",
 	"home_button": "Home bottom bar — the six paper tiles (icon · caption · badge) as map.gd builds them",
 	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
-	"gold_badge": "Gold badge — CSS port",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
@@ -225,7 +222,9 @@ func _default_params() -> Dictionary:
 		# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 		"badge": {"defringe": false, "shadow": false, "feather": 0},
-		"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
+		# the gold-badge SKIN knobs — no longer a standalone Workbench tile, but still the shared skin config
+		# read by board (legacy "badge" frame), info_bar (paper fallback), the currency pill, and the rush bar.
+		"gold_badge": {"inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
 		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
 			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 			"amount_w": 88, "num_size": 30, "amount_x": 0,
@@ -347,7 +346,7 @@ var _drag_grab := Vector2.ZERO
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
 ## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
 func _ensure_shadow_keys() -> void:
-	var on_by_default := {"home_button": true, "board": true, "gold_badge": true, "quest_card": true}
+	var on_by_default := {"home_button": true, "board": true, "quest_card": true}
 	for id in _params.keys():
 		if id == "shadow":
 			continue
@@ -443,8 +442,6 @@ func _make_element(id: String) -> Control:
 			return _home_bar_preview(p)
 		"hud_layout":
 			return _hud_layout_preview()
-		"gold_badge":
-			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)), float(p.get("corner", 58)), float(p.get("gradient", 100)))
 		"gold_currency_pill":
 			return _gold_currency_wallet_preview(p)
 		"progress_bar":
@@ -891,9 +888,6 @@ func _maybe_wrap_shadow(el: Control, id: String) -> Control:
 	if not bool((_params[id] as Dictionary).get("shadow", false)):
 		return el
 	var corner := 28.0
-	if id == "gold_badge":
-		var p: Dictionary = _params[id]
-		corner = float(p.get("corner", 58)) * float(p.get("px", 270)) / 270.0
 	return Look.with_shadow(el, corner, Look.shadow_params({"shadow": _params["shadow"]}))
 
 ## The SHARED shadow on its own — a circle sample + a rounded-rect sample, both casting it, over a light cell.
@@ -1600,14 +1594,6 @@ func _element_sidebar(_id: String) -> void:
 				_sidebar_body.add_child(_option_row("Icon", "icon", ICONS.slice(1)))   # ICONS minus "none"
 			_sidebar_body.add_child(_slider_row(["title", 12, 30]))
 			_sidebar_body.add_child(_slider_row(["body", 10, 24]))
-		"gold_badge":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["corner", 12, 134]))
-			_sidebar_body.add_child(_slider_row(["inner_inset", 4, 36]))
-			_sidebar_body.add_child(_slider_row(["shine", 0, 200]))
-			_sidebar_body.add_child(_slider_row(["gradient", 0, 100]))
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_slider_row(["px", 160, 360]))
 		"gold_currency_pill":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["overall_scale", 60, 220]))
