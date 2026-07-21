@@ -182,6 +182,14 @@ func _load_migrate(data: Dictionary) -> void:
 				fr[k] = data["dialog"][k]
 		if not fr.is_empty():
 			data["frame"] = fr
+	# the frame's cut-paper keys were unified onto the shared knob set (cut_paper→deckle, card_corner→
+	# corner, frame_shadow→edge_shadow). Lift any old-key values onto the canonical keys so saved tuning
+	# carries over; the copy loop then reads them like any other key.
+	if data.has("frame") and data["frame"] is Dictionary:
+		var f: Dictionary = data["frame"]
+		for pair in [["cut_paper", "deckle"], ["card_corner", "corner"], ["frame_shadow", "edge_shadow"]]:
+			if f.has(pair[0]) and not f.has(pair[1]):
+				f[pair[1]] = f[pair[0]]
 
 func _default_params() -> Dictionary:
 		return {
@@ -199,10 +207,10 @@ func _default_params() -> Dictionary:
 		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
 		"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
-		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto",
+		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "art": true, "shadow": false, "badge": "auto",
 			"paper": "none", "border": true, "pad_scale": 100, "static": false,
-			# the CODE-DRAWN rugged edge (like the frame): on by default. deckle_freq is a % the kit ÷100.
-			"deckle": true, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2},
+			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the frame + toggle bar use.
+			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true},
 		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
 		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
@@ -238,11 +246,11 @@ func _default_params() -> Dictionary:
 		# carries its own width. snap is the drag-grid for the banner/✕ handles.
 		"frame": {
 			"width_pct": 75,   # the GLOBAL dialog width (% of screen) — drives EVERY dialog
-			# CODE-DRAWN cut-paper sheet: toggle it on to replace the flat card with a live deckled paper
-			# panel (torn edge + tiled fibre + shadow, sized to any dialog with no stretch). The sliders
-			# tune the torn edge; deckle_freq is a 0..N percent that the kit divides by 100.
-			"cut_paper": false, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "frame_shadow": true,
-			"border": "parchment", "card_corner": 22, "card_art": true,
+			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + toggle bar use.
+			# `deckle` on replaces the flat card with a live deckled paper sheet; `corner` is the shared corner
+			# (drives the flat card too). Migrated from the old cut_paper / card_corner / frame_shadow keys.
+			"deckle": true, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true,
+			"border": "parchment", "card_art": true,
 			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 			"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
@@ -266,7 +274,10 @@ func _default_params() -> Dictionary:
 			"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
 		# the SETTINGS ROW style (a label + the shared switch on the rugged sage row surface). Edited on the
 		# Settings item now (the standalone Toggle-card element is retired); read via Kit.toggle_card_opts_from_config.
-		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true},
+		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true,
+			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — same keys as button + frame; a finer tear
+			# for the thin row strip. Drives BOTH the row surface AND the switch track/knob.
+			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true},
 		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
 		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
 		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
@@ -863,10 +874,10 @@ func _maybe_wrap_shadow(el: Control, id: String) -> Control:
 		return el
 	if not bool((_params[id] as Dictionary).get("shadow", false)):
 		return el
-	# The cut-paper frame casts its OWN shape-true deckled shadow (frame_shadow, inside CutPaperPanel), so
+	# The cut-paper frame casts its OWN shape-true deckled shadow (edge_shadow, inside CutPaperPanel), so
 	# the shared rectangular box-shadow wrap would double it up with a mismatched rounded-rect. Skip it and
-	# let the sheet own the shadow — the "Sheet shadow" toggle controls it.
-	if id == "frame" and bool((_params["frame"] as Dictionary).get("cut_paper", false)):
+	# let the sheet own the shadow — the shared cut-paper "Edge shadow" toggle controls it.
+	if id == "frame" and bool((_params["frame"] as Dictionary).get("deckle", false)):
 		return el
 	var corner := 28.0
 	return Look.with_shadow(el, corner, Look.shadow_params({"shadow": _params["shadow"]}))
@@ -1224,6 +1235,8 @@ func _btn_opts(overrides := {}) -> Dictionary:
 		"art": bool(b.art),
 		"shadow": bool(b.shadow),
 		"shadow_params": Look.shadow_params({"shadow": _params["shadow"]}),
+		# the SHARED cut-paper edge from the LIVE button params (so the deckle sliders preview unsaved)
+		"cp": Kit.cut_paper_opts_from_config({"button": b}, "button", Kit.BUTTON_CP_DEFAULTS),
 	}
 	if overrides.has("icon"):
 		o["icon"] = String(overrides["icon"])      # the Card's saved icon choice ("" = none)
@@ -1479,19 +1492,11 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream", "danger"]))
 			if bool(_params["button"]["art"]):
 				_sidebar_body.add_child(_option_row("Badge", "badge", Kit.BADGES.keys()))
-			else:
-				_sidebar_body.add_child(_slider_row(["corner", 0, 40]))
 			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS))
 			_sidebar_body.add_child(_slider_row(["icon_size", 8, 60]))
 			_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
-			_section_header("Rugged edge (code-drawn)")
-			_sidebar_body.add_child(_toggle_row("Rugged edge", "deckle", true))   # rebuilds the sidebar to show the deckle sliders
-			if bool(_params["button"].get("deckle", true)):
-				_sidebar_body.add_child(_slider_row(["corner", 0, 40]))       # deckle corner radius (px)
-				_sidebar_body.add_child(_slider_row(["deckle_amp", 0, 20]))   # torn-edge bump height (px)
-				_sidebar_body.add_child(_slider_row(["deckle_freq", 1, 20]))  # torn-edge frequency (%, kit ÷100)
-				_sidebar_body.add_child(_slider_row(["rim_width", 0, 8]))     # warm cut-edge line thickness (px)
-			_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))         # the panel's own shape-true drop shadow
+			_cut_paper_section("button")   # the shared edge knob set (corner + deckle amp/freq/rim + edge shadow)
+			_sidebar_body.add_child(_toggle_row("Drop shadow (non-deckle)", "shadow"))   # global box shadow, used when the edge is off
 			_section_header("Paper-cut surface (overrides bg/art)")
 			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
 			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button
@@ -1702,6 +1707,7 @@ func _element_sidebar(_id: String) -> void:
 			_section_header("Row (label + switch)")
 			_sidebar_body.add_child(_slider_row(["label_font", 16, 44], "toggle_card"))
 			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72], "toggle_card"))
+			_cut_paper_section("toggle_card")   # the shared edge for the row surface AND the switch track/knob
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
@@ -1771,22 +1777,30 @@ func _element_sidebar(_id: String) -> void:
 
 
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.
+## The SHARED cut-paper edge section — rendered from Kit.CUT_PAPER_KNOBS (the ONE knob-set definition), so
+## the Button, Frame, and Settings-row inspectors show the SAME rows and a new schema knob appears in all
+## three automatically. `target` is the component's config block; each writes its own values. The enable
+## toggle + corner always show; the deckle-only knobs (amp · freq · rim · edge shadow) show when on.
+func _cut_paper_section(target: String) -> void:
+	_section_header("Cut-paper edge (shared)")
+	var on := bool((_params[target] as Dictionary).get("deckle", true))
+	for knob in Kit.CUT_PAPER_KNOBS:
+		var key := String(knob["key"])
+		if not on and key != "deckle" and key != "corner":
+			continue   # edge off → only the enable toggle + the general corner stay tunable
+		if String(knob.get("kind", "slider")) == "toggle":
+			_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, key == "deckle", target))
+		else:
+			_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
+
 func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
 	_section_header("Dialog width (all dialogs)")
 	_sidebar_body.add_child(_slider_row(["width_pct", 30, 100]))   # the SINGLE global dialog width — % of screen
-	_section_header("Cut-paper sheet (code-drawn)")
-	_sidebar_body.add_child(_toggle_row("Cut-paper sheet", "cut_paper", true))   # rebuilds the sidebar to show the deckle sliders
-	if bool(_params["frame"].get("cut_paper", false)):
-		_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))   # deckle corner radius (px)
-		_sidebar_body.add_child(_slider_row(["deckle_amp", 0, 20]))    # torn-edge bump height (px)
-		_sidebar_body.add_child(_slider_row(["deckle_freq", 1, 20]))   # torn-edge frequency (%, kit ÷100)
-		_sidebar_body.add_child(_slider_row(["rim_width", 0, 8]))      # warm cut-edge line thickness (px)
-		_sidebar_body.add_child(_toggle_row("Sheet shadow", "frame_shadow", true))
+	_cut_paper_section("frame")   # the shared edge knob set (replaces the frame's bespoke cut-paper rows)
 	# The Card section (border · 9-slice · slice L/T/R/B · H/V stretch) is retired: the code-drawn cut-paper
-	# sheet is the frame face now, so the baked 9-slice card knobs no longer shape anything. Corner radius
-	# lives in the Cut-paper section above. The keys stay in config (defaults + kit reads) for the fallback
-	# baked path when the cut-paper sheet is off — they're just no longer tunable here.
+	# sheet is the frame face now, so the baked 9-slice card knobs no longer shape anything. The keys stay in
+	# config for the fallback baked path when the edge is off — they're just no longer tunable here.
 
 	# TITLE — the dialog title text only (there is no ribbon banner behind it in the cut-paper frame): its
 	# size, position, and engrave style. Ribbon/icon knobs (band height, banner icon, tail padding, banner

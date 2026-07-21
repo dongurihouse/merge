@@ -246,11 +246,8 @@ static func _apply_deckle_button_surface(
 	button: Button,
 	fill: Color,
 	corner: float,
-	deckle_amp: float,
-	deckle_freq: float,
-	rim_width: float,
+	cp_opts: Dictionary,
 	margins: Vector4,
-	shadow: bool,
 	enabled: bool = true
 ) -> Control:
 	button.set_meta(Look.SHADOW_CORNER_META, corner)
@@ -266,21 +263,14 @@ static func _apply_deckle_button_surface(
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		button.add_theme_stylebox_override(state, clear)
 
-	var panel: Control = load("res://engine/scripts/ui/cut_paper.gd").new()
+	var base_fill: Color = fill if enabled else fill.lerp(Color(0.55, 0.55, 0.55), 0.45)
+	var panel: Control = load(CUT_PAPER).new()
 	panel.name = "ButtonDeckleSurface"
 	panel.show_behind_parent = true
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.corner = corner
-	panel.deckle_amp = deckle_amp
-	panel.deckle_freq = deckle_freq
-	panel.rim_width = rim_width
-	panel.draw_shadow = shadow
-	var base_fill: Color = fill if enabled else fill.lerp(Color(0.55, 0.55, 0.55), 0.45)
-	panel.paper_color = base_fill
-	var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
-	if tile != null:
-		panel.paper_tex = tile
+	panel.configure(cp_opts, base_fill, null, cut_paper_tile())   # the ONE shared edge applier
+	panel.corner = corner                                          # the button's own corner (may be an explicit opt)
 	button.add_child(panel)
 
 	# press feedback: darken the paper while held, restore on release (disabled buttons never press)
@@ -1210,14 +1200,13 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var corner := float(opts.get("corner", 16.0))      # low = rectangular; ≥ height/2 = capsule
 	var shadow: bool = bool(opts.get("shadow", false)) # a soft drop shadow under the pill
 	var pad_scale := float(opts.get("pad_scale", 1.0)) # shrink/grow the padding (the cost chip uses < 1 to fit a card)
-	# CODE-DRAWN rugged edge (workbench "Button" toggle): the paper roles wear the SAME deckled surface as
-	# the dialog frame. Defaults come from the cached config's `button` block (deckle_freq stored as a
-	# 0..N percent → /100); an explicit opt always wins (deckle_freq passed in opts is the raw frequency).
-	var dcfg: Dictionary = load_config(CONFIG_PATH).get("button", {})
-	var deckle: bool = bool(opts.get("deckle", dcfg.get("deckle", true)))
-	var deckle_amp: float = float(opts.get("deckle_amp", dcfg.get("deckle_amp", 5)))
-	var deckle_freq: float = float(opts.get("deckle_freq", float(dcfg.get("deckle_freq", 5)) / 100.0))
-	var rim_width: float = float(opts.get("rim_width", dcfg.get("rim_width", 2)))
+	# CODE-DRAWN rugged edge: the paper roles wear the SAME shared cut-paper edge as the dialog frame + the
+	# settings rows. `cp` is the ONE normalized knob set (Kit.cut_paper_opts_from_config) — passed in by a
+	# caller, else read from the cached config's `button` block. `corner` above already feeds the surface.
+	var cp: Dictionary = opts.get("cp", {})
+	if cp.is_empty():
+		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "button", BUTTON_CP_DEFAULTS)
+	var deckle: bool = bool(opts.get("deckle", cp.get("deckle", true)))
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = text
@@ -1262,7 +1251,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 		# DECKLED edge (default): the same code-drawn cut-paper surface as the dialog frame, which casts
 		# its OWN shape-true shadow — so we do NOT also wrap the button in the rectangular _maybe_shadow.
 		if deckle:
-			_apply_deckle_button_surface(b, green_fill, corner, deckle_amp, deckle_freq, rim_width, paper_margins, true, enabled)
+			_apply_deckle_button_surface(b, green_fill, corner, cp, paper_margins, enabled)
 			return b
 		# smooth shader surface (deckle off): shadow goes on FIRST so it draws behind the paper (child order).
 		_maybe_shadow(b, true, corner, opts.get("shadow_params", {}))
@@ -1283,7 +1272,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 		var proll: Dictionary = PAPER_SURFACES[paper_role]
 		var proll_fill: Color = proll.get("fill", Pal.CREAM)
 		if deckle:
-			_apply_deckle_button_surface(b, proll_fill, corner, deckle_amp, deckle_freq, rim_width, paper_margins, shadow, enabled)
+			_apply_deckle_button_surface(b, proll_fill, corner, cp, paper_margins, enabled)
 			return b
 		_maybe_shadow(b, shadow, corner, opts.get("shadow_params", {}))
 		var proll_paper := _apply_rounded_paper_surface(
@@ -1895,7 +1884,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var switch_h := float(opts.get("switch_h", 44.0))
 	var rich := entry.has("title") or entry.has("body") or entry.has("icon") or entry.has("cost")
 	# the SAME shared cut-paper row surface every settings row wears (toggle · info · action) — see _row_panel.
-	var panel := _row_panel()
+	var panel := _row_panel(opts.get("cp", {}))
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var row := HBoxContainer.new()
@@ -1957,13 +1946,13 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(name_l)
 
-	# the switch is the SHARED Look.toggle_switch (the sliced kit/switch_on·off art) — the same one the
-	# settings rows have always used. The callback fires the entry's on_toggle (game persists; preview no-ops).
+	# the switch is the SHARED Look.toggle_switch — its rugged track + knob wear the SAME cut-paper edge
+	# knob set as the row (passed through here). The callback fires the entry's on_toggle (game persists).
 	var on_toggle: Callable = entry.get("on_toggle", Callable())
 	var fire := func(on: bool) -> void:
 		if on_toggle.is_valid():
 			on_toggle.call(on)
-	var sw := Look.toggle_switch(bool(entry.get("value", false)), fire, switch_h)
+	var sw := Look.toggle_switch(bool(entry.get("value", false)), fire, switch_h, opts.get("cp", {}))
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sw)
 	# Make the WHOLE card tap = exactly ONE switch flip. One physical tap can deliver duplicate
@@ -1995,28 +1984,83 @@ const SETTINGS_ROW_TEX := "res://games/grove/assets/ui/dialogs/settings/settings
 const CUT_PAPER := "res://engine/scripts/ui/cut_paper.gd"
 const ROW_SAGE := Color("#DCE7C8")        # the settings-row sage fill (daily-cell family)
 const ROW_SAGE_EDGE := Color("#BFD09E")   # a deeper sage for the torn cut-edge line
+
+## THE single definition of the cut-paper EDGE knob set — the deckled-paper look shared by the button,
+## the dialog frame, and the settings toggle bar (row + switch). Each entry is BOTH a row in the workbench
+## inspector (via _cut_paper_section) AND a field the reader parses + the applier consumes. Add a knob here
+## → it appears in every component's inspector and is read + applied everywhere, no per-component edits.
+## `key` = the config/opts key; `kind` = "toggle" | "slider"; sliders carry min/max; `freq` marks a percent
+## slider the reader divides by 100 (CutPaperPanel wants a raw frequency). Per-component VALUES live in each
+## component's own config block; this only fixes the SET + ranges + fallback defaults.
+const CUT_PAPER_KNOBS := [
+	{"key": "deckle",      "kind": "toggle", "label": "Cut-paper edge", "default": true},
+	{"key": "corner",      "kind": "slider", "label": "Corner",      "min": 0, "max": 60, "default": 16},
+	{"key": "deckle_amp",  "kind": "slider", "label": "Deckle amp",  "min": 0, "max": 20, "default": 5},
+	{"key": "deckle_freq", "kind": "slider", "label": "Deckle freq", "min": 1, "max": 20, "default": 5, "freq": true},
+	{"key": "rim_width",   "kind": "slider", "label": "Rim width",   "min": 0, "max": 8,  "default": 2},
+	{"key": "edge_shadow", "kind": "toggle", "label": "Edge shadow", "default": true},
+]
+
+## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
+## (deckle_freq → raw frequency). `overrides` supplies per-component fallback defaults (e.g. the frame's
+## bigger corner) for keys the block hasn't saved; the schema default is the final fallback. Legacy per-
+## block aliases (the frame's old cut_paper / card_corner / frame_shadow keys) are accepted so saved
+## configs migrate losslessly. The button, frame, and toggle bar all call this — one parser, no drift.
+static func cut_paper_opts_from_config(cfg: Dictionary, block: String, overrides: Dictionary = {}) -> Dictionary:
+	var d: Dictionary = cfg.get(block, {})
+	var o := {}
+	for knob in CUT_PAPER_KNOBS:
+		var k: String = knob["key"]
+		var fallback: Variant = overrides.get(k, knob["default"])
+		var raw: Variant = d.get(k, _cut_paper_legacy(d, k, fallback))
+		if String(knob.get("kind", "slider")) == "toggle":
+			o[k] = bool(raw)
+		elif bool(knob.get("freq", false)):
+			o[k] = float(raw) / 100.0
+		else:
+			o[k] = float(raw)
+	return o
+
+## Back-compat: map a canonical cut-paper key onto a config block's OLD alias when the canonical key is
+## absent (frame blocks saved before the keys were unified). New blocks use the canonical keys directly.
+static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> Variant:
+	match key:
+		"deckle": return d.get("cut_paper", fallback)
+		"corner": return d.get("card_corner", fallback)
+		"edge_shadow": return d.get("frame_shadow", fallback)
+	return fallback
+
+## The paper-fibre tile (or null if absent) — passed to CutPaperPanel.configure so the engine applier
+## stays free of grove asset paths.
+static func cut_paper_tile() -> Texture2D:
+	return load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
+
+## Per-component fallback defaults for the shared cut-paper edge (used as `overrides` for the reader; the
+## saved config wins over these, and the schema default wins when a component omits a key). Only the values
+## that differ from the schema need listing — the SET of knobs is fixed once in CUT_PAPER_KNOBS.
+const ROW_CP_DEFAULTS := {"corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+
 ## The shared row surface: a code-drawn CUT-PAPER sheet — the SAME rugged deckled edge the dialog frame
 ## wears, in sage — so every settings row (toggle · info · action) reads as a torn paper strip. Kept as a
 ## PanelContainer (the row locator every caller + test expects): a TRANSPARENT panel that SIZES to its
 ## content, holding a CutPaperPanel background (the visible deckled sheet, fills the panel) + a padded
-## MarginContainer content HOST on top. Add row content via _row_body(panel), not panel.add_child.
-static func _row_panel(_unused: bool = true) -> PanelContainer:
+## MarginContainer content HOST on top. Add row content via _row_body(panel), not panel.add_child. `cp` is
+## the shared normalized cut-paper opts (Kit.cut_paper_opts_from_config) — the ONE edge knob set.
+static func _row_panel(cp_opts: Dictionary = {}) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var empty := StyleBoxEmpty.new()   # transparent: the CutPaperPanel behind is the visible surface
 	panel.add_theme_stylebox_override("panel", empty)
 	var cp = load(CUT_PAPER).new()     # the deckled sage sheet, laid out to fill the panel rect
-	cp.shape = "rect"
-	cp.corner = 20.0
-	cp.deckle_amp = 3.0            # a finer tear than the big frame (a thin strip, not a page)
-	cp.deckle_freq = 0.05
-	cp.rim_width = 2.0
-	cp.paper_color = ROW_SAGE
-	cp.rim_color = ROW_SAGE_EDGE
-	cp.draw_shadow = true
-	var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
-	if tile != null:
-		cp.paper_tex = tile
+	# shared edge knobs via the one applier; sage colours + fibre tile are this component's own. Callers
+	# pass the normalized reader output; the {} fallback normalizes ROW_CP_DEFAULTS' percent freq itself.
+	var o: Dictionary = cp_opts
+	if o.is_empty():
+		o = ROW_CP_DEFAULTS.duplicate()
+		o["deckle_freq"] = float(o["deckle_freq"]) / 100.0
+	cp.configure(o, ROW_SAGE, ROW_SAGE_EDGE, cut_paper_tile())
 	cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(cp)
 	# content host: pad the row IN from the deckled edge so text/switch never touch the tear. The panel
@@ -2043,9 +2087,8 @@ static func _row_body(panel: Control) -> Control:
 ##   entry: label · value (both String) · id? (String metadata). opts: label_font (px) · card_art (bool).
 static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", FS.BODY))
-	var card_art := bool(opts.get("card_art", true))
 	var info_id := String(entry.get("id", ""))
-	var panel := _row_panel(card_art)
+	var panel := _row_panel(opts.get("cp", {}))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if info_id != "":
 		panel.set_meta("settings_info_id", info_id)
@@ -2086,8 +2129,7 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ##   entry: label · confirm_label? · destructive? (bool) · on_action (Callable()). opts: label_font · card_art.
 static func action_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", FS.BODY))
-	var card_art := bool(opts.get("card_art", true))
-	var panel := _row_panel(card_art)
+	var panel := _row_panel(opts.get("cp", {}))
 	var base_label := String(entry.get("label", ""))
 	var confirm_label := String(entry.get("confirm_label", ""))
 	var destructive := bool(entry.get("destructive", false))
@@ -2418,7 +2460,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# CODE-DRAWN cut-paper sheet (workbench toggle): a live CutPaperPanel drawn BEHIND the card, so the
 	# deckled edge + tiled paper + shadow size to any dialog with no stretch. The card keeps a transparent-
 	# but-padded stylebox so the content layout is unchanged; the panel is synced to the card's rect.
-	var cut_paper := bool(opts.get("cut_paper", false)) and panel_bg_tex == null
+	var cp_opts: Dictionary = opts.get("cp", {})
+	var cut_paper := bool(cp_opts.get("deckle", false)) and panel_bg_tex == null
 	var cut_paper_panel: Control = null
 	if cut_paper:
 		var cf := StyleBoxFlat.new()
@@ -2426,17 +2469,10 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
 		cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
 		card.add_theme_stylebox_override("panel", cf)
-		var cp = load("res://engine/scripts/ui/cut_paper.gd").new()
+		var cp = load(CUT_PAPER).new()
 		cp.name = "CutPaperSheet"
-		cp.corner = card_corner
-		cp.deckle_amp = float(opts.get("deckle_amp", 5.0))
-		cp.deckle_freq = float(opts.get("deckle_freq", 0.05))
-		cp.rim_width = float(opts.get("rim_width", 2.0))
-		cp.draw_shadow = bool(opts.get("frame_shadow", true))
 		cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
-		if tile != null:
-			cp.paper_tex = tile
+		cp.configure(cp_opts, Pal.CREAM, null, cut_paper_tile())   # the ONE shared edge applier
 		cut_paper_panel = cp
 	elif panel_bg_tex != null:
 		var pt := StyleBoxTexture.new()
@@ -2700,7 +2736,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	# Face: mail wears the SHARED frame like every other dialog. When the code-drawn cut-paper sheet is on
 	# (the shipped default), let it through untouched; only when it is off do we fall back to the baked
 	# cut-paper mail panel as the sheet face (a caller may still override panel_bg explicitly).
-	if not opts.has("panel_bg") and not bool(opts.get("cut_paper", false)):
+	if not opts.has("panel_bg") and not bool((opts.get("cp", {}) as Dictionary).get("deckle", false)):
 		opts = opts.duplicate()
 		opts["panel_bg"] = MAIL_SKIN + "dialog_bg.png"
 	return dialog_frame(content, width, opts)
@@ -3966,9 +4002,12 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var d: Dictionary = _frame_cfg(cfg)
 	var c: Dictionary = cfg.get("card", {})
 	var strmap := {"stretch": 0, "tile": 1, "tile_fit": 2}
+	# the SHARED cut-paper edge (the ONE knob set) read from the frame block; `corner` also drives the flat
+	# card + banner geometry (card_corner), so the frame has a single corner value however it's drawn.
+	var cp: Dictionary = cut_paper_opts_from_config(cfg, "frame", FRAME_CP_DEFAULTS)
 	return {
 		"border": String(d.get("border", "parchment")),   # the shared Frame item's Border picker (default parchment)
-		"card_corner": float(d.get("card_corner", 22)),
+		"card_corner": float(cp["corner"]),
 		"card_art": bool(d.get("card_art", true)),
 		"card_slice_l": float(d.get("card_slice_l", 40)),
 		"card_slice_t": float(d.get("card_slice_t", 40)),
@@ -3993,14 +4032,10 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"close_poke": Vector2(float(d.get("close_x", 12)), float(d.get("close_y", 12))),
 		"list_max_h": float(d.get("list_max_h", 0)),
 		"list_top_pad": float(d.get("list_top_pad", 0)),
-		# CODE-DRAWN cut-paper sheet: when on, the frame's background is a live CutPaperPanel (deckled edge
-		# + tiled paper + shadow) instead of the flat cream card, sized to any dialog with no stretch. The
-		# workbench "Frame" item exposes these as a toggle + sliders (deckle_freq is a 0..N percent → /100).
-		"cut_paper": bool(d.get("cut_paper", false)),
-		"deckle_amp": float(d.get("deckle_amp", 5)),
-		"deckle_freq": float(d.get("deckle_freq", 5)) / 100.0,
-		"rim_width": float(d.get("rim_width", 2)),
-		"frame_shadow": bool(d.get("frame_shadow", true)),
+		# CODE-DRAWN cut-paper sheet: when cp.deckle is on, the frame's background is a live CutPaperPanel
+		# (the shared deckled edge) instead of the flat cream card, sized to any dialog with no stretch. The
+		# normalized edge knob set (deckle · corner · amp · freq · rim · edge_shadow) rides under "cp".
+		"cp": cp,
 		"empty_font": int(d.get("empty_font", FS.BODY)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
@@ -4101,6 +4136,8 @@ static func toggle_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"label_font": int(tc.get("label_font", FS.BODY)),
 		"switch_h": float(tc.get("switch_h", 44)),
 		"card_art": bool(tc.get("card_art", true)),
+		# the shared cut-paper edge for the row surface + the switch (one knob set, this block's values)
+		"cp": cut_paper_opts_from_config(cfg, "toggle_card", ROW_CP_DEFAULTS),
 	}
 
 ## The full SETTINGS-dialog opts: the SHARED frame + the toggle-card style (under opts["toggle"]) + the
@@ -4261,13 +4298,13 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## bag CTA, …) picks up the ONE tuned setting set. deckle_freq is a 0..N percent → /100 (like the frame).
 static func button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bt: Dictionary = cfg.get("button", {})
+	# the SHARED cut-paper edge (the ONE knob set) from the button block, plus the button's own corner
+	# (also used for the shadow-corner meta + the non-deckle rounded surface). `cp.deckle` is the on/off.
+	var cp: Dictionary = cut_paper_opts_from_config(cfg, "button", BUTTON_CP_DEFAULTS)
 	return {
-		"deckle": bool(bt.get("deckle", true)),          # code-drawn torn edge (default on, like the frame)
-		"deckle_amp": float(bt.get("deckle_amp", 5)),    # bump height (px)
-		"deckle_freq": float(bt.get("deckle_freq", 5)) / 100.0,   # wobble frequency (percent slider → freq)
-		"rim_width": float(bt.get("rim_width", 2)),      # warm cut-edge rim thickness
-		"corner": float(bt.get("corner", 16)),           # rect corner radius
-		"shadow": bool(bt.get("shadow", true)),          # the panel's own shape-true drop shadow
+		"cp": cp,
+		"corner": float(cp["corner"]),
+		"shadow": bool(bt.get("shadow", true)),          # the button's per-component GLOBAL drop-shadow toggle
 	}
 
 ## The BOTTOM-BAR tile opts: the shared home-button config, then the per-tile-width scaling a multi-tile
