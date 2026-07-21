@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://hbh406oord7g"
-path="res://.godot/imported/lodge_paper_plate_v2.png-075e4d239f9850551630bdc111b984f9.ctex"
+uid="uid://ncwixinick07"
+path="res://.godot/imported/winter_lantern_lodge_composite_v1.png-aa7c7873d3bb3c8c99c143b1dd553f41.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/03_structures/lodge_paper_plate_v2.png"
-dest_files=["res://.godot/imported/lodge_paper_plate_v2.png-075e4d239f9850551630bdc111b984f9.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/09_reconstruction/winter_lantern_lodge_composite_v1.png"
+dest_files=["res://.godot/imported/winter_lantern_lodge_composite_v1.png-aa7c7873d3bb3c8c99c143b1dd553f41.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dhffh7yo848me"
-path="res://.godot/imported/gazebo.png-3107c4d22cce70a9ce4e47e9c16fba19.ctex"
+uid="uid://233r8gcs3fr3"
+path="res://.godot/imported/sky_atmosphere.png-be1e49c005fdfaa29fa0d4bf25cba68f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/03_structures/gazebo.png"
-dest_files=["res://.godot/imported/gazebo.png-3107c4d22cce70a9ce4e47e9c16fba19.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/01_underlay/sky_atmosphere.png"
+dest_files=["res://.godot/imported/sky_atmosphere.png-be1e49c005fdfaa29fa0d4bf25cba68f.ctex"]
 
 [params]
 

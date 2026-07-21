@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cpky11ok4dnkb"
-path="res://.godot/imported/lodge.png-a26ed19029ab25a3de84bc71e7e43110.ctex"
+uid="uid://d4hng7g8njetj"
+path="res://.godot/imported/edge_coverings.png-47242509c12c72e06c25134b91b56f12.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/03_structures/lodge.png"
-dest_files=["res://.godot/imported/lodge.png-a26ed19029ab25a3de84bc71e7e43110.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/05_coverings/edge_coverings.png"
+dest_files=["res://.godot/imported/edge_coverings.png-47242509c12c72e06c25134b91b56f12.ctex"]
 
 [params]
 

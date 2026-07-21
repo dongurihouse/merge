@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bl5xbr4355rmh"
-path="res://.godot/imported/christmas_tree_paper_plate_v1.png-3fc12b5561790613c7a02922ba344f2e.ctex"
+uid="uid://dbsggm8jb43ik"
+path="res://.godot/imported/bridge_paper_plate_v2.png-fef73d2c115f4834d23be0da8f28c795.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/03_structures/christmas_tree_paper_plate_v1.png"
-dest_files=["res://.godot/imported/christmas_tree_paper_plate_v1.png-3fc12b5561790613c7a02922ba344f2e.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/winter_elements_v1/03_structures/bridge_paper_plate_v2.png"
+dest_files=["res://.godot/imported/bridge_paper_plate_v2.png-fef73d2c115f4834d23be0da8f28c795.ctex"]
 
 [params]
 

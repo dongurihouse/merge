@@ -36,7 +36,7 @@ PAGES = [  # play order (picturebook_lines_recipes.md)
 # scene's hero structure, not the picture-book page id). `fairy_hollow` has no entry — it keeps
 # resolving against its own id (fairy_hollow_market_elements_v*), unchanged.
 SCENE_BUNDLES = {
-    "snowy_village": "winter_lantern_lodge",
+    "snowy_village": "winter",
     "desert_oasis": "desert_oasis_watchtower",
     "coral_reef": "coral",
     "cherry_blossom_garden": "cherry_blossom_paper_plate_terrace",

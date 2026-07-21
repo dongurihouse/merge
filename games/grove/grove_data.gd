@@ -454,7 +454,7 @@ static func _build_maps() -> Array:
 	{"id": "snowy_village", "name": "Snowy Village", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_snowy_village.json",
 		"covering_frames": [], "coverup_mode": true,
-		# TOP-DOWN unlock order (winter_lantern_lodge bundle, unlock_ prefix).
+		# TOP-DOWN unlock order (winter bundle, unlock_ prefix).
 		"clusters": [
 			{"id": "lodge", "cost": 220},
 			{"id": "christmas_tree", "cost": 300},
