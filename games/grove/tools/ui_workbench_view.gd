@@ -231,6 +231,9 @@ func _default_params() -> Dictionary:
 		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 		"badge": {"defringe": false, "shadow": false, "feather": 0},
 		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
+			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + frame use.
+			# `corner` seeds the capsule roundness to the old pill_h * 0.35 look (see Kit.PILL_CP_DEFAULTS).
+			"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true,
 			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 			"amount_w": 88, "num_size": 30, "amount_x": 0,
 			"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
@@ -1553,6 +1556,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["overall_scale", 60, 220]))
 			_sidebar_body.add_child(_slider_row(["pill_w", 180, 380]))
 			_sidebar_body.add_child(_slider_row(["pill_h", 64, 132]))
+			_cut_paper_section("gold_currency_pill")   # the shared rugged-edge knobs (deckle · corner · amp · freq · rim · shadow)
 			_section_header("Padding")
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))
