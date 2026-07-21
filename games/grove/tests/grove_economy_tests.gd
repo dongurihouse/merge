@@ -4,14 +4,14 @@ extends "res://games/grove/tests/grove_test_base.gd"
 func _test_market_cluster_helpers() -> void:
 	# the market page (index 0) unlocks its 6 clusters bottom-up under a strict sequence + level/coin gate.
 	var unlocks := {}
-	ok(G.next_locked_cluster(0, unlocks) == "lantern_gate", "market: bottom cluster is first in the sequence")
+	ok(G.next_locked_cluster(0, unlocks) == "mushroom_hall", "market: top cluster is first in the sequence")
 	ok(G.cluster_locked(0, "tea_stall", unlocks), "market: tea_stall starts locked")
-	ok(not G.cluster_ready(0, "lantern_gate", unlocks, 0, 0), "market: under-leveled/too-poor is not ready")
-	ok(G.cluster_ready(0, "lantern_gate", unlocks, 1, 10), "market: gate met -> ready")
-	ok(not G.cluster_ready(0, "flower_crate", unlocks, 9, 9999), "market: a later cluster is never ready under strict sequence")
-	unlocks["lantern_gate"] = true
-	ok(G.next_locked_cluster(0, unlocks) == "flower_crate", "market: the sequence advances after an unlock")
-	ok(G.cluster_ready(0, "flower_crate", unlocks, 9, 9999), "market: the next cluster becomes ready")
+	ok(not G.cluster_ready(0, "mushroom_hall", unlocks, 0, 0), "market: under-leveled/too-poor is not ready")
+	ok(G.cluster_ready(0, "mushroom_hall", unlocks, 1, 10), "market: gate met -> ready")
+	ok(not G.cluster_ready(0, "tea_stall", unlocks, 9, 9999), "market: a later cluster is never ready under strict sequence")
+	unlocks["mushroom_hall"] = true
+	ok(G.next_locked_cluster(0, unlocks) == "tea_stall", "market: the sequence advances after an unlock")
+	ok(G.cluster_ready(0, "tea_stall", unlocks, 9, 9999), "market: the next cluster becomes ready")
 
 func _initialize() -> void:
 	begin("grove · economy")

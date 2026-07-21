@@ -177,8 +177,19 @@ make test-fast                                      # grove_page_manifest_tests 
 ```
 
 `grove_data._build_maps()` names the five pages; `map.gd` renders the current page's manifest and
-adds the page-turn chevrons. The first page carries the interim farmhouse build items until the
-pages build system lands. Verify with a real in-game render:
+adds the page-turn chevrons.
+
+**The `coverup` layer drives cluster unlocks (page 1, Fairy Hollow Market).** Anything placed on the
+frontmost `coverup` layer is carried into the manifest as a `coverups` entry (keyed by the LAYER, not
+a category — so the tool is the source of truth). Each coverup piece's `cluster` links it to an unlock
+unit as `unlock_region_<clusterId>`, where `<clusterId>` matches a `clusters[].id` in
+`grove_data._build_maps()`. At runtime `home_zone_view.gd` mounts each locked cluster's coverup group
+frontmost with a `lock_badge.gd` padlock; tapping the ready one clears that cluster's cover (`map.gd`).
+So **re-running `build_page_manifests.py` after editing the coverup layer in `make sw` updates the
+game** — move/add/remove canopy pieces on the layer, regenerate, `make import`, and the unlock covers
+follow. (Add a NEW cluster by also giving it a `clusters[]` row with its cost + `min_level`.)
+
+Verify with a real in-game render:
 `engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- fresh /tmp/page.png page=<scene id>`.
 
 ## 8 · The reference column

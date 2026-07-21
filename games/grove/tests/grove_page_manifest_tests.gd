@@ -117,16 +117,16 @@ func _initialize() -> void:
 	var cl_ids: Array = []
 	for c in G.clusters(0):
 		cl_ids.append(String((c as Dictionary).id))
-	ok(cl_ids == ["lantern_gate", "flower_crate", "stream_bridge", "crystal_map_stall", "tea_stall", "mushroom_hall"],
-		"market: clusters unlock bottom-up")
+	ok(cl_ids == ["mushroom_hall", "tea_stall", "crystal_map_stall", "stream_bridge", "flower_crate", "lantern_gate"],
+		"market: clusters unlock top-down (the top cluster first — the bottom sits behind the nav bar)")
 	var ul := {}
-	ok(G.next_locked_cluster(0, ul) == "lantern_gate", "market: bottom cluster first in the sequence")
+	ok(G.next_locked_cluster(0, ul) == "mushroom_hall", "market: top cluster first in the sequence")
 	ok(G.cluster_locked(0, "tea_stall", ul), "market: tea_stall starts locked")
-	ok(not G.cluster_ready(0, "lantern_gate", ul, 0, 0), "market: under-leveled/too-poor is not ready")
-	ok(G.cluster_ready(0, "lantern_gate", ul, 1, 10), "market: gate met -> ready")
-	ok(not G.cluster_ready(0, "flower_crate", ul, 9, 9999), "market: a later cluster is never ready (strict sequence)")
-	ul["lantern_gate"] = true
-	ok(G.next_locked_cluster(0, ul) == "flower_crate", "market: the sequence advances after an unlock")
-	ok(G.cluster_ready(0, "flower_crate", ul, 9, 9999), "market: the next cluster becomes ready")
+	ok(not G.cluster_ready(0, "mushroom_hall", ul, 0, 0), "market: under-leveled/too-poor is not ready")
+	ok(G.cluster_ready(0, "mushroom_hall", ul, 1, 10), "market: gate met -> ready")
+	ok(not G.cluster_ready(0, "tea_stall", ul, 9, 9999), "market: a later cluster is never ready (strict sequence)")
+	ul["mushroom_hall"] = true
+	ok(G.next_locked_cluster(0, ul) == "tea_stall", "market: the sequence advances after an unlock")
+	ok(G.cluster_ready(0, "tea_stall", ul, 9, 9999), "market: the next cluster becomes ready")
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

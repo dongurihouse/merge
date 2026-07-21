@@ -170,6 +170,9 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 			(g.group as Control).add_child(s.node)
 		stage.add_child(g.group)                          # frontmost (added after every prop)
 		coverings[cl] = g.group
+	# a SECOND pass mounts every lock badge ON TOP of every canopy group — otherwise a later
+	# cluster's canopy would paint over an earlier cluster's lock icon.
+	for cl in groups.keys():
 		var lb: Control = LockBadge.make(cl)
 		var ap: Vector2 = anchor_of.get(cl, Vector2.ZERO)
 		lb.position = ap - Vector2(0, 60) - lb.size * 0.5   # a touch above the plot's center-bottom

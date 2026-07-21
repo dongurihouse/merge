@@ -429,13 +429,16 @@ static func _build_maps() -> Array:
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow_market.json",
 		"covering_frames": [],
 		"coverup_mode": true,
+		# TOP-DOWN unlock order: the top-of-scene cluster unlocks first. The market canvas is tall and
+		# cover-fills the viewport, so its BOTTOM sits behind the bottom nav bar — a bottom-first order
+		# hides the one ready lock off-screen. Top-first keeps the next unlockable clearly in view.
 		"clusters": [
-			{"id": "lantern_gate", "cost": 10, "min_level": 1},
-			{"id": "flower_crate", "cost": 25, "min_level": 2},
-			{"id": "stream_bridge", "cost": 45, "min_level": 3},
-			{"id": "crystal_map_stall", "cost": 70, "min_level": 4},
-			{"id": "tea_stall", "cost": 110, "min_level": 5},
-			{"id": "mushroom_hall", "cost": 160, "min_level": 6},
+			{"id": "mushroom_hall", "cost": 10, "min_level": 1},
+			{"id": "tea_stall", "cost": 25, "min_level": 2},
+			{"id": "crystal_map_stall", "cost": 45, "min_level": 3},
+			{"id": "stream_bridge", "cost": 70, "min_level": 4},
+			{"id": "flower_crate", "cost": 110, "min_level": 5},
+			{"id": "lantern_gate", "cost": 160, "min_level": 6},
 		],
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},

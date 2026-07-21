@@ -1,14 +1,15 @@
 extends RefCounted
 ## The market cover-up PADLOCK badge (fairy_hollow_market cluster unlocks). A covered cluster wears
-## one of these: LOCKED reads as a dim padlock; READY brightens it and adds a warm code-drawn glow
-## disc so it reads as tappable. Tapping a READY badge routes through map.gd, which claims the cluster
-## (deducts cost, records the unlock) and reveals its canopy away. Render-only + stateless: map.gd
-## owns which cluster is ready.
+## one of these. Both states paint at FULL opacity with a drop shadow so the icon reads clearly on the
+## busy canopy: LOCKED is a plain cool padlock; READY is a bright gold padlock on a warm glow disc that
+## gently pulses, so the one unlockable cluster pops. Tapping a READY badge routes through map.gd, which
+## claims the cluster (spends the cost, records the unlock) and reveals its canopy away.
 
 const Game = preload("res://engine/scripts/core/game.gd")
 
-const PAD_PX := 96.0
-const BOX := 120.0
+const PAD_PX := 168.0     # the padlock glyph — big enough to read as a tappable target on the map
+const BOX := 216.0        # the badge box (room for the glow + shadow around the pad)
+const SHADOW_OFFSET := Vector2(7.0, 14.0)
 
 static func make(id: String) -> Control:
 	var badge := Control.new()
@@ -17,41 +18,73 @@ static func make(id: String) -> Control:
 	badge.size = Vector2(BOX, BOX)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.set_meta("building_id", id)
+	var pad_pos := Vector2(BOX - PAD_PX, BOX - PAD_PX) * 0.5
+	var tex := _padlock_tex()
+	# drop shadow — a black silhouette of the padlock, offset down-right, behind everything.
+	var shadow := TextureRect.new()
+	shadow.name = "Shadow"
+	_config_sprite(shadow)
+	shadow.size = Vector2(PAD_PX, PAD_PX)
+	shadow.position = pad_pos + SHADOW_OFFSET
+	shadow.texture = tex
+	shadow.modulate = Color(0, 0, 0, 0.38)
+	badge.add_child(shadow)
+	# the padlock glyph itself.
 	var pad := TextureRect.new()
 	pad.name = "Pad"
-	pad.expand_mode = TextureRect.EXPAND_IGNORE_SIZE      # set BEFORE size (min-size cache clamp)
-	pad.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pad.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_config_sprite(pad)
 	pad.size = Vector2(PAD_PX, PAD_PX)
-	pad.position = Vector2(BOX - PAD_PX, BOX - PAD_PX) * 0.5
-	var pad_path := Game.art("ui/meadow_v2/icon_padlock.png")
-	if ResourceLoader.exists(pad_path):
-		pad.texture = load(pad_path) as Texture2D
+	pad.position = pad_pos
+	pad.pivot_offset = Vector2(PAD_PX, PAD_PX) * 0.5   # pulse scales from the centre
+	pad.texture = tex
 	badge.add_child(pad)
 	set_ready(badge, false)
 	return badge
 
-# LOCKED: dim the pad, no glow. READY: full-bright pad + a warm rounded glow disc behind it.
-# Idempotent — safe to call every rebuild.
+# LOCKED: full-opacity cool padlock, no glow. READY: bright gold padlock on a warm glow disc that
+# gently pulses. Idempotent — safe to call every rebuild.
 static func set_ready(badge: Control, ready: bool) -> void:
 	if badge == null or not is_instance_valid(badge):
 		return
 	var pad := badge.get_node_or_null("Pad") as TextureRect
+	var shadow := badge.get_node_or_null("Shadow") as TextureRect
 	if pad != null:
-		pad.modulate = Color(1, 1, 1, 1.0) if ready else Color(1, 1, 1, 0.55)
+		# both states are FULL opacity; ready reads warm-bright, locked reads a cool slate.
+		pad.modulate = Color(1.0, 0.95, 0.72, 1.0) if ready else Color(0.78, 0.82, 0.88, 1.0)
+	if shadow != null:
+		shadow.modulate = Color(0, 0, 0, 0.4 if ready else 0.32)
 	var glow := badge.get_node_or_null("Glow") as Panel
 	if ready and glow == null:
 		glow = Panel.new()
 		glow.name = "Glow"
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glow.size = Vector2(BOX, BOX) * 1.2
-		glow.position = -(glow.size - Vector2(BOX, BOX)) * 0.5
+		glow.size = Vector2(BOX, BOX) * 1.02
+		glow.position = (Vector2(BOX, BOX) - glow.size) * 0.5
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(1.0, 0.9, 0.45, 0.5)          # warm "unlockable" halo
-		sb.set_corner_radius_all(int(glow.size.x * 0.5))  # a soft disc
+		sb.bg_color = Color(1.0, 0.86, 0.36, 0.55)          # warm "unlockable" halo
+		sb.set_corner_radius_all(int(glow.size.x * 0.5))    # a soft disc
+		sb.shadow_color = Color(1.0, 0.82, 0.3, 0.5)
+		sb.shadow_size = 26
 		glow.add_theme_stylebox_override("panel", sb)
 		badge.add_child(glow)
-		badge.move_child(glow, 0)                         # glow paints behind the pad
+		badge.move_child(glow, 0)                           # behind shadow + pad
+		_pulse(pad)
 	elif not ready and glow != null:
 		glow.queue_free()
+
+static func _pulse(pad: Control) -> void:
+	if pad == null or not pad.is_inside_tree():
+		return                                              # tween needs the node in the tree
+	var tw := pad.create_tween().set_loops()
+	tw.tween_property(pad, "scale", Vector2(1.09, 1.09), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(pad, "scale", Vector2(1.0, 1.0), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+static func _config_sprite(t: TextureRect) -> void:
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE          # set BEFORE size (min-size cache clamp)
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+static func _padlock_tex() -> Texture2D:
+	var p := Game.art("ui/meadow_v2/icon_padlock.png")
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null

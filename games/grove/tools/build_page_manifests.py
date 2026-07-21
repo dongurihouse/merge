@@ -93,10 +93,12 @@ def build_page(root, scene, label):
                 print(f"  ! {scene}: skipping {e.get('id')} — missing {src}")
                 continue
             tex = copy_asset(src, scene, str(e["id"]))
-            if str(e.get("category", "")) == "unlock_cover":
-                # the sw-coverup "fixed" layer: per-cluster canopy sprites (cluster == unlock_region_<id>)
-                # authored for the cover-up unlocks. Carried through as coverups (NOT page props); the
-                # runtime mounts them frontmost per cluster and reveals them away on unlock.
+            if str(e.get("layer", "")) == "coverup" or str(e.get("category", "")) == "unlock_cover":
+                # RESPECT THE SW TOOL: anything the Scene Workbench places on its frontmost "coverup"
+                # LAYER is a cover-up piece (the tool tags by layer, and moving an element there does
+                # NOT rewrite its category — so key on the layer, not the category). Carried through as
+                # coverups (NOT page props); the runtime mounts them frontmost per cluster and reveals
+                # them away on unlock. The cluster links to the unlock unit as `unlock_region_<clusterId>`.
                 region = str(e.get("cluster", ""))
                 cluster = region[len("unlock_region_"):] if region.startswith("unlock_region_") else region
                 coverups.append({

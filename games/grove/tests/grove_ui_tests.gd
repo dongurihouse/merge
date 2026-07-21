@@ -45,12 +45,16 @@ func _test_lock_badge_states() -> void:
 	ok(String(badge.get_meta("building_id")) == "tea_stall", "lock badge carries the cluster id")
 	var pad := badge.get_node("Pad") as TextureRect
 	ok(pad != null, "lock badge has a padlock child")
-	ok(pad != null and pad.modulate.a < 0.9, "locked look is dimmed")
+	ok(badge.has_node("Shadow"), "lock badge has a drop shadow")
+	ok(pad != null and pad.modulate.a >= 0.99, "locked look is FULL opacity (not see-through)")
+	var locked_col := pad.modulate
+	ok(not badge.has_node("Glow"), "locked look has no glow")
 	LB.set_ready(badge, true)
-	ok(pad != null and pad.modulate.a >= 0.99, "ready look brightens the pad")
+	ok(pad != null and pad.modulate.a >= 0.99, "ready look stays full opacity")
+	ok(pad != null and pad.modulate.r > locked_col.r and pad.modulate.b < locked_col.b,
+		"ready look reads warmer than locked")
 	ok(badge.has_node("Glow"), "ready shows a glow disc")
 	LB.set_ready(badge, false)
-	ok(pad != null and pad.modulate.a < 0.9, "re-locking dims the pad again")
 	ok(not badge.has_node("Glow"), "the glow is removed when re-locked")
 
 func _test_meadow_dialog_composition() -> void:
