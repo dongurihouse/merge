@@ -10,6 +10,21 @@ func _texture_path(node: Node) -> String:
 		return String((node as NinePatchRect).texture.resource_path)
 	return ""
 
+func _test_lock_badge_states() -> void:
+	var LB := load("res://engine/scripts/ui/lock_badge.gd")
+	var badge: Control = LB.make("tea_stall")
+	ok(badge.name == "lock_tea_stall", "lock badge is named by cluster id")
+	ok(String(badge.get_meta("building_id")) == "tea_stall", "lock badge carries the cluster id")
+	var pad := badge.get_node("Pad") as TextureRect
+	ok(pad != null, "lock badge has a padlock child")
+	ok(pad != null and pad.modulate.a < 0.9, "locked look is dimmed")
+	LB.set_ready(badge, true)
+	ok(pad != null and pad.modulate.a >= 0.99, "ready look brightens the pad")
+	ok(badge.has_node("Glow"), "ready shows a glow disc")
+	LB.set_ready(badge, false)
+	ok(pad != null and pad.modulate.a < 0.9, "re-locking dims the pad again")
+	ok(not badge.has_node("Glow"), "the glow is removed when re-locked")
+
 func _test_meadow_dialog_composition() -> void:
 	var content := Label.new()
 	content.text = "Body"
@@ -60,6 +75,7 @@ func _test_meadow_dialog_composition() -> void:
 func _initialize() -> void:
 	begin("grove · ui")
 	_test_meadow_dialog_composition()
+	_test_lock_badge_states()
 	fresh("ladder")
 	var s6 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s6)
