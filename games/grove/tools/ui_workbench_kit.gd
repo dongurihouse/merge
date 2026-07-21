@@ -1066,12 +1066,14 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	# CODE-DRAWN rugged edge: the wallet pill wears the SAME shared cut-paper edge as the dialog frame + the
 	# buttons + the settings rows (engine/scripts/ui/cut_paper.gd). `cp` is the ONE normalized knob set —
 	# passed in by a caller, else read from the cached config's `gold_currency_pill` block.
-	var pill_corner := pill_h * 0.35
-	var pill_fill := Color("#F6EBDD")
-	var pill_margins := Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
 	var cp: Dictionary = opts.get("cp", {})
 	if cp.is_empty():
 		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "gold_currency_pill", PILL_CP_DEFAULTS)
+	var pill_fill := Color("#F6EBDD")
+	var pill_margins := Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
+	# the capsule corner IS the shared "Corner" edge knob (tunable in the workbench); PILL_CP_DEFAULTS seeds
+	# it to the old pill_h * 0.35 look so an untuned pill is unchanged.
+	var pill_corner := float(cp.get("corner", pill_h * 0.35))
 	var deckle: bool = bool(opts.get("deckle", cp.get("deckle", true)))
 	if deckle:
 		_apply_deckle_button_surface(panel, pill_fill, pill_corner, cp, pill_margins, true)
@@ -2056,9 +2058,9 @@ static func cut_paper_tile() -> Texture2D:
 const ROW_CP_DEFAULTS := {"corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-# The wallet pill wears the SAME shared cut-paper edge; its capsule corner is derived from the pill height
-# at build time (pill_h * 0.35), so `corner` here is only the fallback used before that override lands.
-const PILL_CP_DEFAULTS := {"deckle": true, "corner": 30, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The wallet pill wears the SAME shared cut-paper edge; `corner` seeds the capsule roundness to the old
+# pill_h * 0.35 look (35 at the default 100px height) so an untuned pill is visually unchanged.
+const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 
 ## The shared row surface: a code-drawn CUT-PAPER sheet — the SAME rugged deckled edge the dialog frame
 ## wears, in sage — so every settings row (toggle · info · action) reads as a torn paper strip. Kept as a
@@ -4437,6 +4439,9 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"shadow": bool(g.get("shadow", false)),
 		"shadow_params": sp,
+		# the shared cut-paper EDGE knobs, read live from this block so the workbench sliders + the game HUD
+		# both flow the same values into the drawn pill (Kit.cut_paper_opts_from_config → the ONE edge applier).
+		"cp": cut_paper_opts_from_config(cfg, "gold_currency_pill", PILL_CP_DEFAULTS),
 		"pill_w": float(g.get("pill_w", 292.0)) * scale,
 		"pill_h": float(g.get("pill_h", 100.0)) * scale,
 		"pad_left": float(g.get("pad_left", 18.0)) * scale,
