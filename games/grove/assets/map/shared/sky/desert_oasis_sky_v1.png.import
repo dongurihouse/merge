@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ck3mghvhwrf6o"
-path="res://.godot/imported/desert_oasis_sky_v1.png-3c50d1257a2a00bce5476966d02db9dd.ctex"
+path="res://.godot/imported/desert_oasis_sky_v1.png-ec372bd89cb701692eec96734e812138.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/oasis/sky/desert_oasis_sky_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_sky_v1.png-3c50d1257a2a00bce5476966d02db9dd.ctex"]
+source_file="res://games/grove/assets/map/shared/sky/desert_oasis_sky_v1.png"
+dest_files=["res://.godot/imported/desert_oasis_sky_v1.png-ec372bd89cb701692eec96734e812138.ctex"]
 
 [params]
 
