@@ -1676,8 +1676,9 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(content)
 	bag_content = content
-	# the stashed item overlays the tile directly (no cream backing) — sized large so it covers the baked satchel.
-	bag_piece_px = roundf(px * 0.78)
+	# the stashed item overlays the tile directly (no cream backing) — sized to FILL the tile so it fully
+	# covers the baked satchel (the count still rides the tile foot).
+	bag_piece_px = roundf(px)
 	_bag_count_lbl = _make_bag_count_label(px)
 	b.add_child(_bag_count_lbl)
 	_rebuild_bag()
