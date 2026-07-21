@@ -3348,14 +3348,30 @@ func _rebuild_bag() -> void:
 	for c in bag_content.get_children():
 		c.queue_free()
 	if bag.is_empty():
-		# empty → restore the satchel glyph (the same workbench-tuned kit icon the disc shipped with)
-		var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-		if Kit != null:
-			bag_content.add_child(Kit.make_icon("bag", bag_piece_px))
+		# empty → restore the cut-paper satchel sprite (bag_satchel.png), centered + sized to the icon box.
+		bag_content.add_child(_bag_satchel_icon(bag_piece_px))
 	else:
 		# filled → the most-recent stashed item, sized to FILL the disc's icon box (a true swap, not a
 		# tiny preview riding on top of the satchel).
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
+
+# The Bag disc's satchel — the cut-paper satchel sprite (bag_satchel.png), centered and fit to the icon
+# box by its own aspect (matching the item-swap piece size). Falls back to the kit "bag" icon if absent.
+const BAG_SATCHEL := "res://games/grove/assets/ui/kit/bag_satchel.png"
+func _bag_satchel_icon(px: float) -> Control:
+	if ResourceLoader.exists(BAG_SATCHEL):
+		var box := CenterContainer.new()
+		box.custom_minimum_size = Vector2(px, px)
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tr := TextureRect.new()
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # BEFORE size, so native px never clamps the box
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.texture = load(BAG_SATCHEL)
+		tr.custom_minimum_size = Vector2(px, px)
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(tr)
+		return box
+	return load("res://games/grove/tools/ui_workbench_kit.gd").make_icon("bag", px)
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
 # over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
