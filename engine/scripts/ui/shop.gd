@@ -424,79 +424,35 @@ static func _price_pill(Kit: GDScript, d: Dictionary) -> Control:
 	if String(d.get("price", "")) == "":
 		return null
 	var icon_id := String(d.get("price_icon", ""))
-	var b := Button.new()
+	# the SHARED pill_button (green role) — the code-drawn cut-paper edge + its OWN shape-true shadow,
+	# tuned from the workbench Button element. The whole pill keeps its natural width (deckle must not
+	# stretch), so the `shop_textured` meta tells the caller to skip the stretch-to-column overrides.
+	var price := String(d.price)
+	var opts := {
+		"bg": "green",
+		"font": FS.HEADING,
+		"icon": icon_id,          # a 💎/🪙 cost carries its glyph; a USD/free pack ("") prints the text alone
+		"icon_size": 44,
+		"shadow": true,
+	}
+	var b: Button = Kit.pill_button("" if icon_id != "" else price.to_upper(), opts)
 	b.name = "ShopBuyButton"
-	b.text = "" if icon_id != "" else String(d.price).to_upper()   # "Free" prints as FREE (mock)
-	b.focus_mode = Control.FOCUS_NONE
 	b.set_meta("shop_buy", true)
+	b.set_meta("shop_textured", true)
 	if bool(d.get("cash", false)):
 		b.set_meta("shop_cash", true)
 	b.add_theme_font_override("font", Kit.bold_font())
-	b.add_theme_font_size_override("font_size", FS.HEADING)
 	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
-	b.add_theme_constant_override("outline_size", 0)
-	# reskin: the baked green cut-paper button texture. It is NOT 9-sliced — the whole button scales
-	# uniformly, keeping its own aspect ratio (no squish, no repeated middle). So the button is sized to
-	# the texture's aspect and is NOT stretched across its column (the callers skip that for a textured
-	# pill). Falls back to the flat green pill.
-	var btn_tex := _skin_tex("button_green")
-	var sb: StyleBox
-	if btn_tex != null:
-		var st := StyleBoxTexture.new()
-		st.texture = btn_tex   # no texture_margin_* → the whole image scales to the button rect
-		st.content_margin_left = 20; st.content_margin_right = 20
-		st.content_margin_top = 14; st.content_margin_bottom = 14
-		sb = st
-	else:
-		var fb := StyleBoxFlat.new()
-		fb.bg_color = PILL_GREEN
-		fb.set_corner_radius_all(16)
-		fb.content_margin_left = 20; fb.content_margin_right = 20
-		fb.content_margin_top = 14; fb.content_margin_bottom = 14
-		_mock_shadow(fb)
-		sb = fb
-	for st2 in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(st2, sb)
-	if btn_tex != null:
-		# lock the button to the texture's aspect so scaling never distorts it
-		var ph := 76.0
-		b.custom_minimum_size = Vector2(roundf(ph * float(btn_tex.get_width()) / float(btn_tex.get_height())), ph)
-		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	else:
-		b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
-	# a 💎/🪙-priced CTA carries its currency glyph beside the number (the USD packs print the price alone).
+	# a currency-priced CTA carries the number beside the glyph (pill_button's b.icon supplies the glyph)
 	if icon_id != "":
-		var h := HBoxContainer.new()
-		h.set_anchors_preset(Control.PRESET_FULL_RECT)
-		h.alignment = BoxContainer.ALIGNMENT_CENTER
-		h.add_theme_constant_override("separation", 10)
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ic: Control = Kit.make_icon(icon_id, 44.0)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(ic)
-		var pl := Label.new()
-		pl.text = String(d.price)
-		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		pl.add_theme_font_override("font", Kit.bold_font())
-		pl.add_theme_font_size_override("font_size", FS.HEADING)
-		pl.add_theme_color_override("font_color", Color.WHITE)
-		pl.add_theme_constant_override("outline_size", 0)
-		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(pl)
-		b.add_child(h)
+		b.text = price
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if d.has("affordable") and not bool(d.get("affordable", true)):
 		b.modulate = Color(1, 1, 1, 0.45)   # can't afford → the CTA greys (still pressable: the wallet wiggles)
 	var cb: Callable = d.get("on_buy", Callable())
 	if cb.is_valid():
 		b.pressed.connect(func() -> void: cb.call())
-	# a textured pill gains the cut-paper drop shadow; the wrapper carries the layout meta, the inner
-	# Button (ShopBuyButton) keeps its name / press / buy metas so the shop + tests still resolve it.
-	if btn_tex != null:
-		var wrapped := SpritePanel.wrap(b, btn_tex)
-		wrapped.set_meta("shop_textured", true)
-		return wrapped
 	return b
 
 # A bold navy label (the mock's one type voice for titles and headers).

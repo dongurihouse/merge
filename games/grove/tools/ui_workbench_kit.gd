@@ -236,6 +236,65 @@ static func _apply_rounded_paper_surface(
 	button.draw.connect(sync_state)
 	return paper
 
+## The CODE-DRAWN rugged-edge button surface — the SAME deckled paper as the dialog frame
+## (engine/scripts/ui/cut_paper.gd), drawn behind a transparent Button so the torn edge + tiled fibre
+## + shape-true drop shadow size to any button with no stretch (mirrors dialog_frame's cut_paper path).
+## The role fill becomes the panel's paper_color; press/disabled darken it. Returns the CutPaperPanel.
+## `margins` is the content inset (L,T,R,B). When `shadow` is on the PANEL casts its own shadow, so the
+## caller must NOT also wrap the button in the rectangular _maybe_shadow (that is a double shadow).
+static func _apply_deckle_button_surface(
+	button: Button,
+	fill: Color,
+	corner: float,
+	deckle_amp: float,
+	deckle_freq: float,
+	rim_width: float,
+	margins: Vector4,
+	shadow: bool,
+	enabled: bool = true
+) -> Control:
+	button.set_meta(Look.SHADOW_CORNER_META, corner)
+	# transparent styleboxes: the panel behind is the visible face; the stylebox only holds the content
+	# margins (so the label/icon sit inside the deckled edge) — identical text layout to the shader path.
+	var clear := StyleBoxFlat.new()
+	clear.bg_color = Color(0, 0, 0, 0)
+	clear.draw_center = false
+	clear.content_margin_left = margins.x
+	clear.content_margin_top = margins.y
+	clear.content_margin_right = margins.z
+	clear.content_margin_bottom = margins.w
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, clear)
+
+	var panel: Control = load("res://engine/scripts/ui/cut_paper.gd").new()
+	panel.name = "ButtonDeckleSurface"
+	panel.show_behind_parent = true
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.corner = corner
+	panel.deckle_amp = deckle_amp
+	panel.deckle_freq = deckle_freq
+	panel.rim_width = rim_width
+	panel.draw_shadow = shadow
+	var base_fill: Color = fill if enabled else fill.lerp(Color(0.55, 0.55, 0.55), 0.45)
+	panel.paper_color = base_fill
+	var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
+	if tile != null:
+		panel.paper_tex = tile
+	button.add_child(panel)
+
+	# press feedback: darken the paper while held, restore on release (disabled buttons never press)
+	if enabled:
+		button.button_down.connect(func() -> void:
+			if is_instance_valid(panel):
+				panel.paper_color = base_fill.darkened(0.08)
+				panel.queue_redraw())
+		button.button_up.connect(func() -> void:
+			if is_instance_valid(panel):
+				panel.paper_color = base_fill
+				panel.queue_redraw())
+	return panel
+
 static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: float = 0.0, pad_top: float = 0.0, pad_right: float = 0.0, pad_bottom: float = 0.0) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
 	style.texture = _meadow_tex(file_name)
@@ -1151,6 +1210,14 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var corner := float(opts.get("corner", 16.0))      # low = rectangular; ≥ height/2 = capsule
 	var shadow: bool = bool(opts.get("shadow", false)) # a soft drop shadow under the pill
 	var pad_scale := float(opts.get("pad_scale", 1.0)) # shrink/grow the padding (the cost chip uses < 1 to fit a card)
+	# CODE-DRAWN rugged edge (workbench "Button" toggle): the paper roles wear the SAME deckled surface as
+	# the dialog frame. Defaults come from the cached config's `button` block (deckle_freq stored as a
+	# 0..N percent → /100); an explicit opt always wins (deckle_freq passed in opts is the raw frequency).
+	var dcfg: Dictionary = load_config(CONFIG_PATH).get("button", {})
+	var deckle: bool = bool(opts.get("deckle", dcfg.get("deckle", true)))
+	var deckle_amp: float = float(opts.get("deckle_amp", dcfg.get("deckle_amp", 5)))
+	var deckle_freq: float = float(opts.get("deckle_freq", float(dcfg.get("deckle_freq", 5)) / 100.0))
+	var rim_width: float = float(opts.get("rim_width", dcfg.get("rim_width", 2)))
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = text
@@ -1188,17 +1255,23 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	# the button's rounded rect) plus the shared drop shadow — the same construction as the rect home-rail
 	# buttons and the slot cells, so every primary CTA in the game is cut from the one green paper. The
 	# baked button_primary.png shell is retired for it; cream/danger keep their nine-patch shells.
+	var paper_margins := Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale)
 	if primary:
 		var surface: Dictionary = PAPER_SURFACES["green"]
-		# the shadow goes on FIRST: both it and the paper draw behind the button's own text/icon, and
-		# behind-parent siblings draw in child order — shadow (index 0) under paper (index 1).
+		var green_fill: Color = surface.get("fill", Color("#5F9B6D"))
+		# DECKLED edge (default): the same code-drawn cut-paper surface as the dialog frame, which casts
+		# its OWN shape-true shadow — so we do NOT also wrap the button in the rectangular _maybe_shadow.
+		if deckle:
+			_apply_deckle_button_surface(b, green_fill, corner, deckle_amp, deckle_freq, rim_width, paper_margins, true, enabled)
+			return b
+		# smooth shader surface (deckle off): shadow goes on FIRST so it draws behind the paper (child order).
 		_maybe_shadow(b, true, corner, opts.get("shadow_params", {}))
 		var paper := _apply_rounded_paper_surface(
 			b,
 			String(surface.get("texture", "texture_action_green.png")),
-			surface.get("fill", Color("#5F9B6D")),
+			green_fill,
 			corner,
-			Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale),
+			paper_margins,
 			0.0,
 			1.0,
 			true,
@@ -1208,13 +1281,17 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	# a NON-green paper role (e.g. the cream secondary): same paper-cut construction as the green CTA.
 	if paper_role != "" and PAPER_SURFACES.has(paper_role):
 		var proll: Dictionary = PAPER_SURFACES[paper_role]
+		var proll_fill: Color = proll.get("fill", Pal.CREAM)
+		if deckle:
+			_apply_deckle_button_surface(b, proll_fill, corner, deckle_amp, deckle_freq, rim_width, paper_margins, shadow, enabled)
+			return b
 		_maybe_shadow(b, shadow, corner, opts.get("shadow_params", {}))
 		var proll_paper := _apply_rounded_paper_surface(
 			b,
 			String(proll.get("texture", "texture_cream.png")),
-			proll.get("fill", Pal.CREAM),
+			proll_fill,
 			corner,
-			Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale),
+			paper_margins,
 			0.0,
 			1.0,
 			true,
@@ -1656,20 +1733,9 @@ static func _mail_skin_tex(key: String) -> Texture2D:
 	var p := MAIL_SKIN + key + ".png"
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null
 
-## A reskinned action button: the extracted GREEN/CREAM cut-paper button background with the label drawn
-## on top (TextSpriteButton), sized to the label. Returns null when the sprite is absent so callers fall
-## back to pill_button. `color_key` is "green" or "cream".
-static func _skin_button(text: String, color_key: String, font_px: int) -> Button:
-	var tex := _mail_skin_tex("btn_" + color_key)
-	if tex == null:
-		return null
-	var TSB = load("res://engine/scripts/ui/text_sprite_button.gd")
-	var h := roundf(font_px * 2.0)
-	var w := roundf(text.length() * font_px * 0.62 + font_px * 2.0)
-	var col: Color = Pal.CREAM if color_key == "green" else Pal.INK   # cream on green, ink on cream
-	var b: Button = TSB.build(tex, text, Vector2(w, h), Callable(), {"font": font_px, "color": col, "name": "SkinButton"})
-	b.mouse_filter = Control.MOUSE_FILTER_STOP   # the caller wires `.pressed`
-	return b
+## (The baked `_skin_button` — the extracted GREEN/CREAM cut-paper sprite wearing a TextSpriteButton
+## label — is retired: mail Claim / Claim All now build the SHARED pill_button, whose deckled edge is
+## drawn in code and tuned from the workbench Button element.)
 
 static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: int = FS.FINE, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
 	# The row panel is a plain flat paper surface — the SAME cut-paper construction the buttons/chips wear
@@ -1766,17 +1832,16 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			action.add_child(done)
 			panel.modulate = Color(1, 1, 1, 0.7)
 		else:
-			# the big green Claim — the shared pill_button pushed up a font tier + a roomier pad/corner
-			# (mock v1's Claim reads much larger than the small reward cards beside it).
+			# the big green Claim — the SHARED pill_button (code-drawn cut-paper edge, tuned in the workbench),
+			# pushed up a font tier + a roomier pad/corner (mock v1's Claim reads much larger than the reward cards).
 			var claim_font := int(btn_opts.get("card_claim_font", maxi(FS.BODY, title_font)))
-			var claim := _skin_button(String(btn_opts.get("text", "Claim")), "green", claim_font)   # reskin: green cut-paper button bg + label
-			if claim == null:
-				var claim_opts := btn_opts.duplicate()
-				claim_opts["bg"] = "green"
-				claim_opts["font"] = claim_font   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
-				claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
-				claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
-				claim = pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
+			var claim_opts := button_opts_from_config(load_config(CONFIG_PATH))   # the shared button settings (deckle / rim / shadow)
+			claim_opts.merge(btn_opts, true)                                      # a caller override wins over config
+			claim_opts["bg"] = "green"
+			claim_opts["font"] = claim_font   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
+			claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
+			claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
+			var claim := pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
 			claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			var on_claim: Callable = entry.get("on_claim", Callable())
 			if on_claim.is_valid():
@@ -2586,27 +2651,20 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	var claim_all_text := String(opts.get("claim_all_text", ""))
 	if claim_all_cb.is_valid() and claim_all_text != "":
 		var ca_font := int(opts.get("claim_all_font", FS.HEADING))
-		var ca := _skin_button(claim_all_text, "green", ca_font)   # reskin: green cut-paper button bg + label
-		if ca == null:
-			var ca_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
-			ca_opts["bg"] = "green"
-			ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
-			ca_opts["font"] = ca_font
-			ca_opts["shadow"] = true
-			ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
-			ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
-			ca = pill_button(claim_all_text, ca_opts)
-			ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the drawn pill tiles cleanly full-width
+		# the SHARED pill_button (code-drawn cut-paper edge) — the shared button settings, then the footer's own tuning.
+		var ca_opts := button_opts_from_config(load_config(CONFIG_PATH))
+		ca_opts.merge((opts.get("btn", {}) as Dictionary), true)
+		ca_opts["bg"] = "green"
+		ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
+		ca_opts["font"] = ca_font
+		ca_opts["shadow"] = true
+		ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
+		ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
+		var ca := pill_button(claim_all_text, ca_opts)
+		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the drawn pill tiles cleanly full-width
 		ca.pressed.connect(func() -> void: claim_all_cb.call())
 		opts = opts.duplicate()
-		# the footer slot force-expands its child; the drawn pill tiles fine, but the SPRITE button must NOT
-		# stretch (that slices the torn edges) — center it at its natural width inside an expanding wrapper.
-		if ca.name == "SkinButton":
-			var ca_wrap := CenterContainer.new()
-			ca_wrap.add_child(ca)
-			opts["footer"] = ca_wrap
-		else:
-			opts["footer"] = ca
+		opts["footer"] = ca
 	# an optional GOT-IT footer button — the SHARED level cta_button, fired by opts.on_close (same as the
 	# ✕). Off by default → the inbox is unchanged; the info sheet sets opts.got_it to close itself.
 	var got_it_text := String(opts.get("got_it", ""))
@@ -4176,6 +4234,20 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge_dot_px": int(h.get("badge_dot_px", 14)),
 		"badge_num_size": int(h.get("badge_num_size", 14)),
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
+	}
+
+## The shared BUTTON opts (pill_button): the code-drawn rugged-edge knobs + shadow, read from the
+## workbench "Button" block. Merged into a caller's opts so every game button (mail Claim, shop buy,
+## bag CTA, …) picks up the ONE tuned setting set. deckle_freq is a 0..N percent → /100 (like the frame).
+static func button_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var bt: Dictionary = cfg.get("button", {})
+	return {
+		"deckle": bool(bt.get("deckle", true)),          # code-drawn torn edge (default on, like the frame)
+		"deckle_amp": float(bt.get("deckle_amp", 5)),    # bump height (px)
+		"deckle_freq": float(bt.get("deckle_freq", 5)) / 100.0,   # wobble frequency (percent slider → freq)
+		"rim_width": float(bt.get("rim_width", 2)),      # warm cut-edge rim thickness
+		"corner": float(bt.get("corner", 16)),           # rect corner radius
+		"shadow": bool(bt.get("shadow", true)),          # the panel's own shape-true drop shadow
 	}
 
 ## The BOTTOM-BAR tile opts: the shared home-button config, then the per-tile-width scaling a multi-tile
