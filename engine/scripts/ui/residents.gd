@@ -415,7 +415,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 
 	# the text + bar live ONLY on the RIGHT side of the card, clear of the baked icon well (which fills
 	# the left ~45%). BODY_L is the left edge of that right region as a fraction of the card width.
-	var body_l := 0.46
+	var body_l := 0.52
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", roundf(h * 0.03))
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -427,7 +427,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	var nm := Label.new()
 	nm.text = String(face.get("label", line)).to_upper()
 	nm.add_theme_font_override("font", Kit.bold_font())
-	nm.add_theme_font_size_override("font_size", FS.FINE)
+	nm.add_theme_font_size_override("font_size", FS.BODY)   # larger title per the mock
 	nm.add_theme_color_override("font_color", Pal.INK)
 	nm.add_theme_constant_override("outline_size", 0)
 	body.add_child(nm)
