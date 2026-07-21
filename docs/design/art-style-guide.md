@@ -635,7 +635,79 @@ bad geometry under vegetation.
 - A fresh `make shot-sw` capture has been visually compared against the correct source; JSON parses and the
   relevant Workbench/project tests pass before integration.
 
-### 11c · Common generation failures and fixes
+### 11c · Coral Reef case study — generate for a three-layer reconstruction
+
+Coral Reef is the reference workflow for a scene that must look like one coherent cut-paper illustration
+while still allowing the game to replace or unlock meaningful objects. Its current authoring bundle is
+`games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/`; `metadata/placements.json` is the
+single scene authority.
+
+#### Start with a layer-ready mock, not a decomposition rescue
+
+Prompt the **first full-scene mock** with the runtime layers already in mind:
+
+1. **Foundation/backdrop** — continuous water, sand, low rock geometry, light shafts, paper grain, and
+   large, readable prop sockets. No hero props, coral cover clusters, bubbles, or scenic object bases.
+2. **Primary objects** — only four to six large, separable landmarks. Coral uses a shipwreck, chest,
+   anchor, mermaid statue, and giant clam. Each has a distinct, roomy socket and its own thin paper plate
+   where that plate is part of the object design.
+3. **Coverup** — broad, repeatable paper-coral / shell / kelp masses that can hide an entire region. These
+   are deliberately large; do not try to build a locked scene from dense micro-coral clutter.
+
+The mock is a composition and material authority. It is not a flattened runtime layer. If a future object
+may unlock, move, animate, or be replaced, keep it out of the foundation from the first prompt.
+
+#### Generate the foundation as a controlled edit
+
+For a palette or atmosphere revision, use the active foundation as the edit target and lock every terrain
+silhouette and socket. Coral's `coral_reef_paper_foundation_undersea_gray_v3.png` was made this way:
+retain the exact rock ledges, pebble placement, central channel, sand opening, and light-shaft geometry;
+change only the color read from saturated cyan/royal blue to muted gray-teal water, slate-blue rock sides,
+desaturated blue-gray tops, and soft gray-beige sand. This preserves reconstruction placement while making
+the scene feel underwater rather than neon.
+
+Prompt contract:
+
+```text
+Repaint only the backdrop color and underwater atmosphere. Preserve the exact silhouette, proportions,
+perspective, and positions of every cut-paper rock ledge, platform, pebble, central water channel, sandy
+bottom opening, and upper light shaft. Keep the foundation clean: no landmarks, coral, shells, kelp,
+bubbles, characters, text, or UI. Use muted gray-teal water, slate-blue rock sides, desaturated blue-gray
+platform tops, restrained pale-aqua shafts, and subtle paper grain. Do not add terrain or raised plates.
+```
+
+#### Deconstruct by ownership, then reconstruct in Workbench
+
+- Keep each landmark as a separate transparent primary-object sprite. Do not bake grass/sand floors,
+  flower rings, or heavy bottom shadows into it.
+- Keep only permanently shared terrain in the foundation. In Coral, extra socket plates were removed from
+  the foundation because the landmark sprites already own their paper plates; two stacked plates immediately
+  reveal the layer split.
+- Use small contact dressing only as separate cluster members. It integrates an object after placement
+  without forcing it to carry a scenic base.
+- Place every sprite on the foundation using center-bottom anchors, then render `make shot-sw
+  SCENE=coral_reef_paper OUT=/tmp/coral.png`. Compare against the source before adding more dressing.
+- Correct the earliest wrong layer—foundation geometry, visible bounds, anchor, or scale—rather than
+  covering a mismatch with foreground decoration.
+
+#### Locked-state coverup contract
+
+`coverup` is the dedicated topmost Scene Workbench layer. It is not ordinary foreground dressing.
+Create **one cluster per primary-object region**, so one unlock action removes the meaningful visible area
+around that object. Coral has five: `unlock_region_shipwreck`, `unlock_region_chest`,
+`unlock_region_anchor`, `unlock_region_statue`, and `unlock_region_clam`.
+
+Each coverup cluster may contain multiple repeated transparent pieces—shell caps, coral fans, sponge
+clusters, kelp curtains, and pebble mats—but every member shares the region's cluster name and the
+`coverup` layer. Lay large pieces past the screen edges and overlap their paper rims to form a mostly
+covered page with a few intentional water gaps, matching the locked mock. Do not make one cluster per
+sprite: that makes the page read as scattered props and makes an unlock feel too small.
+
+Before shipping, hide one region at a time in the Workbench. The remainder must still read as a coherent
+locked page, and removing the region must reveal a clear landmark/socket without a turf island, duplicate
+plate, dark shadow slab, or accidental hole.
+
+### 11d · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -651,6 +723,8 @@ bad geometry under vegetation.
 | Scene quality drifts late | Too many assets generated before visual approval | Gate the pipeline: dressed mock -> backdrop+one hero test -> remaining assets -> final reconstruction |
 | "Extracted" object changes size or angle | A generative redraw was used for an exact source-preservation task | Mask the approved source in full-canvas coordinates; reserve generation for edge repair or an explicitly new variation |
 | Horizon layer covers the lake or playable floor | A full-width plate contains foreground terrain below its intended band | Crop/mask it to its registered horizon band and validate the alpha footprint before compositing |
+| Locked cover reads as scattered decorations | One cover cluster was made per sprite instead of per meaningful region | Group repeated cover sprites into one topmost `coverup` cluster for each primary-object region; test hiding one region at a time |
+| Landmark shows a doubled paper plate | Both the foundation and the landmark sprite own the same raised plate | Keep the plate in only one layer—normally the movable landmark—and regenerate/edit the foundation to remove its duplicate socket plate |
 
 ### Rejection checklist (regenerate if any is "yes")
 
