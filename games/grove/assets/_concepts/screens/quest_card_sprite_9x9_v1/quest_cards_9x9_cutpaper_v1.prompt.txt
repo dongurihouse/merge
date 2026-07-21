@@ -1,0 +1,3 @@
+Generate distinct compact Meadow Sky + Cut-Paper Playground quest cards on a flat #FF00FF key field. Every card has a matte die-cut paper silhouette, simplified resident or creature portrait, cream requested-item bubble, and attached gold reward plaque. Use warm cream, slate blue, meadow green, receding blue, gold, sparse coral and purple accents; warm cut edges, paper fibre, and shallow down-right shadows. No plastic, gloss, clay, watercolor, thick black outline, text, numerals, or watermark.
+
+The raw source contained 80 distinct cards; a separate generated fox-librarian berry-basket card filled the 81st slot. Deterministic packing normalized the cards into this 9×9 sheet with the magenta key visible between and around every cell.
