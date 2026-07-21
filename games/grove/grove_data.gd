@@ -426,8 +426,17 @@ static func _build_maps() -> Array:
 	# its `spots` list is kept for save-compat only. Pages 2-5 are `open` for book browsing —
 	# the frontier gate arrives with the pages build system (recipes/frontier, picturebook spec §9).
 	{"id": "fairy_hollow", "name": "Fairy Hollow", "hub": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow.json",
-		"covering_frames": _covering_frames("hollow_grass"),
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow_market.json",
+		"covering_frames": [],
+		"coverup_mode": true,
+		"clusters": [
+			{"id": "lantern_gate", "cost": 10, "min_level": 1},
+			{"id": "flower_crate", "cost": 25, "min_level": 2},
+			{"id": "stream_bridge", "cost": 45, "min_level": 3},
+			{"id": "crystal_map_stall", "cost": 70, "min_level": 4},
+			{"id": "tea_stall", "cost": 110, "min_level": 5},
+			{"id": "mushroom_hall", "cost": 160, "min_level": 6},
+		],
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
 		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379)},

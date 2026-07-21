@@ -353,4 +353,18 @@ func _initialize() -> void:
 
 	# T-A: the cash ladder is a real, well-formed escalating curve up to a $49.99/$99.99
 	# top, with 💎-per-dollar RISING up the ladder (the whale always gets the best rate).
+
+	# --- market coverup: page 1 renders the market manifest in coverup mode, with a
+	# bottom-up cluster unlock/gate table (content.gd Task 5 reads this sequence). ---
+	var GD := load("res://games/grove/grove_data.gd")
+	var page: Dictionary = GD.MAPS[0]
+	ok(String(page.id) == "fairy_hollow", "market: page-1 id stays fairy_hollow")
+	ok(bool(page.get("coverup_mode", false)), "market: page 1 is coverup mode")
+	ok(String(page.zone_manifest).ends_with("zone_fairy_hollow_market.json"), "market: page 1 renders the market")
+	var cluster_ids: Array = []
+	for c in page.get("clusters", []):
+		cluster_ids.append(String((c as Dictionary).id))
+	ok(cluster_ids == ["lantern_gate", "flower_crate", "stream_bridge", "crystal_map_stall", "tea_stall", "mushroom_hall"], \
+		"market: clusters unlock bottom-up (lantern_gate -> mushroom_hall)")
+
 	finish()
