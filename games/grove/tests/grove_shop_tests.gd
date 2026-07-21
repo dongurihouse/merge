@@ -430,7 +430,12 @@ func _initialize() -> void:
 	ok(l_overlay.find_children("DailyCell_*", "Control", true, false).size() >= 6 \
 		and l_overlay.find_child("DailyCapstone", true, false) != null, \
 		"the calendar opens as a framed card with a week of reward cells (diegetic, §13)")
-	ok(_press_label(l_overlay, "Claim"), "the calendar shows a Claim button")
+	# today's card is claimed by TAPPING the highlighted card (a transparent full-cell DailyClaimButton),
+	# not a labelled Claim pill.
+	var claim_btn := l_overlay.find_child("DailyClaimButton", true, false) as Button
+	ok(claim_btn != null, "today's card exposes a claim tap-target")
+	if claim_btn != null:
+		claim_btn.pressed.emit()
 	ok(Login.streak() == l_streak + 1 and Save.coins() >= l_coins, \
 		"collecting through the surface claims today's rung and bumps the streak")
 	lhost.queue_free()
