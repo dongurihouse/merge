@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w4qgiomfgpyu"
-path="res://.godot/imported/card_ready.png-6c8803dab74bbf38afa1b4cda61d74e7.ctex"
+uid="uid://2qjkvurdmvu0"
+path="res://.godot/imported/card_water.png-a3ec642d3ddf476b0939c8d8664d7979.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/dialogs/residents/card_ready.png"
-dest_files=["res://.godot/imported/card_ready.png-6c8803dab74bbf38afa1b4cda61d74e7.ctex"]
+source_file="res://games/grove/assets/ui/dialogs/residents/card_water.png"
+dest_files=["res://.godot/imported/card_water.png-a3ec642d3ddf476b0939c8d8664d7979.ctex"]
 
 [params]
 

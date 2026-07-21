@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cc4ga7v566ts6"
-path="res://.godot/imported/icon_diamond.png-ce5fcc2fbc437c699603a9da5dc9eaf7.ctex"
+uid="uid://fqrxl6oidnkj"
+path="res://.godot/imported/card_diamond.png-79f90f38358a4bd5a348de54c199ab50.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/dialogs/residents/icon_diamond.png"
-dest_files=["res://.godot/imported/icon_diamond.png-ce5fcc2fbc437c699603a9da5dc9eaf7.ctex"]
+source_file="res://games/grove/assets/ui/dialogs/residents/card_diamond.png"
+dest_files=["res://.godot/imported/card_diamond.png-79f90f38358a4bd5a348de54c199ab50.ctex"]
 
 [params]
 

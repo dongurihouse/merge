@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkw13sxujdt2y"
-path="res://.godot/imported/icon_boost.png-a22a0b208c76231e537e0a5b55030472.ctex"
+uid="uid://33c6s2evhxu2"
+path="res://.godot/imported/card_coin.png-b935eee155cda218c5cd133fd47eaa0d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/dialogs/residents/icon_boost.png"
-dest_files=["res://.godot/imported/icon_boost.png-a22a0b208c76231e537e0a5b55030472.ctex"]
+source_file="res://games/grove/assets/ui/dialogs/residents/card_coin.png"
+dest_files=["res://.godot/imported/card_coin.png-b935eee155cda218c5cd133fd47eaa0d.ctex"]
 
 [params]
 

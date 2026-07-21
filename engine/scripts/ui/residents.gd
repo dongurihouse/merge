@@ -397,15 +397,15 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 ## banks wear the reward-gold rim. Shadow = the mock's tinted stylebox shadow (follows the corners).
 static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -> Control:
 	var face: Dictionary = LINE_FACE.get(line, {})
-	var full := bool(rep.full)
 	var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
-	var card_tex := _skin_tex("card_ready" if full else "card")
+	# the baked per-line card sprite (resource icon already in the left well; ONE plain cream look for
+	# every card — no gold "ready" variant). The game only draws NAME · COUNT · BAR · STATE over the body.
+	var card_tex := _skin_tex("card_" + line)
 	if card_tex == null:
 		return _bank_card_drawn(Kit, line, rep, w)   # fallback to the drawn card if the sprite is missing
 
-	# reskin: the baked cut-paper card sprite (icon well on the LEFT) over the shared drop shadow, with
-	# the icon in the well and NAME · COUNT · BAR · STATE laid over the body. Height follows the sprite
-	# aspect so it isn't squashed; custom_minimum_size stays (w, h) so the card fits its grid slot.
+	# height follows the sprite aspect so it isn't squashed; custom_minimum_size stays (w, h) so the card
+	# fits its grid slot.
 	var aspect := float(card_tex.get_width()) / float(card_tex.get_height())
 	var h := roundf(w / maxf(aspect, 0.1))
 	var card := SpritePanel.build(card_tex, Vector2(w, h))
@@ -413,26 +413,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	card.custom_minimum_size = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the icon sits in the sprite's left well (upper-left circle) — the extracted cut-paper resource
-	# icon (coin/water/boost/diamond) when present, else the game's drawn make_icon.
-	var iw := roundf(minf(w * 0.24, h * 0.58))
-	var icon_tex := _skin_tex("icon_" + line)
-	var icon: Control
-	if icon_tex != null:
-		var ir := TextureRect.new()
-		ir.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ir.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ir.texture = icon_tex
-		ir.custom_minimum_size = Vector2(iw, iw)
-		ir.size = Vector2(iw, iw)
-		icon = ir
-	else:
-		icon = Kit.make_icon(String(face.get("icon", "leaf")), iw)
-	icon.position = Vector2(w * 0.17 - iw * 0.5, h * 0.44 - iw * 0.5)   # centred in the left well
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(icon)
-
-	# the text block fills the body to the right of the well
+	# the text block fills the body to the right of the baked icon well
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", roundf(h * 0.03))
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
