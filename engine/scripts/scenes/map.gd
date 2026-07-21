@@ -445,6 +445,7 @@ func _build_map(animate := true) -> void:
 	# coverup pages: only the next-in-order locked cluster reads READY and keeps a live tap target.
 	if _coverup:
 		_apply_coverup_sequence()
+		_clamp_badges_above_nav(factor)
 
 	# ambient life — the wanderers ARE the placed residents (the §1 population sub-game): one sprite per
 	# placed spirit, empty until something is placed.
@@ -1819,6 +1820,25 @@ func _apply_coverup_sequence() -> void:
 		if bid == "" or bid == next_id:
 			kept.append(hit)
 	spot_hits = kept
+
+# The tall coverup canvases COVER-FILL the viewport, so a cluster low in the scene can land its lock
+# badge behind the bottom nav bar. Shift any offending badge UP just far enough to clear the band —
+# the bar's MapTile (built once in _build_chrome, so it is already laid out here) marks the band's top
+# edge. `factor` is the stage's fit scale (_build_map): a screen-space overlap must be divided by it
+# to become a stage-local shift, since every badge is a child of the scaled stage.
+func _clamp_badges_above_nav(factor: float) -> void:
+	if factor <= 0.0 or _map_btn == null or not is_instance_valid(_map_btn):
+		return
+	var nav_top := (_map_btn as Control).get_global_rect().position.y
+	var margin := 16.0
+	for id_v in _zone_badges.keys():
+		var b: Control = _zone_badges[id_v]
+		if b == null or not is_instance_valid(b):
+			continue
+		var bottom := b.get_global_rect().end.y
+		var over := bottom - (nav_top - margin)
+		if over > 0.0:
+			b.position.y -= over / factor
 
 # Tap a cluster's lock badge: if it is the ready next-in-sequence cluster, spend its cost, record the
 # unlock, reveal its canopy away, and rebuild. A not-ready tap just wobbles.
