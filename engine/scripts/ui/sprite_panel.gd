@@ -1,19 +1,16 @@
 extends RefCounted
 ## A non-interactive cut-paper SPRITE PANEL: one flat sprite (a card / cell / bar frame baked as a PNG)
-## laid over its own soft downward silhouette shadow — the same shadow feel as SpriteButton and the
-## wallet pills. Returns a Control sized to `size`; the caller stacks its content on top (add_child).
-## Used by the reskinned dialog cards and habitat cells.
+## laid over ONE soft drop shadow (the shared Look.shadow_rect the rest of the UI uses). Returns a Control
+## sized to `size`; the caller stacks its content on top (add_child). Used by the reskinned dialog cards
+## and habitat cells.
 ##
 ##   var card := SpritePanel.build(load(tex), Vector2(w, h))
 ##   card.add_child(<content laid out with anchors over the panel>)
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
 
-const SHADOW := [
-	{"dy": 0.03, "a": 0.16},
-	{"dy": 0.06, "a": 0.12},
-	{"dy": 0.09, "a": 0.08},
-]
+# corner radius of the soft shadow, as a fraction of the panel's short side (the cards are rounded rects).
+const SHADOW_CORNER_FRAC := 0.12
 
 static func build(tex: Texture2D, size: Vector2, opts: Dictionary = {}) -> Control:
 	var root := Control.new()
@@ -21,20 +18,28 @@ static func build(tex: Texture2D, size: Vector2, opts: Dictionary = {}) -> Contr
 	root.size = size
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if bool(opts.get("shadow", true)):
-		for layer in SHADOW:
-			root.add_child(_layer(tex, Look.shadow_color(float(layer["a"])), size.y * float(layer["dy"])))
-	root.add_child(_layer(tex, Color.WHITE, 0.0))
+		# ONE soft blurred shadow (the game's shared cast), not a stack of offset silhouette copies — those
+		# stepped visibly on tall cards. The shadow's filled footprint sits behind (and is hidden by) the
+		# sprite; only its feathered, downward-offset edge shows. Inset a hair so its fill never rings the
+		# torn sprite edge.
+		var short := minf(size.x, size.y)
+		var sh := Look.shadow_rect(short * SHADOW_CORNER_FRAC, {})
+		var inset := short * 0.03
+		sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		sh.offset_left = inset
+		sh.offset_top = inset
+		sh.offset_right = -inset
+		sh.offset_bottom = -inset
+		root.add_child(sh)
+	root.add_child(_layer(tex))
 	return root
 
-static func _layer(tex: Texture2D, mod: Color, dy: float) -> TextureRect:
+static func _layer(tex: Texture2D) -> TextureRect:
 	var tr := TextureRect.new()
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # BEFORE anchors, so native px never drives min size
 	tr.stretch_mode = TextureRect.STRETCH_SCALE
 	tr.texture = tex
-	tr.modulate = mod
 	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	tr.offset_top += dy
-	tr.offset_bottom += dy
 	tr.custom_minimum_size = Vector2.ZERO
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
