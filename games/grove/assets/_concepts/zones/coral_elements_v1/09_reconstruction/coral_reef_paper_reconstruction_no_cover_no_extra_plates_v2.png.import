@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bi8xk7fhiji47"
-path="res://.godot/imported/coral_reef_paper_foundation_undersea_gray_v3.png-d4514a525d92ef4f2d6b24cb1cdefacd.ctex"
+uid="uid://b6ffmo8b72t3e"
+path="res://.godot/imported/coral_reef_paper_reconstruction_no_cover_no_extra_plates_v2.png-e3c34f73230228464e57d5c890a76886.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/01_backdrop/coral_reef_paper_foundation_undersea_gray_v3.png"
-dest_files=["res://.godot/imported/coral_reef_paper_foundation_undersea_gray_v3.png-d4514a525d92ef4f2d6b24cb1cdefacd.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/coral_elements_v1/09_reconstruction/coral_reef_paper_reconstruction_no_cover_no_extra_plates_v2.png"
+dest_files=["res://.godot/imported/coral_reef_paper_reconstruction_no_cover_no_extra_plates_v2.png-e3c34f73230228464e57d5c890a76886.ctex"]
 
 [params]
 
