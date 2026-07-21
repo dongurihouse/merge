@@ -14,7 +14,9 @@ extends RefCounted
 ## legacy docs — a missing `layer` reads as DEFAULT_LAYER, a missing `clusterZ` falls back to `z` —
 ## so a scene authored before layers renders byte-identically until you actually reassign it.
 
-const SCENES_SUFFIX := "games/grove/assets/_concepts/zones"
+const SCENES_SUFFIX := "games/grove/assets/map"
+# Subdirs of the map root that are NOT scenes (shared library, legacy covering art, generated pages).
+const NON_SCENE_DIRS := ["shared", "coverings", "pages"]
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
 
 # The predefined layers, back (painted first) → front (painted last). A cluster lives in exactly one.
@@ -359,34 +361,28 @@ static func repo_root_of(scenes_root: String) -> String:
 		return "."
 	return s
 
-## Pick the bundle dir for a scene: the highest <scene>_elements_vN carrying metadata/placements.json.
+## The folder for a scene: map/<scene>/ when it carries placements.json (the consolidated layout —
+## one folder per scene, art organized under its layer subdirs).
 static func bundle_for(scenes_root: String, scene: String) -> String:
-	var best := ""
-	var best_v := -1
-	var d := DirAccess.open(scenes_root)
-	if d == null:
-		return ""
-	for sub in d.get_directories():
-		if not sub.begins_with(scene + "_elements_v"):
-			continue
-		var v := int(sub.trim_prefix(scene + "_elements_v"))
-		if v > best_v and FileAccess.file_exists("%s/%s/metadata/placements.json" % [scenes_root, sub]):
-			best_v = v
-			best = "%s/%s" % [scenes_root, sub]
-	return best
+	var dir := "%s/%s" % [scenes_root, scene]
+	return dir if FileAccess.file_exists("%s/placements.json" % dir) else ""
 
-## Every scene under a scenes root that has an openable bundle (drives the scene dropdown).
+## The path to a scene's placements doc under the map root.
+static func placements_path(scenes_root: String, scene: String) -> String:
+	return "%s/%s/placements.json" % [scenes_root, scene]
+
+## Every scene under the map root that has an openable placements.json (drives the scene dropdown);
+## the shared library and generated-page dirs are skipped.
 static func scenes_in(scenes_root: String) -> Array:
 	var found := {}
 	var d := DirAccess.open(scenes_root)
 	if d == null:
 		return []
 	for sub in d.get_directories():
-		var k := sub.find("_elements_v")
-		if k <= 0:
+		if NON_SCENE_DIRS.has(sub):
 			continue
-		if FileAccess.file_exists("%s/%s/metadata/placements.json" % [scenes_root, sub]):
-			found[sub.substr(0, k)] = true
+		if FileAccess.file_exists("%s/%s/placements.json" % [scenes_root, sub]):
+			found[sub] = true
 	var names: Array = found.keys()
 	names.sort()
 	return names
@@ -414,84 +410,39 @@ static func pick_root_for_scene(candidates: Array, scene: String) -> String:
 			matching.append(root)
 	return pick_root(matching) if not matching.is_empty() else pick_root(candidates)
 
-## The scene's REFERENCE images (the left column), primary first: the ORIGINAL concept mocks in
-## assets/_concepts/zones (untouched full-scene sources, .png/.jpg), then the mocks-root images
-## named <scene>*.png (incl. the baked composites), then the bundle's 09_reconstruction pass.
-static func reference_images(scenes_root: String, bundle_dir: String, scene: String) -> Array:
+## The scene's REFERENCE images (the left column): everything under map/<scene>/reference/ — the
+## original full-scene mocks, source pages, reconstruction QA passes and keyer intermediates that
+## the consolidation preserved out of the layer bands. Export-excluded, so they never ship.
+static func reference_images(bundle_dir: String) -> Array:
 	var out: Array = []
-	var concepts := "%s/games/grove/assets/_concepts/zones" % repo_root_of(scenes_root)
-	var cd := DirAccess.open(concepts)
-	if cd != null:
-		var firsts: Array = []
-		for fn in cd.get_files():
-			if fn.begins_with(scene) and (fn.ends_with(".png") or fn.ends_with(".jpg")):
-				firsts.append("%s/%s" % [concepts, fn])
-		firsts.sort()
-		out.append_array(firsts)
-	var roots: Array = []
-	var d := DirAccess.open(scenes_root)
-	if d != null:
-		for fn in d.get_files():
-			if fn.begins_with(scene) and fn.ends_with(".png"):
-				roots.append("%s/%s" % [scenes_root, fn])
-	roots.sort()
-	out.append_array(roots)
-	var recs: Array = []
-	var rec := DirAccess.open(bundle_dir + "/09_reconstruction")
-	if rec != null:
-		for fn in rec.get_files():
-			if fn.ends_with(".png"):
-				recs.append("%s/09_reconstruction/%s" % [bundle_dir, fn])
-	recs.sort()
-	out.append_array(recs)
+	var rd := DirAccess.open(bundle_dir + "/reference")
+	if rd != null:
+		for fn in rd.get_files():
+			if fn.ends_with(".png") or fn.ends_with(".jpg"):
+				out.append("%s/reference/%s" % [bundle_dir, fn])
+	out.sort()
 	return out
 
-## The sidebar palette's section order (categories not listed sort after, alphabetically).
-const CATEGORY_ORDER := ["backdrop", "foundation", "environment", "terrain", "structures", "garden_items", "vegetation", "rock"]
-
+## Palette grouping order = the layer band order (an unknown category sorts after, at DEFAULT rank).
 static func category_rank(category: String) -> int:
-	var k := CATEGORY_ORDER.find(category)
-	return k if k >= 0 else CATEGORY_ORDER.size()
+	var k := LAYERS.find(category)
+	return k if k >= 0 else LAYERS.size()
 
-## Every addable .png in the bundle (skips style/metadata/reconstruction dirs, review/raw/montage
-## shots and reference packs): [{id, image (repo-relative), category}], grouped by category then id.
-## Category = the top dir minus its NN_ prefix (04_garden_items → garden_items); descending into a
-## *_pack dir refines it to the pack name (05_dressing/vegetation_pack → vegetation).
+## Every addable .png for a scene: the element art under map/<scene>/<layer>/ plus the cross-scene
+## map/shared/<layer>/ library, grouped by layer band then id. [{id, image (repo-relative), category}].
+## reference/ is skipped — it holds mocks and intermediates, not placeable elements. Category = layer.
 static func addable_assets(bundle_dir: String, repo_root: String, scene: String) -> Array:
 	var out: Array = []
-	var top := DirAccess.open(bundle_dir)
-	if top == null:
-		return out
-	for sub in top.get_directories():
-		if sub.begins_with("00_") or sub.begins_with("09_") or sub == "metadata":
-			continue
-		var cat := sub
-		if cat.length() > 3 and cat.substr(0, 2).is_valid_int() and cat[2] == "_":
-			cat = cat.substr(3)
-		_scan_pngs("%s/%s" % [bundle_dir, sub], cat, repo_root, scene, out)
-	# RECOVERED bundles carry no element dirs — the surviving per-scene page art (the game's
-	# copies) doubles as the palette so adding stays possible. De-duped against bundle finds.
-	var seen := {}
-	for a in out:
-		seen[String((a as Dictionary).id)] = true
-	var pages_dir := "%s/games/grove/assets/map/pages/%s" % [repo_root, scene]
-	var pd := DirAccess.open(pages_dir)
-	if pd != null:
-		for fn in pd.get_files():
-			if not fn.ends_with(".png") or fn == "foundation.png":
-				continue
-			var pid := fn.get_basename()
-			if seen.has(pid):
-				continue
-			out.append({"id": pid, "image": ("%s/%s" % [pages_dir, fn]).trim_prefix(repo_root + "/"),
-				"category": "page_art"})
+	for layer in LAYERS:
+		_scan_pngs("%s/%s" % [bundle_dir, layer], layer, repo_root, scene, out)
+	var shared := "%s/games/grove/assets/map/shared" % repo_root
+	for layer in LAYERS:
+		_scan_pngs("%s/%s" % [shared, layer], layer, repo_root, scene, out)
 	out.sort_custom(func(a, b) -> bool:
 		var ra := category_rank(String(a.category))
 		var rb := category_rank(String(b.category))
 		if ra != rb:
 			return ra < rb
-		if String(a.category) != String(b.category):
-			return String(a.category) < String(b.category)
 		return String(a.id) < String(b.id))
 	return out
 
@@ -499,7 +450,7 @@ static func _scan_pngs(dir: String, category: String, repo_root: String, scene: 
 	var d := DirAccess.open(dir)
 	if d == null:
 		return
-	if dir.get_file() == "references":
+	if dir.get_file() == "references" or dir.get_file() == "reference":
 		return
 	for fn in d.get_files():
 		if not fn.ends_with(".png"):

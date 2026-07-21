@@ -1,0 +1,523 @@
+{
+ "version": 1,
+ "id": "snowy_village",
+ "label": "Snowy Village",
+ "canvas": {
+  "width": 941,
+  "height": 1672
+ },
+ "background": "res://games/grove/assets/map/winter/sky/sky_atmosphere.png",
+ "buildings": [
+  {
+   "id": "foundation",
+   "label": "foundation",
+   "position": [
+    470,
+    1672
+   ],
+   "display_size": [
+    941,
+    1672
+   ],
+   "sort_y": 10,
+   "cluster": "foundation",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/backdrop/foundation.png"
+   }
+  },
+  {
+   "id": "lodge",
+   "label": "lodge",
+   "position": [
+    470,
+    505
+   ],
+   "display_size": [
+    328,
+    346
+   ],
+   "sort_y": 100,
+   "cluster": "lodge",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/primary/lodge_paper_plate_v2.png"
+   }
+  },
+  {
+   "id": "gazebo",
+   "label": "gazebo",
+   "position": [
+    172,
+    786
+   ],
+   "display_size": [
+    271,
+    329
+   ],
+   "sort_y": 110,
+   "cluster": "gazebo",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/primary/gazebo_paper_plate_v2.png"
+   }
+  },
+  {
+   "id": "christmas_tree",
+   "label": "christmas tree",
+   "position": [
+    765,
+    747
+   ],
+   "display_size": [
+    252,
+    290
+   ],
+   "sort_y": 120,
+   "cluster": "christmas_tree",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/primary/christmas_tree_paper_plate_v1.png"
+   }
+  },
+  {
+   "id": "dock_rowboat",
+   "label": "dock rowboat",
+   "position": [
+    760,
+    1164
+   ],
+   "display_size": [
+    294,
+    252
+   ],
+   "sort_y": 130,
+   "cluster": "dock",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/primary/dock_rowboat_paper_plate_v2.png"
+   }
+  },
+  {
+   "id": "entrance_arch",
+   "label": "entrance arch",
+   "position": [
+    470,
+    1492
+   ],
+   "display_size": [
+    409,
+    399
+   ],
+   "sort_y": 140,
+   "cluster": "entrance_arch",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/primary/entrance_arch_paper_plate_v2.png"
+   }
+  },
+  {
+   "id": "edge_covering_upper_left",
+   "label": "edge covering upper left",
+   "position": [
+    180,
+    570
+   ],
+   "display_size": [
+    360,
+    570
+   ],
+   "sort_y": 90,
+   "cluster": "edge_cover_rear",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
+   }
+  },
+  {
+   "id": "edge_covering_upper_right",
+   "label": "edge covering upper right",
+   "position": [
+    760,
+    570
+   ],
+   "display_size": [
+    361,
+    570
+   ],
+   "sort_y": 200,
+   "cluster": "edge_cover_front",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
+   }
+  },
+  {
+   "id": "edge_covering_mid_left",
+   "label": "edge covering mid left",
+   "position": [
+    110,
+    1030
+   ],
+   "display_size": [
+    220,
+    300
+   ],
+   "sort_y": 200,
+   "cluster": "edge_cover_front",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
+   }
+  },
+  {
+   "id": "edge_covering_lower_left",
+   "label": "edge covering lower left",
+   "position": [
+    180,
+    1672
+   ],
+   "display_size": [
+    360,
+    622
+   ],
+   "sort_y": 200,
+   "cluster": "edge_cover_front",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
+   }
+  },
+  {
+   "id": "edge_covering_lower_right",
+   "label": "edge covering lower right",
+   "position": [
+    760,
+    1672
+   ],
+   "display_size": [
+    361,
+    572
+   ],
+   "sort_y": 200,
+   "cluster": "edge_cover_front",
+   "states": {
+    "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
+   }
+  }
+ ],
+ "coverups": [
+  {
+   "id": "unlock_drift_01",
+   "cluster": "lodge",
+   "position": [
+    90,
+    291
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 400,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_02",
+   "cluster": "lodge",
+   "position": [
+    470,
+    291
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 401,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_03",
+   "cluster": "lodge",
+   "position": [
+    850,
+    291
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 402,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_04",
+   "cluster": "gazebo",
+   "position": [
+    90,
+    636
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 403,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_05",
+   "cluster": "lodge",
+   "position": [
+    470,
+    636
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 404,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_06",
+   "cluster": "christmas_tree",
+   "position": [
+    850,
+    636
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 405,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_07",
+   "cluster": "gazebo",
+   "position": [
+    90,
+    981
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 406,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_08",
+   "cluster": "dock",
+   "position": [
+    470,
+    981
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 407,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_09",
+   "cluster": "christmas_tree",
+   "position": [
+    850,
+    981
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 408,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_10",
+   "cluster": "dock",
+   "position": [
+    90,
+    1326
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 409,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_11",
+   "cluster": "dock",
+   "position": [
+    470,
+    1326
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 410,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_12",
+   "cluster": "dock",
+   "position": [
+    850,
+    1326
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 411,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_13",
+   "cluster": "entrance_arch",
+   "position": [
+    90,
+    1671
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 412,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_14",
+   "cluster": "entrance_arch",
+   "position": [
+    470,
+    1671
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 413,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_15",
+   "cluster": "entrance_arch",
+   "position": [
+    850,
+    1671
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 414,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_16",
+   "cluster": "entrance_arch",
+   "position": [
+    90,
+    1871
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 415,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_17",
+   "cluster": "entrance_arch",
+   "position": [
+    470,
+    1871
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 416,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_drift_18",
+   "cluster": "entrance_arch",
+   "position": [
+    850,
+    1871
+   ],
+   "display_size": [
+    570,
+    492
+   ],
+   "sort_y": 417,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_scalloped_drift_v1.png"
+  },
+  {
+   "id": "unlock_crystal_top",
+   "cluster": "lodge",
+   "position": [
+    170,
+    428
+   ],
+   "display_size": [
+    300,
+    316
+   ],
+   "sort_y": 418,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_crystal_snowflake_v1.png"
+  },
+  {
+   "id": "unlock_rosette_upper",
+   "cluster": "christmas_tree",
+   "position": [
+    730,
+    668
+   ],
+   "display_size": [
+    305,
+    336
+   ],
+   "sort_y": 419,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_rosette_snowflake_v1.png"
+  },
+  {
+   "id": "unlock_flurry_middle",
+   "cluster": "gazebo",
+   "position": [
+    220,
+    1025
+   ],
+   "display_size": [
+    325,
+    290
+   ],
+   "sort_y": 420,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_flurry_cluster_v1.png"
+  },
+  {
+   "id": "unlock_crystal_lower",
+   "cluster": "dock",
+   "position": [
+    745,
+    1334
+   ],
+   "display_size": [
+    320,
+    337
+   ],
+   "sort_y": 421,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_crystal_snowflake_v1.png"
+  },
+  {
+   "id": "unlock_rosette_bottom",
+   "cluster": "entrance_arch",
+   "position": [
+    470,
+    1660
+   ],
+   "display_size": [
+    290,
+    320
+   ],
+   "sort_y": 422,
+   "image": "res://games/grove/assets/map/winter/coverup/cover_rosette_snowflake_v1.png"
+  }
+ ]
+}

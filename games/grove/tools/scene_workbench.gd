@@ -3,13 +3,13 @@ extends SceneTree
 ##   interactive:       make sw [SCENE=sakura] [ROOT=<scenes dir>]
 ##   quiet screenshot:  make shot-sw [SCENE=...] [OUT=/tmp/scene_workbench.png]   (born-minimized)
 ##
-## Every picture-book scene bundle lives under …/_concepts/zones (one dir per
-## <scene>_elements_vN, highest version with metadata/placements.json wins). ROOT= overrides.
+## Every picture-book scene lives under …/assets/map (one folder per scene, art organized into its
+## layer subdirs, its placements.json at map/<scene>/placements.json). ROOT= overrides.
 
 const View = preload("res://games/grove/tools/scene_workbench_view.gd")
 
 const ROOT_CANDIDATES := [
-	"res://games/grove/assets/_concepts/zones",
+	"res://games/grove/assets/map",
 ]
 
 func _initialize() -> void:
@@ -34,7 +34,7 @@ func _initialize() -> void:
 			cands.append(ProjectSettings.globalize_path(cand))
 		scenes_root = Model.pick_root_for_scene(cands, scene)
 	if scenes_root == "":
-		push_error("no _concepts/zones root with openable scenes — pass ROOT=<dir>")
+		push_error("no assets/map root with openable scenes — pass ROOT=<dir>")
 		quit(1)
 		return
 
