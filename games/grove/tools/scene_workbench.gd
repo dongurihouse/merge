@@ -1,6 +1,6 @@
 extends SceneTree
 ## Scene-placement workbench — standalone runner (mirrors ui_workbench.gd).
-##   interactive:       make sw [SCENE=cherry_blossom_garden] [ROOT=<scenes dir>]
+##   interactive:       make sw [SCENE=sakura] [ROOT=<scenes dir>]
 ##   quiet screenshot:  make shot-sw [SCENE=...] [OUT=/tmp/scene_workbench.png]   (born-minimized)
 ##
 ## Every picture-book scene bundle lives under …/_concepts/zones (one dir per
@@ -15,7 +15,7 @@ const ROOT_CANDIDATES := [
 func _initialize() -> void:
 	var quiet := FileAccess.file_exists("res://override.cfg")   # set by quiet_godot.sh
 	var ua := OS.get_cmdline_user_args()
-	var scene: String = String(ua[0]) if ua.size() >= 1 and String(ua[0]) != "" else "cherry_blossom_garden"
+	var scene: String = String(ua[0]) if ua.size() >= 1 and String(ua[0]) != "" else "sakura"
 	var root_arg: String = String(ua[1]) if ua.size() >= 2 else "auto"
 	var cluster: String = String(ua[2]) if ua.size() >= 3 else "none"
 	if cluster == "none":

@@ -1,6 +1,0 @@
-Use case: stylized-concept
-Asset type: portrait mobile game environment concept art.
-
-Japanese temple-garden purification approach in cherry-blossom season. A welcoming vermilion torii threshold leads to a small open temizuya pavilion with a carved stone tsukubai basin, bamboo water spout, and two bamboo ladles. Include a shallow koi pond, small arched bridge, mossy stone lanterns, young cherry trees, clipped pines, and a modest tiled-roof prayer hall uphill.
-
-Style reference: cherry_blossom_garden_original_mock_v1.png. Retain its warm paper-cut diorama language, fine printed paper grain, tactile cut edges, matte ink color, and gentle shadows, but use a fresh composition. No people, UI, text, labels, logos, watermarks, or literal real shrine recreation.

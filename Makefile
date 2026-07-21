@@ -53,11 +53,11 @@ editor: ## open the project in the Godot editor
 w: ## see + test the UI workbench live (a real window you can click)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
 
-sw: ## place + fine-tune a picture-book scene (drag/resize/wheel/z, clusters; ⌘S saves):  make sw [SCENE=cherry_blossom_garden] [CLUSTER=<name>] [ROOT=<scenes dir>]
-	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),cherry_blossom_garden) $(or $(ROOT),auto) $(or $(CLUSTER),none)
+sw: ## place + fine-tune a picture-book scene (drag/resize/wheel/z, clusters; ⌘S saves):  make sw [SCENE=sakura] [CLUSTER=<name>] [ROOT=<scenes dir>]
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),sakura) $(or $(ROOT),auto) $(or $(CLUSTER),none)
 
 shot-sw: ## quiet screenshot of the scene workbench:  make shot-sw [SCENE=...] [CLUSTER=...] [OUT=/tmp/scene_workbench.png]
-	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),cherry_blossom_garden) $(or $(ROOT),auto) $(or $(CLUSTER),none) $(or $(OUT),/tmp/scene_workbench.png)
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/scene_workbench.gd -- $(or $(SCENE),sakura) $(or $(ROOT),auto) $(or $(CLUSTER),none) $(or $(OUT),/tmp/scene_workbench.png)
 
 fx: ## see + tune every Grove FX live — the feel verbs (land · merge · launch · move · grab), the Expedition juice, and the reward flight
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
