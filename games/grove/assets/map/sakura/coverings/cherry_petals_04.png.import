@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://kgckd2xjpfvc"
-path="res://.godot/imported/winter_ice_01.png-a00c35cb864769b8b7d409d16cb1152b.ctex"
+uid="uid://bxahgy0bxsjvb"
+path="res://.godot/imported/cherry_petals_04.png-f22316403e55abf3c9b5c47706a3d936.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/coverings/winter_ice_01.png"
-dest_files=["res://.godot/imported/winter_ice_01.png-a00c35cb864769b8b7d409d16cb1152b.ctex"]
+source_file="res://games/grove/assets/map/sakura/coverings/cherry_petals_04.png"
+dest_files=["res://.godot/imported/cherry_petals_04.png-f22316403e55abf3c9b5c47706a3d936.ctex"]
 
 [params]
 

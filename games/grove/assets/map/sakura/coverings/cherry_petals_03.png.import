@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b0dvvinh6su11"
-path="res://.godot/imported/coral_shells_04.png-fe90e00899f901b6a17b254e1d6df925.ctex"
+uid="uid://cnuk43njlda7y"
+path="res://.godot/imported/cherry_petals_03.png-0959e39b17063a11fdc977118f7a6ac0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/coverings/coral_shells_04.png"
-dest_files=["res://.godot/imported/coral_shells_04.png-fe90e00899f901b6a17b254e1d6df925.ctex"]
+source_file="res://games/grove/assets/map/sakura/coverings/cherry_petals_03.png"
+dest_files=["res://.godot/imported/cherry_petals_03.png-0959e39b17063a11fdc977118f7a6ac0.ctex"]
 
 [params]
 

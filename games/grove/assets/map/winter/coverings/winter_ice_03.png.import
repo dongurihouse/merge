@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://wr2ww67o30hb"
-path="res://.godot/imported/coral_shells_01.png-e74e0920e22d93bca6e51b9a770069ff.ctex"
+uid="uid://birqnf7jtwly"
+path="res://.godot/imported/winter_ice_03.png-f3a8dd03d5c6449b869e2a017262a3ca.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/coverings/coral_shells_01.png"
-dest_files=["res://.godot/imported/coral_shells_01.png-e74e0920e22d93bca6e51b9a770069ff.ctex"]
+source_file="res://games/grove/assets/map/winter/coverings/winter_ice_03.png"
+dest_files=["res://.godot/imported/winter_ice_03.png-f3a8dd03d5c6449b869e2a017262a3ca.ctex"]
 
 [params]
 

@@ -501,12 +501,13 @@ static func _build_maps() -> Array:
 	]
 	return maps
 
-# The scene's five locked-plot covering sprites (assets/map/coverings, scene_coverings_v1 intake):
-# scene-themed variants scattered over every still-locked plot (ui/scene_coverings.gd).
-static func _covering_frames(prefix: String) -> Array:
+# The scene's five locked-plot covering sprites (map/<scene>/coverings/, scene_coverings_v1 intake):
+# scene-themed variants scattered over every still-locked plot (ui/scene_coverings.gd). `scene` is the
+# map/ scene-folder, `prefix` the theme (e.g. "cherry_petals") the five sprite files are named after.
+static func _covering_frames(scene: String, prefix: String) -> Array:
 	var out: Array = []
 	for i in range(1, 6):
-		out.append("res://games/grove/assets/map/coverings/%s_%02d.png" % [prefix, i])
+		out.append("res://games/grove/assets/map/%s/coverings/%s_%02d.png" % [scene, prefix, i])
 	return out
 
 # (The vine-mask overlay `_apply_vine_maps` was retired with the discrete-map / mask-reveal model —
