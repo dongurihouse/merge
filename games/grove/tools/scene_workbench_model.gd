@@ -16,7 +16,7 @@ extends RefCounted
 
 const SCENES_SUFFIX := "games/grove/assets/map"
 # Subdirs of the map root that are NOT scenes (shared library, generated pages). Per-scene art —
-# including each scene's own coverings/ and reference/ — lives INSIDE its map/<scene>/ folder.
+# the six layer folders plus reference/ — lives INSIDE its map/<scene>/ folder.
 const NON_SCENE_DIRS := ["shared", "pages"]
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
 
