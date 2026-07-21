@@ -43,7 +43,7 @@ const SLOT_SAGE := [1, 3, 6]
 
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
-const CELL_ASPECT := 1.36         # cell height / cell width — matches the re-skin day-card sprite (more square)
+const CELL_ASPECT := 1.45         # cell height / cell width — matches the advent day-card sprite (more square)
 const BANNER_ASPECT := 1.35       # capstone banner height / cell width — a small, compact box
 
 # Fixed layout lines for a day cell (fractions of the cell HEIGHT). The reward icon and its amount are
@@ -293,9 +293,12 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	var mystery := bool(d.get("mystery", false))
 	var today := state == "today"
 	var done := state == "done"
-	# the baked cut-paper card face — the CLAIMED face already bakes its dim + ✓, so a done day draws no
-	# reward icon / amount / marker on top of it (only its "DAY N" label).
-	var card_tex := _daily_tex("day_card_claimed" if done else "day_card")
+	# advent-calendar faces (each baked into its own sprite): a FUTURE day is a wrapped GIFT (reward
+	# hidden), TODAY is the empty card (its Claim button drawn on top), a PAST/claimed day is the card
+	# with a ✓. So a day cell draws only its "DAY N" label (+ today's Claim) over the baked face — no
+	# reward icon or amount.
+	var card_key := "day_past" if done else ("day_current" if today else "day_future")
+	var card_tex := _daily_tex(card_key)
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel: Control
@@ -321,9 +324,9 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	label.grow_vertical = Control.GROW_DIRECTION_END
 	inner.add_child(label)
 
-	# The reward icon + amount + marker only render on a NON-claimed day — the claimed card face bakes its
-	# own dim + ✓ (item 4), so a done day is just the claimed card + its "DAY N" label.
-	if not done:
+	# Only the DRAWN fallback (no baked sprite) still paints the reward icon + amount; with the advent
+	# sprites present, the gift / empty / ✓ face carries the whole state, so nothing is drawn over it.
+	if card_tex == null and not done:
 		# the reward ICON — its CENTRE pinned to REWARD_ICON_FRAC (constant across every state).
 		var art: Control
 		if mystery:
