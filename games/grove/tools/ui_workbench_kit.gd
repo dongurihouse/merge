@@ -1063,13 +1063,21 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	panel.flat = false
 	panel.focus_mode = Control.FOCUS_NONE
 	panel.add_theme_constant_override("h_separation", 0)
-	_apply_rounded_paper_surface(
-		panel,
-		"texture_cream.png",
-		Color("#F6EBDD"),
-		pill_h * 0.35,
-		Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
-	)
+	# CODE-DRAWN rugged edge: the wallet pill wears the SAME shared cut-paper edge as the dialog frame + the
+	# buttons + the settings rows (engine/scripts/ui/cut_paper.gd). `cp` is the ONE normalized knob set —
+	# passed in by a caller, else read from the cached config's `gold_currency_pill` block.
+	var pill_corner := pill_h * 0.35
+	var pill_fill := Color("#F6EBDD")
+	var pill_margins := Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
+	var cp: Dictionary = opts.get("cp", {})
+	if cp.is_empty():
+		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "gold_currency_pill", PILL_CP_DEFAULTS)
+	var deckle: bool = bool(opts.get("deckle", cp.get("deckle", true)))
+	if deckle:
+		_apply_deckle_button_surface(panel, pill_fill, pill_corner, cp, pill_margins, true)
+	else:
+		# smooth shader surface (deckle off): the original rounded paper-cut shell.
+		_apply_rounded_paper_surface(panel, "texture_cream.png", pill_fill, pill_corner, pill_margins)
 	if plus_action.is_valid():
 		panel.pressed.connect(plus_action)
 
@@ -2048,6 +2056,9 @@ static func cut_paper_tile() -> Texture2D:
 const ROW_CP_DEFAULTS := {"corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The wallet pill wears the SAME shared cut-paper edge; its capsule corner is derived from the pill height
+# at build time (pill_h * 0.35), so `corner` here is only the fallback used before that override lands.
+const PILL_CP_DEFAULTS := {"deckle": true, "corner": 30, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 
 ## The shared row surface: a code-drawn CUT-PAPER sheet — the SAME rugged deckled edge the dialog frame
 ## wears, in sage — so every settings row (toggle · info · action) reads as a torn paper strip. Kept as a
