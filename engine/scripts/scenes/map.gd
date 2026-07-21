@@ -2248,7 +2248,11 @@ func _make_back_button(sb: float) -> Button:
 		_open_map(_map_idx)
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
-	if Kit != null:
+	var back_path := "res://games/grove/assets/ui/nav/nav_back.png"
+	if ResourceLoader.exists(back_path):
+		# the cut-paper back-arrow sprite tile (square), matching the nav set + its drop shadow
+		b = SpriteButton.build(load(back_path), Vector2(px, px), back, {"name": "BackButton"})
+	elif Kit != null:
 		var opts := _home_opts.duplicate()
 		opts["shape"] = "rect"
 		opts["surface_role"] = "sky"

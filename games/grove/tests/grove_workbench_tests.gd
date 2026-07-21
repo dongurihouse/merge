@@ -922,10 +922,13 @@ func _initialize() -> void:
 		await process_frame
 		if map_scene._select_back != null:
 			var back_rect := (map_scene._select_back as Control).get_global_rect()
-			ok(_paper_texture_path(map_scene._select_back).ends_with("ui/meadow_v2/texture_sky.png"), \
-				"place-picker Back uses the sky paper square")
-			ok(_is_reference_paper_shadow(_paper_shadow_style(map_scene._select_back)), \
-				"place-picker Back paper square casts a visible downward shadow")
+			# the Back button is the baked cut-paper back-arrow sprite now (over a drop shadow)
+			var back_sprites: Array = (map_scene._select_back as Control).find_children("*", "TextureRect", true, false)
+			ok(back_sprites.any(func(tr: TextureRect) -> bool: \
+					return tr.texture != null and String(tr.texture.resource_path).ends_with("nav_back.png")), \
+				"place-picker Back wears its baked cut-paper back-arrow sprite")
+			ok(back_sprites.any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99), \
+				"place-picker Back sprite casts a soft downward drop shadow")
 			ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
 				and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
 				"place-picker back button uses the shared side/bottom margin")
