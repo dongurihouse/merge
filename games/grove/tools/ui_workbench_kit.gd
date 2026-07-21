@@ -1742,33 +1742,42 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer), matching the mocks' clean
 	# card rows. The baked kit/mail_card.png nine-patch (an embossed border + a pink underline artifact) is
 	# retired for it; the card keeps its padding (CARD_PAD) and layout, only the background changes.
+	# RESKIN: the card wears the SAME code-drawn torn cut-paper edge as the dialog frame + settings rows —
+	# a deckled CREAM sheet (tiled paper fibre + warm rim + shape-true drop shadow) drawn behind the content,
+	# mirroring _row_panel. The old baked mail_card.png (with its embossed border + hero-icon well) is retired;
+	# the icon now seats on the clean deckled cream. The PanelContainer stays the root (transparent), so the
+	# card's node identity is unchanged and it stacks the backdrop + a padded host into one rect.
 	var panel := PanelContainer.new()
 	var card_corner := 18.0
-	# reskin: the baked cut-paper mail CARD sprite (with the hero-icon WELL on the left) as the panel face,
-	# stretched over the card box via a StyleBoxTexture; content padding stays so the icon seats in the well
-	# and the copy sits to its right. Falls back to the drawn cream stylebox when the sprite is absent.
-	var card_skin := _mail_skin_tex("card")
-	if card_skin != null:
-		var st := StyleBoxTexture.new()
-		st.texture = card_skin
-		st.content_margin_left = CARD_PAD.x; st.content_margin_right = CARD_PAD.z
-		st.content_margin_top = CARD_PAD.y; st.content_margin_bottom = CARD_PAD.w
-		panel.add_theme_stylebox_override("panel", st)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Pal.CREAM
-		s.border_color = PAPER_EDGE
-		s.set_corner_radius_all(int(card_corner))
-		s.set_border_width_all(1)
-		s.anti_aliasing = true
-		s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
-		s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
-		panel.add_theme_stylebox_override("panel", s)
+	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # transparent: the CutPaperPanel behind is the face
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var cp = load(CUT_PAPER).new()      # the deckled cream sheet, laid out to fill the panel rect
+	cp.shape = "rect"
+	cp.corner = card_corner
+	cp.deckle_amp = 4.0                  # a fine tear at card scale (finer than the big frame page)
+	cp.deckle_freq = 0.05
+	cp.rim_width = 2.0
+	cp.paper_color = Pal.CREAM
+	cp.draw_shadow = true
+	var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
+	if tile != null:
+		cp.paper_tex = tile
+	cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(cp)
+	# content host: pad the row IN from the deckled edge so text/icon never touch the tear (CARD_PAD + the
+	# deckle inset). The panel stacks both children into the same rect, so the host margins are the ONLY inset.
+	var host := MarginContainer.new()
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var inset := int(cp.content_inset())
+	host.add_theme_constant_override("margin_left", int(CARD_PAD.x) + inset)
+	host.add_theme_constant_override("margin_right", int(CARD_PAD.z) + inset)
+	host.add_theme_constant_override("margin_top", int(CARD_PAD.y))
+	host.add_theme_constant_override("margin_bottom", int(CARD_PAD.w))
+	panel.add_child(host)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
-	panel.add_child(row)
+	host.add_child(row)
 
 	# LEFT: the LARGE hero icon (mock v1) — the reward art itself, unplated, seated big at the card's left
 	# and vertically centred over the whole row. `icon_px` is workbench-tunable via btn_opts.card_icon_px.
@@ -1860,9 +1869,7 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			ac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			info_row.add_child(ac)
 			text.add_child(info_row)
-	# the texture_cream grain layer behind the row (drawn at child index 0), completing the paper cut.
-	if card_skin == null:   # the drawn fallback needs the grain layer; the sprite already IS the paper
-		apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
+	# (no separate grain layer — the deckled CutPaperPanel already tiles the cream paper fibre as its fill.)
 	return panel
 
 ## The mock's per-reward CURRENCY CARDS: one SMALL cream amount_chip per currency present, laid out in a
