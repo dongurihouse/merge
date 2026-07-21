@@ -2016,6 +2016,10 @@ const CUT_PAPER_KNOBS := [
 	{"key": "deckle_freq", "kind": "slider", "label": "Deckle freq", "min": 1, "max": 20, "default": 5, "freq": true},
 	{"key": "rim_width",   "kind": "slider", "label": "Rim width",   "min": 0, "max": 8,  "default": 2},
 	{"key": "edge_shadow", "kind": "toggle", "label": "Edge shadow", "default": true},
+	# the drop-shadow itself is tunable: how far it reaches below the sheet (px) and its per-copy darkness
+	# (a percent → alpha). Both only bite when Edge shadow is on. CutPaperPanel.configure consumes them.
+	{"key": "shadow_reach",    "kind": "slider", "label": "Shadow reach",    "min": 0, "max": 40, "default": 10},
+	{"key": "shadow_strength", "kind": "slider", "label": "Shadow strength", "min": 0, "max": 20, "default": 5},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
