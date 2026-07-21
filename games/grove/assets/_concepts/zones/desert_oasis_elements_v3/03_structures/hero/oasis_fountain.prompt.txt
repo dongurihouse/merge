@@ -1,5 +1,0 @@
-Use case: stylized-concept. Asset type: reusable world-object cutout for a vertical mobile game.
-Reference: desert_oasis_original_mock_v1.png controls this fountain's elevated three-quarter camera, scale, palette, and paper material only.
-Create exactly one chunky octagonal oasis fountain: low warm-cream and muted-teal geometric tile basin, shallow visible blue water, small arched cream stone spout with teal inlay at back, simple attached blue water stream. Broad readable pieces, no intricate mosaic. No pond bank, sand, stepping stones, plants, rocks, tent, shops, camel, shrine, ground, shadow, or scene.
-Style: Meadow Sky + Cut-Paper Playground: matte hand-cut cardstock, broad rounded low-complexity silhouettes, one flat base color plus at most one same-hue shadow plane, subtle 2-4% paper fiber, fine warm cut edge, thin locally darker edge, upper-left light, no painterly/3D/glossy/plastic look, no text.
-Full silhouette with generous padding and bottom-center anchor. Perfectly flat #FF00FF background, no gradients or shadows, no magenta in subject.
