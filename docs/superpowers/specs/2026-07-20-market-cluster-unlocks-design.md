@@ -1,6 +1,36 @@
 # Fairy Hollow Market — cluster cover-up unlocks
 
 **Date:** 2026-07-20
+**Status:** Approved design — REVISED 2026-07-20 (see "Revision" below)
+
+## Revision (authored coverup layer)
+
+During implementation we found the scene **already defines** the cover-up: the scene-workbench has a
+frontmost fixed **`coverup`** layer, and the Fairy Hollow Market bundle (`_v3`) authors 11 canopy
+sprites tagged `category: "unlock_cover"` + `cluster: "unlock_region_<clusterId>"`, grouped over the
+6 hero clusters (1–4 sprites each, explicit positions). These are the real cover-up — **not** a random
+`hollow_grass` scatter. The runtime never renders them yet (the generator dropped them); that missing
+**runtime wiring is this task**.
+
+Per the owner: **do not author or regenerate any coverup content** — the layer + per-cluster grouping
+already exist. Just carry the existing definitions into the game, render each cluster's coverup group,
+add a lock icon per cluster, and on unlock **take that cluster's coverup group away** (reveal), exposing
+the always-built scene art beneath.
+
+This **supersedes** the sections below where they assume a per-building HomeBuild build-step model with
+a grass scatter. The revised mechanic:
+- The 6 structures render as **always-built** scene art (no build steps, no HomeBuild coupling — avoids
+  disturbing the economy/cells/quest systems that key off `BUILDINGS`).
+- The generator **carries through** the existing `unlock_cover` placements into the page manifest as a
+  `coverups` list (grouped by cluster) — transport of existing definitions, authoring nothing.
+- Per-cluster unlock state persists in the existing `unlocks` save dict, keyed by cluster id.
+- Gate = strict bottom-up sequence + the same cost+level progression; the next locked cluster's lock
+  icon reads "ready" when affordable; tap → deduct cost, mark unlocked, reveal that cluster's canopy.
+- The lock-badge module (Task 3) and the bottom-pill-as-counter decision are unchanged.
+
+---
+
+**Date:** 2026-07-20
 **Status:** Approved design, pre-implementation
 
 ## Goal
