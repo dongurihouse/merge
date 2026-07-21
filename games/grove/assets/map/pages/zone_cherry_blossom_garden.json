@@ -9,769 +9,1744 @@
  "background": "res://games/grove/assets/map/pages/cherry_blossom_garden/foundation.png",
  "buildings": [
   {
-   "id": "mountain_far",
-   "label": "mountain far",
+   "id": "foundation",
+   "label": "foundation",
    "position": [
     660,
-    2126
+    2346
    ],
    "display_size": [
     1320,
-    2346
+    2600
    ],
    "sort_y": 10,
-   "cluster": "",
+   "cluster": "foundation",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/mountain_far.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/foundation.png"
    }
   },
   {
-   "id": "mountain_middle",
-   "label": "mountain middle",
+   "id": "clouds",
+   "label": "clouds",
    "position": [
     660,
-    2126
+    2346
    ],
    "display_size": [
     1320,
     2346
    ],
-   "sort_y": 11,
-   "cluster": "",
+   "sort_y": 20,
+   "cluster": "sky",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/mountain_middle.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/clouds.png"
    }
   },
   {
-   "id": "mountain_near",
-   "label": "mountain near",
+   "id": "horizon_bush_left",
+   "label": "horizon bush left",
    "position": [
-    660,
-    2126
+    213,
+    631
    ],
    "display_size": [
-    1320,
-    2346
+    652,
+    374
    ],
-   "sort_y": 12,
-   "cluster": "",
+   "sort_y": 30,
+   "cluster": "horizon_left",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/mountain_near.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/horizon_bush_left.png"
    }
   },
   {
-   "id": "horizon_vegetation_rear",
-   "label": "horizon vegetation rear",
+   "id": "horizon_bush_center",
+   "label": "horizon bush center",
    "position": [
-    660,
-    2126
+    667,
+    697
    ],
    "display_size": [
-    1320,
-    2346
+    746,
+    447
    ],
-   "sort_y": 13,
-   "cluster": "",
+   "sort_y": 31,
+   "cluster": "horizon_center",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/horizon_vegetation_rear.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/horizon_bush_center.png"
    }
   },
   {
-   "id": "horizon_vegetation_near",
-   "label": "horizon vegetation near",
+   "id": "horizon_bush_right",
+   "label": "horizon bush right",
    "position": [
-    660,
-    2126
+    1130,
+    609
    ],
    "display_size": [
-    1320,
-    2346
+    698,
+    294
    ],
-   "sort_y": 14,
-   "cluster": "",
+   "sort_y": 32,
+   "cluster": "horizon_right",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/horizon_vegetation_near.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/horizon_bush_right.png"
    }
   },
   {
-   "id": "sakura_tree_left",
-   "label": "sakura tree left",
+   "id": "pavilion",
+   "label": "pavilion",
    "position": [
-    170,
-    945
+    831,
+    893
    ],
    "display_size": [
-    640,
-    636
+    900,
+    758
    ],
    "sort_y": 100,
-   "cluster": "tree_left",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/sakura_tree_left.png"
-   }
-  },
-  {
-   "id": "sakura_tree_mid",
-   "label": "sakura tree mid",
-   "position": [
-    590,
-    965
-   ],
-   "display_size": [
-    358,
-    486
-   ],
-   "sort_y": 101,
-   "cluster": "tree_mid",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/sakura_tree_mid.png"
-   }
-  },
-  {
-   "id": "sakura_tree_right",
-   "label": "sakura tree right",
-   "position": [
-    1285,
-    930
-   ],
-   "display_size": [
-    397,
-    657
-   ],
-   "sort_y": 102,
-   "cluster": "tree_right",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/sakura_tree_right.png"
-   }
-  },
-  {
-   "id": "veg_tree_left_contact",
-   "label": "veg tree left contact",
-   "position": [
-    180,
-    958
-   ],
-   "display_size": [
-    245,
-    125
-   ],
-   "sort_y": 110,
-   "cluster": "tree_left",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_tree_left_contact.png"
-   }
-  },
-  {
-   "id": "veg_tree_mid_contact",
-   "label": "veg tree mid contact",
-   "position": [
-    610,
-    978
-   ],
-   "display_size": [
-    195,
-    172
-   ],
-   "sort_y": 111,
-   "cluster": "tree_mid",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_tree_mid_contact.png"
-   }
-  },
-  {
-   "id": "veg_tree_right_contact",
-   "label": "veg tree right contact",
-   "position": [
-    1230,
-    950
-   ],
-   "display_size": [
-    235,
-    132
-   ],
-   "sort_y": 112,
-   "cluster": "tree_right",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_tree_right_contact.png"
-   }
-  },
-  {
-   "id": "veg_pavilion_boundary",
-   "label": "veg pavilion boundary",
-   "position": [
-    1260,
-    1110
-   ],
-   "display_size": [
-    150,
-    209
-   ],
-   "sort_y": 113,
    "cluster": "pavilion",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_pavilion_boundary.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/pavilion.png"
    }
   },
   {
-   "id": "rock_tree_left_contact",
-   "label": "rock tree left contact",
+   "id": "pond_bridge",
+   "label": "pond bridge",
    "position": [
-    60,
-    975
+    291,
+    1640
    ],
    "display_size": [
-    170,
-    158
+    852,
+    893
    ],
-   "sort_y": 120,
-   "cluster": "tree_left",
+   "sort_y": 110,
+   "cluster": "pond_bridge",
    "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_tree_left_contact.png"
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/pond_bridge.png"
    }
   },
   {
-   "id": "rock_tree_mid_contact",
-   "label": "rock tree mid contact",
+   "id": "temizuya",
+   "label": "temizuya",
    "position": [
-    555,
+    1015,
+    1617
+   ],
+   "display_size": [
+    782,
+    833
+   ],
+   "sort_y": 120,
+   "cluster": "temizuya",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/temizuya.png"
+   }
+  },
+  {
+   "id": "torii",
+   "label": "torii",
+   "position": [
+    760,
+    2344
+   ],
+   "display_size": [
+    900,
+    893
+   ],
+   "sort_y": 130,
+   "cluster": "torii",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/torii.png"
+   }
+  },
+  {
+   "id": "edge_cover",
+   "label": "edge cover",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 900,
+   "cluster": "edge_cover",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/edge_cover.png"
+   }
+  }
+ ],
+ "coverups": [
+  {
+   "id": "cover_pavilion_00",
+   "cluster": "pavilion",
+   "position": [
+    -60,
+    230
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_00.png"
+  },
+  {
+   "id": "cover_pavilion_01",
+   "cluster": "pavilion",
+   "position": [
+    150,
+    230
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_01.png"
+  },
+  {
+   "id": "cover_pavilion_02",
+   "cluster": "pavilion",
+   "position": [
+    360,
+    230
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_02.png"
+  },
+  {
+   "id": "cover_pavilion_03",
+   "cluster": "pavilion",
+   "position": [
+    570,
+    230
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_03.png"
+  },
+  {
+   "id": "cover_pavilion_04",
+   "cluster": "pavilion",
+   "position": [
+    780,
+    230
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_04.png"
+  },
+  {
+   "id": "cover_pavilion_05",
+   "cluster": "pavilion",
+   "position": [
+    990,
+    230
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_05.png"
+  },
+  {
+   "id": "cover_pavilion_06",
+   "cluster": "pavilion",
+   "position": [
+    1200,
+    230
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_06.png"
+  },
+  {
+   "id": "cover_pavilion_07",
+   "cluster": "pavilion",
+   "position": [
+    1410,
+    230
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_07.png"
+  },
+  {
+   "id": "cover_pavilion_08",
+   "cluster": "pavilion",
+   "position": [
+    45,
+    420
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_08.png"
+  },
+  {
+   "id": "cover_pavilion_09",
+   "cluster": "pavilion",
+   "position": [
+    255,
+    420
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_09.png"
+  },
+  {
+   "id": "cover_pavilion_10",
+   "cluster": "pavilion",
+   "position": [
+    465,
+    420
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_10.png"
+  },
+  {
+   "id": "cover_pavilion_11",
+   "cluster": "pavilion",
+   "position": [
+    675,
+    420
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_11.png"
+  },
+  {
+   "id": "cover_pavilion_12",
+   "cluster": "pavilion",
+   "position": [
+    885,
+    420
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_12.png"
+  },
+  {
+   "id": "cover_pavilion_13",
+   "cluster": "pavilion",
+   "position": [
+    1095,
+    420
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_13.png"
+  },
+  {
+   "id": "cover_pavilion_14",
+   "cluster": "pavilion",
+   "position": [
+    1305,
+    420
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_14.png"
+  },
+  {
+   "id": "cover_pavilion_15",
+   "cluster": "pavilion",
+   "position": [
+    1515,
+    420
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_15.png"
+  },
+  {
+   "id": "cover_pavilion_16",
+   "cluster": "pavilion",
+   "position": [
+    -60,
+    610
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_16.png"
+  },
+  {
+   "id": "cover_pavilion_17",
+   "cluster": "pavilion",
+   "position": [
+    150,
+    610
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_17.png"
+  },
+  {
+   "id": "cover_pavilion_18",
+   "cluster": "pavilion",
+   "position": [
+    360,
+    610
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_18.png"
+  },
+  {
+   "id": "cover_pavilion_19",
+   "cluster": "pavilion",
+   "position": [
+    570,
+    610
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 19,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_19.png"
+  },
+  {
+   "id": "cover_pavilion_20",
+   "cluster": "pavilion",
+   "position": [
+    780,
+    610
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 20,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_20.png"
+  },
+  {
+   "id": "cover_pavilion_21",
+   "cluster": "pavilion",
+   "position": [
+    990,
+    610
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 21,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_21.png"
+  },
+  {
+   "id": "cover_pavilion_22",
+   "cluster": "pavilion",
+   "position": [
+    1200,
+    610
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 22,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_22.png"
+  },
+  {
+   "id": "cover_pavilion_23",
+   "cluster": "pavilion",
+   "position": [
+    1410,
+    610
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 23,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_23.png"
+  },
+  {
+   "id": "cover_pavilion_24",
+   "cluster": "pavilion",
+   "position": [
+    45,
+    800
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 24,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_24.png"
+  },
+  {
+   "id": "cover_pavilion_25",
+   "cluster": "pavilion",
+   "position": [
+    255,
+    800
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 25,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_25.png"
+  },
+  {
+   "id": "cover_pavilion_26",
+   "cluster": "pavilion",
+   "position": [
+    465,
+    800
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 26,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_26.png"
+  },
+  {
+   "id": "cover_pavilion_27",
+   "cluster": "pavilion",
+   "position": [
+    675,
+    800
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 27,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_27.png"
+  },
+  {
+   "id": "cover_pavilion_28",
+   "cluster": "pavilion",
+   "position": [
+    885,
+    800
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 28,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_28.png"
+  },
+  {
+   "id": "cover_pavilion_29",
+   "cluster": "pavilion",
+   "position": [
+    1095,
+    800
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 29,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_29.png"
+  },
+  {
+   "id": "cover_pavilion_30",
+   "cluster": "pavilion",
+   "position": [
+    1305,
+    800
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 30,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_30.png"
+  },
+  {
+   "id": "cover_pavilion_31",
+   "cluster": "pavilion",
+   "position": [
+    1515,
+    800
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 31,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_31.png"
+  },
+  {
+   "id": "cover_pavilion_32",
+   "cluster": "pavilion",
+   "position": [
+    -60,
     990
    ],
    "display_size": [
-    120,
-    127
+    400,
+    400
    ],
-   "sort_y": 121,
-   "cluster": "tree_mid",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_tree_mid_contact.png"
-   }
+   "sort_y": 32,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_32.png"
   },
   {
-   "id": "rock_tree_right_contact",
-   "label": "rock tree right contact",
-   "position": [
-    1270,
-    970
-   ],
-   "display_size": [
-    165,
-    132
-   ],
-   "sort_y": 122,
-   "cluster": "tree_right",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_tree_right_contact.png"
-   }
-  },
-  {
-   "id": "veg_pond_upper_left",
-   "label": "veg pond upper left",
-   "position": [
-    78,
-    760
-   ],
-   "display_size": [
-    205,
-    192
-   ],
-   "sort_y": 210,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_pond_upper_left.png"
-   }
-  },
-  {
-   "id": "veg_pond_upper_right",
-   "label": "veg pond upper right",
-   "position": [
-    820,
-    820
-   ],
-   "display_size": [
-    195,
-    122
-   ],
-   "sort_y": 211,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_pond_upper_right.png"
-   }
-  },
-  {
-   "id": "veg_pond_mid_left",
-   "label": "veg pond mid left",
-   "position": [
-    82,
-    1360
-   ],
-   "display_size": [
-    190,
-    153
-   ],
-   "sort_y": 212,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_pond_mid_left.png"
-   }
-  },
-  {
-   "id": "veg_pond_lower_left",
-   "label": "veg pond lower left",
-   "position": [
-    180,
-    1840
-   ],
-   "display_size": [
-    185,
-    116
-   ],
-   "sort_y": 214,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_pond_lower_left.png"
-   }
-  },
-  {
-   "id": "veg_pond_lower_right",
-   "label": "veg pond lower right",
-   "position": [
-    760,
-    1845
-   ],
-   "display_size": [
-    220,
-    113
-   ],
-   "sort_y": 215,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_pond_lower_right.png"
-   }
-  },
-  {
-   "id": "rock_pond_upper",
-   "label": "rock pond upper",
-   "position": [
-    145,
-    690
-   ],
-   "display_size": [
-    180,
-    140
-   ],
-   "sort_y": 220,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_pond_upper.png"
-   }
-  },
-  {
-   "id": "rock_pond_middle",
-   "label": "rock pond middle",
-   "position": [
-    835,
-    1230
-   ],
-   "display_size": [
-    145,
-    93
-   ],
-   "sort_y": 221,
-   "cluster": "pond",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_pond_middle.png"
-   }
-  },
-  {
-   "id": "tea_pavilion",
-   "label": "tea pavilion",
-   "position": [
-    1035,
-    1130
-   ],
-   "display_size": [
-    500,
-    626
-   ],
-   "sort_y": 250,
+   "id": "cover_pavilion_33",
    "cluster": "pavilion",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/tea_pavilion.png"
-   }
-  },
-  {
-   "id": "red_arch_bridge",
-   "label": "red arch bridge",
    "position": [
-    498,
-    1289
+    150,
+    990
    ],
    "display_size": [
-    926,
-    416
+    440,
+    440
    ],
-   "sort_y": 300,
-   "cluster": "bridge",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/red_arch_bridge.png"
-   }
+   "sort_y": 33,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_33.png"
   },
   {
-   "id": "veg_bridge_left",
-   "label": "veg bridge left",
+   "id": "cover_pavilion_34",
+   "cluster": "pavilion",
    "position": [
-    49,
-    1339
-   ],
-   "display_size": [
-    181,
-    155
-   ],
-   "sort_y": 310,
-   "cluster": "bridge",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_bridge_left.png"
-   }
-  },
-  {
-   "id": "veg_bridge_right",
-   "label": "veg bridge right",
-   "position": [
-    919,
-    1344
-   ],
-   "display_size": [
-    231,
-    204
-   ],
-   "sort_y": 311,
-   "cluster": "bridge",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_bridge_right.png"
-   }
-  },
-  {
-   "id": "rock_bridge_left",
-   "label": "rock bridge left",
-   "position": [
-    30,
-    1299
-   ],
-   "display_size": [
-    201,
-    164
-   ],
-   "sort_y": 312,
-   "cluster": "bridge",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_bridge_left.png"
-   }
-  },
-  {
-   "id": "rock_bridge_right",
-   "label": "rock bridge right",
-   "position": [
-    939,
-    1299
-   ],
-   "display_size": [
-    220,
-    147
-   ],
-   "sort_y": 313,
-   "cluster": "bridge",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_bridge_right.png"
-   }
-  },
-  {
-   "id": "bonsai",
-   "label": "bonsai",
-   "position": [
-    1035,
-    1685
-   ],
-   "display_size": [
     360,
-    462
-   ],
-   "sort_y": 340,
-   "cluster": "bonsai",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/bonsai.png"
-   }
-  },
-  {
-   "id": "veg_bonsai_left",
-   "label": "veg bonsai left",
-   "position": [
-    830,
-    1715
+    990
    ],
    "display_size": [
-    205,
-    105
+    420,
+    420
    ],
-   "sort_y": 350,
-   "cluster": "bonsai",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_bonsai_left.png"
-   }
+   "sort_y": 34,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_34.png"
   },
   {
-   "id": "rock_bonsai_contact",
-   "label": "rock bonsai contact",
+   "id": "cover_pavilion_35",
+   "cluster": "pavilion",
    "position": [
-    1040,
-    1695
+    570,
+    990
    ],
    "display_size": [
-    145,
-    151
+    460,
+    460
    ],
-   "sort_y": 352,
-   "cluster": "bonsai",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_bonsai_contact.png"
-   }
+   "sort_y": 35,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_35.png"
   },
   {
-   "id": "torii_gate",
-   "label": "torii gate",
+   "id": "cover_pavilion_36",
+   "cluster": "pavilion",
+   "position": [
+    780,
+    990
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 36,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_36.png"
+  },
+  {
+   "id": "cover_pavilion_37",
+   "cluster": "pavilion",
    "position": [
     990,
-    2180
+    990
    ],
    "display_size": [
-    450,
-    503
+    440,
+    440
    ],
-   "sort_y": 380,
+   "sort_y": 37,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_37.png"
+  },
+  {
+   "id": "cover_pavilion_38",
+   "cluster": "pavilion",
+   "position": [
+    1200,
+    990
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 38,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_38.png"
+  },
+  {
+   "id": "cover_pavilion_39",
+   "cluster": "pavilion",
+   "position": [
+    1410,
+    990
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 39,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_39.png"
+  },
+  {
+   "id": "cover_pond_bridge_40",
+   "cluster": "pond_bridge",
+   "position": [
+    45,
+    1180
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_40.png"
+  },
+  {
+   "id": "cover_pavilion_41",
+   "cluster": "pavilion",
+   "position": [
+    255,
+    1180
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 40,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_41.png"
+  },
+  {
+   "id": "cover_pavilion_42",
+   "cluster": "pavilion",
+   "position": [
+    465,
+    1180
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 41,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_42.png"
+  },
+  {
+   "id": "cover_pavilion_43",
+   "cluster": "pavilion",
+   "position": [
+    675,
+    1180
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 42,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_43.png"
+  },
+  {
+   "id": "cover_pavilion_44",
+   "cluster": "pavilion",
+   "position": [
+    885,
+    1180
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 43,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_44.png"
+  },
+  {
+   "id": "cover_pavilion_45",
+   "cluster": "pavilion",
+   "position": [
+    1095,
+    1180
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 44,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_45.png"
+  },
+  {
+   "id": "cover_pavilion_46",
+   "cluster": "pavilion",
+   "position": [
+    1305,
+    1180
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 45,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_46.png"
+  },
+  {
+   "id": "cover_pavilion_47",
+   "cluster": "pavilion",
+   "position": [
+    1515,
+    1180
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 46,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_47.png"
+  },
+  {
+   "id": "cover_pond_bridge_48",
+   "cluster": "pond_bridge",
+   "position": [
+    -60,
+    1370
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_48.png"
+  },
+  {
+   "id": "cover_pond_bridge_49",
+   "cluster": "pond_bridge",
+   "position": [
+    150,
+    1370
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_49.png"
+  },
+  {
+   "id": "cover_pond_bridge_50",
+   "cluster": "pond_bridge",
+   "position": [
+    360,
+    1370
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_50.png"
+  },
+  {
+   "id": "cover_pavilion_51",
+   "cluster": "pavilion",
+   "position": [
+    570,
+    1370
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 47,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_51.png"
+  },
+  {
+   "id": "cover_pavilion_52",
+   "cluster": "pavilion",
+   "position": [
+    780,
+    1370
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 48,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_52.png"
+  },
+  {
+   "id": "cover_pavilion_53",
+   "cluster": "pavilion",
+   "position": [
+    990,
+    1370
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 49,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_53.png"
+  },
+  {
+   "id": "cover_pavilion_54",
+   "cluster": "pavilion",
+   "position": [
+    1200,
+    1370
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 50,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pavilion_54.png"
+  },
+  {
+   "id": "cover_temizuya_55",
+   "cluster": "temizuya",
+   "position": [
+    1410,
+    1370
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_55.png"
+  },
+  {
+   "id": "cover_pond_bridge_56",
+   "cluster": "pond_bridge",
+   "position": [
+    45,
+    1560
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_56.png"
+  },
+  {
+   "id": "cover_pond_bridge_57",
+   "cluster": "pond_bridge",
+   "position": [
+    255,
+    1560
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_57.png"
+  },
+  {
+   "id": "cover_pond_bridge_58",
+   "cluster": "pond_bridge",
+   "position": [
+    465,
+    1560
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_58.png"
+  },
+  {
+   "id": "cover_temizuya_59",
+   "cluster": "temizuya",
+   "position": [
+    675,
+    1560
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_59.png"
+  },
+  {
+   "id": "cover_temizuya_60",
+   "cluster": "temizuya",
+   "position": [
+    885,
+    1560
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_60.png"
+  },
+  {
+   "id": "cover_temizuya_61",
+   "cluster": "temizuya",
+   "position": [
+    1095,
+    1560
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_61.png"
+  },
+  {
+   "id": "cover_temizuya_62",
+   "cluster": "temizuya",
+   "position": [
+    1305,
+    1560
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_62.png"
+  },
+  {
+   "id": "cover_temizuya_63",
+   "cluster": "temizuya",
+   "position": [
+    1515,
+    1560
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_63.png"
+  },
+  {
+   "id": "cover_pond_bridge_64",
+   "cluster": "pond_bridge",
+   "position": [
+    -60,
+    1750
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_64.png"
+  },
+  {
+   "id": "cover_pond_bridge_65",
+   "cluster": "pond_bridge",
+   "position": [
+    150,
+    1750
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_65.png"
+  },
+  {
+   "id": "cover_pond_bridge_66",
+   "cluster": "pond_bridge",
+   "position": [
+    360,
+    1750
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_66.png"
+  },
+  {
+   "id": "cover_pond_bridge_67",
+   "cluster": "pond_bridge",
+   "position": [
+    570,
+    1750
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_67.png"
+  },
+  {
+   "id": "cover_temizuya_68",
+   "cluster": "temizuya",
+   "position": [
+    780,
+    1750
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_68.png"
+  },
+  {
+   "id": "cover_temizuya_69",
+   "cluster": "temizuya",
+   "position": [
+    990,
+    1750
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_69.png"
+  },
+  {
+   "id": "cover_temizuya_70",
+   "cluster": "temizuya",
+   "position": [
+    1200,
+    1750
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_70.png"
+  },
+  {
+   "id": "cover_temizuya_71",
+   "cluster": "temizuya",
+   "position": [
+    1410,
+    1750
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_71.png"
+  },
+  {
+   "id": "cover_pond_bridge_72",
+   "cluster": "pond_bridge",
+   "position": [
+    45,
+    1940
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_72.png"
+  },
+  {
+   "id": "cover_pond_bridge_73",
+   "cluster": "pond_bridge",
+   "position": [
+    255,
+    1940
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_73.png"
+  },
+  {
+   "id": "cover_pond_bridge_74",
+   "cluster": "pond_bridge",
+   "position": [
+    465,
+    1940
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_74.png"
+  },
+  {
+   "id": "cover_temizuya_75",
+   "cluster": "temizuya",
+   "position": [
+    675,
+    1940
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_75.png"
+  },
+  {
+   "id": "cover_temizuya_76",
+   "cluster": "temizuya",
+   "position": [
+    885,
+    1940
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_76.png"
+  },
+  {
+   "id": "cover_temizuya_77",
+   "cluster": "temizuya",
+   "position": [
+    1095,
+    1940
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_77.png"
+  },
+  {
+   "id": "cover_temizuya_78",
+   "cluster": "temizuya",
+   "position": [
+    1305,
+    1940
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_78.png"
+  },
+  {
+   "id": "cover_temizuya_79",
+   "cluster": "temizuya",
+   "position": [
+    1515,
+    1940
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_79.png"
+  },
+  {
+   "id": "cover_pond_bridge_80",
+   "cluster": "pond_bridge",
+   "position": [
+    -60,
+    2130
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_80.png"
+  },
+  {
+   "id": "cover_pond_bridge_81",
+   "cluster": "pond_bridge",
+   "position": [
+    150,
+    2130
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_81.png"
+  },
+  {
+   "id": "cover_pond_bridge_82",
+   "cluster": "pond_bridge",
+   "position": [
+    360,
+    2130
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_82.png"
+  },
+  {
+   "id": "cover_pond_bridge_83",
+   "cluster": "pond_bridge",
+   "position": [
+    570,
+    2130
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_83.png"
+  },
+  {
+   "id": "cover_temizuya_84",
+   "cluster": "temizuya",
+   "position": [
+    780,
+    2130
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_84.png"
+  },
+  {
+   "id": "cover_temizuya_85",
+   "cluster": "temizuya",
+   "position": [
+    990,
+    2130
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_85.png"
+  },
+  {
+   "id": "cover_temizuya_86",
+   "cluster": "temizuya",
+   "position": [
+    1200,
+    2130
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_86.png"
+  },
+  {
+   "id": "cover_temizuya_87",
+   "cluster": "temizuya",
+   "position": [
+    1410,
+    2130
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_87.png"
+  },
+  {
+   "id": "cover_pond_bridge_88",
+   "cluster": "pond_bridge",
+   "position": [
+    45,
+    2320
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_88.png"
+  },
+  {
+   "id": "cover_pond_bridge_89",
+   "cluster": "pond_bridge",
+   "position": [
+    255,
+    2320
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 19,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_89.png"
+  },
+  {
+   "id": "cover_torii_90",
    "cluster": "torii",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/torii_gate.png"
-   }
-  },
-  {
-   "id": "stone_lantern_left",
-   "label": "stone lantern left",
    "position": [
-    750,
-    2210
+    465,
+    2320
    ],
    "display_size": [
-    180,
-    270
+    420,
+    420
    ],
-   "sort_y": 390,
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_90.png"
+  },
+  {
+   "id": "cover_torii_91",
    "cluster": "torii",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/stone_lantern_left.png"
-   }
-  },
-  {
-   "id": "stone_lantern_right",
-   "label": "stone lantern right",
    "position": [
-    1230,
-    2210
+    675,
+    2320
    ],
    "display_size": [
-    180,
-    270
+    460,
+    460
    ],
-   "sort_y": 391,
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_91.png"
+  },
+  {
+   "id": "cover_torii_92",
    "cluster": "torii",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/stone_lantern_right.png"
-   }
-  },
-  {
-   "id": "veg_torii_left",
-   "label": "veg torii left",
    "position": [
-    520,
-    2215
+    885,
+    2320
    ],
    "display_size": [
-    190,
-    167
+    400,
+    400
    ],
-   "sort_y": 400,
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_92.png"
+  },
+  {
+   "id": "cover_torii_93",
    "cluster": "torii",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_torii_left.png"
-   }
-  },
-  {
-   "id": "veg_torii_right",
-   "label": "veg torii right",
    "position": [
-    1430,
-    2260
+    1095,
+    2320
    ],
    "display_size": [
-    215,
-    173
+    440,
+    440
    ],
-   "sort_y": 401,
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_93.png"
+  },
+  {
+   "id": "cover_temizuya_94",
+   "cluster": "temizuya",
+   "position": [
+    1305,
+    2320
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 19,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_94.png"
+  },
+  {
+   "id": "cover_temizuya_95",
+   "cluster": "temizuya",
+   "position": [
+    1515,
+    2320
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 20,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_temizuya_95.png"
+  },
+  {
+   "id": "cover_pond_bridge_96",
+   "cluster": "pond_bridge",
+   "position": [
+    -60,
+    2510
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 20,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_pond_bridge_96.png"
+  },
+  {
+   "id": "cover_torii_97",
    "cluster": "torii",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_torii_right.png"
-   }
-  },
-  {
-   "id": "rock_torii_contact",
-   "label": "rock torii contact",
    "position": [
-    1420,
-    2195
+    150,
+    2510
    ],
    "display_size": [
-    170,
-    133
+    440,
+    440
    ],
-   "sort_y": 402,
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_97.png"
+  },
+  {
+   "id": "cover_torii_98",
    "cluster": "torii",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/rock_torii_contact.png"
-   }
-  },
-  {
-   "id": "veg_foreground_left",
-   "label": "veg foreground left",
    "position": [
-    105,
-    2346
+    360,
+    2510
    ],
    "display_size": [
-    205,
-    286
+    420,
+    420
    ],
-   "sort_y": 500,
-   "cluster": "",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_foreground_left.png"
-   }
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_98.png"
   },
   {
-   "id": "veg_foreground_center",
-   "label": "veg foreground center",
+   "id": "cover_torii_99",
+   "cluster": "torii",
    "position": [
-    590,
-    2346
+    570,
+    2510
    ],
    "display_size": [
-    300,
-    168
+    460,
+    460
    ],
-   "sort_y": 501,
-   "cluster": "",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_foreground_center.png"
-   }
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_99.png"
   },
   {
-   "id": "veg_foreground_right",
-   "label": "veg foreground right",
+   "id": "cover_torii_100",
+   "cluster": "torii",
    "position": [
-    1450,
-    2346
+    780,
+    2510
    ],
    "display_size": [
-    285,
-    251
+    400,
+    400
    ],
-   "sort_y": 502,
-   "cluster": "",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/veg_foreground_right.png"
-   }
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_100.png"
   },
   {
-   "id": "koi_vermilion_white",
-   "label": "koi vermilion white",
+   "id": "cover_torii_101",
+   "cluster": "torii",
    "position": [
-    270,
-    1450
+    990,
+    2510
    ],
    "display_size": [
-    168,
-    168
+    440,
+    440
    ],
-   "sort_y": 200,
-   "cluster": "koi",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_vermilion_white.png"
-   }
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_101.png"
   },
   {
-   "id": "koi_orange_white",
-   "label": "koi orange white",
+   "id": "cover_torii_102",
+   "cluster": "torii",
    "position": [
-    500,
-    1495
+    1200,
+    2510
    ],
    "display_size": [
-    144,
-    144
+    420,
+    420
    ],
-   "sort_y": 201,
-   "cluster": "koi",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_orange_white.png"
-   }
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_102.png"
   },
   {
-   "id": "koi_gold",
-   "label": "koi gold",
+   "id": "cover_torii_103",
+   "cluster": "torii",
    "position": [
-    365,
-    1625
+    1410,
+    2510
    ],
    "display_size": [
-    183,
-    183
+    460,
+    460
    ],
-   "sort_y": 202,
-   "cluster": "koi",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_gold.png"
-   }
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_103.png"
   },
   {
-   "id": "koi_black_white",
-   "label": "koi black white",
+   "id": "cover_torii_104",
+   "cluster": "torii",
    "position": [
-    590,
-    1690
+    45,
+    2700
    ],
    "display_size": [
-    153,
-    153
+    400,
+    400
    ],
-   "sort_y": 203,
-   "cluster": "koi",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_black_white.png"
-   }
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_104.png"
   },
   {
-   "id": "koi_tricolor",
-   "label": "koi tricolor",
+   "id": "cover_torii_105",
+   "cluster": "torii",
    "position": [
-    395,
-    1790
+    255,
+    2700
    ],
    "display_size": [
-    162,
-    162
+    440,
+    440
    ],
-   "sort_y": 204,
-   "cluster": "koi",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/cherry_blossom_garden/koi_tricolor.png"
-   }
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_105.png"
+  },
+  {
+   "id": "cover_torii_106",
+   "cluster": "torii",
+   "position": [
+    465,
+    2700
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_106.png"
+  },
+  {
+   "id": "cover_torii_107",
+   "cluster": "torii",
+   "position": [
+    675,
+    2700
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_107.png"
+  },
+  {
+   "id": "cover_torii_108",
+   "cluster": "torii",
+   "position": [
+    885,
+    2700
+   ],
+   "display_size": [
+    400,
+    400
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_108.png"
+  },
+  {
+   "id": "cover_torii_109",
+   "cluster": "torii",
+   "position": [
+    1095,
+    2700
+   ],
+   "display_size": [
+    440,
+    440
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_109.png"
+  },
+  {
+   "id": "cover_torii_110",
+   "cluster": "torii",
+   "position": [
+    1305,
+    2700
+   ],
+   "display_size": [
+    420,
+    420
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_110.png"
+  },
+  {
+   "id": "cover_torii_111",
+   "cluster": "torii",
+   "position": [
+    1515,
+    2700
+   ],
+   "display_size": [
+    460,
+    460
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/pages/cherry_blossom_garden/cover_torii_111.png"
   }
  ]
 }

@@ -3,55 +3,21 @@
  "id": "coral_reef",
  "label": "Coral Reef",
  "canvas": {
-  "width": 1320,
-  "height": 2346
+  "width": 941,
+  "height": 1672
  },
  "background": "res://games/grove/assets/map/pages/coral_reef/foundation.png",
  "buildings": [
   {
-   "id": "bubble_streams",
-   "label": "bubble streams",
-   "position": [
-    660,
-    2346
-   ],
-   "display_size": [
-    1192,
-    2346
-   ],
-   "sort_y": 10,
-   "cluster": "",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/bubble_streams.png"
-   }
-  },
-  {
-   "id": "shipwreck_contact",
-   "label": "shipwreck contact",
-   "position": [
-    714,
-    1127
-   ],
-   "display_size": [
-    650,
-    140
-   ],
-   "sort_y": 249,
-   "cluster": "shipwreck",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/shipwreck_contact.png"
-   }
-  },
-  {
    "id": "shipwreck",
    "label": "shipwreck",
    "position": [
-    714,
-    1122
+    476,
+    822
    ],
    "display_size": [
-    923,
-    738
+    765,
+    545
    ],
    "sort_y": 250,
    "cluster": "shipwreck",
@@ -60,208 +26,329 @@
    }
   },
   {
-   "id": "coral_garden_contact",
-   "label": "coral garden contact",
+   "id": "chest",
+   "label": "chest",
    "position": [
-    275,
-    1235
+    192,
+    986
+   ],
+   "display_size": [
+    230,
+    184
+   ],
+   "sort_y": 270,
+   "cluster": "chest",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/coral_reef/chest.png"
+   }
+  },
+  {
+   "id": "anchor",
+   "label": "anchor",
+   "position": [
+    706,
+    1026
+   ],
+   "display_size": [
+    220,
+    258
+   ],
+   "sort_y": 280,
+   "cluster": "anchor",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/coral_reef/anchor.png"
+   }
+  },
+  {
+   "id": "statue",
+   "label": "statue",
+   "position": [
+    778,
+    1285
+   ],
+   "display_size": [
+    230,
+    257
+   ],
+   "sort_y": 300,
+   "cluster": "statue",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/coral_reef/statue.png"
+   }
+  },
+  {
+   "id": "clam",
+   "label": "clam",
+   "position": [
+    250,
+    1526
+   ],
+   "display_size": [
+    333,
+    352
+   ],
+   "sort_y": 320,
+   "cluster": "clam",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/coral_reef/clam.png"
+   }
+  },
+  {
+   "id": "cover_overlay",
+   "label": "cover overlay",
+   "position": [
+    470,
+    1672
+   ],
+   "display_size": [
+    941,
+    1672
+   ],
+   "sort_y": 500,
+   "cluster": "",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/coral_reef/cover_overlay.png"
+   }
+  }
+ ],
+ "coverups": [
+  {
+   "id": "unlock_cover_shell_cap",
+   "cluster": "shipwreck",
+   "position": [
+    210,
+    475
+   ],
+   "display_size": [
+    520,
+    532
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_shell_cap.png"
+  },
+  {
+   "id": "unlock_cover_orange_fan",
+   "cluster": "shipwreck",
+   "position": [
+    160,
+    800
+   ],
+   "display_size": [
+    420,
+    489
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_orange_fan.png"
+  },
+  {
+   "id": "unlock_cover_kelp_curtain",
+   "cluster": "statue",
+   "position": [
+    840,
+    1580
+   ],
+   "display_size": [
+    320,
+    456
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_kelp_curtain.png"
+  },
+  {
+   "id": "unlock_cover_lavender_sponge",
+   "cluster": "shipwreck",
+   "position": [
+    745,
+    470
+   ],
+   "display_size": [
+    430,
+    461
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_lavender_sponge.png"
+  },
+  {
+   "id": "unlock_cover_shell_pebbles",
+   "cluster": "shipwreck",
+   "position": [
+    470,
+    820
    ],
    "display_size": [
     360,
-    110
+    201
    ],
-   "sort_y": 299,
-   "cluster": "coral_garden",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/coral_garden_contact.png"
-   }
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_shell_pebbles.png"
   },
   {
-   "id": "coral_garden",
-   "label": "coral garden",
+   "id": "unlock_cover_mixed_coral_kelp",
+   "cluster": "shipwreck",
    "position": [
-    275,
-    1228
+    795,
+    800
    ],
    "display_size": [
-    550,
+    430,
+    442
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_mixed_coral_kelp.png"
+  },
+  {
+   "id": "unlock_cover_orange_coral_wall",
+   "cluster": "statue",
+   "position": [
+    750,
+    1450
+   ],
+   "display_size": [
+    400,
+    487
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_orange_coral_wall.png"
+  },
+  {
+   "id": "unlock_cover_blue_pebble_coral",
+   "cluster": "clam",
+   "position": [
+    160,
+    1610
+   ],
+   "display_size": [
+    350,
+    267
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_blue_pebble_coral.png"
+  },
+  {
+   "id": "unlock_cover_shell_fragment_kelp",
+   "cluster": "clam",
+   "position": [
+    270,
+    1520
+   ],
+   "display_size": [
+    430,
     403
    ],
-   "sort_y": 300,
-   "cluster": "coral_garden",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/coral_garden.png"
-   }
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_shell_fragment_kelp.png"
   },
   {
-   "id": "right_anemones_contact",
-   "label": "right anemones contact",
+   "id": "unlock_cover_chest_sponge",
+   "cluster": "chest",
    "position": [
-    1209,
-    1209
+    140,
+    1100
    ],
    "display_size": [
-    160,
-    50
+    360,
+    386
    ],
-   "sort_y": 309,
-   "cluster": "right_anemones",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/right_anemones_contact.png"
-   }
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_chest_sponge.png"
   },
   {
-   "id": "right_anemones",
-   "label": "right anemones",
+   "id": "unlock_cover_chest_fragment",
+   "cluster": "chest",
    "position": [
-    1209,
-    1204
+    245,
+    1285
    ],
    "display_size": [
-    233,
-    220
+    400,
+    375
    ],
-   "sort_y": 310,
-   "cluster": "right_anemones",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/right_anemones.png"
-   }
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_chest_fragment.png"
   },
   {
-   "id": "treasure_chest_contact",
-   "label": "treasure chest contact",
+   "id": "unlock_cover_anchor_kelp",
+   "cluster": "anchor",
    "position": [
-    253,
-    1513
+    690,
+    1200
    ],
    "display_size": [
-    160,
-    55
+    340,
+    484
    ],
-   "sort_y": 319,
-   "cluster": "treasure_chest",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/treasure_chest_contact.png"
-   }
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_anchor_kelp.png"
   },
   {
-   "id": "treasure_chest",
-   "label": "treasure chest",
+   "id": "unlock_cover_anchor_mixed",
+   "cluster": "anchor",
    "position": [
-    253,
-    1508
+    650,
+    1100
    ],
    "display_size": [
-    202,
-    186
+    330,
+    339
    ],
-   "sort_y": 320,
-   "cluster": "treasure_chest",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/treasure_chest.png"
-   }
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_anchor_mixed.png"
   },
   {
-   "id": "mermaid_statue_contact",
-   "label": "mermaid statue contact",
+   "id": "unlock_cover_anchor_pebbles",
+   "cluster": "anchor",
    "position": [
-    1006,
-    1548
+    570,
+    1150
    ],
    "display_size": [
-    150,
-    50
+    290,
+    162
    ],
-   "sort_y": 329,
-   "cluster": "mermaid_statue",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/mermaid_statue_contact.png"
-   }
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_anchor_pebbles.png"
   },
   {
-   "id": "mermaid_statue",
-   "label": "mermaid statue",
+   "id": "unlock_cover_statue_fan",
+   "cluster": "statue",
    "position": [
-    1006,
-    1543
+    780,
+    1240
    ],
    "display_size": [
-    244,
-    290
+    350,
+    408
    ],
-   "sort_y": 330,
-   "cluster": "mermaid_statue",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/mermaid_statue.png"
-   }
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_statue_fan.png"
   },
   {
-   "id": "giant_clam_contact",
-   "label": "giant clam contact",
+   "id": "unlock_cover_clam_shell_cap",
+   "cluster": "clam",
    "position": [
-    313,
-    2002
+    250,
+    1460
    ],
    "display_size": [
-    260,
-    70
+    400,
+    409
    ],
-   "sort_y": 339,
-   "cluster": "giant_clam",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/giant_clam_contact.png"
-   }
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_clam_shell_cap.png"
   },
   {
-   "id": "giant_clam",
-   "label": "giant clam",
+   "id": "unlock_cover_clam_fan",
+   "cluster": "clam",
    "position": [
-    313,
-    1995
+    80,
+    1670
    ],
    "display_size": [
-    383,
-    407
+    350,
+    408
    ],
-   "sort_y": 340,
-   "cluster": "giant_clam",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/giant_clam.png"
-   }
-  },
-  {
-   "id": "kelp_bed_contact",
-   "label": "kelp bed contact",
-   "position": [
-    1033,
-    2148
-   ],
-   "display_size": [
-    380,
-    80
-   ],
-   "sort_y": 499,
-   "cluster": "kelp_bed",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/kelp_bed_contact.png"
-   }
-  },
-  {
-   "id": "kelp_bed",
-   "label": "kelp bed",
-   "position": [
-    1033,
-    2141
-   ],
-   "display_size": [
-    580,
-    885
-   ],
-   "sort_y": 500,
-   "cluster": "kelp_bed",
-   "states": {
-    "built": "res://games/grove/assets/map/pages/coral_reef/kelp_bed.png"
-   }
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/coral_reef/unlock_cover_clam_fan.png"
   }
  ]
 }

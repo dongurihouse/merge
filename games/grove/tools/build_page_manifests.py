@@ -31,6 +31,28 @@ PAGES = [  # play order (picturebook_lines_recipes.md)
     ("cherry_blossom_garden", "Cherry-Blossom Garden"),
 ]
 
+# Scene → bundle-prefix map (2026-07-20, scenes 2-5 wiring): each scene's authored elements bundle
+# lives under a DIFFERENT prefix than the scene id (the scene-workbench names bundles after the
+# scene's hero structure, not the picture-book page id). `fairy_hollow` has no entry — it keeps
+# resolving against its own id (fairy_hollow_market_elements_v*), unchanged.
+SCENE_BUNDLES = {
+    "snowy_village": "winter_lantern_lodge",
+    "desert_oasis": "desert_oasis_watchtower",
+    "coral_reef": "coral_reef_paper",
+    "cherry_blossom_garden": "cherry_blossom_paper_plate_terrace",
+}
+
+# Coverup region-id prefixes the scene workbench uses to link a coverup piece to its unlock cluster —
+# longest-match first so "unlock_region_" is tried before its "unlock_" substring-prefix.
+COVERUP_PREFIXES = ["unlock_region_", "unlock_", "lock_"]
+
+
+def strip_coverup_prefix(region):
+    for p in COVERUP_PREFIXES:
+        if region.startswith(p):
+            return region[len(p):]
+    return region
+
 
 def png_size(path):
     with open(path, "rb") as f:
@@ -42,9 +64,10 @@ def png_size(path):
 
 
 def bundle_for(root, scene):
+    prefix = SCENE_BUNDLES.get(scene, scene)
     best, best_v = None, -1
     for sub in sorted(os.listdir(root)):
-        if not sub.startswith(scene + "_elements_v"):
+        if not sub.startswith(prefix + "_elements_v"):
             continue
         try:
             v = int(sub.rsplit("_v", 1)[1])
@@ -100,7 +123,7 @@ def build_page(root, scene, label):
                 # coverups (NOT page props); the runtime mounts them frontmost per cluster and reveals
                 # them away on unlock. The cluster links to the unlock unit as `unlock_region_<clusterId>`.
                 region = str(e.get("cluster", ""))
-                cluster = region[len("unlock_region_"):] if region.startswith("unlock_region_") else region
+                cluster = strip_coverup_prefix(region)
                 coverups.append({
                     "id": str(e["id"]), "cluster": cluster,
                     "position": [int(e["x"]), int(e["y"])],
