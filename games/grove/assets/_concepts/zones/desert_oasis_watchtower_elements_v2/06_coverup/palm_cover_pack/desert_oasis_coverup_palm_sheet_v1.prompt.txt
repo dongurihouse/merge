@@ -1,8 +1,0 @@
-Use case: stylized-concept.
-Asset type: 3-by-2 sprite sheet of reusable large locked-cover foliage clusters for the Desert Oasis.
-Reference: desert_oasis_watchtower_locked_cover_mock_v1.png.
-Composition: six isolated clusters on a flat #FF00FF chroma-key background: date fronds, fan/agave,
-arching palms, a dense fan blanket, agave/fan, and ochre-accent palms.
-Style: layered, hand-cut, cheerful paper foliage with printed fibre grain and subtle paper-stack depth.
-Avoid: scenery, sand, rocks, cactus, flowers, buildings, water, paths, characters, cast shadows,
-text, locks, UI and any object touching a sheet edge.

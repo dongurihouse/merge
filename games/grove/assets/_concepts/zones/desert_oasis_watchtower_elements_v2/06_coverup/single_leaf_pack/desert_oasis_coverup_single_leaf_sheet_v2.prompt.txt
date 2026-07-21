@@ -1,0 +1,7 @@
+Use case: stylized-concept.
+Asset type: 3-by-2 sheet of six single oversized desert palm-leaf sprites for a picture-book unlock cover.
+Reference: Desert Oasis source mock for handcrafted cut-paper material language only.
+Composition: one isolated leaf per cell on a perfectly flat #FF00FF chroma-key background: olive date,
+golden fan, teal curve, sage serrated, blue fan and ochre feather.
+Style: flat, colourful paper-cut planes with printed fibre grain and a thin warm cut edge; not 3D foliage.
+Avoid: plant clumps, extra leaves, stems/root balls, scenery, sand, rocks, cast shadows, text and UI.
