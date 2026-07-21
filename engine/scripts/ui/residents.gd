@@ -191,6 +191,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var fopts: Dictionary = Kit.dialog_opts_from_config(cfg)
 	fopts["banner_text"] = "Residents"
 	fopts["content_scale"] = scale
+	# tuck the ✕ further in so it sits inside the torn panel's rounded corner (the deckled cut-paper edge
+	# is more inset than the plain rounded-rect the default close_poke was tuned for).
+	fopts["close_poke"] = Vector2(40, 34)
 	fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.82   # taller sheet: the board-sized cells (items 3/4) need the extra height budget
 	fopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay):
@@ -213,14 +216,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	isb.content_margin_left = 20.0 * scale; isb.content_margin_right = 20.0 * scale
 	isb.content_margin_top = 12.0 * scale; isb.content_margin_bottom = 12.0 * scale
 	insp.add_theme_stylebox_override("panel", isb)
-	# reskin: the inspector strip wears the extracted cut-paper cream bar (same content insets)
-	var strip_tex := _skin_tex("strip_bg")
-	if strip_tex != null:
-		var stx := StyleBoxTexture.new()
-		stx.texture = strip_tex
-		for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
-			stx.set_content_margin(side, isb.get_content_margin(side))
-		insp.add_theme_stylebox_override("panel", stx)
+	# reskin: the strip bar sprite is drawn as an aspect-FIT TextureRect in _rebuild_inspector (not a
+	# stretched stylebox), so make the panel itself transparent + margin-free here.
+	if _skin_tex("strip_bg") != null:
+		insp.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	dialog.add_child(insp)
 	ctx["insp"] = insp
 	var dock_insp := func() -> void:
@@ -420,7 +419,9 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	# fits its grid slot.
 	var aspect := float(card_tex.get_width()) / float(card_tex.get_height())
 	var h := roundf(w / maxf(aspect, 0.1))
-	var card := SpritePanel.build(card_tex, Vector2(w, h))
+	# no code drop shadow on the big cards: the stacked silhouette copies read as a doubled card at this
+	# size. The card sprite's own baked edge + the dialog panel behind give it enough depth.
+	var card := SpritePanel.build(card_tex, Vector2(w, h), {"shadow": false})
 	card.name = "ResourceBankCard_" + line
 	card.custom_minimum_size = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -835,6 +836,23 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	_clear(insp)
 	var sel: Dictionary = ctx.get("sel", {})
 	var inst := _sel_inst(sel)
+	# a full-rect body holds the aspect-FIT strip sprite behind the padded content (the panel itself is
+	# transparent when the sprite is present — see open()).
+	var body := Control.new()
+	body.name = "InspectorBody"
+	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	body.mouse_filter = Control.MOUSE_FILTER_PASS
+	insp.add_child(body)
+	var strip_tex := _skin_tex("strip_bg")
+	if strip_tex != null:
+		var sbg := TextureRect.new()
+		sbg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sbg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED   # fill the bar preserving aspect (no stretch, no slice)
+		sbg.texture = strip_tex
+		sbg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		sbg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		body.add_child(sbg)
+	var pl := 24.0 * s; var pr := 24.0 * s; var py := 10.0 * s
 	if inst.is_empty():
 		var hint := Label.new()
 		hint.name = "ResidentsInspectorHint"
@@ -844,7 +862,8 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 		hint.add_theme_font_size_override("font_size", int(FS.FINE * s))
 		hint.add_theme_color_override("font_color", Color(Pal.INK, 0.65))
 		hint.add_theme_constant_override("outline_size", 0)
-		insp.add_child(hint)
+		hint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		body.add_child(hint)
 		return
 
 	var line := String(inst.line)
@@ -910,7 +929,11 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 		ctx["sel"] = {}
 		_repaint(ctx))
 	row.add_child(sell)
-	insp.add_child(row)
+	# the row fills the padded strip; the gap pushes SELL to the right end
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = pl; row.offset_right = -pr
+	row.offset_top = py; row.offset_bottom = -py
+	body.add_child(row)
 
 # --- small helpers --------------------------------------------------------------------------------
 ## One inspector-strip action pill: the cream face with a coloured outline and matching label. The
