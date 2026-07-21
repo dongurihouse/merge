@@ -31,6 +31,14 @@ const D = Game.DATA
 
 const OVERLAY_NAME := "ResidentsOverlay"
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+# Cut-paper dialog RE-SKIN sprites (extracted from the residents mock). Each element is a baked PNG the
+# reskinned builders wear over the shared code drop-shadow; absent files fall back to the drawn Kit look.
+const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")
+const SKIN_DIR := "res://games/grove/assets/ui/dialogs/residents/"
+static func _skin_tex(key: String) -> Texture2D:
+	var p := SKIN_DIR + key + ".png"
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
 const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
@@ -298,10 +306,14 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 			cell = _free_cell(ctx, cbag, cell_px)
 			cell.name = "HabitatCellFree_%02d" % i
 		else:
-			cell = Kit.slot_cell({"state": "locked"}, cbag)
+			var lock_tex := _skin_tex("cell_locked")
+			if lock_tex != null:
+				cell = SpritePanel.build(lock_tex, Vector2(cell_px, cell_px))   # reskin: baked locked-cell sprite
+			else:
+				cell = Kit.slot_cell({"state": "locked"}, cbag)
+				_shadow_cell(cell)
 			cell.custom_minimum_size = Vector2(cell_px, cell_px)
 			cell.name = "HabitatCellLocked_%02d" % i
-			_shadow_cell(cell)
 		cells.add_child(cell)
 	body.add_child(cells)
 
@@ -386,6 +398,79 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -> Control:
 	var face: Dictionary = LINE_FACE.get(line, {})
 	var full := bool(rep.full)
+	var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
+	var card_tex := _skin_tex("card_ready" if full else "card")
+	if card_tex == null:
+		return _bank_card_drawn(Kit, line, rep, w)   # fallback to the drawn card if the sprite is missing
+
+	# reskin: the baked cut-paper card sprite (icon well on the LEFT) over the shared drop shadow, with
+	# the icon in the well and NAME · COUNT · BAR · STATE laid over the body. Height follows the sprite
+	# aspect so it isn't squashed; custom_minimum_size stays (w, h) so the card fits its grid slot.
+	var aspect := float(card_tex.get_width()) / float(card_tex.get_height())
+	var h := roundf(w / maxf(aspect, 0.1))
+	var card := SpritePanel.build(card_tex, Vector2(w, h))
+	card.name = "ResourceBankCard_" + line
+	card.custom_minimum_size = Vector2(w, h)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# the icon sits in the sprite's left well (upper-left circle)
+	var iw := roundf(minf(w * 0.22, h * 0.5))
+	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), iw)
+	icon.position = Vector2(w * 0.055, h * 0.14)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(icon)
+
+	# the text block fills the body to the right of the well
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", roundf(h * 0.03))
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.position = Vector2(w * 0.34, h * 0.12)
+	body.size = Vector2(w * 0.60, h * 0.76)
+	body.custom_minimum_size = body.size
+
+	var nm := Label.new()
+	nm.text = String(face.get("label", line)).to_upper()
+	nm.add_theme_font_override("font", Kit.bold_font())
+	nm.add_theme_font_size_override("font_size", FS.FINE)
+	nm.add_theme_color_override("font_color", Pal.INK)
+	nm.add_theme_constant_override("outline_size", 0)
+	body.add_child(nm)
+
+	var val := Label.new()
+	val.name = "ResourceBankValue_" + line
+	val.text = "%d / %d" % [int(floor(float(rep.pending))), int(round(float(rep.cap)))]
+	val.add_theme_font_override("font", Kit.bold_font())
+	val.add_theme_font_size_override("font_size", FS.HEADING)
+	val.add_theme_color_override("font_color", Pal.INK)
+	val.add_theme_constant_override("outline_size", 0)
+	body.add_child(val)
+
+	var bar: Control
+	var track := _skin_tex("bar_track")
+	var fill := _skin_tex("bar_fill")
+	if track != null and fill != null:
+		bar = SpritePanel.progress(track, fill, frac, Vector2(w * 0.58, maxf(14.0, h * 0.15)))
+	else:
+		bar = Kit.progress_bar(frac, {"height": 30.0, "width": 0.0, "art": false, "fill_color": face.get("fill", Pal.STRAW)})
+	bar.name = "ResourceBankBar_" + line
+	body.add_child(bar)
+
+	var state := Label.new()
+	state.name = "ResourceBankState_" + line
+	state.text = _bank_state_text(line, rep)
+	state.add_theme_font_size_override("font_size", FS.FINE)
+	state.add_theme_color_override("font_color", Color(Pal.INK, 0.85))
+	state.add_theme_constant_override("outline_size", 0)
+	body.add_child(state)
+
+	card.add_child(body)
+	return card
+
+## The pre-reskin drawn bank card (kept as the fallback when the sprite assets are absent).
+static func _bank_card_drawn(Kit: GDScript, line: String, rep: Dictionary, w: float) -> Control:
+	var face: Dictionary = LINE_FACE.get(line, {})
+	var full := bool(rep.full)
 	var card := PanelContainer.new()
 	card.name = "ResourceBankCard_" + line
 	var sb := StyleBoxFlat.new()
@@ -403,7 +488,6 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	col.add_theme_constant_override("separation", 8)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 14)
-	# the large icon takes the LEFT side of the card, vertically centred against the text block
 	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), 96.0)
 	icon.custom_minimum_size = Vector2(96.0, 96.0)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -431,12 +515,9 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 
 	var frac := clampf(float(rep.pending) / maxf(float(rep.cap), 0.001), 0.0, 1.0)
 	var bar: Control = Kit.progress_bar(frac, {
-		"height": 36.0, "width": 0.0, "art": false,   # chunkier bar per the mock (per-call height; the shared default is untouched)
+		"height": 36.0, "width": 0.0, "art": false,
 		"fill_color": face.get("fill", Pal.STRAW),
 	})
-	# the bar FILLS the card's inner width instead of carrying its own fixed width: a fixed
-	# width that overshoots the panel pads inflates the card's minimum past its allotted w,
-	# and the grid then pokes past the frame's right clip (the clipped-cards bug).
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.name = "ResourceBankBar_" + line
 	col.add_child(bar)
@@ -471,7 +552,18 @@ static func _bank_state_text(line: String, rep: Dictionary) -> String:
 ## green role is the game's standard flat action-green CTA (mock v2's Collect all), its cream role the flat
 ## white/paper surface (mock v2's Expedition twin).
 const ACTION_PILL_CORNER := 22.0
+const ACTION_PILL_H := 76.0    # reskinned button height (design px); width follows the sprite's aspect
 static func _action_pill(Kit: GDScript, text: String, enabled: bool, green: bool) -> Button:
+	# reskin: the baked cut-paper button sprite (COLLECT ALL = green, EXPEDITION = cream) over the shared
+	# drop shadow. The caller wires `.pressed` after, so the button stays a real tap target.
+	var tex := _skin_tex("btn_collect" if green else "btn_expedition")
+	if tex != null and tex.get_height() > 0:
+		var w := roundf(ACTION_PILL_H * float(tex.get_width()) / float(tex.get_height()))
+		var b := SpriteButton.build(tex, Vector2(w, ACTION_PILL_H), Callable(), {"tooltip": text})
+		b.mouse_filter = Control.MOUSE_FILTER_STOP   # tappable even though the action is wired later
+		b.disabled = not enabled
+		b.modulate = Color(1, 1, 1, 1) if enabled else Color(1, 1, 1, 0.5)
+		return b
 	return Kit.pill_button(text, {
 		"bg": "green" if green else "cream",
 		"enabled": enabled,
