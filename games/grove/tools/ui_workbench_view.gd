@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "pro
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["toggle_card"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -43,10 +43,13 @@ const COLUMNS := [
 # (a dialog's own width, the icon sandbox, the pill, ...) touches only itself. Used to rebuild just the
 # edited element + its dependents instead of the whole gallery.
 const DEPENDENTS := {
-	"button": ["card", "dialog", "daily", "shop", "settings", "info"],
-	"card": ["dialog", "daily", "shop", "settings", "info"],
+	"button": ["dialog", "daily", "shop", "settings", "info"],
+	# the mail-card style is edited ON the Mail dialog now, so editing the dialog also refreshes the
+	# other surfaces that reuse the card (daily · shop · settings · info).
+	"dialog": ["daily", "shop", "settings", "info"],
+	# the daily-cell style is edited ON the Daily dialog now (it feeds the shop's pack cells).
+	"daily": ["shop"],
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info", "level", "vault"],
-	"daily_card": ["shop"],
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
@@ -122,13 +125,11 @@ const CAPTIONS := {
 	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
-	"card": "Mail card — pill + Claim",
-	"daily_card": "Daily card — the game's real login day cell (today · done · mystery · future)",
 	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
 	"toggle_card": "Toggle card — label + switch",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"frame": "Dialog frame — shared chrome",
-	"dialog": "Mail dialog — cards",
+	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
 	"mystery": "Mystery — slot reveal (reels spin · premium shines · pick N)",
 	"shop": "Shop — packs (shared frame)",
@@ -446,13 +447,6 @@ func _make_element(id: String) -> Control:
 			var bar := Kit.progress_bar(float(p.frac) / 100.0, po)
 			bar.custom_minimum_size.x = 320
 			return bar
-		"card":
-			# the Claim inherits the shared Button's STYLE, but the card picks its OWN (saved) badge
-			# background + icon for it. Give the standalone preview a representative width — a real card
-			# always lives width-constrained in the dialog, so without one its shrinkable text collapses.
-			var card := Kit.mail_card(Kit.DEMO_MAIL[0], int(p.title), int(p.body), _card_btn_opts(), Kit.card_icon_badge(_params))
-			card.custom_minimum_size.x = 560   # comfortable width so the title doesn't clip
-			return card
 		"frame":
 			# the SHARED frame on its own, with placeholder content — the one chrome every dialog reuses
 			var fo := Kit.dialog_opts_from_config(_params)
@@ -468,12 +462,6 @@ func _make_element(id: String) -> Control:
 			opts["content_scale"] = _dlg_scale("dialog")
 			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
 			return Kit.mail_dialog(Kit.DEMO_MAIL, _dlg_px("dialog"), opts)
-		"daily_card":
-			# the REAL game daily cell — the SAME LoginUI._day_cell the daily login screen draws, so the
-			# preview matches the game exactly (the old Kit.daily_card here was orphaned: the game diverged
-			# to login.gd's bespoke cell, which reads no config). One cell in the chosen preview state, at a
-			# comfortable size; the game cell scales all its content off the cell width.
-			return LoginUI._day_cell(Kit, _daily_preview_day(String(p.preview)), 232.0, 232.0 * 1.62)
 		"toggle_card":
 			# one settings ROW, standalone — a label + the shared switch, at a representative width (it always
 			# lives width-constrained in the Settings dialog). label_font / switch_h / card_art are saved.
@@ -1103,15 +1091,6 @@ func _bag_price(k: int, prices: Array, start: int) -> int:
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
 ## mystery shows the milestone badge + chest).
-## A demo day dict for the LoginUI cell preview — the SAME fields login.gd's _days() builds, hand-made so
-## the preview needs no live save state. `state` picks which rung to show.
-func _daily_preview_day(state: String) -> Dictionary:
-	match state:
-		"done":    return {"day": 2, "label": "Day 2", "reward": {"water": 10}, "state": "done"}
-		"future":  return {"day": 5, "label": "Day 5", "reward": {"coins": 100}, "state": "future"}
-		"mystery": return {"day": 4, "label": "Day 4", "reward": {"gems": 30}, "state": "today", "mystery": true, "mystery_icon": LoginUI.ART_GIFT}
-		_:         return {"day": 3, "label": "Day 3", "reward": {"coins": 150}, "state": "today"}
-
 ## The full 7-day demo ladder for the daily-dialog preview — days 1-2 done, day 3 today (claimable), a
 ## slot-4 mystery gift, days 5-6 future, day 7 the capstone milestone.
 func _daily_demo_days() -> Array:
@@ -1319,12 +1298,6 @@ func _button_sample(label: String, btn: Control) -> Control:
 	box.add_child(holder)
 	return box
 
-## The Button style + the Card's OWN saved badge / icon / claim text — drives the cost pill + Claim in
-## both the Card preview and every dialog row. Delegates to the SAME kit builder the game uses, so the
-## transform lives in exactly one place.
-func _card_btn_opts() -> Dictionary:
-	return Kit.card_btn_opts(_params)
-
 ## --- gallery (left) ------------------------------------------------------------------------------
 
 ## Make the dialog's named handles draggable. Re-run on every dialog rebuild (new nodes each time).
@@ -1394,13 +1367,6 @@ func _store_drag(kind: String, local: Vector2) -> void:
 
 ## The per-element explanatory notes shown under the caption.
 func _sidebar_notes(_id: String) -> void:
-	if _selected == "daily_card":
-		var note := Label.new()
-		note.text = "This is the game's REAL daily cell (login.gd _day_cell) — the same one the Daily dialog stacks. It reads no config; pick a state to preview. today = green Claim + sparkles · done = ✓ · mystery = gift/chest · future = dimmed."
-		note.add_theme_font_size_override("font_size", FS.TOOL)
-		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_sidebar_body.add_child(note)
 	if _selected == "toggle_card":
 		var note := Label.new()
 		note.text = "This single setting row is reused by the Settings dialog. (The switch is the shared kit switch.) Label + value below just preview the row."
@@ -1412,7 +1378,7 @@ func _sidebar_notes(_id: String) -> void:
 		var note := Label.new()
 		var card_src := ""
 		if _selected == "daily" or _selected == "shop":
-			card_src = " the card is on the Daily card item;"
+			card_src = " the mail-card style is on the Mail dialog item;"
 		elif _selected == "settings":
 			card_src = " the card is on the Toggle card item;"
 		note.text = "The frame (banner · border · ✕ · scroll · padding) is SHARED — edit it on the Frame item.%s Here: this dialog's content." % card_src
@@ -1420,7 +1386,7 @@ func _sidebar_notes(_id: String) -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
-	if _selected == "card" or _selected == "dialog":
+	if _selected == "dialog":
 		var note := Label.new()
 		note.text = "Claim inherits the Button's STYLE (font / corner / art / shadow). Its badge + icon are the Card's own saved choice."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
@@ -1584,16 +1550,6 @@ func _element_sidebar(_id: String) -> void:
 			# Position/board-height knobs retired — the board fills the width / auto-rotates and the quest+board
 			# stack is bottom-anchored, so only the quest band HEIGHT (% screen height, clamped in board.gd) is tunable.
 			_sidebar_body.add_child(_slider_row(["quest_bar_h_pct", 5, 25]))       # quest fence height (% screen height)
-		"card":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
-			_sidebar_body.add_child(_option_row("Button badge", "badge", Kit.BADGES.keys()))
-			_sidebar_body.add_child(_text_row("Claim text", "claim_text"))
-			_sidebar_body.add_child(_toggle_row("Claim icon", "icon_on", true))   # whether the Claim shows an icon
-			if bool(_params["card"]["icon_on"]):
-				_sidebar_body.add_child(_option_row("Icon", "icon", ICONS.slice(1)))   # ICONS minus "none"
-			_sidebar_body.add_child(_slider_row(["title", 12, 30]))
-			_sidebar_body.add_child(_slider_row(["body", 10, 24]))
 		"gold_currency_pill":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["overall_scale", 60, 220]))
@@ -1636,13 +1592,19 @@ func _element_sidebar(_id: String) -> void:
 		"dialog":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["empty_font", 12, 48]))   # the empty-state note size ("No mail …")
+			# the MAIL CARD style (folded in from the retired Card item — still saved under config["card"],
+			# read by mail_dialog + reused by daily/shop/settings/info). Every row targets the "card" dict.
+			_section_header("Mail card")
+			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys(), false, "card"))
+			_sidebar_body.add_child(_option_row("Button badge", "badge", Kit.BADGES.keys(), false, "card"))
+			_sidebar_body.add_child(_text_row("Claim text", "claim_text", "card"))
+			_sidebar_body.add_child(_toggle_row("Claim icon", "icon_on", true, "card"))   # whether the Claim shows an icon
+			if bool(_params["card"]["icon_on"]):
+				_sidebar_body.add_child(_option_row("Icon", "icon", ICONS.slice(1), false, "card"))   # ICONS minus "none"
+			_sidebar_body.add_child(_slider_row(["title", 12, 30], "card"))
+			_sidebar_body.add_child(_slider_row(["body", 10, 24], "card"))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["entries", 0, 12]))   # how many rows to preview (0 = the empty state)
-		"daily_card":
-			# the daily card is the game's real login cell (LoginUI._day_cell) — it reads NO workbench
-			# config, so this element is preview-only (like the Mystery reveal). Pick which rung to show.
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Preview", "preview", ["today", "mystery", "done", "future"]))
 		"daily":
 			# the daily dialog is the game's real login screen (LoginUI's grid + capstone) inside the shared
 			# frame. The frame (banner · border · ✕) is edited on the Frame item; the day grid + capstone

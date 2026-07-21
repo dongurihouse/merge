@@ -518,7 +518,8 @@ func _tier_slider_row(row: HBoxContainer, params: Dictionary, key: String, tiers
 		_apply_edit())
 	return row
 
-func _text_row(label: String, key: String) -> Control:
+func _text_row(label: String, key: String, target := "") -> Control:
+	var params: Dictionary = _params[target if target != "" else _selected]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
@@ -527,10 +528,10 @@ func _text_row(label: String, key: String) -> Control:
 	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
 	var le := LineEdit.new()
-	le.text = String(_params[_selected].get(key, ""))
+	le.text = String(params.get(key, ""))
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.text_changed.connect(func(t: String) -> void:
-		_params[_selected][key] = t
+		params[key] = t
 		_apply_edit())
 	row.add_child(le)
 	return row
@@ -576,7 +577,8 @@ func _toggle_row(label: String, key: String, rebuild_sidebar := false, target :=
 	row.add_child(cb)
 	return row
 
-func _option_row(label: String, key: String, options: Array, rebuild_sidebar := false) -> Control:
+func _option_row(label: String, key: String, options: Array, rebuild_sidebar := false, target := "") -> Control:
+	var params: Dictionary = _params[target if target != "" else _selected]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
@@ -585,13 +587,13 @@ func _option_row(label: String, key: String, options: Array, rebuild_sidebar := 
 	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
 	var ob := OptionButton.new()
-	var cur := String(_params[_selected].get(key, options[0]))
+	var cur := String(params.get(key, options[0]))
 	for i in options.size():
 		ob.add_item(String(options[i]).capitalize(), i)
 		if String(options[i]) == cur:
 			ob.select(i)
 	ob.item_selected.connect(func(idx: int) -> void:
-		_params[_selected][key] = String(options[idx])
+		params[key] = String(options[idx])
 		_apply_edit()
 		if rebuild_sidebar:
 			_rebuild_sidebar.call_deferred())   # defer — we're inside this option's own signal
