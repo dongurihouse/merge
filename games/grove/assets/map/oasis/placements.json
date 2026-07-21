@@ -23,14 +23,28 @@
     "coordinateOrigin": "top-left"
   },
   "base": {
-    "id": "desert_foundation",
-    "image": "games/grove/assets/map/oasis/backdrop/desert_oasis_watchtower_foundation_v2.png",
+    "id": "desert_sky",
+    "image": "games/grove/assets/map/oasis/sky/desert_oasis_sky_v1.png",
     "opaque": true,
     "z": 0,
-    "layer": "backdrop",
-    "note": "Stable sand, dunes, pond and stepping-stone route. All buildings and dressing are independent layers."
+    "layer": "sky",
+    "note": "Full-canvas warm-cream desert sky plate. The ground foundation is now an independent backdrop-layer placement painted over it, so sky and ground can be swapped or parallaxed separately."
   },
   "placements": [
+    {
+      "id": "desert_foundation",
+      "category": "backdrop",
+      "image": "games/grove/assets/map/oasis/backdrop/desert_oasis_watchtower_foundation_v3.png",
+      "x": 660,
+      "y": 2346,
+      "w": 1320,
+      "h": 2346,
+      "layer": "backdrop",
+      "clusterZ": 0,
+      "z": 0,
+      "cluster": "desert_foundation",
+      "note": "Sky removed above the dune ridge (transparent); dunes, sand, pond and stepping-stone route preserved exactly from the v2 foundation."
+    },
     {
       "id": "adobe_compound",
       "category": "structures",

@@ -1,13 +1,30 @@
 {
  "version": 1,
- "id": "desert_oasis",
- "label": "Desert Oasis",
+ "id": "oasis",
+ "label": "Oasis",
  "canvas": {
   "width": 1320,
   "height": 2346
  },
- "background": "res://games/grove/assets/map/oasis/backdrop/desert_oasis_watchtower_foundation_v2.png",
+ "background": "res://games/grove/assets/map/oasis/sky/desert_oasis_sky_v1.png",
  "buildings": [
+  {
+   "id": "desert_foundation",
+   "label": "desert foundation",
+   "position": [
+    660,
+    2346
+   ],
+   "display_size": [
+    1320,
+    2346
+   ],
+   "sort_y": 0,
+   "cluster": "desert_foundation",
+   "states": {
+    "built": "res://games/grove/assets/map/oasis/backdrop/desert_oasis_watchtower_foundation_v3.png"
+   }
+  },
   {
    "id": "adobe_compound",
    "label": "adobe compound",
