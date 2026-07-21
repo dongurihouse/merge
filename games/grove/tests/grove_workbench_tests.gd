@@ -783,10 +783,13 @@ func _initialize() -> void:
 		board_scene._ready()
 	await process_frame
 	ok(not _has_label_text(board_scene, "Settings"), "board screen hides the settings tile with the rest of the side rail")
-	ok(_paper_texture_path(board_scene.home_btn).ends_with("ui/meadow_v2/texture_action_green.png"), \
-		"board Home uses the green action-paper square")
-	ok(_paper_texture_path(board_scene.bag_btn).ends_with("ui/meadow_v2/texture_supporting_purple.png"), \
-		"board Bag uses the purple supporting-paper square")
+	# the board Home + Bag wells are baked cut-paper SPRITE tiles now (nav_home / nav_bag), over a shadow.
+	ok(board_scene.home_btn.find_children("*", "TextureRect", true, false).any(func(tr: TextureRect) -> bool: \
+			return tr.texture != null and String(tr.texture.resource_path).ends_with("nav_home.png")), \
+		"board Home wears its cut-paper home sprite tile")
+	ok(board_scene.bag_btn.find_children("*", "TextureRect", true, false).any(func(tr: TextureRect) -> bool: \
+			return tr.texture != null and String(tr.texture.resource_path).ends_with("nav_bag.png")), \
+		"board Bag wears its cut-paper bag sprite tile")
 	var board_bramble_bleeds := false
 	for bramble in board_scene.bramble_nodes.values():
 		var bramble_view := bramble as Control
@@ -851,9 +854,10 @@ func _initialize() -> void:
 		"the Home and Bag tiles sit OUTSIDE the info tray, one at each end of the bottom row")
 	ok(board_scene.bottom_bar.find_children("ActionBarSeparator*", "TextureRect", true, false).is_empty(), \
 		"no painted vertical dividers remain in the bottom bar")
-	ok(_is_reference_paper_shadow(_paper_shadow_style(board_scene.home_btn)) \
-		and _is_reference_paper_shadow(_paper_shadow_style(board_scene.bag_btn)), \
-		"board Home and Bag paper squares cast their own visible downward shadows")
+	# the sprite tiles lift off the bar with the shared drop shadow (dark alpha<1 copies of the sprite)
+	ok(board_scene.home_btn.find_children("*", "TextureRect", true, false).any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99) \
+		and board_scene.bag_btn.find_children("*", "TextureRect", true, false).any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99), \
+		"board Home and Bag sprite tiles cast their own soft downward drop shadows")
 	board_scene.queue_free()
 	_wb_build_all_buildings()         # open the bucket (cells from built buildings) so the dock fills
 	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()

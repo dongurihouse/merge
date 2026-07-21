@@ -26,6 +26,9 @@ const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (board Home + Bag wells)
+const NAV_HOME := "res://games/grove/assets/ui/nav/nav_home.png"
+const NAV_BAG := "res://games/grove/assets/ui/nav/nav_bag.png"
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
@@ -1650,20 +1653,54 @@ func _relayout_action_bar_after_resize() -> void:
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var b := ActionBar.home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)   # the home-button disc + satchel icon + the in-disc "x/y" count
-	ActionBar.clear_button_frame(b)
+	if not ResourceLoader.exists(NAV_BAG):
+		# fallback: the drawn disc + swap icon (pre-sprite path)
+		var d := ActionBar.home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)
+		ActionBar.clear_button_frame(d)
+		d.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bag_content = d.get_meta("icon_wrap") if d.has_meta("icon_wrap") else null
+		bag_piece_px = float(d.get_meta("icon_px", px * 0.5))
+		_bag_count_lbl = d.get_meta("count_label") if d.has_meta("count_label") else null
+		d.pressed.connect(_open_bag_overlay)
+		return d
+	# The full cut-paper BAG tile (satchel baked in) is the whole button, over its drop shadow. When the
+	# bag holds items the most-recent one overlays the baked satchel (bag_content); the "x/y" count rides
+	# the tile's foot. Drag-to-stash / drag-back / highlight all key off the button's global rect, unchanged.
+	var b := SpriteButton.build(load(NAV_BAG), Vector2(px, px), Callable(self, "_open_bag_overlay"), {"name": "BagWell"})
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
-	# same size — a true icon swap, per the workbench-tuned button), and the satchel is restored when the
-	# bag empties (see _rebuild_bag). No separate small overlay riding on top of the satchel anymore.
-	bag_content = b.get_meta("icon_wrap") if b.has_meta("icon_wrap") else null
-	bag_piece_px = float(b.get_meta("icon_px", px * 0.5))   # match the satchel icon box so the item FILLS it
-	# the "x/y" slot count now lives INSIDE the disc (the shared home_button's count overlay), so the bag cell
-	# is the same px box as the info bar + home disc next to it. The label is updated in place via this meta.
-	_bag_count_lbl = b.get_meta("count_label") if b.has_meta("count_label") else null
-	b.pressed.connect(_open_bag_overlay)
+	var content := CenterContainer.new()
+	content.name = "BagContent"
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(content)
+	bag_content = content
+	bag_piece_px = roundf(px * 0.5)
+	_bag_count_lbl = _make_bag_count_label(px)
+	b.add_child(_bag_count_lbl)
+	_rebuild_bag()
 	return b
+
+# The "x/y" bag count riding the foot of the bag tile: cream ink over a dark outline, bottom-centred.
+func _make_bag_count_label(px: float) -> Label:
+	var lbl := Label.new()
+	lbl.name = "BagCount"
+	lbl.text = _bag_count_text()
+	lbl.theme = load("res://engine/scripts/ui/ui_font.gd").make()
+	lbl.add_theme_font_size_override("font_size", int(roundf(px * 0.19)))
+	lbl.add_theme_color_override("font_color", Pal.CREAM)
+	lbl.add_theme_color_override("font_outline_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", maxi(2, int(roundf(px * 0.03))))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.anchor_left = 0.0
+	lbl.anchor_right = 1.0
+	lbl.anchor_top = 0.62
+	lbl.anchor_bottom = 1.0
+	lbl.offset_bottom = -roundf(px * 0.06)
+	return lbl
 
 # The bottom-bar Bag cell: just the swap-icon bag well — the "x/y" count rides INSIDE the disc now
 # (see _make_bag_button), so the cell matches the height of the info bar + Home disc beside it.
@@ -1718,14 +1755,20 @@ func _bag_count_text() -> String:
 
 # The Home disc for the bottom bar's left edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var b := ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
-	ActionBar.clear_button_frame(b)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.pressed.connect(func() -> void:
+	var go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
-		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn"))
+		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
+	var b: Button
+	if ResourceLoader.exists(NAV_HOME):
+		# the full cut-paper home sprite tile (icon baked in, over its drop shadow)
+		b = SpriteButton.build(load(NAV_HOME), Vector2(px, px), go, {"name": "BoardHomeTile"})
+	else:
+		b = ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
+		ActionBar.clear_button_frame(b)
+		b.pressed.connect(go)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return b
 
 # The center INFO BAR: [info button] [selected piece + name] [trashcan/sell]. Tapping a board item fills it
@@ -3348,14 +3391,29 @@ func _rebuild_bag() -> void:
 	for c in bag_content.get_children():
 		c.queue_free()
 	if bag.is_empty():
-		# empty → restore the satchel glyph (the same workbench-tuned kit icon the disc shipped with)
-		var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-		if Kit != null:
-			bag_content.add_child(Kit.make_icon("bag", bag_piece_px))
+		# empty → the tile's baked satchel IS the empty state (sprite tile); the drawn-disc fallback
+		# restores the kit "bag" glyph into its icon wrap instead.
+		if not ResourceLoader.exists(NAV_BAG):
+			bag_content.add_child(load("res://games/grove/tools/ui_workbench_kit.gd").make_icon("bag", bag_piece_px))
 	else:
-		# filled → the most-recent stashed item, sized to FILL the disc's icon box (a true swap, not a
-		# tiny preview riding on top of the satchel).
+		# filled → a cream slot backing masks the baked satchel, with the most-recent stashed item on top.
+		if ResourceLoader.exists(NAV_BAG):
+			bag_content.add_child(_bag_fill_backing(roundf(bag_piece_px * 1.34)))
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
+
+# A small cream rounded slot behind the stashed item, so a filled bag tile hides the baked satchel and
+# presents the item on a familiar cream cell (matching the board's item slots).
+func _bag_fill_backing(size: float) -> Control:
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(size, size)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CREAM
+	sb.set_corner_radius_all(int(roundf(size * 0.22)))
+	sb.set_border_width_all(maxi(1, int(roundf(size * 0.04))))
+	sb.border_color = Pal.STRAW
+	p.add_theme_stylebox_override("panel", sb)
+	return p
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
 # over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
