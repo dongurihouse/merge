@@ -800,6 +800,9 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 ## `on_changed(new_state)`. `px_h` sizes it; width follows the sliced pill's aspect. Stateless
 ## otherwise — the caller owns persistence and reads back the live value via the callback.
 const SWITCH_SKIN := "res://games/grove/assets/ui/dialogs/settings/"   # cut-paper reskin: toggle_on/off.png
+# The code-drawn cut-paper panel, loaded at runtime (a preload const would be a cycle — cut_paper.gd
+# preloads this skin). Used for the rugged switch track + knob.
+const CUT_PAPER := "res://engine/scripts/ui/cut_paper.gd"
 static func _switch_tex(on: bool) -> Texture2D:
 	var p := SWITCH_SKIN + ("toggle_on.png" if on else "toggle_off.png")
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null
@@ -816,59 +819,31 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	b.add_theme_stylebox_override("hover", empty)
 	b.add_theme_stylebox_override("pressed", empty)
 	b.set_meta("on", is_on)
-	# RESKIN: the baked cut-paper toggle sprite (on/off), swapped on flip. Falls through to the drawn
-	# track+knob below when the sprites are absent.
-	var tex_on := _switch_tex(true)
-	var tex_off := _switch_tex(false)
-	if tex_on != null and tex_off != null:
-		# soft downward drop shadow — dark copies of the pill silhouette nudged down, behind the art
-		for layer in [{"dy": 0.07, "a": 0.16}, {"dy": 0.13, "a": 0.10}]:
-			var sh := TextureRect.new()
-			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			sh.stretch_mode = TextureRect.STRETCH_SCALE
-			sh.texture = tex_on if is_on else tex_off
-			sh.modulate = shadow_color(float(layer["a"]))
-			sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			sh.offset_top += px_h * float(layer["dy"])
-			sh.offset_bottom += px_h * float(layer["dy"])
-			sh.custom_minimum_size = Vector2.ZERO
-			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			b.add_child(sh)
-		var art := TextureRect.new()
-		art.name = "sw_art"
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_SCALE
-		art.texture = tex_on if is_on else tex_off
-		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		art.custom_minimum_size = Vector2.ZERO
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(art)
-		b.set_meta("sw_on_tex", tex_on)
-		b.set_meta("sw_off_tex", tex_off)
-		add_press_juice(b)
-		b.pressed.connect(func() -> void:
-			var now := not bool(b.get_meta("on"))
-			b.set_meta("on", now)
-			_switch_paint(b, now, px_h)
-			on_changed.call(now))
-		return b
-	# CODE-DRAWN switch (the retired switch_on/off.png art read muddy-brown when off): a clean rounded
-	# track — leaf green when ON, a soft neutral slate when OFF — with a cream knob that slides across.
-	var track := Panel.new()                       # the rounded capsule (recoloured per state)
+	# RUGGED cut-paper switch: the SAME torn/deckled edge the dialog frame + settings rows wear, at switch
+	# scale — a deckled capsule TRACK (leaf green ON / soft slate OFF) with a deckled cream KNOB that slides
+	# across. Drawn in code (CutPaperPanel) so the tear stays crisp at any switch_h, matching the rows.
+	var CutPaper := load(CUT_PAPER)
+	var track = CutPaper.new()                     # the deckled capsule (recoloured per state)
 	track.name = "sw_track"
+	track.shape = "rect"
+	track.corner = px_h * 0.5                       # fully rounded → a capsule
+	track.deckle_amp = maxf(1.0, px_h * 0.045)      # a fine tear scaled to the switch height
+	track.deckle_freq = 0.09
+	track.rim_width = 1.5
+	track.draw_shadow = false                       # it sits flat on the row; the knob carries the lift
 	track.set_anchors_preset(Control.PRESET_FULL_RECT)
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(track)
-	var knob := Panel.new()                        # the cream knob (slid left/right per state)
+	var knob = CutPaper.new()                       # the deckled cream knob (slid left/right per state)
 	knob.name = "sw_knob"
-	var ks := StyleBoxFlat.new()
-	ks.bg_color = Pal.CREAM
-	ks.set_corner_radius_all(int(px_h))
-	ks.anti_aliasing = true
-	ks.shadow_color = Color(SHADOW_TINT, 0.28)     # a soft lift instead of the old hard bark ring
-	ks.shadow_size = int(maxf(2.0, px_h * 0.10))
-	ks.shadow_offset = Vector2(0, maxf(1.0, px_h * 0.04))
-	knob.add_theme_stylebox_override("panel", ks)
+	knob.shape = "rect"
+	knob.deckle_amp = maxf(0.8, px_h * 0.035)
+	knob.deckle_freq = 0.12
+	knob.seed = 4                                   # a different tear than the track
+	knob.rim_width = 1.0
+	knob.paper_color = Pal.CREAM
+	knob.rim_color = Color("#E7D6BC")
+	knob.draw_shadow = false                        # CutPaperPanel's fixed px shadow is oversized at knob scale
 	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(knob)
 	_switch_paint(b, is_on, px_h)
@@ -880,25 +855,22 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 		on_changed.call(now))
 	return b
 
-## Repaint a toggle_switch for `is_on`: swap the sliced sprite, or (fallback) recolour the
-## track + slide the knob to the on/off end.
+## Repaint a rugged toggle_switch for `is_on`: recolour the deckled track (leaf green ON / soft slate
+## OFF) and slide the deckled knob to the on/off end.
 static func _switch_paint(b: Button, is_on: bool, px_h: float) -> void:
-	var art := b.get_node_or_null("sw_art") as TextureRect   # RESKIN: swap the baked on/off sprite
-	if art != null:
-		art.texture = b.get_meta("sw_on_tex") if is_on else b.get_meta("sw_off_tex")
-		return
-	var track := b.get_node_or_null("sw_track") as Panel
-	var knob := b.get_node_or_null("sw_knob") as Panel
+	var track := b.get_node_or_null("sw_track") as Control
+	var knob := b.get_node_or_null("sw_knob") as Control
 	if track == null or knob == null:
 		return
-	var ts := StyleBoxFlat.new()
 	# ON = leaf green; OFF = a soft neutral slate (a desaturated ink), NOT the old muddy bark brown.
-	ts.bg_color = Pal.BTN_PRIMARY if is_on else Color(Pal.INK, 0.22)
-	ts.set_corner_radius_all(int(px_h))
-	ts.anti_aliasing = true
-	track.add_theme_stylebox_override("panel", ts)
+	track.paper_color = Pal.BTN_PRIMARY if is_on else Color("#B9C0C4")
+	track.rim_color = (Pal.BTN_PRIMARY.darkened(0.18) if is_on else Color("#A7AFB4"))
+	track.queue_redraw()
 	var inset := Tune.SWITCH_KNOB_INSET
 	var d := px_h - inset * 2.0
+	knob.corner = d * 0.5           # a fully-rounded (deckled disc) knob
+	knob.custom_minimum_size = Vector2(d, d)
 	knob.size = Vector2(d, d)
 	var w := px_h * Tune.SWITCH_ASPECT
 	knob.position = Vector2((w - d - inset) if is_on else inset, inset)
+	knob.queue_redraw()

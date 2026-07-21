@@ -1836,7 +1836,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 12 if rich else 18)
-	panel.add_child(row)
+	_row_body(panel).add_child(row)
 	if rich:
 		var ic_wrap := MarginContainer.new()
 		ic_wrap.add_theme_constant_override("margin_top", 8)
@@ -1927,31 +1927,51 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ## the shared drop shadow, matching the mail cards + the daily cells. The old kit/mail_card.png nine-patch
 ## (an embossed border + a pink underline artifact) is retired. (`_unused` kept for call-site compatibility.)
 const SETTINGS_ROW_TEX := "res://games/grove/assets/ui/dialogs/settings/settings_row.png"
+const CUT_PAPER := "res://engine/scripts/ui/cut_paper.gd"
+const ROW_SAGE := Color("#DCE7C8")        # the settings-row sage fill (daily-cell family)
+const ROW_SAGE_EDGE := Color("#BFD09E")   # a deeper sage for the torn cut-edge line
+## The shared row surface: a code-drawn CUT-PAPER sheet — the SAME rugged deckled edge the dialog frame
+## wears, in sage — so every settings row (toggle · info · action) reads as a torn paper strip. Kept as a
+## PanelContainer (the row locator every caller + test expects): a TRANSPARENT panel that SIZES to its
+## content, holding a CutPaperPanel background (the visible deckled sheet, fills the panel) + a padded
+## MarginContainer content HOST on top. Add row content via _row_body(panel), not panel.add_child.
 static func _row_panel(_unused: bool = true) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# RESKIN: the baked cut-paper sage row sprite STRETCHED WHOLE (no 9-slice); its soft drop shadow is
-	# baked into the PNG's bottom margin. Falls back to the drawn sage box when the sprite is absent.
-	if ResourceLoader.exists(SETTINGS_ROW_TEX):
-		var rtex := load(SETTINGS_ROW_TEX) as Texture2D
-		var st := StyleBoxTexture.new()
-		st.texture = rtex   # no texture_margin → the whole sprite scales to the row (no slice)
-		# the baked shadow lives in the sprite's lower margin; bias the content padding UP into the pill.
-		st.content_margin_left = 26; st.content_margin_right = 22
-		st.content_margin_top = 20; st.content_margin_bottom = 34
-		panel.add_theme_stylebox_override("panel", st)
-		return panel
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color("#DCE7C8")          # a soft sage, distinct from the cream sheet, in the daily-cell family
-	s.border_color = PAPER_EDGE
-	s.set_border_width_all(1)
-	s.set_corner_radius_all(18)
-	s.anti_aliasing = true
-	s.content_margin_left = 22; s.content_margin_right = 18
-	s.content_margin_top = 12; s.content_margin_bottom = 12
-	Look.apply_box_shadow(s)
-	panel.add_theme_stylebox_override("panel", s)
+	var empty := StyleBoxEmpty.new()   # transparent: the CutPaperPanel behind is the visible surface
+	panel.add_theme_stylebox_override("panel", empty)
+	var cp = load(CUT_PAPER).new()     # the deckled sage sheet, laid out to fill the panel rect
+	cp.shape = "rect"
+	cp.corner = 20.0
+	cp.deckle_amp = 3.0            # a finer tear than the big frame (a thin strip, not a page)
+	cp.deckle_freq = 0.05
+	cp.rim_width = 2.0
+	cp.paper_color = ROW_SAGE
+	cp.rim_color = ROW_SAGE_EDGE
+	cp.draw_shadow = true
+	var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
+	if tile != null:
+		cp.paper_tex = tile
+	cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(cp)
+	# content host: pad the row IN from the deckled edge so text/switch never touch the tear. The panel
+	# stacks both children into the same rect, so the host's margins are the ONLY content inset.
+	var host := MarginContainer.new()
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var inset := int(cp.content_inset())
+	host.add_theme_constant_override("margin_left", 14 + inset)
+	host.add_theme_constant_override("margin_right", 10 + inset)
+	host.add_theme_constant_override("margin_top", 10)
+	host.add_theme_constant_override("margin_bottom", 10)
+	panel.add_child(host)
+	panel.set_meta("row_body", host)
 	return panel
+
+## The padded content host of a _row_panel — add the row's HBox/Button here (not to the panel root, which
+## is the interactive surface + deckled background). Falls back to the panel itself for any legacy surface.
+static func _row_body(panel: Control) -> Control:
+	var host: Variant = panel.get_meta("row_body", null)
+	return host if host is Control else panel
 
 ## An INFO CARD — a read-only row on the toggle_card surface: a label on the LEFT, a value on the RIGHT,
 ## no switch. The settings dialog uses it for non-interactive lines (e.g. the Game Center id).
@@ -1967,7 +1987,7 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 18)
-	panel.add_child(row)
+	_row_body(panel).add_child(row)
 	var name_l := Label.new()
 	name_l.text = String(entry.get("label", ""))
 	name_l.add_theme_font_size_override("font_size", label_font)
@@ -2021,7 +2041,7 @@ static func action_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var empty := StyleBoxEmpty.new()
 	for st in ["normal", "hover", "pressed", "focus"]:
 		btn.add_theme_stylebox_override(st, empty)
-	panel.add_child(btn)
+	_row_body(panel).add_child(btn)
 	var armed: Array = [false]
 	btn.pressed.connect(func() -> void:
 		if confirm_label != "" and not armed[0]:
