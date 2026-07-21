@@ -242,6 +242,10 @@ func _default_params() -> Dictionary:
 		# carries its own width. snap is the drag-grid for the banner/✕ handles.
 		"frame": {
 			"width_pct": 75,   # the GLOBAL dialog width (% of screen) — drives EVERY dialog
+			# CODE-DRAWN cut-paper sheet: toggle it on to replace the flat card with a live deckled paper
+			# panel (torn edge + tiled fibre + shadow, sized to any dialog with no stretch). The sliders
+			# tune the torn edge; deckle_freq is a 0..N percent that the kit divides by 100.
+			"cut_paper": false, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "frame_shadow": true,
 			"border": "parchment", "card_corner": 22, "card_art": true,
 			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
@@ -1832,6 +1836,14 @@ func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
 	_section_header("Dialog width (all dialogs)")
 	_sidebar_body.add_child(_slider_row(["width_pct", 30, 100]))   # the SINGLE global dialog width — % of screen
+	_section_header("Cut-paper sheet (code-drawn)")
+	_sidebar_body.add_child(_toggle_row("Cut-paper sheet", "cut_paper", true))   # rebuilds the sidebar to show the deckle sliders
+	if bool(_params["frame"].get("cut_paper", false)):
+		_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))   # deckle corner radius (px)
+		_sidebar_body.add_child(_slider_row(["deckle_amp", 0, 20]))    # torn-edge bump height (px)
+		_sidebar_body.add_child(_slider_row(["deckle_freq", 1, 20]))   # torn-edge frequency (%, kit ÷100)
+		_sidebar_body.add_child(_slider_row(["rim_width", 0, 8]))      # warm cut-edge line thickness (px)
+		_sidebar_body.add_child(_toggle_row("Sheet shadow", "frame_shadow", true))
 	_section_header("Card")
 	_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))   # parchment / vault twig
 	_sidebar_body.add_child(_toggle_row("9-slice art", "card_art", true))   # rebuilds the sidebar to swap the slider
