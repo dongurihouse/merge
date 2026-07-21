@@ -1993,12 +1993,15 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 		else:
 			# the big green Claim — the shared pill_button pushed up a font tier + a roomier pad/corner
 			# (mock v1's Claim reads much larger than the small reward cards beside it).
-			var claim_opts := btn_opts.duplicate()
-			claim_opts["bg"] = "green"
-			claim_opts["font"] = int(btn_opts.get("card_claim_font", maxi(FS.BODY, title_font)))   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
-			claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
-			claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
-			var claim := pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
+			var claim_font := int(btn_opts.get("card_claim_font", maxi(FS.BODY, title_font)))
+			var claim := _skin_button(String(btn_opts.get("text", "Claim")), "green", claim_font)   # reskin: green cut-paper button bg + label
+			if claim == null:
+				var claim_opts := btn_opts.duplicate()
+				claim_opts["bg"] = "green"
+				claim_opts["font"] = claim_font   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
+				claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
+				claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
+				claim = pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
 			claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			var on_claim: Callable = entry.get("on_claim", Callable())
 			if on_claim.is_valid():
@@ -2760,14 +2763,17 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	var claim_all_cb: Callable = opts.get("on_claim_all", Callable())
 	var claim_all_text := String(opts.get("claim_all_text", ""))
 	if claim_all_cb.is_valid() and claim_all_text != "":
-		var ca_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
-		ca_opts["bg"] = "green"
-		ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
-		ca_opts["font"] = int(opts.get("claim_all_font", FS.HEADING))
-		ca_opts["shadow"] = true
-		ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
-		ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
-		var ca := pill_button(claim_all_text, ca_opts)
+		var ca_font := int(opts.get("claim_all_font", FS.HEADING))
+		var ca := _skin_button(claim_all_text, "green", ca_font)   # reskin: green cut-paper button bg + label
+		if ca == null:
+			var ca_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+			ca_opts["bg"] = "green"
+			ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
+			ca_opts["font"] = ca_font
+			ca_opts["shadow"] = true
+			ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
+			ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
+			ca = pill_button(claim_all_text, ca_opts)
 		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ca.pressed.connect(func() -> void: claim_all_cb.call())
 		opts = opts.duplicate()
