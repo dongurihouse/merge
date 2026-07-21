@@ -894,7 +894,98 @@ The current Oasis leaf source and variants live in
 `06_coverup/single_leaf_pack/`. The prior multi-leaf bouquet pack was intentionally removed: it was too
 clumped, too visibly composited, and did not provide reliable full-screen coverage.
 
-### 11f · Common generation failures and fixes
+### 11f · Winter Lantern Lodge case study — mock-to-modular reconstruction and snow unlocks
+
+Winter Lantern Lodge records the complete transition from a generative winter concept to an editable
+Scene Workbench page. Its active bundle is
+`games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/`; its authoritative placement
+contract is `metadata/placements.json`. The chosen composition reference is
+`winter_layered_mock_variations_v1/winter_layered_lantern_lodge_plaza_v1.png`, with its adjacent prompt
+sidecar. The later reconstruction previews are evidence, not source authorities.
+
+#### Generate the mock for the later layers, not merely for a pretty flat picture
+
+Three deliberately different 941×1672 winter mocks were generated first: Lantern Lodge Plaza, Frozen
+Market Harbor, and Snowcap Observatory Garden. Select one only after judging its scene story and its
+ability to separate cleanly. The Lantern Lodge prompt explicitly requested four compositing passes:
+
+1. **Sky/atmosphere.** A separate upper plate, never baked into the foundation.
+2. **Foundation/backdrop.** Snow field, pond, path, mountain/perimeter spruce read, and only permanent
+   low environment. It remains coherent if every landmark is hidden.
+3. **Five hero regions.** Lodge, gazebo, bridge, dock with rowboat, and entrance arch are large isolated
+   objects with at least one object-width of exposed ground between them. This is a small enough inventory
+   to extract, measure, and replace without hand-positioning dozens of fragments.
+4. **Permanent edge dressing.** Spruce, bushes, rocks, and snowbanks stay at the perimeter and overlap
+   hero feet only lightly. They make the scene feel complete without becoming per-unlock items.
+
+The specific final roster may change after review: the bridge region was intentionally replaced with a
+paper-plate Christmas tree. Preserve the **region/socket and semantic cluster**, then regenerate the
+single hero; do not revise the foundation or reshuffle unrelated landmarks merely because one object
+changes. A variation is successful when the same camera, footprint, scale, and visual weight still fit
+the planned region.
+
+#### Deconstruct with explicit ownership and full silhouettes
+
+The working bundle preserves the result of the deconstruction rather than relying on chat history:
+
+- `01_underlay/sky_atmosphere.png` is separate from `02_backdrop/foundation.png`.
+- Each landmark is a standalone transparent object under `03_structures/`; use its `*_paper_plate_v2.png`
+  companion when the object visibly owns a snow-paper footing. The Christmas tree is
+  `christmas_tree_paper_plate_v1.png`.
+- `05_coverings/edge_coverings.png` contains fixed environmental blending only, never a hidden hero.
+- `09_reconstruction/` contains checkpoint composites, while the source PNGs and
+  `metadata/placements.json` remain the reproducible inputs.
+
+The plate belongs to the hero exactly once. A soft snow-paper plate below a lodge, gazebo, dock, arch, or
+tree is a desirable cut-paper depth cue, but the foundation must not carry a second matching pad. Keep the
+color sprite free of a dark cast shadow; during this reconstruction shadows were disabled while placement,
+paper rims, and alpha edges were being evaluated. Reintroduce only the guide's short separate/runtime
+contact treatment after it is demonstrated to help rather than obscure the paper layers.
+
+Do not let foreground rocks or snowbanks cover a hero's identity. The lodge review exposed the failure
+mode directly: a rock hid the roof/top silhouette. Correct the ownership/z/placement so peripheral
+dressing may overlap the **footing** but never conceals a roof, entrance, or other defining top contour.
+If a foreground overlap is needed for depth, make it a separate top-dressing member and verify the whole
+hero remains readable at phone size.
+
+#### Reconstruct through measured, reversible checkpoints
+
+1. Put the underlay and foundation in Scene Workbench; verify the snow field, pond edge, path, and
+   perimeter all read without any hero.
+2. Place the lodge, gazebo, tree, dock/rowboat, and arch by center-bottom anchor and visible alpha bounds.
+   Review their paper plates before adding permanent coverings. Keep each hero in its own semantic cluster.
+3. Add the perimeter covering last. Use it to blend lower seams and frame the scene, not to repair a wrong
+   hero size, a missing roof, or a bad anchor.
+4. Render the composition with `make shot-sw SCENE=winter_lantern_lodge OUT=/tmp/winter-review.png`.
+   Compare it against the selected mock in the Workbench reference pane. A screenshot is the visual gate;
+   a valid JSON file alone does not prove a coherent paper scene.
+
+#### Build the locked state as clustered snow paper
+
+The fully covered preview lives in `winter_unlock_cover_mock_v1/preview/`, with the reusable asset family
+and overlap recipe recorded in `cover_layout.json`. It deliberately uses broad scalloped snow drifts as a
+grid with substantial overlap, then a small accent family of crystal snowflakes, rosette snowflakes, and
+flurry clusters. Large repeated pieces cover the page reliably; tiny individual flakes would create reveal
+cracks and turn assembly into manual decoration work.
+
+Place every locked piece in the dedicated topmost **`coverup`** Scene Workbench layer—not in
+`primary_objects` or ordinary foreground dressing. The active winter page has 23 members grouped by the
+primary region they hide:
+
+| Coverup cluster | Members | Reveals |
+|---|---:|---|
+| `unlock_lodge` | 5 | lodge + owned snow plate |
+| `unlock_gazebo` | 3 | gazebo + owned snow plate |
+| `unlock_christmas_tree` | 3 | Christmas tree + owned snow plate |
+| `unlock_dock` | 5 | dock/rowboat + owned snow plate |
+| `unlock_entrance_arch` | 7 | entrance arch + owned snow plate |
+
+This is one cluster **per unlock region**, not per snowflake or drift. Test the all-covered composition
+first, then hide one cluster at a time. The remaining snow must still read as a purposeful full-page
+cover, and the revealed region must show a complete, grounded landmark rather than a bare foundation
+socket or a truncated silhouette.
+
+### 11g · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
