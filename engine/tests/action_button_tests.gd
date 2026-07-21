@@ -54,5 +54,18 @@ func _initialize() -> void:
 	ok(String(ro["tints"].get("map", "")) == "sky", "reader round-trips the per-button tint palette")
 	ok(is_equal_approx(float(ro["icon_scale"]), 0.55), "reader normalizes icon_scale (55 → 0.55)")
 
+	# 5) the workbench registers the action_button component and drops the old home_button component
+	# NOTE: DEFAULTS is not a const dict or a static func in ui_workbench_view.gd — the schema lives in
+	# the instance method _default_params() (declared on the shared workbench_view.gd base, overridden
+	# here). IDS IS a top-level const, so it's read directly off the loaded script. _default_params()
+	# needs an instance, but .new() alone (no add_child) never enters the tree, so _ready() (which builds
+	# the whole gallery UI) never runs — cheap and safe to call headlessly.
+	var View := load("res://games/grove/tools/ui_workbench_view.gd")
+	ok(View.IDS.has("action_button"), "the workbench registers the action_button component")
+	ok(not View.IDS.has("home_button"), "the workbench no longer registers the home_button component")
+	var view_defaults: Dictionary = View.new()._default_params()
+	ok(view_defaults.has("action_button"), "action_button ships a saved config block")
+	ok(not view_defaults.has("home_button"), "the home_button config block is gone")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
