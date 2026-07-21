@@ -1,0 +1,22 @@
+{
+  "concept": "cherry_blossom_unlock_cover_elements_v1",
+  "model": "fully-unlocked scene plus independently removable cut-paper canopy",
+  "unlocked_reference": "../00_unlocked/cherry_blossom_unlocked_reference_v1.png",
+  "locked_reference": "../01_covered_mock/cherry_blossom_fully_covered_unlock_mock_v1.png",
+  "scene_placements": "placements.json",
+  "cover_pieces": [
+    { "id": "round_rosette", "path": "../02_cover_pieces/blossom_cover_round_rosette_v1.png", "role": "broad fill" },
+    { "id": "drifting_petal", "path": "../02_cover_pieces/blossom_cover_drifting_petal_v1.png", "role": "seam breaker" },
+    { "id": "triple_cluster", "path": "../02_cover_pieces/blossom_cover_triple_cluster_v1.png", "role": "wide span" },
+    { "id": "floral_fan", "path": "../02_cover_pieces/blossom_cover_floral_fan_v1.png", "role": "edge fill" },
+    { "id": "corner_cascade", "path": "../02_cover_pieces/blossom_cover_corner_cascade_v1.png", "role": "corner cap" }
+  ],
+  "placement": {
+    "above_scene": true,
+    "minimum_overlap_percent": 15,
+    "maximum_overlap_percent": 25,
+    "layer": "coverup",
+    "cluster_model": "one unlock_region_<primary_object> cluster per primary object",
+    "unlock_behavior": "remove the complete coverup cluster assigned to the newly unlocked primary-object region"
+  }
+}

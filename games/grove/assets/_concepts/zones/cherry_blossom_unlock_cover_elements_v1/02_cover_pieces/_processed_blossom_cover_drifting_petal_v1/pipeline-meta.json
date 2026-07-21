@@ -1,0 +1,11 @@
+{
+  "target": "asset",
+  "mode": "single",
+  "prompt": "",
+  "role": "",
+  "input": "games/grove/assets/_concepts/zones/cherry_blossom_unlock_cover_elements_v1/02_cover_pieces/blossom_cover_drifting_petal_v1_raw.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "single_size": 768
+}
