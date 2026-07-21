@@ -635,7 +635,75 @@ bad geometry under vegetation.
 - A fresh `make shot-sw` capture has been visually compared against the correct source; JSON parses and the
   relevant Workbench/project tests pass before integration.
 
-### 11c · Coral Reef case study — generate for a three-layer reconstruction
+### 11c · Cherry Blossom case study — layer-aware mock, measured reconstruction, and unlock petals
+
+Cherry Blossom established the practical rule for scenes that must remain coherent while a few landmarks
+are replaced or unlocked: **design the decomposition into the first mock.** Repeated attempts to carve a
+finished illustration apart work only with expensive iteration, and generative "extraction" tends to shift
+camera, scale, path direction, or ground texture. A layer-aware mock gives the generator fewer fragile
+small decisions and leaves the Workbench only the placements it is good at managing.
+
+#### Prompt the three runtime layers from the start
+
+The dressed concept may show sky, clouds, and a complete garden for review, but its prompt must name these
+three authoring layers and the intended empty/clear zones:
+
+1. **Stable backdrop/depth.** Continuous zen-sand or floor texture, permanent path geometry, mountain and
+   horizon plates where required, and only the low vegetation that belongs to the place rather than a
+   landmark. Keep sky and clouds separate when they need independent treatment. Preserve the ground's
+   raked texture and path curvature; do not turn object sockets into smooth blank pads.
+2. **Primary objects.** Limit the scene to four to six large, separable landmarks with roomy sockets — for
+   example pavilion, pond/bridge, temizuya, and torii. Each landmark owns only its local paper plate,
+   footing, and contact dressing. Pond and bridge remain separate atomic assets when they may vary
+   independently, even if they are reviewed together as one landmark region.
+3. **Coverup.** A small repeated family of deliberately oversized cut-paper pieces, not fog or a painted
+   blanket. Cherry Blossom uses rosettes, single drifting petals, wide flower clusters, fans, and corner
+   cascades. Give each piece a distinct opaque silhouette, paper edge, inner grain, and overlap shadow so
+   it can cover a region alone and still tessellate irregularly with its neighbours.
+
+The mock should reserve enough visible ground around each primary object for a cover cluster to hide it
+without needing micro-petals. Do not ask for dozens of tiny shrubs, loose rocks, or separate flowers as
+future unlock pieces; that transfers layout work from the generator to a human without improving the game.
+
+#### Deconstruct only after the inventory is approved
+
+Before creating a backdrop edit or a cutout, make the explicit inventory: stable ground/path/horizon;
+terrain features; four-to-six primary objects; repeatable decals; local dressing; and broad framing. Then
+write the removal list and the group ownership list together. The questions are concrete:
+
+- If the pavilion moved, would these bushes/rocks/petals move? If yes, they are pavilion contact dressing;
+  if no, they are backdrop or broad framing.
+- Is the pond bank permanent terrain while the bridge is a replaceable object? Keep them separate.
+- Is a path a route made of repeated stones? Extract/generate a few stone variants and reconstruct the
+  route; never accept one large path sprite merely because it is easier to cut.
+
+For exact source matching, use the full mock as the authority and a marked duplicate only to identify the
+target. Ask the generator to repair a small missing edge, not to extract/reinvent the object. A backdrop
+edit must enumerate every object to remove and explicitly lock canvas, crop, zen-sand texture, curved path,
+horizon, paper grain, and light. The early failure mode was an apparently clean backdrop with its ground
+texture erased; reject it rather than compensating with a new unrelated floor.
+
+#### Reconstruct in Workbench as object regions, not a flat picture
+
+1. Place the registered backdrop and compare the path's curve, horizon, and texture to the authority.
+2. Place only pavilion, pond/bridge, temizuya, and torii at measured visible bounds. Correct alpha-padding,
+   scale, direction, and center-bottom anchors before adding any decorative vegetation.
+3. Add individual stepping stones and small decals from measured centers, counts, gaps, and occlusion
+   order. Add hero-owned contact dressing only after the bare major layout agrees with the reference.
+4. Put all locked petals in the dedicated topmost `coverup` layer. Use one cluster per primary-object region
+   (`unlock_region_pavilion`, `unlock_region_pond_bridge`, `unlock_region_temizuya`,
+   `unlock_region_torii`), not one cluster per petal. Each cluster contains enough overlapping repeated
+   petals to hide its landmark completely; removing that cluster reveals the corresponding object region.
+5. Screenshot the whole locked scene, then hide one cluster at a time. The remaining page must still read
+   as a coherent locked garden, while the removed cluster must reveal a purposeful landmark rather than a
+   bare socket or hole.
+
+The accepted Cherry Blossom implementation keeps the reusable petal family and its placements with the
+scene bundle at `games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/`.
+`metadata/placements.json` is the authority for `primary_objects` and `coverup`; prompt sidecars and raw
+keyed sources preserve the ability to regenerate a variation without losing the composition contract.
+
+### 11d · Coral Reef case study — generate for a three-layer reconstruction
 
 Coral Reef is the reference workflow for a scene that must look like one coherent cut-paper illustration
 while still allowing the game to replace or unlock meaningful objects. Its current authoring bundle is
@@ -707,7 +775,7 @@ Before shipping, hide one region at a time in the Workbench. The remainder must 
 locked page, and removing the region must reveal a clear landmark/socket without a turf island, duplicate
 plate, dark shadow slab, or accidental hole.
 
-### 11d · Common generation failures and fixes
+### 11e · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
