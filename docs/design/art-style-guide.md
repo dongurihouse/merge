@@ -635,7 +635,436 @@ bad geometry under vegetation.
 - A fresh `make shot-sw` capture has been visually compared against the correct source; JSON parses and the
   relevant Workbench/project tests pass before integration.
 
-### 11c · Common generation failures and fixes
+### 11c · Cherry Blossom case study — layer-aware mock, measured reconstruction, and unlock petals
+
+Cherry Blossom established the practical rule for scenes that must remain coherent while a few landmarks
+are replaced or unlocked: **design the decomposition into the first mock.** Repeated attempts to carve a
+finished illustration apart work only with expensive iteration, and generative "extraction" tends to shift
+camera, scale, path direction, or ground texture. A layer-aware mock gives the generator fewer fragile
+small decisions and leaves the Workbench only the placements it is good at managing.
+
+#### Prompt the three runtime layers from the start
+
+The dressed concept may show sky, clouds, and a complete garden for review, but its prompt must name these
+three authoring layers and the intended empty/clear zones:
+
+1. **Stable backdrop/depth.** Continuous zen-sand or floor texture, permanent path geometry, mountain and
+   horizon plates where required, and only the low vegetation that belongs to the place rather than a
+   landmark. Keep sky and clouds separate when they need independent treatment. Preserve the ground's
+   raked texture and path curvature; do not turn object sockets into smooth blank pads.
+2. **Primary objects.** Limit the scene to four to six large, separable landmarks with roomy sockets — for
+   example pavilion, pond/bridge, temizuya, and torii. Each landmark owns only its local paper plate,
+   footing, and contact dressing. Pond and bridge remain separate atomic assets when they may vary
+   independently, even if they are reviewed together as one landmark region.
+3. **Coverup.** A small repeated family of deliberately oversized cut-paper pieces, not fog or a painted
+   blanket. Cherry Blossom uses rosettes, single drifting petals, wide flower clusters, fans, and corner
+   cascades. Give each piece a distinct opaque silhouette, paper edge, inner grain, and overlap shadow so
+   it can cover a region alone and still tessellate irregularly with its neighbours.
+
+The mock should reserve enough visible ground around each primary object for a cover cluster to hide it
+without needing micro-petals. Do not ask for dozens of tiny shrubs, loose rocks, or separate flowers as
+future unlock pieces; that transfers layout work from the generator to a human without improving the game.
+
+#### Deconstruct only after the inventory is approved
+
+Before creating a backdrop edit or a cutout, make the explicit inventory: stable ground/path/horizon;
+terrain features; four-to-six primary objects; repeatable decals; local dressing; and broad framing. Then
+write the removal list and the group ownership list together. The questions are concrete:
+
+- If the pavilion moved, would these bushes/rocks/petals move? If yes, they are pavilion contact dressing;
+  if no, they are backdrop or broad framing.
+- Is the pond bank permanent terrain while the bridge is a replaceable object? Keep them separate.
+- Is a path a route made of repeated stones? Extract/generate a few stone variants and reconstruct the
+  route; never accept one large path sprite merely because it is easier to cut.
+
+For exact source matching, use the full mock as the authority and a marked duplicate only to identify the
+target. Ask the generator to repair a small missing edge, not to extract/reinvent the object. A backdrop
+edit must enumerate every object to remove and explicitly lock canvas, crop, zen-sand texture, curved path,
+horizon, paper grain, and light. The early failure mode was an apparently clean backdrop with its ground
+texture erased; reject it rather than compensating with a new unrelated floor.
+
+#### Reconstruct in Workbench as object regions, not a flat picture
+
+1. Place the registered backdrop and compare the path's curve, horizon, and texture to the authority.
+2. Place only pavilion, pond/bridge, temizuya, and torii at measured visible bounds. Correct alpha-padding,
+   scale, direction, and center-bottom anchors before adding any decorative vegetation.
+3. Add individual stepping stones and small decals from measured centers, counts, gaps, and occlusion
+   order. Add hero-owned contact dressing only after the bare major layout agrees with the reference.
+4. Put all locked petals in the dedicated topmost `coverup` layer. Use one cluster per primary-object region
+   (`unlock_region_pavilion`, `unlock_region_pond_bridge`, `unlock_region_temizuya`,
+   `unlock_region_torii`), not one cluster per petal. Each cluster contains enough overlapping repeated
+   petals to hide its landmark completely; removing that cluster reveals the corresponding object region.
+5. Screenshot the whole locked scene, then hide one cluster at a time. The remaining page must still read
+   as a coherent locked garden, while the removed cluster must reveal a purposeful landmark rather than a
+   bare socket or hole.
+
+The accepted Cherry Blossom implementation keeps the reusable petal family and its placements with the
+scene bundle at `games/grove/assets/_concepts/zones/cherry_blossom_paper_plate_terrace_elements_v1/`.
+`metadata/placements.json` is the authority for `primary_objects` and `coverup`; prompt sidecars and raw
+keyed sources preserve the ability to regenerate a variation without losing the composition contract.
+
+### 11d · Coral Reef case study — generate for a three-layer reconstruction
+
+Coral Reef is the reference workflow for a scene that must look like one coherent cut-paper illustration
+while still allowing the game to replace or unlock meaningful objects. Its current authoring bundle is
+`games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/`; `metadata/placements.json` is the
+single scene authority.
+
+#### Start with a layer-ready mock, not a decomposition rescue
+
+Prompt the **first full-scene mock** with the runtime layers already in mind:
+
+1. **Foundation/backdrop** — continuous water, sand, low rock geometry, light shafts, paper grain, and
+   large, readable prop sockets. No hero props, coral cover clusters, bubbles, or scenic object bases.
+2. **Primary objects** — only four to six large, separable landmarks. Coral uses a shipwreck, chest,
+   anchor, mermaid statue, and giant clam. Each has a distinct, roomy socket and its own thin paper plate
+   where that plate is part of the object design.
+3. **Coverup** — broad, repeatable paper-coral / shell / kelp masses that can hide an entire region. These
+   are deliberately large; do not try to build a locked scene from dense micro-coral clutter.
+
+The mock is a composition and material authority. It is not a flattened runtime layer. If a future object
+may unlock, move, animate, or be replaced, keep it out of the foundation from the first prompt.
+
+#### Generate the foundation as a controlled edit
+
+For a palette or atmosphere revision, use the active foundation as the edit target and lock every terrain
+silhouette and socket. Coral's `coral_reef_paper_foundation_undersea_gray_v3.png` was made this way:
+retain the exact rock ledges, pebble placement, central channel, sand opening, and light-shaft geometry;
+change only the color read from saturated cyan/royal blue to muted gray-teal water, slate-blue rock sides,
+desaturated blue-gray tops, and soft gray-beige sand. This preserves reconstruction placement while making
+the scene feel underwater rather than neon.
+
+Prompt contract:
+
+```text
+Repaint only the backdrop color and underwater atmosphere. Preserve the exact silhouette, proportions,
+perspective, and positions of every cut-paper rock ledge, platform, pebble, central water channel, sandy
+bottom opening, and upper light shaft. Keep the foundation clean: no landmarks, coral, shells, kelp,
+bubbles, characters, text, or UI. Use muted gray-teal water, slate-blue rock sides, desaturated blue-gray
+platform tops, restrained pale-aqua shafts, and subtle paper grain. Do not add terrain or raised plates.
+```
+
+#### Deconstruct by ownership, then reconstruct in Workbench
+
+- Keep each landmark as a separate transparent primary-object sprite. Do not bake grass/sand floors,
+  flower rings, or heavy bottom shadows into it.
+- Keep only permanently shared terrain in the foundation. In Coral, extra socket plates were removed from
+  the foundation because the landmark sprites already own their paper plates; two stacked plates immediately
+  reveal the layer split.
+- Use small contact dressing only as separate cluster members. It integrates an object after placement
+  without forcing it to carry a scenic base.
+- Place every sprite on the foundation using center-bottom anchors, then render `make shot-sw
+  SCENE=coral_reef_paper OUT=/tmp/coral.png`. Compare against the source before adding more dressing.
+- Correct the earliest wrong layer—foundation geometry, visible bounds, anchor, or scale—rather than
+  covering a mismatch with foreground decoration.
+
+#### Locked-state coverup contract
+
+`coverup` is the dedicated topmost Scene Workbench layer. It is not ordinary foreground dressing.
+Create **one cluster per primary-object region**, so one unlock action removes the meaningful visible area
+around that object. Coral has five: `unlock_region_shipwreck`, `unlock_region_chest`,
+`unlock_region_anchor`, `unlock_region_statue`, and `unlock_region_clam`.
+
+Each coverup cluster may contain multiple repeated transparent pieces—shell caps, coral fans, sponge
+clusters, kelp curtains, and pebble mats—but every member shares the region's cluster name and the
+`coverup` layer. Lay large pieces past the screen edges and overlap their paper rims to form a mostly
+covered page with a few intentional water gaps, matching the locked mock. Do not make one cluster per
+sprite: that makes the page read as scattered props and makes an unlock feel too small.
+
+Before shipping, hide one region at a time in the Workbench. The remainder must still read as a coherent
+locked page, and removing the region must reveal a clear landmark/socket without a turf island, duplicate
+plate, dark shadow slab, or accidental hole.
+
+### 11e · Desert Oasis case study — layer-ready mock, minimal deconstruction, and full-page leaf lock
+
+Desert Oasis established the preferred workflow for a scene that must be editable without looking like a
+collection of pasted sprites. Its active bundle is
+`games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/`. The bundle is the living
+example; `metadata/placements.json` is the scene authority and
+`00_source/reference/desert_oasis_watchtower_reference_mock_v1.png` is the composition/material reference.
+
+#### Decide the three authored families before generating the mock
+
+Do not first make a rich flattened illustration and hope it can be separated later. Prompt the dressed mock
+with a small, named runtime inventory and with clear sockets for the objects. The review mock may include
+sky, clouds, mountains, and atmosphere so the art direction is clear, but the runtime export is planned as
+these three families:
+
+1. **Stable backdrop.** One continuous sand/floor-and-water plate with the permanent pond shape, bank
+   geometry, route/path, low terrain marks, and the restrained background vegetation that still belongs when
+   every landmark is absent. Keep sky and moving clouds out of this plate. Keep far dunes/mountains separate
+   when they need parallax or independent palette changes. A backdrop is allowed to show the *places* where
+   objects will sit; it must not contain smooth rectangular sockets, object shadows, or replacement-specific
+   pads.
+2. **Primary objects.** Four to six large, swappable landmarks only. For Desert Oasis the useful set is
+   adobe compound, watchtower, market stall, travel tent, and camel caravan. Each is one full transparent
+   sprite at the source camera and size. If the landmark visibly owns a shaped cut-paper sand plate, local
+   stones, or tiny vegetation, extract/regenerate those pixels as part of that hero sprite; do **not** add a
+   generic circular floor pad later. Do not include a dark cast-shadow slab.
+3. **Top dressing and unlock cover.** Keep permanent blending pieces—pond-edge plants, irregular rocks,
+   bushes, flower/plant clusters, and foreground framing—as reusable transparent dressing above the primary
+   objects. Separately, create a small repeated family for the locked state. Desert Oasis uses six *single,
+   large cut-paper leaves*, not dense foliage bouquets, mist, or a painted blanket. Broad opaque fan leaves
+   form the full-screen under-canopy; thinner leaf silhouettes are sparse accents. The lock leaves belong in
+   `coverup`; permanent environmental blending remains ordinary `foreground_objects`/dressing.
+
+The first mock must use the **same elevated three-quarter camera, upper-left light, paper grain, palette,
+and large-object scale** for all three families. Limit the landmark count deliberately. Every extra tiny
+lantern, pot, shrub, pebble, or rug that must later be extracted becomes manual placement work and a new
+opportunity for scale/camera drift.
+
+#### Reference-directed deconstruction
+
+When reconstructing an approved mock, use it as an *edit/reference target*, not as a loose inspiration.
+Work in this order and stop for visual review at the stated gates:
+
+1. **Inventory and ownership.** Write down permanent terrain, removable terrain features, the four-to-six
+   primary landmarks, permanent foreground dressing, and lock-cover regions. Ask of every visible item:
+   “when this landmark changes, should this item move too?” Only then choose the layer/cluster.
+2. **Backdrop edit.** Attach the original mock and request an in-place removal of the complete inventory of
+   removable landmarks. Lock canvas, crop, pond shape, sand/path geometry, bank edge, terrain texture,
+   paper grain, palette, and light. Explicitly request no sky/cloud layer in the backdrop if they are
+   authored separately. Compare at equal size; reject regenerated terrain, clean empty pads, changed pond
+   banks, or object ghosts rather than trying to camouflage them later.
+3. **Primary extraction, one at a time.** Attach the untouched mock as the camera/scale/material authority
+   and generate one subject on a flat key with generous clearance. State its source position, facing,
+   perspective, and what attached bottom paper plate/contact details are inseparable. Do not say merely
+   “cut out”; name the landmark and forbid rotation, mirroring, resizing, simplification, scenic floor,
+   extra props, and baked shadow. Keep the exact prompt beside the raw sheet and final RGBA asset.
+4. **One-object reconstruction gate.** Chroma key the subject, place it on the backdrop at measured
+   center-bottom bounds, and render it in Scene Workbench. If it feels forced, correct the source-directed
+   extraction, visible alpha bounds, placement envelope, or ownership of its paper plate before producing
+   other primary assets. Do not solve a bad extraction by surrounding it with an artificial grass/sand ring.
+5. **Repeat for other heroes, then dressing.** Only after the bare major layout matches the mock, add
+   reusable rock/vegetation sprites around pond banks and object contacts. Place them asymmetrically to
+   overlap seams lightly; they soften integration but must not hide an incorrect anchor.
+
+For source-critical objects, masking/segmentation of the approved pixels remains the highest-fidelity
+method (§11b). Reference-directed image generation is acceptable only when it retains the approved camera
+and is reviewed against the mock; treat any changed silhouette/angle as a new variation, not an extraction.
+
+#### Reconstruction contract in Scene Workbench
+
+Use the desert scene as a registered composition, not a loose collage:
+
+- Store the foundation in `01_backdrop`, hero sprites in `03_structures`, permanent blending pieces in
+  `05_dressing`, and lock sprites in `06_coverup`. Store raw keyed generations and prompt sidecars beside
+  their derived assets but keep them out of the addable runtime palette.
+- Keep `metadata/placements.json` as the only placement authority. Use center-bottom anchors and compensate
+  for each PNG's transparent padding. A sprite's visible bounds—not its padded file dimensions—must match
+  the source object bounds.
+- Put each hero in its own semantic cluster (`adobe_compound`, `watchtower`, `market_stall`, `travel_tent`,
+  `camel_caravan`). Hero-owned paper plates remain inside that hero asset. Do not create another shared
+  plate in the foundation or a duplicate plate will be visible.
+- Place the major landmarks first, compare their scale and camera to the reference, then lay path/stone
+  variants and only then place permanent dressing. For Oasis, the path must visibly approach its intended
+  destination; no disconnected decorative route or baked stone road is acceptable.
+- Review in the actual tool after every checkpoint:
+
+  ```sh
+  make import
+  make shot-sw SCENE=desert_oasis_watchtower OUT=/tmp/desert-oasis-review.png
+  ```
+
+  The screenshot, not a JSON diff, is the visual acceptance evidence. Inspect whether hero bottoms feel
+  integrated, whether pond-bank dressing breaks hard cutout edges, and whether no contact shadow reads as a
+  heavy black/dark-brown strip.
+
+#### Full-page locked-state contract
+
+The locked screen is a composition in its own right: it must hide the scene without looking like a few
+decorations randomly placed over it.
+
+1. Generate a small family of **single** large paper-cut leaves on a flat key—broad solid fans plus a few
+   thinner date/curve/feather silhouettes. Require the same matte cardstock planes, fibre grain, warm cut
+   edge, thin locally darker edge, and upper-left light as the scene. Reject plastic, 3D, glossy, painterly,
+   or photographic leaves.
+2. Make the broad fan leaves large enough to cover the internal gaps of the thinner/open leaf shapes. Place
+   the fans first as a loose screen-spanning canopy, extending beyond the page edges. Then add only a few
+   thin leaves as accents; do not make tightly packed bouquet clusters.
+3. Assign the leaves to **one `coverup` cluster per meaningful primary region** (`lock_adobe`,
+   `lock_watchtower`, `lock_market_stall`, `lock_travel_tent`, `lock_caravan`). A cluster may span beyond
+   its object’s exact silhouette because it participates in the full-screen canopy; it must still reveal a
+   purposeful region when removed.
+4. Test the fully locked scene first—no landmark should show through leaf gaps—then hide each cluster one at
+   a time. The remaining leaves should still read as a deliberate cover, and the revealed area should expose
+   the complete landmark and its owned paper plate rather than a bare pad.
+
+The current Oasis leaf source and variants live in
+`06_coverup/single_leaf_pack/`. The prior multi-leaf bouquet pack was intentionally removed: it was too
+clumped, too visibly composited, and did not provide reliable full-screen coverage.
+
+### 11f · Winter Lantern Lodge case study — mock-to-modular reconstruction and snow unlocks
+
+Winter Lantern Lodge records the complete transition from a generative winter concept to an editable
+Scene Workbench page. Its active bundle is
+`games/grove/assets/_concepts/zones/winter_lantern_lodge_elements_v1/`; its authoritative placement
+contract is `metadata/placements.json`. The chosen composition reference is
+`winter_layered_mock_variations_v1/winter_layered_lantern_lodge_plaza_v1.png`, with its adjacent prompt
+sidecar. The later reconstruction previews are evidence, not source authorities.
+
+#### Generate the mock for the later layers, not merely for a pretty flat picture
+
+Three deliberately different 941×1672 winter mocks were generated first: Lantern Lodge Plaza, Frozen
+Market Harbor, and Snowcap Observatory Garden. Select one only after judging its scene story and its
+ability to separate cleanly. The Lantern Lodge prompt explicitly requested four compositing passes:
+
+1. **Sky/atmosphere.** A separate upper plate, never baked into the foundation.
+2. **Foundation/backdrop.** Snow field, pond, path, mountain/perimeter spruce read, and only permanent
+   low environment. It remains coherent if every landmark is hidden.
+3. **Five hero regions.** Lodge, gazebo, bridge, dock with rowboat, and entrance arch are large isolated
+   objects with at least one object-width of exposed ground between them. This is a small enough inventory
+   to extract, measure, and replace without hand-positioning dozens of fragments.
+4. **Permanent edge dressing.** Spruce, bushes, rocks, and snowbanks stay at the perimeter and overlap
+   hero feet only lightly. They make the scene feel complete without becoming per-unlock items.
+
+The specific final roster may change after review: the bridge region was intentionally replaced with a
+paper-plate Christmas tree. Preserve the **region/socket and semantic cluster**, then regenerate the
+single hero; do not revise the foundation or reshuffle unrelated landmarks merely because one object
+changes. A variation is successful when the same camera, footprint, scale, and visual weight still fit
+the planned region.
+
+#### Deconstruct with explicit ownership and full silhouettes
+
+The working bundle preserves the result of the deconstruction rather than relying on chat history:
+
+- `01_underlay/sky_atmosphere.png` is separate from `02_backdrop/foundation.png`.
+- Each landmark is a standalone transparent object under `03_structures/`; use its `*_paper_plate_v2.png`
+  companion when the object visibly owns a snow-paper footing. The Christmas tree is
+  `christmas_tree_paper_plate_v1.png`.
+- `05_coverings/edge_coverings.png` contains fixed environmental blending only, never a hidden hero.
+- `09_reconstruction/` contains checkpoint composites, while the source PNGs and
+  `metadata/placements.json` remain the reproducible inputs.
+
+The plate belongs to the hero exactly once. A soft snow-paper plate below a lodge, gazebo, dock, arch, or
+tree is a desirable cut-paper depth cue, but the foundation must not carry a second matching pad. Keep the
+color sprite free of a dark cast shadow; during this reconstruction shadows were disabled while placement,
+paper rims, and alpha edges were being evaluated. Reintroduce only the guide's short separate/runtime
+contact treatment after it is demonstrated to help rather than obscure the paper layers.
+
+Do not let foreground rocks or snowbanks cover a hero's identity. The lodge review exposed the failure
+mode directly: a rock hid the roof/top silhouette. Correct the ownership/z/placement so peripheral
+dressing may overlap the **footing** but never conceals a roof, entrance, or other defining top contour.
+If a foreground overlap is needed for depth, make it a separate top-dressing member and verify the whole
+hero remains readable at phone size.
+
+#### Reconstruct through measured, reversible checkpoints
+
+1. Put the underlay and foundation in Scene Workbench; verify the snow field, pond edge, path, and
+   perimeter all read without any hero.
+2. Place the lodge, gazebo, tree, dock/rowboat, and arch by center-bottom anchor and visible alpha bounds.
+   Review their paper plates before adding permanent coverings. Keep each hero in its own semantic cluster.
+3. Add the perimeter covering last. Use it to blend lower seams and frame the scene, not to repair a wrong
+   hero size, a missing roof, or a bad anchor.
+4. Render the composition with `make shot-sw SCENE=winter_lantern_lodge OUT=/tmp/winter-review.png`.
+   Compare it against the selected mock in the Workbench reference pane. A screenshot is the visual gate;
+   a valid JSON file alone does not prove a coherent paper scene.
+
+#### Build the locked state as clustered snow paper
+
+The fully covered preview lives in `winter_unlock_cover_mock_v1/preview/`, with the reusable asset family
+and overlap recipe recorded in `cover_layout.json`. It deliberately uses broad scalloped snow drifts as a
+grid with substantial overlap, then a small accent family of crystal snowflakes, rosette snowflakes, and
+flurry clusters. Large repeated pieces cover the page reliably; tiny individual flakes would create reveal
+cracks and turn assembly into manual decoration work.
+
+Place every locked piece in the dedicated topmost **`coverup`** Scene Workbench layer—not in
+`primary_objects` or ordinary foreground dressing. The active winter page has 23 members grouped by the
+primary region they hide:
+
+| Coverup cluster | Members | Reveals |
+|---|---:|---|
+| `unlock_lodge` | 5 | lodge + owned snow plate |
+| `unlock_gazebo` | 3 | gazebo + owned snow plate |
+| `unlock_christmas_tree` | 3 | Christmas tree + owned snow plate |
+| `unlock_dock` | 5 | dock/rowboat + owned snow plate |
+| `unlock_entrance_arch` | 7 | entrance arch + owned snow plate |
+
+This is one cluster **per unlock region**, not per snowflake or drift. Test the all-covered composition
+first, then hide one cluster at a time. The remaining snow must still read as a purposeful full-page
+cover, and the revealed region must show a complete, grounded landmark rather than a bare foundation
+socket or a truncated silhouette.
+
+### 11g · Fairy Hollow case study — leaf-canopy lock over an accepted reconstruction
+
+Fairy Hollow records how to add a completely locked state to an already accepted modular scene without
+redrawing, flattening, or destabilizing the unlocked composition. The working scene is
+`games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v3/`; its
+`metadata/placements.json` is the placement authority. The concept and source family are retained at
+`games/grove/assets/_concepts/zones/fairy_hollow_unlock_cover_mock_v1/`.
+
+#### Generate the lock as a second composition, not a paint-over
+
+First create two full-scene reviews at the same 941 x 1672 vertical camera: the accepted **unlocked**
+Fairy Hollow market and a **fully covered** version. The covered review must read as deliberately layered
+paper canopy, not as a dark overlay, fog, a dimmer, or a pile of unrelated foliage. Fairy Hollow used six
+repeatable opaque cut-paper silhouettes: round leaf, monstera leaf, fern fan, flower clump, scalloped vine,
+and corner canopy. Keep the cover palette richer than the foundation but retain the same warm cut edge,
+subtle grain, and upper-left light.
+
+Generate raw cover pieces one at a time on a flat key background; process each to a transparent PNG and
+validate transparent corners, non-empty alpha, and no surviving key color. Save both raw and processed
+versions, their prompt, the unlocked mock, the covered mock, and an assembled concept preview. A cover
+family is a small reusable vocabulary, not a one-off full-page bitmap.
+
+#### Deconstruct by ownership, preserving the unlocked scene
+
+Do **not** try to regenerate or cut the full market apart again just to add a lock. Reuse the accepted
+foundation and the six primary objects from the prior reconstruction—mushroom hall, tea stall,
+crystal-map stall, stream bridge, flower crate, and lantern gate. Their object art remains in
+`primary_objects`; the foundation remains an opaque backdrop. The new lock pieces are separate transparent
+assets under `05_dressing/unlock_canopy/`.
+
+This preserves the key ownership contract:
+
+1. The backdrop contains only stable environment and still works if every market object is hidden.
+2. Each market landmark owns its own paper plate and local contact treatment exactly once.
+3. The leaves own **only** the temporary concealment. They never become part of a hero sprite, scenic base,
+   floor patch, dark bottom shadow, or permanent foreground dressing.
+
+#### Reconstruct in the dedicated `coverup` layer
+
+Place the existing foundation and primary objects first. Add the leaf family only in the fixed topmost
+`coverup` layer, with generous overlap and a few intentional teaser gaps. A fully covered page should still
+feel like one hand-cut canopy; leaves may cross page edges and overlap neighboring regions to avoid a rigid
+grid, but their clusters remain semantic.
+
+Fairy Hollow's final coverup grouping is deliberately **one cluster per primary-object region**, never one
+cluster per leaf:
+
+| Coverup cluster | Members | Reveals |
+|---|---:|---|
+| `unlock_region_mushroom_hall` | 2 | mushroom hall |
+| `unlock_region_tea_stall` | 2 | tea stall |
+| `unlock_region_crystal_map_stall` | 1 | crystal-map stall |
+| `unlock_region_stream_bridge` | 1 | stream bridge |
+| `unlock_region_flower_crate` | 1 | flower crate |
+| `unlock_region_lantern_gate` | 4 | lantern gate |
+
+Every member carries `unlockCover: true`, the same region `cluster`, and the shared `coverup` layer;
+members within a region use `z` only for their local overlap. This makes one unlock action reveal a meaningful
+market area, rather than removing a single decorative leaf. The grouped clusters also make the Workbench
+sidebar a clear unlock plan rather than an unmanageable sprite list.
+
+#### Reconstruction and review gate
+
+1. Render the fully covered scene with `make shot-sw SCENE=fairy_hollow_market
+   ROOT=res://games/grove/assets/_concepts/zones OUT=/tmp/fairy-hollow-cover.png` and compare it against the
+   covered concept mock.
+2. In Scene Workbench, hide each `unlock_region_*` cluster one at a time. The removed cluster must reveal
+   its complete primary object and owned paper plate; the remaining leaves must still read as intentional
+   canopy, not a torn hole or a row of isolated stickers.
+3. Confirm the `Coverup` band is above `Primary Objects` and ordinary `Foreground Objects`, then parse
+   `placements.json` and run the focused Workbench suite.
+4. Keep the reconstruction preview as review evidence, but treat its source PNGs plus placement metadata as
+   the reproducible scene. Never replace those inputs with a flattened screenshot.
+
+The first Fairy Hollow pass grouped every cover sprite separately in `foreground_objects`. That made a
+single unlock too small and obscured the gameplay meaning. The corrected implementation moved the pieces
+to `coverup` and grouped them by the primary object region they conceal. This is the reusable pattern for
+all future locked zones.
+
+### 11h · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -651,6 +1080,8 @@ bad geometry under vegetation.
 | Scene quality drifts late | Too many assets generated before visual approval | Gate the pipeline: dressed mock -> backdrop+one hero test -> remaining assets -> final reconstruction |
 | "Extracted" object changes size or angle | A generative redraw was used for an exact source-preservation task | Mask the approved source in full-canvas coordinates; reserve generation for edge repair or an explicitly new variation |
 | Horizon layer covers the lake or playable floor | A full-width plate contains foreground terrain below its intended band | Crop/mask it to its registered horizon band and validate the alpha footprint before compositing |
+| Locked cover reads as scattered decorations | One cover cluster was made per sprite instead of per meaningful region | Group repeated cover sprites into one topmost `coverup` cluster for each primary-object region; test hiding one region at a time |
+| Landmark shows a doubled paper plate | Both the foundation and the landmark sprite own the same raised plate | Keep the plate in only one layer—normally the movable landmark—and regenerate/edit the foundation to remove its duplicate socket plate |
 
 ### Rejection checklist (regenerate if any is "yes")
 

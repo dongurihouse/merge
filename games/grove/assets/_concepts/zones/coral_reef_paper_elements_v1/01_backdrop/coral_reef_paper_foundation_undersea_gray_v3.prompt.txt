@@ -1,0 +1,7 @@
+Use case: style-transfer
+Asset type: production 941x1672 vertical game-scene foundation/backdrop
+Input image: coral_reef_paper_foundation_no_extra_plates_v2.png — edit target and composition reference.
+
+Repaint only the backdrop color and underwater atmosphere. Preserve the exact silhouette, proportions, perspective, and positions of every cut-paper rock ledge, platform, pebble, central water channel, sandy bottom opening, and upper light shafts. Keep the foundation clean: no buildings, shipwreck, chest, anchor, statue, clam, coral, shells, kelp, bubbles, characters, text, or UI.
+
+Style: layered handmade cut-paper diorama with fine paper grain and subtle pressed-paper emboss texture. Palette: quiet deep underwater slate-blue rock sides, desaturated blue-gray and muted teal platform tops, smoky gray-teal water, pale aqua light shafts, and soft warm gray-beige sand. Retain readable ledge contrast, avoid neon cyan or royal blue, add no extra terrain or raised plates.

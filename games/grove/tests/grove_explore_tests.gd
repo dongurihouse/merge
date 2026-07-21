@@ -284,9 +284,10 @@ func _test_map_card_expedition_chrome() -> void:
 	# the side rail that carried it was replaced by the bottom bar.
 	ok(_home_chrome_button(hx, "Expedition") == null, "home no longer carries an Expedition rail tile")
 
-	# the BOTTOM BAR tiles: icon over caption inside a rounded paper tile, each on its own texture.
-	var tiles := {"MapTile": "sky", "ResidentsTile": "green", "DailyTile": "gold",
-		"BoardTile": "coral"}
+	# the BOTTOM BAR tiles: each is now a baked cut-paper SPRITE (icon + label in one PNG, over a soft
+	# drop shadow — see ui/sprite_button.gd), keyed by spec name to games/grove/assets/ui/nav/nav_<x>.png.
+	var tiles := {"MapTile": "nav_map", "ResidentsTile": "nav_residents", "DailyTile": "nav_daily",
+		"BoardTile": "nav_board"}
 	# Vault is parked (`piggy_vault` flag OFF) — its tile stays off the bar.
 	ok(hx.get_node_or_null("VaultTile") == null, "the parked Vault carries no bottom-bar tile")
 	for tile_name in tiles:
@@ -294,9 +295,13 @@ func _test_map_card_expedition_chrome() -> void:
 		ok(btn != null, "the bottom bar carries the %s" % tile_name)
 		if btn == null:
 			continue
-		# captions are the mock's read (unlike the old icon-only rail discs), so text IS expected now
-		ok(_button_has_visible_text(btn), "%s carries its caption" % tile_name)
-		ok(_button_icon_is_centered_x(btn), "%s icon is centered horizontally over its caption" % tile_name)
+		# the tile wears its baked nav sprite (icon + label), and lifts off the scene with a drop shadow.
+		var sprites: Array = btn.find_children("*", "TextureRect", true, false)
+		var wears_sprite := sprites.any(func(tr: TextureRect) -> bool:
+			return tr.texture != null and String(tr.texture.resource_path).ends_with(String(tiles[tile_name]) + ".png"))
+		var has_shadow := sprites.any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99)
+		ok(wears_sprite, "%s wears its baked cut-paper nav sprite" % tile_name)
+		ok(has_shadow, "%s lifts off the scene with a drop shadow" % tile_name)
 	# Settings left the bar for a plain gear pinned top-right, under the wallet pills
 	ok(hx.get_node_or_null("SettingsTile") == null, "Settings is no longer a bottom-bar tile")
 	var gear := hx.get_node_or_null("SettingsGear") as Button

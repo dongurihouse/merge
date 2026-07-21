@@ -26,6 +26,9 @@ const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (board Home + Bag wells)
+const NAV_HOME := "res://games/grove/assets/ui/nav/nav_home.png"
+const NAV_BAG := "res://games/grove/assets/ui/nav/nav_bag.png"
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
@@ -36,6 +39,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")      # (workbench-t
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")        # the toggleable Grab (pickup) highlight
+const GridFx = preload("res://engine/scripts/ui/grid_fx.gd")       # THE shared merge/slide-land orchestration (board + residents)
 const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
@@ -119,6 +123,7 @@ var _land_opts := {}
 var _launch_opts := {}
 var _move_opts := {}
 var _grab_opts := {}
+var _grid_fx_opts := {}   # {merge,move,land} bundle handed to GridFx (the shared merge/slide-land owner)
 # the quest-ready glow look (colour/opacity/roundness/halo), resolved ONCE in _ready from the workbench
 # "ready_glow" section so add_ready_glow renders the SAME look the workbench previews. {} → shipped amber.
 var _ready_glow_opts := {}
@@ -354,6 +359,7 @@ func _ready() -> void:
 	_launch_opts = LaunchFx.from_config(fx_cfg)
 	_move_opts = MoveFx.from_config(fx_cfg)
 	_grab_opts = GrabFx.from_config(fx_cfg)
+	_grid_fx_opts = {"merge": _merge_opts, "move": _move_opts, "land": _land_opts}   # one bundle for GridFx
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
 	if _winback:
@@ -1647,20 +1653,56 @@ func _relayout_action_bar_after_resize() -> void:
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var b := ActionBar.home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)   # the home-button disc + satchel icon + the in-disc "x/y" count
-	ActionBar.clear_button_frame(b)
+	if not ResourceLoader.exists(NAV_BAG):
+		# fallback: the drawn disc + swap icon (pre-sprite path)
+		var d := ActionBar.home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)
+		ActionBar.clear_button_frame(d)
+		d.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bag_content = d.get_meta("icon_wrap") if d.has_meta("icon_wrap") else null
+		bag_piece_px = float(d.get_meta("icon_px", px * 0.5))
+		_bag_count_lbl = d.get_meta("count_label") if d.has_meta("count_label") else null
+		d.pressed.connect(_open_bag_overlay)
+		return d
+	# The full cut-paper BAG tile (satchel baked in) is the whole button, over its drop shadow. When the
+	# bag holds items the most-recent one overlays the baked satchel (bag_content); the "x/y" count rides
+	# the tile's foot. Drag-to-stash / drag-back / highlight all key off the button's global rect, unchanged.
+	var b := SpriteButton.build(load(NAV_BAG), Vector2(px, px), Callable(self, "_open_bag_overlay"), {"name": "BagWell"})
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
-	# same size — a true icon swap, per the workbench-tuned button), and the satchel is restored when the
-	# bag empties (see _rebuild_bag). No separate small overlay riding on top of the satchel anymore.
-	bag_content = b.get_meta("icon_wrap") if b.has_meta("icon_wrap") else null
-	bag_piece_px = float(b.get_meta("icon_px", px * 0.5))   # match the satchel icon box so the item FILLS it
-	# the "x/y" slot count now lives INSIDE the disc (the shared home_button's count overlay), so the bag cell
-	# is the same px box as the info bar + home disc next to it. The label is updated in place via this meta.
-	_bag_count_lbl = b.get_meta("count_label") if b.has_meta("count_label") else null
-	b.pressed.connect(_open_bag_overlay)
+	var content := CenterContainer.new()
+	content.name = "BagContent"
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(content)
+	bag_content = content
+	# the stashed item overlays the tile directly (no cream backing) — sized to FILL the tile so it fully
+	# covers the baked satchel (the count still rides the tile foot).
+	bag_piece_px = roundf(px)
+	_bag_count_lbl = _make_bag_count_label(px)
+	b.add_child(_bag_count_lbl)
+	_rebuild_bag()
 	return b
+
+# The "x/y" bag count riding the foot of the bag tile: cream ink over a dark outline, bottom-centred.
+func _make_bag_count_label(px: float) -> Label:
+	var lbl := Label.new()
+	lbl.name = "BagCount"
+	lbl.text = _bag_count_text()
+	lbl.theme = load("res://engine/scripts/ui/ui_font.gd").make()
+	lbl.add_theme_font_size_override("font_size", int(roundf(px * 0.19)))
+	lbl.add_theme_color_override("font_color", Pal.CREAM)
+	lbl.add_theme_color_override("font_outline_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", maxi(2, int(roundf(px * 0.03))))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.anchor_left = 0.0
+	lbl.anchor_right = 1.0
+	lbl.anchor_top = 0.62
+	lbl.anchor_bottom = 1.0
+	lbl.offset_bottom = -roundf(px * 0.06)
+	return lbl
 
 # The bottom-bar Bag cell: just the swap-icon bag well — the "x/y" count rides INSIDE the disc now
 # (see _make_bag_button), so the cell matches the height of the info bar + Home disc beside it.
@@ -1715,14 +1757,20 @@ func _bag_count_text() -> String:
 
 # The Home disc for the bottom bar's left edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var b := ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
-	ActionBar.clear_button_frame(b)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.pressed.connect(func() -> void:
+	var go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
-		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn"))
+		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
+	var b: Button
+	if ResourceLoader.exists(NAV_HOME):
+		# the full cut-paper home sprite tile (icon baked in, over its drop shadow)
+		b = SpriteButton.build(load(NAV_HOME), Vector2(px, px), go, {"name": "BoardHomeTile"})
+	else:
+		b = ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
+		ActionBar.clear_button_frame(b)
+		b.pressed.connect(go)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return b
 
 # The center INFO BAR: [info button] [selected piece + name] [trashcan/sell]. Tapping a board item fills it
@@ -2812,7 +2860,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# MergeFx.apply now — every cue is a workbench toggle/knob.
 	# T63: a §6.G recipe-line (special "treasure" line) merge fires the intensified big-moment feel at EVERY
 	# tier — top-band colour/chime/haptic + the reserved shake + board punch — so the premium lines always land.
-	MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0, G.is_special_line(produced))
+	GridFx.play_merge(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), _grid_fx_opts, false, G.is_special_line(produced))
 	# bundle D: poke the screen-bloom — a PERSISTENT overlay, so it can't live inside apply(); gate + scale it
 	# here by the workbench's combo_bloom toggle + bloom_pct knob (the scene owns the world reaction).
 	if MergeFx.on(_merge_opts, "combo_bloom") and _combo_bloom != null and is_instance_valid(_combo_bloom):
@@ -3238,9 +3286,7 @@ func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	# orthogonal neighbours bumped. LandFx owns the touchdown sound now, so the old bare item_drop is gone
 	# (keeping it would double with the land sound). Mirrors the generator-pop touchdown at _pop_seed.
 	var land_ctr := _cell_pos(b) + Vector2(csz, csz) / 2.0
-	var t := node.create_tween()
-	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_callback(LandFx.apply.bind(board_area, node, land_ctr, _land_opts, 1.0, false, _orthogonal_neighbour_nodes(b)))
+	GridFx.slide_and_land(board_area, node, _cell_pos(b), land_ctr, _orthogonal_neighbour_nodes(b), _grid_fx_opts, 120)
 	_persist()
 	_refresh_giver_lights()
 
@@ -3347,13 +3393,12 @@ func _rebuild_bag() -> void:
 	for c in bag_content.get_children():
 		c.queue_free()
 	if bag.is_empty():
-		# empty → restore the satchel glyph (the same workbench-tuned kit icon the disc shipped with)
-		var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-		if Kit != null:
-			bag_content.add_child(Kit.make_icon("bag", bag_piece_px))
+		# empty → the tile's baked satchel IS the empty state (sprite tile); the drawn-disc fallback
+		# restores the kit "bag" glyph into its icon wrap instead.
+		if not ResourceLoader.exists(NAV_BAG):
+			bag_content.add_child(load("res://games/grove/tools/ui_workbench_kit.gd").make_icon("bag", bag_piece_px))
 	else:
-		# filled → the most-recent stashed item, sized to FILL the disc's icon box (a true swap, not a
-		# tiny preview riding on top of the satchel).
+		# filled → the most-recent stashed item overlays the tile directly, sized large to cover the satchel.
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing

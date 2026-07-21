@@ -300,6 +300,11 @@ func _initialize() -> void:
 			print("WATERSHOP probe: cluster=%s water_pill=%s button=%s" % [cluster, water_pill_panel, water_button])
 			water_button.pressed.emit()
 			await create_timer(0.6).timeout
+		"bagwell":
+			# the bottom-nav Bag WELL in its filled state (a stashed item over the tile) — no overlay
+			scn.bag = [101]
+			scn._rebuild_bag()
+			await create_timer(0.4).timeout
 		"bag":
 			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
 			# balance for the acorn counter, then open the modal so the whole ladder shows

@@ -40,7 +40,12 @@ static func _screen_w_px(view: Vector2, frac: float) -> float:
 static func _set_slot_width(node: Control, width: float) -> void:
 	if node == null:
 		return
-	node.custom_minimum_size = Vector2(width, node.custom_minimum_size.y)
+	# EXPAND_FILL makes the three pills share the wallet cluster EQUALLY — that, not a hard min, is what
+	# sizes them to their slot. We deliberately do NOT pin custom_minimum_size.x to `width`: `width` is
+	# derived from the raw viewport, while the cluster is anchored to the (possibly smaller) host, so a
+	# hard floor would overflow when host != viewport (e.g. a Design-sized host in a bigger test window).
+	# A small floor (the pill height) only guards against a degenerate 0-width collapse.
+	node.custom_minimum_size = Vector2(minf(width, node.custom_minimum_size.y), node.custom_minimum_size.y)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 static func _painted_top_offset(node: Control) -> float:
@@ -269,29 +274,34 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	refresh.call()
 	return out
 
-# One currency pill: the workbench-styled gold badge wrapping a fixed icon BOX + the number + a green "+"
-# affordance. The pill surface opens the store. Added to `cluster`; returns {panel, label, icon, plus}.
+# The runtime cut-paper pill sprite per currency (icon + "+" baked in, empty body for the number).
+const PILL_SPRITE := {
+	"water": "res://games/grove/assets/ui/wallet/pill_water.png",
+	"coin": "res://games/grove/assets/ui/wallet/pill_coin.png",
+	"gem": "res://games/grove/assets/ui/wallet/pill_gem.png",
+}
+
+# One currency pill: the cut-paper sprite pill (CurrencyPillSprite) — a flat pill PNG with the icon +
+# green "+" baked in, and the number laid over the empty body. The whole pill opens the store. Added to
+# `cluster`; returns {panel, label, icon, plus}. (Replaces the drawn Kit.gold_currency_pill; the tint /
+# optical / icon-box args are legacy no-ops kept so the call sites don't churn.)
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
 		optical: float, tint: Color, num_size: int, box: float, open_store: Callable, init_count: int = 0) -> Dictionary:
-	var po: Dictionary = pill.duplicate()
-	po["icon"] = icon_id
-	po["icon_size"] = float(gsize) * optical
-	po["icon_box"] = box
-	po["num_size"] = num_size
-	po["count"] = init_count
-	po["show_plus"] = true
-	po["plus_action"] = open_store
+	var Sprite = load("res://engine/scripts/ui/currency_pill_sprite.gd")
+	var tex: Texture2D = load(String(PILL_SPRITE.get(icon_id, PILL_SPRITE["water"]))) as Texture2D
+	var pill_h := float(pill.get("pill_h", 100.0))
 	# born showing the CURRENT value, not 0 — so build()'s first refresh sets silently instead of
 	# count-ticking up from 0 every time a page rebuilds the HUD.
-	var panel: Control = Kit.gold_currency_pill(po, {icon_id: init_count})
+	var panel: Button = Sprite.build({
+		"tex": tex, "count": init_count, "height": pill_h, "num_size": num_size,
+		"plus_action": open_store,
+	})
+	# Unique per-currency name that still begins with "GoldCurrencyPill" (three same-named siblings in the
+	# cluster would otherwise auto-rename to "@Button@N", breaking the _ancestor_named("GoldCurrencyPill") contract).
+	panel.name = "GoldCurrencyPill" + icon_id.capitalize()
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var lbl := panel.find_child("GoldCurrencyAmount", true, false) as Label
 	var icon := panel.find_child("GoldCurrencyIcon", true, false) as Control
-	if icon != null:
-		icon.modulate = tint
-		if icon is Label:
-			(icon as Label).add_theme_color_override("font_color", tint)
-			icon.modulate = Color.WHITE
 	var plus := panel.find_child("GoldCurrencyPlusButton", true, false) as Control
 	cluster.add_child(panel)
 	return {"panel": panel, "label": lbl, "icon": icon, "plus": plus}
