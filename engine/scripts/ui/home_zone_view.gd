@@ -12,6 +12,7 @@ extends RefCounted
 
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")
 const Coverings = preload("res://engine/scripts/ui/scene_coverings.gd")
+const LockBadge = preload("res://engine/scripts/ui/lock_badge.gd")
 
 # Parse a zone manifest JSON into a Dictionary ({} on any parse failure).
 static func load_manifest(path: String) -> Dictionary:
@@ -26,7 +27,7 @@ static func load_manifest(path: String) -> Dictionary:
 # later state refresh. `covering_frames` (the scene's themed cover art, scene_coverings.gd) scatters
 # a seeded cover over every still-locked ("empty") plot; empty list → no coverings.
 static func build(parent: Control, manifest: Dictionary, state_of: Callable, next_step_of: Callable,
-		covering_frames: Array = []) -> Dictionary:
+		covering_frames: Array = [], coverup_mode: bool = false, cluster_locked: Callable = Callable()) -> Dictionary:
 	for c in parent.get_children():
 		c.queue_free()
 	var canvas: Dictionary = manifest.get("canvas", {})
@@ -73,7 +74,7 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 		var anchor := _vec(b.get("position", [0, 0]))
 		var disp := _vec(b.get("display_size", [100, 100]))
 
-		var state := String(state_of.call(id))
+		var state := "built" if coverup_mode else String(state_of.call(id))
 		var tex_path := _state_texture(b, state)
 		if tex_path != "":
 			var prop := TextureRect.new()
@@ -101,26 +102,79 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 			stage.add_child(prop)
 			props[id] = prop
 
-		# a build badge sits at the plot centre for every UNBUILT building (next_step non-empty).
-		var step: Dictionary = next_step_of.call(id)
-		if not step.is_empty():
-			var badge := _build_badge(id, int(step.get("cost", 0)), int(step.get("min_level", 1)))
-			badge.position = anchor - badge.size * 0.5
-			pending_badges.append(badge)
-			badges[id] = badge
-		# a fully LOCKED plot (nothing bought yet) hides under its scene-themed covering scatter,
-		# mounted at the plot's own painter slot; buying the first step reveal()s it away.
-		if state == "empty" and not step.is_empty():
-			var cover := Coverings.scatter(b, covering_frames)
-			if cover != null:
-				stage.add_child(cover)
-				coverings[id] = cover
+		# NON-coverup pages: a build badge at the plot centre for every UNBUILT building, and a
+		# scene-themed covering scatter over a fully LOCKED (empty) plot (revealed on first buy).
+		# Coverup pages skip both — the props render always-built and the authored canopy layer
+		# (mounted below) is what hides each cluster.
+		if not coverup_mode:
+			var step: Dictionary = next_step_of.call(id)
+			if not step.is_empty():
+				var badge := _build_badge(id, int(step.get("cost", 0)), int(step.get("min_level", 1)))
+				badge.position = anchor - badge.size * 0.5
+				pending_badges.append(badge)
+				badges[id] = badge
+			if state == "empty" and not step.is_empty():
+				var cover := Coverings.scatter(b, covering_frames)
+				if cover != null:
+					stage.add_child(cover)
+					coverings[id] = cover
 	# the badges are BUTTONS — mounted after every prop so no scenery ever paints over them.
 	for badge_node in pending_badges:
 		stage.add_child(badge_node)
 
+	if coverup_mode:
+		_mount_coverups(stage, manifest, cluster_locked, coverings, badges)
+
 	return {"stage": stage, "base": base, "props": props, "badges": badges,
 		"coverings": coverings, "canvas": native}
+
+# Coverup pages: the scene's authored `coverups` (per-cluster canopy sprites, cluster == the unlock
+# region id) mount frontmost, one group Control per STILL-LOCKED cluster (`cover_<cluster>`), plus a
+# LockBadge centred over the cluster's structure. `coverings[cluster]` holds the group (revealed away
+# on unlock); `badges[cluster]` holds the lock badge (the map's tap target). Sprites paint in sort_y.
+static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked: Callable,
+		coverings: Dictionary, badges: Dictionary) -> void:
+	var anchor_of := {}          # cluster id -> its structure anchor (for the lock badge centre)
+	for entry_v in manifest.get("buildings", []):
+		var eb: Dictionary = entry_v
+		anchor_of[String(eb.get("cluster", eb.get("id", "")))] = _vec(eb.get("position", [0, 0]))
+	var groups := {}             # cluster id -> {group: Control, sprites: [{sort_y, node}]}
+	for cov_v in manifest.get("coverups", []):
+		var cov: Dictionary = cov_v
+		var cl := String(cov.get("cluster", ""))
+		if not (cluster_locked.is_valid() and bool(cluster_locked.call(cl))):
+			continue
+		if not groups.has(cl):
+			var grp := Control.new()
+			grp.name = "cover_%s" % cl
+			grp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			groups[cl] = {"group": grp, "sprites": []}
+		var ca := _vec(cov.get("position", [0, 0]))
+		var cd := _vec(cov.get("display_size", [100, 100]))
+		var spr := TextureRect.new()
+		spr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		spr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		spr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		spr.size = cd
+		spr.position = ca - Vector2(cd.x * 0.5, cd.y)     # center-bottom anchor, like props
+		spr.pivot_offset = cd * 0.5                        # reveal() scales from the centre
+		if String(cov.get("image", "")) != "" and ResourceLoader.exists(String(cov.image)):
+			spr.texture = load(String(cov.image)) as Texture2D
+		(groups[cl]["sprites"] as Array).append({"sort_y": int(cov.get("sort_y", 0)), "node": spr})
+	for cl in groups.keys():
+		var g: Dictionary = groups[cl]
+		var sprites: Array = g.sprites
+		sprites.sort_custom(func(a, b2): return int(a.sort_y) < int(b2.sort_y))
+		for s in sprites:
+			(g.group as Control).add_child(s.node)
+		stage.add_child(g.group)                          # frontmost (added after every prop)
+		coverings[cl] = g.group
+		var lb: Control = LockBadge.make(cl)
+		var ap: Vector2 = anchor_of.get(cl, Vector2.ZERO)
+		lb.position = ap - Vector2(0, 60) - lb.size * 0.5   # a touch above the plot's center-bottom
+		stage.add_child(lb)
+		badges[cl] = lb
 
 # The art path for a building's current state: its states map, falling back to "built" then "".
 static func _state_texture(b: Dictionary, state: String) -> String:

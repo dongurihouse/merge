@@ -10,6 +10,34 @@ func _texture_path(node: Node) -> String:
 		return String((node as NinePatchRect).texture.resource_path)
 	return ""
 
+func _test_coverup_mode_mounts_canopy_groups_and_lock_badges() -> void:
+	var HZV := load("res://engine/scripts/ui/home_zone_view.gd")
+	var manifest := {
+		"canvas": {"width": 200, "height": 200}, "background": "",
+		"buildings": [{"id": "tea_stall", "position": [100, 150], "display_size": [80, 80], "cluster": "tea_stall", "states": {"built": ""}}],
+		"coverups": [
+			{"id": "canopy_a", "cluster": "tea_stall", "position": [90, 140], "display_size": [60, 60], "sort_y": 0, "image": ""},
+			{"id": "canopy_b", "cluster": "tea_stall", "position": [110, 150], "display_size": [60, 60], "sort_y": 1, "image": ""},
+		],
+	}
+	var parent := Control.new()
+	get_root().add_child(parent)
+	var state_of := func(_id): return "built"
+	var next_of := func(_id): return {}
+	var locked := func(_cl): return true
+	var built: Dictionary = HZV.build(parent, manifest, state_of, next_of, [], true, locked)
+	ok(built.coverings.has("tea_stall"), "coverup: a canopy group is mounted per locked cluster")
+	ok(built.coverings.has("tea_stall") and (built.coverings["tea_stall"] as Control).get_child_count() == 2,
+		"coverup: both canopy sprites are grouped under the cluster")
+	ok(built.badges.has("tea_stall"), "coverup: a lock badge is mounted per locked cluster")
+	ok(built.badges.has("tea_stall") and (built.badges["tea_stall"] as Control).name == "lock_tea_stall",
+		"coverup: the mounted badge is a lock badge")
+	var locked_none := func(_cl): return false
+	var built2: Dictionary = HZV.build(parent, manifest, state_of, next_of, [], true, locked_none)
+	ok(not built2.coverings.has("tea_stall"), "coverup: an unlocked cluster has no canopy group")
+	ok(not built2.badges.has("tea_stall"), "coverup: an unlocked cluster has no lock badge")
+	parent.queue_free()
+
 func _test_lock_badge_states() -> void:
 	var LB := load("res://engine/scripts/ui/lock_badge.gd")
 	var badge: Control = LB.make("tea_stall")
@@ -76,6 +104,7 @@ func _initialize() -> void:
 	begin("grove · ui")
 	_test_meadow_dialog_composition()
 	_test_lock_badge_states()
+	_test_coverup_mode_mounts_canopy_groups_and_lock_badges()
 	fresh("ladder")
 	var s6 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s6)
