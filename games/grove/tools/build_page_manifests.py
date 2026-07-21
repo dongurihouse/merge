@@ -78,6 +78,7 @@ def build_page(root, scene, label):
         bundle_repo_root = os.path.dirname(bundle_repo_root)
 
     buildings = []
+    coverups = []
     if placements:
         base_rel = str(doc.get("base", {}).get("image", ""))
         base_src = os.path.join(bundle_repo_root, base_rel)
@@ -87,16 +88,25 @@ def build_page(root, scene, label):
         canvas = doc.get("canvas", {})
         cw, ch = int(canvas.get("width", 1320)), int(canvas.get("height", 2346))
         for e in placements:
-            if str(e.get("category", "")) == "unlock_cover":
-                # the sw-coverup "fixed" layer (category unlock_cover / layer coverup): a per-cluster
-                # leaf overlay authored for the cover-up unlocks feature's generic covering_frames /
-                # SceneCoverings system, not a manifest "building" — never a page prop.
-                continue
             src = os.path.join(bundle_repo_root, str(e.get("image", "")))
             if not os.path.exists(src):
                 print(f"  ! {scene}: skipping {e.get('id')} — missing {src}")
                 continue
             tex = copy_asset(src, scene, str(e["id"]))
+            if str(e.get("category", "")) == "unlock_cover":
+                # the sw-coverup "fixed" layer: per-cluster canopy sprites (cluster == unlock_region_<id>)
+                # authored for the cover-up unlocks. Carried through as coverups (NOT page props); the
+                # runtime mounts them frontmost per cluster and reveals them away on unlock.
+                region = str(e.get("cluster", ""))
+                cluster = region[len("unlock_region_"):] if region.startswith("unlock_region_") else region
+                coverups.append({
+                    "id": str(e["id"]), "cluster": cluster,
+                    "position": [int(e["x"]), int(e["y"])],
+                    "display_size": [int(e["w"]), int(e["h"])],
+                    "sort_y": int(e.get("z", 0)),
+                    "image": tex,
+                })
+                continue
             entry = {
                 "id": str(e["id"]), "label": str(e["id"]).replace("_", " "),
                 "position": [int(e["x"]), int(e["y"])],
@@ -118,13 +128,13 @@ def build_page(root, scene, label):
 
     manifest = {"version": 1, "id": scene, "label": label,
                 "canvas": {"width": cw, "height": ch},
-                "background": background, "buildings": buildings}
+                "background": background, "buildings": buildings, "coverups": coverups}
     out = os.path.join(OUT_DIR, f"zone_{scene}.json")
     os.makedirs(OUT_DIR, exist_ok=True)
     with open(out, "w") as f:
         json.dump(manifest, f, indent=1)
         f.write("\n")
-    print(f"  wrote {os.path.relpath(out, REPO)}  ({len(buildings)} props, canvas {cw}x{ch})")
+    print(f"  wrote {os.path.relpath(out, REPO)}  ({len(buildings)} props, {len(coverups)} coverups, canvas {cw}x{ch})")
 
 
 def main():

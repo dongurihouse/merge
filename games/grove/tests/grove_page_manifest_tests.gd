@@ -83,5 +83,25 @@ func _initialize() -> void:
 				if not ResourceLoader.exists(String(state)):
 					m_missing += 1
 		ok(m_missing == 0, "every market prop texture imports (%d props)" % m_props.size())
+		# Task 1 (2026-07-20): the authored per-cluster canopy "coverup" layer is carried through
+		# from the placements bundle into the manifest as coverups (NOT page props).
+		var coverups: Array = market.get("coverups", [])
+		ok(coverups.size() == 11, "market manifest carries the 11 canopy coverups (got %d)" % coverups.size())
+		var by_cluster := {}
+		var c_missing := 0
+		var c_prefixed := 0
+		for c in coverups:
+			var cl := String((c as Dictionary).get("cluster", ""))
+			by_cluster[cl] = int(by_cluster.get(cl, 0)) + 1
+			if cl.begins_with("unlock_region_"):
+				c_prefixed += 1
+			if not ResourceLoader.exists(String((c as Dictionary).get("image", ""))):
+				c_missing += 1
+		ok(c_prefixed == 0, "coverup cluster ids have the unlock_region_ prefix stripped")
+		ok(c_missing == 0, "every coverup texture imports (%d coverups)" % coverups.size())
+		var c_groups_ok := true
+		for want in ["mushroom_hall", "tea_stall", "crystal_map_stall", "stream_bridge", "flower_crate", "lantern_gate"]:
+			c_groups_ok = c_groups_ok and by_cluster.has(want)
+		ok(c_groups_ok, "coverup groups present for all 6 clusters")
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
