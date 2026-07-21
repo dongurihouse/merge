@@ -209,6 +209,9 @@ func _initialize() -> void:
 	var View = load("res://games/grove/tools/scene_workbench_view.gd")
 	var broot := OS.get_user_data_dir() + "/scene_wb_view_test"
 	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/metadata")
+	var base_art := Image.create(8, 8, false, Image.FORMAT_RGBA8)   # the doc's base ("base.png") — real file so it renders
+	base_art.fill(Color(0.5, 0.7, 1, 1))
+	base_art.save_png(broot + "/base.png")
 	var vdoc := _doc()
 	(vdoc.placements[0] as Dictionary)["cluster"] = "camp"
 	(vdoc.placements[1] as Dictionary)["cluster"] = "camp"
@@ -651,8 +654,31 @@ func _initialize() -> void:
 	view._on_stage_input(reclick)
 	view._on_stage_input(reclick_up)
 	ok(view._sel_cluster == "" and view._sel == -1, "a hidden layer's entries do not catch stage clicks")
+	view._toggle_layer_hidden(band)                      # unhide the band before the base check
+
+	# --- hide the base backdrop (the sky) ---------------------------------------------
+	var base_layers := func() -> int:
+		var n := 0
+		for c in view._layers.get_children():
+			if not c.has_meta("pi") and not c.has_meta("pi_shadow"):
+				n += 1
+		return n
+	ok(base_layers.call() == 1, "the opaque base backdrop renders behind the placements")
+	view._toggle_base_hidden()
+	ok(view._base_hidden and base_layers.call() == 0,
+		"toggling the base row hides the base — it leaves the render stack like any layer")
+	var base_row_shown := false
+	for c in view._cluster_box.get_children():
+		if c is HBoxContainer and c.get_child_count() >= 1 and c.get_child(0) is Label \
+			and (c.get_child(0) as Label).text.contains("Base"):
+			base_row_shown = true
+	ok(base_row_shown, "the base keeps a hide/show row in the panel so it can be restored")
+	view._toggle_base_hidden()
+	ok(not view._base_hidden and base_layers.call() == 1, "toggling the base row again restores it")
+
+	view._toggle_base_hidden()                           # leave it hidden to prove reload resets it
 	view._reload()
-	ok(view._hidden.is_empty() and view._hidden_layers.is_empty(),
+	ok(view._hidden.is_empty() and view._hidden_layers.is_empty() and not view._base_hidden,
 		"reload clears all workbench-only hidden state (everything shows again)")
 
 	view.queue_free()
