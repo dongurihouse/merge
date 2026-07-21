@@ -1914,15 +1914,26 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	# retired for it; the card keeps its padding (CARD_PAD) and layout, only the background changes.
 	var panel := PanelContainer.new()
 	var card_corner := 18.0
-	var s := StyleBoxFlat.new()
-	s.bg_color = Pal.CREAM
-	s.border_color = PAPER_EDGE
-	s.set_corner_radius_all(int(card_corner))
-	s.set_border_width_all(1)
-	s.anti_aliasing = true
-	s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
-	s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
-	panel.add_theme_stylebox_override("panel", s)
+	# reskin: the baked cut-paper mail CARD sprite (with the hero-icon WELL on the left) as the panel face,
+	# stretched over the card box via a StyleBoxTexture; content padding stays so the icon seats in the well
+	# and the copy sits to its right. Falls back to the drawn cream stylebox when the sprite is absent.
+	var card_skin := _mail_skin_tex("card")
+	if card_skin != null:
+		var st := StyleBoxTexture.new()
+		st.texture = card_skin
+		st.content_margin_left = CARD_PAD.x; st.content_margin_right = CARD_PAD.z
+		st.content_margin_top = CARD_PAD.y; st.content_margin_bottom = CARD_PAD.w
+		panel.add_theme_stylebox_override("panel", st)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Pal.CREAM
+		s.border_color = PAPER_EDGE
+		s.set_corner_radius_all(int(card_corner))
+		s.set_border_width_all(1)
+		s.anti_aliasing = true
+		s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
+		s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
+		panel.add_theme_stylebox_override("panel", s)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row := HBoxContainer.new()
@@ -2021,7 +2032,8 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			info_row.add_child(ac)
 			text.add_child(info_row)
 	# the texture_cream grain layer behind the row (drawn at child index 0), completing the paper cut.
-	apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
+	if card_skin == null:   # the drawn fallback needs the grain layer; the sprite already IS the paper
+		apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
 	return panel
 
 ## The mock's per-reward CURRENCY CARDS: one SMALL cream amount_chip per currency present, laid out in a
@@ -2553,16 +2565,27 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var wrap := Control.new()
 	var card := PanelContainer.new()
 	card.name = "MeadowDialogPanel"
-	# the SIMPLE SHEET (mock set v2): one flat warm-cream rounded card with a shallow tinted shadow.
-	var cf := StyleBoxFlat.new()
-	cf.bg_color = Pal.CREAM
-	cf.set_corner_radius_all(int(card_corner))
-	cf.shadow_color = Color(Pal.INK, 0.18)
-	cf.shadow_size = 12
-	cf.shadow_offset = Vector2(0, 6)
-	cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
-	cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
-	card.add_theme_stylebox_override("panel", cf)
+	# reskin hook: a dialog may pass `panel_bg` (a cut-paper panel sprite) to wear it as the sheet face
+	# instead of the drawn cream card — content padding is preserved so the layout is unchanged.
+	var panel_bg_path := String(opts.get("panel_bg", ""))
+	var panel_bg_tex: Texture2D = load(panel_bg_path) as Texture2D if panel_bg_path != "" and ResourceLoader.exists(panel_bg_path) else null
+	if panel_bg_tex != null:
+		var pt := StyleBoxTexture.new()
+		pt.texture = panel_bg_tex
+		pt.content_margin_left = panel_pad_x; pt.content_margin_right = panel_pad_x
+		pt.content_margin_top = panel_pad_y; pt.content_margin_bottom = panel_pad_y
+		card.add_theme_stylebox_override("panel", pt)
+	else:
+		# the SIMPLE SHEET (mock set v2): one flat warm-cream rounded card with a shallow tinted shadow.
+		var cf := StyleBoxFlat.new()
+		cf.bg_color = Pal.CREAM
+		cf.set_corner_radius_all(int(card_corner))
+		cf.shadow_color = Color(Pal.INK, 0.18)
+		cf.shadow_size = 12
+		cf.shadow_offset = Vector2(0, 6)
+		cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
+		cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
+		card.add_theme_stylebox_override("panel", cf)
 	var pad_y_eff: float = panel_pad_y   # the panel's top+bottom content inset (for the centered-fill math)
 	card.custom_minimum_size = Vector2(target_w, maxf(0.0, min_h_override))   # width = the global target; height floor finalised in relayout (needs the viewport for the %)
 	card.position = Vector2.ZERO
@@ -2738,7 +2761,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	else:
 		var card_title: int = int(opts.get("card_title", 20))
 		var card_body: int = int(opts.get("card_body", 15))
-		var btn_opts: Dictionary = opts.get("btn", {})
+		var btn_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+		# the reskinned card wears a fixed-aspect sprite (with a round well); tell it the row width so it can
+		# pin its height to the sprite's aspect and keep the well circular instead of stretched into an oval.
+		btn_opts["card_w"] = width * 0.84
 		var icon_badge: String = String(opts.get("icon_badge", "shared/disc_round.png"))
 		for i in maxi(0, entries_count):
 			content.add_child(mail_card(entries[i % entries.size()], card_title, card_body, btn_opts, icon_badge))
@@ -2774,10 +2800,17 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 			ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
 			ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
 			ca = pill_button(claim_all_text, ca_opts)
-		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the drawn pill tiles cleanly full-width
 		ca.pressed.connect(func() -> void: claim_all_cb.call())
 		opts = opts.duplicate()
-		opts["footer"] = ca
+		# the footer slot force-expands its child; the drawn pill tiles fine, but the SPRITE button must NOT
+		# stretch (that slices the torn edges) — center it at its natural width inside an expanding wrapper.
+		if ca.name == "SkinButton":
+			var ca_wrap := CenterContainer.new()
+			ca_wrap.add_child(ca)
+			opts["footer"] = ca_wrap
+		else:
+			opts["footer"] = ca
 	# an optional GOT-IT footer button — the SHARED level cta_button, fired by opts.on_close (same as the
 	# ✕). Off by default → the inbox is unchanged; the info sheet sets opts.got_it to close itself.
 	var got_it_text := String(opts.get("got_it", ""))
@@ -2790,6 +2823,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		btns.alignment = BoxContainer.ALIGNMENT_CENTER
 		btns.add_child(got)
 		content.add_child(btns)
+	# reskin: wear the extracted cut-paper mail panel as the sheet face (caller may override panel_bg).
+	if not opts.has("panel_bg"):
+		opts = opts.duplicate()
+		opts["panel_bg"] = MAIL_SKIN + "dialog_bg.png"
 	return dialog_frame(content, width, opts)
 
 ## The SETTINGS dialog — the SHARED frame with a column of toggle_cards, one per persisted flag. The
