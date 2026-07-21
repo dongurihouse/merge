@@ -24,15 +24,15 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 @export var rim_color: Color = Color("#E7D6BC")   # warm cut edge
 @export var rim_width: float = 2.0
 @export var draw_shadow: bool = true
-var paper_tex: Texture2D = null
-
 # soft drop shadow: a DENSE stack of dark deckled copies dropped down 1px at a time, each at low alpha.
 # Densely spaced (1px steps) so the copies OVERLAP and accumulate into one smooth gradient — nearer rows
 # sit under more copies and read darker, the far fringe fades out. A sparse few-copy stack (3/7/11px)
-# instead shows as discrete stepped bands on small elements (a button), so keep the step ≈ 1px.
-const SHADOW_DROP := 10.0    # how far the softest fringe reaches below the sheet (px)
-const SHADOW_STEPS := 10     # copies in the stack — step = SHADOW_DROP / SHADOW_STEPS ≈ 1px
-const SHADOW_ALPHA := 0.05   # per-copy alpha; overlap accumulates to ~0.20 at the fully-covered top
+# instead shows as discrete stepped bands on small elements (a button), so keep the step ≈ 1px — the step
+# count is derived from `shadow_reach` so it stays ~1px at any reach. Both are TUNABLE via the shared
+# cut-paper edge knobs (shadow_reach · shadow_strength), so each component dials its own shadow.
+@export var shadow_reach: float = 10.0   # how far the softest fringe reaches below the sheet (px)
+@export var shadow_alpha: float = 0.05   # per-copy alpha; dense overlap accumulates into the gradient
+var paper_tex: Texture2D = null
 
 func _ready() -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED   # so the paper UVs (> 1) tile instead of clamp
@@ -60,6 +60,10 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	deckle_freq = float(o.get("deckle_freq", deckle_freq))
 	rim_width = float(o.get("rim_width", rim_width))
 	draw_shadow = bool(o.get("edge_shadow", draw_shadow))
+	shadow_reach = float(o.get("shadow_reach", shadow_reach))
+	# shadow_strength is a 0..N percent knob → per-copy alpha (kept in the same normalized opts dict)
+	if o.has("shadow_strength"):
+		shadow_alpha = float(o["shadow_strength"]) / 100.0
 	paper_color = fill
 	if rim != null:
 		rim_color = rim
@@ -69,17 +73,16 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
-	if draw_shadow:
-		# The shadow traces the SMOOTH rounded outline, NOT the torn edge — a soft drop shadow should read
-		# as one gentle silhouette, not a jagged echo of every deckle tooth. farthest copy first, nearest
-		# last — overlap darkens the top, fringe fades at the bottom.
-		var shadow_pts := _smooth_shadow_polygon(size, corner)
-		var step := SHADOW_DROP / float(SHADOW_STEPS)
-		var sh := Look.shadow_color(SHADOW_ALPHA)
-		for i in range(SHADOW_STEPS, 0, -1):
+	if draw_shadow and shadow_reach > 0.0 and shadow_alpha > 0.0:
+		# farthest copy first, nearest last — overlap darkens the top, fringe fades at the bottom. The step
+		# count tracks `shadow_reach` so the copies stay ~1px apart (dense = smooth) at any reach.
+		var steps := maxi(4, int(round(shadow_reach)))
+		var step := shadow_reach / float(steps)
+		var sh := Look.shadow_color(shadow_alpha)
+		for i in range(steps, 0, -1):
 			var dy := step * float(i)
 			var off := PackedVector2Array()
-			for p in shadow_pts:
+			for p in pts:
 				off.append(p + Vector2(0.0, dy))
 			draw_colored_polygon(off, sh)
 	if paper_tex != null:
@@ -94,25 +97,6 @@ func _draw() -> void:
 	var closed := pts.duplicate()
 	closed.append(pts[0])
 	draw_polyline(closed, rim_color, rim_width, true)
-
-## The SMOOTH drop-shadow outline: the un-torn base perimeter nudged outward from the centroid by half the
-## deckle amplitude, so the soft shadow sits just past the average tear line and reads as one gentle
-## silhouette instead of tracing each deckle tooth (which made the drop shadow look hard / serrated).
-func _smooth_shadow_polygon(sz: Vector2, r: float) -> PackedVector2Array:
-	var base := _base_perimeter(sz, r)
-	var n := base.size()
-	if n < 3:
-		return base
-	var centroid := Vector2.ZERO
-	for p in base:
-		centroid += p
-	centroid /= float(n)
-	var grow := deckle_amp * 0.5
-	var out := PackedVector2Array()
-	for p in base:
-		var dir := p - centroid
-		out.append(p + (dir.normalized() * grow if dir.length() > 0.001 else Vector2.ZERO))
-	return out
 
 ## The torn-edge polygon: take the base OUTLINE for the chosen shape (any convex/organic polygon), then
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the
