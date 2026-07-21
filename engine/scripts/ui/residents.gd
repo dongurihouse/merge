@@ -413,10 +413,22 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	card.custom_minimum_size = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the icon sits in the sprite's left well (upper-left circle)
-	var iw := roundf(minf(w * 0.22, h * 0.5))
-	var icon: Control = Kit.make_icon(String(face.get("icon", "leaf")), iw)
-	icon.position = Vector2(w * 0.055, h * 0.14)
+	# the icon sits in the sprite's left well (upper-left circle) — the extracted cut-paper resource
+	# icon (coin/water/boost/diamond) when present, else the game's drawn make_icon.
+	var iw := roundf(minf(w * 0.24, h * 0.58))
+	var icon_tex := _skin_tex("icon_" + line)
+	var icon: Control
+	if icon_tex != null:
+		var ir := TextureRect.new()
+		ir.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ir.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ir.texture = icon_tex
+		ir.custom_minimum_size = Vector2(iw, iw)
+		ir.size = Vector2(iw, iw)
+		icon = ir
+	else:
+		icon = Kit.make_icon(String(face.get("icon", "leaf")), iw)
+	icon.position = Vector2(w * 0.17 - iw * 0.5, h * 0.44 - iw * 0.5)   # centred in the left well
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(icon)
 
