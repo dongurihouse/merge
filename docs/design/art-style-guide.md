@@ -985,7 +985,86 @@ first, then hide one cluster at a time. The remaining snow must still read as a 
 cover, and the revealed region must show a complete, grounded landmark rather than a bare foundation
 socket or a truncated silhouette.
 
-### 11g · Common generation failures and fixes
+### 11g · Fairy Hollow case study — leaf-canopy lock over an accepted reconstruction
+
+Fairy Hollow records how to add a completely locked state to an already accepted modular scene without
+redrawing, flattening, or destabilizing the unlocked composition. The working scene is
+`games/grove/assets/_concepts/zones/fairy_hollow_market_elements_v3/`; its
+`metadata/placements.json` is the placement authority. The concept and source family are retained at
+`games/grove/assets/_concepts/zones/fairy_hollow_unlock_cover_mock_v1/`.
+
+#### Generate the lock as a second composition, not a paint-over
+
+First create two full-scene reviews at the same 941 x 1672 vertical camera: the accepted **unlocked**
+Fairy Hollow market and a **fully covered** version. The covered review must read as deliberately layered
+paper canopy, not as a dark overlay, fog, a dimmer, or a pile of unrelated foliage. Fairy Hollow used six
+repeatable opaque cut-paper silhouettes: round leaf, monstera leaf, fern fan, flower clump, scalloped vine,
+and corner canopy. Keep the cover palette richer than the foundation but retain the same warm cut edge,
+subtle grain, and upper-left light.
+
+Generate raw cover pieces one at a time on a flat key background; process each to a transparent PNG and
+validate transparent corners, non-empty alpha, and no surviving key color. Save both raw and processed
+versions, their prompt, the unlocked mock, the covered mock, and an assembled concept preview. A cover
+family is a small reusable vocabulary, not a one-off full-page bitmap.
+
+#### Deconstruct by ownership, preserving the unlocked scene
+
+Do **not** try to regenerate or cut the full market apart again just to add a lock. Reuse the accepted
+foundation and the six primary objects from the prior reconstruction—mushroom hall, tea stall,
+crystal-map stall, stream bridge, flower crate, and lantern gate. Their object art remains in
+`primary_objects`; the foundation remains an opaque backdrop. The new lock pieces are separate transparent
+assets under `05_dressing/unlock_canopy/`.
+
+This preserves the key ownership contract:
+
+1. The backdrop contains only stable environment and still works if every market object is hidden.
+2. Each market landmark owns its own paper plate and local contact treatment exactly once.
+3. The leaves own **only** the temporary concealment. They never become part of a hero sprite, scenic base,
+   floor patch, dark bottom shadow, or permanent foreground dressing.
+
+#### Reconstruct in the dedicated `coverup` layer
+
+Place the existing foundation and primary objects first. Add the leaf family only in the fixed topmost
+`coverup` layer, with generous overlap and a few intentional teaser gaps. A fully covered page should still
+feel like one hand-cut canopy; leaves may cross page edges and overlap neighboring regions to avoid a rigid
+grid, but their clusters remain semantic.
+
+Fairy Hollow's final coverup grouping is deliberately **one cluster per primary-object region**, never one
+cluster per leaf:
+
+| Coverup cluster | Members | Reveals |
+|---|---:|---|
+| `unlock_region_mushroom_hall` | 2 | mushroom hall |
+| `unlock_region_tea_stall` | 2 | tea stall |
+| `unlock_region_crystal_map_stall` | 1 | crystal-map stall |
+| `unlock_region_stream_bridge` | 1 | stream bridge |
+| `unlock_region_flower_crate` | 1 | flower crate |
+| `unlock_region_lantern_gate` | 4 | lantern gate |
+
+Every member carries `unlockCover: true`, the same region `cluster`, and the shared `coverup` layer;
+members within a region use `z` only for their local overlap. This makes one unlock action reveal a meaningful
+market area, rather than removing a single decorative leaf. The grouped clusters also make the Workbench
+sidebar a clear unlock plan rather than an unmanageable sprite list.
+
+#### Reconstruction and review gate
+
+1. Render the fully covered scene with `make shot-sw SCENE=fairy_hollow_market
+   ROOT=res://games/grove/assets/_concepts/zones OUT=/tmp/fairy-hollow-cover.png` and compare it against the
+   covered concept mock.
+2. In Scene Workbench, hide each `unlock_region_*` cluster one at a time. The removed cluster must reveal
+   its complete primary object and owned paper plate; the remaining leaves must still read as intentional
+   canopy, not a torn hole or a row of isolated stickers.
+3. Confirm the `Coverup` band is above `Primary Objects` and ordinary `Foreground Objects`, then parse
+   `placements.json` and run the focused Workbench suite.
+4. Keep the reconstruction preview as review evidence, but treat its source PNGs plus placement metadata as
+   the reproducible scene. Never replace those inputs with a flattened screenshot.
+
+The first Fairy Hollow pass grouped every cover sprite separately in `foreground_objects`. That made a
+single unlock too small and obscured the gameplay meaning. The corrected implementation moved the pieces
+to `coverup` and grouped them by the primary object region they conceal. This is the reusable pattern for
+all future locked zones.
+
+### 11h · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
