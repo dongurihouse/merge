@@ -1,0 +1,10 @@
+Use case: stylized-concept
+Asset type: production background plate for a portrait mobile game home screen
+Input image: Edge Glade dressed reference; use it only for its colorful high-contrast cut-paper cartoon style, Meadow Sky palette, soft upper-left lighting, paper texture, camera feeling, and cheerful woodland atmosphere. Do not copy or retain any discrete object from it.
+Primary request: create a completely empty true backdrop containing only an open blue sky above a continuous green meadow.
+Scene/backdrop: sky occupies the upper 28 to 30 percent. Make the boundary a soft irregular distant horizon centered near 29 percent of image height, not a hard stripe. The meadow is cooler and slightly darker at the horizon, transitioning into luminous fresh yellow-green through the central play area. Add a broad warm lime radiance from the upper-left to upper-middle. Use subtle layered-paper texture and broad gentle tonal variation, but no object-like marks.
+Style/medium: polished colorful high-contrast children's cut-paper game illustration, matte layered paper, clean broad shapes, friendly and premium, consistent with the reference but entirely object-free.
+Composition/framing: very tall portrait matching 1320 by 2868. Keep the upper 17 percent and lower 14 percent visually quiet. The entire ground must remain one continuous neutral placement plane.
+Lighting/mood: bright welcoming daylight, soft upper-left illumination, cheerful and calm.
+Constraints: opaque full-bleed background; no transparent areas; no discrete scenery; no generated text.
+Avoid: clouds, sun disc, hills, mountains, paths, roads, stepping stones, trees, bushes, hedges, flowers, mushrooms, rocks, buildings, dens, roots, fences, props, grass tufts, individual leaves, soil patches, turf islands, cast shadows, dark grounding strips, gradients that form hard bands, borders, UI, icons, labels, frames, watermarks.
