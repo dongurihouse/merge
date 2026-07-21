@@ -293,11 +293,11 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	var mystery := bool(d.get("mystery", false))
 	var today := state == "today"
 	var done := state == "done"
-	# advent-calendar faces (each baked into its own sprite): a FUTURE day is a wrapped GIFT (reward
-	# hidden), TODAY is the empty card (its Claim button drawn on top), a PAST/claimed day is the card
-	# with a ✓. So a day cell draws only its "DAY N" label (+ today's Claim) over the baked face — no
-	# reward icon or amount.
-	var card_key := "day_past" if done else ("day_current" if today else "day_future")
+	# advent-calendar faces (each baked into its own sprite): FUTURE = the plain card wearing a VARIED
+	# wrapped gift (reward hidden); TODAY = the highlighted gold card showing the real reward icon + count,
+	# claimed by TAPPING the card (no separate button); PAST = the card with a ✓ baked in.
+	var day := int(d.get("day", 0))
+	var card_key := "day_past" if done else ("day_today" if today else "day_current")
 	var card_tex := _daily_tex(card_key)
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -311,10 +311,8 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		var pc := PanelContainer.new()
 		pc.add_theme_stylebox_override("panel", _cell_box(_cell_tint(d), cw, today))
 		panel = pc
-	panel.name = "DailyCell_%02d" % int(d.get("day", 0))
+	panel.name = "DailyCell_%02d" % day
 	panel.custom_minimum_size = Vector2(cw, ch_px)
-	# Every piece is pinned to a FIXED fractional line of `inner`, so the icon and amount land in the SAME
-	# place whatever the state, and the bottom marker never pushes them around.
 	panel.add_child(inner)
 
 	# "DAY N" — pinned to the top edge, full-width centred.
@@ -324,60 +322,84 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	label.grow_vertical = Control.GROW_DIRECTION_END
 	inner.add_child(label)
 
-	# Only the DRAWN fallback (no baked sprite) still paints the reward icon + amount; with the advent
-	# sprites present, the gift / empty / ✓ face carries the whole state, so nothing is drawn over it.
-	if card_tex == null and not done:
-		# the reward ICON — its CENTRE pinned to REWARD_ICON_FRAC (constant across every state).
-		var art: Control
-		if mystery:
-			var mkey := "icon_gift" if String(d.get("mystery_icon", "")) == ART_GIFT else "icon_chest"
-			var mt := _daily_tex(mkey)
-			art = _skin_sprite(mt, cw * REWARD_ICON_PX) if mt != null else _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), cw * REWARD_ICON_PX)
-		else:
-			art = _reward_art(Kit, d.get("reward", {}), cw * REWARD_ICON_PX)
-		var art_holder := CenterContainer.new()
-		art_holder.anchor_left = 0.0; art_holder.anchor_right = 1.0
-		art_holder.anchor_top = REWARD_ICON_FRAC; art_holder.anchor_bottom = REWARD_ICON_FRAC
-		art_holder.grow_vertical = Control.GROW_DIRECTION_BOTH
-		art_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art_holder.add_child(art)
-		inner.add_child(art_holder)
-
-		# the single-currency AMOUNT — its centre pinned to REWARD_AMOUNT_FRAC.
-		var amount := _amount_text(d.get("reward", {})) if not mystery else ""
-		if amount != "":
-			var amt := Label.new()
-			amt.name = "DailyAmount"
-			amt.text = amount
-			amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			amt.anchor_left = 0.0; amt.anchor_right = 1.0
-			amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
-			amt.grow_vertical = Control.GROW_DIRECTION_BOTH
-			amt.add_theme_font_override("font", Kit.bold_font())
-			amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
-			amt.add_theme_color_override("font_color", Pal.INK)
-			amt.add_theme_constant_override("outline_size", 0)
-			amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			inner.add_child(amt)
-
-	# the state MARKER — today's CLAIM pill floats at REWARD_ACTION_FRAC. (A done day's ✓ is baked into
-	# the claimed card face, so no separate marker there.)
-	var act: Control = null
-	if today:
-		act = _claim_button(Kit, cw, d.get("on_claim", Callable()))
-	if act != null:
-		var wrap := CenterContainer.new()
-		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
-		wrap.anchor_top = REWARD_ACTION_FRAC; wrap.anchor_bottom = REWARD_ACTION_FRAC
-		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
-		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap.add_child(act)
-		inner.add_child(wrap)
-
-	if today:
-		_scatter_sparks(inner, cw * 0.11, [Vector2(0.10, 0.09), Vector2(0.90, 0.20),
-			Vector2(0.09, 0.62), Vector2(0.92, 0.66)])
+	if card_tex == null:
+		# DRAWN fallback (no baked sprites): the old reward icon + amount, and a Claim pill for today.
+		if not done:
+			_add_reward_face(Kit, inner, d.get("reward", {}), cw, d if mystery else {})
+		if today:
+			_add_claim_pill(Kit, inner, cw, d.get("on_claim", Callable()))
+	elif today:
+		# TODAY: the highlighted card shows the real reward icon + amount; the WHOLE cell is the claim —
+		# a transparent full-cell tap target (no visible chrome), always present so the surface reads as
+		# claimable (the preview has no live callable; only a live one wires the tap).
+		_add_reward_face(Kit, inner, d.get("reward", {}), cw, {})
+		var tap := Button.new()
+		tap.name = "DailyClaimButton"
+		tap.flat = true
+		tap.focus_mode = Control.FOCUS_NONE
+		for st in ["normal", "hover", "pressed", "focus"]:
+			tap.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+		tap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var on_claim: Callable = d.get("on_claim", Callable())
+		if on_claim.is_valid():
+			tap.pressed.connect(func() -> void: on_claim.call())
+		panel.add_child(tap)
+	elif not done:
+		# FUTURE: a varied wrapped gift box (reward hidden) on the plain card.
+		var gtex := _daily_tex("gift_%d" % (day % 5))
+		if gtex != null:
+			var gh := CenterContainer.new()
+			gh.anchor_left = 0.0; gh.anchor_right = 1.0
+			gh.anchor_top = REWARD_ICON_FRAC; gh.anchor_bottom = REWARD_ICON_FRAC
+			gh.grow_vertical = Control.GROW_DIRECTION_BOTH
+			gh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gh.add_child(_skin_sprite(gtex, cw * REWARD_ICON_PX))
+			inner.add_child(gh)
 	return panel
+
+## Lay the reward ICON (centre at REWARD_ICON_FRAC) + its AMOUNT (at REWARD_AMOUNT_FRAC) over `inner`.
+## `mystery_src` (non-empty) picks the mystery icon (gift/chest) instead of the reward currencies.
+static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, cw: float, mystery_src: Dictionary) -> void:
+	var mystery := not mystery_src.is_empty()
+	var art: Control
+	if mystery:
+		var mkey := "icon_gift" if String(mystery_src.get("mystery_icon", "")) == ART_GIFT else "icon_chest"
+		var mt := _daily_tex(mkey)
+		art = _skin_sprite(mt, cw * REWARD_ICON_PX) if mt != null else _sprite(Kit, String(mystery_src.get("mystery_icon", ART_CHEST)), cw * REWARD_ICON_PX)
+	else:
+		art = _reward_art(Kit, reward, cw * REWARD_ICON_PX)
+	var ah := CenterContainer.new()
+	ah.anchor_left = 0.0; ah.anchor_right = 1.0
+	ah.anchor_top = REWARD_ICON_FRAC; ah.anchor_bottom = REWARD_ICON_FRAC
+	ah.grow_vertical = Control.GROW_DIRECTION_BOTH
+	ah.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ah.add_child(art)
+	inner.add_child(ah)
+	var amount := "" if mystery else _amount_text(reward)
+	if amount != "":
+		var amt := Label.new()
+		amt.name = "DailyAmount"
+		amt.text = amount
+		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		amt.anchor_left = 0.0; amt.anchor_right = 1.0
+		amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
+		amt.grow_vertical = Control.GROW_DIRECTION_BOTH
+		amt.add_theme_font_override("font", Kit.bold_font())
+		amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
+		amt.add_theme_color_override("font_color", Pal.INK)
+		amt.add_theme_constant_override("outline_size", 0)
+		amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(amt)
+
+## The drawn Claim pill (fallback only), floated at REWARD_ACTION_FRAC.
+static func _add_claim_pill(Kit: GDScript, inner: Control, cw: float, on_claim: Callable) -> void:
+	var wrap := CenterContainer.new()
+	wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
+	wrap.anchor_top = REWARD_ACTION_FRAC; wrap.anchor_bottom = REWARD_ACTION_FRAC
+	wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(_claim_button(Kit, cw, on_claim))
+	inner.add_child(wrap)
 
 ## The week's LAST slot as the mock's wide capstone banner: a full-width amber plaque with the gold
 ## rim, "DAY N" at the top, the chest centred, and a sparkle in each corner.
