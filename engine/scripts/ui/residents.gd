@@ -413,13 +413,15 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	card.custom_minimum_size = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the text block fills the body to the right of the baked icon well
+	# the text + bar live ONLY on the RIGHT side of the card, clear of the baked icon well (which fills
+	# the left ~45%). BODY_L is the left edge of that right region as a fraction of the card width.
+	var body_l := 0.46
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", roundf(h * 0.03))
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.position = Vector2(w * 0.34, h * 0.12)
-	body.size = Vector2(w * 0.60, h * 0.76)
+	body.position = Vector2(w * body_l, h * 0.12)
+	body.size = Vector2(w * (0.96 - body_l), h * 0.76)
 	body.custom_minimum_size = body.size
 
 	var nm := Label.new()
@@ -443,7 +445,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	var track := _skin_tex("bar_track")
 	var fill := _skin_tex("bar_fill")
 	if track != null and fill != null:
-		bar = SpritePanel.progress(track, fill, frac, Vector2(w * 0.58, maxf(14.0, h * 0.15)))
+		bar = SpritePanel.progress(track, fill, frac, Vector2(w * (0.96 - body_l), maxf(14.0, h * 0.15)))
 	else:
 		bar = Kit.progress_bar(frac, {"height": 30.0, "width": 0.0, "art": false, "fill_color": face.get("fill", Pal.STRAW)})
 	bar.name = "ResourceBankBar_" + line
