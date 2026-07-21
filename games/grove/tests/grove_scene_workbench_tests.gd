@@ -57,6 +57,18 @@ func _initialize() -> void:
 	M.scale_by(d, 1, 0.001)
 	ok(int(d.placements[1].w) >= 8 and int(d.placements[1].h) >= 8,
 		"scale_by clamps at the minimum grabbable size")
+
+	# --- rotation (orientation about the anchor foot) --------------------------------
+	M.rotate_by(d, 0, 30.0)
+	ok(is_equal_approx(float(d.placements[0].rot), 30.0), "rotate_by stores the angle in degrees")
+	M.rotate_by(d, 0, -45.0)
+	ok(is_equal_approx(float(d.placements[0].rot), -15.0), "rotate_by accumulates the delta")
+	M.rotate_by(d, 0, 200.0)
+	ok(is_equal_approx(float(d.placements[0].rot), 185.0 - 360.0),
+		"rotate_by normalizes past a half-turn into (-180, 180]")
+	ok(is_equal_approx(M.norm_deg(180.0), 180.0) and is_equal_approx(M.norm_deg(-180.0), 180.0)
+		and is_equal_approx(M.norm_deg(540.0), 180.0),
+		"norm_deg folds into (-180, 180] (both -180 and 540 land on 180)")
 	M.bump_z(d, 1, 25)
 	ok(int(d.placements[1].z) == 35 and M.sorted_order(d) == [0, 2, 1],
 		"bump_z reorders the paint order")
@@ -81,6 +93,13 @@ func _initialize() -> void:
 	ok(M.hit_at(d2, Vector2(510, 900), gate_clear) == 0,
 		"a transparent pixel falls through to the layer beneath")
 	ok(M.hit_at(d2, Vector2(10, 10), all_opaque) == -1, "empty canvas → no hit")
+	# rotation-aware pick: (750,1000) is right of the gate's unrotated rect, but a 90° spin about its
+	# foot (520,1080) sweeps that quad over the point.
+	ok(M.hit_at(d2, Vector2(750, 1000), all_opaque) == -1,
+		"an unrotated gate does not reach the point off its side")
+	M.rotate_by(d2, 2, 90.0)
+	ok(M.hit_at(d2, Vector2(750, 1000), all_opaque) == 2,
+		"hit_at folds the point into the rotated frame and picks the turned gate")
 
 	# --- save / load round-trip (with the one-time .bak) ----------------------------
 	var dir := OS.get_user_data_dir() + "/scene_wb_test"
@@ -91,6 +110,7 @@ func _initialize() -> void:
 			DirAccess.remove_absolute(stale)
 	var d3 := _doc()
 	d3["pipeline"] = {"mapMode": "scene_mode"}         # unknown top-level keys must survive
+	M.rotate_by(d3, 0, 30.0)                            # a stored orientation must survive too
 	ok(M.save_doc(path, d3), "save_doc writes the file")
 	ok(not FileAccess.file_exists(path + ".bak"), "no backup on a first write (nothing to back up)")
 	M.move(d3, 0, Vector2(1, 0))
@@ -100,6 +120,8 @@ func _initialize() -> void:
 	ok(back.get("pipeline", {}).get("mapMode") == "scene_mode", "unknown keys round-trip through save")
 	ok(back.placements.size() == 3 and int(back.placements[0].x) == 501,
 		"placements round-trip through save/load")
+	ok(is_equal_approx(float(back.placements[0].get("rot", 0.0)), 30.0),
+		"a placement's rotation round-trips through save/load")
 	ok(M.load_doc(dir + "/nope.json").is_empty(), "a missing file loads as an empty doc")
 
 	# --- clusters (a tent + its rocks/vegetation/shadow manage as ONE thing) ---------
@@ -152,6 +174,19 @@ func _initialize() -> void:
 		"scale_cluster spreads anchors about the group footing (bottom stays put)")
 	M.scale_cluster(ds, "duo", 0.001)
 	ok(int(ds.placements[0].w) >= 8, "scale_cluster clamps at the grabbable floor")
+
+	# rigid group spin: two squares straddling the footing turn as one body about the footing
+	var dr := _doc()
+	dr.placements[0] = {"id": "a", "image": "a.png", "x": 400, "y": 1000, "w": 100, "h": 100, "z": 1, "cluster": "duo"}
+	dr.placements[1] = {"id": "b", "image": "b.png", "x": 600, "y": 1000, "w": 100, "h": 100, "z": 2, "cluster": "duo"}
+	# footing = bbox bottom-center. bbox spans x[350,650] y[900,1000] → foot (500,1000).
+	M.rotate_cluster(dr, "duo", 90.0)
+	ok(is_equal_approx(float(dr.placements[0].rot), 90.0) and is_equal_approx(float(dr.placements[1].rot), 90.0),
+		"rotate_cluster spins every member's own angle")
+	# member 'a' at (400,1000): rel to foot (-100,0), rotated 90° cw (y-down) → (0,-100) → (500,900)
+	ok(int(dr.placements[0].x) == 500 and int(dr.placements[0].y) == 900
+		and int(dr.placements[1].x) == 500 and int(dr.placements[1].y) == 1100,
+		"rotate_cluster orbits member anchors about the group footing")
 
 	# cluster restack moves the CLUSTER among its layer's clusters — a shared clusterZ on every
 	# member, leaving each member's own z (its order INSIDE the cluster) untouched.
@@ -331,6 +366,26 @@ func _initialize() -> void:
 	view._on_stage_input(wheel)
 	ok(int((view.doc.placements[2] as Dictionary).w) == 306,
 		"a wheel notch over the stage resizes the selection (+2%)")
+	# Alt+wheel rotates the same selection instead of scaling it (+2° per notch, +15° with Shift)
+	var w_before: int = int((view.doc.placements[2] as Dictionary).w)
+	var alt_wheel := InputEventMouseButton.new()
+	alt_wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	alt_wheel.pressed = true
+	alt_wheel.alt_pressed = true
+	alt_wheel.position = drag.position
+	view._on_stage_input(alt_wheel)
+	ok(is_equal_approx(float((view.doc.placements[2] as Dictionary).get("rot", 0.0)), 2.0)
+		and int((view.doc.placements[2] as Dictionary).w) == w_before,
+		"Alt+wheel rotates the selection (+2°) and leaves its size untouched")
+	# the render wiring must carry the angle onto the stage node (pivot at the foot, spun by rot)
+	var gate_node: Control = null
+	for n in view._layers.get_children():
+		if n.has_meta("pi") and int(n.get_meta("pi")) == 2:
+			gate_node = n
+	ok(gate_node != null and is_equal_approx(gate_node.rotation_degrees, 2.0)
+		and is_equal_approx(gate_node.pivot_offset.y, gate_node.size.y)
+		and is_equal_approx(gate_node.pivot_offset.x, gate_node.size.x * 0.5),
+		"the stage node spins by rot about its foot (pivot at bottom-center)")
 
 	# --- [ / ] move the selection between layers ---------------------------------------
 	# 'gate' (index 2) is still selected from the drag/wheel test; it starts in the default band.

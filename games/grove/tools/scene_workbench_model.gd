@@ -129,6 +129,21 @@ static func scale_by(doc: Dictionary, i: int, factor: float) -> void:
 	e["w"] = int(round(w * f))
 	e["h"] = int(round(h * f))
 
+## Normalize an angle in degrees into (-180, 180] so a stored rotation never accumulates past a turn.
+static func norm_deg(deg: float) -> float:
+	var d := fmod(deg, 360.0)
+	if d > 180.0:
+		d -= 360.0
+	elif d <= -180.0:
+		d += 360.0
+	return d
+
+## Spin a single entry about its own anchor (the planted foot). Stored in degrees, clockwise
+## positive (Godot's y-down convention — matches the stage's Control.rotation).
+static func rotate_by(doc: Dictionary, i: int, deg: float) -> void:
+	var e: Dictionary = placements(doc)[i]
+	e["rot"] = norm_deg(float(e.get("rot", 0.0)) + deg)
+
 ## Item order WITHIN its cluster (Z / X on a single selection). Floors at 0.
 static func bump_z(doc: Dictionary, i: int, dz: int) -> void:
 	var e: Dictionary = placements(doc)[i]
@@ -300,6 +315,24 @@ static func scale_cluster(doc: Dictionary, name: String, factor: float) -> void:
 		e["w"] = int(round(float(e.get("w", 0)) * f))
 		e["h"] = int(round(float(e.get("h", 0)) * f))
 
+## Rigid group spin about the cluster FOOTING (bbox bottom-center), matching scale_cluster's anchor:
+## every member orbits the footing by deg and adds deg to its own rotation, so the group turns as one
+## body. (Orbited anchors round to whole pixels per notch, the same tiny drift scale_cluster accepts.)
+static func rotate_cluster(doc: Dictionary, name: String, deg: float) -> void:
+	var idx: Array = clusters(doc).get(name, [])
+	if idx.is_empty():
+		return
+	var bb := cluster_bbox(doc, name)
+	var foot := Vector2(bb.position.x + bb.size.x * 0.5, bb.end.y)
+	var rad := deg_to_rad(deg)
+	for i in idx:
+		var e: Dictionary = placements(doc)[i]
+		var a := Vector2(float(e.get("x", 0)), float(e.get("y", 0)))
+		var na := foot + (a - foot).rotated(rad)
+		e["x"] = int(round(na.x))
+		e["y"] = int(round(na.y))
+		e["rot"] = norm_deg(float(e.get("rot", 0.0)) + deg)
+
 ## The cluster's shared order within its layer (the lowest member's clusterZ, in case a legacy doc
 ## left them out of sync). {} members → 0.
 static func cluster_z(doc: Dictionary, name: String) -> int:
@@ -337,10 +370,17 @@ static func hit_at(doc: Dictionary, p: Vector2, opaque_at: Callable,
 			continue
 		if not hidden_layers.is_empty() and hidden_layers.has(entry_layer(e)):
 			continue
+		# rotation-aware pick: fold the point back into the entry's unrotated frame (about the
+		# anchor, its planted foot) before the axis-aligned rect + alpha test.
+		var pt := p
+		var rot := float(e.get("rot", 0.0))
+		if rot != 0.0:
+			var anchor := Vector2(float(e.get("x", 0)), float(e.get("y", 0)))
+			pt = anchor + (p - anchor).rotated(deg_to_rad(-rot))
 		var r := entry_rect(e)
-		if not r.has_point(p):
+		if not r.has_point(pt):
 			continue
-		var uv := (p - r.position) / r.size
+		var uv := (pt - r.position) / r.size
 		if opaque_at.is_null() or bool(opaque_at.call(i, uv)):
 			return i
 	return -1
