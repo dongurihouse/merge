@@ -134,30 +134,31 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 # on unlock); `badges[cluster]` holds the lock badge (the map's tap target). Sprites paint in sort_y.
 static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked: Callable,
 		coverings: Dictionary, badges: Dictionary) -> void:
-	var anchor_of := {}          # cluster id -> its structure anchor (for the lock badge centre)
-	for entry_v in manifest.get("buildings", []):
-		var eb: Dictionary = entry_v
-		anchor_of[String(eb.get("cluster", eb.get("id", "")))] = _vec(eb.get("position", [0, 0]))
-	var groups := {}             # cluster id -> {group: Control, sprites: [{sort_y, node}]}
+	var groups := {}             # cluster id -> {group: Control, sprites: [{sort_y, node}], bbox: Rect2}
 	for cov_v in manifest.get("coverups", []):
 		var cov: Dictionary = cov_v
 		var cl := String(cov.get("cluster", ""))
 		if not (cluster_locked.is_valid() and bool(cluster_locked.call(cl))):
 			continue
+		var ca := _vec(cov.get("position", [0, 0]))
+		var cd := _vec(cov.get("display_size", [100, 100]))
+		# this sprite's center-bottom-anchored footprint, used both to lay out the sprite AND to
+		# fold into the cluster's own bounding box (the lock badge centres on THAT, not a structure).
+		var rect := Rect2(ca - Vector2(cd.x * 0.5, cd.y), cd)
 		if not groups.has(cl):
 			var grp := Control.new()
 			grp.name = "cover_%s" % cl
 			grp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			groups[cl] = {"group": grp, "sprites": []}
-		var ca := _vec(cov.get("position", [0, 0]))
-		var cd := _vec(cov.get("display_size", [100, 100]))
+			groups[cl] = {"group": grp, "sprites": [], "bbox": rect}
+		else:
+			groups[cl]["bbox"] = (groups[cl]["bbox"] as Rect2).merge(rect)
 		var spr := TextureRect.new()
 		spr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		spr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		spr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		spr.size = cd
-		spr.position = ca - Vector2(cd.x * 0.5, cd.y)     # center-bottom anchor, like props
+		spr.position = rect.position                      # center-bottom anchor, like props
 		spr.pivot_offset = cd * 0.5                        # reveal() scales from the centre
 		if String(cov.get("image", "")) != "" and ResourceLoader.exists(String(cov.image)):
 			spr.texture = load(String(cov.image)) as Texture2D
@@ -171,11 +172,13 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 		stage.add_child(g.group)                          # frontmost (added after every prop)
 		coverings[cl] = g.group
 	# a SECOND pass mounts every lock badge ON TOP of every canopy group — otherwise a later
-	# cluster's canopy would paint over an earlier cluster's lock icon.
+	# cluster's canopy would paint over an earlier cluster's lock icon. Anchored on the CLUSTER'S
+	# OWN canopy bbox centre (not a matching structure's anchor) — this decouples the lock from any
+	# structure-cluster naming, which winter/desert's coverup clusters don't share with a building.
 	for cl in groups.keys():
 		var lb: Control = LockBadge.make(cl)
-		var ap: Vector2 = anchor_of.get(cl, Vector2.ZERO)
-		lb.position = ap - Vector2(0, 60) - lb.size * 0.5   # a touch above the plot's center-bottom
+		var bbox: Rect2 = (groups[cl] as Dictionary).bbox
+		lb.position = bbox.get_center() - lb.size * 0.5
 		stage.add_child(lb)
 		badges[cl] = lb
 
