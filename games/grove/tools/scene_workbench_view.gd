@@ -950,12 +950,16 @@ func _refresh_cluster_list() -> void:
 			if cname == _sel_cluster:
 				_add_palette_rows(cname)
 
-## The ADD palette, scoped to the selected cluster: the bundle's assets (plus the surviving page
-## art on recovered bundles) as an iconed list — clicking one drops a NEW member at the cluster's
-## footing, joined and selected for immediate placement.
+## The ADD palette, scoped to the selected cluster: the assets from THIS scene's layer
+## folder plus the shared library's SAME layer — clicking one drops a NEW member at the
+## cluster's footing, joined and selected for immediate placement. A cluster lives in one
+## layer, so the palette only ever offers art authored for that layer (a backdrop cluster
+## can't pull in a coverup leaf, etc.).
 func _add_palette_rows(cname: String) -> void:
-	_cluster_box.add_child(_label("      add to '%s'" % cname, FS.TOOL, true))
-	for a in M.addable_assets(bundle_dir, repo_root, scene_name):
+	var members: Array = M.clusters(doc).get(cname, [])
+	var layer := M.entry_layer(M.placements(doc)[members[0]]) if not members.is_empty() else M.DEFAULT_LAYER
+	_cluster_box.add_child(_label("      add %s to '%s'" % [M.LAYER_LABELS.get(layer, layer), cname], FS.TOOL, true))
+	for a in M.assets_in_layer(M.addable_assets(bundle_dir, repo_root, scene_name), layer):
 		var b := _small_button("      + " + String(a.id), _add_asset_to_cluster.bind(a, cname))
 		b.icon = _thumb_for(String(a.image))
 		b.add_theme_constant_override("icon_max_width", 30)

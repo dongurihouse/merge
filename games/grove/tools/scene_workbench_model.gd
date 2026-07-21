@@ -447,6 +447,17 @@ static func addable_assets(bundle_dir: String, repo_root: String, scene: String)
 		return String(a.id) < String(b.id))
 	return out
 
+## Filter an addable-asset list (from addable_assets) down to a single layer band. The add
+## palette is scoped to the selected cluster's own layer, so a cluster only ever pulls in
+## art authored for that layer — this scene's <layer>/ folder plus shared/<layer>/ — and
+## never, say, a coverup leaf into a backdrop cluster. `category` on each asset IS its layer.
+static func assets_in_layer(assets: Array, layer: String) -> Array:
+	var out: Array = []
+	for a in assets:
+		if String((a as Dictionary).get("category", "")) == layer:
+			out.append(a)
+	return out
+
 static func _scan_pngs(dir: String, category: String, repo_root: String, scene: String, out: Array) -> void:
 	var d := DirAccess.open(dir)
 	if d == null:

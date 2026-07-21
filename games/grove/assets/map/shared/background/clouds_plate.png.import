@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://6hp45pj037t6"
-path="res://.godot/imported/clouds_plate.png-c72bc6bffce8da53fc6ab6f8eb728742.ctex"
+path="res://.godot/imported/clouds_plate.png-fa31659daac80f73f4486d02e00fe0d9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/sakura/background/clouds_plate.png"
-dest_files=["res://.godot/imported/clouds_plate.png-c72bc6bffce8da53fc6ab6f8eb728742.ctex"]
+source_file="res://games/grove/assets/map/shared/background/clouds_plate.png"
+dest_files=["res://.godot/imported/clouds_plate.png-fa31659daac80f73f4486d02e00fe0d9.ctex"]
 
 [params]
 

@@ -23,7 +23,7 @@
   },
   "base": {
     "id": "peach_sky",
-    "image": "games/grove/assets/map/sakura/sky/sky_plate.png",
+    "image": "games/grove/assets/map/shared/sky/sky_plate.png",
     "opaque": true,
     "z": 0
   },
@@ -45,7 +45,7 @@
       "id": "clouds",
       "assetId": "clouds_plate",
       "category": "atmosphere",
-      "image": "games/grove/assets/map/sakura/background/clouds_plate.png",
+      "image": "games/grove/assets/map/shared/background/clouds_plate.png",
       "x": 660,
       "y": 2346,
       "w": 1320,

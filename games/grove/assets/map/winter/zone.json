@@ -1,12 +1,12 @@
 {
  "version": 1,
- "id": "snowy_village",
- "label": "Snowy Village",
+ "id": "winter",
+ "label": "Winter",
  "canvas": {
   "width": 941,
   "height": 1672
  },
- "background": "res://games/grove/assets/map/winter/sky/sky_atmosphere.png",
+ "background": "res://games/grove/assets/map/shared/sky/winter_sky_snow.png",
  "buildings": [
   {
    "id": "foundation",
@@ -23,6 +23,23 @@
    "cluster": "foundation",
    "states": {
     "built": "res://games/grove/assets/map/winter/backdrop/foundation.png"
+   }
+  },
+  {
+   "id": "clouds",
+   "label": "clouds",
+   "position": [
+    470,
+    1672
+   ],
+   "display_size": [
+    941,
+    1672
+   ],
+   "sort_y": 5,
+   "cluster": "clouds",
+   "states": {
+    "built": "res://games/grove/assets/map/shared/background/winter_clouds.png"
    }
   },
   {

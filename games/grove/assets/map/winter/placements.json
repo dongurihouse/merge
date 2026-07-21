@@ -7,10 +7,12 @@
   "anchorConvention": "center-bottom"
  },
  "base": {
-  "id": "sky_atmosphere",
-  "image": "games/grove/assets/map/winter/sky/sky_atmosphere.png",
+  "id": "winter_sky_snow",
+  "image": "games/grove/assets/map/shared/sky/winter_sky_snow.png",
   "opaque": true,
-  "z": 0
+  "z": 0,
+  "layer": "sky",
+  "note": "Blue snowy sky, clouds split out into the shared/background winter_clouds plate so they can drift/parallax independently."
  },
  "placements": [
   {
@@ -24,6 +26,20 @@
    "z": 10,
    "layer": "backdrop",
    "cluster": "foundation"
+  },
+  {
+   "id": "clouds",
+   "assetId": "winter_clouds",
+   "category": "atmosphere",
+   "image": "games/grove/assets/map/shared/background/winter_clouds.png",
+   "x": 470,
+   "y": 1672,
+   "w": 941,
+   "h": 1672,
+   "z": 5,
+   "clusterZ": 5,
+   "layer": "background",
+   "cluster": "clouds"
   },
   {
    "id": "lodge",

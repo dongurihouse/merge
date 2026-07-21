@@ -6,7 +6,7 @@
   "width": 1320,
   "height": 2346
  },
- "background": "res://games/grove/assets/map/sakura/sky/sky_plate.png",
+ "background": "res://games/grove/assets/map/shared/sky/sky_plate.png",
  "buildings": [
   {
    "id": "foundation",
@@ -39,7 +39,7 @@
    "sort_y": 20,
    "cluster": "sky",
    "states": {
-    "built": "res://games/grove/assets/map/sakura/background/clouds_plate.png"
+    "built": "res://games/grove/assets/map/shared/background/clouds_plate.png"
    }
   },
   {

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cgo0meyaqesir"
-path="res://.godot/imported/sky_atmosphere.png-4630407b2e2debca906bb97f49687251.ctex"
+uid="uid://cttwgs882t16v"
+path="res://.godot/imported/sky_plate.png-d3bb1cc0cfa267aedbfad61852b0726d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/winter/sky/sky_atmosphere.png"
-dest_files=["res://.godot/imported/sky_atmosphere.png-4630407b2e2debca906bb97f49687251.ctex"]
+source_file="res://games/grove/assets/map/shared/sky/sky_plate.png"
+dest_files=["res://.godot/imported/sky_plate.png-d3bb1cc0cfa267aedbfad61852b0726d.ctex"]
 
 [params]
 
