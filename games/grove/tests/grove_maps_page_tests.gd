@@ -44,10 +44,13 @@ func _initialize() -> void:
 	# the featured CONTINUE button also opens the frontier (a real button — the chip exception)
 	h._open_maps()
 	await create_timer(0.05).timeout
-	var go: Button = null
-	for b in h.content.find_children("*", "Button", true, false):
-		if (b as Button).text.findn(Strings.t("map.page.continue")) != -1:
-			go = b
+	# the CONTINUE button is now the baked cut-paper sprite button (named "ContinueButton", no text);
+	# fall back to matching the caption for the drawn Look.button variant.
+	var go: Button = h.content.find_child("ContinueButton", true, false) as Button
+	if go == null:
+		for b in h.content.find_children("*", "Button", true, false):
+			if (b as Button).text.findn(Strings.t("map.page.continue")) != -1:
+				go = b
 	ok(go != null, "the featured card carries a CONTINUE button")
 	if go != null:
 		go.pressed.emit()
@@ -81,17 +84,19 @@ func _initialize() -> void:
 	# · Board, plus Mail when the inbox build is present (Vault is parked behind its OFF flag).
 	ok(not _label_texts(h.content).has("MAPS"), "the gallery carries no MAPS heading")
 	var caps := _label_texts(h.content)
-	for cap in ["home", "residents", "board"]:
-		ok(caps.has(Strings.t("map.nav.%s" % cap)), "the gallery nav carries %s" % cap)
-	ok(caps.has(Strings.t("map.rail.daily")), "the gallery nav carries Daily")
+	# Home leads the gallery, and Residents · Daily · Board follow — all baked cut-paper sprite tiles now
+	# (icon + label in the PNG, no caption Label), so assert each tile NODE wears its nav sprite.
+	for pair in [["HomeTile", "nav_home"], ["ResidentsTile", "nav_residents"], ["DailyTile", "nav_daily"], ["BoardTile", "nav_board"]]:
+		var tile := h.content.find_child(String(pair[0]), true, false) as Control
+		var wears := tile != null and tile.find_children("*", "TextureRect", true, false).any( \
+			func(tr: TextureRect) -> bool: \
+				return tr.texture != null and String(tr.texture.resource_path).ends_with(String(pair[1]) + ".png"))
+		ok(wears, "the gallery nav carries %s (baked sprite)" % pair[0])
 	ok(not caps.has(Strings.t("map.rail.vault")), "the gallery nav drops the parked Vault (flag OFF)")
 	ok(not caps.has(Strings.t("map.nav.map")), "the gallery nav drops the Map tile (Home takes its slot)")
 	ok(h._select_back == null or not h._select_back.visible, "the gallery hides the back arrow (Home is the way back)")
-	# Home steps back to the map you were viewing
-	var home_btn: Button = null
-	for b in h.content.find_children("*", "Button", true, false):
-		if _label_texts(b).has(Strings.t("map.nav.home")):
-			home_btn = b
+	# Home steps back to the map you were viewing (the baked sprite tile, found by node name)
+	var home_btn := h.content.find_child("HomeTile", true, false) as Button
 	ok(home_btn != null, "the HOME nav tile is a real button")
 	if home_btn != null:
 		home_btn.pressed.emit()

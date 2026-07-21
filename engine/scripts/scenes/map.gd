@@ -28,6 +28,17 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-o
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (nav)
+# Bottom-nav tiles re-skinned as baked cut-paper sprites (icon + label in one PNG), keyed by spec name.
+# A spec with no entry here (e.g. the maps-page HomeTile) falls back to the drawn Kit.home_button tile.
+const NAV_SPRITE := {
+	"HomeTile": "res://games/grove/assets/ui/nav/nav_home.png",
+	"MapTile": "res://games/grove/assets/ui/nav/nav_map.png",
+	"ResidentsTile": "res://games/grove/assets/ui/nav/nav_residents.png",
+	"DailyTile": "res://games/grove/assets/ui/nav/nav_daily.png",
+	"MailTile": "res://games/grove/assets/ui/nav/nav_mail.png",
+	"BoardTile": "res://games/grove/assets/ui/nav/nav_board.png",
+}
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
@@ -902,10 +913,17 @@ func _maps_featured_card(z: int, rect: Rect2) -> Control:
 	var open_feat := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_map(z)
-	var go := Look.button(Strings.t("map.page.continue"), open_feat, true)
 	var btn_h := clampf(rect.size.y * 0.21, 40.0, 64.0)
-	go.custom_minimum_size = Vector2(col_w, btn_h)
-	go.size = Vector2(col_w, btn_h)
+	var go: Button
+	var cont_path := "res://games/grove/assets/ui/card/continue.png"
+	if ResourceLoader.exists(cont_path):
+		# the cut-paper CONTINUE sprite (baked word + flower); stretched to the card's button slot
+		go = SpriteButton.build(load(cont_path), Vector2(col_w, btn_h), open_feat,
+			{"name": "ContinueButton", "tooltip": Strings.t("map.page.continue")})
+	else:
+		go = Look.button(Strings.t("map.page.continue"), open_feat, true)
+		go.custom_minimum_size = Vector2(col_w, btn_h)
+		go.size = Vector2(col_w, btn_h)
 	go.position = Vector2(col_x, rect.size.y - inset - btn_h)
 	card.add_child(go)
 	return card
@@ -938,7 +956,10 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
 	if locked:
 		# the slate padlock, centred on the veiled thumb (no backing plate)
 		var med_h := clampf(rect.size.y * 0.34, 56.0, 170.0)
-		var pad_path := Game.art("ui/meadow_v2/icon_padlock.png")
+		# the cut-paper scalloped keyhole sprite (falls back to the drawn padlock if the sprite is absent)
+		var pad_path := "res://games/grove/assets/ui/card/lock.png"
+		if not ResourceLoader.exists(pad_path):
+			pad_path = Game.art("ui/meadow_v2/icon_padlock.png")
 		if ResourceLoader.exists(pad_path):
 			var pad := TextureRect.new()
 			pad.texture = load(pad_path)
@@ -2227,7 +2248,11 @@ func _make_back_button(sb: float) -> Button:
 		_open_map(_map_idx)
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
-	if Kit != null:
+	var back_path := "res://games/grove/assets/ui/nav/nav_back.png"
+	if ResourceLoader.exists(back_path):
+		# the cut-paper back-arrow sprite tile (square), matching the nav set + its drop shadow
+		b = SpriteButton.build(load(back_path), Vector2(px, px), back, {"name": "BackButton"})
+	elif Kit != null:
 		var opts := _home_opts.duplicate()
 		opts["shape"] = "rect"
 		opts["surface_role"] = "sky"
@@ -2395,26 +2420,33 @@ func _build_settings_gear() -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	var px := maxf(24.0, roundf(_rail_px * 0.62))
-	var b := Button.new()
-	b.name = "SettingsGear"
-	b.focus_mode = Control.FOCUS_NONE
-	b.tooltip_text = Strings.t("settings.title")
-	b.custom_minimum_size = Vector2(px, px)
-	b.size = Vector2(px, px)
-	# flat: no stylebox in any state, so the gear art is the whole button
-	var empty := StyleBoxEmpty.new()
-	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		b.add_theme_stylebox_override(st, empty)
-	b.flat = true
-	if Kit != null and HC != null:
-		var ic: Control = Kit.make_icon(String(HC.ICON_SETTINGS), px)
-		if ic != null:
-			ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-			b.add_child(ic)
-	b.pressed.connect(func() -> void:
+	var open_settings := func() -> void:
 		Audio.play("button_tap", -2.0)
-		_open_settings())
+		_open_settings()
+	var b: Button
+	var gear_path := "res://games/grove/assets/ui/gear.png"
+	if ResourceLoader.exists(gear_path):
+		# the cut-paper gear sprite (its own soft drop shadow), sized off the shared button metric
+		b = SpriteButton.build(load(gear_path), Vector2(px, px), open_settings,
+			{"name": "SettingsGear", "tooltip": Strings.t("settings.title")})
+	else:
+		b = Button.new()
+		b.name = "SettingsGear"
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = Strings.t("settings.title")
+		b.custom_minimum_size = Vector2(px, px)
+		b.size = Vector2(px, px)
+		var empty := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			b.add_theme_stylebox_override(st, empty)
+		b.flat = true
+		if Kit != null and HC != null:
+			var ic: Control = Kit.make_icon(String(HC.ICON_SETTINGS), px)
+			if ic != null:
+				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+				b.add_child(ic)
+		b.pressed.connect(open_settings)
 	# pinned to the RIGHT edge at the shared margin, one margin below the wallet's bottom
 	var margin := _hud_edge_margin_px()
 	b.anchor_left = 1.0
@@ -2469,7 +2501,12 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 		if role == "slate":
 			o["caption_color"] = Pal.CREAM
 		var b: Button
-		if Kit != null:
+		var sprite_path := String(NAV_SPRITE.get(String(spec.name), ""))
+		if sprite_path != "" and ResourceLoader.exists(sprite_path):
+			# the re-skinned cut-paper sprite tile (baked icon + label), stretched to the square tile
+			b = SpriteButton.build(load(sprite_path), Vector2(tile_w, tile_w), spec.action,
+				{"name": String(spec.name), "tooltip": String(spec.caption)})
+		elif Kit != null:
 			b = Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption),
 				"tooltip": String(spec.caption), "action": spec.action}, o)
 		else:
