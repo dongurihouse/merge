@@ -192,7 +192,8 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		badge.add_child(art)
 
-	# the level number, BLACK, centered — a thin light outline keeps it legible on the badge center.
+	# the level number, centered — the SAME ink the currency pills use for their amount (Pal.INK,
+	# no outline) so the top-left badge and the wallet numbers read as one system.
 	var num := Label.new()
 	num.name = "lv_num"
 	num.text = str(level)
@@ -201,9 +202,8 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	num.add_theme_font_override("font", Kit.bold_font())
 	num.add_theme_font_size_override("font_size", num_font if num_font > 0 else int(px * 0.42))
-	num.add_theme_color_override("font_color", Color.BLACK)
-	num.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.45))
-	num.add_theme_constant_override("outline_size", maxi(2, int(round(px * 0.03))))
+	num.add_theme_color_override("font_color", Pal.INK)
+	num.add_theme_constant_override("outline_size", 0)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_child(num)
 
