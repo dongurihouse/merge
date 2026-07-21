@@ -105,7 +105,7 @@
     1672
    ],
    "sort_y": 500,
-   "cluster": "",
+   "cluster": "edge_cover",
    "states": {
     "built": "res://games/grove/assets/map/pages/coral_reef/cover_overlay.png"
    }

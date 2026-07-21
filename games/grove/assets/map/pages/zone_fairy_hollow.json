@@ -20,7 +20,7 @@
     2346
    ],
    "sort_y": 10,
-   "cluster": "",
+   "cluster": "distant_hills",
    "states": {
     "built": "res://games/grove/assets/map/pages/fairy_hollow/distant_hills.png"
    }
@@ -37,7 +37,7 @@
     720
    ],
    "sort_y": 11,
-   "cluster": "",
+   "cluster": "forest_band",
    "states": {
     "built": "res://games/grove/assets/map/pages/fairy_hollow/forest_band.png"
    }
@@ -54,7 +54,7 @@
     2346
    ],
    "sort_y": 12,
-   "cluster": "",
+   "cluster": "frame_trees",
    "states": {
     "built": "res://games/grove/assets/map/pages/fairy_hollow/frame_trees.png"
    }
@@ -71,7 +71,7 @@
     2346
    ],
    "sort_y": 13,
-   "cluster": "",
+   "cluster": "sky_dressing",
    "states": {
     "built": "res://games/grove/assets/map/pages/fairy_hollow/sky_dressing.png"
    }
@@ -445,7 +445,7 @@
     2250
    ],
    "sort_y": 420,
-   "cluster": "",
+   "cluster": "fireflies",
    "states": {
     "built": "res://games/grove/assets/map/pages/fairy_hollow/fireflies.png"
    }
@@ -462,7 +462,7 @@
     407
    ],
    "sort_y": 500,
-   "cluster": "",
+   "cluster": "foreground_foliage",
    "states": {
     "built": "res://games/grove/assets/map/pages/fairy_hollow/foreground_foliage.png"
    }

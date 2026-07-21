@@ -98,7 +98,8 @@
    "w": 941.0,
    "x": 470.0,
    "y": 1672.0,
-   "z": 500.0
+   "z": 500.0,
+   "cluster": "edge_cover"
   },
   {
    "assetId": "unlock_cover_shell_cap",
