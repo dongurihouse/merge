@@ -1830,31 +1830,19 @@ func _frame_sidebar() -> void:
 		_sidebar_body.add_child(_slider_row(["deckle_freq", 1, 20]))   # torn-edge frequency (%, kit ÷100)
 		_sidebar_body.add_child(_slider_row(["rim_width", 0, 8]))      # warm cut-edge line thickness (px)
 		_sidebar_body.add_child(_toggle_row("Sheet shadow", "frame_shadow", true))
-	_section_header("Card")
-	_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))   # parchment / vault twig
-	_sidebar_body.add_child(_toggle_row("9-slice art", "card_art", true))   # rebuilds the sidebar to swap the slider
-	if bool(_params["frame"]["card_art"]):
-		for k in ["card_slice_l", "card_slice_t", "card_slice_r", "card_slice_b"]:
-			_sidebar_body.add_child(_slider_row([k, 0, 200]))
-		_sidebar_body.add_child(_option_row("H stretch", "card_h_stretch", ["stretch", "tile", "tile_fit"]))
-		_sidebar_body.add_child(_option_row("V stretch", "card_v_stretch", ["stretch", "tile", "tile_fit"]))
-	else:
-		_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))
+	# The Card section (border · 9-slice · slice L/T/R/B · H/V stretch) is retired: the code-drawn cut-paper
+	# sheet is the frame face now, so the baked 9-slice card knobs no longer shape anything. Corner radius
+	# lives in the Cut-paper section above. The keys stay in config (defaults + kit reads) for the fallback
+	# baked path when the cut-paper sheet is off — they're just no longer tunable here.
 
-	_section_header("Banner")
-	_sidebar_body.add_child(_slider_row(["banner_font", 16, 56]))
-	_sidebar_body.add_child(_slider_row(["banner_h", 50, 160]))
-	_sidebar_body.add_child(_slider_row(["banner_text_pad_l", 0, 200]))   # title↔left-tail room (the ribbon auto-sizes to fit)
-	_sidebar_body.add_child(_slider_row(["banner_text_pad_r", 0, 200]))   # title↔right-tail room
-	_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))
-	_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))
-	_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))   # engrave intensity (0 = off)
-	_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))
-	_sidebar_body.add_child(_slider_row(["banner_icon", 24, 110]))
-	_sidebar_body.add_child(_slider_row(["banner_x", -200, 200]))
-	_sidebar_body.add_child(_slider_row(["banner_y", -120, 120]))
-	_sidebar_body.add_child(_slider_row(["banner_icon_x", 0, 700]))
-	_sidebar_body.add_child(_slider_row(["banner_icon_y", 0, 160]))
+	# TITLE — the dialog title text only (there is no ribbon banner behind it in the cut-paper frame): its
+	# size, position, and engrave style. Ribbon/icon knobs (band height, banner icon, tail padding, banner
+	# node offset) are retired with the ribbon; their config values persist for the fallback face.
+	_section_header("Title")
+	_sidebar_body.add_child(_slider_row(["banner_font", 16, 56]))          # size
+	_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))     # position — horizontal
+	_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))       # position — vertical
+	_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))          # style — engrave intensity (0 = off)
 
 	_section_header("Close")
 	_sidebar_body.add_child(_slider_row(["close_size", 30, 96]))
