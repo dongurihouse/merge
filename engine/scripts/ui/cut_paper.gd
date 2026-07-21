@@ -32,6 +32,10 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # cut-paper edge knobs (shadow_reach · shadow_strength), so each component dials its own shadow.
 @export var shadow_reach: float = 10.0   # how far the softest fringe reaches below the sheet (px)
 @export var shadow_alpha: float = 0.05   # per-copy alpha; dense overlap accumulates into the gradient
+# blur FEATHERS the shadow outward: farther copies also grow outward from the centre, so the silhouette
+# softens into a halo on ALL sides instead of only tracing the torn edge straight down. 0 = crisp (drop
+# only). Tunable via the shared `shadow_blur` edge knob.
+@export var shadow_blur: float = 0.0     # px the softest copy grows outward past the sheet
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -61,6 +65,7 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	rim_width = float(o.get("rim_width", rim_width))
 	draw_shadow = bool(o.get("edge_shadow", draw_shadow))
 	shadow_reach = float(o.get("shadow_reach", shadow_reach))
+	shadow_blur = float(o.get("shadow_blur", shadow_blur))
 	# shadow_strength is a 0..N percent knob → per-copy alpha (kept in the same normalized opts dict)
 	if o.has("shadow_strength"):
 		shadow_alpha = float(o["shadow_strength"]) / 100.0
@@ -75,15 +80,25 @@ func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
 	if draw_shadow and shadow_reach > 0.0 and shadow_alpha > 0.0:
 		# farthest copy first, nearest last — overlap darkens the top, fringe fades at the bottom. The step
-		# count tracks `shadow_reach` so the copies stay ~1px apart (dense = smooth) at any reach.
+		# count tracks `shadow_reach` so the copies stay ~1px apart (dense = smooth) at any reach. When
+		# `shadow_blur` > 0 each farther copy also grows outward from the centre, so the fringe feathers into
+		# a soft halo on every side instead of a crisp downward drop.
 		var steps := maxi(4, int(round(shadow_reach)))
 		var step := shadow_reach / float(steps)
 		var sh := Look.shadow_color(shadow_alpha)
+		var centre := size * 0.5
 		for i in range(steps, 0, -1):
+			var frac := float(i) / float(steps)
 			var dy := step * float(i)
+			var grow := shadow_blur * frac
 			var off := PackedVector2Array()
 			for p in pts:
-				off.append(p + Vector2(0.0, dy))
+				var gp := p
+				if grow > 0.0:
+					var dir := p - centre
+					if dir.length() > 0.001:
+						gp = p + dir.normalized() * grow
+				off.append(gp + Vector2(0.0, dy))
 			draw_colored_polygon(off, sh)
 	if paper_tex != null:
 		var tp := paper_tex.get_size()
