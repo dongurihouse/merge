@@ -49,6 +49,7 @@ var _pending_deselect := false      # armed on re-clicking the selected cluster;
 var _press_point := Vector2.ZERO    # canvas point of the current left press (deselect-vs-drag threshold)
 var _hidden: Dictionary = {}        # workbench-only: cluster name -> true; not persisted, cleared on reload
 var _hidden_layers: Dictionary = {} # workbench-only: layer slug -> true; not persisted, cleared on reload
+var _base_hidden := false           # workbench-only: hide the opaque `base` backdrop (the sky); reset on reload
 
 var _stage: Control = null
 var _layers: Control = null         # one TextureRect per placement, child order = paint order
@@ -161,7 +162,7 @@ static func _clear_children(box: Node) -> void:
 func _rebuild_stage() -> void:
 	_clear_children(_layers)
 	var base_rel := String((doc.get("base", {}) as Dictionary).get("image", ""))
-	if base_rel != "":
+	if base_rel != "" and not _base_hidden:           # the base (sky) is hidable like any other layer
 		var b := _make_layer(base_rel, Rect2(Vector2.ZERO, M.canvas_size(doc)))
 		if b != null:
 			_layers.add_child(b)
@@ -568,6 +569,10 @@ func _toggle_cluster_hidden(name: String, force_hide := false) -> void:
 			_select(-1)                              # cannot edit what is not shown
 	_rebuild_stage()
 
+func _toggle_base_hidden() -> void:
+	_base_hidden = not _base_hidden
+	_rebuild_stage()
+
 func _toggle_layer_hidden(slug: String) -> void:
 	if _hidden_layers.has(slug):
 		_hidden_layers.erase(slug)
@@ -599,6 +604,7 @@ func _reload() -> void:
 	_sel_cluster = ""
 	_hidden.clear()                                  # hiding is workbench-only view state — reload shows all
 	_hidden_layers.clear()
+	_base_hidden = false
 	dirty = false
 	_rebuild_stage()
 
@@ -873,6 +879,21 @@ func _refresh_cluster_list() -> void:
 		(by_layer[lyr] as Array).append(cn)
 	for names in by_layer.values():
 		(names as Array).sort_custom(func(x, y) -> bool: return M.cluster_z(doc, x) < M.cluster_z(doc, y))
+	# The opaque `base` backdrop (the sky) paints behind everything and isn't a placement, so it has
+	# no cluster — but it still gets a row here with a hide eye, so the whole stage is visible and
+	# hidable from the panel (the base can't be selected, restacked, or removed; it's the floor).
+	var base_id := String((doc.get("base", {}) as Dictionary).get("id", ""))
+	if base_id != "":
+		var base_row := HBoxContainer.new()
+		var blabel := _label("— Base —  %s" % base_id, FS.TOOL, true)
+		blabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if _base_hidden:
+			blabel.add_theme_color_override("font_color", Color("#9A9488"))
+		base_row.add_child(blabel)
+		var beye := _small_button("◌" if _base_hidden else "◉", _toggle_base_hidden)
+		beye.tooltip_text = "show the base backdrop" if _base_hidden else "hide the base backdrop"
+		base_row.add_child(beye)
+		_cluster_box.add_child(base_row)
 	for slug in M.LAYERS:
 		var lhidden := _hidden_layers.has(slug)
 		var hdr_row := HBoxContainer.new()
