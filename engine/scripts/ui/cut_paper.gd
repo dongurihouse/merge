@@ -70,13 +70,16 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
 	if draw_shadow:
-		# farthest copy first, nearest last — overlap darkens the top, fringe fades at the bottom
+		# The shadow traces the SMOOTH rounded outline, NOT the torn edge — a soft drop shadow should read
+		# as one gentle silhouette, not a jagged echo of every deckle tooth. farthest copy first, nearest
+		# last — overlap darkens the top, fringe fades at the bottom.
+		var shadow_pts := _smooth_shadow_polygon(size, corner)
 		var step := SHADOW_DROP / float(SHADOW_STEPS)
 		var sh := Look.shadow_color(SHADOW_ALPHA)
 		for i in range(SHADOW_STEPS, 0, -1):
 			var dy := step * float(i)
 			var off := PackedVector2Array()
-			for p in pts:
+			for p in shadow_pts:
 				off.append(p + Vector2(0.0, dy))
 			draw_colored_polygon(off, sh)
 	if paper_tex != null:
@@ -91,6 +94,25 @@ func _draw() -> void:
 	var closed := pts.duplicate()
 	closed.append(pts[0])
 	draw_polyline(closed, rim_color, rim_width, true)
+
+## The SMOOTH drop-shadow outline: the un-torn base perimeter nudged outward from the centroid by half the
+## deckle amplitude, so the soft shadow sits just past the average tear line and reads as one gentle
+## silhouette instead of tracing each deckle tooth (which made the drop shadow look hard / serrated).
+func _smooth_shadow_polygon(sz: Vector2, r: float) -> PackedVector2Array:
+	var base := _base_perimeter(sz, r)
+	var n := base.size()
+	if n < 3:
+		return base
+	var centroid := Vector2.ZERO
+	for p in base:
+		centroid += p
+	centroid /= float(n)
+	var grow := deckle_amp * 0.5
+	var out := PackedVector2Array()
+	for p in base:
+		var dir := p - centroid
+		out.append(p + (dir.normalized() * grow if dir.length() > 0.001 else Vector2.ZERO))
+	return out
 
 ## The torn-edge polygon: take the base OUTLINE for the chosen shape (any convex/organic polygon), then
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the
