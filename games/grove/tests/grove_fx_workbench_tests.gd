@@ -332,8 +332,13 @@ func _test_feel_fx() -> void:
 	ok(board_src.find("_grab_opts = GrabFx.from_config(") != -1, "board resolves the grab_fx config once")
 	ok(board_src.find("GrabFx.grab(") != -1, "board fires the grab highlight on pickup")
 	ok(board_src.find("GrabFx.release(") != -1, "board clears the grab highlight on drop")
-	ok(board_src.find("LandFx.apply.bind(board_area, node, land_ctr, _land_opts, 1.0, false, _orthogonal_neighbour_nodes(b))") != -1, \
-		"board's plain drop (_commit_move) routes through LandFx.apply with the cell's neighbours (squash + ripple)")
+	# the plain-drop slide+land now goes through the SHARED GridFx owner (board + residents), which lands
+	# through the tuned LandFx applier with the cell's neighbours internally.
+	ok(board_src.find("GridFx.slide_and_land(board_area, node, _cell_pos(b), land_ctr, _orthogonal_neighbour_nodes(b), _grid_fx_opts, 120)") != -1, \
+		"board's plain drop (_commit_move) routes through GridFx.slide_and_land with the cell's neighbours")
+	var gridfx_src2 := FileAccess.get_file_as_string("res://engine/scripts/ui/grid_fx.gd")
+	ok(gridfx_src2.find("LandFx.apply.bind(host, node, land_ctr, opts.get(\"land\", {}), 1.0, false, neighbors)") != -1, \
+		"GridFx.slide_and_land lands through the tuned LandFx applier with neighbours (squash + ripple)")
 	# firing each play function does not error (reads the live _params; no rebuild needed)
 	view._land_fx_play()
 	view._merge_fx_play()

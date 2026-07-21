@@ -1457,8 +1457,13 @@ func _test_new_knobs(view) -> void:
 	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
 	# T63: the call now passes `intensified = G.is_special_line(produced)` as the trailing arg, so a §6.G
 	# recipe-line merge gets the big-moment feel at every tier.
-	ok(board_src.find("MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0, G.is_special_line(produced))") != -1, \
-		"board merge routes through MergeFx.apply (neighbours + board passed in; recipe lines flagged intensified)")
+	# the merge orchestration now lives in the SHARED GridFx owner (board + residents), which calls the
+	# tuned MergeFx applier internally with neighbours + board + the intensified flag.
+	ok(board_src.find("GridFx.play_merge(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), _grid_fx_opts, false, G.is_special_line(produced))") != -1, \
+		"board merge routes through GridFx.play_merge (neighbours + recipe lines flagged intensified)")
+	var gridfx_src := FileAccess.get_file_as_string("res://engine/scripts/ui/grid_fx.gd")
+	ok(gridfx_src.find("MergeFx.apply(host, node, center, tier, combo, neighbors, host,") != -1, \
+		"GridFx.play_merge drives the tuned MergeFx applier with the neighbours + board")
 	ok(board_src.find("_merge_opts = MergeFx.from_config(") != -1, \
 		"board resolves the merge_fx config once")
 	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(b),") == -1, \

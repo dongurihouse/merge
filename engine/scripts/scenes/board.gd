@@ -36,6 +36,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")      # (workbench-t
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")        # the toggleable Grab (pickup) highlight
+const GridFx = preload("res://engine/scripts/ui/grid_fx.gd")       # THE shared merge/slide-land orchestration (board + residents)
 const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
@@ -119,6 +120,7 @@ var _land_opts := {}
 var _launch_opts := {}
 var _move_opts := {}
 var _grab_opts := {}
+var _grid_fx_opts := {}   # {merge,move,land} bundle handed to GridFx (the shared merge/slide-land owner)
 # the quest-ready glow look (colour/opacity/roundness/halo), resolved ONCE in _ready from the workbench
 # "ready_glow" section so add_ready_glow renders the SAME look the workbench previews. {} → shipped amber.
 var _ready_glow_opts := {}
@@ -354,6 +356,7 @@ func _ready() -> void:
 	_launch_opts = LaunchFx.from_config(fx_cfg)
 	_move_opts = MoveFx.from_config(fx_cfg)
 	_grab_opts = GrabFx.from_config(fx_cfg)
+	_grid_fx_opts = {"merge": _merge_opts, "move": _move_opts, "land": _land_opts}   # one bundle for GridFx
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
 	if _winback:
@@ -2812,7 +2815,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# MergeFx.apply now — every cue is a workbench toggle/knob.
 	# T63: a §6.G recipe-line (special "treasure" line) merge fires the intensified big-moment feel at EVERY
 	# tier — top-band colour/chime/haptic + the reserved shake + board punch — so the premium lines always land.
-	MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0, G.is_special_line(produced))
+	GridFx.play_merge(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), _grid_fx_opts, false, G.is_special_line(produced))
 	# bundle D: poke the screen-bloom — a PERSISTENT overlay, so it can't live inside apply(); gate + scale it
 	# here by the workbench's combo_bloom toggle + bloom_pct knob (the scene owns the world reaction).
 	if MergeFx.on(_merge_opts, "combo_bloom") and _combo_bloom != null and is_instance_valid(_combo_bloom):
@@ -3238,9 +3241,7 @@ func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	# orthogonal neighbours bumped. LandFx owns the touchdown sound now, so the old bare item_drop is gone
 	# (keeping it would double with the land sound). Mirrors the generator-pop touchdown at _pop_seed.
 	var land_ctr := _cell_pos(b) + Vector2(csz, csz) / 2.0
-	var t := node.create_tween()
-	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_callback(LandFx.apply.bind(board_area, node, land_ctr, _land_opts, 1.0, false, _orthogonal_neighbour_nodes(b)))
+	GridFx.slide_and_land(board_area, node, _cell_pos(b), land_ctr, _orthogonal_neighbour_nodes(b), _grid_fx_opts, 120)
 	_persist()
 	_refresh_giver_lights()
 

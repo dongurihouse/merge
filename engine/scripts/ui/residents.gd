@@ -24,6 +24,7 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the SHARED board cell (holder + contact shadow + lift)
+const GridFx = preload("res://engine/scripts/ui/grid_fx.gd")         # the SHARED merge/slide-land feel owner
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const D = Game.DATA
@@ -171,7 +172,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	# the render context every repaint reads: selection + the two rebuildable surfaces.
 	var ctx := {"sel": {}, "body": null, "insp": null, "scale": scale,
 		"kit": Kit, "cfg": cfg, "inner": inner, "overlay": overlay, "opts": opts,
-		"piece_inset": _board_piece_inset(cfg)}
+		"piece_inset": _board_piece_inset(cfg), "fx": GridFx.opts_from_config(cfg)}
 
 	var body := VBoxContainer.new()
 	body.name = "ResidentsBody"
@@ -562,7 +563,7 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 			Audio.play("button_tap", -2.0)
 			ctx["sel"] = {}
 			_repaint(ctx)
-			_pop_after(ctx, target)   # the merged tile POPS — the board's produced-tile impact
+			_merge_after(ctx, target, int(me.tier) + 1)   # the board's real merge celebration, one owner (GridFx)
 	_register_card(ctx, dc)
 	cell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dc.add_child(cell)
@@ -637,8 +638,8 @@ static func _spirit_piece(kind: String, tier: int, px: float, inset: float = Pie
 	var tex: Texture2D = _spirit_tex(art) if (art != "" and ResourceLoader.exists(art)) else null
 	return PieceView.make_piece_from_texture(tex, px, inset)
 
-## Pop a just-rebuilt cell by name (the board's produced-tile impact). Deferred one frame so the repaint's
-## fresh node exists AND has its rect (FX.pop centres on the node's size).
+## Pop a just-rebuilt cell by name (a plain settle impact for a move-in / snap-back). Deferred one frame
+## so the repaint's fresh node exists AND has its rect (FX.pop centres on the node's size).
 static func _pop_after(ctx: Dictionary, cell_name: String) -> void:
 	var body: Control = ctx.get("body")
 	if body == null or not is_instance_valid(body):
@@ -648,6 +649,21 @@ static func _pop_after(ctx: Dictionary, cell_name: String) -> void:
 			var n := body.find_child(cell_name, true, false)
 			if n is Control:
 				FX.pop(n)).call_deferred()
+
+## A MERGE settled at `cell_name` producing `tier`: play the board's exact merge celebration through the
+## shared GridFx owner (dialog-trimmed — no screen shake / board punch / world puff / milestone word).
+## Deferred so the rebuilt node exists with its rect; centred on the node.
+static func _merge_after(ctx: Dictionary, cell_name: String, tier: int) -> void:
+	var body: Control = ctx.get("body")
+	var fx: Dictionary = ctx.get("fx", {})
+	if body == null or not is_instance_valid(body):
+		return
+	(func() -> void:
+		if is_instance_valid(body):
+			var n := body.find_child(cell_name, true, false)
+			if n is Control:
+				var ctr: Vector2 = (n as Control).size / 2.0
+				GridFx.play_merge(n as Control, n as Control, ctr, tier, 0, [], fx, true)).call_deferred()
 
 static func _spirit_art(kind: String, tier: int, px: float) -> Control:
 	var t := TextureRect.new()
