@@ -207,6 +207,8 @@ func _make_layer(rel: String, rect: Rect2, entry := {}) -> TextureRect:
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	n.position = rect.position
 	n.size = rect.size
+	n.pivot_offset = Vector2(rect.size.x * 0.5, rect.size.y)   # the anchor (foot) — rotate about it
+	n.rotation_degrees = float(entry.get("rot", 0.0))
 	return n
 
 ## Refresh ONE moved/resized entry without rebuilding everything (drag feel).
@@ -217,6 +219,8 @@ func _refresh_entry_rect(i: int) -> void:
 		if n.has_meta("pi") and int(n.get_meta("pi")) == i:
 			n.position = r.position
 			n.size = r.size
+			(n as Control).pivot_offset = Vector2(r.size.x * 0.5, r.size.y)
+			(n as Control).rotation_degrees = float(e.get("rot", 0.0))
 		elif n.has_meta("pi_shadow") and int(n.get_meta("pi_shadow")) == i:
 			n.position = Vector2(float(e.get("x", 0)), float(e.get("y", 0)))   # the shadow rides the footing
 			n.set("disp", r.size)
@@ -301,16 +305,33 @@ func _draw_overlay() -> void:
 	var s: float = maxf(_overlay.scale.x, 0.001)
 	if _sel_cluster != "":
 		for i in M.clusters(doc).get(_sel_cluster, []):
-			_overlay.draw_rect(M.entry_rect(M.placements(doc)[i]), Color("#5FB56B"), false, 2.0 / s)
+			_draw_entry_outline(M.placements(doc)[i], Color("#5FB56B"), 2.0 / s)
 		var bb: Rect2 = M.cluster_bbox(doc, _sel_cluster)
 		_overlay.draw_rect(bb, Color("#FFB12E"), false, 3.0 / s)
 		_overlay.draw_circle(Vector2(bb.position.x + bb.size.x * 0.5, bb.end.y), 6.0 / s, Color("#FFB12E"))
 		return
 	if _sel < 0 or _sel >= M.placements(doc).size():
 		return
-	var r: Rect2 = M.entry_rect(M.placements(doc)[_sel])
-	_overlay.draw_rect(r, Color("#FFB12E"), false, 3.0 / s)
-	_overlay.draw_circle(Vector2(r.position.x + r.size.x * 0.5, r.end.y), 6.0 / s, Color("#FFB12E"))
+	var e: Dictionary = M.placements(doc)[_sel]
+	_draw_entry_outline(e, Color("#FFB12E"), 3.0 / s)
+	_overlay.draw_circle(Vector2(float(e.get("x", 0)), float(e.get("y", 0))), 6.0 / s, Color("#FFB12E"))
+
+## Outline one entry, following its rotation about the anchor (foot). A 0° entry falls back to a
+## plain rect; a rotated one draws the turned quad so the marquee hugs the art.
+func _draw_entry_outline(e: Dictionary, color: Color, width: float) -> void:
+	var r := M.entry_rect(e)
+	var rot := float(e.get("rot", 0.0))
+	if rot == 0.0:
+		_overlay.draw_rect(r, color, false, width)
+		return
+	var anchor := Vector2(float(e.get("x", 0)), float(e.get("y", 0)))
+	var rad := deg_to_rad(rot)
+	var corners := [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]
+	var pts := PackedVector2Array()
+	for c in corners:
+		pts.append(anchor + (Vector2(c) - anchor).rotated(rad))
+	pts.append(pts[0])
+	_overlay.draw_polyline(pts, color, width)
 
 # --- input ----------------------------------------------------------------------------------------
 # The STAGE is the mouse-input surface (gui_input, the repo's testable pattern — cf. the map scene's
@@ -358,6 +379,18 @@ func _on_stage_input(ev: InputEvent) -> void:
 				_dragging = false
 		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			var up := mb.button_index == MOUSE_BUTTON_WHEEL_UP
+			if mb.alt_pressed:
+				# Alt+wheel ROTATES the selection (Alt+Shift = coarse); plain wheel still scales.
+				var deg := (15.0 if mb.shift_pressed else 2.0) * (1.0 if up else -1.0)
+				if _sel_cluster != "":
+					M.rotate_cluster(doc, _sel_cluster, deg)
+					_mark_dirty()
+					_refresh_cluster_rects()
+				elif _sel >= 0:
+					M.rotate_by(doc, _sel, deg)
+					_mark_dirty()
+					_refresh_entry_rect(_sel)
+				return
 			var f := (1.10 if up else 0.90) if mb.shift_pressed else (1.02 if up else 0.98)
 			if _sel_cluster != "":
 				M.scale_cluster(doc, _sel_cluster, f)
