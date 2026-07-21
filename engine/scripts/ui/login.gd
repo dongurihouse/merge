@@ -43,7 +43,7 @@ const SLOT_SAGE := [1, 3, 6]
 
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
-const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
+const CELL_ASPECT := 1.36         # cell height / cell width — matches the re-skin day-card sprite (more square)
 const BANNER_ASPECT := 1.35       # capstone banner height / cell width — a small, compact box
 
 # Fixed layout lines for a day cell (fractions of the cell HEIGHT). The reward icon and its amount are
@@ -68,6 +68,25 @@ const ART_GIFT := "kit/daily_reward_gift.png"     # slot-4 mystery day (the wrap
 const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
 const ART_LEAF_L := "kit/daily_chest_leaf_l.png"  # day-7 chest decal — cut-paper oak sprig, left
 const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-paper oak sprig, right
+
+# Cut-paper RE-SKIN (from the daily mock): the day-card faces, the wide day-7 capstone (chest + sprigs +
+# sparkles baked in), and the reward icons — each worn over the shared code drop shadow. Absent files fall
+# back to the drawn/Direction-B look. The CLAIMED card faces bake their own dim + ✓, so a claimed day
+# draws no separate reward icon / amount / check.
+const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
+const SKIN_DIR := "res://games/grove/assets/ui/dialogs/daily/"
+const REWARD_SKIN := {"coin": "icon_coin", "gem": "icon_acorn", "water": "icon_water"}   # reward id → skin icon
+static func _daily_tex(key: String) -> Texture2D:
+	var p := SKIN_DIR + key + ".png"
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
+static func _skin_sprite(tex: Texture2D, px: float) -> Control:
+	var t := TextureRect.new()
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(px, px)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.texture = tex
+	return t
 
 ## Every kit sprite THIS dialog polishes on open (_sprite → Kit.clean_tex_path). Sourced here, from
 ## the same consts the draws use, so the texture bake and its guard cover the REAL runtime dialog —
@@ -473,6 +492,10 @@ static func _reward_art(Kit: GDScript, reward: Dictionary, px: float) -> Control
 ## One reward icon: the Direction-B cut-paper sprite when this currency has one (REWARD_ART), else the
 ## shared glyph via Kit.make_icon (a cosmetic star, or any id the pack doesn't cover).
 static func _reward_icon(Kit: GDScript, id: String, px: float) -> Control:
+	if REWARD_SKIN.has(id):
+		var t := _daily_tex(String(REWARD_SKIN[id]))
+		if t != null:
+			return _skin_sprite(t, px)
 	if REWARD_ART.has(id):
 		return _sprite(Kit, String(REWARD_ART[id]), px)
 	return Kit.make_icon(id, px)
