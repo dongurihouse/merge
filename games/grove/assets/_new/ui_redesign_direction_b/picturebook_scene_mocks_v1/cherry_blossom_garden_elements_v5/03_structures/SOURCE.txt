@@ -1,0 +1,1 @@
+These are the original authored paper-cut assets from games/grove/assets/map/pages/cherry_blossom_garden, copied without regeneration. Their direction, camera angle, layered paper grain, and palette are the art authority for the v5 reconstruction.
