@@ -11,15 +11,22 @@ const UIWorkbenchView = preload("res://games/grove/tools/ui_workbench_view.gd")
 func _initialize() -> void:
 	begin("grove · ui workbench")
 	_live_cutpaper_edit_reaches_shared_buttons()
+	_live_corner_edit_reaches_shared_buttons()
+	_live_rim_color_edit_reaches_shared_buttons()
+	_white_role_builds_with_white_tile()
 	finish()
 
-## The deckle amplitude the shared CutPaperPanel was configured with (-1 if the button has no deckle
-## surface). This is the edge knob the workbench "Deckle Amp" slider drives.
-func _deckle_amp_of(btn: Button) -> float:
+## The shared CutPaperPanel behind a deckled button (null if the button has no deckle surface).
+func _deckle_of(btn: Button) -> Control:
 	for c in btn.get_children():
 		if String(c.name) == "ButtonDeckleSurface":
-			return float((c as Control).deckle_amp)
-	return -1.0
+			return c as Control
+	return null
+
+## The deckle amplitude the shared CutPaperPanel was configured with (-1 if no deckle surface).
+func _deckle_amp_of(btn: Button) -> float:
+	var d := _deckle_of(btn)
+	return float(d.deckle_amp) if d != null else -1.0
 
 func _live_cutpaper_edit_reaches_shared_buttons() -> void:
 	Kit.clear_config_cache()   # start from the saved-on-disk config (button deckle_amp == 5)
@@ -45,3 +52,53 @@ func _live_cutpaper_edit_reaches_shared_buttons() -> void:
 	b.free()
 	view.free()
 	Kit.clear_config_cache()   # don't leak the preview config into sibling suites
+
+## Corner is part of the SHARED edge set now: a live Corner edit must reach a no-`cp` shared button, not
+## only the live green tile (before the fix `corner` was test-only and defaulted to a hardcoded 16).
+func _live_corner_edit_reaches_shared_buttons() -> void:
+	Kit.clear_config_cache()
+	var view := UIWorkbenchView.new()
+	view._selected = "button"
+	view._params["button"]["deckle"] = true
+	view._params["button"]["corner"] = 41.0   # distinctive, not the saved default (16)
+	view._apply_edit()
+	var b := Kit.pill_button("Buy", {"bg": "cream", "paper": "cream", "border": 0.0})
+	var d := _deckle_of(b)
+	ok(d != null and is_equal_approx(float(d.corner), 41.0),
+		"a live Corner edit previews on a shared cream button (corner 41, not the hardcoded 16)")
+	b.free()
+	view.free()
+	Kit.clear_config_cache()
+
+## The new Rim color picker (shared cut-paper knob) must reach the CutPaperPanel.rim_color of a shared
+## button — a button that computes no rim of its own.
+func _live_rim_color_edit_reaches_shared_buttons() -> void:
+	Kit.clear_config_cache()
+	var view := UIWorkbenchView.new()
+	view._selected = "button"
+	view._params["button"]["deckle"] = true
+	view._params["button"]["rim_color"] = "FF0000"   # unmistakable red rim
+	view._apply_edit()
+	var b := Kit.pill_button("Buy", {"bg": "cream", "paper": "cream", "border": 0.0})
+	var d := _deckle_of(b)
+	ok(d != null and (d.rim_color as Color).is_equal_approx(Color("#FF0000")),
+		"a live Rim color edit previews on a shared cream button (rim goes red)")
+	b.free()
+	view.free()
+	Kit.clear_config_cache()
+
+## The new white paper role builds a deckle surface fed the WHITE fibre tile (not the shared cream tile),
+## so a white fill reads white instead of cream.
+func _white_role_builds_with_white_tile() -> void:
+	Kit.clear_config_cache()
+	var white_tile := load(Kit.CUT_PAPER_TILE_WHITE)
+	ok(ResourceLoader.exists(Kit.CUT_PAPER_TILE_WHITE) and white_tile != null,
+		"the white paper tile asset exists and loads")
+	var b := Kit.pill_button("White", {"bg": "cream", "paper": "white", "border": 0.0})
+	var d := _deckle_of(b)
+	ok(d != null and (d.paper_tex as Texture2D) == white_tile,
+		"the white role's deckle surface uses the white fibre tile, not the cream one")
+	ok(d != null and (d.paper_color as Color).r > 0.95 and (d.paper_color as Color).g > 0.95 and (d.paper_color as Color).b > 0.95,
+		"the white role fills near-white")
+	b.free()
+	Kit.clear_config_cache()

@@ -78,9 +78,10 @@ const TEST_KEYS := {
 	# the FOCUS RING (selected-cell corner brackets): colour/halo/proportions persist (they flow to the
 	# live board via Kit.focus_ring_opts_from_config); `cell` is the preview size only.
 	"focus_ring": ["cell"],
-	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
-	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
-	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge", "paper", "border", "pad_scale", "static"],
+	# the Button is a shared-STYLE sandbox: shadow / use-art / font AND the shared cut-paper corner are real
+	# config (the corner is part of the shared edge set, so it must persist + sync to every button, not just
+	# the live tile). Its text, bg, icon, badge are test props — the REAL text/badge/icon live on the Card.
+	"button": ["text", "bg", "icon", "icon_size", "enabled", "badge", "paper", "border", "pad_scale", "static"],
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
 	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
 	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
@@ -1343,7 +1344,7 @@ func _button_gallery(_p: Dictionary) -> Control:
 	var paper_row := HBoxContainer.new()
 	paper_row.add_theme_constant_override("separation", 10)
 	paper_row.add_child(Kit.pill_button(String(_params["button"].text), _btn_opts({"bg": "green", "paper": "green", "border": 0.0})))
-	for role in ["cream", "purple", "coral", "gold"]:
+	for role in ["cream", "white", "purple", "coral", "gold"]:
 		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
 	col.add_child(_button_sample("paper roles (borderless) — ● green is live", paper_row))
 	# 2) a static display CHIP is NOT a separate component — it is a paper role (cream) + an icon in front
@@ -1565,7 +1566,7 @@ func _element_sidebar(_id: String) -> void:
 			_cut_paper_section("button")   # the shared edge knob set (corner + deckle amp/freq/rim + edge shadow)
 			_sidebar_body.add_child(_toggle_row("Drop shadow (non-deckle)", "shadow"))   # global box shadow, used when the edge is off
 			_section_header("Paper-cut surface (overrides bg/art)")
-			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
+			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "white", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
 			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button
 			_sidebar_body.add_child(_slider_row(["pad_scale", 40, 140]))  # % padding (the cost chip uses < 100 to fit a card)
 			_sidebar_body.add_child(_toggle_row("Static (display chip)", "static"))   # looks like a button, not pressable
@@ -1878,10 +1879,15 @@ func _cut_paper_section(target: String) -> void:
 		var key := String(knob["key"])
 		if not on and key != "deckle" and key != "corner":
 			continue   # edge off → only the enable toggle + the general corner stay tunable
-		if String(knob.get("kind", "slider")) == "toggle":
-			_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, key == "deckle", target))
-		else:
-			_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
+		match String(knob.get("kind", "slider")):
+			"toggle":
+				_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, key == "deckle", target))
+			"color":
+				if not (_params[target] as Dictionary).has(key):
+					_params[target][key] = String(knob.get("default", "FFFFFF"))   # seed the schema rim colour so the picker opens on it
+				_sidebar_body.add_child(_color_row(String(knob["label"]), key, target))
+			_:
+				_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
 
 func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
