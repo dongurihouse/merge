@@ -196,6 +196,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 	var dialog: Control = Kit.dialog_frame(body, width, fopts)
+	_apply_cutpaper_frame(dialog)   # reskin: torn panel background + coral close sprite
 	cc.add_child(dialog)
 
 	# the INSPECTOR rides the frame's wrap OUTSIDE the padded scroll, pinned flush to the sheet's
@@ -306,9 +307,11 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 			cell = _free_cell(ctx, cbag, cell_px)
 			cell.name = "HabitatCellFree_%02d" % i
 		else:
+			# the whole locked cell IS the cut-paper keyhole sprite (the slot_cell's own drawn lock would
+			# otherwise paint over a face swap), over the shared drop shadow.
 			var lock_tex := _skin_tex("cell_locked")
 			if lock_tex != null:
-				cell = SpritePanel.build(lock_tex, Vector2(cell_px, cell_px))   # reskin: baked locked-cell sprite
+				cell = SpritePanel.build(lock_tex, Vector2(cell_px, cell_px))
 			else:
 				cell = Kit.slot_cell({"state": "locked"}, cbag)
 				_shadow_cell(cell)
@@ -336,9 +339,10 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		card.name = "OnHandCard_%02d" % i
 		grid.add_child(card)
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
-		# empty filler tiles carry NO shadow: their face is transparent, so a filled shadow panel
-		# would read as a solid slab through it.
-		grid.add_child(Kit.slot_cell({"state": "empty"}, hbag))
+		# empty filler tiles: the plain cream cut-paper cell (matches the filled hand tiles' face)
+		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag)
+		_skin_cell_face(filler, "cell_plain")
+		grid.add_child(filler)
 	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
 	# spirit dropped anywhere over it (cards included: their can_take rejects "placed", so the
 	# hit-test falls through) comes back to the hand. Registered AFTER the cards, so specific
@@ -578,6 +582,53 @@ static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
 	Look.apply_box_shadow(sb)
 
+## Reskin a kit slot cell's FACE with a cut-paper cell sprite (cell_plain / cell_open / cell_locked):
+## swap the shared SlotCellBackground panel's stylebox for a StyleBoxTexture. Returns whether it applied
+## (false → the sprite is absent; caller keeps the drawn face + shadow).
+static func _skin_cell_face(cell: Control, key: String) -> bool:
+	var tex := _skin_tex(key)
+	if tex == null:
+		return false
+	var bg := cell.find_child("SlotCellBackground", true, false) as Control
+	if bg == null:
+		return false
+	# The drawn sage face is a SlotCellPaperTexture layer ON the background; overlay the cut-paper cell
+	# sprite above it (still below the resident art, which is a sibling drawn after the background).
+	var tr := TextureRect.new()
+	tr.name = "CutPaperCellFace"
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.texture = tex
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.custom_minimum_size = Vector2.ZERO
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.add_child(tr)
+	return true
+
+## Swap the shared dialog frame's chrome for the extracted cut-paper sprites: the panel background becomes
+## the torn dialog_bg, and the ✕ becomes the coral close sprite. No-ops for whichever sprite is absent.
+static func _apply_cutpaper_frame(dialog: Control) -> void:
+	var bg_tex := _skin_tex("dialog_bg")
+	var panel := dialog.find_child("MeadowDialogPanel", true, false) as PanelContainer
+	if bg_tex != null and panel != null:
+		var st := StyleBoxTexture.new()
+		st.texture = bg_tex
+		var cur := panel.get_theme_stylebox("panel")
+		if cur != null:   # keep the same content insets so the body still lays out inside the sheet
+			for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+				st.set_content_margin(side, cur.get_content_margin(side))
+		panel.add_theme_stylebox_override("panel", st)
+	var close_tex := _skin_tex("close")
+	var close := dialog.find_child("DialogClose", true, false) as Button
+	if close_tex != null and close != null:
+		var cst := StyleBoxTexture.new()
+		cst.texture = close_tex
+		for s in ["normal", "hover", "pressed", "focus"]:
+			close.add_theme_stylebox_override(s, cst)
+		var sh := close.find_child("DialogCloseShadow", true, false)   # the drawn circle shadow (our sprite has its own edge)
+		if sh != null:
+			(sh as CanvasItem).visible = false
+
 ## Shadow a kit slot cell: the visible face is the inset SlotCellBackground panel — put the mock
 ## shadow on ITS stylebox (duplicated: slot_cell styleboxes are shared), so the shadow hugs the
 ## face's real rounded corners.
@@ -603,7 +654,8 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 		"make_content": func(pp: float) -> Control: return _spirit_piece(kind, tier, pp, inset)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
-	_shadow_cell(cell)
+	if not _skin_cell_face(cell, "cell_plain"):   # reskin: plain cream cut-paper cell behind the resident
+		_shadow_cell(cell)
 	if _is_sel(ctx, src, idx):
 		var rim := Panel.new()
 		rim.name = "SpiritSelectedRim"
@@ -662,6 +714,7 @@ static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float) -> Cont
 	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
+	_skin_cell_face(cell, "cell_open")   # reskin: the open (green-inset) habitat slot
 	var dc := DragCard.new()
 	dc.custom_minimum_size = Vector2(px, px)
 	dc.mouse_filter = Control.MOUSE_FILTER_STOP
