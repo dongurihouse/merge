@@ -775,7 +775,126 @@ Before shipping, hide one region at a time in the Workbench. The remainder must 
 locked page, and removing the region must reveal a clear landmark/socket without a turf island, duplicate
 plate, dark shadow slab, or accidental hole.
 
-### 11e · Common generation failures and fixes
+### 11e · Desert Oasis case study — layer-ready mock, minimal deconstruction, and full-page leaf lock
+
+Desert Oasis established the preferred workflow for a scene that must be editable without looking like a
+collection of pasted sprites. Its active bundle is
+`games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/`. The bundle is the living
+example; `metadata/placements.json` is the scene authority and
+`00_source/reference/desert_oasis_watchtower_reference_mock_v1.png` is the composition/material reference.
+
+#### Decide the three authored families before generating the mock
+
+Do not first make a rich flattened illustration and hope it can be separated later. Prompt the dressed mock
+with a small, named runtime inventory and with clear sockets for the objects. The review mock may include
+sky, clouds, mountains, and atmosphere so the art direction is clear, but the runtime export is planned as
+these three families:
+
+1. **Stable backdrop.** One continuous sand/floor-and-water plate with the permanent pond shape, bank
+   geometry, route/path, low terrain marks, and the restrained background vegetation that still belongs when
+   every landmark is absent. Keep sky and moving clouds out of this plate. Keep far dunes/mountains separate
+   when they need parallax or independent palette changes. A backdrop is allowed to show the *places* where
+   objects will sit; it must not contain smooth rectangular sockets, object shadows, or replacement-specific
+   pads.
+2. **Primary objects.** Four to six large, swappable landmarks only. For Desert Oasis the useful set is
+   adobe compound, watchtower, market stall, travel tent, and camel caravan. Each is one full transparent
+   sprite at the source camera and size. If the landmark visibly owns a shaped cut-paper sand plate, local
+   stones, or tiny vegetation, extract/regenerate those pixels as part of that hero sprite; do **not** add a
+   generic circular floor pad later. Do not include a dark cast-shadow slab.
+3. **Top dressing and unlock cover.** Keep permanent blending pieces—pond-edge plants, irregular rocks,
+   bushes, flower/plant clusters, and foreground framing—as reusable transparent dressing above the primary
+   objects. Separately, create a small repeated family for the locked state. Desert Oasis uses six *single,
+   large cut-paper leaves*, not dense foliage bouquets, mist, or a painted blanket. Broad opaque fan leaves
+   form the full-screen under-canopy; thinner leaf silhouettes are sparse accents. The lock leaves belong in
+   `coverup`; permanent environmental blending remains ordinary `foreground_objects`/dressing.
+
+The first mock must use the **same elevated three-quarter camera, upper-left light, paper grain, palette,
+and large-object scale** for all three families. Limit the landmark count deliberately. Every extra tiny
+lantern, pot, shrub, pebble, or rug that must later be extracted becomes manual placement work and a new
+opportunity for scale/camera drift.
+
+#### Reference-directed deconstruction
+
+When reconstructing an approved mock, use it as an *edit/reference target*, not as a loose inspiration.
+Work in this order and stop for visual review at the stated gates:
+
+1. **Inventory and ownership.** Write down permanent terrain, removable terrain features, the four-to-six
+   primary landmarks, permanent foreground dressing, and lock-cover regions. Ask of every visible item:
+   “when this landmark changes, should this item move too?” Only then choose the layer/cluster.
+2. **Backdrop edit.** Attach the original mock and request an in-place removal of the complete inventory of
+   removable landmarks. Lock canvas, crop, pond shape, sand/path geometry, bank edge, terrain texture,
+   paper grain, palette, and light. Explicitly request no sky/cloud layer in the backdrop if they are
+   authored separately. Compare at equal size; reject regenerated terrain, clean empty pads, changed pond
+   banks, or object ghosts rather than trying to camouflage them later.
+3. **Primary extraction, one at a time.** Attach the untouched mock as the camera/scale/material authority
+   and generate one subject on a flat key with generous clearance. State its source position, facing,
+   perspective, and what attached bottom paper plate/contact details are inseparable. Do not say merely
+   “cut out”; name the landmark and forbid rotation, mirroring, resizing, simplification, scenic floor,
+   extra props, and baked shadow. Keep the exact prompt beside the raw sheet and final RGBA asset.
+4. **One-object reconstruction gate.** Chroma key the subject, place it on the backdrop at measured
+   center-bottom bounds, and render it in Scene Workbench. If it feels forced, correct the source-directed
+   extraction, visible alpha bounds, placement envelope, or ownership of its paper plate before producing
+   other primary assets. Do not solve a bad extraction by surrounding it with an artificial grass/sand ring.
+5. **Repeat for other heroes, then dressing.** Only after the bare major layout matches the mock, add
+   reusable rock/vegetation sprites around pond banks and object contacts. Place them asymmetrically to
+   overlap seams lightly; they soften integration but must not hide an incorrect anchor.
+
+For source-critical objects, masking/segmentation of the approved pixels remains the highest-fidelity
+method (§11b). Reference-directed image generation is acceptable only when it retains the approved camera
+and is reviewed against the mock; treat any changed silhouette/angle as a new variation, not an extraction.
+
+#### Reconstruction contract in Scene Workbench
+
+Use the desert scene as a registered composition, not a loose collage:
+
+- Store the foundation in `01_backdrop`, hero sprites in `03_structures`, permanent blending pieces in
+  `05_dressing`, and lock sprites in `06_coverup`. Store raw keyed generations and prompt sidecars beside
+  their derived assets but keep them out of the addable runtime palette.
+- Keep `metadata/placements.json` as the only placement authority. Use center-bottom anchors and compensate
+  for each PNG's transparent padding. A sprite's visible bounds—not its padded file dimensions—must match
+  the source object bounds.
+- Put each hero in its own semantic cluster (`adobe_compound`, `watchtower`, `market_stall`, `travel_tent`,
+  `camel_caravan`). Hero-owned paper plates remain inside that hero asset. Do not create another shared
+  plate in the foundation or a duplicate plate will be visible.
+- Place the major landmarks first, compare their scale and camera to the reference, then lay path/stone
+  variants and only then place permanent dressing. For Oasis, the path must visibly approach its intended
+  destination; no disconnected decorative route or baked stone road is acceptable.
+- Review in the actual tool after every checkpoint:
+
+  ```sh
+  make import
+  make shot-sw SCENE=desert_oasis_watchtower OUT=/tmp/desert-oasis-review.png
+  ```
+
+  The screenshot, not a JSON diff, is the visual acceptance evidence. Inspect whether hero bottoms feel
+  integrated, whether pond-bank dressing breaks hard cutout edges, and whether no contact shadow reads as a
+  heavy black/dark-brown strip.
+
+#### Full-page locked-state contract
+
+The locked screen is a composition in its own right: it must hide the scene without looking like a few
+decorations randomly placed over it.
+
+1. Generate a small family of **single** large paper-cut leaves on a flat key—broad solid fans plus a few
+   thinner date/curve/feather silhouettes. Require the same matte cardstock planes, fibre grain, warm cut
+   edge, thin locally darker edge, and upper-left light as the scene. Reject plastic, 3D, glossy, painterly,
+   or photographic leaves.
+2. Make the broad fan leaves large enough to cover the internal gaps of the thinner/open leaf shapes. Place
+   the fans first as a loose screen-spanning canopy, extending beyond the page edges. Then add only a few
+   thin leaves as accents; do not make tightly packed bouquet clusters.
+3. Assign the leaves to **one `coverup` cluster per meaningful primary region** (`lock_adobe`,
+   `lock_watchtower`, `lock_market_stall`, `lock_travel_tent`, `lock_caravan`). A cluster may span beyond
+   its object’s exact silhouette because it participates in the full-screen canopy; it must still reveal a
+   purposeful region when removed.
+4. Test the fully locked scene first—no landmark should show through leaf gaps—then hide each cluster one at
+   a time. The remaining leaves should still read as a deliberate cover, and the revealed area should expose
+   the complete landmark and its owned paper plate rather than a bare pad.
+
+The current Oasis leaf source and variants live in
+`06_coverup/single_leaf_pack/`. The prior multi-leaf bouquet pack was intentionally removed: it was too
+clumped, too visibly composited, and did not provide reliable full-screen coverage.
+
+### 11f · Common generation failures and fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
