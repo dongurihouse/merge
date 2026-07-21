@@ -136,7 +136,7 @@ const CAPTIONS := {
 	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): plain paper cards, cell size · text",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
-	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
+	"info": "Mail — detail / welcome sheet (mail dialog · no Claim · Got it)",
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
 func _ids() -> Array:
