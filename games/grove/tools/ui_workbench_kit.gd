@@ -929,35 +929,11 @@ static func _square_icon(id: String) -> Texture2D:
 	return t
 
 ## Code-drawn port of docs/art/gold-rounded-badge.html: a warm cream rounded square with a single
-## outer rim, an inset 1px groove, and soft inset depth. The fixed preview and stretched board/info
-## frames share the same generated texture path, so saved Workbench tuning lands everywhere.
+## outer rim, an inset 1px groove, and soft inset depth. The stretched board/info frames use this
+## generated texture path (via gold_badge_style), so saved Workbench tuning lands everywhere.
 const GOLD_BADGE_BASE_SIZE := 270
 const GOLD_BADGE_CAP := 58
 static var _gold_badge_cache: Dictionary = {}
-static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0, corner_px: float = -1.0, gradient_pct: float = 100.0) -> Control:
-	var size := maxi(32, int(round(px)))
-	var inset := clampf(inner_inset if inner_inset >= 0.0 else size * 0.040, 2.0, size * 0.18)
-	var shine := clampf(shine_pct / 100.0, 0.0, 2.0)
-	var gradient := clampf(gradient_pct / 100.0, 0.0, 1.0)
-	var corner := _gold_badge_corner_for_size(size, corner_px)
-	var root := Control.new()
-	root.custom_minimum_size = Vector2(size, size)
-	root.size = Vector2(size, size)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var pad := int(ceil(size * 0.075))
-	var tex_size := size + pad * 2
-	var tr := TextureRect.new()
-	tr.name = "GoldBadgeTexture"
-	tr.texture = _gold_badge_texture(size, inset, shine, -1, corner, gradient)
-	tr.position = Vector2(-pad, -pad)
-	tr.custom_minimum_size = Vector2(tex_size, tex_size)
-	tr.size = Vector2(tex_size, tex_size)
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_SCALE
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(tr)
-	return root
 
 static func gold_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("gold_badge", {}) if cfg is Dictionary else {}
