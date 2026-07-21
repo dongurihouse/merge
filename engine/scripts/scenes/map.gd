@@ -2420,26 +2420,33 @@ func _build_settings_gear() -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	var px := maxf(24.0, roundf(_rail_px * 0.62))
-	var b := Button.new()
-	b.name = "SettingsGear"
-	b.focus_mode = Control.FOCUS_NONE
-	b.tooltip_text = Strings.t("settings.title")
-	b.custom_minimum_size = Vector2(px, px)
-	b.size = Vector2(px, px)
-	# flat: no stylebox in any state, so the gear art is the whole button
-	var empty := StyleBoxEmpty.new()
-	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-		b.add_theme_stylebox_override(st, empty)
-	b.flat = true
-	if Kit != null and HC != null:
-		var ic: Control = Kit.make_icon(String(HC.ICON_SETTINGS), px)
-		if ic != null:
-			ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-			b.add_child(ic)
-	b.pressed.connect(func() -> void:
+	var open_settings := func() -> void:
 		Audio.play("button_tap", -2.0)
-		_open_settings())
+		_open_settings()
+	var b: Button
+	var gear_path := "res://games/grove/assets/ui/gear.png"
+	if ResourceLoader.exists(gear_path):
+		# the cut-paper gear sprite (its own soft drop shadow), sized off the shared button metric
+		b = SpriteButton.build(load(gear_path), Vector2(px, px), open_settings,
+			{"name": "SettingsGear", "tooltip": Strings.t("settings.title")})
+	else:
+		b = Button.new()
+		b.name = "SettingsGear"
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = Strings.t("settings.title")
+		b.custom_minimum_size = Vector2(px, px)
+		b.size = Vector2(px, px)
+		var empty := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			b.add_theme_stylebox_override(st, empty)
+		b.flat = true
+		if Kit != null and HC != null:
+			var ic: Control = Kit.make_icon(String(HC.ICON_SETTINGS), px)
+			if ic != null:
+				ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+				b.add_child(ic)
+		b.pressed.connect(open_settings)
 	# pinned to the RIGHT edge at the shared margin, one margin below the wallet's bottom
 	var margin := _hud_edge_margin_px()
 	b.anchor_left = 1.0
