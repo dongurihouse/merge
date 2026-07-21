@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "mail_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "pro
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["mail_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["mail_card"], ["toggle_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -46,6 +46,8 @@ const DEPENDENTS := {
 	"button": ["dialog", "daily", "shop", "settings", "info"],
 	# the reward-card style (edge + tint) flows into the mail dialog + the welcome/info sheet.
 	"mail_card": ["dialog", "info"],
+	# the settings-row style (edge + tint + label/switch) flows into the settings dialog's rows.
+	"toggle_card": ["settings"],
 	# the mail-card style is edited ON the Mail dialog now, so editing the dialog also refreshes the
 	# other surfaces that reuse the card (daily · shop · settings · info).
 	"dialog": ["daily", "shop", "settings", "info"],
@@ -110,6 +112,9 @@ const TEST_KEYS := {
 	# the mail / reward-row card — the cut-paper edge + tint are SAVED style; the icon/title/body/chip TEXT is
 	# just demo content to preview the row (the game supplies each mail entry's real content).
 	"mail_card": ["icon", "title", "body", "chip_text"],
+	# the settings bar (toggle row) — the edge + tint + label font + switch height are SAVED style; the row
+	# label + its on/off state are just demo content to preview the row (the game supplies each real setting).
+	"toggle_card": ["label", "value"],
 	"settings": [],
 	"info": [],   # the demo line items are fixed in the preview; every knob is saved style
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
@@ -131,6 +136,7 @@ const CAPTIONS := {
 	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"mail_card": "Mail card — reward row (icon · title · body · value chip) in the shared cut-paper edge · own tint",
+	"toggle_card": "Settings bar — a toggle row (label · rugged switch) in the shared cut-paper edge · own tint",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
@@ -286,7 +292,10 @@ func _default_params() -> Dictionary:
 		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — same keys as button + frame; a finer tear
 			# for the thin row strip. Drives BOTH the row surface AND the switch track/knob.
-			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true},
+			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true,
+			# the row's OWN tint (paper fill; rim derives a shade darker), sage by default. `label`/`value` are
+			# DEMO content (test-only) to preview one row — the game supplies each real setting's name + state.
+			"tint": "DCE7C8", "label": "Sound effects", "value": true},
 		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
 		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
 		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
@@ -567,6 +576,25 @@ func _make_element(id: String) -> Control:
 			cell.custom_minimum_size = Vector2(460, 0)
 			cell.add_child(card)
 			return cell
+		"toggle_card":
+			# a SINGLE settings row in isolation: a label + the rugged toggle switch on the shared cut-paper
+			# edge. Built from the SAME Kit.toggle_card the settings dialog stacks, reading this component's
+			# LIVE edge + tint + label/switch knobs (Kit.toggle_card_opts_from_config(_params)). The switch is
+			# interactive (tap to flip); label + initial on/off are demo content. Rows are 1:1 with the dialog.
+			var to := Kit.toggle_card_opts_from_config(_params)
+			var tentry := {"label": String(p.get("label", "Sound effects")), "value": bool(p.get("value", true)),
+				"on_toggle": func(on: bool) -> void: _params["toggle_card"]["value"] = on}
+			var trow := Kit.toggle_card(tentry, to)
+			var tcell := PanelContainer.new()
+			var tbg := StyleBoxFlat.new()
+			tbg.bg_color = Color("#EFE6D2")
+			tbg.set_corner_radius_all(12)
+			for m in ["left", "top", "right", "bottom"]:
+				tbg.set("content_margin_" + m, 24)
+			tcell.add_theme_stylebox_override("panel", tbg)
+			tcell.custom_minimum_size = Vector2(460, 0)
+			tcell.add_child(trow)
+			return tcell
 		"tiers":
 			# the REAL Discovery ladder (ladder.gd) — the SAME renderer the game opens: corner tier CHIPs
 			# (cream seen / grey locked), a generator-icon header, mock-measured layout. The old
@@ -1741,13 +1769,10 @@ func _element_sidebar(_id: String) -> void:
 		"settings":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
-			# the settings ROW style (the retired standalone Toggle-card item folded in here): the row's
-			# label size + the switch height. Stored under the "toggle_card" config block, read by
-			# Kit.toggle_card_opts_from_config, so the game's rows and this preview stay in lockstep.
-			_section_header("Row (label + switch)")
-			_sidebar_body.add_child(_slider_row(["label_font", 16, 44], "toggle_card"))
-			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72], "toggle_card"))
-			_cut_paper_section("toggle_card")   # the shared edge for the row surface AND the switch track/knob
+			# the row STYLE (edge · tint · label size · switch height) is its OWN component now — edit it on
+			# the Settings-bar item, and it flows into these rows live. Only the dialog's own row gap + frame
+			# live here (the frame is the shared Frame item), matching how the other dialogs delegate.
+			_sidebar_note("Row style (edge · tint · label · switch) is edited on the Settings-bar item — it flows into these rows.")
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
@@ -1826,6 +1851,19 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_text_row("Title", "title"))
 			_sidebar_body.add_child(_text_row("Body", "body"))
 			_sidebar_body.add_child(_text_row("Chip value", "chip_text"))
+		"toggle_card":
+			# SAME shared edge knob set as the mail card (Kit.CUT_PAPER_KNOBS) — one section, no duplication;
+			# a new knob appears here automatically — plus this row's OWN tint + its label/switch sizing. The
+			# switch's on/off colours are fixed (they signal state), so there is no tint control for them.
+			_group_header("Saved to config", true)
+			_cut_paper_section("toggle_card")                              # the shared cut-paper edge (row + switch)
+			_sidebar_body.add_child(_color_row("Tint", "tint"))            # the row paper fill (rim derives from it)
+			_section_header("Row (label + switch)")
+			_sidebar_body.add_child(_slider_row(["label_font", 16, 44], "toggle_card"))   # label size
+			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72], "toggle_card"))     # switch height
+			_group_header("Demo content — not saved", false)              # the game supplies each real setting
+			_sidebar_body.add_child(_text_row("Label", "label"))
+			_sidebar_body.add_child(_toggle_row("On", "value"))           # the previewed switch state
 
 
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.

@@ -1901,7 +1901,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var switch_h := float(opts.get("switch_h", 44.0))
 	var rich := entry.has("title") or entry.has("body") or entry.has("icon") or entry.has("cost")
 	# the SAME shared cut-paper row surface every settings row wears (toggle · info · action) — see _row_panel.
-	var panel := _row_panel(opts.get("cp", {}))
+	var panel := _row_panel(opts.get("cp", {}), opts.get("row_fill", ROW_SAGE), opts.get("row_rim", ROW_SAGE_EDGE))
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var row := HBoxContainer.new()
@@ -2079,19 +2079,20 @@ static func mail_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## content, holding a CutPaperPanel background (the visible deckled sheet, fills the panel) + a padded
 ## MarginContainer content HOST on top. Add row content via _row_body(panel), not panel.add_child. `cp` is
 ## the shared normalized cut-paper opts (Kit.cut_paper_opts_from_config) — the ONE edge knob set.
-static func _row_panel(cp_opts: Dictionary = {}) -> PanelContainer:
+static func _row_panel(cp_opts: Dictionary = {}, fill: Color = ROW_SAGE, rim: Color = ROW_SAGE_EDGE) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var empty := StyleBoxEmpty.new()   # transparent: the CutPaperPanel behind is the visible surface
 	panel.add_theme_stylebox_override("panel", empty)
-	var cp = load(CUT_PAPER).new()     # the deckled sage sheet, laid out to fill the panel rect
-	# shared edge knobs via the one applier; sage colours + fibre tile are this component's own. Callers
-	# pass the normalized reader output; the {} fallback normalizes ROW_CP_DEFAULTS' percent freq itself.
+	var cp = load(CUT_PAPER).new()     # the deckled sheet, laid out to fill the panel rect
+	# shared edge knobs via the one applier; the row's TINT (fill + cut-edge rim) is this component's own
+	# — sage by default, overridable per-component. Callers pass the normalized reader output; the {}
+	# fallback normalizes ROW_CP_DEFAULTS' percent freq itself.
 	var o: Dictionary = cp_opts
 	if o.is_empty():
 		o = ROW_CP_DEFAULTS.duplicate()
 		o["deckle_freq"] = float(o["deckle_freq"]) / 100.0
-	cp.configure(o, ROW_SAGE, ROW_SAGE_EDGE, cut_paper_tile())
+	cp.configure(o, fill, rim, cut_paper_tile())
 	cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(cp)
 	# content host: pad the row IN from the deckled edge so text/switch never touch the tear. The panel
@@ -2119,7 +2120,7 @@ static func _row_body(panel: Control) -> Control:
 static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", FS.BODY))
 	var info_id := String(entry.get("id", ""))
-	var panel := _row_panel(opts.get("cp", {}))
+	var panel := _row_panel(opts.get("cp", {}), opts.get("row_fill", ROW_SAGE), opts.get("row_rim", ROW_SAGE_EDGE))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if info_id != "":
 		panel.set_meta("settings_info_id", info_id)
@@ -2160,7 +2161,7 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ##   entry: label · confirm_label? · destructive? (bool) · on_action (Callable()). opts: label_font · card_art.
 static func action_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", FS.BODY))
-	var panel := _row_panel(opts.get("cp", {}))
+	var panel := _row_panel(opts.get("cp", {}), opts.get("row_fill", ROW_SAGE), opts.get("row_rim", ROW_SAGE_EDGE))
 	var base_label := String(entry.get("label", ""))
 	var confirm_label := String(entry.get("confirm_label", ""))
 	var destructive := bool(entry.get("destructive", false))
@@ -4179,10 +4180,14 @@ static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## is its OWN component, so both the workbench card preview AND the settings dialog read it from here.
 static func toggle_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var tc: Dictionary = cfg.get("toggle_card", {})
+	# the row's OWN tint (the paper fill; the cut-edge rim derives a shade darker), sage by default.
+	var tint := Color.from_string("#" + String(tc.get("tint", "DCE7C8")).lstrip("#"), ROW_SAGE)
 	return {
 		"label_font": int(tc.get("label_font", FS.BODY)),
 		"switch_h": float(tc.get("switch_h", 44)),
 		"card_art": bool(tc.get("card_art", true)),
+		"row_fill": tint,
+		"row_rim": tint.darkened(0.14),
 		# the shared cut-paper edge for the row surface + the switch (one knob set, this block's values)
 		"cp": cut_paper_opts_from_config(cfg, "toggle_card", ROW_CP_DEFAULTS),
 	}
