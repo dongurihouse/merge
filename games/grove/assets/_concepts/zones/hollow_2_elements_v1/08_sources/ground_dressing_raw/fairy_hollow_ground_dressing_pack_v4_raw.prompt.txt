@@ -1,1 +1,0 @@
-Reference: fairy_hollow_original_mock_v1.png. Generate only six tiny local base-blend clumps of grass, leaves, flowers, and small stones, with no mushrooms, pots, stumps, signs, water, or other full props; clean Meadow Sky / cut-paper storybook cutouts on #FF00FF with no cast shadow. Remove chroma key after generation.

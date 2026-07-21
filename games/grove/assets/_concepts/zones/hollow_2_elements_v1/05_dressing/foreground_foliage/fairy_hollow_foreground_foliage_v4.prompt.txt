@@ -1,1 +1,0 @@
-Reference: fairy_hollow_original_mock_v1.png. Generate only three low foreground foliage clumps for lower-frame overlap, as clean Meadow Sky / cut-paper storybook cutouts on #FF00FF; no ground platform or cast shadow. Remove chroma key after generation.
