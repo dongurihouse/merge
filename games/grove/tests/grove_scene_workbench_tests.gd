@@ -66,6 +66,7 @@ func _initialize() -> void:
 	# --- add / remove / unique ids --------------------------------------------------
 	var i := M.add_entry(d, {"id": "tree", "category": "prop", "image": "a.png", "x": 100, "y": 100, "w": 50, "h": 50})
 	ok(String(d.placements[i].id) == "tree_2", "add_entry de-duplicates the id")
+	ok(M.cluster_of(d, i) == "tree_2", "add_entry gives a clusterless entry its own singleton cluster")
 	ok(int(d.placements[i].z) == M.max_z(d) and int(d.placements[i].z) > 30,
 		"an added entry defaults to the top z")
 	var removed := M.remove_at(d, i)
@@ -117,16 +118,16 @@ func _initialize() -> void:
 		"move_cluster shifts every member together")
 	ok(int(dc.placements[2].x) == 520, "an untagged neighbour never moves with a cluster")
 	M.set_cluster(dc, 0, "")
-	ok(M.cluster_of(dc, 0) == "" and not (dc.placements[0] as Dictionary).has("cluster"),
-		"untagging erases the key (files stay byte-stable)")
+	ok(M.cluster_of(dc, 0) == "camp",
+		"unclustering is disabled — set_cluster('') is a no-op, the tag stays")
 
 	# membership toggling + renaming (the easy create/update paths)
 	var dm := _doc()
 	M.set_cluster(dm, 0, "camp")
 	ok(M.toggle_cluster_member(dm, 1, "camp") and M.cluster_of(dm, 1) == "camp",
 		"toggle joins an untagged entry to the cluster")
-	ok(not M.toggle_cluster_member(dm, 1, "camp") and M.cluster_of(dm, 1) == "",
-		"toggling a member removes it")
+	ok(M.toggle_cluster_member(dm, 1, "camp") and M.cluster_of(dm, 1) == "camp",
+		"toggling a member is a no-op — it stays in (leaving is disabled)")
 	M.set_cluster(dm, 2, "other")
 	ok(M.toggle_cluster_member(dm, 2, "camp") and M.cluster_of(dm, 2) == "camp",
 		"toggle re-tags an entry away from another cluster")
@@ -168,10 +169,10 @@ func _initialize() -> void:
 		"a floored restack clamps the shared clusterZ at 0")
 
 	# --- layers (item → cluster → LAYER → scene, the fixed back→front band) ------------
-	ok(M.LAYERS.size() == 7 and M.LAYERS[0] == "sky" and M.LAYERS[6] == "coverup",
+	ok(M.LAYERS.size() == 6 and M.LAYERS[0] == "sky" and M.LAYERS[5] == "coverup",
 		"the predefined layers run sky (back) → coverup (front)")
-	ok(M.layer_rank("sky") == 0 and M.layer_rank("coverup") == 6
-		and M.layer_rank("foreground_objects") == 5,
+	ok(M.layer_rank("sky") == 0 and M.layer_rank("coverup") == 5
+		and M.layer_rank("foreground") == 4,
 		"layer_rank orders the band back → front, coverup frontmost")
 	ok(M.layer_rank("nonsense") == M.layer_rank(M.DEFAULT_LAYER),
 		"an unknown/legacy layer reads as the default band")
@@ -230,7 +231,7 @@ func _initialize() -> void:
 		"the lean sidebar is dropdown + save + clusters only (no placed list, no palette)")
 	# the cluster list now groups rows under the six fixed LAYER headers (Label nodes); find the
 	# 'camp' cluster row (an HBox whose first Button names the cluster) beneath its header.
-	ok(_has_label_text(view._cluster_box, "— Primary Objects —"),
+	ok(_has_label_text(view._cluster_box, "— Primary —"),
 		"the cluster list is grouped under the predefined layer headers")
 	var crow: Button = null
 	for c in view._cluster_box.get_children():
@@ -279,6 +280,11 @@ func _initialize() -> void:
 		"the stage Control owns mouse input via gui_input")
 	ok(view._stage.mouse_filter == Control.MOUSE_FILTER_STOP,
 		"the stage's filter is STOP so the GUI routes stage clicks to it")
+	# 'gate' (index 2) was saved untagged and load-healed into its own singleton cluster. The
+	# single-item stage paths below exercise the loose-item primitive, so drop it back to loose —
+	# the load heal keeps AUTHORED scenes clustered; this only touches the in-memory fixture.
+	(view.doc.placements[2] as Dictionary).erase("cluster")
+	view._rebuild_stage()
 	view._select(-1)
 	var s2: float = view._layers.scale.x
 	# canvas (500,1050) sits inside 'gate' (rect 370,780 300×300, topmost there at z 30)
@@ -317,7 +323,7 @@ func _initialize() -> void:
 	lbrack.keycode = KEY_BRACKETLEFT
 	lbrack.pressed = true
 	view._key(lbrack)
-	ok(String(view.doc.placements[2].layer) == "background_objects" and view.dirty,
+	ok(String(view.doc.placements[2].layer) == "background" and view.dirty,
 		"[ moves the selection back one layer")
 	var rbrack := InputEventKey.new()
 	rbrack.keycode = KEY_BRACKETRIGHT
@@ -325,7 +331,7 @@ func _initialize() -> void:
 	view._key(rbrack)
 	ok(String(view.doc.placements[2].layer) == M.DEFAULT_LAYER, "] moves it forward one layer")
 	# the sidebar surfaces the selection's current band
-	ok(_has_label_text(view._cluster_actions, "layer: Primary Objects   ( [ / ] )"),
+	ok(_has_label_text(view._cluster_actions, "layer: Primary   ( [ / ] )"),
 		"the sidebar shows the selection's layer + the [ / ] hint")
 	view.doc.placements[2].erase("layer")                 # restore the fixture (byte-stable) for downstream tests
 	view._select(-1)
@@ -381,10 +387,10 @@ func _initialize() -> void:
 	view._on_stage_input(shift_gate)
 	ok(M.cluster_of(view.doc, 2) == "camp",
 		"Shift+click on a member keeps it IN — a placement is never orphaned back to no cluster")
-	# birth-from-pair needs two loose items. The model primitive still allows an untagged entry
-	# (legacy data, tests); the WORKBENCH just never produces or leaves one — so untag here by hand.
-	M.set_cluster(view.doc, 0, "")
-	M.set_cluster(view.doc, 2, "")
+	# birth-from-pair needs two loose items. Unclustering is disabled through the model ops, so this
+	# legacy-shaped fixture erases the key directly (the WORKBENCH never produces or leaves a loose one).
+	(view.doc.placements[0] as Dictionary).erase("cluster")
+	(view.doc.placements[2] as Dictionary).erase("cluster")
 	view._select(-1)
 	view._select(2)                                    # a single selected + Shift+click another single…
 	var shift_tree := InputEventMouseButton.new()
@@ -546,7 +552,7 @@ func _initialize() -> void:
 			gazebo_z = int((e as Dictionary).get("z", -1))
 		if String((e as Dictionary).get("id", "")) == "edge_covering_upper_left":
 			upper_left_cover_z = int((e as Dictionary).get("z", -1))
-		if M.entry_layer(e as Dictionary) == "primary_objects":
+		if M.entry_layer(e as Dictionary) == "primary":
 			hero_clusters[String((e as Dictionary).get("cluster", ""))] = true
 		if String((e as Dictionary).get("category", "")) == "unlock_cover":
 			unlock_cover_count += 1
@@ -563,7 +569,7 @@ func _initialize() -> void:
 		"unlock_dock": 5, "unlock_entrance_arch": 7},
 		"the winter unlock cover clusters each piece by the primary object region it hides")
 	ok(hero_clusters == {"lodge": true, "gazebo": true, "christmas_tree": true, "dock": true, "entrance_arch": true},
-		"the winter hero structures sit on primary_objects, each tagged with its unlock region")
+		"the winter hero structures sit on the primary layer, each tagged with its unlock region")
 	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
 		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}

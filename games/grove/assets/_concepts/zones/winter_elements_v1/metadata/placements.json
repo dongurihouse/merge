@@ -34,7 +34,7 @@
    "w": 328,
    "h": 346,
    "z": 100,
-   "layer": "primary_objects",
+   "layer": "primary",
    "cluster": "lodge",
    "clusterZ": 110
   },
@@ -47,7 +47,7 @@
    "w": 271,
    "h": 329,
    "z": 110,
-   "layer": "primary_objects",
+   "layer": "primary",
    "cluster": "gazebo",
    "clusterZ": 120
   },
@@ -60,7 +60,7 @@
    "w": 252,
    "h": 290,
    "z": 120,
-   "layer": "primary_objects",
+   "layer": "primary",
    "cluster": "christmas_tree",
    "clusterZ": 130
   },
@@ -73,7 +73,7 @@
    "w": 294,
    "h": 252,
    "z": 130,
-   "layer": "primary_objects",
+   "layer": "primary",
    "cluster": "dock",
    "clusterZ": 140
   },
@@ -86,7 +86,7 @@
    "w": 409,
    "h": 399,
    "z": 140,
-   "layer": "primary_objects",
+   "layer": "primary",
    "cluster": "entrance_arch",
    "clusterZ": 150
   },
@@ -105,7 +105,7 @@
    "w": 360,
    "h": 570,
    "z": 90,
-   "layer": "background_objects",
+   "layer": "background",
    "cluster": "edge_cover_rear"
   },
   {
@@ -123,7 +123,7 @@
    "w": 361,
    "h": 570,
    "z": 200,
-   "layer": "foreground_objects",
+   "layer": "foreground",
    "cluster": "edge_cover_front"
   },
   {
@@ -141,7 +141,7 @@
    "w": 220,
    "h": 300,
    "z": 200,
-   "layer": "foreground_objects",
+   "layer": "foreground",
    "cluster": "edge_cover_front"
   },
   {
@@ -159,7 +159,7 @@
    "w": 360,
    "h": 622,
    "z": 200,
-   "layer": "foreground_objects",
+   "layer": "foreground",
    "cluster": "edge_cover_front"
   },
   {
@@ -177,7 +177,7 @@
    "w": 361,
    "h": 572,
    "z": 200,
-   "layer": "foreground_objects",
+   "layer": "foreground",
    "cluster": "edge_cover_front"
   },
   {
