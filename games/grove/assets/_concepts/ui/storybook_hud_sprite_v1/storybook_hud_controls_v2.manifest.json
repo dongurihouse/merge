@@ -1,0 +1,18 @@
+{
+  "name": "storybook_hud_controls_v2",
+  "atlas": "storybook_hud_controls_v2.png",
+  "grid": { "columns": 5, "rows": 5, "cell_width": 250, "cell_height": 250 },
+  "shadow_policy": "none",
+  "row_major_ids": [
+    "currency_water", "currency_coin", "currency_acorn", "currency_leaf", "currency_berry",
+    "level_flower", "level_star", "level_flower_leaf", "level_sunburst", "level_laurel",
+    "side_cream_scallop", "side_cream_ticket", "side_cream_arch", "side_cream_folded_corner", "side_cream_leaf_oval",
+    "utility_slate_square", "utility_slate_tall", "utility_slate_hex", "utility_slate_clipped", "utility_slate_ticket",
+    "nav_map", "nav_kin", "nav_daily", "nav_mail", "nav_play"
+  ],
+  "runtime_text": {
+    "currency_number_zone": "Empty, deliberately wide center-right plate area.",
+    "level_center": "Empty cream center."
+  }
+}
+

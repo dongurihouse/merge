@@ -1,0 +1,18 @@
+{
+  "name": "storybook_hud_5x4",
+  "version": 1,
+  "atlas": "storybook_hud_5x4.png",
+  "grid": { "columns": 5, "rows": 4, "cell_width": 280, "cell_height": 280 },
+  "row_major_ids": [
+    "currency_water", "currency_coin", "currency_acorn", "currency_leaf", "currency_berry",
+    "level_flower", "level_star", "level_flower_leaf", "level_sunburst", "level_laurel",
+    "side_scallop", "side_ticket", "side_arch", "side_folded_corner", "side_leaf_oval",
+    "nav_home", "nav_board", "nav_explore", "nav_bag", "nav_shop"
+  ],
+  "notes": {
+    "currency_number_area": "Leave blank; render values in runtime.",
+    "level_centers": "Leave blank; render player level in runtime.",
+    "side_backplates": "Reusable empty surfaces; add icon/text in runtime."
+  }
+}
+
