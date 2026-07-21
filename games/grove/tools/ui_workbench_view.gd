@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "mail_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "pro
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["mail_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -44,6 +44,8 @@ const COLUMNS := [
 # edited element + its dependents instead of the whole gallery.
 const DEPENDENTS := {
 	"button": ["dialog", "daily", "shop", "settings", "info"],
+	# the reward-card style (edge + tint) flows into the mail dialog + the welcome/info sheet.
+	"mail_card": ["dialog", "info"],
 	# the mail-card style is edited ON the Mail dialog now, so editing the dialog also refreshes the
 	# other surfaces that reuse the card (daily · shop · settings · info).
 	"dialog": ["daily", "shop", "settings", "info"],
@@ -105,6 +107,9 @@ const TEST_KEYS := {
 	# the board reads it via Kit.giver_lay_from_config, so a tweak here flows to the live giver card. Only
 	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
 	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met"],
+	# the mail / reward-row card — the cut-paper edge + tint are SAVED style; the icon/title/body/chip TEXT is
+	# just demo content to preview the row (the game supplies each mail entry's real content).
+	"mail_card": ["icon", "title", "body", "chip_text"],
 	"settings": [],
 	"info": [],   # the demo line items are fixed in the preview; every knob is saved style
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
@@ -125,6 +130,7 @@ const CAPTIONS := {
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
+	"mail_card": "Mail card — reward row (icon · title · body · value chip) in the shared cut-paper edge · own tint",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
@@ -292,6 +298,12 @@ func _default_params() -> Dictionary:
 			"bust_size": 94, "bust_x": 27, "bust_y": 53,
 			"bubble_size": 66, "bubble_x": 70, "bubble_y": 35,
 			"item_size": 32, "item_x": 70, "item_y": 32, "plaque_w": 40, "plaque_x": 70, "plaque_y": 81},
+		# the MAIL / reward-row card — the SHARED cut-paper edge knob set (deckle · corner · amp · freq · rim ·
+		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
+		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
+		# (test-only) so the preview shows a real reward row; the game supplies each entry's own content.
+		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true,
+			"tint": "F6EBDD", "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 		"daily": {"cols": 3, "list_max_h": 0},
@@ -531,6 +543,30 @@ func _make_element(id: String) -> Control:
 				if met != null and is_instance_valid(met):
 					met.visible = true
 			return stand
+		"mail_card":
+			# a SINGLE reward-row card in isolation (the Welcome-gift Acorns/Water row): icon + title + body
+			# + a read-only value chip, NO Claim. Built from the SAME Kit.mail_card the mail dialog uses,
+			# reading this component's LIVE cut-paper edge + tint (Kit.mail_card_opts_from_config(_params)),
+			# so tuning here matches the dialog rows 1:1. Content (icon/title/body/chip) is demo-only.
+			var mc := Kit.mail_card_opts_from_config(_params)
+			var entry := {
+				"icon": String(p.get("icon", "gem")),
+				"title": String(p.get("title", "Acorns")),
+				"body": String(p.get("body", "premium currency for shortcuts")),
+				"chip": {"icon": String(p.get("icon", "gem")), "text": String(p.get("chip_text", "400"))},
+			}
+			var card := Kit.mail_card(entry, 22, 16, mc)
+			# a light parchment cell behind it so the deckled edge + its soft shadow read
+			var cell := PanelContainer.new()
+			var cbg := StyleBoxFlat.new()
+			cbg.bg_color = Color("#EFE6D2")
+			cbg.set_corner_radius_all(12)
+			for m in ["left", "top", "right", "bottom"]:
+				cbg.set("content_margin_" + m, 24)
+			cell.add_theme_stylebox_override("panel", cbg)
+			cell.custom_minimum_size = Vector2(460, 0)
+			cell.add_child(card)
+			return cell
 		"tiers":
 			# the REAL Discovery ladder (ladder.gd) — the SAME renderer the game opens: corner tier CHIPs
 			# (cream seen / grey locked), a generator-icon header, mock-measured layout. The old
@@ -1778,6 +1814,18 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["stand_w", 200, 640]))    # preview stand width
 			_sidebar_body.add_child(_slider_row(["fence_h", 160, 460]))    # preview stand height
 			_sidebar_body.add_child(_toggle_row("Ready (✓)", "met"))       # preview the deliverable state
+		"mail_card":
+			# SAME shared edge knob set as the settings bar (Kit.CUT_PAPER_KNOBS) — one section, no
+			# duplication; a new knob appears here automatically — plus this card's OWN tint. The card's
+			# saved STYLE is the edge + tint; the content rows below are demo, to preview a real reward row.
+			_group_header("Saved to config", true)
+			_cut_paper_section("mail_card")                                # the shared cut-paper edge
+			_sidebar_body.add_child(_color_row("Tint", "tint"))            # the paper fill (rim derives from it)
+			_group_header("Demo content — not saved", false)               # the game supplies each entry's content
+			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS.slice(1)))   # the reward icon (ICONS minus "none")
+			_sidebar_body.add_child(_text_row("Title", "title"))
+			_sidebar_body.add_child(_text_row("Body", "body"))
+			_sidebar_body.add_child(_text_row("Chip value", "chip_text"))
 
 
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.

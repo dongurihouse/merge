@@ -1747,20 +1747,18 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	# the icon now seats on the clean deckled cream. The PanelContainer stays the root (transparent), so the
 	# card's node identity is unchanged and it stacks the backdrop + a padded host into one rect.
 	var panel := PanelContainer.new()
-	var card_corner := 18.0
 	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # transparent: the CutPaperPanel behind is the face
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var cp = load(CUT_PAPER).new()      # the deckled cream sheet, laid out to fill the panel rect
-	cp.shape = "rect"
-	cp.corner = card_corner
-	cp.deckle_amp = 4.0                  # a fine tear at card scale (finer than the big frame page)
-	cp.deckle_freq = 0.05
-	cp.rim_width = 2.0
-	cp.paper_color = Pal.CREAM
-	cp.draw_shadow = true
-	var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
-	if tile != null:
-		cp.paper_tex = tile
+	# the reward-card sheet wears the SHARED cut-paper edge (Kit.CUT_PAPER_KNOBS) in ITS OWN tint — read from
+	# the `mail_card` config block, or overridden LIVE by the workbench via btn_opts.mail_cp / .mail_tint. The
+	# warm cut-edge rim is derived from the tint (a shade darker) so a recolour carries the edge with it. This
+	# is the ONE spot the reward card's edge is applied; a new CUT_PAPER_KNOBS knob flows here automatically.
+	var mail_cp: Dictionary = btn_opts.get("mail_cp", {})
+	if mail_cp.is_empty():
+		mail_cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "mail_card", MAIL_CP_DEFAULTS)
+	var tint: Color = btn_opts.get("mail_tint", MAIL_TINT_DEFAULT)
+	var cp = load(CUT_PAPER).new()      # the deckled sheet, laid out to fill the panel rect
+	cp.configure(mail_cp, tint, tint.darkened(0.14), cut_paper_tile())   # the ONE shared edge applier
 	cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(cp)
 	# content host: pad the row IN from the deckled edge so text/icon never touch the tear (CARD_PAD + the
@@ -2061,6 +2059,17 @@ const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_amp": 5, "dec
 # The wallet pill wears the SAME shared cut-paper edge; `corner` seeds the capsule roundness to the old
 # pill_h * 0.35 look (35 at the default 100px height) so an untuned pill is visually unchanged.
 const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The MAIL / reward-row card wears the SAME shared cut-paper edge, in its own tint + content. A finer tear at
+# card scale (amp 4) than the big frame page. `tint` (the paper fill) lives on the card's own config block.
+const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const MAIL_TINT_DEFAULT := Color("#F6EBDD")   # = Pal.CREAM — the reward card's default paper fill
+
+## Read the mail / reward-row card's shared edge + its own tint from `cfg` (the workbench passes live
+## _params; the game passes the saved config) into the opts mail_card / mail_dialog forward to the builder.
+static func mail_card_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var d: Dictionary = cfg.get("mail_card", {})
+	var tint := Color.from_string("#" + String(d.get("tint", "F6EBDD")).lstrip("#"), MAIL_TINT_DEFAULT)
+	return {"mail_cp": cut_paper_opts_from_config(cfg, "mail_card", MAIL_CP_DEFAULTS), "mail_tint": tint}
 
 ## The shared row surface: a code-drawn CUT-PAPER sheet — the SAME rugged deckled edge the dialog frame
 ## wears, in sage — so every settings row (toggle · info · action) reads as a torn paper strip. Kept as a
@@ -2699,6 +2708,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		var card_title: int = int(opts.get("card_title", 20))
 		var card_body: int = int(opts.get("card_body", 15))
 		var btn_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+		# forward the reward card's shared edge + tint (Kit.mail_card_opts_from_config) so every row picks up
+		# the workbench's LIVE mail_card tuning; absent, mail_card falls back to the saved config itself.
+		if opts.has("mail_cp"): btn_opts["mail_cp"] = opts["mail_cp"]
+		if opts.has("mail_tint"): btn_opts["mail_tint"] = opts["mail_tint"]
 		# the reskinned card wears a fixed-aspect sprite (with a round well); tell it the row width so it can
 		# pin its height to the sprite's aspect and keep the well circular instead of stretched into an oval.
 		btn_opts["card_w"] = width * 0.84
@@ -4056,6 +4069,9 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# (the shared deckled edge) instead of the flat cream card, sized to any dialog with no stretch. The
 		# normalized edge knob set (deckle · corner · amp · freq · rim · edge_shadow) rides under "cp".
 		"cp": cp,
+		# the reward-CARD's own shared edge + tint (its own component) forwarded to every mail_card row.
+		"mail_cp": mail_card_opts_from_config(cfg)["mail_cp"],
+		"mail_tint": mail_card_opts_from_config(cfg)["mail_tint"],
 		"empty_font": int(d.get("empty_font", FS.BODY)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
