@@ -41,6 +41,27 @@ func set_paper(tex: Texture2D) -> void:
 func content_inset() -> float:
 	return corner * 0.5 + deckle_amp
 
+## Configure this panel from a NORMALIZED cut-paper opts dict — the shared edge knob set (corner ·
+## deckle_amp · deckle_freq · rim_width · edge_shadow) produced by Kit.cut_paper_opts_from_config. This
+## is the ONE place those opts become panel state: the dialog frame, the paper buttons, the settings rows
+## AND the toggle switch all funnel through here, so the deckled edge behaves identically everywhere and a
+## new knob is consumed in a single spot. `fill`/`rim`/`tile` are per-caller (colours + fibre differ per
+## component); `amp_scale` shrinks the tear for small parts (e.g. a switch knob). Absent keys keep the
+## panel's current value, so a caller may set (e.g.) a capsule `corner` before or after this call.
+func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D = null, amp_scale: float = 1.0) -> void:
+	shape = "rect"
+	corner = float(o.get("corner", corner))
+	deckle_amp = float(o.get("deckle_amp", deckle_amp)) * amp_scale
+	deckle_freq = float(o.get("deckle_freq", deckle_freq))
+	rim_width = float(o.get("rim_width", rim_width))
+	draw_shadow = bool(o.get("edge_shadow", draw_shadow))
+	paper_color = fill
+	if rim != null:
+		rim_color = rim
+	if tile != null:
+		paper_tex = tile
+	queue_redraw()
+
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
 	if draw_shadow:

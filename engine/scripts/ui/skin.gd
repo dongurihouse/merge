@@ -807,7 +807,7 @@ static func _switch_tex(on: bool) -> Texture2D:
 	var p := SWITCH_SKIN + ("toggle_on.png" if on else "toggle_off.png")
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null
 
-static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.SWITCH_H) -> Button:
+static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.SWITCH_H, cp: Dictionary = {}) -> Button:
 	var w := px_h * Tune.SWITCH_ASPECT
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
@@ -819,32 +819,25 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	b.add_theme_stylebox_override("hover", empty)
 	b.add_theme_stylebox_override("pressed", empty)
 	b.set_meta("on", is_on)
-	# RUGGED cut-paper switch: the SAME torn/deckled edge the dialog frame + settings rows wear, at switch
-	# scale — a deckled capsule TRACK (leaf green ON / soft slate OFF) with a deckled cream KNOB that slides
-	# across. Drawn in code (CutPaperPanel) so the tear stays crisp at any switch_h, matching the rows.
+	# RUGGED cut-paper switch: the SAME shared edge knob set (Kit.cut_paper_opts_from_config, passed as `cp`)
+	# the dialog frame + settings rows wear, applied via CutPaperPanel.configure — a deckled capsule TRACK
+	# (leaf green ON / soft slate OFF) + a deckled cream KNOB that slides. `cp` empty → a sensible fallback.
+	var o: Dictionary = cp if not cp.is_empty() else {"deckle_amp": 3.0, "deckle_freq": 0.05, "rim_width": 1.5}
 	var CutPaper := load(CUT_PAPER)
 	var track = CutPaper.new()                     # the deckled capsule (recoloured per state)
 	track.name = "sw_track"
-	track.shape = "rect"
-	track.corner = px_h * 0.5                       # fully rounded → a capsule
-	track.deckle_amp = maxf(1.0, px_h * 0.045)      # a fine tear scaled to the switch height
-	track.deckle_freq = 0.09
-	track.rim_width = 1.5
-	track.draw_shadow = false                       # it sits flat on the row; the knob carries the lift
 	track.set_anchors_preset(Control.PRESET_FULL_RECT)
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.configure(o, Pal.BTN_PRIMARY)            # shared edge; colour is (re)set per state in _switch_paint
+	track.corner = px_h * 0.5                       # override: a capsule, not the block's rect corner
+	track.draw_shadow = false                       # override: the track sits flat; the knob carries the lift
 	b.add_child(track)
 	var knob = CutPaper.new()                       # the deckled cream knob (slid left/right per state)
 	knob.name = "sw_knob"
-	knob.shape = "rect"
-	knob.deckle_amp = maxf(0.8, px_h * 0.035)
-	knob.deckle_freq = 0.12
 	knob.seed = 4                                   # a different tear than the track
-	knob.rim_width = 1.0
-	knob.paper_color = Pal.CREAM
-	knob.rim_color = Color("#E7D6BC")
-	knob.draw_shadow = false                        # CutPaperPanel's fixed px shadow is oversized at knob scale
 	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	knob.configure(o, Pal.CREAM, Color("#E7D6BC"), null, 0.6)   # amp_scale shrinks the tear at knob scale
+	knob.draw_shadow = false                        # CutPaperPanel's fixed px shadow is oversized at knob scale
 	b.add_child(knob)
 	_switch_paint(b, is_on, px_h)
 	add_press_juice(b)
