@@ -37,7 +37,7 @@ PAGES = [  # play order (picturebook_lines_recipes.md)
 # resolving against its own id (fairy_hollow_market_elements_v*), unchanged.
 SCENE_BUNDLES = {
     "snowy_village": "winter",
-    "desert_oasis": "desert_oasis_watchtower",
+    "desert_oasis": "oasis",
     "coral_reef": "coral",
     # `sakura` needs no entry — its bundle prefix equals its scene id (sakura_elements_v*).
 }

@@ -779,7 +779,7 @@ plate, dark shadow slab, or accidental hole.
 
 Desert Oasis established the preferred workflow for a scene that must be editable without looking like a
 collection of pasted sprites. Its active bundle is
-`games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/`. The bundle is the living
+`games/grove/assets/_concepts/zones/oasis_elements_v2/`. The bundle is the living
 example; `metadata/placements.json` is the scene authority and
 `00_source/reference/desert_oasis_watchtower_reference_mock_v1.png` is the composition/material reference.
 
@@ -863,7 +863,7 @@ Use the desert scene as a registered composition, not a loose collage:
 
   ```sh
   make import
-  make shot-sw SCENE=desert_oasis_watchtower OUT=/tmp/desert-oasis-review.png
+  make shot-sw SCENE=oasis OUT=/tmp/desert-oasis-review.png
   ```
 
   The screenshot, not a JSON diff, is the visual acceptance evidence. Inspect whether hero bottoms feel
