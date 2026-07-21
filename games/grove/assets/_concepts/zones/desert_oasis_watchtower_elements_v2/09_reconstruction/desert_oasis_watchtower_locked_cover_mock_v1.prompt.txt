@@ -1,0 +1,8 @@
+Use case: precise-object-edit.
+Asset type: locked-state scene concept mock for a vertical mobile picture-book game.
+Input image: the Desert Oasis reference mock is the exact composition, perspective, dimensions,
+paper grain, sky, dunes, pond, stepping-stone route and primary-object locations to preserve.
+Primary request: cover every primary-object location with 6–8 overlapping, large paper-cut desert
+palm-frond clusters while retaining the stable backdrop and a readable route through open seams.
+Constraints: cheerful tactile paper-cut foliage; no visible buildings, stalls, tent, camel or tower;
+no dark fog, locks, UI, labels, sparkles or text.
