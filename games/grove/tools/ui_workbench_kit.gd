@@ -5113,12 +5113,41 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if bool(d.get("dim_bg", false)):
 		bg_opts = opts.duplicate()
 		bg_opts["dim"] = DIM_BG_FACTOR
-	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)
-	tile.add_child(bg)
-	if lockedwell:
-		var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
-		if lock_mark != null:
-			tile.add_child(lock_mark)
+	# RE-SKIN path (bag dialog): when the caller passes baked cut-paper cell sprites, wear those instead of
+	# the code-drawn face + lock. `sprite_locked` already bakes the lock, so locked cells drop the lock_mark;
+	# `sprite_open` covers empty/filled/next (the acorn-cost pill still rides on top for `next`). Gated by the
+	# opts so the board (which never passes them) keeps its drawn tiles untouched.
+	var sprite_open_p := String(opts.get("sprite_open", ""))
+	var sprite_locked_p := String(opts.get("sprite_locked", ""))
+	var sprite_path := ""
+	if state == "locked" and sprite_locked_p != "" and ResourceLoader.exists(sprite_locked_p):
+		sprite_path = sprite_locked_p
+	elif state != "locked" and sprite_open_p != "" and ResourceLoader.exists(sprite_open_p):
+		sprite_path = sprite_open_p
+	if sprite_path != "":
+		if bool(opts.get("cell_shadow", true)):
+			var corner := int(roundf(minf(cw, ch) * 0.18))
+			var sh: Panel = Look.shadow_rect(float(corner), Look.shadow_params(load_config(CONFIG_PATH)))
+			sh.name = "SlotCellShadow"
+			sh.show_behind_parent = true
+			tile.add_child(sh)
+		var art := TextureRect.new()
+		art.name = "SlotCellSprite"
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_SCALE
+		art.texture = load(sprite_path)
+		art.position = Vector2.ZERO
+		art.size = Vector2(cw, ch)
+		art.custom_minimum_size = Vector2.ZERO
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(art)
+	else:
+		var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)
+		tile.add_child(bg)
+		if lockedwell:
+			var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
+			if lock_mark != null:
+				tile.add_child(lock_mark)
 
 	# a MARKED cell (the discovery ladder's tapped/asked tier) wears the SAME engine sparkle the home
 	# buttons use, sitting over the well but UNDER the piece — an overlay, so the footprint never changes.
