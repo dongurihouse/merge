@@ -2482,6 +2482,7 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## nine-patch art + its natural slice + content padding. dialog_frame resolves the chosen name into
 ## panel_art / slice / pad DEFAULTS; explicit panel_art / card_slice_* / panel_pad_* opts still win,
 ## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
+const CUT_PAPER_TILE := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"   # code-drawn sheet's paper fibre
 const FRAME_BORDERS := {
 	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},
@@ -2565,7 +2566,30 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# instead of the drawn cream card — content padding is preserved so the layout is unchanged.
 	var panel_bg_path := String(opts.get("panel_bg", ""))
 	var panel_bg_tex: Texture2D = load(panel_bg_path) as Texture2D if panel_bg_path != "" and ResourceLoader.exists(panel_bg_path) else null
-	if panel_bg_tex != null:
+	# CODE-DRAWN cut-paper sheet (workbench toggle): a live CutPaperPanel drawn BEHIND the card, so the
+	# deckled edge + tiled paper + shadow size to any dialog with no stretch. The card keeps a transparent-
+	# but-padded stylebox so the content layout is unchanged; the panel is synced to the card's rect.
+	var cut_paper := bool(opts.get("cut_paper", false)) and panel_bg_tex == null
+	var cut_paper_panel: Control = null
+	if cut_paper:
+		var cf := StyleBoxFlat.new()
+		cf.bg_color = Color(0, 0, 0, 0)   # transparent: the CutPaperPanel behind is the visible sheet
+		cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
+		cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
+		card.add_theme_stylebox_override("panel", cf)
+		var cp = load("res://engine/scripts/ui/cut_paper.gd").new()
+		cp.name = "CutPaperSheet"
+		cp.corner = card_corner
+		cp.deckle_amp = float(opts.get("deckle_amp", 5.0))
+		cp.deckle_freq = float(opts.get("deckle_freq", 0.05))
+		cp.rim_width = float(opts.get("rim_width", 2.0))
+		cp.draw_shadow = bool(opts.get("frame_shadow", true))
+		cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tile := load(CUT_PAPER_TILE) as Texture2D if ResourceLoader.exists(CUT_PAPER_TILE) else null
+		if tile != null:
+			cp.paper_tex = tile
+		cut_paper_panel = cp
+	elif panel_bg_tex != null:
 		var pt := StyleBoxTexture.new()
 		pt.texture = panel_bg_tex
 		pt.content_margin_left = panel_pad_x; pt.content_margin_right = panel_pad_x
@@ -2587,6 +2611,18 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	card.position = Vector2.ZERO
 	wrap.custom_minimum_size.x = target_w      # robust horizontal centring even before relayout runs
 	wrap.add_child(card)
+	if cut_paper_panel != null:
+		# the code-drawn sheet sits BEHIND the (transparent) card and tracks its rect as the card grows
+		wrap.add_child(cut_paper_panel)
+		wrap.move_child(cut_paper_panel, 0)
+		var sync_cp := func() -> void:
+			if is_instance_valid(cut_paper_panel) and is_instance_valid(card):
+				cut_paper_panel.position = card.position
+				cut_paper_panel.size = card.size
+				cut_paper_panel.queue_redraw()
+		card.resized.connect(sync_cp)
+		card.item_rect_changed.connect(sync_cp)
+		sync_cp.call_deferred()
 
 	# inner = the card's single content child; it hosts the scrolling content AND the banner overlay
 	var inner := Control.new()
@@ -4113,6 +4149,14 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"close_poke": Vector2(float(d.get("close_x", 12)), float(d.get("close_y", 12))),
 		"list_max_h": float(d.get("list_max_h", 0)),
 		"list_top_pad": float(d.get("list_top_pad", 0)),
+		# CODE-DRAWN cut-paper sheet: when on, the frame's background is a live CutPaperPanel (deckled edge
+		# + tiled paper + shadow) instead of the flat cream card, sized to any dialog with no stretch. The
+		# workbench "Frame" item exposes these as a toggle + sliders (deckle_freq is a 0..N percent → /100).
+		"cut_paper": bool(d.get("cut_paper", false)),
+		"deckle_amp": float(d.get("deckle_amp", 5)),
+		"deckle_freq": float(d.get("deckle_freq", 5)) / 100.0,
+		"rim_width": float(d.get("rim_width", 2)),
+		"frame_shadow": bool(d.get("frame_shadow", true)),
 		"empty_font": int(d.get("empty_font", FS.BODY)),   # the empty-state note size — the Mail item's "Empty font" slider
 		"icon_badge": card_icon_badge(cfg),
 		"btn": card_btn_opts(cfg),
