@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://yphbd2e2ejhx"
-path="res://.godot/imported/desert_oasis_coverup_fan_agave_v1.png-0646c9795e23444560466e2f1094a24b.ctex"
+uid="uid://uo0qwbh3dyto"
+path="res://.godot/imported/desert_oasis_coverup_leaf_teal_curve_v2.png-97478f46843f5a5723223593c486142f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/06_coverup/palm_cover_pack/desert_oasis_coverup_fan_agave_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_coverup_fan_agave_v1.png-0646c9795e23444560466e2f1094a24b.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/06_coverup/single_leaf_pack/desert_oasis_coverup_leaf_teal_curve_v2.png"
+dest_files=["res://.godot/imported/desert_oasis_coverup_leaf_teal_curve_v2.png-97478f46843f5a5723223593c486142f.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dmslhj1swjukb"
-path="res://.godot/imported/desert_oasis_coverup_ochre_palms_v1.png-06b62d0b5c7d67cfd66b039163da6e2c.ctex"
+uid="uid://ccwhhttemgvi1"
+path="res://.godot/imported/desert_oasis_coverup_leaf_sage_serrated_v2.png-4859941b4af7b5c2b97c3b51e014982b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/06_coverup/palm_cover_pack/desert_oasis_coverup_ochre_palms_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_coverup_ochre_palms_v1.png-06b62d0b5c7d67cfd66b039163da6e2c.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/06_coverup/single_leaf_pack/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+dest_files=["res://.godot/imported/desert_oasis_coverup_leaf_sage_serrated_v2.png-4859941b4af7b5c2b97c3b51e014982b.ctex"]
 
 [params]
 

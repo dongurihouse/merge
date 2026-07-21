@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://l75jvhjywdw4"
-path="res://.godot/imported/desert_oasis_coverup_fan_blanket_v1.png-955c9112acad57ec96d44f6b40abf787.ctex"
+uid="uid://blo2uwe06r22m"
+path="res://.godot/imported/desert_oasis_coverup_leaf_blue_fan_v2.png-96916832ff75665696328f8fd07dc533.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/06_coverup/palm_cover_pack/desert_oasis_coverup_fan_blanket_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_coverup_fan_blanket_v1.png-955c9112acad57ec96d44f6b40abf787.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/06_coverup/single_leaf_pack/desert_oasis_coverup_leaf_blue_fan_v2.png"
+dest_files=["res://.godot/imported/desert_oasis_coverup_leaf_blue_fan_v2.png-96916832ff75665696328f8fd07dc533.ctex"]
 
 [params]
 

@@ -7,8 +7,8 @@ This bundle contains three independently composable scene layers:
    stall, travel tent and camel caravan. Each sprite includes its own source-derived bottom sand
    paper plate and its immediate plate dressing, so the full object remains one swappable unit.
 3. `05_dressing` — lake-bank and foreground cover items that blend the structures into the terrain.
-4. `06_coverup` — six reusable palm-and-agave paper-cut cover variants. Five `coverup` clusters
-   sit above the hero locations in the locked state; remove the corresponding cluster to reveal an
-   unlocked hero without repainting the base scene.
+4. `06_coverup` — six reusable single-leaf paper-cut variants. The broad fan leaves form a loose,
+   full-screen canopy; smaller fronds are spaced across it as accents. Each locked hero owns a
+   removable `coverup` cluster, so an unlock reveals its area without repainting the base scene.
 
 The workbench does not add generic ground pads or runtime silhouette shadows to these heroes.
