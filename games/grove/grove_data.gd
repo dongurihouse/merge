@@ -426,7 +426,7 @@ static func _build_maps() -> Array:
 	# its `spots` list is kept for save-compat only. Pages 2-5 are `open` for book browsing —
 	# the frontier gate arrives with the pages build system (recipes/frontier, picturebook spec §9).
 	{"id": "fairy_hollow", "name": "Fairy Hollow", "hub": true,
-		"zone_manifest": "res://games/grove/assets/map/pages/zone_fairy_hollow_market.json",
+		"zone_manifest": "res://games/grove/assets/map/pages/zone_hollow.json",
 		"covering_frames": [],
 		"coverup_mode": true,
 		# TOP-DOWN unlock order: the top-of-scene cluster unlocks first. The market canvas is tall and

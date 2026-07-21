@@ -1,0 +1,270 @@
+{
+ "version": 1,
+ "id": "hollow",
+ "label": "Hollow",
+ "canvas": {
+  "width": 1320,
+  "height": 2346
+ },
+ "background": "res://games/grove/assets/map/pages/hollow/foundation.png",
+ "buildings": [
+  {
+   "id": "mushroom_hall",
+   "label": "mushroom hall",
+   "position": [
+    781,
+    816
+   ],
+   "display_size": [
+    831,
+    831
+   ],
+   "sort_y": 0,
+   "cluster": "mushroom_hall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/hollow/mushroom_hall.png"
+   }
+  },
+  {
+   "id": "tea_stall",
+   "label": "tea stall",
+   "position": [
+    335,
+    1210
+   ],
+   "display_size": [
+    780,
+    693
+   ],
+   "sort_y": 0,
+   "cluster": "tea_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/hollow/tea_stall.png"
+   }
+  },
+  {
+   "id": "crystal_map_stall",
+   "label": "crystal map stall",
+   "position": [
+    1059,
+    1381
+   ],
+   "display_size": [
+    680,
+    747
+   ],
+   "sort_y": 0,
+   "cluster": "crystal_map_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/hollow/crystal_map_stall.png"
+   }
+  },
+  {
+   "id": "stream_bridge",
+   "label": "stream bridge",
+   "position": [
+    341,
+    1780
+   ],
+   "display_size": [
+    700,
+    592
+   ],
+   "sort_y": 0,
+   "cluster": "stream_bridge",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/hollow/stream_bridge.png"
+   }
+  },
+  {
+   "id": "flower_crate",
+   "label": "flower crate",
+   "position": [
+    1033,
+    1941
+   ],
+   "display_size": [
+    750,
+    664
+   ],
+   "sort_y": 0,
+   "cluster": "flower_crate",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/hollow/flower_crate.png"
+   }
+  },
+  {
+   "id": "lantern_gate",
+   "label": "lantern gate",
+   "position": [
+    528,
+    2364
+   ],
+   "display_size": [
+    830,
+    741
+   ],
+   "sort_y": 0,
+   "cluster": "lantern_gate",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/hollow/lantern_gate.png"
+   }
+  }
+ ],
+ "coverups": [
+  {
+   "id": "canopy_round_nw",
+   "cluster": "mushroom_hall",
+   "position": [
+    220,
+    660
+   ],
+   "display_size": [
+    840,
+    840
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_round_nw.png"
+  },
+  {
+   "id": "canopy_monstera_ne",
+   "cluster": "mushroom_hall",
+   "position": [
+    1100,
+    670
+   ],
+   "display_size": [
+    860,
+    860
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_monstera_ne.png"
+  },
+  {
+   "id": "canopy_fern_center",
+   "cluster": "tea_stall",
+   "position": [
+    650,
+    1430
+   ],
+   "display_size": [
+    610,
+    1080
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_fern_center.png"
+  },
+  {
+   "id": "canopy_flower_west",
+   "cluster": "tea_stall",
+   "position": [
+    220,
+    1440
+   ],
+   "display_size": [
+    650,
+    650
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_flower_west.png"
+  },
+  {
+   "id": "canopy_vine_east",
+   "cluster": "crystal_map_stall",
+   "position": [
+    1120,
+    1450
+   ],
+   "display_size": [
+    700,
+    610
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_vine_east.png"
+  },
+  {
+   "id": "canopy_monstera_sw",
+   "cluster": "stream_bridge",
+   "position": [
+    260,
+    2050
+   ],
+   "display_size": [
+    800,
+    800
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_monstera_sw.png"
+  },
+  {
+   "id": "canopy_round_se",
+   "cluster": "flower_crate",
+   "position": [
+    1120,
+    2050
+   ],
+   "display_size": [
+    800,
+    800
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_round_se.png"
+  },
+  {
+   "id": "canopy_corner_bottom_west",
+   "cluster": "lantern_gate",
+   "position": [
+    310,
+    2410
+   ],
+   "display_size": [
+    900,
+    900
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_corner_bottom_west.png"
+  },
+  {
+   "id": "canopy_fern_bottom",
+   "cluster": "lantern_gate",
+   "position": [
+    810,
+    2470
+   ],
+   "display_size": [
+    590,
+    1040
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_fern_bottom.png"
+  },
+  {
+   "id": "canopy_flower_bottom_east",
+   "cluster": "lantern_gate",
+   "position": [
+    1160,
+    2420
+   ],
+   "display_size": [
+    600,
+    600
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_flower_bottom_east.png"
+  },
+  {
+   "id": "canopy_vine_bottom",
+   "cluster": "lantern_gate",
+   "position": [
+    650,
+    2540
+   ],
+   "display_size": [
+    760,
+    660
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/pages/hollow/canopy_vine_bottom.png"
+  }
+ ]
+}
