@@ -274,28 +274,19 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	refresh.call()
 	return out
 
-# The runtime cut-paper pill sprite per currency (icon + "+" baked in, empty body for the number).
-const PILL_SPRITE := {
-	"water": "res://games/grove/assets/ui/wallet/pill_water.png",
-	"coin": "res://games/grove/assets/ui/wallet/pill_coin.png",
-	"gem": "res://games/grove/assets/ui/wallet/pill_gem.png",
-}
-
-# One currency pill: the cut-paper sprite pill (CurrencyPillSprite) — a flat pill PNG with the icon +
-# green "+" baked in, and the number laid over the empty body. The whole pill opens the store. Added to
-# `cluster`; returns {panel, label, icon, plus}. (Replaces the drawn Kit.gold_currency_pill; the tint /
-# optical / icon-box args are legacy no-ops kept so the call sites don't churn.)
+# One currency pill: the drawn Kit.gold_currency_pill — a code-rendered cream capsule wearing the SHARED
+# cut-paper rugged edge, with the currency icon + number + green "+" as live child nodes. The whole pill
+# opens the store. Added to `cluster`; returns {panel, label, icon, plus}. (The tint / optical / icon-box
+# args are legacy no-ops kept so the call sites don't churn — the drawn pill resolves each currency by id.)
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
 		optical: float, tint: Color, num_size: int, box: float, open_store: Callable, init_count: int = 0) -> Dictionary:
-	var Sprite = load("res://engine/scripts/ui/currency_pill_sprite.gd")
-	var tex: Texture2D = load(String(PILL_SPRITE.get(icon_id, PILL_SPRITE["water"]))) as Texture2D
-	var pill_h := float(pill.get("pill_h", 100.0))
 	# born showing the CURRENT value, not 0 — so build()'s first refresh sets silently instead of
 	# count-ticking up from 0 every time a page rebuilds the HUD.
-	var panel: Button = Sprite.build({
-		"tex": tex, "count": init_count, "height": pill_h, "num_size": num_size,
-		"plus_action": open_store,
-	})
+	var pill_opts := pill.duplicate()
+	pill_opts["icon"] = icon_id
+	pill_opts["plus_action"] = open_store
+	pill_opts["shadow"] = false   # the cut-paper edge casts its OWN shape-true shadow — no rect wrapper
+	var panel := Kit.gold_currency_pill(pill_opts, {icon_id: init_count}) as Button
 	# Unique per-currency name that still begins with "GoldCurrencyPill" (three same-named siblings in the
 	# cluster would otherwise auto-rename to "@Button@N", breaking the _ancestor_named("GoldCurrencyPill") contract).
 	panel.name = "GoldCurrencyPill" + icon_id.capitalize()
