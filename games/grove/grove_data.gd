@@ -432,13 +432,15 @@ static func _build_maps() -> Array:
 		# TOP-DOWN unlock order: the top-of-scene cluster unlocks first. The market canvas is tall and
 		# cover-fills the viewport, so its BOTTOM sits behind the bottom nav bar — a bottom-first order
 		# hides the one ready lock off-screen. Top-first keeps the next unlockable clearly in view.
+		# min_level is NOT data — content.cluster_min_level derives it from GLOBAL cluster order
+		# (2 + global_cluster_index), so these six land at L2-7.
 		"clusters": [
-			{"id": "mushroom_hall", "cost": 10, "min_level": 1},
-			{"id": "tea_stall", "cost": 25, "min_level": 2},
-			{"id": "crystal_map_stall", "cost": 45, "min_level": 3},
-			{"id": "stream_bridge", "cost": 70, "min_level": 4},
-			{"id": "flower_crate", "cost": 110, "min_level": 5},
-			{"id": "lantern_gate", "cost": 160, "min_level": 6},
+			{"id": "mushroom_hall", "cost": 10},
+			{"id": "tea_stall", "cost": 25},
+			{"id": "crystal_map_stall", "cost": 45},
+			{"id": "stream_bridge", "cost": 70},
+			{"id": "flower_crate", "cost": 110},
+			{"id": "lantern_gate", "cost": 160},
 		],
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
@@ -451,16 +453,51 @@ static func _build_maps() -> Array:
 	]},
 	{"id": "snowy_village", "name": "Snowy Village", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_snowy_village.json",
-		"covering_frames": _covering_frames("winter_ice"), "spots": []},
+		"covering_frames": [], "coverup_mode": true,
+		# TOP-DOWN unlock order (winter_lantern_lodge bundle, unlock_ prefix).
+		"clusters": [
+			{"id": "lodge", "cost": 220},
+			{"id": "christmas_tree", "cost": 300},
+			{"id": "gazebo", "cost": 400},
+			{"id": "dock", "cost": 520},
+			{"id": "entrance_arch", "cost": 660},
+		],
+		"spots": []},
 	{"id": "desert_oasis", "name": "Desert Oasis", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_desert_oasis.json",
-		"covering_frames": _covering_frames("desert_palm"), "spots": []},
+		"covering_frames": [], "coverup_mode": true,
+		# TOP-DOWN unlock order (desert_oasis_watchtower bundle, lock_ prefix).
+		"clusters": [
+			{"id": "adobe", "cost": 820},
+			{"id": "watchtower", "cost": 1000},
+			{"id": "market_stall", "cost": 1200},
+			{"id": "travel_tent", "cost": 1450},
+			{"id": "caravan", "cost": 1750},
+		],
+		"spots": []},
 	{"id": "coral_reef", "name": "Coral Reef", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_coral_reef.json",
-		"covering_frames": _covering_frames("coral_shells"), "spots": []},
+		"covering_frames": [], "coverup_mode": true,
+		# TOP-DOWN unlock order (coral_reef_paper bundle, unlock_region_ prefix).
+		"clusters": [
+			{"id": "shipwreck", "cost": 2100},
+			{"id": "anchor", "cost": 2500},
+			{"id": "chest", "cost": 2950},
+			{"id": "statue", "cost": 3450},
+			{"id": "clam", "cost": 4000},
+		],
+		"spots": []},
 	{"id": "cherry_blossom_garden", "name": "Cherry-Blossom Garden", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_cherry_blossom_garden.json",
-		"covering_frames": _covering_frames("cherry_petals"), "spots": []},
+		"covering_frames": [], "coverup_mode": true,
+		# TOP-DOWN unlock order (cherry_blossom_paper_plate_terrace bundle, unlock_region_ prefix).
+		"clusters": [
+			{"id": "pavilion", "cost": 4600},
+			{"id": "pond_bridge", "cost": 5300},
+			{"id": "temizuya", "cost": 6100},
+			{"id": "torii", "cost": 7000},
+		],
+		"spots": []},
 	]
 	return maps
 

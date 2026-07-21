@@ -950,10 +950,12 @@ static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
 			return z
 	return -1
 
-# --- market cover-up clusters (fairy_hollow_market) --------------------------------
-## A strict bottom-up unlock sequence over the scene's authored coverup layer. State persists in
-## `unlocks` keyed by cluster id (the same save dict the spot/gate system uses). The gate mirrors the
-## old progression: a level floor + a coin cost per cluster (MAPS[z].clusters, bottom-up order).
+# --- picture-book cover-up clusters (every coverup_mode page) ----------------------
+## A strict top-down unlock sequence over each page's authored coverup layer. State persists in
+## `unlocks` keyed by cluster id (the same save dict the spot/gate system uses). Levels are NOT
+## data — they are a formula over GLOBAL cluster order (see global_cluster_index below), the same
+## "one region per level" ladder the old per-spot unlock ladder used; MAPS[z].clusters carries only
+## {id, cost}.
 static func clusters(z: int) -> Array:
 	if z < 0 or z >= MAPS.size():
 		return []
@@ -978,17 +980,61 @@ static func next_locked_cluster(z: int, unlocks: Dictionary) -> String:
 static func cluster_cost(z: int, cluster_id: String) -> int:
 	return int(_cluster_def(z, cluster_id).get("cost", 0))
 
-static func cluster_min_level(z: int, cluster_id: String) -> int:
-	return int(_cluster_def(z, cluster_id).get("min_level", 1))
+# --- the per-cluster unlock ladder, GLOBAL across every coverup page (2026-07-20 scenes 2-5 wiring) —
+# mirrors spot_unlock_level's "one region per level" rhythm, but over clusters instead of spots, and
+# over every coverup_mode page's clusters taken IN MAPS ORDER (not just one page).
 
-## READY = it is the NEXT locked cluster in order AND its gate is met (level floor + affordable).
+# The MAPS indices that are coverup pages, in MAPS order.
+static func coverup_pages() -> Array:
+	var out: Array = []
+	for z in MAPS.size():
+		if bool(MAPS[z].get("coverup_mode", false)):
+			out.append(z)
+	return out
+
+# The 0-based position of cluster `cluster_id` of page z in the GLOBAL cluster order (every
+# coverup page's clusters, earlier pages first, in clusters(z) order within a page).
+static func global_cluster_index(z: int, cluster_id: String) -> int:
+	var idx := 0
+	for zz in coverup_pages():
+		if zz == z:
+			break
+		idx += clusters(zz).size()
+	var i := 0
+	for c in clusters(z):
+		if String((c as Dictionary).id) == cluster_id:
+			return idx + i
+		i += 1
+	return idx
+
+# The LEVEL at which a cluster unlocks = its global order position, offset so the very first
+# cluster (the market's top cluster) sits at L2 — a formula, not a data field.
+static func cluster_min_level(z: int, cluster_id: String) -> int:
+	return 2 + global_cluster_index(z, cluster_id)
+
+## A coverup page can't offer ANY of its own clusters until every EARLIER coverup page's clusters
+## are fully unlocked — the picture-book reads front-to-back, one scene finished before the next
+## scene's padlocks go live.
+static func coverup_scene_open(z: int, unlocks: Dictionary) -> bool:
+	for zz in coverup_pages():
+		if zz == z:
+			break
+		for c in clusters(zz):
+			if not unlocks.has(String((c as Dictionary).id)):
+				return false
+	return true
+
+## READY = it is the NEXT locked cluster in order, its OWN page is open (every earlier coverup
+## page finished), AND its gate is met (level floor + affordable).
 static func cluster_ready(z: int, cluster_id: String, unlocks: Dictionary, level: int, coins: int) -> bool:
 	if cluster_id != next_locked_cluster(z, unlocks):
+		return false
+	if not coverup_scene_open(z, unlocks):
 		return false
 	var d := _cluster_def(z, cluster_id)
 	if d.is_empty():
 		return false
-	return level >= int(d.get("min_level", 1)) and coins >= int(d.get("cost", 0))
+	return level >= cluster_min_level(z, cluster_id) and coins >= int(d.get("cost", 0))
 
 # --- sell / economy formulas ------------------------------------------------------
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
