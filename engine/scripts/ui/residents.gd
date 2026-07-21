@@ -225,8 +225,13 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var dock_insp := func() -> void:
 		if is_instance_valid(insp) and is_instance_valid(card):
 			var h := INSPECTOR_H * scale
-			insp.position = Vector2(card.position.x, card.position.y + card.size.y - h)
-			insp.size = Vector2(card.size.x, h)
+			# lift the bar up off the sheet's bottom edge and inset it from the sides, so it sits INSIDE
+			# the torn panel (whose deckled edge + soft baked shadow are inset from the card rect) rather
+			# than overflowing past the bottom.
+			var bm := h * 0.55
+			var sm := card.size.x * 0.045
+			insp.position = Vector2(card.position.x + sm, card.position.y + card.size.y - h - bm)
+			insp.size = Vector2(card.size.x - sm * 2.0, h)
 	card.resized.connect(dock_insp)
 	insp.resized.connect(dock_insp)
 	dock_insp.call_deferred()
@@ -348,7 +353,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
 		# empty filler tiles: the plain cream cut-paper cell (matches the filled hand tiles' face)
 		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag)
-		_skin_cell_face(filler, "cell_plain")
+		_plain_cell_face(filler)
 		grid.add_child(filler)
 	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
 	# spirit dropped anywhere over it (cards included: their can_take rejects "placed", so the
@@ -614,6 +619,23 @@ static func _skin_cell_face(cell: Control, key: String) -> bool:
 	bg.add_child(tr)
 	return true
 
+## A PLAIN cream cell face for the resident (placed / on-hand) slots: hide the drawn sage paper layer and
+## paint the background a flat rounded cream — no thick cut-paper border, so the resident art reads on a
+## clean tile. Returns whether it applied.
+static func _plain_cell_face(cell: Control) -> bool:
+	var bg := cell.find_child("SlotCellBackground", true, false) as Control
+	if bg == null:
+		return false
+	var paper := bg.find_child("SlotCellPaperTexture", true, false)
+	if paper != null and paper is CanvasItem:
+		(paper as CanvasItem).visible = false
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CREAM
+	sb.set_corner_radius_all(int(CELL_CORNER))
+	if bg is Panel:
+		(bg as Panel).add_theme_stylebox_override("panel", sb)
+	return true
+
 ## Swap the shared dialog frame's chrome for the extracted cut-paper sprites: the panel background becomes
 ## the torn dialog_bg, and the ✕ becomes the coral close sprite. No-ops for whichever sprite is absent.
 static func _apply_cutpaper_frame(dialog: Control) -> void:
@@ -663,7 +685,7 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 		"make_content": func(pp: float) -> Control: return _spirit_piece(kind, tier, pp, inset)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
-	if not _skin_cell_face(cell, "cell_plain"):   # reskin: plain cream cut-paper cell behind the resident
+	if not _plain_cell_face(cell):   # plain cream tile behind the resident (no thick cut-paper border)
 		_shadow_cell(cell)
 	if _is_sel(ctx, src, idx):
 		var rim := Panel.new()
