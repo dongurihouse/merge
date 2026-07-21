@@ -1154,9 +1154,11 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5 + float(opts.get("plus_y", 0)))
 		plus_slot.add_child(plus)
 		row.add_child(plus_slot)
-	# Optional OVERALL drop shadow behind the capsule. The paper art itself stays shadow-free; the live
-	# shell casts one shared Meadow shadow when the caller opts in.
-	if bool(opts.get("shadow", false)):
+	# Optional OVERALL drop shadow behind the capsule. When the rugged edge is on, the cut-paper panel
+	# already casts its OWN shape-true shadow (the `edge_shadow` knob) — adding the rectangular Meadow
+	# shadow too would double it (a torn silhouette over a rounded-rect halo), so the rect shadow is only
+	# for the smooth (deckle off) shell.
+	if bool(opts.get("shadow", false)) and not deckle:
 		return _meadow_with_shadow(panel, pill_h * 0.5, opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
