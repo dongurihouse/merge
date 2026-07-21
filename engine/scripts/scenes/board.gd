@@ -1676,7 +1676,8 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(content)
 	bag_content = content
-	bag_piece_px = roundf(px * 0.5)
+	# the stashed item overlays the tile directly (no cream backing) — sized large so it covers the baked satchel.
+	bag_piece_px = roundf(px * 0.78)
 	_bag_count_lbl = _make_bag_count_label(px)
 	b.add_child(_bag_count_lbl)
 	_rebuild_bag()
@@ -3396,24 +3397,8 @@ func _rebuild_bag() -> void:
 		if not ResourceLoader.exists(NAV_BAG):
 			bag_content.add_child(load("res://games/grove/tools/ui_workbench_kit.gd").make_icon("bag", bag_piece_px))
 	else:
-		# filled → a cream slot backing masks the baked satchel, with the most-recent stashed item on top.
-		if ResourceLoader.exists(NAV_BAG):
-			bag_content.add_child(_bag_fill_backing(roundf(bag_piece_px * 1.34)))
+		# filled → the most-recent stashed item overlays the tile directly, sized large to cover the satchel.
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
-
-# A small cream rounded slot behind the stashed item, so a filled bag tile hides the baked satchel and
-# presents the item on a familiar cream cell (matching the board's item slots).
-func _bag_fill_backing(size: float) -> Control:
-	var p := Panel.new()
-	p.custom_minimum_size = Vector2(size, size)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM
-	sb.set_corner_radius_all(int(roundf(size * 0.22)))
-	sb.set_border_width_all(maxi(1, int(roundf(size * 0.04))))
-	sb.border_color = Pal.STRAW
-	p.add_theme_stylebox_override("panel", sb)
-	return p
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
 # over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
