@@ -2855,8 +2855,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		btns.alignment = BoxContainer.ALIGNMENT_CENTER
 		btns.add_child(got)
 		content.add_child(btns)
-	# reskin: wear the extracted cut-paper mail panel as the sheet face (caller may override panel_bg).
-	if not opts.has("panel_bg"):
+	# Face: mail wears the SHARED frame like every other dialog. When the code-drawn cut-paper sheet is on
+	# (the shipped default), let it through untouched; only when it is off do we fall back to the baked
+	# cut-paper mail panel as the sheet face (a caller may still override panel_bg explicitly).
+	if not opts.has("panel_bg") and not bool(opts.get("cut_paper", false)):
 		opts = opts.duplicate()
 		opts["panel_bg"] = MAIL_SKIN + "dialog_bg.png"
 	return dialog_frame(content, width, opts)
