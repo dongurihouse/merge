@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "toggle_card", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "pro
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["toggle_card"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -50,7 +50,6 @@ const DEPENDENTS := {
 	# the daily-cell style is edited ON the Daily dialog now (it feeds the shop's pack cells).
 	"daily": ["shop"],
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info", "level", "vault"],
-	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
@@ -102,7 +101,6 @@ const TEST_KEYS := {
 	"info_bar": ["filled"],
 	# the RUSH BAR — every size/spacing knob is saved design; the preview values (time/score/mult) are static demo, not params
 	"rush_bar": [],
-	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the quest-giver card — the LAYOUT block (card/bust/bubble/item/plaque fractions) IS saved config now:
 	# the board reads it via Kit.giver_lay_from_config, so a tweak here flows to the live giver card. Only
 	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
@@ -126,7 +124,6 @@ const CAPTIONS := {
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
-	"toggle_card": "Toggle card — label + switch",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
@@ -267,9 +264,9 @@ func _default_params() -> Dictionary:
 			"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
 			"label_y": 12, "label_x": 0, "claim_y": 14, "info_icon": false,
 			"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
-		# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
-		# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
-		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
+		# the SETTINGS ROW style (a label + the shared switch on the rugged sage row surface). Edited on the
+		# Settings item now (the standalone Toggle-card element is retired); read via Kit.toggle_card_opts_from_config.
+		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true},
 		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
 		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
 		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
@@ -314,8 +311,8 @@ func _default_params() -> Dictionary:
 		# the RUSH BAR — plain cut-paper cards (Time · Score · Mult); the leaf / coin / crown deco art is retired
 		"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
 			"pad": 16, "burn": 0},
-		# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
-		# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
+		# the SETTINGS dialog = the shared frame + a column of toggle rows (one per persisted flag). width_pct
+		# like every dialog; the row label + switch style are on this Settings item, the chrome on the Frame item.
 		"settings": {"row_gap": 12},
 		# the VAULT dialog — the shared frame in the NEW twig border + the jar hero. width_pct + the twig
 		# slice/pad + the jar/plate sizes are saved; balance/claimable just preview the read. The banner / ✕
@@ -464,13 +461,6 @@ func _make_element(id: String) -> Control:
 			opts["content_scale"] = _dlg_scale("dialog")
 			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
 			return Kit.mail_dialog(Kit.DEMO_MAIL, _dlg_px("dialog"), opts)
-		"toggle_card":
-			# one settings ROW, standalone — a label + the shared switch, at a representative width (it always
-			# lives width-constrained in the Settings dialog). label_font / switch_h / card_art are saved.
-			var tco := Kit.toggle_card_opts_from_config(_params)
-			var tcard := Kit.toggle_card({"label": String(p.label), "value": bool(p.value)}, tco)
-			tcard.custom_minimum_size.x = 460
-			return tcard
 		"daily":
 			# the REAL game daily dialog — the shared frame (edited on the Frame item) wrapping LoginUI's
 			# own grid + capstone (LoginUI._rebuild), the SAME renderer the daily login screen uses. The
@@ -1369,20 +1359,13 @@ func _store_drag(kind: String, local: Vector2) -> void:
 
 ## The per-element explanatory notes shown under the caption.
 func _sidebar_notes(_id: String) -> void:
-	if _selected == "toggle_card":
-		var note := Label.new()
-		note.text = "This single setting row is reused by the Settings dialog. (The switch is the shared kit switch.) Label + value below just preview the row."
-		note.add_theme_font_size_override("font_size", FS.TOOL)
-		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_sidebar_body.add_child(note)
 	if _selected == "dialog" or _selected == "daily" or _selected == "mystery" or _selected == "shop" or _selected == "settings":
 		var note := Label.new()
 		var card_src := ""
 		if _selected == "daily" or _selected == "shop":
 			card_src = " the mail-card style is on the Mail dialog item;"
 		elif _selected == "settings":
-			card_src = " the card is on the Toggle card item;"
+			card_src = " the row label + switch size are below;"
 		note.text = "The frame (banner · border · ✕ · scroll · padding) is SHARED — edit it on the Frame item.%s Here: this dialog's content." % card_src
 		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
@@ -1710,17 +1693,15 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["pad_right", 0, 80]))      # right padding — how near the Sell button sits to the edge
 			_group_header("Test only — not saved", false)                  # preview selected vs empty state
 			_sidebar_body.add_child(_toggle_row("Filled (vs empty)", "filled", true))   # preview the selected vs empty state
-		"toggle_card":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_toggle_row("Card art (parchment)", "card_art"))
-			_sidebar_body.add_child(_slider_row(["label_font", 16, 44]))
-			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72]))
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_text_row("Label", "label"))
-			_sidebar_body.add_child(_toggle_row("Value (on)", "value"))
 		"settings":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
+			# the settings ROW style (the retired standalone Toggle-card item folded in here): the row's
+			# label size + the switch height. Stored under the "toggle_card" config block, read by
+			# Kit.toggle_card_opts_from_config, so the game's rows and this preview stay in lockstep.
+			_section_header("Row (label + switch)")
+			_sidebar_body.add_child(_slider_row(["label_font", 16, 44], "toggle_card"))
+			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72], "toggle_card"))
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
