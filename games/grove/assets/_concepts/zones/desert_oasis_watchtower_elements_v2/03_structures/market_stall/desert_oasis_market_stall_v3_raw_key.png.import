@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://buwf2pjv2rjam"
-path="res://.godot/imported/desert_oasis_camel_caravan_plate_v1.png-90d4c2daa8ed9c4ab9bc6d4677c9bfa8.ctex"
+uid="uid://b1vx8x3sgm1dg"
+path="res://.godot/imported/desert_oasis_market_stall_v3_raw_key.png-128590315b0034c37005f070e0536805.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/04_ground_plates/desert_oasis_camel_caravan_plate_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_camel_caravan_plate_v1.png-90d4c2daa8ed9c4ab9bc6d4677c9bfa8.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/03_structures/market_stall/desert_oasis_market_stall_v3_raw_key.png"
+dest_files=["res://.godot/imported/desert_oasis_market_stall_v3_raw_key.png-128590315b0034c37005f070e0536805.ctex"]
 
 [params]
 

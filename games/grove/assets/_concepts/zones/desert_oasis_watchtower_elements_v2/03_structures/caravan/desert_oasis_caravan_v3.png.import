@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://8osqde7yq8ea"
-path="res://.godot/imported/desert_oasis_travel_tent_plate_v1.png-c052521ea174ab629e83d83bb7f39636.ctex"
+uid="uid://dduyu75vrgnji"
+path="res://.godot/imported/desert_oasis_caravan_v3.png-fa17b5620b685bb480fd7cd133abe6fd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/04_ground_plates/desert_oasis_travel_tent_plate_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_travel_tent_plate_v1.png-c052521ea174ab629e83d83bb7f39636.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/03_structures/caravan/desert_oasis_caravan_v3.png"
+dest_files=["res://.godot/imported/desert_oasis_caravan_v3.png-fa17b5620b685bb480fd7cd133abe6fd.ctex"]
 
 [params]
 
