@@ -289,8 +289,28 @@ func _section(id: String) -> Control:
 ## then queue its dependents to rebuild one-per-frame (post-change, so the sliders never freeze). The
 ## queue is a Set, so a fast drag that fires many times just re-marks the same ids — no rebuild backlog.
 func _apply_edit() -> void:
+	_sync_preview_config()   # publish the unsaved edit so EVERY disk-reading preview reflects it now, not only on Save
 	_rebuild_element(_selected)
 	_mark_dirty(_dependents().get(_selected, []))
+
+## Push the live (unsaved) params into Kit's config cache so every builder that reads the config from disk
+## previews them at once. Many shared builders — the mail/shop cards, the reward chips, the borderless
+## paper-role buttons — resolve their look from Kit.load_config(CONFIG_PATH) rather than from params handed
+## down through opts, so WITHOUT this only the directly-param-fed previews would update live and a shared
+## edit (e.g. the cut-paper edge) wouldn't reach the rest of the button family until Save. MERGES over the
+## current config so the sibling workbench's ids (it shares this file) are left untouched. No file write.
+func _sync_preview_config() -> void:
+	var cfg: Dictionary = Kit.load_config(_settings_path).duplicate(true)
+	for id in _params.keys():
+		if not (_params[id] is Dictionary):
+			continue
+		var sub: Dictionary = cfg.get(id, {}) if cfg.get(id, {}) is Dictionary else {}
+		sub = sub.duplicate()
+		for k in (_params[id] as Dictionary).keys():
+			if _is_config(id, k):
+				sub[k] = _params[id][k]
+		cfg[id] = sub
+	Kit.set_config_cache(_settings_path, cfg)
 
 ## Queue ids to rebuild on the staggered pump (see _process). Coalesced via the _dirty Set.
 func _mark_dirty(ids: Array) -> void:
