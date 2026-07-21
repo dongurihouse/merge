@@ -24,19 +24,23 @@ func _initialize() -> void:
 	root.add_child(bg)
 
 	var tile := load(TILE) as Texture2D
-	# a big portrait sheet, a wide bar, a small square, and a tiny cell — same code, no stretch
-	var rects := [
-		{"pos": Vector2(40, 40), "size": Vector2(360, 560)},
-		{"pos": Vector2(440, 40), "size": Vector2(520, 150)},
-		{"pos": Vector2(440, 230), "size": Vector2(230, 230)},
-		{"pos": Vector2(710, 230), "size": Vector2(120, 120)},
-		{"pos": Vector2(440, 500), "size": Vector2(520, 340)},
+	# same code, different shapes AND sizes — nothing is stretched
+	var panels := [
+		{"pos": Vector2(40, 40), "size": Vector2(360, 560), "shape": "rect"},
+		{"pos": Vector2(440, 40), "size": Vector2(520, 150), "shape": "rect"},
+		{"pos": Vector2(440, 240), "size": Vector2(240, 240), "shape": "poly", "sides": 5},   # pentagon
+		{"pos": Vector2(710, 240), "size": Vector2(240, 240), "shape": "poly", "sides": 6},   # hexagon
+		{"pos": Vector2(440, 520), "size": Vector2(240, 240), "shape": "poly", "sides": 3},   # triangle
+		{"pos": Vector2(710, 520), "size": Vector2(250, 250), "shape": "blob"},               # organic blob
 	]
-	for r in rects:
-		var p: Control = CutPaper.new()
-		p.position = r["pos"]
-		p.size = r["size"]
-		p.custom_minimum_size = r["size"]
+	for d in panels:
+		var p = CutPaper.new()
+		p.shape = String(d.get("shape", "rect"))
+		if d.has("sides"):
+			p.sides = int(d["sides"])
+		p.position = d["pos"]
+		p.size = d["size"]
+		p.custom_minimum_size = d["size"]
 		p.paper_tex = tile
 		root.add_child(p)
 
