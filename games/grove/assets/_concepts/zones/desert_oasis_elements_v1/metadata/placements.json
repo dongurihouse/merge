@@ -21,7 +21,8 @@
    "y": 2346,
    "w": 1320,
    "h": 2346,
-   "z": 10
+   "z": 10,
+   "cluster": "sky"
   },
   {
    "id": "dunes",
@@ -30,7 +31,8 @@
    "y": 2346,
    "w": 1320,
    "h": 2346,
-   "z": 11
+   "z": 11,
+   "cluster": "dunes"
   },
   {
    "id": "rugs",
@@ -49,7 +51,8 @@
    "y": 823,
    "w": 103,
    "h": 110,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_02",
@@ -58,7 +61,8 @@
    "y": 771,
    "w": 44,
    "h": 30,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_03",
@@ -67,7 +71,8 @@
    "y": 899,
    "w": 44,
    "h": 46,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_04",
@@ -76,7 +81,8 @@
    "y": 881,
    "w": 39,
    "h": 28,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_05",
@@ -85,7 +91,8 @@
    "y": 890,
    "w": 36,
    "h": 23,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_06",
@@ -94,7 +101,8 @@
    "y": 1022,
    "w": 103,
    "h": 113,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_07",
@@ -103,7 +111,8 @@
    "y": 992,
    "w": 36,
    "h": 26,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_08",
@@ -112,7 +121,8 @@
    "y": 1034,
    "w": 39,
    "h": 26,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_09",
@@ -121,7 +131,8 @@
    "y": 1146,
    "w": 117,
    "h": 138,
-   "z": 230
+   "z": 230,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_15",
@@ -130,7 +141,8 @@
    "y": 1592,
    "w": 33,
    "h": 23,
-   "z": 260
+   "z": 260,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_16",
@@ -139,7 +151,8 @@
    "y": 1690,
    "w": 36,
    "h": 23,
-   "z": 260
+   "z": 260,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_17",
@@ -148,7 +161,8 @@
    "y": 1875,
    "w": 42,
    "h": 26,
-   "z": 260
+   "z": 260,
+   "cluster": "environment"
   },
   {
    "id": "palm_cluster",
@@ -308,7 +322,8 @@
    "y": 1282,
    "w": 33,
    "h": 22,
-   "z": 430
+   "z": 430,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_11",
@@ -317,7 +332,8 @@
    "y": 1292,
    "w": 39,
    "h": 25,
-   "z": 430
+   "z": 430,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_12",
@@ -326,7 +342,8 @@
    "y": 1327,
    "w": 36,
    "h": 25,
-   "z": 430
+   "z": 430,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_13",
@@ -335,7 +352,8 @@
    "y": 1428,
    "w": 39,
    "h": 28,
-   "z": 430
+   "z": 430,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_14",
@@ -344,7 +362,8 @@
    "y": 1532,
    "w": 110,
    "h": 89,
-   "z": 430
+   "z": 430,
+   "cluster": "environment"
   },
   {
    "id": "market_stall",
@@ -443,7 +462,8 @@
    "y": 1955,
    "w": 33,
    "h": 22,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_19",
@@ -452,7 +472,8 @@
    "y": 1972,
    "w": 36,
    "h": 25,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_20",
@@ -461,7 +482,8 @@
    "y": 2274,
    "w": 342,
    "h": 291,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_21",
@@ -470,7 +492,8 @@
    "y": 2159,
    "w": 173,
    "h": 162,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_22",
@@ -479,7 +502,8 @@
    "y": 2302,
    "w": 244,
    "h": 270,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_23",
@@ -488,7 +512,8 @@
    "y": 2239,
    "w": 138,
    "h": 137,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   },
   {
    "id": "environment_detail_24",
@@ -497,7 +522,8 @@
    "y": 2135,
    "w": 25,
    "h": 23,
-   "z": 540
+   "z": 540,
+   "cluster": "environment"
   }
  ]
 }

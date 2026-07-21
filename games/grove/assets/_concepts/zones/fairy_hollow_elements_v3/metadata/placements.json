@@ -81,7 +81,8 @@
    "w": 1320.0,
    "x": 660.0,
    "y": 2346.0,
-   "z": 20.0
+   "z": 20.0,
+   "cluster": "background_trees"
   },
   {
    "assetId": "midground_foliage",
@@ -93,7 +94,8 @@
    "w": 1320.0,
    "x": 660.0,
    "y": 2346.0,
-   "z": 30.0
+   "z": 30.0,
+   "cluster": "midground_foliage"
   },
   {
    "assetId": "toadstool_cottage",
@@ -334,7 +336,8 @@
    "w": 1320.0,
    "x": 656,
    "y": 2342,
-   "z": 500.0
+   "z": 500.0,
+   "cluster": "foreground_roots"
   }
  ],
  "scene": "fairy_hollow_v3",

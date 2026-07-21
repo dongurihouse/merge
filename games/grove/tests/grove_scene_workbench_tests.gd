@@ -376,8 +376,12 @@ func _initialize() -> void:
 	ok(M.cluster_of(view.doc, 2) == "camp" and view._sel_cluster == "camp",
 		"Shift+click on an outsider paints it INTO the selected cluster")
 	view._on_stage_input(shift_gate)
-	ok(M.cluster_of(view.doc, 2) == "",
-		"Shift+click on a member paints it back OUT")
+	ok(M.cluster_of(view.doc, 2) == "camp",
+		"Shift+click on a member keeps it IN — a placement is never orphaned back to no cluster")
+	# birth-from-pair needs two loose items. The model primitive still allows an untagged entry
+	# (legacy data, tests); the WORKBENCH just never produces or leaves one — so untag here by hand.
+	M.set_cluster(view.doc, 0, "")
+	M.set_cluster(view.doc, 2, "")
 	view._select(-1)
 	view._select(2)                                    # a single selected + Shift+click another single…
 	var shift_tree := InputEventMouseButton.new()
@@ -507,6 +511,25 @@ func _initialize() -> void:
 	var live_scenes := M.scenes_in("res://games/grove/assets/_concepts/zones")
 	ok(live_scenes.has("winter"),
 		"the modular winter bundle is available as its own Scene Workbench scene")
+	# THE CLUSTER RULE: the scene workbench only works with clusters — every placement in every
+	# bundle must belong to exactly one (nothing may sit in the scene untagged). Scan them all.
+	var zones_root := "res://games/grove/assets/_concepts/zones"
+	var untagged_report: Array = []
+	var bundles_scanned := 0
+	for sub in DirAccess.get_directories_at(zones_root):
+		if not sub.contains("_elements_v"):
+			continue
+		var pj := "%s/%s/metadata/placements.json" % [zones_root, sub]
+		if not FileAccess.file_exists(pj):
+			continue
+		bundles_scanned += 1
+		var bdoc := M.load_doc(pj)
+		for e in M.placements(bdoc):
+			if String((e as Dictionary).get("cluster", "")).strip_edges() == "":
+				untagged_report.append("%s/%s" % [sub, String((e as Dictionary).get("id", "?"))])
+	ok(bundles_scanned >= 7, "the cluster scan reaches every openable bundle (found %d)" % bundles_scanned)
+	ok(untagged_report.is_empty(),
+		"every placement in every bundle belongs to a cluster — untagged: %s" % str(untagged_report))
 	var lantern_doc := M.load_doc("res://games/grove/assets/_concepts/zones/winter_elements_v1/metadata/placements.json")
 	var gazebo_z := -1
 	var upper_left_cover_z := -1

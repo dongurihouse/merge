@@ -383,7 +383,8 @@ func _on_stage_input(ev: InputEvent) -> void:
 			_refresh_entry_rect(_sel)
 
 ## Shift+click PAINTS cluster membership right on the stage:
-##   · a cluster is in context (selected or isolated) → toggle the clicked item in / out of it
+##   · a cluster is in context (selected or isolated) → assign the clicked item INTO it (join/move,
+##     never orphan — every placement always belongs to exactly one cluster)
 ##   · a single item is selected and another is clicked → a NEW cluster is born from the pair
 ##   · nothing selected → plain select (so a stray Shift never surprises)
 ## Ghosted items are clickable here on purpose — painting scenery INTO the isolated cluster.
@@ -396,9 +397,13 @@ func _shift_click(hit: int) -> void:
 	if target == "" and _sel >= 0:
 		target = M.cluster_of(doc, _sel)
 	if target != "":
-		M.toggle_cluster_member(doc, hit, target)
-		_mark_dirty()
-		_rebuild_stage()
+		# JOIN / MOVE only — shift-click assigns the item to the in-context cluster. It never
+		# removes an item to nothing: a placement always belongs to exactly one cluster (to move
+		# it elsewhere, select the other cluster and shift-click it there).
+		if M.cluster_of(doc, hit) != target:
+			M.set_cluster(doc, hit, target)
+			_mark_dirty()
+			_rebuild_stage()
 		_select_cluster(target)
 	elif _sel >= 0 and _sel != hit:
 		var cname := M.unique_cluster_name(doc,
@@ -834,14 +839,11 @@ func _refresh_cluster_list() -> void:
 			_mark_dirty()
 			_rebuild_stage()
 			_select(_sel)))
-		var cl := M.cluster_of(doc, _sel)
-		if cl == "":
+		# Every placement MUST belong to a cluster (the workbench's only unit of work). A stray
+		# untagged item (e.g. from legacy data) can be given its own cluster, but there is no
+		# "untag" affordance — nothing in the scene is allowed to become cluster-less.
+		if M.cluster_of(doc, _sel) == "":
 			_cluster_actions.add_child(_small_button("● New cluster from selection (N)", _new_cluster_from_selection))
-		else:
-			_cluster_actions.add_child(_small_button("○ Untag from '%s'" % cl, func() -> void:
-				M.set_cluster(doc, _sel, "")
-				_mark_dirty()
-				_select(_sel)))
 	if _sel_cluster != "" or (_sel >= 0 and M.cluster_of(doc, _sel) != ""):
 		_cluster_actions.add_child(_small_button(
 			"▣ Exit isolation (I)" if _isolated != "" else "▣ Isolate (I)", _toggle_isolation))
