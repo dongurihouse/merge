@@ -821,6 +821,19 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	var tex_on := _switch_tex(true)
 	var tex_off := _switch_tex(false)
 	if tex_on != null and tex_off != null:
+		# soft downward drop shadow — dark copies of the pill silhouette nudged down, behind the art
+		for layer in [{"dy": 0.07, "a": 0.16}, {"dy": 0.13, "a": 0.10}]:
+			var sh := TextureRect.new()
+			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			sh.stretch_mode = TextureRect.STRETCH_SCALE
+			sh.texture = tex_on if is_on else tex_off
+			sh.modulate = shadow_color(float(layer["a"]))
+			sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			sh.offset_top += px_h * float(layer["dy"])
+			sh.offset_bottom += px_h * float(layer["dy"])
+			sh.custom_minimum_size = Vector2.ZERO
+			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(sh)
 		var art := TextureRect.new()
 		art.name = "sw_art"
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

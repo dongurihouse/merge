@@ -1914,15 +1914,26 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	# retired for it; the card keeps its padding (CARD_PAD) and layout, only the background changes.
 	var panel := PanelContainer.new()
 	var card_corner := 18.0
-	var s := StyleBoxFlat.new()
-	s.bg_color = Pal.CREAM
-	s.border_color = PAPER_EDGE
-	s.set_corner_radius_all(int(card_corner))
-	s.set_border_width_all(1)
-	s.anti_aliasing = true
-	s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
-	s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
-	panel.add_theme_stylebox_override("panel", s)
+	# reskin: the baked cut-paper mail CARD sprite (with the hero-icon WELL on the left) as the panel face,
+	# stretched over the card box via a StyleBoxTexture; content padding stays so the icon seats in the well
+	# and the copy sits to its right. Falls back to the drawn cream stylebox when the sprite is absent.
+	var card_skin := _mail_skin_tex("card")
+	if card_skin != null:
+		var st := StyleBoxTexture.new()
+		st.texture = card_skin
+		st.content_margin_left = CARD_PAD.x; st.content_margin_right = CARD_PAD.z
+		st.content_margin_top = CARD_PAD.y; st.content_margin_bottom = CARD_PAD.w
+		panel.add_theme_stylebox_override("panel", st)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Pal.CREAM
+		s.border_color = PAPER_EDGE
+		s.set_corner_radius_all(int(card_corner))
+		s.set_border_width_all(1)
+		s.anti_aliasing = true
+		s.content_margin_left = CARD_PAD.x; s.content_margin_right = CARD_PAD.z
+		s.content_margin_top = CARD_PAD.y; s.content_margin_bottom = CARD_PAD.w
+		panel.add_theme_stylebox_override("panel", s)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row := HBoxContainer.new()
@@ -2021,7 +2032,8 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			info_row.add_child(ac)
 			text.add_child(info_row)
 	# the texture_cream grain layer behind the row (drawn at child index 0), completing the paper cut.
-	apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
+	if card_skin == null:   # the drawn fallback needs the grain layer; the sprite already IS the paper
+		apply_rounded_paper_panel_surface(panel, "MailCardPaper", "texture_cream.png", card_corner, 2.0)
 	return panel
 
 ## The mock's per-reward CURRENCY CARDS: one SMALL cream amount_chip per currency present, laid out in a
@@ -2154,19 +2166,15 @@ const SETTINGS_ROW_TEX := "res://games/grove/assets/ui/dialogs/settings/settings
 static func _row_panel(_unused: bool = true) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# RESKIN: the baked cut-paper sage row sprite, 9-sliced so the rounded caps hold while the middle
-	# stretches to the row width. Falls back to the drawn sage box when the sprite is absent.
+	# RESKIN: the baked cut-paper sage row sprite STRETCHED WHOLE (no 9-slice); its soft drop shadow is
+	# baked into the PNG's bottom margin. Falls back to the drawn sage box when the sprite is absent.
 	if ResourceLoader.exists(SETTINGS_ROW_TEX):
 		var rtex := load(SETTINGS_ROW_TEX) as Texture2D
 		var st := StyleBoxTexture.new()
-		st.texture = rtex
-		var cap := float(rtex.get_height()) * 0.5   # the pill's rounded end
-		st.texture_margin_left = cap
-		st.texture_margin_right = cap
-		st.texture_margin_top = float(rtex.get_height()) * 0.35
-		st.texture_margin_bottom = float(rtex.get_height()) * 0.35
+		st.texture = rtex   # no texture_margin → the whole sprite scales to the row (no slice)
+		# the baked shadow lives in the sprite's lower margin; bias the content padding UP into the pill.
 		st.content_margin_left = 26; st.content_margin_right = 22
-		st.content_margin_top = 22; st.content_margin_bottom = 22   # chunkier rows, matching the mock
+		st.content_margin_top = 20; st.content_margin_bottom = 34
 		panel.add_theme_stylebox_override("panel", st)
 		return panel
 	var s := StyleBoxFlat.new()
@@ -2553,16 +2561,27 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var wrap := Control.new()
 	var card := PanelContainer.new()
 	card.name = "MeadowDialogPanel"
-	# the SIMPLE SHEET (mock set v2): one flat warm-cream rounded card with a shallow tinted shadow.
-	var cf := StyleBoxFlat.new()
-	cf.bg_color = Pal.CREAM
-	cf.set_corner_radius_all(int(card_corner))
-	cf.shadow_color = Color(Pal.INK, 0.18)
-	cf.shadow_size = 12
-	cf.shadow_offset = Vector2(0, 6)
-	cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
-	cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
-	card.add_theme_stylebox_override("panel", cf)
+	# reskin hook: a dialog may pass `panel_bg` (a cut-paper panel sprite) to wear it as the sheet face
+	# instead of the drawn cream card — content padding is preserved so the layout is unchanged.
+	var panel_bg_path := String(opts.get("panel_bg", ""))
+	var panel_bg_tex: Texture2D = load(panel_bg_path) as Texture2D if panel_bg_path != "" and ResourceLoader.exists(panel_bg_path) else null
+	if panel_bg_tex != null:
+		var pt := StyleBoxTexture.new()
+		pt.texture = panel_bg_tex
+		pt.content_margin_left = panel_pad_x; pt.content_margin_right = panel_pad_x
+		pt.content_margin_top = panel_pad_y; pt.content_margin_bottom = panel_pad_y
+		card.add_theme_stylebox_override("panel", pt)
+	else:
+		# the SIMPLE SHEET (mock set v2): one flat warm-cream rounded card with a shallow tinted shadow.
+		var cf := StyleBoxFlat.new()
+		cf.bg_color = Pal.CREAM
+		cf.set_corner_radius_all(int(card_corner))
+		cf.shadow_color = Color(Pal.INK, 0.18)
+		cf.shadow_size = 12
+		cf.shadow_offset = Vector2(0, 6)
+		cf.content_margin_left = panel_pad_x; cf.content_margin_right = panel_pad_x
+		cf.content_margin_top = panel_pad_y; cf.content_margin_bottom = panel_pad_y
+		card.add_theme_stylebox_override("panel", cf)
 	var pad_y_eff: float = panel_pad_y   # the panel's top+bottom content inset (for the centered-fill math)
 	card.custom_minimum_size = Vector2(target_w, maxf(0.0, min_h_override))   # width = the global target; height floor finalised in relayout (needs the viewport for the %)
 	card.position = Vector2.ZERO
@@ -2738,7 +2757,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	else:
 		var card_title: int = int(opts.get("card_title", 20))
 		var card_body: int = int(opts.get("card_body", 15))
-		var btn_opts: Dictionary = opts.get("btn", {})
+		var btn_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+		# the reskinned card wears a fixed-aspect sprite (with a round well); tell it the row width so it can
+		# pin its height to the sprite's aspect and keep the well circular instead of stretched into an oval.
+		btn_opts["card_w"] = width * 0.84
 		var icon_badge: String = String(opts.get("icon_badge", "shared/disc_round.png"))
 		for i in maxi(0, entries_count):
 			content.add_child(mail_card(entries[i % entries.size()], card_title, card_body, btn_opts, icon_badge))
@@ -2774,10 +2796,17 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 			ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
 			ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
 			ca = pill_button(claim_all_text, ca_opts)
-		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the drawn pill tiles cleanly full-width
 		ca.pressed.connect(func() -> void: claim_all_cb.call())
 		opts = opts.duplicate()
-		opts["footer"] = ca
+		# the footer slot force-expands its child; the drawn pill tiles fine, but the SPRITE button must NOT
+		# stretch (that slices the torn edges) — center it at its natural width inside an expanding wrapper.
+		if ca.name == "SkinButton":
+			var ca_wrap := CenterContainer.new()
+			ca_wrap.add_child(ca)
+			opts["footer"] = ca_wrap
+		else:
+			opts["footer"] = ca
 	# an optional GOT-IT footer button — the SHARED level cta_button, fired by opts.on_close (same as the
 	# ✕). Off by default → the inbox is unchanged; the info sheet sets opts.got_it to close itself.
 	var got_it_text := String(opts.get("got_it", ""))
@@ -2790,6 +2819,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		btns.alignment = BoxContainer.ALIGNMENT_CENTER
 		btns.add_child(got)
 		content.add_child(btns)
+	# reskin: wear the extracted cut-paper mail panel as the sheet face (caller may override panel_bg).
+	if not opts.has("panel_bg"):
+		opts = opts.duplicate()
+		opts["panel_bg"] = MAIL_SKIN + "dialog_bg.png"
 	return dialog_frame(content, width, opts)
 
 ## The SETTINGS dialog — the SHARED frame with a column of toggle_cards, one per persisted flag. The
@@ -5113,12 +5146,41 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if bool(d.get("dim_bg", false)):
 		bg_opts = opts.duplicate()
 		bg_opts["dim"] = DIM_BG_FACTOR
-	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)
-	tile.add_child(bg)
-	if lockedwell:
-		var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
-		if lock_mark != null:
-			tile.add_child(lock_mark)
+	# RE-SKIN path (bag dialog): when the caller passes baked cut-paper cell sprites, wear those instead of
+	# the code-drawn face + lock. `sprite_locked` already bakes the lock, so locked cells drop the lock_mark;
+	# `sprite_open` covers empty/filled/next (the acorn-cost pill still rides on top for `next`). Gated by the
+	# opts so the board (which never passes them) keeps its drawn tiles untouched.
+	var sprite_open_p := String(opts.get("sprite_open", ""))
+	var sprite_locked_p := String(opts.get("sprite_locked", ""))
+	var sprite_path := ""
+	if state == "locked" and sprite_locked_p != "" and ResourceLoader.exists(sprite_locked_p):
+		sprite_path = sprite_locked_p
+	elif state != "locked" and sprite_open_p != "" and ResourceLoader.exists(sprite_open_p):
+		sprite_path = sprite_open_p
+	if sprite_path != "":
+		if bool(opts.get("cell_shadow", true)):
+			var corner := int(roundf(minf(cw, ch) * 0.18))
+			var sh: Panel = Look.shadow_rect(float(corner), Look.shadow_params(load_config(CONFIG_PATH)))
+			sh.name = "SlotCellShadow"
+			sh.show_behind_parent = true
+			tile.add_child(sh)
+		var art := TextureRect.new()
+		art.name = "SlotCellSprite"
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_SCALE
+		art.texture = load(sprite_path)
+		art.position = Vector2.ZERO
+		art.size = Vector2(cw, ch)
+		art.custom_minimum_size = Vector2.ZERO
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(art)
+	else:
+		var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)
+		tile.add_child(bg)
+		if lockedwell:
+			var lock_mark := _slot_lock_mark(cw, ch, bool(opts.get("dialog_cells", false)) and not flat_board_cells)
+			if lock_mark != null:
+				tile.add_child(lock_mark)
 
 	# a MARKED cell (the discovery ladder's tapped/asked tier) wears the SAME engine sparkle the home
 	# buttons use, sitting over the well but UNDER the piece — an overlay, so the footprint never changes.
