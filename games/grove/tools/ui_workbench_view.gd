@@ -883,6 +883,11 @@ func _maybe_wrap_shadow(el: Control, id: String) -> Control:
 		return el
 	if not bool((_params[id] as Dictionary).get("shadow", false)):
 		return el
+	# The cut-paper frame casts its OWN shape-true deckled shadow (frame_shadow, inside CutPaperPanel), so
+	# the shared rectangular box-shadow wrap would double it up with a mismatched rounded-rect. Skip it and
+	# let the sheet own the shadow — the "Sheet shadow" toggle controls it.
+	if id == "frame" and bool((_params["frame"] as Dictionary).get("cut_paper", false)):
+		return el
 	var corner := 28.0
 	return Look.with_shadow(el, corner, Look.shadow_params({"shadow": _params["shadow"]}))
 
