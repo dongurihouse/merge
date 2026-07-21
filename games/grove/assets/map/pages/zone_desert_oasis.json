@@ -172,7 +172,7 @@
     150,
     98
    ],
-   "sort_y": 10,
+   "sort_y": 20,
    "cluster": "adobe_compound",
    "states": {
     "built": "res://games/grove/assets/map/pages/desert_oasis/compound_gate_rocks.png"
@@ -189,7 +189,7 @@
     185,
     120
    ],
-   "sort_y": 10,
+   "sort_y": 20,
    "cluster": "watchtower",
    "states": {
     "built": "res://games/grove/assets/map/pages/desert_oasis/tower_base_agave_rocks.png"
@@ -206,7 +206,7 @@
     145,
     136
    ],
-   "sort_y": 10,
+   "sort_y": 20,
    "cluster": "market_stall",
    "states": {
     "built": "res://games/grove/assets/map/pages/desert_oasis/stall_side_reed_rocks.png"
@@ -223,7 +223,7 @@
     150,
     138
    ],
-   "sort_y": 10,
+   "sort_y": 20,
    "cluster": "travel_tent",
    "states": {
     "built": "res://games/grove/assets/map/pages/desert_oasis/tent_side_prickly_pear.png"

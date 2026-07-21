@@ -466,7 +466,7 @@ static func _build_maps() -> Array:
 	{"id": "desert_oasis", "name": "Desert Oasis", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_desert_oasis.json",
 		"covering_frames": [], "coverup_mode": true,
-		# TOP-DOWN unlock order (desert_oasis_watchtower bundle, lock_ prefix).
+		# TOP-DOWN unlock order (oasis bundle, lock_ prefix).
 		"clusters": [
 			{"id": "adobe", "cost": 820},
 			{"id": "watchtower", "cost": 1000},
