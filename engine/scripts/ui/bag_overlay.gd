@@ -154,6 +154,13 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	# the "Bag" ribbon is short, so floor it at a fraction of the SCREEN width (not the narrower dialog) — it
 	# reads as a proper banner instead of a tiny stub. The shared frame honours this min in _banner.
 	opts["banner_min_w"] = vw * Kit.BANNER_MIN_W_FRAC
+	# cut-paper RE-SKIN: wear the baked cell sprites (open green well / plain cream card + purple lock) —
+	# slot_cell swaps its drawn face for these; absent files fall back to the drawn cells.
+	const CELL_SKIN := "res://games/grove/assets/ui/dialogs/residents/"
+	if ResourceLoader.exists(CELL_SKIN + "cell_open.png"):
+		opts["sprite_open"] = CELL_SKIN + "cell_open.png"
+	if ResourceLoader.exists(CELL_SKIN + "cell_locked.png"):
+		opts["sprite_locked"] = CELL_SKIN + "cell_locked.png"
 
 	# the slot ladder → bag_card entries. A filled slot builds its real piece view at the kit-FITTED cell
 	# size (make_content); the next/filled tiles tap (buy / retrieve) and dismiss; empty/locked are inert.
