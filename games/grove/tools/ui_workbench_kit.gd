@@ -49,6 +49,29 @@ const PAPER_SURFACES := {
 	"kraft": {"texture": "texture_warm_kraft.png", "fill": Color("#C9A886")},
 	"slate": {"texture": "texture_structural_slate.png", "fill": Color("#8296AF")},
 }
+# The core NAV/action set — one shared code-drawn rugged-edge button per role. The glyph is the only
+# differentiator between tiles (the edge + paper role are shared config). Roles map to the transparent,
+# edge-free glyph sprites generated as one family (no baked deckle — the button draws that in code).
+const ACTION_ROLES := ["map", "residents", "daily", "vault", "mail", "play", "home", "bag"]
+const ACTION_GLYPHS := {
+	"map": "ui/nav/glyphs/glyph_map.png",
+	"residents": "ui/nav/glyphs/glyph_residents.png",
+	"daily": "ui/nav/glyphs/glyph_daily.png",
+	"vault": "ui/nav/glyphs/glyph_vault.png",
+	"mail": "ui/nav/glyphs/glyph_mail.png",
+	"play": "ui/nav/glyphs/glyph_play.png",
+	"home": "ui/nav/glyphs/glyph_home.png",
+	"bag": "ui/nav/glyphs/glyph_bag.png",
+}
+# Calm default paper role per button (flatten — no warm accent for Play; the glyph carries the identity).
+# The workbench palette overrides any of these; the live game reads the saved palette.
+const ACTION_TINT_DEFAULTS := {
+	"map": "cream", "residents": "cream", "daily": "cream", "vault": "cream",
+	"mail": "cream", "play": "cream", "home": "cream", "bag": "cream",
+}
+# The shared cut-paper edge defaults for the action button (same knob SET as button/frame; own corner).
+const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
 const SLOT_PATCH := Vector4(32, 32, 32, 32)
@@ -284,6 +307,77 @@ static func _apply_deckle_button_surface(
 				panel.paper_color = base_fill
 				panel.queue_redraw())
 	return panel
+
+## The shared ACTION BUTTON: a flat Button wearing the code-drawn rugged cut-paper edge (a CutPaperPanel,
+## the SAME applier the pill/frame/rows use) filled by its per-button paper-role tint, with a centered
+## transparent glyph on top. ONE source for the home bottom bar and the board Home/Bag wells — the baked
+## nav_<x>.png tiles are retired. `opts`: cp (cut-paper opts) · tints (role→paper-role map) · icon_scale ·
+## shadow · shadow_params · fill (explicit override) · glyph_rel (explicit override) · name · tooltip.
+static func action_button(role: String, size: Vector2, action: Callable, opts: Dictionary = {}) -> Button:
+	var b := Button.new()
+	b.name = String(opts.get("name", "ActionButton_" + role))
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = size
+	b.size = size
+	if String(opts.get("tooltip", "")) != "":
+		b.tooltip_text = String(opts["tooltip"])
+	if action.is_valid():
+		b.mouse_filter = Control.MOUSE_FILTER_STOP
+		b.pressed.connect(action)
+	else:
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# transparent styleboxes: the deckle panel behind is the visible face (identical to the pill/row path)
+	var clear := StyleBoxFlat.new()
+	clear.bg_color = Color(0, 0, 0, 0)
+	clear.draw_center = false
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(st, clear)
+	# resolve the per-button fill from its paper role (explicit `fill` wins)
+	var tints: Dictionary = opts.get("tints", ACTION_TINT_DEFAULTS)
+	var paper_role := String(tints.get(role, "cream"))
+	var surface: Dictionary = PAPER_SURFACES.get(paper_role, PAPER_SURFACES["cream"])
+	var fill: Color = opts.get("fill", surface.get("fill", Color("#F6EBDD")))
+	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS))
+	var corner := float(cp.get("corner", 20.0))
+	b.set_meta(Look.SHADOW_CORNER_META, corner)
+	# the SHARED drop shadow behind the tile (on when asked)
+	if bool(opts.get("shadow", false)):
+		var sh: Panel = _meadow_shadow_rect(Look.shape_corner(b, corner), opts.get("shadow_params", {}))
+		sh.show_behind_parent = true
+		b.add_child(sh)
+	# the code-drawn rugged edge — the ONE shared applier
+	var panel: Control = load(CUT_PAPER).new()
+	panel.name = "ActionButtonDeckleSurface"
+	panel.show_behind_parent = true
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.configure(cp, fill, null, cut_paper_tile())
+	panel.corner = corner
+	b.add_child(panel)
+	# the centered glyph (mouse-transparent, globally polished) — only if its sprite exists
+	var glyph_rel := String(opts.get("glyph_rel", ACTION_GLYPHS.get(role, "")))
+	if glyph_rel != "" and ResourceLoader.exists(Game.art(glyph_rel)):
+		# the glyph family is already alpha-clean intake output (Task 1) — load it directly rather than
+		# through clean_tex_path, which for an un-baked source returns a synthesized ImageTexture with no
+		# resource_path (clean_tex_path is for rough-cut sprites that need defringe/feather).
+		var glyph_tex := load(Game.art(glyph_rel)) as Texture2D
+		var icwrap := CenterContainer.new()
+		icwrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icwrap.add_child(_icon_rect(glyph_tex, size.y * float(opts.get("icon_scale", 0.5))))
+		b.add_child(icwrap)
+	# press feedback: darken the paper while held, restore on release (matches _apply_deckle_button_surface)
+	b.button_down.connect(func() -> void:
+		if is_instance_valid(panel):
+			panel.paper_color = fill.darkened(0.08)
+			panel.queue_redraw())
+	b.button_up.connect(func() -> void:
+		if is_instance_valid(panel):
+			panel.paper_color = fill
+			panel.queue_redraw())
+	Look.add_press_juice(b)
+	return b
 
 static func meadow_paper_style(file_name: String, margins: Vector4, pad_left: float = 0.0, pad_top: float = 0.0, pad_right: float = 0.0, pad_bottom: float = 0.0) -> StyleBoxTexture:
 	var style := StyleBoxTexture.new()
@@ -2044,6 +2138,22 @@ static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> 
 		"corner": return d.get("card_corner", fallback)
 		"edge_shadow": return d.get("frame_shadow", fallback)
 	return fallback
+
+## Read the `action_button` config block into the opts the shared builder consumes: the cut-paper edge
+## opts (shared parser), the per-button paper-role tint palette (tint_<role> keys), the icon scale, and
+## the shared shadow. The home bar + board wells both build from this — one source, no drift.
+static func action_button_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var d: Dictionary = cfg.get("action_button", {}) if cfg is Dictionary else {}
+	var tints := {}
+	for role in ACTION_ROLES:
+		tints[role] = String(d.get("tint_" + role, ACTION_TINT_DEFAULTS.get(role, "cream")))
+	return {
+		"cp": cut_paper_opts_from_config(cfg, "action_button", ACTION_BUTTON_CP_DEFAULTS),
+		"tints": tints,
+		"icon_scale": clampf(float(d.get("icon_scale", 50)) / 100.0, 0.10, 1.0),
+		"shadow": bool(d.get("shadow", true)),
+		"shadow_params": Look.shadow_params(cfg),
+	}
 
 ## The paper-fibre tile (or null if absent) — passed to CutPaperPanel.configure so the engine applier
 ## stays free of grove asset paths.
