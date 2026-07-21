@@ -60,5 +60,28 @@ func _initialize() -> void:
 			carried += 1
 	ok(carried == 0, "no page carries the retired farmhouse build items (pages are pure sw scenes)")
 	ok((G.MAPS[0].spots as Array).size() == Home.defs().size(), "the hub page keeps the build spots for save-compat")
+	# Task 1 (market cluster unlocks, 2026-07-20): the generated fairy_hollow_market page manifest,
+	# standalone ahead of Task 2's page-1 repoint — exactly the 6 hero clusters, no coverup leaves.
+	var market_path := "res://games/grove/assets/map/pages/zone_fairy_hollow_market.json"
+	var market := HomeZoneView.load_manifest(market_path)
+	ok(not market.is_empty(), "fairy_hollow_market manifest generated and parses")
+	if not market.is_empty():
+		var m_canvas: Dictionary = market.get("canvas", {})
+		ok(int(m_canvas.get("width", 0)) == 1320 and int(m_canvas.get("height", 0)) == 2346,
+			"market canvas is 1320x2346")
+		ok(ResourceLoader.exists(String(market.get("background", ""))), "market background texture imports")
+		var m_props: Array = market.get("buildings", [])
+		var m_ids: Array = []
+		for b in m_props:
+			m_ids.append(String((b as Dictionary).get("id", "")))
+		ok(m_ids.size() == 6, "market manifest has exactly the 6 hero clusters (got %d)" % m_ids.size())
+		for want in ["mushroom_hall", "tea_stall", "crystal_map_stall", "stream_bridge", "flower_crate", "lantern_gate"]:
+			ok(m_ids.has(want), "market cluster present: %s" % want)
+		var m_missing := 0
+		for b in m_props:
+			for state in (b as Dictionary).get("states", {}).values():
+				if not ResourceLoader.exists(String(state)):
+					m_missing += 1
+		ok(m_missing == 0, "every market prop texture imports (%d props)" % m_props.size())
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

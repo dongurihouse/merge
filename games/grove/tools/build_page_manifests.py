@@ -87,6 +87,11 @@ def build_page(root, scene, label):
         canvas = doc.get("canvas", {})
         cw, ch = int(canvas.get("width", 1320)), int(canvas.get("height", 2346))
         for e in placements:
+            if str(e.get("category", "")) == "unlock_cover":
+                # the sw-coverup "fixed" layer (category unlock_cover / layer coverup): a per-cluster
+                # leaf overlay authored for the cover-up unlocks feature's generic covering_frames /
+                # SceneCoverings system, not a manifest "building" — never a page prop.
+                continue
             src = os.path.join(bundle_repo_root, str(e.get("image", "")))
             if not os.path.exists(src):
                 print(f"  ! {scene}: skipping {e.get('id')} — missing {src}")
@@ -125,9 +130,14 @@ def build_page(root, scene, label):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=DEFAULT_ROOT)
+    ap.add_argument("--only", default="", help="generate just this scene id (label defaults to a title-cased id)")
     args = ap.parse_args()
     if not os.path.isdir(args.root):
         raise SystemExit(f"scenes root not found: {args.root}")
+    if args.only:
+        label = dict(PAGES).get(args.only, args.only.replace("_", " ").title())
+        build_page(args.root, args.only, label)
+        return
     for scene, label in PAGES:
         build_page(args.root, scene, label)
 

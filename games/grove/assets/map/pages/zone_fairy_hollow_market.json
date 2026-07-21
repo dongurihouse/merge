@@ -1,0 +1,114 @@
+{
+ "version": 1,
+ "id": "fairy_hollow_market",
+ "label": "Fairy Hollow Market",
+ "canvas": {
+  "width": 1320,
+  "height": 2346
+ },
+ "background": "res://games/grove/assets/map/pages/fairy_hollow_market/foundation.png",
+ "buildings": [
+  {
+   "id": "mushroom_hall",
+   "label": "mushroom hall",
+   "position": [
+    781,
+    816
+   ],
+   "display_size": [
+    831,
+    831
+   ],
+   "sort_y": 0,
+   "cluster": "mushroom_hall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow_market/mushroom_hall.png"
+   }
+  },
+  {
+   "id": "tea_stall",
+   "label": "tea stall",
+   "position": [
+    335,
+    1210
+   ],
+   "display_size": [
+    780,
+    693
+   ],
+   "sort_y": 0,
+   "cluster": "tea_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow_market/tea_stall.png"
+   }
+  },
+  {
+   "id": "crystal_map_stall",
+   "label": "crystal map stall",
+   "position": [
+    1059,
+    1381
+   ],
+   "display_size": [
+    680,
+    747
+   ],
+   "sort_y": 0,
+   "cluster": "crystal_map_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow_market/crystal_map_stall.png"
+   }
+  },
+  {
+   "id": "stream_bridge",
+   "label": "stream bridge",
+   "position": [
+    341,
+    1780
+   ],
+   "display_size": [
+    700,
+    592
+   ],
+   "sort_y": 0,
+   "cluster": "stream_bridge",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow_market/stream_bridge.png"
+   }
+  },
+  {
+   "id": "flower_crate",
+   "label": "flower crate",
+   "position": [
+    1033,
+    1941
+   ],
+   "display_size": [
+    750,
+    664
+   ],
+   "sort_y": 0,
+   "cluster": "flower_crate",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow_market/flower_crate.png"
+   }
+  },
+  {
+   "id": "lantern_gate",
+   "label": "lantern gate",
+   "position": [
+    528,
+    2364
+   ],
+   "display_size": [
+    830,
+    741
+   ],
+   "sort_y": 0,
+   "cluster": "lantern_gate",
+   "states": {
+    "built": "res://games/grove/assets/map/pages/fairy_hollow_market/lantern_gate.png"
+   }
+  }
+ ]
+}
