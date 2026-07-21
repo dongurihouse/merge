@@ -177,6 +177,23 @@ func _initialize() -> void:
 	ok(M.layer_rank("nonsense") == M.layer_rank(M.DEFAULT_LAYER),
 		"an unknown/legacy layer reads as the default band")
 	ok(M.entry_layer({}) == M.DEFAULT_LAYER, "a layerless entry reads as the default band")
+
+	# the add palette is scoped to the selected cluster's own layer: assets_in_layer keeps
+	# only art whose category (= its layer folder) matches, so a backdrop cluster can't pull
+	# in a coverup leaf or a sky plate.
+	var pal := [
+		{"id": "sky_plate", "image": "shared/sky/sky_plate.png", "category": "sky"},
+		{"id": "foundation", "image": "backdrop/foundation.png", "category": "backdrop"},
+		{"id": "clouds", "image": "shared/background/clouds_plate.png", "category": "background"},
+		{"id": "leaf", "image": "coverup/leaf.png", "category": "coverup"}]
+	ok(M.assets_in_layer(pal, "backdrop").size() == 1
+		and String(M.assets_in_layer(pal, "backdrop")[0].id) == "foundation",
+		"assets_in_layer keeps only the selected layer's art (backdrop → just the foundation)")
+	ok(M.assets_in_layer(pal, "sky").size() == 1
+		and String(M.assets_in_layer(pal, "sky")[0].id) == "sky_plate",
+		"assets_in_layer scopes the sky band to sky art")
+	ok(M.assets_in_layer(pal, "primary").is_empty(),
+		"a layer with no authored art offers an empty palette (never other layers' art)")
 	ok(M.entry_cluster_z({"z": 7}) == 7, "a clusterZ-less entry falls back to its own item z")
 	ok(M.entry_cluster_z({"z": 7, "clusterZ": 3}) == 3, "clusterZ wins when present")
 

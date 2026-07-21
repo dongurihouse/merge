@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cttwgs882t16v"
-path="res://.godot/imported/sky_plate.png-f0cca5dbd56bdf76c3fe908bad31a4f8.ctex"
+uid="uid://bckkv1t06tjku"
+path="res://.godot/imported/winter_sky_snow.png-7dfd2bd52ee1075e617338e3acb552c6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/sakura/sky/sky_plate.png"
-dest_files=["res://.godot/imported/sky_plate.png-f0cca5dbd56bdf76c3fe908bad31a4f8.ctex"]
+source_file="res://games/grove/assets/map/shared/sky/winter_sky_snow.png"
+dest_files=["res://.godot/imported/winter_sky_snow.png-7dfd2bd52ee1075e617338e3acb552c6.ctex"]
 
 [params]
 
