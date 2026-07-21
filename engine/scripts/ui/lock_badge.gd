@@ -5,6 +5,8 @@ extends RefCounted
 ## (deducts cost, records the unlock) and reveals its canopy away. Render-only + stateless: map.gd
 ## owns which cluster is ready.
 
+const Game = preload("res://engine/scripts/core/game.gd")
+
 const PAD_PX := 96.0
 const BOX := 120.0
 
