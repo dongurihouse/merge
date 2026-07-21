@@ -3922,6 +3922,15 @@ static func load_config(path: String) -> Dictionary:
 	_config_cache[path] = data
 	return data
 
+## Publish a LIVE (unsaved) config into the cache so EVERY disk-reading builder (anything that calls
+## load_config(path)) renders these values immediately, WITHOUT touching the file. The workbench calls
+## this on each live edit: the mail/shop cards, the reward chips, and the borderless paper-role buttons
+## resolve their cut-paper edge from load_config(CONFIG_PATH) rather than from a passed-in `cp`, so this
+## is what lets an unsaved edge change preview across the whole button family at once instead of only on
+## the one tile fed the live params directly. Save still owns the file (writes it + clears this cache).
+static func set_config_cache(path: String, cfg: Dictionary) -> void:
+	_config_cache[path] = cfg
+
 ## Drop the cached config so the next load_config re-reads from disk. Pass a path to clear just that
 ## file, or nothing to clear all. The workbench calls this after writing the settings file.
 static func clear_config_cache(path := "") -> void:
