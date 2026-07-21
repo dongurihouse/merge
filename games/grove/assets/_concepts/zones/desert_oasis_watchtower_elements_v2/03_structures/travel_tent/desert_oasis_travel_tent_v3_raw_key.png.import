@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dl5ofqq16xeem"
-path="res://.godot/imported/desert_oasis_watchtower_plate_v1.png-8ed2fa4fccfcb6f142f9ca4151589489.ctex"
+uid="uid://d0vf8i5t5ipys"
+path="res://.godot/imported/desert_oasis_travel_tent_v3_raw_key.png-830254375d2101bee2b0a56f1a00234b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/04_ground_plates/desert_oasis_watchtower_plate_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_watchtower_plate_v1.png-8ed2fa4fccfcb6f142f9ca4151589489.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/03_structures/travel_tent/desert_oasis_travel_tent_v3_raw_key.png"
+dest_files=["res://.godot/imported/desert_oasis_travel_tent_v3_raw_key.png-830254375d2101bee2b0a56f1a00234b.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dct10un152lsf"
-path="res://.godot/imported/desert_oasis_adobe_compound_plate_v1.png-1d1be8669a1b7039d49b270e7ae8a25f.ctex"
+uid="uid://cajr4xpbd6iej"
+path="res://.godot/imported/desert_oasis_watchtower_v3.png-d46a02731b8b053f8e34d59ae1e4a6b0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/04_ground_plates/desert_oasis_adobe_compound_plate_v1.png"
-dest_files=["res://.godot/imported/desert_oasis_adobe_compound_plate_v1.png-1d1be8669a1b7039d49b270e7ae8a25f.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/desert_oasis_watchtower_elements_v2/03_structures/watchtower/desert_oasis_watchtower_v3.png"
+dest_files=["res://.godot/imported/desert_oasis_watchtower_v3.png-d46a02731b8b053f8e34d59ae1e4a6b0.ctex"]
 
 [params]
 
