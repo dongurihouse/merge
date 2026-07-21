@@ -33,10 +33,9 @@ PAGES = [  # play order (picturebook_lines_recipes.md)
 
 # Scene → bundle-prefix map (2026-07-20, scenes 2-5 wiring): each scene's authored elements bundle
 # lives under a DIFFERENT prefix than the scene id (the scene-workbench names bundles after the
-# scene's hero structure, not the picture-book page id). The `hollow` page (renamed from the old
-# `fairy_hollow_market`, 2026-07-21) resolves against the `fairy_hollow_market_elements_v*` bundle.
+# scene's hero structure, not the picture-book page id). `hollow` needs no entry — its bundle
+# prefix equals its scene id (hollow_elements_v*, renamed from fairy_hollow_market on 2026-07-21).
 SCENE_BUNDLES = {
-    "hollow": "fairy_hollow_market",
     "snowy_village": "winter",
     "desert_oasis": "oasis",
     "coral_reef": "coral",
