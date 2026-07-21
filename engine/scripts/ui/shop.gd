@@ -28,6 +28,7 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine'
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # cut-paper drop shadow wrap
 const OVERLAY_NAME := "ShopOverlay"
 
 const INK = Pal.INK
@@ -354,6 +355,9 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 	art.custom_minimum_size = Vector2(art_px, art_px)
 	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# give the item art a shape-true cut-paper drop shadow too (a dark copy of its own silhouette)
+	if art is TextureRect and (art as TextureRect).texture != null:
+		art = SpritePanel.wrap(art, (art as TextureRect).texture)
 	body.add_child(art)
 
 	var textcol := VBoxContainer.new()
@@ -411,11 +415,12 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 		card.add_child(titled)
 	else:
 		card.add_child(body)
-	return card
+	# a textured card gains the cut-paper drop shadow (shadow copies behind the StyleBoxTexture card)
+	return SpritePanel.wrap(card, card_tex) if card_tex != null else card
 
 # The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
 # `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
-static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
+static func _price_pill(Kit: GDScript, d: Dictionary) -> Control:
 	if String(d.get("price", "")) == "":
 		return null
 	var icon_id := String(d.get("price_icon", ""))
@@ -458,7 +463,6 @@ static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
 		var ph := 76.0
 		b.custom_minimum_size = Vector2(roundf(ph * float(btn_tex.get_width()) / float(btn_tex.get_height())), ph)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		b.set_meta("shop_textured", true)
 	else:
 		b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
 	# a 💎/🪙-priced CTA carries its currency glyph beside the number (the USD packs print the price alone).
@@ -487,6 +491,12 @@ static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
 	var cb: Callable = d.get("on_buy", Callable())
 	if cb.is_valid():
 		b.pressed.connect(func() -> void: cb.call())
+	# a textured pill gains the cut-paper drop shadow; the wrapper carries the layout meta, the inner
+	# Button (ShopBuyButton) keeps its name / press / buy metas so the shop + tests still resolve it.
+	if btn_tex != null:
+		var wrapped := SpritePanel.wrap(b, btn_tex)
+		wrapped.set_meta("shop_textured", true)
+		return wrapped
 	return b
 
 # A bold navy label (the mock's one type voice for titles and headers).

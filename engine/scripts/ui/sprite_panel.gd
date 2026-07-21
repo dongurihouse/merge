@@ -26,6 +26,39 @@ static func build(tex: Texture2D, size: Vector2, opts: Dictionary = {}) -> Contr
 	root.add_child(_layer(tex, Color.WHITE, 0.0))
 	return root
 
+## Wrap an EXISTING textured Control (a StyleBoxTexture card / button) with a soft drop shadow: dark
+## copies of `tex` sit behind `inner`, which then fills the wrapper. Auto-sizes to inner's content (so an
+## auto-height card still casts a matching shadow) and copies inner's size flags; clicks pass through to
+## inner. Lets the shop cards/buttons gain the cut-paper shadow without restructuring their content.
+static func wrap(inner: Control, tex: Texture2D) -> Control:
+	var root := Control.new()
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.size_flags_horizontal = inner.size_flags_horizontal
+	root.size_flags_vertical = inner.size_flags_vertical
+	for i in SHADOW.size():
+		var layer: Dictionary = SHADOW[i]
+		var sh := TextureRect.new()
+		sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sh.stretch_mode = TextureRect.STRETCH_SCALE
+		sh.texture = tex
+		sh.modulate = Look.shadow_color(float(layer["a"]))
+		sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var dy := 3.0 * float(i + 1)   # a fixed 3/6/9 px downward drop (independent of the element size)
+		sh.offset_top += dy
+		sh.offset_bottom += dy
+		sh.custom_minimum_size = Vector2.ZERO
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(sh)
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(inner)
+	# push inner's content size onto the wrapper so the shadow tracks an auto-height element
+	var sync := func() -> void:
+		if is_instance_valid(root) and is_instance_valid(inner):
+			root.custom_minimum_size = inner.get_combined_minimum_size()
+	sync.call()
+	inner.minimum_size_changed.connect(sync)
+	return root
+
 static func _layer(tex: Texture2D, mod: Color, dy: float) -> TextureRect:
 	var tr := TextureRect.new()
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # BEFORE anchors, so native px never drives min size
