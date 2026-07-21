@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djhiviwx3xa55"
-path="res://.godot/imported/desert_oasis_baked_composite.png-770825fb041e05169cb8f8d514dde265.ctex"
+uid="uid://bwpw2v4e2bq1k"
+path="res://.godot/imported/oasis_baked_composite.png-57f66d6ffed02578d8b317c5aadbe95e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/desert_oasis_baked_composite.png"
-dest_files=["res://.godot/imported/desert_oasis_baked_composite.png-770825fb041e05169cb8f8d514dde265.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/oasis_baked_composite.png"
+dest_files=["res://.godot/imported/oasis_baked_composite.png-57f66d6ffed02578d8b317c5aadbe95e.ctex"]
 
 [params]
 
