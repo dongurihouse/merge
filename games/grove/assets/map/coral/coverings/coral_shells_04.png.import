@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bpj0wjlfo8cq2"
-path="res://.godot/imported/desert_palm_01.png-9bdf2d8010689a26e605a8458c6f8f15.ctex"
+uid="uid://b0dvvinh6su11"
+path="res://.godot/imported/coral_shells_04.png-77261722994e5678d4945ad3afbfa1cf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/coverings/desert_palm_01.png"
-dest_files=["res://.godot/imported/desert_palm_01.png-9bdf2d8010689a26e605a8458c6f8f15.ctex"]
+source_file="res://games/grove/assets/map/coral/coverings/coral_shells_04.png"
+dest_files=["res://.godot/imported/coral_shells_04.png-77261722994e5678d4945ad3afbfa1cf.ctex"]
 
 [params]
 

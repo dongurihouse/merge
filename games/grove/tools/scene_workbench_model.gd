@@ -15,8 +15,9 @@ extends RefCounted
 ## so a scene authored before layers renders byte-identically until you actually reassign it.
 
 const SCENES_SUFFIX := "games/grove/assets/map"
-# Subdirs of the map root that are NOT scenes (shared library, legacy covering art, generated pages).
-const NON_SCENE_DIRS := ["shared", "coverings", "pages"]
+# Subdirs of the map root that are NOT scenes (shared library, generated pages). Per-scene art —
+# including each scene's own coverings/ and reference/ — lives INSIDE its map/<scene>/ folder.
+const NON_SCENE_DIRS := ["shared", "pages"]
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
 
 # The predefined layers, back (painted first) → front (painted last). A cluster lives in exactly one.

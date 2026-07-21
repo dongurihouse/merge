@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://vlae5eqq2nft"
-path="res://.godot/imported/hollow_grass_03.png-d8d6048c247d5254408e167f41115924.ctex"
+uid="uid://c6ixqaraxignn"
+path="res://.godot/imported/hollow_grass_01.png-735b521e930b1317a156afb075ae04ee.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/coverings/hollow_grass_03.png"
-dest_files=["res://.godot/imported/hollow_grass_03.png-d8d6048c247d5254408e167f41115924.ctex"]
+source_file="res://games/grove/assets/map/hollow/coverings/hollow_grass_01.png"
+dest_files=["res://.godot/imported/hollow_grass_01.png-735b521e930b1317a156afb075ae04ee.ctex"]
 
 [params]
 

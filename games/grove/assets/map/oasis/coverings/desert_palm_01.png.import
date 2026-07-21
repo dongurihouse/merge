@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bul3bicluv0kf"
-path="res://.godot/imported/cherry_petals_01.png-d6e8beaf2739ad742ac81037b8f241c9.ctex"
+uid="uid://bpj0wjlfo8cq2"
+path="res://.godot/imported/desert_palm_01.png-a3d7442b59e2958f4dc282659479cb8e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/coverings/cherry_petals_01.png"
-dest_files=["res://.godot/imported/cherry_petals_01.png-d6e8beaf2739ad742ac81037b8f241c9.ctex"]
+source_file="res://games/grove/assets/map/oasis/coverings/desert_palm_01.png"
+dest_files=["res://.godot/imported/desert_palm_01.png-a3d7442b59e2958f4dc282659479cb8e.ctex"]
 
 [params]
 
