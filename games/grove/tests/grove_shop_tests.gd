@@ -425,7 +425,10 @@ func _initialize() -> void:
 	var l_streak := Login.streak()
 	LoginUI.open(lhost)
 	var l_overlay: Control = lhost.get_child(lhost.get_child_count() - 1)
-	ok(l_overlay.find_children("*", "PanelContainer", true, false).size() >= 8, \
+	# the reskinned day cells are baked cut-paper sprite panels (Controls named DailyCell_*) plus the wide
+	# DailyCapstone — a full week of reward slots.
+	ok(l_overlay.find_children("DailyCell_*", "Control", true, false).size() >= 6 \
+		and l_overlay.find_child("DailyCapstone", true, false) != null, \
 		"the calendar opens as a framed card with a week of reward cells (diegetic, §13)")
 	ok(_press_label(l_overlay, "Claim"), "the calendar shows a Claim button")
 	ok(Login.streak() == l_streak + 1 and Save.coins() >= l_coins, \

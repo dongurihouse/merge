@@ -2162,8 +2162,8 @@ static func _row_panel(_unused: bool = true) -> PanelContainer:
 		st.texture_margin_right = cap
 		st.texture_margin_top = float(rtex.get_height()) * 0.35
 		st.texture_margin_bottom = float(rtex.get_height()) * 0.35
-		st.content_margin_left = 24; st.content_margin_right = 20
-		st.content_margin_top = 14; st.content_margin_bottom = 14
+		st.content_margin_left = 26; st.content_margin_right = 22
+		st.content_margin_top = 22; st.content_margin_bottom = 22   # chunkier rows, matching the mock
 		panel.add_theme_stylebox_override("panel", st)
 		return panel
 	var s := StyleBoxFlat.new()
