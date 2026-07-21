@@ -213,6 +213,14 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	isb.content_margin_left = 20.0 * scale; isb.content_margin_right = 20.0 * scale
 	isb.content_margin_top = 12.0 * scale; isb.content_margin_bottom = 12.0 * scale
 	insp.add_theme_stylebox_override("panel", isb)
+	# reskin: the inspector strip wears the extracted cut-paper cream bar (same content insets)
+	var strip_tex := _skin_tex("strip_bg")
+	if strip_tex != null:
+		var stx := StyleBoxTexture.new()
+		stx.texture = strip_tex
+		for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+			stx.set_content_margin(side, isb.get_content_margin(side))
+		insp.add_theme_stylebox_override("panel", stx)
 	dialog.add_child(insp)
 	ctx["insp"] = insp
 	var dock_insp := func() -> void:
@@ -865,12 +873,22 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 		var empty := StyleBoxEmpty.new()
 		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 			info.add_theme_stylebox_override(st, empty)
-		var ipx := 44.0 * s
+		var ipx := 46.0 * s
 		info.custom_minimum_size = Vector2(ipx, ipx)
-		var ii: Control = Kit.make_icon("info", ipx * 0.86)
-		ii.position = Vector2(ipx * 0.07, ipx * 0.07)
-		ii.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		info.add_child(ii)
+		var info_tex := _skin_tex("info_btn")
+		if info_tex != null:   # reskin: the cut-paper round info button sprite
+			var ir := TextureRect.new()
+			ir.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			ir.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			ir.texture = info_tex
+			ir.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			ir.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			info.add_child(ir)
+		else:
+			var ii: Control = Kit.make_icon("info", ipx * 0.86)
+			ii.position = Vector2(ipx * 0.07, ipx * 0.07)
+			ii.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			info.add_child(ii)
 		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		info.pressed.connect(func() -> void: on_info.call(kind, tier))
 		row.add_child(info)
@@ -913,6 +931,18 @@ static func _inspector_pill(Kit: GDScript, s: float, text: String, accent: Color
 			b.icon = itex
 			b.add_theme_constant_override("icon_max_width", int(FS.BODY * s))
 			b.add_theme_constant_override("h_separation", int(8.0 * s))
+	# reskin: the coral SELL pill wears the extracted cut-paper coral sprite (cream coin + text on top).
+	var sell_tex := _skin_tex("sell_bg")
+	if sell_tex != null:
+		b.add_theme_color_override("font_color", Pal.CREAM)
+		var stb := StyleBoxTexture.new()
+		stb.texture = sell_tex
+		stb.set_content_margin(SIDE_LEFT, 24.0 * s); stb.set_content_margin(SIDE_RIGHT, 30.0 * s)
+		stb.set_content_margin(SIDE_TOP, 14.0 * s); stb.set_content_margin(SIDE_BOTTOM, 14.0 * s)
+		for st in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(st, stb)
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return b
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Pal.CREAM
 	sb.set_corner_radius_all(int(18.0 * s))

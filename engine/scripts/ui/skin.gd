@@ -799,6 +799,11 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 ## same metrics either way). Tapping flips the state, repaints the look, and fires
 ## `on_changed(new_state)`. `px_h` sizes it; width follows the sliced pill's aspect. Stateless
 ## otherwise — the caller owns persistence and reads back the live value via the callback.
+const SWITCH_SKIN := "res://games/grove/assets/ui/dialogs/settings/"   # cut-paper reskin: toggle_on/off.png
+static func _switch_tex(on: bool) -> Texture2D:
+	var p := SWITCH_SKIN + ("toggle_on.png" if on else "toggle_off.png")
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
+
 static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.SWITCH_H) -> Button:
 	var w := px_h * Tune.SWITCH_ASPECT
 	var b := Button.new()
@@ -811,6 +816,29 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	b.add_theme_stylebox_override("hover", empty)
 	b.add_theme_stylebox_override("pressed", empty)
 	b.set_meta("on", is_on)
+	# RESKIN: the baked cut-paper toggle sprite (on/off), swapped on flip. Falls through to the drawn
+	# track+knob below when the sprites are absent.
+	var tex_on := _switch_tex(true)
+	var tex_off := _switch_tex(false)
+	if tex_on != null and tex_off != null:
+		var art := TextureRect.new()
+		art.name = "sw_art"
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_SCALE
+		art.texture = tex_on if is_on else tex_off
+		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		art.custom_minimum_size = Vector2.ZERO
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(art)
+		b.set_meta("sw_on_tex", tex_on)
+		b.set_meta("sw_off_tex", tex_off)
+		add_press_juice(b)
+		b.pressed.connect(func() -> void:
+			var now := not bool(b.get_meta("on"))
+			b.set_meta("on", now)
+			_switch_paint(b, now, px_h)
+			on_changed.call(now))
+		return b
 	# CODE-DRAWN switch (the retired switch_on/off.png art read muddy-brown when off): a clean rounded
 	# track — leaf green when ON, a soft neutral slate when OFF — with a cream knob that slides across.
 	var track := Panel.new()                       # the rounded capsule (recoloured per state)
@@ -842,6 +870,10 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 ## Repaint a toggle_switch for `is_on`: swap the sliced sprite, or (fallback) recolour the
 ## track + slide the knob to the on/off end.
 static func _switch_paint(b: Button, is_on: bool, px_h: float) -> void:
+	var art := b.get_node_or_null("sw_art") as TextureRect   # RESKIN: swap the baked on/off sprite
+	if art != null:
+		art.texture = b.get_meta("sw_on_tex") if is_on else b.get_meta("sw_off_tex")
+		return
 	var track := b.get_node_or_null("sw_track") as Panel
 	var knob := b.get_node_or_null("sw_knob") as Panel
 	if track == null or knob == null:

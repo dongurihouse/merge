@@ -2126,9 +2126,25 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ## the whole dialog reads as one clean cut-paper stack. A soft sage fill + a thin PAPER_EDGE hairline +
 ## the shared drop shadow, matching the mail cards + the daily cells. The old kit/mail_card.png nine-patch
 ## (an embossed border + a pink underline artifact) is retired. (`_unused` kept for call-site compatibility.)
+const SETTINGS_ROW_TEX := "res://games/grove/assets/ui/dialogs/settings/settings_row.png"
 static func _row_panel(_unused: bool = true) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# RESKIN: the baked cut-paper sage row sprite, 9-sliced so the rounded caps hold while the middle
+	# stretches to the row width. Falls back to the drawn sage box when the sprite is absent.
+	if ResourceLoader.exists(SETTINGS_ROW_TEX):
+		var rtex := load(SETTINGS_ROW_TEX) as Texture2D
+		var st := StyleBoxTexture.new()
+		st.texture = rtex
+		var cap := float(rtex.get_height()) * 0.5   # the pill's rounded end
+		st.texture_margin_left = cap
+		st.texture_margin_right = cap
+		st.texture_margin_top = float(rtex.get_height()) * 0.35
+		st.texture_margin_bottom = float(rtex.get_height()) * 0.35
+		st.content_margin_left = 24; st.content_margin_right = 20
+		st.content_margin_top = 14; st.content_margin_bottom = 14
+		panel.add_theme_stylebox_override("panel", st)
+		return panel
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color("#DCE7C8")          # a soft sage, distinct from the cream sheet, in the daily-cell family
 	s.border_color = PAPER_EDGE

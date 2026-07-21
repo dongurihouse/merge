@@ -23,6 +23,11 @@ static func build(bg_tex: Texture2D, text: String, size: Vector2, action: Callab
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = size
 	b.size = size
+	# Button.text carries the label for find-by-text lookups, but it draws BEHIND the bg sprites (children
+	# draw on top), so it's invisible — the visible text is the Label added last. Zero its font colour too.
+	b.text = text
+	b.add_theme_color_override("font_color", Color(0, 0, 0, 0))
+	b.tooltip_text = text
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
 	if action.is_valid():

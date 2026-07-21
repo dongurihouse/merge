@@ -377,17 +377,21 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		textcol.add_child(nl)
 	var pill := _price_pill(Kit, d)
+	# a textured pill keeps its OWN aspect (set in _price_pill) — skip the stretch-to-column overrides.
+	var pill_textured := pill != null and pill.has_meta("shop_textured")
 	if pill != null and wide:
 		# a WIDE single-product card lays out as the mock's one row: art left · the amount
 		# centred in the open middle · the green CTA docked at the right edge.
 		body.add_child(textcol)
 		pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pill.custom_minimum_size.x = 230.0
+		if not pill_textured:
+			pill.custom_minimum_size.x = 230.0
 		body.add_child(pill)
 	else:
 		if pill != null:
 			# the CTA spans the card's right column (mock: the green slab owns the bottom-right half)
-			pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not pill_textured:
+				pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			textcol.add_child(pill)
 		body.add_child(textcol)
 	# a TITLED card (the mock's Quick-help pair) heads itself with a small centred navy caps line
@@ -427,12 +431,18 @@ static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
 	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
 	b.add_theme_constant_override("outline_size", 0)
-	# reskin: the baked green cut-paper button texture (9-sliced so the price text of any width keeps the
-	# rounded torn ends crisp). Falls back to the flat green pill.
+	# reskin: the baked green cut-paper button texture. It is NOT 9-sliced — the whole button scales
+	# uniformly, keeping its own aspect ratio (no squish, no repeated middle). So the button is sized to
+	# the texture's aspect and is NOT stretched across its column (the callers skip that for a textured
+	# pill). Falls back to the flat green pill.
 	var btn_tex := _skin_tex("button_green")
 	var sb: StyleBox
 	if btn_tex != null:
-		sb = _tex_box(btn_tex, 20.0, 14.0)
+		var st := StyleBoxTexture.new()
+		st.texture = btn_tex   # no texture_margin_* → the whole image scales to the button rect
+		st.content_margin_left = 20; st.content_margin_right = 20
+		st.content_margin_top = 14; st.content_margin_bottom = 14
+		sb = st
 	else:
 		var fb := StyleBoxFlat.new()
 		fb.bg_color = PILL_GREEN
@@ -441,9 +451,16 @@ static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
 		fb.content_margin_top = 14; fb.content_margin_bottom = 14
 		_mock_shadow(fb)
 		sb = fb
-	for st in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(st, sb)
-	b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
+	for st2 in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st2, sb)
+	if btn_tex != null:
+		# lock the button to the texture's aspect so scaling never distorts it
+		var ph := 76.0
+		b.custom_minimum_size = Vector2(roundf(ph * float(btn_tex.get_width()) / float(btn_tex.get_height())), ph)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		b.set_meta("shop_textured", true)
+	else:
+		b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
 	# a 💎/🪙-priced CTA carries its currency glyph beside the number (the USD packs print the price alone).
 	if icon_id != "":
 		var h := HBoxContainer.new()
