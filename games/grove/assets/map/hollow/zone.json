@@ -1,0 +1,270 @@
+{
+ "version": 1,
+ "id": "hollow",
+ "label": "Hollow",
+ "canvas": {
+  "width": 1320,
+  "height": 2346
+ },
+ "background": "res://games/grove/assets/map/hollow/backdrop/fairy_hollow_market_foundation_v2.png",
+ "buildings": [
+  {
+   "id": "mushroom_hall",
+   "label": "mushroom hall",
+   "position": [
+    781,
+    816
+   ],
+   "display_size": [
+    831,
+    831
+   ],
+   "sort_y": 0,
+   "cluster": "mushroom_hall",
+   "states": {
+    "built": "res://games/grove/assets/map/hollow/primary/fairy_hollow_market_mushroom_hall_v2.png"
+   }
+  },
+  {
+   "id": "tea_stall",
+   "label": "tea stall",
+   "position": [
+    335,
+    1210
+   ],
+   "display_size": [
+    780,
+    693
+   ],
+   "sort_y": 0,
+   "cluster": "tea_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/hollow/primary/fairy_hollow_market_tea_stall_v2.png"
+   }
+  },
+  {
+   "id": "crystal_map_stall",
+   "label": "crystal map stall",
+   "position": [
+    1059,
+    1381
+   ],
+   "display_size": [
+    680,
+    747
+   ],
+   "sort_y": 0,
+   "cluster": "crystal_map_stall",
+   "states": {
+    "built": "res://games/grove/assets/map/hollow/primary/fairy_hollow_market_crystal_map_stall_v2.png"
+   }
+  },
+  {
+   "id": "stream_bridge",
+   "label": "stream bridge",
+   "position": [
+    341,
+    1780
+   ],
+   "display_size": [
+    700,
+    592
+   ],
+   "sort_y": 0,
+   "cluster": "stream_bridge",
+   "states": {
+    "built": "res://games/grove/assets/map/hollow/primary/fairy_hollow_market_stream_bridge_v2.png"
+   }
+  },
+  {
+   "id": "flower_crate",
+   "label": "flower crate",
+   "position": [
+    1033,
+    1941
+   ],
+   "display_size": [
+    750,
+    664
+   ],
+   "sort_y": 0,
+   "cluster": "flower_crate",
+   "states": {
+    "built": "res://games/grove/assets/map/hollow/primary/fairy_hollow_market_flower_crate_v2.png"
+   }
+  },
+  {
+   "id": "lantern_gate",
+   "label": "lantern gate",
+   "position": [
+    528,
+    2364
+   ],
+   "display_size": [
+    830,
+    741
+   ],
+   "sort_y": 0,
+   "cluster": "lantern_gate",
+   "states": {
+    "built": "res://games/grove/assets/map/hollow/primary/fairy_hollow_market_lantern_gate_v2.png"
+   }
+  }
+ ],
+ "coverups": [
+  {
+   "id": "canopy_round_nw",
+   "cluster": "mushroom_hall",
+   "position": [
+    220,
+    660
+   ],
+   "display_size": [
+    840,
+    840
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+  },
+  {
+   "id": "canopy_monstera_ne",
+   "cluster": "mushroom_hall",
+   "position": [
+    1100,
+    670
+   ],
+   "display_size": [
+    860,
+    860
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+  },
+  {
+   "id": "canopy_fern_center",
+   "cluster": "tea_stall",
+   "position": [
+    650,
+    1430
+   ],
+   "display_size": [
+    610,
+    1080
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+  },
+  {
+   "id": "canopy_flower_west",
+   "cluster": "tea_stall",
+   "position": [
+    220,
+    1440
+   ],
+   "display_size": [
+    650,
+    650
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+  },
+  {
+   "id": "canopy_vine_east",
+   "cluster": "crystal_map_stall",
+   "position": [
+    1120,
+    1450
+   ],
+   "display_size": [
+    700,
+    610
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+  },
+  {
+   "id": "canopy_monstera_sw",
+   "cluster": "stream_bridge",
+   "position": [
+    260,
+    2050
+   ],
+   "display_size": [
+    800,
+    800
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+  },
+  {
+   "id": "canopy_round_se",
+   "cluster": "flower_crate",
+   "position": [
+    1120,
+    2050
+   ],
+   "display_size": [
+    800,
+    800
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+  },
+  {
+   "id": "canopy_corner_bottom_west",
+   "cluster": "lantern_gate",
+   "position": [
+    310,
+    2410
+   ],
+   "display_size": [
+    900,
+    900
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+  },
+  {
+   "id": "canopy_fern_bottom",
+   "cluster": "lantern_gate",
+   "position": [
+    810,
+    2470
+   ],
+   "display_size": [
+    590,
+    1040
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+  },
+  {
+   "id": "canopy_flower_bottom_east",
+   "cluster": "lantern_gate",
+   "position": [
+    1160,
+    2420
+   ],
+   "display_size": [
+    600,
+    600
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+  },
+  {
+   "id": "canopy_vine_bottom",
+   "cluster": "lantern_gate",
+   "position": [
+    650,
+    2540
+   ],
+   "display_size": [
+    760,
+    660
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+  }
+ ]
+}

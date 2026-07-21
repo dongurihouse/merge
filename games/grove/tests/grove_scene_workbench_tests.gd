@@ -209,15 +209,15 @@ func _initialize() -> void:
 	# button mid-signal-emission — "Object was freed while a signal is being emitted")
 	var View = load("res://games/grove/tools/scene_workbench_view.gd")
 	var broot := OS.get_user_data_dir() + "/scene_wb_view_test"
-	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/metadata")
+	DirAccess.make_dir_recursive_absolute(broot + "/test_scene")
 	var base_art := Image.create(8, 8, false, Image.FORMAT_RGBA8)   # the doc's base ("base.png") — real file so it renders
 	base_art.fill(Color(0.5, 0.7, 1, 1))
 	base_art.save_png(broot + "/base.png")
 	var vdoc := _doc()
 	(vdoc.placements[0] as Dictionary)["cluster"] = "camp"
 	(vdoc.placements[1] as Dictionary)["cluster"] = "camp"
-	M.save_doc(broot + "/test_scene_elements_v1/metadata/placements.json", vdoc)
-	var other_pl := broot + "/another_elements_v2/metadata/placements.json"
+	M.save_doc(broot + "/test_scene/placements.json", vdoc)
+	var other_pl := broot + "/another/placements.json"
 	for stale2 in [other_pl, other_pl + ".bak"]:      # idempotent across runs — the switch test re-creates it
 		if FileAccess.file_exists(stale2):
 			DirAccess.remove_absolute(stale2)
@@ -475,8 +475,8 @@ func _initialize() -> void:
 	view._rebuild_stage()
 
 	# --- add-to-cluster palette (iconed, scoped to the selected cluster) ---------------
-	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/03_structures")
-	art.save_png(broot + "/test_scene_elements_v1/03_structures/test_scene_lantern_v1.png")
+	DirAccess.make_dir_recursive_absolute(broot + "/test_scene/primary")
+	art.save_png(broot + "/test_scene/primary/test_scene_lantern_v1.png")
 	view._select(-1)
 	view._select_cluster("camp")
 	var add_btns: Array = []
@@ -517,29 +517,24 @@ func _initialize() -> void:
 			icon_only = false
 	ok(icon_only, "scene buttons are icon-only, matching the mock strip")
 	ok(M.scenes_in(broot) == ["test_scene"], "scenes_in lists every openable bundle")
-	var live_scenes := M.scenes_in("res://games/grove/assets/_concepts/zones")
+	var map_root := "res://games/grove/assets/map"
+	var live_scenes := M.scenes_in(map_root)
 	ok(live_scenes.has("winter"),
-		"the modular winter bundle is available as its own Scene Workbench scene")
+		"the consolidated winter scene is available as its own Scene Workbench scene")
 	# THE CLUSTER RULE: the scene workbench only works with clusters — every placement in every
-	# bundle must belong to exactly one (nothing may sit in the scene untagged). Scan them all.
-	var zones_root := "res://games/grove/assets/_concepts/zones"
+	# scene must belong to exactly one (nothing may sit in the scene untagged). Scan them all.
 	var untagged_report: Array = []
-	var bundles_scanned := 0
-	for sub in DirAccess.get_directories_at(zones_root):
-		if not sub.contains("_elements_v"):
-			continue
-		var pj := "%s/%s/metadata/placements.json" % [zones_root, sub]
-		if not FileAccess.file_exists(pj):
-			continue
-		bundles_scanned += 1
-		var bdoc := M.load_doc(pj)
+	var scenes_scanned := 0
+	for sc in live_scenes:
+		scenes_scanned += 1
+		var bdoc := M.load_doc(M.placements_path(map_root, sc))
 		for e in M.placements(bdoc):
 			if String((e as Dictionary).get("cluster", "")).strip_edges() == "":
-				untagged_report.append("%s/%s" % [sub, String((e as Dictionary).get("id", "?"))])
-	ok(bundles_scanned >= 7, "the cluster scan reaches every openable bundle (found %d)" % bundles_scanned)
+				untagged_report.append("%s/%s" % [sc, String((e as Dictionary).get("id", "?"))])
+	ok(scenes_scanned >= 5, "the cluster scan reaches every openable scene (found %d)" % scenes_scanned)
 	ok(untagged_report.is_empty(),
-		"every placement in every bundle belongs to a cluster — untagged: %s" % str(untagged_report))
-	var lantern_doc := M.load_doc("res://games/grove/assets/_concepts/zones/winter_elements_v1/metadata/placements.json")
+		"every placement in every scene belongs to a cluster — untagged: %s" % str(untagged_report))
+	var lantern_doc := M.load_doc(M.placements_path(map_root, "winter"))
 	var gazebo_z := -1
 	var upper_left_cover_z := -1
 	var unlock_cover_count := 0
@@ -570,16 +565,16 @@ func _initialize() -> void:
 		"the winter unlock cover clusters each piece by the primary object region it hides")
 	ok(hero_clusters == {"lodge": true, "gazebo": true, "christmas_tree": true, "dock": true, "entrance_arch": true},
 		"the winter hero structures sit on the primary layer, each tagged with its unlock region")
-	DirAccess.make_dir_recursive_absolute(broot + "/another_elements_v2/metadata")
+	DirAccess.make_dir_recursive_absolute(broot + "/another")
 	var other := {"scene": "another", "canvas": {"width": 500, "height": 500},
 		"placements": [{"id": "solo", "image": "s.png", "x": 100, "y": 100, "w": 50, "h": 50, "z": 1}]}
-	M.save_doc(broot + "/another_elements_v2/metadata/placements.json", other)
+	M.save_doc(broot + "/another/placements.json", other)
 	ok(M.scenes_in(broot) == ["another", "test_scene"], "scenes_in picks up a new bundle")
 	ok(view.dirty, "the drag left unsaved edits")
 	view._switch_scene("another")
 	ok(view.scene_name == "another" and view.doc.placements.size() == 1,
 		"switching scenes loads the other bundle in place")
-	var persisted := M.load_doc(broot + "/test_scene_elements_v1/metadata/placements.json")
+	var persisted := M.load_doc(broot + "/test_scene/placements.json")
 	ok(int(persisted.placements[2].x) == 520,
 		"the un-⌘S'd move never reached disk — a switch DISCARDS unsaved edits")
 	view._switch_scene("test_scene")
@@ -691,8 +686,8 @@ func _initialize() -> void:
 
 	# --- root scoring + reference images ----------------------------------------------
 	var partial := OS.get_user_data_dir() + "/scene_wb_partial_root"
-	DirAccess.make_dir_recursive_absolute(partial + "/test_scene_elements_v1/metadata")
-	# the partial root has a dir but NO placements.json → 0 openable scenes
+	DirAccess.make_dir_recursive_absolute(partial + "/test_scene")
+	# the partial root has a scene dir but NO placements.json → 0 openable scenes
 	ok(M.pick_root([partial, broot]) == broot,
 		"pick_root prefers the root with the most OPENABLE scenes (a partial intake never shadows the full one)")
 	ok(M.pick_root([broot, partial]) == broot, "…regardless of candidate order")
@@ -701,27 +696,21 @@ func _initialize() -> void:
 		"pick_root_for_scene chooses the root that actually contains the requested scene")
 	ok(M.pick_root_for_scene([broot, partial], "missing_scene") == broot,
 		"pick_root_for_scene falls back to the richest root when the requested scene is absent")
-	var stale_concept := broot + "/games/grove/assets/_concepts/zones/test_scene_original_mock_v1.png"
-	if FileAccess.file_exists(stale_concept):          # idempotent across runs — created again below
-		DirAccess.remove_absolute(stale_concept)
+	# reference_images: everything under map/<scene>/reference/, sorted (mocks, recon passes, keyer
+	# intermediates the consolidation kept out of the layer bands). Export-excluded, tool-visible.
+	var ref_dir := broot + "/test_scene/reference"
+	DirAccess.make_dir_recursive_absolute(ref_dir)
 	var mock := Image.create(4, 4, false, Image.FORMAT_RGBA8)
-	mock.save_png(broot + "/test_scene.png")
-	mock.save_png(broot + "/test_scene_market_v2.png")
-	DirAccess.make_dir_recursive_absolute(broot + "/test_scene_elements_v1/09_reconstruction")
-	mock.save_png(broot + "/test_scene_elements_v1/09_reconstruction/recon.png")
-	var refs: Array = M.reference_images(broot, broot + "/test_scene_elements_v1", "test_scene")
-	ok(refs.size() == 3, "reference_images collects the root mocks + the reconstruction composites")
+	mock.save_png(ref_dir + "/recon.png")
+	mock.save_png(ref_dir + "/a_source_mock.png")
+	var refs: Array = M.reference_images(broot + "/test_scene")
+	ok(refs.size() == 2, "reference_images collects everything under the scene's reference/ folder")
 	var has_recon := false
 	for rp in refs:
 		if String(rp).ends_with("recon.png"):
 			has_recon = true
-	ok(has_recon, "the reconstruction rides along with the scene mocks")
-	# original concept mocks (assets/_concepts/zones under the repo root) list FIRST — primary refs
-	DirAccess.make_dir_recursive_absolute(broot + "/games/grove/assets/_concepts/zones")
-	mock.save_png(broot + "/games/grove/assets/_concepts/zones/test_scene_original_mock_v1.png")
-	refs = M.reference_images(broot, broot + "/test_scene_elements_v1", "test_scene")
-	ok(refs.size() == 4 and String(refs[0]).ends_with("test_scene_original_mock_v1.png"),
-		"the _concepts/zones original mock joins the references, listed first")
+	ok(has_recon, "the reconstruction pass rides along in reference/")
+	ok(String(refs[0]).ends_with("a_source_mock.png"), "reference images list in sorted order")
 	view._switch_scene("test_scene")                   # the dropdown test left the view on 'another'
 	ok(view.find_child("RefIcon_1", true, false) != null,
 		"multiple mocks build the far-left icon strip (one thumb per reference)")
@@ -731,11 +720,11 @@ func _initialize() -> void:
 		"the big mock swaps without rebuilding the panel (the strip stays alive)")
 
 	# --- path resolution ------------------------------------------------------------
-	var sr := "/repo/games/grove/assets/_concepts/zones"
+	var sr := "/repo/games/grove/assets/map"
 	ok(M.repo_root_of(sr) == "/repo", "repo_root_of strips the scenes suffix")
-	ok(M.repo_root_of("/repo/games/grove/assets/_concepts/zones") == "/repo",
+	ok(M.repo_root_of("/repo/games/grove/assets/map") == "/repo",
 		"a custom scenes root under games resolves repo-relative artwork from the repository root")
-	ok(M.repo_root_of("games/grove/assets/_concepts/zones") == ".",
+	ok(M.repo_root_of("games/grove/assets/map") == ".",
 		"a relative custom scenes root under games resolves repo-relative artwork from the project root")
 	ok(M.repo_root_of("/elsewhere/scenes") == "/elsewhere/scenes",
 		"a root outside a repository keeps its own relative-art base")

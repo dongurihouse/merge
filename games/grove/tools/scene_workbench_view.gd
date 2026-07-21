@@ -66,10 +66,10 @@ func setup(scenes_root: String, scene: String, cluster := "") -> bool:
 	_open_cluster = cluster
 	bundle_dir = M.bundle_for(scenes_root, scene)
 	if bundle_dir == "":
-		push_error("no bundle with metadata/placements.json for scene '%s' under %s" % [scene, scenes_root])
+		push_error("no map/<scene>/placements.json for scene '%s' under %s" % [scene, scenes_root])
 		return false
 	repo_root = M.repo_root_of(scenes_root)
-	placements_path = bundle_dir + "/metadata/placements.json"
+	placements_path = M.placements_path(scenes_root, scene)
 	doc = M.load_doc(placements_path)
 	if doc.is_empty():
 		push_error("could not parse " + placements_path)
@@ -634,7 +634,7 @@ func _build_ref_panel() -> void:
 	var head := _label("Reference", FS.TOOL, true)
 	head.position = Vector2(REF_PAD, 8)
 	_ref_panel.add_child(head)
-	_ref_paths = M.reference_images(_scenes_root, bundle_dir, scene_name)
+	_ref_paths = M.reference_images(bundle_dir)
 	if _ref_paths.is_empty():
 		var none := _label("no mocks found", FS.TOOL)
 		none.position = Vector2(REF_PAD, 40)
@@ -696,7 +696,7 @@ func _rebuild_ref_panel() -> void:
 
 ## A scene's face for the sidebar icon row — its FIRST reference image (concept mock first).
 func _scene_icon(scene: String) -> Texture2D:
-	var refs := M.reference_images(_scenes_root, M.bundle_for(_scenes_root, scene), scene)
+	var refs := M.reference_images(M.bundle_for(_scenes_root, scene))
 	return _thumb_for_abs(String(refs[0])) if not refs.is_empty() else null
 
 ## A strip thumbnail from an ABSOLUTE path (the shared _thumb cache, repo-relative helper below).

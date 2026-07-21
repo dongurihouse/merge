@@ -1,0 +1,354 @@
+{
+ "version": 1,
+ "id": "coral_reef",
+ "label": "Coral Reef",
+ "canvas": {
+  "width": 941,
+  "height": 1672
+ },
+ "background": "res://games/grove/assets/map/coral/backdrop/coral_reef_paper_foundation_undersea_gray_v3.png",
+ "buildings": [
+  {
+   "id": "shipwreck",
+   "label": "shipwreck",
+   "position": [
+    476,
+    822
+   ],
+   "display_size": [
+    765,
+    545
+   ],
+   "sort_y": 250,
+   "cluster": "shipwreck",
+   "states": {
+    "built": "res://games/grove/assets/map/coral/primary/coral_reef_paper_shipwreck_v1.png"
+   }
+  },
+  {
+   "id": "chest",
+   "label": "chest",
+   "position": [
+    192,
+    986
+   ],
+   "display_size": [
+    230,
+    184
+   ],
+   "sort_y": 270,
+   "cluster": "chest",
+   "states": {
+    "built": "res://games/grove/assets/map/coral/primary/coral_reef_paper_chest_v1.png"
+   }
+  },
+  {
+   "id": "anchor",
+   "label": "anchor",
+   "position": [
+    706,
+    1026
+   ],
+   "display_size": [
+    220,
+    258
+   ],
+   "sort_y": 280,
+   "cluster": "anchor",
+   "states": {
+    "built": "res://games/grove/assets/map/coral/primary/coral_reef_paper_anchor_v1.png"
+   }
+  },
+  {
+   "id": "statue",
+   "label": "statue",
+   "position": [
+    778,
+    1285
+   ],
+   "display_size": [
+    230,
+    257
+   ],
+   "sort_y": 300,
+   "cluster": "statue",
+   "states": {
+    "built": "res://games/grove/assets/map/coral/primary/coral_reef_paper_statue_v1.png"
+   }
+  },
+  {
+   "id": "clam",
+   "label": "clam",
+   "position": [
+    250,
+    1526
+   ],
+   "display_size": [
+    333,
+    352
+   ],
+   "sort_y": 320,
+   "cluster": "clam",
+   "states": {
+    "built": "res://games/grove/assets/map/coral/primary/coral_reef_paper_clam_v1.png"
+   }
+  },
+  {
+   "id": "cover_overlay",
+   "label": "cover overlay",
+   "position": [
+    470,
+    1672
+   ],
+   "display_size": [
+    941,
+    1672
+   ],
+   "sort_y": 500,
+   "cluster": "edge_cover",
+   "states": {
+    "built": "res://games/grove/assets/map/coral/foreground/coral_reef_paper_cover_overlay_no_bubbles_v1.png"
+   }
+  }
+ ],
+ "coverups": [
+  {
+   "id": "unlock_cover_shell_cap",
+   "cluster": "shipwreck",
+   "position": [
+    210,
+    475
+   ],
+   "display_size": [
+    520,
+    532
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/01_large_blue_shell_cap.png"
+  },
+  {
+   "id": "unlock_cover_orange_fan",
+   "cluster": "shipwreck",
+   "position": [
+    160,
+    800
+   ],
+   "display_size": [
+    420,
+    489
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/02_orange_coral_fan_mat.png"
+  },
+  {
+   "id": "unlock_cover_kelp_curtain",
+   "cluster": "statue",
+   "position": [
+    840,
+    1580
+   ],
+   "display_size": [
+    320,
+    456
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/03_green_kelp_curtain.png"
+  },
+  {
+   "id": "unlock_cover_lavender_sponge",
+   "cluster": "shipwreck",
+   "position": [
+    745,
+    470
+   ],
+   "display_size": [
+    430,
+    461
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/04_lavender_sponge_cluster.png"
+  },
+  {
+   "id": "unlock_cover_shell_pebbles",
+   "cluster": "shipwreck",
+   "position": [
+    470,
+    820
+   ],
+   "display_size": [
+    360,
+    201
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/05_shell_pebble_rubble_oval.png"
+  },
+  {
+   "id": "unlock_cover_mixed_coral_kelp",
+   "cluster": "shipwreck",
+   "position": [
+    795,
+    800
+   ],
+   "display_size": [
+    430,
+    442
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/06_mixed_coral_kelp_patch.png"
+  },
+  {
+   "id": "unlock_cover_orange_coral_wall",
+   "cluster": "statue",
+   "position": [
+    750,
+    1450
+   ],
+   "display_size": [
+    400,
+    487
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/07_large_orange_coral_wall.png"
+  },
+  {
+   "id": "unlock_cover_blue_pebble_coral",
+   "cluster": "clam",
+   "position": [
+    160,
+    1610
+   ],
+   "display_size": [
+    350,
+    267
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/08_blue_pebble_purple_coral_mound.png"
+  },
+  {
+   "id": "unlock_cover_shell_fragment_kelp",
+   "cluster": "clam",
+   "position": [
+    270,
+    1520
+   ],
+   "display_size": [
+    430,
+    403
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/09_shell_fragment_kelp_cluster.png"
+  },
+  {
+   "id": "unlock_cover_chest_sponge",
+   "cluster": "chest",
+   "position": [
+    140,
+    1100
+   ],
+   "display_size": [
+    360,
+    386
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/04_lavender_sponge_cluster.png"
+  },
+  {
+   "id": "unlock_cover_chest_fragment",
+   "cluster": "chest",
+   "position": [
+    245,
+    1285
+   ],
+   "display_size": [
+    400,
+    375
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/coral/coverup/09_shell_fragment_kelp_cluster.png"
+  },
+  {
+   "id": "unlock_cover_anchor_kelp",
+   "cluster": "anchor",
+   "position": [
+    690,
+    1200
+   ],
+   "display_size": [
+    340,
+    484
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/coral/coverup/03_green_kelp_curtain.png"
+  },
+  {
+   "id": "unlock_cover_anchor_mixed",
+   "cluster": "anchor",
+   "position": [
+    650,
+    1100
+   ],
+   "display_size": [
+    330,
+    339
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/coral/coverup/06_mixed_coral_kelp_patch.png"
+  },
+  {
+   "id": "unlock_cover_anchor_pebbles",
+   "cluster": "anchor",
+   "position": [
+    570,
+    1150
+   ],
+   "display_size": [
+    290,
+    162
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/coral/coverup/05_shell_pebble_rubble_oval.png"
+  },
+  {
+   "id": "unlock_cover_statue_fan",
+   "cluster": "statue",
+   "position": [
+    780,
+    1240
+   ],
+   "display_size": [
+    350,
+    408
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/coral/coverup/02_orange_coral_fan_mat.png"
+  },
+  {
+   "id": "unlock_cover_clam_shell_cap",
+   "cluster": "clam",
+   "position": [
+    250,
+    1460
+   ],
+   "display_size": [
+    400,
+    409
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/coral/coverup/01_large_blue_shell_cap.png"
+  },
+  {
+   "id": "unlock_cover_clam_fan",
+   "cluster": "clam",
+   "position": [
+    80,
+    1670
+   ],
+   "display_size": [
+    350,
+    408
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/coral/coverup/02_orange_coral_fan_mat.png"
+  }
+ ]
+}

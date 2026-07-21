@@ -64,7 +64,7 @@ const HomeBuild = preload("res://engine/scripts/core/home.gd")   # the build-and
 const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
-const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/pages/zone_hollow.json"   # `.get()` fallback only — every map in G.MAPS names its own `zone_manifest`
+const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/hollow/zone.json"   # `.get()` fallback only — every map in G.MAPS names its own `zone_manifest`
 
 
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
@@ -487,7 +487,7 @@ func _add_page_arrows() -> void:
 		content.add_child(b)
 
 # PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
-# (assets/map/pages/zone_<id>.json); the farmhouse manifest is the legacy fallback.
+# (assets/map/<scene>/zone.json); the farmhouse manifest is the legacy fallback.
 var _home_manifest_cache: Dictionary = {}   # path -> parsed manifest
 var _zone_coverings: Dictionary = {}        # building id (or cluster id, coverup pages) -> its covering group
 var _zone_badges: Dictionary = {}           # cluster id -> its lock badge node (coverup pages)
