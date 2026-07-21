@@ -24,7 +24,7 @@
   },
   "base": {
     "id": "desert_sky",
-    "image": "games/grove/assets/map/oasis/sky/desert_oasis_sky_v1.png",
+    "image": "games/grove/assets/map/shared/sky/desert_oasis_sky_v1.png",
     "opaque": true,
     "z": 0,
     "layer": "sky",

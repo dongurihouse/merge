@@ -6,7 +6,7 @@
   "width": 1320,
   "height": 2346
  },
- "background": "res://games/grove/assets/map/oasis/sky/desert_oasis_sky_v1.png",
+ "background": "res://games/grove/assets/map/shared/sky/desert_oasis_sky_v1.png",
  "buildings": [
   {
    "id": "desert_foundation",
