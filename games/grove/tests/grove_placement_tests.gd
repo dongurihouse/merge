@@ -3,6 +3,11 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 func _initialize() -> void:
 	begin("grove · placement")
+	# regression: get_meta(key, null) THROWS on a missing key (Godot reads a null default as "no default"),
+	# so any icon_wrap read must guard with has_meta — else the cut-paper play button (no icon_wrap) spams
+	# errors on every HUD refresh (e.g. opening the Residents dialog). See map.gd _refresh_play_cta.
+	ok(FileAccess.get_file_as_string("res://engine/scripts/scenes/map.gd").find("get_meta(\"icon_wrap\", null)") == -1, \
+		"map.gd never reads icon_wrap with the throwing null-default get_meta")
 	fresh("sui")
 	var ss = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(ss)

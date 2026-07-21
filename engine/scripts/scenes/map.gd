@@ -1920,7 +1920,9 @@ func _refresh_play_cta() -> void:
 	if Kit == null:
 		return
 	var ready := _unlock_ready()
-	var wrap := _play_btn.get_meta("icon_wrap", null) as Control
+	# NB: get_meta(key, null) still THROWS on a missing key — Godot treats a null default as "no default".
+	# The cut-paper BoardTile play button carries no icon_wrap, so guard with has_meta (as board.gd does).
+	var wrap := (_play_btn.get_meta("icon_wrap") if _play_btn.has_meta("icon_wrap") else null) as Control
 	if wrap != null:
 		for c in wrap.get_children():
 			c.queue_free()
