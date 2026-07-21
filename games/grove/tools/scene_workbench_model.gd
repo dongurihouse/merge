@@ -7,7 +7,7 @@ extends RefCounted
 ## The view owns textures + input; every mutation goes through these ops so the tests can gate them.
 ##
 ## PAINT ORDER is a three-level nest, the same shape at every scale (item → cluster → layer → scene):
-##   1. `layer`   — one of LAYERS below, a FIXED back→front band (sky … foreground). Cluster-wide.
+##   1. `layer`   — one of LAYERS below, a FIXED back→front band (sky … coverup). Cluster-wide.
 ##   2. `clusterZ`— the cluster's order WITHIN its layer, shared by every member of the cluster.
 ##   3. `z`       — the item's order WITHIN its cluster.
 ## Effective order = (layer_rank, clusterZ, z, list index). Both new keys degrade gracefully on
@@ -18,12 +18,13 @@ const SCENES_SUFFIX := "games/grove/assets/_concepts/zones"
 const MIN_SIZE_PX := 8.0                  # scale floor — an entry can never shrink into unclickability
 
 # The predefined layers, back (painted first) → front (painted last). A cluster lives in exactly one.
-const LAYERS := ["sky", "backdrop", "far_mountains", "background_objects", "primary_objects", "foreground_objects", "coverup"]
+# This list is CLOSED: a scene can only ever place into one of these six — there is no op to add a
+# layer, and set_layer/bump_layer reject any slug not here (an unknown/legacy value reads as DEFAULT).
+const LAYERS := ["sky", "backdrop", "background", "primary", "foreground", "coverup"]
 const LAYER_LABELS := {
-	"sky": "Sky", "backdrop": "Backdrop", "far_mountains": "Far Mountains",
-	"background_objects": "Background Objects", "primary_objects": "Primary Objects",
-	"foreground_objects": "Foreground Objects", "coverup": "Coverup"}
-const DEFAULT_LAYER := "primary_objects"   # where an unassigned (legacy) entry reads as / a new one lands
+	"sky": "Sky", "backdrop": "Backdrop", "background": "Background",
+	"primary": "Primary", "foreground": "Foreground", "coverup": "Coverup"}
+const DEFAULT_LAYER := "primary"           # where an unassigned (legacy) entry reads as / a new one lands
 
 static func layer_rank(slug: String) -> int:
 	var k := LAYERS.find(slug)
@@ -48,6 +49,7 @@ static func load_doc(path: String) -> Dictionary:
 	var doc: Dictionary = parsed
 	if not doc.get("placements") is Array:
 		doc["placements"] = []
+	ensure_clusters(doc)                       # heal any clusterless legacy entry — see the invariant below
 	return doc
 
 ## Save with a one-time sibling backup (placements.json.bak) so the pre-session state survives.
@@ -152,12 +154,15 @@ static func _unit_of(doc: Dictionary, i: int) -> Array:
 static func remove_at(doc: Dictionary, i: int) -> Dictionary:
 	return placements(doc).pop_at(i)
 
-## Append a new entry: id de-duplicated, z defaulted above everything so it lands visible.
+## Append a new entry: id de-duplicated, z defaulted above everything so it lands visible. An entry
+## with no cluster gets its own singleton (named after its id) — a placement is NEVER clusterless.
 static func add_entry(doc: Dictionary, entry: Dictionary) -> int:
 	var e := entry.duplicate()
 	e["id"] = unique_id(doc, String(e.get("id", "item")))
 	if not e.has("z"):
 		e["z"] = max_z(doc) + 1
+	if String(e.get("cluster", "")) == "":
+		e["cluster"] = unique_cluster_name(doc, String(e["id"]))
 	placements(doc).append(e)
 	return placements(doc).size() - 1
 
@@ -176,7 +181,20 @@ static func unique_id(doc: Dictionary, base: String) -> String:
 # A cluster is a named GROUP of placements (entry key "cluster") that manages as one thing — the
 # canonical example: a tent with its surrounding rocks, vegetation and shadow. Members keep their own
 # entries; cluster ops fan out over them (move together, scale about the shared footing, restack
-# preserving relative z). "" / absent = unclustered.
+# preserving relative z).
+#
+# INVARIANT: every placement belongs to exactly one cluster — a layer's only children are clusters,
+# never bare items. A lone object is simply a cluster of one. Unclustering is DISABLED (set_cluster
+# with "" is a no-op); ensure_clusters() heals any clusterless legacy entry on load. The only way to
+# relocate an item is INTO another cluster.
+
+## Every placement must belong to a cluster. Any clusterless entry (legacy / hand-authored) is healed
+## into its own singleton cluster named after its id, so the layer→cluster→item nest always holds.
+static func ensure_clusters(doc: Dictionary) -> void:
+	for i in placements(doc).size():
+		var e: Dictionary = placements(doc)[i]
+		if String(e.get("cluster", "")) == "":
+			e["cluster"] = unique_cluster_name(doc, String(e.get("id", "item")))
 
 ## name -> Array of placement indices (in list order).
 static func clusters(doc: Dictionary) -> Dictionary:
@@ -194,13 +212,12 @@ static func clusters(doc: Dictionary) -> Dictionary:
 static func cluster_of(doc: Dictionary, i: int) -> String:
 	return String((placements(doc)[i] as Dictionary).get("cluster", ""))
 
-## Tag / untag ("" clears the key so untouched files stay byte-stable).
+## Move entry `i` into cluster `name`. Empty `name` is a NO-OP — unclustering is disabled, so an item
+## can only ever be re-tagged INTO another cluster, never orphaned.
 static func set_cluster(doc: Dictionary, i: int, name: String) -> void:
-	var e: Dictionary = placements(doc)[i]
 	if name == "":
-		e.erase("cluster")
-	else:
-		e["cluster"] = name
+		return
+	(placements(doc)[i] as Dictionary)["cluster"] = name
 
 static func unique_cluster_name(doc: Dictionary, base: String) -> String:
 	var taken := clusters(doc)
@@ -220,12 +237,14 @@ static func set_shadow(doc: Dictionary, i: int, on: bool) -> void:
 	else:
 		e.erase("shadow")
 
-## Toggle one entry's membership in `name`: a member leaves, anything else joins (re-tagging
-## away from another cluster is allowed). Returns true when the entry is now a member.
+## Ensure entry `i` is a member of `name` (join it, or re-tag it away from another cluster). Leaving
+## to nothing is disabled — a placement always belongs to exactly one cluster — so a call with a
+## non-empty `name` always ends with the entry in `name`. Returns true (now a member); "" → false.
 static func toggle_cluster_member(doc: Dictionary, i: int, name: String) -> bool:
-	var joining := cluster_of(doc, i) != name
-	set_cluster(doc, i, name if joining else "")
-	return joining
+	if name == "":
+		return false
+	set_cluster(doc, i, name)
+	return true
 
 ## Rename a cluster (every member re-tags). The applied name is unique-ified against the other
 ## clusters; returns it ("" = nothing to rename / empty target).

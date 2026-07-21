@@ -51,7 +51,7 @@
       "w": 1320,
       "h": 2346,
       "z": 20,
-      "layer": "far_mountains",
+      "layer": "background",
       "cluster": "sky"
     },
     {
@@ -64,7 +64,7 @@
       "w": 652,
       "h": 374,
       "z": 30,
-      "layer": "background_objects",
+      "layer": "background",
       "cluster": "horizon_left"
     },
     {
@@ -77,7 +77,7 @@
       "w": 746,
       "h": 447,
       "z": 31,
-      "layer": "background_objects",
+      "layer": "background",
       "cluster": "horizon_center"
     },
     {
@@ -90,7 +90,7 @@
       "w": 698,
       "h": 294,
       "z": 32,
-      "layer": "background_objects",
+      "layer": "background",
       "cluster": "horizon_right"
     },
     {
@@ -103,7 +103,7 @@
       "w": 900,
       "h": 758,
       "z": 100,
-      "layer": "primary_objects",
+      "layer": "primary",
       "cluster": "pavilion"
     },
     {
@@ -116,7 +116,7 @@
       "w": 852,
       "h": 893,
       "z": 110,
-      "layer": "primary_objects",
+      "layer": "primary",
       "cluster": "pond_bridge"
     },
     {
@@ -129,7 +129,7 @@
       "w": 782,
       "h": 833,
       "z": 120,
-      "layer": "primary_objects",
+      "layer": "primary",
       "cluster": "temizuya"
     },
     {
@@ -142,7 +142,7 @@
       "w": 900,
       "h": 893,
       "z": 130,
-      "layer": "primary_objects",
+      "layer": "primary",
       "cluster": "torii"
     },
     {
@@ -155,7 +155,7 @@
       "w": 1320,
       "h": 2346,
       "z": 900,
-      "layer": "foreground_objects",
+      "layer": "foreground",
       "cluster": "edge_cover"
     },
     {
