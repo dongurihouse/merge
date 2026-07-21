@@ -3,8 +3,8 @@
 New scene workbench target:
 
 ```bash
-make sw SCENE=coral_reef_paper
-make shot-sw SCENE=coral_reef_paper OUT=/tmp/coral_reef_paper_sw.png
+make sw SCENE=coral
+make shot-sw SCENE=coral OUT=/tmp/coral_sw.png
 ```
 
 This bundle was created from:

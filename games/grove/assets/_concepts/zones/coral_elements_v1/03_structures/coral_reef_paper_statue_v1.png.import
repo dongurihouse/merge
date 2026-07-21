@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dw5d83ogw63ja"
-path="res://.godot/imported/coral_reef_paper_shipwreck_v1.png-d2e54b8d69327a99999a3ba3eff8f9f9.ctex"
+uid="uid://gmf0ntqra23v"
+path="res://.godot/imported/coral_reef_paper_statue_v1.png-9391f8e27c3cb5df04b076b1525fff02.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_shipwreck_v1.png"
-dest_files=["res://.godot/imported/coral_reef_paper_shipwreck_v1.png-d2e54b8d69327a99999a3ba3eff8f9f9.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_statue_v1.png"
+dest_files=["res://.godot/imported/coral_reef_paper_statue_v1.png-9391f8e27c3cb5df04b076b1525fff02.ctex"]
 
 [params]
 

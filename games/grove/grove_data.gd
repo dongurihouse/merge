@@ -478,7 +478,7 @@ static func _build_maps() -> Array:
 	{"id": "coral_reef", "name": "Coral Reef", "open": true,
 		"zone_manifest": "res://games/grove/assets/map/pages/zone_coral_reef.json",
 		"covering_frames": [], "coverup_mode": true,
-		# TOP-DOWN unlock order (coral_reef_paper bundle, unlock_region_ prefix).
+		# TOP-DOWN unlock order (coral bundle, unlock_region_ prefix).
 		"clusters": [
 			{"id": "shipwreck", "cost": 2100},
 			{"id": "anchor", "cost": 2500},

@@ -38,7 +38,7 @@ PAGES = [  # play order (picturebook_lines_recipes.md)
 SCENE_BUNDLES = {
     "snowy_village": "winter_lantern_lodge",
     "desert_oasis": "desert_oasis_watchtower",
-    "coral_reef": "coral_reef_paper",
+    "coral_reef": "coral",
     "cherry_blossom_garden": "cherry_blossom_paper_plate_terrace",
 }
 

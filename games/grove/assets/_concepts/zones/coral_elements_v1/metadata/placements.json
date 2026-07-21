@@ -1,7 +1,7 @@
 {
  "base": {
   "id": "foundation",
-  "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/01_backdrop/coral_reef_paper_foundation_undersea_gray_v3.png",
+  "image": "games/grove/assets/_concepts/zones/coral_elements_v1/01_backdrop/coral_reef_paper_foundation_undersea_gray_v3.png",
   "opaque": true,
   "z": 0.0
  },
@@ -29,8 +29,8 @@
    "cluster": "shipwreck",
    "h": 545.0,
    "id": "shipwreck",
-   "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_shipwreck_v1.png",
-   "layer": "hero_prop",
+   "image": "games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_shipwreck_v1.png",
+   "layer": "primary_objects",
    "w": 765.0,
    "x": 476,
    "y": 822,
@@ -42,8 +42,8 @@
    "cluster": "chest",
    "h": 184.0,
    "id": "chest",
-   "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_chest_v1.png",
-   "layer": "hero_prop",
+   "image": "games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_chest_v1.png",
+   "layer": "primary_objects",
    "w": 230.0,
    "x": 192,
    "y": 986,
@@ -55,8 +55,8 @@
    "cluster": "anchor",
    "h": 258.0,
    "id": "anchor",
-   "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_anchor_v1.png",
-   "layer": "hero_prop",
+   "image": "games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_anchor_v1.png",
+   "layer": "primary_objects",
    "w": 220.0,
    "x": 706,
    "y": 1026,
@@ -68,8 +68,8 @@
    "cluster": "statue",
    "h": 257.0,
    "id": "statue",
-   "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_statue_v1.png",
-   "layer": "hero_prop",
+   "image": "games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_statue_v1.png",
+   "layer": "primary_objects",
    "w": 230.0,
    "x": 778,
    "y": 1285,
@@ -81,8 +81,8 @@
    "cluster": "clam",
    "h": 352,
    "id": "clam",
-   "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_clam_v1.png",
-   "layer": "hero_prop",
+   "image": "games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_clam_v1.png",
+   "layer": "primary_objects",
    "w": 333,
    "x": 250,
    "y": 1526,
@@ -93,8 +93,8 @@
    "category": "covering",
    "h": 1672.0,
    "id": "cover_overlay",
-   "image": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/05_coverings/coral_reef_paper_cover_overlay_no_bubbles_v1.png",
-   "layer": "foreground_occluder",
+   "image": "games/grove/assets/_concepts/zones/coral_elements_v1/05_coverings/coral_reef_paper_cover_overlay_no_bubbles_v1.png",
+   "layer": "foreground_objects",
    "w": 941.0,
    "x": 470.0,
    "y": 1672.0,
@@ -356,10 +356,10 @@
    "unlockCover": true
   }
  ],
- "scene": "coral_reef_paper",
+ "scene": "coral",
  "schemaVersion": 2.0,
  "source": {
-  "approvedMock": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/00_source/coral_reef_paper_approved_mock_v3.png",
+  "approvedMock": "games/grove/assets/_concepts/zones/coral_elements_v1/00_source/coral_reef_paper_approved_mock_v3.png",
   "notes": [
    "Layer-ready Coral Reef paper-craft scene created from games/grove/assets/_concepts/zones/layer_ready_coral_reef_v1.",
    "Every hero prop includes its own thin irregular paper base plate, following the approved desert-oasis modular plate direction.",
@@ -368,6 +368,6 @@
    "2026-07-20: foundation replaced with no-extra-plates v2 so prop-owned paper plates do not double-stack on backdrop socket plates.",
    "2026-07-20: foundation replaced with undersea-gray v3, preserving the v2 terrain sockets while shifting the water and ledges to muted gray-teal underwater depth."
   ],
-  "reconstructionPreview": "games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/09_reconstruction/coral_reef_paper_reconstruction_with_cover_no_extra_plates_v2.png"
+  "reconstructionPreview": "games/grove/assets/_concepts/zones/coral_elements_v1/09_reconstruction/coral_reef_paper_reconstruction_with_cover_no_extra_plates_v2.png"
  }
 }

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c76x3ic82calp"
-path="res://.godot/imported/coral_reef_paper_clam_v1.png-9a1ef17a76e93306fe0d189d4a771e88.ctex"
+uid="uid://bkhychqb7vfx3"
+path="res://.godot/imported/coral_reef_paper_anchor_v1.png-cfcec8fe27c47354132cc5ec7d77a6b2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/_concepts/zones/coral_reef_paper_elements_v1/03_structures/coral_reef_paper_clam_v1.png"
-dest_files=["res://.godot/imported/coral_reef_paper_clam_v1.png-9a1ef17a76e93306fe0d189d4a771e88.ctex"]
+source_file="res://games/grove/assets/_concepts/zones/coral_elements_v1/03_structures/coral_reef_paper_anchor_v1.png"
+dest_files=["res://.godot/imported/coral_reef_paper_anchor_v1.png-cfcec8fe27c47354132cc5ec7d77a6b2.ctex"]
 
 [params]
 
