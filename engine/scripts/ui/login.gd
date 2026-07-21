@@ -43,7 +43,7 @@ const SLOT_SAGE := [1, 3, 6]
 
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
-const CELL_ASPECT := 1.62         # cell height / cell width — ALL six day cards share this ONE (shorter) tile
+const CELL_ASPECT := 1.36         # cell height / cell width — matches the re-skin day-card sprite (more square)
 const BANNER_ASPECT := 1.35       # capstone banner height / cell width — a small, compact box
 
 # Fixed layout lines for a day cell (fractions of the cell HEIGHT). The reward icon and its amount are
@@ -68,6 +68,25 @@ const ART_GIFT := "kit/daily_reward_gift.png"     # slot-4 mystery day (the wrap
 const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
 const ART_LEAF_L := "kit/daily_chest_leaf_l.png"  # day-7 chest decal — cut-paper oak sprig, left
 const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-paper oak sprig, right
+
+# Cut-paper RE-SKIN (from the daily mock): the day-card faces, the wide day-7 capstone (chest + sprigs +
+# sparkles baked in), and the reward icons — each worn over the shared code drop shadow. Absent files fall
+# back to the drawn/Direction-B look. The CLAIMED card faces bake their own dim + ✓, so a claimed day
+# draws no separate reward icon / amount / check.
+const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
+const SKIN_DIR := "res://games/grove/assets/ui/dialogs/daily/"
+const REWARD_SKIN := {"coin": "icon_coin", "gem": "icon_acorn", "water": "icon_water"}   # reward id → skin icon
+static func _daily_tex(key: String) -> Texture2D:
+	var p := SKIN_DIR + key + ".png"
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
+static func _skin_sprite(tex: Texture2D, px: float) -> Control:
+	var t := TextureRect.new()
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(px, px)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.texture = tex
+	return t
 
 ## Every kit sprite THIS dialog polishes on open (_sprite → Kit.clean_tex_path). Sourced here, from
 ## the same consts the draws use, so the texture bake and its guard cover the REAL runtime dialog —
@@ -273,17 +292,26 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	var state := String(d.get("state", "future"))
 	var mystery := bool(d.get("mystery", false))
 	var today := state == "today"
-	var panel := PanelContainer.new()
-	panel.name = "DailyCell_%02d" % int(d.get("day", 0))
-	panel.custom_minimum_size = Vector2(cw, ch_px)
-	panel.add_theme_stylebox_override("panel", _cell_box(_cell_tint(d), cw, today))
-
-	# NOTE: no min-size here — the panel's own custom_minimum_size already carries the cell box, and
-	# a min-size on the padded content would ADD the stylebox margins on top (cells overflowing the sheet).
-	# Every piece is pinned to a FIXED fractional line of `inner` (not stacked in a flow), so the icon and
-	# amount land in the SAME place whatever the state, and the bottom marker never pushes them around.
+	var done := state == "done"
+	# the baked cut-paper card face — the CLAIMED face already bakes its dim + ✓, so a done day draws no
+	# reward icon / amount / marker on top of it (only its "DAY N" label).
+	var card_tex := _daily_tex("day_card_claimed" if done else "day_card")
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel: Control
+	if card_tex != null:
+		panel = SpritePanel.build(card_tex, Vector2(cw, ch_px))
+		var pad := cw * 0.10
+		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		inner.offset_left = pad; inner.offset_top = pad; inner.offset_right = -pad; inner.offset_bottom = -pad
+	else:
+		var pc := PanelContainer.new()
+		pc.add_theme_stylebox_override("panel", _cell_box(_cell_tint(d), cw, today))
+		panel = pc
+	panel.name = "DailyCell_%02d" % int(d.get("day", 0))
+	panel.custom_minimum_size = Vector2(cw, ch_px)
+	# Every piece is pinned to a FIXED fractional line of `inner`, so the icon and amount land in the SAME
+	# place whatever the state, and the bottom marker never pushes them around.
 	panel.add_child(inner)
 
 	# "DAY N" — pinned to the top edge, full-width centred.
@@ -293,44 +321,47 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	label.grow_vertical = Control.GROW_DIRECTION_END
 	inner.add_child(label)
 
-	# the reward ICON — its CENTRE pinned to REWARD_ICON_FRAC (constant across every state).
-	var art: Control
-	if mystery:
-		art = _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), cw * REWARD_ICON_PX)
-	else:
-		art = _reward_art(Kit, d.get("reward", {}), cw * REWARD_ICON_PX)
-	var art_holder := CenterContainer.new()
-	art_holder.anchor_left = 0.0; art_holder.anchor_right = 1.0
-	art_holder.anchor_top = REWARD_ICON_FRAC; art_holder.anchor_bottom = REWARD_ICON_FRAC
-	art_holder.grow_vertical = Control.GROW_DIRECTION_BOTH
-	art_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art_holder.add_child(art)
-	inner.add_child(art_holder)
+	# The reward icon + amount + marker only render on a NON-claimed day — the claimed card face bakes its
+	# own dim + ✓ (item 4), so a done day is just the claimed card + its "DAY N" label.
+	if not done:
+		# the reward ICON — its CENTRE pinned to REWARD_ICON_FRAC (constant across every state).
+		var art: Control
+		if mystery:
+			var mkey := "icon_gift" if String(d.get("mystery_icon", "")) == ART_GIFT else "icon_chest"
+			var mt := _daily_tex(mkey)
+			art = _skin_sprite(mt, cw * REWARD_ICON_PX) if mt != null else _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), cw * REWARD_ICON_PX)
+		else:
+			art = _reward_art(Kit, d.get("reward", {}), cw * REWARD_ICON_PX)
+		var art_holder := CenterContainer.new()
+		art_holder.anchor_left = 0.0; art_holder.anchor_right = 1.0
+		art_holder.anchor_top = REWARD_ICON_FRAC; art_holder.anchor_bottom = REWARD_ICON_FRAC
+		art_holder.grow_vertical = Control.GROW_DIRECTION_BOTH
+		art_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art_holder.add_child(art)
+		inner.add_child(art_holder)
 
-	# the single-currency AMOUNT — its centre pinned to REWARD_AMOUNT_FRAC.
-	var amount := _amount_text(d.get("reward", {})) if not mystery else ""
-	if amount != "":
-		var amt := Label.new()
-		amt.name = "DailyAmount"
-		amt.text = amount
-		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		amt.anchor_left = 0.0; amt.anchor_right = 1.0
-		amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
-		amt.grow_vertical = Control.GROW_DIRECTION_BOTH
-		amt.add_theme_font_override("font", Kit.bold_font())
-		amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
-		amt.add_theme_color_override("font_color", Pal.INK)
-		amt.add_theme_constant_override("outline_size", 0)
-		amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(amt)
+		# the single-currency AMOUNT — its centre pinned to REWARD_AMOUNT_FRAC.
+		var amount := _amount_text(d.get("reward", {})) if not mystery else ""
+		if amount != "":
+			var amt := Label.new()
+			amt.name = "DailyAmount"
+			amt.text = amount
+			amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			amt.anchor_left = 0.0; amt.anchor_right = 1.0
+			amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
+			amt.grow_vertical = Control.GROW_DIRECTION_BOTH
+			amt.add_theme_font_override("font", Kit.bold_font())
+			amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
+			amt.add_theme_color_override("font_color", Pal.INK)
+			amt.add_theme_constant_override("outline_size", 0)
+			amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			inner.add_child(amt)
 
-	# the state MARKER — today's CLAIM pill · a done ✓ · nothing — floats at REWARD_ACTION_FRAC, OUT of the
-	# icon/amount flow so its presence never nudges them.
+	# the state MARKER — today's CLAIM pill floats at REWARD_ACTION_FRAC. (A done day's ✓ is baked into
+	# the claimed card face, so no separate marker there.)
 	var act: Control = null
 	if today:
 		act = _claim_button(Kit, cw, d.get("on_claim", Callable()))
-	elif state == "done":
-		act = _sprite(Kit, ART_CHECK, cw * 0.34)
 	if act != null:
 		var wrap := CenterContainer.new()
 		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
@@ -349,10 +380,51 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 ## rim, "DAY N" at the top, the chest centred, and a sparkle in each corner.
 static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
 	var state := String(d.get("state", "future"))
+	var done := state == "done"
+	var cw := w / float(COLS)
+	# reskin: the baked wide DAY 7 sprite (chest + oak sprigs + sparkles baked; the CLAIMED face bakes its
+	# dim + ✓). Only "DAY 7" + today's CLAIM are drawn on top.
+	var cap_tex := _daily_tex("day7_claimed" if done else "day7")
+	if cap_tex == null:
+		return _capstone_drawn(Kit, d, w, h)
+
+	h = roundf(w * float(cap_tex.get_height()) / float(cap_tex.get_width()))   # keep the sprite's aspect
+	var panel := SpritePanel.build(cap_tex, Vector2(w, h))
+	panel.name = "DailyCapstone"
+	panel.custom_minimum_size = Vector2(w, h)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var inner := Control.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(inner)
+
+	# "DAY N" — pinned to the top edge.
+	var label := _cell_label(Kit, String(d.get("label", "")), cw)
+	label.anchor_left = 0.0; label.anchor_right = 1.0
+	label.anchor_top = 0.0; label.anchor_bottom = 0.0
+	label.offset_top = h * 0.06
+	label.grow_vertical = Control.GROW_DIRECTION_END
+	inner.add_child(label)
+
+	# today's CLAIM floats near the bottom (a done day's ✓ is baked into the claimed capstone face).
+	if state == "today":
+		var wrap := CenterContainer.new()
+		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
+		wrap.anchor_top = 0.86; wrap.anchor_bottom = 0.86
+		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
+		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wrap.add_child(_claim_button(Kit, cw, d.get("on_claim", Callable())))
+		inner.add_child(wrap)
+	return panel
+
+## The pre-reskin drawn capstone (kept as the fallback when the day-7 sprite is absent).
+static func _capstone_drawn(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
+	var state := String(d.get("state", "future"))
 	var panel := PanelContainer.new()
 	panel.name = "DailyCapstone"
 	panel.custom_minimum_size = Vector2(w, h)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # hold `w` (usable) and centre, leaving side margin for its rim/shadow
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var cw := w / float(COLS)
 	panel.add_theme_stylebox_override("panel", _cell_box(CELL_TODAY, cw, true))
 
@@ -360,30 +432,19 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(inner)
 
-	# "DAY N" — pinned to the top edge (overlaid, out of the flow) so it never pushes the chest off-centre.
 	var label := _cell_label(Kit, String(d.get("label", "")), cw)
 	label.anchor_left = 0.0; label.anchor_right = 1.0
 	label.anchor_top = 0.0; label.anchor_bottom = 0.0
 	label.grow_vertical = Control.GROW_DIRECTION_END
 	inner.add_child(label)
 
-	# the chest, DEAD-CENTRE of the box, flanked by the cut-paper oak sprigs sitting right beside it. The
-	# sprites carry their own colour + gold berries, so no modulate tint — they read as-is. A negative
-	# separation pulls the leaves in past the chest art's transparent side margin so they hug the chest.
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	# a small negative gutter tucks the leaves under the chest art's transparent side margin so they sit
-	# right against the visible chest.
 	row.add_theme_constant_override("separation", int(-h * 0.06))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the leaves are CROPPED to their content (see _sprite_cropped), so the visible sprig fills its control
-	# and hugs the chest — big and immediately left/right of it.
 	var sprig_l := _sprite_cropped(Kit, ART_LEAF_L, h * 0.82)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	# the chest FILLS the box as fully as possible: the art carries ~30% transparent padding, so we oversize
-	# the control (shrink-centred) and let that padding absorb the overflow — the VISIBLE chest lands ≈ the
-	# box height without the sprite spilling onto the label.
 	var chest := _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 1.02)
 	chest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chest)
@@ -396,7 +457,6 @@ static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Contr
 	row_center.add_child(row)
 	inner.add_child(row_center)
 
-	# today's CLAIM / a done ✓ — floated near the bottom, out of the centred chest's flow.
 	var mark: Control = null
 	if state == "today":
 		mark = _claim_button(Kit, cw, d.get("on_claim", Callable()))
@@ -473,6 +533,10 @@ static func _reward_art(Kit: GDScript, reward: Dictionary, px: float) -> Control
 ## One reward icon: the Direction-B cut-paper sprite when this currency has one (REWARD_ART), else the
 ## shared glyph via Kit.make_icon (a cosmetic star, or any id the pack doesn't cover).
 static func _reward_icon(Kit: GDScript, id: String, px: float) -> Control:
+	if REWARD_SKIN.has(id):
+		var t := _daily_tex(String(REWARD_SKIN[id]))
+		if t != null:
+			return _skin_sprite(t, px)
 	if REWARD_ART.has(id):
 		return _sprite(Kit, String(REWARD_ART[id]), px)
 	return Kit.make_icon(id, px)

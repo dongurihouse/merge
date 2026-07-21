@@ -1886,6 +1886,27 @@ static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
 ## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
 ## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
+# The cut-paper dialog RE-SKIN assets (extracted from the mail mock). Absent files → the drawn fallback.
+const MAIL_SKIN := "res://games/grove/assets/ui/dialogs/mail/"
+static func _mail_skin_tex(key: String) -> Texture2D:
+	var p := MAIL_SKIN + key + ".png"
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
+
+## A reskinned action button: the extracted GREEN/CREAM cut-paper button background with the label drawn
+## on top (TextSpriteButton), sized to the label. Returns null when the sprite is absent so callers fall
+## back to pill_button. `color_key` is "green" or "cream".
+static func _skin_button(text: String, color_key: String, font_px: int) -> Button:
+	var tex := _mail_skin_tex("btn_" + color_key)
+	if tex == null:
+		return null
+	var TSB = load("res://engine/scripts/ui/text_sprite_button.gd")
+	var h := roundf(font_px * 2.0)
+	var w := roundf(text.length() * font_px * 0.62 + font_px * 2.0)
+	var col: Color = Pal.CREAM if color_key == "green" else Pal.INK   # cream on green, ink on cream
+	var b: Button = TSB.build(tex, text, Vector2(w, h), Callable(), {"font": font_px, "color": col, "name": "SkinButton"})
+	b.mouse_filter = Control.MOUSE_FILTER_STOP   # the caller wires `.pressed`
+	return b
+
 static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: int = FS.FINE, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
 	# The row panel is a plain flat paper surface — the SAME cut-paper construction the buttons/chips wear
 	# (a cream fill + thin PAPER_EDGE hairline + a texture_cream grain layer), matching the mocks' clean
@@ -1972,12 +1993,15 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 		else:
 			# the big green Claim — the shared pill_button pushed up a font tier + a roomier pad/corner
 			# (mock v1's Claim reads much larger than the small reward cards beside it).
-			var claim_opts := btn_opts.duplicate()
-			claim_opts["bg"] = "green"
-			claim_opts["font"] = int(btn_opts.get("card_claim_font", maxi(FS.BODY, title_font)))   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
-			claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
-			claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
-			var claim := pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
+			var claim_font := int(btn_opts.get("card_claim_font", maxi(FS.BODY, title_font)))
+			var claim := _skin_button(String(btn_opts.get("text", "Claim")), "green", claim_font)   # reskin: green cut-paper button bg + label
+			if claim == null:
+				var claim_opts := btn_opts.duplicate()
+				claim_opts["bg"] = "green"
+				claim_opts["font"] = claim_font   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
+				claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
+				claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
+				claim = pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
 			claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			var on_claim: Callable = entry.get("on_claim", Callable())
 			if on_claim.is_valid():
@@ -2126,9 +2150,25 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ## the whole dialog reads as one clean cut-paper stack. A soft sage fill + a thin PAPER_EDGE hairline +
 ## the shared drop shadow, matching the mail cards + the daily cells. The old kit/mail_card.png nine-patch
 ## (an embossed border + a pink underline artifact) is retired. (`_unused` kept for call-site compatibility.)
+const SETTINGS_ROW_TEX := "res://games/grove/assets/ui/dialogs/settings/settings_row.png"
 static func _row_panel(_unused: bool = true) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# RESKIN: the baked cut-paper sage row sprite, 9-sliced so the rounded caps hold while the middle
+	# stretches to the row width. Falls back to the drawn sage box when the sprite is absent.
+	if ResourceLoader.exists(SETTINGS_ROW_TEX):
+		var rtex := load(SETTINGS_ROW_TEX) as Texture2D
+		var st := StyleBoxTexture.new()
+		st.texture = rtex
+		var cap := float(rtex.get_height()) * 0.5   # the pill's rounded end
+		st.texture_margin_left = cap
+		st.texture_margin_right = cap
+		st.texture_margin_top = float(rtex.get_height()) * 0.35
+		st.texture_margin_bottom = float(rtex.get_height()) * 0.35
+		st.content_margin_left = 26; st.content_margin_right = 22
+		st.content_margin_top = 22; st.content_margin_bottom = 22   # chunkier rows, matching the mock
+		panel.add_theme_stylebox_override("panel", st)
+		return panel
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color("#DCE7C8")          # a soft sage, distinct from the cream sheet, in the daily-cell family
 	s.border_color = PAPER_EDGE
@@ -2723,14 +2763,17 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	var claim_all_cb: Callable = opts.get("on_claim_all", Callable())
 	var claim_all_text := String(opts.get("claim_all_text", ""))
 	if claim_all_cb.is_valid() and claim_all_text != "":
-		var ca_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
-		ca_opts["bg"] = "green"
-		ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
-		ca_opts["font"] = int(opts.get("claim_all_font", FS.HEADING))
-		ca_opts["shadow"] = true
-		ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
-		ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
-		var ca := pill_button(claim_all_text, ca_opts)
+		var ca_font := int(opts.get("claim_all_font", FS.HEADING))
+		var ca := _skin_button(claim_all_text, "green", ca_font)   # reskin: green cut-paper button bg + label
+		if ca == null:
+			var ca_opts: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+			ca_opts["bg"] = "green"
+			ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
+			ca_opts["font"] = ca_font
+			ca_opts["shadow"] = true
+			ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
+			ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
+			ca = pill_button(claim_all_text, ca_opts)
 		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ca.pressed.connect(func() -> void: claim_all_cb.call())
 		opts = opts.duplicate()

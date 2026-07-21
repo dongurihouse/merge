@@ -227,6 +227,27 @@ const PILL_GREEN := Color("#5C8A57")  # the price pill
 const CARD_CORNER := 18.0
 const GRID_GAP := 14.0
 
+# Cut-paper RE-SKIN textures (extracted from the shop mock): the blank green button and the empty card
+# frames at their three sizes. Worn as a 9-sliced StyleBoxTexture so a card/button stretches to any size
+# with crisp torn corners. Absent files fall back to the drawn flat styleboxes.
+const SKIN_DIR := "res://games/grove/assets/ui/dialogs/shop/"
+static func _skin_tex(key: String) -> Texture2D:
+	var p := SKIN_DIR + key + ".png"
+	return load(p) as Texture2D if ResourceLoader.exists(p) else null
+
+## A 9-sliced StyleBoxTexture from a cut-paper frame sprite: the corner caps (frac of the texture) stay
+## crisp while the middle stretches. `pad` sets the inner content margins (px, in design space).
+static func _tex_box(tex: Texture2D, pad_x: float, pad_y: float, cap_frac := 0.30) -> StyleBoxTexture:
+	var st := StyleBoxTexture.new()
+	st.texture = tex
+	var mx := tex.get_width() * cap_frac
+	var my := tex.get_height() * cap_frac
+	st.texture_margin_left = mx; st.texture_margin_right = mx
+	st.texture_margin_top = my; st.texture_margin_bottom = my
+	st.content_margin_left = pad_x; st.content_margin_right = pad_x
+	st.content_margin_top = pad_y; st.content_margin_bottom = pad_y
+	return st
+
 # The whole scrolling body: each section's header + offer grid.
 static func _build_body(refs: Dictionary) -> Control:
 	return build_body(refs.kit, refs.inner, _sections(refs), shop_layout(refs.get("cfg", {})))
@@ -304,14 +325,22 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 	var h: float = w * (0.26 if wide else 0.54)
 	var card := PanelContainer.new()
 	card.name = "ShopOfferCard"
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = SAGE
-	sb.set_corner_radius_all(int(float(lay.get("corner", CARD_CORNER))))
 	var pad: float = float(lay.get("card_pad", 12))
-	sb.content_margin_left = pad; sb.content_margin_right = pad
-	sb.content_margin_top = pad * 0.67; sb.content_margin_bottom = pad * 0.67
-	_mock_shadow(sb)
-	card.add_theme_stylebox_override("panel", sb)
+	# reskin: the baked cut-paper card frame for this card's size — wide (Free refill), tall (titled
+	# Quick-help pair), or landscape pouch (Acorn pouches) — 9-sliced so it stretches without distorting
+	# the torn corners. Falls back to the drawn sage stylebox.
+	var card_key := "card_wide" if wide else ("card_tall" if String(d.get("title", "")) != "" else "card_pouch")
+	var card_tex := _skin_tex(card_key)
+	if card_tex != null:
+		card.add_theme_stylebox_override("panel", _tex_box(card_tex, pad, pad * 0.67))
+	else:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = SAGE
+		sb.set_corner_radius_all(int(float(lay.get("corner", CARD_CORNER))))
+		sb.content_margin_left = pad; sb.content_margin_right = pad
+		sb.content_margin_top = pad * 0.67; sb.content_margin_bottom = pad * 0.67
+		_mock_shadow(sb)
+		card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(w, h)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -348,17 +377,21 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		textcol.add_child(nl)
 	var pill := _price_pill(Kit, d)
+	# a textured pill keeps its OWN aspect (set in _price_pill) — skip the stretch-to-column overrides.
+	var pill_textured := pill != null and pill.has_meta("shop_textured")
 	if pill != null and wide:
 		# a WIDE single-product card lays out as the mock's one row: art left · the amount
 		# centred in the open middle · the green CTA docked at the right edge.
 		body.add_child(textcol)
 		pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pill.custom_minimum_size.x = 230.0
+		if not pill_textured:
+			pill.custom_minimum_size.x = 230.0
 		body.add_child(pill)
 	else:
 		if pill != null:
 			# the CTA spans the card's right column (mock: the green slab owns the bottom-right half)
-			pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if not pill_textured:
+				pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			textcol.add_child(pill)
 		body.add_child(textcol)
 	# a TITLED card (the mock's Quick-help pair) heads itself with a small centred navy caps line
@@ -398,15 +431,36 @@ static func _price_pill(Kit: GDScript, d: Dictionary) -> Button:
 	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
 	b.add_theme_constant_override("outline_size", 0)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = PILL_GREEN
-	sb.set_corner_radius_all(16)
-	sb.content_margin_left = 20; sb.content_margin_right = 20
-	sb.content_margin_top = 14; sb.content_margin_bottom = 14
-	_mock_shadow(sb)
-	for st in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(st, sb)
-	b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
+	# reskin: the baked green cut-paper button texture. It is NOT 9-sliced — the whole button scales
+	# uniformly, keeping its own aspect ratio (no squish, no repeated middle). So the button is sized to
+	# the texture's aspect and is NOT stretched across its column (the callers skip that for a textured
+	# pill). Falls back to the flat green pill.
+	var btn_tex := _skin_tex("button_green")
+	var sb: StyleBox
+	if btn_tex != null:
+		var st := StyleBoxTexture.new()
+		st.texture = btn_tex   # no texture_margin_* → the whole image scales to the button rect
+		st.content_margin_left = 20; st.content_margin_right = 20
+		st.content_margin_top = 14; st.content_margin_bottom = 14
+		sb = st
+	else:
+		var fb := StyleBoxFlat.new()
+		fb.bg_color = PILL_GREEN
+		fb.set_corner_radius_all(16)
+		fb.content_margin_left = 20; fb.content_margin_right = 20
+		fb.content_margin_top = 14; fb.content_margin_bottom = 14
+		_mock_shadow(fb)
+		sb = fb
+	for st2 in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st2, sb)
+	if btn_tex != null:
+		# lock the button to the texture's aspect so scaling never distorts it
+		var ph := 76.0
+		b.custom_minimum_size = Vector2(roundf(ph * float(btn_tex.get_width()) / float(btn_tex.get_height())), ph)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		b.set_meta("shop_textured", true)
+	else:
+		b.custom_minimum_size = Vector2(0, 76)   # a real slab (mock): the caller stretches it across its column
 	# a 💎/🪙-priced CTA carries its currency glyph beside the number (the USD packs print the price alone).
 	if icon_id != "":
 		var h := HBoxContainer.new()

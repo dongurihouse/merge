@@ -5,6 +5,7 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
 const InboxUI = preload("res://engine/scripts/ui/inbox.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 
 var _pass := 0
@@ -191,7 +192,7 @@ func _initialize() -> void:
 		await process_frame
 	var overlay: Control = null
 	for c in host.get_children():
-		if c is Control and (c as Control).z_index == 100:
+		if c is Control and (c as Control).z_index == Overlay.MODAL_Z:
 			overlay = c
 	ok(overlay != null, "opening the mailbox adds a z=100 modal overlay")
 	var claim := _find_claim(host)
