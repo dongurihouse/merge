@@ -1,5 +1,0 @@
-Use case: stylized-concept. Asset type: reusable world-object cutout for a vertical mobile game.
-Reference: desert_oasis_original_mock_v1.png controls this canopy's elevated three-quarter camera, scale, palette, and paper material only.
-Create exactly one lower-left tea canopy: simple open dark-wood four-post canopy, broad muted-blue fabric roof, rectangular muted-rust and slate woven rug beneath it, attached low round wooden tea table with brass teapot and cup, two attached floor cushions in muted slate-blue and warm rust. Low complexity. The rug is part of the object. No surroundings, plants, sand, ground, shadow, or scene. Do not use magenta, fuchsia, violet, or purple in subject.
-Style: Meadow Sky + Cut-Paper Playground: matte hand-cut cardstock, broad rounded low-complexity silhouettes, one flat base color plus at most one same-hue shadow plane, subtle 2-4% paper fiber, fine warm cut edge, thin locally darker edge, upper-left light, no painterly/3D/glossy/plastic look, no text.
-Full silhouette with generous padding and bottom-center anchor. Perfectly flat #FF00FF background, no gradients or shadows.

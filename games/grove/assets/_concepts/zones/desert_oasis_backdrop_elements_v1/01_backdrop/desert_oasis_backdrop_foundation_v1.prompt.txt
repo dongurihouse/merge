@@ -1,7 +1,0 @@
-Use the original Desert Oasis mock as the precise composition target. Remove every
-foreground object and retain only the true opaque foundation: blue sky, three cream
-paper clouds, distant blue mountains, layered golden dunes, continuous sandy ground,
-the winding stepping-stone path, and the central turquoise pond with stone rim and
-lily pads. Preserve the composition, pond footprint, horizon, palette, paper grain,
-and Meadow Sky + Cut-Paper Playground material language. No props, plants, characters,
-structures, object shadows, UI, text, labels, watermark, or empty prop-shaped pads.

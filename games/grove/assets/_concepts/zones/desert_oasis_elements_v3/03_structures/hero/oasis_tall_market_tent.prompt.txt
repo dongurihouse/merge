@@ -1,5 +1,0 @@
-Use case: stylized-concept. Asset type: reusable world-object cutout for a vertical mobile game.
-Reference: desert_oasis_original_mock_v1.png controls this tent's elevated three-quarter camera, scale, palette, and paper material only.
-Create exactly one tall blue-and-warm-cream striped market tent: a conical striped canopy with a small gold cap, one open cream-curtain doorway, short attached wooden steps, restrained teal side fabric, and two or three attached blue patterned amphora pots. Low complexity. No surroundings, plants, sand, ground, shadow, or scene.
-Style: Meadow Sky + Cut-Paper Playground: matte hand-cut cardstock, broad rounded low-complexity silhouettes, one flat base color plus at most one same-hue shadow plane, subtle 2-4% paper fiber, fine warm cut edge, thin locally darker edge, upper-left light, no painterly/3D/glossy/plastic look, no text.
-Full silhouette with generous padding and bottom-center anchor. Perfectly flat #FF00FF background, no gradients or shadows, no magenta in subject.
