@@ -414,18 +414,26 @@ func _build_map(animate := true) -> void:
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(holder)
+	var _coverup := bool(G.MAPS[_map_idx].get("coverup_mode", false))
+	var _cov_z := _map_idx
+	var _cov_unlocks := unlocks
+	var _locked_cb := func(cl: String) -> bool: return G.cluster_locked(_cov_z, cl, _cov_unlocks)
 	var built := HomeZoneView.build(holder, manifest, Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
-		G.MAPS[_map_idx].get("covering_frames", []))
-	_zone_coverings = built.coverings   # id → covering group, revealed away on the plot's first buy
+		G.MAPS[_map_idx].get("covering_frames", []), _coverup, _locked_cb)
+	_zone_coverings = built.coverings   # id → covering group, revealed away on unlock
+	_zone_badges = built.badges         # coverup pages: cluster id → its lock badge
 	# fit the native canvas into the cover-filled map rect (uniform scale keeps the cut-paper aspect).
 	var stage: Control = built.stage
 	var native: Vector2 = built.canvas
 	var factor := maxf(_map_rect.size.x / native.x, _map_rect.size.y / native.y)
 	stage.scale = Vector2.ONE * factor
 	stage.position = _map_rect.position + (_map_rect.size - native * factor) * 0.5
-	# register each build badge as a tap hit (k = -1 sentinel; the building id rides the node meta).
+	# register each build/lock badge as a tap hit (k = -1 sentinel; the building/cluster id rides the meta).
 	for id in built.badges:
 		spot_hits.append({"node": built.badges[id], "z": _map_idx, "k": -1, "building": String(id)})
+	# coverup pages: only the next-in-order locked cluster reads READY and keeps a live tap target.
+	if _coverup:
+		_apply_coverup_sequence()
 
 	# ambient life — the wanderers ARE the placed residents (the §1 population sub-game): one sprite per
 	# placed spirit, empty until something is placed.
@@ -469,7 +477,8 @@ func _add_page_arrows() -> void:
 # PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
 # (assets/map/pages/zone_<id>.json); the farmhouse manifest is the legacy fallback.
 var _home_manifest_cache: Dictionary = {}   # path -> parsed manifest
-var _zone_coverings: Dictionary = {}        # building id -> its locked-plot covering group (this page)
+var _zone_coverings: Dictionary = {}        # building id (or cluster id, coverup pages) -> its covering group
+var _zone_badges: Dictionary = {}           # cluster id -> its lock badge node (coverup pages)
 func _home_manifest() -> Dictionary:
 	return _page_manifest(_map_idx)
 
@@ -564,6 +573,14 @@ func _map_title_plank(z: int) -> Control:
 	# the GREEN fill bar inside the groove, clipped to the restore progress fraction (claimed / total spots).
 	var total: int = G.MAPS[z].spots.size()
 	var owned := owned_count(z)
+	if bool(G.MAPS[z].get("coverup_mode", false)):
+		# coverup pages count CLUSTERS restored, not legacy spots.
+		var cl: Array = G.clusters(z)
+		total = cl.size()
+		owned = 0
+		for c in cl:
+			if unlocks.has(String((c as Dictionary).id)):
+				owned += 1
 	var left := total - owned
 	var frac := 1.0 if total <= 0 else clampf(float(owned) / float(total), 0.0, 1.0)
 	if map_spots_done(z):
@@ -1745,7 +1762,10 @@ func _map_tap(gpos: Vector2) -> void:
 		if n == null or not is_instance_valid(n):
 			continue
 		if n.get_global_rect().grow(24.0).has_point(gpos):
-			_on_build_tap(String(hit.get("building", "")), n, gpos)
+			if bool(G.MAPS[_map_idx].get("coverup_mode", false)):
+				_on_cluster_tap(String(hit.get("building", "")), n, gpos)
+			else:
+				_on_build_tap(String(hit.get("building", "")), n, gpos)
 			return
 	# a wandering spirit? a tap earns a hop (pure charm, v1)
 	var amb: Control = content.get_node_or_null("AmbientLayer")
@@ -1759,6 +1779,52 @@ func _map_tap(gpos: Vector2) -> void:
 					Ambient.hop(spc)
 					Audio.play("button_tap", -8.0)
 				return
+
+# --- market cover-up cluster unlocks -----------------------------------------------------
+
+# Coverup pages: only the NEXT-in-order locked cluster may read READY (and only when its gate is met);
+# every other locked cluster stays dim, and only the ready one keeps a live tap target.
+func _apply_coverup_sequence() -> void:
+	var LB: GDScript = load("res://engine/scripts/ui/lock_badge.gd")
+	var next_id := G.next_locked_cluster(_map_idx, unlocks)
+	var lvl := G.level()
+	var wallet := Save.coins()
+	for id_v in _zone_badges.keys():
+		var id := String(id_v)
+		LB.set_ready(_zone_badges[id], G.cluster_ready(_map_idx, id, unlocks, lvl, wallet))
+	var kept: Array = []
+	for hit in spot_hits:
+		var bid := String(hit.get("building", ""))
+		if bid == "" or bid == next_id:
+			kept.append(hit)
+	spot_hits = kept
+
+# Tap a cluster's lock badge: if it is the ready next-in-sequence cluster, spend its cost, record the
+# unlock, reveal its canopy away, and rebuild. A not-ready tap just wobbles.
+func _on_cluster_tap(cluster_id: String, node: Control, at: Vector2) -> void:
+	if cluster_id == "":
+		return
+	if not G.cluster_ready(_map_idx, cluster_id, unlocks, G.level(), Save.coins()):
+		Audio.play("invalid_soft", -4.0)
+		FX.wobble(node)
+		var need_lvl := G.cluster_min_level(_map_idx, cluster_id)
+		if G.level() < need_lvl:
+			FX.floating_text(self, at - Vector2(120, 64), Strings.t("map.spot.needs_level") % need_lvl, Color(CREAM, 0.9), FS.HEADING)
+		return
+	if not Save.spend(G.cluster_cost(_map_idx, cluster_id), "market_unlock"):
+		Audio.play("invalid_soft", -4.0)
+		FX.wobble(node)
+		return
+	unlocks[cluster_id] = true
+	FX.burst(self, at, STRAW, 18)
+	Audio.play("level_complete", -6.0, 1.2)
+	# reveal the cluster's canopy away, reparented to the scene first so the rebuild below can't cut it short.
+	SceneCoverings.reveal(_zone_coverings.get(cluster_id), self)
+	_zone_coverings.erase(cluster_id)
+	_persist()
+	_build_map(false)
+	_refresh_play_cta()
+	_update_hud()
 
 # --- building a building, right on the map image -----------------------------------------
 
@@ -1898,7 +1964,8 @@ func _refresh_play_cta() -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
-	var ready := _unlock_ready()
+	# coverup pages carry per-cluster lock icons ON the map, so the bottom CTA never flips to RESTORE.
+	var ready := _unlock_ready() and not bool(G.MAPS[_map_idx].get("coverup_mode", false))
 	var wrap := _play_btn.get_meta("icon_wrap", null) as Control
 	if wrap != null:
 		for c in wrap.get_children():

@@ -950,6 +950,46 @@ static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
 			return z
 	return -1
 
+# --- market cover-up clusters (fairy_hollow_market) --------------------------------
+## A strict bottom-up unlock sequence over the scene's authored coverup layer. State persists in
+## `unlocks` keyed by cluster id (the same save dict the spot/gate system uses). The gate mirrors the
+## old progression: a level floor + a coin cost per cluster (MAPS[z].clusters, bottom-up order).
+static func clusters(z: int) -> Array:
+	if z < 0 or z >= MAPS.size():
+		return []
+	return MAPS[z].get("clusters", [])
+
+static func _cluster_def(z: int, cluster_id: String) -> Dictionary:
+	for c in clusters(z):
+		if String((c as Dictionary).id) == cluster_id:
+			return c
+	return {}
+
+static func cluster_locked(z: int, cluster_id: String, unlocks: Dictionary) -> bool:
+	return not unlocks.has(cluster_id)
+
+static func next_locked_cluster(z: int, unlocks: Dictionary) -> String:
+	for c in clusters(z):
+		var id := String((c as Dictionary).id)
+		if not unlocks.has(id):
+			return id
+	return ""
+
+static func cluster_cost(z: int, cluster_id: String) -> int:
+	return int(_cluster_def(z, cluster_id).get("cost", 0))
+
+static func cluster_min_level(z: int, cluster_id: String) -> int:
+	return int(_cluster_def(z, cluster_id).get("min_level", 1))
+
+## READY = it is the NEXT locked cluster in order AND its gate is met (level floor + affordable).
+static func cluster_ready(z: int, cluster_id: String, unlocks: Dictionary, level: int, coins: int) -> bool:
+	if cluster_id != next_locked_cluster(z, unlocks):
+		return false
+	var d := _cluster_def(z, cluster_id)
+	if d.is_empty():
+		return false
+	return level >= int(d.get("min_level", 1)) and coins >= int(d.get("cost", 0))
+
 # --- sell / economy formulas ------------------------------------------------------
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
 ## for its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more). There is NO
