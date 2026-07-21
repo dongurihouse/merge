@@ -222,9 +222,6 @@ func _default_params() -> Dictionary:
 		# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 		"badge": {"defringe": false, "shadow": false, "feather": 0},
-		# the gold-badge SKIN knobs — no longer a standalone Workbench tile, but still the shared skin config
-		# read by board (legacy "badge" frame), info_bar (paper fallback), the currency pill, and the rush bar.
-		"gold_badge": {"inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
 		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
 			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 			"amount_w": 88, "num_size": 30, "amount_x": 0,
@@ -380,7 +377,6 @@ func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var base := Kit.gold_currency_pill_opts_from_config({
 		"gold_currency_pill": p,
-		"gold_badge": _params["gold_badge"],
 		"shadow": _params["shadow"],
 	})
 	for sample in [
@@ -800,7 +796,7 @@ func _action_bar_preview() -> Control:
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_action_bar_clear_button_frame(home_btn)
 	row.add_child(home_btn)
-	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
+	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "shadow": _params["shadow"]})
 	var ib: PanelContainer = Kit.info_bar({}, io)
 	ib.name = "ActionBarPreviewInfoBar"
 	ib.custom_minimum_size.x = 1.0
@@ -917,7 +913,6 @@ func _shadow_preview() -> Control:
 	# a live currency pill (the wallet builder)
 	var popts := Kit.gold_currency_pill_opts_from_config({
 		"gold_currency_pill": _params["gold_currency_pill"],
-		"gold_badge": _params["gold_badge"],
 		"shadow": _params["shadow"],
 	})
 	popts["icon"] = "water"
@@ -960,7 +955,7 @@ func _make_board_preview() -> Control:
 
 	# the board frame + its drop shadow — the SHARED Kit.board_panel, the SAME builder the live board uses,
 	# so this preview shows the ACTUAL border (the gold badge skin, or the code-drawn depth border per the knobs).
-	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p, "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})))
+	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p, "shadow": _params["shadow"]})))
 
 	# the wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style. Preview the
 	# board's outer locked/frontier cells too, so Slot-cell locked-background knobs are visible on Board.
@@ -1500,7 +1495,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
 			_group_header("Saved to config", true)
 			_section_header("Frame")
-			_sidebar_body.add_child(_option_row("Style", "frame_style", ["meadow", "badge", "code"]))
+			_sidebar_body.add_child(_option_row("Style", "frame_style", ["meadow", "code"]))
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
 			_section_header("Code border (when Style = code)")
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width

@@ -736,7 +736,6 @@ func _shared_bar_opts() -> Dictionary:
 	var cfg := Kit.load_config(SETTINGS)
 	return Kit.rush_bar_opts_from_config({
 		"rush_bar": cfg.get("rush_bar", {}),
-		"gold_badge": cfg.get("gold_badge", {}),
 	})
 
 ## Build the live element for an id from its current params.
