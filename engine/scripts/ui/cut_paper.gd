@@ -26,8 +26,13 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 @export var draw_shadow: bool = true
 var paper_tex: Texture2D = null
 
-# soft drop shadow: a few dark deckled copies dropped down and fading (fakes a blur)
-const SHADOW := [{"dy": 3.0, "a": 0.14}, {"dy": 7.0, "a": 0.10}, {"dy": 11.0, "a": 0.06}]
+# soft drop shadow: a DENSE stack of dark deckled copies dropped down 1px at a time, each at low alpha.
+# Densely spaced (1px steps) so the copies OVERLAP and accumulate into one smooth gradient — nearer rows
+# sit under more copies and read darker, the far fringe fades out. A sparse few-copy stack (3/7/11px)
+# instead shows as discrete stepped bands on small elements (a button), so keep the step ≈ 1px.
+const SHADOW_DROP := 10.0    # how far the softest fringe reaches below the sheet (px)
+const SHADOW_STEPS := 10     # copies in the stack — step = SHADOW_DROP / SHADOW_STEPS ≈ 1px
+const SHADOW_ALPHA := 0.05   # per-copy alpha; overlap accumulates to ~0.20 at the fully-covered top
 
 func _ready() -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED   # so the paper UVs (> 1) tile instead of clamp
@@ -65,11 +70,15 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
 	if draw_shadow:
-		for s in SHADOW:
+		# farthest copy first, nearest last — overlap darkens the top, fringe fades at the bottom
+		var step := SHADOW_DROP / float(SHADOW_STEPS)
+		var sh := Look.shadow_color(SHADOW_ALPHA)
+		for i in range(SHADOW_STEPS, 0, -1):
+			var dy := step * float(i)
 			var off := PackedVector2Array()
 			for p in pts:
-				off.append(p + Vector2(0.0, float(s["dy"])))
-			draw_colored_polygon(off, Look.shadow_color(float(s["a"])))
+				off.append(p + Vector2(0.0, dy))
+			draw_colored_polygon(off, sh)
 	if paper_tex != null:
 		var tp := paper_tex.get_size()
 		var uvs := PackedVector2Array()
