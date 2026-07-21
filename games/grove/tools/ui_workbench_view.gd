@@ -202,7 +202,9 @@ func _default_params() -> Dictionary:
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
 		"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
 		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto",
-			"paper": "none", "border": true, "pad_scale": 100, "static": false},
+			"paper": "none", "border": true, "pad_scale": 100, "static": false,
+			# the CODE-DRAWN rugged edge (like the frame): on by default. deckle_freq is a % the kit ÷100.
+			"deckle": true, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2},
 		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
 		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
@@ -1533,6 +1535,14 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS))
 			_sidebar_body.add_child(_slider_row(["icon_size", 8, 60]))
 			_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
+			_section_header("Rugged edge (code-drawn)")
+			_sidebar_body.add_child(_toggle_row("Rugged edge", "deckle", true))   # rebuilds the sidebar to show the deckle sliders
+			if bool(_params["button"].get("deckle", true)):
+				_sidebar_body.add_child(_slider_row(["corner", 0, 40]))       # deckle corner radius (px)
+				_sidebar_body.add_child(_slider_row(["deckle_amp", 0, 20]))   # torn-edge bump height (px)
+				_sidebar_body.add_child(_slider_row(["deckle_freq", 1, 20]))  # torn-edge frequency (%, kit ÷100)
+				_sidebar_body.add_child(_slider_row(["rim_width", 0, 8]))     # warm cut-edge line thickness (px)
+			_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))         # the panel's own shape-true drop shadow
 			_section_header("Paper-cut surface (overrides bg/art)")
 			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
 			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button

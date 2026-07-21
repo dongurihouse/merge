@@ -40,7 +40,11 @@
  "button": {
   "art": true,
   "font": 28.0,
-  "shadow": true
+  "shadow": true,
+  "deckle": true,
+  "deckle_amp": 5,
+  "deckle_freq": 5,
+  "rim_width": 2
  },
  "card": {
   "badge": "auto",
