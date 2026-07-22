@@ -29,7 +29,8 @@ func _initialize() -> void:
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
 	_level_dialog_art_has_baked_polish_mirrors()
-	_level_dialog_reuses_silhouette_shadow_textures_between_opens()
+	_level_dialog_reuses_sprite_shadow_textures_between_opens()
+	_level_dialog_uses_visible_fast_sprite_shadows()
 	finish()
 
 ## The shared daily card FACE (Kit.daily_card_face) — the code-drawn cut-paper card BOTH the workbench daily
@@ -226,11 +227,11 @@ func _level_dialog_uses_shared_progress_bar_with_runtime_shadows() -> void:
 	var tally_shadow := _find_named(dialog, "LevelTallyPillShadow")
 	var fill_shadow := _find_named(dialog, "LevelProgressFillShadow")
 	ok(plaque_shadow != null,
-		"level dialog plaque casts the runtime silhouette shadow")
+		"level dialog plaque casts the runtime sprite shadow")
 	ok(number != null and number.has_theme_color_override("font_shadow_color"),
 		"level dialog number casts its own text shadow inside the plaque")
 	ok(tally_shadow != null,
-		"level dialog x/y earned pill casts the runtime silhouette shadow")
+		"level dialog x/y earned pill casts the runtime sprite shadow")
 	ok(fill_shadow != null,
 		"level dialog uses the shared progress bar fill-shadow layer")
 	dialog.free()
@@ -245,7 +246,7 @@ func _level_dialog_art_has_baked_polish_mirrors() -> void:
 		ok(ResourceLoader.exists(baked),
 			"level dialog art is pre-baked for first-open speed: %s@%d" % [rel, cap])
 
-func _level_dialog_reuses_silhouette_shadow_textures_between_opens() -> void:
+func _level_dialog_reuses_sprite_shadow_textures_between_opens() -> void:
 	var cfg := {
 		"level": {"med_size": 100.0, "med_dy": 0.0, "earned_size": 100.0, "earned_dy": 0.0,
 			"bar_size": 100.0, "bar_dy": 0.0, "hint_size": 100.0, "hint_dy": 0.0},
@@ -264,11 +265,43 @@ func _level_dialog_reuses_silhouette_shadow_textures_between_opens() -> void:
 	var tally_a := _find_named(first, "LevelTallyPillShadow") as TextureRect
 	var tally_b := _find_named(second, "LevelTallyPillShadow") as TextureRect
 	ok(plaque_a != null and plaque_b != null and plaque_a.texture == plaque_b.texture,
-		"level dialog reuses the plaque silhouette shadow texture between opens")
+		"level dialog reuses the plaque shadow texture between opens")
 	ok(tally_a != null and tally_b != null and tally_a.texture == tally_b.texture,
-		"level dialog reuses the x/y earned pill silhouette shadow texture between opens")
+		"level dialog reuses the x/y earned pill shadow texture between opens")
 	first.free()
 	second.free()
+
+func _level_dialog_uses_visible_fast_sprite_shadows() -> void:
+	var cfg := {
+		"level": {"med_size": 100.0, "med_dy": 0.0, "earned_size": 100.0, "earned_dy": 0.0,
+			"bar_size": 100.0, "bar_dy": 0.0, "hint_size": 100.0, "hint_dy": 0.0},
+		"progress_bar": {"height": 30.0, "art": true, "shadow": true, "star_knob": false},
+		"frame": {"width_pct": 75.0},
+	}
+	var dialog := LevelPopup._sheet(540.0, {
+		"level": 4, "earned": 176, "next": 192, "into": 176, "span": 192,
+		"remaining": 16, "mode": "info", "gift": {}, "on_button": Callable(),
+		"frame_cfg": cfg})
+	var plaque := _find_named(dialog, "LevelPlaque") as TextureRect
+	var plaque_shadow := _find_named(dialog, "LevelPlaqueShadow") as TextureRect
+	var tally := _find_named(dialog, "LevelTallyPill") as TextureRect
+	var tally_shadow := _find_named(dialog, "LevelTallyPillShadow") as TextureRect
+	var number := _find_named(dialog, "LevelNumber") as Label
+	ok(plaque != null and plaque_shadow != null and plaque_shadow.texture == plaque.texture,
+		"level plaque shadow reuses the plaque texture instead of baking a new ImageTexture on open")
+	ok(plaque != null and plaque_shadow != null and plaque_shadow.position.y - plaque.position.y >= 7.0
+		and plaque_shadow.self_modulate.a >= 0.34,
+		"level plaque shadow has a visible downward cast")
+	ok(tally != null and tally_shadow != null and tally_shadow.texture == tally.texture,
+		"earned pill shadow reuses the pill texture instead of baking a new ImageTexture on open")
+	ok(tally != null and tally_shadow != null and tally_shadow.position.y - tally.position.y >= 5.0
+		and tally_shadow.self_modulate.a >= 0.34,
+		"earned pill shadow has a visible downward cast")
+	ok(number != null and number.get_theme_constant("shadow_offset_y") >= 4
+		and number.get_theme_constant("shadow_outline_size") >= 2
+		and number.get_theme_color("font_shadow_color").a >= 0.34,
+		"level number has a visibly offset text shadow")
+	dialog.free()
 
 func _mail_claim_all_footer_is_transparent() -> void:
 	var dialog := Kit.mail_dialog(
