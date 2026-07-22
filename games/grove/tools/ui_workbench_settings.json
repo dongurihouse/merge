@@ -45,8 +45,13 @@
 		"cost_scale": 100.0,
 		"cost_x": 0.0,
 		"cost_y": -3.0,
+		"item_shadow_alpha": 28.0,
+		"item_shadow_blur": 10.0,
+		"item_shadow_spread": -3.0,
+		"item_shadow_x": 0.0,
+		"item_shadow_y": 7.0,
 		"level_frac": 37.0,
-		"shadow": false
+		"shadow": true
 	},
 	"board": {
 		"frame": 16.0,
