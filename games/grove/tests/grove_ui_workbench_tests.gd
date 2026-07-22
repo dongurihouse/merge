@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_live_corner_edit_reaches_shared_buttons()
 	_live_rim_color_edit_reaches_shared_buttons()
 	_white_role_builds_with_white_tile()
+	_shared_frame_uses_white_tile()
 	_daily_card_face_tones()
 	_daily_card_uses_face_only_for_daily()
 	_mail_claim_all_footer_is_transparent()
@@ -213,4 +214,20 @@ func _white_role_builds_with_white_tile() -> void:
 	ok(d != null and (d.paper_color as Color).r > 0.95 and (d.paper_color as Color).g > 0.95 and (d.paper_color as Color).b > 0.95,
 		"the white role fills near-white")
 	b.free()
+	Kit.clear_config_cache()
+
+## The shared dialog frame's deckled sheet uses the white paper fibre, not the warmer cream tile.
+func _shared_frame_uses_white_tile() -> void:
+	Kit.clear_config_cache()
+	var white_tile := load(Kit.CUT_PAPER_TILE_WHITE)
+	var body := Label.new()
+	body.text = "Body"
+	var opts := Kit.dialog_opts_from_config({"frame": {"deckle": true}})
+	var dialog := Kit.dialog_frame(body, 420.0, opts)
+	var sheet := _find_named(dialog, "CutPaperSheet")
+	ok(sheet != null and (sheet.paper_tex as Texture2D) == white_tile,
+		"the shared frame deckle uses the white paper tile, not the cream one")
+	ok(sheet != null and (sheet.paper_color as Color).r > 0.95 and (sheet.paper_color as Color).g > 0.95 and (sheet.paper_color as Color).b > 0.95,
+		"the shared frame fill is near-white")
+	dialog.free()
 	Kit.clear_config_cache()
