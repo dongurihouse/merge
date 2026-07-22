@@ -292,6 +292,11 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	body.add_child(_section_label(Kit, "Habitat cells"))
 	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
 	bag_opts["dialog_cells"] = true   # this is a DIALOG's grid → the shared sage cell face, not the board's mint
+	# the empty (available) + locked cells are the shared code-drawn TORN CELL component (the same one the
+	# bag dialog + workbench use) — torn_cell_opts carries its knobs, torn_cells flips slot_cell onto it.
+	var torn_opts: Dictionary = bag_opts.duplicate(true)
+	torn_opts.merge(Kit.torn_cell_opts_from_config(cfg), true)
+	torn_opts["torn_cells"] = true
 	var placed: Array = Bucket.placed()
 	var cells_total: int = Bucket.cells_total()
 	var slots: int = maxi(HABITAT_SLOTS_SHOWN, cells_total)
@@ -302,6 +307,9 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	cbag["cell_w"] = cell_px
 	cbag["cell_h"] = cell_px
 	cbag["content_frac"] = 1.0   # the resident art fills the cell like a BOARD tile (its own 0.16 inset governs the margin), not the bag's 0.62
+	var cbag_torn: Dictionary = torn_opts.duplicate(true)
+	cbag_torn["cell_w"] = cell_px
+	cbag_torn["cell_h"] = cell_px
 	var cells := GridContainer.new()
 	cells.name = "HabitatCellsRow"
 	cells.columns = HABITAT_SLOTS_SHOWN
@@ -315,17 +323,12 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 			cell = _spirit_card(ctx, cbag, "placed", i, String(inst.line), int(inst.tier), cell_px)
 			cell.name = "HabitatCell_%02d" % i
 		elif i < cells_total:
-			cell = _free_cell(ctx, cbag, cell_px)
+			cell = _free_cell(ctx, cbag_torn, cell_px)
 			cell.name = "HabitatCellFree_%02d" % i
 		else:
-			# the whole locked cell IS the cut-paper keyhole sprite (the slot_cell's own drawn lock would
-			# otherwise paint over a face swap), over the shared drop shadow.
-			var lock_tex := _skin_tex("cell_locked")
-			if lock_tex != null:
-				cell = SpritePanel.build(lock_tex, Vector2(cell_px, cell_px))
-			else:
-				cell = Kit.slot_cell({"state": "locked"}, cbag)
-				_shadow_cell(cell)
+			# the locked cell is the shared TORN CELL component's locked state (cream cut-paper card + centred
+			# lock over its own shape-true shadow) — no baked keyhole sprite.
+			cell = Kit.slot_cell({"state": "locked"}, cbag_torn)
 			cell.custom_minimum_size = Vector2(cell_px, cell_px)
 			cell.name = "HabitatCellLocked_%02d" % i
 		cells.add_child(cell)
@@ -334,11 +337,12 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	# --- ON HAND: the 4-column tap-to-select / drag-to-merge grid -----------------------------------
 	body.add_child(_section_label(Kit, "On hand"))
 	var hand: Array = Bucket.hand()
-	var hand_px: float = (width - 10.0 * float(HAND_COLS - 1)) / float(HAND_COLS)
+	var hand_px: float = cell_px   # the hand tiles are the SAME size as the habitat cells (not the wider 4-up fill)
 	var hbag: Dictionary = bag_opts.duplicate(true)
 	hbag["cell_w"] = hand_px
 	hbag["cell_h"] = hand_px
 	hbag["content_frac"] = 1.0   # board-sized art (see the habitat cbag note)
+	var hbag_torn: Dictionary = cbag_torn.duplicate(true)   # empty hand slots = the torn AVAILABLE cell, cell-sized
 	var grid := GridContainer.new()
 	grid.name = "OnHandGrid"
 	grid.columns = HAND_COLS
@@ -350,11 +354,9 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		card.name = "OnHandCard_%02d" % i
 		grid.add_child(card)
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
-		# empty filler tiles wear the SAME cream cut-paper cell face as the habitat cells, so the ON HAND
-		# grid reads as the same tile family as HABITAT CELLS rather than a plain flat tile.
-		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag)
-		if not _skin_cell_face(filler, "cell_plain"):
-			_plain_cell_face(filler)
+		# empty filler tiles are the torn AVAILABLE cell — the same open cut-paper well as an empty habitat
+		# cell, so the ON HAND grid reads as the same tile family as HABITAT CELLS.
+		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag_torn)
 		grid.add_child(filler)
 	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
 	# spirit dropped anywhere over it (cards included: their can_take rejects "placed", so the
@@ -624,29 +626,6 @@ static func _add_silhouette_shadow(card: Control, w: float, h: float) -> void:
 	card.add_child(sh)
 	card.move_child(sh, 0)   # behind the card sprite layer
 
-## Reskin a kit slot cell's FACE with a cut-paper cell sprite (cell_plain / cell_open / cell_locked):
-## swap the shared SlotCellBackground panel's stylebox for a StyleBoxTexture. Returns whether it applied
-## (false → the sprite is absent; caller keeps the drawn face + shadow).
-static func _skin_cell_face(cell: Control, key: String) -> bool:
-	var tex := _skin_tex(key)
-	if tex == null:
-		return false
-	var bg := cell.find_child("SlotCellBackground", true, false) as Control
-	if bg == null:
-		return false
-	# The drawn sage face is a SlotCellPaperTexture layer ON the background; overlay the cut-paper cell
-	# sprite above it (still below the resident art, which is a sibling drawn after the background).
-	var tr := TextureRect.new()
-	tr.name = "CutPaperCellFace"
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_SCALE
-	tr.texture = tex
-	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	tr.custom_minimum_size = Vector2.ZERO
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.add_child(tr)
-	return true
-
 ## A PLAIN cream cell face for the resident (placed / on-hand) slots: hide the drawn sage paper layer and
 ## paint the background a flat rounded cream — no thick cut-paper border, so the resident art reads on a
 ## clean tile. Returns whether it applied.
@@ -746,10 +725,9 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 ## A FREE habitat cell — accepts any hand spirit (Bucket.place moves it in).
 static func _free_cell(ctx: Dictionary, bag_opts: Dictionary, px: float) -> Control:
 	var Kit: GDScript = ctx.kit
-	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
+	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)   # torn AVAILABLE cell (open cut-paper well)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
-	_skin_cell_face(cell, "cell_open")   # reskin: the open (green-inset) habitat slot
 	var dc := DragCard.new()
 	dc.custom_minimum_size = Vector2(px, px)
 	dc.mouse_filter = Control.MOUSE_FILTER_STOP
