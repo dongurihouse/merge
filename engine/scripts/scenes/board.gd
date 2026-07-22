@@ -80,6 +80,7 @@ const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
 const UNLOCK_BAR_TOP := 122.0    # the strip's top edge below the HUD pills (tucked tighter than HUD_CLEARANCE — the strip carries its own breathing room)
+const UNLOCK_BAR_Y_NUDGE := 12.0 # center the strip in the open band between quest cards and wallet pills
 const UNLOCK_BAR_GAP := 8.0      # breathing room between the strip and the stack region below it
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
@@ -483,7 +484,7 @@ func _recompute_board_geometry() -> void:
 	# of the strip's height back to the board).
 	var bar_h := _unlock_bar_h_px()
 	_place_unlock_bar(bar_h)
-	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self) + bar_h + UNLOCK_BAR_GAP
+	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self) + UNLOCK_BAR_Y_NUDGE + bar_h + UNLOCK_BAR_GAP
 	var bottom_reserve := bottom_bar_h + 14.0 + Look.safe_bottom(self)
 	if _stack != null and is_instance_valid(_stack):
 		_stack.offset_top = top_reserve
@@ -1094,7 +1095,7 @@ func _place_unlock_bar(bar_h: float) -> void:
 	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
 		return
 	var side := QUEST_SIDE   # near full-width like the HUD pills row (mock), not the board's side margin
-	var top := UNLOCK_BAR_TOP + Look.safe_top(self)
+	var top := UNLOCK_BAR_TOP + Look.safe_top(self) + UNLOCK_BAR_Y_NUDGE
 	_unlock_bar.offset_left = side
 	_unlock_bar.offset_right = _view_size().x - side
 	_unlock_bar.offset_top = top

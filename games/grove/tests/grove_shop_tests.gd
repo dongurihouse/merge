@@ -5,6 +5,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids live in the IAP catalog now
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the water regen rule (over-cap pause)
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 
 func _initialize() -> void:
 	begin("grove · shop")
@@ -406,6 +407,22 @@ func _initialize() -> void:
 		"the board Bag well wears the shared code-drawn rugged edge")
 	ok(bag_well != null and bag_well.get_node_or_null("BagContent") != null,
 		"the Bag well keeps its stashed-item overlay host")
+	var unlock_bar := bx.find_child("NextUnlockBar", true, false) as Control
+	ok(unlock_bar != null and unlock_bar.find_child("UnlockDeckleSurface", true, false) != null,
+		"the NEXT UNLOCK bar wears a code-drawn rugged paper edge")
+	ok(unlock_bar != null and unlock_bar.find_child("UnlockTrackPaperSurface", true, false) is TextureRect,
+		"the NEXT UNLOCK progress track carries paper texture")
+	ok(unlock_bar != null and unlock_bar.find_child("UnlockFillPaperSurface", true, false) is TextureRect,
+		"the NEXT UNLOCK progress fill carries paper texture")
+	ok(unlock_bar != null and unlock_bar.offset_top - Look.safe_top(bx) >= 22.0,
+		"the NEXT UNLOCK bar is nudged down between HUD pills and quests")
+	var info_tray := bx.find_child("ActionBarInfoTray", true, false) as Control
+	ok(info_tray != null and info_tray.find_child("ActionBarInfoDeckleSurface", true, false) != null,
+		"the bottom info tray wears a code-drawn rugged paper edge")
+	var info_bar := bx.find_child("ActionBarInfoBar", true, false) as Control
+	var info_btn := info_bar.get_meta("info_btn") as Button if info_bar != null else null
+	ok(info_btn != null and info_btn.find_child("InfoIconShadow", true, false) != null,
+		"the bottom info icon casts a shadow")
 	bx.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
