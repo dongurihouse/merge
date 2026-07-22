@@ -2206,6 +2206,10 @@ const TORN_CELL_KNOBS := [
 	{"key": "inner_shadow_strength", "kind": "slider", "label": "Inner shadow strength", "min": 0, "max": 60, "default": 30},   # percent -> alpha
 	{"key": "inner_shadow_falloff",  "kind": "slider", "label": "Inner shadow falloff",  "min": 10, "max": 40, "default": 16}, # /10 -> curve
 	{"key": "inner_shadow_tint",     "kind": "color",  "label": "Inner shadow tint", "default": "294654"},
+	# the LOCKED state (plain cream card, no well): a centred lock icon with its own drop shadow.
+	{"key": "lock_frac",            "kind": "slider", "label": "Lock size",           "min": 20, "max": 90, "default": 52},   # % of cell
+	{"key": "lock_shadow_dy",       "kind": "slider", "label": "Lock shadow drop",    "min": 0,  "max": 24, "default": 6},   # px
+	{"key": "lock_shadow_strength", "kind": "slider", "label": "Lock shadow strength", "min": 0, "max": 60, "default": 32},  # percent -> alpha
 ]
 
 ## Read the `torn_cell` config block into the builder opts: the shared cut-paper edge for the OUTER card,
@@ -2246,7 +2250,36 @@ static func torn_cell(opts: Dictionary) -> Control:
 	outer.corner = float(outer_cp.get("corner", 18.0))
 	root.add_child(outer)
 
-	# the INNER rugged well, inset — its own tuned edge, no drop shadow (the outer card casts the cell's)
+	# LOCKED state: a plain cream card (no well) with a centred lock icon over its own drop shadow.
+	if String(opts.get("state", "open")) == "locked":
+		var lock_px := minf(w, h) * clampf(float(opts.get("lock_frac", 52.0)) / 100.0, 0.05, 1.0)
+		var lx := (w - lock_px) * 0.5
+		var ly := (h - lock_px) * 0.5
+		if ResourceLoader.exists(DIALOG_LOCK_PATH):
+			var lock_tex: Texture2D = load(DIALOG_LOCK_PATH)
+			var dy := float(opts.get("lock_shadow_dy", 6.0))
+			var lsh := TextureRect.new()
+			lsh.name = "TornCellLockShadow"
+			lsh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			lsh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			lsh.texture = lock_tex
+			lsh.modulate = Look.shadow_color(float(opts.get("lock_shadow_strength", 32.0)) / 100.0)
+			lsh.position = Vector2(lx, ly + dy)
+			lsh.size = Vector2(lock_px, lock_px)
+			lsh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			root.add_child(lsh)
+			var lk := TextureRect.new()
+			lk.name = "TornCellLock"
+			lk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			lk.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			lk.texture = lock_tex
+			lk.position = Vector2(lx, ly)
+			lk.size = Vector2(lock_px, lock_px)
+			lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			root.add_child(lk)
+		return root
+
+	# OPEN state: the INNER rugged well, inset — its own tuned edge, no drop shadow (the outer card casts the cell's)
 	var inset := float(opts.get("inner_inset", 14.0))
 	var iw := maxf(1.0, w - inset * 2.0)
 	var ih := maxf(1.0, h - inset * 2.0)
