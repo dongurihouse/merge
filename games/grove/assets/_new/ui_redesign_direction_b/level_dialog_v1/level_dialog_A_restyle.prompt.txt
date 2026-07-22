@@ -1,0 +1,45 @@
+Generate an image (do not write code).
+
+Use case: ui-mockup. Asset type: high-fidelity mobile game "level up" dialog mock, full iPhone portrait canvas, 1080x1920 vertical.
+
+Input image:
+- Image 1 (sakura garden map) is the STYLE and MATERIAL authority ONLY. Match its exact look: layered hand-cut cardstock with visible soft paper fiber, stacked contour paper edges with a fine warm cut edge and a slightly darker inner edge, gentle upper-left light, rounded low-to-medium complexity shapes, and its warm palette — apricot/peach sky, sakura pink blossoms, slate blue-grey roofs, terracotta/vermilion red structural accents, sandy warm cream surfaces, muted garden green, koi-orange and gold small accents. Do NOT copy its content (no pagoda, torii, pond, koi, or bridge). Do NOT use flat vector shading; keep the rich textured cut-paper feel of Image 1.
+
+Primary request: Generate a "Level Up" reward dialog that restyles this exact existing screen into the Image 1 cut-paper style, keeping the same elements and layout but with stronger paper craft and hierarchy.
+
+Content to reproduce (this is the existing screen being restyled):
+- A celebratory modal announcing the player reached Level 4.
+- A big circular level badge showing the numeral "4".
+- A coins-earned pill: coin icon + "176 / 192 earned".
+- A horizontal progress bar, mostly filled.
+- A subline: "16 more to reach Level 5".
+- A single primary confirm button: "Got it".
+
+Canvas/background: full 1080x1920 vertical phone screen. Behind the modal, show a softly DIMMED and BLURRED sakura garden scene (sandy raked paths, pink cherry-blossom trees, slate-roof garden, distant blue hills) so it clearly reads as the game world behind a popup, but stays subdued and low-contrast so the modal is the clear focus. No bottom navigation bar.
+
+Dialog frame: a centered warm sandy-cream cut-paper modal, broad rounded corners, layered stacked-paper edge like Image 1's terraces, a fine warm cut edge, a thin darker inner edge, and a soft down-right shadow. A small terracotta/vermilion circular close "X" button floats at the upper-right corner of the modal.
+
+Badge: at the top center, overlapping the top edge of the modal, a large circular slate blue-grey cut-paper badge holding a big friendly cream numeral "4". Cradle the badge in a symmetrical cut-paper laurel wreath of layered green leaves, with a small gold-centered cream daisy at the base of the wreath. Keep the badge and wreath clearly the hero of the composition.
+
+Coins pill: below the badge and title, a warm-cream inset rounded pill with a small reward-gold coin (with a tiny star) at the left and the exact text "176 / 192 earned" large in dark ink.
+
+Progress bar: below the pill, a rounded horizontal track in a muted receding blue-grey, filled about 90% with a garden-green cut-paper fill; a subtle raised paper lip on the fill.
+
+Exact visible text (include ONLY this text, spelled exactly, no other words or numbers):
+- Title: "Level 4"
+- Pill: "176 / 192 earned"
+- Subline: "16 more to reach Level 5"
+- Button: "Got it"
+
+Layout order top to bottom: close X (upper right) - badge with laurel overlapping top - title "Level 4" large centered in dark ink - coins pill - progress bar - subline "16 more to reach Level 5" in smaller ink - large garden-green primary button "Got it" with cream text near the bottom. Generous even spacing, strong readable contrast.
+
+Type: friendly rounded sans, dark ink (near #243B4B) for text on cream, cream text on the green button. Title in Title Case, NOT all caps.
+
+Avoid: all-caps title, glossy plastic, clay, watercolor, painterly brushwork, heavy black outlines, flat vector gradients, neon, cluttered tiny details, extra buttons, extra labels, text overflow, misspelled text, watermark, copying Image 1's garden objects into the modal.
+
+Fill the full 1080x1920 phone canvas edge to edge (no transparency needed).
+Save the PNG into: /Users/xup/dh/wt-sakura-level-mock/games/grove/assets/_new/ui_redesign_direction_b/level_dialog_v1
+Name it: level_dialog_A_restyle.png
+Report the absolute saved path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation and save it to the path above. Then report the saved path.
