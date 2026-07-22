@@ -482,14 +482,17 @@ func _initialize() -> void:
 		"today's reward icon and amount sit lower in the card with more top breathing room")
 	ok(today_icon_host != null and today_icon_host.offset_top >= 15.0 and today_icon_host.offset_bottom >= 15.0, \
 		"today's reward icon is nudged down 15px")
-	ok(today_amount != null and today_amount.offset_top >= 25.0 and today_amount.offset_bottom >= 25.0, \
-		"today's reward amount is nudged down 25px")
+	ok(today_amount != null and today_amount.offset_top >= 35.0 and today_amount.offset_bottom >= 35.0, \
+		"today's reward amount is nudged down another 10px")
 	var done_cell := LoginUI._day_cell(Kit, {"state": "done", "reward": {"coins": 50}, "day": 1, "label": "Day 1"}, 120.0, 150.0)
 	var done_check := done_cell.find_child("DailyClaimedCheck", true, false) as TextureRect
 	ok(done_check != null and done_check.custom_minimum_size.x >= 72.0, \
 		"a claimed day uses a much larger check mark")
 	ok(done_check != null and is_equal_approx(done_cell.modulate.a, 1.0) and is_equal_approx(done_check.modulate.a, 1.0), \
 		"the claimed-day check mark is fully opaque")
+	var done_cover := done_cell.find_child("DailyClaimedCover", true, false) as ColorRect
+	ok(done_cover != null and done_cover.color.a >= 0.45 and done_cover.color.a <= 0.55, \
+		"the claimed day keeps a half-transparent cover below the check mark")
 	var done_check_host := done_cell.find_child("DailyClaimedCheckHost", true, false) as Control
 	ok(done_check_host != null and absf(done_check_host.anchor_top - 0.50) <= 0.01, \
 		"the claimed-day check mark is centered in the card")

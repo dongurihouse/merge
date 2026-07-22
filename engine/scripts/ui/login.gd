@@ -47,7 +47,7 @@ const REWARD_ACTION_FRAC := 0.88  # the CLAIM pill / ✓ marker's vertical centr
 const REWARD_ICON_PX := 0.70      # the reward icon size (fraction of cell width) — uniform across all states
 const CLAIMED_CHECK_PX := 0.62    # the claimed check size (fraction of cell width), large and central
 const REWARD_ICON_DROP_PX := 15.0
-const REWARD_AMOUNT_DROP_PX := 25.0
+const REWARD_AMOUNT_DROP_PX := 35.0
 
 # The day-reward art: the cut-paper redesign sprites (Direction B) for the daily surface only — coins as a
 # gold acorn-coin stack, water a sky droplet, the premium (gem) as the grove acorn. Other ids (cosmetic
@@ -334,6 +334,12 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	elif done:
 		# PAST: the reward it gave (recedes with the cell) + a ✓ badge floated near the bottom.
 		_add_reward_face(Kit, inner, d.get("reward", {}), cw, {})
+		var cover := ColorRect.new()
+		cover.name = "DailyClaimedCover"
+		cover.color = Color(1, 1, 1, 0.50)
+		cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(cover)
 		var wrap := CenterContainer.new()
 		wrap.name = "DailyClaimedCheckHost"
 		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
