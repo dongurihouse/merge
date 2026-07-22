@@ -7,7 +7,7 @@ extends RefCounted
 ##                                        NOT veil-dismissable (only the ✕ or Collect closes, and BOTH
 ##                                        grant first) so the reward can't be lost.
 ## The sheet is the SHARED frame (Kit.dialog_frame — the same cream card + big navy title band + the ✕
-## disc every dialog wears), used UNMODIFIED (only its close_art is swapped for the sakura terracotta ✕).
+## disc every dialog wears), used UNMODIFIED (the shared close art kit/mail_close is itself the sakura ✕).
 ## Only the CONTENT is owned here: the medallion (the sakura plaque sprite kit/level_plaque with the
 ## laurel + daisy baked in, the level numeral drawn on its slate disc), the coin tally pill, the
 ## nine-slice progress bar, the hint / reward, and the CTA. The ✕ runs the SAME callback as the
@@ -43,8 +43,8 @@ const PILL_W_F := 0.760
 const PILL_TEXT_L_F := 0.220              # the tally text's left inset — clears the pill's baked coin
 const BAR_W_F := 0.880
 const BAR_H_F := 0.150
-const BTN_W_F := 0.520
-const BTN_CORNER_F := 0.030
+const BAR_FILL_RIM_F := 0.10              # the thin blue rim left around the green fill (fraction of bar height)
+const BTN_W_F := 0.640                    # the CTA (larger than before)
 
 # --- the sakura cut-paper level art (extracted, shadow-free — runtime re-applies the shadows) + caps -
 const ART := {
@@ -52,7 +52,6 @@ const ART := {
 	"pill":   ["kit/level_pill.png", 512],      # the tally capsule with the gold coin baked at its left
 	"track":  ["kit/level_track.png", 512],     # the empty progress track (nine-slice capsule)
 	"fill":   ["kit/level_fill.png", 512],      # the green progress fill (nine-slice, clipped to frac)
-	"close":  ["kit/level_close.png", 256],     # the terracotta ✕ (handed to the shared frame's close_art)
 }
 
 ## Every sprite this dialog polishes, with its cap — driven by BakeTargets.build_all so the bake
@@ -183,7 +182,6 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	var cfg: Dictionary = d.get("frame_cfg", null) if d.get("frame_cfg", null) is Dictionary else Kit.load_config(Kit.CONFIG_PATH)
 	var fo: Dictionary = Kit.dialog_opts_from_config(cfg)
 	fo["banner_text"] = Strings.t("level.banner") % lvl
-	fo["close_art"] = "kit/level_close.png"   # the sakura terracotta ✕, localized to the level sheet
 	if cb.is_valid():
 		fo["on_close"] = cb
 	fo["min_h"] = 0.0
@@ -221,34 +219,14 @@ static func _line(nm: String, text: String, font: int, col: Color) -> Label:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
-## The CTA — a PLAIN action-green pill with cream all-caps text (the mock's button, and the exact
-## same atom residents.gd's COLLECT ALL wears).
+## The CTA — the SHARED workbench primary button (Kit.pill_button, bg "green"): the same green cut-paper
+## surface every primary CTA in the game wears, which casts its OWN shape-true shadow. Sized LARGER than
+## the mock's default (a bigger font + a wider min-width) so the level sheet's action reads bold.
 static func _cta(text: String, w: float) -> Button:
-	var btn := Button.new()
+	var btn := Kit.pill_button(text, {"bg": "green", "font": int(FS.HEADING * 1.18)})
 	btn.name = "LevelButton"
-	btn.text = text
-	btn.focus_mode = Control.FOCUS_NONE
 	btn.custom_minimum_size = Vector2(w * BTN_W_F, 0)
-	btn.add_theme_font_override("font", Kit.bold_font())
-	btn.add_theme_font_size_override("font_size", FS.HEADING)
-	btn.add_theme_color_override("font_color", Pal.CREAM)
-	btn.add_theme_constant_override("outline_size", 0)
-	var corner := w * BTN_CORNER_F
-	var gsb := StyleBoxFlat.new()
-	gsb.bg_color = Pal.LEAF
-	gsb.set_corner_radius_all(int(corner))
-	gsb.content_margin_top = w * 0.030; gsb.content_margin_bottom = w * 0.030
-	for st in ["normal", "hover", "focus"]:
-		btn.add_theme_stylebox_override(st, gsb)
-	var psb: StyleBoxFlat = gsb.duplicate()
-	psb.bg_color = Pal.LEAF.darkened(0.10)
-	btn.add_theme_stylebox_override("pressed", psb)
-	# THE shared shadow, the BUTTON way (the pill_button standard): a behind-parent shadow panel at
-	# the button's own rounding, from the saved workbench block — a Shadow-item edit restyles it too.
-	btn.set_meta(Look.SHADOW_CORNER_META, corner)
-	var bsh := Look.shadow_rect(corner, Look.saved_shadow_params())
-	bsh.show_behind_parent = true
-	btn.add_child(bsh)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return btn
 
 ## The progress bar (sakura): the extracted cut-paper capsule art — an empty slate track (nine-slice)
@@ -265,6 +243,12 @@ static func _bar(frac: float, w: float) -> Control:
 	holder.custom_minimum_size = Vector2(bw, bh)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# THE shared drop shadow behind the whole capsule (the shadow-free art needs it re-applied), a
+	# rounded rect at the bar's own capsule corner, drawn first so the track/fill sit on top.
+	var bar_sh := Look.shadow_rect(bh * 0.5, Look.saved_shadow_params())
+	bar_sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar_sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(bar_sh)
 	var track_tex := _art("track")
 	var fill_tex := _art("fill")
 	var f := clampf(frac, 0.0, 1.0)
@@ -295,9 +279,12 @@ static func _bar(frac: float, w: float) -> Control:
 
 	var nat_h := float(track_tex.get_height())
 	var t_margin := int(round(nat_h * 0.5))                 # capsule radius = half the native height
-	var fill_h := float(fill_tex.get_height())
+	# the green fill is drawn TALL — it nearly fills the track, leaving only a thin blue rim (BAR_FILL_RIM_F)
+	# top and bottom — rather than sitting at the fill texture's slimmer native height.
+	var rim := nat_h * BAR_FILL_RIM_F
+	var fill_h := nat_h - rim * 2.0
 	var f_margin := int(round(fill_h * 0.5))
-	var inset := (nat_h - fill_h) * 0.5                      # the fill sits inside the track rim
+	var inset := rim                                         # the fill sits just inside the track rim
 	var stage := Control.new()
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(stage)
