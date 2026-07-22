@@ -45,7 +45,7 @@ const REWARD_ICON_FRAC := 0.49    # the reward icon's vertical CENTRE
 const REWARD_AMOUNT_FRAC := 0.80  # the amount label's vertical centre
 const REWARD_ACTION_FRAC := 0.88  # the CLAIM pill / ✓ marker's vertical centre
 const REWARD_ICON_PX := 0.70      # the reward icon size (fraction of cell width) — uniform across all states
-const CLAIMED_CHECK_PX := 0.62    # the claimed check size (fraction of cell width), large and central
+const CLAIMED_CHECK_PX := 0.744   # the claimed check size (fraction of cell width), large and central
 const REWARD_ICON_DROP_PX := 15.0
 const REWARD_AMOUNT_DROP_PX := 35.0
 

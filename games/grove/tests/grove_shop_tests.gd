@@ -486,8 +486,8 @@ func _initialize() -> void:
 		"today's reward amount is nudged down another 10px")
 	var done_cell := LoginUI._day_cell(Kit, {"state": "done", "reward": {"coins": 50}, "day": 1, "label": "Day 1"}, 120.0, 150.0)
 	var done_check := done_cell.find_child("DailyClaimedCheck", true, false) as TextureRect
-	ok(done_check != null and done_check.custom_minimum_size.x >= 72.0, \
-		"a claimed day uses a much larger check mark")
+	ok(done_check != null and done_check.custom_minimum_size.x >= 89.0, \
+		"a claimed day uses a 20% larger central check mark")
 	ok(done_check != null and is_equal_approx(done_cell.modulate.a, 1.0) and is_equal_approx(done_check.modulate.a, 1.0), \
 		"the claimed-day check mark is fully opaque")
 	var done_cover := done_cell.find_child("DailyClaimedCover", true, false) as ColorRect

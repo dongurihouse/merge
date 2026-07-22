@@ -3052,7 +3052,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		var ca_opts := button_opts_from_config(load_config(CONFIG_PATH))
 		ca_opts.merge((opts.get("btn", {}) as Dictionary), true)
 		ca_opts["bg"] = "green"
-		ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
+		ca_opts["icon"] = String(opts.get("claim_all_icon", ""))
 		ca_opts["font"] = ca_font
 		ca_opts["shadow"] = true
 		# corner FOLLOWS the shared Button corner (already in ca_opts) unless a caller forces claim_all_corner —

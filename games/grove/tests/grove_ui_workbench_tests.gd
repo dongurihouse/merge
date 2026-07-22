@@ -96,6 +96,9 @@ func _mail_claim_all_footer_is_transparent() -> void:
 	var sb := footer.get_theme_stylebox("panel") as StyleBoxFlat if footer != null else null
 	ok(sb != null and sb.bg_color.a <= 0.01,
 		"mail Claim All footer does not draw a white/cream background band")
+	var claim_all := _find_button_by_text(dialog, "Claim All")
+	ok(claim_all != null and claim_all.icon == null,
+		"mail Claim All has no leading mail icon")
 	dialog.free()
 
 ## The mail Claim button is the shared button's green variant — its cut-paper corner must FOLLOW the
