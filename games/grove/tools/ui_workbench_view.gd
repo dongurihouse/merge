@@ -371,7 +371,8 @@ func _default_params() -> Dictionary:
 			"edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			"cream_fill": "F1E6D2", "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
 			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2,
-			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654"},
+			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654",
+			"lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -652,13 +653,14 @@ func _make_element(id: String) -> Control:
 		"bag_card":
 			return _slot_cell_gallery(p)
 		"torn_cell":
-			# two code-drawn torn cells side by side (so the tear reads as regenerated per-cell, not a repeat)
+			# the OPEN (green well) cell + the LOCKED (plain cream card + lock icon) cell, side by side
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 16)
-			for _i in 2:
+			for st in ["open", "locked"]:
 				var to := Kit.torn_cell_opts_from_config({"torn_cell": p})
 				to["cell_w"] = float(p.get("cell_w", 132))
 				to["cell_h"] = float(p.get("cell_h", 132))
+				to["state"] = st
 				row.add_child(Kit.torn_cell(to))
 			return row
 		"bag":
@@ -1796,6 +1798,10 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["inner_shadow_strength", 0, 60], "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["inner_shadow_falloff", 10, 40], "torn_cell"))
 			_sidebar_body.add_child(_color_row("Inner shadow tint", "inner_shadow_tint", "torn_cell"))
+			_section_header("Locked cell — lock icon")
+			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 90], "torn_cell"))
+			_sidebar_body.add_child(_slider_row(["lock_shadow_dy", 0, 24], "torn_cell"))
+			_sidebar_body.add_child(_slider_row(["lock_shadow_strength", 0, 60], "torn_cell"))
 		"bag":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))
