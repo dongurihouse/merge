@@ -31,8 +31,8 @@ const D = Game.DATA
 
 const OVERLAY_NAME := "ResidentsOverlay"
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-# Cut-paper dialog RE-SKIN sprites (extracted from the residents mock). Each element is a baked PNG the
-# reskinned builders wear over the shared code drop-shadow; absent files fall back to the drawn Kit look.
+# Resident-specific body sprites extracted from the residents mock. The outer dialog frame stays owned by
+# the shared kit so it matches Mail/Daily/Settings instead of drawing a second sheet.
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
 const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")
 const SKIN_DIR := "res://games/grove/assets/ui/dialogs/residents/"
@@ -199,7 +199,6 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 	var dialog: Control = Kit.dialog_frame(body, width, fopts)
-	_apply_cutpaper_frame(dialog)   # reskin: torn panel background + coral close sprite
 	cc.add_child(dialog)
 
 	# the INSPECTOR rides the frame's wrap OUTSIDE the padded scroll, pinned flush to the sheet's
@@ -635,30 +634,6 @@ static func _plain_cell_face(cell: Control) -> bool:
 	if bg is Panel:
 		(bg as Panel).add_theme_stylebox_override("panel", sb)
 	return true
-
-## Swap the shared dialog frame's chrome for the extracted cut-paper sprites: the panel background becomes
-## the torn dialog_bg, and the ✕ becomes the coral close sprite. No-ops for whichever sprite is absent.
-static func _apply_cutpaper_frame(dialog: Control) -> void:
-	var bg_tex := _skin_tex("dialog_bg")
-	var panel := dialog.find_child("MeadowDialogPanel", true, false) as PanelContainer
-	if bg_tex != null and panel != null:
-		var st := StyleBoxTexture.new()
-		st.texture = bg_tex
-		var cur := panel.get_theme_stylebox("panel")
-		if cur != null:   # keep the same content insets so the body still lays out inside the sheet
-			for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
-				st.set_content_margin(side, cur.get_content_margin(side))
-		panel.add_theme_stylebox_override("panel", st)
-	var close_tex := _skin_tex("close")
-	var close := dialog.find_child("DialogClose", true, false) as Button
-	if close_tex != null and close != null:
-		var cst := StyleBoxTexture.new()
-		cst.texture = close_tex
-		for s in ["normal", "hover", "pressed", "focus"]:
-			close.add_theme_stylebox_override(s, cst)
-		var sh := close.find_child("DialogCloseShadow", true, false)   # the drawn circle shadow (our sprite has its own edge)
-		if sh != null:
-			(sh as CanvasItem).visible = false
 
 ## Shadow a kit slot cell: the visible face is the inset SlotCellBackground panel — put the mock
 ## shadow on ITS stylebox (duplicated: slot_cell styleboxes are shared), so the shadow hugs the

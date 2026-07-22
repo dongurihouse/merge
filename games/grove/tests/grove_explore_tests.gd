@@ -8,6 +8,7 @@ const ActionBarKit = preload("res://engine/scripts/ui/action_bar.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
+const ResidentsUI = preload("res://engine/scripts/ui/residents.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -27,6 +28,7 @@ func _initialize() -> void:
 	_test_screens()
 	await _test_rush_resize()
 	_test_trade_reward_dialog_layout()
+	await _test_residents_dialog_uses_shared_frame()
 	_test_reward_row_cap()
 	await _test_map_card_expedition_chrome()
 	await _test_dock_collect_chip()
@@ -673,6 +675,23 @@ func _test_rush_intro_hint() -> void:
 	ok(s2.find_child("RushInfoButton", true, false) != null, "the tutorial replay info button stays on the second Rush")
 	ok(Save.rush_intro_seen() == 1, "a retired Rush tutorial does not bump the counter further")
 	s2.queue_free()
+
+func _test_residents_dialog_uses_shared_frame() -> void:
+	fresh("residents_shared_frame")
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ResidentsUI.open(host)
+	await process_frame
+	await process_frame
+	var overlay := host.find_child("ResidentsOverlay", true, false) as Control
+	var panel := overlay.find_child("MeadowDialogPanel", true, false) as PanelContainer if overlay != null else null
+	var panel_style := panel.get_theme_stylebox("panel") if panel != null else null
+	ok(panel != null, "resident dialog mounts inside the shared dialog frame")
+	ok(not (panel_style is StyleBoxTexture),
+		"resident dialog does not override the shared frame with its baked dialog_bg")
+	host.queue_free()
+	await process_frame
 
 # --- the Rush screen + the reward overlay: build smoke + the score→hand seam ------
 func _test_screens() -> void:
