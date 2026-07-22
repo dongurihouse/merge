@@ -185,6 +185,23 @@ static func apply_rounded_paper_panel_surface(panel: Control, node_name: String,
 	paper.ready.connect(sync_size)
 	return paper
 
+static func rugged_paper_surface(host: Control, node_name: String, size_px: Vector2, fill: Color, rim: Color, corner_px: float, cp: Dictionary = {}) -> Control:
+	if host == null:
+		return null
+	var CutPaper := load("res://engine/scripts/ui/cut_paper.gd")
+	if CutPaper == null:
+		return null
+	var surface = CutPaper.new()
+	surface.name = node_name
+	surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	surface.custom_minimum_size = size_px
+	surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var o: Dictionary = cp.duplicate(true)
+	o["corner"] = corner_px
+	surface.configure(o, fill, rim, cut_paper_tile())
+	host.add_child(surface)
+	return surface
+
 static func _set_texture_margins(style: StyleBoxTexture, margins: Vector4) -> void:
 	style.set_texture_margin(SIDE_LEFT, margins.x)
 	style.set_texture_margin(SIDE_TOP, margins.y)
@@ -1095,25 +1112,12 @@ static func rush_bar(opts: Dictionary, data: Dictionary = {}) -> Control:
 static func _rush_cell(opts: Dictionary, pos: Vector2, size: Vector2, caption: String, value_text: String, labels_out: Dictionary, key: String) -> Control:
 	var pad := float(opts.get("pad", 16.0))
 	var cell := Control.new()
+	cell.name = "Rush%sCell" % key.capitalize()
 	cell.position = pos ; cell.size = size ; cell.custom_minimum_size = size
 	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var corner := clampf(size.y * 0.18, 10.0, 26.0)
-	var card := StyleBoxFlat.new()
-	card.bg_color = Pal.CREAM
-	card.border_color = PAPER_EDGE
-	card.set_border_width_all(1)
-	card.set_corner_radius_all(int(round(corner)))
-	card.anti_aliasing = true
-	# the grain layer lays into this fixed inset, leaving the hairline edge visible
-	card.content_margin_left = 2.0 ; card.content_margin_right = 2.0
-	card.content_margin_top = 2.0 ; card.content_margin_bottom = 2.0
-	Look.apply_box_shadow(card)
-	panel.add_theme_stylebox_override("panel", card)
-	apply_rounded_paper_panel_surface(panel, "RushCellPaper", "texture_cream.png", corner, 2.0)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(panel)
+	var cp: Dictionary = cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS)
+	rugged_paper_surface(cell, "RushCellDeckleSurface", size, Pal.CREAM, PAPER_EDGE, corner, cp)
 	var tx0 := pad
 	var tw := maxf(10.0, size.x - pad * 2.0)
 	var col := VBoxContainer.new()

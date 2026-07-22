@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_slot_reel()
 	_test_rush_intro_hint()
 	_test_screens()
+	await _test_rush_board_skin()
 	await _test_rush_resize()
 	_test_trade_reward_dialog_layout()
 	await _test_residents_dialog_uses_shared_frame()
@@ -603,16 +604,12 @@ func _test_rush_intro_hint() -> void:
 	ok(hint != null and hint.get_theme_color("font_color") == Color("#243B4B") \
 		and hint.get_theme_constant("outline_size") == 0, \
 		"the Meadow cream bottom hint uses native Ink text without the legacy light outline")
-	# the tray is the SHARED board bottom-bar surface (ActionBar.bar_style + the kit paper-grain layer),
+	# the tray is the SHARED board bottom-bar surface (ActionBar.info_tray + the rugged paper sheet),
 	# not the retired 3-slice art strip.
 	var hint_tray := strip.find_child("RushBottomHintTray", true, false) as PanelContainer if strip != null else null
-	var hint_tray_style := hint_tray.get_theme_stylebox("panel") as StyleBoxFlat if hint_tray != null else null
-	ok(hint_tray != null and hint_tray_style != null \
-		and hint_tray_style.bg_color.is_equal_approx(ActionBarKit.PAPER_FILL), \
-		"the bottom hint wears the board info tray's shared flat cream style")
 	ok(hint_tray != null \
-		and hint_tray.find_child(ActionBarKit.PAPER_SURFACE_NODE, true, false) is TextureRect, \
-		"the bottom hint carries the shared paper-grain surface layer")
+		and hint_tray.find_child(ActionBarKit.DECKLE_SURFACE_NODE, true, false) != null, \
+		"the bottom hint wears the board info tray's shared rugged paper style")
 	ok(Save.rush_intro_seen() == 1, "the first Rush marks the tutorial seen once")
 	var first_overlay: Node = s.find_child("RushTutorialOverlay", true, false)
 	if first_overlay != null:
@@ -736,6 +733,42 @@ func _test_screens() -> void:
 	ok(piglet_icon.find_child("SpiritEye0", true, false) != null and piglet_icon.find_child("SpiritEye1", true, false) != null,
 		"an unarted spirit reveal shows placeholder face details instead of a blank disc")
 	host.queue_free()
+
+func _uses_cut_paper(n: Node) -> bool:
+	if n == null:
+		return false
+	var script: Script = n.get_script() as Script
+	return script != null and String(script.resource_path).ends_with("engine/scripts/ui/cut_paper.gd")
+
+func _test_rush_board_skin() -> void:
+	fresh("rush_board_skin")
+	Explore.begin_run({})
+	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(s)
+	if s.get_child_count() == 0:
+		s._ready()
+	await process_frame
+	var time_cell := s._topbar.find_child("RushTimeCell", true, false) as Control if s._topbar != null else null
+	var score_cell := s._topbar.find_child("RushScoreCell", true, false) as Control if s._topbar != null else null
+	var mult_cell := s._topbar.find_child("RushMultCell", true, false) as Control if s._topbar != null else null
+	for cell in [time_cell, score_cell, mult_cell]:
+		var deckle: Node = cell.find_child("RushCellDeckleSurface", true, false) if cell != null else null
+		ok(_uses_cut_paper(deckle), "Rush score boxes use the shared rugged cut-paper surface")
+		ok(deckle != null and deckle.get("paper_tex") != null, "Rush score boxes carry paper fibre texture")
+	ok(s.find_child("RushExitShadow", true, false) != null, "Rush close button casts its own shadow")
+	var idle_deckle: Node = s._act_idle.find_child("RushActivityDeckleSurface", true, false) if s._act_idle != null else null
+	var warn_deckle: Node = s._act_warn.find_child("RushActivityDeckleSurface", true, false) if s._act_warn != null else null
+	ok(_uses_cut_paper(idle_deckle), "Rush idle treefall rail uses the shared rugged paper surface")
+	ok(_uses_cut_paper(warn_deckle), "Rush incoming treefall rail uses the shared rugged paper surface")
+	ok(s._chrome != null and s._chrome.find_child("MeadowBoardSurface", true, false) != null, \
+		"Rush board frame is built by the same Kit.board_panel surface as the home board")
+	ok(s._chrome != null and s._chrome.find_child("SlotCellPaperTexture", true, false) != null, \
+		"Rush board cells are the same shared slot-cell component as the home board")
+	var hint_tray := s.find_child("RushBottomHintTray", true, false) as PanelContainer
+	ok(hint_tray != null and hint_tray.find_child(ActionBarKit.DECKLE_SURFACE_NODE, true, false) != null, \
+		"Rush info card uses the board info tray deckled surface")
+	s.queue_free()
+	await process_frame
 
 
 # S-RESIZE: the Rush screen must re-fit on a live viewport resize (drag the window wider / rotate), like the

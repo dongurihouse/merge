@@ -255,12 +255,23 @@ func _build_topbar() -> void:
 	# EXIT — the parchment × hugging the top-right corner, sized like the home map nav button
 	var ex_sz: float = float(_band.exit_sz)
 	var ex := TextureButton.new()
+	ex.name = "RushExitButton"
 	ex.texture_normal = _tex("exit_x")
 	ex.ignore_texture_size = true
 	ex.stretch_mode = TextureButton.STRETCH_SCALE
 	ex.custom_minimum_size = Vector2(ex_sz, ex_sz) ; ex.size = Vector2(ex_sz, ex_sz)
 	ex.position = Vector2(vw - vw * RUSH_EXIT_RIGHT_FRAC - ex_sz, float(_band.exit_top))
 	ex.pressed.connect(func() -> void: _end())
+	var shadow := TextureRect.new()
+	shadow.name = "RushExitShadow"
+	shadow.texture = ex.texture_normal
+	shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shadow.stretch_mode = TextureRect.STRETCH_SCALE
+	shadow.size = Vector2(ex_sz, ex_sz)
+	shadow.position = ex.position + Vector2(0.0, ex_sz * 0.07)
+	shadow.modulate = Look.shadow_color(0.24)
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(shadow)
 	add_child(ex)
 	_exit_btn = ex
 
@@ -350,13 +361,19 @@ func _act_panel(size: Vector2, bg: Color, border: Color, corner: float = -1.0) -
 	var p := Panel.new()
 	p.position = Vector2.ZERO ; p.size = size ; p.custom_minimum_size = size
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var real_corner := int(corner if corner >= 0.0 else clampf(size.y * 0.28, 8.0, 18.0))
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg
-	sb.set_corner_radius_all(int(corner if corner >= 0.0 else clampf(size.y * 0.28, 8.0, 18.0)))
-	sb.set_border_width_all(2)
-	sb.border_color = border
+	sb.bg_color = Color(bg, 0.0)
+	sb.set_corner_radius_all(real_corner)
+	sb.set_border_width_all(0)
+	sb.border_color = Color(border, 0.0)
 	sb.anti_aliasing = true
+	Look.apply_box_shadow(sb)
 	p.add_theme_stylebox_override("panel", sb)
+	var Kit: GDScript = load(KIT_PATH)
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(_band.cfg, "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
+	var paper_fill := Color(bg.r, bg.g, bg.b, 1.0)
+	Kit.rugged_paper_surface(p, "RushActivityDeckleSurface", size, paper_fill, border, float(real_corner), cp)
 	return p
 
 func _act_text(text: String, size: int, color: Color) -> Label:
@@ -476,6 +493,7 @@ func _apply_treefall_visual() -> void:
 # paper-grain layer). Sized to the board width (pure %), and centred vertically in the bottom SECTION
 # (board bottom → screen bottom) so it sits in the open band below the grid.
 func _build_bottom_hint() -> void:
+	var Kit: GDScript = load(KIT_PATH)
 	var vw: float = float(_band.vw)
 	var strip_w := _board_w()                  # match the board (and the bars) width
 	var strip_h: float = float(_band.hint_h)
@@ -491,9 +509,14 @@ func _build_bottom_hint() -> void:
 	tray.position = Vector2.ZERO
 	tray.size = Vector2(strip_w, strip_h)
 	tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tray.add_theme_stylebox_override("panel", ActionBar.bar_style(strip_h))
-	ActionBar.apply_paper_surface(tray, strip_h)
+	var action_opts := ActionBar.opts()
+	tray.add_theme_stylebox_override("panel", ActionBar.info_bar_frame(Kit.info_bar_opts_from_config(_band.cfg)))
+	var deckle_host := ActionBar.info_tray(Control.new(), strip_h, action_opts)
+	deckle_host.name = "RushBottomHintDeckleHost"
+	deckle_host.custom_minimum_size = Vector2(strip_w, strip_h)
+	deckle_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	strip.add_child(tray)
+	tray.add_child(deckle_host)
 	var pad := strip_h * 0.55
 	var info_px := strip_h * 0.74
 	var l := Label.new()
