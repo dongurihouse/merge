@@ -579,6 +579,27 @@ func _initialize() -> void:
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	ok(_all_ignore(bramble_node), "frontier locked cell ignores mouse so the board input surface receives taps")
 	bramble_node.free()
+
+	# The bag dialog uses the torn-cell component for open and locked slots. The next purchasable slot is
+	# still tappable/costed, but it wears the locked torn face rather than the board's unlockable background.
+	var bag_opts := Kit.bag_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	var empty_bag_slot: Control = Kit.bag_card({"kind": "empty"}, bag_opts)
+	var next_bag_slot: Control = Kit.bag_card({"kind": "next", "cost": 25, "on_tap": func() -> void: pass}, bag_opts)
+	var locked_bag_slot: Control = Kit.bag_card({"kind": "locked"}, bag_opts)
+	ok(empty_bag_slot.find_child("TornCell", true, false) != null \
+		and empty_bag_slot.find_child("TornCellWell", true, false) != null,
+		"bag available cells use the torn-cell open well")
+	ok(locked_bag_slot.find_child("TornCell", true, false) != null \
+		and locked_bag_slot.find_child("TornCellLock", true, false) != null \
+		and locked_bag_slot.find_child("TornCellWell", true, false) == null,
+		"bag locked cells use the torn-cell locked face")
+	ok(next_bag_slot.find_child("TornCellLock", true, false) != null \
+		and next_bag_slot.find_child("SlotCellBackground", true, false) == null \
+		and next_bag_slot.find_child("SlotCellCostCluster", true, false) != null,
+		"bag next-unlock cells keep the locked torn face while showing the price")
+	empty_bag_slot.free()
+	next_bag_slot.free()
+	locked_bag_slot.free()
 	# §1 residents: unlock reward + free-spirit grant + residents shop card data (active-suite coverage).
 	_test_unlock_rewards()
 	_test_residents_shop_cards()
