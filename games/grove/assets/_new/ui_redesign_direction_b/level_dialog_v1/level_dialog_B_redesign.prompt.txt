@@ -1,0 +1,36 @@
+Generate an image (do not write code).
+
+Use case: ui-mockup. Asset type: high-fidelity mobile game "level up" celebration screen mock, full iPhone portrait canvas, 1080x1920 vertical.
+
+Input image:
+- Image 1 (sakura garden map) is the STYLE and MATERIAL authority ONLY. Match its exact look: layered hand-cut cardstock with visible soft paper fiber, stacked contour paper edges with a fine warm cut edge and a slightly darker inner edge, gentle upper-left light, rounded shapes, and its warm palette — apricot/peach sky, sakura pink blossoms, slate blue-grey roofs, terracotta/vermilion red accents, sandy warm cream surfaces, muted garden green, koi-orange and gold small accents. Do NOT flatten to plain vector shading; keep the rich textured cut-paper feel of Image 1. Borrow its garden MOTIFS (cherry blossoms, petals, a small terracotta torii silhouette, stepping stones) as decorative celebration elements — but this is a UI screen, not a map.
+
+Primary request: FREELY REDESIGN a "Level Up" celebration screen from scratch, keeping only the purpose: celebrate reaching a new level and show progress toward the next one. Make it feel festive and sakura-themed, not a plain form.
+
+Composition (top to bottom):
+- A hanging cut-paper CELEBRATION BANNER across the top: a terracotta/vermilion draped ribbon banner (torii-crossbeam feel) carrying the exact text "Level Up!" in cream. A scatter of sakura petals and a couple of small paper stars drift around it.
+- A HERO MEDALLION as the centerpiece: a large round slate blue-grey cut-paper medal hanging from a short terracotta ribbon, showing a big friendly cream numeral "4". Cradle it in layered sakura-blossom and green-leaf sprigs. Soft radiating cut-paper "celebration rays" in pale cream/peach fan out gently behind the medallion.
+- A small warm-cream coins pill just under the medallion: reward-gold coin icon + exact text "176 / 192 earned".
+- A PROGRESS TRACK toward the next level styled as a curved row of round stepping-stones (like Image 1's path) OR a row of sakura-petal segments: most segments filled garden-green / blossom-pink, the last one or two empty, with a small slate "5" marker at the end. Below it the exact subline "16 more to reach Level 5".
+- One large primary button near the bottom: a garden-green cut-paper button with cream text "Continue".
+- A small terracotta circular close "X" in the upper-right corner.
+
+Canvas/background: full 1080x1920 vertical phone screen. Fill it with a soft, warm celebratory backdrop derived from Image 1 — apricot/peach upper sky fading to sandy cream, layered blue paper hills low behind, blossom branches arcing in from the top corners, gentle falling petals. Keep the background calmer and lower-contrast than the foreground UI so the medallion and banner clearly pop. No modal frame needed (full-screen takeover); no bottom navigation bar.
+
+Exact visible text (include ONLY this text, spelled exactly, no other words or numbers):
+- Banner: "Level Up!"
+- Pill: "176 / 192 earned"
+- Subline: "16 more to reach Level 5"
+- Button: "Continue"
+- Level markers: the numerals "4" (on the medallion) and "5" (small marker at the end of the progress track)
+
+Type: friendly rounded sans; cream text on the terracotta banner and green button; dark ink (near #243B4B) for the pill and subline text. Strong readable contrast, generous spacing.
+
+Avoid: plain flat modal box, all-caps blocky title, glossy plastic, clay, watercolor, painterly brushwork, heavy black outlines, neon, cluttered unreadable detail, extra buttons, extra labels, text overflow, misspelled text, watermark, literally copying Image 1's pond/koi/well/bridge layout.
+
+Fill the full 1080x1920 phone canvas edge to edge (no transparency needed).
+Save the PNG into: /Users/xup/dh/wt-sakura-level-mock/games/grove/assets/_new/ui_redesign_direction_b/level_dialog_v1
+Name it: level_dialog_B_redesign.png
+Report the absolute saved path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation and save it to the path above. Then report the saved path.
