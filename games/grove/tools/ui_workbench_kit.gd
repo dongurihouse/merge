@@ -2805,7 +2805,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		var cp = load(CUT_PAPER).new()
 		cp.name = "CutPaperSheet"
 		cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cp.configure(cp_opts, Pal.CREAM, null, cut_paper_tile())   # the ONE shared edge applier
+		cp.configure(cp_opts, Color("#FBFBFB"), null, load(CUT_PAPER_TILE_WHITE))   # the ONE shared edge applier
 		cut_paper_panel = cp
 	elif panel_bg_tex != null:
 		var pt := StyleBoxTexture.new()
