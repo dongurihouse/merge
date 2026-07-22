@@ -5593,12 +5593,21 @@ static func _slot_lock_mark(cw: float, ch: float, dialog_cells: bool = false) ->
 
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {})
+	var shared_sp := Look.shadow_params(cfg)
+	var item_shadow_params := {
+		"offset_x": float(bc.get("item_shadow_x", shared_sp.offset_x)),
+		"offset_y": float(bc.get("item_shadow_y", shared_sp.offset_y)),
+		"blur": float(bc.get("item_shadow_blur", shared_sp.blur)),
+		"spread": minf(float(bc.get("item_shadow_spread", shared_sp.spread)), 0.0),
+		"alpha": clampf(float(bc.get("item_shadow_alpha", float(shared_sp.alpha) * 100.0)) / 100.0, 0.0, 1.0),
+	}
 	var opts := {
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
 		"content_shadow": bool(bc.get("shadow", true)),              # cast content shadow only when the standard Shadow toggle is on
-		"shadow_params": Look.shadow_params(cfg),                    # the single shared shadow look
+		"shadow_params": shared_sp,                                  # the single shared shadow look
+		"content_shadow_params": item_shadow_params,                 # Slot-cell-local shadow for the item inside the cell
 		"cost_font": int(bc.get("cost_font", FS.BODY)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
 		"cost_y": float(bc.get("cost_y", 0)),                        # nudge the acorn cost up(-) / down(+), px
@@ -5751,7 +5760,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if bool(opts.get("content_shadow", true)):
 				var content_corner := piece_px * 0.32
-				var content_shadow := Look.shadow_rect(content_corner, opts.get("shadow_params", {}) as Dictionary)
+				var content_shadow := Look.shadow_rect(content_corner, opts.get("content_shadow_params", opts.get("shadow_params", {})) as Dictionary)
 				content_shadow.name = "SlotContentShadow"
 				content_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				pc.add_child(content_shadow)

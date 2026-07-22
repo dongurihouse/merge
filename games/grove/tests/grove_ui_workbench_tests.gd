@@ -115,8 +115,13 @@ func _slot_cell_gallery_uses_game_cells() -> void:
 
 func _slot_content_shadow_can_be_tuned() -> void:
 	var view_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_view.gd")
-	ok(view_src.find("\"Content shadow\"") == -1,
-		"Slot-cell workbench uses the standard Shadow control instead of a separate Content shadow toggle")
+	ok(view_src.find("\"Item shadow\"") >= 0
+		and view_src.find("\"item_shadow_x\"") >= 0
+		and view_src.find("\"item_shadow_y\"") >= 0
+		and view_src.find("\"item_shadow_blur\"") >= 0
+		and view_src.find("\"item_shadow_spread\"") >= 0
+		and view_src.find("\"item_shadow_alpha\"") >= 0,
+		"Slot-cell workbench exposes item-shadow tuning controls for the content inside the cell")
 
 	var opts := Kit.shared_torn_slot_opts_from_config({"bag_card": {"shadow": false}, "torn_cell": {}})
 	opts["cell_w"] = 120.0
@@ -131,7 +136,10 @@ func _slot_content_shadow_can_be_tuned() -> void:
 
 	var cfg := {
 		"shadow": {"offset_x": 4.0, "offset_y": 9.0, "blur": 11.0, "spread": -3.0, "alpha": 42.0},
-		"bag_card": {"shadow": true},
+		"bag_card": {"shadow": true,
+			"item_shadow_x": -6.0, "item_shadow_y": 14.0,
+			"item_shadow_blur": 18.0, "item_shadow_spread": -5.0,
+			"item_shadow_alpha": 58.0},
 		"torn_cell": {},
 	}
 	var shared_opts := Kit.shared_torn_slot_opts_from_config(cfg)
@@ -141,8 +149,11 @@ func _slot_content_shadow_can_be_tuned() -> void:
 		return PieceView.make_piece(102, px, 0.0)}, shared_opts)
 	var content_shadow := _find_named(shared_cell, "SlotContentShadow") as Panel
 	var style := content_shadow.get_theme_stylebox("panel") as StyleBoxFlat if content_shadow != null else null
-	ok(content_shadow != null and style != null and absf(style.shadow_color.a - float(Look.shadow_params(cfg).alpha)) <= 0.01,
-		"Slot-cell content shadow uses the standard shared Shadow settings")
+	ok(content_shadow != null and style != null
+		and style.shadow_offset.is_equal_approx(Vector2(-6.0, 14.0))
+		and style.shadow_size == 18
+		and absf(style.shadow_color.a - 0.58) <= 0.01,
+		"Slot-cell content shadow uses the Slot-cell item-shadow tuning controls")
 	ok(not _has_named(shared_cell, "ContactShadow"),
 		"Slot-cell content shadow replaces the piece-specific ContactShadow")
 	shared_cell.free()
