@@ -2876,13 +2876,15 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		rows.add_child(foot_spacer)
 	scroll.add_child(rows)
 
-	# the PINNED FOOTER band — a cream strip (masks the rows scrolling behind it) carrying the footer
-	# control, docked to the card's bottom in relayout. Added after the scroll → drawn over it.
+	# the PINNED FOOTER band — carries the footer control docked to the card's bottom in relayout.
+	# Added after the scroll → drawn over it. Default is transparent so mail's Claim All does not sit on
+	# a white/cream slab; callers that need a mask can pass footer_bg_alpha.
 	var footer_band: PanelContainer = null
 	if footer != null:
 		footer_band = PanelContainer.new()
+		footer_band.name = "DialogFooterBand"
 		var fb := StyleBoxFlat.new()
-		fb.bg_color = Pal.CREAM
+		fb.bg_color = Color(Pal.CREAM, float(opts.get("footer_bg_alpha", 0.0)))
 		fb.content_margin_top = footer_gap
 		fb.content_margin_left = 0; fb.content_margin_right = 0; fb.content_margin_bottom = 0
 		footer_band.add_theme_stylebox_override("panel", fb)

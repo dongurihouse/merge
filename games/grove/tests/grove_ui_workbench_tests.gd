@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_white_role_builds_with_white_tile()
 	_daily_card_face_tones()
 	_daily_card_uses_face_only_for_daily()
+	_mail_claim_all_footer_is_transparent()
 	await _mail_claim_corner_follows_button_group()
 	finish()
 
@@ -84,6 +85,17 @@ func _find_named(n: Node, nm: String) -> Node:
 		if r != null:
 			return r
 	return null
+
+func _mail_claim_all_footer_is_transparent() -> void:
+	var dialog := Kit.mail_dialog(
+		[{"icon": "gift", "title": "A little something", "body": "Enjoy!", "reward": {"coins": 100}}],
+		560.0,
+		{"claim_all_text": "Claim All", "on_claim_all": func() -> void: pass})
+	var footer := _find_named(dialog, "DialogFooterBand") as PanelContainer
+	var sb := footer.get_theme_stylebox("panel") as StyleBoxFlat if footer != null else null
+	ok(sb != null and sb.bg_color.a <= 0.01,
+		"mail Claim All footer does not draw a white/cream background band")
+	dialog.free()
 
 ## The mail Claim button is the shared button's green variant — its cut-paper corner must FOLLOW the
 ## shared Button corner knob, not a dead hardcoded pin. Regression for: card_claim_corner (never set by

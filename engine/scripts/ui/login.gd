@@ -46,6 +46,8 @@ const REWARD_AMOUNT_FRAC := 0.80  # the amount label's vertical centre
 const REWARD_ACTION_FRAC := 0.88  # the CLAIM pill / ✓ marker's vertical centre
 const REWARD_ICON_PX := 0.70      # the reward icon size (fraction of cell width) — uniform across all states
 const CLAIMED_CHECK_PX := 0.62    # the claimed check size (fraction of cell width), large and central
+const REWARD_ICON_DROP_PX := 15.0
+const REWARD_AMOUNT_DROP_PX := 25.0
 
 # The day-reward art: the cut-paper redesign sprites (Direction B) for the daily surface only — coins as a
 # gold acorn-coin stack, water a sky droplet, the premium (gem) as the grove acorn. Other ids (cosmetic
@@ -299,8 +301,6 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	var face: Control = Kit.daily_card_face(Vector2(cw, ch_px), tone)
 	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(face)
-	if done:
-		panel.modulate = Color(1, 1, 1, 0.6)   # a claimed day recedes
 
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -351,6 +351,7 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 			var gh := CenterContainer.new()
 			gh.anchor_left = 0.0; gh.anchor_right = 1.0
 			gh.anchor_top = REWARD_ICON_FRAC; gh.anchor_bottom = REWARD_ICON_FRAC
+			gh.offset_top = REWARD_ICON_DROP_PX; gh.offset_bottom = REWARD_ICON_DROP_PX
 			gh.grow_vertical = Control.GROW_DIRECTION_BOTH
 			gh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			gh.add_child(_skin_sprite(gtex, cw * REWARD_ICON_PX))
@@ -372,6 +373,7 @@ static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, 
 	ah.name = "DailyRewardIconHost"
 	ah.anchor_left = 0.0; ah.anchor_right = 1.0
 	ah.anchor_top = REWARD_ICON_FRAC; ah.anchor_bottom = REWARD_ICON_FRAC
+	ah.offset_top = REWARD_ICON_DROP_PX; ah.offset_bottom = REWARD_ICON_DROP_PX
 	ah.grow_vertical = Control.GROW_DIRECTION_BOTH
 	ah.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ah.add_child(art)
@@ -384,6 +386,7 @@ static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, 
 		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		amt.anchor_left = 0.0; amt.anchor_right = 1.0
 		amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
+		amt.offset_top = REWARD_AMOUNT_DROP_PX; amt.offset_bottom = REWARD_AMOUNT_DROP_PX
 		amt.grow_vertical = Control.GROW_DIRECTION_BOTH
 		amt.add_theme_font_override("font", Kit.bold_font())
 		amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
