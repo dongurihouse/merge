@@ -174,7 +174,7 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 			csh.texture = spr.texture
 			csh.draw_size = cd
 			csh.fit = true
-			csh.offset = Vector2(cd.x * 0.02, cd.y * 0.05)
+			csh.offset = Vector2(cd.x * 0.03, cd.y * 0.085)
 			csh.tint = Look.shadow_color(COVERUP_SHADOW_ALPHA)
 			csh.soft_div = 2
 			csh.show_behind_parent = true
