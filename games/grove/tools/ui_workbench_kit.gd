@@ -3649,19 +3649,36 @@ static func _ribbon_badge(text: String, scale: float = 1.0) -> Control:
 ## bar uniformly scaled to its display box so the caps stay round at any size — see progress_bar's note);
 ## else a code-drawn StyleBoxFlat track + fill (the legacy look). opts: height (px — the display height),
 ## width (px), art (bool), label ("" = none; centered, e.g. "75%"), star_knob (bool — a star sprite riding
-## the fill head). Standalone so improving it lifts every site (the Level dialog now; the home unlock % later).
+## the fill head), fill_width_pct / fill_height_pct / fill_x / fill_y, fill_shadow + fill_shadow_params.
+## Standalone so improving it lifts every site (the Level dialog now; the home unlock % later).
 static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 	var h: float = float(opts.get("height", 20.0))     # the DISPLAY height the bar shrinks to fit
 	var f: float = clampf(frac, 0.0, 1.0)
 	var use_art: bool = bool(opts.get("art", true))
+	var base_name := String(opts.get("name", "ProgressBar"))
 	# fill_color re-hues the fill (a resource bank's line colour): art mode tints the honey capsule,
 	# the code-drawn fallback paints it directly. Absent → the classic honey/straw fill.
 	var fill_color: Color = opts.get("fill_color", Color(0, 0, 0, 0))
+	var track_color: Color = opts.get("track_color", Color(Pal.INK, 0.12))
+	var fill_w_scale := clampf(float(opts.get("fill_width_pct", 100.0)) / 100.0, 0.05, 3.0)
+	var fill_h_scale := clampf(float(opts.get("fill_height_pct", 100.0)) / 100.0, 0.05, 3.0)
+	var fill_dx := float(opts.get("fill_x", 0.0))
+	var fill_dy := float(opts.get("fill_y", 0.0))
 	var holder := Control.new()
+	holder.name = base_name
 	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var track_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_track.png"), 512) if use_art else null
-	var fill_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_fill.png"), 512) if use_art else null
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if bool(opts.get("shadow", false)):
+		var bar_sh := Look.shadow_rect(h * 0.5, _shared_shadow_params(opts.get("shadow_params", {}) as Dictionary))
+		bar_sh.name = _progress_name(base_name, "Shadow")
+		bar_sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bar_sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(bar_sh)
+	var art_cap := int(opts.get("art_cap", 512))
+	var track_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("track_art", "kit/prog_track.png"))), art_cap) if use_art else null
+	var fill_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("fill_art", "kit/prog_fill.png"))), art_cap) if use_art else null
+	var fill_shadow_params: Dictionary = opts.get("fill_shadow_params", {}) as Dictionary
 	if track_tex != null and fill_tex != null:
 		# ART mode — track & fill are NINE-SLICE capsules. A 9-slice pill's rounded caps only stay round
 		# when the node is drawn at least as tall as the cap (margin = radius); squashing it shorter ovals
@@ -3670,77 +3687,84 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		# the stage is always at native height (no vertical scaling), only the HORIZONTAL centre stretches.
 		var nat_h: float = float(track_tex.get_height())
 		var t_margin: int = int(round(nat_h * 0.5))                 # capsule radius = half the height
-		var fill_h: float = float(fill_tex.get_height())
-		var f_margin: int = int(round(fill_h * 0.5))
-		var inset: float = (nat_h - fill_h) * 0.5                   # the fill sits inside the track rim
+		var base_fill_h: float = float(fill_tex.get_height())
+		var inset: float = (nat_h - base_fill_h) * 0.5              # the fill sits inside the track rim
+		if opts.has("fill_rim_pct"):
+			inset = nat_h * clampf(float(opts.get("fill_rim_pct", 0.0)) / 100.0, 0.0, 0.49)
+			base_fill_h = nat_h - inset * 2.0
 		var stage := Control.new()
+		stage.name = _progress_name(base_name, "Stage")
 		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(stage)
 		var track := NinePatchRect.new()
+		track.name = _progress_name(base_name, "Track")
 		track.texture = track_tex
 		track.patch_margin_left = t_margin; track.patch_margin_right = t_margin
 		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(track)
+		var fill_shadow: Panel = null
+		if bool(opts.get("fill_shadow", false)):
+			fill_shadow = _progress_shadow_panel(_progress_name(base_name, "FillShadow"))
+			stage.add_child(fill_shadow)
 		var fill_clip := Control.new()
+		fill_clip.name = _progress_name(base_name, "FillClip")
 		fill_clip.clip_contents = true
 		fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(fill_clip)
 		var fill := NinePatchRect.new()
+		fill.name = _progress_name(base_name, "Fill")
 		fill.texture = fill_tex
-		fill.patch_margin_left = f_margin; fill.patch_margin_right = f_margin
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if fill_color.a > 0.0:
 			fill.self_modulate = fill_color
 		fill_clip.add_child(fill)
-		var lay_art := func() -> void:
-			if not (is_instance_valid(holder) and is_instance_valid(stage)):
-				return
-			var disp := holder.size
-			if disp.x <= 0.0 or disp.y <= 0.0:
-				return
-			var s: float = disp.y / nat_h                           # uniform shrink: native → display height
-			var stage_w: float = disp.x / s                         # …so the scaled stage spans the full width
-			stage.scale = Vector2(s, s)
-			stage.size = Vector2(stage_w, nat_h)
-			track.size = Vector2(stage_w, nat_h)
-			var fill_w: float = stage_w - inset * 2.0               # the inner fill track, inset within the rim
-			var clip_w: float = maxf(fill_h, fill_w * f)            # ≥ a round nub so 0% still reads as a bar
-			fill_clip.position = Vector2(inset, inset)
-			fill_clip.size = Vector2(clip_w, fill_h)
-			fill.position = Vector2.ZERO
-			fill.size = Vector2(fill_w, fill_h)                     # full width; the clip reveals only `frac`
+		var art_holder_ref: WeakRef = weakref(holder)
+		var stage_ref: WeakRef = weakref(stage)
+		var track_ref: WeakRef = weakref(track)
+		var fill_clip_ref: WeakRef = weakref(fill_clip)
+		var fill_ref: WeakRef = weakref(fill)
+		var fill_shadow_ref: WeakRef = weakref(fill_shadow) if fill_shadow != null else null
+		var lay_art := _progress_layout_art.bind(art_holder_ref, stage_ref, track_ref, fill_clip_ref,
+			fill_ref, fill_shadow_ref, nat_h, base_fill_h, inset, fill_w_scale, fill_h_scale, fill_dx,
+			fill_dy, f, fill_shadow_params)
 		holder.resized.connect(lay_art)
 		holder.ready.connect(lay_art)
 	else:
 		# code-drawn fallback (legacy look) — a rounded track with a clip-revealed straw fill
 		var track := Panel.new()
+		track.name = _progress_name(base_name, "Track")
 		track.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var tsb := StyleBoxFlat.new()
-		tsb.bg_color = Color(Pal.INK, 0.12)
+		tsb.bg_color = track_color
 		tsb.set_corner_radius_all(int(h * 0.5))
 		track.add_theme_stylebox_override("panel", tsb)
 		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(track)
+		var fill_shadow: Panel = null
+		if bool(opts.get("fill_shadow", false)):
+			fill_shadow = _progress_shadow_panel(_progress_name(base_name, "FillShadow"))
+			holder.add_child(fill_shadow)
 		var fill_clip := Control.new()
+		fill_clip.name = _progress_name(base_name, "FillClip")
 		fill_clip.clip_contents = true
 		fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(fill_clip)
 		var fill := Panel.new()
+		fill.name = _progress_name(base_name, "Fill")
 		var fsb := StyleBoxFlat.new()
 		fsb.bg_color = fill_color if fill_color.a > 0.0 else Pal.STRAW
 		fsb.set_corner_radius_all(int(h * 0.5))
 		fill.add_theme_stylebox_override("panel", fsb)
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		fill_clip.add_child(fill)
-		var lay := func() -> void:
-			if not (is_instance_valid(holder) and is_instance_valid(fill_clip) and is_instance_valid(fill)):
-				return
-			var w := holder.size.x
-			var fw := maxf(h, w * f)             # at least a rounded nub so 0% still reads as a bar
-			fill_clip.position = Vector2.ZERO
-			fill_clip.size = Vector2(fw, h)
-			fill.position = Vector2.ZERO
-			fill.size = Vector2(w, h)            # fill keeps FULL width; the clip reveals only `frac` of it
+		var fb_holder_ref: WeakRef = weakref(holder)
+		var fb_fill_clip_ref: WeakRef = weakref(fill_clip)
+		var fb_fill_ref: WeakRef = weakref(fill)
+		var fb_fill_shadow_ref: WeakRef = weakref(fill_shadow) if fill_shadow != null else null
+		var fb_fsb_ref: WeakRef = weakref(fsb)
+		var lay := _progress_layout_flat.bind(fb_holder_ref, fb_fill_clip_ref, fb_fill_ref,
+			fb_fill_shadow_ref, fb_fsb_ref, h, fill_w_scale, fill_h_scale, fill_dx, fill_dy, f,
+			fill_shadow_params)
 		# Layout is driven by ready/resized (which only fire once the bar is IN a tree) — NOT a bare
 		# call_deferred, so a bar built-and-freed before any layout (a discarded preview) can't fire a
 		# lambda over freed captures.
@@ -3751,9 +3775,9 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		var knob := make_icon("star", h * 1.4)
 		knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(knob)
-		var place := func() -> void:
-			if is_instance_valid(knob) and is_instance_valid(holder):
-				knob.position = Vector2(maxf(0.0, holder.size.x * f - h * 0.7), -h * 0.2)
+		var knob_ref: WeakRef = weakref(knob)
+		var knob_holder_ref: WeakRef = weakref(holder)
+		var place := _progress_place_knob.bind(knob_ref, knob_holder_ref, f, h)
 		holder.resized.connect(place)
 	# --- optional centered label (e.g. "75%") ---
 	var label := String(opts.get("label", ""))
@@ -3771,6 +3795,101 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(l)
 	return holder
+
+static func _progress_layout_art(holder_ref: WeakRef, stage_ref: WeakRef, track_ref: WeakRef,
+		fill_clip_ref: WeakRef, fill_ref: WeakRef, fill_shadow_ref: WeakRef, nat_h: float,
+		base_fill_h: float, inset: float, fill_w_scale: float, fill_h_scale: float, fill_dx: float,
+		fill_dy: float, f: float, fill_shadow_params: Dictionary) -> void:
+	var hld := holder_ref.get_ref() as Control
+	var stg := stage_ref.get_ref() as Control
+	var trk := track_ref.get_ref() as Control
+	var clip := fill_clip_ref.get_ref() as Control
+	var fl := fill_ref.get_ref() as NinePatchRect
+	var fsh: Panel = fill_shadow_ref.get_ref() as Panel if fill_shadow_ref != null else null
+	if hld == null or stg == null or trk == null or clip == null or fl == null:
+		return
+	var disp := hld.size
+	if disp.x <= 0.0 or disp.y <= 0.0:
+		return
+	var s: float = disp.y / nat_h
+	var stage_w: float = disp.x / s
+	stg.scale = Vector2(s, s)
+	stg.size = Vector2(stage_w, nat_h)
+	trk.size = Vector2(stage_w, nat_h)
+	var base_fill_w: float = stage_w - inset * 2.0
+	var fill_w: float = maxf(1.0, base_fill_w * fill_w_scale)
+	var fill_h: float = maxf(1.0, base_fill_h * fill_h_scale)
+	var fill_pos := Vector2(inset + (base_fill_w - fill_w) * 0.5 + fill_dx / s,
+		inset + (base_fill_h - fill_h) * 0.5 + fill_dy / s)
+	var clip_w: float = maxf(fill_h, fill_w * f)
+	clip.position = fill_pos
+	clip.size = Vector2(clip_w, fill_h)
+	fl.position = Vector2.ZERO
+	fl.size = Vector2(fill_w, fill_h)
+	var f_margin := int(round(maxf(1.0, fill_h * 0.5)))
+	fl.patch_margin_left = f_margin; fl.patch_margin_right = f_margin
+	if fsh != null:
+		fsh.position = fill_pos
+		fsh.size = Vector2(clip_w, fill_h)
+		_configure_progress_shadow(fsh, fill_h * 0.5, fill_shadow_params, s)
+
+static func _progress_layout_flat(holder_ref: WeakRef, fill_clip_ref: WeakRef, fill_ref: WeakRef,
+		fill_shadow_ref: WeakRef, fsb_ref: WeakRef, h: float, fill_w_scale: float,
+		fill_h_scale: float, fill_dx: float, fill_dy: float, f: float, fill_shadow_params: Dictionary) -> void:
+	var hld := holder_ref.get_ref() as Control
+	var clip := fill_clip_ref.get_ref() as Control
+	var fl := fill_ref.get_ref() as Panel
+	var fsh: Panel = fill_shadow_ref.get_ref() as Panel if fill_shadow_ref != null else null
+	var fill_style := fsb_ref.get_ref() as StyleBoxFlat
+	if hld == null or clip == null or fl == null or fill_style == null:
+		return
+	var w := hld.size.x
+	var fill_w := maxf(1.0, w * fill_w_scale)
+	var fill_h := maxf(1.0, h * fill_h_scale)
+	var fill_pos := Vector2((w - fill_w) * 0.5 + fill_dx, (h - fill_h) * 0.5 + fill_dy)
+	var fw := maxf(fill_h, fill_w * f)
+	clip.position = fill_pos
+	clip.size = Vector2(fw, fill_h)
+	fl.position = Vector2.ZERO
+	fl.size = Vector2(fill_w, fill_h)
+	fill_style.set_corner_radius_all(int(fill_h * 0.5))
+	if fsh != null:
+		fsh.position = fill_pos
+		fsh.size = Vector2(fw, fill_h)
+		_configure_progress_shadow(fsh, fill_h * 0.5, fill_shadow_params, 1.0)
+
+static func _progress_place_knob(knob_ref: WeakRef, holder_ref: WeakRef, f: float, h: float) -> void:
+	var k := knob_ref.get_ref() as Control
+	var hld := holder_ref.get_ref() as Control
+	if k != null and hld != null:
+		k.position = Vector2(maxf(0.0, hld.size.x * f - h * 0.7), -h * 0.2)
+
+static func _progress_name(base_name: String, suffix: String) -> String:
+	return "%s%s" % [base_name, suffix]
+
+static func _progress_shadow_panel(node_name: String) -> Panel:
+	var sh := Panel.new()
+	sh.name = node_name
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sh.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	sh.add_theme_stylebox_override("panel", StyleBoxFlat.new())
+	return sh
+
+static func _configure_progress_shadow(sh: Panel, corner: float, p: Dictionary, stage_scale: float) -> void:
+	var s := maxf(stage_scale, 0.001)
+	var alpha := clampf(float(p.get("alpha", 0.0)), 0.0, 1.0)
+	var tint := Look.shadow_color(alpha)
+	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
+	if sb == null:
+		return
+	sb.draw_center = true
+	sb.bg_color = tint
+	sb.shadow_color = tint
+	sb.shadow_offset = Vector2(float(p.get("offset_x", 0.0)) / s, float(p.get("offset_y", 0.0)) / s)
+	sb.shadow_size = int(maxf(float(p.get("blur", 0.0)) / s, 0.0))
+	var spread := float(p.get("spread", 0.0)) / s
+	sb.set_expand_margin_all(spread)
+	sb.set_corner_radius_all(int(maxf(corner + spread, 0.0)))
 
 ## --- the Meadow level badge ----------------------------------------------------------
 ## Progression resolves one of 25 authored, shadow-free 256x256 badge bases. The public tier remains
@@ -4645,10 +4764,25 @@ static func badge_polish_from_config(cfg: Dictionary) -> Dictionary:
 ## the standalone workbench preview both read it from here.
 static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var p: Dictionary = cfg.get("progress_bar", {})
+	var fill_shadow_params := {
+		"offset_x": float(p.get("fill_shadow_x", 0.0)),
+		"offset_y": float(p.get("fill_shadow_y", 2.0)),
+		"blur": float(p.get("fill_shadow_blur", 3.0)),
+		"spread": float(p.get("fill_shadow_spread", -1.0)),
+		"alpha": clampf(float(p.get("fill_shadow_opacity", 28.0)) / 100.0, 0.0, 1.0),
+	}
 	return {
 		"height": float(p.get("height", 20)),
 		"art": bool(p.get("art", true)),
+		"shadow": bool(p.get("shadow", false)),
+		"shadow_params": Look.shadow_params(cfg),
 		"star_knob": bool(p.get("star_knob", false)),
+		"fill_width_pct": float(p.get("fill_width_pct", 100.0)),
+		"fill_height_pct": float(p.get("fill_height_pct", 100.0)),
+		"fill_x": float(p.get("fill_x", 0.0)),
+		"fill_y": float(p.get("fill_y", 0.0)),
+		"fill_shadow": bool(p.get("fill_shadow", false)),
+		"fill_shadow_params": fill_shadow_params,
 	}
 
 ## The LEVEL dialog's saved STYLE from config — the dedicated frame chrome + the medallion size + the

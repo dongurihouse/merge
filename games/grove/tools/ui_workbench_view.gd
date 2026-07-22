@@ -253,9 +253,14 @@ func _default_params() -> Dictionary:
 			"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
 			"plus_label_y": 0,
 			"inner_shadow": 30},
-		# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
-		# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
-		"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
+		# the reusable PROGRESS BAR — its own building-block component (track + fill). height / art /
+		# star_knob + fill geometry/shadow are the saved style; frac is a preview-only fill slider.
+		# The Level dialog reads this same style.
+		"progress_bar": {"height": 20, "art": true, "star_knob": false,
+			"fill_width_pct": 100, "fill_height_pct": 100, "fill_x": 0, "fill_y": 0,
+			"fill_shadow": false, "fill_shadow_x": 0, "fill_shadow_y": 2,
+			"fill_shadow_blur": 3, "fill_shadow_spread": -1, "fill_shadow_opacity": 28,
+			"frac": 50},
 		"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
 		# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
 		# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
@@ -1631,9 +1636,22 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["plus_label_y", -20, 20]))   # nudge the "+" up/down within the green button
 		"progress_bar":
 			_group_header("Saved to config", true)
+			_section_header("Track")
 			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
 			_sidebar_body.add_child(_toggle_row("Use art", "art"))
 			_sidebar_body.add_child(_toggle_row("Star knob", "star_knob"))
+			_section_header("Fill geometry")
+			_sidebar_body.add_child(_slider_row(["fill_width_pct", 20, 160]))
+			_sidebar_body.add_child(_slider_row(["fill_height_pct", 20, 160]))
+			_sidebar_body.add_child(_slider_row(["fill_x", -60, 60]))
+			_sidebar_body.add_child(_slider_row(["fill_y", -40, 40]))
+			_section_header("Fill shadow")
+			_sidebar_body.add_child(_toggle_row("Fill shadow", "fill_shadow"))
+			_sidebar_body.add_child(_slider_row(["fill_shadow_x", -30, 30]))
+			_sidebar_body.add_child(_slider_row(["fill_shadow_y", -30, 30]))
+			_sidebar_body.add_child(_slider_row(["fill_shadow_blur", 0, 30]))
+			_sidebar_body.add_child(_slider_row(["fill_shadow_spread", -20, 20]))
+			_sidebar_body.add_child(_slider_row(["fill_shadow_opacity", 0, 80]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["frac", 0, 100]))   # preview the fill amount
 		"frame":

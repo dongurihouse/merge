@@ -438,6 +438,16 @@
 	},
 	"progress_bar": {
 		"art": true,
+		"fill_height_pct": 100.0,
+		"fill_shadow": true,
+		"fill_shadow_blur": 3.0,
+		"fill_shadow_opacity": 28.0,
+		"fill_shadow_spread": -1.0,
+		"fill_shadow_x": 0.0,
+		"fill_shadow_y": 2.0,
+		"fill_width_pct": 100.0,
+		"fill_x": 0.0,
+		"fill_y": 0.0,
 		"height": 30.0,
 		"shadow": true,
 		"star_knob": false

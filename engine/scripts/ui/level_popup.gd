@@ -128,10 +128,11 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 static func _sheet(w: float, d: Dictionary) -> Control:
 	var lvl := int(d.get("level", 1))
 	var mode := String(d.get("mode", "info"))
+	var cfg: Dictionary = d.get("frame_cfg", null) if d.get("frame_cfg", null) is Dictionary else Kit.load_config(Kit.CONFIG_PATH)
 	# per-element layout — each part's SIZE (a % of its default) and a vertical NUDGE (px, +down), read
 	# from the saved "level" config block so the workbench Level item can tune them and the game honours
 	# it. Defaults (100 / 0) reproduce the fraction constants exactly, so an un-tuned config is unchanged.
-	var lay: Dictionary = (d.get("frame_cfg", {}) as Dictionary).get("level", {}) if d.get("frame_cfg", null) is Dictionary else {}
+	var lay: Dictionary = cfg.get("level", {})
 	var sz := func(key: String) -> float: return float(lay.get(key, 100)) / 100.0
 	var dy := func(key: String) -> int: return int(lay.get(key, 0))
 
@@ -150,7 +151,7 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 
 	var span: int = maxi(1, int(d.get("span", 1)))
 	col.add_child(_nudge(_bar(clampf(float(int(d.get("into", 0))) / float(span), 0.0, 1.0), \
-		w * sz.call("bar_size")), dy.call("bar_dy"), "LevelBarSlot"))
+		w * sz.call("bar_size"), cfg), dy.call("bar_dy"), "LevelBarSlot"))
 
 	if mode == "levelup":
 		var gift: Dictionary = d.get("gift", {})
@@ -179,7 +180,6 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	# levelup), so closing by the disc never loses the reward. The card hugs its content (min_h 0), and
 	# the level's own L/R + bottom insets are kept so the bar/pill width fractions stay valid; the frame
 	# reserves the top band for the title.
-	var cfg: Dictionary = d.get("frame_cfg", null) if d.get("frame_cfg", null) is Dictionary else Kit.load_config(Kit.CONFIG_PATH)
 	var fo: Dictionary = Kit.dialog_opts_from_config(cfg)
 	fo["banner_text"] = Strings.t("level.banner") % lvl
 	if cb.is_valid():
@@ -233,98 +233,20 @@ static func _cta(text: String, w: float) -> Button:
 ## with the green fill (nine-slice) clipped to `frac`. The caps are drawn at the texture's NATIVE height
 ## on an inner stage that is uniformly scaled to the display box, so the rounded ends keep their shape
 ## instead of ovalling when the bar is squashed short (the same recipe as Kit.progress_bar's art mode).
-static func _bar(frac: float, w: float) -> Control:
-	var bw := w * BAR_W_F
-	var bh := w * BAR_H_F
-	# a plain Control, NOT a PanelContainer: a container would re-sort (and stretch) the children over
-	# their hand-computed rects, so the fill would always read as 100%.
-	var holder := Control.new()
-	holder.name = "LevelProgress"
-	holder.custom_minimum_size = Vector2(bw, bh)
-	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# THE shared drop shadow behind the whole capsule (the shadow-free art needs it re-applied), a
-	# rounded rect at the bar's own capsule corner, drawn first so the track/fill sit on top.
-	var bar_sh := Look.shadow_rect(bh * 0.5, Look.saved_shadow_params())
-	bar_sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar_sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(bar_sh)
-	var track_tex := _art("track")
-	var fill_tex := _art("fill")
-	var f := clampf(frac, 0.0, 1.0)
-	if track_tex == null or fill_tex == null:
-		# code-drawn fallback (art missing) — a rounded track with a clip-revealed green fill
-		var track_p := Panel.new()
-		track_p.name = "LevelProgressTrack"
-		track_p.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var tsb := StyleBoxFlat.new()
-		tsb.bg_color = BAR_REMAIN; tsb.set_corner_radius_all(int(bh * 0.5))
-		track_p.add_theme_stylebox_override("panel", tsb)
-		track_p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(track_p)
-		var fclip := Control.new(); fclip.clip_contents = true; fclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(fclip)
-		var fill_p := Panel.new(); fill_p.name = "LevelProgressFill"; fill_p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var lsb := StyleBoxFlat.new(); lsb.bg_color = Pal.LEAF; lsb.set_corner_radius_all(int(bh * 0.5))
-		fill_p.add_theme_stylebox_override("panel", lsb)
-		fclip.add_child(fill_p)
-		var lay_fb := func() -> void:
-			if not (is_instance_valid(holder) and is_instance_valid(fclip) and is_instance_valid(fill_p)):
-				return
-			var wd := holder.size.x
-			fclip.position = Vector2.ZERO; fclip.size = Vector2(maxf(bh, wd * f), holder.size.y)
-			fill_p.position = Vector2.ZERO; fill_p.size = Vector2(wd, holder.size.y)
-		holder.resized.connect(lay_fb); holder.ready.connect(lay_fb)
-		return holder
-
-	var nat_h := float(track_tex.get_height())
-	var t_margin := int(round(nat_h * 0.5))                 # capsule radius = half the native height
-	# the green fill is drawn TALL — it nearly fills the track, leaving only a thin blue rim (BAR_FILL_RIM_F)
-	# top and bottom — rather than sitting at the fill texture's slimmer native height.
-	var rim := nat_h * BAR_FILL_RIM_F
-	var fill_h := nat_h - rim * 2.0
-	var f_margin := int(round(fill_h * 0.5))
-	var inset := rim                                         # the fill sits just inside the track rim
-	var stage := Control.new()
-	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(stage)
-	var track := NinePatchRect.new()
-	track.name = "LevelProgressTrack"
-	track.texture = track_tex
-	track.patch_margin_left = t_margin; track.patch_margin_right = t_margin
-	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(track)
-	var fill_clip := Control.new()
-	fill_clip.name = "LevelProgressFillClip"
-	fill_clip.clip_contents = true
-	fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(fill_clip)
-	var fill := NinePatchRect.new()
-	fill.name = "LevelProgressFill"
-	fill.texture = fill_tex
-	fill.patch_margin_left = f_margin; fill.patch_margin_right = f_margin
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill_clip.add_child(fill)
-	var lay := func() -> void:
-		if not (is_instance_valid(holder) and is_instance_valid(stage)):
-			return
-		var disp := holder.size
-		if disp.x <= 0.0 or disp.y <= 0.0:
-			return
-		var s: float = disp.y / nat_h                       # uniform shrink: native → display height
-		var stage_w: float = disp.x / s                     # …so the scaled stage spans the full width
-		stage.scale = Vector2(s, s)
-		stage.size = Vector2(stage_w, nat_h)
-		track.size = Vector2(stage_w, nat_h)
-		var fill_w: float = stage_w - inset * 2.0           # the inner fill track, inset within the rim
-		var clip_w: float = maxf(fill_h, fill_w * f)        # ≥ a round nub so 0% still reads as a bar
-		fill_clip.position = Vector2(inset, inset)
-		fill_clip.size = Vector2(clip_w, fill_h)
-		fill.position = Vector2.ZERO
-		fill.size = Vector2(fill_w, fill_h)                 # full width; the clip reveals only `frac`
-	holder.resized.connect(lay)
-	holder.ready.connect(lay)
-	return holder
+static func _bar(frac: float, w: float, cfg: Dictionary = {}) -> Control:
+	var opts := Kit.progress_bar_opts_from_config(cfg)
+	opts["name"] = "LevelProgress"
+	opts["width"] = w * BAR_W_F
+	opts["height"] = w * BAR_H_F
+	opts["track_art"] = "kit/level_track.png"
+	opts["fill_art"] = "kit/level_fill.png"
+	opts["art_cap"] = 512
+	opts["fill_rim_pct"] = BAR_FILL_RIM_F * 100.0
+	opts["fill_color"] = Pal.LEAF
+	opts["track_color"] = BAR_REMAIN
+	if not ((cfg.get("progress_bar", {}) as Dictionary).has("shadow")):
+		opts["shadow"] = true
+	return Kit.progress_bar(frac, opts)
 
 ## The tally PILL (sakura): the extracted cut-paper capsule art (kit/level_pill, gold coin baked at its
 ## left) carrying the "X / Y earned" line in the space to the right of the coin. The art is shadow-free;
@@ -437,6 +359,11 @@ static func _medallion(level: int, m: float) -> Control:
 	num.add_theme_font_size_override("font_size", int(disc_d * num_frac))
 	num.add_theme_color_override("font_color", Pal.CREAM)
 	num.add_theme_constant_override("outline_size", 0)
+	var sp := Look.saved_shadow_params()
+	num.add_theme_color_override("font_shadow_color", Look.shadow_color(float(sp.alpha)))
+	num.add_theme_constant_override("shadow_offset_x", int(round(float(sp.offset_x))))
+	num.add_theme_constant_override("shadow_offset_y", int(round(float(sp.offset_y))))
+	num.add_theme_constant_override("shadow_outline_size", maxi(1, int(round(maxf(0.0, float(sp.blur) + float(sp.spread))))))
 	num.size = Vector2(disc_d, disc_d)
 	num.position = Vector2(m * PLAQUE_DISC_CX_F - disc_d * 0.5, m * PLAQUE_DISC_CY_F - disc_d * 0.5)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE

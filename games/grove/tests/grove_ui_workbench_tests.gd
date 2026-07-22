@@ -10,6 +10,7 @@ const UIWorkbenchView = preload("res://games/grove/tools/ui_workbench_view.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
 
 func _initialize() -> void:
 	begin("grove · ui workbench")
@@ -25,6 +26,8 @@ func _initialize() -> void:
 	_slot_cell_gallery_uses_game_cells()
 	_slot_content_shadow_can_be_tuned()
 	_quest_check_scale_flows_to_giver_card()
+	_shared_progress_bar_exposes_fill_geometry_and_shadow()
+	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
 	finish()
 
 ## The shared daily card FACE (Kit.daily_card_face) — the code-drawn cut-paper card BOTH the workbench daily
@@ -152,6 +155,67 @@ func _quest_check_scale_flows_to_giver_card() -> void:
 	ok(met != null and absf(met.size.x - expected) <= 1.0,
 		"Quest-card check mark size follows the saved check_scale knob")
 	(made.chip as Control).free()
+
+func _shared_progress_bar_exposes_fill_geometry_and_shadow() -> void:
+	var opts := Kit.progress_bar_opts_from_config({"progress_bar": {
+		"height": 30.0, "art": true, "star_knob": false,
+		"fill_width_pct": 70.0, "fill_height_pct": 50.0, "fill_x": 6.0, "fill_y": -4.0,
+		"fill_shadow": true, "fill_shadow_x": 3.0, "fill_shadow_y": 2.0,
+		"fill_shadow_blur": 7.0, "fill_shadow_spread": -1.0, "fill_shadow_opacity": 44.0}})
+	ok(is_equal_approx(float(opts.get("fill_width_pct", 0.0)), 70.0),
+		"progress_bar config persists fill width control")
+	ok(is_equal_approx(float(opts.get("fill_height_pct", 0.0)), 50.0),
+		"progress_bar config persists fill height control")
+	ok(is_equal_approx(float((opts.get("fill_shadow_params", {}) as Dictionary).get("alpha", 0.0)), 0.44),
+		"progress_bar config stores an independent fill-shadow opacity")
+
+	var bar := Kit.progress_bar(0.5, opts)
+	bar.size = Vector2(300, 30)
+	bar.resized.emit()
+	var track := _find_named(bar, "ProgressBarTrack") as Control
+	var fill_clip := _find_named(bar, "ProgressBarFillClip") as Control
+	var fill := _find_named(bar, "ProgressBarFill") as Control
+	var fill_shadow := _find_named(bar, "ProgressBarFillShadow") as Control
+	ok(track != null and fill_clip != null and fill != null,
+		"shared progress bar exposes named track/fill nodes for workbench tuning")
+	ok(fill_shadow != null,
+		"shared progress bar adds an independently controlled green-fill shadow")
+	ok(fill != null and track != null and fill.size.y < track.size.y * 0.60,
+		"fill height control shrinks the green fill inside the track")
+	ok(fill_clip != null and track != null and fill_clip.size.x < track.size.x * 0.42,
+		"fill width control is applied before the earned fraction clips the fill")
+	bar.free()
+
+func _level_dialog_uses_shared_progress_bar_with_runtime_shadows() -> void:
+	Kit.clear_config_cache()
+	var cfg := {
+		"level": {"med_size": 100.0, "med_dy": 0.0, "earned_size": 100.0, "earned_dy": 0.0,
+			"bar_size": 100.0, "bar_dy": 0.0, "hint_size": 100.0, "hint_dy": 0.0},
+		"progress_bar": {
+			"height": 30.0, "art": true, "shadow": true, "star_knob": false,
+			"fill_width_pct": 82.0, "fill_height_pct": 72.0, "fill_x": 5.0, "fill_y": -3.0,
+			"fill_shadow": true, "fill_shadow_x": 2.0, "fill_shadow_y": 3.0,
+			"fill_shadow_blur": 5.0, "fill_shadow_spread": -1.0, "fill_shadow_opacity": 35.0},
+		"frame": {"width_pct": 75.0},
+	}
+	var dialog := LevelPopup._sheet(540.0, {
+		"level": 4, "earned": 176, "next": 192, "into": 176, "span": 192,
+		"remaining": 16, "mode": "info", "gift": {}, "on_button": Callable(),
+		"frame_cfg": cfg})
+	var plaque_shadow := _find_named(dialog, "LevelPlaqueShadow")
+	var number := _find_named(dialog, "LevelNumber") as Label
+	var tally_shadow := _find_named(dialog, "LevelTallyPillShadow")
+	var fill_shadow := _find_named(dialog, "LevelProgressFillShadow")
+	ok(plaque_shadow != null,
+		"level dialog plaque casts the runtime silhouette shadow")
+	ok(number != null and number.has_theme_color_override("font_shadow_color"),
+		"level dialog number casts its own text shadow inside the plaque")
+	ok(tally_shadow != null,
+		"level dialog x/y earned pill casts the runtime silhouette shadow")
+	ok(fill_shadow != null,
+		"level dialog uses the shared progress bar fill-shadow layer")
+	dialog.free()
+	Kit.clear_config_cache()
 
 func _mail_claim_all_footer_is_transparent() -> void:
 	var dialog := Kit.mail_dialog(
