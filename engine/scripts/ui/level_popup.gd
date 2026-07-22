@@ -53,19 +53,14 @@ const ART := {
 	"track":  ["kit/level_track.png", 512],     # the empty progress track (nine-slice capsule)
 	"fill":   ["kit/level_fill.png", 512],      # the green progress fill (nine-slice, clipped to frac)
 }
+const PLAQUE_SHADOW_MIN := {"offset_x": 3.0, "offset_y": 8.0, "blur": 7.0, "alpha": 0.34}
+const PILL_SHADOW_MIN := {"offset_x": 2.0, "offset_y": 5.0, "blur": 5.0, "alpha": 0.34}
+const NUMBER_SHADOW_MIN := {"offset_x": 2.0, "offset_y": 4.0, "blur": 4.0, "alpha": 0.34}
 
 ## Every sprite this dialog polishes, with its cap — driven by BakeTargets.build_all so the bake
 ## covers them and kit_bake_tests holds them baked (no first-open freeze). Same pattern as LoginUI.
 static func bake_sprites() -> Array:
 	return ART.values()
-
-## Shape-true shadows are expensive because they resize the sprite to its displayed size and run image
-## math over the alpha silhouette. Cache only the shadow TEXTURE/pad; each caller still gets a fresh
-## TextureRect node positioned for its sprite, so scene ownership stays simple.
-static var _sprite_shadow_cache: Dictionary = {}
-
-static func clear_shadow_cache() -> void:
-	_sprite_shadow_cache.clear()
 
 static func _art(id: String) -> Texture2D:
 	var spec: Array = ART[id]
@@ -282,59 +277,54 @@ static func _tally_pill(text: String, w: float) -> Control:
 	holder.add_child(lbl)
 	return holder
 
-## THE uniform shadow, SHAPE-TRUE, for one medallion sprite: the sprite's own alpha silhouette baked
-## at display size (the Look.make_level_badge recipe — a box shadow would square the leaves), driven
-## by the SAVED workbench shadow block so a Shadow-item edit restyles these too. Returns null when
-## the sprite has no readable image (the layout simply omits the shadow).
+## A fast shape-true shadow for one level sprite: reuse the sprite's own alpha texture as a tinted,
+## offset duplicate beneath it. The earlier image-baked silhouette was technically exact, but it made
+## the open path pay per-pixel work and the saved 3px shared-shadow values were too subtle on the large
+## plaque/pill. This keeps the irregular outline, makes the cast legible, and avoids runtime Image math.
 static func _sprite_shadow(tr: TextureRect) -> TextureRect:
 	if tr == null or tr.texture == null:
 		return null
-	var sp := Look.saved_shadow_params()
-	var display_size := Vector2i(maxi(1, int(round(tr.size.x))), maxi(1, int(round(tr.size.y))))
-	var key := _sprite_shadow_key(tr.texture, display_size, sp)
-	if _sprite_shadow_cache.has(key):
-		var cached: Dictionary = _sprite_shadow_cache[key]
-		return _shadow_rect(String(tr.name), cached.get("texture") as Texture2D, float(cached.get("pad", 0.0)), tr)
-
-	var img: Image = tr.texture.get_image()
-	if img == null:
-		return null
-	img = img.duplicate()
-	if img.is_compressed():
-		img.decompress()
-	img.convert(Image.FORMAT_RGBA8)
-	img.resize(display_size.x, display_size.y, Image.INTERPOLATE_BILINEAR)
-	var res: Dictionary = Kit.silhouette_shadow(img, {
-		"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
-		"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha),
-		"shadow_spread": float(sp.spread)})
-	var pad := float(res.pad)
-	var tex := ImageTexture.create_from_image(res.image)
-	_sprite_shadow_cache[key] = {"texture": tex, "pad": pad}
-	return _shadow_rect(String(tr.name), tex, pad, tr)
-
-static func _sprite_shadow_key(tex: Texture2D, display_size: Vector2i, sp: Dictionary) -> String:
-	var tex_key := String(tex.resource_path)
-	if tex_key == "":
-		tex_key = str(tex.get_rid())
-	return "%s|%dx%d|%.3f|%.3f|%.3f|%.3f|%.3f" % [
-		tex_key, display_size.x, display_size.y,
-		float(sp.offset_x), float(sp.offset_y), float(sp.blur), float(sp.alpha), float(sp.spread)]
-
-static func _shadow_rect(base_name: String, tex: Texture2D, pad: float, tr: TextureRect) -> TextureRect:
-	if tex == null:
-		return null
+	var p := _level_sprite_shadow_params(PILL_SHADOW_MIN if String(tr.name).find("Pill") >= 0 else PLAQUE_SHADOW_MIN)
+	var grow := maxf(1.0, float(p.blur) * 0.35)
 	var shr := TextureRect.new()
-	shr.name = base_name + "Shadow"
-	shr.texture = tex
+	shr.name = String(tr.name) + "Shadow"
+	shr.texture = tr.texture
 	shr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shr.stretch_mode = TextureRect.STRETCH_SCALE
-	shr.position = tr.position - Vector2(pad, pad)
-	shr.size = tr.size + Vector2(pad * 2.0, pad * 2.0)
+	shr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	shr.self_modulate = Look.shadow_color(float(p.alpha))
+	shr.position = tr.position + Vector2(float(p.offset_x), float(p.offset_y))
+	shr.size = tr.size + Vector2(grow * 2.0, grow * 2.0)
 	shr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return shr
 
-## Add `tr` to `block` with its shape-true uniform shadow laid directly beneath it.
+static func _level_sprite_shadow_params(minimums: Dictionary) -> Dictionary:
+	var sp := Look.saved_shadow_params()
+	var ox := float(sp.offset_x)
+	var min_ox := float(minimums.offset_x)
+	if absf(ox) < absf(min_ox):
+		ox = min_ox
+	return {
+		"offset_x": ox,
+		"offset_y": maxf(float(sp.offset_y), float(minimums.offset_y)),
+		"blur": maxf(float(sp.blur), float(minimums.blur)),
+		"alpha": maxf(float(sp.alpha), float(minimums.alpha)),
+	}
+
+static func _level_number_shadow_params() -> Dictionary:
+	var sp := Look.saved_shadow_params()
+	var ox := float(sp.offset_x)
+	if absf(ox) < float(NUMBER_SHADOW_MIN.offset_x):
+		ox = float(NUMBER_SHADOW_MIN.offset_x)
+	return {
+		"offset_x": ox,
+		"offset_y": maxf(float(sp.offset_y), float(NUMBER_SHADOW_MIN.offset_y)),
+		"blur": maxf(float(sp.blur), float(NUMBER_SHADOW_MIN.blur)),
+		"spread": float(sp.spread),
+		"alpha": maxf(float(sp.alpha), float(NUMBER_SHADOW_MIN.alpha)),
+	}
+
+## Add `tr` to `block` with its shape-true texture shadow laid directly beneath it.
 static func _add_shadowed(block: Control, tr: TextureRect) -> void:
 	if tr == null:
 		return
@@ -362,7 +352,7 @@ static func _sprite(nm: String, art_id: String, px: float) -> TextureRect:
 
 ## The sakura MEDALLION: the single extracted plaque sprite (kit/level_plaque — the laurel wreath, slate
 ## disc, and daisy baked as one cut-paper piece) with the runtime level numeral drawn centred on its
-## slate disc. The plaque art is shadow-free; the runtime silhouette shadow is re-applied by _add_shadowed.
+## slate disc. The plaque art is shadow-free; the runtime texture shadow is re-applied by _add_shadowed.
 static func _medallion(level: int, m: float) -> Control:
 	var block := Control.new()
 	block.name = "LevelMedallion"
@@ -388,11 +378,11 @@ static func _medallion(level: int, m: float) -> Control:
 	num.add_theme_font_size_override("font_size", int(disc_d * num_frac))
 	num.add_theme_color_override("font_color", Pal.CREAM)
 	num.add_theme_constant_override("outline_size", 0)
-	var sp := Look.saved_shadow_params()
+	var sp := _level_number_shadow_params()
 	num.add_theme_color_override("font_shadow_color", Look.shadow_color(float(sp.alpha)))
 	num.add_theme_constant_override("shadow_offset_x", int(round(float(sp.offset_x))))
 	num.add_theme_constant_override("shadow_offset_y", int(round(float(sp.offset_y))))
-	num.add_theme_constant_override("shadow_outline_size", maxi(1, int(round(maxf(0.0, float(sp.blur) + float(sp.spread))))))
+	num.add_theme_constant_override("shadow_outline_size", maxi(2, int(round(maxf(0.0, float(sp.blur) + float(sp.spread))))))
 	num.size = Vector2(disc_d, disc_d)
 	num.position = Vector2(m * PLAQUE_DISC_CX_F - disc_d * 0.5, m * PLAQUE_DISC_CY_F - disc_d * 0.5)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
