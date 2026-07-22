@@ -2707,6 +2707,7 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
 const CUT_PAPER_TILE := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"   # code-drawn sheet's paper fibre
 const CUT_PAPER_TILE_WHITE := "res://games/grove/assets/ui/dialogs/paper_tile_white.png"   # the white paper role's fibre (desaturated + lifted from the cream tile)
+const CUT_PAPER_TILE_SOFT_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_soft_cream.png"   # shared frame fibre: between white and the old yellow cream
 const FRAME_BORDERS := {
 	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},
@@ -2805,7 +2806,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		var cp = load(CUT_PAPER).new()
 		cp.name = "CutPaperSheet"
 		cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cp.configure(cp_opts, Color("#FBFBFB"), null, load(CUT_PAPER_TILE_WHITE))   # the ONE shared edge applier
+		cp.configure(cp_opts, Color("#F9F3EC"), null, load(CUT_PAPER_TILE_SOFT_CREAM))   # the ONE shared edge applier
 		cut_paper_panel = cp
 	elif panel_bg_tex != null:
 		var pt := StyleBoxTexture.new()
