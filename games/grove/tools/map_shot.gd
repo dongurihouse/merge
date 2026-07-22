@@ -238,6 +238,20 @@ func _initialize() -> void:
 					(b as Button).pressed.emit()
 					break
 			await create_timer(0.4).timeout
+	elif mode == "mail":
+		# seed enough letters that the list overflows the card and scrolls, so the clip-below-title
+		# behaviour is visible (rows must stop below the "MAIL" band, not ride up behind it).
+		var Inbox = load("res://engine/scripts/core/inbox.gd")
+		for i in 6:
+			Inbox.add({"title": "Letter %d" % (i + 1), "body": "A little note for you.", "icon": "coin", "reward": {"coins": 50}, "read": false})
+		load("res://engine/scripts/ui/inbox.gd").open(scn, {"refresh": func() -> void: pass})
+		await create_timer(0.4).timeout
+		# scroll the list part-way so rows are mid-title-band, exposing any behind-the-title bleed
+		var ov: Control = scn.get_child(scn.get_child_count() - 1)
+		for sc in ov.find_children("*", "ScrollContainer", true, false):
+			sc.scroll_vertical = 160
+			break
+		await create_timer(0.3).timeout
 	elif mode == "settings":
 		scn._open_settings()
 		await create_timer(0.4).timeout

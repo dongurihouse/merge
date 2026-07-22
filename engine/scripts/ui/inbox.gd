@@ -75,6 +75,9 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 		# list rides a taller cap (~half the screen) — ~3 cards show above the pinned Claim All before it
 		# scrolls, instead of the old compact 425px.
 		opts["list_max_h"] = maxf(float(opts.get("list_max_h", 0.0)), host.get_viewport_rect().size.y * 0.5)
+		# clip the scrolling list UNDER the title band (like the shop) so rows disappear below the title
+		# instead of riding up behind it — the "MAIL" line stays a clean header, not a scrim over content.
+		opts["clip_below_banner"] = true
 		opts["on_close"] = func() -> void:
 			if is_instance_valid(overlay): overlay.queue_free()
 		opts["empty_text"] = Strings.t("inbox.empty_text")
