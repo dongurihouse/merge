@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://7p0870s2exsh"
-path="res://.godot/imported/raw.png-0bf343f79e3ee75f91cd0e91d3ca8d75.ctex"
+uid="uid://67p7q22r736c"
+path="res://.godot/imported/paper_tile_white.png-9e9d3fb5fc1bc45fe44b3cdd162e2306.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/map/sakura/reference/raw.png"
-dest_files=["res://.godot/imported/raw.png-0bf343f79e3ee75f91cd0e91d3ca8d75.ctex"]
+source_file="res://games/grove/assets/ui/dialogs/paper_tile_white.png"
+dest_files=["res://.godot/imported/paper_tile_white.png-9e9d3fb5fc1bc45fe44b3cdd162e2306.ctex"]
 
 [params]
 

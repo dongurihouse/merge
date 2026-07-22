@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "p
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["action_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["action_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["mail_card"], ["toggle_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -44,6 +44,10 @@ const COLUMNS := [
 # edited element + its dependents instead of the whole gallery.
 const DEPENDENTS := {
 	"button": ["dialog", "daily", "shop", "settings", "info"],
+	# the reward-card style (edge + tint) flows into the mail dialog + the welcome/info sheet.
+	"mail_card": ["dialog", "info"],
+	# the settings-row style (edge + tint + label/switch) flows into the settings dialog's rows.
+	"toggle_card": ["settings"],
 	# the mail-card style is edited ON the Mail dialog now, so editing the dialog also refreshes the
 	# other surfaces that reuse the card (daily · shop · settings · info).
 	"dialog": ["daily", "shop", "settings", "info"],
@@ -71,9 +75,10 @@ const TEST_KEYS := {
 	# the FOCUS RING (selected-cell corner brackets): colour/halo/proportions persist (they flow to the
 	# live board via Kit.focus_ring_opts_from_config); `cell` is the preview size only.
 	"focus_ring": ["cell"],
-	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
-	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
-	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge", "paper", "border", "pad_scale", "static"],
+	# the Button is a shared-STYLE sandbox: shadow / use-art / font AND the shared cut-paper corner are real
+	# config (the corner is part of the shared edge set, so it must persist + sync to every button, not just
+	# the live tile). Its text, bg, icon, badge are test props — the REAL text/badge/icon live on the Card.
+	"button": ["text", "bg", "icon", "icon_size", "enabled", "badge", "paper", "border", "pad_scale", "static"],
 	# the ACTION BUTTON is a shared-STYLE sandbox: size / icon scale / shadow / the shared edge knobs /
 	# per-role tint all persist. The full row of every role always shows; `preview_role` just picks
 	# which single tile the test-only spotlight (if any) points at.
@@ -103,6 +108,12 @@ const TEST_KEYS := {
 	# the board reads it via Kit.giver_lay_from_config, so a tweak here flows to the live giver card. Only
 	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
 	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met"],
+	# the mail / reward-row card — the cut-paper edge + tint are SAVED style; the icon/title/body/chip TEXT is
+	# just demo content to preview the row (the game supplies each mail entry's real content).
+	"mail_card": ["icon", "title", "body", "chip_text"],
+	# the settings bar (toggle row) — the edge + tint + label font + switch height are SAVED style; the row
+	# label + its on/off state are just demo content to preview the row (the game supplies each real setting).
+	"toggle_card": ["label", "value"],
 	"settings": [],
 	"info": [],   # the demo line items are fixed in the preview; every knob is saved style
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
@@ -123,6 +134,8 @@ const CAPTIONS := {
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
+	"mail_card": "Mail card — reward row (icon · title · body · value chip) in the shared cut-paper edge · own tint",
+	"toggle_card": "Settings bar — a toggle row (label · rugged switch) in the shared cut-paper edge · own tint",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
@@ -208,13 +221,13 @@ func _default_params() -> Dictionary:
 		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "art": true, "shadow": false, "badge": "auto",
 			"paper": "none", "border": true, "pad_scale": 100, "static": false,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the frame + toggle bar use.
-			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true},
+			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0},
 		# the ACTION BUTTON — the shared rugged-edge nav tile. px / icon_scale / shadow + the shared
 		# cut-paper edge knobs (CUT_PAPER_KNOBS) are the saved style; tint_<role> is the per-button paper
 		# role (flattened to calm roles by default). map.gd + board.gd read this via action_button_opts_from_config.
 		"action_button": {"px": 158, "icon_scale": 50, "shadow": true,
 			# the SHARED cut-paper edge knob set — same keys as button + frame.
-			"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true,
+			"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
 			# per-button paper-role tint palette (calm/flattened defaults)
 			"tint_map": "cream", "tint_residents": "cream", "tint_daily": "cream", "tint_vault": "cream",
 			"tint_mail": "cream", "tint_play": "cream", "tint_home": "cream", "tint_bag": "cream",
@@ -230,6 +243,9 @@ func _default_params() -> Dictionary:
 		# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 		"badge": {"defringe": false, "shadow": false, "feather": 0},
 		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
+			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + frame use.
+			# `corner` seeds the capsule roundness to the old pill_h * 0.35 look (see Kit.PILL_CP_DEFAULTS).
+			"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
 			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 			"amount_w": 88, "num_size": 30, "amount_x": 0,
 			"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
@@ -248,7 +264,7 @@ func _default_params() -> Dictionary:
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + toggle bar use.
 			# `deckle` on replaces the flat card with a live deckled paper sheet; `corner` is the shared corner
 			# (drives the flat card too). Migrated from the old cut_paper / card_corner / frame_shadow keys.
-			"deckle": true, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true,
+			"deckle": true, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
 			"border": "parchment", "card_art": true,
 			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
@@ -276,7 +292,10 @@ func _default_params() -> Dictionary:
 		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — same keys as button + frame; a finer tear
 			# for the thin row strip. Drives BOTH the row surface AND the switch track/knob.
-			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true},
+			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
+			# the row's OWN tint (paper fill; rim derives a shade darker), sage by default. `label`/`value` are
+			# DEMO content (test-only) to preview one row — the game supplies each real setting's name + state.
+			"tint": "DCE7C8", "label": "Sound effects", "value": true},
 		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
 		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
 		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
@@ -288,6 +307,12 @@ func _default_params() -> Dictionary:
 			"bust_size": 94, "bust_x": 27, "bust_y": 53,
 			"bubble_size": 66, "bubble_x": 70, "bubble_y": 35,
 			"item_size": 32, "item_x": 70, "item_y": 32, "plaque_w": 40, "plaque_x": 70, "plaque_y": 81},
+		# the MAIL / reward-row card — the SHARED cut-paper edge knob set (deckle · corner · amp · freq · rim ·
+		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
+		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
+		# (test-only) so the preview shows a real reward row; the game supplies each entry's own content.
+		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
+			"tint": "F6EBDD", "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 		"daily": {"cols": 3, "list_max_h": 0},
@@ -527,6 +552,49 @@ func _make_element(id: String) -> Control:
 				if met != null and is_instance_valid(met):
 					met.visible = true
 			return stand
+		"mail_card":
+			# a SINGLE reward-row card in isolation (the Welcome-gift Acorns/Water row): icon + title + body
+			# + a read-only value chip, NO Claim. Built from the SAME Kit.mail_card the mail dialog uses,
+			# reading this component's LIVE cut-paper edge + tint (Kit.mail_card_opts_from_config(_params)),
+			# so tuning here matches the dialog rows 1:1. Content (icon/title/body/chip) is demo-only.
+			var mc := Kit.mail_card_opts_from_config(_params)
+			var entry := {
+				"icon": String(p.get("icon", "gem")),
+				"title": String(p.get("title", "Acorns")),
+				"body": String(p.get("body", "premium currency for shortcuts")),
+				"chip": {"icon": String(p.get("icon", "gem")), "text": String(p.get("chip_text", "400"))},
+			}
+			var card := Kit.mail_card(entry, 22, 16, mc)
+			# a light parchment cell behind it so the deckled edge + its soft shadow read
+			var cell := PanelContainer.new()
+			var cbg := StyleBoxFlat.new()
+			cbg.bg_color = Color("#EFE6D2")
+			cbg.set_corner_radius_all(12)
+			for m in ["left", "top", "right", "bottom"]:
+				cbg.set("content_margin_" + m, 24)
+			cell.add_theme_stylebox_override("panel", cbg)
+			cell.custom_minimum_size = Vector2(460, 0)
+			cell.add_child(card)
+			return cell
+		"toggle_card":
+			# a SINGLE settings row in isolation: a label + the rugged toggle switch on the shared cut-paper
+			# edge. Built from the SAME Kit.toggle_card the settings dialog stacks, reading this component's
+			# LIVE edge + tint + label/switch knobs (Kit.toggle_card_opts_from_config(_params)). The switch is
+			# interactive (tap to flip); label + initial on/off are demo content. Rows are 1:1 with the dialog.
+			var to := Kit.toggle_card_opts_from_config(_params)
+			var tentry := {"label": String(p.get("label", "Sound effects")), "value": bool(p.get("value", true)),
+				"on_toggle": func(on: bool) -> void: _params["toggle_card"]["value"] = on}
+			var trow := Kit.toggle_card(tentry, to)
+			var tcell := PanelContainer.new()
+			var tbg := StyleBoxFlat.new()
+			tbg.bg_color = Color("#EFE6D2")
+			tbg.set_corner_radius_all(12)
+			for m in ["left", "top", "right", "bottom"]:
+				tbg.set("content_margin_" + m, 24)
+			tcell.add_theme_stylebox_override("panel", tbg)
+			tcell.custom_minimum_size = Vector2(460, 0)
+			tcell.add_child(trow)
+			return tcell
 		"tiers":
 			# the REAL Discovery ladder (ladder.gd) — the SAME renderer the game opens: corner tier CHIPs
 			# (cream seen / grey locked), a generator-icon header, mock-measured layout. The old
@@ -1259,7 +1327,7 @@ func _button_gallery(_p: Dictionary) -> Control:
 	var paper_row := HBoxContainer.new()
 	paper_row.add_theme_constant_override("separation", 10)
 	paper_row.add_child(Kit.pill_button(String(_params["button"].text), _btn_opts({"bg": "green", "paper": "green", "border": 0.0})))
-	for role in ["cream", "purple", "coral", "gold"]:
+	for role in ["cream", "white", "purple", "coral", "gold"]:
 		paper_row.add_child(Kit.pill_button(String(role).capitalize(), {"bg": "cream", "paper": role, "border": 0.0, "font": int(_params["button"].font)}))
 	col.add_child(_button_sample("paper roles (borderless) — ● green is live", paper_row))
 	# 2) a static display CHIP is NOT a separate component — it is a paper role (cream) + an icon in front
@@ -1481,7 +1549,7 @@ func _element_sidebar(_id: String) -> void:
 			_cut_paper_section("button")   # the shared edge knob set (corner + deckle amp/freq/rim + edge shadow)
 			_sidebar_body.add_child(_toggle_row("Drop shadow (non-deckle)", "shadow"))   # global box shadow, used when the edge is off
 			_section_header("Paper-cut surface (overrides bg/art)")
-			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
+			_sidebar_body.add_child(_option_row("Paper role", "paper", ["none", "cream", "white", "sky", "green", "purple", "coral", "gold", "kraft", "slate"], true))
 			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button
 			_sidebar_body.add_child(_slider_row(["pad_scale", 40, 140]))  # % padding (the cost chip uses < 100 to fit a card)
 			_sidebar_body.add_child(_toggle_row("Static (display chip)", "static"))   # looks like a button, not pressable
@@ -1515,6 +1583,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["overall_scale", 60, 220]))
 			_sidebar_body.add_child(_slider_row(["pill_w", 180, 380]))
 			_sidebar_body.add_child(_slider_row(["pill_h", 64, 132]))
+			_cut_paper_section("gold_currency_pill")   # the shared rugged-edge knobs (deckle · corner · amp · freq · rim · shadow)
 			_section_header("Padding")
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))
@@ -1663,13 +1732,10 @@ func _element_sidebar(_id: String) -> void:
 		"settings":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
-			# the settings ROW style (the retired standalone Toggle-card item folded in here): the row's
-			# label size + the switch height. Stored under the "toggle_card" config block, read by
-			# Kit.toggle_card_opts_from_config, so the game's rows and this preview stay in lockstep.
-			_section_header("Row (label + switch)")
-			_sidebar_body.add_child(_slider_row(["label_font", 16, 44], "toggle_card"))
-			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72], "toggle_card"))
-			_cut_paper_section("toggle_card")   # the shared edge for the row surface AND the switch track/knob
+			# the row STYLE (edge · tint · label size · switch height) is its OWN component now — edit it on
+			# the Settings-bar item, and it flows into these rows live. Only the dialog's own row gap + frame
+			# live here (the frame is the shared Frame item), matching how the other dialogs delegate.
+			_sidebar_note("Row style (edge · tint · label · switch) is edited on the Settings-bar item — it flows into these rows.")
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
@@ -1736,6 +1802,31 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["stand_w", 200, 640]))    # preview stand width
 			_sidebar_body.add_child(_slider_row(["fence_h", 160, 460]))    # preview stand height
 			_sidebar_body.add_child(_toggle_row("Ready (✓)", "met"))       # preview the deliverable state
+		"mail_card":
+			# SAME shared edge knob set as the settings bar (Kit.CUT_PAPER_KNOBS) — one section, no
+			# duplication; a new knob appears here automatically — plus this card's OWN tint. The card's
+			# saved STYLE is the edge + tint; the content rows below are demo, to preview a real reward row.
+			_group_header("Saved to config", true)
+			_cut_paper_section("mail_card")                                # the shared cut-paper edge
+			_sidebar_body.add_child(_color_row("Tint", "tint"))            # the paper fill (rim derives from it)
+			_group_header("Demo content — not saved", false)               # the game supplies each entry's content
+			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS.slice(1)))   # the reward icon (ICONS minus "none")
+			_sidebar_body.add_child(_text_row("Title", "title"))
+			_sidebar_body.add_child(_text_row("Body", "body"))
+			_sidebar_body.add_child(_text_row("Chip value", "chip_text"))
+		"toggle_card":
+			# SAME shared edge knob set as the mail card (Kit.CUT_PAPER_KNOBS) — one section, no duplication;
+			# a new knob appears here automatically — plus this row's OWN tint + its label/switch sizing. The
+			# switch's on/off colours are fixed (they signal state), so there is no tint control for them.
+			_group_header("Saved to config", true)
+			_cut_paper_section("toggle_card")                              # the shared cut-paper edge (row + switch)
+			_sidebar_body.add_child(_color_row("Tint", "tint"))            # the row paper fill (rim derives from it)
+			_section_header("Row (label + switch)")
+			_sidebar_body.add_child(_slider_row(["label_font", 16, 44], "toggle_card"))   # label size
+			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72], "toggle_card"))     # switch height
+			_group_header("Demo content — not saved", false)              # the game supplies each real setting
+			_sidebar_body.add_child(_text_row("Label", "label"))
+			_sidebar_body.add_child(_toggle_row("On", "value"))           # the previewed switch state
 
 
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.
@@ -1750,10 +1841,15 @@ func _cut_paper_section(target: String) -> void:
 		var key := String(knob["key"])
 		if not on and key != "deckle" and key != "corner":
 			continue   # edge off → only the enable toggle + the general corner stay tunable
-		if String(knob.get("kind", "slider")) == "toggle":
-			_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, key == "deckle", target))
-		else:
-			_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
+		match String(knob.get("kind", "slider")):
+			"toggle":
+				_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, key == "deckle", target))
+			"color":
+				if not (_params[target] as Dictionary).has(key):
+					_params[target][key] = String(knob.get("default", "FFFFFF"))   # seed the schema rim colour so the picker opens on it
+				_sidebar_body.add_child(_color_row(String(knob["label"]), key, target))
+			_:
+				_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
 
 func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
