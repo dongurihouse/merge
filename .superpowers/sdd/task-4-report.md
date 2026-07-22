@@ -1,66 +1,141 @@
-# Task 4 report: Meadow Sky whole-UI visual and regression verification
+# Task 4 report: swap home bottom bar to `Kit.action_button`
 
-Status: complete
+## Summary
 
-Fix commits:
+Swapped the live home bottom bar (`engine/scripts/scenes/map.gd::_build_bottom_bar`) from baked
+`nav_<x>.png` `SpriteButton` tiles to the shared code-drawn `Kit.action_button` (rugged
+`CutPaperPanel` edge + centered transparent glyph), and updated the `grove_explore_tests.gd`
+bottom-bar assertions to match. Commit: `1ff9febc`.
 
-- `9c49b2ba fix(grove): keep home labels below modal overlays`
-- `5e381205 fix(grove): fit Meadow action bar copy`
+## Files changed
 
-## Review captures
+- `engine/scripts/scenes/map.gd`
+- `games/grove/tests/grove_explore_tests.gd`
 
-All review images are intentionally untracked under `tmp/meadow_ui_v2_review/`.
+## map.gd changes
 
-- Home: `home_live.png` (`map_shot built ... noftue=1`)
-- Board: `board_fixed_v3.png` (`grove_shot questready`)
-- Maps: `maps_live.png` (`map_shot progress ... noftue=1`)
-- Rush: `rush_live.png` (`rush_shot retired`)
-- Level: `level_component.png` (focused live workbench component)
-- Bag: `bag_component.png` (focused live workbench component)
-- Shop: `shop_fixed.png` (`map_shot shop`)
-- representative dialog: `mail_dialog_fixed.png` (`inbox_shot`)
+1. Removed the now-dead `NAV_SPRITE` map (was only consulted by the branch removed in step 3;
+   `SpriteButton` itself stays — it's still used by the Back button, the gear, and a container
+   button elsewhere in the file).
+2. Added `NAV_ROLE`, mapping bottom-bar node names to `Kit.action_button` roles:
+   ```gdscript
+   const NAV_ROLE := {
+       "HomeTile": "home", "MapTile": "map", "ResidentsTile": "residents",
+       "DailyTile": "daily", "VaultTile": "vault", "MailTile": "mail", "BoardTile": "play",
+   }
+   ```
+   Verified these keys against `_bottom_bar_specs` (~map.gd:2396-2433): the live specs use exactly
+   `HomeTile, MapTile, ResidentsTile, DailyTile, VaultTile, MailTile, BoardTile` — no mismatch.
+   Verified the role strings against `ui_workbench_kit.gd`'s `ACTION_GLYPHS` /
+   `ACTION_TINT_DEFAULTS` keys (`map, residents, daily, vault, mail, play, home, bag`) — exact match.
+3. In `_build_bottom_bar`, replaced the `opts`/`SpriteButton`/`Kit.home_button` branch with:
+   ```gdscript
+   var action_opts: Dictionary = Kit.action_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+   for i in specs.size():
+       var spec: Dictionary = specs[i]
+       var b: Button
+       var role := String(NAV_ROLE.get(String(spec.name), ""))
+       if Kit != null and role != "":
+           var o := action_opts.duplicate(true)
+           o["name"] = String(spec.name)
+           o["tooltip"] = String(spec.caption)
+           b = Kit.action_button(role, Vector2(tile_w, tile_w), spec.action, o)
+       else:
+           b = Button.new()                          # defensive fallback (kit absent): a bare tile
+           b.focus_mode = Control.FOCUS_NONE
+           b.text = String(spec.caption)
+           b.custom_minimum_size = Vector2(tile_w, tile_w)
+           b.pressed.connect(spec.action)
+   ```
+   `action_opts` is built ONCE outside the loop and `.duplicate(true)`'d per tile, per the review
+   note in the task — no per-button config re-read.
+   Left the `b.name = …`, positioning (`b.position`, `b.size`), `_chrome_nodes` tracking, and
+   `out[…]` lines below unchanged, as instructed.
 
-The initial `fresh` Board and `intro` Rush captures were not representative gameplay views: those modes deliberately show full-screen tutorial art. The final Board uses `questready`; the final Rush uses `retired` so the live runtime board and chrome are visible.
+Note: the per-spec `"surface"` field (`sky/green/gold/purple/kraft/coral`) is no longer read by
+the tile-build path — `Kit.action_button`'s tint comes from `ACTION_TINT_DEFAULTS`/config instead,
+and every role currently defaults to `"cream"` (see `ui_workbench_kit.gd:66-71`, "Calm default
+paper role per button ... the glyph carries the identity" — an established Task 1-3 decision, not
+something I introduced). The rendered bar reads as one calm cream family, matching that intent and
+the task's "calm paper fills" verification bullet. The `spec.surface` field itself is left in
+`_bottom_bar_specs` (harmless, unread) since the brief didn't ask to touch spec construction.
 
-## Visual inspection
+## Test-assertion changes (grove_explore_tests.gd, ~line 287-304)
 
-- Home: Meadow wallet, level badge, rail buttons, and play disc are unclipped and consistent. World/building mats remain outside this UI-only pass.
-- Board: board frame and authored cell states retain their corners without stretching. The final bottom action tray keeps the two-line title and compact help copy inside the frame, with the info button in its reserved slot and no overlap. No obvious magenta fringe was visible.
-- Maps: level/wallet/rail chrome is stable and unobscured; the no-FTUE capture shows the map surface without an unintended Daily overlay.
-- Rush: the live board, score readouts, cells, Meadow close affordance, and dedicated wide Meadow three-slice hint are unclipped. The chevron route is covered by the active Rush regression test. The capture tool emits pre-existing audio `add_child()` setup errors, but still saves a valid image.
-- Level: the shared title ribbon is not clipped. The badge sits tightly above the progress copy, but the copy remains readable and inside the frame; no broader spacing redesign was made.
-- Bag: title ribbon, close target, balance pill, open/next/locked cells, and cost chips are unclipped and consistently registered.
-- Shop: title, close target, cards, ribbons, price buttons, and scroll rail are unclipped. Map restore labels no longer pierce the modal surface.
-- Mail: title, close target, message cards, reward chips, and Claim buttons are unclipped. Map restore labels remain correctly behind the modal veil.
+Replaced the baked-sprite assertion block with the code-drawn assertion block exactly as given in
+the brief (asserts `find_child("ActionButtonDeckleSurface", ...)` exists, and a `TextureRect` whose
+texture path contains the tile's `glyph_<x>` name). No other assertions in the suite depended on
+the baked sprite specifically — the remaining ones (Board right-most, Board same tile size as
+neighbour, gear position, row-fill-width) are purely size/position-based and needed no changes.
 
-## Defects found and fixed with TDD
+## TDD evidence
 
-1. Home build labels and props used authored painter z-indices up to 1510, but shared modals mounted at z=100/110. Restore labels therefore rendered over Daily, Shop, and Mail. An active `home_zone_view_tests` assertion first failed (`14 passed, 1 failed`); the shared modal band now mounts at 2048/2110. The test passes (`15 passed, 0 failed`) and Shop/Mail recaptures confirm the labels remain below the veil.
-2. The saved bottom action-bar typography and info-button offsets were oversized for the Meadow tray at phone width. New active geometry/line-fit assertions first failed (`193 passed, 2 failed`, followed by the stronger overlap assertion). Resetting the saved values to the workbench-safe 32/18 fonts and neutral button scale/offset preserves tray geometry and input targets. Final focused result: `197 passed, 0 failed`; `board_fixed_v3.png` confirms no clipping or overlap.
+**RED** (before the map.gd change, with only the test edit applied):
+```
+FAIL  MapTile wears the shared code-drawn rugged edge
+FAIL  MapTile composites its transparent glyph in the middle
+FAIL  ResidentsTile wears the shared code-drawn rugged edge
+FAIL  ResidentsTile composites its transparent glyph in the middle
+FAIL  DailyTile wears the shared code-drawn rugged edge
+FAIL  DailyTile composites its transparent glyph in the middle
+FAIL  BoardTile wears the shared code-drawn rugged edge
+FAIL  BoardTile composites its transparent glyph in the middle
+== 213 passed, 8 failed ==
+```
+Exactly the 4 tiles x 2 assertions expected to fail against the still-baked bar.
 
-## Fresh verification evidence
+**GREEN** (after the map.gd swap):
+```
+== 221 passed, 0 failed ==
+```
 
-- `make import` -> exit 0.
-- `make bake-textures` -> exit 0; 24 dialogs, 41 sprites, all up to date.
-- `make test-one SUITE=engine/tests/home_zone_view_tests` -> 15 passed, 0 failed.
-- `make test-one SUITE=games/grove/tests/grove_info_bar_tests` -> 197 passed, 0 failed.
-- `make test-one SUITE=engine/tests/level_badge_tests` -> 41 passed, 0 failed.
-- `make test-one SUITE=engine/tests/kit_bake_tests` -> 16 passed, 0 failed; 0 un-baked sprites.
-- `make test-grove` -> 11 suites, 1809 passed, 0 failed.
-- `make test-fast` -> 40 suites, 1298 passed, 0 failed.
-- `python3 -m unittest games.grove.tools.tests.test_extract_meadow_ui_v2 -v` -> 13 passed.
-- `git diff --check` -> clean before commits.
+## Full verification
 
-## Scope notes
+- `make test-fast`: 21 suites, 810 passed, 0 failed.
+- `make test` (full sweep, includes grove suites): 26 suites, 1449 passed, 0 failed — including
+  `games/grove/tests/grove_explore_tests` (221 passed) and the other grove suites
+  (board_actions, scene_workbench, shop, zone_workbench).
 
-- `games/grove/tests/grove_ui_tests.gd` remains in the repository's disabled suite list with known unrelated baseline failures; active equivalent coverage is in Grove info-bar/workbench/palette suites and engine badge/bake tests.
-- Nine import-generated bucket/home `.gd.uid` files remain untracked and were deliberately excluded.
-- Screenshot tools log existing shutdown resource/RID warnings. The Rush tool additionally logs audio-node setup errors during `_ready`; these did not prevent captures and were not changed in this UI-art pass.
+## Real-path visual verification
 
-## Final integration review follow-up
+Read `games/grove/tools/map_shot.gd` first: its `hub` mode seeds a representative wallet + claims
+today's login (so no popup covers the screen) and opens the real `Map.tscn` scene — the actual live
+home screen, not the workbench preview. Ran:
+```bash
+make shot TOOL=games/grove/tools/map_shot ARGS="hub <scratchpad>/home_bar.png"
+```
+then read the resulting 1080x1920 PNG, and a 3x-zoomed crop of the bottom-bar row
+(`home_bar_crop.png`, y=1780..1920).
 
-- Replaced the remaining visible legacy Home/navigation shells with deterministic Meadow paper shells at their exact fixed consumer dimensions; the Play CTA now uses action green, while neutral navigation uses cream.
-- Replaced Level's legacy frame with the Meadow dialog surface, Rush's exit with the Meadow close control, and Rush's fixed-aspect bottom hint with a deterministic wide three-slice derived from the Meadow secondary button.
-- Clamped live Home/navigation and wallet shadows to structural slate `#294654` at no more than 20% alpha; reset the saved wallet override from 72% to 20%.
-- Moved all 15 generated QC montages from production `assets/ui/meadow_v2/qc` to export-excluded `assets/_review/ui/meadow_v2`; the iOS export preset and active routing suite guard that boundary.
-- Re-captured `home_final_review.png`, `level_final_review.png`, and `rush_final_review.png` after refreshing baked textures. Home shells, the green Play CTA, Level frame, Rush close control, and wide hint render without clipping or fixed-aspect distortion.
+**Observed:** 5 tiles render (Map, Residents, Daily, Mail, Board — Vault absent because the
+`piggy_vault` feature flag is off, matching `Features.on("piggy_vault")` gating and the test's
+"the parked Vault carries no bottom-bar tile" assertion). Every tile shares one cream, deckle-edged
+cut-paper surface — the rugged edge reads identically across all five. The glyphs read as one
+family (a folded map with a pin, a house/hat icon for Residents, a gift-wrapped calendar for Daily,
+an envelope with a wax seal for Mail, a play-arrow-plus-blocks for Board) — consistent line weight
+and palette. The Mail tile's unread-count pill badge ("5") sits correctly in its top-right corner.
+The Daily "unclaimed" dot is absent, which is correct: `hub` mode calls
+`login.gd.claim_today()` before capture, so `_refresh_liveops_badges` hides it (`visible = not
+Login.claimed_today()`) — this is the same badge-hides-when-claimed behavior the suite already
+covers, not a regression from this task.
+
+## Self-review / concerns
+
+- The `SpriteButton` const stays in map.gd (used by Back button + settings gear + one container
+  button, per grep) — only the `NAV_SPRITE` dict was dead and removed.
+- Confirmed `Kit.action_button_opts_from_config` and `Kit.action_button` signatures directly from
+  `games/grove/tools/ui_workbench_kit.gd` before wiring the call — matches the brief's snippet
+  exactly.
+- No other call sites reference `NAV_SPRITE` or the removed `opts`/`Kit.home_button` bottom-bar
+  branch (`grep -n "NAV_SPRITE" engine/scripts/scenes/map.gd` now returns nothing).
+- One judgment call beyond the brief: I removed the dead `NAV_SPRITE` dict entirely rather than
+  leaving it unused, since the brief listed it as a file to "modify" and dead config maps invite
+  drift. If the team prefers keeping it (e.g. as a documented historical reference or for a future
+  fallback), that's a one-line revert.
+- Did not touch `_bottom_bar_specs`'s `"surface"` field — it's now inert dead data on each spec
+  dict; flagging it here rather than silently deleting it, since removing it is a slightly larger
+  edit than the brief scoped and touches a shared spec-building function used by both the home
+  screen and the maps gallery.
+- Note: `task-4-report.md` at this path previously held an unrelated stale report ("Meadow Sky
+  whole-UI visual and regression verification") from a different task-numbering scheme in this
+  worktree's history. It has been overwritten with this task's report as instructed.
