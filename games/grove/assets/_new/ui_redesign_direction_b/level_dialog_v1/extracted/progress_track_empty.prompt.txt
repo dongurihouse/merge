@@ -1,0 +1,11 @@
+Generate an image (do not write code). Image 1 is a sakura cut-paper "Level Up" game dialog. Match its exact cut-paper material, colors, lighting, and paper-fiber texture (layered hand-cut cardstock, fine warm cut edge, thin darker inner edge, upper-left light).
+
+Extract just the EMPTY progress-bar TRACK from Image 1: the horizontal rounded-capsule container in muted receding slate blue-grey cut-paper, with its subtle raised paper rim and a recessed interior channel.
+IMPORTANT: it must be EMPTY — NO green fill inside, just the hollow blue-grey track showing its darker recessed channel. Same blue-grey color, capsule shape, and paper texture as Image 1. Make it a wide horizontal capsule.
+
+CRITICAL: Render this object ONLY — tightly cropped and centered — on a fully TRANSPARENT (alpha) background. NO drop shadow, NO cast shadow, NO ground shadow of any kind (the asset must be completely shadow-free for post-processing). Do NOT include the card/modal, background scene, text, or any other element.
+Save the PNG into: /Users/xup/dh/wt-sakura-level-extract/games/grove/assets/_new/ui_redesign_direction_b/level_dialog_v1/extracted
+Name it: progress_track_empty.png
+Report the absolute saved path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation, key the background out to real transparency, and save it to the path above. Then report the saved path.
