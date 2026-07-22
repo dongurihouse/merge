@@ -1,0 +1,18 @@
+{
+  "source": "_new/action_button_glyphs_v2/action_button_glyphs_v2_sheet_raw.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "tol": 0.22, "min_area": 3000, "pad": 8 },
+  "_note": "8 HEAVIER cut-paper UI glyph masters regenerated in one codex batch (docs/design/art-style-guide.md §10d) to replace action_button_glyphs_v1 after the art director flagged v1 as too soft/flat. Style target: the bottom nav row of games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png (bold, chunky, dimensional layered paper). Single-row sheet, verified containment (no subject pixel within ~55px of any tile boundary) before naming: islands 0-7 map left-to-right map/residents/daily/vault/mail/play/home/bag.",
+  "outputs": [
+    { "island": 0, "name": "glyph_map",       "path": "ui/nav/glyphs/glyph_map.png",       "post": "icon:512" },
+    { "island": 1, "name": "glyph_residents", "path": "ui/nav/glyphs/glyph_residents.png", "post": "icon:512" },
+    { "island": 2, "name": "glyph_daily",     "path": "ui/nav/glyphs/glyph_daily.png",     "post": "icon:512" },
+    { "island": 3, "name": "glyph_vault",     "path": "ui/nav/glyphs/glyph_vault.png",     "post": "icon:512" },
+    { "island": 4, "name": "glyph_mail",      "path": "ui/nav/glyphs/glyph_mail.png",      "post": "icon:512" },
+    { "island": 5, "name": "glyph_play",      "path": "ui/nav/glyphs/glyph_play.png",      "post": "icon:512" },
+    { "island": 6, "name": "glyph_home",      "path": "ui/nav/glyphs/glyph_home.png",      "post": "icon:512" },
+    { "island": 7, "name": "glyph_bag",       "path": "ui/nav/glyphs/glyph_bag.png",       "post": "icon:512" }
+  ],
+  "archive": "_originals/ui/action_button_glyphs_v2_sheet_raw.png"
+}
