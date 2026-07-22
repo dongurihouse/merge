@@ -284,10 +284,11 @@ func _test_map_card_expedition_chrome() -> void:
 	# the side rail that carried it was replaced by the bottom bar.
 	ok(_home_chrome_button(hx, "Expedition") == null, "home no longer carries an Expedition rail tile")
 
-	# the BOTTOM BAR tiles: each is now a baked cut-paper SPRITE (icon + label in one PNG, over a soft
-	# drop shadow — see ui/sprite_button.gd), keyed by spec name to games/grove/assets/ui/nav/nav_<x>.png.
-	var tiles := {"MapTile": "nav_map", "ResidentsTile": "nav_residents", "DailyTile": "nav_daily",
-		"BoardTile": "nav_board"}
+	# the BOTTOM BAR tiles: each is now the shared CODE-DRAWN action button — a CutPaperPanel rugged edge
+	# (games/grove/tools/ui_workbench_kit.gd action_button) with a centered glyph, over the shared drop
+	# shadow — NOT a baked nav_<x>.png sprite. Keyed by spec name.
+	var tiles := {"MapTile": "glyph_map", "ResidentsTile": "glyph_residents", "DailyTile": "glyph_daily",
+		"BoardTile": "glyph_play"}
 	# Vault is parked (`piggy_vault` flag OFF) — its tile stays off the bar.
 	ok(hx.get_node_or_null("VaultTile") == null, "the parked Vault carries no bottom-bar tile")
 	for tile_name in tiles:
@@ -295,13 +296,13 @@ func _test_map_card_expedition_chrome() -> void:
 		ok(btn != null, "the bottom bar carries the %s" % tile_name)
 		if btn == null:
 			continue
-		# the tile wears its baked nav sprite (icon + label), and lifts off the scene with a drop shadow.
-		var sprites: Array = btn.find_children("*", "TextureRect", true, false)
-		var wears_sprite := sprites.any(func(tr: TextureRect) -> bool:
-			return tr.texture != null and String(tr.texture.resource_path).ends_with(String(tiles[tile_name]) + ".png"))
-		var has_shadow := sprites.any(func(tr: TextureRect) -> bool: return tr.modulate.a < 0.99)
-		ok(wears_sprite, "%s wears its baked cut-paper nav sprite" % tile_name)
-		ok(has_shadow, "%s lifts off the scene with a drop shadow" % tile_name)
+		# the tile wears the code-drawn rugged edge (a CutPaperPanel), a centered glyph, and a drop shadow.
+		ok(btn.find_child("ActionButtonDeckleSurface", true, false) != null,
+			"%s wears the shared code-drawn rugged edge" % tile_name)
+		var rects: Array = btn.find_children("*", "TextureRect", true, false)
+		var wears_glyph := rects.any(func(tr: TextureRect) -> bool:
+			return tr.texture != null and String(tr.texture.resource_path).findn(String(tiles[tile_name])) != -1)
+		ok(wears_glyph, "%s composites its transparent glyph in the middle" % tile_name)
 	# Settings left the bar for a plain gear pinned top-right, under the wallet pills
 	ok(hx.get_node_or_null("SettingsTile") == null, "Settings is no longer a bottom-bar tile")
 	var gear := hx.get_node_or_null("SettingsGear") as Button

@@ -28,16 +28,12 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-o
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
-const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (nav)
-# Bottom-nav tiles re-skinned as baked cut-paper sprites (icon + label in one PNG), keyed by spec name.
-# A spec with no entry here (e.g. the maps-page HomeTile) falls back to the drawn Kit.home_button tile.
-const NAV_SPRITE := {
-	"HomeTile": "res://games/grove/assets/ui/nav/nav_home.png",
-	"MapTile": "res://games/grove/assets/ui/nav/nav_map.png",
-	"ResidentsTile": "res://games/grove/assets/ui/nav/nav_residents.png",
-	"DailyTile": "res://games/grove/assets/ui/nav/nav_daily.png",
-	"MailTile": "res://games/grove/assets/ui/nav/nav_mail.png",
-	"BoardTile": "res://games/grove/assets/ui/nav/nav_board.png",
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (Back/gear)
+# The bottom-bar tiles build through the shared code-drawn Kit.action_button (rugged edge + glyph) —
+# the baked nav_<x>.png sprites are retired. Map each bottom-bar node name to its action role.
+const NAV_ROLE := {
+	"HomeTile": "home", "MapTile": "map", "ResidentsTile": "residents",
+	"DailyTile": "daily", "VaultTile": "vault", "MailTile": "mail", "BoardTile": "play",
 }
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
@@ -2398,12 +2394,12 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 	var lead: Dictionary
 	if on_maps:
 		lead = {"name": "HomeTile", "icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.home"),
-			"surface": "sky", "action": func() -> void:
+			"action": func() -> void:
 				Audio.play("button_tap", -2.0)
 				_open_map(_map_idx)}
 	else:
 		lead = {"name": "MapTile", "icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"),
-			"surface": "sky", "action": func() -> void:
+			"action": func() -> void:
 				Audio.play("button_tap", -2.0)
 				_open_maps()}
 	var specs: Array = [
@@ -2412,24 +2408,24 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 		# list). The old rail hid it until the bucket existed; hiding a tile here either punches a hole
 		# in the row or reflows every destination out from under the player's thumb.
 		{"name": "ResidentsTile", "icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.residents"),
-			"surface": "green", "action": _open_residents},
+			"action": _open_residents},
 		{"name": "DailyTile", "icon": HC.ICON_DAILY, "caption": Strings.t("map.rail.daily"),
-			"surface": "gold", "action": _open_daily},
+			"action": _open_daily},
 	]
 	# Vault — behind the `piggy_vault` flag (OFF for now): the tile, its pip, and the skim all sleep.
 	if Features.on("piggy_vault"):
 		specs.append({"name": "VaultTile", "icon": HC.ICON_VAULT, "caption": Strings.t("map.rail.vault"),
-			"surface": "purple", "action": _open_vault})
+			"action": _open_vault})
 	# Mail — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
 		specs.append({"name": "MailTile", "icon": HC.ICON_INBOX, "caption": Strings.t("map.nav.mail"),
-			"surface": "kraft", "action": _open_inbox})
+			"action": _open_inbox})
 	# (Settings is NOT a bar tile: it is a bare gear pinned top-right under the wallet — see
 	#  _build_settings_gear. It is a utility, not a destination, so it stays off the destination row.)
 	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It wears the same rect tile
 	# geometry as its neighbours (coral paper); _refresh_play_cta swaps its icon/action Play↔Restore.
 	specs.append({"name": "BoardTile", "icon": HC.ICON_PLAY, "caption": Strings.t("map.nav.board"),
-		"surface": "coral", "action": _on_board})
+		"action": _on_board})
 	return specs
 
 func _build_bottom_chrome() -> void:
@@ -2532,9 +2528,9 @@ func _bottom_bar_tile_px(n: int) -> float:
 	var gap := clampf(view.x * 0.012, 6.0, 16.0)
 	return (view.x - side * 2.0 - gap * (float(n) - 1.0)) / float(n)
 
-# Build the bottom bar from `specs` (each {name, icon, caption, surface, action}) and return
-# {name: Button}. Tiles are the SHARED Kit.home_button in its rect form — icon over caption inside a
-# rounded paper tile — sized so the row fills the width between the safe-area insets exactly. Tiles
+# Build the bottom bar from `specs` (each {name, icon, caption, action}) and return
+# {name: Button}. Tiles are the SHARED Kit.action_button — a code-drawn rugged cut-paper edge with a
+# centered glyph — sized so the row fills the width between the safe-area insets exactly. Tiles
 # parent to `parent` (the home screen uses `self`; the gallery passes `content` so a page rebuild frees
 # them). When `track` they join `_chrome_nodes`, so `_set_map_chrome_visible` toggles them with the map.
 func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dictionary:
@@ -2548,27 +2544,18 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var n := float(specs.size())
 	var tile_w := _bottom_bar_tile_px(specs.size())
 	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
-	# the shared tile-opts helper (Kit.home_bar_tile_opts) owns the tile geometry — the same call the
-	# workbench home-button preview makes, so the two render identically off one source.
-	var opts: Dictionary = Kit.home_bar_tile_opts(Kit.load_config(Kit.CONFIG_PATH), tile_w) if Kit != null else {}
+	# the shared action-button opts, built ONCE from the saved config (the same call the workbench
+	# action_button preview makes, so the two render identically off one source) — duplicated per tile below.
+	var action_opts: Dictionary = Kit.action_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
-		var o := opts.duplicate(true)
-		var role := String(spec.get("surface", "cream"))
-		o["surface_role"] = role
-		# the slate paper is the one DARK tile face — ink-on-slate is the weakest caption in the row,
-		# so it takes the cream text instead (verified against the rendered bar, not assumed).
-		if role == "slate":
-			o["caption_color"] = Pal.CREAM
 		var b: Button
-		var sprite_path := String(NAV_SPRITE.get(String(spec.name), ""))
-		if sprite_path != "" and ResourceLoader.exists(sprite_path):
-			# the re-skinned cut-paper sprite tile (baked icon + label), stretched to the square tile
-			b = SpriteButton.build(load(sprite_path), Vector2(tile_w, tile_w), spec.action,
-				{"name": String(spec.name), "tooltip": String(spec.caption)})
-		elif Kit != null:
-			b = Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption),
-				"tooltip": String(spec.caption), "action": spec.action}, o)
+		var role := String(NAV_ROLE.get(String(spec.name), ""))
+		if Kit != null and role != "":
+			var o := action_opts.duplicate(true)
+			o["name"] = String(spec.name)
+			o["tooltip"] = String(spec.caption)
+			b = Kit.action_button(role, Vector2(tile_w, tile_w), spec.action, o)
 		else:
 			b = Button.new()                          # defensive fallback (kit absent): a bare tile
 			b.focus_mode = Control.FOCUS_NONE

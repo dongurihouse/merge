@@ -1,0 +1,18 @@
+{
+  "source": "_new/action_button_glyphs_v1/action_button_glyphs_v1_sheet.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "tol": 0.22, "min_area": 3000, "pad": 6 },
+  "_note": "8 edge-free UI glyph masters generated in one codex batch (docs/design/art-style-guide.md §10d) for Task 1 of the action-button component. Single-row sheet, verified by slice-to-scratch before naming: islands 0-7 map left-to-right map/residents/daily/vault/mail/play/home/bag with no dropped fragments (residents was regenerated to remove a disconnected smoke puff that a connected-component cut would drop).",
+  "outputs": [
+    { "island": 0, "name": "glyph_map",       "path": "ui/nav/glyphs/glyph_map.png",       "post": "icon:512" },
+    { "island": 1, "name": "glyph_residents", "path": "ui/nav/glyphs/glyph_residents.png", "post": "icon:512" },
+    { "island": 2, "name": "glyph_daily",     "path": "ui/nav/glyphs/glyph_daily.png",     "post": "icon:512" },
+    { "island": 3, "name": "glyph_vault",     "path": "ui/nav/glyphs/glyph_vault.png",     "post": "icon:512" },
+    { "island": 4, "name": "glyph_mail",      "path": "ui/nav/glyphs/glyph_mail.png",      "post": "icon:512" },
+    { "island": 5, "name": "glyph_play",      "path": "ui/nav/glyphs/glyph_play.png",      "post": "icon:512" },
+    { "island": 6, "name": "glyph_home",      "path": "ui/nav/glyphs/glyph_home.png",      "post": "icon:512" },
+    { "island": 7, "name": "glyph_bag",       "path": "ui/nav/glyphs/glyph_bag.png",       "post": "icon:512" }
+  ],
+  "archive": "_originals/ui/action_button_glyphs_v1_sheet.png"
+}

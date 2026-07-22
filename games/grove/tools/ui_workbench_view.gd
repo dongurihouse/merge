@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "progress_bar", "bag_card", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "home_button", "hud_layout", "pro
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["mail_card"], ["toggle_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["action_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["quest_card"], ["mail_card"], ["toggle_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -54,7 +54,7 @@ const DEPENDENTS := {
 	# the daily-cell style is edited ON the Daily dialog now (it feeds the shop's pack cells).
 	"daily": ["shop"],
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info", "level", "vault"],
-	"home_button": ["info_bar"],
+	"action_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
@@ -63,9 +63,6 @@ const DEPENDENTS := {
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
-# Icons the HOME button can show — the real home-surface set (mirrors HomeChrome.BAKE_ICONS + the bag/well
-# icons the board wells use), so the preview picker can only choose ids the game actually renders.
-const HOME_ICONS := ["map", "house", "daily", "vault", "mail", "board", "vine", "expedition", "settings", "bag", "shop", "piggy", "gift", "faucet"]
 # Each element's params split into two buckets: anything listed here is TEST-ONLY scaffolding (sample
 # content, preview counts, tool helpers) and is NOT written to / read from the config file; everything
 # else is real design config that IS persisted. The sidebar mirrors this split under two headers.
@@ -82,9 +79,10 @@ const TEST_KEYS := {
 	# config (the corner is part of the shared edge set, so it must persist + sync to every button, not just
 	# the live tile). Its text, bg, icon, badge are test props — the REAL text/badge/icon live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "badge", "paper", "border", "pad_scale", "static"],
-	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
-	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
-	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
+	# the ACTION BUTTON is a shared-STYLE sandbox: size / icon scale / shadow / the shared edge knobs /
+	# per-role tint all persist. The full row of every role always shows; `preview_role` just picks
+	# which single tile the test-only spotlight (if any) points at.
+	"action_button": ["preview_role"],
 	"hud_layout": [],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
@@ -130,7 +128,7 @@ const CAPTIONS := {
 	"board": "Board — merge grid (frame · cells · pieces · scale)",
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
 	"button": "Button — the shared kit button in every shape it builds (bg · paper · badge · chip)",
-	"home_button": "Home bottom bar — the six paper tiles (icon · caption · badge) as map.gd builds them",
+	"action_button": "Action buttons — the shared rugged-edge nav tiles (map · residents · daily · vault · mail · play · home · bag) as map.gd + board.gd build them",
 	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
@@ -224,15 +222,16 @@ func _default_params() -> Dictionary:
 			"paper": "none", "border": true, "pad_scale": 100, "static": false,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the frame + toggle bar use.
 			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55},
-		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
-		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
-		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
-		# config["badge"]); its icon uses the global icon clean.
-		"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-			"fill_alpha": 100, "rect_pad": 13,
-			"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
-			"count_dx": 0, "count_dy": 38, "count_font": 26,
-			"icon": "daily", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
+		# the ACTION BUTTON — the shared rugged-edge nav tile. px / icon_scale / shadow + the shared
+		# cut-paper edge knobs (CUT_PAPER_KNOBS) are the saved style; tint_<role> is the per-button paper
+		# role (flattened to calm roles by default). map.gd + board.gd read this via action_button_opts_from_config.
+		"action_button": {"px": 158, "icon_scale": 50, "shadow": true,
+			# the SHARED cut-paper edge knob set — same keys as button + frame.
+			"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+			# per-button paper-role tint palette (calm/flattened defaults)
+			"tint_map": "cream", "tint_residents": "cream", "tint_daily": "cream", "tint_vault": "cream",
+			"tint_mail": "cream", "tint_play": "cream", "tint_home": "cream", "tint_bag": "cream",
+			"preview_role": "map"},
 		# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
 		# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
 		# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
@@ -382,7 +381,7 @@ var _drag_grab := Vector2.ZERO
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
 ## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
 func _ensure_shadow_keys() -> void:
-	var on_by_default := {"home_button": true, "board": true, "quest_card": true}
+	var on_by_default := {"action_button": true, "board": true, "quest_card": true}
 	for id in _params.keys():
 		if id == "shadow":
 			continue
@@ -473,8 +472,8 @@ func _make_element(id: String) -> Control:
 			return fwrap
 		"button":
 			return _button_gallery(p)
-		"home_button":
-			return _home_bar_preview(p)
+		"action_button":
+			return _action_button_row_preview(p)
 		"hud_layout":
 			return _hud_layout_preview()
 		"gold_currency_pill":
@@ -666,42 +665,22 @@ func _make_element(id: String) -> Control:
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), 0, _dlg_px("bag"), bopts)
 	return Control.new()
 
-# The home BOTTOM BAR exactly as map.gd builds it (`_build_bottom_bar`): the real HomeChrome tile set,
-# each on its own paper role, icon over caption inside a rect Kit.home_button, with the shipped badges —
-# a bare red DOT on Daily + Vault, a numbered pill only on Mail — at the same halved offset the game uses
-# (map.gd:2342 `badge_dx * 0.5`). No orange play disc: every shipped tile is a rect now, Board included.
-const HOME_BAR_TILES := [
-	{"icon": "map", "caption": "Map", "surface": "sky"},
-	{"icon": "house", "caption": "Residents", "surface": "green"},
-	{"icon": "daily", "caption": "Daily", "surface": "gold", "badge": "dot"},
-	{"icon": "vault", "caption": "Vault", "surface": "purple", "badge": "dot"},
-	{"icon": "mail", "caption": "Mail", "surface": "kraft", "badge": "pill"},
-	{"icon": "board", "caption": "Play", "surface": "coral"},
-]
-func _home_bar_preview(p: Dictionary) -> Control:
-	# build the tiles through the SAME shared helper the game's bottom bar uses (Kit.home_bar_tile_opts),
-	# so the caption font / icon scale / padding are derived from the tile width identically — the preview
-	# and the shipped bar align exactly (a long caption like "Residents" fits + centres the same way).
+# The shared ACTION BUTTONS, built through the EXACT Kit.action_button the game uses, so the preview and
+# the live home bar / board wells render off one source. A horizontal row of every role, each wearing its
+# glyph + per-button paper-role tint + the shared rugged edge.
+func _action_button_row_preview(p: Dictionary) -> Control:
+	var opts := Kit.action_button_opts_from_config({"action_button": p})
 	var tile := float(p.get("px", 158))
-	var ho := Kit.home_bar_tile_opts({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]}, tile)
-	var badge_off := Vector2(float(ho.get("badge_dx", -26.0)) * 0.5, float(ho.get("badge_dy", -26.0)) * 0.5)
-	var badge_opts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
-	for spec in HOME_BAR_TILES:
-		var o := ho.duplicate()
-		o["shape"] = "rect"
-		o["surface_role"] = String(spec.surface)
-		o["shadow"] = true
-		var btn := Kit.home_button({"icon": String(spec.icon), "caption": String(spec.caption), "sparkle": bool(p.sparkle)}, o)
-		if spec.has("badge"):
-			# the SAMPLE badge count only feeds a "pill" tile (Mail); a "dot" tile is always the bare dot,
-			# exactly as the game builds them (map.gd Daily/Vault → dot, Mail → pill).
-			var bg := Look.badge("pill", maxi(1, int(p.get("badge_count", 3))), badge_opts) if String(spec.badge) == "pill" else Look.badge("dot", 0, badge_opts)
-			Look.attach_badge(btn, bg, badge_off)
-		row.add_child(btn)
+	for role in Kit.ACTION_ROLES:
+		var o := opts.duplicate(true)
+		o["name"] = "ActionPreview_" + role
+		o["tooltip"] = role
+		row.add_child(Kit.action_button(role, Vector2(tile, tile), Callable(), o))
 	var mc := MarginContainer.new()
-	mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
+	mc.add_theme_constant_override("margin_top", 20)
+	mc.add_theme_constant_override("margin_bottom", 20)
 	mc.add_child(row)
 	return mc
 
@@ -828,7 +807,11 @@ func _action_bar_preview() -> Control:
 	var p: Dictionary = _params["info_bar"]
 	var ao := Kit.action_bar_opts_from_config({"info_bar": p})
 	var layout := Kit.hud_layout_opts_from_config({"hud_layout": _params["hud_layout"]})
-	var ho := Kit.home_button_opts_from_config({"home_button": _params["home_button"], "badge": _params["badge"], "shadow": _params["shadow"]})
+	# NOTE: the workbench no longer owns a "home_button" config block (retired with the home_button
+	# gallery component in favor of action_button) — this placeholder Home/Bag pair in the info_bar
+	# preview now styles off Kit.home_button_opts_from_config's own built-in defaults (badge/shadow
+	# still come from the shared params); Kit.home_button itself is still the live map.gd/board.gd builder.
+	var ho := Kit.home_button_opts_from_config({"badge": _params["badge"], "shadow": _params["shadow"]})
 	var preview_w := PHONE_W
 	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.get("button_w_frac", 0.15))))))
 	var bar_h := maxf(166.0, btn_px + 36.0)
@@ -934,7 +917,7 @@ func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "
 ## the view must NOT also wrap them, or the shadow would double up. (info_bar is NOT here: it returns a
 ## PanelContainer and builds its own frame directly, so its shadow comes from the
 ## view-level wrap below, like the other unwired components.)
-const SHADOW_WIRED := {"home_button": true, "board": true, "button": true, "gold_currency_pill": true, "quest_card": true}
+const SHADOW_WIRED := {"action_button": true, "board": true, "button": true, "gold_currency_pill": true, "quest_card": true}
 
 ## Cast the SHARED shadow behind a component's preview when its Shadow toggle is on. Skips the wired
 ## components (their builder casts it) and the Shadow item itself. A rounded-rect cast (corner ~ a card's)
@@ -1573,39 +1556,18 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_toggle_row("Border", "border"))    # off = the borderless paper button
 			_sidebar_body.add_child(_slider_row(["pad_scale", 40, 140]))  # % padding (the cost chip uses < 100 to fit a card)
 			_sidebar_body.add_child(_toggle_row("Static (display chip)", "static"))   # looks like a button, not pressable
-		"home_button":
-			_group_header("Saved to config", true)              # the shared shell / icon / caption / sparkle style
-			_sidebar_body.add_child(_slider_row(["px", 90, 260]))
-			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # icon as % of the disc
-			_sidebar_body.add_child(_slider_row(["caption_font", 14, 34]))
-			_sidebar_body.add_child(_slider_row(["caption_gap", -10, 40]))   # tab offset below the disc (negative tucks up)
-			_sidebar_body.add_child(_slider_row(["caption_pad_x", 0, 40]))   # caption tab horizontal padding
-			_sidebar_body.add_child(_slider_row(["caption_pad_y", 0, 20]))   # caption tab vertical padding
-			_section_header("Rect badge (rail + Map — shape:\"rect\")")
-			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))         # the rect-badge OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
-			_section_header("Tile badge (dot on Daily/Vault, count pill on Mail)")
-			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
-			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
-			_sidebar_body.add_child(_slider_row(["badge_dot_px", 8, 28]))     # the bare-dot badge diameter
-			_sidebar_body.add_child(_slider_row(["badge_num_size", 8, 28]))   # the count-badge number size (pill tracks it)
-			_section_header("Board bag/home well count (the in-tile \"x/y\", board screen)")
-			_sidebar_body.add_child(_slider_row(["count_dx", -60, 60]))   # count x offset from the disc centre
-			_sidebar_body.add_child(_slider_row(["count_dy", -60, 60]))   # count y offset from the disc centre (+ = lower)
-			_sidebar_body.add_child(_slider_row(["count_font", 14, 40]))  # the "x/y" font size
-			_section_header("Sparkle (engine FX — no baked art)")
-			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
-			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
-			_section_header("Shell polish (raw vs cleaned — shared by every home button)")
-			# the shell's edge polish (defringe / feather) — SAVED under config["badge"], read by the live
-			# game via Kit.badge_polish_from_config and applied to every home-button shell (rect + play).
-			_sidebar_body.add_child(_toggle_row("Defringe", "defringe", false, "badge"))
-			_sidebar_body.add_child(_slider_row(["feather", 0, 4], "badge"))
-			_group_header("Test only — not saved", false)        # the rail/nav each set their own icon + caption
-			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
-			_sidebar_body.add_child(_text_row("Caption", "caption"))
-			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
-			_sidebar_body.add_child(_slider_row(["badge_count", 1, 99]))   # sample count for the Mail pill (dot tiles ignore it)
+		"action_button":
+			_group_header("Saved to config", true)
+			_section_header("Geometry")
+			_sidebar_body.add_child(_slider_row(["px", 90, 220]))          # tile size
+			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # glyph as % of the tile
+			_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
+			_cut_paper_section("action_button")                            # the SHARED rugged edge knobs
+			_section_header("Per-button paper role (tint)")
+			for role in Kit.ACTION_ROLES:
+				_sidebar_body.add_child(_option_row(String(role).capitalize(), "tint_" + String(role), Kit.PAPER_SURFACES.keys()))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Spotlight role", "preview_role", Kit.ACTION_ROLES))
 		"hud_layout":
 			_group_header("Saved to config", true)
 			_section_header("Top HUD")
