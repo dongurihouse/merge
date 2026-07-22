@@ -311,6 +311,17 @@ func owned_count(z: int) -> int:
 func _frontier_map() -> int:
 	return G.frontier_map(unlocks, _gates())
 
+# The map the player is CURRENTLY progressing, for the gallery's featured card: the one they last
+# opened (if still unlocked and unfinished), else the completion-chain frontier, else the last map.
+func _featured_map() -> int:
+	var g := Save.grove()
+	if g.has("last_map"):
+		var lz := G.map_for_id(String(g.last_map))
+		if lz >= 0 and map_unlocked(lz) and not G.map_complete(lz, unlocks, _gates()):
+			return lz
+	var f := _frontier_map()
+	return f if f >= 0 else G.MAPS.size() - 1
+
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
 func _open_map(z: int) -> void:
@@ -724,14 +735,15 @@ func _build_maps_page(animate := true) -> void:
 	var view := get_viewport_rect().size
 	var margin := clampf(view.x * 0.045, 14.0, 40.0)
 	var gap := clampf(view.x * 0.03, 10.0, 26.0)
-	# the featured frontier card (all restored → the last map stays featured as the home anchor)
-	var feat := _frontier_map()
-	if feat < 0:
-		feat = G.MAPS.size() - 1
+	# the featured card = the map the player is CURRENTLY progressing (last opened, else the frontier),
+	# not a fixed first map.
+	var feat := _featured_map()
 	var feat_y := Look.safe_top(self) + 140.0    # clears the wallet pills + Lv star (design units; no heading)
 	var feat_h := clampf(view.y * 0.25, 150.0, 400.0)
 	var feat_rect := Rect2(margin, feat_y, view.x - margin * 2.0, feat_h)
-	var feat_card := _maps_featured_card(feat, feat_rect)
+	# ONE title size shared by the featured + grid cards, so the small cards read at the large card's weight.
+	var title_font := int(clampf(feat_h * 0.135, 18.0, 40.0))
+	var feat_card := _maps_featured_card(feat, feat_rect, title_font)
 	content.add_child(feat_card)
 	maps_hits.append({"node": feat_card, "z": feat, "locked": false})
 	# the remaining maps as a 2-column grid, filling down to the bottom-nav band. The gallery wears the
@@ -753,7 +765,7 @@ func _build_maps_page(animate := true) -> void:
 			var z2: int = others[i]
 			var rect := Rect2(margin + (cell_w + gap) * float(i % 2), grid_top + (cell_h + gap) * floorf(i * 0.5), cell_w, cell_h)
 			var locked := _page_progress(z2).x == 0     # untouched pages read LOCKED (the mock's gated state)
-			var card := _maps_grid_card(z2, rect, locked)
+			var card := _maps_grid_card(z2, rect, locked, title_font)
 			content.add_child(card)
 			maps_hits.append({"node": card, "z": z2, "locked": locked})
 	_build_bottom_bar(bar_specs, content, false)   # the shared row, parented to the page (not chrome)
@@ -783,18 +795,47 @@ func _page_manifest(z: int) -> Dictionary:
 		_home_manifest_cache[path] = HomeZoneView.load_manifest(path)
 	return _home_manifest_cache[path]
 
-# The shared cream card shell: rounded cut-paper panel + a shallow warm drop shadow.
-func _maps_card_shell(rect: Rect2) -> Panel:
-	var p := Panel.new()
-	p.position = rect.position
-	p.size = rect.size
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = CREAM
-	sb.set_corner_radius_all(int(CARD_CORNER))
-	Look.apply_box_shadow(sb)
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return p
+# The shared cream card shell: the code-drawn RUGGED cut-paper edge (a deckled/torn cream sheet with a
+# warm rim + shape-true drop shadow) — the SAME edge the dialog frames, buttons and settings rows wear,
+# so the gallery cards match the rest of the skin. Returns the root Control (rect-sized); the tear inset
+# is stashed on it as `cut_inset` so content builders can seat art inside the torn border (_card_inset).
+func _maps_card_shell(rect: Rect2) -> Control:
+	var root := Control.new()
+	root.position = rect.position
+	root.size = rect.size
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var Kit: GDScript = load(KIT_PATH)
+	var opts: Dictionary = Kit.cut_paper_opts_from_config(Kit.load_config(Kit.CONFIG_PATH), "mail_card", Kit.MAIL_CP_DEFAULTS).duplicate() \
+		if Kit != null else {"deckle": true, "corner": CARD_CORNER, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+	opts["corner"] = CARD_CORNER
+	var cp = load("res://engine/scripts/ui/cut_paper.gd").new()
+	cp.configure(opts, CREAM, CREAM.darkened(0.12), Kit.cut_paper_tile() if Kit != null else null)
+	cp.size = rect.size
+	cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(cp)
+	root.set_meta("cut_inset", cp.content_inset())
+	return root
+
+# How far card content must sit inside the rugged tear so nothing touches the torn edge.
+func _card_inset(card: Control) -> float:
+	return float(card.get_meta("cut_inset", 10.0))
+
+# A card TITLE label with a soft drop shadow (legible over a live thumb, and matching the featured
+# card's weight on the grid cards). `w` bounds the wrap; the caller positions it.
+func _card_title(text: String, font: int, w: float) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", font)
+	lbl.add_theme_color_override("font_color", INK)
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 3)
+	lbl.add_theme_constant_override("shadow_outline_size", 2)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	lbl.max_lines_visible = 2
+	lbl.size = Vector2(w, font * 2.4)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return lbl
 
 # A LIVE zone thumbnail: the page's manifest rendered through HomeZoneView (badges hidden), cover-fitted
 # over a sky backing. The frame is a rounded Panel whose `clip_children` masks the whole preview to its
@@ -837,27 +878,21 @@ func _maps_zone_thumb(z: int, size: Vector2, corner := 0.0, right_square := fals
 
 # The FEATURED card: thumb on the left; name · IN PROGRESS pill · built/total · progress bar ·
 # CONTINUE stacked on the right. CONTINUE (a real button) and a card tap both open the map.
-func _maps_featured_card(z: int, rect: Rect2) -> Control:
+func _maps_featured_card(z: int, rect: Rect2, title_font: int) -> Control:
 	var card := _maps_card_shell(rect)
-	var inset := clampf(rect.size.y * 0.08, 10.0, 22.0)
-	# the preview bleeds to the card's LEFT · TOP · BOTTOM edges (a full-height square flush to the
-	# corner), rounded to the card radius so the left corners follow the panel; its right edge is the
-	# straight seam against the text column.
-	var thumb_px := rect.size.y
-	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER, true)   # right side square: the text-column seam
-	thumb.position = Vector2.ZERO
+	var edge := _card_inset(card)                          # seat art inside the rugged tear
+	var inset := edge + clampf(rect.size.y * 0.04, 6.0, 14.0)
+	# the preview is a full-height rounded square seated inside the torn edge on the card's LEFT; the
+	# rugged cream border frames it on every side.
+	var thumb_px := rect.size.y - inset * 2.0
+	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER * 0.6)
+	thumb.position = Vector2(inset, inset)
 	card.add_child(thumb)
-	var col_x := thumb_px + inset
+	var col_x := inset + thumb_px + clampf(rect.size.y * 0.05, 8.0, 18.0)
 	var col_w := rect.size.x - col_x - inset
-	var name_font := int(clampf(rect.size.y * 0.135, 18.0, 40.0))
-	var name := Label.new()
-	name.text = tr(G.MAPS[z].name)
-	name.add_theme_font_size_override("font_size", name_font)
-	name.add_theme_color_override("font_color", INK)
-	name.autowrap_mode = TextServer.AUTOWRAP_WORD
+	var name_font := title_font
+	var name := _card_title(tr(G.MAPS[z].name), name_font, col_w)
 	name.position = Vector2(col_x, inset)
-	name.size = Vector2(col_w, name_font * 2.3)
-	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(name)
 	var y := inset + name_font * 1.35
 	var pill := _maps_pill(Strings.t("map.page.in_progress"), INK.lerp(SKY, 0.45), CREAM, int(name_font * 0.52))
@@ -903,66 +938,85 @@ func _maps_featured_card(z: int, rect: Rect2) -> Control:
 	var open_feat := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_map(z)
-	var btn_h := clampf(rect.size.y * 0.21, 40.0, 64.0)
 	var go: Button
 	var cont_path := "res://games/grove/assets/ui/card/continue.png"
 	if ResourceLoader.exists(cont_path):
-		# the cut-paper CONTINUE sprite (baked word + flower); stretched to the card's button slot
-		go = SpriteButton.build(load(cont_path), Vector2(col_w, btn_h), open_feat,
+		# the cut-paper CONTINUE sprite (baked word + flower). Keep its NATIVE aspect — grow it to fill the
+		# column height budget, clamp to the column width so it never stretches out of proportion.
+		var tex: Texture2D = load(cont_path)
+		var aspect := tex.get_size().x / maxf(tex.get_size().y, 1.0)
+		var btn_h := clampf(rect.size.y * 0.30, 48.0, 96.0)
+		var btn_w := btn_h * aspect
+		if btn_w > col_w:
+			btn_w = col_w
+			btn_h = btn_w / aspect
+		go = SpriteButton.build(tex, Vector2(btn_w, btn_h), open_feat,
 			{"name": "ContinueButton", "tooltip": Strings.t("map.page.continue")})
+		go.position = Vector2(col_x + (col_w - btn_w) * 0.5, rect.size.y - inset - btn_h)
 	else:
+		var btn_h := clampf(rect.size.y * 0.21, 40.0, 64.0)
 		go = Look.button(Strings.t("map.page.continue"), open_feat, true)
 		go.custom_minimum_size = Vector2(col_w, btn_h)
 		go.size = Vector2(col_w, btn_h)
-	go.position = Vector2(col_x, rect.size.y - inset - btn_h)
+		go.position = Vector2(col_x, rect.size.y - inset - btn_h)
 	card.add_child(go)
 	return card
 
 # A GRID card: the map name over its live thumb. Locked → cool-dimmed thumb + the padlock
 # medallion + a LOCKED pill; open (any build progress) → lit thumb + a built/total line.
-func _maps_grid_card(z: int, rect: Rect2, locked: bool) -> Control:
+func _maps_grid_card(z: int, rect: Rect2, locked: bool, title_font: int) -> Control:
 	var card := _maps_card_shell(rect)
-	var inset := clampf(rect.size.y * 0.055, 8.0, 16.0)
-	# the preview fills the card edge-to-edge, rounded to the card radius; name + pills ride over it.
-	var thumb := _maps_zone_thumb(z, rect.size, CARD_CORNER)
-	thumb.position = Vector2.ZERO
+	var edge := _card_inset(card)                 # seat the thumb inside the rugged tear
+	# the preview fills the card inside the torn edge, rounded so it nests in the rugged cream frame.
+	var thumb_size := rect.size - Vector2(edge, edge) * 2.0
+	var thumb := _maps_zone_thumb(z, thumb_size, CARD_CORNER * 0.6)
+	thumb.position = Vector2(edge, edge)
 	card.add_child(thumb)
 	if locked:
 		var veil := Panel.new()                      # the cool "asleep" veil over a locked thumb
-		veil.position = Vector2.ZERO                  # rounded to the card so it tracks the edge-bleed thumb
-		veil.size = rect.size
+		veil.position = Vector2(edge, edge)           # tracks the inset thumb
+		veil.size = thumb_size
 		var vs := StyleBoxFlat.new()
 		vs.bg_color = Color(Pal.LOCKED, 0.38)
-		vs.set_corner_radius_all(int(CARD_CORNER))
+		vs.set_corner_radius_all(int(CARD_CORNER * 0.6))
 		veil.add_theme_stylebox_override("panel", vs)
 		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(veil)
-	var name_font := int(clampf(rect.size.y * 0.105, 15.0, 30.0))
-	var name := _lbl(tr(G.MAPS[z].name), name_font, INK)
-	name.autowrap_mode = TextServer.AUTOWRAP_WORD
-	name.position = Vector2(inset, inset + rect.size.y * 0.025)
-	name.size = Vector2(rect.size.x - inset * 2.0, name_font * 2.4)
+	var inset := edge + clampf(rect.size.y * 0.02, 4.0, 12.0)
+	var name_font := title_font
+	var name := _card_title(tr(G.MAPS[z].name), name_font, rect.size.x - inset * 2.0)
+	name.position = Vector2(inset, inset)
 	card.add_child(name)
 	if locked:
-		# the slate padlock, centred on the veiled thumb (no backing plate)
-		var med_h := clampf(rect.size.y * 0.34, 56.0, 170.0)
+		# the slate padlock, centred on the veiled thumb (no backing plate), with a soft drop shadow
+		var med_h := clampf(rect.size.y * 0.46, 76.0, 230.0)
 		# the cut-paper scalloped keyhole sprite (falls back to the drawn padlock if the sprite is absent)
 		var pad_path := "res://games/grove/assets/ui/card/lock.png"
 		if not ResourceLoader.exists(pad_path):
 			pad_path = Game.art("ui/meadow_v2/icon_padlock.png")
 		if ResourceLoader.exists(pad_path):
+			var pd := med_h
+			var pad_pos := Vector2((rect.size.x - pd) * 0.5, (rect.size.y - pd) * 0.5)
+			var pad_tex: Texture2D = load(pad_path)
+			# shadow: a dark, blurred-feel copy dropped down-right behind the padlock
+			for sh in [{"o": 6.0, "a": 0.16}, {"o": 3.0, "a": 0.22}]:
+				var shadow := TextureRect.new()
+				shadow.texture = pad_tex
+				shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				shadow.modulate = Color(0, 0, 0, float(sh.a))
+				shadow.position = pad_pos + Vector2(float(sh.o) * 0.5, float(sh.o))
+				shadow.size = Vector2(pd, pd)
+				shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				card.add_child(shadow)
 			var pad := TextureRect.new()
-			pad.texture = load(pad_path)
+			pad.texture = pad_tex
 			pad.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			pad.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			var pd := med_h * 0.56
-			pad.position = Vector2((rect.size.x - pd) * 0.5, (rect.size.y - pd) * 0.5 - rect.size.y * 0.02)
+			pad.position = pad_pos
 			pad.size = Vector2(pd, pd)
 			pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			card.add_child(pad)
-		var lock_pill := _maps_pill(Strings.t("map.page.locked"), Pal.LOCKED, CREAM, int(name_font * 0.82))
-		lock_pill.position = Vector2((rect.size.x - lock_pill.size.x) * 0.5, rect.size.y - inset - lock_pill.size.y - rect.size.y * 0.03)
-		card.add_child(lock_pill)
 	else:
 		var p := _page_progress(z)
 		if p.y > 0:
