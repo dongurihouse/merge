@@ -225,7 +225,7 @@ func _default_params() -> Dictionary:
 		# the ACTION BUTTON — the shared rugged-edge nav tile. px / icon_scale / shadow + the shared
 		# cut-paper edge knobs (CUT_PAPER_KNOBS) are the saved style; tint_<role> is the per-button paper
 		# role (flattened to calm roles by default). map.gd + board.gd read this via action_button_opts_from_config.
-		"action_button": {"px": 158, "icon_scale": 50, "shadow": true,
+		"action_button": {"px": 158, "icon_scale": 90, "shadow": true,
 			# the SHARED cut-paper edge knob set — same keys as button + frame.
 			"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			# per-button paper-role tint palette (calm/flattened defaults)
@@ -1560,7 +1560,7 @@ func _element_sidebar(_id: String) -> void:
 			_group_header("Saved to config", true)
 			_section_header("Geometry")
 			_sidebar_body.add_child(_slider_row(["px", 90, 220]))          # tile size
-			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # glyph as % of the tile
+			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 100]))   # glyph as % of the tile
 			_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
 			_cut_paper_section("action_button")                            # the SHARED rugged edge knobs
 			_section_header("Per-button paper role (tint)")

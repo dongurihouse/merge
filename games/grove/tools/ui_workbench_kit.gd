@@ -67,6 +67,10 @@ const ACTION_GLYPHS := {
 	"home": "ui/nav/glyphs/glyph_home.png",
 	"bag": "ui/nav/glyphs/glyph_bag.png",
 }
+# The glyph's soft RUNTIME drop shadow (the art PNG ships shadow-free per the style guide §0): darkened
+# silhouette copies of the glyph nudged DOWN by a fraction of the icon size, fading out — the same
+# layered-silhouette shadow SpriteButton/the wallet pills use, so the glyph lifts off the paper tile.
+const GLYPH_SHADOW := [{"dy": 0.03, "a": 0.18}, {"dy": 0.06, "a": 0.12}, {"dy": 0.09, "a": 0.07}]
 # Calm default paper role per button (flatten — no warm accent for Play; the glyph carries the identity).
 # The workbench palette overrides any of these; the live game reads the saved palette.
 const ACTION_TINT_DEFAULTS := {
@@ -367,10 +371,35 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		# through clean_tex_path, which for an un-baked source returns a synthesized ImageTexture with no
 		# resource_path (clean_tex_path is for rough-cut sprites that need defringe/feather).
 		var glyph_tex := load(Game.art(glyph_rel)) as Texture2D
+		var icon_px := size.y * float(opts.get("icon_scale", 0.9))
 		var icwrap := CenterContainer.new()
 		icwrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icwrap.add_child(_icon_rect(glyph_tex, size.y * float(opts.get("icon_scale", 0.5))))
+		# an icon_px square block holding the glyph's soft runtime drop shadow (darkened silhouette copies
+		# nudged down) UNDER the glyph, so it lifts off the paper tile (see GLYPH_SHADOW). The block is
+		# centred on the tile; STRETCH_KEEP_ASPECT_CENTERED keeps a square glyph filling icon_px.
+		var stack := Control.new()
+		stack.custom_minimum_size = Vector2(icon_px, icon_px)
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for layer in GLYPH_SHADOW:
+			var sh := TextureRect.new()
+			sh.texture = glyph_tex
+			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			sh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			sh.modulate = Look.shadow_color(float(layer["a"]))
+			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			sh.offset_top += icon_px * float(layer["dy"])
+			sh.offset_bottom += icon_px * float(layer["dy"])
+			stack.add_child(sh)
+		var glyph := TextureRect.new()
+		glyph.texture = glyph_tex
+		glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stack.add_child(glyph)
+		icwrap.add_child(stack)
 		b.add_child(icwrap)
 	# press feedback: darken the paper while held, restore on release (matches _apply_deckle_button_surface)
 	b.button_down.connect(func() -> void:
@@ -2173,7 +2202,7 @@ static func action_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"cp": cut_paper_opts_from_config(cfg, "action_button", ACTION_BUTTON_CP_DEFAULTS),
 		"tints": tints,
-		"icon_scale": clampf(float(d.get("icon_scale", 50)) / 100.0, 0.10, 1.0),
+		"icon_scale": clampf(float(d.get("icon_scale", 90)) / 100.0, 0.10, 1.0),
 		"shadow": bool(d.get("shadow", true)),
 		"shadow_params": Look.shadow_params(cfg),
 	}
