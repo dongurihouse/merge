@@ -29,17 +29,8 @@ const COLS := 3
 const OVERLAY_NAME := "LoginOverlay"
 const CLAIM_CLOSE_DELAY := 0.85    # after a claim, let the reward shout rise, then the popup bows out on its own
 
-# --- the mock's cell palette (sampled from daily_gifts_1080x1920) ---------------------------------
-# The pastel tints are DECORATIVE, not semantic: the mock cycles sage/sky across the plain slots and
-# reserves the two meaningful tints — lavender for a mystery day, amber + gold rim for today and the
-# week's capstone. SLOT_SAGE lists the weekly slots the mock paints sage; the rest go sky.
-const CELL_SAGE := Color("#C9D8B2")
-const CELL_SKY := Color("#BCD5E4")
-const CELL_MYSTERY := Color("#C3B6D9")
-const CELL_TODAY := Color("#F2DCA6")
-const CELL_RIM := Color("#E0B451")
+# The four-point sparkle tint scattered over the day-7 capstone.
 const SPARK_TINT := Color("#E6BC5E")
-const SLOT_SAGE := [1, 3, 6]
 
 const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
@@ -73,7 +64,6 @@ const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-pa
 # sparkles baked in), and the reward icons — each worn over the shared code drop shadow. Absent files fall
 # back to the drawn/Direction-B look. The CLAIMED card faces bake their own dim + ✓, so a claimed day
 # draws no separate reward icon / amount / check.
-const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
 const SKIN_DIR := "res://games/grove/assets/ui/dialogs/daily/"
 const REWARD_SKIN := {"coin": "icon_coin", "gem": "icon_acorn", "water": "icon_water"}   # reward id → skin icon
 static func _daily_tex(key: String) -> Texture2D:
@@ -297,22 +287,25 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	# wrapped gift (reward hidden); TODAY = the highlighted gold card showing the real reward icon + count,
 	# claimed by TAPPING the card (no separate button); PAST = the card with a ✓ baked in.
 	var day := int(d.get("day", 0))
-	var card_key := "day_past" if done else ("day_today" if today else "day_current")
-	var card_tex := _daily_tex(card_key)
-	var inner := Control.new()
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var panel: Control
-	if card_tex != null:
-		panel = SpritePanel.build(card_tex, Vector2(cw, ch_px))
-		var pad := cw * 0.10
-		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		inner.offset_left = pad; inner.offset_top = pad; inner.offset_right = -pad; inner.offset_bottom = -pad
-	else:
-		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", _cell_box(_cell_tint(d), cw, today))
-		panel = pc
+	var tone := "today" if today else "cream"
+
+	# The CODE-DRAWN cut-paper face (the shared Kit builder — same face the workbench draws): cream paper for
+	# past/future days, the gold-under-cream DOUBLE layer for today. It fills the cell; content sits inside on
+	# `inner`. (Replaces the baked day_past/day_today/day_current sprite faces.)
+	var panel := Control.new()
 	panel.name = "DailyCell_%02d" % day
 	panel.custom_minimum_size = Vector2(cw, ch_px)
+	var face: Control = Kit.daily_card_face(Vector2(cw, ch_px), tone)
+	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(face)
+	if done:
+		panel.modulate = Color(1, 1, 1, 0.6)   # a claimed day recedes
+
+	var inner := Control.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pad := cw * 0.10
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inner.offset_left = pad; inner.offset_top = pad; inner.offset_right = -pad; inner.offset_bottom = -pad
 	panel.add_child(inner)
 
 	# "DAY N" — pinned to the top edge, full-width centred.
@@ -322,17 +315,10 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	label.grow_vertical = Control.GROW_DIRECTION_END
 	inner.add_child(label)
 
-	if card_tex == null:
-		# DRAWN fallback (no baked sprites): the old reward icon + amount, and a Claim pill for today.
-		if not done:
-			_add_reward_face(Kit, inner, d.get("reward", {}), cw, d if mystery else {})
-		if today:
-			_add_claim_pill(Kit, inner, cw, d.get("on_claim", Callable()))
-	elif today:
-		# TODAY: the highlighted card shows the real reward icon + amount; the WHOLE cell is the claim —
-		# a transparent full-cell tap target (no visible chrome), always present so the surface reads as
-		# claimable (the preview has no live callable; only a live one wires the tap).
-		_add_reward_face(Kit, inner, d.get("reward", {}), cw, {})
+	if today:
+		# TODAY: the real reward icon + amount; the WHOLE cell is the claim — a transparent full-cell tap
+		# target (always present so the surface reads as claimable; only a live callable wires the tap).
+		_add_reward_face(Kit, inner, d.get("reward", {}), cw, d if mystery else {})
 		var tap := Button.new()
 		tap.name = "DailyClaimButton"
 		tap.flat = true
@@ -344,7 +330,17 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		if on_claim.is_valid():
 			tap.pressed.connect(func() -> void: on_claim.call())
 		panel.add_child(tap)
-	elif not done:
+	elif done:
+		# PAST: the reward it gave (recedes with the cell) + a ✓ badge floated near the bottom.
+		_add_reward_face(Kit, inner, d.get("reward", {}), cw, {})
+		var wrap := CenterContainer.new()
+		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
+		wrap.anchor_top = REWARD_ACTION_FRAC; wrap.anchor_bottom = REWARD_ACTION_FRAC
+		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
+		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wrap.add_child(_sprite(Kit, ART_CHECK, cw * 0.34))
+		inner.add_child(wrap)
+	else:
 		# FUTURE: a varied wrapped gift box (reward hidden) on the plain card.
 		var gtex := _daily_tex("gift_%d" % (day % 5))
 		if gtex != null:
@@ -391,75 +387,35 @@ static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, 
 		amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inner.add_child(amt)
 
-## The drawn Claim pill (fallback only), floated at REWARD_ACTION_FRAC.
-static func _add_claim_pill(Kit: GDScript, inner: Control, cw: float, on_claim: Callable) -> void:
-	var wrap := CenterContainer.new()
-	wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
-	wrap.anchor_top = REWARD_ACTION_FRAC; wrap.anchor_bottom = REWARD_ACTION_FRAC
-	wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(_claim_button(Kit, cw, on_claim))
-	inner.add_child(wrap)
-
-## The week's LAST slot as the mock's wide capstone banner: a full-width amber plaque with the gold
-## rim, "DAY N" at the top, the chest centred, and a sparkle in each corner.
 static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
-	var state := String(d.get("state", "future"))
-	var done := state == "done"
-	var cw := w / float(COLS)
-	# reskin: the baked wide DAY 7 sprite (chest + oak sprigs + sparkles baked; the CLAIMED face bakes its
-	# dim + ✓). Only "DAY 7" + today's CLAIM are drawn on top.
-	var cap_tex := _daily_tex("day7_claimed" if done else "day7")
-	if cap_tex == null:
-		return _capstone_drawn(Kit, d, w, h)
+	# Day 7 is a single GOLDEN cut-paper card (the code-drawn face), with the standalone chest + oak sprigs +
+	# sparkles composed on top — no baked day7.png.
+	return _capstone_drawn(Kit, d, w, h)
 
-	h = roundf(w * float(cap_tex.get_height()) / float(cap_tex.get_width()))   # keep the sprite's aspect
-	var panel := SpritePanel.build(cap_tex, Vector2(w, h))
+## The day-7 capstone: the standalone chest + oak sprigs + sparkles composed over the GOLDEN cut-paper face.
+static func _capstone_drawn(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
+	var state := String(d.get("state", "future"))
+	var cw := w / float(COLS)
+	var panel := Control.new()
 	panel.name = "DailyCapstone"
 	panel.custom_minimum_size = Vector2(w, h)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# the GOLDEN cut-paper face (shared Kit builder); corner from the CELL width so it matches the day cells.
+	var face: Control = Kit.daily_card_face(Vector2(w, h), "gold", {}, {"corner": cw * 0.13})
+	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(face)
+	if state == "done":
+		panel.modulate = Color(1, 1, 1, 0.6)   # a claimed capstone recedes
 
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(inner)
 
-	# "DAY N" — pinned to the top edge.
 	var label := _cell_label(Kit, String(d.get("label", "")), cw)
 	label.anchor_left = 0.0; label.anchor_right = 1.0
 	label.anchor_top = 0.0; label.anchor_bottom = 0.0
 	label.offset_top = h * 0.06
-	label.grow_vertical = Control.GROW_DIRECTION_END
-	inner.add_child(label)
-
-	# today's CLAIM floats near the bottom (a done day's ✓ is baked into the claimed capstone face).
-	if state == "today":
-		var wrap := CenterContainer.new()
-		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
-		wrap.anchor_top = 0.86; wrap.anchor_bottom = 0.86
-		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
-		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap.add_child(_claim_button(Kit, cw, d.get("on_claim", Callable())))
-		inner.add_child(wrap)
-	return panel
-
-## The pre-reskin drawn capstone (kept as the fallback when the day-7 sprite is absent).
-static func _capstone_drawn(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
-	var state := String(d.get("state", "future"))
-	var panel := PanelContainer.new()
-	panel.name = "DailyCapstone"
-	panel.custom_minimum_size = Vector2(w, h)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var cw := w / float(COLS)
-	panel.add_theme_stylebox_override("panel", _cell_box(CELL_TODAY, cw, true))
-
-	var inner := Control.new()
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(inner)
-
-	var label := _cell_label(Kit, String(d.get("label", "")), cw)
-	label.anchor_left = 0.0; label.anchor_right = 1.0
-	label.anchor_top = 0.0; label.anchor_bottom = 0.0
 	label.grow_vertical = Control.GROW_DIRECTION_END
 	inner.add_child(label)
 
@@ -470,7 +426,7 @@ static func _capstone_drawn(Kit: GDScript, d: Dictionary, w: float, h: float) ->
 	var sprig_l := _sprite_cropped(Kit, ART_LEAF_L, h * 0.82)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	var chest := _sprite(Kit, String(d.get("mystery_icon", ART_CHEST)), h * 1.02)
+	var chest := _shadowed(Kit, Kit.clean_tex_path(Look.kit(String(d.get("mystery_icon", ART_CHEST))), 256), h * 1.02)
 	chest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chest)
 	var sprig_r := _sprite_cropped(Kit, ART_LEAF_R, h * 0.82)
@@ -499,30 +455,6 @@ static func _capstone_drawn(Kit: GDScript, d: Dictionary, w: float, h: float) ->
 	_scatter_sparks(inner, cw * 0.11, [Vector2(0.045, 0.20), Vector2(0.955, 0.20),
 		Vector2(0.045, 0.82), Vector2(0.955, 0.82)])
 	return panel
-
-## The cell's rounded tinted face — the mock's soft corners, the house drop shadow, and the gold rim
-## the mock reserves for today + the capstone.
-static func _cell_box(tint: Color, cw: float, rim: bool) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = tint
-	sb.set_corner_radius_all(int(cw * 0.11))
-	if rim:
-		sb.set_border_width_all(int(maxf(3.0, cw * 0.028)))
-		sb.border_color = CELL_RIM
-	var pad := cw * 0.07
-	sb.content_margin_left = pad; sb.content_margin_right = pad
-	sb.content_margin_top = pad; sb.content_margin_bottom = pad
-	Look.apply_box_shadow(sb)
-	return sb
-
-## The mock's decorative cell tint (see SLOT_SAGE): lavender = a mystery day, amber = today or the
-## week's capstone, otherwise the sage/sky cycle.
-static func _cell_tint(d: Dictionary) -> Color:
-	if String(d.get("state", "")) == "today":
-		return CELL_TODAY
-	if bool(d.get("mystery", false)):
-		return CELL_MYSTERY
-	return CELL_SAGE if int(d.get("slot", 1)) in SLOT_SAGE else CELL_SKY
 
 ## "DAY N" — the ink, PLAIN-weight (not bold), all-caps cell heading, a touch larger. NO drop shadow —
 ## just a faint "burn-in": the letters sit in a slightly deeper, warmer ink so they read as scorched a
@@ -561,10 +493,21 @@ static func _reward_icon(Kit: GDScript, id: String, px: float) -> Control:
 	if REWARD_SKIN.has(id):
 		var t := _daily_tex(String(REWARD_SKIN[id]))
 		if t != null:
-			return _skin_sprite(t, px)
+			return _shadowed(Kit, t, px)
 	if REWARD_ART.has(id):
-		return _sprite(Kit, String(REWARD_ART[id]), px)
-	return Kit.make_icon(id, px)
+		return _shadowed(Kit, Kit.clean_tex_path(Look.kit(String(REWARD_ART[id])), 256), px)
+	return Kit.daily_icon(id, px, true)
+
+## Bake the shared shape-true drop shadow (via the kit) onto a texture and return it as a centred sprite, so
+## a day card's reward icon (and the day-7 chest) sits on its own soft shadow. A missing texture → the plain
+## sprite (no shadow).
+static func _shadowed(Kit: GDScript, tex: Texture2D, px: float) -> Control:
+	if tex == null:
+		return _skin_sprite(tex, px)
+	var img := tex.get_image()
+	if img == null:
+		return _skin_sprite(tex, px)
+	return _skin_sprite(ImageTexture.create_from_image(Kit.add_drop_shadow(img, {"shadow_alpha": 0.32})), px)
 
 ## The currencies a rung pays, premium → coins → water (the mock's reading order).
 static func _reward_ids(reward: Dictionary) -> Array:
