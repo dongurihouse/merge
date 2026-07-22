@@ -324,6 +324,33 @@ func _initialize() -> void:
 		view._rebuild_stage()
 		view._select(-1)
 
+	# --- view: drag a cluster row onto another layer reassigns the whole cluster -------
+	# the sidebar rows carry Godot drag-and-drop; drive the forwarded handlers directly (the
+	# OS gesture is thin glue, like _on_stage_input above). 'camp' = {tree(0), rock(1)}.
+	var dnd_snapshot: Dictionary = view.doc.duplicate(true)   # restore before the stage tests below
+	M.set_layer(view.doc, 0, "background")
+	view._rebuild_stage()
+	view._select_cluster("camp")
+	view.dirty = false
+	var pay: Dictionary = view._drag_payload("camp")
+	ok(String(pay.get("kind", "")) == "wb_cluster" and String(pay.get("cluster", "")) == "camp",
+		"a cluster row exposes a drag payload naming the cluster")
+	ok(view._layer_can_drop_cluster(pay, "coverup") == true,
+		"a different layer is a valid drop target")
+	ok(view._layer_can_drop_cluster(pay, "background") == false,
+		"dropping on the cluster's own layer is rejected as a no-op")
+	ok(view._layer_can_drop_cluster({"kind": "other"}, "coverup") == false,
+		"a foreign payload is not a valid cluster drop")
+	view._drop_cluster_on_layer(pay, "coverup")
+	ok(String((view.doc.placements[0] as Dictionary).layer) == "coverup"
+		and String((view.doc.placements[1] as Dictionary).layer) == "coverup",
+		"dropping the cluster moves every member into the target layer")
+	ok(view._sel_cluster == "camp", "the moved cluster stays selected after the drop")
+	ok(view.dirty, "the layer-move marks the doc dirty")
+	view.doc = dnd_snapshot                             # restore the fixture for the stage tests downstream
+	view._rebuild_stage()
+	view._select(-1)
+
 	# --- view: click-select + drag-move + wheel-resize through the stage input surface -
 	# (regression: "dragging doesn't work" — mouse input formerly relied on _unhandled_input
 	# under full-rect STOP-filter Controls, which swallowed every stage event; the stage now

@@ -13,6 +13,8 @@ extends Control
 ##         a cluster selection restacks the cluster in its layer, an item selection restacks it in its
 ##         cluster.   [ / ] = move the selection to the previous / next LAYER (cluster-wide).
 ##         Delete = remove item   I = isolate   Cmd/Ctrl+S = save   R = reload   Esc = deselect / exit
+## Sidebar: drag a cluster row onto another layer's header (or a cluster row in it) to move the whole
+##          cluster into that band — the pointer-first equivalent of [ / ].
 
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
@@ -626,6 +628,50 @@ func _mark_dirty() -> void:
 	dirty = true
 	_refresh_status()
 
+## --- drag a cluster row onto a layer (sidebar DnD) -----------------------------------------------
+## Wired onto the sidebar's cluster buttons (drag source) and layer headers + cluster buttons (drop
+## targets) via set_drag_forwarding. Grab a cluster row, drop it on another layer's header (or any
+## cluster row already in that layer) to move the WHOLE cluster into that band — the same op the
+## [ / ] keys drive, just pointer-first. Order-within-layer is untouched (that stays on Z / X).
+
+## The payload a dragged cluster row carries.
+func _drag_payload(cluster: String) -> Dictionary:
+	return {"kind": "wb_cluster", "cluster": cluster}
+
+## True when `data` is a cluster payload whose cluster is real and NOT already in `slug`.
+func _layer_can_drop_cluster(data: Variant, slug: String) -> bool:
+	if not (data is Dictionary) or String((data as Dictionary).get("kind", "")) != "wb_cluster":
+		return false
+	var cn := String((data as Dictionary).get("cluster", ""))
+	var members: Array = M.clusters(doc).get(cn, [])
+	if members.is_empty() or not M.LAYERS.has(slug):
+		return false
+	return M.entry_layer(M.placements(doc)[members[0]]) != slug
+
+## Apply the drop: move every member of the payload's cluster into `slug`, then reselect it.
+func _drop_cluster_on_layer(data: Variant, slug: String) -> void:
+	if not _layer_can_drop_cluster(data, slug):
+		return
+	var cn := String((data as Dictionary).get("cluster", ""))
+	var members: Array = M.clusters(doc).get(cn, [])
+	M.set_layer(doc, members[0], slug)                 # cluster-wide; a cluster never straddles bands
+	_mark_dirty()
+	_rebuild_stage()
+	_select_cluster(cn)                                # refreshes the sidebar + status, keeps it selected
+
+# set_drag_forwarding hooks — get_drag_data / can_drop_data / drop_data, forwarded per row.
+func _cluster_get_drag_data(_at: Vector2, cluster: String) -> Variant:
+	var prev := _label("→ %s" % cluster, FS.TOOL, true)
+	prev.add_theme_color_override("font_color", Color("#B05A00"))
+	set_drag_preview(prev)
+	return _drag_payload(cluster)
+
+func _layer_can_drop(_at: Vector2, data: Variant, slug: String) -> bool:
+	return _layer_can_drop_cluster(data, slug)
+
+func _layer_drop(_at: Vector2, data: Variant, slug: String) -> void:
+	_drop_cluster_on_layer(data, slug)
+
 func _save() -> void:
 	if M.save_doc(placements_path, doc):
 		dirty = false
@@ -935,6 +981,10 @@ func _refresh_cluster_list() -> void:
 		if lhidden:
 			hdr.add_theme_color_override("font_color", Color("#9A9488"))
 		hdr_row.add_child(hdr)
+		# the header label is a drop target: dropping a dragged cluster here moves it into this band.
+		hdr.mouse_filter = Control.MOUSE_FILTER_STOP
+		hdr.tooltip_text = "drop a cluster here to move it to %s" % M.LAYER_LABELS.get(slug, slug)
+		hdr.set_drag_forwarding(Callable(), Callable(self, "_layer_can_drop").bind(slug), Callable(self, "_layer_drop").bind(slug))
 		var leye := _small_button("◌" if lhidden else "◉", _toggle_layer_hidden.bind(slug))
 		leye.tooltip_text = "show this layer" if lhidden else "hide the whole layer"
 		hdr_row.add_child(leye)
@@ -946,6 +996,10 @@ func _refresh_cluster_list() -> void:
 				cname, (cls[cname] as Array).size(), M.cluster_z(doc, cname)], _select_cluster.bind(cname))
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			b.clip_text = true                                # long names clip, never push the eye off-panel
+			# the cluster button is BOTH a drag source (grab to move its band) and a drop target
+			# (drop another cluster onto it to send that one into THIS row's layer).
+			b.set_drag_forwarding(Callable(self, "_cluster_get_drag_data").bind(cname),
+				Callable(self, "_layer_can_drop").bind(slug), Callable(self, "_layer_drop").bind(slug))
 			if cname == _sel_cluster:
 				b.add_theme_color_override("font_color", Color("#B05A00"))
 			elif chidden:

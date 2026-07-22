@@ -223,7 +223,7 @@ func _default_params() -> Dictionary:
 		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "art": true, "shadow": false, "badge": "auto",
 			"paper": "none", "border": true, "pad_scale": 100, "static": false,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the frame + toggle bar use.
-			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0},
+			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 70},
 		# the HOME button — the shared square-paper icon button (plus the authored Play disc). px / icon_scale /
 		# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 		# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
@@ -246,7 +246,7 @@ func _default_params() -> Dictionary:
 		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + frame use.
 			# `corner` seeds the capsule roundness to the old pill_h * 0.35 look (see Kit.PILL_CP_DEFAULTS).
-			"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
+			"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 70,
 			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 			"amount_w": 88, "num_size": 30, "amount_x": 0,
 			"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
@@ -265,12 +265,15 @@ func _default_params() -> Dictionary:
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + toggle bar use.
 			# `deckle` on replaces the flat card with a live deckled paper sheet; `corner` is the shared corner
 			# (drives the flat card too). Migrated from the old cut_paper / card_corner / frame_shadow keys.
-			"deckle": true, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
+			"deckle": true, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 70,
 			"border": "parchment", "card_art": true,
 			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 			"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
+			# banner_text_x/y + banner_burn are retired (the sliders drove nothing / the burn is dropped); kept as
+			# harmless config for the fallback baked face. The title's depth is now the SHARED text drop-shadow:
 			"banner_text_x": 0, "banner_text_y": 0, "banner_burn": 60,
+			"text_shadow": false, "shadow_dx": 0, "shadow_dy": 3, "text_shadow_blur": 0, "text_shadow_str": 45,
 			"banner_text_pad_l": 50, "banner_text_pad_r": 50,   # title↔tail room (the auto-sizing ribbon's L/R padding)
 			"banner_x": 0, "banner_y": 0,
 			"banner_icon_x": 130, "banner_icon_y": 19,
@@ -293,7 +296,7 @@ func _default_params() -> Dictionary:
 		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — same keys as button + frame; a finer tear
 			# for the thin row strip. Drives BOTH the row surface AND the switch track/knob.
-			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
+			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 70,
 			# the row's OWN tint (paper fill; rim derives a shade darker), sage by default. `label`/`value` are
 			# DEMO content (test-only) to preview one row — the game supplies each real setting's name + state.
 			"tint": "DCE7C8", "label": "Sound effects", "value": true},
@@ -312,7 +315,7 @@ func _default_params() -> Dictionary:
 		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
 		# (test-only) so the preview shows a real reward row; the game supplies each entry's own content.
-		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 0,
+		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 70,
 			"tint": "F6EBDD", "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
@@ -1889,6 +1892,19 @@ func _cut_paper_section(target: String) -> void:
 			_:
 				_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
 
+## The SHARED text drop-shadow section (Kit.TEXT_SHADOW_KNOBS) — one control group appliable to any text
+## element (the dialog title today). The enable toggle always shows; the offset/blur/strength sliders show
+## only when it's on. A new schema knob appears here automatically, like the cut-paper section.
+func _text_shadow_section(target: String) -> void:
+	_section_header("Title shadow (shared)")
+	var on := bool((_params[target] as Dictionary).get("text_shadow", false))
+	for knob in Kit.TEXT_SHADOW_KNOBS:
+		var key := String(knob["key"])
+		if String(knob.get("kind", "slider")) == "toggle":
+			_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, bool(knob.get("default", false)), target))
+		elif on:
+			_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
+
 func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
 	_section_header("Dialog width (all dialogs)")
@@ -1898,14 +1914,10 @@ func _frame_sidebar() -> void:
 	# sheet is the frame face now, so the baked 9-slice card knobs no longer shape anything. The keys stay in
 	# config for the fallback baked path when the edge is off — they're just no longer tunable here.
 
-	# TITLE — the dialog title text only (there is no ribbon banner behind it in the cut-paper frame): its
-	# size, position, and engrave style. Ribbon/icon knobs (band height, banner icon, tail padding, banner
-	# node offset) are retired with the ribbon; their config values persist for the fallback face.
-	_section_header("Title")
-	_sidebar_body.add_child(_slider_row(["banner_font", 16, 56]))          # size
-	_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))     # position — horizontal
-	_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))       # position — vertical
-	_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))          # style — engrave intensity (0 = off)
+	# TITLE — the dialog title text. Its size + position auto-fit the cut-paper sheet (the old banner_font /
+	# banner_text_x/y sliders drove nothing and are retired; the carved-groove "burn" is dropped too). The only
+	# tunable is the SHARED text drop-shadow, which any text element can wear.
+	_text_shadow_section("frame")
 
 	_section_header("Close")
 	_sidebar_body.add_child(_slider_row(["close_size", 30, 96]))
