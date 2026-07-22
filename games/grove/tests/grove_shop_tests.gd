@@ -388,6 +388,25 @@ func _initialize() -> void:
 			leftover += 1
 	ok(leftover == 0, "a tap-opened chest leaves no board items behind (direct wallet credit)")
 	bd.queue_free()
+
+	# The board's bottom-bar Home + Bag wells build through the SAME shared code-drawn
+	# Kit.action_button as the home bottom bar (T5 of the action-button rollout) — a CutPaperPanel
+	# rugged edge + centered glyph, not a baked nav_<x>.png sprite. The Bag well additionally keeps
+	# its BagContent overlay host (the most-recent stashed item) intact.
+	fresh("board_action_wells")
+	var bx = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(bx)
+	if bx.board == null:
+		bx._ready()
+	var home_tile := bx.find_child("BoardHomeTile", true, false) as Button
+	ok(home_tile != null and home_tile.find_child("ActionButtonDeckleSurface", true, false) != null,
+		"the board Home well wears the shared code-drawn rugged edge")
+	var bag_well := bx.find_child("BagWell", true, false) as Button
+	ok(bag_well != null and bag_well.find_child("ActionButtonDeckleSurface", true, false) != null,
+		"the board Bag well wears the shared code-drawn rugged edge")
+	ok(bag_well != null and bag_well.get_node_or_null("BagContent") != null,
+		"the Bag well keeps its stashed-item overlay host")
+	bx.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
 	# REAL tree-attached host so the kit + viewport resolve, then drive the actual buttons

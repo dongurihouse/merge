@@ -26,9 +26,6 @@ const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
-const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (board Home + Bag wells)
-const NAV_HOME := "res://games/grove/assets/ui/nav/nav_home.png"
-const NAV_BAG := "res://games/grove/assets/ui/nav/nav_bag.png"
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
@@ -166,6 +163,7 @@ var bag_btn: Button
 var bag_content: Control
 var bag_piece_px := 72.0             # the in-well item-preview size (set from the well px on build)
 var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
+var _bag_well_drawn_disc := false    # true only for the kit-absent drawn-disc fallback (glyph lives IN bag_content)
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
@@ -1653,8 +1651,11 @@ func _relayout_action_bar_after_resize() -> void:
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
-	if not ResourceLoader.exists(NAV_BAG):
-		# fallback: the drawn disc + swap icon (pre-sprite path)
+	var KitB: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if KitB == null:
+		# fallback: the drawn disc + swap icon (pre-sprite path, engine-only safety net). Its "bag" glyph
+		# lives INSIDE bag_content (icon_wrap), so _rebuild_bag restores it on the empty state.
+		_bag_well_drawn_disc = true
 		var d := ActionBar.home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)
 		ActionBar.clear_button_frame(d)
 		d.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -1664,10 +1665,14 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 		_bag_count_lbl = d.get_meta("count_label") if d.has_meta("count_label") else null
 		d.pressed.connect(_open_bag_overlay)
 		return d
-	# The full cut-paper BAG tile (satchel baked in) is the whole button, over its drop shadow. When the
-	# bag holds items the most-recent one overlays the baked satchel (bag_content); the "x/y" count rides
-	# the tile's foot. Drag-to-stash / drag-back / highlight all key off the button's global rect, unchanged.
-	var b := SpriteButton.build(load(NAV_BAG), Vector2(px, px), Callable(self, "_open_bag_overlay"), {"name": "BagWell"})
+	# The shared code-drawn action button (CutPaperPanel rugged edge + centered bag glyph) is the whole
+	# button, over its drop shadow — the same builder the home bottom bar uses. When the bag holds items
+	# the most-recent one overlays the drawn glyph (bag_content); the "x/y" count rides the tile's foot.
+	# Drag-to-stash / drag-back / highlight all key off the button's global rect, unchanged.
+	_bag_well_drawn_disc = false            # the code-drawn well's own centered glyph IS the empty state
+	var bag_opts: Dictionary = KitB.action_button_opts_from_config(KitB.load_config(KitB.CONFIG_PATH))
+	bag_opts["name"] = "BagWell"
+	var b: Button = KitB.action_button("bag", Vector2(px, px), Callable(self, "_open_bag_overlay"), bag_opts)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var content := CenterContainer.new()
@@ -1762,9 +1767,13 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 		_persist()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 	var b: Button
-	if ResourceLoader.exists(NAV_HOME):
-		# the full cut-paper home sprite tile (icon baked in, over its drop shadow)
-		b = SpriteButton.build(load(NAV_HOME), Vector2(px, px), go, {"name": "BoardHomeTile"})
+	var KitH: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if KitH != null:
+		# the shared code-drawn action button (CutPaperPanel rugged edge + centered home glyph) — the
+		# same builder the home bottom bar uses, so the two read identically off one source.
+		var ho: Dictionary = KitH.action_button_opts_from_config(KitH.load_config(KitH.CONFIG_PATH))
+		ho["name"] = "BoardHomeTile"
+		b = KitH.action_button("home", Vector2(px, px), go, ho)
 	else:
 		b = ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
 		ActionBar.clear_button_frame(b)
@@ -3393,10 +3402,13 @@ func _rebuild_bag() -> void:
 	for c in bag_content.get_children():
 		c.queue_free()
 	if bag.is_empty():
-		# empty → the tile's baked satchel IS the empty state (sprite tile); the drawn-disc fallback
-		# restores the kit "bag" glyph into its icon wrap instead.
-		if not ResourceLoader.exists(NAV_BAG):
-			bag_content.add_child(load("res://games/grove/tools/ui_workbench_kit.gd").make_icon("bag", bag_piece_px))
+		# empty → the code-drawn Bag well's own centered "bag" glyph IS the empty state, so the overlay
+		# stays clear. Only the kit-absent drawn-disc fallback keeps its glyph INSIDE bag_content (wiped by
+		# the clear above), so it restores it — guarded on the kit actually being loadable to draw one.
+		if _bag_well_drawn_disc:
+			var KitR: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+			if KitR != null:
+				bag_content.add_child(KitR.make_icon("bag", bag_piece_px))
 	else:
 		# filled → the most-recent stashed item overlays the tile directly, sized large to cover the satchel.
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
