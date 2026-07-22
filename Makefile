@@ -14,7 +14,9 @@ ENGINE_TESTS_DISABLED :=
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
 GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_zone_workbench_tests
 GROVE_TESTS_DISABLED :=
-TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
+# dev-tool suites — pure-Image logic for the asset intake pipeline (fast, no scenes)
+TOOLS_TESTS  := games/tools/tests/slice_islands_tests
+TESTS        := $(ENGINE_TESTS) $(TOOLS_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
@@ -68,8 +70,8 @@ zones: ## draw a page's unlock zones over the real scene (a real window):  make 
 ## Run the full `make test` (adds the grove game suites) before you commit / hand off.
 ## Suites run in parallel via $(RUNNER), which prints a per-suite timing table and
 ## fails on any FAIL / crash (it never trusts a zero exit code alone).
-test-fast: ## ⚡ inner-loop check — engine suites only, parallel. USE THIS AFTER EVERY CHANGE.
-	@python3 $(RUNNER) $(ENGINE_TESTS)
+test-fast: ## ⚡ inner-loop check — engine + tool suites, parallel. USE THIS AFTER EVERY CHANGE.
+	@python3 $(RUNNER) $(ENGINE_TESTS) $(TOOLS_TESTS)
 
 test: ## full sweep: every suite (engine + grove), parallel + per-suite timing table
 	@python3 $(RUNNER) $(TESTS)
