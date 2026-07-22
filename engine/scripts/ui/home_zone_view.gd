@@ -11,6 +11,9 @@ extends RefCounted
 ## Home.state_id / Home.next_step; a test passes stubs.
 
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")
+const SpriteShadow = preload("res://engine/scripts/ui/sprite_shadow.gd")
+const COVERUP_SHADOW_ALPHA := 0.34   # scene canopy drop-shadow depth — matches the base art's baked cut-paper shadows (heavier than UI chrome, on dark foliage)
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const Coverings = preload("res://engine/scripts/ui/scene_coverings.gd")
 const LockBadge = preload("res://engine/scripts/ui/lock_badge.gd")
 
@@ -162,6 +165,20 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 		spr.pivot_offset = cd * 0.5                        # reveal() scales from the centre
 		if String(cov.get("image", "")) != "" and ResourceLoader.exists(String(cov.image)):
 			spr.texture = load(String(cov.image)) as Texture2D
+			# a FLAT shape-true drop shadow stamped from the canopy leaf's OWN silhouette (SpriteShadow),
+			# so each covering lifts off the scene the way every baked cut-paper layer around it does.
+			# A SCENE shadow (like PropShadow), not UI chrome: its own scene alpha + a cast proportional
+			# to the leaf's size (a fixed px offset vanishes under art this large), soft-blurred, behind
+			# the sprite. Slate tint keeps it in the same shadow family as the UI.
+			var csh := SpriteShadow.new()
+			csh.texture = spr.texture
+			csh.draw_size = cd
+			csh.fit = true
+			csh.offset = Vector2(cd.x * 0.025, cd.y * 0.06)
+			csh.tint = Look.shadow_color(COVERUP_SHADOW_ALPHA)
+			csh.soft_div = 4
+			csh.show_behind_parent = true
+			spr.add_child(csh)
 		(groups[cl]["sprites"] as Array).append({"sort_y": int(cov.get("sort_y", 0)), "node": spr})
 	for cl in groups.keys():
 		var g: Dictionary = groups[cl]
