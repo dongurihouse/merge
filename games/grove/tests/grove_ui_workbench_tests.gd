@@ -9,6 +9,7 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UIWorkbenchView = preload("res://games/grove/tools/ui_workbench_view.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 
 func _initialize() -> void:
 	begin("grove · ui workbench")
@@ -103,8 +104,8 @@ func _slot_cell_gallery_uses_game_cells() -> void:
 		"Slot-cell workbench gallery uses the same torn-cell component as the game")
 	ok(not _has_named(gallery, "SlotCellBackground"),
 		"Slot-cell workbench gallery no longer previews the retired flat well background")
-	ok(_has_named(gallery, "ContactShadow"),
-		"Slot-cell filled previews render through the game piece component, including its content shadow")
+	ok(_has_named(gallery, "SlotContentShadow"),
+		"Slot-cell filled previews render with the shared content shadow")
 	gallery.free()
 	view.free()
 	Kit.clear_config_cache()
@@ -118,6 +119,24 @@ func _slot_content_shadow_can_be_tuned() -> void:
 	ok(not _has_named(cell, "ContactShadow"),
 		"Slot-cell content shadow can be disabled from the Slot cell workbench setting")
 	cell.free()
+
+	var cfg := {
+		"shadow": {"offset_x": 4.0, "offset_y": 9.0, "blur": 11.0, "spread": -3.0, "alpha": 42.0},
+		"bag_card": {"content_shadow": true},
+		"torn_cell": {},
+	}
+	var shared_opts := Kit.shared_torn_slot_opts_from_config(cfg)
+	shared_opts["cell_w"] = 120.0
+	shared_opts["cell_h"] = 120.0
+	var shared_cell := Kit.slot_cell({"state": "filled", "make_content": func(px: float) -> Control:
+		return PieceView.make_piece(102, px, 0.0)}, shared_opts)
+	var content_shadow := _find_named(shared_cell, "SlotContentShadow") as Panel
+	var style := content_shadow.get_theme_stylebox("panel") as StyleBoxFlat if content_shadow != null else null
+	ok(content_shadow != null and style != null and absf(style.shadow_color.a - float(Look.shadow_params(cfg).alpha)) <= 0.01,
+		"Slot-cell content shadow uses the standard shared Shadow settings")
+	ok(not _has_named(shared_cell, "ContactShadow"),
+		"Slot-cell content shadow replaces the piece-specific ContactShadow")
+	shared_cell.free()
 
 func _quest_check_scale_flows_to_giver_card() -> void:
 	var lay := Kit.giver_lay_from_config({"quest_card": {"item_size": 60, "check_scale": 120}})

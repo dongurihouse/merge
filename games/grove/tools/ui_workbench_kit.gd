@@ -5463,7 +5463,8 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
-		"content_shadow": bool(bc.get("content_shadow", true)),      # show the piece/generator ContactShadow when content provides one
+		"content_shadow": bool(bc.get("content_shadow", true)),      # cast the shared Shadow-item shadow behind cell content
+		"shadow_params": Look.shadow_params(cfg),                    # the single shared shadow look
 		"cost_font": int(bc.get("cost_font", FS.BODY)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
 		"cost_y": float(bc.get("cost_y", 0)),                        # nudge the acorn cost up(-) / down(+), px
@@ -5605,16 +5606,21 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		elif String(d.get("icon", "")) != "":
 			piece = make_icon(String(d.icon), piece_px)
 		if piece != null:
-			if not bool(opts.get("content_shadow", true)):
-				var built_in_shadow := piece.find_child("ContactShadow", true, false)
-				if built_in_shadow != null:
-					built_in_shadow.get_parent().remove_child(built_in_shadow)
-					built_in_shadow.queue_free()
+			var built_in_shadow := piece.find_child("ContactShadow", true, false)
+			if built_in_shadow != null:
+				built_in_shadow.get_parent().remove_child(built_in_shadow)
+				built_in_shadow.queue_free()
 			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var pc := CenterContainer.new()
 			pc.position = Vector2.ZERO
 			pc.size = Vector2(cw, ch)
 			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if bool(opts.get("content_shadow", true)):
+				var content_corner := piece_px * 0.32
+				var content_shadow := Look.shadow_rect(content_corner, opts.get("shadow_params", {}) as Dictionary)
+				content_shadow.name = "SlotContentShadow"
+				content_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				pc.add_child(content_shadow)
 			pc.add_child(piece)
 			tile.add_child(pc)
 
