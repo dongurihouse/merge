@@ -16,7 +16,7 @@ const JITTER := 0.34           # per-cell random offset, as a fraction of the sp
 const SIZE_MIN := 0.70         # per-sprite size range, relative to nominal (the larger/smaller mix)
 const SIZE_MAX := 1.30
 const ROT_SPREAD := 30.0       # ± degrees of random rotation
-const OVERFLOW := 0.05         # keep centres up to this fraction of the short side OUTSIDE the zone
+const OVERFLOW := 0.02         # keep centres up to this fraction of the short side OUTSIDE the zone
 const MAX_COVERS := 60         # safety cap so a huge zone never emits a runaway pile
 
 ## Scatter covers to fill `polygon` (native canvas Vector2s). `assets` is the coverup art to pull
