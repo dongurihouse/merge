@@ -350,10 +350,10 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		card.name = "OnHandCard_%02d" % i
 		grid.add_child(card)
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
-		# empty filler tiles: the SAME open cut-paper slot as an empty (free) habitat cell, so an empty
-		# hand slot and an empty habitat cell read as the same "drop here" surface.
+		# empty filler tiles wear the SAME cream cut-paper cell face as the habitat cells, so the ON HAND
+		# grid reads as the same tile family as HABITAT CELLS rather than a plain flat tile.
 		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag)
-		if not _skin_cell_face(filler, "cell_open"):
+		if not _skin_cell_face(filler, "cell_plain"):
 			_plain_cell_face(filler)
 		grid.add_child(filler)
 	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
@@ -425,12 +425,14 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	# fits its grid slot.
 	var aspect := float(card_tex.get_width()) / float(card_tex.get_height())
 	var h := roundf(w / maxf(aspect, 0.1))
-	# ONE soft blurred drop shadow (SpritePanel's shared cast, not the old stacked silhouettes) so the bank
-	# cards lift off the sheet like the rest of the cut-paper chrome.
-	var card := SpritePanel.build(card_tex, Vector2(w, h), {"shadow": true})
+	# the card sprite over a drop shadow shaped from the card's OWN silhouette (card_shadow.png — a blurred
+	# black copy of the torn card outline) instead of a generic rounded rect, so the shadow hugs the card's
+	# real deckled edge + corners.
+	var card := SpritePanel.build(card_tex, Vector2(w, h), {"shadow": false})
 	card.name = "ResourceBankCard_" + line
 	card.custom_minimum_size = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_add_silhouette_shadow(card, w, h)
 
 	# the text + bar live ONLY on the RIGHT side of the card, clear of the baked icon well (which fills
 	# the left ~45%). BODY_L is the left edge of that right region as a fraction of the card width.
@@ -596,6 +598,31 @@ static func _collect_all_button(Kit: GDScript, enabled: bool) -> Button:
 ## StyleBoxFlat — so it follows the box's exact rounded corners instead of a separate sharp panel.
 static func _mock_shadow(sb: StyleBoxFlat) -> void:
 	Look.apply_box_shadow(sb)
+
+## A drop shadow shaped from the card's OWN silhouette (card_shadow.png — a pre-blurred black copy of the
+## torn card outline, centred with a transparent blur margin) rather than a generic rounded rect, so the
+## shadow hugs the deckled edge. Inserted BEHIND the card sprite, extended to cover the blur margin and
+## nudged down. No-op when the sprite is missing.
+const CARD_SHADOW_PAD := 54.0    # the blur margin baked around card_shadow.png (per side, source px)
+const CARD_SHADOW_REF := Vector2(493.0, 306.0)   # the card size card_shadow.png was authored against
+static func _add_silhouette_shadow(card: Control, w: float, h: float) -> void:
+	var tex := _skin_tex("card_shadow")
+	if tex == null:
+		return
+	var px := w * (CARD_SHADOW_PAD / CARD_SHADOW_REF.x)
+	var py := h * (CARD_SHADOW_PAD / CARD_SHADOW_REF.y)
+	var drop := h * 0.05
+	var sh := TextureRect.new()
+	sh.name = "CardSilhouetteShadow"
+	sh.texture = tex
+	sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sh.stretch_mode = TextureRect.STRETCH_SCALE
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sh.offset_left = -px; sh.offset_right = px
+	sh.offset_top = -py + drop; sh.offset_bottom = py + drop
+	card.add_child(sh)
+	card.move_child(sh, 0)   # behind the card sprite layer
 
 ## Reskin a kit slot cell's FACE with a cut-paper cell sprite (cell_plain / cell_open / cell_locked):
 ## swap the shared SlotCellBackground panel's stylebox for a StyleBoxTexture. Returns whether it applied
@@ -850,13 +877,13 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 		var bar_h := INSPECTOR_H * s
 		var sh := Look.shadow_rect(bar_h * 0.5, {})
 		var sh_in := bar_h * 0.07
+		var drop := bar_h * 0.14
 		sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		sh.offset_left = sh_in; sh.offset_top = sh_in; sh.offset_right = -sh_in; sh.offset_bottom = -sh_in
+		sh.offset_left = sh_in; sh.offset_top = sh_in + drop; sh.offset_right = -sh_in; sh.offset_bottom = -sh_in + drop
 		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_child(sh)
-		# the strip sprite FILLS the bar (STRETCH_SCALE) instead of KEEP_ASPECT_COVERED — the chunky bar
-		# sprite was taller-aspect than the thin slot, so COVERED cropped its rounded top/bottom edges.
-		# Filling keeps the full bar in view.
+		# the strip sprite is authored WIDE (its aspect matches this bar slot), so a plain fill scales it
+		# UNIFORMLY — the full rounded bar shows with no slicing and no aspect distortion.
 		var sbg := TextureRect.new()
 		sbg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		sbg.stretch_mode = TextureRect.STRETCH_SCALE
