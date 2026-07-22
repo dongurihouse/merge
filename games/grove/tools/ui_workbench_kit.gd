@@ -3292,7 +3292,7 @@ const DAILY_ICON_SHADOW := {"shadow_alpha": 0.32}
 ## `tone`: "cream" (days 1-6) · "today" (the DOUBLE layer: a gold panel below a cream one, to highlight the
 ## current day) · "gold" (day 7 — a single golden layer). `cp_opts` = the shared normalized cut-paper edge
 ## knobs (defaults to DAILY_CARD_CP_DEFAULTS). `opts`: corner (px, else size.x·corner_frac) · corner_frac
-## (default 0.13) · gold_inflate / gold_drop (the today under-layer's peek, px; default from size).
+## (default 0.13) · gold_inflate / gold_drop (the today under-layer's peek/offset, px; defaults centered).
 static func daily_card_face(size: Vector2, tone: String, cp_opts: Dictionary = {}, opts: Dictionary = {}) -> Control:
 	var o: Dictionary = (cp_opts.duplicate() if not cp_opts.is_empty()
 		else cut_paper_opts_from_config({}, "daily_card", DAILY_CARD_CP_DEFAULTS))
@@ -3304,14 +3304,11 @@ static func daily_card_face(size: Vector2, tone: String, cp_opts: Dictionary = {
 	face.custom_minimum_size = size
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if tone == "today":
-		# DOUBLE LAYER: a gold panel behind, inflated on all sides + dropped down, so a golden deckled rim peeks
-		# around and below the cream panel on top — the current day reads as a raised, gilded card. The gold
-		# (bottom) layer casts the card's ground shadow; the cream (top) layer's own shadow is OFF (a second
-		# shadow between the two layers reads muddy).
-		# drop >= inflate so the top edge shows ~no gold and the golden layer reads as sitting BELOW the cream
-		# card (a raised stack), not as an even frame around it — heaviest at the bottom, a thin rim at the sides.
+		# DOUBLE LAYER: a gold panel behind, inflated evenly on all sides, so a golden deckled rim peeks around
+		# the cream panel on top. The gold (bottom) layer casts the card's ground shadow; the cream (top) layer's
+		# own shadow is OFF (a second shadow between the two layers reads muddy).
 		var inflate := float(opts.get("gold_inflate", size.x * 0.045))
-		var drop := float(opts.get("gold_drop", size.x * 0.055))
+		var drop := float(opts.get("gold_drop", 0.0))
 		var gold: Control = load(CUT_PAPER).new()
 		gold.name = "DailyGoldLayer"
 		gold.mouse_filter = Control.MOUSE_FILTER_IGNORE
