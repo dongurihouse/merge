@@ -5472,8 +5472,8 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ##   empty      — the open cream well (seen / unlocked / owned-empty), inert
 ##   filled     — the open well + a piece on top; a tap fires d.on_tap (retrieve)
 ##   locked     — the locked well with the flat placeholder stamp (unseen / gated), inert
-##   unlockable — the locked well + placeholder, HIGHLIGHTED (glow + dynamic sparkle), full opacity; a
-##                tap fires d.on_tap (buy / open). The bag's "next" maps here.
+##   unlockable — the locked well + placeholder, full opacity; a tap fires d.on_tap (buy / open).
+##   next       — the bag's purchasable slot; tappable, costed, and visually locked in torn-cell mode.
 ## Optional overlays (a cell shows what is passed): d.cost (int) → the acorn cost near the lower edge
 ## (bag); d.level (int) → Look.make_level_badge docked lower-right — the SAME HUD
 ## level badge (board / discovery tier); d.marked (bool) → the engine sparkle over the well, under the
@@ -5483,9 +5483,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## else d.icon (a kit icon id), else nothing. Every state returns a tile of exactly cell_w × cell_h.
 ## d keys: state|kind, make_content|content|icon, cost, level, marked, dim, on_tap. opts: bag_card_opts_from_config(...).
 static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
-	var state := String(d.get("state", d.get("kind", "empty")))
-	if state == "next":
-		state = "unlockable"          # the bag's "next" == the board's highlighted openable
+	var raw_state := String(d.get("state", d.get("kind", "empty")))
 	var cw := float(opts.get("cell_w", 116.0))
 	var ch := float(opts.get("cell_h", 120.0))
 	var cost_font := int(opts.get("cost_font", FS.BODY))
@@ -5496,8 +5494,13 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# Board cells are deliberately quieter than the Bag's purchase cells: the board mock uses a plain
 	# paper tile plus one lock mark, so no halo or particle may spill across its gutters.
 	var flat_board_cells := bool(opts.get("flat_board_cells", false))
+	var use_torn_cells := bool(opts.get("torn_cells", false)) and not flat_board_cells
+	var state := raw_state
+	if state == "next":
+		state = "locked" if use_torn_cells else "unlockable"
 	var on_tap: Callable = d.get("on_tap", Callable())
-	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
+	var is_next := raw_state == "next"
+	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable" or is_next)
 	var lockedwell := (state == "locked" or state == "unlockable")   # both show the single acorn lock mark
 
 	var tile: Control = (Button.new() if tappable else Control.new())
@@ -5521,10 +5524,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if bool(d.get("dim_bg", false)):
 		bg_opts = opts.duplicate()
 		bg_opts["dim"] = DIM_BG_FACTOR
-	# RE-SKIN path (bag dialog): when the caller passes baked cut-paper cell sprites, wear those instead of
-	# the code-drawn face + lock. `sprite_locked` already bakes the lock, so locked cells drop the lock_mark;
-	# `sprite_open` covers empty/filled/next (the acorn-cost pill still rides on top for `next`). Gated by the
-	# opts so the board (which never passes them) keeps its drawn tiles untouched.
+	# Torn-cell path (bag dialog): the Bag wears the same code-drawn torn component as the workbench
+	# reference. The next purchasable slot stays tappable/costed, but reads as a locked torn cell.
 	var sprite_open_p := String(opts.get("sprite_open", ""))
 	var sprite_locked_p := String(opts.get("sprite_locked", ""))
 	var sprite_path := ""
@@ -5532,7 +5533,12 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		sprite_path = sprite_locked_p
 	elif state != "locked" and sprite_open_p != "" and ResourceLoader.exists(sprite_open_p):
 		sprite_path = sprite_open_p
-	if sprite_path != "":
+	if use_torn_cells:
+		var torn_opts := opts.duplicate()
+		torn_opts["state"] = "locked" if lockedwell else "open"
+		var bg := torn_cell(torn_opts)
+		tile.add_child(bg)
+	elif sprite_path != "":
 		if bool(opts.get("cell_shadow", true)):
 			var corner := int(roundf(minf(cw, ch) * 0.18))
 			var sh: Panel = Look.shadow_rect(float(corner), Look.shadow_params(load_config(CONFIG_PATH)))
@@ -5634,10 +5640,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(badge)
 
-	# (The old "unlockable" glow+sparkle highlight was retired: every shipped caller suppresses it —
-	# the board passes flat_board_cells, the bag's next slot passes no_highlight — so it only ever showed
-	# in the workbench. Its tuning knobs and the overlay are gone; an unlockable cell reads as the locked
-	# well plus whatever cost/level the caller passes, exactly as the game renders it.)
+	# (The old "unlockable" glow+sparkle highlight was retired. An unlockable/next cell reads as the
+	# locked well plus whatever cost/level the caller passes, exactly as the game renders it.)
 
 	# the board's deep (non-frontier) locks recede — the caller passes d.dim (1.0 = full opacity).
 	var dim := float(d.get("dim", 1.0))
@@ -5656,6 +5660,8 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
 	o.merge(bag_card_opts_from_config(cfg), true)
+	o.merge(torn_cell_opts_from_config(cfg), true)
+	o["torn_cells"] = true
 	o["pill"] = gold_currency_pill_opts_from_config(cfg)   # the reused gold pill's style (single-acorn at build time)
 	var bg: Dictionary = cfg.get("bag", {})
 	o["cols"] = int(bg.get("cols", 6))
