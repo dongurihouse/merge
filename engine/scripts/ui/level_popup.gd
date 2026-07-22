@@ -59,6 +59,14 @@ const ART := {
 static func bake_sprites() -> Array:
 	return ART.values()
 
+## Shape-true shadows are expensive because they resize the sprite to its displayed size and run image
+## math over the alpha silhouette. Cache only the shadow TEXTURE/pad; each caller still gets a fresh
+## TextureRect node positioned for its sprite, so scene ownership stays simple.
+static var _sprite_shadow_cache: Dictionary = {}
+
+static func clear_shadow_cache() -> void:
+	_sprite_shadow_cache.clear()
+
 static func _art(id: String) -> Texture2D:
 	var spec: Array = ART[id]
 	return Kit.clean_tex_path(Look.kit(String(spec[0])), int(spec[1]))
@@ -281,23 +289,44 @@ static func _tally_pill(text: String, w: float) -> Control:
 static func _sprite_shadow(tr: TextureRect) -> TextureRect:
 	if tr == null or tr.texture == null:
 		return null
+	var sp := Look.saved_shadow_params()
+	var display_size := Vector2i(maxi(1, int(round(tr.size.x))), maxi(1, int(round(tr.size.y))))
+	var key := _sprite_shadow_key(tr.texture, display_size, sp)
+	if _sprite_shadow_cache.has(key):
+		var cached: Dictionary = _sprite_shadow_cache[key]
+		return _shadow_rect(String(tr.name), cached.get("texture") as Texture2D, float(cached.get("pad", 0.0)), tr)
+
 	var img: Image = tr.texture.get_image()
 	if img == null:
 		return null
-	var sp := Look.saved_shadow_params()
 	img = img.duplicate()
 	if img.is_compressed():
 		img.decompress()
 	img.convert(Image.FORMAT_RGBA8)
-	img.resize(maxi(1, int(tr.size.x)), maxi(1, int(tr.size.y)), Image.INTERPOLATE_BILINEAR)
+	img.resize(display_size.x, display_size.y, Image.INTERPOLATE_BILINEAR)
 	var res: Dictionary = Kit.silhouette_shadow(img, {
 		"shadow_offset": Vector2(float(sp.offset_x), float(sp.offset_y)),
 		"shadow_blur": float(sp.blur), "shadow_alpha": float(sp.alpha),
 		"shadow_spread": float(sp.spread)})
 	var pad := float(res.pad)
+	var tex := ImageTexture.create_from_image(res.image)
+	_sprite_shadow_cache[key] = {"texture": tex, "pad": pad}
+	return _shadow_rect(String(tr.name), tex, pad, tr)
+
+static func _sprite_shadow_key(tex: Texture2D, display_size: Vector2i, sp: Dictionary) -> String:
+	var tex_key := String(tex.resource_path)
+	if tex_key == "":
+		tex_key = str(tex.get_rid())
+	return "%s|%dx%d|%.3f|%.3f|%.3f|%.3f|%.3f" % [
+		tex_key, display_size.x, display_size.y,
+		float(sp.offset_x), float(sp.offset_y), float(sp.blur), float(sp.alpha), float(sp.spread)]
+
+static func _shadow_rect(base_name: String, tex: Texture2D, pad: float, tr: TextureRect) -> TextureRect:
+	if tex == null:
+		return null
 	var shr := TextureRect.new()
-	shr.name = String(tr.name) + "Shadow"
-	shr.texture = ImageTexture.create_from_image(res.image)
+	shr.name = base_name + "Shadow"
+	shr.texture = tex
 	shr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shr.stretch_mode = TextureRect.STRETCH_SCALE
 	shr.position = tr.position - Vector2(pad, pad)

@@ -28,6 +28,8 @@ func _initialize() -> void:
 	_quest_check_scale_flows_to_giver_card()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
+	_level_dialog_art_has_baked_polish_mirrors()
+	_level_dialog_reuses_silhouette_shadow_textures_between_opens()
 	finish()
 
 ## The shared daily card FACE (Kit.daily_card_face) — the code-drawn cut-paper card BOTH the workbench daily
@@ -222,6 +224,40 @@ func _level_dialog_uses_shared_progress_bar_with_runtime_shadows() -> void:
 		"level dialog uses the shared progress bar fill-shadow layer")
 	dialog.free()
 	Kit.clear_config_cache()
+
+func _level_dialog_art_has_baked_polish_mirrors() -> void:
+	for spec in LevelPopup.bake_sprites():
+		var rel := String((spec as Array)[0])
+		var cap := int((spec as Array)[1])
+		var src := Look.kit(rel)
+		var baked := Kit.baked_path(src, cap)
+		ok(ResourceLoader.exists(baked),
+			"level dialog art is pre-baked for first-open speed: %s@%d" % [rel, cap])
+
+func _level_dialog_reuses_silhouette_shadow_textures_between_opens() -> void:
+	var cfg := {
+		"level": {"med_size": 100.0, "med_dy": 0.0, "earned_size": 100.0, "earned_dy": 0.0,
+			"bar_size": 100.0, "bar_dy": 0.0, "hint_size": 100.0, "hint_dy": 0.0},
+		"progress_bar": {"height": 30.0, "art": true, "shadow": true, "star_knob": false},
+		"frame": {"width_pct": 75.0},
+	}
+	var data := {
+		"level": 4, "earned": 176, "next": 192, "into": 176, "span": 192,
+		"remaining": 16, "mode": "info", "gift": {}, "on_button": Callable(),
+		"frame_cfg": cfg,
+	}
+	var first := LevelPopup._sheet(540.0, data)
+	var second := LevelPopup._sheet(540.0, data)
+	var plaque_a := _find_named(first, "LevelPlaqueShadow") as TextureRect
+	var plaque_b := _find_named(second, "LevelPlaqueShadow") as TextureRect
+	var tally_a := _find_named(first, "LevelTallyPillShadow") as TextureRect
+	var tally_b := _find_named(second, "LevelTallyPillShadow") as TextureRect
+	ok(plaque_a != null and plaque_b != null and plaque_a.texture == plaque_b.texture,
+		"level dialog reuses the plaque silhouette shadow texture between opens")
+	ok(tally_a != null and tally_b != null and tally_a.texture == tally_b.texture,
+		"level dialog reuses the x/y earned pill silhouette shadow texture between opens")
+	first.free()
+	second.free()
 
 func _mail_claim_all_footer_is_transparent() -> void:
 	var dialog := Kit.mail_dialog(
