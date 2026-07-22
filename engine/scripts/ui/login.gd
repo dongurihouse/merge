@@ -32,19 +32,20 @@ const CLAIM_CLOSE_DELAY := 0.85    # after a claim, let the reward shout rise, t
 # The four-point sparkle tint scattered over the day-7 capstone.
 const SPARK_TINT := Color("#E6BC5E")
 
-const GAP := 20.0                 # design-space gutter between cells — generous margin between the day cards
+const GAP := 24.0                 # design-space gutter between cells — generous margin between the day cards
 const CARD_EDGE_INSET := 16.0     # side breathing room so the outer cards' rims/shadows clear the sheet edge
-const CELL_ASPECT := 1.45         # cell height / cell width — matches the advent day-card sprite (more square)
+const CELL_ASPECT := 1.25         # cell height / cell width — compact, closer-to-square day cards
 const BANNER_ASPECT := 1.35       # capstone banner height / cell width — a small, compact box
 
 # Fixed layout lines for a day cell (fractions of the cell HEIGHT). The reward icon and its amount are
 # pinned to these constant lines so they land in the SAME place on every card — claimed, today, or future
 # alike — while the state marker (CLAIM · ✓ · nothing) floats at the bottom OUT of the flow so its
 # presence never shifts the icon/amount up. (Day 7 is the wide capstone; it lays out on its own.)
-const REWARD_ICON_FRAC := 0.42    # the reward icon's vertical CENTRE
-const REWARD_AMOUNT_FRAC := 0.72  # the amount label's vertical centre
+const REWARD_ICON_FRAC := 0.49    # the reward icon's vertical CENTRE
+const REWARD_AMOUNT_FRAC := 0.80  # the amount label's vertical centre
 const REWARD_ACTION_FRAC := 0.88  # the CLAIM pill / ✓ marker's vertical centre
 const REWARD_ICON_PX := 0.70      # the reward icon size (fraction of cell width) — uniform across all states
+const CLAIMED_CHECK_PX := 0.62    # the claimed check size (fraction of cell width), large and central
 
 # The day-reward art: the cut-paper redesign sprites (Direction B) for the daily surface only — coins as a
 # gold acorn-coin stack, water a sky droplet, the premium (gem) as the grove acorn. Other ids (cosmetic
@@ -334,11 +335,14 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		# PAST: the reward it gave (recedes with the cell) + a ✓ badge floated near the bottom.
 		_add_reward_face(Kit, inner, d.get("reward", {}), cw, {})
 		var wrap := CenterContainer.new()
+		wrap.name = "DailyClaimedCheckHost"
 		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
-		wrap.anchor_top = REWARD_ACTION_FRAC; wrap.anchor_bottom = REWARD_ACTION_FRAC
+		wrap.anchor_top = 0.50; wrap.anchor_bottom = 0.50
 		wrap.grow_vertical = Control.GROW_DIRECTION_BOTH
 		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap.add_child(_sprite(Kit, ART_CHECK, cw * 0.34))
+		var check := _sprite(Kit, ART_CHECK, cw * CLAIMED_CHECK_PX)
+		check.name = "DailyClaimedCheck"
+		wrap.add_child(check)
 		inner.add_child(wrap)
 	else:
 		# FUTURE: a varied wrapped gift box (reward hidden) on the plain card.
@@ -365,6 +369,7 @@ static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, 
 	else:
 		art = _reward_art(Kit, reward, cw * REWARD_ICON_PX)
 	var ah := CenterContainer.new()
+	ah.name = "DailyRewardIconHost"
 	ah.anchor_left = 0.0; ah.anchor_right = 1.0
 	ah.anchor_top = REWARD_ICON_FRAC; ah.anchor_bottom = REWARD_ICON_FRAC
 	ah.grow_vertical = Control.GROW_DIRECTION_BOTH
