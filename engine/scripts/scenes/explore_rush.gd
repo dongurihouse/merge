@@ -150,8 +150,9 @@ func _layout() -> void:
 	# Resolve the band geometry, then the board fit ONCE — every chrome band (score bar, activity bar,
 	# bottom info bar) sizes to the board's width, and _build_board_chrome lays out the SAME grid.
 	_band = _compute_bands()
+	_frame_out = _board_frame_out(_band.cfg)
 	_board_fit = BoardFit.fit_bottom_aligned(
-		Vector2(float(_band.vw), float(_band.vh)), G.COLS, G.ROWS, _gap, FRAME_OUT, BOARD_MARGIN,
+		Vector2(float(_band.vw), float(_band.vh)), G.COLS, G.ROWS, _gap, _frame_out, BOARD_MARGIN,
 		float(_band.top_limit), float(_band.bottom_limit), 1.0, 24.0, true)
 	_build_topbar()
 	_build_activity()
@@ -210,7 +211,7 @@ func _compute_bands() -> Dictionary:
 # The board's on-screen VISUAL width (the gold frame's outer width) for this layout — the width every
 # chrome band matches. Derived from the shared _board_fit so the bar / activity / hint align to the board.
 func _board_w() -> float:
-	return (_board_fit.get("grid_size", Vector2.ZERO) as Vector2).x + FRAME_OUT * 2.0
+	return (_board_fit.get("grid_size", Vector2.ZERO) as Vector2).x + _frame_out * 2.0
 
 func _on_viewport_resized() -> void:
 	if _relayout_queued:
@@ -394,9 +395,14 @@ func _tex(name: String) -> Texture2D:
 # + the shared slot-cell wells (Kit.slot_cell) — only every cell is OPEN (no brambles). Its size and
 # position derive from the screen (like the home board): cells fit the screen on whichever axis binds,
 # bottom-aligned between the activity bar and hint bar, with the frame's overhang accounted for.
-const FRAME_OUT := 48.0          # the board frame's overhang past the grid (matches the home planter feel)
+const DEFAULT_FRAME_OUT := 60.0  # same default as board.gd; saved board.frame can override it
 const BOARD_MARGIN := 8.0
 const BOARD_BOTTOM_BREATHING := 12.0
+var _frame_out := DEFAULT_FRAME_OUT
+
+func _board_frame_out(cfg: Dictionary) -> float:
+	var board_cfg: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
+	return float(board_cfg.get("frame", DEFAULT_FRAME_OUT))
 
 func _cellxy(r: int, c: int) -> Vector2:
 	return Vector2(float(c) * (_cell + _gap), float(r) * (_cell + _gap))
@@ -428,13 +434,13 @@ func _build_board_chrome() -> void:
 	_chrome.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_board.add_child(_chrome)
 	_board.move_child(_chrome, 0)
-	# the SHARED board frame (gold planter), behind the cells, overhanging the grid by FRAME_OUT
-	var frame: Control = Kit.board_panel(Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0), Kit.board_panel_opts_from_config(cfg))
-	frame.position = Vector2(-FRAME_OUT, -FRAME_OUT)
+	# the SHARED board frame, behind the cells, overhanging the grid by the same board.frame value as board.gd
+	var frame: Control = Kit.board_panel(Vector2(bw + _frame_out * 2.0, bh + _frame_out * 2.0), Kit.board_panel_opts_from_config(cfg))
+	frame.position = Vector2(-_frame_out, -_frame_out)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chrome.add_child(frame)
 	# the SHARED slot-cell wells — every cell OPEN (no locked brambles)
-	var slot_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
+	var slot_opts: Dictionary = Kit.board_cell_opts_from_config(cfg)
 	slot_opts["cell_w"] = _cell
 	slot_opts["cell_h"] = _cell
 	for r in G.ROWS:
