@@ -26,6 +26,7 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const SpriteShadow = preload("res://engine/scripts/ui/sprite_shadow.gd")
 const STRAW = Game.PALETTE.STRAW
 const CREAM = Game.PALETTE.CREAM
 const BARK = Game.PALETTE.BARK
@@ -123,19 +124,20 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		# starts on the item. Its OWN tap still works (wire_tap), and _stand_tap calls accept_event()
 		# when that tap fires, so it doesn't also trigger the card's deliver-tap underneath.
 		icon.mouse_filter = Control.MOUSE_FILTER_PASS
-		# a soft ground shadow just under the item's base (sibling behind the icon, gated by the universal
-		# Shadow toggle) — so the big item reads as sitting on the card, and its bob floats clear of it.
-		if bool(L.get("shadow", false)):
-			var gw := iw * 0.58
-			var gh := ih * 0.15
-			var gnd := _item_ground_shadow(gw, gh, _shadow_params(L))
-			gnd.position = Vector2(icx - gw / 2.0, icy + ih * 0.22 - gh / 2.0)
-			stand.add_child(gnd)
+		# a SHAPE-TRUE drop-shadow behind the item — stamped from the item's OWN silhouette, offset by the
+		# shared cast, so it follows the art outline (not a generic ground ellipse). show_behind_parent → it
+		# draws behind the piece. Fit + inset mirror _add_sprite so the silhouette lines up with the art.
+		_add_shape_shadow(icon, PieceView.content_texture(acode), Vector2(iw, ih), L, true, iw * PieceView.ITEM_INSET, 4)
 		# the asked item — built square at the LARGER of w/h (so it never upscales), then scaled to fill the
 		# w×h box. item_w == item_h gives an undistorted icon; differ them to stretch (the workbench tunes both).
 		var base := maxf(iw, ih)
 		var piece := PieceView.make_piece(acode, base)
 		piece.scale = Vector2(iw / base, ih / base)
+		# strip the piece's OWN soft ground ellipse (make_piece adds it when item_backing is on) — the card
+		# gives the item a single shape-true cast above, so the built-in ellipse would double the shadow.
+		var built_in_shadow := piece.get_node_or_null(NodePath("ContactShadow"))
+		if built_in_shadow != null:
+			built_in_shadow.queue_free()
 		icon.add_child(piece)
 		var mpx := minf(iw, ih) * 0.88
 		var met := _ask_met_check(mpx)
@@ -222,7 +224,12 @@ static func _paper_panel(node_name: String, corner: float) -> Panel:
 # toggle; card_slice_* keys are ignored.
 static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 	var card := _card_surface(w, h)
-	_add_card_shadow(card, h, lay)
+	# a SHAPE-TRUE drop-shadow following the deckled card edge when the card is the cut-paper texture;
+	# the code-drawn paper fallback keeps the rounded-rect shared shadow (it has no silhouette to stamp).
+	if card is TextureRect and (card as TextureRect).texture != null:
+		_add_shape_shadow(card, (card as TextureRect).texture, Vector2(w, h), lay, false, 0.0, 3)
+	else:
+		_add_card_shadow(card, h, lay)
 	return card
 
 # The deckled card art as a fill TextureRect (STRETCH_SCALE — the box shape drives it, so card_w/card_h
@@ -264,23 +271,25 @@ static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary
 	sh.show_behind_parent = true
 	surface.add_child(sh)
 
-# A soft GROUND shadow for the item — a wide, flattened cream-slate pill the caller seats just under the
-# item's base, so the big transparent-padded item reads as sitting on the card (a filled disc behind the
-# whole icon box would show as a hard shape; a bodyless feather reads as a ring). Low alpha + a soft
-# feather; the caller sizes + places it. Returned as a plain sibling so the item's bob floats above it.
-static func _item_ground_shadow(w: float, h: float, p: Dictionary) -> Panel:
-	var sh := Panel.new()
-	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sh.custom_minimum_size = Vector2(w, h)
-	sh.size = Vector2(w, h)
-	var a := float(p.get("alpha", 0.2))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Look.shadow_color(a * 0.9)
-	sb.set_corner_radius_all(int(h / 2.0))               # flattened stadium → a soft ground ellipse
-	sb.shadow_color = Look.shadow_color(a * 0.7)
-	sb.shadow_size = int(maxf(float(p.get("blur", 6.0)) + 4.0, 8.0))
-	sh.add_theme_stylebox_override("panel", sb)
-	return sh
+# Cast a SHAPE-TRUE drop-shadow (SpriteShadow) behind `surface`, stamped from `tex`'s own silhouette and
+# offset by the shared cast — so the shadow follows the deckled card edge / the item outline instead of a
+# rounded-rect approximation. Added as a show_behind_parent child so it draws behind the surface's art.
+# `fit`/`inset` aspect-fit the silhouette in the box like the sprite (items); OFF = stretch-fill (cards).
+# `div` sets softness (bigger = softer, less detail). No-op when the Shadow toggle is off or `tex` is null.
+static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, lay: Dictionary, fit: bool, inset: float, div: int) -> void:
+	if not bool(lay.get("shadow", false)) or tex == null:
+		return
+	var p := _shadow_params(lay)
+	var sh := SpriteShadow.new()
+	sh.texture = tex
+	sh.draw_size = size
+	sh.offset = Vector2(float(p.get("offset_x", 0.0)), float(p.get("offset_y", 5.0)))
+	sh.tint = Look.shadow_color(float(p.get("alpha", 0.2)))
+	sh.fit = fit
+	sh.inset = inset
+	sh.soft_div = div
+	sh.show_behind_parent = true
+	surface.add_child(sh)
 
 # The shared shadow look — the global `shadow` block passed in cfg.lay.shadow_params, else Skin's default.
 static func _shadow_params(lay: Dictionary) -> Dictionary:
