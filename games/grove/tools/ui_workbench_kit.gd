@@ -5463,7 +5463,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
-		"content_shadow": bool(bc.get("content_shadow", true)),      # cast the shared Shadow-item shadow behind cell content
+		"content_shadow": bool(bc.get("shadow", true)),              # cast content shadow only when the standard Shadow toggle is on
 		"shadow_params": Look.shadow_params(cfg),                    # the single shared shadow look
 		"cost_font": int(bc.get("cost_font", FS.BODY)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row

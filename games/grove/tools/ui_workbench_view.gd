@@ -363,7 +363,7 @@ func _default_params() -> Dictionary:
 		# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
 		# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 		"bag_card": {"cell_w": 116, "cell_h": 120,
-			"content_frac": 62, "content_shadow": true, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
+			"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
 		# the CODE-DRAWN torn cell — outer rugged cream card (shared cut-paper keys) + inner rugged green well
 		# + a top inner shadow. All tunable; cell_w/cell_h size the preview.
 		"torn_cell": {"cell_w": 132, "cell_h": 132,
@@ -1767,7 +1767,6 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
 			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95]))   # the piece size (% of cell)
-			_sidebar_body.add_child(_toggle_row("Content shadow", "content_shadow"))
 			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70]))     # the level badge size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))

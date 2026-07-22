@@ -111,18 +111,24 @@ func _slot_cell_gallery_uses_game_cells() -> void:
 	Kit.clear_config_cache()
 
 func _slot_content_shadow_can_be_tuned() -> void:
-	var opts := Kit.shared_torn_slot_opts_from_config({"bag_card": {"content_shadow": false}, "torn_cell": {}})
+	var view_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_view.gd")
+	ok(view_src.find("\"Content shadow\"") == -1,
+		"Slot-cell workbench uses the standard Shadow control instead of a separate Content shadow toggle")
+
+	var opts := Kit.shared_torn_slot_opts_from_config({"bag_card": {"shadow": false}, "torn_cell": {}})
 	opts["cell_w"] = 120.0
 	opts["cell_h"] = 120.0
 	var cell := Kit.slot_cell({"state": "filled", "make_content": func(px: float) -> Control:
 		return PieceView.make_piece(102, px, 0.0)}, opts)
 	ok(not _has_named(cell, "ContactShadow"),
-		"Slot-cell content shadow can be disabled from the Slot cell workbench setting")
+		"Slot-cell content shadow follows the standard Shadow toggle")
+	ok(not _has_named(cell, "SlotContentShadow"),
+		"Slot-cell content shadow is removed when the standard Shadow toggle is off")
 	cell.free()
 
 	var cfg := {
 		"shadow": {"offset_x": 4.0, "offset_y": 9.0, "blur": 11.0, "spread": -3.0, "alpha": 42.0},
-		"bag_card": {"content_shadow": true},
+		"bag_card": {"shadow": true},
 		"torn_cell": {},
 	}
 	var shared_opts := Kit.shared_torn_slot_opts_from_config(cfg)
