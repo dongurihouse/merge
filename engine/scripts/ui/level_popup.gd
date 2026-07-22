@@ -7,9 +7,10 @@ extends RefCounted
 ##                                        NOT veil-dismissable (only the ✕ or Collect closes, and BOTH
 ##                                        grant first) so the reward can't be lost.
 ## The sheet is the SHARED frame (Kit.dialog_frame — the same cream card + big navy title band + the ✕
-## disc every dialog wears), used UNMODIFIED. Only the CONTENT is owned here: the medallion (the baked
-## v2 art set — kit/level_rosette + sprigs + daisy, intake of level_dialog_assets_v2), the star-token
-## tally pill, the progress bar, the hint / reward, and the CTA. The ✕ runs the SAME callback as the
+## disc every dialog wears), used UNMODIFIED (only its close_art is swapped for the sakura terracotta ✕).
+## Only the CONTENT is owned here: the medallion (the sakura plaque sprite kit/level_plaque with the
+## laurel + daisy baked in, the level numeral drawn on its slate disc), the coin tally pill, the
+## nine-slice progress bar, the hint / reward, and the CTA. The ✕ runs the SAME callback as the
 ## CTA (grant-then-close in levelup), so closing by the disc never loses the reward. The model is
 ## untouched — content.gd/save.gd supply every number, exactly as before.
 
@@ -26,9 +27,7 @@ const Pal = Game.PALETTE
 const OVERLAY_NAME = "LevelPopupOverlay"
 
 # --- the mock's roles (Meadow Sky) -------------------------------------------------------
-const SHADOW_TINT := Color("#294654")     # the shared tinted shadow role (residents.gd), ~19%
-const BAR_REMAIN := Color("#8FA6C9")      # the progress bar's un-earned remainder (muted periwinkle)
-const PILL_FACE := Color("#FBF4E8")       # the tally pill, a touch lighter than the card cream
+const BAR_REMAIN := Color("#8FA6C9")      # the progress bar's un-earned remainder (fallback bar only)
 
 # --- proportions, as fractions of the sheet WIDTH (screen-fraction sizing, not fixed px) ---
 # PAD_X_F / PAD_BOT_F are handed to the shared frame as its content inset (so the bar/pill fractions
@@ -36,23 +35,24 @@ const PILL_FACE := Color("#FBF4E8")       # the tally pill, a touch lighter than
 const PAD_X_F := 0.062
 const PAD_BOT_F := 0.062
 const GAP_F := 0.036
-const MEDALLION_F := 0.540                # the rosette's diameter
-const SPRIG_F := 0.66                     # each leaf sprig's span, fraction of the rosette diameter
-const DAISY_F := 0.27                     # the daisy medallion, fraction of the rosette diameter
-const PILL_W_F := 0.720
-const PILL_ICON_F := 0.088                # the star token inside the tally pill
+const MEDALLION_F := 0.700                # the sakura plaque's display width (laurel span included)
+const PLAQUE_DISC_CX_F := 0.496           # the slate disc's centre within the plaque sprite (measured)
+const PLAQUE_DISC_CY_F := 0.409
+const PLAQUE_DISC_D_F := 0.610            # the slate disc's diameter, fraction of the plaque width
+const PILL_W_F := 0.760
+const PILL_TEXT_L_F := 0.220              # the tally text's left inset — clears the pill's baked coin
 const BAR_W_F := 0.880
-const BAR_H_F := 0.130
+const BAR_H_F := 0.150
 const BTN_W_F := 0.520
 const BTN_CORNER_F := 0.030
 
-# --- the v2 medallion art (intake: level_dialog_assets_v2) + the caps it is baked at -------
+# --- the sakura cut-paper level art (extracted, shadow-free — runtime re-applies the shadows) + caps -
 const ART := {
-	"rosette": ["kit/level_rosette.png", 512],
-	"sprig_l": ["kit/level_sprig_l.png", 512],
-	"sprig_r": ["kit/level_sprig_r.png", 512],
-	"daisy":   ["kit/level_daisy.png", 256],
-	"token":   ["kit/level_star_token.png", 256],
+	"plaque": ["kit/level_plaque.png", 512],   # laurel + slate disc + daisy as ONE sprite (number drawn on top)
+	"pill":   ["kit/level_pill.png", 512],      # the tally capsule with the gold coin baked at its left
+	"track":  ["kit/level_track.png", 512],     # the empty progress track (nine-slice capsule)
+	"fill":   ["kit/level_fill.png", 512],      # the green progress fill (nine-slice, clipped to frac)
+	"close":  ["kit/level_close.png", 256],     # the terracotta ✕ (handed to the shared frame's close_art)
 }
 
 ## Every sprite this dialog polishes, with its cap — driven by BakeTargets.build_all so the bake
@@ -183,6 +183,7 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	var cfg: Dictionary = d.get("frame_cfg", null) if d.get("frame_cfg", null) is Dictionary else Kit.load_config(Kit.CONFIG_PATH)
 	var fo: Dictionary = Kit.dialog_opts_from_config(cfg)
 	fo["banner_text"] = Strings.t("level.banner") % lvl
+	fo["close_art"] = "kit/level_close.png"   # the sakura terracotta ✕, localized to the level sheet
 	if cb.is_valid():
 		fo["on_close"] = cb
 	fo["min_h"] = 0.0
@@ -193,11 +194,6 @@ static func _sheet(w: float, d: Dictionary) -> Control:
 	fo["panel_pad_x"] = w * PAD_X_F
 	fo["panel_pad_y"] = w * PAD_BOT_F
 	return Kit.dialog_frame(col, w, fo)
-
-## THE uniform shadow (skin.gd), applied ON the element's own
-## StyleBoxFlat so it follows the box's exact rounded corners. The same recipe as residents.gd.
-static func _mock_shadow(sb: StyleBoxFlat) -> void:
-	Look.apply_box_shadow(sb)
 
 ## Wrap an element in a MarginContainer whose TOP margin nudges it down by `dy` px (the level layout's
 ## per-element vertical position). dy == 0 returns the element unwrapped, so the default layout is untouched.
@@ -255,97 +251,119 @@ static func _cta(text: String, w: float) -> Button:
 	btn.add_child(bsh)
 	return btn
 
-## The progress bar (mock): a cream capsule frame holding a muted-periwinkle remainder track with a
-## green earned fill capped round at its head.
+## The progress bar (sakura): the extracted cut-paper capsule art — an empty slate track (nine-slice)
+## with the green fill (nine-slice) clipped to `frac`. The caps are drawn at the texture's NATIVE height
+## on an inner stage that is uniformly scaled to the display box, so the rounded ends keep their shape
+## instead of ovalling when the bar is squashed short (the same recipe as Kit.progress_bar's art mode).
 static func _bar(frac: float, w: float) -> Control:
 	var bw := w * BAR_W_F
 	var bh := w * BAR_H_F
-	var inset := bh * 0.14
-	# a plain Control, NOT a PanelContainer: a container would re-sort (and stretch) the fill/track
-	# children over their hand-computed rects, so the fill would always read as 100%.
+	# a plain Control, NOT a PanelContainer: a container would re-sort (and stretch) the children over
+	# their hand-computed rects, so the fill would always read as 100%.
 	var holder := Control.new()
 	holder.name = "LevelProgress"
 	holder.custom_minimum_size = Vector2(bw, bh)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var frame := Panel.new()
-	frame.name = "LevelProgressFrame"
-	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fsb := StyleBoxFlat.new()
-	fsb.bg_color = Pal.CREAM
-	fsb.set_corner_radius_all(int(bh * 0.5))
-	fsb.set_border_width_all(2)
-	fsb.border_color = Color(SHADOW_TINT, 0.10)
-	_mock_shadow(fsb)
-	frame.add_theme_stylebox_override("panel", fsb)
-	holder.add_child(frame)
-
-	var inner_h := bh - inset * 2.0
-	var track := Panel.new()
-	track.name = "LevelProgressTrack"
-	track.position = Vector2(inset, inset)
-	track.size = Vector2(bw - inset * 2.0, inner_h)
-	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tsb := StyleBoxFlat.new()
-	tsb.bg_color = BAR_REMAIN
-	tsb.set_corner_radius_all(int(inner_h * 0.5))
-	track.add_theme_stylebox_override("panel", tsb)
-	holder.add_child(track)
-
-	var fill := Panel.new()
-	fill.name = "LevelProgressFill"
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lsb := StyleBoxFlat.new()
-	lsb.bg_color = Pal.LEAF
-	lsb.set_corner_radius_all(int(inner_h * 0.5))
-	fill.add_theme_stylebox_override("panel", lsb)
-	# the earned fill casts THE shared shadow onto the track (behind-parent, full-rect of the fill —
-	# it follows the fill's live width), from the saved workbench block like every other element
-	var fsh := Look.shadow_rect(inner_h * 0.5, Look.saved_shadow_params())
-	fsh.show_behind_parent = true
-	fill.add_child(fsh)
-	holder.add_child(fill)
-
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var track_tex := _art("track")
+	var fill_tex := _art("fill")
 	var f := clampf(frac, 0.0, 1.0)
+	if track_tex == null or fill_tex == null:
+		# code-drawn fallback (art missing) — a rounded track with a clip-revealed green fill
+		var track_p := Panel.new()
+		track_p.name = "LevelProgressTrack"
+		track_p.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var tsb := StyleBoxFlat.new()
+		tsb.bg_color = BAR_REMAIN; tsb.set_corner_radius_all(int(bh * 0.5))
+		track_p.add_theme_stylebox_override("panel", tsb)
+		track_p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(track_p)
+		var fclip := Control.new(); fclip.clip_contents = true; fclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(fclip)
+		var fill_p := Panel.new(); fill_p.name = "LevelProgressFill"; fill_p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var lsb := StyleBoxFlat.new(); lsb.bg_color = Pal.LEAF; lsb.set_corner_radius_all(int(bh * 0.5))
+		fill_p.add_theme_stylebox_override("panel", lsb)
+		fclip.add_child(fill_p)
+		var lay_fb := func() -> void:
+			if not (is_instance_valid(holder) and is_instance_valid(fclip) and is_instance_valid(fill_p)):
+				return
+			var wd := holder.size.x
+			fclip.position = Vector2.ZERO; fclip.size = Vector2(maxf(bh, wd * f), holder.size.y)
+			fill_p.position = Vector2.ZERO; fill_p.size = Vector2(wd, holder.size.y)
+		holder.resized.connect(lay_fb); holder.ready.connect(lay_fb)
+		return holder
+
+	var nat_h := float(track_tex.get_height())
+	var t_margin := int(round(nat_h * 0.5))                 # capsule radius = half the native height
+	var fill_h := float(fill_tex.get_height())
+	var f_margin := int(round(fill_h * 0.5))
+	var inset := (nat_h - fill_h) * 0.5                      # the fill sits inside the track rim
+	var stage := Control.new()
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(stage)
+	var track := NinePatchRect.new()
+	track.name = "LevelProgressTrack"
+	track.texture = track_tex
+	track.patch_margin_left = t_margin; track.patch_margin_right = t_margin
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(track)
+	var fill_clip := Control.new()
+	fill_clip.name = "LevelProgressFillClip"
+	fill_clip.clip_contents = true
+	fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(fill_clip)
+	var fill := NinePatchRect.new()
+	fill.name = "LevelProgressFill"
+	fill.texture = fill_tex
+	fill.patch_margin_left = f_margin; fill.patch_margin_right = f_margin
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill_clip.add_child(fill)
 	var lay := func() -> void:
-		if not (is_instance_valid(holder) and is_instance_valid(track) and is_instance_valid(fill)):
+		if not (is_instance_valid(holder) and is_instance_valid(stage)):
 			return
-		var iw := holder.size.x - inset * 2.0
-		var ih := holder.size.y - inset * 2.0
-		track.position = Vector2(inset, inset)
-		track.size = Vector2(iw, ih)
-		fill.position = Vector2(inset, inset)
-		fill.size = Vector2(maxf(ih, iw * f), ih)   # ≥ a round nub so 0% still reads as a bar
+		var disp := holder.size
+		if disp.x <= 0.0 or disp.y <= 0.0:
+			return
+		var s: float = disp.y / nat_h                       # uniform shrink: native → display height
+		var stage_w: float = disp.x / s                     # …so the scaled stage spans the full width
+		stage.scale = Vector2(s, s)
+		stage.size = Vector2(stage_w, nat_h)
+		track.size = Vector2(stage_w, nat_h)
+		var fill_w: float = stage_w - inset * 2.0           # the inner fill track, inset within the rim
+		var clip_w: float = maxf(fill_h, fill_w * f)        # ≥ a round nub so 0% still reads as a bar
+		fill_clip.position = Vector2(inset, inset)
+		fill_clip.size = Vector2(clip_w, fill_h)
+		fill.position = Vector2.ZERO
+		fill.size = Vector2(fill_w, fill_h)                 # full width; the clip reveals only `frac`
 	holder.resized.connect(lay)
 	holder.ready.connect(lay)
 	return holder
 
-## The tally PILL (mock): a raised light-cream capsule carrying the gold star token and the
-## "X / Y earned" line.
+## The tally PILL (sakura): the extracted cut-paper capsule art (kit/level_pill, gold coin baked at its
+## left) carrying the "X / Y earned" line in the space to the right of the coin. The art is shadow-free;
+## the runtime silhouette shadow is re-applied by _add_shadowed.
 static func _tally_pill(text: String, w: float) -> Control:
-	var pill := PanelContainer.new()
-	pill.name = "LevelTally"
-	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = PILL_FACE
-	sb.set_corner_radius_all(int(w * 0.06))
-	sb.content_margin_left = w * 0.055; sb.content_margin_right = w * 0.055
-	sb.content_margin_top = w * 0.026; sb.content_margin_bottom = w * 0.026
-	_mock_shadow(sb)
-	pill.add_theme_stylebox_override("panel", sb)
-	pill.custom_minimum_size = Vector2(w * PILL_W_F, 0)
-
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(w * 0.028))
-	var token := _sprite("LevelTallyToken", "token", w * PILL_ICON_F)
-	if token != null:
-		row.add_child(token)
-	var lbl := _line("LevelTallyText", text, FS.DISPLAY, Pal.INK)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(lbl)
-	pill.add_child(row)
-	return pill
+	var pw := w * PILL_W_F
+	var holder := Control.new()
+	holder.name = "LevelTally"
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ph := pw * 0.206                           # provisional; refined from the sprite's true aspect
+	var pill := _sprite("LevelTallyPill", "pill", pw)
+	if pill != null:
+		pill.position = Vector2.ZERO
+		_add_shadowed(holder, pill)
+		ph = pill.size.y
+	holder.custom_minimum_size = Vector2(pw, ph)
+	# the text sits in the pill's right region, clearing the baked coin at the left
+	var left := pw * PILL_TEXT_L_F
+	var lbl := _line("LevelTallyText", text, int(ph * 0.44), Pal.INK)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.position = Vector2(left, 0.0)
+	lbl.size = Vector2(pw - left - pw * 0.05, ph)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(lbl)
+	return holder
 
 ## THE uniform shadow, SHAPE-TRUE, for one medallion sprite: the sprite's own alpha silhouette baked
 ## at display size (the Look.make_level_badge recipe — a box shadow would square the leaves), driven
@@ -404,54 +422,36 @@ static func _sprite(nm: String, art_id: String, px: float) -> TextureRect:
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
-## The mock's MEDALLION, assembled from the baked v2 art: the scalloped rosette base carrying the
-## runtime level numeral, an oak-leaf sprig flanking each lower side, and the daisy medallion
-## seated on the rosette's foot.
+## The sakura MEDALLION: the single extracted plaque sprite (kit/level_plaque — the laurel wreath, slate
+## disc, and daisy baked as one cut-paper piece) with the runtime level numeral drawn centred on its
+## slate disc. The plaque art is shadow-free; the runtime silhouette shadow is re-applied by _add_shadowed.
 static func _medallion(level: int, m: float) -> Control:
-	var sprig_w := m * SPRIG_F
-	var daisy_px := m * DAISY_F
-	# the sprigs tuck IN behind the daisy: each inner edge reaches just past centre, so the block
-	# spans two sprig widths minus their overlap; the daisy hangs below the rosette's foot
-	var tuck := daisy_px * 0.10           # how far each sprig's inner edge crosses the block centre
-	var bw := (sprig_w + tuck) * 2.0
-	var bh := m + daisy_px * 0.45
 	var block := Control.new()
 	block.name = "LevelMedallion"
-	block.custom_minimum_size = Vector2(bw, bh)
+	block.custom_minimum_size = Vector2(m, m)
 	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the sprigs sit BEHIND the rosette AND the daisy, raised so their inner stems end right below
-	# the daisy — each rests its foot on the block's bottom line, splayed toward the corners
-	var sprig_l := _sprite("LevelSprigL", "sprig_l", sprig_w)
-	if sprig_l != null:
-		sprig_l.position = Vector2(bw * 0.5 + tuck - sprig_w, bh - sprig_l.size.y)
-		_add_shadowed(block, sprig_l)
-	var sprig_r := _sprite("LevelSprigR", "sprig_r", sprig_w)
-	if sprig_r != null:
-		sprig_r.position = Vector2(bw * 0.5 - tuck, bh - sprig_r.size.y)
-		_add_shadowed(block, sprig_r)
+	var plaque := _sprite("LevelPlaque", "plaque", m)
+	if plaque != null:
+		plaque.position = Vector2.ZERO
+		block.custom_minimum_size = plaque.size
+		_add_shadowed(block, plaque)
 
-	var rose := _sprite("LevelRosette", "rosette", m)
-	if rose != null:
-		rose.position = Vector2((bw - m) * 0.5, 0.0)
-		_add_shadowed(block, rose)
-
+	# the numeral centred on the slate disc (the disc sits high on the plaque; the daisy hangs below)
+	var disc_d := m * PLAQUE_DISC_D_F
+	var digits := str(level)
 	var num := Label.new()
 	num.name = "LevelNumber"
-	num.text = str(level)
+	num.text = digits
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	num.add_theme_font_override("font", Kit.bold_font())
-	num.add_theme_font_size_override("font_size", int(m * (0.46 if level < 100 else 0.36)))
+	var num_frac := 0.60 if digits.length() == 1 else (0.46 if digits.length() == 2 else 0.34)
+	num.add_theme_font_size_override("font_size", int(disc_d * num_frac))
 	num.add_theme_color_override("font_color", Pal.CREAM)
 	num.add_theme_constant_override("outline_size", 0)
-	num.size = Vector2(m, m)
-	num.position = Vector2((bw - m) * 0.5, 0.0)
+	num.size = Vector2(disc_d, disc_d)
+	num.position = Vector2(m * PLAQUE_DISC_CX_F - disc_d * 0.5, m * PLAQUE_DISC_CY_F - disc_d * 0.5)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	block.add_child(num)
-
-	var daisy := _sprite("LevelDaisy", "daisy", daisy_px)
-	if daisy != null:
-		daisy.position = Vector2((bw - daisy_px) * 0.5, bh - daisy.size.y)
-		_add_shadowed(block, daisy)
 	return block
