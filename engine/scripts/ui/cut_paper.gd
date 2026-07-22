@@ -32,10 +32,10 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # cut-paper edge knobs (shadow_reach · shadow_strength), so each component dials its own shadow.
 @export var shadow_reach: float = 10.0   # how far the softest fringe reaches below the sheet (px)
 @export var shadow_alpha: float = 0.05   # per-copy alpha; dense overlap accumulates into the gradient
-# blur SMOOTHS the shadow silhouette so it no longer mirrors the torn edge tooth-for-tooth (which dropped
-# straight down reads as a row of hard vertical streaks). It attenuates the deckle amplitude for the shadow
-# copies only — 0 = the exact edge, 100(%) = a smooth rounded outline — while the paper keeps its full tear.
-@export var shadow_blur: float = 70.0    # 0..100 %: how much the shadow silhouette is smoothed vs the edge
+# blur LOW-PASSES the shadow silhouette so it no longer mirrors the torn edge tooth-for-tooth (which dropped
+# straight down reads as a row of hard stripes). It rounds the sharp teeth into gentle low-frequency curves
+# for the shadow only — 0 = the exact edge, 100(%) = broad soft curves — while the paper keeps its full tear.
+@export var shadow_blur: float = 55.0    # 0..100 %: how much the shadow tear profile is smoothed into curves
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -84,12 +84,15 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
 	if draw_shadow and shadow_reach > 0.0 and shadow_alpha > 0.0:
-		# The shadow must NOT mirror the torn edge tooth-for-tooth — dropped straight down, each tooth casts
-		# its own hard vertical streak and the shadow reads as a row of sharp lines. `shadow_blur` (0..100%)
-		# ATTENUATES the deckle for the shadow silhouette only: 0 = the exact edge, 100 = a smooth rounded
-		# outline. The paper itself keeps its full crisp tear; only its shadow softens.
+		# The shadow must NOT mirror the torn edge tooth-for-tooth — dropped straight down, each SHARP tooth
+		# casts its own hard vertical streak and the shadow reads as a row of stripes. `shadow_blur` (0..100%)
+		# LOW-PASSES the tear PROFILE for the shadow only: the sharp high-frequency teeth are rounded off into
+		# gentle low-frequency undulation, so the shadow stays organic + curvy (not a dead-flat rounded rect)
+		# but has no stripes. The paper itself keeps its full crisp tear; only its shadow is smoothed.
 		var smooth := clampf(shadow_blur / 100.0, 0.0, 1.0)
-		var shadow_pts := pts if smooth <= 0.0 else _deckle_polygon(size, corner, deckle_amp * (1.0 - smooth))
+		# window radius in perimeter samples — grows with blur; kills the ~few-sample-wide teeth first.
+		var blur_r := int(round(smooth * 16.0))
+		var shadow_pts := pts if blur_r <= 0 else _deckle_polygon(size, corner, -1.0, blur_r)
 		# farthest copy first, nearest last — overlap darkens the top, fringe fades at the bottom. The step
 		# count tracks `shadow_reach` so the copies stay ~1px apart (dense = smooth) at any reach.
 		var steps := maxi(4, int(round(shadow_reach)))
@@ -118,10 +121,11 @@ func _draw() -> void:
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the
 ## deckle only needs a base outline + a normal, it works for a rect, a regular N-gon, or an organic blob —
 ## the shape itself is just `_base_perimeter`.
-## `amp` overrides the tear height (px); < 0 uses the panel's own `deckle_amp`. The shadow passes a reduced
-## amplitude so its silhouette is softer than the paper's own crisp edge (the SAME noise phase, so it stays
-## registered to the sheet — just gentler).
-func _deckle_polygon(sz: Vector2, r: float, amp: float = -1.0) -> PackedVector2Array:
+## `amp` overrides the tear height (px); < 0 uses the panel's own `deckle_amp`. `blur_r` low-passes the tear
+## PROFILE with a box window of that many perimeter samples (0 = the raw crisp tear) — the shadow passes a
+## non-zero radius so its outline keeps the SAME base shape + noise phase (registered to the sheet) but the
+## sharp teeth round off into gentle curves.
+func _deckle_polygon(sz: Vector2, r: float, amp: float = -1.0, blur_r: int = 0) -> PackedVector2Array:
 	var tear := deckle_amp if amp < 0.0 else amp
 	var raw := _base_perimeter(sz, r)
 	# drop consecutive duplicate points (the rect builder shares a vertex where an edge meets a corner
@@ -145,7 +149,12 @@ func _deckle_polygon(sz: Vector2, r: float, amp: float = -1.0) -> PackedVector2A
 	noise.frequency = deckle_freq
 	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
 	noise.fractal_octaves = 3
-	var out := PackedVector2Array()
+	# per-point outward normal + the raw displacement value; low-pass the displacement (not the positions,
+	# so the base rect shape never shrinks) to round the teeth into curves for the shadow.
+	var nrm := PackedVector2Array()
+	var disp := PackedFloat32Array()
+	nrm.resize(n)
+	disp.resize(n)
 	var arc := 0.0
 	for i in n:
 		var p := base[i]
@@ -155,11 +164,34 @@ func _deckle_polygon(sz: Vector2, r: float, amp: float = -1.0) -> PackedVector2A
 		if tan.length() < 0.001:
 			tan = p - centroid
 		tan = tan.normalized()
-		var nrm := Vector2(tan.y, -tan.x)            # perpendicular to the local edge
-		if nrm.dot(p - centroid) < 0.0:
-			nrm = -nrm                                # face outward
+		var nv := Vector2(tan.y, -tan.x)            # perpendicular to the local edge
+		if nv.dot(p - centroid) < 0.0:
+			nv = -nv                                # face outward
+		nrm[i] = nv
 		arc += p.distance_to(prev)
-		out.append(p + nrm * noise.get_noise_1d(arc) * tear)
+		disp[i] = noise.get_noise_1d(arc)
+	if blur_r > 0:
+		disp = _box_smooth_loop(disp, blur_r)
+	var out := PackedVector2Array()
+	for i in n:
+		out.append(base[i] + nrm[i] * disp[i] * tear)
+	return out
+
+## Box low-pass over a CLOSED loop of scalars: each output is the mean of the 2·radius+1 neighbours (wrapping
+## around the seam). Averaging a zero-mean wiggle keeps the long undulations and cancels the sharp teeth, so
+## the deckle profile reads curvy rather than serrated — and the amplitude eases down as the window widens.
+func _box_smooth_loop(vals: PackedFloat32Array, radius: int) -> PackedFloat32Array:
+	var n := vals.size()
+	if n == 0 or radius <= 0:
+		return vals
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var win := 2 * radius + 1
+	for i in n:
+		var s := 0.0
+		for k in range(-radius, radius + 1):
+			s += vals[((i + k) % n + n) % n]
+		out[i] = s / float(win)
 	return out
 
 ## The un-torn base outline (dense, evenly sampled) for the current `shape`.
