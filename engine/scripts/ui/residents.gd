@@ -303,13 +303,13 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	# the cells WRAP at HABITAT_SLOTS_SHOWN per row: sized against the row width (not the slot count),
 	# a late-game habitat keeps mock-sized cells and grows downward instead of shrinking to slivers.
 	var cell_px: float = (width - 10.0 * float(HABITAT_SLOTS_SHOWN - 1)) / float(HABITAT_SLOTS_SHOWN)
-	var cbag: Dictionary = bag_opts.duplicate(true)
+	# EVERY habitat cell is the shared torn cell: a placed resident sits IN the open green well (filled), a
+	# free cell is the empty green well, a locked cell is the cream card + lock. content_frac fills the well
+	# with the resident like a board tile; it's inert on the empty/locked cells.
+	var cbag: Dictionary = torn_opts.duplicate(true)
 	cbag["cell_w"] = cell_px
 	cbag["cell_h"] = cell_px
-	cbag["content_frac"] = 1.0   # the resident art fills the cell like a BOARD tile (its own 0.16 inset governs the margin), not the bag's 0.62
-	var cbag_torn: Dictionary = torn_opts.duplicate(true)
-	cbag_torn["cell_w"] = cell_px
-	cbag_torn["cell_h"] = cell_px
+	cbag["content_frac"] = 1.0
 	var cells := GridContainer.new()
 	cells.name = "HabitatCellsRow"
 	cells.columns = HABITAT_SLOTS_SHOWN
@@ -323,12 +323,12 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 			cell = _spirit_card(ctx, cbag, "placed", i, String(inst.line), int(inst.tier), cell_px)
 			cell.name = "HabitatCell_%02d" % i
 		elif i < cells_total:
-			cell = _free_cell(ctx, cbag_torn, cell_px)
+			cell = _free_cell(ctx, cbag, cell_px)
 			cell.name = "HabitatCellFree_%02d" % i
 		else:
 			# the locked cell is the shared TORN CELL component's locked state (cream cut-paper card + centred
 			# lock over its own shape-true shadow) — no baked keyhole sprite.
-			cell = Kit.slot_cell({"state": "locked"}, cbag_torn)
+			cell = Kit.slot_cell({"state": "locked"}, cbag)
 			cell.custom_minimum_size = Vector2(cell_px, cell_px)
 			cell.name = "HabitatCellLocked_%02d" % i
 		cells.add_child(cell)
@@ -338,11 +338,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	body.add_child(_section_label(Kit, "On hand"))
 	var hand: Array = Bucket.hand()
 	var hand_px: float = cell_px   # the hand tiles are the SAME size as the habitat cells (not the wider 4-up fill)
-	var hbag: Dictionary = bag_opts.duplicate(true)
-	hbag["cell_w"] = hand_px
-	hbag["cell_h"] = hand_px
-	hbag["content_frac"] = 1.0   # board-sized art (see the habitat cbag note)
-	var hbag_torn: Dictionary = cbag_torn.duplicate(true)   # empty hand slots = the torn AVAILABLE cell, cell-sized
+	var hbag: Dictionary = cbag.duplicate(true)   # hand tiles = the same torn cells as the habitat (well + resident)
 	var grid := GridContainer.new()
 	grid.name = "OnHandGrid"
 	grid.columns = HAND_COLS
@@ -356,7 +352,7 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
 		# empty filler tiles are the torn AVAILABLE cell — the same open cut-paper well as an empty habitat
 		# cell, so the ON HAND grid reads as the same tile family as HABITAT CELLS.
-		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag_torn)
+		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag)
 		grid.add_child(filler)
 	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
 	# spirit dropped anywhere over it (cards included: their can_take rejects "placed", so the
@@ -626,36 +622,6 @@ static func _add_silhouette_shadow(card: Control, w: float, h: float) -> void:
 	card.add_child(sh)
 	card.move_child(sh, 0)   # behind the card sprite layer
 
-## A PLAIN cream cell face for the resident (placed / on-hand) slots: hide the drawn sage paper layer and
-## paint the background a flat rounded cream — no thick cut-paper border, so the resident art reads on a
-## clean tile. Returns whether it applied.
-static func _plain_cell_face(cell: Control) -> bool:
-	var bg := cell.find_child("SlotCellBackground", true, false) as Control
-	if bg == null:
-		return false
-	var paper := bg.find_child("SlotCellPaperTexture", true, false)
-	if paper != null and paper is CanvasItem:
-		(paper as CanvasItem).visible = false
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM
-	sb.set_corner_radius_all(int(CELL_CORNER))
-	if bg is Panel:
-		(bg as Panel).add_theme_stylebox_override("panel", sb)
-	return true
-
-## Shadow a kit slot cell: the visible face is the inset SlotCellBackground panel — put the mock
-## shadow on ITS stylebox (duplicated: slot_cell styleboxes are shared), so the shadow hugs the
-## face's real rounded corners.
-static func _shadow_cell(cell: Control) -> void:
-	var bg := cell.find_child("SlotCellBackground", true, false) as Panel
-	if bg == null:
-		return
-	var sb := bg.get_theme_stylebox("panel")
-	if sb is StyleBoxFlat:
-		var dsb: StyleBoxFlat = (sb as StyleBoxFlat).duplicate()
-		_mock_shadow(dsb)
-		bg.add_theme_stylebox_override("panel", dsb)
-
 ## A spirit card wrapped in the DragCard input shell: tap selects; hand spirits drag; matching
 ## targets merge/climb. The kit cell + art underneath is fully mouse-transparent.
 static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx: int,
@@ -664,12 +630,12 @@ static func _spirit_card(ctx: Dictionary, bag_opts: Dictionary, src: String, idx
 	var kind := Bucket.line_kind(line)
 	# the art is now a REAL board piece (holder + contact shadow), not a flat TextureRect — item 3/4.
 	var inset := float(ctx.get("piece_inset", PieceView.ITEM_INSET))
+	# the resident sits IN the shared torn cell's open green well (bag_opts carries torn_cells) — placed and
+	# on-hand alike, so a spirit reads as housed in an available cell rather than floating on a plain tile.
 	var cell: Control = Kit.slot_cell({"state": "filled",
 		"make_content": func(pp: float) -> Control: return _spirit_piece(kind, tier, pp, inset)}, bag_opts)
 	cell.custom_minimum_size = Vector2(px, px)
 	_ignore_input(cell)
-	if not _plain_cell_face(cell):   # plain cream tile behind the resident (no thick cut-paper border)
-		_shadow_cell(cell)
 	if _is_sel(ctx, src, idx):
 		var rim := Panel.new()
 		rim.name = "SpiritSelectedRim"
