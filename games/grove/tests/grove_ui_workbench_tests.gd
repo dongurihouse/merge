@@ -221,6 +221,8 @@ func _shared_frame_uses_soft_cream_tile() -> void:
 	Kit.clear_config_cache()
 	var soft_path := Kit.CUT_PAPER_TILE_SOFT_CREAM
 	var soft_tile: Texture2D = load(soft_path) as Texture2D if ResourceLoader.exists(soft_path) else null
+	ok(Kit.cut_paper_tile() == soft_tile,
+		"the shared cut-paper tile helper resolves to the soft cream frame background")
 	var body := Label.new()
 	body.text = "Body"
 	var opts := Kit.dialog_opts_from_config({"frame": {"deckle": true}})
