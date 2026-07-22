@@ -32,10 +32,10 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # cut-paper edge knobs (shadow_reach · shadow_strength), so each component dials its own shadow.
 @export var shadow_reach: float = 10.0   # how far the softest fringe reaches below the sheet (px)
 @export var shadow_alpha: float = 0.05   # per-copy alpha; dense overlap accumulates into the gradient
-# blur FEATHERS the shadow outward: farther copies also grow outward from the centre, so the silhouette
-# softens into a halo on ALL sides instead of only tracing the torn edge straight down. 0 = crisp (drop
-# only). Tunable via the shared `shadow_blur` edge knob.
-@export var shadow_blur: float = 0.0     # px the softest copy grows outward past the sheet
+# blur SMOOTHS the shadow silhouette so it no longer mirrors the torn edge tooth-for-tooth (which dropped
+# straight down reads as a row of hard vertical streaks). It attenuates the deckle amplitude for the shadow
+# copies only — 0 = the exact edge, 100(%) = a smooth rounded outline — while the paper keeps its full tear.
+@export var shadow_blur: float = 70.0    # 0..100 %: how much the shadow silhouette is smoothed vs the edge
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -84,26 +84,22 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
 	if draw_shadow and shadow_reach > 0.0 and shadow_alpha > 0.0:
+		# The shadow must NOT mirror the torn edge tooth-for-tooth — dropped straight down, each tooth casts
+		# its own hard vertical streak and the shadow reads as a row of sharp lines. `shadow_blur` (0..100%)
+		# ATTENUATES the deckle for the shadow silhouette only: 0 = the exact edge, 100 = a smooth rounded
+		# outline. The paper itself keeps its full crisp tear; only its shadow softens.
+		var smooth := clampf(shadow_blur / 100.0, 0.0, 1.0)
+		var shadow_pts := pts if smooth <= 0.0 else _deckle_polygon(size, corner, deckle_amp * (1.0 - smooth))
 		# farthest copy first, nearest last — overlap darkens the top, fringe fades at the bottom. The step
-		# count tracks `shadow_reach` so the copies stay ~1px apart (dense = smooth) at any reach. When
-		# `shadow_blur` > 0 each farther copy also grows outward from the centre, so the fringe feathers into
-		# a soft halo on every side instead of a crisp downward drop.
+		# count tracks `shadow_reach` so the copies stay ~1px apart (dense = smooth) at any reach.
 		var steps := maxi(4, int(round(shadow_reach)))
 		var step := shadow_reach / float(steps)
 		var sh := Look.shadow_color(shadow_alpha)
-		var centre := size * 0.5
 		for i in range(steps, 0, -1):
-			var frac := float(i) / float(steps)
 			var dy := step * float(i)
-			var grow := shadow_blur * frac
 			var off := PackedVector2Array()
-			for p in pts:
-				var gp := p
-				if grow > 0.0:
-					var dir := p - centre
-					if dir.length() > 0.001:
-						gp = p + dir.normalized() * grow
-				off.append(gp + Vector2(0.0, dy))
+			for p in shadow_pts:
+				off.append(p + Vector2(0.0, dy))
 			draw_colored_polygon(off, sh)
 	if paper_tex != null:
 		var tp := paper_tex.get_size()
@@ -122,7 +118,11 @@ func _draw() -> void:
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the
 ## deckle only needs a base outline + a normal, it works for a rect, a regular N-gon, or an organic blob —
 ## the shape itself is just `_base_perimeter`.
-func _deckle_polygon(sz: Vector2, r: float) -> PackedVector2Array:
+## `amp` overrides the tear height (px); < 0 uses the panel's own `deckle_amp`. The shadow passes a reduced
+## amplitude so its silhouette is softer than the paper's own crisp edge (the SAME noise phase, so it stays
+## registered to the sheet — just gentler).
+func _deckle_polygon(sz: Vector2, r: float, amp: float = -1.0) -> PackedVector2Array:
+	var tear := deckle_amp if amp < 0.0 else amp
 	var raw := _base_perimeter(sz, r)
 	# drop consecutive duplicate points (the rect builder shares a vertex where an edge meets a corner
 	# arc); a duplicate makes the deckled outline spike/self-intersect and the fill triangulation fails.
@@ -159,7 +159,7 @@ func _deckle_polygon(sz: Vector2, r: float) -> PackedVector2Array:
 		if nrm.dot(p - centroid) < 0.0:
 			nrm = -nrm                                # face outward
 		arc += p.distance_to(prev)
-		out.append(p + nrm * noise.get_noise_1d(arc) * deckle_amp)
+		out.append(p + nrm * noise.get_noise_1d(arc) * tear)
 	return out
 
 ## The un-torn base outline (dense, evenly sampled) for the current `shape`.
