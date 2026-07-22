@@ -1,4 +1,27 @@
 {
+	"action_button": {
+		"corner": 41.0,
+		"deckle": true,
+		"deckle_amp": 4.0,
+		"deckle_freq": 11.0,
+		"edge_shadow": true,
+		"icon_scale": 50.0,
+		"px": 158.0,
+		"rim_color": "E7D6BC",
+		"rim_width": 1.0,
+		"shadow": true,
+		"shadow_blur": 0.0,
+		"shadow_reach": 9.0,
+		"shadow_strength": 5.0,
+		"tint_bag": "slate",
+		"tint_daily": "green",
+		"tint_home": "kraft",
+		"tint_mail": "coral",
+		"tint_map": "cream",
+		"tint_play": "gold",
+		"tint_residents": "sky",
+		"tint_vault": "purple"
+	},
 	"badge": {
 		"defringe": true,
 		"feather": 2.0,
@@ -38,13 +61,16 @@
 	},
 	"button": {
 		"art": true,
+		"corner": 16.0,
 		"deckle": true,
 		"deckle_amp": 8.0,
 		"deckle_freq": 3.0,
 		"edge_shadow": true,
 		"font": 28.0,
+		"rim_color": "E7D6BC",
 		"rim_width": 2.0,
 		"shadow": true,
+		"shadow_blur": 55.0,
 		"shadow_reach": 10.0,
 		"shadow_strength": 5.0
 	},
@@ -127,8 +153,14 @@
 		"list_top_pad": -2.0,
 		"rim_width": 2.0,
 		"shadow": true,
-		"shadow_reach": 10,
-		"shadow_strength": 5,
+		"shadow_blur": 55.0,
+		"shadow_dx": 0.0,
+		"shadow_dy": 3.0,
+		"shadow_reach": 10.0,
+		"shadow_strength": 5.0,
+		"text_shadow": false,
+		"text_shadow_blur": 0.0,
+		"text_shadow_str": 45.0,
 		"width_pct": 75.0
 	},
 	"fx": {
@@ -167,10 +199,10 @@
 	"gold_currency_pill": {
 		"amount_w": 95.0,
 		"amount_x": 51.0,
-		"corner": 35,
+		"corner": 35.0,
 		"deckle": true,
-		"deckle_amp": 4,
-		"deckle_freq": 5,
+		"deckle_amp": 4.0,
+		"deckle_freq": 5.0,
 		"edge_shadow": true,
 		"gap": 10.0,
 		"icon_box": 23.0,
@@ -194,10 +226,11 @@
 		"plus_stroke": 2.0,
 		"plus_x": -134.0,
 		"plus_y": 17.0,
-		"rim_width": 2,
+		"rim_width": 2.0,
 		"shadow": true,
-		"shadow_reach": 10,
-		"shadow_strength": 5
+		"shadow_blur": 55.0,
+		"shadow_reach": 10.0,
+		"shadow_strength": 5.0
 	},
 	"grab_fx": {
 		"enabled": true,
@@ -238,9 +271,7 @@
 		"quest_bar_h_pct": 11.0,
 		"shadow": false
 	},
-	"icon": {
-
-	},
+	"icon": {},
 	"info": {
 		"shadow": true
 	},
@@ -316,6 +347,7 @@
 		"edge_shadow": true,
 		"rim_width": 0.0,
 		"shadow": false,
+		"shadow_blur": 55.0,
 		"shadow_reach": 7.0,
 		"shadow_strength": 9.0,
 		"tint": "ffffff"
@@ -407,20 +439,14 @@
 		"star_knob": false
 	},
 	"quest_card": {
-		"bubble_size": 66.0,
-		"bubble_x": 70.0,
-		"bubble_y": 36.0,
-		"bust_size": 98.0,
-		"bust_x": 30.0,
-		"bust_y": 49.0,
 		"card_h": 97.0,
 		"card_w": 92.0,
-		"item_size": 55.0,
-		"item_x": 70.0,
-		"item_y": 32.0,
-		"plaque_w": 39.0,
+		"item_size": 60.0,
+		"item_x": 50.0,
+		"item_y": 44.0,
+		"plaque_w": 46.0,
 		"plaque_x": 70.0,
-		"plaque_y": 79.0,
+		"plaque_y": 85.0,
 		"shadow": true
 	},
 	"ready_glow": {
@@ -498,6 +524,7 @@
 		"label_font": 28.0,
 		"rim_width": 0.0,
 		"shadow": true,
+		"shadow_blur": 55.0,
 		"shadow_reach": 7.0,
 		"shadow_strength": 4.0,
 		"switch_h": 44.0,

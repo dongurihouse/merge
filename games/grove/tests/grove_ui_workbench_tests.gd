@@ -14,8 +14,71 @@ func _initialize() -> void:
 	_live_corner_edit_reaches_shared_buttons()
 	_live_rim_color_edit_reaches_shared_buttons()
 	_white_role_builds_with_white_tile()
+	_daily_card_face_tones()
+	_daily_card_uses_face_only_for_daily()
 	await _mail_claim_corner_follows_button_group()
 	finish()
+
+## The shared daily card FACE (Kit.daily_card_face) — the code-drawn cut-paper card BOTH the workbench daily
+## grid and the real login dialog draw: cream days, a gold-under-cream DOUBLE layer for today, a single gold
+## layer for day 7.
+func _daily_card_face_tones() -> void:
+	var cream := Kit.daily_card_face(Vector2(120, 170), "cream")
+	var cl := _cp_layers(cream)
+	ok(cl.size() == 1 and (cl[0].paper_color as Color).is_equal_approx(Kit.DAILY_CREAM_FILL),
+		"a cream day is ONE cut-paper layer, cream fill")
+	cream.free()
+
+	var gold := Kit.daily_card_face(Vector2(120, 170), "gold")
+	var gl := _cp_layers(gold)
+	ok(gl.size() == 1 and (gl[0].paper_color as Color).is_equal_approx(Kit.DAILY_GOLD_FILL),
+		"day 7 is ONE cut-paper layer, gold fill")
+	gold.free()
+
+	var today := Kit.daily_card_face(Vector2(120, 170), "today")
+	var tl := _cp_layers(today)   # gold BELOW (index 0), cream ON TOP (index 1)
+	var double := tl.size() == 2
+	ok(double, "today is a DOUBLE layer (gold under cream)")
+	ok(double and (tl[0].paper_color as Color).is_equal_approx(Kit.DAILY_GOLD_FILL),
+		"today's under-layer is gold")
+	ok(double and (tl[1].paper_color as Color).is_equal_approx(Kit.DAILY_CREAM_FILL),
+		"today's top layer is cream")
+	ok(double and bool(tl[0].draw_shadow) and not bool(tl[1].draw_shadow),
+		"the gold under-layer casts the shadow; the cream top layer does not (no double shadow)")
+	today.free()
+
+## The cut-paper face drives the DAILY grid, but the SHOP grid (the other daily_card caller) is unchanged —
+## it keeps its nine-patch card and draws no cut-paper face.
+func _daily_card_uses_face_only_for_daily() -> void:
+	Kit.clear_config_cache()
+	var card := Kit.daily_card({"state": "today", "reward": {"coins": 100}, "day": 2, "label": "Day 2"},
+		{"cell_w": 120.0, "cell_h": 170.0, "cut_paper": true})
+	ok(_find_named(card, "DailyCardFace") != null,
+		"a daily card (cut_paper on) renders the shared cut-paper face")
+	var shop := Kit.daily_card({"icon": "coin", "count": 5, "price": "$1"},
+		{"cell_w": 120.0, "cell_h": 170.0})
+	ok(_find_named(shop, "DailyCardFace") == null,
+		"a shop card (cut_paper off) draws NO cut-paper face — unchanged")
+	card.free()
+	shop.free()
+	Kit.clear_config_cache()
+
+## The CutPaperPanel layers of a daily face, in child order.
+func _cp_layers(face: Control) -> Array:
+	var out: Array = []
+	for c in face.get_children():
+		if c is Control and "paper_color" in c:
+			out.append(c)
+	return out
+
+func _find_named(n: Node, nm: String) -> Node:
+	if String(n.name) == nm:
+		return n
+	for c in n.get_children():
+		var r := _find_named(c, nm)
+		if r != null:
+			return r
+	return null
 
 ## The mail Claim button is the shared button's green variant — its cut-paper corner must FOLLOW the
 ## shared Button corner knob, not a dead hardcoded pin. Regression for: card_claim_corner (never set by

@@ -3175,7 +3175,7 @@ static func _kit_sprite(rel: String, px: float) -> TextureRect:
 ## A day's reward as the ICON ONLY — the daily card shows the reward TYPE, never a number (the amount
 ## is a claim-time surprise and keeps the small card uncluttered). Picks the premium currency (gems >
 ## coins > water). Shop cards show their count separately; this is daily-only.
-static func _daily_reward(reward: Dictionary, px: float = 40.0) -> Control:
+static func _daily_reward(reward: Dictionary, px: float = 40.0, shadow: bool = false) -> Control:
 	var icon_id := "coin"
 	if int(reward.get("gems", 0)) > 0:
 		icon_id = "gem"
@@ -3185,7 +3185,81 @@ static func _daily_reward(reward: Dictionary, px: float = 40.0) -> Control:
 		icon_id = "water"
 	elif String(reward.get("cosmetic", "")) != "":
 		icon_id = "star"
-	return make_icon(icon_id, px)
+	return daily_icon(icon_id, px, shadow)
+
+# The daily card wears the SAME shared cut-paper edge as every other paper component — a finer tear at
+# card scale (amp 4). corner is derived from the card WIDTH per-call (a small cell and the wide capstone
+# read with the same rounded proportion), so it is intentionally omitted here.
+const DAILY_CARD_CP_DEFAULTS := {"deckle": true, "corner": 22, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The two tones the daily face uses, straight from the shared paper roles — no new palette.
+const DAILY_CREAM_FILL := Color("#F6EBDD")   # = PAPER_SURFACES["cream"] — days 1-6 + the today top layer
+const DAILY_GOLD_FILL := Color("#D6A94C")    # = PAPER_SURFACES["gold"]  — the today under-layer + day 7
+# The daily reward ICON's shape-true drop shadow (silhouette-following, warm-tinted) — a soft down-right cast.
+const DAILY_ICON_SHADOW := {"shadow_alpha": 0.32}
+
+## The SHARED daily card BACKGROUND — the code-drawn cut-paper card (engine/scripts/ui/cut_paper.gd) with
+## the torn edge + tiled paper fibre + soft shadow. ONE face so BOTH the workbench mock and the real login
+## dialog draw the same card (login.gd loads this kit at KIT_PATH). Returns a full-rect, mouse-transparent
+## Control holding the deckled panel(s); the caller anchors its OWN content (label/icon/action) OVER it.
+## `tone`: "cream" (days 1-6) · "today" (the DOUBLE layer: a gold panel below a cream one, to highlight the
+## current day) · "gold" (day 7 — a single golden layer). `cp_opts` = the shared normalized cut-paper edge
+## knobs (defaults to DAILY_CARD_CP_DEFAULTS). `opts`: corner (px, else size.x·corner_frac) · corner_frac
+## (default 0.13) · gold_inflate / gold_drop (the today under-layer's peek, px; default from size).
+static func daily_card_face(size: Vector2, tone: String, cp_opts: Dictionary = {}, opts: Dictionary = {}) -> Control:
+	var o: Dictionary = (cp_opts.duplicate() if not cp_opts.is_empty()
+		else cut_paper_opts_from_config({}, "daily_card", DAILY_CARD_CP_DEFAULTS))
+	# corner tracks the card width so a small cell and a wide capstone keep the same rounded proportion.
+	o["corner"] = float(opts.get("corner", maxf(6.0, size.x * float(opts.get("corner_frac", 0.13)))))
+	var tile := cut_paper_tile()
+	var face := Control.new()
+	face.name = "DailyCardFace"
+	face.custom_minimum_size = size
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if tone == "today":
+		# DOUBLE LAYER: a gold panel behind, inflated on all sides + dropped down, so a golden deckled rim peeks
+		# around and below the cream panel on top — the current day reads as a raised, gilded card. The gold
+		# (bottom) layer casts the card's ground shadow; the cream (top) layer's own shadow is OFF (a second
+		# shadow between the two layers reads muddy).
+		# drop >= inflate so the top edge shows ~no gold and the golden layer reads as sitting BELOW the cream
+		# card (a raised stack), not as an even frame around it — heaviest at the bottom, a thin rim at the sides.
+		var inflate := float(opts.get("gold_inflate", size.x * 0.045))
+		var drop := float(opts.get("gold_drop", size.x * 0.055))
+		var gold: Control = load(CUT_PAPER).new()
+		gold.name = "DailyGoldLayer"
+		gold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		gold.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		gold.offset_left = -inflate; gold.offset_right = inflate
+		gold.offset_top = -inflate + drop; gold.offset_bottom = inflate + drop
+		gold.configure(o, DAILY_GOLD_FILL, PAPER_EDGE, tile)
+		face.add_child(gold)
+		var cream: Control = load(CUT_PAPER).new()
+		cream.name = "DailyCreamLayer"
+		cream.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cream.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var co := o.duplicate(); co["edge_shadow"] = false   # top layer casts no shadow — the gold below does
+		cream.configure(co, DAILY_CREAM_FILL, PAPER_EDGE, tile)
+		face.add_child(cream)
+	else:
+		var panel: Control = load(CUT_PAPER).new()
+		panel.name = "DailyCardLayer"
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		panel.configure(o, DAILY_GOLD_FILL if tone == "gold" else DAILY_CREAM_FILL, PAPER_EDGE, tile)
+		face.add_child(panel)
+	return face
+
+## A make_icon with the shared SHAPE-TRUE drop shadow (silhouette-following, warm-tinted) baked in — the
+## daily cards use it so every reward icon sits on its own soft shadow. `shadow` off, or a missing/gliph-only
+## icon, falls back to the plain make_icon.
+static func daily_icon(id: String, px: float, shadow: bool = true) -> Control:
+	if not shadow:
+		return make_icon(id, px)
+	var tex := _icon_tex(id)
+	if tex == null:
+		return make_icon(id, px)      # glyph fallback — no image to shadow
+	var img := tex.get_image()
+	var shad := _icon_rect(ImageTexture.create_from_image(add_drop_shadow(img, DAILY_ICON_SHADOW)), px)
+	return shad if shad != null else make_icon(id, px)
 
 ## The shared SMALL CARD — one tile used by BOTH the Daily grid and the Shop grid (improve once, both
 ## benefit). Top→bottom: an optional POPULAR ribbon ("Popular"/"Best value"/…), an optional label
@@ -3213,8 +3287,23 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	panel.custom_minimum_size = Vector2(cw, ch)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# The DAILY grid opts into the CODE-DRAWN cut-paper face (opts.cut_paper) — the ONE shared daily card
+	# background: cream for days 1-6, the gold-under-cream DOUBLE layer for today, a single gold layer for a
+	# milestone/day-7 card. The panel then keeps a TRANSPARENT stylebox holding only the content margins so
+	# the label/icon/action sit inside the deckled edge; the face is added to `outer` below as the background.
+	# The SHOP grid (the other daily_card caller) leaves cut_paper off and keeps its nine-patch card unchanged.
+	var use_cp := bool(opts.get("cut_paper", false))
+	var tone := "today" if state == "today" else ("gold" if milestone else "cream")
+	var face: Control = null
 	var bgp := Look.kit("kit/daily_card.png")
-	if bool(opts.get("cell_art", true)) and ResourceLoader.exists(bgp):
+	if use_cp:
+		face = daily_card_face(Vector2(cw, ch), tone, opts.get("cp", {}), opts.get("face", {}))
+		var pad := StyleBoxFlat.new()
+		pad.bg_color = Color(0, 0, 0, 0)
+		pad.content_margin_left = 8; pad.content_margin_right = 8
+		pad.content_margin_top = 7; pad.content_margin_bottom = 7
+		panel.add_theme_stylebox_override("panel", pad)
+	elif bool(opts.get("cell_art", true)) and ResourceLoader.exists(bgp):
 		var st := StyleBoxTexture.new()
 		st.texture = clean_tex_path(bgp, 256)
 		st.set_texture_margin_all(float(opts.get("cell_slice", 28.0)))
@@ -3230,6 +3319,8 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		panel.add_theme_stylebox_override("panel", cf)
 	if state == "done":
 		panel.modulate = Color(1, 1, 1, 0.6)
+		if face != null:
+			face.modulate = Color(1, 1, 1, 0.6)
 
 	# Content is ABSOLUTELY positioned inside `inner` so each region sits independently and none shifts the
 	# others: the reward icon DEAD-CENTRE of the card, the label pinned near the top (tunable Y), the
@@ -3263,7 +3354,7 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		# gift box) via `mystery_icon` — so individual mystery days can read distinctly.
 		center.add_child(_kit_sprite(String(d.get("mystery_icon", "kit/daily_chest.png")), cw * 0.56))
 	elif d.has("reward"):
-		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.56))   # icon a touch bigger (no number)
+		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.56, use_cp))   # icon a touch bigger (no number); cut-paper cards shadow it
 	elif d.has("icon"):
 		var ic_col := VBoxContainer.new()
 		ic_col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -3361,7 +3452,8 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		info.offset_top = im; info.offset_bottom = im + ip
 		inner.add_child(info)
 
-	_apply_day_badge(panel, badge)   # the configurable rim/glow on today + milestone cards
+	if not use_cp:
+		_apply_day_badge(panel, badge)   # the configurable rim/glow on today + milestone cards (the cut-paper face carries its own highlight)
 	# the generated SPARKLE marks the claimable (today) rung — animated twinkles around the reward
 	if state == "today" and bool(opts.get("sparkle", true)):
 		var sp := Sparkle.new()
@@ -3376,6 +3468,9 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	outer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	outer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if face != null:
+		face.set_anchors_preset(Control.PRESET_FULL_RECT)
+		outer.add_child(face)          # the cut-paper background, BEHIND the panel content
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	outer.add_child(panel)
 	if ribbon != "":
@@ -3836,6 +3931,7 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 	var co := opts.duplicate()
 	co["cell_w"] = cw
 	co["cell_h"] = cw * aspect
+	co["cut_paper"] = bool(opts.get("cut_paper", true))   # the daily grid draws the code-drawn cut-paper face by default
 	# (the card's fonts / icon / ribbon all scale from cell_w inside daily_card — uniform proportions)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
@@ -5640,15 +5736,13 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## SHIPPED layout and the board's giver card is unchanged until a designer saves a tweak.
 static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 	var q: Dictionary = cfg.get("quest_card", {}) if cfg is Dictionary else {}
-	var isz: float = float(q.get("item_size", 32)) / 100.0
+	var isz: float = float(q.get("item_size", 60)) / 100.0
 	return {
-		"card_w":      float(q.get("card_w", 92)) / 100.0,      "card_h":   float(q.get("card_h", 65)) / 100.0,
-		"bust_size":   float(q.get("bust_size", 94)) / 100.0,   "bust_x":   float(q.get("bust_x", 27)) / 100.0,   "bust_y":   float(q.get("bust_y", 53)) / 100.0,
-		"bubble_size": float(q.get("bubble_size", 66)) / 100.0, "bubble_x": float(q.get("bubble_x", 70)) / 100.0, "bubble_y": float(q.get("bubble_y", 35)) / 100.0,
-		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 70)) / 100.0, "item_y": float(q.get("item_y", 32)) / 100.0,
-		"plaque_w":    float(q.get("plaque_w", 40)) / 100.0,    "plaque_x": float(q.get("plaque_x", 70)) / 100.0, "plaque_y": float(q.get("plaque_y", 81)) / 100.0,
-		# (card_slice_* knobs retired with the card_generic nine-slice: the card surface is now the
-		# code-drawn shared paper panel, so there are no patch margins to tune. Old saved values are ignored.)
+		"card_w":      float(q.get("card_w", 92)) / 100.0,      "card_h":   float(q.get("card_h", 97)) / 100.0,
+		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 50)) / 100.0, "item_y": float(q.get("item_y", 44)) / 100.0,
+		"plaque_w":    float(q.get("plaque_w", 46)) / 100.0,    "plaque_x": float(q.get("plaque_x", 70)) / 100.0, "plaque_y": float(q.get("plaque_y", 85)) / 100.0,
+		# (bust_*/bubble_* knobs retired with the giver portrait + speech bubble; card_slice_* retired with the
+		# nine-slice. The card + reward tag are now cut-paper textures. Old saved values are accepted + ignored.)
 		# the card's drop-shadow is the ONE SHARED shadow every component casts (Skin.shadow_rect), gated by the
 		# UNIVERSAL Shadow toggle and tuned on the Shadow item — NOT a per-card definition. `shadow` is the toggle
 		# (off by default → shipped card unchanged); `shadow_params` is the shared look read from the global

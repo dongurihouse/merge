@@ -17,6 +17,9 @@ extends Control
 ##          cluster into that band — the pointer-first equivalent of [ / ].
 
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
+const CoversModel = preload("res://games/grove/tools/scene_covers_model.gd")   # the cover-zone sidecar (pure)
+const CoversGen = preload("res://games/grove/tools/scene_covers_gen.gd")       # the zone-fill scatter (pure)
+const RegionOverlay = preload("res://games/tools/zone_workbench/region_editor_overlay.gd")  # the zoning tool's polygon overlay
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
@@ -28,6 +31,7 @@ const HIT_MAX_W := 192              # alpha hit-test images downsample to this w
 const DRAG_THRESHOLD := 3.0         # canvas px a re-click must travel before it counts as a drag, not a deselect
 const INK := Color("#2B2B33")
 const PAPER := Color("#F4EDE1")
+const COVER_CLUSTER_Z := 100        # the clusterZ generated cover clusters land at (matches hand-authored covers)
 
 var doc: Dictionary = {}
 var placements_path := ""
@@ -62,6 +66,14 @@ var _cluster_actions: VBoxContainer = null
 var _open_cluster := ""             # CLUSTER= launch arg — select + isolate once ready
 var _scenes_root := ""              # kept so the scene dropdown can re-setup in place
 
+# --- cover zones (the zoning tool, brought into the sw) -------------------------------------------
+var _covers_doc: Dictionary = {}    # covers_<scene>.json sidecar: {version, scene, canvas, zones:[{object, points}]}
+var _covers_path := ""              # abs path of the sidecar
+var _zone_mode := false             # zone-drawing mode: the polygon overlay owns the stage
+var _zone_overlay: Control = null   # RegionOverlay instance (mounted only while in zone mode)
+var _zone_draw_object := ""         # the primary object a pending draw will bind its polygon to
+var _covers_section: VBoxContainer = null   # the sidebar Covers block
+
 func setup(scenes_root: String, scene: String, cluster := "") -> bool:
 	_scenes_root = scenes_root
 	scene_name = scene
@@ -76,6 +88,8 @@ func setup(scenes_root: String, scene: String, cluster := "") -> bool:
 	if doc.is_empty():
 		push_error("could not parse " + placements_path)
 		return false
+	_covers_path = CoversModel.covers_path(scenes_root, scene)
+	_covers_doc = CoversModel.load_doc(_covers_path, scene, M.canvas_size(doc))
 	return true
 
 func _ready() -> void:
@@ -131,6 +145,8 @@ func _layout() -> void:
 	_stage.size = canvas * s
 	_layers.scale = Vector2(s, s)
 	_overlay.scale = Vector2(s, s)
+	if _zone_overlay != null and is_instance_valid(_zone_overlay):
+		_zone_overlay.scale = Vector2(s, s)           # the polygon overlay tracks the stage fit
 	if _sidebar_panel != null:
 		_sidebar_panel.position = Vector2(vp.x - SCENE_STRIP_W - SIDEBAR_W, 0)
 		_sidebar_panel.size = Vector2(SIDEBAR_W, vp.y)
@@ -481,6 +497,16 @@ func _key(k: InputEventKey) -> void:
 		KEY_H:
 			_hide_selected_cluster()
 		KEY_ESCAPE:
+			if _zone_mode:
+				# first Esc cancels an in-progress polygon, next leaves zone mode
+				if _zone_overlay != null and bool(_zone_overlay.call("is_drawing")):
+					_zone_overlay.call("set_draw_mode", false)
+					_zone_draw_object = ""
+					_refresh_covers_panel()
+				else:
+					_exit_zone_mode()
+					_refresh_covers_panel()
+				return
 			if _isolated != "":
 				_isolated = ""
 				_rebuild_stage()
@@ -673,12 +699,18 @@ func _layer_drop(_at: Vector2, data: Variant, slug: String) -> void:
 	_drop_cluster_on_layer(data, slug)
 
 func _save() -> void:
-	if M.save_doc(placements_path, doc):
+	var ok := M.save_doc(placements_path, doc)
+	# The cover zones live in their own sidecar; ⌘S writes both so a session's zone edits persist.
+	if _covers_path != "":
+		CoversModel.save_doc(_covers_path, _covers_doc)
+	if ok:
 		dirty = false
 	_refresh_status()
 
 func _reload() -> void:
 	doc = M.load_doc(placements_path)
+	_covers_doc = CoversModel.load_doc(_covers_path, scene_name, M.canvas_size(doc))
+	_exit_zone_mode()
 	_sel = -1
 	_sel_cluster = ""
 	_hidden.clear()                                  # hiding is workbench-only view state — reload shows all
@@ -686,6 +718,171 @@ func _reload() -> void:
 	_base_hidden = false
 	dirty = false
 	_rebuild_stage()
+	_refresh_covers_panel()
+
+# --- COVER ZONES: the zoning tool inside the sw --------------------------------------------------
+# Draw a polygon over each PRIMARY object, then generate a coverup-layer scatter that BLANKETS it.
+# The zones persist in a sidecar (covers_<scene>.json); the covers themselves are ordinary coverup
+# placements, so ⌘S saves both and every generated cover stays selectable/tweakable on the stage.
+
+## The primary-layer clusters — the objects a cover zone can be drawn over.
+func _primary_clusters() -> Array:
+	var out: Array = []
+	var cls := M.clusters(doc)
+	for cn_v in cls.keys():
+		var members: Array = cls[cn_v]
+		if members.is_empty():
+			continue
+		if M.entry_layer(M.placements(doc)[members[0]]) == "primary":
+			out.append(String(cn_v))
+	out.sort()
+	return out
+
+## The scene's coverup art with native sizes — the palette the generator scatters from.
+func _coverup_assets() -> Array:
+	var out: Array = []
+	for a in M.assets_in_layer(M.addable_assets(bundle_dir, repo_root, scene_name), "coverup"):
+		var t := _texture(String(a.image))
+		if t == null:
+			continue
+		out.append({"id": String(a.id), "image": String(a.image),
+			"w": t.get_width(), "h": t.get_height()})
+	return out
+
+func _toggle_zone_mode() -> void:
+	if _zone_mode:
+		_exit_zone_mode()
+	else:
+		_enter_zone_mode()
+	_refresh_covers_panel()
+
+func _enter_zone_mode() -> void:
+	if _zone_mode:
+		return
+	_zone_mode = true
+	_select(-1)                                        # the overlay owns stage input now
+	_zone_overlay = RegionOverlay.new()
+	_zone_overlay.name = "ZoneEditor"
+	_zone_overlay.set("show_buttons", false)           # covers, not unlock discs — hide the markers
+	_zone_overlay.call("set_image_size", M.canvas_size(doc))
+	_zone_overlay.call("set_edit_enabled", true)
+	_zone_overlay.connect("regions_changed", _on_zone_regions_changed)
+	_zone_overlay.connect("region_drawn", _on_zone_drawn)
+	_stage.add_child(_zone_overlay)                    # above _layers + _overlay in the stage
+	_zone_overlay.scale = _layers.scale                # the overlay lives at native canvas size, scaled to fit
+	_sync_zone_overlay()
+
+func _exit_zone_mode() -> void:
+	_zone_mode = false
+	_zone_draw_object = ""
+	if _zone_overlay != null and is_instance_valid(_zone_overlay):
+		_zone_overlay.queue_free()
+	_zone_overlay = null
+
+## Project the sidecar's zones onto the overlay (its regions array mirrors zones, in order).
+func _sync_zone_overlay() -> void:
+	if _zone_overlay == null:
+		return
+	var regions: Array = []
+	for z in (_covers_doc.zones as Array):
+		var pts: Array = []
+		for p in ((z as Dictionary).points as Array):
+			pts.append(p)
+		regions.append({"name": String((z as Dictionary).object), "points": pts, "enabled": true})
+	_zone_overlay.call("set_regions", regions)
+
+## Start drawing a fresh polygon for `object` (entering zone mode if needed). A finished draw
+## REPLACES any existing zone for that object.
+func _begin_draw_zone(object: String) -> void:
+	if not _zone_mode:
+		_enter_zone_mode()
+	_zone_draw_object = object
+	if _zone_overlay != null:
+		_zone_overlay.call("set_draw_mode", true)
+	_refresh_covers_panel()
+
+func _on_zone_drawn(points: Array) -> void:
+	if _zone_draw_object != "":
+		CoversModel.set_zone(_covers_doc, _zone_draw_object, points)
+		_zone_draw_object = ""
+		_mark_dirty()
+	_sync_zone_overlay()
+	_refresh_covers_panel()
+
+## Vertex drags come back as the full regions array (order matches the sidecar's zones).
+func _on_zone_regions_changed(regions: Array) -> void:
+	var n := mini(regions.size(), (_covers_doc.zones as Array).size())
+	for i in range(n):
+		CoversModel.set_points(_covers_doc, i, (regions[i] as Dictionary).get("points", []))
+	_mark_dirty()
+
+func _delete_zone(object: String) -> void:
+	CoversModel.delete_zone(_covers_doc, object)       # the generated covers stay; remove them from the cluster list
+	_mark_dirty()
+	_sync_zone_overlay()
+	_refresh_covers_panel()
+
+## Remove every placement in a cluster (used to clear a zone's covers before a re-roll).
+func _remove_cluster(name: String) -> void:
+	var pl := M.placements(doc)
+	for i in range(pl.size() - 1, -1, -1):
+		if String((pl[i] as Dictionary).get("cluster", "")) == name:
+			M.remove_at(doc, i)
+
+## Roll a fresh cover scatter for one object's zone (replacing that zone's previous covers).
+func _generate_for(object: String) -> void:
+	var zone := CoversModel.zone_for(_covers_doc, object)
+	if zone.is_empty():
+		return
+	var assets := _coverup_assets()
+	if assets.is_empty():
+		push_warning("[sw] no coverup art under map/%s/coverup — nothing to scatter" % scene_name)
+		return
+	var cname := "unlock_region_" + object
+	_remove_cluster(cname)                             # a re-roll replaces the old scatter
+	var entries := CoversGen.generate(zone.points, assets, cname, COVER_CLUSTER_Z, int(randi()))
+	for e in entries:
+		M.add_entry(doc, e)
+	_mark_dirty()
+	_rebuild_stage()
+	_refresh_covers_panel()
+
+## Generate covers for every drawn zone in one click.
+func _generate_all() -> void:
+	for z in (_covers_doc.zones as Array):
+		_generate_for(String((z as Dictionary).get("object", "")))
+
+func _refresh_covers_panel() -> void:
+	if _covers_section == null:
+		return
+	_clear_children(_covers_section)
+	var toggle := _small_button("◧ Zones: %s" % ("ON" if _zone_mode else "off"), _toggle_zone_mode)
+	toggle.tooltip_text = "draw / edit cover zones over the primary objects"
+	_covers_section.add_child(toggle)
+	if not _zone_mode:
+		_covers_section.add_child(_label("  covers render in the coverup layer", FS.TOOL))
+		return
+	_covers_section.add_child(_small_button("✦ Generate ALL covers", _generate_all))
+	var primaries := _primary_clusters()
+	if primaries.is_empty():
+		_covers_section.add_child(_label("  no primary objects", FS.TOOL))
+	for cn in primaries:
+		var has := CoversModel.has_zone(_covers_doc, cn)
+		var row := HBoxContainer.new()
+		var name_lbl := _label("%s %s" % ["◆" if has else "◇", cn], FS.TOOL)
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_lbl.clip_text = true
+		row.add_child(name_lbl)
+		row.add_child(_small_button("Redraw" if has else "Draw", _begin_draw_zone.bind(cn)))
+		if has:
+			row.add_child(_small_button("Gen", _generate_for.bind(cn)))
+			var del := _small_button("✕", _delete_zone.bind(cn))
+			del.tooltip_text = "delete this zone (its generated covers stay)"
+			row.add_child(del)
+		_covers_section.add_child(row)
+	if _zone_draw_object != "":
+		_covers_section.add_child(_label(
+			"  drawing '%s' — click to drop points, click the first to close" % _zone_draw_object, FS.TOOL))
 
 func _refresh_status() -> void:
 	if _save_btn != null:
@@ -821,6 +1018,13 @@ func _build_sidebar() -> void:
 	_save_btn.pressed.connect(_save)
 	col.add_child(_save_btn)
 
+	col.add_child(_label("Covers", FS.TOOL, true))
+	_covers_section = VBoxContainer.new()
+	_covers_section.name = "CoversSection"
+	_covers_section.add_theme_constant_override("separation", 2)
+	col.add_child(_covers_section)
+	_refresh_covers_panel()
+
 	col.add_child(_label("Clusters", FS.TOOL, true))
 	_cluster_actions = VBoxContainer.new()
 	_cluster_actions.add_theme_constant_override("separation", 2)
@@ -872,6 +1076,7 @@ func _build_scene_strip() -> void:
 func _switch_scene(scene: String) -> void:
 	if not setup(_scenes_root, scene):
 		return
+	_exit_zone_mode()                                  # a scene switch leaves zone mode; setup() reloaded its sidecar
 	_sel = -1
 	_sel_cluster = ""
 	_isolated = ""

@@ -25,7 +25,6 @@ const Quests = preload("res://engine/scripts/core/quests.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
-const Bust = preload("res://engine/scripts/ui/bust.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const STRAW = Game.PALETTE.STRAW
 const CREAM = Game.PALETTE.CREAM
@@ -41,9 +40,10 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
-const CARD_CORNER_FRAC := 0.12            # card corner radius as a fraction of the card height
-const BUBBLE_PATH := "ui/quest/bubble_ask.png"   # the real speech bubble (tail toward the character)
-const PLAQUE_AR := 2.1                    # the reward is a wide paper pill (w : h), not a square token
+const CARD_CORNER_FRAC := 0.12            # card corner radius as a fraction of the card height (shadow rounding)
+const CARD_PATH := "ui/quest/card_shell.png"     # the deckled cut-paper card shell (art fills the box)
+const PILL_PATH := "ui/quest/reward_pill.png"    # the stitched reward tag — gold coin baked into the LEFT third
+const PLAQUE_AR := 1.9                    # the reward pill's native w : h (coin left, +N set into the right two-thirds)
 
 static func _meadow_path(file_name: String) -> String:
 	return Game.art(MEADOW_UI % file_name)
@@ -53,26 +53,24 @@ static func _meadow_tex(file_name: String) -> Texture2D:
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 # Tunable layout — ALL fractions. card_w / card_h are the box's width / height fraction of the stand,
-# INDEPENDENT (the art fills the box, so a box off the art's ~1.77:1 native shape stretches it). The rest
-# are a size (×cardH) and a centre x/y (×cardW, ×cardH): the bust fills the LEFT half, the standalone speech
-# bubble + the asked item ride the upper RIGHT, and the reward pill hangs just below the bubble. These are
-# the SHIPPED DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved config
-# (Kit.giver_lay_from_config), overriding per key — so designers tune + Save in the workbench, not here.
-# card_w 0.92 leaves side padding between neighbouring cards on the fence; bust/bubble/pill x are
-# pulled slightly inboard so the content keeps a margin from the card's side edges.
+# INDEPENDENT (the deckled card art fills the box, so a box off its native shape stretches it). item_w/h
+# are a size (×cardH) and item_x/y a centre (×cardW, ×cardH): the asked item is the card's BIG centred
+# focal art. plaque_w is a width (×cardW) and plaque_x/y a centre — the reward tag hangs at the bottom-
+# right. These are the SHIPPED DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved
+# config (Kit.giver_lay_from_config), overriding per key — designers tune + Save in the workbench, not here.
+# Legacy bust_*/bubble_* keys are still accepted (ignored) from saved configs — the portrait + speech
+# bubble were retired when the card became just the item + the reward plaque.
 const LAY := {
-	"card_w": 0.92, "card_h": 0.65,
-	"bust_size": 0.94, "bust_x": 0.27, "bust_y": 0.53,
-	"bubble_size": 0.66, "bubble_x": 0.70, "bubble_y": 0.35,
-	"item_w": 0.32, "item_h": 0.32, "item_x": 0.70, "item_y": 0.32,
-	"plaque_w": 0.40, "plaque_x": 0.70, "plaque_y": 0.81,
+	"card_w": 0.92, "card_h": 0.97,
+	"item_w": 0.60, "item_h": 0.60, "item_x": 0.50, "item_y": 0.44,
+	"plaque_w": 0.46, "plaque_x": 0.70, "plaque_y": 0.85,
 }
 
-# A paper card in the HUD pills' family (_paper_panel). The character bust fills the LEFT HALF (free to
-# overflow the box edges); the asked item sits on a STANDALONE speech bubble (board1_asset1, tail toward
-# the character) in the upper RIGHT; the +N reward sits on the paper reward pill hung just BELOW the bubble.
-# The bubble is a fixed-size sprite, so it never stretches with the card. No level badge, no count. No
-# separate stand-level check — the per-item ✓ is the ready signal.
+# The quest card: the deckled cut-paper shell (CARD_PATH) carrying just two things — the asked item as
+# the BIG centred focal art, and the reward tag (PILL_PATH) hung at the bottom-right with "+N" set into
+# its blank right two-thirds (the coin is baked into the art). Each of the three surfaces — card, item,
+# plaque — casts the ONE shared drop-shadow when the universal Shadow toggle is on. The per-item ✓
+# overtakes the item when payable; there is no separate stand-level check, no portrait, no speech bubble.
 static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var sw: float = cfg.stand_w
 	var fh: float = cfg.fence_h
@@ -106,53 +104,33 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
-	# the character portrait — LARGE on the LEFT, filling the box top↔bottom and free to overflow its
-	# edges. Drawn before the plaque so the plaque sits in FRONT of it. Its FACE is keyed off the quest's
-	# asked line, so the fence draws a varied frameless cast from the scene's giver pool.
-	# — stable for the life of the quest. Falls back to the slot index for an item-less quest.
+	# the asked item — the card's BIG centred focal art, with its own shared drop-shadow. Its ladder tap
+	# is wired below; the per-item ✓ overtakes it when payable. Falls back to nothing for an item-less quest.
 	var it: Dictionary = G.quest_item(q)
-	var bsz := cardH * float(L.bust_size)
-	# the portrait is keyed off the quest's ASSIGNED giver index (board.gd picks one distinct from the last
-	# 5), falling back to the asked line / slot index for quests authored before giver assignment existed.
-	var giver_idx := int(q.get("giver", int(it.line) if not it.is_empty() else qi))
-	# the giver POOL is map-specific (map 0 keeps the original cast; maps ≥1 use their own themed sheet)
-	var bust := Bust.make(giver_idx, bsz, int(cfg.get("map_idx", 0)))
-	# the portrait is CLIPPED to the card rect (mock: the character is cut by the card edge like a
-	# sticker laid under the frame) — a dedicated clip layer, NOT clip_contents on the card itself,
-	# so the card's show_behind_parent shared shadow keeps drawing outside the rect.
-	var bust_clip := Control.new()
-	bust_clip.name = "BustClip"
-	bust_clip.position = Vector2(cx, cy)
-	bust_clip.size = Vector2(cardW, cardH)
-	bust_clip.clip_contents = true
-	bust_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bust.position = Vector2(cardW * float(L.bust_x) - bsz / 2.0, cardH * float(L.bust_y) - bsz / 2.0)
-	bust_clip.add_child(bust)
-	stand.add_child(bust_clip)
-	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
-	bust.tree_entered.connect(func() -> void:
-		if is_instance_valid(bust) and bust.is_inside_tree():
-			FX.pop_in(bust), CONNECT_ONE_SHOT)
-	# the standalone speech bubble (ui/quest/bubble_ask.png — board1_asset1, tail tilting toward the
-	# character on the left), with the asked item drawn ON it. A fixed-size sprite drawn behind the item,
-	# so it never stretches with the card. The ✓ overtakes the item when the quest is ready.
 	var item_ui: Dictionary = {}
+	var focal: Control = null                          # the item icon — board.gd bobs THIS as the ready signal
 	if not it.is_empty():
 		var acode := int(it.line) * 100 + int(it.tier)
-		var bd := cardH * float(L.bubble_size)
-		var bubble := _speech_bubble(bd)
-		bubble.position = Vector2(cx + cardW * float(L.bubble_x) - bd / 2.0, cy + cardH * float(L.bubble_y) - bd / 2.0)
-		stand.add_child(bubble)
 		var iw := cardH * float(L.item_w)
 		var ih := cardH * float(L.item_h)
+		var icx := cx + cardW * float(L.item_x)         # item centre
+		var icy := cy + cardH * float(L.item_y)
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(iw, ih)
 		icon.size = Vector2(iw, ih)
-		icon.position = Vector2(cx + cardW * float(L.item_x) - iw / 2.0, cy + cardH * float(L.item_y) - ih / 2.0)
+		icon.position = Vector2(icx - iw / 2.0, icy - ih / 2.0)
 		# PASS, not STOP: let the drag reach the ScrollContainer so the bar scrolls even when the touch
-		# starts on the ask bubble. Its OWN tap still works (wire_tap), and _stand_tap calls accept_event()
+		# starts on the item. Its OWN tap still works (wire_tap), and _stand_tap calls accept_event()
 		# when that tap fires, so it doesn't also trigger the card's deliver-tap underneath.
 		icon.mouse_filter = Control.MOUSE_FILTER_PASS
+		# a soft ground shadow just under the item's base (sibling behind the icon, gated by the universal
+		# Shadow toggle) — so the big item reads as sitting on the card, and its bob floats clear of it.
+		if bool(L.get("shadow", false)):
+			var gw := iw * 0.58
+			var gh := ih * 0.15
+			var gnd := _item_ground_shadow(gw, gh, _shadow_params(L))
+			gnd.position = Vector2(icx - gw / 2.0, icy + ih * 0.22 - gh / 2.0)
+			stand.add_child(gnd)
 		# the asked item — built square at the LARGER of w/h (so it never upscales), then scaled to fill the
 		# w×h box. item_w == item_h gives an undistorted icon; differ them to stretch (the workbench tunes both).
 		var base := maxf(iw, ih)
@@ -172,35 +150,34 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		else:
 			wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
 		item_ui = {"code": acode, "piece": piece, "met": met}
-	# (The "incoming generator" reward preview was removed with the SINGLE-GENERATOR model: quests no
-	# longer carry a `reward.generators` grant — the one map-0 anchor pops every opened line, so there is
-	# no next-map tool to preview.)
-	# the reward pill — seated INSIDE the box at the bottom, in FRONT of the bust, with the
-	# coin + "+N" reward centred on its paper face.
+		focal = icon
+	# the reward tag — the stitched paper pill (coin baked into the LEFT third) hung at the card's
+	# bottom-right, its own shared drop-shadow behind it, with "+N" set into the blank RIGHT two-thirds.
 	var plw := cardW * float(L.plaque_w)
 	var plh := plw / PLAQUE_AR
 	var pcx := cx + cardW * float(L.plaque_x)
 	var pcy := cy + cardH * float(L.plaque_y)        # the reward pill centre
 	var plaque := _reward_plaque(plw, plh)
 	plaque.position = Vector2(pcx - plw / 2.0, pcy - plh / 2.0)
+	_add_content_shadow(plaque, plh * 0.4, L)        # rounded-tag shadow behind the pill
 	stand.add_child(plaque)
-	var pay := HBoxContainer.new()
-	pay.add_theme_constant_override("separation", 3)
-	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pay.add_child(Look.icon("coin", plh * 0.66))
+	# the "+N" reward, set into the pill's blank RIGHT two-thirds (the coin lives in the art's left third).
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.coins(q)
-	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.64))
+	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.58))
 	pay_lbl.add_theme_color_override("font_color", INK)
 	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid pill behind — no halo
+	pay_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pay.add_child(pay_lbl)
-	# centre the pair on the plaque face. Driven by resized — fires only while `pay` is alive + in-tree
-	# (a stand freed before idle would otherwise fire this over a freed `pay`, the §120 freed-capture).
+	pay_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# centre the number on the RIGHT two-thirds of the pill (x ≈ 0.64 across it; the coin fills the left third).
+	var num_cx := (pcx - plw / 2.0) + plw * 0.64
+	# Driven by resized — fires only while the label is alive + in-tree (a stand freed before idle would
+	# otherwise fire this over a freed label, the §120 freed-capture).
 	var place_pay := func() -> void:
-		pay.position = Vector2(pcx - pay.size.x / 2.0, pcy - pay.size.y / 2.0)
-	pay.resized.connect(place_pay)
-	stand.add_child(pay)
+		pay_lbl.position = Vector2(num_cx - pay_lbl.size.x / 2.0, pcy - pay_lbl.size.y / 2.0)
+	pay_lbl.resized.connect(place_pay)
+	stand.add_child(pay_lbl)
 	# §7 FEATURED is intentionally NOT surfaced on the board: quests aren't skippable, so a
 	# "this one's special" highlight (or a +N💎 shoulder) is noise the player can't act on. The
 	# `featured` flag + its coins/premium bonus still ride in the quest data and pay out silently
@@ -208,9 +185,10 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# event "do a featured quest" hook, §17/§18) — is parked in the backlog.
 	# the ready check is per-item (the big centered ✓ over the item), so there is no separate
 	# stand-level check. The "check" key stays in the result for board.gd, set to null (the board
-	# already guards it with `if check != null and is_instance_valid(check)`).
+	# already guards it with `if check != null and is_instance_valid(check)`). "bust" now points at
+	# the item icon — board.gd bobs it as the ready signal (the portrait it used to bob is gone).
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
-	return {"chip": stand, "qi": qi, "item": item_ui, "check": null, "bust": bust}
+	return {"chip": stand, "qi": qi, "item": item_ui, "check": null, "bust": focal}
 
 # One paper-family surface (shared by the card and the reward pill): a flat cream rounded panel
 # with the thin PAPER_EDGE rim, carrying the kit's texture_cream grain layer clipped to the same
@@ -239,57 +217,92 @@ static func _paper_panel(node_name: String, corner: float) -> Panel:
 			paper.offset_bottom = -2.0
 	return panel
 
-# The quest card surface: the shared paper panel at the card's corner radius (the mock's plain-border
-# paper card). lay is still consulted for the shared shadow toggle; card_slice_* keys are ignored.
+# The quest card surface: the deckled cut-paper shell (CARD_PATH) stretched to fill the w×h box, falling
+# back to the shared code-drawn paper panel when the art is absent. lay is consulted for the shared shadow
+# toggle; card_slice_* keys are ignored.
 static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
-	var card := _paper_panel("MeadowQuestCard", maxf(10.0, h * CARD_CORNER_FRAC))
+	var card := _card_surface(w, h)
 	_add_card_shadow(card, h, lay)
 	return card
 
+# The deckled card art as a fill TextureRect (STRETCH_SCALE — the box shape drives it, so card_w/card_h
+# tune the card outline), or the code-drawn paper panel when the texture is missing. Stamps the shadow
+# corner meta either way so the shared shadow rounds to the card.
+static func _card_surface(w: float, h: float) -> Control:
+	var path := Game.art(CARD_PATH)
+	if ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.name = "MeadowQuestCard"
+		t.texture = load(path)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.custom_minimum_size = Vector2(w, h)
+		t.size = Vector2(w, h)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.set_meta(Look.SHADOW_CORNER_META, h * CARD_CORNER_FRAC)
+		return t
+	return _paper_panel("MeadowQuestCard", maxf(10.0, h * CARD_CORNER_FRAC))
+
 # Cast the ONE SHARED drop-shadow behind the card when the universal Shadow toggle is on (lay.shadow). Reuses
 # Skin.shadow_rect + the shared lay.shadow_params (from the global `shadow` block) — the exact shadow every
-# other component casts. Added as a show_behind_parent child so the NinePatch keeps its node identity (the card
-# is a non-container Control — this mirrors Skin's non-container shadow pattern). No-op when the toggle is off.
+# other component casts. Added as a show_behind_parent child so the card keeps its node identity (a non-
+# container Control — mirrors Skin's non-container shadow pattern). No-op when the toggle is off.
 static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 	if not bool(lay.get("shadow", false)):
 		return
-	var params: Dictionary = lay.get("shadow_params", {}) as Dictionary
-	var sh := Look.shadow_rect(Look.shape_corner(card, h * 0.12), params if not params.is_empty() else Look.shadow_params({}))
+	var sh := Look.shadow_rect(Look.shape_corner(card, h * 0.12), _shadow_params(lay))
 	sh.show_behind_parent = true
 	card.add_child(sh)
 
-# The standalone speech bubble (ui/quest/bubble_ask.png) drawn at a fixed size in a d×d box (aspect
-# kept, so the tail stays put) — a plain cream rounded panel when the art is absent. The caller seats
-# the asked item on it.
-static func _speech_bubble(d: float) -> Control:
-	var path := Game.art(BUBBLE_PATH)
+# Cast the shared drop-shadow behind a SOLID content surface (the reward pill) at corner radius `corner`,
+# as a show_behind_parent child — the same filled shadow the card casts. No-op when the universal Shadow
+# toggle is off, so card + plaque light + darken together.
+static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary) -> void:
+	if not bool(lay.get("shadow", false)):
+		return
+	var sh := Look.shadow_rect(corner, _shadow_params(lay))
+	sh.show_behind_parent = true
+	surface.add_child(sh)
+
+# A soft GROUND shadow for the item — a wide, flattened cream-slate pill the caller seats just under the
+# item's base, so the big transparent-padded item reads as sitting on the card (a filled disc behind the
+# whole icon box would show as a hard shape; a bodyless feather reads as a ring). Low alpha + a soft
+# feather; the caller sizes + places it. Returned as a plain sibling so the item's bob floats above it.
+static func _item_ground_shadow(w: float, h: float, p: Dictionary) -> Panel:
+	var sh := Panel.new()
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sh.custom_minimum_size = Vector2(w, h)
+	sh.size = Vector2(w, h)
+	var a := float(p.get("alpha", 0.2))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Look.shadow_color(a * 0.9)
+	sb.set_corner_radius_all(int(h / 2.0))               # flattened stadium → a soft ground ellipse
+	sb.shadow_color = Look.shadow_color(a * 0.7)
+	sb.shadow_size = int(maxf(float(p.get("blur", 6.0)) + 4.0, 8.0))
+	sh.add_theme_stylebox_override("panel", sb)
+	return sh
+
+# The shared shadow look — the global `shadow` block passed in cfg.lay.shadow_params, else Skin's default.
+static func _shadow_params(lay: Dictionary) -> Dictionary:
+	var params: Dictionary = lay.get("shadow_params", {}) as Dictionary
+	return params if not params.is_empty() else Look.shadow_params({})
+
+# The reward pill: the stitched cut-paper tag (PILL_PATH) — coin baked into the LEFT third — stretched to
+# fill the w×h box, falling back to the code-drawn paper pill when the art is absent. The caller hangs it
+# at the card's bottom-right and sets "+N" into its blank right two-thirds.
+static func _reward_plaque(w: float, h: float) -> Control:
+	var path := Game.art(PILL_PATH)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
-		t.name = "MeadowAskBubble"
+		t.name = "MeadowRewardPill"
 		t.texture = load(path)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.custom_minimum_size = Vector2(d, d)
-		t.size = Vector2(d, d)
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.custom_minimum_size = Vector2(w, h)
+		t.size = Vector2(w, h)
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.set_meta(Look.SHADOW_CORNER_META, h * 0.4)
 		return t
-	var panel := Panel.new()
-	panel.custom_minimum_size = Vector2(d, d)
-	panel.size = Vector2(d, d)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FBF6EC", 0.97)
-	sb.set_corner_radius_all(int(d * 0.32))
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#C9A66B", 0.85)
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return panel
-
-# The reward pill: the shared paper panel at full pill rounding (the mock's reward chip). The
-# caller hangs it at the card's bottom-right and centres the coin + "+N" row on its face — the
-# pill itself carries NO coin, so the row's coin icon is the only one (the old reward_token.png
-# backing was itself a big coin, doubling the row's coin icon behind the text).
-static func _reward_plaque(w: float, h: float) -> Control:
 	var pill := _paper_panel("MeadowRewardPill", h * 0.5)
 	pill.custom_minimum_size = Vector2(w, h)
 	pill.size = Vector2(w, h)
