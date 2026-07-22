@@ -2065,6 +2065,47 @@ static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> 
 		"edge_shadow": return d.get("frame_shadow", fallback)
 	return fallback
 
+## The SHARED text-shadow knob set — one drop-shadow control group appliable to ANY text element (the
+## dialog title today; more later). Same shape contract as CUT_PAPER_KNOBS: each entry is BOTH a row in
+## the workbench inspector (via _text_shadow_section) AND a field the reader parses + the applier consumes.
+## Add a knob here → it shows up everywhere the section is rendered, read, and applied, no per-caller edits.
+## `text_shadow` gates the rest; offsets are px; blur maps to the Label's shadow_outline_size; strength is a
+## percent → alpha. Per-element VALUES live in each component's own config block; this fixes only the SET.
+const TEXT_SHADOW_KNOBS := [
+	{"key": "text_shadow",     "kind": "toggle", "label": "Title shadow",  "default": false},
+	{"key": "shadow_dx",       "kind": "slider", "label": "Offset X",      "min": -20, "max": 20, "default": 0},
+	{"key": "shadow_dy",       "kind": "slider", "label": "Offset Y",      "min": -20, "max": 20, "default": 3},
+	{"key": "text_shadow_blur","kind": "slider", "label": "Shadow blur",   "min": 0,   "max": 24, "default": 0},
+	{"key": "text_shadow_str", "kind": "slider", "label": "Shadow strength","min": 0,  "max": 100, "default": 45},
+]
+
+## Read the shared text-shadow knob set from a component's config `block` into a NORMALIZED opts dict
+## (percent strength → 0..1 alpha). `overrides` supplies per-element fallback defaults; the schema default is
+## the final fallback. One parser for every text element that wears the shared drop shadow — no drift.
+static func text_shadow_opts_from_config(cfg: Dictionary, block: String, overrides: Dictionary = {}) -> Dictionary:
+	var d: Dictionary = cfg.get(block, {})
+	var o := {}
+	for knob in TEXT_SHADOW_KNOBS:
+		var k: String = knob["key"]
+		var raw: Variant = d.get(k, overrides.get(k, knob["default"]))
+		if String(knob.get("kind", "slider")) == "toggle":
+			o[k] = bool(raw)
+		elif k == "text_shadow_str":
+			o[k] = float(raw) / 100.0
+		else:
+			o[k] = float(raw)
+	return o
+
+## Apply the shared text drop-shadow to a Label from a normalized opts dict (text_shadow_opts_from_config).
+## Off → clears the shadow to fully transparent. Any text element calls this; nothing here is title-specific.
+static func apply_text_shadow(lbl: Label, o: Dictionary) -> void:
+	var on := bool(o.get("text_shadow", false))
+	var a: float = float(o.get("text_shadow_str", 0.0)) if on else 0.0
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, a))
+	lbl.add_theme_constant_override("shadow_offset_x", int(round(float(o.get("shadow_dx", 0)))))
+	lbl.add_theme_constant_override("shadow_offset_y", int(round(float(o.get("shadow_dy", 0)))))
+	lbl.add_theme_constant_override("shadow_outline_size", int(round(float(o.get("text_shadow_blur", 0)))))
+
 ## The paper-fibre tile (or null if absent) — passed to CutPaperPanel.configure so the engine applier
 ## stays free of grove asset paths.
 static func cut_paper_tile() -> Texture2D:
@@ -2319,7 +2360,7 @@ static func dialog_title_font(text: String, target_w: float, pad_x: float, frac:
 ## The SIMPLE dialog header (dialog mock set v2): the uppercased title in plain chunky ink, centered
 ## in the top band of the sheet — no ribbon art, no icon. Named DialogBanner so the workbench and the
 ## frame tests keep finding the header by the established handle.
-static func _title_header(text: String, font: int, band_h: float, width: float, burn: float = 0.0) -> Control:
+static func _title_header(text: String, font: int, band_h: float, width: float, shadow: Dictionary = {}) -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
@@ -2331,37 +2372,13 @@ static func _title_header(text: String, font: int, band_h: float, width: float, 
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
 	lbl.add_theme_font_size_override("font_size", font)
-	# The title reads pressed INTO the parchment via a CARVED GROOVE whose depth the "Banner Burn" slider
-	# drives (banner_burn 0..1). Not a cast drop shadow (that floats the text ABOVE the sheet) — a two-layer
-	# deboss: a cream "lower lip" copy nudged down behind the ink (light catching the bottom of the groove)
-	# + a faint dark shadow on the ink's TOP edge (the groove's shaded upper wall). burn == 0 is the flat
-	# baseline (single flat label). Depth scales with t and with THIS title's font so every dialog matches.
-	# burn is sourced from the workbench config (dialog_opts_from_config → banner_burn).
-	var t := clampf(burn, 0.0, 1.0)
 	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
 	lbl.add_theme_constant_override("outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if t > 0.0:
-		var dy := maxi(1, int(round(font * 0.045 * t)))          # groove depth (px), scales with font + burn
-		var lip := Label.new()                                    # the cream lower lip, BEHIND the ink
-		lip.name = "DialogTitleLip"
-		lip.text = lbl.text
-		lip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lip.add_theme_font_override("font", bold_font())
-		lip.add_theme_font_size_override("font_size", font)
-		lip.add_theme_color_override("font_color", Color("#FBF1D8"))
-		lip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		lip.set_anchors_preset(Control.PRESET_FULL_RECT)
-		lip.offset_top = dy; lip.offset_bottom = dy              # shift the whole rect down → centred text drops dy
-		lip.modulate.a = t                                       # the lip fades in with burn
-		header.add_child(lip)                                    # added first → sits behind the ink
-		# the ink's shaded top edge — a faint dark shadow nudged UP (deepens the groove, no down-right float).
-		lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.32 * t))
-		lbl.add_theme_constant_override("shadow_offset_x", 0)
-		lbl.add_theme_constant_override("shadow_offset_y", -maxi(1, int(round(font * 0.02 * t))))
-		lbl.add_theme_constant_override("shadow_outline_size", 0)
-	header.add_child(lbl)                                        # the ink face, on top of the lip
+	# The title's depth is the SHARED text drop-shadow (Kit.TEXT_SHADOW_KNOBS): offset · blur · strength,
+	# tuned on the Frame item and appliable to any text element. Off by default → a flat label.
+	apply_text_shadow(lbl, shadow)
+	header.add_child(lbl)
 	return header
 
 ## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
@@ -2655,7 +2672,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# the simple TITLE band overlays the TOP (added after the scroll → drawn on top), draggable.
 	# `inner` is inset by the card's content pad while the band spans the CARD width — pull it back
 	# to the card's left edge, or every centred title sits panel_pad_x right of the card centre.
-	var header := _title_header(banner_text, banner_font, banner_h, target_w, float(opts.get("banner_burn", 0.0)))
+	var header := _title_header(banner_text, banner_font, banner_h, target_w, opts.get("title_shadow", {}))
 	header.position = Vector2(-panel_pad_x, banner_pos.y)
 	inner.add_child(header)
 
@@ -4095,7 +4112,7 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"banner_text_y": float(d.get("banner_text_y", 0)),
 		"banner_text_pad_l": float(d.get("banner_text_pad_l", float(d.get("banner_h", 92)) * 0.55)),   # title↔left-tail room
 		"banner_text_pad_r": float(d.get("banner_text_pad_r", float(d.get("banner_h", 92)) * 0.55)),   # title↔right-tail room
-		"banner_burn": float(d.get("banner_burn", 0)) / 100.0,
+		"title_shadow": text_shadow_opts_from_config(cfg, "frame"),   # the SHARED text drop-shadow on the title
 		"banner_pos": Vector2(float(d.get("banner_x", 0)), float(d.get("banner_y", 0))),
 		"banner_icon_pos": Vector2(float(d.get("banner_icon_x", 130)), float(d.get("banner_icon_y", 19))),
 		"close_size": float(d.get("close_size", 64)),
