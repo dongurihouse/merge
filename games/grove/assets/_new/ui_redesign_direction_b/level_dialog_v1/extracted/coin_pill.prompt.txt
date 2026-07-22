@@ -1,0 +1,11 @@
+Generate an image (do not write code). Image 1 is a sakura cut-paper "Level Up" game dialog. Match its exact cut-paper material, colors, lighting, and paper-fiber texture (layered hand-cut cardstock, fine warm cut edge, thin darker inner edge, upper-left light).
+
+Extract just the resource PILL from Image 1: the horizontal warm sandy-cream rounded-capsule pill with a subtle inset paper edge, and the round reward-gold coin embossed with a cream five-point star sitting at its LEFT end.
+IMPORTANT: remove ALL text and numbers ("176 / 192 earned") — leave the pill empty to the right of the coin so dynamic text can be added later. Keep the gold star coin icon. Same cream color, capsule shape, and paper texture as Image 1. Make it a wide horizontal capsule.
+
+CRITICAL: Render this object ONLY — tightly cropped and centered — on a fully TRANSPARENT (alpha) background. NO drop shadow, NO cast shadow, NO ground shadow of any kind (the asset must be completely shadow-free for post-processing). Do NOT include the card/modal, background scene, or any other element.
+Save the PNG into: /Users/xup/dh/wt-sakura-level-extract/games/grove/assets/_new/ui_redesign_direction_b/level_dialog_v1/extracted
+Name it: coin_pill.png
+Report the absolute saved path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation, key the background out to real transparency, and save it to the path above. Then report the saved path.
