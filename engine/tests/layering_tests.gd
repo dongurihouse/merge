@@ -58,6 +58,7 @@ func _initialize() -> void:
 	for p in ui:
 		ok(not _reads(p, SCENES), "ui/%s does not import scenes/" % p.get_file())
 	_check_modal_z()
+	await _check_level_badge_layout()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
 
@@ -76,3 +77,26 @@ func _check_modal_z() -> void:
 		"MODAL_Z (%d) sits above the highest HUD/FX chrome (%d) — dialogs cover the world" % [Overlay.MODAL_Z, chrome_top])
 	ok(Overlay.MODAL_TOP_Z > Overlay.MODAL_Z, "MODAL_TOP_Z sits above MODAL_Z — a sheet can stack over an open modal")
 	host.free()
+
+func _check_level_badge_layout() -> void:
+	var host := Control.new()
+	host.custom_minimum_size = Vector2(1080, 1920)
+	host.size = Vector2(1080, 1920)
+	get_root().add_child(host)
+	var hud: Dictionary = Hud.build(host, {})
+	await process_frame
+	await process_frame
+	var water_pill := hud.get("water_pill") as Control
+	var lv_panel := hud.get("lv_panel") as Control
+	var badge := lv_panel.find_child("LevelBadge", true, false) as Control if lv_panel != null else null
+	var num := badge.get_node_or_null("lv_num") as Label if badge != null else null
+	var water_h := water_pill.get_global_rect().size.y if water_pill != null else 0.0
+	var badge_h := badge.get_global_rect().size.y if badge != null else 0.0
+	ok(badge != null and water_h > 0.0 and badge_h >= water_h * 1.19 and badge_h <= water_h * 1.21,
+		"level badge is about 20%% larger than the wallet pill (badge=%.1f pill=%.1f)" % [badge_h, water_h])
+	var badge_center := badge.get_global_rect().get_center() if badge != null else Vector2.ZERO
+	var num_center := num.get_global_rect().get_center() if num != null else Vector2(INF, INF)
+	ok(num != null and badge_center.distance_to(num_center) <= 1.0,
+		"level badge number rect is dead-centered (delta=%.1f, %.1f)" % [num_center.x - badge_center.x, num_center.y - badge_center.y])
+	host.queue_free()
+	await process_frame

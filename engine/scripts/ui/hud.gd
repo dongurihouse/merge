@@ -26,6 +26,7 @@ const STRAW = Pal.STRAW
 
 const HUD_SIDE_Z := 30        # above ambient/weather, below fly/floating FX
 const HUD_WALLET_Z := 40      # wallet stays above the side row when the top bands overlap
+const LEVEL_BADGE_SCALE := 1.2
 
 static func _view_size(host: Control) -> Vector2:
 	if host != null and host.is_inside_tree():
@@ -93,9 +94,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var top_edge := edge_margin + safe_top
 	var pill_slot_w := _screen_w_px(view, float(layout.currency_pill_w_frac))
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
-	# the Lv badge slot matches the currency pill HEIGHT — one top-band scale for the whole HUD
-	# (it was its own screen-width % and read more than twice the wallet's height).
-	var lv_px := maxf(1.0, roundf(float(pill.pill_h)))
+	# the Lv badge is a little larger than the currency pill height so the star reads as player status
+	# without returning to the old oversized screen-width badge.
+	var lv_px := maxf(1.0, ceilf(float(pill.pill_h) * LEVEL_BADGE_SCALE))
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
 	var icon_size := float(pill.get("icon_size", icon_box))   # the workbench-tuned icon SPRITE px (defaults to fill the box)

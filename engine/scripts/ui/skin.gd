@@ -197,7 +197,7 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 	var num := Label.new()
 	num.name = "lv_num"
 	num.text = str(level)
-	num.set_anchors_preset(Control.PRESET_FULL_RECT)
+	num.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	num.add_theme_font_override("font", Kit.bold_font())
