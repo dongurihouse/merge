@@ -14,7 +14,39 @@ func _initialize() -> void:
 	_live_corner_edit_reaches_shared_buttons()
 	_live_rim_color_edit_reaches_shared_buttons()
 	_white_role_builds_with_white_tile()
+	await _mail_claim_corner_follows_button_group()
 	finish()
+
+## The mail Claim button is the shared button's green variant — its cut-paper corner must FOLLOW the
+## shared Button corner knob, not a dead hardcoded pin. Regression for: card_claim_corner (never set by
+## anything) forced the claim corner to 20, so a Button-group Corner edit never reached the mail Claim.
+func _mail_claim_corner_follows_button_group() -> void:
+	Kit.clear_config_cache()
+	var view := UIWorkbenchView.new()
+	get_root().add_child(view)          # in-tree so the gallery/dialog builds
+	await process_frame   # let the @tool _build() populate _sections
+	view._selected = "button"
+	view._params["button"]["deckle"] = true
+	view._params["button"]["corner"] = 41.0   # distinctive shared corner
+	view._apply_edit()
+	view._rebuild_element("dialog")     # the Mail dialog preview (a Button dependent)
+	await process_frame
+	var dlg: Node = view._sections.get("dialog")
+	var claim: Button = _find_button_by_text(dlg, "Claim") if dlg != null else null
+	var d: Control = _deckle_of(claim) if claim != null else null
+	ok(d != null and is_equal_approx(float(d.corner), 41.0),
+		"the mail Claim corner follows the shared Button corner (41, not the old hardcoded 20)")
+	view.free()
+	Kit.clear_config_cache()
+
+func _find_button_by_text(n: Node, text: String) -> Button:
+	if n is Button and String((n as Button).text) == text:
+		return n as Button
+	for c in n.get_children():
+		var r := _find_button_by_text(c, text)
+		if r != null:
+			return r
+	return null
 
 ## The shared CutPaperPanel behind a deckled button (null if the button has no deckle surface).
 func _deckle_of(btn: Button) -> Control:

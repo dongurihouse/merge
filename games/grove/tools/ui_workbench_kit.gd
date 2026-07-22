@@ -1856,7 +1856,10 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 			claim_opts["bg"] = "green"
 			claim_opts["font"] = claim_font   # a tier over the reward numbers (mock v1's Claim reads noticeably larger)
 			claim_opts["pad_scale"] = float(btn_opts.get("card_claim_pad", 1.3))
-			claim_opts["corner"] = float(btn_opts.get("card_claim_corner", 20.0))
+			# corner FOLLOWS the shared Button corner (already in claim_opts from button_opts_from_config);
+			# a caller may still force card_claim_corner, but absent one the claim tracks the Button-group knob
+			# instead of the old dead 20 pin (which nothing set, so it silently froze the mail Claim's corner).
+			claim_opts["corner"] = float(btn_opts.get("card_claim_corner", claim_opts.get("corner", 20.0)))
 			var claim := pill_button(String(btn_opts.get("text", "Claim")), claim_opts)
 			claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			var on_claim: Callable = entry.get("on_claim", Callable())
@@ -2792,7 +2795,9 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		ca_opts["icon"] = String(opts.get("claim_all_icon", "mail"))
 		ca_opts["font"] = ca_font
 		ca_opts["shadow"] = true
-		ca_opts["corner"] = float(opts.get("claim_all_corner", 24.0))
+		# corner FOLLOWS the shared Button corner (already in ca_opts) unless a caller forces claim_all_corner —
+		# same principle as the per-row Claim: the shared edge knob owns the corner, not a frozen default.
+		ca_opts["corner"] = float(opts.get("claim_all_corner", ca_opts.get("corner", 24.0)))
 		ca_opts["pad_scale"] = float(opts.get("claim_all_pad", 1.35))
 		var ca := pill_button(claim_all_text, ca_opts)
 		ca.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the drawn pill tiles cleanly full-width
