@@ -2394,12 +2394,12 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 	var lead: Dictionary
 	if on_maps:
 		lead = {"name": "HomeTile", "icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.home"),
-			"surface": "sky", "action": func() -> void:
+			"action": func() -> void:
 				Audio.play("button_tap", -2.0)
 				_open_map(_map_idx)}
 	else:
 		lead = {"name": "MapTile", "icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"),
-			"surface": "sky", "action": func() -> void:
+			"action": func() -> void:
 				Audio.play("button_tap", -2.0)
 				_open_maps()}
 	var specs: Array = [
@@ -2408,24 +2408,24 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 		# list). The old rail hid it until the bucket existed; hiding a tile here either punches a hole
 		# in the row or reflows every destination out from under the player's thumb.
 		{"name": "ResidentsTile", "icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.residents"),
-			"surface": "green", "action": _open_residents},
+			"action": _open_residents},
 		{"name": "DailyTile", "icon": HC.ICON_DAILY, "caption": Strings.t("map.rail.daily"),
-			"surface": "gold", "action": _open_daily},
+			"action": _open_daily},
 	]
 	# Vault — behind the `piggy_vault` flag (OFF for now): the tile, its pip, and the skim all sleep.
 	if Features.on("piggy_vault"):
 		specs.append({"name": "VaultTile", "icon": HC.ICON_VAULT, "caption": Strings.t("map.rail.vault"),
-			"surface": "purple", "action": _open_vault})
+			"action": _open_vault})
 	# Mail — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
 		specs.append({"name": "MailTile", "icon": HC.ICON_INBOX, "caption": Strings.t("map.nav.mail"),
-			"surface": "kraft", "action": _open_inbox})
+			"action": _open_inbox})
 	# (Settings is NOT a bar tile: it is a bare gear pinned top-right under the wallet — see
 	#  _build_settings_gear. It is a utility, not a destination, so it stays off the destination row.)
 	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It wears the same rect tile
 	# geometry as its neighbours (coral paper); _refresh_play_cta swaps its icon/action Play↔Restore.
 	specs.append({"name": "BoardTile", "icon": HC.ICON_PLAY, "caption": Strings.t("map.nav.board"),
-		"surface": "coral", "action": _on_board})
+		"action": _on_board})
 	return specs
 
 func _build_bottom_chrome() -> void:
@@ -2528,9 +2528,9 @@ func _bottom_bar_tile_px(n: int) -> float:
 	var gap := clampf(view.x * 0.012, 6.0, 16.0)
 	return (view.x - side * 2.0 - gap * (float(n) - 1.0)) / float(n)
 
-# Build the bottom bar from `specs` (each {name, icon, caption, surface, action}) and return
-# {name: Button}. Tiles are the SHARED Kit.home_button in its rect form — icon over caption inside a
-# rounded paper tile — sized so the row fills the width between the safe-area insets exactly. Tiles
+# Build the bottom bar from `specs` (each {name, icon, caption, action}) and return
+# {name: Button}. Tiles are the SHARED Kit.action_button — a code-drawn rugged cut-paper edge with a
+# centered glyph — sized so the row fills the width between the safe-area insets exactly. Tiles
 # parent to `parent` (the home screen uses `self`; the gallery passes `content` so a page rebuild frees
 # them). When `track` they join `_chrome_nodes`, so `_set_map_chrome_visible` toggles them with the map.
 func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dictionary:

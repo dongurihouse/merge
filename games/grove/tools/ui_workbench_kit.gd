@@ -4435,22 +4435,6 @@ static func button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"shadow": bool(bt.get("shadow", true)),          # the button's per-component GLOBAL drop-shadow toggle
 	}
 
-## The BOTTOM-BAR tile opts: the shared home-button config, then the per-tile-width scaling a multi-tile
-## row needs so the icon + caption fit (the caption keys off the tile width, not the design font, and the
-## icon tightens). This is the SINGLE source for the bar's tile geometry — map.gd's _build_bottom_bar AND
-## the workbench home-button preview both call it, so the preview and the game render identically.
-static func home_bar_tile_opts(cfg: Dictionary, tile_w: float) -> Dictionary:
-	var opts := home_button_opts_from_config(cfg)
-	opts["px"] = tile_w
-	opts["shape"] = "rect"
-	opts["shadow"] = true
-	# scale the caption off the tile width (a 6–7 tile row is far narrower than a single button), and
-	# tighten the icon + inner padding so the two still stack inside the tile.
-	opts["caption_font"] = int(clampf(tile_w * 0.16, 11.0, float(FS.FINE)))
-	opts["icon_scale"] = 0.46
-	opts["rect_pad"] = 0.10
-	return opts
-
 ## Screen-relative HUD layout from the workbench. These are OUTER geometry slots, not the art recipe:
 ## level badge width, wallet band/pill widths, top band reserved before side rail/settings, shared nav
 ## button width, board info-bar width, board bottom-row height, and the shared right-edge inset for the wallet + rail.

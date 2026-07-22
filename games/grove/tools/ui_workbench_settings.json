@@ -197,26 +197,6 @@
   "outline_w": 4.0,
   "shadow": false
  },
- "home_button": {
-  "badge_dot_px": 15.0,
-  "badge_dx": 8.0,
-  "badge_dy": 8.0,
-  "badge_num_size": 28.0,
-  "caption_font": 28.0,
-  "caption_gap": -10.0,
-  "caption_pad_x": 16.0,
-  "caption_pad_y": 5.0,
-  "count_dx": -2.0,
-  "count_dy": 35.0,
-  "count_font": 32.0,
-  "fill_alpha": 90.0,
-  "glow": 45.0,
-  "icon_scale": 50.0,
-  "px": 158.0,
-  "rect_pad": 13.0,
-  "shadow": true,
-  "twinkle": 55.0
- },
  "hud_layout": {
   "bottom_row_h_pct": 10.0,
   "button_w_pct": 15.0,
