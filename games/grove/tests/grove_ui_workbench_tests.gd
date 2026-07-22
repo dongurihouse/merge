@@ -45,6 +45,11 @@ func _daily_card_face_tones() -> void:
 		"today's top layer is cream")
 	ok(double and bool(tl[0].draw_shadow) and not bool(tl[1].draw_shadow),
 		"the gold under-layer casts the shadow; the cream top layer does not (no double shadow)")
+	today.size = Vector2(120, 170)
+	var gold_rect: Rect2 = (tl[0] as Control).get_rect()
+	var cream_rect: Rect2 = (tl[1] as Control).get_rect()
+	ok(double and gold_rect.get_center().distance_to(cream_rect.get_center()) <= 0.5,
+		"today's gold under-layer is centered behind the cream layer")
 	today.free()
 
 ## The cut-paper face drives the DAILY grid, but the SHOP grid (the other daily_card caller) is unchanged —
