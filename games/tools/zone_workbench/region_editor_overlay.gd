@@ -14,6 +14,7 @@ const BUTTON_HIT_RADIUS := 18.0
 var image_size := Vector2(1320.0, 2346.0)
 var regions: Array = []
 var edit_enabled := false
+var show_buttons := true   # the unlock-disc markers; the scene workbench hides them (covers, not unlocks)
 var selected_region := 0
 var dragging_region := -1
 var dragging_point := -1
@@ -118,8 +119,9 @@ func _draw() -> void:
 			_draw_handle(point, Color(0.75, 1.0, 1.0, 1.0) if region_index == selected_region else Color(1.0, 0.92, 1.0, 1.0))
 
 	# the unlock-disc markers on top of every polygon (so they are always grabbable)
-	for region_index in regions.size():
-		_draw_button_marker(regions[region_index])
+	if show_buttons:
+		for region_index in regions.size():
+			_draw_button_marker(regions[region_index])
 
 	if draw_mode:
 		_draw_in_progress()
@@ -181,7 +183,7 @@ func _gui_input(event: InputEvent) -> void:
 		var button_event := event as InputEventMouseButton
 
 		# right-click an unlock-disc marker -> reset it to auto (the centroid, which follows the polygon)
-		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
+		if show_buttons and button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
 			var reset_index := _find_button_handle(button_event.position)
 			if reset_index >= 0:
 				(regions[reset_index] as Dictionary).erase("button")
@@ -203,7 +205,7 @@ func _gui_input(event: InputEvent) -> void:
 				selection_changed.emit(selected_region)
 				accept_event()
 				return
-			var button_index := _find_button_handle(button_event.position)
+			var button_index := _find_button_handle(button_event.position) if show_buttons else -1
 			if button_index >= 0:
 				dragging_button = button_index
 				set_selected_region(button_index)
