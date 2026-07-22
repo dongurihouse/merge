@@ -269,7 +269,10 @@ func _default_params() -> Dictionary:
 			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 			"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
+			# banner_text_x/y + banner_burn are retired (the sliders drove nothing / the burn is dropped); kept as
+			# harmless config for the fallback baked face. The title's depth is now the SHARED text drop-shadow:
 			"banner_text_x": 0, "banner_text_y": 0, "banner_burn": 60,
+			"text_shadow": false, "shadow_dx": 0, "shadow_dy": 3, "text_shadow_blur": 0, "text_shadow_str": 45,
 			"banner_text_pad_l": 50, "banner_text_pad_r": 50,   # title↔tail room (the auto-sizing ribbon's L/R padding)
 			"banner_x": 0, "banner_y": 0,
 			"banner_icon_x": 130, "banner_icon_y": 19,
@@ -1851,6 +1854,19 @@ func _cut_paper_section(target: String) -> void:
 			_:
 				_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
 
+## The SHARED text drop-shadow section (Kit.TEXT_SHADOW_KNOBS) — one control group appliable to any text
+## element (the dialog title today). The enable toggle always shows; the offset/blur/strength sliders show
+## only when it's on. A new schema knob appears here automatically, like the cut-paper section.
+func _text_shadow_section(target: String) -> void:
+	_section_header("Title shadow (shared)")
+	var on := bool((_params[target] as Dictionary).get("text_shadow", false))
+	for knob in Kit.TEXT_SHADOW_KNOBS:
+		var key := String(knob["key"])
+		if String(knob.get("kind", "slider")) == "toggle":
+			_sidebar_body.add_child(_toggle_row(String(knob["label"]), key, bool(knob.get("default", false)), target))
+		elif on:
+			_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
+
 func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
 	_section_header("Dialog width (all dialogs)")
@@ -1860,14 +1876,10 @@ func _frame_sidebar() -> void:
 	# sheet is the frame face now, so the baked 9-slice card knobs no longer shape anything. The keys stay in
 	# config for the fallback baked path when the edge is off — they're just no longer tunable here.
 
-	# TITLE — the dialog title text only (there is no ribbon banner behind it in the cut-paper frame): its
-	# size, position, and engrave style. Ribbon/icon knobs (band height, banner icon, tail padding, banner
-	# node offset) are retired with the ribbon; their config values persist for the fallback face.
-	_section_header("Title")
-	_sidebar_body.add_child(_slider_row(["banner_font", 16, 56]))          # size
-	_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))     # position — horizontal
-	_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))       # position — vertical
-	_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))          # style — engrave intensity (0 = off)
+	# TITLE — the dialog title text. Its size + position auto-fit the cut-paper sheet (the old banner_font /
+	# banner_text_x/y sliders drove nothing and are retired; the carved-groove "burn" is dropped too). The only
+	# tunable is the SHARED text drop-shadow, which any text element can wear.
+	_text_shadow_section("frame")
 
 	_section_header("Close")
 	_sidebar_body.add_child(_slider_row(["close_size", 30, 96]))
