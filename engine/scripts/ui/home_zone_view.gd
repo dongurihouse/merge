@@ -12,7 +12,7 @@ extends RefCounted
 
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")
 const SpriteShadow = preload("res://engine/scripts/ui/sprite_shadow.gd")
-const COVERUP_SHADOW_ALPHA := 0.34   # scene canopy drop-shadow depth — matches the base art's baked cut-paper shadows (heavier than UI chrome, on dark foliage)
+const COVERUP_SHADOW_ALPHA := 0.42   # scene canopy contact-shadow depth — matches the base art's crisp baked cut-paper shadows on dark foliage
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Coverings = preload("res://engine/scripts/ui/scene_coverings.gd")
 const LockBadge = preload("res://engine/scripts/ui/lock_badge.gd")
@@ -174,9 +174,9 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 			csh.texture = spr.texture
 			csh.draw_size = cd
 			csh.fit = true
-			csh.offset = Vector2(cd.x * 0.025, cd.y * 0.06)
+			csh.offset = Vector2(cd.x * 0.015, cd.y * 0.035)
 			csh.tint = Look.shadow_color(COVERUP_SHADOW_ALPHA)
-			csh.soft_div = 4
+			csh.soft_div = 2
 			csh.show_behind_parent = true
 			spr.add_child(csh)
 		(groups[cl]["sprites"] as Array).append({"sort_y": int(cov.get("sort_y", 0)), "node": spr})
