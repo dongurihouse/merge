@@ -301,15 +301,12 @@ func _default_params() -> Dictionary:
 			"tint": "DCE7C8", "label": "Sound effects", "value": true},
 		# the QUEST-GIVER card (giver_stand.gd) — the shared paper-panel card plus
 		# the live portrait (left) / item-in-bubble (right) / reward pill the board draws on it. The
-		# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
-		# The DEMO knobs only preview: bust picks from the scene's giver pool on the left; tier is the asked item's
-		# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
-		# board's size; met toggles the ready ✓.
+		# LAYOUT fractions (card/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
+		# The DEMO knobs only preview: bust picks the asked LINE (0..15); tier is the asked item's tier;
+		# stars is the plaque reward; stand_w/fence_h preview the board's size; met toggles the ready ✓.
 		"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
-			"card_w": 92, "card_h": 65,
-			"bust_size": 94, "bust_x": 27, "bust_y": 53,
-			"bubble_size": 66, "bubble_x": 70, "bubble_y": 35,
-			"item_size": 32, "item_x": 70, "item_y": 32, "plaque_w": 40, "plaque_x": 70, "plaque_y": 81},
+			"card_w": 92, "card_h": 97,
+			"item_size": 60, "item_x": 50, "item_y": 44, "plaque_w": 46, "plaque_x": 70, "plaque_y": 85},
 		# the MAIL / reward-row card — the SHARED cut-paper edge knob set (deckle · corner · amp · freq · rim ·
 		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
@@ -1780,14 +1777,6 @@ func _element_sidebar(_id: String) -> void:
 			_group_header("Layout — saved to config (board reads it live)", true)
 			_sidebar_body.add_child(_slider_row(["card_w", 40, 300]))      # box width  (% of stand) — independent of height
 			_sidebar_body.add_child(_slider_row(["card_h", 40, 300]))      # box height (% of stand) — independent of width
-			_section_header("Quest giver")
-			_sidebar_body.add_child(_slider_row(["bust_size", 50, 160]))   # size (% of box height)
-			_sidebar_body.add_child(_slider_row(["bust_x", 0, 100]))       # centre x (% of box width)
-			_sidebar_body.add_child(_slider_row(["bust_y", 0, 100]))       # centre y (% of box height)
-			_section_header("Speech bubble")
-			_sidebar_body.add_child(_slider_row(["bubble_size", 30, 100])) # size (% of box height)
-			_sidebar_body.add_child(_slider_row(["bubble_x", 0, 100]))     # centre x (% of box width)
-			_sidebar_body.add_child(_slider_row(["bubble_y", 0, 100]))     # centre y (% of box height)
 			_section_header("Item icon")
 			_sidebar_body.add_child(_slider_row(["item_size", 10, 150]))   # uniform size (% of box height) — drives item_w == item_h, so the item stays square
 			_sidebar_body.add_child(_slider_row(["item_x", 0, 100]))       # centre x (% of box width)
