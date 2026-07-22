@@ -13,6 +13,34 @@ extends SceneTree
 
 const DEFAULT_TOL := 0.18
 
+## Zero the alpha (RGB kept) of every pixel within `tol` of `key`, in place. Returns the
+## number of pixels cleared. Shared by the CLI entry point and the regression suite.
+static func key_image(img: Image, key: Color, tol: float) -> int:
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var kr := int(round(key.r * 255.0))
+	var kg := int(round(key.g * 255.0))
+	var kb := int(round(key.b * 255.0))
+	# squared 0..255 distance threshold: (tol * 255)^2 * 3  (3 channels)
+	var thr := (tol * 255.0) * (tol * 255.0) * 3.0
+	var w := img.get_width()
+	var h := img.get_height()
+	var data := img.get_data()       # PackedByteArray, RGBA8, mutable copy
+	var keyed := 0
+	var n := w * h
+	for i in n:
+		var o := i * 4
+		var dr := int(data[o]) - kr
+		var dg := int(data[o + 1]) - kg
+		var db := int(data[o + 2]) - kb
+		if float(dr * dr + dg * dg + db * db) <= thr:
+			data[o + 3] = 0
+			keyed += 1
+	# write the cleared alpha back into the caller's Image
+	var out := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data)
+	img.blit_rect(out, Rect2i(0, 0, w, h), Vector2i(0, 0))
+	return keyed
+
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var key := Color(0, 0, 0)
@@ -33,11 +61,6 @@ func _initialize() -> void:
 		quit(2)
 		return
 
-	var kr := int(round(key.r * 255.0))
-	var kg := int(round(key.g * 255.0))
-	var kb := int(round(key.b * 255.0))
-	# squared 0..255 distance threshold: (tol * 255)^2 * 3  (3 channels)
-	var thr := (tol * 255.0) * (tol * 255.0) * 3.0
 	var rc := 0
 	for p in paths:
 		var img := Image.load_from_file(p)
@@ -45,23 +68,9 @@ func _initialize() -> void:
 			print("FAIL load ", p)
 			rc = 1
 			continue
-		if img.get_format() != Image.FORMAT_RGBA8:
-			img.convert(Image.FORMAT_RGBA8)
-		var w := img.get_width()
-		var h := img.get_height()
-		var data := img.get_data()       # PackedByteArray, RGBA8, mutable copy
-		var keyed := 0
-		var n := w * h
-		for i in n:
-			var o := i * 4
-			var dr := int(data[o]) - kr
-			var dg := int(data[o + 1]) - kg
-			var db := int(data[o + 2]) - kb
-			if float(dr * dr + dg * dg + db * db) <= thr:
-				data[o + 3] = 0
-				keyed += 1
-		var out := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data)
-		out.save_png(p)
+		var n := img.get_width() * img.get_height()
+		var keyed := key_image(img, key, tol)
+		img.save_png(p)
 		print("chroma_key ", p, " — cleared ", keyed, " of ", n, " px (key=#",
 			key.to_html(false), " tol=", tol, ")")
 	quit(rc)

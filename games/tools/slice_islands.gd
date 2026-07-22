@@ -7,6 +7,9 @@ extends SceneTree
 ##
 ## 1) Flood-fill the background inward from the image border over "bright + achromatic" pixels
 ##    (the checkerboard). Enclosed light interiors of a piece are NOT reached, so they survive.
+## 1b) Also treat any pixel a prior pass already cleared (alpha ~ 0, e.g. chroma_key knocked out
+##    an enclosed #FF00FF pocket) as background — even when the border flood can't reach it.
+##    Without this, those walled-in holes get re-opaqued in step 3 and the pocket resurrects.
 ## 2) Connected-components (8-conn) over the remaining foreground → one island per piece.
 ## 3) Crop each island's bbox from the ORIGINAL (soft edges kept) and set alpha: background→0.
 ## Prints "n -> x,y wxh (px=count)" sorted top→bottom, left→right so islands map to names.
@@ -15,66 +18,65 @@ const VAL_MIN := 0.90
 const SAT_MAX := 0.10
 const MIN_AREA := 600
 const PAD := 3
+const ALPHA_MIN := 8   # px at/under this 8-bit alpha are already cleared (chroma-keyed) → background
 
-var _data: PackedByteArray
-var _W := 0
-var _vmin8 := 0
-var _smax := 0.0
-
-func _is_bglike(i: int) -> bool:
+static func _is_bglike(data: PackedByteArray, i: int, vmin8: int, smax: float) -> bool:
 	var o := i * 4
-	if _data[o + 3] < 8:
+	if data[o + 3] < ALPHA_MIN:
 		return true                       # already transparent (e.g. chroma-keyed) → background
-	var r := _data[o]
-	var g := _data[o + 1]
-	var b := _data[o + 2]
+	var r := data[o]
+	var g := data[o + 1]
+	var b := data[o + 2]
 	var mx := maxi(r, maxi(g, b))
-	if mx < _vmin8:
+	if mx < vmin8:
 		return false
 	var mn := mini(r, mini(g, b))
 	var sat := 0.0 if mx == 0 else float(mx - mn) / float(mx)
-	return sat <= _smax
+	return sat <= smax
 
-func _initialize() -> void:
-	var a := OS.get_cmdline_user_args()
-	if a.size() < 2:
-		print("usage: slice_islands <input.png> <out_prefix> [val_min] [sat_max] [min_area] [pad]")
-		quit(1); return
-	var src: String = a[0]
-	var pref: String = a[1]
-	var vmin: float = (float(a[2]) if a.size() > 2 else VAL_MIN)
-	_smax = (float(a[3]) if a.size() > 3 else SAT_MAX)
-	var min_area: int = (int(a[4]) if a.size() > 4 else MIN_AREA)
-	var pad: int = (int(a[5]) if a.size() > 5 else PAD)
-	var img := Image.load_from_file(src)
-	if img == null:
-		print("FAIL: cannot load ", src); quit(1); return
+static func _seed_bg(data: PackedByteArray, p: int, vmin8: int, smax: float, bg: PackedByteArray, q: PackedInt32Array) -> void:
+	if bg[p] == 0 and _is_bglike(data, p, vmin8, smax):
+		bg[p] = 1
+		q.push_back(p)
+
+## Split `img` into trimmed, alpha-knocked-out pieces. Returns an Array of
+## {"image": Image, "x": int, "y": int, "w": int, "h": int, "count": int} sorted
+## top→bottom / left→right. `img` is left unmodified. Shared by the CLI entry point
+## and the regression suite so both exercise the same slicing logic.
+static func slice_sheet(img: Image, vmin: float, smax: float, min_area: int, pad: int) -> Array:
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
-	_W = img.get_width()
+	var W := img.get_width()
 	var H := img.get_height()
-	_data = img.get_data()
-	_vmin8 = int(vmin * 255.0)
-	var n := _W * H
+	var data := img.get_data()
+	var vmin8 := int(vmin * 255.0)
+	var n := W * H
 
 	# 1) flood the checkerboard inward from the border (4-conn, won't slip past piece corners)
 	var bg := PackedByteArray(); bg.resize(n)        # 0 = fg, 1 = background
 	var q := PackedInt32Array()
-	for x in _W:
-		_seed(x, bg, q)
-		_seed((H - 1) * _W + x, bg, q)
+	for x in W:
+		_seed_bg(data, x, vmin8, smax, bg, q)
+		_seed_bg(data, (H - 1) * W + x, vmin8, smax, bg, q)
 	for y in H:
-		_seed(y * _W, bg, q)
-		_seed(y * _W + (_W - 1), bg, q)
+		_seed_bg(data, y * W, vmin8, smax, bg, q)
+		_seed_bg(data, y * W + (W - 1), vmin8, smax, bg, q)
 	while not q.is_empty():
 		var p := q[q.size() - 1]
 		q.remove_at(q.size() - 1)
-		var px := p % _W
-		var py := p / _W
-		if px > 0: _try(p - 1, bg, q)
-		if px < _W - 1: _try(p + 1, bg, q)
-		if py > 0: _try(p - _W, bg, q)
-		if py < H - 1: _try(p + _W, bg, q)
+		var px := p % W
+		var py := p / W
+		if px > 0: _seed_bg(data, p - 1, vmin8, smax, bg, q)
+		if px < W - 1: _seed_bg(data, p + 1, vmin8, smax, bg, q)
+		if py > 0: _seed_bg(data, p - W, vmin8, smax, bg, q)
+		if py < H - 1: _seed_bg(data, p + W, vmin8, smax, bg, q)
+
+	# 1b) cut ENCLOSED background a prior pass already cleared: any already-transparent pixel is
+	#     background even when the border flood can't reach it (it is walled in by the piece).
+	#     This respects the alpha chroma_key wrote, so knockout below never resurrects the pocket.
+	for i in n:
+		if bg[i] == 0 and data[i * 4 + 3] < ALPHA_MIN:
+			bg[i] = 1
 
 	# 2) connected-components over the foreground (8-conn)
 	var label := PackedInt32Array(); label.resize(n); label.fill(-1)
@@ -84,13 +86,13 @@ func _initialize() -> void:
 		if bg[start] == 1 or label[start] != -1:
 			continue
 		var id := islands.size()
-		var x0 := _W; var y0 := H; var x1 := -1; var y1 := -1; var cnt := 0
+		var x0 := W; var y0 := H; var x1 := -1; var y1 := -1; var cnt := 0
 		stack.clear(); stack.push_back(start); label[start] = id
 		while not stack.is_empty():
 			var p := stack[stack.size() - 1]
 			stack.remove_at(stack.size() - 1)
-			var px := p % _W
-			var py := p / _W
+			var px := p % W
+			var py := p / W
 			cnt += 1
 			x0 = mini(x0, px); y0 = mini(y0, py); x1 = maxi(x1, px); y1 = maxi(y1, py)
 			for dy in range(-1, 2):
@@ -99,9 +101,9 @@ func _initialize() -> void:
 						continue
 					var nx := px + dx
 					var ny := py + dy
-					if nx < 0 or ny < 0 or nx >= _W or ny >= H:
+					if nx < 0 or ny < 0 or nx >= W or ny >= H:
 						continue
-					var qq := ny * _W + nx
+					var qq := ny * W + nx
 					if bg[qq] == 1 or label[qq] != -1:
 						continue
 					label[qq] = id
@@ -119,34 +121,44 @@ func _initialize() -> void:
 		if ra != rb:
 			return ra < rb
 		return int(a1.x0) < int(b1.x0))
-	print("source %dx%d — kept %d of %d islands" % [_W, H, keep.size(), islands.size()])
-	for i in keep.size():
-		var isl: Dictionary = keep[i]
+	var out: Array = []
+	for isl in keep:
 		var bx0: int = maxi(0, int(isl.x0) - pad)
 		var by0: int = maxi(0, int(isl.y0) - pad)
-		var bx1: int = mini(_W - 1, int(isl.x1) + pad)
+		var bx1: int = mini(W - 1, int(isl.x1) + pad)
 		var by1: int = mini(H - 1, int(isl.y1) + pad)
 		var cw := bx1 - bx0 + 1
 		var ch := by1 - by0 + 1
 		var cell := Image.create(cw, ch, false, Image.FORMAT_RGBA8)
 		for yy in ch:
 			for xx in cw:
-				var sp := (by0 + yy) * _W + (bx0 + xx)
+				var sp := (by0 + yy) * W + (bx0 + xx)
 				if bg[sp] == 1:
 					cell.set_pixel(xx, yy, Color(0, 0, 0, 0))
 				else:
 					var o := sp * 4
-					cell.set_pixel(xx, yy, Color8(_data[o], _data[o + 1], _data[o + 2], 255))
-		cell.save_png("%s%d.png" % [pref, i])
-		print("%d -> %d,%d  %dx%d  (px=%d)" % [i, bx0, by0, cw, ch, int(isl.count)])
+					cell.set_pixel(xx, yy, Color8(data[o], data[o + 1], data[o + 2], 255))
+		out.append({"image": cell, "x": bx0, "y": by0, "w": cw, "h": ch, "count": int(isl.count)})
+	return out
+
+func _initialize() -> void:
+	var a := OS.get_cmdline_user_args()
+	if a.size() < 2:
+		print("usage: slice_islands <input.png> <out_prefix> [val_min] [sat_max] [min_area] [pad]")
+		quit(1); return
+	var src: String = a[0]
+	var pref: String = a[1]
+	var vmin: float = (float(a[2]) if a.size() > 2 else VAL_MIN)
+	var smax: float = (float(a[3]) if a.size() > 3 else SAT_MAX)
+	var min_area: int = (int(a[4]) if a.size() > 4 else MIN_AREA)
+	var pad: int = (int(a[5]) if a.size() > 5 else PAD)
+	var img := Image.load_from_file(src)
+	if img == null:
+		print("FAIL: cannot load ", src); quit(1); return
+	var pieces := slice_sheet(img, vmin, smax, min_area, pad)
+	print("source %dx%d — kept %d islands" % [img.get_width(), img.get_height(), pieces.size()])
+	for i in pieces.size():
+		var pc: Dictionary = pieces[i]
+		(pc.image as Image).save_png("%s%d.png" % [pref, i])
+		print("%d -> %d,%d  %dx%d  (px=%d)" % [i, int(pc.x), int(pc.y), int(pc.w), int(pc.h), int(pc.count)])
 	quit()
-
-func _seed(p: int, bg: PackedByteArray, q: PackedInt32Array) -> void:
-	if bg[p] == 0 and _is_bglike(p):
-		bg[p] = 1
-		q.push_back(p)
-
-func _try(p: int, bg: PackedByteArray, q: PackedInt32Array) -> void:
-	if bg[p] == 0 and _is_bglike(p):
-		bg[p] = 1
-		q.push_back(p)
