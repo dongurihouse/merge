@@ -4560,7 +4560,7 @@ static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
 	# inherit the full shared slot-cell look (piece sizing + code-drawn well face); discovery overrides
 	# only its own layout knobs below.
-	var slot := bag_card_opts_from_config(cfg)
+	var slot := tier_cell_opts_from_config(cfg)
 	o.merge(slot, true)
 	var t: Dictionary = cfg.get("tiers", {})
 	# discovery's OWN cell knobs: the square tile size, plain tier number, and marked-tier sparkle
@@ -5468,6 +5468,18 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 	return opts
 
+static func shared_torn_slot_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var opts := bag_card_opts_from_config(cfg)
+	opts.merge(torn_cell_opts_from_config(cfg), true)
+	opts["torn_cells"] = true
+	return opts
+
+static func board_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
+	return shared_torn_slot_opts_from_config(cfg)
+
+static func tier_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
+	return shared_torn_slot_opts_from_config(cfg)
+
 ## One SLOT CELL — the shared bag + board cell, on the board's cream-well art. `d.state` (or the legacy
 ## `d.kind`) picks the look + behaviour:
 ##   empty      — the open cream well (seen / unlocked / owned-empty), inert
@@ -5492,8 +5504,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var cost_y := float(opts.get("cost_y", 0.0))
 	var cost_x := float(opts.get("cost_x", 0.0))
 	var cost_scale := float(opts.get("cost_scale", 1.0))
-	# Board cells are deliberately quieter than the Bag's purchase cells: the board mock uses a plain
-	# paper tile plus one lock mark, so no halo or particle may spill across its gutters.
+	# Legacy callers can still request the flat board-paper path; the live board/tier/bag surfaces now pass
+	# torn_cells so they share the same code-drawn cut-paper component.
 	var flat_board_cells := bool(opts.get("flat_board_cells", false))
 	var use_torn_cells := bool(opts.get("torn_cells", false)) and not flat_board_cells
 	var state := raw_state
@@ -5660,9 +5672,7 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 ## daily/settings dialogs. Used by the workbench preview AND the game (engine/scripts/ui/bag_overlay.gd).
 static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
-	o.merge(bag_card_opts_from_config(cfg), true)
-	o.merge(torn_cell_opts_from_config(cfg), true)
-	o["torn_cells"] = true
+	o.merge(shared_torn_slot_opts_from_config(cfg), true)
 	o["pill"] = gold_currency_pill_opts_from_config(cfg)   # the reused gold pill's style (single-acorn at build time)
 	var bg: Dictionary = cfg.get("bag", {})
 	o["cols"] = int(bg.get("cols", 6))

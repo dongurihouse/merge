@@ -1574,11 +1574,9 @@ func _make_slot(cell: Vector2i) -> Control:
 	# the open empty well, built on the SHARED slot cell (Kit.slot_cell) — the SAME component the bag
 	# uses, reading the SAME workbench "bag_card" style, so the board + bag wells stay in lockstep.
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var opts: Dictionary = Kit.board_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
-	# Board wells use the contained, flat-paper treatment: a crisp inset rim, never an outer shadow.
-	opts["flat_board_cells"] = true
 	var slot: Control = Kit.slot_cell({"state": "empty"}, opts)
 	slot.position = _cell_pos(cell)
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -298,16 +298,21 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	var panel := Control.new()
 	panel.name = "DailyCell_%02d" % day
 	panel.custom_minimum_size = Vector2(cw, ch_px)
+	var visual := Control.new()
+	visual.name = "DailyCardVisual"
+	visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(visual)
 	var face: Control = Kit.daily_card_face(Vector2(cw, ch_px), tone)
 	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(face)
+	visual.add_child(face)
 
 	var inner := Control.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pad := cw * 0.10
 	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	inner.offset_left = pad; inner.offset_top = pad; inner.offset_right = -pad; inner.offset_bottom = -pad
-	panel.add_child(inner)
+	visual.add_child(inner)
 
 	# "DAY N" — pinned to the top edge, full-width centred.
 	var label := _cell_label(Kit, String(d.get("label", "")), cw)
@@ -333,13 +338,9 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		panel.add_child(tap)
 	elif done:
 		# PAST: the reward it gave (recedes with the cell) + a ✓ badge floated near the bottom.
+		visual.name = "DailyClaimedCardFace"
+		visual.modulate = Color(1, 1, 1, 0.62)
 		_add_reward_face(Kit, inner, d.get("reward", {}), cw, {})
-		var cover := ColorRect.new()
-		cover.name = "DailyClaimedCover"
-		cover.color = Color(1, 1, 1, 0.50)
-		cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(cover)
 		var wrap := CenterContainer.new()
 		wrap.name = "DailyClaimedCheckHost"
 		wrap.anchor_left = 0.0; wrap.anchor_right = 1.0
@@ -349,7 +350,7 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 		var check := _sprite(Kit, ART_CHECK, cw * CLAIMED_CHECK_PX)
 		check.name = "DailyClaimedCheck"
 		wrap.add_child(check)
-		inner.add_child(wrap)
+		panel.add_child(wrap)
 	else:
 		# FUTURE: a varied wrapped gift box (reward hidden) on the plain card.
 		var gtex := _daily_tex("gift_%d" % (day % 5))

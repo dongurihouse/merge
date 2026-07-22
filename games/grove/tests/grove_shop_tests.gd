@@ -491,8 +491,10 @@ func _initialize() -> void:
 	ok(done_check != null and is_equal_approx(done_cell.modulate.a, 1.0) and is_equal_approx(done_check.modulate.a, 1.0), \
 		"the claimed-day check mark is fully opaque")
 	var done_cover := done_cell.find_child("DailyClaimedCover", true, false) as ColorRect
-	ok(done_cover != null and done_cover.color.a >= 0.45 and done_cover.color.a <= 0.55, \
-		"the claimed day keeps a half-transparent cover below the check mark")
+	ok(done_cover == null, "the claimed day no longer uses a separate transparent cover")
+	var done_face := done_cell.find_child("DailyClaimedCardFace", true, false) as Control
+	ok(done_face != null and done_face.modulate.a < 1.0 and done_face.modulate.a >= 0.55, \
+		"the claimed day recedes by making the card face semi-transparent")
 	var done_check_host := done_cell.find_child("DailyClaimedCheckHost", true, false) as Control
 	ok(done_check_host != null and absf(done_check_host.anchor_top - 0.50) <= 0.01, \
 		"the claimed-day check mark is centered in the card")
@@ -542,38 +544,31 @@ func _initialize() -> void:
 		and String((backdrop as TextureRect).texture.resource_path).ends_with("ui/meadow_v2/texture_sky.png") \
 		and (backdrop as TextureRect).stretch_mode == TextureRect.STRETCH_TILE, \
 		"board backdrop uses the tiled Meadow sky paper texture")
-	# The locked-cell WELL uses one code-drawn receding-blue paper surface. Frontier and deep cells share
-	# that quiet face; the frontier's separate gameplay highlight supplies the actionable emphasis.
-	var slot_opts := Kit.bag_card_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	# Board locked/unlocked wells now use the same torn-cell component as the bag, so all cell states share
+	# one code-drawn surface instead of the old receding-blue board-only background.
+	var slot_opts := Kit.board_cell_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
 	var border_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, slot_opts)
-	var border_bg := border_slot.find_child("SlotCellBackground", true, false) as Panel
-	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxFlat
-	var border_paper := border_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect
-	var border_shadow := border_bg.find_child("MeadowSlotShadow", true, false) as Panel
-	ok(border_sb != null and border_paper != null and border_paper.texture != null,
-		"the locked-cell background combines code geometry with flat Meadow paper")
-	ok(border_paper != null and String(border_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png"),
-		"border locked cells use the receding-blue paper texture")
-	ok(border_shadow == null and border_sb.shadow_size == 0, "locked cells have no per-cell shadow")
-	ok(border_sb != null and not border_sb.bg_color.is_equal_approx(Color("#A8D3B9")),
-		"locked is visually distinct from an empty cell")
+	ok(border_slot.find_child("TornCell", true, false) != null \
+		and border_slot.find_child("TornCellLock", true, false) != null \
+		and border_slot.find_child("SlotCellBackground", true, false) == null, \
+		"border locked cells use the shared torn-cell locked face")
 	var deep_slot: Control = Kit.slot_cell({"state": "locked", "frontier": false}, slot_opts)
-	var deep_bg := deep_slot.find_child("SlotCellBackground", true, false) as Panel
-	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxFlat
-	var deep_paper := deep_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect
-	ok(deep_sb != null and deep_paper != null and deep_paper.texture == border_paper.texture,
-		"deep locked cells keep the same quiet receding-blue paper surface")
+	ok(deep_slot.find_child("TornCell", true, false) != null \
+		and deep_slot.find_child("TornCellLock", true, false) != null \
+		and deep_slot.find_child("SlotCellBackground", true, false) == null, \
+		"deep locked cells keep the same shared torn-cell locked face")
+	var open_slot: Control = Kit.slot_cell({"state": "empty"}, slot_opts)
+	ok(open_slot.find_child("TornCell", true, false) != null \
+		and open_slot.find_child("TornCellWell", true, false) != null \
+		and open_slot.find_child("SlotCellBackground", true, false) == null, \
+		"board open cells use the shared torn-cell open well")
 	border_slot.free()
 	deep_slot.free()
+	open_slot.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
-	var bramble_bg := bramble_node.find_child("SlotCellBackground", true, false) as Panel
-	ok(bramble_bg != null, "frontier locked cell paints a full-cell locked background")
-	var bramble_style := bramble_bg.get_theme_stylebox("panel") as StyleBoxFlat if bramble_bg != null else null
-	var bramble_paper := bramble_bg.find_child("SlotCellPaperTexture", true, false) as TextureRect if bramble_bg != null else null
-	ok(bramble_style != null and bramble_paper != null \
-		and String(bramble_paper.texture.resource_path).ends_with("ui/meadow_v2/texture_receding_blue.png") \
-		and bramble_bg.find_child("MeadowSlotShadow", true, false) == null, \
-		"frontier locked cell uses the flat receding-blue paper surface without a shadow")
+	ok(bramble_node.find_child("TornCellLock", true, false) != null \
+		and bramble_node.find_child("SlotCellBackground", true, false) == null, \
+		"frontier locked cell uses the shared torn-cell locked face")
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
 	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
@@ -600,6 +595,17 @@ func _initialize() -> void:
 	empty_bag_slot.free()
 	next_bag_slot.free()
 	locked_bag_slot.free()
+	var tier_opts := Kit.tiers_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	var tier_grid: Control = Kit.tiers_grid([
+		{"tier": 1, "seen": true, "icon": "coin"},
+		{"tier": 2, "seen": false},
+	], 260.0, tier_opts)
+	var tier_open := tier_grid.find_child("TornCellWell", true, false) as Control
+	var tier_lock := tier_grid.find_child("TornCellLock", true, false) as Control
+	ok(tier_open != null and tier_lock != null \
+		and tier_grid.find_child("SlotCellBackground", true, false) == null, \
+		"tier dialog cells inherit the bag's torn-cell open and locked faces")
+	tier_grid.free()
 	# §1 residents: unlock reward + free-spirit grant + residents shop card data (active-suite coverage).
 	_test_unlock_rewards()
 	_test_residents_shop_cards()
