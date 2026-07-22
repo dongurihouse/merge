@@ -307,7 +307,7 @@ func _default_params() -> Dictionary:
 		# stars is the plaque reward; stand_w/fence_h preview the board's size; met toggles the ready ✓.
 		"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
 			"card_w": 92, "card_h": 97,
-			"item_size": 60, "item_x": 50, "item_y": 44, "plaque_w": 46, "plaque_x": 70, "plaque_y": 85},
+			"item_size": 60, "item_x": 50, "item_y": 44, "check_scale": 88, "plaque_w": 46, "plaque_x": 70, "plaque_y": 85},
 		# the MAIL / reward-row card — the SHARED cut-paper edge knob set (deckle · corner · amp · freq · rim ·
 		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
@@ -363,7 +363,7 @@ func _default_params() -> Dictionary:
 		# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
 		# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 		"bag_card": {"cell_w": 116, "cell_h": 120,
-			"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
+			"content_frac": 62, "content_shadow": true, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
 		# the CODE-DRAWN torn cell — outer rugged cream card (shared cut-paper keys) + inner rugged green well
 		# + a top inner shadow. All tunable; cell_w/cell_h size the preview.
 		"torn_cell": {"cell_w": 132, "cell_h": 132,
@@ -1078,7 +1078,7 @@ func _bag_preview_cell(state: String, level: int, cost: int) -> Dictionary:
 # Rendered at 2× so the cells stay comfortable to edit while the saved cell_w/cell_h stay the game size.
 func _slot_cell_gallery(p: Dictionary) -> Control:
 	var z := 2.0
-	var base := Kit.bag_card_opts_from_config(_params)
+	var base := Kit.shared_torn_slot_opts_from_config(_params)
 	base["cell_w"] = float(base["cell_w"]) * z
 	base["cell_h"] = float(base["cell_h"]) * z
 	base["cost_font"] = int(float(base["cost_font"]) * z)
@@ -1089,10 +1089,9 @@ func _slot_cell_gallery(p: Dictionary) -> Control:
 	col.add_theme_constant_override("separation", 14)
 	# BOARD wells — the merge grid (board.gd / piece_view.gd pass flat_board_cells). A deep lock recedes.
 	var board_opts := base.duplicate()
-	board_opts["flat_board_cells"] = true
-	col.add_child(_slot_row("board wells (flat)", [
+	col.add_child(_slot_row("board wells", [
 		["empty", {"state": "empty"}],
-		["filled", {"state": "filled", "icon": "leaf"}],
+		["filled", {"state": "filled", "make_content": func(px: float) -> Control: return PieceView.make_piece(102, px, 0.0)}],
 		["openable", {"state": "unlockable"}],   # the contained warm-gold well + rim (the board's highlight)
 		["frontier lock", {"state": "locked", "frontier": true}],
 		["deep lock", {"state": "locked", "dim": 0.6}],
@@ -1102,13 +1101,13 @@ func _slot_cell_gallery(p: Dictionary) -> Control:
 	dlg_opts["dialog_cells"] = true
 	col.add_child(_slot_row("dialog cells", [
 		["empty", {"state": "empty"}],
-		["filled", {"state": "filled", "icon": "leaf"}],
+		["filled", {"state": "filled", "make_content": func(px: float) -> Control: return PieceView.make_piece(102, px, 0.0)}],
 		["locked + cost", {"state": "locked", "cost": 120}],
-		["marked", {"state": "filled", "icon": "leaf", "marked": true}],
+		["marked", {"state": "filled", "make_content": func(px: float) -> Control: return PieceView.make_piece(102, px, 0.0), "marked": true}],
 	], dlg_opts))
 	# PRODUCING line — the gen_lines dialog recedes just the well behind a full-colour piece (dim_bg).
 	col.add_child(_slot_row("producing (dim_bg)", [
-		["dim well", {"state": "filled", "icon": "leaf", "dim_bg": true}],
+		["dim well", {"state": "filled", "make_content": func(px: float) -> Control: return PieceView.make_piece(102, px, 0.0), "dim_bg": true}],
 	], dlg_opts))
 	return col
 
@@ -1472,7 +1471,7 @@ func _sidebar_notes(_id: String) -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
-		note.text = "ONE cell shared by the board wells and every dialog grid (bag · discovery · residents). The preview shows both treatments — the board's flat wells and the dialogs' sage cells — plus the discovery marked sparkle and the Producing dim-well. The well faces + rim are fixed in the kit; only the sizes below are tunable."
+		note.text = "ONE cell shared by the board wells and every dialog grid (bag · discovery · residents). The preview uses the same torn-cell component the game renders, plus the discovery marked sparkle and the Producing dim-well."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1768,6 +1767,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
 			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95]))   # the piece size (% of cell)
+			_sidebar_body.add_child(_toggle_row("Content shadow", "content_shadow"))
 			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70]))     # the level badge size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
@@ -1826,6 +1826,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["item_size", 10, 150]))   # uniform size (% of box height) — drives item_w == item_h, so the item stays square
 			_sidebar_body.add_child(_slider_row(["item_x", 0, 100]))       # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["item_y", 0, 100]))       # centre y (% of box height)
+			_sidebar_body.add_child(_slider_row(["check_scale", 30, 150])) # ready ✓ size (% of item box)
 			_section_header("Plaque")
 			_sidebar_body.add_child(_slider_row(["plaque_w", 20, 90]))     # width (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_x", 0, 100]))     # centre x (% of box width)
@@ -1952,4 +1953,3 @@ func _focus_slot_opts(fcell: float) -> Dictionary:
 	o["cell_w"] = fcell
 	o["cell_h"] = fcell
 	return o
-

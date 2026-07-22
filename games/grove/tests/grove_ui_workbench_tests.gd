@@ -7,6 +7,8 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UIWorkbenchView = preload("res://games/grove/tools/ui_workbench_view.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 
 func _initialize() -> void:
 	begin("grove · ui workbench")
@@ -19,6 +21,9 @@ func _initialize() -> void:
 	_daily_card_uses_face_only_for_daily()
 	_mail_claim_all_footer_is_transparent()
 	await _mail_claim_corner_follows_button_group()
+	_slot_cell_gallery_uses_game_cells()
+	_slot_content_shadow_can_be_tuned()
+	_quest_check_scale_flows_to_giver_card()
 	finish()
 
 ## The shared daily card FACE (Kit.daily_card_face) — the code-drawn cut-paper card BOTH the workbench daily
@@ -86,6 +91,48 @@ func _find_named(n: Node, nm: String) -> Node:
 		if r != null:
 			return r
 	return null
+
+func _has_named(n: Node, nm: String) -> bool:
+	return _find_named(n, nm) != null
+
+func _slot_cell_gallery_uses_game_cells() -> void:
+	Kit.clear_config_cache()
+	var view := UIWorkbenchView.new()
+	var gallery := view._slot_cell_gallery(view._params["bag_card"])
+	ok(_has_named(gallery, "TornCellOuter"),
+		"Slot-cell workbench gallery uses the same torn-cell component as the game")
+	ok(not _has_named(gallery, "SlotCellBackground"),
+		"Slot-cell workbench gallery no longer previews the retired flat well background")
+	ok(_has_named(gallery, "ContactShadow"),
+		"Slot-cell filled previews render through the game piece component, including its content shadow")
+	gallery.free()
+	view.free()
+	Kit.clear_config_cache()
+
+func _slot_content_shadow_can_be_tuned() -> void:
+	var opts := Kit.shared_torn_slot_opts_from_config({"bag_card": {"content_shadow": false}, "torn_cell": {}})
+	opts["cell_w"] = 120.0
+	opts["cell_h"] = 120.0
+	var cell := Kit.slot_cell({"state": "filled", "make_content": func(px: float) -> Control:
+		return PieceView.make_piece(102, px, 0.0)}, opts)
+	ok(not _has_named(cell, "ContactShadow"),
+		"Slot-cell content shadow can be disabled from the Slot cell workbench setting")
+	cell.free()
+
+func _quest_check_scale_flows_to_giver_card() -> void:
+	var lay := Kit.giver_lay_from_config({"quest_card": {"item_size": 60, "check_scale": 120}})
+	var demo_q := {"line": 1, "tier": 3, "reward": {"stars": 25}}
+	var noop2 := func(_a: Variant, _b: Variant) -> void: pass
+	var made := GiverStand.make(1, demo_q, {
+		"ask_tap": noop2, "stand_tap": noop2,
+		"wire_tap": func(_node: Control, _action: Callable) -> void: pass,
+		"stand_w": 480.0, "fence_h": 410.0, "lay": lay,
+	})
+	var met: Control = (made.item as Dictionary).get("met")
+	var expected := 410.0 * float(lay.card_h) * float(lay.item_h) * 1.20
+	ok(met != null and absf(met.size.x - expected) <= 1.0,
+		"Quest-card check mark size follows the saved check_scale knob")
+	(made.chip as Control).free()
 
 func _mail_claim_all_footer_is_transparent() -> void:
 	var dialog := Kit.mail_dialog(

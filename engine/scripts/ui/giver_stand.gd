@@ -139,7 +139,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		if built_in_shadow != null:
 			built_in_shadow.queue_free()
 		icon.add_child(piece)
-		var mpx := minf(iw, ih) * 0.88
+		var mpx := minf(iw, ih) * float(L.get("check_scale", 0.88))
 		var met := _ask_met_check(mpx)
 		met.position = Vector2((iw - mpx) / 2.0, (ih - mpx) / 2.0)
 		icon.add_child(met)

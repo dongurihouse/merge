@@ -5463,6 +5463,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
+		"content_shadow": bool(bc.get("content_shadow", true)),      # show the piece/generator ContactShadow when content provides one
 		"cost_font": int(bc.get("cost_font", FS.BODY)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
 		"cost_y": float(bc.get("cost_y", 0)),                        # nudge the acorn cost up(-) / down(+), px
@@ -5604,6 +5605,11 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		elif String(d.get("icon", "")) != "":
 			piece = make_icon(String(d.icon), piece_px)
 		if piece != null:
+			if not bool(opts.get("content_shadow", true)):
+				var built_in_shadow := piece.find_child("ContactShadow", true, false)
+				if built_in_shadow != null:
+					built_in_shadow.get_parent().remove_child(built_in_shadow)
+					built_in_shadow.queue_free()
 			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var pc := CenterContainer.new()
 			pc.position = Vector2.ZERO
@@ -5903,6 +5909,7 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"card_w":      float(q.get("card_w", 92)) / 100.0,      "card_h":   float(q.get("card_h", 97)) / 100.0,
 		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 50)) / 100.0, "item_y": float(q.get("item_y", 44)) / 100.0,
+		"check_scale": float(q.get("check_scale", 88)) / 100.0,
 		"plaque_w":    float(q.get("plaque_w", 46)) / 100.0,    "plaque_x": float(q.get("plaque_x", 70)) / 100.0, "plaque_y": float(q.get("plaque_y", 85)) / 100.0,
 		# (bust_*/bubble_* knobs retired with the giver portrait + speech bubble; card_slice_* retired with the
 		# nine-slice. The card + reward tag are now cut-paper textures. Old saved values are accepted + ignored.)
