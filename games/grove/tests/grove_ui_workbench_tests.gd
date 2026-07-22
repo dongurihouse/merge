@@ -157,9 +157,33 @@ func _slot_content_shadow_can_be_tuned() -> void:
 		and style.shadow_size == 18
 		and absf(style.shadow_color.a - 0.58) <= 0.01,
 		"Slot-cell content shadow uses the Slot-cell item-shadow tuning controls")
+	ok(content_shadow != null
+		and content_shadow.custom_minimum_size.is_equal_approx(Vector2(74.4, 74.4))
+		and content_shadow.get_parent() != null
+		and not (content_shadow.get_parent() is CenterContainer),
+		"Slot-cell content shadow has an explicit item-sized footprint outside container layout")
 	ok(not _has_named(shared_cell, "ContactShadow"),
 		"Slot-cell content shadow replaces the piece-specific ContactShadow")
 	shared_cell.free()
+
+	var view := UIWorkbenchView.new()
+	view._params["bag_card"]["shadow"] = true
+	view._params["bag_card"]["item_shadow_x"] = 11.0
+	view._params["bag_card"]["item_shadow_y"] = 17.0
+	view._params["bag_card"]["item_shadow_blur"] = 19.0
+	view._params["bag_card"]["item_shadow_spread"] = -4.0
+	view._params["bag_card"]["item_shadow_alpha"] = 63.0
+	var gallery := view._slot_cell_gallery(view._params["bag_card"])
+	var live_shadow := _find_named(gallery, "SlotContentShadow") as Panel
+	var live_style := live_shadow.get_theme_stylebox("panel") as StyleBoxFlat if live_shadow != null else null
+	ok(live_shadow != null and live_style != null
+		and live_style.shadow_offset.is_equal_approx(Vector2(11.0, 17.0))
+		and live_style.shadow_size == 19
+		and absf(live_style.shadow_color.a - 0.63) <= 0.01
+		and live_shadow.custom_minimum_size.x > 1.0 and live_shadow.custom_minimum_size.y > 1.0,
+		"Live Slot-cell workbench gallery applies visible item-shadow slider changes")
+	gallery.free()
+	view.free()
 
 func _quest_check_scale_flows_to_giver_card() -> void:
 	var lay := Kit.giver_lay_from_config({"quest_card": {"item_size": 60, "check_scale": 120}})
