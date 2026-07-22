@@ -449,6 +449,28 @@ func _initialize() -> void:
 	ok(l_overlay.find_children("DailyCell_*", "Control", true, false).size() >= 6 \
 		and l_overlay.find_child("DailyCapstone", true, false) != null, \
 		"the calendar opens as a framed card with a week of reward cells (diegetic, §13)")
+	var daily_grid := l_overlay.find_child("DailyGrid", true, false) as GridContainer
+	var daily_cells := l_overlay.find_children("DailyCell_*", "Control", true, false)
+	ok(daily_grid != null and daily_grid.get_theme_constant("h_separation") >= 24 \
+		and daily_grid.get_theme_constant("v_separation") >= 24, \
+		"the daily grid leaves a slightly larger gutter between cards")
+	var first_daily_cell := daily_cells[0] as Control if daily_cells.size() > 0 else null
+	ok(first_daily_cell != null and first_daily_cell.custom_minimum_size.y / maxf(1.0, first_daily_cell.custom_minimum_size.x) <= 1.30, \
+		"daily cards are shorter and closer to square")
+	var today_icon_host := l_overlay.find_child("DailyRewardIconHost", true, false) as Control
+	var today_amount := l_overlay.find_child("DailyAmount", true, false) as Control
+	var today_inner := today_icon_host.get_parent() as Control if today_icon_host != null else null
+	ok(today_icon_host != null and today_amount != null and today_inner != null \
+		and today_icon_host.anchor_top >= 0.48 and today_amount.anchor_top >= 0.80, \
+		"today's reward icon and amount sit lower in the card with more top breathing room")
+	var done_cell := LoginUI._day_cell(Kit, {"state": "done", "reward": {"coins": 50}, "day": 1, "label": "Day 1"}, 120.0, 150.0)
+	var done_check := done_cell.find_child("DailyClaimedCheck", true, false) as TextureRect
+	ok(done_check != null and done_check.custom_minimum_size.x >= 72.0, \
+		"a claimed day uses a much larger check mark")
+	var done_check_host := done_cell.find_child("DailyClaimedCheckHost", true, false) as Control
+	ok(done_check_host != null and absf(done_check_host.anchor_top - 0.50) <= 0.01, \
+		"the claimed-day check mark is centered in the card")
+	done_cell.free()
 	# today's card is claimed by TAPPING the highlighted card (a transparent full-cell DailyClaimButton),
 	# not a labelled Claim pill.
 	var claim_btn := l_overlay.find_child("DailyClaimButton", true, false) as Button
