@@ -81,6 +81,13 @@ static func _content_tex(path: String) -> Texture2D:
 
 const ITEM_INSET := 0.16   # margin so art sits INSIDE the cell, not bleeding to its edge
 
+# The content-cropped texture make_piece draws for a board code (line*100+tier), or null when the code
+# has no art (a coin / placeholder). Public so a caller that wants the item's SILHOUETTE (e.g. a
+# shape-true drop-shadow) reads the SAME cropped texture the piece renders, framed the same way.
+static func content_texture(code: int) -> Texture2D:
+	var path := G.item_tex_path(code)
+	return _content_tex(path) if ResourceLoader.exists(path) else null
+
 # THE one content_frac → inset mapping (Slot-cell "visible piece width as % of cell" → per-side
 # margin). Owned here so every cell surface (live board, residents habitat/hand, previews) derives
 # its inset from the SAME saved knob with the same clamp — they can't drift apart.
