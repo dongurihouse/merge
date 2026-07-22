@@ -7,7 +7,6 @@ extends Control
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
-const Look = preload("res://engine/scripts/ui/skin.gd")
 const Pal = Game.PALETTE
 
 const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
@@ -21,11 +20,14 @@ const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const PAPER_CORNER_FRAC := 0.28             # band corner radius as a fraction of the band height
 const TRACK_BG := Color("#E0CFB6")          # the empty track — CREAM knocked back a step (must read at 0%)
 const FILL_TWEEN_S := 0.55
+const DECKLE_SURFACE_NODE := "UnlockDeckleSurface"
+const TRACK_PAPER_NODE := "UnlockTrackPaperSurface"
+const FILL_PAPER_NODE := "UnlockFillPaperSurface"
 
 var _progress := 0.0
 var _ready_fx := false
 var _bg: Panel
-var _shadow: Panel
+var _deckle: Control
 var _badge: TextureRect
 var _title: Label
 var _level: Label
@@ -41,14 +43,10 @@ func _init() -> void:
 	_bg.name = "UnlockBg"
 	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bg.add_theme_stylebox_override("panel", _band_style(18.0))   # provisional; _relayout re-derives from height
+	_bg.add_theme_stylebox_override("panel", _clear_style())
 	add_child(_bg)
-	# THE uniform shadow behind the strip; _relayout re-points its corner at the band's derived
-	# rounding so the shadow's corners always match the pill shape.
-	var ShadowKit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	_shadow = Look.shadow_rect(18.0, Look.shadow_params(ShadowKit.load_config(ShadowKit.CONFIG_PATH)))
-	_shadow.show_behind_parent = true
-	_bg.add_child(_shadow)
+	_deckle = _make_deckle_surface(DECKLE_SURFACE_NODE)
+	_bg.add_child(_deckle)
 	_badge = TextureRect.new()
 	_badge.name = "UnlockBadge"
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -82,31 +80,46 @@ func _label(lname: String, color: Color) -> Label:
 	add_child(l)
 	return l
 
-# The pills' paper look: a flat cream rounded panel with the thin PAPER_EDGE rim. The grain layer
-# is a separate child (see _apply_paper_surface) because a StyleBox can't carry the shader mask.
-func _band_style(corner: float) -> StyleBox:
+func _clear_style() -> StyleBox:
 	var flat := StyleBoxFlat.new()
-	flat.bg_color = PAPER_FILL
-	flat.border_color = PAPER_EDGE
-	flat.set_border_width_all(1)
-	flat.set_corner_radius_all(int(round(corner)))
-	flat.anti_aliasing = true
+	flat.bg_color = Color(0, 0, 0, 0)
+	flat.draw_center = false
 	return flat
 
-# The texture_cream grain inside the band, rounded-clipped by the kit's paper-mask shader.
-# Idempotent: the kit helper updates the radius on the existing layer, so _relayout can re-call it.
-func _apply_paper_surface(corner: float) -> void:
+func _make_deckle_surface(node_name: String) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
+		return Control.new()
+	var panel: Control = load(Kit.CUT_PAPER).new()
+	panel.name = node_name
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return panel
+
+func _configure_deckle(corner: float) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null or _deckle == null:
 		return
-	var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(_bg, "UnlockPaperSurface", PAPER_TEXTURE, corner, 2.0)
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(Kit.load_config(Kit.CONFIG_PATH), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
+	cp["corner"] = corner
+	_deckle.configure(cp, PAPER_FILL, PAPER_EDGE, Kit.cut_paper_tile())
+	_deckle.corner = corner
+
+func _apply_progress_paper(host: Panel, node_name: String, corner: float, tint: Color = Color.WHITE) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null or host == null:
+		return
+	var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(host, node_name, PAPER_TEXTURE, corner, 1.0)
 	if paper != null:
-		# _bg is a plain Panel (no container layout) — anchor the grain into the 2px rim inset ourselves
 		paper.set_anchors_preset(Control.PRESET_FULL_RECT)
-		paper.offset_left = 2.0
-		paper.offset_top = 2.0
-		paper.offset_right = -2.0
-		paper.offset_bottom = -2.0
+		paper.offset_left = 1.0
+		paper.offset_top = 1.0
+		paper.offset_right = -1.0
+		paper.offset_bottom = -1.0
+		var mat := paper.material as ShaderMaterial
+		if mat != null:
+			mat.set_shader_parameter("tint", tint)
+		paper.self_modulate = Color.WHITE
 
 func _rounded(color: Color, radius: float, outlined: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -158,6 +171,7 @@ func _apply_progress() -> void:
 	if _progress > 0.0:
 		w = maxf(w, bar_h)   # keep the rounded cap round at the low end
 	_fill.size = Vector2(w, bar_h)
+	_apply_progress_paper(_fill, FILL_PAPER_NODE, bar_h * 0.5, Pal.STRAW if _ready_fx else Pal.LEAF)
 	_pct.text = "%d%%" % int(round(_progress * 100.0))
 	if h > 0.0:
 		_pct.add_theme_font_size_override("font_size", int(h * 0.30))
@@ -170,10 +184,7 @@ func _relayout() -> void:
 	if h <= 0.0 or w <= 0.0:
 		return
 	var corner := maxf(12.0, h * PAPER_CORNER_FRAC)
-	_bg.add_theme_stylebox_override("panel", _band_style(corner))
-	if _shadow != null:
-		Look.set_shadow_corner(_shadow, corner)
-	_apply_paper_surface(corner)
+	_configure_deckle(corner)
 	var badge_s := h * 1.06
 	_badge.size = Vector2(badge_s, badge_s)
 	_badge.position = Vector2(h * 0.16, (h - badge_s) * 0.5)
@@ -196,6 +207,7 @@ func _relayout() -> void:
 	_track.position = Vector2(track_left, (h - bar_h) * 0.5)
 	_track.size = Vector2(maxf(1.0, track_right - track_left), bar_h)
 	_track.add_theme_stylebox_override("panel", _rounded(TRACK_BG, bar_h * 0.5, true))
+	_apply_progress_paper(_track, TRACK_PAPER_NODE, bar_h * 0.5, TRACK_BG)
 	_fill.position = Vector2.ZERO
 	_apply_progress()
 

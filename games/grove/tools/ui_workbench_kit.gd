@@ -5122,6 +5122,20 @@ static func _info_circle_btn(icon_id: String, px: float) -> Button:
 		var empty := StyleBoxEmpty.new()
 		for st in ["normal", "hover", "pressed", "disabled"]:
 			b.add_theme_stylebox_override(st, empty)
+		var sh := TextureRect.new()
+		sh.name = "InfoIconShadow"
+		sh.texture = load(disc_p)
+		sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var drop := maxf(1.0, px * 0.045)
+		sh.offset_left = drop
+		sh.offset_top = drop
+		sh.offset_right = drop
+		sh.offset_bottom = drop
+		sh.modulate = Look.shadow_color(0.24)
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(sh)
 		var tr := TextureRect.new()
 		tr.texture = load(disc_p)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -5138,6 +5152,13 @@ static func _info_circle_btn(icon_id: String, px: float) -> Button:
 	sb.border_color = Pal.STRAW
 	for st in ["normal", "hover", "pressed", "disabled"]:
 		b.add_theme_stylebox_override(st, sb)
+	var ish := Look.icon(icon_id, px * 0.58)
+	ish.name = "InfoIconShadow"
+	ish.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ish.position = Vector2(maxf(1.0, px * 0.045), maxf(1.0, px * 0.045))
+	ish.self_modulate = Look.shadow_color(0.24)
+	ish.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ish)
 	var ic := Look.icon(icon_id, px * 0.58)
 	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE

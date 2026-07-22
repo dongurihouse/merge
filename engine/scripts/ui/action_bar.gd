@@ -24,6 +24,7 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
 const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray
 const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
+const DECKLE_SURFACE_NODE := "ActionBarInfoDeckleSurface"
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#FFF9EC")
@@ -63,6 +64,36 @@ static func apply_paper_surface(bar: Control, bar_h: float = BOTTOM_BAR_H) -> Te
 	if Kit == null or bar == null:
 		return null
 	return Kit.apply_rounded_paper_panel_surface(bar, PAPER_SURFACE_NODE, PAPER_TEXTURE, float(_bar_corner(bar_h)), 2.0)
+
+static func _transparent_tray_style() -> StyleBox:
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Color(0, 0, 0, 0)
+	flat.draw_center = false
+	flat.content_margin_left = 2.0
+	flat.content_margin_right = 2.0
+	flat.content_margin_top = 2.0
+	flat.content_margin_bottom = 2.0
+	return flat
+
+static func _apply_info_deckle_surface(tray: Control, bar_h: float, action_opts: Dictionary = {}) -> Control:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null or tray == null:
+		return null
+	var surface := tray.find_child(DECKLE_SURFACE_NODE, false, false) as Control
+	if surface == null:
+		surface = load(Kit.CUT_PAPER).new()
+		surface.name = DECKLE_SURFACE_NODE
+		surface.show_behind_parent = true
+		surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		tray.add_child(surface)
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(Kit.load_config(Kit.CONFIG_PATH), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
+	var corner := float(_bar_corner(bar_h))
+	cp["corner"] = corner
+	surface.configure(cp, PAPER_FILL, PAPER_EDGE, Kit.cut_paper_tile())
+	surface.corner = corner
+	tray.set_meta(Look.SHADOW_CORNER_META, corner)
+	return surface
 
 # The paper always gets the shell's fixed 2px inset; optional Workbench padding belongs only to content.
 #
@@ -155,8 +186,8 @@ static func info_tray(info_bar: Control, bar_h: float, action_opts: Dictionary =
 	tray.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tray.custom_minimum_size = Vector2(1.0, bar_h)
 	tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tray.add_theme_stylebox_override("panel", bar_style(bar_h, action_opts))
-	apply_paper_surface(tray, bar_h)
+	tray.add_theme_stylebox_override("panel", _transparent_tray_style())
+	_apply_info_deckle_surface(tray, bar_h, action_opts)
 	tray.add_child(info_bar)
 	return tray
 
