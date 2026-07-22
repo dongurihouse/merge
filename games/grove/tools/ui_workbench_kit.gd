@@ -5754,17 +5754,30 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 				built_in_shadow.get_parent().remove_child(built_in_shadow)
 				built_in_shadow.queue_free()
 			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var pc := CenterContainer.new()
+			var pc := Control.new()
 			pc.position = Vector2.ZERO
 			pc.size = Vector2(cw, ch)
 			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if bool(opts.get("content_shadow", true)):
 				var content_corner := piece_px * 0.32
+				var shadow_slot := Control.new()
+				shadow_slot.name = "SlotContentShadowSlot"
+				shadow_slot.position = Vector2((cw - piece_px) * 0.5, (ch - piece_px) * 0.5)
+				shadow_slot.size = Vector2(piece_px, piece_px)
+				shadow_slot.custom_minimum_size = Vector2(piece_px, piece_px)
+				shadow_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				var content_shadow := Look.shadow_rect(content_corner, opts.get("content_shadow_params", opts.get("shadow_params", {})) as Dictionary)
 				content_shadow.name = "SlotContentShadow"
+				content_shadow.custom_minimum_size = Vector2(piece_px, piece_px)
 				content_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				pc.add_child(content_shadow)
-			pc.add_child(piece)
+				shadow_slot.add_child(content_shadow)
+				pc.add_child(shadow_slot)
+			var piece_slot := CenterContainer.new()
+			piece_slot.position = Vector2.ZERO
+			piece_slot.size = Vector2(cw, ch)
+			piece_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			piece_slot.add_child(piece)
+			pc.add_child(piece_slot)
 			tile.add_child(pc)
 
 	# the acorn cost (bag) — near the lower edge. The SHARED green pill_button (the
