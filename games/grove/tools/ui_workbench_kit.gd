@@ -350,11 +350,8 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS))
 	var corner := float(cp.get("corner", 20.0))
 	b.set_meta(Look.SHADOW_CORNER_META, corner)
-	# the SHARED drop shadow behind the tile (on when asked)
-	if bool(opts.get("shadow", false)):
-		var sh: Panel = _meadow_shadow_rect(Look.shape_corner(b, corner), opts.get("shadow_params", {}))
-		sh.show_behind_parent = true
-		b.add_child(sh)
+	# (no behind-tile drop shadow: the cut-paper edge carries its own edge shadow; the only shadow this
+	# button wears is the ICON's, gated by `icon_shadow` below.)
 	# the code-drawn rugged edge — the ONE shared applier
 	var panel: Control = load(CUT_PAPER).new()
 	panel.name = "ActionButtonDeckleSurface"
@@ -375,13 +372,13 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		var icwrap := CenterContainer.new()
 		icwrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# an icon_px square block holding the glyph's soft runtime drop shadow (darkened silhouette copies
-		# nudged down) UNDER the glyph, so it lifts off the paper tile (see GLYPH_SHADOW). The block is
-		# centred on the tile; STRETCH_KEEP_ASPECT_CENTERED keeps a square glyph filling icon_px.
+		# an icon_px square block holding (optionally) the glyph's soft runtime drop shadow (darkened
+		# silhouette copies nudged down) UNDER the glyph, so it lifts off the paper tile (see GLYPH_SHADOW).
+		# The block is centred on the tile; STRETCH_KEEP_ASPECT_CENTERED keeps a square glyph filling icon_px.
 		var stack := Control.new()
 		stack.custom_minimum_size = Vector2(icon_px, icon_px)
 		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for layer in GLYPH_SHADOW:
+		for layer in (GLYPH_SHADOW if bool(opts.get("icon_shadow", true)) else []):
 			var sh := TextureRect.new()
 			sh.texture = glyph_tex
 			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -2203,8 +2200,7 @@ static func action_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cp": cut_paper_opts_from_config(cfg, "action_button", ACTION_BUTTON_CP_DEFAULTS),
 		"tints": tints,
 		"icon_scale": clampf(float(d.get("icon_scale", 90)) / 100.0, 0.10, 1.0),
-		"shadow": bool(d.get("shadow", true)),
-		"shadow_params": Look.shadow_params(cfg),
+		"icon_shadow": bool(d.get("icon_shadow", true)),
 	}
 
 ## The SHARED text-shadow knob set — one drop-shadow control group appliable to ANY text element (the
