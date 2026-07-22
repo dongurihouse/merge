@@ -2162,6 +2162,94 @@ static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> 
 		"edge_shadow": return d.get("frame_shadow", fallback)
 	return fallback
 
+## ── TORN CELL ────────────────────────────────────────────────────────────────────────────────────
+## A fully CODE-DRAWN cut-paper slot cell: an OUTER rugged cream card (the shared CutPaperPanel edge) with
+## an INNER rugged well cut into it (a second CutPaperPanel, inset) and a soft INNER shadow cast from the
+## well's top edge (CutPaperInsetShadow). Everything below is workbench-tunable. Its OUTER edge reuses the
+## shared CUT_PAPER_KNOBS (read from the "torn_cell" block); these are its OWN extra knobs.
+const INSET_SHADOW := "res://engine/scripts/ui/cut_paper_inset_shadow.gd"
+const TORN_CELL_KNOBS := [
+	{"key": "cream_fill",      "kind": "color",  "label": "Card color",     "default": "F1E6D2"},
+	{"key": "well_fill",       "kind": "color",  "label": "Well color",     "default": "A6C486"},
+	{"key": "inner_inset",     "kind": "slider", "label": "Well inset",     "min": 2,  "max": 40,  "default": 14},
+	{"key": "inner_corner",    "kind": "slider", "label": "Well corner",    "min": 0,  "max": 50,  "default": 16},
+	{"key": "inner_amp",       "kind": "slider", "label": "Well deckle amp", "min": 0, "max": 20,  "default": 4},
+	{"key": "inner_freq",      "kind": "slider", "label": "Well deckle freq", "min": 1, "max": 20, "default": 6, "freq": true},
+	{"key": "inner_rim",       "kind": "slider", "label": "Well rim width",  "min": 0,  "max": 8,   "default": 2},
+	{"key": "inner_shadow_h",        "kind": "slider", "label": "Inner shadow reach", "min": 0, "max": 60, "default": 26},
+	{"key": "inner_shadow_strength", "kind": "slider", "label": "Inner shadow strength", "min": 0, "max": 60, "default": 30},   # percent -> alpha
+	{"key": "inner_shadow_falloff",  "kind": "slider", "label": "Inner shadow falloff",  "min": 10, "max": 40, "default": 16}, # /10 -> curve
+	{"key": "inner_shadow_tint",     "kind": "color",  "label": "Inner shadow tint", "default": "294654"},
+]
+
+## Read the `torn_cell` config block into the builder opts: the shared cut-paper edge for the OUTER card,
+## plus this component's own inner-well + inner-shadow + fill knobs.
+static func torn_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var d: Dictionary = cfg.get("torn_cell", {}) if cfg is Dictionary else {}
+	var o := {"outer": cut_paper_opts_from_config(cfg, "torn_cell", {"corner": 18, "deckle_amp": 5, "deckle_freq": 6})}
+	for knob in TORN_CELL_KNOBS:
+		var k: String = knob["key"]
+		var raw: Variant = d.get(k, knob["default"])
+		var kind := String(knob.get("kind", "slider"))
+		if kind == "color":
+			o[k] = Color.from_string("#" + String(raw).lstrip("#"), Color.WHITE)
+		elif bool(knob.get("freq", false)):
+			o[k] = float(raw) / 100.0
+		else:
+			o[k] = float(raw)
+	return o
+
+## Build the code-drawn torn cell at `opts.cell_w × opts.cell_h`. Three layers: the outer cream cut-paper
+## card, the inner green well (a second cut-paper, inset), and the well's top inner shadow.
+static func torn_cell(opts: Dictionary) -> Control:
+	var w := float(opts.get("cell_w", 120.0))
+	var h := float(opts.get("cell_h", 120.0))
+	var root := Control.new()
+	root.name = "TornCell"
+	root.custom_minimum_size = Vector2(w, h)
+	root.size = Vector2(w, h)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# the OUTER rugged cream card (shared cut-paper edge)
+	var outer_cp: Dictionary = opts.get("outer", {})
+	var outer: Control = load(CUT_PAPER).new()
+	outer.name = "TornCellOuter"
+	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outer.configure(outer_cp, opts.get("cream_fill", Color("#F1E6D2")), null, cut_paper_tile())
+	outer.corner = float(outer_cp.get("corner", 18.0))
+	root.add_child(outer)
+
+	# the INNER rugged well, inset — its own tuned edge, no drop shadow (the outer card casts the cell's)
+	var inset := float(opts.get("inner_inset", 14.0))
+	var iw := maxf(1.0, w - inset * 2.0)
+	var ih := maxf(1.0, h - inset * 2.0)
+	var well_fill: Color = opts.get("well_fill", Color("#A6C486"))
+	var inner_cp := {
+		"deckle": true, "corner": float(opts.get("inner_corner", 16.0)),
+		"deckle_amp": float(opts.get("inner_amp", 4.0)), "deckle_freq": float(opts.get("inner_freq", 0.06)),
+		"rim_width": float(opts.get("inner_rim", 2.0)), "edge_shadow": false,
+	}
+	var inner: Control = load(CUT_PAPER).new()
+	inner.name = "TornCellWell"
+	inner.position = Vector2(inset, inset)
+	inner.size = Vector2(iw, ih)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.configure(inner_cp, well_fill, well_fill.darkened(0.14), cut_paper_tile())
+	inner.corner = float(opts.get("inner_corner", 16.0))
+	root.add_child(inner)
+
+	# the well's TOP inner shadow (recessed look)
+	var sh: Control = load(INSET_SHADOW).new()
+	sh.name = "TornCellInnerShadow"
+	sh.position = Vector2(inset, inset)
+	sh.size = Vector2(iw, ih)
+	root.add_child(sh)
+	sh.configure(float(opts.get("inner_corner", 16.0)), float(opts.get("inner_shadow_h", 26.0)),
+		float(opts.get("inner_shadow_strength", 30.0)) / 100.0, opts.get("inner_shadow_tint", Color("#294654")),
+		float(opts.get("inner_shadow_falloff", 16.0)) / 10.0)
+	return root
+
 ## Read the `action_button` config block into the opts the shared builder consumes: the cut-paper edge
 ## opts (shared parser), the per-button paper-role tint palette (tint_<role> keys), the icon scale, and
 ## the shared shadow. The home bar + board wells both build from this — one source, no drift.
