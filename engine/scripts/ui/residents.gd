@@ -350,9 +350,11 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 		card.name = "OnHandCard_%02d" % i
 		grid.add_child(card)
 	for _e in range(hand.size(), maxi(hand.size(), HAND_COLS)):
-		# empty filler tiles: the plain cream cut-paper cell (matches the filled hand tiles' face)
+		# empty filler tiles: the SAME open cut-paper slot as an empty (free) habitat cell, so an empty
+		# hand slot and an empty habitat cell read as the same "drop here" surface.
 		var filler: Control = Kit.slot_cell({"state": "empty"}, hbag)
-		_plain_cell_face(filler)
+		if not _skin_cell_face(filler, "cell_open"):
+			_plain_cell_face(filler)
 		grid.add_child(filler)
 	# the WHOLE hand area is the unplace drop zone: a DragCard backdrop under the grid — a placed
 	# spirit dropped anywhere over it (cards included: their can_take rejects "placed", so the
@@ -423,9 +425,9 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	# fits its grid slot.
 	var aspect := float(card_tex.get_width()) / float(card_tex.get_height())
 	var h := roundf(w / maxf(aspect, 0.1))
-	# no code drop shadow on the big cards: the stacked silhouette copies read as a doubled card at this
-	# size. The card sprite's own baked edge + the dialog panel behind give it enough depth.
-	var card := SpritePanel.build(card_tex, Vector2(w, h), {"shadow": false})
+	# ONE soft blurred drop shadow (SpritePanel's shared cast, not the old stacked silhouettes) so the bank
+	# cards lift off the sheet like the rest of the cut-paper chrome.
+	var card := SpritePanel.build(card_tex, Vector2(w, h), {"shadow": true})
 	card.name = "ResourceBankCard_" + line
 	card.custom_minimum_size = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -842,9 +844,22 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	insp.add_child(body)
 	var strip_tex := _skin_tex("strip_bg")
 	if strip_tex != null:
+		# the shared soft drop shadow BEHIND the bar (item 4) — pill corner (half the bar height) so it hugs
+		# the strip's fully-rounded ends instead of poking out as a box. Inset a hair so its fill never rings
+		# the torn sprite edge.
+		var bar_h := INSPECTOR_H * s
+		var sh := Look.shadow_rect(bar_h * 0.5, {})
+		var sh_in := bar_h * 0.07
+		sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		sh.offset_left = sh_in; sh.offset_top = sh_in; sh.offset_right = -sh_in; sh.offset_bottom = -sh_in
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		body.add_child(sh)
+		# the strip sprite FILLS the bar (STRETCH_SCALE) instead of KEEP_ASPECT_COVERED — the chunky bar
+		# sprite was taller-aspect than the thin slot, so COVERED cropped its rounded top/bottom edges.
+		# Filling keeps the full bar in view.
 		var sbg := TextureRect.new()
 		sbg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sbg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED   # fill the bar preserving aspect (no stretch, no slice)
+		sbg.stretch_mode = TextureRect.STRETCH_SCALE
 		sbg.texture = strip_tex
 		sbg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		sbg.mouse_filter = Control.MOUSE_FILTER_IGNORE
