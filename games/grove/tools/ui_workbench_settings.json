@@ -2,17 +2,17 @@
 	"action_button": {
 		"corner": 41.0,
 		"deckle": true,
-		"deckle_amp": 4.0,
+		"deckle_amp": 2.0,
 		"deckle_freq": 11.0,
 		"edge_shadow": true,
-		"icon_scale": 50.0,
+		"icon_scale": 80.0,
 		"px": 158.0,
 		"rim_color": "E7D6BC",
-		"rim_width": 1.0,
-		"shadow": true,
-		"shadow_blur": 0.0,
-		"shadow_reach": 9.0,
-		"shadow_strength": 5.0,
+		"rim_width": 2.0,
+		"shadow": false,
+		"shadow_blur": 83.0,
+		"shadow_reach": 7.0,
+		"shadow_strength": 8.0,
 		"tint_bag": "slate",
 		"tint_daily": "green",
 		"tint_home": "kraft",
@@ -70,9 +70,9 @@
 		"rim_color": "E7D6BC",
 		"rim_width": 2.0,
 		"shadow": true,
-		"shadow_blur": 55.0,
-		"shadow_reach": 10.0,
-		"shadow_strength": 5.0
+		"shadow_blur": 8.0,
+		"shadow_reach": 6.0,
+		"shadow_strength": 8.0
 	},
 	"card": {
 		"badge": "auto",
@@ -226,10 +226,10 @@
 		"plus_stroke": 2.0,
 		"plus_x": -134.0,
 		"plus_y": 17.0,
-		"rim_width": 2.0,
+		"rim_width": 1.0,
 		"shadow": true,
-		"shadow_blur": 55.0,
-		"shadow_reach": 10.0,
+		"shadow_blur": 21.0,
+		"shadow_reach": 8.0,
 		"shadow_strength": 5.0
 	},
 	"grab_fx": {
@@ -271,7 +271,9 @@
 		"quest_bar_h_pct": 11.0,
 		"shadow": false
 	},
-	"icon": {},
+	"icon": {
+
+	},
 	"info": {
 		"shadow": true
 	},
@@ -441,11 +443,11 @@
 	"quest_card": {
 		"card_h": 97.0,
 		"card_w": 92.0,
-		"item_size": 60.0,
+		"item_size": 133.0,
 		"item_x": 50.0,
-		"item_y": 44.0,
-		"plaque_w": 46.0,
-		"plaque_x": 70.0,
+		"item_y": 47.0,
+		"plaque_w": 51.0,
+		"plaque_x": 65.0,
 		"plaque_y": 85.0,
 		"shadow": true
 	},
