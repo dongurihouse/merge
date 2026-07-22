@@ -2030,7 +2030,7 @@ const CUT_PAPER_KNOBS := [
 	# (a percent → alpha). Both only bite when Edge shadow is on. CutPaperPanel.configure consumes them.
 	{"key": "shadow_reach",    "kind": "slider", "label": "Shadow reach",    "min": 0, "max": 40, "default": 10},
 	{"key": "shadow_strength", "kind": "slider", "label": "Shadow strength", "min": 0, "max": 20, "default": 5},
-	{"key": "shadow_blur",     "kind": "slider", "label": "Shadow blur",     "min": 0, "max": 24, "default": 0},
+	{"key": "shadow_blur",     "kind": "slider", "label": "Shadow blur",     "min": 0, "max": 100, "default": 70},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
