@@ -112,6 +112,10 @@ const GEN_LIT := SHADE_LIT
 # but the eye lands on the generators the fence actually wants right now. Deeper than the paused
 # dim (it is "not needed", not just "stopped"). Accumulators (utility, never asked) stay exempt.
 const GEN_UNUSED := Color(1, 1, 1, 0.35)
+# ...and the same read for ITEMS: a base-line piece whose line no open quest asks for GREYS OUT
+# (muted + receded, still fully playable). Coins / special drops / treats are collectibles, not
+# quest lines — they never grey. Gentler than the generator fade: items are the play material.
+const ITEM_UNUSED := Color(0.78, 0.78, 0.78, 0.65)
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
@@ -1287,6 +1291,7 @@ func _refresh_giver_lights() -> void:
 	_reorder_giver_row()                          # float any now-deliverable card to the front (display-only)
 	_refresh_quest_ready_marks()                  # board-side twin: glow every board tile a live quest wants
 	_refresh_generator_dim()                      # quest-unused generators fade — re-read on the same beat
+	_refresh_item_line_dim()                      # ...and quest-unused LINE items grey out on the same beat
 
 # The asked item codes (line*100+tier) the live fence currently wants, as a set. Empty while the fence
 # is INERT (the bank can finish the map → quests greyed, nothing deliverable), so the glow AND the
@@ -1402,6 +1407,28 @@ func _refresh_generator_dim() -> void:
 	# stomp the quest fade the loop just applied. Only a standalone legacy node still takes the plain m.
 	if gen_node != null and is_instance_valid(gen_node) and not gen_nodes.values().has(gen_node):
 		gen_node.modulate = m
+
+# The items' twin of the generator fade above: GREY OUT every base-line piece whose line no open
+# quest asks for, restore the rest. Coins / special drops (chest · water · acorn) / treats are
+# collectibles, not quest lines — always full colour. Empty asked set (the rare no-quest window)
+# greys nothing. Runs on the same beat as the ready marks (every board/quest change).
+func _refresh_item_line_dim() -> void:
+	if board == null:
+		return
+	var asked_lines := {}
+	for l in _open_quest_lines():
+		asked_lines[int(l)] = true
+	for cell in piece_nodes:
+		var node: Control = piece_nodes[cell]
+		if node == null or not is_instance_valid(node):
+			continue
+		var code := board.item_at(cell)
+		if code <= 0:
+			continue
+		var line := BoardModel.line_of(code)
+		var quest_line := not G.is_coin(code) and not G.SPECIAL_ITEMS.has(line) and not G.is_treat_line(code)
+		var unused := not asked_lines.is_empty() and quest_line and not asked_lines.has(line)
+		node.modulate = ITEM_UNUSED if unused else Color(1, 1, 1, 1)
 
 # §6 boost indicator — the on-board "this generator is boosted" marker. While a boost is live, every
 # generator wears a sparkle overlay (reused gen_sparkle) + a small corner badge counting the taps left;
@@ -1535,6 +1562,7 @@ func _rebuild_all() -> void:
 	_rebuild_givers()
 	_rebuild_bag()
 	_refresh_generator_dim()   # §6: the freshly-built generators take their full/dimmed state
+	_refresh_item_line_dim()   # ...and freshly-built pieces take their quest-line grey state
 	_refresh_boost_indicator() # §6: re-light the boost sparkle + count badge if a boost is live
 	_update_hud()
 	if _selected_cell.x >= 0:  # the wipe above freed the focus frame — redraw it on the still-selected cell

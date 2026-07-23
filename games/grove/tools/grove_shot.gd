@@ -56,10 +56,12 @@ func _initialize() -> void:
 			scn._on_release(scn._cell_pos(Vector2i(5, 4)) + half)
 			await create_timer(0.5).timeout
 		"genfade":
-			# quest-unused generator fade: swap the fence for quests asking a line NO on-board
-			# generator produces, so every generator takes the GEN_UNUSED faded look.
+			# quest-unused fade: swap the fence for quests asking a line NO on-board generator produces
+			# or item carries, so every generator fades (GEN_UNUSED) and every base-line item greys
+			# (ITEM_UNUSED).
 			scn.quests = [{"line": 9, "tier": 2, "giver": 0}]
 			scn._refresh_generator_dim()
+			scn._refresh_item_line_dim()
 			await create_timer(0.4).timeout
 		"gate":
 			# bank enough stars to make the frontier map's cheapest spot affordable, so the

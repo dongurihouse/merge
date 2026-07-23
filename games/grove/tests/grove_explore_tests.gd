@@ -61,6 +61,18 @@ func _test_quest_unused_generator_fade() -> void:
 	lights_fn = lights_fn.substr(0, lights_fn.find("\nfunc "))
 	ok(lights_fn.find("_refresh_generator_dim()") != -1,
 		"the quest beat (giver lights) re-reads the generator fade")
+	# …and the items' twin: base-line pieces of a quest-unused line grey out on the same beat,
+	# with the collectibles (coins · special drops · treats) exempt.
+	ok(board_src.find("const ITEM_UNUSED") != -1,
+		"board defines the quest-unused item grey shade")
+	var item_fn := board_src.substr(board_src.find("func _refresh_item_line_dim"))
+	item_fn = item_fn.substr(0, item_fn.find("\nfunc "))
+	ok(item_fn.find("_open_quest_lines()") != -1 and item_fn.find("ITEM_UNUSED") != -1,
+		"item dim greys a piece whose line no open quest asks for")
+	ok(item_fn.find("is_coin") != -1 and item_fn.find("SPECIAL_ITEMS") != -1 and item_fn.find("is_treat_line") != -1,
+		"coins, special drops and treats are exempt from the quest grey")
+	ok(lights_fn.find("_refresh_item_line_dim()") != -1,
+		"the quest beat (giver lights) re-reads the item grey too")
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.
