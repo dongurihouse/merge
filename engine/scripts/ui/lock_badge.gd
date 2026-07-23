@@ -11,22 +11,29 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # gen_halo_
 const PAD_PX := 168.0     # the padlock glyph — big enough to read as a tappable target on the map
 const BOX := 216.0        # the badge box (room for the glow + shadow around the pad)
 const SHADOW_OFFSET := Vector2(7.0, 14.0)
+## The reference canvas width the badge consts were tuned on (winter/coral, 941px). The badge lives in
+## ZONE-CANVAS coordinates, so on a wider canvas (hollow/oasis/sakura, 1320px) the same const rendered
+## visibly SMALLER on screen. Callers pass ui_scale = canvas_w / REF_CANVAS_W so every scene's lock
+## lands at the SAME on-screen size — the winter (largest) read.
+const REF_CANVAS_W := 941.0
 
-static func make(id: String) -> Control:
+static func make(id: String, ui_scale: float = 1.0) -> Control:
+	var box := BOX * ui_scale
+	var pad_px := PAD_PX * ui_scale
 	var badge := Control.new()
 	badge.name = "lock_%s" % id
-	badge.custom_minimum_size = Vector2(BOX, BOX)
-	badge.size = Vector2(BOX, BOX)
+	badge.custom_minimum_size = Vector2(box, box)
+	badge.size = Vector2(box, box)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.set_meta("building_id", id)
-	var pad_pos := Vector2(BOX - PAD_PX, BOX - PAD_PX) * 0.5
+	var pad_pos := Vector2(box - pad_px, box - pad_px) * 0.5
 	var tex := _padlock_tex()
 	# drop shadow — a black silhouette of the padlock, offset down-right, behind everything.
 	var shadow := TextureRect.new()
 	shadow.name = "Shadow"
 	_config_sprite(shadow)
-	shadow.size = Vector2(PAD_PX, PAD_PX)
-	shadow.position = pad_pos + SHADOW_OFFSET
+	shadow.size = Vector2(pad_px, pad_px)
+	shadow.position = pad_pos + SHADOW_OFFSET * ui_scale
 	shadow.texture = tex
 	shadow.modulate = Color(0, 0, 0, 0.38)
 	badge.add_child(shadow)
@@ -34,9 +41,9 @@ static func make(id: String) -> Control:
 	var pad := TextureRect.new()
 	pad.name = "Pad"
 	_config_sprite(pad)
-	pad.size = Vector2(PAD_PX, PAD_PX)
+	pad.size = Vector2(pad_px, pad_px)
 	pad.position = pad_pos
-	pad.pivot_offset = Vector2(PAD_PX, PAD_PX) * 0.5   # pulse scales from the centre
+	pad.pivot_offset = Vector2(pad_px, pad_px) * 0.5   # pulse scales from the centre
 	pad.texture = tex
 	badge.add_child(pad)
 	set_ready(badge, false)
@@ -64,8 +71,8 @@ static func set_ready(badge: Control, ready: bool) -> void:
 		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE     # before size — the min-size cache clamps otherwise
 		glow.stretch_mode = TextureRect.STRETCH_SCALE
 		glow.texture = PieceView.gen_halo_tex()
-		glow.size = Vector2(BOX, BOX) * 1.35                  # the aura spills past the badge box, fading out
-		glow.position = (Vector2(BOX, BOX) - glow.size) * 0.5
+		glow.size = badge.size * 1.35                         # the aura spills past the badge box, fading out
+		glow.position = (badge.size - glow.size) * 0.5
 		glow.pivot_offset = glow.size * 0.5                   # breathe scales from the centre, like the pad
 		glow.modulate = Color(1.0, 0.86, 0.36, 0.8)           # warm "unlockable" gold, shaped by the bloom's falloff
 		badge.add_child(glow)

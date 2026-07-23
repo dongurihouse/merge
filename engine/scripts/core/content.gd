@@ -224,6 +224,18 @@ static func recipe_lines(line: int) -> Array:
 	var z := zone_of_line(int(line))
 	return zone_recipe(z) if z >= 0 else []
 
+## The LINES a set of quest-asked lines actually NEEDS on the board: each asked line itself, plus —
+## for a MERGED (special) line — its two recipe BASE lines (the ingredients that craft it). This is
+## the ONE expansion behind every "needed for a quest" read (board item grey, generator fade, bag
+## breathe), so asking for a crafted line keeps its ingredient lines fully lit too.
+static func quest_needed_lines(asked: Array) -> Dictionary:
+	var out := {}
+	for l in asked:
+		out[int(l)] = true
+		for r in recipe_lines(int(l)):
+			out[int(r)] = true
+	return out
+
 # The SPECIAL line crafted by merging two base lines at the same tier (Core §6.G). Order-independent; 0 if
 # the pair isn't a recipe. (Derived: the special zone whose two preceding base lines are this pair.)
 static func special_for_pair(line_a: int, line_b: int) -> int:

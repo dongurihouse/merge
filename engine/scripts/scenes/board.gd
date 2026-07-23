@@ -1390,11 +1390,10 @@ func _refresh_generator_dim() -> void:
 		return
 	var lit := not board.empty_ground_cells().is_empty()
 	var m := GEN_LIT if lit else GEN_DIM
-	# the LINES the open fence asks for — a line-producing generator no quest wants fades out
-	# (GEN_UNUSED). Empty set (the rare no-quest window) → nothing fades; accumulators are exempt.
-	var asked_lines := {}
-	for l in _open_quest_lines():
-		asked_lines[int(l)] = true
+	# the LINES the open fence NEEDS — each asked line plus a merged line's recipe base lines
+	# (G.quest_needed_lines). A line-producing generator no quest needs fades out (GEN_UNUSED).
+	# Empty set (the rare no-quest window) → nothing fades; accumulators are exempt.
+	var asked_lines := G.quest_needed_lines(_open_quest_lines())
 	for cell in gen_nodes:
 		var gn: Control = gen_nodes[cell]
 		if gn == null or not is_instance_valid(gn):
@@ -1415,9 +1414,8 @@ func _refresh_generator_dim() -> void:
 func _refresh_item_line_dim() -> void:
 	if board == null:
 		return
-	var asked_lines := {}
-	for l in _open_quest_lines():
-		asked_lines[int(l)] = true
+	# asked lines EXPANDED with each merged line's recipe base lines — the ingredients stay lit
+	var asked_lines := G.quest_needed_lines(_open_quest_lines())
 	for cell in piece_nodes:
 		var node: Control = piece_nodes[cell]
 		if node == null or not is_instance_valid(node):
@@ -2288,7 +2286,7 @@ func _open_bag_overlay() -> void:
 		"on_balance": func() -> int: return Save.diamonds(),
 		"gen_bag": board.gen_bag,
 		"gen_bag_tiers": board.gen_bag_tiers,
-		"asked_lines": _open_quest_lines(),       # stored generators a live quest needs breathe in the bag
+		"asked_lines": G.quest_needed_lines(_open_quest_lines()).keys(),   # asked + merged-recipe base lines — needed gens breathe in the bag
 		"on_place_gen": func(id: String) -> void:
 			var cells := board.empty_ground_cells()
 			if cells.is_empty():
