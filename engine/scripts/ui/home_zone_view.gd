@@ -176,7 +176,9 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 	# OWN canopy bbox centre (not a matching structure's anchor) — this decouples the lock from any
 	# structure-cluster naming, which winter/desert's coverup clusters don't share with a building.
 	for cl in groups.keys():
-		var lb: Control = LockBadge.make(cl)
+		# scale the badge by canvas width so the lock reads the SAME on-screen size on every scene
+		# (the consts were tuned on winter's 941px canvas — the widest canvases shrank it visibly)
+		var lb: Control = LockBadge.make(cl, stage.size.x / LockBadge.REF_CANVAS_W)
 		var bbox: Rect2 = (groups[cl] as Dictionary).bbox
 		lb.position = bbox.get_center() - lb.size * 0.5
 		stage.add_child(lb)

@@ -73,10 +73,19 @@ func _test_quest_unused_generator_fade() -> void:
 		"coins, special drops and treats are exempt from the quest grey")
 	ok(lights_fn.find("_refresh_item_line_dim()") != -1,
 		"the quest beat (giver lights) re-reads the item grey too")
-	# the BAG mirrors the read: the board hands the open-quest lines to the overlay, and a stored
-	# generator a live quest needs breathes in the generators row.
-	ok(board_src.find("\"asked_lines\": _open_quest_lines()") != -1,
-		"the board hands the open-quest lines to the bag overlay")
+	# the BAG mirrors the read: the board hands the NEEDED lines (asked + merged-recipe bases) to the
+	# overlay, and a stored generator a live quest needs breathes in the generators row.
+	ok(board_src.find("\"asked_lines\": G.quest_needed_lines(_open_quest_lines()).keys()") != -1,
+		"the board hands the quest-NEEDED lines (merge recipes expanded) to the bag overlay")
+	# every quest-driven read shares ONE expansion: an asked MERGED line keeps its two recipe base
+	# lines lit too (winter berries = wild berries + snow: asking 5 needs {5, 2, 3}).
+	var needed := G.quest_needed_lines([5])
+	ok(needed.has(5) and needed.has(2) and needed.has(3) and needed.size() == 3,
+		"quest_needed_lines expands a merged line into itself + its recipe base lines")
+	ok(G.quest_needed_lines([1]) == {1: true},
+		"a base line expands to just itself")
+	ok(board_src.count("G.quest_needed_lines(_open_quest_lines())") >= 3,
+		"generator fade, item grey and the bag hand-off all read the SAME needed-lines expansion")
 	var bag_src := FileAccess.get_file_as_string("res://engine/scripts/ui/bag_overlay.gd")
 	ok(bag_src.find("asked_lines.has(int(G.gen_def(G.GENERATORS, gid_str).get(\"line\", -1)))") != -1
 		and bag_src.find("FX.breathe(gicon)") != -1,
