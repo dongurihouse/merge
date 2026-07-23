@@ -27,7 +27,6 @@ const Pal = Game.PALETTE
 const OVERLAY_NAME = "LevelPopupOverlay"
 
 # --- the mock's roles (Meadow Sky) -------------------------------------------------------
-const BAR_REMAIN := Color("#8FA6C9")      # the progress bar's un-earned remainder (fallback bar only)
 
 # --- proportions, as fractions of the sheet WIDTH (screen-fraction sizing, not fixed px) ---
 # PAD_X_F / PAD_BOT_F are handed to the shared frame as its content inset (so the bar/pill fractions
@@ -43,7 +42,6 @@ const PILL_W_F := 0.760
 const PILL_TEXT_L_F := 0.220              # the tally text's left inset — clears the pill's baked coin
 const BAR_W_F := 0.880
 const BAR_H_F := 0.150
-const BAR_FILL_RIM_F := 0.10              # the thin blue rim left around the green fill (fraction of bar height)
 const BTN_W_F := 0.640                    # the CTA (larger than before)
 
 # --- the sakura cut-paper level art (extracted, shadow-free — runtime re-applies the shadows) + caps -
@@ -237,18 +235,13 @@ static func _cta(text: String, w: float) -> Button:
 ## on an inner stage that is uniformly scaled to the display box, so the rounded ends keep their shape
 ## instead of ovalling when the bar is squashed short (the same recipe as Kit.progress_bar's art mode).
 static func _bar(frac: float, w: float, cfg: Dictionary = {}) -> Control:
+	# STYLE (art, rim, fill/track colour, shadow) comes from the shared progress_bar config — the SAME
+	# reader the board's NEXT UNLOCK strip and the workbench preview use, so one page drives all three.
+	# Only this dialog's GEOMETRY is local.
 	var opts := Kit.progress_bar_opts_from_config(cfg)
 	opts["name"] = "LevelProgress"
 	opts["width"] = w * BAR_W_F
 	opts["height"] = w * BAR_H_F
-	opts["track_art"] = "kit/level_track.png"
-	opts["fill_art"] = "kit/level_fill.png"
-	opts["art_cap"] = 512
-	opts["fill_rim_pct"] = BAR_FILL_RIM_F * 100.0
-	opts["fill_color"] = Pal.LEAF
-	opts["track_color"] = BAR_REMAIN
-	if not ((cfg.get("progress_bar", {}) as Dictionary).has("shadow")):
-		opts["shadow"] = true
 	return Kit.progress_bar(frac, opts)
 
 ## The tally PILL (sakura): the extracted cut-paper capsule art (kit/level_pill, gold coin baked at its

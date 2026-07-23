@@ -4977,6 +4977,15 @@ static func badge_polish_from_config(cfg: Dictionary) -> Dictionary:
 
 ## The reusable PROGRESS BAR's saved STYLE from config (height / art / star knob). The Level dialog and
 ## the standalone workbench preview both read it from here.
+## THE progress-bar look, shared by the level dialog, the board's NEXT UNLOCK strip, and the workbench
+## preview. These were level_popup.gd locals; they live here so one workbench page drives every bar.
+const PROGRESS_TRACK_ART := "kit/level_track.png"
+const PROGRESS_FILL_ART := "kit/level_fill.png"
+const PROGRESS_ART_CAP := 512
+const PROGRESS_FILL_RIM_PCT := 10.0     # the thin rim left around the fill, % of bar height
+const PROGRESS_FILL_HEX := "5F9B6D"     # Pal.LEAF — the earned fill
+const PROGRESS_TRACK_HEX := "8FA6C9"    # the un-earned remainder
+
 static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var p: Dictionary = cfg.get("progress_bar", {})
 	var fill_shadow_params := {
@@ -4989,7 +4998,17 @@ static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"height": float(p.get("height", 20)),
 		"art": bool(p.get("art", true)),
-		"shadow": bool(p.get("shadow", false)),
+		# THE house progress-bar style — the level dialog's cut-paper capsule. It used to be applied
+		# by level_popup.gd AFTER this reader, so the board strip and the workbench preview silently
+		# drew the older prog_track/prog_fill art instead. Defaulting it here makes this reader the
+		# single source: one workbench page now drives the level dialog AND the board strip.
+		"track_art": String(p.get("track_art", PROGRESS_TRACK_ART)),
+		"fill_art":  String(p.get("fill_art", PROGRESS_FILL_ART)),
+		"art_cap":   int(p.get("art_cap", PROGRESS_ART_CAP)),
+		"fill_rim_pct": float(p.get("fill_rim_pct", PROGRESS_FILL_RIM_PCT)),
+		"fill_color": Color.from_string("#" + String(p.get("fill_color", PROGRESS_FILL_HEX)).lstrip("#"), Pal.LEAF),
+		"track_color": Color.from_string("#" + String(p.get("track_color", PROGRESS_TRACK_HEX)).lstrip("#"), Color(Pal.INK, 0.12)),
+		"shadow": bool(p.get("shadow", true)),
 		"shadow_params": Look.shadow_params(cfg),
 		"star_knob": bool(p.get("star_knob", false)),
 		"fill_width_pct": float(p.get("fill_width_pct", 100.0)),

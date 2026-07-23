@@ -36,6 +36,7 @@ func _initialize() -> void:
 	_shared_shadow_spread_outruns_offset()
 	_torn_cell_page_hides_knobs_the_face_ignores()
 	_dialog_cells_cast_independently_of_the_board()
+	_one_progress_style_drives_level_board_and_workbench()
 	_gold_pill_backer_tracks_face_width()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -423,6 +424,31 @@ func _quest_card_shadow_blur_shape_and_card_cast() -> void:
 	card_on.free()
 	card_off.free()
 	plq.free()
+func _one_progress_style_drives_level_board_and_workbench() -> void:
+	# The level dialog used to apply the house style (level_track/level_fill art, rim, fill/track
+	# colour) AFTER the shared reader, so the board's NEXT UNLOCK strip and the workbench preview
+	# silently drew the older prog_track/prog_fill art. The style now defaults IN the reader, so one
+	# workbench page drives all three and they cannot drift.
+	var o := Kit.progress_bar_opts_from_config({})
+	ok(String(o.track_art) == Kit.PROGRESS_TRACK_ART and String(o.fill_art) == Kit.PROGRESS_FILL_ART,
+		"the shared reader defaults to the level dialog's capsule art")
+	ok(is_equal_approx(float(o.fill_rim_pct), Kit.PROGRESS_FILL_RIM_PCT) and int(o.art_cap) == Kit.PROGRESS_ART_CAP,
+		"the rim + art cap travel with it (they were level_popup locals)")
+	ok((o.fill_color as Color).is_equal_approx(Color("#" + Kit.PROGRESS_FILL_HEX))
+		and (o.track_color as Color).is_equal_approx(Color("#" + Kit.PROGRESS_TRACK_HEX)),
+		"fill + remainder colours come from the shared style too")
+	# level_popup must no longer re-specify any of it — that is what let the surfaces drift
+	var lp_src := FileAccess.get_file_as_string("res://engine/scripts/ui/level_popup.gd")
+	var bar_fn := lp_src.substr(lp_src.find("static func _bar("))
+	bar_fn = bar_fn.substr(0, bar_fn.find("\nstatic func "))
+	for k in ["track_art", "fill_art", "art_cap", "fill_rim_pct", "fill_color", "track_color"]:
+		ok(bar_fn.find("opts[\"%s\"]" % k) < 0,
+			"the level dialog no longer overrides %s (style lives in the shared reader)" % k)
+	# a saved tweak must reach every surface — change one key, all three readers see it
+	var tweaked := Kit.progress_bar_opts_from_config({"progress_bar": {"fill_color": "D6A94C"}})
+	ok((tweaked.fill_color as Color).is_equal_approx(Color("#D6A94C")),
+		"a saved fill colour flows through the one reader every bar builds from")
+
 func _dialog_cells_cast_independently_of_the_board() -> void:
 	# Dialog grids draw the SAME slot cell at a much bigger size (tiers 150² vs the board's 116×120)
 	# with a big icon, but the cast is fixed PIXELS — so one shared set can't serve both, and the
