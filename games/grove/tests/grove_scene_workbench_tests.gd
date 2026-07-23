@@ -638,7 +638,6 @@ func _initialize() -> void:
 	var upper_left_cover_z := -1
 	var unlock_cover_count := 0
 	var unlock_coverup_count := 0
-	var lowest_unlock_cover_z := -1
 	var unlock_clusters := {}
 	var hero_clusters := {}
 	for e in M.placements(lantern_doc):
@@ -650,18 +649,26 @@ func _initialize() -> void:
 			hero_clusters[String((e as Dictionary).get("cluster", ""))] = true
 		if String((e as Dictionary).get("category", "")) == "unlock_cover":
 			unlock_cover_count += 1
-			lowest_unlock_cover_z = maxi(lowest_unlock_cover_z, int((e as Dictionary).get("z", -1)))
 			var unlock_cluster := String((e as Dictionary).get("cluster", ""))
 			unlock_clusters[unlock_cluster] = int(unlock_clusters.get(unlock_cluster, 0)) + 1
 			if String((e as Dictionary).get("layer", "")) == "coverup":
 				unlock_coverup_count += 1
 	ok(upper_left_cover_z >= 0 and upper_left_cover_z < gazebo_z,
 		"the winter upper-left cover stays behind the gazebo roof")
-	ok(unlock_cover_count == 23 and unlock_coverup_count == 23 and lowest_unlock_cover_z > 200,
-		"the winter unlock cover is a topmost 23-piece removable Coverup layer")
-	ok(unlock_clusters == {"unlock_lodge": 5, "unlock_gazebo": 3, "unlock_christmas_tree": 3,
-		"unlock_dock": 5, "unlock_entrance_arch": 7},
-		"the winter unlock cover clusters each piece by the primary object region it hides")
+	# the covers are GENERATED now (scene workbench zone-fill scatter, covers_<scene>.json zones), so
+	# the exact piece count is a re-roll away — assert the invariants, not the tally: every unlock
+	# cover lives on the removable coverup layer, topmost, and each hero region carries a blanket.
+	# topmost comes from the LAYER rank now (effective order = layer, clusterZ, z — coverup ranks above
+	# primary), not from a big per-item z as the old hand-authored covers carried.
+	ok(unlock_cover_count > 0 and unlock_coverup_count == unlock_cover_count,
+		"the winter unlock cover is a topmost removable Coverup layer")
+	var expected_regions := ["unlock_region_lodge", "unlock_region_gazebo", "unlock_region_christmas_tree",
+		"unlock_region_dock", "unlock_region_entrance_arch"]
+	var regions_ok := unlock_clusters.size() == expected_regions.size()
+	for r in expected_regions:
+		regions_ok = regions_ok and int(unlock_clusters.get(r, 0)) > 0
+	ok(regions_ok,
+		"the winter unlock cover clusters each piece by the primary object region it hides — got: %s" % str(unlock_clusters))
 	ok(hero_clusters == {"lodge": true, "gazebo": true, "christmas_tree": true, "dock": true, "entrance_arch": true},
 		"the winter hero structures sit on the primary layer, each tagged with its unlock region")
 	DirAccess.make_dir_recursive_absolute(broot + "/another")

@@ -1,7 +1,7 @@
 {
  "version": 1,
- "id": "oasis",
- "label": "Oasis",
+ "id": "desert_oasis",
+ "label": "Desert Oasis",
  "canvas": {
   "width": 1320,
   "height": 2346
@@ -334,298 +334,1740 @@
  ],
  "coverups": [
   {
-   "id": "lock_adobe_fan",
-   "cluster": "adobe",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan",
+   "cluster": "adobe_compound",
    "position": [
-    660,
-    720
+    538,
+    164
    ],
    "display_size": [
-    760,
-    756
+    337,
+    335
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan",
+   "cluster": "adobe_compound",
+   "position": [
+    350,
+    166
+   ],
+   "display_size": [
+    247,
+    314
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date",
+   "cluster": "adobe_compound",
+   "position": [
+    488,
+    299
+   ],
+   "display_size": [
+    183,
+    320
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_2",
+   "cluster": "adobe_compound",
+   "position": [
+    58,
+    323
+   ],
+   "display_size": [
+    367,
+    364
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather",
+   "cluster": "adobe_compound",
+   "position": [
+    170,
+    369
+   ],
+   "display_size": [
+    261,
+    444
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_2",
+   "cluster": "adobe_compound",
+   "position": [
+    657,
+    416
+   ],
+   "display_size": [
+    278,
+    486
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated",
+   "cluster": "adobe_compound",
+   "position": [
+    305,
+    355
+   ],
+   "display_size": [
+    114,
+    342
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_2",
+   "cluster": "adobe_compound",
+   "position": [
+    28,
+    526
+   ],
+   "display_size": [
+    320,
+    406
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_3",
+   "cluster": "adobe_compound",
+   "position": [
+    555,
+    501
+   ],
+   "display_size": [
+    259,
+    328
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_3",
+   "cluster": "adobe_compound",
+   "position": [
+    410,
+    563
+   ],
+   "display_size": [
+    386,
+    383
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_4",
+   "cluster": "adobe_compound",
+   "position": [
+    177,
+    551
+   ],
+   "display_size": [
+    295,
+    293
    ],
    "sort_y": 10,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
   },
   {
-   "id": "lock_adobe_backing_leaf",
-   "cluster": "adobe",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_2",
+   "cluster": "adobe_compound",
    "position": [
-    250,
-    1150
+    407,
+    680
    ],
    "display_size": [
-    1250,
-    1585
+    221,
+    377
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_5",
+   "cluster": "adobe_compound",
+   "position": [
+    177,
+    743
+   ],
+   "display_size": [
+    446,
+    443
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_2",
+   "cluster": "adobe_compound",
+   "position": [
+    26,
+    778
+   ],
+   "display_size": [
+    155,
+    465
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_3",
+   "cluster": "adobe_compound",
+   "position": [
+    568,
+    769
+   ],
+   "display_size": [
+    226,
+    396
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_4",
+   "cluster": "adobe_compound",
+   "position": [
+    40,
+    901
+   ],
+   "display_size": [
+    256,
+    448
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_6",
+   "cluster": "adobe_compound",
+   "position": [
+    402,
+    934
+   ],
+   "display_size": [
+    414,
+    411
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_7",
+   "cluster": "adobe_compound",
+   "position": [
+    581,
+    909
+   ],
+   "display_size": [
+    315,
+    313
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_3",
+   "cluster": "adobe_compound",
+   "position": [
+    131,
+    906
+   ],
+   "display_size": [
+    95,
+    285
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve",
+   "cluster": "adobe_compound",
+   "position": [
+    503,
+    1071
+   ],
+   "display_size": [
+    334,
+    484
+   ],
+   "sort_y": 19,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_4",
+   "cluster": "adobe_compound",
+   "position": [
+    228,
+    1082
+   ],
+   "display_size": [
+    149,
+    447
+   ],
+   "sort_y": 20,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_3",
+   "cluster": "adobe_compound",
+   "position": [
+    649,
+    1062
+   ],
+   "display_size": [
+    221,
+    375
+   ],
+   "sort_y": 21,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_5",
+   "cluster": "adobe_compound",
+   "position": [
+    59,
+    1060
+   ],
+   "display_size": [
+    123,
+    368
+   ],
+   "sort_y": 22,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_2",
+   "cluster": "adobe_compound",
+   "position": [
+    308,
+    1145
+   ],
+   "display_size": [
+    336,
+    486
+   ],
+   "sort_y": 23,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_8",
+   "cluster": "adobe_compound",
+   "position": [
+    330,
+    1168
+   ],
+   "display_size": [
+    301,
+    299
+   ],
+   "sort_y": 24,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_9",
+   "cluster": "adobe_compound",
+   "position": [
+    184,
+    1305
+   ],
+   "display_size": [
+    462,
+    459
+   ],
+   "sort_y": 25,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_4",
+   "cluster": "camel_caravan",
+   "position": [
+    1274,
+    1749
+   ],
+   "display_size": [
+    238,
+    406
    ],
    "sort_y": 0,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_3",
+   "cluster": "camel_caravan",
+   "position": [
+    1201,
+    1748
+   ],
+   "display_size": [
+    234,
+    339
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_4",
+   "cluster": "camel_caravan",
+   "position": [
+    1024,
+    1785
+   ],
+   "display_size": [
+    270,
+    391
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_5",
+   "cluster": "camel_caravan",
+   "position": [
+    1282,
+    1885
+   ],
+   "display_size": [
+    256,
+    448
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_5",
+   "cluster": "camel_caravan",
+   "position": [
+    866,
+    1837
+   ],
+   "display_size": [
+    168,
+    286
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_6",
+   "cluster": "camel_caravan",
+   "position": [
+    964,
+    1883
+   ],
+   "display_size": [
+    114,
+    341
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_5",
+   "cluster": "camel_caravan",
+   "position": [
+    1190,
+    1937
+   ],
+   "display_size": [
+    305,
+    441
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_6",
+   "cluster": "camel_caravan",
+   "position": [
+    695,
+    1927
+   ],
+   "display_size": [
+    205,
+    358
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_10",
+   "cluster": "camel_caravan",
+   "position": [
+    863,
+    1963
+   ],
+   "display_size": [
+    269,
+    267
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_7",
+   "cluster": "camel_caravan",
+   "position": [
+    936,
+    1974
+   ],
+   "display_size": [
+    151,
+    264
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_6",
+   "cluster": "camel_caravan",
+   "position": [
+    1277,
+    2018
+   ],
+   "display_size": [
+    167,
+    284
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_6",
+   "cluster": "camel_caravan",
+   "position": [
+    1174,
+    2068
+   ],
+   "display_size": [
+    261,
+    377
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_7",
+   "cluster": "camel_caravan",
+   "position": [
+    1329,
+    2220
+   ],
+   "display_size": [
+    211,
+    360
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_7",
+   "cluster": "camel_caravan",
+   "position": [
+    863,
+    2189
+   ],
+   "display_size": [
+    197,
+    284
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_8",
+   "cluster": "camel_caravan",
+   "position": [
+    1104,
+    2251
+   ],
+   "display_size": [
+    249,
+    360
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_9",
+   "cluster": "camel_caravan",
+   "position": [
+    953,
+    2240
+   ],
+   "display_size": [
+    199,
+    288
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_8",
+   "cluster": "camel_caravan",
+   "position": [
+    1316,
+    2394
+   ],
+   "display_size": [
+    247,
+    432
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_10",
+   "cluster": "camel_caravan",
+   "position": [
+    996,
+    2362
+   ],
+   "display_size": [
+    190,
+    275
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_11",
+   "cluster": "camel_caravan",
+   "position": [
+    1142,
+    2459
+   ],
+   "display_size": [
+    448,
+    445
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_4",
+   "cluster": "camel_caravan",
+   "position": [
+    698,
+    2401
+   ],
+   "display_size": [
+    255,
+    323
+   ],
+   "sort_y": 19,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
   },
   {
-   "id": "lock_adobe_date",
-   "cluster": "adobe",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_12",
+   "cluster": "camel_caravan",
    "position": [
-    360,
-    510
+    838,
+    2457
    ],
    "display_size": [
-    330,
-    576
+    404,
+    401
+   ],
+   "sort_y": 20,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_11",
+   "cluster": "market_stall",
+   "position": [
+    682,
+    1294
+   ],
+   "display_size": [
+    333,
+    481
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_7",
+   "cluster": "market_stall",
+   "position": [
+    317,
+    1237
+   ],
+   "display_size": [
+    117,
+    351
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_5",
+   "cluster": "market_stall",
+   "position": [
+    14,
+    1279
+   ],
+   "display_size": [
+    286,
+    362
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_9",
+   "cluster": "market_stall",
+   "position": [
+    348,
+    1410
+   ],
+   "display_size": [
+    253,
+    442
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_6",
+   "cluster": "market_stall",
+   "position": [
+    667,
+    1349
+   ],
+   "display_size": [
+    225,
+    285
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_12",
+   "cluster": "market_stall",
+   "position": [
+    599,
+    1395
+   ],
+   "display_size": [
+    251,
+    364
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_13",
+   "cluster": "market_stall",
+   "position": [
+    -3,
+    1445
+   ],
+   "display_size": [
+    320,
+    463
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_8",
+   "cluster": "market_stall",
+   "position": [
+    145,
+    1403
+   ],
+   "display_size": [
+    113,
+    338
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_14",
+   "cluster": "market_stall",
+   "position": [
+    703,
+    1606
+   ],
+   "display_size": [
+    336,
+    486
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_13",
+   "cluster": "market_stall",
+   "position": [
+    323,
+    1579
+   ],
+   "display_size": [
+    414,
+    411
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_8",
+   "cluster": "market_stall",
+   "position": [
+    57,
+    1582
+   ],
+   "display_size": [
+    191,
+    324
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_9",
+   "cluster": "market_stall",
+   "position": [
+    206,
+    1675
+   ],
+   "display_size": [
+    146,
+    436
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_14",
+   "cluster": "market_stall",
+   "position": [
+    563,
+    1677
+   ],
+   "display_size": [
+    438,
+    435
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_10",
+   "cluster": "market_stall",
+   "position": [
+    576,
+    1729
+   ],
+   "display_size": [
+    191,
+    334
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_15",
+   "cluster": "market_stall",
+   "position": [
+    736,
+    1746
+   ],
+   "display_size": [
+    227,
+    329
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_15",
+   "cluster": "market_stall",
+   "position": [
+    392,
+    1800
+   ],
+   "display_size": [
+    392,
+    389
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_16",
+   "cluster": "market_stall",
+   "position": [
+    230,
+    1791
+   ],
+   "display_size": [
+    361,
+    358
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_16",
+   "cluster": "market_stall",
+   "position": [
+    673,
+    1876
+   ],
+   "display_size": [
+    227,
+    328
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_11",
+   "cluster": "market_stall",
+   "position": [
+    198,
+    1928
+   ],
+   "display_size": [
+    219,
+    383
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_12",
+   "cluster": "market_stall",
+   "position": [
+    319,
+    1923
+   ],
+   "display_size": [
+    212,
+    370
+   ],
+   "sort_y": 19,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_13",
+   "cluster": "market_stall",
+   "position": [
+    505,
+    2013
+   ],
+   "display_size": [
+    282,
+    492
    ],
    "sort_y": 20,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
   },
   {
-   "id": "lock_adobe_curve",
-   "cluster": "adobe",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_17",
+   "cluster": "market_stall",
    "position": [
-    870,
-    510
+    490,
+    2130
    ],
    "display_size": [
-    360,
-    521
+    419,
+    416
    ],
-   "sort_y": 30,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
-  },
-  {
-   "id": "lock_watchtower_fan",
-   "cluster": "watchtower",
-   "position": [
-    1070,
-    1150
-   ],
-   "display_size": [
-    1250,
-    1585
-   ],
-   "sort_y": 10,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
-  },
-  {
-   "id": "lock_watchtower_backing_leaf",
-   "cluster": "watchtower",
-   "position": [
-    660,
-    1400
-   ],
-   "display_size": [
-    760,
-    756
-   ],
-   "sort_y": 0,
+   "sort_y": 21,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
   },
   {
-   "id": "lock_watchtower_curve",
-   "cluster": "watchtower",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_10",
+   "cluster": "market_stall",
    "position": [
-    1010,
-    1120
+    313,
+    2118
    ],
    "display_size": [
-    350,
-    506
+    107,
+    321
    ],
-   "sort_y": 20,
+   "sort_y": 22,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_11",
+   "cluster": "market_stall",
+   "position": [
+    123,
+    2117
+   ],
+   "display_size": [
+    95,
+    284
+   ],
+   "sort_y": 23,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_14",
+   "cluster": "market_stall",
+   "position": [
+    39,
+    2142
+   ],
+   "display_size": [
+    165,
+    287
+   ],
+   "sort_y": 24,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_18",
+   "cluster": "market_stall",
+   "position": [
+    671,
+    2263
+   ],
+   "display_size": [
+    299,
+    297
+   ],
+   "sort_y": 25,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_12",
+   "cluster": "market_stall",
+   "position": [
+    233,
+    2342
+   ],
+   "display_size": [
+    148,
+    442
+   ],
+   "sort_y": 26,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_15",
+   "cluster": "market_stall",
+   "position": [
+    524,
+    2334
+   ],
+   "display_size": [
+    232,
+    406
+   ],
+   "sort_y": 27,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_17",
+   "cluster": "market_stall",
+   "position": [
+    389,
+    2302
+   ],
+   "display_size": [
+    223,
+    323
+   ],
+   "sort_y": 28,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
   },
   {
-   "id": "lock_watchtower_feather",
-   "cluster": "watchtower",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_7",
+   "cluster": "market_stall",
    "position": [
-    1250,
-    1000
+    45,
+    2317
    ],
    "display_size": [
-    300,
-    510
+    233,
+    296
+   ],
+   "sort_y": 29,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_19",
+   "cluster": "market_stall",
+   "position": [
+    376,
+    2411
+   ],
+   "display_size": [
+    320,
+    318
    ],
    "sort_y": 30,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_9",
+   "cluster": "market_stall",
+   "position": [
+    -4,
+    2531
+   ],
+   "display_size": [
+    292,
+    497
+   ],
+   "sort_y": 31,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
   },
   {
-   "id": "lock_market_fan",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_10",
    "cluster": "market_stall",
    "position": [
-    140,
-    1400
+    571,
+    2459
    ],
    "display_size": [
-    760,
-    756
+    202,
+    344
    ],
-   "sort_y": 10,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
-  },
-  {
-   "id": "lock_market_backing_leaf",
-   "cluster": "market_stall",
-   "position": [
-    250,
-    2150
-   ],
-   "display_size": [
-    1250,
-    1585
-   ],
-   "sort_y": 0,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
-  },
-  {
-   "id": "lock_market_feather",
-   "cluster": "market_stall",
-   "position": [
-    390,
-    1650
-   ],
-   "display_size": [
-    300,
-    510
-   ],
-   "sort_y": 20,
+   "sort_y": 32,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
   },
   {
-   "id": "lock_market_blue_fan",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_16",
    "cluster": "market_stall",
    "position": [
-    650,
-    2080
+    132,
+    2598
    ],
    "display_size": [
-    420,
-    532
+    291,
+    508
    ],
-   "sort_y": 30,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+   "sort_y": 33,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
   },
   {
-   "id": "lock_tent_fan",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_11",
    "cluster": "travel_tent",
    "position": [
-    1070,
-    2150
+    980,
+    1209
    ],
    "display_size": [
-    1250,
-    1585
-   ],
-   "sort_y": 10,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
-  },
-  {
-   "id": "lock_tent_backing_leaf",
-   "cluster": "travel_tent",
-   "position": [
-    1170,
-    2100
-   ],
-   "display_size": [
-    760,
-    756
+    221,
+    377
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
   },
   {
-   "id": "lock_tent_curve",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_20",
    "cluster": "travel_tent",
    "position": [
-    1020,
-    1660
+    1253,
+    1160
    ],
    "display_size": [
-    350,
-    506
-   ],
-   "sort_y": 20,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
-  },
-  {
-   "id": "lock_tent_golden_fan",
-   "cluster": "travel_tent",
-   "position": [
-    1250,
-    1810
-   ],
-   "display_size": [
-    540,
-    538
-   ],
-   "sort_y": 30,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
-  },
-  {
-   "id": "lock_caravan_fan",
-   "cluster": "caravan",
-   "position": [
-    660,
-    2800
-   ],
-   "display_size": [
-    760,
-    756
-   ],
-   "sort_y": 10,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
-  },
-  {
-   "id": "lock_caravan_backing_left_leaf",
-   "cluster": "caravan",
-   "position": [
-    660,
-    3000
-   ],
-   "display_size": [
-    1400,
-    1774
-   ],
-   "sort_y": 0,
-   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
-  },
-  {
-   "id": "lock_caravan_backing_right_leaf",
-   "cluster": "caravan",
-   "position": [
-    1170,
-    2800
-   ],
-   "display_size": [
-    760,
-    756
+    248,
+    246
    ],
    "sort_y": 1,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
   },
   {
-   "id": "lock_caravan_date",
-   "cluster": "caravan",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_8",
+   "cluster": "travel_tent",
    "position": [
-    400,
-    2320
+    816,
+    1190
    ],
    "display_size": [
-    320,
-    559
+    215,
+    273
    ],
-   "sort_y": 20,
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_18",
+   "cluster": "travel_tent",
+   "position": [
+    1244,
+    1278
+   ],
+   "display_size": [
+    206,
+    297
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_21",
+   "cluster": "travel_tent",
+   "position": [
+    1112,
+    1337
+   ],
+   "display_size": [
+    359,
+    356
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_13",
+   "cluster": "travel_tent",
+   "position": [
+    873,
+    1324
+   ],
+   "display_size": [
+    98,
+    294
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_12",
+   "cluster": "travel_tent",
+   "position": [
+    1022,
+    1302
+   ],
+   "display_size": [
+    138,
+    234
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_17",
+   "cluster": "travel_tent",
+   "position": [
+    861,
+    1426
+   ],
+   "display_size": [
+    196,
+    343
+   ],
+   "sort_y": 7,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
   },
   {
-   "id": "lock_caravan_blue_fan",
-   "cluster": "caravan",
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_13",
+   "cluster": "travel_tent",
    "position": [
-    1020,
-    2440
+    959,
+    1420
    ],
    "display_size": [
-    360,
-    456
+    136,
+    231
    ],
-   "sort_y": 30,
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_9",
+   "cluster": "travel_tent",
+   "position": [
+    728,
+    1472
+   ],
+   "display_size": [
+    248,
+    314
+   ],
+   "sort_y": 9,
    "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_19",
+   "cluster": "travel_tent",
+   "position": [
+    1094,
+    1480
+   ],
+   "display_size": [
+    212,
+    306
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_18",
+   "cluster": "travel_tent",
+   "position": [
+    1265,
+    1455
+   ],
+   "display_size": [
+    142,
+    248
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_20",
+   "cluster": "travel_tent",
+   "position": [
+    836,
+    1538
+   ],
+   "display_size": [
+    197,
+    285
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_21",
+   "cluster": "travel_tent",
+   "position": [
+    1003,
+    1576
+   ],
+   "display_size": [
+    239,
+    346
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_14",
+   "cluster": "travel_tent",
+   "position": [
+    753,
+    1584
+   ],
+   "display_size": [
+    210,
+    357
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_19",
+   "cluster": "travel_tent",
+   "position": [
+    1273,
+    1555
+   ],
+   "display_size": [
+    151,
+    264
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_20",
+   "cluster": "travel_tent",
+   "position": [
+    1146,
+    1663
+   ],
+   "display_size": [
+    227,
+    396
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_21",
+   "cluster": "watchtower",
+   "position": [
+    796,
+    207
+   ],
+   "display_size": [
+    246,
+    431
+   ],
+   "sort_y": 0,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_blue_fan_10",
+   "cluster": "watchtower",
+   "position": [
+    1103,
+    126
+   ],
+   "display_size": [
+    203,
+    257
+   ],
+   "sort_y": 1,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_blue_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_22",
+   "cluster": "watchtower",
+   "position": [
+    873,
+    345
+   ],
+   "display_size": [
+    460,
+    457
+   ],
+   "sort_y": 2,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_22",
+   "cluster": "watchtower",
+   "position": [
+    1164,
+    355
+   ],
+   "display_size": [
+    292,
+    423
+   ],
+   "sort_y": 3,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_22",
+   "cluster": "watchtower",
+   "position": [
+    1019,
+    300
+   ],
+   "display_size": [
+    168,
+    294
+   ],
+   "sort_y": 4,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_14",
+   "cluster": "watchtower",
+   "position": [
+    1316,
+    309
+   ],
+   "display_size": [
+    102,
+    305
+   ],
+   "sort_y": 5,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_15",
+   "cluster": "watchtower",
+   "position": [
+    714,
+    341
+   ],
+   "display_size": [
+    163,
+    277
+   ],
+   "sort_y": 6,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_23",
+   "cluster": "watchtower",
+   "position": [
+    821,
+    494
+   ],
+   "display_size": [
+    450,
+    447
+   ],
+   "sort_y": 7,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_16",
+   "cluster": "watchtower",
+   "position": [
+    1300,
+    450
+   ],
+   "display_size": [
+    168,
+    286
+   ],
+   "sort_y": 8,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_23",
+   "cluster": "watchtower",
+   "position": [
+    1041,
+    517
+   ],
+   "display_size": [
+    287,
+    416
+   ],
+   "sort_y": 9,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_23",
+   "cluster": "watchtower",
+   "position": [
+    1107,
+    494
+   ],
+   "display_size": [
+    173,
+    302
+   ],
+   "sort_y": 10,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_24",
+   "cluster": "watchtower",
+   "position": [
+    669,
+    562
+   ],
+   "display_size": [
+    253,
+    366
+   ],
+   "sort_y": 11,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_24",
+   "cluster": "watchtower",
+   "position": [
+    948,
+    666
+   ],
+   "display_size": [
+    221,
+    386
+   ],
+   "sort_y": 12,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_25",
+   "cluster": "watchtower",
+   "position": [
+    1140,
+    690
+   ],
+   "display_size": [
+    244,
+    425
+   ],
+   "sort_y": 13,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_15",
+   "cluster": "watchtower",
+   "position": [
+    849,
+    626
+   ],
+   "display_size": [
+    96,
+    289
+   ],
+   "sort_y": 14,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_17",
+   "cluster": "watchtower",
+   "position": [
+    1328,
+    719
+   ],
+   "display_size": [
+    233,
+    396
+   ],
+   "sort_y": 15,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_olive_date_26",
+   "cluster": "watchtower",
+   "position": [
+    819,
+    857
+   ],
+   "display_size": [
+    240,
+    419
+   ],
+   "sort_y": 16,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_olive_date_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_teal_curve_25",
+   "cluster": "watchtower",
+   "position": [
+    1205,
+    870
+   ],
+   "display_size": [
+    305,
+    441
+   ],
+   "sort_y": 17,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_teal_curve_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_18",
+   "cluster": "watchtower",
+   "position": [
+    1287,
+    830
+   ],
+   "display_size": [
+    209,
+    356
+   ],
+   "sort_y": 18,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_19",
+   "cluster": "watchtower",
+   "position": [
+    997,
+    905
+   ],
+   "display_size": [
+    274,
+    466
+   ],
+   "sort_y": 19,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_24",
+   "cluster": "watchtower",
+   "position": [
+    1189,
+    998
+   ],
+   "display_size": [
+    288,
+    286
+   ],
+   "sort_y": 20,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_25",
+   "cluster": "watchtower",
+   "position": [
+    971,
+    999
+   ],
+   "display_size": [
+    289,
+    287
+   ],
+   "sort_y": 21,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_26",
+   "cluster": "watchtower",
+   "position": [
+    846,
+    1006
+   ],
+   "display_size": [
+    298,
+    296
+   ],
+   "sort_y": 22,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_sage_serrated_16",
+   "cluster": "watchtower",
+   "position": [
+    838,
+    1161
+   ],
+   "display_size": [
+    104,
+    310
+   ],
+   "sort_y": 23,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_sage_serrated_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_ochre_feather_20",
+   "cluster": "watchtower",
+   "position": [
+    950,
+    1239
+   ],
+   "display_size": [
+    273,
+    464
+   ],
+   "sort_y": 24,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_ochre_feather_v2.png"
+  },
+  {
+   "id": "unlock_cover_desert_oasis_coverup_leaf_golden_fan_27",
+   "cluster": "watchtower",
+   "position": [
+    1145,
+    1156
+   ],
+   "display_size": [
+    266,
+    265
+   ],
+   "sort_y": 25,
+   "image": "res://games/grove/assets/map/oasis/coverup/desert_oasis_coverup_leaf_golden_fan_v2.png"
   }
  ]
 }
