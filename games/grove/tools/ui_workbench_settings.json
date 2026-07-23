@@ -280,9 +280,7 @@
 		"quest_bar_h_pct": 10.0,
 		"shadow": false
 	},
-	"icon": {
-
-	},
+	"icon": {},
 	"info": {
 		"shadow": true
 	},
@@ -531,11 +529,11 @@
 		"shadow": true
 	},
 	"shadow": {
-		"alpha": 34.0,
-		"blur": 14.0,
+		"alpha": 30.0,
+		"blur": 8.0,
 		"offset_x": 0.0,
-		"offset_y": 5.0,
-		"spread": -5.0
+		"offset_y": 6.0,
+		"spread": -6.0
 	},
 	"shop": {
 		"card_pad": 12.0,
