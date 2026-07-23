@@ -36,6 +36,7 @@ static func _default() -> Dictionary:
 		"schema_version": SCHEMA_VERSION,
 		"currencies": {"coins": 0, "diamonds": NEW_SAVE_GEMS},
 		"settings": {},
+		"ftue_seen": {},
 	}
 
 # --- lifecycle -------------------------------------------------------------
@@ -274,6 +275,25 @@ static func get_setting(key: String, def: bool = true) -> bool:
 static func set_setting(key: String, v: bool) -> void:
 	_ensure_loaded()
 	data["settings"][key] = v
+	save_now()
+
+# --- FTUE seen-once ledger -------------------------------------------------
+# Which one-time hand hints the player has already been shown-and-completed, keyed by hint id
+# ("merge", "gen_tap"). Deep-merged over the defaults like the rest of the blob, so a save written
+# before this key existed simply reads every id as unseen — no migration.
+
+static func ftue_seen(id: String) -> bool:
+	_ensure_loaded()
+	var seen: Dictionary = data.get("ftue_seen", {})
+	return bool(seen.get(id, false))
+
+static func mark_ftue_seen(id: String) -> void:
+	_ensure_loaded()
+	if not data.has("ftue_seen"):
+		data["ftue_seen"] = {}
+	if bool(data["ftue_seen"].get(id, false)):
+		return                       # idempotent — never re-write an already-seen id
+	data["ftue_seen"][id] = true
 	save_now()
 
 # --- quest counters (daily bundle + silent milestones) --------------------------
