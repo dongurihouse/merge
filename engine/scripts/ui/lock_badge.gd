@@ -6,6 +6,7 @@ extends RefCounted
 ## claims the cluster (spends the cost, records the unlock) and reveals its canopy away.
 
 const Game = preload("res://engine/scripts/core/game.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # gen_halo_tex — the shared radial bloom
 
 const PAD_PX := 168.0     # the padlock glyph — big enough to read as a tappable target on the map
 const BOX := 216.0        # the badge box (room for the glow + shadow around the pad)
@@ -53,21 +54,21 @@ static func set_ready(badge: Control, ready: bool) -> void:
 		pad.modulate = Color(1.0, 0.95, 0.72, 1.0) if ready else Color(0.78, 0.82, 0.88, 1.0)
 	if shadow != null:
 		shadow.modulate = Color(0, 0, 0, 0.4 if ready else 0.32)
-	var glow := badge.get_node_or_null("Glow") as Panel
+	var glow := badge.get_node_or_null("Glow") as TextureRect
 	if ready and glow == null:
-		glow = Panel.new()
+		# a REAL halo — the shared radial bloom (PieceView.gen_halo_tex: alpha fades to 0 at the rim),
+		# not a flat rounded disc (a StyleBox circle read as a solid yellow background behind the lock).
+		glow = TextureRect.new()
 		glow.name = "Glow"
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glow.size = Vector2(BOX, BOX) * 1.02
+		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE     # before size — the min-size cache clamps otherwise
+		glow.stretch_mode = TextureRect.STRETCH_SCALE
+		glow.texture = PieceView.gen_halo_tex()
+		glow.size = Vector2(BOX, BOX) * 1.35                  # the aura spills past the badge box, fading out
 		glow.position = (Vector2(BOX, BOX) - glow.size) * 0.5
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(1.0, 0.86, 0.36, 0.55)          # warm "unlockable" halo
-		sb.set_corner_radius_all(int(glow.size.x * 0.5))    # a soft disc
-		sb.shadow_color = Color(1.0, 0.82, 0.3, 0.5)
-		sb.shadow_size = 26
-		glow.add_theme_stylebox_override("panel", sb)
+		glow.modulate = Color(1.0, 0.86, 0.36, 0.8)           # warm "unlockable" gold, shaped by the bloom's falloff
 		badge.add_child(glow)
-		badge.move_child(glow, 0)                           # behind shadow + pad
+		badge.move_child(glow, 0)                             # behind shadow + pad
 		_pulse(pad)
 	elif not ready and glow != null:
 		glow.queue_free()
