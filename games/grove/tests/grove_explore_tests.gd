@@ -73,6 +73,20 @@ func _test_quest_unused_generator_fade() -> void:
 		"coins, special drops and treats are exempt from the quest grey")
 	ok(lights_fn.find("_refresh_item_line_dim()") != -1,
 		"the quest beat (giver lights) re-reads the item grey too")
+	# the BAG mirrors the read: the board hands the open-quest lines to the overlay, and a stored
+	# generator a live quest needs breathes in the generators row.
+	ok(board_src.find("\"asked_lines\": _open_quest_lines()") != -1,
+		"the board hands the open-quest lines to the bag overlay")
+	var bag_src := FileAccess.get_file_as_string("res://engine/scripts/ui/bag_overlay.gd")
+	ok(bag_src.find("asked_lines.has(int(G.gen_def(G.GENERATORS, gid_str).get(\"line\", -1)))") != -1
+		and bag_src.find("FX.breathe(gicon)") != -1,
+		"a bagged generator whose line a live quest asks for breathes")
+	# board parity: the dialogs' cell content spans the kit-fitted size (inset 0) so the shared
+	# content_frac reads the same on the board, in the bag, and on the tier screens.
+	for dlg_src_path in ["res://engine/scripts/ui/bag_overlay.gd", "res://engine/scripts/ui/ladder.gd", "res://engine/scripts/ui/gen_lines.gd"]:
+		var dlg_src := FileAccess.get_file_as_string(dlg_src_path)
+		ok(dlg_src.find(", 0.0)") != -1 and dlg_src.find("make_piece(") != -1,
+			"%s builds its cell piece at inset 0 (shared content_frac parity)" % dlg_src_path.get_file())
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.

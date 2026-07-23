@@ -166,7 +166,9 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 				var idx: int = int(e.index)
 				var code: int = int(bag[idx])
 				d["make_content"] = func(sz: float) -> Control:
-					var piece := PieceView.make_piece(code, sz)
+					# inset 0: slot_cell already sizes `sz` by the SHARED content_frac, so the art spans
+					# it fully — the default ITEM_INSET shrank the piece below the board's fill %.
+					var piece := PieceView.make_piece(code, sz, 0.0)
 					piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 					return piece
 				d["on_tap"] = func() -> void:
@@ -203,7 +205,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	# come out exactly the size of the slot cells above them.
 	if not gen_bag.is_empty():
 		opts["extra"] = func(cell_opts: Dictionary) -> Control:
-			return _gen_section(Kit, cell_opts, gen_bag, gen_bag_tiers, on_place_gen, dismiss)
+			return _gen_section(Kit, cell_opts, gen_bag, gen_bag_tiers, on_place_gen, dismiss, cfg.get("asked_lines", []))
 
 	var dialog: Control = Kit.bag_dialog(entries, balance, width, opts)
 	cc.add_child(dialog)
@@ -338,7 +340,7 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 # bag_card surface as the slots: each tile carries the generator's sprite (sized to the fitted cell via
 # make_content) and taps to place it. `cell_opts` are the dialog's FITTED cell opts (handed over by
 # bag_dialog), so these tiles come out exactly the size of the slot cells in the grid above.
-static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
+static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable, asked_lines: Array = []) -> Control:
 	# build the live generator cell dicts, then hand them to the SHARED kit row builder (the layout —
 	# label + centred row — lives in Kit.bag_generators_section, so the workbench preview matches).
 	var cells: Array = []
@@ -346,14 +348,21 @@ static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, g
 		var gid_str := String(gen_bag[i])
 		var tier := int(gen_bag_tiers[i]) if i < gen_bag_tiers.size() else 1
 		var gtex_path: String = Game.art(G.gen_tex(gid_str, tier))
+		# a stored generator a live quest NEEDS (its line is asked by the open fence) breathes,
+		# mirroring the board's read: bright + pulsing = "place me".
+		var wanted: bool = asked_lines.has(int(G.gen_def(G.GENERATORS, gid_str).get("line", -1)))
 		var make_gen := func(sz: float) -> Control:
 			if ResourceLoader.exists(gtex_path):
 				var gicon := TextureRect.new()
 				gicon.texture = load(gtex_path)
 				gicon.custom_minimum_size = Vector2(sz, sz)
+				gicon.size = Vector2(sz, sz)
 				gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 				gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				if wanted:
+					# defer — breathe needs the node sized + in the tree to pivot from its centre
+					(func() -> void: FX.breathe(gicon)).call_deferred()
 				return gicon
 			var fallback := Label.new()    # no art → the generator id, like the pre-kit overlay
 			fallback.text = gid_str

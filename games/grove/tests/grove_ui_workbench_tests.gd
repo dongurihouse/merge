@@ -290,8 +290,8 @@ func _torn_cell_lock_icon_and_edge_knobs() -> void:
 	var fb := Kit.torn_cell(fb_opts)
 	var fbl := _find_named(fb, "TornCellLock") as TextureRect
 	ok(fbl != null and fbl.texture != null
-		and String(fbl.texture.resource_path).contains("tiers_lock"),
-		"an unknown lock_icon falls back to the shipped padlock")
+		and String(fbl.texture.resource_path).contains("ui/card/lock"),
+		"an unknown lock_icon falls back to the house map-card keyhole")
 	fb.free()
 
 	var smooth_opts: Dictionary = Kit.torn_cell_opts_from_config({"torn_cell": {"inner_edge": false}})
