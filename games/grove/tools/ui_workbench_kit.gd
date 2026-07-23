@@ -6225,11 +6225,19 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 	var q: Dictionary = cfg.get("quest_card", {}) if cfg is Dictionary else {}
 	var isz: float = float(q.get("item_size", 60)) / 100.0
+	var sh := bool(q.get("shadow", false))   # the legacy single toggle — the per-surface defaults inherit it
 	return {
 		"card_w":      float(q.get("card_w", 92)) / 100.0,      "card_h":   float(q.get("card_h", 97)) / 100.0,
 		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 50)) / 100.0, "item_y": float(q.get("item_y", 44)) / 100.0,
 		"check_scale": float(q.get("check_scale", 88)) / 100.0,
 		"plaque_w":    float(q.get("plaque_w", 46)) / 100.0,    "plaque_x": float(q.get("plaque_x", 70)) / 100.0, "plaque_y": float(q.get("plaque_y", 85)) / 100.0,
+		# the card gap is PX (the fence row's separation — board.gd reads it), not a percent fraction.
+		"gap":         float(q.get("gap", 16)),
+		# per-surface shadow toggles (item / card / plaque), each defaulting to the legacy `shadow`
+		# so an old config keeps its one-switch behaviour until a designer tunes them apart.
+		"item_shadow":   bool(q.get("item_shadow", sh)),
+		"card_shadow":   bool(q.get("card_shadow", sh)),
+		"plaque_shadow": bool(q.get("plaque_shadow", sh)),
 		# (bust_*/bubble_* knobs retired with the giver portrait + speech bubble; card_slice_* retired with the
 		# nine-slice. The card + reward tag are now cut-paper textures. Old saved values are accepted + ignored.)
 		# the card's drop-shadow is the ONE SHARED shadow every component casts (Skin.shadow_rect), gated by the

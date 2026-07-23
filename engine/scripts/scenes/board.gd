@@ -76,7 +76,7 @@ const STAND_W := 300.0           # fallback giver box width (merchant stall / pr
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
-const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
+const QUEST_GAP := 16.0          # fallback gap BETWEEN cards — the workbench quest_card.gap overrides (via _giver_lay)
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
 const EDGE_GAP := 16.0           # the EQUAL page margin: HUD pills → content top == board bottom → bottom action bar
 const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
@@ -1081,7 +1081,7 @@ func _rebuild_givers() -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE   # transparent: a card-touch (PASS) must propagate THROUGH the row to the ScrollContainer — a STOP row (the default) would block the drag and only the gaps would scroll
 	row.size_flags_vertical = Control.SIZE_FILL
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # left-aligned: spare width falls on the right when it all fits
-	row.add_theme_constant_override("separation", int(QUEST_GAP))
+	row.add_theme_constant_override("separation", int(float(_giver_lay().get("gap", QUEST_GAP))))   # workbench-tuned card gap
 	scroll.add_child(row)
 	_giver_row = row
 	var quest_slots := mini(int(G.MAX_GIVERS), qidx.size())

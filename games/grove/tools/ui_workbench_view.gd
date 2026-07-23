@@ -312,7 +312,10 @@ func _default_params() -> Dictionary:
 		# stars is the plaque reward; stand_w/fence_h preview the board's size; met toggles the ready ✓.
 		"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
 			"card_w": 92, "card_h": 97,
-			"item_size": 60, "item_x": 50, "item_y": 44, "check_scale": 88, "plaque_w": 46, "plaque_x": 70, "plaque_y": 85},
+			"item_size": 60, "item_x": 50, "item_y": 44, "check_scale": 88, "plaque_w": 46, "plaque_x": 70, "plaque_y": 85,
+			# gap = px between cards (the fence row separation — board.gd reads it live); the three
+			# per-surface shadow toggles override the universal Shadow toggle for their surface.
+			"gap": 16, "item_shadow": true, "card_shadow": true, "plaque_shadow": true},
 		# the MAIL / reward-row card — the SHARED cut-paper edge knob set (deckle · corner · amp · freq · rim ·
 		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
@@ -552,7 +555,6 @@ func _make_element(id: String) -> Control:
 			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
 			# saving (then the board) will render. `bust` IS the asked line (the bust face is keyed off it), so it
 			# drives both the giver and the item art; tier + stars round out the demo.
-			var demo_q := {"line": maxi(1, int(p.bust)), "tier": int(p.tier), "reward": {"stars": int(p.stars)}}
 			var noop2 := func(_a: Variant, _b: Variant) -> void: pass
 			var qcfg := {
 				"ask_tap": noop2, "stand_tap": noop2,
@@ -563,13 +565,23 @@ func _make_element(id: String) -> Control:
 				"stand_w": float(p.stand_w), "fence_h": float(p.fence_h),
 				"lay": Kit.giver_lay_from_config({"quest_card": p, "shadow": _params["shadow"]}),
 			}
-			var made := GiverStand.make(maxi(1, int(p.bust)), demo_q, qcfg)
-			var stand: Control = made.chip
-			if bool(p.met):                       # preview the ready state (the board drives this live)
-				var met: Control = (made.item as Dictionary).get("met")
-				if met != null and is_instance_valid(met):
-					met.visible = true
-			return stand
+			# THREE cards in a row, separated by the saved `gap` — the fence as the board packs it, so the
+			# margin knob reads live. Each demo quest varies line + reward so the plates/items differ like a
+			# real fence (`bust` drives card 1; cards 2–3 offset it). `met` previews the ✓ on card 1 only.
+			var fence := HBoxContainer.new()
+			fence.add_theme_constant_override("separation", int(float((qcfg.lay as Dictionary).get("gap", 16))))
+			for ci in 3:
+				var line := maxi(1, (maxi(1, int(p.bust)) + ci * 3 - 1) % 16 + 1)
+				# reward key is `coins` (Quests.coins) — the legacy `stars` knob name feeds it (+7/+14 on
+				# cards 2-3 so the plaques differ like a real fence).
+				var demo_q := {"line": line, "tier": int(p.tier), "reward": {"coins": int(p.stars) + ci * 7}}
+				var made := GiverStand.make(line, demo_q, qcfg)
+				if ci == 0 and bool(p.met):       # preview the ready state (the board drives this live)
+					var met: Control = (made.item as Dictionary).get("met")
+					if met != null and is_instance_valid(met):
+						met.visible = true
+				fence.add_child(made.chip)
+			return fence
 		"mail_card":
 			# a SINGLE reward-row card in isolation (the Welcome-gift Acorns/Water row): icon + title + body
 			# + a read-only value chip, NO Claim. Built from the SAME Kit.mail_card the mail dialog uses,
@@ -1854,8 +1866,15 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["plaque_w", 20, 90]))     # width (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_x", 0, 100]))     # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_y", 0, 100]))     # centre y (% of box height)
-			# (the card drop-shadow is the UNIVERSAL Shadow toggle added below — the one shared shadow, tuned on
-			# the Shadow item — not a per-card control.)
+			_section_header("Row")
+			_sidebar_body.add_child(_slider_row(["gap", 0, 60]))           # px between cards — the fence row separation (board reads it)
+			_section_header("Shadows (per surface)")
+			# each surface's own gate on the ONE shared shadow (its look is tuned on the Shadow item). The
+			# universal Shadow toggle below stays the legacy master; these override it per surface. A plate
+			# card ignores card_shadow (its painted shadow is baked into the art).
+			_sidebar_body.add_child(_toggle_row("Item shadow", "item_shadow"))
+			_sidebar_body.add_child(_toggle_row("Card shadow", "card_shadow"))
+			_sidebar_body.add_child(_toggle_row("Plaque shadow", "plaque_shadow"))
 			_group_header("Demo (preview only)", false)
 			_sidebar_body.add_child(_slider_row(["bust", 0, 15]))          # which giver (0..15) — also the asked line
 			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier

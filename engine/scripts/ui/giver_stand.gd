@@ -71,7 +71,14 @@ const LAY := {
 	"card_w": 0.92, "card_h": 0.97,
 	"item_w": 0.60, "item_h": 0.60, "item_x": 0.50, "item_y": 0.44,
 	"plaque_w": 0.46, "plaque_x": 0.70, "plaque_y": 0.85,
+	"gap": 16.0,   # px BETWEEN cards in the fence row (board.gd reads it for the row separation)
 }
+
+# The per-surface shadow gate: `<key>` (item_shadow / card_shadow / plaque_shadow) when the lay
+# carries it, else the legacy single `shadow` toggle — so old saved configs keep their one-switch
+# behaviour and the new per-surface toggles simply override it.
+static func _shadow_on(lay: Dictionary, key: String) -> bool:
+	return bool(lay.get(key, lay.get("shadow", false)))
 
 # The quest card: an irregular cut-paper plate (PLATE_DIR; deckled CARD_PATH shell as the fallback
 # surface) carrying just two things — the asked item as
@@ -137,7 +144,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		# a SHAPE-TRUE drop-shadow behind the item — stamped from the item's OWN silhouette, offset by the
 		# shared cast, so it follows the art outline (not a generic ground ellipse). show_behind_parent → it
 		# draws behind the piece. Fit + inset mirror _add_sprite so the silhouette lines up with the art.
-		_add_shape_shadow(icon, PieceView.content_texture(acode), Vector2(iw, ih), L, true, iw * PieceView.ITEM_INSET, 4)
+		_add_shape_shadow(icon, PieceView.content_texture(acode), Vector2(iw, ih), L, true, iw * PieceView.ITEM_INSET, 4, "item_shadow")
 		# the asked item — built square at the LARGER of w/h (so it never upscales), then scaled to fill the
 		# w×h box. item_w == item_h gives an undistorted icon; differ them to stretch (the workbench tunes both).
 		var base := maxf(iw, ih)
@@ -171,7 +178,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var pcy := cy + cardH * float(L.plaque_y)        # the reward pill centre
 	var plaque := _reward_plaque(plw, plh)
 	plaque.position = Vector2(pcx - plw / 2.0, pcy - plh / 2.0)
-	_add_content_shadow(plaque, plh * 0.4, L)        # rounded-tag shadow behind the pill
+	_add_content_shadow(plaque, plh * 0.4, L, "plaque_shadow")   # rounded-tag shadow behind the pill
 	stand.add_child(plaque)
 	# the "+N" reward, set into the pill's blank RIGHT two-thirds (the coin lives in the art's left third).
 	var pay_lbl := Label.new()
@@ -239,9 +246,9 @@ static func _quest_card(w: float, h: float, lay: Dictionary = {}, seed: int = 0)
 	# a SHAPE-TRUE drop-shadow following the deckled card edge when the card is the cut-paper texture;
 	# the code-drawn paper fallback keeps the rounded-rect shared shadow (it has no silhouette to stamp).
 	elif card is TextureRect and (card as TextureRect).texture != null:
-		_add_shape_shadow(card, (card as TextureRect).texture, Vector2(w, h), lay, false, 0.0, 3)
+		_add_shape_shadow(card, (card as TextureRect).texture, Vector2(w, h), lay, false, 0.0, 3, "card_shadow")
 	else:
-		_add_card_shadow(card, h, lay)
+		_add_card_shadow(card, h, lay, "card_shadow")
 	return card
 
 # The plate pool, probed once: PLATE_DIR/plate_01.png upward until a gap. Cached for the session.
@@ -284,8 +291,8 @@ static func _card_surface(w: float, h: float, seed: int = 0) -> Control:
 # Skin.shadow_rect + the shared lay.shadow_params (from the global `shadow` block) — the exact shadow every
 # other component casts. Added as a show_behind_parent child so the card keeps its node identity (a non-
 # container Control — mirrors Skin's non-container shadow pattern). No-op when the toggle is off.
-static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
-	if not bool(lay.get("shadow", false)):
+static func _add_card_shadow(card: Control, h: float, lay: Dictionary, key: String = "shadow") -> void:
+	if not _shadow_on(lay, key):
 		return
 	var sh := Look.shadow_rect(Look.shape_corner(card, h * 0.12), _shadow_params(lay))
 	sh.show_behind_parent = true
@@ -294,8 +301,8 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
 # Cast the shared drop-shadow behind a SOLID content surface (the reward pill) at corner radius `corner`,
 # as a show_behind_parent child — the same filled shadow the card casts. No-op when the universal Shadow
 # toggle is off, so card + plaque light + darken together.
-static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary) -> void:
-	if not bool(lay.get("shadow", false)):
+static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary, key: String = "shadow") -> void:
+	if not _shadow_on(lay, key):
 		return
 	var sh := Look.shadow_rect(corner, _shadow_params(lay))
 	sh.show_behind_parent = true
@@ -306,8 +313,8 @@ static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary
 # rounded-rect approximation. Added as a show_behind_parent child so it draws behind the surface's art.
 # `fit`/`inset` aspect-fit the silhouette in the box like the sprite (items); OFF = stretch-fill (cards).
 # `div` sets softness (bigger = softer, less detail). No-op when the Shadow toggle is off or `tex` is null.
-static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, lay: Dictionary, fit: bool, inset: float, div: int) -> void:
-	if not bool(lay.get("shadow", false)) or tex == null:
+static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, lay: Dictionary, fit: bool, inset: float, div: int, key: String = "shadow") -> void:
+	if not _shadow_on(lay, key) or tex == null:
 		return
 	var p := _shadow_params(lay)
 	var sh := SpriteShadow.new()
