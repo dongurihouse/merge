@@ -28,6 +28,17 @@ const HUD_SIDE_Z := 30        # above ambient/weather, below fly/floating FX
 const HUD_WALLET_Z := 40      # wallet stays above the side row when the top bands overlap
 const LEVEL_BADGE_SCALE := 1.2
 
+# The Y where the HUD's tallest top element ends — the Lv badge (pill_h × LEVEL_BADGE_SCALE, the
+# currency pills are shorter). Page content anchors BELOW this so it never slides behind the pills.
+# Excludes the safe-area inset; callers add Look.safe_top themselves.
+static func bottom_px() -> float:
+	var Kit = load(KIT_PATH)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
+	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
+	var lv_px := maxf(1.0, ceilf(float(pill.pill_h) * LEVEL_BADGE_SCALE))
+	return float(layout.get("edge_margin_px", 18.0)) + lv_px
+
 static func _view_size(host: Control) -> Vector2:
 	if host != null and host.is_inside_tree():
 		var v := host.get_viewport_rect().size

@@ -78,7 +78,8 @@ const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band he
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
-const UNLOCK_BAR_TOP := 104.0    # the page column's ONE absolute anchor: its top edge below the HUD pills / level badge
+const EDGE_GAP := 16.0           # the EQUAL page margin: HUD pills → content top == board bottom → bottom action bar
+const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
 const STACK_SEP := 20      # the row gap of the content stack (strip <-> quest fence <-> board)
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
@@ -264,12 +265,13 @@ func _ready() -> void:
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# TOP-anchored flow: the page content (NEXT UNLOCK strip → quest fence → board) packs from the
-	# TOP of the stack region — one absolute anchor below the HUD pills/level badge, everything else
-	# RELATIVE to the row above it. Spare vertical room falls to the BOTTOM (above the bottom bar).
-	# The region's top/bottom offsets are set in _recompute_board_geometry (they depend on the
-	# bottom bar height and recompute on a live resize).
-	root.alignment = BoxContainer.ALIGNMENT_BEGIN
+	# CENTRED flow: the page content (NEXT UNLOCK strip → quest fence → board) flows RELATIVE row to
+	# row inside the stack region (EDGE_GAP under the HUD pills, EDGE_GAP over the bottom bar). Spare
+	# vertical room — the board is cell-quantised and can be width-capped on narrow screens — splits
+	# EQUALLY above and below the group, so the page keeps matching top/bottom margins instead of
+	# pooling all the slack against the bottom bar. The region's top/bottom offsets are set in
+	# _recompute_board_geometry (they depend on the bottom bar height and recompute on a live resize).
+	root.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_theme_constant_override("separation", STACK_SEP)
 	add_child(root)
 	_stack = root
@@ -322,8 +324,8 @@ func _ready() -> void:
 	var bar_margin := _tray_side_margin_px()
 	bar.offset_left = bar_margin
 	bar.offset_right = _view_size().x - bar_margin
-	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
-	bar.offset_bottom = -14.0 - sb_inset
+	bar.offset_top = -bottom_bar_h - BOTTOM_BAR_INSET - sb_inset
+	bar.offset_bottom = -BOTTOM_BAR_INSET - sb_inset
 	bar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	bar.set_meta("shared_action_tray", true)
 	add_child(bar)
@@ -476,6 +478,12 @@ func debug_layout_info() -> String:
 # is WIDTH-governed: square cells fill the screen width (w_csz); the height budget (h_csz) is only a
 # CAP so on wide/short screens the board never grows past the vertical budget into the quest/bottom
 # rows. Assumes _load_board_config() has already loaded GAP / FRAME_OUT / _board_scale.
+# The page column's ONE absolute anchor: content starts EDGE_GAP below the HUD's measured bottom
+# (the Lv badge — Hud.bottom_px, workbench-config-driven), plus the device safe-area inset. Matching
+# EDGE_GAP above the bottom action bar keeps the page's top and bottom margins equal.
+func _content_top_px() -> float:
+	return Hud.bottom_px() + EDGE_GAP + Look.safe_top(self)
+
 func _recompute_board_geometry() -> void:
 	_landscape = _compute_landscape()   # pick orientation FIRST (the size + cell mapping below read it)
 	_fence_h = _quest_row_h_px()
@@ -483,18 +491,19 @@ func _recompute_board_geometry() -> void:
 		giver_bar.custom_minimum_size = Vector2(0, _fence_h)
 	var view := _view_size()
 	var bottom_bar_h := _bottom_bar_h_px(_bottom_button_px())
-	const BOARD_BREATHING := 8.0
-	# The TOP-anchored stack region: its top edge is the page's ONE absolute anchor — just below the
-	# HUD pills / level badge (UNLOCK_BAR_TOP + safe area + nudge). The content rows (NEXT UNLOCK
-	# strip → quest fence → board) live INSIDE the stack and flow relative to each other from there;
-	# the bottom edge only caps the board so it never runs into the floating bottom bar.
+	# The TOP-anchored stack region: its top edge is the page's ONE absolute anchor — EDGE_GAP below
+	# the HUD's measured bottom (the Lv badge, the tallest top element — Hud.bottom_px), so the strip
+	# can never slide behind the pills. The content rows (NEXT UNLOCK strip → quest fence → board)
+	# live INSIDE the stack and flow relative to each other from there; the bottom edge caps the
+	# board EDGE_GAP above the floating bottom bar — the SAME gap, so the page reads with equal
+	# margins under the pills and over the action buttons.
 	var bar_h := _unlock_bar_h_px()
 	_place_unlock_bar(bar_h)
-	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self)
-	var bottom_reserve := bottom_bar_h + 8.0 + Look.safe_bottom(self)
+	var top_reserve := _content_top_px()
+	var bar_top_y := view.y - Look.safe_bottom(self) - BOTTOM_BAR_INSET - bottom_bar_h
 	if _stack != null and is_instance_valid(_stack):
 		_stack.offset_top = top_reserve
-		_stack.offset_bottom = -(bottom_reserve + BOARD_BREATHING)   # leave a small gap above the bottom bar
+		_stack.offset_bottom = -(view.y - bar_top_y + EDGE_GAP)   # cap the stack EDGE_GAP above the bottom bar
 	# Cap the board to the room that actually remains inside the region after the quest fence + a gap, so
 	# the grid never runs into the fence or the bottom bar regardless of screen shape.
 	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the frame +
@@ -504,7 +513,7 @@ func _recompute_board_geometry() -> void:
 	# "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
 	# the board's ceiling in the flow: below the strip row + the fence row (each + the VBox gap)
 	var board_top := top_reserve + bar_h + STACK_SEP + _fence_h + STACK_SEP
-	var board_bottom := view.y - bottom_reserve - BOARD_BREATHING
+	var board_bottom := bar_top_y - EDGE_GAP
 	var fit: Dictionary = BoardFit.fit_bottom_aligned(
 		view, _disp_cols(), _disp_rows(), GAP, FRAME_OUT, BOARD_MARGIN,
 		board_top, board_bottom, _board_scale)
@@ -839,13 +848,12 @@ func _build_hud() -> void:
 # stack — the free/💎 rain refill — pinned top-LEFT below the Lv badge and shown only when water runs out.
 # (The free daily refill — a full can, capped + cooled — is in the water SHOP stall now; see shop.gd.)
 func _build_water_hud() -> void:
-	var safe_top := Look.safe_top(self)
 	# at water<=0 (§10 — the friction point): the free/💎 rain refill, shown only when live.
 	_refill_stack = VBoxContainer.new()
 	_refill_stack.add_theme_constant_override("separation", 8)
 	_refill_stack.offset_left = 16.0
 	# below the NEXT UNLOCK strip (which now owns the band right under the HUD pills)
-	_refill_stack.offset_top = UNLOCK_BAR_TOP + safe_top + _unlock_bar_h_px() + 16.0
+	_refill_stack.offset_top = _content_top_px() + _unlock_bar_h_px() + 16.0
 	_refill_stack.visible = false
 	add_child(_refill_stack)
 	refill_btn = Look.button(Strings.t("board.refill.free"), _on_refill, true)
@@ -1672,8 +1680,8 @@ func _relayout_action_bar() -> void:
 	var bar_margin := _tray_side_margin_px()
 	bottom_bar.offset_left = bar_margin
 	bottom_bar.offset_right = _view_size().x - bar_margin
-	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
-	bottom_bar.offset_bottom = -14.0 - sb_inset
+	bottom_bar.offset_top = -bottom_bar_h - BOTTOM_BAR_INSET - sb_inset
+	bottom_bar.offset_bottom = -BOTTOM_BAR_INSET - sb_inset
 	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var row := bottom_bar.find_child("ActionBarRow", true, false) as HBoxContainer
 	if row != null:
