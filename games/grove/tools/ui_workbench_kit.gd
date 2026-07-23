@@ -735,21 +735,32 @@ static func silhouette_shadow(img: Image, opts: Dictionary = {}) -> Dictionary:
 
 ## The ITEM shadow stamp: the shape-true silhouette shadow for an item drawn inside a cell, baked at the
 ## item's FITTED on-screen size from the STANDARD shadow param set (offset_x/offset_y/blur/spread/alpha —
-## the same knobs every other shadow reads, item_shadow_* on the Slot cell). Cached per
-## (texture · fitted size · params) so a board of repeated items bakes once. Returns
-## {"texture": Texture2D, "pad": int} — draw the texture at (art_pos − pad); the offset is baked in.
+## the same knobs every other shadow reads, item_shadow_* on the Slot cell). NATIVE-ONLY bake — every
+## step is a C++ Image op (resize / blit), no per-pixel GDScript (the old silhouette_shadow path cost
+## ~16ms per stamp and stalled the board a full second): the art is resized to fit, eroded (spread),
+## padded + offset by blit, and blurred by a resize-down/up round trip. The TINT is NOT baked — the
+## returned "tint" (Look.shadow_color(alpha)) goes on the drawing node's modulate: rgb×0 turns the art
+## black at draw time, so alpha changes never rebake and one cached stamp serves every opacity.
+## Cached per (texture · fitted size · offset · blur · spread). Returns {"texture", "pad", "tint"} —
+## draw at (art_pos − pad) with modulate = tint; the offset is baked in.
 ## Empty {} when the art has no readable image (caller falls back to the rounded-rect shadow).
 static var _item_shadow_cache: Dictionary = {}
 static func item_shadow_stamp(tex: Texture2D, fit_px: Vector2, params: Dictionary) -> Dictionary:
 	if tex == null or fit_px.x < 1.0 or fit_px.y < 1.0:
 		return {}
-	var key := "%d:%dx%d:%.1f,%.1f,%.1f,%.1f,%.2f" % [tex.get_rid().get_id(),
-		int(fit_px.x), int(fit_px.y),
-		float(params.get("offset_x", 0.0)), float(params.get("offset_y", 5.0)),
-		float(params.get("blur", 6.0)), float(params.get("spread", 0.0)),
-		float(params.get("alpha", 0.2))]
+	var off := Vector2(float(params.get("offset_x", 0.0)), float(params.get("offset_y", 5.0)))
+	var blur := maxf(0.0, float(params.get("blur", 6.0)))
+	var spread := minf(0.0, float(params.get("spread", 0.0)))
+	var tint: Color = Look.shadow_color(clampf(float(params.get("alpha", 0.2)), 0.0, 1.0))
+	var key := "%d:%dx%d:%.1f,%.1f,%.1f,%.1f" % [tex.get_rid().get_id(),
+		int(fit_px.x), int(fit_px.y), off.x, off.y, blur, spread]
 	if _item_shadow_cache.has(key):
-		return _item_shadow_cache[key]
+		var hit: Dictionary = _item_shadow_cache[key]
+		if hit.is_empty():
+			return {}
+		var cached := hit.duplicate()
+		cached["tint"] = tint
+		return cached
 	var img := tex.get_image()
 	if img == null and tex is AtlasTexture:
 		# the crop-to-content textures are AtlasTextures — read the atlas and cut the region ourselves
@@ -771,16 +782,34 @@ static func item_shadow_stamp(tex: Texture2D, fit_px: Vector2, params: Dictionar
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
 	# bake at the FITTED size so blur/spread/offset are true px at draw scale (and the bake stays cheap)
-	img.resize(maxi(1, int(roundf(fit_px.x))), maxi(1, int(roundf(fit_px.y))), Image.INTERPOLATE_BILINEAR)
-	var res: Dictionary = silhouette_shadow(img, {
-		"shadow_offset": Vector2(float(params.get("offset_x", 0.0)), float(params.get("offset_y", 5.0))),
-		"shadow_blur": float(params.get("blur", 6.0)),
-		"shadow_alpha": clampf(float(params.get("alpha", 0.2)), 0.0, 1.0),
-		"shadow_spread": minf(float(params.get("spread", 0.0)), 0.0),
-	})
-	var out := {"texture": ImageTexture.create_from_image(res.image as Image), "pad": int(res.pad)}
+	var fw := maxi(1, int(roundf(fit_px.x)))
+	var fh := maxi(1, int(roundf(fit_px.y)))
+	img.resize(fw, fh, Image.INTERPOLATE_BILINEAR)
+	# negative spread ERODES the silhouette (shrink + recentre) so the cast starts inside the art edge
+	if spread < -0.5 and fw + int(spread) * 2 > 2 and fh + int(spread) * 2 > 2:
+		var er := int(-spread)
+		var small := img.duplicate()
+		small.resize(fw - er * 2, fh - er * 2, Image.INTERPOLATE_BILINEAR)
+		var recentred := Image.create(fw, fh, false, Image.FORMAT_RGBA8)
+		recentred.blit_rect(small, Rect2i(0, 0, small.get_width(), small.get_height()), Vector2i(er, er))
+		img = recentred
+	# pad the canvas so offset + blur never clip, and bake the offset in via the blit position
+	var pad := int(ceil(blur)) + int(maxf(absf(off.x), absf(off.y))) + 2
+	var canvas := Image.create(fw + pad * 2, fh + pad * 2, false, Image.FORMAT_RGBA8)
+	canvas.blit_rect(img, Rect2i(0, 0, fw, fh), Vector2i(pad + int(roundf(off.x)), pad + int(roundf(off.y))))
+	# blur = a native resize round trip: down by ~blur px, bilinear back up (the upscale IS the feather)
+	if blur >= 1.0:
+		var cw := canvas.get_width()
+		var chh := canvas.get_height()
+		var dw := maxi(2, int(roundf(float(cw) / blur)))
+		var dh := maxi(2, int(roundf(float(chh) / blur)))
+		canvas.resize(dw, dh, Image.INTERPOLATE_BILINEAR)
+		canvas.resize(cw, chh, Image.INTERPOLATE_BILINEAR)
+	var out := {"texture": ImageTexture.create_from_image(canvas), "pad": pad}
 	_item_shadow_cache[key] = out
-	return out
+	var ret := out.duplicate()
+	ret["tint"] = tint
+	return ret
 
 ## The item ART inside a built piece: the PieceView holder's "ItemArt" sprite when present, else the
 ## first textured TextureRect descendant (kit icons, resident sprites). Null when the piece is a
@@ -5885,6 +5914,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 							str_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 							str_rect.stretch_mode = TextureRect.STRETCH_SCALE
 							str_rect.texture = stamp.texture
+							str_rect.modulate = stamp.get("tint", Color(0, 0, 0, 0.2))   # rgb×0 = black cast; alpha lives here, not in the bake
 							var pad := float(stamp.pad)
 							str_rect.position = fit_pos - Vector2(pad, pad)
 							str_rect.size = fit_sz + Vector2(pad, pad) * 2.0
