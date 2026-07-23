@@ -1635,7 +1635,8 @@ func _make_slot(cell: Vector2i) -> Control:
 	var opts: Dictionary = Kit.board_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
-	var slot: Control = Kit.slot_cell({"state": "empty"}, opts)
+	# checker parity — the paper-sprite faces alternate open/open-alt so the field reads livelier
+	var slot: Control = Kit.slot_cell({"state": "empty", "alt": (cell.x + cell.y) % 2 == 1}, opts)
 	slot.position = _cell_pos(cell)
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
@@ -2335,9 +2336,26 @@ static func _cell_style() -> StyleBoxFlat:
 	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
 	return sb
 
-# The board backdrop — a calm Meadow sky-paper field. Items + grid carry the saturation; the
-# background stays quiet grain. Falls back to the flat SURFACE field when the art is absent.
+# The board backdrop — a cut-paper scene picked at random each board entry (clouds/leaves/meadow/
+# autumn), so the page feels alive without stealing saturation from the items. Falls back to the
+# quiet sky-grain tile, then to the flat SURFACE field, when the art is absent.
+const FIELD_BACKDROPS: Array[String] = [
+	"ui/board_bg/sunset_clouds.png",
+	"ui/board_bg/day_meadow.png",
+	"ui/board_bg/forest_leaves.png",
+	"ui/board_bg/autumn_grove.png",
+]
+
 static func _field_backdrop() -> Control:
+	var scene_path := Game.art(FIELD_BACKDROPS[randi() % FIELD_BACKDROPS.size()])
+	if ResourceLoader.exists(scene_path):
+		var art := TextureRect.new()
+		art.texture = load(scene_path)
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return art
 	var path := Game.art("ui/meadow_v2/texture_sky.png")
 	if ResourceLoader.exists(path):
 		var bg := TextureRect.new()

@@ -426,10 +426,12 @@ func _initialize() -> void:
 	var unlock_bar := bx.find_child("NextUnlockBar", true, false) as Control
 	ok(unlock_bar != null and unlock_bar.find_child("UnlockDeckleSurface", true, false) != null,
 		"the NEXT UNLOCK bar wears a code-drawn rugged paper edge")
-	ok(unlock_bar != null and unlock_bar.find_child("UnlockTrackPaperSurface", true, false) is TextureRect,
-		"the NEXT UNLOCK progress track carries paper texture")
-	ok(unlock_bar != null and unlock_bar.find_child("UnlockFillPaperSurface", true, false) is TextureRect,
-		"the NEXT UNLOCK progress fill carries paper texture")
+	# the strip's bar IS the shared Kit.progress_bar (the level dialog's component): one track + one
+	# fill node, named off the "UnlockBar" base — the two bars can never drift apart.
+	ok(unlock_bar != null and unlock_bar.find_child("UnlockBarTrack", true, false) != null,
+		"the NEXT UNLOCK strip wears the shared Kit.progress_bar track")
+	ok(unlock_bar != null and unlock_bar.find_child("UnlockBarFill", true, false) != null,
+		"the NEXT UNLOCK strip wears the shared Kit.progress_bar fill")
 	# the strip is the FIRST ROW of the content stack now: strip → quest fence → board flow relative
 	# to each other, with the stack's top edge as the page's one absolute anchor below the HUD.
 	var bar_slot := unlock_bar.get_parent() as Control if unlock_bar != null else null
@@ -567,14 +569,20 @@ func _initialize() -> void:
 	var cell_sb := BoardScript._cell_style()
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
 	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
+	# the backdrop is one of the cut-paper scene plates, picked at random per board entry, covering
+	# the viewport (KEEP_ASPECT_COVERED — full-bleed art, not a tile).
 	var backdrop := BoardScript._field_backdrop()
-	ok(backdrop is TextureRect and (backdrop as TextureRect).texture != null \
-		and String((backdrop as TextureRect).texture.resource_path).ends_with("ui/meadow_v2/texture_sky.png") \
-		and (backdrop as TextureRect).stretch_mode == TextureRect.STRETCH_TILE, \
-		"board backdrop uses the tiled Meadow sky paper texture")
+	var backdrop_path := String((backdrop as TextureRect).texture.resource_path) if backdrop is TextureRect and (backdrop as TextureRect).texture != null else ""
+	var backdrop_known := false
+	for bg_rel: String in BoardScript.FIELD_BACKDROPS:
+		if backdrop_path.ends_with(bg_rel):
+			backdrop_known = true
+	ok(backdrop_known and (backdrop as TextureRect).stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED, \
+		"board backdrop is one of the cut-paper scene plates, full-bleed covered")
 	# Board locked/unlocked wells now use the same torn-cell component as the bag, so all cell states share
-	# one code-drawn surface instead of the old receding-blue board-only background.
-	var slot_opts := Kit.board_cell_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	# one code-drawn surface instead of the old receding-blue board-only background. (sprites: false keeps
+	# the code-drawn torn coverage; the generated paper-sprite faces are asserted separately below.)
+	var slot_opts := Kit.board_cell_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}, "torn_cell": {"sprites": false}})
 	var border_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, slot_opts)
 	ok(border_slot.find_child("TornCell", true, false) != null \
 		and border_slot.find_child("TornCellLock", true, false) != null \
@@ -593,10 +601,32 @@ func _initialize() -> void:
 	border_slot.free()
 	deep_slot.free()
 	open_slot.free()
+	# The GENERATED paper-sprite faces (torn_cell.sprites, the default): open/alt checker mates and
+	# light/deep locked variants — the face becomes one TextureRect off CELL_SPRITE_PATHS.
+	var sprite_opts := Kit.board_cell_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	var sprite_open: Control = Kit.slot_cell({"state": "empty"}, sprite_opts)
+	var sprite_alt: Control = Kit.slot_cell({"state": "empty", "alt": true}, sprite_opts)
+	var sprite_lock: Control = Kit.slot_cell({"state": "locked", "frontier": true}, sprite_opts)
+	var sprite_deep: Control = Kit.slot_cell({"state": "locked", "frontier": false}, sprite_opts)
+	var sprite_tex := func(n: Control) -> String:
+		var tr := n.find_child("SlotCellSprite", true, false) as TextureRect
+		return String(tr.texture.resource_path) if tr != null and tr.texture != null else ""
+	ok(String(sprite_tex.call(sprite_open)).ends_with("cell_paper_open.png"), \
+		"default open cells wear the generated open paper sprite")
+	ok(String(sprite_tex.call(sprite_alt)).ends_with("cell_paper_open_alt.png"), \
+		"alt-parity open cells wear the checker-mate paper sprite")
+	ok(String(sprite_tex.call(sprite_lock)).ends_with("cell_paper_locked.png"), \
+		"frontier locked cells wear the light locked paper sprite")
+	ok(String(sprite_tex.call(sprite_deep)).ends_with("cell_paper_locked_deep.png"), \
+		"deep interior locks wear the receded locked paper sprite")
+	sprite_open.free()
+	sprite_alt.free()
+	sprite_lock.free()
+	sprite_deep.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
-	ok(bramble_node.find_child("TornCellLock", true, false) != null \
+	ok(bramble_node.find_child("SlotCellSprite", true, false) != null \
 		and bramble_node.find_child("SlotCellBackground", true, false) == null, \
-		"frontier locked cell uses the shared torn-cell locked face")
+		"frontier locked cell wears the shared locked cell face (paper sprite by default)")
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
 	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
@@ -605,7 +635,7 @@ func _initialize() -> void:
 
 	# The bag dialog uses the torn-cell component for open and locked slots. The next purchasable slot is
 	# still tappable/costed, but it wears the locked torn face rather than the board's unlockable background.
-	var bag_opts := Kit.bag_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	var bag_opts := Kit.bag_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}, "torn_cell": {"sprites": false}})
 	var empty_bag_slot: Control = Kit.bag_card({"kind": "empty"}, bag_opts)
 	var next_bag_slot: Control = Kit.bag_card({"kind": "next", "cost": 25, "on_tap": func() -> void: pass}, bag_opts)
 	var locked_bag_slot: Control = Kit.bag_card({"kind": "locked"}, bag_opts)
@@ -623,7 +653,7 @@ func _initialize() -> void:
 	empty_bag_slot.free()
 	next_bag_slot.free()
 	locked_bag_slot.free()
-	var tier_opts := Kit.tiers_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	var tier_opts := Kit.tiers_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}, "torn_cell": {"sprites": false}})
 	var tier_grid: Control = Kit.tiers_grid([
 		{"tier": 1, "seen": true, "icon": "coin"},
 		{"tier": 2, "seen": false},

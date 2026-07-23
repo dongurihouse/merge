@@ -822,8 +822,9 @@ func _test_rush_board_skin() -> void:
 	var expected_frame := float(board_cfg.get("frame", 60.0))
 	ok(absf(float(s._frame_out) - expected_frame) <= 0.01, \
 		"Rush board frame overhang uses the same board.frame setting as the home board")
-	ok(s._chrome != null and s._chrome.find_child("TornCellOuter", true, false) != null, \
-		"Rush board cells use the same torn slot-cell component as the home board")
+	ok(s._chrome != null and (s._chrome.find_child("TornCellOuter", true, false) != null \
+		or s._chrome.find_child("SlotCellSprite", true, false) != null), \
+		"Rush board cells use the same shared slot-cell component as the home board")
 	ok(s._chrome != null and s._chrome.find_child("SlotCellBackground", true, false) == null, \
 		"Rush board cells do not fall back to the retired flat slot-cell background")
 	var hint_tray := s.find_child("RushBottomHintTray", true, false) as PanelContainer

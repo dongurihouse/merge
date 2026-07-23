@@ -1302,6 +1302,11 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	else:
 		# smooth shader surface (deckle off): the original rounded paper-cut shell.
 		_apply_rounded_paper_surface(panel, "texture_cream.png", pill_fill, pill_corner, pill_margins)
+	# the stacked-paper BACKER — a slightly larger tinted under-sheet behind the pill face.
+	var backer := paper_backer(Vector2(pill_w, pill_h), opts, cp)
+	if backer != null:
+		panel.add_child(backer)
+		panel.move_child(backer, 0)
 	if plus_action.is_valid():
 		panel.pressed.connect(plus_action)
 
@@ -2285,6 +2290,33 @@ static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> 
 		"edge_shadow": return d.get("frame_shadow", fallback)
 	return fallback
 
+## ── PAPER BACKER ─────────────────────────────────────────────────────────────────────────────────
+## A SECOND, slightly larger cut-paper sheet behind a pill/band — the stacked-paper look (a tinted
+## under-sheet peeking out past the cream face). Knobs (any block): backer (toggle) · backer_grow (px
+## past the face on every side) · backer_tint (the under-sheet colour). The face's own edge shadow
+## then falls onto this sheet, which carries the stack's drop shadow to the page.
+## Returns the configured CutPaperPanel (caller adds it FIRST + show_behind_parent), or null when off.
+static func paper_backer(face_size: Vector2, opts: Dictionary, face_cp: Dictionary = {}) -> Control:
+	if not bool(opts.get("backer", false)):
+		return null
+	var CutPaper := load(CUT_PAPER)
+	if CutPaper == null:
+		return null
+	var grow := maxf(0.0, float(opts.get("backer_grow", 8.0)))
+	var cp: Dictionary = face_cp.duplicate()
+	cp["corner"] = float(face_cp.get("corner", 24.0)) + grow
+	# the under-sheet casts the stack's page shadow; the face's edge shadow separates the two layers.
+	cp["edge_shadow"] = true
+	var backer: Control = CutPaper.new()
+	backer.name = "PaperBacker"
+	backer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backer.show_behind_parent = true
+	backer.position = Vector2(-grow, -grow)
+	backer.size = face_size + Vector2(grow, grow) * 2.0
+	backer.configure(cp, opts.get("backer_tint", Color("#E3D2B4")), null, cut_paper_tile())
+	backer.corner = float(cp["corner"])
+	return backer
+
 ## ── TORN CELL ────────────────────────────────────────────────────────────────────────────────────
 ## A fully CODE-DRAWN cut-paper slot cell: an OUTER rugged cream card (the shared CutPaperPanel edge) with
 ## an INNER rugged well cut into it (a second CutPaperPanel, inset) and a soft INNER shadow cast from the
@@ -2314,7 +2346,20 @@ const TORN_CELL_KNOBS := [
 	{"key": "lock_frac",            "kind": "slider", "label": "Lock size",           "min": 20, "max": 90, "default": 52},   # % of cell
 	{"key": "lock_shadow_dy",       "kind": "slider", "label": "Lock shadow drop",    "min": 0,  "max": 24, "default": 6},   # px
 	{"key": "lock_shadow_strength", "kind": "slider", "label": "Lock shadow strength", "min": 0, "max": 60, "default": 32},  # percent -> alpha
+	# GENERATED PAPER SPRITES: ON = the cell face is the baked cut-paper sprite set (CELL_SPRITE_PATHS —
+	# open/open-alt checker + locked/locked-deep), whose dimensional edge the code-drawn path can't match.
+	# OFF = the code-drawn torn-cell face above. One knob; board, bag, tiers, residents all follow.
+	{"key": "sprites",              "kind": "toggle", "label": "Paper sprites",       "default": true},
 ]
+
+## The baked cut-paper cell faces (generated as one sheet so the four variants share material + light).
+## open_alt is the checker mate of open; locked_deep is the receded interior lock (non-frontier).
+const CELL_SPRITE_PATHS := {
+	"open":        "res://games/grove/assets/ui/board/cell_paper_open.png",
+	"open_alt":    "res://games/grove/assets/ui/board/cell_paper_open_alt.png",
+	"locked":      "res://games/grove/assets/ui/board/cell_paper_locked.png",
+	"locked_deep": "res://games/grove/assets/ui/board/cell_paper_locked_deep.png",
+}
 
 ## The lock arts the LOCKED torn cell can wear (the lock_icon knob) — every lock sprite the game owns.
 ## "card" (ui/card/lock.png, the purple scalloped map-card keyhole) is THE house lock now — the same
@@ -3798,6 +3843,9 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# live progress: the layout closures read this meta each pass, so progress_bar_set_frac can move the
+	# fill WITHOUT rebuilding the bar (the unlock strip tweens through it every frame).
+	holder.set_meta("frac", f)
 	if bool(opts.get("shadow", false)):
 		var bar_sh := Look.shadow_rect(h * 0.5, _shared_shadow_params(opts.get("shadow_params", {}) as Dictionary))
 		bar_sh.name = _progress_name(base_name, "Shadow")
@@ -3858,6 +3906,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 			fill_dy, f, fill_shadow_params)
 		holder.resized.connect(lay_art)
 		holder.ready.connect(lay_art)
+		holder.set_meta("relayout", lay_art)
 	else:
 		# code-drawn fallback (legacy look) — a rounded track with a clip-revealed straw fill
 		var track := Panel.new()
@@ -3899,6 +3948,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		# lambda over freed captures.
 		holder.resized.connect(lay)
 		holder.ready.connect(lay)
+		holder.set_meta("relayout", lay)
 	# --- optional star knob riding the fill head ---
 	if bool(opts.get("star_knob", false)):
 		var knob := make_icon("star", h * 1.4)
@@ -3908,6 +3958,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		var knob_holder_ref: WeakRef = weakref(holder)
 		var place := _progress_place_knob.bind(knob_ref, knob_holder_ref, f, h)
 		holder.resized.connect(place)
+		holder.set_meta("knob_place", place)
 	# --- optional centered label (e.g. "75%") ---
 	var label := String(opts.get("label", ""))
 	if label != "":
@@ -3950,7 +4001,8 @@ static func _progress_layout_art(holder_ref: WeakRef, stage_ref: WeakRef, track_
 	var fill_h: float = maxf(1.0, base_fill_h * fill_h_scale)
 	var fill_pos := Vector2(inset + (base_fill_w - fill_w) * 0.5 + fill_dx / s,
 		inset + (base_fill_h - fill_h) * 0.5 + fill_dy / s)
-	var clip_w: float = maxf(fill_h, fill_w * f)
+	var cur_f: float = clampf(float(hld.get_meta("frac", f)), 0.0, 1.0)
+	var clip_w: float = maxf(fill_h, fill_w * cur_f)
 	clip.position = fill_pos
 	clip.size = Vector2(clip_w, fill_h)
 	fl.position = Vector2.ZERO
@@ -3976,7 +4028,8 @@ static func _progress_layout_flat(holder_ref: WeakRef, fill_clip_ref: WeakRef, f
 	var fill_w := maxf(1.0, w * fill_w_scale)
 	var fill_h := maxf(1.0, h * fill_h_scale)
 	var fill_pos := Vector2((w - fill_w) * 0.5 + fill_dx, (h - fill_h) * 0.5 + fill_dy)
-	var fw := maxf(fill_h, fill_w * f)
+	var cur_f: float = clampf(float(hld.get_meta("frac", f)), 0.0, 1.0)
+	var fw := maxf(fill_h, fill_w * cur_f)
 	clip.position = fill_pos
 	clip.size = Vector2(fw, fill_h)
 	fl.position = Vector2.ZERO
@@ -3991,7 +4044,19 @@ static func _progress_place_knob(knob_ref: WeakRef, holder_ref: WeakRef, f: floa
 	var k := knob_ref.get_ref() as Control
 	var hld := holder_ref.get_ref() as Control
 	if k != null and hld != null:
-		k.position = Vector2(maxf(0.0, hld.size.x * f - h * 0.7), -h * 0.2)
+		var cur_f: float = clampf(float(hld.get_meta("frac", f)), 0.0, 1.0)
+		k.position = Vector2(maxf(0.0, hld.size.x * cur_f - h * 0.7), -h * 0.2)
+
+## Move an already-built progress_bar's fill to `f` WITHOUT rebuilding it — the layout closures
+## re-read the "frac" meta. The unlock strip tweens through this every frame.
+static func progress_bar_set_frac(bar: Control, f: float) -> void:
+	if bar == null or not is_instance_valid(bar):
+		return
+	bar.set_meta("frac", clampf(f, 0.0, 1.0))
+	for key in ["relayout", "knob_place"]:
+		var cb: Variant = bar.get_meta(key, null)
+		if cb is Callable and (cb as Callable).is_valid():
+			(cb as Callable).call()
 
 static func _progress_name(base_name: String, suffix: String) -> String:
 	return "%s%s" % [base_name, suffix]
@@ -5126,6 +5191,11 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# the shared cut-paper EDGE knobs, read live from this block so the workbench sliders + the game HUD
 		# both flow the same values into the drawn pill (Kit.cut_paper_opts_from_config → the ONE edge applier).
 		"cp": cut_paper_opts_from_config(cfg, "gold_currency_pill", PILL_CP_DEFAULTS),
+		# the stacked-paper backer (second, larger sheet behind the face) — shared by the HUD pills
+		# AND the NEXT UNLOCK strip, so the whole top chrome stacks the same way.
+		"backer": bool(g.get("backer", false)),
+		"backer_grow": float(g.get("backer_grow", 8.0)) * scale,
+		"backer_tint": Color.from_string("#" + String(g.get("backer_tint", "E3D2B4")).lstrip("#"), Color("#E3D2B4")),
 		"pill_w": float(g.get("pill_w", 292.0)) * scale,
 		"pill_h": float(g.get("pill_h", 100.0)) * scale,
 		"pad_left": float(g.get("pad_left", 18.0)) * scale,
@@ -5555,7 +5625,10 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color("#3F6D7D")
+		# frame_tint (board.frame_tint knob) recolours the slab; the cream cut-paper grain sheet is
+		# multiplied by the same tint so the surface keeps its paper tooth at any colour.
+		var frame_tint: Color = opts.get("frame_tint", Color("#3F6D7D"))
+		sb.bg_color = frame_tint
 		sb.border_color = Color("#F6EBDD", 0.82)
 		sb.set_border_width_all(2)
 		sb.set_corner_radius_all(meadow_corner)
@@ -5563,7 +5636,7 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		panel.add_theme_stylebox_override("panel", sb)
 		root.add_child(panel)
 		if bool(opts.get("draw_center", true)):
-			root.add_child(_rounded_paper_layer("MeadowBoardPaper", "texture_structural_slate.png", size, meadow_corner, 2.0))
+			root.add_child(_rounded_paper_layer("MeadowBoardPaper", "texture_cream.png", size, meadow_corner, 2.0, frame_tint))
 	return root
 
 ## The board-panel frame opts from a saved config — the frame style ("meadow" default | "code") and its
@@ -5572,6 +5645,7 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
 	return {
 		"frame_style": String(b.get("frame_style", "meadow")), # "meadow" default | legacy "badge" | "code"
+		"frame_tint":  Color.from_string("#" + String(b.get("frame_tint", "3F6D7D")).lstrip("#"), Color("#3F6D7D")),
 		"corner":      int(b.get("frame_corner", 58)),
 		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
 		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off
@@ -5752,6 +5826,13 @@ static func shared_torn_slot_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var opts := bag_card_opts_from_config(cfg)
 	opts.merge(torn_cell_opts_from_config(cfg), true)
 	opts["torn_cells"] = true
+	# the generated paper-sprite faces (torn_cell "Paper sprites" knob) ride the same opts so every
+	# slot_cell caller — board, bag, tiers, residents — switches together.
+	if bool(opts.get("sprites", false)):
+		opts["sprite_open"] = CELL_SPRITE_PATHS["open"]
+		opts["sprite_open_alt"] = CELL_SPRITE_PATHS["open_alt"]
+		opts["sprite_locked"] = CELL_SPRITE_PATHS["locked"]
+		opts["sprite_locked_deep"] = CELL_SPRITE_PATHS["locked_deep"]
 	return opts
 
 static func board_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -5819,14 +5900,22 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		bg_opts["dim"] = DIM_BG_FACTOR
 	# Torn-cell path (bag dialog): the Bag wears the same code-drawn torn component as the workbench
 	# reference. The next purchasable slot stays tappable/costed, but reads as a locked torn cell.
+	# The baked paper-sprite faces. LOCKED picks the deep (receded) variant for interior, non-frontier
+	# locks; OPEN picks the alt checker mate when the caller marks the cell (d.alt — board parity).
 	var sprite_open_p := String(opts.get("sprite_open", ""))
 	var sprite_locked_p := String(opts.get("sprite_locked", ""))
+	if lockedwell:
+		var deep_p := String(opts.get("sprite_locked_deep", ""))
+		if not frontier and deep_p != "":
+			sprite_locked_p = deep_p
+	elif bool(d.get("alt", false)) and String(opts.get("sprite_open_alt", "")) != "":
+		sprite_open_p = String(opts.get("sprite_open_alt", ""))
 	var sprite_path := ""
-	if state == "locked" and sprite_locked_p != "" and ResourceLoader.exists(sprite_locked_p):
+	if lockedwell and sprite_locked_p != "" and ResourceLoader.exists(sprite_locked_p):
 		sprite_path = sprite_locked_p
-	elif state != "locked" and sprite_open_p != "" and ResourceLoader.exists(sprite_open_p):
+	elif not lockedwell and sprite_open_p != "" and ResourceLoader.exists(sprite_open_p):
 		sprite_path = sprite_open_p
-	if use_torn_cells:
+	if use_torn_cells and sprite_path == "":
 		var torn_opts := opts.duplicate()
 		torn_opts["state"] = "locked" if lockedwell else "open"
 		var bg := torn_cell(torn_opts)
@@ -5847,6 +5936,10 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		art.size = Vector2(cw, ch)
 		art.custom_minimum_size = Vector2.ZERO
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if bool(d.get("dim_bg", false)):
+			# recede JUST THE FACE (Producing's discovered-but-inactive lines) — same contract as the
+			# code-drawn path's `dim` opt: the piece added later stays full colour.
+			art.self_modulate = Color(DIM_BG_FACTOR, DIM_BG_FACTOR, DIM_BG_FACTOR, 1.0)
 		tile.add_child(art)
 	else:
 		var bg := slot_cell_background(Vector2(cw, ch), state, frontier, bg_opts)

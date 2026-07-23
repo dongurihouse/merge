@@ -111,8 +111,8 @@ func _slot_cell_gallery_uses_game_cells() -> void:
 	Kit.clear_config_cache()
 	var view := UIWorkbenchView.new()
 	var gallery := view._slot_cell_gallery(view._params["bag_card"])
-	ok(_has_named(gallery, "TornCellOuter"),
-		"Slot-cell workbench gallery uses the same torn-cell component as the game")
+	ok(_has_named(gallery, "TornCellOuter") or _has_named(gallery, "SlotCellSprite"),
+		"Slot-cell workbench gallery uses the same shared slot-cell component as the game")
 	ok(not _has_named(gallery, "SlotCellBackground"),
 		"Slot-cell workbench gallery no longer previews the retired flat well background")
 	ok(_has_named(gallery, "SlotContentShadow"),
@@ -319,7 +319,7 @@ func _slot_cell_page_merged_into_torn_cell() -> void:
 		and view_src.find("_slider_row([\"cost_scale\", 30, 130], \"bag_card\")") >= 0,
 		"content_frac + cost_scale are edited on the Torn cell page into the bag_card block")
 	var preview := view._make_element("torn_cell")
-	ok(_has_named(preview, "TornCellOuter") and _has_named(preview, "ItemArt"),
+	ok((_has_named(preview, "TornCellOuter") or _has_named(preview, "SlotCellSprite")) and _has_named(preview, "ItemArt"),
 		"the Torn cell preview is the full cell gallery, including a filled cell with an item")
 	preview.free()
 	view.free()
