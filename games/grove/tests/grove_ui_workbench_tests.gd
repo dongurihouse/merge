@@ -436,6 +436,12 @@ func _shared_shadow_spread_outruns_offset() -> void:
 	var saved := Look.saved_shadow_params()
 	ok(float(saved.spread) <= -maxf(absf(float(saved.offset_x)), absf(float(saved.offset_y))),
 		"the shipped shadow block casts a soft feather, never a hard-edged slab")
+	# THE GREY-HALO GUARD. The feather radiates on ALL sides, so a blur big enough to clear the
+	# offset reaches ABOVE the element and reads as a grey outline rather than a cast — which is
+	# also backwards for the one upper-left light the art direction fixes. Shipped once at
+	# blur 14 / offset 5 / spread -5: 9px of halo out each side, 4px above a 116px cell.
+	var up: float = float(saved.blur) + float(saved.spread) - float(saved.offset_y)
+	ok(up <= 0.0, "the shipped shadow never reaches above the element (a cast, not a grey outline)")
 
 func _gold_pill_backer_tracks_face_width() -> void:
 	# the backer must follow the pill's REAL size (the HUD stretches the pill to fill its slot via
