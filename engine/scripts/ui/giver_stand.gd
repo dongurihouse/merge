@@ -294,7 +294,7 @@ static func _card_surface(w: float, h: float, seed: int = 0) -> Control:
 static func _add_card_shadow(card: Control, h: float, lay: Dictionary, key: String = "shadow") -> void:
 	if not _shadow_on(lay, key):
 		return
-	var sh := Look.shadow_rect(Look.shape_corner(card, h * 0.12), _shadow_params(lay))
+	var sh := Look.shadow_rect(Look.shape_corner(card, h * 0.12), _shadow_params(lay, key))
 	sh.show_behind_parent = true
 	card.add_child(sh)
 
@@ -304,7 +304,7 @@ static func _add_card_shadow(card: Control, h: float, lay: Dictionary, key: Stri
 static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary, key: String = "shadow") -> void:
 	if not _shadow_on(lay, key):
 		return
-	var sh := Look.shadow_rect(corner, _shadow_params(lay))
+	var sh := Look.shadow_rect(corner, _shadow_params(lay, key))
 	sh.show_behind_parent = true
 	surface.add_child(sh)
 
@@ -316,7 +316,7 @@ static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary
 static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, lay: Dictionary, fit: bool, inset: float, div: int, key: String = "shadow") -> void:
 	if not _shadow_on(lay, key) or tex == null:
 		return
-	var p := _shadow_params(lay)
+	var p := _shadow_params(lay, key)
 	var sh := SpriteShadow.new()
 	sh.texture = tex
 	sh.draw_size = size
@@ -328,8 +328,14 @@ static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, l
 	sh.show_behind_parent = true
 	surface.add_child(sh)
 
-# The shared shadow look — the global `shadow` block passed in cfg.lay.shadow_params, else Skin's default.
-static func _shadow_params(lay: Dictionary) -> Dictionary:
+# The shadow look for a surface: its OWN tuned params (`<key>_params`, e.g. item_shadow_params) when the
+# workbench set them apart, else the shared `shadow_params`, else Skin's default. So each surface can carry
+# its own offset/blur/spread/alpha, but an untuned surface still tracks the one shared cast.
+static func _shadow_params(lay: Dictionary, key: String = "shadow") -> Dictionary:
+	if key != "shadow":
+		var own: Dictionary = lay.get(key + "_params", {}) as Dictionary
+		if not own.is_empty():
+			return own
 	var params: Dictionary = lay.get("shadow_params", {}) as Dictionary
 	return params if not params.is_empty() else Look.shadow_params({})
 

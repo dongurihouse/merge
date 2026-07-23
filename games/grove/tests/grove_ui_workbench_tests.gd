@@ -31,6 +31,8 @@ func _initialize() -> void:
 	_slot_cell_page_merged_into_torn_cell()
 	_quest_check_scale_flows_to_giver_card()
 	_quest_card_per_surface_shadows_and_gap()
+	_quest_card_per_surface_shadow_params()
+	_gold_pill_backer_tracks_face_width()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
 	_level_dialog_art_has_baked_polish_mirrors()
@@ -363,6 +365,49 @@ func _quest_card_per_surface_shadows_and_gap() -> void:
 		"item + plaque shadow toggles each remove exactly their own shadow node")
 	a.free()
 	b.free()
+
+func _quest_card_per_surface_shadow_params() -> void:
+	# each surface's shadow reads its OWN offset/blur/spread/alpha; untuned keys inherit the shared block.
+	var cfg := {"shadow": {"offset_x": 0, "offset_y": 5, "blur": 6, "spread": -2, "alpha": 20},
+		"quest_card": {"item_shadow_offset_y": 12, "item_shadow_alpha": 60, "plaque_shadow_blur": 3}}
+	var lay := Kit.giver_lay_from_config(cfg)
+	var ip: Dictionary = lay.item_shadow_params
+	ok(is_equal_approx(float(ip.offset_y), 12.0), "item shadow reads its own offset_y")
+	ok(is_equal_approx(float(ip.alpha), 0.60), "item shadow reads its own alpha (percent -> 0..1)")
+	ok(is_equal_approx(float(ip.offset_x), 0.0) and is_equal_approx(float(ip.blur), 6.0),
+		"item shadow's untuned knobs inherit the shared cast")
+	var pp: Dictionary = lay.plaque_shadow_params
+	ok(is_equal_approx(float(pp.blur), 3.0) and is_equal_approx(float(pp.offset_y), 5.0),
+		"plaque shadow tunes blur alone, inheriting the rest")
+	var cp: Dictionary = lay.card_shadow_params
+	ok(is_equal_approx(float(cp.offset_y), 5.0) and is_equal_approx(float(cp.alpha), 0.20),
+		"an untouched surface resolves to exactly the shared cast")
+	# spread is clamped <= 0 (a filled panel can't grow outward)
+	var lay2 := Kit.giver_lay_from_config({"quest_card": {"item_shadow_spread": 9}})
+	ok(float((lay2.item_shadow_params as Dictionary).spread) <= 0.0, "per-surface spread is clamped <= 0")
+
+func _gold_pill_backer_tracks_face_width() -> void:
+	# the backer must follow the pill's REAL size (the HUD stretches the pill to fill its slot via
+	# SIZE_EXPAND_FILL), not the nominal pill_w — else a wide face gets a narrow under-sheet.
+	var grow := 8.0
+	var opts := Kit.gold_currency_pill_opts_from_config({"gold_currency_pill":
+		{"backer": true, "backer_grow": grow, "pill_w": 292, "pill_h": 100}})
+	var pill := Kit.gold_currency_pill(opts, {"water": 100}) as Control
+	var backer := pill.find_child("PaperBacker", true, false) as Control
+	ok(backer != null, "the pill builds a paper backer when backer is on")
+	# full-rect anchors with a `grow` bleed → the backer's rect is the parent's rect grown by `grow`.
+	ok(is_equal_approx(backer.anchor_right, 1.0) and is_equal_approx(backer.anchor_bottom, 1.0),
+		"the backer is anchored to the parent's full rect (tracks its real width)")
+	ok(is_equal_approx(backer.offset_left, -grow) and is_equal_approx(backer.offset_right, grow),
+		"the backer bleeds `grow` past every edge of the actual face")
+	# force a WIDE layout (wider than pill_w) and confirm the backer grows with it. A Control in the tree
+	# recomputes its anchored children's rects synchronously when its own size changes.
+	get_root().add_child(pill)
+	pill.size = Vector2(600, 100)
+	ok(is_equal_approx(backer.size.x, pill.size.x + grow * 2.0),
+		"the backer width follows the stretched face width, not the nominal pill_w")
+	get_root().remove_child(pill)
+	pill.free()
 
 func _node_count(n: Node) -> int:
 	var total := 1
