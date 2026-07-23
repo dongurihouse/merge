@@ -66,19 +66,29 @@ static func set_ready(badge: Control, ready: bool) -> void:
 		glow.texture = PieceView.gen_halo_tex()
 		glow.size = Vector2(BOX, BOX) * 1.35                  # the aura spills past the badge box, fading out
 		glow.position = (Vector2(BOX, BOX) - glow.size) * 0.5
+		glow.pivot_offset = glow.size * 0.5                   # breathe scales from the centre, like the pad
 		glow.modulate = Color(1.0, 0.86, 0.36, 0.8)           # warm "unlockable" gold, shaped by the bloom's falloff
 		badge.add_child(glow)
 		badge.move_child(glow, 0)                             # behind shadow + pad
-		_pulse(pad)
+		_pulse(pad, glow)
 	elif not ready and glow != null:
 		glow.queue_free()
 
-static func _pulse(pad: Control) -> void:
+# The READY pulse: the pad swells and settles, and the halo BREATHES WITH IT — one tween drives both
+# (same phase, same period), the halo swelling a touch wider and brightening at the peak so the light
+# reads as coming from the lock.
+static func _pulse(pad: Control, glow: Control = null) -> void:
 	if pad == null or not pad.is_inside_tree():
 		return                                              # tween needs the node in the tree
 	var tw := pad.create_tween().set_loops()
 	tw.tween_property(pad, "scale", Vector2(1.09, 1.09), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(pad, "scale", Vector2(1.0, 1.0), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if glow != null:
+		tw.parallel().tween_property(glow, "scale", Vector2(1.14, 1.14), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.parallel().tween_property(glow, "modulate:a", 0.95, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.chain().tween_property(pad, "scale", Vector2(1.0, 1.0), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if glow != null:
+		tw.parallel().tween_property(glow, "scale", Vector2(1.0, 1.0), 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.parallel().tween_property(glow, "modulate:a", 0.66, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 static func _config_sprite(t: TextureRect) -> void:
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE          # set BEFORE size (min-size cache clamp)
