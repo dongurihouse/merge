@@ -124,7 +124,8 @@ static func _build(Kit: GDScript, width: float, opts: Dictionary, overlay: Contr
 	# Both screens carry the line's tier grid; make_content lets the kit build each discovered tile's piece
 	# at the cell size IT computes. (A base line stacks it under its generator icon; a merged line under its recipe.)
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-		return PieceView.make_piece(int(d.get("code", 0)), px)
+		# inset 0: the kit cell already sizes `px` by the shared content_frac (board parity)
+		return PieceView.make_piece(int(d.get("code", 0)), px, 0.0)
 	var mark_tier := int(opts.get("mark_tier", 0))
 	var cells: Array = _cells(opts.get("entries", []), mark_tier)
 	var grid: Control = Kit.tiers_grid(cells, width, dopts)

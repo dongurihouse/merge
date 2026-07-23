@@ -2310,15 +2310,17 @@ const TORN_CELL_KNOBS := [
 	{"key": "inner_shadow_falloff",  "kind": "slider", "label": "Inner shadow falloff",  "min": 10, "max": 40, "default": 16}, # /10 -> curve
 	{"key": "inner_shadow_tint",     "kind": "color",  "label": "Inner shadow tint", "default": "294654"},
 	# the LOCKED state (plain cream card, no well): a centred lock icon with its own drop shadow.
-	{"key": "lock_icon",            "kind": "option", "label": "Lock icon",           "default": "padlock"},   # which lock art (LOCK_ICON_PATHS)
+	{"key": "lock_icon",            "kind": "option", "label": "Lock icon",           "default": "card"},   # which lock art (LOCK_ICON_PATHS) — the map-card keyhole is the house lock
 	{"key": "lock_frac",            "kind": "slider", "label": "Lock size",           "min": 20, "max": 90, "default": 52},   # % of cell
 	{"key": "lock_shadow_dy",       "kind": "slider", "label": "Lock shadow drop",    "min": 0,  "max": 24, "default": 6},   # px
 	{"key": "lock_shadow_strength", "kind": "slider", "label": "Lock shadow strength", "min": 0, "max": 60, "default": 32},  # percent -> alpha
 ]
 
 ## The lock arts the LOCKED torn cell can wear (the lock_icon knob) — every lock sprite the game owns.
-## "padlock" (kit/tiers_lock.png) is the shipped dialog-mock navy padlock.
+## "card" (ui/card/lock.png, the purple scalloped map-card keyhole) is THE house lock now — the same
+## icon the maps gallery stamps on a locked page — so every locked surface reads with one mark.
 const LOCK_ICON_PATHS := {
+	"card":    "res://games/grove/assets/ui/card/lock.png",
 	"padlock": "res://games/grove/assets/ui/kit/tiers_lock.png",
 	"bag":     "res://games/grove/assets/ui/kit/bag_lock.png",
 	"acorn":   "res://games/grove/assets/ui/meadow_v2/acorn_lock.svg",
@@ -2374,7 +2376,7 @@ static func torn_cell(opts: Dictionary) -> Control:
 		var lock_px := minf(w, h) * clampf(float(opts.get("lock_frac", 52.0)) / 100.0, 0.05, 1.0)
 		var lx := (w - lock_px) * 0.5
 		var ly := (h - lock_px) * 0.5
-		var lock_path := String(LOCK_ICON_PATHS.get(String(opts.get("lock_icon", "padlock")), DIALOG_LOCK_PATH))
+		var lock_path := String(LOCK_ICON_PATHS.get(String(opts.get("lock_icon", "card")), DIALOG_LOCK_PATH))
 		if not ResourceLoader.exists(lock_path):
 			lock_path = DIALOG_LOCK_PATH
 		if ResourceLoader.exists(lock_path):
@@ -5676,12 +5678,12 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
 const SLOT_LOCK_MARK_ALPHA := 0.78
 const SLOT_LOCK_MARK_FRAC := 0.58
-## The DIALOG lock: the mocks stamp an undiscovered cell with a flat navy padlock, not the house acorn.
-## The art is games/grove/assets/ui/kit/tiers_lock.png, cut by games/grove/tools/cut_tiers_ornaments.py;
-## the metrics are the tiers mock's (105 / 276 of the cell, at the cut art's own 143:105 aspect).
-const DIALOG_LOCK_PATH := "res://games/grove/assets/ui/kit/tiers_lock.png"
+## The DIALOG lock: every locked cell stamps the map-card keyhole (ui/card/lock.png — the same purple
+## scalloped mark the maps gallery uses), so one lock icon reads across the whole game. The W_FRAC
+## keeps the tiers mock's footprint; the aspect is the card lock's own (173:194 → h/w 194/173).
+const DIALOG_LOCK_PATH := "res://games/grove/assets/ui/card/lock.png"   # the map-card keyhole — THE house lock
 const DIALOG_LOCK_W_FRAC := 0.38
-const DIALOG_LOCK_ASPECT := 143.0 / 105.0
+const DIALOG_LOCK_ASPECT := 194.0 / 173.0
 
 ## The locked cell's stamp. `dialog_cells` picks the mocks' flat padlock; everything else (the board, the
 ## bag's gated wells, any non-dialog caller) keeps the house acorn lock, unchanged.

@@ -566,7 +566,7 @@
 		"inner_shadow_strength": 30.0,
 		"inner_shadow_tint": "294654",
 		"lock_frac": 52.0,
-		"lock_icon": "padlock",
+		"lock_icon": "card",
 		"lock_shadow_dy": 6.0,
 		"lock_shadow_strength": 32.0,
 		"rim_color": "E7D6BC",

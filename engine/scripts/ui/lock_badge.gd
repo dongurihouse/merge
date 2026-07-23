@@ -97,5 +97,8 @@ static func _config_sprite(t: TextureRect) -> void:
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 static func _padlock_tex() -> Texture2D:
-	var p := Game.art("ui/meadow_v2/icon_padlock.png")
+	# the map-card keyhole (ui/card/lock.png) — THE house lock, same mark as the locked cells + map cards
+	var p := "res://games/grove/assets/ui/card/lock.png"
+	if not ResourceLoader.exists(p):
+		p = Game.art("ui/meadow_v2/icon_padlock.png")
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null

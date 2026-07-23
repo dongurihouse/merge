@@ -2288,6 +2288,7 @@ func _open_bag_overlay() -> void:
 		"on_balance": func() -> int: return Save.diamonds(),
 		"gen_bag": board.gen_bag,
 		"gen_bag_tiers": board.gen_bag_tiers,
+		"asked_lines": _open_quest_lines(),       # stored generators a live quest needs breathe in the bag
 		"on_place_gen": func(id: String) -> void:
 			var cells := board.empty_ground_cells()
 			if cells.is_empty():

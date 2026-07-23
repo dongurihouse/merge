@@ -380,7 +380,7 @@ func _default_params() -> Dictionary:
 			"cream_fill": "F1E6D2", "well": true, "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
 			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2, "inner_edge": true,
 			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654",
-			"lock_icon": "padlock", "lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
+			"lock_icon": "card", "lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).

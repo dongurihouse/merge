@@ -66,7 +66,8 @@ static func open(host: Control, opts: Dictionary) -> void:
 	# space) — the frame takes min(content, cap).
 	dopts["list_max_h"] = host.get_viewport_rect().size.y * 0.66
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-		return PieceView.make_piece(int(d.get("code", 0)), px)   # always full-colour; the cell BG dims if inactive
+		# inset 0: the kit cell already sizes `px` by the shared content_frac (board parity)
+		return PieceView.make_piece(int(d.get("code", 0)), px, 0.0)   # always full-colour; the cell BG dims if inactive
 	dopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 
