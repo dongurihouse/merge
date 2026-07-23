@@ -14,15 +14,12 @@ const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
 # texture_cream grain layer from the UI kit) so it reads as one family with the pills above it.
 # The kit is loaded at runtime (matches hud.gd / action_bar.gd) to avoid a preload cycle.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const PAPER_CORNER_FRAC := 0.28             # band corner radius as a fraction of the band height
-const TRACK_BG := Color("#E0CFB6")          # the empty track — CREAM knocked back a step (must read at 0%)
 const FILL_TWEEN_S := 0.55
 const DECKLE_SURFACE_NODE := "UnlockDeckleSurface"
-const TRACK_PAPER_NODE := "UnlockTrackPaperSurface"
-const FILL_PAPER_NODE := "UnlockFillPaperSurface"
+const BAR_NAME := "UnlockBar"    # the SHARED Kit.progress_bar (same component as the level dialog)
 
 var _progress := 0.0
 var _ready_fx := false
@@ -31,8 +28,8 @@ var _deckle: Control
 var _badge: TextureRect
 var _title: Label
 var _level: Label
-var _track: Panel
-var _fill: Panel
+var _bar: Control          # Kit.progress_bar holder — rebuilt on relayout/ready, tweened via set_frac
+var _bar_box := Rect2()    # where the bar sits (computed by _relayout)
 var _pct: Label
 var _fill_tween: Tween
 
@@ -58,14 +55,6 @@ func _init() -> void:
 	add_child(_badge)
 	_title = _label("UnlockTitle", Pal.INK)
 	_level = _label("UnlockLevel", Color(Pal.INK, 0.55))
-	_track = Panel.new()
-	_track.name = "UnlockTrack"
-	_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_track)
-	_fill = Panel.new()
-	_fill.name = "UnlockFill"
-	_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_track.add_child(_fill)
 	_pct = _label("UnlockPct", Pal.INK)
 	_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	resized.connect(_relayout)
@@ -105,30 +94,26 @@ func _configure_deckle(corner: float) -> void:
 	_deckle.configure(cp, PAPER_FILL, PAPER_EDGE, Kit.cut_paper_tile())
 	_deckle.corner = corner
 
-func _apply_progress_paper(host: Panel, node_name: String, corner: float, tint: Color = Color.WHITE) -> void:
+# The progress bar IS the shared Kit.progress_bar — the SAME component (and the same workbench
+# "progress_bar" knobs) the level dialog wears, so the two bars can never drift apart. Rebuilt when
+# the geometry or the ready state changes; the tween moves the fill via Kit.progress_bar_set_frac.
+func _rebuild_bar() -> void:
 	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null or host == null:
+	if Kit == null or _bar_box.size.x <= 0.0:
 		return
-	var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(host, node_name, PAPER_TEXTURE, corner, 1.0)
-	if paper != null:
-		paper.set_anchors_preset(Control.PRESET_FULL_RECT)
-		paper.offset_left = 1.0
-		paper.offset_top = 1.0
-		paper.offset_right = -1.0
-		paper.offset_bottom = -1.0
-		var mat := paper.material as ShaderMaterial
-		if mat != null:
-			mat.set_shader_parameter("tint", tint)
-		paper.self_modulate = Color.WHITE
-
-func _rounded(color: Color, radius: float, outlined: bool = false) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = color
-	sb.set_corner_radius_all(int(radius))
-	if outlined:   # a quiet rim so the EMPTY track still reads on the cream card
-		sb.set_border_width_all(1)
-		sb.border_color = Color(Pal.BARK, 0.22)
-	return sb
+	if _bar != null and is_instance_valid(_bar):
+		_bar.queue_free()
+	var opts: Dictionary = Kit.progress_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["name"] = BAR_NAME
+	opts["width"] = _bar_box.size.x
+	opts["height"] = _bar_box.size.y
+	if _ready_fx:   # affordable — the fill turns gold as the tap-me cue
+		opts["fill_color"] = Pal.STRAW
+	_bar = Kit.progress_bar(_progress, opts)
+	_bar.position = _bar_box.position
+	_bar.size = _bar_box.size
+	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_bar)
 
 func set_next_level(level: int) -> void:
 	_level.text = (Strings.t("level.banner") % level).to_upper()
@@ -154,9 +139,13 @@ func animate_progress_to(p: float) -> void:
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 # ready = the next unlock is affordable — the fill turns gold as the tap-me cue (the board
-# also breathes the strip, mirroring the old jar's cue).
+# also breathes the strip, mirroring the old jar's cue). The fill colour is baked into the built
+# bar, so a ready flip rebuilds it (rare — once per affordability change).
 func set_ready(on: bool) -> void:
+	if on == _ready_fx:
+		return
 	_ready_fx = on
+	_rebuild_bar()
 	_apply_progress()
 
 func progress_for_test() -> float:
@@ -164,14 +153,10 @@ func progress_for_test() -> float:
 
 func _apply_progress() -> void:
 	var h := size.y
-	var track_w := _track.size.x
-	var bar_h := _track.size.y
-	_fill.add_theme_stylebox_override("panel", _rounded(Pal.STRAW if _ready_fx else Pal.LEAF, bar_h * 0.5))
-	var w := track_w * _progress
-	if _progress > 0.0:
-		w = maxf(w, bar_h)   # keep the rounded cap round at the low end
-	_fill.size = Vector2(w, bar_h)
-	_apply_progress_paper(_fill, FILL_PAPER_NODE, bar_h * 0.5, Pal.STRAW if _ready_fx else Pal.LEAF)
+	if _bar != null and is_instance_valid(_bar):
+		var Kit: GDScript = load(KIT_PATH)
+		if Kit != null:
+			Kit.progress_bar_set_frac(_bar, _progress)
 	_pct.text = "%d%%" % int(round(_progress * 100.0))
 	if h > 0.0:
 		_pct.add_theme_font_size_override("font_size", int(h * 0.30))
@@ -185,6 +170,7 @@ func _relayout() -> void:
 		return
 	var corner := maxf(12.0, h * PAPER_CORNER_FRAC)
 	_configure_deckle(corner)
+	_configure_backer(corner)
 	var badge_s := h * 1.06
 	_badge.size = Vector2(badge_s, badge_s)
 	_badge.position = Vector2(h * 0.16, (h - badge_s) * 0.5)
@@ -204,12 +190,27 @@ func _relayout() -> void:
 	# squeeze the track away and a short one doesn't drag it off the mock's column
 	var track_left := clampf(text_x + _title_w() + h * 0.24, w * 0.34, w * 0.48)
 	var track_right := _pct.position.x - h * 0.16
-	_track.position = Vector2(track_left, (h - bar_h) * 0.5)
-	_track.size = Vector2(maxf(1.0, track_right - track_left), bar_h)
-	_track.add_theme_stylebox_override("panel", _rounded(TRACK_BG, bar_h * 0.5, true))
-	_apply_progress_paper(_track, TRACK_PAPER_NODE, bar_h * 0.5, TRACK_BG)
-	_fill.position = Vector2.ZERO
+	_bar_box = Rect2(Vector2(track_left, (h - bar_h) * 0.5), Vector2(maxf(1.0, track_right - track_left), bar_h))
+	_rebuild_bar()
 	_apply_progress()
+
+# The stacked-paper BACKER behind the band — the same second-sheet knobs the HUD pills read
+# (gold_currency_pill.backer*), so the whole top chrome stacks the same way.
+func _configure_backer(corner: float) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null or _bg == null:
+		return
+	var old := _bg.get_node_or_null("PaperBacker")
+	if old != null:
+		old.queue_free()
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var pill_opts: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(cfg, "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
+	cp["corner"] = corner
+	var backer: Control = Kit.paper_backer(size, pill_opts, cp)
+	if backer != null:
+		_bg.add_child(backer)
+		_bg.move_child(backer, 0)
 
 func _title_w() -> float:
 	var f := _title.get_theme_font("font")

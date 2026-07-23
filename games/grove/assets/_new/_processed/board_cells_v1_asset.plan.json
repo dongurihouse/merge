@@ -1,0 +1,13 @@
+{
+  "source": "_new/board_cells_v1_asset.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "min_area": 400 },
+  "outputs": [
+    { "island": 0, "name": "cell_paper_open", "path": "ui/board/cell_paper_open.png", "post": "icon:512" },
+    { "island": 1, "name": "cell_paper_open_alt", "path": "ui/board/cell_paper_open_alt.png", "post": "icon:512" },
+    { "island": 2, "name": "cell_paper_locked", "path": "ui/board/cell_paper_locked.png", "post": "icon:512" },
+    { "island": 3, "name": "cell_paper_locked_deep", "path": "ui/board/cell_paper_locked_deep.png", "post": "icon:512" }
+  ],
+  "archive": "_originals/ui/board_cells_v1_asset.png"
+}

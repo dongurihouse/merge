@@ -59,6 +59,7 @@
 		"frame_corner": 46.0,
 		"frame_inner_w": 0.0,
 		"frame_style": "meadow",
+		"frame_tint": "7FA6B4",
 		"frame_top_shadow": 0.0,
 		"gap": 11.0,
 		"scale": 97.0,
@@ -204,6 +205,9 @@
 	"gold_currency_pill": {
 		"amount_w": 95.0,
 		"amount_x": 51.0,
+		"backer": true,
+		"backer_grow": 8.0,
+		"backer_tint": "E3D2B4",
 		"corner": 35.0,
 		"deckle": true,
 		"deckle_amp": 4.0,
@@ -506,11 +510,11 @@
 		"shadow": true
 	},
 	"shadow": {
-		"alpha": 34.0,
-		"blur": 3.0,
+		"alpha": 46.0,
+		"blur": 9.0,
 		"offset_x": 0.0,
-		"offset_y": 3.0,
-		"spread": -2.0
+		"offset_y": 7.0,
+		"spread": 0.0
 	},
 	"shop": {
 		"card_pad": 12.0,

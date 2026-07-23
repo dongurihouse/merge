@@ -214,7 +214,7 @@ func _default_params() -> Dictionary:
 		# this preview. Piece size is owned by Slot-cell content_frac.
 		"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
 			# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
-			"frame_style": "meadow", "frame_corner": 46,
+			"frame_style": "meadow", "frame_tint": "3F6D7D", "frame_corner": 46,
 			"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
@@ -247,6 +247,9 @@ func _default_params() -> Dictionary:
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + frame use.
 			# `corner` seeds the capsule roundness to the old pill_h * 0.35 look (see Kit.PILL_CP_DEFAULTS).
 			"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+			# the stacked-paper backer: a slightly larger tinted under-sheet behind the face (also worn
+			# by the NEXT UNLOCK strip — one knob set for the whole top chrome).
+			"backer": false, "backer_grow": 8, "backer_tint": "E3D2B4",
 			"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 			"amount_w": 88, "num_size": 30, "amount_x": 0,
 			"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
@@ -380,7 +383,8 @@ func _default_params() -> Dictionary:
 			"cream_fill": "F1E6D2", "well": true, "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
 			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2, "inner_edge": true,
 			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654",
-			"lock_icon": "card", "lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
+			"lock_icon": "card", "lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32,
+			"sprites": true},
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -1536,6 +1540,7 @@ func _element_sidebar(_id: String) -> void:
 			_group_header("Saved to config", true)
 			_section_header("Frame")
 			_sidebar_body.add_child(_option_row("Style", "frame_style", ["meadow", "code"]))
+			_sidebar_body.add_child(_color_row("Board tint", "frame_tint"))       # meadow slab colour (paper grain follows)
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
 			_section_header("Code border (when Style = code)")
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
@@ -1604,6 +1609,12 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["pill_w", 180, 380]))
 			_sidebar_body.add_child(_slider_row(["pill_h", 64, 132]))
 			_cut_paper_section("gold_currency_pill")   # the shared rugged-edge knobs (deckle · corner · amp · freq · rim · shadow)
+			_section_header("Paper backer (second sheet)")
+			# a slightly larger tinted under-sheet behind the face — shared by the HUD pills AND the
+			# NEXT UNLOCK strip. The face's edge shadow separates the layers; the backer casts the page shadow.
+			_sidebar_body.add_child(_toggle_row("Backer", "backer"))
+			_sidebar_body.add_child(_slider_row(["backer_grow", 0, 30]))
+			_sidebar_body.add_child(_color_row("Backer tint", "backer_tint"))
 			_section_header("Padding")
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))
@@ -1800,6 +1811,9 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cost_x", -60, 60], "bag_card"))        # nudge the acorn cost left(-) / right(+)
 			_sidebar_body.add_child(_slider_row(["cost_scale", 30, 130], "bag_card"))    # the cost pill's overall size (%)
 			_section_header("Open cell style")
+			# ON = the baked cut-paper sprite faces (open/alt checker + locked/deep) win over the
+			# code-drawn torn cell below; OFF = the code-drawn face.
+			_sidebar_body.add_child(_toggle_row("Paper sprites (generated faces)", "sprites", false, "torn_cell"))
 			# ON = the green inner well cutout; OFF = the plain cream card (the locked face, no lock).
 			# Saved — every board (main board, bag, tiers, residents, producing) reads this one knob.
 			_sidebar_body.add_child(_toggle_row("Green well (inner cutout)", "well", false, "torn_cell"))
