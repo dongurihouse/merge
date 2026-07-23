@@ -2274,15 +2274,28 @@ const TORN_CELL_KNOBS := [
 	{"key": "inner_amp",       "kind": "slider", "label": "Well deckle amp", "min": 0, "max": 20,  "default": 4},
 	{"key": "inner_freq",      "kind": "slider", "label": "Well deckle freq", "min": 1, "max": 20, "default": 6, "freq": true},
 	{"key": "inner_rim",       "kind": "slider", "label": "Well rim width",  "min": 0,  "max": 8,   "default": 2},
+	# the inner well's cut edge as a whole: OFF = a clean smooth well (no deckle wobble, no rim)
+	{"key": "inner_edge",      "kind": "toggle", "label": "Well edge",       "default": true},
 	{"key": "inner_shadow_h",        "kind": "slider", "label": "Inner shadow reach", "min": 0, "max": 60, "default": 26},
 	{"key": "inner_shadow_strength", "kind": "slider", "label": "Inner shadow strength", "min": 0, "max": 60, "default": 30},   # percent -> alpha
 	{"key": "inner_shadow_falloff",  "kind": "slider", "label": "Inner shadow falloff",  "min": 10, "max": 40, "default": 16}, # /10 -> curve
 	{"key": "inner_shadow_tint",     "kind": "color",  "label": "Inner shadow tint", "default": "294654"},
 	# the LOCKED state (plain cream card, no well): a centred lock icon with its own drop shadow.
+	{"key": "lock_icon",            "kind": "option", "label": "Lock icon",           "default": "padlock"},   # which lock art (LOCK_ICON_PATHS)
 	{"key": "lock_frac",            "kind": "slider", "label": "Lock size",           "min": 20, "max": 90, "default": 52},   # % of cell
 	{"key": "lock_shadow_dy",       "kind": "slider", "label": "Lock shadow drop",    "min": 0,  "max": 24, "default": 6},   # px
 	{"key": "lock_shadow_strength", "kind": "slider", "label": "Lock shadow strength", "min": 0, "max": 60, "default": 32},  # percent -> alpha
 ]
+
+## The lock arts the LOCKED torn cell can wear (the lock_icon knob) — every lock sprite the game owns.
+## "padlock" (kit/tiers_lock.png) is the shipped dialog-mock navy padlock.
+const LOCK_ICON_PATHS := {
+	"padlock": "res://games/grove/assets/ui/kit/tiers_lock.png",
+	"bag":     "res://games/grove/assets/ui/kit/bag_lock.png",
+	"acorn":   "res://games/grove/assets/ui/meadow_v2/acorn_lock.svg",
+	"flower":  "res://games/grove/assets/ui/meadow_v2/maps_lock_flower.png",
+	"simple":  "res://games/grove/assets/ui/meadow_v2/icon_padlock.png",
+}
 
 ## Read the `torn_cell` config block into the builder opts: the shared cut-paper edge for the OUTER card,
 ## plus this component's own inner-well + inner-shadow + fill knobs.
@@ -2297,6 +2310,8 @@ static func torn_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
 			o[k] = Color.from_string("#" + String(raw).lstrip("#"), Color.WHITE)
 		elif kind == "toggle":
 			o[k] = bool(raw)
+		elif kind == "option":
+			o[k] = String(raw)
 		elif bool(knob.get("freq", false)):
 			o[k] = float(raw) / 100.0
 		else:
@@ -2325,12 +2340,16 @@ static func torn_cell(opts: Dictionary) -> Control:
 	root.add_child(outer)
 
 	# LOCKED state: a plain cream card (no well) with a centred lock icon over its own drop shadow.
+	# The lock_icon knob picks WHICH lock art (LOCK_ICON_PATHS); unknown names fall back to the padlock.
 	if String(opts.get("state", "open")) == "locked":
 		var lock_px := minf(w, h) * clampf(float(opts.get("lock_frac", 52.0)) / 100.0, 0.05, 1.0)
 		var lx := (w - lock_px) * 0.5
 		var ly := (h - lock_px) * 0.5
-		if ResourceLoader.exists(DIALOG_LOCK_PATH):
-			var lock_tex: Texture2D = load(DIALOG_LOCK_PATH)
+		var lock_path := String(LOCK_ICON_PATHS.get(String(opts.get("lock_icon", "padlock")), DIALOG_LOCK_PATH))
+		if not ResourceLoader.exists(lock_path):
+			lock_path = DIALOG_LOCK_PATH
+		if ResourceLoader.exists(lock_path):
+			var lock_tex: Texture2D = load(lock_path)
 			var dy := float(opts.get("lock_shadow_dy", 6.0))
 			var lsh := TextureRect.new()
 			lsh.name = "TornCellLockShadow"
@@ -2363,10 +2382,14 @@ static func torn_cell(opts: Dictionary) -> Control:
 	var iw := maxf(1.0, w - inset * 2.0)
 	var ih := maxf(1.0, h - inset * 2.0)
 	var well_fill: Color = opts.get("well_fill", Color("#A6C486"))
+	# Well edge OFF → a clean smooth well: no deckle wobble, no rim (the corner radius stays).
+	var inner_edge := bool(opts.get("inner_edge", true))
 	var inner_cp := {
 		"deckle": true, "corner": float(opts.get("inner_corner", 16.0)),
-		"deckle_amp": float(opts.get("inner_amp", 4.0)), "deckle_freq": float(opts.get("inner_freq", 0.06)),
-		"rim_width": float(opts.get("inner_rim", 2.0)), "edge_shadow": false,
+		"deckle_amp": float(opts.get("inner_amp", 4.0)) if inner_edge else 0.0,
+		"deckle_freq": float(opts.get("inner_freq", 0.06)),
+		"rim_width": float(opts.get("inner_rim", 2.0)) if inner_edge else 0.0,
+		"edge_shadow": false,
 	}
 	var inner: Control = load(CUT_PAPER).new()
 	inner.name = "TornCellWell"

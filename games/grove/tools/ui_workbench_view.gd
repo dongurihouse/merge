@@ -24,7 +24,7 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
-const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "progress_bar", "bag_card", "torn_cell", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "progress_bar", "torn_cell", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +32,7 @@ const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "p
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["focus_ring"], ["action_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["bag_card"], ["torn_cell"], ["quest_card"], ["mail_card"], ["toggle_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["focus_ring"], ["action_button"], ["hud_layout"], ["button"], ["gold_currency_pill"], ["torn_cell"], ["quest_card"], ["mail_card"], ["toggle_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -56,8 +56,9 @@ const DEPENDENTS := {
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info", "level", "vault"],
 	"action_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
-	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
-	"bag_card": ["bag", "tiers", "board"],
+	# the torn cell IS the slot cell now: it backs the bag dialog, the discovery ladder, AND the Board
+	# preview's wells — editing it (including its bag_card-backed item/cost knobs) rebuilds all
+	"torn_cell": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
@@ -132,8 +133,7 @@ const CAPTIONS := {
 	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
 	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
-	"bag_card": "Slot cell — the shared board + dialog cell in every state the game renders",
-	"torn_cell": "Torn cell — code-drawn cut-paper well (outer + inner rugged edge · inner top shadow)",
+	"torn_cell": "Torn cell — THE slot cell: every board/dialog cell state, plus the item, its shadow, the cost chip and the lock",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"mail_card": "Mail card — reward row (icon · title · body · value chip) in the shared cut-paper edge · own tint",
 	"toggle_card": "Settings bar — a toggle row (label · rugged switch) in the shared cut-paper edge · own tint",
@@ -365,10 +365,11 @@ func _default_params() -> Dictionary:
 		# Its face is inherited wholesale from the Frame/Card elements; only the sheet WIDTH is info-specific (a
 		# 1–2 row sheet is narrower than the inbox). Read by the game's _info_sheet via Kit.info_opts_from_config.
 		"info": {},
-		# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
-		# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
+		# the SLOT-CELL item/cost/shadow metrics — the config block the game reads
+		# (bag_card_opts_from_config). No page of its own any more: EDITED ON THE TORN CELL item
+		# (target "bag_card" rows), kept here so the values persist and the game keeps its reader.
 		"bag_card": {"cell_w": 116, "cell_h": 120,
-			"content_frac": 62,
+			"content_frac": 62, "shadow": true,
 			"item_shadow_x": 0, "item_shadow_y": 5, "item_shadow_blur": 6, "item_shadow_spread": -2, "item_shadow_alpha": 20,
 			"cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
 		# the CODE-DRAWN torn cell — outer rugged cream card (shared cut-paper keys) + inner rugged green well
@@ -377,9 +378,9 @@ func _default_params() -> Dictionary:
 			"deckle": true, "corner": 18, "deckle_amp": 5, "deckle_freq": 6, "rim_width": 2, "rim_color": "E7D6BC",
 			"edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			"cream_fill": "F1E6D2", "well": true, "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
-			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2,
+			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2, "inner_edge": true,
 			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654",
-			"lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
+			"lock_icon": "padlock", "lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
 		# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 		# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 		# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -657,19 +658,10 @@ func _make_element(id: String) -> Control:
 				{"icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip": {"icon": "gem", "text": "400"}},
 				{"icon": "water", "title": "Water", "body": "tops up your watering can", "chip": {"icon": "water", "text": "60"}}]
 			return Kit.mail_dialog(demo, _dlg_px("info"), iopts)
-		"bag_card":
-			return _slot_cell_gallery(p)
 		"torn_cell":
-			# the OPEN (green well) cell + the LOCKED (plain cream card + lock icon) cell, side by side
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 16)
-			for st in ["open", "locked"]:
-				var to := Kit.torn_cell_opts_from_config({"torn_cell": p})
-				to["cell_w"] = float(p.get("cell_w", 132))
-				to["cell_h"] = float(p.get("cell_h", 132))
-				to["state"] = st
-				row.add_child(Kit.torn_cell(to))
-			return row
+			# THE slot cell: the full gallery of every state the game renders (board wells · dialog cells ·
+			# filled with an item · locked · marked · dim), built on the shared torn-cell component.
+			return _slot_cell_gallery(p)
 		"bag":
 			# the SHARED frame + a grid of bag cells + the stored-generators row — the SAME Kit.bag_dialog the
 			# game's bag_overlay.gd builds. owned/filled compose the slot ladder; the generators row is fed
@@ -1476,7 +1468,7 @@ func _sidebar_notes(_id: String) -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
-	if _selected == "bag_card":
+	if _selected == "torn_cell":
 		var note := Label.new()
 		note.text = "ONE cell shared by the board wells and every dialog grid (bag · discovery · residents). The preview uses the same torn-cell component the game renders, plus the discovery marked sparkle and the Producing dim-well."
 		note.add_theme_font_size_override("font_size", FS.TOOL)
@@ -1782,32 +1774,30 @@ func _element_sidebar(_id: String) -> void:
 			# the info sheet IS the mail dialog: its border/banner/✕/card art + fonts are tuned on the Frame +
 			# Card elements, and its width is the global frame width. No info-specific knobs remain.
 			_section_header("Face shared with the Mail dialog — tune the Frame + Card elements")
-		"bag_card":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
-			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95]))   # the piece size (% of cell)
-			_section_header("Item shadow")
-			_sidebar_body.add_child(_slider_row(["item_shadow_x", -40, 40]))       # shadow under the item inside the cell: horizontal cast
-			_sidebar_body.add_child(_slider_row(["item_shadow_y", -40, 40]))       # shadow under the item inside the cell: vertical cast
-			_sidebar_body.add_child(_slider_row(["item_shadow_blur", 0, 40]))      # shadow under the item inside the cell: feather radius
-			_sidebar_body.add_child(_slider_row(["item_shadow_spread", -20, 0]))   # shadow under the item inside the cell: silhouette shrink
-			_sidebar_body.add_child(_slider_row(["item_shadow_alpha", 0, 80]))     # shadow under the item inside the cell: opacity
-			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70]))     # the level badge size (% of cell)
-			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
-			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
-			_sidebar_body.add_child(_slider_row(["cost_y", -60, 60]))        # nudge the acorn cost up(-) / down(+)
-			_sidebar_body.add_child(_slider_row(["cost_x", -60, 60]))        # nudge the acorn cost left(-) / right(+)
-			_sidebar_body.add_child(_slider_row(["cost_scale", 30, 130]))    # the cost pill's overall size (% — shrink to fit the card)
-			# (The cell background fills + rim + depth and the old unlockable glow/sparkle were retired: the
-			# kit hard-codes the well faces, and every shipped caller suppresses the highlight — the sliders
-			# tuned nothing the game read. The preview above shows the real board / dialog / marked / dim_bg
-			# states instead.)
 		"torn_cell":
+			# THE slot cell page: the cell face (torn_cell block) AND the item/cost/shadow knobs the game
+			# reads from the bag_card block — one page, two config targets, no separate Slot-cell item.
 			_group_header("Saved to config", true)
-			_section_header("Cell size (preview)")
-			_sidebar_body.add_child(_slider_row(["cell_w", 60, 200]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
+			_section_header("Cell size")
+			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180], "bag_card"))
+			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200], "bag_card"))
+			_section_header("Item in the cell")
+			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95], "bag_card"))   # the piece size (% of cell)
+			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70], "bag_card"))     # the level badge size (% of cell)
+			_section_header("Item shadow")
+			# the shape-true shadow under the item — gated by its own toggle, shared by EVERY cell + the board
+			_sidebar_body.add_child(_toggle_row("Item shadow", "shadow", false, "bag_card"))
+			_sidebar_body.add_child(_slider_row(["item_shadow_x", -40, 40], "bag_card"))       # horizontal cast
+			_sidebar_body.add_child(_slider_row(["item_shadow_y", -40, 40], "bag_card"))       # vertical cast
+			_sidebar_body.add_child(_slider_row(["item_shadow_blur", 0, 40], "bag_card"))      # feather radius
+			_sidebar_body.add_child(_slider_row(["item_shadow_spread", -20, 0], "bag_card"))   # silhouette shrink
+			_sidebar_body.add_child(_slider_row(["item_shadow_alpha", 0, 80], "bag_card"))     # opacity
+			_section_header("Cost chip")
+			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48], "bag_card"))
+			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56], "bag_card"))
+			_sidebar_body.add_child(_slider_row(["cost_y", -60, 60], "bag_card"))        # nudge the acorn cost up(-) / down(+)
+			_sidebar_body.add_child(_slider_row(["cost_x", -60, 60], "bag_card"))        # nudge the acorn cost left(-) / right(+)
+			_sidebar_body.add_child(_slider_row(["cost_scale", 30, 130], "bag_card"))    # the cost pill's overall size (%)
 			_section_header("Open cell style")
 			# ON = the green inner well cutout; OFF = the plain cream card (the locked face, no lock).
 			# Saved — every board (main board, bag, tiers, residents, producing) reads this one knob.
@@ -1817,6 +1807,8 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_color_row("Well color", "well_fill", "torn_cell"))
 			_cut_paper_section("torn_cell")   # the OUTER card's shared rugged edge
 			_section_header("Inner well edge")
+			# OFF = a clean smooth well: no deckle wobble, no rim (corner + inset still apply)
+			_sidebar_body.add_child(_toggle_row("Well edge (deckle + rim)", "inner_edge", false, "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["inner_inset", 2, 40], "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["inner_corner", 0, 50], "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["inner_amp", 0, 20], "torn_cell"))
@@ -1828,6 +1820,7 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["inner_shadow_falloff", 10, 40], "torn_cell"))
 			_sidebar_body.add_child(_color_row("Inner shadow tint", "inner_shadow_tint", "torn_cell"))
 			_section_header("Locked cell — lock icon")
+			_sidebar_body.add_child(_option_row("Lock icon", "lock_icon", Kit.LOCK_ICON_PATHS.keys(), false, "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 90], "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["lock_shadow_dy", 0, 24], "torn_cell"))
 			_sidebar_body.add_child(_slider_row(["lock_shadow_strength", 0, 60], "torn_cell"))

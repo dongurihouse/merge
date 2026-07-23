@@ -27,6 +27,8 @@ func _initialize() -> void:
 	_slot_content_shadow_can_be_tuned()
 	_torn_cell_well_toggle_flows_everywhere()
 	_board_piece_shadow_follows_item_controls()
+	_torn_cell_lock_icon_and_edge_knobs()
+	_slot_cell_page_merged_into_torn_cell()
 	_quest_check_scale_flows_to_giver_card()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -248,6 +250,60 @@ func _board_piece_shadow_follows_item_controls() -> void:
 			"set_lifted drops + softens the silhouette shadow, and restores it on drop")
 	shadowed.free()
 	PieceView.item_shadow_override = {}
+
+## The lock_icon knob swaps the locked cell's lock art; the inner_edge toggle strips the well's
+## deckle + rim for a clean smooth well.
+func _torn_cell_lock_icon_and_edge_knobs() -> void:
+	var acorn_opts: Dictionary = Kit.torn_cell_opts_from_config({"torn_cell": {"lock_icon": "acorn"}})
+	acorn_opts["cell_w"] = 120.0
+	acorn_opts["cell_h"] = 120.0
+	acorn_opts["state"] = "locked"
+	var locked := Kit.torn_cell(acorn_opts)
+	var lock := _find_named(locked, "TornCellLock") as TextureRect
+	ok(lock != null and lock.texture != null
+		and String(lock.texture.resource_path).contains("acorn_lock"),
+		"lock_icon knob swaps the locked cell's lock art (acorn)")
+	locked.free()
+
+	var fb_opts: Dictionary = Kit.torn_cell_opts_from_config({"torn_cell": {"lock_icon": "no_such_lock"}})
+	fb_opts["cell_w"] = 120.0
+	fb_opts["cell_h"] = 120.0
+	fb_opts["state"] = "locked"
+	var fb := Kit.torn_cell(fb_opts)
+	var fbl := _find_named(fb, "TornCellLock") as TextureRect
+	ok(fbl != null and fbl.texture != null
+		and String(fbl.texture.resource_path).contains("tiers_lock"),
+		"an unknown lock_icon falls back to the shipped padlock")
+	fb.free()
+
+	var smooth_opts: Dictionary = Kit.torn_cell_opts_from_config({"torn_cell": {"inner_edge": false}})
+	smooth_opts["cell_w"] = 120.0
+	smooth_opts["cell_h"] = 120.0
+	smooth_opts["state"] = "open"
+	var smooth := Kit.torn_cell(smooth_opts)
+	var well := _find_named(smooth, "TornCellWell")
+	ok(well != null and is_zero_approx(float(well.deckle_amp)) and is_zero_approx(float(well.rim_width)),
+		"Well edge OFF: the inner well draws with no deckle wobble and no rim")
+	smooth.free()
+
+## The standalone Slot-cell page is gone: the Torn cell page owns the whole cell now (face + item +
+## cost + item shadow), while the bag_card CONFIG block persists for the game's readers.
+func _slot_cell_page_merged_into_torn_cell() -> void:
+	ok(not ("bag_card" in UIWorkbenchView.IDS) and ("torn_cell" in UIWorkbenchView.IDS),
+		"the Slot-cell workbench page is removed; the Torn cell page remains")
+	var view := UIWorkbenchView.new()
+	ok(view._params.has("bag_card") and view._params.has("torn_cell"),
+		"the bag_card config block still persists (the game reads it) though its page is gone")
+	# the Torn cell page now hosts the item/cost knobs (target bag_card) + the gallery with a filled cell
+	var view_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_view.gd")
+	ok(view_src.find("_slider_row([\"content_frac\", 30, 95], \"bag_card\")") >= 0
+		and view_src.find("_slider_row([\"cost_scale\", 30, 130], \"bag_card\")") >= 0,
+		"content_frac + cost_scale are edited on the Torn cell page into the bag_card block")
+	var preview := view._make_element("torn_cell")
+	ok(_has_named(preview, "TornCellOuter") and _has_named(preview, "ItemArt"),
+		"the Torn cell preview is the full cell gallery, including a filled cell with an item")
+	preview.free()
+	view.free()
 
 func _quest_check_scale_flows_to_giver_card() -> void:
 	var lay := Kit.giver_lay_from_config({"quest_card": {"item_size": 60, "check_scale": 120}})
