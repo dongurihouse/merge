@@ -1,0 +1,37 @@
+Generate an image (do not write code).
+
+Use case: ui-asset-sheet
+Asset type: one horizontal row of four empty cut-paper quest plates for a mobile merge game
+
+Input images:
+- Image 1 is the approved style target. Match its plate material exactly: warm-cream (#F6EBDD) matte hand-cut cardstock plates, fine warm cut edge, thin locally-darker edge, subtle 2-4% paper fiber, and a short soft down-right tinted contact shadow (#294654 at about 18-20% opacity) cast on the blue surface. Do not copy its items, coins, or numerals.
+
+Primary request: Create a single horizontal row of exactly four EMPTY quest plates on a completely flat, uniform Meadow Sky blue background filling the whole canvas at exactly #6FA9C0 with NO paper fiber, NO texture, NO gradient, and NO vignette on the blue (the blue must be one perfectly flat solid color for later keying; the paper fiber lives only on the cream plates). The four plates are evenly spaced with clear gaps between them; none touches another plate or the canvas edge, and each plate's shadow also stays clear of its neighbors.
+
+SIZE AND PROPORTION (strict): every plate must be SOMEWHAT SQUARE — its overall width and height within about 10% of each other; never clearly wide, never clearly tall. All four plates the same overall size, and LARGE: each plate's height fills about 75-85% of the canvas height, leaving only a modest margin above and below.
+
+Each plate is completely empty: no item, no icon, no coin, no text, no numeral, no decoration on the plate surface. Just the shaped cream paper layer with its cut edge, paper fiber, and its baked down-right contact shadow.
+
+All four plate silhouettes must be clearly and obviously different from each other — a viewer glancing at the row must never mistake one for another. Avoid circular or near-circular outlines and avoid rotational symmetry; every silhouette is asymmetric and hand-cut.
+
+Row theme: plates with one clear off-center bulge and one clear shallow bite taken out of the opposite edge: plate 1 bulges upper-left with a bite lower-right; plate 2 bulges upper-right with a bite on the left; plate 3 bulges lower-left with a bite on top; plate 4 bulges lower-right with a bite upper-left. Keep the rest of each outline calm and rounded.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Features stay legible at
+phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+Hard constraints: exactly four plates in one single row; all plates empty; every plate silhouette organic and hand-cut, never a rounded rectangle, circle, ellipse, or symmetric rosette; no two silhouettes alike; every plate somewhat square (width and height within about 10%); all four plates equal overall size filling about 75-85% of canvas height; no items, coins, characters, text, numerals, borders, frames, logos, or watermark; the blue background one perfectly flat solid #6FA9C0.
+
+Composition and output: clean high-resolution landscape image around 2048x560, straight-on presentation.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/b2b0970b-f323-471c-91c7-c516bd116097/scratchpad/rows_v2
+Name it: plates_row_c.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above. Then
+report the saved path.
