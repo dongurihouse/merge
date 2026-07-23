@@ -705,7 +705,24 @@ func _save() -> void:
 		CoversModel.save_doc(_covers_path, _covers_doc)
 	if ok:
 		dirty = false
+		_export_page_manifests()
 	_refresh_status()
+
+## The GAME reads zone.json (a DERIVED file: build_page_manifests.py re-emits it from placements.json),
+## so every ⌘S re-exports the manifests — otherwise the game keeps rendering the scene as it was at the
+## last manual export (the "saved my covers but the game doesn't show them" trap). One implementation:
+## shell out to the same deterministic script the pipeline documents; a failure only warns (the
+## placements save above already succeeded).
+func _export_page_manifests() -> void:
+	var script := ProjectSettings.globalize_path("res://games/grove/tools/build_page_manifests.py")
+	if not FileAccess.file_exists(script):
+		return
+	var out: Array = []
+	var code := OS.execute("python3", [script], out, true)
+	if code != 0:
+		push_warning("scene workbench: zone-manifest export failed (%d): %s" % [code, "\n".join(out)])
+	else:
+		print("SW: page manifests re-exported (zone.json synced to this save)")
 
 func _reload() -> void:
 	doc = M.load_doc(placements_path)

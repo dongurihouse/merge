@@ -445,6 +445,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 
 	var nm := Label.new()
 	nm.text = String(face.get("label", line)).to_upper()
+	nm.clip_text = true   # a wide text must never grow the body box (it would stretch the bar past the card)
 	nm.add_theme_font_override("font", Kit.bold_font())
 	nm.add_theme_font_size_override("font_size", FS.BODY)   # larger title per the mock
 	nm.add_theme_color_override("font_color", Pal.INK)
@@ -454,6 +455,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	var val := Label.new()
 	val.name = "ResourceBankValue_" + line
 	val.text = "%d / %d" % [int(floor(float(rep.pending))), int(round(float(rep.cap)))]
+	val.clip_text = true
 	val.add_theme_font_override("font", Kit.bold_font())
 	val.add_theme_font_size_override("font_size", FS.HEADING)
 	val.add_theme_color_override("font_color", Pal.INK)
@@ -473,6 +475,7 @@ static func _bank_card(Kit: GDScript, line: String, rep: Dictionary, w: float) -
 	var state := Label.new()
 	state.name = "ResourceBankState_" + line
 	state.text = _bank_state_text(line, rep)
+	state.clip_text = true   # ditto — the countdown line stays inside the card at any length
 	state.add_theme_font_size_override("font_size", FS.FINE)
 	state.add_theme_color_override("font_color", Color(Pal.INK, 0.85))
 	state.add_theme_constant_override("outline_size", 0)
@@ -547,7 +550,8 @@ static func _bank_card_drawn(Kit: GDScript, line: String, rep: Dictionary, w: fl
 	card.add_child(col)
 	return card
 
-## The bank's state line: "FULL" · "FULL IN 2H 18M" (rate-derived) · "IDLE" (nothing producing).
+## The bank's state line: "FULL" · "2H 18M" (time to full, rate-derived) · "IDLE" (nothing producing).
+## The bare countdown (no "FULL IN" prefix) keeps the line inside the card at every rate.
 static func _bank_state_text(line: String, rep: Dictionary) -> String:
 	if bool(rep.full):
 		return "FULL"
@@ -557,8 +561,8 @@ static func _bank_state_text(line: String, rep: Dictionary) -> String:
 	var hours := (float(rep.cap) - float(rep.pending)) / rate
 	var mins := int(ceil(hours * 60.0))
 	if mins >= 60:
-		return "FULL IN %dH %dM" % [mins / 60, mins % 60]
-	return "FULL IN %dM" % maxi(mins, 1)
+		return "%dH %dM" % [mins / 60, mins % 60]
+	return "%dM" % maxi(mins, 1)
 
 ## The two big body actions — Collect all (green) and Expedition (cream/paper, item 6) — are SIBLINGS:
 ## the SAME flat paper-cut pill_button geometry (corner, font, drop shadow, padding), differing only in
