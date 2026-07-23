@@ -25,6 +25,8 @@ func _initialize() -> void:
 	await _mail_claim_corner_follows_button_group()
 	_slot_cell_gallery_uses_game_cells()
 	_slot_content_shadow_can_be_tuned()
+	_torn_cell_well_toggle_flows_everywhere()
+	_board_piece_shadow_follows_item_controls()
 	_quest_check_scale_flows_to_giver_card()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -150,21 +152,34 @@ func _slot_content_shadow_can_be_tuned() -> void:
 	shared_opts["cell_h"] = 120.0
 	var shared_cell := Kit.slot_cell({"state": "filled", "make_content": func(px: float) -> Control:
 		return PieceView.make_piece(102, px, 0.0)}, shared_opts)
-	var content_shadow := _find_named(shared_cell, "SlotContentShadow") as Panel
-	var style := content_shadow.get_theme_stylebox("panel") as StyleBoxFlat if content_shadow != null else null
-	ok(content_shadow != null and style != null
-		and style.shadow_offset.is_equal_approx(Vector2(-6.0, 14.0))
-		and style.shadow_size == 18
-		and absf(style.shadow_color.a - 0.58) <= 0.01,
-		"Slot-cell content shadow uses the Slot-cell item-shadow tuning controls")
+	# SHAPE-TRUE: the content shadow is a baked silhouette stamp of the item's own art, not a rounded rect.
+	var content_shadow := _find_named(shared_cell, "SlotContentShadow") as TextureRect
+	ok(content_shadow != null and content_shadow.texture != null,
+		"Slot-cell content shadow is a shape-true silhouette stamp of the item art")
 	ok(content_shadow != null
-		and content_shadow.custom_minimum_size.is_equal_approx(Vector2(74.4, 74.4))
+		and content_shadow.size.x > 1.0 and content_shadow.size.y > 1.0
 		and content_shadow.get_parent() != null
 		and not (content_shadow.get_parent() is CenterContainer),
-		"Slot-cell content shadow has an explicit item-sized footprint outside container layout")
+		"Slot-cell content shadow has an explicit item-fitted footprint outside container layout")
 	ok(not _has_named(shared_cell, "ContactShadow"),
 		"Slot-cell content shadow replaces the piece-specific ContactShadow")
 	shared_cell.free()
+
+	# the stamp itself derives from the STANDARD param set — different params bake different stamps
+	var item_tex := PieceView.content_texture(102)
+	var stamp_a: Dictionary = Kit.item_shadow_stamp(item_tex, Vector2(74.0, 74.0),
+		{"offset_x": 0.0, "offset_y": 5.0, "blur": 6.0, "spread": -2.0, "alpha": 0.2})
+	var stamp_b: Dictionary = Kit.item_shadow_stamp(item_tex, Vector2(74.0, 74.0),
+		{"offset_x": 0.0, "offset_y": 5.0, "blur": 6.0, "spread": -2.0, "alpha": 0.6})
+	ok(not stamp_a.is_empty() and int(stamp_a.pad) > 0
+		and (stamp_a.texture as Texture2D).get_width() > 74,
+		"item_shadow_stamp bakes a padded silhouette from the item art")
+	ok(not stamp_b.is_empty() and stamp_a.texture != stamp_b.texture,
+		"item_shadow_stamp rebakes when the shadow params change (alpha drives the stamp)")
+	var stamp_a2: Dictionary = Kit.item_shadow_stamp(item_tex, Vector2(74.0, 74.0),
+		{"offset_x": 0.0, "offset_y": 5.0, "blur": 6.0, "spread": -2.0, "alpha": 0.2})
+	ok(not stamp_a2.is_empty() and stamp_a2.texture == stamp_a.texture,
+		"item_shadow_stamp caches per (texture · size · params)")
 
 	var view := UIWorkbenchView.new()
 	view._params["bag_card"]["shadow"] = true
@@ -174,16 +189,65 @@ func _slot_content_shadow_can_be_tuned() -> void:
 	view._params["bag_card"]["item_shadow_spread"] = -4.0
 	view._params["bag_card"]["item_shadow_alpha"] = 63.0
 	var gallery := view._slot_cell_gallery(view._params["bag_card"])
-	var live_shadow := _find_named(gallery, "SlotContentShadow") as Panel
-	var live_style := live_shadow.get_theme_stylebox("panel") as StyleBoxFlat if live_shadow != null else null
-	ok(live_shadow != null and live_style != null
-		and live_style.shadow_offset.is_equal_approx(Vector2(11.0, 17.0))
-		and live_style.shadow_size == 19
-		and absf(live_style.shadow_color.a - 0.63) <= 0.01
-		and live_shadow.custom_minimum_size.x > 1.0 and live_shadow.custom_minimum_size.y > 1.0,
-		"Live Slot-cell workbench gallery applies visible item-shadow slider changes")
+	var live_shadow := _find_named(gallery, "SlotContentShadow") as TextureRect
+	ok(live_shadow != null and live_shadow.texture != null
+		and live_shadow.size.x > 1.0 and live_shadow.size.y > 1.0,
+		"Live Slot-cell workbench gallery renders the shape-true item shadow from the sliders")
 	gallery.free()
 	view.free()
+
+## The torn cell's OPEN face style: the Green well toggle picks the green inner cutout (default) or the
+## plain cream card (the locked face without the lock). One saved knob — every torn-cell surface reads it.
+func _torn_cell_well_toggle_flows_everywhere() -> void:
+	var on_opts: Dictionary = Kit.torn_cell_opts_from_config({"torn_cell": {}})
+	ok(bool(on_opts.get("well", false)), "the Green well toggle defaults ON (the shipped look)")
+	on_opts["cell_w"] = 120.0
+	on_opts["cell_h"] = 120.0
+	on_opts["state"] = "open"
+	var welled := Kit.torn_cell(on_opts)
+	ok(_has_named(welled, "TornCellWell") and _has_named(welled, "TornCellInnerShadow"),
+		"Green well ON: the open torn cell draws the inner well + its top inner shadow")
+	welled.free()
+
+	var off_opts: Dictionary = Kit.torn_cell_opts_from_config({"torn_cell": {"well": false}})
+	off_opts["cell_w"] = 120.0
+	off_opts["cell_h"] = 120.0
+	off_opts["state"] = "open"
+	var plain := Kit.torn_cell(off_opts)
+	ok(_has_named(plain, "TornCellOuter")
+		and not _has_named(plain, "TornCellWell") and not _has_named(plain, "TornCellInnerShadow"),
+		"Green well OFF: the open torn cell is the plain cream card (no inner cutout)")
+	plain.free()
+
+	# the shared opt builders thread the knob to every surface (board / bag / tiers / residents)
+	var shared: Dictionary = Kit.board_cell_opts_from_config({"torn_cell": {"well": false}, "bag_card": {}})
+	ok(shared.has("well") and not bool(shared.well),
+		"board/tier/bag cell opts carry the saved well toggle")
+
+## The BOARD piece's contact shadow follows the SAME saved item-shadow controls: shape-true silhouette
+## when art is readable, absent when the standard Shadow toggle is off.
+func _board_piece_shadow_follows_item_controls() -> void:
+	PieceView.item_shadow_override = {"on": false, "params": {}}
+	var bare: Control = PieceView.make_piece(102, 90.0)
+	ok(not _has_named(bare, "ContactShadow"),
+		"Shadow toggle OFF: a board piece casts no contact shadow")
+	bare.free()
+
+	PieceView.item_shadow_override = {"on": true,
+		"params": {"offset_x": 0.0, "offset_y": 7.0, "blur": 10.0, "spread": -3.0, "alpha": 0.28}}
+	var shadowed: Control = PieceView.make_piece(102, 90.0)
+	var back := _find_named(shadowed, "ContactShadow") as TextureRect
+	ok(back != null and back.texture != null and back.has_meta("rest_pos"),
+		"Shadow toggle ON: a board piece's contact shadow is the shape-true silhouette stamp")
+	# lift raises the art off the shadow: silhouette mode softens + drops the cast
+	if back != null:
+		PieceView.set_lifted(shadowed, true)
+		var lifted_ok: bool = back.position.y > (back.get_meta("rest_pos") as Vector2).y and back.modulate.a < 1.0
+		PieceView.set_lifted(shadowed, false)
+		ok(lifted_ok and back.position.is_equal_approx(back.get_meta("rest_pos") as Vector2),
+			"set_lifted drops + softens the silhouette shadow, and restores it on drop")
+	shadowed.free()
+	PieceView.item_shadow_override = {}
 
 func _quest_check_scale_flows_to_giver_card() -> void:
 	var lay := Kit.giver_lay_from_config({"quest_card": {"item_size": 60, "check_scale": 120}})

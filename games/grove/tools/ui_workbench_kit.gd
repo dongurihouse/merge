@@ -733,6 +733,70 @@ static func silhouette_shadow(img: Image, opts: Dictionary = {}) -> Dictionary:
 	_feather_alpha(shadow, blur)
 	return {"image": shadow, "pad": pad}
 
+## The ITEM shadow stamp: the shape-true silhouette shadow for an item drawn inside a cell, baked at the
+## item's FITTED on-screen size from the STANDARD shadow param set (offset_x/offset_y/blur/spread/alpha —
+## the same knobs every other shadow reads, item_shadow_* on the Slot cell). Cached per
+## (texture · fitted size · params) so a board of repeated items bakes once. Returns
+## {"texture": Texture2D, "pad": int} — draw the texture at (art_pos − pad); the offset is baked in.
+## Empty {} when the art has no readable image (caller falls back to the rounded-rect shadow).
+static var _item_shadow_cache: Dictionary = {}
+static func item_shadow_stamp(tex: Texture2D, fit_px: Vector2, params: Dictionary) -> Dictionary:
+	if tex == null or fit_px.x < 1.0 or fit_px.y < 1.0:
+		return {}
+	var key := "%d:%dx%d:%.1f,%.1f,%.1f,%.1f,%.2f" % [tex.get_rid().get_id(),
+		int(fit_px.x), int(fit_px.y),
+		float(params.get("offset_x", 0.0)), float(params.get("offset_y", 5.0)),
+		float(params.get("blur", 6.0)), float(params.get("spread", 0.0)),
+		float(params.get("alpha", 0.2))]
+	if _item_shadow_cache.has(key):
+		return _item_shadow_cache[key]
+	var img := tex.get_image()
+	if img == null and tex is AtlasTexture:
+		# the crop-to-content textures are AtlasTextures — read the atlas and cut the region ourselves
+		var at := tex as AtlasTexture
+		var base_img: Image = at.atlas.get_image() if at.atlas != null else null
+		if base_img != null:
+			base_img = base_img.duplicate()
+			if base_img.is_compressed():
+				base_img.decompress()
+			img = base_img.get_region(Rect2i(at.region))
+	if img == null:
+		_item_shadow_cache[key] = {}
+		return {}
+	img = img.duplicate()
+	if img.is_compressed():
+		img.decompress()
+	if img.has_mipmaps():
+		img.clear_mipmaps()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	# bake at the FITTED size so blur/spread/offset are true px at draw scale (and the bake stays cheap)
+	img.resize(maxi(1, int(roundf(fit_px.x))), maxi(1, int(roundf(fit_px.y))), Image.INTERPOLATE_BILINEAR)
+	var res: Dictionary = silhouette_shadow(img, {
+		"shadow_offset": Vector2(float(params.get("offset_x", 0.0)), float(params.get("offset_y", 5.0))),
+		"shadow_blur": float(params.get("blur", 6.0)),
+		"shadow_alpha": clampf(float(params.get("alpha", 0.2)), 0.0, 1.0),
+		"shadow_spread": minf(float(params.get("spread", 0.0)), 0.0),
+	})
+	var out := {"texture": ImageTexture.create_from_image(res.image as Image), "pad": int(res.pad)}
+	_item_shadow_cache[key] = out
+	return out
+
+## The item ART inside a built piece: the PieceView holder's "ItemArt" sprite when present, else the
+## first textured TextureRect descendant (kit icons, resident sprites). Null when the piece is a
+## code-drawn placeholder (disc / label) — nothing to silhouette.
+static func content_art_of(piece: Node) -> TextureRect:
+	var named := piece.find_child("ItemArt", true, false)
+	if named is TextureRect and (named as TextureRect).texture != null:
+		return named
+	if piece is TextureRect and (piece as TextureRect).texture != null:
+		return piece
+	for child in piece.get_children():
+		var found := content_art_of(child)
+		if found != null:
+			return found
+	return null
+
 static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
@@ -2200,6 +2264,10 @@ static func _cut_paper_legacy(d: Dictionary, key: String, fallback: Variant) -> 
 const INSET_SHADOW := "res://engine/scripts/ui/cut_paper_inset_shadow.gd"
 const TORN_CELL_KNOBS := [
 	{"key": "cream_fill",      "kind": "color",  "label": "Card color",     "default": "F1E6D2"},
+	# the OPEN cell's face style: ON = the green inner well cutout; OFF = the plain cream card (the
+	# locked cell's face without the lock). One saved knob — every surface that builds torn cells
+	# (main board, bag, tiers, residents, producing) reads it through torn_cell_opts_from_config.
+	{"key": "well",            "kind": "toggle", "label": "Green well",     "default": true},
 	{"key": "well_fill",       "kind": "color",  "label": "Well color",     "default": "A6C486"},
 	{"key": "inner_inset",     "kind": "slider", "label": "Well inset",     "min": 2,  "max": 40,  "default": 14},
 	{"key": "inner_corner",    "kind": "slider", "label": "Well corner",    "min": 0,  "max": 50,  "default": 16},
@@ -2227,6 +2295,8 @@ static func torn_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
 		var kind := String(knob.get("kind", "slider"))
 		if kind == "color":
 			o[k] = Color.from_string("#" + String(raw).lstrip("#"), Color.WHITE)
+		elif kind == "toggle":
+			o[k] = bool(raw)
 		elif bool(knob.get("freq", false)):
 			o[k] = float(raw) / 100.0
 		else:
@@ -2281,6 +2351,11 @@ static func torn_cell(opts: Dictionary) -> Control:
 			lk.size = Vector2(lock_px, lock_px)
 			lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			root.add_child(lk)
+		return root
+
+	# OPEN state, plain style (Green well toggle OFF): the bare cream card — the locked cell's face
+	# without the lock. No inner well, no inner shadow.
+	if not bool(opts.get("well", true)):
 		return root
 
 	# OPEN state: the INNER rugged well, inset — its own tuned edge, no drop shadow (the outer card casts the cell's)
@@ -4474,6 +4549,7 @@ static func set_config_cache(path: String, cfg: Dictionary) -> void:
 ## file, or nothing to clear all. The workbench calls this after writing the settings file.
 static func clear_config_cache(path := "") -> void:
 	_shell_cache.clear()   # the polished disc shell derives from the badge config — drop it so a saved edit re-polishes
+	_item_shadow_cache.clear()   # item-shadow stamps bake from the saved item_shadow_* params — rebake on save/live edit
 	if path == "":
 		_config_cache.clear()
 	else:
@@ -5759,16 +5835,42 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 			pc.size = Vector2(cw, ch)
 			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if bool(opts.get("content_shadow", true)):
-				var content_corner := piece_px * 0.32
+				var sp: Dictionary = opts.get("content_shadow_params", opts.get("shadow_params", {})) as Dictionary
 				var shadow_slot := Control.new()
 				shadow_slot.name = "SlotContentShadowSlot"
 				shadow_slot.position = Vector2((cw - piece_px) * 0.5, (ch - piece_px) * 0.5)
 				shadow_slot.size = Vector2(piece_px, piece_px)
 				shadow_slot.custom_minimum_size = Vector2(piece_px, piece_px)
 				shadow_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				var content_shadow := Look.shadow_rect(content_corner, opts.get("content_shadow_params", opts.get("shadow_params", {})) as Dictionary)
+				# SHAPE-TRUE: stamp the shadow from the item's OWN art silhouette at its fitted rect, so the
+				# cast follows the item's real outline (the standard item_shadow_* params drive the bake).
+				var content_shadow: Control = null
+				var art := content_art_of(piece)
+				if art != null:
+					# the PieceView holder frames its art FULL_RECT with a symmetric px inset; mirror it so
+					# the stamp lands exactly under the drawn sprite (aspect-fit centred, like the art).
+					var art_inset := maxf(0.0, art.offset_left) if art.anchor_right > art.anchor_left else 0.0
+					var box := maxf(1.0, piece_px - art_inset * 2.0)
+					var ts := art.texture.get_size()
+					if ts.x > 0.0 and ts.y > 0.0:
+						var fit_scale := minf(box / ts.x, box / ts.y)
+						var fit_sz := ts * fit_scale
+						var fit_pos := Vector2(art_inset, art_inset) + (Vector2(box, box) - fit_sz) * 0.5
+						var stamp := item_shadow_stamp(art.texture, fit_sz, sp)
+						if not stamp.is_empty():
+							var str_rect := TextureRect.new()
+							str_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+							str_rect.stretch_mode = TextureRect.STRETCH_SCALE
+							str_rect.texture = stamp.texture
+							var pad := float(stamp.pad)
+							str_rect.position = fit_pos - Vector2(pad, pad)
+							str_rect.size = fit_sz + Vector2(pad, pad) * 2.0
+							content_shadow = str_rect
+				if content_shadow == null:
+					# no readable art (placeholder disc / headless): the rounded-rect stand-in
+					content_shadow = Look.shadow_rect(piece_px * 0.32, sp)
+					content_shadow.custom_minimum_size = Vector2(piece_px, piece_px)
 				content_shadow.name = "SlotContentShadow"
-				content_shadow.custom_minimum_size = Vector2(piece_px, piece_px)
 				content_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				shadow_slot.add_child(content_shadow)
 				pc.add_child(shadow_slot)

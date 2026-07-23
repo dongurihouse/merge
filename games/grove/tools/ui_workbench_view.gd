@@ -376,7 +376,7 @@ func _default_params() -> Dictionary:
 		"torn_cell": {"cell_w": 132, "cell_h": 132,
 			"deckle": true, "corner": 18, "deckle_amp": 5, "deckle_freq": 6, "rim_width": 2, "rim_color": "E7D6BC",
 			"edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
-			"cream_fill": "F1E6D2", "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
+			"cream_fill": "F1E6D2", "well": true, "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
 			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2,
 			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654",
 			"lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32},
@@ -1808,6 +1808,10 @@ func _element_sidebar(_id: String) -> void:
 			_section_header("Cell size (preview)")
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 200]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
+			_section_header("Open cell style")
+			# ON = the green inner well cutout; OFF = the plain cream card (the locked face, no lock).
+			# Saved — every board (main board, bag, tiers, residents, producing) reads this one knob.
+			_sidebar_body.add_child(_toggle_row("Green well (inner cutout)", "well", false, "torn_cell"))
 			_section_header("Card + well colours")
 			_sidebar_body.add_child(_color_row("Card color", "cream_fill", "torn_cell"))
 			_sidebar_body.add_child(_color_row("Well color", "well_fill", "torn_cell"))
