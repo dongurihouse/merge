@@ -34,6 +34,7 @@ func _initialize() -> void:
 	_quest_card_per_surface_shadow_params()
 	_quest_card_shadow_blur_shape_and_card_cast()
 	_shared_shadow_spread_outruns_offset()
+	_torn_cell_page_hides_knobs_the_face_ignores()
 	_gold_pill_backer_tracks_face_width()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -421,6 +422,54 @@ func _quest_card_shadow_blur_shape_and_card_cast() -> void:
 	card_on.free()
 	card_off.free()
 	plq.free()
+func _torn_cell_page_hides_knobs_the_face_ignores() -> void:
+	# With paper sprites ON the face is baked art, so the code-drawn knobs (card colour, cut-paper
+	# edge + its Shadow Reach/Strength/Blur, inner well, lock icon) drive a CutPaperPanel that is
+	# never built. Leaving them on the page made them look broken — they must be hidden, and the
+	# knob that DOES bite (the cell's shared drop cast) must be present and wired.
+	var view := UIWorkbenchView.new()
+	view._params["torn_cell"]["sprites"] = true
+	view._selected = "torn_cell"
+	view._sidebar_body = VBoxContainer.new()
+	view._element_sidebar("torn_cell")
+	var labels_on := _row_labels(view._sidebar_body)
+	ok(not labels_on.has("Shadow Reach") and not labels_on.has("Card color")
+		and not labels_on.has("Lock icon"),
+		"paper-sprite faces hide the code-drawn knobs they ignore")
+	ok(labels_on.has("Cell shadow"), "the cell's own drop-shadow toggle stays available for sprite faces")
+	view._params["torn_cell"]["sprites"] = false
+	for c in view._sidebar_body.get_children():
+		view._sidebar_body.remove_child(c)
+		c.free()
+	view._element_sidebar("torn_cell")
+	var labels_off := _row_labels(view._sidebar_body)
+	ok(labels_off.has("Shadow Reach") and labels_off.has("Card color") and labels_off.has("Lock icon"),
+		"turning paper sprites off brings the code-drawn face knobs back")
+	view._sidebar_body.free()
+	view.free()
+	# and the toggle must actually reach the builder: cell_shadow off drops the cast node
+	var on_opts := Kit.board_cell_opts_from_config({"bag_card": {"cell_shadow": true}})
+	var off_opts := Kit.board_cell_opts_from_config({"bag_card": {"cell_shadow": false}})
+	var with_sh: Control = Kit.slot_cell({"state": "empty"}, on_opts)
+	var no_sh: Control = Kit.slot_cell({"state": "empty"}, off_opts)
+	ok(with_sh.find_child("SlotCellShadow", true, false) != null,
+		"cell_shadow on casts the shared drop shadow under a sprite cell")
+	ok(no_sh.find_child("SlotCellShadow", true, false) == null,
+		"cell_shadow off removes it (the knob is wired, not decorative)")
+	with_sh.free()
+	no_sh.free()
+
+## Every visible row label in a built sidebar (rows are HBox(Label, control) or a bare Label).
+func _row_labels(body: Node) -> Array[String]:
+	var out: Array[String] = []
+	for row in body.get_children():
+		if row is Label:
+			out.append((row as Label).text)
+		for ch in (row as Node).get_children():
+			if ch is Label:
+				out.append((ch as Label).text)
+	return out
+
 func _shared_shadow_spread_outruns_offset() -> void:
 	# THE BLACK-SLAB GUARD. Look.shadow draws a FILLED panel behind the element and shifts it by
 	# (offset_x, offset_y); spread insets that fill. If |offset| ever exceeds |spread| the hard-edged

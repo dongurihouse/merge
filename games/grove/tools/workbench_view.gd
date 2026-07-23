@@ -469,6 +469,17 @@ func _section_header(title: String) -> void:
 	l.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(l)
 
+## A wrapped explanatory note in the sidebar — for saying WHY a control group is absent or inert,
+## so a knob that cannot bite is never left on screen looking broken.
+func _note(text: String) -> void:
+	var l := Label.new()
+	l.text = text
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 220.0
+	l.add_theme_font_size_override("font_size", FS.FINE)
+	l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.55))
+	_sidebar_body.add_child(l)
+
 func _slider_row(spec: Array, target := "") -> Control:
 	var key: String = spec[0]
 	var lo: float = float(spec[1])

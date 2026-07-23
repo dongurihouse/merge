@@ -379,7 +379,7 @@ func _default_params() -> Dictionary:
 		# (bag_card_opts_from_config). No page of its own any more: EDITED ON THE TORN CELL item
 		# (target "bag_card" rows), kept here so the values persist and the game keeps its reader.
 		"bag_card": {"cell_w": 116, "cell_h": 120,
-			"content_frac": 62, "shadow": true,
+			"content_frac": 62, "shadow": true, "cell_shadow": true,
 			"item_shadow_x": 0, "item_shadow_y": 5, "item_shadow_blur": 6, "item_shadow_spread": -2, "item_shadow_alpha": 20,
 			"cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
 		# the CODE-DRAWN torn cell — outer rugged cream card (shared cut-paper keys) + inner rugged green well
@@ -1826,35 +1826,49 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["cost_y", -60, 60], "bag_card"))        # nudge the acorn cost up(-) / down(+)
 			_sidebar_body.add_child(_slider_row(["cost_x", -60, 60], "bag_card"))        # nudge the acorn cost left(-) / right(+)
 			_sidebar_body.add_child(_slider_row(["cost_scale", 30, 130], "bag_card"))    # the cost pill's overall size (%)
-			_section_header("Open cell style")
-			# ON = the baked cut-paper sprite faces (open/alt checker + locked/deep) win over the
-			# code-drawn torn cell below; OFF = the code-drawn face.
-			_sidebar_body.add_child(_toggle_row("Paper sprites (generated faces)", "sprites", false, "torn_cell"))
-			# ON = the green inner well cutout; OFF = the plain cream card (the locked face, no lock).
-			# Saved — every board (main board, bag, tiers, residents, producing) reads this one knob.
-			_sidebar_body.add_child(_toggle_row("Green well (inner cutout)", "well", false, "torn_cell"))
-			_section_header("Card + well colours")
-			_sidebar_body.add_child(_color_row("Card color", "cream_fill", "torn_cell"))
-			_sidebar_body.add_child(_color_row("Well color", "well_fill", "torn_cell"))
-			_cut_paper_section("torn_cell")   # the OUTER card's shared rugged edge
-			_section_header("Inner well edge")
-			# OFF = a clean smooth well: no deckle wobble, no rim (corner + inset still apply)
-			_sidebar_body.add_child(_toggle_row("Well edge (deckle + rim)", "inner_edge", false, "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_inset", 2, 40], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_corner", 0, 50], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_amp", 0, 20], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_freq", 1, 20], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_rim", 0, 8], "torn_cell"))
-			_section_header("Inner top shadow")
-			_sidebar_body.add_child(_slider_row(["inner_shadow_h", 0, 60], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_shadow_strength", 0, 60], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["inner_shadow_falloff", 10, 40], "torn_cell"))
-			_sidebar_body.add_child(_color_row("Inner shadow tint", "inner_shadow_tint", "torn_cell"))
-			_section_header("Locked cell — lock icon")
-			_sidebar_body.add_child(_option_row("Lock icon", "lock_icon", Kit.LOCK_ICON_PATHS.keys(), false, "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 90], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["lock_shadow_dy", 0, 24], "torn_cell"))
-			_sidebar_body.add_child(_slider_row(["lock_shadow_strength", 0, 60], "torn_cell"))
+			_section_header("Cell face")
+			# ON = the baked cut-paper sprite faces (open/alt checker + locked/deep); OFF = the
+			# code-drawn torn cell. Rebuilds the sidebar: with sprites on, EVERY code-drawn face
+			# knob below is inert (the CutPaperPanel it drives is never built), so they are hidden
+			# rather than left on screen looking broken.
+			_sidebar_body.add_child(_toggle_row("Paper sprites (generated faces)", "sprites", true, "torn_cell"))
+			if bool((_params["torn_cell"] as Dictionary).get("sprites", true)):
+				_note("The face is baked art (ui/board/cell_paper_*.png), so the card colour, "
+					+ "cut-paper edge, inner well, and lock-icon controls do not apply — their "
+					+ "look lives in the sprite. The cell's drop shadow is the shared cast on the "
+					+ "Shadow page. Turn this off to tune the code-drawn face instead.")
+			else:
+				# ON = the green inner well cutout; OFF = the plain cream card (the locked face, no lock).
+				# Saved — every board (main board, bag, tiers, residents, producing) reads this one knob.
+				_sidebar_body.add_child(_toggle_row("Green well (inner cutout)", "well", false, "torn_cell"))
+				_section_header("Card + well colours")
+				_sidebar_body.add_child(_color_row("Card color", "cream_fill", "torn_cell"))
+				_sidebar_body.add_child(_color_row("Well color", "well_fill", "torn_cell"))
+				_cut_paper_section("torn_cell")   # the OUTER card's shared rugged edge
+				_section_header("Inner well edge")
+				# OFF = a clean smooth well: no deckle wobble, no rim (corner + inset still apply)
+				_sidebar_body.add_child(_toggle_row("Well edge (deckle + rim)", "inner_edge", false, "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_inset", 2, 40], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_corner", 0, 50], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_amp", 0, 20], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_freq", 1, 20], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_rim", 0, 8], "torn_cell"))
+				_section_header("Inner top shadow")
+				_sidebar_body.add_child(_slider_row(["inner_shadow_h", 0, 60], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_shadow_strength", 0, 60], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["inner_shadow_falloff", 10, 40], "torn_cell"))
+				_sidebar_body.add_child(_color_row("Inner shadow tint", "inner_shadow_tint", "torn_cell"))
+				_section_header("Locked cell — lock icon")
+				_sidebar_body.add_child(_option_row("Lock icon", "lock_icon", Kit.LOCK_ICON_PATHS.keys(), false, "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["lock_frac", 20, 90], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["lock_shadow_dy", 0, 24], "torn_cell"))
+				_sidebar_body.add_child(_slider_row(["lock_shadow_strength", 0, 60], "torn_cell"))
+			_section_header("Cell drop shadow")
+			# the cell's cast IS the shared box-shadow (applies to BOTH faces) — tuned on the
+			# Shadow page; this toggle just turns it off for cells.
+			_sidebar_body.add_child(_toggle_row("Cell shadow", "cell_shadow", false, "bag_card"))
+			_note("Reach, softness, and direction live on the Shadow element (shared by every "
+				+ "card, pill, and cell).")
 		"bag":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))
