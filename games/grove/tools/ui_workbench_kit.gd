@@ -2364,6 +2364,8 @@ const TORN_CELL_KNOBS := [
 
 ## The baked cut-paper cell faces (generated as one sheet so the four variants share material + light).
 ## open_alt is the checker mate of open; locked_deep is the receded interior lock (non-frontier).
+## The art is generated SHADOW-FREE (guide §0) — the engine casts the cell's shadow.
+const CELL_SPRITE_CAP := 256    # cells draw ~116-132px; 256 matches the shared UI-glyph runtime cap
 const CELL_SPRITE_PATHS := {
 	"open":        "res://games/grove/assets/ui/board/cell_paper_open.png",
 	"open_alt":    "res://games/grove/assets/ui/board/cell_paper_open_alt.png",
@@ -5951,7 +5953,10 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		art.name = "SlotCellSprite"
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_SCALE
-		art.texture = load(sprite_path)
+		# through the SHARED polish path, not a raw load: the intake key leaves a ~1px binary alpha
+		# step, which downsamples into a visibly jagged border. clean_tex_path defringes + feathers
+		# the edge (and reads the committed baked mirror, so there is no per-pixel cost at runtime).
+		art.texture = clean_tex_path(sprite_path, CELL_SPRITE_CAP)
 		art.position = Vector2.ZERO
 		art.size = Vector2(cw, ch)
 		art.custom_minimum_size = Vector2.ZERO

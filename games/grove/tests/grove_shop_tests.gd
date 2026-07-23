@@ -609,17 +609,25 @@ func _initialize() -> void:
 	var sprite_alt: Control = Kit.slot_cell({"state": "empty", "alt": true}, sprite_opts)
 	var sprite_lock: Control = Kit.slot_cell({"state": "locked", "frontier": true}, sprite_opts)
 	var sprite_deep: Control = Kit.slot_cell({"state": "locked", "frontier": false}, sprite_opts)
-	var sprite_tex := func(n: Control) -> String:
+	# the face goes through Kit.clean_tex_path (defringe + alpha feather), so the texture is the
+	# committed BAKED mirror — compare on the stem, which both "<name>.png" and "<name>@256.png" share.
+	var sprite_stem := func(n: Control) -> String:
 		var tr := n.find_child("SlotCellSprite", true, false) as TextureRect
-		return String(tr.texture.resource_path) if tr != null and tr.texture != null else ""
-	ok(String(sprite_tex.call(sprite_open)).ends_with("cell_paper_open.png"), \
+		if tr == null or tr.texture == null:
+			return ""
+		return String(tr.texture.resource_path).get_file().get_basename().split("@")[0]
+	ok(String(sprite_stem.call(sprite_open)) == "cell_paper_open", \
 		"default open cells wear the generated open paper sprite")
-	ok(String(sprite_tex.call(sprite_alt)).ends_with("cell_paper_open_alt.png"), \
+	ok(String(sprite_stem.call(sprite_alt)) == "cell_paper_open_alt", \
 		"alt-parity open cells wear the checker-mate paper sprite")
-	ok(String(sprite_tex.call(sprite_lock)).ends_with("cell_paper_locked.png"), \
+	ok(String(sprite_stem.call(sprite_lock)) == "cell_paper_locked", \
 		"frontier locked cells wear the light locked paper sprite")
-	ok(String(sprite_tex.call(sprite_deep)).ends_with("cell_paper_locked_deep.png"), \
+	ok(String(sprite_stem.call(sprite_deep)) == "cell_paper_locked_deep", \
 		"deep interior locks wear the receded locked paper sprite")
+	# and the polish must actually be applied — a raw load would be the un-feathered source
+	var polished := (sprite_open.find_child("SlotCellSprite", true, false) as TextureRect).texture
+	ok(String(polished.resource_path).find("/baked/") >= 0, \
+		"cell faces draw the baked, edge-feathered mirror (not the raw binary-alpha cut)")
 	sprite_open.free()
 	sprite_alt.free()
 	sprite_lock.free()

@@ -52,6 +52,11 @@ static func build_all(cfg: Dictionary) -> Array:
 	# like the dialogs; bake it so the board/map open freeze-free (kit_bake_tests holds it baked). @256
 	# matches the make_star_level_badge clean_tex_path cap.
 	Kit.clean_tex_path(Look.kit(Look.STAR_BADGE_ART), 256)
+	# The board/bag CELL FACES — every slot_cell draws one, so an un-baked set polishes live on the
+	# first board open. Driving clean_tex_path over the declared paths lands them in _clean_cache the
+	# same way the dialogs do, so the bake writes their mirrors and kit_bake_tests holds them baked.
+	for cell_path in Kit.CELL_SPRITE_PATHS.values():
+		Kit.clean_tex_path(String(cell_path), Kit.CELL_SPRITE_CAP)
 	return out
 
 ## The home-screen CHROME — the bottom nav + the live-ops rail — is what cost ~480ms to build on a cold
