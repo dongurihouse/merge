@@ -6,6 +6,7 @@ const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the water regen rule (over-cap pause)
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the two card/art shadow shapes
 
 func _initialize() -> void:
 	begin("grove · shop")
@@ -693,6 +694,46 @@ func _initialize() -> void:
 	ok(rhost.find_children("ShopInfoButton", "", true, false).is_empty(), "no per-card info discs")
 	ok(rhost.find_children("ShopFooterNote", "", true, false).is_empty(), "no first-buy footer note")
 	rhost.queue_free()
+
+	# The card + art shadows. Both grey-slab shapes shipped once: the card's rect cast drew its HARD
+	# filled body outside the card (a hand-added nudge + raw params, so shadow_params()'s spread clamp
+	# never ran), and the transparent item art got that same rect cast, printing a grey box around the
+	# sprite. A rect cast may only ever show its feather; art casts its own silhouette.
+	fresh("card_shadow_shape")
+	var dhost := Control.new()
+	dhost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(dhost)
+	ShopS.open(dhost, {})
+	await create_timer(0.15).timeout
+	var cards := dhost.find_children("ShopOfferCard", "", true, false)
+	ok(cards.size() >= 4, "the storefront builds its offer cards (%d)" % cards.size())
+	var loose := 0        # cards whose rect cast can leak its hard fill past the card
+	var slabbed := 0      # item art wearing a rect cast instead of its own silhouette
+	var cast := 0         # item art carrying silhouette copies
+	for c in cards:
+		var wrapper := (c as Control).get_parent()
+		var sh := wrapper.get_node_or_null(NodePath(SpritePanel.PANEL_SHADOW)) as Panel
+		if sh == null:
+			loose += 1
+			continue
+		# same rect as the card: any nudge apart is fill sliding out from under it
+		if not sh.position.is_equal_approx((c as Control).position):
+			loose += 1
+		var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
+		# the filled body is shifted by the cast offset — only a spread that out-tightens that
+		# offset keeps the hard edge hidden under the card. (shadow_params() enforces it.)
+		if sb == null or -sb.expand_margin_top < maxf(absf(sb.shadow_offset.x), absf(sb.shadow_offset.y)):
+			loose += 1
+		# the ART holder: silhouette copies behind the sprite, and no rect cast anywhere near it
+		for copy in (c as Control).find_children("%s*" % SpritePanel.SPRITE_SHADOW_NAME, "TextureRect", true, false):
+			cast += 1
+			for sib in (copy as Control).get_parent().get_children():
+				if sib is Panel:
+					slabbed += 1
+	ok(loose == 0, "every card's rect cast sits square on the card, its hard fill tucked under it")
+	ok(cast >= cards.size(), "every card's item art casts its own silhouette (%d copies)" % cast)
+	ok(slabbed == 0, "no item art wears a rounded-rect cast (that prints a grey slab around the sprite)")
+	dhost.queue_free()
 
 	finish()
 
