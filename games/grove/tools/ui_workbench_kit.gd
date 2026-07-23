@@ -2623,7 +2623,10 @@ static func _row_panel(cp_opts: Dictionary = {}, fill: Color = ROW_SAGE, rim: Co
 ## The padded content host of a _row_panel — add the row's HBox/Button here (not to the panel root, which
 ## is the interactive surface + deckled background). Falls back to the panel itself for any legacy surface.
 static func _row_body(panel: Control) -> Control:
-	var host: Variant = panel.get_meta("row_body", null)
+	# has_meta first — get_meta with a NULL default is treated as "no default" and pushes an error.
+	if not panel.has_meta("row_body"):
+		return panel
+	var host: Variant = panel.get_meta("row_body")
 	return host if host is Control else panel
 
 ## An INFO CARD — a read-only row on the toggle_card surface: a label on the LEFT, a value on the RIGHT,
@@ -4063,8 +4066,12 @@ static func progress_bar_set_frac(bar: Control, f: float) -> void:
 	if bar == null or not is_instance_valid(bar):
 		return
 	bar.set_meta("frac", clampf(f, 0.0, 1.0))
-	for key in ["relayout", "knob_place"]:
-		var cb: Variant = bar.get_meta(key, null)
+	# has_meta first: Object.get_meta treats a NULL default as "no default given" and pushes an
+	# error, and "knob_place" only exists on a bar built with the star knob on.
+	for key: String in ["relayout", "knob_place"]:
+		if not bar.has_meta(key):
+			continue
+		var cb: Variant = bar.get_meta(key)
 		if cb is Callable and (cb as Callable).is_valid():
 			(cb as Callable).call()
 

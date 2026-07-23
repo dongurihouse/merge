@@ -494,7 +494,33 @@ func _shared_progress_bar_exposes_fill_geometry_and_shadow() -> void:
 		"fill height control shrinks the green fill inside the track")
 	ok(fill_clip != null and track != null and fill_clip.size.x < track.size.x * 0.42,
 		"fill width control is applied before the earned fraction clips the fill")
+
+	# LIVE FRAC — the unlock strip tweens a BUILT bar rather than rebuilding it each frame.
+	# This bar has NO star knob, the case that used to push a get_meta error every board build.
+	var before := fill_clip.size.x
+	Kit.progress_bar_set_frac(bar, 1.0)
+	ok(fill_clip.size.x > before, "progress_bar_set_frac moves a built bar's fill without a rebuild")
+	Kit.progress_bar_set_frac(bar, 0.0)
+	ok(fill_clip.size.x < before, "progress_bar_set_frac drives the fill back down")
 	bar.free()
+	# ...and with the star knob ON, the knob rides the new head.
+	var kopts := opts.duplicate()
+	kopts["star_knob"] = true
+	var kbar := Kit.progress_bar(0.1, kopts)
+	kbar.size = Vector2(300, 30)
+	kbar.resized.emit()
+	Kit.progress_bar_set_frac(kbar, 0.9)
+	ok(kbar.has_meta("knob_place"), "a star-knob bar exposes its knob placer for live frac moves")
+	kbar.free()
+	# GUARD the crash class itself: Object.get_meta treats a NULL default as "no default given"
+	# and pushes an error rather than returning null, so the idiom is banned in the kit.
+	var kit_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_kit.gd")
+	var null_default := 0
+	for line in kit_src.split("\n"):
+		if String(line).find("get_meta(") >= 0 and String(line).find(", null)") >= 0:
+			null_default += 1
+	ok(null_default == 0,
+		"the kit never calls get_meta with a null default (it errors instead of returning null)")
 
 func _level_dialog_uses_shared_progress_bar_with_runtime_shadows() -> void:
 	Kit.clear_config_cache()
