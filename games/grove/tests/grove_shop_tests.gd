@@ -695,10 +695,10 @@ func _initialize() -> void:
 	ok(rhost.find_children("ShopFooterNote", "", true, false).is_empty(), "no first-buy footer note")
 	rhost.queue_free()
 
-	# The card + art shadows. Both grey-slab shapes shipped once: the card's rect cast drew its HARD
-	# filled body outside the card (a hand-added nudge + raw params, so shadow_params()'s spread clamp
-	# never ran), and the transparent item art got that same rect cast, printing a grey box around the
-	# sprite. A rect cast may only ever show its feather; art casts its own silhouette.
+	# The card + art shadows. A blurred rounded-RECT cast cannot shadow a cut-paper element: its
+	# feather escapes sideways by (blur + spread − |offset_x|) and offset_x is 0, so it rings the
+	# sheet with a grey halo at ANY tuning — measured at 4px of grey down both card edges — and the
+	# sprite's transparent margin exposes more still. Both cards and art cast their own silhouette.
 	fresh("card_shadow_shape")
 	var dhost := Control.new()
 	dhost.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -707,32 +707,32 @@ func _initialize() -> void:
 	await create_timer(0.15).timeout
 	var cards := dhost.find_children("ShopOfferCard", "", true, false)
 	ok(cards.size() >= 4, "the storefront builds its offer cards (%d)" % cards.size())
-	var loose := 0        # cards whose rect cast can leak its hard fill past the card
-	var slabbed := 0      # item art wearing a rect cast instead of its own silhouette
-	var cast := 0         # item art carrying silhouette copies
+	var face_cast := 0     # cards casting a copy of their own baked face
+	var art_cast := 0      # item art casting a copy of its own sprite
+	var wrong_face := 0    # a cast copy drawing something other than the element's own face
+	var haloed := 0        # a cast reaching ABOVE or LEFT of the element — a ring, not a drop
 	for c in cards:
-		var wrapper := (c as Control).get_parent()
-		var sh := wrapper.get_node_or_null(NodePath(SpritePanel.PANEL_SHADOW)) as Panel
-		if sh == null:
-			loose += 1
-			continue
-		# same rect as the card: any nudge apart is fill sliding out from under it
-		if not sh.position.is_equal_approx((c as Control).position):
-			loose += 1
-		var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
-		# the filled body is shifted by the cast offset — only a spread that out-tightens that
-		# offset keeps the hard edge hidden under the card. (shadow_params() enforces it.)
-		if sb == null or -sb.expand_margin_top < maxf(absf(sb.shadow_offset.x), absf(sb.shadow_offset.y)):
-			loose += 1
-		# the ART holder: silhouette copies behind the sprite, and no rect cast anywhere near it
-		for copy in (c as Control).find_children("%s*" % SpritePanel.SPRITE_SHADOW_NAME, "TextureRect", true, false):
-			cast += 1
-			for sib in (copy as Control).get_parent().get_children():
-				if sib is Panel:
-					slabbed += 1
-	ok(loose == 0, "every card's rect cast sits square on the card, its hard fill tucked under it")
-	ok(cast >= cards.size(), "every card's item art casts its own silhouette (%d copies)" % cast)
-	ok(slabbed == 0, "no item art wears a rounded-rect cast (that prints a grey slab around the sprite)")
+		var card := c as Control
+		var copies := (card.get_parent() as Control).find_children( \
+			"%s*" % SpritePanel.CARD_SHADOW, "Panel", false, false)
+		face_cast += 1 if copies.size() >= SpritePanel.LADDER_MIN else 0
+		for sh in copies:
+			# a shape-true cast draws the card's OWN 9-slice, so it can never ring the torn edge
+			if (sh as Panel).get_theme_stylebox("panel") != card.get_theme_stylebox("panel"):
+				wrong_face += 1
+			if (sh as Control).position.x < -0.01 or (sh as Control).position.y < -0.01:
+				haloed += 1
+		var art := card.find_children("%s*" % SpritePanel.SPRITE_SHADOW, "TextureRect", true, false)
+		art_cast += 1 if art.size() >= SpritePanel.LADDER_MIN else 0
+		for sh in art:
+			if (sh as Control).position.x < -0.01 or (sh as Control).position.y < -0.01:
+				haloed += 1
+	ok(face_cast == cards.size(), "every card casts a dense stack of its own face (%d/%d)" % [face_cast, cards.size()])
+	ok(art_cast == cards.size(), "every card's item art casts its own silhouette (%d/%d)" % [art_cast, cards.size()])
+	ok(wrong_face == 0, "no cast copy draws a shape other than the element it shadows")
+	ok(haloed == 0, "no cast reaches above or left of its element (a drop, never a halo)")
+	ok(dhost.find_children("%s*" % SpritePanel.PANEL_SHADOW, "Panel", true, false).is_empty(),
+		"no cut-paper element falls back to the rounded-rect cast that rings it")
 	dhost.queue_free()
 
 	finish()
