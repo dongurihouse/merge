@@ -78,8 +78,8 @@ const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band he
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
-const UNLOCK_BAR_TOP := 122.0    # the page column's ONE absolute anchor: its top edge below the HUD pills / level badge
-const UNLOCK_BAR_Y_NUDGE := 12.0 # center the strip in the open band between quest cards and wallet pills
+const UNLOCK_BAR_TOP := 104.0    # the page column's ONE absolute anchor: its top edge below the HUD pills / level badge
+const STACK_SEP := 20      # the row gap of the content stack (strip <-> quest fence <-> board)
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -221,7 +221,8 @@ var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
 var _press_was_selected := false   # the press landed on the already-focused cell (collect-on-second-tap)
 var _pressing := false              # a physical press is in flight — dedupes the mouse+touch pair emulate_touch_from_mouse delivers
-var _drag_is_gen := false          # the current drag picked up a generator (movable-only, §6)
+var _drag_is_gen := false           # the current drag picked up a generator (movable-only, §6)
+var _drag_pending := false          # pressed on a tile; the lift waits for the touch slop (_drag_slop_px)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
 # Bundle A (tactile) drag feel — live only while a board piece is dragged:
@@ -269,7 +270,7 @@ func _ready() -> void:
 	# The region's top/bottom offsets are set in _recompute_board_geometry (they depend on the
 	# bottom bar height and recompute on a live resize).
 	root.alignment = BoxContainer.ALIGNMENT_BEGIN
-	root.add_theme_constant_override("separation", 10)
+	root.add_theme_constant_override("separation", STACK_SEP)
 	add_child(root)
 	_stack = root
 
@@ -482,16 +483,15 @@ func _recompute_board_geometry() -> void:
 		giver_bar.custom_minimum_size = Vector2(0, _fence_h)
 	var view := _view_size()
 	var bottom_bar_h := _bottom_bar_h_px(_bottom_button_px())
-	const VBOX_SEP := 10.0
-	const BOARD_BREATHING := 12.0
+	const BOARD_BREATHING := 8.0
 	# The TOP-anchored stack region: its top edge is the page's ONE absolute anchor — just below the
 	# HUD pills / level badge (UNLOCK_BAR_TOP + safe area + nudge). The content rows (NEXT UNLOCK
 	# strip → quest fence → board) live INSIDE the stack and flow relative to each other from there;
 	# the bottom edge only caps the board so it never runs into the floating bottom bar.
 	var bar_h := _unlock_bar_h_px()
 	_place_unlock_bar(bar_h)
-	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self) + UNLOCK_BAR_Y_NUDGE
-	var bottom_reserve := bottom_bar_h + 14.0 + Look.safe_bottom(self)
+	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self)
+	var bottom_reserve := bottom_bar_h + 8.0 + Look.safe_bottom(self)
 	if _stack != null and is_instance_valid(_stack):
 		_stack.offset_top = top_reserve
 		_stack.offset_bottom = -(bottom_reserve + BOARD_BREATHING)   # leave a small gap above the bottom bar
@@ -503,7 +503,7 @@ func _recompute_board_geometry() -> void:
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within that space — the in-game
 	# "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
 	# the board's ceiling in the flow: below the strip row + the fence row (each + the VBox gap)
-	var board_top := top_reserve + bar_h + VBOX_SEP + _fence_h + VBOX_SEP
+	var board_top := top_reserve + bar_h + STACK_SEP + _fence_h + STACK_SEP
 	var board_bottom := view.y - bottom_reserve - BOARD_BREATHING
 	var fit: Dictionary = BoardFit.fit_bottom_aligned(
 		view, _disp_cols(), _disp_rows(), GAP, FRAME_OUT, BOARD_MARGIN,
@@ -2410,7 +2410,14 @@ func _on_board_input(event: InputEvent) -> void:
 			return                              # ignore the paired duplicate release
 		_pressing = false
 		_on_release(event.position)
-	elif (event is InputEventMouseMotion or event is InputEventScreenDrag) and _drag_node != null:
+	elif (event is InputEventMouseMotion or event is InputEventScreenDrag) and (_drag_node != null or _drag_pending):
+		# ARMED but not yet lifted: stay a tap until the pointer crosses the slop, then begin the drag
+		if _drag_node == null:
+			if event.position.distance_to(_press_pos) <= _drag_slop_px():
+				return
+			_begin_drag()
+			if _drag_node == null:
+				return
 		_drag_follow(event.position)
 
 # The per-update drag FOLLOW (Bundle A tactile): seat the held tile under the pointer, then layer the
@@ -2499,6 +2506,12 @@ func _clear_drag_feel(node: Control = null) -> void:
 		node.rotation = 0.0
 		GrabFx.release(node)   # drop the grab glow + white rim (the shared drag-end chokepoint)
 
+# Mobile TOUCH SLOP: a press only ARMS a drag — the tile does not lift until the pointer travels
+# past this distance. Within it, the gesture stays a TAP (select · inspect · collect · deliver), so
+# a wobbly finger can no longer turn a quest delivery or an inspect into an accidental drag.
+func _drag_slop_px() -> float:
+	return maxf(24.0, csz * 0.22)
+
 func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
 	_press_cell = cell
@@ -2507,28 +2520,33 @@ func _on_press(pos: Vector2) -> void:
 	if _selected_cell.x >= 0:
 		_clear_selection()                    # a new board touch resets the info bar (a still tap re-selects)
 	_drag_is_gen = board.is_gen(cell)
-	if _drag_is_gen:                          # a generator is a movable piece now (§2/T17)
+	_drag_pending = false
+	if _drag_is_gen or board.item_at(cell) > 0:   # a generator is a movable piece too (§2/T17)
 		_drag_from = cell
-		_drag_node = gen_nodes.get(cell)
-		if _drag_node != null:
-			_drag_node.z_index = 20
-			_drag_node.scale = Vector2(1.12, 1.12)
-			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the generator lifts off
-			GrabFx.grab(_drag_node, _grab_opts)      # glow + white rim + a light pickup tap (workbench-tuned)
-			Audio.play("item_pickup", -6.0)
+		_drag_pending = true                  # ARMED — the lift waits for the slop (see _drag_slop_px)
+
+# The pointer crossed the slop (or a tool asked for the grab directly): NOW the tile lifts —
+# scale + z-pop + lifted shadow + grab fx + pickup tap, exactly the old press-time feel.
+func _begin_drag() -> void:
+	_drag_pending = false
+	var cell := _drag_from
+	_drag_node = gen_nodes.get(cell) if _drag_is_gen else piece_nodes.get(cell)
+	if _drag_node == null:
 		return
-	if board.item_at(cell) > 0:
-		_drag_from = cell
-		_drag_node = piece_nodes.get(cell)
-		if _drag_node != null:
-			_drag_node.z_index = 20
-			_drag_node.scale = Vector2(1.12, 1.12)
-			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the item lifts off
-			GrabFx.grab(_drag_node, _grab_opts)      # glow + white rim + a light pickup tap (workbench-tuned)
-			Audio.play("item_pickup", -6.0)
-			_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
+	_drag_node.z_index = 20
+	_drag_node.scale = Vector2(1.12, 1.12)
+	PieceView.set_lifted(_drag_node, true)    # spread the shadow — the tile lifts off
+	GrabFx.grab(_drag_node, _grab_opts)       # glow + white rim + a light pickup tap (workbench-tuned)
+	Audio.play("item_pickup", -6.0)
+	if not _drag_is_gen:
+		_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
+	if _drag_pending:
+		# the pointer never crossed the slop — a pure TAP. Resolve the node QUIETLY (no lift fx,
+		# no pickup sound) and fall through: the still-tap branch below owns select/collect/deliver.
+		_drag_pending = false
+		_drag_node = gen_nodes.get(_drag_from) if _drag_is_gen else piece_nodes.get(_drag_from)
 	if _drag_is_gen:
 		_release_gen(pos)
 		return
@@ -2557,8 +2575,8 @@ func _on_release(pos: Vector2) -> void:
 	if Debug.on() and G.is_collectable(from_code):
 		print("[collect] still-tap on collectable %d at %s — was_focused=%s dist=%.1f → %s" % [
 			from_code, str(from), str(_press_was_selected), pos.distance_to(_press_pos),
-			("COLLECT" if (target == from and from_code > 0 and pos.distance_to(_press_pos) <= 18.0 and _press_was_selected) else "select/snap-back")])
-	if target == from and from_code > 0 and pos.distance_to(_press_pos) <= 18.0:
+			("COLLECT" if (target == from and from_code > 0 and pos.distance_to(_press_pos) <= _drag_slop_px() and _press_was_selected) else "select/snap-back")])
+	if target == from and from_code > 0 and pos.distance_to(_press_pos) <= _drag_slop_px():
 		# A still tap selects first. Collectables (coins + §6.B resource drops) collect only
 		# on a second tap of the already-focused cell, so dragging never pockets them.
 		if G.is_collectable(from_code) and _press_was_selected:
@@ -2611,7 +2629,7 @@ func _release_gen(pos: Vector2) -> void:
 		node.scale = Vector2.ONE
 		PieceView.set_lifted(node, false)   # back to the tight resting shadow
 	_clear_drag_feel(node)   # reset the lean tracker (a gen never telegraphs, but never leak a residual tilt)
-	if target == from and pos.distance_to(_press_pos) <= 18.0:
+	if target == from and pos.distance_to(_press_pos) <= _drag_slop_px():
 		if node != null:
 			node.position = _cell_pos(from)
 		if G.is_accumulator(board.gen_id_at(from)):

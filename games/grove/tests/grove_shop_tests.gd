@@ -388,6 +388,22 @@ func _initialize() -> void:
 		if int(bd.board.items[i2]) > 0:
 			leftover += 1
 	ok(leftover == 0, "a tap-opened chest leaves no board items behind (direct wallet credit)")
+
+	# TOUCH SLOP: a press only ARMS the drag — the tile must NOT lift until the pointer travels past
+	# _drag_slop_px, so a wobbly tap stays a tap (select / collect / deliver, never an accidental drag).
+	var slop_spots: Array = bd.board.empty_ground_cells()
+	ok(slop_spots.size() >= 1, "test setup: the slop check has an open cell")
+	var slop_cell := Vector2i(slop_spots[0])
+	bd.board.place(slop_cell, 101)
+	bd._rebuild_pieces()
+	var slop_pos: Vector2 = bd._cell_pos(slop_cell) + chalf
+	bd._on_press(slop_pos)
+	ok(bd._drag_pending and bd._drag_node == null,
+		"a press arms the drag but does not lift the tile (touch slop)")
+	bd._on_release(slop_pos)
+	ok(not bd._drag_pending and bd._selected_cell == slop_cell,
+		"releasing inside the slop is a TAP — it selects instead of dragging")
+	ok(bd._drag_slop_px() >= 24.0, "the touch slop is at least a fingertip-wobble wide")
 	bd.queue_free()
 
 	# The board's bottom-bar Home + Bag wells build through the SAME shared code-drawn

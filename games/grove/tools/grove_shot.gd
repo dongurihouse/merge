@@ -373,6 +373,7 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			var dhalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			scn._on_press(scn._cell_pos(dc) + dhalf)        # pick up → lights the drop targets
+			scn._begin_drag()                               # cross the touch slop — the press only ARMS now
 			await create_timer(0.5).timeout
 		"grab":
 			# the GRAB highlight on a REAL board piece (glow + white silhouette outline) via the actual
@@ -388,6 +389,7 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			var ghalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			scn._on_press(scn._cell_pos(gcell) + ghalf)   # REAL grab: scale 1.12 + set_lifted + GrabFx.grab
+			scn._begin_drag()                             # cross the touch slop — the press only ARMS now
 			await create_timer(0.3).timeout
 			# instrument the REAL grabbed node: did the outline get added, and does its rect match the art's?
 			var dn: Control = scn._drag_node
@@ -420,6 +422,7 @@ func _initialize() -> void:
 			var gcellg: Vector2i = scn.board.gens.keys()[0]
 			var gghalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			scn._on_press(scn._cell_pos(gcellg) + gghalf)              # REAL gen grab: scale + set_lifted + GrabFx.grab
+			scn._begin_drag()                                          # cross the touch slop — the press only ARMS now
 			scn._drag_follow(scn._cell_pos(gcellg) + gghalf + Vector2(40, -30))   # simulate a drag move
 			await create_timer(0.3).timeout
 			var gn: Control = scn._drag_node
