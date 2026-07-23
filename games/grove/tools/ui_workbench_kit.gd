@@ -5931,7 +5931,9 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var bg := torn_cell(torn_opts)
 		tile.add_child(bg)
 	elif sprite_path != "":
-		if bool(opts.get("cell_shadow", true)):
+		# NO shared shadow rect by default: the generated paper faces BAKE their own contact shadow
+		# into the sprite, so adding Look.shadow_rect stacks a second cast and reads as a dark smear.
+		if bool(opts.get("cell_shadow", false)):
 			var corner := int(roundf(minf(cw, ch) * 0.18))
 			var sh: Panel = Look.shadow_rect(float(corner), Look.shadow_params(load_config(CONFIG_PATH)))
 			sh.name = "SlotCellShadow"

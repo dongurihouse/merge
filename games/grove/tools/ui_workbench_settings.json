@@ -512,11 +512,11 @@
 		"shadow": true
 	},
 	"shadow": {
-		"alpha": 46.0,
-		"blur": 9.0,
+		"alpha": 34.0,
+		"blur": 14.0,
 		"offset_x": 0.0,
-		"offset_y": 7.0,
-		"spread": 0.0
+		"offset_y": 5.0,
+		"spread": -5.0
 	},
 	"shop": {
 		"card_pad": 12.0,
