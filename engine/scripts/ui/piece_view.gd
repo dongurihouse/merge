@@ -189,8 +189,9 @@ static func _shape_contact_shadow(holder: Control, tex: Texture2D, size: float, 
 	back.stretch_mode = TextureRect.STRETCH_SCALE
 	back.position = fit_pos - Vector2(pad, pad)
 	back.size = fit_sz + Vector2(pad, pad) * 2.0
-	back.modulate = Color.WHITE
+	back.modulate = stamp.get("tint", Color(0, 0, 0, 0.2))   # rgb×0 = black cast; alpha lives here, not in the bake
 	back.set_meta("rest_pos", back.position)   # set_lifted shifts from here (silhouette mode)
+	back.set_meta("rest_alpha", back.modulate.a)
 
 # Flip a built piece / generator between RESTING and LIFTED. The board calls this on pickup
 # (lifted = true) and on drop (lifted = false). The art RISES and the shadow drops + spreads so
@@ -200,10 +201,12 @@ static func set_lifted(holder: Control, lifted: bool) -> void:
 	var rise := size * LIFT_RISE if lifted else 0.0
 	var back := holder.get_node_or_null(NodePath(SHADOW_NAME))
 	if back is TextureRect and back.has_meta("rest_pos"):
-		# silhouette mode: the shadow stays put on the ground while the art rises — just soften it
+		# silhouette mode: the shadow stays put on the ground while the art rises — just soften it.
+		# Only the ALPHA moves: the rgb is the baked-in shadow tint (black), never touched.
 		var rest: Vector2 = back.get_meta("rest_pos")
+		var rest_a: float = back.get_meta("rest_alpha", back.modulate.a)
 		back.position = rest + (Vector2(0.0, size * LIFT_RISE * 0.5) if lifted else Vector2.ZERO)
-		back.modulate = Color(1.0, 1.0, 1.0, 0.8 if lifted else 1.0)
+		back.modulate.a = rest_a * (0.8 if lifted else 1.0)
 	elif back is TextureRect:
 		_apply_shadow(back, size, SHADOW_LIFTED if lifted else SHADOW_RESTING)
 	var art := holder.get_node_or_null(NodePath(ART_NAME))

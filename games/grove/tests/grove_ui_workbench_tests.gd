@@ -176,12 +176,19 @@ func _slot_content_shadow_can_be_tuned() -> void:
 	ok(not stamp_a.is_empty() and int(stamp_a.pad) > 0
 		and (stamp_a.texture as Texture2D).get_width() > 74,
 		"item_shadow_stamp bakes a padded silhouette from the item art")
-	ok(not stamp_b.is_empty() and stamp_a.texture != stamp_b.texture,
-		"item_shadow_stamp rebakes when the shadow params change (alpha drives the stamp)")
+	# alpha lives in the draw-time tint, NOT the bake — an alpha change reuses the cached stamp
+	ok(not stamp_b.is_empty() and stamp_a.texture == stamp_b.texture
+		and absf(float((stamp_a.tint as Color).a) - 0.2) <= 0.01
+		and absf(float((stamp_b.tint as Color).a) - 0.6) <= 0.01,
+		"alpha rides the stamp's tint (modulate) so opacity changes never rebake")
+	var stamp_c: Dictionary = Kit.item_shadow_stamp(item_tex, Vector2(74.0, 74.0),
+		{"offset_x": 0.0, "offset_y": 12.0, "blur": 6.0, "spread": -2.0, "alpha": 0.2})
+	ok(not stamp_c.is_empty() and stamp_c.texture != stamp_a.texture,
+		"a geometry change (offset) does rebake the stamp")
 	var stamp_a2: Dictionary = Kit.item_shadow_stamp(item_tex, Vector2(74.0, 74.0),
 		{"offset_x": 0.0, "offset_y": 5.0, "blur": 6.0, "spread": -2.0, "alpha": 0.2})
 	ok(not stamp_a2.is_empty() and stamp_a2.texture == stamp_a.texture,
-		"item_shadow_stamp caches per (texture · size · params)")
+		"item_shadow_stamp caches per (texture · size · geometry)")
 
 	var view := UIWorkbenchView.new()
 	view._params["bag_card"]["shadow"] = true
