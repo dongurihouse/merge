@@ -414,8 +414,14 @@ func _initialize() -> void:
 		"the NEXT UNLOCK progress track carries paper texture")
 	ok(unlock_bar != null and unlock_bar.find_child("UnlockFillPaperSurface", true, false) is TextureRect,
 		"the NEXT UNLOCK progress fill carries paper texture")
-	ok(unlock_bar != null and unlock_bar.offset_top - Look.safe_top(bx) >= 22.0,
-		"the NEXT UNLOCK bar is nudged down between HUD pills and quests")
+	# the strip is the FIRST ROW of the content stack now: strip → quest fence → board flow relative
+	# to each other, with the stack's top edge as the page's one absolute anchor below the HUD.
+	var bar_slot := unlock_bar.get_parent() as Control if unlock_bar != null else null
+	ok(bar_slot != null and bar_slot.name == "UnlockBarSlot"
+		and bar_slot.get_parent() == bx._stack and bar_slot.get_index() == 0,
+		"the NEXT UNLOCK bar leads the content stack (strip → quests → board relative flow)")
+	ok(bx._stack != null and bx._stack.offset_top - Look.safe_top(bx) >= 22.0,
+		"the content stack anchors below the HUD pills")
 	var info_tray := bx.find_child("ActionBarInfoTray", true, false) as Control
 	ok(info_tray != null and info_tray.find_child("ActionBarInfoDeckleSurface", true, false) != null,
 		"the bottom info tray wears a code-drawn rugged paper edge")

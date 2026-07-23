@@ -59,13 +59,12 @@ const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped:
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
 # Responsive band caps (the bottom-anchored layout). The quest bar scales with screen HEIGHT (taller on
 # tall screens, to absorb spare vertical room) but is bounded; the bottom bar is bounded so it never
-# balloons on wide screens. HUD_CLEARANCE is the top reserve so the quest fence clears the HUD pills.
+# balloons on wide screens.
 const QUEST_H_MIN := 150.0
 const QUEST_H_MAX := 300.0
 const BOTTOM_BAR_MIN := 150.0
 const BOTTOM_BAR_MAX := 200.0
 const BOTTOM_BTN_MIN := 110.0
-const HUD_CLEARANCE := 150.0     # top reserve below the HUD pills before the quest fence (tunable)
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
 const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · info bar · Bag); runtime follows workbench button px
@@ -79,9 +78,8 @@ const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band he
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
-const UNLOCK_BAR_TOP := 122.0    # the strip's top edge below the HUD pills (tucked tighter than HUD_CLEARANCE — the strip carries its own breathing room)
+const UNLOCK_BAR_TOP := 122.0    # the page column's ONE absolute anchor: its top edge below the HUD pills / level badge
 const UNLOCK_BAR_Y_NUDGE := 12.0 # center the strip in the open band between quest cards and wallet pills
-const UNLOCK_BAR_GAP := 8.0      # breathing room between the strip and the stack region below it
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -265,11 +263,12 @@ func _ready() -> void:
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# Bottom-anchored: the quest fence + board pack to the BOTTOM of the stack region (just above the
-	# bottom bar); any spare vertical room falls to the TOP (below the HUD), instead of a dead gap under
-	# the board. The region's top/bottom offsets are set in _recompute_board_geometry (they depend on the
+	# TOP-anchored flow: the page content (NEXT UNLOCK strip → quest fence → board) packs from the
+	# TOP of the stack region — one absolute anchor below the HUD pills/level badge, everything else
+	# RELATIVE to the row above it. Spare vertical room falls to the BOTTOM (above the bottom bar).
+	# The region's top/bottom offsets are set in _recompute_board_geometry (they depend on the
 	# bottom bar height and recompute on a live resize).
-	root.alignment = BoxContainer.ALIGNMENT_END
+	root.alignment = BoxContainer.ALIGNMENT_BEGIN
 	root.add_theme_constant_override("separation", 10)
 	add_child(root)
 	_stack = root
@@ -286,7 +285,7 @@ func _ready() -> void:
 	# jump, and it lights up (a gold ready-dot + a gentle breathe) the moment a spot is affordable.
 
 	var center := CenterContainer.new()
-	center.size_flags_vertical = Control.SIZE_SHRINK_END   # sit at the bottom of the END-aligned stack
+	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # follow the fence in the top-down flow
 	root.add_child(center)
 	_board_center = center
 	board_area = Control.new()
@@ -485,14 +484,13 @@ func _recompute_board_geometry() -> void:
 	var bottom_bar_h := _bottom_bar_h_px(_bottom_button_px())
 	const VBOX_SEP := 10.0
 	const BOARD_BREATHING := 12.0
-	# The bottom-anchored stack region: top below the HUD, bottom just above the floating bottom bar.
-	# The quest fence + board pack to the BOTTOM of this region (spare room falls to the top).
-	# the NEXT UNLOCK strip sits between the HUD pills and the stack region — reserve its height too
-	# (UNLOCK_BAR_TOP tucks it closer to the pills than the old HUD_CLEARANCE fence start, giving some
-	# of the strip's height back to the board).
+	# The TOP-anchored stack region: its top edge is the page's ONE absolute anchor — just below the
+	# HUD pills / level badge (UNLOCK_BAR_TOP + safe area + nudge). The content rows (NEXT UNLOCK
+	# strip → quest fence → board) live INSIDE the stack and flow relative to each other from there;
+	# the bottom edge only caps the board so it never runs into the floating bottom bar.
 	var bar_h := _unlock_bar_h_px()
 	_place_unlock_bar(bar_h)
-	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self) + UNLOCK_BAR_Y_NUDGE + bar_h + UNLOCK_BAR_GAP
+	var top_reserve := UNLOCK_BAR_TOP + Look.safe_top(self) + UNLOCK_BAR_Y_NUDGE
 	var bottom_reserve := bottom_bar_h + 14.0 + Look.safe_bottom(self)
 	if _stack != null and is_instance_valid(_stack):
 		_stack.offset_top = top_reserve
@@ -504,7 +502,8 @@ func _recompute_board_geometry() -> void:
 	# use the DISPLAY dims (transposed on a landscape viewport) so the cells fill the screen in either orientation.
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within that space — the in-game
 	# "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
-	var board_top := top_reserve + _fence_h + VBOX_SEP
+	# the board's ceiling in the flow: below the strip row + the fence row (each + the VBox gap)
+	var board_top := top_reserve + bar_h + VBOX_SEP + _fence_h + VBOX_SEP
 	var board_bottom := view.y - bottom_reserve - BOARD_BREATHING
 	var fit: Dictionary = BoardFit.fit_bottom_aligned(
 		view, _disp_cols(), _disp_rows(), GAP, FRAME_OUT, BOARD_MARGIN,
@@ -1100,14 +1099,14 @@ func _unlock_bar_h_px() -> float:
 
 # Pin the strip full-width under the HUD pills (same side margins as the board / bottom bar).
 func _place_unlock_bar(bar_h: float) -> void:
+	# the strip lives IN the content stack now (first row, QUEST_SIDE margins via its slot) — only its
+	# HEIGHT is set here; the stack's top edge is the one absolute anchor for the whole page column.
 	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
 		return
-	var side := QUEST_SIDE   # near full-width like the HUD pills row (mock), not the board's side margin
-	var top := UNLOCK_BAR_TOP + Look.safe_top(self) + UNLOCK_BAR_Y_NUDGE
-	_unlock_bar.offset_left = side
-	_unlock_bar.offset_right = _view_size().x - side
-	_unlock_bar.offset_top = top
-	_unlock_bar.offset_bottom = top + bar_h
+	_unlock_bar.custom_minimum_size = Vector2(0, bar_h)
+	# explicit pre-layout size so the strip lays out its face immediately (first frame + headless
+	# builds, where the container's layout pass hasn't run yet); the slot overrides it on layout.
+	_unlock_bar.size = Vector2(maxf(1.0, _view_size().x - QUEST_SIDE * 2.0), bar_h)
 
 # The NEXT UNLOCK strip (mock: ui_redesign_direction_b/board_next_unlock_v1) — replaces the fence
 # jar. Fills toward the next level threshold on the coin clock; tapped, it goes HOME to restore
@@ -1116,7 +1115,15 @@ func _build_unlock_bar() -> void:
 	_unlock_bar = UnlockBar.new()
 	_unlock_bar.name = "NextUnlockBar"
 	_unlock_bar.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	add_child(_unlock_bar)
+	# the strip is the FIRST ROW of the content stack — strip → quest fence → board flow RELATIVE to
+	# each other; only the stack's top edge is absolute (anchored below the HUD pills / level badge).
+	var slot := MarginContainer.new()
+	slot.name = "UnlockBarSlot"
+	slot.add_theme_constant_override("margin_left", int(QUEST_SIDE))
+	slot.add_theme_constant_override("margin_right", int(QUEST_SIDE))
+	slot.add_child(_unlock_bar)
+	_stack.add_child(slot)
+	_stack.move_child(slot, 0)
 	_place_unlock_bar(_unlock_bar_h_px())
 	var unlock_go := func() -> void:
 		Audio.play("button_tap", -2.0)
