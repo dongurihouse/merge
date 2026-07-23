@@ -256,6 +256,17 @@ func _board_piece_shadow_follows_item_controls() -> void:
 		ok(lifted_ok and back.position.is_equal_approx(back.get_meta("rest_pos") as Vector2),
 			"set_lifted drops + softens the silhouette shadow, and restores it on drop")
 	shadowed.free()
+
+	# generators cast the SAME silhouette shadow — and the warm GenGlow halo seats UNDER it, so the
+	# glow can't wash the dark cast out (the "generators have no shadow" read).
+	var gen: Control = PieceView.make_generator("gen_1", 90.0)
+	var gback := _find_named(gen, "ContactShadow") as TextureRect
+	var gglow := _find_named(gen, "GenGlow")
+	ok(gback != null and gback.texture != null and gback.has_meta("rest_pos"),
+		"a generator casts the shape-true item shadow too")
+	ok(gback != null and gglow != null and gglow.get_index() < gback.get_index(),
+		"the generator halo draws UNDER the shadow so the cast stays visible")
+	gen.free()
 	PieceView.item_shadow_override = {}
 
 ## The lock_icon knob swaps the locked cell's lock art; the inner_edge toggle strips the well's

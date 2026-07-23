@@ -40,7 +40,27 @@ func _initialize() -> void:
 	_test_rush_fx_knob_forwarding()
 	_test_combo_bloom()
 	await _test_mote_puff()
+	_test_quest_unused_generator_fade()
 	finish()
+
+# A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
+# _refresh_generator_dim (scene state: gen_nodes + quests), so — like the other board scene wiring —
+# this is a source check: the fade constant, the asked-lines read, the accumulator exemption, and the
+# quest-beat refresh (giver lights) must all be wired.
+func _test_quest_unused_generator_fade() -> void:
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.find("const GEN_UNUSED") != -1,
+		"board defines the quest-unused generator fade shade")
+	var dim_fn := board_src.substr(board_src.find("func _refresh_generator_dim"))
+	dim_fn = dim_fn.substr(0, dim_fn.find("\nfunc "))
+	ok(dim_fn.find("_open_quest_lines()") != -1 and dim_fn.find("GEN_UNUSED") != -1,
+		"generator dim fades a generator whose line no open quest asks for")
+	ok(dim_fn.find("is_accumulator") != -1,
+		"accumulators (utility, never asked) are exempt from the quest fade")
+	var lights_fn := board_src.substr(board_src.find("func _refresh_giver_lights"))
+	lights_fn = lights_fn.substr(0, lights_fn.find("\nfunc "))
+	ok(lights_fn.find("_refresh_generator_dim()") != -1,
+		"the quest beat (giver lights) re-reads the generator fade")
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.

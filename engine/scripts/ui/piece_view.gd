@@ -495,6 +495,12 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 	glow_color.a = float(hl.get("glow_a", GEN_GLOW["a"]))
 	glow.modulate = glow_color
 	holder.add_child(glow)
+	# Seat the halo UNDER the contact shadow: drawn over it, the warm aura washes the dark cast out and
+	# the generator reads shadow-less. Ground order becomes glow → shadow → (outline · art). The child-0
+	# helpers (add_ready_glow / add_grab_glow) key on the shadow BY NAME at index 0 and fall back to
+	# index 0 otherwise, so a glow at 0 only seats those overlays one layer lower — still behind the art.
+	if holder.get_child_count() > 1 and String(holder.get_child(0).name) == SHADOW_NAME:
+		holder.move_child(glow, 0)
 
 # A warm AMBER "a quest wants this" highlight — the board-side twin of the giver's ✓/bob. It is an
 # inset, rounded FACE behind the item. Keeping it inside the same 3px inset as the Slot-cell background
