@@ -335,7 +335,9 @@ const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the hig
 const ACCUMULATORS := {
 	"water": {"id": "acc_water", "name": "Rain barrel", "tex": "items/generator/gen_rainbarrel.png", "cap": 2, "secs": 3600, "value": 2, "unlock_spot": 0},
 	"coins": {"id": "acc_coins", "name": "Coin press", "tex": "items/generator/gen_coinpress.png", "cap": 5, "secs": 1800, "value": 8, "unlock_spot": 1},
-	"exp":   {"id": "acc_exp", "name": "Crystal font", "tex": "items/generator/gen_crystalfont.png", "cap": 4, "secs": 3600, "value": 1, "unlock_spot": 2},
+	# (the "exp" Crystal font is RETIRED 2026-07-22: its exp special line no longer exists, so its taps
+	# did nothing — dropping the kind stops new side-spawns, and from_dict's is_valid_generator_id
+	# gate prunes any stale acc_exp still sitting on an old save's board or bag.)
 	"acorn": {"id": "acc_acorn", "name": "Acorn mill", "tex": "items/generator/gen_acornmill.png", "cap": 3, "secs": 7200, "value": 1, "unlock_spot": 3},
 }
 # §6.C BONUS generators (gen redesign 2026-06-28): the ACCUMULATORS above are no longer constant-accrual.

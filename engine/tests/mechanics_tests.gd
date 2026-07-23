@@ -511,6 +511,10 @@ func _initialize() -> void:
 	ok(bonus_clicks_n >= int(G.BONUS_CLICKS[0]) and bonus_clicks_n <= int(G.BONUS_CLICKS[1]), "a bonus generator lasts a BONUS_CLICKS-sized tap budget")
 	ok(G.bonus_value("water") == int(G.ACCUMULATORS["water"]["value"]), "a bonus collect grants the kind's per-tap value")
 	ok(G.ACCUMULATORS.keys().has(G.pick_bonus_kind(bonus_rng)), "pick_bonus_kind returns a real accumulator kind")
+	# the "exp" Crystal font is retired (its exp special line no longer exists, so its taps did nothing):
+	# no new side-spawns, and a stale acc_exp on an old save fails validation → pruned by from_dict.
+	ok(not G.ACCUMULATORS.has("exp") and not G.is_valid_generator_id("acc_exp"),
+		"the retired Crystal font neither spawns nor survives a save load")
 
 	# --- §6 zone progression (picture-book roster; data-driven ZONES table) ---
 	ok(G.ZONE_BASE_LINES.size() == 8 and G.ZONE_SPECIAL_LINES.size() == 4 and G.ZONE_COUNT == 12, "12 zones = 8 base + 4 special (the picture-book roster)")
