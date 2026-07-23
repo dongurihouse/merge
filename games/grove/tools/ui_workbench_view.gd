@@ -712,7 +712,7 @@ const HUD_BOTTOM_BAR_MAX := 200.0
 const HUD_BOTTOM_BTN_MIN := 110.0
 const HUD_QUEST_H_MIN := 150.0      # board.gd QUEST_H_MIN / MAX
 const HUD_QUEST_H_MAX := 300.0
-const HUD_UNLOCK_BAR_TOP := 122.0   # board.gd UNLOCK_BAR_TOP — the next-unlock strip's top, below the pills
+const HUD_EDGE_GAP := 16.0          # board.gd EDGE_GAP — the equal margin below the pills / above the bottom bar
 const HUD_UNLOCK_BAR_H := 108.0     # a representative next-unlock strip height (board's _unlock_bar_h_px band)
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
@@ -746,8 +746,9 @@ func _hud_layout_preview() -> Control:
 	root.add_child(_layout_preview_box(Rect2(edge, edge, pill_h, pill_h), Color("#F6C76F", 0.72), "Lv"))
 	var hud_clear_y := edge + pill_h + edge
 
-	# --- the NEXT-UNLOCK strip: the board's single largest top-reserve consumer, below the pills. ---
-	var unlock_y := HUD_UNLOCK_BAR_TOP * s
+	# --- the NEXT-UNLOCK strip: the board's single largest top-reserve consumer, below the pills.
+	# board.gd anchors it EDGE_GAP below the HUD's measured bottom (the Lv badge; pill_h is our proxy). ---
+	var unlock_y := edge + pill_h + HUD_EDGE_GAP * s
 	var unlock_h := HUD_UNLOCK_BAR_H * s
 	root.add_child(_layout_preview_box(Rect2(edge, unlock_y, w - edge * 2.0, unlock_h), Color("#CBB89A", 0.34), "next unlock", "HudLayoutUnlockBar"))
 	var stack_top := maxf(hud_clear_y, unlock_y + unlock_h + 8.0 * s)

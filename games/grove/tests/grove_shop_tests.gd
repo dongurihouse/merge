@@ -436,8 +436,14 @@ func _initialize() -> void:
 	ok(bar_slot != null and bar_slot.name == "UnlockBarSlot"
 		and bar_slot.get_parent() == bx._stack and bar_slot.get_index() == 0,
 		"the NEXT UNLOCK bar leads the content stack (strip → quests → board relative flow)")
-	ok(bx._stack != null and bx._stack.offset_top - Look.safe_top(bx) >= 22.0,
-		"the content stack anchors below the HUD pills")
+	# the stack's top edge sits EDGE_GAP below the HUD's measured bottom (Hud.bottom_px — the Lv
+	# badge), so the NEXT UNLOCK strip can never slide behind the pills; and the rows centre in the
+	# region so spare room splits equally above and below (matching top/bottom page margins).
+	var HudMod = load("res://engine/scripts/ui/hud.gd")
+	ok(bx._stack != null and bx._stack.offset_top - Look.safe_top(bx) >= HudMod.bottom_px() + 8.0,
+		"the content stack anchors clear of the HUD pills / level badge")
+	ok(bx._stack != null and bx._stack.alignment == BoxContainer.ALIGNMENT_CENTER,
+		"the content stack centres its rows (equal top/bottom page margins)")
 	var info_tray := bx.find_child("ActionBarInfoTray", true, false) as Control
 	ok(info_tray != null and info_tray.find_child("ActionBarInfoDeckleSurface", true, false) != null,
 		"the bottom info tray wears a code-drawn rugged paper edge")
