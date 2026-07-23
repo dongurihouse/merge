@@ -45,7 +45,7 @@
 		"cost_scale": 100.0,
 		"cost_x": 0.0,
 		"cost_y": -3.0,
-		"item_shadow_alpha": 40,
+		"item_shadow_alpha": 40.0,
 		"item_shadow_blur": 13.0,
 		"item_shadow_spread": -3.0,
 		"item_shadow_x": 3.0,
@@ -276,7 +276,9 @@
 		"quest_bar_h_pct": 10.0,
 		"shadow": false
 	},
-	"icon": {},
+	"icon": {
+
+	},
 	"info": {
 		"shadow": true
 	},
@@ -552,8 +554,8 @@
 		"corner": 16.0,
 		"cream_fill": "F1E6D2",
 		"deckle": true,
-		"deckle_amp": 2.0,
-		"deckle_freq": 2.0,
+		"deckle_amp": 0.0,
+		"deckle_freq": 1.0,
 		"edge_shadow": true,
 		"inner_amp": 3.0,
 		"inner_corner": 17.0,
