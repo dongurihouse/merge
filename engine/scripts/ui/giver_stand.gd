@@ -178,7 +178,13 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var pcy := cy + cardH * float(L.plaque_y)        # the reward pill centre
 	var plaque := _reward_plaque(plw, plh)
 	plaque.position = Vector2(pcx - plw / 2.0, pcy - plh / 2.0)
-	_add_content_shadow(plaque, plh * 0.4, L, "plaque_shadow")   # rounded-tag shadow behind the pill
+	# SHAPE-TRUE: the plaque is the stitched pill ART, so stamp its cast from the pill's own silhouette —
+	# a rounded-rect panel was the wrong shape (it squared off the tag's stitched edge). The code-drawn
+	# fallback pill has no silhouette to stamp, so it keeps the rounded-rect cast.
+	if plaque is TextureRect and (plaque as TextureRect).texture != null:
+		_add_shape_shadow(plaque, (plaque as TextureRect).texture, Vector2(plw, plh), L, false, 0.0, 3, "plaque_shadow")
+	else:
+		_add_content_shadow(plaque, plh * 0.4, L, "plaque_shadow")
 	stand.add_child(plaque)
 	# the "+N" reward, set into the pill's blank RIGHT two-thirds (the coin lives in the art's left third).
 	var pay_lbl := Label.new()
@@ -241,11 +247,11 @@ static func _paper_panel(node_name: String, corner: float) -> Panel:
 # the shared shadow toggle; card_slice_* keys are ignored.
 static func _quest_card(w: float, h: float, lay: Dictionary = {}, seed: int = 0) -> Control:
 	var card := _card_surface(w, h, seed)
-	if card.has_meta("baked_shadow"):
-		pass  # the plate art carries its own painted contact shadow — add nothing
-	# a SHAPE-TRUE drop-shadow following the deckled card edge when the card is the cut-paper texture;
-	# the code-drawn paper fallback keeps the rounded-rect shared shadow (it has no silhouette to stamp).
-	elif card is TextureRect and (card as TextureRect).texture != null:
+	# a SHAPE-TRUE drop-shadow following the deckled card / plate edge when the card is a cut-paper
+	# texture; the code-drawn paper fallback keeps the rounded-rect shared shadow (no silhouette to stamp).
+	# NOTE: a PLATE also carries a painted contact shadow in its art — the Card-shadow controls add the
+	# runtime cast ON TOP of it, so turn the toggle off to keep the painted one alone.
+	if card is TextureRect and (card as TextureRect).texture != null:
 		_add_shape_shadow(card, (card as TextureRect).texture, Vector2(w, h), lay, false, 0.0, 3, "card_shadow")
 	else:
 		_add_card_shadow(card, h, lay, "card_shadow")
@@ -266,8 +272,8 @@ static func _plate_paths() -> Array[String]:
 	return _plate_pool
 
 # The card art as a fill TextureRect (STRETCH_SCALE — the box shape drives it, so card_w/card_h
-# tune the card outline): a seed-picked irregular plate when plates ship (its painted shadow rides
-# in the alpha — flagged `baked_shadow` so _quest_card adds none), else the deckled shell, else the
+# tune the card outline): a seed-picked irregular plate when plates ship (its painted contact shadow
+# rides in the alpha — flagged `baked_shadow` so callers can tell), else the deckled shell, else the
 # code-drawn paper panel. Stamps the shadow corner meta either way for the shared-shadow consumers.
 static func _card_surface(w: float, h: float, seed: int = 0) -> Control:
 	var plates := _plate_paths()
@@ -312,7 +318,8 @@ static func _add_content_shadow(surface: Control, corner: float, lay: Dictionary
 # offset by the shared cast — so the shadow follows the deckled card edge / the item outline instead of a
 # rounded-rect approximation. Added as a show_behind_parent child so it draws behind the surface's art.
 # `fit`/`inset` aspect-fit the silhouette in the box like the sprite (items); OFF = stretch-fill (cards).
-# `div` sets softness (bigger = softer, less detail). No-op when the Shadow toggle is off or `tex` is null.
+# `div` is the softness at the DEFAULT blur — the surface's `blur` param scales it (see _soft_div), so the
+# blur slider is real for sprite shadows too. No-op when the Shadow toggle is off or `tex` is null.
 static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, lay: Dictionary, fit: bool, inset: float, div: int, key: String = "shadow") -> void:
 	if not _shadow_on(lay, key) or tex == null:
 		return
@@ -323,10 +330,19 @@ static func _add_shape_shadow(surface: Control, tex: Texture2D, size: Vector2, l
 	sh.offset = Vector2(float(p.get("offset_x", 0.0)), float(p.get("offset_y", 5.0)))
 	sh.tint = Look.shadow_color(float(p.get("alpha", 0.2)))
 	sh.fit = fit
-	sh.inset = inset
-	sh.soft_div = div
+	# spread TIGHTENS a sprite cast the only way a stamped silhouette can: by insetting the stamp, so a
+	# negative spread pulls the shadow in under the art (the filled-panel shadows read it the same way).
+	sh.inset = inset + absf(float(p.get("spread", 0.0)))
+	sh.soft_div = _soft_div(div, float(p.get("blur", Look.SHADOW_DEFAULTS.blur)))
 	sh.show_behind_parent = true
 	surface.add_child(sh)
+
+# A sprite shadow's softness is its silhouette downsample factor, not a gaussian radius — so map the
+# shared `blur` px onto it, scaled around the DEFAULT blur so `base_div` still reproduces the shipped
+# look at blur 6. Bigger = softer / less shape detail; clamped to a sane, non-zero band.
+static func _soft_div(base_div: int, blur: float) -> int:
+	var d := float(base_div) * maxf(blur, 0.0) / maxf(float(Look.SHADOW_DEFAULTS.blur), 0.001)
+	return clampi(int(round(d)), 1, 32)
 
 # The shadow look for a surface: its OWN tuned params (`<key>_params`, e.g. item_shadow_params) when the
 # workbench set them apart, else the shared `shadow_params`, else Skin's default. So each surface can carry

@@ -32,6 +32,7 @@ func _initialize() -> void:
 	_quest_check_scale_flows_to_giver_card()
 	_quest_card_per_surface_shadows_and_gap()
 	_quest_card_per_surface_shadow_params()
+	_quest_card_shadow_blur_shape_and_card_cast()
 	_gold_pill_backer_tracks_face_width()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -385,6 +386,40 @@ func _quest_card_per_surface_shadow_params() -> void:
 	# spread is clamped <= 0 (a filled panel can't grow outward)
 	var lay2 := Kit.giver_lay_from_config({"quest_card": {"item_shadow_spread": 9}})
 	ok(float((lay2.item_shadow_params as Dictionary).spread) <= 0.0, "per-surface spread is clamped <= 0")
+
+func _quest_card_shadow_blur_shape_and_card_cast() -> void:
+	# 1. blur drives a sprite cast's softness (its silhouette downsample), so the slider is real. The
+	#    DEFAULT blur reproduces the shipped base_div exactly.
+	ok(GiverStand._soft_div(3, 6.0) == 3, "the default blur reproduces the shipped sprite softness")
+	ok(GiverStand._soft_div(3, 0.0) == 1, "blur 0 gives the crispest sprite cast")
+	ok(GiverStand._soft_div(3, 36.0) > 3 and GiverStand._soft_div(3, 36.0) <= 32,
+		"a high blur softens the sprite cast (clamped to the sane band)")
+	var noop2 := func(_a: Variant, _b: Variant) -> void: pass
+	var mk := func(qc: Dictionary) -> Control:
+		return GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"coins": 25}}, {
+			"ask_tap": noop2, "stand_tap": noop2,
+			"wire_tap": func(_n: Control, _a: Callable) -> void: pass,
+			"stand_w": 480.0, "fence_h": 410.0,
+			"lay": Kit.giver_lay_from_config({"quest_card": qc}),
+		}).chip as Control
+	# 2. the CARD shadow reaches a plate card (it used to be skipped entirely for baked-shadow plates)
+	var card_on: Control = mk.call({"item_shadow": false, "plaque_shadow": false, "card_shadow": true})
+	var card_off: Control = mk.call({"item_shadow": false, "plaque_shadow": false, "card_shadow": false})
+	var surface := _find_named(card_on, "MeadowQuestCard") as Control
+	ok(surface != null and surface.get_child_count() > 0, "the card shadow toggle casts on the plate card")
+	ok(_node_count(card_on) == _node_count(card_off) + 1,
+		"the card shadow toggle adds exactly one node")
+	# 3. the PLAQUE cast is SHAPE-TRUE (stamped from the pill art), not a rounded-rect Panel
+	var plq: Control = mk.call({"item_shadow": false, "card_shadow": false, "plaque_shadow": true})
+	var pill := _find_named(plq, "MeadowRewardPill") as Control
+	ok(pill != null and pill.get_child_count() > 0, "the plaque casts a shadow when its toggle is on")
+	if pill != null and pill.get_child_count() > 0:
+		var sh := pill.get_child(0)
+		ok(not (sh is Panel), "the plaque cast is shape-true (a stamped silhouette), not a rounded-rect panel")
+		ok(sh.get("texture") != null, "the plaque cast is stamped from the pill art's own silhouette")
+	card_on.free()
+	card_off.free()
+	plq.free()
 
 func _gold_pill_backer_tracks_face_width() -> void:
 	# the backer must follow the pill's REAL size (the HUD stretches the pill to fill its slot via
