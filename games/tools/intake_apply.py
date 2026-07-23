@@ -113,7 +113,14 @@ def slice_args(eff: str, src_abs: str, prefix: str, params: dict) -> list[str]:
 
 def matte_tool_and_args(keyed_abs: str, params: dict) -> tuple[str, list[str]]:
     """Pick the matte keyer for a scratch copy: chroma_key when a `key` colour is given
-    (saturated backgrounds), else cutout_bg (bright/white backgrounds)."""
+    (saturated backgrounds), else cutout_bg (bright/white backgrounds).
+
+    `"hue": true` selects chroma_key's magenta-excess mode — required when the art casts a
+    DROP SHADOW onto the key, since that shadow is darkened key colour that no distance
+    tolerance can remove without also eating mauve/purple subject pixels."""
+    if params.get("hue"):
+        return CHROMA_TOOL, [keyed_abs, "hue=1",
+                             f"soft={params.get('soft', 55)}", f"hard={params.get('hard', 100)}"]
     key = params.get("key")
     if key:
         return CHROMA_TOOL, [keyed_abs, f"key={key}", f"tol={params.get('tol', 0.18)}"]

@@ -68,5 +68,39 @@ func _initialize() -> void:
 		ok(gp.a == 1.0, "green frame pixel stays opaque")
 		ok(gp.g > 0.5 and gp.r < 0.5 and gp.b < 0.5, "green frame keeps its colour")
 
+	_test_hue_key_removes_shadow_on_key()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
+
+## HUE KEY — the "black line welded to the sprite" guard. Generated art often casts a soft drop
+## shadow onto the key colour; that shadow is DARKENED magenta, which a distance key leaves opaque
+## and a later despill turns into a hard black band. The case is unfixable by tolerance because a
+## mauve SUBJECT can sit closer to #FF00FF than the dark shadow does — measured on the real board
+## cell sheet: subject max magenta-excess 46, shadow band 107.
+func _test_hue_key_removes_shadow_on_key() -> void:
+	var w := 40
+	var img := Image.create(w, w, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 0, 1))                                    # pure key field
+	for y in range(24, 30):                                     # the drop shadow: DARKENED key
+		for x in range(8, 32):
+			img.set_pixel(x, y, Color8(124, 3, 110))
+	for y in range(8, 24):                                      # the subject: a mauve tile
+		for x in range(8, 32):
+			img.set_pixel(x, y, Color8(133, 86, 132))           # excess 46 — the worst real case
+	# a distance key wide enough to catch the shadow would also eat this subject
+	var probe := img.duplicate() as Image
+	ChromaKey.key_image(probe, KEY, 0.45)
+	ok(probe.get_pixel(20, 15).a == 0.0,
+		"a tolerance wide enough for the shadow destroys the mauve subject (why hue mode exists)")
+	var touched := ChromaKey.key_image_hue(img, 55.0, 100.0)
+	ok(touched > 0, "hue key touched the key-derived pixels")
+	ok(img.get_pixel(20, 26).a == 0.0, "the darkened-key drop shadow is keyed fully away")
+	ok(img.get_pixel(1, 1).a == 0.0, "the pure key field is keyed away")
+	ok(img.get_pixel(20, 15).a == 1.0, "the mauve subject stays fully opaque")
+	# enclosed key-coloured art can never be eaten: only border-reachable pixels are eligible
+	var enc := Image.create(w, w, false, Image.FORMAT_RGBA8)
+	enc.fill(Color(0, 0.6, 0.2))                                # solid green sheet, no border key
+	enc.set_pixel(20, 20, Color(1, 0, 1))                       # a legitimately magenta detail
+	ChromaKey.key_image_hue(enc, 55.0, 100.0)
+	ok(enc.get_pixel(20, 20).a == 1.0, "an enclosed magenta detail is never keyed (flood is border-seeded)")

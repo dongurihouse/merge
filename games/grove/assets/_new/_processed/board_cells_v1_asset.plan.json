@@ -2,7 +2,7 @@
   "source": "_new/board_cells_v1_asset.png",
   "category": "matte",
   "inner": "sheet",
-  "params": { "key": "#FF00FF", "min_area": 400 },
+  "params": { "hue": true, "soft": 55, "hard": 100, "min_area": 400 },
   "outputs": [
     { "island": 0, "name": "cell_paper_open", "path": "ui/board/cell_paper_open.png", "post": "icon:512" },
     { "island": 1, "name": "cell_paper_open_alt", "path": "ui/board/cell_paper_open_alt.png", "post": "icon:512" },

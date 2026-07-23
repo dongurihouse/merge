@@ -41,11 +41,89 @@ static func key_image(img: Image, key: Color, tol: float) -> int:
 	img.blit_rect(out, Rect2i(0, 0, w, h), Vector2i(0, 0))
 	return keyed
 
+## HUE keying — for a sheet whose art casts a DROP SHADOW onto the key colour. A shadow over
+## magenta is *darkened magenta* (e.g. #7C036E), which sits far from the key in RGB distance, so
+## key_image leaves it opaque and the sprite ships with a hard black band welded to its bottom
+## edge. Worse, distance cannot fix it: a mauve/purple SUBJECT is often CLOSER to #FF00FF than
+## that dark shadow is, so any tolerance wide enough to catch the shadow eats the art.
+##
+## Hue does separate them. Excess = min(R,B) - G is huge for anything magenta-derived at ANY
+## brightness (shadow 107, key 246) and small for cut-paper art (cream is negative; the deepest
+## purple medallion measured 46). Two safeguards keep legitimate purple safe:
+##   1. only pixels REACHED by a flood from the border are eligible — enclosed art can never key;
+##   2. a soft ramp (`soft`..`hard`) feathers the boundary instead of a binary cut.
+## RGB is preserved (like key_image) so a later despill pass can still see the edge tint.
+## Returns the number of pixels whose alpha was reduced.
+static func key_image_hue(img: Image, soft: float = 55.0, hard: float = 100.0) -> int:
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var w := img.get_width()
+	var h := img.get_height()
+	var data := img.get_data()
+	var excess := PackedFloat32Array()
+	excess.resize(w * h)
+	for i in w * h:
+		var o := i * 4
+		excess[i] = float(mini(int(data[o]), int(data[o + 2])) - int(data[o + 1]))
+	# flood from the border through anything even faintly key-tinted, so the shadow band (which
+	# touches the border region around the art) is reachable while enclosed art is not.
+	var reach := PackedByteArray()
+	reach.resize(w * h)
+	var stack: Array[int] = []
+	for x in w:
+		for y in [0, h - 1]:
+			var i0: int = y * w + x
+			if excess[i0] > soft and reach[i0] == 0:
+				reach[i0] = 1
+				stack.append(i0)
+	for y in h:
+		for x in [0, w - 1]:
+			var i1: int = y * w + x
+			if excess[i1] > soft and reach[i1] == 0:
+				reach[i1] = 1
+				stack.append(i1)
+	while not stack.is_empty():
+		var i: int = stack.pop_back()
+		var cx := i % w
+		var cy := i / w
+		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nx: int = cx + d.x
+			var ny: int = cy + d.y
+			if nx < 0 or ny < 0 or nx >= w or ny >= h:
+				continue
+			var ni: int = ny * w + nx
+			if reach[ni] == 0 and excess[ni] > soft:
+				reach[ni] = 1
+				stack.append(ni)
+	var span := maxf(1.0, hard - soft)
+	var touched := 0
+	for i in w * h:
+		if reach[i] == 0:
+			continue
+		var a := clampf((excess[i] - soft) / span, 0.0, 1.0)   # 0 at the soft edge → 1 at full key
+		var o := i * 4
+		var new_a := int(round(float(data[o + 3]) * (1.0 - a)))
+		if new_a < int(data[o + 3]):
+			data[o + 3] = new_a
+			touched += 1
+		# DESPILL the survivors: an anti-aliased boundary pixel keeps a plum tint that would read as
+		# a thin dark line along the cut. Clamp the key channels toward the subject (guide §8 step 2).
+		if new_a > 16:
+			var g := int(data[o + 1])
+			data[o] = mini(int(data[o]), g + 15)
+			data[o + 2] = mini(int(data[o + 2]), g + 15)
+	var out := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data)
+	img.blit_rect(out, Rect2i(0, 0, w, h), Vector2i(0, 0))
+	return touched
+
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var key := Color(0, 0, 0)
 	var have_key := false
 	var tol := DEFAULT_TOL
+	var hue := false                 # hue=1 → magenta-excess mode (art with a baked drop shadow)
+	var soft := 55.0
+	var hard := 100.0
 	var paths: Array = []
 	for a in args:
 		var s := String(a)
@@ -54,10 +132,17 @@ func _initialize() -> void:
 			have_key = true
 		elif s.begins_with("tol="):
 			tol = float(s.substr(4))
+		elif s.begins_with("hue="):
+			hue = s.substr(4) != "0"
+		elif s.begins_with("soft="):
+			soft = float(s.substr(5))
+		elif s.begins_with("hard="):
+			hard = float(s.substr(5))
 		else:
 			paths.append(s)
-	if paths.is_empty() or not have_key:
+	if paths.is_empty() or (not have_key and not hue):
 		print("usage: chroma_key.gd -- <png> [png ...] key=#RRGGBB [tol=0.18]")
+		print("       chroma_key.gd -- <png> [png ...] hue=1 [soft=55] [hard=100]   # shadow-on-key sheets")
 		quit(2)
 		return
 
@@ -69,8 +154,13 @@ func _initialize() -> void:
 			rc = 1
 			continue
 		var n := img.get_width() * img.get_height()
-		var keyed := key_image(img, key, tol)
-		img.save_png(p)
-		print("chroma_key ", p, " — cleared ", keyed, " of ", n, " px (key=#",
-			key.to_html(false), " tol=", tol, ")")
+		if hue:
+			var t := key_image_hue(img, soft, hard)
+			img.save_png(p)
+			print("chroma_key ", p, " — hue-keyed ", t, " of ", n, " px (soft=", soft, " hard=", hard, ")")
+		else:
+			var keyed := key_image(img, key, tol)
+			img.save_png(p)
+			print("chroma_key ", p, " — cleared ", keyed, " of ", n, " px (key=#",
+				key.to_html(false), " tol=", tol, ")")
 	quit(rc)
