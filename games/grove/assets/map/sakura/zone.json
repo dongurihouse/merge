@@ -30,7 +30,7 @@
    "label": "clouds",
    "position": [
     660,
-    2346
+    2291
    ],
    "display_size": [
     1320,
@@ -114,8 +114,8 @@
    "id": "pond_bridge",
    "label": "pond bridge",
    "position": [
-    291,
-    1640
+    272,
+    1594
    ],
    "display_size": [
     852,
@@ -131,12 +131,12 @@
    "id": "temizuya",
    "label": "temizuya",
    "position": [
-    1015,
-    1617
+    1045,
+    1613
    ],
    "display_size": [
-    782,
-    833
+    847,
+    902
    ],
    "sort_y": 120,
    "cluster": "temizuya",
@@ -165,8 +165,8 @@
    "id": "edge_cover",
    "label": "edge cover",
    "position": [
-    660,
-    2346
+    652,
+    2351
    ],
    "display_size": [
     1320,
