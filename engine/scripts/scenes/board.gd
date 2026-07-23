@@ -42,6 +42,7 @@ const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
+const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const Home = preload("res://engine/scripts/core/home.gd")   # the home build adapter (the Home CTA reads any_buyable)
@@ -152,6 +153,8 @@ var piece_nodes := {}
 var bramble_nodes := {}
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
+var _hand_hint: Control = null      # FTUE: the live hand teach overlay (at most one), or null
+var _hand_hint_id := ""             # which teach it is ("merge" / "gen_tap")
 var _grown_cells: Array = []       # cells of generators that just GREW IN this rebuild (appear_level reached) — popped for feedback
 # (the §6 burst buy pill and the W3 merchant drag sell-tag were the dark stat_chip pill — retired
 #  T48 ahead of the UI redesign; the §6 boost coin sink stays in code, see _activate_gen_boost)
@@ -422,12 +425,106 @@ func _process(delta: float) -> void:
 func _hint_pair() -> Array:
 	if not Features.on("idle_hint"):
 		return []
+	# FTUE: the hand is the FIRST merge teach. Don't rock pieces under a live hint, and don't
+	# rock them at all until the merge hand has been seen — after that the idle hint resumes as
+	# the ongoing re-nudge.
+	if _hand_hint != null and is_instance_valid(_hand_hint):
+		return []
+	if Features.on("ftue_hand_hint") and not Save.ftue_seen("merge"):
+		return []
 	var pair := BoardLogic.find_mergeable_pair(board)
 	for cell in pair:
 		var n: Control = piece_nodes.get(cell)
 		if n != null and is_instance_valid(n):
 			FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
 	return pair
+
+# --- FTUE hand hints -------------------------------------------------------------------
+# Two one-time teaches, in order: drag-to-merge, then tap-the-generator. Spec:
+# docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md. Called at the end of every
+# _rebuild_all so the hint follows the board; a live hint RETARGETS rather than restarting.
+
+func _maybe_hand_hint() -> void:
+	if not Features.on("ftue_hand_hint"):
+		return
+	await get_tree().process_frame          # let the rebuild's layout settle before reading rects
+	if not is_inside_tree():
+		return
+	var want := _hand_hint_eligible()
+	if want == "":
+		_dismiss_hand_hint()
+		return
+	var rects := _hand_hint_rects(want)
+	if rects.is_empty():
+		_dismiss_hand_hint()
+		return
+	if _hand_hint != null and is_instance_valid(_hand_hint) and _hand_hint_id == want:
+		_hand_hint.retarget(rects[0], rects[1])   # same teach, moved board — keep the loop running
+		return
+	_dismiss_hand_hint()
+	var gesture: String = HandHint.GESTURE_DRAG if want == "merge" else HandHint.GESTURE_TAP
+	_hand_hint = HandHint.present(self, gesture, rects[0], rects[1])
+	_hand_hint_id = want if _hand_hint != null else ""
+
+# Which teach the ledger + the current board allow. "" = none.
+func _hand_hint_eligible() -> String:
+	var has_pair := not BoardLogic.find_mergeable_pair(board).is_empty()
+	var has_gen := not _hand_hint_gen_cell().is_empty()
+	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
+
+# The generator the tap teach points at: the first live, tappable (non-accumulator, non-treat)
+# generator on the board. [] when there is none. Returned as an Array so "no cell" is expressible.
+func _hand_hint_gen_cell() -> Array:
+	for cell in gen_nodes.keys():
+		if not board.is_gen(cell):
+			continue
+		var gid := board.gen_id_at(cell)
+		if G.is_accumulator(gid) or G.is_treat_gen(gid):
+			continue
+		var n: Control = gen_nodes.get(cell)
+		if n != null and is_instance_valid(n):
+			return [cell]
+	return []
+
+# [source_rect, target_rect] in THIS control's space, or [] when a node is missing.
+func _hand_hint_rects(id: String) -> Array:
+	if id == "merge":
+		var pair := BoardLogic.find_mergeable_pair(board)
+		if pair.size() < 2:
+			return []
+		var a: Control = piece_nodes.get(pair[0])
+		var b: Control = piece_nodes.get(pair[1])
+		if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+			return []
+		return [_local_rect(a), _local_rect(b)]
+	var gc := _hand_hint_gen_cell()
+	if gc.is_empty():
+		return []
+	var gn: Control = gen_nodes.get(gc[0])
+	if gn == null or not is_instance_valid(gn):
+		return []
+	return [Rect2(), _local_rect(gn)]
+
+func _local_rect(n: Control) -> Rect2:
+	var gr := n.get_global_rect()
+	return Rect2(gr.position - get_global_rect().position, gr.size)
+
+func _dismiss_hand_hint() -> void:
+	if _hand_hint != null and is_instance_valid(_hand_hint):
+		_hand_hint.dismiss()
+	_hand_hint = null
+	_hand_hint_id = ""
+
+# The taught action HAPPENED — bank it and hand off to the next teach.
+func _end_hand_hint(id: String) -> void:
+	if not Features.on("ftue_hand_hint"):
+		return
+	if Save.ftue_seen(id):
+		return
+	Save.mark_ftue_seen(id)
+	if _hand_hint_id == id:
+		_dismiss_hand_hint()
+	_maybe_hand_hint()
 
 # --- display orientation -------------------------------------------------------------
 # The DATA model is always G.COLS×G.ROWS (7 wide × 9 tall). On a WIDE viewport we render it TRANSPOSED —
@@ -1580,6 +1677,7 @@ func _rebuild_all() -> void:
 	_update_hud()
 	if _selected_cell.x >= 0:  # the wipe above freed the focus frame — redraw it on the still-selected cell
 		_show_focus(_selected_cell)
+	_maybe_hand_hint()                        # FTUE: the merge / generator-tap teach follows the board
 
 # (The §14 FTUE feature-spotlight wiring — _maybe_spotlight_chrome / _spotlight_chrome_deferred /
 # _show_spotlight / _on_spotlight_done, plus the Spotlight/SpotlightOverlay preloads and the
@@ -2668,6 +2766,7 @@ func _release_gen(pos: Vector2) -> void:
 				_select_generator(from)
 		else:
 			_pop_seed(from)                   # a still tap pops the generator (merge fuel)
+			_end_hand_hint("gen_tap")   # FTUE: a real generator tap ends (or pre-empts) the tap teach
 			_select_generator(from)           # …and surfaces the burst-upgrade chip in the info bar (T54)
 		return
 	var gp: Vector2 = board_area.get_global_transform() * pos
@@ -2945,6 +3044,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	if old != null and is_instance_valid(old):
 		old.queue_free()
 	_mark_seen(produced)
+	_end_hand_hint("merge")       # FTUE: the player just merged — the merge teach is done, forever
 	_note_item_landed(produced)   # W3: first max-tier item → one-time "sell at the stall" hint
 	var n := _make_piece(produced, csz)
 	n.position = _cell_pos(b)

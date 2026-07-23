@@ -228,5 +228,16 @@ func _initialize() -> void:
 	ok((guard_cuts_after[0] as Rect2).is_equal_approx(guard_cuts_before[0] as Rect2),
 		"retarget after dismiss: a no-op — the target doesn't move")
 
+	# --- eligibility order (pure seam — no scene needed) ---
+	# merge first; gen_tap only once merge is seen; nothing once both are seen.
+	ok(HandHint.next_hint_id(false, false, true, true) == "merge", "fresh board: merge is the eligible hint")
+	ok(HandHint.next_hint_id(true, false, true, true) == "gen_tap", "merge seen: gen_tap follows")
+	ok(HandHint.next_hint_id(true, true, true, true) == "", "both seen: nothing is eligible")
+	ok(HandHint.next_hint_id(false, false, false, true) == "", "no mergeable pair: the merge hint waits (does not skip ahead)")
+	ok(HandHint.next_hint_id(true, false, true, false) == "", "no generator node: gen_tap waits")
+	# skip-if-already-done: the player popped the generator during the merge hint.
+	ok(HandHint.next_hint_id(false, true, true, true) == "merge", "gen_tap already done: merge still shows")
+	ok(HandHint.next_hint_id(true, true, true, true) == "", "gen_tap already done: it never shows afterwards")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

@@ -226,3 +226,15 @@ func _loop_tap() -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_tween.parallel().tween_property(_hand, "scale", Vector2.ONE, TAP_CYCLE_S * 0.5)
 	_tween.tween_interval(DRAG_PAUSE_S)
+
+# --- eligibility (pure seam) ------------------------------------------------
+# WHICH hint should be live right now, given the ledger and what the board can offer. Kept here,
+# free of scene state, so the teach ORDER is asserted headlessly. "" = show nothing.
+# Order is merge → gen_tap: a hint never skips ahead of an earlier unseen one, so a player who
+# happens to lack a mergeable pair simply waits rather than being taught out of order.
+static func next_hint_id(merge_seen: bool, gen_tap_seen: bool, has_pair: bool, has_gen: bool) -> String:
+	if not merge_seen:
+		return "merge" if has_pair else ""
+	if not gen_tap_seen:
+		return "gen_tap" if has_gen else ""
+	return ""
