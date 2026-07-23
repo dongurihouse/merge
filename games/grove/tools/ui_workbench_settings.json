@@ -39,18 +39,18 @@
 	"bag_card": {
 		"cell_h": 120.0,
 		"cell_w": 116.0,
-		"content_frac": 79.0,
+		"content_frac": 88.0,
 		"cost_font": 28.0,
 		"cost_icon": 31.0,
 		"cost_scale": 100.0,
 		"cost_x": 0.0,
 		"cost_y": -3.0,
-		"item_shadow_alpha": 28.0,
-		"item_shadow_blur": 10.0,
+		"item_shadow_alpha": 40,
+		"item_shadow_blur": 13.0,
 		"item_shadow_spread": -3.0,
-		"item_shadow_x": 0.0,
-		"item_shadow_y": 7.0,
-		"level_frac": 37.0,
+		"item_shadow_x": 3.0,
+		"item_shadow_y": 4.0,
+		"level_frac": 45.0,
 		"shadow": true
 	},
 	"board": {
@@ -231,7 +231,6 @@
 		"plus_stroke": 2.0,
 		"plus_x": -134.0,
 		"plus_y": 17.0,
-		"rim_color": "E7D6BC",
 		"rim_width": 1.0,
 		"shadow": true,
 		"shadow_blur": 21.0,
@@ -277,9 +276,7 @@
 		"quest_bar_h_pct": 11.0,
 		"shadow": false
 	},
-	"icon": {
-
-	},
+	"icon": {},
 	"info": {
 		"shadow": true
 	},
@@ -560,6 +557,7 @@
 		"edge_shadow": true,
 		"inner_amp": 3.0,
 		"inner_corner": 17.0,
+		"inner_edge": true,
 		"inner_freq": 6.0,
 		"inner_inset": 9.0,
 		"inner_rim": 0.0,
@@ -568,6 +566,7 @@
 		"inner_shadow_strength": 30.0,
 		"inner_shadow_tint": "294654",
 		"lock_frac": 52.0,
+		"lock_icon": "padlock",
 		"lock_shadow_dy": 6.0,
 		"lock_shadow_strength": 32.0,
 		"rim_color": "E7D6BC",
@@ -576,6 +575,7 @@
 		"shadow_blur": 55.0,
 		"shadow_reach": 6.0,
 		"shadow_strength": 5.0,
+		"well": false,
 		"well_fill": "A6C486"
 	},
 	"vault": {
