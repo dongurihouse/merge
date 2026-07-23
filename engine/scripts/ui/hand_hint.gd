@@ -78,7 +78,11 @@ func cutouts() -> Array:
 	return [_dst.grow(CUTOUT_PAD)]
 
 ## Move the hint to new rects WITHOUT restarting it — the board rebuilt under us.
+## A no-op once dismiss() has been called: a mis-sequenced caller must not be able to restart
+## a looping tween (or rebuild the veil) on a node that is already fading out to queue_free.
 func retarget(source_rect: Rect2, target_rect: Rect2) -> void:
+	if dismissed:
+		return
 	_src = source_rect
 	_dst = target_rect
 	_rebuild_veil()
