@@ -33,6 +33,7 @@ func _initialize() -> void:
 	_quest_card_per_surface_shadows_and_gap()
 	_quest_card_per_surface_shadow_params()
 	_quest_card_shadow_blur_shape_and_card_cast()
+	_shared_shadow_spread_outruns_offset()
 	_gold_pill_backer_tracks_face_width()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -420,6 +421,21 @@ func _quest_card_shadow_blur_shape_and_card_cast() -> void:
 	card_on.free()
 	card_off.free()
 	plq.free()
+func _shared_shadow_spread_outruns_offset() -> void:
+	# THE BLACK-SLAB GUARD. Look.shadow draws a FILLED panel behind the element and shifts it by
+	# (offset_x, offset_y); spread insets that fill. If |offset| ever exceeds |spread| the hard-edged
+	# fill slides out from under the element and reads as a black rectangle behind every card, pill,
+	# and cell (shipped once — a saved block with offset_y 7 / spread 0).
+	var p := Look.shadow_params({"shadow": {"offset_x": 0, "offset_y": 7, "blur": 9, "spread": 0, "alpha": 46}})
+	ok(float(p.spread) <= -7.0, "a big offset with no spread is tightened so the filled body stays hidden")
+	var p2 := Look.shadow_params({"shadow": {"offset_x": -9, "offset_y": 2, "blur": 6, "spread": -3, "alpha": 20}})
+	ok(float(p2.spread) <= -9.0, "a sideways cast is covered too (offset_x drives the clamp)")
+	var p3 := Look.shadow_params({"shadow": {"offset_x": 0, "offset_y": 4, "blur": 6, "spread": -8, "alpha": 20}})
+	ok(is_equal_approx(float(p3.spread), -8.0), "an already-tight spread is left exactly as authored")
+	# and the SHIPPED saved block must satisfy the invariant on its own, not just via the clamp
+	var saved := Look.saved_shadow_params()
+	ok(float(saved.spread) <= -maxf(absf(float(saved.offset_x)), absf(float(saved.offset_y))),
+		"the shipped shadow block casts a soft feather, never a hard-edged slab")
 
 func _gold_pill_backer_tracks_face_width() -> void:
 	# the backer must follow the pill's REAL size (the HUD stretches the pill to fill its slot via
