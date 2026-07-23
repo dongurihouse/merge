@@ -160,6 +160,9 @@ func _initialize() -> void:
 			for z in G.MAPS.size():
 				for sp in G.MAPS[z].spots:
 					ul[String(sp.id)] = true
+				# the coverup pages key off CLUSTER ids now — seed those too or the scene stays overgrown
+				for c in G.MAPS[z].get("clusters", []):
+					ul[String((c as Dictionary).id)] = true
 				ogates.append(z)                          # record gates so completed maps are POPULATABLE (spirits dock shows)
 				oclaimed[String(G.MAPS[z].id)] = true     # pre-claim unlock rewards so no popup covers the map
 			go["unlocks"] = ul
