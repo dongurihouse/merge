@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_torn_cell_lock_icon_and_edge_knobs()
 	_slot_cell_page_merged_into_torn_cell()
 	_quest_check_scale_flows_to_giver_card()
+	_quest_card_per_surface_shadows_and_gap()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
 	_level_dialog_art_has_baked_polish_mirrors()
@@ -337,6 +338,37 @@ func _quest_check_scale_flows_to_giver_card() -> void:
 	ok(met != null and absf(met.size.x - expected) <= 1.0,
 		"Quest-card check mark size follows the saved check_scale knob")
 	(made.chip as Control).free()
+
+func _quest_card_per_surface_shadows_and_gap() -> void:
+	# gap flows in PX; the three per-surface toggles default to the legacy single `shadow`
+	var lay_on := Kit.giver_lay_from_config({"quest_card": {"shadow": true, "gap": 28}})
+	ok(is_equal_approx(float(lay_on.gap), 28.0), "quest_card gap flows to the lay in px")
+	ok(bool(lay_on.item_shadow) and bool(lay_on.card_shadow) and bool(lay_on.plaque_shadow),
+		"per-surface shadow toggles default to the legacy single shadow toggle")
+	var lay_off := Kit.giver_lay_from_config({"quest_card": {"shadow": true, "item_shadow": false, "plaque_shadow": false}})
+	ok(not bool(lay_off.item_shadow) and not bool(lay_off.plaque_shadow) and bool(lay_off.card_shadow),
+		"per-surface toggles override the legacy toggle for their own surface")
+	# built stands: turning the item + plaque toggles off removes exactly those two shadow nodes
+	# (the card is a plate — its painted shadow is baked, so card_shadow adds nothing either way)
+	var noop2 := func(_a: Variant, _b: Variant) -> void: pass
+	var mk := func(lay: Dictionary) -> Control:
+		return GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"coins": 25}}, {
+			"ask_tap": noop2, "stand_tap": noop2,
+			"wire_tap": func(_node: Control, _action: Callable) -> void: pass,
+			"stand_w": 480.0, "fence_h": 410.0, "lay": lay,
+		}).chip as Control
+	var a: Control = mk.call(lay_on)
+	var b: Control = mk.call(lay_off)
+	ok(_node_count(a) == _node_count(b) + 2,
+		"item + plaque shadow toggles each remove exactly their own shadow node")
+	a.free()
+	b.free()
+
+func _node_count(n: Node) -> int:
+	var total := 1
+	for c in n.get_children():
+		total += _node_count(c)
+	return total
 
 func _shared_progress_bar_exposes_fill_geometry_and_shadow() -> void:
 	var opts := Kit.progress_bar_opts_from_config({"progress_bar": {
