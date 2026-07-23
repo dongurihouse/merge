@@ -518,10 +518,11 @@ func _dismiss_hand_hint() -> void:
 
 # The taught action HAPPENED — bank it and hand off to the next teach.
 func _end_hand_hint(id: String) -> void:
+	if not Features.on("ftue_hand_hint"):   # flag off: tear down ANY live hint, not just an id match —
+		_dismiss_hand_hint()                 # a different-id hint would otherwise linger until some later,
+		return                                # unrelated rebuild. No ledger write while the flag is off.
 	if _hand_hint_id == id:
-		_dismiss_hand_hint()   # tear down before the flag check — a live hint must clear even if the
-	if not Features.on("ftue_hand_hint"):   # flag flipped off since it was shown (e.g. a real merge)
-		return
+		_dismiss_hand_hint()   # tear down before the seen check — a live hint must clear even if the
 	if Save.ftue_seen(id):
 		return
 	Save.mark_ftue_seen(id)

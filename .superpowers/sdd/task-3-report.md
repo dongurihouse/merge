@@ -437,3 +437,267 @@ described above (final board.gd/test-file state) — same results both times.
 
 `.superpowers/sdd/progress.md` has pre-existing uncommitted edits from other in-flight work not
 touched by this fix; left as-is, not staged, per the task's own instruction.
+
+## Addendum 2: closing the two remaining review findings
+
+This addendum closes Finding A (no automated test covers the board wiring at all — the addendum
+above only proved the overlay-level *mechanism*, not that board.gd's actual triggers wire it up)
+and Finding B (`_end_hand_hint`'s dismiss stays gated on `_hand_hint_id == id`, so a live hint of
+a *different* id can survive a flag-off until some later unrelated rebuild).
+
+### Finding A — new grove-suite board-level coverage
+
+**New suite: `games/grove/tests/grove_ftue_tests.gd`**, registered in the Makefile's
+`GROVE_TESTS` (not folded into an existing suite — see the file's own header comment for the
+justification: none of the active suites are topically about FTUE/onboarding,
+`grove_board_actions_tests` is the pure no-scene action layer, and `grove_shop_tests` — the
+closest mechanical fit, since it already instantiates `Board.tscn` repeatedly — is already the
+largest suite and topically about monetization, not FTUE).
+
+It extends `grove_test_base.gd` and drives a real, in-tree `Board.tscn` through
+`_maybe_hand_hint` / `_hand_hint_eligible` / `_hand_hint_gen_cell` / `_hand_hint_rects` /
+`_dismiss_hand_hint` / `_end_hand_hint`, asserting against the actual overlay node (matched by
+script identity, since a dismiss()-in-flight node can leave a name-collided `"HandHint2"`
+sibling — see the file's `_any_hand_hint`/`_live_hand_hint` comments) rather than mocking
+anything.
+
+**Getting a board in-tree without hanging.** The bare `SceneTree` harness in `engine/tests/`
+hung/errored for the reason Addendum 1 already diagnosed: `_ready()` on a just-`add_child()`'d
+Board runs before `is_inside_tree()` is true when no frame has ever been pumped, and
+`await get_tree().process_frame` inside `_maybe_hand_hint()` then errors off a null tree. The
+grove suites avoid this by having an earlier `await` (of anything) somewhere before the *first*
+manual `Board.tscn` `_ready()` call in the same suite — confirmed by reading
+`grove_shop_tests.gd`, which does `await process_frame` in its `iap_confirm_frame` section, well
+before its first `Board.tscn` instantiate. `grove_ftue_tests.gd` copies this exactly: a single
+`await process_frame` as the first line of `_initialize()`, before anything else.
+
+**Coverage added (5 tests, 16 assertions):**
+
+1. `_test_fresh_board_presents_merge_hint` — a fresh ledger on a fresh board presents a live
+   `HandHint` overlay whose `gesture == HandHint.GESTURE_DRAG`, and `board._hand_hint_id ==
+   "merge"`.
+2. `_test_merge_seen_presents_gen_tap_hint` — starting from the live merge hint, marking `merge`
+   seen and calling `board._rebuild_all()` (the real trigger path) swaps in a *new* overlay
+   (distinct node identity, not a `retarget()`) with `gesture == HandHint.GESTURE_TAP`, and
+   `_hand_hint_id == "gen_tap"`.
+3. `_test_both_seen_presents_nothing` — marking both `merge` and `gen_tap` seen before the board
+   even opens leaves `_hand_hint == null` and no hand-hint node in the tree at all.
+4. `_test_end_hand_hint_flag_off_dismisses_mismatched_id` — targets Finding B directly: with the
+   merge hint live, flipping the flag off and calling `board._end_hand_hint("gen_tap")` (a
+   *mismatched* id) still tears the live merge hint down.
+5. `_test_flag_off_tears_down_live_hint` — **the Finding A regression test.** With a hint live,
+   flipping `Features.FLAGS["ftue_hand_hint"] = false` and calling `board._rebuild_all()` (the
+   real trigger) clears `board._hand_hint` to `null` and leaves the previously-live overlay's
+   `.dismissed == true` (not merely orphaned/leaked).
+
+Every test that mutates `Feat.FLAGS["ftue_hand_hint"]` captures the flag's value up front and
+restores it before returning, so suite order can't matter.
+
+### The revert-the-fix experiment (Finding A)
+
+Restored the exact buggy ordering the finding describes — removed the `_dismiss_hand_hint()` call
+that now precedes the flag early-return in `_maybe_hand_hint()`:
+
+```gdscript
+func _maybe_hand_hint() -> void:
+	if not Features.on("ftue_hand_hint"):
+		return                              # <- the pre-fix shape: no dismiss before returning
+```
+
+`godot --headless --path . -s res://games/grove/tests/grove_ftue_tests.gd` — **reverted** (only
+the two REGRESSION assertions differ from the fixed run; all others are unaffected, confirming the
+other 4 tests are not accidentally load-bearing for this one):
+
+```
+== grove · ftue hand hint ==
+  PASS  a fresh ledger on a fresh board presents a live HandHint overlay
+  PASS  ...and it's the drag (merge) gesture
+  PASS  the board's own hint id tracks 'merge'
+  PASS  setup: the merge hint is live before it's marked seen
+  PASS  marking merge seen and rebuilding presents a live HandHint overlay
+  PASS  ...a NEW overlay (the merge hint was swapped out, not retargeted)
+  PASS  ...and it's the tap (generator) gesture
+  PASS  the board's own hint id tracks 'gen_tap'
+  PASS  with both hints seen, nothing is presented (no live overlay)
+  PASS  ...and no hand-hint node is in the tree at all
+  PASS  setup: the live hint is the merge teach
+  PASS  flag off + a mismatched id still tears down the live hint
+  PASS  ...and the overlay itself was told to dismiss
+  PASS  setup: a hint is live before the flag flips off
+  FAIL  REGRESSION: flipping the flag off and rebuilding clears the board's hint reference
+  FAIL  REGRESSION: ...and the overlay itself was told to dismiss (not just orphaned)
+== 14 passed, 2 failed ==
+```
+
+Restored the fix (`_dismiss_hand_hint()` ahead of the flag check, as shipped in Addendum 1) and
+re-ran the identical command — **fixed:**
+
+```
+== grove · ftue hand hint ==
+  PASS  a fresh ledger on a fresh board presents a live HandHint overlay
+  PASS  ...and it's the drag (merge) gesture
+  PASS  the board's own hint id tracks 'merge'
+  PASS  setup: the merge hint is live before it's marked seen
+  PASS  marking merge seen and rebuilding presents a live HandHint overlay
+  PASS  ...a NEW overlay (the merge hint was swapped out, not retargeted)
+  PASS  ...and it's the tap (generator) gesture
+  PASS  the board's own hint id tracks 'gen_tap'
+  PASS  with both hints seen, nothing is presented (no live overlay)
+  PASS  ...and no hand-hint node is in the tree at all
+  PASS  setup: the live hint is the merge teach
+  PASS  flag off + a mismatched id still tears down the live hint
+  PASS  ...and the overlay itself was told to dismiss
+  PASS  setup: a hint is live before the flag flips off
+  PASS  REGRESSION: flipping the flag off and rebuilding clears the board's hint reference
+  PASS  REGRESSION: ...and the overlay itself was told to dismiss (not just orphaned)
+== 16 passed, 0 failed ==
+```
+
+(Both runs preceded by the same six harmless, pre-existing `GodotApplePlugins*.gdextension`
+loader errors on every headless invocation in this project — unrelated to this change, omitted
+above for brevity as in Addendum 1.)
+
+**A second, matching experiment for Finding B**, over and above what the task required, since the
+fix ships in the same commit: restored `_end_hand_hint`'s *old* id-gated ordering (dismiss only
+when `_hand_hint_id == id`, checked before the flag) — the mismatched-id test failed exactly as
+expected:
+
+```
+  PASS  setup: the live hint is the merge teach
+  FAIL  flag off + a mismatched id still tears down the live hint
+  FAIL  ...and the overlay itself was told to dismiss
+```
+
+Restored the Finding B fix and re-ran — both assertions passed again (folded into the "fixed" run
+above). `board.gd`'s working tree matched the intended fix exactly after both revert/restore
+round-trips (`git diff` showed only the `_end_hand_hint` reordering, nothing stray left over from
+the temporary edits).
+
+### Finding B — the code fix
+
+`engine/scripts/scenes/board.gd`, `_end_hand_hint`: moved the flag check to the top and made its
+body unconditionally dismiss any live hint (dropping the `_hand_hint_id == id` gate for that
+path), instead of only dismissing when the *ending* id happened to match the live one:
+
+```gdscript
+func _end_hand_hint(id: String) -> void:
+	if not Features.on("ftue_hand_hint"):   # flag off: tear down ANY live hint, not just an id match —
+		_dismiss_hand_hint()                 # a different-id hint would otherwise linger until some later,
+		return                                # unrelated rebuild. No ledger write while the flag is off.
+	if _hand_hint_id == id:
+		_dismiss_hand_hint()   # tear down before the seen check — a live hint must clear even if the
+	if Save.ftue_seen(id):
+		return
+	Save.mark_ftue_seen(id)
+	_maybe_hand_hint()
+```
+
+The flag-ON path is untouched byte-for-byte apart from the reordering (same `_hand_hint_id == id`
+gate, same seen-check, same `mark_ftue_seen`, same hand-off). The ledger write
+(`Save.mark_ftue_seen`) still never runs while the flag is off — the flag-off branch returns
+immediately, before reaching it — preserving the deliberately-accepted asymmetry called out in
+the task.
+
+### Verification: the extended grove suite, then the full sweep
+
+`make test-one SUITE=games/grove/tests/grove_ftue_tests` (equivalently,
+`godot --headless --path . -s res://games/grove/tests/grove_ftue_tests.gd`) — already shown above
+(16 passed, 0 failed) with the fix in place.
+
+`make test-grove`:
+
+```
+  ok      1.23s  games/grove/tests/grove_board_actions_tests  (64 passed)
+  ok      4.70s  games/grove/tests/grove_explore_tests  (252 passed)
+  ok      0.94s  games/grove/tests/grove_scene_workbench_tests  (170 passed)
+  ok      0.74s  games/grove/tests/grove_scene_covers_tests  (20 passed)
+  ok      4.93s  games/grove/tests/grove_shop_tests  (210 passed)
+  ok      3.37s  games/grove/tests/grove_ui_workbench_tests  (112 passed)
+  ok      0.74s  games/grove/tests/grove_zone_workbench_tests  (22 passed)
+  ok      2.10s  games/grove/tests/grove_ftue_tests  (16 passed)
+
+  8 suites · 866 passed · 0 failed
+
+  ALL SUITES PASSED
+```
+
+`make test` (full sweep):
+
+```
+================================================================
+      time   pass  status  suite
+  ------------------------------------------------------------
+     4.92s    210  ok      games/grove/tests/grove_shop_tests
+     4.69s    252  ok      games/grove/tests/grove_explore_tests
+     3.36s    112  ok      games/grove/tests/grove_ui_workbench_tests
+     2.02s     16  ok      games/grove/tests/grove_ftue_tests
+     1.89s    183  ok      engine/tests/mechanics_tests
+     1.22s     64  ok      games/grove/tests/grove_board_actions_tests
+     1.15s     13  ok      engine/tests/action_button_tests
+     1.12s    124  ok      engine/tests/layering_tests
+     1.03s     66  ok      engine/tests/quest_fence_tests
+     0.95s    170  ok      games/grove/tests/grove_scene_workbench_tests
+     0.94s     47  ok      engine/tests/quest_tests
+     0.94s      4  ok      engine/tests/strings_tests
+     0.94s     93  ok      engine/tests/save_tests
+     0.93s      4  ok      engine/tests/kit_config_cache_tests
+     0.84s     33  ok      engine/tests/home_build_tests
+     0.84s     31  ok      engine/tests/bucket_adapter_tests
+     0.83s     48  ok      engine/tests/ftue_hand_hint_tests
+     0.75s     25  ok      engine/tests/boot_trace_tests
+     0.75s     22  ok      games/grove/tests/grove_zone_workbench_tests
+     0.75s     20  ok      games/grove/tests/grove_scene_covers_tests
+     0.74s     66  ok      engine/tests/resident_bucket_tests
+     0.74s      6  ok      engine/tests/identity_tests
+     0.74s     19  ok      engine/tests/tuning_tests
+     0.74s      9  ok      engine/tests/store_tests
+     0.74s     15  ok      engine/tests/bust_tests
+     0.74s     12  ok      engine/tests/hint_tests
+     0.74s      7  ok      engine/tests/scene_warm_tests
+     0.74s     18  ok      engine/tests/inbox_sync_tests
+     0.74s     37  ok      engine/tests/iap_tests
+     0.74s      4  ok      engine/tests/build_info_tests
+     0.74s     13  ok      games/tools/tests/slice_islands_tests
+  ------------------------------------------------------------
+  wall  10.89s  (sum of suite-times  38.98s, speed-up 3.6× at JOBS=4)
+  31 suites · 1743 passed · 0 failed
+
+  ALL SUITES PASSED
+```
+
+(31 suites = the 30 from Addendum 1 plus the new `grove_ftue_tests`; 1743 = 1727 + 16.)
+
+Every headless run above (and every intermediate revert/restore run) also printed a harmless,
+pre-existing `WARNING: ObjectDB instances leaked at exit` / `ERROR: N resources still in use at
+exit` pair at teardown — confirmed present on the *unmodified* `grove_shop_tests.gd` too (a run
+against `main` shows the same class of RID/resource warning), so it predates this change and is
+not something this task introduced; the runner does not treat it as a failure (only `FAIL` lines
+and crashes count, per the Makefile's own comment on `$(RUNNER)`).
+
+### What's still uncovered
+
+- **Visual verification** (per the original spec's "Visual" checklist item) was not re-run here —
+  this addendum is scoped to the two review findings, both of which are wiring/logic bugs with no
+  visual component. The dim level / cutout framing / hand position were the concern of the
+  original feature work, not these findings.
+- The new suite covers the four scenarios the finding lists (fresh→merge, merge-seen→gen_tap,
+  both-seen→nothing, flag-off tears down a live hint) plus the Finding B mismatched-id case. It
+  does **not** additionally cover: a live *gen_tap* hint torn down by the SAME mechanism (only the
+  merge-hint case is exercised as the "live hint" fixture in the regression tests) — the code path
+  is identical regardless of which id is live (`_dismiss_hand_hint()` doesn't branch on
+  `_hand_hint_id`), so this is a coverage gap in variety, not a known-untested behavior difference.
+- `_hand_hint_rects`'s empty-rects fallback branch (`_dismiss_hand_hint()` when a target node has
+  gone invalid mid-frame) is exercised implicitly (every present() call resolves real rects
+  against a real built board) but not via a dedicated node-invalidated-mid-flight test.
+
+### Files touched by this addendum
+
+- `engine/scripts/scenes/board.gd` — `_end_hand_hint()` (Finding B fix; `_maybe_hand_hint()` was
+  touched only transiently, for the revert experiment, and matches Addendum 1's shipped fix again
+  afterward — confirmed via `git diff`).
+- `games/grove/tests/grove_ftue_tests.gd` — new suite (Finding A).
+- `Makefile` — registered the new suite in `GROVE_TESTS`.
+- `.superpowers/sdd/task-3-report.md` — this addendum.
+
+`.superpowers/sdd/progress.md` again has pre-existing uncommitted edits from other in-flight work
+not touched here; left as-is, not staged.
