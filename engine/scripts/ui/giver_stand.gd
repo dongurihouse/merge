@@ -43,6 +43,12 @@ const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const CARD_CORNER_FRAC := 0.12            # card corner radius as a fraction of the card height (shadow rounding)
 const CARD_PATH := "ui/quest/card_shell.png"     # the deckled cut-paper card shell (art fills the box)
+# Irregular hand-cut paper plates — the preferred card surface. Each 512² PNG carries its OWN
+# painted down-right contact shadow in the alpha channel (authored on the board blue and
+# un-blended), so a plate card adds NO runtime shadow. Probed once: plate_01.png upward.
+const PLATE_DIR := "ui/quest/plates/"
+static var _plate_pool: Array[String] = []       # resolved plate paths (empty = no plates shipped)
+static var _plates_probed := false
 const PILL_PATH := "ui/quest/reward_pill.png"    # the stitched reward tag — gold coin baked into the LEFT third
 const PLAQUE_AR := 1.9                    # the reward pill's native w : h (coin left, +N set into the right two-thirds)
 
@@ -67,7 +73,8 @@ const LAY := {
 	"plaque_w": 0.46, "plaque_x": 0.70, "plaque_y": 0.85,
 }
 
-# The quest card: the deckled cut-paper shell (CARD_PATH) carrying just two things — the asked item as
+# The quest card: an irregular cut-paper plate (PLATE_DIR; deckled CARD_PATH shell as the fallback
+# surface) carrying just two things — the asked item as
 # the BIG centred focal art, and the reward tag (PILL_PATH) hung at the bottom-right with "+N" set into
 # its blank right two-thirds (the coin is baked into the art). Each of the three surfaces — card, item,
 # plaque — casts the ONE shared drop-shadow when the universal Shadow toggle is on. The per-item ✓
@@ -101,13 +108,16 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var stand_trim_w := cx + cardW
 	stand.custom_minimum_size.x = stand_trim_w
 	stand.pivot_offset = Vector2(stand_trim_w / 2.0, fh * 0.5)
-	var card := _quest_card(cardW, cardH, L)
+	# the asked item, fetched early: it also seeds the plate pick, so a quest keeps ITS plate
+	# for its whole life (slot shifts don't reshuffle the paper).
+	var it: Dictionary = G.quest_item(q)
+	var plate_seed := 0 if it.is_empty() else int(it.line) * 100 + int(it.tier) + Quests.coins(q) * 101
+	var card := _quest_card(cardW, cardH, L, plate_seed)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
 	# the asked item — the card's BIG centred focal art, with its own shared drop-shadow. Its ladder tap
 	# is wired below; the per-item ✓ overtakes it when payable. Falls back to nothing for an item-less quest.
-	var it: Dictionary = G.quest_item(q)
 	var item_ui: Dictionary = {}
 	var focal: Control = null                          # the item icon — board.gd bobs THIS as the ready signal
 	if not it.is_empty():
@@ -219,24 +229,42 @@ static func _paper_panel(node_name: String, corner: float) -> Panel:
 			paper.offset_bottom = -2.0
 	return panel
 
-# The quest card surface: the deckled cut-paper shell (CARD_PATH) stretched to fill the w×h box, falling
-# back to the shared code-drawn paper panel when the art is absent. lay is consulted for the shared shadow
-# toggle; card_slice_* keys are ignored.
-static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
-	var card := _card_surface(w, h)
+# The quest card surface: an irregular cut-paper plate (PLATE_DIR, picked by `seed`) when plates
+# ship, else the deckled shell (CARD_PATH), else the code-drawn paper panel. lay is consulted for
+# the shared shadow toggle; card_slice_* keys are ignored.
+static func _quest_card(w: float, h: float, lay: Dictionary = {}, seed: int = 0) -> Control:
+	var card := _card_surface(w, h, seed)
+	if card.has_meta("baked_shadow"):
+		pass  # the plate art carries its own painted contact shadow — add nothing
 	# a SHAPE-TRUE drop-shadow following the deckled card edge when the card is the cut-paper texture;
 	# the code-drawn paper fallback keeps the rounded-rect shared shadow (it has no silhouette to stamp).
-	if card is TextureRect and (card as TextureRect).texture != null:
+	elif card is TextureRect and (card as TextureRect).texture != null:
 		_add_shape_shadow(card, (card as TextureRect).texture, Vector2(w, h), lay, false, 0.0, 3)
 	else:
 		_add_card_shadow(card, h, lay)
 	return card
 
-# The deckled card art as a fill TextureRect (STRETCH_SCALE — the box shape drives it, so card_w/card_h
-# tune the card outline), or the code-drawn paper panel when the texture is missing. Stamps the shadow
-# corner meta either way so the shared shadow rounds to the card.
-static func _card_surface(w: float, h: float) -> Control:
-	var path := Game.art(CARD_PATH)
+# The plate pool, probed once: PLATE_DIR/plate_01.png upward until a gap. Cached for the session.
+static func _plate_paths() -> Array[String]:
+	if _plates_probed:
+		return _plate_pool
+	_plates_probed = true
+	var i := 1
+	while true:
+		var p := Game.art(PLATE_DIR + "plate_%02d.png" % i)
+		if not ResourceLoader.exists(p):
+			break
+		_plate_pool.append(p)
+		i += 1
+	return _plate_pool
+
+# The card art as a fill TextureRect (STRETCH_SCALE — the box shape drives it, so card_w/card_h
+# tune the card outline): a seed-picked irregular plate when plates ship (its painted shadow rides
+# in the alpha — flagged `baked_shadow` so _quest_card adds none), else the deckled shell, else the
+# code-drawn paper panel. Stamps the shadow corner meta either way for the shared-shadow consumers.
+static func _card_surface(w: float, h: float, seed: int = 0) -> Control:
+	var plates := _plate_paths()
+	var path := plates[absi(seed) % plates.size()] if not plates.is_empty() else Game.art(CARD_PATH)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
 		t.name = "MeadowQuestCard"
@@ -247,6 +275,8 @@ static func _card_surface(w: float, h: float) -> Control:
 		t.size = Vector2(w, h)
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		t.set_meta(Look.SHADOW_CORNER_META, h * CARD_CORNER_FRAC)
+		if not plates.is_empty():
+			t.set_meta("baked_shadow", true)
 		return t
 	return _paper_panel("MeadowQuestCard", maxf(10.0, h * CARD_CORNER_FRAC))
 
