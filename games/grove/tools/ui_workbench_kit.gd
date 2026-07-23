@@ -2311,8 +2311,18 @@ static func paper_backer(face_size: Vector2, opts: Dictionary, face_cp: Dictiona
 	backer.name = "PaperBacker"
 	backer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	backer.show_behind_parent = true
-	backer.position = Vector2(-grow, -grow)
-	backer.size = face_size + Vector2(grow, grow) * 2.0
+	# Anchor to the parent's REAL rect (full-rect + `grow` bleed on every side), NOT the passed face_size:
+	# the wallet pill fills its cluster slot (SIZE_EXPAND_FILL), so its runtime width is wider than the
+	# nominal pill_w. A fixed-size backer would stay narrow behind a wide face (the width bug). CutPaper
+	# repaints on resize (its `resized -> queue_redraw`), so the under-sheet tracks the face at any width.
+	backer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backer.offset_left = -grow
+	backer.offset_top = -grow
+	backer.offset_right = grow
+	backer.offset_bottom = grow
+	# NOTE: do not set `.size` here — full-rect anchors drive it from the parent, and an explicit size set
+	# is rejected (and would clobber the offsets). CutPaper repaints on resize, so the first real layout
+	# sizes and paints it correctly.
 	backer.configure(cp, opts.get("backer_tint", Color("#E3D2B4")), null, cut_paper_tile())
 	backer.corner = float(cp["corner"])
 	return backer
@@ -6311,6 +6321,20 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"title_pad_y":     float(c.get("title_pad_y", 2)),            # label inset vertical
 	}
 
+## One surface's shadow cast, read from the quest_card block under `<prefix>_*` keys (e.g.
+## item_shadow_offset_x), each defaulting to the shared `shadow` block's value — so an untuned surface
+## resolves to exactly the one shared cast, and any tuned knob splits just that surface. Alpha is stored
+## as a percent (like the Shadow item) and returned 0..1; spread is clamped ≤ 0 (see Look.shadow_params).
+static func _giver_surface_shadow(q: Dictionary, prefix: String, cfg: Dictionary) -> Dictionary:
+	var s := Look.shadow_params(cfg)   # the shared cast, already resolved (alpha 0..1)
+	return {
+		"offset_x": float(q.get(prefix + "_offset_x", s.offset_x)),
+		"offset_y": float(q.get(prefix + "_offset_y", s.offset_y)),
+		"blur":     float(q.get(prefix + "_blur", s.blur)),
+		"spread":   minf(float(q.get(prefix + "_spread", s.spread)), 0.0),
+		"alpha":    clampf(float(q.get(prefix + "_alpha", float(s.alpha) * 100.0)) / 100.0, 0.0, 1.0),
+	}
+
 ## The QUEST-GIVER card layout fractions from a saved config — the workbench's quest_card block (percent
 ## ints) → the `lay` dict GiverStand.make reads (cfg.lay). `item_size` drives a SQUARE item (item_w ==
 ## item_h, undistorted). EVERY default mirrors giver_stand.LAY, so an absent/empty block resolves to the
@@ -6331,6 +6355,12 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 		"item_shadow":   bool(q.get("item_shadow", sh)),
 		"card_shadow":   bool(q.get("card_shadow", sh)),
 		"plaque_shadow": bool(q.get("plaque_shadow", sh)),
+		# each surface's OWN shadow cast (offset · blur · spread · alpha) — the common shadow-param set,
+		# per surface. Every knob defaults to the shared `shadow` block, so an untuned surface tracks the
+		# one shared cast; tuning a surface's sliders splits just that surface's shadow.
+		"item_shadow_params":   _giver_surface_shadow(q, "item_shadow", cfg),
+		"card_shadow_params":   _giver_surface_shadow(q, "card_shadow", cfg),
+		"plaque_shadow_params": _giver_surface_shadow(q, "plaque_shadow", cfg),
 		# (bust_*/bubble_* knobs retired with the giver portrait + speech bubble; card_slice_* retired with the
 		# nine-slice. The card + reward tag are now cut-paper textures. Old saved values are accepted + ignored.)
 		# the card's drop-shadow is the ONE SHARED shadow every component casts (Skin.shadow_rect), gated by the

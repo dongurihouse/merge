@@ -316,9 +316,13 @@ func _default_params() -> Dictionary:
 		"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
 			"card_w": 92, "card_h": 97,
 			"item_size": 60, "item_x": 50, "item_y": 44, "check_scale": 88, "plaque_w": 46, "plaque_x": 70, "plaque_y": 85,
-			# gap = px between cards (the fence row separation — board.gd reads it live); the three
-			# per-surface shadow toggles override the universal Shadow toggle for their surface.
-			"gap": 16, "item_shadow": true, "card_shadow": true, "plaque_shadow": true},
+			# gap = px between cards (the fence row separation — board.gd reads it live); may go negative to
+			# overlap the plates. Each surface (item / card / plaque) has its OWN shadow: a toggle plus the
+			# common shadow-param set (offset · blur · spread · alpha), seeded to the shared Shadow defaults.
+			"gap": 16,
+			"item_shadow": true, "item_shadow_offset_x": 0, "item_shadow_offset_y": 5, "item_shadow_blur": 6, "item_shadow_spread": -2, "item_shadow_alpha": 20,
+			"card_shadow": true, "card_shadow_offset_x": 0, "card_shadow_offset_y": 5, "card_shadow_blur": 6, "card_shadow_spread": -2, "card_shadow_alpha": 20,
+			"plaque_shadow": true, "plaque_shadow_offset_x": 0, "plaque_shadow_offset_y": 5, "plaque_shadow_blur": 6, "plaque_shadow_spread": -2, "plaque_shadow_alpha": 20},
 		# the MAIL / reward-row card — the SHARED cut-paper edge knob set (deckle · corner · amp · freq · rim ·
 		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
@@ -1881,14 +1885,14 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["plaque_x", 0, 100]))     # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["plaque_y", 0, 100]))     # centre y (% of box height)
 			_section_header("Row")
-			_sidebar_body.add_child(_slider_row(["gap", 0, 60]))           # px between cards — the fence row separation (board reads it)
-			_section_header("Shadows (per surface)")
-			# each surface's own gate on the ONE shared shadow (its look is tuned on the Shadow item). The
-			# universal Shadow toggle below stays the legacy master; these override it per surface. A plate
-			# card ignores card_shadow (its painted shadow is baked into the art).
-			_sidebar_body.add_child(_toggle_row("Item shadow", "item_shadow"))
-			_sidebar_body.add_child(_toggle_row("Card shadow", "card_shadow"))
-			_sidebar_body.add_child(_toggle_row("Plaque shadow", "plaque_shadow"))
+			_sidebar_body.add_child(_slider_row(["gap", -40, 60]))         # px between cards — the fence row separation (board reads it); negative overlaps
+			_group_header("Shadows — per surface", false)
+			# each surface carries its OWN shadow cast (the common offset · blur · spread · alpha set), so item,
+			# card, and plaque can be tuned apart. Each defaults to the shared Shadow item's values. A plate card
+			# ignores its Card shadow (the plate's contact shadow is painted into the art).
+			_quest_shadow_section("Item shadow", "item_shadow")
+			_quest_shadow_section("Card shadow", "card_shadow")
+			_quest_shadow_section("Plaque shadow", "plaque_shadow")
 			_group_header("Demo (preview only)", false)
 			_sidebar_body.add_child(_slider_row(["bust", 0, 15]))          # which giver (0..15) — also the asked line
 			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier
@@ -1928,6 +1932,21 @@ func _element_sidebar(_id: String) -> void:
 ## the Button, Frame, and Settings-row inspectors show the SAME rows and a new schema knob appears in all
 ## three automatically. `target` is the component's config block; each writes its own values. The enable
 ## toggle + corner always show; the deckle-only knobs (amp · freq · rim · edge shadow) show when on.
+## One quest-card surface's shadow controls: the on/off toggle, then — when on — the common shadow-param
+## set (offset x/y · blur · spread · alpha), all written into the quest_card block under `<prefix>_*` keys.
+## `prefix` is the surface toggle key (item_shadow / card_shadow / plaque_shadow); giver_lay_from_config
+## folds each into its own `<prefix>_params` cast. The toggle rebuilds the sidebar so the sliders fold away.
+func _quest_shadow_section(label: String, prefix: String) -> void:
+	_section_header(label)
+	_sidebar_body.add_child(_toggle_row(label, prefix, true, "quest_card"))
+	if not bool((_params["quest_card"] as Dictionary).get(prefix, false)):
+		return
+	_sidebar_body.add_child(_slider_row([prefix + "_offset_x", -40, 40], "quest_card"))   # horizontal cast (px)
+	_sidebar_body.add_child(_slider_row([prefix + "_offset_y", -40, 40], "quest_card"))   # vertical cast (px)
+	_sidebar_body.add_child(_slider_row([prefix + "_blur", 0, 40], "quest_card"))         # soft feather radius (px)
+	_sidebar_body.add_child(_slider_row([prefix + "_spread", -20, 0], "quest_card"))      # tighten (px; 0 = full reach)
+	_sidebar_body.add_child(_slider_row([prefix + "_alpha", 0, 80], "quest_card"))        # opacity (%)
+
 func _cut_paper_section(target: String) -> void:
 	_section_header("Cut-paper edge (shared)")
 	var on := bool((_params[target] as Dictionary).get("deckle", true))
