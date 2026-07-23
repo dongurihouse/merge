@@ -355,9 +355,10 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 	art.custom_minimum_size = Vector2(art_px, art_px)
 	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# give the item art a shape-true cut-paper drop shadow too (a dark copy of its own silhouette)
+	# give the item art a shape-true cut-paper drop shadow too (a dark copy of its own silhouette —
+	# wrap_sprite, not wrap: the card's rect cast would print a grey slab around the transparent art)
 	if art is TextureRect and (art as TextureRect).texture != null:
-		art = SpritePanel.wrap(art, (art as TextureRect).texture)
+		art = SpritePanel.wrap_sprite(art, (art as TextureRect).texture)
 	body.add_child(art)
 
 	var textcol := VBoxContainer.new()

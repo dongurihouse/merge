@@ -12,6 +12,22 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # corner radius of the soft shadow, as a fraction of the panel's short side (the cards are rounded rects).
 const SHADOW_CORNER_FRAC := 0.12
 
+# wrap()'s fallback corner, for an element that stamps no SHADOW_CORNER_META of its own.
+const WRAP_CORNER := 14.0
+
+# node names the shape smoke reads to tell the two casts apart (a rect cast behind transparent art
+# is the grey-slab bug; the shape test asserts each wrapper carries the RIGHT one).
+const PANEL_SHADOW := "PanelShadow"
+const SPRITE_SHADOW_NAME := "SpriteShadow"
+
+# wrap_sprite()'s silhouette ladder: f = fraction of the shared cast this copy steps out,
+# a = fraction of the shared alpha it carries. Three copies overlap into one soft gradient.
+const SPRITE_SHADOW := [
+	{"f": 0.34, "a": 0.8},
+	{"f": 0.67, "a": 0.6},
+	{"f": 1.0, "a": 0.4},
+]
+
 static func build(tex: Texture2D, size: Vector2, opts: Dictionary = {}) -> Control:
 	var root := Control.new()
 	root.custom_minimum_size = size
@@ -40,27 +56,68 @@ static func build(tex: Texture2D, size: Vector2, opts: Dictionary = {}) -> Contr
 ## clicks pass through to inner. Lets the shop cards/buttons gain the cut-paper shadow without restructuring
 ## their content.
 static func wrap(inner: Control, _tex: Texture2D) -> Control:
+	var root := _wrap_root(inner)
+	# ONE soft blurred shadow (matching build), not stacked silhouette copies — those stepped visibly on
+	# tall cards. Anchored full-rect so it tracks the wrapper; the drop comes from the SAVED block's
+	# offset, never a hand-added nudge — a nudge slides the shadow's HARD filled body out from under the
+	# card as a grey slab, which is exactly what shadow_params()'s spread clamp exists to prevent.
+	var sh := Look.shadow_rect(Look.shape_corner(inner, WRAP_CORNER), Look.saved_shadow_params())
+	sh.name = PANEL_SHADOW
+	sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(sh)
+	_fill(root, inner)
+	return root
+
+## Wrap a bare SPRITE (art that does NOT fill its box) with a SHAPE-TRUE shadow: dark copies of the
+## sprite's own silhouette, stepped out along the shared cast and fading as they go (the ladder
+## SpriteButton and the wallet pills use, here derived from the saved block so all three stay in step).
+## wrap()'s rounded-rect cast is wrong for transparent art — it paints a grey slab around the sprite
+## instead of a shadow under it.
+static func wrap_sprite(inner: Control, tex: Texture2D) -> Control:
+	var root := _wrap_root(inner)
+	var p := Look.saved_shadow_params()
+	var drop := Vector2(float(p.offset_x), float(p.offset_y))
+	if tex != null and drop.length() > 0.0:
+		for step in SPRITE_SHADOW:
+			root.add_child(_silhouette(inner, tex,
+				Look.shadow_color(float(p.alpha) * float(step["a"])), drop * float(step["f"])))
+	_fill(root, inner)
+	return root
+
+# The wrapper shell both paths share: mouse-transparent, inheriting inner's size flags.
+static func _wrap_root(inner: Control) -> Control:
 	var root := Control.new()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.size_flags_horizontal = inner.size_flags_horizontal
 	root.size_flags_vertical = inner.size_flags_vertical
-	# ONE soft blurred shadow (matching build), not stacked silhouette copies — those stepped visibly on
-	# tall cards. Anchored full-rect so it tracks the wrapper, nudged down a hair for the drop.
-	var sh := Look.shadow_rect(14.0, {})
-	sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sh.offset_top += 4.0
-	sh.offset_bottom += 4.0
-	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(sh)
+	return root
+
+# Lay `inner` over the shadow already in `root` and keep the wrapper sized to inner's content, so an
+# auto-height card still casts a matching shadow. Clicks pass through the wrapper to inner.
+static func _fill(root: Control, inner: Control) -> void:
 	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(inner)
-	# push inner's content size onto the wrapper so the shadow tracks an auto-height element
 	var sync := func() -> void:
 		if is_instance_valid(root) and is_instance_valid(inner):
 			root.custom_minimum_size = inner.get_combined_minimum_size()
 	sync.call()
 	inner.minimum_size_changed.connect(sync)
-	return root
+
+# ONE dark copy of the sprite, dropped by `drop`. Duplicating inner (rather than building a fresh
+# TextureRect) carries its expand/stretch mode over, so an aspect-centred icon's shadow lands exactly
+# under the art instead of under its larger box.
+static func _silhouette(inner: Control, tex: Texture2D, tint: Color, drop: Vector2) -> Control:
+	var copy: Control = (inner.duplicate() as Control) if inner is TextureRect else _layer(tex)
+	copy.name = SPRITE_SHADOW_NAME
+	copy.modulate = tint
+	copy.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	copy.offset_left += drop.x
+	copy.offset_right += drop.x
+	copy.offset_top += drop.y
+	copy.offset_bottom += drop.y
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return copy
 
 static func _layer(tex: Texture2D) -> TextureRect:
 	var tr := TextureRect.new()
