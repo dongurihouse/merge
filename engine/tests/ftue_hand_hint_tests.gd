@@ -239,5 +239,35 @@ func _initialize() -> void:
 	ok(HandHint.next_hint_id(false, true, true, true) == "merge", "gen_tap already done: merge still shows")
 	ok(HandHint.next_hint_id(true, true, true, true) == "", "gen_tap already done: it never shows afterwards")
 
+	# --- regression: a live hint must be torn down when the flag flips off, not stuck forever ---
+	# board.gd's _maybe_hand_hint / _end_hand_hint now call dismiss() on any live overlay BEFORE
+	# their own flag early-return (the bug: both used to early-return first, so a hint already on
+	# screen when ftue_hand_hint flipped off could never be cleared — even a real merge no-op'd).
+	# The board-level orchestration itself (_maybe_hand_hint / _end_hand_hint) needs a real,
+	# fully-in-tree Board.tscn instance to assert directly. That was attempted here first: it
+	# instantiates (its own deps are all static preloads, no project autoloads needed), but calling
+	# its _ready() the way games/grove/tests/grove_test_base.gd's board tests do only works there
+	# because, by the point they reach it, an earlier awaited call in that same suite has already
+	# pumped a frame — is_inside_tree() is true by then. This bare, frame-naive suite never pumps
+	# one, so _ready() runs while the node has been add_child()'d but NOT yet actually entered the
+	# tree: get_tree() returns null partway through (board.gd's own _rebuild_all → _maybe_hand_hint
+	# hits `await get_tree().process_frame` on that null tree and errors), plus Timer/viewport
+	# calls fail the same way — real engine errors, not a false pass. Standing up a genuine frame
+	# pump here is more than a minimal, in-scope change to this file, so board-level coverage is
+	# left to a grove-suite follow-up; what's proven directly below is the overlay-level mechanism
+	# the board-level fix depends on.
+	#
+	# HandHint.dismiss() carries no flag gate of its own, so a live overlay CAN still be torn down
+	# after the flag has already flipped off. If dismiss() ever grew its own
+	# "if not Features.on(...): return" guard, board.gd's fix would silently stop working even
+	# though it calls dismiss() correctly — this catches that.
+	var v_flagflip: Control = HandHint.present(vhost, HandHint.GESTURE_TAP, Rect2(), Rect2(300, 200, 60, 60))
+	ok(v_flagflip != null, "flag-flip: a hint can be live while the flag is on")
+	Feat.FLAGS["ftue_hand_hint"] = false
+	ok(not v_flagflip.dismissed, "flag-flip: flipping the flag off, by itself, does not touch a live overlay")
+	v_flagflip.dismiss()
+	ok(v_flagflip.dismissed, "flag-flip: dismiss() still tears the overlay down after the flag is off")
+	Feat.FLAGS["ftue_hand_hint"] = true
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

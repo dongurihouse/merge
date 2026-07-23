@@ -446,6 +446,7 @@ func _hint_pair() -> Array:
 
 func _maybe_hand_hint() -> void:
 	if not Features.on("ftue_hand_hint"):
+		_dismiss_hand_hint()   # the flag can flip off while a hint is live — tear it down, not stuck forever
 		return
 	await get_tree().process_frame          # let the rebuild's layout settle before reading rects
 	if not is_inside_tree():
@@ -517,13 +518,13 @@ func _dismiss_hand_hint() -> void:
 
 # The taught action HAPPENED — bank it and hand off to the next teach.
 func _end_hand_hint(id: String) -> void:
-	if not Features.on("ftue_hand_hint"):
+	if _hand_hint_id == id:
+		_dismiss_hand_hint()   # tear down before the flag check — a live hint must clear even if the
+	if not Features.on("ftue_hand_hint"):   # flag flipped off since it was shown (e.g. a real merge)
 		return
 	if Save.ftue_seen(id):
 		return
 	Save.mark_ftue_seen(id)
-	if _hand_hint_id == id:
-		_dismiss_hand_hint()
 	_maybe_hand_hint()
 
 # --- display orientation -------------------------------------------------------------
