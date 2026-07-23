@@ -108,6 +108,10 @@ const PURGE_DIM := Color(0.62, 0.62, 0.62, 0.85)  # an inert (endgame) fence car
 # affordance family (bright = tappable), just a deeper "paused" read for the harder stop.
 const GEN_DIM := Color(1, 1, 1, 0.5)
 const GEN_LIT := SHADE_LIT
+# A generator whose LINE no open quest asks for FADES OUT — it can still pop (free while faded),
+# but the eye lands on the generators the fence actually wants right now. Deeper than the paused
+# dim (it is "not needed", not just "stopped"). Accumulators (utility, never asked) stay exempt.
+const GEN_UNUSED := Color(1, 1, 1, 0.35)
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
@@ -1282,6 +1286,7 @@ func _refresh_giver_lights() -> void:
 			FX.breathe_once(chip)
 	_reorder_giver_row()                          # float any now-deliverable card to the front (display-only)
 	_refresh_quest_ready_marks()                  # board-side twin: glow every board tile a live quest wants
+	_refresh_generator_dim()                      # quest-unused generators fade — re-read on the same beat
 
 # The asked item codes (line*100+tier) the live fence currently wants, as a set. Empty while the fence
 # is INERT (the bank can finish the map → quests greyed, nothing deliverable), so the glow AND the
@@ -1380,10 +1385,22 @@ func _refresh_generator_dim() -> void:
 		return
 	var lit := not board.empty_ground_cells().is_empty()
 	var m := GEN_LIT if lit else GEN_DIM
-	for gn in gen_nodes.values():
-		if gn != null and is_instance_valid(gn):
-			gn.modulate = m
-	if gen_node != null and is_instance_valid(gen_node):
+	# the LINES the open fence asks for — a line-producing generator no quest wants fades out
+	# (GEN_UNUSED). Empty set (the rare no-quest window) → nothing fades; accumulators are exempt.
+	var asked_lines := {}
+	for l in _open_quest_lines():
+		asked_lines[int(l)] = true
+	for cell in gen_nodes:
+		var gn: Control = gen_nodes[cell]
+		if gn == null or not is_instance_valid(gn):
+			continue
+		var gid := String(board.gens.get(cell, ""))
+		var unused := not asked_lines.is_empty() and gid != "" and not G.is_accumulator(gid) \
+			and not asked_lines.has(int(G.gen_def(G.GENERATORS, gid).get("line", 0)))
+		gn.modulate = GEN_UNUSED if unused else m
+	# gen_node ALIASES the first entry of gen_nodes (see _rebuild_all) — writing it here again would
+	# stomp the quest fade the loop just applied. Only a standalone legacy node still takes the plain m.
+	if gen_node != null and is_instance_valid(gen_node) and not gen_nodes.values().has(gen_node):
 		gen_node.modulate = m
 
 # §6 boost indicator — the on-board "this generator is boosted" marker. While a boost is live, every
