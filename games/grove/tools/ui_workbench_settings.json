@@ -115,6 +115,13 @@
 		"empty_font": 40.0,
 		"shadow": true
 	},
+	"dialog_cell": {
+		"item_shadow_alpha": 30.0,
+		"item_shadow_blur": 20.0,
+		"item_shadow_offset_x": 5.0,
+		"item_shadow_offset_y": 8.0,
+		"item_shadow_spread": -4.0
+	},
 	"focus_ring": {
 		"arm_pct": 14.0,
 		"color": "e2a93d",

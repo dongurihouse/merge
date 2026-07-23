@@ -4900,6 +4900,7 @@ static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	# only its own layout knobs below.
 	var slot := tier_cell_opts_from_config(cfg)
 	o.merge(slot, true)
+	o.merge(dialog_cell_shadow_opts(cfg, slot), true)   # dialog-scoped cast (big cell, big icon)
 	var t: Dictionary = cfg.get("tiers", {})
 	# discovery's OWN cell knobs: the square tile size, plain tier number, and marked-tier sparkle
 	o["cell_w"] = float(t.get("cell_w", 150))
@@ -6120,7 +6121,9 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 ## daily/settings dialogs. Used by the workbench preview AND the game (engine/scripts/ui/bag_overlay.gd).
 static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
-	o.merge(shared_torn_slot_opts_from_config(cfg), true)
+	var slot := shared_torn_slot_opts_from_config(cfg)
+	o.merge(slot, true)
+	o.merge(dialog_cell_shadow_opts(cfg, slot), true)      # dialog-scoped cast (bigger cells than the board)
 	o["pill"] = gold_currency_pill_opts_from_config(cfg)   # the reused gold pill's style (single-acorn at build time)
 	var bg: Dictionary = cfg.get("bag", {})
 	o["cols"] = int(bg.get("cols", 6))
@@ -6341,14 +6344,38 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## resolves to exactly the one shared cast, and any tuned knob splits just that surface. Alpha is stored
 ## as a percent (like the Shadow item) and returned 0..1; spread is clamped ≤ 0 (see Look.shadow_params).
 static func _giver_surface_shadow(q: Dictionary, prefix: String, cfg: Dictionary) -> Dictionary:
-	var s := Look.shadow_params(cfg)   # the shared cast, already resolved (alpha 0..1)
+	return surface_shadow(q, prefix, Look.shadow_params(cfg))
+
+## ONE per-surface shadow reader: `<prefix>_offset_x|_offset_y|_blur|_spread|_alpha` out of `src`,
+## each falling back to `base` (a resolved shadow-params dict, alpha 0..1). Used by the quest-card
+## surfaces AND the dialog cell override, so a surface's shadow is always the shared cast plus only
+## the knobs it deliberately re-tunes.
+static func surface_shadow(src: Dictionary, prefix: String, base: Dictionary) -> Dictionary:
 	return {
-		"offset_x": float(q.get(prefix + "_offset_x", s.offset_x)),
-		"offset_y": float(q.get(prefix + "_offset_y", s.offset_y)),
-		"blur":     float(q.get(prefix + "_blur", s.blur)),
-		"spread":   minf(float(q.get(prefix + "_spread", s.spread)), 0.0),
-		"alpha":    clampf(float(q.get(prefix + "_alpha", float(s.alpha) * 100.0)) / 100.0, 0.0, 1.0),
+		"offset_x": float(src.get(prefix + "_offset_x", base.offset_x)),
+		"offset_y": float(src.get(prefix + "_offset_y", base.offset_y)),
+		"blur":     float(src.get(prefix + "_blur", base.blur)),
+		"spread":   minf(float(src.get(prefix + "_spread", base.spread)), 0.0),
+		"alpha":    clampf(float(src.get(prefix + "_alpha", float(base.alpha) * 100.0)) / 100.0, 0.0, 1.0),
 	}
+
+## The DIALOG slot-cell shadow overrides (`dialog_cell` block). Dialog grids draw the SAME slot cell
+## as the board but at a much bigger cell (tiers 150² vs the board's 116×120) with a large icon, and
+## the cast is fixed PIXELS — so a shadow tuned on a small board item reads as a tight smudge under a
+## dialog icon. Bag + tiers apply this override; the board keeps the bag_card values. Every key falls
+## back to the board's, so an untuned block leaves the dialogs exactly as they were.
+static func dialog_cell_shadow_opts(cfg: Dictionary, board_opts: Dictionary) -> Dictionary:
+	var d: Dictionary = cfg.get("dialog_cell", {}) if cfg is Dictionary else {}
+	var out := {}
+	var item_base: Dictionary = board_opts.get("content_shadow_params", Look.shadow_params(cfg))
+	out["content_shadow_params"] = surface_shadow(d, "item_shadow", item_base)
+	if d.has("item_shadow"):
+		out["content_shadow"] = bool(d.get("item_shadow"))
+	var cell_base: Dictionary = board_opts.get("shadow_params", Look.shadow_params(cfg))
+	out["shadow_params"] = surface_shadow(d, "cell_shadow", cell_base)
+	if d.has("cell_shadow"):
+		out["cell_shadow"] = bool(d.get("cell_shadow"))
+	return out
 
 ## The QUEST-GIVER card layout fractions from a saved config — the workbench's quest_card block (percent
 ## ints) → the `lay` dict GiverStand.make reads (cfg.lay). `item_size` drives a SQUARE item (item_w ==

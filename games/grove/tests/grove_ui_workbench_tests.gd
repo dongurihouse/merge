@@ -35,6 +35,7 @@ func _initialize() -> void:
 	_quest_card_shadow_blur_shape_and_card_cast()
 	_shared_shadow_spread_outruns_offset()
 	_torn_cell_page_hides_knobs_the_face_ignores()
+	_dialog_cells_cast_independently_of_the_board()
 	_gold_pill_backer_tracks_face_width()
 	_shared_progress_bar_exposes_fill_geometry_and_shadow()
 	_level_dialog_uses_shared_progress_bar_with_runtime_shadows()
@@ -422,6 +423,38 @@ func _quest_card_shadow_blur_shape_and_card_cast() -> void:
 	card_on.free()
 	card_off.free()
 	plq.free()
+func _dialog_cells_cast_independently_of_the_board() -> void:
+	# Dialog grids draw the SAME slot cell at a much bigger size (tiers 150² vs the board's 116×120)
+	# with a big icon, but the cast is fixed PIXELS — so one shared set can't serve both, and the
+	# board's values read as a tight smudge under a dialog icon. bag + tiers take an override.
+	var cfg := {
+		"shadow": {"offset_x": 0, "offset_y": 6, "blur": 8, "spread": -6, "alpha": 30},
+		"bag_card": {"item_shadow_x": 3, "item_shadow_y": 4, "item_shadow_blur": 13,
+			"item_shadow_spread": -3, "item_shadow_alpha": 40},
+		"dialog_cell": {"item_shadow_offset_x": 5, "item_shadow_offset_y": 8, "item_shadow_blur": 20,
+			"item_shadow_spread": -4, "item_shadow_alpha": 30},
+	}
+	var board: Dictionary = Kit.board_cell_opts_from_config(cfg).content_shadow_params
+	var bag: Dictionary = Kit.bag_opts_from_config(cfg).content_shadow_params
+	var tiers: Dictionary = Kit.tiers_opts_from_config(cfg).content_shadow_params
+	ok(is_equal_approx(float(board.blur), 13.0) and is_equal_approx(float(board.offset_y), 4.0),
+		"the board cell keeps the bag_card item cast")
+	ok(is_equal_approx(float(bag.blur), 20.0) and is_equal_approx(float(bag.offset_y), 8.0),
+		"the bag dialog takes the dialog_cell override")
+	ok(is_equal_approx(float(tiers.blur), 20.0) and is_equal_approx(float(tiers.offset_y), 8.0),
+		"the discovery/tiers dialog takes the same dialog_cell override")
+	ok(not is_equal_approx(float(board.blur), float(tiers.blur)),
+		"board and dialog casts are genuinely separate (tuning one cannot move the other)")
+	# an ABSENT override must leave the dialogs exactly as the board — no silent restyle
+	var bare := {"bag_card": {"item_shadow_x": 3, "item_shadow_y": 4, "item_shadow_blur": 13,
+		"item_shadow_spread": -3, "item_shadow_alpha": 40}}
+	var bare_board: Dictionary = Kit.board_cell_opts_from_config(bare).content_shadow_params
+	var bare_tiers: Dictionary = Kit.tiers_opts_from_config(bare).content_shadow_params
+	ok(is_equal_approx(float(bare_tiers.blur), float(bare_board.blur))
+		and is_equal_approx(float(bare_tiers.offset_y), float(bare_board.offset_y))
+		and is_equal_approx(float(bare_tiers.alpha), float(bare_board.alpha)),
+		"with no dialog_cell block the dialogs inherit the board cast unchanged")
+
 func _torn_cell_page_hides_knobs_the_face_ignores() -> void:
 	# With paper sprites ON the face is baked art, so the code-drawn knobs (card colour, cut-paper
 	# edge + its Shadow Reach/Strength/Blur, inner well, lock icon) drive a CutPaperPanel that is

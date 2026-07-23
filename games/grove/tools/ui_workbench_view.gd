@@ -380,10 +380,17 @@ func _default_params() -> Dictionary:
 		# (target "bag_card" rows), kept here so the values persist and the game keeps its reader.
 		"bag_card": {"cell_w": 116, "cell_h": 120,
 			"content_frac": 62, "shadow": true, "cell_shadow": true,
+			# NOTE: the DIALOG cells' cast is the separate "dialog_cell" block below — the bag/discovery
+			# grids are much bigger than a board cell, so a fixed-px cast can't serve both.
 			"item_shadow_x": 0, "item_shadow_y": 5, "item_shadow_blur": 6, "item_shadow_spread": -2, "item_shadow_alpha": 20,
 			"cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44},
 		# the CODE-DRAWN torn cell — outer rugged cream card (shared cut-paper keys) + inner rugged green well
 		# + a top inner shadow. All tunable; cell_w/cell_h size the preview.
+		# the DIALOG slot-cell shadow override (bag + discovery grids). Edited on the Torn cell page;
+		# every key falls back to bag_card's, so these values ARE the shipped dialog cast. Scaled up
+		# from the board's (3/4/13/-3/40) because a dialog cell is ~1.3x a board cell with a big icon.
+		"dialog_cell": {"item_shadow_offset_x": 5, "item_shadow_offset_y": 8,
+			"item_shadow_blur": 20, "item_shadow_spread": -4, "item_shadow_alpha": 30},
 		"torn_cell": {"cell_w": 132, "cell_h": 132,
 			"deckle": true, "corner": 18, "deckle_amp": 5, "deckle_freq": 6, "rim_width": 2, "rim_color": "E7D6BC",
 			"edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
@@ -1863,6 +1870,17 @@ func _element_sidebar(_id: String) -> void:
 				_sidebar_body.add_child(_slider_row(["lock_frac", 20, 90], "torn_cell"))
 				_sidebar_body.add_child(_slider_row(["lock_shadow_dy", 0, 24], "torn_cell"))
 				_sidebar_body.add_child(_slider_row(["lock_shadow_strength", 0, 60], "torn_cell"))
+			_section_header("Dialog cells — shadow override")
+			# Dialog grids (bag, discovery/tiers) draw this SAME cell at a much bigger size with a big
+			# icon, and the cast is fixed pixels — so the board's values read as a tight smudge there.
+			# These override ONLY the dialogs; blank/untouched keys inherit the board's numbers above.
+			_note("Bag + discovery cells are larger than the board's, so their cast is tuned here. "
+				+ "The board keeps the Item shadow values above.")
+			_sidebar_body.add_child(_slider_row(["item_shadow_offset_x", -40, 40], "dialog_cell"))
+			_sidebar_body.add_child(_slider_row(["item_shadow_offset_y", -40, 40], "dialog_cell"))
+			_sidebar_body.add_child(_slider_row(["item_shadow_blur", 0, 40], "dialog_cell"))
+			_sidebar_body.add_child(_slider_row(["item_shadow_spread", -20, 0], "dialog_cell"))
+			_sidebar_body.add_child(_slider_row(["item_shadow_alpha", 0, 80], "dialog_cell"))
 			_section_header("Cell drop shadow")
 			# the cell's cast IS the shared box-shadow (applies to BOTH faces) — tuned on the
 			# Shadow page; this toggle just turns it off for cells.
