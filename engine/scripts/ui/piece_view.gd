@@ -134,6 +134,8 @@ const SHADOW_LIFTED := {"w": 0.62, "h": 0.17, "y": 0.74, "a": 0.24}    # wide, l
 static func _add_contact_shadow(holder: Control, size: float) -> void:
 	if not Features.on("item_backing"):
 		return
+	if not bool(_item_shadow_cfg().get("on", true)):
+		return   # the Slot cell's standard Shadow toggle governs item shadows EVERYWHERE, the board included
 	var back := TextureRect.new()
 	back.name = SHADOW_NAME
 	back.texture = backing_tex()
@@ -152,6 +154,44 @@ static func _apply_shadow(back: TextureRect, size: float, p: Dictionary) -> void
 	back.size = Vector2(w, h)
 	back.modulate = Color("#3E342A", float(p["a"]))
 
+# The saved ITEM-shadow config (the Slot cell's standard item_shadow_* knobs) — ONE source for the
+# shadow under an item in ANY cell: the dialogs' slot cells read it through bag_card_opts_from_config,
+# and the board pieces read it here. `item_shadow_override` lets tests inject params without a config
+# file on disk (empty = read the saved workbench config, cached by Kit.load_config).
+static var item_shadow_override: Dictionary = {}
+static func _item_shadow_cfg() -> Dictionary:
+	if not item_shadow_override.is_empty():
+		return item_shadow_override
+	var Kit: GDScript = load(KIT_PATH)
+	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return {"on": bool(opts.get("content_shadow", true)), "params": opts.get("content_shadow_params", {})}
+
+# Reshape the ellipse ContactShadow into the item's OWN silhouette — the shape-true stamp the Slot cell
+# bakes (Kit.item_shadow_stamp, the standard item_shadow_* params), fitted exactly under the drawn art.
+# Falls back silently (keeps the ellipse) when the art has no readable image (headless dummy renderer).
+static func _shape_contact_shadow(holder: Control, tex: Texture2D, size: float, inset: float) -> void:
+	var back := holder.get_node_or_null(NodePath(SHADOW_NAME))
+	if not (back is TextureRect) or tex == null:
+		return
+	var ts := tex.get_size()
+	if ts.x <= 0.0 or ts.y <= 0.0:
+		return
+	var Kit: GDScript = load(KIT_PATH)
+	var box := maxf(1.0, size - inset * 2.0)
+	var fit_scale := minf(box / ts.x, box / ts.y)
+	var fit_sz := ts * fit_scale
+	var fit_pos := Vector2(inset, inset) + (Vector2(box, box) - fit_sz) * 0.5
+	var stamp: Dictionary = Kit.item_shadow_stamp(tex, fit_sz, _item_shadow_cfg().get("params", {}))
+	if stamp.is_empty():
+		return
+	var pad := float(stamp.pad)
+	back.texture = stamp.texture
+	back.stretch_mode = TextureRect.STRETCH_SCALE
+	back.position = fit_pos - Vector2(pad, pad)
+	back.size = fit_sz + Vector2(pad, pad) * 2.0
+	back.modulate = Color.WHITE
+	back.set_meta("rest_pos", back.position)   # set_lifted shifts from here (silhouette mode)
+
 # Flip a built piece / generator between RESTING and LIFTED. The board calls this on pickup
 # (lifted = true) and on drop (lifted = false). The art RISES and the shadow drops + spreads so
 # the item visibly lifts OFF the board; both settle back on drop. No-ops for parts it can't find.
@@ -159,7 +199,12 @@ static func set_lifted(holder: Control, lifted: bool) -> void:
 	var size := holder.size.x
 	var rise := size * LIFT_RISE if lifted else 0.0
 	var back := holder.get_node_or_null(NodePath(SHADOW_NAME))
-	if back is TextureRect:
+	if back is TextureRect and back.has_meta("rest_pos"):
+		# silhouette mode: the shadow stays put on the ground while the art rises — just soften it
+		var rest: Vector2 = back.get_meta("rest_pos")
+		back.position = rest + (Vector2(0.0, size * LIFT_RISE * 0.5) if lifted else Vector2.ZERO)
+		back.modulate = Color(1.0, 1.0, 1.0, 0.8 if lifted else 1.0)
+	elif back is TextureRect:
 		_apply_shadow(back, size, SHADOW_LIFTED if lifted else SHADOW_RESTING)
 	var art := holder.get_node_or_null(NodePath(ART_NAME))
 	if art is Control and art.has_meta("inset_px"):
@@ -195,6 +240,8 @@ static func _add_sprite(holder: Control, tex: Texture2D, size: float, inset_frac
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(t)
+	# now that the art is known, restamp the contact shadow to ITS silhouette (shape-true)
+	_shape_contact_shadow(holder, tex, size, inset)
 
 # The SHARED cell seam for art that ISN'T a board code (e.g. a resident sprite resolved by
 # G.resident_art, not G.item_tex_path). Builds the SAME holder + contact shadow + centered sprite as a
