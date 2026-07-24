@@ -102,7 +102,6 @@ const STRAW = Pal.STRAW
 # "step back" read — a soft difference, never harsh — so the eye lands on what's live.
 const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
 const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
-const PURGE_DIM := Color(0.62, 0.62, 0.62, 0.85)  # an inert (endgame) fence card — greyed (no padlock)
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
@@ -747,6 +746,73 @@ func _sanitize_seen(g: Dictionary) -> bool:
 		g["seen"] = out
 	return changed
 
+# A saved quest asks for a line the player should not have reached yet (either its single `line`, or any
+# `asks[]` entry) — see G.line_gated_out. Mirrors _quest_items_are_known's dual shape.
+func _quest_line_gated_out(q: Dictionary, level: int) -> bool:
+	if q.has("line") and G.line_gated_out(int(q.get("line", 0)), level):
+		return true
+	for ask in Array(q.get("asks", [])):
+		if ask is Dictionary and G.line_gated_out(int((ask as Dictionary).get("line", 0)), level):
+			return true
+	return false
+
+# Save migration (2026-07-23, scene-aligned ZONE_UNLOCK_LEVEL cadence): strip every generator, item and
+# quest for a line the player should NOT have reached yet at their CURRENT level, so an older save matches
+# the new pacing. Silent removal, no compensation (owner call). IDEMPOTENT — a no-op on any save already
+# consistent with the cadence (birth-on-tap only ever grants in-cadence content; every new save starts
+# clean), so it runs on every load with no schema bump and no one-time flag. Exempt (never gated out):
+# coins, treasure/treat lines and special drops (zone_of_line == -1), accumulator generators, and the gen_1
+# anchor (zone 0 unlocks at L1). Returns true if anything was removed (→ the caller re-persists).
+func _purge_above_level_content() -> bool:
+	var lvl := _quest_level()
+	var changed := false
+	# board pieces
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			var code := board.item_at(cell)
+			if code > 0 and G.line_gated_out(BoardModel.line_of(code), lvl):
+				board.take(cell)
+				changed = true
+	# live generators on the board (accumulators + the anchor never gate out)
+	for cell in board.gens.keys():
+		var gid := String(board.gens[cell])
+		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
+			board.remove_gen(cell)
+			changed = true
+	# stored generators — filter the PARALLEL bag arrays (ids ∥ tiers ∥ boost) in lockstep
+	var kept_ids: Array = []
+	var kept_tiers: Array = []
+	var kept_boost: Array = []
+	for i in board.gen_bag.size():
+		var gid := String(board.gen_bag[i])
+		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
+			changed = true
+			continue
+		kept_ids.append(board.gen_bag[i])
+		kept_tiers.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
+		kept_boost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
+	board.gen_bag = kept_ids
+	board.gen_bag_tiers = kept_tiers
+	board.gen_bag_boost = kept_boost
+	# stashed items in the item bag
+	var kept_bag: Array = []
+	for code in bag:
+		if G.line_gated_out(BoardModel.line_of(int(code)), lvl):
+			changed = true
+		else:
+			kept_bag.append(code)
+	bag = kept_bag
+	# live quests asking for a now-too-advanced line (the fence refills with valid lines after)
+	var kept_quests: Array = []
+	for q in quests:
+		if q is Dictionary and _quest_line_gated_out(q, lvl):
+			changed = true
+		else:
+			kept_quests.append(q)
+	quests = kept_quests
+	return changed
+
 func _load_state() -> void:
 	board = BoardModel.new()
 	var now := Time.get_unix_time_from_system()
@@ -761,6 +827,9 @@ func _load_state() -> void:
 		var bag_clean := _sanitize_saved_item_bag(Array(g.get("bag", [])))
 		bag = bag_clean["items"]
 		save_dirty = bool(bag_clean["changed"]) or save_dirty
+		# strip any generator/item/quest above the player's level under the scene-aligned cadence (migrates
+		# older saves; idempotent no-op once clean). Runs after the board + quests + bag are loaded.
+		save_dirty = _purge_above_level_content() or save_dirty
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
 		refills_used = int(g.get("refills_used", 0))
@@ -865,10 +934,6 @@ func _quest_map() -> int:
 
 func _quest_level() -> int:
 	return G.level()
-
-# §7 fence sizing: how many stands the fence shows, metered to the remaining content arc.
-func _meter_target() -> int:
-	return Quests.meter_target(_earned())
 
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via the rng.
@@ -1098,12 +1163,10 @@ func _active_quest_idx() -> Array:
 		out.append(i)
 	return out
 
-# A quest is "ready" (deliverable) when its single asked item is on the board RIGHT NOW and the fence is
-# not inert — the SAME notion the giver ✓/bob read (BoardLogic.quest_payable, gated by _quest_is_inert).
+# A quest is "ready" (deliverable) when its single asked item is on the board RIGHT NOW — the SAME
+# notion the giver ✓/bob read (BoardLogic.quest_payable). Quests are endless; none are ever inert.
 func _quest_ready(qi: int) -> bool:
 	if qi < 0 or qi >= quests.size():
-		return false
-	if _quest_is_inert(qi):
 		return false
 	return BoardLogic.quest_payable(board, quests[qi])
 
@@ -1378,20 +1441,6 @@ func _giver_is_payable(e: Dictionary) -> bool:
 
 func _refresh_giver_lights() -> void:
 	for e in giver_chips:
-		# req 1: once the bank can finish the whole map the fence goes GREYED + inert instead of empty —
-		# dim the card, drop its ready ✓ + bob, and the tap handlers no-op (see _quest_is_inert).
-		if _quest_is_inert(int(e.get("qi", -1))):
-			e["ready"] = false                  # inert quests never float to the front
-			var ichip: Control = e.chip
-			ichip.modulate = PURGE_DIM
-			var iitem: Dictionary = e.get("item", {})
-			var imet: Control = iitem.get("met")
-			if imet != null and is_instance_valid(imet):
-				imet.visible = false
-			var ibust: Control = e.get("bust")
-			if ibust != null and is_instance_valid(ibust):
-				GiverStand.bob(ibust, false)
-			continue
 		var lit := _giver_is_payable(e)
 		e["ready"] = lit                        # deliverable → floats to the front of the fence (see _reorder_giver_row)
 		var ready_ui := lit and Features.on("quest_ready_check")
@@ -1415,24 +1464,19 @@ func _refresh_giver_lights() -> void:
 	_refresh_generator_dim()                      # quest-unused generators fade — re-read on the same beat
 	_refresh_item_line_dim()                      # ...and quest-unused LINE items grey out on the same beat
 
-# The asked item codes (line*100+tier) the live fence currently wants, as a set. Empty while the fence
-# is INERT (the bank can finish the map → quests greyed, nothing deliverable), so the glow AND the
-# tap-to-deliver both fall quiet together — the SAME gate the giver ✓/bob read.
+# The asked item codes (line*100+tier) the live fence currently wants, as a set. The fence is endless,
+# so this always reflects the current asks — the glow and the tap-to-deliver track them directly.
 func _asked_codes() -> Dictionary:
 	var out := {}
-	if Quests.fence_inert(_earned()):
-		return out
 	for q in quests:
 		var it := G.quest_item(q)
 		if not it.is_empty():
 			out[int(it.line) * 100 + int(it.tier)] = true
 	return out
 
-# The index of the first live, non-inert quest asking for `code` (the leftmost giver in fence order),
-# or -1 when nothing wants it. Drives the board-side second-tap: a focused, glowing tile delivers here.
+# The index of the first live quest asking for `code` (the leftmost giver in fence order), or -1 when
+# nothing wants it. Drives the board-side second-tap: a focused, glowing tile delivers here.
 func _quest_for_code(code: int) -> int:
-	if Quests.fence_inert(_earned()):
-		return -1
 	for i in quests.size():
 		var it := G.quest_item(quests[i])
 		if not it.is_empty() and int(it.line) * 100 + int(it.tier) == code:
@@ -3677,17 +3721,7 @@ func _end_bag_drag(gpos: Vector2) -> void:
 # the board, so the per-item ✓ is up) the tap DELIVERS it — the same path the stand-body tap takes —
 # instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
 # still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
-# req 1: a quest is INERT — rendered greyed, taps do nothing (no claim, no ladder) — once the bank can
-# finish the WHOLE current map (Quests.fence_inert). Generators no longer ride a carrier quest, so there
-# is no live-exception: every quest greys together once the map can be finished.
-func _quest_is_inert(qi: int) -> bool:
-	if qi < 0 or qi >= quests.size():
-		return false
-	return Quests.fence_inert(_earned())
-
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
-	if _quest_is_inert(qi):
-		return                                # greyed quest: inert (no claim, no ladder)
 	if qi >= 0 and qi < quests.size() and BoardLogic.quest_payable(board, quests[qi]):
 		_on_giver_tap(qi, chip)
 	else:
@@ -3696,8 +3730,6 @@ func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 func _on_giver_tap(qi: int, chip: Control) -> void:
 	if qi < 0 or qi >= quests.size():
 		return
-	if _quest_is_inert(qi):
-		return                                # greyed quest: not deliverable
 	var q: Dictionary = quests[qi]
 	if not BoardLogic.quest_payable(board, q):
 		FX.wobble(chip)
@@ -3708,7 +3740,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 
 # Board-side delivery (the second-tap affordance): the player tapped an already-focused, glowing tile —
 # hand it to the leftmost giver that wants it, consuming THIS exact tile. No-op when nothing wants it
-# (the fence is inert / the giver card is missing). Mirrors the giver tap, just sourced from the board.
+# (no live quest asks for it / the giver card is missing). Mirrors the giver tap, just sourced from the board.
 func _deliver_from_board(cell: Vector2i) -> void:
 	var qi := _quest_for_code(board.item_at(cell))
 	if qi < 0:

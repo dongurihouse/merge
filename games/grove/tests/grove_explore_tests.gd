@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_rush_lines()
 	_test_scoring()
 	_test_grid()
+	_test_hand_hint_logic()
 	_test_pool_and_box()
 	_test_run_state()
 	_test_trade_count()
@@ -49,6 +50,8 @@ func _initialize() -> void:
 	await _test_home_short_swipe_springs_back()
 	await _test_home_swipe_at_first_page_is_noop()
 	await _test_home_reverse_swipe_springs_back()
+	await _test_endgame_fence_stays_live()
+	await _test_purge_above_level_migration()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -234,6 +237,98 @@ func _test_home_reverse_swipe_springs_back() -> void:
 	ok(map._swipe.is_empty(), "the swipe state is cleared after a reversed swipe")
 	map.queue_free()
 	await process_frame
+
+# ENDLESS FENCE (2026-07-23): the quest fence must stay FULL, full-opacity and interactive far past the
+# old arc-finish threshold — the "endgame quiet" grey-out (fence_inert) is retired. This boots a real
+# board at a deep-endgame coin clock and asserts every giver card renders un-greyed and the fence still
+# actively wants items (glow + tap-to-deliver live). Guards the exact bug: the whole bar went grey once
+# lifetime earnings crossed the 12-zone roster's end — long before the real map/cluster arc finishes.
+func _test_endgame_fence_stays_live() -> void:
+	fresh("endgame_fence")
+	var g := Save.grove()
+	g["coins_earned"] = G.arc_finish_threshold() * 5   # deep past the old inert threshold
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	ok(Save.coins_earned_lifetime() >= G.arc_finish_threshold(),
+		"setup: earnings sit far past the old arc-finish (inert) threshold")
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	await process_frame
+	scn._refresh_giver_lights()
+	ok(scn.giver_chips.size() >= 1, "the endgame fence still shows live giver cards (never empties)")
+	var all_full := true
+	var worst := ""
+	for e in scn.giver_chips:
+		var c: Control = e.chip
+		if c.modulate.a < 0.99 or c.modulate.r < 0.99 or c.modulate.g < 0.99 or c.modulate.b < 0.99:
+			all_full = false
+			worst = str(c.modulate)
+	ok(all_full, "every endgame giver card renders at full opacity — the fence is never greyed (got %s)" % worst)
+	ok(scn._asked_codes().size() >= 1, "the endgame fence actively wants items (glow + tap-to-deliver stay live)")
+	scn.queue_free()
+
+# SAVE MIGRATION (2026-07-23, scene-aligned cadence): an older save may hold generators/items/quests for
+# lines the player should not have reached yet at their level. board._purge_above_level_content strips them
+# on load. This boots a board at L15, INJECTS too-advanced content (koi = zone 10, unlocks L23) alongside
+# in-cadence content (desert fruits = zone 5, L13; glow = anchor), PERSISTS it as an old save, then reloads
+# through the real _load_state path and asserts the too-advanced content is gone, the valid content stays,
+# the parallel gen-bag arrays stay aligned, and a second pass is a no-op (idempotent).
+func _test_purge_above_level_migration() -> void:
+	fresh("purge_migration")
+	Save.grove()["coins_earned"] = G.coins_at_level(15)   # player at L15 (koi L23 is future, desert L13 is past)
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	ok(G.level() == 15, "setup: the player is at L15")
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	await process_frame
+	# use the always-open centre cells (MIN_LEVEL 0), cleared first, so injection doesn't depend on the deal
+	var c_koi := Vector2i(3, 2)
+	var c_desert := Vector2i(3, 4)
+	var c_glow := Vector2i(5, 2)
+	var c_gen := Vector2i(5, 4)
+	for cell in [c_koi, c_desert, c_glow, c_gen]:
+		scn.board.take(cell)
+	scn.board.place(c_koi, 1801)             # koi t1 — GATED at L15 (zone 10, L23)
+	scn.board.place(c_desert, 601)           # desert fruits t1 — valid at L15 (zone 5, L13)
+	scn.board.place(c_glow, 101)             # glow-mushrooms t1 — valid (anchor)
+	scn.board.place_gen("gen_18", c_gen)     # koi generator — GATED
+	scn.board.gen_bag = ["gen_18", "gen_6"]  # a gated koi + an in-cadence desert generator
+	scn.board.gen_bag_tiers = [1, 1]
+	scn.board.gen_bag_boost = [0, 0]
+	scn.bag = [1801, 101]                     # a gated koi item + a valid glow item stashed
+	scn.quests = [{"line": 18, "tier": 1, "giver": 0}, {"line": 1, "tier": 1, "giver": 1}]  # koi quest (gated) + glow (valid)
+	scn._persist()                            # write it all as an "old save"
+	scn._load_state()                         # reload through the real migration path
+	await process_frame
+	var koi_on_board := false
+	var desert_on_board := false
+	for r in G.ROWS:
+		for c in G.COLS:
+			var code: int = scn.board.item_at(Vector2i(r, c))
+			if code == 1801:
+				koi_on_board = true
+			if code == 601:
+				desert_on_board = true
+	ok(not koi_on_board, "migration removes the too-advanced koi piece from the board")
+	ok(desert_on_board, "migration keeps the in-cadence desert-fruits piece")
+	ok(not scn.board.gens.values().has("gen_18"), "migration removes the too-advanced koi generator")
+	ok(scn.board.gens.values().has("gen_1"), "migration keeps the anchor generator")
+	ok(not scn.board.gen_bag.has("gen_18") and scn.board.gen_bag.has("gen_6"), "migration prunes the gen_bag — drops koi, keeps desert")
+	ok(scn.board.gen_bag.size() == scn.board.gen_bag_tiers.size() and scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag arrays stay aligned after the prune")
+	ok(not scn.bag.has(1801) and scn.bag.has(101), "migration prunes the item bag — drops koi, keeps glow")
+	var quest_lines: Array = []
+	for q in scn.quests:
+		quest_lines.append(int(q.get("line", -1)))
+	ok(not quest_lines.has(18), "migration drops the too-advanced koi quest (the fence refills with valid lines)")
+	ok(not scn._purge_above_level_content(), "the migration is idempotent — a second pass removes nothing")
+	scn.queue_free()
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.
@@ -614,6 +709,16 @@ func _test_rush_lines() -> void:
 	ok(Explore.seen_lines({"101": true, "207": true, "201": true, "301": true}) == [1, 2, 3],
 		"seen codes collapse to their sorted, deduped lines")
 	ok(Explore.seen_lines({"7105": true}) == [71], "a seen treat line counts too (any line ever seen)")
+	# A SPECIAL drop line (chest=10, water=12, acorn=13; only SPECIAL_TOP=3 tiers) must NOT seed a Rush:
+	# Rush merges climb to MAX_TIER, so a short line would render its placeholder disc past tier 3.
+	ok(Explore.seen_lines({"1001": true, "101": true}) == [1],
+		"a special drop line (chest, 3 tiers) is dropped — it can't climb to the Rush's MAX_TIER")
+	ok(Explore.seen_lines({"1301": true, "1201": true}).is_empty(),
+		"acorn-drop + water specials are both dropped from the Rush pool")
+	# every line the Rush DOES keep has art all the way to MAX_TIER (no placeholder disc mid-run)
+	for ln in Explore.seen_lines({"101": true, "201": true, "301": true, "1001": true, "7105": true}):
+		ok(G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER),
+			"kept Rush line %d is valid at MAX_TIER" % int(ln))
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12345
@@ -636,6 +741,18 @@ func _test_rush_lines() -> void:
 	ok((cfg.lines as Array).size() == 3, "rush_cfg draws 3 lines from the seen pool")
 	var focus_cfg: Dictionary = Explore.rush_cfg({"focus": true}, seen5, rng)
 	ok((focus_cfg.lines as Array).size() == 2, "the focus boost narrows the seen draw to 2 lines")
+
+	# End-to-end: a seen set polluted with SHORT special drops (chest=10, acorn=13) must still yield a
+	# pool where EVERY line renders cleanly up to MAX_TIER — a spawn/merge/reroll can never hit a
+	# placeholder disc. (This is the real config explore_rush.gd consumes.)
+	var seen_specials := {"101": true, "201": true, "301": true, "1001": true, "1301": true}
+	var all_deep := true
+	for _i in 12:                                    # sample many random draws — none may include a short line
+		var scfg: Dictionary = Explore.rush_cfg({}, seen_specials, rng)
+		for ln in scfg.lines:
+			if not G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER):
+				all_deep = false
+	ok(all_deep, "rush_cfg never puts a short special line (chest/acorn) into the play pool")
 
 # --- Rush scoring: non-linear value, combo, multiplier, spawn cadence -------------
 func _test_scoring() -> void:
@@ -699,6 +816,43 @@ func _test_grid() -> void:
 	g5[0][0] = {"kind": "leaf", "tier": 1}
 	g5[0][1] = {"kind": "leaf", "tier": 1}
 	ok(Explore.board_full(g5), "board_full is true when every cell is occupied")
+
+# --- FTUE hand-hint eligibility (the pure seam behind explore_rush.gd's teaches) --
+func _test_hand_hint_logic() -> void:
+	# first_mergeable: finds the first row-major mergeable cell
+	var g := _grid(3, 3)
+	g[2][0] = {"kind": 1, "tier": 1}
+	g[2][1] = {"kind": 1, "tier": 1}
+	ok(Explore.first_mergeable(g) == Vector2i(2, 0), "first_mergeable returns the first cell of a mergeable pair")
+	# no pair -> (-1,-1)
+	g[2][1] = {"kind": 2, "tier": 1}
+	ok(Explore.first_mergeable(g) == Vector2i(-1, -1), "first_mergeable is (-1,-1) with no mergeable pair")
+	# MAX_TIER cells cannot merge, so a maxed matching pair is not mergeable
+	var gm := _grid(3, 3)
+	gm[2][0] = {"kind": 1, "tier": Explore.MAX_TIER}
+	gm[2][1] = {"kind": 1, "tier": Explore.MAX_TIER}
+	ok(Explore.first_mergeable(gm) == Vector2i(-1, -1), "first_mergeable skips a MAX_TIER pair (cannot merge)")
+
+	# bottom_filled: lowest filled row in the column, -1 when empty
+	var gb := _grid(3, 2)
+	gb[1][0] = {"kind": 1, "tier": 1}
+	gb[2][0] = {"kind": 1, "tier": 1}
+	ok(Explore.bottom_filled(gb, 0) == 2, "bottom_filled returns the lowest filled row")
+	ok(Explore.bottom_filled(gb, 1) == -1, "bottom_filled is -1 for an empty column")
+
+	# rush_hint_id ordering
+	ok(Explore.rush_hint_id(false, false, true, true, true) == "rush_treefall",
+		"treefall wins during a telegraph, even with an unseen merge and a live pair")
+	ok(Explore.rush_hint_id(false, false, false, true, false) == "rush_merge",
+		"merge shows when no telegraph is active")
+	ok(Explore.rush_hint_id(false, false, true, true, false) == "rush_merge",
+		"a telegraph with no doomed tile falls through to the merge teach")
+	ok(Explore.rush_hint_id(false, true, true, true, true) == "rush_merge",
+		"a seen treefall during a telegraph falls through to the merge teach")
+	ok(Explore.rush_hint_id(true, false, false, true, false) == "",
+		"nothing when merge is seen and no telegraph")
+	ok(Explore.rush_hint_id(false, false, false, false, false) == "",
+		"nothing when there is no mergeable pair and no telegraph")
 
 # --- the box seam: unlocked pool + roll ------------------------------------------
 func _test_pool_and_box() -> void:
@@ -908,6 +1062,26 @@ func _test_screens() -> void:
 			s._ready()
 		ok(s.get_child_count() > 0, "%s builds a non-empty tree" % String(path).get_file())
 		s.queue_free()
+
+	# regression (2026-07-23): a seen set polluted with a SHORT special drop (chest=10, 3 tiers) must not
+	# leak it into the live scene's play pool — every _cfg line has to render up to MAX_TIER, or a merge
+	# would show PieceView's placeholder disc (the "no icon" tile the owner reported).
+	fresh("explore_short_line_pool")
+	var sg := Save.grove()
+	sg["seen"] = {"101": true, "201": true, "301": true, "1001": true, "1301": true}   # 3 base lines + chest + acorn-drop
+	Save.grove_write()
+	Explore.begin_run({})
+	var rs = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(rs)
+	if rs.get_child_count() == 0:
+		rs._ready()
+	var clean := true
+	for ln in rs._cfg.lines:
+		if not G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER):
+			clean = false
+	ok(clean and not (rs._cfg.lines as Array).has(10) and not (rs._cfg.lines as Array).has(13),
+		"the live Rush scene's play pool excludes short special lines (no placeholder tile)")
+	rs.queue_free()
 
 	# the seam: opening the reward OVERLAY converts the run score DIRECTLY into hand spirits
 	fresh("explore_reward_seam")

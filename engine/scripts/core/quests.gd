@@ -20,24 +20,22 @@ const G = preload("res://engine/scripts/core/content.gd")
 static func current_band(level: int) -> int:
 	return G.zone_map(G.quest_zone_for_level(level))
 
-# §7 fence sizing: how many stands the fence shows, metered to the remaining CONTENT ARC (the
-# zone ladder's finish threshold). The fence stays full through the game (active_giver_count
-# clamps at MAX_GIVERS) and only tapers in the arc's final stretch.
-static func meter_target(earned: int) -> int:
-	return G.active_giver_count(earned, G.arc_finish_threshold())
+# §7 fence sizing: the live fence is ALWAYS as full as the unlocked lines allow — MAX_GIVERS cards
+# (refill then caps this to the current line capacity). Quests are ENDLESS: the fence never tapers
+# and never stops. The old CONTENT-ARC taper + the fence_inert "endgame quiet" greying are retired
+# (2026-07-23, owner call): the quest-zone roster (12 zones, all unlocked by ~L13) is far shorter
+# than the real map/cluster arc (25 clusters → ~L26), so gating the fence on the zone arc greyed it
+# out halfway through the game. The fence now stays full + interactive for the whole arc and past it.
+static func meter_target() -> int:
+	return int(G.MAX_GIVERS)
 
-# §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED +
-# non-interactive instead of emptying — once the whole zone arc is earned (the endgame quiet,
-# the exact point the active meter tapers to 0).
-static func fence_inert(earned: int) -> bool:
-	return earned >= G.arc_finish_threshold()
-
-# The Purge fence card's state. One zone per level means the vase IS the level bar now: it
-# SHOWS while the arc runs, fills toward the NEXT level threshold, and is READY at the brim.
+# The Purge fence card's state. One zone per level means the vase IS the level bar now: it fills
+# toward the NEXT level threshold and is READY at the brim. It ALWAYS shows — levels are unbounded,
+# so there is always a next threshold to advertise (the fence is endless; no endgame quiet).
 # `exp` stays the displayed balance key (the card face reads it verbatim).
 static func purge_state(earned: int) -> Dictionary:
 	return {
-		"show": not fence_inert(earned),
+		"show": true,
 		"ready": purge_progress(earned) >= 1.0,
 		"exp": earned,
 	}
@@ -130,7 +128,7 @@ static func _lines_with_room(lines: Array, quests: Array) -> Array:
 # then gen_quest is drawn once per appended stand, in order. Generators are NO LONGER delivered by a
 # carrier quest — they arrive when a generator tap produces a DUE tool (Quests.due_gen / board.gd), so
 # refill is purely the §7 ask stream now. Returns the new quests array.
-static func refill(quests: Array, band: int, board_gens: Dictionary, gen_bag: Array, earned: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
+static func refill(quests: Array, band: int, board_gens: Dictionary, gen_bag: Array, _earned: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	var out: Array = _cap_quests_per_line(quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))))
 	# Ask from the level-reached line window (the coin clock drives level): a player keeps seeing
 	# new quest lines by earning coins even if they delay building newly affordable structures.
@@ -140,10 +138,8 @@ static func refill(quests: Array, band: int, board_gens: Dictionary, gen_bag: Ar
 	var quest_zone := G.quest_zone_for_level(level)
 	var base_lines := G.quest_base_lines(quest_zone)
 	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
-	# req 1: at the arc's end the active meter is 0 — instead of letting the fence empty, fill it to
-	# a FULL set the board renders GREYED + inert (so it never goes blank under the lit Purge card).
-	var target := int(G.MAX_GIVERS) if fence_inert(earned) else meter_target(earned)
-	target = mini(target, _line_capacity(lines))
+	# The fence is always full (endless quests): MAX_GIVERS, then capped to the unlocked line capacity.
+	var target := mini(meter_target(), _line_capacity(lines))
 	while out.size() < target:
 		var eligible_lines := _lines_with_room(lines, out)
 		if eligible_lines.is_empty():

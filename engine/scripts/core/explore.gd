@@ -75,10 +75,14 @@ static func seen_lines(seen: Dictionary) -> Array:
 	var out: Array = []
 	for k in seen.keys():
 		var line := int(int(k) / 100)
-		# Only lines still in the live content model seed a Rush — a retired line lingering in an old
-		# `seen` set (loaded before the prune migration) must not respawn. Reuse is_valid_item_code (a
-		# tier-1 probe) so the rule is identical to the load-sanitizer and keeps live specials/special-items.
-		if line > 0 and not out.has(line) and G.is_valid_item_code(line * 100 + 1):
+		# A Rush line must be BOTH live in the content model AND deep enough to climb the whole Rush
+		# ladder without going blank. Rush spawns tier 1/2 and merges up to MAX_TIER, rerolling the
+		# result to a random pool line each time — so any line in the pool can be asked to render up to
+		# MAX_TIER. Probing is_valid_item_code at MAX_TIER (not tier 1) drops both a retired line (invalid
+		# at every tier) AND a short SPECIAL drop line (chest/water/acorn top out at SPECIAL_TOP=3): the
+		# latter used to seed the pool via the tier-1 probe and then render PieceView's placeholder disc
+		# once a merge pushed it past tier 3. Base + special-craft + treat lines all reach TOP_TIER (12).
+		if line > 0 and not out.has(line) and G.is_valid_item_code(line * 100 + MAX_TIER):
 			out.append(line)
 	out.sort()
 	return out
@@ -213,6 +217,43 @@ static func board_full(grid: Array) -> bool:
 			if grid[r][c] == null:
 				return false
 	return true
+
+# --- FTUE hand-hint eligibility (pure) -------------------------------------------
+# Which Rush teach should be live, and where it points. Pure (no scene state) so the teach order +
+# targeting are asserted headlessly. Spec: docs/superpowers/specs/2026-07-23-ftue-rush-hand-hint-design.md
+
+## First cell (row-major) that can merge — below MAX_TIER and with a same-kind/same-tier orthogonal
+## neighbour — or (-1,-1) when the board holds no mergeable pair.
+static func first_mergeable(grid: Array) -> Vector2i:
+	var cols := _cols(grid)
+	for r in grid.size():
+		for c in cols:
+			var cell = grid[r][c]
+			if cell == null or int(cell.tier) >= MAX_TIER:
+				continue
+			if neighbor_match(grid, r, c) != Vector2i(-1, -1):
+				return Vector2i(r, c)
+	return Vector2i(-1, -1)
+
+## The lowest filled row in column `col` (the bottom tile the treefall teach points at), or -1 when
+## the column is empty. Gravity packs columns to the bottom, so this is normally the last filled row.
+static func bottom_filled(grid: Array, col: int) -> int:
+	if col < 0 or col >= _cols(grid):
+		return -1
+	for r in range(grid.size() - 1, -1, -1):
+		if grid[r][col] != null:
+			return r
+	return -1
+
+## WHICH Rush teach should be live right now. "" = none. Treefall wins during a telegraph (it is
+## time-critical and self-expiring); the merge teach shows otherwise.
+static func rush_hint_id(merge_seen: bool, treefall_seen: bool, tele_active: bool,
+		has_pair: bool, has_doomed_tile: bool) -> String:
+	if tele_active and not treefall_seen and has_doomed_tile:
+		return "rush_treefall"
+	if not merge_seen and has_pair:
+		return "rush_merge"
+	return ""
 
 # === Unlocked pool (spirits the Trade screen can award) =========================================
 ## The resident KINDS the Trade screen can award: the union of each COMPLETED map's offered lines (core + signature).

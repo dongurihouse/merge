@@ -29,6 +29,7 @@ const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (g
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
+const ZONE_UNLOCK_LEVEL = D.ZONE_UNLOCK_LEVEL   # §7 per-zone unlock LEVEL — the progression cadence dial
 const GEN_TOP_TIER = D.GEN_TOP_TIER
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
@@ -312,6 +313,17 @@ static func zone_of_line(line: int) -> int:
 			return z
 	return -1
 
+# True if `line` is ZONE content (a base or crafted-special line) whose zone unlocks ABOVE `level` — i.e. a
+# generator / line / item the player should NOT have yet under the ZONE_UNLOCK_LEVEL cadence. Non-zone lines
+# (coins, treasure treats, special drops — zone_of_line == -1) are content-neutral and NEVER gated out. The
+# board save-migration (board._purge_above_level_content) uses this to strip too-advanced content from an
+# older save so it matches the scene-aligned pacing.
+static func line_gated_out(line: int, level: int) -> bool:
+	var z := zone_of_line(int(line))
+	if z < 0:
+		return false
+	return zone_unlock_level(z) > int(level)
+
 # The per-line generator def for a base line: {id, line, zone, map}. {} for a special line (no generator).
 static func base_generator(line: int) -> Dictionary:
 	if not ZONE_BASE_LINES.has(int(line)):
@@ -354,9 +366,17 @@ static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
 	return out
 
 # Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
-# opening new zones, the ask pool still advances. Level 1 starts at zone 0; level 2 reaches zone 1.
+# opening new zones, the ask pool still advances. The level→zone map is the ZONE_UNLOCK_LEVEL cadence dial
+# (scene-aligned, 2026-07-23) — the HIGHEST zone whose unlock level the player has reached. Monotonic, so a
+# single forward walk suffices; clamps at zone 0 below the first threshold and the top zone past the arc.
 static func quest_zone_for_level(level: int) -> int:
-	return clampi(int(level) - 1, 0, ZONE_COUNT - 1)
+	var z := 0
+	for i in ZONE_COUNT:
+		if int(level) >= int(ZONE_UNLOCK_LEVEL[i]):
+			z = i
+		else:
+			break
+	return z
 
 # gen redesign (#12, simplified): the BASE lines a quest may ask — a rolling window of the last QUEST_GEN_CAP
 # base lines reached by quest progress (quest_zone_for_level). The window slides with level and can lead the
@@ -644,10 +664,11 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
 	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
-## §7 giver meter: how many giver stands are active for a remaining-exp target —
+## §7 giver meter: how many giver stands would be active for a remaining-exp target —
 ## ≈ ceil((target - earned_exp) / EXP_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
-## target is reached. Quests.meter_target sizes the fence to the WHOLE map's remaining exp, so
-## the fence stays full through the map and only tapers at the very end. target == -1 means done.
+## target is reached (target == -1 means done). The LIVE fence no longer meters against this
+## (quests are endless — Quests.meter_target is a flat MAX_GIVERS); it remains for the offline
+## balance sim (grove_sim), which meters the fence against the next-spot cost.
 static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int = MAX_GIVERS) -> int:
 	if target_exp == -1:
 		return 0
@@ -1434,18 +1455,20 @@ static func earn_coins(n: int) -> int:
 	return level() - before
 
 # --- the zone ladder on the coin clock (the content arc, decoupled from map spots) --------
-# The 25-zone line/generator arc keeps its ONE-ZONE-PER-LEVEL rhythm (the retired per-spot
-# ladder started at L2): zone z unlocks at level 2+z, i.e. at the coins_at_level(2+z)
-# organic-earnings threshold. Buildings (home.gd) are the map surface and gate on their own
-# per-step min_level — they no longer drive the content arc.
+# The LEVEL zone z's line + generator unlocks — the data-driven ZONE_UNLOCK_LEVEL cadence (scene-aligned,
+# 2026-07-23; was the flat 2+z one-zone-per-level ramp that finished at L13, far short of the L26 scene
+# arc). Its coins_at_level(...) is the zone_threshold below. Buildings (home.gd) are the map surface and
+# gate on their own per-step min_level — they no longer drive the content arc.
 static func zone_unlock_level(z: int) -> int:
-	return 2 + z
+	return int(ZONE_UNLOCK_LEVEL[clampi(z, 0, ZONE_COUNT - 1)])
 
 static func zone_threshold(z: int) -> int:
 	return coins_at_level(zone_unlock_level(z))
 
-# The organic-coins threshold at which the WHOLE content arc is earned (the last zone's).
-# The fence meters against this and goes inert past it (the endgame quiet).
+# The organic-coins threshold at which the last QUEST ZONE unlocks (the 12-zone roster's end).
+# NOTE: this is NOT the end of the game — the map/cluster arc runs much longer (25 clusters → ~L26).
+# The live quest fence no longer gates on this (quests are endless, never inert); kept as a content
+# query + for tests. Do not reintroduce it as a fence cutoff — see Quests.meter_target.
 static func arc_finish_threshold() -> int:
 	return zone_threshold(ZONE_COUNT - 1)
 
@@ -1487,7 +1510,7 @@ static func map_next_unlock(z: int, unlocks: Dictionary) -> Dictionary:
 	return best
 
 # The exp at which the WHOLE of map z is claimable = the highest unclaimed threshold.
-# -1 when every spot is claimed. Drives fence_inert.
+# -1 when every spot is claimed. (Legacy helper — the retired fence_inert used to read it.)
 static func map_finish_exp(z: int, unlocks: Dictionary) -> int:
 	var hi := -1
 	for k in MAPS[z].spots.size():

@@ -30,6 +30,8 @@ const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D: the warm streak screen-bloom overlay
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
+const Features = preload("res://engine/scripts/core/features.gd")   # FTUE: gates the Rush hand teaches
+const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")     # FTUE: the reused merge/dodge teach overlay
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const DANGER_CHEVRON_ART := "res://games/grove/assets/ui/meadow_v2/danger_chevron.png"
@@ -106,6 +108,9 @@ var _last_view := Vector2.ZERO         # the last laid-out viewport size (resize
 var _relayout_queued := false          # coalesces a burst of size_changed into one relayout per frame
 var _band: Dictionary = {}             # the resolved per-layout band geometry (_compute_bands)
 var _board_fit: Dictionary = {}        # the board fit for this layout — shared by the bar / activity / hint / chrome
+# FTUE hand hints (spec 2026-07-23-rush): at most one live overlay + which teach it is
+var _hand_hint: Control = null         # the live Rush teach overlay, or null
+var _hand_hint_id := ""                # "rush_merge" / "rush_treefall"
 
 func _ready() -> void:
 	_rng.randomize()
@@ -162,6 +167,7 @@ func _layout() -> void:
 	_apply_treefall_visual()
 	_refresh_readouts()
 	_last_view = get_viewport_rect().size
+	_refresh_hand_hint()                       # FTUE: the teach follows the relaid-out board
 
 # Resolve the rush HUD's band geometry for the current viewport: every Y as a fraction of the screen —
 # the close button + score bar reserved at the top, the activity bar below, the board between, and the
@@ -662,6 +668,7 @@ func _spawn() -> void:
 	_grid[land][c] = {"kind": line, "tier": tier, "node": _make_tile(line, tier, land, c)}
 	if Explore.board_full(_grid):
 		_end()
+	_refresh_hand_hint()                       # FTUE: a new tile may have created the first mergeable pair
 
 func _bottom_empty(c: int) -> int:
 	for r in range(G.ROWS - 1, -1, -1):
@@ -737,6 +744,8 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 		_lbl_score.text = str(Explore.score())
 	_settle()
 	_refresh_readouts()
+	_end_hand_hint("rush_merge")               # FTUE: the first merge banks the merge teach
+	_refresh_hand_hint()                       # ...and re-evaluate (a live treefall teach may need retargeting)
 
 func _fling(rc: Vector2i) -> void:
 	var danger := int(_tf.col) if String(_tf.ph) == "tele" else -1
@@ -757,6 +766,9 @@ func _fling(rc: Vector2i) -> void:
 	# stays in _fly_to (that is feel.move's arc, Phase 5 — untouched here).
 	LaunchFx.apply(node, node, node.position + node.size / 2.0, _launch_opts, 0.9)
 	Audio.play("button_tap", -5.0, 1.2)             # a light toss tick
+	if rc.y == danger:
+		_end_hand_hint("rush_treefall")             # FTUE: a fling OUT of the doomed column is the taught dodge
+	_refresh_hand_hint()
 
 # --- treefall --------------------------------------------------------------------
 func _start_timber() -> void:
@@ -764,6 +776,7 @@ func _start_timber() -> void:
 	_tf.t = 0.0
 	_tf.col = _rng.randi() % G.COLS
 	_apply_treefall_visual()
+	_refresh_hand_hint()                       # FTUE: a telegraph began — the treefall teach may now win
 
 func _drop_timber() -> void:
 	var col := int(_tf.col)
@@ -794,6 +807,7 @@ func _drop_timber() -> void:
 	_apply_treefall_visual()
 	_settle()
 	_refresh_readouts()
+	_refresh_hand_hint()                       # FTUE: the telegraph ended — back to the merge teach
 
 # --- grid <-> nodes --------------------------------------------------------------
 func _settle(except: Control = null) -> void:
@@ -915,6 +929,64 @@ func _paint(cell: Dictionary) -> void:
 	var piece := PieceView.make_piece(int(cell.kind) * 100 + int(cell.tier), _tile_px())
 	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(piece)
+
+# --- FTUE hand hints -------------------------------------------------------------
+# A hand bobs on a mergeable tile (rush_merge) until the first Rush merge, and on the bottom tile of a
+# telegraphed column (rush_treefall) until the player flings a tile out of it. Reuses the board FTUE's
+# overlay (engine/scripts/ui/hand_hint.gd, tap gesture) + the ftue_seen ledger. Rects come from CELL
+# geometry (stable across fall/fling tweens), so no await/layout pass is needed — unlike board.gd, which
+# reads live node rects. Spec: docs/superpowers/specs/2026-07-23-ftue-rush-hand-hint-design.md
+
+func _refresh_hand_hint() -> void:
+	if not Features.on("ftue_rush_hint"):
+		_dismiss_hand_hint()   # the flag can flip off mid-run — tear down, don't strand a live hint
+		return
+	if not _running:
+		_dismiss_hand_hint()   # no teach on a frozen / ended board
+		return
+	var tele := String(_tf.get("ph", "idle")) == "tele"
+	var pair := Explore.first_mergeable(_grid)
+	var doomed_row := Explore.bottom_filled(_grid, int(_tf.get("col", 0))) if tele else -1
+	var want := Explore.rush_hint_id(
+		Save.ftue_seen("rush_merge"), Save.ftue_seen("rush_treefall"),
+		tele, pair.x >= 0, doomed_row >= 0)
+	if want == "":
+		_dismiss_hand_hint()
+		return
+	var rect: Rect2
+	if want == "rush_merge":
+		rect = _hand_hint_cell_rect(pair.x, pair.y)
+	else:
+		rect = _hand_hint_cell_rect(doomed_row, int(_tf.get("col", 0)))
+	if _hand_hint != null and is_instance_valid(_hand_hint) and _hand_hint_id == want:
+		_hand_hint.retarget(rect, rect)   # same teach, moved board — keep the loop running
+		return
+	_dismiss_hand_hint()
+	_hand_hint = HandHint.present(self, HandHint.GESTURE_TAP, rect, rect)
+	_hand_hint_id = want if _hand_hint != null else ""
+
+# The taught cell in THIS scene's coordinate space, from stable layout math (no node lookup): the board
+# is a direct child at _board.position, and _cell_rest(r,c) is the tile's rest inside the board.
+func _hand_hint_cell_rect(r: int, c: int) -> Rect2:
+	return Rect2(_board.position + _cell_rest(r, c), Vector2(_tile_px(), _tile_px()))
+
+func _dismiss_hand_hint() -> void:
+	if _hand_hint != null and is_instance_valid(_hand_hint):
+		_hand_hint.dismiss()
+	_hand_hint = null
+	_hand_hint_id = ""
+
+# The taught action HAPPENED — bank it and hand off to the next teach. Mirrors board.gd::_end_hand_hint.
+func _end_hand_hint(id: String) -> void:
+	if not Features.on("ftue_rush_hint"):
+		_dismiss_hand_hint()   # flag off: tear down ANY live hint, no ledger write
+		return
+	if _hand_hint_id == id:
+		_dismiss_hand_hint()   # clear the live hint even if `id` is already seen (the check below returns early)
+	if Save.ftue_seen(id):
+		return
+	Save.mark_ftue_seen(id)
+	_refresh_hand_hint()
 
 # --- end -------------------------------------------------------------------------
 func _end() -> void:
