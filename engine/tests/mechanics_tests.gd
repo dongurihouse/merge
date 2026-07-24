@@ -584,6 +584,13 @@ func _initialize() -> void:
 	ok(G.quest_zone_for_level(18) == 8, "L18 (Coral Reef opens) → zone 8 (shells)")
 	ok(G.quest_zone_for_level(23) == 10, "L23 (Cherry-Blossom opens) → zone 10 (koi)")
 	ok(G.quest_zone_for_level(99) == G.ZONE_COUNT - 1, "past the arc clamps at the top zone")
+	# line_gated_out (save-migration predicate): a zone line is gated out below its zone's unlock level and
+	# available at/after it; non-zone lines (coins/treats/special drops) are never gated.
+	ok(G.line_gated_out(18, 20) and not G.line_gated_out(18, 23), "koi (zone 10, L23) is gated out at L20, available at L23")
+	ok(G.line_gated_out(6, 12) and not G.line_gated_out(6, 13), "desert fruits (zone 5, L13) is gated out at L12, available at L13")
+	ok(not G.line_gated_out(1, 1), "the anchor line (zone 0, L1) is never gated out")
+	ok(G.line_gated_out(5, 11) and not G.line_gated_out(5, 12), "a crafted special (winter berries, zone 4, L12) gates on its zone too")
+	ok(not G.line_gated_out(9, 1) and not G.line_gated_out(71, 1), "non-zone lines (coin line 9, treat line 71) are never gated out")
 	var _band_sum := 0
 	for _b in G.ZONE_BAND:
 		_band_sum += int(_b)

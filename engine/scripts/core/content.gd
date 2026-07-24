@@ -313,6 +313,17 @@ static func zone_of_line(line: int) -> int:
 			return z
 	return -1
 
+# True if `line` is ZONE content (a base or crafted-special line) whose zone unlocks ABOVE `level` — i.e. a
+# generator / line / item the player should NOT have yet under the ZONE_UNLOCK_LEVEL cadence. Non-zone lines
+# (coins, treasure treats, special drops — zone_of_line == -1) are content-neutral and NEVER gated out. The
+# board save-migration (board._purge_above_level_content) uses this to strip too-advanced content from an
+# older save so it matches the scene-aligned pacing.
+static func line_gated_out(line: int, level: int) -> bool:
+	var z := zone_of_line(int(line))
+	if z < 0:
+		return false
+	return zone_unlock_level(z) > int(level)
+
 # The per-line generator def for a base line: {id, line, zone, map}. {} for a special line (no generator).
 static func base_generator(line: int) -> Dictionary:
 	if not ZONE_BASE_LINES.has(int(line)):
