@@ -79,7 +79,7 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 		if tex_path != "":
 			var prop := TextureRect.new()
 			prop.name = id
-			prop.texture = load(tex_path) as Texture2D
+			prop.texture = _placed_texture(tex_path, b)
 			# {"shadow": true} → a DYNAMIC ground shadow stamped from the prop's own silhouette
 			# (prop_shadow.gd), added just before its prop so it paints beneath it.
 			if bool(b.get("shadow", false)) and prop.texture != null:
@@ -132,6 +132,43 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 # region id) mount frontmost, one group Control per STILL-LOCKED cluster (`cover_<cluster>`), plus a
 # LockBadge centred over the cluster's structure. `coverings[cluster]` holds the group (revealed away
 # on unlock); `badges[cluster]` holds the lock badge (the map's tap target). Sprites paint in sort_y.
+# Apply a placement's optional sourceCrop (+ bottom feather) to its source plate — the runtime twin of
+# scene_workbench_view._placed_texture. A full-canvas plate placed at a sub-rect must show only its
+# authored REGION, else it smears across the scene (winter's edge foliage rendered over the sky). No
+# crop → the whole texture. A plain crop uses an AtlasTexture (references the source, no decompress —
+# export-safe, filter-clipped so linear sampling can't bleed neighbouring foliage); a bottom feather
+# needs per-pixel alpha, so it falls back to the CPU image path (matching the tool exactly).
+static func _placed_texture(tex_path: String, entry: Dictionary) -> Texture2D:
+	var src := load(tex_path) as Texture2D
+	if src == null:
+		return null
+	var crop = entry.get("sourceCrop")
+	var feather = entry.get("sourceCropFeatherBottom")
+	var has_crop: bool = crop is Array and (crop as Array).size() == 4
+	var has_feather: bool = (feather is float or feather is int) and float(feather) > 0.0
+	if not has_crop and not has_feather:
+		return src
+	if has_crop and not has_feather:
+		var at := AtlasTexture.new()
+		at.atlas = src
+		at.region = Rect2(float(crop[0]), float(crop[1]), float(crop[2]), float(crop[3]))
+		at.filter_clip = true                         # keep linear filtering inside the region (no bleed)
+		return at
+	var image := src.get_image()
+	if has_crop:
+		var l := int(crop[0]); var t := int(crop[1]); var w := int(crop[2]); var h := int(crop[3])
+		if l >= 0 and t >= 0 and w > 0 and h > 0 and l + w <= image.get_width() and t + h <= image.get_height():
+			image = image.get_region(Rect2i(l, t, w, h))
+	var fpx: int = mini(int(round(float(feather))), image.get_height())
+	if fpx > 0:                                       # fade the cropped bottom edge to transparent
+		var start := image.get_height() - fpx
+		for y in range(start, image.get_height()):
+			var op := float(image.get_height() - 1 - y) / float(maxi(1, fpx - 1))
+			for x in range(image.get_width()):
+				var px := image.get_pixel(x, y)
+				image.set_pixel(x, y, Color(px.r, px.g, px.b, px.a * op))
+	return ImageTexture.create_from_image(image)
+
 static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked: Callable,
 		coverings: Dictionary, badges: Dictionary) -> void:
 	var groups := {}             # cluster id -> {group: Control, sprites: [{sort_y, node}], bbox: Rect2}
@@ -161,7 +198,7 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 		spr.position = rect.position                      # center-bottom anchor, like props
 		spr.pivot_offset = cd * 0.5                        # reveal() scales from the centre
 		if String(cov.get("image", "")) != "" and ResourceLoader.exists(String(cov.image)):
-			spr.texture = load(String(cov.image)) as Texture2D
+			spr.texture = _placed_texture(String(cov.image), cov)
 		(groups[cl]["sprites"] as Array).append({"sort_y": int(cov.get("sort_y", 0)), "node": spr})
 	for cl in groups.keys():
 		var g: Dictionary = groups[cl]

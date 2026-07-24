@@ -78,6 +78,20 @@ def build_page(scene_id, label):
     canvas = doc.get("canvas", {})
     cw, ch = int(canvas.get("width", 1320)), int(canvas.get("height", 2346))
 
+    def crop_fields(e):
+        # Carry the sw tool's per-placement source crop (+ bottom feather) into the manifest, so the
+        # runtime shows the SAME cropped region the workbench previews. Without it a full-canvas plate
+        # placed at a small sub-rect smears across the scene (winter's edge foliage rendered over the
+        # sky). See home_zone_view._placed_texture, the runtime twin of scene_workbench_view.
+        out = {}
+        sc = e.get("sourceCrop")
+        if isinstance(sc, list) and len(sc) == 4:
+            out["sourceCrop"] = [int(round(float(v))) for v in sc]
+        fb = e.get("sourceCropFeatherBottom")
+        if isinstance(fb, (int, float)) and fb > 0:
+            out["sourceCropFeatherBottom"] = int(round(float(fb)))
+        return out
+
     buildings, coverups = [], []
     for e in placements:
         tex = res_path(str(e.get("image", "")))
@@ -94,6 +108,7 @@ def build_page(scene_id, label):
                 "display_size": [int(e["w"]), int(e["h"])],
                 "sort_y": int(e.get("z", 0)),
                 "image": tex,
+                **crop_fields(e),
             })
             continue
         entry = {
@@ -106,6 +121,7 @@ def build_page(scene_id, label):
         }
         if e.get("shadow"):                            # dynamic silhouette shadow (prop_shadow.gd)
             entry["shadow"] = True
+        entry.update(crop_fields(e))                   # optional sourceCrop / feather (parity with the sw)
         buildings.append(entry)
 
     manifest = {"version": 1, "id": scene_id, "label": label,

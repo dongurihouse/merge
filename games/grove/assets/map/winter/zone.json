@@ -142,7 +142,13 @@
    "cluster": "edge_cover_rear",
    "states": {
     "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
-   }
+   },
+   "sourceCrop": [
+    0,
+    0,
+    360,
+    570
+   ]
   },
   {
    "id": "edge_covering_upper_right",
@@ -159,7 +165,13 @@
    "cluster": "edge_cover_front",
    "states": {
     "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
-   }
+   },
+   "sourceCrop": [
+    580,
+    0,
+    361,
+    570
+   ]
   },
   {
    "id": "edge_covering_mid_left",
@@ -176,7 +188,13 @@
    "cluster": "edge_cover_front",
    "states": {
     "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
-   }
+   },
+   "sourceCrop": [
+    0,
+    730,
+    220,
+    300
+   ]
   },
   {
    "id": "edge_covering_lower_left",
@@ -193,7 +211,13 @@
    "cluster": "edge_cover_front",
    "states": {
     "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
-   }
+   },
+   "sourceCrop": [
+    0,
+    1050,
+    360,
+    622
+   ]
   },
   {
    "id": "edge_covering_lower_right",
@@ -210,7 +234,13 @@
    "cluster": "edge_cover_front",
    "states": {
     "built": "res://games/grove/assets/map/winter/background/edge_coverings.png"
-   }
+   },
+   "sourceCrop": [
+    580,
+    1100,
+    361,
+    572
+   ]
   }
  ],
  "coverups": [

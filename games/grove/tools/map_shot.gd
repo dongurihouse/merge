@@ -184,6 +184,15 @@ func _initialize() -> void:
 	for wa in args:
 		if String(wa) == "noftue=1":
 			load("res://engine/scripts/core/login.gd").claim_today()
+		elif String(wa).begins_with("unlock="):
+			# seed a PARTIAL cluster unlock (comma-separated cluster ids) to review the reveal state
+			var gu := Save.grove()
+			var ulu: Dictionary = gu.get("unlocks", {})
+			for cid in String(wa).substr(7).split(","):
+				if String(cid) != "":
+					ulu[String(cid)] = true
+			gu["unlocks"] = ulu
+			Save.grove_write()
 		elif String(wa).begins_with("page="):
 			# boot on that picture-book page: the decorate-jump static is the boot-map lever
 			load("res://engine/scripts/scenes/map.gd").decorate_map = String(wa).get_slice("=", 1)

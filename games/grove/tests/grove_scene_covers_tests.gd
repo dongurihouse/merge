@@ -4,6 +4,7 @@ extends SceneTree
 
 const Gen = preload("res://games/grove/tools/scene_covers_gen.gd")
 const CM = preload("res://games/grove/tools/scene_covers_model.gd")
+const HZV = preload("res://engine/scripts/ui/home_zone_view.gd")
 
 var _pass := 0
 var _fail := 0
@@ -101,6 +102,27 @@ func _initialize() -> void:
 	CM.delete_zone(loaded, "shipwreck")
 	ok((loaded.zones as Array).size() == 1 and not CM.has_zone(loaded, "shipwreck"),
 		"delete_zone removes the object's zone")
+
+	# --- sourceCrop parity (winter's edge foliage) -------------------------------------
+	# The sw crops a full-canvas plate to each placement's REGION; that crop MUST survive into the
+	# manifest AND be applied by the runtime, else the whole plate smears across the scene (winter's
+	# edge foliage rendered over the sky — the bug this guards). Covers BOTH pipeline halves.
+	var zdoc: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/assets/map/winter/zone.json"))
+	var cropped_entries := 0
+	for b in zdoc.get("buildings", []):
+		if String((b as Dictionary).get("id", "")).begins_with("edge_covering"):
+			var sc = (b as Dictionary).get("sourceCrop")
+			if sc is Array and (sc as Array).size() == 4:
+				cropped_entries += 1
+	ok(cropped_entries == 5, "build_page_manifests carries sourceCrop into winter's 5 edge coverings (%d)" % cropped_entries)
+
+	var img_path := "res://games/grove/assets/map/winter/background/edge_coverings.png"
+	var full_tex := HZV._placed_texture(img_path, {})
+	ok(full_tex != null and not (full_tex is AtlasTexture), "no sourceCrop -> the whole texture, uncropped")
+	var crop_tex := HZV._placed_texture(img_path, {"sourceCrop": [0, 0, 360, 570]})
+	ok(crop_tex is AtlasTexture, "a sourceCrop yields an AtlasTexture (only the authored region renders)")
+	ok(crop_tex is AtlasTexture and (crop_tex as AtlasTexture).region == Rect2(0, 0, 360, 570),
+		"the AtlasTexture region matches the sourceCrop")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
