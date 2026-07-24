@@ -1025,6 +1025,20 @@ static func coverup_pages() -> Array:
 			out.append(z)
 	return out
 
+## The picture-book page the player is CURRENTLY unlocking: the first page in
+## global play order that still owns a locked cluster. Browsing history and
+## level do not move this target. Once the book is complete, keep its final page
+## featured. The fallback preserves legacy non-coverup games.
+static func current_unlock_map(unlocks: Dictionary, gates: Array = []) -> int:
+	var pages := coverup_pages()
+	if pages.is_empty():
+		var frontier := frontier_map(unlocks, gates)
+		return frontier if frontier >= 0 else hub_map()
+	for z in pages:
+		if next_locked_cluster(int(z), unlocks) != "":
+			return int(z)
+	return int(pages.back())
+
 # The 0-based position of cluster `cluster_id` of page z in the GLOBAL cluster order (every
 # coverup page's clusters, earlier pages first, in clusters(z) order within a page).
 static func global_cluster_index(z: int, cluster_id: String) -> int:
