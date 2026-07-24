@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_rush_lines()
 	_test_scoring()
 	_test_grid()
+	_test_hand_hint_logic()
 	_test_pool_and_box()
 	_test_run_state()
 	_test_trade_count()
@@ -548,6 +549,43 @@ func _test_grid() -> void:
 	g5[0][0] = {"kind": "leaf", "tier": 1}
 	g5[0][1] = {"kind": "leaf", "tier": 1}
 	ok(Explore.board_full(g5), "board_full is true when every cell is occupied")
+
+# --- FTUE hand-hint eligibility (the pure seam behind explore_rush.gd's teaches) --
+func _test_hand_hint_logic() -> void:
+	# first_mergeable: finds the first row-major mergeable cell
+	var g := _grid(3, 3)
+	g[2][0] = {"kind": 1, "tier": 1}
+	g[2][1] = {"kind": 1, "tier": 1}
+	ok(Explore.first_mergeable(g) == Vector2i(2, 0), "first_mergeable returns the first cell of a mergeable pair")
+	# no pair -> (-1,-1)
+	g[2][1] = {"kind": 2, "tier": 1}
+	ok(Explore.first_mergeable(g) == Vector2i(-1, -1), "first_mergeable is (-1,-1) with no mergeable pair")
+	# MAX_TIER cells cannot merge, so a maxed matching pair is not mergeable
+	var gm := _grid(3, 3)
+	gm[2][0] = {"kind": 1, "tier": Explore.MAX_TIER}
+	gm[2][1] = {"kind": 1, "tier": Explore.MAX_TIER}
+	ok(Explore.first_mergeable(gm) == Vector2i(-1, -1), "first_mergeable skips a MAX_TIER pair (cannot merge)")
+
+	# bottom_filled: lowest filled row in the column, -1 when empty
+	var gb := _grid(3, 2)
+	gb[1][0] = {"kind": 1, "tier": 1}
+	gb[2][0] = {"kind": 1, "tier": 1}
+	ok(Explore.bottom_filled(gb, 0) == 2, "bottom_filled returns the lowest filled row")
+	ok(Explore.bottom_filled(gb, 1) == -1, "bottom_filled is -1 for an empty column")
+
+	# rush_hint_id ordering
+	ok(Explore.rush_hint_id(false, false, true, true, true) == "rush_treefall",
+		"treefall wins during a telegraph, even with an unseen merge and a live pair")
+	ok(Explore.rush_hint_id(false, false, false, true, false) == "rush_merge",
+		"merge shows when no telegraph is active")
+	ok(Explore.rush_hint_id(false, false, true, true, false) == "rush_merge",
+		"a telegraph with no doomed tile falls through to the merge teach")
+	ok(Explore.rush_hint_id(false, true, true, true, true) == "rush_merge",
+		"a seen treefall during a telegraph falls through to the merge teach")
+	ok(Explore.rush_hint_id(true, false, false, true, false) == "",
+		"nothing when merge is seen and no telegraph")
+	ok(Explore.rush_hint_id(false, false, false, false, false) == "",
+		"nothing when there is no mergeable pair and no telegraph")
 
 # --- the box seam: unlocked pool + roll ------------------------------------------
 func _test_pool_and_box() -> void:
