@@ -255,6 +255,9 @@ func _ready() -> void:
 		mail_timer.autostart = true
 		mail_timer.timeout.connect(_sync_mail)
 		add_child(mail_timer)
+	# App Store update check: once per home open, ask Apple for a newer version and offer the optional
+	# update prompt. Guarded + flag-gated + non-blocking; iOS-only inside check() (a no-op elsewhere).
+	_check_update.call_deferred()
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
@@ -2790,6 +2793,18 @@ func _sync_mail() -> void:
 	load("res://engine/scripts/core/inbox_sync.gd").sync(self, func(added: int) -> void:
 		if added > 0:
 			_refresh_liveops_badges())
+
+# App Store update check: on iOS, ask Apple whether a newer version is live and, if so (and not already
+# dismissed), open the optional update prompt. Flag-gated + guarded via load() so this worktree never
+# hard-depends on a system it doesn't own; check() is a silent no-op off iOS and on any network failure.
+func _check_update() -> void:
+	if not Features.on("update_check"):
+		return
+	if not ResourceLoader.exists("res://engine/scripts/core/update_check.gd"):
+		return
+	load("res://engine/scripts/core/update_check.gd").check(self, func(version: String, url: String) -> void:
+		if ResourceLoader.exists("res://engine/scripts/ui/update_prompt.gd"):
+			load("res://engine/scripts/ui/update_prompt.gd").open(self, version, url))
 
 func _open_inbox() -> void:
 	if not _has_inbox:

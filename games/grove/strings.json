@@ -236,6 +236,12 @@
 		},
 		"title": "Shop"
 	},
+	"update": {
+		"title": "Update Available",
+		"body": "A new version of Acorn Forest is available.\nUpdate now for the latest content and fixes.",
+		"update": "Update",
+		"later": "Not now"
+	},
 	"vault": {
 		"banner": "Vault",
 		"crack": {

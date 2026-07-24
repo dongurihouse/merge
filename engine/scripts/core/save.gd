@@ -37,6 +37,7 @@ static func _default() -> Dictionary:
 		"currencies": {"coins": 0, "diamonds": NEW_SAVE_GEMS},
 		"settings": {},
 		"ftue_seen": {},
+		"update_dismissed_version": "",
 	}
 
 # --- lifecycle -------------------------------------------------------------
@@ -294,6 +295,22 @@ static func mark_ftue_seen(id: String) -> void:
 	if bool(data["ftue_seen"].get(id, false)):
 		return                       # idempotent — never re-write an already-seen id
 	data["ftue_seen"][id] = true
+	save_now()
+
+# --- App Store update prompt: the dismissed-version ledger ------------------
+# The store version the player last chose "Not now"/✕ (or tapped Update) on, so the once-per-version
+# prompt (core/update_check.gd) stays silent until a strictly-newer version ships. Deep-merged over the
+# defaults → a save written before this key existed reads as unset ("") with no migration.
+
+static func update_dismissed() -> String:
+	_ensure_loaded()
+	return String(data.get("update_dismissed_version", ""))
+
+static func mark_update_dismissed(version: String) -> void:
+	_ensure_loaded()
+	if String(data.get("update_dismissed_version", "")) == version:
+		return                       # idempotent — never re-write the same dismissed version
+	data["update_dismissed_version"] = version
 	save_now()
 
 # --- quest counters (daily bundle + silent milestones) --------------------------
