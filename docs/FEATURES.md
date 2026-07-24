@@ -72,6 +72,7 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 |---|---|---|---|
 | `ftue_free_pops` | first 10 pops cost no water | `engine/scripts/scenes/board.gd` `_ftue_pops_done()` (L545) | keep — default ON, owner review pending |
 | `ftue_staged_chrome` | merchant ch1+, bag ch2+, water chip after intro | `engine/scripts/scenes/board.gd` `_ready()` (L229), `_update_water_hud()` (L554), `_rebuild_givers()` (L622) | keep — default ON, owner review pending |
+| `ftue_hand_hint` | the two one-time hand teaches: drag-to-merge, then tap-the-generator | `engine/scripts/ui/hand_hint.gd` `present()` (L45); `engine/scripts/scenes/board.gd` `_maybe_hand_hint()` (L449) | keep — default ON, owner review pending |
 
 ---
 
