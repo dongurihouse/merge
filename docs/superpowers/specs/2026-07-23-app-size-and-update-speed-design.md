@@ -140,6 +140,69 @@ developer's, made against the composites — not inferred from the metrics alone
 Assets that fail at every quality level stay mode 0 and are listed explicitly in the
 rollout.
 
+## Spike results (2026-07-23) — decided: WebP `lossy_quality=0.9`
+
+Two measurement errors were found and corrected before the numbers were trusted:
+
+1. The first baseline read 303 MB because `.import` files list each `.ctex` twice
+   (`path=` and `dest_files=`). Deduplicated, it is 151.6 MB — matching the pck exactly.
+2. The first edge metric barely moved across quality (59.75 at q80 to 58.81 at q95),
+   because libwebp discards RGB under fully transparent pixels and the sampling band had
+   been dilated into them. It was measuring invisible data. Corrected, real visible edge
+   error is 0.88 to 7.0 levels out of 255.
+
+Projection over all 521 shipped-lossless textures, from real encodes:
+
+| | pck textures | saving |
+| --- | --- | --- |
+| lossless (before) | 151.6 MB | — |
+| q85 | 24.9 MB | 126.7 MB |
+| **q90 (chosen)** | **32.3 MB** | **119.3 MB** |
+
+### The `fix_alpha_border` question
+
+All 1888 imports set `process/fix_alpha_border=true` — Godot's defringe, which fills
+transparent texels' RGB so bilinear filtering cannot blend halos into visible edges.
+Godot's importer exposes no libwebp `exact` option, so the fill cannot be protected.
+
+Verified against a real Godot import rather than assumed:
+
+- Godot's lossy encode **does** overwrite the fill (RGB under transparent texels differs
+  by mean 42, max 255).
+- Alpha itself is **bit-exact** (max error 0.0).
+- After bilinear magnification — what the GPU actually does — visible error is mean 2.19,
+  p99 12, max 63. The worst pixel has **alpha=255**, i.e. it is ordinary quantization
+  noise in opaque detail, not an edge halo.
+- Visual inspection at the worst case over both cream and dark backgrounds shows the
+  amplified difference concentrated in the opaque leaf body and essentially black along
+  the alpha boundary. A faint magenta rim on dark exists in the lossless version too and
+  is pre-existing art, not a regression.
+
+Conclusion: the defringe risk is real in principle but does not manifest at q90. No asset
+was excluded from the rollout.
+
+### Measured outcome
+
+568 `.import` files switched to `compress/mode=1`, `compress/lossy_quality=0.9`, then
+reimported and re-exported through the real iOS preset:
+
+| pck | size |
+| --- | --- |
+| before | 176.7 MB |
+| after | **60.5 MB** |
+
+116.2 MB saved, against a 119.3 MB projection.
+
+Selection note worth remembering: the first pass selected textures by "present in the
+existing `build/ios/AcornForest.pck`", which is a stale Jul 22 artifact. Art added after
+that build (`autumn_grove`, `day_meadow`, `sunset_clouds`, `forest_leaves`) was silently
+skipped and stayed lossless, leaving the pck 13 MB heavier than projected. The correct
+selector is "would this be exported" — mode 0, not under a `.gdignore` subtree, and not
+matching an `exclude_filter` prefix. Zero shippable lossless textures remain.
+
+`appstore/` and `appstore_screenshots/` still contain mode 0 textures. They are excluded
+by `exclude_filter` and never ship; leave them lossless.
+
 ## Rollout order
 
 1. Texture spike; developer picks the quality bar.

@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/03_green_kelp_curtain.png-5ca9e3b5beec1b79f0a
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.9
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
