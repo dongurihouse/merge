@@ -113,6 +113,8 @@ var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 
 var maps_hits: Array = []        # [{node, z, locked}] — the MAPS page cards (locked cards wobble; open cards open)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _page_cur: Control = null    # the live scene page node under `content` (the swipe's cur)
+var _swipe: Dictionary = {}      # the in-flight home page-swipe; {} when idle (see _on_map_input)
+var _swipe_tween: Tween = null   # the active snap/spring tween (settle guard + resize-cancel)
 var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
 var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll); else total_h - column_h
 var _hand_scroll := 0.0          # current scroll offset of the in-hand orb grid (px from the top)
@@ -325,7 +327,7 @@ func _featured_map() -> int:
 
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
-func _open_map(z: int) -> void:
+func _open_map(z: int, animate := true) -> void:
 	_view = "map"
 	_map_idx = z
 	_set_map_chrome_visible(true)         # a map wears its bottom chrome + drifting weather
@@ -337,7 +339,7 @@ func _open_map(z: int) -> void:
 	var g := Save.grove()
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
-	_build_map()
+	_build_map(animate)
 	_refresh_chrome_badges()             # Daily · Vault · Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
 
@@ -1463,6 +1465,9 @@ func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 # --- home page-swipe: pure decisions (unit-tested) --------------------------------------
 const SWIPE_COMMIT_FRAC := 0.33   # commit once dragged past this fraction of the viewport width
 const SWIPE_FLING := 700.0        # px/s horizontal flick that commits under the distance threshold
+const SWIPE_ACTIVATE := 12.0      # px of horizontal travel before a drag becomes a page-swipe
+const SWIPE_EDGE_RESIST := 0.35   # damping when dragging toward a missing neighbour (first/last page)
+const SWIPE_SNAP := 0.22          # seconds for the snap (commit) / spring-back (cancel) tween
 
 # The scene index a horizontal drag of `dx` px reveals: drag LEFT (dx < 0) -> the NEXT page,
 # drag RIGHT (dx > 0) -> the PREVIOUS page. Callers still bounds-check the result against G.MAPS.
@@ -1488,15 +1493,114 @@ func _on_input(event: InputEvent) -> void:
 	if _view == "maps":
 		_on_maps_input(event)
 		return
-	# a MAP: a still-tap resolves straight to spots / wandering spirits (no drag surface here).
-	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
-		or event is InputEventScreenTouch
-	if pressed and event.pressed:
+	_on_map_input(event)
+
+# The HOME (map) input surface. A horizontal drag past SWIPE_ACTIVATE becomes a page-swipe: the
+# current scene follows the finger and the adjacent scene slides in from the side; release past a
+# third of the width (or a fast flick) commits, else it springs back. A press/release that never
+# crosses the swipe threshold still resolves as a still-tap (spots / build+lock badges), unchanged.
+func _on_map_input(event: InputEvent) -> void:
+	if _swipe.get("settling", false):
+		return   # ignore input while a snap / spring-back tween finishes
+	var press: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+		or (event is InputEventScreenTouch and event.pressed)
+	var release: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
+		or (event is InputEventScreenTouch and not event.pressed)
+	var moved: bool = event is InputEventScreenDrag \
+		or (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0)
+	if press:
 		_press = event.position
-	elif pressed and not event.pressed and event.position.distance_to(_press) <= 18.0:
-		# tap targets hit-test against GLOBAL rects; in place mode `content` is scaled,
-		# so lift the content-local event point into global space (identity otherwise).
-		_map_tap(content.get_global_transform() * event.position)
+		_swipe = {}
+		return
+	if moved:
+		_swipe_move(event)
+		return
+	if release:
+		if _swipe.get("active", false):
+			_swipe_release()      # owns _swipe until its tween finishes
+		else:
+			# a still-tap: hit-test against GLOBAL rects (content is identity here, scaled in place mode).
+			if event.position.distance_to(_press) <= 18.0:
+				_map_tap(content.get_global_transform() * event.position)
+			_swipe = {}
+
+# A drag while a press is down: activate a swipe on the first mostly-horizontal move past the
+# threshold, then translate the current + neighbour pages 1:1 with the finger.
+func _swipe_move(event: InputEvent) -> void:
+	if event is InputEventScreenDrag:
+		_swipe["vel"] = event.velocity.x    # touch carries velocity; mouse motion does not
+	var dx: float = event.position.x - _press.x
+	var dy: float = event.position.y - _press.y
+	if not _swipe.get("active", false):
+		if absf(dx) <= absf(dy) or absf(dx) < SWIPE_ACTIVATE:
+			return                          # not (yet) a horizontal swipe — leave the tap path open
+		_swipe_begin(dx)
+	var view_w: float = get_viewport_rect().size.x
+	var nb: Control = _swipe.get("neighbor", null)
+	var eff: float = dx
+	if nb == null:
+		eff = dx * SWIPE_EDGE_RESIST        # first/last page: damp and always spring back
+	else:
+		eff = clampf(dx, -view_w if _swipe.dir < 0 else 0.0, 0.0 if _swipe.dir < 0 else view_w)
+	_swipe["dx"] = dx
+	var cur: Control = _swipe.get("cur", null)
+	if cur != null and is_instance_valid(cur):
+		cur.position.x = eff
+	if nb != null and is_instance_valid(nb):
+		nb.position.x = float(_swipe.neighbor_base_x) + eff
+
+# Lock the swipe direction and build the neighbour preview (or none, at the first/last page).
+func _swipe_begin(dx: float) -> void:
+	var dir := -1 if dx < 0.0 else 1        # -1 = dragging left (reveal NEXT), +1 = right (reveal PREV)
+	var nz := _neighbor_z(_map_idx, dx)
+	var view_w: float = get_viewport_rect().size.x
+	var neighbor: Control = null
+	var base_x := 0.0
+	if nz >= 0 and nz < G.MAPS.size() and map_unlocked(nz):
+		base_x = -float(dir) * view_w       # NEXT enters from the right (+w), PREV from the left (-w)
+		neighbor = _build_page_node(nz, content, false)
+		neighbor.position.x = base_x
+	_swipe = {
+		"active": true, "dir": dir, "cur": _page_cur,
+		"neighbor": neighbor, "neighbor_z": nz, "neighbor_base_x": base_x,
+		"dx": 0.0, "vel": _swipe.get("vel", 0.0), "settling": false,
+	}
+
+# Release: commit to the neighbour or spring back, on a short ease-out tween.
+func _swipe_release() -> void:
+	var view_w: float = get_viewport_rect().size.x
+	var dx := float(_swipe.get("dx", 0.0))
+	var vel := float(_swipe.get("vel", 0.0))
+	var cur: Control = _swipe.get("cur", null)
+	var nb: Control = _swipe.get("neighbor", null)
+	var dir: int = _swipe.get("dir", 0)
+	var dest_z: int = _swipe.get("neighbor_z", _map_idx)
+	var base_x := float(_swipe.get("neighbor_base_x", 0.0))
+	var commit := _swipe_commit(dx, vel, view_w, nb != null and is_instance_valid(nb))
+	_swipe["settling"] = true
+	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_swipe_tween = tw
+	if commit:
+		tw.tween_property(nb, "position:x", 0.0, SWIPE_SNAP)
+		if cur != null and is_instance_valid(cur):
+			tw.tween_property(cur, "position:x", float(dir) * view_w, SWIPE_SNAP)
+		Audio.play("button_tap", -4.0)
+		tw.finished.connect(func() -> void:
+			_swipe = {}
+			_swipe_tween = null
+			_open_map(dest_z, false)          # rebuild the destination as the real interactive page
+		, CONNECT_ONE_SHOT)
+	else:
+		if cur != null and is_instance_valid(cur):
+			tw.tween_property(cur, "position:x", 0.0, SWIPE_SNAP)
+		if nb != null and is_instance_valid(nb):
+			tw.tween_property(nb, "position:x", base_x, SWIPE_SNAP)
+		tw.finished.connect(func() -> void:
+			if nb != null and is_instance_valid(nb):
+				nb.queue_free()
+			_swipe = {}
+			_swipe_tween = null
+		, CONNECT_ONE_SHOT)
 
 # The place-picker input surface. A press on a spirit ORB starts a DRAG (8 px lift-off): a hand orb dropped
 # on a map's right drop zone PLACES, on a matching orb MERGES (place_merge / hand_merge); a housed orb dropped
@@ -2906,6 +3010,11 @@ func _relayout_after_resize() -> void:
 	if sz == _last_view_size:
 		return                            # no real change — skip the rebuild
 	_last_view_size = sz
+	# a viewport change mid-swipe invalidates the slide geometry — cancel it; the rebuild re-fits.
+	if _swipe_tween != null and _swipe_tween.is_valid():
+		_swipe_tween.kill()
+	_swipe_tween = null
+	_swipe = {}
 	if _view == "map":
 		_build_map(false)                 # re-fit WITHOUT the pop-in (a resize is not a navigation)
 	elif _view == "maps":

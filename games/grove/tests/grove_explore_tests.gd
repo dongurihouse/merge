@@ -45,6 +45,9 @@ func _initialize() -> void:
 	_test_swipe_decision_helpers()
 	await _test_home_has_no_page_arrows()
 	await _test_home_tap_unlocks_cluster()
+	await _test_home_swipe_commits_to_next_scene()
+	await _test_home_short_swipe_springs_back()
+	await _test_home_swipe_at_first_page_is_noop()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -143,6 +146,69 @@ func _test_home_tap_unlocks_cluster() -> void:
 		_map_tap_at(map, _hit_center(badge))
 		await create_timer(0.1).timeout
 		ok(map.unlocks.has(next_id), "a still-tap on the home page unlocks the ready cluster (refactor kept taps working)")
+	map.queue_free()
+	await process_frame
+
+func _test_home_swipe_commits_to_next_scene() -> void:
+	fresh("home_swipe_commit")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(1)          # an open middle page — has both neighbours
+	await process_frame
+	var start := int(map._map_idx)
+	var v: Vector2 = map.get_viewport_rect().size
+	var cy := v.y * 0.5
+	# drag LEFT ~0.6 of the width (well past a third) -> commit to the NEXT scene
+	_swipe_touch(map, Vector2(v.x * 0.85, cy), true)
+	_swipe_drag(map, Vector2(v.x * 0.55, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
+	_swipe_drag(map, Vector2(v.x * 0.25, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
+	_swipe_touch(map, Vector2(v.x * 0.25, cy), false)
+	await create_timer(0.4).timeout
+	ok(int(map._map_idx) == start + 1, "swiping left past the threshold commits to the next scene")
+	ok(String(Save.grove().get("last_map", "")) == String(G.MAPS[start + 1].id), "the committed scene persists as last_map")
+	ok(map._swipe.is_empty(), "the swipe state is cleared after committing")
+	map.queue_free()
+	await process_frame
+
+func _test_home_short_swipe_springs_back() -> void:
+	fresh("home_swipe_cancel")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(1)
+	await process_frame
+	var start := int(map._map_idx)
+	var v: Vector2 = map.get_viewport_rect().size
+	var cy := v.y * 0.5
+	var px := v.x * 0.6
+	# 40px drag: past the 12px activation, well under a third of the width, slow -> cancel
+	_swipe_touch(map, Vector2(px, cy), true)
+	_swipe_drag(map, Vector2(px - 40.0, cy), Vector2(-40, 0), Vector2(-80, 0))
+	_swipe_touch(map, Vector2(px - 40.0, cy), false)
+	await create_timer(0.4).timeout
+	ok(int(map._map_idx) == start, "a short, slow swipe springs back to the same scene")
+	ok(map.content.get_child_count() == 1, "the neighbour preview is freed after springing back")
+	ok(map._swipe.is_empty(), "the swipe state is cleared after cancelling")
+	map.queue_free()
+	await process_frame
+
+func _test_home_swipe_at_first_page_is_noop() -> void:
+	fresh("home_swipe_edge")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(0)          # first page — no previous scene
+	await process_frame
+	var v: Vector2 = map.get_viewport_rect().size
+	var cy := v.y * 0.5
+	# drag RIGHT (toward the non-existent previous page), far past the threshold, with a hard flick
+	_swipe_touch(map, Vector2(v.x * 0.2, cy), true)
+	_swipe_drag(map, Vector2(v.x * 0.9, cy), Vector2(v.x * 0.7, 0), Vector2(900, 0))
+	_swipe_touch(map, Vector2(v.x * 0.9, cy), false)
+	await create_timer(0.4).timeout
+	ok(int(map._map_idx) == 0, "swiping toward a non-existent previous scene on page 0 is a no-op")
+	ok(map.content.get_child_count() == 1, "no neighbour is built at the first-page edge")
 	map.queue_free()
 	await process_frame
 
@@ -337,6 +403,19 @@ func _push_tap(gpos: Vector2) -> void:
 	var up := down.duplicate()
 	up.pressed = false
 	get_root().push_input(up, true)
+
+func _swipe_touch(map, gpos: Vector2, pressed: bool) -> void:
+	var t := InputEventScreenTouch.new()
+	t.pressed = pressed
+	t.position = gpos
+	map._on_input(t)
+
+func _swipe_drag(map, gpos: Vector2, rel: Vector2, vel: Vector2) -> void:
+	var d := InputEventScreenDrag.new()
+	d.position = gpos
+	d.relative = rel
+	d.velocity = vel
+	map._on_input(d)
 
 func _test_map_card_expedition_chrome() -> void:
 	fresh("map_card_expedition_chrome")
