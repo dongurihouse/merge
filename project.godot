@@ -38,3 +38,16 @@ pointing/emulate_touch_from_mouse=true
 textures/canvas_textures/default_texture_filter=2
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+
+[importer_defaults]
+
+; New PNG/texture assets import as lossy WebP (mode 1, q0.9) by DEFAULT, so art added in
+; future does not silently re-inflate the shipped pack the way the original 522 lossless
+; textures did. VRAM cost is unchanged (mode 0 and mode 1 both decode to RGBA8). If a
+; specific asset genuinely needs lossless (a data mask, a normal map, hard-edged pixel art),
+; set compress/mode=0 on that ONE .import and add it to the guard's allowlist in
+; engine/tests/asset_size_guard_tests.gd. See docs/design/keeping-the-build-small.md.
+texture={
+"compress/lossy_quality": 0.9,
+"compress/mode": 1
+}
