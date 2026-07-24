@@ -1,5 +1,11 @@
 # Home Build-and-Upgrade Map — Design Spec
 
+> **SUPERSEDED (2026-07-24)** by
+> [`2026-07-24-habitat-cells-per-scene-design.md`](2026-07-24-habitat-cells-per-scene-design.md).
+> The home-building system described here (BUILDINGS, home.gd/home_build.gd, per-zone cells) has
+> been removed: all maps are cover-up scenes, and habitat cells now derive from completed scenes
+> (one per fully-unlocked scene). Kept for history.
+
 **Date:** 2026-07-17
 **Decision:** Replace the mask-based multi-map restoration system with one evolving home world
 of coin-built, upgradable, customizable buildings rendered through the layered cut-paper

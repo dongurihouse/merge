@@ -235,10 +235,10 @@ const RESIDENT_LINES := {
 }
 # The GLOBAL resident bucket (grove_spec §3): four resource LINES, each arted by one of the existing
 # resident families (items/resident_<kind>/). breeze (air) is retired — legacy breeze spirits migrate
-# to the coin line. Cells come ONLY from fully-restored maps (index = map z; 8 total, no coin sink).
+# to the coin line. Cells come from fully-unlocked cover-up scenes (one per completed scene, max 5;
+# see content.cells_from_scenes).
 const RESIDENT_LINE_KINDS := {"coin": "sprout", "water": "dewdrop", "boost": "ember", "diamond": "starlight"}
 const RESIDENT_KIND_LINES := {"sprout": "coin", "dewdrop": "water", "ember": "boost", "starlight": "diamond", "breeze": "coin"}
-const BUCKET_CELL_GRANTS := [2, 1, 2, 1, 2]
 
 # Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 resident costs coins.
 const RESIDENT_BASE_COST := 40           # 🪙 to welcome a t1 resident
@@ -389,43 +389,6 @@ const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at rando
 	"items/generator/gen_seedcart.png", "items/generator/gen_beehive.png",
 	"items/generator/gen_lilyfountain.png", "items/generator/gen_applepress.png",
 	"items/generator/gen_wildflowerarch.png",
-]
-
-# --- THE HOME (build-and-upgrade redesign, spec 2026-07-17) --------------------------------------
-# One evolving home world of coin-built, level-gated buildings. Each building goes up in STEPS
-# (cost coins, gated by the coin-clock Level — the capacity brake). Resident-bucket capacity is
-# PER ZONE, not per building (decision 2026-07-17): completing EVERY building of a zone unlocks
-# exactly ONE cell (home_build.cells_granted; defs default to the single "farmhouse" zone — the
-# picture-book pages arrive as further zones, 1 cell each). `shows` = the art state rendered once
-# that step is PAID (the zone manifest maps state ids → prop textures; home_build.state_id
-# resolves it). Ids match each page's layered manifest (assets/map/<scene>/zone.json).
-# ALL numbers PROVISIONAL — owned by the economy-sim re-pass (spec §4): step costs must keep
-# the no-strand invariant (an affordable next step at nominal coin flow).
-const BUILDINGS := [
-	{"id": "fh_hearth", "name": "Farmhouse", "steps": [
-		{"cost": 10, "min_level": 1, "shows": "site"},
-		{"cost": 25, "min_level": 2, "shows": "site"},
-		{"cost": 40, "min_level": 3, "shows": "built"}], "customizations": []},
-	{"id": "fh_boxes", "name": "Flower Boxes", "steps": [
-		{"cost": 15, "min_level": 2, "shows": "site"},
-		{"cost": 30, "min_level": 3, "shows": "built"}], "customizations": []},
-	{"id": "fh_kitchen", "name": "Kitchen Garden", "steps": [
-		{"cost": 30, "min_level": 4, "shows": "site"},
-		{"cost": 50, "min_level": 5, "shows": "site"},
-		{"cost": 80, "min_level": 6, "shows": "built"}], "customizations": []},
-	{"id": "fh_well", "name": "Roofed Well", "steps": [
-		{"cost": 60, "min_level": 7, "shows": "site"},
-		{"cost": 100, "min_level": 8, "shows": "built"}], "customizations": []},
-	{"id": "fh_larder", "name": "Larder Shed", "steps": [
-		{"cost": 90, "min_level": 9, "shows": "site"},
-		{"cost": 140, "min_level": 10, "shows": "site"},
-		{"cost": 200, "min_level": 11, "shows": "built"}], "customizations": []},
-	{"id": "fh_lantern", "name": "Lantern Gate", "steps": [
-		{"cost": 160, "min_level": 12, "shows": "site"},
-		{"cost": 240, "min_level": 13, "shows": "built"}], "customizations": []},
-	{"id": "fh_porch", "name": "Doghouse", "steps": [
-		{"cost": 220, "min_level": 14, "shows": "site"},
-		{"cost": 320, "min_level": 15, "shows": "built"}], "customizations": []},
 ]
 
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE

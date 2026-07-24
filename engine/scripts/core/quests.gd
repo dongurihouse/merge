@@ -12,8 +12,8 @@ const G = preload("res://engine/scripts/core/content.gd")
 # --- fence gating on the COIN CLOCK (coin-clock redesign, spec 2026-07-17) ----------------
 # `earned` everywhere below = Save.coins_earned_lifetime() (the cumulative organic-coins clock).
 # The retired per-spot exp ladder becomes the zone ladder: one zone per level (G.zone_threshold),
-# so every meter/vase read keeps its shape with the source swapped. The map surface (buildings,
-# home.gd) no longer drives the fence — the Home CTA reads Home.any_buyable() directly.
+# so every meter/vase read keeps its shape with the source swapped. The map surface no longer drives
+# the fence — the board's unlock CTA reads content.any_cluster_ready directly.
 
 # The reward BAND the fence currently pays at (the retired "current map" axis): the band of the
 # level-reached quest zone. Drives the per-band coin curve + the reseed check.

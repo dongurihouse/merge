@@ -2,14 +2,12 @@ extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the NEW Residents management dialog
 ## (ui/residents.gd, mock v2) and the daily calendar (to eyeball the restyled shared frame).
 ##   quiet_godot.sh --path . -s res://games/grove/tools/residents_dialog_shot.gd -- <out_dir>
-## Seeds a completed farmhouse zone (bucket cells), a placed spirit, matured stock and a hand.
+## Seeds a completed scene (its bucket cell), a placed spirit, matured stock and a hand.
 ## Parallel-safe (own temp save). Mirrors residents_shot.gd's quiet-capture header.
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
-const Home = preload("res://engine/scripts/core/home.gd")
-const HB = preload("res://engine/scripts/core/home_build.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
@@ -32,16 +30,15 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	# complete every home building → the zone's bucket cell(s); seed spirits + matured banks.
+	# fully unlock the first scene → its bucket cell; seed spirits + matured banks.
 	var g := Save.grove()
 	g["exp"] = 60
+	var unl: Dictionary = g.get("unlocks", {})
+	for c in G.clusters(0):
+		unl[String((c as Dictionary).id)] = true
+	g["unlocks"] = unl
 	Save.grove_write()
 	Save.add_coins(300)
-	var st := Home.state()
-	for d in Home.defs():
-		while HB.buy_step(st, d):
-			pass
-	Save.grove_write()
 	for spec in [["boost", 2], ["coin", 1], ["coin", 3], ["water", 2], ["diamond", 1], ["boost", 1], ["water", 1], ["water", 2]]:
 		Bucket.hand_add(String(spec[0]), int(spec[1]))
 	Bucket.place(0)   # seat the boost t2 into the zone cell

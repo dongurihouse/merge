@@ -8,8 +8,7 @@ extends SceneTree
 ## Mirrors residents_dialog_shot.gd's quiet-capture header + light home seed.
 
 const Save = preload("res://engine/scripts/core/save.gd")
-const Home = preload("res://engine/scripts/core/home.gd")
-const HB = preload("res://engine/scripts/core/home_build.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
@@ -32,16 +31,15 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	# a believable home behind the dimmed veil: some progress + every building bought.
+	# a believable home behind the dimmed veil: the first scene fully unlocked.
 	var g := Save.grove()
 	g["exp"] = 60
+	var unl: Dictionary = g.get("unlocks", {})
+	for c in G.clusters(0):
+		unl[String((c as Dictionary).id)] = true
+	g["unlocks"] = unl
 	Save.grove_write()
 	Save.add_coins(300)
-	var st := Home.state()
-	for d in Home.defs():
-		while HB.buy_step(st, d):
-			pass
-	Save.grove_write()
 
 	MapScene._login_shown_launch = true
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()

@@ -50,7 +50,9 @@ func _initialize() -> void:
 					for z in G.MAPS.size():
 						for sp in G.MAPS[z].spots:
 							ulsel[String(sp.id)] = true
-						gates.append(z)               # record each map's gate so it reads as COMPLETE (grants bucket cells)
+						for c in G.clusters(z):
+							ulsel[String((c as Dictionary).id)] = true   # full cluster unlock -> all bucket cells
+						gates.append(z)               # record each map's gate so it reads as COMPLETE
 						claimed[String(G.MAPS[z].id)] = true   # pre-claim unlock rewards so no popup covers the picker
 					gsel["unlocks"] = ulsel
 					gsel["gates"] = gates
@@ -58,16 +60,15 @@ func _initialize() -> void:
 					gsel["exp"] = 400
 					Save.grove_write()
 		"maps":
-			# the MAPS gallery page in a representative mid-game state: a couple of Fairy Hollow
-			# buildings finished so the featured card reads in-progress (n/m + a part-filled bar).
-			var HBm := load("res://engine/scripts/core/home_build.gd")
-			var Homem := load("res://engine/scripts/core/home.gd")
+			# the MAPS gallery page in a representative mid-game state: a few Fairy Hollow clusters
+			# unlocked so the featured card reads in-progress (n/m).
 			Save.earn_coins(2000)
-			var mst: Dictionary = Homem.state()
-			for bid in ["fh_hearth", "fh_boxes"]:
-				var dm: Dictionary = Homem.def_of(bid)
-				while HBm.buy_step(mst, dm):
-					pass
+			var gm := Save.grove()
+			var ulm: Dictionary = gm.get("unlocks", {})
+			var clm: Array = G.clusters(0)
+			for i in mini(2, clm.size()):
+				ulm[String((clm[i] as Dictionary).id)] = true
+			gm["unlocks"] = ulm
 			Save.grove_write()
 		"hub":
 			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
@@ -89,31 +90,26 @@ func _initialize() -> void:
 			for _i in 3:
 				Inbox.add({"title": "Gift", "body": "A little something.", "icon": "coin", "reward": {"coins": 50}, "read": false})
 		"built":
-			# the home part-way through the build-and-upgrade loop: some buildings finished (props show),
-			# the wallet + coin clock funded so the next steps read buyable (badges lit).
-			var HB := load("res://engine/scripts/core/home_build.gd")
-			var Home := load("res://engine/scripts/core/home.gd")
-			Save.earn_coins(2000)                 # organic → coins + a high level (badges unlocked)
-			var hst: Dictionary = Home.state()
-			var to_build := ["fh_hearth", "fh_boxes", "fh_kitchen", "fh_well"]
-			for bid in to_build:
-				var d: Dictionary = Home.def_of(bid)
-				while HB.buy_step(hst, d):
-					pass
-			# leave fh_larder mid-build (one site step) so a SITE prop + an active badge both show
-			var larder: Dictionary = Home.def_of("fh_larder")
-			HB.buy_step(hst, larder)
+			# the home part-way through the cover-up sequence: several regions revealed, the next
+			# cluster's lock badge lit; wallet + clock funded so that next region reads unlockable.
+			Save.earn_coins(2000)                 # organic -> coins + a high level
+			var gb := Save.grove()
+			var ulb: Dictionary = gb.get("unlocks", {})
+			var clb: Array = G.clusters(0)
+			for i in mini(4, clb.size()):
+				ulb[String((clb[i] as Dictionary).id)] = true
+			gb["unlocks"] = ulb
 			Save.grove_write()
 		"spirits":
-			# open the resident bucket by completing home buildings (cells come from buildings now),
-			# then seed a few placed + in-hand spirits so the centered dock renders fully.
-			var HBs := load("res://engine/scripts/core/home_build.gd")
-			var Homes := load("res://engine/scripts/core/home.gd")
+			# open the resident bucket by completing the first two scenes (cells come from completed
+			# scenes), then seed a few placed + in-hand spirits so the centered dock renders fully.
 			Save.earn_coins(2000)
-			var sst: Dictionary = Homes.state()
-			for sd in Homes.defs():
-				while HBs.buy_step(sst, sd):
-					pass
+			var gsp := Save.grove()
+			var ulsp: Dictionary = gsp.get("unlocks", {})
+			for zc in [0, 1]:
+				for c in G.clusters(zc):
+					ulsp[String((c as Dictionary).id)] = true
+			gsp["unlocks"] = ulsp
 			Save.grove_write()
 			var Bkt := load("res://engine/scripts/core/bucket.gd")
 			Bkt.hand_add("coin", 2) ; Bkt.hand_add("coin", 2)

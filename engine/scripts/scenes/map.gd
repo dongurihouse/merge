@@ -5,10 +5,10 @@ extends Control
 ## ("✿ N★" — tap to buy with stars), and OWNED ones open their own customization list
 ## (variants priced in coins/diamonds).
 ## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
-## home. Buying advances your level; level-ups gift water+diamonds. A pinned garden button
-## leads to the board. Every map renders through ONE path (_build_map → HomeZoneView): the layered
-## cut-paper zone renderer draws the foundation + one painter-sorted prop per building, plus a build
-## badge over each unbuilt plot (taps route via spot_hits → _map_tap → _on_build_tap).
+## home. Unlocking regions advances your level; level-ups gift water+diamonds. A pinned garden
+## button leads to the board. Every map renders through ONE path (_build_map → HomeZoneView): the
+## layered cut-paper zone renderer draws the foundation + one painter-sorted prop per region, plus a
+## cover-up lock badge over each locked cluster (taps route via spot_hits → _map_tap → _on_cluster_tap).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
@@ -56,7 +56,6 @@ const Pal = Game.PALETTE
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
-const HomeBuild = preload("res://engine/scripts/core/home.gd")   # the build-and-upgrade adapter (the map surface)
 const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -432,12 +431,11 @@ func _debug_resident_line() -> String:
 # sprites. The whole view lives under `content` — every child IGNOREs (single input
 # surface).
 
-# THE home render path (build-and-upgrade redesign, spec 2026-07-17): one evolving home world of
-# coin-built, level-gated buildings rendered through the layered cut-paper pipeline. The old §16
-# mask-reveal + per-spot claim machinery is retired and deleted.
-# HomeZoneView draws the foundation + one painter-sorted prop per building (its current
-# build state) + a coin/level BADGE over each unbuilt plot; build badges register into spot_hits so
-# the shared _map_tap resolves a tap to _on_build_tap.
+# THE home render path (picture-book cover-up scenes): five tall cut-paper scenes whose regions
+# unlock top-down in one global cluster sequence, rendered through the layered cut-paper pipeline.
+# HomeZoneView draws the foundation + one painter-sorted prop per region + a cover-up LOCK badge over
+# each still-locked cluster; the next-in-order badge registers into spot_hits so the shared _map_tap
+# resolves a tap to _on_cluster_tap.
 func _build_map(animate := true) -> void:
 	# tear down any live pager (tween, drag, queued builds) and rebuild the window from scratch.
 	if _slide_tween != null and _slide_tween.is_valid():
@@ -577,13 +575,14 @@ var _zone_badges: Dictionary = {}           # cluster id -> its lock badge node 
 func _home_manifest() -> Dictionary:
 	return _page_manifest(_map_idx)
 
-# The zone renderer's injected state resolvers (thin adapters over home.gd). Scene PROPS (page
-# scenery from the workbench bundles) are not buildings — they render "built" and take no badge.
-func _home_state_id(id: String) -> String:
-	return HomeBuild.state_id(id) if not HomeBuild.def_of(id).is_empty() else "built"
+# The zone renderer's injected state resolvers. Every prop renders "built": scene props (page
+# scenery from the workbench bundles) carry no build state, and the cover-up reveal owns lock
+# visuals — so there is no per-prop build step to resolve.
+func _home_state_id(_id: String) -> String:
+	return "built"
 
-func _home_next_step(id: String) -> Dictionary:
-	return HomeBuild.next_step(id) if not HomeBuild.def_of(id).is_empty() else {}
+func _home_next_step(_id: String) -> Dictionary:
+	return {}
 
 # The GLOBAL bucket roster as ambient members ({type, tier}) — rendered on any COMPLETED map (the
 # "roster wanders the map you're viewing" polish, grove_spec §3): one wanderer per placed spirit,
@@ -849,20 +848,15 @@ func _build_maps_page(animate := true) -> void:
 	if animate:
 		FX.pop_in(content)
 
-# Buildable progress on a page: built / total over the manifest buildings that carry a build def
-# (scene props render "built" and don't count). Vector2i(built, total); total 0 = no build system yet.
+# Unlock progress on a cover-up page: unlocked / total clusters. Vector2i(done, total); total 0 =
+# a page with no clusters (nothing to show).
 func _page_progress(z: int) -> Vector2i:
-	var manifest: Dictionary = _page_manifest(z)
-	var built := 0
-	var total := 0
-	for b in manifest.get("buildings", []):
-		var id := String(b.get("id", ""))
-		if HomeBuild.def_of(id).is_empty():
-			continue
-		total += 1
-		if HomeBuild.next_step(id).is_empty():
-			built += 1
-	return Vector2i(built, total)
+	var cls: Array = G.clusters(z)
+	var done := 0
+	for c in cls:
+		if unlocks.has(String((c as Dictionary).id)):
+			done += 1
+	return Vector2i(done, cls.size())
 
 func _page_manifest(z: int) -> Dictionary:
 	var path := String(G.MAPS[z].get("zone_manifest", HOME_ZONE_MANIFEST))
@@ -1987,10 +1981,7 @@ func _map_tap(gpos: Vector2) -> void:
 		if n == null or not is_instance_valid(n):
 			continue
 		if n.get_global_rect().grow(24.0).has_point(gpos):
-			if bool(G.MAPS[_map_idx].get("coverup_mode", false)):
-				_on_cluster_tap(String(hit.get("building", "")), n, gpos)
-			else:
-				_on_build_tap(String(hit.get("building", "")), n, gpos)
+			_on_cluster_tap(String(hit.get("building", "")), n, gpos)
 			return
 	# a wandering spirit? a tap earns a hop (pure charm, v1)
 	var amb: Control = content.get_node_or_null("AmbientLayer")
@@ -2055,52 +2046,6 @@ func _on_cluster_tap(cluster_id: String, node: Control, at: Vector2) -> void:
 	_build_map(false)
 	_refresh_play_cta()
 	_update_hud()
-
-# --- building a building, right on the map image -----------------------------------------
-
-# Tap a build BADGE: buy the building's next step (coins + level gate, home.gd). A refusal wobbles
-# and shows why (too poor / level-locked); a success pops the paid step's art, credits nothing (a
-# completing step grants bucket cells), rebuilds the plot, and celebrates a finished building.
-func _on_build_tap(building_id: String, node: Control, at: Vector2) -> void:
-	if building_id == "":
-		return
-	var step := HomeBuild.next_step(building_id)
-	if step.is_empty():
-		return                                # already built — inert (customization opens elsewhere)
-	var was_covered := HomeBuild.state_id(building_id) == "empty"   # first buy clears the covering
-	var out := HomeBuild.buy_step(building_id)
-	if not bool(out.ok):
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		var msg := Strings.t("map.spot.needs_level") % int(step.get("min_level", 1)) if String(out.reason) == "level" \
-			else Strings.t("map.build.needs_coins") if String(out.reason) == "coins" else ""
-		if msg != "":
-			FX.floating_text(self, at - Vector2(120, 64), msg, Color(CREAM, 0.9), FS.HEADING)
-		return
-	FX.burst(self, at, STRAW, 18)
-	Audio.play("level_complete", -6.0, 1.2)
-	if bool(out.built):
-		# a finished building grants its bucket cells (home.cells_total re-derives) + moves its spirit in.
-		FX.celebrate_at(self, get_global_rect().get_center(), Strings.t("map.build.done") % tr(_building_label(building_id)), STRAW)
-		if Features.on("big_moment_shake"):
-			FX.shake(self)
-		Audio.play("level_complete", -2.0)
-	if was_covered:
-		# the plot's covering pops out; reparented to the scene first so the rebuild below
-		# (which frees the whole zone stage) can't cut the animation short.
-		SceneCoverings.reveal(_zone_coverings.get(building_id), self)
-		_zone_coverings.erase(building_id)
-	_persist()
-	_build_map(false)                     # rebuild the plot in place (the prop advances a state)
-	_refresh_play_cta()
-	_update_hud()
-
-# The display label for a building id (from the zone manifest).
-func _building_label(building_id: String) -> String:
-	for b in _home_manifest().get("buildings", []):
-		if String((b as Dictionary).get("id", "")) == building_id:
-			return String((b as Dictionary).get("label", building_id))
-	return building_id
 
 # Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.
 # The lock shader rendered alone in a transparent SubViewport reproduces the exact on-screen masking
@@ -2179,68 +2124,28 @@ func _update_hud() -> void:
 		coins_label.text = str(Save.coins())
 	_refresh_play_cta()
 
-# Is the open map's next spot affordable right now? Drives the merged Play/Restore CTA's state.
-func _unlock_ready() -> bool:
-	return HomeBuild.any_buyable()   # some building step is buyable now (level + wallet)
-
-# The bottom-right CTA is MERGED: PLAY by default (the board+acorn mark → the board), and RESTORE when the
-# open map's next spot is affordable — the SAME orange play disc, but wearing the ui_asset3 vine mark and
-# tapping into the unlock (_on_unlock_pressed). Called on build + map open + any exp/owner change (via
-# _update_hud), so it flips the instant a spot becomes affordable. Updates the disc IN PLACE — swaps the
-# icon + repoints the press — so the breathing tween carries across the flip (no rebuild).
+# The bottom-right CTA is the PLAY disc → the board. (It once merged in a RESTORE face driven by the
+# home-building system; cover-up scenes unlock their regions via the on-map cluster badges
+# (_on_cluster_tap), so the disc no longer flips.) Called on build + map open + exp/owner change; it
+# updates the disc IN PLACE so the breathing tween carries across (no rebuild).
 func _refresh_play_cta() -> void:
 	if _play_btn == null or not is_instance_valid(_play_btn):
 		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
-	# coverup pages carry per-cluster lock icons ON the map, so the bottom CTA never flips to RESTORE.
-	var ready := _unlock_ready() and not bool(G.MAPS[_map_idx].get("coverup_mode", false))
 	# NB: get_meta(key, null) still THROWS on a missing key — Godot treats a null default as "no default".
 	# The cut-paper BoardTile play button carries no icon_wrap, so guard with has_meta (as board.gd does).
 	var wrap := (_play_btn.get_meta("icon_wrap") if _play_btn.has_meta("icon_wrap") else null) as Control
 	if wrap != null:
 		for c in wrap.get_children():
 			c.queue_free()
-		var HC: GDScript = load(HOME_CHROME_PATH)
-		var icon_node: Control = Kit.make_icon(HC.ICON_PLAY_RESTORE if ready else HC.ICON_PLAY, float(_play_btn.get_meta("icon_px", 96.0)))
+		var icon_node: Control = Kit.make_icon(load(HOME_CHROME_PATH).ICON_PLAY, float(_play_btn.get_meta("icon_px", 96.0)))
 		if icon_node != null:
 			wrap.add_child(icon_node)
-	# re-point the tap: RESTORE the next spot when affordable, else into the garden/board.
 	for conn in _play_btn.pressed.get_connections():
 		_play_btn.pressed.disconnect(conn["callable"])
-	_play_btn.pressed.connect(_on_unlock_pressed if ready else _on_board)
-
-func _on_unlock_pressed() -> void:
-	# the merged CTA's RESTORE face → build the cheapest buyable building's next step. Resolve to that
-	# building's badge (for the FX origin), then run the shared build-tap path.
-	var target := _cheapest_buyable()
-	if target == "":
-		return
-	var node: Control = self
-	var at := get_global_rect().get_center()
-	for hit in spot_hits:
-		if String(hit.get("building", "")) == target and hit.node != null and is_instance_valid(hit.node):
-			node = hit.node
-			at = (hit.node as Control).get_global_rect().get_center()
-			break
-	_on_build_tap(target, node, at)
-
-# The building id whose next step is buyable now at the lowest coin cost ("" if none buyable).
-func _cheapest_buyable() -> String:
-	var lvl := G.level()
-	var wallet := Save.coins()
-	var best := ""
-	var best_cost := 1 << 30
-	for d in HomeBuild.defs():
-		var id := String(d.id)
-		var step := HomeBuild.next_step(id)
-		if step.is_empty():
-			continue
-		if int(step.min_level) <= lvl and int(step.cost) <= wallet and int(step.cost) < best_cost:
-			best = id
-			best_cost = int(step.cost)
-	return best
+	_play_btn.pressed.connect(_on_board)
 
 func _build_chrome() -> void:
 	# ONE bottom bar carries every home destination now (spec 2026-07-18): Map · Residents · Daily ·

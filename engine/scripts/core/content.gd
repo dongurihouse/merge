@@ -714,7 +714,7 @@ static func boost_bonus() -> int:
 ## Can the player welcome residents on map `z`? §1 EARLY POPULATION — opens as soon as the FIRST spot is
 ## restored (not full completion). The roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as more spots are
 ## restored — it gates the ACQUIRE loop. `gates` is retained for signature compatibility. Bucket CELLS are
-## a separate, stricter gate: only FULL completion grants them (bucket.gd cells_total / BUCKET_CELL_GRANTS).
+## a separate, stricter gate: only a FULLY-unlocked scene grants one (bucket.gd cells_total → cells_from_scenes).
 static func can_populate(z: int, unlocks: Dictionary, _gates: Array = []) -> bool:
 	return map_spots_restored(z, unlocks) >= 1
 

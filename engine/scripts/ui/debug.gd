@@ -277,26 +277,23 @@ static func _act_stars(host: Control) -> void:
 	G.earn_coins(5)
 	_reflect(host)
 
-## Complete the next unbuilt home building (pay-free) + push the clock past its level gates —
-## the mid-game staging grant (spec §6: preset built buildings for testing).
+## Unlock the next cover-up cluster (pay-free) + push the clock past its level gate —
+## the mid-game staging grant (advances the picture-book one region per tap).
 static func _act_unlock_map(host: Control) -> void:
-	var HB := preload("res://engine/scripts/core/home_build.gd")
-	var Home := preload("res://engine/scripts/core/home.gd")
-	var st: Dictionary = Home.state()
-	for d in Home.defs():
-		if HB.is_built(st, d):
-			continue
-		var last_gate := 1
-		while HB.buy_step(st, d):          # advance every step, wallet-free (debug)
-			pass
-		for stp in d.steps:
-			last_gate = maxi(last_gate, int(stp.min_level))
-		# lift the clock to the building's top gate so the NEXT building's steps read unlockable
-		var need := G.coins_at_level(last_gate + 1) - Save.coins_earned_lifetime()
-		if need > 0:
-			Save.earn_coins(need)
-		Save.grove_write()
-		break                               # one building per tap
+	var g := Save.grove()
+	var unl: Dictionary = g.get("unlocks", {})
+	var z := G.current_unlock_map(unl)
+	var cl := G.next_locked_cluster(z, unl)
+	if cl == "":
+		_reflect(host)
+		return
+	# lift the clock so the cluster's level gate reads met, then record the unlock
+	var need := G.coins_at_level(G.cluster_min_level(z, cl)) - Save.coins_earned_lifetime()
+	if need > 0:
+		Save.earn_coins(need)
+	unl[cl] = true
+	g["unlocks"] = unl
+	Save.grove_write()
 	_reflect(host)
 
 ## Push the coin clock to the next level threshold (the clock is uncapped).

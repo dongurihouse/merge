@@ -161,9 +161,6 @@ func _panel_count(area: Control) -> int:
 			n += 1
 	return n
 
-const HomeAdapter = preload("res://engine/scripts/core/home.gd")
-const HomeBld = preload("res://engine/scripts/core/home_build.gd")
-
 func fresh(name: String) -> void:
 	var dir := "user://tu_test_grove_" + name + "/"
 	if DirAccess.dir_exists_absolute(dir):
@@ -173,13 +170,14 @@ func fresh(name: String) -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-# Complete EVERY home building (wallet-free), the shared way suites open the resident bucket now that
-# cells come from built buildings (spec 2026-07-17) — replaces the old "restore all map spots".
-func build_all_buildings() -> void:
-	var st := HomeAdapter.state()
-	for d in HomeAdapter.defs():
-		while HomeBld.buy_step(st, d):
-			pass
+# Fully unlock cover-up scene `z` in the save (grants its ONE habitat cell — capacity is one cell
+# per completed scene). The shared way suites open the resident bucket.
+func complete_scene(z: int) -> void:
+	var g := Save.grove()
+	var unl: Dictionary = g.get("unlocks", {})
+	for c in G.clusters(z):
+		unl[String((c as Dictionary).id)] = true
+	g["unlocks"] = unl
 	Save.grove_write()
 
 
@@ -223,8 +221,8 @@ func _test_residents() -> void:
 	ok(_rart == "" or _rart.ends_with(".png"), "resident_art resolves a type to an art path (or empty under the placeholder root)")
 
 	# 1. EARLY POPULATE GATE: can_populate opens as soon as the FIRST spot is restored (not full
-	# completion) — it gates the acquire loop (Expedition). Bucket CELLS come only from full completion
-	# (Bucket.cells_total, BUCKET_CELL_GRANTS; covered in grove_residents_tests + bucket_adapter_tests).
+	# completion) — it gates the acquire loop (Expedition). Bucket CELLS come only from a FULLY-unlocked
+	# scene (Bucket.cells_total → content.cells_from_scenes; covered in bucket_adapter_tests + scene_cells_tests).
 	fresh("residents_gate")
 	var first_spot := String(G.MAPS[z].spots[0].id)
 	ok(not G.can_populate(z, {}, []), "can_populate is FALSE before any spot is restored")
