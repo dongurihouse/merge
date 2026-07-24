@@ -38,6 +38,7 @@
 	},
 	"bag_card": {
 		"cell_h": 120.0,
+		"cell_shadow": true,
 		"cell_w": 116.0,
 		"content_frac": 88.0,
 		"cost_font": 28.0,
@@ -54,15 +55,15 @@
 		"shadow": true
 	},
 	"board": {
-		"frame": 16.0,
+		"frame": 10.0,
 		"frame_border_w": 4.0,
 		"frame_corner": 46.0,
 		"frame_inner_w": 0.0,
 		"frame_style": "meadow",
-		"frame_tint": "7FA6B4",
+		"frame_tint": "efbd28",
 		"frame_top_shadow": 0.0,
-		"gap": 11.0,
-		"scale": 97.0,
+		"gap": 2.0,
+		"scale": 99.0,
 		"shadow": true
 	},
 	"button": {
@@ -120,7 +121,8 @@
 		"item_shadow_blur": 20.0,
 		"item_shadow_offset_x": 5.0,
 		"item_shadow_offset_y": 8.0,
-		"item_shadow_spread": -4.0
+		"item_shadow_spread": -4.0,
+		"shadow": false
 	},
 	"focus_ring": {
 		"arm_pct": 14.0,
@@ -287,7 +289,9 @@
 		"quest_bar_h_pct": 10.0,
 		"shadow": false
 	},
-	"icon": {},
+	"icon": {
+
+	},
 	"info": {
 		"shadow": true
 	},
@@ -450,14 +454,14 @@
 	},
 	"progress_bar": {
 		"art": true,
-		"fill_height_pct": 100.0,
+		"fill_height_pct": 81.0,
 		"fill_shadow": true,
-		"fill_shadow_blur": 3.0,
-		"fill_shadow_opacity": 28.0,
-		"fill_shadow_spread": -1.0,
-		"fill_shadow_x": 0.0,
-		"fill_shadow_y": 2.0,
-		"fill_width_pct": 100.0,
+		"fill_shadow_blur": 10.0,
+		"fill_shadow_opacity": 52.0,
+		"fill_shadow_spread": -3.0,
+		"fill_shadow_x": 4.0,
+		"fill_shadow_y": 3.0,
+		"fill_width_pct": 99.0,
 		"fill_x": 0.0,
 		"fill_y": 0.0,
 		"height": 30.0,
