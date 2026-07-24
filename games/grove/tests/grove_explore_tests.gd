@@ -43,15 +43,17 @@ func _initialize() -> void:
 	_test_combo_bloom()
 	await _test_mote_puff()
 	_test_quest_unused_generator_fade()
-	_test_swipe_decision_helpers()
+	_test_swipe_commit_dir()
 	_test_maps_gallery_featured_unlock_target()
 	_test_maps_gallery_grid_lock_state()
 	await _test_home_has_no_page_arrows()
+	await _test_home_prebuilds_window()
 	await _test_home_tap_unlocks_cluster()
 	await _test_home_swipe_commits_to_next_scene()
+	await _test_home_swipe_commits_to_prev_scene()
 	await _test_home_short_swipe_springs_back()
 	await _test_home_swipe_at_first_page_is_noop()
-	await _test_home_reverse_swipe_springs_back()
+	await _test_home_no_build_during_drag()
 	await _test_home_swipe_resize_mid_commit_finalizes()
 	await _test_endgame_fence_stays_live()
 	await _test_purge_above_level_migration()
@@ -111,18 +113,14 @@ func _test_quest_unused_generator_fade() -> void:
 		ok(dlg_src.find(", 0.0)") != -1 and dlg_src.find("make_piece(") != -1,
 			"%s builds its cell piece at inset 0 (shared content_frac parity)" % dlg_src_path.get_file())
 
-func _test_swipe_decision_helpers() -> void:
-	# direction: dragging LEFT reveals the NEXT scene, RIGHT reveals the PREVIOUS
-	ok(MapScript._neighbor_z(2, -30.0) == 3, "dragging left reveals the next scene")
-	ok(MapScript._neighbor_z(2, 30.0) == 1, "dragging right reveals the previous scene")
-	# distance threshold: on a 1000px viewport, commit at >= 330px
-	ok(MapScript._swipe_commit(-400.0, 0.0, 1000.0, true), "a drag past a third of the width commits")
-	ok(not MapScript._swipe_commit(-200.0, 0.0, 1000.0, true), "a drag under a third of the width does not commit")
-	# fling: a fast flick in the SAME direction commits under the distance threshold
-	ok(MapScript._swipe_commit(-80.0, -900.0, 1000.0, true), "a fast flick commits under the distance threshold")
-	ok(not MapScript._swipe_commit(-80.0, 900.0, 1000.0, true), "a flick opposite the drag does not commit")
-	# an edge (no neighbour) never commits, however hard you pull or flick
-	ok(not MapScript._swipe_commit(-900.0, -900.0, 1000.0, false), "an edge swipe with no neighbour never commits")
+func _test_swipe_commit_dir() -> void:
+	# distance-ONLY, direction-returning (no velocity guesswork): 1000px viewport -> commit at >= 330px.
+	# +1 = slid LEFT past the threshold (NEXT), -1 = slid RIGHT (PREV), 0 = spring back.
+	ok(MapScript._swipe_commit_dir(-400.0, 1000.0) == 1, "sliding left past a third commits to the NEXT scene")
+	ok(MapScript._swipe_commit_dir(400.0, 1000.0) == -1, "sliding right past a third commits to the PREVIOUS scene")
+	ok(MapScript._swipe_commit_dir(-200.0, 1000.0) == 0, "a left slide under a third springs back")
+	ok(MapScript._swipe_commit_dir(200.0, 1000.0) == 0, "a right slide under a third springs back")
+	ok(MapScript._swipe_commit_dir(0.0, 1000.0) == 0, "no slide, no commit")
 
 func _test_maps_gallery_featured_unlock_target() -> void:
 	fresh("maps_featured_unlock_target")
@@ -189,7 +187,8 @@ func _test_home_has_no_page_arrows() -> void:
 	await process_frame
 	ok(map.content.find_child("PageArrowNext", true, false) == null, "the home page no longer shows a next-page arrow")
 	ok(map.content.find_child("PageArrowPrev", true, false) == null, "the home page no longer shows a prev-page arrow")
-	ok(map.content.get_child_count() == 1, "the home renders as a single scene page node")
+	ok(map._track != null and is_instance_valid(map._track), "the home renders through a single sliding track")
+	ok(map.content.get_child_count() == 1, "content holds exactly the track")
 	map.queue_free()
 	await process_frame
 
@@ -212,25 +211,61 @@ func _test_home_tap_unlocks_cluster() -> void:
 	map.queue_free()
 	await process_frame
 
+func _test_home_prebuilds_window() -> void:
+	fresh("home_window")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(2)          # a middle scene — both neighbours exist
+	ok(map._pages.has(2), "the current scene is built immediately")
+	_warm_window(map)         # drain the idle pre-build pump
+	ok(map._pages.has(1) and map._pages.has(3), "both neighbours pre-build (the sliding window is {1,2,3})")
+	ok(not map._pages.has(0) and not map._pages.has(4), "scenes two away are NOT built (window is only ±1)")
+	# each scene is clipped to its own slot, so a cover-fill scene can't bleed into the next
+	for z in map._pages.keys():
+		ok(bool(map._pages[z].node.clip_contents), "scene %d is clipped to its slot (no overflow bleed)" % z)
+	map.queue_free()
+	await process_frame
+
 func _test_home_swipe_commits_to_next_scene() -> void:
 	fresh("home_swipe_commit")
 	var map = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map)
 	await process_frame
-	map._open_map(1)          # an open middle page — has both neighbours
-	await process_frame
+	map._open_map(1)          # an open middle scene — has both neighbours
+	_warm_window(map)         # neighbours ready BEFORE we swipe (no mid-drag build)
 	var start := int(map._map_idx)
 	var v: Vector2 = map.get_viewport_rect().size
 	var cy := v.y * 0.5
-	# drag LEFT ~0.6 of the width (well past a third) -> commit to the NEXT scene
+	# slide LEFT ~0.6 of the width (well past a third) -> commit to the NEXT scene
 	_swipe_touch(map, Vector2(v.x * 0.85, cy), true)
 	_swipe_drag(map, Vector2(v.x * 0.55, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
 	_swipe_drag(map, Vector2(v.x * 0.25, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
 	_swipe_touch(map, Vector2(v.x * 0.25, cy), false)
 	await create_timer(0.4).timeout
-	ok(int(map._map_idx) == start + 1, "swiping left past the threshold commits to the next scene")
+	ok(int(map._map_idx) == start + 1, "sliding left past the threshold commits to the next scene")
 	ok(String(Save.grove().get("last_map", "")) == String(G.MAPS[start + 1].id), "the committed scene persists as last_map")
 	ok(map._swipe.is_empty(), "the swipe state is cleared after committing")
+	map.queue_free()
+	await process_frame
+
+func _test_home_swipe_commits_to_prev_scene() -> void:
+	fresh("home_swipe_prev")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(2)
+	_warm_window(map)
+	var start := int(map._map_idx)
+	var v: Vector2 = map.get_viewport_rect().size
+	var cy := v.y * 0.5
+	# slide RIGHT past a third -> commit to the PREVIOUS scene
+	_swipe_touch(map, Vector2(v.x * 0.2, cy), true)
+	_swipe_drag(map, Vector2(v.x * 0.5, cy), Vector2(v.x * 0.30, 0), Vector2(300, 0))
+	_swipe_drag(map, Vector2(v.x * 0.8, cy), Vector2(v.x * 0.30, 0), Vector2(300, 0))
+	_swipe_touch(map, Vector2(v.x * 0.8, cy), false)
+	await create_timer(0.4).timeout
+	ok(int(map._map_idx) == start - 1, "sliding right past the threshold commits to the previous scene")
 	map.queue_free()
 	await process_frame
 
@@ -240,18 +275,18 @@ func _test_home_short_swipe_springs_back() -> void:
 	get_root().add_child(map)
 	await process_frame
 	map._open_map(1)
-	await process_frame
+	_warm_window(map)
 	var start := int(map._map_idx)
 	var v: Vector2 = map.get_viewport_rect().size
 	var cy := v.y * 0.5
 	var px := v.x * 0.6
-	# 40px drag: past the 12px activation, well under a third of the width, slow -> cancel
+	# 40px slide: past the 12px activation, well under a third of the width -> springs back
 	_swipe_touch(map, Vector2(px, cy), true)
 	_swipe_drag(map, Vector2(px - 40.0, cy), Vector2(-40, 0), Vector2(-80, 0))
 	_swipe_touch(map, Vector2(px - 40.0, cy), false)
 	await create_timer(0.4).timeout
-	ok(int(map._map_idx) == start, "a short, slow swipe springs back to the same scene")
-	ok(map.content.get_child_count() == 1, "the neighbour preview is freed after springing back")
+	ok(int(map._map_idx) == start, "a short slide springs back to the same scene")
+	ok(absf(map._track.position.x - map._track_rest_x()) < 0.5, "the track returns to rest after springing back")
 	ok(map._swipe.is_empty(), "the swipe state is cleared after cancelling")
 	map.queue_free()
 	await process_frame
@@ -261,39 +296,37 @@ func _test_home_swipe_at_first_page_is_noop() -> void:
 	var map = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map)
 	await process_frame
-	map._open_map(0)          # first page — no previous scene
-	await process_frame
+	map._open_map(0)          # first scene — no previous
+	_warm_window(map)
 	var v: Vector2 = map.get_viewport_rect().size
 	var cy := v.y * 0.5
-	# drag RIGHT (toward the non-existent previous page), far past the threshold, with a hard flick
+	# slide RIGHT (toward the non-existent previous scene), far past the threshold
 	_swipe_touch(map, Vector2(v.x * 0.2, cy), true)
 	_swipe_drag(map, Vector2(v.x * 0.9, cy), Vector2(v.x * 0.7, 0), Vector2(900, 0))
 	_swipe_touch(map, Vector2(v.x * 0.9, cy), false)
 	await create_timer(0.4).timeout
-	ok(int(map._map_idx) == 0, "swiping toward a non-existent previous scene on page 0 is a no-op")
-	ok(map.content.get_child_count() == 1, "no neighbour is built at the first-page edge")
+	ok(int(map._map_idx) == 0, "sliding toward a non-existent previous scene on page 0 is a no-op")
+	ok(not map._pages.has(-1), "no scene exists left of the first")
 	map.queue_free()
 	await process_frame
 
-func _test_home_reverse_swipe_springs_back() -> void:
-	fresh("home_swipe_reverse")
+func _test_home_no_build_during_drag() -> void:
+	fresh("home_no_mid_drag_build")
 	var map = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map)
 	await process_frame
-	map._open_map(1)          # a middle page — both neighbours exist
-	await process_frame
-	var start := int(map._map_idx)
+	map._open_map(2)
+	_warm_window(map)                    # window {1,2,3} fully built up front
+	var before: int = map._pages.size()
 	var v: Vector2 = map.get_viewport_rect().size
 	var cy := v.y * 0.5
-	# activate a LEFT swipe (builds the NEXT preview), then reverse and drag RIGHT past a third
-	_swipe_touch(map, Vector2(v.x * 0.5, cy), true)
-	_swipe_drag(map, Vector2(v.x * 0.4, cy), Vector2(-v.x * 0.10, 0), Vector2(-120, 0))   # left: activate, dir=-1
-	_swipe_drag(map, Vector2(v.x * 0.9, cy), Vector2(v.x * 0.50, 0), Vector2(120, 0))     # reverse right, past 1/3
-	_swipe_touch(map, Vector2(v.x * 0.9, cy), false)
+	# a full drag must build NO scene — the ~100ms scene build was the source of the jank
+	_swipe_touch(map, Vector2(v.x * 0.85, cy), true)
+	_swipe_drag(map, Vector2(v.x * 0.55, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
+	_swipe_drag(map, Vector2(v.x * 0.30, cy), Vector2(-v.x * 0.25, 0), Vector2(-300, 0))
+	ok(map._pages.size() == before, "dragging builds NO scene — the neighbours were already parked (smooth slide)")
+	_swipe_touch(map, Vector2(v.x * 0.30, cy), false)
 	await create_timer(0.4).timeout
-	ok(int(map._map_idx) == start, "reversing a swipe past the origin springs back (no wrong-direction commit)")
-	ok(map.content.get_child_count() == 1, "the preview is freed after a reversed swipe springs back")
-	ok(map._swipe.is_empty(), "the swipe state is cleared after a reversed swipe")
 	map.queue_free()
 	await process_frame
 
@@ -306,8 +339,8 @@ func _test_home_swipe_resize_mid_commit_finalizes() -> void:
 	var map = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(map)
 	await process_frame
-	map._open_map(1)          # an open middle page — has a next neighbour to commit to
-	await process_frame
+	map._open_map(1)          # an open middle scene — has a next neighbour to commit to
+	_warm_window(map)         # ensure the NEXT scene is pre-built so the commit has a target
 	var start := int(map._map_idx)
 	var v: Vector2 = map.get_viewport_rect().size
 	var cy := v.y * 0.5
@@ -623,6 +656,13 @@ func _swipe_drag(map, gpos: Vector2, rel: Vector2, vel: Vector2) -> void:
 	d.relative = rel
 	d.velocity = vel
 	map._on_input(d)
+
+# Force the pre-render pump to build the whole window NOW. Production spreads neighbour builds across
+# idle frames (map._process, one per frame); tests need the window deterministic before swiping, so we
+# drive _process directly. Safe once the queue is drained (early-returns).
+func _warm_window(map) -> void:
+	for i in 6:
+		map._process(0.0)
 
 func _test_map_card_expedition_chrome() -> void:
 	fresh("map_card_expedition_chrome")

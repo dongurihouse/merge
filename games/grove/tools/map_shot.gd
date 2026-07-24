@@ -209,6 +209,19 @@ func _initialize() -> void:
 		await create_timer(0.5).timeout
 	elif mode == "login":
 		await create_timer(0.6).timeout   # the calendar popup is deferred two frames from _ready
+	elif mode == "midslide":
+		# a FROZEN mid-swipe frame: open a middle scene, let the idle pump pre-build both neighbours,
+		# then offset the pager track partway toward the NEXT scene so the seam is on-screen. Proves the
+		# per-slot clip (no cover-fill overflow bleeding across scenes). `frac=` sets how far (default 0.45).
+		scn._open_map(pmap)
+		await create_timer(0.9).timeout   # idle _process warms {pmap-1, pmap, pmap+1}
+		var frac := 0.45
+		for wa in args:
+			if String(wa).begins_with("frac="):
+				frac = float(String(wa).split("=")[1])
+		var vw: float = scn.get_viewport_rect().size.x
+		scn._track.position.x = scn._track_rest_x() - vw * frac
+		await create_timer(0.15).timeout
 	elif mode == "closeup" or mode == "progress" or mode == "owned":
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout

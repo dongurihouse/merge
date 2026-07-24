@@ -112,10 +112,19 @@ var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var maps_hits: Array = []        # [{node, z, locked}] — the MAPS page cards (locked cards wobble; open cards open)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
-var _page_cur: Control = null    # the live scene page node under `content` (the swipe's cur)
-var _swipe: Dictionary = {}      # the in-flight home page-swipe; {} when idle (see _on_map_input)
-var _swipe_tween: Tween = null   # the active snap/spring tween (settle guard + resize-cancel)
-var _swipe_commit_dest := -1     # dest scene of an in-flight COMMIT tween (-1 = spring-back/idle); a resize
+# --- home scene pager (pre-rendered sliding window: current scene + its ≤2 unlocked neighbours) ----
+# Scenes are LIVE cut-paper renders (~100ms each to build), so we NEVER build one inside a drag. The
+# current scene and its immediate neighbours are pre-built, parked side by side on `_track` (page z at
+# local x = z·view_w), each CLIPPED to its own screen-width slot so no scene's cover-fill overflow bleeds
+# into the next. A swipe just slides `_track`; a commit promotes the already-built neighbour (cheap hit
+# re-registration, no rebuild). Neighbours warm up on idle AFTER a navigation (one per frame in _process,
+# paused during a gesture) so a build never lands in a drag. See _build_map / _ensure_window / _swipe_move.
+var _track: Control = null       # holds the windowed page nodes; sliding its x IS the swipe
+var _pages: Dictionary = {}      # z -> {node: Control, badges: Dictionary, coverings: Dictionary, factor: float}
+var _prebuild_pending: Array = []  # neighbour z's queued to build on idle (drained one per frame in _process)
+var _swipe: Dictionary = {}      # the in-flight drag {active, dx, eff, settling}; {} when idle
+var _slide_tween: Tween = null   # the active snap (commit) / spring-back (cancel) tween
+var _slide_commit_dest := -1     # dest scene of an in-flight COMMIT slide (-1 = spring-back/idle); a resize
                                  # kill()s the tween without firing `finished`, so the resize handler reads
                                  # this to finalize the interrupted commit instead of rebuilding the source.
 var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
@@ -430,35 +439,59 @@ func _debug_resident_line() -> String:
 # build state) + a coin/level BADGE over each unbuilt plot; build badges register into spot_hits so
 # the shared _map_tap resolves a tap to _on_build_tap.
 func _build_map(animate := true) -> void:
+	# tear down any live pager (tween, drag, queued builds) and rebuild the window from scratch.
+	if _slide_tween != null and _slide_tween.is_valid():
+		_slide_tween.kill()
+	_slide_tween = null
+	_slide_commit_dest = -1
+	_swipe = {}
+	_prebuild_pending.clear()
 	for c in content.get_children():
 		c.queue_free()
+	_pages.clear()
 	spot_hits.clear()
 	select_hits.clear()
 	# the stable canvas is a centered, design-aspect rect that COVER-FILLS the viewport (see _map_image_rect).
 	_map_rect = _map_image_rect()
-	_page_cur = _build_page_node(_map_idx, content, true)
+	_track = Control.new()
+	_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(_track)
+	# the CURRENT scene builds synchronously (it must show now) and becomes interactive; neighbours warm on idle.
+	_build_page_visual(_map_idx)
+	_activate_page(_map_idx)
+	_track.position.x = _track_rest_x()
+	_ensure_window()
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
 
-# Build ONE scene page's visuals (zone holder + wandering-residents layer), fitted into _map_rect,
-# into a fresh page Control added to `parent`. `interactive` (the LIVE page, z == _map_idx) registers
-# hit-testing — spot_hits + the coverup ready-sequence + the badge-above-nav clamp, over the _zone_*
-# members. A swipe's neighbour PREVIEW passes false: it renders visuals only and touches NO member
-# state, so previewing it can never corrupt the live page's taps. Returns the page node.
-func _build_page_node(z: int, parent: Control, interactive: bool) -> Control:
-	var page := Control.new()
-	page.set_anchors_preset(Control.PRESET_FULL_RECT)
-	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(page)
+# `_track` local x that centres the CURRENT scene (page z sits at z·view_w; the track shifts left by idx).
+func _track_rest_x() -> float:
+	return -float(_map_idx) * get_viewport_rect().size.x
 
-	var manifest := _page_manifest(z)
+func _slot_x(z: int) -> float:
+	return float(z) * get_viewport_rect().size.x
+
+# Build ONE scene's VISUALS (zone holder + wandering-residents layer) into a fresh, screen-width, CLIPPED
+# page parked at its slot on `_track`, and record it in `_pages`. This is the ~100ms cost — it runs at a
+# navigation and on idle, NEVER inside a gesture. It registers NO hit-testing; _activate_page does that
+# cheaply when a page becomes current. No-ops if the page already exists.
+func _build_page_visual(z: int) -> void:
+	if _pages.has(z) or _track == null or not is_instance_valid(_track):
+		return
+	var page := Control.new()
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.clip_contents = true                    # each scene shows only its own slot — cover-fill overflow can't bleed
+	page.size = get_viewport_rect().size
+	page.position = Vector2(_slot_x(z), 0.0)
+	_track.add_child(page)
+
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.add_child(holder)
 	var coverup := bool(G.MAPS[z].get("coverup_mode", false))
 	var unl := unlocks
 	var locked_cb := func(cl: String) -> bool: return G.cluster_locked(z, cl, unl)
-	var built := HomeZoneView.build(holder, manifest, Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
+	var built := HomeZoneView.build(holder, _page_manifest(z), Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
 		G.MAPS[z].get("covering_frames", []), coverup, locked_cb)
 	# fit the native canvas into the cover-filled map rect (uniform scale keeps the cut-paper aspect).
 	var stage: Control = built.stage
@@ -466,30 +499,75 @@ func _build_page_node(z: int, parent: Control, interactive: bool) -> Control:
 	var factor := maxf(_map_rect.size.x / native.x, _map_rect.size.y / native.y)
 	stage.scale = Vector2.ONE * factor
 	stage.position = _map_rect.position + (_map_rect.size - native * factor) * 0.5
-
-	if interactive:
-		_zone_coverings = built.coverings   # id -> covering group, revealed away on unlock
-		_zone_badges = built.badges         # coverup pages: cluster id -> its lock badge
-		# register each build/lock badge as a tap hit (k = -1 sentinel; the id rides the meta).
-		for id in built.badges:
-			spot_hits.append({"node": built.badges[id], "z": z, "k": -1, "building": String(id)})
-		if coverup:
-			_apply_coverup_sequence()       # only the next-in-order cluster stays a live tap target
-			_clamp_badges_above_nav(factor)
-	elif coverup:
-		# preview only: show the correct ready-visuals without touching spot_hits / _zone_* members.
-		var LB: GDScript = load("res://engine/scripts/ui/lock_badge.gd")
-		var lvl := G.level()
-		var wallet := Save.coins()
-		for id_v in built.badges.keys():
-			LB.set_ready(built.badges[id_v], G.cluster_ready(z, String(id_v), unl, lvl, wallet))
+	if coverup:
+		_set_badge_ready(built.badges, z)        # ready glow — once, at build
+		_clamp_badges(built.badges, factor)      # lift badges above the nav band — once, at build
 
 	# ambient life — one wanderer per placed resident (empty until something is placed).
 	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.add_child(amb)
-	return page
+	_pages[z] = {"node": page, "badges": built.badges, "coverings": built.coverings, "factor": factor}
+
+# Make an ALREADY-BUILT page the interactive current one: point the _zone_* members at its data and
+# register its live tap targets (a coverup page keeps only the next-in-order cluster). Cheap — no render.
+func _activate_page(z: int) -> void:
+	spot_hits.clear()
+	if not _pages.has(z):
+		return
+	var meta: Dictionary = _pages[z]
+	_zone_coverings = meta.coverings
+	_zone_badges = meta.badges
+	var coverup := bool(G.MAPS[z].get("coverup_mode", false))
+	if coverup:
+		_set_badge_ready(meta.badges, z)         # refresh glow (level/coins may have moved since build)
+		var next_id := G.next_locked_cluster(z, unlocks)
+		for id in meta.badges:
+			if String(id) == next_id:            # only the next-in-order cluster is a live tap target
+				spot_hits.append({"node": meta.badges[id], "z": z, "k": -1, "building": String(id)})
+	else:
+		for id in meta.badges:
+			spot_hits.append({"node": meta.badges[id], "z": z, "k": -1, "building": String(id)})
+
+# Set the READY glow on a page's lock badges (visual only). Level/coins gate readiness (content.cluster_ready).
+func _set_badge_ready(badges: Dictionary, z: int) -> void:
+	var LB: GDScript = load("res://engine/scripts/ui/lock_badge.gd")
+	var lvl := G.level()
+	var wallet := Save.coins()
+	for id_v in badges.keys():
+		LB.set_ready(badges[id_v], G.cluster_ready(z, String(id_v), unlocks, lvl, wallet))
+
+# The desired window is {current ± 1} ∩ valid&unlocked scenes: free any page that fell out, and queue any
+# missing neighbour to warm on idle (the current page is built by the caller). Builds spread one per frame
+# and pause during a gesture (_process), so a ~100ms build never lands inside a drag.
+func _ensure_window() -> void:
+	var want := {}
+	for d: int in [-1, 0, 1]:
+		var z: int = _map_idx + d
+		if z >= 0 and z < G.MAPS.size() and map_unlocked(z):
+			want[z] = true
+	for z in _pages.keys():
+		if not want.has(z):
+			var pg: Dictionary = _pages[z]
+			if pg.node != null and is_instance_valid(pg.node):
+				pg.node.queue_free()
+			_pages.erase(z)
+	_prebuild_pending.clear()
+	for z in want:
+		if not _pages.has(z):
+			_prebuild_pending.append(z)
+
+# Warm ONE queued neighbour per idle frame — but never while a swipe is live (that build would be the
+# ~100ms hitch we are eliminating). The queue drains within a frame or two of landing on a scene.
+func _process(_delta: float) -> void:
+	if _view != "map" or _prebuild_pending.is_empty():
+		return
+	if _swipe.get("active", false) or _swipe.get("settling", false):
+		return
+	var z: int = _prebuild_pending.pop_front()
+	if not _pages.has(z) and z >= 0 and z < G.MAPS.size() and map_unlocked(z):
+		_build_page_visual(z)
 
 # PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
 # (assets/map/<scene>/zone.json); the farmhouse manifest is the legacy fallback.
@@ -1467,27 +1545,22 @@ func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 	row.add_child(lbl)
 	return row
 
-# --- home page-swipe: pure decisions (unit-tested) --------------------------------------
-const SWIPE_COMMIT_FRAC := 0.33   # commit once dragged past this fraction of the viewport width
-const SWIPE_FLING := 700.0        # px/s horizontal flick that commits under the distance threshold
-const SWIPE_ACTIVATE := 12.0      # px of horizontal travel before a drag becomes a page-swipe
-const SWIPE_EDGE_RESIST := 0.35   # damping when dragging toward a missing neighbour (first/last page)
+# --- home scene swipe: pure decision (unit-tested) --------------------------------------
+const SWIPE_COMMIT_FRAC := 0.33   # commit once the slide passes this fraction of the viewport width
+const SWIPE_ACTIVATE := 12.0      # px of horizontal travel before a drag becomes a scene-swipe
+const SWIPE_EDGE_RESIST := 0.35   # damping when dragging toward a missing neighbour (first/last scene)
 const SWIPE_SNAP := 0.22          # seconds for the snap (commit) / spring-back (cancel) tween
 
-# The scene index a horizontal drag of `dx` px reveals: drag LEFT (dx < 0) -> the NEXT page,
-# drag RIGHT (dx > 0) -> the PREVIOUS page. Callers still bounds-check the result against G.MAPS.
-static func _neighbor_z(map_idx: int, dx: float) -> int:
-	return map_idx + 1 if dx < 0.0 else map_idx - 1
-
-# Should releasing a swipe of `dx` px (last horizontal velocity `vel` px/s, viewport `view_w` px
-# wide) commit to the neighbour? Past a third of the width, OR a fast flick in the SAME direction.
-# An edge drag (no neighbour in that direction) never commits.
-static func _swipe_commit(dx: float, vel: float, view_w: float, has_neighbor: bool) -> bool:
-	if not has_neighbor:
-		return false
-	if absf(dx) >= view_w * SWIPE_COMMIT_FRAC:
-		return true
-	return dx != 0.0 and absf(vel) >= SWIPE_FLING and signf(vel) == signf(dx)
+# Which way does a slide of `eff` px (the on-screen displacement, view_w wide) commit? Purely on
+# distance — a predictable snap, no velocity guesswork. Returns the STEP to add to _map_idx:
+#   +1 = slid LEFT past the threshold -> NEXT scene   ·   -1 = slid RIGHT -> PREVIOUS   ·   0 = spring back.
+# The caller still checks a scene actually exists in that direction before committing.
+static func _swipe_commit_dir(eff: float, view_w: float) -> int:
+	if eff <= -view_w * SWIPE_COMMIT_FRAC:
+		return 1
+	if eff >= view_w * SWIPE_COMMIT_FRAC:
+		return -1
+	return 0
 
 # --- input: ONE surface, still-tap resolution ------------------------------------------
 
@@ -1500,10 +1573,10 @@ func _on_input(event: InputEvent) -> void:
 		return
 	_on_map_input(event)
 
-# The HOME (map) input surface. A horizontal drag past SWIPE_ACTIVATE becomes a page-swipe: the
-# current scene follows the finger and the adjacent scene slides in from the side; release past a
-# third of the width (or a fast flick) commits, else it springs back. A press/release that never
-# crosses the swipe threshold still resolves as a still-tap (spots / build+lock badges), unchanged.
+# The HOME (map) input surface. A horizontal drag past SWIPE_ACTIVATE becomes a scene-swipe: `_track`
+# (holding the pre-built current + neighbour scenes) slides 1:1 with the finger; release past a third of
+# the width commits to that neighbour, else it springs back. A press/release that never crosses the swipe
+# threshold still resolves as a still-tap (spots / build+lock badges), unchanged.
 func _on_map_input(event: InputEvent) -> void:
 	if _swipe.get("settling", false):
 		return   # ignore input while a snap / spring-back tween finishes
@@ -1522,94 +1595,73 @@ func _on_map_input(event: InputEvent) -> void:
 		return
 	if release:
 		if _swipe.get("active", false):
-			_swipe_release()      # owns _swipe until its tween finishes
+			_swipe_release()      # owns _swipe until its slide tween finishes
 		else:
 			# a still-tap: hit-test against GLOBAL rects (content is identity here, scaled in place mode).
 			if event.position.distance_to(_press) <= 18.0:
 				_map_tap(content.get_global_transform() * event.position)
 			_swipe = {}
 
-# A drag while a press is down: activate a swipe on the first mostly-horizontal move past the
-# threshold, then translate the current + neighbour pages 1:1 with the finger.
+# A drag while a press is down: activate on the first mostly-horizontal move past the threshold, then
+# slide `_track` 1:1 with the finger. NO scene is built here — neighbours are already parked on the track
+# (that is what makes the slide smooth). Dragging toward a missing neighbour (an end) is damped.
 func _swipe_move(event: InputEvent) -> void:
-	if event is InputEventScreenDrag:
-		_swipe["vel"] = event.velocity.x    # touch carries velocity; mouse motion does not
+	if _track == null or not is_instance_valid(_track):
+		return
 	var dx: float = event.position.x - _press.x
 	var dy: float = event.position.y - _press.y
 	if not _swipe.get("active", false):
 		if absf(dx) <= absf(dy) or absf(dx) < SWIPE_ACTIVATE:
 			return                          # not (yet) a horizontal swipe — leave the tap path open
-		_swipe_begin(dx)
+		_swipe = {"active": true, "settling": false}
 	var view_w: float = get_viewport_rect().size.x
-	var nb: Control = _swipe.get("neighbor", null)
 	var eff: float = dx
-	if nb == null:
-		eff = dx * SWIPE_EDGE_RESIST        # first/last page: damp and always spring back
+	if dx < 0.0 and not _pages.has(_map_idx + 1):
+		eff = dx * SWIPE_EDGE_RESIST        # no NEXT scene: damp and spring back
+	elif dx > 0.0 and not _pages.has(_map_idx - 1):
+		eff = dx * SWIPE_EDGE_RESIST        # no PREV scene: damp and spring back
 	else:
-		eff = clampf(dx, -view_w if _swipe.dir < 0 else 0.0, 0.0 if _swipe.dir < 0 else view_w)
-	_swipe["dx"] = dx
+		eff = clampf(dx, -view_w, view_w)
 	_swipe["eff"] = eff
-	var cur: Control = _swipe.get("cur", null)
-	if cur != null and is_instance_valid(cur):
-		cur.position.x = eff
-	if nb != null and is_instance_valid(nb):
-		nb.position.x = float(_swipe.neighbor_base_x) + eff
+	_track.position.x = _track_rest_x() + eff
 
-# Lock the swipe direction and build the neighbour preview (or none, at the first/last page).
-func _swipe_begin(dx: float) -> void:
-	var dir := -1 if dx < 0.0 else 1        # -1 = dragging left (reveal NEXT), +1 = right (reveal PREV)
-	var nz := _neighbor_z(_map_idx, dx)
-	var view_w: float = get_viewport_rect().size.x
-	var neighbor: Control = null
-	var base_x := 0.0
-	if nz >= 0 and nz < G.MAPS.size() and map_unlocked(nz):
-		base_x = -float(dir) * view_w       # NEXT enters from the right (+w), PREV from the left (-w)
-		neighbor = _build_page_node(nz, content, false)
-		neighbor.position.x = base_x
-	_swipe = {
-		"active": true, "dir": dir, "cur": _page_cur,
-		"neighbor": neighbor, "neighbor_z": nz, "neighbor_base_x": base_x,
-		"dx": 0.0, "vel": _swipe.get("vel", 0.0), "settling": false,
-	}
-
-# Release: commit to the neighbour or spring back, on a short ease-out tween.
+# Release: snap to the neighbour (if the slide passed the threshold and a scene exists that way) or spring
+# back, on a short ease-out tween. A commit PROMOTES the already-built neighbour — no rebuild, no flash.
 func _swipe_release() -> void:
 	var view_w: float = get_viewport_rect().size.x
-	var vel := float(_swipe.get("vel", 0.0))
-	var cur: Control = _swipe.get("cur", null)
-	var nb: Control = _swipe.get("neighbor", null)
-	var dir: int = _swipe.get("dir", 0)
-	var dest_z: int = _swipe.get("neighbor_z", _map_idx)
-	var base_x := float(_swipe.get("neighbor_base_x", 0.0))
 	var eff := float(_swipe.get("eff", 0.0))
-	var commit := _swipe_commit(eff, vel, view_w, nb != null and is_instance_valid(nb))
-	_swipe["settling"] = true
-	_swipe_commit_dest = dest_z if commit else -1   # a resize mid-settle finalizes a commit to this dest
-	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_swipe_tween = tw
-	if commit:
-		if nb != null and is_instance_valid(nb):
-			tw.tween_property(nb, "position:x", 0.0, SWIPE_SNAP)
-		if cur != null and is_instance_valid(cur):
-			tw.tween_property(cur, "position:x", float(dir) * view_w, SWIPE_SNAP)
+	var step := _swipe_commit_dir(eff, view_w)
+	var dest := _map_idx
+	if step != 0 and _pages.has(_map_idx + step):
+		dest = _map_idx + step
+	_swipe = {"settling": true}
+	_slide_commit_dest = dest if dest != _map_idx else -1   # a resize mid-settle finalizes this commit
+	var tw := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_slide_tween = tw
+	tw.tween_property(_track, "position:x", -float(dest) * view_w, SWIPE_SNAP)
+	if dest != _map_idx:
 		Audio.play("button_tap", -4.0)
-		tw.finished.connect(func() -> void:
-			_swipe = {}
-			_swipe_tween = null
-			_swipe_commit_dest = -1
-			_open_map(dest_z, false)          # rebuild the destination as the real interactive page
-		, CONNECT_ONE_SHOT)
-	else:
-		if cur != null and is_instance_valid(cur):
-			tw.tween_property(cur, "position:x", 0.0, SWIPE_SNAP)
-		if nb != null and is_instance_valid(nb):
-			tw.tween_property(nb, "position:x", base_x, SWIPE_SNAP)
-		tw.finished.connect(func() -> void:
-			if nb != null and is_instance_valid(nb):
-				nb.queue_free()
-			_swipe = {}
-			_swipe_tween = null
-		, CONNECT_ONE_SHOT)
+	var committed_dest := dest
+	var was_commit := dest != _map_idx
+	tw.finished.connect(func() -> void:
+		_slide_tween = null
+		_slide_commit_dest = -1
+		_swipe = {}
+		if was_commit:
+			_commit_to(committed_dest)
+	, CONNECT_ONE_SHOT)
+
+# Promote the already-built neighbour scene `z` to the interactive current one (cheap — no render),
+# persist it, and slide the window forward so the new far neighbour warms up on idle.
+func _commit_to(z: int) -> void:
+	_map_idx = z
+	_activate_page(z)
+	var g := Save.grove()
+	g["last_map"] = String(G.MAPS[z].id)
+	Save.grove_write()
+	_refresh_chrome_badges()
+	_refresh_play_cta()
+	_ensure_window()
 
 # The place-picker input surface. A press on a spirit ORB starts a DRAG (8 px lift-off): a hand orb dropped
 # on a map's right drop zone PLACES, on a matching orb MERGES (place_merge / hand_merge); a housed orb dropped
@@ -1947,35 +1999,21 @@ func _map_tap(gpos: Vector2) -> void:
 
 # --- market cover-up cluster unlocks -----------------------------------------------------
 
-# Coverup pages: only the NEXT-in-order locked cluster may read READY (and only when its gate is met);
-# every other locked cluster stays dim, and only the ready one keeps a live tap target.
-func _apply_coverup_sequence() -> void:
-	var LB: GDScript = load("res://engine/scripts/ui/lock_badge.gd")
-	var next_id := G.next_locked_cluster(_map_idx, unlocks)
-	var lvl := G.level()
-	var wallet := Save.coins()
-	for id_v in _zone_badges.keys():
-		var id := String(id_v)
-		LB.set_ready(_zone_badges[id], G.cluster_ready(_map_idx, id, unlocks, lvl, wallet))
-	var kept: Array = []
-	for hit in spot_hits:
-		var bid := String(hit.get("building", ""))
-		if bid == "" or bid == next_id:
-			kept.append(hit)
-	spot_hits = kept
+# (Coverup READY glow + next-in-order live-hit filtering now live in _set_badge_ready + _activate_page,
+# so a pre-built neighbour shows correct glows without touching the live page's hit state.)
 
 # The tall coverup canvases COVER-FILL the viewport, so a cluster low in the scene can land its lock
-# badge behind the bottom nav bar. Shift any offending badge UP just far enough to clear the band —
-# the bar's MapTile (built once in _build_chrome, so it is already laid out here) marks the band's top
-# edge. `factor` is the stage's fit scale (_build_map): a screen-space overlap must be divided by it
-# to become a stage-local shift, since every badge is a child of the scaled stage.
-func _clamp_badges_above_nav(factor: float) -> void:
+# badge behind the bottom nav bar. Shift any offending badge in `badges` UP just far enough to clear the
+# band — the bar's MapTile (built once in _build_chrome) marks the band's top edge. `factor` is the
+# stage's fit scale: a screen-space overlap is divided by it to a stage-local shift (badges ride the
+# scaled stage). Y-only, so it is correct for a page parked at any x slot, and is applied once per build.
+func _clamp_badges(badges: Dictionary, factor: float) -> void:
 	if factor <= 0.0 or _map_btn == null or not is_instance_valid(_map_btn):
 		return
 	var nav_top := (_map_btn as Control).get_global_rect().position.y
 	var margin := 16.0
-	for id_v in _zone_badges.keys():
-		var b: Control = _zone_badges[id_v]
+	for id_v in badges.keys():
+		var b: Control = badges[id_v]
 		if b == null or not is_instance_valid(b):
 			continue
 		var bottom := b.get_global_rect().end.y
@@ -3031,16 +3069,16 @@ func _relayout_after_resize() -> void:
 	if sz == _last_view_size:
 		return                            # no real change — skip the rebuild
 	_last_view_size = sz
-	# a viewport change mid-swipe invalidates the slide geometry — cancel it; the rebuild re-fits.
-	# kill() SKIPS the tween's `finished` callback, so a COMMIT tween's page change (which lives there)
-	# would be silently dropped — the rebuild would land on the source scene. Read the recorded dest and
-	# finalize the commit through _open_map instead, so a resize mid-snap still advances to the neighbour.
-	var commit_dest := _swipe_commit_dest
-	if _swipe_tween != null and _swipe_tween.is_valid():
-		_swipe_tween.kill()
-	_swipe_tween = null
+	# a viewport change mid-swipe invalidates the slot geometry (slots are z·view_w) — cancel the slide;
+	# the rebuild re-fits at the new width. kill() SKIPS the tween's `finished` callback, where a COMMIT's
+	# scene change lives, so read the recorded dest and finalize through _open_map instead — a resize mid-
+	# snap still advances to the neighbour rather than rebuilding the source.
+	var commit_dest := _slide_commit_dest
+	if _slide_tween != null and _slide_tween.is_valid():
+		_slide_tween.kill()
+	_slide_tween = null
 	_swipe = {}
-	_swipe_commit_dest = -1
+	_slide_commit_dest = -1
 	if _view == "map" and commit_dest >= 0:
 		_open_map(commit_dest, false)     # complete the interrupted commit (kill() skipped its callback)
 		return
