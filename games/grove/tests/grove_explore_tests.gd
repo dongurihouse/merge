@@ -46,6 +46,7 @@ func _initialize() -> void:
 	_test_swipe_commit_dir()
 	_test_maps_gallery_featured_unlock_target()
 	_test_maps_gallery_grid_lock_state()
+	await _test_home_opens_without_a_fade()
 	await _test_home_has_no_page_arrows()
 	await _test_home_prebuilds_window()
 	await _test_home_tap_unlocks_cluster()
@@ -177,6 +178,26 @@ func _test_maps_gallery_grid_lock_state() -> void:
 	for z in G.coverup_pages():
 		ok(not map._grid_card_locked(int(z)), "a completed book unlocks every gallery card")
 	map.free()
+
+# Entering the home scene (the board's Home button swaps scenes here) must NOT fade the map art in.
+# `content` holds ONLY the scenery — the sky fill, HUD and nav bar sit outside it — so a pop-in fade
+# paints one bright, EMPTY sky-blue screen before the art arrives, which reads as a white flash off
+# the warm board. The scene swap is the transition; the map is already the destination.
+func _test_home_opens_without_a_fade() -> void:
+	fresh("home_no_entry_fade")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)     # runs _ready -> _open_map(start) -> _build_map
+	ok(is_equal_approx(map.content.modulate.a, 1.0),
+		"opening the home scene shows the map art at once (no fade from the bare sky)")
+	ok(map.content.scale.is_equal_approx(Vector2.ONE),
+		"opening the home scene does not pop the map art in from a smaller scale")
+	await process_frame
+	ok(is_equal_approx(map.content.modulate.a, 1.0), "the map art stays opaque on the next frame")
+	# an IN-SCENE navigation (gallery card / picker -> a map) keeps its pop-in
+	map._open_map(1)
+	ok(map.content.modulate.a < 1.0, "an in-scene map navigation still pops in")
+	map.queue_free()
+	await process_frame
 
 func _test_home_has_no_page_arrows() -> void:
 	fresh("home_no_arrows")
