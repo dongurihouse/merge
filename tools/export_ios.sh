@@ -18,13 +18,28 @@
 # stale project cannot mask a real failure.
 set -uo pipefail
 
-PROJECT="${1:?usage: export_ios.sh <project-dir> <xcodeproj-out>}"
-OUT="${2:?usage: export_ios.sh <project-dir> <xcodeproj-out>}"
+PROJECT="${1:?usage: export_ios.sh <project-dir> <xcodeproj-out> [debug|release]}"
+OUT="${2:?usage: export_ios.sh <project-dir> <xcodeproj-out> [debug|release]}"
+MODE="${3:-debug}"
 GODOT="${GODOT:-godot}"
 PBXPROJ="$OUT/project.pbxproj"
 
+# debug vs release picks which Godot static library the Xcode project links:
+# libgodot.ios.debug (211 MB unlinked) or libgodot.ios.release (180 MB). The debug
+# library also carries the remote debugger and runtime checks, so it is the right
+# default for on-device iteration and the WRONG thing to hand to App Store Connect.
+# `make release-ios` therefore passes `release`; a bare `make ios` stays debug.
+# NOTE: xcodebuild's `-configuration Release` (see tools/release_ios.sh) only governs
+# how the thin Objective-C wrapper is compiled — it cannot change which Godot library
+# Godot already baked into the project here.
+case "$MODE" in
+	debug)   EXPORT_FLAG="--export-debug" ;;
+	release) EXPORT_FLAG="--export-release" ;;
+	*) echo "export_ios: mode must be 'debug' or 'release' (got '$MODE')" >&2; exit 2 ;;
+esac
+
 rc=0
-"$GODOT" --headless --path "$PROJECT" --export-debug "iOS" "$OUT" || rc=$?
+"$GODOT" --headless --path "$PROJECT" "$EXPORT_FLAG" "iOS" "$OUT" || rc=$?
 
 # A real, complete export always writes a project.pbxproj containing a PBXProject
 # object. If that is missing, the export genuinely failed — fail the build.

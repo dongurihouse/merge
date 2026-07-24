@@ -144,6 +144,10 @@ shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbe
 # runs, so a typo'd target in any other command still errors normally).
 IOS_ARGS    := $(filter-out ios ios-plugins release-ios get-ios,$(MAKECMDGOALS))
 IOS_VERSION := $(or $(VERSION),$(IOS_ARGS))
+# Which Godot export template the Xcode project links. `debug` keeps the remote debugger
+# for on-device iteration; `release` is smaller and is what ships. `release-ios` overrides
+# this — never hand a debug template to App Store Connect.
+IOS_EXPORT_MODE ?= debug
 ifneq (,$(filter ios release-ios,$(MAKECMDGOALS)))
 ifneq (,$(IOS_ARGS))
 $(eval $(IOS_ARGS):;@:)
@@ -157,7 +161,7 @@ ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets
 	mkdir -p build/ios
 	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
 	tools/stamp_build_info.sh engine/generated/build_info.gd $(IOS_VERSION)
-	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj
+	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj $(IOS_EXPORT_MODE)
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
 	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
 	# Godot pins "Apple Distribution" on Release under automatic signing — Xcode rejects that. Fix to "Apple Development".
@@ -172,7 +176,7 @@ release-ios: ## archive + upload to App Store Connect/TestFlight: make release-i
 	v="$(IOS_VERSION)"; \
 	case "$$v" in major|minor|patch) v="$$(tools/next_ios_version.sh "$$v")";; esac; \
 	echo "==> Releasing version $$v"; \
-	$(MAKE) ios VERSION="$$v"; \
+	$(MAKE) ios VERSION="$$v" IOS_EXPORT_MODE=release; \
 	tools/release_ios.sh "$$v"
 
 get-ios: ## print the last version/build uploaded to App Store Connect (needs the API key)
