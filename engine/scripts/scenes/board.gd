@@ -102,7 +102,6 @@ const STRAW = Pal.STRAW
 # "step back" read — a soft difference, never harsh — so the eye lands on what's live.
 const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
 const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
-const PURGE_DIM := Color(0.62, 0.62, 0.62, 0.85)  # an inert (endgame) fence card — greyed (no padlock)
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
@@ -866,10 +865,6 @@ func _quest_map() -> int:
 func _quest_level() -> int:
 	return G.level()
 
-# §7 fence sizing: how many stands the fence shows, metered to the remaining content arc.
-func _meter_target() -> int:
-	return Quests.meter_target(_earned())
-
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via the rng.
 func _refill_quests() -> void:
@@ -1098,12 +1093,10 @@ func _active_quest_idx() -> Array:
 		out.append(i)
 	return out
 
-# A quest is "ready" (deliverable) when its single asked item is on the board RIGHT NOW and the fence is
-# not inert — the SAME notion the giver ✓/bob read (BoardLogic.quest_payable, gated by _quest_is_inert).
+# A quest is "ready" (deliverable) when its single asked item is on the board RIGHT NOW — the SAME
+# notion the giver ✓/bob read (BoardLogic.quest_payable). Quests are endless; none are ever inert.
 func _quest_ready(qi: int) -> bool:
 	if qi < 0 or qi >= quests.size():
-		return false
-	if _quest_is_inert(qi):
 		return false
 	return BoardLogic.quest_payable(board, quests[qi])
 
@@ -1378,20 +1371,6 @@ func _giver_is_payable(e: Dictionary) -> bool:
 
 func _refresh_giver_lights() -> void:
 	for e in giver_chips:
-		# req 1: once the bank can finish the whole map the fence goes GREYED + inert instead of empty —
-		# dim the card, drop its ready ✓ + bob, and the tap handlers no-op (see _quest_is_inert).
-		if _quest_is_inert(int(e.get("qi", -1))):
-			e["ready"] = false                  # inert quests never float to the front
-			var ichip: Control = e.chip
-			ichip.modulate = PURGE_DIM
-			var iitem: Dictionary = e.get("item", {})
-			var imet: Control = iitem.get("met")
-			if imet != null and is_instance_valid(imet):
-				imet.visible = false
-			var ibust: Control = e.get("bust")
-			if ibust != null and is_instance_valid(ibust):
-				GiverStand.bob(ibust, false)
-			continue
 		var lit := _giver_is_payable(e)
 		e["ready"] = lit                        # deliverable → floats to the front of the fence (see _reorder_giver_row)
 		var ready_ui := lit and Features.on("quest_ready_check")
@@ -1415,24 +1394,19 @@ func _refresh_giver_lights() -> void:
 	_refresh_generator_dim()                      # quest-unused generators fade — re-read on the same beat
 	_refresh_item_line_dim()                      # ...and quest-unused LINE items grey out on the same beat
 
-# The asked item codes (line*100+tier) the live fence currently wants, as a set. Empty while the fence
-# is INERT (the bank can finish the map → quests greyed, nothing deliverable), so the glow AND the
-# tap-to-deliver both fall quiet together — the SAME gate the giver ✓/bob read.
+# The asked item codes (line*100+tier) the live fence currently wants, as a set. The fence is endless,
+# so this always reflects the current asks — the glow and the tap-to-deliver track them directly.
 func _asked_codes() -> Dictionary:
 	var out := {}
-	if Quests.fence_inert(_earned()):
-		return out
 	for q in quests:
 		var it := G.quest_item(q)
 		if not it.is_empty():
 			out[int(it.line) * 100 + int(it.tier)] = true
 	return out
 
-# The index of the first live, non-inert quest asking for `code` (the leftmost giver in fence order),
-# or -1 when nothing wants it. Drives the board-side second-tap: a focused, glowing tile delivers here.
+# The index of the first live quest asking for `code` (the leftmost giver in fence order), or -1 when
+# nothing wants it. Drives the board-side second-tap: a focused, glowing tile delivers here.
 func _quest_for_code(code: int) -> int:
-	if Quests.fence_inert(_earned()):
-		return -1
 	for i in quests.size():
 		var it := G.quest_item(quests[i])
 		if not it.is_empty() and int(it.line) * 100 + int(it.tier) == code:
@@ -3677,17 +3651,7 @@ func _end_bag_drag(gpos: Vector2) -> void:
 # the board, so the per-item ✓ is up) the tap DELIVERS it — the same path the stand-body tap takes —
 # instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
 # still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
-# req 1: a quest is INERT — rendered greyed, taps do nothing (no claim, no ladder) — once the bank can
-# finish the WHOLE current map (Quests.fence_inert). Generators no longer ride a carrier quest, so there
-# is no live-exception: every quest greys together once the map can be finished.
-func _quest_is_inert(qi: int) -> bool:
-	if qi < 0 or qi >= quests.size():
-		return false
-	return Quests.fence_inert(_earned())
-
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
-	if _quest_is_inert(qi):
-		return                                # greyed quest: inert (no claim, no ladder)
 	if qi >= 0 and qi < quests.size() and BoardLogic.quest_payable(board, quests[qi]):
 		_on_giver_tap(qi, chip)
 	else:
@@ -3696,8 +3660,6 @@ func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 func _on_giver_tap(qi: int, chip: Control) -> void:
 	if qi < 0 or qi >= quests.size():
 		return
-	if _quest_is_inert(qi):
-		return                                # greyed quest: not deliverable
 	var q: Dictionary = quests[qi]
 	if not BoardLogic.quest_payable(board, q):
 		FX.wobble(chip)
@@ -3708,7 +3670,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 
 # Board-side delivery (the second-tap affordance): the player tapped an already-focused, glowing tile —
 # hand it to the leftmost giver that wants it, consuming THIS exact tile. No-op when nothing wants it
-# (the fence is inert / the giver card is missing). Mirrors the giver tap, just sourced from the board.
+# (no live quest asks for it / the giver card is missing). Mirrors the giver tap, just sourced from the board.
 func _deliver_from_board(cell: Vector2i) -> void:
 	var qi := _quest_for_code(board.item_at(cell))
 	if qi < 0:

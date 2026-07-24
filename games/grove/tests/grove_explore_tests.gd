@@ -42,6 +42,7 @@ func _initialize() -> void:
 	_test_combo_bloom()
 	await _test_mote_puff()
 	_test_quest_unused_generator_fade()
+	await _test_endgame_fence_stays_live()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -97,6 +98,39 @@ func _test_quest_unused_generator_fade() -> void:
 		var dlg_src := FileAccess.get_file_as_string(dlg_src_path)
 		ok(dlg_src.find(", 0.0)") != -1 and dlg_src.find("make_piece(") != -1,
 			"%s builds its cell piece at inset 0 (shared content_frac parity)" % dlg_src_path.get_file())
+
+# ENDLESS FENCE (2026-07-23): the quest fence must stay FULL, full-opacity and interactive far past the
+# old arc-finish threshold — the "endgame quiet" grey-out (fence_inert) is retired. This boots a real
+# board at a deep-endgame coin clock and asserts every giver card renders un-greyed and the fence still
+# actively wants items (glow + tap-to-deliver live). Guards the exact bug: the whole bar went grey once
+# lifetime earnings crossed the 12-zone roster's end — long before the real map/cluster arc finishes.
+func _test_endgame_fence_stays_live() -> void:
+	fresh("endgame_fence")
+	var g := Save.grove()
+	g["coins_earned"] = G.arc_finish_threshold() * 5   # deep past the old inert threshold
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	ok(Save.coins_earned_lifetime() >= G.arc_finish_threshold(),
+		"setup: earnings sit far past the old arc-finish (inert) threshold")
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	await process_frame
+	scn._refresh_giver_lights()
+	ok(scn.giver_chips.size() >= 1, "the endgame fence still shows live giver cards (never empties)")
+	var all_full := true
+	var worst := ""
+	for e in scn.giver_chips:
+		var c: Control = e.chip
+		if c.modulate.a < 0.99 or c.modulate.r < 0.99 or c.modulate.g < 0.99 or c.modulate.b < 0.99:
+			all_full = false
+			worst = str(c.modulate)
+	ok(all_full, "every endgame giver card renders at full opacity — the fence is never greyed (got %s)" % worst)
+	ok(scn._asked_codes().size() >= 1, "the endgame fence actively wants items (glow + tap-to-deliver stay live)")
+	scn.queue_free()
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.

@@ -67,18 +67,17 @@ func _initialize() -> void:
 	ok(is_equal_approx(Quests.purge_progress(l2_cost), 0.0), "purge progress resets at the moment of a level-up")
 	ok(Quests.purge_progress(l2_cost - 1) > 0.9, "purge progress is nearly full one coin short of the level")
 
-	# --- purge_state: SHOWs while the arc runs, READY at the brim, carries the earned total ---
+	# --- purge_state: ALWAYS shows (endless fence — levels are unbounded), READY at the brim, carries earned ---
 	var ps_poor := Quests.purge_state(0)
 	ok(ps_poor.show and not ps_poor.ready, "purge card shows but is not ready on a fresh save")
 	ok(int(ps_poor.exp) == 0, "purge card carries the earned total (0)")
 	var arc_done := G.arc_finish_threshold()
-	ok(not Quests.purge_state(arc_done).show, "purge card hides once the whole arc is earned")
+	ok(Quests.purge_state(arc_done).show, "purge card still shows at the old arc threshold (endless fence)")
+	ok(Quests.purge_state(arc_done * 10).show, "purge card still shows far past the old arc threshold")
 
-	# --- meter_target: bounded 0..MAX_GIVERS, and shrinks as earnings bank toward the arc's end (§7) ---
-	var tgt := Quests.meter_target(0)
+	# --- meter_target: the live fence is ALWAYS full (MAX_GIVERS) — quests are endless, no arc taper ---
 	ok(int(G.MAX_GIVERS) == 8, "the quest fence caps at 8 live quest cards")
-	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
-	ok(Quests.meter_target(0) >= Quests.meter_target(arc_done - 10), "the fence shrinks monotonically as earnings bank toward the arc's end")
+	ok(Quests.meter_target() == int(G.MAX_GIVERS), "meter_target is a flat MAX_GIVERS (no taper)")
 
 	# --- owned_gens: the union of board generators and gen_bag ids ---
 	ok(str(Quests.owned_gens({Vector2i(0, 0): "a", Vector2i(1, 1): "b"}, ["c"])) == str(["a", "b", "c"]), "owned_gens unions board generators and the gen_bag")
@@ -124,7 +123,7 @@ func _initialize() -> void:
 
 	# --- refill trims an over-full fence back down to the target ---
 	var over: Array = []
-	for _i in tgt + 3:
+	for _i in int(G.MAX_GIVERS) + 3:
 		over.append({"line": 1, "tier": 1, "reward": {"coins": 1}})
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
 	ok(Quests.refill(over, 0, {}, [], 0, 1, rng2).size() == 4, "refill trims an over-full one-line fence to the line-capped target")
@@ -231,28 +230,26 @@ func _initialize() -> void:
 			no_special2 = false
 	ok(no_special2, "the near-end fence is ordinary quests — no gate/grant/generator quest type")
 
-	# --- fence_inert (req 1 GREY TRIGGER): the fence goes INERT (greyed, NOT hidden) once the banked ★ can
-	# --- finish the WHOLE current map — the exact point the active meter used to empty to nothing. False
-	# --- while the player still needs ★, and false on a spots-done map (that map is complete, not a frontier).
-	ok(not Quests.fence_inert(0), "fence_inert is false on a fresh save (still earning)")
-	var arc_cost := G.arc_finish_threshold()
-	ok(not Quests.fence_inert(arc_cost - 1), "fence_inert is false one coin short of the arc's end")
-	ok(Quests.fence_inert(arc_cost), "fence_inert flips true the moment the whole arc is earned")
-	ok(Quests.fence_inert(arc_cost + 999999), "fence_inert stays true past the arc")
+	# --- ENDLESS FENCE (2026-07-23, owner call): the fence NEVER goes inert/grey and NEVER tapers. The old
+	# --- fence_inert "endgame quiet" is retired — it gated on the 12-zone quest roster (all zones by ~L13),
+	# --- far short of the real map/cluster arc (25 clusters → ~L26), greying the fence out mid-game. Past the
+	# --- old arc-finish threshold (and far beyond) refill still fills a FULL fence of ordinary, live quests. ---
+	var deep_earned := G.arc_finish_threshold() * 5
+	var rdeep := Quests.refill([], 0, {}, [], deep_earned, 6, RandomNumberGenerator.new())
+	ok(rdeep.size() == int(G.MAX_GIVERS), "the fence stays full (MAX_GIVERS) far past the old arc threshold")
+	ok(_max_line_count(rdeep) <= 4, "the endless fence still obeys the 4-per-line cap")
+	ok(rdeep.filter(func(q): return q.has("grant") or bool(q.get("gate", false))).is_empty(), "the endless fence is ordinary quests — no gate/grant type")
+	ok(rdeep.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the endless fence attaches no generator reward (carrier retired)")
 
-	# --- refill INERT: instead of emptying when you can finish the map, the fence still shows greyed
-	# --- quests, but it obeys the same per-line cap as the active fence. A one-line fresh map shows 4. ---
-	var rin := Quests.refill([], 0, {}, [], G.arc_finish_threshold(), 1, RandomNumberGenerator.new())
-	ok(rin.size() == 4, "refill keeps a one-line inert fence visible but line-capped")
-	ok(_max_line_count(rin) <= 4, "one-line inert quests obey the 4-per-line cap")
+	# --- earned no longer affects the fence size: a fresh save and a deep-endgame save both fill the same full
+	# --- fence for the same level/line pool (earned is ignored by refill now). ---
+	var rfresh := RandomNumberGenerator.new(); rfresh.seed = 99
+	var rlate := RandomNumberGenerator.new(); rlate.seed = 99
+	ok(str(Quests.refill([], 0, {}, [], 0, 6, rfresh)) == str(Quests.refill([], 0, {}, [], deep_earned, 6, rlate)), "refill ignores earned — same full fence early and late")
 
-	# --- refill INERT carries NO generator quest either (carrier retired): the inert fence is ordinary greyed
-	# --- quests; the next map's tool is produced by a generator tap once that map unlocks, not delivered here. ---
-	var ne_cost := G.arc_finish_threshold()
-	ok(Quests.fence_inert(ne_cost), "the fence with earnings == the arc threshold is inert")
-	var rin2 := Quests.refill([], 0, {}, [], ne_cost, 6, RandomNumberGenerator.new())
-	ok(rin2.size() == int(G.MAX_GIVERS), "the inert near-end fence is full (MAX_GIVERS)")
-	ok(rin2.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the inert fence attaches no generator reward (carrier retired)")
+	# --- a one-line pool is still line-capped to 4 (the endless fence respects per-line caps, not just MAX_GIVERS) ---
+	var rone := Quests.refill([], 0, {}, [], deep_earned, 1, RandomNumberGenerator.new())
+	ok(rone.size() == 4, "a one-line endless fence is line-capped to 4")
 
 	# --- giver FACES (req: "no same quest giver on screen"): board.gd assigns each quest a portrait index.
 	# --- pick_giver's HARD rule is on-screen uniqueness — never a face already on a LIVE quest; the recency
