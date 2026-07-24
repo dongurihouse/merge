@@ -43,6 +43,7 @@ func _initialize() -> void:
 	await _test_mote_puff()
 	_test_quest_unused_generator_fade()
 	await _test_endgame_fence_stays_live()
+	await _test_purge_above_level_migration()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -130,6 +131,65 @@ func _test_endgame_fence_stays_live() -> void:
 			worst = str(c.modulate)
 	ok(all_full, "every endgame giver card renders at full opacity — the fence is never greyed (got %s)" % worst)
 	ok(scn._asked_codes().size() >= 1, "the endgame fence actively wants items (glow + tap-to-deliver stay live)")
+	scn.queue_free()
+
+# SAVE MIGRATION (2026-07-23, scene-aligned cadence): an older save may hold generators/items/quests for
+# lines the player should not have reached yet at their level. board._purge_above_level_content strips them
+# on load. This boots a board at L15, INJECTS too-advanced content (koi = zone 10, unlocks L23) alongside
+# in-cadence content (desert fruits = zone 5, L13; glow = anchor), PERSISTS it as an old save, then reloads
+# through the real _load_state path and asserts the too-advanced content is gone, the valid content stays,
+# the parallel gen-bag arrays stay aligned, and a second pass is a no-op (idempotent).
+func _test_purge_above_level_migration() -> void:
+	fresh("purge_migration")
+	Save.grove()["coins_earned"] = G.coins_at_level(15)   # player at L15 (koi L23 is future, desert L13 is past)
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	ok(G.level() == 15, "setup: the player is at L15")
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	await process_frame
+	# use the always-open centre cells (MIN_LEVEL 0), cleared first, so injection doesn't depend on the deal
+	var c_koi := Vector2i(3, 2)
+	var c_desert := Vector2i(3, 4)
+	var c_glow := Vector2i(5, 2)
+	var c_gen := Vector2i(5, 4)
+	for cell in [c_koi, c_desert, c_glow, c_gen]:
+		scn.board.take(cell)
+	scn.board.place(c_koi, 1801)             # koi t1 — GATED at L15 (zone 10, L23)
+	scn.board.place(c_desert, 601)           # desert fruits t1 — valid at L15 (zone 5, L13)
+	scn.board.place(c_glow, 101)             # glow-mushrooms t1 — valid (anchor)
+	scn.board.place_gen("gen_18", c_gen)     # koi generator — GATED
+	scn.board.gen_bag = ["gen_18", "gen_6"]  # a gated koi + an in-cadence desert generator
+	scn.board.gen_bag_tiers = [1, 1]
+	scn.board.gen_bag_boost = [0, 0]
+	scn.bag = [1801, 101]                     # a gated koi item + a valid glow item stashed
+	scn.quests = [{"line": 18, "tier": 1, "giver": 0}, {"line": 1, "tier": 1, "giver": 1}]  # koi quest (gated) + glow (valid)
+	scn._persist()                            # write it all as an "old save"
+	scn._load_state()                         # reload through the real migration path
+	await process_frame
+	var koi_on_board := false
+	var desert_on_board := false
+	for r in G.ROWS:
+		for c in G.COLS:
+			var code: int = scn.board.item_at(Vector2i(r, c))
+			if code == 1801:
+				koi_on_board = true
+			if code == 601:
+				desert_on_board = true
+	ok(not koi_on_board, "migration removes the too-advanced koi piece from the board")
+	ok(desert_on_board, "migration keeps the in-cadence desert-fruits piece")
+	ok(not scn.board.gens.values().has("gen_18"), "migration removes the too-advanced koi generator")
+	ok(scn.board.gens.values().has("gen_1"), "migration keeps the anchor generator")
+	ok(not scn.board.gen_bag.has("gen_18") and scn.board.gen_bag.has("gen_6"), "migration prunes the gen_bag — drops koi, keeps desert")
+	ok(scn.board.gen_bag.size() == scn.board.gen_bag_tiers.size() and scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag arrays stay aligned after the prune")
+	ok(not scn.bag.has(1801) and scn.bag.has(101), "migration prunes the item bag — drops koi, keeps glow")
+	var quest_lines: Array = []
+	for q in scn.quests:
+		quest_lines.append(int(q.get("line", -1)))
+	ok(not quest_lines.has(18), "migration drops the too-advanced koi quest (the fence refills with valid lines)")
+	ok(not scn._purge_above_level_content(), "the migration is idempotent — a second pass removes nothing")
 	scn.queue_free()
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /

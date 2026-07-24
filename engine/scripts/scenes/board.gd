@@ -746,6 +746,73 @@ func _sanitize_seen(g: Dictionary) -> bool:
 		g["seen"] = out
 	return changed
 
+# A saved quest asks for a line the player should not have reached yet (either its single `line`, or any
+# `asks[]` entry) — see G.line_gated_out. Mirrors _quest_items_are_known's dual shape.
+func _quest_line_gated_out(q: Dictionary, level: int) -> bool:
+	if q.has("line") and G.line_gated_out(int(q.get("line", 0)), level):
+		return true
+	for ask in Array(q.get("asks", [])):
+		if ask is Dictionary and G.line_gated_out(int((ask as Dictionary).get("line", 0)), level):
+			return true
+	return false
+
+# Save migration (2026-07-23, scene-aligned ZONE_UNLOCK_LEVEL cadence): strip every generator, item and
+# quest for a line the player should NOT have reached yet at their CURRENT level, so an older save matches
+# the new pacing. Silent removal, no compensation (owner call). IDEMPOTENT — a no-op on any save already
+# consistent with the cadence (birth-on-tap only ever grants in-cadence content; every new save starts
+# clean), so it runs on every load with no schema bump and no one-time flag. Exempt (never gated out):
+# coins, treasure/treat lines and special drops (zone_of_line == -1), accumulator generators, and the gen_1
+# anchor (zone 0 unlocks at L1). Returns true if anything was removed (→ the caller re-persists).
+func _purge_above_level_content() -> bool:
+	var lvl := _quest_level()
+	var changed := false
+	# board pieces
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			var code := board.item_at(cell)
+			if code > 0 and G.line_gated_out(BoardModel.line_of(code), lvl):
+				board.take(cell)
+				changed = true
+	# live generators on the board (accumulators + the anchor never gate out)
+	for cell in board.gens.keys():
+		var gid := String(board.gens[cell])
+		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
+			board.remove_gen(cell)
+			changed = true
+	# stored generators — filter the PARALLEL bag arrays (ids ∥ tiers ∥ boost) in lockstep
+	var kept_ids: Array = []
+	var kept_tiers: Array = []
+	var kept_boost: Array = []
+	for i in board.gen_bag.size():
+		var gid := String(board.gen_bag[i])
+		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
+			changed = true
+			continue
+		kept_ids.append(board.gen_bag[i])
+		kept_tiers.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
+		kept_boost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
+	board.gen_bag = kept_ids
+	board.gen_bag_tiers = kept_tiers
+	board.gen_bag_boost = kept_boost
+	# stashed items in the item bag
+	var kept_bag: Array = []
+	for code in bag:
+		if G.line_gated_out(BoardModel.line_of(int(code)), lvl):
+			changed = true
+		else:
+			kept_bag.append(code)
+	bag = kept_bag
+	# live quests asking for a now-too-advanced line (the fence refills with valid lines after)
+	var kept_quests: Array = []
+	for q in quests:
+		if q is Dictionary and _quest_line_gated_out(q, lvl):
+			changed = true
+		else:
+			kept_quests.append(q)
+	quests = kept_quests
+	return changed
+
 func _load_state() -> void:
 	board = BoardModel.new()
 	var now := Time.get_unix_time_from_system()
@@ -760,6 +827,9 @@ func _load_state() -> void:
 		var bag_clean := _sanitize_saved_item_bag(Array(g.get("bag", [])))
 		bag = bag_clean["items"]
 		save_dirty = bool(bag_clean["changed"]) or save_dirty
+		# strip any generator/item/quest above the player's level under the scene-aligned cadence (migrates
+		# older saves; idempotent no-op once clean). Runs after the board + quests + bag are loaded.
+		save_dirty = _purge_above_level_content() or save_dirty
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
 		refills_used = int(g.get("refills_used", 0))
