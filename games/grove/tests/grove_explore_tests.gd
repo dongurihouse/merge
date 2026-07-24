@@ -1137,6 +1137,19 @@ func _test_residents_dialog_uses_shared_frame() -> void:
 	ok(panel != null, "resident dialog mounts inside the shared dialog frame")
 	ok(not (panel_style is StyleBoxTexture),
 		"resident dialog does not override the shared frame with its baked dialog_bg")
+	var inspector := overlay.find_child("ResidentsInspector", true, false) as Control if overlay != null else null
+	var deckle := inspector.find_child("ResidentsInspectorDeckleSurface", true, false) as Control \
+		if inspector != null else null
+	var deckle_script := deckle.get_script() as Script if deckle != null else null
+	ok(deckle_script != null and String(deckle_script.resource_path).ends_with("/cut_paper.gd"),
+		"resident inspector uses the shared code-drawn cut-paper surface")
+	var uses_strip_asset := false
+	if inspector != null:
+		for node in inspector.find_children("*", "TextureRect", true, false):
+			var tex := (node as TextureRect).texture
+			if tex != null and String(tex.resource_path).ends_with("/strip_bg.png"):
+				uses_strip_asset = true
+	ok(not uses_strip_asset, "resident inspector no longer renders the baked strip background")
 	host.queue_free()
 	await process_frame
 

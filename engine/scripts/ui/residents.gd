@@ -311,18 +311,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	insp.name = "ResidentsInspector"
 	insp.custom_minimum_size = Vector2(0, INSPECTOR_H * scale)
 	insp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var corner := int(float(fopts.get("card_corner", 28.0)))
-	var isb := StyleBoxFlat.new()
-	isb.bg_color = Pal.CREAM.darkened(0.05)
-	isb.corner_radius_bottom_left = corner
-	isb.corner_radius_bottom_right = corner
-	isb.content_margin_left = 20.0 * scale; isb.content_margin_right = 20.0 * scale
-	isb.content_margin_top = 12.0 * scale; isb.content_margin_bottom = 12.0 * scale
-	insp.add_theme_stylebox_override("panel", isb)
-	# reskin: the strip bar sprite is drawn as an aspect-FIT TextureRect in _rebuild_inspector (not a
-	# stretched stylebox), so make the panel itself transparent + margin-free here.
-	if _skin_tex("strip_bg") != null:
-		insp.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	insp.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	footer.add_child(insp)
 	ctx["insp"] = insp
 	var footer_gap := 8.0 * scale
@@ -918,7 +907,7 @@ static func _spirit_art(kind: String, tier: int, px: float) -> Control:
 		t.texture = _spirit_tex(art)
 	return t
 
-## The bottom inspector CONTENT (the flat strip itself is built once in open()): the selected
+## The bottom inspector CONTENT: the selected
 ## spirit's portrait + name + info + a big SELL — or a quiet hint when nothing is selected.
 ## The strip sits OUTSIDE the frame's ScaleContainer, so px sizes here scale by ctx.scale.
 static func _rebuild_inspector(ctx: Dictionary) -> void:
@@ -928,35 +917,22 @@ static func _rebuild_inspector(ctx: Dictionary) -> void:
 	_clear(insp)
 	var sel: Dictionary = ctx.get("sel", {})
 	var inst := _sel_inst(sel)
-	# a full-rect body holds the aspect-FIT strip sprite behind the padded content (the panel itself is
-	# transparent when the sprite is present — see open()).
+	# A full-rect body holds the shared code-drawn paper surface behind the padded content.
 	var body := Control.new()
 	body.name = "InspectorBody"
 	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	body.mouse_filter = Control.MOUSE_FILTER_PASS
 	insp.add_child(body)
-	var strip_tex := _skin_tex("strip_bg")
-	if strip_tex != null:
-		# the shared soft drop shadow BEHIND the bar (item 4) — pill corner (half the bar height) so it hugs
-		# the strip's fully-rounded ends instead of poking out as a box. Inset a hair so its fill never rings
-		# the torn sprite edge.
-		var bar_h := INSPECTOR_H * s
-		var sh := Look.shadow_rect(bar_h * 0.5, {})
-		var sh_in := bar_h * 0.07
-		var drop := bar_h * 0.14
-		sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		sh.offset_left = sh_in; sh.offset_top = sh_in + drop; sh.offset_right = -sh_in; sh.offset_bottom = -sh_in + drop
-		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		body.add_child(sh)
-		# the strip sprite is authored WIDE (its aspect matches this bar slot), so a plain fill scales it
-		# UNIFORMLY — the full rounded bar shows with no slicing and no aspect distortion.
-		var sbg := TextureRect.new()
-		sbg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sbg.stretch_mode = TextureRect.STRETCH_SCALE
-		sbg.texture = strip_tex
-		sbg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		sbg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		body.add_child(sbg)
+	var bar_h := INSPECTOR_H * s
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(ctx.cfg, "toggle_card", Kit.ROW_CP_DEFAULTS)
+	Kit.rugged_paper_surface(
+		body,
+		"ResidentsInspectorDeckleSurface",
+		Vector2.ZERO,
+		Pal.CREAM.darkened(0.05),
+		Kit.PAPER_EDGE,
+		bar_h * 0.5,
+		cp)
 	var pl := 24.0 * s; var pr := 24.0 * s; var py := 10.0 * s
 	if inst.is_empty():
 		var hint := Label.new()
