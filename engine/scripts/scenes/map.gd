@@ -115,6 +115,9 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _page_cur: Control = null    # the live scene page node under `content` (the swipe's cur)
 var _swipe: Dictionary = {}      # the in-flight home page-swipe; {} when idle (see _on_map_input)
 var _swipe_tween: Tween = null   # the active snap/spring tween (settle guard + resize-cancel)
+var _swipe_commit_dest := -1     # dest scene of an in-flight COMMIT tween (-1 = spring-back/idle); a resize
+                                 # kill()s the tween without firing `finished`, so the resize handler reads
+                                 # this to finalize the interrupted commit instead of rebuilding the source.
 var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
 var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll); else total_h - column_h
 var _hand_scroll := 0.0          # current scroll offset of the in-hand orb grid (px from the top)
@@ -1579,6 +1582,7 @@ func _swipe_release() -> void:
 	var eff := float(_swipe.get("eff", 0.0))
 	var commit := _swipe_commit(eff, vel, view_w, nb != null and is_instance_valid(nb))
 	_swipe["settling"] = true
+	_swipe_commit_dest = dest_z if commit else -1   # a resize mid-settle finalizes a commit to this dest
 	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_swipe_tween = tw
 	if commit:
@@ -1590,6 +1594,7 @@ func _swipe_release() -> void:
 		tw.finished.connect(func() -> void:
 			_swipe = {}
 			_swipe_tween = null
+			_swipe_commit_dest = -1
 			_open_map(dest_z, false)          # rebuild the destination as the real interactive page
 		, CONNECT_ONE_SHOT)
 	else:
@@ -3013,10 +3018,18 @@ func _relayout_after_resize() -> void:
 		return                            # no real change — skip the rebuild
 	_last_view_size = sz
 	# a viewport change mid-swipe invalidates the slide geometry — cancel it; the rebuild re-fits.
+	# kill() SKIPS the tween's `finished` callback, so a COMMIT tween's page change (which lives there)
+	# would be silently dropped — the rebuild would land on the source scene. Read the recorded dest and
+	# finalize the commit through _open_map instead, so a resize mid-snap still advances to the neighbour.
+	var commit_dest := _swipe_commit_dest
 	if _swipe_tween != null and _swipe_tween.is_valid():
 		_swipe_tween.kill()
 	_swipe_tween = null
 	_swipe = {}
+	_swipe_commit_dest = -1
+	if _view == "map" and commit_dest >= 0:
+		_open_map(commit_dest, false)     # complete the interrupted commit (kill() skipped its callback)
+		return
 	if _view == "map":
 		_build_map(false)                 # re-fit WITHOUT the pop-in (a resize is not a navigation)
 	elif _view == "maps":
