@@ -562,10 +562,28 @@ func _initialize() -> void:
 	# zone -> band is derived from the FROZEN ZONE_BAND counts ([6,4,7,4,4]) — the retired 5-map layout kept
 	# purely for the per-band coin/sell curves (coin-clock redesign: the content arc gates on level, not spots).
 	ok(G.zone_map(0) == 0 and G.zone_map(1) == 0 and G.zone_map(2) == 1 and G.zone_map(4) == 1 and G.zone_map(5) == 2 and G.zone_map(7) == 2 and G.zone_map(8) == 3 and G.zone_map(9) == 3 and G.zone_map(10) == 4 and G.zone_map(11) == 4, "zone -> band tracks the ZONE_BAND page distribution")
-	# the ZONE ladder rides the coin clock: zone z unlocks at level 2+z, so the 12-zone arc spans L2..L13.
-	ok(G.zone_unlock_level(0) == 2 and G.zone_unlock_level(G.ZONE_COUNT - 1) == 2 + G.ZONE_COUNT - 1, "zone z unlocks at level 2+z (the one-zone-per-level rhythm)")
-	ok(G.zone_threshold(0) == G.coins_at_level(2), "zone 0's threshold is the L2 coin threshold")
+	# the ZONE ladder rides the data-driven ZONE_UNLOCK_LEVEL cadence (scene-aligned, 2026-07-23): zone z
+	# unlocks at ZONE_UNLOCK_LEVEL[z], spreading the 12-zone content arc across the full L1..L25 scene arc.
+	ok(G.zone_unlock_level(0) == int(G.ZONE_UNLOCK_LEVEL[0]) and G.zone_unlock_level(G.ZONE_COUNT - 1) == int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]), "zone_unlock_level reads the ZONE_UNLOCK_LEVEL cadence")
+	# the cadence must be strictly increasing (a monotonic level→zone inverse) and ZONE_COUNT long.
+	ok(G.ZONE_UNLOCK_LEVEL.size() == G.ZONE_COUNT, "ZONE_UNLOCK_LEVEL has one level per zone")
+	var _cad_ok := true
+	for _z in range(1, G.ZONE_COUNT):
+		if int(G.ZONE_UNLOCK_LEVEL[_z]) <= int(G.ZONE_UNLOCK_LEVEL[_z - 1]):
+			_cad_ok = false
+	ok(_cad_ok, "ZONE_UNLOCK_LEVEL is strictly increasing (each zone unlocks after the last)")
+	ok(G.zone_threshold(0) == G.coins_at_level(int(G.ZONE_UNLOCK_LEVEL[0])), "zone 0's threshold is its unlock-level coin threshold")
 	ok(G.arc_finish_threshold() == G.zone_threshold(G.ZONE_COUNT - 1), "the arc finishes at the last zone's threshold")
+	# scene-aligned cadence: quest_zone_for_level inverts the array (highest zone reached), so each base
+	# generator's line becomes askable inside its own scene's cluster window (FH L2-7 · SV L8-12 · DO L13-17
+	# · CR L18-22 · CB L23-26). Anchor at L1; content now spans the whole arc, not just L1-13.
+	ok(G.quest_zone_for_level(1) == 0, "L1 → zone 0 (glow-mushrooms anchor)")
+	ok(G.quest_zone_for_level(7) == 1, "L7 (end of Fairy Hollow) still zone 1 — scene 1 is its 2 base lines")
+	ok(G.quest_zone_for_level(8) == 2, "L8 (Snowy Village opens) → zone 2 (snow & ice)")
+	ok(G.quest_zone_for_level(13) == 5, "L13 (Desert Oasis opens) → zone 5 (desert fruits)")
+	ok(G.quest_zone_for_level(18) == 8, "L18 (Coral Reef opens) → zone 8 (shells)")
+	ok(G.quest_zone_for_level(23) == 10, "L23 (Cherry-Blossom opens) → zone 10 (koi)")
+	ok(G.quest_zone_for_level(99) == G.ZONE_COUNT - 1, "past the arc clamps at the top zone")
 	var _band_sum := 0
 	for _b in G.ZONE_BAND:
 		_band_sum += int(_b)

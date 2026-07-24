@@ -133,6 +133,19 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
 # so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
+# §7 ZONE UNLOCK CADENCE (2026-07-23, owner call) — THE LEVEL each zone's line + generator becomes
+# available, one entry per zone in play order. THIS IS THE OWNER'S PROGRESSION FEEL DIAL: quest content
+# (generators + lines) now spreads across the WHOLE 25-cluster scene arc (L2–L26) instead of front-loading
+# into L1–L13. Each zone lands inside its own scene's cluster window, so a generator arrives as its themed
+# scene comes into view (scene windows: Fairy Hollow L2–7 · Snowy L8–12 · Desert L13–17 · Coral L18–22 ·
+# Cherry L23–26; ZONE_BAND groups zones 2/3/3/2/2 by scene). z0 is the anchor (from the first tap, L1).
+# G.quest_zone_for_level inverts this (level → highest unlocked zone); G.zone_unlock_level reads it directly.
+# MUST be strictly increasing and ZONE_COUNT long. Re-tune freely; re-run grove_sim to confirm no board jams.
+#                          z0 z1  z2  z3  z4  z5  z6  z7  z8  z9 z10 z11
+const ZONE_UNLOCK_LEVEL := [ 1, 4,  8, 10, 12, 13, 15, 17, 18, 20, 23, 25]
+#  scene:                 |FairyH|  Snowy V  |  Desert O  |Coral R| Cherry B
+#  generator (base zones): 1     2   3   4  (5*)  6   7  (8*) 16  (17*) 18 (19*)   * = crafted special, no gen
+
 # §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
 # higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
 # GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
