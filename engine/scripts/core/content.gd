@@ -644,10 +644,11 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
 	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
-## §7 giver meter: how many giver stands are active for a remaining-exp target —
+## §7 giver meter: how many giver stands would be active for a remaining-exp target —
 ## ≈ ceil((target - earned_exp) / EXP_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
-## target is reached. Quests.meter_target sizes the fence to the WHOLE map's remaining exp, so
-## the fence stays full through the map and only tapers at the very end. target == -1 means done.
+## target is reached (target == -1 means done). The LIVE fence no longer meters against this
+## (quests are endless — Quests.meter_target is a flat MAX_GIVERS); it remains for the offline
+## balance sim (grove_sim), which meters the fence against the next-spot cost.
 static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int = MAX_GIVERS) -> int:
 	if target_exp == -1:
 		return 0
@@ -1444,8 +1445,10 @@ static func zone_unlock_level(z: int) -> int:
 static func zone_threshold(z: int) -> int:
 	return coins_at_level(zone_unlock_level(z))
 
-# The organic-coins threshold at which the WHOLE content arc is earned (the last zone's).
-# The fence meters against this and goes inert past it (the endgame quiet).
+# The organic-coins threshold at which the last QUEST ZONE unlocks (the 12-zone roster's end).
+# NOTE: this is NOT the end of the game — the map/cluster arc runs much longer (25 clusters → ~L26).
+# The live quest fence no longer gates on this (quests are endless, never inert); kept as a content
+# query + for tests. Do not reintroduce it as a fence cutoff — see Quests.meter_target.
 static func arc_finish_threshold() -> int:
 	return zone_threshold(ZONE_COUNT - 1)
 
@@ -1487,7 +1490,7 @@ static func map_next_unlock(z: int, unlocks: Dictionary) -> Dictionary:
 	return best
 
 # The exp at which the WHOLE of map z is claimable = the highest unclaimed threshold.
-# -1 when every spot is claimed. Drives fence_inert.
+# -1 when every spot is claimed. (Legacy helper — the retired fence_inert used to read it.)
 static func map_finish_exp(z: int, unlocks: Dictionary) -> int:
 	var hi := -1
 	for k in MAPS[z].spots.size():

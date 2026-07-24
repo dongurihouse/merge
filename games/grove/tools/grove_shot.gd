@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
-## modes: fresh | played | gate | compost | ladder | hive | bag | level | levelup |
+## modes: fresh | played | gate | compost | ladder | hive | bag | level | levelup | endgame |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -101,6 +101,21 @@ func _initialize() -> void:
 			scn._update_hud()
 			scn._update_water_hud()
 			scn._rebuild_givers()
+			await create_timer(0.5).timeout
+		"endgame":
+			# ENDLESS-FENCE regression view (2026-07-23): a deep-endgame coin clock — far past the
+			# retired arc-finish/inert threshold (arc_finish_threshold, the 12-zone roster's end). The
+			# quest fence must render FULL and full-colour, never the old "endgame quiet" grey-out.
+			var gee := Save.grove()
+			gee["coins_earned"] = G.arc_finish_threshold() * 5
+			gee["pops"] = 30
+			gee["water"] = 42
+			Save.grove_write()
+			scn.water = 42
+			scn._update_hud()
+			scn._refill_quests()          # rebuild the fence at the (now high) level
+			scn._rebuild_givers()
+			scn._refresh_giver_lights()
 			await create_timer(0.5).timeout
 		"oowater":
 			# the OUT-OF-WATER surfaces (option 1 + cues): empty can, every free refill spent, and too few
