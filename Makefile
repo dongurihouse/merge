@@ -162,6 +162,12 @@ ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets
 	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
 	tools/stamp_build_info.sh engine/generated/build_info.gd $(IOS_VERSION)
 	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj $(IOS_EXPORT_MODE)
+	# The main preset excludes games/grove/assets/**, so the pack above is code + data only.
+	# Build the art/audio half separately and reference it from the Xcode project; boot.gd
+	# mounts it at startup. Keeping art in its own byte-stable pack is what lets a code-only
+	# update ship ~6 MB instead of the whole game.
+	tools/export_asset_pack.sh $(PROJECT) build/ios/grove_assets.pck
+	tools/add_asset_pack_to_xcode.py build/ios/AcornForest.xcodeproj/project.pbxproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
 	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
 	# Godot pins "Apple Distribution" on Release under automatic signing — Xcode rejects that. Fix to "Apple Development".
