@@ -620,7 +620,10 @@ func _initialize() -> void:
 	for i in 10000:
 		if G.rolls_gen_self_dup(sdup_rng):
 			sdups += 1
-	ok(sdups > 15 and sdups < 130, "self-dup fires near the 0.5% rate over 10k taps")
+	if G.GEN_SELF_DUP_RATE <= 0.0:
+		ok(sdups == 0, "self-dup is DISABLED (GEN_SELF_DUP_RATE = 0) — a tap never breeds a duplicate generator")
+	else:
+		ok(sdups > 15 and sdups < 130, "self-dup fires near the 0.5% rate over 10k taps")
 
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
