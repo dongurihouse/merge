@@ -43,6 +43,11 @@ const HAND_COLS := 4
 const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first, the rest locked
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
 const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
+# Height-cap the width-authored resident surface on short aspect ratios so the fixed banks,
+# habitat and pinned actions still leave one complete On-hand row. At 1080×1200 this applies
+# a modest 1200/1440 scale; taller phones keep the normal shared-frame width scale.
+const HEIGHT_SCALE_REFERENCE := 1440.0
+const HEIGHT_SCALE_REFERENCE_W := 1080.0
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {
@@ -67,20 +72,28 @@ class DragCard:
 	var on_take: Callable = Callable()      # (src_data, my_data) -> void
 	var make_preview: Callable = Callable() # () -> Control (the drag ghost)
 	var targets: Callable = Callable()      # () -> Array of live DragCards (the drop registry)
+	var blockers: Callable = Callable()     # () -> Array of pinned controls that cover drop targets
 	var drag_layer: Control = null          # the overlay the ghost rides (above the dialog)
+	var scroll_owner: ScrollContainer = null # hand cards arbitrate touch swipes with this viewport
 	var _down := false
 	var _dragging := false
+	var _scrolling := false
+	var _touch_down := false
+	var _down_ms := 0
 	var _down_gp := Vector2.ZERO
+	var _last_gp := Vector2.ZERO
 	var _ghost: Control = null
+	const TOUCH_DRAG_HOLD_MS := 220
+	const TOUCH_SCROLL_AXIS_BIAS := 1.15
 
 	## With emulate_touch_from_mouse BOTH the mouse event and its emulated touch arrive — the
 	## _down/_dragging flags make the second press/release of a pair a no-op.
 	func _gui_input(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_press(_gp(ev.position)) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
+			_press(_gp(ev.position), false) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
 			accept_event()
 		elif ev is InputEventScreenTouch:
-			_press(_gp(ev.position)) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
+			_press(_gp(ev.position), true) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
 			accept_event()
 		elif (ev is InputEventMouseMotion or ev is InputEventScreenDrag) and _down:
 			_move(_gp(ev.position))
@@ -90,30 +103,75 @@ class DragCard:
 	func _gp(local: Vector2) -> Vector2:
 		return get_global_transform() * local
 
-	func _press(gp: Vector2) -> void:
+	func _press(gp: Vector2, touch: bool) -> void:
 		if _down:
 			return
 		_down = true
 		_dragging = false
+		_scrolling = false
+		_touch_down = touch
+		_down_ms = Time.get_ticks_msec()
 		_down_gp = gp
+		_last_gp = gp
 
 	func _move(gp: Vector2) -> void:
-		if not _dragging and String(data.get("src", "")) in ["hand", "placed"] \
-				and gp.distance_to(_down_gp) > DRAG_START_PX:
-			_dragging = true
-			if make_preview.is_valid() and drag_layer != null and is_instance_valid(drag_layer):
-				_ghost = make_preview.call()
-				_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				drag_layer.add_child(_ghost)
+		var delta := gp - _last_gp
+		_last_gp = gp
+		var travel := gp - _down_gp
+		if not _dragging and not _scrolling and travel.length() > DRAG_START_PX:
+			# A quick vertical finger gesture belongs to the hand scroller. Holding briefly first
+			# claims the resident instead, preserving vertical hand→Habitat placement on touch.
+			var quick_touch_scroll := _touch_down and _can_scroll() \
+				and Time.get_ticks_msec() - _down_ms < TOUCH_DRAG_HOLD_MS \
+				and absf(travel.y) > absf(travel.x) * TOUCH_SCROLL_AXIS_BIAS
+			if quick_touch_scroll:
+				_scrolling = true
+			elif String(data.get("src", "")) in ["hand", "placed"]:
+				_dragging = true
+				if make_preview.is_valid() and drag_layer != null and is_instance_valid(drag_layer):
+					_ghost = make_preview.call()
+					_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					drag_layer.add_child(_ghost)
+		if _scrolling and scroll_owner != null and is_instance_valid(scroll_owner):
+			var sy := maxf(0.01, absf(get_global_transform().get_scale().y))
+			scroll_owner.scroll_vertical -= int(roundf(delta.y / sy))
+			return
 		if _dragging and _ghost != null and is_instance_valid(_ghost):
+			_auto_scroll_drag(gp)
 			_ghost.global_position = gp - _ghost.size * 0.5
+
+	# A hand resident can start in one row and merge/place against content beyond the current row.
+	# Moving the held resident through a viewport edge scrolls toward that target; the drop resolver
+	# still accepts only cards that are actually visible when the finger/mouse is released.
+	func _auto_scroll_drag(gp: Vector2) -> void:
+		if scroll_owner == null or not is_instance_valid(scroll_owner) or not _can_scroll():
+			return
+		var rect := scroll_owner.get_global_rect()
+		var sy := maxf(0.01, absf(get_global_transform().get_scale().y))
+		var edge := minf(rect.size.y * 0.25, 44.0 * sy)
+		var delta_scroll := 0
+		if gp.y < rect.position.y + edge:
+			delta_scroll = -maxi(4, int(ceil((rect.position.y + edge - gp.y) / sy)))
+		elif gp.y > rect.end.y - edge:
+			delta_scroll = maxi(4, int(ceil((gp.y - (rect.end.y - edge)) / sy)))
+		if delta_scroll != 0:
+			scroll_owner.scroll_vertical += delta_scroll
+
+	func _can_scroll() -> bool:
+		if scroll_owner == null or not is_instance_valid(scroll_owner):
+			return false
+		var bar := scroll_owner.get_v_scroll_bar()
+		return bar != null and bar.max_value > bar.page + 0.5
 
 	func _release(gp: Vector2) -> void:
 		if not _down:
 			return
 		var was_drag := _dragging
+		var was_scroll := _scrolling
 		_down = false
 		_dragging = false
+		_scrolling = false
+		_touch_down = false
 		if _ghost != null and is_instance_valid(_ghost):
 			_ghost.queue_free()
 		_ghost = null
@@ -122,7 +180,7 @@ class DragCard:
 			var t := _target_at(gp)
 			if t != null and t.on_take.is_valid():
 				t.on_take.call(data, t.data)
-		else:
+		elif not was_scroll:
 			tap()
 
 	## The first registered card under `gp` that ACCEPTS this payload — rejecting targets fall
@@ -132,10 +190,30 @@ class DragCard:
 			return null
 		for c in targets.call():
 			if c != self and c != null and is_instance_valid(c) \
-					and (c as Control).get_global_rect().has_point(gp) \
+					and _is_visible_at(c, gp) \
 					and c.can_take.is_valid() and bool(c.can_take.call(data, c.data)):
 				return c
 		return null
+
+	func _is_visible_at(c: DragCard, gp: Vector2) -> bool:
+		if not (c as Control).get_global_rect().has_point(gp):
+			return false
+		if c.scroll_owner != null and is_instance_valid(c.scroll_owner) \
+				and not c.scroll_owner.get_global_rect().has_point(gp):
+			return false
+		var n: Node = c
+		while n is Control:
+			var ctl := n as Control
+			if not ctl.is_visible_in_tree() or (ctl.clip_contents and not ctl.get_global_rect().has_point(gp)):
+				return false
+			n = n.get_parent()
+		if blockers.is_valid():
+			for blocker in blockers.call():
+				if blocker is Control and is_instance_valid(blocker) \
+						and (blocker as Control).is_visible_in_tree() \
+						and (blocker as Control).get_global_rect().has_point(gp):
+					return false
+		return true
 
 	func tap() -> void:
 		if on_tap.is_valid():
@@ -167,20 +245,28 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	overlay.add_child(cc)
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var vw: float = host.get_viewport_rect().size.x
+	var viewport_size := host.get_viewport_rect().size
+	var vw: float = viewport_size.x
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["residents"] / 100.0
 	# the CONTENT lays out at the design width MINUS the sheet's insets AND the scrollbar
 	# (the frame scales it by content_scale, so those real-px widths count at 1/scale in
 	# layout space) — sized against `width` alone the fixed-size cards overflow the sheet's
 	# right edge; the scroll's vertical bar, when shown, eats its width from the child area.
-	var scale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "residents"))
+	var width_scale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "residents"))
+	# Canvas-items stretch keeps the logical viewport 1920 px tall and widens it on short devices,
+	# so viewport_size.y alone cannot detect a physically short screen. Normalize the real window's
+	# aspect to a 1080-wide phone, then cap the content scale only when that equivalent height is short.
+	var window_size := Vector2(DisplayServer.window_get_size())
+	var aspect_height := window_size.y * HEIGHT_SCALE_REFERENCE_W / maxf(1.0, window_size.x)
+	var scale: float = minf(width_scale, maxf(0.01, aspect_height / HEIGHT_SCALE_REFERENCE))
 	var inner: float = width \
 		- (2.0 * float(Kit.frame_border("parchment")["pad_x"]) + float(Kit.SCROLLBAR_W)) / scale
 
 	# the render context every repaint reads: selection + the two rebuildable surfaces.
 	var ctx := {"sel": {}, "body": null, "insp": null, "scale": scale,
 		"kit": Kit, "cfg": cfg, "inner": inner, "overlay": overlay, "opts": opts,
-		"piece_inset": _board_piece_inset(cfg), "fx": GridFx.opts_from_config(cfg)}
+		"piece_inset": _board_piece_inset(cfg), "fx": GridFx.opts_from_config(cfg),
+		"hand_scroll_pos": 0, "drop_blockers": []}
 
 	var body := VBoxContainer.new()
 	body.name = "ResidentsBody"
@@ -194,19 +280,37 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	# tuck the ✕ further in so it sits inside the torn panel's rounded corner (the deckled cut-paper edge
 	# is more inset than the plain rounded-rect the default close_poke was tuned for).
 	fopts["close_poke"] = Vector2(40, 34)
-	fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.82   # taller sheet: the board-sized cells (items 3/4) need the extra height budget
+	var list_max_h: float = viewport_size.y * 0.82
+	fopts["list_max_h"] = list_max_h   # taller sheet: the board-sized cells (items 3/4) need the extra height budget
 	fopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
-	var dialog: Control = Kit.dialog_frame(body, width, fopts)
-	cc.add_child(dialog)
 
-	# the INSPECTOR rides the frame's wrap OUTSIDE the padded scroll, pinned flush to the sheet's
-	# bottom edge (mock: a flat full-width strip, no side margins, no border) — repositioned with
-	# the card, rebuilt by every repaint.
-	var card: Control = dialog.find_child("MeadowDialogPanel", true, false)
+	# Expedition and the selection inspector are ONE shared-frame footer, so both stay pinned while
+	# only the On-hand grid scrolls. The footer lives outside the content ScaleContainer; its controls
+	# therefore use real-pixel dimensions derived from `scale`.
+	var footer := VBoxContainer.new()
+	footer.name = "ResidentsPinnedFooter"
+	footer.add_theme_constant_override("separation", int(8.0 * scale))
+	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var on_expedition: Callable = (opts as Dictionary).get("on_expedition", Callable())
+	if on_expedition.is_valid() and Bucket.cells_total() > 0:
+		var exped := _action_pill(Kit, "EXPEDITION", true, false, scale)
+		exped.name = "ResidentsExpeditionButton"
+		exped.pressed.connect(func() -> void:
+			Audio.play("button_tap", -2.0)
+			if is_instance_valid(overlay):
+				overlay.queue_free()
+			on_expedition.call())
+		var erow := HBoxContainer.new()
+		erow.alignment = BoxContainer.ALIGNMENT_CENTER
+		erow.add_child(exped)
+		footer.add_child(erow)
+
 	var insp := PanelContainer.new()
 	insp.name = "ResidentsInspector"
+	insp.custom_minimum_size = Vector2(0, INSPECTOR_H * scale)
+	insp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var corner := int(float(fopts.get("card_corner", 28.0)))
 	var isb := StyleBoxFlat.new()
 	isb.bg_color = Pal.CREAM.darkened(0.05)
@@ -219,21 +323,24 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	# stretched stylebox), so make the panel itself transparent + margin-free here.
 	if _skin_tex("strip_bg") != null:
 		insp.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	dialog.add_child(insp)
+	footer.add_child(insp)
 	ctx["insp"] = insp
-	var dock_insp := func() -> void:
-		if is_instance_valid(insp) and is_instance_valid(card):
-			var h := INSPECTOR_H * scale
-			# lift the bar up off the sheet's bottom edge and inset it from the sides, so it sits INSIDE
-			# the torn panel (whose deckled edge + soft baked shadow are inset from the card rect) rather
-			# than overflowing past the bottom.
-			var bm := h * 0.55
-			var sm := card.size.x * 0.045
-			insp.position = Vector2(card.position.x + sm, card.position.y + card.size.y - h - bm)
-			insp.size = Vector2(card.size.x - sm * 2.0, h)
-	card.resized.connect(dock_insp)
-	insp.resized.connect(dock_insp)
-	dock_insp.call_deferred()
+	var footer_gap := 8.0 * scale
+	fopts["footer"] = footer
+	fopts["footer_gap"] = footer_gap
+	fopts["footer_bg_alpha"] = 1.0
+	fopts["outer_scroll_enabled"] = false
+	fopts["footer_reduces_viewport"] = true
+	# dialog_frame's row cap is in rendered pixels. Reserve the pinned footer and shared tail,
+	# then hand the remaining authored height to _rebuild_body for a whole-row hand viewport.
+	var footer_h := footer.get_combined_minimum_size().y + footer_gap
+	ctx["body_budget"] = maxf(0.0, (list_max_h - float(Kit.CONTENT_TAIL_PAD) - footer_h) / scale)
+
+	var dialog: Control = Kit.dialog_frame(body, width, fopts)
+	cc.add_child(dialog)
+	var footer_band: Control = dialog.find_child("DialogFooterBand", true, false)
+	if footer_band != null:
+		ctx["drop_blockers"] = [footer_band]
 
 	_repaint(ctx)
 	FX.pop_in(dialog)
@@ -260,6 +367,9 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	var Kit: GDScript = ctx.kit
 	var cfg: Dictionary = ctx.cfg
 	var width: float = ctx.inner
+	var old_scroll := body.find_child("ResidentsHandScroll", true, false) as ScrollContainer
+	if old_scroll != null:
+		ctx["hand_scroll_pos"] = old_scroll.scroll_vertical
 	_clear(body)
 	ctx["cards"] = []   # the drop-target registry — every DragCard this rebuild creates
 
@@ -379,33 +489,37 @@ static func _rebuild_body(ctx: Dictionary) -> void:
 	size_zone.call()
 	grid.minimum_size_changed.connect(size_zone)
 	zone.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	body.add_child(zone)
-
-	# --- EXPEDITION: the acquire entry, moved here from the retired bucket dock ----------------------
-	# Gated exactly as the dock's chip was — the loop opens once a completed building grants a cell.
-	# Sits at the body's foot rather than in the inspector strip: the strip is selection-contextual,
-	# and Expedition is always available once open.
-	var on_expedition: Callable = (ctx.opts as Dictionary).get("on_expedition", Callable())
-	if on_expedition.is_valid() and cells_total > 0:
-		# the flat WHITE/PAPER twin of the green Collect all — identical pill geometry, cream surface (item 6).
-		var exped := _action_pill(Kit, "EXPEDITION", true, false)
-		exped.name = "ResidentsExpeditionButton"
-		exped.pressed.connect(func() -> void:
-			Audio.play("button_tap", -2.0)
-			var ov: Control = ctx.overlay
-			if is_instance_valid(ov):
-				ov.queue_free()          # close Residents first — Load out mounts on the same host
-			on_expedition.call())
-		var erow := HBoxContainer.new()
-		erow.alignment = BoxContainer.ALIGNMENT_CENTER
-		erow.add_child(exped)
-		body.add_child(erow)
-
-	# breathing room so the last hand row scrolls clear of the bottom inspector strip
-	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(0, INSPECTOR_H + 10.0)
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(pad)
+	# Only ON HAND scrolls. It consumes the body's flexible remainder, keeps at least one complete row
+	# visible, and grows naturally on taller screens until the hand itself becomes the overflow.
+	# The surrounding frame still owns clipping/chrome, but its body now fits its visible height budget.
+	var hand_scroll := ScrollContainer.new()
+	hand_scroll.name = "ResidentsHandScroll"
+	hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	hand_scroll.scroll_deadzone = int(DragCard.DRAG_START_PX)
+	# Allocate only complete rows inside the remaining fixed-body budget. At least one full row
+	# remains visible; taller screens expose more rows until the whole hand fits.
+	var fixed_h := body.get_combined_minimum_size().y + 14.0
+	var available_h := maxf(hand_px, float(ctx.get("body_budget", hand_px)) - fixed_h)
+	var rows_fit := maxi(1, int(floor((available_h + 10.0) / (hand_px + 10.0))))
+	var visible_h := minf(zone.get_combined_minimum_size().y,
+		float(rows_fit) * hand_px + float(maxi(0, rows_fit - 1)) * 10.0)
+	hand_scroll.custom_minimum_size = Vector2(width, visible_h)
+	hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	Kit._style_scrollbar(hand_scroll)
+	hand_scroll.add_child(zone)
+	body.add_child(hand_scroll)
+	for registered in ctx["cards"]:
+		var resident_card := registered as DragCard
+		if resident_card != null and String(resident_card.data.get("src", "")) in ["hand", "handzone"]:
+			resident_card.scroll_owner = hand_scroll
+	var restore_pos := int(ctx.get("hand_scroll_pos", 0))
+	(func() -> void:
+		if is_instance_valid(hand_scroll):
+			var bar := hand_scroll.get_v_scroll_bar()
+			var max_scroll := maxi(0, int(floor(bar.max_value - bar.page))) if bar != null else 0
+			hand_scroll.scroll_vertical = clampi(restore_pos, 0, max_scroll)
+	).call_deferred()
 
 ## One RESOURCE BANK mini card (mock v2): the LARGE resource icon OWNS the card's left side (spanning
 ## the name + value block), a thick line-coloured bar spanning the card, and the state line. Full
@@ -571,13 +685,15 @@ static func _bank_state_text(line: String, rep: Dictionary) -> String:
 ## white/paper surface (mock v2's Expedition twin).
 const ACTION_PILL_CORNER := 22.0
 const ACTION_PILL_H := 76.0    # reskinned button height (design px); width follows the sprite's aspect
-static func _action_pill(Kit: GDScript, text: String, enabled: bool, green: bool) -> Button:
+static func _action_pill(Kit: GDScript, text: String, enabled: bool, green: bool,
+		ui_scale: float = 1.0) -> Button:
 	# reskin: the baked cut-paper button sprite (COLLECT ALL = green, EXPEDITION = cream) over the shared
 	# drop shadow. The caller wires `.pressed` after, so the button stays a real tap target.
 	var tex := _skin_tex("btn_collect" if green else "btn_expedition")
 	if tex != null and tex.get_height() > 0:
-		var w := roundf(ACTION_PILL_H * float(tex.get_width()) / float(tex.get_height()))
-		var b := SpriteButton.build(tex, Vector2(w, ACTION_PILL_H), Callable(), {"tooltip": text})
+		var h := ACTION_PILL_H * ui_scale
+		var w := roundf(h * float(tex.get_width()) / float(tex.get_height()))
+		var b := SpriteButton.build(tex, Vector2(w, h), Callable(), {"tooltip": text})
 		b.mouse_filter = Control.MOUSE_FILTER_STOP   # tappable even though the action is wired later
 		b.disabled = not enabled
 		b.modulate = Color(1, 1, 1, 1) if enabled else Color(1, 1, 1, 0.5)
@@ -585,8 +701,8 @@ static func _action_pill(Kit: GDScript, text: String, enabled: bool, green: bool
 	return Kit.pill_button(text, {
 		"bg": "green" if green else "cream",
 		"enabled": enabled,
-		"font": FS.BODY,
-		"corner": ACTION_PILL_CORNER,
+		"font": int(FS.BODY * ui_scale),
+		"corner": ACTION_PILL_CORNER * ui_scale,
 		"shadow": true,
 	})
 
@@ -721,6 +837,8 @@ static func _register_card(ctx: Dictionary, dc: DragCard) -> void:
 	dc.drag_layer = ctx.overlay
 	dc.targets = func() -> Array:
 		return ctx.get("cards", [])
+	dc.blockers = func() -> Array:
+		return ctx.get("drop_blockers", [])
 	(ctx["cards"] as Array).append(dc)
 
 ## The spirit's per-tier ladder art, centred in its box — TRIMMED to its used rect (the raw canvas

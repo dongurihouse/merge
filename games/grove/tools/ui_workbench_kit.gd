@@ -2950,6 +2950,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# are unchanged). footer_gap = breathing room between the last row and the footer band.
 	var footer: Control = opts.get("footer", null)
 	var footer_gap: float = float(opts.get("footer_gap", 10.0))
+	# Residents keeps its own bounded hand scroller, so its pinned footer may shrink the outer
+	# content viewport instead of overlaying it. Default false preserves Mail's overlay+spacer flow.
+	var footer_reduces_viewport: bool = bool(opts.get("footer_reduces_viewport", false))
 	var center_content: bool = bool(opts.get("center_content", false))   # stretch a sparse content block to fill the floored body so it centers (empty mail note)
 	var on_close: Callable = opts.get("on_close", Callable())
 	var banner_text: String = String(opts.get("banner_text", "Mail"))
@@ -3067,6 +3070,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	scroll.offset_left = panel_pad_x
 	scroll.offset_right = -panel_pad_x
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	if not bool(opts.get("outer_scroll_enabled", true)):
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.clip_contents = false
 	_style_scrollbar(scroll)
 	clipw.add_child(scroll)
@@ -3175,6 +3180,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 			footer_band.offset_left = 0.0; footer_band.offset_right = 0.0; footer_band.offset_bottom = 0.0
 			if is_instance_valid(foot_spacer) and absf(foot_spacer.custom_minimum_size.y - fh) > 1.0:
 				foot_spacer.custom_minimum_size.y = fh
+			if footer_reduces_viewport and absf(clipw.offset_bottom - (-fh)) > 1.0:
+				clipw.offset_bottom = -fh
 		wrap.custom_minimum_size = card.size
 		close.position = Vector2(card.size.x - close_size - close_poke.x, close_poke.y)   # docked INSIDE the corner (mock v2)
 	rows.resized.connect(relayout)
