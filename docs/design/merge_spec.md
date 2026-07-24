@@ -227,6 +227,14 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > same rate, **produces a tier-1 generator for another active line still below tier 3** — redirecting the
 > drip to where it helps (nothing if every active line is maxed).
 >
+> **D-status (owner call, 2026-07-23): self-dup is OFF** — `GEN_SELF_DUP_RATE = 0.0`. The duplicate spawned
+> at the line's **top** tier, so a sub-top leftover met a copy it could not merge with; because generator art
+> is tier-independent the pair looked identical, and the refused drop fell through to `swap_gens` and just
+> traded cells — reading as "the merge did nothing." The ladder itself (merge 2:1, tier burst odds, sell a
+> redundant gen) is untouched and still works on tiers a save already holds; there is simply **no new fuel**,
+> so generators stay at their current tier and no new leftover can strand. Re-enable by restoring `0.005`
+> once tier is legible on the board **and** a refused generator merge bounces instead of swapping.
+>
 > **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + duplicates
 > mid-merge + bonus gens, F); overflow queues in the **bag**.
 >
