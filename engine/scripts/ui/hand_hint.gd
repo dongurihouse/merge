@@ -15,9 +15,17 @@ extends Control
 
 const Features = preload("res://engine/scripts/core/features.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # the modal-z single source of truth
 
 const GESTURE_DRAG := "drag"
 const GESTURE_TAP := "tap"
+
+# Above every HUD/FX/world chrome z (the highest of those is map.gd's drag-ghost 200) and below
+# Overlay.MODAL_Z (2048): a modal (How-to-Play, bag, shop, Tiers ladder, level popup, daily-login
+# calendar, ...) must always be able to cover the teach, never have it punched through. This used
+# to hand-roll z_index = 4000 — the ONE z in the codebase above the modal band — so every modal
+# opened before the first merge rendered UNDER the hint's veil instead of over it.
+const HAND_HINT_Z := 500
 
 const DIM_ALPHA := 0.35          # the soft dim over everything but the cutouts
 const CUTOUT_PAD := 6.0          # a little breathing room around the taught cell
@@ -47,6 +55,13 @@ static func present(host: Control, gesture_id: String, source_rect: Rect2, targe
 		return null
 	if host == null or not is_instance_valid(host):
 		return null
+	# A hint being swapped for a different one (e.g. the merge teach handing off to gen_tap) is
+	# already mid-fade from its own dismiss() — 0.18s of a second DIM_ALPHA veil compositing under
+	# this new one, roughly doubling the dim for that stretch. Free it RIGHT NOW instead of letting
+	# its fade run out from under the new hint, so only one veil is ever visibly compositing.
+	var stale := host.get_node_or_null("HandHint")
+	if stale != null and is_instance_valid(stale):
+		stale.free()
 	var o := new()
 	o.gesture = gesture_id
 	o._src = source_rect
@@ -64,7 +79,7 @@ func _build() -> void:
 	name = "HandHint"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	z_index = 4000                       # above the board, below nothing that matters
+	z_index = HAND_HINT_Z                 # above all chrome, below Overlay.MODAL_Z — a modal always wins
 	_veil = Control.new()
 	_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -86,10 +101,12 @@ func cutouts() -> Array:
 func retarget(source_rect: Rect2, target_rect: Rect2) -> void:
 	if dismissed:
 		return
+	if source_rect.is_equal_approx(_src) and target_rect.is_equal_approx(_dst):
+		return   # the board rebuilt but the geometry didn't move — leave the loop running in place
 	_src = source_rect
 	_dst = target_rect
 	_rebuild_veil()
-	_start_loop()
+	_start_loop()   # the geometry genuinely moved — restarting from the new source is acceptable
 
 func dismiss() -> void:
 	if dismissed:
@@ -200,14 +217,19 @@ func _make_hand() -> Control:
 
 # The code-drawn fallback: a pale rounded finger with a cuff. Same box as the texture.
 class _HandDraw extends Control:
+	# _hand_pos_for() positions this box so its CENTRE lands on target_center + HAND_OFFSET — the
+	# texture's fingertip apex sits at centre - HAND_OFFSET (that's what HAND_OFFSET counters, per
+	# its own comment above), so the fallback's fingertip must sit at that SAME box-relative spot or
+	# the two hand implementations land on visibly different points ((29, 24) px apart, measured).
 	func _draw() -> void:
 		var w := size.x
 		var cream := Color(0.98, 0.94, 0.86, 0.98)
 		var edge := Color(0.36, 0.28, 0.22, 0.85)
-		var palm := Rect2(w * 0.28, w * 0.42, w * 0.44, w * 0.44)
-		draw_circle(Vector2(w * 0.5, w * 0.30), w * 0.13, cream)          # fingertip
+		var tip := Vector2(w, w) * 0.5 - HAND_OFFSET
+		var palm := Rect2(tip + Vector2(-0.22, 0.12) * w, Vector2(0.44, 0.44) * w)   # unchanged offset FROM the tip
+		draw_circle(tip, w * 0.13, cream)          # fingertip
 		draw_rect(palm, cream, true)
-		draw_circle(Vector2(w * 0.5, w * 0.30), w * 0.13, edge, false, 2.0)
+		draw_circle(tip, w * 0.13, edge, false, 2.0)
 		draw_rect(palm, edge, false, 2.0)
 
 func _hand_pos_for(r: Rect2) -> Vector2:

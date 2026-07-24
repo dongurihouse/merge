@@ -12,6 +12,7 @@ const SCENES := "res://engine/scripts/scenes/"
 const Overlay := preload("res://engine/scripts/ui/overlay.gd")
 const Hud := preload("res://engine/scripts/ui/hud.gd")
 const TuneFX := preload("res://engine/scripts/core/tuning.gd").FX   # the FX juice dials (FLY_Z / FLOAT_Z)
+const HandHint := preload("res://engine/scripts/ui/hand_hint.gd")   # the FTUE teach overlay — must sit under every modal
 
 var _pass := 0
 var _fail := 0
@@ -58,6 +59,7 @@ func _initialize() -> void:
 	for p in ui:
 		ok(not _reads(p, SCENES), "ui/%s does not import scenes/" % p.get_file())
 	_check_modal_z()
+	_check_no_z_above_modal_top()
 	await _check_level_badge_layout()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
@@ -76,7 +78,48 @@ func _check_modal_z() -> void:
 	ok(Overlay.MODAL_Z > chrome_top, \
 		"MODAL_Z (%d) sits above the highest HUD/FX chrome (%d) — dialogs cover the world" % [Overlay.MODAL_Z, chrome_top])
 	ok(Overlay.MODAL_TOP_Z > Overlay.MODAL_Z, "MODAL_TOP_Z sits above MODAL_Z — a sheet can stack over an open modal")
+	# The FTUE hand-hint teach (hand_hint.gd) once hand-rolled z_index = 4000 — the one z in the
+	# codebase above the modal band — so every modal opened while a hint was live (How-to-Play, bag,
+	# shop, Tiers ladder, level popup, daily-login calendar) rendered UNDER its veil instead of over
+	# it. Pin both ends of the invariant so that regression can't come back silently.
+	ok(HandHint.HAND_HINT_Z > chrome_top, \
+		"HandHint.HAND_HINT_Z (%d) sits above the highest HUD/FX chrome (%d)" % [HandHint.HAND_HINT_Z, chrome_top])
+	ok(HandHint.HAND_HINT_Z < Overlay.MODAL_Z, \
+		"HandHint.HAND_HINT_Z (%d) sits below Overlay.MODAL_Z (%d) — a modal always covers the FTUE teach" % [HandHint.HAND_HINT_Z, Overlay.MODAL_Z])
 	host.free()
+
+# No script anywhere in the engine layers may hand-roll a z_index literal above MODAL_TOP_Z — that
+# was exactly the FTUE hand-hint bug (hand_hint.gd's z_index = 4000, the one z above the modal
+# band). A named constant derived from/compared against Overlay.MODAL_Z (like HandHint.HAND_HINT_Z
+# above) is fine; this scan only flags a bare integer assignment, which is what a future hand-roll
+# would look like.
+func _check_no_z_above_modal_top() -> void:
+	var offenders := PackedStringArray()
+	for dir in [CORE, UI, SCENES]:
+		for p in _gd_files(dir):
+			var f := FileAccess.open(p, FileAccess.READ)
+			if f == null:
+				continue
+			var line_no := 0
+			for raw_line in f.get_as_text().split("\n"):
+				line_no += 1
+				var line: String = raw_line.split("#")[0]   # comments (e.g. "z_index=4000" in prose) don't count
+				var idx := line.find("z_index")
+				if idx == -1:
+					continue
+				var eq := line.find("=", idx)
+				if eq == -1 or (eq + 1 < line.length() and line[eq + 1] == "="):
+					continue   # no assignment here, or it's a `==` comparison
+				var rest := line.substr(eq + 1).strip_edges()
+				if not rest.is_valid_int():
+					continue   # a named constant (Overlay.MODAL_Z, HandHint.HAND_HINT_Z, ...), not a bare literal
+				var v := rest.to_int()
+				if v > Overlay.MODAL_TOP_Z:
+					offenders.append("%s:%d (z_index=%d)" % [p.get_file(), line_no, v])
+			f.close()
+	ok(offenders.is_empty(), \
+		"no script hand-rolls a z_index literal above MODAL_TOP_Z (%d)%s" % \
+		[Overlay.MODAL_TOP_Z, ("" if offenders.is_empty() else " — " + ", ".join(offenders))])
 
 func _check_level_badge_layout() -> void:
 	var host := Control.new()

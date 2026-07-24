@@ -38,6 +38,8 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 	Save.mark_board_tutorial_seen()   # a capture shows the BOARD, never the How-to-Play overlay
+	Save.mark_ftue_seen("merge")      # and never the FTUE hand-hint veil either — except ftue/ftuegen
+	Save.mark_ftue_seen("gen_tap")    # below, which explicitly re-seed the ledger to show it live
 	if mode == "ftue":
 		Save.data["ftue_seen"] = {}          # a brand-new player: the merge hand is live
 	if mode == "ftuegen":

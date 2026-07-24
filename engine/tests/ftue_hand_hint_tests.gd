@@ -149,6 +149,16 @@ func _initialize() -> void:
 	ok((moved[1] as Rect2).get_center().is_equal_approx(Vector2(230, 30)), "retarget: cutout 1 follows the new target")
 	ok(drag.get_parent() == host, "retarget: the overlay stays live (no re-present)")
 
+	# retarget() must NOT restart the loop when the geometry hasn't actually moved (the spec's "in
+	# place... without restarting its loop") — a rebuild that leaves the cells where they were must
+	# not snap the hand back to the source mid-glide. A genuine move is allowed to restart it.
+	var tween_unchanged: Tween = drag._tween
+	drag.retarget(Rect2(0, 0, 60, 60), Rect2(200, 0, 60, 60))   # the SAME rects as just above
+	ok(drag._tween == tween_unchanged, "retarget: unchanged geometry keeps the same loop tween running (no restart)")
+	var tween_before_move: Tween = drag._tween
+	drag.retarget(Rect2(5, 5, 60, 60), Rect2(205, 5, 60, 60))   # genuinely moved
+	ok(drag._tween != tween_before_move, "retarget: geometry that actually moved DOES restart the loop tween")
+
 	drag.dismiss()
 	ok(drag.dismissed, "dismiss: the overlay is marked dismissed immediately (the fade then frees it)")
 
@@ -227,6 +237,24 @@ func _initialize() -> void:
 	var guard_cuts_after: Array = v_guard.cutouts()
 	ok((guard_cuts_after[0] as Rect2).is_equal_approx(guard_cuts_before[0] as Rect2),
 		"retarget after dismiss: a no-op — the target doesn't move")
+
+	# --- double-dim guard: presenting a new hint must not leave a fading old one compositing too ---
+	# dismiss() fades its veil over 0.18s before queue_free; a caller that immediately presents a
+	# NEW hint on the same host (board.gd's merge -> gen_tap handoff) used to leave both veils live
+	# at once, stacking to roughly double the intended dim. present() must free a stale hint outright.
+	var swap_host := Control.new()
+	swap_host.size = Vector2(400, 300)
+	root.add_child(swap_host)
+	var first: Control = HandHint.present(swap_host, HandHint.GESTURE_DRAG, Rect2(0, 0, 50, 50), Rect2(200, 0, 50, 50))
+	first.dismiss()   # starts the 0.18s fade — still in the tree, still compositing
+	var second: Control = HandHint.present(swap_host, HandHint.GESTURE_TAP, Rect2(), Rect2(200, 0, 50, 50))
+	ok(not is_instance_valid(first), "double-dim guard: presenting a new hint frees a still-fading old one immediately")
+	var live_hint_nodes := 0
+	for c in swap_host.get_children():
+		if c is Control and (c as Control).get_script() == HandHint:
+			live_hint_nodes += 1
+	ok(live_hint_nodes == 1, "double-dim guard: only ONE hand-hint node composites on the host at a time")
+	second.dismiss()
 
 	# --- eligibility order (pure seam — no scene needed) ---
 	# merge first; gen_tap only once merge is seen; nothing once both are seen.

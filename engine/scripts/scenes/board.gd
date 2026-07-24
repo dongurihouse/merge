@@ -87,6 +87,8 @@ const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays i
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
 const HINT_ROCK_CYCLE := 1.2     # W1: seconds per rock cycle
 const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
+const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece must stay visible above
+                                                  # the hand-hint veil (hand_hint.gd) while a teach is live
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
 # grove board palette (the night-purples retire here)
@@ -451,11 +453,12 @@ func _maybe_hand_hint() -> void:
 	await get_tree().process_frame          # let the rebuild's layout settle before reading rects
 	if not is_inside_tree():
 		return
-	var want := _hand_hint_eligible()
+	var gen_cell := _hand_hint_gen_cell()   # one scan of gen_nodes, shared by eligibility + rect lookup
+	var want := _hand_hint_eligible(gen_cell)
 	if want == "":
 		_dismiss_hand_hint()
 		return
-	var rects := _hand_hint_rects(want)
+	var rects := _hand_hint_rects(want, gen_cell)
 	if rects.is_empty():
 		_dismiss_hand_hint()
 		return
@@ -467,10 +470,12 @@ func _maybe_hand_hint() -> void:
 	_hand_hint = HandHint.present(self, gesture, rects[0], rects[1])
 	_hand_hint_id = want if _hand_hint != null else ""
 
-# Which teach the ledger + the current board allow. "" = none.
-func _hand_hint_eligible() -> String:
+# Which teach the ledger + the current board allow. "" = none. `gen_cell` is the caller's own
+# _hand_hint_gen_cell() result — passed in rather than re-scanned here (that scan runs once per
+# _maybe_hand_hint(), not twice: once for eligibility, again for _hand_hint_rects()).
+func _hand_hint_eligible(gen_cell: Array) -> String:
 	var has_pair := not BoardLogic.find_mergeable_pair(board).is_empty()
-	var has_gen := not _hand_hint_gen_cell().is_empty()
+	var has_gen := not gen_cell.is_empty()
 	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
 
 # The generator the tap teach points at: the first live, tappable (non-accumulator, non-treat)
@@ -487,8 +492,9 @@ func _hand_hint_gen_cell() -> Array:
 			return [cell]
 	return []
 
-# [source_rect, target_rect] in THIS control's space, or [] when a node is missing.
-func _hand_hint_rects(id: String) -> Array:
+# [source_rect, target_rect] in THIS control's space, or [] when a node is missing. `gen_cell` is
+# the caller's own _hand_hint_gen_cell() result (see _hand_hint_eligible()'s comment).
+func _hand_hint_rects(id: String, gen_cell: Array) -> Array:
 	if id == "merge":
 		var pair := BoardLogic.find_mergeable_pair(board)
 		if pair.size() < 2:
@@ -498,10 +504,9 @@ func _hand_hint_rects(id: String) -> Array:
 		if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
 			return []
 		return [_local_rect(a), _local_rect(b)]
-	var gc := _hand_hint_gen_cell()
-	if gc.is_empty():
+	if gen_cell.is_empty():
 		return []
-	var gn: Control = gen_nodes.get(gc[0])
+	var gn: Control = gen_nodes.get(gen_cell[0])
 	if gn == null or not is_instance_valid(gn):
 		return []
 	return [Rect2(), _local_rect(gn)]
@@ -522,7 +527,10 @@ func _end_hand_hint(id: String) -> void:
 		_dismiss_hand_hint()                 # a different-id hint would otherwise linger until some later,
 		return                                # unrelated rebuild. No ledger write while the flag is off.
 	if _hand_hint_id == id:
-		_dismiss_hand_hint()   # tear down before the seen check — a live hint must clear even if the
+		# Tear down before the seen check below — a live hint must clear even if `id` is already
+		# marked seen (that check returns early and never re-teaches, so it must not gate the teardown).
+		_dismiss_hand_hint()
+
 	if Save.ftue_seen(id):
 		return
 	Save.mark_ftue_seen(id)
@@ -2160,7 +2168,7 @@ func _show_focus(cell: Vector2i) -> void:
 	if _focus_ring == null or not is_instance_valid(_focus_ring):
 		_focus_ring = FocusRing.new()
 		_focus_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_focus_ring.z_index = 8                 # above resting pieces (z 0); below a lifted/dragged piece (z 20)
+		_focus_ring.z_index = 8                 # above resting pieces (z 0); below a lifted/dragged piece (DRAG_LIFT_Z)
 		board_area.add_child(_focus_ring)
 	var o := _focus_ring_opts()                  # workbench-tuned colour/proportions (or the shipped look)
 	if not o.is_empty():
@@ -2659,7 +2667,7 @@ func _begin_drag() -> void:
 	_drag_node = gen_nodes.get(cell) if _drag_is_gen else piece_nodes.get(cell)
 	if _drag_node == null:
 		return
-	_drag_node.z_index = 20
+	_drag_node.z_index = DRAG_LIFT_Z   # above the FTUE hand-hint veil too — a piece being dragged must not dim
 	_drag_node.scale = Vector2(1.12, 1.12)
 	PieceView.set_lifted(_drag_node, true)    # spread the shadow — the tile lifts off
 	GrabFx.grab(_drag_node, _grab_opts)       # glow + white rim + a light pickup tap (workbench-tuned)
