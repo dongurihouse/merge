@@ -115,6 +115,9 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _page_cur: Control = null    # the live scene page node under `content` (the swipe's cur)
 var _swipe: Dictionary = {}      # the in-flight home page-swipe; {} when idle (see _on_map_input)
 var _swipe_tween: Tween = null   # the active snap/spring tween (settle guard + resize-cancel)
+var _swipe_commit_dest := -1     # dest scene of an in-flight COMMIT tween (-1 = spring-back/idle); a resize
+                                 # kill()s the tween without firing `finished`, so the resize handler reads
+                                 # this to finalize the interrupted commit instead of rebuilding the source.
 var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
 var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll); else total_h - column_h
 var _hand_scroll := 0.0          # current scroll offset of the in-hand orb grid (px from the top)
@@ -317,16 +320,10 @@ func owned_count(z: int) -> int:
 func _frontier_map() -> int:
 	return G.frontier_map(unlocks, _gates())
 
-# The map the player is CURRENTLY progressing, for the gallery's featured card: the one they last
-# opened (if still unlocked and unfinished), else the completion-chain frontier, else the last map.
+# The map the player is CURRENTLY unlocking, for the gallery's featured card.
+# The global cover-up sequence owns this choice; browsing another page does not.
 func _featured_map() -> int:
-	var g := Save.grove()
-	if g.has("last_map"):
-		var lz := G.map_for_id(String(g.last_map))
-		if lz >= 0 and map_unlocked(lz) and not G.map_complete(lz, unlocks, _gates()):
-			return lz
-	var f := _frontier_map()
-	return f if f >= 0 else G.MAPS.size() - 1
+	return G.current_unlock_map(unlocks, _gates())
 
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
@@ -711,8 +708,8 @@ func _build_select(animate := true) -> void:
 
 
 # --- the MAPS page (maps_page_v2_cards_only mock) -------------------------------------------------
-# A full-screen gallery over the sky: the "MAPS" heading, the frontier map as a large featured
-# card (thumb + IN PROGRESS + built/total + progress bar + CONTINUE), and every other map as a
+# A full-screen gallery over the sky: the first cover-up page with a locked cluster as a large
+# featured card (thumb + IN PROGRESS + built/total + progress bar + CONTINUE), and every other map as a
 # grid card — locked cards wear a dimmed thumb + padlock medallion + LOCKED pill. Card thumbs are
 # LIVE zone renders (HomeZoneView over the page's manifest), so the gallery always shows the real
 # scene state — no baked thumbnails to fall stale. Cards IGNORE the mouse (the single input
@@ -730,8 +727,7 @@ func _build_maps_page(animate := true) -> void:
 	var view := get_viewport_rect().size
 	var margin := clampf(view.x * 0.045, 14.0, 40.0)
 	var gap := clampf(view.x * 0.03, 10.0, 26.0)
-	# the featured card = the map the player is CURRENTLY progressing (last opened, else the frontier),
-	# not a fixed first map.
+	# The featured card follows the first cover-up page with a locked cluster, not browsing history.
 	var feat := _featured_map()
 	var feat_y := Look.safe_top(self) + 140.0    # clears the wallet pills + Lv star (design units; no heading)
 	var feat_h := clampf(view.y * 0.25, 150.0, 400.0)
@@ -1582,6 +1578,7 @@ func _swipe_release() -> void:
 	var eff := float(_swipe.get("eff", 0.0))
 	var commit := _swipe_commit(eff, vel, view_w, nb != null and is_instance_valid(nb))
 	_swipe["settling"] = true
+	_swipe_commit_dest = dest_z if commit else -1   # a resize mid-settle finalizes a commit to this dest
 	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_swipe_tween = tw
 	if commit:
@@ -1593,6 +1590,7 @@ func _swipe_release() -> void:
 		tw.finished.connect(func() -> void:
 			_swipe = {}
 			_swipe_tween = null
+			_swipe_commit_dest = -1
 			_open_map(dest_z, false)          # rebuild the destination as the real interactive page
 		, CONNECT_ONE_SHOT)
 	else:
@@ -3028,10 +3026,18 @@ func _relayout_after_resize() -> void:
 		return                            # no real change — skip the rebuild
 	_last_view_size = sz
 	# a viewport change mid-swipe invalidates the slide geometry — cancel it; the rebuild re-fits.
+	# kill() SKIPS the tween's `finished` callback, so a COMMIT tween's page change (which lives there)
+	# would be silently dropped — the rebuild would land on the source scene. Read the recorded dest and
+	# finalize the commit through _open_map instead, so a resize mid-snap still advances to the neighbour.
+	var commit_dest := _swipe_commit_dest
 	if _swipe_tween != null and _swipe_tween.is_valid():
 		_swipe_tween.kill()
 	_swipe_tween = null
 	_swipe = {}
+	_swipe_commit_dest = -1
+	if _view == "map" and commit_dest >= 0:
+		_open_map(commit_dest, false)     # complete the interrupted commit (kill() skipped its callback)
+		return
 	if _view == "map":
 		_build_map(false)                 # re-fit WITHOUT the pop-in (a resize is not a navigation)
 	elif _view == "maps":
