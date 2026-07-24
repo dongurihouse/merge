@@ -20,6 +20,11 @@ const Pal = Game.PALETTE
 
 const MAP_PATH := "res://engine/scenes/Map.tscn"
 const LAUNCH_PATH := "res://games/grove/assets/ui/boot/splash_launch.png"
+## Shipped builds split content across two packs: the main pack (code + data, ~6 MB, rewritten
+## every build) and this one (art + audio, ~56 MB, byte-identical between code-only releases so
+## Xcode's incremental install and Apple's update delta can skip it). See
+## docs/superpowers/specs/2026-07-23-app-size-and-update-speed-design.md.
+const ASSET_PACK := "grove_assets.pck"
 const MIN_DURATION := 1.0     # min seconds the splash shows, so a fast load never just flashes
 
 var _bar: ProgressBar
@@ -32,7 +37,24 @@ var _load_ended := false
 ## _ready only paints the splash — no window fit, no prewarm, no auto-handoff to the map.
 static var capture := false
 
+## Mount the art/audio pack before ANYTHING reads res://games/grove/assets/... — _build_splash()
+## loads LAUNCH_PATH and UiFont.apply() loads the game font, both below. Every art path resolves
+## through Game.art() as a runtime string, so nothing else needs to change: once the pack is
+## mounted the paths simply resolve out of it.
+##
+## In the editor and in dev runs there is no pack and the files come from disk, so "missing" is
+## the normal case there — but in an exported build a missing pack means shipping with no art,
+## which should be loud rather than a screen full of placeholders.
+static func _mount_asset_pack() -> void:
+	var path := OS.get_executable_path().get_base_dir().path_join(ASSET_PACK)
+	if FileAccess.file_exists(path):
+		if not ProjectSettings.load_resource_pack(path):
+			push_error("boot: found %s but Godot refused to mount it — art will be missing." % path)
+	elif not OS.has_feature("editor"):
+		push_error("boot: exported build is missing %s — art will be missing." % path)
+
 func _ready() -> void:
+	_mount_asset_pack()
 	if capture:
 		_build_splash()
 		return
