@@ -1093,6 +1093,23 @@ static func cluster_ready(z: int, cluster_id: String, unlocks: Dictionary, level
 		return false
 	return level >= cluster_min_level(z, cluster_id) and coins >= int(d.get("cost", 0))
 
+## Habitat (resident bucket) cells granted so far — ONE per fully-unlocked cover-up scene (every
+## cluster of the page unlocked). The ONLY bucket-capacity source; derived from `unlocks`, never
+## stored. Naturally capped at the cover-up scene count (5 today).
+static func cells_from_scenes(unlocks: Dictionary) -> int:
+	var n := 0
+	for z in coverup_pages():
+		if next_locked_cluster(int(z), unlocks) == "":
+			n += 1
+	return n
+
+## Is the NEXT cover-up cluster in the global sequence unlockable RIGHT NOW — its page open, level
+## floor met, and affordable? Drives the board's "go unlock" CTA. False once the book is complete.
+static func any_cluster_ready(unlocks: Dictionary, level: int, coins: int) -> bool:
+	var z := current_unlock_map(unlocks)
+	var cl := next_locked_cluster(z, unlocks)
+	return cl != "" and cluster_ready(z, cl, unlocks, level, coins)
+
 # --- sell / economy formulas ------------------------------------------------------
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
 ## for its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more). There is NO
