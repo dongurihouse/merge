@@ -50,6 +50,7 @@ func _initialize() -> void:
 	await _test_home_short_swipe_springs_back()
 	await _test_home_swipe_at_first_page_is_noop()
 	await _test_home_reverse_swipe_springs_back()
+	await _test_home_swipe_resize_mid_commit_finalizes()
 	await _test_endgame_fence_stays_live()
 	await _test_purge_above_level_migration()
 	finish()
@@ -235,6 +236,36 @@ func _test_home_reverse_swipe_springs_back() -> void:
 	ok(int(map._map_idx) == start, "reversing a swipe past the origin springs back (no wrong-direction commit)")
 	ok(map.content.get_child_count() == 1, "the preview is freed after a reversed swipe springs back")
 	ok(map._swipe.is_empty(), "the swipe state is cleared after a reversed swipe")
+	map.queue_free()
+	await process_frame
+
+# RESIZE-MID-COMMIT (2026-07-24): a commit tween carries the page change in its `finished` callback, but a
+# viewport resize landing during the ~SWIPE_SNAP settle cancels the tween with kill() — which does NOT fire
+# `finished`. The rebuild must still land on the DESTINATION page, not silently drop the commit back onto the
+# source scene. Repro: start a committing left-swipe, fire the resize handler mid-settle, assert _map_idx advanced.
+func _test_home_swipe_resize_mid_commit_finalizes() -> void:
+	fresh("home_swipe_resize_commit")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(1)          # an open middle page — has a next neighbour to commit to
+	await process_frame
+	var start := int(map._map_idx)
+	var v: Vector2 = map.get_viewport_rect().size
+	var cy := v.y * 0.5
+	# a committing left drag (past a third of the width), then release — the commit snap tween starts
+	_swipe_touch(map, Vector2(v.x * 0.85, cy), true)
+	_swipe_drag(map, Vector2(v.x * 0.55, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
+	_swipe_drag(map, Vector2(v.x * 0.25, cy), Vector2(-v.x * 0.30, 0), Vector2(-300, 0))
+	_swipe_touch(map, Vector2(v.x * 0.25, cy), false)
+	ok(map._swipe.get("settling", false), "setup: the commit snap tween is settling before the resize lands")
+	# a viewport resize lands mid-settle: kill() cancels the tween WITHOUT firing its finished callback
+	get_root().size = Vector2i(int(v.x) + 200, int(v.y))
+	map._relayout_after_resize()
+	await process_frame
+	ok(int(map._map_idx) == start + 1, "a resize during the commit snap still lands on the destination scene (not the source)")
+	ok(String(Save.grove().get("last_map", "")) == String(G.MAPS[start + 1].id), "the interrupted commit still persists the destination as last_map")
+	ok(map._swipe.is_empty(), "the swipe state is cleared after the interrupted commit finalizes")
 	map.queue_free()
 	await process_frame
 
