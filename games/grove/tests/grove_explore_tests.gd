@@ -1143,6 +1143,12 @@ func _test_residents_dialog_uses_shared_frame() -> void:
 	var deckle_script := deckle.get_script() as Script if deckle != null else null
 	ok(deckle_script != null and String(deckle_script.resource_path).ends_with("/cut_paper.gd"),
 		"resident inspector uses the shared code-drawn cut-paper surface")
+	var footer_band := overlay.find_child("DialogFooterBand", true, false) as PanelContainer \
+		if overlay != null else null
+	var footer_style := footer_band.get_theme_stylebox("panel") as StyleBoxFlat \
+		if footer_band != null else null
+	ok(footer_style != null and footer_style.bg_color.a <= 0.01,
+		"resident pinned footer does not draw a white/cream background band")
 	var uses_strip_asset := false
 	if inspector != null:
 		for node in inspector.find_children("*", "TextureRect", true, false):

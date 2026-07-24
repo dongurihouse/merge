@@ -317,7 +317,6 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var footer_gap := 8.0 * scale
 	fopts["footer"] = footer
 	fopts["footer_gap"] = footer_gap
-	fopts["footer_bg_alpha"] = 1.0
 	fopts["outer_scroll_enabled"] = false
 	fopts["footer_reduces_viewport"] = true
 	# dialog_frame's row cap is in rendered pixels. Reserve the pinned footer and shared tail,
