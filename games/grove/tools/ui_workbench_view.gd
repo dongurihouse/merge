@@ -712,7 +712,8 @@ func _make_element(id: String) -> Control:
 				var gens: Array = []
 				# REAL generator ids from the game roster (Game.DATA.GENERATORS) so the demo shows the
 				# actual generator art, not a "?" placeholder — the game does the same via make_content.
-				for gid in ["gen_1", "gen_2"]:
+				# the full roster (8) overflows one row, so the preview also exercises the wrap
+				for gid in ["gen_1", "gen_2", "gen_3", "gen_4", "gen_6", "gen_7", "gen_16", "gen_18"]:
 					var gid_str := String(gid)
 					gens.append({"kind": "filled", "icon": gid_str,
 						"make_content": func(sz: float) -> Control: return PieceView.make_generator(gid_str, sz)})

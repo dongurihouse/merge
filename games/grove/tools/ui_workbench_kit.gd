@@ -6229,9 +6229,14 @@ static func bag_generators_section(label_text: String, cells: Array, cell_opts: 
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(label)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
+	# an HFlowContainer (not a plain HBox): once the stored generators outgrow the dialog width they WRAP
+	# onto a new line instead of overflowing the parchment. ALIGNMENT_CENTER keeps every row centred, so a
+	# handful of generators still reads as the old single centred row, and a full row wraps a tidy grid.
+	var row := HFlowContainer.new()
+	row.alignment = FlowContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("h_separation", 12)
+	row.add_theme_constant_override("v_separation", 12)
+	row.size_flags_horizontal = Control.SIZE_FILL   # take the dialog's content width so it knows where to wrap
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(row)
 	for c in cells:
