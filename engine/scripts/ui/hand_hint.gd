@@ -111,12 +111,13 @@ func dismiss() -> void:
 func _rebuild_veil() -> void:
 	for c in _veil.get_children():
 		c.queue_free()
-	var screen := Rect2(Vector2.ZERO, _screen_size())
+	var screen := _snap_out(Rect2(Vector2.ZERO, _screen_size()))
 	var bands: Array = [screen]
 	for hole in cutouts():
+		var snapped_hole := _snap_out(hole)
 		var next: Array = []
 		for band in bands:
-			next.append_array(_subtract(band, hole))
+			next.append_array(_subtract(band, snapped_hole))
 		bands = next
 	for band in bands:
 		var r := ColorRect.new()
@@ -125,6 +126,23 @@ func _rebuild_veil() -> void:
 		r.position = (band as Rect2).position
 		r.size = (band as Rect2).size
 		_veil.add_child(r)
+
+# Snap a rect's edges OUT to the nearest whole pixel (grow, never shrink). Board/cell layout math
+# hands `cutouts()` fractional coordinates; feeding those straight into `_subtract` produces band
+# edges that land on fractional pixels too, and two adjacent bands whose shared edge rounds
+# differently at raster time leave a sub-pixel gap — a bright hairline where the undimmed layer
+# beneath shows through. Snapping the screen rect and every cutout to integers HERE, once, before
+# `_subtract` ever runs, is what fixes it: every band `_subtract` produces is built only from
+# `min`/`max` combinations of already-integer coordinates (band edges inherited from a prior snap,
+# or the snapped hole itself), so integer-ness propagates through both the one-cutout and
+# two-cutout (subtract-of-a-subtract) cases with no extra rounding anywhere else. Growing outward
+# (floor the start, ceil the end) rather than rounding to nearest means a cutout only ever gets
+# very slightly bigger, never clipped — the bright cell stays fully uncovered and the hand's
+# target still lines up with it.
+func _snap_out(r: Rect2) -> Rect2:
+	var lo := r.position.floor()
+	var hi := r.end.ceil()
+	return Rect2(lo, hi - lo)
 
 # The rect the veil must cover. `_build()` runs synchronously right after add_child(), before the
 # engine has had a layout pass, so `size` (anchored to PRESET_FULL_RECT) may still read zero even
