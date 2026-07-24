@@ -700,12 +700,13 @@ func _test_map_card_expedition_chrome() -> void:
 	var unl := {}
 	for sp in G.MAPS[z].spots:
 		unl[String(sp.id)] = true
+	for c in G.clusters(z):               # fully unlock the scene → grants its habitat cell (bucket opens)
+		unl[String((c as Dictionary).id)] = true
 	var g := Save.grove()
 	g["unlocks"] = unl
 	g["gates"] = [z]
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
-	build_all_buildings()                 # cells come from built buildings now → the acquire loop opens
 
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
@@ -767,13 +768,14 @@ func _test_dock_collect_chip() -> void:
 	var unl := {}
 	for sp in G.MAPS[z].spots:
 		unl[String(sp.id)] = true
+	for c in G.clusters(z):               # fully unlock the scene → grants its habitat cell (bucket opens)
+		unl[String((c as Dictionary).id)] = true
 	var g := Save.grove()
 	g["unlocks"] = unl
 	g["gates"] = [z]
 	g["last_map"] = map_id
 	Save.grove_write()
 
-	build_all_buildings()                 # open the bucket (cells from buildings) before placing
 	Bucket.hand_add("coin", 1)
 	Bucket.place(0)
 	var st := Bucket.state()

@@ -45,7 +45,6 @@ const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
-const Home = preload("res://engine/scripts/core/home.gd")   # the home build adapter (the Home CTA reads any_buyable)
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
 const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
@@ -978,10 +977,10 @@ func _persist() -> void:
 	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
 
-# the build CTA: ready when SOME home building step is buyable right now (level + wallet) —
-# the Home button breathes to say "go build" (the restore-spot read, re-pointed at the adapter).
+# the unlock CTA: ready when the NEXT cover-up cluster is unlockable right now (its page open,
+# level floor met, affordable) — the Home button breathes to say "go unlock the next region."
 func _gate_ready() -> bool:
-	return Home.any_buyable()
+	return G.any_cluster_ready(Save.grove().get("unlocks", {}), G.level(), Save.coins())
 
 # --- HUD ------------------------------------------------------------------------
 

@@ -457,15 +457,10 @@ func _hab_rate() -> int:
 		r += int(t)
 	return r
 
-# Bucket capacity right now — cells granted by COMPLETED maps (BUCKET_CELL_GRANTS; no per-map ramp).
+# Bucket capacity right now — ONE cell per COMPLETED map (mirrors content.cells_from_scenes:
+# one habitat cell per fully-unlocked scene; the sim models scene completion as all-spots-bought).
 func _hab_cap() -> int:
-	var total := 0
-	for z in G.MAPS.size():
-		if z >= Data.BUCKET_CELL_GRANTS.size():
-			break
-		if G.map_spots_restored(z, unlocks) >= G.MAPS[z].spots.size():
-			total += int(Data.BUCKET_CELL_GRANTS[z])
-	return total
+	return _completed_maps().size()
 
 # Cascade 2-of-a-tier → one a tier up (mirrors the hand/auto merge), raising rate + freeing a slot.
 func _hab_merge() -> void:

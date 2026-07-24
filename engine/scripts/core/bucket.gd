@@ -9,7 +9,6 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Content = preload("res://engine/scripts/core/content.gd")
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")
-const Home = preload("res://engine/scripts/core/home.gd")   # cells derive from COMPLETED home buildings
 const D = Game.DATA
 
 const MAX_TIER := RB.MAX_TIER
@@ -26,11 +25,11 @@ static func line_kind(line: String) -> String:
 static func kind_line(kind: String) -> String:
 	return String(D.RESIDENT_KIND_LINES.get(kind, ""))
 
-## Cells granted so far — ONE per completed home zone (home.gd). The only capacity source
-## (decision 2026-07-17: each zone unlocks a single cell): finishing every building of a zone
-## grants its one cell, so capacity drips in zone by zone, gated by the level brake.
+## Cells granted so far — ONE per fully-unlocked cover-up scene (content.cells_from_scenes). The
+## only capacity source: completing every cluster of a scene grants its one habitat cell, so
+## capacity drips in scene by scene (max 5). Derived from `unlocks`, never stored.
 static func cells_total() -> int:
-	return Home.cells_total()
+	return Content.cells_from_scenes(Save.grove().get("unlocks", {}))
 
 ## The live bucket state (module shape). Created by migration on first access; cells re-synced every time.
 static func state() -> Dictionary:

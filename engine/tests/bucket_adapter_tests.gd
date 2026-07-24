@@ -6,8 +6,6 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
-const Home = preload("res://engine/scripts/core/home.gd")
-const HB = preload("res://engine/scripts/core/home_build.gd")
 
 var _pass := 0
 var _fail := 0
@@ -31,27 +29,28 @@ func fresh(name: String) -> void:
 	Save.configure_for_test(dir)
 	Save.reset()
 
-# Complete building index `i` (build every step, wallet-free) directly in the home state.
-func _build_building(i: int) -> void:
-	var d: Dictionary = Home.defs()[i]
-	var st := Home.state()
-	while HB.buy_step(st, d):
-		pass
+# Unlock the first `n` clusters of cover-up scene `z` directly in the save's `unlocks` dict.
+func _unlock_clusters(z: int, n: int) -> void:
+	var g := Save.grove()
+	var unl: Dictionary = g.get("unlocks", {})
+	var cls: Array = G.clusters(z)
+	for i in mini(n, cls.size()):
+		unl[String((cls[i] as Dictionary).id)] = true
+	g["unlocks"] = unl
 	Save.grove_write()
 
-# Complete EVERY building — the whole farmhouse zone (capacity: ONE cell per completed zone).
-func _build_zone() -> void:
-	for i in Home.defs().size():
-		_build_building(i)
+# Fully unlock cover-up scene `z` (grants its ONE habitat cell — capacity is one per completed scene).
+func _complete_scene(z: int) -> void:
+	_unlock_clusters(z, G.clusters(z).size())
 
 func _test_cells_from_completion() -> void:
 	fresh("cells")
 	ok(Bucket.cells_total() == 0, "a fresh save has 0 cells")
 	ok(Bucket.state().cells == 0, "state syncs the derived cell count")
-	_build_building(0)
-	ok(Bucket.cells_total() == 0, "a single built building pays nothing — the ZONE must complete")
-	_build_zone()
-	ok(Bucket.cells_total() == 1, "completing the whole farmhouse zone unlocks its single cell")
+	_unlock_clusters(0, G.clusters(0).size() - 1)
+	ok(Bucket.cells_total() == 0, "a partially-unlocked scene pays nothing — the SCENE must complete")
+	_complete_scene(0)
+	ok(Bucket.cells_total() == 1, "completing a cover-up scene unlocks its single cell")
 	ok(Bucket.state().cells == 1, "state re-syncs cells after completion")
 
 	# capacity SHRINK under a live save (per-zone redesign): overflow placed return to the hand
@@ -90,8 +89,8 @@ func _test_place_and_sell() -> void:
 	fresh("place_sell")
 	Bucket.hand_add("coin", 1)
 	ok(not Bucket.place(0), "place refuses with 0 cells")
-	_build_zone()
-	ok(Bucket.place(0), "place succeeds once the completed zone unlocked its cell")
+	_complete_scene(0)
+	ok(Bucket.place(0), "place succeeds once the completed scene unlocked its cell")
 	ok(Bucket.placed().size() == 1 and Bucket.hand().is_empty(), "place moved the spirit into a cell")
 	Bucket.hand_add("coin", 1)
 	ok(Bucket.place_merge(0, 0), "place_merge climbs the placed spirit")
