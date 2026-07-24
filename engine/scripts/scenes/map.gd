@@ -317,16 +317,10 @@ func owned_count(z: int) -> int:
 func _frontier_map() -> int:
 	return G.frontier_map(unlocks, _gates())
 
-# The map the player is CURRENTLY progressing, for the gallery's featured card: the one they last
-# opened (if still unlocked and unfinished), else the completion-chain frontier, else the last map.
+# The map the player is CURRENTLY unlocking, for the gallery's featured card.
+# The global cover-up sequence owns this choice; browsing another page does not.
 func _featured_map() -> int:
-	var g := Save.grove()
-	if g.has("last_map"):
-		var lz := G.map_for_id(String(g.last_map))
-		if lz >= 0 and map_unlocked(lz) and not G.map_complete(lz, unlocks, _gates()):
-			return lz
-	var f := _frontier_map()
-	return f if f >= 0 else G.MAPS.size() - 1
+	return G.current_unlock_map(unlocks, _gates())
 
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
@@ -711,8 +705,8 @@ func _build_select(animate := true) -> void:
 
 
 # --- the MAPS page (maps_page_v2_cards_only mock) -------------------------------------------------
-# A full-screen gallery over the sky: the "MAPS" heading, the frontier map as a large featured
-# card (thumb + IN PROGRESS + built/total + progress bar + CONTINUE), and every other map as a
+# A full-screen gallery over the sky: the first cover-up page with a locked cluster as a large
+# featured card (thumb + IN PROGRESS + built/total + progress bar + CONTINUE), and every other map as a
 # grid card — locked cards wear a dimmed thumb + padlock medallion + LOCKED pill. Card thumbs are
 # LIVE zone renders (HomeZoneView over the page's manifest), so the gallery always shows the real
 # scene state — no baked thumbnails to fall stale. Cards IGNORE the mouse (the single input
@@ -730,8 +724,7 @@ func _build_maps_page(animate := true) -> void:
 	var view := get_viewport_rect().size
 	var margin := clampf(view.x * 0.045, 14.0, 40.0)
 	var gap := clampf(view.x * 0.03, 10.0, 26.0)
-	# the featured card = the map the player is CURRENTLY progressing (last opened, else the frontier),
-	# not a fixed first map.
+	# The featured card follows the first cover-up page with a locked cluster, not browsing history.
 	var feat := _featured_map()
 	var feat_y := Look.safe_top(self) + 140.0    # clears the wallet pills + Lv star (design units; no heading)
 	var feat_h := clampf(view.y * 0.25, 150.0, 400.0)

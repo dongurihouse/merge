@@ -44,6 +44,7 @@ func _initialize() -> void:
 	await _test_mote_puff()
 	_test_quest_unused_generator_fade()
 	_test_swipe_decision_helpers()
+	_test_maps_gallery_featured_unlock_target()
 	await _test_home_has_no_page_arrows()
 	await _test_home_tap_unlocks_cluster()
 	await _test_home_swipe_commits_to_next_scene()
@@ -121,6 +122,31 @@ func _test_swipe_decision_helpers() -> void:
 	ok(not MapScript._swipe_commit(-80.0, 900.0, 1000.0, true), "a flick opposite the drag does not commit")
 	# an edge (no neighbour) never commits, however hard you pull or flick
 	ok(not MapScript._swipe_commit(-900.0, -900.0, 1000.0, false), "an edge swipe with no neighbour never commits")
+
+func _test_maps_gallery_featured_unlock_target() -> void:
+	fresh("maps_featured_unlock_target")
+	var g := Save.grove()
+	g["last_map"] = String(G.MAPS[0].id)
+	Save.grove_write()
+	var map = MapScript.new()
+	map.unlocks = {}
+	ok(map._featured_map() == 0,
+		"a fresh picture book features Fairy Hollow, which owns the next locked cluster")
+
+	var progressed := {}
+	for cluster in G.clusters(0):
+		progressed[String((cluster as Dictionary).id)] = true
+	map.unlocks = progressed
+	ok(map._featured_map() == 1,
+		"finishing Fairy Hollow advances the featured card to Snowy Village despite last_map")
+
+	for z in G.coverup_pages():
+		for cluster in G.clusters(int(z)):
+			progressed[String((cluster as Dictionary).id)] = true
+	map.unlocks = progressed
+	ok(map._featured_map() == 4,
+		"finishing every cluster leaves Cherry-Blossom Garden featured")
+	map.free()
 
 func _test_home_has_no_page_arrows() -> void:
 	fresh("home_no_arrows")
