@@ -476,7 +476,7 @@ func _build_page_node(z: int, parent: Control, interactive: bool) -> Control:
 		var lvl := G.level()
 		var wallet := Save.coins()
 		for id_v in built.badges.keys():
-			LB.set_ready(built.badges[id_v], G.cluster_ready(z, String(id_v), unlocks, lvl, wallet))
+			LB.set_ready(built.badges[id_v], G.cluster_ready(z, String(id_v), unl, lvl, wallet))
 
 	# ambient life — one wanderer per placed resident (empty until something is placed).
 	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
@@ -1543,6 +1543,7 @@ func _swipe_move(event: InputEvent) -> void:
 	else:
 		eff = clampf(dx, -view_w if _swipe.dir < 0 else 0.0, 0.0 if _swipe.dir < 0 else view_w)
 	_swipe["dx"] = dx
+	_swipe["eff"] = eff
 	var cur: Control = _swipe.get("cur", null)
 	if cur != null and is_instance_valid(cur):
 		cur.position.x = eff
@@ -1569,19 +1570,20 @@ func _swipe_begin(dx: float) -> void:
 # Release: commit to the neighbour or spring back, on a short ease-out tween.
 func _swipe_release() -> void:
 	var view_w: float = get_viewport_rect().size.x
-	var dx := float(_swipe.get("dx", 0.0))
 	var vel := float(_swipe.get("vel", 0.0))
 	var cur: Control = _swipe.get("cur", null)
 	var nb: Control = _swipe.get("neighbor", null)
 	var dir: int = _swipe.get("dir", 0)
 	var dest_z: int = _swipe.get("neighbor_z", _map_idx)
 	var base_x := float(_swipe.get("neighbor_base_x", 0.0))
-	var commit := _swipe_commit(dx, vel, view_w, nb != null and is_instance_valid(nb))
+	var eff := float(_swipe.get("eff", 0.0))
+	var commit := _swipe_commit(eff, vel, view_w, nb != null and is_instance_valid(nb))
 	_swipe["settling"] = true
 	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_swipe_tween = tw
 	if commit:
-		tw.tween_property(nb, "position:x", 0.0, SWIPE_SNAP)
+		if nb != null and is_instance_valid(nb):
+			tw.tween_property(nb, "position:x", 0.0, SWIPE_SNAP)
 		if cur != null and is_instance_valid(cur):
 			tw.tween_property(cur, "position:x", float(dir) * view_w, SWIPE_SNAP)
 		Audio.play("button_tap", -4.0)

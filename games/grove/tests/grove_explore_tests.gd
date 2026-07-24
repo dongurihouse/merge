@@ -48,6 +48,7 @@ func _initialize() -> void:
 	await _test_home_swipe_commits_to_next_scene()
 	await _test_home_short_swipe_springs_back()
 	await _test_home_swipe_at_first_page_is_noop()
+	await _test_home_reverse_swipe_springs_back()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -209,6 +210,28 @@ func _test_home_swipe_at_first_page_is_noop() -> void:
 	await create_timer(0.4).timeout
 	ok(int(map._map_idx) == 0, "swiping toward a non-existent previous scene on page 0 is a no-op")
 	ok(map.content.get_child_count() == 1, "no neighbour is built at the first-page edge")
+	map.queue_free()
+	await process_frame
+
+func _test_home_reverse_swipe_springs_back() -> void:
+	fresh("home_swipe_reverse")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(1)          # a middle page — both neighbours exist
+	await process_frame
+	var start := int(map._map_idx)
+	var v: Vector2 = map.get_viewport_rect().size
+	var cy := v.y * 0.5
+	# activate a LEFT swipe (builds the NEXT preview), then reverse and drag RIGHT past a third
+	_swipe_touch(map, Vector2(v.x * 0.5, cy), true)
+	_swipe_drag(map, Vector2(v.x * 0.4, cy), Vector2(-v.x * 0.10, 0), Vector2(-120, 0))   # left: activate, dir=-1
+	_swipe_drag(map, Vector2(v.x * 0.9, cy), Vector2(v.x * 0.50, 0), Vector2(120, 0))     # reverse right, past 1/3
+	_swipe_touch(map, Vector2(v.x * 0.9, cy), false)
+	await create_timer(0.4).timeout
+	ok(int(map._map_idx) == start, "reversing a swipe past the origin springs back (no wrong-direction commit)")
+	ok(map.content.get_child_count() == 1, "the preview is freed after a reversed swipe springs back")
+	ok(map._swipe.is_empty(), "the swipe state is cleared after a reversed swipe")
 	map.queue_free()
 	await process_frame
 
