@@ -45,6 +45,7 @@ static var FLAGS := {
 	# ftue
 	"ftue_free_pops": false,      # retired: water now costs from the first pop (no 10-pop free intro)
 	"ftue_hand_hint": true,       # the two one-time hand teaches: drag-to-merge, then tap-the-generator (spec 2026-07-23)
+	"ftue_rush_hint": true,       # the two Rush-panel teaches: tap-to-merge, then dodge a treefall (spec 2026-07-23-rush)
 	# (ftue_feature_spotlight flag removed 2026-06-23 with the dormant spotlight subsystem — the
 	#  merge+bag spotlight redesign is superseded for merge by ftue_hand_hint; the bag teach stays parked)
 	"piggy_vault": false,         # §10: the accrual vault (piggy bank) — OFF for now by owner's word (2026-07-19): no bottom-bar tile, no skim; flip back on to restore both
