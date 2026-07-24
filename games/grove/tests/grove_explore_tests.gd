@@ -498,6 +498,16 @@ func _test_rush_lines() -> void:
 	ok(Explore.seen_lines({"101": true, "207": true, "201": true, "301": true}) == [1, 2, 3],
 		"seen codes collapse to their sorted, deduped lines")
 	ok(Explore.seen_lines({"7105": true}) == [71], "a seen treat line counts too (any line ever seen)")
+	# A SPECIAL drop line (chest=10, water=12, acorn=13; only SPECIAL_TOP=3 tiers) must NOT seed a Rush:
+	# Rush merges climb to MAX_TIER, so a short line would render its placeholder disc past tier 3.
+	ok(Explore.seen_lines({"1001": true, "101": true}) == [1],
+		"a special drop line (chest, 3 tiers) is dropped — it can't climb to the Rush's MAX_TIER")
+	ok(Explore.seen_lines({"1301": true, "1201": true}).is_empty(),
+		"acorn-drop + water specials are both dropped from the Rush pool")
+	# every line the Rush DOES keep has art all the way to MAX_TIER (no placeholder disc mid-run)
+	for ln in Explore.seen_lines({"101": true, "201": true, "301": true, "1001": true, "7105": true}):
+		ok(G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER),
+			"kept Rush line %d is valid at MAX_TIER" % int(ln))
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12345
@@ -520,6 +530,18 @@ func _test_rush_lines() -> void:
 	ok((cfg.lines as Array).size() == 3, "rush_cfg draws 3 lines from the seen pool")
 	var focus_cfg: Dictionary = Explore.rush_cfg({"focus": true}, seen5, rng)
 	ok((focus_cfg.lines as Array).size() == 2, "the focus boost narrows the seen draw to 2 lines")
+
+	# End-to-end: a seen set polluted with SHORT special drops (chest=10, acorn=13) must still yield a
+	# pool where EVERY line renders cleanly up to MAX_TIER — a spawn/merge/reroll can never hit a
+	# placeholder disc. (This is the real config explore_rush.gd consumes.)
+	var seen_specials := {"101": true, "201": true, "301": true, "1001": true, "1301": true}
+	var all_deep := true
+	for _i in 12:                                    # sample many random draws — none may include a short line
+		var scfg: Dictionary = Explore.rush_cfg({}, seen_specials, rng)
+		for ln in scfg.lines:
+			if not G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER):
+				all_deep = false
+	ok(all_deep, "rush_cfg never puts a short special line (chest/acorn) into the play pool")
 
 # --- Rush scoring: non-linear value, combo, multiplier, spawn cadence -------------
 func _test_scoring() -> void:
@@ -829,6 +851,26 @@ func _test_screens() -> void:
 			s._ready()
 		ok(s.get_child_count() > 0, "%s builds a non-empty tree" % String(path).get_file())
 		s.queue_free()
+
+	# regression (2026-07-23): a seen set polluted with a SHORT special drop (chest=10, 3 tiers) must not
+	# leak it into the live scene's play pool — every _cfg line has to render up to MAX_TIER, or a merge
+	# would show PieceView's placeholder disc (the "no icon" tile the owner reported).
+	fresh("explore_short_line_pool")
+	var sg := Save.grove()
+	sg["seen"] = {"101": true, "201": true, "301": true, "1001": true, "1301": true}   # 3 base lines + chest + acorn-drop
+	Save.grove_write()
+	Explore.begin_run({})
+	var rs = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(rs)
+	if rs.get_child_count() == 0:
+		rs._ready()
+	var clean := true
+	for ln in rs._cfg.lines:
+		if not G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER):
+			clean = false
+	ok(clean and not (rs._cfg.lines as Array).has(10) and not (rs._cfg.lines as Array).has(13),
+		"the live Rush scene's play pool excludes short special lines (no placeholder tile)")
+	rs.queue_free()
 
 	# the seam: opening the reward OVERLAY converts the run score DIRECTLY into hand spirits
 	fresh("explore_reward_seam")
