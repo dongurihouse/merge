@@ -818,16 +818,22 @@ func _card_inset(card: Control) -> float:
 	return float(card.get_meta("cut_inset", 10.0))
 
 # A card TITLE label with a soft drop shadow (legible over a live thumb, and matching the featured
-# card's weight on the grid cards). `w` bounds the wrap; the caller positions it.
-func _card_title(text: String, font: int, w: float) -> Label:
+# card's weight on the grid cards). `w` bounds the wrap; the caller positions it. `col` sets the fill:
+# the featured card keeps INK over its cream face, while the grid cards pass a light CREAM that rides
+# OVER the live thumb — so a light title gets a crisp INK outline (the game's text-over-art law, see
+# _lbl) to stay legible over busy, bright, or pale art alike.
+func _card_title(text: String, font: int, w: float, col := INK) -> Label:
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", INK)
+	lbl.add_theme_color_override("font_color", col)
 	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
 	lbl.add_theme_constant_override("shadow_offset_x", 2)
 	lbl.add_theme_constant_override("shadow_offset_y", 3)
 	lbl.add_theme_constant_override("shadow_outline_size", 2)
+	if col != INK:                                   # light title over art: a crisp dark outline carries it
+		lbl.add_theme_color_override("font_outline_color", INK)
+		lbl.add_theme_constant_override("outline_size", int(clampf(font * 0.16, 4.0, 7.0)))
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
 	lbl.max_lines_visible = 2
 	lbl.size = Vector2(w, font * 2.4)
@@ -981,7 +987,9 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool, title_font: int) -> Cont
 		card.add_child(veil)
 	var inset := edge + clampf(rect.size.y * 0.02, 4.0, 12.0)
 	var name_font := title_font
-	var name := _card_title(tr(G.MAPS[z].name), name_font, rect.size.x - inset * 2.0)
+	# the grid title rides over the live thumb — a light CREAM fill (+ the INK outline in _card_title)
+	# reads far better than dark INK over busy/bright/pale art.
+	var name := _card_title(tr(G.MAPS[z].name), name_font, rect.size.x - inset * 2.0, CREAM)
 	name.position = Vector2(inset, inset)
 	card.add_child(name)
 	if locked:
