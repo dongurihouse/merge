@@ -325,6 +325,12 @@ func _frontier_map() -> int:
 func _featured_map() -> int:
 	return G.current_unlock_map(unlocks, _gates())
 
+# Whether a gallery GRID card reads locked (dimmed thumb + padlock + LOCKED pill, tap wobbles): the
+# page still sits beyond the cover-up frontier. The global cluster sequence owns this — the SAME
+# state the featured card follows — so a finished page reads OPEN even with no built buildings.
+func _grid_card_locked(z: int) -> bool:
+	return G.gallery_locked(z, unlocks, _gates())
+
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
 func _open_map(z: int, animate := true) -> void:
@@ -755,7 +761,7 @@ func _build_maps_page(animate := true) -> void:
 		for i in others.size():
 			var z2: int = others[i]
 			var rect := Rect2(margin + (cell_w + gap) * float(i % 2), grid_top + (cell_h + gap) * floorf(i * 0.5), cell_w, cell_h)
-			var locked := _page_progress(z2).x == 0     # untouched pages read LOCKED (the mock's gated state)
+			var locked := _grid_card_locked(z2)
 			var card := _maps_grid_card(z2, rect, locked, title_font)
 			content.add_child(card)
 			maps_hits.append({"node": card, "z": z2, "locked": locked})

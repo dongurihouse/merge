@@ -45,6 +45,7 @@ func _initialize() -> void:
 	_test_quest_unused_generator_fade()
 	_test_swipe_decision_helpers()
 	_test_maps_gallery_featured_unlock_target()
+	_test_maps_gallery_grid_lock_state()
 	await _test_home_has_no_page_arrows()
 	await _test_home_tap_unlocks_cluster()
 	await _test_home_swipe_commits_to_next_scene()
@@ -146,6 +147,37 @@ func _test_maps_gallery_featured_unlock_target() -> void:
 	map.unlocks = progressed
 	ok(map._featured_map() == 4,
 		"finishing every cluster leaves Cherry-Blossom Garden featured")
+	map.free()
+
+# The gallery GRID cards must read locked from the SAME cover-up sequence as the featured card,
+# not from build progress: a page the player has finished (all clusters unlocked) reads OPEN even
+# though it owns no built buildings; only pages beyond the frontier stay locked.
+func _test_maps_gallery_grid_lock_state() -> void:
+	fresh("maps_grid_lock_state")
+	var map = MapScript.new()
+
+	# a FRESH book: the first page is the unlock target; every later page stays locked.
+	map.unlocks = {}
+	ok(not map._grid_card_locked(0), "the fresh unlock target (Fairy Hollow) is not locked")
+	ok(map._grid_card_locked(1), "a fresh book locks Snowy Village")
+	ok(map._grid_card_locked(4), "a fresh book locks the final page")
+
+	# finishing the first page's clusters unlocks it in the gallery and advances the frontier.
+	var progressed := {}
+	for cluster in G.clusters(0):
+		progressed[String((cluster as Dictionary).id)] = true
+	map.unlocks = progressed
+	ok(not map._grid_card_locked(0), "a completed page reads UNLOCKED despite no built buildings")
+	ok(not map._grid_card_locked(1), "the new frontier page (Snowy Village) is not locked")
+	ok(map._grid_card_locked(2), "pages beyond the frontier stay locked")
+
+	# finishing every cluster unlocks every page in the gallery.
+	for z in G.coverup_pages():
+		for cluster in G.clusters(int(z)):
+			progressed[String((cluster as Dictionary).id)] = true
+	map.unlocks = progressed
+	for z in G.coverup_pages():
+		ok(not map._grid_card_locked(int(z)), "a completed book unlocks every gallery card")
 	map.free()
 
 func _test_home_has_no_page_arrows() -> void:

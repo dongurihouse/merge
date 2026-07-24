@@ -1039,6 +1039,16 @@ static func current_unlock_map(unlocks: Dictionary, gates: Array = []) -> int:
 			return int(z)
 	return int(pages.back())
 
+## Is page `z` shown LOCKED in the MAPS gallery grid — the player has not reached it in the
+## global cover-up sequence, so all its regions stay covered. The page currently being unlocked
+## (current_unlock_map) and every page before it read OPEN; only pages beyond the frontier lock.
+## Build progress does NOT gate a card — this reads the SAME cluster state the featured card does.
+## Non-coverup pages fall back to the classic completion chain.
+static func gallery_locked(z: int, unlocks: Dictionary, gates: Array = []) -> bool:
+	if not bool(MAPS[z].get("coverup_mode", false)):
+		return not map_unlocked(z, unlocks, gates)
+	return next_locked_cluster(z, unlocks) != "" and z != current_unlock_map(unlocks, gates)
+
 # The 0-based position of cluster `cluster_id` of page z in the GLOBAL cluster order (every
 # coverup page's clusters, earlier pages first, in clusters(z) order within a page).
 static func global_cluster_index(z: int, cluster_id: String) -> int:
