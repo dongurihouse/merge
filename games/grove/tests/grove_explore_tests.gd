@@ -14,6 +14,7 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
+const MapScript = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -41,6 +42,7 @@ func _initialize() -> void:
 	_test_combo_bloom()
 	await _test_mote_puff()
 	_test_quest_unused_generator_fade()
+	_test_swipe_decision_helpers()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -96,6 +98,19 @@ func _test_quest_unused_generator_fade() -> void:
 		var dlg_src := FileAccess.get_file_as_string(dlg_src_path)
 		ok(dlg_src.find(", 0.0)") != -1 and dlg_src.find("make_piece(") != -1,
 			"%s builds its cell piece at inset 0 (shared content_frac parity)" % dlg_src_path.get_file())
+
+func _test_swipe_decision_helpers() -> void:
+	# direction: dragging LEFT reveals the NEXT scene, RIGHT reveals the PREVIOUS
+	ok(MapScript._neighbor_z(2, -30.0) == 3, "dragging left reveals the next scene")
+	ok(MapScript._neighbor_z(2, 30.0) == 1, "dragging right reveals the previous scene")
+	# distance threshold: on a 1000px viewport, commit at >= 330px
+	ok(MapScript._swipe_commit(-400.0, 0.0, 1000.0, true), "a drag past a third of the width commits")
+	ok(not MapScript._swipe_commit(-200.0, 0.0, 1000.0, true), "a drag under a third of the width does not commit")
+	# fling: a fast flick in the SAME direction commits under the distance threshold
+	ok(MapScript._swipe_commit(-80.0, -900.0, 1000.0, true), "a fast flick commits under the distance threshold")
+	ok(not MapScript._swipe_commit(-80.0, 900.0, 1000.0, true), "a flick opposite the drag does not commit")
+	# an edge (no neighbour) never commits, however hard you pull or flick
+	ok(not MapScript._swipe_commit(-900.0, -900.0, 1000.0, false), "an edge swipe with no neighbour never commits")
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.

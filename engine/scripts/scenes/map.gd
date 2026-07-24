@@ -1470,6 +1470,25 @@ func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 	row.add_child(lbl)
 	return row
 
+# --- home page-swipe: pure decisions (unit-tested) --------------------------------------
+const SWIPE_COMMIT_FRAC := 0.33   # commit once dragged past this fraction of the viewport width
+const SWIPE_FLING := 700.0        # px/s horizontal flick that commits under the distance threshold
+
+# The scene index a horizontal drag of `dx` px reveals: drag LEFT (dx < 0) -> the NEXT page,
+# drag RIGHT (dx > 0) -> the PREVIOUS page. Callers still bounds-check the result against G.MAPS.
+static func _neighbor_z(map_idx: int, dx: float) -> int:
+	return map_idx + 1 if dx < 0.0 else map_idx - 1
+
+# Should releasing a swipe of `dx` px (last horizontal velocity `vel` px/s, viewport `view_w` px
+# wide) commit to the neighbour? Past a third of the width, OR a fast flick in the SAME direction.
+# An edge drag (no neighbour in that direction) never commits.
+static func _swipe_commit(dx: float, vel: float, view_w: float, has_neighbor: bool) -> bool:
+	if not has_neighbor:
+		return false
+	if absf(dx) >= view_w * SWIPE_COMMIT_FRAC:
+		return true
+	return dx != 0.0 and absf(vel) >= SWIPE_FLING and signf(vel) == signf(dx)
+
 # --- input: ONE surface, still-tap resolution ------------------------------------------
 
 func _on_input(event: InputEvent) -> void:
