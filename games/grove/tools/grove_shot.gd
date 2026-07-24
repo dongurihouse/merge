@@ -2,7 +2,9 @@ extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
 ## modes: fresh | played | gate | compost | ladder | hive | bag | level | levelup |
-##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder)
+##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
+##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
+##        generator-tap hand hint)
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -36,6 +38,10 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 	Save.mark_board_tutorial_seen()   # a capture shows the BOARD, never the How-to-Play overlay
+	if mode == "ftue":
+		Save.data["ftue_seen"] = {}          # a brand-new player: the merge hand is live
+	if mode == "ftuegen":
+		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
 
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	root.add_child(scn)

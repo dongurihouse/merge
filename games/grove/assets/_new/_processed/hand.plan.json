@@ -1,0 +1,14 @@
+{
+  "source": "_new/hand_raw.png",
+  "category": "icon",
+  "params": {
+    "size": 512
+  },
+  "outputs": [
+    {
+      "name": "hand",
+      "path": "ui/kit/hand.png"
+    }
+  ],
+  "archive": "_originals/ui/hand_raw.png"
+}

@@ -22,7 +22,10 @@ const GESTURE_TAP := "tap"
 const DIM_ALPHA := 0.35          # the soft dim over everything but the cutouts
 const CUTOUT_PAD := 6.0          # a little breathing room around the taught cell
 const HAND_PX := 96.0            # the hand's on-screen size
-const HAND_OFFSET := Vector2(18.0, 14.0)   # the fingertip sits up-left of the texture's centre
+const HAND_OFFSET := Vector2(29.0, 43.0)   # the fingertip sits up-left of the texture's centre
+# (measured on the real ui/kit/hand.png: its 512px master's alpha-bbox center sits at
+# roughly (255.5, 256) and the fingertip apex at ~(102, 29) — scaled to the 96px HAND_PX
+# render, that's (-28.8, -42.6) up-left of centre, so HAND_OFFSET counters it here.)
 const DRAG_GLIDE_S := 0.9        # source → target travel
 const DRAG_PAUSE_S := 0.4        # the beat between loops
 const TAP_CYCLE_S := 0.35        # one down/up bob
