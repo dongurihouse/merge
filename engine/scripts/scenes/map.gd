@@ -112,6 +112,7 @@ var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var maps_hits: Array = []        # [{node, z, locked}] — the MAPS page cards (locked cards wobble; open cards open)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
+var _page_cur: Control = null    # the live scene page node under `content` (the swipe's cur)
 var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
 var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll); else total_h - column_h
 var _hand_scroll := 0.0          # current scroll offset of the in-hand orb grid (px from the top)
@@ -427,71 +428,60 @@ func _build_map(animate := true) -> void:
 	select_hits.clear()
 	# the stable canvas is a centered, design-aspect rect that COVER-FILLS the viewport (see _map_image_rect).
 	_map_rect = _map_image_rect()
+	_page_cur = _build_page_node(_map_idx, content, true)
+	if animate:
+		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
 
-	var manifest := _home_manifest()
+# Build ONE scene page's visuals (zone holder + wandering-residents layer), fitted into _map_rect,
+# into a fresh page Control added to `parent`. `interactive` (the LIVE page, z == _map_idx) registers
+# hit-testing — spot_hits + the coverup ready-sequence + the badge-above-nav clamp, over the _zone_*
+# members. A swipe's neighbour PREVIEW passes false: it renders visuals only and touches NO member
+# state, so previewing it can never corrupt the live page's taps. Returns the page node.
+func _build_page_node(z: int, parent: Control, interactive: bool) -> Control:
+	var page := Control.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(page)
+
+	var manifest := _page_manifest(z)
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(holder)
-	var _coverup := bool(G.MAPS[_map_idx].get("coverup_mode", false))
-	var _cov_z := _map_idx
-	var _cov_unlocks := unlocks
-	var _locked_cb := func(cl: String) -> bool: return G.cluster_locked(_cov_z, cl, _cov_unlocks)
+	page.add_child(holder)
+	var coverup := bool(G.MAPS[z].get("coverup_mode", false))
+	var unl := unlocks
+	var locked_cb := func(cl: String) -> bool: return G.cluster_locked(z, cl, unl)
 	var built := HomeZoneView.build(holder, manifest, Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
-		G.MAPS[_map_idx].get("covering_frames", []), _coverup, _locked_cb)
-	_zone_coverings = built.coverings   # id → covering group, revealed away on unlock
-	_zone_badges = built.badges         # coverup pages: cluster id → its lock badge
+		G.MAPS[z].get("covering_frames", []), coverup, locked_cb)
 	# fit the native canvas into the cover-filled map rect (uniform scale keeps the cut-paper aspect).
 	var stage: Control = built.stage
 	var native: Vector2 = built.canvas
 	var factor := maxf(_map_rect.size.x / native.x, _map_rect.size.y / native.y)
 	stage.scale = Vector2.ONE * factor
 	stage.position = _map_rect.position + (_map_rect.size - native * factor) * 0.5
-	# register each build/lock badge as a tap hit (k = -1 sentinel; the building/cluster id rides the meta).
-	for id in built.badges:
-		spot_hits.append({"node": built.badges[id], "z": _map_idx, "k": -1, "building": String(id)})
-	# coverup pages: only the next-in-order locked cluster reads READY and keeps a live tap target.
-	if _coverup:
-		_apply_coverup_sequence()
-		_clamp_badges_above_nav(factor)
 
-	# ambient life — the wanderers ARE the placed residents (the §1 population sub-game): one sprite per
-	# placed spirit, empty until something is placed.
-	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(_map_idx))
+	if interactive:
+		_zone_coverings = built.coverings   # id -> covering group, revealed away on unlock
+		_zone_badges = built.badges         # coverup pages: cluster id -> its lock badge
+		# register each build/lock badge as a tap hit (k = -1 sentinel; the id rides the meta).
+		for id in built.badges:
+			spot_hits.append({"node": built.badges[id], "z": z, "k": -1, "building": String(id)})
+		if coverup:
+			_apply_coverup_sequence()       # only the next-in-order cluster stays a live tap target
+			_clamp_badges_above_nav(factor)
+	elif coverup:
+		# preview only: show the correct ready-visuals without touching spot_hits / _zone_* members.
+		var LB: GDScript = load("res://engine/scripts/ui/lock_badge.gd")
+		var lvl := G.level()
+		var wallet := Save.coins()
+		for id_v in built.badges.keys():
+			LB.set_ready(built.badges[id_v], G.cluster_ready(z, String(id_v), unlocks, lvl, wallet))
+
+	# ambient life — one wanderer per placed resident (empty until something is placed).
+	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(amb)
-	_add_page_arrows()
-	if animate:
-		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
-
-# ── picture-book PAGE-TURN arrows (interim browsing; the frontier gate lands with the pages
-# build system). One soft chevron per adjacent unlocked page, mid-height at the screen edges.
-func _add_page_arrows() -> void:
-	var view := get_viewport_rect().size
-	for d: int in [-1, 1]:
-		var z: int = _map_idx + d
-		if z < 0 or z >= G.MAPS.size() or not map_unlocked(z):
-			continue
-		var b := Button.new()
-		b.name = "PageArrowPrev" if d < 0 else "PageArrowNext"
-		b.text = "‹" if d < 0 else "›"
-		b.tooltip_text = String(G.MAPS[z].name)
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", FS.DISPLAY)
-		b.add_theme_color_override("font_color", INK)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(CREAM, 0.82)
-		sb.set_corner_radius_all(18)
-		b.add_theme_stylebox_override("normal", sb)
-		b.add_theme_stylebox_override("hover", sb)
-		b.add_theme_stylebox_override("pressed", sb)
-		b.custom_minimum_size = Vector2(52, 92)
-		b.position = Vector2(10.0 if d < 0 else view.x - 62.0, view.y * 0.5 - 46.0)
-		var dest: int = z
-		b.pressed.connect(func() -> void:
-			Audio.play("button_tap", -4.0)
-			_open_map(dest))
-		content.add_child(b)
+	page.add_child(amb)
+	return page
 
 # PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
 # (assets/map/<scene>/zone.json); the farmhouse manifest is the legacy fallback.

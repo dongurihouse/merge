@@ -176,8 +176,8 @@ make import                                         # import the copied element 
 make test-fast                                      # grove_page_manifest_tests guards the wiring
 ```
 
-`grove_data._build_maps()` names the five pages; `map.gd` renders the current page's manifest and
-adds the page-turn chevrons.
+`grove_data._build_maps()` names the five pages; `map.gd` renders the current page's manifest; a
+horizontal swipe turns to the adjacent page.
 
 **The `coverup` layer drives cluster unlocks (page 1, Fairy Hollow Market).** Anything placed on the
 frontmost `coverup` layer is carried into the manifest as a `coverups` entry (keyed by the LAYER, not

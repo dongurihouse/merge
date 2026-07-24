@@ -43,6 +43,8 @@ func _initialize() -> void:
 	await _test_mote_puff()
 	_test_quest_unused_generator_fade()
 	_test_swipe_decision_helpers()
+	await _test_home_has_no_page_arrows()
+	await _test_home_tap_unlocks_cluster()
 	finish()
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
@@ -111,6 +113,38 @@ func _test_swipe_decision_helpers() -> void:
 	ok(not MapScript._swipe_commit(-80.0, 900.0, 1000.0, true), "a flick opposite the drag does not commit")
 	# an edge (no neighbour) never commits, however hard you pull or flick
 	ok(not MapScript._swipe_commit(-900.0, -900.0, 1000.0, false), "an edge swipe with no neighbour never commits")
+
+func _test_home_has_no_page_arrows() -> void:
+	fresh("home_no_arrows")
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(1)          # an open page with both neighbours
+	await process_frame
+	ok(map.content.find_child("PageArrowNext", true, false) == null, "the home page no longer shows a next-page arrow")
+	ok(map.content.find_child("PageArrowPrev", true, false) == null, "the home page no longer shows a prev-page arrow")
+	ok(map.content.get_child_count() == 1, "the home renders as a single scene page node")
+	map.queue_free()
+	await process_frame
+
+func _test_home_tap_unlocks_cluster() -> void:
+	fresh("home_tap_unlocks")
+	Save.earn_coins(1000)     # LEVEL_BASE_COINS=30 -> well past L2; wallet affords the first cluster
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_map(0)          # fairy_hollow (coverup) — its first cluster is the ready one
+	await process_frame
+	var next_id := G.next_locked_cluster(0, map.unlocks)
+	ok(next_id != "", "the home page has a next-in-order locked cluster")
+	var badge: Control = map._zone_badges.get(next_id, null)
+	ok(badge != null, "the ready cluster's lock badge exists")
+	if badge != null:
+		_map_tap_at(map, _hit_center(badge))
+		await create_timer(0.1).timeout
+		ok(map.unlocks.has(next_id), "a still-tap on the home page unlocks the ready cluster (refactor kept taps working)")
+	map.queue_free()
+	await process_frame
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
 # _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.
