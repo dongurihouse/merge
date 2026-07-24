@@ -24,6 +24,11 @@ const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REA
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
+## The progress-bar gallery preview is drawn at a ZOOM so the capsule art, rim, and fill geometry are
+## legible while tuning — display-only (every real caller passes its own width/height).
+const PROGRESS_PREVIEW_W := 320.0
+const PROGRESS_PREVIEW_ZOOM := 2.0
+
 const IDS := ["board", "focus_ring", "button", "action_button", "hud_layout", "progress_bar", "torn_cell", "quest_card", "mail_card", "toggle_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
@@ -514,8 +519,14 @@ func _make_element(id: String) -> Control:
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
 			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
+			# PREVIEW ZOOM: the shipped bar is small, so the gallery draws it at 2x width AND 2x height
+			# to make the art, rim, and fill geometry readable. Proportions are preserved (both axes
+			# scale together), and this is display-only — every real caller (level dialog, board strip)
+			# passes its own width/height, so nothing here can reach the game.
+			po["width"] = PROGRESS_PREVIEW_W * PROGRESS_PREVIEW_ZOOM
+			po["height"] = float(po.get("height", 20)) * PROGRESS_PREVIEW_ZOOM
 			var bar := Kit.progress_bar(float(p.frac) / 100.0, po)
-			bar.custom_minimum_size.x = 320
+			bar.custom_minimum_size.x = PROGRESS_PREVIEW_W * PROGRESS_PREVIEW_ZOOM
 			return bar
 		"frame":
 			# the SHARED frame on its own, with placeholder content — the one chrome every dialog reuses
