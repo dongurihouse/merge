@@ -75,10 +75,14 @@ static func seen_lines(seen: Dictionary) -> Array:
 	var out: Array = []
 	for k in seen.keys():
 		var line := int(int(k) / 100)
-		# Only lines still in the live content model seed a Rush — a retired line lingering in an old
-		# `seen` set (loaded before the prune migration) must not respawn. Reuse is_valid_item_code (a
-		# tier-1 probe) so the rule is identical to the load-sanitizer and keeps live specials/special-items.
-		if line > 0 and not out.has(line) and G.is_valid_item_code(line * 100 + 1):
+		# A Rush line must be BOTH live in the content model AND deep enough to climb the whole Rush
+		# ladder without going blank. Rush spawns tier 1/2 and merges up to MAX_TIER, rerolling the
+		# result to a random pool line each time — so any line in the pool can be asked to render up to
+		# MAX_TIER. Probing is_valid_item_code at MAX_TIER (not tier 1) drops both a retired line (invalid
+		# at every tier) AND a short SPECIAL drop line (chest/water/acorn top out at SPECIAL_TOP=3): the
+		# latter used to seed the pool via the tier-1 probe and then render PieceView's placeholder disc
+		# once a merge pushed it past tier 3. Base + special-craft + treat lines all reach TOP_TIER (12).
+		if line > 0 and not out.has(line) and G.is_valid_item_code(line * 100 + MAX_TIER):
 			out.append(line)
 	out.sort()
 	return out
