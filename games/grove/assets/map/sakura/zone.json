@@ -192,7 +192,8 @@
     353
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 20.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster",
@@ -206,7 +207,8 @@
     600
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": -8.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal",
@@ -220,7 +222,8 @@
     551
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -24.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan",
@@ -234,7 +237,8 @@
     388
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -18.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_2",
@@ -248,7 +252,8 @@
     439
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -28.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette",
@@ -262,7 +267,8 @@
     608
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 10.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_2",
@@ -276,7 +282,8 @@
     390
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_3",
@@ -290,7 +297,8 @@
     575
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -13.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_2",
@@ -304,7 +312,8 @@
     415
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": -12.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_14",
@@ -318,7 +327,8 @@
     487
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 29.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_11",
@@ -332,7 +342,8 @@
     468
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -20.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_2",
@@ -346,7 +357,8 @@
     515
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -24.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_12",
@@ -360,7 +372,8 @@
     605
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": 29.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_15",
@@ -388,7 +401,8 @@
     598
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": 1.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_3",
@@ -402,7 +416,8 @@
     508
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": -16.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_3",
@@ -416,7 +431,8 @@
     632
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 4.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_16",
@@ -430,7 +446,8 @@
     475
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 9.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_4",
@@ -444,7 +461,8 @@
     461
    ],
    "sort_y": 18,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": -28.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_14",
@@ -458,7 +476,8 @@
     581
    ],
    "sort_y": 19,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_15",
@@ -472,7 +491,8 @@
     454
    ],
    "sort_y": 20,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": 28.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_2",
@@ -486,7 +506,8 @@
     643
    ],
    "sort_y": 21,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": -21.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_3",
@@ -500,7 +521,8 @@
     612
    ],
    "sort_y": 22,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 23.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_4",
@@ -514,7 +536,8 @@
     477
    ],
    "sort_y": 23,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_4",
@@ -528,7 +551,8 @@
     395
    ],
    "sort_y": 24,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 18.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_5",
@@ -542,7 +566,8 @@
     322
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 21.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_3",
@@ -556,7 +581,8 @@
     417
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": -11.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_6",
@@ -570,7 +596,8 @@
     411
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -5.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_5",
@@ -584,7 +611,8 @@
     472
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 13.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_5",
@@ -598,7 +626,8 @@
     410
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 3.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_6",
@@ -612,7 +641,8 @@
     438
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 23.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_6",
@@ -626,7 +656,8 @@
     400
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 20.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_7",
@@ -640,7 +671,8 @@
     285
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 22.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_7",
@@ -654,7 +686,8 @@
     436
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -20.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_14",
@@ -668,7 +701,8 @@
     419
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 12.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_15",
@@ -682,7 +716,8 @@
     436
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -28.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_16",
@@ -696,7 +731,8 @@
     407
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 15.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_7",
@@ -710,7 +746,8 @@
     433
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": -26.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_13",
@@ -724,7 +761,8 @@
     361
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": -13.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_8",
@@ -738,7 +776,8 @@
     399
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 6.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_17",
@@ -752,7 +791,8 @@
     425
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -2.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_14",
@@ -766,7 +806,8 @@
     418
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": -21.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_4",
@@ -780,7 +821,8 @@
     469
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -7.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_4",
@@ -794,7 +836,8 @@
     509
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 1.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_5",
@@ -808,7 +851,8 @@
     495
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -25.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_6",
@@ -822,7 +866,8 @@
     550
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -4.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_9",
@@ -836,7 +881,8 @@
     547
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": -21.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_8",
@@ -850,7 +896,8 @@
     308
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_5",
@@ -864,7 +911,8 @@
     538
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 7.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_8",
@@ -878,7 +926,8 @@
     477
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": -16.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_9",
@@ -892,7 +941,8 @@
     398
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 6.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_6",
@@ -906,7 +956,8 @@
     408
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": -26.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_10",
@@ -920,7 +971,8 @@
     454
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": -18.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_18",
@@ -934,7 +986,8 @@
     505
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 21.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_7",
@@ -948,7 +1001,8 @@
     308
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -18.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_17",
@@ -962,7 +1016,8 @@
     542
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 18.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_18",
@@ -976,7 +1031,8 @@
     397
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 16.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_9",
@@ -990,7 +1046,8 @@
     361
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": -20.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_10",
@@ -1004,7 +1061,8 @@
     582
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 17.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_10",
@@ -1018,7 +1076,8 @@
     468
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 11.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_11",
@@ -1032,7 +1091,8 @@
     568
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 19.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_11",
@@ -1046,7 +1106,8 @@
     628
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 20.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_12",
@@ -1060,7 +1121,8 @@
     395
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -18.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_8",
@@ -1074,7 +1136,8 @@
     384
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": 28.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_13",
@@ -1088,7 +1151,8 @@
     530
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -26.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_12",
@@ -1102,7 +1166,8 @@
     390
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 17.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_9",
@@ -1116,7 +1181,8 @@
     497
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_blossom_cover_round_rosette_11",
@@ -1130,7 +1196,8 @@
     555
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_round_rosette_v1.png",
+   "rot": 20.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_19",
@@ -1144,7 +1211,8 @@
     398
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -9.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_15",
@@ -1158,7 +1226,8 @@
     649
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 24.0
   },
   {
    "id": "unlock_cover_blossom_cover_corner_cascade_16",
@@ -1172,7 +1241,8 @@
     401
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_corner_cascade_v1.png",
+   "rot": 3.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_20",
@@ -1186,7 +1256,8 @@
     533
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 1.0
   },
   {
    "id": "unlock_cover_blossom_cover_floral_fan_10",
@@ -1200,7 +1271,8 @@
     424
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_floral_fan_v1.png",
+   "rot": -17.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_21",
@@ -1214,7 +1286,8 @@
     498
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": 9.0
   },
   {
    "id": "unlock_cover_blossom_cover_drifting_petal_22",
@@ -1228,7 +1301,8 @@
     521
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_drifting_petal_v1.png",
+   "rot": -13.0
   },
   {
    "id": "unlock_cover_blossom_cover_triple_cluster_7",
@@ -1242,7 +1316,8 @@
     489
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png"
+   "image": "res://games/grove/assets/map/sakura/coverup/blossom_cover_triple_cluster_v1.png",
+   "rot": 8.0
   }
  ]
 }

@@ -124,7 +124,8 @@
     420
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -28.0
   },
   {
    "id": "unlock_cover_corner_canopy",
@@ -138,7 +139,8 @@
     433
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 20.0
   },
   {
    "id": "unlock_cover_flower_clump",
@@ -152,7 +154,8 @@
     476
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -25.0
   },
   {
    "id": "unlock_cover_flower_clump_2",
@@ -166,7 +169,8 @@
     321
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 4.0
   },
   {
    "id": "unlock_cover_round_leaf",
@@ -180,7 +184,8 @@
     493
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -13.0
   },
   {
    "id": "unlock_cover_corner_canopy_2",
@@ -194,7 +199,8 @@
     431
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 22.0
   },
   {
    "id": "unlock_cover_scalloped_vine",
@@ -208,7 +214,8 @@
     465
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -7.0
   },
   {
    "id": "unlock_cover_fern_fan_2",
@@ -222,7 +229,8 @@
     393
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -8.0
   },
   {
    "id": "unlock_cover_flower_clump_3",
@@ -236,7 +244,8 @@
     448
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 19.0
   },
   {
    "id": "unlock_cover_corner_canopy_3",
@@ -250,7 +259,8 @@
     402
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 8.0
   },
   {
    "id": "unlock_cover_fern_fan_3",
@@ -264,7 +274,8 @@
     430
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -21.0
   },
   {
    "id": "unlock_cover_corner_canopy_4",
@@ -278,7 +289,8 @@
     361
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 7.0
   },
   {
    "id": "unlock_cover_monstera_leaf",
@@ -292,7 +304,8 @@
     374
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -27.0
   },
   {
    "id": "unlock_cover_scalloped_vine_2",
@@ -306,7 +319,8 @@
     349
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -28.0
   },
   {
    "id": "unlock_cover_monstera_leaf_2",
@@ -320,7 +334,8 @@
     400
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 1.0
   },
   {
    "id": "unlock_cover_fern_fan_4",
@@ -334,7 +349,8 @@
     509
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": 22.0
   },
   {
    "id": "unlock_cover_scalloped_vine_3",
@@ -348,7 +364,8 @@
     353
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -10.0
   },
   {
    "id": "unlock_cover_scalloped_vine_4",
@@ -362,7 +379,8 @@
     374
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -11.0
   },
   {
    "id": "unlock_cover_monstera_leaf_3",
@@ -376,7 +394,8 @@
     261
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -25.0
   },
   {
    "id": "unlock_cover_monstera_leaf_4",
@@ -390,7 +409,8 @@
     428
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -1.0
   },
   {
    "id": "unlock_cover_scalloped_vine_5",
@@ -404,7 +424,8 @@
     341
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 8.0
   },
   {
    "id": "unlock_cover_fern_fan_5",
@@ -418,7 +439,8 @@
     431
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": 29.0
   },
   {
    "id": "unlock_cover_round_leaf_2",
@@ -432,7 +454,8 @@
     289
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -2.0
   },
   {
    "id": "unlock_cover_monstera_leaf_5",
@@ -446,7 +469,8 @@
     248
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -17.0
   },
   {
    "id": "unlock_cover_round_leaf_3",
@@ -460,7 +484,8 @@
     385
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 19.0
   },
   {
    "id": "unlock_cover_round_leaf_4",
@@ -474,7 +499,8 @@
     262
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 28.0
   },
   {
    "id": "unlock_cover_fern_fan_6",
@@ -488,7 +514,8 @@
     251
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -15.0
   },
   {
    "id": "unlock_cover_scalloped_vine_6",
@@ -502,7 +529,8 @@
     269
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -24.0
   },
   {
    "id": "unlock_cover_scalloped_vine_7",
@@ -516,7 +544,8 @@
     411
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -21.0
   },
   {
    "id": "unlock_cover_flower_clump_4",
@@ -530,7 +559,8 @@
     387
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 2.0
   },
   {
    "id": "unlock_cover_scalloped_vine_8",
@@ -544,7 +574,8 @@
     312
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -14.0
   },
   {
    "id": "unlock_cover_scalloped_vine_9",
@@ -558,7 +589,8 @@
     341
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -2.0
   },
   {
    "id": "unlock_cover_flower_clump_5",
@@ -572,7 +604,8 @@
     386
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -19.0
   },
   {
    "id": "unlock_cover_round_leaf_5",
@@ -586,7 +619,8 @@
     401
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -10.0
   },
   {
    "id": "unlock_cover_scalloped_vine_10",
@@ -600,7 +634,8 @@
     399
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -11.0
   },
   {
    "id": "unlock_cover_flower_clump_6",
@@ -614,7 +649,8 @@
     351
    ],
    "sort_y": 18,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -29.0
   },
   {
    "id": "unlock_cover_round_leaf_6",
@@ -628,7 +664,8 @@
     554
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -28.0
   },
   {
    "id": "unlock_cover_corner_canopy_5",
@@ -642,7 +679,8 @@
     590
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": -23.0
   },
   {
    "id": "unlock_cover_scalloped_vine_11",
@@ -656,7 +694,8 @@
     394
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -16.0
   },
   {
    "id": "unlock_cover_corner_canopy_6",
@@ -670,7 +709,8 @@
     385
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 13.0
   },
   {
    "id": "unlock_cover_flower_clump_7",
@@ -684,7 +724,8 @@
     459
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 17.0
   },
   {
    "id": "unlock_cover_round_leaf_7",
@@ -698,7 +739,8 @@
     500
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 11.0
   },
   {
    "id": "unlock_cover_flower_clump_8",
@@ -712,7 +754,8 @@
     651
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 24.0
   },
   {
    "id": "unlock_cover_corner_canopy_7",
@@ -726,7 +769,8 @@
     469
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": -7.0
   },
   {
    "id": "unlock_cover_monstera_leaf_6",
@@ -740,7 +784,8 @@
     628
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 23.0
   },
   {
    "id": "unlock_cover_flower_clump_9",
@@ -754,7 +799,8 @@
     584
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_corner_canopy_8",
@@ -768,7 +814,8 @@
     362
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": -1.0
   },
   {
    "id": "unlock_cover_scalloped_vine_12",
@@ -782,7 +829,8 @@
     360
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -30.0
   },
   {
    "id": "unlock_cover_corner_canopy_9",
@@ -796,7 +844,8 @@
     430
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 19.0
   },
   {
    "id": "unlock_cover_monstera_leaf_7",
@@ -810,7 +859,8 @@
     392
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -14.0
   },
   {
    "id": "unlock_cover_flower_clump_10",
@@ -824,7 +874,8 @@
     612
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 22.0
   },
   {
    "id": "unlock_cover_fern_fan_7",
@@ -838,7 +889,8 @@
     499
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -18.0
   },
   {
    "id": "unlock_cover_fern_fan_8",
@@ -852,7 +904,8 @@
     524
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -24.0
   },
   {
    "id": "unlock_cover_round_leaf_8",
@@ -866,7 +919,8 @@
     530
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -6.0
   },
   {
    "id": "unlock_cover_corner_canopy_10",
@@ -880,7 +934,8 @@
     402
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": -29.0
   },
   {
    "id": "unlock_cover_scalloped_vine_13",
@@ -894,7 +949,8 @@
     501
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_corner_canopy_11",
@@ -908,7 +964,8 @@
     574
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 28.0
   },
   {
    "id": "unlock_cover_scalloped_vine_14",
@@ -922,7 +979,8 @@
     537
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -5.0
   },
   {
    "id": "unlock_cover_scalloped_vine_15",
@@ -936,7 +994,8 @@
     468
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -24.0
   },
   {
    "id": "unlock_cover_monstera_leaf_8",
@@ -950,7 +1009,8 @@
     424
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 1.0
   },
   {
    "id": "unlock_cover_fern_fan_9",
@@ -964,7 +1024,8 @@
     419
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -14.0
   },
   {
    "id": "unlock_cover_scalloped_vine_16",
@@ -978,7 +1039,8 @@
     626
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -11.0
   },
   {
    "id": "unlock_cover_monstera_leaf_9",
@@ -992,7 +1054,8 @@
     485
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -23.0
   },
   {
    "id": "unlock_cover_scalloped_vine_17",
@@ -1006,7 +1069,8 @@
     638
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -29.0
   },
   {
    "id": "unlock_cover_round_leaf_9",
@@ -1020,7 +1084,8 @@
     501
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -21.0
   },
   {
    "id": "unlock_cover_scalloped_vine_18",
@@ -1034,7 +1099,8 @@
     624
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 7.0
   },
   {
    "id": "unlock_cover_flower_clump_11",
@@ -1048,7 +1114,8 @@
     502
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 17.0
   },
   {
    "id": "unlock_cover_fern_fan_10",
@@ -1062,7 +1129,8 @@
     383
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": 15.0
   },
   {
    "id": "unlock_cover_scalloped_vine_19",
@@ -1076,7 +1144,8 @@
     396
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 13.0
   },
   {
    "id": "unlock_cover_round_leaf_10",
@@ -1090,7 +1159,8 @@
     583
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 24.0
   },
   {
    "id": "unlock_cover_fern_fan_11",
@@ -1104,7 +1174,8 @@
     492
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -8.0
   },
   {
    "id": "unlock_cover_round_leaf_11",
@@ -1118,7 +1189,8 @@
     566
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 3.0
   },
   {
    "id": "unlock_cover_monstera_leaf_10",
@@ -1132,7 +1204,8 @@
     473
    ],
    "sort_y": 18,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -7.0
   },
   {
    "id": "unlock_cover_fern_fan_12",
@@ -1146,7 +1219,8 @@
     655
    ],
    "sort_y": 19,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -25.0
   },
   {
    "id": "unlock_cover_corner_canopy_12",
@@ -1160,7 +1234,8 @@
     464
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": -3.0
   },
   {
    "id": "unlock_cover_flower_clump_12",
@@ -1174,7 +1249,8 @@
     378
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 12.0
   },
   {
    "id": "unlock_cover_flower_clump_13",
@@ -1188,7 +1264,8 @@
     403
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -17.0
   },
   {
    "id": "unlock_cover_scalloped_vine_20",
@@ -1202,7 +1279,8 @@
     327
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 4.0
   },
   {
    "id": "unlock_cover_flower_clump_14",
@@ -1216,7 +1294,8 @@
     373
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 28.0
   },
   {
    "id": "unlock_cover_monstera_leaf_11",
@@ -1230,7 +1309,8 @@
     411
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 18.0
   },
   {
    "id": "unlock_cover_round_leaf_12",
@@ -1244,7 +1324,8 @@
     419
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 14.0
   },
   {
    "id": "unlock_cover_monstera_leaf_12",
@@ -1258,7 +1339,8 @@
     275
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -11.0
   },
   {
    "id": "unlock_cover_corner_canopy_13",
@@ -1272,7 +1354,8 @@
     440
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/corner_canopy.png",
+   "rot": 7.0
   },
   {
    "id": "unlock_cover_monstera_leaf_13",
@@ -1286,7 +1369,8 @@
     476
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 26.0
   },
   {
    "id": "unlock_cover_fern_fan_13",
@@ -1300,7 +1384,8 @@
     399
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": 11.0
   },
   {
    "id": "unlock_cover_monstera_leaf_14",
@@ -1314,7 +1399,8 @@
     438
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 17.0
   },
   {
    "id": "unlock_cover_round_leaf_13",
@@ -1328,7 +1414,8 @@
     416
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": -13.0
   },
   {
    "id": "unlock_cover_scalloped_vine_21",
@@ -1342,7 +1429,8 @@
     334
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 8.0
   },
   {
    "id": "unlock_cover_scalloped_vine_22",
@@ -1356,7 +1444,8 @@
     340
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 5.0
   },
   {
    "id": "unlock_cover_flower_clump_15",
@@ -1370,7 +1459,8 @@
     366
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 6.0
   },
   {
    "id": "unlock_cover_flower_clump_16",
@@ -1384,7 +1474,8 @@
     332
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 29.0
   },
   {
    "id": "unlock_cover_fern_fan_14",
@@ -1398,7 +1489,8 @@
     481
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": 6.0
   },
   {
    "id": "unlock_cover_flower_clump_17",
@@ -1412,7 +1504,8 @@
     389
    ],
    "sort_y": 18,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -4.0
   },
   {
    "id": "unlock_cover_scalloped_vine_23",
@@ -1426,7 +1519,8 @@
     389
    ],
    "sort_y": 0,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": 2.0
   },
   {
    "id": "unlock_cover_fern_fan_15",
@@ -1440,7 +1534,8 @@
     398
    ],
    "sort_y": 1,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -23.0
   },
   {
    "id": "unlock_cover_flower_clump_18",
@@ -1454,7 +1549,8 @@
     284
    ],
    "sort_y": 2,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -8.0
   },
   {
    "id": "unlock_cover_fern_fan_16",
@@ -1468,7 +1564,8 @@
     479
    ],
    "sort_y": 3,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -26.0
   },
   {
    "id": "unlock_cover_round_leaf_14",
@@ -1482,7 +1579,8 @@
     329
    ],
    "sort_y": 4,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 11.0
   },
   {
    "id": "unlock_cover_monstera_leaf_15",
@@ -1496,7 +1594,8 @@
     369
    ],
    "sort_y": 5,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -12.0
   },
   {
    "id": "unlock_cover_monstera_leaf_16",
@@ -1510,7 +1609,8 @@
     422
    ],
    "sort_y": 6,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -18.0
   },
   {
    "id": "unlock_cover_fern_fan_17",
@@ -1524,7 +1624,8 @@
     356
    ],
    "sort_y": 7,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": 16.0
   },
   {
    "id": "unlock_cover_flower_clump_19",
@@ -1538,7 +1639,8 @@
     457
    ],
    "sort_y": 8,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": -17.0
   },
   {
    "id": "unlock_cover_monstera_leaf_17",
@@ -1552,7 +1654,8 @@
     272
    ],
    "sort_y": 9,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": -7.0
   },
   {
    "id": "unlock_cover_fern_fan_18",
@@ -1566,7 +1669,8 @@
     453
    ],
    "sort_y": 10,
-   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/fern_fan.png",
+   "rot": -7.0
   },
   {
    "id": "unlock_cover_scalloped_vine_24",
@@ -1580,7 +1684,8 @@
     479
    ],
    "sort_y": 11,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -8.0
   },
   {
    "id": "unlock_cover_round_leaf_15",
@@ -1594,7 +1699,8 @@
     273
    ],
    "sort_y": 12,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 12.0
   },
   {
    "id": "unlock_cover_scalloped_vine_25",
@@ -1608,7 +1714,8 @@
     334
    ],
    "sort_y": 13,
-   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/scalloped_vine.png",
+   "rot": -9.0
   },
   {
    "id": "unlock_cover_round_leaf_16",
@@ -1622,7 +1729,8 @@
     414
    ],
    "sort_y": 14,
-   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/round_leaf.png",
+   "rot": 26.0
   },
   {
    "id": "unlock_cover_flower_clump_20",
@@ -1636,7 +1744,8 @@
     288
    ],
    "sort_y": 15,
-   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/flower_clump.png",
+   "rot": 27.0
   },
   {
    "id": "unlock_cover_monstera_leaf_18",
@@ -1650,7 +1759,8 @@
     344
    ],
    "sort_y": 16,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 7.0
   },
   {
    "id": "unlock_cover_monstera_leaf_19",
@@ -1664,7 +1774,8 @@
     448
    ],
    "sort_y": 17,
-   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png"
+   "image": "res://games/grove/assets/map/hollow/coverup/monstera_leaf.png",
+   "rot": 27.0
   }
  ]
 }

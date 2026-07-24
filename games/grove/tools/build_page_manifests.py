@@ -92,6 +92,17 @@ def build_page(scene_id, label):
             out["sourceCropFeatherBottom"] = int(round(float(fb)))
         return out
 
+    def rot_field(e):
+        # Carry the sw tool's per-placement ROTATION, for the same reason as the crop above: the
+        # tool rotates every placement about its FOOT (scene_workbench_view._make_layer sets
+        # pivot_offset to bottom-centre, then rotation_degrees). A manifest without `rot` renders
+        # every leaning prop and canopy bolt-upright in game — 492 of the 549 authored placements
+        # carry a non-zero rot. See home_zone_view.build / _mount_coverups, the runtime twins.
+        r = e.get("rot")
+        if isinstance(r, (int, float)) and abs(float(r)) > 1e-9:
+            return {"rot": round(float(r), 4)}
+        return {}
+
     buildings, coverups = [], []
     for e in placements:
         tex = res_path(str(e.get("image", "")))
@@ -109,6 +120,7 @@ def build_page(scene_id, label):
                 "sort_y": int(e.get("z", 0)),
                 "image": tex,
                 **crop_fields(e),
+                **rot_field(e),
             })
             continue
         entry = {
@@ -122,6 +134,7 @@ def build_page(scene_id, label):
         if e.get("shadow"):                            # dynamic silhouette shadow (prop_shadow.gd)
             entry["shadow"] = True
         entry.update(crop_fields(e))                   # optional sourceCrop / feather (parity with the sw)
+        entry.update(rot_field(e))                     # optional foot-pivot rotation (parity with the sw)
         buildings.append(entry)
 
     manifest = {"version": 1, "id": scene_id, "label": label,
