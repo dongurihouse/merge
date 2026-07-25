@@ -185,7 +185,7 @@ func _relayout() -> void:
 	var pct_w := h * 1.05
 	_pct.size = Vector2(pct_w, h)
 	_pct.position = Vector2(w - pct_w - h * 0.26, 0.0)
-	var bar_h := h * 0.30
+	var bar_h := h * 0.36            # track thickness, +20% by owner call (was 0.30); the BAND height is unchanged
 	# mock proportions: the text column ends ~40% in; clamp so a long localized title can't
 	# squeeze the track away and a short one doesn't drag it off the mock's column
 	var track_left := clampf(text_x + _title_w() + h * 0.24, w * 0.34, w * 0.48)
