@@ -106,13 +106,14 @@ static var LEVEL_BASE_EXP: int = D.LEVEL_BASE_EXP   # OWNER DIAL — the level c
 static var LEVEL_STEP_EXP: int = D.LEVEL_STEP_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 static var LEVEL_BASE_COINS: int = D.LEVEL_BASE_COINS   # OWNER DIAL — the COIN clock curve (home redesign), live-overridable
 static var LEVEL_STEP_COINS: int = D.LEVEL_STEP_COINS   # OWNER DIAL — live-overridable
-static var ENDGAME_CLICKS: int = D.ENDGAME_CLICKS   # OWNER DIAL — whole-arc click budget (anchor; economy_tuning.json)
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 
 # --- OWNER ECONOMY TUNING (docs/economy_tuning.html writes the JSON; the game picks it up here) -----
 # The HTML tool is the editor; this is the reader. At class load we read the ACTIVE game's
-# economy_tuning.json and override the curve/board DIALS above (LEVEL_BASE_EXP / LEVEL_STEP_EXP /
-# QUEST_CLICKS_PER_EXP / ENDGAME_CLICKS / MIN_LEVEL). An absent or invalid file is a clean no-op —
+# economy_tuning.json and override the curve/board DIALS above. LEVEL_BASE_COINS / LEVEL_STEP_COINS
+# are the LIVE level clock (the game levels off coins earned); LEVEL_BASE_EXP / LEVEL_STEP_EXP feed
+# only grove_sim and the HTML charts, which still model the retired exp clock. Plus
+# QUEST_CLICKS_PER_EXP / MIN_LEVEL. An absent or invalid file is a clean no-op —
 # the grove_data defaults stand — so the dials only move when the owner deliberately saves a file.
 # Only the named keys override; every other dial is untouched.
 const TUNING_PATH := "res://games/%s/economy_tuning.json"
@@ -142,8 +143,6 @@ static func apply_tuning(path: String = "") -> PackedStringArray:
 		LEVEL_STEP_COINS = maxi(0, int(t["level_step_coins"]));   applied.append("level_step_coins")
 	if t.has("quest_clicks_per_exp"):
 		QUEST_CLICKS_PER_EXP = maxi(1, int(t["quest_clicks_per_exp"]));  applied.append("quest_clicks_per_exp")
-	if t.has("endgame_clicks"):
-		ENDGAME_CLICKS = maxi(1, int(t["endgame_clicks"]));   applied.append("endgame_clicks")
 	if t.has("min_level") and t["min_level"] is Array:
 		var grid := _coerce_grid(t["min_level"])
 		if not grid.is_empty():
@@ -840,30 +839,6 @@ static func welcome_resident(z: int, type_id: String) -> Dictionary:
 	var events := grant_resident(z, type_id)
 	return {"ok": true, "events": events}
 
-## Grant map z's one-time unlock gift if still unclaimed: coins + diamonds + the free signature spirit.
-## Sets the per-map `task_reward` flag so it pays exactly once (shared with the legacy completion gift).
-## Returns the granted reward {coins, gems, spirit, events} on the first claim, or {} if already claimed
-## (so the scene knows whether to show the celebration dialog). Pure model; no FX, no UI.
-static func claim_unlock_reward(z: int) -> Dictionary:
-	var g := Save.grove()
-	var claimed: Dictionary = g.get("task_reward", {})
-	var key := String(MAPS[z].id)
-	if claimed.has(key):
-		return {}
-	claimed[key] = true
-	g["task_reward"] = claimed
-	Save.grove_write()
-	var rew: Dictionary = D.map_unlock_reward(z)
-	var coins := int(rew.get("coins", 0))
-	var gems := int(rew.get("gems", 0))
-	if coins > 0:
-		Save.add_coins(coins)
-	if gems > 0:
-		Save.add_diamonds(gems)
-	# NOTE: the free signature SPIRIT no longer pays here — it moves in at map COMPLETION
-	# (claim_completion_spirit), the beat that also grants the bucket cells to house it.
-	return {"coins": coins, "gems": gems}
-
 ## The map's free signature spirit, claimed ONCE at map COMPLETION (all spots restored — the same beat
 ## that grants the bucket cells, so the gift is immediately placeable). Returns the spirit KIND, or ""
 ## when already claimed / the map has none. The caller lands it in the bucket hand (content cannot
@@ -969,13 +944,6 @@ static func map_unlocked(z: int, unlocks: Dictionary, gates: Array = []) -> bool
 	if bool(MAPS[z].get("open", false)):
 		return true
 	return z == 0 or map_complete(z - 1, unlocks, gates)
-
-static func owned_count(z: int, unlocks: Dictionary) -> int:
-	var n := 0
-	for s in MAPS[z].spots:
-		if unlocks.has(String(s.id)):
-			n += 1
-	return n
 
 static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
 	for z in MAPS.size():

@@ -88,10 +88,6 @@
 		"day_label": "Day %d"
 	},
 	"map": {
-		"build": {
-			"needs_coins": "Not enough coins",
-			"done": "%s built!"
-		},
 		"card": {
 			"prereq": "✿ after %s"
 		},
@@ -108,24 +104,11 @@
 			"in_progress": "IN PROGRESS",
 			"locked": "LOCKED"
 		},
-		"pill": {
-			"restored": "restored ✿ 🎁",
-			"to_restore_this_place": "%d to restore this place"
-		},
-		"plank": {
-			"restored": "✿ restored 🎁"
-		},
 		"rail": {
 			"daily": "Daily",
 			"inbox": "Inbox",
 			"settings": "Settings",
 			"vault": "Vault"
-		},
-		"restore_row": {
-			"left": "✿ %d to restore"
-		},
-		"reward": {
-			"place_restored": "Place restored ✿ 🎁"
 		},
 		"select": {
 			"locked_prereq": "Restore %s first ✿"
@@ -135,15 +118,6 @@
 			"needs_exp": "Needs %d exp",
 			"needs_level": "Unlocks at Level %d",
 			"new_asks_in_garden": "New asks in the garden ❀"
-		},
-		"unlock": {
-			"coins": "Coins",
-			"collect": "Collect ✿",
-			"cta": "Unlock — %d exp",
-			"diamonds": "Diamonds",
-			"purse": "Purse",
-			"ready": "Unlock ✦",
-			"title": "A place restored ✿"
 		},
 		"welcome": {
 			"new_friend": "A new friend wanders in ✿",

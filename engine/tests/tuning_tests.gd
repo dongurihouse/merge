@@ -30,24 +30,30 @@ func _initialize() -> void:
 	var b0 := G.LEVEL_BASE_EXP
 	var s0 := G.LEVEL_STEP_EXP
 	var c0 := G.QUEST_CLICKS_PER_EXP
-	var e0 := G.ENDGAME_CLICKS
+	var cb0 := G.LEVEL_BASE_COINS
+	var cs0 := G.LEVEL_STEP_COINS
 	var g0 := G.MIN_LEVEL
 
 	var path := "user://tuning_tests_tmp.json"
 	_write(path, {
-		"level_base_exp": 11, "level_step_exp": 0, "quest_clicks_per_exp": 5, "endgame_clicks": 4242,
+		"level_base_coins": 25, "level_step_coins": 9,
+		"level_base_exp": 11, "level_step_exp": 0, "quest_clicks_per_exp": 5,
 		"min_level": [[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,0,0,0,1,1],[1,1,0,0,0,1,1],
 			[1,1,0,0,0,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1]],
 	})
 	var applied := G.apply_tuning(path)
-	ok(applied.size() == 5, "apply_tuning reports all 5 keys applied")
+	ok(applied.size() == 6, "apply_tuning reports all 6 keys applied")
+	# THE LIVE LEVEL CLOCK. content.gd levels off COINS, so these two are the dials that actually
+	# move player pacing — they were absent from economy_tuning.json until 2026-07-24, which meant
+	# the owner's tuning tool edited only dead exp dials while this curve silently used its fallback.
+	ok(G.LEVEL_BASE_COINS == 25 and G.LEVEL_STEP_COINS == 9, "the live COIN level clock is overridden")
+	ok(G.coins_at_level(3) == 25 * 2 + 9, "coins_at_level FOLLOWS the override (2×25 + 9)")
 	ok(G.LEVEL_BASE_EXP == 11 and G.LEVEL_STEP_EXP == 0, "the level curve is overridden")
 	ok(G.exp_at_level(3) == 22, "exp_at_level FOLLOWS the override (base 11 · step 0 → L3 = 2×11 = 22)")
 	ok(G.QUEST_CLICKS_PER_EXP == 5, "quest_clicks_per_exp is overridden")
 	# coins-only reward: the folded PROGRESSION slice follows the clicks-per-exp override
 	var t5_spend := int(round(16.0 / float(G.QUEST_CLICKS_PER_COIN[0]) * pow(G.QUEST_COIN_DEPTH, 5 - G.QUEST_TIER_BASE)))
 	ok(int(G.quest_reward(5).coins) == int(round(16.0 / 5.0)) + t5_spend, "quest_reward's progression slice follows the clicks-per-exp override (t5 = 16 clicks)")
-	ok(G.ENDGAME_CLICKS == 4242, "the endgame-clicks anchor is overridden")
 	ok(G.cell_min_level(Vector2i(0, 0)) == 1 and G.cell_min_level(Vector2i(4, 3)) == 0,
 		"the MIN_LEVEL board grid is overridden (corner → 1, center → 0)")
 
@@ -71,7 +77,8 @@ func _initialize() -> void:
 	G.LEVEL_BASE_EXP = b0
 	G.LEVEL_STEP_EXP = s0
 	G.QUEST_CLICKS_PER_EXP = c0
-	G.ENDGAME_CLICKS = e0
+	G.LEVEL_BASE_COINS = cb0
+	G.LEVEL_STEP_COINS = cs0
 	G.MIN_LEVEL = g0
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	ok(G.exp_at_level(3) == b0 * 2 + s0, "the live dials are restored after the suite")

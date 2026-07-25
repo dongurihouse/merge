@@ -182,12 +182,6 @@ const QUEST_COIN_DEPTH := 1.05            # per-tier coin multiplier — a deep 
 const QUEST_EXP_LINE_SPREAD := 2.0        # per-line EXP ramp: the LAST base line pays this × the FIRST line's exp at the same tier (linear by ZONE_BASE_LINES rank). EXP only — coins keep their per-map curve.
 const QUEST_MERGE_REWARD_FACTOR := 1.2    # a merger/special-line quest pays this × its two source lines' COMBINED reward (exp AND coins) — it has no generator/base reward of its own.
 const COINS_PER_ACORN := 1024             # acorn↔coin value peg (acorns precious; earned only at milestones / bought)
-# The whole-game effort budget: clicks to finish ALL maps (last region restored). COMPRESSED 100K → 30K
-# (~3–4 weeks of daily play, not many months). The unlock ladder no longer reads this directly (it is one
-# region per level now); the LEVEL curve below is sized so the last region lands near this budget, so this
-# stays the single "how long is the whole arc" anchor (docs/economy_tuning.html is the live calculator).
-# FALLBACK default — the live value is economy_tuning.json (≈4300 clicks under the §7 ramped-exp curve).
-const ENDGAME_CLICKS := 30000             # absent-JSON fallback; live = economy_tuning.json (docs/economy_tuning.html edits it)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 4                # floor of the asked-tier band (no quest asks below t4); band is always [4..TOP_TIER]
 const QUEST_LEVELS_PER_TIER := 2          # the asked-tier bell's CENTRE climbs +1 every N levels, up to the band midpoint
