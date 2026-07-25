@@ -42,7 +42,7 @@ architectural layer and without behaviour change**, addressing all four drivers
    call order must be preserved exactly (see `core/board_logic.gd` `roll_spawn`).
    Any extraction touching spawning/refilling must not reorder `rng` calls.
 4. **Save schema is frozen.** `_persist()` writes a fixed key set
-   (`board`, `quests`, `quests_map`, `bag`, `rng_state`, `water`, `refills_used`,
+   (`board`, `quests`, `quests_map`, `bag`, `rng_state`, `water`,
    `regen_ts`, `last_seen`). Extraction must not change what is written or read.
 5. **No behaviour change.** This is a structural refactor. Visuals and gameplay
    must be byte-for-byte equivalent (verified by composite/measure, never eyeball).

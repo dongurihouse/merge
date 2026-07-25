@@ -100,26 +100,18 @@ func _initialize() -> void:
 			"real tap on cash Confirm grants the selected pack")
 	thost.queue_free()
 
-	# T-E: free claims — a claim grants the reward, then the type is REFUSED until its
-	# cooldown elapses AND under its daily cap; the per-type daily cap holds.
+	# T-E: free rain is a once-daily claim. A successful claim exhausts today's
+	# allowance regardless of elapsed cooldown; a new day restores it.
 	fresh("claims_refill")
 	ok(Claims.can_show("refill_water"), "a fresh refill claim is offerable")
 	var rr: Dictionary = Claims.claim("refill_water")
 	ok(bool(rr.ok) and int(rr.water) == G.WATER_CAP, "claiming the free refill yields a full can (%d💧)" % G.WATER_CAP)
-	ok(not Claims.can_show("refill_water"), "...and the claim is refused immediately after (cooldown)")
-	ok(not bool(Claims.claim("refill_water").ok), "a claim during cooldown is refused (no over-grant)")
-	# backdate the last-claim to simulate the cooldown elapsing → offerable again.
+	ok(Claims.remaining_today("refill_water") == 0, "one claim exhausts the daily free-rain allowance")
+	ok(not Claims.can_show("refill_water"), "...and the claim is refused for the rest of the day")
+	ok(not bool(Claims.claim("refill_water").ok), "a second same-day claim grants nothing")
+	# Even after the old cooldown window, the one-per-day cap remains authoritative.
 	Save.grove()["claim_ledger"]["refill_water"]["last"] = Time.get_unix_time_from_system() - Data.CLAIMS.refill_water.cooldown - 1.0
-	ok(Claims.can_show("refill_water"), "past the cooldown the refill claim is offerable again")
-	# exhaust the daily cap (clearing cooldown each time) → refused for the rest of the day.
-	var cap_n := int(Data.CLAIMS.refill_water.cap)
-	for k in range(Claims.remaining_today("refill_water")):
-		Save.grove()["claim_ledger"]["refill_water"]["last"] = 0.0   # ignore cooldown for the cap probe
-		ok(bool(Claims.claim("refill_water").ok), "refill claim within the daily cap")
-	ok(Save.claim_used_today("refill_water") == cap_n, "the daily cap is reached (%d/day)" % cap_n)
-	Save.grove()["claim_ledger"]["refill_water"]["last"] = 0.0
-	ok(not Claims.can_show("refill_water"), "the per-type DAILY CAP refuses further claims")
-	ok(not bool(Claims.claim("refill_water").ok), "...and a capped claim grants nothing")
+	ok(not Claims.can_show("refill_water"), "elapsed cooldown does not create a second daily free rain")
 	# a NEW day resets the cap (the day-rollover in the ledger).
 	Save.grove()["claim_ledger"]["refill_water"]["day"] = int(Time.get_unix_time_from_system() / 86400.0) - 1
 	Save.grove()["claim_ledger"]["refill_water"]["last"] = 0.0
@@ -158,10 +150,19 @@ func _initialize() -> void:
 	bw.water = 0
 	bw._update_water_hud()
 	ok(bw._refill_stack.visible, "at empty the refill stack is shown (the friction point)")
-	# option 1 — no silent wall: even with every free refill spent AND too few 🌰 for the paid fill, the
+	# A ready daily free rain takes priority even when the player can afford the paid fill.
+	var free_acorns_before := Save.diamonds()
+	ok(bw.refill_btn.text == Strings.t("board.refill.free"), "a ready daily rain labels the empty-board action FREE")
+	bw._on_refill()
+	var free_overlay: Control = bw.find_child("ShopOverlay", true, false)
+	ok(free_overlay != null, "the FREE board action opens the water stall to claim the daily rain")
+	ok(bw.water == 0 and Save.diamonds() == free_acorns_before, "the FREE board action spends no acorns and grants no bypass refill")
+	if free_overlay != null:
+		free_overlay.queue_free()
+	Claims.claim("refill_water")                         # exhaust today's free rain without applying its reward
+	# option 1 — no silent wall: with today's free rain spent AND too few 🌰 for the paid fill, the
 	# refill offer STAYS visible while empty and INVITES the water stall (instead of the old dead wobble).
 	# Two always-present cues ride along: the water pill breathes, and a one-time text hint drifts on screen.
-	bw.refills_used = G.FREE_REFILLS                    # all lifetime free refills spent
 	Save.add_diamonds(-Save.diamonds())                 # and too few 🌰 for the paid fill
 	bw._empty_hint_shown = false
 	bw._update_water_hud()
@@ -182,10 +183,9 @@ func _initialize() -> void:
 		if ch is Label and String(ch.text) == Strings.t("board.refill.hint"):
 			hint_after_2nd += 1
 	ok(hint_after_2nd == 1, "repeated dry taps don't stack the hint (throttled once per empty episode)")
-	var oow_refills: int = bw.refills_used
 	bw._open_water = Callable()                          # neutralize the stall-open → assert the tap itself grants nothing
 	bw._on_refill()
-	ok(bw.water == 0 and bw.refills_used == oow_refills, "an unaffordable refill tap grants no water (it routes to the stall)")
+	ok(bw.water == 0, "an unaffordable refill tap grants no water (it routes to the stall)")
 	# restoring water settles the pill, hides the offer, and re-arms the hint for the next empty episode
 	bw.water = G.WATER_CAP
 	bw._update_water_hud()
@@ -209,8 +209,8 @@ func _initialize() -> void:
 	ok(Save.fill_water() == G.WATER_CAP * 2, "the 💎 fill never trims a banked over-cap spare")
 	Save.set_water(30)
 	ok(Save.fill_water() == G.WATER_CAP, "the 💎 fill tops a low can to full")
-	# T-J(iii): the water cards are HOST-AGNOSTIC — the unified storefront ALWAYS shows the free refill +
-	# the 💎 fill, with no per-scene `water_add`/`water_grant` gate (water grants through Save).
+	# T-J(iii): the water cards are HOST-AGNOSTIC, and FREE takes precedence: the paid fill is hidden
+	# while today's free rain is ready, then appears after the free claim is consumed.
 	fresh("refill_card")
 	var wh := Control.new()
 	get_root().add_child(wh)
@@ -226,7 +226,15 @@ func _initialize() -> void:
 					and String((cardx as Dictionary).get("price_icon", "")) == "gem":   # the 💎 fill card
 				saw_fill = true
 	ok(saw_refill, "the storefront offers the free-refill card (no host callback needed)")
-	ok(saw_fill, "...and the 💎 fill card")
+	ok(not saw_fill, "the storefront hides the paid fill while the free rain is ready")
+	Claims.claim("refill_water")
+	saw_fill = false
+	for sec in Shop._sections({"host": wh, "opts": {}}):
+		for cardx in (sec as Dictionary).get("cards", []):
+			if int((cardx as Dictionary).get("count", 0)) == int(G.WATER_CAP) \
+					and String((cardx as Dictionary).get("price_icon", "")) == "gem":
+				saw_fill = true
+	ok(saw_fill, "the paid fill appears after today's free rain is used")
 	wh.queue_free()
 	# T-J(iv): pressing the free refill in the REAL stall GRANTS THROUGH SAVE (over-cap), end-to-end —
 	# no host callback. Start full so the refill banks a spare; assert Save's water doubles.

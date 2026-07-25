@@ -281,7 +281,7 @@ const BUY_MARKUP := 3.0
 const LEVEL_DIAMONDS := 3                 # acorns granted per level MILESTONE (not every level)
 const LEVEL_DIAMOND_EVERY := 10           # a milestone is every Nth level crossed (L10, L20, …)
 const MAP_DIAMONDS := 5                   # acorns per map fully restored
-const REFILL_DIAMOND_COST := 25           # paid rain, once free refills are spent
+const REFILL_DIAMOND_COST := 25           # paid rain, once today's free rain is unavailable
 
 # §5 The Bag — 6 owned slots at start, +1 at a time bought with 💎, hard cap 18 (12
 # purchasable expansions). Shelving/retrieving are always free, no timers, persisted.
@@ -299,7 +299,6 @@ const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 const WATER_CAP := 100
 const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
-const FREE_REFILLS := 3                   # lifetime, on the first empties (FTUE)
 const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
 
@@ -571,7 +570,7 @@ const FIRST_BUY_MULT := 2
 #                  pauses while over the cap (board_logic.regen), resuming once it drops below.
 #   (the free_gems acorn faucet was RETIRED 2026-06-23 — acorns are precious/earned-only, Option A.)
 const CLAIMS := {
-	"refill_water": {"cap": 3, "cooldown": 1800, "water": WATER_CAP},  # 3/day, 30 min apart — a full can (over-cap ok)
+	"refill_water": {"cap": 1, "cooldown": 1800, "water": WATER_CAP},  # 1/day — a full can (over-cap ok)
 }
 
 # The diamond-priced QUEST-REWARD 2× DOUBLER (§10). After a quest pays a lump of coins, the

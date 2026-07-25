@@ -192,9 +192,9 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
     52.7 ≥ 25) — clearing them is the sign-off gate (I1 no-jam · no-strand · P1 · P2 pass).
   - **`GEN_GRANT_REMAINING_STARS`** (when the next-generator quest surfaces near map end) — keep it below
     each non-final map's cheapest final-spot cost (today 4 < 5; preserve on roster changes).
-  - **Faucet changes ride with this rebalance, not before:** level water gift +20→+50 (`LEVEL_WATER_GIFT`),
-    free refills 3-lifetime→1/day (needs a per-day date, not lifetime `refills_used`), and the joint
-    `LEVEL_STARS` + `LEVEL_WATER_GIFT` curve.
+  - **Faucet changes ride with this rebalance:** level water gift +20→+50 (`LEVEL_WATER_GIFT`) and the
+    joint `LEVEL_STARS` + `LEVEL_WATER_GIFT` curve. Free rain moved from three lifetime refills to one
+    daily claim on 2026-07-25.
   - **`ASK_TIER_WEIGHT`** (§6 spawn tier-bias, `grove_data.gd`) ships at 0=OFF; full strength (0.6)
     front-loads spend ~3×, so ramping it belongs to this pass (re-tune the level curve alongside).
   Best judged once the art makes it playable; re-validate every change on the Monte-Carlo sim

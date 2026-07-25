@@ -493,8 +493,8 @@ static func _commas(n: int) -> String:
 	return ("-" if n < 0 else "") + s + out
 
 # Build the live shop SECTIONS for the unified storefront (shop_dialog_v3): the FREE refill leads,
-# then Quick help (the 💎 Fill-water + the Coin pouch, side by side), then the one-time Welcome
-# bundle + the Acorn-pouch cash ladder. Each card carries its data + buy/info callbacks + a
+# then Quick help (the Coin pouch, plus 💎 Fill-water only after FREE is unavailable), then the
+# one-time Welcome bundle + the Acorn-pouch cash ladder. Each card carries its data + buy/info callbacks + a
 # build-time `affordable` flag (the price dims when broke). Rebuilt on every buy.
 static func _sections(refs: Dictionary) -> Array:
 	var secs: Array = [{"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]}]
@@ -519,7 +519,10 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs)}
-	return {"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [water, pouch]}
+	var cards: Array = [pouch]
+	if not bool(refill_status().available):
+		cards.push_front(water)
+	return {"caption": Strings.t("shop.coin.quick_help_caption"), "cards": cards}
 
 # The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
 # drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall).

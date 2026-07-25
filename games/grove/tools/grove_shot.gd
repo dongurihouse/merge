@@ -8,6 +8,7 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Claims = preload("res://engine/scripts/core/claims.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -118,7 +119,7 @@ func _initialize() -> void:
 			scn._refresh_giver_lights()
 			await create_timer(0.5).timeout
 		"oowater":
-			# the OUT-OF-WATER surfaces (option 1 + cues): empty can, every free refill spent, and too few
+			# the OUT-OF-WATER surfaces (option 1 + cues): empty can, today's free rain spent, and too few
 			# 🌰 for the paid fill — the state that used to go SILENT (only a wobble). Now the refill offer
 			# STAYS up as a "get water" invite to the stall, the water pill breathes, and a text hint drifts.
 			var tutow: Node = scn.get_node_or_null("BoardTutorialOverlay")   # drop the first-run How-to-Play
@@ -126,10 +127,9 @@ func _initialize() -> void:
 				tutow.queue_free()
 			var gow := Save.grove()
 			gow["pops"] = 30                       # past the FTUE so water is a live cost
-			gow["refills_used"] = G.FREE_REFILLS   # all lifetime free refills spent
 			Save.grove_write()
+			Claims.claim("refill_water")           # today's free rain is already spent
 			Save.add_diamonds(-Save.diamonds())    # and too few 🌰 for the paid fill
-			scn.refills_used = G.FREE_REFILLS
 			scn.water = 0
 			scn._update_hud()
 			scn._update_water_hud()                # shows the offer + breathes the pill

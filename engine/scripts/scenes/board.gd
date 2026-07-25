@@ -15,6 +15,7 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")   # boost-line charges, spent on the board chip
 const Quests = preload("res://engine/scripts/core/quests.gd")
+const Claims = preload("res://engine/scripts/core/claims.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
@@ -141,7 +142,6 @@ var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+ti
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
 var water := G.WATER_CAP
-var refills_used := 0
 var _regen_ts := 0.0               # regen anchor (unix); advances as water accrues
 var _winback := false              # set on load when away >= WINBACK_HOURS
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
@@ -831,7 +831,6 @@ func _load_state() -> void:
 		save_dirty = _purge_above_level_content() or save_dirty
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
-		refills_used = int(g.get("refills_used", 0))
 		_regen_ts = float(g.get("regen_ts", now))
 		# the >=48h check lives in Ambient now (both scenes' weather reads its stamp)
 		if Ambient.check_winback(g, now) and water < G.WATER_CAP:
@@ -972,7 +971,6 @@ func _persist() -> void:
 	g["bag"] = bag
 	g["rng_state"] = rng.state
 	g["water"] = water
-	g["refills_used"] = refills_used
 	g["regen_ts"] = _regen_ts
 	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
@@ -1066,13 +1064,13 @@ func _update_water_hud() -> void:
 	water_label.text = str(water)
 	# the empty-water surfaces (§10 the friction point): while the can is empty the offer ALWAYS shows.
 	var empty := water <= 0
-	var free_left := refills_used < G.FREE_REFILLS
-	# option 1 — no silent wall: the refill button surfaces whenever water <= 0, even with every free
-	# refill spent AND too few 🌰 for the paid fill. In that third state it INVITES the water STALL
+	var free_ready := Claims.can_show("refill_water")
+	# option 1 — no silent wall: the refill button surfaces whenever water <= 0, even when today's free
+	# rain is unavailable AND there are too few 🌰 for the paid fill. In that third state it INVITES the water STALL
 	# (free daily / IAP) rather than dead-ending in a wobble; the routing lives in _on_refill.
 	refill_btn.visible = empty
 	if refill_btn.visible:
-		if free_left:
+		if free_ready:
 			refill_btn.text = Strings.t("board.refill.free")
 		elif Save.diamonds() >= G.REFILL_DIAMOND_COST:
 			refill_btn.text = Strings.t("board.refill.paid") % G.REFILL_DIAMOND_COST
@@ -1105,10 +1103,17 @@ func _cue_empty_water() -> void:
 func _on_refill() -> void:
 	if water > 0:
 		return
-	if refills_used < G.FREE_REFILLS:
-		refills_used += 1
-	elif not Save.spend_diamonds(G.REFILL_DIAMOND_COST):
-		# empty, no free refills left, and too few 🌰 for the paid fill → open the water STALL (free
+	if Claims.can_show("refill_water"):
+		# Keep the claim ledger authoritative: the board's FREE action opens the same stall card
+		# used everywhere else instead of bypassing the daily claim.
+		if _open_water.is_valid():
+			_open_water.call()
+		else:
+			FX.wobble(refill_btn)
+			Audio.play("invalid_soft", -4.0)
+		return
+	if not Save.spend_diamonds(G.REFILL_DIAMOND_COST):
+		# empty, today's free rain unavailable, and too few 🌰 for the paid fill → open the water STALL (free
 		# daily top-up / IAP) instead of the old dead-end wobble (§10 "no silent wall"). Fall back to
 		# the wobble only if the stall isn't wired (e.g. a test that neutralizes _open_water).
 		if _open_water.is_valid():
