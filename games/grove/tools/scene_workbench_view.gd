@@ -19,7 +19,7 @@ extends Control
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const CoversModel = preload("res://games/grove/tools/scene_covers_model.gd")   # the cover-zone sidecar (pure)
 const CoversGen = preload("res://games/grove/tools/scene_covers_gen.gd")       # the zone-fill scatter (pure)
-const RegionOverlay = preload("res://games/tools/zone_workbench/region_editor_overlay.gd")  # the zoning tool's polygon overlay
+const RegionOverlay = preload("res://games/grove/tools/region_editor_overlay.gd")  # the polygon overlay (kept when the zone workbench was retired)
 const PropShadow = preload("res://engine/scripts/ui/prop_shadow.gd")   # the game's dynamic silhouette shadow
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
