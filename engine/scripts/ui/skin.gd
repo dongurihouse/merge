@@ -212,27 +212,6 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 		_lay_silhouette_shadow(badge, art2, shadow_params(cfg))
 	return badge
 
-## Resolve a texture path to a REAL image (rejects the import placeholder + degenerate empty
-## imports), or null — so an absent/stale badge falls back to the honey token, never a blank rect.
-static func _safe_tex(path: String) -> Texture2D:
-	if path == "" or not ResourceLoader.exists(path):
-		return null
-	var res := load(path)
-	var real := res is CompressedTexture2D or res is ImageTexture or res is PortableCompressedTexture2D
-	if not real:
-		return null
-	var tex := res as Texture2D
-	if tex == null or tex.get_width() <= 0 or tex.get_height() <= 0:
-		return null
-	return tex
-
-## --- the sticker recipe --------------------------------------------------------------
-## A StyleBoxFlat has exactly ONE border colour, so the two-tone rim (a darker OUTER
-## edge + a lighter INNER highlight) can't live in a single box. We keep the dark outer
-## edge on the box itself and add the light inner rim as a sibling/child OVERLAY: a
-## borderless Control that draws ONLY a rounded light stroke, inset by the outer border
-## width so it sits just inside it. This reads as a crisp die-cut sticker on any bg, and
-## — being mouse-ignored and self-sizing (full-rect) — it costs the caller nothing.
 class _RimOverlay extends Control:
 	var radius: float = Tune.RADIUS_CARD
 	var inset: float = 0.0           # push the rim inward (past the outer border)
@@ -459,130 +438,6 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 ## --- shared popup chrome — the storefront's reusable card / ✕ / banner builders, promoted from
 ## shop.gd so EVERY modal (shop, bag, …) speaks one component language (no per-screen asset set). ----
 
-## A nine-patch StyleBoxTexture from a kit sprite, or null when the sprite is absent (the caller
-## keeps its code-drawn fallback — the kit invariant). `tex` = the (H,V) non-stretching border;
-## `pad` = the content inset (l,t,r,b). A ROUND control passes Vector2.ZERO (full-stretch — 9-slicing
-## a disc pinches its ring into a star and lets the backdrop bleed through the transparent corners).
-static func kit_box(rel: String, tex: Vector2, pad := Vector4.ZERO) -> StyleBoxTexture:
-	var p := kit(rel)
-	if not ResourceLoader.exists(p):
-		return null
-	var sbt := StyleBoxTexture.new()
-	sbt.texture = load(p)
-	sbt.set_texture_margin(SIDE_LEFT, tex.x)
-	sbt.set_texture_margin(SIDE_RIGHT, tex.x)
-	sbt.set_texture_margin(SIDE_TOP, tex.y)
-	sbt.set_texture_margin(SIDE_BOTTOM, tex.y)
-	sbt.content_margin_left = pad.x
-	sbt.content_margin_top = pad.y
-	sbt.content_margin_right = pad.z
-	sbt.content_margin_bottom = pad.w
-	return sbt
-
-## The shared popup CARD surface (kit/shop_card.png et al.): a Button wearing the sliced parchment
-## nine-patch when present, else a code-drawn card box with the SAME radius/shadow. Carries the
-## press-darken juice. The wide welcome card passes shop_card_wide; a plainer tile passes shop_card_b.
-static func card_button(min_size: Vector2, art: String = "kit/shop_card.png") -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = min_size
-	var box := kit_box(art, Vector2(TuneShop.CARD_TEX_MARGIN, TuneShop.CARD_TEX_MARGIN))
-	if box != null:
-		b.add_theme_stylebox_override("normal", box)
-		b.add_theme_stylebox_override("hover", box)
-		var bp: StyleBoxTexture = box.duplicate()
-		bp.modulate_color = TuneShop.CARD_PRESS_MODULATE
-		b.add_theme_stylebox_override("pressed", bp)
-		add_press_juice(b)
-		return b
-	var s := StyleBoxFlat.new()
-	s.bg_color = TuneShop.CARD_BG
-	s.set_corner_radius_all(TuneShop.CARD_RADIUS)
-	s.set_border_width_all(TuneShop.CARD_BORDER_W)
-	s.border_color = Color(Pal.BARK, TuneShop.CARD_EDGE_ALPHA)
-	apply_box_shadow(s)
-	b.add_theme_stylebox_override("normal", s)
-	b.add_theme_stylebox_override("hover", s)
-	var sp: StyleBoxFlat = s.duplicate()
-	sp.bg_color = TuneShop.CARD_BG_PRESSED
-	b.add_theme_stylebox_override("pressed", sp)
-	add_press_juice(b)
-	return b
-
-## The shared popup CLOSE ✕: a Button wearing the sliced red disc (kit/shop_close.png, the ✕ baked
-## in) full-stretched, else a code-drawn RED disc with a ✕ glyph. `cb` fires on press. The caller
-## sizes/positions it (modals dock it inside the card's top-right corner after layout). `art_rel`
-## overrides the disc sprite so a themed modal (the mailbox → kit/mail_close.png) passes its own.
-static func close_button(cb: Callable, art_rel: String = "kit/shop_close.png") -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(TuneShop.X_BTN, TuneShop.X_BTN)
-	var box := kit_box(art_rel, Vector2.ZERO)
-	if box != null:
-		b.add_theme_stylebox_override("normal", box)
-		b.add_theme_stylebox_override("hover", box)
-		var bp: StyleBoxTexture = box.duplicate()
-		bp.modulate_color = TuneShop.CARD_PRESS_MODULATE
-		b.add_theme_stylebox_override("pressed", bp)
-	else:
-		var xs := StyleBoxFlat.new()
-		xs.bg_color = TuneShop.X_BG
-		xs.set_corner_radius_all(TuneShop.X_RADIUS)
-		xs.set_border_width_all(TuneShop.X_BORDER_W)
-		xs.border_color = TuneShop.X_EDGE
-		b.add_theme_stylebox_override("normal", xs)
-		b.add_theme_stylebox_override("hover", xs)
-		var xp: StyleBoxFlat = xs.duplicate()
-		xp.bg_color = TuneShop.X_BG_PRESSED
-		b.add_theme_stylebox_override("pressed", xp)
-		b.text = "✕"
-		b.add_theme_font_size_override("font_size", TuneShop.X_FONT)
-		b.add_theme_color_override("font_color", Pal.CREAM)
-	add_press_juice(b)
-	b.pressed.connect(func() -> void: cb.call())
-	return b
-
-## The shared popup BANNER title: the gold ribbon (ui/shop/shop_banner.png) with the title as ENGINE
-## text riding it centered (images never carry words — §0.3); a solid title chip when the art is
-## absent. Returns a Control sized to a header band, FILL-width so the ribbon centers across the card.
-## `art_rel` overrides the ribbon sprite so a themed modal (the mailbox → mail/mail_banner.png) passes its own.
-static func banner_title(text: String, font_px: int = Tune.TITLE_SIZE, band_h: float = 120.0, art_rel: String = "shop/shop_banner.png") -> Control:
-	var p := kit(art_rel)
-	if not ResourceLoader.exists(p):
-		var ribbon := title_ribbon(text, font_px)
-		ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		return ribbon
-	var header := Control.new()
-	header.custom_minimum_size = Vector2(0, band_h)
-	header.size_flags_horizontal = Control.SIZE_FILL
-	header.clip_contents = true
-	var art := TextureRect.new()
-	art.texture = load(p)
-	art.set_anchors_preset(Control.PRESET_FULL_RECT)
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(art)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", font_px)
-	lbl.add_theme_color_override("font_color", Pal.INK)
-	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(lbl)
-	return header
-
-## --- badges ---------------------------------------------------------------------------
-## A small alert mark for "something new" / a count. kind:
-##   "dot"  → a bare red dot with a cream/white rim (no number)
-##   "pill" → a red pill carrying `count` (clamped 1+, shows "99+" past 99)
-## `opts` tunes the SIZE (workbench-driven): opts.dot_px overrides the dot diameter; opts.num_size overrides
-## the count font (the pill height tracks it at the shipped ratio so the pill still wraps the number). Absent
-## opts → the shipped Tune defaults. Always MOUSE_FILTER_IGNORE. Position it via attach_badge (top-right
-## overhang) or by hand. Returns a Control (the badge root).
 static func badge(kind: String = "dot", count: int = 0, opts: Dictionary = {}) -> Control:
 	if kind == "pill":
 		var num := int(opts.get("num_size", Tune.BADGE_NUM_SIZE))   # count font (workbench-tunable)
@@ -705,15 +560,6 @@ static func saved_shadow_params() -> Dictionary:
 		return shadow_params({})
 	return shadow_params(Kit.load_config(Kit.CONFIG_PATH))
 
-## Re-point an existing shared-shadow Panel at a new element corner radius — for elements whose
-## corner is derived at relayout time (the unlock strip), so the shadow's rounding always matches.
-static func set_shadow_corner(sh: Panel, corner: float) -> void:
-	var sb := sh.get_theme_stylebox("panel") as StyleBoxFlat
-	if sb != null:
-		sb.set_corner_radius_all(int(maxf(corner + float(saved_shadow_params().spread), 0.0)))
-
-## How far THE uniform shadow reaches below an element's bottom edge (cast + feather + spread) —
-## clipping ancestors (ScrollContainers) must leave this much room or the cast is sliced off flat.
 static func shadow_bottom_reach() -> float:
 	var p := saved_shadow_params()
 	return float(p.offset_y) + float(p.blur) + float(p.spread)
@@ -765,54 +611,10 @@ static func with_shadow(node: Control, size: float, p: Dictionary, circular := f
 	node.minimum_size_changed.connect(sync)
 	return holder
 
-## Float a small token (the wallet "+") OVER a sized `pill` WITHOUT changing the pill's size. The pill stays
-## the layout-sized node (its icon + number drive the capsule); the token is anchored to the pill's RIGHT
-## edge, nudged by opts.plus_x (horizontal — +overhang past the edge / −tuck in over the pill) and
-## opts.plus_dy (vertical — +down / −up), and scaled by opts.plus_size. Returns a holder Control — add THIS
-## to the layout in place of the pill; its minimum size tracks the pill, so a bigger "+" never grows the
-## capsule. The token keeps its own input surface (a real Button stays tappable, and attach_badge can ride it).
-static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Control:
-	var holder := Control.new()
-	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the pill / token own their input
-	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# the DROP SHADOW behind the capsule (the painted pill is a StyleBoxTexture with no native shadow): the
-	# SHARED box-shadow, cast as a capsule (the big corner clamps to the pill's half-height so it hugs the
-	# pill). On only when the pill's Shadow toggle is set; opts.shadow_params carries the single shared look.
-	if bool(opts.get("shadow", false)):
-		holder.add_child(shadow_rect(1000.0, opts.get("shadow_params", {})))
-	holder.add_child(pill)
-	pill.set_anchors_preset(Control.PRESET_FULL_RECT)         # the pill fills the holder; the holder is sized to the pill
-	# keep the holder's MINIMUM size equal to the pill's, so the parent layout reserves the pill size only
-	var sync := func() -> void:
-		holder.custom_minimum_size = pill.get_combined_minimum_size()
-	sync.call()
-	pill.minimum_size_changed.connect(sync)
-	# the "+" overlays the pill's right-centre, decoupled from the pill size
-	var box := float(opts.get("plus_size", 26))
-	token.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	token.offset_right = float(opts.get("plus_x", 0))         # +past the right edge / −in over the pill
-	token.offset_left = token.offset_right - box
-	var dy := float(opts.get("plus_dy", 0))
-	token.offset_top = -box / 2.0 + dy
-	token.offset_bottom = token.offset_top + box
-	holder.add_child(token)
-	return holder
-
-## --- toggle switch ---------------------------------------------------------------------
-## A SWITCH (the settings music / sounds rows): a press surface wearing the sliced
-## switch art (kit/switch_on.png · switch_off.png — the green/tan pill with the knob baked
-## in), or a code-drawn track + sliding knob when the art is absent (the kit invariant —
-## same metrics either way). Tapping flips the state, repaints the look, and fires
-## `on_changed(new_state)`. `px_h` sizes it; width follows the sliced pill's aspect. Stateless
-## otherwise — the caller owns persistence and reads back the live value via the callback.
 const SWITCH_SKIN := "res://games/grove/assets/ui/dialogs/settings/"   # cut-paper reskin: toggle_on/off.png
 # The code-drawn cut-paper panel, loaded at runtime (a preload const would be a cycle — cut_paper.gd
 # preloads this skin). Used for the rugged switch track + knob.
 const CUT_PAPER := "res://engine/scripts/ui/cut_paper.gd"
-static func _switch_tex(on: bool) -> Texture2D:
-	var p := SWITCH_SKIN + ("toggle_on.png" if on else "toggle_off.png")
-	return load(p) as Texture2D if ResourceLoader.exists(p) else null
 
 static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.SWITCH_H, cp: Dictionary = {}) -> Button:
 	var w := px_h * Tune.SWITCH_ASPECT

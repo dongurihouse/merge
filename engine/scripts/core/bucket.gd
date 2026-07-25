@@ -129,8 +129,6 @@ static func sell_placed(i: int) -> int:
 	return got
 
 # --- production + collect ------------------------------------------------------------------------
-static func pending_line(line: String) -> float:
-	return RB.pending(state(), line, now())
 
 static func line_stier(line: String) -> int:
 	return RB.line_stier(state(), line)

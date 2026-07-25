@@ -309,54 +309,6 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	cluster.add_child(panel)
 	return {"panel": panel, "label": lbl, "icon": icon, "plus": plus}
 
-# A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
-# (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the
-# sprite to reinforce each currency's hue (star=gold, acorn=brown, gem=teal — gem ≠ water).
-static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, box_px: float) -> Control:
-	var box := CenterContainer.new()
-	box.custom_minimum_size = Vector2(box_px, box_px)
-	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the currency sprite, optically scaled. (Its lift off the gold pill is handled at the pill surface now,
-	# not a per-icon drop shadow — the unified-shadow refactor retired the old `icon_shadow` polish.)
-	var ic: Control = Look.icon(icon_id, float(gsize) * optical)
-	ic.modulate = tint
-	if ic is Label:                                   # glyph fallback — re-tint via font_color too
-		(ic as Label).add_theme_color_override("font_color", tint)
-		ic.modulate = Color.WHITE
-	box.add_child(ic)
-	return box
-
-# A small "+" that opens the store — the acquire affordance (the wallet had no path to "get more").
-# Wears the painted ui_asset2 "+" sprite (shared/icon_plus.png — a self-contained green plus token, so no
-# code-drawn disc behind it); a "+" glyph falls back when the sprite is missing. Reuses the shared press juice.
-static func _plus_button(open_store: Callable, box: float = Tune.PLUS_BOX) -> Button:
-	var b := Button.new()
-	b.flat = true                       # the sprite IS the token — the Button draws no chrome of its own
-	b.focus_mode = Control.FOCUS_NONE
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.custom_minimum_size = Vector2(box, box)
-	b.add_theme_constant_override("h_separation", 0)
-	# the painted green "+" (glyph "+" fallback when absent). Its lift off the pill is the SHARED box-shadow.
-	var mark: Control = Look.icon("plus", box)
-	if mark is Label:                                   # glyph fallback: keep the cream-on-green token look
-		(mark as Label).add_theme_color_override("font_color", Tune.PLUS_GLYPH)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Tune.PLUS_BG
-		sb.set_corner_radius_all(int(box / 2.0))
-		for st in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(st, sb)
-	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
-	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(mark)
-	Look.add_press_juice(b)
-	if open_store.is_valid():
-		b.pressed.connect(func() -> void: open_store.call())
-	return b
-
-# HOME — its own pinned chip (a cream pill matching the HUD language), placed to the right of
-# the Lv chip in the shared left row. Pulled OUT of the wallet pill so nav ≠ currency. Returns
-# the inner button (null when no `home` callback) so scenes can target/spotlight it.
 static func _build_home_chip(left: HBoxContainer, opts: Dictionary) -> Button:
 	var home_cb: Variant = opts.get("home")
 	if not (home_cb is Callable and (home_cb as Callable).is_valid()):
@@ -402,41 +354,6 @@ static func _set_or_tick(lbl: Label, v: int) -> void:
 	else:
 		lbl.text = str(v)
 
-# Load a texture only if it BOTH exists AND imports to a GENUINE, fully-imported image.
-# Two distinct failure modes to reject (both would otherwise put garbage in the frame):
-#   1) ResourceLoader.exists() can return true from a committed .import while the imported
-#      .ctex is missing (new art not yet reimported in this checkout) — load() then returns
-#      null, which would leave the frame BLANK (a ringless cream disc).
-#   2) WORSE: when the .ctex is STALE/unresolved on the player's machine, load() returns a
-#      NON-null import PLACEHOLDER (a PlaceholderTexture2D — the engine's missing-texture
-#      stand-in). A bare `as Texture2D` lets that through, and the square frame TextureRect
-#      then renders Godot's missing-texture CHECKERBOARD ("the white grid"). So a non-null
-#      result is NOT enough — we must confirm it is a real, decoded image.
-# We accept ONLY the concrete texture types a real imported .ctex (or runtime ImageTexture)
-# produces, and require non-zero pixels. The placeholder is a PlaceholderTexture2D (and any
-# other untyped fallback fails the type test), so it is rejected here — the caller then
-# falls through to the next VISIBLE, non-square fallback (rope ring → honey token), and a
-# checkerboard can never reach the screen.
-static func _safe_tex(path: String) -> Texture2D:
-	if path == "" or not ResourceLoader.exists(path):
-		return null
-	var res := load(path)
-	# Reject the import placeholder by allow-listing only genuine image textures. A stale
-	# .ctex resolves to PlaceholderTexture2D (NOT in this list) → rejected, not drawn.
-	var real := res is CompressedTexture2D or res is ImageTexture or res is PortableCompressedTexture2D
-	if not real:
-		return null
-	var tex := res as Texture2D
-	# A genuine import always has real pixels; a zero-size texture is a degenerate/empty
-	# import we should never paint into the frame rect.
-	if tex == null or tex.get_width() <= 0 or tex.get_height() <= 0:
-		return null
-	return tex
-
-
-# The level number sits in the badge's open centre, which is tighter than the plain
-# avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold
-# ring (and clear the crown/laurel on the high badges) instead of crowding it.
 static func _lv_font_size(level: int, px: float) -> int:
 	# Scaled to the HUD badge art so digits stay centred in the medal's open centre as it grows.
 	# The per-digit-count sizes were tuned on a 216 px badge (the old 20%-of-1080 slot); they now

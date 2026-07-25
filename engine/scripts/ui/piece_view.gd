@@ -694,11 +694,3 @@ static func _add_gen_sparkle(holder: Control, size: float, hl: Dictionary = {}) 
 	sp.speed = float(hl.get("sparkle_speed", GEN_SPARKLE["speed"]))
 	holder.add_child(sp)
 
-# A small fixed-box item sprite (for giver ask-cards / the discovery ladder).
-static func mini_item(code: int) -> Control:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(52, 52)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var n := make_piece(code, 52.0)
-	holder.add_child(n)
-	return holder

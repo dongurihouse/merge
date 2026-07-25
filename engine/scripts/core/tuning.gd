@@ -63,7 +63,6 @@ class FontScale:
 class Ambient:
 	# --- characters --------------------------------------------------------------------
 	const CHAR_SIZE := Vector2(84, 84)            # a character's on-screen box
-	const SPARSE_CAP := 2                          # a "sparse" layer (the board's backdrop band) shows at most this many
 	const EDGE_MARGIN := 40.0                      # a character is kept this many px clear of every edge of bounds
 	const REPATH_HZ := 15.0                        # the wander/bob re-positions at this fixed rate (Hz), NOT every frame — the drift is slow + purely time-derived, so 15Hz is visually identical at ~4× less CPU
 
@@ -162,7 +161,6 @@ class Audio:
 	# --- per-trigger "juice" variation -------------------------------------------------
 	const PITCH_JITTER_CENTS := 12.0     # ± random detune per trigger (NON-melodic cues only; play_note never jitters)
 	const GAIN_JITTER_DB := 1.2          # ± random level per trigger
-	const HOT_VARIANTS := 3              # baked take-variants for high-frequency cues
 
 
 class FX:
@@ -286,7 +284,6 @@ class FX:
 	const LAND_SQUASH_K := [Vector2(1.20, 0.80), Vector2(0.93, 1.08), Vector2.ONE]   # punchy: squash -> counter-stretch -> settle
 	const LAND_SQUASH_T := [0.09, 0.15]   # ~0.24s — slow enough to read as a real thump (was 0.18s, 2-key)
 	const LAND_FLASH_FACTOR := 0.45
-	const LAND_FLASH_T := 0.10
 	const LAND_TOUCH_DB := -4.0
 	const LAND_PUFF_N := 7
 	# --- feel.launch ---
@@ -359,22 +356,17 @@ class Hud:
 	const PILL_RADIUS := 40
 	const PILL_BORDER_W := 3
 	const PILL_BORDER := Color("#C9A66B", 0.9)      # warm gold (matches the ask pills)
-	const CLUSTER_PAD_X := 18.0           # currency pill horizontal content margin
-	const PILL_PAD_X := 16.0              # level pill horizontal content margin
 	const PILL_PAD_Y := 12.0              # vertical content margin (both pills)
 
 	# --- currency cluster --------------------------------------------------------------
 	# ONE shared icon BOX so the wallet currencies share a centerline and the numbers
 	# line up; each sprite is sized as icon_box × a per-icon OPTICAL SCALE so their visual
 	# weights match (equal box ≠ equal visual weight). The BOX itself is the live
-	# `icon_box` from the workbench (ui_workbench_settings.json) — that slider sets the real
-	# icon size now; CHIP_ICON_BOX is only the bare default when no config is present.
-	const CHIP_ICON_BOX := 40.0           # default square icon box (live size = workbench `icon_box`)
+	# `icon_box` from the workbench (ui_workbench_settings.json) — that slider is the only
+	# source of the icon size now.
 	const COIN_OPTICAL := 1.0             # gold coin (soft currency): the reference weight
 	const GEM_OPTICAL := 1.0              # premium acorn: round, same weight as the coin
 	const CHIP_ROW_SEP := 4               # constant icon↔number gap (shared centerline)
-	const PAIR_SEP := 14                  # gap BETWEEN currency pairs (was the row's ROW_SEP=6)
-	const NUM_SIZE := FontScale.HEADING   # currency number font size
 
 	# --- identity tints (modulate over the sprites) ---
 	# Soft currency = a GOLD COIN, premium = a GOLDEN ACORN (the grove's premium). Both art
@@ -384,10 +376,7 @@ class Hud:
 
 	# --- the "+" acquire button (opens the store) --------------------------------------
 	const PLUS_BOX := 26.0                # the little round +-token diameter
-	const PLUS_SIZE := FontScale.FINE    # the "+" glyph font size
-	const PLUS_GAP := 2                   # gap between a currency number and its + button
 	const PLUS_BG := Color("#4E7C46")     # leaf green (the primary-CTA language → "get more")
-	const PLUS_BORDER := Color("#3C6037")
 	const PLUS_GLYPH := Color("#FBF6EC")  # cream "+"
 
 	# --- the standalone HOME chip (pulled OUT of the wallet pill) -----------------------
@@ -395,43 +384,27 @@ class Hud:
 	const HOME_ICON := 36                 # the home glyph/sprite px inside its chip
 
 	# --- the level chip ----------------------------------------------------------------
-	const LV_PX := 48.0                   # the round level "coin" diameter
-	const LV_TOKEN_BG := Color("#EAD49C") # honey token (de-greened — green is reserved for the CTA); gold ring + ink number
-	const LV_TOKEN_BORDER := Color("#C9A66B")  # warm gold ring
-	const LV_NUM_SIZE := FontScale.BODY  # the level number inside the token
-	const LVL_PROG_SIZE := FontScale.BODY  # the level-progress fraction to its right
-	const LVL_PROG_INK_ALPHA := 0.85      # level-progress text = Color(INK, this)
 
 
 class UiSkin:                             # NOT "Skin" — that's a native Godot class
 	# --- background --------------------------------------------------------------------
-	const BG_SCRIM_ALPHA := 0.5           # default dark scrim over a background image
 
 	# --- the coin marker (code-drawn fallback) -----------------------------------------
-	const COIN_PX := 34.0                 # default coin diameter
-	const COIN_BORDER_W := 3
 
 	# --- the kit: panel surfaces (plank / chip / parchment) ----------------------------
 	const KIT_TEX_MARGIN := 96.0          # nine-patch texture margin (512 source)
 	const PLANK_PAD_X := 18.0
 	const PLANK_PAD_Y := 14.0
 	const PLANK_ALPHA := 0.94             # flat-fallback bg = Color(Pal.PLANK, this)
-	const PLANK_RADIUS := 18
 	const PLANK_BORDER_W := 4
-	const CHIP_PAD_X := 16.0
-	const CHIP_PAD_Y := 6.0
-	const CHIP_ALPHA := 0.62              # flat chip bg = Color(Pal.INK, this)
-	const CHIP_RADIUS := 20
 	const PARCH_PAD_X := 26.0
 	const PARCH_PAD_T := 20.0
 	const PARCH_PAD_B := 22.0             # parchment is bottom-heavy
-	const PARCH_RADIUS := 26
 	const PARCH_BORDER_W := 5
 
 	# --- icons & stat chip -------------------------------------------------------------
 	const ICON_PX := 28.0                 # default icon size (glyph or sprite)
 	const CHIP_ROW_SEP := 6               # icon↔number separation in a stat chip
-	const STAT_NUM_SIZE := FontScale.HEADING
 
 	# --- title ribbon ------------------------------------------------------------------
 	const TITLE_SIZE := FontScale.HEADING  # default title font size
@@ -481,7 +454,6 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const INSET_LINE := Color(0, 0, 0, 0.10)             # faint top inner line so a Sunk well reads carved-in
 	const INSET_LINE_W := 2
 	const RADIUS_CARD := 24               # unified corner radius for rectangular surfaces
-	const RADIUS_CHIP := 14               # unified corner radius for small chips/pills
 
 	# --- badges (Look.badge) -----------------------------------------------------------
 	const BADGE_COLOR := Color("#E24B4A")  # alert red — "something new" / counts
@@ -501,7 +473,6 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const SWITCH_H := 48.0                 # the switch pill's height; width follows the aspect
 	const SWITCH_ASPECT := 1.95            # the sliced pill's native w:h (≈150×77)
 	const SWITCH_KNOB_INSET := 4.0         # fallback knob inset from the track edge
-	const SWITCH_OFF_ALPHA := 0.32         # fallback OFF track = Color(Pal.BARK, this)
 
 
 class Music:
@@ -519,28 +490,19 @@ class Shop:
 	const BACKDROP_VIGNETTE := 0.55       # extra edge-darkening toward the tint (focuses the centre)
 	const VEIL_ALPHA := 0.6               # dim behind the storefront = Color(INK, this) — flat fallback
 	const CONFIRM_VEIL_ALPHA := 0.5       # ...and behind the cash confirm
-	const COL_SEP := 12                   # storefront column spacing
 	const CONFIRM_COL_SEP := 14
-	const CARD_MAX_W := 920.0             # storefront card width cap
-	const CARD_VW_FRAC := 0.86            # ...else this fraction of the viewport
-	const SECTION_PAD := 6                # the wallet/foot breathing-room spacers
 
 	# --- header / title ----------------------------------------------------------------
-	const HEADER_H := 140                 # the stall banner band height
 	const TITLE_SIZE := FontScale.TITLE   # storefront title font
-	const CONFIRM_TITLE_SIZE := FontScale.HEADING  # confirm dialog title font
-	const RIBBON_TOP := 4.0               # title chip inset from the band top
 
 	# --- rows --------------------------------------------------------------------------
 	const ROW_SEP := 14                   # wallet / help / gem-card rows
-	const DIV_SEP := 10                   # divider row (tab ↔ vine)
 	const WHAT_SEP := 8                   # confirm "icon + amount" row
 	const BTNS_SEP := 16                  # confirm button row
 
 	# --- the close (✕) button ----------------------------------------------------------
 	const X_BTN := 64.0                   # round close button size
 	const X_FONT := FontScale.HEADING
-	const X_MARGIN := 12.0                # inset from the card's top-right corner
 	const X_RADIUS := 32
 	const X_BORDER_W := 3
 	const X_BG := Color("#D75A4E")        # RED close disc — an unmistakable control (was a brown btn_round, read as an ornament)
@@ -548,33 +510,8 @@ class Shop:
 	const X_EDGE := Color("#9C3A30")
 
 	# --- divider tab + vine ------------------------------------------------------------
-	const TAB_BG := Color("#F0DCA8")      # warmer honey banner (was #E8D9BC) — sections read as headers, not quiet tags
-	const TAB_RADIUS := 12
-	const TAB_BORDER_W := 2
-	const TAB_EDGE_ALPHA := 0.5           # border = Color(BARK, this)
-	const TAB_PAD_X := 14.0
-	const TAB_PAD_T := 4.0
-	const TAB_PAD_B := 5.0
-	# (DIV_CAP_SIZE / DIV_CAP_INK_ALPHA removed 2026-07-18 — dead; the kit's _kit_divider owns the
-	#  section caption and renders it at FS.BODY with its own ink alpha.)
-	const VINE_H := 40                    # divider vine height — COVERED fills the gap at this height, showing most of the leafy strip
-	const LINE_H := 3                     # ...else a flat rule this tall
-	const LINE_ALPHA := 0.35              # rule = Color(BARK, this)
 
 	# --- help card ---------------------------------------------------------------------
-	const HELP_CARD := Vector2(330, 232)
-	const CARD_INNER_SEP := 4             # inner VBox spacing (help + gem cards)
-	const HELP_ICON := 56.0
-	# The product icon is the HERO of a help/featured card: enlarged and seated on a soft honey
-	# disc so it pops off the cream card (the bare 56px glyph read tiny + faint on parchment).
-	const HERO_ICON := 72.0               # the enlarged product icon (was the bare HELP_ICON 56)
-	const ICON_PLATE := 108.0             # the soft disc behind the hero icon
-	const ICON_PLATE_BG := Color("#F2EFDC")  # pale disc under card items — matches the grove CARD_PEDESTAL role value
-	const ICON_PLATE_EDGE_ALPHA := 0.16   # disc rim = Color(BARK, this)
-	const HELP_TITLE_SIZE := FontScale.BODY
-	const HELP_CAP_SIZE := FontScale.FINE
-	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
-	const HELP_PRICE_SIZE := FontScale.BODY  # gem price chip number
 
 	# (FEATURED_CARD — the item-shortcut offer card size — was removed 2026-06-23 with the
 	# shop's item-buying; that moves to the board's item info bar.)
@@ -584,35 +521,6 @@ class Shop:
 	# the whale $49.99/$99.99 — is visible at once, no hidden scroll. The badge rides a FIXED-height
 	# slot on EVERY card (empty when un-badged) so a "Popular"/"2×" tag never shoves one card's
 	# content down relative to its row-mates.
-	const GEM_CARD := Vector2(206, 222)   # shorter now the badge is a reserved slot, not extra flow
-	const GEM_GRID_COLS := 3
-	const GEM_GRID_HSEP := 14
-	const GEM_GRID_VSEP := 12
-	const BADGE_SLOT_H := 26              # reserved badge band height (keeps card content aligned)
-	const POP_RADIUS := 10                # "Popular" badge
-	const POP_PAD_X := 10.0
-	const POP_PAD_Y := 2.0
-	const POP_SIZE := FontScale.FINE
-	const GEM_ICON := 64.0
-	# The cash packs scale their gem cluster by tier so a bigger pack LOOKS bigger (same art, grown
-	# size) — the value ladder reads at a glance instead of six identical clusters. Lerped MIN→MAX
-	# across the pack list; GEM_ICON stays the starter-banner size.
-	const GEM_ICON_MIN := 46.0            # the entry pack's cluster
-	const GEM_ICON_MAX := 82.0            # the whale pack's cluster
-	const GEM_COUNT_SIZE := FontScale.TITLE
-	# The BUY capsule — ONE source for every price on a card (help / featured / cosmetic / cash /
-	# starter). White text on leaf-GREEN (Pal.BTN_PRIMARY, the established primary-CTA colour), fully
-	# rounded with a raised shadow, so the price reads as the tappable buy button. The whole card
-	# presses; the pill is its visual CTA. (Replaces the old brown #5A3F28 "mud pebble".)
-	const BUY_RADIUS := 21                # ~capsule for the pill's ≈42px height (radius ≈ h/2)
-	const BUY_BORDER_W := 2
-	const BUY_PAD_X := 16.0
-	const BUY_PAD_T := 6.0
-	const BUY_PAD_B := 7.0
-	const BUY_SIZE := FontScale.BODY    # price number font
-	const BUY_NEED_MODULATE := Color(0.74, 0.77, 0.72, 0.95)  # can't-afford → dim the PILL only (the card stays bright)
-	const PRICE_ICON := 28.0              # the coin/gem glyph inside the BUY pill (cost = icon + number)
-	const PRICE_ROW_SEP := 6             # gap between that glyph and the number
 
 	# --- the card button (both card kinds) ---------------------------------------------
 	const CARD_BG := Color("#F4E9D6")
@@ -629,26 +537,16 @@ class Shop:
 	# rect trap: a V margin past half the control's height collapses the box).
 	const CARD_TEX_MARGIN := 64.0         # square / wide card frame (288–601px source)
 	const CARD_PRESS_MODULATE := Color(0.93, 0.89, 0.83)  # pressed = a soft darken of the card/✕ art
-	const BUY_TEX_MARGIN := Vector2(46.0, 22.0)   # the green buy capsule (296×94 source)
-	const TAG_TEX_MARGIN := Vector2(54.0, 16.0)   # the red "Popular" ribbon (231×66 source)
 
 	# --- urgency + info chrome (countdown chip · the "i" info badge + its sheet) ---------
 	# The claimable RED DOT is the shared `Look.badge("dot")` (UiSkin.BADGE_*) — no local dot here.
 	# Local to the shop: the per-card "i" badge (a real button) that opens an item-detail sheet.
-	const INFO_SIZE := 26.0               # the per-card "i" info badge disc (a real tap target)
-	const INFO_BG := Color("#5FA8D8")     # soft blue (the reference info-badge language)
-	const INFO_EDGE := Color("#3E83AD")
-	const INFO_BORDER_W := 2
-	const INFO_FONT := FontScale.FINE
-	const INFO_MARGIN := 7.0
 	# (the item-detail sheet's width/body-font consts moved to the workbench-tuned `info` config —
 	#  see Kit.info_opts_from_config; the sheet face is now the shared Kit.mail_dialog, no Claim + a Got it.)
 
 	# --- affordability + purchase feedback ---------------------------------------------
-	const NEED_OFFSET := Vector2(100, 70)  # "Need N more" floater offset
 	const NEED_SIZE := 28
 	const FLY_ICON := 32.0                # the grant icon that arcs to the wallet
-	const SCATTER_DELAY := 0.08           # storefront row scatter-in base delay
 
 	# --- cash confirm ------------------------------------------------------------------
 	const CONFIRM_GEM_ICON := 36.0

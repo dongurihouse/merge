@@ -139,12 +139,6 @@ static func _land_squash(node: Control) -> void:
 static func _land_flash_peak(intensity: float) -> float:
 	return Tune.FLASH_PEAK * Tune.LAND_FLASH_FACTOR * intensity
 
-## Do the discrete extras (flash + puff + touch sound + haptic) fire? Only for a non-quiet
-## landing with real strength — a quiet bulk/gravity settle or a zero-intensity land is squash-only.
-static func _land_should_emit(intensity: float, quiet: bool) -> bool:
-	return not quiet and intensity > 0.0
-
-## Micro-puff particle count: LAND_PUFF_N scaled by intensity. 0 at intensity 0.
 static func _land_puff_count(intensity: float) -> int:
 	return int(Tune.LAND_PUFF_N * intensity)
 ## The launch EMIT — an emitter spits a projectile (the generator pops a tile, the Rush board
@@ -157,23 +151,6 @@ static func _land_puff_count(intensity: float) -> int:
 ## water_pop is its identity; the fling's button_tap tick) by playing it itself — the verb owns the
 ## recoil + puff + haptic, not the audio. Pass a non-empty `sound` only when a caller wants the verb
 ## to play it instead.
-static func launch(emitter: Control, projectile: Control, intensity := 1.0, sound := "", sound_db := Tune.LAUNCH_TOSS_DB, sound_pitch := 1.1) -> void:
-	if emitter and is_instance_valid(emitter):
-		FX.gen_charge(emitter)                     # emitter recoil (reuse the generator anticipation)
-	if intensity > 0.0 and projectile and is_instance_valid(projectile):
-		var p := projectile.get_parent()
-		if p is Node:
-			FX.burst(p, projectile.position + projectile.size / 2.0, LEAF, _launch_puff_count(intensity))   # muzzle puff
-	if sound != "":
-		Audio.play(sound, sound_db, sound_pitch)
-	haptic("tick")
-
-# --- launch pure helpers (no scene tree — unit-tested in feel_tests.gd) ----------------
-
-## Muzzle-puff particle count: LAUNCH_PUFF_N scaled by intensity (floored to int); 0 at intensity 0,
-## where launch() also skips the puff entirely.
-static func _launch_puff_count(intensity: float) -> int:
-	return int(Tune.LAUNCH_PUFF_N * intensity)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 
 ## The MOVE — a tile TRAVELS between two positions, built to sell the ARRIVAL. Returns the primary

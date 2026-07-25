@@ -146,28 +146,10 @@ static func reward_fx_source_size() -> float:
 static func set_reward_fx_source_size(value: float) -> void:
 	pass # test-only preview value; kept as a no-op for older workbench call sites
 
-static func reward_fx_auto_replay() -> bool:
-	return bool(_cached_reward_fx_config().get("auto_replay", false))
 
 static func set_reward_fx_auto_replay(on: bool) -> void:
 	pass # test-only preview value; kept as a no-op for older workbench call sites
 
-## Shatter a captured veil texture from `impact` (host-local). `bbox` (host-local) is the
-## region's opaque bounds — the fracture area. Each shard carries its slice of `texture`, so
-## an irregular masked region breaks in its true shape (pixels outside are transparent).
-## Used by the home-map unlock to break the purple lock veil. `host` should be a Control/Node2D
-## whose local origin matches the texture's pixel origin (a full-view snapshot).
-static func shatter_veil(host: Node, texture: Texture2D, bbox: Rect2, impact: Vector2, hold := 0.12) -> void:
-	if not (host and is_instance_valid(host)) or texture == null or bbox.size.x < 2.0 or bbox.size.y < 2.0:
-		return
-	var f := ShatterScript.new()
-	host.add_child(f)
-	var rect_poly := [bbox.position, bbox.position + Vector2(bbox.size.x, 0.0),
-			bbox.position + bbox.size, bbox.position + Vector2(0.0, bbox.size.y)]
-	var dust := Color(0.6863, 0.6627, 0.9255, 0.8)   # #AFA9EC, the veil's tint
-	# A transparent-viewport snapshot is premultiplied-alpha — tell the field so shards composite
-	# to match the veil instead of darkening.
-	f.arm(rect_poly, impact, {"texture": texture, "dust": dust, "premultiplied": true}, hold)
 
 static func pop(node: Control) -> void:
 	if not (node and is_instance_valid(node)):

@@ -1345,27 +1345,6 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		bar.add_child(sell)
 	return bar
 
-func _left_map_texture(rel: String) -> Texture2D:
-	var path := Look.kit(rel)
-	return load(path) as Texture2D if ResourceLoader.exists(path) else null
-
-func _left_map_style(rel: String, slice: Vector4, content: Vector4) -> StyleBoxTexture:
-	var tex := _left_map_texture(rel)
-	if tex == null:
-		return null
-	var st := StyleBoxTexture.new()
-	st.texture = tex
-	st.set_texture_margin(SIDE_LEFT, slice.x)
-	st.set_texture_margin(SIDE_TOP, slice.y)
-	st.set_texture_margin(SIDE_RIGHT, slice.z)
-	st.set_texture_margin(SIDE_BOTTOM, slice.w)
-	st.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	st.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	st.content_margin_left = content.x
-	st.content_margin_top = content.y
-	st.content_margin_right = content.z
-	st.content_margin_bottom = content.w
-	return st
 
 func _on_dock_collect() -> void:
 	var got := Bucket.collect()
@@ -1395,13 +1374,6 @@ func _line_icon(line: String) -> String:
 		"diamond": return "gem"
 		_: return "leaf"
 
-func _card_sub(text: String) -> Label:
-	var l := _dock_label(text, FS.FINE, true)
-	l.modulate = Color(1, 1, 1, 0.92)
-	return l
-
-
-# --- home scene swipe: pure decision (unit-tested) --------------------------------------
 const SWIPE_COMMIT_FRAC := 0.33   # commit once the slide passes this fraction of the viewport width
 const SWIPE_ACTIVATE := 12.0      # px of horizontal travel before a drag becomes a scene-swipe
 const SWIPE_EDGE_RESIST := 0.35   # damping when dragging toward a missing neighbour (first/last scene)
@@ -1804,19 +1776,6 @@ func _screen_center(dy: float) -> Vector2:
 func _select_tap(_gpos: Vector2) -> void:
 	pass   # the dock view has no map cards to open — spirit orbs are handled on the drag path (_on_orb_tap)
 
-# Pan the place-picker stack by `dy` px, clamped to [0, _select_scroll_max], and slide every card to its
-# scrolled position (clip-local y0 − scroll). No-op when the stack fits (_select_scroll_max == 0).
-func _scroll_select_by(dy: float) -> void:
-	var prev := _select_scroll
-	_select_scroll = clampf(_select_scroll + dy, 0.0, _select_scroll_max)
-	if is_equal_approx(_select_scroll, prev):
-		return
-	for hit in select_hits:
-		var c: Control = hit.node
-		if is_instance_valid(c):
-			c.position.y = float(hit.y0) - _select_scroll
-
-# Scroll the in-hand orb grid by `dy` px, clamped to [0, _hand_scroll_max]. No-op when the hand fits.
 func _scroll_hand_by(dy: float) -> void:
 	if _hand_scroll_max <= 0.0 or _hand_panel == null or not is_instance_valid(_hand_panel):
 		return
@@ -1901,55 +1860,6 @@ func _on_cluster_tap(cluster_id: String, node: Control, at: Vector2) -> void:
 	_refresh_play_cta()
 	_update_hud()
 
-# Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.
-# The lock shader rendered alone in a transparent SubViewport reproduces the exact on-screen masking
-# (cover-fit + mask offset), so the snapshot matches where the veil sits. Returns {tex, bbox}, or {}
-# if the veil isn't present. Async — the SubViewport needs a frame to render.
-func _capture_region_veil(view: Variant, k: int) -> Dictionary:
-	if view == null or k < 0 or k >= view.region_overlays.size():
-		return {}
-	var lock := view.region_overlays[k].get("lock") as TextureRect
-	if lock == null or not lock.visible:
-		return {}
-	var vsize := Vector2i(get_global_rect().size)
-	if vsize.x < 4 or vsize.y < 4:
-		return {}
-	var sv := SubViewport.new()
-	sv.size = vsize
-	sv.transparent_bg = true
-	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	var dup := lock.duplicate() as TextureRect
-	var dmat := (lock.material as ShaderMaterial).duplicate() as ShaderMaterial
-	dmat.set_shader_parameter("region_enabled", 1.0)
-	# The shards carry this snapshot's alpha. The live veil sits semi-transparent, so capture it at a
-	# crisp opacity here — otherwise the breaking glass reads as a faint purple smear.
-	var vtc: Color = dmat.get_shader_parameter("tint_color")
-	dmat.set_shader_parameter("tint_color", Color(vtc.r, vtc.g, vtc.b, SHATTER_VEIL_ALPHA))
-	dup.material = dmat
-	dup.visible = true
-	dup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sv.add_child(dup)
-	add_child(sv)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var img: Image = sv.get_texture().get_image()
-	sv.queue_free()
-	if img == null:
-		return {}
-	img.convert(Image.FORMAT_RGBA8)
-	var used := img.get_used_rect()       # native opaque-bounds (C++) — NOT a per-pixel GDScript scan
-	if used.size.x < 2 or used.size.y < 2:
-		return {}
-	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
-
-# --- §1 residents: DORMANT legacy welcome shop + unlock gift helpers ----------------------
-# Superseded by the unified habitat: the map now renders + manages the habitat (the spirits dock) and
-# the nav routes to the Expedition dialog. This welcome-shop path is no longer reached in-game; it (and
-# the resident_counts roster model it drives) is kept dormant and retires together with the economy pass.
-# G.welcome_resident spends + adds + silently auto-merges two-of-a-kind; the population layer is rebuilt
-# from that roster after each legacy buy.
-
-# --- HUD & chrome -----------------------------------------------------------------------
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module — ★🪙💎 + Store + the S10 Lv chip
@@ -2026,7 +1936,6 @@ func _build_chrome() -> void:
 # (There is no standalone Residents button or modal dialog any more.)
 const DOCK_INK := Color("#43352B")
 const DOCK_PARCH := Color("#F3E7CE")
-const DOCK_STRAW := Color("#D9B679")
 
 static var _resident_content_cache: Dictionary = {}
 static func _resident_content_tex(path: String) -> Texture2D:
@@ -2317,14 +2226,10 @@ func _make_back_button(sb: float) -> Button:
 # in its rect form (Kit.home_button shape:"rect" — the SAME cream/gold badge + icon the bottom nav uses,
 # tuned in the workbench) with its label INSIDE the tile; the RED BADGE does all the attention-pulling,
 # shown ONLY when actionable (today unclaimed / vault claimable / unread mail — the mail badge shows the count).
-# Tiles are sized by the saved config (default 140, scaled by RAIL_SCALE), matching the bottom bar. Every button is appended to _chrome_nodes so it
+# Tiles are sized by the saved config (RAIL_PX is the fallback), matching the bottom bar. Every button is appended to _chrome_nodes so it
 # follows _set_map_chrome_visible (hidden on the place-picker).
 const RAIL_PX := 140.0          # fallback disc size — matches the bottom-bar side buttons
 const RAIL_MARGIN := 18.0       # right-edge inset
-const RAIL_CAP_H := 10.0        # gap band beneath each tile (captions now sit INSIDE the rect badge, so this is just spacing)
-const RAIL_GAP := 8.0           # gap between stacked entries (tightened so the rail reads as one tidy column)
-const RAIL_TOP := 210.0         # first disc sits this far below the safe-top (clear of the wallet pill)
-const RAIL_SCALE := 0.80        # the rail discs are SMALLER than the shared home-button size (nav + back stay full)
 const HOME_ICON_ONLY_SCALE := 0.72
 var _home_opts := {}            # the shared home-button style (loaded once per rail build)
 var _rail_px := RAIL_PX         # the shared home-button size (drives the place-picker back button; full size)
@@ -2350,8 +2255,6 @@ func _hud_layout() -> Dictionary:
 func _hud_edge_margin_px() -> float:
 	return float(_hud_layout().get("edge_margin_px", RAIL_MARGIN))
 
-func _hud_button_px() -> float:
-	return maxf(1.0, roundf(_view_size().x * float(_hud_layout().get("button_w_frac", 0.15))))
 
 func _wallet_bottom_y() -> float:
 	if _hud_panels.size() > 0 and _hud_panels[0] is Control:
@@ -2738,12 +2641,3 @@ func _notification(what: int) -> void:
 		elif get_tree() != null:
 			get_tree().quit()            # from the gallery, the default we disabled (by hand)
 
-func _lbl(t: String, size: int, col: Color) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", INK if col != INK else CREAM)
-	l.add_theme_constant_override("outline_size", 6)
-	return l

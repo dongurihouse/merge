@@ -209,8 +209,6 @@ var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" card — pay 💎 to double a big quest coin reward (§10)
 var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
-var bag_slots_ui: Array = []
-var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
 var _open_shop: Callable = Callable()   # opens the acorn (premium) stall — the bag's short-of-acorns prompt
 var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
@@ -3568,9 +3566,6 @@ func _commit_swap(a: Vector2i, b: Vector2i, node: Control) -> void:
 func _bag_capacity() -> int:
 	return BoardLogic.bag_capacity(Save.bag_slots())
 
-# Is there a buyable "+slot" affordance at the end of the bar right now? (Below the cap only.)
-func _bag_has_buy_slot() -> bool:
-	return Save.bag_slots() < G.BAG_MAX_SLOTS
 
 func _stash(from: Vector2i, node: Control) -> void:
 	if not board.collect_reward_at(from).is_empty():
@@ -3660,35 +3655,8 @@ func _rebuild_bag() -> void:
 		# filled → the most-recent stashed item overlays the tile directly, sized large to cover the satchel.
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
 
-# §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
-# over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
-# slot, gated by _bag_drag_idx so the board-piece drag path (idx -1) is untouched. Motion + release
-# while the drag is live are tracked in _input (the cursor leaves this button onto the board).
-func _on_bag_slot_input(event: InputEvent, i: int) -> void:
-	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
-		or (event is InputEventScreenTouch and event.pressed)
-	if not pressed or _bag_drag_idx >= 0 or _drag_node != null:
-		return
-	if i >= bag.size():
-		return
-	_bag_drag_idx = i
-	var n := _make_piece(int(bag[i]), csz)
-	n.z_index = 40
-	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(n)
-	n.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
-	_drag_node = n
-	bag_slots_ui[i].modulate = Color(1, 1, 1, 0.4)   # the slot dims while its item is in hand
-	Audio.play("item_pickup", -6.0)
 
 func _input(event: InputEvent) -> void:
-	if _bag_drag_idx >= 0 and _drag_node != null:
-		if event is InputEventMouseMotion or event is InputEventScreenDrag:
-			_drag_node.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
-		elif (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
-				or (event is InputEventScreenTouch and not event.pressed):
-			_end_bag_drag(get_global_mouse_position())
-		return
 	var board_release: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
 		or (event is InputEventScreenTouch and not event.pressed)
 	if _pressing and board_release and board_area != null and is_instance_valid(board_area):
@@ -3696,30 +3664,6 @@ func _input(event: InputEvent) -> void:
 		var local: Vector2 = board_area.get_global_transform().affine_inverse() * event.position
 		_on_release(local)
 
-# Resolve a bag drag-back at the global release point: place on the board cell under the cursor
-# if it is empty ground, else snap the item back into the bag (no loss).
-func _end_bag_drag(gpos: Vector2) -> void:
-	var i := _bag_drag_idx
-	var node := _drag_node
-	_bag_drag_idx = -1
-	_drag_node = null
-	if is_instance_valid(node):
-		node.queue_free()
-	if i >= 0 and i < bag_slots_ui.size() and is_instance_valid(bag_slots_ui[i]):
-		bag_slots_ui[i].modulate = Color.WHITE
-	var local: Vector2 = board_area.get_global_transform().affine_inverse() * gpos
-	var cell := _pos_to_cell(local)
-	if board_area.get_global_rect().has_point(gpos) and _retrieve_from_bag(i, cell):
-		return
-	Audio.play("invalid_soft", -8.0)
-	_rebuild_bag()                                    # the dimmed slot restores; item stays put
-
-# --- givers / merchant / gate actions ----------------------------------------------
-
-# #3: a tap on the asked item IS the claim affordance. When the quest is READY (the asked item is on
-# the board, so the per-item ✓ is up) the tap DELIVERS it — the same path the stand-body tap takes —
-# instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
-# still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 	if qi >= 0 and qi < quests.size() and BoardLogic.quest_payable(board, quests[qi]):
 		_on_giver_tap(qi, chip)

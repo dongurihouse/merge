@@ -148,22 +148,6 @@ static func _top_value_index(options: Array) -> int:
 			best_v = v; best = i
 	return best
 
-# A reveal card: the paper cell + the reward as icon(s)+AMOUNT (kept for the static card preview/tests).
-static func _reveal_card(reward: Dictionary, cw: float, ch: float) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(cw, ch)
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	SlotReel.apply_cell_paper(panel, ch)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(center)
-	center.add_child(_reward_amounts(Kit, reward, cw))
-	return panel
-
-# The reward as stacked (icon + amount) rows — premium first (gems → coins → water).
 static func _reward_amounts(Kit: GDScript, reward: Dictionary, cw: float) -> Control:
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER

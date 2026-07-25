@@ -730,21 +730,6 @@ static func map_spots_restored(z: int, unlocks: Dictionary) -> int:
 static func resident_lines(z: int) -> Array:
 	return D.resident_lines(String(MAPS[z].id))
 
-## The home map index for a resident kind, derived from the resident lines each map offers.
-## Returns -1 for unknown kinds.
-static func resident_home_map(kind: String) -> int:
-	for z in MAPS.size():
-		for td in resident_lines(z):
-			if String(td.get("id", "")) == kind:
-				return z
-	return -1
-
-## The home map id for a resident kind, or "" for unknown kinds.
-static func resident_home_map_id(kind: String) -> String:
-	var z := resident_home_map(kind)
-	return String(MAPS[z].id) if z >= 0 else ""
-
-## The per-map one-time unlock gift {coins, gems, spirit}. Delegates to the game data.
 static func map_unlock_reward(z: int) -> Dictionary:
 	return D.map_unlock_reward(z)
 
@@ -875,14 +860,6 @@ static func map_spots_done(z: int, unlocks: Dictionary) -> bool:
 			return false
 	return true
 
-static func completed_maps(unlocks: Dictionary) -> int:
-	var n := 0
-	for z in MAPS.size():
-		if map_spots_done(z, unlocks):
-			n += 1
-	return n
-
-# --- map progression queries (folded from map.gd; the scene keeps thin wrappers) --
 static func map_for_id(id: String) -> int:
 	for z in MAPS.size():
 		if String(MAPS[z].id) == id:
@@ -1518,29 +1495,6 @@ static func map_next_unlock(z: int, unlocks: Dictionary) -> Dictionary:
 			best = {"k": k, "exp": e}
 	return best
 
-# The exp at which the WHOLE of map z is claimable = the highest unclaimed threshold.
-# -1 when every spot is claimed. (Legacy helper — the retired fence_inert used to read it.)
-static func map_finish_exp(z: int, unlocks: Dictionary) -> int:
-	var hi := -1
-	for k in MAPS[z].spots.size():
-		if unlocks.has(String(MAPS[z].spots[k].id)):
-			continue
-		hi = maxi(hi, spot_unlock_exp(z, k))
-	return hi
-
-# Earn exp into the cumulative progression clock that drives Level. Returns the levels gained
-# so the caller can show the Level dialog. The
-# level-up GIFT is no longer granted here — it's DEFERRED to the dialog's Collect (see
-# level_gift / grant_level_gift below), so the interruption pays out. The sole way Level advances.
-static func earn_exp(n: int) -> int:
-	var before := level_for_exp(Save.exp_total())
-	Save.add_exp(n)
-	return level_for_exp(Save.exp_total()) - before
-
-# The water + acorn gift for `levels` levels gained, landing at `new_level` (PURE — no side effects).
-# Water is per level; ACORNS are MILESTONE-ONLY (Option A) — paid only when a level that is a multiple of
-# LEVEL_DIAMOND_EVERY is crossed, so acorns stay precious. `new_level` defaults to -1 → no acorns (the
-# caller should pass the post-gain level). The Level dialog shows the gift; the player collects it.
 static func level_gift(levels: int, new_level: int = -1) -> Dictionary:
 	var n := maxi(0, levels)
 	var gems := 0

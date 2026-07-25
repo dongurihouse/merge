@@ -310,18 +310,6 @@ func can_merge(a: Vector2i, b: Vector2i) -> bool:
 		return false
 	return tier_of(k) < G.merge_top(k)
 
-func any_pair_exists() -> bool:
-	var seen := {}
-	for i in items.size():
-		var k: int = items[i]
-		if k <= 0 or tier_of(k) >= G.merge_top(k):
-			continue
-		if seen.has(k):
-			return true
-		seen[k] = true
-	return false
-
-## Merge a onto b → b holds the next tier; returns the produced code.
 func merge(a: Vector2i, b: Vector2i) -> int:
 	var produced: int = item_at(a) + 1
 	items[idx(a)] = 0

@@ -42,11 +42,6 @@ func _ready() -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED   # so the paper UVs (> 1) tile instead of clamp
 	resized.connect(queue_redraw)
 
-func set_paper(tex: Texture2D) -> void:
-	paper_tex = tex
-	queue_redraw()
-
-## How far content should stay inside the panel edge (the deckle amplitude + a little breathing room).
 func content_inset() -> float:
 	return corner * 0.5 + deckle_amp
 

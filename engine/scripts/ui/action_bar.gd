@@ -59,11 +59,6 @@ static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {})
 static func _bar_corner(bar_h: float) -> int:
 	return maxi(12, int(roundf(bar_h * PAPER_CORNER_FRAC)))
 
-static func apply_paper_surface(bar: Control, bar_h: float = BOTTOM_BAR_H) -> TextureRect:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null or bar == null:
-		return null
-	return Kit.apply_rounded_paper_panel_surface(bar, PAPER_SURFACE_NODE, PAPER_TEXTURE, float(_bar_corner(bar_h)), 2.0)
 
 static func _transparent_tray_style() -> StyleBox:
 	var flat := StyleBoxFlat.new()
