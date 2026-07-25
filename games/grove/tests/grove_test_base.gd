@@ -320,24 +320,11 @@ func _test_unlock_rewards() -> void:
 	ok(bool(wr.ok) and Save.coins() == wc_before - G.RESIDENT_BASE_COST, "welcome_resident still debits the cost")
 	ok(Save.resident_counts(mid, gid)[0] == 1, "welcome_resident still lands a t1")
 
-	# claim_unlock_reward grants coins + gems ONCE per map (the free spirit moved to COMPLETION);
-	# a second claim is a no-op. claim_completion_spirit pays the spirit kind once, at completion.
-	fresh("claim_unlock_once")
-	var cz := 0                                       # the one surviving map (farmhouse: 120c/2g; signature "ember")
-	var cmid := String(G.MAPS[cz].id)
-	var coins0 := Save.coins()
-	var gems0 := Save.diamonds()
-	var got: Dictionary = G.claim_unlock_reward(cz)
-	ok(int(got.coins) == 120 and int(got.gems) == 2, "first claim returns the scaled reward (120c / 2g)")
-	ok(Save.coins() == coins0 + 120, "coins credited")
-	ok(Save.diamonds() == gems0 + 2, "diamonds credited")
-	ok(not got.has("spirit"), "the unlock claim no longer pays the free spirit (moved to completion)")
-	ok(Save.resident_counts(cmid, "ember")[0] == 0, "no spirit lands in any roster at the unlock beat")
-	var coins1 := Save.coins()
-	var gems1 := Save.diamonds()
-	var again: Dictionary = G.claim_unlock_reward(cz)
-	ok(again.is_empty(), "a second claim returns {} (already claimed)")
-	ok(Save.coins() == coins1 and Save.diamonds() == gems1, "a second claim grants nothing more")
+	# claim_completion_spirit pays the map's signature spirit kind ONCE, at completion. (The separate
+	# one-time unlock GIFT — claim_unlock_reward — was retired with the map title plank that was its
+	# only trigger; it had been unreachable in play, granting only ever in this test.)
+	fresh("claim_completion_spirit_once")
+	var cz := 0                                       # the one surviving map (farmhouse; signature "ember")
 	ok(G.claim_completion_spirit(cz) == "ember", "the completion claim pays the map's signature spirit kind")
 	ok(G.claim_completion_spirit(cz) == "", "the completion spirit pays exactly once")
 

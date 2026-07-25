@@ -122,10 +122,16 @@ const GRID0_MAX = 22;
 const TOTAL_CELLS = 63;
 
 // ---- dials ------------------------------------------------------------------------------------
-const D = { base:10, step:4, cpe:7, cps:2, corner:16, inner:4 };
+const D = { coinBase:30, coinStep:12, base:10, step:4, cpe:7, cps:2, corner:16, inner:4 };
 const DIALS = [
-  {k:"base",   label:"Level base exp (L1→L2 cost)",      min:5,  max:120, step:1},
-  {k:"step",   label:"Level step (+exp each level)",     min:0,  max:12,  step:1},
+  // THE LIVE LEVEL CLOCK. content.gd levels off COINS earned (coins_at_level → LEVEL_BASE_COINS /
+  // LEVEL_STEP_COINS). These two are the only dials here that move the shipped game's pacing.
+  {k:"coinBase", label:"LIVE · Level base coins (L1→L2)", min:5,  max:400, step:1},
+  {k:"coinStep", label:"LIVE · Level step (+coins/level)",min:0,  max:100, step:1},
+  // The exp dials below drive this page's CHARTS and the grove_sim economy bot, which still model
+  // the retired exp clock. They no longer set the game's level pace — see the note under the charts.
+  {k:"base",   label:"sim · Level base exp (L1→L2 cost)", min:5,  max:120, step:1},
+  {k:"step",   label:"sim · Level step (+exp each level)",min:0,  max:12,  step:1},
   {k:"cpe",    label:"Clicks per exp (quest effort)",    min:1,  max:20,  step:1},
   {k:"cps",    label:"Clicks / second (active play)",   min:0.5,max:8,  step:0.5},
   {k:"corner", label:"Board corner level (full-open by)",min:3,  max:30,  step:1},
@@ -252,10 +258,13 @@ function render(){
 
 function currentJSON(){
   return JSON.stringify({
+    // the LIVE level clock (content.gd coins_at_level) — the curve players actually feel
+    level_base_coins: D.coinBase,
+    level_step_coins: D.coinStep,
+    // legacy exp curve: read only by grove_sim + this page's charts, not by the shipped game
     level_base_exp: D.base,
     level_step_exp: D.step,
     quest_clicks_per_exp: D.cpe,
-    endgame_clicks: clicksAt(ENDGAME_LEVEL),
     min_level: scaledGrid(),
   }, null, 2);
 }

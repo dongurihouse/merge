@@ -94,8 +94,6 @@ const CARD_CORNER := 22.0   # the maps-card panel radius; edge-bleed thumbs roun
 # locale art · star count · the "after <prev>" prerequisite) and owns the back-arrow chrome below; the
 # card LOOK is workbench-saved config. The back arrow returns to the map you were viewing.
 const CARD_BACK := "map/back_arrow.png"          # the back button's arrow mark (on the shared home disc)
-const LEFT_MAP_TITLE_PLATE := "map/left_title_plate.png"
-const LEFT_MAP_REWARD_SHELF := "map/left_reward_shelf.png"
 
 var unlocks := {}
 
@@ -325,9 +323,6 @@ func map_spots_done(z: int) -> bool:
 
 func map_unlocked(z: int) -> bool:
 	return G.map_unlocked(z, unlocks, _gates())
-
-func owned_count(z: int) -> int:
-	return G.owned_count(z, unlocks)
 
 func _frontier_map() -> int:
 	return G.frontier_map(unlocks, _gates())
@@ -627,135 +622,6 @@ static func map_rect_for(view: Vector2, aspect: float) -> Rect2:
 	var h := w / aspect
 	return Rect2(((view - Vector2(w, h)) * 0.5).floor(), Vector2(w, h).floor())
 
-
-# Item 5 — the map's progress PILL (the farm_ui mockup), centered near the top of the map image
-# (an IGNORE visual; never eats a press). The cream pill (pill_progress.png — green groove + flower +
-# sprout baked in) carries "N to restore this place" text in its upper body (NO inline icon — the pill
-# art's baked flower is the single left mark) and a GREEN fill bar (pill_progress_fill.png) inside its
-# lower groove, sized to restore-progress. The map NAME is dropped entirely. A fully-restored map shows
-# the "restored ✿ 🎁" state and pays MAP_TASK_REWARD once. If the pill art is missing it degrades to the
-# old dark plank look so the read never blanks.
-const _PILL_ASPECT := 603.0 / 109.0
-# the green groove rect inside pill_progress.png, as fractions of the pill size. Pixel-measured from the
-# 603×109 art: the recessed channel's flat tan interior is x=37..500, y=74..86 (between the dark rim
-# walls). The fill bar is sized to exactly this so it sits flush in the empty track.
-const _PILL_GROOVE_X := 0.0614   # 37 / 603
-const _PILL_GROOVE_W := 0.7695   # 464 / 603
-const _PILL_GROOVE_Y := 0.6789   # 74 / 109
-const _PILL_GROOVE_H := 0.1193   # 13 / 109
-
-func _map_title_plank(z: int) -> Control:
-	# the pill IS the restore read; a fully-unlocked map pays its unlock gift once — the gift rides the
-	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays). NOTE: this
-	# pill is DISABLED (see _build_map); the live trigger is _build_map's can_populate block.
-	if G.can_populate(z, unlocks, _gates()):
-		_maybe_show_unlock_reward(z)
-	var pill_path := Look.kit("map/pill_progress.png")
-	if not ResourceLoader.exists(pill_path):
-		return _map_title_plank_fallback(z)
-	# size the pill relative to the map width (clamped), keeping the source aspect.
-	var pw := clampf(_map_rect.size.x * 0.74, 360.0, 560.0)
-	var ph := pw / _PILL_ASPECT
-	var node := Control.new()
-	node.size = Vector2(pw, ph)
-	node.position = _map_rect.position + Vector2((_map_rect.size.x - pw) / 2.0, 16.0 + 96.0 + Look.safe_top(self))
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the pill background art
-	var bg := TextureRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_SCALE
-	bg.texture = load(pill_path)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.add_child(bg)
-	# the GREEN fill bar inside the groove, clipped to the restore progress fraction (claimed / total spots).
-	var total: int = G.MAPS[z].spots.size()
-	var owned := owned_count(z)
-	if bool(G.MAPS[z].get("coverup_mode", false)):
-		# coverup pages count CLUSTERS restored, not legacy spots.
-		var cl: Array = G.clusters(z)
-		total = cl.size()
-		owned = 0
-		for c in cl:
-			if unlocks.has(String((c as Dictionary).id)):
-				owned += 1
-	var left := total - owned
-	var frac := 1.0 if total <= 0 else clampf(float(owned) / float(total), 0.0, 1.0)
-	if map_spots_done(z):
-		frac = 1.0
-	var fill_path := Look.kit("map/pill_progress_fill.png")
-	if ResourceLoader.exists(fill_path) and frac > 0.0:
-		var groove_x := _PILL_GROOVE_X * pw
-		var groove_w := _PILL_GROOVE_W * pw
-		var groove_y := _PILL_GROOVE_Y * ph
-		var groove_h := _PILL_GROOVE_H * ph
-		# a clip frame at the FULL groove width; the bar inside spans the full groove and the frame
-		# crops it to `frac`, so the green bar grows left→right without squashing its rounded caps.
-		var clip := Control.new()
-		clip.position = Vector2(groove_x, groove_y)
-		clip.size = Vector2(groove_w * frac, groove_h)
-		clip.clip_contents = true
-		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		node.add_child(clip)
-		var fill := TextureRect.new()
-		fill.position = Vector2.ZERO
-		fill.size = Vector2(groove_w, groove_h)
-		fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		fill.stretch_mode = TextureRect.STRETCH_SCALE
-		fill.texture = load(fill_path)
-		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		clip.add_child(fill)
-	# the text — "N to restore this place" (or "restored ✿ 🎁"), in the pill's UPPER body. pill_progress.png
-	# already bakes a flower into its top-left, so we DON'T add an icon here — that flower IS the single
-	# left mark (mockup: one flower + text). The number is now the count of UNCLAIMED spots (the single
-	# bottom Unlock button carries the live per-spot exp requirement). The label fills the area to the
-	# RIGHT of the baked flower and centers itself in that remaining span, so it never overlaps the flower.
-	var lbl := Label.new()
-	lbl.text = Strings.t("map.pill.restored") if map_spots_done(z) else Strings.t("map.pill.to_restore_this_place") % left
-	lbl.add_theme_font_size_override("font_size", int(ph * 0.30 if map_spots_done(z) else ph * 0.28))
-	# match the currency pill: dark INK + NO halo (panel-text law — the pill is a solid painted capsule).
-	lbl.add_theme_color_override("font_color", INK)
-	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lbl.position = Vector2(groove_text_left(pw), ph * 0.10)
-	lbl.size = Vector2(pw - groove_text_left(pw) - _PILL_GROOVE_X * pw, ph * 0.42)
-	node.add_child(lbl)
-	return node
-
-# Where the pill's text starts — inset past the baked flower badge on the far left.
-func groove_text_left(pw: float) -> float:
-	return _PILL_GROOVE_X * pw + pw * 0.06
-
-# The legacy dark-plank read, kept ONLY as a graceful fallback when the pill art is missing (so the
-# progress read never blanks). The map NAME is dropped here too (item 5).
-func _map_title_plank_fallback(z: int) -> Control:
-	var plank := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#3D2A1B", 0.84)
-	sb.set_corner_radius_all(18)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#2A1C11", 0.9)
-	sb.content_margin_left = 18.0
-	sb.content_margin_right = 18.0
-	sb.content_margin_top = 6.0
-	sb.content_margin_bottom = 7.0
-	plank.add_theme_stylebox_override("panel", sb)
-	plank.position = _map_rect.position + Vector2(_map_rect.size.x / 2.0, 16.0 + 96.0 + Look.safe_top(self))
-	plank.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if map_spots_done(z):
-		var lbl := Label.new()
-		lbl.text = Strings.t("map.plank.restored")
-		lbl.add_theme_font_size_override("font_size", FS.FINE)
-		lbl.add_theme_color_override("font_color", STRAW)
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		plank.add_child(lbl)
-	else:
-		plank.add_child(_restore_left_row(G.MAPS[z].spots.size() - owned_count(z), STRAW, 22))
-	return plank
 
 # --- THE SPIRITS DOCK VIEW (home build-and-upgrade redesign, spec 2026-07-17) -----------
 # One evolving home means there is no map-select atlas any more; this view IS the resident
@@ -1534,22 +1400,6 @@ func _card_sub(text: String) -> Label:
 	l.modulate = Color(1, 1, 1, 0.92)
 	return l
 
-
-# A centered "✿ N to restore" status row (no star sprite — exp/level is the only currency now). `n`
-# is the count of UNCLAIMED spots. Used by the (disabled) map title plank fallback. Mouse-IGNOREd.
-func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 5)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lbl := Label.new()
-	lbl.text = Strings.t("map.restore_row.left") % n
-	lbl.add_theme_font_size_override("font_size", px)
-	lbl.add_theme_color_override("font_color", num_col)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(lbl)
-	return row
 
 # --- home scene swipe: pure decision (unit-tested) --------------------------------------
 const SWIPE_COMMIT_FRAC := 0.33   # commit once the slide passes this fraction of the viewport width
@@ -2774,133 +2624,6 @@ func _open_inbox() -> void:
 		_refresh_liveops_badges()})
 	# refresh deferred so a modal that grants on open settles before we re-read the count
 	_refresh_liveops_badges.call_deferred()
-
-# One-time map-UNLOCK celebration. Grants the scaled reward (coins + gems + free signature spirit) via the
-# model the instant the map first completes (robust to interruption — the grant is committed before any
-# UI), then reveals it in a parchment dialog. Idempotent: claim_unlock_reward returns {} after the first
-# time, so a revisit shows nothing. Safe in headless rebuilds (the dialog is deferred + tree-guarded).
-func _maybe_show_unlock_reward(z: int) -> void:
-	var rew: Dictionary = G.claim_unlock_reward(z)
-	if rew.is_empty():
-		return
-	_update_hud()
-	# (The free signature spirit no longer pays here — it moves in at map COMPLETION, alongside the
-	# bucket cells that house it: see the map_spots_done block in _on_spot_tap.)
-	if not is_inside_tree():
-		return
-	_show_unlock_dialog.call_deferred(z, rew)
-
-func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	var coins := int(rew.get("coins", 0))
-	var gems := int(rew.get("gems", 0))
-	var spirit := String(rew.get("spirit", ""))
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		_task_reward_fx(coins, gems)          # defensive: at least play the float FX if the kit is absent
-		return
-	var overlay := Overlay.mount(self, "UnlockRewardOverlay")
-	var dismiss := func() -> void:
-		if is_instance_valid(overlay):
-			overlay.queue_free()
-		_task_reward_fx(coins, gems)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			dismiss.call())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
-	var entries: Array = []
-	if coins > 0:
-		entries.append({
-			"icon": "coin",
-			"title": Strings.t("map.unlock.coins"),
-			"body": "",
-			"chip": {"icon": "coin", "text": "+%d" % coins},
-		})
-	if gems > 0:
-		entries.append({
-			"icon": "gem",
-			"title": Strings.t("map.unlock.diamonds"),
-			"body": "",
-			"chip": {"icon": "gem", "text": "+%d" % gems},
-		})
-	if spirit != "":
-		entries.append({
-			"icon": "gift",
-			"title": _resident_name(z, spirit),
-			"body": Strings.t("map.welcome.new_friend"),
-			"chip": {"icon": "gift", "text": "+1"},
-		})
-	var ucfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var width: float = get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
-	var opts: Dictionary = Kit.dialog_opts_from_config(ucfg)
-	opts["content_scale"] = Kit.dialog_content_scale(ucfg, "dialog")
-	opts["banner_text"] = Strings.t("map.unlock.title")
-	opts["banner_icon_on"] = false
-	opts["got_it"] = Strings.t("map.unlock.collect")
-	opts["on_close"] = func() -> void: dismiss.call()
-	var dialog: Control = Kit.mail_dialog(entries, width, opts)
-	cc.add_child(dialog)
-	FX.pop_in(dialog)
-
-# A fixed-size resident icon: the type's art when present, else a soft cream disc (signature spirits ship
-# without art yet — this keeps the row reading as "a spirit" rather than a broken/empty box).
-func _spirit_icon(type_id: String, px: float) -> Control:
-	var path := G.resident_art(type_id)
-	if path != "" and ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)                            # art is pre-centered (re-cut), so display it as-is
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var disc := Panel.new()
-	disc.custom_minimum_size = Vector2(px, px)
-	var ds := StyleBoxFlat.new()
-	ds.bg_color = Color(STRAW, 0.9)
-	ds.set_corner_radius_all(int(px / 2.0))
-	disc.add_theme_stylebox_override("panel", ds)
-	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return disc
-
-# The resident's localized display name for map z (falls back to the raw id if unlisted).
-func _resident_name(z: int, type_id: String) -> String:
-	for td in G.resident_lines(z):
-		if String(td.id) == type_id:
-			return tr(String(td.name))
-	return type_id
-
-func _task_reward_fx(coins: int, gems: int) -> void:
-	if not is_inside_tree():
-		return
-	await get_tree().process_frame
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	var at := get_global_rect().get_center() + Vector2(0, 120)
-	Audio.play("level_complete", -4.0, 1.1)
-	var dy := 0.0
-	if gems > 0:
-		var map_gem_done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8"), diamonds_label, map_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "map_task_reward")
-		dy += 34
-	if coins > 0:
-		var map_coin_done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"), coins_label, map_coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "map_task_reward")
-	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, FS.BODY)
-	if gems <= 0 and coins <= 0:
-		_update_hud()
 
 # Re-read every chrome badge's actionable state in one go (called on map nav). Cheap, idempotent.
 func _refresh_chrome_badges() -> void:
