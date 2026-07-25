@@ -234,7 +234,11 @@ func _ready() -> void:
 		start = _frontier_map()
 		if start < 0:
 			start = G.hub_map()
-	_open_map(start)
+	# animate=false: on SCENE ENTRY the map must be there on the first drawn frame. `content` holds only
+	# the scenery — the sky fill, HUD and nav bar are siblings — so a pop-in fade paints one bright,
+	# EMPTY sky-blue screen before the art arrives, which off the warm board reads as a white flash. The
+	# scene swap is the transition. In-scene navigation (gallery card / picker -> a map) still pops in.
+	_open_map(start, false)
 
 	# Live RESIZE: the map canvas is fitted once per build (_map_image_rect reads the viewport), so
 	# unlike the board's anchor-stretched background it does NOT follow a window/orientation resize on

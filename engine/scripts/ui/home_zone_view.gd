@@ -95,6 +95,14 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 			prop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			prop.size = disp
 			prop.position = anchor - Vector2(disp.x * 0.5, disp.y)
+			# ROTATION — the runtime twin of scene_workbench_view._make_layer, which rotates a
+			# placement about its FOOT (bottom-centre). That foot is exactly `anchor`, so pointing
+			# pivot_offset at it reproduces the tool's transform. Nothing scales a prop, so taking
+			# the pivot here is free (coverups can't — see _mount_coverups).
+			var rot := float(b.get("rot", 0.0))
+			if not is_zero_approx(rot):
+				prop.pivot_offset = Vector2(disp.x * 0.5, disp.y)
+				prop.rotation_degrees = rot
 			# an unfinished SITE reads dimmer than the finished building (placeholder until the
 			# pipeline ships true site art — PROVISIONAL, spec §8).
 			if state == "site":
@@ -197,6 +205,17 @@ static func _mount_coverups(stage: Control, manifest: Dictionary, cluster_locked
 		spr.size = cd
 		spr.position = rect.position                      # center-bottom anchor, like props
 		spr.pivot_offset = cd * 0.5                        # reveal() scales from the centre
+		# ROTATION — the tool rotates about the FOOT, but pivot_offset drives BOTH the rotation and
+		# reveal()'s pop-scale, and that scale must keep emanating from the centre. So rotate about
+		# the centre and shift by (I − R)·(foot − centre), which lands the sprite exactly where a
+		# foot-pivot rotation would while leaving the reveal animation untouched. (The cluster bbox
+		# below stays the UNROTATED rect on purpose — it only centres the lock badge, and a stable
+		# badge reads better than one that drifts with canopy lean.)
+		var crot := float(cov.get("rot", 0.0))
+		if not is_zero_approx(crot):
+			spr.rotation_degrees = crot
+			var to_foot := Vector2(0.0, cd.y * 0.5)        # centre → foot, local space
+			spr.position = rect.position + to_foot - to_foot.rotated(deg_to_rad(crot))
 		if String(cov.get("image", "")) != "" and ResourceLoader.exists(String(cov.image)):
 			spr.texture = _placed_texture(String(cov.image), cov)
 		(groups[cl]["sprites"] as Array).append({"sort_y": int(cov.get("sort_y", 0)), "node": spr})
