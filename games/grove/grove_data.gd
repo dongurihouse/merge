@@ -152,6 +152,13 @@ const ZONE_UNLOCK_LEVEL := [ 1, 4,  8, 10, 12, 13, 15, 17, 18, 20, 23, 25]
 # NOTE: self-dup is currently OFF (GEN_SELF_DUP_RATE = 0.0) — see the constant. With no fuel the ladder is
 # dormant: generators stay at the tier they already hold, and no new leftovers can strand.
 const GEN_TOP_TIER := 3
+# §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
+# ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,
+# not only base zones). A special no longer needs its ingredient lines to be in the window: its ingredient
+# GENERATORS are birthed on tap (Quests.due_gen → G.gens_for_quest_line), so the ingredients come back as
+# tools even after their line has left the fence. Peak generator footprint across the whole arc is 5, under
+# QUEST_GEN_CAP. Re-run grove_sim after changing this — a tighter window is a real no-strand tightening.
+const ACTIVE_LINE_WINDOW := 3
 const QUEST_GEN_CAP := 6                   # gen redesign #16 (RE-SCOPED): a QUEST-side cap — the active quests may demand at most this many DISTINCT generators (a base ask needs 1; a merge/special ask needs its 2 ingredient gens). The player's BOARD is uncapped; this just stops merge-quests forcing a huge generator count.
 const GEN_SELF_DUP_RATE := 0.0             # DISABLED (owner call 2026-07-23) — was 0.005 (0.5%/tap). The
                                            # duplicate spawned at the LINE TOP, so a sub-top leftover met a

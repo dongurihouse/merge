@@ -197,7 +197,47 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 
 ## 6 · Generators & Item Lines
 
-> **⚠ GENERATOR/LINE MODEL REDESIGNED — read this box FIRST (2026-06-28).** Supersedes the
+> **⚠ THE ACTIVE-LINE WINDOW — read this box FIRST (2026-07-25).** Supersedes the *line-window* halves of
+> the 2026-06-28 and 2026-06-26 boxes below (their generator model — one gen per line, birth-on-tap, the
+> merge ladder, bonus gens, special recipes — is untouched). Implementation: `content.gd`
+> (`active_lines` / `zone_window_lines` / `endgame_lines`), `quests.gd` (`refill`, `due_gen`),
+> `grove_data.gd` (`ACTIVE_LINE_WINDOW`), `grove_sim.gd`.
+>
+> **A. `ACTIVE_LINE_WINDOW` lines at a time — ANY line.** The fence asks from exactly **3** lines, **base
+> and crafted-special alike**. The window slides over **zone rows**, so it advances on **every** zone, not
+> only base ones — a special takes a slot of its own. *(Replaces the old split: a `QUEST_GEN_CAP`-wide
+> window over **base** lines only, plus specials admitted alongside it.)*
+>
+> **B. A special no longer needs its ingredient LINES live.** The old model admitted a special only while
+> **both** ingredient lines were still in the window. That made the arc's own capstone (**tea cups**,
+> z11 ← spices + wild berries) **unaskable at the moment it unlocked**, because wild berries had already
+> rolled off — the final content was born dead. A special is now active on its own zone row; its ingredient
+> **generators** arrive by **birth-on-tap** (`due_gen` → `gens_for_quest_line`, which already recursed to the
+> base gens). Peak generator footprint across the whole arc is **5**, inside `QUEST_GEN_CAP` (6).
+>
+> **C. Retired lines come back as TOOLS — the constraint on retirement.** Lines 2 · 3 · 4 · 7 leave the
+> fence early but are still demanded as **ingredient generators** right through the last zone (line 2 leaves
+> at L12 and is needed at L25). So a retirement flow may sell a retired line's **items**, but **must never
+> permanently archive the line** — its generator has to stay re-birthable on tap.
+>
+> **D. Endgame — the window re-rolls every level-up.** Past the last zone's unlock level the window stops
+> sliding and **re-rolls to 3 lines drawn from the whole roster** on each level-up. The draw is a **pure
+> function of level** (a per-round seeded shuffle dealt 3 at a time), so it needs no save field and cannot
+> desync from the load-bearing RNG call order in `refill`. Draws inside one round are **disjoint by
+> construction** — a level-up always fully refreshes the fence — and **every line comes round once per
+> round**, so none is starved. Only a round boundary can repeat a line.
+>
+> **E. A re-roll never voids work in flight.** `refill` constrains only *new* stands; a quest already on the
+> fence survives the window change, so items the player has already built stay deliverable.
+>
+> **Consequence — retirement is now load-bearing.** Lines retire roughly **every zone** during the arc and
+> **every level-up** at endgame, instead of twice in the whole game. Generators are still never removed and
+> `_purge_above_level_content` only sweeps content that is *too advanced*, so dead generators accumulate on
+> the board, and the spec's **≤6 board cap** (§6.E) is still unimplemented. The retirement flow is the next
+> task, under the constraint in **C**.
+
+> **⚠ GENERATOR/LINE MODEL REDESIGNED (2026-06-28)** — its LINE-WINDOW half is superseded by the box
+> above; the rest stands. Supersedes the
 > **2026-06-26 box and the original §6 body below**, and the grove as-built (`grove_spec` §2). Design
 > source: the 2026-06-28 session. Ships **one change at a time** (order at the
 > end of this box). Implementation map: `grove_data.gd` (tables), `content.gd` (`due_generators`,
@@ -364,7 +404,7 @@ A **regular** quest is `{asks: [{line, tier, count}], reward: {exp, coins}}` —
 
 ### Generating the asks
 
-- The ask draws a `{line, tier, count}` from the **level-reached quest-line window** (not the restored-zone/unlock count), **weighted toward the newest / highest-value** ones, and **steered off the lines already on the fence** (a soft repeat-penalty) so the **concurrent stands stay distinct**. If a player earns levels but delays claiming newly affordable restore spots, newer quest lines still enter the fence; owed generators are born on tap from the same level-reached progress so those asks remain playable.
+- The ask draws a `{line, tier, count}` from the **level-reached active-line window** (§6's 2026-07-25 box — 3 lines, base or special alike; not the restored-zone/unlock count), **weighted toward the newest / highest-value** ones, and **steered off the lines already on the fence** (a soft repeat-penalty) so the **concurrent stands stay distinct**. If a player earns levels but delays claiming newly affordable restore spots, newer quest lines still enter the fence; owed generators are born on tap from the same level-reached progress so those asks remain playable.
 - **Difficulty rises with player level** via **higher tiers** and **more frequent quests** — *not* by adding asks. Each quest is one item type; the late-game **"juggle every line on one board"** comes from **several distinct single-line stands on the fence at once** (up to 8, with no more than 4 from one line), with the **all-or-nothing multi-line co-assembly reserved for the gate quest** (below). *(Reward is **effort-priced**, §Reward: a deeper or more frequent quest pays proportionally more exp — so **level tracks total effort (clicks)**, and tier additionally lifts the coin-per-click rate. Both tier and frequency feed level.)*
 - **A map's top tier (its ceiling, up to t8) is asked _only_ by the gate quest** (the gatekeeper's capstone at the map's *end*, below) — never in a regular generated quest.
 - **Gate + generator-grant quests are _authored_, not generated (§6).** The **gate quest** is the **gatekeeper's** capstone at a map's *end* — a **randomized handful of the map's top-tier items** (its ceiling, up to **t8**) that **unlocks the next map** for a **large reward**. The **generator-grant quests** dispense the next map's producers: the **first** asks for **one previous-map generator** and **rewards a new one** (a hand-in, not a merge — the old line retires); any extras are **spread through the map**. The generated stream fills everything between. *(Map 1 excepted — generators granted outright, gentlest gate.)*

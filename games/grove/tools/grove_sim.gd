@@ -337,13 +337,11 @@ func _initialize() -> void:
 func _level() -> int:
 	return G.level_for_exp(exp_earned)
 
-func _quest_zone() -> int:
-	return G.quest_zone_for_level(_level())
-
 func _live_lines() -> Array:
-	# Quest asks draw from the rolling window reached by level progress. This deliberately does not depend
-	# on restored spots, so earning exp can reveal newer asks even if the player delays claiming zones.
-	return G.quest_base_lines(_quest_zone())
+	# Quest asks draw from the ACTIVE-LINE WINDOW reached by level progress. This deliberately does not
+	# depend on restored spots, so earning exp can reveal newer asks even if the player delays claiming
+	# zones. Base and crafted-special lines share the window (§7, 2026-07-25).
+	return G.active_lines(_level())
 
 # Credit `amount` exp and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up within
 # the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current map's gift (I2). Shared by
@@ -658,9 +656,7 @@ func _refill_quests() -> void:
 		return
 	var want := G.active_giver_count(exp_earned, _map_next_spot(map)[0])
 	live_quests = _cap_quests_per_line(live_quests)
-	var quest_zone := _quest_zone()
-	var base_lines := G.quest_base_lines(quest_zone)
-	var pool: Array = G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
+	var pool: Array = G.cap_quest_lines(G.active_lines(_level()))
 	want = mini(want, _line_capacity(pool))
 	while live_quests.size() < want:
 		# mirror quests.gd refill: steer each new single-item stand off the lines already on the

@@ -147,13 +147,13 @@ func _initialize() -> void:
 	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence
 	# --- stands use). When the item pool is too small to honour the whole window it relaxes the OLDEST
 	# --- asks first, never the freshest. A different TIER of the same line still counts as variety. ---
-	# #12: the quest pool is the rolling window of the last QUEST_GEN_CAP base lines reached by level —
-	# drive a realistic mid-map-0 progression (level 6 → multiple lines) so the pool has ≥2 lines.
+	# §7: the quest pool is the ACTIVE-LINE WINDOW reached by level — drive a realistic mid-map-0
+	# progression (level 6 → multiple lines) so the pool has ≥2 lines.
 	var rl_unl := {}
 	for i in 6:
 		rl_unl[str(i)] = true
 	var anti_repeat_level := 6
-	var pool := G.quest_base_lines(G.quest_zone_for_level(anti_repeat_level))
+	var pool := G.active_lines(anti_repeat_level)
 	if pool.size() >= 2:
 		# target the newest line at its tier-bell centre (the most-asked item) so the free count is non-zero
 		var fence_hi := clampi(int(G.QUEST_TIER_BASE) + int(anti_repeat_level / float(G.QUEST_LEVELS_PER_TIER)), int(G.QUEST_TIER_BASE), int(G.TOP_TIER))
@@ -305,6 +305,39 @@ func _initialize() -> void:
 	var stable: Array = [{"giver": 5}, {"giver": 6}, {"giver": 7}]
 	Quests.assign_givers(stable, [], gpool, RandomNumberGenerator.new())
 	ok(int(stable[0]["giver"]) == 5 and int(stable[1]["giver"]) == 6 and int(stable[2]["giver"]) == 7, "assign_givers leaves an already-distinct fence unchanged (stable faces)")
+
+	# --- §7 ACTIVE-LINE WINDOW: no-strand over the whole level arc (2026-07-25) ---------------------------
+	# The window tightened to ACTIVE_LINE_WINDOW lines, so the two things that could strand a player are
+	# (a) the fence starving — too few lines to fill MAX_GIVERS at 4 quests each — and (b) a quest for a
+	# line the board can never produce. Both are checked here at EVERY level across the arc AND deep into
+	# the endgame re-roll, on several seeds. (`grove_sim` would be the broader check, but it is stale
+	# against the coin-clock redesign and crashes on main — see the branch notes.)
+	var w_starve := 0
+	var w_unproducible := 0
+	var w_offwindow := 0
+	for lv in range(1, 61):
+		var want := mini(int(G.MAX_GIVERS), G.active_lines(lv).size() * int(G.MAX_QUESTS_PER_LINE))
+		for sd in 6:
+			var wr := RandomNumberGenerator.new(); wr.seed = sd * 977 + lv
+			var wf := Quests.refill([], 0, {}, [], 0, lv, wr)
+			if wf.size() < want:
+				w_starve += 1
+			for q in wf:
+				var wit := G.quest_item(q)
+				if wit.is_empty():
+					continue
+				# every asked line must resolve to at least one BASE generator — that generator is what
+				# birth-on-tap delivers, so the ask is always producible even when the line is a special
+				# whose ingredient LINES left the window.
+				if G.gens_for_quest_line(int(wit.line)).is_empty():
+					w_unproducible += 1
+				if not G.active_lines(lv).has(int(wit.line)):
+					w_offwindow += 1
+	ok(w_starve == 0, "the fence fills to its line capacity at every level L1-L60 (%d starved refills)" % w_starve)
+	ok(w_unproducible == 0, "every generated ask resolves to a birthable generator — no-strand (%d unproducible)" % w_unproducible)
+	ok(w_offwindow == 0, "every generated ask comes from the active-line window (%d strays)" % w_offwindow)
+	# a full fence needs 2+ lines: with ACTIVE_LINE_WINDOW=3 the window carries MAX_GIVERS from L4 on
+	ok(mini(int(G.MAX_GIVERS), G.active_lines(4).size() * int(G.MAX_QUESTS_PER_LINE)) == int(G.MAX_GIVERS), "by L4 the window is wide enough to fill all MAX_GIVERS stands")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
