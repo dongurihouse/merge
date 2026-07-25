@@ -1,36 +1,42 @@
 extends SceneTree
 ## Ghibli Grove — headless PACING SIM for the §7 GENERATED-quest model (the economy's
 ## tables are validated here, not by vibes). A bot plays the model for N days and reports
-## water→EXP→coins→map rates, then checks the invariants. (§exp model: quests pay EXP, spots unlock when
-## cumulative exp crosses a threshold — NO spending; selling + quests pay COINS only, never acorns.)
+## water→coins→level→cluster rates, then checks the invariants.
+##
+## THE COIN CLOCK (re-spined 2026-07-25). Coins are the ONE currency: quests and sells pay coins, LEVEL
+## derives from LIFETIME ORGANIC coin earnings (content.level_at_coins), and restoration is the GLOBAL
+## COVER-UP CLUSTER ladder — each cluster gated by a level floor (cluster_min_level) AND a coin COST it
+## pays, making the ladder the game's dominant coin sink. The old exp clock (quests paying {exp, coins},
+## free spots claimed at cumulative-exp thresholds) is RETIRED: no live faucet mints exp, no live gate
+## reads it, and MAPS[z].spots is save-compat legacy (page 1 only; pages 2-5 are empty). The sim modelled
+## that retired spine until this re-spine and crashed on the first delivery reading `reward.exp`.
 ##   I1 zero jams (board full + no merge + nothing deliverable)
-##   I2 every map's level-up water gift < WATER_REWARD_MAX_RATIO of its measured spend
-##   I3 runway (days to finish all maps) — reported (tuning signal, not a hard fail)
-##   no-strand — the bot never sits a full session unable to earn exp while spots remain
+##   I2 every page's level-up water gift < WATER_REWARD_MAX_RATIO of its measured spend
+##   I3 runway (days to unlock the whole cluster ladder) — reported (tuning signal, not a hard fail)
+##   no-strand — the bot never sits a full session unable to earn coins while clusters remain
 ##   Y selling is cleanup, not income (sell-coins tripwire)
 ##   Z coin faucet vs sink — REPORTED; the new endless sink is the §1 POPULATION loop
-##   P population invariants (NEW — replaces the deleted §8 hub keystone check):
-##     P1 LATE-GAME no-pile: once a map completes, the resident sink absorbs the
-##        post-completion coin faucet (residents are an ENDLESS coin sink, no roster cap)
+##   P population invariants:
+##     P1 LATE-GAME no-pile: once a page completes, the residents loop absorbs the
+##        post-completion coin faucet rather than letting coins pile up
 ##     P2 EARLY-GAME no dead-zone: before the first completion there is no idle coin
-##        gap — the active faucet (burst-upgrade ladder + restoration) keeps coins moving
-##     D diamond faucet (level-ups + map-restores + t8-sells) vs sink (premium residents)
+##        gap — the active faucet (burst ladder + the cluster ladder) keeps coins moving
+##     D diamond faucet (level-ups + page-restores) vs sink — FAUCET-ONLY, see the report note
 ##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
 ##
-## Quests are GENERATED (G.gen_quest), metered to the next unlock (G.active_giver_count),
-## asked from the level-reached quest-line window (not restored-zone count), capped at 4 per line,
-## a FLAT single item paying G.quest_reward (capped ★, coin overflow, premium 💎 at high
-## level). There is NO gate quest: a map completes when all its SPOTS are bought (spots-done),
-## which unlocks the next map + seeds its generators (the next map's tool rides on a near-end
-## quest's reward.generators in real play; the sim seeds gens on advance for the economy flow).
+## Quests are GENERATED (G.gen_quest) from the ACTIVE-LINE WINDOW (G.active_lines — 3 lines, base or
+## crafted-special alike), capped at MAX_QUESTS_PER_LINE per line, on a flat endless fence of MAX_GIVERS
+## stands (mirroring Quests.meter_target — the old exp-metered active_giver_count is vestigial). Each is a
+## single item paying COINS only. Generators are abstracted: _pop pops the BASE lines the live asks need
+## (a special expands to its two ingredients, exactly as birth-on-tap delivers them), so the sim measures
+## the economy, not the tool logistics.
 ##
-## §1 POPULATION (the new post-hub economy): a COMPLETED map opens its resident roster. The
-## bot WELCOMES residents — coins (RESIDENT_BASE_COST) buy core/non-premium, diamonds
-## (RESIDENT_PREMIUM_COST) buy the per-map premium signature — and two-of-a-kind AUTO-MERGE
-## one tier up (cascading, capped at RESIDENT_MAX_TIER). There is NO roster cap, so the bot
-## re-buys base feeders forever to climb tiers: this is the ENDLESS coin sink that replaced
-## the finite hub-upgrade ladder. Mirrors content.gd's welcome/merge math locally (the sim
-## keeps its own wallet rather than driving Save). All numbers are PROVISIONAL (sim dials).
+## §1 POPULATION — the live global Bucket: coins buy an EXPEDITION (Explore.MIN_COST, the coin SINK) →
+## spirits → placed into habitat cells → they YIELD coins (a SOURCE). Cells come ONLY from completed
+## cover-up pages (G.cells_from_scenes). KNOWN GAP: the per-map WELCOME roster the diamond sink still
+## models (residents/_resident_capacity, keyed off the legacy MAPS[z].spots) is retired live and now runs
+## inert, so the D ledger is faucet-only — the parked §5 bucket economy pass owns re-authoring it.
+## All numbers are PROVISIONAL (sim dials).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
@@ -45,7 +51,8 @@ var map := 0                  # the map currently being restored
 var gates_done := {}           # map -> true (its spots fully bought → map completed, roster open)
 var live_quests: Array = []    # the active fence — generated flat regular quests, metered to the next unlock
 
-var exp_earned := 0            # cumulative EXP earned — drives Level AND gates spot unlocks (no spending; §exp model)
+var clusters_unlocked := 0     # cover-up clusters unlocked over the run (the restoration ladder's progress)
+var cluster_spend := 0         # coins PAID for those clusters — the game's dominant coin SINK
 var coins := 0                 # spendable wallet BALANCE (faucet minus the sinks spent in-session)
 var coins_earned := 0          # cumulative coin INTAKE over the run (the faucet total — balance never goes negative, so the report reads intake, not the drained balance)
 var quest_coins := 0           # coins from quest rewards (the §7 faucet)
@@ -89,19 +96,16 @@ var _cur_day := 0              # the current day index (0-based), for the P1 fir
 # tier, bonus gens collected at mult 1 — the live boost-burst stacking is not modeled — a floor on the real yield.)
 var bonus_water := 0          # §6.C bonus-generator faucets (collected by draining the live side-spawn)
 var bonus_coins := 0
-var bonus_exp := 0
 var bonus_acorn := 0
 var bonus_gens := 0           # §6.C bonus generators side-spawned over the run (the faucet's volume signal)
 var _bonus_kind := ""         # §6.C the live bonus generator's kind on the board ("" = none — one at a time)
 var _bonus_clicks := 0        # its remaining tap budget; drained one tap per main-gen tap, then it vanishes
 var drop_water := 0          # §6.B special-item drops on merge (collected at t1)
-var drop_exp := 0
 var drop_acorn := 0
 var drop_open_coins := 0     # §6.B chest opened by a key → coins + acorns
 var drop_open_acorns := 0
 var treat_coins := 0         # §6.D treat-gen premium-line sells + its special drops
 var treat_water := 0
-var treat_exp := 0
 var treat_acorn := 0
 var acorns := 0              # acorn (premium) balance — previously unmodeled; the §6 faucets mint it
 var merges := 0             # total board merges (drives special-drop volume)
@@ -144,7 +148,7 @@ func _initialize() -> void:
 	var map_done_day := -1
 	for day in days:
 		_cur_day = day
-		var day_exp_b := exp_earned          # exp at day start — the day line reports the full delta (quest + §6)
+		var day_coins_b := coins_earned      # lifetime coins at day start — the day line reports the delta
 		var d_water := 0
 		for _session in 3:
 			_session_cap = G.WATER_CAP             # §6.B special-item water drops extend this in-session
@@ -152,17 +156,17 @@ func _initialize() -> void:
 			_hab_collect()                         # §1 collect the live habitat's idle coin yield (a SOURCE)
 			var r := _play_session()
 			d_water += r.water
-		if map_done_day < 0 and map >= G.MAPS.size():
+		if map_done_day < 0 and _book_done():
 			map_done_day = day + 1
-		print("  day %d: spent %d💧 · earned %d exp · map %d/%d · maps-done %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
-			[day + 1, d_water, exp_earned - day_exp_b, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
+		print("  day %d: spent %d💧 · earned %d🪙 · L%d · page %d/%d · clusters %d/%d · pages-done %d · coins %d (quest %d/sell %d) · brambles %d" % \
+			[day + 1, d_water, coins_earned - day_coins_b, _level(), mini(map + 1, G.MAPS.size()), G.MAPS.size(), clusters_unlocked, _cluster_total(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
 
-	maps_done = mini(map, G.MAPS.size())
+	maps_done = gates_reached
 	print("\n== results ==")
 	print("  maps restored: %d/%d%s" % [maps_done, G.MAPS.size(),
 		("  (runway: day %d)" % map_done_day) if map_done_day > 0 else "  (runway exceeds the %d-day window)" % days])
-	print("  spots claimed: %d/23 · maps completed: %d · level %d (exp earned %d)" % \
-		[unlocks.size(), gates_reached, G.level_for_exp(exp_earned), exp_earned])
+	print("  clusters unlocked: %d/%d (%d🪙 paid — the dominant sink) · pages completed: %d · level %d (%d🪙 earned lifetime)" % \
+		[clusters_unlocked, _cluster_total(), cluster_spend, gates_reached, _level(), coins_earned])
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 
@@ -196,10 +200,10 @@ func _initialize() -> void:
 	# end is a RUNWAY signal (the restoration grind is long), not a strand. ---
 	if jams == 0:
 		print("  PASS no-strand: producible asks + a never-jammed board — the bot can always progress")
-	if map < G.MAPS.size():
-		var rem := _map_next_spot(map)
-		if int(rem[0]) > 0:
-			print("  -- note: map %d still had spots to buy at run end (restoration unfinished in the window) --" % (map + 1))
+	if not _book_done():
+		var rem := _next_cluster()
+		print("  -- note: page %d still had clusters locked at run end (next: %s, %d🪙 at L%d; held %d🪙 at L%d) --" % \
+			[int(rem.z) + 1, String(rem.id), int(rem.cost), G.cluster_min_level(int(rem.z), String(rem.id)), coins, _level()])
 
 	# --- I2: per-map level-up water gift < ratio of that map's spend. The <30% anti-self-sustain
 	# rule is a STEADY-STATE / late-game guardrail. Early maps (1-2) intentionally front-load water
@@ -234,13 +238,12 @@ func _initialize() -> void:
 	# so I2's gift-ratio no longer captures total water income — the self-sustain line below is the real
 	# pinch check now. Reported as tuning signals (WARN, not hard fails — the §7 tuning pass owns the dials). ---
 	var new_water := bonus_water + drop_water + treat_water
-	var new_exp := bonus_exp + drop_exp + treat_exp
 	var new_coins := bonus_coins + treat_coins + drop_open_coins
 	var new_acorn := bonus_acorn + drop_acorn + treat_acorn + drop_open_acorns
-	print("  -- §6 faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · exp +%d✨ (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·chest %d) · acorn +%d🌰" % \
-		[new_water, bonus_water, drop_water, treat_water, new_exp, bonus_exp, drop_exp, treat_exp, new_coins, bonus_coins, treat_coins, drop_open_coins, new_acorn])
-	print("                 over %d merges · %d bonus-gens · %d treat-gens — §6 supplies %.0f%% of all exp earned (the rest is quests)" % \
-		[merges, bonus_gens, treat_gens, 100.0 * float(new_exp) / float(maxi(1, exp_earned))])
+	print("  -- §6 faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·chest %d) · acorn +%d🌰" % \
+		[new_water, bonus_water, drop_water, treat_water, new_coins, bonus_coins, treat_coins, drop_open_coins, new_acorn])
+	print("                 over %d merges · %d bonus-gens · %d treat-gens — §6 supplies %.0f%% of all coins earned (the rest is quests + sells)" % \
+		[merges, bonus_gens, treat_gens, 100.0 * float(new_coins) / float(maxi(1, coins_earned))])
 	# WATER self-sustain: gift + the §6 water faucets vs total spend. I2 guards the GIFT alone at <30%; these
 	# faucets are ADDITIONAL income, so if (gift + §6) climbs toward spend the early water pinch is gone.
 	var total_spend := 0
@@ -261,7 +264,7 @@ func _initialize() -> void:
 	if map_done_day > 0:
 		print("  -- I3 runway: all maps restored by day %d --" % map_done_day)
 	else:
-		print("  -- I3 runway: %d/%d maps in %d days (full restoration is a long arc, §3) --" % [maps_done, G.MAPS.size(), days])
+		print("  -- I3 runway: %d/%d clusters in %d days (full restoration is a long arc, §3) --" % [clusters_unlocked, _cluster_total(), days])
 
 	# --- Y: selling is cleanup, never income (sell-coins only) + the water↔💎 round trip ---
 	var gems_earned := gems_from_levels + gems_from_maps + gems_from_sells + gems_from_quests
@@ -299,6 +302,9 @@ func _initialize() -> void:
 	# a map, so an early/short run may show 0 spend (the faucet leads the sink, by design). ---
 	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
 		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, resident_gems_spent, residents_premium, diamonds])
+	print("                 NOTE the premium SINK reads 0 by construction: it models the retired per-map WELCOME roster")
+	print("                 (MAPS[z].spots, now save-compat legacy), so this ledger is faucet-only until the parked")
+	print("                 §5 bucket economy pass re-authors the live premium sink. Do not read 0 as a finding.")
 
 	# --- §1 RESIDENTS economy — REALIGNED to the LIVE Bucket (was: the dormant welcome-roster modeled as an
 	# ENDLESS coin sink). The live loop is the OPPOSITE: an EXPEDITION (Explore.MIN_COST) is the only coin
@@ -334,8 +340,12 @@ func _initialize() -> void:
 
 # --- the bot -----------------------------------------------------------------------
 
+# THE COIN CLOCK (2026-07-25 re-spine). Level derives from LIFETIME ORGANIC coin earnings, exactly as
+# the live game does (content.level() → level_at_coins(Save.coins_earned_lifetime())). The sim has no
+# purchases, so every coin it books is organic — which is why ALL coin income must route through
+# _earn_coins, never straight into `coins`, or the clock silently runs slow.
 func _level() -> int:
-	return G.level_for_exp(exp_earned)
+	return G.level_at_coins(coins_earned)
 
 func _live_lines() -> Array:
 	# Quest asks draw from the ACTIVE-LINE WINDOW reached by level progress. This deliberately does not
@@ -343,19 +353,22 @@ func _live_lines() -> Array:
 	# zones. Base and crafted-special lines share the window (§7, 2026-07-25).
 	return G.active_lines(_level())
 
-# Credit `amount` exp and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up within
-# the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current map's gift (I2). Shared by
-# quest delivery AND the new §6 exp faucets (bonus-gen exp, exp drops, treat exp).
-func _earn_exp(amount: int) -> void:
+# Credit `amount` ORGANIC coins and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up
+# within the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current page's gift (I2).
+# THE SINGLE COIN-INCOME DOOR — quest rewards, sells, coin pickups, bonus gens, chests, treats and habitat
+# yield all come through here, so `coins` (the spendable balance), `coins_earned` (the lifetime organic
+# total that IS the clock) and the level-up gifts can never drift apart. Spending touches `coins` only.
+func _earn_coins(amount: int) -> void:
 	if amount <= 0:
 		return
 	var lvl_b := _level()
-	exp_earned += amount
+	coins += amount
+	coins_earned += amount
 	if _level() > lvl_b:
 		var up := _level() - lvl_b
 		water = mini(_session_cap, water + G.LEVEL_WATER_GIFT * up)
 		level_gift_water += G.LEVEL_WATER_GIFT * up
-		if map < G.MAPS.size():     # don't attribute gift to the post-completion phantom map (no spend there → false I2 fail)
+		if not _book_done():        # don't attribute gift past the book's end (no spend there → false I2 fail)
 			map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
 		diamonds += G.LEVEL_DIAMONDS * up
 		gems_from_levels += G.LEVEL_DIAMONDS * up
@@ -375,12 +388,8 @@ func _tick_bonus_gen() -> void:
 				water = mini(G.WATER_CAP, water + amount)   # caps at WATER_CAP, like the live _collect_accumulator
 				bonus_water += amount
 			"coins":
-				coins += amount
-				coins_earned += amount
+				_earn_coins(amount)
 				bonus_coins += amount
-			"exp":
-				bonus_exp += amount
-				_earn_exp(amount)
 			"acorn":
 				acorns += amount
 				bonus_acorn += amount
@@ -404,11 +413,6 @@ func _credit_special_drop(code: int, src: String = "drop") -> void:
 			water += a
 			if src == "treat": treat_water += a
 			else: drop_water += a
-		"exp":
-			var a := int(G.special_collect(code).amount)
-			if src == "treat": treat_exp += a
-			else: drop_exp += a
-			_earn_exp(a)
 		"acorn":
 			var a := int(G.special_collect(code).amount)
 			acorns += a
@@ -426,8 +430,7 @@ func _try_open_chest() -> void:
 	while _pending_chests >= 1:
 		_pending_chests -= 1
 		var rw := G.chest_open_reward(10 * 100 + 1)
-		coins += int(rw.coins)
-		coins_earned += int(rw.coins)
+		_earn_coins(int(rw.coins))
 		drop_open_coins += int(rw.coins)
 		acorns += int(rw.acorns)
 		drop_open_acorns += int(rw.acorns)
@@ -442,8 +445,7 @@ func _run_treat_gen() -> void:
 	var line := G.pick_treat_line(map)
 	for _c in clicks:
 		var sell := int(G.sell_reward(line * 100 + G.TREAT_POP_TIER).x)
-		coins += sell
-		coins_earned += sell
+		_earn_coins(sell)
 		treat_coins += sell
 		if rng.randf() < G.TREAT_DROP_RATE:
 			_credit_special_drop(G.pick_special_drop(rng), "treat")
@@ -457,8 +459,10 @@ func _hab_rate() -> int:
 
 # Bucket capacity right now — ONE cell per COMPLETED map (mirrors content.cells_from_scenes:
 # one habitat cell per fully-unlocked scene; the sim models scene completion as all-spots-bought).
+# Habitat cells come from COMPLETED COVER-UP SCENES (content.cells_from_scenes) — the live global bucket's
+# only capacity source, replacing the retired per-map roster count.
 func _hab_cap() -> int:
-	return _completed_maps().size()
+	return G.cells_from_scenes(unlocks)
 
 # Cascade 2-of-a-tier → one a tier up (mirrors the hand/auto merge), raising rate + freeing a slot.
 func _hab_merge() -> void:
@@ -485,8 +489,7 @@ func _hab_collect() -> void:
 	var lc: Dictionary = RB.DEFAULTS["lines"]["coin"]
 	var hy := int(floor(float(lc.bank_base) + float(lc.bank_per_tier) * float(stier)))
 	if hy > 0:
-		coins += hy
-		coins_earned += hy
+		_earn_coins(hy)
 		habitat_yield += hy
 
 # Launch an expedition: pay the base cost (the SINK), acquire EXP_SPIRITS t1 spirits, PLACE what fits in
@@ -503,8 +506,7 @@ func _run_expedition() -> void:
 			_hab_merge()
 		else:
 			var sv := RB.SELL_PER_TIER * 1
-			coins += sv
-			coins_earned += sv
+			_earn_coins(sv)
 			habitat_sell += sv
 
 # --- §1 POPULATION (DORMANT welcome-roster — kept only for the unlock-gift grant; NOT the live sink) ---
@@ -517,7 +519,7 @@ func _run_expedition() -> void:
 func _completed_maps() -> Array:
 	var out: Array = []
 	for z in G.MAPS.size():
-		if _map_all_bought(z) and gates_done.has(z):
+		if _page_done(z) and gates_done.has(z):
 			out.append(z)
 	return out
 
@@ -632,29 +634,45 @@ func _next_premium_welcome() -> Dictionary:
 				return {"z": z, "def": td}
 	return {}
 
-# The next spot to claim in `z`: [unlock_exp, id]; [-1,""] when every spot is owned. (NOTE: grove_sim
-# still models the retired spend economy — its faucet/sink numbers need a separate exp-model rework;
-# this keeps it compiling against the central exp threshold ladder.)
-func _map_next_spot(z: int) -> Array:
-	var nxt := G.map_next_unlock(z, unlocks)
-	if int(nxt.k) == -1:
-		return [-1, ""]
-	return [int(nxt.exp), String(G.MAPS[z].spots[int(nxt.k)].id)]
+# --- THE CLUSTER LADDER (2026-07-25 re-spine) ---------------------------------------------------------
+# Restoration is the GLOBAL cover-up cluster sequence, not the retired free spot ladder. Each cluster is
+# gated by BOTH a level floor (cluster_min_level = 2 + its global index) AND a coin COST it actually pays
+# — so the ladder is the game's dominant coin SINK, and `map` here means the page currently being unlocked
+# (content.current_unlock_map), not a map being "bought out". MAPS[z].spots is save-compat legacy: page 1
+# still carries a list, pages 2-5 are empty, so the old spot loop was simulating nothing on 4 of 5 pages.
 
-func _map_all_bought(z: int) -> bool:
-	return _map_next_spot(z)[0] == -1
+# The next cluster in the global order: {z, id, cost}; {} once the whole book is unlocked.
+func _next_cluster() -> Dictionary:
+	var z := G.current_unlock_map(unlocks)
+	var id := G.next_locked_cluster(z, unlocks)
+	if id == "":
+		return {}
+	return {"z": z, "id": id, "cost": G.cluster_cost(z, id)}
 
-# The current map's spots are all bought but it hasn't yet been marked completed — the
-# spots-done trigger that fires map completion (diamond gift + advance) in the main loop.
-func _spots_done_pending() -> bool:
-	return map < G.MAPS.size() and _map_all_bought(map) and not gates_done.has(map)
+func _book_done() -> bool:
+	return _next_cluster().is_empty()
+
+# Every cluster of page z unlocked.
+func _page_done(z: int) -> bool:
+	return G.next_locked_cluster(z, unlocks) == ""
+
+# The page the bot is currently unlocking is finished but not yet credited — the completion trigger
+# (diamond gift + habitat cell) the old spots-done check used to fire.
+func _page_done_pending() -> bool:
+	return _page_done(map) and not gates_done.has(map)
+
+# Total clusters in the book (the denominator for the ladder progress report).
+func _cluster_total() -> int:
+	var n := 0
+	for z in G.coverup_pages():
+		n += G.clusters(int(z)).size()
+	return n
 
 # Refill the fence: flat generated regular quests metered to the next unlock (no gate quest).
 func _refill_quests() -> void:
-	if map >= G.MAPS.size():
-		live_quests = []
-		return
-	var want := G.active_giver_count(exp_earned, _map_next_spot(map)[0])
+	# The live fence is ENDLESS and flat at MAX_GIVERS (Quests.meter_target) — it no longer meters against
+	# a remaining-exp target, so the sim mirrors that instead of calling the vestigial active_giver_count.
+	var want := int(G.MAX_GIVERS)
 	live_quests = _cap_quests_per_line(live_quests)
 	var pool: Array = G.cap_quest_lines(G.active_lines(_level()))
 	want = mini(want, _line_capacity(pool))
@@ -768,7 +786,7 @@ func _payable(q: Dictionary) -> bool:
 	return board.count_of(line * 100 + tier) >= 1
 
 func _play_session() -> Dictionary:
-	var s_exp := 0
+	var s_coins := 0
 	var s_water := 0
 	var guard := 0
 	while guard < 8000:
@@ -776,12 +794,12 @@ func _play_session() -> Dictionary:
 		open_low_mark = mini(open_low_mark, board.empty_ground_cells().size())
 		_refill_quests()
 
-		# 0. SPOTS-DONE map completion: a map ends when all its spots are bought (no gate quest).
-		# This is the diamond-gift + advance trigger the old gate-quest delivery used to fire.
-		if _spots_done_pending():
+		# 0. PAGE COMPLETION: a cover-up page ends when every one of its clusters is unlocked. This is the
+		# diamond-gift + habitat-cell trigger (cells_from_scenes grants one cell per completed page).
+		if _page_done_pending():
 			gates_done[map] = true
 			gates_reached += 1
-			# §1 diamond FAUCET: fully restoring a map gifts MAP_DIAMONDS.
+			# §1 diamond FAUCET: fully restoring a page gifts MAP_DIAMONDS.
 			diamonds += G.MAP_DIAMONDS
 			gems_from_maps += G.MAP_DIAMONDS
 			# P1/P2 seam: the FIRST completion is where population OPENS — snapshot the coin
@@ -791,9 +809,7 @@ func _play_session() -> Dictionary:
 				coins_at_first_complete = coins_earned       # cumulative INTAKE, not the drained balance
 				balance_at_first_complete = coins            # the held pile pre-population (for P2)
 				resident_spend_at_first_complete = resident_coins_spent
-			map += 1                              # unlock + grant the next map's generators
-			if map < G.MAPS.size():
-				board.seed_gens(map)
+			map = G.current_unlock_map(unlocks)   # the frontier moves to the next page in the book
 			continue
 
 		# 1. deliver any payable regular quest — pay its reward, then erase it from the fence.
@@ -809,14 +825,14 @@ func _play_session() -> Dictionary:
 				specials_crafted += 1
 			else:
 				board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
+			# The reward is COINS ONLY (quest_reward_for_line) — the old {exp, coins} pair is retired with
+			# the exp clock, and coins ARE the clock now, so _earn_coins is what fires the level-ups.
 			var rw: Dictionary = q.reward
-			var sp_exp := int(rw.exp)              # effort-based exp (was rw.stars — the field is `exp` now)
-			s_exp += sp_exp
-			coins += int(rw.coins)
-			coins_earned += int(rw.coins)
-			quest_coins += int(rw.coins)
+			var got := int(rw.coins)
+			s_coins += got
+			quest_coins += got
 			# (quests pay NO acorns now — acorns are milestone/IAP only, Option A)
-			_earn_exp(sp_exp)
+			_earn_coins(got)
 			live_quests.erase(q)
 			delivered = true
 			break
@@ -842,21 +858,25 @@ func _play_session() -> Dictionary:
 			_run_expedition()
 			continue
 
-		# 2. restore: CLAIM the next spot once cumulative exp has reached its threshold (no spending —
-		# §exp model). Claiming the LAST spot makes the map spots-done — step 0 fires completion next iter.
-		if map < G.MAPS.size():
-			var ns := _map_next_spot(map)
-			if int(ns[0]) >= 0 and exp_earned >= int(ns[0]):
-				unlocks[String(ns[1])] = true
-				continue
+		# 2. restore: UNLOCK the next cover-up cluster once its level floor is reached AND it is affordable
+		# — and PAY its cost (the game's dominant coin sink). Unlocking a page's last cluster makes the page
+		# done; step 0 credits completion next iteration.
+		var nc := _next_cluster()
+		if not nc.is_empty() and G.cluster_ready(int(nc.z), String(nc.id), unlocks, _level(), coins):
+			coins -= int(nc.cost)
+			cluster_spend += int(nc.cost)
+			clusters_unlocked += 1
+			unlocks[String(nc.id)] = true
+			# Do NOT advance `map` here — step 0 must first see the page it just finished and credit its
+			# completion (diamond gift + habitat cell). Advancing on the spot skips that page forever.
+			continue
 
 		# 3. sell tops for coins (no gate to hoard top-tier for now — selling is pure cleanup/coins)
 		var tops := board.top_tier_cells()
 		if not tops.is_empty():
 			var rw := G.sell_reward(board.item_at(tops[0]))
 			board.take(tops[0])
-			coins += rw.x
-			coins_earned += rw.x
+			_earn_coins(rw.x)
 			sell_coins += rw.x                 # every tier sells for COINS now (no premium pinnacle, Option A)
 			merchant_sells += 1
 			continue
@@ -865,8 +885,7 @@ func _play_session() -> Dictionary:
 		var coin_cell := _first_coin()
 		if coin_cell != Vector2i(-1, -1):
 			var cv := G.coin_value(board.take(coin_cell))
-			coins += cv
-			coins_earned += cv
+			_earn_coins(cv)
 			continue
 
 		# 4b. clear RETIRED-line clutter — old-map items no live quest can ever want (a line
@@ -876,8 +895,7 @@ func _play_session() -> Dictionary:
 		if junk != Vector2i(-1, -1):
 			var rwj := G.sell_reward(board.item_at(junk))
 			board.take(junk)
-			coins += rwj.x
-			coins_earned += rwj.x
+			_earn_coins(rwj.x)
 			sell_coins += rwj.x
 			merchant_sells += 1
 			continue
@@ -904,7 +922,7 @@ func _play_session() -> Dictionary:
 		# pop only with working ROOM — a real player never bursts into a near-full board (that just floods it
 		# into a singleton lockout). Leave a 2-cell margin; surplus water the board can't absorb is left
 		# UNSPENT (a realistic "energy I can't use right now"), never forced into a jam.
-		if water >= G.POP_COST and board.empty_ground_cells().size() > 3 and map < G.MAPS.size():
+		if water >= G.POP_COST and board.empty_ground_cells().size() > 3 and not _book_done():
 			var burst: int = G.burst_count(map, G.BOOST_BONUS if boost_taps > 0 else 0, rng)
 			if boost_taps > 0:
 				boost_taps -= 1
@@ -923,11 +941,11 @@ func _play_session() -> Dictionary:
 			continue
 
 		# 7. nothing to do
-		if water > 0 and board.empty_ground_cells().is_empty() and map < G.MAPS.size():
+		if water > 0 and board.empty_ground_cells().is_empty() and not _book_done():
 			jams += 1
 		break
 
-	return {"exp": s_exp, "water": s_water}
+	return {"coins": s_coins, "water": s_water}
 
 func _first_coin() -> Vector2i:
 	for i in board.items.size():
@@ -936,11 +954,17 @@ func _first_coin() -> Vector2i:
 	return Vector2i(-1, -1)
 
 # A board item whose line has RETIRED (not in the current map's live lines) — pure clutter.
+# Clutter = an item NO live ask can ever use. The test must be the live NEEDED-LINES expansion
+# (G.quest_needed_lines — the same read behind the board's item grey / generator fade / bag breathe),
+# not the raw active window: a SPECIAL ask needs its two INGREDIENT lines on the board, and those
+# ingredients are usually outside the window. Testing the bare window made the bot sell the very
+# ingredients it had just popped for a merge quest — a pop→sell churn loop that crafted no special and
+# turned junk-selling into the dominant coin faucet.
 func _first_clutter() -> Vector2i:
-	var live := _live_lines()
+	var needed := G.quest_needed_lines(_live_lines())
 	for i in board.items.size():
 		var k: int = board.items[i]
-		if k > 0 and not G.is_coin(k) and not live.has(BoardModel.line_of(k)):
+		if k > 0 and not G.is_coin(k) and not needed.has(BoardModel.line_of(k)):
 			return BoardModel.cell_of(i)
 	return Vector2i(-1, -1)
 
@@ -989,7 +1013,14 @@ func _pop() -> void:
 	# (quested) lines drawn from the all-opened askable set; fall back to opened only when nothing is
 	# wanted. Restricting to wanted keeps the board mergeable however many lines have opened (mirrors
 	# board.gd; the un-restricted 24-line pool scatters un-mergeable singletons and jams).
-	var opened: Array = _live_lines()
+	# A generator pops only its own BASE line — a SPECIAL is never popped, only crafted by merging its two
+	# ingredients (Core §6.G). `wanted` is already ingredient-expanded (_wanted_lines); the fallback pool
+	# must be too, or an idle tap can pop an item no generator in the game could produce.
+	var opened: Array = []
+	for l in _live_lines():
+		for b in _quest_pop_lines(int(l)):
+			if not opened.has(int(b)):
+				opened.append(int(b))
 	if opened.is_empty():
 		return
 	var wanted := _wanted_lines()
