@@ -12,7 +12,7 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED :=
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_scene_covers_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_zone_workbench_tests games/grove/tests/grove_ftue_tests games/grove/tests/grove_rush_ftue_tests
+GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_scene_covers_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_ftue_tests games/grove/tests/grove_rush_ftue_tests
 GROVE_TESTS_DISABLED :=
 # dev-tool suites — pure-Image logic for the asset intake pipeline (fast, no scenes)
 TOOLS_TESTS  := games/tools/tests/slice_islands_tests
@@ -21,7 +21,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run g-phone editor fx zones test test-fast test-engine test-grove test-one smoke import bake bake-textures \
+.PHONY: help run g-phone editor fx test test-fast test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
@@ -61,9 +61,6 @@ shot-sw: ## quiet screenshot of the scene workbench:  make shot-sw [SCENE=...] [
 
 fx: ## see + tune every Grove FX live — the feel verbs (land · merge · launch · move · grab), the Expedition juice, and the reward flight
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
-
-zones: ## draw a page's unlock zones over the real scene (a real window):  make zones
-	$(GODOT) --path $(PROJECT) res://games/tools/zone_workbench/ZoneWorkbench.tscn
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
