@@ -1,5 +1,5 @@
 extends SceneTree
-const Kit := preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit := preload("res://games/grove/ui_kit.gd")
 const View := preload("res://games/grove/tools/ui_workbench_view.gd")
 
 func _initialize() -> void:

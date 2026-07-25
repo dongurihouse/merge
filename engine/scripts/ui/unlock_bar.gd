@@ -13,7 +13,7 @@ const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
 # The band wears the HUD pills' shared paper surface (flat cream + thin PAPER_EDGE rim + a
 # texture_cream grain layer from the UI kit) so it reads as one family with the pills above it.
 # The kit is loaded at runtime (matches hud.gd / action_bar.gd) to avoid a preload cycle.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
 const PAPER_CORNER_FRAC := 0.28             # band corner radius as a fraction of the band height

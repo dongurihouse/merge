@@ -3,7 +3,7 @@ extends SceneTree
 ## not re-parsed for every widget a scene build creates. Cleared on demand (the workbench's Save hook).
 ##   godot --headless -s res://engine/tests/kit_config_cache_tests.gd
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 
 var _pass := 0
 var _fail := 0

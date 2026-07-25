@@ -30,7 +30,7 @@ const Pal = Game.PALETTE
 const D = Game.DATA
 
 const OVERLAY_NAME := "ResidentsOverlay"
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 # Resident-specific body sprites extracted from the residents mock. The outer dialog frame stays owned by
 # the shared kit so it matches Mail/Daily/Settings instead of drawing a second sheet.
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")

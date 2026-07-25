@@ -38,7 +38,7 @@ const BARK = Pal.BARK
 
 # The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
 # so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150

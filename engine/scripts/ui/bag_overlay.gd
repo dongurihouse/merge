@@ -3,7 +3,7 @@ extends RefCounted
 ## the bottom-bar bag icon opens THIS, a dimmed-backdrop modal showing the WHOLE slot ladder (§5) as a
 ## grid of tiles — every owned slot (filled = a bagged piece, empty = an owned vacancy), the next
 ## purchasable slot (its 💎 price shown inside — no highlight; the price is the cue), and every locked
-## future slot beyond it (a padlock, no price). Built on the SHARED ui kit (games/grove/tools/ui_workbench_kit.gd),
+## future slot beyond it (a padlock, no price). Built on the SHARED ui kit (games/grove/ui_kit.gd),
 ## the SAME builder the workbench previews and the game's vault/settings/hud read: the parchment frame
 ## (Kit.dialog_frame — banner · border · ✕ · scroll), the slot tile (Kit.bag_card), and the reused
 ## gold wallet pill. So the engine and the design tool render one
@@ -42,7 +42,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the shared ui kit (frame · cell · pill)
+const KIT_PATH := "res://games/grove/ui_kit.gd"   # the shared ui kit (frame · cell · pill)
 const OVERLAY_NAME := "BagOverlay"
 const NEED_MORE_NAME := "BagNeedMorePrompt"     ## the short-of-acorns prompt raised over an open bag
 # the prompt card's proportions, read off the authored mock (card ≈ 3/4 of the frame, the medallion

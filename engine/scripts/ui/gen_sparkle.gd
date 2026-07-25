@@ -4,7 +4,7 @@ extends Control
 ## animated in _draw/_process. NO particles on purpose: CPUParticles2D is a Node2D and does not render
 ## when parented to a Control (the board item holder is a Control), so a self-drawing Control is the
 ## reliable path. Add it full-rect over a generator, mouse-ignore. Engine-local twin of the grove
-## daily-card sparkle (games/grove/tools/sparkle.gd) — engine may not import a game script — tuned
+## daily-card sparkle (games/grove/sparkle.gd) — engine may not import a game script — tuned
 ## sparser/softer for a single board cell. The host's FX.breathe carries the larger motion.
 
 @export var tint := Color("#FFF4C2")   # warm twinkle colour

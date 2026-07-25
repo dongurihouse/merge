@@ -21,7 +21,7 @@ const REWARD_FX_MIN_TRAIL_COUNT := 0
 const REWARD_FX_MAX_TRAIL_COUNT := 4
 const REWARD_FX_MIN_SOURCE_SIZE := 72.0
 const REWARD_FX_MAX_SOURCE_SIZE := 148.0
-const REWARD_FX_CONFIG_PATH := "res://games/grove/tools/ui_workbench_settings.json"
+const REWARD_FX_CONFIG_PATH := "res://games/grove/ui_kit_settings.json"
 const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
 
 static var _dot_tex: Texture2D

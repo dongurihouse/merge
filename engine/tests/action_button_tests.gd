@@ -4,7 +4,7 @@ extends SceneTree
 ## glyph — one source for the home bottom bar and the board Home/Bag wells.
 ##   godot --headless --path . -s res://engine/tests/action_button_tests.gd
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 
 var _pass := 0
 var _fail := 0

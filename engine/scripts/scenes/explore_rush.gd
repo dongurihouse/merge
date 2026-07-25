@@ -37,7 +37,7 @@ const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carve
 const DANGER_CHEVRON_ART := "res://games/grove/assets/ui/meadow_v2/danger_chevron.png"
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
 const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
+const KIT_PATH := "res://games/grove/ui_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
 
 # --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
 # whole HUD scales 1:1 with the device. The vertical stack, top → bottom:

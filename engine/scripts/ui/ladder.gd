@@ -6,7 +6,7 @@ extends RefCounted
 ## (the discovery_ladder feature + line validity) and the data (Quests.ladder_entries); this just renders.
 ##   Ladder.open(host, {title: String, entries: Array, mark_tier: int})
 ##
-## The FACE is BUILT from the shared UI KIT (games/grove/tools/ui_workbench_kit.gd) using the design the
+## The FACE is BUILT from the shared UI KIT (games/grove/ui_kit.gd) using the design the
 ## UI WORKBENCH saves — the twig border, ladder ribbon and ✕ disc are authored on the shared "tiers" item,
 ## and the cell look IS the shared slot cell (the "Slot cell" item), read here, never duplicated. There are
 ## NO vines — just the cards, in a plain grid. Only the open-gate + the entry→cell mapping live here.
@@ -22,7 +22,7 @@ const Pal = Game.PALETTE
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching inbox.gd's guarded idiom.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const OVERLAY_NAME := "LadderOverlay"
 
 # --- the tiers mock (games/grove/assets/_concepts/dialogs/tiers_1080x1920.png) ---------------------

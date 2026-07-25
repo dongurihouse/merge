@@ -37,7 +37,7 @@ const MEADOW_UI := "ui/meadow_v2/%s"
 # a texture_cream grain layer from the UI kit) — see _paper_panel. The kit is loaded at runtime
 # (matches hud.gd / action_bar.gd) to avoid a preload cycle. card_slice_* lay keys are retired
 # with the old card_generic nine-slice but still accepted (ignored) from saved configs.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#3F6D7D", 0.35)

@@ -8,6 +8,7 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
+const KIT = preload("res://games/grove/ui_kit.gd")   # the shared UI kit — ONE preload, not a load() per call site
 const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -362,7 +363,7 @@ func _ready() -> void:
 	add_child(_combo_bloom)
 	# resolve the workbench-tuned feel-FX opts ONCE — the game then runs the SAME appliers the
 	# Merge/Land/Launch/Move workbenches preview, so a saved tuning takes effect in-game.
-	var KitX: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var KitX: GDScript = KIT
 	var fx_cfg: Dictionary = KitX.load_config(KitX.CONFIG_PATH)
 	_merge_opts = MergeFx.from_config(fx_cfg)
 	_land_opts = LandFx.from_config(fx_cfg)
@@ -657,7 +658,7 @@ func _reflow_board_after_resize() -> void:
 # keys preserve the shipped defaults. (cell / cols / rows are workbench-PREVIEW only — the live grid is
 # G.COLS×G.ROWS and sizes itself to the screen.)
 func _load_board_config() -> void:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
@@ -1377,7 +1378,7 @@ func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dict
 # block) merged over them. Absent kit → the bare GiverStand.LAY defaults.
 func _giver_lay() -> Dictionary:
 	var L: Dictionary = GiverStand.LAY.duplicate()
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		var over: Dictionary = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
 		for k in over:
@@ -1765,7 +1766,7 @@ var FRAME_OUT := 60.0        # how far the board panel extends OUTSIDE the cell 
 # code-drawn depth border) + its drop shadow are built by the SHARED Kit.board_panel, so the workbench
 # preview shows the ACTUAL border. Falls back to the code-drawn planter when the kit can't load.
 func _make_board_mat() -> Control:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return PieceView.make_board_mat(_board_w(), _board_h())
 	var size := Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
@@ -1780,7 +1781,7 @@ func _make_board_mat() -> Control:
 func _make_slot(cell: Vector2i) -> Control:
 	# the open empty well, built on the SHARED slot cell (Kit.slot_cell) — the SAME component the bag
 	# uses, reading the SAME workbench "bag_card" style, so the board + bag wells stay in lockstep.
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	var opts: Dictionary = Kit.board_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
@@ -1858,7 +1859,7 @@ func _relayout_action_bar_after_resize() -> void:
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var KitB: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var KitB: GDScript = KIT
 	if KitB == null:
 		# fallback: the drawn disc + swap icon (pre-sprite path, engine-only safety net). Its "bag" glyph
 		# lives INSIDE bag_content (icon_wrap), so _rebuild_bag restores it on the empty state.
@@ -1924,7 +1925,7 @@ func _build_bag_box(px: float, action_opts: Dictionary = {}) -> Control:
 
 func _bottom_button_px() -> float:
 	var frac := 0.15
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		frac = float(Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("button_w_frac", 0.15))
 	# Bounded: a min so it stays tappable on narrow screens, a max so it (and the bar) can't balloon on
@@ -1933,7 +1934,7 @@ func _bottom_button_px() -> float:
 
 func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 	var raw := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
@@ -1946,7 +1947,7 @@ func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 
 func _quest_row_h_px() -> float:
 	var frac := 0.13
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
@@ -1974,7 +1975,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 		_persist()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 	var b: Button
-	var KitH: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var KitH: GDScript = KIT
 	if KitH != null:
 		# the shared code-drawn action button (CutPaperPanel rugged edge + centered home glyph) — the
 		# same builder the home bottom bar uses, so the two read identically off one source.
@@ -1994,7 +1995,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 # The bar itself is the SHARED kit component (Kit.info_bar — the same one the workbench previews + tunes);
 # the board just grabs its mutable sub-nodes (info ⓘ / piece box / name / sell) and drives selection state.
 func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: float = BOTTOM_BAR_H) -> Control:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
 	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -2232,7 +2233,7 @@ func _hide_focus() -> void:
 # The focus-ring look, tuned in the UI workbench (→ "Focus ring") and read through the SAME Kit
 # transform the workbench preview uses, so the board matches the preview 1:1. {} → the shipped defaults.
 func _focus_ring_opts() -> Dictionary:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
 	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -2557,7 +2558,7 @@ func _make_generator(id: String, hl: Dictionary = {}, tier: int = 1) -> Control:
 # The GEN-highlight (glow / silhouette outline / sparkle) tuning saved in the UI workbench
 # ("generator" block). Absent file/keys → {} → make_generator falls back to its shipped GEN_* consts.
 func _gen_highlight_opts() -> Dictionary:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
 	return Kit.gen_highlight_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -3648,7 +3649,7 @@ func _rebuild_bag() -> void:
 		# stays clear. Only the kit-absent drawn-disc fallback keeps its glyph INSIDE bag_content (wiped by
 		# the clear above), so it restores it — guarded on the kit actually being loadable to draw one.
 		if _bag_well_drawn_disc:
-			var KitR: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+			var KitR: GDScript = KIT
 			if KitR != null:
 				bag_content.add_child(KitR.make_icon("bag", bag_piece_px))
 	else:

@@ -5,7 +5,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## (no explicit `cp` passed), so before the fix an edge change only reached them after Save. _apply_edit
 ## now syncs the live params into Kit's config cache, so the whole button family reflects the edit now.
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 const UIWorkbenchView = preload("res://games/grove/tools/ui_workbench_view.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
@@ -628,7 +628,7 @@ func _shared_progress_bar_exposes_fill_geometry_and_shadow() -> void:
 	kbar.free()
 	# GUARD the crash class itself: Object.get_meta treats a NULL default as "no default given"
 	# and pushes an error rather than returning null, so the idiom is banned in the kit.
-	var kit_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_kit.gd")
+	var kit_src := FileAccess.get_file_as_string("res://games/grove/ui_kit.gd")
 	var null_default := 0
 	for line in kit_src.split("\n"):
 		if String(line).find("get_meta(") >= 0 and String(line).find(", null)") >= 0:

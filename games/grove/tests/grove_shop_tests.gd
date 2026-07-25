@@ -4,7 +4,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids live in the IAP catalog now
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the water regen rule (over-cap pause)
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the two card/art shadow shapes
 
