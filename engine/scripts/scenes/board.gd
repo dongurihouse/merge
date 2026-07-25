@@ -78,7 +78,7 @@ const GIVER_COLS := 4            # legacy fence-slot count (kept for the workben
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # fallback gap BETWEEN cards — the workbench quest_card.gap overrides (via _giver_lay)
-const UNLOCK_BAR_H_FRAC := 0.12  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1, +20% by owner call)
+const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
 const EDGE_GAP := 16.0           # the EQUAL page margin: HUD pills → content top == board bottom → bottom action bar
 const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
 const STACK_SEP := 20      # the row gap of the content stack (strip <-> quest fence <-> board)
@@ -1271,7 +1271,7 @@ func _purge_progress() -> float:
 # The strip's height scales with the screen like the rest of the HUD (mock ≈ 10% of width),
 # clamped so a wide/landscape viewport doesn't balloon it.
 func _unlock_bar_h_px() -> float:
-	return clampf(roundf(_view_size().x * UNLOCK_BAR_H_FRAC), 101.0, 158.0)
+	return clampf(roundf(_view_size().x * UNLOCK_BAR_H_FRAC), 84.0, 132.0)
 
 # Pin the strip full-width under the HUD pills (same side margins as the board / bottom bar).
 func _place_unlock_bar(bar_h: float) -> void:
