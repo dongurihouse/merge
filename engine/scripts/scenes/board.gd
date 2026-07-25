@@ -89,6 +89,7 @@ const HINT_ROCK_CYCLE := 1.2     # W1: seconds per rock cycle
 const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
 const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece must stay visible above
                                                   # the hand-hint veil (hand_hint.gd) while a teach is live
+const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
 # grove board palette (the night-purples retire here)
@@ -1670,6 +1671,36 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 		return Vector2i(clampi(int(p.x / step), 0, G.ROWS - 1), clampi(int(p.y / step), 0, G.COLS - 1))
 	return Vector2i(clampi(int(p.y / step), 0, G.ROWS - 1), clampi(int(p.x / step), 0, G.COLS - 1))
 
+# Find the nearest compatible merge whose enlarged cell area contains `pos`. This runs before the exact-cell
+# move/swap path, so an intended merge wins near a shared edge without making any other drop target looser.
+func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_dist := INF
+	var candidates: Array = board.gens.keys() if drag_is_gen else piece_nodes.keys()
+	for raw_target in candidates:
+		var target := Vector2i(raw_target)
+		if target == from:
+			continue
+		var compatible := false
+		if drag_is_gen:
+			compatible = board.is_gen(from) and board.is_gen(target) \
+				and board.gen_id_at(from) == board.gen_id_at(target) \
+				and board.gen_tier_at(from) == board.gen_tier_at(target) \
+				and board.gen_tier_at(from) < G.GEN_TOP_TIER
+		else:
+			compatible = board.can_merge(from, target) \
+				or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0
+		if not compatible:
+			continue
+		var hit := Rect2(_cell_pos(target), Vector2(csz, csz)).grow(csz * MERGE_TARGET_GROW)
+		if not hit.has_point(pos):
+			continue
+		var dist := pos.distance_squared_to(_cell_pos(target) + Vector2(csz, csz) / 2.0)
+		if dist < best_dist:
+			best = target
+			best_dist = dist
+	return best
+
 func _rebuild_all() -> void:
 	_grow_generators()                        # a staged second generator grows in once its level is reached
 	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
@@ -2612,8 +2643,8 @@ func _drag_follow(pos: Vector2) -> void:
 # non-mergeable cell or a different one) restores the old target first. Mirrors the Bag-highlight idiom
 # (DRAG_HILITE + breathe_once / breathe_stop).
 func _update_telegraph(pos: Vector2) -> void:
-	var target := _pos_to_cell(pos)
-	var valid := target != _drag_from and board.can_merge(_drag_from, target) and piece_nodes.has(target)
+	var target := _merge_target_at(_drag_from, pos, false)
+	var valid := target.x >= 0 and piece_nodes.has(target)
 	if not valid:
 		_clear_telegraph()
 		return
@@ -2733,6 +2764,10 @@ func _on_release(pos: Vector2) -> void:
 		return
 	var target := _pos_to_cell(pos)
 	var from := _drag_from
+	if pos.distance_to(_press_pos) > _drag_slop_px():
+		var merge_target := _merge_target_at(from, pos, false)
+		if merge_target.x >= 0:
+			target = merge_target
 	var node := _drag_node
 	_drag_node = null
 	_drag_from = Vector2i(-1, -1)
@@ -2797,6 +2832,10 @@ func _release_gen(pos: Vector2) -> void:
 	_drag_is_gen = false
 	var target := _pos_to_cell(pos)
 	var from := _drag_from
+	if pos.distance_to(_press_pos) > _drag_slop_px():
+		var merge_target := _merge_target_at(from, pos, true)
+		if merge_target.x >= 0:
+			target = merge_target
 	var node := _drag_node
 	_drag_node = null
 	_drag_from = Vector2i(-1, -1)

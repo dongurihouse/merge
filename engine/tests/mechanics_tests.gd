@@ -40,6 +40,14 @@ func fresh(name: String) -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
+func _adjacent_drop_fixture(board) -> Array:
+	var cells := [Vector2i(0, 0), Vector2i(0, 1), Vector2i(0, 2)]
+	for cell in cells:
+		board.terrain[BoardModel.idx(cell)] = 0
+		board.place(cell, 0)
+		board.remove_gen(cell)
+	return cells
+
 func _has_stale_test_item(list: Array) -> bool:
 	for v in list:
 		if int(v) == 99901 or int(v) == 100 + int(G.TOP_TIER) + 1 or int(v) == G.COIN_LINE * 100 + 99:
@@ -268,6 +276,70 @@ func _initialize() -> void:
 	sgen.queue_free()
 	await process_frame
 	await process_frame
+	await process_frame
+
+	# MERGE-PRIORITY DROP AREA: releasing just inside a competing neighbour still chooses the nearby
+	# compatible merge. The real press/release path covers normal items, recipes, and generators.
+	fresh("scene_merge_priority_drop_area")
+	Save.mark_board_tutorial_seen()
+	var sdrop = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sdrop)
+	await process_frame
+	if sdrop.board == null:
+		sdrop._ready()
+	var drop_cells := _adjacent_drop_fixture(sdrop.board)
+	ok(drop_cells.size() == 3, "merge-priority fixture finds adjacent open target and decoy cells")
+	if drop_cells.size() == 3:
+		var drop_source: Vector2i = drop_cells[0]
+		var drop_target: Vector2i = drop_cells[1]
+		var drop_decoy: Vector2i = drop_cells[2]
+		var half: Vector2 = Vector2(sdrop.csz, sdrop.csz) / 2.0
+		var toward_target: Vector2 = (sdrop._cell_pos(drop_target) - sdrop._cell_pos(drop_decoy)).normalized()
+		var competing_release: Vector2 = sdrop._cell_pos(drop_decoy) + half + toward_target * (sdrop.csz * 0.45)
+		ok(sdrop._pos_to_cell(competing_release) == drop_decoy,
+			"merge-priority fixture release still resolves to the competing exact cell")
+
+		sdrop.board.place(drop_source, 101)
+		sdrop.board.place(drop_target, 101)
+		sdrop.board.place(drop_decoy, 201)
+		sdrop._rebuild_pieces()
+		sdrop._on_press(sdrop._cell_pos(drop_source) + half)
+		sdrop._on_release(competing_release)
+		ok(sdrop.board.item_at(drop_target) == 102 and sdrop.board.item_at(drop_source) == 0
+			and sdrop.board.item_at(drop_decoy) == 201,
+			"nearby matching items merge instead of swapping with the competing exact cell")
+		await create_timer(0.3).timeout
+
+		for c in drop_cells:
+			sdrop.board.items[BoardModel.idx(Vector2i(c))] = 0
+			sdrop.board.collect_rewards.erase(BoardModel.idx(Vector2i(c)))
+			sdrop.board.place(Vector2i(c), 0)
+			sdrop.board.remove_gen(Vector2i(c))
+		sdrop.animating = false
+		sdrop.board.place(drop_source, 201)
+		sdrop.board.place(drop_target, 301)
+		sdrop.board.place(drop_decoy, 101)
+		sdrop._rebuild_pieces()
+		sdrop._on_press(sdrop._cell_pos(drop_source) + half)
+		sdrop._on_release(competing_release)
+		ok(sdrop.board.item_at(drop_target) == 501 and sdrop.board.item_at(drop_source) == 0
+			and sdrop.board.item_at(drop_decoy) == 101,
+			"nearby recipe ingredients craft instead of swapping with the competing exact cell")
+
+		for c in drop_cells:
+			sdrop.board.place(Vector2i(c), 0)
+			sdrop.board.remove_gen(Vector2i(c))
+		var merge_gid: String = sdrop.board.gen_id_at(Vector2i(4, 3))
+		sdrop.board.place_gen(merge_gid, drop_source, 1)
+		sdrop.board.place_gen(merge_gid, drop_target, 1)
+		sdrop.board.place_gen("gen_2", drop_decoy, 1)
+		sdrop._rebuild_all()
+		sdrop._on_press(sdrop._cell_pos(drop_source) + half)
+		sdrop._on_release(competing_release)
+		ok(sdrop.board.gen_tier_at(drop_target) == 2 and not sdrop.board.is_gen(drop_source)
+			and sdrop.board.gen_id_at(drop_decoy) == "gen_2",
+			"nearby matching generators merge instead of swapping with the competing exact cell")
+	sdrop.queue_free()
 	await process_frame
 
 	# gen stranding fix: selecting a REDUNDANT (sub-top) generator surfaces the info-bar SELL button; tapping

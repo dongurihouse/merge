@@ -33,7 +33,7 @@ Add board-scene fixtures that call `_on_press` and `_on_release` with a release 
 
 - [ ] **Step 2: Verify the regression fails for the intended reason**
 
-Run `make test-one T=engine/tests/mechanics_tests.gd`.
+Run `make test-one SUITE=engine/tests/mechanics_tests`.
 
 Expected: the new assertions fail because `_on_release` uses only `_pos_to_cell(pos)` and resolves the competing exact cell.
 
