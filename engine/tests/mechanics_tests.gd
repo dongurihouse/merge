@@ -609,26 +609,69 @@ func _initialize() -> void:
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
 	ok(G.cap_quest_lines([1, 2, 3, 4, 6, 7, 16, 18], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
 	ok(G.cap_quest_lines([1, 2, 3], 6) == [1, 2, 3], "a small pool is left untouched (footprint under the cap)")
-	# §14/§16 wire special quests into the askable pool: a special is asked only once REACHED with its ingredients available
-	ok(G.active_special_lines([2, 3], 4) == [5], "winter berries is asked once zone 4 is reached with ingredients [2,3] live")
-	ok(G.active_special_lines([2, 3], 3) == [], "a special is NOT asked before its zone is reached")
-	ok(G.active_special_lines([3, 4], 4) == [], "a special drops out once an ingredient line (2) has retired")
-	# the DEEPEST craft: tea cups needs spices (itself a special) + wild berries — active iff the whole chain is live
-	ok(G.active_special_lines([2, 3, 4, 6, 7, 16, 18], 11).has(19), "tea cups activates when its special ingredient (spices) is itself active")
-	ok(not G.active_special_lines([2, 3, 6, 7, 16, 18], 11).has(19), "tea cups stays dormant when the spices chain is broken (woolens retired)")
-	# no-strand invariant: every special the pool can ask has BOTH its ingredients producible (base pool or active special)
-	var _bp := G.quest_base_lines(8)
-	var _asp := G.active_special_lines(_bp, 8)
-	var _all_producible := true
-	for s in _asp:
-		var _rr := G.zone_recipe(G.zone_of_line(int(s)))
-		for _ing in _rr:
-			if not (_bp.has(int(_ing)) or _asp.has(int(_ing))):
-				_all_producible = false
-	ok(_all_producible, "every asked special has both ingredients producible (base pool or active special) -> no-strand")
-	# §12 (simplified): the quest base pool is a rolling window of the LAST QUEST_GEN_CAP base lines reached
-	ok(G.quest_base_lines(4) == [1, 2, 3, 4], "by zone 4 only 4 base lines are reached -> the window holds all of them")
-	ok(G.quest_base_lines(11) == [3, 4, 6, 7, 16, 18], "the window holds the LAST 6 base lines; lines 1-2 have rolled off")
+	# --- §7 THE ACTIVE-LINE WINDOW (2026-07-25) — ACTIVE_LINE_WINDOW lines at a time, base or special alike.
+	# The arc window slides over ZONES rows, so it advances on EVERY zone (a special takes a slot of its own).
+	ok(G.zone_window_lines(0) == [1] and G.zone_window_lines(1) == [1, 2], "the window fills from the first zones (FTUE: 1 line, then 2)")
+	ok(G.zone_window_lines(2) == [1, 2, 3] and G.zone_window_lines(3) == [2, 3, 4], "at full width the window holds 3 lines and slides one per zone")
+	ok(G.zone_window_lines(4) == [3, 4, 5], "a SPECIAL zone takes a window slot of its own (winter berries 5 at z4)")
+	ok(G.zone_window_lines(11) == [17, 18, 19], "the last zone's window carries tea cups (19) — the capstone is askable at its own zone")
+	ok(G.zone_window_lines(G.ZONE_COUNT + 5) == [17, 18, 19], "a zone past the roster clamps to the last window")
+	for _z in G.ZONE_COUNT:
+		ok(G.zone_window_lines(_z).size() == mini(_z + 1, int(G.ACTIVE_LINE_WINDOW)), "zone %d windows exactly ACTIVE_LINE_WINDOW lines (or all reached)" % _z)
+	# a special no longer needs its ingredient LINES live — its ingredient GENERATORS arrive by birth-on-tap,
+	# so the whole arc stays inside the QUEST_GEN_CAP footprint with no line-level dependency.
+	var _peak := 0
+	for _z2 in G.ZONE_COUNT:
+		var _gens := {}
+		for _l in G.zone_window_lines(_z2):
+			for _g in G.gens_for_quest_line(int(_l)):
+				_gens[_g] = true
+		_peak = maxi(_peak, _gens.size())
+	ok(_peak <= int(G.QUEST_GEN_CAP), "the arc's peak generator footprint (%d) stays inside QUEST_GEN_CAP" % _peak)
+	ok(G.cap_quest_lines(G.zone_window_lines(11)) == [17, 18, 19], "the footprint cap never trims a full arc window")
+	# ENDGAME: past the last zone's unlock the window re-rolls every level-up, dealt from a shuffled deck.
+	var _top_lv := int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1])
+	ok(G.active_lines(_top_lv) == [17, 18, 19], "the last zone's own level keeps its arc window (the capstone is never skipped)")
+	ok(G.active_lines(_top_lv + 1) != [17, 18, 19], "the first level-up past the last zone re-rolls the window")
+	var _pool := G.zone_pool_lines()
+	ok(_pool.size() == G.ZONE_COUNT, "the endgame pool is every zone line — base and special alike")
+	var _slots := _pool.size() / int(G.ACTIVE_LINE_WINDOW)
+	var _seen := {}
+	for _i in _slots:                                  # one full round: the draws are disjoint by construction
+		var _draw := G.endgame_lines(_top_lv + 1 + _i)
+		ok(_draw.size() == int(G.ACTIVE_LINE_WINDOW), "endgame draw %d is ACTIVE_LINE_WINDOW lines" % _i)
+		for _l2 in _draw:
+			ok(_pool.has(int(_l2)) and not _seen.has(int(_l2)), "endgame draw %d serves an unrepeated pool line" % _i)
+			_seen[int(_l2)] = true
+	ok(_seen.size() == _pool.size(), "one endgame round deals EVERY line exactly once — no line is starved")
+	ok(G.endgame_lines(_top_lv + 7) == G.endgame_lines(_top_lv + 7), "the endgame draw is a pure function of level (no persisted RNG)")
+	var _eg_peak := 0
+	for _i2 in (_slots * 3):                           # three rounds — every draw stays inside the gen cap
+		var _g2 := {}
+		for _l3 in G.endgame_lines(_top_lv + 1 + _i2):
+			for _g3 in G.gens_for_quest_line(int(_l3)):
+				_g2[_g3] = true
+		_eg_peak = maxi(_eg_peak, _g2.size())
+	ok(_eg_peak <= int(G.QUEST_GEN_CAP), "every endgame draw's generator footprint (peak %d) stays inside QUEST_GEN_CAP" % _eg_peak)
+	# THE SHIPPED ARC TABLE, level by level (the owner-facing view of ZONE_UNLOCK_LEVEL × the window). Re-tuning
+	# the cadence SHOULD break this — update it here so the table stays reviewable in one place.
+	var _arc := {
+		1: [1], 2: [1], 3: [1],
+		4: [1, 2], 5: [1, 2], 6: [1, 2], 7: [1, 2],
+		8: [1, 2, 3], 9: [1, 2, 3],
+		10: [2, 3, 4], 11: [2, 3, 4],
+		12: [3, 4, 5],
+		13: [4, 5, 6], 14: [4, 5, 6],
+		15: [5, 6, 7], 16: [5, 6, 7],
+		17: [6, 7, 8],
+		18: [7, 8, 16], 19: [7, 8, 16],
+		20: [8, 16, 17], 21: [8, 16, 17], 22: [8, 16, 17],
+		23: [16, 17, 18], 24: [16, 17, 18],
+		25: [17, 18, 19],
+	}
+	for _lv in _arc:
+		ok(G.active_lines(int(_lv)) == _arc[_lv], "L%d asks from %s" % [_lv, _arc[_lv]])
+	ok(G.active_lines(0) == [1], "a below-first-threshold level clamps to the anchor line")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(5) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (one generator per base line)
 	# zone -> band is derived from the FROZEN ZONE_BAND counts ([6,4,7,4,4]) — the retired 5-map layout kept

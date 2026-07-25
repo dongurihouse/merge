@@ -67,9 +67,15 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 # line's generator arrives only when a quest asks for it (or for a special crafted from it), which lets the
 # quest stream choose what the player gets next. `owned_ids` = generators on the board ∪ the gen_bag.
 static func due_gen(quests: Array, owned_ids: Array) -> String:
-	var anchor := G.anchor_gen()
-	if anchor != "" and not owned_ids.has(anchor):
-		return anchor
+	# STRANDING GUARD (rescoped 2026-07-25 with the ACTIVE_LINE_WINDOW). Birth the anchor only when the
+	# player owns NO line generator at all — a fresh save's very first tap, or a save that somehow lost
+	# every tool. It used to fire whenever gen_1 SPECIFICALLY was missing; line 1 now leaves the fence at
+	# zone 3 and is an ingredient to no special, so the old form would have resurrected a retired generator
+	# on every tap forever. (Accumulator / bonus / treat gens don't count — they can't satisfy a quest.)
+	if not _owns_any_line_gen(owned_ids):
+		var anchor := G.anchor_gen()
+		if anchor != "":
+			return anchor
 	for q in quests:
 		var it := G.quest_item(q)
 		if it.is_empty():
@@ -78,6 +84,13 @@ static func due_gen(quests: Array, owned_ids: Array) -> String:
 			if not owned_ids.has(gid):
 				return gid
 	return ""
+
+# True if `owned_ids` holds at least one BASE-LINE generator (the only kind that can satisfy a quest).
+static func _owns_any_line_gen(owned_ids: Array) -> bool:
+	for l in G.ZONE_BASE_LINES:
+		if owned_ids.has(G.gen_for_line(int(l))):
+			return true
+	return false
 
 static func _quest_line_counts(quests: Array) -> Dictionary:
 	var out := {}
@@ -132,12 +145,12 @@ static func refill(quests: Array, band: int, board_gens: Dictionary, gen_bag: Ar
 	var out: Array = _cap_quests_per_line(quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))))
 	# Ask from the level-reached line window (the coin clock drives level): a player keeps seeing
 	# new quest lines by earning coins even if they delay building newly affordable structures.
-	# #12/#14/#16: quests draw from a rolling window of the last QUEST_GEN_CAP BASE lines (quest_base_lines) PLUS
-	# any craftable SPECIAL (merge) line, trimmed to the QUEST_GEN_CAP generator footprint (a special folds into
-	# its 2 ingredient generators — already in the window).
-	var quest_zone := G.quest_zone_for_level(level)
-	var base_lines := G.quest_base_lines(quest_zone)
-	var lines := G.cap_quest_lines(base_lines + G.active_special_lines(base_lines, quest_zone))
+	# §7 the ACTIVE-LINE WINDOW (2026-07-25): ACTIVE_LINE_WINDOW lines at a time, base or crafted-special
+	# alike — the arc's sliding zone window, then a fresh deterministic draw per level-up past the last zone.
+	# Still trimmed to the QUEST_GEN_CAP generator footprint (a special folds into its 2 ingredient gens,
+	# which arrive by birth-on-tap). NOTE: a re-roll never drops a quest already on the fence — `out` keeps
+	# every live stand, so items the player has already built stay deliverable.
+	var lines := G.cap_quest_lines(G.active_lines(level))
 	# The fence is always full (endless quests): MAX_GIVERS, then capped to the unlocked line capacity.
 	var target := mini(meter_target(), _line_capacity(lines))
 	while out.size() < target:

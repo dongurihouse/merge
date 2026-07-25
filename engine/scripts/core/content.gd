@@ -32,6 +32,8 @@ const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
 const ZONE_UNLOCK_LEVEL = D.ZONE_UNLOCK_LEVEL   # §7 per-zone unlock LEVEL — the progression cadence dial
 const GEN_TOP_TIER = D.GEN_TOP_TIER
+const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
+const ENDGAME_DECK_SALT := 0x5AFE            # fixed salt for the endgame draw's per-round shuffle seed
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
 const GEN_SELL_COINS = D.GEN_SELL_COINS
@@ -338,31 +340,78 @@ static func base_generators() -> Array:
 		out.append(base_generator(int(line)))
 	return out
 
-# The SPECIAL (merge) lines the player can be ASKED for right now (gen redesign #14/#16): a special whose
-# zone has been REACHED (current_zone = spots restored) AND whose two ingredient base lines are BOTH still in
-# `base_lines` — so it is craftable NOW (pop both ingredients, merge them, Core §6.G). Gating on the live
-# ingredients keeps every special quest PRODUCIBLE (no-strand) and lets cap_quest_lines fold its shared
-# generators into the footprint cap (a special adds no generator the base asks didn't already need).
-static func active_special_lines(base_lines: Array, current_zone: int) -> Array:
-	# Walk the zones in order, growing the AVAILABLE set: an ingredient is satisfied by a live base
-	# line OR an already-active special (tea_cup ← spices — a special-of-a-special is fine as long
-	# as the chain below it is live). LINES.has gate (safety): a def-less special stays DORMANT.
+# --- §7 THE ACTIVE-LINE WINDOW (2026-07-25) ------------------------------------------------------------
+# The fence asks from exactly ACTIVE_LINE_WINDOW lines at a time — ANY line, base or crafted-special alike.
+#
+# Supersedes the quest_base_lines + active_special_lines pair. That model windowed only the BASE lines and
+# then admitted a special ONLY while both its ingredient lines were still inside that window — which made
+# the arc's own capstone (tea cups, z11 ← spices + wild berries) unaskable the moment it unlocked, because
+# wild berries had already rolled off. A special is now active on its own zone row like any other line; it
+# needs no live ingredient LINE, because its ingredient GENERATORS are birthed on tap (Quests.due_gen walks
+# gens_for_quest_line down to the base generators). So an ingredient line comes BACK as a tool long after
+# its own quests have stopped — which is why a retired line's generator must stay re-birthable.
+
+# The window during the ARC: the last ACTIVE_LINE_WINDOW zones reached, in play order. Slides over ZONES
+# rows, so it advances on EVERY zone, not only base ones. LINES.has gate (safety): a def-less zone line is
+# skipped rather than windowing in an unrenderable item.
+static func zone_window_lines(current_zone: int) -> Array:
 	var out: Array = []
-	for z in range(ZONE_COUNT):
-		if not zone_is_special(z):
-			continue
-		if z > current_zone:
-			break                                  # zones are reached in order — nothing past current_zone yet
-		var r := zone_recipe(z)
-		if r.size() != 2 or not LINES.has(zone_line(z)):
-			continue
-		var ok := true
-		for ing in r:
-			if not (base_lines.has(int(ing)) or out.has(int(ing))):
-				ok = false
-		if ok:
-			out.append(zone_line(z))
+	var z := mini(int(current_zone), ZONE_COUNT - 1)
+	while z >= 0 and out.size() < int(ACTIVE_LINE_WINDOW):
+		var l := zone_line(z)
+		if l > 0 and LINES.has(l):
+			out.append(l)
+		z -= 1
+	out.reverse()
 	return out
+
+# Every zone line with a renderable def — the endgame draw pool.
+static func zone_pool_lines() -> Array:
+	var out: Array = []
+	for z in ZONE_COUNT:
+		var l := zone_line(z)
+		if l > 0 and LINES.has(l):
+			out.append(l)
+	return out
+
+# The pool shuffled deterministically for endgame round `r` — a pure function of r (seeded Fisher-Yates), so
+# it needs no save field and cannot desync from the load-bearing RNG call order in Quests.refill.
+static func _endgame_deck(r: int) -> Array:
+	var deck := zone_pool_lines()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = ENDGAME_DECK_SALT + int(r)
+	for i in range(deck.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp: int = deck[i]
+		deck[i] = deck[j]
+		deck[j] = tmp
+	return deck
+
+# Past the last zone the window stops sliding and RE-ROLLS on every level-up: the shuffled pool is dealt out
+# ACTIVE_LINE_WINDOW at a time, so the draws inside one round are disjoint BY CONSTRUCTION (a level-up always
+# fully refreshes the fence) and every line is guaranteed to come round once per round. Only a round boundary
+# can repeat a line — accepted, it is one level-up in `slots`. `level` must be past the last zone's unlock.
+static func endgame_lines(level: int) -> Array:
+	var pool := zone_pool_lines()
+	var w := int(ACTIVE_LINE_WINDOW)
+	if pool.size() < w or w <= 0:
+		return pool
+	var slots := pool.size() / w                  # draws dealt from one shuffled deck
+	var k := int(level) - int(ZONE_UNLOCK_LEVEL[ZONE_COUNT - 1]) - 1   # 0-based draw index
+	if k < 0:
+		k = 0
+	var deck := _endgame_deck(k / slots)
+	var out := deck.slice((k % slots) * w, (k % slots) * w + w)
+	out.sort()                                    # stable order for display/tests; membership is the draw
+	return out
+
+# THE ONE ENTRY POINT — the lines the fence may ask for at `level`. Arc: the sliding zone window. Endgame
+# (past the last zone's unlock level): a fresh deterministic draw on every level-up.
+static func active_lines(level: int) -> Array:
+	var top := ZONE_COUNT - 1
+	if quest_zone_for_level(level) >= top and int(level) > int(ZONE_UNLOCK_LEVEL[top]):
+		return endgame_lines(int(level))
+	return zone_window_lines(quest_zone_for_level(level))
 
 # Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
 # opening new zones, the ask pool still advances. The level→zone map is the ZONE_UNLOCK_LEVEL cadence dial
@@ -376,19 +425,6 @@ static func quest_zone_for_level(level: int) -> int:
 		else:
 			break
 	return z
-
-# gen redesign (#12, simplified): the BASE lines a quest may ask — a rolling window of the last QUEST_GEN_CAP
-# base lines reached by quest progress (quest_zone_for_level). The window slides with level and can lead the
-# claimed zones. Specials are crafted FROM these (active_special_lines), never a window slot of their own.
-static func quest_base_lines(current_zone: int) -> Array:
-	var out: Array = []
-	var z := mini(current_zone, ZONE_COUNT - 1)
-	while z >= 0 and out.size() < QUEST_GEN_CAP:
-		if not zone_is_special(z):
-			out.append(zone_line(z))
-		z -= 1
-	out.reverse()
-	return out
 
 # --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
 # A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples.

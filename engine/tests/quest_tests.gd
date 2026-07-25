@@ -146,11 +146,16 @@ func _initialize() -> void:
 	var shrinks := G.active_giver_count(0, 8) >= G.active_giver_count(4, 8) and G.active_giver_count(4, 8) >= G.active_giver_count(6, 8)
 	ok(shrinks, "the active count shrinks monotonically as stars bank toward the unlock")
 
-	# --- due_gen: QUEST-DRIVEN birth-on-tap (gen redesign — LINE_WINDOW retired). A generator is born only
-	# when an active quest asks for a line whose generator the player lacks; the gen_1 anchor self-heals FIRST
-	# so the very first tap always produces. Reaching a zone no longer grants a tool on its own — quests do. ---
+	# --- due_gen: QUEST-DRIVEN birth-on-tap. A generator is born only when an active quest asks for a line
+	# whose generator the player lacks; the anchor self-heals FIRST so the very first tap always produces.
+	# Reaching a zone no longer grants a tool on its own — quests do. ---
 	ok(Quests.due_gen([], []) == "gen_1", "fresh game: the anchor (gen_1) is due even before any quest")
 	ok(Quests.due_gen([], ["gen_1"]) == "", "anchor owned + no quest asking → nothing due (progression alone grants no tool)")
+	# the anchor self-heal is a STRANDING guard, not a gen_1 guarantee (rescoped with the ACTIVE_LINE_WINDOW):
+	# line 1 leaves the fence at zone 3 and is an ingredient to no special, so re-birthing it on every tap
+	# would resurrect a retired generator forever.
+	ok(Quests.due_gen([], ["gen_2"]) == "", "a player past line 1 does NOT get the anchor re-birthed (it owns another line gen)")
+	ok(Quests.due_gen([{"line": 3, "tier": 1}], ["gen_2"]) == "gen_3", "past the anchor, the asked line's generator is what's due")
 	ok(Quests.due_gen([{"line": 2, "tier": 1}], ["gen_1"]) == "gen_2", "a quest asking line 2 makes its generator due")
 	ok(Quests.due_gen([{"line": 2, "tier": 1}], ["gen_1", "gen_2"]) == "", "nothing due once the asked line's generator is owned")
 	# a SPECIAL quest (5 = winter berries, merge of lines 2+3) pulls its missing INGREDIENT generator
