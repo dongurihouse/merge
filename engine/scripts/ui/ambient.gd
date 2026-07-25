@@ -99,24 +99,6 @@ static func _make_resident(_i: int, type_id: String, tier: int) -> Control:
 	# Tier needs no scale/tint here — each tier's own art carries the "elder" read.
 	return ch
 
-## A one-shot celebratory burst for `count` two-of-a-kind merge events — the merge FLOURISH. Safe
-## to call AFTER a layer rebuild (idempotent; relies on no specific surviving sprite): it plays a
-## warm poof over the layer's center for each event. The roster is already committed by the API, so
-## this is pure juice. A 0-or-fewer count is a no-op.
-static func merge_poof(layer: Control, count: int) -> void:
-	if layer == null or not is_instance_valid(layer) or count <= 0:
-		return
-	var center := layer.size / 2.0
-	for _e in count:
-		FX.burst(layer, center, RES_POOF_COLOR, RES_POOF_PER_EVENT)
-
-## The WORLD REACTION to a merge: a quick outward PUFF of ambient motes from `center`. Rather than
-## nudge the existing drift particles (a CPUParticles2D exposes no per-particle velocity), it spawns
-## a tiny one-shot radial burst of the SAME breeze petal/leaf motes flying OUTWARD from the hit, so
-## the ambient layer reads as recoiling from the merge. Cheap: MOTE_PUFF_COUNT motes, ~MOTE_PUFF_LIFE
-## then self-free. `impulse` sets how hard they scatter (outward velocity). The motes are a CPUParticles2D
-## (a Node2D — it never eats input). No-op when ambient_weather is off OR the layer is gone — the caller
-## guards the no-ambient case (Rush) too.
 static func puff(layer: Control, center: Vector2, impulse := FXTune.MOTE_PUFF_IMPULSE) -> void:
 	if layer == null or not is_instance_valid(layer) or not Features.on("ambient_weather"):
 		return

@@ -11,7 +11,7 @@ const BARK := Game.PALETTE.BARK
 const STRAW := Game.PALETTE.STRAW
 const OVERLAY_NAME := "PurchaseWaitOverlay"
 const SPINNER_FRAMES := [".", "..", "..."]
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const WAIT_TIMEOUT_SECS := 12.0
 
 static func show(host: Control, title: String, message: String) -> Control:

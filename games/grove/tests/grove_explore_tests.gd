@@ -12,7 +12,7 @@ const ResidentsUI = preload("res://engine/scripts/ui/residents.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
 
@@ -223,7 +223,7 @@ func _test_home_tap_unlocks_cluster() -> void:
 	await process_frame
 	var next_id := G.next_locked_cluster(0, map.unlocks)
 	ok(next_id != "", "the home page has a next-in-order locked cluster")
-	var badge: Control = map._zone_badges.get(next_id, null)
+	var badge: Control = map._page_badges.get(next_id, null)
 	ok(badge != null, "the ready cluster's lock badge exists")
 	if badge != null:
 		_map_tap_at(map, _hit_center(badge))
@@ -741,7 +741,7 @@ func _test_map_card_expedition_chrome() -> void:
 	ok(_home_chrome_button(hx, "Expedition") == null, "home no longer carries an Expedition rail tile")
 
 	# the BOTTOM BAR tiles: each is now the shared CODE-DRAWN action button — a CutPaperPanel rugged edge
-	# (games/grove/tools/ui_workbench_kit.gd action_button) with a centered glyph, over the shared drop
+	# (games/grove/ui_kit.gd action_button) with a centered glyph, over the shared drop
 	# shadow — NOT a baked nav_<x>.png sprite. Keyed by spec name.
 	var tiles := {"MapTile": "glyph_map", "ResidentsTile": "glyph_residents", "DailyTile": "glyph_daily",
 		"BoardTile": "glyph_play"}

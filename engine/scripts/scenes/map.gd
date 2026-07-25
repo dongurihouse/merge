@@ -6,7 +6,7 @@ extends Control
 ## (variants priced in coins/diamonds).
 ## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
 ## home. Unlocking regions advances your level; level-ups gift water+diamonds. A pinned garden
-## button leads to the board. Every map renders through ONE path (_build_map → HomeZoneView): the
+## button leads to the board. Every map renders through ONE path (_build_map → HomePageView): the
 ## layered cut-paper zone renderer draws the foundation + one painter-sorted prop per region, plus a
 ## cover-up lock badge over each locked cluster (taps route via spot_hits → _map_tap → _on_cluster_tap).
 
@@ -54,12 +54,11 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
-const HomeZoneView = preload("res://engine/scripts/ui/home_zone_view.gd")   # the layered zone renderer
+const HomePageView = preload("res://engine/scripts/ui/home_page_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
-const HOME_ZONE_MANIFEST := "res://games/grove/assets/map/hollow/zone.json"   # `.get()` fallback only — every map in G.MAPS names its own `zone_manifest`
 
 
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
@@ -432,7 +431,7 @@ func _debug_resident_line() -> String:
 
 # THE home render path (picture-book cover-up scenes): five tall cut-paper scenes whose regions
 # unlock top-down in one global cluster sequence, rendered through the layered cut-paper pipeline.
-# HomeZoneView draws the foundation + one painter-sorted prop per region + a cover-up LOCK badge over
+# HomePageView draws the foundation + one painter-sorted prop per region + a cover-up LOCK badge over
 # each still-locked cluster; the next-in-order badge registers into spot_hits so the shared _map_tap
 # resolves a tap to _on_cluster_tap.
 func _build_map(animate := true) -> void:
@@ -488,7 +487,7 @@ func _build_page_visual(z: int) -> void:
 	var coverup := bool(G.MAPS[z].get("coverup_mode", false))
 	var unl := unlocks
 	var locked_cb := func(cl: String) -> bool: return G.cluster_locked(z, cl, unl)
-	var built := HomeZoneView.build(holder, _page_manifest(z), Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
+	var built := HomePageView.build(holder, _page_manifest(z), Callable(self, "_home_state_id"), Callable(self, "_home_next_step"), \
 		G.MAPS[z].get("covering_frames", []), coverup, locked_cb)
 	# fit the native canvas into the cover-filled map rect (uniform scale keeps the cut-paper aspect).
 	var stage: Control = built.stage
@@ -514,8 +513,8 @@ func _activate_page(z: int) -> void:
 	if not _pages.has(z):
 		return
 	var meta: Dictionary = _pages[z]
-	_zone_coverings = meta.coverings
-	_zone_badges = meta.badges
+	_page_coverings = meta.coverings
+	_page_badges = meta.badges
 	var coverup := bool(G.MAPS[z].get("coverup_mode", false))
 	if coverup:
 		_set_badge_ready(meta.badges, z)         # refresh glow (level/coins may have moved since build)
@@ -566,11 +565,11 @@ func _process(_delta: float) -> void:
 	if not _pages.has(z) and z >= 0 and z < G.MAPS.size() and map_unlocked(z):
 		_build_page_visual(z)
 
-# PER-PAGE zone manifests (picture-book world): each map names its own `zone_manifest`
-# (assets/map/<scene>/zone.json); the farmhouse manifest is the legacy fallback.
+# PER-PAGE zone manifests (picture-book world): each map names its own `page_manifest`
+# (assets/map/<scene>/page.json); the farmhouse manifest is the legacy fallback.
 var _home_manifest_cache: Dictionary = {}   # path -> parsed manifest
-var _zone_coverings: Dictionary = {}        # building id (or cluster id, coverup pages) -> its covering group
-var _zone_badges: Dictionary = {}           # cluster id -> its lock badge node (coverup pages)
+var _page_coverings: Dictionary = {}        # building id (or cluster id, coverup pages) -> its covering group
+var _page_badges: Dictionary = {}           # cluster id -> its lock badge node (coverup pages)
 func _home_manifest() -> Dictionary:
 	return _page_manifest(_map_idx)
 
@@ -664,7 +663,7 @@ func _build_select(animate := true) -> void:
 # A full-screen gallery over the sky: the first cover-up page with a locked cluster as a large
 # featured card (thumb + IN PROGRESS + built/total + progress bar + CONTINUE), and every other map as a
 # grid card — locked cards wear a dimmed thumb + padlock medallion + LOCKED pill. Card thumbs are
-# LIVE zone renders (HomeZoneView over the page's manifest), so the gallery always shows the real
+# LIVE zone renders (HomePageView over the page's manifest), so the gallery always shows the real
 # scene state — no baked thumbnails to fall stale. Cards IGNORE the mouse (the single input
 # surface resolves taps via maps_hits); only CONTINUE and the back arrow are real buttons.
 func _build_maps_page(animate := true) -> void:
@@ -729,9 +728,9 @@ func _page_progress(z: int) -> Vector2i:
 	return Vector2i(done, cls.size())
 
 func _page_manifest(z: int) -> Dictionary:
-	var path := String(G.MAPS[z].get("zone_manifest", HOME_ZONE_MANIFEST))
+	var path := String(G.MAPS[z]["page_manifest"])   # every map supplies one; no fallback
 	if not _home_manifest_cache.has(path):
-		_home_manifest_cache[path] = HomeZoneView.load_manifest(path)
+		_home_manifest_cache[path] = HomePageView.load_manifest(path)
 	return _home_manifest_cache[path]
 
 # The shared cream card shell: the code-drawn RUGGED cut-paper edge (a deckled/torn cream sheet with a
@@ -782,11 +781,11 @@ func _card_title(text: String, font: int, w: float, col := INK) -> Label:
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return lbl
 
-# A LIVE zone thumbnail: the page's manifest rendered through HomeZoneView (badges hidden), cover-fitted
+# A LIVE zone thumbnail: the page's manifest rendered through HomePageView (badges hidden), cover-fitted
 # over a sky backing. The frame is a rounded Panel whose `clip_children` masks the whole preview to its
 # drawn shape — so `corner` rounds the thumb's own corners (a bleeding thumb then keeps the card's
 # rounded silhouette; `corner` 0 is a plain rectangular clip, matching the old behaviour).
-func _maps_zone_thumb(z: int, size: Vector2, corner := 0.0, right_square := false) -> Control:
+func _maps_page_thumb(z: int, size: Vector2, corner := 0.0, right_square := false) -> Control:
 	var frame := Panel.new()
 	frame.size = size
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -810,7 +809,7 @@ func _maps_zone_thumb(z: int, size: Vector2, corner := 0.0, right_square := fals
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(holder)
-	var built := HomeZoneView.build(holder, _page_manifest(z), Callable(self, "_home_state_id"), \
+	var built := HomePageView.build(holder, _page_manifest(z), Callable(self, "_home_state_id"), \
 		Callable(self, "_home_next_step"), G.MAPS[z].get("covering_frames", []))
 	for id in built.badges:                       # a thumbnail carries no build badges
 		(built.badges[id] as Control).visible = false
@@ -830,7 +829,7 @@ func _maps_featured_card(z: int, rect: Rect2, title_font: int) -> Control:
 	# the preview is a full-height rounded square seated inside the torn edge on the card's LEFT; the
 	# rugged cream border frames it on every side.
 	var thumb_px := rect.size.y - inset * 2.0
-	var thumb := _maps_zone_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER * 0.6)
+	var thumb := _maps_page_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER * 0.6)
 	thumb.position = Vector2(inset, inset)
 	card.add_child(thumb)
 	var col_x := inset + thumb_px + clampf(rect.size.y * 0.05, 8.0, 18.0)
@@ -914,7 +913,7 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool, title_font: int) -> Cont
 	var edge := _card_inset(card)                 # seat the thumb inside the rugged tear
 	# the preview fills the card inside the torn edge, rounded so it nests in the rugged cream frame.
 	var thumb_size := rect.size - Vector2(edge, edge) * 2.0
-	var thumb := _maps_zone_thumb(z, thumb_size, CARD_CORNER * 0.6)
+	var thumb := _maps_page_thumb(z, thumb_size, CARD_CORNER * 0.6)
 	thumb.position = Vector2(edge, edge)
 	card.add_child(thumb)
 	if locked:
@@ -1345,27 +1344,6 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		bar.add_child(sell)
 	return bar
 
-func _left_map_texture(rel: String) -> Texture2D:
-	var path := Look.kit(rel)
-	return load(path) as Texture2D if ResourceLoader.exists(path) else null
-
-func _left_map_style(rel: String, slice: Vector4, content: Vector4) -> StyleBoxTexture:
-	var tex := _left_map_texture(rel)
-	if tex == null:
-		return null
-	var st := StyleBoxTexture.new()
-	st.texture = tex
-	st.set_texture_margin(SIDE_LEFT, slice.x)
-	st.set_texture_margin(SIDE_TOP, slice.y)
-	st.set_texture_margin(SIDE_RIGHT, slice.z)
-	st.set_texture_margin(SIDE_BOTTOM, slice.w)
-	st.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	st.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
-	st.content_margin_left = content.x
-	st.content_margin_top = content.y
-	st.content_margin_right = content.z
-	st.content_margin_bottom = content.w
-	return st
 
 func _on_dock_collect() -> void:
 	var got := Bucket.collect()
@@ -1395,13 +1373,6 @@ func _line_icon(line: String) -> String:
 		"diamond": return "gem"
 		_: return "leaf"
 
-func _card_sub(text: String) -> Label:
-	var l := _dock_label(text, FS.FINE, true)
-	l.modulate = Color(1, 1, 1, 0.92)
-	return l
-
-
-# --- home scene swipe: pure decision (unit-tested) --------------------------------------
 const SWIPE_COMMIT_FRAC := 0.33   # commit once the slide passes this fraction of the viewport width
 const SWIPE_ACTIVATE := 12.0      # px of horizontal travel before a drag becomes a scene-swipe
 const SWIPE_EDGE_RESIST := 0.35   # damping when dragging toward a missing neighbour (first/last scene)
@@ -1804,19 +1775,6 @@ func _screen_center(dy: float) -> Vector2:
 func _select_tap(_gpos: Vector2) -> void:
 	pass   # the dock view has no map cards to open — spirit orbs are handled on the drag path (_on_orb_tap)
 
-# Pan the place-picker stack by `dy` px, clamped to [0, _select_scroll_max], and slide every card to its
-# scrolled position (clip-local y0 − scroll). No-op when the stack fits (_select_scroll_max == 0).
-func _scroll_select_by(dy: float) -> void:
-	var prev := _select_scroll
-	_select_scroll = clampf(_select_scroll + dy, 0.0, _select_scroll_max)
-	if is_equal_approx(_select_scroll, prev):
-		return
-	for hit in select_hits:
-		var c: Control = hit.node
-		if is_instance_valid(c):
-			c.position.y = float(hit.y0) - _select_scroll
-
-# Scroll the in-hand orb grid by `dy` px, clamped to [0, _hand_scroll_max]. No-op when the hand fits.
 func _scroll_hand_by(dy: float) -> void:
 	if _hand_scroll_max <= 0.0 or _hand_panel == null or not is_instance_valid(_hand_panel):
 		return
@@ -1894,62 +1852,13 @@ func _on_cluster_tap(cluster_id: String, node: Control, at: Vector2) -> void:
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
 	# reveal the cluster's canopy away, reparented to the scene first so the rebuild below can't cut it short.
-	SceneCoverings.reveal(_zone_coverings.get(cluster_id), self)
-	_zone_coverings.erase(cluster_id)
+	SceneCoverings.reveal(_page_coverings.get(cluster_id), self)
+	_page_coverings.erase(cluster_id)
 	_persist()
 	_build_map(false)
 	_refresh_play_cta()
 	_update_hud()
 
-# Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.
-# The lock shader rendered alone in a transparent SubViewport reproduces the exact on-screen masking
-# (cover-fit + mask offset), so the snapshot matches where the veil sits. Returns {tex, bbox}, or {}
-# if the veil isn't present. Async — the SubViewport needs a frame to render.
-func _capture_region_veil(view: Variant, k: int) -> Dictionary:
-	if view == null or k < 0 or k >= view.region_overlays.size():
-		return {}
-	var lock := view.region_overlays[k].get("lock") as TextureRect
-	if lock == null or not lock.visible:
-		return {}
-	var vsize := Vector2i(get_global_rect().size)
-	if vsize.x < 4 or vsize.y < 4:
-		return {}
-	var sv := SubViewport.new()
-	sv.size = vsize
-	sv.transparent_bg = true
-	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	var dup := lock.duplicate() as TextureRect
-	var dmat := (lock.material as ShaderMaterial).duplicate() as ShaderMaterial
-	dmat.set_shader_parameter("region_enabled", 1.0)
-	# The shards carry this snapshot's alpha. The live veil sits semi-transparent, so capture it at a
-	# crisp opacity here — otherwise the breaking glass reads as a faint purple smear.
-	var vtc: Color = dmat.get_shader_parameter("tint_color")
-	dmat.set_shader_parameter("tint_color", Color(vtc.r, vtc.g, vtc.b, SHATTER_VEIL_ALPHA))
-	dup.material = dmat
-	dup.visible = true
-	dup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sv.add_child(dup)
-	add_child(sv)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var img: Image = sv.get_texture().get_image()
-	sv.queue_free()
-	if img == null:
-		return {}
-	img.convert(Image.FORMAT_RGBA8)
-	var used := img.get_used_rect()       # native opaque-bounds (C++) — NOT a per-pixel GDScript scan
-	if used.size.x < 2 or used.size.y < 2:
-		return {}
-	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
-
-# --- §1 residents: DORMANT legacy welcome shop + unlock gift helpers ----------------------
-# Superseded by the unified habitat: the map now renders + manages the habitat (the spirits dock) and
-# the nav routes to the Expedition dialog. This welcome-shop path is no longer reached in-game; it (and
-# the resident_counts roster model it drives) is kept dormant and retires together with the economy pass.
-# G.welcome_resident spends + adds + silently auto-merges two-of-a-kind; the population layer is rebuilt
-# from that roster after each legacy buy.
-
-# --- HUD & chrome -----------------------------------------------------------------------
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module — ★🪙💎 + Store + the S10 Lv chip
@@ -2026,7 +1935,6 @@ func _build_chrome() -> void:
 # (There is no standalone Residents button or modal dialog any more.)
 const DOCK_INK := Color("#43352B")
 const DOCK_PARCH := Color("#F3E7CE")
-const DOCK_STRAW := Color("#D9B679")
 
 static var _resident_content_cache: Dictionary = {}
 static func _resident_content_tex(path: String) -> Texture2D:
@@ -2317,14 +2225,10 @@ func _make_back_button(sb: float) -> Button:
 # in its rect form (Kit.home_button shape:"rect" — the SAME cream/gold badge + icon the bottom nav uses,
 # tuned in the workbench) with its label INSIDE the tile; the RED BADGE does all the attention-pulling,
 # shown ONLY when actionable (today unclaimed / vault claimable / unread mail — the mail badge shows the count).
-# Tiles are sized by the saved config (default 140, scaled by RAIL_SCALE), matching the bottom bar. Every button is appended to _chrome_nodes so it
+# Tiles are sized by the saved config (RAIL_PX is the fallback), matching the bottom bar. Every button is appended to _chrome_nodes so it
 # follows _set_map_chrome_visible (hidden on the place-picker).
 const RAIL_PX := 140.0          # fallback disc size — matches the bottom-bar side buttons
 const RAIL_MARGIN := 18.0       # right-edge inset
-const RAIL_CAP_H := 10.0        # gap band beneath each tile (captions now sit INSIDE the rect badge, so this is just spacing)
-const RAIL_GAP := 8.0           # gap between stacked entries (tightened so the rail reads as one tidy column)
-const RAIL_TOP := 210.0         # first disc sits this far below the safe-top (clear of the wallet pill)
-const RAIL_SCALE := 0.80        # the rail discs are SMALLER than the shared home-button size (nav + back stay full)
 const HOME_ICON_ONLY_SCALE := 0.72
 var _home_opts := {}            # the shared home-button style (loaded once per rail build)
 var _rail_px := RAIL_PX         # the shared home-button size (drives the place-picker back button; full size)
@@ -2350,8 +2254,6 @@ func _hud_layout() -> Dictionary:
 func _hud_edge_margin_px() -> float:
 	return float(_hud_layout().get("edge_margin_px", RAIL_MARGIN))
 
-func _hud_button_px() -> float:
-	return maxf(1.0, roundf(_view_size().x * float(_hud_layout().get("button_w_frac", 0.15))))
 
 func _wallet_bottom_y() -> float:
 	if _hud_panels.size() > 0 and _hud_panels[0] is Control:
@@ -2738,12 +2640,3 @@ func _notification(what: int) -> void:
 		elif get_tree() != null:
 			get_tree().quit()            # from the gallery, the default we disabled (by hand)
 
-func _lbl(t: String, size: int, col: Color) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", INK if col != INK else CREAM)
-	l.add_theme_constant_override("outline_size", 6)
-	return l

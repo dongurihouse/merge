@@ -3,7 +3,7 @@
 
 For each of the five scenes this DETERMINISTIC script (art-guide rule: scripts move pixels/files,
 judgment lives in the invocation) reads map/<scene>/placements.json (the file `make sw` edits) and
-emits a zone manifest map/<scene>/zone.json in the exact schema home_zone_view.gd renders (canvas +
+emits a zone manifest map/<scene>/page.json in the exact schema home_page_view.gd renders (canvas +
 background + center-bottom props; sort_y carries the scene's explicit z so paint order survives the
 y-sorted renderer). The element art already lives at map/<scene>/<layer>/, so the manifest just points
 res:// straight at it — NO copying, ONE canonical copy per element (the old per-placement duplication
@@ -82,7 +82,7 @@ def build_page(scene_id, label):
         # Carry the sw tool's per-placement source crop (+ bottom feather) into the manifest, so the
         # runtime shows the SAME cropped region the workbench previews. Without it a full-canvas plate
         # placed at a small sub-rect smears across the scene (winter's edge foliage rendered over the
-        # sky). See home_zone_view._placed_texture, the runtime twin of scene_workbench_view.
+        # sky). See home_page_view._placed_texture, the runtime twin of scene_workbench_view.
         out = {}
         sc = e.get("sourceCrop")
         if isinstance(sc, list) and len(sc) == 4:
@@ -97,7 +97,7 @@ def build_page(scene_id, label):
         # tool rotates every placement about its FOOT (scene_workbench_view._make_layer sets
         # pivot_offset to bottom-centre, then rotation_degrees). A manifest without `rot` renders
         # every leaning prop and canopy bolt-upright in game — 492 of the 549 authored placements
-        # carry a non-zero rot. See home_zone_view.build / _mount_coverups, the runtime twins.
+        # carry a non-zero rot. See home_page_view.build / _mount_coverups, the runtime twins.
         r = e.get("rot")
         if isinstance(r, (int, float)) and abs(float(r)) > 1e-9:
             return {"rot": round(float(r), 4)}
@@ -140,7 +140,7 @@ def build_page(scene_id, label):
     manifest = {"version": 1, "id": scene_id, "label": label,
                 "canvas": {"width": cw, "height": ch},
                 "background": background, "buildings": buildings, "coverups": coverups}
-    out = os.path.join(MAP_ROOT, folder, "zone.json")
+    out = os.path.join(MAP_ROOT, folder, "page.json")
     with open(out, "w") as f:
         json.dump(manifest, f, indent=1)
         f.write("\n")

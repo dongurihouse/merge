@@ -12,7 +12,7 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
 const Pal = Game.PALETTE
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the SHARED slot cell (bag + board)
+const KIT_PATH := "res://games/grove/ui_kit.gd"   # the SHARED slot cell (bag + board)
 
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
@@ -694,11 +694,3 @@ static func _add_gen_sparkle(holder: Control, size: float, hl: Dictionary = {}) 
 	sp.speed = float(hl.get("sparkle_speed", GEN_SPARKLE["speed"]))
 	holder.add_child(sp)
 
-# A small fixed-box item sprite (for giver ask-cards / the discovery ladder).
-static func mini_item(code: int) -> Control:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(52, 52)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var n := make_piece(code, 52.0)
-	holder.add_child(n)
-	return holder

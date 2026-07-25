@@ -9,7 +9,7 @@ extends RefCounted
 ## Add a NEW top-level dialog here and it is automatically baked AND guarded against the first-open
 ## freeze — nothing else to update.
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 const HomeChrome = preload("res://games/grove/home_chrome.gd")   # the canonical home-chrome icon set (shared with map.gd)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")      # the REAL runtime daily dialog (not the daily_card mock)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")  # the REAL runtime level dialog (not the kit level_dialog mock)

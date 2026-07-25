@@ -5,7 +5,7 @@ extends RefCounted
 ## grows with play; the price is fixed — so the card literally shows the deal getting better.
 ## Cracking it releases the banked 💎 and resets the jar.
 ##
-## The FACE is now BUILT from the shared UI KIT (games/grove/tools/ui_workbench_kit.gd) using the
+## The FACE is now BUILT from the shared UI KIT (games/grove/ui_kit.gd) using the
 ## design config the UI WORKBENCH saves — the SAME author-once / read-in-game pattern as settings.gd,
 ## inbox.gd and login.gd. The shared dialog FRAME (here dressed in the NEW twig border) wraps the jar
 ## hero + a gem-balance read + the reused green price CTA; the look (border slice/pad, banner, jar size,
@@ -33,7 +33,7 @@ const CREAM := Pal.CREAM
 const BARK := Pal.BARK
 
 # the shared UI kit (ships in the build); loaded by PATH at runtime — the settings.gd/inbox.gd idiom.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 
 # IAP: the crack routes through StoreKit (via core/iap.gd → core/store.gd) when the plugin is in the
 # build; without it, the honest non-charging test path. Product id + price live in data/iap_products.json.

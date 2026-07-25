@@ -5,7 +5,7 @@ extends RefCounted
 ## rimmed amber cell with a green CLAIM pill, a mystery day a lavender cell with a lock glyph, and plain
 ## future days a sage/sky cell showing the reward icon + its amount.
 ##
-## The FRAME is the shared kit sheet (games/grove/tools/ui_workbench_kit.gd → Kit.dialog_frame, the same
+## The FRAME is the shared kit sheet (games/grove/ui_kit.gd → Kit.dialog_frame, the same
 ## one mail/residents use); the CELLS are built here, the way residents.gd builds its own mock-true cards.
 ## The ladder MATH + the claim live in core/login.gd; this is only its face (claim → grant → celebrate →
 ## rebuild, dismiss, the per-day mapping).
@@ -23,7 +23,7 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const WEEK := 7
 const COLS := 3
 const OVERLAY_NAME := "LoginOverlay"

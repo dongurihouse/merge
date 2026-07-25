@@ -19,7 +19,7 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 # The gold-pill / action-bar look is tuned in the UI Workbench and saved to the shared kit config.
 # Loaded at runtime (matches hud.gd / nav_bar) to avoid a preload cycle (engine → game-tool bridge).
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
 const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray
@@ -59,11 +59,6 @@ static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {})
 static func _bar_corner(bar_h: float) -> int:
 	return maxi(12, int(roundf(bar_h * PAPER_CORNER_FRAC)))
 
-static func apply_paper_surface(bar: Control, bar_h: float = BOTTOM_BAR_H) -> TextureRect:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null or bar == null:
-		return null
-	return Kit.apply_rounded_paper_panel_surface(bar, PAPER_SURFACE_NODE, PAPER_TEXTURE, float(_bar_corner(bar_h)), 2.0)
 
 static func _transparent_tray_style() -> StyleBox:
 	var flat := StyleBoxFlat.new()

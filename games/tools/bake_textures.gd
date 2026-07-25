@@ -15,7 +15,7 @@ extends SceneTree
 ## that are NEW or whose bytes CHANGED — re-runs over already-baked art are silent, so the output
 ## shows just what this run actually added.
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 const BakeTargets = preload("res://games/tools/bake_targets.gd")
 const ASSETS := "res://games/grove/assets/"
 const BAKED := "res://games/grove/assets/baked/"

@@ -1,7 +1,7 @@
 extends RefCounted
 ## The SETTINGS card (music · sounds) — opened from the map's side-rail Settings tile.
 ##
-## The FACE is now BUILT from the shared MAIL KIT (games/grove/tools/ui_workbench_kit.gd) using the
+## The FACE is now BUILT from the shared MAIL KIT (games/grove/ui_kit.gd) using the
 ## design config the UI WORKBENCH saves — the SAME pattern the mailbox (inbox.gd) and daily (login.gd)
 ## use. The shared dialog FRAME (parchment card · gold banner · ✕) wraps a column of TOGGLE CARDS, one
 ## per persisted flag — the look (banner, card art, switch size, label font, width) is authored ONCE in
@@ -27,7 +27,7 @@ const GC_REFRESH_SECONDS := 0.05
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox/login idiom.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 # The privacy policy the App Store listing points at — also reachable in-app (reviewer-expected for a
 # paid-IAP app). The SAME URL goes in App Store Connect's "Privacy Policy URL" field.
 const PRIVACY_URL := "https://dongurihouse.net/privacy"

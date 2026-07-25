@@ -17,7 +17,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices by key (data/iap_products.json)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
-const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
+const Sparkle = preload("res://games/grove/sparkle.gd")   # the code-drawn twinkle overlay
 const ScaleContainer = preload("res://engine/scripts/ui/scale_container.gd")   # uniform content scaling inside the frame
 const FX = preload("res://engine/scripts/ui/fx.gd")   # shared wallet number formatting (K/M) + fit-to-cell
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -6445,4 +6445,4 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).
-const CONFIG_PATH := "res://games/grove/tools/ui_workbench_settings.json"
+const CONFIG_PATH := "res://games/grove/ui_kit_settings.json"

@@ -4,7 +4,7 @@ extends SceneTree
 
 const Gen = preload("res://games/grove/tools/scene_covers_gen.gd")
 const CM = preload("res://games/grove/tools/scene_covers_model.gd")
-const HZV = preload("res://engine/scripts/ui/home_zone_view.gd")
+const HZV = preload("res://engine/scripts/ui/home_page_view.gd")
 
 var _pass := 0
 var _fail := 0
@@ -107,7 +107,7 @@ func _initialize() -> void:
 	# The sw crops a full-canvas plate to each placement's REGION; that crop MUST survive into the
 	# manifest AND be applied by the runtime, else the whole plate smears across the scene (winter's
 	# edge foliage rendered over the sky — the bug this guards). Covers BOTH pipeline halves.
-	var zdoc: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/assets/map/winter/zone.json"))
+	var zdoc: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/assets/map/winter/page.json"))
 	var cropped_entries := 0
 	for b in zdoc.get("buildings", []):
 		if String((b as Dictionary).get("id", "")).begins_with("edge_covering"):
@@ -133,7 +133,7 @@ func _initialize() -> void:
 	var rot_mf := 0
 	for scene_id in ["hollow", "winter", "oasis", "coral", "sakura"]:
 		var zj: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
-			"res://games/grove/assets/map/%s/zone.json" % scene_id))
+			"res://games/grove/assets/map/%s/page.json" % scene_id))
 		var pjd: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
 			"res://games/grove/assets/map/%s/placements.json" % scene_id))
 		var mids := {}

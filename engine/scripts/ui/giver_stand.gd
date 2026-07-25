@@ -37,7 +37,7 @@ const MEADOW_UI := "ui/meadow_v2/%s"
 # a texture_cream grain layer from the UI kit) — see _paper_panel. The kit is loaded at runtime
 # (matches hud.gd / action_bar.gd) to avoid a preload cycle. card_slice_* lay keys are retired
 # with the old card_generic nine-slice but still accepted (ignored) from saved configs.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Color("#F6EBDD")
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
@@ -376,32 +376,6 @@ static func _reward_plaque(w: float, h: float) -> Control:
 	pill.size = Vector2(w, h)
 	return pill
 
-# AB2: the shared ask pill — content-sized cream tray (StyleBoxFlat, soft warm
-# border + shadow), anchored to center on its parent's x and grow both ways.
-# Public: the merchant stand (board.gd) rides the same pill.
-static func ask_pill() -> PanelContainer:
-	var pill := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color("#FBF6EC", 0.96)
-	ps.set_corner_radius_all(18)
-	ps.set_border_width_all(2)
-	ps.border_color = Color("#C9A66B", 0.85)
-	Look.apply_box_shadow(ps)
-	ps.content_margin_left = 14.0
-	ps.content_margin_right = 16.0
-	ps.content_margin_top = 7.0
-	ps.content_margin_bottom = 7.0
-	pill.add_theme_stylebox_override("panel", ps)
-	pill.anchor_left = 0.5
-	pill.anchor_right = 0.5
-	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return pill
-
-# #4: the per-ask green ✓ — a BIG round disc that overtakes the item when its single
-# ask is satisfied (centered over the icon, not a corner sticker). Sized by the caller
-# to ~85% of the item so a single large mark reads "this one's ready". This is now the
-# ONLY check on the stand — the old stand-level bottom-right check was removed.
 static func _ask_met_check(px: float) -> Panel:
 	var mark := Panel.new()
 	mark.custom_minimum_size = Vector2(px, px)

@@ -3,7 +3,7 @@ extends Control
 ## The sprite's alpha is downsampled once into a soft blob (cached per texture), then drawn
 ## about the prop's FOOTING (this node's origin) through a shear+squash Transform2D, so the
 ## silhouette lies flat on the ground: the base stays at the footing, the crown falls away.
-## Used by home_zone_view for manifest entries tagged {"shadow": true} (major buildings,
+## Used by home_page_view for manifest entries tagged {"shadow": true} (major buildings,
 ## trees — first shipped for the desert palms, replacing their baked shadow plate).
 
 const SOFT_DIV := 6                 # silhouette downsample factor — bilinear upscale = the blur

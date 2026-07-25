@@ -18,7 +18,7 @@ const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 const OVERLAY_NAME := "ExploreRewardOverlay"
 const INK := Color("#43352B")
 const STRAW := Color("#D9B679")

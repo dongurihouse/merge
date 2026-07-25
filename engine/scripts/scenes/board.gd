@@ -8,6 +8,7 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
+const KIT = preload("res://games/grove/ui_kit.gd")   # the shared UI kit — ONE preload, not a load() per call site
 const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -209,8 +210,6 @@ var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" card — pay 💎 to double a big quest coin reward (§10)
 var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
-var bag_slots_ui: Array = []
-var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
 var _open_shop: Callable = Callable()   # opens the acorn (premium) stall — the bag's short-of-acorns prompt
 var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
@@ -364,7 +363,7 @@ func _ready() -> void:
 	add_child(_combo_bloom)
 	# resolve the workbench-tuned feel-FX opts ONCE — the game then runs the SAME appliers the
 	# Merge/Land/Launch/Move workbenches preview, so a saved tuning takes effect in-game.
-	var KitX: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var KitX: GDScript = KIT
 	var fx_cfg: Dictionary = KitX.load_config(KitX.CONFIG_PATH)
 	_merge_opts = MergeFx.from_config(fx_cfg)
 	_land_opts = LandFx.from_config(fx_cfg)
@@ -659,7 +658,7 @@ func _reflow_board_after_resize() -> void:
 # keys preserve the shipped defaults. (cell / cols / rows are workbench-PREVIEW only — the live grid is
 # G.COLS×G.ROWS and sizes itself to the screen.)
 func _load_board_config() -> void:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
@@ -1379,7 +1378,7 @@ func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dict
 # block) merged over them. Absent kit → the bare GiverStand.LAY defaults.
 func _giver_lay() -> Dictionary:
 	var L: Dictionary = GiverStand.LAY.duplicate()
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		var over: Dictionary = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
 		for k in over:
@@ -1767,7 +1766,7 @@ var FRAME_OUT := 60.0        # how far the board panel extends OUTSIDE the cell 
 # code-drawn depth border) + its drop shadow are built by the SHARED Kit.board_panel, so the workbench
 # preview shows the ACTUAL border. Falls back to the code-drawn planter when the kit can't load.
 func _make_board_mat() -> Control:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return PieceView.make_board_mat(_board_w(), _board_h())
 	var size := Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
@@ -1782,7 +1781,7 @@ func _make_board_mat() -> Control:
 func _make_slot(cell: Vector2i) -> Control:
 	# the open empty well, built on the SHARED slot cell (Kit.slot_cell) — the SAME component the bag
 	# uses, reading the SAME workbench "bag_card" style, so the board + bag wells stay in lockstep.
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	var opts: Dictionary = Kit.board_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
@@ -1860,7 +1859,7 @@ func _relayout_action_bar_after_resize() -> void:
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
-	var KitB: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var KitB: GDScript = KIT
 	if KitB == null:
 		# fallback: the drawn disc + swap icon (pre-sprite path, engine-only safety net). Its "bag" glyph
 		# lives INSIDE bag_content (icon_wrap), so _rebuild_bag restores it on the empty state.
@@ -1926,7 +1925,7 @@ func _build_bag_box(px: float, action_opts: Dictionary = {}) -> Control:
 
 func _bottom_button_px() -> float:
 	var frac := 0.15
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		frac = float(Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("button_w_frac", 0.15))
 	# Bounded: a min so it stays tappable on narrow screens, a max so it (and the bar) can't balloon on
@@ -1935,7 +1934,7 @@ func _bottom_button_px() -> float:
 
 func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 	var raw := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
@@ -1948,7 +1947,7 @@ func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 
 func _quest_row_h_px() -> float:
 	var frac := 0.13
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit != null:
 		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
@@ -1976,7 +1975,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 		_persist()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 	var b: Button
-	var KitH: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var KitH: GDScript = KIT
 	if KitH != null:
 		# the shared code-drawn action button (CutPaperPanel rugged edge + centered home glyph) — the
 		# same builder the home bottom bar uses, so the two read identically off one source.
@@ -1996,7 +1995,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 # The bar itself is the SHARED kit component (Kit.info_bar — the same one the workbench previews + tunes);
 # the board just grabs its mutable sub-nodes (info ⓘ / piece box / name / sell) and drives selection state.
 func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: float = BOTTOM_BAR_H) -> Control:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
 	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -2234,7 +2233,7 @@ func _hide_focus() -> void:
 # The focus-ring look, tuned in the UI workbench (→ "Focus ring") and read through the SAME Kit
 # transform the workbench preview uses, so the board matches the preview 1:1. {} → the shipped defaults.
 func _focus_ring_opts() -> Dictionary:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
 	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -2559,7 +2558,7 @@ func _make_generator(id: String, hl: Dictionary = {}, tier: int = 1) -> Control:
 # The GEN-highlight (glow / silhouette outline / sparkle) tuning saved in the UI workbench
 # ("generator" block). Absent file/keys → {} → make_generator falls back to its shipped GEN_* consts.
 func _gen_highlight_opts() -> Dictionary:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
 	return Kit.gen_highlight_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -3568,9 +3567,6 @@ func _commit_swap(a: Vector2i, b: Vector2i, node: Control) -> void:
 func _bag_capacity() -> int:
 	return BoardLogic.bag_capacity(Save.bag_slots())
 
-# Is there a buyable "+slot" affordance at the end of the bar right now? (Below the cap only.)
-func _bag_has_buy_slot() -> bool:
-	return Save.bag_slots() < G.BAG_MAX_SLOTS
 
 func _stash(from: Vector2i, node: Control) -> void:
 	if not board.collect_reward_at(from).is_empty():
@@ -3653,42 +3649,15 @@ func _rebuild_bag() -> void:
 		# stays clear. Only the kit-absent drawn-disc fallback keeps its glyph INSIDE bag_content (wiped by
 		# the clear above), so it restores it — guarded on the kit actually being loadable to draw one.
 		if _bag_well_drawn_disc:
-			var KitR: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+			var KitR: GDScript = KIT
 			if KitR != null:
 				bag_content.add_child(KitR.make_icon("bag", bag_piece_px))
 	else:
 		# filled → the most-recent stashed item overlays the tile directly, sized large to cover the satchel.
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
 
-# §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
-# over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
-# slot, gated by _bag_drag_idx so the board-piece drag path (idx -1) is untouched. Motion + release
-# while the drag is live are tracked in _input (the cursor leaves this button onto the board).
-func _on_bag_slot_input(event: InputEvent, i: int) -> void:
-	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
-		or (event is InputEventScreenTouch and event.pressed)
-	if not pressed or _bag_drag_idx >= 0 or _drag_node != null:
-		return
-	if i >= bag.size():
-		return
-	_bag_drag_idx = i
-	var n := _make_piece(int(bag[i]), csz)
-	n.z_index = 40
-	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(n)
-	n.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
-	_drag_node = n
-	bag_slots_ui[i].modulate = Color(1, 1, 1, 0.4)   # the slot dims while its item is in hand
-	Audio.play("item_pickup", -6.0)
 
 func _input(event: InputEvent) -> void:
-	if _bag_drag_idx >= 0 and _drag_node != null:
-		if event is InputEventMouseMotion or event is InputEventScreenDrag:
-			_drag_node.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
-		elif (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
-				or (event is InputEventScreenTouch and not event.pressed):
-			_end_bag_drag(get_global_mouse_position())
-		return
 	var board_release: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
 		or (event is InputEventScreenTouch and not event.pressed)
 	if _pressing and board_release and board_area != null and is_instance_valid(board_area):
@@ -3696,30 +3665,6 @@ func _input(event: InputEvent) -> void:
 		var local: Vector2 = board_area.get_global_transform().affine_inverse() * event.position
 		_on_release(local)
 
-# Resolve a bag drag-back at the global release point: place on the board cell under the cursor
-# if it is empty ground, else snap the item back into the bag (no loss).
-func _end_bag_drag(gpos: Vector2) -> void:
-	var i := _bag_drag_idx
-	var node := _drag_node
-	_bag_drag_idx = -1
-	_drag_node = null
-	if is_instance_valid(node):
-		node.queue_free()
-	if i >= 0 and i < bag_slots_ui.size() and is_instance_valid(bag_slots_ui[i]):
-		bag_slots_ui[i].modulate = Color.WHITE
-	var local: Vector2 = board_area.get_global_transform().affine_inverse() * gpos
-	var cell := _pos_to_cell(local)
-	if board_area.get_global_rect().has_point(gpos) and _retrieve_from_bag(i, cell):
-		return
-	Audio.play("invalid_soft", -8.0)
-	_rebuild_bag()                                    # the dimmed slot restores; item stays put
-
-# --- givers / merchant / gate actions ----------------------------------------------
-
-# #3: a tap on the asked item IS the claim affordance. When the quest is READY (the asked item is on
-# the board, so the per-item ✓ is up) the tap DELIVERS it — the same path the stand-body tap takes —
-# instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
-# still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 	if qi >= 0 and qi < quests.size() and BoardLogic.quest_payable(board, quests[qi]):
 		_on_giver_tap(qi, chip)

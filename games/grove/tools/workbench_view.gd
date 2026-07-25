@@ -13,13 +13,13 @@ extends Control
 ## game's live design config (Kit.CONFIG_PATH, `{Land,Merge,…}Fx.from_config`). So a save MERGES: it
 ## rewrites only the ids this workbench owns and leaves every other id in the file untouched.
 
-const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Kit = preload("res://games/grove/ui_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
-const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
+const SETTINGS := "res://games/grove/ui_kit_settings.json"   # persisted params (in the repo)
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)

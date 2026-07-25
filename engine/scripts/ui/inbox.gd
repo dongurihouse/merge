@@ -4,7 +4,7 @@ extends RefCounted
 ## + a title + a short body, with a Claim button + a reward chip when the message carries an unclaimed
 ## gift. Claiming pays the reward (core/inbox.gd), plays a small reward shout, and refreshes in place.
 ##
-## The FACE is now BUILT from the shared MAIL KIT (games/grove/tools/ui_workbench_kit.gd) using the
+## The FACE is now BUILT from the shared MAIL KIT (games/grove/ui_kit.gd) using the
 ## design config the UI WORKBENCH saves — so the look (banner, card art, badge, fonts, Claim label …)
 ## is authored ONCE in the workbench and read here, never duplicated. Change a setting in the workbench,
 ## save, and this dialog updates automatically. Only the BEHAVIOUR (claim / celebrate / mark-read /
@@ -22,7 +22,7 @@ const OVERLAY_NAME := "InboxOverlay"
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox's own guarded-system idiom.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 
 # --- the mailbox popup --------------------------------------------------------------
 

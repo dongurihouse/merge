@@ -53,8 +53,8 @@ func _initialize() -> void:
 	# for :grab — the rim must trace the art at its real inset, which is wrong if the preview uses 0.16 but
 	# the board uses a larger sprite. content_frac 68 → 0.16 (the shipped look); absent file → 0.16.
 	var board_inset := PieceView.ITEM_INSET
-	if FileAccess.file_exists("res://games/grove/tools/ui_workbench_settings.json"):
-		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_settings.json"))
+	if FileAccess.file_exists("res://games/grove/ui_kit_settings.json"):
+		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/ui_kit_settings.json"))
 		if cfg is Dictionary and cfg.get("bag_card") is Dictionary and cfg["bag_card"].has("content_frac"):
 			board_inset = clampf((1.0 - float(cfg["bag_card"]["content_frac"]) / 100.0) / 2.0, 0.0, 0.45)
 

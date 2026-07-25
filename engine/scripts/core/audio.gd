@@ -46,9 +46,6 @@ static func has(name: String) -> bool:
 	_ensure()
 	return _sounds.has(name)
 
-static func variant_count(name: String) -> int:
-	_ensure()
-	return _sounds.get(name, []).size()
 
 static func jitter_pitch(base: float) -> float:
 	var cents := randf_range(-Tune.PITCH_JITTER_CENTS, Tune.PITCH_JITTER_CENTS)

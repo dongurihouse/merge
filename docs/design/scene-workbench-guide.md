@@ -183,7 +183,7 @@ horizontal swipe turns to the adjacent page.
 frontmost `coverup` layer is carried into the manifest as a `coverups` entry (keyed by the LAYER, not
 a category — so the tool is the source of truth). Each coverup piece's `cluster` links it to an unlock
 unit as `unlock_region_<clusterId>`, where `<clusterId>` matches a `clusters[].id` in
-`grove_data._build_maps()`. At runtime `home_zone_view.gd` mounts each locked cluster's coverup group
+`grove_data._build_maps()`. At runtime `home_page_view.gd` mounts each locked cluster's coverup group
 frontmost with a `lock_badge.gd` padlock; tapping the ready one clears that cluster's cover (`map.gd`).
 So **re-running `build_page_manifests.py` after editing the coverup layer in `make sw` updates the
 game** — move/add/remove canopy pieces on the layer, regenerate, `make import`, and the unlock covers

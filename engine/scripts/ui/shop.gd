@@ -38,7 +38,7 @@ const BARK = Pal.BARK
 
 # The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
 # so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
-const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const KIT_PATH := "res://games/grove/ui_kit.gd"
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
@@ -558,21 +558,6 @@ static func _pack_icon_id(i: int) -> String:
 	var art := "pack_t%d" % (i + 1)
 	return art if ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % art)) else "gem"
 
-# The Welcome bundle's contents as info-sheet ROWS (the card shows only the hero + price now). One row per
-# currency the bundle grants, read live from STARTER_PACK so the copy never drifts from what it grants.
-static func starter_info_items(host: Control) -> Array:
-	var items: Array = [{
-		"icon": "gem", "label": Strings.t("shop.starter.acorns_label"), "amount": str(int(STARTER_PACK.get("gems", 0))),
-		"note": Strings.t("shop.starter.acorns_note")}]
-	var water := int(STARTER_PACK.get("water", 0))
-	if water > 0:
-		items.append({"icon": "water", "label": Strings.t("shop.starter.water_label"), "amount": str(water),
-			"note": Strings.t("shop.starter.water_note")})
-	return items
-
-# --- buy flows (kit cards have no Button to hand the old _try_buy; these take refs + rebuild) --------
-# A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the
-# grant home to the HUD wallet, and rebuild the storefront so affordability re-reads.
 static func _flow_water(refs: Dictionary) -> void:
 	var act := func() -> bool:
 		if not buy_water():
@@ -642,59 +627,6 @@ static func _after_buy(refs: Dictionary) -> void:
 	if rb.has("fn") and (rb.fn as Callable).is_valid():
 		(rb.fn as Callable).call()
 
-# The item-detail sheet the "i" opens (§10 product info) — now the SAME mail dialog the inbox wears
-# (parchment cards, NO Claim) closed by a level-style "Got it" footer; tap the veil to dismiss. Read-only,
-# never buys. This layer owns the modal overlay/veil; the card FACE is the shared, workbench-tuned
-# Kit.mail_dialog (one source of truth). Each `items` line → a mail entry: label→title, note→body, and the
-# amount rides a read-only cream chip (no Claim). `items` = [{icon, label, amount, note}]; `note` is the
-# optional footer caption under the cards.
-static func _info_sheet(host: Control, title: String, items: Array, note := "") -> void:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return
-	var overlay := Control.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = Overlay.MODAL_TOP_Z          # the info sheet sits ABOVE the open shop
-	host.add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, Tune.CONFIRM_VEIL_ALPHA)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var iopts: Dictionary = Kit.info_opts_from_config(cfg)
-	iopts["content_scale"] = Kit.dialog_content_scale(cfg, "info")
-	var width: float = host.get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["info"] / 100.0
-	iopts["on_close"] = func() -> void: overlay.queue_free()
-	iopts["banner_text"] = title             # the ribbon title (a generic info sheet wears no banner icon)
-	iopts["banner_icon_on"] = false
-	iopts["note"] = note                     # the optional footer caption under the cards
-	iopts["got_it"] = Strings.t("shop.info.got_it")
-	# each line item → a mail entry with a read-only amount chip (no reward → no Claim button).
-	var entries: Array = []
-	for it in items:
-		var e := {
-			"icon": String((it as Dictionary).get("icon", "")),
-			"title": String((it as Dictionary).get("label", "")),
-			"body": String((it as Dictionary).get("note", "")),
-		}
-		var amount := String((it as Dictionary).get("amount", ""))
-		if amount != "":
-			e["chip"] = {"icon": String((it as Dictionary).get("icon", "")), "text": amount}
-		entries.append(e)
-	var card: Control = Kit.mail_dialog(entries, width, iopts)
-	cc.add_child(card)
-	FX.pop_in(card)
-
-# The blurred + warm-tinted + vignetted backdrop material (the §1 interim shop backdrop). A
-# screen-read canvas shader: 9-tap box blur of the live scene, mixed toward a warm dark, with a
-# radial vignette to focus the parchment. Returns a ShaderMaterial applied to the full-rect veil.
 static func _backdrop_material() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = "shader_type canvas_item;\n" + \
