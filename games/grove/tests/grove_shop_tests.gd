@@ -542,30 +542,6 @@ func _initialize() -> void:
 
 	# (T-K free-acorn faucet tests removed 2026-06-23 — the faucet was retired; acorns are earned-only, Option A.)
 
-	# T-L: the Welcome bundle's detail sheet — now the SHARED mail dialog (parchment cards, NO Claim) with a
-	# level-style "Got it" footer, replacing the dropped info_dialog. starter_info_items still itemizes the
-	# acorns + water; the REAL _info_sheet renders each label (card title) + amount (a read-only chip), a
-	# Got it footer, and NO Claim.
-	fresh("starter_info")
-	var ihost := Control.new()
-	ihost.set_anchors_preset(Control.PRESET_FULL_RECT)
-	get_root().add_child(ihost)
-	var items := ShopS.starter_info_items(ihost)
-	ok(items.size() == 2, "the Welcome info lists two line items (acorns + water)")
-	ok(String(items[0].icon) == "gem" and String(items[0].amount) == str(int(Data.STARTER_PACK.gems)), \
-		"row 1 is the acorns (%d🌰)" % int(Data.STARTER_PACK.gems))
-	ok(String(items[1].icon) == "water" and String(items[1].amount) == str(int(Data.STARTER_PACK.water)), \
-		"row 2 is the water (%d💧)" % int(Data.STARTER_PACK.water))
-	ShopS._info_sheet(ihost, "Welcome gift", items, "Claimable just once.")
-	var iov: Control = ihost.get_child(ihost.get_child_count() - 1)
-	var ibtns := _button_texts(iov)
-	ok(ibtns.has(str(int(Data.STARTER_PACK.gems))) and ibtns.has(str(int(Data.STARTER_PACK.water))), \
-		"the info sheet renders each item's amount on a read-only chip")
-	ok(_label_texts(iov).has("Acorns") and _label_texts(iov).has("Water"), "...and each item's label as the card title")
-	ok(not _press_label(iov, "Claim"), "the info sheet has NO Claim button (read-only)")
-	ok(_press_label(iov, "Got it"), "the info sheet shows a Got it footer (which closes it)")
-	ihost.free()
-
 	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---
 	var cell_sb := BoardScript._cell_style()
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")

@@ -8,6 +8,7 @@ extends RefCounted
 const Game = preload("res://engine/scripts/core/game.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 SKIM-SITE — the piggy bank skims earned premium here
+const Strings = preload("res://engine/scripts/core/strings.gd")  # display-name fallbacks are player-visible → localizable
 
 # --- the ACTIVE game's DATA (compile-time const), re-exported as consts so every
 # --- existing G.<CONST> reader keeps working and := type inference still resolves.
@@ -1133,10 +1134,10 @@ static func item_display_name(code: int) -> String:
 	if is_coin(code):
 		return "Coin"
 	if LINES.has(line):
-		return String((LINES[line] as Dictionary).get("name", "Item"))
+		return String((LINES[line] as Dictionary).get("name", Strings.t("board.info.item_fallback")))
 	if SPECIAL_ITEMS.has(line):
-		return String((SPECIAL_ITEMS[line] as Dictionary).get("name", "Item"))
-	return "Item"
+		return String((SPECIAL_ITEMS[line] as Dictionary).get("name", Strings.t("board.info.item_fallback")))
+	return Strings.t("board.info.item_fallback")
 
 static func item_description(code: int) -> String:
 	var line := int(code / 100.0)
@@ -1173,7 +1174,7 @@ static func generator_display_name(id: String) -> String:
 		if LINES.has(line):
 			return "%s generator" % String((LINES[line] as Dictionary).get("name", "Treat"))
 		return "Treat generator"
-	return "Generator"
+	return Strings.t("board.info.generator")
 
 static func generator_description(id: String) -> String:
 	var d := gen_def(GENERATORS, id)

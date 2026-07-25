@@ -47,9 +47,6 @@
 			"tier": "Tier",
 			"unlock_level": "Unlocks at Level %d"
 		},
-		"purge": {
-			"cta": "Purge"
-		},
 		"unlock": {
 			"next": "Next Unlock"
 		},
@@ -88,46 +85,24 @@
 		"day_label": "Day %d"
 	},
 	"map": {
-		"card": {
-			"prereq": "✿ after %s"
-		},
 		"nav": {
 			"board": "Board",
 			"home": "Home",
 			"map": "Map",
 			"mail": "Mail",
-			"play": "Play",
 			"residents": "Residents"
 		},
 		"page": {
 			"continue": "CONTINUE",
-			"in_progress": "IN PROGRESS",
-			"locked": "LOCKED"
+			"in_progress": "IN PROGRESS"
 		},
 		"rail": {
 			"daily": "Daily",
-			"inbox": "Inbox",
-			"settings": "Settings",
 			"vault": "Vault"
 		},
-		"select": {
-			"locked_prereq": "Restore %s first ✿"
-		},
 		"spot": {
-			"map_restored": "%s restored!",
-			"needs_exp": "Needs %d exp",
-			"needs_level": "Unlocks at Level %d",
-			"new_asks_in_garden": "New asks in the garden ❀"
-		},
-		"welcome": {
-			"new_friend": "A new friend wanders in ✿",
-			"not_enough": "Not enough — keep tending ✿",
-			"title": "Welcome a spirit ✿",
-			"two_became_one": "Two friends became one ✿"
+			"needs_level": "Unlocks at Level %d"
 		}
-	},
-	"merchant": {
-		"top": "top ▶ +%d"
 	},
 	"mystery": {
 		"banner_plural": "Mystery Gifts",
@@ -153,10 +128,6 @@
 			"first_buy_bonus": "first-buy bonus doubled!"
 		},
 		"coin": {
-			"info_note": "Added to your pouch instantly.",
-			"info_row_label": "Coins",
-			"info_row_note": "for restoring spots around the grove",
-			"info_title": "Coin pouch",
 			"pouch_label": "Coin pouch",
 			"quick_help_caption": "Quick help"
 		},
@@ -167,46 +138,19 @@
 			"test_build_note": "(test build — nothing is charged)"
 		},
 		"free": {
-			"back_tomorrow": "Back tomorrow",
-			"cta": "Free",
-			"info_note": "A little top-up whenever you fancy one, never required.",
-			"info_row_label": "Acorns",
-			"info_row_note": "free, a few times a day",
-			"info_title": "Free acorns",
 			"ready_in": "Ready in %dm"
 		},
-		"info": {
-			"got_it": "Got it"
-		},
 		"premium": {
-			"acorn_pouches_caption": "Acorn pouches",
-			"free_acorns_caption": "Free acorns"
+			"acorn_pouches_caption": "Acorn pouches"
 		},
 		"refill": {
 			"back_tomorrow": "Back tomorrow",
 			"caption": "Free refill",
 			"cta": "Free",
-			"info_note": "A free top-up whenever you fancy one — it can fill past full, and a brim-full can keeps the extra.",
-			"info_row_label": "Water",
-			"info_row_note": "a full can, free, a few times a day",
-			"info_title": "Free refill",
 			"ready_in": "Ready in %dm"
 		},
-		"starter": {
-			"acorns_label": "Acorns",
-			"acorns_note": "premium currency for shortcuts",
-			"info_note": "Claimable just once — a warm start to the grove.",
-			"info_title": "Welcome",
-			"water_label": "Water",
-			"water_note": "tops up your watering can"
-		},
 		"water": {
-			"caption": "Water",
-			"fill_label": "Fill water",
-			"info_note": "Keep tending the garden without waiting for it to top up on its own.",
-			"info_row_label": "Water",
-			"info_row_note": "refills your watering can to full right away",
-			"info_title": "Fill your water"
+			"fill_label": "Fill water"
 		},
 		"title": "Shop"
 	},
