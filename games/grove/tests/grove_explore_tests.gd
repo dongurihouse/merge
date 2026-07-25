@@ -223,7 +223,7 @@ func _test_home_tap_unlocks_cluster() -> void:
 	await process_frame
 	var next_id := G.next_locked_cluster(0, map.unlocks)
 	ok(next_id != "", "the home page has a next-in-order locked cluster")
-	var badge: Control = map._zone_badges.get(next_id, null)
+	var badge: Control = map._page_badges.get(next_id, null)
 	ok(badge != null, "the ready cluster's lock badge exists")
 	if badge != null:
 		_map_tap_at(map, _hit_center(badge))

@@ -397,7 +397,7 @@ static var MAPS: Array = _build_maps()
 static func _build_maps() -> Array:
 	var maps: Array = [
 	# THE PICTURE BOOK (2026-07-18): the world is the five scene PAGES, in play order, replacing the
-	# farm maps. Each page renders its generated zone manifest (assets/map/<scene>/zone.json —
+	# farm maps. Each page renders its generated zone manifest (assets/map/<scene>/page.json —
 	# built from the scene-workbench bundles by tools/build_page_manifests.py; re-run it after
 	# fine-tuning in `make sw`, then `make import`). Pages are STRICTLY the scene-workbench scenes
 	# (decision 2026-07-18): the farmhouse build items no longer ride page 1 — unlockables arrive
@@ -405,7 +405,7 @@ static func _build_maps() -> Array:
 	# its `spots` list is kept for save-compat only. Pages 2-5 are `open` for book browsing —
 	# the frontier gate arrives with the pages build system (recipes/frontier, picturebook spec §9).
 	{"id": "fairy_hollow", "name": "Fairy Hollow", "hub": true,
-		"zone_manifest": "res://games/grove/assets/map/hollow/zone.json",
+		"page_manifest": "res://games/grove/assets/map/hollow/page.json",
 		"covering_frames": [],
 		"coverup_mode": true,
 		# TOP-DOWN unlock order: the top-of-scene cluster unlocks first. The market canvas is tall and
@@ -431,7 +431,7 @@ static func _build_maps() -> Array:
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182)},
 	]},
 	{"id": "snowy_village", "name": "Snowy Village", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/winter/zone.json",
+		"page_manifest": "res://games/grove/assets/map/winter/page.json",
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (winter bundle, unlock_ prefix).
 		"clusters": [
@@ -443,7 +443,7 @@ static func _build_maps() -> Array:
 		],
 		"spots": []},
 	{"id": "desert_oasis", "name": "Desert Oasis", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/oasis/zone.json",
+		"page_manifest": "res://games/grove/assets/map/oasis/page.json",
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (oasis bundle, lock_ prefix).
 		"clusters": [
@@ -455,7 +455,7 @@ static func _build_maps() -> Array:
 		],
 		"spots": []},
 	{"id": "coral_reef", "name": "Coral Reef", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/coral/zone.json",
+		"page_manifest": "res://games/grove/assets/map/coral/page.json",
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (coral bundle, unlock_region_ prefix).
 		"clusters": [
@@ -467,7 +467,7 @@ static func _build_maps() -> Array:
 		],
 		"spots": []},
 	{"id": "sakura", "name": "Cherry-Blossom Garden", "open": true,
-		"zone_manifest": "res://games/grove/assets/map/sakura/zone.json",
+		"page_manifest": "res://games/grove/assets/map/sakura/page.json",
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (sakura bundle, unlock_region_ prefix).
 		"clusters": [

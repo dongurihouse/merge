@@ -708,7 +708,7 @@ func _save() -> void:
 		_export_page_manifests()
 	_refresh_status()
 
-## The GAME reads zone.json (a DERIVED file: build_page_manifests.py re-emits it from placements.json),
+## The GAME reads page.json (a DERIVED file: build_page_manifests.py re-emits it from placements.json),
 ## so every ⌘S re-exports the manifests — otherwise the game keeps rendering the scene as it was at the
 ## last manual export (the "saved my covers but the game doesn't show them" trap). One implementation:
 ## shell out to the same deterministic script the pipeline documents; a failure only warns (the
@@ -722,7 +722,7 @@ func _export_page_manifests() -> void:
 	if code != 0:
 		push_warning("scene workbench: zone-manifest export failed (%d): %s" % [code, "\n".join(out)])
 	else:
-		print("SW: page manifests re-exported (zone.json synced to this save)")
+		print("SW: page manifests re-exported (page.json synced to this save)")
 
 func _reload() -> void:
 	doc = M.load_doc(placements_path)

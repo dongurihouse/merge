@@ -4,7 +4,7 @@ extends RefCounted
 ## STATE resolver (home.gd: which art state each building shows), it builds the node tree the Home
 ## scene mounts — a foundation TextureRect plus one center-bottom-anchored, painter-sorted prop per
 ## building, with a coin/level build BADGE over each unbuilt plot. No Save/scene deps beyond the two
-## injected callables, so the whole tree is headless-testable (home_zone_view_tests.gd).
+## injected callables, so the whole tree is headless-testable (home_page_view_tests.gd).
 ##
 ## Deps are INJECTED, not preloaded: `state_of(id) -> String` (the current art state id) and
 ## `next_step_of(id) -> Dictionary` ({} when built; else {cost, min_level, shows}). The scene passes
@@ -34,13 +34,13 @@ static func build(parent: Control, manifest: Dictionary, state_of: Callable, nex
 	var native := Vector2(float(canvas.get("width", 941)), float(canvas.get("height", 1672)))
 
 	var stage := Control.new()
-	stage.name = "ZoneStage"
+	stage.name = "PageStage"
 	stage.size = native
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(stage)
 
 	var base := TextureRect.new()
-	base.name = "ZoneBase"
+	base.name = "PageBase"
 	base.texture = load(String(manifest.get("background", ""))) as Texture2D
 	base.size = native
 	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
