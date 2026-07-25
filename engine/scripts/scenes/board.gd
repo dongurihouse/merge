@@ -3355,7 +3355,7 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 
 # §6.B open a chest with a second TAP (the key line is retired): consume it and credit its
 # coins+acorns payout DIRECTLY to the wallet (like every other tap-collect). Coins are ORGANIC
-# (earn_coins — the clock advances); acorns skim the piggy bank like other premium earns. (The old
+# (add_coins — spendable, but the clock is quests only); acorns skim the piggy bank like other premium earns. (The old
 # face-value item spawn died with the 12-tier coin ladder — 3-tier coins can't carry the payout.)
 func _open_chest(target: Vector2i, node: Control) -> void:
 	var reward := G.chest_open_reward(board.item_at(target))
@@ -3367,7 +3367,7 @@ func _open_chest(target: Vector2i, node: Control) -> void:
 	var got_coins := int(reward.coins)
 	var got_acorns := int(reward.acorns)
 	if got_coins > 0:
-		Save.earn_coins(got_coins)
+		Save.add_coins(got_coins)            # spendable only — the clock is quests only (2026-07-25)
 		FX.reward_arrival(self, at, "coin", got_coins, STRAW, coins_label, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "chest_open")
 	if got_acorns > 0:
 		Save.add_diamonds(got_acorns)
@@ -3932,7 +3932,8 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 func _grant_sale(code: int, node: Control) -> void:
 	var reward := G.sell_reward(code)        # Vector2i(coins, diamonds)
 	if reward.x > 0:
-		Save.earn_coins(reward.x)            # organic — sale coins advance the clock (sim watches sell-farming)
+		Save.add_coins(reward.x)             # SELLING NEVER ADVANCES THE CLOCK (owner call 2026-07-25): a sale is
+		                                     # cleanup, and its coins still spend — but only DELIVERING a quest levels you.
 	if reward.y > 0:
 		Save.add_diamonds(reward.y)
 		Vault.skim(reward.y)                  # T44 SKIM-SITE 3/3 (t8-sell): the piggy bank skims a slice of the t8 premium sale (§10)

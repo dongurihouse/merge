@@ -40,7 +40,10 @@ static func collect_coin(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var reward := board.take_collect_reward(cell)
 	var code := board.take(cell)
 	var got := int(reward.amount) if String(reward.get("kind", "")) == "coins" else G.coin_value(code)
-	Save.earn_coins(got)                          # organic — merge-drop/chest coins advance the clock
+	# THE CLOCK IS QUESTS ONLY (owner call 2026-07-25). Board pickups are spendable, never clock-advancing:
+	# they cost no ask, so letting them level the player made progression a by-product of popping, not of
+	# delivering. add_coins credits the wallet without touching coins_earned_lifetime.
+	Save.add_coins(got)
 	return {"got": got, "code": code}
 
 # Collect the special drop at `cell` (water / acorn). A stashed collect-reward overrides the
@@ -113,5 +116,5 @@ static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var coins := G.gen_sell_coins(board.gen_tier_at(cell))
 	board.remove_gen(cell)
 	if coins > 0:
-		Save.earn_coins(coins)                    # organic — a sell refund advances the clock
+		Save.add_coins(coins)                     # spendable only — SELLING NEVER ADVANCES THE CLOCK (quests only)
 	return {"sold": true, "coins": coins}

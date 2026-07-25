@@ -388,7 +388,9 @@ func _initialize() -> void:
 	await create_timer(0.1).timeout
 	ok(bd.board.item_at(chest_cell) == 0, "the second tap opens (consumes) the chest — no key needed")
 	ok(Save.coins() == chest_wallet + int(expected_chest_reward.coins), "the open credits the chest-tier coins to the wallet")
-	ok(Save.coins_earned_lifetime() == chest_clock + int(expected_chest_reward.coins), "chest coins are ORGANIC — the level clock advances")
+	# THE CLOCK IS QUESTS ONLY (owner call 2026-07-25): a chest is a board pickup, so its coins are fully
+	# spendable but must NOT advance progression. Only delivering a quest moves the level clock.
+	ok(Save.coins_earned_lifetime() == chest_clock, "chest coins are SPENDABLE-ONLY — the level clock does not advance (quests only)")
 	ok(Save.diamonds() == chest_acorns + int(expected_chest_reward.acorns), "the open credits the chest-tier acorns")
 	# nothing is left behind: the open credits the wallet directly (the old face-value item spawn
 	# died with the 12-tier coin ladder), so the board holds no spawned reward items.

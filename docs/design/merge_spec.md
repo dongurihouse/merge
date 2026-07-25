@@ -75,6 +75,29 @@ A single persistent merge board fed by energy-gated generators. Terrain + items 
 
 ## 3 · Progression — Exp (the one clock)
 
+> **⚠ THE CLOCK IS COINS, AND ONLY QUESTS ADVANCE IT — read this box FIRST (2026-07-25).** The §3 body
+> below still describes the **exp** clock; that clock is **retired in code**. Level derives from
+> **lifetime quest coin earnings** (`Save.coins_earned_lifetime` → `content.level_at_coins`), and
+> restoration is the **cover-up cluster ladder** (§8), each cluster gated by a level floor *and* a coin
+> **cost**. Nothing mints exp any more. *(The §3 body is scheduled for a full rewrite; this box is
+> authoritative where they conflict.)*
+>
+> **Only DELIVERING a quest advances the clock.** `Save.earn_coins` is reserved for quest delivery. Every
+> other coin — **selling, board pickups, chests, habitat yield, login/mail gifts, shop packs** — goes
+> through `Save.add_coins`: **fully spendable, never clock-advancing.**
+>
+> **Why (measured, not asserted).** Selling used to credit the clock, so a retired line's leftover stock
+> paid for its own retirement: sell → level → the §6 active-line window slides → more stock retires → sell.
+> `grove_sim` measured that loop at **10,037 sell-coins against 1,234 quest-coins over 20 days (8:1)** —
+> the player was levelling by selling junk rather than by playing. Cutting the clock to quests alone
+> drops day-20 level from **49 → ~17**, raises specials crafted, and moves the cluster ladder's binding
+> constraint from coins to **level**. Guarded both ways by tests: delivery advances the clock, selling
+> does not.
+>
+> **Known consequence (open):** junk-sell *volume* is unchanged — the loop is broken, the clutter is not.
+> That is the §6 retirement flow's job. And with coins no longer buying progression, surplus coins pile
+> up (`grove_sim` now WARNs P1: no standing coin sink late) — the parked economy pass owns that.
+
 There is **one progression counter: `exp`** — cumulative, **uncapped, and only ever increases** (there is no spendable balance to deplete). Exp is earned from quests (§7, effort-priced — `round(clicks / CLICKS_PER_EXP)`). It is the master clock the whole world hangs off:
 
 - **Restoration spots** (§8) unlock at **cumulative exp *thresholds*** — a spot becomes **claimable** the moment `exp ≥` its threshold, and **claiming it costs nothing** (exp is never spent; the threshold is a gate, not a price).

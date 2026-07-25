@@ -14,8 +14,8 @@ extends SceneTree
 ##   I2 every page's level-up water gift < WATER_REWARD_MAX_RATIO of its measured spend
 ##   I3 runway (days to unlock the whole cluster ladder) — reported (tuning signal, not a hard fail)
 ##   no-strand — the bot never sits a full session unable to earn coins while clusters remain
-##   Y selling is cleanup, not income (sell-coins tripwire)
-##   Z coin faucet vs sink — REPORTED; the new endless sink is the §1 POPULATION loop
+##   Y THE CLOCK IS QUESTS ONLY — no non-quest coin may advance progression (structural check)
+##   Z coin faucet vs sink — REPORTED; clock coins vs spendable coins broken out
 ##   P population invariants:
 ##     P1 LATE-GAME no-pile: once a page completes, the residents loop absorbs the
 ##        post-completion coin faucet rather than letting coins pile up
@@ -53,6 +53,7 @@ var live_quests: Array = []    # the active fence — generated flat regular que
 
 var clusters_unlocked := 0     # cover-up clusters unlocked over the run (the restoration ladder's progress)
 var cluster_spend := 0         # coins PAID for those clusters — the game's dominant coin SINK
+var coins_spendable := 0       # lifetime NON-clock coins (sells, pickups, gifts, yield) — spendable only
 var coins := 0                 # spendable wallet BALANCE (faucet minus the sinks spent in-session)
 var coins_earned := 0          # cumulative coin INTAKE over the run (the faucet total — balance never goes negative, so the report reads intake, not the drained balance)
 var quest_coins := 0           # coins from quest rewards (the §7 faucet)
@@ -272,13 +273,17 @@ func _initialize() -> void:
 	for z in map_spend:
 		total_water += int(map_spend[z])
 	var scpw := (float(sell_coins) * 100.0 / float(total_water)) if total_water > 0 else 0.0
-	print("  -- Y selling --  💎 earned: %d · SELL-coins/100💧: %.1f (tripwire < 25) · earn-1💎=%d💧 vs buy=%d💧 (>=10x)" % \
-		[gems_earned, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
-	if stalled:
-		print("  -- Y: sell-coins/100💧 %.1f skipped — stalled run (%d💧 spent); the ratio fires on cleanup-sale noise, not an income pump --" % [scpw, total_water])
-	elif scpw >= 25.0:
-		print("  FAIL Y: sell-coins/100💧 %.1f >= 25 — selling became an income pump" % scpw)
+	print("  -- Y clock --  💎 earned: %d · clock 🪙 %d (quest) vs spendable 🪙 %d (sell %d + pickups/gifts %d) · SELL-coins/100💧: %.1f (signal only now) · earn-1💎=%d💧 vs buy=%d💧 (>=10x)" % \
+		[gems_earned, coins_earned, coins_spendable, sell_coins, coins_spendable - sell_coins, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
+	# THE CLOCK IS QUESTS ONLY — the hard check is now STRUCTURAL, not a ratio: every coin that advanced the
+	# level clock must have come from delivering a quest. Any other path leaking into coins_earned (a sell, a
+	# pickup, a gift, habitat yield) is a real regression, and no amount of junk-selling can level the player.
+	# The sell/100💧 ratio stays PRINTED as a board-hygiene signal (how much stock retires unused), not a fail.
+	if coins_earned != quest_coins:
+		print("  FAIL Y: %d🪙 advanced the clock but only %d🪙 came from quests — a non-quest coin path is leaking into progression" % [coins_earned, quest_coins])
 		pass_all = false
+	else:
+		print("  PASS Y: the clock advanced on quest coins ALONE (%d🪙); %d🪙 of sells/pickups/gifts stayed spendable-only" % [coins_earned, coins_spendable])
 	if G.water_to_earn_diamond() < 10 * G.water_a_diamond_buys():
 		print("  FAIL Y: the water<->diamond round trip is abusable (<10x loss)")
 		pass_all = false
@@ -289,12 +294,13 @@ func _initialize() -> void:
 	# quest + sell + drops/featured; the sinks = the resident-welcome spend + the (finite) burst ladder.
 	# REPORTED; the absorption ratio is a tuning signal (the population invariants P1/P2 below are the
 	# hard checks). ---
-	var other_coins := coins_earned - quest_coins - sell_coins   # §6 drops/featured + §1 habitat yield/sell
-	var coin_sink := boost_coins_spent + expedition_spend
-	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + other %d, incl. §1 habitat yield %d / sell %d) · held %d🪙" % \
-		[coins_earned, quest_coins, sell_coins, other_coins, habitat_yield, habitat_sell, coins])
-	print("                 sink %d🪙 = boosts %d🪙 (%d) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
-		[coin_sink, boost_coins_spent, boosts_bought, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, coins_earned)))])
+	var other_coins := coins_spendable - sell_coins               # §6 drops/chests/treats + §1 habitat yield/sell
+	var faucet := coins_earned + coins_spendable
+	var coin_sink := boost_coins_spent + expedition_spend + cluster_spend
+	print("  -- Z coins --  faucet %d🪙 = CLOCK %d (quest) + SPENDABLE %d (sell %d + other %d, incl. §1 habitat yield %d / sell %d) · held %d🪙" % \
+		[faucet, coins_earned, coins_spendable, sell_coins, other_coins, habitat_yield, habitat_sell, coins])
+	print("                 sink %d🪙 = clusters %d🪙 + boosts %d🪙 (%d) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
+		[coin_sink, cluster_spend, boost_coins_spent, boosts_bought, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, faucet)))])
 
 	# --- D: the DIAMOND economy (previously unmodeled). Faucet = level-ups (LEVEL_DIAMONDS) +
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
@@ -358,6 +364,15 @@ func _live_lines() -> Array:
 # THE SINGLE COIN-INCOME DOOR — quest rewards, sells, coin pickups, bonus gens, chests, treats and habitat
 # yield all come through here, so `coins` (the spendable balance), `coins_earned` (the lifetime organic
 # total that IS the clock) and the level-up gifts can never drift apart. Spending touches `coins` only.
+# THE CLOCK IS QUESTS ONLY (owner call 2026-07-25). _earn_coins is the QUEST door: it credits the wallet
+# AND coins_earned (the level clock), mirroring Save.earn_coins. _gain_coins below is every other coin —
+# selling, pickups, chests, treats, habitat yield — spendable but NEVER clock-advancing (Save.add_coins).
+func _gain_coins(amount: int) -> void:
+	if amount <= 0:
+		return
+	coins += amount
+	coins_spendable += amount
+
 func _earn_coins(amount: int) -> void:
 	if amount <= 0:
 		return
@@ -388,7 +403,7 @@ func _tick_bonus_gen() -> void:
 				water = mini(G.WATER_CAP, water + amount)   # caps at WATER_CAP, like the live _collect_accumulator
 				bonus_water += amount
 			"coins":
-				_earn_coins(amount)
+				_gain_coins(amount)
 				bonus_coins += amount
 			"acorn":
 				acorns += amount
@@ -430,7 +445,7 @@ func _try_open_chest() -> void:
 	while _pending_chests >= 1:
 		_pending_chests -= 1
 		var rw := G.chest_open_reward(10 * 100 + 1)
-		_earn_coins(int(rw.coins))
+		_gain_coins(int(rw.coins))
 		drop_open_coins += int(rw.coins)
 		acorns += int(rw.acorns)
 		drop_open_acorns += int(rw.acorns)
@@ -445,7 +460,7 @@ func _run_treat_gen() -> void:
 	var line := G.pick_treat_line(map)
 	for _c in clicks:
 		var sell := int(G.sell_reward(line * 100 + G.TREAT_POP_TIER).x)
-		_earn_coins(sell)
+		_gain_coins(sell)
 		treat_coins += sell
 		if rng.randf() < G.TREAT_DROP_RATE:
 			_credit_special_drop(G.pick_special_drop(rng), "treat")
@@ -489,7 +504,7 @@ func _hab_collect() -> void:
 	var lc: Dictionary = RB.DEFAULTS["lines"]["coin"]
 	var hy := int(floor(float(lc.bank_base) + float(lc.bank_per_tier) * float(stier)))
 	if hy > 0:
-		_earn_coins(hy)
+		_gain_coins(hy)
 		habitat_yield += hy
 
 # Launch an expedition: pay the base cost (the SINK), acquire EXP_SPIRITS t1 spirits, PLACE what fits in
@@ -506,7 +521,7 @@ func _run_expedition() -> void:
 			_hab_merge()
 		else:
 			var sv := RB.SELL_PER_TIER * 1
-			_earn_coins(sv)
+			_gain_coins(sv)
 			habitat_sell += sv
 
 # --- §1 POPULATION (DORMANT welcome-roster — kept only for the unlock-gift grant; NOT the live sink) ---
@@ -876,7 +891,7 @@ func _play_session() -> Dictionary:
 		if not tops.is_empty():
 			var rw := G.sell_reward(board.item_at(tops[0]))
 			board.take(tops[0])
-			_earn_coins(rw.x)
+			_gain_coins(rw.x)
 			sell_coins += rw.x                 # every tier sells for COINS now (no premium pinnacle, Option A)
 			merchant_sells += 1
 			continue
@@ -885,7 +900,7 @@ func _play_session() -> Dictionary:
 		var coin_cell := _first_coin()
 		if coin_cell != Vector2i(-1, -1):
 			var cv := G.coin_value(board.take(coin_cell))
-			_earn_coins(cv)
+			_gain_coins(cv)
 			continue
 
 		# 4b. clear RETIRED-line clutter — old-map items no live quest can ever want (a line
@@ -895,7 +910,7 @@ func _play_session() -> Dictionary:
 		if junk != Vector2i(-1, -1):
 			var rwj := G.sell_reward(board.item_at(junk))
 			board.take(junk)
-			_earn_coins(rwj.x)
+			_gain_coins(rwj.x)
 			sell_coins += rwj.x
 			merchant_sells += 1
 			continue

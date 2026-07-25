@@ -238,7 +238,7 @@ static func claim_all() -> Dictionary:
 # the login ladder obeys). Returns nothing; the final grove_write flushes the water grant.
 static func _grant(rew: Dictionary) -> void:
 	if int(rew.get("coins", 0)) > 0:
-		Save.earn_coins(int(rew.coins))          # organic gift — persists + advances the clock
+		Save.add_coins(int(rew.coins))           # a GIFT is spendable, never clock-advancing (quests only, 2026-07-25)
 	if int(rew.get("gems", 0)) > 0:
 		Save.add_diamonds(int(rew.gems))         # persists
 	if int(rew.get("water", 0)) > 0:

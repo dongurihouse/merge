@@ -116,10 +116,12 @@ static func add_coins(n: int) -> void:
 	save_now()
 
 # --- the coin CLOCK (home build-and-upgrade redesign) ----------------------------
-# Lifetime ORGANIC coin earnings — the progression clock Level derives from
-# (content.level_at_coins). earn_coins is the organic-faucet path (quests, merge drops,
-# selling, resident collects); add_coins stays the neutral/purchased credit (shop packs) —
-# spendable, never clock-advancing. Only ever increases: spending never reduces it.
+# Lifetime QUEST coin earnings — the progression clock Level derives from
+# (content.level_at_coins). THE CLOCK IS QUESTS ONLY (owner call 2026-07-25): earn_coins is
+# reserved for DELIVERING a quest. Every other coin — selling, merge/chest pickups, habitat
+# yield, login/mail gifts, shop packs — goes through add_coins: fully spendable, never
+# clock-advancing. Progression is something you DO, not something that accrues.
+# Only ever increases: spending never reduces it.
 static func coins_earned_lifetime() -> int:
 	return int(grove().get("coins_earned", 0))
 
