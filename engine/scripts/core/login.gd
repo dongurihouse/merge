@@ -192,7 +192,7 @@ static func claim_today() -> bool:
 # never over the cap). Each grant persists via Save.
 static func _grant(rew: Dictionary) -> void:
 	if int(rew.get("coins", 0)) > 0:
-		Save.earn_coins(int(rew.coins))      # organic gift — persists + advances the clock
+		Save.add_coins(int(rew.coins))       # a GIFT is spendable, never clock-advancing (quests only, 2026-07-25)
 	if int(rew.get("gems", 0)) > 0:
 		Save.add_diamonds(int(rew.gems))     # persists
 	if int(rew.get("water", 0)) > 0:

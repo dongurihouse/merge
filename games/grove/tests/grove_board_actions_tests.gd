@@ -225,10 +225,15 @@ func _test_sell_generator() -> void:
 	var top: Vector2i = b.empty_ground_cells()[0]
 	b.place_gen(gid, top, 3)
 	var coins_b := Save.coins()
+	var clock_b := Save.coins_earned_lifetime()
 	var out: Dictionary = BoardActions.sell_generator(b, low)
 	ok(bool(out.sold) and int(out.coins) == G.gen_sell_coins(1), "selling a redundant tier-1 reports sold + its coin value")
 	ok(not b.gens.has(low) and b.gens.has(top), "the redundant generator is removed; the top survives")
 	ok(Save.coins() == coins_b + G.gen_sell_coins(1), "the sale credits GEN_SELL_COINS to the wallet")
+	# THE CLOCK IS QUESTS ONLY (owner call 2026-07-25) — a sale is cleanup: its coins spend, but they must
+	# never buy progression, or retiring stock pays for its own retirement (grove_sim measured that loop at
+	# 8x the quest faucet). The guard belongs here so a future sell path can't quietly re-open it.
+	ok(Save.coins_earned_lifetime() == clock_b, "SELLING NEVER ADVANCES THE CLOCK — the sale is spendable-only")
 	var out2: Dictionary = BoardActions.sell_generator(b, top)
 	ok(not bool(out2.sold) and b.gens.has(top), "a non-redundant (top) generator cannot be sold")
 	ok(G.gen_sell_coins(1) >= 0 and G.gen_sell_coins(2) >= 0, "gen_sell_coins is defined for the sellable tiers 1..2")
