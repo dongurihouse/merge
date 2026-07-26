@@ -1,6 +1,6 @@
 # Cell improvements (Soil · Magnet) — spec (2026-07-26)
 
-Draft 3. Rollout step 4 of `2026-07-26-progression-systems-design.md`; supersedes its §6
+Draft 4. Rollout step 4 of `2026-07-26-progression-systems-design.md`; supersedes its §6
 where they differ. All numbers are provisional dials — the `grove_sim` re-pass owns finals.
 Acorns = `currencies.diamonds` (`save.gd:145-160`). Home board only (Rush is a separate
 scene, `explore_rush.gd:65` — no flag needed).
@@ -10,10 +10,14 @@ scene, `explore_rush.gd:65` — no flag needed).
 - Two types: **Soil** — a resting piece grows a tier on a timer. **Magnet** — matching
   pieces inside its range merge automatically.
 - Build on any unsealed, empty cell. Caps: **9 Soil · 3 Magnets**.
-- One payment builds at rank 1: pad → two-card sheet → `Save.spend(price, "improvement")`.
-  Price keyed to the count of that type already built (§6).
-- Rebuild to the other type: 200 coins, cell must be empty, rank resets. Demolish: free, no
-  refund.
+- One payment builds: pad → two-card sheet → pay → built. **Soil: the first three are free,
+  then a coin ladder. Magnet: acorns** (§6). Price keyed to the count of that type currently
+  on the board — `Save.spend(n, "improvement")` for coins, `Save.spend_diamonds(n)` for
+  Magnets.
+- **Move:** a built improvement relocates to another unsealed, empty cell for a small flat
+  coin fee; Soil rank travels with it; a running clock on the source clears (the t7+ warning
+  applies, §3). **Demolish:** free, no refund — building again later pays that count slot's
+  price again. There is no type-swap verb (it would bypass the Magnet's acorn price).
 
 ## 2 · Model & laws
 
@@ -78,8 +82,11 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
 
 ## 4 · Magnet
 
-- Range by rank: r1 **1×3** (its model row) · r2 **plus** (5 cells) · r3 **3×3**. Off-board
-  and sealed cells are not in range. Shown as a faint field on selection and in build mode.
+- **No ranks — one range: the full 3×3 from purchase.** Off-board and sealed cells are not
+  in range. Shown as a faint field on selection and in build mode.
+- The Magnet's own cell is ordinary ground: pieces may be placed on it, spawn there, or rest
+  there; a piece on the Magnet cell is inside the range and auto-merges like any other (a
+  pair including it lands on the Magnet cell — it is the nearest cell).
 - When two same-code `can_merge` pieces (`board_model.gd:305-311`) sit inside one Magnet's
   range, they auto-merge: both slide to the pair cell nearer the Magnet (tie → lower board
   index, `board_model.gd:37`), then standard merge FX at reduced scale (`GridFx.play_merge`
@@ -113,15 +120,16 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
   pieces in its range merge themselves."* Each shows count vs cap ("Soil · 3/9"), greys at
   cap. Tap = spend + build (direct-spend, no nested confirm; unaffordable = grey 0.45,
   pressable, wallet wiggle `shop.gd:603-609`).
-- **Rank view** (tap a built cell in build mode): rank ladder, next price on the bag-slot
-  gold tile (`bag_overlay.gd:77-103`, "Max" at top), Rebuild row, Demolish. Rank-up:
+- **Cell view** (tap a built cell in build mode): Soil shows its rank ladder with the next
+  price on the bag-slot gold tile (`bag_overlay.gd:77-103`, "Max" at top); both types show
+  **Move** (pay the fee, then tap a destination pad) and **Demolish**. Rank-up:
   `FX.celebrate_at`, no modal.
 - **FTUE (~L6):** arms at level ≥ 6, `ftue_seen("soil")` (`save.gd:288-300`); calm-moment
   deferred beat (retirement-offer template `board.gd:3938-3964`, gated on
   `board_tutorial_seen`). One-line card — *"You can tend the ground now — pick a spot for
-  some soil."* — then build mode opens with a free Soil credit; `HandHint.present`
-  (`hand_hint.gd:53-71`) taps a suggested empty cell; the player's tap builds it. The Build
-  button appears with the beat.
+  some soil."* — then build mode opens (the first Soil build is one of the three free ones);
+  `HandHint.present` (`hand_hint.gd:53-71`) taps a suggested empty cell; the player's tap
+  builds it. The Build button appears with the beat.
 - Visuals (normative for mocks and implementation; palette roles per the art guide §3):
   - Build button: round warm-cream leaf button, ~90 px, pinned to the board area's
     bottom-right corner.
@@ -130,14 +138,16 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
   - Soil cell: rounded matte earth patch, desaturated gold-brown, deckled cut-paper edge, one
     same-hue shadow plane.
   - Magnet cell: horseshoe pebble in structural slate, inset on the cell.
-  - Rank pips: 1–3 garden-green leaf pips, bottom-left corner of the cell.
+  - Soil rank pips: 1–3 garden-green leaf pips, bottom-left corner of the cell. Magnet has
+    no pips.
   - Growing piece: thin garden-green progress ring, clockwise; small warm-cream time chip
     with ink text ("2h") at the piece's top-right when the step ≥ 15 min; sprout wiggle.
   - Magnet range field: translucent garden-green cut-paper field (~15% opacity) over the
     range cells, under the pieces.
   - Grow row: info tray title *"Growing to t8 — 2h 18m"*; chips 💧 droplet **−10** ·
     🌰 acorn **8**.
-  - Sheet card: type art · name · verb line · count vs cap ("3/9") · green price pill.
+  - Sheet card: type art · name · verb line · count vs cap ("0/9") · price pill — Soil:
+    "Free" while free builds remain, then the coin price; Magnet: acorn icon + acorn price.
   - Warning card: *"This restarts 6h of growing. Move it anyway?"* — **Keep growing**
     (action green, default) · **Move it** (quiet cream).
 - Art via intake (`docs/design/art-style-guide.md`): soil patch, pebble, buildable pad, leaf
@@ -149,23 +159,25 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
 
 | Dial | Value |
 |---|---|
-| Soil builds (Nth) | free (FTUE) · 500 · 1 000 · 2 000 · 4 000 · 8 000 · 16 000 · 32 000 · 64 000 |
-| Magnet builds (Nth) | 2 000 · 8 000 · 32 000 |
-| Rebuild / Demolish | 200 coins flat / free, no refund |
-| Soil ranks | r2 600 · r3 1 500 |
-| Magnet ranks | r2 5 000 · r3 20 000 |
+| Soil builds (Nth) | 1–3 **free** · then 500 · 1 000 · 2 000 · 4 000 · 8 000 · 16 000 coins |
+| Magnet builds (Nth) | **25 · 50 · 100 acorns** |
+| Move fee | 100 coins, flat |
+| Demolish | free, no refund |
+| Soil ranks | r2 600 · r3 1 500 coins |
 | `SOIL_WATER_COST` | 10 water — sim revisits the flat halve at t10+ (worth 24 h at t11) |
 | Acorn finish | `max(1, ceil(remaining / 30 min))` |
 
-Consts in `grove_data.gd` beside `BOOST_COST` (`grove_data.gd:232`); nothing in
-`economy_tuning.json` unless the owner wants a live dial.
+Prices key to the count of that type currently on the board (demolish decrements). Consts in
+`grove_data.gd` beside `BOOST_COST` (`grove_data.gd:232`); nothing in `economy_tuning.json`
+unless the owner wants a live dial.
 
 ## 7 · Sim re-pass (gates the merge)
 
 Run: `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]`.
 
-- `improve_spend` counter into `coin_sink` (`grove_sim.gd:337`) and the Z report (`:341`);
-  the bot buys builds/ranks greedily (boost-buy block as template) → I3 runway.
+- coin spends (paid Soils, ranks, moves) into a new `improve_spend` counter folded into
+  `coin_sink` (`grove_sim.gd:337`) and the Z report (`:341`); Magnet acorns into the D
+  diamond ledger; the bot buys greedily (boost-buy block as template) → I3 runway.
 - I1 zero jams at full build-out (12 improved cells).
 - Soil as a bounded faucet — 9 cells on the §3 curve to t12; re-confirm Y and faucet drift;
   price the t10+ watering halve.
@@ -186,20 +198,18 @@ real-scene via manual `_ready`, `grove_test_base.gd:438-441`, and `_tap_board` `
 `range_pairs` units in `engine/tests/`. Add the suite to `GROVE_TESTS` in the Makefile and
 the `CLAUDE.md` suite list in the same commit.
 
-Cover: build/rebuild/demolish/rank flows + cap refusals · pads only on empty+unsealed ·
-spawn on Soil grows; gen auto-place skips · clock reconcile matrix
+Cover: build flows — three free Soils then the coin ladder, Magnet acorn spend, cap
+refusals, count math across demolish · move — fee, Soil rank travels, source clock clears,
+t7+ warning on a t7+ move · demolish free/no refund · pads only on empty+unsealed · spawn on
+Soil grows; gen auto-place skips · clock reconcile matrix
 (arrive/leave/replace/merge-onto/complete; `watered` per step) · curve incl. ranks and
 `merge_top` clamps · water-once + finish price · offline completion via stamp · t7+ warning
-on every reset path, absent below t7 · range shapes per rank · auto-merge order, landing
-cell, loop-until-done · all five guards (asked code · growing piece · armed chain · no
-credit/no RNG, `rng.state` byte-identical · kind-uniformity) · save round-trip, tolerant
-load, purge self-heal · `range_pairs` known-positive/negative · FTUE once-only, free credit
-spends once.
+on every reset path, absent below t7 · magnet 3×3 from purchase; a piece on the Magnet cell
+auto-merges · auto-merge order, landing cell, loop-until-done · all five guards (asked code
+· growing piece · armed chain · no credit/no RNG, `rng.state` byte-identical ·
+kind-uniformity) · save round-trip, tolerant load, purge self-heal · `range_pairs`
+known-positive/negative · FTUE once-only.
 
 ## 10 · Open questions
 
-1. Move verb for placed improvements, or rebuild/demolish only? (A misplaced 32 000-coin
-   Magnet has no recovery.)
-2. Magnet r1/r2 range shapes — only the 3×3 max was pinned; 1×3 → plus is this spec's
-   fill-in.
-3. t5 grow step = 30 min — interpolated between the pinned 15 min and 1 h.
+1. t5 grow step = 30 min — interpolated between the pinned 15 min and 1 h.
