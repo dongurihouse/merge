@@ -22,7 +22,7 @@ the teach (no FTUE dialog). Home board only; the Rush is untouched.
 | `engine/scripts/ui/cascade_outline.gd` | **new** — stitched outlines, ×n tags, ghost pads (§7–8) |
 | `engine/scripts/core/content.gd` | + `G.line_color(code)` accessor (§7) |
 | `games/grove/grove_data.gd` | chest line `"top": 5` + loot rows 4/5 (§6) |
-| `games/grove/assets/items/chest/chest_4/5.png` | **new** — placeholders (t3 copies) until intake art (§6) |
+| `games/grove/assets/items/chest/chest_4/5.png` | **new** — production art, landed via intake ahead of the branch (§6) |
 | `engine/scripts/core/features.gd` + `docs/FEATURES.md` | + `"cascade"` flag + row (§9) |
 | `games/grove/tools/grove_shot.gd` | + seeded `cascade` capture mode (§12 step 7) |
 | `engine/tests/cascade_tests.gd` · `games/grove/tests/grove_cascade_tests.gd` | **new** suites (§10) |
@@ -115,9 +115,9 @@ free, synchronously, before the lucky rolls.
 - Data: `"top": 5` on the line-10 def (`SPECIAL_TOP` stays 3; per-def override already exists,
   `grove_data.gd:343-349`) + `CHEST_OPEN_COINS`/`ACORNS` rows `4:` and `5:`
   (`grove_data.gd:365-366`). Detection, outlines and `merge_top` follow automatically.
-- Art: `items/chest/chest_4.png`, `chest_5.png` — **do not exist yet**; two new pieces through
-  the intake pipeline (`docs/design/art-style-guide.md`), same cut-paper chest family, richer
-  dressing per tier.
+- Art: `items/chest/chest_4.png`, `chest_5.png` — produced separately from approved direction
+  mocks and landed on `main` via the intake pipeline; the implementing agent generates nothing
+  (§12 Assets rule).
 
 ## 7 · Ready-ladder outline
 
@@ -192,15 +192,20 @@ worktrees get wiped by other agents). Seed the import cache before the first run
 **Do not merge to main and do not remove the worktree** — implementation ends with the branch
 committed in place; code review happens in the worktree.
 
+**Assets: generate NOTHING.** The implementing agent never invokes image generation, the
+intake pipeline, or any art tooling. All cascade art is produced separately and lands on
+`main` via the intake pipeline. If a texture this spec names is missing in your worktree
+(e.g. `items/chest/chest_4/5.png`), copy the nearest sibling tier as a placeholder, note it
+in the hand-off, and move on.
+
 **Order** — each step lands with its tests green (`make test-fast`, a few seconds) before the next:
 
 1. `board_logic.gd`: `chain_path` + `ready_ladders` + `chain_placements` (§3); new
    `engine/tests/cascade_tests.gd` with the §10 engine battery; add the suite to `ENGINE_TESTS`
    (`Makefile:11`).
-2. Chest extension (§6): `"top": 5` on the line-10 def + `CHEST_OPEN_COINS`/`ACORNS` rows 4/5;
-   placeholder art — copy `items/chest/chest_3.png` to `chest_4.png` / `chest_5.png` (approved
-   t4/t5 direction mocks exist; real art lands separately via the intake pipeline);
-   `make import`.
+2. Chest extension (§6): `"top": 5` on the line-10 def + `CHEST_OPEN_COINS`/`ACORNS` rows 4/5.
+   Art: `chest_4/5.png` are expected to already exist on `main` — use them as-is; only if
+   missing, copy `chest_3.png` as placeholders (see the Assets rule above). `make import`.
 3. Run executor + rewards in `board.gd` (§4, §5): `_chain_run` computed in `_commit_merge` /
    `_apply_recipe`, the step loop, ×n floater, ×5 burst, reward births/upgrades,
    `chain_running()`.

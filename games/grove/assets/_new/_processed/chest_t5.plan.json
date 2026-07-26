@@ -1,0 +1,11 @@
+{
+  "source": "_new/chest_t5.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "tol": 0.22, "min_area": 3000, "pad": 6 },
+  "_note": "Cascade chain-chest tier 5, the crown (spec 2026-07-26-cascade-combos §6). Single standalone codex generation from the approved t5 direction mock (gilded, cream+gold scrollwork, bold central acorn emblem), shipped chest_3 as family authority.",
+  "outputs": [
+    { "island": 0, "name": "chest_5", "path": "items/chest/chest_5.png", "post": "icon:512" }
+  ],
+  "archive": "_originals/items/chest_t5.png"
+}

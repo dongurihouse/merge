@@ -1,0 +1,11 @@
+{
+  "source": "_new/chest_t4.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "tol": 0.22, "min_area": 3000, "pad": 6 },
+  "_note": "Cascade chain-chest tier 4 (spec 2026-07-26-cascade-combos §6): chest line extends to top 5. Single standalone codex generation from the approved t4 direction mock (slate planks, gold banding, acorn clasp), shipped chest_3 as family authority. Warm rim matches the legacy painted chest family.",
+  "outputs": [
+    { "island": 0, "name": "chest_4", "path": "items/chest/chest_4.png", "post": "icon:512" }
+  ],
+  "archive": "_originals/items/chest_t4.png"
+}
