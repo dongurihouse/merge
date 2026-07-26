@@ -22,6 +22,7 @@ const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the board
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar; Look.kit(rel) resolves game art
 const Game = preload("res://engine/scripts/core/game.gd")            # the game-indirection point (art roots · the ui kit path)
+const Pal = Game.PALETTE                                             # the game's colour roles (no re-typed hex)
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")      # the toggleable + tunable feel appliers
 const LandFx = preload("res://engine/scripts/ui/land_fx.gd")        # (workbench-tuned, resolved once in _ready)
@@ -543,7 +544,7 @@ func _build_bottom_hint() -> void:
 	l.position = Vector2(pad, 0.0)
 	l.size = Vector2(maxf(1.0, strip_w - pad * 2.0 - info_px * 1.25), strip_h)
 	l.add_theme_font_size_override("font_size", int(maxf(18.0, strip_h * RUSH_HINT_FS_FRAC)))
-	l.add_theme_color_override("font_color", Color("#243B4B"))
+	l.add_theme_color_override("font_color", Pal.INK)
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)

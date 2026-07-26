@@ -36,18 +36,18 @@ const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of
 # Meadow Sky component atoms. These extracted assets are already alpha-clean and shadow-free, so shared
 # components load them directly and use explicit safe nine-slice margins rather than live image polish.
 const MEADOW_UI := "ui/meadow_v2/%s"
-const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const PAPER_EDGE := Color(Pal.BARK, 0.35)
 const PAPER_SURFACES := {
-	"cream": {"texture": "texture_cream.png", "fill": Color("#F6EBDD")},
-	"sky": {"texture": "texture_sky.png", "fill": Color("#6FA9C0")},
-	"green": {"texture": "texture_action_green.png", "fill": Color("#5F9B6D")},
+	"cream": {"texture": "texture_cream.png", "fill": Pal.CREAM},
+	"sky": {"texture": "texture_sky.png", "fill": Pal.SKY},
+	"green": {"texture": "texture_action_green.png", "fill": Pal.LEAF},
 	"purple": {"texture": "texture_supporting_purple.png", "fill": Color("#8677A3")},
 	# the remaining shipped paper roles, registered so the bottom bar can give every tile its own
 	# texture (the mock's multi-coloured nav strip). Fills mirror the Meadow Sky palette roles.
-	"coral": {"texture": "texture_coral.png", "fill": Color("#D87865")},
-	"gold": {"texture": "texture_reward_gold.png", "fill": Color("#D6A94C")},
+	"coral": {"texture": "texture_coral.png", "fill": Pal.CLAY},
+	"gold": {"texture": "texture_reward_gold.png", "fill": Pal.GOLD},
 	"kraft": {"texture": "texture_warm_kraft.png", "fill": Color("#C9A886")},
-	"slate": {"texture": "texture_structural_slate.png", "fill": Color("#8296AF")},
+	"slate": {"texture": "texture_structural_slate.png", "fill": Pal.BRAMBLE_BG},
 	# WHITE paper: a truly white fibre for the deckle path (its own `tile`, desaturated + lifted from the
 	# cream fibre) so a white fill reads white, not cream. The deckle-off shader path falls back to the cream
 	# grain (multiplied by the white fill) — deckle is on by default, so the white tile is what shows.
@@ -363,7 +363,7 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	var tints: Dictionary = opts.get("tints", ACTION_TINT_DEFAULTS)
 	var paper_role := String(tints.get(role, "cream"))
 	var surface: Dictionary = PAPER_SURFACES.get(paper_role, PAPER_SURFACES["cream"])
-	var fill: Color = opts.get("fill", surface.get("fill", Color("#F6EBDD")))
+	var fill: Color = opts.get("fill", surface.get("fill", Pal.CREAM))
 	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS))
 	var corner := float(cp.get("corner", 20.0))
 	b.set_meta(Look.SHADOW_CORNER_META, corner)
@@ -1291,7 +1291,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var cp: Dictionary = opts.get("cp", {})
 	if cp.is_empty():
 		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "gold_currency_pill", PILL_CP_DEFAULTS)
-	var pill_fill := Color("#F6EBDD")
+	var pill_fill := Pal.CREAM
 	var pill_margins := Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
 	# the capsule corner IS the shared "Corner" edge knob (tunable in the workbench); PILL_CP_DEFAULTS seeds
 	# it to the old pill_h * 0.35 look so an untuned pill is unchanged.
@@ -1350,7 +1350,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.text = FX.format_amount(amount_value)
 	amount.custom_minimum_size = Vector2(amount_w, content_h)
 	amount.add_theme_font_size_override("font_size", num_size)
-	amount.add_theme_color_override("font_color", Color("#243B4B"))
+	amount.add_theme_color_override("font_color", Pal.INK)
 	amount.add_theme_constant_override("outline_size", 0)
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # right-align the number; amount_x pushes it toward the pill's right edge
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1489,7 +1489,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var paper_margins := Vector4(22.0 * pad_scale, 8.0 * pad_scale, 22.0 * pad_scale, 9.0 * pad_scale)
 	if primary:
 		var surface: Dictionary = PAPER_SURFACES["green"]
-		var green_fill: Color = surface.get("fill", Color("#5F9B6D"))
+		var green_fill: Color = surface.get("fill", Pal.LEAF)
 		# DECKLED edge (default): the same code-drawn cut-paper surface as the dialog frame, which casts
 		# its OWN shape-true shadow — so we do NOT also wrap the button in the rectangular _maybe_shadow.
 		if deckle:
@@ -1656,7 +1656,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	if shape == "rect":
 		var surface_role := String(opts.get("surface_role", "cream"))
 		var surface: Dictionary = PAPER_SURFACES.get(surface_role, PAPER_SURFACES["cream"])
-		var surface_fill: Color = surface.get("fill", Color("#F6EBDD"))
+		var surface_fill: Color = surface.get("fill", Pal.CREAM)
 		_apply_rounded_paper_surface(
 			b,
 			String(surface.get("texture", "texture_cream.png")),
@@ -2578,7 +2578,7 @@ const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_amp": 4, "deckl
 # The MAIL / reward-row card wears the SAME shared cut-paper edge, in its own tint + content. A finer tear at
 # card scale (amp 4) than the big frame page. `tint` (the paper fill) lives on the card's own config block.
 const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-const MAIL_TINT_DEFAULT := Color("#F6EBDD")   # = Pal.CREAM — the reward card's default paper fill
+const MAIL_TINT_DEFAULT := Pal.CREAM   # the reward card's default paper fill
 
 ## Read the mail / reward-row card's shared edge + its own tint from `cfg` (the workbench passes live
 ## _params; the game passes the saved config) into the opts mail_card / mail_dialog forward to the builder.
@@ -3517,8 +3517,8 @@ static func _daily_reward(reward: Dictionary, px: float = 40.0, shadow: bool = f
 # read with the same rounded proportion), so it is intentionally omitted here.
 const DAILY_CARD_CP_DEFAULTS := {"deckle": true, "corner": 22, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 # The two tones the daily face uses, straight from the shared paper roles — no new palette.
-const DAILY_CREAM_FILL := Color("#F6EBDD")   # = PAPER_SURFACES["cream"] — days 1-6 + the today top layer
-const DAILY_GOLD_FILL := Color("#D6A94C")    # = PAPER_SURFACES["gold"]  — the today under-layer + day 7
+const DAILY_CREAM_FILL := Pal.CREAM   # = PAPER_SURFACES["cream"] — days 1-6 + the today top layer
+const DAILY_GOLD_FILL := Pal.GOLD     # = PAPER_SURFACES["gold"]  — the today under-layer + day 7
 # The daily reward ICON's shape-true drop shadow (silhouette-following, warm-tinted) — a soft down-right cast.
 const DAILY_ICON_SHADOW := {"shadow_alpha": 0.32}
 
@@ -5673,9 +5673,9 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		var sb := StyleBoxFlat.new()
 		# frame_tint (board.frame_tint knob) recolours the slab; the cream cut-paper grain sheet is
 		# multiplied by the same tint so the surface keeps its paper tooth at any colour.
-		var frame_tint: Color = opts.get("frame_tint", Color("#3F6D7D"))
+		var frame_tint: Color = opts.get("frame_tint", Pal.BARK)
 		sb.bg_color = frame_tint
-		sb.border_color = Color("#F6EBDD", 0.82)
+		sb.border_color = Color(Pal.CREAM, 0.82)
 		sb.set_border_width_all(2)
 		sb.set_corner_radius_all(meadow_corner)
 		sb.anti_aliasing = true
@@ -5691,7 +5691,7 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
 	return {
 		"frame_style": String(b.get("frame_style", "meadow")), # "meadow" default | legacy "badge" | "code"
-		"frame_tint":  Color.from_string("#" + String(b.get("frame_tint", "3F6D7D")).lstrip("#"), Color("#3F6D7D")),
+		"frame_tint":  Color.from_string("#" + String(b.get("frame_tint", "3F6D7D")).lstrip("#"), Pal.BARK),
 		"corner":      int(b.get("frame_corner", 58)),
 		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
 		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off
@@ -5711,13 +5711,13 @@ const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty
 ## the Meadow-Sky mint below and is unaffected.
 const DIALOG_CELL_OPEN_FILL := Color("#CCCEAA")
 ## ...and the nominal colour of ui/meadow_v2/texture_meadow.png, the grain sheet drawn over the face.
-const MEADOW_PAPER_BASE := Color("#A8D3B9")
+const MEADOW_PAPER_BASE := Pal.MEADOW
 ## The LOCKED dialog cell, measured the same way off the same mocks: tiers #91A0B3, merged_line_tiers
 ## #97A6B9, resident_management_dialog_v2 #8B9FB2 — a lighter, warmer receding blue than the board's.
 ## The board's locked well keeps #8296AF below.
 const DIALOG_CELL_LOCKED_FILL := Color("#91A0B3")
 ## ...and the nominal colour of ui/meadow_v2/texture_receding_blue.png, its own grain sheet.
-const RECEDING_PAPER_BASE := Color("#8296AF")
+const RECEDING_PAPER_BASE := Pal.BRAMBLE_BG
 ## The OPENABLE-NOW board well: a warm gold, deep enough that the cream acorn lock still reads on top.
 ## Paired with a bright STRAW rim (slot_cell_background) as the board's contained unlockable highlight.
 const BOARD_UNLOCKABLE_FILL := Color("#C79A4E")
@@ -5745,7 +5745,7 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	var unlockable_flat := flat_board_cells and state == "unlockable"
 	var open_state := state == "empty" or state == "filled"
 	var file_name := "texture_meadow.png" if open_state else "texture_receding_blue.png"
-	var fill := Color("#A8D3B9") if open_state else Color("#8296AF")
+	var fill := Pal.CELL_EMPTY if open_state else Pal.LOCKED
 	if dialog_cells:
 		fill = DIALOG_CELL_OPEN_FILL if open_state else DIALOG_CELL_LOCKED_FILL
 	if unlockable_flat:
@@ -5755,7 +5755,7 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	fs.bg_color = fill
 	# The board is a flat paper grid: a stronger *inset* rim keeps its tiles separate while
 	# remaining wholly inside the cell (unlike the Bag's unlockable halo).
-	fs.border_color = Color("#3F6D7D", 0.52 if flat_board_cells else 0.28)
+	fs.border_color = Color(Pal.BARK, 0.52 if flat_board_cells else 0.28)
 	fs.set_border_width_all(2 if flat_board_cells else 1)
 	if unlockable_flat:
 		fs.border_color = Color("#F4D58C")   # a light warm-gold rim that reads as a ring over the gold well

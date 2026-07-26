@@ -1,0 +1,159 @@
+extends "res://engine/tests/test_base.gd"
+## Headless guard for the PALETTE single-source-of-truth invariant.
+##   godot --headless --path . -s res://engine/tests/palette_ssot_tests.gd
+##
+## games/<name>/grove_palette.gd declares itself the one place the game's colours are
+## written down; every other script is supposed to read them as Game.PALETTE (Pal.INK,
+## Pal.CREAM, …). The rule was documented but never enforced, so ~39 re-typed hex
+## literals accumulated across engine/ and games/ — the same value spelled twice in the
+## SAME file in two cases (giver_stand.gd aliased CREAM on one line and hardcoded
+## "#F6EBDD" eleven lines later). They were swept onto the palette constants and this
+## scan now FAILS on a new one.
+##
+## What is scanned: every .gd under engine/ and games/, for a Color("#RRGGBB"…) literal
+## whose hex equals one of the palette's ROLE values. Nothing else — the tree carries
+## ~200 Color("#…") literals and the large majority are genuine one-off colours (the
+## measured mock tones, the warm-gold unlockable rim, the purple/kraft paper roles …);
+## those are none of this guard's business. Comment text doesn't count, matching the
+## comment-stripping the layering guard's scans already do.
+##
+## Fixing an offender: read the colour off the palette instead — `const Pal = Game.PALETTE`
+## then `Pal.<ROLE>`, or a semantic alias (Pal.SURFACE / Pal.LOCKED / Pal.GOLD /
+## Pal.SCREEN_BG / Pal.CELL_EMPTY) where that reads truer at the call site. An alpha
+## variant is Color(Pal.BARK, 0.35), not a re-typed "#3F6D7D".
+
+const Game = preload("res://engine/scripts/core/game.gd")
+const Pal = Game.PALETTE
+
+const SCAN_ROOTS := ["res://engine/", "res://games/"]
+
+## The palette's ROLE constants — the names whose VALUES define a duplicate. Aliases
+## (SURFACE, LOCKED, GOLD, SCREEN_BG, CELL_EMPTY, BG, PLANK, …) resolve to these same
+## values, so listing the roles once covers every alias too.
+const ROLE_NAMES := ["CREAM", "STRAW", "INK", "BARK", "SKY", "MEADOW", "LEAF", "CLAY", "BRAMBLE_BG"]
+
+## Sites deliberately left as literals. One line of reason each — an entry here is a
+## decision, not a backlog item. Keyed "res://path.gd:LINE".
+const ALLOWLIST := {
+	"res://games/grove/tests/grove_explore_tests.gd:1177":
+		"pins the Rush hint's ink text colour independently — reading it from Pal would make the assertion restate itself and stop catching a palette-role swap",
+	"res://games/grove/tests/grove_ui_workbench_tests.gd:449":
+		"pins that a workbench-saved fill_color override round-trips to that exact hex; the value being STRAW is incidental to what the test proves",
+}
+
+## The palette script itself — the one file that IS allowed to write the hex down.
+func _owner_path() -> String:
+	var script: GDScript = Pal
+	return script.resource_path
+
+func _gd_files_deep(dir: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var d := DirAccess.open(dir)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if f.ends_with(".gd"):
+			out.append(dir + f)
+	for sub in d.get_directories():
+		out.append_array(_gd_files_deep(dir + sub + "/"))
+	return out
+
+## hex (uppercase, no "#") -> role name, for every role the active palette declares.
+func _role_by_hex() -> Dictionary:
+	var script: GDScript = Pal
+	var consts: Dictionary = script.get_script_constant_map()
+	var by_hex := {}
+	for name in ROLE_NAMES:
+		var c: Color = consts.get(name, Color.BLACK)
+		by_hex[c.to_html(false).to_upper()] = name
+	return by_hex
+
+func _initialize() -> void:
+	print("== Palette single-source-of-truth guard ==")
+	var by_hex := _role_by_hex()
+	ok(by_hex.size() == ROLE_NAMES.size(), \
+		"the active palette declares %d distinct role values (%d names)" % [by_hex.size(), ROLE_NAMES.size()])
+
+	var owner := _owner_path()
+	var files := PackedStringArray()
+	for root in SCAN_ROOTS:
+		files.append_array(_gd_files_deep(root))
+	ok(files.size() >= 100, "scan reaches the tree (%d .gd files under %s)" % [files.size(), ", ".join(SCAN_ROOTS)])
+
+	# The guard can only be trusted if it can SEE the owner's own literals — if this
+	# drops to 0 the matcher is broken, not the tree clean.
+	var owner_hits := _scan(owner, by_hex).size()
+	ok(owner_hits == ROLE_NAMES.size(), \
+		"known-positive: the palette file itself yields %d role literals (expected %d)" % [owner_hits, ROLE_NAMES.size()])
+
+	var offenders := PackedStringArray()
+	var allowed := 0
+	for p in files:
+		if p == owner:
+			continue
+		for hit in _scan(p, by_hex):
+			var key: String = "%s:%d" % [p, hit.line]
+			if ALLOWLIST.has(key):
+				allowed += 1
+				continue
+			offenders.append("%s:%d  Color(\"#%s\") == Pal.%s" % [p, hit.line, hit.hex, hit.role])
+	if not offenders.is_empty():
+		print("  ----------------------------------------------------------------")
+		print("  re-typed palette colours: %d" % offenders.size())
+		for o in offenders:
+			print("    ", o)
+		print("  read the colour off the palette instead (const Pal = Game.PALETTE; Pal.<ROLE>),")
+		print("  or add the site to ALLOWLIST in this file with the reason it must stay a literal.")
+		print("  ----------------------------------------------------------------")
+	ok(offenders.is_empty(), \
+		"no script outside %s re-types a palette role's hex (%d offender(s), %d allowlisted)" % \
+		[owner.get_file(), offenders.size(), allowed])
+
+	# Every allowlist entry must still point at a real literal — a stale exemption is a
+	# hole that silently re-opens the moment the line moves.
+	var stale := PackedStringArray()
+	for key in ALLOWLIST:
+		var parts: PackedStringArray = String(key).rsplit(":", true, 1)
+		var path: String = parts[0]
+		var line_no: int = parts[1].to_int()
+		var live := false
+		for hit in _scan(path, by_hex):
+			if hit.line == line_no:
+				live = true
+				break
+		if not live:
+			stale.append(key)
+	ok(stale.is_empty(), "every ALLOWLIST entry still points at a palette-role literal%s" % \
+		("" if stale.is_empty() else " — stale: " + ", ".join(stale)))
+	finish()
+
+## Every palette-role Color("#…") literal in `path`, as {line, hex, role}. Comment text
+## is stripped first; a `#` inside the quoted hex is not a comment start, so the split
+## happens on the first `#` that is NOT preceded by a quote.
+func _scan(path: String, by_hex: Dictionary) -> Array:
+	var out: Array = []
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return out
+	var text := f.get_as_text()
+	f.close()
+	var re := RegEx.create_from_string("Color\\(\"#([0-9A-Fa-f]{6})\"")
+	var line_no := 0
+	for raw_line in text.split("\n"):
+		line_no += 1
+		var line := _strip_comment(raw_line)
+		for m in re.search_all(line):
+			var hex := m.get_string(1).to_upper()
+			if by_hex.has(hex):
+				out.append({"line": line_no, "hex": hex, "role": by_hex[hex]})
+	return out
+
+## Drop a trailing `# comment`, keeping `Color("#RRGGBB")` intact (the `#` there is
+## inside a string literal, always immediately after a double quote).
+func _strip_comment(line: String) -> String:
+	var i := 0
+	while i < line.length():
+		if line[i] == "#" and (i == 0 or line[i - 1] != "\""):
+			return line.substr(0, i)
+		i += 1
+	return line

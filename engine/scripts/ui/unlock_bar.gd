@@ -14,8 +14,8 @@ const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
 # texture_cream grain layer from the UI kit) so it reads as one family with the pills above it.
 # The kit is loaded at runtime (matches hud.gd / action_bar.gd) to avoid a preload cycle.
 static var KIT_PATH := Game.kit()
-const PAPER_FILL := Color("#F6EBDD")
-const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const PAPER_FILL := Pal.CREAM
+const PAPER_EDGE := Color(Pal.BARK, 0.35)
 const PAPER_CORNER_FRAC := 0.28             # band corner radius as a fraction of the band height
 const FILL_TWEEN_S := 0.55
 const DECKLE_SURFACE_NODE := "UnlockDeckleSurface"
