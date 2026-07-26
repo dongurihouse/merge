@@ -1,0 +1,14 @@
+{
+  "source": "_new/improvements_glyphs_v1/improvements_glyphs_v1_sheet.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "tol": 0.22, "min_area": 3000, "pad": 6 },
+  "_note": "4 cell-improvement glyph masters, one codex batch (art guide §10d style; spec 2026-07-26-cell-improvements-design.md §5 visuals). Single-row sheet on flat #FF00FF, glyphs verified contained with gutters on all four sides; soil flecks and leaf stem are connected so the component cut keeps them. Islands map left-to-right soil/magnet/leaf/pip.",
+  "outputs": [
+    { "island": 0, "name": "cell_soil",   "path": "ui/kit/cell_soil.png",   "post": "icon:512" },
+    { "island": 1, "name": "cell_magnet", "path": "ui/kit/cell_magnet.png", "post": "icon:512" },
+    { "island": 2, "name": "build_leaf",  "path": "ui/kit/build_leaf.png",  "post": "icon:512" },
+    { "island": 3, "name": "pip_leaf",    "path": "ui/kit/pip_leaf.png",    "post": "icon:512" }
+  ],
+  "archive": "_originals/ui/improvements_glyphs_v1_sheet.png"
+}
