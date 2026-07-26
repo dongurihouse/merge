@@ -22,7 +22,7 @@ const Pal = Game.PALETTE
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching inbox.gd's guarded idiom.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "LadderOverlay"
 
 # --- the tiers mock (games/grove/assets/_concepts/dialogs/tiers_1080x1920.png) ---------------------

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the generator MECHANIC (§6): per-map roster derivation,
 ## the generator-grant hand-in op, line retirement, movable generators.
 ##   godot --headless --path . -s res://engine/tests/mechanics_tests.gd
@@ -7,17 +7,6 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 ## A fixture roster (independent of the live grove data): map 0 has 2 generators, map 1 has 3.
 ## Generators PERSIST (no hand-in), so each carries its own `cell`. (`grant_from` is inert legacy
@@ -31,14 +20,10 @@ func _fixture() -> Array:
 		{"id": "g1c", "map": 1, "line": 7, "cell": Vector2i(6, 5)},
 	]
 
-func fresh(name: String) -> void:
-	var dir := "user://tu_mechanics_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# This suite's own user:// save-dir tree — kept distinct so the parallel
+# runner can never let two suites clobber each other's saves.
+func save_prefix() -> String:
+	return "tu_mechanics_"
 
 func _adjacent_drop_fixture(board) -> Array:
 	var cells := [Vector2i(0, 0), Vector2i(0, 1), Vector2i(0, 2)]
@@ -830,5 +815,4 @@ func _initialize() -> void:
 		"a normal generator / accumulator is NOT a treat generator")
 	ok(G.gen_tex(G.treat_gen_id(61)).begins_with("items/generator/gen_"), "a treat gen resolves a wired icon")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the idle-hint OPENABLE teach-signal (§2): when the idle hint
 ## highlights a mergeable pair, it also pulses the sealed cell(s) that merging that
 ## pair would OPEN. The decision is exposed as a pure seam — BoardLogic.openable_for_hint
@@ -14,17 +14,6 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 # A bare board with a matching mergeable pair placed at `a` and `b` (same line/tier).
 func _board_with_pair(a: Vector2i, b: Vector2i) -> BoardModel:
@@ -94,5 +83,4 @@ func _initialize() -> void:
 	# === Case 5: an empty pair (no merge available) opens nothing ===
 	ok(BoardLogic.openable_for_hint(m1, [], 99).is_empty(), "an empty pair → empty openable set")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

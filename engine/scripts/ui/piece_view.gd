@@ -12,7 +12,7 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
 const Pal = Game.PALETTE
-const KIT_PATH := "res://games/grove/ui_kit.gd"   # the SHARED slot cell (bag + board)
+static var KIT_PATH := Game.kit()   # the SHARED slot cell (bag + board)
 
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW

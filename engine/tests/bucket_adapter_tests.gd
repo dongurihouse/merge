@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Guards engine/scripts/core/bucket.gd — the Save-backed adapter over the PURE resident bucket
 ## (resident_bucket.gd): cells-from-completion, save migration, collect crediting, boost stockpile.
 
@@ -7,26 +7,14 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 
-var _pass := 0
-var _fail := 0
+# This suite's own user:// save-dir tree — kept distinct so the parallel runner can
+# never let two suites clobber each other's saves (never touches the real save or progress.cfg).
+func save_prefix() -> String:
+	return "tu_bucket_"
 
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
-
-# Point Save at a clean temp dir (never touches the real save or progress.cfg).
-func fresh(name: String) -> void:
-	var dir := "user://tu_bucket_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# ...and this suite additionally wants Save's in-memory state reset with the dir.
+func fresh(name: String, prefix: String = "") -> void:
+	super(name, prefix)
 	Save.reset()
 
 # Unlock the first `n` clusters of cover-up scene `z` directly in the save's `unlocks` dict.
@@ -147,5 +135,4 @@ func _initialize() -> void:
 	_test_place_and_sell()
 	_test_collect_crediting()
 	_test_grant_box()
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()

@@ -8,7 +8,7 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
-const KIT = preload("res://games/grove/ui_kit.gd")   # the shared UI kit — ONE preload, not a load() per call site
+static var KIT: GDScript = load(Game.kit())   # the shared UI kit — resolved ONCE at script load, not a load() per call site
 const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -74,7 +74,7 @@ const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · inf
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
 const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
-const BOARD_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_board.png"
+static var BOARD_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_board.png")
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted

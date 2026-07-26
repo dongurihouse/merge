@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the FTUE hand hints (spec: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md).
 ##   godot --headless --path . -s res://engine/tests/ftue_hand_hint_tests.gd
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Feat = preload("res://engine/scripts/core/features.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 # The overlay must never eat a touch — the player performs the real gesture through it.
 func _all_ignore_mouse(n: Node) -> bool:
@@ -87,14 +76,10 @@ func _all_sizes_nonnegative(rects: Array) -> bool:
 	return true
 
 # Point Save at a clean temp dir (never touches the real save).
-func fresh(name: String) -> void:
-	var dir := "user://tu_ftue_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# This suite's own user:// save-dir tree — kept distinct so the parallel
+# runner can never let two suites clobber each other's saves.
+func save_prefix() -> String:
+	return "tu_ftue_"
 
 func _initialize() -> void:
 	print("== FTUE hand hint tests ==")
@@ -297,5 +282,4 @@ func _initialize() -> void:
 	ok(v_flagflip.dismissed, "flag-flip: dismiss() still tears the overlay down after the flag is off")
 	Feat.FLAGS["ftue_hand_hint"] = true
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

@@ -1,19 +1,8 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Gates games/grove/tools/scene_workbench_model.gd — the PURE half of the scene-placement
 ## workbench (load/save round-trip, entry ops, paint order, hit-testing, path resolution).
 
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _has_label_text(node: Node, text: String) -> bool:
 	for l in node.find_children("*", "Label", true, false):
@@ -835,5 +824,4 @@ func _initialize() -> void:
 	ok(M.repo_root_of("/elsewhere/scenes") == "/elsewhere/scenes",
 		"a root outside a repository keeps its own relative-art base")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

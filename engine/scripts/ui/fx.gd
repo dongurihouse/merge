@@ -21,32 +21,53 @@ const REWARD_FX_MIN_TRAIL_COUNT := 0
 const REWARD_FX_MAX_TRAIL_COUNT := 4
 const REWARD_FX_MIN_SOURCE_SIZE := 72.0
 const REWARD_FX_MAX_SOURCE_SIZE := 148.0
-const REWARD_FX_CONFIG_PATH := "res://games/grove/ui_kit_settings.json"
+static var REWARD_FX_CONFIG_PATH := Game.kit_settings()
 const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
+# The reward-FX settings live in the SAME file the ui kit reads, so the parse is cached in exactly
+# ONE place — Kit.load_config(path), invalidated by Kit.clear_config_cache(path). FX deliberately
+# keeps no private cache of its own: two caches over one file meant a workbench save through either
+# side left the other serving pre-save values for the rest of the session.
+# The kit lives in the game and preloads this script, so it can only be reached by runtime load()
+# (a preload here would be a hard cycle) — the same convention every other engine → kit call site uses.
+static var KIT_PATH := Game.kit()
 
 static var _dot_tex: Texture2D
 static var _reward_fx_config_path := ""
-# reward FX config is read on every grant (coin pickup, sale, payout…) — cache the parsed
-# result so the gameplay hot path never re-reads/re-parses the workbench settings file. The
-# cache is dropped whenever the config is written or the test path is reconfigured.
-static var _reward_fx_config_cache: Dictionary = {}
-static var _reward_fx_config_cached := false
 
 static func reward_fx_config_path() -> String:
 	return _reward_fx_config_path if _reward_fx_config_path != "" else REWARD_FX_CONFIG_PATH
 
+## Point the reward-FX config at a scratch file (tests / harnesses). The shared cache is keyed BY
+## PATH, so a swap can never serve the other path's data; the explicit clears cover the case of a
+## test rewriting the SAME scratch path between runs.
 static func configure_reward_fx_config_for_test(path: String) -> void:
+	var previous := reward_fx_config_path()
 	_reward_fx_config_path = path
-	_reward_fx_config_cached = false   # new path → drop the cache so the next read reloads
+	_clear_shared_config(previous)
+	_clear_shared_config(reward_fx_config_path())
 
-# The shared cache. Built once from disk, then reused until invalidated. Callers that read
-# scalars off the hot path use this directly; reward_fx_config() hands out a copy so external
-# mutation can't corrupt the cache.
+# The parsed settings file, straight off the shared kit cache. This is the kit's OWN Dictionary —
+# treat it as READ-ONLY (duplicate before mutating, as _write_reward_fx_config does).
+static func _shared_config(path: String) -> Dictionary:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		push_warning("FX: ui kit missing at %s — reward FX config falls back to defaults" % KIT_PATH)
+		return {}
+	return Kit.load_config(path)
+
+static func _clear_shared_config(path: String) -> void:
+	if path == "":
+		return   # "" means "clear EVERY path" to the kit — never widen the blast radius by accident
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit != null:
+		Kit.clear_config_cache(path)
+
+# The reward-FX VIEW of the shared config: defaults merged with whatever the file holds. Only the
+# cheap merge runs per call — the read+JSON-parse is what the shared cache saves. Callers that read
+# scalars off the hot path use this directly; reward_fx_config() hands out a copy so a caller can
+# never mutate anything reachable from the cache.
 static func _cached_reward_fx_config() -> Dictionary:
-	if not _reward_fx_config_cached:
-		_reward_fx_config_cache = _build_reward_fx_config()
-		_reward_fx_config_cached = true
-	return _reward_fx_config_cache
+	return _build_reward_fx_config()
 
 static func reward_fx_config() -> Dictionary:
 	return _cached_reward_fx_config().duplicate(true)
@@ -54,12 +75,15 @@ static func reward_fx_config() -> Dictionary:
 static func _build_reward_fx_config() -> Dictionary:
 	var cfg := _default_reward_fx_config()
 	var path := reward_fx_config_path()
-	var raw := _load_reward_fx_file(path)
+	var raw := _shared_config(path)
 	var fx = raw.get("fx", {}) if raw is Dictionary else {}
 	if fx is Dictionary:
 		for key in ["icon_size", "trail_count"]:
 			if fx.has(key):
-				cfg[key] = fx[key]
+				var v = fx[key]
+				# these are sliders (numbers), but never let a container from the SHARED cache
+				# alias into the dict we hand back — copy it if a hand-edited file put one there.
+				cfg[key] = v.duplicate(true) if (v is Dictionary or v is Array) else v
 		var saved_enabled = fx.get("enabled", {})
 		if saved_enabled is Dictionary:
 			var enabled: Dictionary = cfg["enabled"].duplicate(true)
@@ -80,7 +104,9 @@ static func _default_reward_fx_config() -> Dictionary:
 
 static func _write_reward_fx_config(cfg: Dictionary) -> void:
 	var path := reward_fx_config_path()
-	var out := _load_reward_fx_file(path)
+	# _shared_config hands back the kit's OWN Dictionary — duplicate before adding our "fx" block,
+	# or this write would silently mutate the shared cache.
+	var out := _shared_config(path).duplicate(true)
 	out["fx"] = cfg
 	var dir_path := path.get_base_dir()
 	if dir_path != "" and not DirAccess.dir_exists_absolute(dir_path):
@@ -91,19 +117,7 @@ static func _write_reward_fx_config(cfg: Dictionary) -> void:
 		return
 	f.store_string(JSON.stringify(out, "\t"))
 	f.close()
-	_reward_fx_config_cached = false   # next read reflects what we just wrote
-
-static func _load_reward_fx_file(path: String) -> Dictionary:
-	if not FileAccess.file_exists(path):
-		return {}
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return {}
-	var parsed = JSON.parse_string(f.get_as_text())
-	f.close()
-	if parsed is Dictionary:
-		return (parsed as Dictionary).duplicate(true)
-	return {}
+	_clear_shared_config(path)   # ONE cache, ONE invalidation: kit-side readers see this write too
 
 static func _set_reward_fx_config_value(key: String, value: Variant) -> void:
 	var cfg := reward_fx_config()

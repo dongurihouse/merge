@@ -20,7 +20,7 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "GenLinesOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:

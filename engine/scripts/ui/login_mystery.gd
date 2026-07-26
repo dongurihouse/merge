@@ -20,7 +20,7 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "LoginMysteryOverlay"
 
 # --- reward value -------------------------------------------------------------------

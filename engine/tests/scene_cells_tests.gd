@@ -1,20 +1,9 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## content.gd cell-source queries: habitat cells derive from COMPLETED cover-up scenes
 ## (one per fully-unlocked scene), and the board CTA reads whether the next cluster is
 ## unlockable now. Pure queries over the real grove MAPS — no scene instantiation.
 
 const Content = preload("res://engine/scripts/core/content.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 # Unlock every cluster of cover-up page `z` in the shared `unlocks` dict.
 func _unlock_scene(unlocks: Dictionary, z: int) -> void:
@@ -131,5 +120,4 @@ func _initialize() -> void:
 	_test_cells_from_scenes()
 	_test_any_cluster_ready()
 	_test_derived_cluster_floors()
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()

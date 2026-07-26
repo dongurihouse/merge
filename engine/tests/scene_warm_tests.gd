@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for SceneWarm — the threaded scene pre-warm + packed-swap helper.
 ##   godot --headless -s res://engine/tests/scene_warm_tests.gd
 ## Uses a throwaway PackedScene saved to user:// so it never depends on (or recompiles)
 ## the real game scenes. The actual change_scene swap is covered by the headless smoke.
 
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 # Pack a trivial scene (a named root + one child) to a user:// path for warming.
 func _make_scene(path: String) -> void:
@@ -66,5 +55,4 @@ func _initialize() -> void:
 	ok(SceneWarm.take("res://does/not/exist.tscn") == null, "take() on missing path returns null")
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

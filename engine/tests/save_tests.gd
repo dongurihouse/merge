@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the Save persistence layer.
 ##   godot --headless -s res://engine/tests/save_tests.gd
 
@@ -9,26 +9,11 @@ const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forg
 const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
 const G = preload("res://engine/scripts/core/content.gd")     # map-progression queries (gate/unlock chain)
 
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
-
 # Point Save at a clean temp dir (never touches the real save or progress.cfg).
-func fresh(name: String) -> void:
-	var dir := "user://tu_test_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# This suite's own user:// save-dir tree — kept distinct so the parallel
+# runner can never let two suites clobber each other's saves.
+func save_prefix() -> String:
+	return "tu_test_"
 
 func _initialize() -> void:
 	print("== Save tests ==")
@@ -452,5 +437,4 @@ func _initialize() -> void:
 	Save.add_coins(100000)                          # a whale-sized purchase
 	ok(G.level() == 2, "purchased coins never advance the level")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the OWNER ECONOMY TUNING loader (content.gd.apply_tuning). The HTML tool
 ## docs/economy_tuning.html writes economy_tuning.json; the game picks it up at load. This verifies
 ## the curve/board math FOLLOWS an override, a missing file is a no-op, partial files apply only their
@@ -8,17 +8,6 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _write(path: String, obj: Dictionary) -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -190,5 +179,4 @@ func _initialize() -> void:
 	var in_range: Array = FS.tiers_in(28, 52)
 	ok(in_range == [28, 32, 40, 52], "FontScale.tiers_in returns only the tiers inside the range")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()
