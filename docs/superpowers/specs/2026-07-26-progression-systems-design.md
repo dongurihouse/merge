@@ -140,14 +140,17 @@ and each row is mechanically distinct:
 | **Rain** | pops extra water drops; soil cells water themselves free this hour |
 | **Magnet** | pulls the nearest piece matching the merge result adjacent — the next chain step is ready |
 | **Mirror pool** | echoes: one ready pair elsewhere on the board merges itself |
-| **Starfall** *(uncommon)* | once this hour, a free **Wild piece** drifts down onto the lane |
+| **Starfall** *(uncommon)* | once this hour, a **high-tier piece** falls onto the lane |
 
-**The Wild piece (defined here; not yet in code — Starfall's task ships it).** A star-shaped
-piece with no line and no generator. Drag it onto any tier-t piece of any line → the result
-is that line's tier t+1, exactly as if a matching piece had been merged. It works at any
-tier — rarity is its limiter, and saving one for a tier-11 is a legitimate, earned delight.
-Sells for a token amount (it is meant to be used). No other source for now; the sim watches
-Starfall frequency.
+**The starfall drop (rev 4 — replaces the Wild piece, Dev call).** The falling star lands as
+a normal piece from a random **active** line, at a weighted high tier: ~80% t8, 15% t9, 5%
+t10. Two rules: the roll **skips any line+tier an active quest currently asks for** (the same
+guard the mirror echoes obey — an uncommon sky must never complete a top ask outright), and
+the piece is ordinary in every way once landed — every system already knows what it is. Why
+this replaced the Wild: a wild is a new mechanic needing a special case in chains, outlines,
+magnet pulls, mirror echoes, scissors, soil and the Shelf; a t8 piece needs none, its value
+is bounded and sim-modelable, and it is a concrete 1/16th of the tier-12 trophy the mastery
+ladder is aimed at. (The Wild piece — the last surviving "toy" — moves to Parked, not dead.)
 
 Mirror guards (shared with the mirror cell, §6): echoes pick the **lowest-tier** ready pair,
 **skip any pair whose line+tier an active quest asks for**, feed no chain counter, and drop
@@ -280,7 +283,7 @@ code).
    problems 1 + 3 by itself.)
 2. **Mastery + Scissors** — meters, 8 ranks, floor rule, rank-up UI; Scissors ships with it.
 3. **Combos + ready-ladder outlines + cascade FTUE.**
-4. **Weather hours** — the sky roll, the patch, the five skies, **the Wild piece**.
+4. **Weather hours** — the sky roll, the patch, the five skies, the starfall drop.
 5. **Improvements** — slots, the five cell types (reusing step 4's effects), the soil loop,
    acorn finish.
 
@@ -292,6 +295,9 @@ an autonomous queue.
 
 ## 9 · Parked (explicitly not in this design)
 
+- **The Wild piece** (star piece that merges with anything as its t+1) — replaced by the
+  starfall drop, rev 4: a new mechanic needing special cases across every other system, where
+  a plain t8 piece needs none. Revisit only if the game wants a toy back.
 - **Resident trades** (fence-visitor barter: wants drawn from surplus, gives from current
   needs, ~1.15 player-favor rate, resident tier improves rates) — parked, rev 3.
 - **Festival sky** (two skies at once) — parked, rev 3: overlapping patch visuals are hard;
@@ -310,5 +316,4 @@ an autonomous queue.
 ## 10 · Open questions for Dev review
 
 1. Mastery craft-consumption credit (§3) is a new law — confirm.
-2. The Wild piece works at any tier, including t11 → t12 (rarity is the limiter) — confirm.
-3. Soil FTUE at level 6 — earlier/later?
+2. Soil FTUE at level 6 — earlier/later?
