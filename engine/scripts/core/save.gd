@@ -17,11 +17,15 @@ const SCHEMA_VERSION := 5   # v5: home build-and-upgrade redesign — wipes exp/
 # alive (not a dead 0) and a first acquire-button tap lands the player in a non-empty store. Kept
 # deliberately small — a taste, not a giveaway. Only fresh saves get it (defaulted, never re-granted).
 const NEW_SAVE_GEMS := 5
-# §5 The Bag — the owned-slot floor/cap. The persistence layer is a pure leaf (no content.gd
-# import — that would be circular), so the band lives here; the game's per-slot 💎 price
-# schedule lives in grove_data and is passed into buy_bag_slot() by the scene.
-const BAG_MIN_SLOTS := 6
-const BAG_MAX_SLOTS := 18
+# §5 The Bag — the owned-slot floor/cap. The band used to be RE-TYPED here (6 / 18) beside the
+# game's own BAG_START_SLOTS / BAG_MAX_SLOTS, guarding against a circular import that does not
+# exist: the cycle to avoid is content.gd (which DOES import Save), not game.gd. game.gd is a
+# core leaf that only re-exports the active game's DATA + PALETTE and imports nothing of ours, so
+# the band is read straight off it — the same one-way read water/residents above already do. The
+# game's per-slot 💎 price schedule stays in grove_data and is passed into buy_bag_slot() by the
+# scene. engine/tests/const_ssot_tests.gd fails if these ever drift apart again.
+const BAG_MIN_SLOTS = Game.DATA.BAG_START_SLOTS
+const BAG_MAX_SLOTS = Game.DATA.BAG_MAX_SLOTS
 
 # Paths are static vars (not consts) so tests can redirect them to a temp dir.
 static var path := "user://save.json"
