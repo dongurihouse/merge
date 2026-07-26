@@ -45,12 +45,15 @@ same skeleton, `retire_offer.gd:55-106`: `Overlay.modal` + `Kit.dialog_frame` + 
 art + one body line + one CTA; keep the `min_h` floor)
 
 - One variant, one **OK** button; veil-tap and ✕ do the same. The sweep runs on close.
+- Title (the shipped in-card treatment): returning → *"See you soon"* · done forever →
+  *"All done here"* (shipped key).
 - Body, names/levels/coins interpolated (`farewell.*` keys in `strings.json`; coin clause
   only when payout > 0):
   - returning: *"The Woolens will be back at Level 51, for Spices — %d coins for the
     leftovers."*
   - done forever: *"The Glow-mushrooms' story is complete — %d coins join your purse."*
 - FX on close: `tidy_poof` + coin `reward_arrival` (the `board.gd:3981` pattern).
+- Mock: `games/grove/assets/_concepts/screens/farewell_card_v1_1080x1920.png`.
 
 **4 · Seams — `board.gd`** (cards chain one at a time)
 
@@ -87,10 +90,12 @@ view — swept lines have no board presence, so `ladder.gd`/`gen_lines.gd` can't
   done-forever → sub-caption *"Complete"*.
 - Tap a seen cell → `Ladder.open` (existing); its banner appends the status (*"Wild Berries
   · back at L69, for Tea Cups"*).
-- Entry point: a small **Almanac** button in the info tray's EMPTY state, hidden while a
-  selection is shown — board-side, no new nav chrome. Gate: the `discovery_ladder` feature,
-  same as its siblings.
+- Entry point: a small **Almanac** chip (open-book glyph + caption) at the right end of the
+  info tray's EMPTY state, hint text kept; hidden while a selection is shown — board-side, no
+  new nav chrome. Gate: the `discovery_ladder` feature, same as its siblings.
 - Strings `almanac.*`. No new save keys, no actions, no economy paths.
+- Mocks: `games/grove/assets/_concepts/screens/almanac_v1_1080x1920.png` (the L51 snapshot) ·
+  `almanac_infobar_v1_1080x1920.png` (the entry chip).
 
 ## Invariants (test assertions)
 
