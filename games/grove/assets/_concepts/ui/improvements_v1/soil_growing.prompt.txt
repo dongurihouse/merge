@@ -1,0 +1,23 @@
+Use case: UI mock for a shipped mobile merge game. Asset type: full-frame vertical UI mockup, exactly 1080x1920.
+Generate an image (do not write code).
+
+Input images:
+- Image 1: the game's REAL current screen — the layout, style, and content authority. Reproduce it faithfully; change ONLY what the change list states.
+- Image 2: palette & material authority for NEW elements only. Do not copy its board or layout.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+Text exception for this UI mock: render EXACTLY the strings in "Allowed new text" and no other new text; existing HUD/fence text in Image 1 stays as-is.
+
+Change list (a piece is growing on a Soil cell and is selected):
+1. One open cell just left of the board's center holds a Soil improvement: a rounded matte earth patch in desaturated gold-brown, deckled cut-paper edge, one same-hue shadow plane.
+2. ON that patch sits one of the game's cream egg items with a red cap (same style as Image 1), with: a thin garden-green progress ring around it, about 70% complete, filling clockwise; a small warm-cream pill chip pinned at the item's top-right with ink text "2h"; two tiny green sprout leaves peeking from the patch at the item's base; a soft selection glow.
+3. The bottom cream info tray's text is REPLACED with the grow row: a title line in ink "Growing to t8 — 2h 18m", and under it two rounded pill chips side by side: a garden-green chip with a sky-blue water-droplet icon and text "−10", and a warm-cream chip with a small brown acorn icon and text "8". The home and bag buttons stay unchanged.
+
+Allowed new text: Growing to t8 — 2h 18m / −10 / 8 / 2h
+
+Avoid: glossy plastic, watercolor, brushwork, neon, white sticker outlines, heavy black outlines, any new UI beyond the change list, any other new text, watermark.
+
+FULL-FRAME MOCK: the whole frame is content — there is no background to key out; save fully opaque.
+Save the PNG into: /Users/xup/dh/wt-cell-improvements-mocks/games/grove/assets/_concepts/ui/improvements_v1
+Name it: soil_growing_1080x1920.png. Report the absolute path.
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation and save it to the path above. Then report the saved path.

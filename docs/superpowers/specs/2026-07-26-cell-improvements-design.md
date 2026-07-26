@@ -122,8 +122,28 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
   some soil."* — then build mode opens with a free Soil credit; `HandHint.present`
   (`hand_hint.gd:53-71`) taps a suggested empty cell; the player's tap builds it. The Build
   button appears with the beat.
+- Visuals (normative for mocks and implementation; palette roles per the art guide §3):
+  - Build button: round warm-cream leaf button, ~90 px, pinned to the board area's
+    bottom-right corner.
+  - Buildable pad: dashed warm-cream cut-paper outline inset in the cell, small garden-green
+    **+** centered.
+  - Soil cell: rounded matte earth patch, desaturated gold-brown, deckled cut-paper edge, one
+    same-hue shadow plane.
+  - Magnet cell: horseshoe pebble in structural slate, inset on the cell.
+  - Rank pips: 1–3 garden-green leaf pips, bottom-left corner of the cell.
+  - Growing piece: thin garden-green progress ring, clockwise; small warm-cream time chip
+    with ink text ("2h") at the piece's top-right when the step ≥ 15 min; sprout wiggle.
+  - Magnet range field: translucent garden-green cut-paper field (~15% opacity) over the
+    range cells, under the pieces.
+  - Grow row: info tray title *"Growing to t8 — 2h 18m"*; chips 💧 droplet **−10** ·
+    🌰 acorn **8**.
+  - Sheet card: type art · name · verb line · count vs cap ("3/9") · green price pill.
+  - Warning card: *"This restarts 6h of growing. Move it anyway?"* — **Keep growing**
+    (action green, default) · **Move it** (quiet cream).
 - Art via intake (`docs/design/art-style-guide.md`): soil patch, pebble, buildable pad, leaf
   button, rank pips ×3, time chip, range field.
+- Mocks: `games/grove/assets/_concepts/ui/improvements_v1/` — one PNG + prompt sidecar per
+  surface (build mode · build sheet · soil growing · magnet range · t7+ warning).
 
 ## 6 · Dials (provisional)
 
