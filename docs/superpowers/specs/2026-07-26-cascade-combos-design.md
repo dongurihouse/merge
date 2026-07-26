@@ -111,8 +111,10 @@ free, synchronously, before the lucky rolls.
   cells, before pieces (`move_child`; draw order = child order, no CanvasLayers). Template:
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
 - Per `ready_ladders` component: stitched dashes along the perimeter (cell edges whose
-  neighbour is outside), slightly inset, per-stitch jitter. Thickness + alpha step with n
-  (×2 / ×3 / ×4+). Redraw only on recompute — in `_after_board_change()` (`board.gd:1011`)
+  neighbour is outside), slightly inset, rounded dash ends, per-stitch jitter, a whisper of
+  warm shadow under each dash. Thickness + alpha step with n (×2 / ×3 / ×4+). Optional
+  interior wash: a light line-color tint inside the group (`fill_pct` knob 0–8; the approved
+  mock uses ~5). Redraw only on recompute — in `_after_board_change()` (`board.gd:1011`)
   and after `_rebuild_all`.
 - Color: `G.line_color(code)` — **new accessor** in `content.gd` reading `G.LINES[line].color`,
   fallback `Pal.TEXT_MUTED` (mirrors `piece_view.gd:297`). No hex literals
@@ -124,9 +126,10 @@ free, synchronously, before the lucky rolls.
 ## 8 · Drag guide
 
 On `_begin_drag` of an item (never a generator): `chain_placements` once (the model is frozen
-mid-drag); each candidate cell gets a stitched ghost pad — dashed inset square, line color,
-brightness by resulting n. Cleared on every release outcome. The merge telegraph
-(`_update_telegraph`) is untouched; pads mark empty cells only.
+mid-drag); each candidate cell gets a stitched ghost pad — dashed rounded square, modest
+inset, light interior tint (~8 %), line color, thickness + brightness step by resulting n.
+Cleared on every release outcome. The merge telegraph (`_update_telegraph`) is untouched;
+pads mark empty cells only.
 
 ## 9 · FTUE
 
