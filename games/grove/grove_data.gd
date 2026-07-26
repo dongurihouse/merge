@@ -93,6 +93,8 @@ const MIN_LEVEL := [
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
+const MASTERY_THRESHOLDS := [20, 60, 150, 350, 800, 1700, 3400, 6500]
+const MASTERY_TIER_ODDS_5 := [0.65, 0.25, 0.06, 0.03, 0.01]
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
 # §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
 # (idea 3.2), but several quests could span many DISTINCT lines — scattering un-mergeable singletons until
@@ -338,6 +340,8 @@ const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is r
 const ART_TIER_PICK := {"coin": [1, 5, 12], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
+const SCISSORS_LINE := 14
+const SCISSORS_COST := 40
 
 # §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Most merge up to a
 # small top (SPECIAL_TOP), while individual defs may override it. They are NEVER popped from the generator
@@ -351,6 +355,7 @@ const SPECIAL_ITEMS := {
 	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
+	14: {"name": "Scissors", "base": "tool_scissors", "kind": "scissors", "top": 1, "desc": "Cuts a piece into two of a tier lower."},
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
