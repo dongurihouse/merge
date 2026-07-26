@@ -98,8 +98,6 @@ const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers wa
 # the board jams. So the generator pops at most this many distinct lines per session (the lowest-indexed
 # wanted lines win; the rest become hot as those clear), so pairs always form. STAGED: a tighter cap on the
 # tiny zone-1 (Farmhouse) board, the full cap from zone 2 on. OWNER/SIM dial (grove_sim I1 = zero jams judges).
-const POP_LINE_CAP := 3                   # zone 2+ (the window is 3 maps wide, so up to 3 lines pop)
-const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board holds fewer lines
 
 # §6 ZONE PROGRESSION (gen redesign 2026-06-28) — the new per-line model. The world is a run of ZONES,
 # each = a restoration spot. Rhythm: base · base · special. 17 base lines + 8 special = 25 zones (= the 25 live restoration spots, [6,4,7,4,4]); a special

@@ -84,6 +84,7 @@ var coins_at_first_complete := -1   # cumulative coin INTAKE the moment the firs
 var balance_at_first_complete := 0  # held coin BALANCE at that moment (the pre-population pile, for P2)
 var resident_spend_at_first_complete := 0
 var first_complete_day := -1
+var _deliv_day := 0            # deliveries this day (reported on the day line — the late-fence health signal)
 # PACING MILESTONES (tuning signals for the level-curve sweep). The content arc and the restoration
 # ladder are paced by DIFFERENT things — the arc by LEVEL (ZONE_UNLOCK_LEVEL), the ladder by level AND
 # coins — so 'when does the player see the last item line' and 'when is the book finished' are separate
@@ -169,8 +170,9 @@ func _initialize() -> void:
 			content_end_day = day + 1
 		if half_book_day < 0 and clusters_unlocked * 2 >= _cluster_total():
 			half_book_day = day + 1
-		print("  day %d: spent %d💧 · earned %d🪙 · L%d · page %d/%d · clusters %d/%d · pages-done %d · coins %d (quest %d/sell %d) · brambles %d" % \
-			[day + 1, d_water, coins_earned - day_coins_b, _level(), mini(map + 1, G.MAPS.size()), G.MAPS.size(), clusters_unlocked, _cluster_total(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
+		print("  day %d: spent %d💧 · earned %d🪙 · L%d · deliv %d · page %d/%d · clusters %d/%d · pages-done %d · coins %d (quest %d/sell %d) · brambles %d" % \
+			[day + 1, d_water, coins_earned - day_coins_b, _level(), _deliv_day, mini(map + 1, G.MAPS.size()), G.MAPS.size(), clusters_unlocked, _cluster_total(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
+		_deliv_day = 0
 
 	maps_done = gates_reached
 	print("\n== results ==")
@@ -787,9 +789,15 @@ func _wanted_lines() -> Array:
 func _quest_pop_lines(line: int) -> Array:
 	if G.gen_for_line(int(line)) != "":
 		return [int(line)]
+	# RECURSE to the BASE lines (mirrors G.gens_for_quest_line). An ingredient may itself be a special with
+	# no generator — tea cups (19) <- spices (8) <- wild berries + woolens — and a special can never be
+	# popped, only crafted. Returning [8, 2] made the sim pop line 8 directly, fabricating an item no
+	# generator in the game can produce (the board ended runs holding L8.t1..t9).
 	var out: Array = []
 	for il in G.zone_recipe(G.zone_of_line(int(line))):
-		out.append(int(il))
+		for b in _quest_pop_lines(int(il)):
+			if not out.has(int(b)):
+				out.append(int(b))
 	return out
 
 # §6 mirror of BoardLogic.wanted_tiers: the poppable asked tiers per pool line — so the sim's
@@ -868,6 +876,7 @@ func _play_session() -> Dictionary:
 			quest_coins += got
 			# (quests pay NO acorns now — acorns are milestone/IAP only, Option A)
 			_earn_coins(got)
+			_deliv_day += 1
 			live_quests.erase(q)
 			delivered = true
 			break
@@ -1059,10 +1068,13 @@ func _pop() -> void:
 	if opened.is_empty():
 		return
 	var wanted := _wanted_lines()
+	# NO POP-LINE CAP. G.pop_line_cap is a single-generator-era leftover with no live caller left: under the
+	# per-line generator model each generator pops its own line, and the real bound is QUEST_GEN_CAP on the
+	# generator footprint, already applied upstream by cap_quest_lines. Truncating here to 3 deterministically
+	# dropped the tail of the pool, and the FINAL window needs FIVE base lines — 18, plus 7+3 for corals,
+	# plus 2+4 for tea cups via spices — so two of the five could never be produced and the late fence went
+	# permanently undeliverable (zero deliveries from ~day 55 while still burning 330 water/day).
 	var pool: Array = wanted if not wanted.is_empty() else opened
-	var line_cap := G.pop_line_cap(map)       # staged: 2 on the zone-1 board, 3 from zone 2
-	if pool.size() > line_cap:                # keep the board mergeable: pop at most line_cap distinct lines
-		pool = pool.slice(0, line_cap)
 	var pw: Array = []
 	for l in pool:
 		if wanted.has(int(l)):

@@ -609,6 +609,24 @@ func _initialize() -> void:
 	# §7 quest-side generator cap (#16, re-scoped): the quest pool's distinct-generator footprint is capped
 	ok(G.cap_quest_lines([1, 2, 3, 4, 6, 7, 16, 18], 6).size() == 6, "a base-line quest pool trims to QUEST_GEN_CAP distinct generators")
 	ok(G.cap_quest_lines([1, 2, 3], 6) == [1, 2, 3], "a small pool is left untouched (footprint under the cap)")
+	# --- "needed for a quest" RECURSES to the base lines (2026-07-25 guard) ------------------------------
+	# quest_needed_lines is the ONE expansion behind every "this item matters" read — board item grey,
+	# generator fade, bag breathe, and the sim's clutter/sell rule. It expanded only ONE level, so with a
+	# tea-cups ask up (19 <- spices 8 <- wild berries 2 + woolens 4) the game marked WOOLENS as junk: the
+	# board greyed out, and the merchant bought, the exact items needed to craft the ingredient. It must stay
+	# in step with gens_for_quest_line, which recurses the same tree.
+	var _need19 := G.quest_needed_lines([19])
+	ok(_need19.has(19) and _need19.has(8) and _need19.has(2), "tea cups needs itself, spices and wild berries")
+	ok(_need19.has(4), "tea cups ALSO needs WOOLENS — the second-level ingredient of spices (the one-level bug)")
+	ok(G.quest_needed_lines([5]) .has(3) and G.quest_needed_lines([5]).has(2), "a one-level special still expands to both its ingredients")
+	ok(G.quest_needed_lines([18]) == {18: true}, "a base line needs only itself")
+	# the two reads must agree: every generator a quest requires belongs to a line it declares as needed
+	for _al in G.ZONE_SPECIAL_LINES + G.ZONE_BASE_LINES:
+		var _nl := G.quest_needed_lines([int(_al)])
+		for _g in G.gens_for_quest_line(int(_al)):
+			var _gl := int(String(_g).trim_prefix("gen_"))
+			ok(_nl.has(_gl), "line %d declares line %d needed — the generator it requires (%s) has somewhere to come from" % [int(_al), _gl, _g])
+
 	# --- §7 THE ACTIVE-LINE WINDOW (2026-07-25) — ACTIVE_LINE_WINDOW lines at a time, base or special alike.
 	# The arc window slides over ZONES rows, so it advances on EVERY zone (a special takes a slot of its own).
 	ok(G.zone_window_lines(0) == [1] and G.zone_window_lines(1) == [1, 2], "the window fills from the first zones (FTUE: 1 line, then 2)")
