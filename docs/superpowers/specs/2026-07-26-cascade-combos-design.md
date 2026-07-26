@@ -13,6 +13,22 @@ follows it. Chain length pays one reward — a chest that grows with the run. Re
 stitched outline; dragging a piece shows where placing it would build a chain. One-time FTUE.
 Home board only; the Rush is untouched.
 
+**What gets built:**
+
+| File | Change |
+|---|---|
+| `engine/scripts/core/board_logic.gd` | + `chain_path` · `ready_ladders` · `chain_placements` (§3) |
+| `engine/scripts/scenes/board.gd` | + run executor, rewards, `chain_running()`, drag-guide + FTUE wiring (§4–5, §8–9) |
+| `engine/scripts/ui/cascade_outline.gd` | **new** — stitched outlines, ×n tags, ghost pads (§7–8) |
+| `engine/scripts/core/content.gd` | + `G.line_color(code)` accessor (§7) |
+| `games/grove/grove_data.gd` | chest line `"top": 5` + loot rows 4/5 (§6) |
+| `games/grove/assets/items/chest/chest_4/5.png` | **new** — placeholders (t3 copies) until intake art (§6) |
+| `engine/scripts/core/features.gd` + `docs/FEATURES.md` | + `"cascade"` flag + row (§10) |
+| `games/grove/strings.json` | + `board.cascade.*` FTUE copy (§9) |
+| `games/grove/tools/grove_shot.gd` | + seeded `cascade` capture mode (§13 step 8) |
+| `engine/tests/cascade_tests.gd` · `games/grove/tests/grove_cascade_tests.gd` | **new** suites (§11) |
+| `Makefile` + project `CLAUDE.md` | suite registrations (§11) |
+
 ## 2 · Rules
 
 - **Only a player merge tips a run** — drag merge (`_commit_merge`) or recipe merge
