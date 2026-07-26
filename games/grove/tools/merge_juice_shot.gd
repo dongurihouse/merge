@@ -6,36 +6,32 @@ extends SceneTree
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/merge_juice_shot.gd -- <out_dir>
 ## Writes <out_dir>/after/f00..17.png (juice on) and <out_dir>/before/f00..17.png (juice off).
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Feat = preload("res://engine/scripts/core/features.gd")
+const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 
 const PAIR_CODE := 102      # two tier-2 saplings → tier-3 (a representative mid-merge: squash+flash+hitstop, no shake)
 const FRAMES := 18
 const DT := 0.035           # wall-clock seconds between samples
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh")
-		quit(2); return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var out_dir: String = args[0] if args.size() >= 1 else "/tmp/merge_juice/"
-	if not out_dir.ends_with("/"):
-		out_dir += "/"
+	var ctx := await Base.begin(self, {
+		"tool": "mergejuice",
+		"default_out": "/tmp/merge_juice/",
+		"out_kind": "dir",
+		"save_dir": "/tmp/tu_mergejuice_save/",
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var out_dir: String = ctx["out"]
 
 	# silence ambient motion so the two passes differ ONLY by the merge juice
 	Feat.FLAGS["ambient_weather"] = false
 	Feat.FLAGS["ambient_characters"] = false
 
-	var test_dir := "/tmp/tu_mergejuice_save/"
-	if DirAccess.dir_exists_absolute(test_dir):
-		for fn in DirAccess.get_files_at(test_dir):
-			DirAccess.remove_absolute(test_dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(test_dir)
-	Save.configure_for_test(test_dir)
-
+	# the two passes now start from the SAME board: _load_state seeds off this instead of randomize()
+	BoardScript.forced_rng_seed = Base.RNG_SEED
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
@@ -78,7 +74,6 @@ func _capture_pass(scn, a: Vector2i, b: Vector2i, juice: bool, dir: String) -> v
 	scn._on_press(scn._cell_pos(a) + half)
 	scn._on_release(scn._cell_pos(b) + half)
 	for i in FRAMES:
-		RenderingServer.force_draw()
-		root.get_texture().get_image().save_png(dir + "f%02d.png" % i)
+		Base.capture(self, dir + "f%02d.png" % i)
 		await create_timer(DT, true, false, true).timeout   # ignore_time_scale → samples through a hitstop freeze
 	await create_timer(0.4).timeout   # let the merge fully settle before the next pass

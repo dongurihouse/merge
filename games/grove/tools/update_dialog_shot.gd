@@ -7,29 +7,22 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/update_dialog_shot.gd -- <out_dir>
 ## Mirrors residents_dialog_shot.gd's quiet-capture header + light home seed.
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
-		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var out_dir: String = (args[0] if args.size() >= 1 else "/tmp/tu_update_dialog_out").trim_suffix("/") + "/"
-	DirAccess.make_dir_recursive_absolute(out_dir)
-
-	var dir := "/tmp/tu_update_dialog_shot/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+	var ctx := await Base.begin(self, {
+		"tool": "update_dialog",
+		"default_out": "/tmp/tu_update_dialog_out",
+		"out_kind": "dir",
+		"save_dir": "/tmp/tu_update_dialog_shot/",
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var out_dir: String = ctx["out"]
 
 	# a believable home behind the dimmed veil: the first scene fully unlocked.
 	var g := Save.grove()
@@ -47,16 +40,14 @@ func _initialize() -> void:
 	current_scene = scn
 	await create_timer(0.8).timeout
 
-	RenderingServer.force_draw()
-	root.get_texture().get_image().save_png(out_dir + "home.png")
+	Base.capture(self, out_dir + "home.png", args)
 
 	# open the REAL shipped prompt with a sample newer version + store url.
 	var UpdatePrompt = load("res://engine/scripts/ui/update_prompt.gd")
 	UpdatePrompt.open(scn, "1.2.0", "https://apps.apple.com/app/id0000000000")
 	await create_timer(0.6).timeout
 
-	RenderingServer.force_draw()
-	var e1 := root.get_texture().get_image().save_png(out_dir + "update_dialog.png")
+	var e1 := Base.capture(self, out_dir + "update_dialog.png", args)
 
 	print("SHOT update_dialog=%d -> %s" % [e1, out_dir])
 	quit()

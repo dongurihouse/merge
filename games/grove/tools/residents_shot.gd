@@ -8,30 +8,22 @@ extends SceneTree
 ## must come from quiet_godot.sh, not in-script flags, which are too late and flash/steal focus).
 ## Parallel-safe (own temp save).
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
-		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var out_dir: String = (args[0] if args.size() >= 1 else "/tmp/tu_residents_out").trim_suffix("/") + "/"
-	DirAccess.make_dir_recursive_absolute(out_dir)
-
-	var dir := "/tmp/tu_residentsshot/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+	var ctx := await Base.begin(self, {
+		"tool": "residents",
+		"default_out": "/tmp/tu_residents_out",
+		"out_kind": "dir",
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var out_dir: String = ctx["out"]
 
 	# stand map 0 (hub) up as COMPLETE: every spot restored + its gate delivered → can_populate, and the
 	# unlock gift is still UNCLAIMED (no task_reward flag) so opening the map fires the reward dialog.
@@ -63,9 +55,7 @@ func _initialize() -> void:
 	scn._open_map(z)                            # fires _maybe_show_unlock_reward (deferred) → the dialog
 	await create_timer(0.7).timeout
 
-	RenderingServer.force_draw()                # minimized windows can serve a stale frame — force a fresh draw
-	var img1 := root.get_texture().get_image()
-	var e1 := img1.save_png(out_dir + "unlock_dialog.png")
+	var e1 := Base.capture(self, out_dir + "unlock_dialog.png", args)
 
 	# dismiss the unlock overlay, then open the place-picker (residents management now lives here: the
 	# bucket dock — cells + Collect/Expedition chips + the in-hand grid, dragged to place/merge) and capture it.
@@ -75,9 +65,7 @@ func _initialize() -> void:
 	await create_timer(0.3).timeout
 	scn._open_select()
 	await create_timer(0.7).timeout
-	RenderingServer.force_draw()
-	var img2 := root.get_texture().get_image()
-	var e2 := img2.save_png(out_dir + "residents_dock.png")
+	var e2 := Base.capture(self, out_dir + "residents_dock.png", args)
 
 	print("SHOT unlock=%s (err %d) dock=%s (err %d) coins=%d gems=%d" % [
 		out_dir + "unlock_dialog.png", e1, out_dir + "residents_dock.png", e2, Save.coins(), Save.diamonds()])

@@ -21,6 +21,13 @@
 ##
 ## AUDIO: debug runs are SILENT (--audio-driver Dummy) — no taps/poofs through the
 ## owner's speakers. Testing sound specifically? WITH_AUDIO=1 engine/tools/quiet_godot.sh …
+##
+## TIME: runs use --fixed-fps, so every frame's delta is exactly 1/N second instead of however
+## long the machine took. Without it a capture samples idle animations (a generator's breathe,
+## a pulsing badge) at whatever phase wall-clock jitter left them in — two runs of identical
+## code then differ, and a before/after pixel diff proves nothing. With it, the same tool +
+## the same mode produce a byte-identical PNG. Override with TU_FIXED_FPS=<n>; TU_FIXED_FPS=0
+## restores real-time pacing (only useful when investigating genuinely timing-dependent behaviour).
 set -e
 # Project root = where godot's --path points (override.cfg must land there). Walk up
 # from this script to the dir holding project.godot, so the script's depth under the
@@ -50,10 +57,12 @@ trap 'on_sig 129' HUP
 # TU_QUIET marks this as a capture run: the game's boot self-heal (which would
 # un-minimize a real launch born under our flags) must NOT touch these windows.
 export TU_QUIET=1
+FPS_ARGS=()
+[ "${TU_FIXED_FPS:-60}" != "0" ] && FPS_ARGS=(--fixed-fps "${TU_FIXED_FPS:-60}")
 if [ "${WITH_AUDIO:-0}" = "1" ]; then
-  godot "$@" &
+  godot "${FPS_ARGS[@]}" "$@" &
 else
-  godot --audio-driver Dummy "$@" &
+  godot --audio-driver Dummy "${FPS_ARGS[@]}" "$@" &
 fi
 GPID=$!
 rc=0

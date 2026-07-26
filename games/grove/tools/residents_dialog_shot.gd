@@ -5,30 +5,23 @@ extends SceneTree
 ## Seeds a completed scene (its bucket cell), a placed spirit, matured stock and a hand.
 ## Parallel-safe (own temp save). Mirrors residents_shot.gd's quiet-capture header.
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
-		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var out_dir: String = (args[0] if args.size() >= 1 else "/tmp/tu_residents_dialog_out").trim_suffix("/") + "/"
-	DirAccess.make_dir_recursive_absolute(out_dir)
-
-	var dir := "/tmp/tu_residents_dialog_shot/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+	var ctx := await Base.begin(self, {
+		"tool": "residents_dialog",
+		"default_out": "/tmp/tu_residents_dialog_out",
+		"out_kind": "dir",
+		"save_dir": "/tmp/tu_residents_dialog_shot/",
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var out_dir: String = ctx["out"]
 
 	# fully unlock the first scene → its bucket cell; seed spirits + matured banks.
 	var g := Save.grove()
@@ -52,15 +45,11 @@ func _initialize() -> void:
 	current_scene = scn
 	await create_timer(0.8).timeout
 
-	RenderingServer.force_draw()
-	var img0 := root.get_texture().get_image()
-	var e0 := img0.save_png(out_dir + "home_rail.png")
+	var e0 := Base.capture(self, out_dir + "home_rail.png", args)
 
 	scn._open_residents()
 	await create_timer(0.7).timeout
-	RenderingServer.force_draw()
-	var img1 := root.get_texture().get_image()
-	var e1 := img1.save_png(out_dir + "residents_dialog.png")
+	var e1 := Base.capture(self, out_dir + "residents_dialog.png", args)
 
 	# REAL-PATH drag check: press on the water t2 twin, sweep to its match, release — through the
 	# viewport's input routing (the same path a finger takes), then read the model.
@@ -117,9 +106,7 @@ func _initialize() -> void:
 	if card != null and card.has_method("tap"):
 		card.tap()
 	await create_timer(0.4).timeout
-	RenderingServer.force_draw()
-	var img2 := root.get_texture().get_image()
-	var e2 := img2.save_png(out_dir + "residents_dialog_selected.png")
+	var e2 := Base.capture(self, out_dir + "residents_dialog_selected.png", args)
 	if ov != null:
 		ov.queue_free()
 	await create_timer(0.3).timeout
@@ -127,9 +114,7 @@ func _initialize() -> void:
 	# the daily calendar — the restyled SHARED frame on an existing dialog
 	scn._open_daily()
 	await create_timer(0.7).timeout
-	RenderingServer.force_draw()
-	var img3 := root.get_texture().get_image()
-	var e3 := img3.save_png(out_dir + "daily_dialog.png")
+	var e3 := Base.capture(self, out_dir + "daily_dialog.png", args)
 
 	print("SHOT home=%d residents=%d selected=%d daily=%d -> %s" % [e0, e1, e2, e3, out_dir])
 	quit()
