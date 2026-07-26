@@ -158,7 +158,14 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # Entry i is the level at which cover-up scene i is FULLY RESTORED — its LAST cluster unlocks exactly
 # there (content._build_cadence spreads the scene's other clusters and zones inside the band this and
 # the previous entry define). MUST be strictly increasing, one entry per cover-up scene.
-const SCENE_END_LEVEL := [19, 29, 39, 48, 58]
+# Re-solved 2026-07-26 for target days 3/4/5/6/7 per scene (25 days, 3 sessions/day) WITH
+# LEVEL_WATER_GIFT modelled as a faucet-side offset in pacing_calc.gd's day_at walk (previously the
+# report-mode walk left the gift unmodelled). The earlier [19, 29, 39, 48, 58] solve ran the book in
+# ~16 days instead of 25 — about 40% fast — because it didn't account for the extra water the gift
+# hands back on every level-up. Raising the levels (not shrinking the gift) restores the target
+# calendar; recompute with:
+#   godot --headless --path . -s res://games/grove/tools/pacing_calc.gd -- 3 2 20 3,4,5,6,7 "" 60
+const SCENE_END_LEVEL := [25, 36, 46, 58, 71]
 const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,

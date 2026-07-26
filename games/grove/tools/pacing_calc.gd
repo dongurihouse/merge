@@ -55,6 +55,9 @@ const WALLET_MULTIPLE := 2.2
 ## sim already models — boosts, expeditions, residents. At 1.0 the ladder would consume every coin
 ## the player ever sees and nothing else could be bought.
 const LADDER_WALLET_SHARE := 0.6
+## Levels to walk BEYOND the highest gate, so the inverse lookup can answer for target days past
+## where the ladder currently ends.
+const WALK_MARGIN := 80
 
 var rng := RandomNumberGenerator.new()
 
@@ -104,20 +107,23 @@ func _initialize() -> void:
 		for c in G.clusters(int(z)):
 			top_level = maxi(top_level, G.cluster_min_level(int(z), String((c as Dictionary).id)))
 	top_level = maxi(top_level, G.zone_unlock_level(G.ZONE_COUNT - 1))
+	# Walk PAST the current gates: the inverse lookup below has to be able to answer "which level lands
+	# on day N" for a target day beyond where the gates sit today, which is the whole point of asking.
+	var walk_top := top_level + WALK_MARGIN
 
 	# --- walk the levels, measuring the coin value of one water at each ---
 	# day_at[L] = cumulative days to REACH level L (day_at[1] = 0.0)
 	var day_at: Array = []
 	var cpw_at: Array = []          # coins per water at each level (the measured ask mix)
-	day_at.resize(top_level + 2)
-	cpw_at.resize(top_level + 2)
+	day_at.resize(walk_top + 2)
+	cpw_at.resize(walk_top + 2)
 	day_at[1] = 0.0
 	cpw_at[1] = 0.0
-	for lv in range(1, top_level + 1):
+	for lv in range(1, walk_top + 1):
 		var cpw := _coins_per_water(lv)
 		cpw_at[lv] = cpw
 		var need := G.coins_at_level(lv + 1) - G.coins_at_level(lv)
-		var water := float(need) / maxf(cpw, 0.0001)
+		var water := _faucet_water(float(need) / maxf(cpw, 0.0001))
 		day_at[lv + 1] = float(day_at[lv]) + water / water_per_day
 
 	# --- the answer: days to fully unlock each scene ---
@@ -138,7 +144,7 @@ func _initialize() -> void:
 			gi += 1
 		var last_id := String((cls[cls.size() - 1] as Dictionary).id)
 		var lv := G.cluster_min_level(z, last_id)
-		var d := float(day_at[clampi(lv, 1, top_level + 1)])
+		var d := float(day_at[clampi(lv, 1, walk_top + 1)])
 		print("  %-24s %-15s L%-5d %-11s %-13s %s" % [String(G.MAPS[z].get("name", "?")), last_id, lv,
 			_fmt_days(d), _fmt_days(d - prev_day), _binds(cum_cost, G.coins_at_level(lv))])
 		prev_day = d
@@ -155,10 +161,10 @@ func _initialize() -> void:
 		var line_days: Array = []
 		for _j in int(G.ZONE_BAND[p]):
 			var zlv := G.zone_unlock_level(zi)
-			line_days.append("z%d L%d = day %s" % [zi, zlv, _fmt_days(float(day_at[clampi(zlv, 1, top_level + 1)]))])
+			line_days.append("z%d L%d = day %s" % [zi, zlv, _fmt_days(float(day_at[clampi(zlv, 1, walk_top + 1)]))])
 			zi += 1
 		print("  scene %d: %s" % [p + 1, ", ".join(PackedStringArray(line_days))])
-	var last_zone_day := float(day_at[clampi(G.zone_unlock_level(G.ZONE_COUNT - 1), 1, top_level + 1)])
+	var last_zone_day := float(day_at[clampi(G.zone_unlock_level(G.ZONE_COUNT - 1), 1, walk_top + 1)])
 	print("  the LAST item line arrives on day %s — %.0f%% of the way through the book" % \
 		[_fmt_days(last_zone_day), 100.0 * last_zone_day / maxf(book_day, 0.001)])
 
@@ -172,11 +178,11 @@ func _initialize() -> void:
 		if cls2.is_empty():
 			continue
 		var lv2 := G.cluster_min_level(z2, String((cls2[cls2.size() - 1] as Dictionary).id))
-		var d2 := float(day_at[clampi(lv2, 1, top_level + 1)])
+		var d2 := float(day_at[clampi(lv2, 1, walk_top + 1)])
 		var scene_water := (d2 - prev_day) * water_per_day
 		print("  scene %d %-24s %9.0f pops (%2.0f%% of the game) · %.2f coins/water at its end" % \
 			[p + 1, String(G.MAPS[z2].get("name", "?")), scene_water, 100.0 * scene_water / maxf(tot_water, 1.0),
-			 float(cpw_at[clampi(lv2, 1, top_level)])])
+			 float(cpw_at[clampi(lv2, 1, walk_top)])])
 		prev_day = d2
 	print("  whole book: %.0f pops (%.0f water)" % [tot_water, tot_water * float(G.POP_COST)])
 
@@ -187,7 +193,7 @@ func _initialize() -> void:
 		for p in mini(targets.size(), pages.size()):
 			var want := float(targets[p])
 			var lv3 := 1
-			for l in range(1, top_level + 1):
+			for l in range(1, walk_top + 1):
 				if float(day_at[l]) <= want:
 					lv3 = l
 				else:
@@ -195,17 +201,17 @@ func _initialize() -> void:
 			var z3 := int(pages[p])
 			print("  scene %d %-24s day %-6s → complete at L%-4d (clock: %d quest coins earned)" % \
 				[p + 1, String(G.MAPS[z3].get("name", "?")), _fmt_days(want), lv3, G.coins_at_level(lv3)])
-		print("  NOTE: if a target day exceeds the whole book's %s, the level is capped at L%d." % [_fmt_days(float(day_at[top_level + 1])), top_level])
+		print("  NOTE: if a target day exceeds the whole book's %s, the level is capped at L%d." % [_fmt_days(float(day_at[walk_top + 1])), walk_top])
 
 	# --- plain lookup: what day is level N reached? (for comparing against any other gate table) ---
 	if not probes.is_empty():
 		print("\n== LEVEL → DAY ==")
 		for l4 in probes:
-			var li := clampi(int(l4), 1, top_level + 1)
+			var li := clampi(int(l4), 1, walk_top + 1)
 			print("  L%-4d = day %-8s (clock: %d quest coins)" % [int(l4), _fmt_days(float(day_at[li])), G.coins_at_level(int(l4))])
 
 	# --- honesty line: this is the ceiling; grove_sim measures the lossy reality ---
-	var reach_day := float(day_at[clampi(top_level, 1, top_level + 1)])
+	var reach_day := float(day_at[clampi(top_level, 1, walk_top + 1)])
 	var coins_per_day := (float(G.coins_at_level(top_level)) / reach_day) if reach_day > 0.0 else 0.0
 	print("\n== MODEL CEILING ==")
 	print("  This assumes EVERY pop lands in an item that gets delivered: %.0f quest-coins/day." % coins_per_day)
@@ -407,7 +413,7 @@ func _walk_f(b: float, s: float, top: int, wpd: float, cpw: Array) -> Array:
 		var m := float(lv - 1)
 		var m2 := float(lv)
 		var need := (m2 * b + m2 * (m2 - 1.0) / 2.0 * s) - (m * b + m * (m - 1.0) / 2.0 * s)
-		out[lv + 1] = float(out[lv]) + need / maxf(float(cpw[mini(lv, cpw.size() - 1)]), 0.0001) / wpd
+		out[lv + 1] = float(out[lv]) + _faucet_water(need / maxf(float(cpw[mini(lv, cpw.size() - 1)]), 0.0001)) / wpd
 	return out
 
 # The same walk on the ROUNDED integers, through the real G.coins_at_level — the verification pass.
@@ -422,7 +428,7 @@ func _walk_i(b: int, s: int, top: int, wpd: float, cpw: Array) -> Array:
 	out[1] = 0.0
 	for lv in range(1, top + 1):
 		var need := G.coins_at_level(lv + 1) - G.coins_at_level(lv)
-		out[lv + 1] = float(out[lv]) + float(need) / maxf(float(cpw[mini(lv, cpw.size() - 1)]), 0.0001) / wpd
+		out[lv + 1] = float(out[lv]) + _faucet_water(float(need) / maxf(float(cpw[mini(lv, cpw.size() - 1)]), 0.0001)) / wpd
 	G.LEVEL_BASE_COINS = b0
 	G.LEVEL_STEP_COINS = s0
 	return out
@@ -445,6 +451,15 @@ func _binds(cum_cost: int, clock_coins: int) -> String:
 	if float(cum_cost) <= affordable:
 		return "LEVEL (cost %d ≤ wallet ~%.0f)" % [cum_cost, affordable]
 	return "PRICE (cost %d > wallet ~%.0f)" % [cum_cost, affordable]
+
+# How much water the FAUCET has to supply for a level that costs `raw` water of popping. Every
+# level-up hands back G.LEVEL_WATER_GIFT water, so the faucet only covers the shortfall. This is not
+# a rounding detail: at 2+ level-ups a day the gift is a third of the whole water supply, and a model
+# that ignores it under-predicts the calendar by ~40% (grove_sim finished the book on day 16 where
+# the giftless model said 25). Where the gift covers the level outright the level costs no faucet
+# water at all and passes in ~no time — which is exactly what the sim shows in the early scenes.
+func _faucet_water(raw: float) -> float:
+	return maxf(0.0, raw - float(G.LEVEL_WATER_GIFT))
 
 func _fmt_days(d: float) -> String:
 	if d < 10.0:
