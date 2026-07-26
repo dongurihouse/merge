@@ -1,9 +1,24 @@
 # Cell improvements (Soil · Magnet) — spec (2026-07-26)
 
-Draft 4. Rollout step 4 of `2026-07-26-progression-systems-design.md`; supersedes its §6
+Draft 5. Rollout step 4 of `2026-07-26-progression-systems-design.md`; supersedes its §6
 where they differ. All numbers are provisional dials — the `grove_sim` re-pass owns finals.
 Acorns = `currencies.diamonds` (`save.gd:145-160`). Home board only (Rush is a separate
 scene, `explore_rush.gd:65` — no flag needed).
+
+## Summary — what is being built
+
+Two buildable cell improvements on the home merge board, behind a feature flag:
+
+- **Soil** (max 9; first three free, then coins; 3 ranks): any eligible piece resting on it
+  grows +1 tier on an offline-capable timer — 10 s at tier 1 up to 48 h for t11→t12. Pieces
+  are never locked; changing one restarts the clock, with a confirm at t7+. Watering (board
+  water) halves a step once; acorns finish it now.
+- **Magnet** (max 3; acorns; rankless): a passive 3×3 field — matching pieces inside it
+  auto-merge, guarded so it never eats quest-asked codes, growing pieces, or a live chain.
+- Around them: a Build mode (leaf button → pads → two-card sheet), Move / Demolish verbs,
+  an FTUE beat at ~L6, per-count price ladders as the standing coin sink plus a premium
+  magnet sink, save state riding the board dict, a new test suite, and a `grove_sim`
+  re-pass. Mocks: `games/grove/assets/_concepts/ui/improvements_v1/`.
 
 ## 1 · Placement
 
@@ -210,6 +225,58 @@ auto-merges · auto-merge order, landing cell, loop-until-done · all five guard
 kind-uniformity) · save round-trip, tolerant load, purge self-heal · `range_pairs`
 known-positive/negative · FTUE once-only.
 
-## 10 · Open questions
+## 10 · Implementation directions (for the implementing agent)
+
+Work happens in a fresh **out-of-tree** worktree; the branch stays **unmerged** — review
+happens in the worktree before merge. Never edit the main checkout (a hook blocks it).
+
+```
+git -C /Users/xup/dh/merge worktree add -b improvements /Users/xup/dh/wt-improvements main
+rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/wt-improvements/.godot/
+```
+
+The rsync seeds the import cache — without it the first test run does a slow full reimport.
+
+Read before coding: this spec end to end; `docs/design/board_decomposition.md` (layering
+`scenes/ → ui/ → core/`, frozen `_persist()` key set, RNG discipline); the §2 anchors in
+their files.
+
+Build in commit-sized steps, each green (`feat(improvements): …` messages):
+
+1. `Features` flag `improvements` (+ `docs/FEATURES.md` row) · dials in `grove_data.gd`
+   re-exported through `content.gd` · pure rules module `engine/scripts/core/improvements.gd`
+   with unit tests in the new suite `games/grove/tests/grove_improvements_tests.gd`.
+2. `BoardModel.improvements` + `to_dict`/`from_dict` rows + reconcile helper; save
+   round-trip and tolerant-load tests.
+3. Soil runtime in `board.gd`: reconcile in `_after_board_change()`, completion on the 1 Hz
+   tick + `_load_state`, land-bounce, info-bar grow row (`ActionBar.action_chip`), water and
+   acorn-finish spends, t7+ warning (`Overlay.modal`), ring + time chip rendering.
+4. `board_logic.range_pairs` (+ known-positive/negative tests) · Magnet scan/execute loop
+   with all five guards · pull FX.
+5. Build mode: leaf button, pads (`Kit.slot_cell` new states), two-card sheet (shop
+   offer-card grid), cell view (Soil ranks · Move · Demolish), spend paths.
+6. FTUE beat (`ftue_seen("soil")`, retirement-offer template, `HandHint`).
+7. Register the suite in `GROVE_TESTS` (Makefile) **and** the `CLAUDE.md` suite list — same
+   commit.
+8. `grove_sim` additions (§7), run the re-pass, paste the invariant numbers into the final
+   commit message.
+
+Hard rules (violations fail review): never bump `SCHEMA_VERSION`; zero RNG draws in any
+improvement path (the byte-identity test pins it); never call `G.earn_coins`/
+`Save.earn_coins`; reuse the named shared components — no bespoke modals, chips, cells, or
+keyers; all dials in `grove_data.gd`, none inline.
+
+Process: run `make test-fast` after every change and the full `make test` before handing
+off — always in the **foreground** (a backgrounded run never returns to an agent). A plain
+`godot -s` foreground run times out at 2 min — parse-check with
+`godot --headless --check-only --script <file>` and run suites only via `make`. After adding
+any new `.gd`, run `make import` before committing so its `.uid` lands in the same commit.
+Capture proof of the new surfaces (`make shot-grove OUT=…` from the worktree) and list the
+capture paths in the handoff note.
+
+Done = full `make test` green in the worktree, sim invariants pasted, captures listed,
+branch pushed-in-place and left unmerged for review.
+
+## 11 · Open questions
 
 1. t5 grow step = 30 min — interpolated between the pinned 15 min and 1 h.
