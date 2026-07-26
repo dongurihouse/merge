@@ -10,24 +10,23 @@ provisional dials; the sim owns finals.
 A player merge **tips a cascade**: if the result lines up with adjacent matches, the follow-up
 merges run **by themselves**, one hop at a time. One algorithm finds the longest run; the UI
 follows it. Chain length pays one reward — a chest that grows with the run. Ready ladders get a
-stitched outline; dragging a piece shows where placing it would build a chain. One-time FTUE.
-Home board only; the Rush is untouched.
+stitched outline; dragging a piece shows where placing it would build a chain — the guide IS
+the teach (no FTUE dialog). Home board only; the Rush is untouched.
 
 **What gets built:**
 
 | File | Change |
 |---|---|
 | `engine/scripts/core/board_logic.gd` | + `chain_path` · `ready_ladders` · `chain_placements` (§3) |
-| `engine/scripts/scenes/board.gd` | + run executor, rewards, `chain_running()`, drag-guide + FTUE wiring (§4–5, §8–9) |
+| `engine/scripts/scenes/board.gd` | + run executor, rewards, `chain_running()`, drag-guide wiring (§4–5, §8) |
 | `engine/scripts/ui/cascade_outline.gd` | **new** — stitched outlines, ×n tags, ghost pads (§7–8) |
 | `engine/scripts/core/content.gd` | + `G.line_color(code)` accessor (§7) |
 | `games/grove/grove_data.gd` | chest line `"top": 5` + loot rows 4/5 (§6) |
 | `games/grove/assets/items/chest/chest_4/5.png` | **new** — placeholders (t3 copies) until intake art (§6) |
-| `engine/scripts/core/features.gd` + `docs/FEATURES.md` | + `"cascade"` flag + row (§10) |
-| `games/grove/strings.json` | + `board.cascade.*` FTUE copy (§9) |
-| `games/grove/tools/grove_shot.gd` | + seeded `cascade` capture mode (§13 step 8) |
-| `engine/tests/cascade_tests.gd` · `games/grove/tests/grove_cascade_tests.gd` | **new** suites (§11) |
-| `Makefile` + project `CLAUDE.md` | suite registrations (§11) |
+| `engine/scripts/core/features.gd` + `docs/FEATURES.md` | + `"cascade"` flag + row (§9) |
+| `games/grove/tools/grove_shot.gd` | + seeded `cascade` capture mode (§12 step 7) |
+| `engine/tests/cascade_tests.gd` · `games/grove/tests/grove_cascade_tests.gd` | **new** suites (§10) |
+| `Makefile` + project `CLAUDE.md` | suite registrations (§10) |
 
 ## 2 · Rules
 
@@ -64,9 +63,8 @@ One DFS, three thin consumers. Branching ≤ 3, depth ≤ 11 — brute force, no
 static func chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array
 
 # Outline data: per qualifying same-line component (best chain ≥ 2):
-# { cells, line, n, tip_from, tip_to, top_cell }
+# { cells, line, n, top_cell }
 #   n        = best chain over every in-component tip-over (direction matters)
-#   tip_from/tip_to = the initiating merge that achieves n (FTUE hand traces it)
 #   top_cell = the best run's final landing cell (anchors the ×n tag)
 static func ready_ladders(board: BoardModel) -> Array
 
@@ -76,9 +74,9 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 ```
 
 Direction matters: merging A onto B lands the result at B, so only partners adjacent to B
-continue the run — `ready_ladders` and the FTUE hand must pick the winning direction. Longest
-beats greedy: with two adjacent partners, the DFS must take the one whose onward neighbours
-extend the run.
+continue the run — `ready_ladders` computes n over both tip-over directions. Longest beats
+greedy: with two adjacent partners, the DFS must take the one whose onward neighbours extend
+the run.
 
 ## 4 · Run execution — `board.gd`
 
@@ -147,33 +145,22 @@ inset, light interior tint (~8 %), line color, thickness + brightness step by re
 Cleared on every release outcome. The merge telegraph (`_update_telegraph`) is untouched;
 pads mark empty cells only.
 
-## 9 · FTUE
-
-- Eligible in `_after_board_change` when `animating` is false and no modal is open:
-  flag on · `Save.ftue_seen("merge")` · not `ftue_seen("cascade")` · a ladder exists.
-- One card: `Overlay.modal` + `Kit.dialog_frame` (mirror `update_prompt.gd`; kit by path).
-  Three-piece diagram (t·t·t+1, real mushroom-line art) + one line — *"Merge the pair — the
-  rest tips over on its own."* — + **Got it**. Strings under `board.cascade.*`.
-- On dismiss: `mark_ftue_seen("cascade")`, then `HandHint.present(host, GESTURE_DRAG, …)`
-  tracing `tip_from → tip_to`. Hand ends at the next merge or when the ladder dissolves. Not
-  part of `next_hint_id` ordering. Idle hint already yields while a hand is live.
-
-## 10 · Flags & save
+## 9 · Flags & save
 
 - `"cascade": true` in `features.gd` + a `docs/FEATURES.md` row. OFF = today's behaviour
   exactly.
-- Save touch: `ftue_seen["cascade"]` only. No `SCHEMA_VERSION` bump. No chain state exists
-  outside a running cascade.
+- No FTUE and no save changes: no new fields, no `SCHEMA_VERSION` bump. The outline, tag and
+  ghost pads are the teach. No chain state exists outside a running cascade.
 
-## 11 · Verification
+## 10 · Verification
 
 - **Engine** `engine/tests/cascade_tests.gd` (+ `ENGINE_TESTS`, `Makefile:11`):
   - `chain_path`: no partner → empty; straight ladder → full path; direction asymmetry (A→B
     runs, B→A doesn't); longest-beats-greedy (two partners, only one extends); tie-break
     determinism; `merge_top` stops the walk (chest t5 cap); recipes/other codes never chain.
   - `ready_ladders`: minimal t·t·t+1 → n 2; +t4 → n 3; gap → none; duplicate rung doesn't
-    extend; stray singleton doesn't disqualify; `tip_from/tip_to` pick the winning direction;
-    two components → two entries.
+    extend; stray singleton doesn't disqualify; n is direction-aware; two components → two
+    entries.
   - `chain_placements`: completes a ladder → candidate; lengthens → n+1; spare beside a ready
     ladder → not a candidate; bridges two clusters → candidate; `d == from` excluded; no kin →
     empty.
@@ -185,18 +172,18 @@ pads mark empty cells only.
     only.
   - Guide pads on `_begin_drag`, cleared on release; generator drag → none.
   - Outline present iff a ladder exists; tag text ×n.
-  - FTUE card once; flag OFF → no chain, no outline, no pads, no FTUE.
+  - Flag OFF → no chain, no outline, no pads.
 - **Visual gate:** quiet-godot captures — lit ladder (stitches + tag), ghost pads under a
   lifted piece, a mid-run step with floater — looked at before done.
 - `make test` green before merge.
 
-## 12 · Open questions
+## 11 · Open questions
 
 1. ×2 pays a guaranteed coin piece — keep, or start rewards at ×3?
 2. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
    auto-steps skip them? The sim pass will quantify either way.
 
-## 13 · Implementation directions (for the implementing agent)
+## 12 · Implementation directions (for the implementing agent)
 
 **Workspace.** Branch `feat/cascade-combos` from latest `main` in a NEW worktree outside the
 repo: `git worktree add /Users/xup/dh/merge-wt-cascade -b feat/cascade-combos` (in-repo
@@ -208,7 +195,7 @@ committed in place; code review happens in the worktree.
 **Order** — each step lands with its tests green (`make test-fast`, a few seconds) before the next:
 
 1. `board_logic.gd`: `chain_path` + `ready_ladders` + `chain_placements` (§3); new
-   `engine/tests/cascade_tests.gd` with the §11 engine battery; add the suite to `ENGINE_TESTS`
+   `engine/tests/cascade_tests.gd` with the §10 engine battery; add the suite to `ENGINE_TESTS`
    (`Makefile:11`).
 2. Chest extension (§6): `"top": 5` on the line-10 def + `CHEST_OPEN_COINS`/`ACORNS` rows 4/5;
    placeholder art — copy `items/chest/chest_3.png` to `chest_4.png` / `chest_5.png` (approved
@@ -219,11 +206,10 @@ committed in place; code review happens in the worktree.
    `chain_running()`.
 4. `engine/scripts/ui/cascade_outline.gd` + the `G.line_color(code)` accessor (§7).
 5. Drag guide (§8).
-6. FTUE (§9) + `strings.json` keys under `board.cascade.*`.
-7. `"cascade"` flag + `docs/FEATURES.md` row (§10); new
-   `games/grove/tests/grove_cascade_tests.gd` with the §11 grove battery; add to `GROVE_TESTS`
+6. `"cascade"` flag + `docs/FEATURES.md` row (§9); new
+   `games/grove/tests/grove_cascade_tests.gd` with the §10 grove battery; add to `GROVE_TESTS`
    (`Makefile:15`) **and** the project `CLAUDE.md` suite-list line.
-8. Evidence + regression: extend `grove_shot.gd` with a seeded, byte-deterministic `cascade`
+7. Evidence + regression: extend `grove_shot.gd` with a seeded, byte-deterministic `cascade`
    mode (a lit ladder + ghost pads + a mid-run frame) and save captures to
    `/tmp/cascade_*.png`; run
    `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>` for 3
@@ -231,7 +217,7 @@ committed in place; code review happens in the worktree.
    sim bot does not play cascades); full `make test` green. The hand-off summary lists suites
    run, capture paths, and the sim's Z faucet lines.
 
-**Open-question defaults** (§12 — the Dev has not ruled; make each a one-line flip): ship the
+**Open-question defaults** (§11 — the Dev has not ruled; make each a one-line flip): ship the
 §5 table as written (×2 coin included) as one `CHAIN_REWARDS` const table; auto-steps roll the
 lucky drops, gated by one bool const.
 
