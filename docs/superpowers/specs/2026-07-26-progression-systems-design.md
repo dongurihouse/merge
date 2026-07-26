@@ -1,6 +1,6 @@
 # Progression Systems — design (2026-07-26)
 
-**Status: rev 3, after second Dev review (same day).** Companions:
+**Status: rev 5, after third Dev review (same day).** Companions:
 `docs/design/picturebook_lines_recipes.md` (the line roster and craft web),
 `2026-07-17-picturebook-scenes-design.md` (scenes), `engine/scripts/core/content.gd` §6/§7
 (the shipped window + retirement).
@@ -38,12 +38,18 @@ Every line is always in exactly one state:
 | **Comeback** | will be asked for again later (usually as a craft ingredient) | the Shelf |
 | **Retired** | no remaining level can ever ask for it (`G.gen_retirable`) | Collection trophy |
 
-**The comeback ceremony (Dev call, rev 3).** When a line leaves the active window, a short
+**The comeback ceremony (Dev call, rev 3).** Whenever a line leaves the **Active** state —
+its window row rolling off, or the last live ask that borrowed it as an ingredient resolving
+— a short
 ceremonial dialog plays — the sibling of the retirement card, informational, one OK button:
 the line's art, *"The Wildberries head to the shelf — they'll be back at Level 22, for
 Spices."* On OK the sweep animation carries the generator and every leftover piece off the
 board into the Shelf. Auto-executed (there is no choice to make), but never silent: leaving
-is a story beat, and the promise to return is said out loud.
+is a story beat, and the promise to return is said out loud. Stock the player pulled back by
+hand stays out until used — the sweep fires only on this Active→Comeback transition, and an
+ingredient line crosses it again each time a craft era ends, so leftovers always have a next
+sweep. *(Post-arc, the Shelf empties itself: the final window's lines stay active forever and
+every other line has retired — the Shelf is the arc's traffic system, not a permanent hoard.)*
 
 **The label.** Each shelf entry repeats the promise, derived from the zone ladder (always
 computable): *"Wildberries — back at Level 22, for Spices."*
@@ -72,6 +78,15 @@ tier-1 equivalents (a tier-t piece = 2^(t−1)). Two feeds:
 
 Selling never feeds a meter.
 
+**How mastery plugs into the existing spawn machinery (rev 5).** Pops already roll a
+**spread**, not a flat tier-1: `TIER_ODDS = [0.65, 0.25, 0.09, 0.01]` lands t1–t4 today
+(`board_logic.roll_tier`). Mastery therefore does not invent new pop logic — a floor rank
+**shifts the whole spread window up** (floor t3 = pops land t3–t6 on the same decaying odds),
+and rank 7 turns on, per-line, the **ask-lean dial that already exists in code**
+(`ASK_TIER_WEIGHT` in `roll_spawn` — held at 0 globally because the sim showed full-strength
+front-loads spend; scoping it to top-mastery lines bounds it, and the step-2 sim re-pass
+gates it).
+
 **The ladder — 8 ranks, fast early (rev 3: the old 5-rank ladder ending in a water discount
 is cut — pops already cost 1 water, and the real goal is higher pop floors so tier 12 is
 actually reachable).** Thresholds step ~×2.2 and start low, so the first ranks land in a
@@ -80,22 +95,24 @@ line's first sessions:
 | Rank | Threshold (t1-eq) | Permanent reward |
 |---|---|---|
 | 1 | 20 | Better burst odds — doubles pop more often |
-| 2 | 60 | Pops start at tier 2 |
+| 2 | 60 | Spread shifts up — pops land t2–t5 |
 | 3 | 150 | Bursts sometimes add a bonus piece |
-| 4 | 350 | Pops start at tier 3 |
+| 4 | 350 | Spread shifts up — pops land t3–t6 |
 | 5 | 800 | Bigger bursts — triples possible |
-| 6 | 1700 | Pops start at tier 4 |
-| 7 | 3400 | Golden pop — small chance a pop lands 2 tiers above the floor |
-| 8 | 6500 | Pops start at tier 5 |
+| 6 | 1700 | Spread shifts up — pops land t4–t7 |
+| 7 | 3400 | Pops lean toward the tier the fence is asking (the parked `ASK_TIER_WEIGHT` machinery, per-line) |
+| 8 | 6500 | Spread shifts up — pops land t5–t8 |
 
 Pacing intent: steady use carries a line to rank 4–6 across its window life and craft
 afterlife; rank 8 is the devoted-line goal. **Why floors are the point: at a tier-5 floor, a
 tier-12 trophy costs 128 pops, not 2048** — mastery is the road to tier 12.
 
 **The floor rule.** The mastery rank grants an *entitlement*; the **effective** pop floor is
-`min(mastery floor, current ask band − 3)`. If the band is low, the floor waits and unlocks
-retroactively as bands climb. With ask bands capping at t8, the effective floor caps at t5 —
-exactly rank 8's grant, so the two ceilings agree.
+`min(mastery floor, current ask band − 3)`, where the band is the line's **own** live asks. A
+comeback line re-birthed as an ingredient tool has no own asks — its mastery floor applies
+unclamped, and the Scissors is the bridge down to low ingredient tiers. If the band is low,
+the floor waits and unlocks retroactively as bands climb. With ask bands capping at t8, the
+effective floor caps at t5 — exactly rank 8's grant, so the two ceilings agree.
 
 **Visuals.** A thin progress ring around the generator fills as you deliver. Rank-up: a short
 celebration, the generator art gains a visible trim (ribbon → gold edge → blossoms), and a
@@ -109,8 +126,9 @@ Scissors is a tool item: drag it onto a piece → the piece **splits into two pi
 tier lower** (Dev-confirmed). Needs one free neighboring cell; refused gently on a full
 board. Value-neutral, and doubles as a combo-setup tool.
 
-- **Acquisition:** occasional special drop (joins the chest·water·acorn table) plus a cheap
-  coin purchase in the shop. Never required before mastery rank 2 exists.
+- **Acquisition (rev 5):** a shop item, purchasable with coins, always in stock and cheap.
+  (The special-drop source is cut — a tool you need should be bought when needed, not waited
+  for.) Never required before mastery rank 2 exists.
 - **Economy guard:** split is value-neutral only if the sell curve doubles per tier; the sim
   must price Scissors so split→sell is never an arbitrage.
 
@@ -120,7 +138,8 @@ board. Value-neutral, and doubles as a combo-setup tool.
 
 One grove "day" = **one real hour**. Every hour, a seeded roll (`floor(unix_time / 3600)` —
 deterministic, offline-correct, no server) picks the hour's sky. A session sees one or two
-skies change; every login feels different. **Never a penalty — weather only gives.**
+skies change; every login feels different. **Never a penalty — weather only gives.** Home
+board only — the Rush keeps its own rules.
 
 Two layers:
 
@@ -131,15 +150,15 @@ Two layers:
   moved by the next sky.
 
 Merges do not pay coins in this game — they **drop** things (the ~10% coin-drop) and **do**
-things. Every sky effect is therefore something a merge in the patch pops out or triggers,
-and each row is mechanically distinct:
+things. Every sky effect is therefore something the patch pops out or triggers, and each row
+is mechanically distinct:
 
-| Sky | A merge in the patch… |
+| Sky | In the patch… |
 |---|---|
-| **Sunbeam** | pops extra coin drops (rate and count up) |
-| **Rain** | pops extra water drops; soil cells water themselves free this hour |
-| **Magnet** | pulls the nearest piece matching the merge result adjacent — the next chain step is ready |
-| **Mirror pool** | echoes: one ready pair elsewhere on the board merges itself |
+| **Sunbeam** | merges pop extra coin drops (rate and count up) |
+| **Rain** | merges pop extra water drops; soil cells water themselves free this hour |
+| **Magnet** *(rev 5)* | generator pops **land next to their match** when one exists — pairs assemble themselves, nothing merges |
+| **Mirror pool** | a merge echoes: one ready pair elsewhere on the board merges itself |
 | **Starfall** *(uncommon)* | once this hour, a **high-tier piece** falls onto the lane |
 
 **The starfall drop (rev 4 — replaces the Wild piece, Dev call).** The falling star lands as
@@ -184,8 +203,8 @@ introduces cascades: the outline lights up and the existing hand-hint system tra
 tip-over merge. One show, then never again (standard FTUE flagging).
 
 **Rewards.** Per step: +1, +2, +4, +8 coins, capped at +8 past ×5 — **spendable only, never
-the clock**. Sparkle and sound pitch escalate; confetti at ×5. Once per day, the first ×5
-chain pays a small chest.
+the clock**. Sparkle and sound pitch escalate; confetti at ×5. Once per **real** day
+(not grove hour), the first ×5 chain pays a small chest.
 
 ---
 
@@ -193,8 +212,15 @@ chain pays a small chest.
 
 **The principle: improvements mirror the skies.** Weather rents an effect for an hour,
 board-wide in one lane; an improvement lets the player **own a small permanent version on one
-cell**. Weather is the teacher — you feel Magnet hour, love it, buy a magnet cell. When the
-sky matches your cell (Sun hour over a sun cell), that cell shines double.
+cell**. Weather is the teacher — you feel Magnet hour, love it, buy a magnet cell. Sun,
+Spring and Mirror share their sky's effect code; Magnet shares the *theme* (attraction) with
+a different verb — the sky snaps spawns to pairs, the cell arranges ladders on demand.
+
+**When sky and cell overlap (rev 5, the interaction law).** Same-type sky over its cell
+(Sun hour + sun cell, Rain + spring, Mirror pool + mirror, Magnet + magnet): the cell acts
+**one rank higher** for the hour; if already max rank, its signature number doubles instead
+(drop amount, pieces pulled, echoes). Different-type overlap (any cell standing inside any
+patch lane): both effects simply apply, independent — no interaction, nothing to memorize.
 
 Six fixed **improvement slots** on the board perimeter (4 corners + 2 mid-edges). Buy a slot
 with coins, then choose what to build; rebuilding to another type later costs a little. This
@@ -202,25 +228,34 @@ is the standing **coin sink** the economy lacks. Hard cap: 6 improved cells ever
 stays a merge board. Improved cells behave as normal cells (spawning included); only a soil
 cell is occupied while something grows.
 
-| Cell | A merge on it… | Rank ladder |
+| Cell | Effect | Rank ladder |
 |---|---|---|
-| **Sun** | pops extra coin drops | 3 ranks: better odds → more per drop |
-| **Spring** | pops extra water drops | 3 ranks: better odds → more per drop |
-| **Magnet** | pulls the nearest piece matching the result adjacent — the next chain step is ready | 4 ranks, below |
-| **Mirror** *(unique — max 1 on the board)* | echoes ready pairs elsewhere | 4 ranks, below |
+| **Sun** | a merge on it pops extra coin drops | 3 ranks: better odds → more per drop |
+| **Spring** | a merge on it pops extra water drops | 3 ranks: better odds → more per drop |
+| **Magnet** | **place** (don't merge) a piece on it → it arranges a ready ladder around itself | 4 ranks, below |
+| **Mirror** *(unique — max 1 on the board)* | a merge on it echoes ready pairs elsewhere | 4 ranks, below |
 | **Soil** | *(no sky version)* plant a piece → it grows +1 tier | 3 ranks: 30% faster → harvests +2 tiers |
 
-**Magnet — the chainbuilder ladder (rev 3):**
+**Magnet — the ladder-builder (rev 5).** The rev-3 version pulled a match for each merge's
+result — which handed the player the next chain step mid-cascade and collided with the chain
+rule. Rebuilt on a different trigger: **placing** a piece onto the magnet (a plain drag — an
+action that never breaks a chain and never merges anything; a spawn landing there does
+not trigger it). The magnet then pulls that
+piece's line-mates in and lays them out as a connected cascade ladder around itself — a
+same-tier partner first, then ascending tiers as available. **Nothing merges**: the ready-
+ladder outline (§5) lights up around the arrangement, and tipping it over stays the player's
+move. Pulled pieces glide one at a time; pieces growing in soil and a live chain's newest
+piece are never taken.
 
-| Rank | The pull |
+| Rank | The arrangement |
 |---|---|
-| 1 | nearest matching piece within ~3 cells slides adjacent to the result |
+| 1 | pulls from within ~3 cells, up to 3 pieces |
 | 2 | reach becomes the whole board |
-| 3 | the pull **follows the chain** — every step of a chain started on this cell pulls a match for its new result |
-| 4 | each pull brings **2** matching pieces |
+| 3 | up to 5 pieces |
+| 4 | no cap — the longest ladder the board can offer |
 
-At rank 3 the cell earns its name: one merge on it, and the board assembles the cascade under
-your fingers as you go.
+At rank 4 the cell earns its name: drop one berry on it, and the board lays the whole
+cascade at your feet — the tip-over is still yours.
 
 **Mirror — echoes scale like magnet (rev 3: no cooldown; capped at one cell instead).**
 Why max 1: the player chooses where to merge, so every merge can already be funneled through
@@ -246,7 +281,9 @@ quest asks for, no chain credit, no combo coins.
 
 Tier 1–2 sprout while you watch (a little growth animation — the mechanic teaches itself).
 Tier 5+ is the overnight check-back loop. You cannot plant a piece already at its line's top
-ask tier. Cancel any time, free. **Watering:** tap the growing cell to spend board water and
+ask tier, and **harvests clamp at that cap** (a rank-3 +2 growth from one tier below the cap
+still lands at the cap, not past it) — the road to tier 12 is mastery and merging, not idle
+waiting. Cancel any time, free. **Watering:** tap the growing cell to spend board water and
 halve the remaining time, once per growth. **Acorns** finish a grow instantly, priced by time
 remaining — the paid lever: money buys time, never items.
 
@@ -265,7 +302,7 @@ cost a multiple of the slot.
 - **Acorns buy time, never items** (soil finish, and existing uses). The paid-bundle idea is
   rejected.
 - **Floors respect asks:** effective pop floor = min(mastery floor, ask band − 3); soil
-  refuses pieces at the ask cap.
+  refuses pieces at the ask cap and clamps harvests to it.
 - **Scissors must not be a sell arbitrage** (sim-checked).
 - **Echo merges are free value, not an engine** — no chain credit, no combo coins, never a
   quest-asked pair.
@@ -276,8 +313,8 @@ cost a multiple of the slot.
 ## 8 · Rollout (each row = one Dev-given task, own worktree)
 
 Order chosen so each step stands alone and the next builds on it. Weather lands before
-Improvements because the cells are permanent versions of the sky effects (shared effect
-code).
+Improvements because Sun/Spring/Mirror cells reuse the sky effect code (the Magnet cell's
+arranger is its own build — only the theme is shared).
 
 1. **Shelf** — comeback ceremony, auto-sweep, labels, pull-back, retirement re-homed. (Fixes
    problems 1 + 3 by itself.)
