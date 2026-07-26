@@ -134,7 +134,10 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # §7 ZONE UNLOCK CADENCE — DERIVED, not authored (2026-07-25). content.zone_unlock_level(z) computes it:
 # each scene's LEVEL WINDOW falls out of the cluster COST ladder (level_at_coins of the cumulative cost),
 # and ZONE_BAND spreads that scene's zones evenly inside its own window. So a generator still arrives as
-# its themed scene comes into view, but the alignment is arithmetic and cannot drift.
+# its themed scene comes into view, and the alignment is COMPUTED rather than hand-maintained — but that
+# is not a structural guarantee for every possible re-tune. It holds at today's dials because the test
+# suite's scene-alignment assertions (mechanics_tests.gd, and tuning_tests.gd's later addition) are what
+# actually hold it when LEVEL_BASE_COINS/LEVEL_STEP_COINS, the per-cluster costs, or ZONE_BAND move.
 # The dials that move this are the COIN CURVE (LEVEL_BASE_COINS / LEVEL_STEP_COINS), the per-cluster
 # `cost` fields in MAPS, and ZONE_BAND. The old hand-authored table (last value [1,5,10,12,15,17,19,22,
 # 23,27,30,34], stretched by hand on 2026-07-25) topped out at L34 = 7,326 earned coins while the ladder

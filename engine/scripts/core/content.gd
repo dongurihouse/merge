@@ -322,7 +322,8 @@ static func zone_of_line(line: int) -> int:
 	return -1
 
 # True if `line` is ZONE content (a base or crafted-special line) whose zone unlocks ABOVE `level` — i.e. a
-# generator / line / item the player should NOT have yet under the ZONE_UNLOCK_LEVEL cadence. Non-zone lines
+# generator / line / item the player should NOT have yet under the derived zone-unlock cadence (see
+# zone_unlock_level / the DERIVED PACING SPINE). Non-zone lines
 # (coins, treasure treats, special drops — zone_of_line == -1) are content-neutral and NEVER gated out. The
 # board save-migration (board._purge_above_level_content) uses this to strip too-advanced content from an
 # older save so it matches the scene-aligned pacing.
@@ -428,9 +429,12 @@ static func retirable_gens(owned_ids: Array, level: int) -> Array:
 	return out
 
 # Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
-# opening new zones, the ask pool still advances. The level→zone map is the ZONE_UNLOCK_LEVEL cadence dial
-# (scene-aligned, 2026-07-23) — the HIGHEST zone whose unlock level the player has reached. Monotonic, so a
-# single forward walk suffices; clamps at zone 0 below the first threshold and the top zone past the arc.
+# opening new zones, the ask pool still advances. The level→zone map is now DERIVED (see "THE DERIVED
+# PACING SPINE" above _build_cadence): each cover-up scene's level window falls out of its clusters'
+# cumulative coin cost run through level_at_coins, and ZONE_BAND spreads that scene's zones evenly inside
+# its own window. quest_zone_for_level reads the resulting cadence and returns the HIGHEST zone whose
+# unlock level the player has reached. Monotonic, so a single forward walk suffices; clamps at zone 0
+# below the first threshold and the top zone past the arc.
 static func quest_zone_for_level(level: int) -> int:
 	var z := 0
 	for i in ZONE_COUNT:
@@ -1106,7 +1110,17 @@ static func _build_cadence() -> Dictionary:
 		win_start = win_end + 1
 	if not zones.is_empty():
 		zones[0] = 1        # zone 0 is the anchor line — askable from the first tap
-	for i2 in range(1, zones.size()):     # a degenerate window could repeat a level; the inverse must be monotonic
+	# STRICTLY-INCREASING REPAIR over the FLATTENED cross-scene `zones` array: it does NOT re-check
+	# that a bumped value still sits inside that zone's OWN scene window (scene_end[i] above) — it
+	# can't, once the per-scene loop above has flattened everything into one list. quest_zone_for_level's
+	# forward walk needs the WHOLE cadence strictly increasing (a repeat or regression there would break
+	# its monotonic-scan assumption), so strict monotonicity wins here ON PURPOSE. If a future re-tune
+	# narrows a scene's window below its own ZONE_BAND count, this bump can push that scene's zone past
+	# its window boundary — a real scene-alignment violation. This loop does not detect or guard that (no
+	# assert/push_error/failure path here, by design): it is left to fail loudly in the scene-alignment
+	# test (mechanics_tests.gd's "scene alignment" case, and tuning_tests.gd's later addition) rather than
+	# being silently papered over.
+	for i2 in range(1, zones.size()):
 		if int(zones[i2]) <= int(zones[i2 - 1]):
 			zones[i2] = int(zones[i2 - 1]) + 1
 	return {"floors": floors, "scene_end": scene_end, "zones": zones}
