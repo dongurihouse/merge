@@ -31,6 +31,23 @@ static var tmp := "user://save.tmp"
 static var data: Dictionary = {}
 static var _loaded := false
 
+# --- failure observability (diagnostics only — nothing renders these yet) ----------
+# _save_data has three abort points (open / verify / dir). Each used to `return` in
+# silence, so an unwritable user:// (a full disk on device, a sandbox/entitlement change
+# after an OS update) turned EVERY save_now() — and with it every add_coins / spend /
+# earn_coins / grove_write — into a no-op. The player played a whole session and lost it
+# on relaunch with no signal at any point. Each branch now push_error()s naming the stage
+# and the paths, and leaves the state readable here so a boot/UI surface can pick it up.
+static var last_save_failed := false
+static var last_save_error := ""
+
+# Set by load_now when _merge had to REPAIR a structurally-wrong key (a truncated or
+# hand-edited save carrying `"settings": 5` / `"currencies": []` where a Dictionary
+# belongs). load_now always save_now()s after the merge, so the corrected shape is
+# written straight back; these just make the repair observable + logged.
+static var last_load_repaired := false
+static var last_load_repairs: Array = []
+
 static func _default() -> Dictionary:
 	return {
 		"schema_version": SCHEMA_VERSION,
@@ -48,6 +65,8 @@ static func _ensure_loaded() -> void:
 
 static func load_now() -> void:
 	_loaded = true
+	last_load_repaired = false
+	last_load_repairs = []
 	var loaded := _read(path)
 	if loaded.is_empty():
 		loaded = _read(bak)            # primary unreadable/corrupt → try the backup
@@ -76,17 +95,29 @@ static func _save_data(next_data: Dictionary) -> void:
 	var text := JSON.stringify(next_data, "  ")
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
+		_save_failed("open", "FileAccess.open(WRITE) returned null (error %d)" % FileAccess.get_open_error())
 		return
 	f.store_string(text)
 	f.close()
 	if _read(tmp).is_empty():               # verify the temp file re-parses
+		_save_failed("verify", "the temp file did not read back as parseable JSON after the write")
 		return
 	var dir := DirAccess.open(path.get_base_dir())
 	if dir == null:
+		_save_failed("dir", "DirAccess.open('%s') returned null" % path.get_base_dir())
 		return
 	if FileAccess.file_exists(path):
 		dir.rename(path.get_file(), bak.get_file())   # keep last-good as backup
 	dir.rename(tmp.get_file(), path.get_file())        # atomic swap-in
+	last_save_failed = false
+	last_save_error = ""
+
+# Record + LOG one aborted save. `stage` names which of the three steps gave up, so a
+# device log says which half of the atomic write broke rather than nothing at all.
+static func _save_failed(stage: String, why: String) -> void:
+	last_save_failed = true
+	last_save_error = "%s: %s (tmp=%s, path=%s)" % [stage, why, tmp, path]
+	push_error("Save: the save was ABORTED at the %s stage — %s. Progress is NOT on disk." % [stage, last_save_error])
 
 ## DEBUG: wipe ALL progress back to a fresh install (the base debug panel's Reset).
 static func reset() -> void:
@@ -95,11 +126,23 @@ static func reset() -> void:
 	save_now()
 
 # Deep additive merge: fills keys missing from `over` using `base`, never drops `over`'s data.
+# SHAPE GUARD: where `base` holds a Dictionary the saved value must be one too. A truncated or
+# hand-edited save yielding `"settings": 5` / `"currencies": []` used to pass the version check,
+# survive the merge verbatim, and then crash the hard-indexing accessors (coins() does
+# data["currencies"]["coins"], get_setting() does data["settings"].get(...)). Now the base shape
+# WINS on a type mismatch — the value in the save is unusable either way — and the repair is
+# flagged + warned; load_now's save_now() writes the corrected shape back.
 static func _merge(base: Dictionary, over: Dictionary) -> Dictionary:
 	var out := base.duplicate(true)
 	for k in over:
-		if out.has(k) and out[k] is Dictionary and over[k] is Dictionary:
-			out[k] = _merge(out[k], over[k])
+		if out.has(k) and out[k] is Dictionary:
+			if over[k] is Dictionary:
+				out[k] = _merge(out[k], over[k])
+			else:
+				last_load_repaired = true
+				last_load_repairs.append(String(k))
+				push_warning("Save: the saved value for '%s' is a %s where a Dictionary belongs — the saved value is DISCARDED and the default shape (%s) kept, then written back." \
+					% [k, type_string(typeof(over[k])), type_string(typeof(out[k]))])
 		else:
 			out[k] = over[k]
 	return out
@@ -219,14 +262,22 @@ static func add_exp(n: int) -> void:
 static func residents(map_id: String) -> Dictionary:
 	return grove().get("residents", {}).get(map_id, {})
 
-# Always returns a length-RESIDENT_MAX_TIER int array: a shorter saved array (e.g. a pre-12-tier
-# save, or absent) right-pads with zeros, so old saves migrate on read with no schema bump and
-# resolve_resident_merges (which indexes up to counts[MAX-1]) never runs past the end.
+# Returns an int array of length max(RESIDENT_MAX_TIER, the saved length). BOTH directions are
+# non-destructive:
+#   • SHORTER than the cap (a pre-12-tier save, or absent) → right-pads with zeros, so old saves
+#     migrate on read with no schema bump and resolve_resident_merges (which indexes up to
+#     counts[MAX-1]) never runs past the end.
+#   • LONGER than the cap → the tail is PRESERVED, never truncated. It used to be cut off here, and
+#     set_resident_counts then wrote the shortened array back — so simply LOWERING RESIDENT_MAX_TIER
+#     (a plausible balance edit: the resident ladder is a coin sink) permanently deleted every
+#     player's residents above the new cap on their next grant, with no event and no warning. Every
+#     consumer (resolve_resident_merges, resident_members, the ladder UI) only ever indexes
+#     0..MAX-1, so the extra tail rides along untouched and comes back if the cap is raised again.
 static func resident_counts(map_id: String, type_id: String) -> Array:
 	var c: Array = residents(map_id).get(type_id, [])
 	var out: Array = []
 	# JSON reloads ints as floats — cast so callers (and == tests) see a clean int array.
-	for i in int(Game.DATA.RESIDENT_MAX_TIER):
+	for i in maxi(int(Game.DATA.RESIDENT_MAX_TIER), c.size()):
 		out.append(int(c[i]) if i < c.size() else 0)
 	return out
 
@@ -496,3 +547,7 @@ static func configure_for_test(dir: String) -> void:
 	tmp = dir + "save.tmp"
 	data = {}
 	_loaded = false
+	last_save_failed = false
+	last_save_error = ""
+	last_load_repaired = false
+	last_load_repairs = []

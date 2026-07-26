@@ -8,6 +8,7 @@ const Feat = preload("res://engine/scripts/core/features.gd") # the vault is par
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
 const G = preload("res://engine/scripts/core/content.gd")     # map-progression queries (gate/unlock chain)
+const BoardModel = preload("res://engine/scripts/core/board_model.gd")   # §29 — the board-size-mismatch wipe
 
 # Point Save at a clean temp dir (never touches the real save or progress.cfg).
 # This suite's own user:// save-dir tree — kept distinct so the parallel
@@ -436,5 +437,186 @@ func _initialize() -> void:
 	ok(G.level() == 2 and lu == 1, "earning to the L2 threshold levels up once (reported)")
 	Save.add_coins(100000)                          # a whale-sized purchase
 	ok(G.level() == 2, "purchased coins never advance the level")
+
+	# ══════════════════════════════════════════════════════════════════════════
+	# 26–29 · THE FOUR SILENT PERSISTENCE FAILURES (loudness + data preservation)
+	# Each section drives the REAL failure path, not a happy path with a flag poked.
+	# ══════════════════════════════════════════════════════════════════════════
+
+	# 26. A FAILED SAVE IS LOUD. _save_data has three abort points (open / verify / dir) that used
+	# to `return` in silence, so an unwritable user:// (full disk, a sandbox change after an OS
+	# update) made EVERY save_now() a no-op — the player lost a whole session with no signal.
+	# Each branch now push_error()s and leaves Save.last_save_failed / last_save_error readable.
+	# (Diagnostics only: nothing renders these yet, by design.)
+
+	# 26a. the OPEN stage — the temp file cannot be created because its directory does not exist.
+	fresh("save_fail_open")
+	Save.add_coins(10)                                     # one healthy write first
+	ok(not Save.last_save_failed, "a healthy save leaves last_save_failed false")
+	var good_tmp := Save.tmp
+	Save.tmp = "user://tu_test_no_such_dir/save.tmp"        # genuinely unwritable: no such directory
+	Save.data["currencies"]["coins"] = 999
+	Save.save_now()
+	ok(Save.last_save_failed, "an unwritable temp path sets last_save_failed")
+	ok(Save.last_save_error.begins_with("open"), \
+		"the failure names the OPEN stage (%s)" % Save.last_save_error)
+	var disk_open: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	ok(int(disk_open["currencies"]["coins"]) == 10, \
+		"the failed save really did not reach disk (the file still holds the last good value)")
+	Save.tmp = good_tmp
+	Save.save_now()
+	ok(not Save.last_save_failed, "the failure flag clears once a save succeeds again")
+
+	# 26b. the VERIFY stage — the temp file is written but cannot be read back. Made real by
+	# chmod-ing the temp file WRITE-ONLY (0200): FileAccess.open(WRITE) still succeeds, the
+	# store_string still lands, and the read-back verify sees nothing — exactly the half-written
+	# temp the verify step exists to catch.
+	fresh("save_fail_verify")
+	Save.add_coins(10)
+	var seed_tmp := FileAccess.open(Save.tmp, FileAccess.WRITE)
+	seed_tmp.store_string("{}")
+	seed_tmp.close()
+	var abs_tmp := ProjectSettings.globalize_path(Save.tmp)
+	var chmod_out: Array = []
+	OS.execute("/bin/chmod", ["200", abs_tmp], chmod_out, true)
+	ok(FileAccess.get_file_as_string(Save.tmp) == "" and FileAccess.file_exists(Save.tmp), \
+		"precondition: the temp file is now write-only (it exists but reads back empty)")
+	Save.data["currencies"]["coins"] = 777
+	Save.save_now()
+	ok(Save.last_save_failed and Save.last_save_error.begins_with("verify"), \
+		"a temp file that will not read back is reported at the VERIFY stage (%s)" % Save.last_save_error)
+	var disk_verify: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	ok(int(disk_verify["currencies"]["coins"]) == 10, "the unverifiable save never swapped into place")
+	OS.execute("/bin/chmod", ["644", abs_tmp], chmod_out, true)   # leave the dir cleanable
+
+	# 26c. the DIR stage — the temp write + verify both succeed, but the destination directory
+	# the atomic rename targets is gone.
+	fresh("save_fail_dir")
+	Save.add_coins(10)
+	var good_path := Save.path
+	Save.path = "user://tu_test_no_such_dir/save.json"
+	Save.data["currencies"]["coins"] = 555
+	Save.save_now()
+	ok(Save.last_save_failed and Save.last_save_error.begins_with("dir"), \
+		"a missing destination directory is reported at the DIR stage (%s)" % Save.last_save_error)
+	ok(not FileAccess.file_exists(Save.path), "nothing was created at the unreachable destination")
+	Save.path = good_path
+	Save.save_now()
+	ok(not Save.last_save_failed and int(Save.coins()) == 555, "the save lands again once the path is reachable")
+
+	# 27. A STRUCTURALLY WRONG saved value can no longer crash the hard-indexing accessors.
+	# `"settings": 5` / `"currencies": []` passes the schema-version check and used to survive
+	# _merge verbatim, so the next get_setting() / coins() indexed an int or an Array by name.
+	# The base shape now wins, the repair is flagged, and load_now's save_now writes it back.
+
+	# 27a. settings.
+	fresh("merge_shape_settings")
+	Save.set_setting("music", false)
+	var raw_s: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	raw_s["settings"] = 5                                  # a truncated / hand-edited save
+	var ws := FileAccess.open(Save.path, FileAccess.WRITE)
+	ws.store_string(JSON.stringify(raw_s)); ws.close()
+	Save._loaded = false
+	Save.load_now()
+	ok(Save.data["settings"] is Dictionary, "a non-Dictionary `settings` is replaced by the default shape")
+	ok(Save.get_setting("music"), "get_setting still works after the repair (back at its default)")
+	ok(Save.last_load_repaired and Save.last_load_repairs.has("settings"), \
+		"the repair is flagged and names the key")
+	var back_s: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	ok(back_s["settings"] is Dictionary, "the corrected shape is written back to disk")
+
+	# 27b. currencies — the wallet coins()/diamonds() hard-index.
+	fresh("merge_shape_currencies")
+	Save.add_coins(250)
+	var raw_c: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	raw_c["currencies"] = []                               # an Array where the wallet belongs
+	var wc := FileAccess.open(Save.path, FileAccess.WRITE)
+	wc.store_string(JSON.stringify(raw_c)); wc.close()
+	Save._loaded = false
+	Save.load_now()
+	ok(Save.data["currencies"] is Dictionary, "a non-Dictionary `currencies` is replaced by the default wallet")
+	ok(Save.last_load_repaired and Save.last_load_repairs.has("currencies"), \
+		"the currencies repair is flagged and names the key")
+	ok(Save.coins() == 0 and Save.diamonds() == Save.NEW_SAVE_GEMS, \
+		"coins()/diamonds() still read after the repair (the wallet fell back to the fresh default)")
+
+	# 27c. a HEALTHY save is never flagged as repaired (the guard has no happy-path effect).
+	fresh("merge_shape_clean")
+	Save.add_coins(40)
+	Save._loaded = false
+	Save.load_now()
+	ok(not Save.last_load_repaired and Save.last_load_repairs.is_empty() and Save.coins() == 40, \
+		"a well-shaped save loads with no repair flagged")
+
+	# 28. A BOARD-DIMENSION CHANGE is a real migration, not a silent wipe. On a terrain/items size
+	# mismatch the whole restore is skipped and the fresh starter layout stands; `changed` stayed
+	# false, so board.gd's save_dirty never fired and nothing warned. It now reports and returns
+	# changed=true (the same signal every other discard path in from_dict uses).
+	fresh("board_size_mismatch")
+	var bm_ref := BoardModel.new()
+	var blob_ok: Dictionary = bm_ref.to_dict()
+	ok(not BoardModel.new().from_dict(blob_ok), \
+		"precondition: a matching blob restores cleanly (changed=false)")
+	var blob_small: Dictionary = bm_ref.to_dict()
+	blob_small["terrain"] = Array(blob_small["terrain"]).slice(0, 4)   # a smaller board's save
+	blob_small["items"] = Array(blob_small["items"]).slice(0, 4)
+	var bm_small := BoardModel.new()
+	ok(bm_small.from_dict(blob_small), \
+		"a wrong-size terrain/items blob returns changed=true (the caller treats it as a migration)")
+	ok(bm_small.terrain.size() == bm_ref.terrain.size(), \
+		"the board keeps this build's dimensions after the mismatch")
+	# and the other half of the blob still restores, which is exactly why it read as a bug
+	var blob_big: Dictionary = bm_ref.to_dict()
+	blob_big["items"] = Array(blob_big["items"]) + [0, 0]              # a LARGER board's save
+	ok(BoardModel.new().from_dict(blob_big), "an oversize items blob is reported as changed too")
+
+	# 29. LOWERING RESIDENT_MAX_TIER must not delete residents above the new cap. resident_counts
+	# used to truncate on read and set_resident_counts wrote the truncation back, so the first
+	# grant after a cap-lowering balance edit permanently deleted every over-cap resident. A saved
+	# array LONGER than the cap now rides along untouched.
+	fresh("resident_tail")
+	var rz := 0
+	var rmid := String(G.MAPS[rz].id)
+	var rtid := String(G.resident_lines(rz)[0].id)
+	var over_cap := int(G.RESIDENT_MAX_TIER) + 2           # written as if the cap were later lowered by 2
+	var planted: Array = []
+	for _i in over_cap:
+		planted.append(0)
+	planted[int(G.RESIDENT_MAX_TIER)] = 3                  # residents one tier above the current cap
+	planted[int(G.RESIDENT_MAX_TIER) + 1] = 1              # …and two tiers above
+	Save.set_resident_counts(rmid, rtid, planted)
+	Save._loaded = false                                   # cold reload from disk
+	var kept_tail: Array = Save.resident_counts(rmid, rtid)
+	ok(kept_tail.size() == over_cap, "a roster array longer than RESIDENT_MAX_TIER keeps its length on read")
+	ok(int(kept_tail[int(G.RESIDENT_MAX_TIER)]) == 3 and int(kept_tail[int(G.RESIDENT_MAX_TIER) + 1]) == 1, \
+		"residents past the cap survive the READ (no truncation)")
+	G.grant_resident(rz, rtid)                             # the read-truncate-write-back path
+	var after_grant: Array = Save.resident_counts(rmid, rtid)
+	ok(int(after_grant[0]) == 1, "the grant still lands its tier-1 resident")
+	ok(int(after_grant[int(G.RESIDENT_MAX_TIER)]) == 3 and int(after_grant[int(G.RESIDENT_MAX_TIER) + 1]) == 1, \
+		"a grant no longer DELETES the residents past the cap (the write-back preserves the tail)")
+	Save._loaded = false
+	var tail_on_disk: Array = Save.resident_counts(rmid, rtid)
+	ok(tail_on_disk.size() == over_cap and int(tail_on_disk[int(G.RESIDENT_MAX_TIER)]) == 3, \
+		"the preserved tail is really on disk after a cold reload")
+	# the SHORT direction (the documented old-save right-pad) is unchanged
+	Save.set_resident_counts(rmid, rtid, [2, 1])
+	ok(Save.resident_counts(rmid, rtid).size() == int(G.RESIDENT_MAX_TIER), \
+		"a short saved array still right-pads to exactly RESIDENT_MAX_TIER")
+
+	# 30. THE ROUND TRIP still works end to end through the real Save.save_now()/load path.
+	fresh("roundtrip")
+	Save.earn_coins(310)
+	Save.add_diamonds(4)
+	Save.set_setting("sfx", false)
+	Save.grove()["water"] = 7
+	Save.save_now()
+	ok(not Save.last_save_failed, "the round-trip save reports no failure")
+	Save._loaded = false
+	Save.load_now()
+	ok(Save.coins() == 310 and Save.coins_earned_lifetime() == 310, "round trip: coins + the lifetime clock")
+	ok(Save.diamonds() == Save.NEW_SAVE_GEMS + 4, "round trip: diamonds")
+	ok(not Save.get_setting("sfx") and Save.get_setting("music"), "round trip: settings")
+	ok(Save.water() == 7 and not Save.last_load_repaired, "round trip: the grove blob, with no repair flagged")
 
 	finish()

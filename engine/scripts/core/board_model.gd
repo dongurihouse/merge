@@ -514,6 +514,17 @@ func from_dict(d: Dictionary) -> bool:
 				code = 0
 				changed = true
 			items[i] = code
+	else:
+		# The saved board's DIMENSIONS don't match this build's (a ROWS/COLS change, or a truncated
+		# blob). The whole terrain+items restore is skipped and the fresh starter layout stands — a
+		# real wipe of the player's board, and it used to happen in total silence: `changed` stayed
+		# false, so board.gd's save_dirty never fired and nothing anywhere said a word. The
+		# generators, gen_bag and collect_rewards below still restore, so the result reads as a bug
+		# rather than as the wipe it is. Report it, and mark it changed like every other discard path
+		# here so the caller treats it as a real migration and rewrites the blob at the current size.
+		push_error("BoardModel.from_dict: saved board SIZE MISMATCH — saved terrain %d / items %d vs this build's %d cells (%d×%d). The saved terrain and items were DISCARDED; the starter layout stands." \
+			% [t.size(), it.size(), terrain.size(), G.ROWS, G.COLS])
+		changed = true
 	collect_rewards = {}
 	for e in d.get("collect_rewards", []):
 		if not (e is Array) or (e as Array).size() < 4:
