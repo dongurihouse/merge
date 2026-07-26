@@ -50,6 +50,3 @@ games/placeholder/assets/llm/
 
 # Local feature worktrees
 .worktrees/
-
-# subagent-driven-development scratch (briefs, reports, review packages, progress ledger)
-.superpowers/
