@@ -24,9 +24,11 @@ extends SceneTree
 ##     D diamond faucet (level-ups + page-restores) vs sink — FAUCET-ONLY, see the report note
 ##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
 ##
-## Quests are GENERATED (G.gen_quest) from the ACTIVE-LINE WINDOW (G.active_lines — 3 lines, base or
-## crafted-special alike), capped at MAX_QUESTS_PER_LINE per line, on a flat endless fence of MAX_GIVERS
-## stands (mirroring Quests.meter_target — the old exp-metered active_giver_count is vestigial). Each is a
+## Quests come from the LIVE ENGINE: the sim calls Quests.refill (quests.gd) with the same arguments
+## board.gd passes, so the fence it measures IS the shipped fence — asks GENERATED (G.gen_quest) from the
+## ACTIVE-LINE WINDOW (G.active_lines — 3 lines, base or crafted-special alike), capped at
+## MAX_QUESTS_PER_LINE per line, on a flat endless fence of MAX_GIVERS stands (Quests.meter_target — the
+## old exp-metered active_giver_count is vestigial), paid at the level's BAND. Each is a
 ## single item paying COINS only. Generators are abstracted: _pop pops the BASE lines the live asks need
 ## (a special expands to its two ingredients, exactly as birth-on-tap delivers them), so the sim measures
 ## the economy, not the tool logistics.
@@ -39,6 +41,7 @@ extends SceneTree
 ## All numbers are PROVISIONAL (sim dials).
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")   # §1 idle yield + sell dials (the live residents coin SOURCES) — NOTE the full bucket re-author is the parked §5 economy pass
@@ -50,6 +53,7 @@ var unlocks := {}              # spot id -> true (bought)
 var map := 0                  # the map currently being restored
 var gates_done := {}           # map -> true (its spots fully bought → map completed, roster open)
 var live_quests: Array = []    # the active fence — generated flat regular quests, metered to the next unlock
+var _recent_items: Array = []  # §7 anti-monotony window: the last ≤5 asked item codes (line*100+tier), fed to Quests.refill exactly as board.gd feeds its own (maintained on delivery, mirroring BoardActions.deliver_quest)
 
 var clusters_unlocked := 0     # cover-up clusters unlocked over the run (the restoration ladder's progress)
 var cluster_spend := 0         # coins PAID for those clusters — the game's dominant coin SINK
@@ -699,79 +703,18 @@ func _cluster_total() -> int:
 		n += G.clusters(int(z)).size()
 	return n
 
-# Refill the fence: flat generated regular quests metered to the next unlock (no gate quest).
+# Refill the fence — by CALLING THE LIVE ENGINE (Quests.refill), not a mirror of it. The sim used to
+# re-implement refill plus its four helpers (_cap_quests_per_line / _line_capacity / _lines_with_room /
+# _quest_line_counts); the copy drifted from quests.gd (it lost the recent-items avoid window and paid
+# every reward at BAND 0), so the economy was being tuned against a model the shipped game no longer
+# matched. Arguments mirror the live call site, board.gd _refill_quests:
+#   band  = Quests.current_band(level)   — board.gd _quest_map(); drives the per-band coin curve
+#   earned= coins_earned                 — board.gd _earned() = Save.coins_earned_lifetime()
+#   level = _level()                     — board.gd _quest_level() = G.level() (the coin clock)
+#   recent_items = _recent_items         — the ≤5 anti-monotony window the sim now keeps on delivery
 func _refill_quests() -> void:
-	# The live fence is ENDLESS and flat at MAX_GIVERS (Quests.meter_target) — it no longer meters against
-	# a remaining-exp target, so the sim mirrors that instead of calling the vestigial active_giver_count.
-	var want := int(G.MAX_GIVERS)
-	# mirror Quests.refill: a stand whose line has left the ACTIVE-LINE WINDOW retires with it (a stale
-	# ask is unfillable — the board greys its items as junk — and it would hold a MAX_GIVERS slot forever).
-	var live_now := _live_lines()
-	live_quests = live_quests.filter(func(q):
-		var qi := G.quest_item(q)
-		return qi.is_empty() or live_now.has(int(qi.line)))
-	live_quests = _cap_quests_per_line(live_quests)
-	var pool: Array = G.cap_quest_lines(G.active_lines(_level()))
-	want = mini(want, _line_capacity(pool))
-	while live_quests.size() < want:
-		# mirror quests.gd refill: steer each new single-item stand off the lines already on the
-		# fence so the sim validates the real anti-monotony line-diversity behaviour.
-		var eligible_lines := _lines_with_room(pool, live_quests)
-		if eligible_lines.is_empty():
-			break
-		var avoid: Array = []
-		for q in live_quests:
-			var it := G.quest_item(q)
-			if not it.is_empty():
-				avoid.append(int(it.line) * 100 + int(it.tier))
-		# #14/#16 mirror quests.gd: pool = the level-reached base lines PLUS craftable specials, footprint-capped.
-		live_quests.append(G.gen_quest(_level(), eligible_lines, rng, avoid))
-	while live_quests.size() > want:
-		live_quests.pop_back()
-
-func _quest_line_counts(quests: Array) -> Dictionary:
-	var out := {}
-	for q in quests:
-		var it := G.quest_item(q)
-		if it.is_empty():
-			continue
-		var line := int(it.line)
-		out[line] = int(out.get(line, 0)) + 1
-	return out
-
-func _cap_quests_per_line(quests: Array) -> Array:
-	var out: Array = []
-	var counts := {}
-	for q in quests:
-		var it := G.quest_item(q)
-		if it.is_empty():
-			out.append(q)
-			continue
-		var line := int(it.line)
-		if int(counts.get(line, 0)) >= int(G.MAX_QUESTS_PER_LINE):
-			continue
-		counts[line] = int(counts.get(line, 0)) + 1
-		out.append(q)
-	return out
-
-func _line_capacity(lines: Array) -> int:
-	var seen := {}
-	for line in lines:
-		seen[int(line)] = true
-	return seen.size() * int(G.MAX_QUESTS_PER_LINE)
-
-func _lines_with_room(lines: Array, quests: Array) -> Array:
-	var counts := _quest_line_counts(quests)
-	var seen := {}
-	var out: Array = []
-	for line in lines:
-		var li := int(line)
-		if seen.has(li):
-			continue
-		seen[li] = true
-		if int(counts.get(li, 0)) < int(G.MAX_QUESTS_PER_LINE):
-			out.append(li)
-	return out
+	live_quests = Quests.refill(live_quests, Quests.current_band(_level()), board.gens, board.gen_bag,
+		coins_earned, _level(), rng, _recent_items)
 
 func _wanted_lines() -> Array:
 	var out: Array = []
@@ -877,6 +820,11 @@ func _play_session() -> Dictionary:
 			# (quests pay NO acorns now — acorns are milestone/IAP only, Option A)
 			_earn_coins(got)
 			_deliv_day += 1
+			# §7 anti-monotony window — mirrors BoardActions.deliver_quest: remember this ask (≤5) so the
+			# next few generated quests steer off it. Quests.refill reads this list.
+			_recent_items.append(int(it.line) * 100 + int(it.tier))
+			while _recent_items.size() > 5:
+				_recent_items.pop_front()
 			live_quests.erase(q)
 			delivered = true
 			break
