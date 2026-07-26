@@ -1,6 +1,6 @@
 # Weather Hours — spec (2026-07-26)
 
-**Status: draft 3, for Dev review.** Builds §4 / rollout step 5 of
+**Status: draft 4, approved for implementation.** Builds §4 / rollout step 5 of
 `2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
 `engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
 `games/grove/tools/grove_sim.gd`.
@@ -115,6 +115,11 @@ State in `Save.grove().sky`.
 ---
 
 ## 6 · UI
+
+Mocks (composition authority — geometry, tint strength, marker placement, info-bar line):
+`docs/design/mocks/weather_hours/sunbeam.png` (top marker, column wash) ·
+`rain.png` (left marker, row wash) · `starfall_star_and_column.png` (falling star + trail;
+its banner/chip predate §6's marker — read it for the star only).
 
 - **Lane marker (the only chrome — no banner, no HUD chip):** a small sky glyph on a
   cream chip (~half a cell), outside the board mat, aligned to the lane: column skies
@@ -250,3 +255,75 @@ State in `Save.grove().sky`.
 2. Sunbeam "count up" = c1→c2 upgrade, not two pieces — confirm.
 3. Starfall: witnessed hours only, owed instead of forfeit — confirm.
 4. Gate = both FTUE verbs seen — earlier/later?
+
+Build to the spec as written; these are dial questions, not blockers.
+
+---
+
+## 13 · Implementation directions (for the implementing agent)
+
+**Workspace.** Branch `feat/weather-hours` from latest `main` in a NEW worktree outside the
+repo: `git worktree add /Users/xup/dh/merge-wt-weather -b feat/weather-hours` (in-repo
+worktrees get wiped by other agents). Seed the import cache before the first run:
+`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-weather/.godot/`.
+**Do not merge to main and do not remove the worktree** — implementation ends with the
+branch committed in place; code review happens in the worktree.
+
+**NO ASSET GENERATION IN THIS TASK.** Do not generate, edit, or import any PNG, texture,
+or art file, and do not run the art-intake pipeline. Art is produced separately by the
+spec owner. Use placeholders:
+
+- Lane marker glyphs: Starfall loads `ui/shared/icon_star.png` (exists). Sunbeam and Rain
+  load `ui/kit/icon_sky_sun.png` / `ui/kit/icon_sky_rain.png`, which do **not** exist yet
+  — resolve through the normal icon path, and when the texture is absent fall back to a
+  code-drawn glyph (a filled circle with short rays for sun; a rounded cloud blob with two
+  droplets for rain) in the §6 palette roles. Absent art must never spam load errors or
+  leave an empty marker.
+- Patch wash, droplet ticks, star glints, comet trail: all code-drawn — no textures.
+- Wire the real icon paths now so dropping the PNGs in later needs no code change.
+
+**Order** — each step lands with `make test-fast` green before the next:
+
+1. Dials in `grove_data.gd` + `content.gd` re-exports (§11); `engine/scripts/core/sky.gd`
+   (§9 API) + `engine/tests/sky_tests.gd` covering §10's pure list; register the suite in
+   the Makefile's engine list.
+2. `BoardLogic.asked_items` + `roll_merge_drops` (§9 ➊➋), lifting the merge-drop rolls out
+   of `board.gd:_after_merge` — parity test first (identical drops with no sky), then the
+   sky branches. Add the RNG byte-identity test (extend the `mechanics_tests.gd:413`
+   pattern).
+3. `Ambient` delegation to `Sky.state` + the `starlit` kind + the debug cycle (§6); the
+   win-back deletions (§2) with the retirement test.
+4. Save state (§8), the §5 starfall machine (trigger, roll, land, owed queue) in
+   `board.gd`, star FX via `MoveFx` `"arc"`.
+5. `engine/scripts/ui/sky_patch.gd` — wash + lane marker + info-bar tap; board wiring
+   (`_rebuild_all` insert, reflow, 1 Hz hour check); `board.sky.*` strings.
+6. `grove_sim` adopts ➋ and the star injection; run the §10 battery
+   (`godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 7 <seed>`,
+   ≥8 seeds) and include the reports in the handoff.
+7. Full `make test` green before handoff.
+
+**Repo rules that bite:**
+
+- Engine code never references `games/` directly (`layering_tests`) — read through `G` /
+  `Game.DATA`; new copy goes in `games/grove/strings.json` and is read via `Strings.t`.
+- RNG draw order is contractual (`board_logic.gd:120–124`): the sky uses its own
+  hour-seeded RNG, and the board stream must stay byte-identical (§7).
+- Palette SSOT suite forbids re-typed hex — use `Color(Pal.ROLE, α)`.
+- Layering suite forbids bare `z_index` literals above `MODAL_TOP_Z`; the patch sits at
+  z 0 inside `board_area` (positive z would cover pieces).
+- `_rebuild_all()` frees every `board_area` child — patch and marker must be re-inserted.
+- Particles do not render reliably under `Control` parents (`gen_sparkle.gd`) — the patch
+  self-draws.
+- Fast parse check: `godot --headless --check-only --script <file.gd>`. Suites only via
+  `make test-fast` / `make test`; a bare foreground `godot -s` can hang a shell. Run tests
+  in the FOREGROUND.
+- New `.gd` files: `make import` before committing so `.uid` sidecars exist and are
+  committed.
+- Control position/size comparisons in tests use `is_equal_approx` (float32).
+- Headless: `is_visible_in_tree()` is false for root children; dispatch notifications with
+  `obj.notification(what)`.
+- Everything ships behind `features.gd` `"weather_hours"`; flag off = byte-identical
+  behavior to today.
+- Parallel tasks are live in this repo (mastery, cascades, cell improvements). Touch only
+  what §9 lists; if a listed file already changed on `main`, rebase rather than revert.
+- Commits: small, one per step above, conventional prefixes.
