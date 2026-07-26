@@ -25,6 +25,14 @@ const STATUS_OK := 0
 static var _sk: Object = null
 static var _pending_id := ""                        # one purchase in flight at a time (IAP is modal)
 static var _pending_cb := Callable()
+static var _pending_at_msec := 0                    # Time.get_ticks_msec() when that purchase went in flight
+
+## How long an in-flight purchase may sit with NO StoreKit completion signal before the next
+## purchase() abandons it. Deliberately ABOVE ui/purchase_wait.gd's WAIT_TIMEOUT_SECS (12.0): the
+## wait sheet gives up first and hands the player back their honest non-charging path, and only
+## after that does the state machine let go — so a merely slow signal still settles its own purchase
+## rather than a newer one.
+const PENDING_STALE_SECS := 15.0
 
 ## True only on an iOS build that bundles the plugin — the gate for every native touch and the signal that
 ## a Confirm will move REAL money. Callers use the honest non-charging path when this is false. The plugin
@@ -51,13 +59,29 @@ static func _ensure() -> bool:
 ## Buy `product_id`. on_done(success: bool) fires when settled. Immediately false — so the caller takes its
 ## honest non-charging fallback — when StoreKit is unavailable or another purchase is already in flight.
 static func purchase(product_id: String, on_done: Callable) -> void:
+	_abandon_stale_pending()
 	if not _ensure() or _pending_id != "":
 		if on_done.is_valid():
 			on_done.call(false)
 		return
 	_pending_id = product_id
 	_pending_cb = on_done
+	_pending_at_msec = Time.get_ticks_msec()
 	_sk.call("request_products", PackedStringArray([product_id]))   # → _on_products → purchase the match
+
+# Let go of an in-flight purchase that NEVER settled. _pending_id/_pending_cb clear only in _settle(),
+# which only the two native completion handlers reach — so a dropped `products_request_completed` /
+# `purchase_completed` signal used to hold the slot for the process lifetime and every later Confirm
+# returned on_done(false) at once, while the wait sheet (12s) had long since handed the player back.
+# Runs BEFORE _ensure() so the slot is released even on a build where StoreKit went unavailable.
+static func _abandon_stale_pending() -> void:
+	if _pending_id == "":
+		return
+	var age := (Time.get_ticks_msec() - _pending_at_msec) / 1000.0
+	if age < PENDING_STALE_SECS:
+		return
+	push_warning("Store: abandoning stale pending purchase \"%s\" — no StoreKit completion after %.1fs; the next purchase may proceed" % [_pending_id, age])
+	_settle(false)
 
 static func _on_products(products: Array) -> void:
 	for p in products:
