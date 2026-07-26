@@ -223,10 +223,10 @@ the clock**. Once per **real** day (not grove hour), the first ×5 chain pays a 
   palette color, drawn under the pieces. Each rung added thickens the stitch one step and
   brightens it; the **×N** paper tag pins to the top-tier piece's corner and counts up.
 - **The chain counter:** on each chain step, a small "×2 · ×3 · ×4" floats up from the merge
-  with escalating sparkle; sound climbs the baked pentatonic merge-note ladder — the chain
-  count drives the streak degree (`Feel._merge_degree` → `Audio.play_note`, UI layer;
-  `board_logic` owns only the pure `combo_step` cadence — see the cascade-combos spec §2).
-  Confetti burst at ×5.
+  with escalating sparkle; the chain drives no audio of its own — cascading merges ride the
+  existing time-window merge-streak melody (the baked pentatonic note ladder in the FX layer,
+  not `board_logic` — rev 2 separation call, cascade-combos spec §2 delta 1). Confetti burst
+  at ×5.
 - **The daily chest:** on the first ×5 of the day, a chest drops onto a free cell with the
   standard chest FX — no modal.
 - **The FTUE dialog:** one centered card — a tiny 3-piece diagram (t·t·t+1 with an arrow),

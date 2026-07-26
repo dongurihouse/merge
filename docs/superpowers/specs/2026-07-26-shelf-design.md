@@ -219,10 +219,10 @@ scene seams + card (delete `retire_offer.gd`) → deletions (§7) + test updates
   two-button card collapse into needed/done + one farewell card + the sweep. "Retirement"
   and "comeback" stop being different processes — one is the other with a different last
   line.
-- Its example levels are stale (pre-re-spine cadence): retirement fires at **L33 / L55 /
-  L69**, the first farewell-with-return is **Woolens at L46** ("back at Level 51, for
-  Spices"), and Wild Berries' only gap is **L65–68 → L69, for Tea Cups** (not "L22, for
-  Spices").
+- Its example levels were stale (pre-re-spine cadence; corrected in the parent 2026-07-26):
+  retirement fires at **L33 / L55 / L69**, the first farewell-with-return is **Woolens at
+  L46** ("back at Level 51, for Spices"), and Wild Berries' only gap is **L65–68 → L69, for
+  Tea Cups** (not "L22, for Spices").
 - The older picturebook §7 "library + deploy, never retired, never sold"
   (`2026-07-17-picturebook-scenes-design.md:121`) is doubly superseded (by shipped
   retirement, and by this rev's universal sweep).

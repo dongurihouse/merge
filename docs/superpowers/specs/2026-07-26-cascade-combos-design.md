@@ -49,7 +49,8 @@ chain runs beside it and drives none of its cues. The table is what the cascade 
    but a slow, thoughtful cascade only advances the chain. Accepted consequence.) For the record,
    the parent's attribution was also imprecise: the escalation is **note selection** off a baked
    10-note ladder (`feel.gd:98`, jitter deliberately disabled `audio.gd:71-84`), not a rising
-   `pitch_scale`, and it lives in the FX layer, not `board_logic`.
+   `pitch_scale`, and it lives in the FX layer, not `board_logic`. *(The parent's §5 has since
+   been rewritten to match this call.)*
 2. *"a duplicated bottom"* is generalized to *any duplicated tier with consecutive rungs above*
    (§6) — a stray lower singleton adjacent to a real ladder must not kill its outline.
 3. New ruling the parent didn't cover: **craft merges join the chain** (R2, §3).
