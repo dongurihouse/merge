@@ -14,11 +14,17 @@ extends SceneTree
 ## 3) Crop each island's bbox from the ORIGINAL (soft edges kept) and set alpha: background→0.
 ## Prints "n -> x,y wxh (px=count)" sorted top→bottom, left→right so islands map to names.
 
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
+# VAL_MIN / SAT_MAX are this tool's OWN CLI-overridable defaults and are deliberately NOT
+# img_ops' BG_MAX_VAL / BG_MAX_SAT: 0.90 is a looser plate threshold for baked checkerboards,
+# and every caller may override it per sheet (see the intake plans' `params`).
 const VAL_MIN := 0.90
 const SAT_MAX := 0.10
 const MIN_AREA := 600
 const PAD := 3
-const ALPHA_MIN := 8   # px at/under this 8-bit alpha are already cleared (chroma-keyed) → background
+# The "already cleared (chroma-keyed) → background" floor, shared with the other cutters.
+const ALPHA_MIN := ImgOps.ALPHA_MIN   # 8-bit; this tool tests raw bytes, not Color.a
 
 static func _is_bglike(data: PackedByteArray, i: int, vmin8: int, smax: float) -> bool:
 	var o := i * 4

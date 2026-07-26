@@ -8,20 +8,15 @@ extends SceneTree
 ## Headless, pure-Image — run directly, then --import:
 ##   godot --headless --path . -s res://games/tools/cutout_bg.gd -- <png> [png ...] [min=600]
 ##
-## Uses process_icon's OWN background rule (value > 0.93, sat < 0.10).
+## Uses the SHARED background rule (games/tools/img_ops.gd: value > BG_MAX_VAL, sat < BG_MAX_SAT).
 
-const BG_MAX_VAL := 0.93
-const BG_MAX_SAT := 0.10
-const ALPHA_MIN := 8
-const NEI := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+const ImgOps := preload("res://games/tools/img_ops.gd")
 
+const NEI := ImgOps.NEI
+
+# Background rule is shared — see games/tools/img_ops.gd.
 func _is_bg(c: Color) -> bool:
-	if c.a * 255.0 < ALPHA_MIN:
-		return true
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
+	return ImgOps.is_bg(c, ImgOps.BG_MAX_VAL, ImgOps.BG_MAX_SAT, ImgOps.ALPHA_MIN_F)
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()

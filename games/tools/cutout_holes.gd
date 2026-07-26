@@ -9,27 +9,22 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/tools/cutout_holes.gd -- <a.png> [b.png ...]
 ## then `godot --headless --path . --import` so the engine picks the PNGs up.
 ##
-## Rule = process_icon's OWN background rule (value > 0.93, sat < 0.10): a tighter
-## threshold measurably leaves a ~1px dirty-white rim (127px of the table's gaps
-## sit in the 0.93–0.97 band). Method: flood-fill from the canvas edges over
+## Rule = the SHARED background rule (games/tools/img_ops.gd: value > BG_MAX_VAL,
+## sat < BG_MAX_SAT): a tighter threshold measurably leaves a ~1px dirty-white rim
+## (127px of the table's gaps sit in the 0.93–0.97 band). Method: flood-fill from the canvas edges over
 ## "passable" pixels (transparent OR bg-coloured) to mark the outer field; any
 ## REMAINING connected passable region with area ≥ AREA_MIN is enclosed
 ## background → punched transparent. Genuine small white highlights (area <
 ## AREA_MIN) survive the floor.
 
-const BG_MAX_VAL := 0.93     # process_icon.gd BG_MAX_VAL — keep in lockstep
-const BG_MAX_SAT := 0.10     # process_icon.gd BG_MAX_SAT
-const ALPHA_MIN := 8         # below this 8-bit alpha = already transparent
-const AREA_MIN := 24         # enclosed pockets at/over this are background; smaller = highlight
-const NEI := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+const ImgOps := preload("res://games/tools/img_ops.gd")
 
+const AREA_MIN := 24         # enclosed pockets at/over this are background; smaller = highlight
+const NEI := ImgOps.NEI
+
+# Background rule is shared — see games/tools/img_ops.gd. Already-clear pixels are passable too.
 func _is_bg(c: Color) -> bool:
-	if c.a * 255.0 < ALPHA_MIN:
-		return true                         # already-clear pixels are passable too
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
+	return ImgOps.is_bg(c, ImgOps.BG_MAX_VAL, ImgOps.BG_MAX_SAT, ImgOps.ALPHA_MIN_F)
 
 func _initialize() -> void:
 	var paths := OS.get_cmdline_user_args()
@@ -53,22 +48,7 @@ func _punch(path: String) -> bool:
 	var w := img.get_width()
 	var h := img.get_height()
 	# pass 1 — flood from every border passable pixel: mark the OUTER field
-	var outer := PackedByteArray()
-	outer.resize(w * h)
-	var stack := PackedInt32Array()
-	for x in w:
-		_seed(img, outer, stack, x, 0, w, h)
-		_seed(img, outer, stack, x, h - 1, w, h)
-	for y in h:
-		_seed(img, outer, stack, 0, y, w, h)
-		_seed(img, outer, stack, w - 1, y, w, h)
-	while not stack.is_empty():
-		var idx := stack[stack.size() - 1]
-		stack.remove_at(stack.size() - 1)
-		var cx := idx % w
-		var cy := idx / w
-		for d in NEI:
-			_seed(img, outer, stack, cx + d.x, cy + d.y, w, h)
+	var outer := ImgOps.mark_outer_field(img, _is_bg)
 	# pass 2 — the leftover passable pixels are enclosed pockets; punch big ones
 	var seen := PackedByteArray()
 	seen.resize(w * h)
@@ -117,14 +97,3 @@ func _punch(path: String) -> bool:
 	var err := img.save_png(path)
 	print("PUNCH %s: %d enclosed region(s), %d px cleared (err=%d)" % [path, punched_regions, punched_px, err])
 	return err == OK
-
-func _seed(img: Image, outer: PackedByteArray, stack: PackedInt32Array, x: int, y: int, w: int, h: int) -> void:
-	if x < 0 or y < 0 or x >= w or y >= h:
-		return
-	var i := y * w + x
-	if outer[i] == 1:
-		return
-	if not _is_bg(img.get_pixel(x, y)):
-		return
-	outer[i] = 1
-	stack.append(i)

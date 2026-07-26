@@ -13,38 +13,14 @@ extends SceneTree
 ##      bright + achromatic checker from every border, leaving the colored subject untouched)
 ## Also handles solid white backgrounds (e.g. earlier play.png case).
 
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
 const DEFAULT_SIZE := 512
 const PAD := 14                # transparent border kept around the trimmed art
-const BG_MAX_VAL := 0.93       # below this -> not background (basket / coin / etc.)
-const BG_MAX_SAT := 0.10       # any color saturation -> not background
 
+# Background rule + pixel ops are shared — see games/tools/img_ops.gd.
 func _is_bg(c: Color) -> bool:
-	if c.a < 0.05:
-		return true                                # already transparent — count as bg
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
-
-func _premultiply(im: Image) -> void:
-	# RGB *= A, so a coverage-weighted resize can't pull in the cleared black background.
-	for y in im.get_height():
-		for x in im.get_width():
-			var c := im.get_pixel(x, y)
-			im.set_pixel(x, y, Color(c.r * c.a, c.g * c.a, c.b * c.a, c.a))
-
-func _unpremultiply(im: Image) -> void:
-	# RGB /= A back to straight alpha; clamp absorbs Lanczos overshoot, near-zero alpha -> clear.
-	for y in im.get_height():
-		for x in im.get_width():
-			var c := im.get_pixel(x, y)
-			if c.a > 0.0039:                       # ~1/255: below this, colour is irrelevant
-				im.set_pixel(x, y, Color(
-					clampf(c.r / c.a, 0.0, 1.0),
-					clampf(c.g / c.a, 0.0, 1.0),
-					clampf(c.b / c.a, 0.0, 1.0), c.a))
-			else:
-				im.set_pixel(x, y, Color(0, 0, 0, 0))
+	return ImgOps.is_bg(c, ImgOps.BG_MAX_VAL, ImgOps.BG_MAX_SAT, ImgOps.ALPHA_CLEAR)
 
 func _initialize() -> void:
 	var raw := OS.get_cmdline_user_args()
@@ -82,45 +58,17 @@ func _initialize() -> void:
 	var H := img.get_height()
 
 	# flood-fill the background from every border pixel
-	var seen := PackedByteArray()
-	seen.resize(W * H)
-	var stack: Array = []
-	for x in W:
-		stack.append(x)
-		stack.append((H - 1) * W + x)
-	for y in H:
-		stack.append(y * W)
-		stack.append(y * W + (W - 1))
-	var removed := 0
-	while not stack.is_empty():
-		var idx: int = stack.pop_back()
-		if seen[idx] == 1:
-			continue
-		seen[idx] = 1
-		var x := idx % W
-		var y := idx / W
-		if not _is_bg(img.get_pixel(x, y)):
-			continue
-		img.set_pixel(x, y, Color(0, 0, 0, 0))
-		removed += 1
-		if x > 0:     stack.append(idx - 1)
-		if x < W - 1: stack.append(idx + 1)
-		if y > 0:     stack.append(idx - W)
-		if y < H - 1: stack.append(idx + W)
+	var removed := ImgOps.flood_clear_from_border(img, _is_bg)
 
 	# find opaque bounds
-	var minx := W
-	var miny := H
-	var maxx := -1
-	var maxy := -1
-	for y in H:
-		for x in W:
-			if img.get_pixel(x, y).a > 0.05:
-				minx = mini(minx, x); maxx = maxi(maxx, x)
-				miny = mini(miny, y); maxy = maxi(maxy, y)
-	if maxx < 0:
+	var bounds := ImgOps.trim(img)
+	if bounds.size.x == 0:
 		print("FAIL: nothing opaque left — flood-fill ate everything (subject color matched the bg rule?)")
 		quit(1); return
+	var minx := bounds.position.x
+	var miny := bounds.position.y
+	var maxx := bounds.end.x - 1
+	var maxy := bounds.end.y - 1
 
 	minx = maxi(0, minx - PAD); miny = maxi(0, miny - PAD)
 	maxx = mini(W - 1, maxx + PAD)
@@ -137,12 +85,12 @@ func _initialize() -> void:
 	# Premultiply alpha before the resize: a straight-RGBA Lanczos blends the cleared
 	# background (transparent BLACK, 0,0,0,0) into edge pixels, leaving a dark halo.
 	# Weighting colour by coverage and un-premultiplying after kills that fringe.
-	_premultiply(crop)
+	ImgOps.premultiply(crop)
 	var scale: float = minf(float(tw) / float(cw), float(th) / float(ch)) * 0.96
 	var nw: int = maxi(1, int(round(cw * scale)))
 	var nh: int = maxi(1, int(round(ch * scale)))
 	crop.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
-	_unpremultiply(crop)
+	ImgOps.unpremultiply(crop)
 	var canvas := Image.create(tw, th, false, Image.FORMAT_RGBA8)
 	canvas.fill(Color(0, 0, 0, 0))
 	var off_y := (th - nh) if anchor_bottom else (th - nh) / 2     # bottom-flush vs centered

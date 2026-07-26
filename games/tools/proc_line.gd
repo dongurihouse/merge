@@ -9,35 +9,25 @@ extends SceneTree
 ## FRAME_FILL of the frame), each h-centered + bottom-anchored → the line steps in size and sits on
 ## one ground line, exactly as drawn.
 
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
 const SIZE := 512
 const FRAME_FILL := 0.92
 const BASE_MARGIN := 0.05          # gap below the baseline (fraction of SIZE)
+# The checker plate is NOT the cream field the other intake tools key: it is a baked
+# transparency checkerboard, so this tool keeps its own (looser) thresholds and passes them
+# into the shared rule rather than folding them into img_ops' BG_MAX_VAL / BG_MAX_SAT.
 const CHK_VAL := 0.74              # checker: value above this ...
 const CHK_SAT := 0.14              # ... and saturation below this = background
-const ALPHA_MIN := 8
 const AREA_MIN := 28               # enclosed bg pockets >= this are punched; smaller = highlight
-const NEI := [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+const NEI := ImgOps.NEI
 
 func _is_bg(c: Color) -> bool:
-	if c.a * 255.0 < ALPHA_MIN:
-		return true
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > CHK_VAL and sat < CHK_SAT
+	return ImgOps.is_bg(c, CHK_VAL, CHK_SAT, ImgOps.ALPHA_MIN_F)
 
 func _clear_bg(img: Image) -> void:
 	var w := img.get_width(); var h := img.get_height()
-	var outer := PackedByteArray(); outer.resize(w * h)
-	var st := PackedInt32Array()
-	for x in w:
-		_seed(img, outer, st, x, 0, w, h); _seed(img, outer, st, x, h - 1, w, h)
-	for y in h:
-		_seed(img, outer, st, 0, y, w, h); _seed(img, outer, st, w - 1, y, w, h)
-	while not st.is_empty():
-		var idx := st[st.size() - 1]; st.remove_at(st.size() - 1)
-		var cx := idx % w; var cy := idx / w
-		for d in NEI: _seed(img, outer, st, cx + d.x, cy + d.y, w, h)
+	var outer := ImgOps.mark_outer_field(img, _is_bg)
 	# clear outer field
 	for i in w * h:
 		if outer[i] == 1:
@@ -63,12 +53,6 @@ func _clear_bg(img: Image) -> void:
 			if comp.size() < AREA_MIN: continue
 			for j in comp:
 				var c := img.get_pixel(j % w, j / w); c.a = 0.0; img.set_pixel(j % w, j / w, c)
-
-func _seed(img: Image, outer: PackedByteArray, st: PackedInt32Array, x: int, y: int, w: int, h: int) -> void:
-	if x < 0 or y < 0 or x >= w or y >= h: return
-	var i := y * w + x
-	if outer[i] == 1 or not _is_bg(img.get_pixel(x, y)): return
-	outer[i] = 1; st.append(i)
 
 func _bbox(img: Image) -> Rect2i:
 	var w := img.get_width(); var h := img.get_height()

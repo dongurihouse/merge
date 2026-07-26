@@ -9,19 +9,15 @@ extends SceneTree
 ## them, cream gaps separate them), and crops each band-intersection. Cells are written
 ## row-major as <out_prefix><n>.png.
 
-const BG_MAX_VAL := 0.93       # bright + achromatic => background (matches process_icon)
-const BG_MAX_SAT := 0.10
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
 const PAD := 10                # px kept around each detected band
 const MIN_BAND := 24           # drop content bands thinner than this (noise / specks)
 const MERGE_GAP := 24          # merge two bands separated by a gap smaller than this
 
+# Background rule is shared — see games/tools/img_ops.gd.
 func _is_bg(c: Color) -> bool:
-	if c.a < 0.05:
-		return true
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
+	return ImgOps.is_bg(c, ImgOps.BG_MAX_VAL, ImgOps.BG_MAX_SAT, ImgOps.ALPHA_CLEAR)
 
 func _bands(counts: PackedInt32Array, thresh: int) -> Array:
 	var raw: Array = []
