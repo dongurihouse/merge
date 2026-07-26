@@ -3,6 +3,7 @@ extends RefCounted
 ## requests products and opens the native App Store purchase sheet.
 
 const Game = preload("res://engine/scripts/core/game.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
@@ -66,7 +67,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	opts["center_content"] = true
 	opts["on_close"] = func() -> void: overlay.queue_free()
 	var vp := host.get_viewport()
-	var vw: float = vp.get_visible_rect().size.x if vp != null else 1080.0
+	var vw: float = vp.get_visible_rect().size.x if vp != null else Design.size().x
 	var width: float = maxf(1.0, vw) * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
 	center.add_child(Kit.dialog_frame(col, width, opts))
 

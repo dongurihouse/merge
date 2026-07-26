@@ -4,6 +4,11 @@ extends RefCounted
 ## State is a plain Dictionary (make_state); time (seconds) and RNG are always injected.
 ## This module preloads NOTHING — a later adapter persists state in Save and feeds real time.
 
+# The ladder length. This is a DELIBERATE second copy of the active game's RESIDENT_MAX_TIER
+# (games/grove/grove_data.gd) — importing Game here would cost this module the "preloads NOTHING"
+# purity above, and threading the count in as a parameter would push it through every hand_*/box
+# entry point and their tests for one number. So the copy stays and a MECHANISM holds it honest:
+# engine/tests/const_ssot_tests.gd fails the moment the two values disagree. Change one, change both.
 const MAX_TIER := 12
 const SELL_PER_TIER := 5
 const LINES := ["coin", "water", "boost", "diamond"]

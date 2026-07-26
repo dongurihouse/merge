@@ -48,9 +48,11 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
 
-## The project's viewport size — the canonical capture resolution (project.godot display/window/size).
-const SHOT_SIZE := Vector2i(1080, 1920)
+## The project's viewport size — the canonical capture resolution, read from THE design owner
+## (Design → project.godot display/window/size), so a canvas change moves every capture with it.
+static var SHOT_SIZE := Vector2i(Design.size())
 
 ## How many force-and-check rounds `_apply_size` will spend making the window take our size.
 const SIZE_TRIES := 6

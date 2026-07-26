@@ -9,18 +9,14 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://games/grove/assets/rooms/decor_bed.png
 ##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://games/grove/assets/rooms/bedroom_base.png 1024 1280 --opaque
 
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
 const W := 1024
 const H := 1280
-const BG_MAX_VAL := 0.93
-const BG_MAX_SAT := 0.10
 
+# Background rule is shared — see games/tools/img_ops.gd.
 func _is_bg(c: Color) -> bool:
-	if c.a < 0.05:
-		return true
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
+	return ImgOps.is_bg(c, ImgOps.BG_MAX_VAL, ImgOps.BG_MAX_SAT, ImgOps.ALPHA_CLEAR)
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -56,30 +52,7 @@ func _initialize() -> void:
 	var removed := 0
 	if not opaque:
 		# flood-fill the background from every border pixel — keeps the subject IN PLACE
-		var seen := PackedByteArray()
-		seen.resize(iw * ih)
-		var stack: Array = []
-		for x in iw:
-			stack.append(x)
-			stack.append((ih - 1) * iw + x)
-		for y in ih:
-			stack.append(y * iw)
-			stack.append(y * iw + (iw - 1))
-		while not stack.is_empty():
-			var idx: int = stack.pop_back()
-			if seen[idx] == 1:
-				continue
-			seen[idx] = 1
-			var x := idx % iw
-			var y := idx / iw
-			if not _is_bg(img.get_pixel(x, y)):
-				continue
-			img.set_pixel(x, y, Color(0, 0, 0, 0))
-			removed += 1
-			if x > 0:     stack.append(idx - 1)
-			if x < iw - 1: stack.append(idx + 1)
-			if y > 0:     stack.append(idx - iw)
-			if y < ih - 1: stack.append(idx + iw)
+		removed = ImgOps.flood_clear_from_border(img, _is_bg)
 
 	# resize to the target canvas. Default = letterbox (CONTAIN, preserves whole image);
 	# --cover = scale to fill + center-crop (full-bleed surfaces like maps — no pad bars).

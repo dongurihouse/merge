@@ -9,33 +9,13 @@ extends SceneTree
 ## Each <in> is a sliced tile (its background may be transparent OR a bright/checker fill); each <out>
 ## accepts res:// or an absolute path.
 
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
 const MARGIN := 8              # constant transparent margin in CANVAS px (NOT scaled — preserves proportions)
-const BG_MAX_VAL := 0.93       # bright + achromatic => background (matches process_icon / slice_grid)
-const BG_MAX_SAT := 0.10
 
+# Background rule + pixel ops are shared — see games/tools/img_ops.gd.
 func _is_bg(c: Color) -> bool:
-	if c.a < 0.05:
-		return true
-	var mx: float = maxf(c.r, maxf(c.g, c.b))
-	var mn: float = minf(c.r, minf(c.g, c.b))
-	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
-	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
-
-func _premultiply(im: Image) -> void:
-	for y in im.get_height():
-		for x in im.get_width():
-			var c := im.get_pixel(x, y)
-			im.set_pixel(x, y, Color(c.r * c.a, c.g * c.a, c.b * c.a, c.a))
-
-func _unpremultiply(im: Image) -> void:
-	for y in im.get_height():
-		for x in im.get_width():
-			var c := im.get_pixel(x, y)
-			if c.a > 0.0039:
-				im.set_pixel(x, y, Color(clampf(c.r / c.a, 0.0, 1.0), clampf(c.g / c.a, 0.0, 1.0),
-					clampf(c.b / c.a, 0.0, 1.0), c.a))
-			else:
-				im.set_pixel(x, y, Color(0, 0, 0, 0))
+	return ImgOps.is_bg(c, ImgOps.BG_MAX_VAL, ImgOps.BG_MAX_SAT, ImgOps.ALPHA_CLEAR)
 
 ## Flood-fill the background from every border, then crop tight to the opaque subject. Returns the
 ## cropped image (no padding — the caller adds a constant canvas margin), or null if nothing remained.
@@ -45,46 +25,12 @@ func _clean_and_trim(src: String) -> Image:
 		return null
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
-	var W := img.get_width()
-	var H := img.get_height()
-	var seen := PackedByteArray()
-	seen.resize(W * H)
-	var stack: Array = []
-	for x in W:
-		stack.append(x)
-		stack.append((H - 1) * W + x)
-	for y in H:
-		stack.append(y * W)
-		stack.append(y * W + (W - 1))
-	while not stack.is_empty():
-		var idx: int = stack.pop_back()
-		if seen[idx] == 1:
-			continue
-		seen[idx] = 1
-		var x := idx % W
-		var y := idx / W
-		if not _is_bg(img.get_pixel(x, y)):
-			continue
-		img.set_pixel(x, y, Color(0, 0, 0, 0))
-		if x > 0:     stack.append(idx - 1)
-		if x < W - 1: stack.append(idx + 1)
-		if y > 0:     stack.append(idx - W)
-		if y < H - 1: stack.append(idx + W)
-	var minx := W
-	var miny := H
-	var maxx := -1
-	var maxy := -1
-	for y in H:
-		for x in W:
-			if img.get_pixel(x, y).a > 0.05:
-				minx = mini(minx, x); maxx = maxi(maxx, x)
-				miny = mini(miny, y); maxy = maxi(maxy, y)
-	if maxx < 0:
+	ImgOps.flood_clear_from_border(img, _is_bg)
+	var bounds := ImgOps.trim(img)
+	if bounds.size.x == 0:
 		return null
-	var cw := maxx - minx + 1
-	var ch := maxy - miny + 1
-	var crop := Image.create(cw, ch, false, Image.FORMAT_RGBA8)
-	crop.blit_rect(img, Rect2i(minx, miny, cw, ch), Vector2i.ZERO)
+	var crop := Image.create(bounds.size.x, bounds.size.y, false, Image.FORMAT_RGBA8)
+	crop.blit_rect(img, bounds, Vector2i.ZERO)
 	return crop
 
 func _initialize() -> void:
@@ -113,9 +59,9 @@ func _initialize() -> void:
 		var crop: Image = crops[k]
 		var nw: int = maxi(1, int(round(crop.get_width() * scale)))
 		var nh: int = maxi(1, int(round(crop.get_height() * scale)))
-		_premultiply(crop)
+		ImgOps.premultiply(crop)
 		crop.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
-		_unpremultiply(crop)
+		ImgOps.unpremultiply(crop)
 		var canvas := Image.create(size, size, false, Image.FORMAT_RGBA8)
 		canvas.fill(Color(0, 0, 0, 0))
 		canvas.blit_rect(crop, Rect2i(0, 0, nw, nh), Vector2i((size - nw) / 2, size - nh - MARGIN))  # bottom-anchored
