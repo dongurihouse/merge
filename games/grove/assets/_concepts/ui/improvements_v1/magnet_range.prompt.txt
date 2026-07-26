@@ -8,14 +8,14 @@ Input images:
 Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
 Text exception for this UI mock: existing text in Image 1 stays as-is; add NO new text.
 
-Change list (a rank-3 Magnet is working; replace the generator stump for this mock):
-1. The board's center cell (where Image 1 shows the mushroom stump) instead holds a Magnet improvement: a horseshoe-shaped pebble in slate blue, matte cut-paper, inset on the cell, with three small garden-green leaf pips in the cell's bottom-left corner.
-2. A translucent garden-green cut-paper field (about 15% opacity, soft deckled edge) covers the 3x3 block of cells centered on the Magnet, drawn UNDER the items so they remain fully readable.
+Change list (a Magnet is working; replace the generator stump for this mock):
+1. The board's center cell (where Image 1 shows the mushroom stump) instead holds a Magnet improvement: a horseshoe-shaped pebble in slate blue, matte cut-paper, inset on the cell. No pips, no badges.
+2. The 3x3 block of cells centered on the Magnet is OPEN ground: plain pale-cream cells with NO keyhole seals anywhere inside the block. A translucent garden-green cut-paper field (about 15% opacity, soft deckled edge) covers exactly that 3x3 block, drawn UNDER the items so they remain fully readable.
 3. Two identical cream egg items with red caps sit INSIDE the field one cell apart and are sliding toward each other: give each a gentle soft motion trail and a slight lean toward the meeting cell, which is the field cell nearest the Magnet.
 
 Avoid: glossy plastic, watercolor, brushwork, neon, white sticker outlines, heavy black outlines, any new UI beyond the change list, new text, watermark.
 
 FULL-FRAME MOCK: the whole frame is content — there is no background to key out; save fully opaque.
-Save the PNG into: /Users/xup/dh/wt-cell-improvements-mocks/games/grove/assets/_concepts/ui/improvements_v1
+Save the PNG into: /Users/xup/dh/wt-ci-r5/games/grove/assets/_concepts/ui/improvements_v1
 Name it: magnet_range_1080x1920.png. Report the absolute path.
 IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation and save it to the path above. Then report the saved path.
