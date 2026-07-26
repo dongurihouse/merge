@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_gen_redundancy()
 	_test_self_dup_at_top()
 	_test_sell_generator()
+	_test_retire_line()
 	_test_pick_drop_cell()
 	_test_generator_swaps()
 	finish()
@@ -237,6 +238,65 @@ func _test_sell_generator() -> void:
 	var out2: Dictionary = BoardActions.sell_generator(b, top)
 	ok(not bool(out2.sold) and b.gens.has(top), "a non-redundant (top) generator cannot be sold")
 	ok(G.gen_sell_coins(1) >= 0 and G.gen_sell_coins(2) >= 0, "gen_sell_coins is defined for the sellable tiers 1..2")
+
+# §6 LINE RETIREMENT — clearing a line the game will never ask for again. The predicate is FORWARD-LOOKING
+# (G.gen_retirable), not "left the active window": lines 2/3/4 drop out of the window and come BACK as the
+# ingredients of later crafts, so a window-exit rule would strand the player. On the shipped roster exactly
+# three generators ever retire — gen_1 past L11, gen_6 past L22, gen_16 past L33.
+func _test_retire_line() -> void:
+	fresh("retire_line")
+	# --- the predicate, against the shipped zone ladder
+	ok(not G.gen_retirable("gen_1", 11) and G.gen_retirable("gen_1", 12), "the anchor line retires the level after it is last needed (L11 -> L12)")
+	ok(not G.gen_retirable("gen_6", 22) and G.gen_retirable("gen_6", 23), "desert fruits retires past L22")
+	ok(not G.gen_retirable("gen_16", 33) and G.gen_retirable("gen_16", 34), "shells retires past L33")
+	for _keep in ["gen_2", "gen_3", "gen_4", "gen_7", "gen_18"]:
+		var _ever := false
+		for _lv in range(1, int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]) + 20):
+			if G.gen_retirable(String(_keep), _lv):
+				_ever = true
+		ok(not _ever, "%s is NEVER retirable — it feeds the final window's crafts at every level" % _keep)
+	# a line that goes DORMANT is not retirable while a later craft still needs it (the whole point)
+	ok(not G.active_lines(30).has(4) and not G.gen_retirable("gen_4", 30), "woolens is out of the L30 window yet still NOT retirable — tea cups needs it at L34")
+	ok(G.retirable_gens(["gen_1", "gen_4", "gen_18"], 30) == ["gen_1"], "the offer set holds only the truly-done generators")
+	ok(G.retirable_gens(["acc_water", "treat_71"], 30) == [], "accumulator / treat generators are never offered — their own lifecycle")
+	# --- the action. A fresh board deals the FTUE terrain (3 open cells), and level does not widen it —
+	# cells open by MERGING beside a bramble. Force the terrain open, the way the other suites do, so the
+	# fixture has ground to sit on; this test is about retirement, not about the obstacle field.
+	var b := BoardModel.new()
+	for r in G.ROWS:
+		for c in G.COLS:
+			b.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			b.take(Vector2i(r, c))                 # and clear the dealt bramble CONTENTS — the fixture must be exact
+	var cells := b.empty_ground_cells()
+	ok(cells.size() >= 5, "fixture: the opened board has room for the retirement fixture (%d cells)" % cells.size())
+	b.place_gen("gen_1", cells[0])
+	b.place_gen("gen_18", cells[1])
+	b.place(cells[2], 1 * 100 + 3)                 # two leftover glow pieces on the board
+	b.place(cells[3], 1 * 100 + 5)
+	b.place(cells[4], 18 * 100 + 2)                # a live koi piece — must SURVIVE
+	b.gen_bag = ["gen_1", "gen_18"]
+	b.gen_bag_tiers = [2, 1]
+	b.gen_bag_boost = [0, 0]
+	var bag: Array = [1 * 100 + 2, 18 * 100 + 4]   # one dead glow item + one live koi item stashed
+	var expect := int(G.sell_reward(103).x) + int(G.sell_reward(105).x) + int(G.sell_reward(102).x)
+	var wallet_b := Save.coins()
+	var clock_b := Save.coins_earned_lifetime()
+	var refused: Dictionary = BoardActions.retire_line(b, bag, "gen_18", 30)
+	ok(not bool(refused.retired) and b.gens.values().has("gen_18"), "retiring a STILL-NEEDED line is refused outright")
+	var res: Dictionary = BoardActions.retire_line(b, bag, "gen_1", 30)
+	ok(bool(res.retired) and int(res.line) == 1, "the done line retires")
+	ok(int(res.items) == 3 and int(res.coins) == expect, "every leftover piece is sold — board AND item bag (%d pieces, %d coins)" % [int(res.items), int(res.coins)])
+	ok(Save.coins() == wallet_b + expect, "the sale credits the wallet")
+	ok(Save.coins_earned_lifetime() == clock_b, "RETIREMENT NEVER ADVANCES THE CLOCK — quests only")
+	ok(not b.gens.values().has("gen_1") and b.gens.values().has("gen_18"), "the retired generator leaves the board; the live one stays")
+	ok(b.gen_bag == ["gen_18"] and b.gen_bag_tiers == [1] and b.gen_bag_boost == [0], "the gen_bag drops it and its PARALLEL arrays stay aligned")
+	ok(res.bag == [18 * 100 + 4], "the item bag keeps the live line and drops the retired one")
+	var survived := false
+	for i in b.items.size():
+		if int(b.items[i]) == 18 * 100 + 2:
+			survived = true
+	ok(survived, "a live line's board piece is untouched")
+	ok(int((BoardActions.retire_line(b, res.bag, "gen_1", 30) as Dictionary).items) == 0, "retiring again is a clean no-op — nothing left to clear")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.

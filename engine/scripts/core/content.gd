@@ -386,6 +386,48 @@ static func zone_window_lines(current_zone: int) -> Array:
 static func active_lines(level: int) -> Array:
 	return zone_window_lines(quest_zone_for_level(level))
 
+# --- §6 LINE RETIREMENT (2026-07-25) ---------------------------------------------------------------
+# A line is DONE when nothing in the rest of the game can ask for it again — then its generator is dead
+# weight on the board and its leftover stock is unusable. "Left the active window" is NOT that test: lines
+# 2, 3 and 4 drop out of the window and come BACK repeatedly as the ingredients of later crafts (spices at
+# L22, corals at L27, tea cups at L34), so retiring on window exit would strand the player five times over
+# the arc. The real test is FORWARD-LOOKING, and it is finite: the window slides through the zone ladder and
+# then FREEZES at the last zone, so every future state is covered by scanning the remaining zones.
+#
+# On the shipped roster that makes retirement THREE events — gen_1 past L11, gen_6 past L22, gen_16 past
+# L33. The other five generators (2, 3, 4, 7, 18) are the final window's ingredient set and never retire.
+
+## The generators the live asks REQUIRE at `level` — the union over the active window, ingredient tree
+## included (a special folds into the base generators that craft it).
+static func needed_gens(level: int) -> Dictionary:
+	var out := {}
+	for l in active_lines(level):
+		for g in gens_for_quest_line(int(l)):
+			out[String(g)] = true
+	return out
+
+## True when NO level from `level` onward will ever require `gen_id` again. Only base-LINE generators
+## retire — accumulator / bonus / treat generators are their own lifecycle and are never offered.
+static func gen_retirable(gen_id: String, level: int) -> bool:
+	var gid := String(gen_id)
+	if gid == "" or is_accumulator(gid) or is_treat_gen(gid):
+		return false
+	if not ZONE_BASE_LINES.has(int(gid.trim_prefix("gen_"))):
+		return false
+	# active_lines only changes at a zone boundary, so one probe per remaining zone covers every future level.
+	for z in range(quest_zone_for_level(level), ZONE_COUNT):
+		if needed_gens(int(ZONE_UNLOCK_LEVEL[z])).has(gid):
+			return false
+	return true
+
+## Which of `owned_ids` (board ∪ gen_bag) can retire at `level` — the set the retirement offer draws from.
+static func retirable_gens(owned_ids: Array, level: int) -> Array:
+	var out: Array = []
+	for g in owned_ids:
+		if not out.has(String(g)) and gen_retirable(String(g), level):
+			out.append(String(g))
+	return out
+
 # Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
 # opening new zones, the ask pool still advances. The level→zone map is the ZONE_UNLOCK_LEVEL cadence dial
 # (scene-aligned, 2026-07-23) — the HIGHEST zone whose unlock level the player has reached. Monotonic, so a

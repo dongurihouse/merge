@@ -107,6 +107,72 @@ static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
 		return {"landed": [], "bagged": [dup_id]}
 	return {"landed": [], "bagged": []}
 
+# --- §6 LINE RETIREMENT (2026-07-25) -----------------------------------------------------------------
+# Clear a line the game will never ask for again (G.gen_retirable): its generator leaves the board AND the
+# gen_bag, and every leftover item of that line — on the board and in the item bag — is sold. Guarded on
+# the same forward-looking predicate the offer uses, so a line that still feeds a later craft can never be
+# retired out from under the player (lines 2/3/4 go dormant and come back as ingredients).
+#
+# The generator goes AWAY, not into the bag: the bag is the board's pressure-relief valve (§5, 6 slots to
+# start, premium-priced to grow), so parking dead tools there would tax the live loop and make retirement
+# read as a punishment.
+#
+# `bag` is the scene's item bag (board_model owns only gen_bag), passed in and returned filtered so the
+# whole decision stays a pure, headless-testable static. Returns
+#   {retired, line, coins, items, gen_cells, bag}
+# — items = how many pieces were sold, gen_cells = board cells freed (for the scene's poof).
+static func retire_line(board: BoardModel, bag: Array, gen_id: String, level: int) -> Dictionary:
+	var gid := String(gen_id)
+	var out := {"retired": false, "line": 0, "coins": 0, "items": 0, "gen_cells": [], "bag": bag}
+	if not G.gen_retirable(gid, level):
+		return out                                    # still needed by a later craft — refuse
+	var line := int(gid.trim_prefix("gen_"))
+	out["line"] = line
+	var coins := 0
+	var items := 0
+	# 1. the leftover stock on the BOARD
+	for i in board.items.size():
+		var code: int = board.items[i]
+		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == line:
+			coins += int(G.sell_reward(code).x)
+			items += 1
+			board.take(BoardModel.cell_of(i))
+	# 2. the leftover stock in the ITEM BAG
+	var kept: Array = []
+	for code in bag:
+		if int(code) > 0 and not G.is_coin(int(code)) and BoardModel.line_of(int(code)) == line:
+			coins += int(G.sell_reward(int(code)).x)
+			items += 1
+		else:
+			kept.append(code)
+	out["bag"] = kept
+	# 3. the generator itself — every copy, on the board and in the gen_bag (the parallel arrays move in lockstep)
+	var cells: Array = []
+	for cell in board.gens.keys():
+		if String(board.gens[cell]) == gid:
+			cells.append(cell)
+	for cell in cells:
+		board.remove_gen(cell)
+	out["gen_cells"] = cells
+	var kid: Array = []
+	var ktier: Array = []
+	var kboost: Array = []
+	for i in board.gen_bag.size():
+		if String(board.gen_bag[i]) == gid:
+			continue
+		kid.append(board.gen_bag[i])
+		ktier.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
+		kboost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
+	board.gen_bag = kid
+	board.gen_bag_tiers = ktier
+	board.gen_bag_boost = kboost
+	if coins > 0:
+		Save.add_coins(coins)                         # spendable only — retirement never advances the clock
+	out["retired"] = true
+	out["coins"] = coins
+	out["items"] = items
+	return out
+
 # Gen stranding fix — SELL a redundant generator (one that has a strictly-higher same-line sibling, so the
 # line keeps its top producer). Guarded: a non-redundant generator is refused. Removes it from the model and
 # credits GEN_SELL_COINS. Returns {sold, coins} for the scene's poof + coin float.
