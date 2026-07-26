@@ -414,18 +414,25 @@ func _test_endgame_fence_stays_live() -> void:
 	ok(scn._asked_codes().size() >= 1, "the endgame fence actively wants items (glow + tap-to-deliver stay live)")
 	scn.queue_free()
 
-# SAVE MIGRATION (2026-07-23, scene-aligned cadence): an older save may hold generators/items/quests for
-# lines the player should not have reached yet at their level. board._purge_above_level_content strips them
-# on load. This boots a board at L15, INJECTS too-advanced content (koi = zone 10, unlocks L23) alongside
-# in-cadence content (desert fruits = zone 5, L13; glow = anchor), PERSISTS it as an old save, then reloads
-# through the real _load_state path and asserts the too-advanced content is gone, the valid content stays,
-# the parallel gen-bag arrays stay aligned, and a second pass is a no-op (idempotent).
+# SAVE MIGRATION: an older save may hold generators/items/quests for lines the player should not have
+# reached yet at their level. board._purge_above_level_content strips them on load. This boots a board at
+# L15, INJECTS too-advanced content (koi, the last base line) alongside in-cadence content (the newest base
+# line the player HAS reached, derived from ZONE_UNLOCK_LEVEL — the cadence is an owner dial and was
+# re-spaced 2026-07-25, so picking the line by name here would re-break the test on every re-space), then
+# reloads through the real _load_state path and asserts the too-advanced content is gone, the valid content
+# stays, the parallel gen-bag arrays stay aligned, and a second pass is a no-op (idempotent).
 func _test_purge_above_level_migration() -> void:
 	fresh("purge_migration")
 	Save.grove()["coins_earned"] = G.coins_at_level(15)   # player at L15 (koi L23 is future, desert L13 is past)
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
 	ok(G.level() == 15, "setup: the player is at L15")
+	# the newest BASE line already reached at L15 — the "in cadence, must survive" control
+	var ok_line := 0
+	for _bl in G.ZONE_BASE_LINES:
+		if not G.line_gated_out(int(_bl), 15):
+			ok_line = int(_bl)
+	ok(ok_line > 0 and G.line_gated_out(18, 15), "setup: line %d is in cadence at L15; koi (18) is still future" % ok_line)
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(scn)
 	if scn.board == null:
@@ -439,10 +446,10 @@ func _test_purge_above_level_migration() -> void:
 	for cell in [c_koi, c_desert, c_glow, c_gen]:
 		scn.board.take(cell)
 	scn.board.place(c_koi, 1801)             # koi t1 — GATED at L15 (zone 10, L23)
-	scn.board.place(c_desert, 601)           # desert fruits t1 — valid at L15 (zone 5, L13)
+	scn.board.place(c_desert, ok_line * 100 + 1)   # the newest in-cadence base line at L15 — must SURVIVE
 	scn.board.place(c_glow, 101)             # glow-mushrooms t1 — valid (anchor)
 	scn.board.place_gen("gen_18", c_gen)     # koi generator — GATED
-	scn.board.gen_bag = ["gen_18", "gen_6"]  # a gated koi + an in-cadence desert generator
+	scn.board.gen_bag = ["gen_18", G.gen_for_line(ok_line)]  # a gated koi + an in-cadence generator
 	scn.board.gen_bag_tiers = [1, 1]
 	scn.board.gen_bag_boost = [0, 0]
 	scn.bag = [1801, 101]                     # a gated koi item + a valid glow item stashed
@@ -457,13 +464,13 @@ func _test_purge_above_level_migration() -> void:
 			var code: int = scn.board.item_at(Vector2i(r, c))
 			if code == 1801:
 				koi_on_board = true
-			if code == 601:
+			if code == ok_line * 100 + 1:
 				desert_on_board = true
 	ok(not koi_on_board, "migration removes the too-advanced koi piece from the board")
-	ok(desert_on_board, "migration keeps the in-cadence desert-fruits piece")
+	ok(desert_on_board, "migration keeps the in-cadence line-%d piece" % ok_line)
 	ok(not scn.board.gens.values().has("gen_18"), "migration removes the too-advanced koi generator")
 	ok(scn.board.gens.values().has("gen_1"), "migration keeps the anchor generator")
-	ok(not scn.board.gen_bag.has("gen_18") and scn.board.gen_bag.has("gen_6"), "migration prunes the gen_bag — drops koi, keeps desert")
+	ok(not scn.board.gen_bag.has("gen_18") and scn.board.gen_bag.has(G.gen_for_line(ok_line)), "migration prunes the gen_bag — drops koi, keeps the in-cadence generator")
 	ok(scn.board.gen_bag.size() == scn.board.gen_bag_tiers.size() and scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag arrays stay aligned after the prune")
 	ok(not scn.bag.has(1801) and scn.bag.has(101), "migration prunes the item bag — drops koi, keeps glow")
 	var quest_lines: Array = []

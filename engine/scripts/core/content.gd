@@ -32,6 +32,7 @@ const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
 const ZONE_UNLOCK_LEVEL = D.ZONE_UNLOCK_LEVEL   # §7 per-zone unlock LEVEL — the progression cadence dial
 const GEN_TOP_TIER = D.GEN_TOP_TIER
+const CLUSTER_LEVEL_STEP = D.CLUSTER_LEVEL_STEP   # §8 cluster-ladder level spacing (paired with ZONE_UNLOCK_LEVEL)
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
 const ENDGAME_DECK_SALT := 0x5AFE            # fixed salt for the endgame draw's per-round shuffle seed
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
@@ -1045,10 +1046,12 @@ static func global_cluster_index(z: int, cluster_id: String) -> int:
 		i += 1
 	return idx
 
-# The LEVEL at which a cluster unlocks = its global order position, offset so the very first
-# cluster (the market's top cluster) sits at L2 — a formula, not a data field.
+# The LEVEL at which a cluster unlocks = its global order position SPACED BY CLUSTER_LEVEL_STEP, offset so
+# the very first cluster (the market's top cluster) sits at L2 — a formula, not a data field. The step is a
+# grove dial so the scene ladder can be stretched in step with ZONE_UNLOCK_LEVEL (each zone's line must keep
+# arriving while its own themed scene is the one being unlocked); at 1.0 this is the original 1-per-level ramp.
 static func cluster_min_level(z: int, cluster_id: String) -> int:
-	return 2 + global_cluster_index(z, cluster_id)
+	return 2 + int(round(float(global_cluster_index(z, cluster_id)) * float(CLUSTER_LEVEL_STEP)))
 
 ## A coverup page can't offer ANY of its own clusters until every EARLIER coverup page's clusters
 ## are fully unlocked — the picture-book reads front-to-back, one scene finished before the next
