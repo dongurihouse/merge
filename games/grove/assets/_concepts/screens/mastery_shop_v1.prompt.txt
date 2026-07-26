@@ -1,0 +1,44 @@
+Generate an image (do not write code).
+Use case: UI mock — a locked edit of a live game screenshot.
+Asset type: full-frame mobile mock, opaque PNG, exactly 1080x1920 (the size of image 1).
+
+Image 1 is the exact edit target: reproduce it pixel-faithfully except the one enumerated
+insertion below. Image 2 is the Meadow Sky palette and cut-paper material authority — colors and
+paper material only.
+
+The SHOP sheet shows sections: FREE REFILL (watering-can row), QUICK HELP with caption
+"COIN POUCH" and its wide card, then "ACORN POUCHES" with six purchase cards. Make exactly ONE
+insertion:
+
+Directly below the COIN POUCH card and above the "ACORN POUCHES" caption, insert:
+1. A small ink caps caption in the same style as "COIN POUCH", exactly: SCISSORS
+2. One full-width card in the same warm-cream rounded card style as the COIN POUCH card:
+   - left: a cut-paper scissors icon, matte cardstock, rounded friendly blades in structural
+     slate #3F6D7D with coral #D87865 handles, two or three paper masses, legible at phone size;
+   - center: ink #243B4B text, exactly: Cuts a piece into two of a tier lower.
+   - right: a garden-green #5F9B6D rounded price pill containing the same small gold star-coin
+     icon used in the top HUD coin pill, then "40" in cream text.
+3. Shift the "ACORN POUCHES" caption and its six cards down by the height of the insertion; the
+   bottom row of cards may crop off the bottom edge of the sheet.
+
+Preserve exactly everything else: the SHOP title, close button, FREE REFILL row, COIN POUCH row,
+all prices and texts, the dimmed board behind the sheet, and all paper texture. Do not smooth,
+recolor, restyle, or redraw anything outside the insertion and the downward shift. No watermark.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/15c1e06d-af01-4308-9451-40cd34410a26/scratchpad/mocks
+Name it: mock4_shop.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already
+approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your
+built-in image generation, keep the full opaque canvas at exactly the size of image 1, and save it
+to the path above. Then report the saved path.

@@ -1,0 +1,42 @@
+Generate an image (do not write code).
+Use case: UI mock — a locked edit of a live game screenshot.
+Asset type: full-frame mobile mock, opaque PNG, exactly 1080x1920 (the size of image 1).
+
+Image 1 is the exact edit target: reproduce it pixel-faithfully except the one enumerated edit
+below. Image 2 is the Meadow Sky palette and cut-paper material authority — colors and paper
+material only; do not copy its layout.
+
+The bottom info tray shows the selected generator: its icon on the left, the name line
+"Glow Mushrooms · Boosted · 10 left", a second smaller line "Tier 1", and a Boost chip on the
+right. Make exactly ONE edit:
+
+Replace the small "Tier 1" line with a single compact MASTERY ROW at the same position and the
+same row height, left to right:
+1. Eight small round paper pips in a tight row: the first four filled rosy pink #E387C9, the last
+   four hollow with a thin ink #243B4B outline on cream.
+2. A slim rounded progress bar about 170 px long and 14 px tall: warm-cream #F6EBDD track with a
+   thin ink edge, rosy pink #E387C9 fill from the left to about 40%.
+3. Small ink #243B4B text, exactly: next: pops reach t7
+
+Preserve exactly everything else: the generator icon, the name line and its exact text, the Boost
+chip and its 120 price, the home button, the bag well, the whole board above, HUD, quest chips,
+and all paper texture. Do not smooth, recolor, restyle, reflow, or redraw anything outside the one
+replaced line. No watermark.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/15c1e06d-af01-4308-9451-40cd34410a26/scratchpad/mocks
+Name it: mock2_infobar.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already
+approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your
+built-in image generation, keep the full opaque canvas at exactly the size of image 1, and save it
+to the path above. Then report the saved path.

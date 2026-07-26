@@ -108,27 +108,41 @@ both credit sites sit before it.
 
 ## 7 · UI
 
-- **Ring:** thin `draw_arc` around each of the line's generators, color `G.LINES[line].color`,
-  fill = progress within the current rank; absent at meter 0; full and steady at rank 8. New
-  Control on the focus_ring pattern (`mouse_filter = IGNORE`, never child 0 — piece_view.gd:461),
-  refreshed on the `_refresh_boost_indicator` beat (board.gd:1643). No numbers on the board.
-- **Trim:** at ranks 2/4/6/8 — ribbon → bronze → silver → gold — one shared 4-frame overlay set on
-  the 512² generator canvas (art guide §5), composited over any generator sprite. Later gilds
-  Shelf rows and Collection entries (forward hook).
-- **Rank-up:** the `retire_offer.gd` template (Overlay.modal, dismissable): generator art, one
-  line (*"Berry Bush — pops now land t3–t6."*), **Continue**, `FX.burst` confetti. Deferred until
-  the triggering action's FX settle; multiple ranks in one credit collapse to the highest; queued
-  behind the level-up popup (board.gd:3798).
+Mocks (composition authority for the builder):
+`games/grove/assets/_concepts/screens/mastery_{ring_trim, infobar, rankup, shop, split_ghost}_v1_1080x1920.png`
+(+ `.prompt.txt` sidecars).
+
+- **Ring:** thin `draw_arc` around each of the line's generators, color `G.LINES[line].color`;
+  stroke ≈5% of cell size; fills clockwise from 12 o'clock over a faint warm-cream track at low
+  opacity; fill = progress within the current rank; absent at meter 0; full and steady at rank 8.
+  New Control on the focus_ring pattern (`mouse_filter = IGNORE`, never child 0 —
+  piece_view.gd:461), refreshed on the `_refresh_boost_indicator` beat (board.gd:1643). No numbers
+  on the board.
+- **Trim:** at ranks 2/4/6/8 — ribbon → bronze → silver → gold blossom — one shared 4-frame
+  overlay set on the 512² generator canvas (art guide §5), composited over any generator sprite,
+  anchored at the sprite's bottom-left, ≈⅓ sprite width. Later gilds Shelf rows and Collection
+  entries (forward hook).
+- **Rank-up:** the `retire_offer.gd` template (Overlay.modal, dismissable, standard dialog frame):
+  the line's generator sprite hero-sized, one ink line in the exact form
+  *"<Line name> — pops now land tX–tY."*, **Continue** (action green), `FX.burst` confetti.
+  Deferred until the triggering action's FX settle; multiple ranks in one credit collapse to the
+  highest; queued behind the level-up popup (board.gd:3798).
 - **Info bar** (generator selected): tier moves into the name line (`_gen_info_text`,
-  board.gd:2250); the second line becomes rank pips + slim `Kit.progress_bar` to next threshold +
-  next reward in six words. Same single-row height — the tray must not grow (action_bar.gd:95–111;
-  `board_hud_layout_tests` stays green). Items and empty cells unchanged.
-- **Scissors:** shop card *"Cuts a piece into two of a tier lower."*; dragging over an eligible
-  piece ghosts the two halves (telegraph seam, board.gd:2696–2716); drop = snip, halves pop apart;
-  ineligible = the refuse wobble.
-- **Strings** (`games/grove/strings.json`): `board.info.mastery_next_*`, `shop.scissors.*`,
-  rank-up lines. **Art** (guide intake): `tool_scissors` piece sprite, `shop_scissors` icon, 4
-  trim frames.
+  board.gd:2250); the second line becomes the mastery row at the same height: eight round pips
+  (filled = line color, hollow = ink outline on cream) · slim `Kit.progress_bar` ≈170×14 px at
+  base canvas (cream track, line-color fill) to the next threshold · the next-reward string. The
+  tray must not grow (action_bar.gd:95–111; `board_hud_layout_tests` stays green). Items and empty
+  cells unchanged.
+- **Scissors in shop:** a QUICK HELP row below Coin Pouch, caption "SCISSORS": icon · ink text
+  *"Cuts a piece into two of a tier lower."* · green price pill with the coin icon and 40.
+- **Scissors on board:** dragging over an eligible piece shows the split preview (telegraph seam,
+  board.gd:2696–2716): two twin ghosts at ≈50% alpha side-by-side in the target cell, the
+  original faded beneath, a dashed cream outline on the cell; drop = snip, halves pop apart;
+  ineligible = the refuse wobble, no ghost.
+- **Strings** (`games/grove/strings.json`): next-reward forms `next: pops reach tX` (odd ranks) /
+  `next: pops start at tX` (even ranks); `shop.scissors.*`; the rank-up line. **Art** (guide
+  intake): `tool_scissors` piece sprite and `shop_scissors` icon — matte cut-paper scissors,
+  structural-slate blades `#3F6D7D`, coral handles `#D87865`; 4 trim frames.
 
 ## 8 · Sim gates (block the merge)
 

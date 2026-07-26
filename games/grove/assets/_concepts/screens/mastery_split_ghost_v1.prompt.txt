@@ -1,0 +1,42 @@
+Generate an image (do not write code).
+Use case: UI mock — a locked edit of a live game screenshot.
+Asset type: full-frame mobile mock, opaque PNG, exactly 1080x1920 (the size of image 1).
+
+Image 1 is the exact edit target: reproduce it pixel-faithfully except the enumerated additions
+below. Image 2 is the Meadow Sky palette and cut-paper material authority — colors and paper
+material only.
+
+The board's center-left open cell holds a cream egg piece with a red cap (directly left of the
+tree-stump generator, its cell roughly x 350-465, y 1040-1165). Show the SCISSORS SPLIT preview
+on that piece:
+
+1. THE TOOL IN HAND: a cut-paper scissors piece — matte cardstock, rounded friendly blades in
+   structural slate #3F6D7D, coral #D87865 handles, sized like a board piece — hovering slightly
+   above and to the right of that egg piece, tilted about 15 degrees as if mid-drag, with a
+   short, soft tinted shadow #294654 at low opacity on the board beneath it.
+2. THE GHOST PREVIEW: inside the target egg's cell, two half-transparent (about 50% opacity)
+   smaller copies of that same egg piece, side by side, slightly overlapping the original which
+   fades to about 30% opacity beneath them.
+3. A thin dashed warm-cream #F6EBDD outline hugging the inside edge of the target cell.
+
+Preserve exactly everything else: every other cell and piece, the generator, HUD, quest chips,
+bottom tray, and all paper texture. Do not smooth, recolor, restyle, reflow, or redraw anything
+outside the additions. No text or watermark.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/15c1e06d-af01-4308-9451-40cd34410a26/scratchpad/mocks
+Name it: mock5_ghost.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already
+approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your
+built-in image generation, keep the full opaque canvas at exactly the size of image 1, and save it
+to the path above. Then report the saved path.
