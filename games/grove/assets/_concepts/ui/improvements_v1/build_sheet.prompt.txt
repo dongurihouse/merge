@@ -1,0 +1,25 @@
+Use case: UI mock for a shipped mobile merge game. Asset type: full-frame vertical UI mockup, exactly 1080x1920.
+Generate an image (do not write code).
+
+Input images:
+- Image 1: the game's REAL current screen — the layout, style, and content authority. It stays visible behind the dialog. Change ONLY what the change list states.
+- Image 2: palette & material authority for NEW elements only (matte hand-cut cardstock, warm cut edges, shallow tinted shadows). Do not copy its board or layout.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+Text exception for this UI mock: render EXACTLY the strings in "Allowed new text" and no other new text; existing text in Image 1 stays as-is where still visible.
+
+Change list (the build sheet dialog is open):
+1. A soft dark ink veil (about 55% opacity) covers the whole screen behind the dialog.
+2. Centered warm-cream cut-paper sheet card, about 86% of screen width, deckled edge, shallow tinted shadow.
+3. On the sheet, TWO cards side by side, equal size, each a soft-tinted cream card:
+   - Left card: a rounded matte earth patch in desaturated gold-brown (deckled cut-paper edge) as its art; name "Soil"; one line "A piece resting here grows."; small count "3/9"; a garden-green rounded price pill at the bottom with a small plump golden-acorn coin icon and the text "2 000".
+   - Right card: a horseshoe-shaped pebble in slate blue as its art; name "Magnet"; one line "Matching pieces in its range merge themselves."; small count "1/3"; a garden-green rounded price pill with the same coin icon and the text "8 000".
+
+Allowed new text: Soil / A piece resting here grows. / 3/9 / 2 000 / Magnet / Matching pieces in its range merge themselves. / 1/3 / 8 000
+
+Avoid: glossy plastic, watercolor, brushwork, neon, white sticker outlines, heavy black outlines, any new UI beyond the change list, any other new text, watermark.
+
+FULL-FRAME MOCK: the whole frame is content — there is no background to key out; save fully opaque.
+Save the PNG into: /Users/xup/dh/wt-cell-improvements-mocks/games/grove/assets/_concepts/ui/improvements_v1
+Name it: build_sheet_1080x1920.png. Report the absolute path.
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with your built-in image generation and save it to the path above. Then report the saved path.
