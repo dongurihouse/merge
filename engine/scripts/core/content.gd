@@ -30,7 +30,7 @@ const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
 const ZONE_UNLOCK_LEVEL = D.ZONE_UNLOCK_LEVEL   # §7 per-zone unlock LEVEL — the progression cadence dial
 const GEN_TOP_TIER = D.GEN_TOP_TIER
-const CLUSTER_LEVEL_STEP = D.CLUSTER_LEVEL_STEP   # §8 cluster-ladder level spacing (paired with ZONE_UNLOCK_LEVEL)
+const CLUSTER_LEVEL_LEAD = D.CLUSTER_LEVEL_LEAD   # §8 bias on the DERIVED cluster floors (1.0 = never binding)
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
@@ -1060,12 +1060,75 @@ static func global_cluster_index(z: int, cluster_id: String) -> int:
 		i += 1
 	return idx
 
-# The LEVEL at which a cluster unlocks = its global order position SPACED BY CLUSTER_LEVEL_STEP, offset so
-# the very first cluster (the market's top cluster) sits at L2 — a formula, not a data field. The step is a
-# grove dial so the scene ladder can be stretched in step with ZONE_UNLOCK_LEVEL (each zone's line must keep
-# arriving while its own themed scene is the one being unlocked); at 1.0 this is the original 1-per-level ramp.
+# --- THE DERIVED PACING SPINE (2026-07-25) ------------------------------------------------------------
+# The cluster level floors and the zone unlock cadence are DERIVED from the cluster COST ladder through
+# the coin curve — they are not authored in level-space. A cluster's floor is the level the player stands
+# at once they have EARNED what the ladder has cost through it, so the floor and the price land together.
+# Each scene's completion level closes its LEVEL WINDOW, and ZONE_BAND spreads that scene's zones inside
+# it, which makes scene alignment arithmetic instead of a hand-maintained invariant.
+#
+# Cached against the dials it reads (the curve + the authored costs), so a live apply_tuning() — or a test
+# assigning LEVEL_BASE_COINS directly — invalidates it automatically. There is no rebuild to remember.
+static var _cadence: Dictionary = {}
+static var _cadence_key: String = ""
+
+static func _cadence_table() -> Dictionary:
+	var total := 0
+	var n := 0
+	for z in coverup_pages():
+		for c in clusters(int(z)):
+			total += int((c as Dictionary).get("cost", 0))
+			n += 1
+	var key := "%d/%d/%d/%d" % [LEVEL_BASE_COINS, LEVEL_STEP_COINS, n, total]
+	if key != _cadence_key or _cadence.is_empty():
+		_cadence = _build_cadence()
+		_cadence_key = key
+	return _cadence
+
+static func _build_cadence() -> Dictionary:
+	var floors: Array = []
+	var scene_end: Array = []
+	var cum := 0
+	for z in coverup_pages():
+		for c in clusters(int(z)):
+			cum += int((c as Dictionary).get("cost", 0))
+			floors.append(level_at_coins(int(round(float(cum) * float(CLUSTER_LEVEL_LEAD)))))
+		scene_end.append(level_at_coins(cum))
+	return {"floors": floors, "scene_end": scene_end, "zones": []}
+
+## The coins the cluster ladder has cost through global index `i`, inclusive. Clamps at both ends,
+## so an out-of-range index reads the whole ladder's cost.
+static func cumulative_cluster_cost(i: int) -> int:
+	var cum := 0
+	var idx := 0
+	for z in coverup_pages():
+		for c in clusters(int(z)):
+			cum += int((c as Dictionary).get("cost", 0))
+			if idx >= int(i):
+				return cum
+			idx += 1
+	return cum
+
+## The LEVEL WINDOW of the `p`-th cover-up scene (in coverup_pages() order): x = its first level,
+## y = the level at which it completes. Scene 0 opens at L1; every later scene opens one level past
+## the previous scene's completion.
+static func scene_level_window(p: int) -> Vector2i:
+	var ends: Array = _cadence_table()["scene_end"]
+	if ends.is_empty():
+		return Vector2i(1, 1)
+	var i := clampi(int(p), 0, ends.size() - 1)
+	var first := 1 if i == 0 else int(ends[i - 1]) + 1
+	return Vector2i(first, int(ends[i]))
+
+# The LEVEL at which a cluster unlocks — DERIVED (see above): level_at_coins of the ladder's cumulative
+# cost through it, biased by CLUSTER_LEVEL_LEAD. At lead 1.0 the floor is non-binding by construction:
+# the player reaches the level at about the moment they can afford the cluster.
 static func cluster_min_level(z: int, cluster_id: String) -> int:
-	return 2 + int(round(float(global_cluster_index(z, cluster_id)) * float(CLUSTER_LEVEL_STEP)))
+	var floors: Array = _cadence_table()["floors"]
+	var i := global_cluster_index(z, cluster_id)
+	if i < 0 or i >= floors.size():
+		return 1
+	return int(floors[i])
 
 ## A coverup page can't offer ANY of its own clusters until every EARLIER coverup page's clusters
 ## are fully unlocked — the picture-book reads front-to-back, one scene finished before the next

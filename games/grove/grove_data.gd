@@ -160,10 +160,12 @@ const ZONE_UNLOCK_LEVEL := [ 1, 5, 10, 12, 15, 17, 19, 22, 23, 27, 30, 34]
 # GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
 # NOTE: self-dup is currently OFF (GEN_SELF_DUP_RATE = 0.0) — see the constant. With no fuel the ladder is
 # dormant: generators stay at the tier they already hold, and no new leftovers can strand.
-# §8 the cover-up CLUSTER ladder's level floor spacing: cluster_min_level = 2 + round(global_index × this).
-# 1.0 = the original one-cluster-per-level ramp (25 clusters over L2-26). Raised with the ZONE_UNLOCK_LEVEL
-# stretch above so the scenes and the item lines keep step; the two MUST move together.
-const CLUSTER_LEVEL_STEP := 1.34
+# §8 the cover-up CLUSTER ladder's level floors are DERIVED, not spaced by a dial: a cluster's floor is
+# level_at_coins(cumulative cost of the ladder through it), so the floor and the price arrive together and
+# the scene ladder cannot drift off the coin curve. CLUSTER_LEVEL_STEP is retired with the hand-spacing.
+# This dial biases the derivation: < 1.0 makes the padlock LEAD affordability (level first, then save for
+# the coins), > 1.0 makes it LAG (coins held, level not yet reached). 1.0 = floors never bind.
+const CLUSTER_LEVEL_LEAD := 1.0
 const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,
