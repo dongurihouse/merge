@@ -1,6 +1,8 @@
 # Generator mastery (+ the Scissors) — full design (2026-07-26)
 
-**Status: draft for Dev review.** This is rollout **step 2** of
+**Status: rev 2, after first Dev review (same day).** Rev 2: the ladder is **pure tier windows**
+— bursts stay the purchased boost's product, untouched; the rank-7 ask-tier lean is dropped from
+the ladder (the dial stays parked). This is rollout **step 2** of
 `2026-07-26-progression-systems-design.md` (§3 owns the intent, §7 the economy laws); this doc
 grounds that sketch in shipped code and makes every mechanic implementable. Companions:
 `docs/design/picturebook_lines_recipes.md` (roster intent; its line ids for shells/corals/koi/tea
@@ -13,9 +15,9 @@ All numbers are **provisional dials** — the step-2 `grove_sim` re-pass owns th
 
 ## 1 · What this is
 
-A permanent, per-line growth track. Using a line productively fills its meter; meter ranks make the
-line's generator pop better — bigger bursts, and a rising **tier floor** so pops start at t2…t5
-instead of t1. At a t5 floor a t12 trophy costs 128 pops, not 2048 — mastery is the road to tier 12,
+A permanent, per-line growth track. Using a line productively fills its meter; meter ranks raise
+the line's **pop tier window** — first higher reach, then a higher floor — climbing from today's
+t1–t4 toward t5–t8. At a t5 floor a t12 trophy costs 128 pops, not 2048 — mastery is the road to tier 12,
 and the reason an ingredient line keeps mattering for its whole craft afterlife. The Scissors ships
 with it as the bridge back down: a tool that splits one piece into two of one tier lower, so high
 floors can never strand a low-tier ingredient ask.
@@ -76,87 +78,68 @@ bell (`gen_quest`, content.gd:674–683), so the sim re-pass must reproduce this
 Thresholds step ~×2.2 and start low. `MASTERY_THRESHOLDS := [20, 60, 150, 350, 800, 1700, 3400,
 6500]` (grove_data.gd, beside the other pacing dials).
 
-| Rank | Threshold | Permanent reward | Mechanically |
+Every rank moves the **pop tier window** and nothing else — odd ranks raise the **reach** (the
+window top), even ranks raise the **floor**. Two closed forms produce the whole ladder (pure,
+unit-tested): `lo(r) = 1 + r ÷ 2`, `hi(r) = 4 + (r + 1) ÷ 2` (integer division; rank 0 = today's
+t1–t4).
+
+| Rank | Threshold | Pops land | The step |
 |---|---|---|---|
-| 1 | 20 | Better burst odds | burst step +1 (§4a) |
-| 2 | 60 | Pops land t2–t5 | floor entitlement t2 (§4b) |
-| 3 | 150 | Bursts sometimes add a bonus piece | bonus-piece chance 0.15 (§4a) |
-| 4 | 350 | Pops land t3–t6 | floor entitlement t3 |
-| 5 | 800 | Bigger bursts — triples common | burst step +2 (total) |
-| 6 | 1700 | Pops land t4–t7 | floor entitlement t4 |
-| 7 | 3400 | Pops lean toward asked tiers | per-line ask-tier lean 0.35 (§4c) |
-| 8 | 6500 | Pops land t5–t8 | floor entitlement t5 |
+| — | 0 | t1–t4 | (today) |
+| 1 | 20 | t1–t5 | reach +1 |
+| 2 | 60 | t2–t5 | floor +1 |
+| 3 | 150 | t2–t6 | reach +1 |
+| 4 | 350 | t3–t6 | floor +1 |
+| 5 | 800 | t3–t7 | reach +1 |
+| 6 | 1700 | t4–t7 | floor +1 |
+| 7 | 3400 | t4–t8 | reach +1 |
+| 8 | 6500 | t5–t8 | floor +1 |
 
-Closed forms (pure, unit-tested): `floor_rank(r) = 1 + r ÷ 2` (integer division, so ranks 2/4/6/8
-give floors 2/3/4/5), `burst_step(r) = (r ≥ 1) + (r ≥ 5)`.
+### 4a · The tier roll
 
-### 4a · Burst rewards, grounded in the shipped tables
+The window is 4 wide at even ranks and 5 wide at odd ranks. The roll stays **exactly one draw**:
+width-4 windows walk the shipped `TIER_ODDS = [0.65, 0.25, 0.09, 0.01]`; width-5 windows walk a
+new `MASTERY_TIER_ODDS_5 := [0.65, 0.25, 0.06, 0.03, 0.01]` (provisional — the two common tiers
+keep today's shares and the tail splits to fund the new reach; the sim owns the final split). The
+result is then offset by the window low. Rank 0 walks the shipped table with no offset — the
+identity.
 
-Shipped burst machinery (charged pops only, board.gd:2995–3000): an unboosted pop rolls
-`GEN_TIER_BURST_ODDS[generator tier]` = `[[0.80,0.15,0.05], [0.50,0.35,0.15], [0.20,0.45,0.35]]`
-for 1/2/3 pieces; a boosted pop rolls `BURST_ODDS_BOOST = [0.20,0.45,0.35]` — which is **identical
-to the tier-3 row**, so a paid boost on a tier-3 generator is already a no-op. The parent sketch's
-burst rewards are re-grounded against these tables:
+**Bursts are not mastery's product.** The burst tables (`GEN_TIER_BURST_ODDS`,
+`BURST_ODDS_BOOST`), the temporary per-generator boost, and generator merging stay exactly as
+shipped — burst power is what the player **buys** (the boost) and builds (generator tiers);
+tier power is what a line **earns**. The game already retired a permanent burst ladder once
+(commit `4d75ec04`); mastery does not re-introduce one.
 
-- **Burst table step.** The pop's odds row index becomes
-  `min(generator_tier − 1 + burst_step(rank), 2)`. At rank 1 a tier-1 generator bursts like tier-2
-  (doubles 15%→35% — "doubles pop more often"); at rank 5 every generator of the line uses the top
-  row (triples at 35% — "triples common").
-- **Bonus piece (rank 3).** After the burst-count roll, one extra roll at
-  `MASTERY_BONUS_PIECE := 0.15` adds one piece — **free** (no water cost), bounded by open cells,
-  placed through the same `roll_spawn`. Effective burst can reach 4; `BURST_MAX` stays 3 for the
-  table itself.
-- **Boost composition (amends the boost's semantics — Dev call §13.3).** A boosted pop takes the
-  top table row as today **and** gains the 0.15 bonus-piece chance even below rank 3. Mastery rank 3
-  and a live boost do not stack the bonus chance (max, not sum). This restores the boost's value on
-  tier-3 generators (broken today) and keeps it purchasable on rank-5+ lines, where the table
-  advantage saturates. Generator merging keeps value below rank 5 and always keeps its
-  board-space value; the saturation at rank 5 is accepted and flagged.
+### 4b · The ask-band clamp
 
-### 4b · The floor rule
-
-- **Entitlement vs effective.** The rank grants a floor entitlement (t2/t3/t4/t5). The effective
-  floor is computed per pop:
-  `effective = rank_floor` when the line has **no own live asks**, else
-  `effective = clamp(band − 3, 1, rank_floor)`, where **band = the highest tier among the line's own
-  live asks** (the runtime `quests` array read through `G.quest_item`; an ask for a special is not
-  an ask for its ingredients). New helper — nothing suitable exists; `BoardLogic.wanted_tiers` is
-  clamped to t≤4 for spawn bias and must not be reused for this (board_logic.gd:79).
-- **A comeback line re-birthed as an ingredient tool has no own asks** — its floor applies
+- **Entitlement vs effective.** The rank grants the window; the effective window is computed per
+  pop. When the line has own live asks, the clamp **slides the whole window down without changing
+  its shape**: `slide = max(0, lo(rank) − max(1, band − 3))`, effective window =
+  `[lo − slide, hi − slide]`, where **band = the highest tier among the line's own live asks**
+  (the runtime `quests` array read through `G.quest_item`; an ask for a special is not an ask for
+  its ingredients). No own asks → no slide. New helper — nothing suitable exists;
+  `BoardLogic.wanted_tiers` is clamped to t≤4 for spawn bias and must not be reused for this
+  (board_logic.gd:79). Odd-rank reach steps have `lo` unchanged, so they never clamp — reach can
+  mildly overshoot a low band, exactly as today's t4 pops overshoot t2 asks.
+- **A comeback line re-birthed as an ingredient tool has no own asks** — its window applies
   unclamped, and the Scissors is the bridge down to low ingredient tiers (§5). If the band is low,
   the floor waits and unlocks retroactively as bands climb; nothing is stored — it is recomputed
-  from rank + live asks at pop time, once per `_pop_seed` call (one floor for the whole burst).
-- **Mechanics: a window shift, not new odds.** `roll_tier` keeps its single draw over `TIER_ODDS =
-  [0.65, 0.25, 0.09, 0.01]`; the result is shifted by `effective − 1`, so pops land in
-  `[floor, floor+3]` on the same decaying curve. Floor 1 is the identity (today's t1–t4). Maximum
-  window is t5–t8: **pops can never mint t9+** — the t9 capstone and t10–t12 trophies stay
-  merge-made.
-- Shipped asks reach t12, so `band − 3` can reach t9; the rank cap (t5) always binds first. (The
-  parent's "ask bands cap at t8" describes the intent-stage recipe doc, not shipped code — the rule
-  needs no amendment, the cap just binds earlier.)
-- The floor applies **only to generator pops** (`_pop_seed` → `roll_spawn`). `roll_item_tier`
+  from rank + live asks at pop time, once per `_pop_seed` call (one window for the whole burst).
+- Shipped asks reach t12, so `band − 3` can reach t9; the rank window (lo ≤ 5) always binds first.
+  (The parent's "ask bands cap at t8" describes the intent-stage recipe doc, not shipped code —
+  the rule needs no amendment, the cap just binds earlier.) Maximum window is t5–t8: **pops can
+  never mint t9+** — the t9 capstone and t10–t12 trophies stay merge-made.
+- The window applies **only to generator pops** (`_pop_seed` → `roll_spawn`). `roll_item_tier`
   consumers (accumulator/treat collects) and `bramble_seed` are untouched.
-
-### 4c · Rank 7 — the ask-tier lean
-
-The parked global dial stays parked: `ASK_TIER_WEIGHT` remains 0.0 (grove_data.gd:196; pinned by
-mechanics_tests.gd:417 — that pin survives). Rank 7 arms a **separate per-line** dial,
-`MASTERY_ASK_TIER_WEIGHT := 0.35`: with that probability, the rolled tier is replaced by a uniform
-pick among the line's own asked tiers **that fall inside the current pop window** `[floor,
-floor+3]` (the shipped block at board_logic.gd:135–144 with the 1..4 clamp generalized to the
-window). The `wanted_tiers` dict build at board.gd:3017 — today gated on the global dial — gains
-"or the popping line is rank 7". The global-dial history (front-loads spend ~3×) is exactly why
-this ships per-line, top-rank only, and why the sim re-pass gates it (§10).
 
 ### The RNG law (hard rule)
 
 The board RNG is seeded and persisted, and draw order is contractual (board_logic.gd:120–124;
-byte-identity test mechanics_tests.gd:413–421). Therefore: **every mastery mechanic adds RNG draws
-only when explicitly armed** — by a rank, or by a live boost. The floor shift adds none, ever
-(post-roll arithmetic). The bonus piece adds one draw only at rank 3+ or under a live boost (the
-§4a composition — the boost is player-armed state, so its stream may change); the lean adds one
-only at rank 7 with candidates in window. A rank-0 line's **unboosted** pop stream stays
-byte-identical to today — extended tests assert this (§11).
+byte-identity test mechanics_tests.gd:413–421). Mastery is built to add **zero RNG draws at every
+rank**: the tier roll is always exactly one draw — the window changes the mapping, never the
+count — and nothing else in this design rolls (the Scissors twin placement is deterministic).
+A rank-0 line's pop stream stays byte-identical to today, and the boost path is untouched —
+extended tests assert both (§11).
 
 ## 5 · The Scissors
 
@@ -192,7 +175,7 @@ bridge and ships in the same task.
   count — so split→sell profits `≈ (t−2) × band` per snip, up to 28 coins at t12. The law:
   `SCISSORS_COST > max over t,band of [2·sell(t−1) − sell(t)]`, asserted exactly as a **unit test**
   over all tiers and bands (40 > 28 holds). If the Dev wants the scissors cheaper than ~30, the
-  sell curve has to bend instead — flagged (§13.4).
+  sell curve has to bend instead — flagged (§13.3).
 
 ## 6 · Data model & save
 
@@ -206,9 +189,9 @@ Save.grove()["mastery_seen"]  : { "<line id>": int }   # highest rank already ce
 Save.grove()["scissors_pending"] : int                 # map-shop purchases awaiting board entry
 ```
 
-Rank, floors, burst step, and lean are all derived from the meter — never stored. Existing saves
+Rank is derived from the meter and the pop window from rank + live asks — never stored. Existing saves
 read as all-zeros and simply start climbing; there is no historical per-line delivery ledger to
-seed from, so no retro credit (§13.5). Board and bag blobs are untouched. Persistence rides the
+seed from, so no retro credit (§13.4). Board and bag blobs are untouched. Persistence rides the
 existing `_after_board_change → _persist` fan-out (board.gd:1011, both credit sites already sit
 before it).
 
@@ -216,14 +199,14 @@ before it).
 
 | Unit | Owns |
 |---|---|
-| `games/grove/grove_data.gd` | The dials: `MASTERY_THRESHOLDS`, `MASTERY_BONUS_PIECE`, `MASTERY_ASK_TIER_WEIGHT`, `SCISSORS_LINE`, `SCISSORS_COST` (re-exported through content.gd like every other table) |
-| **new** `engine/scripts/core/mastery.gd` | Static module (the `bucket.gd` shape) over `Save.grove()`: `meter/rank/floor_rank/burst_step`, `ask_band(line, quests)`, `effective_floor(line, quests)`, `ask_lean_weight(line)`, `credit_delivery(code)` / `credit_craft(a_code, b_code)` (both return `{line: ranks_gained}` for the scene to celebrate), `any_rank_at_least(r)`. Pure over injected quests — headless-testable |
-| `board_logic.gd` | `roll_spawn` gains `tier_floor := 1` (post-roll shift; default keeps today's byte stream) and the lean's window filter; `wanted_tiers` gains window bounds |
-| `content.gd` | **One shared burst roller**: `pop_burst_count(gen_tier, burst_step, boosted, rng)` replacing the two-table ternary at board.gd:2995–3000, so board and sim roll identical bursts. Scissors code registered in `is_valid_item_code` / `special_kind` / `item_display_name` |
+| `games/grove/grove_data.gd` | The dials: `MASTERY_THRESHOLDS`, `MASTERY_TIER_ODDS_5`, `SCISSORS_LINE`, `SCISSORS_COST` (re-exported through content.gd like every other table) |
+| **new** `engine/scripts/core/mastery.gd` | Static module (the `bucket.gd` shape) over `Save.grove()`: `meter/rank`, the `lo/hi` closed forms, `ask_band(line, quests)`, `window(line, quests)` (the §4b slide applied), `credit_delivery(code)` / `credit_craft(a_code, b_code)` (both return `{line: ranks_gained}` for the scene to celebrate), `any_rank_at_least(r)`. Pure over injected quests — headless-testable |
+| `board_logic.gd` | The tier roll becomes the **one shared windowed roller** `roll_tier_window(rng, lo, width)` (single draw; defaults reproduce today's byte stream); `roll_spawn` gains `tier_lo := 1, tier_hi := 4` |
+| `content.gd` | Scissors code registered in `is_valid_item_code` / `special_kind` / `item_display_name`. Burst helpers untouched |
 | `board_actions.gd` | `deliver_quest` calls `Mastery.credit_delivery` and returns `rank_ups`; **`_apply_recipe` is lifted here** as `apply_recipe(board, from, target) -> {code, consumed}` + credit (today it is scene-inline at board.gd:3126 with no test seam — this matches how deliver/retire/sell already live in the pure layer); new `split_piece(board, from, target) -> {twin_cell}` for the Scissors |
-| `board.gd` | Orchestration only: floor/lean args into `roll_spawn` (:3017, :3029), burst call swap (:2995), release-ladder branch + ghost telegraph, ring/trim/rank-up/info-bar/shop wiring |
+| `board.gd` | Orchestration only: window args into `roll_spawn` (:3029), release-ladder branch + ghost telegraph, ring/trim/rank-up/info-bar/shop wiring. Burst selection (:2995) untouched |
 | `features.gd` | `"mastery": true`, `"scissors": true` (rule N4); off = rank 0 everywhere = byte-identical spawns |
-| `grove_sim.gd` | Calls the same `Mastery.credit_*` at its fused craft-and-deliver site (:827–841) and the extracted burst/tier helpers instead of its hand-mirrored copies (:937–945, :1051–1072) — the mirror-drift class dies here |
+| `grove_sim.gd` | Calls the same `Mastery.credit_*` at its fused craft-and-deliver site (:827–841) and `roll_tier_window` instead of its hand-mirrored tier walk (:1051–1072) — that mirror-drift class dies here. The burst mirror (:937–945) stays as-is (behavior unchanged) |
 
 ## 8 · UI
 
@@ -234,10 +217,10 @@ before it).
   (`mouse_filter = IGNORE`, never child 0 — piece_view.gd:461), refreshed on the
   `_refresh_boost_indicator` beat (board.gd:1643). No numbers on the board. (No radial-progress
   component exists today; this is the first.)
-- **The trim.** At floors 2/4/6/8 the generator gains an art trim — ribbon → bronze → silver → gold
+- **The trim.** At the floor ranks (2/4/6/8) the generator gains an art trim — ribbon → bronze → silver → gold
   blossom — as **one shared set of four overlay frames** on the 512² generator canvas (art guide
   §5), composited over any generator's sprite; not per-line art (8 lines × 4 states of bespoke art
-  is an intake sweep for another day — §13.6). The same frames later gild Shelf rows and Collection
+  is an intake sweep for another day — §13.5). The same frames later gild Shelf rows and Collection
   entries (forward hook; whichever of step 1/step 2 lands second wires it).
 - **Rank-up.** The `retire_offer.gd` template (Overlay.modal + art + one line + one CTA,
   dismissable): generator art, *"Berry Bush — pops now land t3–t6."*, **Continue**, with
@@ -263,10 +246,12 @@ before it).
 ## 9 · Economy guards (this step's slice of parent §7)
 
 - Mastery feeds on productive use only — the two whitelisted credit sites; selling never.
-- Floors respect asks: `min(rank floor, own band − 3)`, unclamped only when no own asks exist.
+- Windows respect asks: the §4b slide, unclamped only when no own asks exist.
 - Pops never mint above t8; t9+ stays merge-made.
+- Bursts stay the boost's product — no mastery path touches a burst table.
 - Scissors is never a sell arbitrage — the price-floor inequality is a unit test, not a tuning hope.
-- The lean ships per-line at rank 7 only; the global dial stays 0.0 and its test pin stays.
+- The ask-tier lean stays parked: `ASK_TIER_WEIGHT` stays 0.0 and its test pin
+  (mechanics_tests.gd:417) stays.
 - Combo/chain credit for splits and echoes: nothing here grants any — steps 3/4 own those verbs.
 - The clock stays quests-only: mastery mints no coins; rank-ups pay nothing.
 
@@ -277,15 +262,13 @@ Add mastery state + the shared rollers to the sim (§7), then re-run the standar
 
 1. **Time-to-rank curve** per line — the §3 shape must emerge from live play: typical lines rank
    4–6 by book end, koi/shells ~7, rank 8 post-book. Thresholds move if not.
-2. **Faucet inflation bounded.** Floors cut pops-per-delivery (that is the point), which speeds the
-   coin faucet and the quest clock. Invariant Z (sink > faucet) and the P1/P2 pile checks must
-   hold; report the book-length change (the ~19K-click arc will compress for mastered lines — the
-   Dev accepts a number, the sim reports it).
-3. **Rank-7 lean bounded.** The global dial front-loaded spend ~3× at 0.6; per-line at 0.35 must
-   show no such front-load (this gate is why the lean ships at top rank only).
-4. **No jams** (I1) with floors active — high-tier boards must not deadlock ingredient asks;
+2. **Faucet inflation bounded.** Rising windows cut pops-per-delivery (that is the point), which
+   speeds the coin faucet and the quest clock. Invariant Z (sink > faucet) and the P1/P2 pile
+   checks must hold; report the book-length change (the ~19K-click arc will compress for mastered
+   lines — the Dev accepts a number, the sim reports it).
+3. **No jams** (I1) with windows active — high-tier boards must not deadlock ingredient asks;
    scissors purchases must appear in the bot's ladder when a strand would otherwise jam.
-5. **Scissors economics:** the bot never finds a profitable split→sell loop (belt-and-suspenders on
+4. **Scissors economics:** the bot never finds a profitable split→sell loop (belt-and-suspenders on
    top of the §5 unit test).
 
 Invocation unchanged: `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- <days>
@@ -295,22 +278,23 @@ sim re-pass should run on whichever gate table is live when this merges.
 
 ## 11 · Testing
 
-- **`engine/tests/mastery_tests.gd` (new, pure):** threshold monotonicity; rank/floor/burst-step
-  closed forms; band from a quests fixture (own asks only; specials don't proxy to ingredients);
-  effective-floor clamp incl. the no-own-asks unclamped case and retroactive rise; credit math
-  (delivery, craft both-lines, nested special credits once, sum equals click cost); split value
-  neutrality; the **scissors arbitrage inequality over all tiers × bands**; burst composition
-  (gen tier × step × boost, max-not-sum bonus).
-- **RNG byte-identity:** extend the mechanics_tests.gd:413 pattern — rank-0 lines and
-  `tier_floor = 1` produce today's exact stream; each armed effect adds only its documented draw.
+- **`engine/tests/mastery_tests.gd` (new, pure):** threshold monotonicity; the `lo/hi` closed
+  forms reproduce the §4 table; `MASTERY_TIER_ODDS_5` sums to 1 and decays; the §4b slide cases
+  (clamped, unclamped no-own-asks, retroactive rise, reach ranks never clamp); band from a quests
+  fixture (own asks only; specials don't proxy to ingredients); credit math (delivery, craft
+  both-lines, nested special credits once, sum equals click cost); split value neutrality; the
+  **scissors arbitrage inequality over all tiers × bands**.
+- **RNG byte-identity:** extend the mechanics_tests.gd:413 pattern — the default window
+  (`tier_lo = 1, tier_hi = 4`) produces today's exact stream, and the tier roll is one draw at
+  every rank.
 - **`grove_board_actions_tests.gd`:** deliver credits + returns rank_ups; lifted `apply_recipe`
   parity with the old inline behavior + credits; retire/sell/collect credit nothing; `split_piece`
   placement determinism, full-board and tier-1 refusals.
 - **`grove_shop_tests.gd`:** row hidden below rank 2; buy places / banks pending; refuse before
   spend.
-- **Flow (board suite):** floor applied to a real pop window; lean respects the window; rank-up
-  card fires once per rank (`mastery_seen`); boost+mastery burst on a live board; scissors
-  drag-branch ordering (merge and recipe still win their cases).
+- **Flow (board suite):** a ranked line's pops land inside its window on a live board; rank-up
+  card fires once per rank (`mastery_seen`); scissors drag-branch ordering (merge and recipe still
+  win their cases).
 - **Layout:** `board_hud_layout_tests` unchanged (info row height); `modal_dismiss_tests` untouched
   (the rank-up card is dismissable).
 - Inner loop `make test-fast`; full `make test` + the §10 sim battery before merge.
@@ -327,13 +311,13 @@ chain rules will meet the scissors and rank-up timing in that spec, not this one
 1. **Craft-consumption credit** is a new law (parent §10.1) — restated here as the whitelist in §3.
 2. **Specials have no meter** (§2) — their cost credits their ingredients at craft time. The parent
    said "each line's meter"; this narrows it to the 8 base lines.
-3. **Burst grounding + boost composition** (§4a) — table-steps for ranks 1/5, and the boost gains
-   the bonus-piece chance so it stays worth buying at generator tier 3 / rank 5+ (a semantics
-   amendment to the 06-29 boost design's out-of-scope line).
-4. **Scissors at 40 coins**, forced ≥ ~30 by the linear sell curve. Cheaper requires bending
+3. **Scissors at 40 coins**, forced ≥ ~30 by the linear sell curve. Cheaper requires bending
    `sell_reward` — a bigger change, not proposed.
-5. **No retro seed** — existing mid-arc saves start at rank 0 (no per-line history exists; early
+4. **No retro seed** — existing mid-arc saves start at rank 0 (no per-line history exists; early
    thresholds are low, so catch-up is fast).
-6. **Trim art is one generic 4-frame overlay set**, not per-line bespoke art.
+5. **Trim art is one generic 4-frame overlay set**, not per-line bespoke art.
 
-Parent §10.2 (soil FTUE level) is step-4 scope and stays there.
+Settled by the first review (recorded, no longer open): the ladder is pure tier windows; bursts
+stay the boost's product; the rank-7 ask-tier lean is dropped from the ladder and stays parked
+with the global dial. Parent §3's reward column is superseded by §4 here. Parent §10.2 (soil FTUE
+level) is step-4 scope and stays there.
