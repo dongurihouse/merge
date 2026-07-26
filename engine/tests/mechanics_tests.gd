@@ -760,7 +760,7 @@ func _initialize() -> void:
 	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
 	ok(G.base_generator(5).is_empty(), "a special line has no generator")
 	# owner art picks (2026-07-18): the 3-tier coin/acorn ladders wear chosen art off the 12-tier sheets
-	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 5 and G.art_tier_for("coin", 3) == 12, 		"coin tiers wear the picked art (1/5/12 — coin → pouch → chest)")
+	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 4 and G.art_tier_for("coin", 3) == 5, 		"coin tiers wear the picked art (1/4/5 — coin → coin roll → pouch)")
 	ok(G.art_tier_for("acorn", 2) == 5 and G.art_tier_for("acorn", 3) == 6, "acorn tiers wear the picked art (3/5/6)")
 	ok(G.art_tier_for("water", 2) == 2 and G.art_tier_for("fairy_hollow_glowshroom", 7) == 7, "unmapped bases pass tiers through unchanged")
 	ok(G.item_tex_path(13 * 100 + 1).ends_with("acorn_3.png"), "the acorn drop's t1 sprite resolves through the pick map")
