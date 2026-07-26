@@ -183,6 +183,19 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
+		"retire":
+			# §6 the LINE-RETIREMENT offer: a player past L11 still holding the anchor generator and some of its
+			# now-dead stock. gen_1 is retirable from L12 (nothing in the rest of the game asks glow-mushrooms).
+			var gr := Save.grove()
+			gr["coins_earned"] = G.coins_at_level(14)
+			Save.grove_write()
+			var free_cells: Array = scn.board.empty_ground_cells()
+			for k in mini(3, free_cells.size()):
+				scn.board.place(free_cells[k], 1 * 100 + 2 + k)   # leftover glow pieces to be cleared
+			scn._rebuild_all()
+			await create_timer(0.3).timeout
+			scn._maybe_offer_retirement()
+			await create_timer(0.5).timeout
 		"recipe":
 			# the MERGED-line tier screen: a special line (71 = Prize pumpkin, crafted from Wildflower + Feather)
 			# opens its RECIPE view — the two ingredient items alone, each tapping through to its own tier screen.

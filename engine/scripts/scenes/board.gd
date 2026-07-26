@@ -30,6 +30,7 @@ const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
+const RetireOffer = preload("res://engine/scripts/ui/retire_offer.gd")   # §6 the line-retirement offer
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
@@ -382,6 +383,7 @@ func _ready() -> void:
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 	_maybe_show_board_tutorial_first_run.call_deferred()
+	_maybe_offer_retirement.call_deferred()   # §6: a calm moment — board entry, never mid-gesture
 
 func debug_refresh_weather() -> void:
 	var insert_at := get_child_count()
@@ -2179,8 +2181,10 @@ func _select_generator(cell: Vector2i) -> void:
 	_info_btn.disabled = not show_info_btn     # ⓘ opens the line ladder unless empty or hidden in the workbench
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false             # a generator is never buyable as a copy
-	if board.is_redundant_gen(cell):
-		# gen stranding fix: a sub-top (redundant) generator is sellable — show the sell button + its payout
+	# A generator is clearable when it is REDUNDANT (a higher-tier same-line sibling exists — the stranding
+	# fix) or RETIRED (§6: the game will never ask its line again — G.gen_retirable). The retired case is the
+	# manual path for a player who dismissed the retirement offer, so a dead tool is never stuck on the board.
+	if board.is_redundant_gen(cell) or G.gen_retirable(gid, _quest_level()):
 		var sell_coins := G.gen_sell_coins(tier)
 		_info_trash_count.text = "%d" % sell_coins
 		for ic in _info_trash_coin.get_children():
@@ -2449,9 +2453,12 @@ func _on_trash_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var cell := _selected_cell
-	if board.is_gen(cell):                         # gen stranding fix: the sell button clears a REDUNDANT generator
+	if board.is_gen(cell):                         # the sell button clears a REDUNDANT or a RETIRED generator
 		if board.is_redundant_gen(cell):
 			_sell_generator(cell)
+			_clear_selection()
+		elif G.gen_retirable(String(board.gen_id_at(cell)), _quest_level()):
+			_retire_line(String(board.gen_id_at(cell)))    # §6: clears the generator AND its dead stock
 			_clear_selection()
 		return
 	var code := board.item_at(cell)
@@ -3903,6 +3910,60 @@ func _sell_generator(cell: Vector2i) -> void:
 	var coins := int(out.coins)
 	if coins > 0:
 		var center: Vector2 = _info_trash.get_global_rect().get_center() if (_info_trash != null and is_instance_valid(_info_trash)) else get_global_rect().get_center()
+		var done := func() -> void:
+			if is_instance_valid(self):
+				_update_hud()
+		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	_persist()
+	_rebuild_all()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
+
+# §6 OFFER the retirement of a line the game will never ask again. Deferred to board ENTRY (a calm moment)
+# rather than fired on the level-up that makes it retirable — a modal must never land mid-gesture, and the
+# level-up itself happens on a quest delivery. One line at a time; if the player dismisses it, the info-bar
+# sell button still clears the generator, so nothing is ever stuck. On the shipped roster this fires three
+# times in a whole playthrough.
+func _maybe_offer_retirement() -> void:
+	if not is_inside_tree() or RetireOffer.is_open(self):
+		return
+	if not Save.board_tutorial_seen():
+		return                                        # never over the FTUE
+	var owned: Array = Quests.owned_gens(board.gens, board.gen_bag)
+	var offer := G.retirable_gens(owned, _quest_level())
+	if offer.is_empty():
+		return
+	var gid := String(offer[0])
+	var line := int(gid.trim_prefix("gen_"))
+	# preview the payout WITHOUT mutating: count the same stock retire_line would clear.
+	var pieces := 0
+	var coins := 0
+	for i in board.items.size():
+		var code: int = board.items[i]
+		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == line:
+			pieces += 1
+			coins += int(G.sell_reward(code).x)
+	for code2 in bag:
+		if int(code2) > 0 and not G.is_coin(int(code2)) and BoardModel.line_of(int(code2)) == line:
+			pieces += 1
+			coins += int(G.sell_reward(int(code2)).x)
+	RetireOffer.open(self, {"line": line, "gen_id": gid, "pieces": pieces, "coins": coins,
+		"on_confirm": func() -> void:
+			if is_instance_valid(self):
+				_retire_line(gid)})
+
+# §6 LINE RETIREMENT — clear a line the game will never ask again: its generator leaves the board and the
+# gen_bag, and every leftover piece of it (board + item bag) is sold. All the decision logic is the pure
+# BoardActions.retire_line static (guarded on G.gen_retirable); this just plays the payout and rebuilds.
+func _retire_line(gid: String) -> void:
+	var out: Dictionary = BoardActions.retire_line(board, bag, gid, _quest_level())
+	if not bool(out.retired):
+		return
+	bag = out.bag
+	Audio.play("tidy_poof", -4.0, 1.1)
+	var coins := int(out.coins)
+	if coins > 0:
+		var center: Vector2 = get_global_rect().get_center()
 		var done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()

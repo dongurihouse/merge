@@ -1,176 +1,181 @@
 {
-	"bag": {
-		"banner_text": "Bag",
-		"caption": "Open a slot with acorns.",
-		"generators": "Generators",
-		"need_more": {
-			"ribbon": "Not enough acorns",
-			"body": "You need %d more acorns to open this slot.",
-			"body_one": "You need %d more acorn to open this slot.",
-			"shop": "Go to shop",
-			"later": "Not now"
-		}
-	},
-	"board": {
-		"double": {
-			"accept": "Double · %d🌰",
-			"decline": "No thanks",
-			"pitch": "Double your coins!"
-		},
-		"feedback": {
-			"bag_plus_one": "Bag +1!",
-			"bigger_bursts": "Bigger bursts!",
-			"bought": "Bought!",
-			"cleared": "Cleared!",
-			"combo_nice": "Nice!",
-			"combo_lovely": "Lovely!",
-			"combo_wonderful": "Wonderful!",
-			"ready_to_restore": "Ready to restore!",
-			"stored": "Stored!",
-			"tool_arrived": "A new tool arrived!"
-		},
-		"hints": {
-			"sell_spares": "tap a spare, then the sell button to cash it in"
-		},
-		"info": {
-			"boost_detail": "Boosted · %d left",
-			"boost_free": "Free",
-			"burst_label": "Boost",
-			"burst_need": "Need more coins",
-			"buy_label": "Buy",
-			"buy_need": "Need more",
-			"no_room": "No room!",
-			"empty_bag_hint": "Drag an item to the bag to free up space on the board",
-			"empty_prompt": "Tap an item to inspect it",
-			"generator": "Generator",
-			"item_fallback": "Item",
-			"tier": "Tier",
-			"unlock_level": "Unlocks at Level %d"
-		},
-		"unlock": {
-			"next": "Next Unlock"
-		},
-		"refill": {
-			"free": "Rain ☔ free refill",
-			"paid": "Rain ☔ %d🌰",
-			"shop": "Rain ☔ get water",
-			"hint": "Water refills over time ☔"
-		},
-		"winback": {
-			"rained": "It rained while you were away ☔"
-		}
-	},
-	"inbox": {
-		"banner_text": "Mail",
-		"claim_all_text": "Claim All",
-		"claimed_text": "Claimed",
-		"empty_text": "No mail right now — check back soon."
-	},
-	"iap": {
-		"opening_message": "Please wait...",
-		"opening_title": "Opening App Store"
-	},
-	"ladder": {
-		"title": "Tiers"
-	},
-	"producing": {
-		"title": "Producing"
-	},
-	"level": {
-		"banner": "Level %d"
-	},
-	"login": {
-		"banner": "Daily",
-		"claim": "Claim",
-		"day_label": "Day %d"
-	},
-	"map": {
-		"nav": {
-			"board": "Board",
-			"home": "Home",
-			"map": "Map",
-			"mail": "Mail",
-			"residents": "Residents"
-		},
-		"page": {
-			"continue": "CONTINUE",
-			"in_progress": "IN PROGRESS"
-		},
-		"rail": {
-			"daily": "Daily",
-			"vault": "Vault"
-		},
-		"spot": {
-			"needs_level": "Unlocks at Level %d"
-		}
-	},
-	"mystery": {
-		"banner_plural": "Mystery Gifts",
-		"banner_single": "Mystery Gift",
-		"spinning": "Spinning…",
-		"won": "You won!",
-		"pick": "Pick %d",
-		"pick_counter": "%d / %d",
-		"claim": "Claim",
-		"claim_more": "Pick %d more"
-	},
-	"settings": {
-		"title": "Settings",
-		"privacy": "Privacy Policy"
-	},
-	"shop": {
-		"buy": {
-			"need_more": "Need %d more"
-		},
-		"cash": {
-			"confirm_line": "%d for %s",
-			"confirm_title": "Acorn pouch",
-			"first_buy_bonus": "first-buy bonus doubled!"
-		},
-		"coin": {
-			"pouch_label": "Coin pouch",
-			"quick_help_caption": "Quick help"
-		},
-		"confirm": {
-			"cancel": "Cancel",
-			"charged_note": "You'll be charged %s.",
-			"confirm": "Confirm",
-			"test_build_note": "(test build — nothing is charged)"
-		},
-		"free": {
-			"ready_in": "Ready in %dm"
-		},
-		"premium": {
-			"acorn_pouches_caption": "Acorn pouches"
-		},
-		"refill": {
-			"back_tomorrow": "Back tomorrow",
-			"caption": "Free refill",
-			"cta": "Free",
-			"ready_in": "Ready in %dm"
-		},
-		"water": {
-			"fill_label": "Fill water"
-		},
-		"title": "Shop"
-	},
-	"update": {
-		"title": "Update Available",
-		"body": "A new version of Acorn Forest is available.\nUpdate now for the latest content and fixes.",
-		"update": "Update",
-		"later": "Not now"
-	},
-	"vault": {
-		"banner": "Vault",
-		"crack": {
-			"amount": "%d for %s",
-			"cancel": "Cancel",
-			"charged_note": "You'll be charged %s.",
-			"confirm": "Confirm",
-			"ribbon": "Crack the piggy bank",
-			"test_note": "(test build — nothing is charged)"
-		},
-		"hint": "Keep playing — it fills at",
-		"pitch": "Premium you've earned, saved up — claim it all for %s."
-	}
+  "bag": {
+    "banner_text": "Bag",
+    "caption": "Open a slot with acorns.",
+    "generators": "Generators",
+    "need_more": {
+      "ribbon": "Not enough acorns",
+      "body": "You need %d more acorns to open this slot.",
+      "body_one": "You need %d more acorn to open this slot.",
+      "shop": "Go to shop",
+      "later": "Not now"
+    }
+  },
+  "board": {
+    "double": {
+      "accept": "Double · %d🌰",
+      "decline": "No thanks",
+      "pitch": "Double your coins!"
+    },
+    "feedback": {
+      "bag_plus_one": "Bag +1!",
+      "bigger_bursts": "Bigger bursts!",
+      "bought": "Bought!",
+      "cleared": "Cleared!",
+      "combo_nice": "Nice!",
+      "combo_lovely": "Lovely!",
+      "combo_wonderful": "Wonderful!",
+      "ready_to_restore": "Ready to restore!",
+      "stored": "Stored!",
+      "tool_arrived": "A new tool arrived!"
+    },
+    "hints": {
+      "sell_spares": "tap a spare, then the sell button to cash it in"
+    },
+    "info": {
+      "boost_detail": "Boosted · %d left",
+      "boost_free": "Free",
+      "burst_label": "Boost",
+      "burst_need": "Need more coins",
+      "buy_label": "Buy",
+      "buy_need": "Need more",
+      "no_room": "No room!",
+      "empty_bag_hint": "Drag an item to the bag to free up space on the board",
+      "empty_prompt": "Tap an item to inspect it",
+      "generator": "Generator",
+      "item_fallback": "Item",
+      "tier": "Tier",
+      "unlock_level": "Unlocks at Level %d"
+    },
+    "unlock": {
+      "next": "Next Unlock"
+    },
+    "refill": {
+      "free": "Rain ☔ free refill",
+      "paid": "Rain ☔ %d🌰",
+      "shop": "Rain ☔ get water",
+      "hint": "Water refills over time ☔"
+    },
+    "winback": {
+      "rained": "It rained while you were away ☔"
+    }
+  },
+  "inbox": {
+    "banner_text": "Mail",
+    "claim_all_text": "Claim All",
+    "claimed_text": "Claimed",
+    "empty_text": "No mail right now — check back soon."
+  },
+  "iap": {
+    "opening_message": "Please wait...",
+    "opening_title": "Opening App Store"
+  },
+  "ladder": {
+    "title": "Tiers"
+  },
+  "producing": {
+    "title": "Producing"
+  },
+  "level": {
+    "banner": "Level %d"
+  },
+  "login": {
+    "banner": "Daily",
+    "claim": "Claim",
+    "day_label": "Day %d"
+  },
+  "map": {
+    "nav": {
+      "board": "Board",
+      "home": "Home",
+      "map": "Map",
+      "mail": "Mail",
+      "residents": "Residents"
+    },
+    "page": {
+      "continue": "CONTINUE",
+      "in_progress": "IN PROGRESS"
+    },
+    "rail": {
+      "daily": "Daily",
+      "vault": "Vault"
+    },
+    "spot": {
+      "needs_level": "Unlocks at Level %d"
+    }
+  },
+  "mystery": {
+    "banner_plural": "Mystery Gifts",
+    "banner_single": "Mystery Gift",
+    "spinning": "Spinning…",
+    "won": "You won!",
+    "pick": "Pick %d",
+    "pick_counter": "%d / %d",
+    "claim": "Claim",
+    "claim_more": "Pick %d more"
+  },
+  "settings": {
+    "title": "Settings",
+    "privacy": "Privacy Policy"
+  },
+  "shop": {
+    "buy": {
+      "need_more": "Need %d more"
+    },
+    "cash": {
+      "confirm_line": "%d for %s",
+      "confirm_title": "Acorn pouch",
+      "first_buy_bonus": "first-buy bonus doubled!"
+    },
+    "coin": {
+      "pouch_label": "Coin pouch",
+      "quick_help_caption": "Quick help"
+    },
+    "confirm": {
+      "cancel": "Cancel",
+      "charged_note": "You'll be charged %s.",
+      "confirm": "Confirm",
+      "test_build_note": "(test build — nothing is charged)"
+    },
+    "free": {
+      "ready_in": "Ready in %dm"
+    },
+    "premium": {
+      "acorn_pouches_caption": "Acorn pouches"
+    },
+    "refill": {
+      "back_tomorrow": "Back tomorrow",
+      "caption": "Free refill",
+      "cta": "Free",
+      "ready_in": "Ready in %dm"
+    },
+    "water": {
+      "fill_label": "Fill water"
+    },
+    "title": "Shop"
+  },
+  "update": {
+    "title": "Update Available",
+    "body": "A new version of Acorn Forest is available.\nUpdate now for the latest content and fixes.",
+    "update": "Update",
+    "later": "Not now"
+  },
+  "vault": {
+    "banner": "Vault",
+    "crack": {
+      "amount": "%d for %s",
+      "cancel": "Cancel",
+      "charged_note": "You'll be charged %s.",
+      "confirm": "Confirm",
+      "ribbon": "Crack the piggy bank",
+      "test_note": "(test build — nothing is charged)"
+    },
+    "hint": "Keep playing — it fills at",
+    "pitch": "Premium you've earned, saved up — claim it all for %s."
+  },
+  "retire": {
+    "title": "All done here",
+    "body": "Nothing will ask for this line again. Clearing it frees the generator and sells %d leftover pieces for %d coins.",
+    "confirm": "Clear it"
+  }
 }
