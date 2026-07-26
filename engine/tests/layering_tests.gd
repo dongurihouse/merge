@@ -9,6 +9,14 @@ const CORE := "res://engine/scripts/core/"
 const UI := "res://engine/scripts/ui/"
 const SCENES := "res://engine/scripts/scenes/"
 
+# --- engine ↛ games (STAGED GUARD — reporting only, see _check_engine_never_reaches_into_games) ---
+const ENGINE_SCRIPTS := "res://engine/scripts/"
+const GAMES := "res://games/"
+## STAGED: flip this ONE constant to `true` to turn the engine↛games scan from a
+## printed report into a suite failure. Do that once the sweep of the existing
+## violations lands — NOT before, or the suite goes red on known debt.
+const FAIL_ON_GAMES_REFS := false
+
 const Overlay := preload("res://engine/scripts/ui/overlay.gd")
 const Hud := preload("res://engine/scripts/ui/hud.gd")
 const TuneFX := preload("res://engine/scripts/core/tuning.gd").FX   # the FX juice dials (FLY_Z / FLOAT_Z)
@@ -33,6 +41,20 @@ func _gd_files(dir: String) -> PackedStringArray:
 	for f in d.get_files():
 		if f.ends_with(".gd"):
 			out.append(dir + f)
+	return out
+
+# Every .gd under `dir`, walking subdirectories, so a NEW engine/scripts/<layer>/ is
+# covered the day it appears instead of silently escaping the scan.
+func _gd_files_deep(dir: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var d := DirAccess.open(dir)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if f.ends_with(".gd"):
+			out.append(dir + f)
+	for sub in d.get_directories():
+		out.append_array(_gd_files_deep(dir + sub + "/"))
 	return out
 
 # True if `path` mentions `needle` anywhere (preload/load both look like a path string).
@@ -60,6 +82,7 @@ func _initialize() -> void:
 		ok(not _reads(p, SCENES), "ui/%s does not import scenes/" % p.get_file())
 	_check_modal_z()
 	_check_no_z_above_modal_top()
+	_check_engine_never_reaches_into_games()
 	await _check_level_badge_layout()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
@@ -120,6 +143,60 @@ func _check_no_z_above_modal_top() -> void:
 	ok(offenders.is_empty(), \
 		"no script hand-rolls a z_index literal above MODAL_TOP_Z (%d)%s" % \
 		[Overlay.MODAL_TOP_Z, ("" if offenders.is_empty() else " — " + ", ".join(offenders))])
+
+# The engine is meant to be GAME-AGNOSTIC: nothing under engine/scripts/ should name a
+# res://games/... path. See docs/design/merge_spec.md §15 and docs/design/board_decomposition.md
+# (Constraints). The rule was documented but never enforced, so ~47 references accumulated —
+# mostly `const KIT_PATH := "res://games/grove/ui_kit.gd"` and hardcoded grove asset paths.
+#
+# *** STAGED GUARD — REPORTING ONLY. THIS SCAN CANNOT FAIL THE SUITE YET. ***
+# It prints the full offender list (file, line, matched path) so the debt is visible on every
+# run, but passes regardless, because the existing violations are being swept in separate work.
+# THE FLIP IS ONE LINE: set `const FAIL_ON_GAMES_REFS := false` (top of this file) to `true`
+# once that sweep lands. Nothing else here needs to change.
+#
+# Sanctioned exceptions — these are correct by design and are NOT reported:
+#  · core/game.gd — the single game-indirection point; preloading res://games/active.gd is its job.
+#  · scenes/boot.gd's LAUNCH_PATH const — the splash image is loaded BEFORE the art/audio asset
+#    pack is mounted, so it cannot go through the normal indirection. Documented in boot.gd.
+# Comment text doesn't count (a path named in prose is not a dependency), matching the
+# comment-stripping the z_index scan above already does.
+func _check_engine_never_reaches_into_games() -> void:
+	var offenders := PackedStringArray()
+	for p in _gd_files_deep(ENGINE_SCRIPTS):
+		if p == CORE + "game.gd":
+			continue   # sanctioned: the game-indirection point
+		var f := FileAccess.open(p, FileAccess.READ)
+		if f == null:
+			continue
+		var rel := p.trim_prefix(ENGINE_SCRIPTS)
+		var line_no := 0
+		for raw_line in f.get_as_text().split("\n"):
+			line_no += 1
+			var line: String = raw_line.split("#")[0]
+			var idx := line.find(GAMES)
+			if idx == -1:
+				continue
+			if p == SCENES + "boot.gd" and line.strip_edges().begins_with("const LAUNCH_PATH"):
+				continue   # sanctioned: splash loads before the asset pack mounts
+			# quote-delimited tail of the literal, so the report shows the actual path
+			var tail := line.substr(idx)
+			var quote := tail.find("\"")
+			var matched: String = tail.substr(0, quote) if quote != -1 else tail.strip_edges()
+			offenders.append("%s:%d  %s" % [rel, line_no, matched])
+		f.close()
+	if not offenders.is_empty():
+		print("  ----------------------------------------------------------------")
+		print("  engine -> games references (STAGED GUARD, reporting only): %d" % offenders.size())
+		for o in offenders:
+			print("    ", o)
+		print("  flip FAIL_ON_GAMES_REFS to true once these are swept")
+		print("  ----------------------------------------------------------------")
+	if FAIL_ON_GAMES_REFS:
+		ok(offenders.is_empty(), \
+			"no script under engine/scripts/ names a res://games/ path (%d offender(s))" % offenders.size())
+	else:
+		ok(true, "engine/scripts/ -> res://games/ scan ran (staged: %d reported, not failing)" % offenders.size())
 
 func _check_level_badge_layout() -> void:
 	var host := Control.new()
