@@ -2184,8 +2184,12 @@ func _select_generator(cell: Vector2i) -> void:
 	# A generator is clearable when it is REDUNDANT (a higher-tier same-line sibling exists — the stranding
 	# fix) or RETIRED (§6: the game will never ask its line again — G.gen_retirable). The retired case is the
 	# manual path for a player who dismissed the retirement offer, so a dead tool is never stuck on the board.
-	if board.is_redundant_gen(cell) or G.gen_retirable(gid, _quest_level()):
-		var sell_coins := G.gen_sell_coins(tier)
+	var retirable := G.gen_retirable(gid, _quest_level())
+	if board.is_redundant_gen(cell) or retirable:
+		# price what the BUTTON ACTUALLY DOES: a redundant generator sells for its own tier value, a retired
+		# one clears the whole line (its stock too), so they read different payouts from the same source the
+		# offer card uses. Showing gen_sell_coins for a retirement would advertise 2-6 coins and pay far more.
+		var sell_coins := int(BoardActions.retire_preview(board, bag, int(gid.trim_prefix("gen_"))).coins) if retirable and not board.is_redundant_gen(cell) else G.gen_sell_coins(tier)
 		_info_trash_count.text = "%d" % sell_coins
 		for ic in _info_trash_coin.get_children():
 			ic.queue_free()
@@ -3931,26 +3935,26 @@ func _maybe_offer_retirement() -> void:
 		return                                        # never over the FTUE
 	var owned: Array = Quests.owned_gens(board.gens, board.gen_bag)
 	var offer := G.retirable_gens(owned, _quest_level())
-	if offer.is_empty():
+	var declined: Dictionary = Save.grove().get("retire_declined", {})
+	var gid := ""
+	for g in offer:
+		if not declined.has(String(g)):        # offered ONCE; the info-bar sell button is the path back
+			gid = String(g)
+			break
+	if gid == "":
 		return
-	var gid := String(offer[0])
 	var line := int(gid.trim_prefix("gen_"))
-	# preview the payout WITHOUT mutating: count the same stock retire_line would clear.
-	var pieces := 0
-	var coins := 0
-	for i in board.items.size():
-		var code: int = board.items[i]
-		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == line:
-			pieces += 1
-			coins += int(G.sell_reward(code).x)
-	for code2 in bag:
-		if int(code2) > 0 and not G.is_coin(int(code2)) and BoardModel.line_of(int(code2)) == line:
-			pieces += 1
-			coins += int(G.sell_reward(int(code2)).x)
-	RetireOffer.open(self, {"line": line, "gen_id": gid, "pieces": pieces, "coins": coins,
+	var pv: Dictionary = BoardActions.retire_preview(board, bag, line)   # the ONE payout read
+	RetireOffer.open(self, {"line": line, "gen_id": gid, "pieces": int(pv.pieces), "coins": int(pv.coins),
 		"on_confirm": func() -> void:
 			if is_instance_valid(self):
-				_retire_line(gid)})
+				_retire_line(gid),
+		"on_dismiss": func() -> void:
+			# remember the decline so the offer does not re-fire on every board entry — it is an offer, not a nag.
+			var dm: Dictionary = Save.grove().get("retire_declined", {})
+			dm[gid] = true
+			Save.grove()["retire_declined"] = dm
+			Save.grove_write()})
 
 # §6 LINE RETIREMENT — clear a line the game will never ask again: its generator leaves the board and the
 # gen_bag, and every leftover piece of it (board + item bag) is sold. All the decision logic is the pure
