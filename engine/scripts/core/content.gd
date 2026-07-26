@@ -24,8 +24,6 @@ const GEN_CELL = D.GEN_CELL
 static var MIN_LEVEL: Array = D.MIN_LEVEL   # OWNER DIAL — live-overridable by economy_tuning.json (apply_tuning)
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
-const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines popped at once (zone 2+)
-const POP_LINE_CAP_Z1 = D.POP_LINE_CAP_Z1   # §6 the tighter zone-1 (Farmhouse) cap — the tiny FTUE board
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
@@ -195,10 +193,10 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 			out.append(g)
 	return out
 
-## The max distinct lines the single generator pops at once — STAGED by map: a tighter cap on the tiny
-## zone-1 (Farmhouse) board, the full cap from zone 2 on (POP_LINE_CAP / POP_LINE_CAP_Z1, the §6 pop cap).
-static func pop_line_cap(map: int) -> int:
-	return POP_LINE_CAP_Z1 if map <= 0 else POP_LINE_CAP
+# (pop_line_cap / POP_LINE_CAP are REMOVED 2026-07-25 — a single-generator-era cap on how many distinct
+# lines one generator could pop. Under the per-line generator model each generator pops its own line and the
+# real bound is QUEST_GEN_CAP on the generator footprint (cap_quest_lines). Its last caller was grove_sim,
+# where truncating to 3 starved the 5-base-line final window and froze the late fence.)
 
 # --- §6 ZONE PROGRESSION — the picture-book per-line model (data-driven) -------------------------------
 # The world is a run of ZONES, one row per zone in D.ZONES (play order). A row with a `recipe`
@@ -233,10 +231,20 @@ static func recipe_lines(line: int) -> Array:
 static func quest_needed_lines(asked: Array) -> Dictionary:
 	var out := {}
 	for l in asked:
-		out[int(l)] = true
-		for r in recipe_lines(int(l)):
-			out[int(r)] = true
+		_add_needed_line(out, int(l))
 	return out
+
+# Walk one line's ingredient tree ALL THE WAY DOWN to its base lines. RECURSION IS LOAD-BEARING: an
+# ingredient may itself be a special — tea cups (19) <- spices (8) <- wild berries (2) + woolens (4) — and
+# only the BASE lines can actually be produced. A one-level expansion marked woolens as junk while a tea-
+# cups quest was up, so the board greyed out (and the merchant happily bought) the very items needed to
+# craft the ingredient. This must stay in step with gens_for_quest_line, which recurses the same tree.
+static func _add_needed_line(out: Dictionary, line: int) -> void:
+	if out.has(int(line)):
+		return
+	out[int(line)] = true
+	for r in recipe_lines(int(line)):
+		_add_needed_line(out, int(r))
 
 # The SPECIAL line crafted by merging two base lines at the same tier (Core §6.G). Order-independent; 0 if
 # the pair isn't a recipe. (Derived: the special zone whose two preceding base lines are this pair.)
