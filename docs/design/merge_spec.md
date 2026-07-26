@@ -146,7 +146,7 @@ Merging, moving, delivering, selling, collecting, and decorating are **always fr
 | | Default |
 |---|---|
 | Cap | **100** (`WATER_CAP`) |
-| Pop cost | **1 per item**; a tap pops a small **burst** of 1–3 (`BURST_ODDS`, §6) — fewer taps, same energy/item |
+| Pop cost | **1 per item**; a tap pops a small **burst** — 1–3 by generator tier, a boosted top-tier generator up to 4 (`GEN_TIER_BURST_ODDS`/`_BOOST`, §6) — fewer taps, same energy/item |
 | Regen | **+1 every 120 s** (offline included) |
 | Level-up gift | **+50** |
 | Free refills | **1 per day** (a "refill" button at 0) |
@@ -291,7 +291,9 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 >
 > **D. Generators merge to tier 3; produce the fuel (tier-aware).** Two same-line generators **merge 2:1**
 > to the next tier (3 tiers), **freeing a cell**. **Higher tier → higher multi-item burst odds**
-> (`BURST_ODDS` keyed by generator tier). A **below-tier-3** generator **self-produces a duplicate of its
+> (`GEN_TIER_BURST_ODDS` by generator tier); a live temporary boost (§10 sink) swaps in
+> `GEN_TIER_BURST_ODDS_BOOST` — strictly better at every tier, and the top row adds a **4th burst slot**
+> (only a boosted tier-3 pops 4). A **below-tier-3** generator **self-produces a duplicate of its
 > own line at ~0.5%/tap** (`GEN_SELF_DUP_RATE`) — the merge fuel; the first of a line is free (B). A
 > **tier-3 (maxed)** generator **stops self-duplicating** (no further merge for itself) and instead, at the
 > same rate, **produces a tier-1 generator for another active line still below tier 3** — redirecting the

@@ -193,6 +193,11 @@ const GEN_TIER_BURST_ODDS := [             # burst odds [1,2,3 items] by generat
 	[0.50, 0.35, 0.15],   # tier 2
 	[0.20, 0.45, 0.35],   # tier 3
 ]
+const GEN_TIER_BURST_ODDS_BOOST := [       # BOOSTED burst odds by generator tier (T64) — each row must
+	[0.20, 0.45, 0.35],                    #   strictly beat its unboosted row on EV (mechanics_tests guard).
+	[0.20, 0.45, 0.35],                    #   tiers 1-2 = the pre-T64 flat boost table (live tuning preserved)
+	[0.10, 0.30, 0.40, 0.20],              #   tier 3 gains a 4th slot — only a boosted top-tier gen pops 4
+]
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
@@ -218,15 +223,17 @@ const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest 
 const MAX_GIVERS := 8                     # fence quest slots (§7, gen redesign #13) — up to 8 quest cards (+ the jar); metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
 const MAX_QUESTS_PER_LINE := 4            # per active item line; a one-line fresh game shows 4 quests, then the fence grows as level reaches more lines.
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
-# §6 burst-pop (T58). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not the
-# per-item energy economy). The COUNT is drawn from an odds table: BURST_ODDS with NO boost (a single item
-# is the norm, multiples are rare) or BURST_ODDS_BOOST while a temporary BOOST is live (multiples become the
-# norm). The boost RAISES THE CHANCE of multiples — it does NOT add a flat count, and there is no per-map
-# scale-up. One BOOST_COST activation arms BOOST_TAPS taps on ONE chosen generator (per-generator, stackable
-# across generators), decays one tap at a time, then expires (the §10 coin sink — T57). Both tables top out at BURST_MAX.
+# §6 burst-pop (T58, T64). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not
+# the per-item energy economy). A TIERED generator rolls GEN_TIER_BURST_ODDS[tier] unboosted and
+# GEN_TIER_BURST_ODDS_BOOST[tier] while its own temporary BOOST is live — the boost RAISES THE CHANCE of
+# multiples (never a flat add), is per-generator (stackable across generators), decays one tap per charged
+# tap, then expires (one BOOST_COST activation arms BOOST_TAPS taps — the §10 coin sink, T57). The flat
+# BURST_ODDS / BURST_ODDS_BOOST tables serve the UNTIERED special generators (boosted accumulator collect,
+# treat pop) via burst_count.
 const BURST_ODDS       := [0.80, 0.15, 0.05]   # no boost: 1 / 2 / 3 items — a single item is the norm
 const BURST_ODDS_BOOST := [0.20, 0.45, 0.35]   # boost live: 1 / 2 / 3 items — multiples are the norm
-const BURST_MAX        := 3                     # ceiling on one tap's burst (both tables top out here)
+const BURST_MAX        := 3                     # the FLAT tables' ceiling (the burst_count clamp); the tiered
+                                                # roll clamps to its own row length — a boosted top-tier bursts up to 4
 const BOOST_BONUS := 2                    # >0 marks "a boost is live" to burst_count (legacy name — no longer a flat add)
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)

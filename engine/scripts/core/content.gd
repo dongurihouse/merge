@@ -35,6 +35,7 @@ const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
 const GEN_SELL_COINS = D.GEN_SELL_COINS
 const GEN_TIER_BURST_ODDS = D.GEN_TIER_BURST_ODDS
+const GEN_TIER_BURST_ODDS_BOOST = D.GEN_TIER_BURST_ODDS_BOOST
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -445,9 +446,11 @@ static func quest_zone_for_level(level: int) -> int:
 	return z
 
 # --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
-# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples.
-static func gen_burst_odds(tier: int) -> Array:
-	return GEN_TIER_BURST_ODDS[clampi(tier, 1, GEN_TOP_TIER) - 1]
+# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples. A live boost
+# swaps in the strictly-better boosted table (T64).
+static func gen_burst_odds(tier: int, boosted: bool = false) -> Array:
+	var table: Array = GEN_TIER_BURST_ODDS_BOOST if boosted else GEN_TIER_BURST_ODDS
+	return table[clampi(tier, 1, GEN_TOP_TIER) - 1]
 
 # Two same-line generators merge 2:1 into the next tier (capped at GEN_TOP_TIER).
 static func gen_merge_tier(tier: int) -> int:
@@ -462,9 +465,10 @@ static func gen_sell_coins(tier: int) -> int:
 static func rolls_gen_self_dup(rng: RandomNumberGenerator) -> bool:
 	return rng.randf() < GEN_SELF_DUP_RATE
 
-# A generator's burst count at its tier (1..N items), rolled over its tier odds.
-static func gen_burst_count(tier: int, rng: RandomNumberGenerator) -> int:
-	var odds := gen_burst_odds(tier)
+# A generator's burst count at its tier (1..N items), rolled over its tier odds; a live boost swaps in the
+# strictly-better boosted row (the top row adds a 4th slot — only a boosted top-tier generator pops 4).
+static func gen_burst_count(tier: int, rng: RandomNumberGenerator, boosted: bool = false) -> int:
+	var odds := gen_burst_odds(tier, boosted)
 	var n := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -730,12 +734,12 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 		return 0
 	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
-## Burst-pop (§6, T58): one tap on a generator pops a BURST of items, not just one. The COUNT is drawn
-## from an odds table — BURST_ODDS when no boost is live (a single item is the norm, multiples are rare)
-## or BURST_ODDS_BOOST while a boost is live (multiples become the norm). The boost RAISES THE CHANCE of
-## multiples; it does NOT add a flat count, and there is no per-map scale-up (`_map` is unused — kept for
-## call-site stability). `boost_bonus > 0` marks a live boost. Clamped to [1, BURST_MAX] as a board-flood
-## safety net. Each popped item still costs 1 energy.
+## Burst-pop for the UNTIERED special-generator family (§6, T58): the boosted accumulator collect, the
+## treat pop, and the sim roll their burst COUNT here — tiered line generators roll gen_burst_count
+## instead (T64). BURST_ODDS when no boost is live (a single item is the norm), BURST_ODDS_BOOST while
+## one is (`boost_bonus > 0` marks a live boost — it RAISES THE CHANCE of multiples, never a flat add;
+## `_map` is unused — kept for call-site stability). Clamped to [1, BURST_MAX] as a board-flood safety
+## net. Each popped item still costs 1 energy.
 static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
 	var odds: Array = BURST_ODDS_BOOST if boost_bonus > 0 else BURST_ODDS
 	var n := 1

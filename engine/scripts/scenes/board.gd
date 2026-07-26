@@ -2984,17 +2984,17 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		FX.wobble(gnode)                   # full board pauses the generator for FREE
 		Audio.play("invalid_soft", -4.0)
 		return
-	# Burst-pop (§6): one tap throws a BURST, not just one item. Its size scales with the map (a
-	# free per-map step-up) and — while a boost is live — the boost's per-tap bonus; bound it by what's
+	# Burst-pop (§6): one tap throws a BURST, not just one item. Its odds scale with the generator's
+	# TIER (gen redesign #8 — higher tier → more multiples); a live boost swaps in the boosted per-tier
+	# odds (T64 — the top tier gains a 4th burst slot). No per-map scale-up. Bound it by what's
 	# affordable (energy) and what fits (open cells). Each popped item still costs G.POP_COST.
 	# FTUE (§4): during the free-pop intro a tap pops EXACTLY ONE item — burst is suppressed so the
 	# 10 free pops are ~10 deliberate frictionless taps (not spent 3-at-a-time) and the counter can't
 	# overshoot 10 mid-burst. Burst resumes the moment the free budget is gone (`charged`).
-	# gen redesign #8: a generator's burst scales with its TIER (higher tier → more multiples); a live boost
-	# overrides with the boosted odds. (Accumulator/treat taps never reach here — their own collect/pop paths.)
+	# (Accumulator/treat taps never reach here — their own collect/pop paths.)
 	var burst := 1
 	if charged:
-		burst = G.burst_count(_quest_map(), _gen_boost_bonus(cell), rng) if board.is_gen_boosted(cell) else G.gen_burst_count(board.gen_tier_at(cell), rng)
+		burst = G.gen_burst_count(board.gen_tier_at(cell), rng, board.is_gen_boosted(cell))
 	if charged:
 		burst = mini(burst, int(water / G.POP_COST))
 	burst = mini(burst, empties.size())
@@ -3135,12 +3135,7 @@ func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_after_board_change()
 	Audio.play("item_drop", -2.0)
 
-# A generator's per-tap bonus from ITS OWN live boost (§6): BOOST_BONUS while that cell is boosted, else 0.
-# Read by _pop_seed as the addend to burst_count. The boost is per-generator (only the boosted cell).
-func _gen_boost_bonus(cell: Vector2i) -> int:
-	return G.boost_bonus() if board.is_gen_boosted(cell) else 0
-
-# Arm the temporary boost on ONE generator (§6/§10 coin sink): BOOST_TAPS taps of +BOOST_BONUS items on
+# Arm the temporary boost on ONE generator (§6/§10 coin sink): BOOST_TAPS taps of boosted burst odds on
 # `cell`. Refuses (no spend) when the cell holds no generator, that generator is already boosted, or the
 # player is broke. Spends BOOST_COST, arms the cell, persists. (Free map-3 charges are wired in next.)
 func _activate_gen_boost(cell: Vector2i) -> bool:
@@ -3157,8 +3152,8 @@ func _activate_gen_boost(cell: Vector2i) -> bool:
 # The info-bar boost chip (T54→boost, T57): on a generator tap the bottom info bar shows the generator
 # (preview + name + the live boost detail) and — in the slot the sell button leaves empty for
 # generators — a chip to activate the boost. Built in _build_info_bar, driven by _select_item /
-# _refresh_burst_chip, tapped via _on_burst_chip. The §6 coin sink lives in _gen_boost_bonus +
-# _activate_gen_boost above; the on-board indicator is _refresh_boost_indicator.
+# _refresh_burst_chip, tapped via _on_burst_chip. The §6 coin sink lives in _activate_gen_boost above;
+# the on-board indicator is _refresh_boost_indicator.
 
 func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)
