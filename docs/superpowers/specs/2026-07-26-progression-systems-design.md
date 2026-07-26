@@ -1,6 +1,6 @@
 # Progression Systems — design (2026-07-26)
 
-**Status: draft, awaiting Dev review.** Companions: `docs/design/picturebook_lines_recipes.md`
+**Status: revised after Dev review (same day).** Companions: `docs/design/picturebook_lines_recipes.md`
 (the line roster and craft web), `2026-07-17-picturebook-scenes-design.md` (scenes),
 `engine/scripts/core/content.gd` §6/§7 (the shipped window + retirement).
 
@@ -60,17 +60,26 @@ retirement is just the epilogue.
 
 ## 3 · Generator mastery (+ the Scissors)
 
-**Meter.** Each line has a mastery meter fed **only by fence deliveries** of that line's items
-(selling never counts — same law as the coin clock). Higher-tier deliveries feed it more
-(reuse the item t1-equivalent value curve). Five ranks:
+**The meter — how ranks grow.** Each line's meter counts **value productively used**, in
+tier-1 equivalents (a tier-t piece = 2^(t−1)). Two feeds:
 
-| Rank | Permanent reward |
-|---|---|
-| 1 | Better burst odds — doubles pop more often |
-| 2 | Pops start at tier 2 |
-| 3 | Bursts sometimes add a bonus piece |
-| 4 | Pops start at tier 3 |
-| 5 | Water cost per pop −1 (floor 1) |
+- **Fence deliveries** of the line's own items.
+- **Craft consumption** — the line's pieces consumed as ingredients in a craft merge. This is
+  the load-bearing half: ingredient lines live on long after their own quests stop, and this
+  keeps exactly those lines growing through their afterlife.
+
+Selling and trading never feed a meter. Rank thresholds step ~×3 (provisional):
+
+| Rank | Threshold (t1-eq) | Permanent reward |
+|---|---|---|
+| 1 | 30 | Better burst odds — doubles pop more often |
+| 2 | 120 | Pops start at tier 2 |
+| 3 | 350 | Bursts sometimes add a bonus piece |
+| 4 | 900 | Pops start at tier 3 |
+| 5 | 2400 | Water cost per pop −1 (floor 1) |
+
+Expected pacing: rank 1 in the first session with a line; ranks 2–3 across its quest-window
+life; ranks 4–5 accumulate slowly through its ingredient afterlife.
 
 **The floor rule.** A line's pop floor always stays ≥3 tiers below its current ask band. If
 the band is low, the floor waits. This keeps asks meaningful at every rank.
@@ -81,14 +90,12 @@ plain card states the change: *"Berry Bush now pops tier-2 berries."* The librar
 shows every line's rank and next reward. Mastery is permanent — it survives shelving and
 retirement and gilds the Collection entry forever.
 
-**The Scissors — load-bearing, ships with mastery rank 2.** Crafts merge two ingredient pieces
-at the **same tier**, so a tier-3 pop floor would make tier-2 ingredient asks impossible. The
-Scissors is a tool item that fixes tier overshoot:
+**The Scissors — load-bearing, ships with mastery.** Crafts merge two ingredient pieces at
+the **same tier**, so a tier-3 pop floor would make tier-2 ingredient asks impossible. The
+Scissors is a tool item: drag it onto a piece → the piece **splits into two pieces of one
+tier lower** (Dev-confirmed behavior). Needs one free neighboring cell; refused gently on a
+full board. Value-neutral, and doubles as a combo-setup tool.
 
-- **Recommended behavior — split:** drag the Scissors onto a piece → it becomes **two pieces
-  of one tier lower** (needs one free neighboring cell; refused gently on a full board).
-  Value-neutral, feels like scissors, and doubles as a combo-setup tool.
-- *Alternative (Dev may prefer): plain reduce — the piece drops one tier, value lost.*
 - **Acquisition:** occasional special drop (joins the chest·water·acorn table) plus a cheap
   coin purchase in the shop. Never required before mastery rank 2 exists.
 - **Economy guard:** split is value-neutral only if the sell curve doubles per tier; the sim
@@ -96,58 +103,41 @@ Scissors is a tool item that fixes tier overshoot:
 
 ---
 
-## 4 · Garden plots (soil cells)
-
-A **soil cell** is a board cell drawn as a small soil patch (placed via Improvements, §7).
-Drag any piece onto it → it is planted and grows to **+1 tier**.
-
-**Fast → idle curve.** Growth must be *visible* at low tiers and *idle* at high tiers:
-
-| Planted tier | 1 | 2 | 3 | 4 | 5 | 6 | 7+ |
-|---|---|---|---|---|---|---|---|
-| Grow time | ~10 s | ~45 s | ~3 min | ~15 min | ~1 h | ~3 h | ~8 h cap |
-
-Tier 1–2 sprout while you watch (a little growth animation — this teaches the mechanic
-viscerally). Tier 5+ is the overnight check-back loop.
-
-**Rules.** You cannot plant a piece already at its line's top ask tier (nothing to grow into).
-Cancel any time, free — the original piece returns. **Watering:** tap the growing cell to
-spend board water and halve the remaining time, once per growth. **Acorns** can finish a grow
-instantly, priced by time remaining — this is the game's paid lever: money buys time, never
-items (the paid-bundle idea is cut; buying items with quest coins is circular).
-
-**Unlock.** The first soil cell is free at ~level 6 (an FTUE beat: plant a tier-1, watch it
-sprout in seconds). Further soil cells and their upgrades come from Improvements (§7):
-rank 2 grows 30% faster; rank 3 harvests **+2 tiers** (still respecting the ask-tier cap).
-
----
-
-## 5 · Weather hours
+## 4 · Weather hours
 
 One grove "day" = **one real hour**. Every hour, a seeded roll (`floor(unix_time / 3600)` —
-deterministic, offline-correct, no server) picks the hour's weather. A session sees one or two
+deterministic, offline-correct, no server) picks the hour's sky. A session sees one or two
 skies change; every login feels different. **Never a penalty — weather only gives.**
 
 Two layers:
 
-- **The theme** — the hour's bonus, announced by a cut-paper banner on board entry (and a
-  quiet transition if the hour turns mid-session) plus a small HUD icon.
-- **The patch** — most weathers project one soft spatial effect (a sunbeam down one column, a
-  rain cloud across one row) as a light overlay. The lane is seeded per hour: stable while you
-  play, moved by the next sky.
+- **The sky** — announced by a cut-paper banner on board entry (and a quiet transition if the
+  hour turns mid-session) plus a small HUD icon.
+- **The patch** — the sky projects one soft spatial effect (a beam down one column, a cloud
+  across one row) as a light overlay. The lane is seeded per hour: stable while you play,
+  moved by the next sky.
 
-| Weather | Effect |
+Merges do not pay coins in this game — they **drop** things (the ~10% coin-drop) and **do**
+things. Every sky effect is therefore something a merge in the patch pops out or triggers,
+and each row is mechanically distinct:
+
+| Sky | A merge in the patch… |
 |---|---|
-| **Sunbeam** | merges in the lit column pay double combo coins and count +1 chain step |
-| **Rain** | water drops doubled everywhere; soil cells water themselves |
-| **Breeze** | a merge result in the breeze row slides one cell toward its nearest match |
-| **Harvest sun** | no patch; one featured line pays ×2 coins at the fence |
-| **Fireflies** | chest and acorn drop odds up inside the patch |
-| **Festival** *(rare, ~1 in 12)* | two of the above at once |
+| **Sunbeam** | pops extra coin drops (rate and count up) |
+| **Rain** | pops extra water drops; soil cells water themselves free this hour |
+| **Magnet** | pulls the nearest same-line-same-tier piece adjacent to the result — chain fuel |
+| **Mirror pool** | echoes: one ready pair elsewhere on the board merges itself |
+| **Starfall** *(uncommon)* | once this hour, a free Wild piece drifts down onto the lane |
+| **Festival** *(rare, ~1 in 12)* | two skies at once |
+
+Mirror guards: the echo picks the **lowest-tier** ready pair (never spends a pair being saved
+for something big), and echo merges feed **no** chain counter and drop **no** combo coins —
+free value, not an engine. *(Cut from the earlier draft: Breeze — a weaker, less legible
+magnet; Harvest sun — duplicate of Sunbeam; Fireflies — same drop-boost pattern again.)*
 
 ---
 
-## 6 · Cascade combos + ready-ladder outlines
+## 5 · Cascade combos + ready-ladder outlines
 
 **The chain rule.** A merge continues the chain only if it **uses the piece the previous merge
 just created**. Two t2 mushrooms → t3 → drag that t3 onto a neighboring t3 → ×2 → the t4 lands
@@ -160,17 +150,26 @@ a connected group of same-line pieces whose tiers cascade from a duplicated bott
 then +t4, …). Around each group it draws a stitched cut-paper boundary in the line's palette
 color; the boundary **grows and brightens as the player extends the ladder**, with a small
 **×N** tag showing the chain waiting inside. The affordance rewards the setup before the
-payoff, and makes the mechanic self-teaching. (Detection: for each same-line adjacency
-component, check the tier multiset for a duplicated minimum with consecutive steps above it;
-recompute on board change — 63 cells, cheap.)
+payoff. (Detection: for each same-line adjacency component, check the tier multiset for a
+duplicated minimum with consecutive steps above it; recompute on board change — 63 cells,
+cheap.)
+
+**FTUE.** The first time a ready ladder exists on the board, a one-time cut-paper dialog
+introduces cascades: the outline lights up and the existing hand-hint system traces the
+tip-over merge. One show, then never again (standard FTUE flagging).
 
 **Rewards.** Per step: +1, +2, +4, +8 coins, capped at +8 past ×5 — **spendable only, never
 the clock**. Sparkle and sound pitch escalate; confetti at ×5. Once per day, the first ×5
-chain pays a small chest. A sparkle cell (§7) counts a merge made on it as one step higher.
+chain pays a small chest.
 
 ---
 
-## 7 · Improvements (cell upgrades)
+## 6 · Improvements (cell upgrades) — own a patch of weather
+
+**The principle (Dev call): improvements mirror the skies.** Weather rents an effect for an
+hour, board-wide in one lane; an improvement lets the player **own a small permanent version
+on one cell**. Weather is the teacher — you feel Magnet hour, love it, buy a magnet cell.
+When the sky matches your cell (Sun hour over a sun cell), that cell shines double.
 
 Six fixed **improvement slots** on the board perimeter (4 corners + 2 mid-edges). Buy a slot
 with coins, then choose what to build; rebuilding to another type later costs a little. This
@@ -178,18 +177,36 @@ is the standing **coin sink** the economy lacks. Hard cap: 6 improved cells ever
 stays a merge board. Improved cells behave as normal cells (spawning included); only a soil
 cell is occupied while something grows.
 
-| Type | Does | Rank 2 | Rank 3 |
+| Cell | A merge on it… | Rank 2 | Rank 3 |
 |---|---|---|---|
-| **Soil** | grows planted pieces (§4) | 30% faster | harvests +2 tiers |
-| **Spring** | drips 1 free water onto the board per day | 2/day | 3/day |
-| **Sparkle** | a merge on it counts +1 chain step (§6) | double combo coins on it | +chance of a water drop |
+| **Sun** | pops extra coin drops | better odds | more coins per drop |
+| **Spring** | pops extra water drops | better odds | more water per drop |
+| **Magnet** | pulls the nearest same-line-same-tier piece adjacent | pulls 2 pieces | pulls from anywhere on the board |
+| **Mirror** | echoes one ready pair (cooldown: once per grove hour) | cooldown halves | 2 echoes per hour |
+| **Soil** | *(no sky version)* plant a piece → it grows +1 tier | 30% faster | harvests +2 tiers |
 
-Prices: first slot ~500 coins, roughly doubling per slot; ranks cost a multiple of the slot.
-(The "cushion" storage cell from brainstorming is **cut** — the Shelf already does storage.)
+Mirror-cell echoes follow the same guards as Mirror weather (lowest pair, no chain credit).
+
+**Soil, in detail** (folded in from the old plots section). Drag any piece onto soil → it is
+planted and grows to +1 tier. Growth is **visible at low tiers, idle at high tiers**:
+
+| Planted tier | 1 | 2 | 3 | 4 | 5 | 6 | 7+ |
+|---|---|---|---|---|---|---|---|
+| Grow time | ~10 s | ~45 s | ~3 min | ~15 min | ~1 h | ~3 h | ~8 h cap |
+
+Tier 1–2 sprout while you watch (a little growth animation — the mechanic teaches itself).
+Tier 5+ is the overnight check-back loop. You cannot plant a piece already at its line's top
+ask tier. Cancel any time, free. **Watering:** tap the growing cell to spend board water and
+halve the remaining time, once per growth. **Acorns** finish a grow instantly, priced by time
+remaining — the paid lever: money buys time, never items.
+
+**Unlock.** The first soil cell is free at ~level 6 (an FTUE beat: plant a tier-1, watch it
+sprout in seconds). Everything else: first slot ~500 coins, roughly doubling per slot; ranks
+cost a multiple of the slot.
 
 ---
 
-## 8 · Resident trades (fence visitors)
+## 7 · Resident trades (fence visitors)
 
 A placed resident occasionally **walks up to the fence** — the existing giver stand, but the
 card is visibly different paper with a **trade stamp**: give on the left, get on the right,
@@ -214,52 +231,56 @@ Trade flavor follows the resident kind (a koi trades water things).
 
 ---
 
-## 9 · Economy guards (cross-cutting laws)
+## 8 · Economy guards (cross-cutting laws)
 
 - **The clock is quests only** (unchanged). Combo coins, trade proceeds, and retirement
   payouts are spendable-only.
-- **Mastery feeds on deliveries only** — selling and trading never advance a meter.
-- **Acorns buy time, never items** (plot finish, and existing uses). The paid-bundle idea is
+- **Mastery feeds on productive use only** — fence deliveries and craft consumption; selling
+  and trading never.
+- **Acorns buy time, never items** (soil finish, and existing uses). The paid-bundle idea is
   rejected.
-- **Floors respect asks:** pop floor ≤ ask band − 3; plots refuse pieces at the ask cap.
+- **Floors respect asks:** pop floor ≤ ask band − 3; soil refuses pieces at the ask cap.
 - **Scissors must not be a sell arbitrage** (sim-checked).
+- **Echo merges are free value, not an engine** — no chain credit, no combo coins.
 - **Weather never punishes.**
 
 ---
 
-## 10 · Rollout (each row = one Dev-given task, own worktree)
+## 9 · Rollout (each row = one Dev-given task, own worktree)
 
-Order chosen so each step stands alone and the next builds on it:
+Order chosen so each step stands alone and the next builds on it. Weather lands before
+Improvements because the cells are permanent versions of the sky effects (shared effect code).
 
 1. **Shelf** — auto-shelve on window exit, labels, pull-back, retirement re-homed. (Fixes
    problems 1 + 3 by itself.)
 2. **Mastery + Scissors** — meters, ranks, floor rule, rank-up UI; Scissors ships with it.
-3. **Combos + ready-ladder outlines.**
-4. **Improvements + Soil plots** — slots, the three types (sparkle builds on step 3's chain
-   steps), the plot loop, acorn finish.
-5. **Weather hours.**
+3. **Combos + ready-ladder outlines + cascade FTUE.**
+4. **Weather hours** — the sky roll, the patch, the six skies.
+5. **Improvements** — slots, the five cell types (reusing step 4's effects), the soil loop,
+   acorn finish.
 6. **Resident trades.**
 
-Each task carries headless suite coverage; economy-touching steps (2, 3, 6) get a `grove_sim`
+Each task carries headless suite coverage; economy-touching steps (2, 5, 6) get a `grove_sim`
 re-pass before merge. These are parked in the backlog for the Dev to pull one at a time — not
 an autonomous queue.
 
 ---
 
-## 11 · Parked (explicitly not in this design)
+## 10 · Parked (explicitly not in this design)
 
 - **Memory vignettes** (puzzle mini-boards telling the parents' backstory) — strongest future
   candidate for a second mode; parked by Dev call 2026-07-26.
 - **The Exhibition** (weekly seeded fair; entries consumed; NPC rivals, no leaderboard) —
   parked with it.
-- **Ripening shelf** (passive tier growth while shelved) — superseded by plots; the Shelf
+- **Ripening shelf** (passive tier growth while shelved) — superseded by soil; the Shelf
   only stores and labels.
-- **Cushion cell** — superseded by the Shelf.
+- **Cushion cell** — superseded by the Shelf. **Sparkle cell** — superseded by the
+  weather-mirror cell set.
+- **Breeze / Harvest sun / Fireflies skies** — cut as weak or duplicate effects (§4).
 - **Paid tier bundles** — rejected outright (circular economy).
 
-## 12 · Open questions for Dev review
+## 11 · Open questions for Dev review
 
-1. Scissors: **split into two** (recommended) or plain reduce-by-one?
-2. Trade surface confirmed as fence visitor (recommended), or would you rather scene bubbles?
-3. Weather hour length: 60 min per grove day — right feel? Festival at ~1-in-12?
-4. Soil FTUE at level 6 — earlier/later?
+1. Mirror echo target: lowest-tier ready pair (recommended) — confirm.
+2. Mastery craft-consumption credit (§3) is a new law — confirm.
+3. Soil FTUE at level 6 — earlier/later?
