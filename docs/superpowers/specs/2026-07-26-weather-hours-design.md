@@ -239,7 +239,7 @@ State in `Save.grove().sky`.
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
 | `STAR_DELAY` | 10 s | live seconds before the star falls |
 | `BANNER_SECS` | 2.5 | banner self-dismiss |
-| `PATCH_ALPHA` | 0.10–0.15 | wash alpha per sky |
+| `PATCH_ALPHA` | Rain · Star 0.10–0.15; Sunbeam ~0.30 | gold-on-cream needs ~0.30 + same-hue edge deepening to read (mock-validated) |
 | `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
 ---
