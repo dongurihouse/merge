@@ -39,8 +39,8 @@ const MEADOW_UI := "ui/meadow_v2/%s"
 # with the old card_generic nine-slice but still accepted (ignored) from saved configs.
 static var KIT_PATH := Game.kit()
 const PAPER_TEXTURE := "texture_cream.png"
-const PAPER_FILL := Color("#F6EBDD")
-const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const PAPER_FILL := CREAM
+const PAPER_EDGE := Color(BARK, 0.35)
 const CARD_CORNER_FRAC := 0.12            # card corner radius as a fraction of the card height (shadow rounding)
 const CARD_PATH := "ui/quest/card_shell.png"     # the deckled cut-paper card shell (art fills the box)
 # Irregular hand-cut paper plates — the preferred card surface. Each 512² PNG carries its OWN

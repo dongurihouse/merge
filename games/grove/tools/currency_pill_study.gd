@@ -8,13 +8,14 @@ extends Control
 
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Pal = preload("res://engine/scripts/core/game.gd").PALETTE   # colour roles only — still no HUD / kit import
 const DESIGN_SIZE := Vector2(941, 160)
 const PAPER_ROOT := "res://games/grove/assets/ui/meadow_v2/"
 const PAPER_TEXTURE_PATH := PAPER_ROOT + "texture_cream.png"
 const PLUS_PATH := PAPER_ROOT + "button_plus.png"
-const INK := Color("#243B4B")
-const SHELL_FILL := Color("#F6EBDD")
-const SHELL_EDGE := Color("#3F6D7D", 0.35)
+const INK := Pal.INK
+const SHELL_FILL := Pal.CREAM
+const SHELL_EDGE := Color(Pal.BARK, 0.35)
 const SHELL_RADIUS := 28
 const PAPER_INSET := 2.0
 const PAPER_RADIUS := 26.0

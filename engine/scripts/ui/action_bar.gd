@@ -26,7 +26,7 @@ const WELL_GAP_FRAC := 0.14                             # gap between the Home/B
 const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
 const DECKLE_SURFACE_NODE := "ActionBarInfoDeckleSurface"
 const PAPER_TEXTURE := "texture_cream.png"
-const PAPER_FILL := Color("#F6EBDD")
+const PAPER_FILL := Pal.CREAM
 const PAPER_EDGE := Color("#FFF9EC")
 const PAPER_CORNER_FRAC := 0.18
 

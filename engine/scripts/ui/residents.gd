@@ -51,9 +51,9 @@ const HEIGHT_SCALE_REFERENCE_W := 1080.0
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {
-	"coin":    {"icon": "coin",  "label": "Coins",    "fill": Color("#D6A94C")},
-	"water":   {"icon": "water", "label": "Water",    "fill": Color("#6FA9C0")},
-	"boost":   {"icon": "star",  "label": "Boost",    "fill": Color("#5F9B6D")},
+	"coin":    {"icon": "coin",  "label": "Coins",    "fill": Pal.GOLD},
+	"water":   {"icon": "water", "label": "Water",    "fill": Pal.SKY},
+	"boost":   {"icon": "star",  "label": "Boost",    "fill": Pal.LEAF},
 	"diamond": {"icon": "gem",   "label": "Diamonds", "fill": Color("#8677A3")},
 }
 

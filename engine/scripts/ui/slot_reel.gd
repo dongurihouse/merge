@@ -16,7 +16,7 @@ const Pal = Game.PALETTE
 # (matches giver_stand.gd / unlock_bar.gd) to avoid a preload cycle.
 static var KIT_PATH := Game.kit()
 const PAPER_TEXTURE := "texture_cream.png"
-const PAPER_EDGE := Color("#3F6D7D", 0.35)
+const PAPER_EDGE := Color(Pal.BARK, 0.35)
 
 # reel spin pacing (owner feel dial). Reels ALL start together and STOP one-by-one (left→right): reel i
 # whirs longer → lands later; the last hangs an extra beat. cfg passed to spin_reels overrides any of these.

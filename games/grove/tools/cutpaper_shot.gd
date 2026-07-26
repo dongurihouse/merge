@@ -4,6 +4,7 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/cutpaper_shot.gd -- /tmp/cutpaper.png
 
 const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")
+const Pal = preload("res://engine/scripts/core/game.gd").PALETTE
 const TILE := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"
 
 func _initialize() -> void:
@@ -19,7 +20,7 @@ func _initialize() -> void:
 
 	var root := get_root()
 	var bg := ColorRect.new()
-	bg.color = Color("#6FA9C0")
+	bg.color = Pal.SCREEN_BG
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
 
