@@ -27,10 +27,13 @@ so every hook below is home-only for free), new currencies, and any change to th
 unseal pacing (`MIN_LEVEL` stays the owner's dial).
 
 **Relationship to rollout step 3 (cascades).** Magnet and Mirror need adjacency-based
-ready-pair/ladder detection, which does not exist yet — the only pair finder on the home board,
-`board_logic.find_mergeable_pair` (`board_logic.gd:25`), is *not* adjacency-based, and Rush's
-`Explore.neighbor_match` (`explore.gd:160-173`) lives in the Rush layer. §7 defines the shared
-pure module; whichever of steps 3 and 4 lands first ships it, the other consumes it.
+ready-pair/ladder detection. No such code exists on the home board today (`find_mergeable_pair`,
+`board_logic.gd:25`, is not adjacency-based; Rush's `Explore.neighbor_match` is Rush-layer) —
+but the **landed step-3 draft** (`2026-07-26-cascade-combos-design.md`, same day) specs it:
+`ready_ladders` as a `board_logic.gd` static, plus an explicit reuse contract for this step.
+§7 states what this step consumes and adds. If the Dev pulls step 4 before step 3's
+implementation, this task ships those statics to the cascade spec's signatures and step 3
+inherits them.
 
 ---
 
@@ -130,6 +133,9 @@ locked piece. Specials **are** plantable (they're tiered); every cap below also 
 - Queries: `_asked_codes`/`_quest_for_code` are today scene-private (`board.gd:1512-1528`) and
   no line→top-tier index exists. Lift them into `quests.gd` as statics and add
   `Quests.top_ask_tier(quests, line) -> int` (0 = none) so the rule is headless-testable.
+  *Coordination:* the step-2 mastery draft defines `mastery.gd::ask_band(line, quests)` over
+  the same information — whichever lands second derives from `Quests.top_ask_tier` rather than
+  re-walking the fence; one ask primitive, two consumers.
 
 **Growth.** One timer, tier bump at completion — never gradual:
 
@@ -163,9 +169,13 @@ time format), and three `ActionBar.action_chip` chips (`action_bar.gd:263-330`, 
   the remaining-seconds read is a plain `ends_at - now`.
 - **✕ Cancel** — free, any time: growth stops, the piece unlocks at its planted tier.
 
-**Forward seam (weather, step 5).** When §4-weather ships, a Rain hour waters soils free. One
-seam only: the water action calls `Improvements.water_cost()` which returns the dial; weather
-will make it return 0 for the hour. Nothing else is built now.
+**Forward seam (weather, step 5).** The landed weather draft pins the contract
+(`2026-07-26-weather-hours-design.md` §4): while Rain holds, a growing soil *inside the patch*
+fires its once-per-growth watering **free and automatically** — on growth start in the patch,
+or on the patch arriving over it. So the seam is the action itself: the pure module exposes
+`apply_water(activity, now) -> activity` (halve remaining, set `watered`); the player's 💧 chip
+spends water and calls it, weather will call the same seam free. Dormant until both ship;
+nothing else is built now.
 
 ---
 
@@ -192,8 +202,9 @@ cell is free, attraction pauses (no shuffling of other pieces, no error).
 
 **Never attracted:** a growing piece, another Magnet's held piece or parked arrangement member
 (each piece belongs to ≤1 arrangement; multiple Magnets scan in fixed slot order, first claim
-wins), the newest piece of a live §5 chain (forward guard — vacuous until step 3), a piece
-mid-drag. **Player override:** dragging a piece *out* of an arrangement flags it exempt from
+wins), the armed chain piece — read via the scene's `chain_armed_cell()` seam that the cascade
+spec reserves for exactly this guard (vacuous until step 3's implementation lands) — and a
+piece mid-drag. **Player override:** dragging a piece *out* of an arrangement flags it exempt from
 that Magnet until the piece next changes cells by any non-drag cause — no tug-of-war.
 
 **Ranks.**
@@ -240,23 +251,27 @@ No cooldown — the cost is that ready pairs are finite.
 
 ---
 
-## 7 · Ready-pair / ladder detection — the shared module
+## 7 · Ready-pair / ladder detection — the shared seams
 
-New pure module `engine/scripts/core/board_ladders.gd` (engine-layer, model-only deps):
+The cascade spec homes detection as **`board_logic.gd` statics** and its reuse contract
+explicitly reserves this step's additions "here, not in the scene". This step consumes and
+adds, to those signatures:
 
-- `ready_pairs(model, locked: Callable) -> Array` of `[cell_a, cell_b]` — adjacent
+- **Consumes** `ready_ladders(board) -> Array` of `{cells, line, n, top_cell}` (cascade §5) —
+  the §5-outline over a Magnet arrangement is that system rendering what detection reports;
+  nothing bespoke is drawn.
+- **Adds** `ready_pairs(board, locked: Callable) -> Array` of `[cell_a, cell_b]` — adjacent
   (4-neighbour) same-code pairs where `can_merge` holds and neither piece is locked or held.
-  Mirror consumes this.
-- `next_rung(held_tier: int, arrangement_tiers: Array) -> int` — the tier that extends the
-  ladder next: the pair (same tier) until it exists, then the lowest missing ascending rung.
-  Magnet's candidate rule, pure over the current arrangement multiset.
-- `chain_newest(model) -> Variant` — a cell or null; returns null (no live chain) until step 3
-  lands its chain tracker. Magnet's forward guard reads it.
-- Step 3 adds its connected-component/outline detection here; the outline hook over a Magnet
-  arrangement is that system rendering what this module reports. Whichever step lands first
-  ships the module (validate with a known-positive AND a known-negative fixture before
-  trusting it).
+  Mirror consumes this: `ready_ladders` components qualify at n ≥ 2 and never list bare pairs,
+  which are exactly what Mirror eats.
+- **Adds** `next_rung(held_tier: int, arrangement_tiers: Array) -> int` — the tier that
+  extends the ladder next: the pair (same tier) until it exists, then the lowest missing
+  ascending rung. Magnet's candidate rule, pure over the current arrangement multiset (the
+  "what extends this ladder" query the cascade contract anticipates).
+- **Consumes** the scene's `chain_armed_cell()` seam for the never-glide-the-armed-piece
+  guard; Mirror echoes bypass the chain seam entirely (both sides of the cascade contract).
 
+Validate detection with a known-positive AND a known-negative fixture before trusting it.
 `find_mergeable_pair` (`board_logic.gd:25`, hints/FTUE) is untouched apart from the
 locked-piece skip.
 
