@@ -466,11 +466,11 @@ static func _build_maps() -> Array:
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (oasis bundle, lock_ prefix).
 		"clusters": [
-			{"id": "adobe", "cost": 820},
+			{"id": "adobe_compound", "cost": 820},
 			{"id": "watchtower", "cost": 1000},
 			{"id": "market_stall", "cost": 1200},
 			{"id": "travel_tent", "cost": 1450},
-			{"id": "caravan", "cost": 1750},
+			{"id": "camel_caravan", "cost": 1750},
 		],
 		"spots": []},
 	{"id": "coral_reef", "name": "Coral Reef", "open": true,
