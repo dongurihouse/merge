@@ -51,6 +51,10 @@ const RNG_SEED := 12345     # fixed: the same inputs must always print the same 
 ## clock. That gap is why a floor derived from cumulative cost in CLOCK coins binds long before the
 ## price does. Re-read it off grove_sim's "Z coins" line if the faucets are re-tuned.
 const WALLET_MULTIPLE := 2.2
+## How much of the wallet the cover-up ladder is allowed to eat. The rest funds the other sinks the
+## sim already models — boosts, expeditions, residents. At 1.0 the ladder would consume every coin
+## the player ever sees and nothing else could be bought.
+const LADDER_WALLET_SHARE := 0.6
 
 var rng := RandomNumberGenerator.new()
 
@@ -67,6 +71,9 @@ func _initialize() -> void:
 	if args.size() >= 5:
 		for part2 in String(args[4]).split(",", false):
 			probes.append(int(part2))
+	# SOLVE mode: a top level here means "arg 4 is DAYS PER SCENE, not cumulative target days —
+	# find the coin curve that lands each scene on its day with this many levels in the game".
+	var solve_top: int = int(args[5]) if args.size() >= 6 else 0
 	rng.seed = RNG_SEED
 
 	# THE FAUCET: sessions × the can. This is what sets the pace.
@@ -85,6 +92,11 @@ func _initialize() -> void:
 	else:
 		print("  TIME CHECK: **TIME BINDS** — spending that water needs ~%.0f min at %.1f clicks/sec but only %.0f min/day is played. Every day below is optimistic; cut the faucet to %.0f pops/day to match the time budget." % \
 			[secs_needed / 60.0, cps, mins, secs_have * cps / 2.0])
+
+	if solve_top > 0:
+		_solve(targets, solve_top, water_per_day)
+		quit(0)
+		return
 
 	# --- how far the ladder runs: the level of the LAST cluster, and of the last zone ---
 	var top_level := 1
@@ -226,6 +238,196 @@ func _coins_per_water(level: int) -> float:
 	if pops <= 0.0:
 		return 0.0001
 	return coins / pops
+
+# === SOLVE: days per scene → the coin curve, the scene levels, the whole gate table ==================
+# `days_per_scene` is what the owner actually wants to dial ("scene 1 takes 3 days, scene 2 takes 4…").
+# `top` is how many levels the game should span — the "more levels than clusters" requirement, since
+# 25 clusters means top must comfortably exceed 25. Everything else is solved.
+#
+# The curve keeps its SHAPE (step/base stays at the shipped ratio) and only its SCALE moves, so the
+# feel of "each level costs a bit more than the last" is preserved; the scale is what sets calendar
+# length. Binary search on the scale, because coins-per-water varies by level and there is no closed
+# form. The coins-per-water table is measured ONCE against the LIVE cadence and held fixed — moving
+# the gates does move it a little (a later scene's lines pay more per pop), so re-run this tool after
+# applying the result and expect a small correction on the second pass.
+func _solve(days_per_scene: Array, top: int, wpd: float) -> void:
+	var pages := G.coverup_pages()
+	if days_per_scene.is_empty():
+		print("\n  SOLVE: no days given. Pass them as arg 4, one per scene, e.g. \"3,4,5,6,7\".")
+		return
+	var cum: Array = []
+	var acc := 0.0
+	for d in days_per_scene:
+		acc += float(d)
+		cum.append(acc)
+	var total_days := acc
+
+	print("\n== SOLVE: days per scene → the curve that produces them ==")
+	print("  WANT: %s days per scene = the book finished on day %.0f" % [str(days_per_scene), total_days])
+	print("  LEVELS: %d (25 clusters, so %.1f levels per cluster)" % [top, float(top) / 25.0])
+
+	var cpw := _cpw_table(top)
+	var ratio := float(G.LEVEL_STEP_COINS) / maxf(float(G.LEVEL_BASE_COINS), 1.0)
+
+	# binary search the curve SCALE (base; step follows the shipped ratio) for the target calendar
+	var lo := 0.01
+	var hi := 10000.0
+	var base := 1.0
+	for _i in 60:
+		base = (lo + hi) / 2.0
+		var got := _walk_f(base, base * ratio, top, wpd, cpw)
+		if float(got[top]) > total_days:
+			hi = base
+		else:
+			lo = base
+	var step := base * ratio
+	# The dials are INTEGERS, and at a short calendar they are small enough that rounding the float
+	# solve is badly lossy (4.40/1.76 → 4/2 overshot by 12%). Search the integer pairs directly and
+	# keep the one whose calendar lands closest, preferring the shape nearest the solved ratio on a tie.
+	var b_i := maxi(1, int(round(base)))
+	var s_i := maxi(0, int(round(step)))
+	var best := INF
+	for bb in range(1, maxi(8, int(base * 4.0) + 2)):
+		for ss in range(0, maxi(8, int(step * 4.0) + 2)):
+			var d := _walk_i(bb, ss, top, wpd, cpw)
+			var err := absf(float(d[top]) - total_days)
+			var shape := absf(float(ss) / maxf(float(bb), 1.0) - ratio) * 0.25   # tie-break toward the shipped shape
+			if err + shape < best:
+				best = err + shape
+				b_i = bb
+				s_i = ss
+	print("  → LEVEL_BASE_COINS %d · LEVEL_STEP_COINS %d   (float solve %.2f / %.2f; best INTEGER pair searched, not rounded)" % [b_i, s_i, base, step])
+
+	# verify the chosen integers through the real G.coins_at_level
+	var day_at := _walk_i(b_i, s_i, top, wpd, cpw)
+	print("  verified at those integers: the book lands on day %.1f (wanted %.0f)" % [float(day_at[top]), total_days])
+
+	print("\n  %-24s %-9s %-7s %-11s %s" % ["scene", "want day", "level", "actual day", "clock (quest coins)"])
+	var lvls: Array = []
+	for p in mini(cum.size(), pages.size()):
+		var want := float(cum[p])
+		var lv := 1
+		for l in range(1, top + 1):
+			if float(day_at[l]) <= want:
+				lv = l
+			else:
+				break
+		lvls.append(lv)
+		print("  %-24s %-9.0f L%-6d %-11.1f %d" % [String(G.MAPS[int(pages[p])].get("name", "?")),
+			want, lv, float(day_at[lv]), _coins_f(lv, b_i, s_i)])
+
+	# the gate tables that fall out: clusters and zones spread inside each scene's LEVEL BAND
+	print("\n  THE GATE TABLES THIS PRODUCES (clusters and zones spread inside each scene's level band):")
+	var start := 1
+	var all_floors: Array = []
+	var all_zones: Array = []
+	for p in pages.size():
+		if p >= lvls.size():
+			break
+		var end_lv := int(lvls[p])
+		var span := maxi(1, end_lv + 1 - start)
+		var ncl := G.clusters(int(pages[p])).size()
+		var nz := int(G.ZONE_BAND[p]) if p < G.ZONE_BAND.size() else 0
+		var f: Array = []
+		for j in ncl:
+			f.append(mini(end_lv, start + int(round(float(j) * float(span) / float(maxi(1, ncl))))))
+		var zs: Array = []
+		for j2 in nz:
+			zs.append(mini(end_lv, start + int(round(float(j2) * float(span) / float(maxi(1, nz))))))
+		all_floors.append_array(f)
+		all_zones.append_array(zs)
+		print("    scene %d %-24s L%d-%-4d clusters %s · zones %s" % [p + 1, String(G.MAPS[int(pages[p])].get("name", "?")), start, end_lv, str(f), str(zs)])
+		start = end_lv + 1
+	if not all_zones.is_empty():
+		all_zones[0] = 1
+	print("    cluster floors : %s" % str(all_floors))
+	print("    zone unlocks   : %s" % str(all_zones))
+
+	# Does the coin PRICE still fit inside the wallet at these levels? A shorter calendar earns fewer
+	# coins, so the ladder's prices have to come down with it or the PRICE gates instead of the level
+	# — which is the failure this whole exercise exists to avoid. Report the single scale factor that
+	# makes the tightest scene fit inside LADDER_WALLET_SHARE of the wallet, leaving the rest for the
+	# other sinks (boosts, expeditions, residents).
+	print("\n  PRICE CHECK (the ladder must stay affordable, or the price gates instead of the level):")
+	var cc := 0
+	var need_scale := 1.0
+	var binds := ""
+	for p in pages.size():
+		for c in G.clusters(int(pages[p])):
+			cc += G.cluster_cost(int(pages[p]), String((c as Dictionary).id))
+		if p < lvls.size():
+			var clock := _coins_f(int(lvls[p]), b_i, s_i)
+			var wallet := float(clock) * WALLET_MULTIPLE
+			var budget := wallet * LADDER_WALLET_SHARE
+			var ok := float(cc) <= budget
+			print("    scene %d: cumulative cost %-7d vs wallet ~%-7.0f (ladder budget %.0f) → %s" % \
+				[p + 1, cc, wallet, budget, "ok" if ok else "PRICE BINDS"])
+			if not ok and binds == "":
+				binds = "scene %d" % (p + 1)
+			need_scale = minf(need_scale, budget / maxf(float(cc), 1.0))
+	if binds == "":
+		print("    the ladder fits: the LEVEL floor is the gate everywhere, which is the intent.")
+		return
+	print("    ⚠ the cluster COSTS do not fit this calendar — from %s on the player cannot pay even at" % binds)
+	print("      the level, so the PRICE would gate instead of the level. Scale every `cost` by:")
+	print("      → ×%.3f  (about 1/%.0f)" % [need_scale, 1.0 / maxf(need_scale, 0.0001)])
+	var scaled: Array = []
+	var tot_scaled := 0
+	for p in pages.size():
+		var row: Array = []
+		for c in G.clusters(int(pages[p])):
+			var nc := maxi(1, int(round(float(G.cluster_cost(int(pages[p]), String((c as Dictionary).id))) * need_scale)))
+			row.append(nc)
+			tot_scaled += nc
+		scaled.append(row)
+		print("      scene %d %-24s %s" % [p + 1, String(G.MAPS[int(pages[p])].get("name", "?")), str(row)])
+	print("      whole ladder: %d coins (was %d)" % [tot_scaled, cc])
+
+# Coins to REACH `level` on a candidate integer curve (the closed form G.coins_at_level uses).
+func _coins_f(level: int, b: int, s: int) -> int:
+	if level <= 1:
+		return 0
+	var m := level - 1
+	return m * b + (m * (m - 1) / 2) * s
+
+# Cumulative days to reach each level on a FLOAT candidate curve (search inner loop).
+func _walk_f(b: float, s: float, top: int, wpd: float, cpw: Array) -> Array:
+	var out: Array = []
+	out.resize(top + 2)
+	out[0] = 0.0
+	out[1] = 0.0
+	for lv in range(1, top + 1):
+		var m := float(lv - 1)
+		var m2 := float(lv)
+		var need := (m2 * b + m2 * (m2 - 1.0) / 2.0 * s) - (m * b + m * (m - 1.0) / 2.0 * s)
+		out[lv + 1] = float(out[lv]) + need / maxf(float(cpw[mini(lv, cpw.size() - 1)]), 0.0001) / wpd
+	return out
+
+# The same walk on the ROUNDED integers, through the real G.coins_at_level — the verification pass.
+func _walk_i(b: int, s: int, top: int, wpd: float, cpw: Array) -> Array:
+	var b0 := G.LEVEL_BASE_COINS
+	var s0 := G.LEVEL_STEP_COINS
+	G.LEVEL_BASE_COINS = b
+	G.LEVEL_STEP_COINS = s
+	var out: Array = []
+	out.resize(top + 2)
+	out[0] = 0.0
+	out[1] = 0.0
+	for lv in range(1, top + 1):
+		var need := G.coins_at_level(lv + 1) - G.coins_at_level(lv)
+		out[lv + 1] = float(out[lv]) + float(need) / maxf(float(cpw[mini(lv, cpw.size() - 1)]), 0.0001) / wpd
+	G.LEVEL_BASE_COINS = b0
+	G.LEVEL_STEP_COINS = s0
+	return out
+
+# Coins-per-water at every level, measured ONCE against the LIVE cadence before any dial is moved.
+func _cpw_table(top: int) -> Array:
+	var out: Array = []
+	out.resize(top + 2)
+	out[0] = 0.0001
+	for lv in range(1, top + 2):
+		out[lv] = _coins_per_water(lv)
+	return out
 
 # Which gate actually stops the player at this point in the ladder: the LEVEL floor, or the coin
 # PRICE? `cum_cost` is what the ladder has cost through this scene; `clock_coins` is what the clock
