@@ -17,11 +17,19 @@ GROVE_TESTS_DISABLED :=
 # dev-tool suites — pure-Image logic for the asset intake pipeline (fast, no scenes)
 TOOLS_TESTS  := games/tools/tests/slice_islands_tests
 TESTS        := $(ENGINE_TESTS) $(TOOLS_TESTS) $(GROVE_TESTS)
+# Build/config guards — no Godot, stdlib only, milliseconds each. They check the SHIPPING
+# config (splash + launch storyboard, the build-info stamper, the Xcode Cloud clone hook)
+# rather than game logic, so they live outside $(RUNNER) and run via `make test-config`.
+# All three read only committed files (build/ios/ci_scripts/ci_post_clone.sh is tracked —
+# un-ignored by .gitignore's negations — and none of them touch gitignored engine/generated/),
+# so they are safe on a clean checkout and in CI.
+PY_TESTS     := tools/test_boot_splash_assets.py
+SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run g-phone editor fx test test-fast test-engine test-grove test-one smoke import bake bake-textures \
+.PHONY: help run g-phone editor fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
         decor icon ios release-ios get-ios clean clean-cache intake intake-test
 
@@ -70,8 +78,13 @@ fx: ## see + tune every Grove FX live — the feel verbs (land · merge · launc
 test-fast: ## ⚡ inner-loop check — engine + tool suites, parallel. USE THIS AFTER EVERY CHANGE.
 	@python3 $(RUNNER) $(ENGINE_TESTS) $(TOOLS_TESTS)
 
-test: ## full sweep: every suite (engine + grove), parallel + per-suite timing table
+test: test-config ## full sweep: config guards + every suite (engine + grove), parallel + per-suite timing table
 	@python3 $(RUNNER) $(TESTS)
+
+test-config: ## build/config guards (splash, build-info stamp, Xcode Cloud hook) — no godot, milliseconds
+	@set -e; \
+	for t in $(PY_TESTS); do echo "== $$t"; python3 $$t; done; \
+	for t in $(SH_TESTS); do echo "== $$t"; bash $$t; done
 
 test-engine: ## only the base-engine suites (parallel)
 	@python3 $(RUNNER) $(ENGINE_TESTS)
