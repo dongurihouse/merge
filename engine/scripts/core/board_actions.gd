@@ -121,6 +121,23 @@ static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
 # whole decision stays a pure, headless-testable static. Returns
 #   {retired, line, coins, items, gen_cells, bag}
 # — items = how many pieces were sold, gen_cells = board cells freed (for the scene's poof).
+## What retiring `line` would clear, WITHOUT mutating: {pieces, coins} over the board AND the item bag.
+## THE ONE payout read — the offer card, the info-bar sell label and retire_line itself all price the same
+## way, so the number shown can never differ from the number paid.
+static func retire_preview(board: BoardModel, bag: Array, line: int) -> Dictionary:
+	var pieces := 0
+	var coins := 0
+	for i in board.items.size():
+		var code: int = board.items[i]
+		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == int(line):
+			pieces += 1
+			coins += int(G.sell_reward(code).x)
+	for c in bag:
+		if int(c) > 0 and not G.is_coin(int(c)) and BoardModel.line_of(int(c)) == int(line):
+			pieces += 1
+			coins += int(G.sell_reward(int(c)).x)
+	return {"pieces": pieces, "coins": coins}
+
 static func retire_line(board: BoardModel, bag: Array, gen_id: String, level: int) -> Dictionary:
 	var gid := String(gen_id)
 	var out := {"retired": false, "line": 0, "coins": 0, "items": 0, "gen_cells": [], "bag": bag}

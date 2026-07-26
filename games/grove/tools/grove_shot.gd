@@ -196,6 +196,19 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			scn._maybe_offer_retirement()
 			await create_timer(0.5).timeout
+		"retiredone":
+			# §6 the board AFTER confirming a retirement: the generator and its dead stock are gone, the payout
+			# has flown to the coin HUD. The state the offer promises — worth LOOKING at, not just asserting.
+			var gd := Save.grove()
+			gd["coins_earned"] = G.coins_at_level(14)
+			Save.grove_write()
+			var fc: Array = scn.board.empty_ground_cells()
+			for k in mini(3, fc.size()):
+				scn.board.place(fc[k], 1 * 100 + 2 + k)
+			scn._rebuild_all()
+			await create_timer(0.3).timeout
+			scn._retire_line("gen_1")
+			await create_timer(0.6).timeout
 		"recipe":
 			# the MERGED-line tier screen: a special line (71 = Prize pumpkin, crafted from Wildflower + Feather)
 			# opens its RECIPE view — the two ingredient items alone, each tapping through to its own tier screen.

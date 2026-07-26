@@ -15,6 +15,8 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
+const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
+const RetireOffer = preload("res://engine/scripts/ui/retire_offer.gd")
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -58,7 +60,58 @@ func _initialize() -> void:
 	await _test_home_swipe_resize_mid_commit_finalizes()
 	await _test_endgame_fence_stays_live()
 	await _test_purge_above_level_migration()
+	await _test_retirement_offer()
 	finish()
+
+# §6 LINE RETIREMENT through the REAL scene: the offer picks the right generator, DECLINING is remembered
+# (an offer, not a nag), and CONFIRMING clears the generator and its dead stock end-to-end. The pure statics
+# are covered in grove_board_actions_tests; this is the wiring — the part unit tests cannot see.
+func _test_retirement_offer() -> void:
+	fresh("retire_offer")
+	Save.grove()["coins_earned"] = G.coins_at_level(14)   # past L11 → gen_1 is retirable, nothing else is
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	await process_frame
+	var free_cells: Array = scn.board.empty_ground_cells()
+	ok(free_cells.size() >= 2, "fixture: the board has ground for the leftover stock")
+	scn.board.place(free_cells[0], 1 * 100 + 2)           # leftover glow stock — must be cleared
+	scn.board.place(free_cells[1], 1 * 100 + 3)
+	var pv: Dictionary = BoardActions.retire_preview(scn.board, scn.bag, 1)
+	ok(int(pv.pieces) >= 2 and int(pv.coins) > 0, "the preview prices the line's stock (%d pieces / %d coins)" % [int(pv.pieces), int(pv.coins)])
+	# the OFFER appears and targets the retirable generator
+	scn._maybe_offer_retirement()
+	await process_frame
+	ok(RetireOffer.is_open(scn), "board entry offers the retirement")
+	# DECLINE → remembered, and not re-offered on the next entry
+	var dm: Dictionary = Save.grove().get("retire_declined", {})
+	dm["gen_1"] = true
+	Save.grove()["retire_declined"] = dm
+	Save.grove_write()
+	for ov in scn.get_children():
+		if String(ov.name) == "RetireOfferOverlay":
+			ov.free()
+	scn._maybe_offer_retirement()
+	await process_frame
+	ok(not RetireOffer.is_open(scn), "a DECLINED offer is not re-fired on the next board entry")
+	# CONFIRM (the same call the card's button makes) → generator and stock gone, wallet paid, clock still
+	var wallet_b := Save.coins()
+	var clock_b := Save.coins_earned_lifetime()
+	scn._retire_line("gen_1")
+	await process_frame
+	ok(not scn.board.gens.values().has("gen_1"), "confirming removes the generator from the live board")
+	var leftover := 0
+	for i in scn.board.items.size():
+		if int(scn.board.items[i]) > 0 and BoardModel.line_of(int(scn.board.items[i])) == 1:
+			leftover += 1
+	ok(leftover == 0, "confirming clears every leftover piece of the retired line")
+	ok(Save.coins() == wallet_b + int(pv.coins), "the wallet is paid EXACTLY what the offer advertised (%d)" % int(pv.coins))
+	ok(Save.coins_earned_lifetime() == clock_b, "retiring never advances the clock")
+	scn.queue_free()
+	await process_frame
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
 # _refresh_generator_dim (scene state: gen_nodes + quests), so — like the other board scene wiring —

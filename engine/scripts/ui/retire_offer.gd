@@ -44,6 +44,12 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var pieces := int(opts.get("pieces", 0))
 	var coins := int(opts.get("coins", 0))
 	var on_confirm: Callable = opts.get("on_confirm", Callable())
+	var on_dismiss: Callable = opts.get("on_dismiss", Callable())
+	# closed WITHOUT confirming = declined. Boxed so both close paths (veil tap, ✕) and the CTA share one flag.
+	var confirmed := [false]
+	var dismiss := func() -> void:
+		if not bool(confirmed[0]) and on_dismiss.is_valid():
+			on_dismiss.call()
 	Audio.play("button_tap", -4.0)
 
 	var overlay := Overlay.mount(host, OVERLAY_NAME)
@@ -53,6 +59,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	overlay.add_child(veil)
 	veil.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			dismiss.call()
 			overlay.queue_free())
 	var cc := CenterContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -89,6 +96,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 
 	var btn: Button = Kit.cta_button(Strings.t("retire.confirm"), Kit.button_opts_from_config(cfg))
 	btn.pressed.connect(func() -> void:
+		confirmed[0] = true
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 		if on_confirm.is_valid():
@@ -102,6 +110,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	# all three — otherwise the button lands under the bottom edge and the only hint is a thin scrollbar.
 	dopts["min_h"] = width * 0.60
 	dopts["on_close"] = func() -> void:
+		dismiss.call()
 		if is_instance_valid(overlay):
 			overlay.queue_free()
 
