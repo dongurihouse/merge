@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for core/quests.gd — the §7 fence-COMPOSITION layer that sits above
 ## the quest engine in content.gd (G.gen_quest / active_giver_count). board.gd's instance
 ## methods (_quest_map/_refill_quests/…) are thin Save-reading wrappers over these pure
@@ -8,17 +8,6 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _line_counts(qs: Array) -> Dictionary:
 	var out := {}
@@ -370,5 +359,4 @@ func _initialize() -> void:
 		var qi2 := G.quest_item(q)
 		ok(qi2.is_empty() or stale_live.has(int(qi2.line)), "every surviving stand asks a line inside the active window")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

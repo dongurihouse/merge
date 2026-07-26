@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the identity provider (core/identity.gd) — the part that CAN run off iOS: it must
 ## degrade safely when the Game Center plugin is absent (no singleton), and honor a previously-cached id.
 ## The live Game Center auth/signature path is iOS-only and not exercised here.
@@ -7,25 +7,10 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")
 
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
-
-func fresh(name: String) -> void:
-	var dir := "user://tu_identity_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# This suite's own user:// save-dir tree — kept distinct so the parallel
+# runner can never let two suites clobber each other's saves.
+func save_prefix() -> String:
+	return "tu_identity_"
 
 func _initialize() -> void:
 	print("== Identity tests ==")
@@ -52,5 +37,4 @@ func _initialize() -> void:
 	Save.grove_write()
 	ok(Identity.player_id() == "A:_abc123", "a cached Game Center id is returned on relaunch")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the IAP catalog (core/iap.gd + data/iap_products.json) — the lookup that CAN run
 ## off iOS. Verifies every product resolves to a well-formed App Store id/price, that the catalog is the
 ## single source of truth, and that off-StoreKit buy()/charging() take the honest non-charging path.
@@ -11,17 +11,6 @@ const EXPECTED := [
 	"piggybank", "starter",
 	"gems_tier1", "gems_tier2", "gems_tier3", "gems_tier4", "gems_tier5", "gems_tier6",
 ]
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _initialize() -> void:
 	print("== IAP catalog tests ==")
@@ -56,5 +45,4 @@ func _initialize() -> void:
 		got.ok = success)
 	ok(got.called and got.ok == false, "buy() fails immediately off-StoreKit (caller falls back to its grant)")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

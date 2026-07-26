@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless guard for the engine layering invariant.
 ##   godot --headless --path . -s res://engine/tests/layering_tests.gd
 ## Imports may only flow scenes/ -> ui/ -> core/. This proves the direction holds:
@@ -21,17 +21,6 @@ const Overlay := preload("res://engine/scripts/ui/overlay.gd")
 const Hud := preload("res://engine/scripts/ui/hud.gd")
 const TuneFX := preload("res://engine/scripts/core/tuning.gd").FX   # the FX juice dials (FLY_Z / FLOAT_Z)
 const HandHint := preload("res://engine/scripts/ui/hand_hint.gd")   # the FTUE teach overlay — must sit under every modal
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _gd_files(dir: String) -> PackedStringArray:
 	var out := PackedStringArray()
@@ -84,8 +73,7 @@ func _initialize() -> void:
 	_check_no_z_above_modal_top()
 	_check_engine_never_reaches_into_games()
 	await _check_level_badge_layout()
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()
 
 # The modal-overlay z invariant. The game renders on ONE canvas (no CanvasLayers), so "dialogs stay on top
 # of the background" is purely z_index: every dialog mounts via Overlay.mount, which MUST stamp a z above

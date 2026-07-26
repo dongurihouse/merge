@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Build-size guard: no shipped texture is stored LOSSLESS.
 ##
 ## The single biggest lever on this app's download size is texture compression: the game
@@ -23,17 +23,6 @@ const PRESETS := "res://export_presets.cfg"
 const LOSSLESS_ALLOWLIST := {
 	# "res://games/grove/assets/…/some_mask.png": "alpha mask read as data, artifacts bleed",
 }
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 ## The exclude_filter prefixes that keep a path out of the shipped build. Mirrors the parse
 ## in tools/export_asset_pack.sh, INCLUDING its one special case: the main preset excludes
@@ -121,5 +110,4 @@ func _initialize() -> void:
 			else " — %d found (set compress/mode=1 or allowlist): %s"
 				% [lossless.size(), str(lossless.slice(0, 15))]))
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()

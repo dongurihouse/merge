@@ -1,17 +1,6 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 
 const Bucket = preload("res://engine/scripts/core/resident_bucket.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _test_hand_ops() -> void:
 	var s := Bucket.make_state()
@@ -231,5 +220,4 @@ func _initialize() -> void:
 	_test_collectable()
 	_test_box_rolls()
 	_test_ceiling_guard()
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()

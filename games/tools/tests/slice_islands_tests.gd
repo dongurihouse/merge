@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Regression suite for the intake keyer pipeline (chroma_key.gd → slice_islands.gd).
 ##
 ## Guards the "hole resurrection" bug: chroma_key zeroes an ENCLOSED #FF00FF pocket
@@ -13,17 +13,6 @@ const SliceIslands = preload("res://games/tools/slice_islands.gd")
 
 const KEY := Color(1, 0, 1)          # #FF00FF magenta chroma background
 const PIECE := Color(0, 1, 0)        # opaque green foreground piece
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 ## A magenta sheet with a solid green square that ENCLOSES a magenta pocket — the
 ## "bag handle loop" case. Returns the 64x64 RGBA8 image (alpha 255 everywhere).
@@ -70,8 +59,7 @@ func _initialize() -> void:
 
 	_test_hue_key_removes_shadow_on_key()
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()
 
 ## HUE KEY — the "black line welded to the sprite" guard. Generated art often casts a soft drop
 ## shadow onto the key colour; that shadow is DARKENED magenta, which a distance key leaves opaque

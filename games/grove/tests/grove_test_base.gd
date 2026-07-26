@@ -1,7 +1,9 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Shared base for the split grove suites: preloaded refs, assert helpers, the
 ## resident/T45 sub-tests, and begin()/finish() (header + Engine.time_scale + summary).
 ## NOT a runnable suite (no _tests suffix) — grove_*_tests.gd extend this.
+## The counters, ok(), fresh() and the printed footer live one layer down in
+## engine/tests/test_base.gd, shared with every engine suite.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
@@ -28,17 +30,6 @@ const Data = preload("res://games/active.gd").DATA
 # during the wait; a higher time_scale starves those frames. The split + parallel runner
 # are the real speed-up. Raise ONLY if you re-verify the counts still hold.
 const TIME_SCALE := 1.0
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 # --- R3: pixel-right asserts (eng rule 14) -------------------------------------
 # Composited UI (panel + icon + label + offsets) is where 10px misalignment hides
@@ -161,14 +152,10 @@ func _panel_count(area: Control) -> int:
 			n += 1
 	return n
 
-func fresh(name: String) -> void:
-	var dir := "user://tu_test_grove_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# The grove suites' own user:// save-dir tree — kept distinct from the engine suites'
+# so the parallel runner can never let two suites clobber each other's saves.
+func save_prefix() -> String:
+	return "tu_test_grove_"
 
 # Fully unlock cover-up scene `z` in the save (grants its ONE habitat cell — capacity is one cell
 # per completed scene). The shared way suites open the resident bucket.
@@ -190,8 +177,7 @@ func finish() -> void:
 	# navigate, so flush those loads (else they leak / crash WorkerThreadPool teardown at exit —
 	# see scene_warm.gd::drain). Harmless when nothing was prewarmed.
 	SceneWarm._clear()
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	super()
 
 
 # ── §1 · the RESIDENTS population sub-game (own fn = its own scope) ────────────────────────

@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Gates the scene workbench's COVER tooling — the pure zone sidecar (scene_covers_model.gd) and the
 ## zone-fill scatter generator (scene_covers_gen.gd). No rendering; geometry + doc ops only.
 
 const Gen = preload("res://games/grove/tools/scene_covers_gen.gd")
 const CM = preload("res://games/grove/tools/scene_covers_model.gd")
 const HZV = preload("res://engine/scripts/ui/home_page_view.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _square(x0: float, y0: float, s: float) -> Array:
 	return [Vector2(x0, y0), Vector2(x0 + s, y0), Vector2(x0 + s, y0 + s), Vector2(x0, y0 + s)]
@@ -179,5 +168,4 @@ func _initialize() -> void:
 		"a canopy is shifted so centre-pivot rotation lands exactly where foot-pivot rotation would")
 	holder.queue_free()
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

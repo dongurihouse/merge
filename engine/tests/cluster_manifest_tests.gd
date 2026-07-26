@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Guard: every cover-up page's hand-typed MAPS cluster ids must match the GENERATED page manifest.
 ## The manifest (built from workbench region names by games/grove/tools/build_page_manifests.py) is
 ## the source of truth for cluster keys — map.gd keys its lock badges by the manifest's `cluster`,
@@ -9,17 +9,6 @@ extends SceneTree
 
 const Content = preload("res://engine/scripts/core/content.gd")
 const HomePageView = preload("res://engine/scripts/ui/home_page_view.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 # The distinct `cluster` keys the page manifest's coverups declare, loaded through the same
 # loader the game uses (home_page_view.load_manifest) so the test exercises the real path.
@@ -71,5 +60,5 @@ func _initialize() -> void:
 			print("    MAPS:     ", from_maps)
 			print("    manifest: ", from_manifest)
 
-	print("\n== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	print("")
+	finish()

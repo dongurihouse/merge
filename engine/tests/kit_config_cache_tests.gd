@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for Kit.load_config caching — the parsed config is read+JSON-parsed ONCE per path,
 ## not re-parsed for every widget a scene build creates. Cleared on demand (the workbench's Save hook).
 ##   godot --headless -s res://engine/tests/kit_config_cache_tests.gd
 
 const Kit = preload("res://games/grove/ui_kit.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _write(path: String, body: String) -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -48,8 +37,7 @@ func _initialize() -> void:
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_test_fx_and_kit_share_one_cache()
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()
 
 
 ## REGRESSION: FX and the kit read the SAME settings file. They used to hold two independent caches
