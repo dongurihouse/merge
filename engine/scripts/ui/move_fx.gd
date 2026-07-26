@@ -8,6 +8,7 @@ extends RefCounted
 ## Add a new move enhancement = one row in EFFECTS (+ a knob in KNOBS) + a branch in apply().
 
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const FxConfig = preload("res://engine/scripts/ui/fx_config.gd")   # the shared save/load contract
 
 # id · label (shown in the workbench) · tip (one-line feel). DEFAULT is on; the config can turn any off.
 const EFFECTS := [
@@ -29,34 +30,20 @@ const SHADOW_SCALE := Vector2(0.8, 0.34)         # the blob is wide + short rela
 const SHADOW_OFFSET := Vector2(0, 10)            # nudged down so it reads as ground contact
 const TRAIL_T := 0.12                            # each ghost fades out over ~0.12s
 
+## The save/load quartet — one shared contract, see fx_config.gd.
 static func knob(opts: Dictionary, id: String) -> int:
-	return int(opts.get(id, KNOBS.get(id, 0)))
+	return FxConfig.knob(opts, id, KNOBS)
 
 static func defaults() -> Dictionary:
-	var d := {"enabled": true}
-	for e in EFFECTS:
-		d[String(e.id)] = true
-	for k in KNOBS.keys():
-		d[k] = KNOBS[k]
-	return d
+	return FxConfig.defaults(EFFECTS, KNOBS)
 
 ## Resolve the saved toggles + knobs over the defaults (the "move_fx" config block).
 static func from_config(cfg: Dictionary) -> Dictionary:
-	var r: Dictionary = cfg.get("move_fx", {}) if cfg is Dictionary else {}
-	var d := defaults()
-	for e in EFFECTS:
-		var id := String(e.id)
-		if r.has(id):
-			d[id] = bool(r[id])
-	if r.has("enabled"):
-		d["enabled"] = bool(r["enabled"])
-	for k in KNOBS.keys():
-		d[k] = int(r.get(k, KNOBS[k]))
-	return d
+	return FxConfig.from_config(cfg, "move_fx", EFFECTS, KNOBS)
 
 ## True when the master switch is on AND this effect is on.
 static func on(opts: Dictionary, id: String) -> bool:
-	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
+	return FxConfig.on(opts, id)
 
 ## Are the felt enhancements (shadow / trail / lean) allowed at all? Hard-off under headless (no
 ## renderer, no felt effect) — exactly feel.move's gate.

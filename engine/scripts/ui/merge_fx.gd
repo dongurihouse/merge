@@ -12,6 +12,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
+const FxConfig = preload("res://engine/scripts/ui/fx_config.gd")   # the shared save/load contract
 
 const LEAF := Color("#7FB069")
 const STRAW := Color("#E3B23C")
@@ -49,38 +50,25 @@ const KNOBS := {
 	"merge_slide_ms": 130,  # pre-impact loser-tile snap duration (board + Workbench preview)
 }
 
-static func knob(opts: Dictionary, id: String) -> int:
-	return int(opts.get(id, KNOBS.get(id, 0)))
-
 # shake + board_punch fire on EVERY merge when on; the cozy design reserves them for big moments,
-# so they default OFF (opt-in via the workbench). The rest of the cues default on.
+# so they default OFF (opt-in via the workbench). The rest of the cues default on. THE ONLY registry
+# with a default-off set — it rides through the shared contract as the third argument.
 const DEFAULT_OFF := ["shake", "board_punch"]
 
+## The save/load quartet — one shared contract, see fx_config.gd.
+static func knob(opts: Dictionary, id: String) -> int:
+	return FxConfig.knob(opts, id, KNOBS)
+
 static func defaults() -> Dictionary:
-	var d := {"enabled": true}
-	for e in EFFECTS:
-		d[String(e.id)] = not (String(e.id) in DEFAULT_OFF)
-	for k in KNOBS.keys():
-		d[k] = KNOBS[k]
-	return d
+	return FxConfig.defaults(EFFECTS, KNOBS, DEFAULT_OFF)
 
 ## Resolve the saved toggles + knobs over the defaults (the "merge_fx" config block).
 static func from_config(cfg: Dictionary) -> Dictionary:
-	var r: Dictionary = cfg.get("merge_fx", {}) if cfg is Dictionary else {}
-	var d := defaults()
-	for e in EFFECTS:
-		var id := String(e.id)
-		if r.has(id):
-			d[id] = bool(r[id])
-	if r.has("enabled"):
-		d["enabled"] = bool(r["enabled"])
-	for k in KNOBS.keys():
-		d[k] = int(r.get(k, KNOBS[k]))
-	return d
+	return FxConfig.from_config(cfg, "merge_fx", EFFECTS, KNOBS, DEFAULT_OFF)
 
 ## True when the master switch is on AND this effect is on.
 static func on(opts: Dictionary, id: String) -> bool:
-	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
+	return FxConfig.on(opts, id)
 
 ## The merge burst colour ramp, copied from feel._merge_color: tier<4 LEAF green, 4..7 STRAW gold,
 ## >= 8 HOT.
