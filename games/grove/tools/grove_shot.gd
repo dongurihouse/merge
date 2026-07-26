@@ -200,10 +200,11 @@ func _initialize() -> void:
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
 		"retire":
-			# §6 the LINE-RETIREMENT offer: a player past L11 still holding the anchor generator and some of its
-			# now-dead stock. gen_1 is retirable from L12 (nothing in the rest of the game asks glow-mushrooms).
+			# §6 the LINE-RETIREMENT offer: a player still holding the anchor generator and some of its now-dead
+			# stock. gen_1 becomes retirable once zone 3 opens (zone_unlock_level(3)); seed one level past that
+			# boundary so the seed cannot sit exactly on it.
 			var gr := Save.grove()
-			gr["coins_earned"] = G.coins_at_level(14)
+			gr["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 1)
 			Save.grove_write()
 			var free_cells: Array = scn.board.empty_ground_cells()
 			for k in mini(3, free_cells.size()):
@@ -216,7 +217,7 @@ func _initialize() -> void:
 			# §6 the board AFTER confirming a retirement: the generator and its dead stock are gone, the payout
 			# has flown to the coin HUD. The state the offer promises — worth LOOKING at, not just asserting.
 			var gd := Save.grove()
-			gd["coins_earned"] = G.coins_at_level(14)
+			gd["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 1)
 			Save.grove_write()
 			var fc: Array = scn.board.empty_ground_cells()
 			for k in mini(3, fc.size()):
