@@ -18,7 +18,7 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud   # the engine's HUD dials
 # The gold currency pill's look (padding, icon box, amount, plus button) is tuned in the UI Workbench
 # and saved to the shared kit config. Loaded at runtime (matches nav_bar / inbox) to avoid a preload cycle.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM

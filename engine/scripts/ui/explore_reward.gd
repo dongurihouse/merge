@@ -8,6 +8,7 @@ extends RefCounted
 ## stacks over the calendar.
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Game = preload("res://engine/scripts/core/game.gd")   # the game-indirection point (art roots · the ui kit path)
 const Save = preload("res://engine/scripts/core/save.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
@@ -18,7 +19,7 @@ const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "ExploreRewardOverlay"
 const INK := Color("#43352B")
 const STRAW := Color("#D9B679")

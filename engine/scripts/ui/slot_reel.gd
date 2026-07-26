@@ -14,7 +14,7 @@ const Pal = Game.PALETTE
 # The cell surface wears the HUD pills' shared paper look (flat cream + thin PAPER_EDGE rim + a
 # texture_cream grain layer from the UI kit) — see apply_cell_paper. The kit is loaded at runtime
 # (matches giver_stand.gd / unlock_bar.gd) to avoid a preload cycle.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_EDGE := Color("#3F6D7D", 0.35)
 

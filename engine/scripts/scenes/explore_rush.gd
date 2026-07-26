@@ -20,7 +20,8 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home 
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the board bottom bar's shared tray surface
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
-const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
+const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar; Look.kit(rel) resolves game art
+const Game = preload("res://engine/scripts/core/game.gd")            # the game-indirection point (art roots · the ui kit path)
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")      # the toggleable + tunable feel appliers
 const LandFx = preload("res://engine/scripts/ui/land_fx.gd")        # (workbench-tuned, resolved once in _ready)
@@ -33,11 +34,11 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Features = preload("res://engine/scripts/core/features.gd")   # FTUE: gates the Rush hand teaches
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")     # FTUE: the reused merge/dodge teach overlay
 
-const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
-const DANGER_CHEVRON_ART := "res://games/grove/assets/ui/meadow_v2/danger_chevron.png"
+static var RUSH_ART := Look.kit("rush/%s.png")          # the carved-wood / parchment top-bar pieces
+static var DANGER_CHEVRON_ART := Look.kit("meadow_v2/danger_chevron.png")
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
-const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
-const KIT_PATH := "res://games/grove/ui_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
+static var RUSH_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_rush.png")
+static var KIT_PATH := Game.kit()      # the shared UI kit (board frame · slot cells · rush bar)
 
 # --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
 # whole HUD scales 1:1 with the device. The vertical stack, top → bottom:

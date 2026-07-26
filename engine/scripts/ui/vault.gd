@@ -33,7 +33,7 @@ const CREAM := Pal.CREAM
 const BARK := Pal.BARK
 
 # the shared UI kit (ships in the build); loaded by PATH at runtime — the settings.gd/inbox.gd idiom.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 # IAP: the crack routes through StoreKit (via core/iap.gd → core/store.gd) when the plugin is in the
 # build; without it, the honest non-charging test path. Product id + price live in data/iap_products.json.

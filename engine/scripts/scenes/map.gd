@@ -54,8 +54,8 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
-const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
+static var KIT_PATH := Game.kit()
+static var HOME_CHROME_PATH := Game.home_chrome()   # canonical chrome icon ids (shared with the bake)
 const HomePageView = preload("res://engine/scripts/ui/home_page_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -883,7 +883,7 @@ func _maps_featured_card(z: int, rect: Rect2, title_font: int) -> Control:
 		Audio.play("button_tap", -2.0)
 		_open_map(z)
 	var go: Button
-	var cont_path := "res://games/grove/assets/ui/card/continue.png"
+	var cont_path := Look.kit("card/continue.png")
 	if ResourceLoader.exists(cont_path):
 		# the cut-paper CONTINUE sprite (baked word + flower). Keep its NATIVE aspect — grow it to fill the
 		# column height budget, clamp to the column width so it never stretches out of proportion.
@@ -937,7 +937,7 @@ func _maps_grid_card(z: int, rect: Rect2, locked: bool, title_font: int) -> Cont
 		# the slate padlock, centred on the veiled thumb (no backing plate), with a soft drop shadow
 		var med_h := clampf(rect.size.y * 0.46, 76.0, 230.0)
 		# the cut-paper scalloped keyhole sprite (falls back to the drawn padlock if the sprite is absent)
-		var pad_path := "res://games/grove/assets/ui/card/lock.png"
+		var pad_path := Look.kit("card/lock.png")
 		if not ResourceLoader.exists(pad_path):
 			pad_path = Game.art("ui/meadow_v2/icon_padlock.png")
 		if ResourceLoader.exists(pad_path):
@@ -2193,7 +2193,7 @@ func _make_back_button(sb: float) -> Button:
 		_open_map(_map_idx)
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
-	var back_path := "res://games/grove/assets/ui/nav/nav_back.png"
+	var back_path := Look.kit("nav/nav_back.png")
 	if ResourceLoader.exists(back_path):
 		# the cut-paper back-arrow sprite tile (square), matching the nav set + its drop shadow
 		b = SpriteButton.build(load(back_path), Vector2(px, px), back, {"name": "BackButton"})
@@ -2363,7 +2363,7 @@ func _build_settings_gear() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_settings()
 	var b: Button
-	var gear_path := "res://games/grove/assets/ui/gear.png"
+	var gear_path := Look.kit("gear.png")
 	if ResourceLoader.exists(gear_path):
 		# the cut-paper gear sprite (its own soft drop shadow), sized off the shared button metric
 		b = SpriteButton.build(load(gear_path), Vector2(px, px), open_settings,
