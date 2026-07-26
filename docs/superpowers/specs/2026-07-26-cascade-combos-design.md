@@ -184,9 +184,12 @@ after every board mutation; `_commit_move` / `_commit_swap` / `_stash` all end t
 Pieces enter the model before their flight lands, so an outline can appear a beat before the art
 settles — accepted, same as the quest-ready glow.
 
-**Reuse contract for step 4:** the Magnet consumes `ready_ladders` (and will add its own
-"what extends this ladder" query here, not in the scene); it must never glide the armed piece —
-the scene exposes `chain_armed_cell()`. Mirror echoes bypass the chain seam entirely (R4).
+**Reuse contract for step 4** *(amended at the cell-improvements Dev review, same day — the
+Magnet was redesigned from ladder-gatherer to range auto-merger and the Mirror was cut; see
+`2026-07-26-cell-improvements-design.md` §5-6)*: step 4 consumes only the scene's
+`chain_armed_cell()` — the Magnet **holds fire while a chain is armed** and its auto-merges
+bypass the chain seam entirely (R4). It no longer consumes `ready_ladders`, adds no ladder
+query, and never glides pieces.
 
 ## 6 · The outline — presentation
 

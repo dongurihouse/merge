@@ -1,6 +1,6 @@
 # Weather Hours — full spec (2026-07-26)
 
-**Status: draft 1, for Dev review.** Expands §4 + rollout step 5 of
+**Status: draft 2, after first Dev review (same day).** Expands §4 + rollout step 5 of
 `2026-07-26-progression-systems-design.md` (the parent design) into a buildable spec.
 Companions: `engine/scripts/ui/ambient.gd` (the shipped cosmetic hourly roll this system
 absorbs), `engine/scripts/core/board_logic.gd` (the merge-drop rolls), `engine/scripts/core/content.gd`
@@ -15,7 +15,9 @@ All numbers in this doc are **PROVISIONAL** dials — the grove_sim re-pass (§1
 What ships in this one Dev task (own worktree, per the parent's §8): the hourly **sky**
 (three skies over the shipped deterministic roll), the **patch** (one lane of soft light),
 the two **gift merges** (Sunbeam coins, Rain water), the **starfall drop**, the banner /
-HUD chip / patch UI, the debug lever, headless suites, and the sim re-pass.
+HUD chip / patch UI, the debug lever, headless suites, and the sim re-pass. It also
+**supersedes and removes** the shipped ≥48 h win-back rain beat — the live sky is the
+return beat now (§2).
 
 **Home board only, structurally.** The Rush is its own scene (`explore_rush.gd`) with zero
 `board.gd` coupling — it simply never mounts any of this. The map keeps what it has today:
@@ -51,12 +53,17 @@ riding the existing `WeatherLayer` on board and map:
 
 - **Laws.** Never a penalty — weather only gives. Every hour has exactly one sky; a session
   sees one or two turns; every login feels different.
-- **Win-back** keeps its spirit: a ≥48 h return forces the **Rain sky** (rain skin) for its
-  60 s (`winback_until` — "it rained while you were away", and now the first minute back
-  also drips). For that minute the **whole board counts as the patch** — the forced minute
-  rides another hour's lane roll, whose axis may not even be Rain's, and sixty seconds of
-  board-wide sips is bounded generosity. The hour's rolled sky resumes after; a pending
-  starfall waits out the minute (§5 trigger reads the live sky).
+- **The win-back rain beat is superseded and removed** (Dev call, first review). A
+  comeback lands in whatever hour is rolling, banner and all — the sky no longer needs a
+  scripted minute to feel alive. Everything behind the `winback_rain_beat` flag retires:
+  `Ambient.check_winback` / `winback_active` and their `weather_now()` override; the
+  board's full-can grant and the `board.winback.rained` toast; the map's stamp; the flag
+  and its `docs/FEATURES.md` line; `WINBACK_HOURS` / `WINBACK_RAIN_SECS`; the
+  `board.winback.*` strings; the now-readerless `last_seen` writes. **Economy-neutral by
+  construction:** offline regen (+1 per 2 min, offline-inclusive, capped) already fills
+  the can after ~3⅓ h away, so the ≥48 h full-can grant was redundant belt-and-suspenders.
+  Old saves keep stale `winback_until` / `last_seen` keys; nothing reads them again (the
+  defaulted-read pattern tolerates dead keys).
 - **Clock skew, stance: accepted** (no server). Backwards: the §5 `paid_hour` guard is
   monotonic, nothing re-pays. Forwards: indistinguishable from waiting.
 - **Gate.** The sky goes live once both FTUE verbs are taught —
@@ -131,7 +138,7 @@ All state lives in one grove-blob sub-dict (§8). The machine:
    `hour > sky.paid_hour`.
 2. **Trigger.** The board has been live ≥ `STAR_DELAY` 10 s inside this hour (the banner
    has spoken), no modal is open, the input gate `animating` is false, and the live sky
-   reads Starfall (the win-back minute defers, mid-hour entry still pays). On trigger,
+   reads Starfall (mid-hour entry still pays). On trigger,
    stamp `sky.paid_hour = hour` **at roll time** — a restart never re-rolls a paid hour.
 3. **Roll** (hour-salted RNG, never `board.rng`): pick a line uniformly from the **Active
    set** — `G.active_lines(level)` plus the ingredient lines of live asks
@@ -255,14 +262,17 @@ skin (so `shot_base.gd`'s forced `"rain"` still forces the same rainy look), and
   its three roll thresholds retire into the sky shares.
 - `engine/scripts/ui/ambient.gd` — `weather_now()` delegates to `Sky.state` for the skin
   (map + shot callers unchanged); `build_weather` gains the `starlit` kind (within the ≤2
-  emitters / ≤80 particles budget); the debug cycle grows per §6; win-back forces the Rain
-  sky.
+  emitters / ≤80 particles budget); the debug cycle grows per §6; `check_winback` /
+  `winback_active` delete per §2.
 - ● `engine/scripts/ui/sky_banner.gd` · ● `engine/scripts/ui/sky_patch.gd` — §6.
 - `engine/scripts/ui/hud.gd` — the sky chip + owed pip in the cluster.
 - `engine/scripts/scenes/board.gd` — the wiring only: entry banner in the deferred tail;
   hour-turn check beside `_tick_water`; patch insert in `_rebuild_all` + reflow; gift rolls
   in `_after_merge` via ➋; §5 trigger + owed landing in `_after_board_change`; the star
-  drop through the `_drop_special_near` path generalized to any code, with `"arc"`.
+  drop through the `_drop_special_near` path generalized to any code, with `"arc"`. The
+  win-back load-grant, `_winback` toast, and `last_seen` write delete per §2.
+- `engine/scripts/scenes/map.gd` — the win-back stamp and `last_seen` write delete per §2;
+  the map otherwise stays cosmetic-only.
 - `engine/scripts/core/features.gd` — `"weather_hours"` (Rule N4) + its `docs/FEATURES.md`
   line.
 - `games/grove/strings.json` — the `board.sky.*` subtree.
@@ -285,8 +295,9 @@ skin (so `shot_base.gd`'s forced `"rain"` still forces the same rainy look), and
   commit: the banner mounts on entry and self-dismisses; the chip exists and replays; the
   patch node sits after the slot block, survives `_rebuild_all` and an orientation flip
   (geometry via `is_equal_approx` — Control geometry is float32); a forced-`star` hour
-  lands a real model piece (model asserts, not visibility — headless); the win-back minute
-  forces Rain then hands back; an open modal defers the star trigger.
+  lands a real model piece (model asserts, not visibility — headless); a ≥48 h-away load
+  fills water by plain regen with no forced sky and no toast, and a stale `winback_until`
+  key is ignored (the retirement pin); an open modal defers the star trigger.
 - **Screenshots.** The shot tools already force weather (`shot_base.gd`); add the three
   skies + patch to the shot set for human eyes.
 - **The sim re-pass (gates the merge).** `grove_sim` models skies across its sessions
