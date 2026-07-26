@@ -123,6 +123,12 @@ const ITEM_UNUSED := Color(0.78, 0.78, 0.78, 0.65)
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
+# DEV-TOOL DETERMINISM HOOK (screenshot captures). A fresh save has no saved rng_state, so
+# _load_state() randomizes — and the very first thing that consumes the stream is the QUEST FENCE,
+# which decides every generator's and item line's dimmed/lit state. That made two captures of
+# identical code differ across a quarter of the board. A tool sets this BEFORE add_child (the seed
+# must be in place before _ready → _load_state runs); -1 = live play, seeded from entropy.
+static var forced_rng_seed := -1
 var _combo_count := 0                 # cozy successive-merge streak length (see _bump_combo)
 var _last_merge_ms := -100000         # ticks at the last merge; a big initial gap → first merge starts at 1
 var _combo_bloom: ComboBloom          # bundle D: the warm screen-bloom overlay that swells on a streak
@@ -843,7 +849,10 @@ func _load_state() -> void:
 		else:
 			_apply_regen(now)
 	else:
-		rng.randomize()
+		if forced_rng_seed >= 0:
+			rng.seed = forced_rng_seed      # a screenshot tool asked for a reproducible board
+		else:
+			rng.randomize()
 		_regen_ts = now
 		_init_quests()
 		_persist()

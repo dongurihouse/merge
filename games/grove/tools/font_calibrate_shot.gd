@@ -6,6 +6,7 @@ extends SceneTree
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/font_calibrate_shot.gd -- /tmp/cal.png
 ##   (needs the REAL renderer: get_image() returns null under --headless)
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 
 const PROBE := "HOME"          # all-caps: bbox height IS the cap height
@@ -13,8 +14,10 @@ const SIZES := [16, 24, 32, 40, 56, 72, 96, 128]   # a spread -> fit a LINE; the
                                                   # ratio (a constant AA bias lands in the intercept)
 
 func _initialize() -> void:
-	var args := OS.get_cmdline_user_args()
-	var out: String = args[0] if args.size() > 0 else "/tmp/font_cal.png"
+	var ctx := await Base.begin(self, {"tool": "font_calibrate", "default_out": "/tmp/font_cal.png", "save": false})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var out: String = ctx["out"]
 	var root := get_root()
 	var bg := ColorRect.new()
 	bg.color = Color.WHITE
@@ -34,11 +37,10 @@ func _initialize() -> void:
 		y += float(s) * 1.7 + 12.0
 	await process_frame
 	await process_frame
-	var img := root.get_texture().get_image()
-	if img == null:
+	var err := Base.capture(self, out, ctx["args"])
+	if err != OK:
 		print("FAIL: no image (run through quiet_godot.sh, not --headless)")
 		quit(1)
 		return
-	img.save_png(out)
 	print("sizes=", SIZES, " probe=", PROBE, " -> ", out)
 	quit(0)

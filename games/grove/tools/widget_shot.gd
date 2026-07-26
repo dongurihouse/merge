@@ -17,20 +17,17 @@ extends SceneTree
 ## A non-numeric CODE is a GENERATOR id (e.g. `seed_satchel` or `seed_satchel:grab`) — make_generator.
 ## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Extend
 ## the `match mod` below for new widgets as the need arises (grow tools incrementally).
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
-		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var out: String = args[0] if args.size() >= 1 else "/tmp/widget.png"
+	var ctx := await Base.begin(self, {"tool": "widget", "default_out": "/tmp/widget.png", "save": false})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var out: String = ctx["out"]
 	var tiles: Array = args.slice(1)
 	if tiles.is_empty():
 		tiles = ["104", "104:glow"]                       # default: plain vs quest-ready (a before/after)
@@ -104,10 +101,8 @@ func _initialize() -> void:
 	await create_timer(0.4).timeout
 	for piece in peaks:                                    # now sizes are settled — freeze the peak about real centers
 		_pose_breathe_peak(piece)
-	RenderingServer.force_draw()
-	var fb := root.get_texture().get_image()                  # frame to the content (bg covers the rest in cream)
-	var img := fb.get_region(Rect2i(0, 0, mini(int(content.x), fb.get_width()), mini(int(content.y), fb.get_height())))
-	var err := img.save_png(out)
+	# frame to the content (the cream bg covers the rest of the window)
+	var err := Base.capture(self, out, args, Rect2i(0, 0, int(content.x), int(content.y)))
 	print("WIDGET saved=%s err=%d tiles=%s" % [out, err, str(tiles)])
 	quit()
 

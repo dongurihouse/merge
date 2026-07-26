@@ -3,20 +3,23 @@ extends SceneTree
 ## with no stretch — render several very different rectangles side by side on the sky.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/cutpaper_shot.gd -- /tmp/cutpaper.png
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")
 const Pal = preload("res://engine/scripts/core/game.gd").PALETTE
 const TILE := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"
 
+const CANVAS := Vector2i(1000, 900)
+
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: run via engine/tools/quiet_godot.sh"); quit(2); return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var out: String = args[0] if args.size() >= 1 else "/tmp/cutpaper.png"
-	await create_timer(0.2).timeout
-	DisplayServer.window_set_size(Vector2i(1000, 900))
-	await create_timer(0.2).timeout
+	var ctx := await Base.begin(self, {
+		"tool": "cutpaper",
+		"default_out": "/tmp/cutpaper.png",
+		"size": CANVAS,
+		"save": false,
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var out: String = ctx["out"]
 
 	var root := get_root()
 	var bg := ColorRect.new()
@@ -46,8 +49,6 @@ func _initialize() -> void:
 		root.add_child(p)
 
 	await create_timer(0.5).timeout
-	RenderingServer.force_draw()
-	var img := root.get_texture().get_image()
-	img.save_png(out)
-	print("wrote ", out, " ", img.get_size())
+	var err := Base.capture(self, out, ctx["args"])
+	print("SHOT saved=%s err=%d size=%s" % [out, err, str(CANVAS)])
 	quit(0)

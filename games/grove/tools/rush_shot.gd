@@ -8,33 +8,23 @@ extends SceneTree
 ## In treefall + merge_hint the FTUE hand hint (engine/scripts/ui/hand_hint.gd) is forced on so the
 ## shot captures the teaching hand.
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized window).")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	var mode: String = args[0] if args.size() >= 1 else "intro"
-	var out: String = args[1] if args.size() >= 2 else "/tmp/rush_%s.png" % mode
-	if args.size() >= 3 and "x" in args[2]:
-		await create_timer(0.2).timeout
-		var wh := args[2].split("x")
-		DisplayServer.window_set_size(Vector2i(int(wh[0]), int(wh[1])))
-		await create_timer(0.2).timeout
-
-	var dir := "/tmp/tu_rushshot_%s/" % mode
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+	var ctx := await Base.begin(self, {
+		"tool": "rush",
+		"default_mode": "intro",
+		"default_out": "/tmp/rush_%s.png",
+		"save_dir": "/tmp/tu_rushshot_%s/",
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var mode: String = ctx["mode"]
+	var out: String = ctx["out"]
 	if mode == "retired" or mode == "treefall" or mode == "merge_hint":
 		for _i in Explore.RUSH_INTRO_SHOWS:        # spend the popup gate → only the bottom hint should remain
 			Save.mark_rush_intro_seen()
@@ -67,9 +57,7 @@ func _initialize() -> void:
 		scn._refresh_hand_hint()
 		await create_timer(0.2).timeout
 
-	RenderingServer.force_draw()
-	var img := root.get_texture().get_image()
-	var err := img.save_png(out)
+	var err := Base.capture(self, out, args)
 	var popup: Node = scn.find_child("RushTapHint", true, false)
 	print("SHOT saved=%s err=%d mode=%s intro_seen=%d popup_present=%s" % \
 		[out, err, mode, Save.rush_intro_seen(), popup != null])

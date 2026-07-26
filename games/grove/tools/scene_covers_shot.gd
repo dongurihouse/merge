@@ -4,29 +4,38 @@ extends SceneTree
 ## put). Born minimized via quiet_godot.sh's override.cfg.
 ##   godot --path . -s res://games/grove/tools/scene_covers_shot.gd -- [SCENE] [OBJECT|auto] [OUT]
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const View = preload("res://games/grove/tools/scene_workbench_view.gd")
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const CoversModel = preload("res://games/grove/tools/scene_covers_model.gd")
 
 func _initialize() -> void:
-	var ua := OS.get_cmdline_user_args()
-	var scene: String = String(ua[0]) if ua.size() >= 1 and String(ua[0]) != "" else "coral"
-	var want_obj: String = String(ua[1]) if ua.size() >= 2 else "auto"
-	var out: String = String(ua[2]) if ua.size() >= 3 else "/tmp/scene_covers.png"
-
-	var scenes_root := ProjectSettings.globalize_path("res://games/grove/assets/map")
+	# a workbench-shaped window (wide, roughly 3:2) rather than the phone canvas — the scene editor's
+	# own aspect, sized to the display it lands on.
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	var screen := DisplayServer.screen_get_size()
 	var win := Vector2i(1720, 1100)
 	if screen.x > 0 and screen.y > 0:
 		win.y = clampi(screen.y - 130, 760, 1400)
 		win.x = clampi(int(win.y * 1.5), 1200, screen.x - 80)
-	DisplayServer.window_set_size(win)
+	# this tool's positionals are (scene, object, out) — the "mode" slot is the SCENE.
+	var ctx := await Base.begin(self, {
+		"tool": "scene_covers",
+		"default_mode": "coral",
+		"out_arg": 2,
+		"default_out": "/tmp/scene_covers.png",
+		"size": win,
+		"save": false,
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var ua: Array = ctx["args"]
+	var scene: String = ctx["mode"]
+	var want_obj: String = String(ua[1]) if ua.size() >= 2 else "auto"
+	var out: String = ctx["out"]
 	DisplayServer.window_set_position((screen - win) / 2)
-	if FileAccess.file_exists("res://override.cfg"):
-		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 
+	var scenes_root := ProjectSettings.globalize_path("res://games/grove/assets/map")
 	var view: Control = View.new()
 	if not view.setup(scenes_root, scene):
 		push_error("setup failed for scene " + scene)
@@ -63,7 +72,6 @@ func _initialize() -> void:
 	print("[covers-shot] scene=%s object=%s covers=%d" % [scene, obj, made])
 
 	await create_timer(0.7).timeout
-	RenderingServer.force_draw()
-	var err := root.get_texture().get_image().save_png(out)
+	var err := Base.capture(self, out)
 	print("SHOT saved=%s err=%d" % [out, err])
 	quit()

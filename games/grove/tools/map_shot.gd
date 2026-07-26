@@ -3,39 +3,24 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
 ## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault
 
+const Base = preload("res://games/grove/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
-		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var args := OS.get_cmdline_user_args()
-	for wa in args:
-		if String(wa).begins_with("weather="):
-			load("res://engine/scripts/ui/ambient.gd").forced_weather = String(wa).split("=")[1]
-		if String(wa) == "place=1":
-			load("res://engine/scripts/ui/debug.gd").force = true   # show the debug placement editor chrome
-	var mode: String = args[0] if args.size() >= 1 else "fresh"
-	var out: String = args[1] if args.size() >= 2 else "/tmp/home_%s.png" % mode
-	if args.size() >= 3 and "x" in args[2]:
-		# the engine re-applies the project size on the first frames — set ours after
-		await create_timer(0.2).timeout
-		var wh := args[2].split("x")
-		DisplayServer.window_set_size(Vector2i(int(wh[0]), int(wh[1])))
-		await create_timer(0.2).timeout
-
-	var dir := "/tmp/tu_homeshot_%s/" % mode
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+	var ctx := await Base.begin(self, {
+		"tool": "home",
+		"default_mode": "fresh",
+		"default_out": "/tmp/home_%s.png",
+		"save_dir": "/tmp/tu_homeshot_%s/",
+	})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var mode: String = ctx["mode"]
+	var out: String = ctx["out"]
+	if Base.flag(args, "place"):
+		load("res://engine/scripts/ui/debug.gd").force = true   # show the debug placement editor chrome
 
 	match mode:
 		"select":
@@ -281,18 +266,6 @@ func _initialize() -> void:
 		scn._open_vault()
 		await create_timer(0.5).timeout
 
-	# minimized windows occasionally serve a STALE frame (the capture then shows
-	# the previous screen) — force a fresh draw right before reading the texture
-	RenderingServer.force_draw()
-	var img := root.get_texture().get_image()
-	# R3 --crop: `crop=x,y,w,h` saves a ZOOMED (3×, nearest) cutout of one element
-	# so eng can LOOK at the exact pixels before writing DONE (eng rule 14).
-	for wa in args:
-		if String(wa).begins_with("crop="):
-			var r := String(wa).substr(5).split(",")
-			var cr := img.get_region(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
-			cr.resize(int(r[2]) * 3, int(r[3]) * 3, Image.INTERPOLATE_NEAREST)
-			img = cr
-	var err := img.save_png(out)
+	var err := Base.capture(self, out, args)
 	print("SHOT saved=%s err=%d exp=%d" % [out, err, Save.exp_total()])
 	quit()

@@ -131,7 +131,7 @@ icon: ## process an icon raw:  make icon IN=/tmp/x.png OUT=res://assets/ui/y.png
 shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/map.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 
-shot-grove: ## capture the board:  make shot-grove [MODE=fresh|played|gate|hud|compost|hive] [OUT=/tmp/grove.png]
+shot-grove: ## capture the board (byte-deterministic per MODE):  make shot-grove [MODE=fresh|played|gate|hud|fullline] [OUT=/tmp/grove.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/grove_shot.gd -- $(or $(MODE),hud) $(or $(OUT),/tmp/grove.png)
 
 shot-widget: ## render board widgets in isolation (SEE a UI change cheaply):  make shot-widget OUT=/tmp/w.png TILES="104 104:glow"
