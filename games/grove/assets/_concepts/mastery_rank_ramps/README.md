@@ -1,7 +1,7 @@
-# Generator rank ramps — 8 recolors per line (mastery §7 trim)
+# Generator rank ramps — 8 recolors per line (mastery ranks)
 
 Candidate art for generator mastery ranks 1–8: **the same generator sprite, recolored**, muted at
-rank 1 to vivid at rank 8. Not yet approved; nothing loads these at runtime.
+rank 1 to jewel-vivid at rank 8. Not yet approved; nothing loads these at runtime.
 
 ## How they are made
 
@@ -16,39 +16,43 @@ python3 rank_ramp_lines.py \
 
 **Do not generate these with an image model.** A redraw drifts the silhouette — the 2026-07-26
 Codex attempt changed spot count, spot positions, cap dome, and stump proportions between cells,
-which fails the "exactly the same object" requirement. The recolor is deterministic: same source +
+failing the "exactly the same object" requirement. The recolor is deterministic: same source +
 same curve = identical bytes.
 
-## The per-line color scheme
+## The curve
 
-Each line gets its own curve because one global curve leaves pale lines unchanged — multiplying
-the saturation of a near-white pixel is a no-op, so Snow & Ice barely moved across 8 ranks. Pale
-lines get an **additive** chroma lift plus a value fall, so they deepen into their own hue.
+Three terms, all ramping with rank:
 
-| Line | Reads as | sat × (r1→r8) | sat + (r1→r8) | value (r1→r8) |
+1. **Saturation multiply** — the base drive, ×0.55 at rank 1 up to ×2.0–2.9 at rank 8 per line.
+2. **Vibrance, weighted by the chroma already present** — an additive lift that ramps in across
+   `s ∈ [0.08, 0.33]`. This weighting is load-bearing: an unweighted lift amplifies the faint
+   off-hue in near-white paper into the wrong colour (it turned Snow & Ice's white dome lime, and
+   in an earlier pass hot pink). Weighted, whites stay white and only real colour masses surge.
+3. **Value lift** — brightness *rises* with rank (×1.02 → ×1.13–1.16). Darkening high ranks reads
+   as duller, not richer; vivid needs luminance.
+
+**Hue is locked.** Fanning hues apart made ranks colourful but destroyed line identity (ice went
+hot pink, the shells lid purple, koi's water drop green). Pulling hues toward the line's identity
+colour was worse — cream trim dragged through green. Identity survives only if hue does not move.
+
+| Line | Rank 1 → rank 8 | sat × | vibrance | value |
 |---|---|---|---|---|
-| Glow-mushrooms | pale lilac → royal violet | 0.78 → 1.98 | — | 1.05 → 0.96 |
-| Wild Berries | soft sage/plum → deep green + grape | 0.78 → 1.92 | → 0.02 | 1.05 → 0.95 |
-| Snow & Ice | near-white → glacier blue | 0.85 → 2.40 | → 0.30 | 1.05 → 0.88 |
-| Woolens | oat cream → warm amber | 0.82 → 2.10 | → 0.17 | 1.05 → 0.92 |
-| Desert Fruits | pale clay → hot terracotta | 0.78 → 1.90 | → 0.02 | 1.05 → 0.96 |
-| Sand Sculptures | bone beige → golden sand | 0.85 → 2.00 | → 0.13 | 1.05 → 0.93 |
-| Shells | driftwood tan → deep sea blue + gold | 0.82 → 2.10 | → 0.15 | 1.05 → 0.92 |
-| Koi | dusty coral → vermilion | 0.80 → 1.70 | — | 1.06 → 0.94 |
+| Glow-mushrooms | stone lilac → electric magenta, gold spots | 0.55 → 2.30 | 0.50 | 1.02 → 1.15 |
+| Wild Berries | sage/tan → vivid orange basket, lime leaves, grape | 0.55 → 2.30 | 0.50 | 1.02 → 1.14 |
+| Snow & Ice | grey-white → icy dome, vivid blue walls, gold trim | 0.55 → 2.90 | 0.62 | 1.02 → 1.13 |
+| Woolens | oat cream → rich golden amber | 0.55 → 2.60 | 0.58 | 1.02 → 1.15 |
+| Desert Fruits | pale clay → hot orange, vivid cacti | 0.55 → 2.25 | 0.48 | 1.02 → 1.14 |
+| Sand Sculptures | bone beige → golden sand, blue spade | 0.55 → 2.50 | 0.55 | 1.02 → 1.14 |
+| Shells | driftwood → gold basket, deep sea-blue lid | 0.55 → 2.60 | 0.58 | 1.02 → 1.14 |
+| Koi | dusty coral → vermilion and gold | 0.55 → 2.20 | 0.46 | 1.02 → 1.16 |
 
-Rank 1 sits slightly below the shipped art (still a proper object, not drained); the shipped art
-sits around rank 3–4; rank 8 is the vivid top. Two earlier anchorings were rejected: rank 4 =
-shipped drained ranks 1–2 to near-stone, and rank 1 = shipped made ranks 1–4 indistinguishable.
-
-## Known blemishes (fix before shipping)
-
-- **Snow & Ice** dome drifts minty green at ranks 6–8 (its base hue is blue-green; additive chroma
-  exaggerates the green). Needs a hue nudge toward blue for this line.
-- **Sand Sculptures** at rank 8 reads gold rather than sand — acceptable as "golden sand", or pull
-  the top end back.
+Rank 1 is deliberately muted so the arc is dramatic; the shipped art sits around rank 3–4.
+Two anchorings were rejected on the way: shipped-at-rank-4 drained ranks 1–2 to near-stone, and
+shipped-at-rank-1 made ranks 1–4 indistinguishable.
 
 ## If approved
 
 Ranks land as `items/generator/<gen>_r<N>.png` and supersede the generic 4-frame trim overlay in
-§7 of `docs/superpowers/specs/2026-07-26-generator-mastery-design.md` (the spec says the trim is
-one shared overlay set; a full per-rank recolor replaces that). Update the spec in the same pass.
+§7 of `docs/superpowers/specs/2026-07-26-generator-mastery-design.md` (that section says the trim
+is one shared overlay set; a full per-rank recolor replaces it). Update the spec in the same pass,
+and note the sprites are generated, so regenerating beats hand-editing.
