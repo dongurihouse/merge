@@ -19,7 +19,7 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 # The gold-pill / action-bar look is tuned in the UI Workbench and saved to the shared kit config.
 # Loaded at runtime (matches hud.gd / nav_bar) to avoid a preload cycle (engine → game-tool bridge).
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
 const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray

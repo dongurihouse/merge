@@ -16,7 +16,7 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "UpdatePromptOverlay"
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 # Open the prompt over `host`. `store_version` is the App Store version (persisted on dismiss so it does
 # not re-nag until a newer one ships); `store_url` is the App Store page opened by Update.

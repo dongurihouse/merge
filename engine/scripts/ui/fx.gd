@@ -21,7 +21,7 @@ const REWARD_FX_MIN_TRAIL_COUNT := 0
 const REWARD_FX_MAX_TRAIL_COUNT := 4
 const REWARD_FX_MIN_SOURCE_SIZE := 72.0
 const REWARD_FX_MAX_SOURCE_SIZE := 148.0
-const REWARD_FX_CONFIG_PATH := "res://games/grove/ui_kit_settings.json"
+static var REWARD_FX_CONFIG_PATH := Game.kit_settings()
 const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
 # The reward-FX settings live in the SAME file the ui kit reads, so the parse is cached in exactly
 # ONE place — Kit.load_config(path), invalidated by Kit.clear_config_cache(path). FX deliberately
@@ -29,7 +29,7 @@ const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_pa
 # side left the other serving pre-save values for the rest of the session.
 # The kit lives in the game and preloads this script, so it can only be reached by runtime load()
 # (a preload here would be a hard cycle) — the same convention every other engine → kit call site uses.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 static var _dot_tex: Texture2D
 static var _reward_fx_config_path := ""

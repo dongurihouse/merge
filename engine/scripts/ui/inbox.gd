@@ -22,7 +22,7 @@ const OVERLAY_NAME := "InboxOverlay"
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox's own guarded-system idiom.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 # --- the mailbox popup --------------------------------------------------------------
 

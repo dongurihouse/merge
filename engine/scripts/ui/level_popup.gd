@@ -18,7 +18,7 @@ const Strings = preload("res://engine/scripts/core/strings.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
-const Kit = preload("res://games/grove/ui_kit.gd")
+static var Kit: GDScript = load(Game.kit())   # the game's UI kit — resolved ONCE at script load
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
@@ -224,7 +224,7 @@ static func _line(nm: String, text: String, font: int, col: Color) -> Label:
 ## surface every primary CTA in the game wears, which casts its OWN shape-true shadow. Sized LARGER than
 ## the mock's default (a bigger font + a wider min-width) so the level sheet's action reads bold.
 static func _cta(text: String, w: float) -> Button:
-	var btn := Kit.pill_button(text, {"bg": "green", "font": int(FS.HEADING * 1.18)})
+	var btn: Button = Kit.pill_button(text, {"bg": "green", "font": int(FS.HEADING * 1.18)})
 	btn.name = "LevelButton"
 	btn.custom_minimum_size = Vector2(w * BTN_W_F, 0)
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -238,7 +238,7 @@ static func _bar(frac: float, w: float, cfg: Dictionary = {}) -> Control:
 	# STYLE (art, rim, fill/track colour, shadow) comes from the shared progress_bar config — the SAME
 	# reader the board's NEXT UNLOCK strip and the workbench preview use, so one page drives all three.
 	# Only this dialog's GEOMETRY is local.
-	var opts := Kit.progress_bar_opts_from_config(cfg)
+	var opts: Dictionary = Kit.progress_bar_opts_from_config(cfg)
 	opts["name"] = "LevelProgress"
 	opts["width"] = w * BAR_W_F
 	opts["height"] = w * BAR_H_F

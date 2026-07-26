@@ -42,7 +42,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
-const KIT_PATH := "res://games/grove/ui_kit.gd"   # the shared ui kit (frame · cell · pill)
+static var KIT_PATH := Game.kit()   # the shared ui kit (frame · cell · pill)
 const OVERLAY_NAME := "BagOverlay"
 const NEED_MORE_NAME := "BagNeedMorePrompt"     ## the short-of-acorns prompt raised over an open bag
 # the prompt card's proportions, read off the authored mock (card ≈ 3/4 of the frame, the medallion

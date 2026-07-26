@@ -1415,7 +1415,7 @@ static func _tiered_gen_tex(tex: String, tier: int) -> String:
 		return tex
 	var upgraded := int(stem) + 17
 	var candidate := "%s/generators_%d.png" % [tex.get_base_dir(), upgraded]
-	return candidate if ResourceLoader.exists("res://games/grove/assets/%s" % candidate) else tex
+	return candidate if ResourceLoader.exists(Game.art(candidate)) else tex
 
 # --- §6.D temporary treat generators (the main generator occasionally spawns one) ---------------------
 static func rolls_treat_spawn(rng: RandomNumberGenerator) -> bool:

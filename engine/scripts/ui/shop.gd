@@ -38,7 +38,7 @@ const BARK = Pal.BARK
 
 # The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
 # so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
@@ -231,7 +231,7 @@ const GRID_GAP := 14.0
 # Cut-paper RE-SKIN textures (extracted from the shop mock): the blank green button and the empty card
 # frames at their three sizes. Worn as a 9-sliced StyleBoxTexture so a card/button stretches to any size
 # with crisp torn corners. Absent files fall back to the drawn flat styleboxes.
-const SKIN_DIR := "res://games/grove/assets/ui/dialogs/shop/"
+static var SKIN_DIR := Look.kit("dialogs/shop/")
 static func _skin_tex(key: String) -> Texture2D:
 	var p := SKIN_DIR + key + ".png"
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null

@@ -9,13 +9,13 @@ const CORE := "res://engine/scripts/core/"
 const UI := "res://engine/scripts/ui/"
 const SCENES := "res://engine/scripts/scenes/"
 
-# --- engine ↛ games (STAGED GUARD — reporting only, see _check_engine_never_reaches_into_games) ---
+# --- engine ↛ games (LIVE GUARD — see _check_engine_never_reaches_into_games) ---
 const ENGINE_SCRIPTS := "res://engine/scripts/"
 const GAMES := "res://games/"
-## STAGED: flip this ONE constant to `true` to turn the engine↛games scan from a
-## printed report into a suite failure. Do that once the sweep of the existing
-## violations lands — NOT before, or the suite goes red on known debt.
-const FAIL_ON_GAMES_REFS := false
+## LIVE: the sweep landed (the 48 staged violations are gone), so the engine↛games scan
+## FAILS the suite instead of just reporting. Flipping this back to `false` would silently
+## re-open the door — don't; fix the reference through Game.art/kit/... instead.
+const FAIL_ON_GAMES_REFS := true
 
 const Overlay := preload("res://engine/scripts/ui/overlay.gd")
 const Hud := preload("res://engine/scripts/ui/hud.gd")
@@ -134,19 +134,18 @@ func _check_no_z_above_modal_top() -> void:
 
 # The engine is meant to be GAME-AGNOSTIC: nothing under engine/scripts/ should name a
 # res://games/... path. See docs/design/merge_spec.md §15 and docs/design/board_decomposition.md
-# (Constraints). The rule was documented but never enforced, so ~47 references accumulated —
-# mostly `const KIT_PATH := "res://games/grove/ui_kit.gd"` and hardcoded grove asset paths.
-#
-# *** STAGED GUARD — REPORTING ONLY. THIS SCAN CANNOT FAIL THE SUITE YET. ***
-# It prints the full offender list (file, line, matched path) so the debt is visible on every
-# run, but passes regardless, because the existing violations are being swept in separate work.
-# THE FLIP IS ONE LINE: set `const FAIL_ON_GAMES_REFS := false` (top of this file) to `true`
-# once that sweep lands. Nothing else here needs to change.
+# (Constraints). The rule was documented but never enforced, so 48 references accumulated —
+# mostly `const KIT_PATH := "res://games/grove/ui_kit.gd"` and hardcoded grove asset paths. They
+# were swept to the indirection points (Game.art / Skin.kit for art, Game.kit / Game.kit_settings /
+# Game.home_chrome for the game-side scripts + settings) and this scan now FAILS on a new one.
 #
 # Sanctioned exceptions — these are correct by design and are NOT reported:
 #  · core/game.gd — the single game-indirection point; preloading res://games/active.gd is its job.
 #  · scenes/boot.gd's LAUNCH_PATH const — the splash image is loaded BEFORE the art/audio asset
 #    pack is mounted, so it cannot go through the normal indirection. Documented in boot.gd.
+#  · a `res://games/%s/` TEMPLATE (core/strings.gd, core/login.gd, core/content.gd) — the "%s" is
+#    filled with Game.active(), so the path names no game at all; it IS the game-parametrised
+#    indirection, the data-file twin of Game.art(). Only a LITERAL game name is a leak.
 # Comment text doesn't count (a path named in prose is not a dependency), matching the
 # comment-stripping the z_index scan above already does.
 func _check_engine_never_reaches_into_games() -> void:
@@ -167,6 +166,8 @@ func _check_engine_never_reaches_into_games() -> void:
 				continue
 			if p == SCENES + "boot.gd" and line.strip_edges().begins_with("const LAUNCH_PATH"):
 				continue   # sanctioned: splash loads before the asset pack mounts
+			if line.substr(idx, GAMES.length() + 3) == GAMES + "%s/":
+				continue   # sanctioned: the game-PARAMETRISED template, filled with Game.active()
 			# quote-delimited tail of the literal, so the report shows the actual path
 			var tail := line.substr(idx)
 			var quote := tail.find("\"")
@@ -175,10 +176,11 @@ func _check_engine_never_reaches_into_games() -> void:
 		f.close()
 	if not offenders.is_empty():
 		print("  ----------------------------------------------------------------")
-		print("  engine -> games references (STAGED GUARD, reporting only): %d" % offenders.size())
+		print("  engine -> games references: %d" % offenders.size())
 		for o in offenders:
 			print("    ", o)
-		print("  flip FAIL_ON_GAMES_REFS to true once these are swept")
+		print("  route art through Game.art()/Skin.kit(rel); game-side scripts + settings through")
+		print("  Game.kit()/Game.kit_settings()/Game.home_chrome() (declared in games/<name>/game.gd)")
 		print("  ----------------------------------------------------------------")
 	if FAIL_ON_GAMES_REFS:
 		ok(offenders.is_empty(), \

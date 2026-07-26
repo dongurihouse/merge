@@ -30,12 +30,12 @@ const Pal = Game.PALETTE
 const D = Game.DATA
 
 const OVERLAY_NAME := "ResidentsOverlay"
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 # Resident-specific body sprites extracted from the residents mock. The outer dialog frame stays owned by
 # the shared kit so it matches Mail/Daily/Settings instead of drawing a second sheet.
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
 const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")
-const SKIN_DIR := "res://games/grove/assets/ui/dialogs/residents/"
+static var SKIN_DIR := Look.kit("dialogs/residents/")
 static func _skin_tex(key: String) -> Texture2D:
 	var p := SKIN_DIR + key + ".png"
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null

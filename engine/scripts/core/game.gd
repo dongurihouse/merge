@@ -37,3 +37,19 @@ static func sound(rel: String) -> String:
 ## res:// path of the active game's UI font, or "" (engine falls back to a system font).
 static func font() -> String:
 	return _m().FONT
+
+## res:// path of the active game's UI KIT script, or "" (engine draws its code-drawn fallbacks).
+## The kit preloads engine scripts, so the engine can only reach it by runtime load() — hence a
+## path, not a script ref. THE indirection for every `load(Game.kit())` in engine/scripts/.
+static func kit() -> String:
+	return _m().KIT
+
+## res:// path of the kit's workbench-saved settings JSON, or "" (defaults stand). Declared in the
+## manifest rather than derived from kit(): it is a sibling FILE, not a suffix of the script, and
+## reading it through the kit would need the kit loaded first (a cycle on the engine's FX path).
+static func kit_settings() -> String:
+	return _m().KIT_SETTINGS
+
+## res:// path of the active game's home/map chrome-id script, or "" (the map bakes its fallback).
+static func home_chrome() -> String:
+	return _m().HOME_CHROME

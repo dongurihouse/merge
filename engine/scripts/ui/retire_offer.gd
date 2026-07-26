@@ -25,7 +25,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Pal = Game.PALETTE
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "RetireOfferOverlay"
 
 static func is_open(host: Control) -> bool:

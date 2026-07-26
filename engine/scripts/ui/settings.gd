@@ -27,7 +27,7 @@ const GC_REFRESH_SECONDS := 0.05
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox/login idiom.
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 # The privacy policy the App Store listing points at — also reachable in-app (reviewer-expected for a
 # paid-IAP app). The SAME URL goes in App Store Connect's "Privacy Policy URL" field.
 const PRIVACY_URL := "https://dongurihouse.net/privacy"

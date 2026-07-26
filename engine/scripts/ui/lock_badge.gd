@@ -6,6 +6,7 @@ extends RefCounted
 ## claims the cluster (spends the cost, records the unlock) and reveals its canopy away.
 
 const Game = preload("res://engine/scripts/core/game.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")              # Look.kit(rel) — the game's ui art root
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # gen_halo_tex — the shared radial bloom
 
 const PAD_PX := 168.0     # the padlock glyph — big enough to read as a tappable target on the map
@@ -105,7 +106,7 @@ static func _config_sprite(t: TextureRect) -> void:
 
 static func _padlock_tex() -> Texture2D:
 	# the map-card keyhole (ui/card/lock.png) — THE house lock, same mark as the locked cells + map cards
-	var p := "res://games/grove/assets/ui/card/lock.png"
+	var p := Look.kit("card/lock.png")
 	if not ResourceLoader.exists(p):
 		p = Game.art("ui/meadow_v2/icon_padlock.png")
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null

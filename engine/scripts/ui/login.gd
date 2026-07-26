@@ -23,7 +23,7 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
-const KIT_PATH := "res://games/grove/ui_kit.gd"
+static var KIT_PATH := Game.kit()
 const WEEK := 7
 const COLS := 3
 const OVERLAY_NAME := "LoginOverlay"
@@ -67,7 +67,7 @@ const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-pa
 # sparkles baked in), and the reward icons — each worn over the shared code drop shadow. Absent files fall
 # back to the drawn/Direction-B look. The CLAIMED card faces bake their own dim + ✓, so a claimed day
 # draws no separate reward icon / amount / check.
-const SKIN_DIR := "res://games/grove/assets/ui/dialogs/daily/"
+static var SKIN_DIR := Look.kit("dialogs/daily/")
 const REWARD_SKIN := {"coin": "icon_coin", "gem": "icon_acorn", "water": "icon_water"}   # reward id → skin icon
 static func _daily_tex(key: String) -> Texture2D:
 	var p := SKIN_DIR + key + ".png"
