@@ -14,6 +14,7 @@ extends RefCounted
 ## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Shop).
 
 const Save = preload("res://engine/scripts/core/save.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -759,7 +760,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	copts["center_content"] = true
 	copts["on_close"] = modal["dismiss"]
 	var vp := host.get_viewport()
-	var vw: float = vp.get_visible_rect().size.x if vp != null else 1080.0
+	var vw: float = vp.get_visible_rect().size.x if vp != null else Design.size().x
 	var width: float = maxf(1.0, vw) * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
 	dialog = Kit.dialog_frame(col, width, copts)
 	cc.add_child(dialog)

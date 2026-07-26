@@ -19,10 +19,17 @@ extends SceneTree
 ## the box centre) lands in the ring on every badge. The square is sized to hold the furthest
 ## reach in any direction on any badge, so nothing is ever clipped.
 
+const ImgOps := preload("res://games/tools/img_ops.gd")
+
+# NOT img_ops' ALPHA_MIN_F (8/255 = 0.031). This is a FOREGROUND-membership floor — "how solid
+# must a pixel be to count as medal" — not the "already transparent" floor the cutters use, and
+# it is ~2.5x looser. Measured on a soft-edged sheet (Lanczos-resized parts, 4076 px in the
+# disputed 0.031 < a <= 0.08 band): swapping in ALPHA_MIN_F grows the shared square 496 -> 498
+# and changes every emitted badge. So the value is kept as-is; retuning it is a separate call.
 const ALPHA_MIN := 0.08        # a pixel counts as "medal" above this alpha
 const MIN_AREA := 400          # ignore specks / dust below this (px)
 const PAD := 8                 # transparent px kept past the furthest decoration
-const NEI := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+const NEI := ImgOps.NEI
 
 func _globalize(p: String) -> String:
 	return ProjectSettings.globalize_path(p) if p.begins_with("res://") else p

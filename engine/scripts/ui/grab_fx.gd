@@ -13,6 +13,7 @@ extends RefCounted
 
 const Feel = preload("res://engine/scripts/ui/feel.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const FxConfig = preload("res://engine/scripts/ui/fx_config.gd")   # the shared save/load contract
 
 # The grab GLOW is a soft radial HALO behind the held tile, NOT a modulate brighten — a modulate tint is
 # invisible on already-bright art (it multiplies and clamps at 1.0), so it reads as nothing on most
@@ -36,34 +37,20 @@ const KNOBS := {
 	"outline_a":   90,    # white rim opacity (%)
 }
 
+## The save/load quartet — one shared contract, see fx_config.gd.
 static func knob(opts: Dictionary, id: String) -> int:
-	return int(opts.get(id, KNOBS.get(id, 0)))
+	return FxConfig.knob(opts, id, KNOBS)
 
 static func defaults() -> Dictionary:
-	var d := {"enabled": true}
-	for e in EFFECTS:
-		d[String(e.id)] = true
-	for k in KNOBS.keys():
-		d[k] = KNOBS[k]
-	return d
+	return FxConfig.defaults(EFFECTS, KNOBS)
 
 ## Resolve the saved toggles + knobs over the defaults (the "grab_fx" config block).
 static func from_config(cfg: Dictionary) -> Dictionary:
-	var r: Dictionary = cfg.get("grab_fx", {}) if cfg is Dictionary else {}
-	var d := defaults()
-	for e in EFFECTS:
-		var id := String(e.id)
-		if r.has(id):
-			d[id] = bool(r[id])
-	if r.has("enabled"):
-		d["enabled"] = bool(r["enabled"])
-	for k in KNOBS.keys():
-		d[k] = int(r.get(k, KNOBS[k]))
-	return d
+	return FxConfig.from_config(cfg, "grab_fx", EFFECTS, KNOBS)
 
 ## True when the master switch is on AND this effect is on.
 static func on(opts: Dictionary, id: String) -> bool:
-	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
+	return FxConfig.on(opts, id)
 
 ## Turn the grab highlight ON + fire the pickup haptic. `node` is the held holder (a PieceView piece or
 ## generator). Null-safe. SUSTAINED: call release(node) on drop to clear it. Each cue is toggled + tuned.

@@ -1,346 +1,253 @@
-# Weather Hours — full spec (2026-07-26)
+# Weather Hours — spec (2026-07-26)
 
-**Status: draft 2, after first Dev review (same day).** Expands §4 + rollout step 5 of
-`2026-07-26-progression-systems-design.md` (the parent design) into a buildable spec.
-Companions: `engine/scripts/ui/ambient.gd` (the shipped cosmetic hourly roll this system
-absorbs), `engine/scripts/core/board_logic.gd` (the merge-drop rolls), `engine/scripts/core/content.gd`
-(active lines + asks), `games/grove/tools/grove_sim.gd` (the economy sim that owns the finals).
+**Status: draft 3, for Dev review.** Builds §4 / rollout step 5 of
+`2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
+`engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
+`games/grove/tools/grove_sim.gd`.
 
-All numbers in this doc are **PROVISIONAL** dials — the grove_sim re-pass (§10) owns the finals.
+All numbers **PROVISIONAL** — the grove_sim re-pass (§10) owns finals.
 
 ---
 
 ## 1 · Scope
 
-What ships in this one Dev task (own worktree, per the parent's §8): the hourly **sky**
-(three skies over the shipped deterministic roll), the **patch** (one lane of soft light),
-the two **gift merges** (Sunbeam coins, Rain water), the **starfall drop**, the banner /
-HUD chip / patch UI, the debug lever, headless suites, and the sim re-pass. It also
-**supersedes and removes** the shipped ≥48 h win-back rain beat — the live sky is the
-return beat now (§2).
+Ships: the hourly sky (3 skies), one lane patch, Sunbeam/Rain merge gifts, the starfall
+drop, banner + HUD chip + patch rendering, debug lever, tests, sim re-pass. Removes the
+win-back rain beat (§2).
 
-**Home board only, structurally.** The Rush is its own scene (`explore_rush.gd`) with zero
-`board.gd` coupling — it simply never mounts any of this. The map keeps what it has today:
-the shared cosmetic look (`Ambient.build_weather`), no gifts, no patch.
+Home board only. Rush: untouched (separate scene, no coupling). Map: cosmetic skins only —
+no gifts, no patch.
 
-Not in this spec: soil/improvement execution (step 4 owns it — §4 here pins only Rain's
-contract with soil so either ship order works), the festival sky, magnet/mirror skies, the
-Wild piece (all parked in the parent §9), and any change to the water stall's daily free
-rain (`2026-07-25-free-rain-priority-design.md` stands untouched).
+Excluded: soil execution (§4 defines only Rain's dormant hook), festival sky,
+magnet/mirror skies, Wild piece, the water stall's daily free rain.
 
 ---
 
-## 2 · The clock — one roll, one sky
+## 2 · Clock and roll
 
-One grove day = one real hour. The hour index is the shipped idiom:
-`int(unix_time / Tune.SECS_PER_HOUR)` — deterministic, offline-correct, no server
-(`Ambient.weather_now`, `tuning.gd` §Ambient).
+- Hour index: `int(unix_time / Tune.SECS_PER_HOUR)`. Deterministic, offline-correct, no
+  server. No per-player salt — every player shares the hour's sky.
+- **Upgrades the shipped roll in `Ambient.weather_now()`; not a second roll.**
+  `hash(hour)` → sky; salted re-hashes (`hash(hour * K + SALT_*)`) → skin, lane.
+- The four shipped cosmetic states become skins, riding the existing `WeatherLayer`:
 
-**This is an upgrade of the shipped roll, not a second one.** `hash(hour)` picks the hour's
-**sky**; salted re-hashes (`hash(hour * K + SALT_*)`, the `ambient.gd` per-stream idiom)
-pick the **skin** and the **lane** independently. The hash is unsalted by player —
-**world weather, kept deliberately**: every grove shares the same sky this hour, exactly as
-the shipped cosmetic roll already behaves.
-
-The four shipped cosmetic states become the skies' **skins** — what the hour looks like,
-riding the existing `WeatherLayer` on board and map:
-
-| Sky (share) | Skins (sub-roll) | The gift |
+| Sky (share) | Skins | Gift |
 |---|---|---|
-| **Sunbeam** (45) | clear 70% · breeze 30% | in-patch merges drop richer coins more often (§4) |
-| **Rain** (45) | rain 85% · snow 15% | in-patch merges shake water loose; in-patch soil waters itself (§4) |
-| **Starfall** (10) | starlit *(new glimmer look)* | once this hour, a high-tier piece falls onto the lane (§5) |
+| **Sunbeam** (45) | clear 70 · breeze 30 | in-patch coin drops up (§4) |
+| **Rain** (45) | rain 85 · snow 15 | in-patch water drops; in-patch soil waters free (§4) |
+| **Starfall** (10) | starlit (new) | one high-tier piece falls on the lane (§5) |
 
-- **Laws.** Never a penalty — weather only gives. Every hour has exactly one sky; a session
-  sees one or two turns; every login feels different.
-- **The win-back rain beat is superseded and removed** (Dev call, first review). A
-  comeback lands in whatever hour is rolling, banner and all — the sky no longer needs a
-  scripted minute to feel alive. Everything behind the `winback_rain_beat` flag retires:
-  `Ambient.check_winback` / `winback_active` and their `weather_now()` override; the
-  board's full-can grant and the `board.winback.rained` toast; the map's stamp; the flag
-  and its `docs/FEATURES.md` line; `WINBACK_HOURS` / `WINBACK_RAIN_SECS`; the
-  `board.winback.*` strings; the now-readerless `last_seen` writes. **Economy-neutral by
-  construction:** offline regen (+1 per 2 min, offline-inclusive, capped) already fills
-  the can after ~3⅓ h away, so the ≥48 h full-can grant was redundant belt-and-suspenders.
-  Old saves keep stale `winback_until` / `last_seen` keys; nothing reads them again (the
-  defaulted-read pattern tolerates dead keys).
-- **Clock skew, stance: accepted** (no server). Backwards: the §5 `paid_hour` guard is
-  monotonic, nothing re-pays. Forwards: indistinguishable from waiting.
-- **Gate.** The sky goes live once both FTUE verbs are taught —
-  `Save.ftue_seen("merge") and Save.ftue_seen("gen_tap")` (the hand-hint pair) — and
-  `Features.on("weather_hours")` (Rule N4; one registry line in `docs/FEATURES.md`).
-  Below the gate the world shows looks only: skins keep rendering, no banner, no chip, no
-  patch, no gifts, no star. The shipped `ambient_weather` flag stays a separate, look-only kill switch
-  — turning it off empties the `WeatherLayer` and must never turn gifts off.
-- **Flagged look consequence:** rain-family visuals rise from ~10% of hours today
-  (rain 8 + snow 2) to ~45%. The `RAIN_VEIL` alpha becomes an explicit art-pass dial; the
-  share split itself is Dev question 1 (§13).
+- Gate: `Save.ftue_seen("merge") and Save.ftue_seen("gen_tap")`, and
+  `Features.on("weather_hours")` (new flag + `docs/FEATURES.md` line). Below the gate:
+  skins render; no banner, chip, patch, gifts, or star. The cosmetic `ambient_weather`
+  flag never gates gifts.
+- Clock skew: accepted. `paid_hour` is monotonic (no backward re-pay); forward = waiting.
+- **Win-back removal.** Delete: `Ambient.check_winback` / `winback_active` and their
+  `weather_now()` override; the board full-can grant + `board.winback.rained` toast; the
+  map stamp; the `winback_rain_beat` flag + `docs/FEATURES.md` line; `WINBACK_HOURS`,
+  `WINBACK_RAIN_SECS`; `board.winback.*` strings; `last_seen` writes (no reader remains).
+  Economy-neutral: offline regen (+1 / 2 min, capped) fills the can after ~3⅓ h away.
+  Stale `winback_until` / `last_seen` save keys stay unread.
+- Look consequence: rain-family visuals go ~10% → ~45% of hours; `RAIN_VEIL` alpha becomes
+  an art dial (Q1).
 
 ---
 
-## 3 · The patch — the lane
+## 3 · Patch
 
-The sky projects one soft spatial effect onto a single lane of the board, seeded per hour:
-stable while you play, moved by the next sky.
-
-- **Model space.** `cell.x` is the row (0..8), `cell.y` is the column (0..6)
-  (`board_model.gd`). **Sunbeam and Starfall** light one **column** (9 cells — a beam down
-  the board); **Rain** drifts across one **row** (7 cells — a cloud crossing). The lane
-  index is the hour's salted roll over the axis' range.
-- **Landscape transposes the display, not the model** (`_disp_cols`/`_cell_pos`) — the
-  patch is drawn from `_cell_pos` + cell size like every cell, so it transposes for free.
-  Player-facing copy stays portrait-voiced ("a beam down the board").
-- **The wash covers the whole lane**, locked/bramble cells included — it is light, not
-  state. Gifts only ever fire from merges, and merges only happen on open cells, so no
-  per-cell gating exists anywhere.
-- **"In the patch" has one meaning:** the merge's *produced piece lands on the lane* (the
-  landing cell of `_commit_merge`). One pure predicate — `Sky.in_patch(state, cell)` —
-  shared by the board and the sim. Aiming the result *into* the light is the player's
-  micro-skill.
-- **Improvements overlap** (parent §6 law, restated): a built cell inside the patch enjoys
-  both effects independently; there is no same-type overlap to reason about.
+- Model space (`cell.x` = row 0..8, `cell.y` = col 0..6): Sunbeam and Starfall project one
+  **column** (9 cells); Rain one **row** (7 cells). Lane index = salted hour roll over the
+  axis range. Fixed for the hour; moves with the next sky.
+- Landscape transposes display only (via `_cell_pos`); the model lane is unchanged.
+- The wash draws over the whole lane, locked cells included. No per-cell gating: gifts
+  fire only from merges, and merges happen only on open cells.
+- **In-patch = the merge's produced piece lands on a lane cell** (the landing cell of
+  `_commit_merge`). One predicate `Sky.in_patch(state, cell)`, used by board and sim.
+- An improvement cell in the patch gets both effects independently (parent §6).
 
 ---
 
-## 4 · Sunbeam and Rain — the gift merges
+## 4 · Sunbeam and Rain
 
-Baseline today, which stays exactly as-is off-patch and under every other sky: a merge
-rolls a **c1 coin drop at `COIN_DROP_RATE` 0.10** and a **chest/water/acorn special at
-`SPECIAL_DROP_RATE` 0.02** (`board.gd` `_after_merge` → `BoardLogic`), each landing only if
-a free cell exists (`pick_drop_cell` returns its no-cell sentinel on a crowded board — the
-drop silently no-ops; shipped behavior, unchanged).
+Baseline, unchanged off-patch and under every other sky: merge rolls c1 coin at
+`COIN_DROP_RATE` 0.10 and a special at `SPECIAL_DROP_RATE` 0.02; a drop without a free
+cell no-ops (`pick_drop_cell` sentinel).
 
-| In the patch… | The roll | The drop |
+| In-patch | Roll | Drop |
 |---|---|---|
-| **Sunbeam** | the coin roll runs at `SKY_COIN_RATE` 0.35 *(replaces the 0.10)* | and the coin lands as **c2** (worth 4, one cell) |
-| **Rain** | **one extra, independent roll** at `SKY_WATER_RATE` 0.35 *(the baseline coin + special rolls stay untouched)* | a **water special t1** — tap-collect +8 water, banking **over the cap** (the shipped over-cap path) |
+| **Sunbeam** | coin roll at `SKY_COIN_RATE` 0.35 (replaces 0.10) | coin lands as **c2** (worth 4) |
+| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.35; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
 
-- The parent's "rate and count up" ships as the **c1 → c2 upgrade**, not as two pieces:
-  drops compete for free cells, and one richer coin beats two clutter pieces on the crowded
-  boards where Sunbeam should feel best. (`SKY_COIN_TIER` stays a dial.)
-- Water is already first-class (cap 100, +1 per 2 min offline-inclusive regen, pops cost
-  1) — Rain tops up the pop budget in sips. The stall's daily **free rain** (full-can
-  refill via `Claims "refill_water"`) is a different faucet with a different name and is
-  untouched; the sky gives sips, the stall gives the can.
-- **The soil contract (dormant until Improvements ship):** while Rain holds, a growing soil
-  cell *inside the patch* fires its once-per-growth watering for free — automatically, on
-  starting growth in the patch or on the patch arriving over it. Nothing else about soil is
-  this spec's business; the hook ships inert if weather lands before step 4.
-- Starfall hours grant **no per-merge bonus** — that sky's whole gift is the star (§5).
+- c2 upgrade instead of two c1 pieces: one cell, same value (Q2).
+- Soil hook, dormant until step 4: a growing soil cell in-patch during Rain fires its
+  once-per-growth watering free.
+- Starfall hours: no per-merge bonus.
 
 ---
 
-## 5 · Starfall — the owed star
+## 5 · Starfall
 
-All state lives in one grove-blob sub-dict (§8). The machine:
+State in `Save.grove().sky`.
 
-1. **Arm.** The home board is open during a Starfall hour, the §2 gate is open, and
-   `hour > sky.paid_hour`.
-2. **Trigger.** The board has been live ≥ `STAR_DELAY` 10 s inside this hour (the banner
-   has spoken), no modal is open, the input gate `animating` is false, and the live sky
-   reads Starfall (mid-hour entry still pays). On trigger,
-   stamp `sky.paid_hour = hour` **at roll time** — a restart never re-rolls a paid hour.
-3. **Roll** (hour-salted RNG, never `board.rng`): pick a line uniformly from the **Active
-   set** — `G.active_lines(level)` plus the ingredient lines of live asks
-   (`G.quest_needed_lines`), real content lines only (every content line spans t1–t12, so
-   the tier menu below is always valid). From that line's menu **{t8 80 · t9 15 · t10 5}**,
-   remove every (line, tier) an active quest asks *right now* —
-   `BoardLogic.asked_items(quests)`, the `quests.gd` avoid-set idiom promoted to a pure
-   helper — renormalize, pick. A line with an empty menu is dropped and the line pick
-   repeats; if every line is exhausted, the tier menu steps down (t7, then t6, … —
-   single-tier menus, uniform line pick); if even t1 yields nothing (theoretical), the hour
-   pays nothing — the sky never blocks.
-4. **Land.** Prefer a free open cell **on the lane** (RNG pick among them); else
-   `pick_drop_cell` from the lane's centre; if the board is truly full, the star goes
-   **owed** — `sky.owed.append(code)` — and lands on the first `_after_board_change` with a
-   free cell, any hour, any sky, surviving restarts. Owed stars queue (rare). The HUD chip
-   wears a small star pip while one is owed.
-5. **Landed, the piece is ordinary in every way** — it merges, sells, and delivers to a
-   *later* ask. The skip rule only stops the sky from finishing a *current* ask outright
-   (parent law: a sky must never complete a top ask).
+1. **Arm:** home board open, Starfall hour, gate open, `hour > sky.paid_hour`.
+2. **Trigger:** board live ≥ `STAR_DELAY` 10 s this hour, no modal open, `animating`
+   false, live sky = Starfall. Stamp `sky.paid_hour = hour` at roll time — restarts never
+   re-roll a paid hour.
+3. **Roll** (hour-salted RNG, never `board.rng`): line uniform from the Active set —
+   `G.active_lines(level)` + ingredient lines of live asks (`G.quest_needed_lines`),
+   content lines only (all span t1–t12). Tier menu {t8 80 · t9 15 · t10 5} minus every
+   (line, tier) currently asked (`BoardLogic.asked_items`, new pure helper from the
+   `quests.gd` avoid-set idiom); renormalize. Empty line menu → drop line, repick. All
+   lines empty → step the menu down (t7, t6, … single tier, uniform line). Nothing at
+   t1 → the hour pays nothing.
+4. **Land:** free open cell on the lane (RNG pick); else `pick_drop_cell` from lane
+   centre; board full → **owed**: `sky.owed.append(code)`, lands on the first
+   `_after_board_change` with a free cell, any hour, persists across restarts, queues.
+   HUD chip shows a star pip while owed.
+5. Landed, the piece is ordinary — merges, sells, delivers to later asks. The skip rule
+   only blocks asks live at roll time.
 
-- **Only witnessed hours pay.** Offline Starfall hours never accrue and never pay
-  retroactively — the sky gives to whoever is standing in the grove.
-- **Faucet honesty.** Generators still cannot pop above the `TIER_ODDS` band — the pinned
-  economy guard and its test stay untouched. The star is a **new, deliberately bounded
-  faucet**: ≤1 piece, ~10% of hours, witnessed hours only. It is also sellable (it is
-  ordinary), so the sim prices its full injection (§10).
+- Offline Starfall hours never pay.
+- The generator pop-ceiling guard stays untouched. The star is the only high-tier faucet:
+  ≤1 piece, ~10% of hours, witnessed hours only, sellable — the sim prices it (§10).
 
 ---
 
 ## 6 · UI
 
-**The banner.** A full-width cut-paper strip slides down under the HUD and self-dismisses
-in ~`BANNER_SECS` 2.5 s: sky icon · name · one line (*"Rain — merges shake water
-loose."*). Build: the unlock bar's deckle-surface recipe (`unlock_bar.gd`), mounted as a
-**free-floating child of `Grove`** — never a `_stack` row, which would reflow and shrink
-the board — anchored at `Look.safe_top + Hud.bottom_px()`, animated on `offset_top`, timed
-dismiss via the `login_mystery.gd` create-timer idiom. Plays on board entry (deferred tail,
-with the `_maybe_offer_retirement` calm-moment guards: in-tree, no modal open, never over
-the FTUE) and once more on each hour turn. Z is a **named constant** in the 40–100 band
-(above `HUD_WALLET_Z` 40, far below `HAND_HINT_Z` 500) — the layering suite scans bare
-`z_index` literals.
-
-**The chip.** A small sky icon sits by the top info bar all hour (mounted from `Hud.build`'s
-cluster); tapping it replays the banner line. It carries the §5 owed-star pip.
-
-**The patch.** A soft-edged, low-alpha wash on the lane, under the pieces: a warm shaft for
-Sunbeam, a cool drift with sparse drawn droplets for Rain, a faint glimmer for Starfall.
-Implementation is a **self-drawing Control** — the `gen_sparkle.gd` guidance is
-load-bearing: particles do not render reliably under Control parents — breathing on a slow
-looping tween (no `_process`). It mounts into `board_area` **right after the slot block at
-z 0** (resting pieces are z 0 too; any positive z would ride above them — the
-`_open_bramble` `move_child` comment is the canonical insert), gets re-inserted by
-`_rebuild_all()` (which frees every child, often), and re-derives its rect from
-`_cell_pos` + cell size on reflow and orientation flips. Every color is a palette role with
-alpha — `Color(Pal.…, α)` — because the palette SSOT suite fails re-typed hex.
-
-**The sky turn, mid-session.** The board's 1 Hz `tick` Timer gains a sibling handler: when
-the cached hour index changes — cross-fade the `WeatherLayer` (the `debug_refresh_weather`
-rebuild-in-place), move the patch, play the banner once, re-arm §5.
-
-**The star.** The piece arcs in from above the lane's top edge with
-`MoveFx.apply(…, "arc")` + its trail knob (the shipped comet — control point lifted, eased
-into the landing), then the standard `LandFx` + neighbour ripple of the
-`_drop_special_near` recipe.
-
-**Copy & art.** Strings under a new `board.sky.*` subtree in `games/grove/strings.json`,
-read via `Strings.t` — engine code cannot hardcode `res://games/` (the layering suite
-enforces it). Three small sky icons (sun · raincloud · star) go through the art-intake
-pipeline (`docs/design/art-style-guide.md`); until intake lands, the chip and banner draw
-code glyphs.
-
-**Debug.** The shipped Weather debug action stays the lever; `WEATHER_DEBUG_STATES` maps
-old and new: `clear`/`breeze` force Sunbeam in that skin, `rain`/`snow` force Rain in that
-skin (so `shot_base.gd`'s forced `"rain"` still forces the same rainy look), and a new
-`star` forces Starfall. Forcing a sky forces its gifts — that is the manual test lever.
+- **Banner:** full-width cut-paper strip under the HUD (unlock-bar deckle recipe): sky
+  icon · name · one line. Lines (`board.sky.*`): Sunbeam *"Sunbeam — merges in the beam
+  drop coins."* · Rain *"Rain — merges shake water loose."* · Starfall *"Starfall — a
+  star is on its way."* Slides down on
+  `offset_top`, self-dismisses after `BANNER_SECS` 2.5 (`create_timer` idiom). Mounted as
+  a free-floating child of `Grove` — never a `_stack` row (reflows the board). Anchored at
+  `Look.safe_top + Hud.bottom_px()`. Plays on board entry (deferred tail;
+  `_maybe_offer_retirement` guards: in-tree, no modal, not over FTUE) and on each hour
+  turn. Z: named constant in the 40–100 band.
+- **Chip:** sky icon by the top info bar (`Hud.build` cluster); tap replays the banner
+  line; carries the owed-star pip.
+- **Patch:** soft-edged low-alpha wash under pieces; warm shaft (Sunbeam), cool drift +
+  drawn droplets (Rain), faint glimmer (Starfall). A self-drawing Control — particles are
+  unreliable under Control parents (`gen_sparkle.gd` rule). Slow breathe via looping
+  tween; no `_process`. Mounts in `board_area` right after the slot block at z 0 (pieces
+  are z 0; positive z would cover them). Re-inserted on `_rebuild_all`; rect re-derived
+  from `_cell_pos` + cell size on reflow/orientation change. Colors — Meadow Sky roles at
+  `PATCH_ALPHA` via `Color(Pal.X, α)` (SSOT suite forbids typed hex): Sunbeam = reward
+  gold; Rain = receding blue, plus sparse sky-blue droplet ticks; Starfall = warm cream
+  with gold star glints.
+- **Hour turn:** handler beside `_tick_water` on the 1 Hz tick. On hour change: rebuild
+  `WeatherLayer` (`debug_refresh_weather` pattern), move the patch, play the banner,
+  re-arm §5.
+- **Star FX:** `MoveFx.apply(…, "arc")` + trail from above the lane's top edge; then the
+  `_drop_special_near` landing recipe (`LandFx` + neighbour ripple).
+- **Strings:** `board.sky.*` in `games/grove/strings.json` via `Strings.t` (engine cannot
+  reference `res://games/`).
+- **Art:** star chip reuses `ui/shared/icon_star.png`; new sun + raincloud glyphs via the
+  art-intake pipeline (the sky raincloud stays distinct from the stall's watering-can
+  `icon_rain`); code glyphs until intake lands.
+- **Debug:** `WEATHER_DEBUG_STATES` — `clear`/`breeze` force Sunbeam in that skin,
+  `rain`/`snow` force Rain in that skin, new `star` forces Starfall. Forcing a sky forces
+  its gifts. `shot_base.gd`'s forced `"rain"` keeps working.
 
 ---
 
-## 7 · Economy guards (cross-cutting laws)
+## 7 · Economy guards
 
-- **Weather never punishes** — every effect is strictly additive; no sky raises a cost,
-  blocks an action, or worsens a roll.
-- **The clock is quests only** — sky coins and water land via `Save.add_coins` /
-  `Save.add_water`, never `G.earn_coins` (the sim's Y invariant).
-- **A sky never completes a top ask outright** — the §5 skip rule, applied at roll time.
-- **Water gifts respect the water-gift ratio** (`WATER_REWARD_MAX_RATIO` 0.3 — the I2
-  tripwire). I2 is already RED on maps 3–4 (`docs/BACKLOG.md`), so the re-pass judges the
-  **delta against the shipped baseline**, not the absolute.
-- **The star is the only high-tier faucet**, bounded by §5; the generator pop-ceiling
-  guard and its pinned test stay untouched.
-- **No draw ever comes from `board.rng`.** The board stream is seeded, persisted, and
-  order-load-bearing; the sky rolls on its own hour-seeded RNG, and a byte-identity test
-  pins the board stream with the sky live (§10).
+- Weather only gives — no sky raises a cost, blocks an action, or worsens a roll.
+- Sky coins/water land via `Save.add_coins` / `Save.add_water`, never `G.earn_coins`
+  (Y invariant: the clock is quests only).
+- A sky never completes a live ask (§5 skip rule).
+- Water gifts respect `WATER_REWARD_MAX_RATIO` 0.3 (I2). I2 is already RED on maps 3–4
+  (`docs/BACKLOG.md`) — judge the delta, not the absolute.
+- The star is the only high-tier faucet, bounded per §5.
+- No draw from `board.rng` — hour-seeded RNG only; byte-identity test pins the board
+  stream (§10).
 
 ---
 
-## 8 · Data, persistence, determinism
+## 8 · Data
 
-- The hour's `{sky, skin, lane}` is **derived, never stored** — a pure function of the
-  hour index, recomputable anywhere (board, map, sim, tests).
-- One grove-blob sub-dict, defaulted on read, no schema bump (the `vault()` /
-  `bag_slots()` pattern): `g["sky"] = {"paid_hour": -1, "owed": []}` — `paid_hour` int
-  (monotonic pay guard), `owed` an array of item codes. Persisted through the existing
-  `_persist()` beat. Nothing else is stored.
+- `{sky, skin, lane}` is derived from the hour index, never stored.
+- `g["sky"] = {"paid_hour": -1, "owed": []}` in the grove blob — defaulted on read, no
+  schema bump, persisted via the existing `_persist()`.
 
 ---
 
-## 9 · Architecture (per-file; ● = new)
+## 9 · Architecture (● = new)
 
-- ● `engine/scripts/core/sky.gd` — pure statics, no scene deps: `hour_index(now)`,
+- ● `engine/scripts/core/sky.gd` — pure statics: `hour_index(now)`,
   `state(now, forced := "") → {sky, skin, lane_axis, lane}`, `in_patch(state, cell)`,
-  `star_pick(hour, actives, asked) → code | 0`, `gate_open()`. Everything
-  headless-testable in isolation.
-- `engine/scripts/core/board_logic.gd` — ➊ `asked_items(quests) → Dictionary` (pure
-  avoid-set); ➋ the merge-drop rolls **lift out of the scene** into one pure
-  `roll_merge_drops(produced, rng, sky_state, in_patch) → Array[code]` that `board.gd`
-  *and* `grove_sim` both call — retiring the sim's inline re-implementation and its
-  silent-divergence risk.
-- `games/grove/grove_data.gd` + `content.gd` re-exports (the `COIN_DROP_RATE` pattern) —
-  every §11 dial. Probabilities are game data; `Tune.Ambient` keeps look dials only, and
-  its three roll thresholds retire into the sky shares.
-- `engine/scripts/ui/ambient.gd` — `weather_now()` delegates to `Sky.state` for the skin
-  (map + shot callers unchanged); `build_weather` gains the `starlit` kind (within the ≤2
-  emitters / ≤80 particles budget); the debug cycle grows per §6; `check_winback` /
-  `winback_active` delete per §2.
+  `star_pick(hour, actives, asked) → code | 0`, `gate_open()`.
+- `engine/scripts/core/board_logic.gd` — ➊ `asked_items(quests)`; ➋ merge-drop rolls
+  lifted out of the scene into pure
+  `roll_merge_drops(produced, rng, sky_state, in_patch) → Array[code]`, called by
+  `board.gd` **and** `grove_sim` (retires the sim's inline copy).
+- `games/grove/grove_data.gd` + `content.gd` re-exports — the §11 dials. `Tune.Ambient`
+  keeps look dials only; its three roll thresholds retire.
+- `engine/scripts/ui/ambient.gd` — `weather_now()` delegates to `Sky.state` (map + shot
+  callers unchanged); `build_weather` gains `starlit` (≤2 emitters / ≤80 particles);
+  debug cycle per §6; `check_winback` / `winback_active` deleted (§2).
 - ● `engine/scripts/ui/sky_banner.gd` · ● `engine/scripts/ui/sky_patch.gd` — §6.
-- `engine/scripts/ui/hud.gd` — the sky chip + owed pip in the cluster.
-- `engine/scripts/scenes/board.gd` — the wiring only: entry banner in the deferred tail;
-  hour-turn check beside `_tick_water`; patch insert in `_rebuild_all` + reflow; gift rolls
-  in `_after_merge` via ➋; §5 trigger + owed landing in `_after_board_change`; the star
-  drop through the `_drop_special_near` path generalized to any code, with `"arc"`. The
-  win-back load-grant, `_winback` toast, and `last_seen` write delete per §2.
-- `engine/scripts/scenes/map.gd` — the win-back stamp and `last_seen` write delete per §2;
-  the map otherwise stays cosmetic-only.
-- `engine/scripts/core/features.gd` — `"weather_hours"` (Rule N4) + its `docs/FEATURES.md`
-  line.
-- `games/grove/strings.json` — the `board.sky.*` subtree.
-- `games/grove/tools/grove_sim.gd` — §10's sim work.
+- `engine/scripts/ui/hud.gd` — chip + owed pip.
+- `engine/scripts/scenes/board.gd` — entry banner in the deferred tail; hour check beside
+  `_tick_water`; patch insert in `_rebuild_all` + reflow; gifts in `_after_merge` via ➋;
+  §5 trigger + owed landing in `_after_board_change`; star drop via `_drop_special_near`
+  generalized to any code, with `"arc"`. Win-back grant, `_winback` toast, `last_seen`
+  write deleted (§2).
+- `engine/scripts/scenes/map.gd` — win-back stamp + `last_seen` write deleted (§2).
+- `engine/scripts/core/features.gd` — `"weather_hours"` + `docs/FEATURES.md` line;
+  `winback_rain_beat` removed.
+- `games/grove/strings.json` — `board.sky.*` added; `board.winback.*` removed.
+- `games/grove/tools/grove_sim.gd` — §10.
 
 ---
 
-## 10 · Testing & the sim re-pass
+## 10 · Testing and sim re-pass
 
-- **Pure (engine suite — runs in `make test-fast`).** ● `engine/tests/sky_tests.gd`: same
-  hour → identical `{sky, skin, lane}` (determinism); shares flip at the exact thresholds;
-  lane stays in range per axis; `in_patch` row/column truth table; `star_pick` skips asked
-  pairs, renormalizes, steps the menu down, and returns 0 on a fully-asked candidate space;
-  the gate; owed-queue order; `asked_items` shape; `roll_merge_drops` in/out-patch × three
-  skies, including Rain's both-drops hour.
-- **Byte-identity pin.** With the sky live, the board RNG stream is untouched — the
-  `mechanics_tests` no-extra-draws precedent extended to weather.
-- **Scene suite.** ● `games/grove/tests/grove_sky_tests.gd`, registered in the Makefile's
-  `GROVE_TESTS` and CLAUDE.md's suite line, `.uid` generated via `make import` before
-  commit: the banner mounts on entry and self-dismisses; the chip exists and replays; the
-  patch node sits after the slot block, survives `_rebuild_all` and an orientation flip
-  (geometry via `is_equal_approx` — Control geometry is float32); a forced-`star` hour
-  lands a real model piece (model asserts, not visibility — headless); a ≥48 h-away load
-  fills water by plain regen with no forced sky and no toast, and a stale `winback_until`
-  key is ignored (the retirement pin); an open modal defers the star trigger.
-- **Screenshots.** The shot tools already force weather (`shot_base.gd`); add the three
-  skies + patch to the shot set for human eyes.
-- **The sim re-pass (gates the merge).** `grove_sim` models skies across its sessions
-  (hours derived from session time), adopts ➋, and adds the star injection — expected
-  value ≈ share × (0.80·2⁷ + 0.15·2⁸ + 0.05·2⁹) ≈ **17 t1-eq per witnessed hour** at the
-  §11 dials, plus its coin value when sold. Run a **multi-seed sweep** (≥8 seeds × 7
-  days) — single-seed diffs conflate the change with RNG drift — and compare I2 · Y · Z
-  and the coin/water faucet totals against the shipped baseline. Finals overwrite §11.
+- **Engine suite (`make test-fast`)** — ● `engine/tests/sky_tests.gd`: hour determinism;
+  share boundaries at thresholds; lane in range per axis; `in_patch` truth table;
+  `star_pick` skips asked pairs, renormalizes, steps down, returns 0 when exhausted; gate;
+  owed-queue order; `asked_items` shape; `roll_merge_drops` in/out-patch × three skies
+  incl. Rain's both-drops case.
+- **Byte-identity pin:** with the sky live, the board RNG stream is unchanged
+  (`mechanics_tests` no-extra-draws precedent).
+- **Scene suite** — ● `games/grove/tests/grove_sky_tests.gd` (+ `GROVE_TESTS` in the
+  Makefile, + CLAUDE.md suite line, + `make import` for the `.uid`): banner mounts on
+  entry and self-dismisses; chip replays; patch sits after the slot block and survives
+  `_rebuild_all` + orientation flip (`is_equal_approx` — Control geometry is float32);
+  forced `star` hour lands a real model piece (model asserts, not visibility); ≥48 h-away
+  load fills water by plain regen, no forced sky, no toast, stale `winback_until` ignored;
+  open modal defers the star.
+- **Shots:** add the three skies + patch to the shot set (`shot_base.gd` already forces
+  weather).
+- **Sim re-pass (gates the merge):** grove_sim models skies per hour, adopts ➋, adds star
+  injection — EV ≈ 166 t1-eq per paid star ≈ 17 per witnessed hour at §11 dials, plus
+  sell value. Multi-seed sweep (≥8 seeds × 7 days); compare I2 · Y · Z and coin/water
+  faucet totals against baseline. Finals overwrite §11.
 
 ---
 
-## 11 · Dials (all PROVISIONAL — the sim re-pass owns finals)
+## 11 · Dials (PROVISIONAL)
 
 | Dial | Value | Meaning |
 |---|---|---|
-| `SKY_SHARES` | 45 · 45 · 10 | Sunbeam · Rain · Starfall share of hours |
-| `SKY_SKIN_SPLIT` | 70/30 · 85/15 | clear/breeze inside Sunbeam · rain/snow inside Rain |
-| `SKY_COIN_RATE` | 0.35 | in-patch coin-drop chance (baseline 0.10) |
-| `SKY_COIN_TIER` | 2 | in-patch coins land as c2 (worth 4) |
-| `SKY_WATER_RATE` | 0.35 | in-patch extra water roll (t1 water = +8, over-cap) |
+| `SKY_SHARES` | 45 · 45 · 10 | Sunbeam · Rain · Starfall |
+| `SKY_SKIN_SPLIT` | 70/30 · 85/15 | clear/breeze in Sunbeam · rain/snow in Rain |
+| `SKY_COIN_RATE` | 0.35 | in-patch coin chance (base 0.10) |
+| `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
+| `SKY_WATER_RATE` | 0.35 | in-patch water roll (t1 = +8, over-cap) |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
-| `STAR_DELAY` | 10 s | live-board seconds before the star falls |
+| `STAR_DELAY` | 10 s | live seconds before the star falls |
 | `BANNER_SECS` | 2.5 | banner self-dismiss |
-| `PATCH_ALPHA` | 0.10–0.15 | lane wash alpha per sky (art pass) |
-| `RAIN_VEIL` alpha | (existing) | now an explicit art dial — rain-family hours ×4.5 |
+| `PATCH_ALPHA` | 0.10–0.15 | wash alpha per sky |
+| `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
 ---
 
-## 12 · Out of scope
+## 12 · Open questions
 
-Festival sky, Magnet/Mirror skies, the Wild piece (parent §9 — parked/cut). Soil execution
-(step 4; only §4's dormant contract is ours). Map-side gifts (cosmetics only). Rush,
-entirely. The water stall's free-rain flow. Retuning baseline drop rates off-patch.
-
----
-
-## 13 · Open questions for Dev review
-
-1. **Sky shares.** 45/45/10 makes rain-family *looks* ~45% of hours (~10% today). Fine, or
-   tilt sunnier — e.g. 50/35/15 — accepting fewer water-gift hours?
-2. **Sunbeam's "count up"** ships as the c1→c2 upgrade (one cell, double value) rather
-   than two c1 pieces — confirm the reading of the parent line.
-3. **Starfall halves:** only witnessed hours pay (no offline accrual), and an unlandable
-   star goes owed instead of forfeit — confirm both.
-4. **The gate** (both FTUE verbs seen, then weather begins) — earlier or later? The
-   parent left the analogous soil beat at ~L6 open too.
+1. Sky shares 45/45/10 → rain-family looks ~45% of hours (vs ~10%). Keep, or tilt sunnier
+   (e.g. 50/35/15)?
+2. Sunbeam "count up" = c1→c2 upgrade, not two pieces — confirm.
+3. Starfall: witnessed hours only, owed instead of forfeit — confirm.
+4. Gate = both FTUE verbs seen — earlier/later?

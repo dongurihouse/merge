@@ -10,6 +10,7 @@ extends RefCounted
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
+const FxConfig = preload("res://engine/scripts/ui/fx_config.gd")   # the shared save/load contract
 
 const LEAF := Color("#7FB069")
 
@@ -27,34 +28,20 @@ const KNOBS := {
 	"sound_db": -5,      # toss sound level (dB; less negative = louder)
 }
 
+## The save/load quartet — one shared contract, see fx_config.gd.
 static func knob(opts: Dictionary, id: String) -> int:
-	return int(opts.get(id, KNOBS.get(id, 0)))
+	return FxConfig.knob(opts, id, KNOBS)
 
 static func defaults() -> Dictionary:
-	var d := {"enabled": true}
-	for e in EFFECTS:
-		d[String(e.id)] = true
-	for k in KNOBS.keys():
-		d[k] = KNOBS[k]
-	return d
+	return FxConfig.defaults(EFFECTS, KNOBS)
 
 ## Resolve the saved toggles + knobs over the defaults (the "launch_fx" config block).
 static func from_config(cfg: Dictionary) -> Dictionary:
-	var r: Dictionary = cfg.get("launch_fx", {}) if cfg is Dictionary else {}
-	var d := defaults()
-	for e in EFFECTS:
-		var id := String(e.id)
-		if r.has(id):
-			d[id] = bool(r[id])
-	if r.has("enabled"):
-		d["enabled"] = bool(r["enabled"])
-	for k in KNOBS.keys():
-		d[k] = int(r.get(k, KNOBS[k]))
-	return d
+	return FxConfig.from_config(cfg, "launch_fx", EFFECTS, KNOBS)
 
 ## True when the master switch is on AND this effect is on.
 static func on(opts: Dictionary, id: String) -> bool:
-	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
+	return FxConfig.on(opts, id)
 
 ## Fire the emit per the resolved opts. `emitter` is the node that spat the tile (recoils); `projectile`
 ## is the launched tile; `center` locates the muzzle puff. `intensity` (0..1) scales the muzzle-puff

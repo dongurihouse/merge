@@ -9,6 +9,7 @@ extends RefCounted
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
+const FxConfig = preload("res://engine/scripts/ui/fx_config.gd")   # the shared save/load contract
 
 const INK := Color("#43352B")
 const GOLD := Color("#FFD166")
@@ -43,30 +44,24 @@ const KNOBS := {
 	"treefall_hitstop_ms": 60,
 }
 
-## Read a numeric knob from a resolved opts dict, falling back to its KNOBS default.
+## The save/load quartet — one shared contract, see fx_config.gd.
+## NOTE: this registry's defaults() used to return the toggles ALONE (no knob keys) — the one place it
+## drifted from its five siblings. from_config() is byte-for-byte unaffected (it re-seeded every knob
+## from KNOBS on the next line either way), and nothing outside this file called RushFx.defaults(), so
+## defaults() now carries the knobs like everyone else's.
 static func knob(opts: Dictionary, id: String) -> int:
-	return int(opts.get(id, KNOBS.get(id, 0)))
+	return FxConfig.knob(opts, id, KNOBS)
 
 static func defaults() -> Dictionary:
-	var d := {"enabled": true}
-	for e in EFFECTS:
-		d[String(e.id)] = true
-	return d
+	return FxConfig.defaults(EFFECTS, KNOBS)
 
 ## Resolve the saved toggles over the defaults (the "rush_fx" config block).
 static func from_config(cfg: Dictionary) -> Dictionary:
-	var r: Dictionary = cfg.get("rush_fx", {}) if cfg is Dictionary else {}
-	var d := defaults()
-	for k in d.keys():
-		if r.has(k):
-			d[k] = bool(r[k])
-	for k in KNOBS.keys():
-		d[k] = int(r.get(k, KNOBS[k]))
-	return d
+	return FxConfig.from_config(cfg, "rush_fx", EFFECTS, KNOBS)
 
 ## True when the master switch is on AND this effect is on.
 static func on(opts: Dictionary, id: String) -> bool:
-	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
+	return FxConfig.on(opts, id)
 
 # --- the effects ------------------------------------------------------------------------------------
 

@@ -21,6 +21,7 @@ const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the board bottom bar's shared tray surface
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar; Look.kit(rel) resolves game art
+const Design = preload("res://engine/scripts/core/design.gd")        # THE design-viewport owner — never re-type 1080×1920
 const Game = preload("res://engine/scripts/core/game.gd")            # the game-indirection point (art roots · the ui kit path)
 const Pal = Game.PALETTE                                             # the game's colour roles (no re-typed hex)
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
@@ -178,8 +179,9 @@ func _layout() -> void:
 # it can be) so the board geometry never depends on the bar's final, board-matched width.
 func _compute_bands() -> Dictionary:
 	var vp := get_viewport_rect().size
-	var vw: float = vp.x if vp.x > 0.0 else 1080.0
-	var vh: float = vp.y if vp.y > 0.0 else 1920.0
+	var design := Design.size()                # fallback when the viewport has no size yet (pre-layout)
+	var vw: float = vp.x if vp.x > 0.0 else design.x
+	var vh: float = vp.y if vp.y > 0.0 else design.y
 	var st := Look.safe_top(self)
 	var sb := Look.safe_bottom(self)
 	var Kit: GDScript = load(KIT_PATH)
