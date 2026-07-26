@@ -11,6 +11,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
+const FxConfig = preload("res://engine/scripts/ui/fx_config.gd")   # the shared save/load contract
 
 const LEAF := Color("#7FB069")
 
@@ -34,34 +35,20 @@ const KNOBS := {
 	"ripple_pct": 60,    # neighbour bump strength (% of full intensity)
 }
 
+## The save/load quartet — one shared contract, see fx_config.gd.
 static func knob(opts: Dictionary, id: String) -> int:
-	return int(opts.get(id, KNOBS.get(id, 0)))
+	return FxConfig.knob(opts, id, KNOBS)
 
 static func defaults() -> Dictionary:
-	var d := {"enabled": true}
-	for e in EFFECTS:
-		d[String(e.id)] = true
-	for k in KNOBS.keys():
-		d[k] = KNOBS[k]
-	return d
+	return FxConfig.defaults(EFFECTS, KNOBS)
 
 ## Resolve the saved toggles + knobs over the defaults (the "land_fx" config block).
 static func from_config(cfg: Dictionary) -> Dictionary:
-	var r: Dictionary = cfg.get("land_fx", {}) if cfg is Dictionary else {}
-	var d := defaults()
-	for e in EFFECTS:
-		var id := String(e.id)
-		if r.has(id):
-			d[id] = bool(r[id])
-	if r.has("enabled"):
-		d["enabled"] = bool(r["enabled"])
-	for k in KNOBS.keys():
-		d[k] = int(r.get(k, KNOBS[k]))
-	return d
+	return FxConfig.from_config(cfg, "land_fx", EFFECTS, KNOBS)
 
 ## True when the master switch is on AND this effect is on.
 static func on(opts: Dictionary, id: String) -> bool:
-	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
+	return FxConfig.on(opts, id)
 
 ## Fire the landing impact per the resolved opts. `node` is the arriving tile; `host`/`center`
 ## locate the puff + flash. Mirrors feel.land but every cue is individually toggled + tuned.
