@@ -142,7 +142,17 @@ static func _lines_with_room(lines: Array, quests: Array) -> Array:
 # carrier quest — they arrive when a generator tap produces a DUE tool (Quests.due_gen / board.gd), so
 # refill is purely the §7 ask stream now. Returns the new quests array.
 static func refill(quests: Array, band: int, board_gens: Dictionary, gen_bag: Array, _earned: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
-	var out: Array = _cap_quests_per_line(quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))))
+	# A quest RETIRES WITH ITS LINE (2026-07-25). Keeping a stand whose line has left the ACTIVE-LINE
+	# WINDOW looked like protecting work in flight, but it is a dead slot: the board greys those items as
+	# junk (quest_needed_lines reads the window), so the ask can never be filled, and it still counts
+	# against MAX_GIVERS. grove_sim measured the result — the fence silted up with stale stands and quest
+	# income hit ZERO at ~L16, permanently. Quests are endless, so a dropped stand is replaced immediately.
+	var live_now := G.active_lines(level)
+	var out: Array = _cap_quests_per_line(quests.filter(func(q):
+		if q.has("grant") or bool(q.get("gate", false)):
+			return false
+		var qi := G.quest_item(q)
+		return qi.is_empty() or live_now.has(int(qi.line))))
 	# Ask from the level-reached line window (the coin clock drives level): a player keeps seeing
 	# new quest lines by earning coins even if they delay building newly affordable structures.
 	# §7 the ACTIVE-LINE WINDOW (2026-07-25): ACTIVE_LINE_WINDOW lines at a time, base or crafted-special

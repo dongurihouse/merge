@@ -84,6 +84,12 @@ var coins_at_first_complete := -1   # cumulative coin INTAKE the moment the firs
 var balance_at_first_complete := 0  # held coin BALANCE at that moment (the pre-population pile, for P2)
 var resident_spend_at_first_complete := 0
 var first_complete_day := -1
+# PACING MILESTONES (tuning signals for the level-curve sweep). The content arc and the restoration
+# ladder are paced by DIFFERENT things — the arc by LEVEL (ZONE_UNLOCK_LEVEL), the ladder by level AND
+# coins — so 'when does the player see the last item line' and 'when is the book finished' are separate
+# questions the curve dials trade off against each other.
+var content_end_day := -1      # first day the player reaches the LAST zone's unlock level (all lines seen)
+var half_book_day := -1        # first day half the cluster ladder is unlocked
 var water := 0
 var level_gift_water := 0
 var _greedy := false           # bot mode: greedy welcomes residents whenever affordable (no cushion)
@@ -159,6 +165,10 @@ func _initialize() -> void:
 			d_water += r.water
 		if map_done_day < 0 and _book_done():
 			map_done_day = day + 1
+		if content_end_day < 0 and _level() >= int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]):
+			content_end_day = day + 1
+		if half_book_day < 0 and clusters_unlocked * 2 >= _cluster_total():
+			half_book_day = day + 1
 		print("  day %d: spent %d💧 · earned %d🪙 · L%d · page %d/%d · clusters %d/%d · pages-done %d · coins %d (quest %d/sell %d) · brambles %d" % \
 			[day + 1, d_water, coins_earned - day_coins_b, _level(), mini(map + 1, G.MAPS.size()), G.MAPS.size(), clusters_unlocked, _cluster_total(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
 
@@ -170,7 +180,11 @@ func _initialize() -> void:
 		[clusters_unlocked, _cluster_total(), cluster_spend, gates_reached, _level(), coins_earned])
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
-
+	print("  PACING  curve base/step %d/%d · L%d at day %d · last content zone (L%d): %s · half the book: %s · whole book: %s" % \
+		[G.LEVEL_BASE_COINS, G.LEVEL_STEP_COINS, _level(), days, int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]),
+		 ("day %d" % content_end_day) if content_end_day > 0 else "NOT REACHED",
+		 ("day %d" % half_book_day) if half_book_day > 0 else "NOT REACHED",
+		 ("day %d" % map_done_day) if map_done_day > 0 else "NOT REACHED"])
 	var pass_all := true
 
 	# --- STALL guard: if the bot barely spent any water over the WHOLE run, the early board never opened
@@ -688,6 +702,12 @@ func _refill_quests() -> void:
 	# The live fence is ENDLESS and flat at MAX_GIVERS (Quests.meter_target) — it no longer meters against
 	# a remaining-exp target, so the sim mirrors that instead of calling the vestigial active_giver_count.
 	var want := int(G.MAX_GIVERS)
+	# mirror Quests.refill: a stand whose line has left the ACTIVE-LINE WINDOW retires with it (a stale
+	# ask is unfillable — the board greys its items as junk — and it would hold a MAX_GIVERS slot forever).
+	var live_now := _live_lines()
+	live_quests = live_quests.filter(func(q):
+		var qi := G.quest_item(q)
+		return qi.is_empty() or live_now.has(int(qi.line)))
 	live_quests = _cap_quests_per_line(live_quests)
 	var pool: Array = G.cap_quest_lines(G.active_lines(_level()))
 	want = mini(want, _line_capacity(pool))

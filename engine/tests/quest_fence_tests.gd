@@ -339,5 +339,33 @@ func _initialize() -> void:
 	# a full fence needs 2+ lines: with ACTIVE_LINE_WINDOW=3 the window carries MAX_GIVERS from L4 on
 	ok(mini(int(G.MAX_GIVERS), G.active_lines(4).size() * int(G.MAX_QUESTS_PER_LINE)) == int(G.MAX_GIVERS), "by L4 the window is wide enough to fill all MAX_GIVERS stands")
 
+	# --- A QUEST RETIRES WITH ITS LINE (2026-07-25 regression guard) ------------------------------------
+	# refill used to keep every non-gate stand regardless of line, so a quest whose line had left the
+	# ACTIVE-LINE WINDOW sat on the fence forever: unfillable (the board greys its items as junk via
+	# quest_needed_lines, which reads the window) yet still counting against MAX_GIVERS. grove_sim measured
+	# the end state — the fence silted up with stale stands and quest income hit ZERO at ~L16, permanently,
+	# for the rest of the run. This asserts the drop directly, at the refill boundary.
+	var stale_level := 16
+	var stale_live := G.active_lines(stale_level)
+	var stale_line := 0
+	for zl in G.ZONE_BASE_LINES:                       # any base line the window has already rolled past
+		if not stale_live.has(int(zl)):
+			stale_line = int(zl)
+			break
+	ok(stale_line > 0, "the L%d window (%s) has rolled past at least one line — a stale stand is possible" % [stale_level, str(stale_live)])
+	var stale_fence: Array = [{"line": stale_line, "tier": 7, "reward": {"coins": 9}}]
+	var sr := RandomNumberGenerator.new(); sr.seed = 4242
+	var after := Quests.refill(stale_fence, 0, {}, [], 0, stale_level, sr)
+	var kept_stale := 0
+	for q in after:
+		var qi := G.quest_item(q)
+		if not qi.is_empty() and int(qi.line) == stale_line:
+			kept_stale += 1
+	ok(kept_stale == 0, "refill DROPS a stand whose line left the window (line %d at L%d) — no dead fence slots" % [stale_line, stale_level])
+	ok(after.size() == mini(int(G.MAX_GIVERS), stale_live.size() * int(G.MAX_QUESTS_PER_LINE)), "the dropped slot is refilled immediately — the fence stays full")
+	for q in after:
+		var qi2 := G.quest_item(q)
+		ok(qi2.is_empty() or stale_live.has(int(qi2.line)), "every surviving stand asks a line inside the active window")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
