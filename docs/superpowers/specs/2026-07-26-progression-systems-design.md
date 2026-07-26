@@ -14,8 +14,8 @@ All numbers in this doc are **provisional dials** — the economy-sim re-pass ow
 1. **Craft dependencies block retirement.** Specials fold back into base generators forever
    (spices ← wildberries+woolens, tea cups ← spices+wildberries), and the active-line window
    freezes at the last zone — so on the shipped roster retirement fires exactly three times
-   (gen_1 past L11, gen_6 past L22, gen_16 past L33) and five generators never retire
-   (`content.gd:397`).
+   (gen_1/gen_6/gen_16, each at its `zone_unlock_level(3)/(8)/(11)` boundary — L33/L55/L69 on
+   today's derived cadence) and five generators never retire (`content.gd:397`).
 2. **The endgame is a content treadmill.** Past the last zone the window freezes; growth
    depends on authoring new scenes. Fine for v1, not a durable engine.
 3. **Board pollution.** Off-window lines leave idle generators and dead mid-tier stock on the
@@ -46,7 +46,7 @@ Every line is always in exactly one state:
 retirement use the **same card**: the line's art centered, **exactly one line of text**, one
 button.
 
-- Comeback: *"The Wildberries will be back at Level 22, for Spices."* — button **OK**
+- Comeback: *"The Wildberries will be back at Level 69, for Tea Cups."* — button **OK**
   (auto-executed on close; there is no choice to make).
 - Retirement: *"The Glowshrooms' story is complete — 340 coins join your purse."* — button
   **Retire**, dismissable (the shipped offer semantics; the info-bar sell path remains the
@@ -72,7 +72,7 @@ happen only on the board.
   pieces, the existing surface) and **Shelf** (per-line rows). No new nav entry.
 - **A shelf row:** line icon with its mastery trim · count-per-tier chips (tap a chip →
   that piece returns to the board, space permitting) · the one-line promise in small text:
-  *"Back at L22 · for Spices."* A retirable line's row swaps the promise for a **Retire**
+  *"Back at L51 · for Spices."* A retirable line's row swaps the promise for a **Retire**
   button that opens the farewell card.
 - **The farewell card:** centered cut-paper card over a dim veil (the existing overlay
   pattern): line art, the one line, the one button. No stat blocks, no item grids.
@@ -223,8 +223,9 @@ the clock**. Once per **real** day (not grove hour), the first ×5 chain pays a 
   palette color, drawn under the pieces. Each rung added thickens the stitch one step and
   brightens it; the **×N** paper tag pins to the top-tier piece's corner and counts up.
 - **The chain counter:** on each chain step, a small "×2 · ×3 · ×4" floats up from the merge
-  with escalating sparkle; sound pitch rises per step (the existing merge-streak audio
-  machinery in `board_logic` is the base). Confetti burst at ×5.
+  with escalating sparkle; audio stays with the existing 2.5 s merge-streak melody — a baked
+  pentatonic note ladder in the FX layer, not pitch-rise machinery in `board_logic` (the
+  cascade-combos spec supersedes this sketch and owns the details). Confetti burst at ×5.
 - **The daily chest:** on the first ×5 of the day, a chest drops onto a free cell with the
   standard chest FX — no modal.
 - **The FTUE dialog:** one centered card — a tiny 3-piece diagram (t·t·t+1 with an arrow),
