@@ -80,7 +80,7 @@ func _initialize() -> void:
 	# more. That is the exact opposite of the pre-re-spine guarantee this block used to check — verify
 	# the reversal first, since silently regressing back to a coin-driven cadence is the failure mode a
 	# re-tune of the curve could reintroduce unnoticed.
-	var shipped_cad: Array = [1, 14, 26, 30, 33, 37, 40, 44, 47, 53, 59, 66]
+	var shipped_cad: Array = [1, 15, 29, 33, 38, 42, 46, 51, 55, 60, 65, 69]
 	G.LEVEL_BASE_COINS = cb0
 	G.LEVEL_STEP_COINS = cs0
 	ok(G.zone_unlock_levels() == shipped_cad, "at the shipped SCENE_END_LEVEL band the cadence is %s" % str(shipped_cad))
@@ -88,7 +88,7 @@ func _initialize() -> void:
 	for z in G.coverup_pages():
 		for c in G.clusters(int(z)):
 			shipped_floors.append(G.cluster_min_level(int(z), String((c as Dictionary).id)))
-	ok(shipped_floors == [1, 6, 11, 15, 20, 25, 26, 29, 31, 34, 36, 37, 39, 42, 44, 46, 47, 50, 53, 55, 58, 59, 63, 67, 71],
+	ok(shipped_floors == [1, 6, 12, 17, 23, 28, 29, 32, 35, 38, 41, 42, 45, 48, 51, 54, 55, 57, 60, 62, 64, 65, 67, 69, 71],
 		"at the shipped SCENE_END_LEVEL band the floor ladder is %s" % str(shipped_floors))
 
 	# move the coin curve — neither table may react any more (the whole point of the re-spine)

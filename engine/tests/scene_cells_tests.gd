@@ -88,7 +88,7 @@ func _test_derived_cluster_floors() -> void:
 			floors.append(Content.cluster_min_level(int(z), id))
 			i += 1
 	ok(i == 25, "the ladder has 25 clusters")
-	ok(floors == [1, 6, 11, 15, 20, 25, 26, 29, 31, 34, 36, 37, 39, 42, 44, 46, 47, 50, 53, 55, 58, 59, 63, 67, 71],
+	ok(floors == [1, 6, 12, 17, 23, 28, 29, 32, 35, 38, 41, 42, 45, 48, 51, 54, 55, 57, 60, 62, 64, 65, 67, 69, 71],
 		"the derived floor ladder at the shipped SCENE_END_LEVEL band (got %s)" % str(floors))
 
 	# non-decreasing: a later cluster is never cheaper in level terms than an earlier one
@@ -120,11 +120,11 @@ func _test_derived_cluster_floors() -> void:
 	ok(scene_start_ok, "every scene's first cluster floor is past the previous scene's end")
 
 	# scene windows close at each scene's completion level (SCENE_END_LEVEL)
-	ok(Content.scene_level_window(0) == Vector2i(1, 25), "Fairy Hollow spans L1-25")
-	ok(Content.scene_level_window(1) == Vector2i(26, 36), "Snowy Village spans L26-36")
-	ok(Content.scene_level_window(2) == Vector2i(37, 46), "Desert Oasis spans L37-46")
-	ok(Content.scene_level_window(3) == Vector2i(47, 58), "Coral Reef spans L47-58")
-	ok(Content.scene_level_window(4) == Vector2i(59, 71), "Cherry Blossom spans L59-71")
+	ok(Content.scene_level_window(0) == Vector2i(1, 28), "Fairy Hollow spans L1-28")
+	ok(Content.scene_level_window(1) == Vector2i(29, 41), "Snowy Village spans L29-41")
+	ok(Content.scene_level_window(2) == Vector2i(42, 54), "Desert Oasis spans L42-54")
+	ok(Content.scene_level_window(3) == Vector2i(55, 64), "Coral Reef spans L55-64")
+	ok(Content.scene_level_window(4) == Vector2i(65, 71), "Cherry Blossom spans L65-71")
 
 func _initialize() -> void:
 	print("== scene-derived habitat cells (content queries) ==")

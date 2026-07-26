@@ -165,7 +165,11 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # hands back on every level-up. Raising the levels (not shrinking the gift) restores the target
 # calendar; recompute with:
 #   godot --headless --path . -s res://games/grove/tools/pacing_calc.gd -- 3 2 20 3,4,5,6,7 "" 60
-const SCENE_END_LEVEL := [25, 36, 46, 58, 71]
+# Re-tuned again 2026-07-26: the [25,36,46,58,71] solve hit the day-25 total but front-loaded the
+# split (measured 2/5/10/17/25 instead of 3/7/12/18/25). These are the levels grove_sim actually
+# reaches at days 3/7/12/18/25 (mean of seeds 1, 7, 42) at 3 sessions/day — measured from the running
+# sim, not re-derived from pacing_calc's model.
+const SCENE_END_LEVEL := [28, 41, 54, 64, 71]
 const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,

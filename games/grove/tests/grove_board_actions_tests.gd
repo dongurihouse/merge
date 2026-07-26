@@ -263,7 +263,7 @@ func _test_retire_line() -> void:
 	# a line that goes DORMANT is not retirable while a later craft still needs it (the whole point)
 	var _dormant := G.zone_unlock_level(10)   # Cherry Blossom's first zone: the window is [16,17,18], no woolens
 	ok(not G.active_lines(_dormant).has(4) and not G.gen_retirable("gen_4", _dormant), "woolens is out of the L%d window yet still NOT retirable — tea cups needs it at L%d" % [_dormant, G.zone_unlock_level(11)])
-	ok(G.retirable_gens(["gen_1", "gen_4", "gen_18"], 30) == ["gen_1"], "the offer set holds only the truly-done generators")
+	ok(G.retirable_gens(["gen_1", "gen_4", "gen_18"], _z3) == ["gen_1"], "the offer set holds only the truly-done generators")
 	ok(G.retirable_gens(["acc_water", "treat_71"], 30) == [], "accumulator / treat generators are never offered — their own lifecycle")
 	# --- the action. A fresh board deals the FTUE terrain (3 open cells), and level does not widen it —
 	# cells open by MERGING beside a bramble. Force the terrain open, the way the other suites do, so the
@@ -287,9 +287,9 @@ func _test_retire_line() -> void:
 	var expect := int(G.sell_reward(103).x) + int(G.sell_reward(105).x) + int(G.sell_reward(102).x)
 	var wallet_b := Save.coins()
 	var clock_b := Save.coins_earned_lifetime()
-	var refused: Dictionary = BoardActions.retire_line(b, bag, "gen_18", 30)
+	var refused: Dictionary = BoardActions.retire_line(b, bag, "gen_18", _z3)
 	ok(not bool(refused.retired) and b.gens.values().has("gen_18"), "retiring a STILL-NEEDED line is refused outright")
-	var res: Dictionary = BoardActions.retire_line(b, bag, "gen_1", 30)
+	var res: Dictionary = BoardActions.retire_line(b, bag, "gen_1", _z3)
 	ok(bool(res.retired) and int(res.line) == 1, "the done line retires")
 	ok(int(res.items) == 3 and int(res.coins) == expect, "every leftover piece is sold — board AND item bag (%d pieces, %d coins)" % [int(res.items), int(res.coins)])
 	ok(Save.coins() == wallet_b + expect, "the sale credits the wallet")
@@ -302,7 +302,7 @@ func _test_retire_line() -> void:
 		if int(b.items[i]) == 18 * 100 + 2:
 			survived = true
 	ok(survived, "a live line's board piece is untouched")
-	ok(int((BoardActions.retire_line(b, res.bag, "gen_1", 30) as Dictionary).items) == 0, "retiring again is a clean no-op — nothing left to clear")
+	ok(int((BoardActions.retire_line(b, res.bag, "gen_1", _z3) as Dictionary).items) == 0, "retiring again is a clean no-op — nothing left to clear")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.
