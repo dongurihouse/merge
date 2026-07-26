@@ -242,7 +242,7 @@ func _test_sell_generator() -> void:
 # §6 LINE RETIREMENT — clearing a line the game will never ask for again. The predicate is FORWARD-LOOKING
 # (G.gen_retirable), not "left the active window": lines 2/3/4 drop out of the window and come BACK as the
 # ingredients of later crafts, so a window-exit rule would strand the player. On the shipped roster exactly
-# three generators ever retire — gen_1 past L11, gen_6 past L22, gen_16 past L33.
+# three generators ever retire — gen_1/gen_6/gen_16 at the zone_unlock_level(3)/(8)/(11) boundaries derived below.
 func _test_retire_line() -> void:
 	fresh("retire_line")
 	# --- the predicate, against the shipped zone ladder
