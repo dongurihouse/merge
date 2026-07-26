@@ -374,7 +374,9 @@ func _initialize() -> void:
 			water_button.pressed.emit()
 			await create_timer(0.6).timeout
 		"bagwell":
-			# the bottom-nav Bag WELL in its filled state (a stashed item over the tile) — no overlay
+			# the bottom-nav Bag WELL in its FILLED state, overlay CLOSED: one stashed piece overlays
+			# the satchel tile (the well only ever previews the most-recent item, whatever the count),
+			# and the "x/y" count on the tile foot reads 1/6 against the starting capacity.
 			scn.bag = [101]
 			scn._rebuild_bag()
 			await create_timer(0.4).timeout
@@ -419,12 +421,6 @@ func _initialize() -> void:
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
 			await create_timer(0.6).timeout
-		"bagwell":
-			# the bottom-nav Bag WELL with items stashed (overlay CLOSED): proves the in-well
-			# item preview size + the count badge.
-			scn.bag = [101, 201]
-			scn._rebuild_bag()
-			await create_timer(0.4).timeout
 		"dragwell", "dragwellfull":
 			# mid-DRAG: pick up a board piece so the drop-target wells (Bag + merchant cart) light
 			# up. "dragwellfull" pre-fills the bag to capacity → the Bag must NOT highlight.
