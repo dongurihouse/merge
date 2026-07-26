@@ -628,31 +628,21 @@ func _initialize() -> void:
 				_gens[_g] = true
 		_peak = maxi(_peak, _gens.size())
 	ok(_peak <= int(G.QUEST_GEN_CAP), "the arc's peak generator footprint (%d) stays inside QUEST_GEN_CAP" % _peak)
-	ok(G.cap_quest_lines(G.zone_window_lines(11)) == [17, 18, 19], "the footprint cap never trims a full arc window")
-	# ENDGAME: past the last zone's unlock the window re-rolls every level-up, dealt from a shuffled deck.
+	ok(G.cap_quest_lines(G.zone_window_lines(G.ZONE_COUNT - 1)) == [17, 18, 19], "the footprint cap never trims a full arc window")
+	# PAST THE LAST ZONE the window simply STOPS — it holds the final ACTIVE_LINE_WINDOW lines forever, with
+	# no separate endgame mode. (The per-level-up random re-roll that shipped here first is removed, owner
+	# call 2026-07-25: the world grows by adding zones, so the top of the ladder keeps moving and a distinct
+	# endgame would be behaviour built to be thrown away.)
 	var _top_lv := int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1])
-	ok(G.active_lines(_top_lv) == [17, 18, 19], "the last zone's own level keeps its arc window (the capstone is never skipped)")
-	ok(G.active_lines(_top_lv + 1) != [17, 18, 19], "the first level-up past the last zone re-rolls the window")
-	var _pool := G.zone_pool_lines()
-	ok(_pool.size() == G.ZONE_COUNT, "the endgame pool is every zone line — base and special alike")
-	var _slots := _pool.size() / int(G.ACTIVE_LINE_WINDOW)
-	var _seen := {}
-	for _i in _slots:                                  # one full round: the draws are disjoint by construction
-		var _draw := G.endgame_lines(_top_lv + 1 + _i)
-		ok(_draw.size() == int(G.ACTIVE_LINE_WINDOW), "endgame draw %d is ACTIVE_LINE_WINDOW lines" % _i)
-		for _l2 in _draw:
-			ok(_pool.has(int(_l2)) and not _seen.has(int(_l2)), "endgame draw %d serves an unrepeated pool line" % _i)
-			_seen[int(_l2)] = true
-	ok(_seen.size() == _pool.size(), "one endgame round deals EVERY line exactly once — no line is starved")
-	ok(G.endgame_lines(_top_lv + 7) == G.endgame_lines(_top_lv + 7), "the endgame draw is a pure function of level (no persisted RNG)")
-	var _eg_peak := 0
-	for _i2 in (_slots * 3):                           # three rounds — every draw stays inside the gen cap
-		var _g2 := {}
-		for _l3 in G.endgame_lines(_top_lv + 1 + _i2):
-			for _g3 in G.gens_for_quest_line(int(_l3)):
-				_g2[_g3] = true
-		_eg_peak = maxi(_eg_peak, _g2.size())
-	ok(_eg_peak <= int(G.QUEST_GEN_CAP), "every endgame draw's generator footprint (peak %d) stays inside QUEST_GEN_CAP" % _eg_peak)
+	var _final := G.zone_window_lines(G.ZONE_COUNT - 1)
+	ok(G.active_lines(_top_lv) == _final, "the last zone's own level carries the final window %s" % str(_final))
+	for _over in [1, 2, 7, 40, 500]:
+		ok(G.active_lines(_top_lv + _over) == _final, "L%d (past the arc) still holds the final window — no re-roll, no random lines" % (_top_lv + _over))
+	var _fg := {}
+	for _l2 in _final:
+		for _g2 in G.gens_for_quest_line(int(_l2)):
+			_fg[_g2] = true
+	ok(_fg.size() <= int(G.QUEST_GEN_CAP), "the final window's generator footprint (%d) stays inside QUEST_GEN_CAP" % _fg.size())
 	# THE SHIPPED ARC TABLE, level by level (the owner-facing view of ZONE_UNLOCK_LEVEL × the window). Re-tuning
 	# the cadence SHOULD break this — update it here so the table stays reviewable in one place.
 	var _arc := {

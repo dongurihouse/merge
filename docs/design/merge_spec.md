@@ -243,15 +243,22 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > at L12 and is needed at L25). So a retirement flow may sell a retired line's **items**, but **must never
 > permanently archive the line** — its generator has to stay re-birthable on tap.
 >
-> **D. Endgame — the window re-rolls every level-up.** Past the last zone's unlock level the window stops
-> sliding and **re-rolls to 3 lines drawn from the whole roster** on each level-up. The draw is a **pure
-> function of level** (a per-round seeded shuffle dealt 3 at a time), so it needs no save field and cannot
-> desync from the load-bearing RNG call order in `refill`. Draws inside one round are **disjoint by
-> construction** — a level-up always fully refreshes the fence — and **every line comes round once per
-> round**, so none is starved. Only a round boundary can repeat a line.
+> **D. Past the last zone the window simply STOPS — there is no endgame mode.** It holds the final 3 lines,
+> exactly like every other level. **The world grows by adding scenes/zones**, so the top of the ladder keeps
+> moving and the "endgame" is a temporary state, not a designed one. *(A deterministic per-level-up re-roll
+> over the whole roster shipped here first and was **removed** the same day, owner call 2026-07-25: a fence
+> that suddenly served 3 random lines from anywhere in the game read as a different mode rather than as the
+> end of the arc, and it would have meant building the retirement flow against behaviour that will not
+> survive. Recoverable from git if a real endgame is ever wanted — but prefer more zones.)*
 >
-> **E. A re-roll never voids work in flight.** `refill` constrains only *new* stands; a quest already on the
-> fence survives the window change, so items the player has already built stay deliverable.
+> **E. A quest RETIRES WITH ITS LINE.** A stand whose line has left the window is **dropped on the next
+> refill**, and replaced immediately (quests are endless). Keeping it looked like protecting work in flight,
+> but it is a dead slot: the board greys those items as junk (`quest_needed_lines` reads the window), so the
+> ask can never be filled, while it still counts against `MAX_GIVERS`. `grove_sim` measured the end state —
+> the fence silted up with stale stands and **quest income hit ZERO at ~L16, permanently** (42 straight days
+> frozen, 15/25 clusters, coins piling to 21,565). The pop pool expands from the *fence* while the clutter
+> rule reads the *window*, so a stale stand also drove a pop-then-sell churn loop. **These two reads must
+> agree.**
 >
 > **Consequence — retirement is now load-bearing.** Lines retire roughly **every zone** during the arc and
 > **every level-up** at endgame, instead of twice in the whole game. Generators are still never removed and

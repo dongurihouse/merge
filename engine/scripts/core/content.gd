@@ -34,7 +34,6 @@ const ZONE_UNLOCK_LEVEL = D.ZONE_UNLOCK_LEVEL   # §7 per-zone unlock LEVEL — 
 const GEN_TOP_TIER = D.GEN_TOP_TIER
 const CLUSTER_LEVEL_STEP = D.CLUSTER_LEVEL_STEP   # §8 cluster-ladder level spacing (paired with ZONE_UNLOCK_LEVEL)
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
-const ENDGAME_DECK_SALT := 0x5AFE            # fixed salt for the endgame draw's per-round shuffle seed
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
 const GEN_SELL_COINS = D.GEN_SELL_COINS
@@ -366,52 +365,17 @@ static func zone_window_lines(current_zone: int) -> Array:
 	out.reverse()
 	return out
 
-# Every zone line with a renderable def — the endgame draw pool.
-static func zone_pool_lines() -> Array:
-	var out: Array = []
-	for z in ZONE_COUNT:
-		var l := zone_line(z)
-		if l > 0 and LINES.has(l):
-			out.append(l)
-	return out
-
-# The pool shuffled deterministically for endgame round `r` — a pure function of r (seeded Fisher-Yates), so
-# it needs no save field and cannot desync from the load-bearing RNG call order in Quests.refill.
-static func _endgame_deck(r: int) -> Array:
-	var deck := zone_pool_lines()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = ENDGAME_DECK_SALT + int(r)
-	for i in range(deck.size() - 1, 0, -1):
-		var j := rng.randi_range(0, i)
-		var tmp: int = deck[i]
-		deck[i] = deck[j]
-		deck[j] = tmp
-	return deck
-
-# Past the last zone the window stops sliding and RE-ROLLS on every level-up: the shuffled pool is dealt out
-# ACTIVE_LINE_WINDOW at a time, so the draws inside one round are disjoint BY CONSTRUCTION (a level-up always
-# fully refreshes the fence) and every line is guaranteed to come round once per round. Only a round boundary
-# can repeat a line — accepted, it is one level-up in `slots`. `level` must be past the last zone's unlock.
-static func endgame_lines(level: int) -> Array:
-	var pool := zone_pool_lines()
-	var w := int(ACTIVE_LINE_WINDOW)
-	if pool.size() < w or w <= 0:
-		return pool
-	var slots := pool.size() / w                  # draws dealt from one shuffled deck
-	var k := int(level) - int(ZONE_UNLOCK_LEVEL[ZONE_COUNT - 1]) - 1   # 0-based draw index
-	if k < 0:
-		k = 0
-	var deck := _endgame_deck(k / slots)
-	var out := deck.slice((k % slots) * w, (k % slots) * w + w)
-	out.sort()                                    # stable order for display/tests; membership is the draw
-	return out
-
-# THE ONE ENTRY POINT — the lines the fence may ask for at `level`. Arc: the sliding zone window. Endgame
-# (past the last zone's unlock level): a fresh deterministic draw on every level-up.
+# THE ONE ENTRY POINT — the lines the fence may ask for at `level`: the sliding zone window, all the way
+# through. Past the last zone the window simply STOPS sliding and holds the final ACTIVE_LINE_WINDOW
+# lines, exactly like every other level — there is no separate endgame mode.
+#
+# (A deterministic per-level-up RE-ROLL over the whole roster shipped here first and is REMOVED, owner
+# call 2026-07-25. The endgame is a temporary state — the world grows by adding scenes/zones, so the top
+# of the ladder keeps moving — and a fence that suddenly served 3 random lines from anywhere in the game
+# read as a different mode rather than as the end of the arc. Retiring it early avoids building the
+# retirement flow against behaviour that will not survive. Restore from git if a real endgame is ever
+# wanted, but prefer more zones.)
 static func active_lines(level: int) -> Array:
-	var top := ZONE_COUNT - 1
-	if quest_zone_for_level(level) >= top and int(level) > int(ZONE_UNLOCK_LEVEL[top]):
-		return endgame_lines(int(level))
 	return zone_window_lines(quest_zone_for_level(level))
 
 # Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
