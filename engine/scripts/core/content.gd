@@ -28,7 +28,6 @@ const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (g
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
-const ZONE_UNLOCK_LEVEL = D.ZONE_UNLOCK_LEVEL   # §7 per-zone unlock LEVEL — the progression cadence dial
 const GEN_TOP_TIER = D.GEN_TOP_TIER
 const CLUSTER_LEVEL_LEAD = D.CLUSTER_LEVEL_LEAD   # §8 bias on the DERIVED cluster floors (1.0 = never binding)
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
@@ -416,7 +415,7 @@ static func gen_retirable(gen_id: String, level: int) -> bool:
 		return false
 	# active_lines only changes at a zone boundary, so one probe per remaining zone covers every future level.
 	for z in range(quest_zone_for_level(level), ZONE_COUNT):
-		if needed_gens(int(ZONE_UNLOCK_LEVEL[z])).has(gid):
+		if needed_gens(zone_unlock_level(int(z))).has(gid):
 			return false
 	return true
 
@@ -435,7 +434,7 @@ static func retirable_gens(owned_ids: Array, level: int) -> Array:
 static func quest_zone_for_level(level: int) -> int:
 	var z := 0
 	for i in ZONE_COUNT:
-		if int(level) >= int(ZONE_UNLOCK_LEVEL[i]):
+		if int(level) >= zone_unlock_level(int(i)):
 			z = i
 		else:
 			break
@@ -1094,7 +1093,23 @@ static func _build_cadence() -> Dictionary:
 			cum += int((c as Dictionary).get("cost", 0))
 			floors.append(level_at_coins(int(round(float(cum) * float(CLUSTER_LEVEL_LEAD)))))
 		scene_end.append(level_at_coins(cum))
-	return {"floors": floors, "scene_end": scene_end, "zones": []}
+	# Each scene's ZONE_BAND zones spread evenly inside that scene's own LEVEL WINDOW, so a zone's line
+	# always arrives while its themed scene is the one being unlocked.
+	var zones: Array = []
+	var win_start := 1
+	for i in scene_end.size():
+		var win_end := int(scene_end[i])
+		var k := int(ZONE_BAND[i]) if i < ZONE_BAND.size() else 0
+		var span := maxi(1, win_end + 1 - win_start)
+		for j in k:
+			zones.append(maxi(1, win_start + int(round(float(j) * float(span) / float(k)))))
+		win_start = win_end + 1
+	if not zones.is_empty():
+		zones[0] = 1        # zone 0 is the anchor line — askable from the first tap
+	for i2 in range(1, zones.size()):     # a degenerate window could repeat a level; the inverse must be monotonic
+		if int(zones[i2]) <= int(zones[i2 - 1]):
+			zones[i2] = int(zones[i2 - 1]) + 1
+	return {"floors": floors, "scene_end": scene_end, "zones": zones}
 
 ## The coins the cluster ladder has cost through global index `i`, inclusive. Clamps at both ends,
 ## so an out-of-range index reads the whole ladder's cost.
@@ -1557,12 +1572,19 @@ static func earn_coins(n: int) -> int:
 	return level() - before
 
 # --- the zone ladder on the coin clock (the content arc, decoupled from map spots) --------
-# The LEVEL zone z's line + generator unlocks — the data-driven ZONE_UNLOCK_LEVEL cadence (scene-aligned,
-# 2026-07-23; was the flat 2+z one-zone-per-level ramp that finished at L13, far short of the L26 scene
-# arc). Its coins_at_level(...) is the zone_threshold below. Buildings (home.gd) are the map surface and
-# gate on their own per-step min_level — they no longer drive the content arc.
+## The LEVEL zone z's line + generator unlock — DERIVED from the scene windows (2026-07-25): each scene's
+## window comes from the cluster cost ladder, and ZONE_BAND spreads its zones inside it. Was a hand-authored
+## ZONE_UNLOCK_LEVEL table in grove_data, which had drifted to L1-34 while the ladder ran to L87 — every item
+## line shipped by the middle of scene 3. Its coins_at_level(...) is the zone_threshold below.
 static func zone_unlock_level(z: int) -> int:
-	return int(ZONE_UNLOCK_LEVEL[clampi(z, 0, ZONE_COUNT - 1)])
+	var zones: Array = _cadence_table()["zones"]
+	if zones.is_empty():
+		return 1
+	return int(zones[clampi(z, 0, zones.size() - 1)])
+
+## The whole derived cadence, one level per zone in play order (a copy — mutating it changes nothing).
+static func zone_unlock_levels() -> Array:
+	return (_cadence_table()["zones"] as Array).duplicate()
 
 static func zone_threshold(z: int) -> int:
 	return coins_at_level(zone_unlock_level(z))

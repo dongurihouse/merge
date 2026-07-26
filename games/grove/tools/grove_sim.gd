@@ -166,7 +166,7 @@ func _initialize() -> void:
 			d_water += r.water
 		if map_done_day < 0 and _book_done():
 			map_done_day = day + 1
-		if content_end_day < 0 and _level() >= int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]):
+		if content_end_day < 0 and _level() >= G.zone_unlock_level(G.ZONE_COUNT - 1):
 			content_end_day = day + 1
 		if half_book_day < 0 and clusters_unlocked * 2 >= _cluster_total():
 			half_book_day = day + 1
@@ -183,7 +183,7 @@ func _initialize() -> void:
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 	print("  PACING  curve base/step %d/%d · L%d at day %d · last content zone (L%d): %s · half the book: %s · whole book: %s" % \
-		[G.LEVEL_BASE_COINS, G.LEVEL_STEP_COINS, _level(), days, int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]),
+		[G.LEVEL_BASE_COINS, G.LEVEL_STEP_COINS, _level(), days, G.zone_unlock_level(G.ZONE_COUNT - 1),
 		 ("day %d" % content_end_day) if content_end_day > 0 else "NOT REACHED",
 		 ("day %d" % half_book_day) if half_book_day > 0 else "NOT REACHED",
 		 ("day %d" % map_done_day) if map_done_day > 0 else "NOT REACHED"])

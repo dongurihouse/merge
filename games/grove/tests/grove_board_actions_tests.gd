@@ -246,17 +246,23 @@ func _test_sell_generator() -> void:
 func _test_retire_line() -> void:
 	fresh("retire_line")
 	# --- the predicate, against the shipped zone ladder
-	ok(not G.gen_retirable("gen_1", 11) and G.gen_retirable("gen_1", 12), "the anchor line retires the level after it is last needed (L11 -> L12)")
-	ok(not G.gen_retirable("gen_6", 22) and G.gen_retirable("gen_6", 23), "desert fruits retires past L22")
-	ok(not G.gen_retirable("gen_16", 33) and G.gen_retirable("gen_16", 34), "shells retires past L33")
+	# Each retirement boundary is the level at which the generator's line leaves the window for good —
+	# derived from the cadence so a curve or cost re-tune moves these with it, never stale.
+	var _z3 := G.zone_unlock_level(3)     # zone 3 opens -> line 1 (zone 0) has left the 3-line window
+	ok(not G.gen_retirable("gen_1", _z3 - 1) and G.gen_retirable("gen_1", _z3), "the anchor line retires the level after it is last needed (L%d -> L%d)" % [_z3 - 1, _z3])
+	var _z8 := G.zone_unlock_level(8)     # zone 8 opens -> line 6 (zone 5) has left the window
+	ok(not G.gen_retirable("gen_6", _z8 - 1) and G.gen_retirable("gen_6", _z8), "desert fruits retires past L%d" % (_z8 - 1))
+	var _z11 := G.zone_unlock_level(11)   # zone 11 opens -> line 16 (zone 8) has left the window
+	ok(not G.gen_retirable("gen_16", _z11 - 1) and G.gen_retirable("gen_16", _z11), "shells retires past L%d" % (_z11 - 1))
 	for _keep in ["gen_2", "gen_3", "gen_4", "gen_7", "gen_18"]:
 		var _ever := false
-		for _lv in range(1, int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]) + 20):
+		for _lv in range(1, G.zone_unlock_level(G.ZONE_COUNT - 1) + 20):
 			if G.gen_retirable(String(_keep), _lv):
 				_ever = true
 		ok(not _ever, "%s is NEVER retirable — it feeds the final window's crafts at every level" % _keep)
 	# a line that goes DORMANT is not retirable while a later craft still needs it (the whole point)
-	ok(not G.active_lines(30).has(4) and not G.gen_retirable("gen_4", 30), "woolens is out of the L30 window yet still NOT retirable — tea cups needs it at L34")
+	var _dormant := G.zone_unlock_level(10)   # Cherry Blossom's first zone: the window is [16,17,18], no woolens
+	ok(not G.active_lines(_dormant).has(4) and not G.gen_retirable("gen_4", _dormant), "woolens is out of the L%d window yet still NOT retirable — tea cups needs it at L%d" % [_dormant, G.zone_unlock_level(11)])
 	ok(G.retirable_gens(["gen_1", "gen_4", "gen_18"], 30) == ["gen_1"], "the offer set holds only the truly-done generators")
 	ok(G.retirable_gens(["acc_water", "treat_71"], 30) == [], "accumulator / treat generators are never offered — their own lifecycle")
 	# --- the action. A fresh board deals the FTUE terrain (3 open cells), and level does not widen it —

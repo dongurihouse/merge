@@ -338,7 +338,7 @@ func _initialize() -> void:
 	ok(w_offwindow == 0, "every generated ask comes from the active-line window (%d strays)" % w_offwindow)
 	# A full fence needs 2+ lines (MAX_QUESTS_PER_LINE per line). Derived from the cadence, not hardcoded:
 	# the window widens to 2 lines exactly when the SECOND zone unlocks, so that is when the fence can fill.
-	var second_zone_level := int(G.ZONE_UNLOCK_LEVEL[1])
+	var second_zone_level := G.zone_unlock_level(1)
 	ok(mini(int(G.MAX_GIVERS), G.active_lines(second_zone_level).size() * int(G.MAX_QUESTS_PER_LINE)) == int(G.MAX_GIVERS), "the fence can fill all MAX_GIVERS stands from the second zone (L%d) on" % second_zone_level)
 	ok(G.active_lines(second_zone_level - 1).size() == 1, "before the second zone the FTUE fence runs on the single anchor line")
 

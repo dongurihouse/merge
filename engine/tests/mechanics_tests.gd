@@ -651,7 +651,7 @@ func _initialize() -> void:
 	# no separate endgame mode. (The per-level-up random re-roll that shipped here first is removed, owner
 	# call 2026-07-25: the world grows by adding zones, so the top of the ladder keeps moving and a distinct
 	# endgame would be behaviour built to be thrown away.)
-	var _top_lv := int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1])
+	var _top_lv := G.zone_unlock_level(G.ZONE_COUNT - 1)
 	var _final := G.zone_window_lines(G.ZONE_COUNT - 1)
 	ok(G.active_lines(_top_lv) == _final, "the last zone's own level carries the final window %s" % str(_final))
 	for _over in [1, 2, 7, 40, 500]:
@@ -661,41 +661,65 @@ func _initialize() -> void:
 		for _g2 in G.gens_for_quest_line(int(_l2)):
 			_fg[_g2] = true
 	ok(_fg.size() <= int(G.QUEST_GEN_CAP), "the final window's generator footprint (%d) stays inside QUEST_GEN_CAP" % _fg.size())
-	# THE SHIPPED ARC TABLE, level by level (the owner-facing view of ZONE_UNLOCK_LEVEL × the window). Re-tuning
-	# the cadence SHOULD break this — update it here so the table stays reviewable in one place.
-	var _arc := {
-		1: [1], 2: [1], 3: [1], 4: [1],
-		5: [1, 2], 6: [1, 2], 7: [1, 2], 8: [1, 2], 9: [1, 2],
-		10: [1, 2, 3], 11: [1, 2, 3],
-		12: [2, 3, 4], 13: [2, 3, 4], 14: [2, 3, 4],
-		15: [3, 4, 5], 16: [3, 4, 5],
-		17: [4, 5, 6], 18: [4, 5, 6],
-		19: [5, 6, 7], 20: [5, 6, 7], 21: [5, 6, 7],
-		22: [6, 7, 8],
-		23: [7, 8, 16], 24: [7, 8, 16], 25: [7, 8, 16], 26: [7, 8, 16],
-		27: [8, 16, 17], 28: [8, 16, 17], 29: [8, 16, 17],
-		30: [16, 17, 18], 31: [16, 17, 18], 32: [16, 17, 18], 33: [16, 17, 18],
-		34: [17, 18, 19],
-	}
-	for _lv in _arc:
-		ok(G.active_lines(int(_lv)) == _arc[_lv], "L%d asks from %s" % [_lv, _arc[_lv]])
-	ok(G.active_lines(0) == [1], "a below-first-threshold level clamps to the anchor line")
+	# THE SHIPPED ARC TABLE (the owner-facing view of the cadence × the window). One row per zone: the
+	# LEVEL RANGE that zone owns, and the 3 lines the fence asks from across it. Re-tuning the coin curve
+	# or the cluster costs SHOULD break this — update it here so the arc stays reviewable in one place.
+	var _arc := [
+		[ 1,  4, [1]],            # z0  Fairy Hollow — the anchor line alone
+		[ 5,  7, [1, 2]],         # z1
+		[ 8, 11, [1, 2, 3]],      # z2  Snowy Village opens
+		[12, 15, [2, 3, 4]],      # z3
+		[16, 19, [3, 4, 5]],      # z4  winter berries (special)
+		[20, 25, [4, 5, 6]],      # z5  Desert Oasis opens
+		[26, 31, [5, 6, 7]],      # z6
+		[32, 37, [6, 7, 8]],      # z7  spices (special)
+		[38, 49, [7, 8, 16]],     # z8  Coral Reef opens
+		[50, 61, [8, 16, 17]],    # z9  corals (special)
+		[62, 74, [16, 17, 18]],   # z10 Cherry Blossom opens
+		[75, 90, [17, 18, 19]],   # z11 tea cups (special) — the final window, held forever
+	]
+	var _arc_ok := true
+	var _arc_bad := ""
+	for _row in _arc:
+		for _lv in range(int(_row[0]), int(_row[1]) + 1):
+			if G.active_lines(int(_lv)) != _row[2]:
+				_arc_ok = false
+				if _arc_bad == "":
+					_arc_bad = "L%d asks %s, expected %s" % [_lv, str(G.active_lines(int(_lv))), str(_row[2])]
+	ok(_arc_ok, "the arc table holds at every level L1-L90 (%s)" % ("ok" if _arc_ok else _arc_bad))
+	ok(int(_arc[0][0]) == 1 and G.active_lines(0) == [1], "a below-first-threshold level clamps to the anchor line")
 	ok(G.gen_for_line(2) == "gen_2" and G.gen_for_line(5) == "", "base lines have a generator id; specials have none")
 	# per-line generator roster (one generator per base line)
 	# zone -> band is derived from the FROZEN ZONE_BAND counts ([6,4,7,4,4]) — the retired 5-map layout kept
 	# purely for the per-band coin/sell curves (coin-clock redesign: the content arc gates on level, not spots).
 	ok(G.zone_map(0) == 0 and G.zone_map(1) == 0 and G.zone_map(2) == 1 and G.zone_map(4) == 1 and G.zone_map(5) == 2 and G.zone_map(7) == 2 and G.zone_map(8) == 3 and G.zone_map(9) == 3 and G.zone_map(10) == 4 and G.zone_map(11) == 4, "zone -> band tracks the ZONE_BAND page distribution")
-	# the ZONE ladder rides the data-driven ZONE_UNLOCK_LEVEL cadence (scene-aligned, 2026-07-23): zone z
-	# unlocks at ZONE_UNLOCK_LEVEL[z], spreading the 12-zone content arc across the full L1..L25 scene arc.
-	ok(G.zone_unlock_level(0) == int(G.ZONE_UNLOCK_LEVEL[0]) and G.zone_unlock_level(G.ZONE_COUNT - 1) == int(G.ZONE_UNLOCK_LEVEL[G.ZONE_COUNT - 1]), "zone_unlock_level reads the ZONE_UNLOCK_LEVEL cadence")
-	# the cadence must be strictly increasing (a monotonic level→zone inverse) and ZONE_COUNT long.
-	ok(G.ZONE_UNLOCK_LEVEL.size() == G.ZONE_COUNT, "ZONE_UNLOCK_LEVEL has one level per zone")
+	# THE ZONE CADENCE IS DERIVED (2026-07-25): each scene's LEVEL WINDOW comes from the cluster cost
+	# ladder, and ZONE_BAND spreads that scene's zones evenly inside its own window. Scene alignment is
+	# arithmetic now, not a hand-maintained invariant — these assertions are what hold it.
+	var _cad := G.zone_unlock_levels()
+	ok(_cad.size() == G.ZONE_COUNT, "the cadence has one level per zone")
+	ok(_cad == [1, 5, 8, 12, 16, 20, 26, 32, 38, 50, 62, 75], "the derived cadence at the shipped curve (got %s)" % str(_cad))
+	ok(G.zone_unlock_level(0) == int(_cad[0]) and G.zone_unlock_level(G.ZONE_COUNT - 1) == int(_cad[G.ZONE_COUNT - 1]), "zone_unlock_level reads the derived cadence")
 	var _cad_ok := true
 	for _z in range(1, G.ZONE_COUNT):
-		if int(G.ZONE_UNLOCK_LEVEL[_z]) <= int(G.ZONE_UNLOCK_LEVEL[_z - 1]):
+		if int(_cad[_z]) <= int(_cad[_z - 1]):
 			_cad_ok = false
-	ok(_cad_ok, "ZONE_UNLOCK_LEVEL is strictly increasing (each zone unlocks after the last)")
-	ok(G.zone_threshold(0) == G.coins_at_level(int(G.ZONE_UNLOCK_LEVEL[0])), "zone 0's threshold is its unlock-level coin threshold")
+	ok(_cad_ok, "the cadence is strictly increasing (each zone unlocks after the last)")
+	# SCENE ALIGNMENT: zone z's line must arrive while its OWN scene is the one being unlocked. ZONE_BAND
+	# says how many zones belong to each scene; every one of them must land inside that scene's window.
+	var _zi := 0
+	var _aligned := true
+	for _p in G.ZONE_BAND.size():
+		var _win := G.scene_level_window(int(_p))
+		for _j in int(G.ZONE_BAND[_p]):
+			var _lv := int(_cad[_zi])
+			# zone 0 is the anchor: pinned to L1, which is scene 0's window start anyway
+			if _lv < int(_win.x) or _lv > int(_win.y):
+				_aligned = false
+			_zi += 1
+	ok(_zi == G.ZONE_COUNT, "ZONE_BAND accounts for every zone")
+	ok(_aligned, "every zone unlocks inside its OWN scene's level window (scene alignment)")
+	ok(G.zone_threshold(0) == G.coins_at_level(int(_cad[0])), "zone 0's threshold is its unlock-level coin threshold")
 	ok(G.arc_finish_threshold() == G.zone_threshold(G.ZONE_COUNT - 1), "the arc finishes at the last zone's threshold")
 	# scene-aligned cadence: quest_zone_for_level inverts the array (highest zone reached), so each base
 	# generator's line becomes askable inside its own scene's cluster window (FH L2-7 · SV L8-12 · DO L13-17
@@ -705,13 +729,13 @@ func _initialize() -> void:
 	# DERIVED from the cadence, not hardcoded (the table is an owner feel dial and was re-spaced 2026-07-25
 	# to L1-34): every zone must be reached exactly at its own unlock level and not one level sooner.
 	for _z in G.ZONE_COUNT:
-		var _ul := int(G.ZONE_UNLOCK_LEVEL[_z])
+		var _ul := G.zone_unlock_level(int(_z))
 		ok(G.quest_zone_for_level(_ul) == _z, "L%d reaches zone %d (line %d)" % [_ul, _z, G.zone_line(_z)])
 		ok(_z == 0 or G.quest_zone_for_level(_ul - 1) < _z, "zone %d is NOT reached one level early (L%d)" % [_z, _ul - 1])
 	# line_gated_out (save-migration predicate): a zone line is gated out below its zone's unlock level and
 	# available at/after it; non-zone lines (coins/treats/special drops) are never gated.
 	for _z2 in G.ZONE_COUNT:
-		var _ul2 := int(G.ZONE_UNLOCK_LEVEL[_z2])
+		var _ul2 := G.zone_unlock_level(int(_z2))
 		var _ln := G.zone_line(_z2)
 		ok(_ul2 <= 1 or G.line_gated_out(_ln, _ul2 - 1), "line %d (zone %d) is gated out below L%d" % [_ln, _z2, _ul2])
 		ok(not G.line_gated_out(_ln, _ul2), "line %d (zone %d) is available at L%d" % [_ln, _z2, _ul2])
