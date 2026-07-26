@@ -1698,18 +1698,9 @@ func _open_resident_ladder(kind: String, mark_tier: int) -> void:
 	if Kit == null:
 		return
 	Audio.play("button_tap", -4.0)
-	var overlay := Overlay.mount(self, "ResidentLadderOverlay")
-	var veil := ColorRect.new()
-	veil.color = Color(DOCK_INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(self, "ResidentLadderOverlay", {"ink": DOCK_INK})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var width: float = get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
@@ -2086,18 +2077,9 @@ func _open_expedition(z: int = -1) -> void:
 	var source_z := clampi(z, 0, G.MAPS.size() - 1)
 	var source_map_id := String(G.MAPS[source_z].id)
 	var equip := {"v": {}}                # boxed so the toggle callbacks can mutate the chosen boosts
-	var overlay := Overlay.mount(self, "ExpeditionOverlay")
-	var veil := ColorRect.new()
-	veil.color = Color(DOCK_INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(self, "ExpeditionOverlay", {"ink": DOCK_INK})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 	var width: float = minf(get_viewport_rect().size.x * 0.9, 540.0)
 	var switch_h := 40.0
 	var ui_refs := {"cost_chip": null, "go": null}

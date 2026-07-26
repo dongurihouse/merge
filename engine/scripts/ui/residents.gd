@@ -231,18 +231,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		return
 	Audio.play("button_tap", -2.0)
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.6)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(host, OVERLAY_NAME)
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var viewport_size := host.get_viewport_rect().size

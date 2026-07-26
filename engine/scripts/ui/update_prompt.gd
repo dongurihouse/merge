@@ -29,24 +29,13 @@ static func open(host: Control, store_version: String, store_url: String) -> voi
 		return
 	Audio.play("button_tap", -2.0)
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the dimmed backdrop — tapping it dismisses (same light modal seam as settings / mail / shop).
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.6)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	var dismiss := func() -> void:
-		Save.mark_update_dismissed(store_version)      # silence THIS version until a newer one ships
-		if is_instance_valid(overlay):
-			overlay.queue_free()
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			dismiss.call())
-
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# Every close path (veil tap, ✕, "Not now") runs the scaffold's one seam: silence THIS version
+	# until a newer one ships, then free.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"on_dismiss": func() -> void:
+		Save.mark_update_dismissed(store_version)})
+	var cc: CenterContainer = modal["center"]
+	var dismiss: Callable = modal["dismiss"]
 
 	var vw: float = host.get_viewport_rect().size.x
 	var width: float = vw * 0.62

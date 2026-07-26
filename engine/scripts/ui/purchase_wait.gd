@@ -6,7 +6,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-const INK := Game.PALETTE.INK
 const BARK := Game.PALETTE.BARK
 const STRAW := Game.PALETTE.STRAW
 const OVERLAY_NAME := "PurchaseWaitOverlay"
@@ -21,18 +20,12 @@ static func show(host: Control, title: String, message: String) -> Control:
 	if existing is Control and not existing.is_queued_for_deletion():
 		return existing
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME, Overlay.MODAL_TOP_Z)
+	# BLOCKING: dismissable:false, so no veil tap can close this while StoreKit owns the screen —
+	# the sheet goes away only when close() is called with the purchase result.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"z": Overlay.MODAL_TOP_Z, "dismissable": false})
+	var overlay: Control = modal["overlay"]
+	var center: CenterContainer = modal["center"]
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.56)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(center)
 
 	var col := VBoxContainer.new()
 	col.alignment = BoxContainer.ALIGNMENT_CENTER

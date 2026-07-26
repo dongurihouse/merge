@@ -35,16 +35,13 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
-	var overlay := Overlay.mount(host, OVERLAY_NAME, Overlay.MODAL_TOP_Z)   # above the board + HUD
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	veil.mouse_filter = Control.MOUSE_FILTER_STOP                           # swallow taps on the frozen board
-	overlay.add_child(veil)
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# above the board + HUD, and NOT veil-dismissable: the veil swallows taps on the frozen board so
+	# the haul can't be tapped away before it's revealed.
+	# `ink`: this reveal's veil is the warm board-side brown, not the blue Pal.INK the light dialogs use.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {
+		"ink": INK, "z": Overlay.MODAL_TOP_Z, "dismissable": false})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	# convert the run score straight into spirits + drop them in the hand (the reveal is cosmetic over this)
 	var granted: Array = Bucket.grant_box(Explore.trade_count(Explore.score()))

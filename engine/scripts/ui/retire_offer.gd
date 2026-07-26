@@ -52,19 +52,9 @@ static func open(host: Control, opts: Dictionary) -> void:
 			on_dismiss.call()
 	Audio.play("button_tap", -4.0)
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.GROUND_EDGE, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			dismiss.call()
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"ink": Pal.GROUND_EDGE, "on_dismiss": dismiss})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = host.get_viewport_rect().size.x
@@ -109,10 +99,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	# fraction of the screen). This card is art + copy + a CTA, so leave an explicit floor tall enough to hold
 	# all three — otherwise the button lands under the bottom edge and the only hint is a thin scrollbar.
 	dopts["min_h"] = width * 0.60
-	dopts["on_close"] = func() -> void:
-		dismiss.call()
-		if is_instance_valid(overlay):
-			overlay.queue_free()
+	dopts["on_close"] = modal["dismiss"]   # the ✕ takes the SAME seam as the veil tap: decline, then close
 
 	var dialog: Control = Kit.dialog_frame(col, width, dopts)
 	cc.add_child(dialog)

@@ -19,7 +19,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const BuildInfo = preload("res://engine/scripts/core/build_info.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Identity = preload("res://engine/scripts/core/identity.gd")   # the Game Center player id (read-only display)
-const Pal = Game.PALETTE
 const OVERLAY_NAME := "SettingsOverlay"
 const GC_INFO_ID := "game_center"
 const VERSION_INFO_ID := "app_version"
@@ -49,19 +48,10 @@ static func open(host: Control) -> void:
 		return
 	Audio.play("button_tap", -2.0)
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the dimmed backdrop, dismissing on tap (the same light modal seam as mail / shop / bag).
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.6)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(host, OVERLAY_NAME)
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	# the dialog renders at the SINGLE global frame width; content scales from the authored baseline
@@ -72,8 +62,7 @@ static func open(host: Control) -> void:
 	# build the kit settings dialog (shared frame + a toggle card per flag) from the saved design config.
 	var opts: Dictionary = Kit.settings_opts_from_config(cfg)
 	opts["content_scale"] = Kit.dialog_content_scale(cfg, "settings")
-	opts["on_close"] = func() -> void:
-		if is_instance_valid(overlay): overlay.queue_free()
+	opts["on_close"] = modal["dismiss"]
 	opts["banner_text"] = Strings.t("settings.title")
 	# the Privacy Policy link under the toggles — opens the policy in the system browser.
 	opts["footer_text"] = Strings.t("settings.privacy")

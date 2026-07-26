@@ -27,6 +27,7 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "VaultOverlay"
+const CONFIRM_NAME := "VaultCrackConfirmOverlay"   ## the crack confirm raised over an open vault
 
 const INK := Pal.INK
 const CREAM := Pal.CREAM
@@ -50,19 +51,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Kit == null:
 		push_warning("Vault: ui kit missing at %s" % KIT_PATH)
 		return
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the dimmed backdrop, dismissing on tap (the same light modal seam as mail / shop / settings).
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(host, OVERLAY_NAME)
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	# the dialog renders at the SINGLE global frame width; content scales from the authored baseline
@@ -90,8 +82,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	vopts["banner_text"] = Strings.t("vault.banner")
 	vopts["pitch"] = Strings.t("vault.pitch") % Vault.price_usd()
 	vopts["hint_text"] = Strings.t("vault.hint")
-	vopts["on_close"] = func() -> void:
-		if is_instance_valid(overlay): overlay.queue_free()
+	vopts["on_close"] = modal["dismiss"]
 	var dialog: Control = Kit.vault_dialog(state, width, vopts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
@@ -102,18 +93,11 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	# the plain body face — the SAME standard font the vault dialog uses (loaded by path, no hard tools dep).
 	var Kit: GDScript = load(KIT_PATH)
 	var plain: Font = Kit.plain_font() if Kit != null else null
-	var overlay := Control.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = Overlay.MODAL_TOP_Z          # the crack confirm sits ABOVE the open vault
-	host.add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.5)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# the crack confirm sits ABOVE the open vault, and is NOT veil-dismissable — a money decision
+	# leaves by Cancel or Confirm, never by a stray tap on the backdrop.
+	var modal := Overlay.modal(host, CONFIRM_NAME, {"z": Overlay.MODAL_TOP_Z, "dismissable": false})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
 	cc.add_child(card)
