@@ -165,8 +165,10 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
     "Free" while free builds remain, then the coin price; Magnet: acorn icon + acorn price.
   - Warning card: *"This restarts 6h of growing. Move it anyway?"* — **Keep growing**
     (action green, default) · **Move it** (quiet cream).
-- Art via intake (`docs/design/art-style-guide.md`): soil patch, pebble, buildable pad, leaf
-  button, rank pips ×3, time chip, range field.
+- Raster masters (produced through the art pipeline, `docs/design/art-style-guide.md`; 512²
+  transparent, at `games/grove/assets/ui/kit/`): `cell_soil.png` · `cell_magnet.png` ·
+  `build_leaf.png` · `pip_leaf.png`. Everything else — pads, ring, time chip, range field,
+  veils, sheet chrome — is code-drawn.
 - Mocks: `games/grove/assets/_concepts/ui/improvements_v1/` — one PNG + prompt sidecar per
   surface (build mode · build sheet · soil growing · magnet range · t7+ warning).
 
@@ -265,6 +267,15 @@ Hard rules (violations fail review): never bump `SCHEMA_VERSION`; zero RNG draws
 improvement path (the byte-identity test pins it); never call `G.earn_coins`/
 `Save.earn_coins`; reuse the named shared components — no bespoke modals, chips, cells, or
 keyers; all dials in `grove_data.gd`, none inline.
+
+**Assets — do not generate any.** The four raster masters (§5) are produced separately
+through the art pipeline and land at `games/grove/assets/ui/kit/`: `cell_soil.png`,
+`cell_magnet.png`, `build_leaf.png`, `pip_leaf.png`. Do not generate, draw, edit, or
+download art of any kind. Wire the exact paths; if a master is not present yet, put a
+placeholder behind the same seam — an existing kit icon or a flat tinted rect — so the real
+file swaps in with zero code change. Everything else is code-drawn per §5. When a master is
+first drawn in a top-level dialog, add its bake target per the art guide §8
+(`make bake-textures`).
 
 Process: run `make test-fast` after every change and the full `make test` before handing
 off — always in the **foreground** (a backgrounded run never returns to an agent). A plain

@@ -1,0 +1,32 @@
+Use case: game UI icon masters. Asset type: single-row glyph sheet, exactly 2048x512.
+Generate an image (do not write code).
+
+Input image: the mandatory Meadow Sky palette & material authority — controls palette
+relationships, matte paper treatment, warm cut edges. Do not copy its board or layout.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+The sheet: 4 equal cells in one row on a solid flat #FF00FF background, one glyph per cell,
+row-major left to right:
+1. SOIL PATCH — a rounded garden earth patch seen flat from above: desaturated gold-brown
+   cardstock with a deckled cut-paper edge, one darker same-hue inner plane, two or three
+   small paper pebble flecks. Flat front-on glyph, no perspective, no grass skirt.
+2. MAGNET PEBBLE — a horseshoe-shaped pebble magnet in slate blue (#3F6D7D family): one
+   broad U silhouette, one same-hue shadow plane, rounded tips. Flat front-on glyph.
+3. BUILD LEAF — a single broad rounded leaf in garden green (#5F9B6D) with one simple
+   center vein and a short stem. Flat front-on glyph.
+4. LEAF PIP — a tiny, simpler leaf: one small teardrop leaf mass in garden green, no vein,
+   no stem. Clearly simpler and smaller-featured than glyph 3.
+
+CONTAINMENT (hard requirement): every glyph floats fully inside its own cell with clear
+magenta visible on ALL FOUR sides; no glyph touches or crosses a cell boundary; glyphs never
+touch each other. All four share the same visual weight and camera. No cast shadows on the
+background, no grounding, no scene, no text.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already
+approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with
+your built-in image generation and save it with the solid #FF00FF background INTACT — do
+not key, remove, or make the background transparent; downstream deterministic tools do the
+keying. Save it to:
+/Users/xup/dh/wt-improve-assets/games/grove/assets/_new/improvements_glyphs_v1
+Name it: improvements_glyphs_v1_sheet.png. Then report the saved absolute path.
