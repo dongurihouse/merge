@@ -190,3 +190,52 @@ interaction is step-3 scope.
    `sell_reward`).
 4. No retro seed — existing saves start at rank 0.
 5. Trim art is one generic 4-frame set, not per-line.
+
+## 12 · Implementation directions (for the implementing agent)
+
+**Workspace.** Branch `feat/generator-mastery` from latest `main` in a NEW worktree outside the
+repo: `git worktree add /Users/xup/dh/merge-wt-mastery -b feat/generator-mastery` (in-repo
+worktrees get wiped by other agents). Seed the import cache before the first run:
+`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-mastery/.godot/`.
+**Do not merge to main and do not remove the worktree** — implementation ends with the branch
+committed in place; code review happens in the worktree.
+
+**Order** — each step lands with its tests green (`make test-fast`, a few seconds) before the next:
+
+1. Dials in `grove_data.gd` + content.gd re-exports (§6); new `engine/tests/mastery_tests.gd`
+   with the threshold/closed-form tests (§9); register the suite beside the other engine suites
+   in the `engine/tools/run_suites.py` list the Makefile drives.
+2. `engine/scripts/core/mastery.gd` (§6 API) + credit/band/slide unit tests.
+3. `roll_tier_window` + the `roll_spawn` params (§3) + the RNG byte-identity tests (extend the
+   mechanics_tests.gd:413 pattern).
+4. Credits: `deliver_quest`; lift `_apply_recipe` to `BoardActions.apply_recipe` (parity test
+   first, then add credits); the never-credit tests (§9).
+5. Scissors: content registration, `split_piece`, release-ladder branch + highlight, shop row +
+   `scissors_pending`, the price-floor unit test.
+6. UI: ring, trim attach, rank-up card, info-bar row, strings — the §7 mocks are the composition
+   authority.
+7. Sim wiring (§6 grove_sim row), then the §8 battery:
+   `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>` for 3 seeds;
+   include the reports in the handoff.
+8. Full `make test` green before handoff.
+
+**Repo rules that bite:**
+
+- Engine code never references `games/` directly (`layering_tests`) — read through `G` /
+  `Game.DATA`.
+- RNG draw order is contractual (board_logic.gd:120–124); the §3 zero-added-draws law is a gate,
+  not a preference.
+- Fast parse check: `godot --headless --check-only --script <file.gd>`. Suites only via
+  `make test-fast` / `make test` — a bare foreground `godot -s` run can hang a shell.
+- New `.gd` files: run `make import` before committing so `.uid` sidecars exist and are committed.
+- Tests comparing Control positions/sizes use `is_equal_approx` (float32 truncation).
+- Headless runs: `is_visible_in_tree()` is false for root children; dispatch notifications with
+  `obj.notification(what)`, never by calling `_notification()` directly.
+- Everything ships behind the two `features.gd` flags (§6); flags off = byte-identical spawns.
+- No art generation in this task: the ring is code-drawn; the trim overlay loads
+  `ui/kit/mastery_trim_{1..4}.png` and stays hidden while those are absent; the shop row uses an
+  existing kit icon as placeholder. Art lands separately via the art guide's intake (then
+  `make bake-textures` for any sprite drawn in a dialog — `kit_bake_tests` enforces it).
+- A parallel task is changing the boost/burst behavior — burst code stays untouched here (§1
+  law); keep clear of board.gd:2995 and the burst constants.
+- Commits: small, one per step above, conventional prefixes.
