@@ -17,6 +17,7 @@ const GAMES := "res://games/"
 ## re-open the door — don't; fix the reference through Game.art/kit/... instead.
 const FAIL_ON_GAMES_REFS := true
 
+const Design := preload("res://engine/scripts/core/design.gd")   # the host is the design canvas — read it, never re-type it
 const Overlay := preload("res://engine/scripts/ui/overlay.gd")
 const Hud := preload("res://engine/scripts/ui/hud.gd")
 const TuneFX := preload("res://engine/scripts/core/tuning.gd").FX   # the FX juice dials (FLY_Z / FLOAT_Z)
@@ -190,8 +191,8 @@ func _check_engine_never_reaches_into_games() -> void:
 
 func _check_level_badge_layout() -> void:
 	var host := Control.new()
-	host.custom_minimum_size = Vector2(1080, 1920)
-	host.size = Vector2(1080, 1920)
+	host.custom_minimum_size = Design.size()
+	host.size = Design.size()
 	get_root().add_child(host)
 	var hud: Dictionary = Hud.build(host, {})
 	await process_frame

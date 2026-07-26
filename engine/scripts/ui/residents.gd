@@ -15,6 +15,7 @@ extends RefCounted
 ## (the settings.gd/inbox.gd idiom) so this file keeps no hard dependency on a tools script.
 
 const Save = preload("res://engine/scripts/core/save.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
@@ -44,10 +45,11 @@ const HABITAT_SLOTS_SHOWN := 5      # the mock's fixed row: granted cells first,
 const INSPECTOR_H := 104.0          # the bottom strip's height in DESIGN units
 const CELL_CORNER := 16.0           # the resident/bank card corner the shared shadow hugs
 # Height-cap the width-authored resident surface on short aspect ratios so the fixed banks,
-# habitat and pinned actions still leave one complete On-hand row. At 1080×1200 this applies
-# a modest 1200/1440 scale; taller phones keep the normal shared-frame width scale.
+# habitat and pinned actions still leave one complete On-hand row. At a design-width × 1200
+# window this applies a modest 1200/1440 scale; taller phones keep the normal shared-frame
+# width scale. The reference WIDTH is the design canvas itself — read from Design, never re-typed.
 const HEIGHT_SCALE_REFERENCE := 1440.0
-const HEIGHT_SCALE_REFERENCE_W := 1080.0
+static var HEIGHT_SCALE_REFERENCE_W := Design.size().x
 
 # Per-line chrome: icon id + display name + the bank bar's fill colour (Meadow Sky roles).
 const LINE_FACE := {

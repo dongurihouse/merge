@@ -19,13 +19,14 @@ extends "res://engine/tests/test_base.gd"
 ## (a matcher that finds nothing everywhere would report every dialog as blocking).
 
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # the host is the design canvas — read it, never re-type it
 const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
 
 func _host() -> Control:
 	var host := Control.new()
-	host.custom_minimum_size = Vector2(1080, 1920)
-	host.size = Vector2(1080, 1920)
+	host.custom_minimum_size = Design.size()
+	host.size = Design.size()
 	root.add_child(host)
 	return host
 

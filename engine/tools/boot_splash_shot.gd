@@ -5,9 +5,10 @@ extends SceneTree
 ##   engine/tools/quiet_godot.sh --path . -s res://engine/tools/boot_splash_shot.gd -- /tmp/out.png
 
 const BootScript = preload("res://engine/scripts/scenes/boot.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 
-const W := 1080
-const H := 1920
+## The design resolution, read from the owner (project.godot display/window/size).
+static var DESIGN_SIZE := Vector2i(Design.size())
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -19,7 +20,7 @@ func _initialize() -> void:
 	var uargs := OS.get_cmdline_user_args()
 	var out: String = String(uargs[0]) if uargs.size() >= 1 else "/tmp/tu_boot_splash.png"
 	# optional WxH second arg (e.g. an App Store size); default is the design resolution
-	var sz := Vector2i(W, H)
+	var sz := DESIGN_SIZE
 	if uargs.size() >= 2 and "x" in String(uargs[1]):
 		var wh := String(uargs[1]).split("x")
 		sz = Vector2i(int(wh[0]), int(wh[1]))

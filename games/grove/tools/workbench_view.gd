@@ -15,14 +15,18 @@ extends Control
 
 const Kit = preload("res://games/grove/ui_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 const Game = preload("res://engine/scripts/core/game.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
 const SETTINGS := "res://games/grove/ui_kit_settings.json"   # persisted params (in the repo)
-const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
-                          # screen in-game), so the workbench previews the same responsive width the game uses
-const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
+# The project's portrait design canvas, read from THE owner (Design → project.godot). Dialog widths
+# are a % of the width (and of the live screen in-game), so the workbench previews the same responsive
+# width the game uses; the map card's height is a % of the height (see map_card). Re-typing the numbers
+# here is what made the workbench validate against a stale canvas — read them, never restate them.
+static var PHONE_W := Design.size().x
+static var PHONE_H := Design.size().y
 const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
 # The settings file this workbench reads/writes. Overridable so a test can redirect the round-trip at a
