@@ -757,8 +757,9 @@ func _quest_line_gated_out(q: Dictionary, level: int) -> bool:
 			return true
 	return false
 
-# Save migration (2026-07-23, scene-aligned ZONE_UNLOCK_LEVEL cadence): strip every generator, item and
-# quest for a line the player should NOT have reached yet at their CURRENT level, so an older save matches
+# Save migration (2026-07-23, scene-aligned zone_unlock_level cadence — now DERIVED, see content.gd's
+# _build_cadence): strip every generator, item and quest for a line the player should NOT have reached
+# yet at their CURRENT level, so an older save matches
 # the new pacing. Silent removal, no compensation (owner call). IDEMPOTENT — a no-op on any save already
 # consistent with the cadence (birth-on-tap only ever grants in-cadence content; every new save starts
 # clean), so it runs on every load with no schema bump and no one-time flag. Exempt (never gated out):

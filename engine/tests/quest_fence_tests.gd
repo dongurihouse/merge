@@ -231,9 +231,11 @@ func _initialize() -> void:
 	ok(no_special2, "the near-end fence is ordinary quests — no gate/grant/generator quest type")
 
 	# --- ENDLESS FENCE (2026-07-23, owner call): the fence NEVER goes inert/grey and NEVER tapers. The old
-	# --- fence_inert "endgame quiet" is retired — it gated on the 12-zone quest roster (all zones by ~L13),
-	# --- far short of the real map/cluster arc (25 clusters → ~L26), greying the fence out mid-game. Past the
-	# --- old arc-finish threshold (and far beyond) refill still fills a FULL fence of ordinary, live quests. ---
+	# --- fence_inert "endgame quiet" is retired — at the time it gated on the 12-zone quest roster (all zones
+	# --- by ~L13), far short of the real map/cluster arc (25 clusters → ~L26), greying the fence out mid-game.
+	# --- The zone cadence is now derived from the coin curve (2026-07-25) and both arcs run much longer (12
+	# --- zones to ~L75, 25 clusters to ~L87), but the fence still does not gate on either: past the old
+	# --- arc-finish threshold (and far beyond) refill still fills a FULL fence of ordinary, live quests. ---
 	var deep_earned := G.arc_finish_threshold() * 5
 	var rdeep := Quests.refill([], 0, {}, [], deep_earned, 6, RandomNumberGenerator.new())
 	ok(rdeep.size() == int(G.MAX_GIVERS), "the fence stays full (MAX_GIVERS) far past the old arc threshold")

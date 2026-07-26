@@ -87,8 +87,9 @@ var first_complete_day := -1
 var _deliv_day := 0            # deliveries this day (reported on the day line — the late-fence health signal)
 # PACING MILESTONES (tuning signals for the level-curve sweep). The content arc and the restoration
 # ladder now ride the SAME spine (2026-07-25): both derive from the cluster COST ladder through the coin
-# curve, so 'when the last item line lands' and 'when the book is finished' can no longer drift apart —
-# questions the curve dials trade off against each other.
+# curve. That does NOT mean 'when the last item line lands' and 'when the book is finished' track
+# together — measured over 3 seeds, the last content zone lands day 151-155 while the book finishes day
+# 258-268, a wide and growing gap (CLUSTER_LEVEL_LEAD is the dial that would narrow it).
 var content_end_day := -1      # first day the player reaches the LAST zone's unlock level (all lines seen)
 var half_book_day := -1        # first day half the cluster ladder is unlocked
 var scene_done_day := {}       # cover-up page index -> the day that page's last cluster was unlocked

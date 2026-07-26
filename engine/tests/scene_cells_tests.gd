@@ -92,7 +92,7 @@ func _test_derived_cluster_floors() -> void:
 	for z in pages:
 		for c in Content.clusters(int(z)):
 			var id := String((c as Dictionary).id)
-			var want := Content.level_at_coins(Content.cumulative_cluster_cost(i))
+			var want := Content.level_at_coins(int(round(float(Content.cumulative_cluster_cost(i)) * float(Content.CLUSTER_LEVEL_LEAD))))
 			if Content.cluster_min_level(int(z), id) != want:
 				derived_ok = false
 			floors.append(Content.cluster_min_level(int(z), id))

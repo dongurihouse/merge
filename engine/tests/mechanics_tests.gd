@@ -722,12 +722,12 @@ func _initialize() -> void:
 	ok(G.zone_threshold(0) == G.coins_at_level(int(_cad[0])), "zone 0's threshold is its unlock-level coin threshold")
 	ok(G.arc_finish_threshold() == G.zone_threshold(G.ZONE_COUNT - 1), "the arc finishes at the last zone's threshold")
 	# scene-aligned cadence: quest_zone_for_level inverts the array (highest zone reached), so each base
-	# generator's line becomes askable inside its own scene's cluster window (FH L2-7 · SV L8-12 · DO L13-17
-	# · CR L18-22 · CB L23-26). Anchor at L1; content now spans the whole arc, not just L1-13.
+	# generator's line becomes askable inside its own scene's cluster window (FH L1-7 · SV L8-19 · DO L20-37
+	# · CR L38-61 · CB L62-87). Anchor at L1; content now spans the whole arc, out to L75.
 	ok(G.quest_zone_for_level(1) == 0, "L1 → zone 0 (glow-mushrooms anchor)")
 	ok(G.quest_zone_for_level(99) == G.ZONE_COUNT - 1, "past the arc clamps at the top zone")
-	# DERIVED from the cadence, not hardcoded (the table is an owner feel dial and was re-spaced 2026-07-25
-	# to L1-34): every zone must be reached exactly at its own unlock level and not one level sooner.
+	# DERIVED from the cadence, not hardcoded (there is no hand-authored table any more — see
+	# _build_cadence): every zone must be reached exactly at its own unlock level and not one level sooner.
 	for _z in G.ZONE_COUNT:
 		var _ul := G.zone_unlock_level(int(_z))
 		ok(G.quest_zone_for_level(_ul) == _z, "L%d reaches zone %d (line %d)" % [_ul, _z, G.zone_line(_z)])

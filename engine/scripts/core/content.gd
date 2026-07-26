@@ -29,7 +29,8 @@ const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
 const GEN_TOP_TIER = D.GEN_TOP_TIER
-const CLUSTER_LEVEL_LEAD = D.CLUSTER_LEVEL_LEAD   # §8 bias on the DERIVED cluster floors (1.0 = never binding)
+const CLUSTER_LEVEL_LEAD = D.CLUSTER_LEVEL_LEAD   # §8 bias on the DERIVED cluster floors (1.0 = counts cumulative
+                                                   # cost in CLOCK coins only; measured BINDING — see the const's own doc)
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
@@ -390,12 +391,13 @@ static func active_lines(level: int) -> Array:
 # A line is DONE when nothing in the rest of the game can ask for it again — then its generator is dead
 # weight on the board and its leftover stock is unusable. "Left the active window" is NOT that test: lines
 # 2, 3 and 4 drop out of the window and come BACK repeatedly as the ingredients of later crafts (spices at
-# L22, corals at L27, tea cups at L34), so retiring on window exit would strand the player five times over
+# L32, corals at L50, tea cups at L75), so retiring on window exit would strand the player five times over
 # the arc. The real test is FORWARD-LOOKING, and it is finite: the window slides through the zone ladder and
 # then FREEZES at the last zone, so every future state is covered by scanning the remaining zones.
 #
-# On the shipped roster that makes retirement THREE events — gen_1 past L11, gen_6 past L22, gen_16 past
-# L33. The other five generators (2, 3, 4, 7, 18) are the final window's ingredient set and never retire.
+# On the shipped roster that makes retirement THREE events — gen_1 past L11 (retires at L12), gen_6 past
+# L37 (retires at L38), gen_16 past L74 (retires at L75). The other five generators (2, 3, 4, 7, 18) are
+# the final window's ingredient set and never retire.
 
 ## The generators the live asks REQUIRE at `level` — the union over the active window, ingredient tree
 ## included (a special folds into the base generators that craft it).
@@ -1141,8 +1143,11 @@ static func cumulative_cluster_cost(i: int) -> int:
 	return cum
 
 ## The LEVEL WINDOW of the `p`-th cover-up scene (in coverup_pages() order): x = its first level,
-## y = the level at which it completes. Scene 0 opens at L1; every later scene opens one level past
-## the previous scene's completion.
+## y = level_at_coins of the CLOCK's cumulative cost through the scene's last cluster — the level the
+## coin clock alone would reach at that cost, not necessarily the level at which the player actually
+## finishes paying for the scene (the wallet also fills from non-clock income; see CLUSTER_LEVEL_LEAD's
+## doc above). Scene 0 opens at L1; every later scene opens one level past the previous scene's window.
+## `p` clamps to the last scene, so an out-of-range index (e.g. 5) returns the final scene's window.
 static func scene_level_window(p: int) -> Vector2i:
 	var ends: Array = _cadence_table()["scene_end"]
 	if ends.is_empty():
@@ -1152,8 +1157,14 @@ static func scene_level_window(p: int) -> Vector2i:
 	return Vector2i(first, int(ends[i]))
 
 # The LEVEL at which a cluster unlocks — DERIVED (see above): level_at_coins of the ladder's cumulative
-# cost through it, biased by CLUSTER_LEVEL_LEAD. At lead 1.0 the floor is non-binding by construction:
-# the player reaches the level at about the moment they can afford the cluster.
+# cost through it, biased by CLUSTER_LEVEL_LEAD. At lead 1.0 the cumulative cost is counted in CLOCK
+# coins only (Save.coins_earned_lifetime — quest rewards), but the wallet that actually pays for a
+# cluster also fills from non-clock income (sells, chests, treats, habitat yield), and clock coins are
+# only ~46% of the coin faucet. So in practice the FLOOR is the binding constraint, not the price: a
+# 60-day sim shows the player holding 6.6x a cluster's cost while still short of its level floor
+# (docs/design/merge_spec.md §"moves the cluster ladder's binding constraint from coins to level").
+# A lead below 1.0 scales the cumulative cost down before the level_at_coins lookup, moving the floors
+# earlier so they bind less.
 static func cluster_min_level(z: int, cluster_id: String) -> int:
 	var floors: Array = _cadence_table()["floors"]
 	var i := global_cluster_index(z, cluster_id)
@@ -1605,8 +1616,8 @@ static func zone_unlock_levels() -> Array:
 static func zone_threshold(z: int) -> int:
 	return coins_at_level(zone_unlock_level(z))
 
-# The organic-coins threshold at which the last QUEST ZONE unlocks (the 12-zone roster's end).
-# NOTE: this is NOT the end of the game — the map/cluster arc runs much longer (25 clusters → ~L26).
+# The organic-coins threshold at which the last QUEST ZONE unlocks (the 12-zone roster's end, ~L75).
+# NOTE: this is NOT the end of the game — the map/cluster arc runs slightly longer (25 clusters → ~L87).
 # The live quest fence no longer gates on this (quests are endless, never inert); kept as a content
 # query + for tests. Do not reintroduce it as a fence cutoff — see Quests.meter_target.
 static func arc_finish_threshold() -> int:

@@ -23,9 +23,11 @@ static func current_band(level: int) -> int:
 # §7 fence sizing: the live fence is ALWAYS as full as the unlocked lines allow — MAX_GIVERS cards
 # (refill then caps this to the current line capacity). Quests are ENDLESS: the fence never tapers
 # and never stops. The old CONTENT-ARC taper + the fence_inert "endgame quiet" greying are retired
-# (2026-07-23, owner call): the quest-zone roster (12 zones, all unlocked by ~L13) is far shorter
-# than the real map/cluster arc (25 clusters → ~L26), so gating the fence on the zone arc greyed it
-# out halfway through the game. The fence now stays full + interactive for the whole arc and past it.
+# (2026-07-23, owner call): at the time, the quest-zone roster (12 zones, all unlocked by ~L13) was far
+# shorter than the real map/cluster arc (25 clusters → ~L26), so gating the fence on the zone arc greyed
+# it out halfway through the game. The zone cadence is now derived from the coin curve (2026-07-25) and
+# both arcs run much longer — 12 zones to ~L75, 25 clusters to ~L87 — so the two are close to level now,
+# but the fence still does not gate on either arc: it stays full + interactive for the whole arc and past it.
 static func meter_target() -> int:
 	return int(G.MAX_GIVERS)
 

@@ -71,10 +71,11 @@ const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the op
 # any merge opens an eligible neighbour). 0 = open at start (the center 3×3 + the generator).
 # A hand-tuned diamond: the L1 inner frontier (T37 — where the merge verb is taught; the board MUST
 # grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L22
-# at the four corners (the last cells to open). Under the §exp ONE-REGION-PER-LEVEL curve (front-loaded
-# LEVEL_BASE_EXP/LEVEL_STEP_EXP → the whole 5-zone game ≈ L26, one region per level from L2): with ~6/4/7/4/4
-# spots, the zones span roughly map1 L2–7 · map2 L8–11 · map3 L12–18 · map4 L19–22 · map5 L23–26, so the
-# board's inner rings open across maps 1–3 and the L22 corners finish near the end of MAP 4. The grove_sim
+# at the four corners (the last cells to open). The scene LEVEL WINDOWS have since moved onto the derived
+# coin-clock cadence (content.gd's _build_cadence): Fairy Hollow L1-7 · Snowy Village L8-19 · Desert Oasis
+# L20-37 · Coral Reef L38-61 · Cherry Blossom L62-87. The MIN_LEVEL grid below was hand-tuned against the
+# OLDER windows and was not rescaled with them — the L22 corners now open near the START of Desert Oasis
+# (scene 3) rather than the end of scene 4. The grove_sim
 # confirms the board drains smoothly to zero sealed cells with ZERO jams across the arc. THIS GRID IS THE
 # OWNER'S FEEL DIAL — re-tune it; the engine reads it via G.cell_min_level(). 9 rows × 7 cols, indexed
 # [row][col] = [cell.x][cell.y].
@@ -154,7 +155,9 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # level_at_coins(cumulative cost of the ladder through it), so the floor and the price arrive together and
 # the scene ladder cannot drift off the coin curve. CLUSTER_LEVEL_STEP is retired with the hand-spacing.
 # This dial biases the derivation: < 1.0 makes the padlock LEAD affordability (level first, then save for
-# the coins), > 1.0 makes it LAG (coins held, level not yet reached). 1.0 = floors never bind.
+# the coins), > 1.0 makes it LAG (coins held, level not yet reached). 1.0 counts cumulative cost in CLOCK
+# coins only, while the wallet also fills from non-clock income (sells, chests, treats, habitat yield);
+# measured effect is the FLOOR binds, not the price (see content.gd's cluster_min_level doc).
 const CLUSTER_LEVEL_LEAD := 1.0
 const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
@@ -422,8 +425,8 @@ static func _build_maps() -> Array:
 		# TOP-DOWN unlock order: the top-of-scene cluster unlocks first. The market canvas is tall and
 		# cover-fills the viewport, so its BOTTOM sits behind the bottom nav bar — a bottom-first order
 		# hides the one ready lock off-screen. Top-first keeps the next unlockable clearly in view.
-		# min_level is NOT data — content.cluster_min_level derives it from GLOBAL cluster order
-		# (2 + global_cluster_index), so these six land at L2-7.
+		# min_level is NOT data — content.cluster_min_level derives it from level_at_coins(cumulative
+		# cost through it) at the shipped curve, so these six land at L1-7.
 		"clusters": [
 			{"id": "mushroom_hall", "cost": 10},
 			{"id": "tea_stall", "cost": 25},

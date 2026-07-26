@@ -114,7 +114,7 @@ func _initialize() -> void:
 	var fi := 0
 	for z in G.coverup_pages():
 		for c in G.clusters(int(z)):
-			if G.cluster_min_level(int(z), String((c as Dictionary).id)) != G.level_at_coins(G.cumulative_cluster_cost(fi)):
+			if G.cluster_min_level(int(z), String((c as Dictionary).id)) != G.level_at_coins(int(round(float(G.cumulative_cluster_cost(fi)) * float(G.CLUSTER_LEVEL_LEAD)))):
 				floors_track = false
 			fi += 1
 	ok(floors_track, "every cluster floor still equals level_at_coins(cumulative cost) at the moved curve")

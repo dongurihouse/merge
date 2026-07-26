@@ -470,13 +470,15 @@ func _test_endgame_fence_stays_live() -> void:
 # SAVE MIGRATION: an older save may hold generators/items/quests for lines the player should not have
 # reached yet at their level. board._purge_above_level_content strips them on load. This boots a board at
 # L15, INJECTS too-advanced content (koi, the last base line) alongside in-cadence content (the newest base
-# line the player HAS reached, derived from ZONE_UNLOCK_LEVEL — the cadence is an owner dial and was
-# re-spaced 2026-07-25, so picking the line by name here would re-break the test on every re-space), then
-# reloads through the real _load_state path and asserts the too-advanced content is gone, the valid content
-# stays, the parallel gen-bag arrays stay aligned, and a second pass is a no-op (idempotent).
+# line the player HAS reached, derived from the coin-clock cadence — G.zone_unlock_level, computed from
+# level_at_coins over the cluster ladder — is an owner dial and moves on every re-tune, so picking the line
+# by name here would re-break the test on every re-space), then reloads through the real _load_state path
+# and asserts the too-advanced content is gone, the valid content stays, the parallel gen-bag arrays stay
+# aligned, and a second pass is a no-op (idempotent).
 func _test_purge_above_level_migration() -> void:
 	fresh("purge_migration")
-	Save.grove()["coins_earned"] = G.coins_at_level(15)   # player at L15 (koi L23 is future, desert L13 is past)
+	Save.grove()["coins_earned"] = G.coins_at_level(15)   # player at L15: koi (L62) and desert fruits (L20) are
+	                                                       # both future; woolens (zone 3, L12) is the newest reached
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
 	ok(G.level() == 15, "setup: the player is at L15")
@@ -498,7 +500,7 @@ func _test_purge_above_level_migration() -> void:
 	var c_gen := Vector2i(5, 4)
 	for cell in [c_koi, c_desert, c_glow, c_gen]:
 		scn.board.take(cell)
-	scn.board.place(c_koi, 1801)             # koi t1 — GATED at L15 (zone 10, L23)
+	scn.board.place(c_koi, 1801)             # koi t1 — GATED at L15 (zone 10, unlocks L62)
 	scn.board.place(c_desert, ok_line * 100 + 1)   # the newest in-cadence base line at L15 — must SURVIVE
 	scn.board.place(c_glow, 101)             # glow-mushrooms t1 — valid (anchor)
 	scn.board.place_gen("gen_18", c_gen)     # koi generator — GATED
