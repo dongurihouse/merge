@@ -116,7 +116,9 @@ State in `Save.grove().sky`.
 ## 6 · UI
 
 - **Banner:** full-width cut-paper strip under the HUD (unlock-bar deckle recipe): sky
-  icon · name · one line (*"Rain — merges shake water loose."*). Slides down on
+  icon · name · one line. Lines (`board.sky.*`): Sunbeam *"Sunbeam — merges in the beam
+  drop coins."* · Rain *"Rain — merges shake water loose."* · Starfall *"Starfall — a
+  star is on its way."* Slides down on
   `offset_top`, self-dismisses after `BANNER_SECS` 2.5 (`create_timer` idiom). Mounted as
   a free-floating child of `Grove` — never a `_stack` row (reflows the board). Anchored at
   `Look.safe_top + Hud.bottom_px()`. Plays on board entry (deferred tail;
@@ -129,8 +131,10 @@ State in `Save.grove().sky`.
   unreliable under Control parents (`gen_sparkle.gd` rule). Slow breathe via looping
   tween; no `_process`. Mounts in `board_area` right after the slot block at z 0 (pieces
   are z 0; positive z would cover them). Re-inserted on `_rebuild_all`; rect re-derived
-  from `_cell_pos` + cell size on reflow/orientation change. Colors: palette roles with
-  alpha only (`Color(Pal.X, α)`); the SSOT suite forbids typed hex.
+  from `_cell_pos` + cell size on reflow/orientation change. Colors — Meadow Sky roles at
+  `PATCH_ALPHA` via `Color(Pal.X, α)` (SSOT suite forbids typed hex): Sunbeam = reward
+  gold; Rain = receding blue, plus sparse sky-blue droplet ticks; Starfall = warm cream
+  with gold star glints.
 - **Hour turn:** handler beside `_tick_water` on the 1 Hz tick. On hour change: rebuild
   `WeatherLayer` (`debug_refresh_weather` pattern), move the patch, play the banner,
   re-arm §5.
@@ -138,8 +142,9 @@ State in `Save.grove().sky`.
   `_drop_special_near` landing recipe (`LandFx` + neighbour ripple).
 - **Strings:** `board.sky.*` in `games/grove/strings.json` via `Strings.t` (engine cannot
   reference `res://games/`).
-- **Art:** three icons (sun · raincloud · star) through the art-intake pipeline; code
-  glyphs until intake lands.
+- **Art:** star chip reuses `ui/shared/icon_star.png`; new sun + raincloud glyphs via the
+  art-intake pipeline (the sky raincloud stays distinct from the stall's watering-can
+  `icon_rain`); code glyphs until intake lands.
 - **Debug:** `WEATHER_DEBUG_STATES` — `clear`/`breeze` force Sunbeam in that skin,
   `rain`/`snow` force Rain in that skin, new `star` forces Starfall. Forcing a sky forces
   its gifts. `shot_base.gd`'s forced `"rain"` keeps working.
