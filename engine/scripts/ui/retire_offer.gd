@@ -10,8 +10,8 @@ extends RefCounted
 ## nothing happens until the player presses it. Dismissing is safe — the info-bar sell button also clears a
 ## retirable generator, so a dead tool is never stuck on the board.
 ##
-## On the shipped roster this fires THREE times in the whole game (gen_1 past L11, gen_6 past L22, gen_16
-## past L33), so it reads as a ceremony beat rather than a chore. The coordinator (board.gd) decides WHEN
+## On the shipped roster this fires THREE times in the whole game (gen_1/gen_6/gen_16 at their derived
+## zone_unlock_level(3)/(8)/(11) boundaries), so it reads as a ceremony beat. The coordinator (board.gd) decides WHEN
 ## (a calm moment — board entry, never mid-gesture) and owns the commit; this just renders.
 ##   RetireOffer.open(host, {line:int, gen_id:String, pieces:int, coins:int, on_confirm:Callable})
 
