@@ -332,10 +332,10 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
 const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is retired)
 # Which ART file each in-game tier wears, per base — the 12-tier sheets stay on disk and the OWNER
-# picks the looks (2026-07-18: coin t1/t2/t3 wear art 1/5/12 — coin → pouch → chest; acorn wears
+# picks the looks (2026-07-26: coin t1/t2/t3 wear art 1/4/5 — coin → coin roll → pouch; acorn wears
 # 3/5/6). A base not listed maps tier N → art N. Read via G.art_tier_for (item_tex_path + the
 # piece_view coin branch).
-const ART_TIER_PICK := {"coin": [1, 5, 12], "acorn": [3, 5, 6]}
+const ART_TIER_PICK := {"coin": [1, 4, 5], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
