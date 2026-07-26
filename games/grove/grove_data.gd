@@ -142,7 +142,18 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # G.quest_zone_for_level inverts this (level → highest unlocked zone); G.zone_unlock_level reads it directly.
 # MUST be strictly increasing and ZONE_COUNT long. Re-tune freely; re-run grove_sim to confirm no board jams.
 #                          z0 z1  z2  z3  z4  z5  z6  z7  z8  z9 z10 z11
-const ZONE_UNLOCK_LEVEL := [ 1, 4,  8, 10, 12, 13, 15, 17, 18, 20, 23, 25]
+const ZONE_UNLOCK_LEVEL := [ 1, 5, 10, 12, 15, 17, 19, 22, 23, 27, 30, 34]
+# STRETCHED 2026-07-25 (owner call) from the L1-25 cadence. grove_sim measured the old table delivering
+# EVERY item line by ~day 19 while restoration ran to day 60+ — the content arc emptied out long before
+# the book did, and the level headroom above L25 (the bot reaches ~L45 by day 60) went unused. The arc now
+# runs L1-34, landing the last line at ~day 35. THE SCENE ALIGNMENT IS LOAD-BEARING and is preserved: the
+# cluster ladder was stretched by the SAME factor (CLUSTER_LEVEL_STEP below), so each zone's line still
+# arrives while its own themed scene is the one being unlocked — zones per page stay [2,3,3,2,2] = ZONE_BAND.
+# Re-space BOTH together or content drifts out of its scene.
+# The COIN CURVE is the wrong dial for this: it moves level, which drags board-cell gates, cluster floors
+# and the water gift with it. A 60-day sweep over base/step 50/20..10/4 moved the last line from day 34 to
+# day 6 but left restoration flat at 21-22/25 clusters — the curve is a content dial with side effects,
+# this table is the content dial without them.
 #  scene:                 |FairyH|  Snowy V  |  Desert O  |Coral R| Cherry B
 #  generator (base zones): 1     2   3   4  (5*)  6   7  (8*) 16  (17*) 18 (19*)   * = crafted special, no gen
 
@@ -151,6 +162,10 @@ const ZONE_UNLOCK_LEVEL := [ 1, 4,  8, 10, 12, 13, 15, 17, 18, 20, 23, 25]
 # GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
 # NOTE: self-dup is currently OFF (GEN_SELF_DUP_RATE = 0.0) — see the constant. With no fuel the ladder is
 # dormant: generators stay at the tier they already hold, and no new leftovers can strand.
+# §8 the cover-up CLUSTER ladder's level floor spacing: cluster_min_level = 2 + round(global_index × this).
+# 1.0 = the original one-cluster-per-level ramp (25 clusters over L2-26). Raised with the ZONE_UNLOCK_LEVEL
+# stretch above so the scenes and the item lines keep step; the two MUST move together.
+const CLUSTER_LEVEL_STEP := 1.34
 const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,

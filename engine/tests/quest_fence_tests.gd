@@ -336,8 +336,11 @@ func _initialize() -> void:
 	ok(w_starve == 0, "the fence fills to its line capacity at every level L1-L60 (%d starved refills)" % w_starve)
 	ok(w_unproducible == 0, "every generated ask resolves to a birthable generator — no-strand (%d unproducible)" % w_unproducible)
 	ok(w_offwindow == 0, "every generated ask comes from the active-line window (%d strays)" % w_offwindow)
-	# a full fence needs 2+ lines: with ACTIVE_LINE_WINDOW=3 the window carries MAX_GIVERS from L4 on
-	ok(mini(int(G.MAX_GIVERS), G.active_lines(4).size() * int(G.MAX_QUESTS_PER_LINE)) == int(G.MAX_GIVERS), "by L4 the window is wide enough to fill all MAX_GIVERS stands")
+	# A full fence needs 2+ lines (MAX_QUESTS_PER_LINE per line). Derived from the cadence, not hardcoded:
+	# the window widens to 2 lines exactly when the SECOND zone unlocks, so that is when the fence can fill.
+	var second_zone_level := int(G.ZONE_UNLOCK_LEVEL[1])
+	ok(mini(int(G.MAX_GIVERS), G.active_lines(second_zone_level).size() * int(G.MAX_QUESTS_PER_LINE)) == int(G.MAX_GIVERS), "the fence can fill all MAX_GIVERS stands from the second zone (L%d) on" % second_zone_level)
+	ok(G.active_lines(second_zone_level - 1).size() == 1, "before the second zone the FTUE fence runs on the single anchor line")
 
 	# --- A QUEST RETIRES WITH ITS LINE (2026-07-25 regression guard) ------------------------------------
 	# refill used to keep every non-gate stand regardless of line, so a quest whose line had left the

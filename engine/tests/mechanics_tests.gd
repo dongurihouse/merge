@@ -614,7 +614,7 @@ func _initialize() -> void:
 	ok(G.zone_window_lines(0) == [1] and G.zone_window_lines(1) == [1, 2], "the window fills from the first zones (FTUE: 1 line, then 2)")
 	ok(G.zone_window_lines(2) == [1, 2, 3] and G.zone_window_lines(3) == [2, 3, 4], "at full width the window holds 3 lines and slides one per zone")
 	ok(G.zone_window_lines(4) == [3, 4, 5], "a SPECIAL zone takes a window slot of its own (winter berries 5 at z4)")
-	ok(G.zone_window_lines(11) == [17, 18, 19], "the last zone's window carries tea cups (19) — the capstone is askable at its own zone")
+	ok(G.zone_window_lines(G.ZONE_COUNT - 1) == [17, 18, 19], "the last zone's window carries tea cups (19) — the capstone is askable at its own zone")
 	ok(G.zone_window_lines(G.ZONE_COUNT + 5) == [17, 18, 19], "a zone past the roster clamps to the last window")
 	for _z in G.ZONE_COUNT:
 		ok(G.zone_window_lines(_z).size() == mini(_z + 1, int(G.ACTIVE_LINE_WINDOW)), "zone %d windows exactly ACTIVE_LINE_WINDOW lines (or all reached)" % _z)
@@ -656,18 +656,18 @@ func _initialize() -> void:
 	# THE SHIPPED ARC TABLE, level by level (the owner-facing view of ZONE_UNLOCK_LEVEL × the window). Re-tuning
 	# the cadence SHOULD break this — update it here so the table stays reviewable in one place.
 	var _arc := {
-		1: [1], 2: [1], 3: [1],
-		4: [1, 2], 5: [1, 2], 6: [1, 2], 7: [1, 2],
-		8: [1, 2, 3], 9: [1, 2, 3],
-		10: [2, 3, 4], 11: [2, 3, 4],
-		12: [3, 4, 5],
-		13: [4, 5, 6], 14: [4, 5, 6],
-		15: [5, 6, 7], 16: [5, 6, 7],
-		17: [6, 7, 8],
-		18: [7, 8, 16], 19: [7, 8, 16],
-		20: [8, 16, 17], 21: [8, 16, 17], 22: [8, 16, 17],
-		23: [16, 17, 18], 24: [16, 17, 18],
-		25: [17, 18, 19],
+		1: [1], 2: [1], 3: [1], 4: [1],
+		5: [1, 2], 6: [1, 2], 7: [1, 2], 8: [1, 2], 9: [1, 2],
+		10: [1, 2, 3], 11: [1, 2, 3],
+		12: [2, 3, 4], 13: [2, 3, 4], 14: [2, 3, 4],
+		15: [3, 4, 5], 16: [3, 4, 5],
+		17: [4, 5, 6], 18: [4, 5, 6],
+		19: [5, 6, 7], 20: [5, 6, 7], 21: [5, 6, 7],
+		22: [6, 7, 8],
+		23: [7, 8, 16], 24: [7, 8, 16], 25: [7, 8, 16], 26: [7, 8, 16],
+		27: [8, 16, 17], 28: [8, 16, 17], 29: [8, 16, 17],
+		30: [16, 17, 18], 31: [16, 17, 18], 32: [16, 17, 18], 33: [16, 17, 18],
+		34: [17, 18, 19],
 	}
 	for _lv in _arc:
 		ok(G.active_lines(int(_lv)) == _arc[_lv], "L%d asks from %s" % [_lv, _arc[_lv]])
@@ -693,18 +693,21 @@ func _initialize() -> void:
 	# generator's line becomes askable inside its own scene's cluster window (FH L2-7 · SV L8-12 · DO L13-17
 	# · CR L18-22 · CB L23-26). Anchor at L1; content now spans the whole arc, not just L1-13.
 	ok(G.quest_zone_for_level(1) == 0, "L1 → zone 0 (glow-mushrooms anchor)")
-	ok(G.quest_zone_for_level(7) == 1, "L7 (end of Fairy Hollow) still zone 1 — scene 1 is its 2 base lines")
-	ok(G.quest_zone_for_level(8) == 2, "L8 (Snowy Village opens) → zone 2 (snow & ice)")
-	ok(G.quest_zone_for_level(13) == 5, "L13 (Desert Oasis opens) → zone 5 (desert fruits)")
-	ok(G.quest_zone_for_level(18) == 8, "L18 (Coral Reef opens) → zone 8 (shells)")
-	ok(G.quest_zone_for_level(23) == 10, "L23 (Cherry-Blossom opens) → zone 10 (koi)")
 	ok(G.quest_zone_for_level(99) == G.ZONE_COUNT - 1, "past the arc clamps at the top zone")
+	# DERIVED from the cadence, not hardcoded (the table is an owner feel dial and was re-spaced 2026-07-25
+	# to L1-34): every zone must be reached exactly at its own unlock level and not one level sooner.
+	for _z in G.ZONE_COUNT:
+		var _ul := int(G.ZONE_UNLOCK_LEVEL[_z])
+		ok(G.quest_zone_for_level(_ul) == _z, "L%d reaches zone %d (line %d)" % [_ul, _z, G.zone_line(_z)])
+		ok(_z == 0 or G.quest_zone_for_level(_ul - 1) < _z, "zone %d is NOT reached one level early (L%d)" % [_z, _ul - 1])
 	# line_gated_out (save-migration predicate): a zone line is gated out below its zone's unlock level and
 	# available at/after it; non-zone lines (coins/treats/special drops) are never gated.
-	ok(G.line_gated_out(18, 20) and not G.line_gated_out(18, 23), "koi (zone 10, L23) is gated out at L20, available at L23")
-	ok(G.line_gated_out(6, 12) and not G.line_gated_out(6, 13), "desert fruits (zone 5, L13) is gated out at L12, available at L13")
+	for _z2 in G.ZONE_COUNT:
+		var _ul2 := int(G.ZONE_UNLOCK_LEVEL[_z2])
+		var _ln := G.zone_line(_z2)
+		ok(_ul2 <= 1 or G.line_gated_out(_ln, _ul2 - 1), "line %d (zone %d) is gated out below L%d" % [_ln, _z2, _ul2])
+		ok(not G.line_gated_out(_ln, _ul2), "line %d (zone %d) is available at L%d" % [_ln, _z2, _ul2])
 	ok(not G.line_gated_out(1, 1), "the anchor line (zone 0, L1) is never gated out")
-	ok(G.line_gated_out(5, 11) and not G.line_gated_out(5, 12), "a crafted special (winter berries, zone 4, L12) gates on its zone too")
 	ok(not G.line_gated_out(9, 1) and not G.line_gated_out(71, 1), "non-zone lines (coin line 9, treat line 71) are never gated out")
 	var _band_sum := 0
 	for _b in G.ZONE_BAND:
