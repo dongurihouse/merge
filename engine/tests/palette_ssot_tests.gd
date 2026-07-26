@@ -35,9 +35,9 @@ const ROLE_NAMES := ["CREAM", "STRAW", "INK", "BARK", "SKY", "MEADOW", "LEAF", "
 ## Sites deliberately left as literals. One line of reason each — an entry here is a
 ## decision, not a backlog item. Keyed "res://path.gd:LINE".
 const ALLOWLIST := {
-	"res://games/grove/tests/grove_explore_tests.gd:1177":
+	"res://games/grove/tests/grove_explore_tests.gd@INK":
 		"pins the Rush hint's ink text colour independently — reading it from Pal would make the assertion restate itself and stop catching a palette-role swap",
-	"res://games/grove/tests/grove_ui_workbench_tests.gd:449":
+	"res://games/grove/tests/grove_ui_workbench_tests.gd@STRAW":
 		"pins that a workbench-saved fill_color override round-trips to that exact hex; the value being STRAW is incidental to what the test proves",
 }
 
@@ -92,7 +92,7 @@ func _initialize() -> void:
 		if p == owner:
 			continue
 		for hit in _scan(p, by_hex):
-			var key: String = "%s:%d" % [p, hit.line]
+			var key: String = "%s@%s" % [p, hit.role]
 			if ALLOWLIST.has(key):
 				allowed += 1
 				continue
@@ -110,15 +110,17 @@ func _initialize() -> void:
 		[owner.get_file(), offenders.size(), allowed])
 
 	# Every allowlist entry must still point at a real literal — a stale exemption is a
-	# hole that silently re-opens the moment the line moves.
+	# hole that silently re-opens. Keyed by file@ROLE, NOT file:line — a line-keyed allowlist
+	# goes stale whenever anything ABOVE it shifts (a concurrent merge did exactly that), and a
+	# guard that cries wolf on unrelated edits is a guard someone eventually switches off.
 	var stale := PackedStringArray()
 	for key in ALLOWLIST:
-		var parts: PackedStringArray = String(key).rsplit(":", true, 1)
+		var parts: PackedStringArray = String(key).rsplit("@", true, 1)
 		var path: String = parts[0]
-		var line_no: int = parts[1].to_int()
+		var role: String = parts[1]
 		var live := false
 		for hit in _scan(path, by_hex):
-			if hit.line == line_no:
+			if String(hit.role) == role:
 				live = true
 				break
 		if not live:
