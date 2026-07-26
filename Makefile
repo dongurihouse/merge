@@ -17,13 +17,23 @@ GROVE_TESTS_DISABLED :=
 # dev-tool suites — pure-Image logic for the asset intake pipeline (fast, no scenes)
 TOOLS_TESTS  := games/tools/tests/slice_islands_tests
 TESTS        := $(ENGINE_TESTS) $(TOOLS_TESTS) $(GROVE_TESTS)
-# Build/config guards — no Godot, stdlib only, milliseconds each. They check the SHIPPING
-# config (splash + launch storyboard, the build-info stamper, the Xcode Cloud clone hook)
-# rather than game logic, so they live outside $(RUNNER) and run via `make test-config`.
-# All three read only committed files (build/ios/ci_scripts/ci_post_clone.sh is tracked —
-# un-ignored by .gitignore's negations — and none of them touch gitignored engine/generated/),
-# so they are safe on a clean checkout and in CI.
-PY_TESTS     := tools/test_boot_splash_assets.py
+# Non-Godot guards — plain python/bash, seconds at most, run via `make test-config` (which
+# `make test` depends on). Two kinds live here:
+#   • SHIPPING-config guards (splash + launch storyboard, the build-info stamper, the Xcode
+#     Cloud clone hook) — stdlib only, milliseconds, and they read only committed files
+#     (build/ios/ci_scripts/ci_post_clone.sh is tracked — un-ignored by .gitignore's
+#     negations — and none of them touch gitignored engine/generated/), so they are safe on
+#     a clean checkout and in CI.
+#   • ASSET-PIPELINE guards for the python image tools (composite baker, meadow-UI
+#     extractor). These are NOT stdlib-only — they need Pillow / numpy / scipy, the same
+#     deps the intake pipeline already requires. They build their fixtures in tempdirs and
+#     touch no repo files.
+# Every suite here is run with PYTHONPATH=. so package-style imports
+# (`from games.grove.tools.… import …`) resolve from the repo root; run bare, those fail
+# with ModuleNotFoundError because sys.path[0] is the test's own directory.
+PY_TESTS     := tools/test_boot_splash_assets.py \
+                games/grove/tests/bake_scene_composites_tests.py \
+                games/grove/tools/tests/test_extract_meadow_ui_v2.py
 SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
@@ -81,9 +91,9 @@ test-fast: ## ⚡ inner-loop check — engine + tool suites, parallel. USE THIS 
 test: test-config ## full sweep: config guards + every suite (engine + grove), parallel + per-suite timing table
 	@python3 $(RUNNER) $(TESTS)
 
-test-config: ## build/config guards (splash, build-info stamp, Xcode Cloud hook) — no godot, milliseconds
+test-config: ## non-godot guards (splash, build-info stamp, Xcode Cloud hook, asset-pipeline image tools)
 	@set -e; \
-	for t in $(PY_TESTS); do echo "== $$t"; python3 $$t; done; \
+	for t in $(PY_TESTS); do echo "== $$t"; PYTHONPATH=$(PROJECT) python3 $$t; done; \
 	for t in $(SH_TESTS); do echo "== $$t"; bash $$t; done
 
 test-engine: ## only the base-engine suites (parallel)
@@ -92,8 +102,14 @@ test-engine: ## only the base-engine suites (parallel)
 test-grove: ## only the grove game suites (parallel)
 	@python3 $(RUNNER) $(GROVE_TESTS)
 
+# Goes through $(RUNNER) like every other test target, so a single suite is judged by the
+# SAME rules as the full sweep: it passes only on "== N passed, 0 failed ==" with exit 0 and
+# ZERO `SCRIPT ERROR`, and a suite that aborts mid-`_initialize()` (never reaching quit()) is
+# killed by the hang guard and reported, instead of idling forever. Running godot directly
+# here trusted the raw exit code, which is 0 for a suite that logged failures — so the one
+# command you reach for when debugging was the one that could not fail honestly.
 test-one: ## run one suite by path:  make test-one SUITE=engine/tests/save_tests
-	$(GODOT) --headless --path $(PROJECT) -s res://$(SUITE).gd
+	@python3 $(RUNNER) $(SUITE)
 
 smoke: ## scene smoke test (instantiates the UI + board)
 	$(GODOT) --headless --path $(PROJECT) -s res://engine/tests/smoke.gd
