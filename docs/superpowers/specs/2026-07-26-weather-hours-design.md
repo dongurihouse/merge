@@ -12,7 +12,8 @@ All numbers **PROVISIONAL** — the grove_sim re-pass (§10) owns finals.
 ## 1 · Scope
 
 Ships: the hourly sky (3 skies), one lane patch, Sunbeam/Rain merge gifts, the starfall
-drop, banner + HUD chip + patch rendering, debug lever, tests, sim re-pass. Removes the
+drop, lane marker + info-bar line + patch rendering, debug lever, tests, sim re-pass.
+Removes the
 win-back rain beat (§2).
 
 Home board only. Rush: untouched (separate scene, no coupling). Map: cosmetic skins only —
@@ -39,7 +40,7 @@ magnet/mirror skies, Wild piece, the water stall's daily free rain.
 
 - Gate: `Save.ftue_seen("merge") and Save.ftue_seen("gen_tap")`, and
   `Features.on("weather_hours")` (new flag + `docs/FEATURES.md` line). Below the gate:
-  skins render; no banner, chip, patch, gifts, or star. The cosmetic `ambient_weather`
+  skins render; no marker, patch, gifts, or star. The cosmetic `ambient_weather`
   flag never gates gifts.
 - Clock skew: accepted. `paid_hour` is monotonic (no backward re-pay); forward = waiting.
 - **Win-back removal.** Delete: `Ambient.check_winback` / `winback_active` and their
@@ -103,7 +104,7 @@ State in `Save.grove().sky`.
 4. **Land:** free open cell on the lane (RNG pick); else `pick_drop_cell` from lane
    centre; board full → **owed**: `sky.owed.append(code)`, lands on the first
    `_after_board_change` with a free cell, any hour, persists across restarts, queues.
-   HUD chip shows a star pip while owed.
+   The lane marker shows a star pip while owed.
 5. Landed, the piece is ordinary — merges, sells, delivers to later asks. The skip rule
    only blocks asks live at roll time.
 
@@ -115,17 +116,16 @@ State in `Save.grove().sky`.
 
 ## 6 · UI
 
-- **Banner:** full-width cut-paper strip under the HUD (unlock-bar deckle recipe): sky
-  icon · name · one line. Lines (`board.sky.*`): Sunbeam *"Sunbeam — merges in the beam
-  drop coins."* · Rain *"Rain — merges shake water loose."* · Starfall *"Starfall — a
-  star is on its way."* Slides down on
-  `offset_top`, self-dismisses after `BANNER_SECS` 2.5 (`create_timer` idiom). Mounted as
-  a free-floating child of `Grove` — never a `_stack` row (reflows the board). Anchored at
-  `Look.safe_top + Hud.bottom_px()`. Plays on board entry (deferred tail;
-  `_maybe_offer_retirement` guards: in-tree, no modal, not over FTUE) and on each hour
-  turn. Z: named constant in the 40–100 band.
-- **Chip:** sky icon by the top info bar (`Hud.build` cluster); tap replays the banner
-  line; carries the owed-star pip.
+- **Lane marker (the only chrome — no banner, no HUD chip):** a small sky glyph on a
+  cream chip (~half a cell), outside the board mat, aligned to the lane: column skies
+  (Sunbeam, Starfall) sit centered above the lane column at the mat's top edge; Rain sits
+  left of the lane row at the mat's left edge. Mounted beside `board_area`, positioned
+  from `_cell_pos` (transposes with the board); `FX.pop_in` on entry and on hour turn;
+  carries the owed-star pip (§5). Rebuilt with the patch on `_rebuild_all` / reflow.
+- **Info bar:** tapping the marker sets the bottom info bar to glyph + line
+  (`board.sky.*`): Sunbeam *"Sunbeam — merges in the beam drop coins."* · Rain *"Rain —
+  merges shake water loose."* · Starfall *"Starfall — a star is on its way."* The next
+  selection replaces it (existing info-bar behavior). No auto-announcement anywhere.
 - **Patch:** soft-edged low-alpha wash under pieces; warm shaft (Sunbeam), cool drift +
   drawn droplets (Rain), faint glimmer (Starfall). A self-drawing Control — particles are
   unreliable under Control parents (`gen_sparkle.gd` rule). Slow breathe via looping
@@ -136,13 +136,12 @@ State in `Save.grove().sky`.
   gold; Rain = receding blue, plus sparse sky-blue droplet ticks; Starfall = warm cream
   with gold star glints.
 - **Hour turn:** handler beside `_tick_water` on the 1 Hz tick. On hour change: rebuild
-  `WeatherLayer` (`debug_refresh_weather` pattern), move the patch, play the banner,
-  re-arm §5.
+  `WeatherLayer` (`debug_refresh_weather` pattern), move the patch + marker, re-arm §5.
 - **Star FX:** `MoveFx.apply(…, "arc")` + trail from above the lane's top edge; then the
   `_drop_special_near` landing recipe (`LandFx` + neighbour ripple).
 - **Strings:** `board.sky.*` in `games/grove/strings.json` via `Strings.t` (engine cannot
   reference `res://games/`).
-- **Art:** star chip reuses `ui/shared/icon_star.png`; new sun + raincloud glyphs via the
+- **Art:** the star marker reuses `ui/shared/icon_star.png`; new sun + raincloud glyphs via the
   art-intake pipeline (the sky raincloud stays distinct from the stall's watering-can
   `icon_rain`); code glyphs until intake lands.
 - **Debug:** `WEATHER_DEBUG_STATES` — `clear`/`breeze` force Sunbeam in that skin,
@@ -187,10 +186,10 @@ State in `Save.grove().sky`.
 - `engine/scripts/ui/ambient.gd` — `weather_now()` delegates to `Sky.state` (map + shot
   callers unchanged); `build_weather` gains `starlit` (≤2 emitters / ≤80 particles);
   debug cycle per §6; `check_winback` / `winback_active` deleted (§2).
-- ● `engine/scripts/ui/sky_banner.gd` · ● `engine/scripts/ui/sky_patch.gd` — §6.
-- `engine/scripts/ui/hud.gd` — chip + owed pip.
-- `engine/scripts/scenes/board.gd` — entry banner in the deferred tail; hour check beside
-  `_tick_water`; patch insert in `_rebuild_all` + reflow; gifts in `_after_merge` via ➋;
+- ● `engine/scripts/ui/sky_patch.gd` — §6: the lane wash + the lane marker (tap → info
+  bar).
+- `engine/scripts/scenes/board.gd` — hour check beside
+  `_tick_water`; patch + marker insert in `_rebuild_all` + reflow; gifts in `_after_merge` via ➋;
   §5 trigger + owed landing in `_after_board_change`; star drop via `_drop_special_near`
   generalized to any code, with `"arc"`. Win-back grant, `_winback` toast, `last_seen`
   write deleted (§2).
@@ -212,8 +211,9 @@ State in `Save.grove().sky`.
 - **Byte-identity pin:** with the sky live, the board RNG stream is unchanged
   (`mechanics_tests` no-extra-draws precedent).
 - **Scene suite** — ● `games/grove/tests/grove_sky_tests.gd` (+ `GROVE_TESTS` in the
-  Makefile, + CLAUDE.md suite line, + `make import` for the `.uid`): banner mounts on
-  entry and self-dismisses; chip replays; patch sits after the slot block and survives
+  Makefile, + CLAUDE.md suite line, + `make import` for the `.uid`): the marker sits
+  outside the mat aligned to the lane on both axes, and its tap sets the info bar line;
+  patch sits after the slot block and survives
   `_rebuild_all` + orientation flip (`is_equal_approx` — Control geometry is float32);
   forced `star` hour lands a real model piece (model asserts, not visibility); ≥48 h-away
   load fills water by plain regen, no forced sky, no toast, stale `winback_until` ignored;
@@ -238,7 +238,6 @@ State in `Save.grove().sky`.
 | `SKY_WATER_RATE` | 0.35 | in-patch water roll (t1 = +8, over-cap) |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
 | `STAR_DELAY` | 10 s | live seconds before the star falls |
-| `BANNER_SECS` | 2.5 | banner self-dismiss |
 | `PATCH_ALPHA` | Rain · Star 0.10–0.15; Sunbeam ~0.30 | gold-on-cream needs ~0.30 + same-hue edge deepening to read (mock-validated) |
 | `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
