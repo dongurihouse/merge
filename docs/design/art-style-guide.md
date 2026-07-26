@@ -882,8 +882,13 @@ decorations randomly placed over it.
 2. Make the broad fan leaves large enough to cover the internal gaps of the thinner/open leaf shapes. Place
    the fans first as a loose screen-spanning canopy, extending beyond the page edges. Then add only a few
    thin leaves as accents; do not make tightly packed bouquet clusters.
-3. Assign the leaves to **one `coverup` cluster per meaningful primary region** (`lock_adobe`,
-   `lock_watchtower`, `lock_market_stall`, `lock_travel_tent`, `lock_caravan`). A cluster may span beyond
+3. Assign the leaves to **one `coverup` cluster per meaningful primary region**
+   (`unlock_region_adobe_compound`, `unlock_region_watchtower`, `unlock_region_market_stall`,
+   `unlock_region_travel_tent`, `unlock_region_camel_caravan`). The region name is **load-bearing**:
+   `build_page_manifests.py` strips a `unlock_region_` / `unlock_` / `lock_` prefix off it to derive the
+   page manifest's cluster id, and that id must equal the primary hero cluster (§ above) and the
+   `MAPS` cluster id in `games/grove/grove_data.gd`. A mismatch ships a page with zero tap targets and
+   walls progression — it is exactly how Desert Oasis shipped broken. A cluster may span beyond
    its object’s exact silhouette because it participates in the full-screen canopy; it must still reveal a
    purposeful region when removed.
 4. Test the fully locked scene first—no landmark should show through leaf gaps—then hide each cluster one at
