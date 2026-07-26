@@ -132,33 +132,33 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # (the old ZONE_MAP_SPOTS const is gone — zone→map is derived live from MAPS via G.zone_map/map_for_spots,
 # so it can't drift from the vine-region layout the way a hardcoded [7,4,7,4,1] did.)
 
-# §7 ZONE UNLOCK CADENCE — DERIVED, not authored (2026-07-25). content.zone_unlock_level(z) computes it:
-# each scene's LEVEL WINDOW falls out of the cluster COST ladder (level_at_coins of the cumulative cost),
-# and ZONE_BAND spreads that scene's zones evenly inside its own window. So a generator still arrives as
-# its themed scene comes into view, and the alignment is COMPUTED rather than hand-maintained — but that
-# is not a structural guarantee for every possible re-tune. It holds at today's dials because the test
-# suite's scene-alignment assertions hold it when LEVEL_BASE_COINS/LEVEL_STEP_COINS, the per-cluster
-# costs, or ZONE_BAND move — mechanics_tests.gd's "scene alignment" case, and tuning_tests.gd's
-# "every zone still lands inside its own scene's window after the curve moves", which drives the coin
-# curve to a different value and re-checks the same invariant.
-# The dials that move this are the COIN CURVE (LEVEL_BASE_COINS / LEVEL_STEP_COINS), the per-cluster
-# `cost` fields in MAPS, and ZONE_BAND. The old hand-authored table (last value [1,5,10,12,15,17,19,22,
-# 23,27,30,34], stretched by hand on 2026-07-25) topped out at L34 = 7,326 earned coins while the ladder
-# costs 46,740 — every item line shipped by the middle of scene 3, with 2.5 scenes left to restore.
+# §7 ZONE UNLOCK CADENCE — DERIVED, not authored (2026-07-26 re-spine). content.zone_unlock_level(z)
+# computes it: each scene's LEVEL WINDOW comes from the authored SCENE_END_LEVEL (below), and ZONE_BAND
+# spreads that scene's zones evenly inside its own window. So a generator still arrives as its themed
+# scene comes into view, and the alignment is COMPUTED rather than hand-maintained — but that is not a
+# structural guarantee for every possible re-tune. It holds at today's dials because the test suite's
+# scene-alignment assertions hold it when SCENE_END_LEVEL or ZONE_BAND move — mechanics_tests.gd's
+# "scene alignment" case, and tuning_tests.gd's "every zone still lands inside its own scene's window
+# after SCENE_END_LEVEL moves", which re-checks the same invariant.
+# The dials that move this are SCENE_END_LEVEL (below) and ZONE_BAND. The coin curve (LEVEL_BASE_COINS /
+# LEVEL_STEP_COINS) no longer has any say in where the gates fall — it only sets how long a level takes.
 
 # §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
 # higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
 # GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
 # NOTE: self-dup is currently OFF (GEN_SELF_DUP_RATE = 0.0) — see the constant. With no fuel the ladder is
 # dormant: generators stay at the tier they already hold, and no new leftovers can strand.
-# §8 the cover-up CLUSTER ladder's level floors are DERIVED, not spaced by a dial: a cluster's floor is
-# level_at_coins(cumulative cost of the ladder through it), so the floor and the price arrive together and
-# the scene ladder cannot drift off the coin curve. CLUSTER_LEVEL_STEP is retired with the hand-spacing.
-# This dial biases the derivation: < 1.0 makes the padlock LEAD affordability (level first, then save for
-# the coins), > 1.0 makes it LAG (coins held, level not yet reached). 1.0 counts cumulative cost in CLOCK
-# coins only, while the wallet also fills from non-clock income (sells, chests, treats, habitat yield);
-# measured effect is the FLOOR binds, not the price (see content.gd's cluster_min_level doc).
-const CLUSTER_LEVEL_LEAD := 1.0
+# §8 THE PACING DIAL (2026-07-26) — the owner authors the level each cover-up SCENE fully restores at;
+# clusters and zones both spread INSIDE the band this defines (content._build_cadence). Replaces the
+# old cost-derived floors (CLUSTER_LEVEL_LEAD is retired): the level clock counts QUEST coins only, but
+# the cover-up ladder is paid from the whole wallet (~2.2x the clock), so a floor derived from cost bound
+# roughly twice as late as the price and doubled the arc to ~316 days. Chosen in DAYS, not levels — solve
+# for a day-per-scene target with:
+#   godot --headless --path . -s res://games/grove/tools/pacing_calc.gd -- 3 2 20 3,4,5,6,7 "" 60
+# Entry i is the level at which cover-up scene i is FULLY RESTORED — its LAST cluster unlocks exactly
+# there (content._build_cadence spreads the scene's other clusters and zones inside the band this and
+# the previous entry define). MUST be strictly increasing, one entry per cover-up scene.
+const SCENE_END_LEVEL := [19, 29, 39, 48, 58]
 const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,
@@ -425,15 +425,17 @@ static func _build_maps() -> Array:
 		# TOP-DOWN unlock order: the top-of-scene cluster unlocks first. The market canvas is tall and
 		# cover-fills the viewport, so its BOTTOM sits behind the bottom nav bar — a bottom-first order
 		# hides the one ready lock off-screen. Top-first keeps the next unlockable clearly in view.
-		# min_level is NOT data — content.cluster_min_level derives it from level_at_coins(cumulative
-		# cost through it) at the shipped curve, so these six land at L1-7.
+		# min_level is NOT data — content.cluster_min_level derives it from the authored SCENE_END_LEVEL
+		# band (content._build_cadence), not from this cost ladder.
+		# Costs scaled x0.092 from the old ladder (46,740 -> 4,290 coins total) to fit the 25-day
+		# calendar (SCENE_END_LEVEL, games/grove/tools/pacing_calc.gd's PRICE CHECK) — 2026-07-26.
 		"clusters": [
-			{"id": "mushroom_hall", "cost": 10},
-			{"id": "tea_stall", "cost": 25},
-			{"id": "crystal_map_stall", "cost": 45},
-			{"id": "stream_bridge", "cost": 70},
-			{"id": "flower_crate", "cost": 110},
-			{"id": "lantern_gate", "cost": 160},
+			{"id": "mushroom_hall", "cost": 1},
+			{"id": "tea_stall", "cost": 2},
+			{"id": "crystal_map_stall", "cost": 4},
+			{"id": "stream_bridge", "cost": 6},
+			{"id": "flower_crate", "cost": 10},
+			{"id": "lantern_gate", "cost": 15},
 		],
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
@@ -449,11 +451,11 @@ static func _build_maps() -> Array:
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (winter bundle, unlock_ prefix).
 		"clusters": [
-			{"id": "lodge", "cost": 220},
-			{"id": "christmas_tree", "cost": 300},
-			{"id": "gazebo", "cost": 400},
-			{"id": "dock", "cost": 520},
-			{"id": "entrance_arch", "cost": 660},
+			{"id": "lodge", "cost": 20},
+			{"id": "christmas_tree", "cost": 28},
+			{"id": "gazebo", "cost": 37},
+			{"id": "dock", "cost": 48},
+			{"id": "entrance_arch", "cost": 61},
 		],
 		"spots": []},
 	{"id": "desert_oasis", "name": "Desert Oasis", "open": true,
@@ -461,11 +463,11 @@ static func _build_maps() -> Array:
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (oasis bundle, lock_ prefix).
 		"clusters": [
-			{"id": "adobe", "cost": 820},
-			{"id": "watchtower", "cost": 1000},
-			{"id": "market_stall", "cost": 1200},
-			{"id": "travel_tent", "cost": 1450},
-			{"id": "caravan", "cost": 1750},
+			{"id": "adobe", "cost": 75},
+			{"id": "watchtower", "cost": 92},
+			{"id": "market_stall", "cost": 110},
+			{"id": "travel_tent", "cost": 133},
+			{"id": "caravan", "cost": 161},
 		],
 		"spots": []},
 	{"id": "coral_reef", "name": "Coral Reef", "open": true,
@@ -473,11 +475,11 @@ static func _build_maps() -> Array:
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (coral bundle, unlock_region_ prefix).
 		"clusters": [
-			{"id": "shipwreck", "cost": 2100},
-			{"id": "anchor", "cost": 2500},
-			{"id": "chest", "cost": 2950},
-			{"id": "statue", "cost": 3450},
-			{"id": "clam", "cost": 4000},
+			{"id": "shipwreck", "cost": 193},
+			{"id": "anchor", "cost": 229},
+			{"id": "chest", "cost": 271},
+			{"id": "statue", "cost": 317},
+			{"id": "clam", "cost": 367},
 		],
 		"spots": []},
 	{"id": "sakura", "name": "Cherry-Blossom Garden", "open": true,
@@ -485,10 +487,10 @@ static func _build_maps() -> Array:
 		"covering_frames": [], "coverup_mode": true,
 		# TOP-DOWN unlock order (sakura bundle, unlock_region_ prefix).
 		"clusters": [
-			{"id": "pavilion", "cost": 4600},
-			{"id": "pond_bridge", "cost": 5300},
-			{"id": "temizuya", "cost": 6100},
-			{"id": "torii", "cost": 7000},
+			{"id": "pavilion", "cost": 422},
+			{"id": "pond_bridge", "cost": 486},
+			{"id": "temizuya", "cost": 560},
+			{"id": "torii", "cost": 642},
 		],
 		"spots": []},
 	]
@@ -522,9 +524,12 @@ const LEVEL_BASE_EXP := 40        # FALLBACK first level-up cost — the live va
 const LEVEL_STEP_EXP := 3         # FALLBACK per-level ramp — the live step is higher to absorb the §7 exp ramp
 # The COIN clock (home redesign): level derives from LIFETIME ORGANIC coin earnings
 # (Save.coins_earned_lifetime) through the same gentle arithmetic curve shape.
-# PROVISIONAL — owned by the economy-sim re-pass (spec 2026-07-17 §4).
-const LEVEL_BASE_COINS := 30      # first level-up: ~a few early quests' coins
-const LEVEL_STEP_COINS := 12      # per-level ramp
+# Solved by games/grove/tools/pacing_calc.gd's solve mode for the 3/4/5/6/7-day-per-scene
+# calendar (25 days total) at 3 sessions/day (2026-07-26). These two dials set the CALENDAR
+# ONLY — how long a level takes to earn — not WHERE the gates fall: SCENE_END_LEVEL below is
+# the authored gate table, in level-space, independent of this curve.
+const LEVEL_BASE_COINS := 1       # first level-up cost, solved for the 25-day calendar
+const LEVEL_STEP_COINS := 2       # per-level ramp, solved for the 25-day calendar
 
 # (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-

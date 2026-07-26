@@ -662,21 +662,21 @@ func _initialize() -> void:
 			_fg[_g2] = true
 	ok(_fg.size() <= int(G.QUEST_GEN_CAP), "the final window's generator footprint (%d) stays inside QUEST_GEN_CAP" % _fg.size())
 	# THE SHIPPED ARC TABLE (the owner-facing view of the cadence × the window). One row per zone: the
-	# LEVEL RANGE that zone owns, and the 3 lines the fence asks from across it. Re-tuning the coin curve
-	# or the cluster costs SHOULD break this — update it here so the arc stays reviewable in one place.
+	# LEVEL RANGE that zone owns, and the 3 lines the fence asks from across it. Re-tuning SCENE_END_LEVEL
+	# or ZONE_BAND SHOULD break this — update it here so the arc stays reviewable in one place.
 	var _arc := [
-		[ 1,  4, [1]],            # z0  Fairy Hollow — the anchor line alone
-		[ 5,  7, [1, 2]],         # z1
-		[ 8, 11, [1, 2, 3]],      # z2  Snowy Village opens
-		[12, 15, [2, 3, 4]],      # z3
-		[16, 19, [3, 4, 5]],      # z4  winter berries (special)
-		[20, 25, [4, 5, 6]],      # z5  Desert Oasis opens
-		[26, 31, [5, 6, 7]],      # z6
-		[32, 37, [6, 7, 8]],      # z7  spices (special)
-		[38, 49, [7, 8, 16]],     # z8  Coral Reef opens
-		[50, 61, [8, 16, 17]],    # z9  corals (special)
-		[62, 74, [16, 17, 18]],   # z10 Cherry Blossom opens
-		[75, 90, [17, 18, 19]],   # z11 tea cups (special) — the final window, held forever
+		[ 1, 10, [1]],            # z0  Fairy Hollow — the anchor line alone
+		[11, 19, [1, 2]],         # z1
+		[20, 22, [1, 2, 3]],      # z2  Snowy Village opens
+		[23, 26, [2, 3, 4]],      # z3
+		[27, 29, [3, 4, 5]],      # z4  winter berries (special)
+		[30, 32, [4, 5, 6]],      # z5  Desert Oasis opens
+		[33, 36, [5, 6, 7]],      # z6
+		[37, 39, [6, 7, 8]],      # z7  spices (special)
+		[40, 44, [7, 8, 16]],     # z8  Coral Reef opens
+		[45, 48, [8, 16, 17]],    # z9  corals (special)
+		[49, 53, [16, 17, 18]],   # z10 Cherry Blossom opens
+		[54, 90, [17, 18, 19]],   # z11 tea cups (special) — the final window, held forever
 	]
 	var _arc_ok := true
 	var _arc_bad := ""
@@ -693,12 +693,12 @@ func _initialize() -> void:
 	# zone -> band is derived from the FROZEN ZONE_BAND counts ([6,4,7,4,4]) — the retired 5-map layout kept
 	# purely for the per-band coin/sell curves (coin-clock redesign: the content arc gates on level, not spots).
 	ok(G.zone_map(0) == 0 and G.zone_map(1) == 0 and G.zone_map(2) == 1 and G.zone_map(4) == 1 and G.zone_map(5) == 2 and G.zone_map(7) == 2 and G.zone_map(8) == 3 and G.zone_map(9) == 3 and G.zone_map(10) == 4 and G.zone_map(11) == 4, "zone -> band tracks the ZONE_BAND page distribution")
-	# THE ZONE CADENCE IS DERIVED (2026-07-25): each scene's LEVEL WINDOW comes from the cluster cost
-	# ladder, and ZONE_BAND spreads that scene's zones evenly inside its own window. Scene alignment is
-	# arithmetic now, not a hand-maintained invariant — these assertions are what hold it.
+	# THE ZONE CADENCE IS DERIVED (re-spined 2026-07-26): each scene's LEVEL WINDOW is the owner-authored
+	# SCENE_END_LEVEL band, and ZONE_BAND spreads that scene's zones evenly inside its own window. Scene
+	# alignment is arithmetic now, not a hand-maintained invariant — these assertions are what hold it.
 	var _cad := G.zone_unlock_levels()
 	ok(_cad.size() == G.ZONE_COUNT, "the cadence has one level per zone")
-	ok(_cad == [1, 5, 8, 12, 16, 20, 26, 32, 38, 50, 62, 75], "the derived cadence at the shipped curve (got %s)" % str(_cad))
+	ok(_cad == [1, 11, 20, 23, 27, 30, 33, 37, 40, 45, 49, 54], "the derived cadence at the shipped SCENE_END_LEVEL band (got %s)" % str(_cad))
 	ok(G.zone_unlock_level(0) == int(_cad[0]) and G.zone_unlock_level(G.ZONE_COUNT - 1) == int(_cad[G.ZONE_COUNT - 1]), "zone_unlock_level reads the derived cadence")
 	var _cad_ok := true
 	for _z in range(1, G.ZONE_COUNT):
@@ -722,8 +722,8 @@ func _initialize() -> void:
 	ok(G.zone_threshold(0) == G.coins_at_level(int(_cad[0])), "zone 0's threshold is its unlock-level coin threshold")
 	ok(G.arc_finish_threshold() == G.zone_threshold(G.ZONE_COUNT - 1), "the arc finishes at the last zone's threshold")
 	# scene-aligned cadence: quest_zone_for_level inverts the array (highest zone reached), so each base
-	# generator's line becomes askable inside its own scene's cluster window (FH L1-7 · SV L8-19 · DO L20-37
-	# · CR L38-61 · CB L62-87). Anchor at L1; content now spans the whole arc, out to L75.
+	# generator's line becomes askable inside its own scene's cluster window (FH L1-19 · SV L20-29 · DO L30-39
+	# · CR L40-48 · CB L49-58). Anchor at L1; content now spans the whole arc, out to L58.
 	ok(G.quest_zone_for_level(1) == 0, "L1 → zone 0 (glow-mushrooms anchor)")
 	ok(G.quest_zone_for_level(99) == G.ZONE_COUNT - 1, "past the arc clamps at the top zone")
 	# DERIVED from the cadence, not hardcoded (there is no hand-authored table any more — see

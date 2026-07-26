@@ -65,7 +65,14 @@ func _initialize() -> void:
 	ok(l2_cost > 0, "the first level-up costs organic coins")
 	ok(is_equal_approx(Quests.purge_progress(0), 0.0), "purge progress starts empty on a fresh save")
 	ok(is_equal_approx(Quests.purge_progress(l2_cost), 0.0), "purge progress resets at the moment of a level-up")
-	ok(Quests.purge_progress(l2_cost - 1) > 0.9, "purge progress is nearly full one coin short of the level")
+	# "one coin short" needs a level-up GAP bigger than a couple of coins to be distinguishable from
+	# "just reset" — the re-spined curve's very first gap (L1→L2) is LEVEL_BASE_COINS itself (solved to a
+	# small value for the 25-day calendar), too thin for that fencepost. The gap grows every level
+	# (LEVEL_STEP_COINS), so probe a level deep enough into the curve that the gap is comfortably >10 coins.
+	var deep_lvl := 20
+	var deep_cost := G.coins_at_level(deep_lvl + 1)
+	ok(deep_cost - G.coins_at_level(deep_lvl) > 10, "fixture: the L%d→L%d gap is wide enough to test the fencepost" % [deep_lvl, deep_lvl + 1])
+	ok(Quests.purge_progress(deep_cost - 1) > 0.9, "purge progress is nearly full one coin short of the level")
 
 	# --- purge_state: ALWAYS shows (endless fence — levels are unbounded), READY at the brim, carries earned ---
 	var ps_poor := Quests.purge_state(0)
@@ -96,12 +103,15 @@ func _initialize() -> void:
 	ok(no_special, "the normal stream carries no gate or grant quest")
 
 	# With enough live lines, the fence can still fill to the global cap, while no single line
-	# occupies more than four cards.
+	# occupies more than four cards. DERIVED, not hardcoded: the window holds 2 lines exactly once the
+	# second zone unlocks (see G.zone_unlock_level(1) / second_zone_level below), which is enough for
+	# 2 x MAX_QUESTS_PER_LINE = MAX_GIVERS.
+	var multi_line_level := G.zone_unlock_level(1)
 	var full_unl := {}
 	for i in 6:
 		full_unl[str(i)] = true
 	var rf_full := RandomNumberGenerator.new(); rf_full.seed = 4242
-	var full_fence := Quests.refill([], 0, {}, [], 0, 6, rf_full)
+	var full_fence := Quests.refill([], 0, {}, [], 0, multi_line_level, rf_full)
 	ok(full_fence.size() == int(G.MAX_GIVERS), "a multi-line pool can fill the 8-card fence")
 	ok(_max_line_count(full_fence) <= 4, "the live fence allows at most 4 quests from any single line")
 	ok(_unique_item_count(full_fence) == full_fence.size(), "the full fence keeps distinct concurrent item-code asks")
@@ -109,7 +119,7 @@ func _initialize() -> void:
 	# Quest ask variety follows level progress, not restored-zone count: a player who keeps doing quests
 	# without claiming new restore spots should still see newer lines enter the fence.
 	var rl_level := RandomNumberGenerator.new(); rl_level.seed = 4242
-	var level_fence := Quests.refill([], 0, {}, [], 0, 6, rl_level)
+	var level_fence := Quests.refill([], 0, {}, [], 0, multi_line_level, rl_level)
 	var level_counts := _line_counts(level_fence)
 	ok(level_fence.size() == int(G.MAX_GIVERS), "a high-level player with no new zones restored still fills the 8-card fence")
 	ok(level_counts.size() >= 2, "level-based quest progress includes newer lines even when unlocks are empty")
@@ -233,11 +243,11 @@ func _initialize() -> void:
 	# --- ENDLESS FENCE (2026-07-23, owner call): the fence NEVER goes inert/grey and NEVER tapers. The old
 	# --- fence_inert "endgame quiet" is retired — at the time it gated on the 12-zone quest roster (all zones
 	# --- by ~L13), far short of the real map/cluster arc (25 clusters → ~L26), greying the fence out mid-game.
-	# --- The zone cadence is now derived from the coin curve (2026-07-25) and both arcs run much longer (12
-	# --- zones to ~L75, 25 clusters to ~L87), but the fence still does not gate on either: past the old
+	# --- The zone cadence is now derived from the owner-authored SCENE_END_LEVEL band (re-spined 2026-07-26;
+	# --- 12 zones to L54, 25 clusters to L58), but the fence still does not gate on either: past the old
 	# --- arc-finish threshold (and far beyond) refill still fills a FULL fence of ordinary, live quests. ---
 	var deep_earned := G.arc_finish_threshold() * 5
-	var rdeep := Quests.refill([], 0, {}, [], deep_earned, 6, RandomNumberGenerator.new())
+	var rdeep := Quests.refill([], 0, {}, [], deep_earned, multi_line_level, RandomNumberGenerator.new())
 	ok(rdeep.size() == int(G.MAX_GIVERS), "the fence stays full (MAX_GIVERS) far past the old arc threshold")
 	ok(_max_line_count(rdeep) <= 4, "the endless fence still obeys the 4-per-line cap")
 	ok(rdeep.filter(func(q): return q.has("grant") or bool(q.get("gate", false))).is_empty(), "the endless fence is ordinary quests — no gate/grant type")

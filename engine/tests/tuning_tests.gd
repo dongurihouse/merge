@@ -73,51 +73,75 @@ func _initialize() -> void:
 	ok(not bad.has("min_level") and bad.has("level_step_exp"),
 		"a wrong-shape min_level grid is ignored while the rest applies")
 
-	# --- THE DERIVED GATES FOLLOW THE CURVE (2026-07-25) ---------------------------------------------
-	# The cluster floors and the zone cadence are derived from the cluster COST ladder through the coin
-	# curve. This is the guard that stops them being hand-authored back out of step: move the curve, and
-	# BOTH tables must move with it, with scene alignment intact. The cadence cache is keyed on these
-	# dials, so no explicit rebuild call exists to forget.
-	var shipped_cad: Array = [1, 5, 8, 12, 16, 20, 26, 32, 38, 50, 62, 75]
+	# --- THE DERIVED GATES FOLLOW SCENE_END_LEVEL, NOT THE COIN CURVE (re-spined 2026-07-26) ---------
+	# The cluster floors and the zone cadence are now derived from the owner-authored SCENE_END_LEVEL
+	# band (content._build_cadence) and ZONE_BAND — the coin curve (LEVEL_BASE_COINS/LEVEL_STEP_COINS)
+	# only sets the CALENDAR (how long a level takes to earn) and must NOT move either derived table any
+	# more. That is the exact opposite of the pre-re-spine guarantee this block used to check — verify
+	# the reversal first, since silently regressing back to a coin-driven cadence is the failure mode a
+	# re-tune of the curve could reintroduce unnoticed.
+	var shipped_cad: Array = [1, 11, 20, 23, 27, 30, 33, 37, 40, 45, 49, 54]
 	G.LEVEL_BASE_COINS = cb0
 	G.LEVEL_STEP_COINS = cs0
-	ok(G.zone_unlock_levels() == shipped_cad, "at the shipped curve the cadence is %s" % str(shipped_cad))
-	var shipped_top := G.cluster_min_level(0, "lantern_gate")
+	ok(G.zone_unlock_levels() == shipped_cad, "at the shipped SCENE_END_LEVEL band the cadence is %s" % str(shipped_cad))
+	var shipped_floors: Array = []
+	for z in G.coverup_pages():
+		for c in G.clusters(int(z)):
+			shipped_floors.append(G.cluster_min_level(int(z), String((c as Dictionary).id)))
+	ok(shipped_floors == [1, 5, 8, 12, 15, 19, 20, 22, 25, 27, 29, 30, 32, 35, 37, 39, 40, 42, 44, 46, 48, 49, 52, 55, 58],
+		"at the shipped SCENE_END_LEVEL band the floor ladder is %s" % str(shipped_floors))
 
-	# HALVE the curve: every threshold is cheaper, so every gate must arrive EARLIER.
+	# move the coin curve — neither table may react any more (the whole point of the re-spine)
 	G.LEVEL_BASE_COINS = 15
 	G.LEVEL_STEP_COINS = 6
-	var cheap_cad: Array = G.zone_unlock_levels()
-	var cheap_top := G.cluster_min_level(0, "lantern_gate")
-	ok(cheap_cad != shipped_cad, "halving the curve moves the zone cadence (no stale cache)")
-	ok(cheap_cad.size() == G.ZONE_COUNT, "the moved cadence still has one level per zone")
-	var cheap_rising := true
-	for i in range(1, cheap_cad.size()):
-		if int(cheap_cad[i]) <= int(cheap_cad[i - 1]):
-			cheap_rising = false
-	ok(cheap_rising, "the moved cadence is still strictly increasing")
-	ok(cheap_top > shipped_top, "a cheaper curve puts Fairy Hollow's last cluster at a HIGHER level (%d > %d)" % [cheap_top, shipped_top])
+	ok(G.zone_unlock_levels() == shipped_cad, "moving the coin curve no longer moves the zone cadence")
+	var floors_after_curve_move: Array = []
+	for z2 in G.coverup_pages():
+		for c2 in G.clusters(int(z2)):
+			floors_after_curve_move.append(G.cluster_min_level(int(z2), String((c2 as Dictionary).id)))
+	ok(floors_after_curve_move == shipped_floors, "moving the coin curve no longer moves the cluster floors")
+	G.LEVEL_BASE_COINS = cb0
+	G.LEVEL_STEP_COINS = cs0
 
-	# scene alignment survives the move — this is the property that used to be hand-maintained
+	# SCENE_END_LEVEL and ZONE_BAND are plain `const`s — GDScript freezes const arrays (verified: even a
+	# single-element assignment on one raises "Array is in read-only state"), so unlike the coin curve
+	# they cannot be reassigned or mutated at runtime to simulate an owner re-tune. The one genuinely live
+	# input left into the SAME cache is MAPS's per-scene CLUSTER COUNT (content.gd: `static var MAPS`;
+	# _cadence_table's key is built from SCENE_END_LEVEL, the per-scene cluster counts, and ZONE_BAND —
+	# see _build_cadence). Shrinking Fairy Hollow by one cluster exercises exactly that lever and checks
+	# the promise the new model actually makes: the cache is not stale, the scene's LAST cluster still
+	# lands exactly on SCENE_END_LEVEL[0] regardless of how many clusters it now has, and scene alignment
+	# (the zones half, untouched by this mutation, since it never reads MAPS cluster counts) still holds.
+	var maps_snapshot: Array = G.MAPS.duplicate(true)
+	var fh_clusters: Array = (G.MAPS[0] as Dictionary).clusters
+	fh_clusters.pop_back()
+	var moved_floors: Array = []
+	for z3 in G.coverup_pages():
+		for c3 in G.clusters(int(z3)):
+			moved_floors.append(G.cluster_min_level(int(z3), String((c3 as Dictionary).id)))
+	ok(moved_floors != shipped_floors, "shrinking a scene's cluster count moves the floor ladder (no stale cache)")
+	var fh_last_id := String((G.clusters(0).back() as Dictionary).id)
+	ok(G.cluster_min_level(0, fh_last_id) == int(G.SCENE_END_LEVEL[0]),
+		"Fairy Hollow's LAST cluster still lands exactly on SCENE_END_LEVEL[0] with one fewer cluster")
 	var zi := 0
 	var aligned := true
+	var moved_cad: Array = G.zone_unlock_levels()
 	for p in G.ZONE_BAND.size():
 		var win := G.scene_level_window(int(p))
 		for _j in int(G.ZONE_BAND[p]):
-			if int(cheap_cad[zi]) < int(win.x) or int(cheap_cad[zi]) > int(win.y):
+			if int(moved_cad[zi]) < int(win.x) or int(moved_cad[zi]) > int(win.y):
 				aligned = false
 			zi += 1
-	ok(aligned, "every zone still lands inside its own scene's window after the curve moves")
+	ok(aligned, "scene alignment still holds after the cluster-count change")
 
-	# the floors track level_at_coins of the cumulative cost at the MOVED curve too
-	var floors_track := true
-	var fi := 0
-	for z in G.coverup_pages():
-		for c in G.clusters(int(z)):
-			if G.cluster_min_level(int(z), String((c as Dictionary).id)) != G.level_at_coins(int(round(float(G.cumulative_cluster_cost(fi)) * float(G.CLUSTER_LEVEL_LEAD)))):
-				floors_track = false
-			fi += 1
-	ok(floors_track, "every cluster floor still equals level_at_coins(cumulative cost) at the moved curve")
+	# restoring the dial (MAPS) restores the shipped tables
+	G.MAPS = maps_snapshot
+	var restored_floors: Array = []
+	for z4 in G.coverup_pages():
+		for c4 in G.clusters(int(z4)):
+			restored_floors.append(G.cluster_min_level(int(z4), String((c4 as Dictionary).id)))
+	ok(restored_floors == shipped_floors, "restoring MAPS restores the shipped floor ladder")
+	ok(G.zone_unlock_levels() == shipped_cad, "the zone cadence is unaffected throughout (SCENE_END_LEVEL/ZONE_BAND never moved)")
 
 	# restore the live dials and verify
 	G.LEVEL_BASE_EXP = b0

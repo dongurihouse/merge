@@ -68,7 +68,10 @@ func _initialize() -> void:
 # are covered in grove_board_actions_tests; this is the wiring — the part unit tests cannot see.
 func _test_retirement_offer() -> void:
 	fresh("retire_offer")
-	Save.grove()["coins_earned"] = G.coins_at_level(14)   # past L11 → gen_1 is retirable, nothing else is
+	# gen_1 retires the level after zone 3 opens (G.zone_unlock_level(3)) — derived, not hardcoded, so a
+	# SCENE_END_LEVEL re-tune moves this with it. +2 lands safely past that boundary while staying well
+	# below gen_6's own retirement level, so gen_1 alone is retirable here.
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 2)
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()

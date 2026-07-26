@@ -1,6 +1,6 @@
 {
-  "level_base_coins": 30,
-  "level_step_coins": 12,
+  "level_base_coins": 1,
+  "level_step_coins": 2,
   "level_base_exp": 10,
   "level_step_exp": 4,
   "quest_clicks_per_exp": 7,

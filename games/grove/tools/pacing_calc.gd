@@ -328,9 +328,16 @@ func _solve(days_per_scene: Array, top: int, wpd: float) -> void:
 		var span := maxi(1, end_lv + 1 - start)
 		var ncl := G.clusters(int(pages[p])).size()
 		var nz := int(G.ZONE_BAND[p]) if p < G.ZONE_BAND.size() else 0
+		# CLUSTER FLOORS spread so the LAST cluster lands EXACTLY on end_lv (matches content._build_cadence):
+		# that is what makes "scene completes at end_lv" true. Zones (below) keep the OLD evenly-from-start
+		# rule on purpose — a line should arrive during its scene and then be used, not land on its last level.
 		var f: Array = []
-		for j in ncl:
-			f.append(mini(end_lv, start + int(round(float(j) * float(span) / float(maxi(1, ncl))))))
+		if ncl <= 1:
+			for _j in ncl:
+				f.append(start)
+		else:
+			for j in ncl:
+				f.append(start + int(round(float(j) * float(end_lv - start) / float(ncl - 1))))
 		var zs: Array = []
 		for j2 in nz:
 			zs.append(mini(end_lv, start + int(round(float(j2) * float(span) / float(maxi(1, nz))))))

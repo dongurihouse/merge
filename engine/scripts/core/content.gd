@@ -29,8 +29,7 @@ const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
 const GEN_TOP_TIER = D.GEN_TOP_TIER
-const CLUSTER_LEVEL_LEAD = D.CLUSTER_LEVEL_LEAD   # §8 bias on the DERIVED cluster floors (1.0 = counts cumulative
-                                                   # cost in CLOCK coins only; measured BINDING — see the const's own doc)
+const SCENE_END_LEVEL = D.SCENE_END_LEVEL   # §8 the owner's per-scene completion levels — the pacing dial
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
@@ -324,7 +323,7 @@ static func zone_of_line(line: int) -> int:
 
 # True if `line` is ZONE content (a base or crafted-special line) whose zone unlocks ABOVE `level` — i.e. a
 # generator / line / item the player should NOT have yet under the derived zone-unlock cadence (see
-# zone_unlock_level / the DERIVED PACING SPINE). Non-zone lines
+# zone_unlock_level / THE PACING SPINE). Non-zone lines
 # (coins, treasure treats, special drops — zone_of_line == -1) are content-neutral and NEVER gated out. The
 # board save-migration (board._purge_above_level_content) uses this to strip too-advanced content from an
 # older save so it matches the scene-aligned pacing.
@@ -431,12 +430,11 @@ static func retirable_gens(owned_ids: Array, level: int) -> Array:
 	return out
 
 # Quest ask progress follows level, not claimed restore spots: if a player keeps doing quests without
-# opening new zones, the ask pool still advances. The level→zone map is now DERIVED (see "THE DERIVED
-# PACING SPINE" above _build_cadence): each cover-up scene's level window falls out of its clusters'
-# cumulative coin cost run through level_at_coins, and ZONE_BAND spreads that scene's zones evenly inside
-# its own window. quest_zone_for_level reads the resulting cadence and returns the HIGHEST zone whose
-# unlock level the player has reached. Monotonic, so a single forward walk suffices; clamps at zone 0
-# below the first threshold and the top zone past the arc.
+# opening new zones, the ask pool still advances. The level→zone map is now DERIVED (see "THE PACING
+# SPINE" above _build_cadence): each cover-up scene's level window is the owner-authored SCENE_END_LEVEL
+# band, and ZONE_BAND spreads that scene's zones evenly inside its own window. quest_zone_for_level reads
+# the resulting cadence and returns the HIGHEST zone whose unlock level the player has reached. Monotonic,
+# so a single forward walk suffices; clamps at zone 0 below the first threshold and the top zone past the arc.
 static func quest_zone_for_level(level: int) -> int:
 	var z := 0
 	for i in ZONE_COUNT:
@@ -1065,53 +1063,74 @@ static func global_cluster_index(z: int, cluster_id: String) -> int:
 		i += 1
 	return idx
 
-# --- THE DERIVED PACING SPINE (2026-07-25) ------------------------------------------------------------
-# The cluster level floors and the zone unlock cadence are DERIVED from the cluster COST ladder through
-# the coin curve — they are not authored in level-space. A cluster's floor is the level the player stands
-# at once they have EARNED what the ladder has cost through it, so the floor and the price land together.
+# --- THE PACING SPINE (2026-07-26) --------------------------------------------------------------------
+# The cluster level floors and the zone unlock cadence are DERIVED, but from the owner's AUTHORED
+# SCENE_END_LEVEL now, not from the cluster COST ladder. The owner picks the level each scene is fully
+# restored at (in LEVELS, chosen via a DAYS target — see SCENE_END_LEVEL's doc); clusters and zones both
+# spread inside the band that creates. The coin curve (LEVEL_BASE_COINS/LEVEL_STEP_COINS) has no say in
+# where the gates fall any more — it only sets the CALENDAR (how long a level takes to earn). This
+# replaces the earlier cost-derivation (cumulative cluster cost run through level_at_coins), which bound
+# roughly 2x too late because the clock counts quest coins only while the ladder is paid from the whole
+# wallet (see grove_data.gd's SCENE_END_LEVEL doc for the numbers).
+#
 # Each scene's completion level closes its LEVEL WINDOW, and ZONE_BAND spreads that scene's zones inside
 # it, so the alignment is COMPUTED rather than hand-maintained — but computed is not the same as
 # guaranteed. Nothing here stops a future re-tune from narrowing a window below its own ZONE_BAND count;
 # see the repair loop below, and the test assertions that are what actually hold the invariant.
 #
-# Cached against the dials it reads (the curve + the authored costs), so a live apply_tuning() — or a test
-# assigning LEVEL_BASE_COINS directly — invalidates it automatically. There is no rebuild to remember.
+# Cached against the dials it reads (SCENE_END_LEVEL, the per-scene cluster counts, and ZONE_BAND) — NOT
+# against the coin curve, which this table no longer reads at all. A live apply_tuning() that edits
+# SCENE_END_LEVEL, or a test assigning it directly, invalidates the cache automatically. There is no
+# rebuild to remember.
 static var _cadence: Dictionary = {}
 static var _cadence_key: String = ""
 
 static func _cadence_table() -> Dictionary:
-	var total := 0
-	var n := 0
+	var counts: Array = []
 	for z in coverup_pages():
-		for c in clusters(int(z)):
-			total += int((c as Dictionary).get("cost", 0))
-			n += 1
-	var key := "%d/%d/%d/%d" % [LEVEL_BASE_COINS, LEVEL_STEP_COINS, n, total]
+		counts.append(clusters(int(z)).size())
+	var key := "%s/%s/%s" % [str(SCENE_END_LEVEL), str(counts), str(ZONE_BAND)]
 	if key != _cadence_key or _cadence.is_empty():
 		_cadence = _build_cadence()
 		_cadence_key = key
 	return _cadence
 
 static func _build_cadence() -> Dictionary:
-	var floors: Array = []
 	var scene_end: Array = []
-	var cum := 0
-	for z in coverup_pages():
-		for c in clusters(int(z)):
-			cum += int((c as Dictionary).get("cost", 0))
-			floors.append(level_at_coins(int(round(float(cum) * float(CLUSTER_LEVEL_LEAD)))))
-		scene_end.append(level_at_coins(cum))
-	# Each scene's ZONE_BAND zones spread evenly inside that scene's own LEVEL WINDOW, so a zone's line
-	# always arrives while its themed scene is the one being unlocked.
-	var zones: Array = []
+	var prev_end := 0        # scene i's band starts at prev_end + 1 (scene 0 starts at L1)
+	for i in coverup_pages().size():
+		var raw := int(SCENE_END_LEVEL[i]) if i < SCENE_END_LEVEL.size() else prev_end + 1
+		scene_end.append(maxi(prev_end + 1, raw))   # clamp: strictly increasing, >= 1
+		prev_end = int(scene_end[i])
+	# CLUSTER FLOORS: spread so the LAST cluster of scene i lands EXACTLY on scene_end[i] — that is what
+	# makes SCENE_END_LEVEL mean "the scene is fully restored here" (the padlock sequence's own last
+	# unlock IS the scene's completion beat). For n clusters spanning [start, end]: cluster j sits at
+	# start + round(j * (end - start) / (n - 1)) when n > 1 (j=0 → start, j=n-1 → end exactly), and at
+	# start when n == 1 (nothing to spread).
+	var floors: Array = []
 	var win_start := 1
-	for i in scene_end.size():
-		var win_end := int(scene_end[i])
-		var k := int(ZONE_BAND[i]) if i < ZONE_BAND.size() else 0
-		var span := maxi(1, win_end + 1 - win_start)
-		for j in k:
-			zones.append(maxi(1, win_start + int(round(float(j) * float(span) / float(k)))))
+	for i2 in coverup_pages().size():
+		var win_end := int(scene_end[i2])
+		var cls: Array = clusters(int(coverup_pages()[i2]))
+		var n := cls.size()
+		if n == 1:
+			floors.append(win_start)
+		else:
+			for j in n:
+				floors.append(win_start + int(round(float(j) * float(win_end - win_start) / float(n - 1))))
 		win_start = win_end + 1
+	# ZONE UNLOCKS: spread EVENLY from the band start (unlike the cluster floors above) — a zone's line
+	# should ARRIVE while its scene is the one being unlocked and then be USED across the rest of that
+	# scene, not land right on the scene's final level with nothing left to do with it.
+	var zones: Array = []
+	win_start = 1
+	for i3 in scene_end.size():
+		var win_end2 := int(scene_end[i3])
+		var k := int(ZONE_BAND[i3]) if i3 < ZONE_BAND.size() else 0
+		var span := maxi(1, win_end2 + 1 - win_start)
+		for j2 in k:
+			zones.append(maxi(1, win_start + int(round(float(j2) * float(span) / float(k)))))
+		win_start = win_end2 + 1
 	if not zones.is_empty():
 		zones[0] = 1        # zone 0 is the anchor line — askable from the first tap
 	# STRICTLY-INCREASING REPAIR over the FLATTENED cross-scene `zones` array: it does NOT re-check
@@ -1123,31 +1142,16 @@ static func _build_cadence() -> Dictionary:
 	# its window boundary — a real scene-alignment violation. This loop does not detect or guard that (no
 	# assert/push_error/failure path here, by design): it is left to fail loudly in the scene-alignment
 	# tests instead — mechanics_tests.gd's "scene alignment" case, and tuning_tests.gd's "every zone still
-	# lands inside its own scene's window after the curve moves" — rather than being silently papered over.
-	for i2 in range(1, zones.size()):
-		if int(zones[i2]) <= int(zones[i2 - 1]):
-			zones[i2] = int(zones[i2 - 1]) + 1
+	# lands inside its own scene's window after SCENE_END_LEVEL moves" — rather than being silently papered over.
+	for i4 in range(1, zones.size()):
+		if int(zones[i4]) <= int(zones[i4 - 1]):
+			zones[i4] = int(zones[i4 - 1]) + 1
 	return {"floors": floors, "scene_end": scene_end, "zones": zones}
 
-## The coins the cluster ladder has cost through global index `i`, inclusive. Clamps at both ends,
-## so an out-of-range index reads the whole ladder's cost.
-static func cumulative_cluster_cost(i: int) -> int:
-	var cum := 0
-	var idx := 0
-	for z in coverup_pages():
-		for c in clusters(int(z)):
-			cum += int((c as Dictionary).get("cost", 0))
-			if idx >= int(i):
-				return cum
-			idx += 1
-	return cum
-
 ## The LEVEL WINDOW of the `p`-th cover-up scene (in coverup_pages() order): x = its first level,
-## y = level_at_coins of the CLOCK's cumulative cost through the scene's last cluster — the level the
-## coin clock alone would reach at that cost, not necessarily the level at which the player actually
-## finishes paying for the scene (the wallet also fills from non-clock income; see CLUSTER_LEVEL_LEAD's
-## doc above). Scene 0 opens at L1; every later scene opens one level past the previous scene's window.
-## `p` clamps to the last scene, so an out-of-range index (e.g. 5) returns the final scene's window.
+## y = SCENE_END_LEVEL[p] — the owner-authored level at which the scene's last cluster unlocks. Scene 0
+## opens at L1; every later scene opens one level past the previous scene's window. `p` clamps to the
+## last scene, so an out-of-range index (e.g. 5) returns the final scene's window.
 static func scene_level_window(p: int) -> Vector2i:
 	var ends: Array = _cadence_table()["scene_end"]
 	if ends.is_empty():
@@ -1156,15 +1160,10 @@ static func scene_level_window(p: int) -> Vector2i:
 	var first := 1 if i == 0 else int(ends[i - 1]) + 1
 	return Vector2i(first, int(ends[i]))
 
-# The LEVEL at which a cluster unlocks — DERIVED (see above): level_at_coins of the ladder's cumulative
-# cost through it, biased by CLUSTER_LEVEL_LEAD. At lead 1.0 the cumulative cost is counted in CLOCK
-# coins only (Save.coins_earned_lifetime — quest rewards), but the wallet that actually pays for a
-# cluster also fills from non-clock income (sells, chests, treats, habitat yield), and clock coins are
-# only ~46% of the coin faucet. So in practice the FLOOR is the binding constraint, not the price: a
-# 60-day sim shows the player holding 6.6x a cluster's cost while still short of its level floor
-# (docs/design/merge_spec.md §"moves the cluster ladder's binding constraint from coins to level").
-# A lead below 1.0 scales the cumulative cost down before the level_at_coins lookup, moving the floors
-# earlier so they bind less.
+# The LEVEL at which a cluster unlocks — DERIVED (see above) from the authored scene band: clusters
+# spread inside [scene start, SCENE_END_LEVEL[scene]] so the LAST cluster lands exactly on the scene's
+# end level (_build_cadence's cluster-floor rule). This is authored in LEVEL-space now, not backed out
+# of a coin cost — the coin curve has no say in where a cluster's floor falls.
 static func cluster_min_level(z: int, cluster_id: String) -> int:
 	var floors: Array = _cadence_table()["floors"]
 	var i := global_cluster_index(z, cluster_id)
@@ -1599,10 +1598,12 @@ static func earn_coins(n: int) -> int:
 	return level() - before
 
 # --- the zone ladder on the coin clock (the content arc, decoupled from map spots) --------
-## The LEVEL zone z's line + generator unlock — DERIVED from the scene windows (2026-07-25): each scene's
-## window comes from the cluster cost ladder, and ZONE_BAND spreads its zones inside it. Was a hand-authored
-## ZONE_UNLOCK_LEVEL table in grove_data, which had drifted to L1-34 while the ladder ran to L87 — every item
-## line shipped by the middle of scene 3. Its coins_at_level(...) is the zone_threshold below.
+## The LEVEL zone z's line + generator unlock — DERIVED from the scene windows (re-spined 2026-07-26): each
+## scene's window is the owner-authored SCENE_END_LEVEL band, and ZONE_BAND spreads its zones inside it.
+## Earlier derivations: a hand-authored ZONE_UNLOCK_LEVEL table in grove_data that drifted to L1-34 while
+## the ladder ran to L87 (2026-07-25), then a cost-ladder derivation that ran ~2x too late because the
+## clock counts quest coins only while the ladder is paid from the whole wallet. Its coins_at_level(...)
+## is the zone_threshold below.
 static func zone_unlock_level(z: int) -> int:
 	var zones: Array = _cadence_table()["zones"]
 	if zones.is_empty():
