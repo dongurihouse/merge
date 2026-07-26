@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the §7 quest engine: level-based reward, gen_quest shape, the soft gate, the
 ## near-end generator grant, and current-map askable lines.
 ##   godot --headless --path . -s res://engine/tests/quest_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _initialize() -> void:
 	# --- EFFORT-BASED reward (COINS ONLY — coin-clock redesign): coins = the folded PROGRESSION
@@ -185,5 +174,4 @@ func _initialize() -> void:
 	ok(Quests.ready_first([10, 11], []) == [10, 11], "a short/absent ready mask treats every quest as not-ready (order held)")
 	ok(Quests.ready_first([10, 11, 12], [false, false, true]) == [12, 10, 11], "a single ready quest at the back jumps to the front")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

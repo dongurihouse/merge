@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the boot instrumentation + splash progress math.
 ##   godot --headless -s res://engine/tests/boot_trace_tests.gd
 ## Covers BootTrace (begin/end work-span timer + table formatter) and boot.gd's pure
@@ -10,17 +10,6 @@ extends SceneTree
 
 const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")
 const Boot = preload("res://engine/scripts/scenes/boot.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func approx(a: float, b: float) -> bool:
 	return abs(a - b) < 0.001
@@ -104,5 +93,4 @@ func _initialize() -> void:
 	ok(not Boot.boot_ready(0.3, 1.0, true), "not ready before the minimum splash duration")
 	ok(Boot.boot_ready(1.0, 1.0, true), "ready once warm and past the minimum duration")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless tests for the App Store update-check contract (core/update_check.gd) + the dismissed-version
 ## ledger it leans on (core/save.gd). Pure logic + local persistence, NO network.
 ##   godot --headless -s res://engine/tests/update_check_tests.gd
@@ -6,25 +6,10 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const UpdateCheck = preload("res://engine/scripts/core/update_check.gd")
 
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
-
-func fresh(name: String) -> void:
-	var dir := "user://tu_updatecheck_" + name + "/"
-	if DirAccess.dir_exists_absolute(dir):
-		for fn in DirAccess.get_files_at(dir):
-			DirAccess.remove_absolute(dir + fn)
-	else:
-		DirAccess.make_dir_recursive_absolute(dir)
-	Save.configure_for_test(dir)
+# This suite's own user:// save-dir tree — kept distinct so the parallel
+# runner can never let two suites clobber each other's saves.
+func save_prefix() -> String:
+	return "tu_updatecheck_"
 
 # a lookup reply listing one app at `version` with a store url.
 func _lookup(version: String, url: String = "https://apps.apple.com/app/id123") -> String:
@@ -74,5 +59,4 @@ func _initialize() -> void:
 	Save.mark_update_dismissed("1.3.0")
 	ok(Save.update_dismissed() == "1.3.0", "marking a newer version overwrites the dismissed one")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(0 if _fail == 0 else 1)
+	finish()

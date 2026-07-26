@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## strings — the screen-text catalog (core/strings.gd + games/<active>/strings.json).
 ## The load-bearing check is the CODE SCAN: every Strings.t("literal path") used anywhere in the engine/
 ## grove scripts MUST resolve in the catalog (a missing/typo'd path returns itself → caught here). This is
 ## the safety net for the tr() → Strings.t() migration.
 
 const Strings = preload("res://engine/scripts/core/strings.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _initialize() -> void:
 	print("== strings ==")
@@ -32,8 +21,7 @@ func _initialize() -> void:
 	var left := _scan_leftover_tr()
 	ok(left.is_empty(), "no literal tr(\"…\")/translate(\"…\") remain in migrated files%s" % ("" if left.is_empty() else " — %d left: %s" % [left.size(), str(left.slice(0, 12))]))
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()
 
 # every Strings.t("path") literal across the scripts whose path does NOT resolve
 func _scan_missing() -> Array:

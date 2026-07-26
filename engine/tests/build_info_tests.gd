@@ -1,17 +1,6 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 
 const BuildInfo = preload("res://engine/scripts/core/build_info.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _read_text(path: String) -> String:
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -57,5 +46,4 @@ func _initialize() -> void:
 	ok(stamped_text == "9.8.7", "BuildInfo shows the stamped marketing version")
 	ok(not stamped_text.contains("(build"), "BuildInfo omits the build suffix from player-facing text")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()

@@ -1,21 +1,10 @@
-extends SceneTree
+extends "res://engine/tests/test_base.gd"
 ## Headless unit tests for the shared code-drawn action button (Kit.action_button) and its config
 ## reader. The button draws the rugged cut-paper edge in code (a CutPaperPanel surface) + a centered
 ## glyph — one source for the home bottom bar and the board Home/Bag wells.
 ##   godot --headless --path . -s res://engine/tests/action_button_tests.gd
 
 const Kit = preload("res://games/grove/ui_kit.gd")
-
-var _pass := 0
-var _fail := 0
-
-func ok(cond: bool, label: String) -> void:
-	if cond:
-		_pass += 1
-		print("  PASS  ", label)
-	else:
-		_fail += 1
-		print("  FAIL  ", label)
 
 func _initialize() -> void:
 	var root := get_root()
@@ -67,5 +56,4 @@ func _initialize() -> void:
 	ok(view_defaults.has("action_button"), "action_button ships a saved config block")
 	ok(not view_defaults.has("home_button"), "the home_button config block is gone")
 
-	print("== %d passed, %d failed ==" % [_pass, _fail])
-	quit(1 if _fail > 0 else 0)
+	finish()
