@@ -347,8 +347,8 @@ bag-panel section + workbench twin → FX polish + shot mode.
 ## 15 · Corrections to the parent design (fold into its next rev)
 
 - §1/§2 examples: retirement fires at **L33 / L55 / L69** on today's cadence (not L11/22/33 —
-  that's the pre-re-spine cadence, also stale in `content.gd:397-399` and `retire_offer.gd:13`,
-  chip already filed). The wildberries example should read *"back at **Level 69**, for **Tea
+  that's the pre-re-spine cadence; corrected 2026-07-26 in the parent, `content.gd:397-399`
+  and `retire_offer.gd:13`). The wildberries example should read *"back at **Level 69**, for **Tea
   Cups**"* — Wild Berries' only gap is L65–68; the first comeback line is actually **Woolens at
   L46** ("back at Level 51, for Spices").
 - §2's Retired row cites `G.gen_retirable`; this spec generalizes to line-scoped

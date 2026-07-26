@@ -37,7 +37,8 @@ second counter:
 1. *"the existing merge-streak audio machinery in `board_logic`"* — only the pure cadence lives
    there. The escalation is **note selection** (a baked 10-note ladder; per-note pitch jitter is
    deliberately disabled, `audio.gd:71-84`), not a rising `pitch_scale`. The chain count drives
-   the **same degree ladder**; nothing about the audio path changes.
+   the **same degree ladder**; nothing about the audio path changes. *(The parent's §5 has
+   since been corrected to match.)*
 2. *"a duplicated bottom"* is generalized to *any duplicated tier with consecutive rungs above*
    (§6) — a stray lower singleton adjacent to a real ladder must not kill its outline.
 3. New ruling the parent didn't cover: **craft merges join the chain** (R2, §3).

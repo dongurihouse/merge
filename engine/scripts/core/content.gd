@@ -389,14 +389,14 @@ static func active_lines(level: int) -> Array:
 # --- §6 LINE RETIREMENT (2026-07-25) ---------------------------------------------------------------
 # A line is DONE when nothing in the rest of the game can ask for it again — then its generator is dead
 # weight on the board and its leftover stock is unusable. "Left the active window" is NOT that test: lines
-# 2, 3 and 4 drop out of the window and come BACK repeatedly as the ingredients of later crafts (spices at
-# L32, corals at L50, tea cups at L75), so retiring on window exit would strand the player five times over
+# 2, 3 and 4 drop out of the window and come BACK repeatedly as the ingredients of later crafts (spices, corals,
+# then tea cups in the final window), so retiring on window exit would strand the player five times over
 # the arc. The real test is FORWARD-LOOKING, and it is finite: the window slides through the zone ladder and
 # then FREEZES at the last zone, so every future state is covered by scanning the remaining zones.
 #
-# On the shipped roster that makes retirement THREE events — gen_1 past L11 (retires at L12), gen_6 past
-# L37 (retires at L38), gen_16 past L74 (retires at L75). The other five generators (2, 3, 4, 7, 18) are
-# the final window's ingredient set and never retire.
+# On the shipped roster that makes retirement THREE events — gen_1/gen_6/gen_16 become retirable at their
+# zone_unlock_level(3)/(8)/(11) boundaries (today L33/L55/L69 — derived, asserted symbolically in the grove
+# tests). The other five generators (2, 3, 4, 7, 18) are the final window's ingredient set and never retire.
 
 ## The generators the live asks REQUIRE at `level` — the union over the active window, ingredient tree
 ## included (a special folds into the base generators that craft it).
