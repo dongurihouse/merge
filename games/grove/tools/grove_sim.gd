@@ -86,11 +86,12 @@ var resident_spend_at_first_complete := 0
 var first_complete_day := -1
 var _deliv_day := 0            # deliveries this day (reported on the day line — the late-fence health signal)
 # PACING MILESTONES (tuning signals for the level-curve sweep). The content arc and the restoration
-# ladder are paced by DIFFERENT things — the arc by LEVEL (ZONE_UNLOCK_LEVEL), the ladder by level AND
-# coins — so 'when does the player see the last item line' and 'when is the book finished' are separate
+# ladder now ride the SAME spine (2026-07-25): both derive from the cluster COST ladder through the coin
+# curve, so 'when the last item line lands' and 'when the book is finished' can no longer drift apart —
 # questions the curve dials trade off against each other.
 var content_end_day := -1      # first day the player reaches the LAST zone's unlock level (all lines seen)
 var half_book_day := -1        # first day half the cluster ladder is unlocked
+var scene_done_day := {}       # cover-up page index -> the day that page's last cluster was unlocked
 var water := 0
 var level_gift_water := 0
 var _greedy := false           # bot mode: greedy welcomes residents whenever affordable (no cushion)
@@ -187,6 +188,22 @@ func _initialize() -> void:
 		 ("day %d" % content_end_day) if content_end_day > 0 else "NOT REACHED",
 		 ("day %d" % half_book_day) if half_book_day > 0 else "NOT REACHED",
 		 ("day %d" % map_done_day) if map_done_day > 0 else "NOT REACHED"])
+	# THE SCENE LADDER, scene by scene — the pacing view that matters now the gates are derived: each
+	# scene owns a LEVEL WINDOW (from its clusters' cumulative cost) and the zones that unlock inside it.
+	# The health signal is that the last zone's day and the book's day are close, not 40 days apart.
+	print("  SCENES  (level window · zones inside it · day completed)")
+	var _zi := 0
+	for _p in G.coverup_pages().size():
+		var _win := G.scene_level_window(int(_p))
+		var _zl: Array = []
+		var _k := int(G.ZONE_BAND[_p]) if _p < G.ZONE_BAND.size() else 0
+		for _j in _k:
+			_zl.append("L%d" % G.zone_unlock_level(_zi))
+			_zi += 1
+		var _pg := int(G.coverup_pages()[_p])
+		print("    scene %d %-22s L%d-%-3d · zones %-16s · %s" % [_p + 1, String(G.MAPS[_pg].get("name", "?")),
+			int(_win.x), int(_win.y), str(_zl),
+			("done day %d" % int(scene_done_day[_pg])) if scene_done_day.has(_pg) else "NOT COMPLETED"])
 	var pass_all := true
 
 	# --- STALL guard: if the bot barely spent any water over the WHOLE run, the early board never opened
@@ -667,7 +684,7 @@ func _next_premium_welcome() -> Dictionary:
 
 # --- THE CLUSTER LADDER (2026-07-25 re-spine) ---------------------------------------------------------
 # Restoration is the GLOBAL cover-up cluster sequence, not the retired free spot ladder. Each cluster is
-# gated by BOTH a level floor (cluster_min_level = 2 + its global index) AND a coin COST it actually pays
+# gated by BOTH a level floor (cluster_min_level, DERIVED from the ladder's cumulative cost) AND that cost
 # — so the ladder is the game's dominant coin SINK, and `map` here means the page currently being unlocked
 # (content.current_unlock_map), not a map being "bought out". MAPS[z].spots is save-compat legacy: page 1
 # still carries a list, pages 2-5 are empty, so the old spot loop was simulating nothing on 4 of 5 pages.
@@ -842,6 +859,8 @@ func _play_session() -> Dictionary:
 		if _page_done_pending():
 			gates_done[map] = true
 			gates_reached += 1
+			if not scene_done_day.has(map):
+				scene_done_day[map] = _cur_day + 1
 			# §1 diamond FAUCET: fully restoring a page gifts MAP_DIAMONDS.
 			diamonds += G.MAP_DIAMONDS
 			gems_from_maps += G.MAP_DIAMONDS
