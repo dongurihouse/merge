@@ -1,8 +1,9 @@
-# Line farewells — sweep spec (progression step 1, rev 3)
+# Line farewells — sweep spec (progression step 1, rev 4)
 
-**Date:** 2026-07-26 · **Status:** rev 3, for Dev review. Step 1 of
+**Date:** 2026-07-26 · **Status:** rev 4, for Dev review. Step 1 of
 `2026-07-26-progression-systems-design.md` §8. No Comeback state, no storage: a line nothing
-asks for gets one farewell + sweep; returns are the shipped `due_gen` birth-on-tap.
+asks for gets one farewell + sweep; returns are the shipped `due_gen` birth-on-tap. A
+read-only **Almanac** modal shows every line's status (producing · away · complete).
 
 Levels always derive from the cadence (`G.zone_unlock_level(z)`) — never pin literals
 (idiom: `grove_board_actions_tests.gd:249`).
@@ -71,6 +72,26 @@ art + one body line + one CTA; keep the `min_h` floor)
 item sell and redundant-gen sale stay) · `retire_preview`/`retire_line`.
 `gen_retirable`/`retirable_gens` stay (tests pin them).
 
+**7 · Almanac — `engine/scripts/ui/almanac.gd`** (read-only; the away- and retired-lines
+view — swept lines have no board presence, so `ladder.gd`/`gen_lines.gd` can't reach them)
+
+- Same face as its siblings: the shared workbench "tiers" dialog (twig border, banner, ✕,
+  slot-cell grid) and the same self-contained shape — coordinator (`board.gd`) owns the
+  data, `Almanac.open(host, {entries, on_line})` just renders (`gen_lines.gd:1-14` is the
+  template).
+- 12 cells, zone order; entry `{line, seen, code, state, back_level, for_line}` — coordinator
+  derives `seen`/lowest-seen `code` from the `seen` ledger, `state` from
+  `line_needed_at_zone` / `next_need`.
+- Cell render: unseen → locked "?" well, no tap · seen → lowest-seen piece · needed-now →
+  the gold marked ring (`gen_lines`' `in_pool` ring) · away → sub-caption *"Back at L51"* ·
+  done-forever → sub-caption *"Complete"*.
+- Tap a seen cell → `Ladder.open` (existing); its banner appends the status (*"Wild Berries
+  · back at L69, for Tea Cups"*).
+- Entry point: a small **Almanac** button in the info tray's EMPTY state, hidden while a
+  selection is shown — board-side, no new nav chrome. Gate: the `discovery_ladder` feature,
+  same as its siblings.
+- Strings `almanac.*`. No new save keys, no actions, no economy paths.
+
 ## Invariants (test assertions)
 
 - SWEEP NEVER ADVANCES THE CLOCK.
@@ -87,13 +108,18 @@ item sell and redundant-gen sale stay) · `retire_preview`/`retire_line`.
   farewells at z7's level; L33/L55/L69 payout cases.
 - `grove_explore_tests`: entry chains the due cards; level-up seam fires after the cull;
   migration idempotent on re-entry; legacy `retire_declined` ignored.
+- Almanac: entries builder across arc levels (state per line at the zone boundaries —
+  derived); UI structure in the `grove_ui_workbench_tests` idiom (12 cells, ring on
+  needed-now, captions on away/complete, unseen locked, no tap on unseen); the empty-tray
+  button toggles with selection (`grove_explore_tests`).
 - Update existing pins: retirement wiring tests, `strings_tests` (`retire.*` →
   `farewell.*`), `modal_dismiss_tests` if the card registers a new overlay name.
-- `grove_shot MODE=farewell` for the visual check.
+- `grove_shot MODE=farewell` and `MODE=almanac` for the visual checks.
 - `make test-fast` per change; `make test` before handoff. No `grove_sim` re-pass (parent
   §8); its invariants stay green.
 
-Out of scope: mastery (step 2), the Collection, any storage/hoard UI, sell-band tuning.
+Out of scope: mastery (step 2), the Collection archive (favorite-as-décor etc. — the
+Almanac's Complete cells are its seam), any storage/hoard UI, sell-band tuning.
 
 ## Appendix · Per-line timeline (shipped cadence `[1,15,29,33,38,42,46,51,55,60,65,69]`)
 
