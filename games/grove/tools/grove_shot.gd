@@ -1,7 +1,9 @@
 extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
-## modes: fresh | played | gate | fullline | ladder | bag | level | levelup | endgame |
+## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
+## also makes an unknown mode refuse the run):
+##        fresh | played | gate | fullline | ladder | bag | level | levelup | endgame |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -25,6 +27,23 @@ func _initialize() -> void:
 		"default_mode": "fresh",
 		"default_out": "/tmp/grove_%s.png",
 		"save_dir": "/tmp/tu_groveshot_%s/",
+		# Every mode this tool answers to — the `match` labels below plus the three handled outside
+		# it ("fresh" has no branch at all; ftue/ftuegen are seeded before the scene loads). Declaring
+		# them makes an unknown MODE refuse instead of silently capturing the default board; keep this
+		# list in step when adding or removing a branch.
+		"modes": ["fresh", "ftue", "ftuegen",
+			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
+			"level", "levelup", "swap", "ladder", "retire", "retiredone", "recipe",
+			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
+			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
+			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
+			"fullline"],
+		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
+		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
+		"retired": {
+			"compost": "the compost-bin generator is gone (maps 1–4 carry no spots) — use MODE=fullline [line=N]",
+			"hive": "the beehive generator is gone (maps 1–4 carry no spots) — use MODE=fullline [line=N]",
+		},
 	})
 	if ctx.is_empty():
 		return                        # refused: begin() printed why and quit(2)

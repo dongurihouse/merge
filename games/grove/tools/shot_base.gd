@@ -23,6 +23,12 @@ extends RefCounted
 ## owner's focus mid-session. So a tool with no override.cfg REFUSES to run. Living here, that
 ## guard is structural instead of copy-pasted.
 ##
+## WHY AN UNKNOWN MODE REFUSES TOO: a `match mode:` that finds no branch falls through in silence,
+## so a misspelled or RETIRED mode used to save a plausible-looking PNG of the default fixture and
+## exit 0. A capture tool is the project's visual-verification instrument — a shot that quietly
+## ignores what was asked is worse than a crash, because it gets believed. A tool that declares
+## `modes` refuses instead. Opt-in: tools that don't declare it behave exactly as before.
+##
 ## DETERMINISM. `begin` makes a capture reproducible instead of merely likely-similar:
 ##  * WINDOW SIZE — the window is born at either the project size or a screen-clamped one (macOS
 ##    clamps a 1080x1920 window to the usable height of a 1440-tall display → 1378), a RACE at
@@ -60,6 +66,10 @@ const RNG_SEED := 7
 ##   tool          String  — names the default temp save dir (/tmp/tu_<tool>shot/)
 ##   default_mode  String  — present ⇒ args[0] is the MODE and args[1] the output; absent ⇒ args[0]
 ##                           is the output (widget/inbox-style tools)
+##   modes         Array   — every valid mode name; declaring it makes an unknown MODE REFUSE the
+##                           run instead of silently capturing the default fixture (see the header)
+##   retired       Dict    — mode name → a one-line hint naming its replacement, printed verbatim
+##                           when the rejected mode is one we used to have
 ##   default_out   String  — fallback output path; a "%s" is filled with the mode
 ##   out_arg       int     — index of the positional carrying the output path [default 1 with a
 ##                           mode, else 0]; a tool with extra positionals passes its own
@@ -87,6 +97,15 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 	var mode := ""
 	if has_mode:
 		mode = String(args[0]) if args.size() >= 1 and String(args[0]) != "" else String(cfg["default_mode"])
+	if cfg.has("modes") and not (mode in cfg["modes"]):
+		var retired: Dictionary = cfg.get("retired", {})
+		print("REFUSED: %s_shot has no MODE '%s' — it would have fallen through and saved the" % [tool_name, mode])
+		print("DEFAULT fixture, so the PNG would look fine and show the wrong thing.")
+		if retired.has(mode):
+			print("  RETIRED: %s" % String(retired[mode]))
+		print("  valid modes: %s" % ", ".join(PackedStringArray(cfg["modes"])))
+		tree.quit(2)
+		return {}
 	# which positional carries the output path (a tool with extra positionals passes its own index)
 	var out_at := int(cfg.get("out_arg", 1 if has_mode else 0))
 	var default_out := String(cfg.get("default_out", "/tmp/%s.png" % tool_name))
