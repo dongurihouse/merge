@@ -1068,7 +1068,9 @@ static func global_cluster_index(z: int, cluster_id: String) -> int:
 # the coin curve — they are not authored in level-space. A cluster's floor is the level the player stands
 # at once they have EARNED what the ladder has cost through it, so the floor and the price land together.
 # Each scene's completion level closes its LEVEL WINDOW, and ZONE_BAND spreads that scene's zones inside
-# it, which makes scene alignment arithmetic instead of a hand-maintained invariant.
+# it, so the alignment is COMPUTED rather than hand-maintained — but computed is not the same as
+# guaranteed. Nothing here stops a future re-tune from narrowing a window below its own ZONE_BAND count;
+# see the repair loop below, and the test assertions that are what actually hold the invariant.
 #
 # Cached against the dials it reads (the curve + the authored costs), so a live apply_tuning() — or a test
 # assigning LEVEL_BASE_COINS directly — invalidates it automatically. There is no rebuild to remember.
@@ -1118,8 +1120,8 @@ static func _build_cadence() -> Dictionary:
 	# narrows a scene's window below its own ZONE_BAND count, this bump can push that scene's zone past
 	# its window boundary — a real scene-alignment violation. This loop does not detect or guard that (no
 	# assert/push_error/failure path here, by design): it is left to fail loudly in the scene-alignment
-	# test (mechanics_tests.gd's "scene alignment" case, and tuning_tests.gd's later addition) rather than
-	# being silently papered over.
+	# tests instead — mechanics_tests.gd's "scene alignment" case, and tuning_tests.gd's "every zone still
+	# lands inside its own scene's window after the curve moves" — rather than being silently papered over.
 	for i2 in range(1, zones.size()):
 		if int(zones[i2]) <= int(zones[i2 - 1]):
 			zones[i2] = int(zones[i2 - 1]) + 1

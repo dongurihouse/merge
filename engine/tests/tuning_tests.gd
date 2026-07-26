@@ -73,6 +73,52 @@ func _initialize() -> void:
 	ok(not bad.has("min_level") and bad.has("level_step_exp"),
 		"a wrong-shape min_level grid is ignored while the rest applies")
 
+	# --- THE DERIVED GATES FOLLOW THE CURVE (2026-07-25) ---------------------------------------------
+	# The cluster floors and the zone cadence are derived from the cluster COST ladder through the coin
+	# curve. This is the guard that stops them being hand-authored back out of step: move the curve, and
+	# BOTH tables must move with it, with scene alignment intact. The cadence cache is keyed on these
+	# dials, so no explicit rebuild call exists to forget.
+	var shipped_cad: Array = [1, 5, 8, 12, 16, 20, 26, 32, 38, 50, 62, 75]
+	G.LEVEL_BASE_COINS = cb0
+	G.LEVEL_STEP_COINS = cs0
+	ok(G.zone_unlock_levels() == shipped_cad, "at the shipped curve the cadence is %s" % str(shipped_cad))
+	var shipped_top := G.cluster_min_level(0, "lantern_gate")
+
+	# HALVE the curve: every threshold is cheaper, so every gate must arrive EARLIER.
+	G.LEVEL_BASE_COINS = 15
+	G.LEVEL_STEP_COINS = 6
+	var cheap_cad: Array = G.zone_unlock_levels()
+	var cheap_top := G.cluster_min_level(0, "lantern_gate")
+	ok(cheap_cad != shipped_cad, "halving the curve moves the zone cadence (no stale cache)")
+	ok(cheap_cad.size() == G.ZONE_COUNT, "the moved cadence still has one level per zone")
+	var cheap_rising := true
+	for i in range(1, cheap_cad.size()):
+		if int(cheap_cad[i]) <= int(cheap_cad[i - 1]):
+			cheap_rising = false
+	ok(cheap_rising, "the moved cadence is still strictly increasing")
+	ok(cheap_top > shipped_top, "a cheaper curve puts Fairy Hollow's last cluster at a HIGHER level (%d > %d)" % [cheap_top, shipped_top])
+
+	# scene alignment survives the move — this is the property that used to be hand-maintained
+	var zi := 0
+	var aligned := true
+	for p in G.ZONE_BAND.size():
+		var win := G.scene_level_window(int(p))
+		for _j in int(G.ZONE_BAND[p]):
+			if int(cheap_cad[zi]) < int(win.x) or int(cheap_cad[zi]) > int(win.y):
+				aligned = false
+			zi += 1
+	ok(aligned, "every zone still lands inside its own scene's window after the curve moves")
+
+	# the floors track level_at_coins of the cumulative cost at the MOVED curve too
+	var floors_track := true
+	var fi := 0
+	for z in G.coverup_pages():
+		for c in G.clusters(int(z)):
+			if G.cluster_min_level(int(z), String((c as Dictionary).id)) != G.level_at_coins(G.cumulative_cluster_cost(fi)):
+				floors_track = false
+			fi += 1
+	ok(floors_track, "every cluster floor still equals level_at_coins(cumulative cost) at the moved curve")
+
 	# restore the live dials and verify
 	G.LEVEL_BASE_EXP = b0
 	G.LEVEL_STEP_EXP = s0
@@ -82,6 +128,7 @@ func _initialize() -> void:
 	G.MIN_LEVEL = g0
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	ok(G.exp_at_level(3) == b0 * 2 + s0, "the live dials are restored after the suite")
+	ok(G.zone_unlock_levels() == shipped_cad, "the derived cadence is back to the shipped table after the suite restores the dials")
 
 	# --- the global font scale (FontScale) -----------------------------------------------
 	# SIX tiers, each a fixed % of BASE, each measured off the 1080x1920 concept screens.
