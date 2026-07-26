@@ -977,6 +977,33 @@ func _persist() -> void:
 	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
 
+# --- the fan-out contract (board_decomposition.md, "Architecture decision: coordinator owns state")
+# THE one post-mutation beat. Call this after ANY board / bag / quest mutation, whoever triggered
+# it: it persists, then fans the refresh out to every board-dependent view — so a new mutation path
+# cannot silently forget one of them. It replaces the four-call cluster (_persist + _update_hud +
+# _refresh_giver_lights + _refresh_generator_dim) that used to be hand-rolled at every action site.
+#
+# Two calls cover the four: _refresh_giver_lights IS the board+fence refresh hub — it re-runs the
+# generator fade (_refresh_generator_dim), the quest-line item fade and the quest ready marks on the
+# same beat (see its body), so the explicit _refresh_generator_dim the old sites tacked on was always
+# a second, identical pass over the same nodes.
+#
+# `hud_deferred` is the ONE named opt-out, and it is a DEFERRAL, not an omission: where a payout
+# FLIES to the wallet, FX.reward_arrival ticks the label from its arrival callback (the number is
+# meant to change when the coin LANDS). An eager _update_hud there would tick it before the coin
+# arrives. Those sites pass true and keep their own arrival callback. Everything else takes the
+# default and gets the whole fan-out.
+#
+# NOT a call site: _load_state (runs before the HUD/fence nodes exist), the water tick (_tick_water /
+# _update_water_hud own the water pill, which is outside this fan-out), the persist-before-scene-change
+# nav taps, and _grow_generators / _sync_accumulators (internal steps of _rebuild_all, which fans out
+# on its own beat).
+func _after_board_change(hud_deferred := false) -> void:
+	_persist()
+	if not hud_deferred:
+		_update_hud()
+	_refresh_giver_lights()
+
 # the unlock CTA: ready when the NEXT cover-up cluster is unlockable right now (its page open,
 # level floor met, affordable) — the Home button breathes to say "go unlock the next region."
 func _gate_ready() -> bool:
@@ -2412,10 +2439,7 @@ func _on_buy_pressed() -> void:
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		var ctr := board_area.get_global_transform().origin + _cell_pos(dest) + Vector2(csz, csz) / 2.0
 		FX.celebrate_at(self, ctr, Strings.t("board.feedback.bought"), STRAW)
-	_persist()
-	_update_hud()                                 # the wallet ticks down
-	_refresh_giver_lights()                       # the copy may satisfy a quest
-	_refresh_generator_dim()                      # a now-full board dims the generator(s)
+	_after_board_change()                         # wallet ticks down, the copy may satisfy a quest, a full board dims the gens
 	_refresh_buy_chip(code)                       # re-read affordability (currency dropped)
 
 # The info button → open the board tutorial when nothing is focused, or the selected item's Tiers
@@ -2507,8 +2531,8 @@ func _open_bag_overlay() -> void:
 				return
 			if not board.place_gen_from_bag(id, Vector2i(cells[0])):
 				return
-			_persist()
-			_rebuild_all(),
+			_rebuild_all()
+			_after_board_change(),
 	})
 
 # Return bagged item `i` to the first empty board cell (the overlay's click-to-retrieve path).
@@ -2832,8 +2856,8 @@ func _on_release(pos: Vector2) -> void:
 	elif Features.on("drag_swap") and target != from \
 			and board.is_gen(target) and board.swap_gen_with_item(target, from):
 		Audio.play("item_drop", -4.0)
-		_persist()
 		_rebuild_all()
+		_after_board_change()
 	elif Features.on("drag_swap") and target != from \
 			and board.item_at(target) > 0 and not board.is_gen(target) \
 			and piece_nodes.has(target):
@@ -2879,33 +2903,33 @@ func _release_gen(pos: Vector2) -> void:
 	var gp: Vector2 = board_area.get_global_transform() * pos
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
 		if board.store_gen(from):
-			_persist()
 			_rebuild_all()
+			_after_board_change()
 			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.stored"), STRAW)
 		elif node != null:
 			_snap_back(from, node)
 		return
 	if target != from and board.is_empty_ground(target) and board.move_gen(from, target):
 		Audio.play("item_drop", -3.0)
-		_persist()
 		_rebuild_all()                        # #1 move (generators are movable-only; new ones arrive via near-end reward → gen_bag)
+		_after_board_change()
 		return
 	if target != from and board.is_gen(target) and board.merge_gens(from, target):   # #8: same-line generators merge → a stronger tier (frees the source cell)
 		Audio.play("item_drop", -2.0)
-		_persist()
 		_rebuild_all()
+		_after_board_change()
 		return
 	if Features.on("drag_swap") and target != from \
 			and board.item_at(target) > 0 and not board.is_gen(target) \
 			and board.swap_gen_with_item(from, target):
 		Audio.play("item_drop", -4.0)
-		_persist()
 		_rebuild_all()
+		_after_board_change()
 		return
 	if Features.on("drag_swap") and target != from and board.is_gen(target) and board.swap_gens(from, target):
 		Audio.play("item_drop", -4.0)
-		_persist()
 		_rebuild_all()
+		_after_board_change()
 		return
 	if node != null:
 		_snap_back(from, node)                # occupied / bramble / different-line generator — refuse
@@ -3040,10 +3064,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# gen redesign #8: a tap may also self-produce a duplicate generator (the merge fuel) at GEN_SELF_DUP_RATE.
 	if G.rolls_gen_self_dup(rng):
 		_self_dup_generator(cell)
-	_persist()
-	_refresh_giver_lights()
-	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
-	_update_water_hud()
+	_after_board_change()
+	_update_water_hud()        # the pop SPENT water — the water pill sits outside the board fan-out
 
 # Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when an ACTIVE QUEST asks
 # for its line and the player owns neither a board copy nor a bagged one (the gen_1 anchor self-heals first);
@@ -3058,8 +3080,8 @@ func _produce_due_generators() -> bool:
 	var landed: Array = out.landed                # board cells of tools placed this tap (bagged ones have none)
 	for gc in landed:
 		_grown_cells.append(gc)                   # _rebuild_all pops it in + starts its breathe
-	_persist()
 	_rebuild_all()                                # renders the new tool(s); _grown_cells drives the pop-in + breathe
+	_after_board_change()
 	for gc in landed:                             # glow + announce each freshly-landed tool so it can't be missed
 		var ctr := board_area.get_global_transform().origin + _cell_pos(gc) + Vector2(csz, csz) / 2.0
 		FX.celebrate_at(self, ctr, Strings.t("board.feedback.tool_arrived"), STRAW)
@@ -3075,9 +3097,9 @@ func _self_dup_generator(src: Vector2i) -> void:
 		return
 	for c in out.landed:
 		_grown_cells.append(c)
-	_persist()
 	if not out.landed.is_empty():
 		_rebuild_all()
+	_after_board_change()
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.
@@ -3099,8 +3121,8 @@ func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
 	board.items[BoardModel.idx(from)] = 0
 	board.items[BoardModel.idx(target)] = code
 	_mark_seen(code)
-	_persist()
 	_rebuild_all()
+	_after_board_change()
 	Audio.play("item_drop", -2.0)
 
 # A generator's per-tap bonus from ITS OWN live boost (§6): BOOST_BONUS while that cell is boosted, else 0.
@@ -3119,7 +3141,7 @@ func _activate_gen_boost(cell: Vector2i) -> bool:
 	elif not Save.spend(G.BOOST_COST, "boost"):
 		return false
 	board.arm_gen_boost(cell, G.BOOST_TAPS)
-	_persist()
+	_after_board_change()
 	return true
 
 # The info-bar boost chip (T54→boost, T57): on a generator tap the bottom info bar shows the generator
@@ -3186,10 +3208,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	if not G.is_special(produced) and G.rolls_special_drop(rng):
 		_drop_special_near(b, G.pick_special_drop(rng))
 	animating = false
-	_persist()
-	_refresh_giver_lights()
-	_refresh_generator_dim()   # §6: a merge freed a cell → un-dim the generator(s) if the board was full
-	_update_hud()
+	_after_board_change()
 
 # The up-to-4 ORTHOGONAL neighbour piece nodes of `cell`, gathered from the live grid (piece_nodes,
 # keyed by cell). Empty cells and invalid/freed nodes are skipped, so the returned list only ever holds
@@ -3290,8 +3309,7 @@ func debug_drop_coin() -> void:
 	if board.empty_ground_cells().is_empty():
 		return
 	_drop_coin_near(Vector2i(G.ROWS / 2, G.COLS / 2))
-	_persist()
-	_refresh_generator_dim()
+	_after_board_change()
 
 ## Debug-only: drop a tier-1 acorn onto a free board cell (the debug panel's "Drop acorn" button).
 ## Uses the normal special-drop placement path so it lands, persists, merges, and tap-collects like a real drop.
@@ -3299,8 +3317,7 @@ func debug_drop_acorn() -> void:
 	if board.empty_ground_cells().is_empty():
 		return
 	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), 13 * 100 + 1)
-	_persist()
-	_refresh_generator_dim()
+	_after_board_change()
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	# RULE in the pure action (take the coin + credit the wallet); the scene renders the fly-to-HUD.
@@ -3315,9 +3332,7 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 			_update_hud()
 	FX.reward_arrival(self, at, "coin", got, STRAW, coins_label, coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "coin_pickup")
 	Audio.play("coin_earn", -3.0)
-	_persist()
-	_refresh_giver_lights()
-	_refresh_generator_dim()   # §6: collecting a coin freed a cell → un-dim if the board was full
+	_after_board_change(true)   # the coin FLIES to the wallet — coin_done ticks the pill on arrival
 
 # §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
 func _drop_special_near(near: Vector2i, code: int) -> void:
@@ -3358,11 +3373,8 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 		# spare instead of dissolving the drop; regen pauses above the cap (board_logic.regen) so it holds.
 		water = water + int(out.amount)
 	Audio.play("coin_earn", -3.0, 1.15)
-	_persist()
-	_update_hud()
+	_after_board_change()
 	_update_water_hud()
-	_refresh_giver_lights()
-	_refresh_generator_dim()
 
 # §6.B open a chest with a second TAP (the key line is retired): consume it and credit its
 # coins+acorns payout DIRECTLY to the wallet (like every other tap-collect). Coins are ORGANIC
@@ -3385,10 +3397,7 @@ func _open_chest(target: Vector2i, node: Control) -> void:
 		Vault.skim(got_acorns)               # premium earned in play skims the piggy bank (T44)
 		FX.floating_reward(self, at + Vector2(0, 40), "gem", got_acorns, Color("#BFE6F2"), FS.HEADING)
 	Audio.play("level_complete", -4.0, 1.15)
-	_persist()
-	_update_hud()
-	_refresh_giver_lights()
-	_refresh_generator_dim()
+	_after_board_change()
 
 
 # §6.C LEGACY MIGRATION (gen redesign 2026-06-28): the old constant-accrual accumulators are retired — they
@@ -3462,15 +3471,12 @@ func _collect_accumulator(cell: Vector2i) -> void:
 		Save.grove().erase("bonus_clicks")
 	else:
 		Save.grove()["bonus_clicks"] = clicks
-	_persist()
-	_update_hud()
 	_update_water_hud()
 	if board.is_gen(cell):
 		_refresh_accumulator_badge(cell)
 	else:
 		_rebuild_all()
-	_refresh_giver_lights()
-	_refresh_generator_dim()
+	_after_board_change()
 
 # §6.C draw/update the small taps-left badge on a BONUS generator (reuses the boost-badge chrome).
 func _refresh_accumulator_badge(cell: Vector2i) -> void:
@@ -3583,9 +3589,8 @@ func _pop_treat(cell: Vector2i) -> void:
 		Save.grove().erase("treat_clicks")
 	else:
 		Save.grove()["treat_clicks"] = clicks
-	_persist()
 	_rebuild_all()
-	_update_hud()
+	_after_board_change()
 
 func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)
@@ -3597,8 +3602,7 @@ func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	# (keeping it would double with the land sound). Mirrors the generator-pop touchdown at _pop_seed.
 	var land_ctr := _cell_pos(b) + Vector2(csz, csz) / 2.0
 	GridFx.slide_and_land(board_area, node, _cell_pos(b), land_ctr, _orthogonal_neighbour_nodes(b), _grid_fx_opts, 120)
-	_persist()
-	_refresh_giver_lights()
+	_after_board_change()
 
 # P: the dragged item settles into `b`; the item already there glides to `a` with
 # the same TRANS_BACK ease as a snap-back, so it reads as "we traded places".
@@ -3613,8 +3617,7 @@ func _commit_swap(a: Vector2i, b: Vector2i, node: Control) -> void:
 		other.create_tween().tween_property(other, "position", _cell_pos(a), 0.14) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	Audio.play("item_drop", -4.0)
-	_persist()
-	_refresh_giver_lights()
+	_after_board_change()
 
 # --- bag --------------------------------------------------------------------------
 
@@ -3639,13 +3642,12 @@ func _stash(from: Vector2i, node: Control) -> void:
 		at = node.get_global_rect().get_center()
 		node.queue_free()
 	Audio.play("bag_in" if Audio.has("bag_in") else "item_pickup", -2.0)
-	_persist()
 	_rebuild_bag()
 	if bag_btn != null and is_instance_valid(bag_btn):
 		# no completion callback: _rebuild_bag() above already refreshed the bottom-bar count.
 		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "stash_to_bag")
 		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, FS.BODY)
-	_refresh_giver_lights()
+	_after_board_change()
 
 # §5 expansion: buy ONE more slot with 💎 at the schedule price, then regrow the bar. Returns whether
 # the slot was bought — a refusal (broke) is answered by the bag overlay's shop prompt, not here; the
@@ -3678,9 +3680,8 @@ func _retrieve_from_bag(i: int, cell: Vector2i) -> bool:
 	piece_nodes[cell] = n
 	n.create_tween().tween_property(n, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	Audio.play("bag_out" if Audio.has("bag_out") else "item_drop", -3.0)
-	_persist()
 	_rebuild_bag()
-	_refresh_giver_lights()
+	_after_board_change()
 	return true
 
 # (Re)build the bag-bar buttons to match the OWNED slot count, plus a trailing "+slot" buy
@@ -3792,11 +3793,9 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 				water = int(Save.grove().get("water", water))   # re-sync the local after Collect granted the gift
 				_update_water_hud()
 				_update_hud())
-	_persist()
 	_rebuild_givers()
-	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
-	if sp_coins <= 0:
-		_update_hud()
+	# a paying quest FLIES its coins to the wallet — quest_coin_done ticks the pill on arrival
+	_after_board_change(sp_coins > 0)
 	_animate_unlock_bar_from(purge_before)
 	# §10: a quest's coin overflow is the surviving lump coin faucet. Offer to DOUBLE it for a few
 	# 💎 — but only when the reward is big enough that the deal beats the shop (G.collect_2x_offered).
@@ -3918,10 +3917,8 @@ func _sell_generator(cell: Vector2i) -> void:
 			if is_instance_valid(self):
 				_update_hud()
 		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	_persist()
 	_rebuild_all()
-	_refresh_giver_lights()
-	_refresh_generator_dim()
+	_after_board_change()
 
 # §6 OFFER the retirement of a line the game will never ask again. Deferred to board ENTRY (a calm moment)
 # rather than fired on the level-up that makes it retirable — a modal must never land mid-gesture, and the
@@ -3972,10 +3969,8 @@ func _retire_line(gid: String) -> void:
 			if is_instance_valid(self):
 				_update_hud()
 		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	_persist()
 	_rebuild_all()
-	_refresh_giver_lights()
-	_refresh_generator_dim()
+	_after_board_change()
 
 func _sell_item(from: Vector2i, node: Control) -> void:
 	var code := board.item_at(from)
@@ -3988,9 +3983,7 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	piece_nodes.erase(from)
 	_grant_sale(code, node)
 	Audio.play("tidy_poof", -4.0, 1.1)
-	_persist()
-	_refresh_giver_lights()
-	_refresh_generator_dim()   # §6: selling freed a cell → un-dim if the board was full
+	_after_board_change(true)   # _grant_sale FLIES the payout — its arrival callback ticks the wallet
 
 # Y1: pay the sale (t8 → a flat 1💎; t1–t7 → tier coins × the item's per-map band, §6),
 # fly the piece into the info-bar sell button, and float the right currency.
@@ -4056,8 +4049,8 @@ func _reveal_generator(gid: String) -> bool:
 		if cells.is_empty() or not board.place_gen_from_bag(gid, Vector2i(cells[0])):
 			Audio.play("invalid_soft", -6.0)
 			return false
-		_persist()
 		_rebuild_all()
+		_after_board_change()
 		_select_generator(Vector2i(cells[0]))
 		return true
 	return false
