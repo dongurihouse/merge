@@ -108,31 +108,16 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var gen_bag_tiers: Array = cfg.get("gen_bag_tiers", [])
 	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
-
-	# the single dismiss seam: fire on_close once (if valid), then free the overlay. Reused by the
-	# backdrop tap, the ✕ button, a slot retrieve, and the next-slot buy.
-	var dismiss := func() -> void:
-		if not is_instance_valid(overlay):
-			return
-		if on_close.is_valid():
-			on_close.call()
-		overlay.queue_free()
-
 	# the dimmed backdrop — a flat scrim that dismisses on tap (the bag is a light modal with a
-	# plain veil rather than the shop's blurred one).
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.5)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			dismiss.call())
-
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# plain veil rather than the shop's blurred one). The scaffold's `dismiss` IS the single close
+	# seam: fire on_close once (if valid), then free. Reused by the backdrop tap, the ✕ button,
+	# a slot retrieve, and the next-slot buy.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"on_dismiss": func() -> void:
+		if on_close.is_valid():
+			on_close.call()})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
+	var dismiss: Callable = modal["dismiss"]
 
 	# build the bag card from the SHARED kit — the same dialog the workbench previews. A missing kit
 	# would only happen if the tools script were stripped from a build; bail to a bare veil if so.
@@ -225,23 +210,11 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 	var Kit: GDScript = load(KIT_PATH)
 	var plain: Font = Kit.plain_font() if Kit != null else null
 	var bold: Font = Kit.bold_font() if Kit != null else null
-	var overlay := Control.new()
-	overlay.name = NEED_MORE_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = Overlay.MODAL_TOP_Z          # one notch above the bag it explains
-	host.add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.5)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	# the veil dismisses THIS card only — the bag underneath stays open (a dead end would strand the tap).
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# one notch above the bag it explains. The veil dismisses THIS card only — the bag underneath
+	# stays open (a dead end would strand the tap).
+	var modal := Overlay.modal(host, NEED_MORE_NAME, {"z": Overlay.MODAL_TOP_Z})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 	# the card is sized as a FRACTION of the screen (the mock's card is ~3/4 of the frame), never fixed px.
 	var vw: float = host.get_viewport_rect().size.x
 	var cw: float = vw * CARD_W_FRAC

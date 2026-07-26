@@ -47,16 +47,10 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 	var on_done: Callable = opts.get("on_done", Callable())
 	var instant: bool = bool(opts.get("instant", false))
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME, Overlay.MODAL_TOP_Z)  # the reel stacks above the daily calendar
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.6)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	veil.mouse_filter = Control.MOUSE_FILTER_STOP  # swallow taps — no early dismiss mid-spin
-	overlay.add_child(veil)
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# the reel stacks above the daily calendar, and swallows taps — no early dismiss mid-spin.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"z": Overlay.MODAL_TOP_Z, "dismissable": false})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var vw: float = (host.get_viewport_rect().size.x if host.is_inside_tree() else 720.0)
 	var built: Dictionary = build_reveal(options, winners, reveal_width(vw),

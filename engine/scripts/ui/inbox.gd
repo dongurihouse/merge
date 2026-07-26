@@ -34,18 +34,10 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 		push_warning("Inbox: mail kit missing at %s" % KIT_PATH)
 		return
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(host, OVERLAY_NAME)
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
+	var dismiss: Callable = modal["dismiss"]
 
 	# opening the mailbox first CLEARS dealt-with mail (claimed gifts / already-read notes) so the capped
 	# box frees room, then marks the rest read (the badge then rests on unclaimed gifts only).
@@ -78,8 +70,7 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 		# clip the scrolling list UNDER the title band (like the shop) so rows disappear below the title
 		# instead of riding up behind it — the "MAIL" line stays a clean header, not a scrim over content.
 		opts["clip_below_banner"] = true
-		opts["on_close"] = func() -> void:
-			if is_instance_valid(overlay): overlay.queue_free()
+		opts["on_close"] = dismiss
 		opts["empty_text"] = Strings.t("inbox.empty_text")
 		opts["banner_text"] = Strings.t("inbox.banner_text")
 		(opts["btn"] as Dictionary)["text"] = host.tr(String((opts["btn"] as Dictionary).get("text", "Claim")))

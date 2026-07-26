@@ -70,17 +70,9 @@ static func _render(Kit: GDScript, host: Control, overlay: Control, opts: Dictio
 	var header: Dictionary = opts.get("header", {})
 	var on_pick: Callable = opts.get("on_pick", Callable())
 
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.GROUND_EDGE, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# scaffold() rather than modal(): open() already found-or-mounted the overlay (a re-open RENDERS
+	# INTO the live one instead of stacking a second), so only the veil + content root are built here.
+	var cc: CenterContainer = Overlay.scaffold(overlay, {"ink": Pal.GROUND_EDGE})["center"]
 
 	# every dialog renders at the SINGLE global frame width; content scales from this dialog's authored
 	# baseline (Kit.DIALOG_DESIGN_PCT) to that width. The dialog body itself is built by _build (shared

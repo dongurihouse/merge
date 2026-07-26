@@ -115,18 +115,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		push_warning("Daily: mail kit missing at %s" % KIT_PATH)
 		return
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			_dismiss(overlay, opts))
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# the veil tap is _dismiss split in two: the scaffold frees the overlay, on_dismiss runs the refresh.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"on_dismiss": func() -> void: _refresh(opts)})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = host.get_viewport_rect().size.x
@@ -632,6 +624,11 @@ static func _sprite_cropped(Kit: GDScript, rel: String, height: float) -> Contro
 static func _dismiss(overlay: Control, opts: Dictionary) -> void:
 	if is_instance_valid(overlay):
 		overlay.queue_free()
+	_refresh(opts)
+
+## The tail of a dismiss: tell the caller the calendar closed so it can repaint. Split out so the
+## shared modal scaffold (which owns the free) can run exactly this half from its veil tap.
+static func _refresh(opts: Dictionary) -> void:
 	if opts.has("refresh"):
 		(opts.refresh as Callable).call()
 

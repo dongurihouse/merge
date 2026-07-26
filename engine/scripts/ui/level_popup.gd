@@ -86,21 +86,10 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 	var span := maxi(1, nxt - base)
 	var remaining := maxi(0, nxt - earned)
 
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.5)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
 	# INFO dismisses on a veil tap; LEVELUP does NOT (only Collect closes, so the reward can't be lost).
-	if mode == "info":
-		veil.gui_input.connect(func(ev: InputEvent) -> void:
-			if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-				overlay.queue_free())
-
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	var modal := Overlay.modal(host, OVERLAY_NAME, {"dismissable": mode == "info"})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	# every dialog renders at the SINGLE global frame width (the shared frame knob), so the sheet
 	# matches its siblings on every phone size.

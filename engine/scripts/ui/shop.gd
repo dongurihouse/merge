@@ -30,6 +30,7 @@ const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # cut-paper drop shadow wrap
 const OVERLAY_NAME := "ShopOverlay"
+const CONFIRM_NAME := "ShopCashConfirmOverlay"   ## the cash confirm raised over an open shop
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM
@@ -147,22 +148,14 @@ static func _open(host: Control, opts: Dictionary) -> void:
 	if Kit == null:
 		push_warning("Shop: kit missing at %s" % KIT_PATH)
 		return
-	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring
 	# flat dim becomes a cozy frosted backdrop that focuses the parchment. Falls back to a flat
-	# dim if the screen-read shader can't compile.
-	var veil := ColorRect.new()
-	veil.color = Color(INK, Tune.VEIL_ALPHA)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	veil.material = _backdrop_material()
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# dim if the screen-read shader can't compile — which is what Tune.VEIL_ALPHA is: the
+	# storefront's OWN authored fallback darkness under that shader, not the shared modal veil.
+	var modal := Overlay.modal(host, OVERLAY_NAME, {
+		"alpha": Tune.VEIL_ALPHA, "material": _backdrop_material()})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 
 	# The HUD bar IS the wallet (one source) — its refs let buy feedback (fly-home / wiggle) target it.
 	# The shop is a SOFT modal: its frosted backdrop is meant to keep the wallet readable while you shop, so
@@ -210,7 +203,7 @@ static func _open(host: Control, opts: Dictionary) -> void:
 		fopts["content_scale"] = cscale
 		fopts["banner_text"] = Strings.t("shop.title")
 		fopts["clip_below_banner"] = true   # the list clips UNDER the title band — rows never ride behind "SHOP"
-		fopts["on_close"] = func() -> void: overlay.queue_free()
+		fopts["on_close"] = modal["dismiss"]
 		# on a PHONE the full ladder is taller than the screen, so cap the inner height to the
 		# viewport — the shop then scrolls inside the sheet.
 		fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
@@ -694,18 +687,13 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
-	var overlay := Control.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = Overlay.MODAL_TOP_Z          # the cash confirm sits ABOVE the open shop
-	host.add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, Tune.CONFIRM_VEIL_ALPHA)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
+	# the cash confirm sits ABOVE the open shop and is NOT veil-dismissable — a money decision leaves
+	# by Cancel, ✕ or Confirm, never by a stray tap. Tune.CONFIRM_VEIL_ALPHA is the storefront's own
+	# authored darkness for this sheet (a lighter scrim over the already-frosted shop behind it).
+	var modal := Overlay.modal(host, CONFIRM_NAME, {
+		"z": Overlay.MODAL_TOP_Z, "dismissable": false, "alpha": Tune.CONFIRM_VEIL_ALPHA})
+	var overlay: Control = modal["overlay"]
+	var cc: CenterContainer = modal["center"]
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", Tune.CONFIRM_COL_SEP)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -769,7 +757,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	copts["banner_text"] = title
 	copts["banner_icon_on"] = false
 	copts["center_content"] = true
-	copts["on_close"] = func() -> void: overlay.queue_free()
+	copts["on_close"] = modal["dismiss"]
 	var vp := host.get_viewport()
 	var vw: float = vp.get_visible_rect().size.x if vp != null else 1080.0
 	var width: float = maxf(1.0, vw) * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
