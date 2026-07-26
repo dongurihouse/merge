@@ -179,3 +179,60 @@ pads mark empty cells only.
 1. ×2 pays a guaranteed coin piece — keep, or start rewards at ×3?
 2. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
    auto-steps skip them? The sim pass will quantify either way.
+
+## 13 · Implementation directions (for the implementing agent)
+
+**Workspace.** Branch `feat/cascade-combos` from latest `main` in a NEW worktree outside the
+repo: `git worktree add /Users/xup/dh/merge-wt-cascade -b feat/cascade-combos` (in-repo
+worktrees get wiped by other agents). Seed the import cache before the first run:
+`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-cascade/.godot/`.
+**Do not merge to main and do not remove the worktree** — implementation ends with the branch
+committed in place; code review happens in the worktree.
+
+**Order** — each step lands with its tests green (`make test-fast`, a few seconds) before the next:
+
+1. `board_logic.gd`: `chain_path` + `ready_ladders` + `chain_placements` (§3); new
+   `engine/tests/cascade_tests.gd` with the §11 engine battery; add the suite to `ENGINE_TESTS`
+   (`Makefile:11`).
+2. Chest extension (§6): `"top": 5` on the line-10 def + `CHEST_OPEN_COINS`/`ACORNS` rows 4/5;
+   placeholder art — copy `items/chest/chest_3.png` to `chest_4.png` / `chest_5.png` (approved
+   t4/t5 direction mocks exist; real art lands separately via the intake pipeline);
+   `make import`.
+3. Run executor + rewards in `board.gd` (§4, §5): `_chain_run` computed in `_commit_merge` /
+   `_apply_recipe`, the step loop, ×n floater, ×5 burst, reward births/upgrades,
+   `chain_running()`.
+4. `engine/scripts/ui/cascade_outline.gd` + the `G.line_color(code)` accessor (§7).
+5. Drag guide (§8).
+6. FTUE (§9) + `strings.json` keys under `board.cascade.*`.
+7. `"cascade"` flag + `docs/FEATURES.md` row (§10); new
+   `games/grove/tests/grove_cascade_tests.gd` with the §11 grove battery; add to `GROVE_TESTS`
+   (`Makefile:15`) **and** the project `CLAUDE.md` suite-list line.
+8. Evidence + regression: extend `grove_shot.gd` with a seeded, byte-deterministic `cascade`
+   mode (a lit ladder + ghost pads + a mid-run frame) and save captures to
+   `/tmp/cascade_*.png`; run
+   `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>` for 3
+   seeds — a structural regression (invariant Y, "the clock is quests only", must hold; the
+   sim bot does not play cascades); full `make test` green. The hand-off summary lists suites
+   run, capture paths, and the sim's Z faucet lines.
+
+**Open-question defaults** (§12 — the Dev has not ruled; make each a one-line flip): ship the
+§5 table as written (×2 coin included) as one `CHAIN_REWARDS` const table; auto-steps roll the
+lucky drops, gated by one bool const.
+
+**Repo rules that bite:**
+
+- Do not touch `_bump_combo` / `combo_step` / the combo consts in `tuning.gd` / any Rush file
+  (`explore*.gd`) — the streak must behave byte-identically with the flag ON.
+- The mastery branch lifts `_apply_recipe` into `BoardActions.apply_recipe`; if that has landed
+  on `main` before §4 wiring, hook the chain at the `board.gd` call site (the scene wrapper),
+  never inside the lifted action.
+- Engine code never references `games/` directly — colors via the new `G.line_color` only, and
+  no new `Color("#…")` hex literals (`palette_ssot_tests` fails the build).
+- No bare `z_index` integer literals (`layering_tests`) — child order or named consts.
+- Don't reformat `test_base` output — the runner parses the `"  PASS"` lines and the footer.
+- New `.gd` files: run `make import` before committing so `.uid` sidecars exist and are
+  committed.
+- Fast parse check: `godot --headless --check-only --script <file.gd>`; suites only via
+  `make test-fast` / `make test` — a bare foreground `godot -s` run can hang a shell.
+- Tests comparing Control positions/sizes use `is_equal_approx` (float32 truncation); headless
+  runs dispatch notifications with `obj.notification(what)`, never `_notification()` directly.
