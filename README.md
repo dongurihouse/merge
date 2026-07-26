@@ -15,7 +15,7 @@ Godot **4.6** (developed on 4.6.2). On this machine: `/opt/homebrew/bin/godot`.
 ## Run the game
 - **Editor:** open this folder as a Godot project and press Play.
 - **CLI (desktop):** `godot --path .` — opens a portrait window; mouse-click acts as touch.
-- Main scene: `scenes/Home.tscn`.
+- Main scene: `engine/scenes/Boot.tscn` (authoritative: `run/main_scene` in `project.godot`).
 
 ## Run the tests (headless — no display needed)
 Suites run **in parallel** with a per-suite timing table (`engine/tools/run_suites.py`,
@@ -32,9 +32,9 @@ JOBS=8 make test    # raise/lower parallelism
 ```
 Suites live beside the code they cover: the base-engine ones in `engine/tests/`, and the
 grove game's in `games/grove/tests/`. The grove suite was split from one 2.3k-line
-monolith into focused suites (`grove_model_tests`, `grove_economy_tests`, `grove_ui_tests`,
-`grove_placement_tests`, `grove_shop_ads_tests`) sharing `grove_test_base.gd`, so they
-parallelise and you can run just the slice you touched.
+monolith into focused suites sharing `grove_test_base.gd`, so they parallelise and you
+can run just the slice you touched. The authoritative list is `GROVE_TESTS` in the
+`Makefile` — as of this writing: `grove_board_actions_tests`, `grove_explore_tests`, `grove_scene_workbench_tests`, `grove_scene_covers_tests`, `grove_shop_tests`, `grove_ui_workbench_tests`, `grove_ftue_tests`, `grove_rush_ftue_tests`.
 
 ## Layout
 | Path | Role |

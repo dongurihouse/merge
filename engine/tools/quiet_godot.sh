@@ -59,10 +59,15 @@ trap 'on_sig 129' HUP
 export TU_QUIET=1
 FPS_ARGS=()
 [ "${TU_FIXED_FPS:-60}" != "0" ] && FPS_ARGS=(--fixed-fps "${TU_FIXED_FPS:-60}")
+# Honour the same $GODOT override the Makefile advertises and run_suites.py already
+# respects — otherwise `make shot GODOT=/path/to/pinned-godot` silently captured with
+# whatever `godot` happened to be on PATH (a different engine build), while `make test`
+# with the same override used the pinned one.
+GODOT_BIN="${GODOT:-godot}"
 if [ "${WITH_AUDIO:-0}" = "1" ]; then
-  godot "${FPS_ARGS[@]}" "$@" &
+  "$GODOT_BIN" "${FPS_ARGS[@]}" "$@" &
 else
-  godot --audio-driver Dummy "${FPS_ARGS[@]}" "$@" &
+  "$GODOT_BIN" --audio-driver Dummy "${FPS_ARGS[@]}" "$@" &
 fi
 GPID=$!
 rc=0
