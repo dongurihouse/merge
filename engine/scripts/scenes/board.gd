@@ -3220,16 +3220,7 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 	var row := board.improvement_at(cell)
 	var watered := bool(row.get("watered", false))
 	var water_ready := water >= int(G.SOIL_WATER_COST) and not watered
-	for c in _info_soil_water_coin.get_children():
-		c.queue_free()
-	var water_icon := Look.icon("water", _info_soil_water_coin.custom_minimum_size.x)
-	water_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_soil_water_coin.add_child(water_icon)
-	_info_soil_water_count.text = "-%d" % int(G.SOIL_WATER_COST)
-	_info_soil_water_sb.bg_color = Pal.BTN_PRIMARY if water_ready else Color(Pal.BTN_PRIMARY, 0.42)
-	_info_soil_water_sb.border_color = Pal.BTN_PRIMARY_EDGE if water_ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
-	_info_soil_water.modulate = Color(1, 1, 1, 1.0) if water_ready else Color(1, 1, 1, 0.7)
-	_info_soil_water.visible = true
+	_set_action_chip(_info_soil_water, _info_soil_water_sb, _info_soil_water_coin, _info_soil_water_count, "water", "-%d" % int(G.SOIL_WATER_COST), water_ready)
 
 func _refresh_selected_soil_info() -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):
