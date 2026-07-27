@@ -17,18 +17,15 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const OVERLAY_NAME := "InboxOverlay"
 
-# The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
-# hard-depending on a tools script, matching the inbox's own guarded-system idiom.
-static var KIT_PATH := Game.kit()
 
 # --- the mailbox popup --------------------------------------------------------------
 
 static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Inbox: mail kit missing at %s" % KIT_PATH)
+		push_warning("Inbox: mail kit missing at %s" % Game.kit())
 		return
 
 	var modal := Overlay.modal(host, OVERLAY_NAME)
@@ -41,7 +38,7 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	Inbox.prune()
 	Inbox.mark_all_read()
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	# the mail dialog renders at the SINGLE global frame width; content scales from the authored
 	# baseline (Kit.DIALOG_DESIGN_PCT) to that width (responsive across phone sizes).
 	var vw: float = host.get_viewport_rect().size.x

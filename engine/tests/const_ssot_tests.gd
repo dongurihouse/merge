@@ -37,6 +37,11 @@ extends "res://engine/tests/test_base.gd"
 ##     game would have left the iOS home-screen label stale until someone read an export. Godot's
 ##     iOS exporter falls back to config/name when application/name is blank (verified by export),
 ##     so the copy is DELETED — this asserts the preset stays blank, i.e. still inheriting.
+##  9. THE UI KIT HANDLE. 25 files each declared `static var KIT_PATH := Game.kit()` and then
+##     hand-rolled `load(KIT_PATH)` plus a null-guard of their own choosing — three different
+##     guards, so "which site crashes when the kit is missing?" had no answer. Game.kit_script()
+##     is the one loader and Game.kit_config() the one config read; the copies are DELETED and
+##     this scan keeps them gone (a re-declared handle is how the divergence started).
 
 const Design = preload("res://engine/scripts/core/design.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -84,6 +89,7 @@ func _initialize() -> void:
 	_check_pinnacle_tier()
 	_check_bundle_id()
 	_check_app_display_name()
+	_check_kit_handle()
 	finish()
 
 # --- 1. the design canvas -----------------------------------------------------------------
@@ -336,3 +342,37 @@ func _strip_comments_and_strings(line: String, in_doc: bool) -> Dictionary:
 		out += c
 		i += 1
 	return {"code": out, "in_doc": in_doc}
+
+# --- 9. the UI kit handle -----------------------------------------------------------------
+
+## Every engine reach for the game's UI kit goes through Game.kit_script() / Game.kit_config().
+## A file that resolves its own handle is exactly how the three divergent null-guards grew, so the
+## two spellings that produced them are banned outright. Comment text does not count.
+const KIT_HANDLE_OWNER := "res://engine/scripts/core/game.gd"
+const KIT_HANDLE_SCANNER := "res://engine/tests/const_ssot_tests.gd"   # names the banned spellings to scan for
+const KIT_HANDLE_BANNED := ["load(Game.kit())", "KIT_PATH"]
+
+func _check_kit_handle() -> void:
+	var K: GDScript = Game.kit_script()
+	ok(K != null, "Game.kit_script() resolves the active game's kit")
+	ok(K == Game.kit_script(), "Game.kit_script() is cached — every caller holds the SAME handle")
+	# the config must be read on the KIT's own CONFIG_PATH: that is the key the workbench's
+	# set_config_cache / clear_config_cache use, so any other key would miss a live edit.
+	ok(Game.kit_config() == K.load_config(K.CONFIG_PATH), \
+		"Game.kit_config() reads the kit's own CONFIG_PATH (the workbench's live-edit cache key)")
+
+	var offenders := PackedStringArray()
+	for root in SCAN_ROOTS:
+		for path in gd_files(root):
+			if path == KIT_HANDLE_OWNER or path == KIT_HANDLE_SCANNER:
+				continue   # sanctioned: the one loader, and this scan's own pattern list
+			var line_no := 0
+			for raw_line in read_text(path).split("\n"):
+				line_no += 1
+				var line: String = raw_line.split("#")[0]
+				for banned in KIT_HANDLE_BANNED:
+					if line.find(banned) != -1:
+						offenders.append("%s:%d  %s" % [path, line_no, banned])
+	ok(offenders.is_empty(), \
+		"no file re-declares its own kit handle — Game.kit_script() is the only loader%s" % \
+		("" if offenders.is_empty() else " — " + ", ".join(offenders)))

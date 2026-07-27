@@ -40,7 +40,6 @@ static var RUSH_ART := Look.kit("rush/%s.png")          # the carved-wood / parc
 static var DANGER_CHEVRON_ART := Look.kit("meadow_v2/danger_chevron.png")
 const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
 static var RUSH_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_rush.png")
-static var KIT_PATH := Game.kit()      # the shared UI kit (board frame · slot cells · rush bar)
 
 # --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
 # whole HUD scales 1:1 with the device. The vertical stack, top → bottom:
@@ -131,7 +130,7 @@ func _ready() -> void:
 
 	# resolve the workbench-tuned feel-FX opts ONCE — Rush then runs the SAME appliers the
 	# Merge/Land/Launch/Move workbenches preview, so a saved tuning takes effect in-game.
-	var KitFx: GDScript = load(KIT_PATH)
+	var KitFx: GDScript = Game.kit_script()
 	var fx_cfg: Dictionary = KitFx.load_config(KitFx.CONFIG_PATH)
 	_merge_opts = MergeFx.from_config(fx_cfg)
 	_land_opts = LandFx.from_config(fx_cfg)
@@ -184,7 +183,7 @@ func _compute_bands() -> Dictionary:
 	var vh: float = vp.y if vp.y > 0.0 else design.y
 	var st := Look.safe_top(self)
 	var sb := Look.safe_bottom(self)
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var bar_opts: Dictionary = Kit.rush_bar_opts_from_config(cfg)
 	var bar_intrinsic: Vector2 = Kit.rush_bar_intrinsic_size(bar_opts)
@@ -244,7 +243,7 @@ func _relayout_after_resize() -> void:
 # aspect, so a wider bar is proportionally taller. The value Labels come back via meta so _refresh_readouts
 # updates them. The big EXIT × hugs the top-right corner ABOVE the bar (sized like the home map nav button).
 func _build_topbar() -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var vw: float = float(_band.vw)
 	var opts: Dictionary = _band.bar_opts
 	# seed the live readouts so a resize mid-run keeps the time / score / mult (not a reset to 0)
@@ -381,7 +380,7 @@ func _act_panel(size: Vector2, bg: Color, border: Color, corner: float = -1.0) -
 	sb.anti_aliasing = true
 	Look.apply_box_shadow(sb)
 	p.add_theme_stylebox_override("panel", sb)
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var cp: Dictionary = Kit.cut_paper_opts_from_config(_band.cfg, "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
 	var paper_fill := Color(bg.r, bg.g, bg.b, 1.0)
 	Kit.rugged_paper_surface(p, "RushActivityDeckleSurface", size, paper_fill, border, float(real_corner), cp)
@@ -424,7 +423,7 @@ func _tile_px() -> float:
 	return _cell - 2.0 * _inset
 
 func _build_board_chrome() -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var cfg: Dictionary = _band.cfg
 	var fit: Dictionary = _board_fit                      # resolved once in _layout (shared with the chrome bands)
 	_cell = float(fit.cell)
@@ -509,7 +508,7 @@ func _apply_treefall_visual() -> void:
 # paper-grain layer). Sized to the board width (pure %), and centred vertically in the bottom SECTION
 # (board bottom → screen bottom) so it sits in the open band below the grid.
 func _build_bottom_hint() -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var vw: float = float(_band.vw)
 	var strip_w := _board_w()                  # match the board (and the bars) width
 	var strip_h: float = float(_band.hint_h)

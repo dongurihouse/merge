@@ -11,8 +11,7 @@ extends RefCounted
 ## line+tier hand spirit MERGES (Bucket.hand_merge), onto a matching placed spirit climbs it
 ## (place_merge), onto a free habitat cell moves in (place).
 ## The MODEL is entirely engine/scripts/core/bucket.gd; this file is render + taps + drags only.
-## Layering: ui/ may import core/ + ui/, never scenes/. The kit is loaded by PATH at runtime
-## (the settings.gd/inbox.gd idiom) so this file keeps no hard dependency on a tools script.
+## Layering: ui/ may import core/ + ui/, never scenes/.
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
@@ -31,7 +30,6 @@ const Pal = Game.PALETTE
 const D = Game.DATA
 
 const OVERLAY_NAME := "ResidentsOverlay"
-static var KIT_PATH := Game.kit()
 # Resident-specific body sprites extracted from the residents mock. The outer dialog frame stays owned by
 # the shared kit so it matches Mail/Daily/Settings instead of drawing a second sheet.
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
@@ -227,9 +225,9 @@ class DragCard:
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Residents: mail kit missing at %s" % KIT_PATH)
+		push_warning("Residents: mail kit missing at %s" % Game.kit())
 		return
 	Audio.play("button_tap", -2.0)
 
@@ -237,7 +235,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var viewport_size := host.get_viewport_rect().size
 	var vw: float = viewport_size.x
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["residents"] / 100.0

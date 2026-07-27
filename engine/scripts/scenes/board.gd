@@ -8,7 +8,7 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
-static var KIT: GDScript = load(Game.kit())   # the shared UI kit — resolved ONCE at script load, not a load() per call site
+static var KIT: GDScript = Game.kit_script()   # the shared UI kit — the one cached handle, not a load() per call site
 const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -1045,7 +1045,7 @@ func _load_board_config() -> void:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	if cfg.has("board") and cfg["board"] is Dictionary:
 		var b: Dictionary = (cfg["board"] as Dictionary).duplicate()
 		# Slot-cell owns piece size via bag_card.content_frac — resolve it through the shared rule so the
@@ -1637,7 +1637,7 @@ func _giver_lay() -> Dictionary:
 	var L: Dictionary = GiverStand.LAY.duplicate()
 	var Kit: GDScript = KIT
 	if Kit != null:
-		var over: Dictionary = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		var over: Dictionary = Kit.giver_lay_from_config(Game.kit_config())
 		for k in over:
 			L[k] = over[k]
 	return L
@@ -2056,7 +2056,7 @@ func _make_board_mat() -> Control:
 	if Kit == null:
 		return PieceView.make_board_mat(_board_w(), _board_h())
 	var size := Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
-	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)))
+	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Game.kit_config()))
 	panel.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	return panel
 
@@ -2164,7 +2164,7 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	# the most-recent one overlays the drawn glyph (bag_content); the "x/y" count rides the tile's foot.
 	# Drag-to-stash / drag-back / highlight all key off the button's global rect, unchanged.
 	_bag_well_drawn_disc = false            # the code-drawn well's own centered glyph IS the empty state
-	var bag_opts: Dictionary = KitB.action_button_opts_from_config(KitB.load_config(KitB.CONFIG_PATH))
+	var bag_opts: Dictionary = KitB.action_button_opts_from_config(Game.kit_config())
 	bag_opts["name"] = "BagWell"
 	var b: Button = KitB.action_button("bag", Vector2(px, px), Callable(self, "_open_bag_overlay"), bag_opts)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -2216,7 +2216,7 @@ func _hud_layout() -> Dictionary:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
-	return Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.hud_layout_opts_from_config(Game.kit_config())
 
 func _bottom_button_px() -> float:
 	var lay := _hud_layout()
@@ -2267,7 +2267,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 	if KitH != null:
 		# the shared code-drawn action button (CutPaperPanel rugged edge + centered home glyph) — the
 		# same builder the home bottom bar uses, so the two read identically off one source.
-		var ho: Dictionary = KitH.action_button_opts_from_config(KitH.load_config(KitH.CONFIG_PATH))
+		var ho: Dictionary = KitH.action_button_opts_from_config(Game.kit_config())
 		ho["name"] = "BoardHomeTile"
 		b = KitH.action_button("home", Vector2(px, px), go, ho)
 	else:
@@ -2286,7 +2286,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
-	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var opts: Dictionary = Kit.info_bar_opts_from_config(Game.kit_config())
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
 	pill.name = "ActionBarInfoBar"
 	pill.custom_minimum_size.x = 1.0
@@ -2349,7 +2349,7 @@ func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	var KitA: GDScript = KIT
 	if KitA == null:
 		return
-	var chip_opts: Dictionary = KitA.action_button_opts_from_config(KitA.load_config(KitA.CONFIG_PATH))
+	var chip_opts: Dictionary = KitA.action_button_opts_from_config(Game.kit_config())
 	chip_opts["name"] = "AlmanacInfoButton"
 	chip_opts["tooltip"] = Strings.t("almanac.chip")
 	chip_opts["icon_scale"] = minf(float(chip_opts.get("icon_scale", 0.9)), 0.78)
@@ -2548,7 +2548,7 @@ func _focus_ring_opts() -> Dictionary:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
-	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.focus_ring_opts_from_config(Game.kit_config())
 
 func _show_locked_cell_info(cell: Vector2i) -> void:
 	_clear_selection()
@@ -2870,7 +2870,7 @@ func _gen_highlight_opts() -> Dictionary:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
-	return Kit.gen_highlight_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.gen_highlight_opts_from_config(Game.kit_config())
 
 # --- input ---------------------------------------------------------------------
 

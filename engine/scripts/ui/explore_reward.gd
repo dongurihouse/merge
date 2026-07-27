@@ -19,7 +19,6 @@ const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "ExploreRewardOverlay"
 const INK := Color("#43352B")
 const STRAW := Color("#D9B679")
@@ -32,7 +31,7 @@ const SPIN_CFG := {"spin": 1.2, "stagger": 0.55, "anticipate": 0.5, "total_cap":
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	# above the board + HUD, and NOT veil-dismissable: the veil swallows taps on the frozen board so

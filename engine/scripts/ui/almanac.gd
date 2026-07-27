@@ -12,15 +12,14 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "AlmanacOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Almanac: ui kit missing at %s" % KIT_PATH)
+		push_warning("Almanac: ui kit missing at %s" % Game.kit())
 		return
 	var entries: Array = opts.get("entries", [])
 	if entries.is_empty():
@@ -32,7 +31,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var vw: float = host.get_viewport_rect().size.x
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
 
