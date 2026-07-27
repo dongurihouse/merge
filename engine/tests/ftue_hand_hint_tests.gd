@@ -153,6 +153,14 @@ func _initialize() -> void:
 	ok(_all_ignore_mouse(tap), "tap: every node ignores mouse input")
 	tap.dismiss()
 
+	var contextual_tap: Control = HandHint.present(host, HandHint.GESTURE_TAP, src, dst)
+	var contextual_cuts: Array = contextual_tap.cutouts()
+	ok(contextual_cuts.size() == 2, "tap with context: exposes the context and target cutouts")
+	if contextual_cuts.size() >= 2:
+		ok((contextual_cuts[0] as Rect2).get_center().is_equal_approx(src.get_center()), "tap with context: cutout 0 is centred on the context")
+		ok((contextual_cuts[1] as Rect2).get_center().is_equal_approx(dst.get_center()), "tap with context: cutout 1 is centred on the target")
+	contextual_tap.dismiss()
+
 	# A FRESH host, so the dismissed-but-still-fading overlays above can't be miscounted here.
 	var host2 := Control.new()
 	host2.size = Vector2(800, 1200)
@@ -178,6 +186,15 @@ func _initialize() -> void:
 		"veil: tap bands' total area == host area minus the grown cutout")
 	ok(_no_overlap(v_tap_bands, v_tap_cuts), "veil: tap bands never overlap the cutout")
 	v_tap.dismiss()
+
+	# two cutouts, tap target plus context
+	var v_tap_context: Control = HandHint.present(vhost, HandHint.GESTURE_TAP, Rect2(50, 50, 60, 60), Rect2(300, 200, 60, 60))
+	var v_tap_context_cuts: Array = v_tap_context.cutouts()
+	var v_tap_context_bands := _veil_bands(v_tap_context)
+	ok(is_equal_approx(_sum_area(v_tap_context_bands), vhost_area - _rect_union_area(v_tap_context_cuts)),
+		"veil: contextual tap bands' total area == host area minus both cutouts")
+	ok(_no_overlap(v_tap_context_bands, v_tap_context_cuts), "veil: contextual tap bands never overlap either cutout")
+	v_tap_context.dismiss()
 
 	# two cutouts, disjoint (drag)
 	var v_drag: Control = HandHint.present(vhost, HandHint.GESTURE_DRAG, Rect2(50, 50, 60, 60), Rect2(500, 400, 60, 60))

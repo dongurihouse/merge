@@ -7,7 +7,7 @@ extends SceneTree
 ##        sky_calm | sky_sunbeam | sky_rain | sky_starfall |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
-##        generator-tap hand hint)
+##        generator-tap hand hint) | ftuesoil (L6 Soil-seed hand hint; phase=place for beat 2)
 ##
 ## BYTE-DETERMINISTIC: same code + same MODE ⇒ identical PNG. The board RNG is pinned BEFORE the
 ## scene loads (board.gd's forced_rng_seed — _load_state randomizes on a fresh save, and the quest
@@ -18,6 +18,7 @@ const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 
@@ -30,10 +31,10 @@ func _initialize() -> void:
 		"default_out": "/tmp/grove_%s.png",
 		"save_dir": "/tmp/tu_groveshot_%s/",
 		# Every mode this tool answers to — the `match` labels below plus the three handled outside
-		# it ("fresh" has no branch at all; ftue/ftuegen are seeded before the scene loads). Declaring
+		# it ("fresh" has no branch at all; ftue/ftuegen/ftuesoil are seeded before the scene loads). Declaring
 		# them makes an unknown MODE refuse instead of silently capturing the default board; keep this
 		# list in step when adding or removing a branch.
-		"modes": ["fresh", "ftue", "ftuegen",
+		"modes": ["fresh", "ftue", "ftuegen", "ftuesoil",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
 			"level", "levelup", "swap", "ladder", "farewell", "almanac", "recipe",
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
@@ -53,12 +54,14 @@ func _initialize() -> void:
 	var mode: String = ctx["mode"]
 	var out: String = ctx["out"]
 	Save.mark_board_tutorial_seen()   # a capture shows the BOARD, never the How-to-Play overlay
-	Save.mark_ftue_seen("merge")      # and never the FTUE hand-hint veil either — except ftue/ftuegen
-	Save.mark_ftue_seen("gen_tap")    # below, which explicitly re-seed the ledger to show it live
+	Save.mark_ftue_seen("merge")      # and never the FTUE hand-hint veil either — except ftue/ftuegen/
+	Save.mark_ftue_seen("gen_tap")    # ftuesoil below, which explicitly re-seed the ledger to show it live
 	if mode == "ftue":
 		Save.data["ftue_seen"] = {}          # a brand-new player: the merge hand is live
 	if mode == "ftuegen":
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
+	if mode == "ftuesoil":
+		Save.data["ftue_seen"] = {"merge": true, "gen_tap": true}   # L6 grant: only Soil remains live
 	match mode:
 		"sky_calm":
 			Ambient.forced_weather = "calm"
@@ -96,6 +99,15 @@ func _initialize() -> void:
 	scn.rng.seed = RNG_SEED           # re-pin so each mode's own actions start from a fixed stream
 
 	match mode:
+		"ftuesoil":
+			var soil_phase := String(Base.opt(args, "phase", "seed"))
+			scn._maybe_soil_ftue()
+			await create_timer(0.35).timeout
+			if soil_phase == "place":
+				var seed_cell: Vector2i = scn.board.first_item_of(Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+				if seed_cell.x >= 0:
+					scn._select_item(seed_cell)
+					await create_timer(0.35).timeout
 		"cascade":
 			var phase := String(Base.opt(args, "phase", "run"))
 			for i in scn.board.items.size():
@@ -656,6 +668,7 @@ static func _clock_seeds() -> Dictionary:
 		# L6 · 25🪙 — the level the Producing capture is written for.
 		"producing": G.coins_at_level(6),
 		"producingdrill": G.coins_at_level(6),
+		"ftuesoil": G.coins_at_level(6),
 		# gate: the SAME 25 is also earned into the WALLET (earn_coins), because G.cluster_ready gates on
 		# the level floor AND the price — L6 · 25🪙 clears the first hollow clusters' floors and costs.
 		"gate": G.coins_at_level(6),

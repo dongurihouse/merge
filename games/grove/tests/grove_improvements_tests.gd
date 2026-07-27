@@ -23,6 +23,9 @@ func _initialize() -> void:
 	await _test_soil_tick_does_not_free_active_drag_node()
 	await _test_soil_completion_wakes_magnet_and_opens_bramble()
 	await _test_soil_ftue_grants_seed_once()
+	await _test_soil_ftue_hand_follows_moved_seed()
+	await _test_soil_ftue_seed_tap_advances_to_place_hint()
+	await _test_soil_ftue_bag_dismisses_without_teaching()
 	await _test_soil_ftue_waits_when_seed_has_no_destination()
 	await _test_improvements_flag_blocks_seed_drops()
 	await _test_bagged_soil_seed_survives_the_round_trip()
@@ -57,6 +60,29 @@ func _settle() -> void:
 
 func _cell_center(scn: Node, cell: Vector2i) -> Vector2:
 	return scn._cell_pos(cell) + Vector2(scn.csz, scn.csz) * 0.5
+
+func _cell_rect_in_scene(scn: Node, cell: Vector2i) -> Rect2:
+	var global_pos: Vector2 = scn.board_area.get_global_transform() * scn._cell_pos(cell)
+	return Rect2(global_pos - scn.get_global_rect().position, Vector2(scn.csz, scn.csz))
+
+func _hint_covers_rect(scn: Node, rect: Rect2) -> bool:
+	if scn._hand_hint == null or not is_instance_valid(scn._hand_hint):
+		return false
+	for cut in scn._hand_hint.cutouts():
+		if (cut as Rect2).has_point(rect.get_center()):
+			return true
+	return false
+
+func _farthest_empty_cell(scn: Node, from: Vector2i) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := -1
+	for c in scn.board.empty_ground_cells():
+		var cell := c as Vector2i
+		var d := int(pow(cell.x - from.x, 2) + pow(cell.y - from.y, 2))
+		if d > best_d:
+			best_d = d
+			best = cell
+	return best
 
 # The caption a chip shows: the FIRST Label under the button (ActionBar.action_chip and the kit's
 # sell button both stack caption-above-badge, so pre-order finds the caption, never the count).
@@ -101,6 +127,23 @@ func _board_tap(scn: Node, cell: Vector2i) -> void:
 	up.pressed = false
 	scn._on_board_input(up)
 
+func _drag_board_item_to_cell(scn: Node, from: Vector2i, to: Vector2i) -> void:
+	var start := _cell_center(scn, from)
+	var dest := _cell_center(scn, to)
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = start
+	scn._on_board_input(down)
+	var move := InputEventMouseMotion.new()
+	move.position = dest
+	scn._on_board_input(move)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = dest
+	scn._on_board_input(up)
+
 func _drag_board_item_to_bag(scn: Node, cell: Vector2i) -> void:
 	var start := _cell_center(scn, cell)
 	var bag_global: Vector2 = scn.bag_btn.get_global_rect().get_center()
@@ -126,6 +169,22 @@ func _nodes_with_meta(root: Node, key: String) -> Array:
 	for c in root.get_children():
 		out.append_array(_nodes_with_meta(c, key))
 	return out
+
+func _open_soil_ftue_teach_scene(save_id: String) -> Dictionary:
+	fresh(save_id)
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.grove()["coins_earned"] = G.coins_at_level(6)
+	Save.grove_write()
+	var scn := _open_board()
+	await _settle()
+	var soil_seed := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
+	var seed_cell: Vector2i = scn.board.first_item_of(soil_seed)
+	ok(seed_cell.x >= 0, "%s setup: level-6 Soil FTUE grants a visible seed" % save_id)
+	ok(scn._hand_hint_id == "soil_seed", "%s setup: the first Soil seed teach is active" % save_id)
+	ok(_hint_covers_rect(scn, _cell_rect_in_scene(scn, seed_cell)), "%s setup: the teach cutout covers the seed cell" % save_id)
+	return {"scn": scn, "seed_cell": seed_cell, "code": soil_seed}
 
 func _test_seed_info_bar_places_bags_and_sells() -> void:
 	fresh("improve_scene_seed_actions")
@@ -489,6 +548,54 @@ func _test_soil_ftue_grants_seed_once() -> void:
 	scn._maybe_soil_ftue()
 	await _settle()
 	ok(scn.board.count_of(Improvements.seed_code_for_kind(Improvements.KIND_SOIL)) == 1, "soil FTUE does not grant a second seed once seen")
+	scn.queue_free()
+
+func _test_soil_ftue_hand_follows_moved_seed() -> void:
+	var setup := await _open_soil_ftue_teach_scene("improve_ftue_seed_move")
+	var scn: Node = setup.scn
+	var seed_cell: Vector2i = setup.seed_cell
+	var code := int(setup.code)
+	var dest := _farthest_empty_cell(scn, seed_cell)
+	ok(dest.x >= 0, "soil FTUE move setup finds an empty destination")
+	_drag_board_item_to_cell(scn, seed_cell, dest)
+	await _settle()
+	ok(scn.board.item_at(dest) == code and scn.board.item_at(seed_cell) == 0, "soil seed moves through the board drag path")
+	ok(scn._hand_hint_id == "soil_seed", "moving the seed keeps the first Soil teach active")
+	ok(_hint_covers_rect(scn, _cell_rect_in_scene(scn, dest)), "moving the seed retargets the teach cutout to the new cell")
+	ok(not _hint_covers_rect(scn, _cell_rect_in_scene(scn, seed_cell)), "moving the seed no longer leaves the teach cutout on the old empty cell")
+	scn.queue_free()
+
+func _test_soil_ftue_seed_tap_advances_to_place_hint() -> void:
+	var setup := await _open_soil_ftue_teach_scene("improve_ftue_seed_place_hint")
+	var scn: Node = setup.scn
+	var seed_cell: Vector2i = setup.seed_cell
+	_board_tap(scn, seed_cell)
+	await _settle()
+	ok(scn._selected_cell == seed_cell, "tapping the Soil seed selects that seed cell")
+	ok(scn._info_seed_place != null and scn._info_seed_place.visible, "tapping the Soil seed reveals the Place chip")
+	ok(scn._hand_hint_id == "soil_place", "tapping the Soil seed advances to the transient Place teach")
+	ok(_hint_covers_rect(scn, _cell_rect_in_scene(scn, seed_cell)), "the Place teach keeps the seed cell undimmed")
+	ok(_hint_covers_rect(scn, scn._local_rect(scn._info_seed_place)), "the Place teach leaves the Place chip undimmed")
+	ok(not Save.ftue_seen("soil_seed"), "selecting the seed does not mark the placement lesson complete")
+	scn.queue_free()
+
+func _test_soil_ftue_bag_dismisses_without_teaching() -> void:
+	var setup := await _open_soil_ftue_teach_scene("improve_ftue_seed_bag")
+	var scn: Node = setup.scn
+	var seed_cell: Vector2i = setup.seed_cell
+	var code := int(setup.code)
+	scn._stash(seed_cell, scn.piece_nodes.get(seed_cell))
+	await _settle()
+	ok(not Save.ftue_seen("soil_seed"), "bagging the Soil seed does not mark the placement lesson complete")
+	ok(scn.bag.has(code), "bagging the Soil seed stores it in the bag")
+	ok(scn._hand_hint == null or not is_instance_valid(scn._hand_hint) or scn._hand_hint_id == "", "bagging the only visible Soil seed dismisses the teach")
+	var back := _farthest_empty_cell(scn, seed_cell)
+	var bag_index: int = scn.bag.find(code)
+	ok(bag_index >= 0 and scn._retrieve_from_bag(bag_index, back), "the bagged Soil seed pulls back out through the bag retrieval path")
+	await _settle()
+	ok(not Save.ftue_seen("soil_seed"), "pulling the bagged Soil seed back out still leaves the lesson uncompleted")
+	ok(scn._hand_hint_id == "soil_seed", "pulling the Soil seed back onto the board returns the seed teach")
+	ok(_hint_covers_rect(scn, _cell_rect_in_scene(scn, back)), "the returned seed teach targets the pulled-back cell")
 	scn.queue_free()
 
 func _test_soil_ftue_waits_when_seed_has_no_destination() -> void:

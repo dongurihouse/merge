@@ -89,9 +89,12 @@ func _build() -> void:
 	_rebuild_veil()
 	_start_loop()
 
-## The bright rects this hint punches through the dim: [source, target] for a drag, [target] for a tap.
+## The bright rects this hint punches through the dim: [source, target] for a drag, [target]
+## for a tap, or [context, target] for a tap that passes a non-empty source rect.
 func cutouts() -> Array:
 	if gesture == GESTURE_DRAG:
+		return [_src.grow(CUTOUT_PAD), _dst.grow(CUTOUT_PAD)]
+	if _src.size.x > 0.0 and _src.size.y > 0.0:
 		return [_src.grow(CUTOUT_PAD), _dst.grow(CUTOUT_PAD)]
 	return [_dst.grow(CUTOUT_PAD)]
 

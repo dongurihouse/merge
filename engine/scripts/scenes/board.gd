@@ -910,6 +910,9 @@ func _maybe_hand_hint() -> void:
 	if not Features.on("ftue_hand_hint"):
 		_dismiss_hand_hint()   # the flag can flip off while a hint is live — tear it down, not stuck forever
 		return
+	if _hand_hint_ledger_complete():
+		_dismiss_hand_hint()
+		return
 	await get_tree().process_frame          # let the rebuild's layout settle before reading rects
 	if not is_inside_tree():
 		return
@@ -934,11 +937,25 @@ func _maybe_hand_hint() -> void:
 # _hand_hint_gen_cell() result — passed in rather than re-scanned here (that scan runs once per
 # _maybe_hand_hint(), not twice: once for eligibility, again for _hand_hint_rects()).
 func _hand_hint_eligible(gen_cell: Array) -> String:
-	if Save.ftue_seen("soil") and not Save.ftue_seen("soil_seed") and not _soil_seed_hint_cell().is_empty():
-		return "soil_seed"
+	if Save.ftue_seen("soil") and not Save.ftue_seen("soil_seed"):
+		if _soil_place_hint_ready():
+			return "soil_place"
+		if not _soil_seed_hint_cell().is_empty():
+			return "soil_seed"
 	var has_pair := not BoardLogic.find_mergeable_pair(board).is_empty()
 	var has_gen := not gen_cell.is_empty()
 	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
+
+func _hand_hint_ledger_complete() -> bool:
+	var soil_complete := not Save.ftue_seen("soil") or Save.ftue_seen("soil_seed")
+	return Save.ftue_seen("merge") and Save.ftue_seen("gen_tap") and soil_complete
+
+func _soil_place_hint_ready() -> bool:
+	if _selected_cell.x < 0:
+		return false
+	if board.item_at(_selected_cell) != Improvements.seed_code_for_kind(Improvements.KIND_SOIL):
+		return false
+	return _info_seed_place != null and is_instance_valid(_info_seed_place) and _info_seed_place.visible
 
 func _soil_seed_hint_cell() -> Array:
 	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
@@ -979,10 +996,11 @@ func _hand_hint_rects(id: String, gen_cell: Array) -> Array:
 		var seed_cell := _soil_seed_hint_cell()
 		if seed_cell.is_empty():
 			return []
-		var sn: Control = piece_nodes.get(seed_cell[0])
-		if sn == null or not is_instance_valid(sn):
+		return [Rect2(), _cell_local_rect(seed_cell[0])]
+	if id == "soil_place":
+		if not _soil_place_hint_ready():
 			return []
-		return [Rect2(), _local_rect(sn)]
+		return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)]
 	if gen_cell.is_empty():
 		return []
 	var gn: Control = gen_nodes.get(gen_cell[0])
@@ -990,9 +1008,19 @@ func _hand_hint_rects(id: String, gen_cell: Array) -> Array:
 		return []
 	return [Rect2(), _local_rect(gn)]
 
+func _cell_local_rect(cell: Vector2i) -> Rect2:
+	if board_area == null or not is_instance_valid(board_area):
+		return Rect2()
+	var gp: Vector2 = board_area.get_global_transform() * _cell_pos(cell)
+	return Rect2(gp - get_global_rect().position, Vector2(csz, csz))
+
 func _local_rect(n: Control) -> Rect2:
 	var gr := n.get_global_rect()
 	return Rect2(gr.position - get_global_rect().position, gr.size)
+
+func _dismiss_soil_seed_teach() -> void:
+	if _hand_hint_id == "soil_seed" or _hand_hint_id == "soil_place":
+		_dismiss_hand_hint()
 
 func _dismiss_hand_hint() -> void:
 	if _hand_hint != null and is_instance_valid(_hand_hint):
@@ -1005,7 +1033,7 @@ func _end_hand_hint(id: String) -> void:
 	if not Features.on("ftue_hand_hint"):   # flag off: tear down ANY live hint, not just an id match —
 		_dismiss_hand_hint()                 # a different-id hint would otherwise linger until some later,
 		return                                # unrelated rebuild. No ledger write while the flag is off.
-	if _hand_hint_id == id:
+	if _hand_hint_id == id or (id == "soil_seed" and _hand_hint_id == "soil_place"):
 		# Tear down before the seen check below — a live hint must clear even if `id` is already
 		# marked seen (that check returns early and never re-teaches, so it must not gate the teardown).
 		_dismiss_hand_hint()
@@ -1375,6 +1403,7 @@ func _after_board_change(hud_deferred := false) -> void:
 	_refresh_mastery_chrome()
 	if _selected_cell.x >= 0 and board.is_gen(_selected_cell):
 		_refresh_selected_generator_mastery()
+	_maybe_hand_hint()
 
 # the unlock CTA: ready when the NEXT cover-up cluster is unlockable right now (its page open,
 # level floor met, affordable) — the Home button breathes to say "go unlock the next region."
@@ -3315,6 +3344,8 @@ func _select_item(cell: Vector2i) -> void:
 			if _info_buy != null and is_instance_valid(_info_buy):
 				_info_buy.visible = false
 			_refresh_seed_chips(cell)
+			if seed_kind == Improvements.KIND_SOIL:
+				_maybe_hand_hint()
 		else:
 			_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
 		if board.is_growing(cell):
@@ -5339,7 +5370,7 @@ func _stash_confirmed(from: Vector2i, node: Control) -> void:
 	var rank := board.seed_rank_at(from)
 	var code := board.take(from)
 	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
-		_end_hand_hint("soil_seed")
+		_dismiss_soil_seed_teach()
 	_bag_append(code, rank)
 	piece_nodes.erase(from)
 	var at := board_area.get_global_transform() * _cell_pos(from) + Vector2(csz, csz) / 2.0
