@@ -199,7 +199,7 @@ func _check_docs() -> void:
 
 	var re := RegEx.create_from_string("\\bgrove_[a-z0-9_]*_tests\\b")
 	for doc in DOC_PATHS:
-		var text := _read(doc)
+		var text := read_text(doc)
 		ok(text != "", "%s is readable" % doc)
 		var named := {}
 		for m in re.search_all(text):
@@ -231,7 +231,7 @@ func _check_docs() -> void:
 ## because the assignment operator has to follow the name.
 func _makefile_list(var_name: String) -> Array:
 	var out: Array = []
-	var lines := _read("res://Makefile").split("\n")
+	var lines := read_text("res://Makefile").split("\n")
 	var i := 0
 	while i < lines.size():
 		var line := String(lines[i])
@@ -249,11 +249,3 @@ func _makefile_list(var_name: String) -> Array:
 				out.append(t)
 		break
 	return out
-
-func _read(path: String) -> String:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return ""
-	var t := f.get_as_text()
-	f.close()
-	return t

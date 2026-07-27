@@ -129,9 +129,9 @@ const IS_BG_CALLS := {
 ## deliberately different floor (slice_badges) — checked separately below.
 const OTHER_TOOLS := ["slice_badges", "slice_islands"]
 
+## The source of an intake tool, by tool NAME (these checks read the code, not the pixels).
 func _src(tool_name: String) -> String:
-	var f := FileAccess.open("res://games/tools/%s.gd" % tool_name, FileAccess.READ)
-	return "" if f == null else f.get_as_text()
+	return read_text("res://games/tools/%s.gd" % tool_name)
 
 ## Code lines only — a threshold quoted in a comment is documentation, not a second source of truth.
 func _code_lines(text: String) -> PackedStringArray:

@@ -55,17 +55,8 @@ func _owner_path() -> String:
 	var script: GDScript = Pal
 	return script.resource_path
 
-func _gd_files_deep(dir: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var d := DirAccess.open(dir)
-	if d == null:
-		return out
-	for f in d.get_files():
-		if f.ends_with(".gd"):
-			out.append(dir + f)
-	for sub in d.get_directories():
-		out.append_array(_gd_files_deep(dir + sub + "/"))
-	return out
+# The walk and the slurp are test_base.gd's gd_files(dir, deep) / read_text(path) — one
+# coverage function for every guard.
 
 ## hex (uppercase, no "#") -> role name, for every role the active palette declares.
 func _role_by_hex() -> Dictionary:
@@ -86,7 +77,7 @@ func _initialize() -> void:
 	var owner := _owner_path()
 	var files := PackedStringArray()
 	for root in SCAN_ROOTS:
-		files.append_array(_gd_files_deep(root))
+		files.append_array(gd_files(root))
 	ok(files.size() >= 100, "scan reaches the tree (%d .gd files under %s)" % [files.size(), ", ".join(SCAN_ROOTS)])
 
 	# The guard can only be trusted if it can SEE the owner's own literals — if this
@@ -146,11 +137,9 @@ func _initialize() -> void:
 ## is NOT preceded by a quote.
 func _scan(path: String, by_hex: Dictionary) -> Array:
 	var out: Array = []
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
+	var text := read_text(path)
+	if text == "":
 		return out
-	var text := f.get_as_text()
-	f.close()
 	var re := RegEx.create_from_string("\"#?([0-9A-Fa-f]{6})\"")
 	var line_no := 0
 	for raw_line in text.split("\n"):
