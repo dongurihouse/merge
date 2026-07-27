@@ -149,13 +149,20 @@ static func apply_tuning(path: String = "") -> PackedStringArray:
 			MIN_LEVEL = grid;   applied.append("min_level")
 	return applied
 
-# Validate a ROWS×COLS non-negative int grid; [] (→ ignored) on any shape mismatch.
+# Validate a ROWS×COLS non-negative int grid; [] (→ the key is ignored) on any shape mismatch.
+# A mis-shaped grid used to be a SILENT skip: the board fell back to the grove_data const and the
+# owner's saved JSON did nothing, with no signal anywhere. push_error instead — a hand-edited or
+# tool-generated grid of the wrong shape is a mistake, and it must say so.
 static func _coerce_grid(raw: Array) -> Array:
 	if raw.size() != int(D.ROWS):
+		push_error("economy_tuning min_level: expected %d rows × %d cols, got %d rows — grid IGNORED, the board falls back to the grove data const" % [int(D.ROWS), int(D.COLS), raw.size()])
 		return []
 	var grid: Array = []
-	for r in raw:
+	for i in raw.size():
+		var r: Variant = raw[i]
 		if not (r is Array) or (r as Array).size() != int(D.COLS):
+			var got: String = "%d cols" % (r as Array).size() if r is Array else "not an array (%s)" % type_string(typeof(r))
+			push_error("economy_tuning min_level: expected %d rows × %d cols, row %d is %s — grid IGNORED, the board falls back to the grove data const" % [int(D.ROWS), int(D.COLS), i, got])
 			return []
 		var row: Array = []
 		for v in r:

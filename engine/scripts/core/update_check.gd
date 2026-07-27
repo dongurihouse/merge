@@ -14,7 +14,15 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const BuildInfo = preload("res://engine/scripts/core/build_info.gd")
 
-# The App Store bundle id (matches export_presets.cfg application/bundle_identifier).
+# The App Store bundle id. OWNER: export_presets.cfg's application/bundle_identifier. This is a
+# deliberate copy, NOT a read like build_info.gd's — export_presets.cfg is an editor artifact that is
+# NOT packed into the export (verified: `godot --export-pack` lists no .cfg; only resource types such
+# as .json survive the all_resources filter). build_info.gd can fall back to parsing it because a
+# release also writes engine/generated/build_info.gd, which does ship; check() below runs ONLY on iOS,
+# i.e. only from the shipped build, so a parse would resolve to "" and the app would poll
+# lookup?bundleId= forever — the exact failure this copy is here to avoid, made unconditional.
+# So the copy stays and engine/tests/const_ssot_tests.gd §7 keeps it honest: rename the app and the
+# suite fails instead of the update prompt silently never firing again.
 const BUNDLE_ID := "com.dongurihouse.acornforest"
 const LOOKUP_URL := "https://itunes.apple.com/lookup?bundleId=%s"
 const CHECK_TIMEOUT := 8.0

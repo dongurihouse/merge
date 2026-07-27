@@ -18,7 +18,7 @@ const HOT := Color("#E0592B")
 ## intensity=1.0, hitstop_gate=0 it matches the board's prior feel EXCEPT for two deliberate
 ## spec escalations the unified verb now applies everywhere (so all merges feel consistent):
 ##   - the flash peak ramps soft->full over tier 1..>=4 (board used to flash flat at every tier);
-##   - the burst goes HOT at tier >= MERGE_BURST_HOT_TIER (board capped at STRAW gold).
+##   - the burst goes HOT at tier >= ESCALATE_TIER (board capped at STRAW gold).
 ## `node` is the produced tile; `center`/`host` locate the flash + burst; `tier`/`combo` drive
 ## the escalation; `intensity` (0..1) dials strength; `hitstop_gate` suppresses the freeze below a combo.
 static func merge(host: Node, node: Control, center: Vector2, tier: int, combo: int, intensity := 1.0, hitstop_gate := 0) -> void:
@@ -46,9 +46,9 @@ static func merge(host: Node, node: Control, center: Vector2, tier: int, combo: 
 
 # --- pure helpers (no scene tree — unit-tested in feel_tests.gd) ----------------------
 
-## Burst colour: tier<4 LEAF green, 4..7 STRAW gold, >= MERGE_BURST_HOT_TIER (8) HOT.
+## Burst colour: tier<4 LEAF green, 4..7 STRAW gold, >= ESCALATE_TIER (the pinnacle) HOT.
 static func _merge_color(tier: int) -> Color:
-	if tier >= Tune.MERGE_BURST_HOT_TIER:
+	if tier >= Tune.ESCALATE_TIER:
 		return HOT
 	return STRAW if tier >= 4 else LEAF
 

@@ -106,19 +106,25 @@ const SPOTS = [6,4,7,4,4];                                   // regions per map 
 const ZONES = ["The Farm","The Orchard","The Garden","The Mill","The Gate"];
 const TOTAL_SPOTS = SPOTS.reduce((a,b)=>a+b,0);             // 25
 const ENDGAME_LEVEL = 1 + TOTAL_SPOTS;                      // first spot at L2 → last at L26
-// the current hand-tuned MIN_LEVEL diamond (9 rows × 7 cols), corners = 22
+// The SHIPPED MIN_LEVEL diamond (9 rows × 7 cols), corners = 16 — byte-identical to
+// games/grove/economy_tuning.json's min_level and to grove_data.gd's absent-JSON fallback.
+// scaledGrid() re-scales it by corner/GRID0_MAX, so at the default dials (corner 16, inner 4)
+// it is the identity and currentJSON() reproduces the shipped file exactly. Re-baseline this
+// grid whenever a saved re-tune becomes the shipped one, or the tool drifts from the game.
+// NOTE: engine/tests/const_ssot_tests.gd §5 pairs the const with the JSON but CANNOT reach this
+// page — nothing stops the tool from re-introducing the drift. That check is this comment.
 const GRID0 = [
-  [22,14,10,10,10,14,22],
-  [18,10, 6, 6, 6,10,18],
-  [14,10, 1, 1, 1,10,14],
-  [10, 3, 0, 0, 0, 3,10],
-  [ 6, 3, 0, 0, 0, 3, 6],
-  [10, 3, 0, 0, 0, 3,10],
-  [14,10, 1, 1, 1,10,14],
-  [18,10, 6, 6, 6,10,18],
-  [22,14,10,10,10,14,22],
+  [16,10, 7, 7, 7,10,16],
+  [13, 4, 4, 4, 4, 4,13],
+  [10, 4, 1, 1, 1, 4,10],
+  [ 7, 2, 0, 0, 0, 2, 7],
+  [ 4, 2, 0, 0, 0, 2, 4],
+  [ 7, 2, 0, 0, 0, 2, 7],
+  [10, 4, 1, 1, 1, 4,10],
+  [13, 4, 4, 4, 4, 4,13],
+  [16,10, 7, 7, 7,10,16],
 ];
-const GRID0_MAX = 22;
+const GRID0_MAX = 16;
 const TOTAL_CELLS = 63;
 
 // ---- dials ------------------------------------------------------------------------------------

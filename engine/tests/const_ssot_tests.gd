@@ -1,5 +1,5 @@
 extends "res://engine/tests/test_base.gd"
-## Headless guard for four constants that were each written down in more than one place.
+## Headless guard for eight constants that were each written down in more than one place.
 ##   godot --headless --path . -s res://engine/tests/const_ssot_tests.gd
 ##
 ## Every value below now has ONE owner. Where the duplicate could be deleted it was; where a
@@ -21,6 +21,22 @@ extends "res://engine/tests/test_base.gd"
 ##     re-typed literal that rendered the WRONG version in the player-facing Settings dialog
 ##     on every unstamped build. It parses the presets file now; this asserts the agreement.
 ##     (tools/test_stamp_build_info.sh guards the stamp script's half, via `make test-config`.)
+##  5. THE BOARD GATE GRID (MIN_LEVEL, 9x7). The const said corners open at L22 while
+##     economy_tuning.json said L16, and the JSON won at runtime — so the grid the owner would
+##     have re-tuned was not the grid anyone plays. The const is the SEED (content.gd:24) and the
+##     absent-file fallback, so it cannot be deleted; it is re-synced and asserted instead.
+##  6. THE PINNACLE TIER (8). tuning.gd spelled it twice, 18 lines apart, and neither copy is
+##     PREMIUM_TIER. Moving the pinnacle would have left the reserved big-moment cues — shake, HOT
+##     burst, heavy haptic — firing on an ordinary merge, with no test failing. One copy DELETED;
+##     tuning.gd preloads nothing on purpose, so the other stays and is asserted (as in 3).
+##  7. THE BUNDLE ID (export_presets.cfg). update_check.gd's copy is what the shipped app puts in
+##     itunes.apple.com/lookup?bundleId=. A rebrand would have left the update prompt polling the
+##     OLD id forever and never firing again — silently, since the check never surfaces an error.
+##     It cannot read the preset the way 4 does (that file is not packed); asserted instead.
+##  8. THE APP DISPLAY NAME. export_presets.cfg restated project.godot's config/name. Renaming the
+##     game would have left the iOS home-screen label stale until someone read an export. Godot's
+##     iOS exporter falls back to config/name when application/name is blank (verified by export),
+##     so the copy is DELETED — this asserts the preset stays blank, i.e. still inheriting.
 
 const Design = preload("res://engine/scripts/core/design.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -29,6 +45,13 @@ const G = Game.DATA
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")
 const BUILD_INFO_PATH := "res://engine/scripts/core/build_info.gd"
 const BuildInfo = preload(BUILD_INFO_PATH)
+const Content = preload("res://engine/scripts/core/content.gd")
+const UpdateCheck = preload("res://engine/scripts/core/update_check.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX
+
+const BUNDLE_KEY := "application/bundle_identifier"
+const IOS_NAME_KEY := "application/name"
+const PROJECT_NAME_KEY := "application/config/name"
 
 const SCAN_ROOTS := ["res://engine/", "res://games/"]
 
@@ -57,6 +80,10 @@ func _initialize() -> void:
 	_check_bag_band()
 	_check_resident_ladder()
 	_check_marketing_version()
+	_check_board_gate_grid()
+	_check_pinnacle_tier()
+	_check_bundle_id()
+	_check_app_display_name()
 	finish()
 
 # --- 1. the design canvas -----------------------------------------------------------------
@@ -164,6 +191,90 @@ func _check_marketing_version() -> void:
 	var re := RegEx.create_from_string("const\\s+(MARKETING_VERSION|BUILD_NUMBER)\\s*:?=\\s*\"[0-9]")
 	ok(src != "" and re.search(src) == null, \
 		"build_info.gd names no version literal of its own — it reads export_presets.cfg")
+
+# --- 5. the board gate grid ---------------------------------------------------------------
+
+## Content.MIN_LEVEL is seeded from the game data const and then OVERWRITTEN by the active game's
+## economy_tuning.json at class load (content.gd _static_init -> apply_tuning). The const is the
+## absent-file fallback, so it must SPELL the shipped grid — otherwise deleting the JSON silently
+## re-paces the first hour of the game, and the grid the owner reads is not the grid anyone plays.
+## Out of reach: docs/economy_tuning.html's GRID0, the tool that GENERATES the JSON. Nothing here can
+## see it, so a pairing of the const and the JSON still leaves the tool free to re-introduce the
+## drift — that copy is held by a comment on GRID0 itself, which is weaker on purpose and worth
+## knowing about.
+func _check_board_gate_grid() -> void:
+	var path: String = Content.TUNING_PATH % Game.active()
+	ok(FileAccess.file_exists(path), "the active game ships a tuning file (%s)" % path)
+
+	# KNOWN-POSITIVE: the equality below is VACUOUS when the JSON does not apply the key — an absent,
+	# malformed or mis-shaped grid leaves Content.MIN_LEVEL as the const's own seed, and the two agree
+	# for the wrong reason. apply_tuning names the keys it actually took, so this proves the check is
+	# looking at a live override and not at itself.
+	var applied := Content.apply_tuning(path)
+	ok(applied.has("min_level"), \
+		"known-positive: %s really applies min_level (applied: %s)" % [path, ", ".join(applied)])
+
+	ok(Content.MIN_LEVEL == G.MIN_LEVEL, \
+		"the board gate grid has one shape: the JSON override IS the game-data fallback (corners L%s == L%s)" % \
+		[Content.MIN_LEVEL[0][0], G.MIN_LEVEL[0][0]])
+
+	# The shape the engine requires. _coerce_grid drops a mis-shaped grid (loudly, now); this catches
+	# the same mistake in the committed file before a player's board silently falls back.
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var grid: Variant = (parsed as Dictionary).get("min_level", null) if parsed is Dictionary else null
+	var rows: int = (grid as Array).size() if grid is Array else -1
+	var bad := PackedStringArray()
+	if grid is Array:
+		for i in (grid as Array).size():
+			var row: Variant = (grid as Array)[i]
+			if not (row is Array) or (row as Array).size() != int(G.COLS):
+				bad.append("row %d" % i)
+	ok(rows == int(G.ROWS) and bad.is_empty(), \
+		"%s's min_level is %d x %s (expected %d x %d)%s" % \
+		[path, rows, "%d" % int(G.COLS) if bad.is_empty() else "ragged", int(G.ROWS), int(G.COLS), \
+		"" if bad.is_empty() else " — wrong width: " + ", ".join(bad)])
+
+# --- 6. the pinnacle tier -------------------------------------------------------------------
+
+## ESCALATE_TIER gates the RESERVED big-moment vocabulary (shake, HOT burst, heavy haptic —
+## feel.gd, merge_fx.gd). It is the game's PREMIUM_TIER, restated as a literal because tuning.gd
+## preloads nothing on purpose: it declares itself the ENGINE's game-independent defaults, and
+## reading Game.DATA there would make the engine's tuning leaf game-dependent — the same trade
+## resident_bucket.gd refused in 3. So it stays a copy, and this is the mechanism.
+func _check_pinnacle_tier() -> void:
+	ok(Tune.ESCALATE_TIER == G.PREMIUM_TIER, \
+		"the reserved big-moment cues fire at the PINNACLE tier (Tune.FX.ESCALATE_TIER %d == G.PREMIUM_TIER %d)" % \
+		[Tune.ESCALATE_TIER, G.PREMIUM_TIER])
+
+# --- 7. the bundle id -----------------------------------------------------------------------
+
+## export_presets.cfg owns it; update_check.gd copies it because that file is an EDITOR artifact and
+## is not packed into the export (only resource types survive the all_resources filter), while
+## update_check.check() runs only on iOS — i.e. only from the shipped build, where a parse would
+## resolve to "". 4's fallback is safe because a release also stamps engine/generated/build_info.gd,
+## which does ship; there is no such stamp here. tools/asc_lib.sh holds a third copy that fails
+## LOUDLY (a wrong id aborts the upload), so it is self-announcing and left alone.
+func _check_bundle_id() -> void:
+	var preset := BuildInfo.preset_value(BUNDLE_KEY)
+	ok(preset != "" and "." in preset, \
+		"export_presets.cfg's %s parses to a bundle id (%s)" % [BUNDLE_KEY, preset])
+	ok(UpdateCheck.BUNDLE_ID == preset, \
+		"the App Store lookup polls the SHIPPING bundle id (update_check %s == preset %s)" % \
+		[UpdateCheck.BUNDLE_ID, preset])
+
+# --- 8. the app display name ----------------------------------------------------------------
+
+## project.godot's config/name is the one owner. Godot's iOS exporter falls back to it when the
+## preset's application/name is blank — verified by exporting with a renamed config/name and reading
+## INFOPLIST_KEY_CFBundleDisplayName back out of the generated Xcode project — so the preset's copy
+## was deleted rather than asserted. This holds the deletion: refill application/name and the
+## home-screen label stops tracking the game's name, which is only visible at export time.
+func _check_app_display_name() -> void:
+	var project_name := String(ProjectSettings.get_setting(PROJECT_NAME_KEY, ""))
+	ok(project_name != "", "project.godot names the app (%s == %s)" % [PROJECT_NAME_KEY, project_name])
+	ok(BuildInfo.preset_value(IOS_NAME_KEY) == "", \
+		"export_presets.cfg's %s stays BLANK so the iOS label inherits %s (\"%s\")" % \
+		[IOS_NAME_KEY, PROJECT_NAME_KEY, BuildInfo.preset_value(IOS_NAME_KEY)])
 
 # --- scanning ------------------------------------------------------------------------------
 

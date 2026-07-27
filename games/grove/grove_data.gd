@@ -70,26 +70,25 @@ const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the op
 # reaches its number, then opens on the next ADJACENT MERGE (the level gates *when*, not *how*;
 # any merge opens an eligible neighbour). 0 = open at start (the center 3×3 + the generator).
 # A hand-tuned diamond: the L1 inner frontier (T37 — where the merge verb is taught; the board MUST
-# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L22
-# at the four corners (the last cells to open). The scene LEVEL WINDOWS have since moved onto the derived
-# coin-clock cadence (content.gd's _build_cadence): Fairy Hollow L1-7 · Snowy Village L8-19 · Desert Oasis
-# L20-37 · Coral Reef L38-61 · Cherry Blossom L62-87. The MIN_LEVEL grid below was hand-tuned against the
-# OLDER windows and was not rescaled with them — the L22 corners now open near the START of Desert Oasis
-# (scene 3) rather than the end of scene 4. The grove_sim
-# confirms the board drains smoothly to zero sealed cells with ZERO jams across the arc. THIS GRID IS THE
-# OWNER'S FEEL DIAL — re-tune it; the engine reads it via G.cell_min_level(). 9 rows × 7 cols, indexed
-# [row][col] = [cell.x][cell.y].
+# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates out to
+# the four corners, the last cells to open. The whole board is open by the corner level, well inside
+# scene 1 (SCENE_END_LEVEL below ends scene 1 at L28) — the grid paces the OPENING, not the arc.
+# The LIVE grid is economy_tuning.json's `min_level` (authored in docs/economy_tuning.html, applied at
+# class load by content.apply_tuning); this const is only the absent-JSON FALLBACK and the value
+# Content.MIN_LEVEL is seeded from. Editing it alone moves NOTHING while that file exists — re-tune in
+# the HTML tool and save the JSON. engine/tests/const_ssot_tests.gd §5 asserts the two agree.
+# 9 rows × 7 cols, indexed [row][col] = [cell.x][cell.y].
 const MIN_LEVEL := [
 #    c0  c1  c2  c3  c4  c5  c6
-	[22, 14, 10, 10, 10, 14, 22],   # r0  ← outer corners last (L22, mid map 3)
-	[18, 10,  6,  6,  6, 10, 18],   # r1
-	[14, 10,  1,  1,  1, 10, 14],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
-	[10,  3,  0,  0,  0,  3, 10],   # r3
-	[ 6,  3,  0,  0,  0,  3,  6],   # r4   center 3×3 open · generator at c3
-	[10,  3,  0,  0,  0,  3, 10],   # r5
-	[14, 10,  1,  1,  1, 10, 14],   # r6   inner N/S frontier → L1
-	[18, 10,  6,  6,  6, 10, 18],   # r7
-	[22, 14, 10, 10, 10, 14, 22],   # r8
+	[16, 10,  7,  7,  7, 10, 16],   # r0  ← outer corners last (L16)
+	[13,  4,  4,  4,  4,  4, 13],   # r1
+	[10,  4,  1,  1,  1,  4, 10],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
+	[ 7,  2,  0,  0,  0,  2,  7],   # r3
+	[ 4,  2,  0,  0,  0,  2,  4],   # r4   center 3×3 open · generator at c3
+	[ 7,  2,  0,  0,  0,  2,  7],   # r5
+	[10,  4,  1,  1,  1,  4, 10],   # r6   inner N/S frontier → L1
+	[13,  4,  4,  4,  4,  4, 13],   # r7
+	[16, 10,  7,  7,  7, 10, 16],   # r8
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
