@@ -803,9 +803,19 @@ func _star_catch_cells() -> Array:
 			out.append(Vector2i(cell))
 	return out
 
+## UNPARENT before freeing, never queue_free alone. `queue_free` runs at the end of the frame, so a node
+## freed this way keeps its NAME until then — and a rebuild in the same frame (the roll re-derives the
+## dock, then replays it as an arrival) would find the name taken and get "DockedStar2", which every
+## `find_child("DockedStar")` then misses. `_sync_sky_patch_marker` already unparents for this reason.
+func _free_now(node: Node) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	if node.get_parent() != null:
+		node.get_parent().remove_child(node)
+	node.queue_free()
+
 func _clear_starfall_catch_ui() -> void:
-	if _sky_docked_star != null and is_instance_valid(_sky_docked_star):
-		_sky_docked_star.queue_free()
+	_free_now(_sky_docked_star)
 	_sky_docked_star = null
 	for cell in _star_catch_nodes.keys():
 		var node: Control = _star_catch_nodes[cell]
@@ -817,9 +827,14 @@ func _clear_starfall_catch_ui() -> void:
 	_star_catch_nodes.clear()
 	if board_area != null and is_instance_valid(board_area):
 		for flight in board_area.find_children("DockedStarFlight", "Control", true, false):
-			if flight is Control and is_instance_valid(flight):
-				(flight as Control).queue_free()
+			_free_now(flight)
 
+## Re-derive §5.4's docked star and lit lane cells from save state — the ONE implementation of both.
+## Two callers, and the flags are what separate them:
+##   `_sync_sky_patch_marker` (false, false) — a plain re-derive: rebuild, reflow, orientation flip,
+##      resume. The star is simply there; it did not just arrive, and the info bar is left alone.
+##   `_try_starfall` (true, true) — §5.4's ARRIVAL BEAT: hold the dock hidden, fly the piece in from
+##      off-screen, then auto-announce the catch line (only when nothing is selected).
 func _sync_starfall_catch_ui(animate_arrival: bool, auto_announce: bool) -> void:
 	_clear_starfall_catch_ui()
 	var code := _pending_star_code()
@@ -985,15 +1000,9 @@ func _try_starfall() -> void:
 	if code > 0:
 		sky_save["pending"] = code
 		_star_pending_started_secs = _sky_live_secs
-		_sync_sky_patch_marker(false)
-		if _sky_docked_star != null and is_instance_valid(_sky_docked_star):
-			_sky_docked_star.visible = false
-		_play_star_arrival(code)
-		if _selected_cell.x < 0:
-			_on_sky_marker_pressed()
-		Save.grove_write()
-	else:
-		Save.grove_write()
+		_sync_sky_patch_marker(false)         # the marker must exist to dock onto, and its owed pip re-derives
+		_sync_starfall_catch_ui(true, true)   # §5.4's arrival beat — fly it in, then announce
+	Save.grove_write()
 
 func _star_lines() -> Array:
 	var out: Array = []

@@ -217,6 +217,18 @@ func _test_starfall_pending_docks_before_catch() -> void:
 		"pending Starfall has not placed the rolled item in the model yet")
 	ok(star.find_child("DockedStar", true, false) != null, "pending Starfall rebuilds a docked piece at the marker")
 	_assert_dock_sits_in_marker(star, "pending Starfall")
+	# §5.4's arrival beat lives in _sync_starfall_catch_ui's two flags and nowhere else — the roll routes
+	# through them instead of re-implementing the flight and the announce inline. Both are observable: the
+	# dock is held hidden behind a flying piece, then handed off when the flight lands.
+	var docked := star.find_child("DockedStar", true, false) as Control
+	ok(star.board_area.find_child("DockedStarFlight", true, false) != null and docked != null and not docked.visible, \
+		"the roll flies the star in and holds the dock hidden until it arrives")
+	for _i in 12:
+		if docked != null and is_instance_valid(docked) and docked.visible:
+			break
+		await create_timer(0.1).timeout
+	ok(docked != null and is_instance_valid(docked) and docked.visible, \
+		"the arrival hands the star off to the docked piece once the flight lands")
 	var catch_cells := _call_star_catch_cells(star)
 	ok(not catch_cells.is_empty(), "pending Starfall exposes the empty lane cells that should be lit for catch")
 	star._rebuild_all()
