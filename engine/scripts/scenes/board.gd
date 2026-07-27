@@ -1994,39 +1994,41 @@ func _build_bag_box(px: float, action_opts: Dictionary = {}) -> Control:
 	bag_btn = _make_bag_button(px, action_opts)
 	return bag_btn
 
-func _bottom_button_px() -> float:
-	var frac := 0.15
+# The kit's RESOLVED hud_layout dials, or {} on a kit-less build. The kit's resolver owns every
+# default percentage (games/grove/ui_kit.gd: hud_layout_opts_from_config) — the three sizers below
+# keep NO private copy of one; kit-less they fall back to their own engine constant instead.
+func _hud_layout() -> Dictionary:
 	var Kit: GDScript = KIT
-	if Kit != null:
-		frac = float(Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("button_w_frac", 0.15))
+	if Kit == null:
+		return {}
+	return Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+
+func _bottom_button_px() -> float:
+	var lay := _hud_layout()
+	# Kit-less: the ActionBar fallback well size stands in (BOTTOM_BTN_PX is exactly that fallback).
+	var px := BOTTOM_BTN_PX if lay.is_empty() else roundf(_view_size().x * float(lay.button_w_frac))
 	# Bounded: a min so it stays tappable on narrow screens, a max so it (and the bar) can't balloon on
 	# wide ones — capped to leave the bar within BOTTOM_BAR_MAX (button + pad).
-	return clampf(roundf(_view_size().x * frac), BOTTOM_BTN_MIN, BOTTOM_BAR_MAX - BOTTOM_BAR_PAD)
+	return clampf(px, BOTTOM_BTN_MIN, BOTTOM_BAR_MAX - BOTTOM_BAR_PAD)
 
 func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 	var raw := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
-	var Kit: GDScript = KIT
-	if Kit != null:
-		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-		if h.has("bottom_row_h_pct"):
-			var frac := float(Kit.hud_layout_opts_from_config(cfg).get("bottom_row_h_frac", 0.0))
-			if frac > 0.0:
-				raw = maxf(bottom_btn_px, roundf(_view_size().y * frac))
+	var lay := _hud_layout()
+	if lay.has("bottom_row_h_frac"):
+		# 0 means "unset" for this dial (the resolver's own default) — the button+pad height stands.
+		var frac := float(lay.bottom_row_h_frac)
+		if frac > 0.0:
+			raw = maxf(bottom_btn_px, roundf(_view_size().y * frac))
 	# Capped: never too short to hold the wells, never tall enough to look weird on wide screens.
 	return clampf(raw, BOTTOM_BAR_MIN, BOTTOM_BAR_MAX)
 
 func _quest_row_h_px() -> float:
-	var frac := 0.13
-	var Kit: GDScript = KIT
-	if Kit != null:
-		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-		if h.has("quest_bar_h_pct"):
-			frac = float(Kit.hud_layout_opts_from_config(cfg).get("quest_bar_h_frac", frac))
+	var lay := _hud_layout()
 	# Scale with screen HEIGHT (taller screens → taller band, absorbing spare vertical room) and clamp.
 	# Cards pack to fit the WIDTH (see _rebuild_givers), so the band height no longer keys off width.
-	return clampf(roundf(_view_size().y * frac), QUEST_H_MIN, QUEST_H_MAX)
+	# Kit-less: FENCE_H, the engine's own fence band (the seed of _fence_h, which this drives).
+	var h := FENCE_H if lay.is_empty() else roundf(_view_size().y * float(lay.quest_bar_h_frac))
+	return clampf(h, QUEST_H_MIN, QUEST_H_MAX)
 
 func _view_size() -> Vector2:
 	if is_inside_tree():
