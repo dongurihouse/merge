@@ -140,8 +140,12 @@ var _bonus_kind := ""         # §6.C the live bonus generator's kind on the boa
 var _bonus_clicks := 0        # its remaining tap budget; drained one tap per main-gen tap, then it vanishes
 var drop_water := 0          # §6.B special-item drops on merge (collected at t1)
 var drop_acorn := 0
-var drop_open_coins := 0     # §6.B chest opened by a key → coins + acorns
+var drop_open_coins := 0     # §6.B tap-opened chest → coins + acorns
 var drop_open_acorns := 0
+var cascade_reward_coins := 0
+var cascade_reward_acorns := 0
+var cascade_reward_chests := 0
+var cascade_auto_merges := 0
 var treat_coins := 0         # §6.D treat-gen premium-line sells + its special drops
 var treat_water := 0
 var treat_acorn := 0
@@ -349,12 +353,12 @@ func _initialize() -> void:
 	# so I2's gift-ratio no longer captures total water income — the self-sustain line below is the real
 	# pinch check now. Reported as tuning signals (WARN, not hard fails — the §7 tuning pass owns the dials). ---
 	var new_water := bonus_water + drop_water + treat_water
-	var new_coins := bonus_coins + treat_coins + drop_open_coins
-	var new_acorn := bonus_acorn + drop_acorn + treat_acorn + drop_open_acorns
-	print("  -- §6 faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·chest %d) · acorn +%d🌰" % \
-		[new_water, bonus_water, drop_water, treat_water, new_coins, bonus_coins, treat_coins, drop_open_coins, new_acorn])
-	print("                 over %d merges · %d bonus-gens · %d treat-gens — §6 supplies %.0f%% of all coins earned (the rest is quests + sells)" % \
-		[merges, bonus_gens, treat_gens, 100.0 * float(new_coins) / float(maxi(1, coins_earned))])
+	var new_coins := bonus_coins + treat_coins + drop_open_coins + cascade_reward_coins
+	var new_acorn := bonus_acorn + drop_acorn + treat_acorn + drop_open_acorns + cascade_reward_acorns
+	print("  -- §6+cascade faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·drop-chest %d·cascade %d) · acorn +%d🌰 (cascade %d)" % \
+		[new_water, bonus_water, drop_water, treat_water, new_coins, bonus_coins, treat_coins, drop_open_coins, cascade_reward_coins, new_acorn, cascade_reward_acorns])
+	print("                 over %d merges (%d cascade auto-steps, %d cascade chests) · %d bonus-gens · %d treat-gens — non-quest faucets supply %.0f%% of all coins earned (the rest is quests + sells)" % \
+		[merges, cascade_auto_merges, cascade_reward_chests, bonus_gens, treat_gens, 100.0 * float(new_coins) / float(maxi(1, coins_earned))])
 	# WATER self-sustain: gift + the §6 water faucets vs total spend. I2 guards the GIFT alone at <30%; these
 	# faucets are ADDITIONAL income, so if (gift + §6) climbs toward spend the early water pinch is gone.
 	var total_spend := _water_spent()
@@ -591,6 +595,11 @@ func _earn_coins(amount: int) -> void:
 
 func _sim_blocked_seed_drop_lines() -> Array:
 	var blocked: Array = []
+	if not Features.on("improvements"):
+		return [
+			Improvements.seed_line_for_kind(Improvements.KIND_SOIL),
+			Improvements.seed_line_for_kind(Improvements.KIND_MAGNET),
+		]
 	if soil_seeds_unplaced > 0 or soils_built >= int(G.SOIL_MAX):
 		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_SOIL))
 	if magnet_seeds_unplaced > 0 or magnets_built >= int(G.MAGNET_MAX):
@@ -598,6 +607,8 @@ func _sim_blocked_seed_drop_lines() -> Array:
 	return blocked
 
 func _use_improvement_seed_sink() -> bool:
+	if not Features.on("improvements"):
+		return false
 	if soil_seeds_unplaced > 0 and soils_built < int(G.SOIL_MAX):
 		soil_seeds_unplaced -= 1
 		soils_built += 1
@@ -663,6 +674,8 @@ func _tick_bonus_gen() -> void:
 # exp faucet (levels up); acorn → premium. chest+key pair and OPEN for coins+acorns (paired across drops).
 func _credit_special_drop(code: int, src: String = "drop") -> void:
 	var seed_kind := Improvements.kind_for_seed(code)
+	if seed_kind != "" and not Features.on("improvements"):
+		return
 	if seed_kind == Improvements.KIND_SOIL:
 		if soil_seeds_unplaced <= 0 and soils_built < int(G.SOIL_MAX):
 			soil_seeds_unplaced += 1
@@ -699,6 +712,21 @@ func _try_open_chest() -> void:
 		drop_open_coins += int(rw.coins)
 		acorns += int(rw.acorns)
 		drop_open_acorns += int(rw.acorns)
+
+func _credit_cascade_reward(code: int) -> void:
+	if code <= 0:
+		return
+	if G.is_coin(code):
+		var cv := G.coin_value(code)
+		_gain_coins(cv)
+		cascade_reward_coins += cv
+	elif G.is_chest(code):
+		var rw := G.chest_open_reward(code)
+		_gain_coins(int(rw.coins))
+		cascade_reward_coins += int(rw.coins)
+		acorns += int(rw.acorns)
+		cascade_reward_acorns += int(rw.acorns)
+		cascade_reward_chests += 1
 
 # §6.D a temporary treat generator: TREAT_CLICKS taps, each popping the map's treasure line at the
 # head-start tier (TREAT_POP_TIER) and TREAT_DROP_RATE of the time shaking a §6.B special loose. The
@@ -1138,26 +1166,7 @@ func _play_session() -> Dictionary:
 		# 5. merge (prefer wanted lines, lowest tier; dst beside an openable bramble)
 		var pair := _best_pair()
 		if not pair.is_empty():
-			var produced: int = board.merge(pair[0], pair[1])
-			merges += 1
-			_saw_merge = true                  # FTUE proxy: the "merge" verb is now seen (see _sky_gate_open)
-			for br in board.openable_brambles(pair[1], _level()):
-				board.open_bramble(br)
-			# the SAME expression board.gd's merge finish uses — the FTUE gate FIRST, then patch membership
-			var in_patch := _sky_gate_open() and SkyLogic.in_patch(_sky_state, pair[1])
-			for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch, _sim_blocked_seed_drop_lines()):
-				var code := int(drop)
-				if G.is_coin(code):
-					var empt := board.empty_ground_cells()
-					if not empt.is_empty():
-						board.place(empt[rng.randi_range(0, empt.size() - 1)], code)
-						if code % 100 == int(G.SKY_COIN_TIER):
-							sky_coin_drops += 1
-				else:
-					if code == G.WATER_LINE * 100 + 1 and String(_sky_state.get("sky", "")) == "rain" and in_patch:
-						sky_water_drops += 1
-						sky_water += int(G.special_collect(code).get("amount", 0))   # a DROP is worth this many 💧 — never 1
-					_credit_special_drop(code)
+			_merge_pair_with_cascade(pair)
 			continue
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
@@ -1264,6 +1273,56 @@ func _best_pair() -> Array:
 	if not board.openable_brambles(a, _level()).is_empty():
 		return [b, a]
 	return [a, b]
+
+func _merge_pair_with_cascade(pair: Array) -> void:
+	var a := Vector2i(pair[0])
+	var b := Vector2i(pair[1])
+	var chain: Array = BoardLogic.chain_path(board, a, b) if Features.on("cascade") else []
+	_merge_once(a, b)
+	var current := b
+	var chain_n := 1
+	var final_chest_code := 0
+	while not chain.is_empty():
+		var partner := Vector2i(chain.pop_front())
+		if not board.can_merge(current, partner):
+			break
+		_merge_once(current, partner)
+		cascade_auto_merges += 1
+		chain_n += 1
+		var reward_code := BoardLogic.chain_reward_code(chain_n)
+		if G.is_chest(reward_code):
+			final_chest_code = reward_code
+		elif reward_code > 0:
+			_credit_cascade_reward(reward_code)
+		current = partner
+	if final_chest_code > 0:
+		_credit_cascade_reward(final_chest_code)
+
+func _merge_once(a: Vector2i, b: Vector2i) -> int:
+	var produced: int = board.merge(a, b)
+	merges += 1
+	_saw_merge = true                  # FTUE proxy: the "merge" verb is now seen (see _sky_gate_open)
+	for br in board.openable_brambles(b, _level()):
+		board.open_bramble(br)
+	_credit_merge_drops(produced, b)
+	return produced
+
+func _credit_merge_drops(produced: int, landed: Vector2i) -> void:
+	# The SAME expression board.gd's merge finish uses — the FTUE gate FIRST, then patch membership.
+	var in_patch := _sky_gate_open() and SkyLogic.in_patch(_sky_state, landed)
+	for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch, _sim_blocked_seed_drop_lines()):
+		var code := int(drop)
+		if G.is_coin(code):
+			var empt := board.empty_ground_cells()
+			if not empt.is_empty():
+				board.place(empt[rng.randi_range(0, empt.size() - 1)], code)
+				if code % 100 == int(G.SKY_COIN_TIER):
+					sky_coin_drops += 1
+		else:
+			if code == G.WATER_LINE * 100 + 1 and String(_sky_state.get("sky", "")) == "rain" and in_patch:
+				sky_water_drops += 1
+				sky_water += int(G.special_collect(code).get("amount", 0))   # a DROP is worth this many 💧 — never 1
+			_credit_special_drop(code)
 
 ## One pop. Returns the WATER it charged, or 0 when it could not pop at all (no room, no pool, or the
 ## line's window costs more than `budget`) — the caller subtracts the return value, so a burst can

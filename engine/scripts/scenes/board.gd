@@ -112,7 +112,6 @@ const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
 const CHAIN_STEP_MS := 250
 const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
-const CHAIN_REWARDS := {2: 901, 3: 1001, 4: 1002, 5: 1003, 6: 1004, 7: 1005}
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
 # grove board palette (the night-purples retire here)
@@ -185,7 +184,6 @@ var piece_nodes := {}
 var bramble_nodes := {}
 var _improvement_art_nodes := {}
 var _soil_overlay_nodes := {}
-var _magnet_range_nodes := {}
 var _magnet_scanning := false
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
@@ -519,12 +517,21 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	var patch := SkyPatch.new()
 	patch.setup(_sky_state, csz, GAP, _landscape)
 	board_area.add_child(patch)
+	board_area.move_child(patch, _sky_patch_insert_index())
 	_sky_patch = patch
 	var marker := _make_sky_marker()
 	board_area.add_child(marker)
 	_sky_marker = marker
 	if pop_marker:
 		FX.pop(marker)
+
+func _sky_patch_insert_index() -> int:
+	var insert_at := board_area.get_child_count()
+	for nodes in [piece_nodes, gen_nodes]:
+		for node in nodes.values():
+			if node is Control and is_instance_valid(node) and node.get_parent() == board_area:
+				insert_at = mini(insert_at, node.get_index())
+	return mini(insert_at, board_area.get_child_count() - 1)
 
 func _make_sky_marker() -> Button:
 	var marker := Button.new()
@@ -576,15 +583,19 @@ func _make_sky_marker() -> Button:
 
 func _sky_marker_pos(marker_size: Vector2) -> Vector2:
 	var lane := int(_sky_state.get("lane", 0))
-	if String(_sky_state.get("lane_axis", "column")) == "row":
-		var left_cell := _cell_pos(Vector2i(lane, 0))
+	var lane_axis := String(_sky_state.get("lane_axis", "column"))
+	var row_axis := lane_axis == "row"
+	var anchor := Vector2i(lane, 0) if row_axis else Vector2i(0, lane)
+	var lane_draws_horizontal := row_axis != _landscape
+	if lane_draws_horizontal:
+		var left_cell := _cell_pos(anchor)
 		var pos := left_cell + Vector2(-marker_size.x - 6.0, (csz - marker_size.y) * 0.5)
 		var board_global_x := board_area.get_global_rect().position.x if board_area != null and is_instance_valid(board_area) else 0.0
 		pos.x = maxf(pos.x, SKY_MARKER_SCREEN_GUTTER - board_global_x)
 		pos.x = minf(pos.x, 6.0 - marker_size.x)
 		return pos
-	var top_cell := _cell_pos(Vector2i(0, lane))
-	return top_cell + Vector2((csz - marker_size.x) * 0.5, -marker_size.y * 0.45)
+	var top_cell := _cell_pos(anchor)
+	return top_cell + Vector2((csz - marker_size.x) * 0.5, -marker_size.y - 4.0)
 
 func _sky_marker_icon_path() -> String:
 	var rels: Dictionary = G.SKY_MARKER_ICON_RELS
@@ -840,8 +851,8 @@ func _lane_center_cell() -> Vector2i:
 	return Vector2i(int(G.ROWS / 2), lane)
 
 func _star_start_pos(cell: Vector2i) -> Vector2:
-	var lane_top := _cell_pos(Vector2i(0, cell.y))
-	return Vector2(lane_top.x, -csz * 1.4)
+	var target := _cell_pos(cell)
+	return Vector2(target.x, -csz * 1.4)
 
 # After a quiet spell, a pair that can merge wiggles to show the next step
 # (owner: ~5-10s of inactivity). Re-nudges gently while the player stays idle.
@@ -2187,7 +2198,6 @@ func _rebuild_all() -> void:
 	_focus_ring = null
 	_improvement_art_nodes.clear()
 	_soil_overlay_nodes.clear()
-	_magnet_range_nodes.clear()
 	board_area.add_child(_make_board_mat())   # contrast: the garden bed under the grid
 	for r in G.ROWS:
 		for c in G.COLS:
@@ -2527,30 +2537,6 @@ func _soil_progress_fraction(cell: Vector2i) -> float:
 	var remaining := board.soil_remaining(cell, Time.get_unix_time_from_system())
 	return 1.0 - clampf(remaining / duration, 0.0, 1.0)
 
-func _clear_magnet_range() -> void:
-	for n in _magnet_range_nodes.values():
-		if n != null and is_instance_valid(n):
-			n.queue_free()
-	_magnet_range_nodes.clear()
-
-func _render_magnet_range(cell: Vector2i) -> void:
-	if board == null or board_area == null:
-		return
-	for rc in Improvements.range_cells(board, cell):
-		var key := "%s_%s" % [str(cell), str(rc)]
-		if _magnet_range_nodes.has(key):
-			continue
-		var f := ColorRect.new()
-		f.name = "MagnetRange_%d_%d" % [rc.x, rc.y]
-		f.color = Color(Pal.BTN_PRIMARY, 0.15)
-		f.position = _cell_pos(rc)
-		f.size = Vector2(csz, csz)
-		f.z_index = 4
-		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		f.set_meta("magnet_range", true)
-		board_area.add_child(f)
-		_magnet_range_nodes[key] = f
-
 func _format_improvement_time(secs: float) -> String:
 	var s := int(ceil(maxf(0.0, secs)))
 	if s <= 0:
@@ -2731,6 +2717,8 @@ func _on_soil_finish() -> void:
 		_finish_soil(_selected_cell)
 
 func _chain_armed_cell() -> Vector2i:
+	if chain_running() and not _chain_run.is_empty():
+		return Vector2i(_chain_run[0])
 	return Vector2i(-1, -1)
 
 func _scan_magnets(render := true) -> bool:
@@ -2777,10 +2765,11 @@ func _maybe_soil_ftue() -> void:
 		return
 	if G.level() < 6:
 		return
-	Save.mark_ftue_seen("soil")
 	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
 	var granted := false
-	if not _has_unplaced_seed(Improvements.KIND_SOIL) and board.improvement_count(Improvements.KIND_SOIL) < Improvements.cap_for(Improvements.KIND_SOIL):
+	var has_path := _has_unplaced_seed(Improvements.KIND_SOIL) \
+		or board.improvement_count(Improvements.KIND_SOIL) >= Improvements.cap_for(Improvements.KIND_SOIL)
+	if not has_path:
 		var dest := Vector2i(-1, -1)
 		for c in board.empty_ground_cells():
 			if board.can_build_improvement(c):
@@ -2792,6 +2781,10 @@ func _maybe_soil_ftue() -> void:
 		elif bag.size() < _bag_capacity():
 			_bag_append(code)
 			granted = true
+		if not granted:
+			_maybe_hand_hint()
+			return
+	Save.mark_ftue_seen("soil")
 	if granted:
 		_rebuild_all()
 		_after_board_change()
@@ -4693,7 +4686,7 @@ func _finish_chain() -> void:
 	_anim_t = 0.0
 
 func _chain_reward_code(n: int) -> int:
-	return int(CHAIN_REWARDS.get(mini(n, 7), 0))
+	return BoardLogic.chain_reward_code(n)
 
 func _apply_chain_reward(vacated: Vector2i) -> void:
 	var reward_code := _chain_reward_code(_chain_n)
@@ -4769,6 +4762,11 @@ func _apply_recipe_confirmed(from: Vector2i, target: Vector2i, node: Control) ->
 	Audio.play("item_drop", -2.0)
 
 func _split_piece(from: Vector2i, target: Vector2i, node: Control) -> void:
+	if _defer_soil_reset([target], "Split", func() -> void: _split_piece_confirmed(from, target, node), func() -> void: _snap_back(from, node)):
+		return
+	_split_piece_confirmed(from, target, node)
+
+func _split_piece_confirmed(from: Vector2i, target: Vector2i, node: Control) -> void:
 	var out := BoardActions.split_piece(board, from, target)
 	if out.is_empty():
 		_snap_back(from, node)
@@ -5000,6 +4998,11 @@ func debug_drop_acorn() -> void:
 	_after_board_change()
 
 func _blocked_seed_drop_lines() -> Array:
+	if not _improvements_enabled():
+		return [
+			Improvements.seed_line_for_kind(Improvements.KIND_SOIL),
+			Improvements.seed_line_for_kind(Improvements.KIND_MAGNET),
+		]
 	return Improvements.blocked_seed_drop_lines(board, bag)
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:

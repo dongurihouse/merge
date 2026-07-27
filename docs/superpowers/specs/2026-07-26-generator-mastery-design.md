@@ -137,9 +137,10 @@ a low ingredient ask.
   is the only verb**.
 - Drop on a content-line piece of tier ≥ 2: target becomes t−1; a twin (same line, t−1) lands on
   the nearest empty ground cell (Manhattan from the target, ties by cell scan order — no RNG
-  draw); the scissors is consumed. Refuse with the wobble, no loss: full board, tier-1 target,
-  generators, tools, coins, treats. Splitting a currently-asked piece is allowed. No mastery
-  credit for splits.
+  draw; the scissors source cell can be the freed landing spot on a full board); the scissors is
+  consumed. Refuse with the wobble, no loss: no freed cell to receive the twin, tier-1 target,
+  generators, tools, coins, treats. Splitting a currently-asked piece is allowed. No mastery credit
+  for splits.
 - Resolution: new release-ladder branch after the recipe branch (board.gd:2862); same predicate in
   the drag-target highlight (board.gd:1735).
 - Shop: coin card, `SCISSORS_COST := 40`, always stocked, hidden until
@@ -308,14 +309,14 @@ count is the fix; it is a §6/§7 faucet pass, not a mastery dial, and stays par
   all tiers × bands.
 - **Pop cost (economy guard, same suite):** rank 0 costs exactly `POP_COST`; the curve never falls
   and never exceeds `tier_clicks(lo)`; a low below/above the table clamps to the first/last entry;
-  the dearest window still fits in `WATER_CAP` (12💧 of 100, so the top rank is always poppable
+  the dearest window still fits in `WATER_CAP` (16💧 of 100, so the top rank is always poppable
   from a full can); the cost reads the EFFECTIVE window, so an ask-band slide back to t1 charges
   `POP_COST` again.
 - **RNG byte-identity:** extend the mechanics_tests.gd:413 pattern — default window reproduces
   today's exact stream; one tier draw at every rank.
 - **`grove_board_actions_tests.gd`:** deliver credits + `rank_ups`; `apply_recipe` parity with the
   old inline behavior + credits; retire/sell/collect credit nothing; `split_piece` placement
-  determinism, full-board and tier-1 refusals.
+  determinism, full-board-with-no-freed-cell and tier-1 refusals.
 - **`grove_shop_tests.gd`:** row hidden below rank 2; buy places / banks pending; refuse before
   spend.
 - **Flow (board suite):** a ranked line's pops land inside its window; rank-up card fires once per

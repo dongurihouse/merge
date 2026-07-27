@@ -5,9 +5,12 @@ extends "res://engine/tests/test_base.gd"
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 
 func _initialize() -> void:
 	_test_chain_path()
+	_test_chain_reward_codes()
+	_test_growing_soil_is_excluded_from_chain_search()
 	_test_ready_ladders()
 	_test_chain_placements()
 	_test_chain_placements_equivalence()
@@ -24,10 +27,20 @@ func _blank_board() -> BoardModel:
 	b.gen_tiers = {}
 	b.gen_boost = {}
 	b.collect_rewards = {}
+	b.improvements = {}
+	b.seed_ranks = {}
 	return b
 
 func _put(b: BoardModel, cell: Vector2i, code: int) -> void:
 	b.place(cell, code)
+
+func _put_growing(b: BoardModel, cell: Vector2i, code: int) -> void:
+	b.build_improvement(cell, Improvements.KIND_SOIL)
+	b.place(cell, code)
+	var row: Dictionary = b.improvement_at(cell)
+	row["code"] = code
+	row["ends_at"] = Time.get_unix_time_from_system() + 3600.0
+	b.improvements[cell] = row
 
 func _cells_equal(got: Array, want: Array) -> bool:
 	if got.size() != want.size():
@@ -105,12 +118,35 @@ func _test_chain_path() -> void:
 	ok(_cells_equal(BoardLogic.chain_path(b, Vector2i(4, 1), Vector2i(4, 2)), []), \
 		"chain_path: recipes and other-code pairs never auto-chain")
 
+func _test_chain_reward_codes() -> void:
+	ok(BoardLogic.chain_reward_code(1) == 0, "chain_reward_code: x1 has no reward")
+	ok(BoardLogic.chain_reward_code(2) == G.COIN_LINE * 100 + 1, "chain_reward_code: x2 pays the coin marker")
+	ok(BoardLogic.chain_reward_code(3) == G.CHEST_LINE * 100 + 1, "chain_reward_code: x3 starts the cascade chest")
+	ok(BoardLogic.chain_reward_code(6) == G.CHEST_LINE * 100 + 4, "chain_reward_code: x6 reaches chest tier 4")
+	ok(BoardLogic.chain_reward_code(9) == G.CHEST_LINE * 100 + 5, "chain_reward_code: x7+ caps at the top chest")
+
+func _test_growing_soil_is_excluded_from_chain_search() -> void:
+	var b := _blank_board()
+	_put(b, Vector2i(2, 1), 106)
+	_put(b, Vector2i(2, 2), 106)
+	_put_growing(b, Vector2i(2, 3), 107)
+	ok(_cells_equal(BoardLogic.chain_path(b, Vector2i(2, 1), Vector2i(2, 2)), []),
+		"chain_path: a t7+ growing partner is not an automatic cascade rung")
+
+	b = _blank_board()
+	var from := Vector2i(6, 6)
+	_put(b, from, 106)
+	_put(b, Vector2i(2, 1), 106)
+	_put_growing(b, Vector2i(2, 3), 107)
+	ok(not _has_candidate(BoardLogic.chain_placements(b, from, 106), Vector2i(2, 2), 2),
+		"chain_placements: fast drag guides do not route through a t7+ growing partner")
+
 func _test_ready_ladders() -> void:
 	var b := _blank_board()
 	_put(b, Vector2i(3, 1), 101)
 	_put(b, Vector2i(3, 2), 101)
 	_put(b, Vector2i(3, 3), 102)
-	var ladders := BoardLogic.ready_ladders(b)
+	var ladders: Array = BoardLogic.ready_ladders(b)
 	var e := _entry_for_cell(ladders, Vector2i(3, 3))
 	ok(ladders.size() == 1 and int(e.get("n", 0)) == 2 and int(e.get("line", 0)) == 1, \
 		"ready_ladders: minimal t-t-t+1 component reports n 2")
@@ -284,7 +320,7 @@ func _untouched(b: BoardModel, from: Vector2i, code: int, label: String, want_pa
 	var rewards_before := str(b.collect_rewards)
 	var gens_before := str(b.gens)
 	var tiers_before := str(b.gen_tiers)
-	var got := BoardLogic.chain_placements(b, from, code)
+	var got: Array = BoardLogic.chain_placements(b, from, code)
 	var clean := _packed_equal(b.items, items_before) and _packed_equal(b.terrain, terrain_before) \
 		and str(b.collect_rewards) == rewards_before and str(b.gens) == gens_before and str(b.gen_tiers) == tiers_before
 	ok(clean and (got.size() > 0 or not want_pads), \
@@ -319,8 +355,8 @@ func _time_ms(b: BoardModel, use_reference: bool) -> float:
 	return best
 
 func _same_placements(b: BoardModel, from: Vector2i, code: int, label: String) -> void:
-	var want := _ref_chain_placements(b, from, code)
-	var got := BoardLogic.chain_placements(b, from, code)
+	var want: Array = _ref_chain_placements(b, from, code)
+	var got: Array = BoardLogic.chain_placements(b, from, code)
 	ok(_placements_equal(got, want), "chain_placements equivalence: %s → %d guide pads" % [label, want.size()])
 
 func _placements_equal(got: Array, want: Array) -> bool:
@@ -402,8 +438,8 @@ func _fuzz_report(boards: int, sd: int = 20260726, lo: float = 0.25, hi: float =
 		var from := BoardModel.cell_of(rng.randi_range(0, b.items.size() - 1))
 		if rng.randf() < 0.4:
 			b.items[BoardModel.idx(from)] = code          # a real drag: the source holds the code
-		var want := _ref_chain_placements(b, from, code)
-		var got := BoardLogic.chain_placements(b, from, code)
+		var want: Array = _ref_chain_placements(b, from, code)
+		var got: Array = BoardLogic.chain_placements(b, from, code)
 		if not _placements_equal(got, want):
 			mismatches += 1
 		if not want.is_empty():
@@ -520,8 +556,8 @@ static func _ref_best_tip_in_component(board: BoardModel, cells: Array) -> Dicti
 			# search is fuzzed against, so it has to track the real chain rules. With a frozen copy
 			# both sides could agree while drifting from what a cascade actually runs, and the pads
 			# would advertise an n the board never delivers.
-			var path := BoardLogic.chain_path(board, from, to)
-			var n := 1 + path.size()
+			var path: Array = BoardLogic.chain_path(board, from, to)
+			var n: int = 1 + path.size()
 			if n < 2:
 				continue
 			var top_cell := Vector2i(path[path.size() - 1])
