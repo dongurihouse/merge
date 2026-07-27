@@ -98,13 +98,8 @@ class Ambient:
 	const HOP_T_SQUASH := 0.08                       # seconds for the squash leg
 	const HOP_T_REST := 0.10                         # seconds for the stretch leg, and again for the settle leg
 
-	# --- weather selection (a deterministic roll, one bucket per real hour) -------------
-	const SECS_PER_HOUR := 3600.0                    # weather rolls once per hour; also the win-back's hour→seconds factor
-	const ROLL_RANGE := 100                          # the hourly roll spans 0..ROLL_RANGE-1
-	const BREEZE_AT := 70                            # roll in [BREEZE_AT, RAIN_AT) → breeze  (≈20%)
-	const RAIN_AT := 90                              #         [RAIN_AT, SNOW_AT)   → rain    (≈8%)
-	const SNOW_AT := 98                              #         [SNOW_AT, ROLL_RANGE) → snow   (≈2%); below BREEZE_AT → clear (≈70%)
-	const WINBACK_RAIN_SECS := 60.0                  # on a >=48h return, it rains for this long
+	# --- weather-hours clock ------------------------------------------------------------
+	const SECS_PER_HOUR := 3600.0                    # weather hours roll once per real-world hour
 
 	# --- weather particles (budget: ≤2 emitters, ≤80 particles per layer) ---------------
 	const BREEZE_PETAL := Color("#D98BA3")           # pink blossom drift

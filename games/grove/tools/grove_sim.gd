@@ -43,6 +43,8 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")   # §1 idle yield + sell dials (the live residents coin SOURCES) — NOTE the full bucket re-author is the parked §5 economy pass
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
@@ -127,6 +129,13 @@ var specials_crafted := 0   # #14/#16 special (merge-line) quests delivered — 
 var treat_gens := 0         # §6.D treat generators spawned over the run
 var _pending_chests := 0    # banked special-drop chests (tap-opened — the key line is retired)
 var _session_cap := 0       # this session's water budget = WATER_CAP + §6 water (lets the bot out-pop a bare cap)
+var _sim_hour := 0
+var _sky_state: Dictionary = {}
+var _sky_owed: Array = []
+var sky_coin_drops := 0
+var sky_water_drops := 0
+var sky_stars := 0
+var sky_star_t1eq := 0
 
 # §1 LIVE RESIDENTS ECONOMY (the global Bucket) — replaces the dormant welcome-coin-SINK the older model used. The
 # live loop: pay coins to run an EXPEDITION (the only coin SINK) → acquire spirits → PLACE into cap-limited
@@ -167,6 +176,7 @@ func _initialize() -> void:
 		for _session in 3:
 			_session_cap = G.WATER_CAP             # §6.B special-item water drops extend this in-session
 			water = _session_cap
+			_begin_weather_hour()
 			_hab_collect()                         # §1 collect the live habitat's idle coin yield (a SOURCE)
 			var r := _play_session()
 			d_water += r.water
@@ -188,6 +198,8 @@ func _initialize() -> void:
 		[clusters_unlocked, _cluster_total(), cluster_spend, gates_reached, _level(), coins_earned])
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
+	print("  weather-hours: sky coins %d · sky water %d · stars %d (~%d t1-eq)" % \
+		[sky_coin_drops, sky_water_drops, sky_stars, sky_star_t1eq])
 	print("  PACING  curve base/step %d/%d · L%d at day %d · last content zone (L%d): %s · half the book: %s · whole book: %s" % \
 		[G.LEVEL_BASE_COINS, G.LEVEL_STEP_COINS, _level(), days, G.zone_unlock_level(G.ZONE_COUNT - 1),
 		 ("day %d" % content_end_day) if content_end_day > 0 else "NOT REACHED",
@@ -396,6 +408,57 @@ func _live_lines() -> Array:
 	# depend on restored spots, so earning exp can reveal newer asks even if the player delays claiming
 	# zones. Base and crafted-special lines share the window (§7, 2026-07-25).
 	return G.active_lines(_level())
+
+func _begin_weather_hour() -> void:
+	_refill_quests()
+	_sky_state = SkyLogic.state(float(_sim_hour) * 3600.0)
+	_sim_hour += 1
+	if String(_sky_state.get("sky", "")) == "starfall":
+		var lines: Array = _live_lines()
+		for l in G.quest_needed_lines(_open_quest_lines()).keys():
+			if not lines.has(int(l)):
+				lines.append(int(l))
+		var code := SkyLogic.star_pick(int(_sky_state.hour), lines, BoardLogic.asked_items(live_quests))
+		if code > 0:
+			_sky_owed.append(code)
+	_land_sky_owed()
+
+func _land_sky_owed() -> void:
+	while not _sky_owed.is_empty():
+		var cell := _sky_landing_cell()
+		if cell.x < 0:
+			return
+		var code := int(_sky_owed.pop_front())
+		board.place(cell, code)
+		sky_stars += 1
+		sky_star_t1eq += int(pow(2, (code % 100) - 1))
+
+func _sky_landing_cell() -> Vector2i:
+	var lane_cells: Array = []
+	var axis := String(_sky_state.get("lane_axis", "column"))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == "row":
+		for c in G.COLS:
+			var cell := Vector2i(lane, c)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	else:
+		for r in G.ROWS:
+			var cell := Vector2i(r, lane)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	if not lane_cells.is_empty():
+		return lane_cells[0]
+	var empties := board.empty_ground_cells()
+	return Vector2i(-1, -1) if empties.is_empty() else Vector2i(empties[0])
+
+func _open_quest_lines() -> Array:
+	var out: Array = []
+	for q in live_quests:
+		var it := G.quest_item(q)
+		if not it.is_empty() and not out.has(int(it.line)):
+			out.append(int(it.line))
+	return out
 
 # Credit `amount` ORGANIC coins and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up
 # within the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current page's gift (I2).
@@ -797,6 +860,7 @@ func _play_session() -> Dictionary:
 		guard += 1
 		open_low_mark = mini(open_low_mark, board.empty_ground_cells().size())
 		_refill_quests()
+		_land_sky_owed()
 
 		# 0. PAGE COMPLETION: a cover-up page ends when every one of its clusters is unlocked. This is the
 		# diamond-gift + habitat-cell trigger (cells_from_scenes grants one cell per completed page).
@@ -919,13 +983,19 @@ func _play_session() -> Dictionary:
 			merges += 1
 			for br in board.openable_brambles(pair[1], _level()):
 				board.open_bramble(br)
-			if not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE:
-				var empt := board.empty_ground_cells()
-				if not empt.is_empty():
-					board.place(empt[rng.randi_range(0, empt.size() - 1)], G.COIN_LINE * 100 + 1)
-			# §6.B a merge sometimes shakes a special item loose (modeled by collect-yield, not placed)
-			if G.rolls_special_drop(rng):
-				_credit_special_drop(G.pick_special_drop(rng))
+			var in_patch := SkyLogic.in_patch(_sky_state, pair[1])
+			for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch):
+				var code := int(drop)
+				if G.is_coin(code):
+					var empt := board.empty_ground_cells()
+					if not empt.is_empty():
+						board.place(empt[rng.randi_range(0, empt.size() - 1)], code)
+						if code % 100 == int(G.SKY_COIN_TIER):
+							sky_coin_drops += 1
+				else:
+					if code == 12 * 100 + 1 and String(_sky_state.get("sky", "")) == "rain" and in_patch:
+						sky_water_drops += 1
+					_credit_special_drop(code)
 			continue
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),

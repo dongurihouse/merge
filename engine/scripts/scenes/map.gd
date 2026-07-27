@@ -208,8 +208,6 @@ func _ready() -> void:
 	# the day's weather drifts over the MAP; kept as a member so the
 	# place-picker can hide it — drifting leaves over a static chooser read as stray sprites.
 	BootTrace.begin("map.weather")
-	var g0 := Save.grove()
-	Ambient.check_winback(g0, Time.get_unix_time_from_system())
 	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now())
 	add_child(_weather)
 	BootTrace.end("map.weather")
@@ -306,7 +304,6 @@ func _load_state() -> void:
 func _persist() -> void:
 	var g := Save.grove()
 	g["unlocks"] = unlocks
-	g["last_seen"] = Time.get_unix_time_from_system()   # the win-back reads this
 	Save.grove_write()
 
 # --- progression queries ------------------------------------------------------------
@@ -2608,4 +2605,3 @@ func _notification(what: int) -> void:
 			_open_map(_map_idx)          # the spirit dock steps back to the map it rode on
 		elif get_tree() != null:
 			get_tree().quit()            # from the gallery, the default we disabled (by hand)
-

@@ -4,6 +4,7 @@ extends SceneTree
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
 ##        fresh | played | gate | fullline | ladder | bag | level | levelup | endgame |
+##        sky_sunbeam | sky_rain | sky_starfall |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -18,6 +19,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 
 const RNG_SEED := Base.RNG_SEED
 
@@ -37,7 +39,7 @@ func _initialize() -> void:
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"fullline"],
+			"fullline", "sky_sunbeam", "sky_rain", "sky_starfall"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
 		"retired": {
@@ -57,6 +59,13 @@ func _initialize() -> void:
 		Save.data["ftue_seen"] = {}          # a brand-new player: the merge hand is live
 	if mode == "ftuegen":
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
+	match mode:
+		"sky_rain":
+			Ambient.forced_weather = "rain"
+		"sky_starfall":
+			Ambient.forced_weather = "star"
+		"sky_sunbeam":
+			Ambient.forced_weather = "clear"
 
 	# Seed the COIN CLOCK — the ONE level clock (G.level ← Save.coins_earned_lifetime) — BEFORE the scene
 	# enters the tree. It has to be early for two reasons: the HUD's Lv chip is built ONCE with the level
@@ -96,6 +105,18 @@ func _initialize() -> void:
 			scn._on_press(scn._cell_pos(Vector2i(5, 2)) + half)   # merge the berries too
 			scn._on_release(scn._cell_pos(Vector2i(5, 4)) + half)
 			await create_timer(0.5).timeout
+		"sky_sunbeam", "sky_rain":
+			# The live Weather Hours patch + marker, through Board.tscn. The save has both FTUE verbs
+			# marked above, so the gift gate is open and the lane is visible.
+			scn.debug_refresh_weather()
+			await create_timer(0.45).timeout
+		"sky_starfall":
+			# The real Starfall gift path after its quiet delay: pick a quest-safe high-tier item, arc it
+			# into the hourly column, and leave the marker + lane visible for review.
+			scn.debug_refresh_weather()
+			scn.set("_sky_live_secs", float(G.STAR_DELAY))
+			scn.call("_try_starfall")
+			await create_timer(0.75).timeout
 		"genfade":
 			# quest-unused fade: swap the fence for quests asking a line NO on-board generator produces
 			# or item carries, so every generator fades (GEN_UNUSED) and every base-line item greys

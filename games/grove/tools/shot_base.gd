@@ -34,7 +34,7 @@ extends RefCounted
 ##    clamps a 1080x1920 window to the usable height of a 1440-tall display → 1378), a RACE at
 ##    window creation that flipped the saved PNG's height between runs. begin() forces the size
 ##    and waits until it sticks.
-##  * WEATHER — Ambient rolls clear/breeze/rain/snow off the wall-clock HOUR, and the wet ones are
+##  * WEATHER — Weather Hours rolls clear/breeze/rain/snow/star off the wall-clock HOUR, and particle-heavy states are
 ##    animated particle systems. Captures pin it to "clear" unless the caller passes `weather=<x>`
 ##    (or `weather=auto` for the live hourly roll).
 ##  * GLOBAL RNG — begin() calls seed(RNG_SEED). Scene code reaches for the bare @GlobalScope randi()
@@ -204,8 +204,8 @@ static func _apply_size(tree: SceneTree, size: Vector2i) -> void:
 	push_warning("shot_base: window stuck at %s, wanted %s — the capture will be off-size" % \
 		[str(DisplayServer.window_get_size()), str(size)])
 
-# Weather is an hourly wall-clock roll and the wet states are animated particles, so a capture pins
-# it. `weather=<state>` picks one explicitly; `weather=auto` restores the live roll.
+# Weather is an hourly wall-clock roll and some states are animated particles, so a capture pins it.
+# `weather=<state>` picks one explicitly; `weather=auto` restores the live roll.
 static func _apply_weather(args: Array, pinned: String) -> void:
 	var want := opt(args, "weather", pinned)
 	Ambient.forced_weather = "" if want == "auto" else want

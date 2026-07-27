@@ -331,8 +331,23 @@ const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 const WATER_CAP := 100
 const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
-const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
+
+# Weather Hours (2026-07-26) — hourly sky gifts. The clock/state logic lives in core/sky.gd;
+# these dials stay with Grove content so the sim can own final values.
+const SKY_SHARES := {"sunbeam": 45, "rain": 45, "starfall": 10}
+const SKY_SKIN_SPLIT := {"sunbeam": {"clear": 70, "breeze": 30}, "rain": {"rain": 85, "snow": 15}}
+const SKY_COIN_RATE := 0.35
+const SKY_COIN_TIER := 2
+const SKY_WATER_RATE := 0.35
+const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
+const STAR_DELAY := 10.0
+const PATCH_ALPHA := {"sunbeam": 0.30, "rain": 0.13, "starfall": 0.12}
+const SKY_MARKER_ICON_RELS := {
+	"sunbeam": "ui/kit/icon_sky_sun.png",
+	"rain": "ui/kit/icon_sky_rain.png",
+	"starfall": "ui/shared/icon_star.png",
+}
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked

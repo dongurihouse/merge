@@ -44,9 +44,12 @@ const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const SkyLogic = preload("res://engine/scripts/core/sky.gd")
+const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
 const Features = preload("res://engine/scripts/core/features.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -76,6 +79,8 @@ const BOTTOM_BTN_PX := ActionBar.BOTTOM_BTN_PX   # fallback Bag/Home well size; 
 const BOTTOM_BAR_PAD := ActionBar.BOTTOM_BAR_PAD
 const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
 static var BOARD_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_board.png")
+const SKY_MARKER_SCREEN_GUTTER := 16.0
+static var _sky_marker_icon_cache := {}
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
@@ -149,7 +154,10 @@ var quests_map := -1              # the map these quests were generated for (reg
 var bag: Array = []
 var water := G.WATER_CAP
 var _regen_ts := 0.0               # regen anchor (unix); advances as water accrues
-var _winback := false              # set on load when away >= WINBACK_HOURS
+var _sky_state: Dictionary = {}
+var _sky_live_secs := 0.0
+var _sky_patch: Control = null
+var _sky_marker: Button = null
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
 var _gate_ready_seen := false      # skip the cue on the first (load-time) call
 var _unlock_bar: UnlockBar
@@ -358,6 +366,7 @@ func _ready() -> void:
 
 	_build_hud()
 	_build_water_hud()
+	_refresh_sky_state(false)
 	var tick := Timer.new()
 	tick.wait_time = 1.0
 	tick.timeout.connect(_tick_water)
@@ -380,17 +389,13 @@ func _ready() -> void:
 	_grid_fx_opts = {"merge": _merge_opts, "move": _move_opts, "land": _land_opts}   # one bundle for GridFx
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
-	if _winback:
-		_winback = false
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
-			Strings.t("board.winback.rained"), CREAM, FS.TITLE)
-		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 	_maybe_show_board_tutorial_first_run.call_deferred()
 	_maybe_offer_retirement.call_deferred()   # §6: a calm moment — board entry, never mid-gesture
 
 func debug_refresh_weather() -> void:
+	_refresh_sky_state(false)
 	var insert_at := get_child_count()
 	for child in get_children():
 		if child.name == "WeatherLayer":
@@ -400,6 +405,364 @@ func debug_refresh_weather() -> void:
 	var weather := Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now())
 	add_child(weather)
 	move_child(weather, mini(insert_at, get_child_count() - 1))
+	_sync_sky_patch_marker(true)
+
+func _refresh_sky_state(_pop_marker: bool) -> void:
+	_sky_state = SkyLogic.state(Time.get_unix_time_from_system(), Ambient.forced_weather)
+
+func _tick_sky_hour() -> void:
+	var next := SkyLogic.state(Time.get_unix_time_from_system(), Ambient.forced_weather)
+	if _sky_state.is_empty() or int(next.hour) != int(_sky_state.get("hour", -1)) \
+			or String(next.sky) != String(_sky_state.get("sky", "")) \
+			or int(next.lane) != int(_sky_state.get("lane", -1)):
+		_sky_state = next
+		_sky_live_secs = 0.0
+		debug_refresh_weather()
+		return
+	_sky_live_secs += 1.0
+	_try_starfall()
+
+func _sync_sky_patch_marker(pop_marker: bool) -> void:
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	for node in [_sky_patch, _sky_marker]:
+		if node != null and is_instance_valid(node):
+			if node.get_parent() != null:
+				node.get_parent().remove_child(node)
+			node.queue_free()
+	_sky_patch = null
+	_sky_marker = null
+	if _sky_state.is_empty() or not SkyLogic.gate_open():
+		return
+	var sky := String(_sky_state.get("sky", ""))
+	if sky == "":
+		return
+	var patch := SkyPatch.new()
+	patch.setup(_sky_state, csz, GAP, _landscape)
+	board_area.add_child(patch)
+	_sky_patch = patch
+	var marker := _make_sky_marker()
+	board_area.add_child(marker)
+	_sky_marker = marker
+	if pop_marker:
+		FX.pop(marker)
+
+func _make_sky_marker() -> Button:
+	var marker := Button.new()
+	marker.name = "SkyMarker"
+	marker.focus_mode = Control.FOCUS_NONE
+	marker.tooltip_text = _sky_info_title()
+	marker.text = ""
+	marker.custom_minimum_size = Vector2(maxf(34.0, csz * 0.48), maxf(32.0, csz * 0.42))
+	marker.size = marker.custom_minimum_size
+	marker.mouse_filter = Control.MOUSE_FILTER_STOP
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Pal.CREAM, 0.96)
+	sb.border_color = Color(Pal.BARK, 0.72)
+	sb.border_width_bottom = 2
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.set_corner_radius_all(int(marker.custom_minimum_size.y * 0.5))
+	marker.add_theme_stylebox_override("normal", sb)
+	marker.add_theme_stylebox_override("hover", sb)
+	marker.add_theme_stylebox_override("pressed", sb)
+	marker.add_theme_color_override("font_color", Pal.INK)
+	var glyph := TextureRect.new()
+	glyph.name = "SkyMarkerGlyph"
+	glyph.texture = _sky_marker_texture()
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.set_meta("icon_path", _sky_marker_icon_path())
+	glyph.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := int(maxf(4.0, marker.custom_minimum_size.y * 0.14))
+	glyph.offset_left = inset
+	glyph.offset_top = inset
+	glyph.offset_right = -inset
+	glyph.offset_bottom = -inset
+	marker.add_child(glyph)
+	marker.position = _sky_marker_pos(marker.custom_minimum_size)
+	marker.pressed.connect(_on_sky_marker_pressed)
+	if not Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty():
+		var pip := Label.new()
+		pip.name = "OwedPip"
+		pip.text = "*"
+		pip.add_theme_font_size_override("font_size", int(maxf(10.0, csz * 0.16)))
+		pip.add_theme_color_override("font_color", Pal.STRAW)
+		pip.position = Vector2(marker.custom_minimum_size.x - 12.0, -4.0)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		marker.add_child(pip)
+	return marker
+
+func _sky_marker_pos(marker_size: Vector2) -> Vector2:
+	var lane := int(_sky_state.get("lane", 0))
+	if String(_sky_state.get("lane_axis", "column")) == "row":
+		var left_cell := _cell_pos(Vector2i(lane, 0))
+		var pos := left_cell + Vector2(-marker_size.x - 6.0, (csz - marker_size.y) * 0.5)
+		var board_global_x := board_area.get_global_rect().position.x if board_area != null and is_instance_valid(board_area) else 0.0
+		pos.x = maxf(pos.x, SKY_MARKER_SCREEN_GUTTER - board_global_x)
+		pos.x = minf(pos.x, 6.0 - marker_size.x)
+		return pos
+	var top_cell := _cell_pos(Vector2i(0, lane))
+	return top_cell + Vector2((csz - marker_size.x) * 0.5, -marker_size.y * 0.45)
+
+func _sky_marker_icon_path() -> String:
+	var rels: Dictionary = G.SKY_MARKER_ICON_RELS
+	var rel := String(rels.get(String(_sky_state.get("sky", "sunbeam")), rels.get("sunbeam", "")))
+	return Game.art(rel)
+
+func _sky_marker_texture() -> Texture2D:
+	var sky := String(_sky_state.get("sky", "sunbeam"))
+	var path := _sky_marker_icon_path()
+	if ResourceLoader.exists(path):
+		return load(path)
+	if _sky_marker_icon_cache.has(sky):
+		return _sky_marker_icon_cache[sky]
+	var tex := _draw_sky_marker_texture(sky)
+	_sky_marker_icon_cache[sky] = tex
+	return tex
+
+func _draw_sky_marker_texture(sky: String) -> Texture2D:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	match sky:
+		"rain":
+			_paint_cloud_icon(img)
+		"starfall":
+			_paint_star_icon(img)
+		_:
+			_paint_sun_icon(img)
+	return ImageTexture.create_from_image(img)
+
+func _paint_sun_icon(img: Image) -> void:
+	var gold := Color(Pal.STRAW, 1.0)
+	var edge := Color(Pal.BARK, 0.72)
+	var ctr := Vector2i(32, 32)
+	for p in [Vector2i(32, 8), Vector2i(32, 56), Vector2i(8, 32), Vector2i(56, 32), Vector2i(15, 15), Vector2i(49, 15), Vector2i(15, 49), Vector2i(49, 49)]:
+		_paint_line(img, ctr, p, edge, 2)
+		_paint_line(img, ctr, p, gold, 1)
+	_paint_circle(img, ctr, 17, edge)
+	_paint_circle(img, ctr, 14, gold)
+
+func _paint_cloud_icon(img: Image) -> void:
+	var blue := Color(Pal.SKY, 1.0)
+	var edge := Color(Pal.BARK, 0.70)
+	for c in [Vector2i(24, 30), Vector2i(34, 24), Vector2i(44, 31)]:
+		_paint_circle(img, c, 13, edge)
+	for c in [Vector2i(24, 30), Vector2i(34, 24), Vector2i(44, 31)]:
+		_paint_circle(img, c, 10, blue)
+	_paint_rect(img, Rect2i(17, 30, 34, 13), edge)
+	_paint_rect(img, Rect2i(19, 29, 30, 12), blue)
+	for x in [22, 34, 46]:
+		_paint_line(img, Vector2i(x, 47), Vector2i(x - 3, 56), edge, 2)
+		_paint_line(img, Vector2i(x, 47), Vector2i(x - 3, 56), blue, 1)
+
+func _paint_star_icon(img: Image) -> void:
+	var gold := Color(Pal.STRAW, 1.0)
+	var edge := Color(Pal.BARK, 0.72)
+	var pts := [
+		Vector2i(32, 7), Vector2i(39, 25), Vector2i(58, 25), Vector2i(43, 37),
+		Vector2i(49, 57), Vector2i(32, 45), Vector2i(15, 57), Vector2i(21, 37),
+		Vector2i(6, 25), Vector2i(25, 25),
+	]
+	_paint_polygon(img, pts, edge)
+	var inner := []
+	for p in pts:
+		var v := Vector2(32, 32) + (Vector2(p) - Vector2(32, 32)) * 0.82
+		inner.append(Vector2i(roundi(v.x), roundi(v.y)))
+	_paint_polygon(img, inner, gold)
+
+func _paint_rect(img: Image, rect: Rect2i, color: Color) -> void:
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			_set_icon_pixel(img, x, y, color)
+
+func _paint_circle(img: Image, center: Vector2i, radius: int, color: Color) -> void:
+	var r2 := radius * radius
+	for y in range(center.y - radius, center.y + radius + 1):
+		for x in range(center.x - radius, center.x + radius + 1):
+			if (Vector2i(x, y) - center).length_squared() <= r2:
+				_set_icon_pixel(img, x, y, color)
+
+func _paint_line(img: Image, a: Vector2i, b: Vector2i, color: Color, width: int) -> void:
+	var steps := maxi(1, int((b - a).length()))
+	for i in range(steps + 1):
+		var p := Vector2(a).lerp(Vector2(b), float(i) / float(steps))
+		_paint_circle(img, Vector2i(roundi(p.x), roundi(p.y)), width, color)
+
+func _paint_polygon(img: Image, pts: Array, color: Color) -> void:
+	var min_y := 64
+	var max_y := 0
+	for p in pts:
+		min_y = mini(min_y, int(p.y))
+		max_y = maxi(max_y, int(p.y))
+	for y in range(min_y, max_y + 1):
+		var nodes: Array = []
+		var j := pts.size() - 1
+		for i in pts.size():
+			var pi: Vector2i = pts[i]
+			var pj: Vector2i = pts[j]
+			if (pi.y < y and pj.y >= y) or (pj.y < y and pi.y >= y):
+				nodes.append(int(pi.x + float(y - pi.y) / float(pj.y - pi.y) * float(pj.x - pi.x)))
+			j = i
+		nodes.sort()
+		for n in range(0, nodes.size(), 2):
+			if n + 1 >= nodes.size():
+				break
+			for x in range(int(nodes[n]), int(nodes[n + 1]) + 1):
+				_set_icon_pixel(img, x, y, color)
+
+func _set_icon_pixel(img: Image, x: int, y: int, color: Color) -> void:
+	if x >= 0 and x < img.get_width() and y >= 0 and y < img.get_height():
+		img.set_pixel(x, y, color)
+
+func _sky_info_title() -> String:
+	return Strings.t("board.sky.%s.title" % String(_sky_state.get("sky", "sunbeam")))
+
+func _sky_info_desc() -> String:
+	return Strings.t("board.sky.%s.desc" % String(_sky_state.get("sky", "sunbeam")))
+
+func _on_sky_marker_pressed() -> void:
+	if _info_label == null or not is_instance_valid(_info_label):
+		return
+	_selected_cell = Vector2i(-1, -1)
+	if _focus_ring != null and is_instance_valid(_focus_ring):
+		_focus_ring.queue_free()
+		_focus_ring = null
+	if _info_icon != null and is_instance_valid(_info_icon):
+		for c in _info_icon.get_children():
+			c.queue_free()
+	_info_label.text = _sky_info_title()
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_info_desc_label.text = _sky_info_desc()
+		_info_desc_label.visible = true
+	if _info_btn != null and is_instance_valid(_info_btn):
+		_info_btn.visible = false
+		_info_btn.disabled = true
+	if _info_trash != null and is_instance_valid(_info_trash):
+		_info_trash.visible = false
+	if _info_burst != null and is_instance_valid(_info_burst):
+		_info_burst.visible = false
+	if _info_buy != null and is_instance_valid(_info_buy):
+		_info_buy.visible = false
+
+func _try_starfall() -> void:
+	if _sky_state.is_empty() or String(_sky_state.get("sky", "")) != "starfall":
+		return
+	if not SkyLogic.gate_open() or _sky_live_secs < float(G.STAR_DELAY) or animating or _modal_open():
+		return
+	var sky_save := SkyLogic.grove_sky_state()
+	var hour := int(_sky_state.get("hour", -1))
+	if hour <= int(sky_save.get("paid_hour", -1)):
+		return
+	var lines := _star_lines()
+	var asked := BoardLogic.asked_items(quests)
+	var code := SkyLogic.star_pick(hour, lines, asked)
+	sky_save["paid_hour"] = hour
+	if code > 0 and not _land_star_code(code):
+		var owed: Array = sky_save.get("owed", [])
+		owed.append(code)
+		sky_save["owed"] = owed
+		_sync_sky_patch_marker(false)
+	if code > 0:
+		_persist()
+	else:
+		Save.grove_write()
+
+func _star_lines() -> Array:
+	var out: Array = []
+	for l in G.active_lines(_quest_level()):
+		if not out.has(int(l)):
+			out.append(int(l))
+	for l in G.quest_needed_lines(_open_quest_lines()).keys():
+		if not out.has(int(l)):
+			out.append(int(l))
+	return out
+
+func _modal_open() -> bool:
+	for child in get_children():
+		if child is Control and (child as Control).visible and int((child as Control).z_index) >= Overlay.MODAL_Z:
+			return true
+	return false
+
+func _land_owed_stars() -> bool:
+	if _sky_state.is_empty() or not SkyLogic.gate_open():
+		return false
+	var sky_save := SkyLogic.grove_sky_state()
+	var owed: Array = sky_save.get("owed", [])
+	var landed := false
+	while not owed.is_empty():
+		var code := int(owed[0])
+		if not _land_star_code(code):
+			break
+		owed.pop_front()
+		landed = true
+	sky_save["owed"] = owed
+	if landed:
+		_sync_sky_patch_marker(false)
+	return landed
+
+func _land_star_code(code: int) -> bool:
+	var cell := _star_landing_cell()
+	if cell.x < 0:
+		return false
+	board.place(cell, code)
+	_mark_seen(code)
+	if board_area != null and is_instance_valid(board_area):
+		var n := _make_piece(code, csz)
+		var from := _star_start_pos(cell)
+		var to := _cell_pos(cell)
+		n.position = from
+		n.scale = Vector2(0.55, 0.55)
+		board_area.add_child(n)
+		piece_nodes[cell] = n
+		var t := MoveFx.apply(n, from, to, "arc", _move_opts)
+		if t != null:
+			t.parallel().tween_property(n, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			var ctr := board_area.get_global_transform() * to + Vector2(csz, csz) / 2.0
+			t.chain().tween_callback(func() -> void:
+				if n and is_instance_valid(n):
+					LandFx.apply(self, n, ctr, _land_opts, 0.9, false)
+					Feel.ripple(_orthogonal_neighbour_nodes(cell), ctr, 0.9))
+	return true
+
+func _star_landing_cell() -> Vector2i:
+	var lane_cells: Array = []
+	var axis := String(_sky_state.get("lane_axis", "column"))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == "row":
+		for c in G.COLS:
+			var cell := Vector2i(lane, c)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	else:
+		for r in G.ROWS:
+			var cell := Vector2i(r, lane)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	if not lane_cells.is_empty():
+		var rng_star := RandomNumberGenerator.new()
+		rng_star.seed = int(absi(hash(int(_sky_state.get("hour", 0)) * 31337 + 19)))
+		return lane_cells[rng_star.randi_range(0, lane_cells.size() - 1)]
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		return Vector2i(-1, -1)
+	var center := _lane_center_cell()
+	empties.sort_custom(func(a, b): return (Vector2i(a) - center).length_squared() < (Vector2i(b) - center).length_squared())
+	var rng_fallback := RandomNumberGenerator.new()
+	rng_fallback.seed = int(absi(hash(int(_sky_state.get("hour", 0)) * 31337 + 29)))
+	return empties[rng_fallback.randi_range(0, mini(2, empties.size() - 1))]
+
+func _lane_center_cell() -> Vector2i:
+	var lane := int(_sky_state.get("lane", 0))
+	if String(_sky_state.get("lane_axis", "column")) == "row":
+		return Vector2i(lane, int(G.COLS / 2))
+	return Vector2i(int(G.ROWS / 2), lane)
+
+func _star_start_pos(cell: Vector2i) -> Vector2:
+	var lane_top := _cell_pos(Vector2i(0, cell.y))
+	return Vector2(lane_top.x, -csz * 1.4)
 
 # After a quiet spell, a pair that can merge wiggles to show the next step
 # (owner: ~5-10s of inactivity). Re-nudges gently while the player stays idle.
@@ -840,13 +1203,7 @@ func _load_state() -> void:
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
 		_regen_ts = float(g.get("regen_ts", now))
-		# the >=48h check lives in Ambient now (both scenes' weather reads its stamp)
-		if Ambient.check_winback(g, now) and water < G.WATER_CAP:
-			water = G.WATER_CAP            # "it rained" — the >= 48h win-back
-			_regen_ts = now
-			_winback = true
-		else:
-			_apply_regen(now)
+		_apply_regen(now)
 	else:
 		if forced_rng_seed >= 0:
 			rng.seed = forced_rng_seed      # a screenshot tool asked for a reproducible board
@@ -983,7 +1340,6 @@ func _persist() -> void:
 	g["rng_state"] = rng.state
 	g["water"] = water
 	g["regen_ts"] = _regen_ts
-	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
 
 # --- the fan-out contract (board_decomposition.md, "Architecture decision: coordinator owns state")
@@ -1008,6 +1364,7 @@ func _persist() -> void:
 # nav taps, and _grow_generators / _sync_accumulators (internal steps of _rebuild_all, which fans out
 # on its own beat).
 func _after_board_change(hud_deferred := false) -> void:
+	_land_owed_stars()
 	_persist()
 	if not hud_deferred:
 		_update_hud()
@@ -1074,6 +1431,7 @@ func _tick_water() -> void:
 	_update_water_hud()
 	if water != before:
 		_persist()
+	_tick_sky_hour()
 
 func _ftue_pops_done() -> bool:
 	if not Features.on("ftue_free_pops"):
@@ -1742,6 +2100,7 @@ func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector
 	return best
 
 func _rebuild_all() -> void:
+	_refresh_sky_state(false)
 	_grow_generators()                        # a staged second generator grows in once its level is reached
 	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
 	for n in board_area.get_children():
@@ -1762,6 +2121,7 @@ func _rebuild_all() -> void:
 				br.position = _cell_pos(cell)
 				board_area.add_child(br)
 				bramble_nodes[cell] = br
+	_sync_sky_patch_marker(false)
 	gen_nodes.clear()
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
@@ -3202,12 +3562,13 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	for cell in board.openable_brambles(b, _quest_level()):
 		_open_bramble(cell)
 	_refresh_locked_cells()   # the open set changed → re-evaluate neighbours' frontier/highlight
-	# a little luck: merges sometimes shake a coin loose
-	if BoardLogic.rolls_coin_drop(produced, rng):
-		_drop_coin_near(b)
-	# §6.B a rarer luck: a merge sometimes also shakes a SPECIAL item loose (chest/key/water/acorn/exp)
-	if not G.is_special(produced) and G.rolls_special_drop(rng):
-		_drop_special_near(b, G.pick_special_drop(rng))
+	var in_patch := SkyLogic.gate_open() and SkyLogic.in_patch(_sky_state, b)
+	for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch):
+		var code := int(drop)
+		if G.is_coin(code):
+			_drop_coin_near(b, code)
+		else:
+			_drop_special_near(b, code)
 	animating = false
 	_after_board_change()
 

@@ -6,21 +6,20 @@ extends RefCounted
 ## re-inserted at any moment (the host clears ALL children on rebuilds) and
 ## every character resumes mid-path. No tween state to teleport.
 ##
-## Weather picks deterministically per HOUR (clear/breeze/rain/snow ≈ 70/20/8/2).
-## The >=48h win-back persists `winback_until = now + 60` and both scenes'
-## pickers read it → it rains for that first minute back. Caps: ≤2 emitters, ≤80 particles.
+## Weather Hours pick deterministically per hour: Sunbeam (clear/breeze), Rain
+## (rain/snow), or Starfall (starlit). Caps: ≤2 emitters, ≤80 particles.
 ##
 ## Every look/feel dial lives in Tune (engine/scripts/core/tuning.gd → class Ambient).
 
 const G = preload("res://engine/scripts/core/content.gd")
-const Save = preload("res://engine/scripts/core/save.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient   # the engine's ambient look/feel dials
 const FXTune = preload("res://engine/scripts/core/tuning.gd").FX      # the merge-puff dials live with the other feel-verb tunables
 const AmbientDriver = preload("res://engine/scripts/ui/ambient_driver.gd")  # the per-layer CPU governor (throttle + idle-gate)
+const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 
-const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow"]
+const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow", "star"]
 
 static var forced_weather := ""        # shot tools force a state ("rain"…)
 
@@ -160,39 +159,10 @@ static func hop(ch: Control) -> void:
 	tw.tween_property(ch, "scale", Tune.HOP_STRETCH, Tune.HOP_T_REST)
 	tw.tween_property(ch, "scale", Vector2.ONE, Tune.HOP_T_REST)
 
-# --- the win-back (shared; both scenes) --------------------------------------------
-
-## Detects the >=48h return, stamps the rainy minute. Caller persists the blob.
-static func check_winback(g: Dictionary, now: float) -> bool:
-	if not Features.on("winback_rain_beat"):
-		return false
-	var last := float(g.get("last_seen", now))
-	if now - last >= G.WINBACK_HOURS * Tune.SECS_PER_HOUR:
-		g["winback_until"] = now + Tune.WINBACK_RAIN_SECS
-		return true
-	return false
-
-static func winback_active() -> bool:
-	if not Features.on("winback_rain_beat"):
-		return false
-	return Time.get_unix_time_from_system() < float(Save.grove().get("winback_until", 0.0))
-
 # --- weather -----------------------------------------------------------------------
 
 static func weather_now() -> String:
-	if forced_weather != "":
-		return forced_weather
-	if winback_active():
-		return "rain"                            # "it rained while you were away"
-	var roll := absi(hash(int(Time.get_unix_time_from_system() / Tune.SECS_PER_HOUR))) % Tune.ROLL_RANGE
-	var w := "clear"
-	if roll >= Tune.BREEZE_AT and roll < Tune.RAIN_AT:
-		w = "breeze"
-	elif roll >= Tune.RAIN_AT and roll < Tune.SNOW_AT:
-		w = "rain"
-	elif roll >= Tune.SNOW_AT:
-		w = "snow"
-	return w
+	return String(SkyLogic.state(Time.get_unix_time_from_system(), forced_weather).skin)
 
 static func weather_debug_label() -> String:
 	return "Weather: %s" % ("auto" if forced_weather == "" else forced_weather)
@@ -240,6 +210,16 @@ static func build_weather(view: Vector2, kind: String) -> Control:
 			frost.set_anchors_preset(Control.PRESET_FULL_RECT)
 			frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			layer.add_child(frost)
+		"starlit":
+			var stars := _drift_emitter(view, _star_tex(), 36, 8.0, Vector2(12, 36))
+			stars.scale_amount_min = 0.35
+			stars.scale_amount_max = 0.85
+			layer.add_child(stars)
+			var tint := ColorRect.new()
+			tint.color = Color(0.25, 0.34, 0.42, 0.10)
+			tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+			tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			layer.add_child(tint)
 	# Idle-gate the weather sim: a driver (no reposition tick — weather is particle-driven) freezes the
 	# layer's CPUParticles2D when the app is backgrounded / unfocused / hidden, so it burns no CPU unseen.
 	if kind != "clear":
@@ -288,3 +268,17 @@ static func _flake_tex() -> Texture2D:
 					img.set_pixel(x, y, Color(1, 1, 1, clampf(1.0 - d / Tune.FLAKE_RADIUS, 0.0, 1.0) * Tune.FLAKE_ALPHA))
 		_flake = ImageTexture.create_from_image(img)
 	return _flake
+
+static var _star: Texture2D
+static func _star_tex() -> Texture2D:
+	if _star == null:
+		var img := Image.create(9, 9, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		for x in 9:
+			for y in 9:
+				var dx := absf(float(x) - 4.0)
+				var dy := absf(float(y) - 4.0)
+				if dx == 0.0 or dy == 0.0 or is_equal_approx(dx, dy):
+					img.set_pixel(x, y, Color(1.0, 0.86, 0.45, 0.85))
+		_star = ImageTexture.create_from_image(img)
+	return _star
