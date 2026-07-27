@@ -354,8 +354,21 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 
 # Weather Hours (2026-07-26) — hourly sky gifts. The clock/state logic lives in core/sky.gd;
 # these dials stay with Grove content so the sim can own final values.
-const SKY_SHARES := {"sunbeam": 45, "rain": 45, "starfall": 10}
-const SKY_SKIN_SPLIT := {"sunbeam": {"clear": 70, "breeze": 30}, "rain": {"rain": 85, "snow": 15}}
+# CALM IS A REAL SKY, NOT AN ABSENCE (spec draft 7 §2). Most hours are ordinary; that is what makes a
+# Sunbeam or a Starfall hour land. A calm hour renders exactly like the pre-weather game — the ambient
+# skin still drifts, but there is no lane, no wash, no marker and no gift. It carries Sunbeam's skin
+# split so the sky people see most often is the one the game shipped with.
+# ORDER IS LOAD-BEARING: sky.gd walks these entries by CUMULATIVE share in Dictionary insertion order,
+# so re-ordering the keys re-maps which hour draws which sky. The values need not sum to 100 (the walk
+# normalises against their total), but changing any share moves every hour after the first threshold.
+const SKY_SHARES := {"calm": 40, "sunbeam": 30, "rain": 20, "starfall": 10}
+# Per-sky skin split, walked the same cumulative way. A sky with NO entry here (Starfall) wears its own
+# single skin. Calm and Sunbeam deliberately share the 70/30 clear/breeze look.
+const SKY_SKIN_SPLIT := {
+	"calm": {"clear": 70, "breeze": 30},
+	"sunbeam": {"clear": 70, "breeze": 30},
+	"rain": {"rain": 85, "snow": 15},
+}
 const SKY_COIN_RATE := 0.35
 const SKY_COIN_TIER := 2
 # SKY_WATER_RATE is the one sky dial with a RUNAWAY above ~0.2, so it does not match its coin

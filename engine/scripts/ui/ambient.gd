@@ -19,7 +19,10 @@ const FXTune = preload("res://engine/scripts/core/tuning.gd").FX      # the merg
 const AmbientDriver = preload("res://engine/scripts/ui/ambient_driver.gd")  # the per-layer CPU governor (throttle + idle-gate)
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 
-const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow", "star"]
+# The debug cycle, in order: "" is auto (the real hourly roll). Each entry forces one SKY in one SKIN,
+# and forcing a sky forces its gifts — so "calm" is the way to see the no-lane, no-marker, no-gift hour
+# on demand, exactly as "star" is the way to see Starfall on demand. Sunbeam owns clear/breeze.
+const WEATHER_DEBUG_STATES := ["", "calm", "clear", "breeze", "rain", "snow", "star"]
 
 static var forced_weather := ""        # shot tools force a state ("rain"…)
 

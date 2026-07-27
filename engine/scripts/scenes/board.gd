@@ -477,7 +477,10 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	if _sky_state.is_empty() or not SkyLogic.gate_open():
 		return
 	var sky := String(_sky_state.get("sky", ""))
-	if sky == "":
+	# A CALM hour is chrome-free by design (§2): no wash, no marker, nothing outside the mat and
+	# nothing to tap, so the info bar keeps whatever the player last selected. The board reads exactly
+	# as it did before weather shipped. Same early-out as "" — the state before the first roll.
+	if sky == "" or sky == SkyLogic.SKY_CALM:
 		return
 	var patch := SkyPatch.new()
 	patch.setup(_sky_state, csz, GAP, _landscape)

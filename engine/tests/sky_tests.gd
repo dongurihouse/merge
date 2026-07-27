@@ -12,6 +12,11 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient
 
 const MID_LEVEL := 12                          # a level where every lane on both axes is playable
 const LANE_SWEEP_LEVELS := [1, 2, 6, 12, 40]   # early board → fully open board
+# The share sweep needs enough hours for a hash-driven roll to settle. Measured convergence of the
+# worst-off sky against its target: 5000 h is 1.04 points out, 10000 h is 0.70, 20000 h is 0.21 — so
+# 20000 is the first length where a 1-point band is a real assertion rather than a coin flip.
+const SHARE_SWEEP_HOURS := 20000
+const SHARE_TOLERANCE := 1.0                   # percentage points
 
 func save_prefix() -> String:
 	return "tu_sky_"
@@ -77,16 +82,49 @@ func _initialize() -> void:
 	ok(String(star.sky) == "starfall" and String(star.skin) == "starlit" and String(star.lane_axis) == "column", \
 		"forcing star produces Starfall with the starlit column lane")
 
-	var found := {"sunbeam": false, "rain": false, "starfall": false, "breeze": false, "snow": false}
+	# --- Calm: a real sky that projects nothing ----------------------------------------
+	var calm: Dictionary = Sky.state(123.0, MID_LEVEL, "calm")
+	ok(String(calm.sky) == "calm" and String(calm.skin) == "clear", \
+		"forcing calm produces the Calm sky wearing the pre-weather clear skin")
+	ok(String(calm.lane_axis) == "" and int(calm.lane) == -1, \
+		"a Calm state carries NO lane: lane_axis is empty and lane is -1")
+	var calm_in_patch := false
+	for r in int(G.ROWS):
+		for c in int(G.COLS):
+			if Sky.in_patch(calm, Vector2i(r, c)):
+				calm_in_patch = true
+	ok(not calm_in_patch, "in_patch is false for every cell on the board under a Calm sky")
+	ok(not Sky.in_patch({"sky": "calm", "lane_axis": "column", "lane": 3}, Vector2i(0, 3)), \
+		"in_patch rejects Calm by the SKY name, not by the lane sentinel — a stray lane cannot revive it")
+
+	# --- share sweep: four skies, at their stated weights -------------------------------
+	var found := {"calm": false, "sunbeam": false, "rain": false, "starfall": false, "breeze": false, "snow": false}
+	var sky_counts := {}
 	var skin_matches := true
-	for h in range(0, 500):
-		var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR, MID_LEVEL)
+	for h in range(0, SHARE_SWEEP_HOURS):
+		var t := float(h) * Tune.SECS_PER_HOUR
+		var st: Dictionary = Sky.state(t, MID_LEVEL)
 		found[String(st.sky)] = true
 		found[String(st.skin)] = true
-		if String(Sky.skin_at(float(h) * Tune.SECS_PER_HOUR)) != String(st.skin):
+		sky_counts[String(st.sky)] = int(sky_counts.get(String(st.sky), 0)) + 1
+		if h < 500 and String(Sky.skin_at(t)) != String(st.skin):
 			skin_matches = false
-	ok(found.sunbeam and found.rain and found.starfall and found.breeze and found.snow, \
-		"auto weather reaches all three skies and the legacy skins")
+	ok(found.calm and found.sunbeam and found.rain and found.starfall and found.breeze and found.snow, \
+		"auto weather reaches all FOUR skies and every legacy skin")
+	var share_report: Array = []
+	var share_worst := 0.0
+	for sky_name in G.SKY_SHARES.keys():
+		var want := float(G.SKY_SHARES[sky_name])
+		var got := 100.0 * float(sky_counts.get(String(sky_name), 0)) / float(SHARE_SWEEP_HOURS)
+		share_worst = maxf(share_worst, absf(got - want))
+		share_report.append("%s %.2f/%d" % [sky_name, got, int(want)])
+	ok(share_worst <= SHARE_TOLERANCE, \
+		"observed shares land within %.1f point of SKY_SHARES over %d hours (%s; worst %.2f)" \
+		% [SHARE_TOLERANCE, SHARE_SWEEP_HOURS, " · ".join(share_report), share_worst])
+	ok(int(sky_counts.get("calm", 0)) > int(sky_counts.get("sunbeam", 0)) \
+		and int(sky_counts.get("sunbeam", 0)) > int(sky_counts.get("rain", 0)) \
+		and int(sky_counts.get("rain", 0)) > int(sky_counts.get("starfall", 0)), \
+		"the walk follows SKY_SHARES order and weight — Calm is the commonest hour, Starfall the rarest")
 	ok(skin_matches and String(Sky.skin_at(123.0, "snow")) == "snow", \
 		"skin_at returns the hour's skin without a level — the level-free path Ambient.weather_now uses")
 
@@ -100,9 +138,21 @@ func _initialize() -> void:
 	var short_lanes := 0
 	var fallback_hours := 0
 	var fallback_bad := 0
+	var lane_hours := 0
+	var calm_hours := 0
+	var calm_lane_bad := 0
 	for level in LANE_SWEEP_LEVELS:
-		for h in range(0, 240):
+		for h in range(0, 480):
 			var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR, level)
+			# CALM CARRIES NO LANE, so it is excluded from the lane rule rather than counted as a
+			# dead one — but it is checked HERE, in the same sweep, so the exclusion can never hide a
+			# calm hour that quietly grew a lane.
+			if String(st.sky) == "calm":
+				calm_hours += 1
+				if String(st.lane_axis) != "" or int(st.lane) != -1:
+					calm_lane_bad += 1
+				continue
+			lane_hours += 1
 			var axis := String(st.lane_axis)
 			var lane := int(st.lane)
 			var span := int(G.ROWS) if axis == "row" else int(G.COLS)
@@ -120,7 +170,11 @@ func _initialize() -> void:
 				fallback_hours += 1
 				if open != best:
 					fallback_bad += 1
-	ok(dead_lanes == 0, "no hour at any level lands a lane with zero open cells (%d dead)" % dead_lanes)
+	ok(calm_hours > 0 and calm_lane_bad == 0, \
+		"every Calm hour in the lane sweep reports the no-lane sentinel (%d calm hours, %d wrong)" \
+		% [calm_hours, calm_lane_bad])
+	ok(lane_hours > 0, "the lane sweep still covers the three lane-bearing skies (%d lane hours)" % lane_hours)
+	ok(dead_lanes == 0, "no lane-bearing hour at any level lands a lane with zero open cells (%d dead)" % dead_lanes)
 	ok(short_lanes == 0, \
 		"every hour rolls a lane with >= LANE_MIN_OPEN open cells whenever any lane has that many (%d short)" % short_lanes)
 	ok(fallback_hours > 0 and fallback_bad == 0, \
@@ -132,17 +186,24 @@ func _initialize() -> void:
 
 	var stable := true
 	var moved := 0
-	for h in range(0, 240):
+	var stable_hours := 0
+	for h in range(0, 480):
 		var t := float(h) * Tune.SECS_PER_HOUR
 		for level in LANE_SWEEP_LEVELS:
 			var a: Dictionary = Sky.state(t, level)
 			var b: Dictionary = Sky.state(t + Tune.SECS_PER_HOUR * 0.5, level)
 			if int(a.lane) != int(b.lane) or String(a.sky) != String(b.sky):
 				stable = false
+		# Calm's lane is stably -1 at every level, so it belongs in the stability check but says nothing
+		# about a level-up MOVING a lane — only the lane-bearing skies can move.
+		if String(Sky.state(t, 12).sky) == "calm":
+			continue
+		stable_hours += 1
 		if int(Sky.state(t, 1).lane) != int(Sky.state(t, 12).lane):
 			moved += 1
 	ok(stable, "the same (hour, level) always rolls the same lane — the lane holds for the whole hour")
-	ok(moved > 0, "a level-up can move the lane, because openness is level-derived (%d of 240 hours)" % moved)
+	ok(moved > 0, "a level-up can move the lane, because openness is level-derived (%d of %d lane hours)" \
+		% [moved, stable_hours])
 
 	var patch_col := {"sky": "sunbeam", "lane_axis": "column", "lane": 2}
 	ok(Sky.in_patch(patch_col, Vector2i(0, 2)) and Sky.in_patch(patch_col, Vector2i(8, 2)) \
@@ -209,13 +270,46 @@ func _initialize() -> void:
 		"Starfall merge drops do not add sky bonuses")
 	var base_rng := RandomNumberGenerator.new()
 	var sky_rng := RandomNumberGenerator.new()
-	for sky_name in ["sunbeam", "rain", "starfall"]:
+	for sky_name in ["calm", "sunbeam", "rain", "starfall"]:
 		base_rng.seed = 75
 		sky_rng.seed = 75
 		_baseline_merge_stream(101, base_rng)
 		logic.call("roll_merge_drops", 101, sky_rng, {"hour": 17, "sky": sky_name, "lane_axis": "column", "lane": 0}, true)
 		ok(int(sky_rng.state) == int(base_rng.state), \
 			"%s sky merge drops leave the board rng stream at the shipped merge-drop position" % sky_name)
+
+	# --- Calm pays NOTHING: byte-identical to the no-sky baseline -----------------------
+	# `roll_merge_drops` branches on the sky NAME, so calm should fall through to baseline on its own.
+	# That is exactly why it is asserted rather than assumed: both the DROP LIST and the rng stream
+	# POSITION are compared against the suite's no-sky helper, across seeds and produced codes, and
+	# with in_patch forced BOTH ways — a calm hour has no patch, so even a caller wrongly claiming
+	# in-patch must not shake a coin or a drop of water loose.
+	var calm_state := {"hour": 17, "sky": "calm", "lane_axis": "", "lane": -1}
+	var calm_drops_match := true
+	var calm_stream_match := true
+	var calm_bonus := false
+	var calm_checked := 0
+	for produced in [101, 205, 309, G.COIN_LINE * 100 + 1]:
+		for seed in range(1, 60):
+			for claimed_in_patch in [false, true]:
+				base_rng.seed = seed
+				sky_rng.seed = seed
+				var want: Array = _baseline_merge_stream(produced, base_rng)
+				var got: Array = logic.call("roll_merge_drops", produced, sky_rng, calm_state, claimed_in_patch)
+				calm_checked += 1
+				if got != want:
+					calm_drops_match = false
+				if int(sky_rng.state) != int(base_rng.state):
+					calm_stream_match = false
+				# The SKY coin is the one drop no baseline roll can mint: baseline coins are always c1,
+				# and the special pool never draws from COIN_LINE. A t1 water special, by contrast, IS a
+				# legitimate baseline special — so "calm shook no extra water loose" is proved by the
+				# drop-list equality above, not by looking for a water code here.
+				if got.has(G.COIN_LINE * 100 + int(G.SKY_COIN_TIER)):
+					calm_bonus = true
+	ok(calm_drops_match, "Calm merge drops are the baseline drop list, drop for drop (%d cases)" % calm_checked)
+	ok(calm_stream_match, "Calm merge drops leave the board rng stream byte-identical to the baseline")
+	ok(not calm_bonus, "no Calm merge ever mints the in-patch sky coin")
 
 	if saved_weather_hours == null:
 		Features.FLAGS.erase("weather_hours")
