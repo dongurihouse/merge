@@ -408,10 +408,12 @@ func debug_refresh_weather() -> void:
 	_sync_sky_patch_marker(true)
 
 func _refresh_sky_state(_pop_marker: bool) -> void:
-	_sky_state = SkyLogic.state(Time.get_unix_time_from_system(), Ambient.forced_weather)
+	_sky_state = SkyLogic.state(Time.get_unix_time_from_system(), _quest_level(), Ambient.forced_weather)
 
 func _tick_sky_hour() -> void:
-	var next := SkyLogic.state(Time.get_unix_time_from_system(), Ambient.forced_weather)
+	# The lane is level-dependent (§3), so a level-up can move it mid-hour — the lane check below
+	# catches that and moves patch + marker together.
+	var next := SkyLogic.state(Time.get_unix_time_from_system(), _quest_level(), Ambient.forced_weather)
 	if _sky_state.is_empty() or int(next.hour) != int(_sky_state.get("hour", -1)) \
 			or String(next.sky) != String(_sky_state.get("sky", "")) \
 			or int(next.lane) != int(_sky_state.get("lane", -1)):

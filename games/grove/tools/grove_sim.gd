@@ -411,7 +411,7 @@ func _live_lines() -> Array:
 
 func _begin_weather_hour() -> void:
 	_refill_quests()
-	_sky_state = SkyLogic.state(float(_sim_hour) * 3600.0)
+	_sky_state = SkyLogic.state(float(_sim_hour) * 3600.0, _level())
 	_sim_hour += 1
 	if String(_sky_state.get("sky", "")) == "starfall":
 		var lines: Array = _live_lines()

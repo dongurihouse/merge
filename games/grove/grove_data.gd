@@ -342,6 +342,10 @@ const SKY_COIN_TIER := 2
 const SKY_WATER_RATE := 0.35
 const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
 const STAR_DELAY := 10.0
+# §3 playable-lane roll: the hour picks only among lanes holding at least this many cells the player
+# has unlocked (MIN_LEVEL vs level). A uniform roll left 36% of level-2 hours on a lane with ZERO open
+# cells — no merge can happen there, so the sky gave nothing right after the FTUE gate opens.
+const LANE_MIN_OPEN := 5
 const PATCH_ALPHA := {"sunbeam": 0.30, "rain": 0.13, "starfall": 0.12}
 const SKY_MARKER_ICON_RELS := {
 	"sunbeam": "ui/kit/icon_sky_sun.png",

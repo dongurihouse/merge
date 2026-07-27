@@ -10,25 +10,34 @@ const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient
 
+const MID_LEVEL := 12                          # a level where every lane on both axes is playable
+const LANE_SWEEP_LEVELS := [1, 2, 6, 12, 40]   # early board → fully open board
+
 func save_prefix() -> String:
 	return "tu_sky_"
 
 func _sky():
 	return load("res://engine/scripts/core/sky.gd")
 
-func _state_with_sky(Sky: GDScript, target: String) -> Dictionary:
-	for h in range(0, 240):
-		var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR)
-		if String(st.sky) == target:
-			return st
-	return {}
+## Open cells on a lane, counted straight from the unlock grid — deliberately NOT Sky's own helper,
+## so the lane-roll assertions below check the roll against an independent count.
+func _open_count(axis: String, lane: int, level: int) -> int:
+	var n := 0
+	if axis == "row":
+		for c in int(G.COLS):
+			if int(G.MIN_LEVEL[lane][c]) <= level:
+				n += 1
+	else:
+		for r in int(G.ROWS):
+			if int(G.MIN_LEVEL[r][lane]) <= level:
+				n += 1
+	return n
 
-func _state_with_skin(Sky: GDScript, target: String) -> Dictionary:
-	for h in range(0, 240):
-		var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR)
-		if String(st.skin) == target:
-			return st
-	return {}
+func _best_open(axis: String, level: int) -> int:
+	var best := 0
+	for i in (int(G.ROWS) if axis == "row" else int(G.COLS)):
+		best = maxi(best, _open_count(axis, i, level))
+	return best
 
 func _baseline_merge_stream(produced: int, rng: RandomNumberGenerator) -> Array:
 	var out: Array = []
@@ -48,33 +57,92 @@ func _initialize() -> void:
 	var saved_weather_hours = Features.FLAGS.get("weather_hours", null)
 	Features.FLAGS["weather_hours"] = true
 	fresh("gate")
-	var sun: Dictionary = Sky.state(123.0, "clear")
+	var sun: Dictionary = Sky.state(123.0, MID_LEVEL, "clear")
 	ok(int(Sky.hour_index(0.0)) == 0 and int(Sky.hour_index(Tune.SECS_PER_HOUR * 3.9)) == 3, \
 		"hour_index is floor(unix / SECS_PER_HOUR)")
 	ok(String(sun.sky) == "sunbeam" and String(sun.skin) == "clear" and String(sun.lane_axis) == "column" \
 		and int(sun.lane) >= 0 and int(sun.lane) < G.COLS, \
 		"forcing clear produces Sunbeam, clear skin, and an in-range column lane")
-	var breeze: Dictionary = Sky.state(123.0, "breeze")
+	var breeze: Dictionary = Sky.state(123.0, MID_LEVEL, "breeze")
 	ok(String(breeze.sky) == "sunbeam" and String(breeze.skin) == "breeze", \
 		"forcing breeze produces Sunbeam with the breeze skin")
-	var rain: Dictionary = Sky.state(123.0, "rain")
+	var rain: Dictionary = Sky.state(123.0, MID_LEVEL, "rain")
 	ok(String(rain.sky) == "rain" and String(rain.skin) == "rain" and String(rain.lane_axis) == "row" \
 		and int(rain.lane) >= 0 and int(rain.lane) < G.ROWS, \
 		"forcing rain produces Rain and an in-range row lane")
-	var snow: Dictionary = Sky.state(123.0, "snow")
+	var snow: Dictionary = Sky.state(123.0, MID_LEVEL, "snow")
 	ok(String(snow.sky) == "rain" and String(snow.skin) == "snow", \
 		"forcing snow produces Rain with the snow skin")
-	var star: Dictionary = Sky.state(123.0, "star")
+	var star: Dictionary = Sky.state(123.0, MID_LEVEL, "star")
 	ok(String(star.sky) == "starfall" and String(star.skin) == "starlit" and String(star.lane_axis) == "column", \
 		"forcing star produces Starfall with the starlit column lane")
 
 	var found := {"sunbeam": false, "rain": false, "starfall": false, "breeze": false, "snow": false}
+	var skin_matches := true
 	for h in range(0, 500):
-		var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR)
+		var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR, MID_LEVEL)
 		found[String(st.sky)] = true
 		found[String(st.skin)] = true
+		if String(Sky.skin_at(float(h) * Tune.SECS_PER_HOUR)) != String(st.skin):
+			skin_matches = false
 	ok(found.sunbeam and found.rain and found.starfall and found.breeze and found.snow, \
 		"auto weather reaches all three skies and the legacy skins")
+	ok(skin_matches and String(Sky.skin_at(123.0, "snow")) == "snow", \
+		"skin_at returns the hour's skin without a level — the level-free path Ambient.weather_now uses")
+
+	# --- §3 lane roll: playable lanes only ---------------------------------------------
+	var bar := int(G.LANE_MIN_OPEN)
+	ok(int(Sky.lane_open_count("row", 4, 2)) == _open_count("row", 4, 2) \
+		and int(Sky.lane_open_count("column", 3, 6)) == _open_count("column", 3, 6) \
+		and int(Sky.lane_open_count("column", 0, 40)) == int(G.ROWS), \
+		"lane_open_count counts a lane's cells against the static MIN_LEVEL unlock grid")
+	var dead_lanes := 0
+	var short_lanes := 0
+	var fallback_hours := 0
+	var fallback_bad := 0
+	for level in LANE_SWEEP_LEVELS:
+		for h in range(0, 240):
+			var st: Dictionary = Sky.state(float(h) * Tune.SECS_PER_HOUR, level)
+			var axis := String(st.lane_axis)
+			var lane := int(st.lane)
+			var span := int(G.ROWS) if axis == "row" else int(G.COLS)
+			if lane < 0 or lane >= span:
+				dead_lanes += 1
+				continue
+			var open := _open_count(axis, lane, level)
+			var best := _best_open(axis, level)
+			if open <= 0:
+				dead_lanes += 1
+			if best >= bar:
+				if open < bar:
+					short_lanes += 1
+			else:
+				fallback_hours += 1
+				if open != best:
+					fallback_bad += 1
+	ok(dead_lanes == 0, "no hour at any level lands a lane with zero open cells (%d dead)" % dead_lanes)
+	ok(short_lanes == 0, \
+		"every hour rolls a lane with >= LANE_MIN_OPEN open cells whenever any lane has that many (%d short)" % short_lanes)
+	ok(fallback_hours > 0 and fallback_bad == 0, \
+		"when no lane clears LANE_MIN_OPEN the roll falls back to a most-open lane (%d such hours, %d wrong)" \
+		% [fallback_hours, fallback_bad])
+	var rain_l1: Dictionary = Sky.state(123.0, 1, "rain")
+	ok(_best_open("row", 1) < bar and _open_count("row", int(rain_l1.lane), 1) == _best_open("row", 1), \
+		"level-1 Rain: no row clears the bar, so the fallback lands one of the most-open rows")
+
+	var stable := true
+	var moved := 0
+	for h in range(0, 240):
+		var t := float(h) * Tune.SECS_PER_HOUR
+		for level in LANE_SWEEP_LEVELS:
+			var a: Dictionary = Sky.state(t, level)
+			var b: Dictionary = Sky.state(t + Tune.SECS_PER_HOUR * 0.5, level)
+			if int(a.lane) != int(b.lane) or String(a.sky) != String(b.sky):
+				stable = false
+		if int(Sky.state(t, 1).lane) != int(Sky.state(t, 12).lane):
+			moved += 1
+	ok(stable, "the same (hour, level) always rolls the same lane — the lane holds for the whole hour")
+	ok(moved > 0, "a level-up can move the lane, because openness is level-derived (%d of 240 hours)" % moved)
 
 	var patch_col := {"sky": "sunbeam", "lane_axis": "column", "lane": 2}
 	ok(Sky.in_patch(patch_col, Vector2i(0, 2)) and Sky.in_patch(patch_col, Vector2i(8, 2)) \

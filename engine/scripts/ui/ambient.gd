@@ -161,8 +161,11 @@ static func hop(ch: Control) -> void:
 
 # --- weather -----------------------------------------------------------------------
 
+## The screen-wide weather layer only needs the SKIN, which is level-free — so this stays a static
+## with no level in scope and the map / shot callers are unchanged. The lane (the one level-dependent
+## part of the sky) is the board's business; it reads Sky.state with its own level.
 static func weather_now() -> String:
-	return String(SkyLogic.state(Time.get_unix_time_from_system(), forced_weather).skin)
+	return SkyLogic.skin_at(Time.get_unix_time_from_system(), forced_weather)
 
 static func weather_debug_label() -> String:
 	return "Weather: %s" % ("auto" if forced_weather == "" else forced_weather)
