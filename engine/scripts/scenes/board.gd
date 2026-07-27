@@ -5302,6 +5302,86 @@ func debug_drop_acorn() -> void:
 	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), G.ACORN_LINE * 100 + 1)
 	_after_board_change()
 
+## The tier-1 code the debug spawns place: the FIRST picture-book line (ascending) that is still
+## producible and that no live quest is asking for. Deterministic on purpose — these buttons must
+## never touch the board RNG, whose stream is persisted and order-sensitive. The quest skip is
+## load-bearing for "Pop magnet": magnet_merge_once refuses any pair a giver wants, so seeding an
+## asked code would leave the button silently doing nothing. 0 when the roster has no usable line.
+func _debug_spawn_code() -> int:
+	var asked := _asked_codes()
+	var lines: Array = G.LINES.keys()
+	lines.sort()
+	for line in lines:
+		var code := int(line) * 100 + 1
+		if G.is_valid_item_code(code) and not asked.has(code):
+			return code
+	return 0
+
+## Debug-only: land every growing Soil right now (the debug panel's "Pop soil" button), so a tier
+## pop can be watched without waiting out the step timer. Each soil holding a growable item has its
+## step expired; a board whose soils are all BARE gets a deterministic tier-1 item dropped on the
+## first one first, so one tap still pops instead of the button reading as dead.
+## The pop itself is left to _after_board_change's own reconcile — reconciling HERE would consume the
+## change and leave that call with nothing to report, so the piece art would keep the old tier.
+## No _reflect — the new tier rebuilds live and _after_board_change persists it (no scene reload).
+func debug_pop_soil() -> void:
+	if board == null or not _improvements_enabled():
+		return
+	var now := Time.get_unix_time_from_system()
+	var soils := _improvement_cells(Improvements.KIND_SOIL)
+	if soils.is_empty():
+		return
+	var popped := false
+	for cell in soils:
+		popped = board.expire_soil_step(cell, now) or popped
+	if not popped:
+		var code := _debug_spawn_code()
+		if code <= 0:
+			return
+		for cell in soils:
+			if board.item_at(cell) != 0:
+				continue                     # a soil holding an already-topped item cannot pop
+			board.place(cell, code)
+			popped = board.expire_soil_step(cell, now)
+			break
+	if not popped:
+		return
+	_after_board_change()
+
+## Debug-only: make a placed Magnet do its auto-merge right now (the debug panel's "Pop magnet"
+## button) by dropping a matching pair into its 3×3 range, so the pull can be watched on demand.
+## The pair goes on plain empty ground only — an item parked on a Soil in range starts growing, and
+## the magnet rule skips growing cells. _after_board_change runs the scan, so the merge itself takes
+## the normal path. (A cascade in flight makes the rule stand down; the pair then merges on the scan
+## that follows the chain, so the drop is never wasted.)
+## No _reflect — the pair lands and merges live, and _after_board_change persists it (no scene reload).
+func debug_pop_magnet() -> void:
+	if board == null or not _improvements_enabled():
+		return
+	var magnets := _improvement_cells(Improvements.KIND_MAGNET)
+	if magnets.is_empty():
+		return
+	var free_cells: Array = []
+	for raw_cell in Improvements.range_cells(board, Vector2i(magnets[0])):
+		var cell := Vector2i(raw_cell)
+		if board.is_empty_ground(cell) and not board.has_improvement(cell):
+			free_cells.append(cell)
+	var code := _debug_spawn_code()
+	if free_cells.size() < 2 or code <= 0:
+		return
+	var a := Vector2i(free_cells[0])
+	var b := Vector2i(free_cells[1])
+	board.place(a, code)
+	board.place(b, code)
+	_after_board_change()
+	# _after_board_change rebuilds only when something CHANGED. If the magnet stood down, the pair
+	# would sit in the model unrendered until the next rebuild — so draw it here instead. (The scan
+	# runs before that call's own _rebuild_all, so the quest set it checks is the one _debug_spawn_code
+	# filtered against; a rebuild first could refill the quests and re-ask the code mid-flight.)
+	if board.item_at(a) == code and board.item_at(b) == code:
+		if board_area != null and is_instance_valid(board_area) and not _drag_active():
+			_rebuild_all()
+
 ## Debug-only: move the mastery rank of EVERY generator standing on the board by `delta` (the debug
 ## panel's "Gen rank ±1" buttons), so the raised pop windows and the rank-up card can be exercised
 ## without grinding the meter. A generator on a non-base line simply no-ops inside Mastery.set_rank —

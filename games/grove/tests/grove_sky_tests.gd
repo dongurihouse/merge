@@ -31,7 +31,9 @@ func _initialize() -> void:
 	await _test_starfall_full_lane_and_full_board()
 	await _test_starfall_info_auto_announcement()
 	await _test_winback_rain_beat_removed()
-	Ambient.reset_weather_debug_for_test()
+	_test_weather_debug_picker_labels()
+	await _test_weather_picker_rearms_the_starfall_hour()
+	_test_weather_debug_reset_releases_the_pin()
 	finish()
 
 func _open_board(name: String, forced_weather: String):
@@ -485,6 +487,101 @@ func _test_winback_rain_beat_removed() -> void:
 	ok(board_src.find("board.winback") == -1 and board_src.find("last_seen") == -1, \
 		"Board no longer grants or toasts the win-back rain beat")
 	ok(map_src.find("last_seen") == -1, "Map no longer writes last_seen for win-back rain")
+
+# --- the debug weather picker -------------------------------------------------------------------
+# Debug.on() is false headless, so the panel itself cannot be mounted here. These pin the pure halves
+# the panel is assembled from — the label mapping, the sky read-out, and the re-arm — which is where
+# every defect the picker can have actually lives.
+
+## ONE TAP PER STATE means one CHIP per state, so every entry in the list has to carry a label the
+## owner can tell from its neighbour: a blank chip (which "" would render as, being the auto state's
+## own name) or a repeated one is an option you cannot aim at. Derived labels, not a parallel table —
+## the assertion walks WEATHER_DEBUG_STATES itself so a new sky is covered the day it is added.
+func _test_weather_debug_picker_labels() -> void:
+	Ambient.reset_weather_debug_for_test()
+	var states: Array = Ambient.WEATHER_DEBUG_STATES
+	ok(states.has("") and states.has("calm") and states.has("star"), \
+		"the debug state list still covers auto, the Calm no-weather sky and Starfall (%s)" % str(states))
+	# Both sentinels are INDEXES, not label text: "" is itself one of the states, so a sentinel of ""
+	# would compare equal to the very failure it is meant to report and the assert would pass blind.
+	var labels: Array = []
+	var blank := -1
+	var dupe := -1
+	for i in states.size():
+		var chip := Ambient.weather_debug_chip(String(states[i]))
+		if chip.strip_edges() == "" and blank < 0:
+			blank = i
+		if labels.has(chip) and dupe < 0:
+			dupe = i
+		labels.append(chip)
+	ok(blank < 0, "every debug state gets a non-blank chip label (state %d came back empty, got %s)" % [blank, str(labels)])
+	ok(dupe < 0, "no two chips share a label, so every state is aimable (state %d repeats, got %s)" % [dupe, str(labels)])
+	ok(Ambient.weather_debug_chip("") == "Auto", \
+		"the empty state reads as Auto — it is the live hourly roll, not a blank chip")
+	ok(Ambient.weather_debug_chip("star") == "Star" and Ambient.weather_debug_chip("calm") == "Calm", \
+		"a state's chip is its own name, so no label can claim a sky the state does not force")
+	# The read-out is the only place the panel can admit that seven state names are FOUR skies.
+	var now := Time.get_unix_time_from_system()
+	ok(SkyLogic.sky_at(now, "clear") == SkyLogic.SKY_SUNBEAM and SkyLogic.sky_at(now, "breeze") == SkyLogic.SKY_SUNBEAM, \
+		"clear and breeze are two skins of ONE sky, Sunbeam")
+	ok(SkyLogic.sky_at(now, "rain") == SkyLogic.SKY_RAIN and SkyLogic.sky_at(now, "snow") == SkyLogic.SKY_RAIN, \
+		"rain and snow are two skins of ONE sky, Rain")
+	ok(SkyLogic.sky_at(now, "star") == SkyLogic.SKY_STARFALL and SkyLogic.sky_at(now, "calm") == SkyLogic.SKY_CALM, \
+		"star and calm each force their own sky")
+	ok(SkyLogic.sky_at(now, "") == SkyLogic.state(now, 1, "").sky, \
+		"the level-free sky read-out agrees with the full hourly state — one roll, read two ways")
+	Ambient.forced_weather = "breeze"
+	var forced_line := Ambient.weather_debug_label()
+	ok(forced_line.find("breeze") != -1 and forced_line.find("Sunbeam") != -1, \
+		"the picker read-out names the forced state AND the sky it rolls (%s)" % forced_line)
+	Ambient.reset_weather_debug_for_test()
+	ok(Ambient.weather_debug_label().find("auto") != -1, \
+		"with nothing forced the read-out reads auto (%s)" % Ambient.weather_debug_label())
+
+## THE RE-ARM — the reason a one-tap "Star" is worth anything. `sky.paid_hour` is stamped with the REAL
+## clock hour, and forcing a weather never moves the real clock, so without clearing that stamp the
+## second Star tap inside one wall-clock hour draws the starlit sky, the lane and the marker and then
+## pays nothing, for up to an hour. Two stars in ONE hour is the whole assertion. Driven through the
+## picker's own path (set_debug_weather → the host's debug_refresh_weather), in that order.
+func _test_weather_picker_rearms_the_starfall_hour() -> void:
+	var star = await _open_board("sky_star_rearm", "star")
+	_clear_lane_for_catch(star)
+	star._rebuild_all()
+	await process_frame
+	var first := await _arm_pending_star(star)
+	var hour := int(star._sky_state.hour)
+	ok(first > 0, "the first forced Starfall pays a star")
+	ok(int(SkyLogic.grove_sky_state().paid_hour) == hour, "…and stamps paid_hour with the real clock hour")
+	Ambient.set_debug_weather("star")
+	star.debug_refresh_weather()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("paid_hour", 0)) == -1, \
+		"picking a weather re-arms the hour — paid_hour is cleared, so the roll can pay again")
+	ok(int(star._sky_state.hour) == hour, \
+		"…and it is still the SAME real clock hour, which is exactly why the stamp had to go")
+	# The star that was already docked is NOT lost: board.gd's reconcile queues it as owed, and owed
+	# stars land on the next board change. That is the existing contract for any sky change mid-dock.
+	ok(Array(SkyLogic.grove_sky_state().get("owed", [])).has(first), \
+		"the star docked when the pick landed is queued as OWED rather than dropped")
+	# `between` is what makes the next assertion mean anything: WITHOUT the re-arm the first star is
+	# still sitting on the marker, so reading `pending` after a second attempt hands back the SAME code
+	# and a bare `> 0` passes having rolled nothing. An empty dock before, a star after.
+	var between := int(SkyLogic.grove_sky_state().get("pending", 0))
+	var second := await _arm_pending_star(star)
+	ok(between == 0 and second > 0 and int(SkyLogic.grove_sky_state().paid_hour) == hour, \
+		"a SECOND Starfall rolls onto an empty dock and re-stamps the same real hour — the option repeats (dock %d → %d)" \
+		% [between, second])
+	star.queue_free()
+
+## Every other suite inherits whatever this one leaves in the process-global `forced_weather`, so the
+## reset has to actually hand the hour back to the live roll — not merely blank a label.
+func _test_weather_debug_reset_releases_the_pin() -> void:
+	Ambient.forced_weather = "snow"
+	ok(Ambient.weather_now() == SkyLogic.SKIN_SNOW, "a pinned state really does override the hourly roll")
+	Ambient.reset_weather_debug_for_test()
+	ok(Ambient.forced_weather == "", "reset clears the pin")
+	ok(Ambient.weather_now() == SkyLogic.skin_at(Time.get_unix_time_from_system()), \
+		"…and the weather layer is back on the live hourly roll for every suite after this one")
 
 ## The rect a Control actually OCCUPIES ON SCREEN. Neither `get_global_rect()` nor `position`/`size`
 ## answers this for a SCALED node: `size` is the unscaled box, and `Control.scale` scales about
