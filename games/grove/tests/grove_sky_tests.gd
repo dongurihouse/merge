@@ -266,23 +266,30 @@ func _test_starfall_ignores_non_catch_taps() -> void:
 	star._rebuild_all()
 	await process_frame
 	var code := await _arm_pending_star(star)
+	# Occupy one lane cell so the "occupied lane cell" tap has something to land on. _rebuild_all replaces
+	# the marker node, so every handle the taps below need is read AFTER it.
 	var occupied: Vector2i = lane_cells[0] if not lane_cells.is_empty() else Vector2i(-1, -1)
 	if occupied.x >= 0:
 		star.board.place(occupied, 101)
-		star._rebuild_all()
-		await process_frame
-		_tap_board_with_duplicate_events(star, star._cell_pos(occupied) + Vector2(star.csz, star.csz) / 2.0)
-		await process_frame
-	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping an occupied lane cell leaves pending untouched")
+	star._rebuild_all()
+	await process_frame
 	var off_lane := _empty_off_lane_cell(star)
-	if off_lane.x >= 0:
-		_tap_board_with_duplicate_events(star, star._cell_pos(off_lane) + Vector2(star.csz, star.csz) / 2.0)
-		await process_frame
-	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping an empty off-lane cell leaves pending untouched")
 	var marker := star.find_child("SkyMarker", true, false) as Button
-	if marker != null:
-		marker.pressed.emit()
-		await process_frame
+	# Without this guard the three asserts below pass VACUOUSLY on a degraded fixture: with no pending
+	# star every "pending is unchanged" read is 0 == 0, and a missing cell just skips its tap entirely.
+	ok(code > 0 and occupied.x >= 0 and off_lane.x >= 0 and marker != null, \
+		"non-catch fixture has a pending star, an occupied lane cell, a free off-lane cell and a marker")
+	if code <= 0 or occupied.x < 0 or off_lane.x < 0 or marker == null:
+		star.queue_free()
+		return
+	_tap_board_with_duplicate_events(star, star._cell_pos(occupied) + Vector2(star.csz, star.csz) / 2.0)
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping an occupied lane cell leaves pending untouched")
+	_tap_board_with_duplicate_events(star, star._cell_pos(off_lane) + Vector2(star.csz, star.csz) / 2.0)
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping an empty off-lane cell leaves pending untouched")
+	marker.pressed.emit()
+	await process_frame
 	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping the marker shows info and leaves pending untouched")
 	star.queue_free()
 
