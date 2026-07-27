@@ -262,6 +262,7 @@ func _test_growing_piece_info_row_surfaces_actions() -> void:
 	scn._select_item(cell)
 	ok(scn._info_label.text.begins_with("Growing to t8"), "selecting a growing piece names the next tier in the info tray")
 	ok(scn._info_soil_water != null and scn._info_soil_water.visible, "the water chip is visible for a growing piece")
+	ok(scn._info_soil_water_count.text == "%d" % int(G.SOIL_WATER_COST), "the water chip shows the unsigned water cost")
 	ok(not _visible_chip_captions(scn).has("Finish"), "the growing piece's info row carries no acorn Finish chip")
 	scn.queue_free()
 

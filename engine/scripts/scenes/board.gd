@@ -3284,7 +3284,7 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 	var row := board.improvement_at(cell)
 	var watered := bool(row.get("watered", false))
 	var water_ready := water >= int(G.SOIL_WATER_COST) and not watered
-	_set_action_chip(_info_soil_water, _info_soil_water_sb, _info_soil_water_coin, _info_soil_water_count, "water", "-%d" % int(G.SOIL_WATER_COST), water_ready)
+	_set_action_chip(_info_soil_water, _info_soil_water_sb, _info_soil_water_coin, _info_soil_water_count, "water", "%d" % int(G.SOIL_WATER_COST), water_ready)
 
 func _refresh_selected_soil_info() -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):
