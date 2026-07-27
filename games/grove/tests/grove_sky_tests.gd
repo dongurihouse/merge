@@ -8,6 +8,11 @@ const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
 
+## The docked star bobs on a looping tween (board.gd `_start_docked_star_bob`, ±3 px), so its rendered
+## box is never pinned to a single y. Every dock-geometry assert allows exactly that much slack and no
+## more — the defect this guards against was a ~42 px offset, an order of magnitude bigger.
+const DOCK_BOB_PX := 3.0
+
 func _initialize() -> void:
 	begin("grove · weather hours")
 	await process_frame
@@ -210,6 +215,7 @@ func _test_starfall_pending_docks_before_catch() -> void:
 	ok(_item_count(star) == before and _code_count(star, code) == 0, \
 		"pending Starfall has not placed the rolled item in the model yet")
 	ok(star.find_child("DockedStar", true, false) != null, "pending Starfall rebuilds a docked piece at the marker")
+	_assert_dock_sits_in_marker(star, "pending Starfall")
 	var catch_cells := _call_star_catch_cells(star)
 	ok(not catch_cells.is_empty(), "pending Starfall exposes the empty lane cells that should be lit for catch")
 	star._rebuild_all()
@@ -218,6 +224,7 @@ func _test_starfall_pending_docks_before_catch() -> void:
 		and star.find_child("DockedStar", true, false) != null \
 		and not _call_star_catch_cells(star).is_empty(), \
 		"pending Starfall survives _rebuild_all with dock and catch cells restored from save state")
+	_assert_dock_sits_in_marker(star, "the rebuilt dock")
 	star.queue_free()
 
 func _test_starfall_catch_real_tap_and_duplicate_input() -> void:
@@ -397,6 +404,32 @@ func _test_winback_rain_beat_removed() -> void:
 	ok(board_src.find("board.winback") == -1 and board_src.find("last_seen") == -1, \
 		"Board no longer grants or toasts the win-back rain beat")
 	ok(map_src.find("last_seen") == -1, "Map no longer writes last_seen for win-back rain")
+
+## The rect a Control actually OCCUPIES ON SCREEN. Neither `get_global_rect()` nor `position`/`size`
+## answers this for a SCALED node: `size` is the unscaled box, and `Control.scale` scales about
+## `pivot_offset`, so the on-screen origin is `position + pivot_offset * (1 - scale)`. Reading the
+## global transform is the only measurement that matches what renders.
+func _rendered_rect(node: Control) -> Rect2:
+	var xf := node.get_global_transform()
+	return Rect2(xf.origin, node.size * xf.get_scale())
+
+## §6: "the star piece parents to the lane marker" — it has to RENDER there too. Asserting the node
+## exists is not enough: the docked star shipped ~42 px down-and-right of the chip, straddling the mat's
+## top edge and covering the first cell row, and every existing test was green through it. Measured off
+## the rendered transform of both nodes, so a pivot/scale regression fails here instead of in a capture.
+func _assert_dock_sits_in_marker(board_scene, label: String) -> void:
+	var dock := board_scene.find_child("DockedStar", true, false) as Control
+	var chip := board_scene.find_child("SkyMarker", true, false) as Control
+	ok(dock != null and chip != null, "%s has both a docked star and a marker chip to measure" % label)
+	if dock == null or chip == null:
+		return
+	var dock_rect := _rendered_rect(dock)
+	var chip_rect := _rendered_rect(chip)
+	var d: Vector2 = dock_rect.get_center() - chip_rect.get_center()
+	ok(absf(d.x) <= DOCK_BOB_PX and absf(d.y) <= DOCK_BOB_PX, \
+		"%s renders CENTRED in the marker chip, off by (%.2f, %.2f) px" % [label, d.x, d.y])
+	ok(chip_rect.grow(DOCK_BOB_PX).encloses(dock_rect), \
+		"%s renders INSIDE the marker chip, not over the mat (dock %s vs chip %s)" % [label, dock_rect, chip_rect])
 
 func _arm_pending_star(board_scene) -> int:
 	board_scene._sky_live_secs = float(G.STAR_DELAY)

@@ -849,8 +849,15 @@ func _make_docked_star(code: int) -> Control:
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var scale := minf(0.58, maxf(0.34, (_sky_marker.size.y * 0.82) / csz))
 	n.scale = Vector2(scale, scale)
-	var visual := Vector2(csz, csz) * scale
-	n.position = _sky_marker.size * 0.5 - visual * 0.5
+	# POSITION BY CENTRE, never by the scaled visual's top-left. `Control.scale` scales about
+	# `pivot_offset`, and PieceView pins every piece holder's pivot to its own centre — so the holder's
+	# RENDERED top-left is `position + pivot_offset * (1 - scale)`, not `position`. Treating `position`
+	# as the visual's top-left docked the star `csz * (1 - scale) / 2` (~42 px) down-and-right of the
+	# chip, straddling the mat and covering the first cell row, while the node-tree arithmetic still read
+	# as centred. Rendered centre is exactly `position + pivot_offset`, so solve for that instead — the
+	# same identity `_star_marker_piece_pos` already relies on for the flight and landing pieces.
+	n.pivot_offset = Vector2(csz, csz) * 0.5
+	n.position = _sky_marker.size * 0.5 - n.pivot_offset
 	n.z_index = 8
 	return n
 
@@ -863,6 +870,10 @@ func _start_docked_star_bob(node: Control) -> void:
 	t.tween_property(node, "position", base + Vector2(0, -3.0), 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_property(node, "position", base + Vector2(0, 2.0), 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
+## Where a cell-sized piece holder must be POSITIONED for it to render centred on the marker chip.
+## Pivot-true at any scale without a scale term: a piece holder pivots at its own centre, so its
+## rendered centre is `position + csz/2` whatever `scale` is — the flight piece (0.55 → 0.42) and the
+## landing piece (0.55 → 1.0) both ride this. Do not "correct" it by the scale factor.
 func _star_marker_piece_pos() -> Vector2:
 	if _sky_marker != null and is_instance_valid(_sky_marker):
 		return _sky_marker.position + _sky_marker.size * 0.5 - Vector2(csz, csz) * 0.5
