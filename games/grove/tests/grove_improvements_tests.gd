@@ -34,6 +34,11 @@ func _initialize() -> void:
 	await _test_rank_one_and_magnet_seeds_store_nothing()
 	await _test_scissors_bag_fallback_keeps_arrays_aligned()
 	await _test_growing_countdown_chip_stays_inside_its_cell()
+	await _test_debug_pop_soil_lands_the_step()
+	await _test_debug_pop_soil_seeds_a_bare_soil()
+	await _test_debug_pop_soil_without_soil_is_a_noop()
+	await _test_debug_pop_magnet_merges_a_seeded_pair()
+	await _test_debug_pop_magnet_without_magnet_is_a_noop()
 	finish()
 
 func _clear_board_model(b: BoardModel) -> void:
@@ -838,4 +843,121 @@ func _test_growing_countdown_chip_stays_inside_its_cell() -> void:
 		var cell_rect := Rect2(scn._cell_pos(cell), Vector2(scn.csz, scn.csz))
 		var chip_rect := Rect2(ov.position + chip.position, chip.size)
 		ok(cell_rect.encloses(chip_rect), "the \"%s\" countdown chip stays inside its own cell (cell %s, chip %s)" % [(chip.get_child(0) as Label).text, cell_rect, chip_rect])
+	scn.queue_free()
+
+# --- the debug panel's Pop soil / Pop magnet buttons ------------------------------------------
+# Owner-facing test hooks (Debug.mount gates them on has_method), so they run the SAME paths the
+# growth timer and the magnet scan take: no shortcut placement, no scene reload, no board RNG.
+
+# Every board item, cell -> code. Used to pin the no-op cases byte-for-byte.
+func _item_map(scn: Node) -> Dictionary:
+	var out := {}
+	for i in scn.board.items.size():
+		if int(scn.board.items[i]) > 0:
+			out[BoardModel.cell_of(i)] = int(scn.board.items[i])
+	return out
+
+func _test_debug_pop_soil_lands_the_step() -> void:
+	fresh("improve_debug_pop_soil")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var plain := Vector2i(1, 1)
+	var ranked := Vector2i(1, 5)
+	var now := Time.get_unix_time_from_system()
+	_mark_cell_growing(scn, plain, 101, 3600.0)
+	var plain_row: Dictionary = scn.board.improvement_at(plain)
+	plain_row["watered"] = true                  # so the fresh step has to CLEAR it, not merely inherit false
+	scn.board.improvements[plain] = plain_row
+	ok(scn.board.build_improvement(ranked, Improvements.KIND_SOIL, 3), "fixture installs a rank-3 Soil under %s" % ranked)
+	scn.board.place(ranked, 101)
+	var row: Dictionary = scn.board.improvement_at(ranked)
+	row["code"] = 101
+	row["ends_at"] = now + 3600.0
+	scn.board.improvements[ranked] = row
+	scn._rebuild_all()
+	await _settle()
+	scn.debug_pop_soil()
+	ok(scn.board.item_at(plain) == 102, "Pop soil finishes the running step — the rank-1 soil's t1 becomes t2")
+	ok(scn.board.item_at(ranked) == 103, "Pop soil grows the rank-3 soil TWO tiers, like a real step")
+	var after: Dictionary = scn.board.improvement_at(plain)
+	ok(int(after.get("code", 0)) == 102, "the popped soil's next step tracks the item it just grew")
+	# a REAL restart, not the fixture's leftover hour: the new step is exactly a t2 step long
+	var want := Improvements.soil_step_seconds(102, 1)
+	var left := float(after.get("ends_at", 0.0)) - Time.get_unix_time_from_system()
+	ok(absf(left - want) <= 3.0, "Pop soil starts a fresh t2 step (%.0fs left, want %.0fs) rather than leaving the old timer" % [left, want])
+	ok(not bool(after.get("watered", true)), "the fresh step is unwatered, like any newly started step")
+	var saved: Array = Save.grove().get("board", {}).get("items", [])
+	ok(saved.size() > BoardModel.idx(plain) and int(saved[BoardModel.idx(plain)]) == 102, "Pop soil persists the grown tier (survives a reload)")
+	scn.queue_free()
+
+func _test_debug_pop_soil_seeds_a_bare_soil() -> void:
+	fresh("improve_debug_pop_bare_soil")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var cell := Vector2i(1, 1)
+	ok(scn.board.build_improvement(cell, Improvements.KIND_SOIL), "fixture installs an EMPTY Soil under %s" % cell)
+	scn._rebuild_all()
+	await _settle()
+	scn.debug_pop_soil()
+	var grown: int = scn.board.item_at(cell)
+	ok(grown > 0 and BoardModel.tier_of(grown) == 2, "Pop soil seeds a bare Soil and pops it in one press (got %d)" % grown)
+	ok(G.is_valid_item_code(grown), "the seeded item is a real, producible content code (%d)" % grown)
+	ok(not scn._asked_codes().has(grown - 1), "the seeded line is one no live quest is asking for")
+	ok(float(scn.board.improvement_at(cell).get("ends_at", 0.0)) > Time.get_unix_time_from_system(), "the seeded soil is left growing its next step")
+	scn.queue_free()
+
+func _test_debug_pop_soil_without_soil_is_a_noop() -> void:
+	fresh("improve_debug_pop_soil_noop")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	scn.board.place(Vector2i(2, 2), 101)
+	scn._rebuild_all()
+	await _settle()
+	var before := _item_map(scn)
+	scn.debug_pop_soil()
+	ok(_item_map(scn) == before, "Pop soil with no Soil placed leaves every board item alone")
+	ok(scn.board.improvements.is_empty(), "Pop soil with no Soil placed builds nothing")
+	scn.queue_free()
+
+func _test_debug_pop_magnet_merges_a_seeded_pair() -> void:
+	fresh("improve_debug_pop_magnet")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(1, 1)          # a 3x3 range clear of the anchor generator cell (4,3)
+	ok(scn.board.build_improvement(magnet, Improvements.KIND_MAGNET), "fixture installs a Magnet under %s" % magnet)
+	scn._rebuild_all()
+	await _settle()
+	scn.debug_pop_magnet()
+	var in_range: Array = []
+	for raw_cell in Improvements.range_cells(scn.board, magnet):
+		var cell := Vector2i(raw_cell)
+		if scn.board.item_at(cell) > 0:
+			in_range.append(cell)
+	ok(in_range.size() == 1, "Pop magnet leaves ONE merged item in range, not two loose ones (got %d)" % in_range.size())
+	if in_range.size() == 1:
+		var merged: int = scn.board.item_at(Vector2i(in_range[0]))
+		ok(BoardModel.tier_of(merged) == 2, "the magnet merged the seeded t1 pair up a tier (got %d)" % merged)
+		ok(scn.board.count_of(merged - 1) == 0, "no half of the seeded pair is left behind anywhere on the board")
+	scn.queue_free()
+
+func _test_debug_pop_magnet_without_magnet_is_a_noop() -> void:
+	fresh("improve_debug_pop_magnet_noop")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	scn.board.build_improvement(Vector2i(1, 1), Improvements.KIND_SOIL)
+	scn._rebuild_all()
+	await _settle()
+	var before := _item_map(scn)
+	scn.debug_pop_magnet()
+	ok(_item_map(scn) == before, "Pop magnet with no Magnet placed drops no pair on the board")
 	scn.queue_free()

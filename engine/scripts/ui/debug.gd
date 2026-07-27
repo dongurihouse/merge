@@ -124,6 +124,7 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "+5 stars", _act_stars)
 	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
+	_action(menu, host, "Level down", _act_level_down)
 	_action(menu, host, "Advance day", _act_advance_day)
 	if host.has_method("debug_add_resident_to_hand"):
 		_action(menu, host, "+1 resident", _act_add_resident)
@@ -133,6 +134,10 @@ static func mount(host: Control) -> void:
 		_action(menu, host, "Drop coin", _act_drop_coin)
 	if host.has_method("debug_drop_acorn"):      # board-only: spawn an acorn to exercise premium collectables
 		_action(menu, host, "Drop acorn", _act_drop_acorn)
+	if host.has_method("debug_pop_soil"):        # board-only: land a Soil growth step without waiting it out
+		_action(menu, host, "Pop soil", _act_pop_soil)
+	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
+		_action(menu, host, "Pop magnet", _act_pop_magnet)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)
@@ -355,6 +360,22 @@ static func _act_level_up(host: Control) -> void:
 	Save.earn_coins(maxi(0, need))
 	_reflect(host)
 
+## Pull the coin clock BACK to the previous level's threshold (floored at level 1) so a level-gated
+## surface can be re-entered from above. Save.earn_coins clamps its argument with maxi(0, n) and can
+## only ever push the clock forward, so the threshold is written straight into the grove blob.
+## The SPENDABLE wallet is left untouched on purpose: this rewinds the progression clock only — it is
+## not a refund reversal, and coins already banked stay banked.
+##
+## ALWAYS reflects, including on the board — deliberately ASYMMETRIC with _act_level_up above. The
+## board's in-place refresh (debug_add_progress) only ever walks the clock FORWARD; a downward move
+## invalidates board-derived state it never revisits — locked cells must re-lock and the quest-fence
+## window narrows — so the change has to come back through a full scene reload. Do not "fix" this
+## into symmetry with Level up.
+static func _act_level_down(host: Control) -> void:
+	Save.grove()["coins_earned"] = G.coins_at_level(maxi(1, G.level() - 1))
+	Save.grove_write()
+	_reflect(host)
+
 ## Fast-forward the daily-login calendar to the next day (claims today to advance the
 ## streak, then reopens the claim) — the game's designated "next day" debug helper.
 ## Water regen is real-time, not day-based, so this does not refill the can.
@@ -379,6 +400,19 @@ static func _act_drop_coin(host: Control) -> void:
 static func _act_drop_acorn(host: Control) -> void:
 	if host.has_method("debug_drop_acorn"):
 		host.debug_drop_acorn()
+
+## Board-only: finish every growing Soil's current step now, so a tier pop can be tested without
+## waiting out the timer (a board of bare soils gets one seeded first, so one tap always pops).
+## No _reflect — the new tier rebuilds live and debug_pop_soil() persists it (no scene reload).
+static func _act_pop_soil(host: Control) -> void:
+	if host.has_method("debug_pop_soil"):
+		host.call("debug_pop_soil")
+
+## Board-only: drop a matching pair into a placed Magnet's range so its auto-merge fires on demand.
+## No _reflect — the pair lands and merges live and debug_pop_magnet() persists it (no scene reload).
+static func _act_pop_magnet(host: Control) -> void:
+	if host.has_method("debug_pop_magnet"):
+		host.call("debug_pop_magnet")
 
 ## Knock 25 off the water can (floored at 0) to walk down into the out-of-water flow.
 static func _act_reduce_water(host: Control) -> void:
