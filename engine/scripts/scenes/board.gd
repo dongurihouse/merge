@@ -212,6 +212,7 @@ var bag_piece_px := 72.0             # the in-well item-preview size (set from t
 var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 var _bag_well_drawn_disc := false    # true only for the kit-absent drawn-disc fallback (glyph lives IN bag_content)
 var _farewell_check_queued := false
+var _farewell_check_pending_player := false
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
@@ -3562,6 +3563,9 @@ func _clear_selection() -> void:
 	if _info_almanac != null and is_instance_valid(_info_almanac):
 		_info_almanac.visible = Features.on("discovery_ladder")
 		_info_almanac.disabled = not Features.on("discovery_ladder")
+	if _farewell_check_pending_player:
+		_farewell_check_pending_player = false
+		_queue_farewell_check_after_frame()
 
 # Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
 # _rebuild_all wipes it); z-lifted so the brackets sit above the resting piece they frame. The frame
@@ -5701,10 +5705,17 @@ func _queue_farewell_check() -> void:
 
 func _run_farewell_check() -> void:
 	_farewell_check_queued = false
+	if _farewell_check_waiting_for_player():
+		_farewell_check_pending_player = true
+		return
+	_farewell_check_pending_player = false
 	_show_next_farewell()
 
 func _show_next_farewell() -> void:
 	if not is_inside_tree() or board == null or FarewellCard.is_open(self):
+		return
+	if _farewell_check_waiting_for_player():
+		_farewell_check_pending_player = true
 		return
 	if not Save.board_tutorial_seen():
 		return
@@ -5722,6 +5733,9 @@ func _show_next_farewell() -> void:
 		"coins": int(preview.coins),
 		"on_close": Callable(self, "_on_farewell_card_closed").bind(line, next_need),
 	})
+
+func _farewell_check_waiting_for_player() -> bool:
+	return _selected_cell.x >= 0 or _drag_active() or _pressing
 
 func _on_farewell_card_closed(line: int, next_need: Dictionary) -> void:
 	_sweep_farewell(line, next_need)
