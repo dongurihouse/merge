@@ -72,6 +72,8 @@ func _test_farewell_cards_chain() -> void:
 	Save.grove()["retire_declined"] = {"gen_2": true}                         # legacy key must be ignored
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("soil")        # this fixture needs both starter empty cells for retired stock
+	Save.mark_ftue_seen("soil_seed")
 	var scn = board_host()
 	await process_frame
 	for r in G.ROWS:

@@ -59,6 +59,16 @@ const BURST_MAX = D.BURST_MAX
 const BOOST_BONUS = D.BOOST_BONUS
 const BOOST_TAPS = D.BOOST_TAPS
 const BOOST_COST = D.BOOST_COST
+const SOIL_MAX = D.SOIL_MAX
+const MAGNET_MAX = D.MAGNET_MAX
+const SOIL_MAX_RANK = D.SOIL_MAX_RANK
+const SOIL_UNSOCKET_PRICE = D.SOIL_UNSOCKET_PRICE
+const MAGNET_UNSOCKET_ACORNS = D.MAGNET_UNSOCKET_ACORNS
+const SOIL_SEED_SELL_COINS = D.SOIL_SEED_SELL_COINS
+const MAGNET_SEED_SELL_COINS = D.MAGNET_SEED_SELL_COINS
+const SOIL_RANK_PRICES = D.SOIL_RANK_PRICES
+const SOIL_WATER_COST = D.SOIL_WATER_COST
+const SOIL_STEP_SECONDS = D.SOIL_STEP_SECONDS
 const RESIDENT_MAX_TIER = D.RESIDENT_MAX_TIER
 const RESIDENT_SLOTS_MAX = D.RESIDENT_SLOTS_MAX
 const RESIDENT_LINES = D.RESIDENT_LINES
@@ -101,6 +111,8 @@ const SPECIAL_TOP = D.SPECIAL_TOP
 const CHEST_LINE = D.CHEST_LINE
 const WATER_LINE = D.WATER_LINE
 const ACORN_LINE = D.ACORN_LINE
+const SOIL_SEED_LINE = D.SOIL_SEED_LINE
+const MAGNET_SEED_LINE = D.MAGNET_SEED_LINE
 const SPECIAL_ITEMS = D.SPECIAL_ITEMS
 const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
 const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
@@ -1276,6 +1288,11 @@ static func any_cluster_ready(unlocks: Dictionary, level: int, coins: int) -> bo
 ## premium-sell pinnacle anymore — selling never mints acorns (acorns are milestone/IAP only), so the
 ## old t8=1💎 special case + the 32× anti-arbitrage guard are retired. `premium` is always 0 here.
 static func sell_reward(code: int) -> Vector2i:
+	match special_kind(code):
+		"soil_seed":
+			return Vector2i(SOIL_SEED_SELL_COINS, 0)
+		"magnet_seed":
+			return Vector2i(MAGNET_SEED_SELL_COINS, 0)
 	var tier := code % 100
 	# §6.D premium treat lines sell at a flat premium band; everything else at its per-map band.
 	var band: float = TREAT_SELL_BAND if is_treat_line(code) else sell_map_band(map_for_code(code))
@@ -1457,13 +1474,20 @@ static func merge_top(code: int) -> int:
 static func rolls_special_drop(rng: RandomNumberGenerator) -> bool:
 	return rng.randf() < SPECIAL_DROP_RATE
 
-static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 special code, weighted by kind
+static func pick_special_drop(rng: RandomNumberGenerator, blocked_lines: Array = []) -> int:    # → a t1 special code, weighted by kind
+	var weights := {}
+	for line in SPECIAL_DROP_WEIGHTS:
+		if blocked_lines.has(int(line)):
+			continue
+		weights[int(line)] = int(SPECIAL_DROP_WEIGHTS[line])
+	if weights.is_empty():
+		weights = SPECIAL_DROP_WEIGHTS
 	var total := 0
-	for w in SPECIAL_DROP_WEIGHTS.values():
+	for w in weights.values():
 		total += int(w)
 	var r := rng.randi_range(1, maxi(1, total))
-	for line in SPECIAL_DROP_WEIGHTS:
-		r -= int(SPECIAL_DROP_WEIGHTS[line])
+	for line in weights:
+		r -= int(weights[line])
 		if r <= 0:
 			return int(line) * 100 + 1
 	return CHEST_LINE * 100 + 1                                      # defensive: a chest t1
@@ -1754,6 +1778,8 @@ static func item_tex_path(code: int) -> String:
 		base = special_base(code)
 	if base == "":
 		return ""
+	if special_kind(code).ends_with("_seed"):
+		return Game.art("ui/kit/%s.png" % base)
 	return Game.art("items/%s/%s_%d.png" % [base, base, art_tier_for(base, tier)])
 
 static func line_color(code: int) -> Color:

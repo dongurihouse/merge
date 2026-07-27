@@ -45,6 +45,7 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -80,6 +81,14 @@ var sell_coins := 0            # coins from selling only (the Y "cleanup, not in
 var boost_taps := 0            # generator taps left on the live temporary boost (§6 coin sink)
 var boost_coins_spent := 0     # coins sunk into boost activations (a repeatable Z sink)
 var boosts_bought := 0         # how many boosts the bot has activated over the run
+var improve_spend := 0         # coins sunk into Soil ranks/unsockets (seed placement itself is free)
+var soils_built := 0           # placed Soil seeds
+var soil_seeds_unplaced := 0
+var soil_rank := 1
+var magnets_built := 0         # placed Magnet seeds
+var magnet_seeds_unplaced := 0
+var magnet_gems_spent := 0     # acorns/diamonds sunk into Magnet unsockets (D ledger)
+var unsockets := 0
 # §1 POPULATION loop: once a map COMPLETES, its resident roster opens. Welcoming spends coins
 # (base/core) or diamonds (premium signature); two-of-a-kind auto-merges a tier up. NO roster cap,
 # so the bot re-buys base feeders forever — this is the ENDLESS coin sink that replaced the hub.
@@ -393,18 +402,18 @@ func _initialize() -> void:
 	# hard checks). ---
 	var other_coins := coins_spendable - sell_coins               # §6 drops/chests/treats + §1 habitat yield/sell
 	var faucet := _coin_faucet()
-	var coin_sink := boost_coins_spent + expedition_spend + cluster_spend
+	var coin_sink := boost_coins_spent + expedition_spend + cluster_spend + improve_spend
 	print("  -- Z coins --  faucet %d🪙 = CLOCK %d (quest) + SPENDABLE %d (sell %d + other %d, incl. §1 habitat yield %d / sell %d) · held %d🪙" % \
 		[faucet, coins_earned, coins_spendable, sell_coins, other_coins, habitat_yield, habitat_sell, coins])
-	print("                 sink %d🪙 = clusters %d🪙 + boosts %d🪙 (%d) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
-		[coin_sink, cluster_spend, boost_coins_spent, boosts_bought, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, faucet)))])
+	print("                 sink %d🪙 = clusters %d🪙 + boosts %d🪙 (%d) + improvements %d🪙 (%d soil seeds placed/%d held/r%d, %d unsockets) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
+		[coin_sink, cluster_spend, boost_coins_spent, boosts_bought, improve_spend, soils_built, soil_seeds_unplaced, soil_rank, unsockets, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, faucet)))])
 
 	# --- D: the DIAMOND economy (previously unmodeled). Faucet = level-ups (LEVEL_DIAMONDS) +
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
 	# (RESIDENT_PREMIUM_COST each). REPORTED as a ledger — the premium sink is gated behind completing
 	# a map, so an early/short run may show 0 spend (the faucet leads the sink, by design). ---
-	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
-		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, resident_gems_spent, residents_premium, diamonds])
+	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 = magnet unsockets %d (%d placed/%d held) + premium residents %d (%d) · balance %d💎" % \
+		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, magnet_gems_spent + resident_gems_spent, magnet_gems_spent, magnets_built, magnet_seeds_unplaced, resident_gems_spent, residents_premium, diamonds])
 	print("                 NOTE the premium SINK reads 0 by construction: it models the retired per-map WELCOME roster")
 	print("                 (MAPS[z].spots, now save-compat legacy), so this ledger is faucet-only until the parked")
 	print("                 §5 bucket economy pass re-authors the live premium sink. Do not read 0 as a finding.")
@@ -580,6 +589,46 @@ func _earn_coins(amount: int) -> void:
 		diamonds += G.LEVEL_DIAMONDS * up
 		gems_from_levels += G.LEVEL_DIAMONDS * up
 
+func _sim_blocked_seed_drop_lines() -> Array:
+	var blocked: Array = []
+	if soil_seeds_unplaced > 0 or soils_built >= int(G.SOIL_MAX):
+		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_SOIL))
+	if magnet_seeds_unplaced > 0 or magnets_built >= int(G.MAGNET_MAX):
+		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_MAGNET))
+	return blocked
+
+func _use_improvement_seed_sink() -> bool:
+	if soil_seeds_unplaced > 0 and soils_built < int(G.SOIL_MAX):
+		soil_seeds_unplaced -= 1
+		soils_built += 1
+		return true
+	if soils_built > 0 and soil_rank < int(G.SOIL_MAX_RANK):
+		var rank_price := Improvements.soil_rank_price(soil_rank)
+		if rank_price > 0 and coins >= rank_price:
+			coins -= rank_price
+			improve_spend += rank_price
+			soil_rank += 1
+			return true
+	if magnet_seeds_unplaced > 0 and magnets_built < int(G.MAGNET_MAX):
+		magnet_seeds_unplaced -= 1
+		magnets_built += 1
+		return true
+	if soils_built > 1 and coins >= int(G.SOIL_UNSOCKET_PRICE) and unsockets < 1:
+		coins -= int(G.SOIL_UNSOCKET_PRICE)
+		improve_spend += int(G.SOIL_UNSOCKET_PRICE)
+		unsockets += 1
+		soil_seeds_unplaced += 1
+		soils_built -= 1
+		return true
+	if magnets_built > 0 and diamonds >= int(G.MAGNET_UNSOCKET_ACORNS) and unsockets < 2:
+		diamonds -= int(G.MAGNET_UNSOCKET_ACORNS)
+		magnet_gems_spent += int(G.MAGNET_UNSOCKET_ACORNS)
+		unsockets += 1
+		magnet_seeds_unplaced += 1
+		magnets_built -= 1
+		return true
+	return false
+
 # §6.C BONUS GENERATORS (gen redesign 2026-06-28) — replaces the retired constant-accrual accumulators.
 # A main-generator tap (the burst block in _play_session) MAY side-spawn a limited-use bonus generator
 # (G.rolls_bonus_spawn — the ~3% band), ONE at a time. Each grants G.bonus_value(kind) per tap for a random
@@ -613,6 +662,15 @@ func _tick_bonus_gen() -> void:
 # conservative FLOOR (real play merges drops up first). water → extends the session pop-budget; exp → the
 # exp faucet (levels up); acorn → premium. chest+key pair and OPEN for coins+acorns (paired across drops).
 func _credit_special_drop(code: int, src: String = "drop") -> void:
+	var seed_kind := Improvements.kind_for_seed(code)
+	if seed_kind == Improvements.KIND_SOIL:
+		if soil_seeds_unplaced <= 0 and soils_built < int(G.SOIL_MAX):
+			soil_seeds_unplaced += 1
+		return
+	if seed_kind == Improvements.KIND_MAGNET:
+		if magnet_seeds_unplaced <= 0 and magnets_built < int(G.MAGNET_MAX):
+			magnet_seeds_unplaced += 1
+		return
 	match G.special_kind(code):
 		"water":
 			var a := int(G.special_collect(code).amount)
@@ -655,7 +713,7 @@ func _run_treat_gen() -> void:
 		_gain_coins(sell)
 		treat_coins += sell
 		if rng.randf() < G.TREAT_DROP_RATE:
-			_credit_special_drop(G.pick_special_drop(rng), "treat")
+			_credit_special_drop(G.pick_special_drop(rng, _sim_blocked_seed_drop_lines()), "treat")
 
 # --- §1 LIVE RESIDENTS (Bucket) coin loop: expedition SINK + idle-yield/sell SOURCE ----------------
 func _hab_rate() -> int:
@@ -1019,6 +1077,8 @@ func _play_session() -> Dictionary:
 			boost_taps = G.BOOST_TAPS
 			boosts_bought += 1
 			continue
+		if _use_improvement_seed_sink():
+			continue
 		# §1 EXPEDITION — the live residents coin SINK: pay Explore.MIN_COST to acquire spirits, only while
 		# map-0's habitat has ROOM to place (once full, an expedition is pure loss, so a rational player stops —
 		# the sink STOPS and the habitat just keeps YIELDING). Draining surplus here (vs post-session) also keeps
@@ -1085,7 +1145,7 @@ func _play_session() -> Dictionary:
 				board.open_bramble(br)
 			# the SAME expression board.gd's merge finish uses — the FTUE gate FIRST, then patch membership
 			var in_patch := _sky_gate_open() and SkyLogic.in_patch(_sky_state, pair[1])
-			for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch):
+			for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch, _sim_blocked_seed_drop_lines()):
 				var code := int(drop)
 				if G.is_coin(code):
 					var empt := board.empty_ground_cells()

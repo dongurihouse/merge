@@ -130,13 +130,17 @@ static func purge_above_level_content(board: BoardModel, bag: Array, quests: Arr
 	board.gen_bag = kept_ids
 	board.gen_bag_tiers = kept_tiers
 	board.gen_bag_boost = kept_boost
-	# stashed items in the item bag
+	# stashed items in the item bag. `bag_kept` is the SURVIVING INDICES into the incoming bag, so a
+	# caller can filter its own PARALLEL arrays (the scene's bag_seed_ranks) in lockstep without
+	# re-deriving the gate rule here.
 	var kept_bag: Array = []
-	for code in bag:
-		if G.line_gated_out(BoardModel.line_of(int(code)), lvl):
+	var bag_kept: Array = []
+	for i in bag.size():
+		if G.line_gated_out(BoardModel.line_of(int(bag[i])), lvl):
 			changed = true
 		else:
-			kept_bag.append(code)
+			kept_bag.append(bag[i])
+			bag_kept.append(i)
 	# live quests asking for a now-too-advanced line (the fence refills with valid lines after)
 	var kept_quests: Array = []
 	for q in quests:
@@ -144,4 +148,4 @@ static func purge_above_level_content(board: BoardModel, bag: Array, quests: Arr
 			changed = true
 		else:
 			kept_quests.append(q)
-	return {"changed": changed, "bag": kept_bag, "quests": kept_quests}
+	return {"changed": changed, "bag": kept_bag, "bag_kept": bag_kept, "quests": kept_quests}

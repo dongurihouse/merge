@@ -37,6 +37,35 @@ static func find_mergeable_pair(board: BoardModel) -> Array:
 		seen[k] = BoardModel.cell_of(i)
 	return []
 
+static func range_pairs(board: BoardModel, cells: Array) -> Array:
+	var ordered: Array = []
+	for cell in cells:
+		var c := Vector2i(cell)
+		if board.in_bounds(c):
+			ordered.append(c)
+	ordered.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return BoardModel.idx(a) < BoardModel.idx(b))
+	var pairs: Array = []
+	for i in ordered.size():
+		for j in range(i + 1, ordered.size()):
+			var a: Vector2i = ordered[i]
+			var b: Vector2i = ordered[j]
+			if board.can_merge(a, b):
+				pairs.append([a, b])
+	pairs.sort_custom(func(pa: Array, pb: Array) -> bool:
+		var ca: int = board.item_at(pa[0])
+		var cb: int = board.item_at(pb[0])
+		var ta := BoardModel.tier_of(ca)
+		var tb := BoardModel.tier_of(cb)
+		if ta != tb:
+			return ta < tb
+		var ia := mini(BoardModel.idx(pa[0]), BoardModel.idx(pa[1]))
+		var ib := mini(BoardModel.idx(pb[0]), BoardModel.idx(pb[1]))
+		if ia != ib:
+			return ia < ib
+		return maxi(BoardModel.idx(pa[0]), BoardModel.idx(pa[1])) < maxi(BoardModel.idx(pb[0]), BoardModel.idx(pb[1]))
+	)
+	return pairs
+
 # If item `a` is merged onto matching item `b`, return the ordered partner
 # cells the upgraded result will auto-merge onto. Empty means the tip merge has
 # no cascade follow-up. Longest run wins; equal runs choose row-major order.
@@ -512,8 +541,9 @@ static func asked_items(quests: Array) -> Array:
 # Shared merge-drop rule for the scene and grove_sim. `in_patch` is the caller's answer for the
 # produced piece's landing cell. The shipped board-rng stream stays coin roll first and special roll
 # second; sky-only bonus chances use a side roll from the current stream marker and hour, with no
-# extra board-rng draw.
-static func roll_merge_drops(produced: int, rng: RandomNumberGenerator, sky_state: Dictionary, in_patch: bool) -> Array:
+# extra board-rng draw. `blocked_lines` is the improvement-seed filter (a kind already held unplaced,
+# or at its placed cap) — it re-weights the pick WITHOUT changing the number of draws.
+static func roll_merge_drops(produced: int, rng: RandomNumberGenerator, sky_state: Dictionary, in_patch: bool, blocked_lines: Array = []) -> Array:
 	var out: Array = []
 	var sky := String(sky_state.get("sky", ""))
 	var stream_marker := int(rng.state)
@@ -528,7 +558,7 @@ static func roll_merge_drops(produced: int, rng: RandomNumberGenerator, sky_stat
 			if _sky_bonus_hits(sky_state, produced, stream_marker, 130363, float(G.SKY_WATER_RATE)):
 				out.append(G.WATER_LINE * 100 + 1)
 		if G.rolls_special_drop(rng):
-			out.append(G.pick_special_drop(rng))
+			out.append(G.pick_special_drop(rng, blocked_lines))
 	return out
 
 static func _sky_bonus_hits(sky_state: Dictionary, produced: int, stream_marker: int, salt: int, rate: float) -> bool:
