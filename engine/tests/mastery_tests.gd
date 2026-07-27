@@ -13,6 +13,7 @@ func _initialize() -> void:
 	print("== Mastery tests ==")
 	_test_thresholds_and_windows()
 	_test_ask_band_and_sliding()
+	_test_pop_cost()
 	_test_credit_math()
 	_test_scissors_price_floor()
 	finish()
@@ -81,6 +82,40 @@ func _test_ask_band_and_sliding() -> void:
 	_set_meter(1, 6500)                        # rank 8: t5-t8
 	ok(Mastery.window(1, [{"line": 1, "tier": 8}]) == Vector2i(5, 8),
 		"high reach asks never clamp a rank's natural window down")
+
+## The §3 tier-scaled pop cost. Two properties carry the economy: rank 0 pays exactly POP_COST
+## (unmastered play unchanged, and the sim's I2 baseline with it), and no rank ever pays MORE water
+## than the tier-1 clicks its window floor is worth (that would make mastery a punishment).
+func _test_pop_cost() -> void:
+	fresh("pop_cost")
+	ok(int(G.POP_COST_BY_TIER_LOW[0]) == G.POP_COST and G.pop_cost(1) == G.POP_COST,
+		"a rank-0 window low costs exactly POP_COST")
+	var monotone := true
+	var never_above_value := true
+	for i in G.POP_COST_BY_TIER_LOW.size():
+		var lo := i + 1
+		var cost := G.pop_cost(lo)
+		monotone = monotone and cost >= G.pop_cost(maxi(1, lo - 1))
+		never_above_value = never_above_value and cost <= G.tier_clicks(lo)
+	ok(monotone, "the pop-cost curve never falls as the window low rises")
+	ok(never_above_value,
+		"no window low is charged more water than the tier-1 clicks it is worth")
+	ok(G.pop_cost(0) == G.pop_cost(1) and G.pop_cost(-3) == G.pop_cost(1),
+		"a low below the table clamps to the rank-0 cost")
+	var top := G.POP_COST_BY_TIER_LOW.size()
+	ok(G.pop_cost(top + 5) == G.pop_cost(top),
+		"a low above the table clamps to the last entry instead of falling off the end")
+	# the whole ladder must stay poppable from a full can: the dearest window still fits in WATER_CAP.
+	var dearest := G.pop_cost(Mastery.tier_window_for_rank(G.MASTERY_THRESHOLDS.size()).x)
+	ok(dearest <= G.WATER_CAP,
+		"a full can affords a pop at the top rank (%d💧 of %d)" % [dearest, G.WATER_CAP])
+	# the window low the cost is read from is the EFFECTIVE one — an ask-band slide makes the pop
+	# cheaper again, so a line dragged back down to t1 asks pays the tier-1 price.
+	_set_meter(1, int(G.MASTERY_THRESHOLDS[3]))          # rank 4: natural window t3-t6
+	ok(G.pop_cost(Mastery.window(1, []).x) == G.pop_cost(3),
+		"an unclamped rank-4 line pays its raised window's price")
+	ok(G.pop_cost(Mastery.window(1, [{"line": 1, "tier": 2}]).x) == G.POP_COST,
+		"a slide back down to the t1 window charges the tier-1 price again")
 
 func _test_credit_math() -> void:
 	fresh("credit")

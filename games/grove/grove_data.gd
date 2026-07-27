@@ -327,6 +327,18 @@ const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 const WATER_CAP := 100
 const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
+# TIER-SCALED POP COST, indexed by the EFFECTIVE pop-window low (Mastery.window(line, quests).x —
+# 1 at rank 0 and with mastery off). A mastered generator pops from a RAISED window, so one pop is
+# worth tier_clicks(lo) = 2^(lo-1) tier-1 items; a flat POP_COST for it collapsed the water sink
+# (book spend fell 68% and the sim's I2 gift/spend guard failed on maps 3-5 on every seed, while the
+# 60-day book finished on day 4). The shipped curve IS tier_clicks(lo): a pop costs exactly what its
+# floor is worth, so water buys the same VALUE at every rank and I2 holds structurally rather than by
+# luck — mastery's reward is up to 16x fewer taps and merges (plus the wider odd-rank window), not
+# cheaper water. There is no room for a discount here: even unmastered, I2's worst steady-state map
+# sits at 0.27 of the 0.30 limit. Index 0 MUST stay POP_COST so unmastered play is unchanged, and no
+# entry may exceed tier_clicks(lo) or mastery turns into a punishment (both pinned by mastery_tests).
+# Read only through G.pop_cost(lo); the last entry covers any higher low.
+const POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 8, 16]
 const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
 

@@ -78,6 +78,7 @@ const BAG_SLOT_PRICES = D.BAG_SLOT_PRICES
 const WATER_CAP = D.WATER_CAP
 const REGEN_SECS = D.REGEN_SECS
 const POP_COST = D.POP_COST
+const POP_COST_BY_TIER_LOW = D.POP_COST_BY_TIER_LOW
 const WINBACK_HOURS = D.WINBACK_HOURS
 const WATER_REWARD_MAX_RATIO = D.WATER_REWARD_MAX_RATIO
 const COIN_LINE = D.COIN_LINE
@@ -559,6 +560,18 @@ static func quest_item(q: Dictionary) -> Dictionary:
 ## generators pop tier-1, so a tier-N item costs 2^(N-1) clicks. The fundamental effort unit.
 static func tier_clicks(t: int) -> int:
 	return int(pow(2, maxi(1, t) - 1))
+
+## Water charged for ONE generator pop whose EFFECTIVE tier window starts at `lo`
+## (`Mastery.window(line, quests).x` — 1 at rank 0 and with the mastery flag off, where this
+## returns POP_COST exactly, so unmastered play is unchanged). Mastery hands a pop 2^(lo-1)×
+## the tier-1 value it used to have; pricing the pop off that floor keeps WATER the binding
+## resource instead of letting rank collapse the sink (sim invariant I2). The curve is the
+## POP_COST_BY_TIER_LOW dial, clamped at both ends — the last entry covers any higher low.
+static func pop_cost(lo: int) -> int:
+	var tbl: Array = POP_COST_BY_TIER_LOW
+	if tbl.is_empty():
+		return POP_COST
+	return maxi(1, int(tbl[clampi(int(lo) - 1, 0, tbl.size() - 1)]))
 
 ## EFFORT-BASED quest reward, keyed on the asked TIER and the band (§7 — COINS ONLY since the
 ## coin-clock redesign, spec 2026-07-17: quests no longer pay exp; the coin faucet IS the

@@ -259,6 +259,16 @@ func _initialize() -> void:
 	# "§7 economy tuning + pacing sign-off" pass — see BACKLOG. ---
 	var i2_ftue_maps := 2                       # maps 1-2: low-volume early game — WARN, not FAIL
 	var i2_ok := true
+	# Report EVERY map's ratio, not just the breaches: the margin under 0.30 is what a pop-cost /
+	# gift re-tune is steered by, and a bare "PASS I2" hides whether map 3 sits at 0.05 or 0.29.
+	var i2_row: Array = []
+	for z in (map_gift.keys() if not stalled else []):
+		var sp: int = int(map_spend.get(z, 0))
+		i2_row.append("m%d %d/%d=%.2f" % [int(z) + 1, int(map_gift.get(z, 0)), sp,
+			(float(map_gift.get(z, 0)) / float(sp)) if sp > 0 else 999.0])
+	if not i2_row.is_empty():
+		print("  -- I2 per map (gift💧/spend💧=ratio, limit %.2f on maps %d+) --  %s" % \
+			[G.WATER_REWARD_MAX_RATIO, i2_ftue_maps + 1, " · ".join(i2_row)])
 	for z in (map_gift.keys() if not stalled else []):   # skip per-map ratios on a stall (tiny denominators)
 		var spend: int = int(map_spend.get(z, 0))
 		var gift: int = int(map_gift.get(z, 0))
@@ -943,8 +953,9 @@ func _play_session() -> Dictionary:
 			continue
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
-		# each costing G.POP_COST, bounded by affordable energy + open cells. A charged tap spends one
-		# boost tap (the boost is global and decays one tap at a time, then lapses).
+		# each costing G.pop_cost(window low) — G.POP_COST for an unmastered line, more once mastery
+		# raises the line's pop window (§3 tier-scaled cost). A charged tap spends one boost tap (the
+		# boost is global and decays one tap at a time, then lapses).
 		# pop only with working ROOM — a real player never bursts into a near-full board (that just floods it
 		# into a singleton lockout). Leave a 2-cell margin; surplus water the board can't absorb is left
 		# UNSPENT (a realistic "energy I can't use right now"), never forced into a jam.
@@ -952,13 +963,20 @@ func _play_session() -> Dictionary:
 			var burst: int = G.burst_count(map, G.BOOST_BONUS if boost_taps > 0 else 0, rng)
 			if boost_taps > 0:
 				boost_taps -= 1
+			# Clamp by the CHEAPEST a pop can be (G.POP_COST) first — that is the old clamp exactly, so an
+			# unmastered run never enters _pop unaffordably and its RNG stream is untouched. A mastered
+			# line can cost more than the floor, so _pop re-checks against the live can and returns 0.
 			burst = mini(burst, int(water / G.POP_COST))
 			burst = mini(burst, board.empty_ground_cells().size() - 2)   # keep a 2-cell working margin
 			for _b in burst:
-				water -= G.POP_COST
-				s_water += G.POP_COST
-				map_spend[map] = int(map_spend.get(map, 0)) + G.POP_COST
-				_pop()
+				# the bot picks a line per item (single-generator model), so the cost is per item too:
+				# _pop charges what its own window costs and returns 0 rather than overdraw the can.
+				var cost := _pop(water)
+				if cost <= 0:
+					break
+				water -= cost
+				s_water += cost
+				map_spend[map] = int(map_spend.get(map, 0)) + cost
 			# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
 			if G.rolls_treat_spawn(rng):
 				_run_treat_gen()
@@ -1030,10 +1048,13 @@ func _best_pair() -> Array:
 		return [b, a]
 	return [a, b]
 
-func _pop() -> void:
+## One pop. Returns the WATER it charged, or 0 when it could not pop at all (no room, no pool, or the
+## line's window costs more than `budget`) — the caller subtracts the return value, so a burst can
+## never overdraw the can however the per-item window moves.
+func _pop(budget: int) -> int:
 	var empties := board.empty_ground_cells()
 	if empties.is_empty():
-		return
+		return 0
 	var cell: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
 	# SINGLE-GENERATOR model (idea 3.2): pop the items the CURRENT QUESTS REQUIRE — pool = the WANTED
 	# (quested) lines drawn from the all-opened askable set; fall back to opened only when nothing is
@@ -1048,7 +1069,7 @@ func _pop() -> void:
 			if not opened.has(int(b)):
 				opened.append(int(b))
 	if opened.is_empty():
-		return
+		return 0
 	var wanted := _wanted_lines()
 	# NO POP-LINE CAP. G.pop_line_cap is a single-generator-era leftover with no live caller left: under the
 	# per-line generator model each generator pops its own line, and the real bound is QUEST_GEN_CAP on the
@@ -1067,6 +1088,10 @@ func _pop() -> void:
 	else:
 		line = int(pool[rng.randi_range(0, pool.size() - 1)])
 	var mastery_window := Mastery.window(line, live_quests)
+	# §3 tier-scaled cost, same helper the board charges: a raised window means a dearer pop.
+	var cost := G.pop_cost(mastery_window.x)
+	if cost > budget:
+		return 0
 	var tier := BoardLogic.roll_tier_window(rng, mastery_window.x, mastery_window.y - mastery_window.x + 1)
 	# §6 tier-bias (mirrors BoardLogic.roll_spawn): lean toward an asked poppable tier for this line,
 	# with probability G.ASK_TIER_WEIGHT (0 = off → byte-identical baseline; owner pacing dial).
@@ -1078,3 +1103,4 @@ func _pop() -> void:
 		if not wt.is_empty() and rng.randf() < G.ASK_TIER_WEIGHT:
 			tier = int(wt[rng.randi_range(0, wt.size() - 1)])
 	board.place(cell, line * 100 + tier)
+	return cost

@@ -274,6 +274,11 @@ var _empty_hint_shown := false        # the drifting "water refills over time" h
 # SHOP stall now, not here; see shop.gd.)
 var _refill_stack: VBoxContainer
 var _water_pending_drained := false   # the starter-pack water credit drains once per board open
+# The cost of the last pop the can could NOT pay (0 = none). A mastered generator's pop costs more than
+# 1💧 (§3 tier-scaled cost), so "empty" can no longer mean water<=0 alone or the refill offer would stop
+# surfacing for a mastered player whose can floors at cost-1 — §10's "no silent wall". Cleared by
+# _update_water_hud the moment the can can pay it again; at cost 1 it reproduces water<=0 exactly.
+var _water_short := 0
 
 func _ready() -> void:
 	UiFont.apply()
@@ -1120,7 +1125,11 @@ func _update_water_hud() -> void:
 	water_label.visible = true
 	water_label.text = str(water)
 	# the empty-water surfaces (§10 the friction point): while the can is empty the offer ALWAYS shows.
-	var empty := water <= 0
+	# "Empty" = can't pay the pop that was last refused (_water_short); with an unmastered 1💧 pop that
+	# is exactly water<=0, so this is unchanged for rank-0 play. Self-clears once the can can pay again.
+	if water >= _water_short:
+		_water_short = 0
+	var empty := water < maxi(1, _water_short)
 	var free_ready := Claims.can_show("refill_water")
 	# option 1 — no silent wall: the refill button surfaces whenever water <= 0, even when today's free
 	# rain is unavailable AND there are too few 🌰 for the paid fill. In that third state it INVITES the water STALL
@@ -1158,7 +1167,7 @@ func _cue_empty_water() -> void:
 	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, FS.HEADING)
 
 func _on_refill() -> void:
-	if water > 0:
+	if water >= maxi(1, _water_short):   # water>0 for an unmastered 1💧 pop; see _water_short
 		return
 	if Claims.can_show("refill_water"):
 		# Keep the claim ledger authoritative: the board's FREE action opens the same stall card
@@ -3285,7 +3294,16 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if _produce_due_generators():
 		return
 	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
-	if charged and water < G.POP_COST:
+	# What this tap COSTS. A MASTERED line pops from a raised tier window (§3), so one pop is worth
+	# 2^(lo-1) tier-1 items — it is priced off that window low (G.pop_cost) or rank would collapse the
+	# water sink (sim I2). All three reads below are PURE (no rng), so the contractual draw order
+	# further down is untouched; at rank 0 / mastery off the window low is 1 and the cost is G.POP_COST.
+	var giver_quests: Array = _pop_pool_ctx()["giver_quests"]
+	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
+	var mastery_window := Mastery.window(gen_line, giver_quests)
+	var pop_cost := G.pop_cost(mastery_window.x)
+	if charged and water < pop_cost:
+		_water_short = pop_cost            # a mastered pop can cost >1: "empty" means "can't afford THIS tap"
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
 		_update_water_hud()                # surfaces the refill offer + breathes the empty pill
@@ -3298,7 +3316,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		return
 	# Burst-pop (§6): one tap throws a BURST, not just one item. Its size scales with the map (a
 	# free per-map step-up) and — while a boost is live — the boost's per-tap bonus; bound it by what's
-	# affordable (energy) and what fits (open cells). Each popped item still costs G.POP_COST.
+	# affordable (energy) and what fits (open cells). Each popped item costs `pop_cost` (one window per
+	# burst, so the whole burst is priced the same) — the clamp below is what keeps a burst from overdrawing.
 	# FTUE (§4): during the free-pop intro a tap pops EXACTLY ONE item — burst is suppressed so the
 	# 10 free pops are ~10 deliberate frictionless taps (not spent 3-at-a-time) and the counter can't
 	# overshoot 10 mid-burst. Burst resumes the moment the free budget is gone (`charged`).
@@ -3308,14 +3327,13 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if charged:
 		burst = G.burst_count(_quest_map(), _gen_boost_bonus(cell), rng) if board.is_gen_boosted(cell) else G.gen_burst_count(board.gen_tier_at(cell), rng)
 	if charged:
-		burst = mini(burst, int(water / G.POP_COST))
+		burst = mini(burst, int(water / pop_cost))
 	burst = mini(burst, empties.size())
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
 	# gen redesign #4: a per-line generator pops ONLY its own line (the legacy shared windowed pool is gone).
-	var giver_quests: Array = _pop_pool_ctx()["giver_quests"]
-	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
+	# `giver_quests` / `gen_line` / `mastery_window` were read above (they price the tap) — reused here.
 	if gen_line <= 0:
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
@@ -3327,7 +3345,6 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	var wanted: Array = BoardLogic.wanted_lines(pool, giver_quests)
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
-	var mastery_window := Mastery.window(gen_line, giver_quests)
 	var g := Save.grove()
 	if Audio.has("water_pop"):
 		Audio.play("water_pop", -2.0)
@@ -3337,7 +3354,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	var last_piece: Control = null         # the representative projectile for Feel.launch (one emit per pop)
 	for _b in burst:
 		if charged:
-			water -= G.POP_COST
+			water -= pop_cost
 		g["pops"] = int(g.get("pops", 0)) + 1
 		var spawn := BoardLogic.roll_spawn(empties, cell, pool, wanted, rng, wanted_t, G.ASK_TIER_WEIGHT, mastery_window.x, mastery_window.y)
 		var pick: Vector2i = spawn.cell
