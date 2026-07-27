@@ -4,7 +4,7 @@ extends SceneTree
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
 ##        fresh | played | gate | fullline | ladder | farewell | almanac | bag | level | levelup | endgame |
-##        sky_calm | sky_sunbeam | sky_rain | sky_starfall |
+##        sky_calm | sky_sunbeam | sky_rain | sky_starfall | sky_starfall_blocked |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -23,6 +23,10 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 
 const RNG_SEED := Base.RNG_SEED
 
+## What the Starfall shot modes park in a lane cell to make it un-catchable — a plain base-line item, so
+## the eye reads "this cell is taken", not "something special is happening here".
+const LANE_BLOCKER := 101
+
 func _initialize() -> void:
 	var ctx := await Base.begin(self, {
 		"tool": "grove",
@@ -39,7 +43,8 @@ func _initialize() -> void:
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"cascade", "fullline", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall"],
+			"cascade", "fullline", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
+			"sky_starfall_blocked"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
 		"retired": {
@@ -64,7 +69,7 @@ func _initialize() -> void:
 			Ambient.forced_weather = "calm"
 		"sky_rain":
 			Ambient.forced_weather = "rain"
-		"sky_starfall":
+		"sky_starfall", "sky_starfall_blocked":
 			Ambient.forced_weather = "star"
 		"sky_sunbeam":
 			Ambient.forced_weather = "clear"
@@ -175,14 +180,25 @@ func _initialize() -> void:
 			# lane chrome appear and nothing else move.
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
-		"sky_starfall":
-			# The real Starfall catch path after its quiet delay: pick a quest-safe high-tier item, dock it
-			# at the marker, and leave the catchable lane cells lit for review.
+		"sky_starfall", "sky_starfall_blocked":
+			# The real Starfall catch path after its quiet delay: roll a quest-safe high-tier item and dock
+			# it at the marker. The lane is the point of the feature, so the two modes capture its two
+			# states — emptying the WHOLE lane, as this used to, shows neither.
+			#   sky_starfall         — one lane cell still occupied, the rest lit. A wholly empty column is
+			#                          not a state a played board is usually in, and it hides that the
+			#                          highlight is PER CELL rather than a column-wide wash.
+			#   sky_starfall_blocked — every lane cell taken, so nothing lights and the info bar carries
+			#                          §6's other pending line, "clear a cell in the column to catch it".
+			#                          That string shipped with no capture of the state it describes.
 			scn.debug_refresh_weather()
+			var lane_open: Array = []
 			for cell in scn.call("_star_lane_cells"):
 				var v := Vector2i(cell)
 				if scn.board.is_open(v) and not scn.board.is_gen(v):
-					scn.board.place(v, 0)
+					lane_open.append(v)
+			for i in lane_open.size():
+				var blocked := mode == "sky_starfall_blocked" or i == 0
+				scn.board.place(lane_open[i], LANE_BLOCKER if blocked else 0)
 			scn._rebuild_all()
 			scn.set("_sky_live_secs", float(G.STAR_DELAY))
 			scn.call("_try_starfall")
