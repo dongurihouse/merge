@@ -902,9 +902,20 @@ func _hint_pair() -> Array:
 	return pair
 
 # --- FTUE hand hints -------------------------------------------------------------------
-# Two one-time teaches, in order: drag-to-merge, then tap-the-generator. Spec:
-# docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md. Called at the end of every
-# _rebuild_all so the hint follows the board; a live hint RETARGETS rather than restarting.
+# Three one-time teaches, in ledger order: drag-to-merge, tap-the-generator, then (from L6)
+# place-the-Soil-seed. Specs: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md and
+# §5 of 2026-07-26-cell-improvements-design.md.
+#
+# The soil teach runs as TWO beats behind ONE persisted key (`soil_seed`): id "soil_seed"
+# points at the seed on the board, and once the seed is selected id "soil_place" moves the
+# hand onto the info bar's Place chip. "soil_place" is transient — only "soil_seed" is ever
+# written to the ledger, by Place (taught) or Sell (the seed is gone). Bagging DISMISSES
+# without writing, so pulling the seed back out teaches again.
+#
+# Re-evaluated from BOTH _rebuild_all and _after_board_change: the latter is the real
+# post-mutation fan-out, and a plain move/swap/stash does not rebuild, so hooking only the
+# rebuild left the hand stranded on the vacated cell. A live hint RETARGETS rather than
+# restarting, and both entry points are safe to have in flight at once.
 
 func _maybe_hand_hint() -> void:
 	if not Features.on("ftue_hand_hint"):
@@ -946,6 +957,15 @@ func _hand_hint_eligible(gen_cell: Array) -> String:
 	var has_gen := not gen_cell.is_empty()
 	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
 
+# "No teach can possibly be live" — the cheap gate that lets _maybe_hand_hint bail BEFORE its
+# frame await, since _after_board_change calls it on every board mutation. It reads the ledger
+# only (no board scan), so it is deliberately a touch more permissive than _hand_hint_eligible:
+# it may say "not complete" when the board happens to offer nothing, and eligibility then
+# returns "" a frame later. It must never say "complete" while a teach could still fire.
+#
+# KEEP IN SYNC with _hand_hint_eligible(): a new teach added there and forgotten here is
+# short-circuited before eligibility ever runs — it silently never appears, with no error and
+# no failing test.
 func _hand_hint_ledger_complete() -> bool:
 	var soil_complete := not Save.ftue_seen("soil") or Save.ftue_seen("soil_seed")
 	return Save.ftue_seen("merge") and Save.ftue_seen("gen_tap") and soil_complete
@@ -1403,6 +1423,10 @@ func _after_board_change(hud_deferred := false) -> void:
 	_refresh_mastery_chrome()
 	if _selected_cell.x >= 0 and board.is_gen(_selected_cell):
 		_refresh_selected_generator_mastery()
+	# FTUE: retarget or dismiss the teach after EVERY mutation, not just the ones that rebuild.
+	# A move/swap/stash reparents the node and lands here without a rebuild, so hooking only
+	# _rebuild_all left the hand bobbing over the cell the seed had just left. Cheap once the
+	# ledger is complete — _hand_hint_ledger_complete() bails before the frame await.
 	_maybe_hand_hint()
 
 # the unlock CTA: ready when the NEXT cover-up cluster is unlockable right now (its page open,
