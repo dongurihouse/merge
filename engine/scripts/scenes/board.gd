@@ -951,8 +951,15 @@ func _try_starfall() -> void:
 	if _pending_star_code() > 0:
 		if _star_pending_started_secs < 0.0:
 			_star_pending_started_secs = _sky_live_secs
-		if _sky_live_secs - _star_pending_started_secs >= float(G.STAR_CATCH_SECS):
-			_resolve_pending_starfall_uncaught()
+		if _sky_live_secs - _star_pending_started_secs < float(G.STAR_CATCH_SECS):
+			return
+		# The uncaught landing flies a piece in and runs the same landing recipe the roll does, so it
+		# defers for the same two reasons the roll below does: a merge/land tween already owns the board,
+		# or a dialog is covering it. Deferring never risks the star — it stays pending, and the next
+		# 1 Hz tick (or the hour turn, or the board exit) resolves it the moment the board is free again.
+		if animating or _modal_open():
+			return
+		_resolve_pending_starfall_uncaught()
 		return
 	if not SkyLogic.gate_open() or _sky_live_secs < float(G.STAR_DELAY) or animating or _modal_open():
 		return

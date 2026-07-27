@@ -280,6 +280,25 @@ func _test_starfall_fallbacks_and_resume_rules() -> void:
 	await process_frame
 	var timeout_code := await _arm_pending_star(timeout)
 	timeout._sky_live_secs = float(G.STAR_DELAY) + float(G.STAR_CATCH_SECS)
+	# The uncaught landing flies a piece in and runs the same landing recipe the roll does, so it defers
+	# for the same two reasons the roll does. Without this the 30 s timeout could drop a star mid-merge or
+	# behind an open dialog. Deferring holds it pending; it lands on the tick after the board frees up.
+	var veil := Control.new()
+	veil.name = "TestModalOverlay"
+	veil.z_index = Overlay.MODAL_Z
+	timeout.add_child(veil)
+	timeout._try_starfall()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == timeout_code, \
+		"an elapsed catch window holds the star pending while a modal covers the board")
+	timeout.remove_child(veil)
+	veil.queue_free()
+	timeout.animating = true
+	timeout._try_starfall()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == timeout_code, \
+		"an elapsed catch window holds the star pending while a board animation is running")
+	timeout.animating = false
 	timeout._try_starfall()
 	await create_timer(0.35).timeout
 	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 and _code_count(timeout, timeout_code) == 1 \
