@@ -212,7 +212,6 @@ var bag_piece_px := 72.0             # the in-well item-preview size (set from t
 var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 var _bag_well_drawn_disc := false    # true only for the kit-absent drawn-disc fallback (glyph lives IN bag_content)
 var _farewell_check_queued := false
-var _farewell_check_pending_player := false
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
@@ -3563,9 +3562,6 @@ func _clear_selection() -> void:
 	if _info_almanac != null and is_instance_valid(_info_almanac):
 		_info_almanac.visible = Features.on("discovery_ladder")
 		_info_almanac.disabled = not Features.on("discovery_ladder")
-	if _farewell_check_pending_player:
-		_farewell_check_pending_player = false
-		_queue_farewell_check_after_frame()
 
 # Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
 # _rebuild_all wipes it); z-lifted so the brackets sit above the resting piece they frame. The frame
@@ -5696,7 +5692,10 @@ func _sell_generator(cell: Vector2i) -> void:
 	_after_board_change()
 
 # Queue one calm farewell sweep after board entry or after the level-up ceremony has closed. The queued
-# seam keeps the card out of active gestures and lets any just-refilled quest fence settle first.
+# seam keeps the card out of active gestures and lets any just-refilled quest fence settle first: a check
+# that lands mid-gesture (or on a held info-tray selection) RE-QUEUES ITSELF one frame later instead of
+# parking on a flag, so the card is deferred but never dropped — every gesture end is covered, including
+# the ones that clear no selection (a bare tap on empty ground) and so have no seam of their own.
 func _queue_farewell_check() -> void:
 	if _farewell_check_queued:
 		return
@@ -5706,16 +5705,15 @@ func _queue_farewell_check() -> void:
 func _run_farewell_check() -> void:
 	_farewell_check_queued = false
 	if _farewell_check_waiting_for_player():
-		_farewell_check_pending_player = true
+		_queue_farewell_check_after_frame()
 		return
-	_farewell_check_pending_player = false
 	_show_next_farewell()
 
 func _show_next_farewell() -> void:
 	if not is_inside_tree() or board == null or FarewellCard.is_open(self):
 		return
 	if _farewell_check_waiting_for_player():
-		_farewell_check_pending_player = true
+		_queue_farewell_check_after_frame()   # defence in depth: a direct caller never pops a card into a live gesture
 		return
 	if not Save.board_tutorial_seen():
 		return
@@ -5798,16 +5796,20 @@ func _almanac_entries() -> Array:
 		})
 	return out
 
+# The ladder-title suffix for ONE line: the same state _almanac_entries derives per row, read for the
+# single row asked about (building all twelve to keep one is a Quests.lowest_seen_code + G.next_need
+# per zone, thrown away). A line outside the zone roster (treat lines, drops) has no almanac row at all,
+# and a line the current window still needs is "producing" — both carry no suffix.
 func _almanac_ladder_suffix(line: int) -> String:
-	for e in _almanac_entries():
-		if int(e.get("line", 0)) != int(line):
-			continue
-		match String(e.get("state", "")):
-			"away":
-				return Strings.t("almanac.ladder_back") % [int(e.get("back_level", 0)), G.item_display_name(int(e.get("for_line", 0)) * 100 + 1)]
-			"complete":
-				return Strings.t("almanac.complete")
-	return ""
+	if not G.LINES.has(int(line)) or G.zone_of_line(int(line)) < 0:
+		return ""
+	var lvl := _quest_level()
+	if G.line_needed_at_zone(int(line), G.quest_zone_for_level(lvl)):
+		return ""
+	var next_need := G.next_need(int(line), lvl)
+	if next_need.is_empty():
+		return Strings.t("almanac.complete")
+	return Strings.t("almanac.ladder_back") % [int(next_need.get("level", 0)), G.item_display_name(int(next_need.get("for_line", 0)) * 100 + 1)]
 
 func _sell_item(from: Vector2i, node: Control) -> void:
 	var code := board.item_at(from)
