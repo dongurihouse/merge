@@ -2122,8 +2122,11 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 	var code := board.item_at(from)
 	if code <= 0:
 		return
-	var pads: Array = []
 	var occupied := {}
+	var pads := _merge_target_pads(from)
+	for raw_pad in pads:
+		if raw_pad is Dictionary:
+			occupied[Vector2i((raw_pad as Dictionary).get("cell", Vector2i(-1, -1)))] = true
 	for raw in BoardLogic.chain_placements(board, from, code):
 		if raw is Dictionary:
 			var entry: Dictionary = (raw as Dictionary).duplicate(true)
@@ -2137,6 +2140,28 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 	var outline := _ensure_cascade_outline()
 	if outline != null:
 		outline.set_ghost_pads(pads)
+
+func _merge_target_pads(from: Vector2i) -> Array:
+	var out: Array = []
+	if board == null:
+		return out
+	var code := board.item_at(from)
+	if code <= 0:
+		return out
+	for raw_target in piece_nodes.keys():
+		var target := Vector2i(raw_target)
+		if target == from or not board.can_merge(from, target):
+			continue
+		var n := 1 + BoardLogic.chain_path(board, from, target).size()
+		var entry := {
+			"cell": target,
+			"line": BoardModel.line_of(code),
+			"kind": "ignition" if n >= CHAIN_MIN_N else "merge",
+			"n": maxi(2, n),
+		}
+		out.append(entry)
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
+	return out
 
 func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
 	var out: Array = []
