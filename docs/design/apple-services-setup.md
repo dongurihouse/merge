@@ -24,8 +24,9 @@ The binaries are large and **gitignored** (`/addons/`) — a regenerable per-che
 baked `.ctex` caches, so re-run `make ios-plugins` once in each fresh checkout/worktree. To bump the
 plugin, change the pinned `COMMIT`/`SHA256` at the top of the script.
 
-Both **iOS and macOS** slices are installed. The macOS frameworks aren't used by the game (it's iPad-only)
-but are present so the GDExtension loads cleanly in the desktop editor/headless — otherwise Godot logs a
+Both **iOS and macOS** slices are installed. The macOS frameworks aren't used by the game (it ships to
+iPhone and iPad, not the Mac) but are present so the GDExtension loads cleanly in the desktop
+editor/headless — otherwise Godot logs a
 `No GDExtension library found for ... macos.arm64` error on every launch. They register
 `StoreKitManager`/`GameCenterManager` on the Mac, which is why `available()` gates on `OS.has_feature("ios")`
 to stay inert there. On a non-Apple host the modules fall back to the shipped no-op linux/windows stubs.
@@ -33,8 +34,10 @@ to stay inert there. On a non-Apple host the modules fall back to the shipped no
 ## 2. App Store Connect + entitlements
 - **Game Center:** enable the capability for the app in App Store Connect. The iOS export already carries
   the entitlement (`entitlements/game_center=true` in `export_presets.cfg`).
-- **Min iOS:** the plugin requires **iOS 17.0**, so the preset's `min_ios_version` is bumped to `17.0`
-  (the app is iPad-only). Devices below iOS 17 can no longer install — revert if that is unacceptable.
+- **Min iOS:** the plugin requires **iOS 17.0**, so the preset's `min_ios_version` is bumped to `17.0`.
+  The app ships to **iPhone and iPad** (`targeted_device_family=2` is Godot's "iPhone & iPad", exported as
+  `TARGETED_DEVICE_FAMILY = "1,2"`), so this floor drops every device of either kind below iOS 17 — not a
+  niche slice. That is the standing cost of shipping the plugin; revert the floor if it is unacceptable.
 - **StoreKit:** create one **Consumable** per product in `data/iap_products.json` (the IAP catalog — the
   single source of truth for product ids + prices), using the **exact** `product_id`, `type`, and
   `reference_name` listed there, and a price point matching `usd`. All 9 are wired (piggy bank, the 6-tier

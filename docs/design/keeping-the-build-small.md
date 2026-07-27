@@ -20,9 +20,10 @@ it is now automatic; the short list of things a human still has to get right is 
 
 3. **Keep working/source art out of the shipped tree.** Concept art, originals, montages,
    and review renders must live under a directory the export drops: either a `.gdignore`
-   subtree (`_originals`, `_new`, `_archive`, `map/*/shared`) or an `exclude_filter` prefix
-   in `export_presets.cfg` (`_concepts`, `_review`, `map/*/reference`). New scratch art goes
-   in one of those, never loose under a shipping path.
+   subtree (`_originals`, `_new`, `_archive`, `map/shared/*`, and `docs/` — mock-ups and
+   design renders) or an `exclude_filter` prefix in `export_presets.cfg` (`_concepts`,
+   `_review`, `map/*/reference`). New scratch art goes in one of those, never loose under a
+   shipping path.
 
 Everything below is handled by tooling and needs no attention unless it breaks.
 
