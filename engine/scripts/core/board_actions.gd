@@ -146,7 +146,15 @@ static func is_splittable_code(code: int) -> bool:
 	var line := int(code / 100.0)
 	return G.LINES.has(line) and not G.TREAT_LINES.has(line)
 
-static func split_twin_cell(board: BoardModel, target: Vector2i) -> Vector2i:
+# Where the twin lands: the empty ground cell nearest the target (Manhattan, ties broken by board scan
+# order), else `freed` — the scissors' own cell, which board.take(from) empties a beat before the twin
+# is placed. That LAST-RESORT cell is what lets a COMPLETELY FULL board split: consuming the scissors
+# frees exactly the one cell the twin needs, so the drop no longer refuses for want of a cell that the
+# action itself creates. It stays OUT of the nearest search on purpose — a board with any other free
+# cell places the twin exactly where it always did, and the cell the player dragged from still empties.
+# It only counts when it would really be open ground (in bounds, unsealed, not a generator, not the
+# target), so a drop that frees nothing still refuses. Pure — no RNG draw.
+static func split_twin_cell(board: BoardModel, target: Vector2i, freed: Vector2i = Vector2i(-1, -1)) -> Vector2i:
 	var best := Vector2i(-1, -1)
 	var best_dist := 1 << 30
 	for cell in board.empty_ground_cells():
@@ -154,6 +162,8 @@ static func split_twin_cell(board: BoardModel, target: Vector2i) -> Vector2i:
 		if dist < best_dist:
 			best = cell
 			best_dist = dist
+	if best == Vector2i(-1, -1) and freed != target and board.is_open(freed) and not board.is_gen(freed):
+		return freed
 	return best
 
 static func can_split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> bool:
@@ -163,16 +173,16 @@ static func can_split_piece(board: BoardModel, from: Vector2i, target: Vector2i)
 		return false
 	if not is_splittable_code(board.item_at(target)):
 		return false
-	return split_twin_cell(board, target) != Vector2i(-1, -1)
+	return split_twin_cell(board, target, from) != Vector2i(-1, -1)
 
 # Split one eligible content piece into two one-tier-lower twins. The scissors source is consumed only
-# after every refusal condition has passed, so full-board / tier-1 / invalid-target drops are no-loss.
+# after every refusal condition has passed, so tier-1 / invalid-target / nowhere-to-land drops are no-loss.
 static func split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> Dictionary:
 	if not can_split_piece(board, from, target):
 		return {}
 	var src_code := board.item_at(from)
 	var target_code := board.item_at(target)
-	var twin := split_twin_cell(board, target)
+	var twin := split_twin_cell(board, target, from)
 	if twin == Vector2i(-1, -1):
 		return {}
 	var lowered := int(target_code) - 1

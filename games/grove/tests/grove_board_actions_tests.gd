@@ -225,15 +225,80 @@ func _test_split_piece() -> void:
 		and tier1.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and tier1.item_at(target) == 101,
 		"split_piece refuses tier-1 targets with no loss")
 
+	# A COMPLETELY FULL board still splits: consuming the scissors frees exactly the one cell the twin
+	# needs, so the scissors' own cell is an eligible landing cell and the twin lands there.
 	var full := BoardModel.new()
 	for i in full.items.size():
 		full.terrain[i] = 0
 		full.items[i] = 101
 	full.place(scissors, G.SCISSORS_LINE * 100 + 1)
-	full.place(target, 102)
-	ok(BoardActions.split_piece(full, scissors, target).is_empty()
-		and full.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and full.item_at(target) == 102,
-		"split_piece refuses a full board before consuming the scissors")
+	full.place(target, 104)
+	var full_out: Dictionary = BoardActions.split_piece(full, scissors, target)
+	ok(Vector2i(full_out.get("twin_cell", Vector2i(-1, -1))) == scissors
+		and full.item_at(scissors) == 103 and full.item_at(target) == 103,
+		"a full board splits into the cell the scissors itself frees (twin lands on the source cell)")
+
+	# The freed cell is a LAST RESORT, never part of the nearest search: with even one far corner open,
+	# the twin lands there and the cell the player dragged from still empties, exactly as before.
+	var near := BoardModel.new()
+	for i in near.items.size():
+		near.terrain[i] = 0
+		near.items[i] = 101
+	var adjacent := Vector2i(2, 1)                       # the scissors sits NEXT TO the target
+	near.place(adjacent, G.SCISSORS_LINE * 100 + 1)
+	near.place(target, 104)
+	var far := Vector2i(G.ROWS - 1, G.COLS - 1)
+	near.take(far)                                       # one far corner left open
+	var near_out: Dictionary = BoardActions.split_piece(near, adjacent, target)
+	ok(Vector2i(near_out.get("twin_cell", Vector2i(-1, -1))) == far
+		and near.item_at(far) == 103 and near.item_at(adjacent) == 0,
+		"any other free cell still wins — the freed source cell is only the last-resort landing cell")
+
+	# ...but a full board that frees NO cell still refuses with no loss: a scissors on a SEALED cell
+	# leaves no open ground behind, so the twin has nowhere to land.
+	var sealed := BoardModel.new()
+	for i in sealed.items.size():
+		sealed.terrain[i] = 0
+		sealed.items[i] = 101
+	sealed.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	sealed.place(target, 104)
+	sealed.terrain[BoardModel.idx(scissors)] = 1         # the source cell is not open ground
+	ok(BoardActions.split_piece(sealed, scissors, target).is_empty()
+		and sealed.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and sealed.item_at(target) == 104,
+		"a full board whose source cell frees no open ground still refuses before consuming anything")
+
+	# A full board with no scissors in the drag frees nothing either — the plain drag still refuses.
+	var full_plain := BoardModel.new()
+	for i in full_plain.items.size():
+		full_plain.terrain[i] = 0
+		full_plain.items[i] = 101
+	full_plain.place(scissors, 102)
+	full_plain.place(target, 104)
+	ok(BoardActions.split_piece(full_plain, scissors, target).is_empty()
+		and full_plain.item_at(scissors) == 102 and full_plain.item_at(target) == 104,
+		"a full board refuses a non-scissors drag — only the scissors frees its own cell")
+
+	# Every other refusal still holds on a FULL board, where the freed cell now exists: tier-1 targets,
+	# coins, treat lines and from == target all refuse with no loss (the scissors survives every one).
+	var full_t1 := BoardModel.new()
+	for i in full_t1.items.size():
+		full_t1.terrain[i] = 0
+		full_t1.items[i] = 101
+	full_t1.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	ok(BoardActions.split_piece(full_t1, scissors, target).is_empty()
+		and full_t1.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and full_t1.item_at(target) == 101,
+		"a full board still refuses a tier-1 target with no loss")
+	full_t1.place(target, G.COIN_LINE * 100 + 2)
+	ok(BoardActions.split_piece(full_t1, scissors, target).is_empty()
+		and full_t1.item_at(scissors) == G.SCISSORS_LINE * 100 + 1,
+		"a full board still refuses coins with no loss")
+	full_t1.place(target, 71 * 100 + 2)
+	ok(BoardActions.split_piece(full_t1, scissors, target).is_empty()
+		and full_t1.item_at(scissors) == G.SCISSORS_LINE * 100 + 1,
+		"a full board still refuses treat lines with no loss")
+	ok(BoardActions.split_piece(full_t1, scissors, scissors).is_empty()
+		and full_t1.item_at(scissors) == G.SCISSORS_LINE * 100 + 1,
+		"a full board still refuses from == target with no loss")
 
 	var invalid := BoardModel.new()
 	for r in G.ROWS:
