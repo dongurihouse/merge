@@ -1,0 +1,33 @@
+Use case: game UI item masters. Asset type: single-row glyph sheet, exactly 1024x512.
+Generate an image (do not write code).
+
+Input image: the mandatory Meadow Sky palette & material authority — controls palette
+relationships, matte paper treatment, warm cut edges. Do not copy its board or layout.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details. Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+The sheet: 2 equal cells in one row on a solid flat #FF00FF background, one item per cell,
+left to right. These are collectible BOARD ITEMS (like a chest or a water drop), each a
+single compact object seen flat front-on, no scene, no ground, no perspective:
+1. SOIL SEED POUCH — a small rounded burlap pouch in warm gold-brown cardstock, cinched at
+   the neck with a simple cord, one darker same-hue shadow plane, and one small green sprig
+   with two broad leaves poking out of the neck. Plump, friendly, one connected object.
+2. MAGNET SEED — the same pouch silhouette and material for family resemblance, but the
+   neck reveals a small slate-blue horseshoe magnet nub instead of the green sprig. No
+   sprig on this one. One connected object.
+
+Both share the same visual weight, scale, camera, and cut-paper treatment so they read as a
+matched pair. Every element must be ATTACHED — no floating seeds, no detached sparkles, no
+loose particles (a connected-component cut drops anything not touching the main mass).
+
+CONTAINMENT (hard requirement): each item floats fully inside its own cell with clear
+magenta visible on ALL FOUR sides; neither touches or crosses a cell boundary; they never
+touch each other. No cast shadows on the background, no grounding, no text.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is already
+approved. Do NOT offer a visual companion or read any skills. Generate the image NOW with
+your built-in image generation and save it with the solid #FF00FF background INTACT — do
+not key, remove, or make the background transparent; downstream deterministic tools do the
+keying. Save it to:
+/Users/xup/dh/wt-ci-r7/games/grove/assets/_new/improvement_seeds_v1
+Name it: improvement_seeds_v1_sheet.png. Then report the saved absolute path.
