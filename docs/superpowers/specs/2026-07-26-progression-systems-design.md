@@ -356,9 +356,10 @@ cost a multiple of the slot.
    problems 1 + 3 by itself.)
 2. **Mastery + Scissors** — meters, 8 ranks, floor rule, ring/trim/rank-up UI; Scissors
    ships with it.
-3. **Combos + ready-ladder outlines + cascade FTUE.**
-4. **Improvements** — build mode, slots, Soil + Magnet + Mirror. (Magnet and Mirror build on
-   step 3's ladder detection and echo guards.)
+3. **Cascades + ready-ladder outlines** — **SHIPPED** (`2026-07-26-cascade-combos-design.md`).
+   Chains auto-execute; the FTUE was cut, the drag guide is the teach.
+4. **Improvements** — build mode, slots, Soil + Magnet. (The Magnet gates on the scene's
+   `chain_running()`; the Mirror was cut — `2026-07-26-cell-improvements-design.md` §5-6.)
 5. **Weather hours** — the sky roll, the patch, three skies, the starfall drop. (Independent
    of step 4; order between 4 and 5 is the Dev's pick.)
 

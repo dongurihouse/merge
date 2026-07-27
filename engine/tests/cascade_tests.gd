@@ -516,7 +516,11 @@ static func _ref_best_tip_in_component(board: BoardModel, cells: Array) -> Dicti
 			var to := from + d
 			if not cell_set.has(to) or not board.can_merge(from, to):
 				continue
-			var path := _ref_chain_path(board, from, to)
+			# The LIVE chain_path on purpose, not a frozen copy: this reference is the gate the fast
+			# search is fuzzed against, so it has to track the real chain rules. With a frozen copy
+			# both sides could agree while drifting from what a cascade actually runs, and the pads
+			# would advertise an n the board never delivers.
+			var path := BoardLogic.chain_path(board, from, to)
 			var n := 1 + path.size()
 			if n < 2:
 				continue
@@ -552,52 +556,3 @@ static func _ref_path_better(candidate: Array, best: Array) -> bool:
 		if ci != bi:
 			return ci < bi
 	return false
-
-static func _ref_chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array:
-	if board == null:
-		return []
-	var produced := _ref_tip_result_code(board, a, b)
-	if produced <= 0:
-		return []
-	var vacated := {}
-	vacated[a] = true
-	return _ref_best_chain_from(board, b, produced, vacated)
-
-static func _ref_tip_result_code(board: BoardModel, a: Vector2i, b: Vector2i) -> int:
-	if board.can_merge(a, b):
-		return board.item_at(a) + 1
-	var a_code := board.item_at(a)
-	var b_code := board.item_at(b)
-	if a == b or a_code <= 0 or b_code <= 0:
-		return 0
-	if not board.collect_reward_at(a).is_empty() or not board.collect_reward_at(b).is_empty():
-		return 0
-	if BoardModel.tier_of(a_code) != BoardModel.tier_of(b_code):
-		return 0
-	var special_line := G.special_for_pair(BoardModel.line_of(a_code), BoardModel.line_of(b_code))
-	return special_line * 100 + BoardModel.tier_of(a_code) if special_line > 0 else 0
-
-static func _ref_best_chain_from(board: BoardModel, current: Vector2i, code: int, vacated: Dictionary) -> Array:
-	if BoardModel.tier_of(code) >= G.merge_top(code):
-		return []
-	var candidates: Array = []
-	for raw_d in _REF_DIRS:
-		var d := Vector2i(raw_d)
-		var n: Vector2i = current + d
-		if vacated.has(n) or not board.in_bounds(n):
-			continue
-		if board.item_at(n) != code:
-			continue
-		if not board.collect_reward_at(n).is_empty():
-			continue
-		candidates.append(n)
-	candidates = _ref_sorted_cells(candidates)
-	var best: Array = []
-	for partner in candidates:
-		var next_vacated := vacated.duplicate()
-		next_vacated[current] = true
-		var path: Array = [partner]
-		path.append_array(_ref_best_chain_from(board, Vector2i(partner), code + 1, next_vacated))
-		if _ref_path_better(path, best):
-			best = path
-	return best
