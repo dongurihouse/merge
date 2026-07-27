@@ -19,9 +19,11 @@ const FXTune = preload("res://engine/scripts/core/tuning.gd").FX      # the merg
 const AmbientDriver = preload("res://engine/scripts/ui/ambient_driver.gd")  # the per-layer CPU governor (throttle + idle-gate)
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 
-# The debug cycle, in order: "" is auto (the real hourly roll). Each entry forces one SKY in one SKIN,
+# The debug states, in order: "" is auto (the real hourly roll). Each entry forces one SKY in one SKIN,
 # and forcing a sky forces its gifts — so "calm" is the way to see the no-lane, no-marker, no-gift hour
 # on demand, exactly as "star" is the way to see Starfall on demand. Sunbeam owns clear/breeze.
+# THE one list: the debug panel mounts a chip per entry (one tap each), so a new sky added here gets
+# its option for free — debug.gd never spells the states out a second time.
 const WEATHER_DEBUG_STATES := ["", "calm", "clear", "breeze", "rain", "snow", "star"]
 
 static var forced_weather := ""        # shot tools force a state ("rain"…)
@@ -170,15 +172,27 @@ static func hop(ch: Control) -> void:
 static func weather_now() -> String:
 	return SkyLogic.skin_at(Time.get_unix_time_from_system(), forced_weather)
 
-static func weather_debug_label() -> String:
-	return "Weather: %s" % ("auto" if forced_weather == "" else forced_weather)
+## One debug state's CHIP TEXT, derived from the state string itself rather than from a parallel table
+## of pretty names — a new entry in WEATHER_DEBUG_STATES is labelled the day it is added and no second
+## list can drift. "" is the only state whose name is not its own label: it is auto, not blank.
+static func weather_debug_chip(state: String) -> String:
+	return "Auto" if state == "" else state.capitalize()
 
-static func debug_cycle_weather() -> String:
-	var i := WEATHER_DEBUG_STATES.find(forced_weather)
-	if i < 0:
-		i = 0
-	forced_weather = WEATHER_DEBUG_STATES[(i + 1) % WEATHER_DEBUG_STATES.size()]
-	return forced_weather
+## The picker's READ-OUT line: the state in force, and the SKY that state actually rolls. The sky half
+## is the honest part — the seven state names read as seven skies, but clear/breeze are two skins of
+## Sunbeam and rain/snow two skins of Rain, and a chip is too narrow to say so.
+static func weather_debug_label() -> String:
+	var sky := SkyLogic.sky_at(Time.get_unix_time_from_system(), forced_weather)
+	return "%s → %s" % [("auto" if forced_weather == "" else forced_weather), sky.capitalize()]
+
+## The ONE way the debug picker sets a state — a plain assignment is not enough. Forcing a weather does
+## not move the real clock, and Starfall is paid once per REAL hour (sky.paid_hour), so every pick also
+## RE-ARMS that hour: otherwise the second "Star" tap inside one wall-clock hour hands you the starlit
+## sky, the lane and the marker with no star to catch. Shot tools pin `forced_weather` directly for a
+## single still and never re-tap, so they neither need nor get the re-arm's save write.
+static func set_debug_weather(state: String) -> void:
+	forced_weather = state
+	SkyLogic.rearm_star_hour()
 
 static func reset_weather_debug_for_test() -> void:
 	forced_weather = ""

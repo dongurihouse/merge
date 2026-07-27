@@ -29,6 +29,19 @@ const LV_BADGE_BOX := 225.0
 const DRAG_THRESHOLD := 6.0
 const _UNSET_DRAG_POS := Vector2(-1000000.0, -1000000.0)
 
+# The panel's own chrome. These colours are deliberately OUTSIDE the game palette — this menu never
+# ships, and dressing it in the game's roles would make it read as part of the UI it sits on top of.
+const ACTION_BG := Color("#2C3E50")      # every state-jump button's slate
+const ACTIVE_LIFT := 0.32                # how far the ACTIVE weather chip lifts off that slate
+const BTN_SIZE := Vector2(184, 44)       # a full-width action row
+const BTN_PAD := 12.0
+# The weather picker's chips: TWO per row, which is what pairs them — the two Sunbeam skins land on
+# one row and the two Rain skins on the next. Seven states fill four rows, the last one half-empty.
+const CHIP_COLUMNS := 2
+const CHIP_SIZE := Vector2(90, 40)
+const CHIP_PAD := 6.0
+const CHIP_GAP := 4
+
 static var force := false
 
 ## Whether the action column is expanded. Persists across the scene reload an
@@ -83,7 +96,7 @@ static func mount(host: Control) -> void:
 	var menu := VBoxContainer.new()
 	menu.visible = _menu_open               # reopen after an action's scene reload
 	menu.add_theme_constant_override("separation", 4)
-	var toggle := _dbg_button("DEBUG", Color("#C0392B"))
+	var toggle := _dbg_button("DEBUG", Color("#C0392B"))   # the one red in the panel — the handle you drag
 	toggle.mouse_default_cursor_shape = Control.CURSOR_MOVE
 	toggle.gui_input.connect(func(ev: InputEvent) -> void: _on_toggle_gui_input(ev, host, col))
 	toggle.pressed.connect(func() -> void: _on_toggle_pressed(menu))
@@ -207,22 +220,53 @@ static func drag_position_for_test() -> Vector2:
 	return _drag_panel_pos
 
 static func _action(menu: VBoxContainer, host: Control, label: String, fn: Callable) -> void:
-	var b := _dbg_button(label, Color("#2C3E50"))
+	var b := _dbg_button(label, ACTION_BG)
 	b.pressed.connect(fn.bind(host))
 	menu.add_child(b)
 
+## The WEATHER PICKER: one tap per state, Calm and Auto included. It replaces a single button that
+## CYCLED the same list one step per tap, where reaching "star" from "auto" cost six taps and there
+## was no way back except six more. Chips come straight off Ambient.WEATHER_DEBUG_STATES — the one
+## list of states — so this never spells them out again, and the active one is lifted off the slate.
+## Above the grid sits a live read-out naming the state AND the sky it rolls, which is where the panel
+## admits that clear/breeze are one sky and rain/snow another.
 static func _weather_action(menu: VBoxContainer, host: Control) -> void:
-	var b := _dbg_button(_weather_action_text(), Color("#2C3E50"))
-	b.pressed.connect(func() -> void:
-		_act_weather(host)
-		b.text = _weather_action_text()
-	)
-	menu.add_child(b)
+	var readout := _dbg_readout("DbgWeather")
+	var caption := readout.get_node("DbgWeather") as Label
+	caption.text = Ambient.weather_debug_label()
+	menu.add_child(readout)
+	var grid := GridContainer.new()
+	grid.name = "DbgWeatherChips"
+	grid.columns = CHIP_COLUMNS
+	grid.add_theme_constant_override("h_separation", CHIP_GAP)
+	grid.add_theme_constant_override("v_separation", CHIP_GAP)
+	var chips: Array[Button] = []
+	for entry in Ambient.WEATHER_DEBUG_STATES:
+		var state := String(entry)
+		var chip := _dbg_button(Ambient.weather_debug_chip(state), _weather_chip_bg(state), CHIP_SIZE, CHIP_PAD)
+		# EXPAND_FILL or the grid packs the chips at their minimum width and leaves them a ragged little
+		# block against the full-width rows above — half-width chips are also a far better tap target.
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chip.pressed.connect(func() -> void: _act_weather(host, state, chips, caption))
+		chips.append(chip)
+		grid.add_child(chip)
+	menu.add_child(grid)
 
-static func _weather_action_text() -> String:
-	return Ambient.weather_debug_label()
+static func _weather_chip_bg(state: String) -> Color:
+	return ACTION_BG.lightened(ACTIVE_LIFT) if state == Ambient.forced_weather else ACTION_BG
 
-static func _dbg_readout() -> Control:
+## Move the active highlight and re-read the caption IN PLACE. The weather action deliberately does not
+## reload the scene (the sky rebuilds live), so nothing else would ever refresh them.
+static func _refresh_weather_chips(chips: Array, caption: Label) -> void:
+	var states: Array = Ambient.WEATHER_DEBUG_STATES
+	for i in mini(chips.size(), states.size()):
+		var chip := chips[i] as Button
+		if chip != null and is_instance_valid(chip):
+			_style_button(chip, _weather_chip_bg(String(states[i])), CHIP_PAD)
+	if caption != null and is_instance_valid(caption):
+		caption.text = Ambient.weather_debug_label()
+
+static func _dbg_readout(label_name := "DbgReadout") -> Control:
 	var pc := PanelContainer.new()
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(0.10, 0.10, 0.12, 0.85)
@@ -233,32 +277,38 @@ static func _dbg_readout() -> Control:
 	s.content_margin_bottom = 5.0
 	pc.add_theme_stylebox_override("panel", s)
 	var l := Label.new()
-	l.name = "DbgReadout"
+	l.name = label_name
 	l.add_theme_font_size_override("font_size", FS.FINE)
 	l.add_theme_color_override("font_color", Color("#FFF3B8"))
 	pc.add_child(l)
 	return pc
 
-static func _dbg_button(text: String, bg: Color) -> Button:
+static func _dbg_button(text: String, bg: Color, min_size := BTN_SIZE, pad := BTN_PAD) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(184, 44)
+	b.custom_minimum_size = min_size
 	b.add_theme_font_size_override("font_size", FS.FINE)
 	b.add_theme_color_override("font_color", Color.WHITE)
+	_style_button(b, bg, pad)
+	return b
+
+## The one button look, stamped on all three states so a debug button never flashes a theme default.
+## Split out of _dbg_button because the weather chips RE-apply it to move the active highlight without
+## rebuilding the node.
+static func _style_button(b: Button, bg: Color, pad := BTN_PAD) -> void:
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(bg, 0.92)
 	s.set_corner_radius_all(6)
 	s.set_border_width_all(2)
 	s.border_color = Color(1, 1, 1, 0.5)
-	s.content_margin_left = 12.0
-	s.content_margin_right = 12.0
+	s.content_margin_left = pad
+	s.content_margin_right = pad
 	s.content_margin_top = 6.0
 	s.content_margin_bottom = 6.0
 	b.add_theme_stylebox_override("normal", s)
 	b.add_theme_stylebox_override("hover", s)
 	b.add_theme_stylebox_override("pressed", s)
-	return b
 
 # --- actions: mutate Save, then reload the scene so the change shows --------------
 static func _reflect(host: Control) -> void:
@@ -371,7 +421,13 @@ static func _act_reduce_water(host: Control) -> void:
 	Save.grove_write()
 	_reflect(host)
 
-static func _act_weather(host: Control) -> void:
-	Ambient.debug_cycle_weather()
+## Force ONE weather state on the spot ("" hands the hour back to the live roll), then rebuild the
+## host's sky. ORDER IS LOAD-BEARING: set_debug_weather re-arms sky.paid_hour, and the host refresh is
+## what re-reads the sky state off it — refreshing first would reconcile against the stale stamp. No
+## _reflect() here: the sky rebuild is live (that is the point of the option), which is also why the
+## chips have to restyle themselves rather than coming back fresh from a scene reload.
+static func _act_weather(host: Control, state: String, chips: Array, caption: Label) -> void:
+	Ambient.set_debug_weather(state)
 	if host.has_method("debug_refresh_weather"):
 		host.call("debug_refresh_weather")
+	_refresh_weather_chips(chips, caption)

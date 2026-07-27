@@ -47,6 +47,12 @@ static func state(now: float, level: int, forced := "") -> Dictionary:
 static func skin_at(now: float, forced := "") -> String:
 	return String(_look(hour_index(now), forced).skin)
 
+## The hour's SKY alone — the other half of the level-free look, and skin_at's twin. The debug weather
+## picker reads it to say which sky a forced SKIN belongs to: "clear" and "breeze" are two skins of ONE
+## sky (Sunbeam) and "rain"/"snow" of another (Rain), which the skin names by themselves do not admit.
+static func sky_at(now: float, forced := "") -> String:
+	return String(_look(hour_index(now), forced).sky)
+
 ## Cells of one lane the player has unlocked, read from the STATIC MIN_LEVEL grid — never from live
 ## board occupancy, so the lane holds for the whole hour and board, sim and tests agree.
 static func lane_open_count(axis: String, lane: int, level: int) -> int:
@@ -92,6 +98,16 @@ static func grove_sky_state() -> Dictionary:
 	if not sky.has("pending"):
 		sky["pending"] = 0
 	return sky
+
+## DEBUG RE-ARM: drop this hour's Starfall payment stamp so the roll can pay again.
+## `paid_hour` is keyed to the REAL clock hour (hour_index), and FORCING a weather state does not move
+## the real clock — so without this the second forced Starfall inside one wall-clock hour draws the
+## starlit sky, the lane and the marker and then never pays a star (board.gd `_try_starfall` returns
+## on `hour <= paid_hour`), for up to an hour. That is precisely the flow — the catch window, the lit
+## lane, the timeout fallback — that a debug option exists to exercise repeatedly.
+static func rearm_star_hour() -> void:
+	grove_sky_state()["paid_hour"] = -1
+	Save.grove_write()
 
 static func star_pick(hour: int, active_lines: Array, asked: Array) -> int:
 	var lines := _content_lines(active_lines)
