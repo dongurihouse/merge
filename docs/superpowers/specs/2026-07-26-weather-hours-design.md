@@ -1,19 +1,19 @@
 # Weather Hours — spec (2026-07-26)
 
-**Status: draft 6 — dials set from the sim re-pass and a measured patch calibration.**
+**Status: draft 7 — Calm sky added (40%); shares and gift rates re-swept together.**
 Builds §4 / rollout step 5 of
 `2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
 `engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
 `games/grove/tools/grove_sim.gd`.
 
-Dials are **sim-set** as of draft 6 (§7 water runaway, §11 table); the §10 sweep is the
-gate for any further change.
+Dials are **sim-set** as of draft 7 (§7 water runaway, §11 table); the §10 sweep is the
+gate for any further change. Share and rate are one dial in two halves — never move one alone.
 
 ---
 
 ## 1 · Scope
 
-Ships: the hourly sky (3 skies), one lane patch, Sunbeam/Rain merge gifts, the starfall
+Ships: the hourly sky (4 skies incl. Calm), one lane patch, Sunbeam/Rain merge gifts, the starfall
 drop, lane marker + info-bar line + patch rendering, debug lever, tests, sim re-pass.
 Removes the
 win-back rain beat (§2).
@@ -36,9 +36,16 @@ magnet/mirror skies, Wild piece, the water stall's daily free rain.
 
 | Sky (share) | Skins | Gift |
 |---|---|---|
-| **Sunbeam** (45) | clear 70 · breeze 30 | in-patch coin drops up (§4) |
-| **Rain** (45) | rain 85 · snow 15 | in-patch water drops; in-patch soil waters free (§4) |
+| **Calm** (40) | clear 70 · breeze 30 | **none** — no lane, no patch, no marker, no gift |
+| **Sunbeam** (30) | clear 70 · breeze 30 | in-patch coin drops up (§4) |
+| **Rain** (20) | rain 85 · snow 15 | in-patch water drops; in-patch soil waters free (§4) |
 | **Starfall** (10) | starlit (new) | one high-tier piece falls on the lane (§5) |
+
+**Calm is a real sky, not an absence.** Most hours are ordinary; that is what makes a
+Sunbeam or a Starfall hour land. A calm hour renders exactly like the pre-weather game —
+the ambient skin still drifts, and there is no lane, no wash, no marker, and no info-bar
+line to tap. `Sky.state` returns `lane_axis: ""` and `lane: -1` for it, and `in_patch` is
+false for every cell, so no gift path can fire without a special case anywhere else.
 
 - Gate: `Save.ftue_seen("merge") and Save.ftue_seen("gen_tap")`, and
   `Features.on("weather_hours")` (new flag + `docs/FEATURES.md` line). Below the gate:
@@ -51,8 +58,14 @@ magnet/mirror skies, Wild piece, the water stall's daily free rain.
   `WINBACK_RAIN_SECS`; `board.winback.*` strings; `last_seen` writes (no reader remains).
   Economy-neutral: offline regen (+1 / 2 min, capped) fills the can after ~3⅓ h away.
   Stale `winback_until` / `last_seen` save keys stay unread.
-- Look consequence: rain-family visuals go ~10% → ~45% of hours; `RAIN_VEIL` alpha becomes
-  an art dial (Q1).
+- Look consequence: rain-family visuals (rain + snow particles) sit at ~20% of hours —
+  double the pre-weather ~10%, and well down from the ~45% the first share table produced,
+  which read as a permanently wet world. Measured skin mix under these shares: clear 49% ·
+  breeze 21% · rain 17% · starlit 10% · snow 3%. `RAIN_VEIL` alpha stays an art dial.
+- **60% of hours carry a gift** (~14.4 h/day), and 40% are Calm. Cutting Rain from 45% to
+  20% cuts water-gift hours to 0.44× and Sunbeam 45% → 30% cuts coin-gift hours to 0.67×,
+  so the §11 gift rates were re-swept against the new hour mix — the rate and the share are
+  one dial in two halves and must never be changed independently.
 
 ---
 
@@ -293,8 +306,8 @@ its banner/chip predate §6's marker — read it for the star only).
 
 | Dial | Value | Meaning |
 |---|---|---|
-| `SKY_SHARES` | 45 · 45 · 10 | Sunbeam · Rain · Starfall |
-| `SKY_SKIN_SPLIT` | 70/30 · 85/15 | clear/breeze in Sunbeam · rain/snow in Rain |
+| `SKY_SHARES` | 40 · 30 · 20 · 10 | Calm · Sunbeam · Rain · Starfall |
+| `SKY_SKIN_SPLIT` | 70/30 · 70/30 · 85/15 | clear/breeze in Calm and Sunbeam · rain/snow in Rain |
 | `SKY_COIN_RATE` | 0.35 | in-patch coin chance (base 0.10) |
 | `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
 | `SKY_WATER_RATE` | 0.15 | in-patch water roll (t1 = +8, over-cap) — **sim-set, do not raise past ~0.2** (§7 runaway) |
