@@ -2,6 +2,8 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## Grove scene coverage for cascade combos: the player drag path, cascade
 ## rewards, guide pads, ready outlines, and the code-level feature flag.
 
+const BoardScriptRef = preload("res://engine/scripts/scenes/board.gd")
+const RNG_SEED := 20260727   # any fixed value; the point is that it does not change between runs
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 
 func _initialize() -> void:
@@ -15,10 +17,12 @@ func _initialize() -> void:
 	await _test_drag_guide_pads_and_generator_exclusion()
 	await _test_ready_outline_and_flag_off()
 	await _test_landscape_outline_uses_transposed_edges()
+	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
 	finish()
 
 func _open_board(name: String) -> Node:
 	fresh(name)
+	BoardScriptRef.forced_rng_seed = RNG_SEED   # a fresh save would rng.randomize(); drops must not vary per run
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
@@ -145,7 +149,10 @@ func _test_drag_merge_auto_runs_and_locks_input() -> void:
 	ok(await _wait_for_auto_step_in_flight(b), "the auto-step stays in flight long enough to render its slide")
 	await _wait_for_idle(b)
 	ok(not b.animating and not b.chain_running(), "input unlocks after the cascade finishes")
-	ok(b.board.item_at(Vector2i(3, 3)) == 103 and b.board.item_at(Vector2i(3, 1)) == 0, \
+	# The source must no longer hold the LINE's piece. Not `== 0`: the ordinary 10% merge coin-drop
+	# picks among the 3 cells nearest the merge, and the just-vacated source is one of them, so a
+	# stray coin here is legal and unrelated to the slide (seed 1010 lands 901 on it).
+	ok(b.board.item_at(Vector2i(3, 3)) == 103 and _line_of(b.board.item_at(Vector2i(3, 1))) != 1, \
 		"the auto-step slides the upgraded item along the partner path")
 	ok(b.board.item_at(Vector2i(3, 2)) == G.COIN_LINE * 100 + 1, \
 		"reaching x2 births a coin on the vacated result cell")
@@ -344,3 +351,6 @@ func _test_landscape_outline_uses_transposed_edges() -> void:
 	ok(_segment_is_vertical(row_minus) and _segment_is_horizontal(col_minus), \
 		"landscape outline maps model neighbours through the transposed cell geometry")
 	outline.free()
+
+func _line_of(code: int) -> int:
+	return int(code / 100.0)
