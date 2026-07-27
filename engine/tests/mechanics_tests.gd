@@ -654,8 +654,10 @@ func _initialize() -> void:
 		"the chest reads its kind; the retired key line (11) is no longer special")
 	ok(G.merge_top(chest_t1) == 5 and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
 		"merge_top lets chests override to tier 5, content high, coins at the coin top")
-	ok(G.merge_top(coin_t1) == 3, "coins merge through tier 3 (the 12-tier ladder is retired)")
-	var expected_coin_values := {1: 2, 2: 4, 3: 10}
+	ok(G.merge_top(coin_t1) == 8, "coins merge through tier 8")
+	ok(G.is_valid_item_code(G.COIN_LINE * 100 + 8) and not G.is_valid_item_code(G.COIN_LINE * 100 + 9),
+		"the coin value table is the validity gate for the eight-tier ladder")
+	var expected_coin_values := {1: 2, 2: 4, 3: 10, 4: 21, 5: 47, 6: 103, 7: 227, 8: 499}
 	for tier in expected_coin_values:
 		ok(G.coin_value(G.COIN_LINE * 100 + int(tier)) == int(expected_coin_values[tier]), \
 			"coin t%d follows the tuned 2.2x ladder (%d)" % [int(tier), int(expected_coin_values[tier])])
@@ -918,8 +920,11 @@ func _initialize() -> void:
 			_starters_produceable = false
 	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
 	ok(G.base_generator(5).is_empty(), "a special line has no generator")
-	# owner art picks (2026-07-18): the 3-tier coin/acorn ladders wear chosen art off the 12-tier sheets
-	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 4 and G.art_tier_for("coin", 3) == 5, 		"coin tiers wear the picked art (1/4/5 — coin → coin roll → pouch)")
+	# owner art picks (2026-07-27): the 8-tier coin ladder wears chosen art off the 12-tier sheet
+	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 4 and G.art_tier_for("coin", 3) == 5 \
+		and G.art_tier_for("coin", 4) == 6 and G.art_tier_for("coin", 5) == 7 and G.art_tier_for("coin", 6) == 8 \
+		and G.art_tier_for("coin", 7) == 10 and G.art_tier_for("coin", 8) == 12,
+		"coin tiers wear the picked 8-step art spread (1/4/5/6/7/8/10/12)")
 	ok(G.art_tier_for("acorn", 2) == 5 and G.art_tier_for("acorn", 3) == 6, "acorn tiers wear the picked art (3/5/6)")
 	ok(G.art_tier_for("water", 2) == 2 and G.art_tier_for("fairy_hollow_glowshroom", 7) == 7, "unmapped bases pass tiers through unchanged")
 	ok(G.item_tex_path(13 * 100 + 1).ends_with("acorn_3.png"), "the acorn drop's t1 sprite resolves through the pick map")
