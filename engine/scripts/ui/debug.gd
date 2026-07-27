@@ -19,6 +19,7 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Login = preload("res://engine/scripts/core/login.gd")   # the daily calendar — debug_advance_day()
+const Features = preload("res://engine/scripts/core/features.gd")   # gates the mastery rank actions
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud       # EDGE_MARGIN — the level badge's top inset
@@ -138,6 +139,9 @@ static func mount(host: Control) -> void:
 		_action(menu, host, "Pop soil", _act_pop_soil)
 	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
 		_action(menu, host, "Pop magnet", _act_pop_magnet)
+	if Features.on("mastery") and host.has_method("debug_bump_mastery"):   # board-only: walk every generator's mastery rank
+		_action(menu, host, "Gen rank +1", _act_mastery_up)
+		_action(menu, host, "Gen rank -1", _act_mastery_down)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)
@@ -413,6 +417,18 @@ static func _act_pop_soil(host: Control) -> void:
 static func _act_pop_magnet(host: Control) -> void:
 	if host.has_method("debug_pop_magnet"):
 		host.call("debug_pop_magnet")
+
+## Board-only: raise every on-board generator's mastery rank by one, to reach the higher pop windows on demand.
+## No _reflect — debug_bump_mastery repaints the rings and the selected generator's info row in place.
+static func _act_mastery_up(host: Control) -> void:
+	if host.has_method("debug_bump_mastery"):
+		host.call("debug_bump_mastery", 1)
+
+## Board-only: drop every on-board generator's mastery rank by one, so a rank-up (and its card) can be re-earned.
+## No _reflect — debug_bump_mastery repaints the rings and the selected generator's info row in place.
+static func _act_mastery_down(host: Control) -> void:
+	if host.has_method("debug_bump_mastery"):
+		host.call("debug_bump_mastery", -1)
 
 ## Knock 25 off the water can (floored at 0) to walk down into the out-of-water flow.
 static func _act_reduce_water(host: Control) -> void:

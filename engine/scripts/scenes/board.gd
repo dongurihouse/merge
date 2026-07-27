@@ -5382,6 +5382,17 @@ func debug_pop_magnet() -> void:
 		if board_area != null and is_instance_valid(board_area) and not _drag_active():
 			_rebuild_all()
 
+## Debug-only: move the mastery rank of EVERY generator standing on the board by `delta` (the debug
+## panel's "Gen rank ±1" buttons), so the raised pop windows and the rank-up card can be exercised
+## without grinding the meter. A generator on a non-base line simply no-ops inside Mastery.set_rank —
+## only base lines carry a meter. No scene reload: _after_board_change repaints the mastery rings and
+## the selected generator's info row in place.
+func debug_bump_mastery(delta: int) -> void:
+	for raw_line in G.gen_live_lines(board.gens, G.GENERATORS):
+		var line := int(raw_line)
+		Mastery.set_rank(line, clampi(Mastery.rank(line) + delta, 0, G.MASTERY_THRESHOLDS.size()))
+	_after_board_change()
+
 func _blocked_seed_drop_lines() -> Array:
 	if not _improvements_enabled():
 		return [
