@@ -10,6 +10,7 @@ const Inbox = preload("res://engine/scripts/core/inbox.gd")   # the mailbox — 
 const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
 const G = preload("res://engine/scripts/core/content.gd")     # map-progression queries (gate/unlock chain)
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")   # §29 — the board-size-mismatch wipe
+const Debug = preload("res://engine/scripts/ui/debug.gd")     # §32 — the state-jump panel's clock actions
 
 # Point Save at a clean temp dir (never touches the real save or progress.cfg).
 # This suite's own user:// save-dir tree — kept distinct so the parallel
@@ -621,6 +622,7 @@ func _initialize() -> void:
 	ok(Save.water() == 7 and not Save.last_load_repaired, "round trip: the grove blob, with no repair flagged")
 
 	_test_water_gifts_respect_the_implicit_full_can()
+	_test_debug_level_down()
 
 	finish()
 
@@ -659,3 +661,66 @@ func _test_water_gifts_respect_the_implicit_full_can() -> void:
 	Inbox._grant({"water": 5})
 	ok(Save.water() == cap + 20, \
 		"an inbox water gift is a top-up, never a drain: a banked over-cap can is left as-is")
+
+# A stand-in for the Board host: the only thing Debug's actions ask of a host is whether it offers
+# debug_add_progress, the FORWARD-ONLY in-place refresh Level up takes instead of reloading. This
+# records the calls so §32 can prove Level down never takes it.
+class ProgressHost extends Control:
+	var calls: Array = []
+	func debug_add_progress(amount: int = 5) -> void:
+		calls.append(amount)
+
+# 32. THE DEBUG PANEL'S "Level down" ACTION walks the coin clock BACK one level so a level-gated
+# surface can be re-entered from above. Save.earn_coins clamps with maxi(0, n) and can only push the
+# clock forward, so the action writes coins_earned directly — which is exactly the write that can go
+# wrong three ways. It must land EXACTLY on the previous level's threshold (not "somewhere below"),
+# floor at level 1 without ever writing a negative clock, and leave the SPENDABLE wallet alone: this
+# rewinds progression, it is not a refund. Every level here is derived from the zone cadence, never
+# a literal — the ladder is re-tuned regularly.
+# Hosts are plain Controls left OUT of the tree, so Debug._reflect's is_inside_tree() guard makes
+# the scene reload a no-op; the save-side effect is what these assert.
+func _test_debug_level_down() -> void:
+	var start: int = maxi(2, G.zone_unlock_level(3))   # a mid-ladder level with room to fall
+	fresh("debug_level_down")
+	Save.grove()["coins_earned"] = G.coins_at_level(start)
+	Save.grove_write()
+	Save.add_coins(500)                                # purchased coins: spendable, clock-inert
+	var wallet_b := Save.coins()
+	ok(G.level() == start, "fixture: the clock sits at L%d (zone 3's unlock level)" % start)
+
+	var host := Control.new()
+	Debug._act_level_down(host)
+	ok(G.level() == start - 1, "Level down drops exactly one level (L%d -> L%d)" % [start, start - 1])
+	ok(Save.coins_earned_lifetime() == G.coins_at_level(start - 1), \
+		"Level down lands the clock EXACTLY on the previous level's threshold")
+	ok(Save.coins() == wallet_b, \
+		"Level down leaves the spendable wallet alone (a clock rewind, not a refund reversal)")
+
+	Debug._act_level_up(host)
+	ok(G.level() == start and Save.coins_earned_lifetime() == G.coins_at_level(start), \
+		"Level down then Level up returns the clock to L%d" % start)
+
+	# The floor. A level-1 save is already at threshold 0; the action must stay there rather than
+	# write coins_at_level(0) (which the maxi(1, ...) floor is what stops).
+	fresh("debug_level_down_floor")
+	ok(G.level() == 1, "fixture: a fresh save starts at L1")
+	Debug._act_level_down(host)
+	ok(G.level() == 1, "Level down floors at level 1")
+	ok(Save.coins_earned_lifetime() >= 0, "Level down never writes a negative clock")
+	Debug._act_level_down(host)
+	ok(G.level() == 1 and Save.coins_earned_lifetime() >= 0, "the floor holds on a repeated tap")
+
+	# The deliberate asymmetry with Level up: a host offering the board's in-place refresh must NOT
+	# get it. debug_add_progress only walks the clock forward (its earn clamps a negative delta to
+	# zero) and never re-locks cells, so a downward move has to go through the save + reload path.
+	fresh("debug_level_down_board_host")
+	Save.grove()["coins_earned"] = G.coins_at_level(start)
+	Save.grove_write()
+	var board_host := ProgressHost.new()
+	Debug._act_level_down(board_host)
+	ok(board_host.calls.is_empty(), \
+		"Level down never takes the board's forward-only in-place refresh (debug_add_progress)")
+	ok(G.level() == start - 1 and Save.coins_earned_lifetime() == G.coins_at_level(start - 1), \
+		"a board host is still rewound exactly one level, through the save")
+	board_host.free()
+	host.free()
