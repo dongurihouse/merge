@@ -3,7 +3,7 @@ extends SceneTree
 ## a second board item side by side at the same size — the A/B for "do these two paths frame their art
 ## the same way?".   quiet_godot.sh --path . -s res://games/grove/tools/cell_compare_shot.gd -- /tmp/cells.png
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")

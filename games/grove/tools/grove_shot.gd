@@ -13,7 +13,7 @@ extends SceneTree
 ## fence it then rolls decides every generator's + item line's dimming), the window size is forced
 ## (shot_base), and weather is pinned to "clear" unless `weather=` says otherwise.
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")

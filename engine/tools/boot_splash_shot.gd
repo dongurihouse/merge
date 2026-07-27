@@ -3,31 +3,23 @@ extends SceneTree
 ## to a PNG for visual review. Builds boot.gd in capture mode (no prewarm/handoff), sets a
 ## representative mid-load bar, and captures the design-resolution frame.
 ##   engine/tools/quiet_godot.sh --path . -s res://engine/tools/boot_splash_shot.gd -- /tmp/out.png
+##
+## Positionals: <out.png> [WxH] [noload]. `WxH` (e.g. an App Store size) is parsed by shot_base
+## wherever it sits; `noload` hides the bar/label for a clean key-art capture.
 
+const Base = preload("res://engine/tools/shot_base.gd")
 const BootScript = preload("res://engine/scripts/scenes/boot.gd")
-const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
-
-## The design resolution, read from the owner (project.godot display/window/size).
-static var DESIGN_SIZE := Vector2i(Design.size())
 
 func _initialize() -> void:
-	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: run via engine/tools/quiet_godot.sh (born-minimized, no-focus window).")
-		quit(2)
-		return
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var uargs := OS.get_cmdline_user_args()
-	var out: String = String(uargs[0]) if uargs.size() >= 1 else "/tmp/tu_boot_splash.png"
-	# optional WxH second arg (e.g. an App Store size); default is the design resolution
-	var sz := DESIGN_SIZE
-	if uargs.size() >= 2 and "x" in String(uargs[1]):
-		var wh := String(uargs[1]).split("x")
-		sz = Vector2i(int(wh[0]), int(wh[1]))
-
-	await create_timer(0.2).timeout
-	DisplayServer.window_set_size(sz)
-	await create_timer(0.2).timeout
+	# The splash reads no save state, so it takes no temp save dir (save: false). The window size
+	# defaults to shot_base's SHOT_SIZE — the same Design.size() owner this tool used to re-read —
+	# and any `WxH` positional overrides it.
+	var ctx := await Base.begin(self, {"tool": "boot_splash", "save": false,
+		"default_out": "/tmp/tu_boot_splash.png"})
+	if ctx.is_empty():
+		return                        # refused: begin() printed why and quit(2)
+	var args: Array = ctx["args"]
+	var out: String = ctx["out"]
 
 	BootScript.capture = true
 	var b: Control = BootScript.new()
@@ -39,7 +31,7 @@ func _initialize() -> void:
 
 	# a representative mid-load frame (the live bar is exercised by the running game).
 	# `noload` hides the bar/label for a clean key-art capture (e.g. a store screenshot).
-	var noload := "noload" in uargs
+	var noload := "noload" in args
 	if b._bar != null:
 		b._bar.value = 0.62
 		b._bar.visible = not noload
@@ -48,10 +40,8 @@ func _initialize() -> void:
 		b._label.visible = not noload
 
 	await create_timer(0.3).timeout
-	RenderingServer.force_draw()
+	RenderingServer.force_draw()      # warm-up draw: a minimized window's FIRST read can be stale
 	await create_timer(0.1).timeout
-	RenderingServer.force_draw()
-	var img := root.get_texture().get_image()
-	var err := img.save_png(out)
-	print("BOOT SPLASH saved=%s err=%d size=%dx%d" % [out, err, img.get_width(), img.get_height()])
+	var err := Base.capture(self, out, args)
+	print("BOOT SPLASH saved=%s err=%d size=%s" % [out, err, str(DisplayServer.window_get_size())])
 	quit()

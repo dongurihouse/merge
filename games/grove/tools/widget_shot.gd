@@ -17,7 +17,7 @@ extends SceneTree
 ## A non-numeric CODE is a GENERATOR id (e.g. `seed_satchel` or `seed_satchel:grab`) — make_generator.
 ## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Extend
 ## the `match mod` below for new widgets as the need arises (grow tools incrementally).
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")

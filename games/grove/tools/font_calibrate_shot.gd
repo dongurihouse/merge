@@ -6,7 +6,7 @@ extends SceneTree
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/font_calibrate_shot.gd -- /tmp/cal.png
 ##   (needs the REAL renderer: get_image() returns null under --headless)
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 
 const PROBE := "HOME"          # all-caps: bbox height IS the cap height

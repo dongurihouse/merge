@@ -8,7 +8,7 @@ extends SceneTree
 ## In treefall + merge_hint the FTUE hand hint (engine/scripts/ui/hand_hint.gd) is forced on so the
 ## shot captures the teaching hand.
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const G = preload("res://engine/scripts/core/content.gd")
