@@ -56,3 +56,18 @@ Ranks land as `items/generator/<gen>_r<N>.png` and supersede the generic 4-frame
 §7 of `docs/superpowers/specs/2026-07-26-generator-mastery-design.md` (that section says the trim
 is one shared overlay set; a full per-rank recolor replaces it). Update the spec in the same pass,
 and note the sprites are generated, so regenerating beats hand-editing.
+
+## The rank number badge
+
+`rank_badge.py <ramp_dir> <stem> <out.png> [br|tr] [cream|gold|ink]` composites a rank numeral
+onto each ramp step for review (`review/badged/`).
+
+**Cream fill, ink numeral, bottom-right** is the pick: it matches the game's cream-pill/ink-text
+language and stays legible on warm and cool lines at every rank. Alternatives kept beside it —
+`_alt_gold_badge.png` sinks into the gold crescent and warm wood at ranks 7–8, `_alt_ink_badge.png`
+reads but sits heavier. Bottom-right keeps it clear of the boost-taps badge, which the shipped
+code hangs off the **top**-right (`board.gd` `_make_boost_badge`).
+
+**The badge is not baked into the sprite.** It is drawn at runtime exactly like the boost badge —
+the rank is data, and 64 sprites with baked numerals could not restyle or localise. The ramp PNGs
+stay clean; only the review strips carry a composited numeral.
