@@ -144,7 +144,8 @@ the player catches it into a lane cell they pick.
    catchable for the rest of the window.
 6. **Fallback — the star is never lost.** `sky.pending` resolves to an uncaught landing on
    the first of: `STAR_CATCH_SECS` 30 live seconds elapsed · the hour turns · the board is
-   left (`_persist`). It then lands by the shipped rule — free lane cell (RNG pick), else
+   left (`_persist_leaving_board`, reached only from the single board exit `_leave_board_for_map`;
+   an ordinary `_persist` never resolves). It then lands by the shipped rule — free lane cell (RNG pick), else
    `pick_drop_cell` from lane centre, else **owed**: `sky.owed.append(code)`, landing on
    the first `_after_board_change` with a free cell, any hour, persisting across restarts,
    queueing. The lane marker shows a star pip while owed.
@@ -365,7 +366,8 @@ the file map for the whole feature. Only the catch entries are outstanding — s
   in *that* cell and zeroes `pending`; (c) a tap on an occupied lane cell, an empty
   off-lane cell, and the marker each leave `pending` untouched; (d) `STAR_CATCH_SECS`
   elapsed lands it without a tap; (e) hour turn while pending → `owed`, then lands;
-  (f) `_persist` (board left) while pending → `owed`, and a fresh board lands it;
+  (f) `_persist_leaving_board` (board left) while pending → `owed`, and a fresh board lands it,
+  while an ordinary `_persist` leaves it catchable;
   (g) full lane → nothing lit, `pending` survives, freeing a lane cell lights it;
   (h) full board + fallback → `owed` + pip; (i) the arrival auto-announcement does not
   overwrite a live selection.
@@ -480,8 +482,9 @@ If you believe a new texture is required, stop and say so instead of making one.
 3. **Catch tap.** New branch in `_on_release`'s empty-cell chain; `_pos_to_cell` already
    returns a model cell, so the lane test is `tap.y == lane` for a column sky and
    `tap.x == lane` for a row sky — do **not** re-derive screen geometry. Tests (b), (c), (g).
-4. **Fallback.** Window expiry on the 1 Hz tick, hour turn, and `_persist` all route to the
-   shipped `_land_star_code` / owed path. Tests (d), (h).
+4. **Fallback.** Window expiry on the 1 Hz tick, hour turn, and the board exit all route to the
+   shipped `_land_star_code` / owed path. Window expiry defers on `animating` / `_modal_open()`
+   exactly as the roll does. Tests (d), (h).
 5. **UI (§6):** docked star parented to the marker + bob; lit cells via `DRAG_HILITE` +
    `FX.breathe_once`; the three star-FX beats; the state-dependent Starfall info-bar lines and
    the arrival auto-announcement with its no-clobber guard; new `board.sky.starfall.catch` /
