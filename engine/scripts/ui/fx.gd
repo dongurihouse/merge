@@ -28,9 +28,6 @@ const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_pa
 # ONE place — Kit.load_config(path), invalidated by Kit.clear_config_cache(path). FX deliberately
 # keeps no private cache of its own: two caches over one file meant a workbench save through either
 # side left the other serving pre-save values for the rest of the session.
-# The kit lives in the game and preloads this script, so it can only be reached by runtime load()
-# (a preload here would be a hard cycle) — the same convention every other engine → kit call site uses.
-static var KIT_PATH := Game.kit()
 
 static var _dot_tex: Texture2D
 static var _reward_fx_config_path := ""
@@ -50,16 +47,16 @@ static func configure_reward_fx_config_for_test(path: String) -> void:
 # The parsed settings file, straight off the shared kit cache. This is the kit's OWN Dictionary —
 # treat it as READ-ONLY (duplicate before mutating, as _write_reward_fx_config does).
 static func _shared_config(path: String) -> Dictionary:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("FX: ui kit missing at %s — reward FX config falls back to defaults" % KIT_PATH)
+		push_warning("FX: ui kit missing at %s — reward FX config falls back to defaults" % Game.kit())
 		return {}
 	return Kit.load_config(path)
 
 static func _clear_shared_config(path: String) -> void:
 	if path == "":
 		return   # "" means "clear EVERY path" to the kit — never widen the blast radius by accident
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit != null:
 		Kit.clear_config_cache(path)
 

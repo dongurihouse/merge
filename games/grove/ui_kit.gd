@@ -3472,7 +3472,7 @@ const DAILY_ICON_SHADOW := {"shadow_alpha": 0.32}
 
 ## The SHARED daily card BACKGROUND — the code-drawn cut-paper card (engine/scripts/ui/cut_paper.gd) with
 ## the torn edge + tiled paper fibre + soft shadow. ONE face so BOTH the workbench mock and the real login
-## dialog draw the same card (login.gd loads this kit at KIT_PATH). Returns a full-rect, mouse-transparent
+## dialog draw the same card (login.gd reaches this kit through Game.kit_script()). Returns a full-rect, mouse-transparent
 ## Control holding the deckled panel(s); the caller anchors its OWN content (label/icon/action) OVER it.
 ## `tone`: "cream" (days 1-6) · "today" (the DOUBLE layer: a gold panel below a cream one, to highlight the
 ## current day) · "gold" (day 7 — a single golden layer). `cp_opts` = the shared normalized cut-paper edge

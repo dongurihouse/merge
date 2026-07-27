@@ -57,9 +57,6 @@ const ResidentView = preload("res://engine/scripts/ui/resident_view.gd")   # the
 const DOCK_INK = ResidentView.DOCK_INK
 const DOCK_PARCH = ResidentView.DOCK_PARCH
 const Pal = Game.PALETTE
-# The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
-# home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
-static var KIT_PATH := Game.kit()
 static var HOME_CHROME_PATH := Game.home_chrome()   # canonical chrome icon ids (shared with the bake)
 const HomePageView = preload("res://engine/scripts/ui/home_page_view.gd")   # the layered zone renderer
 const SceneCoverings = preload("res://engine/scripts/ui/scene_coverings.gd")   # locked-plot covers + the unlock reveal
@@ -191,7 +188,7 @@ func _ready() -> void:
 
 	# resolve the workbench-tuned feel-FX opts ONCE — the spirit merge then runs the SAME applier the
 	# Merge workbench previews, so a saved tuning takes effect in-game.
-	var KitFx: GDScript = load(KIT_PATH)
+	var KitFx: GDScript = Game.kit_script()
 	var fx_cfg: Dictionary = KitFx.load_config(KitFx.CONFIG_PATH)
 	_merge_opts = MergeFx.from_config(fx_cfg)
 	_land_opts = LandFx.from_config(fx_cfg)
@@ -638,8 +635,11 @@ func _build_select(animate := true) -> void:
 	_select_scroll = 0.0
 	_select_scroll_max = 0.0
 	var view := get_viewport_rect().size
-	var Kit: GDScript = load(KIT_PATH)
-	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	var Kit: GDScript = Game.kit_script()
+	# NB the `if Kit != null` below is INERT: the very next line dereferences Kit unguarded, so a
+	# missing kit takes the nil-access error there regardless. Left as found — closing it either way
+	# (drop the ternary, or guard the map-select build) is a behaviour change, not a de-duplication.
+	var opts: Dictionary = Kit.map_card_opts_from_config(Game.kit_config()) if Kit != null else {}
 	var layout: Dictionary = Kit.map_select_layout(view, opts, Look.safe_top(self), Look.safe_bottom(self))
 	var band_top := float(layout.band_top)
 	var col_h := float(layout.col_h)
@@ -739,8 +739,8 @@ func _maps_card_shell(rect: Rect2) -> Control:
 	root.position = rect.position
 	root.size = rect.size
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var Kit: GDScript = load(KIT_PATH)
-	var opts: Dictionary = Kit.cut_paper_opts_from_config(Kit.load_config(Kit.CONFIG_PATH), "mail_card", Kit.MAIL_CP_DEFAULTS).duplicate() \
+	var Kit: GDScript = Game.kit_script()
+	var opts: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "mail_card", Kit.MAIL_CP_DEFAULTS).duplicate() \
 		if Kit != null else {"deckle": true, "corner": CARD_CORNER, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 	opts["corner"] = CARD_CORNER
 	var cp = load("res://engine/scripts/ui/cut_paper.gd").new()
@@ -1020,8 +1020,8 @@ func _maps_tap(gpos: Vector2) -> void:
 # spirit to select it; drag between hand and cells to place / merge / bring out. Orbs IGNORE the mouse (the
 # single input surface hit-tests them); only the chip / Expedition / info-bar buttons intercept their taps.
 func _build_hand_panel(rect: Rect2) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
+	var Kit: GDScript = Game.kit_script()
+	var cfg: Dictionary = Game.kit_config()
 	var panel := Control.new()
 	panel.name = "HandColumn"
 	panel.position = rect.position
@@ -1236,8 +1236,8 @@ func _build_hand_panel(rect: Rect2) -> Control:
 # The in-hand board's bottom strip reads the selected spirit's tier and surfaces Sell. It uses the same
 # thin code-drawn Slot-cell face as the resident cells so it stays quiet inside the right board.
 func _inhand_info_bar(rect: Rect2) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
+	var Kit: GDScript = Game.kit_script()
+	var cfg: Dictionary = Game.kit_config()
 	var bar := Control.new()
 	bar.name = "InHandInfoBar"
 	bar.position = rect.position
@@ -1671,7 +1671,7 @@ func _on_resident_info_pressed() -> void:
 func _open_resident_ladder(kind: String, mark_tier: int) -> void:
 	if kind == "" or Overlay.is_open(self, "ResidentLadderOverlay"):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	Audio.play("button_tap", -4.0)
@@ -1679,7 +1679,7 @@ func _open_resident_ladder(kind: String, mark_tier: int) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var width: float = get_viewport_rect().size.x * Kit.DIALOG_DESIGN_PCT["tiers"] / 100.0
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
 	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
@@ -1862,7 +1862,7 @@ func _update_hud() -> void:
 func _refresh_play_cta() -> void:
 	if _play_btn == null or not is_instance_valid(_play_btn):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	# NB: get_meta(key, null) still THROWS on a missing key — Godot treats a null default as "no default".
@@ -1900,7 +1900,7 @@ func _build_chrome() -> void:
 # stackable boosts, then Set off → the Rush (a scene) → Trade → back to the map with spirits in hand.
 # Replaces the standalone Loadout scene; built over a veil with the same look as the other map dialogs.
 func _open_expedition(z: int = -1) -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	if z < 0:
@@ -1977,7 +1977,7 @@ func _open_expedition(z: int = -1) -> void:
 	actions.add_child(cancel)
 	col.add_child(actions)
 	# the SHARED standard dialog face (workbench-tuned border / banner / ✕), as mail/shop/settings wear
-	var fo: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var fo: Dictionary = Kit.dialog_opts_from_config(Game.kit_config())
 	fo["banner_text"] = "Load out"
 	fo["banner_icon_id"] = "leaf"
 	fo["on_close"] = func() -> void: overlay.queue_free()
@@ -2004,7 +2004,7 @@ func _make_back_button(sb: float) -> Button:
 	var back := func() -> void:
 		Audio.play("button_tap", -4.0)
 		_open_map(_map_idx)
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var b: Button
 	var back_path := Look.kit("nav/nav_back.png")
 	if ResourceLoader.exists(back_path):
@@ -2059,10 +2059,10 @@ func _view_size() -> Vector2:
 	return Design.size()
 
 func _hud_layout() -> Dictionary:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return {"button_w_frac": RAIL_PX / Design.size().x, "edge_margin_px": RAIL_MARGIN}
-	return Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.hud_layout_opts_from_config(Game.kit_config())
 
 func _hud_edge_margin_px() -> float:
 	return float(_hud_layout().get("edge_margin_px", RAIL_MARGIN))
@@ -2126,8 +2126,8 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 
 func _build_bottom_chrome() -> void:
 	# Load the shared home-button style ONCE (the same transform the workbench reads).
-	var Kit: GDScript = load(KIT_PATH)
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
+	var Kit: GDScript = Game.kit_script()
+	var cfg: Dictionary = Game.kit_config()
 	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
 	# the shared workbench button size — still read by the place-picker's back button.
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {
@@ -2169,7 +2169,7 @@ func _build_bottom_chrome() -> void:
 # settings is a utility you reach rarely, so it wears no tile, no caption, no shadow — just the gear
 # glyph. Sized off the shared button metric so it reads as chrome, not as a nav target.
 func _build_settings_gear() -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	var px := maxf(24.0, roundf(_rail_px * 0.62))
 	var open_settings := func() -> void:
@@ -2233,7 +2233,7 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var out := {}
 	if specs.is_empty():
 		return out
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var view := _view_size()
 	var side := _hud_edge_margin_px()
 	var gap := clampf(view.x * 0.012, 6.0, 16.0)
@@ -2242,7 +2242,7 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
 	# the shared action-button opts, built ONCE from the saved config (the same call the workbench
 	# action_button preview makes, so the two render identically off one source) — duplicated per tile below.
-	var action_opts: Dictionary = Kit.action_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	var action_opts: Dictionary = Kit.action_button_opts_from_config(Game.kit_config()) if Kit != null else {}
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
 		var b: Button

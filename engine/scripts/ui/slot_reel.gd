@@ -12,9 +12,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 
 # The cell surface wears the HUD pills' shared paper look (flat cream + thin PAPER_EDGE rim + a
-# texture_cream grain layer from the UI kit) — see apply_cell_paper. The kit is loaded at runtime
-# (matches giver_stand.gd / unlock_bar.gd) to avoid a preload cycle.
-static var KIT_PATH := Game.kit()
+# texture_cream grain layer from the UI kit) — see apply_cell_paper.
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_EDGE := Color(Pal.BARK, 0.35)
 
@@ -125,7 +123,7 @@ static func cell_stylebox(corner: float = 14.0) -> StyleBox:
 static func apply_cell_paper(panel: Control, ch: float) -> void:
 	var corner: float = cell_corner(ch)
 	panel.add_theme_stylebox_override("panel", cell_stylebox(corner))
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(panel, "CellPaper", PAPER_TEXTURE, corner, 2.0)

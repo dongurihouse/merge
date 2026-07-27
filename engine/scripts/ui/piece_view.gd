@@ -12,7 +12,6 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
 const Pal = Game.PALETTE
-static var KIT_PATH := Game.kit()   # the SHARED slot cell (bag + board)
 
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
@@ -165,7 +164,7 @@ static var item_shadow_override: Dictionary = {}
 static func _item_shadow_cfg() -> Dictionary:
 	if not item_shadow_override.is_empty():
 		return item_shadow_override
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	return {"on": bool(opts.get("content_shadow", true)), "params": opts.get("content_shadow_params", {})}
 
@@ -179,7 +178,7 @@ static func _shape_contact_shadow(holder: Control, tex: Texture2D, size: float, 
 	var ts := tex.get_size()
 	if ts.x <= 0.0 or ts.y <= 0.0:
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var box := maxf(1.0, size - inset * 2.0)
 	var fit_scale := minf(box / ts.x, box / ts.y)
 	var fit_sz := ts * fit_scale
@@ -402,7 +401,7 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var opts: Dictionary = Kit.board_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz

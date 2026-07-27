@@ -40,9 +40,45 @@ static func font() -> String:
 
 ## res:// path of the active game's UI KIT script, or "" (engine draws its code-drawn fallbacks).
 ## The kit preloads engine scripts, so the engine can only reach it by runtime load() — hence a
-## path, not a script ref. THE indirection for every `load(Game.kit())` in engine/scripts/.
+## path, not a script ref. THE indirection behind kit_script() below. Callers want the HANDLE, not
+## the path: use kit() only for a diagnostic that must name the file.
 static func kit() -> String:
 	return _m().KIT
+
+## The active game's UI KIT script — THE handle every engine UI builder draws through. Resolved
+## once and cached (load() is itself resource-cached, so this only saves the lookup; the point is
+## that the load — and the missing-kit contract below — lives in ONE place, not per calling file.
+## engine/tests/const_ssot_tests.gd §9 fails the build if a file resolves its own handle again.
+##
+## MISSING-KIT CONTRACT — returns null, and A NULL RETURN IS NOT AN ERROR. A game may legitimately
+## ship no kit (kit() == ""), in which case the engine is expected to draw its code-drawn fallbacks.
+## So: a caller that can run without the kit MUST null-check and degrade; a caller that genuinely
+## cannot (a builder whose whole output is kit widgets) may dereference straight away and take the
+## nil-access error — that is the honest signal, and it is what those call sites already do. What a
+## caller must NOT do is null-check one line and dereference unguarded on the next.
+## A failed load is NOT cached, so a broken path keeps reporting rather than going quiet after one try.
+static var _kit_script: GDScript = null
+
+static func kit_script() -> GDScript:
+	if _kit_script == null:
+		var p := kit()
+		if p != "":
+			_kit_script = load(p)   # a bad path errors here exactly as the old per-file load() did
+	return _kit_script
+
+## The kit's workbench-saved settings, or {} when this game has no kit. Keyed on the KIT's OWN
+## CONFIG_PATH, not on kit_settings(): the workbench's set_config_cache / clear_config_cache use
+## that key, and a read on any other key would miss the live-edit cache even while the two paths
+## agree. SHARED + READ-ONLY — this is the kit's own per-path cache, the very dict every
+## `Kit.load_config(Kit.CONFIG_PATH)` call site already receives. Mutate an opts-builder's result
+## (they all return a fresh dict), never this.
+##
+## Only for callers that have ALREADY established the kit exists, or that mean {} as their
+## no-kit fallback. It cannot tell "no kit" from "kit with an empty config", so a builder that
+## must fail loudly without a kit keeps calling Kit.load_config(Kit.CONFIG_PATH) on its own handle.
+static func kit_config() -> Dictionary:
+	var K := kit_script()
+	return K.load_config(K.CONFIG_PATH) if K != null else {}
 
 ## res:// path of the kit's workbench-saved settings JSON, or "" (defaults stand). Declared in the
 ## manifest rather than derived from kit(): it is a sibling FILE, not a suffix of the script, and

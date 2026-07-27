@@ -4,8 +4,7 @@ extends RefCounted
 ## a dimmed veil + a centered SHARED dialog frame (ui_workbench_kit.dialog_frame — the SAME parchment
 ## card · title · ✕ every other dialog uses), wrapping a message + a two-button row (cream "Not now" ·
 ## green "Update"). Update opens the store page; Not now / ✕ silences this version (Save.update_dismissed).
-## Layering: ui/ may import core/ + ui/, never scenes/. The kit is loaded by PATH at runtime (like
-## inbox.gd / settings.gd) so this file keeps no hard dependency on a tools script.
+## Layering: ui/ may import core/ + ui/, never scenes/.
 
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -16,16 +15,15 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 const OVERLAY_NAME := "UpdatePromptOverlay"
-static var KIT_PATH := Game.kit()
 
 # Open the prompt over `host`. `store_version` is the App Store version (persisted on dismiss so it does
 # not re-nag until a newer one ships); `store_url` is the App Store page opened by Update.
 static func open(host: Control, store_version: String, store_url: String) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("UpdatePrompt: kit missing at %s" % KIT_PATH)
+		push_warning("UpdatePrompt: kit missing at %s" % Game.kit())
 		return
 	Audio.play("button_tap", -2.0)
 

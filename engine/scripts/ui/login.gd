@@ -22,7 +22,6 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
-static var KIT_PATH := Game.kit()
 const WEEK := 7
 const COLS := 3
 const OVERLAY_NAME := "LoginOverlay"
@@ -109,9 +108,9 @@ class Spark:
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Daily: mail kit missing at %s" % KIT_PATH)
+		push_warning("Daily: mail kit missing at %s" % Game.kit())
 		return
 
 	# the veil tap is _dismiss split in two: the scaffold frees the overlay, on_dismiss runs the refresh.
@@ -119,7 +118,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var vw: float = host.get_viewport_rect().size.x
 	# every dialog renders at the SINGLE global frame width; content scales from this dialog's
 	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).

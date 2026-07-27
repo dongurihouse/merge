@@ -11,7 +11,6 @@ const BARK := Game.PALETTE.BARK
 const STRAW := Game.PALETTE.STRAW
 const OVERLAY_NAME := "PurchaseWaitOverlay"
 const SPINNER_FRAMES := [".", "..", "..."]
-static var KIT_PATH := Game.kit()
 const WAIT_TIMEOUT_SECS := 12.0
 
 static func show(host: Control, title: String, message: String) -> Control:
@@ -32,7 +31,7 @@ static func show(host: Control, title: String, message: String) -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 12)
 
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var plain: Font = Kit.plain_font()
 
 	var spinner := Label.new()
