@@ -113,8 +113,12 @@ func _initialize() -> void:
 				Vector2i(3, 4): 103,
 				Vector2i(3, 5): 104,
 				Vector2i(6, 6): 101,
+				# phase=guide drags (6,6) toward (5,2). This run needs THREE rungs, not two: the
+				# guide only pads placements that would actually arm a cascade (CHAIN_MIN_N), so a
+				# x2 ladder here renders a bare board at exit 0 and the mode silently shows nothing.
 				Vector2i(5, 1): 101,
 				Vector2i(5, 3): 102,
+				Vector2i(5, 4): 103,
 			}
 			for cell in ready:
 				scn.board.place(Vector2i(cell), int(ready[cell]))

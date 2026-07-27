@@ -80,8 +80,6 @@ static func chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array:
 	return _best_chain_from(board, b, produced, vacated)
 
 static func chain_reward_code(n: int) -> int:
-	if n == 2:
-		return G.COIN_LINE * 100 + 1
 	if n >= 3:
 		return G.CHEST_LINE * 100 + mini(5, n - 2)
 	return 0

@@ -120,7 +120,7 @@ func _test_chain_path() -> void:
 
 func _test_chain_reward_codes() -> void:
 	ok(BoardLogic.chain_reward_code(1) == 0, "chain_reward_code: x1 has no reward")
-	ok(BoardLogic.chain_reward_code(2) == G.COIN_LINE * 100 + 1, "chain_reward_code: x2 pays the coin marker")
+	ok(BoardLogic.chain_reward_code(2) == 0, "chain_reward_code: x2 has no cascade reward")
 	ok(BoardLogic.chain_reward_code(3) == G.CHEST_LINE * 100 + 1, "chain_reward_code: x3 starts the cascade chest")
 	ok(BoardLogic.chain_reward_code(6) == G.CHEST_LINE * 100 + 4, "chain_reward_code: x6 reaches chest tier 4")
 	ok(BoardLogic.chain_reward_code(9) == G.CHEST_LINE * 100 + 5, "chain_reward_code: x7+ caps at the top chest")
