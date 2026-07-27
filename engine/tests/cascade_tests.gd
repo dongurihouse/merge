@@ -385,6 +385,29 @@ func _test_chain_placements_perf() -> void:
 	ok(d_new < 8.0, \
 		"chain_placements perf: dense %.2f ms < 8.0 bound (was %.2f) · 1-line/90%% %.2f ms (was %.2f) · mixed %.2f ms (was %.2f), best of 3" \
 		% [d_new, d_ref, w_new, w_ref, m_new, m_ref])
+	_test_drag_gesture_perf(dense)
+
+# The DRAG GESTURE total, not chain_placements alone. board.gd _begin_drag pays for the whole
+# telegraph, and pinning one of its three walks is how the cost crept back once already: the runway
+# pass added ready_ladders + runways inside the gesture and ready_ladders outweighed the
+# chain_placements the earlier perf pass had flattened, taking one lift from 1.18 ms to 2.87 ms.
+# These statics are what that gesture is built from, so
+# bound their sum here where the engine suite can see it. A memo keyed on board state was tried
+# and rejected: measured at the drag call site it hit 2 lifts in 10, so it bought almost nothing
+# for a fingerprint on every gesture. The gesture pays all three walks today — this bound is what
+# says so out loud.
+func _test_drag_gesture_perf(dense: BoardModel) -> void:
+	var from := BoardModel.cell_of(0)
+	var code := dense.item_at(from)
+	var best := 1.0e9
+	for _round in 3:
+		var t0 := Time.get_ticks_usec()
+		BoardLogic.chain_placements(dense, from, code)
+		BoardLogic.ready_ladders(dense)
+		BoardLogic.runways(dense, 3)
+		best = minf(best, float(Time.get_ticks_usec() - t0) / 1000.0)
+	ok(best < 12.0, \
+		"drag-gesture walks (chain_placements + ready_ladders + runways): %.2f ms < 12.0 bound, best of 3" % best)
 
 # Best of 3 — the suites run 4-up, so a single sample can catch a scheduling gap.
 func _time_ms(b: BoardModel, use_reference: bool) -> float:
