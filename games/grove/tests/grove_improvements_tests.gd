@@ -36,9 +36,12 @@ func _initialize() -> void:
 	await _test_growing_countdown_chip_stays_inside_its_cell()
 	await _test_debug_pop_soil_lands_the_step()
 	await _test_debug_pop_soil_seeds_a_bare_soil()
-	await _test_debug_pop_soil_without_soil_is_a_noop()
+	await _test_debug_pop_soil_builds_the_missing_soil()
 	await _test_debug_pop_magnet_merges_a_seeded_pair()
-	await _test_debug_pop_magnet_without_magnet_is_a_noop()
+	await _test_debug_pop_magnet_builds_the_missing_magnet()
+	await _test_debug_pop_magnet_skips_a_boxed_in_magnet()
+	await _test_debug_pop_magnet_builds_past_a_boxed_in_magnet()
+	await _test_debug_pop_on_a_full_board_changes_nothing()
 	finish()
 
 func _clear_board_model(b: BoardModel) -> void:
@@ -848,14 +851,38 @@ func _test_growing_countdown_chip_stays_inside_its_cell() -> void:
 # --- the debug panel's Pop soil / Pop magnet buttons ------------------------------------------
 # Owner-facing test hooks (Debug.mount gates them on has_method), so they run the SAME paths the
 # growth timer and the magnet scan take: no shortcut placement, no scene reload, no board RNG.
+# Both must land something in ONE press from ANY board state — building the improvement they need
+# when none is placed — and must SELECT the cell they changed, or a one-cell move on a full board
+# reads as "the button is broken". Only a genuine dead end (no room anywhere) leaves the board alone.
 
-# Every board item, cell -> code. Used to pin the no-op cases byte-for-byte.
+# Every board item, cell -> code. Used to pin the genuine dead end byte-for-byte.
 func _item_map(scn: Node) -> Dictionary:
 	var out := {}
 	for i in scn.board.items.size():
 		if int(scn.board.items[i]) > 0:
 			out[BoardModel.cell_of(i)] = int(scn.board.items[i])
 	return out
+
+# The ONE item standing in a magnet's 3x3 range, or (-1, -1) when the range holds anything but
+# exactly one — which is what a completed pull looks like after a seeded pair merges.
+func _sole_item_in_range(scn: Node, magnet: Vector2i) -> Vector2i:
+	var found: Array = []
+	for raw_cell in Improvements.range_cells(scn.board, magnet):
+		var cell := Vector2i(raw_cell)
+		if scn.board.item_at(cell) > 0:
+			found.append(cell)
+	return Vector2i(found[0]) if found.size() == 1 else Vector2i(-1, -1)
+
+# Wall a magnet in: fill every free cell of its range with items that cannot merge with each other,
+# so the magnet has nowhere to take a pair and nothing of its own to pull.
+func _box_in_magnet(scn: Node, magnet: Vector2i) -> void:
+	var code := 101
+	for raw_cell in Improvements.range_cells(scn.board, magnet):
+		var cell := Vector2i(raw_cell)
+		if cell == magnet:
+			continue
+		scn.board.place(cell, code)
+		code += 1                            # distinct tiers of one line: no two of them ever merge
 
 func _test_debug_pop_soil_lands_the_step() -> void:
 	fresh("improve_debug_pop_soil")
@@ -890,6 +917,7 @@ func _test_debug_pop_soil_lands_the_step() -> void:
 	ok(not bool(after.get("watered", true)), "the fresh step is unwatered, like any newly started step")
 	var saved: Array = Save.grove().get("board", {}).get("items", [])
 	ok(saved.size() > BoardModel.idx(plain) and int(saved[BoardModel.idx(plain)]) == 102, "Pop soil persists the grown tier (survives a reload)")
+	ok(scn._selected_cell == plain, "Pop soil SELECTS the first cell it grew (%s), so the info bar names what moved" % plain)
 	scn.queue_free()
 
 func _test_debug_pop_soil_seeds_a_bare_soil() -> void:
@@ -908,21 +936,34 @@ func _test_debug_pop_soil_seeds_a_bare_soil() -> void:
 	ok(G.is_valid_item_code(grown), "the seeded item is a real, producible content code (%d)" % grown)
 	ok(not scn._asked_codes().has(grown - 1), "the seeded line is one no live quest is asking for")
 	ok(float(scn.board.improvement_at(cell).get("ends_at", 0.0)) > Time.get_unix_time_from_system(), "the seeded soil is left growing its next step")
+	ok(scn._selected_cell == cell, "Pop soil SELECTS the seeded cell (%s), so the info bar names what moved" % cell)
 	scn.queue_free()
 
-func _test_debug_pop_soil_without_soil_is_a_noop() -> void:
-	fresh("improve_debug_pop_soil_noop")
+# The owner's case for Pop soil: nothing placed. The button has to BUILD the Soil it needs, seed it
+# and pop it in the one press — the old "no-op quietly" reads as a broken button.
+func _test_debug_pop_soil_builds_the_missing_soil() -> void:
+	fresh("improve_debug_pop_soil_build")
 	Save.mark_board_tutorial_seen()
 	var scn := _open_board()
 	await _settle()
 	_clear_board_model(scn.board)
-	scn.board.place(Vector2i(2, 2), 101)
+	var keep := Vector2i(2, 2)
+	scn.board.place(keep, 105)                   # a player item the button must never build over
 	scn._rebuild_all()
 	await _settle()
-	var before := _item_map(scn)
 	scn.debug_pop_soil()
-	ok(_item_map(scn) == before, "Pop soil with no Soil placed leaves every board item alone")
-	ok(scn.board.improvements.is_empty(), "Pop soil with no Soil placed builds nothing")
+	var soils: Array = scn._improvement_cells(Improvements.KIND_SOIL)
+	ok(soils.size() == 1, "Pop soil with NO Soil placed builds exactly one (got %d)" % soils.size())
+	if soils.size() != 1:
+		scn.queue_free()
+		return
+	var cell := Vector2i(soils[0])
+	ok(scn.board.item_at(keep) == 105, "the built Soil leaves the player's item where it was")
+	var grown: int = scn.board.item_at(cell)
+	ok(grown > 0 and BoardModel.tier_of(grown) == 2, "the built Soil is seeded AND popped in the same press (got %d at %s)" % [grown, cell])
+	ok(G.is_valid_item_code(grown), "the seeded item is a real, producible content code (%d)" % grown)
+	ok(float(scn.board.improvement_at(cell).get("ends_at", 0.0)) > Time.get_unix_time_from_system(), "the built soil is left growing its next step")
+	ok(scn._selected_cell == cell, "the built cell (%s) is SELECTED, so the info bar names what moved" % cell)
 	scn.queue_free()
 
 func _test_debug_pop_magnet_merges_a_seeded_pair() -> void:
@@ -946,18 +987,112 @@ func _test_debug_pop_magnet_merges_a_seeded_pair() -> void:
 		var merged: int = scn.board.item_at(Vector2i(in_range[0]))
 		ok(BoardModel.tier_of(merged) == 2, "the magnet merged the seeded t1 pair up a tier (got %d)" % merged)
 		ok(scn.board.count_of(merged - 1) == 0, "no half of the seeded pair is left behind anywhere on the board")
+		ok(scn._selected_cell == Vector2i(in_range[0]), "Pop magnet SELECTS the merged cell (%s), so the info bar names what moved" % in_range[0])
 	scn.queue_free()
 
-func _test_debug_pop_magnet_without_magnet_is_a_noop() -> void:
-	fresh("improve_debug_pop_magnet_noop")
+# The owner's ACTUAL case for Pop magnet: no Magnet anywhere on the board. The button has to build
+# one where a pair fits and let the normal scan pull it together, all in the one press.
+func _test_debug_pop_magnet_builds_the_missing_magnet() -> void:
+	fresh("improve_debug_pop_magnet_build")
 	Save.mark_board_tutorial_seen()
 	var scn := _open_board()
 	await _settle()
 	_clear_board_model(scn.board)
-	scn.board.build_improvement(Vector2i(1, 1), Improvements.KIND_SOIL)
+	var keep := Vector2i(4, 4)
+	scn.board.place(keep, 105)                   # a player item the button must never build over
+	scn.board.build_improvement(Vector2i(6, 1), Improvements.KIND_SOIL)   # an unrelated improvement stays put
+	scn._rebuild_all()
+	await _settle()
+	scn.debug_pop_magnet()
+	var magnets: Array = scn._improvement_cells(Improvements.KIND_MAGNET)
+	ok(magnets.size() == 1, "Pop magnet with NO Magnet placed builds exactly one (got %d)" % magnets.size())
+	if magnets.size() != 1:
+		scn.queue_free()
+		return
+	var magnet := Vector2i(magnets[0])
+	ok(scn.board.item_at(keep) == 105, "the built Magnet leaves the player's item where it was")
+	ok(scn.board.improvement_count(Improvements.KIND_SOIL) == 1, "the unrelated Soil is untouched")
+	var merged := _sole_item_in_range(scn, magnet)
+	ok(merged.x >= 0, "the built Magnet pulls the seeded pair into ONE item in its range")
+	if merged.x >= 0:
+		var code: int = scn.board.item_at(merged)
+		ok(BoardModel.tier_of(code) == 2, "the built Magnet merged the seeded t1 pair up a tier (got %d)" % code)
+		ok(scn.board.count_of(code - 1) == 0, "no half of the seeded pair is left behind anywhere on the board")
+		ok(scn._selected_cell == merged, "the merged cell (%s) is SELECTED, so the info bar names what moved" % merged)
+	scn.queue_free()
+
+# A placed Magnet with no room in its range is not a dead end: the next placed Magnet that DOES have
+# room does the pull, and no second Magnet is built while one can still serve.
+func _test_debug_pop_magnet_skips_a_boxed_in_magnet() -> void:
+	fresh("improve_debug_pop_magnet_skip")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var boxed := Vector2i(0, 0)                  # first in board order, so it is the one tried first
+	var roomy := Vector2i(5, 3)
+	ok(scn.board.build_improvement(boxed, Improvements.KIND_MAGNET), "fixture installs a Magnet under %s" % boxed)
+	_box_in_magnet(scn, boxed)
+	ok(scn.board.build_improvement(roomy, Improvements.KIND_MAGNET), "fixture installs a second Magnet under %s" % roomy)
+	scn._rebuild_all()
+	await _settle()
+	scn.debug_pop_magnet()
+	ok(scn.board.improvement_count(Improvements.KIND_MAGNET) == 2, "Pop magnet builds nothing while a placed Magnet still has room (got %d)" % scn.board.improvement_count(Improvements.KIND_MAGNET))
+	var merged := _sole_item_in_range(scn, roomy)
+	ok(merged.x >= 0, "the pair lands in the Magnet that HAS room and merges there")
+	if merged.x >= 0:
+		ok(BoardModel.tier_of(scn.board.item_at(merged)) == 2, "the seeded t1 pair merged up a tier (got %d)" % scn.board.item_at(merged))
+		ok(scn._selected_cell == merged, "the merged cell (%s) is SELECTED, so the info bar names what moved" % merged)
+	scn.queue_free()
+
+# Every placed Magnet boxed in: the press still has to produce a pull, so a fresh Magnet is built on
+# a cell that does have room rather than the button returning silently.
+func _test_debug_pop_magnet_builds_past_a_boxed_in_magnet() -> void:
+	fresh("improve_debug_pop_magnet_boxed")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var boxed := Vector2i(8, 6)                  # the LAST cell, so the build search never lands beside it
+	ok(scn.board.build_improvement(boxed, Improvements.KIND_MAGNET), "fixture installs a Magnet under %s" % boxed)
+	_box_in_magnet(scn, boxed)
+	scn._rebuild_all()
+	await _settle()
+	var before: Array = scn._improvement_cells(Improvements.KIND_MAGNET)
+	scn.debug_pop_magnet()
+	var after: Array = scn._improvement_cells(Improvements.KIND_MAGNET)
+	ok(after.size() == before.size() + 1, "a boxed-in Magnet with no alternative gets a second one BUILT (%d -> %d)" % [before.size(), after.size()])
+	var built := Vector2i(-1, -1)
+	for raw_cell in after:
+		if not before.has(raw_cell):
+			built = Vector2i(raw_cell)
+			break
+	if built.x < 0:
+		scn.queue_free()
+		return
+	var merged := _sole_item_in_range(scn, built)
+	ok(merged.x >= 0, "the built Magnet at %s pulls the seeded pair into ONE item" % built)
+	if merged.x >= 0:
+		ok(BoardModel.tier_of(scn.board.item_at(merged)) == 2, "the seeded t1 pair merged up a tier (got %d)" % scn.board.item_at(merged))
+		ok(scn._selected_cell == merged, "the merged cell (%s) is SELECTED, so the info bar names what moved" % merged)
+	ok(String(scn.board.improvement_at(boxed).get("kind", "")) == Improvements.KIND_MAGNET, "the boxed-in Magnet stays exactly where it was")
+	scn.queue_free()
+
+# The genuine dead end: no free cell anywhere. Both buttons print their reason (see board.gd) and
+# leave the board byte-for-byte alone — no crash, no improvement built over a player's item.
+func _test_debug_pop_on_a_full_board_changes_nothing() -> void:
+	fresh("improve_debug_pop_full_board")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	for i in scn.board.items.size():
+		scn.board.items[i] = 101 + (i % 3)       # every cell taken; no two neighbours ever match
 	scn._rebuild_all()
 	await _settle()
 	var before := _item_map(scn)
+	scn.debug_pop_soil()
 	scn.debug_pop_magnet()
-	ok(_item_map(scn) == before, "Pop magnet with no Magnet placed drops no pair on the board")
+	ok(_item_map(scn) == before, "a full board leaves every board item exactly as it was")
+	ok(scn.board.improvements.is_empty(), "a full board builds no improvement — there is nowhere legal to put one")
 	scn.queue_free()
