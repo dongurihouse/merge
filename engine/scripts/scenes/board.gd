@@ -914,16 +914,30 @@ func _play_star_arrival(code: int) -> void:
 		if _pending_star_code() == code and _sky_docked_star != null and is_instance_valid(_sky_docked_star):
 			_sky_docked_star.visible = true)
 
+## Take the star OFF the marker: clear `sky.pending`, stop the catch clock, tear down the dock and the
+## lit lane rings. Shared by both resolutions — only WHERE it goes next differs.
+func _take_pending_star() -> void:
+	SkyLogic.grove_sky_state()["pending"] = 0
+	_star_pending_started_secs = -1.0
+	_clear_starfall_catch_ui()
+
+## The shared tail of BOTH resolutions. A caught star and an uncaught one land the same piece on the same
+## board, so everything downstream has to be identical: re-derive the marker (the owed pip may have just
+## appeared or cleared), then the one post-mutation beat — magnet scans, the improvements reconcile, the
+## owed-star drain, the persist and the HUD/fence refresh. The uncaught path used to only persist, so a
+## star the player let time out quietly skipped half of what the same star caught would have run.
+func _finish_star_resolution() -> void:
+	_sync_sky_patch_marker(false)
+	_after_board_change()
+
 func _catch_pending_star_at(cell: Vector2i) -> bool:
 	var code := _pending_star_code()
 	if code <= 0 or not _star_catch_cells().has(cell):
 		return false
 	var from := _star_marker_piece_pos()
-	SkyLogic.grove_sky_state()["pending"] = 0
-	_star_pending_started_secs = -1.0
-	_clear_starfall_catch_ui()
+	_take_pending_star()
 	_place_star_code_at(code, cell, from)
-	_after_board_change()
+	_finish_star_resolution()
 	return true
 
 func _resolve_pending_starfall_uncaught() -> bool:
@@ -931,19 +945,16 @@ func _resolve_pending_starfall_uncaught() -> bool:
 	if code <= 0:
 		return false
 	var from := _star_marker_piece_pos()
-	SkyLogic.grove_sky_state()["pending"] = 0
-	_star_pending_started_secs = -1.0
-	_clear_starfall_catch_ui()
-	if not _land_star_code(code, from):
+	_take_pending_star()
+	var landed := _land_star_code(code, from)
+	if not landed:
+		# §5.6's last resort — no free cell anywhere. It stays OWED and lands on the first
+		# _after_board_change that finds one, any hour, persisting across restarts.
 		var owed: Array = SkyLogic.grove_sky_state().get("owed", [])
 		owed.append(code)
 		SkyLogic.grove_sky_state()["owed"] = owed
-		_sync_sky_patch_marker(false)
-		Save.grove_write()
-		return false
-	_sync_sky_patch_marker(false)
-	_persist()
-	return true
+	_finish_star_resolution()
+	return landed
 
 func _try_starfall() -> void:
 	if _sky_state.is_empty() or String(_sky_state.get("sky", "")) != "starfall":

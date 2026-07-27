@@ -27,6 +27,7 @@ func _initialize() -> void:
 	await _test_starfall_catch_real_tap_and_duplicate_input()
 	await _test_starfall_ignores_non_catch_taps()
 	await _test_starfall_fallbacks_and_resume_rules()
+	await _test_starfall_landings_share_the_post_change_beat()
 	await _test_starfall_full_lane_and_full_board()
 	await _test_starfall_info_auto_announcement()
 	await _test_winback_rain_beat_removed()
@@ -352,6 +353,35 @@ func _test_starfall_fallbacks_and_resume_rules() -> void:
 	ok(_code_count(reopened, leave_code) == 1 and Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty(), \
 		"a fresh board open lands the owed Starfall from the saved handoff")
 	reopened.queue_free()
+
+## §5.5's catch and §5.6's uncaught landing put the SAME piece on the SAME board, so they owe the same
+## post-mutation beat: magnet scans, the improvements reconcile, the owed-star drain, the persist and the
+## HUD/fence refresh. The uncaught path used to only persist. Observed through the owed-star drain, which
+## nothing but _after_board_change performs.
+func _test_starfall_landings_share_the_post_change_beat() -> void:
+	for caught in [true, false]:
+		var how := "caught" if caught else "uncaught"
+		var scn = await _open_board("sky_star_beat_%s" % how, "star")
+		var lane_cells := _clear_lane_for_catch(scn)
+		scn._rebuild_all()
+		await process_frame
+		var code := await _arm_pending_star(scn)
+		var owed_code := 205
+		SkyLogic.grove_sky_state()["owed"] = [owed_code]
+		ok(code > 0 and code != owed_code and lane_cells.size() >= 2, \
+			"%s fixture has a pending star, a distinct owed star and two free lane cells" % how)
+		if lane_cells.size() >= 2 and code > 0:
+			if caught:
+				scn._catch_pending_star_at(lane_cells[0])
+			else:
+				scn._sky_live_secs = float(G.STAR_DELAY) + float(G.STAR_CATCH_SECS)
+				scn._try_starfall()
+			await create_timer(0.35).timeout
+			ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 and _code_count(scn, code) == 1, \
+				"the %s star lands on the board" % how)
+			ok(Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty() and _code_count(scn, owed_code) == 1, \
+				"the %s landing drains the owed queue on the same post-change beat" % how)
+		scn.queue_free()
 
 func _test_starfall_full_lane_and_full_board() -> void:
 	var lane_full = await _open_board("sky_star_full_lane", "star")
