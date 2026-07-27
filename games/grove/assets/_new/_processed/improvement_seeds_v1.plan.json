@@ -1,0 +1,12 @@
+{
+  "source": "_new/improvement_seeds_v1/improvement_seeds_v1_sheet.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "hue": true, "min_area": 3000, "pad": 6 },
+  "_note": "2 seed-item masters for the cell-improvements seed flow (spec 2026-07-26-cell-improvements-design.md §1/§5). Single-row sheet on flat #FF00FF; both items are one connected mass so the component cut keeps the sprig/nub. Islands map left-to-right soil/magnet.",
+  "outputs": [
+    { "island": 0, "name": "seed_soil",   "path": "ui/kit/seed_soil.png",   "post": "icon:512" },
+    { "island": 1, "name": "seed_magnet", "path": "ui/kit/seed_magnet.png", "post": "icon:512" }
+  ],
+  "archive": "_originals/ui/improvement_seeds_v1_sheet.png"
+}

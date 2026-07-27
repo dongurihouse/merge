@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://immf1yu6ayas"
-path="res://.godot/imported/build_leaf.png-099b258c83473fa0531415030d1c45fe.ctex"
+uid="uid://x0aqotnhubjx"
+path="res://.godot/imported/seed_soil.png-75c015d4fbb36648087b473160008bf9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/kit/build_leaf.png"
-dest_files=["res://.godot/imported/build_leaf.png-099b258c83473fa0531415030d1c45fe.ctex"]
+source_file="res://games/grove/assets/ui/kit/seed_soil.png"
+dest_files=["res://.godot/imported/seed_soil.png-75c015d4fbb36648087b473160008bf9.ctex"]
 
 [params]
 

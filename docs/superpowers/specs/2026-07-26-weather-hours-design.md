@@ -1,11 +1,13 @@
 # Weather Hours — spec (2026-07-26)
 
-**Status: draft 5 — §3 lane roll revised after first implementation review.** Builds §4 / rollout step 5 of
+**Status: draft 6 — dials set from the sim re-pass and a measured patch calibration.**
+Builds §4 / rollout step 5 of
 `2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
 `engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
 `games/grove/tools/grove_sim.gd`.
 
-All numbers **PROVISIONAL** — the grove_sim re-pass (§10) owns finals.
+Dials are **sim-set** as of draft 6 (§7 water runaway, §11 table); the §10 sweep is the
+gate for any further change.
 
 ---
 
@@ -88,7 +90,7 @@ cell no-ops (`pick_drop_cell` sentinel).
 | In-patch | Roll | Drop |
 |---|---|---|
 | **Sunbeam** | coin roll at `SKY_COIN_RATE` 0.35 (replaces 0.10) | coin lands as **c2** (worth 4) |
-| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.35; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
+| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.15; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
 
 - c2 upgrade instead of two c1 pieces: one cell, same value (Q2).
 - Soil hook, dormant until step 4: a growing soil cell in-patch during Rain fires its
@@ -151,6 +153,16 @@ its banner/chip predate §6's marker — read it for the star only).
   `PATCH_ALPHA` via `Color(Pal.X, α)` (SSOT suite forbids typed hex): Sunbeam = reward
   gold; Rain = receding blue, plus sparse sky-blue droplet ticks; Starfall = warm cream
   with gold star glints.
+- **Measuring the wash — use warm shift (R−B), never luma.** Sunbeam needs α 0.55 where
+  Rain reads at 0.13, because straw on the locked brown cells that dominate an early board
+  *brightens*, while the same straw on cream cells *darkens*. The sign of a luma delta
+  flips with the surface underneath, so a luma target does not carry between a mock and a
+  capture, or between an early board and a late one. Measure `R−B` on the lane against its
+  neighbours instead; it is signed the same way on both surfaces. (This cost a wrong
+  calibration target: a max-luma rule picked the mock's brightest column, which was empty
+  cream board, not its beam — the mock's actual beam is its *darkest* column.) Judge the
+  final value by eye on a real capture as well: the lane should read as a warm column with
+  the cell art under it still fully legible.
 - **Hour turn:** handler beside `_tick_water` on the 1 Hz tick. On hour change: rebuild
   `WeatherLayer` (`debug_refresh_weather` pattern), move the patch + marker, re-arm §5.
 - **Star FX:** `MoveFx.apply(…, "arc")` + trail from above the lane's top edge; then the
@@ -174,6 +186,26 @@ its banner/chip predate §6's marker — read it for the star only).
 - A sky never completes a live ask (§5 skip rule).
 - Water gifts respect `WATER_REWARD_MAX_RATIO` 0.3 (I2). I2 is already RED on maps 3–4
   (`docs/BACKLOG.md`) — judge the delta, not the absolute.
+- **The water faucet runs away above `SKY_WATER_RATE` ≈ 0.2 — measured, keep it below.**
+  Sky water buys pops, pops make merges, merges land in-patch and make more sky water. The
+  loop is superlinear: cutting the rate 0.35 → 0.15 (2.3×) cut sky water 7–12×. Measured
+  over 4 seeds × 7 days, sky water as a share of total water spend, against a no-weather
+  control run:
+
+  | rate | sky water share of spend | water self-sustain | total spend |
+  |---|---|---|---|
+  | control (no weather) | — | 52–58% | 3259–3553 |
+  | 0.35 | 16.7–46.5% | 70–88% | 4305–7744 |
+  | **0.15 (shipped)** | **5.3–8.1%** | **59–67%** | **3433–3919** |
+  | 0.10 | 4.4–5.5% | 59–62% | 3259–4075 |
+
+  At 0.35 water stops being the pacing constraint and total throughput roughly doubles. At
+  0.15 the gift is felt and the economy sits near control. Any future change to
+  `SKY_WATER_RATE`, in-patch geometry, or lane width re-opens this loop — re-run the sweep.
+- **The two sky rates are deliberately asymmetric.** `SKY_COIN_RATE` stays 0.35 while
+  `SKY_WATER_RATE` is 0.15: at equal rates sky coins measured only 2.3–5.8% of the coin
+  faucet against water's 17–47%, because the coin economy is large and the water economy is
+  small. Equal rates are not equal generosity — tune each against its own faucet.
 - The star is the only high-tier faucet, bounded per §5.
 - No draw from `board.rng` — hour-seeded RNG only; byte-identity test pins the board
   stream (§10).
@@ -242,6 +274,14 @@ its banner/chip predate §6's marker — read it for the star only).
   open modal defers the star.
 - **Shots:** add the three skies + patch to the shot set (`shot_base.gd` already forces
   weather).
+- **Sim fidelity (three rules the sweep depends on).** The sky roll is a pure function of
+  the hour index, so the sim must **offset its starting hour per seed** — otherwise every
+  seed replays one weather trajectory and the sweep measures it N times. (First cut walked
+  hours 0–20 for every seed: 11 Sunbeam · 10 Rain · **0 Starfall**, reporting a confident
+  `stars 0` for a faucet it could never sample — the first Starfall hour is 29.) The sim
+  must also **apply the §2 gift gate** the board applies, and **report each sky faucet as a
+  share of its own denominator** — a raw drop count reads 6× smaller than the water it
+  grants.
 - **Sim re-pass (gates the merge):** grove_sim models skies per hour, adopts ➋, adds star
   injection — EV ≈ 166 t1-eq per paid star ≈ 17 per witnessed hour at §11 dials, plus
   sell value. Multi-seed sweep (≥8 seeds × 7 days); compare I2 · Y · Z and coin/water
@@ -257,11 +297,11 @@ its banner/chip predate §6's marker — read it for the star only).
 | `SKY_SKIN_SPLIT` | 70/30 · 85/15 | clear/breeze in Sunbeam · rain/snow in Rain |
 | `SKY_COIN_RATE` | 0.35 | in-patch coin chance (base 0.10) |
 | `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
-| `SKY_WATER_RATE` | 0.35 | in-patch water roll (t1 = +8, over-cap) |
+| `SKY_WATER_RATE` | 0.15 | in-patch water roll (t1 = +8, over-cap) — **sim-set, do not raise past ~0.2** (§7 runaway) |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
 | `STAR_DELAY` | 10 s | live seconds before the star falls |
 | `LANE_MIN_OPEN` | 5 | min open cells for a lane to be rollable (§3) |
-| `PATCH_ALPHA` | Rain · Star 0.10–0.15; Sunbeam ~0.30 | gold-on-cream needs ~0.30 + same-hue edge deepening to read (mock-validated) |
+| `PATCH_ALPHA` | Sunbeam 0.55 · Rain 0.13 · Star 0.12 | Sunbeam needs ~2× the others to read on locked brown cells (§6 measurement note) |
 | `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
 ---

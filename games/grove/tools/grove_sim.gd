@@ -23,6 +23,8 @@ extends SceneTree
 ##        gap — the active faucet (burst ladder + the cluster ladder) keeps coins moving
 ##     D diamond faucet (level-ups + page-restores) vs sink — FAUCET-ONLY, see the report note
 ##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
+## The SEED drives two independent things: the board rng AND (via HOUR_OFFSET_PER_SEED) which stretch of
+## the hour-indexed WEATHER sequence the run walks — so a multi-seed sweep sweeps the sky too.
 ##
 ## Quests come from the LIVE ENGINE: the sim calls Quests.refill (quests.gd) with the same arguments
 ## board.gd passes, so the fence it measures IS the shipped fence — asks GENERATED (G.gen_quest) from the
@@ -43,9 +45,20 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const SkyLogic = preload("res://engine/scripts/core/sky.gd")
+const Features = preload("res://engine/scripts/core/features.gd")   # the weather-hours flag the live gift gate reads
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")   # §1 idle yield + sell dials (the live residents coin SOURCES) — NOTE the full bucket re-author is the parked §5 economy pass
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
+# WEATHER HOURS are a PURE FUNCTION of the hour index (sky.gd salts the hour, never the board rng), so a
+# run that always starts at hour 0 replays ONE identical sky sequence on every seed — an N-seed sweep then
+# measures a single weather trajectory N times, and whichever skies happen to sit past the end of the
+# window (starfall, at 10% share, first lands on hour 29) are never simulated at all. Offset the starting
+# hour by the seed so each seed walks a different stretch of the sequence. Deterministic: a given seed
+# always replays the same hours. The stride is prime and far wider than a run's hour count (3/day), so
+# no two seeds' windows overlap at any run length the sweeps use.
+const HOUR_OFFSET_PER_SEED := 1009
 
 var rng := RandomNumberGenerator.new()
 var board: BoardModel
@@ -127,6 +140,25 @@ var specials_crafted := 0   # #14/#16 special (merge-line) quests delivered — 
 var treat_gens := 0         # §6.D treat generators spawned over the run
 var _pending_chests := 0    # banked special-drop chests (tap-opened — the key line is retired)
 var _session_cap := 0       # this session's water budget = WATER_CAP + §6 water (lets the bot out-pop a bare cap)
+var _sim_hour := 0             # the hour index this session's sky is rolled from (seeded per run, see HOUR_OFFSET_PER_SEED)
+var _sim_hour_start := 0       # the run's FIRST hour index — reported, so a run's weather is reproducible
+var _sky_state: Dictionary = {}
+var _sky_owed: Array = []
+var _sky_hours := {}           # sky name -> hours spent under it (the run's weather MIX — the sweep's real spread signal)
+# THE LIVE GIFT GATE (sky.gd::gate_open) = the weather_hours flag AND both FTUE verbs seen
+# (Save.ftue_seen "merge" / "gen_tap"). The sim has no Save/FTUE layer, so it models the two verbs
+# DIRECTLY: the bot's own first merge and first generator tap. Until both have happened the sky pays
+# nothing, exactly as board.gd withholds sky drops (`gate_open() and in_patch(...)`) and starfall on a
+# fresh save. Without this the sim credited sky gifts from the first session and over-read the faucet.
+var _saw_merge := false        # FTUE proxy: the bot has completed its first merge
+var _saw_gen_tap := false      # FTUE proxy: the bot has tapped a generator at least once
+var _gate_open_hour := -1      # the hour the gate opened (reported; -1 = never opened in this run)
+var sky_coin_drops := 0        # Sunbeam coin items dropped in-patch (volume)
+var sky_coins := 0             # …and the COINS they paid, counted where the bot COLLECTS them (so this is a true subset of the Z faucet)
+var sky_water_drops := 0       # Rain water items dropped in-patch (volume)
+var sky_water := 0             # …and the WATER UNITS they granted (each drop is a t1 water special worth G.special_collect().amount, NOT 1💧)
+var sky_stars := 0
+var sky_star_t1eq := 0
 
 # §1 LIVE RESIDENTS ECONOMY (the global Bucket) — replaces the dormant welcome-coin-SINK the older model used. The
 # live loop: pay coins to run an EXPEDITION (the only coin SINK) → acquire spirits → PLACE into cap-limited
@@ -152,6 +184,10 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var days: int = int(args[0]) if args.size() >= 1 else 7
 	rng.seed = int(args[1]) if args.size() >= 2 else 42
+	# Decorrelate the weather from the board rng: the sky is seed-free, so the SEED picks which stretch
+	# of the hour sequence this run walks (see HOUR_OFFSET_PER_SEED).
+	_sim_hour = absi(int(rng.seed) * HOUR_OFFSET_PER_SEED)
+	_sim_hour_start = _sim_hour
 	# 3rd arg "greedy" (or "g") flips the bot to the aggressive-welcome mode: it pours every
 	# affordable coin/diamond into residents with no restoration cushion (stress-tests the sink).
 	_greedy = args.size() >= 3 and String(args[2]).to_lower() in ["greedy", "g", "1", "true"]
@@ -167,6 +203,7 @@ func _initialize() -> void:
 		for _session in 3:
 			_session_cap = G.WATER_CAP             # §6.B special-item water drops extend this in-session
 			water = _session_cap
+			_begin_weather_hour()
 			_hab_collect()                         # §1 collect the live habitat's idle coin yield (a SOURCE)
 			var r := _play_session()
 			d_water += r.water
@@ -188,6 +225,19 @@ func _initialize() -> void:
 		[clusters_unlocked, _cluster_total(), cluster_spend, gates_reached, _level(), coins_earned])
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
+	# WEATHER HOURS — the sky's SHARE of each faucet, not raw drop counts. A drop count is unreadable:
+	# a Rain drop is a t1 water special worth G.special_collect().amount 💧, so 400 drops is thousands of
+	# water, and at the current SKY_WATER_RATE the sky can quietly own a third to a half of the whole
+	# water economy. Both ratios are printed against the denominators the ledgers below use
+	# (_water_spent / _coin_faucet), so this line and the Z / self-sustain lines can never disagree.
+	var sky_water_pct := 100.0 * float(sky_water) / float(maxi(1, _water_spent()))
+	var sky_coin_pct := 100.0 * float(sky_coins) / float(maxi(1, _coin_faucet()))
+	print("  weather-hours: sky water %d💧 = %.1f%% of the %d💧 spend (%d drops) · sky coins %d🪙 = %.1f%% of the %d🪙 faucet (%d drops) · stars %d (~%d t1-eq)" % \
+		[sky_water, sky_water_pct, _water_spent(), sky_water_drops,
+		 sky_coins, sky_coin_pct, _coin_faucet(), sky_coin_drops, sky_stars, sky_star_t1eq])
+	print("                 %d hours from hour %d — %s · gift gate opened %s" % \
+		[_sim_hour - _sim_hour_start, _sim_hour_start, _sky_mix_str(),
+		 ("hour %d" % _gate_open_hour) if _gate_open_hour >= 0 else "NEVER (no merge + gen tap)"])
 	print("  PACING  curve base/step %d/%d · L%d at day %d · last content zone (L%d): %s · half the book: %s · whole book: %s" % \
 		[G.LEVEL_BASE_COINS, G.LEVEL_STEP_COINS, _level(), days, G.zone_unlock_level(G.ZONE_COUNT - 1),
 		 ("day %d" % content_end_day) if content_end_day > 0 else "NOT REACHED",
@@ -218,9 +268,7 @@ func _initialize() -> void:
 	# 3 cleanup-sale coins / 7💧 = 42.9) or an equally meaningless PASS. Detect the degenerate run up front,
 	# report it honestly as a STALL, and SKIP those ratio checks. Floor = 2 sessions' water; a healthy run
 	# spends that on day 1 alone, a stall never reaches it. ---
-	var total_water_spent := 0
-	for z in map_spend:
-		total_water_spent += int(map_spend[z])
+	var total_water_spent := _water_spent()
 	var stall_floor := 2 * G.WATER_CAP
 	var stalled := total_water_spent < stall_floor
 	if stalled:
@@ -285,9 +333,7 @@ func _initialize() -> void:
 		[merges, bonus_gens, treat_gens, 100.0 * float(new_coins) / float(maxi(1, coins_earned))])
 	# WATER self-sustain: gift + the §6 water faucets vs total spend. I2 guards the GIFT alone at <30%; these
 	# faucets are ADDITIONAL income, so if (gift + §6) climbs toward spend the early water pinch is gone.
-	var total_spend := 0
-	for z in map_spend:
-		total_spend += int(map_spend[z])
+	var total_spend := _water_spent()
 	var gift_plus_new := level_gift_water + new_water
 	var sustain := 100.0 * float(gift_plus_new) / float(maxi(1, total_spend))
 	if stalled:
@@ -307,9 +353,7 @@ func _initialize() -> void:
 
 	# --- Y: selling is cleanup, never income (sell-coins only) + the water↔💎 round trip ---
 	var gems_earned := gems_from_levels + gems_from_maps + gems_from_sells + gems_from_quests
-	var total_water := 0
-	for z in map_spend:
-		total_water += int(map_spend[z])
+	var total_water := _water_spent()
 	var scpw := (float(sell_coins) * 100.0 / float(total_water)) if total_water > 0 else 0.0
 	print("  -- Y clock --  💎 earned: %d · clock 🪙 %d (quest) vs spendable 🪙 %d (sell %d + pickups/gifts %d) · SELL-coins/100💧: %.1f (signal only now) · earn-1💎=%d💧 vs buy=%d💧 (>=10x)" % \
 		[gems_earned, coins_earned, coins_spendable, sell_coins, coins_spendable - sell_coins, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
@@ -333,7 +377,7 @@ func _initialize() -> void:
 	# REPORTED; the absorption ratio is a tuning signal (the population invariants P1/P2 below are the
 	# hard checks). ---
 	var other_coins := coins_spendable - sell_coins               # §6 drops/chests/treats + §1 habitat yield/sell
-	var faucet := coins_earned + coins_spendable
+	var faucet := _coin_faucet()
 	var coin_sink := boost_coins_spent + expedition_spend + cluster_spend
 	print("  -- Z coins --  faucet %d🪙 = CLOCK %d (quest) + SPENDABLE %d (sell %d + other %d, incl. §1 habitat yield %d / sell %d) · held %d🪙" % \
 		[faucet, coins_earned, coins_spendable, sell_coins, other_coins, habitat_yield, habitat_sell, coins])
@@ -391,11 +435,99 @@ func _initialize() -> void:
 func _level() -> int:
 	return G.level_at_coins(coins_earned)
 
+# The run's weather MIX, "sunbeam 9 · rain 8 · starfall 4" — the sweep's spread signal: with the hour
+# offset above, two seeds should NOT report the same mix. A sweep whose seeds all print one mix means
+# the weather has re-correlated and the sky numbers below measure a single trajectory N times.
+func _sky_mix_str() -> String:
+	var parts: Array = []
+	for sky in [SkyLogic.SKY_SUNBEAM, SkyLogic.SKY_RAIN, SkyLogic.SKY_STARFALL]:
+		parts.append("%s %d" % [sky, int(_sky_hours.get(sky, 0))])
+	return " · ".join(parts)
+
+# The run's TOTAL water spend (every pop, across every map) — the denominator every water-share ratio
+# in the report divides by (the stall floor, I2, the self-sustain line, the sky's share).
+func _water_spent() -> int:
+	var n := 0
+	for z in map_spend:
+		n += int(map_spend[z])
+	return n
+
+# The run's TOTAL coin faucet — the Z ledger's denominator: clock coins (quests) + spendable coins
+# (sells, pickups, gifts, §6 drops, §1 habitat yield).
+func _coin_faucet() -> int:
+	return coins_earned + coins_spendable
+
 func _live_lines() -> Array:
 	# Quest asks draw from the ACTIVE-LINE WINDOW reached by level progress. This deliberately does not
 	# depend on restored spots, so earning exp can reveal newer asks even if the player delays claiming
 	# zones. Base and crafted-special lines share the window (§7, 2026-07-25).
 	return G.active_lines(_level())
+
+# The live gift gate, modelled without a Save layer — see the _saw_merge / _saw_gen_tap notes above.
+# EVERY sky payout routes through this, mirroring board.gd: merge drops (`gate_open() and in_patch`),
+# the starfall roll and the owed-star landing all read it.
+func _sky_gate_open() -> bool:
+	return Features.on("weather_hours") and _saw_merge and _saw_gen_tap
+
+func _begin_weather_hour() -> void:
+	_refill_quests()
+	_sky_state = SkyLogic.state(float(_sim_hour) * 3600.0, _level())
+	var sky_name := String(_sky_state.get("sky", ""))
+	_sky_hours[sky_name] = int(_sky_hours.get(sky_name, 0)) + 1
+	if _gate_open_hour < 0 and _sky_gate_open():
+		_gate_open_hour = _sim_hour
+	_sim_hour += 1
+	# GATED like the live board: a fresh save pays no sky gifts until both FTUE verbs are seen, so the
+	# first hour(s) of a run roll their sky but pay nothing. The bot clears both verbs inside session 1,
+	# so at most that session's star is forfeited — the same forfeit a real first session takes.
+	if not _sky_gate_open():
+		return
+	if String(_sky_state.get("sky", "")) == "starfall":
+		var lines: Array = _live_lines()
+		for l in G.quest_needed_lines(_open_quest_lines()).keys():
+			if not lines.has(int(l)):
+				lines.append(int(l))
+		var code := SkyLogic.star_pick(int(_sky_state.hour), lines, BoardLogic.asked_items(live_quests))
+		if code > 0:
+			_sky_owed.append(code)
+	_land_sky_owed()
+
+func _land_sky_owed() -> void:
+	while not _sky_owed.is_empty():
+		var cell := _sky_landing_cell()
+		if cell.x < 0:
+			return
+		var code := int(_sky_owed.pop_front())
+		board.place(cell, code)
+		sky_stars += 1
+		sky_star_t1eq += int(pow(2, (code % 100) - 1))
+
+func _sky_landing_cell() -> Vector2i:
+	var lane_cells: Array = []
+	var axis := String(_sky_state.get("lane_axis", "column"))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == "row":
+		for c in G.COLS:
+			var cell := Vector2i(lane, c)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	else:
+		for r in G.ROWS:
+			var cell := Vector2i(r, lane)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	if not lane_cells.is_empty():
+		return lane_cells[0]
+	var empties := board.empty_ground_cells()
+	return Vector2i(-1, -1) if empties.is_empty() else Vector2i(empties[0])
+
+func _open_quest_lines() -> Array:
+	var out: Array = []
+	for q in live_quests:
+		var it := G.quest_item(q)
+		if not it.is_empty() and not out.has(int(it.line)):
+			out.append(int(it.line))
+	return out
 
 # Credit `amount` ORGANIC coins and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up
 # within the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current page's gift (I2).
@@ -482,7 +614,7 @@ func _credit_special_drop(code: int, src: String = "drop") -> void:
 func _try_open_chest() -> void:
 	while _pending_chests >= 1:
 		_pending_chests -= 1
-		var rw := G.chest_open_reward(10 * 100 + 1)
+		var rw := G.chest_open_reward(G.CHEST_LINE * 100 + 1)
 		_gain_coins(int(rw.coins))
 		drop_open_coins += int(rw.coins)
 		acorns += int(rw.acorns)
@@ -797,6 +929,7 @@ func _play_session() -> Dictionary:
 		guard += 1
 		open_low_mark = mini(open_low_mark, board.empty_ground_cells().size())
 		_refill_quests()
+		_land_sky_owed()
 
 		# 0. PAGE COMPLETION: a cover-up page ends when every one of its clusters is unlocked. This is the
 		# diamond-gift + habitat-cell trigger (cells_from_scenes grants one cell per completed page).
@@ -896,8 +1029,14 @@ func _play_session() -> Dictionary:
 		# 4. collect coins
 		var coin_cell := _first_coin()
 		if coin_cell != Vector2i(-1, -1):
-			var cv := G.coin_value(board.take(coin_cell))
+			var coin_code := board.take(coin_cell)
+			var cv := G.coin_value(coin_code)
 			_gain_coins(cv)
+			# The SKY_COIN_TIER coin has exactly one source in this sim — the Sunbeam in-patch merge drop
+			# above — so the tier identifies it. Credited HERE, on pickup, not at the drop: the Z faucet
+			# only counts coins actually banked, and this has to be a true subset of that denominator.
+			if coin_code % 100 == int(G.SKY_COIN_TIER):
+				sky_coins += cv
 			continue
 
 		# 4b. clear RETIRED-line clutter — old-map items no live quest can ever want (a line
@@ -917,15 +1056,24 @@ func _play_session() -> Dictionary:
 		if not pair.is_empty():
 			var produced: int = board.merge(pair[0], pair[1])
 			merges += 1
+			_saw_merge = true                  # FTUE proxy: the "merge" verb is now seen (see _sky_gate_open)
 			for br in board.openable_brambles(pair[1], _level()):
 				board.open_bramble(br)
-			if not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE:
-				var empt := board.empty_ground_cells()
-				if not empt.is_empty():
-					board.place(empt[rng.randi_range(0, empt.size() - 1)], G.COIN_LINE * 100 + 1)
-			# §6.B a merge sometimes shakes a special item loose (modeled by collect-yield, not placed)
-			if G.rolls_special_drop(rng):
-				_credit_special_drop(G.pick_special_drop(rng))
+			# the SAME expression board.gd's merge finish uses — the FTUE gate FIRST, then patch membership
+			var in_patch := _sky_gate_open() and SkyLogic.in_patch(_sky_state, pair[1])
+			for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch):
+				var code := int(drop)
+				if G.is_coin(code):
+					var empt := board.empty_ground_cells()
+					if not empt.is_empty():
+						board.place(empt[rng.randi_range(0, empt.size() - 1)], code)
+						if code % 100 == int(G.SKY_COIN_TIER):
+							sky_coin_drops += 1
+				else:
+					if code == G.WATER_LINE * 100 + 1 and String(_sky_state.get("sky", "")) == "rain" and in_patch:
+						sky_water_drops += 1
+						sky_water += int(G.special_collect(code).get("amount", 0))   # a DROP is worth this many 💧 — never 1
+					_credit_special_drop(code)
 			continue
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
@@ -936,6 +1084,7 @@ func _play_session() -> Dictionary:
 		# UNSPENT (a realistic "energy I can't use right now"), never forced into a jam.
 		if water >= G.POP_COST and board.empty_ground_cells().size() > 3 and not _book_done():
 			var burst: int = G.burst_count(map, G.BOOST_BONUS if boost_taps > 0 else 0, rng)
+			_saw_gen_tap = true                # FTUE proxy: the "gen_tap" verb is now seen (see _sky_gate_open)
 			if boost_taps > 0:
 				boost_taps -= 1
 			burst = mini(burst, int(water / G.POP_COST))

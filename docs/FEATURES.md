@@ -54,9 +54,9 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 
 | Flag | What it does | Lives-in | Eval |
 |---|---|---|---|
-| `winback_rain_beat` | >=48h away → full water + the rainy minute | `engine/scripts/ui/ambient.gd` `check_winback()` (L121), `winback_active()` (L130) | keep — default ON, owner review pending |
+| `weather_hours` | hourly sky lane gifts: Sunbeam coins, Rain water, Starfall piece | `engine/scripts/core/sky.gd`; `engine/scripts/scenes/board.gd` | keep — default ON, owner review pending |
 | `ambient_characters` | characters wander the scenes | `engine/scripts/ui/ambient.gd` `build_layer()` (L38) | keep — default ON, owner review pending |
-| `ambient_weather` | breeze/rain/snow schedule | `engine/scripts/ui/ambient.gd` `build_weather()` (L159) | keep — default ON, owner review pending |
+| `ambient_weather` | clear/breeze/rain/snow/starlit weather skins | `engine/scripts/ui/ambient.gd` `build_weather()` | keep — default ON, owner review pending |
 
 ## feature
 

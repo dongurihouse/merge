@@ -34,10 +34,8 @@ const INK = Game.PALETTE.INK
 const MEADOW_UI := "ui/meadow_v2/%s"
 
 # The card surface wears the HUD pills' shared paper look (flat cream + thin PAPER_EDGE rim +
-# a texture_cream grain layer from the UI kit) — see _paper_panel. The kit is loaded at runtime
-# (matches hud.gd / action_bar.gd) to avoid a preload cycle. card_slice_* lay keys are retired
+# a texture_cream grain layer from the UI kit) — see _paper_panel. card_slice_* lay keys are retired
 # with the old card_generic nine-slice but still accepted (ignored) from saved configs.
-static var KIT_PATH := Game.kit()
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := CREAM
 const PAPER_EDGE := Color(BARK, 0.35)
@@ -230,7 +228,7 @@ static func _paper_panel(node_name: String, corner: float) -> Panel:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.set_meta(Look.SHADOW_CORNER_META, corner)   # the card's real rounding — the shadow reads this
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit != null:
 		var paper: TextureRect = Kit.apply_rounded_paper_panel_surface(panel, node_name + "Paper", PAPER_TEXTURE, corner, 2.0)
 		if paper != null:

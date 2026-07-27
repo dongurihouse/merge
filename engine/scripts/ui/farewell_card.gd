@@ -13,7 +13,6 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Pal = Game.PALETTE
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "FarewellCardOverlay"
 
 static func is_open(host: Control) -> bool:
@@ -22,9 +21,9 @@ static func is_open(host: Control) -> bool:
 static func open(host: Control, opts: Dictionary) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("FarewellCard: ui kit missing at %s" % KIT_PATH)
+		push_warning("FarewellCard: ui kit missing at %s" % Game.kit())
 		return
 	var line := int(opts.get("line", 0))
 	if line <= 0:
@@ -53,7 +52,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
 			close_once.call())
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var vw: float = host.get_viewport_rect().size.x
 	var width: float = vw * Kit.frame_width_pct(cfg) / 100.0
 

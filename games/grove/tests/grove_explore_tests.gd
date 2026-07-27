@@ -1551,7 +1551,6 @@ func _test_reward_row_cap() -> void:
 	ok(host.find_child("RewardMore", true, false) == null, "a capped haul never shows the overflow tile")
 	host.queue_free()
 	# the builder's row-cap fold, driven directly with a haul bigger than any trade can produce
-	var Kit: GDScript = load(ExploreReward.KIT_PATH)
 	var haul: Array = []
 	for i in 30:
 		haul.append({"kind": "meadow", "tier": 1 + (i % 4)})

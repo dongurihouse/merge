@@ -12,8 +12,6 @@ const Pal = Game.PALETTE
 const BADGE_PATH := "ui/meadow_v2/maps_lock_flower.png"
 # The band wears the HUD pills' shared paper surface (flat cream + thin PAPER_EDGE rim + a
 # texture_cream grain layer from the UI kit) so it reads as one family with the pills above it.
-# The kit is loaded at runtime (matches hud.gd / action_bar.gd) to avoid a preload cycle.
-static var KIT_PATH := Game.kit()
 const PAPER_FILL := Pal.CREAM
 const PAPER_EDGE := Color(Pal.BARK, 0.35)
 const PAPER_CORNER_FRAC := 0.28             # band corner radius as a fraction of the band height
@@ -76,7 +74,7 @@ func _clear_style() -> StyleBox:
 	return flat
 
 func _make_deckle_surface(node_name: String) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return Control.new()
 	var panel: Control = load(Kit.CUT_PAPER).new()
@@ -86,10 +84,10 @@ func _make_deckle_surface(node_name: String) -> Control:
 	return panel
 
 func _configure_deckle(corner: float) -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null or _deckle == null:
 		return
-	var cp: Dictionary = Kit.cut_paper_opts_from_config(Kit.load_config(Kit.CONFIG_PATH), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
 	cp["corner"] = corner
 	_deckle.configure(cp, PAPER_FILL, PAPER_EDGE, Kit.cut_paper_tile())
 	_deckle.corner = corner
@@ -98,12 +96,12 @@ func _configure_deckle(corner: float) -> void:
 # "progress_bar" knobs) the level dialog wears, so the two bars can never drift apart. Rebuilt when
 # the geometry or the ready state changes; the tween moves the fill via Kit.progress_bar_set_frac.
 func _rebuild_bar() -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null or _bar_box.size.x <= 0.0:
 		return
 	if _bar != null and is_instance_valid(_bar):
 		_bar.queue_free()
-	var opts: Dictionary = Kit.progress_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var opts: Dictionary = Kit.progress_bar_opts_from_config(Game.kit_config())
 	opts["name"] = BAR_NAME
 	opts["width"] = _bar_box.size.x
 	opts["height"] = _bar_box.size.y
@@ -154,7 +152,7 @@ func progress_for_test() -> float:
 func _apply_progress() -> void:
 	var h := size.y
 	if _bar != null and is_instance_valid(_bar):
-		var Kit: GDScript = load(KIT_PATH)
+		var Kit: GDScript = Game.kit_script()
 		if Kit != null:
 			Kit.progress_bar_set_frac(_bar, _progress)
 	_pct.text = "%d%%" % int(round(_progress * 100.0))
@@ -197,13 +195,13 @@ func _relayout() -> void:
 # The stacked-paper BACKER behind the band — the same second-sheet knobs the HUD pills read
 # (gold_currency_pill.backer*), so the whole top chrome stacks the same way.
 func _configure_backer(corner: float) -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null or _bg == null:
 		return
 	var old := _bg.get_node_or_null("PaperBacker")
 	if old != null:
 		old.queue_free()
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var pill_opts: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
 	var cp: Dictionary = Kit.cut_paper_opts_from_config(cfg, "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
 	cp["corner"] = corner

@@ -40,7 +40,6 @@ const BARK = Pal.BARK
 
 # The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
 # so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
-static var KIT_PATH := Game.kit()
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
@@ -145,9 +144,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 static func _open(host: Control, opts: Dictionary) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Shop: kit missing at %s" % KIT_PATH)
+		push_warning("Shop: kit missing at %s" % Game.kit())
 		return
 	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring
 	# flat dim becomes a cozy frosted backdrop that focuses the parchment. Falls back to a flat
@@ -178,7 +177,7 @@ static func _open(host: Control, opts: Dictionary) -> void:
 	# 2-up offer grid · the info footer) is built here, per the shop_dialog_v3_unified_storefront mock.
 	# Width is a % of the SCREEN (responsive).
 	var vw: float = host.get_viewport_rect().size.x
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
 	# the CONTENT lays out at the design width MINUS the sheet's insets (the frame scales it by
 	# content_scale, so the pads count at 1/scale in layout space) — the residents.gd idiom.
@@ -685,7 +684,7 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 # `grant` + a guard around this Confirm — the frame, the note, and the wiring stay.
 static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		line: String, sub: String, product_key: String, grant: Callable) -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	# the cash confirm sits ABOVE the open shop and is NOT veil-dismissable — a money decision leaves
@@ -752,7 +751,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		else:
 			overlay.queue_free()
 			settle.call(), true))
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var copts: Dictionary = Kit.dialog_opts_from_config(cfg)
 	copts["content_scale"] = Kit.dialog_content_scale(cfg, "dialog")
 	copts["banner_text"] = title
