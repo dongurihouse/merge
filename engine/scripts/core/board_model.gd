@@ -458,14 +458,6 @@ func apply_water_to_soil(cell: Vector2i, now: float) -> bool:
 	improvements[cell] = after
 	return true
 
-func finish_soil_now(cell: Vector2i, now: float) -> bool:
-	if not is_growing(cell):
-		return false
-	var row := improvement_at(cell)
-	row["ends_at"] = now
-	improvements[cell] = row
-	return not reconcile_improvements(now).is_empty()
-
 func reconcile_improvements(now: float) -> Array:
 	var grown: Array = []
 	for cell in improvements.keys():

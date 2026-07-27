@@ -261,10 +261,6 @@ var _info_soil_water: Button         # Soil grow-row chip: spend board water to 
 var _info_soil_water_sb: StyleBoxFlat
 var _info_soil_water_count: Label
 var _info_soil_water_coin: Control
-var _info_soil_finish: Button        # Soil grow-row chip: spend acorns to finish the current step now
-var _info_soil_finish_sb: StyleBoxFlat
-var _info_soil_finish_count: Label
-var _info_soil_finish_coin: Control
 var _info_mastery_row: HBoxContainer # generator mastery row: pips + slim meter + next reward
 var _info_mastery_pips: Array = []
 var _info_mastery_progress: ProgressBar
@@ -2704,28 +2700,9 @@ func _water_soil(cell: Vector2i, now: float = -1.0) -> bool:
 	_refresh_selected_soil_info()
 	return true
 
-func _finish_soil(cell: Vector2i, now: float = -1.0) -> bool:
-	if now < 0.0:
-		now = Time.get_unix_time_from_system()
-	var out := BoardActions.finish_soil(board, cell, now)
-	if not bool(out.get("finished", false)):
-		if _info_soil_finish != null and is_instance_valid(_info_soil_finish):
-			FX.wobble(_info_soil_finish)
-		Audio.play("invalid_soft", -6.0)
-		return false
-	_rebuild_all()
-	_after_board_change()
-	if board.item_at(cell) > 0:
-		_select_item(cell)
-	return true
-
 func _on_soil_water() -> void:
 	if _selected_cell.x >= 0:
 		_water_soil(_selected_cell)
-
-func _on_soil_finish() -> void:
-	if _selected_cell.x >= 0:
-		_finish_soil(_selected_cell)
 
 func _chain_armed_cell() -> Vector2i:
 	if chain_running() and not _chain_run.is_empty():
@@ -3113,7 +3090,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	_build_seed_chips(opts, _info_trash.get_parent())   # Improvement seeds: Place + Bag actions
 	_build_improvement_chips(opts, _info_trash.get_parent()) # Empty improvements: Rank + Unsocket actions
-	_build_soil_chips(opts, _info_trash.get_parent())   # Cell improvements: growing pieces expose water + finish chips
+	_build_soil_chips(opts, _info_trash.get_parent())   # Cell improvements: growing pieces expose the water chip
 	_build_almanac_chip(opts, _info_trash.get_parent()) # §8: empty info-tray entry for away/complete lines
 	return pill
 
@@ -3187,18 +3164,10 @@ func _build_soil_chips(opts: Dictionary, row: Control) -> void:
 	_info_soil_water_count = water_chip.count
 	_info_soil_water_coin = water_chip.coin
 	row.move_child(_info_soil_water, _info_trash.get_index())
-	var finish_chip := ActionBar.action_chip(opts, row, "Finish", _on_soil_finish, BoxContainer.ALIGNMENT_END)
-	_info_soil_finish = finish_chip.btn
-	_info_soil_finish_sb = finish_chip.sb
-	_info_soil_finish_count = finish_chip.count
-	_info_soil_finish_coin = finish_chip.coin
-	row.move_child(_info_soil_finish, _info_trash.get_index())
 
 func _hide_soil_chips() -> void:
 	if _info_soil_water != null and is_instance_valid(_info_soil_water):
 		_info_soil_water.visible = false
-	if _info_soil_finish != null and is_instance_valid(_info_soil_finish):
-		_info_soil_finish.visible = false
 
 func _hide_seed_chips() -> void:
 	if _info_seed_place != null and is_instance_valid(_info_seed_place):
@@ -3254,7 +3223,7 @@ func _refresh_improvement_chips(cell: Vector2i) -> void:
 	_set_action_chip(_info_soil_rank, _info_soil_rank_sb, _info_soil_rank_coin, _info_soil_rank_count, "coin", "%d" % rank_price if rank_price > 0 else "Max", rank_ready)
 
 func _refresh_soil_chips(cell: Vector2i) -> void:
-	if _info_soil_water == null or _info_soil_finish == null:
+	if _info_soil_water == null:
 		return
 	if not board.is_growing(cell):
 		_hide_soil_chips()
@@ -3272,19 +3241,6 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 	_info_soil_water_sb.border_color = Pal.BTN_PRIMARY_EDGE if water_ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
 	_info_soil_water.modulate = Color(1, 1, 1, 1.0) if water_ready else Color(1, 1, 1, 0.7)
 	_info_soil_water.visible = true
-	var remaining := board.soil_remaining(cell, Time.get_unix_time_from_system())
-	var finish_cost := Improvements.finish_cost(remaining)
-	var finish_ready := Save.diamonds() >= finish_cost
-	for c in _info_soil_finish_coin.get_children():
-		c.queue_free()
-	var finish_icon := Look.icon("gem", _info_soil_finish_coin.custom_minimum_size.x)
-	finish_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_soil_finish_coin.add_child(finish_icon)
-	_info_soil_finish_count.text = "%d" % finish_cost
-	_info_soil_finish_sb.bg_color = Pal.BTN_PRIMARY if finish_ready else Color(Pal.BTN_PRIMARY, 0.42)
-	_info_soil_finish_sb.border_color = Pal.BTN_PRIMARY_EDGE if finish_ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
-	_info_soil_finish.modulate = Color(1, 1, 1, 1.0) if finish_ready else Color(1, 1, 1, 0.7)
-	_info_soil_finish.visible = true
 
 func _refresh_selected_soil_info() -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):

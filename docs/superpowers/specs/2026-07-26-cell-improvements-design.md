@@ -1,10 +1,11 @@
 # Cell improvements (Soil · Magnet) — spec (2026-07-26)
 
-Draft 6 — **build mode is cut; improvements arrive as seed items** (§1, §1a lists what to
-revert). Rollout step 4 of `2026-07-26-progression-systems-design.md`; supersedes its §6
-where they differ. All numbers are provisional dials — the `grove_sim` re-pass owns finals.
-Acorns = `currencies.diamonds` (`save.gd:145-160`). Home board only (Rush is a separate
-scene, `explore_rush.gd:65` — no flag needed).
+Draft 7 — **build mode is cut; improvements arrive as seed items** (§1, §1a lists what to
+revert), with the readable two-row info-bar contract and the two-beat Soil seed FTUE fix
+added on 2026-07-27. Rollout step 4 of `2026-07-26-progression-systems-design.md`;
+supersedes its §6 where they differ. All numbers are provisional dials — the `grove_sim`
+re-pass owns finals. Acorns = `currencies.diamonds` (`save.gd:192-207`). Home board only
+(Rush is a separate scene, `explore_rush.gd:65` — no flag needed).
 
 ## Summary — what is being built
 
@@ -13,31 +14,33 @@ mode and no board-edge button**: improvements are acquired as **seed items that 
 board**, and every interaction reuses the existing tap → info-bar-chip surface.
 
 - **Seeds** drop like other special items. Tap one and its info bar offers **Place** (become
-  this cell's improvement) · **Bag** · **Sell**. At most one unplaced seed per kind exists at
-  a time.
+  this cell's improvement) · **Bag** · **Sell** in the readable two-row action tray (§5).
+  At most one unplaced seed per kind exists at a time.
 - **Soil** (max 9, 3 ranks): any eligible piece resting on it grows +1 tier on an
   offline-capable timer — 10 s at tier 1 up to 48 h for t11→t12. Pieces are never locked;
-  changing one restarts the clock, with a confirm at t7+. Watering halves a step once;
-  acorns finish it now.
+  changing one restarts the clock, with a confirm at t7+. Watering halves a step once.
 - **Magnet** (max 3, rankless): a passive 3×3 field — matching pieces inside it auto-merge,
   guarded so it never eats quest-asked codes, growing pieces, or a live chain.
 - A placed improvement is the cell's **background**: pieces spawn, rest, and merge on it
   normally. Tapping the cell **while it is empty** offers **Unsocket**, which pays a cost and
   turns it back into a seed — that is also how you move one.
 - Around them: an FTUE seed grant at ~L6, save state riding the board dict, a test suite, and
-  a `grove_sim` re-pass. Mocks: `games/grove/assets/_concepts/ui/improvements_v1/`.
+  a `grove_sim` re-pass. Mocks: `games/grove/assets/_concepts/ui/improvements_v1/` plus the
+  follow-up info-bar target `docs/superpowers/specs/2026-07-27-info-bar-redesign-v1.png`.
 
 ## 1 · Seeds — acquisition, placement, unsocket
 
 **The seed item.** Soil and Magnet each get a pseudo-line in `SPECIAL_ITEMS`
-(`grove_data.gd:356`) — lines **14** (soil seed) and **15** (magnet seed), both `"top": 1`
+(`grove_data.gd:449`) — lines **29** (soil seed) and **30** (magnet seed), both `"top": 1`
 so they never merge. They are ordinary board occupants otherwise: draggable, stashable in the
-bag, sellable, and they occupy a cell.
+bag, sellable, and they occupy a cell. The line numbers must stay clear of scissors (14),
+live content lines, and legacy save rosters; reusing a retired content line would resurrect
+old pruned saves as seeds.
 
 **Dropping.** Seeds join the existing special-drop table
-(`SPECIAL_DROP_WEIGHTS`, `grove_data.gd:366`) and ride the roll that already happens after a
+(`SPECIAL_DROP_WEIGHTS`, `grove_data.gd:462`) and ride the roll that already happens after a
 merge — `pick_special_drop` makes exactly **one** `randi_range` call
-(`content.gd:1431-1440`), and adding kinds must not add a second. Weight the seeds low
+(`content.gd:1477-1491`), and adding kinds must not add a second. Weight the seeds low
 (§6). A kind is **filtered out of the weight table before the draw** when either:
 
 - an unplaced seed of that kind already exists on the board **or** in the bag, or
@@ -86,7 +89,7 @@ The shipped branch built a build mode. Remove it entirely:
 - Tests naming build mode / pads / the move flow.
 
 **Keep unchanged:** everything in §2–§4 (the model, the laws, soil growth and its curve,
-ranks, water/finish, the t7+ warning, the magnet field and its five guards), the save shape,
+ranks, water, the t7+ warning, the magnet field and its five guards), the save shape,
 `cell_soil.png` / `cell_magnet.png` / `pip_leaf.png`, and every regression test from the
 review round (the dead-fall-through, RNG byte-identity, mark-seen catch-up, and drag-node
 tests are all still load-bearing).
@@ -138,12 +141,11 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
 - Ranks: r2 times −30% · r3 +2 tiers per completion.
 - No ask interplay — growth ignores the fence.
 - Selecting a growing piece → info-bar grow row: *"Growing to t8 — 2h 18m"*
-  (`residents.gd:648` format) + two chips (`ActionBar.action_chip`, pattern
+  (`residents.gd:648` format) + one chip (`ActionBar.action_chip`, pattern
   `board.gd:2118-2124`):
   - **💧 −10** — spend `SOIL_WATER_COST := 10` board water, once per step: remaining time
     halves. Via the scene `water` field + `_update_water_hud`, then `_after_board_change()`.
-  - **🌰 finish** — `Save.spend_diamonds(max(1, ceil(remaining_secs / 1800.0)))` — 1 acorn
-    per started 30 min (1 h → 2, 48 h → 96).
+  - There is no acorn "finish now" action: growth is only ever shortened by Water.
 - On the piece: thin progress ring (1 Hz); a countdown chip ("2h") when the step ≥ 15 min.
 - **t7+ warning:** any player action that resets or consumes a piece growing from tier ≥ 7 —
   move, merge, deliver, sell, stash — first shows a confirm (`Overlay.modal`, dismissable):
@@ -184,17 +186,47 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
 Everything runs on the existing select → info-bar-chip surface. No modals, no pads, no
 board-edge button, no new screen.
 
-- **Seed selected:** info bar shows the seed's name and one-line description, plus chips
-  **Place** (garden-green, primary) · **Bag** · the existing **Sell** trashcan. `Place` is
-  disabled-with-wobble on an illegal cell (sealed, generator, already improved) with the
-  reason in the subtitle. Placing plays `FX.pop` on the new cell art.
-- **Improved cell, empty, selected:** info bar shows *"Soil · rank 2"* or *"Magnet"* plus
-  **Unsocket** carrying its price (coin or acorn icon), and for Soil the next rank's price
-  on the same row (`FX.celebrate_at` on rank-up, no modal). Direct-spend, no nested confirm —
-  the `board.gd:3151` boost pattern; unaffordable wobbles the wallet.
+**Info-bar readability target.** The current one-row tray is too cramped once a selected item
+has three or four verbs: the item name collapses into unreadable word fragments. Replace the
+single-line layout with an adaptive **two-row center tray** at phone widths. The selected item
+art stays in a fixed left well; the title and subtitle get the full top row; all visible verbs
+sit in a stable lower action row. Mock target:
+
+![Info bar redesign v1](2026-07-27-info-bar-redesign-v1.png)
+
+The mock is drawn 557 px wide; the game renders 1080×1920, so every size below is a
+**fraction of the tray's inner width**, not a mock pixel count (the `width_pct` pattern
+already used elsewhere in the kit).
+
+- The title row is never narrower than **40 %** of the tray's inner width (220/557 in the
+  mock); names use one line with ellipsis only after the whole word boundary fails.
+  Descriptions are one line, clipped with ellipsis, not multi-line wrap.
+- The action row uses fixed compact chips, **10–14 %** of the tray's inner width each
+  (56–80/557 in the mock), with
+  icon + count/price as the primary read. Visible captions are short and must fit without
+  wrapping: **Place**, **Bag**, **Buy**, **Water**, **Sell**, **Rank**,
+  **Unsocket**. Every chip also carries `tooltip_text` / accessibility text with the full
+  action name and price.
+- Three-piece bottom composition stays unchanged: Home tile · cream info tray · Bag tile.
+  Only the interior of the center tray changes. The tray may grow within `BOTTOM_BAR_MAX`,
+  but it must not cover the board or push Home/Bag off-screen.
+- When fewer than three action chips are visible on a wide layout, the existing single-row
+  arrangement may remain if the title row still meets the minimum width; otherwise use the
+  two-row tray.
+
+- **Seed selected:** info bar shows the seed's name and one-line description in the title
+  row, plus action-row chips **Place** (garden-green, primary) · **Bag** · the existing
+  **Sell** trashcan. `Place` is disabled-with-wobble on an illegal cell (sealed, generator,
+  already improved) with the reason in the subtitle. Placing plays `FX.pop` on the new cell
+  art.
+- **Improved cell, empty, selected:** info bar shows *"Soil · rank 2"* or *"Magnet"* in the
+  title row plus **Unsocket** carrying its price (coin or acorn icon), and for Soil the next
+  rank's price on the same action row (`FX.celebrate_at` on rank-up, no modal).
+  Direct-spend, no nested confirm — the `board.gd:4738` `_activate_gen_boost` pattern; unaffordable wobbles
+  the wallet.
 - **Improved cell holding a piece:** selects the piece exactly as today; the improvement is
   background. The grow row (below) replaces the chips while it is growing.
-- **FTUE (~L6):** arms at level ≥ 6, `ftue_seen("soil")` (`save.gd:288-300`); calm-moment
+- **FTUE (~L6):** arms at level ≥ 6, `ftue_seen("soil")` (`save.gd:343-352`); calm-moment
   deferred beat (retirement-offer template `board.gd:3938-3964`, gated on
   `board_tutorial_seen`). It **grants a soil seed** onto a free cell, or into the bag when
   the board is full (deterministic, not rolled), with a one-line card — *"A seed of good
@@ -202,6 +234,25 @@ board-edge button, no new screen.
   at the seed when it is visible on the board. If the board and bag both have no destination,
   it stays unmarked so the next room-making moment can grant the seed. The player taps it and
   presses Place. Seeds begin dropping normally from then on.
+- **FTUE tracking/re-targeting:** `_maybe_hand_hint()` is still called from `_rebuild_all()`,
+  and must also run from `_after_board_change()` after the board-dependent refreshes. That
+  fan-out is the real post-mutation contract, so moving, swapping, stashing, bag retrieval,
+  delivery, and seed placement all retarget or dismiss the teach without requiring a full
+  rebuild. Seed-cell cutouts come from board cell geometry (`_cell_pos(cell)` + `csz`) rather
+  than the live piece node's rect, so a slide tween cannot freeze the hole at an in-flight
+  position.
+- **FTUE beat 1 — `soil_seed`:** eligible when `soil` is seen, `soil_seed` is not seen, and a
+  Soil seed is visible on the board. Tap gesture, cutout = that seed's board cell. Tapping the
+  seed selects it but does **not** mark the lesson complete.
+- **FTUE beat 2 — `soil_place`:** eligible when `soil` is seen, `soil_seed` is not seen, the
+  selected cell holds the Soil seed, and the Place chip is visible. Tap gesture, hand target =
+  the Place chip; cutouts = the seed cell plus the Place chip, so the info bar is never dimmed
+  under its own teach veil. This is a transient hint id; the persisted completion key remains
+  `soil_seed`.
+- **FTUE completion:** pressing **Place** on a Soil seed marks `soil_seed` seen and dismisses
+  any active `soil_seed` / `soil_place` hint. Pressing **Sell** also marks `soil_seed` seen,
+  because the seed is gone. Pressing **Bag** only dismisses the current overlay; it must not
+  write the ledger, so pulling the seed back onto the board teaches again.
 - Visuals (normative for mocks and implementation; palette roles per the art guide §3):
   - Soil seed item: a small burlap seed pouch, gold-brown, sprig of green at the neck.
   - Magnet seed item: a slate-blue horseshoe nub half-buried in a paper seed husk.
@@ -214,18 +265,20 @@ board-edge button, no new screen.
     with ink text ("2h") at the piece's top-right when the step ≥ 15 min; sprout wiggle.
   - Magnet range field: translucent garden-green cut-paper field (~15% opacity) over the
     range cells, under the pieces.
-  - Grow row: info tray title *"Growing to t8 — 2h 18m"*; chips 💧 droplet **−10** ·
-    🌰 acorn **8**.
+  - Grow row: info tray title *"Growing to Tier 8"*; subtitle *"2h 18m left · Soil rank 2"*;
+    action-row chip 💧 droplet **−10** plus the ordinary Buy/Sell chips when the piece is
+    sellable/buyable — three chips at most.
   - Warning card: *"This restarts 6h of growing. Move it anyway?"* — **Keep growing**
     (action green, default) · **Move it** (quiet cream).
 - Raster masters (already produced; 512² transparent, at `games/grove/assets/ui/kit/`):
   `cell_soil.png` · `cell_magnet.png` · `pip_leaf.png` · **`seed_soil.png`** ·
   **`seed_magnet.png`**. `build_leaf.png` is deleted with the button (§1a). Everything else
-  — ring, time chip, range field, chips — is code-drawn. **Generate no art**: wire these
-  paths; if one is missing use an existing kit icon behind the same seam.
+  — ring, time chip, range field, chips — is code-drawn. **Generate no production art**:
+  wire these paths; if one is missing use an existing kit icon behind the same seam.
 - Mocks: `games/grove/assets/_concepts/ui/improvements_v1/` — the soil-growing and
-  magnet-range mocks still hold. The build-mode and build-sheet mocks are **stale**; ignore
-  them (kept only as history).
+  magnet-range mocks still hold for board art. The build-mode and build-sheet mocks are
+  **stale**; ignore them (kept only as history). For the crowded bottom tray, use
+  `docs/superpowers/specs/2026-07-27-info-bar-redesign-v1.png` as the composition target.
 
 ## 6 · Dials (provisional)
 
@@ -238,7 +291,6 @@ board-edge button, no new screen.
 | Seed sell price | Soil seed **250 coins** · Magnet seed **1 000 coins** |
 | Soil ranks | r2 600 · r3 1 500 coins |
 | `SOIL_WATER_COST` | 10 water — sim revisits the flat halve at t10+ (worth 24 h at t11) |
-| Acorn finish | `max(1, ceil(remaining / 30 min))` |
 
 Consts in `grove_data.gd` beside `BOOST_COST` (`grove_data.gd:232`); nothing in
 `economy_tuning.json` unless the owner wants a live dial.
@@ -275,10 +327,11 @@ Run: `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days
 
 ## 9 · Tests
 
-New `games/grove/tests/grove_improvements_tests.gd` on `grove_test_base.gd` (pure rules +
-real-scene via manual `_ready`, `grove_test_base.gd:438-441`, and `_tap_board` `:126-134`);
-`range_pairs` units in `engine/tests/`. Add the suite to `GROVE_TESTS` in the Makefile and
-the `CLAUDE.md` suite list in the same commit.
+Maintain `games/grove/tests/grove_improvements_tests.gd` on `grove_test_base.gd` (pure
+rules + real-scene via manual `_ready`, `grove_improvements_tests.gd:47-52`, and `_tap_board`
+`grove_test_base.gd:153`) and the `range_pairs` units in `engine/tests/`. The suite is already registered
+in `GROVE_TESTS`; new regressions belong there unless a lower-level engine unit test can pin
+the behavior more directly.
 
 Cover: **seed drop gate** — no second seed of a kind while one is unplaced on board or in
 bag, none at cap, and the filtered pick makes exactly ONE rng draw (assert `rng.state`
@@ -287,58 +340,48 @@ advances by the same amount as an unfiltered drop) · seed Place/Bag/Sell chips 
 refused while a piece rests there · a placed improvement is background (pieces spawn/rest/
 merge on it) · spawn on Soil grows; gen auto-place skips · clock reconcile matrix
 (arrive/leave/replace/merge-onto/complete; `watered` per step) · curve incl. ranks and
-`merge_top` clamps · water-once + finish price · offline completion via stamp · t7+ warning
+`merge_top` clamps · water-once, and a growing piece's action row carrying exactly Buy/Water/
+Sell with no finish chip · offline completion via stamp · t7+ warning
 on every reset path, absent below t7 · magnet 3×3 from placement; a piece on the Magnet cell
 auto-merges · auto-merge order, landing cell, loop-until-done · all five guards (asked code
 · growing piece · armed chain · no credit/no RNG, `rng.state` byte-identical ·
 kind-uniformity) · save round-trip, tolerant load, purge self-heal · `range_pairs`
-known-positive/negative · FTUE grants exactly one seed, once.
+known-positive/negative · FTUE grants exactly one seed, once · Soil-seed hand retargets
+after move/swap/stash/bag retrieval without a full rebuild · selecting the seed advances to a
+Place-chip teach whose veil leaves both seed cell and Place chip undimmed · bagging the seed
+does not mark `soil_seed` seen, while Place and Sell do.
 
 **Carry forward unchanged** — the regression tests added in the draft-5 review round stay
 and must keep passing: `_stash` / `_deliver_from_board` fall-through, giver-tap t7 confirm,
 magnet-bramble `rng.state` identity, `_mark_seen` catch-up, top-soil info refresh, and the
-tick-does-not-free-the-drag-node test.
+tick-does-not-free-the-drag-node test. Add a UI geometry assertion for the compact info bar,
+measured on the real built node tree at the shipped 1080×1920 viewport with a growing Soil
+cell selected: the title Label reports a single line (no wrap), every action caption fits its
+chip without truncation, and the title row holds at least 40 % of the tray's inner width.
 
 ## 10 · Implementation directions (for the implementing agent)
 
-**This is an edit of existing work, not a fresh build.** The branch `improvements` at
-`/Users/xup/dh/wt-improvements` already implements draft 5 and passed review (41 suites,
-2 466 assertions). Continue on that branch: first apply the §1a revert, then build §1's seed
-flow on top. Keep §2–§4 and every existing regression test. The branch stays **unmerged** —
-review happens in the worktree. Never edit the main checkout (a hook blocks it).
-
-If that worktree is gone, recreate it from the branch:
-
-```
-git -C /Users/xup/dh/merge worktree add /Users/xup/dh/wt-improvements improvements
-rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/wt-improvements/.godot/
-```
-
-The rsync seeds the import cache — without it the first test run does a slow full reimport.
+**This is follow-up work on the seed implementation now present on `main`.** Create a fresh
+review worktree from the current repo state; do not edit the main checkout directly. Keep
+§2–§4 and every existing regression test.
 
 Read before coding: this spec end to end; `docs/design/board_decomposition.md` (layering
 `scenes/ → ui/ → core/`, frozen `_persist()` key set, RNG discipline); the §2 anchors in
 their files.
 
-Build in commit-sized steps, each green (`feat(improvements): …` messages):
+Build in commit-sized steps, each green (`fix(improvements): …` messages):
 
-1. `Features` flag `improvements` (+ `docs/FEATURES.md` row) · dials in `grove_data.gd`
-   re-exported through `content.gd` · pure rules module `engine/scripts/core/improvements.gd`
-   with unit tests in the new suite `games/grove/tests/grove_improvements_tests.gd`.
-2. `BoardModel.improvements` + `to_dict`/`from_dict` rows + reconcile helper; save
-   round-trip and tolerant-load tests.
-3. Soil runtime in `board.gd`: reconcile in `_after_board_change()`, completion on the 1 Hz
-   tick + `_load_state`, land-bounce, info-bar grow row (`ActionBar.action_chip`), water and
-   acorn-finish spends, t7+ warning (`Overlay.modal`), ring + time chip rendering.
-4. `board_logic.range_pairs` (+ known-positive/negative tests) · Magnet scan/execute loop
-   with all five guards · pull FX.
-5. Seeds: the two `SPECIAL_ITEMS` lines, the filtered drop pick, the info-bar Place / Bag /
-   Sell chips, and the Unsocket chip + spend paths on an empty improved cell.
-6. FTUE beat (`ftue_seen("soil")`, retirement-offer template, `HandHint`) — grants one seed.
-7. Register the suite in `GROVE_TESTS` (Makefile) **and** the `CLAUDE.md` suite list — same
-   commit.
-8. `grove_sim` additions (§7), run the re-pass, paste the invariant numbers into the final
-   commit message.
+1. Info bar: add the adaptive two-row/compact-chip mode to the shared kit/action-bar seam
+   (`games/grove/ui_kit.gd`, `engine/scripts/ui/action_bar.gd`) and drive it from
+   `board.gd` without bespoke per-chip layout. Update the UI workbench preview knobs if the
+   fixed widths/heights become tunable.
+2. FTUE: call `_maybe_hand_hint()` from `_after_board_change()` as well as `_rebuild_all()`;
+   use cell geometry for seed cutouts; add transient `soil_place`; let tap hints preserve an
+   optional source/context cutout when provided; make Bag dismiss-only and Place/Sell write
+   `soil_seed`.
+3. Tests: add the FTUE retarget/second-beat/bag-dismiss regressions and the compact
+   info-bar geometry assertion before changing production code; run the focused Grove
+   improvement suite, then `make test-fast`, then full `make test`.
 
 Hard rules (violations fail review): never bump `SCHEMA_VERSION`; zero RNG draws in any
 improvement path (the byte-identity test pins it); never call `G.earn_coins`/

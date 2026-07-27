@@ -58,6 +58,30 @@ func _settle() -> void:
 func _cell_center(scn: Node, cell: Vector2i) -> Vector2:
 	return scn._cell_pos(cell) + Vector2(scn.csz, scn.csz) * 0.5
 
+# The caption a chip shows: the FIRST Label under the button (ActionBar.action_chip and the kit's
+# sell button both stack caption-above-badge, so pre-order finds the caption, never the count).
+func _chip_caption(node: Node) -> String:
+	var lbl := node as Label
+	if lbl != null:
+		return lbl.text
+	for c in node.get_children():
+		var got := _chip_caption(c)
+		if got != "":
+			return got
+	return ""
+
+# Every action caption currently on show in the info tray's action row, left to right.
+func _visible_chip_captions(scn: Node) -> Array:
+	var out: Array = []
+	for child in scn._info_trash.get_parent().get_children():
+		var btn := child as Button
+		if btn == null or not btn.visible:
+			continue
+		var cap := _chip_caption(btn)
+		if cap != "":
+			out.append(cap)
+	return out
+
 func _mark_cell_growing(scn: Node, cell: Vector2i, code: int, seconds_left: float = 3600.0) -> void:
 	ok(scn.board.build_improvement(cell, Improvements.KIND_SOIL), "fixture installs Soil under %s" % cell)
 	scn.board.place(cell, code)
@@ -179,7 +203,7 @@ func _test_growing_piece_info_row_surfaces_actions() -> void:
 	scn._select_item(cell)
 	ok(scn._info_label.text.begins_with("Growing to t8"), "selecting a growing piece names the next tier in the info tray")
 	ok(scn._info_soil_water != null and scn._info_soil_water.visible, "the water chip is visible for a growing piece")
-	ok(scn._info_soil_finish != null and scn._info_soil_finish.visible, "the acorn finish chip is visible for a growing piece")
+	ok(not _visible_chip_captions(scn).has("Finish"), "the growing piece's info row carries no acorn Finish chip")
 	scn.queue_free()
 
 func _test_growing_piece_keeps_ordinary_actions() -> void:
@@ -200,9 +224,11 @@ func _test_growing_piece_keeps_ordinary_actions() -> void:
 	scn._rebuild_all()
 	scn._select_item(cell)
 	ok(scn._info_soil_water != null and scn._info_soil_water.visible, "growing piece still shows the soil water action")
-	ok(scn._info_soil_finish != null and scn._info_soil_finish.visible, "growing piece still shows the soil finish action")
 	ok(scn._info_trash != null and scn._info_trash.visible, "growing piece remains sellable through the info bar")
 	ok(scn._info_buy != null and scn._info_buy.visible, "growing piece remains buyable through the info bar")
+	var captions := _visible_chip_captions(scn)
+	ok(captions.size() == 3 and not captions.has("Finish") and captions.has("Water") and captions.has("Sell"),
+		"a growing piece's action row is exactly three chips — Buy, Water, Sell — with no Finish: %s" % [captions])
 	scn.queue_free()
 
 func _test_normal_drag_to_bag_stashes_without_soil_confirm() -> void:
