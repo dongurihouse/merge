@@ -71,13 +71,14 @@ numbers rank 8 was dead content — the best-fed line ends a 60-day book near 34
 crossed 6500 (measured, §8).
 
 **Pop cost.** A pop is charged `G.pop_cost(lo)` off the **effective** window low (after the
-ask-band slide below), driven by `POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 7, 12]`. Rank 0 and the
+ask-band slide below), driven by `POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 8, 16]`. Rank 0 and the
 flag off pay exactly `POP_COST` — unmastered play is unchanged. A raised window hands each pop
 `tier_clicks(lo) = 2^(lo-1)` times the tier-1 value, so a flat cost let mastery collapse the water
 sink (§8); pricing the pop off its floor keeps water buying the same VALUE at every rank. The curve
-is `tier_clicks(lo)` shaved at the top two lows (8→7, 16→12) — the largest discount the I2 margin
-pays for, so ranks 6–8 hand back 12–25% water. Mastery's reward is mostly the LABOR: up to 12×
-fewer taps and ~70% fewer merges per delivery, plus the wider odd-rank window.
+IS `tier_clicks(lo)` — a pop costs exactly what its floor is worth. An earlier curve shaved the top
+two lows (8→7, 16→12) to hand ranks 6–8 some water back; weather-hours' water faucet erased that
+margin, so the shave is gone. Mastery's reward is the LABOR: up to 16× fewer taps and ~70% fewer
+merges per delivery, plus the wider odd-rank window.
 
 - A burst is priced once (one window per `_pop_seed` call) and clamped by `water / pop_cost`, so it
   can never overdraw the can.
@@ -215,19 +216,26 @@ Mocks (composition authority for the builder):
 ## 8 · Sim gates (block the merge)
 
 `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>`, seeds 42 / 7 / 99
-(robustness swept over 16). Status: **passing** at the §3 thresholds + pop cost.
+(robustness swept over 8–16). Status: **passing on 7 of 8 seeds**; see the I2 residual below.
 
 1. **Time-to-rank — PASS.** The §3 pacing table is the measured result. Rank 8 is reached by wild
    berries on 14 of 16 seeds; nothing reached it at the old 6500 threshold.
-2. **I2 (per-map level-gift ÷ water spend < 0.30 on maps 3+) — PASS**, worst steady-state map 0.26
-   over 16 seeds (the unmastered baseline's own worst is 0.29 — this economy has no I2 headroom to
-   spend on a mastery water discount).
+2. **I2 (per-map level-gift ÷ water spend < 0.30 on maps 3+) — PASSES ON MOST SEEDS, WITH A KNOWN
+   RESIDUAL.** At the shipped `tier_clicks` cost, 7 of 8 swept seeds pass; seed 57 fails map 3 at
+   0.37 (main, unmastered, passes that seed). Seeds 42/7/99 pass.
 
    | Seed | map 1 | map 2 | map 3 | map 4 | map 5 |
    |---|---|---|---|---|---|
    | 42 | 0.74 | 0.34 | 0.17 | 0.15 | 0.14 |
    | 7 | 0.82 | 0.26 | 0.26 | 0.23 | 0.20 |
    | 99 | 0.73 | 0.33 | 0.25 | 0.14 | 0.09 |
+
+   **The pop-cost lever is exhausted**: no entry may exceed `tier_clicks(lo)` (pinned by
+   mastery_tests) or mastery becomes a punishment, so the residual cannot be closed by pricing.
+   Closing it needs a different lever — a smaller `LEVEL_WATER_GIFT`, a lower window cap (floor t4
+   rather than t5), or slower thresholds — each of which changes how the feature or the wider
+   economy feels, so it is an owner call and is PARKED, not silently tuned. Interaction note: this
+   residual appeared only after weather-hours landed its water faucet; mastery alone passed 16/16.
 
    Maps 1–2 are the reported-WARN onboarding band, unchanged in kind from the unmastered baseline
    (0.67–0.72 / 0.25–0.32).

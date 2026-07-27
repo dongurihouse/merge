@@ -17,8 +17,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud   # the engine's HUD dials
 # The gold currency pill's look (padding, icon box, amount, plus button) is tuned in the UI Workbench
-# and saved to the shared kit config. Loaded at runtime (matches nav_bar / inbox) to avoid a preload cycle.
-static var KIT_PATH := Game.kit()
+# and saved to the shared kit config.
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM
@@ -32,7 +31,7 @@ const LEVEL_BADGE_SCALE := 1.2
 # currency pills are shorter). Page content anchors BELOW this so it never slides behind the pills.
 # Excludes the safe-area inset; callers add Look.safe_top themselves.
 static func bottom_px() -> float:
-	var Kit = load(KIT_PATH)
+	var Kit = Game.kit_script()
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
@@ -96,7 +95,7 @@ static func _painted_left_offset(node: Control) -> float:
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned gold pill look (padding / font / icon box / plus)
-	var Kit = load(KIT_PATH)
+	var Kit = Game.kit_script()
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
 	var view := _view_size(host)

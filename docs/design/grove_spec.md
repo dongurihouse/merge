@@ -502,9 +502,9 @@ The grove's **brambles** are its instance of Core §4's obstacles — the **gati
 | `spirit_treats` | juice | a 10🪙 acorn treat at the stall; a spirit nibbles + hops | `scenes/board.gd:_buy_treat` | — |
 | `giver_bob` | juice | frameless fence givers idle-bob (±3 px, ~3 s) | `scenes/board.gd` (fence) | — |
 | `gen_preview` | juice | locked generators show a greyed silhouette + "after N spots" | `scenes/board.gd` (gen cells) | — |
-| `winback_rain_beat` | ambient | ≥48 h away → full Water + a one-time "it rained" minute | `scenes/board.gd:_load_state` | — |
 | `ambient_characters` | ambient | spirit-folk wander; **legacy** count = 1 + restored maps (cap 5) — **superseded on completed maps** by the habitat roster model (capacity-bounded placed spirits; §3/§7) | `ui/ambient.gd` | — |
-| `ambient_weather` | ambient | hourly clear/breeze/rain/snow; respects Calm | `ui/ambient.gd` | — |
+| `weather_hours` | ambient | hourly sky lane gifts: Sunbeam coins, Rain water, Starfall piece | `core/sky.gd`; `scenes/board.gd` | — |
+| `ambient_weather` | ambient | hourly clear/breeze/rain/snow/starlit skins; board gifts stay gated by `weather_hours` | `ui/ambient.gd` | — |
 | `item_backing` | feature | a soft warm contact shadow under each board piece | `scenes/board.gd:_make_piece` | — |
 | `drag_swap` | feature | drop on another occupied cell → swap (merge keeps precedence) | `scenes/board.gd` / `core/board_model.gd:swap` | — |
 | `ftue_free_pops` | ftue | first 10 pops free + uncounted; Water meter appears after | `scenes/board.gd:_pop_seed` | — |

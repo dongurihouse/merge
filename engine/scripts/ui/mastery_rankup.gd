@@ -12,7 +12,6 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Pal = Game.PALETTE
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
-static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "MasteryRankupOverlay"
 
 static func is_open(host: Control) -> bool:
@@ -21,9 +20,9 @@ static func is_open(host: Control) -> bool:
 static func open(host: Control, opts: Dictionary) -> Control:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return null
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("MasteryRankup: ui kit missing at %s" % KIT_PATH)
+		push_warning("MasteryRankup: ui kit missing")
 		return null
 	var line := int(opts.get("line", 0))
 	var rank := int(opts.get("rank", 0))

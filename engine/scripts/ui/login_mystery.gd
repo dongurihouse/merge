@@ -19,7 +19,6 @@ const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
-static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "LoginMysteryOverlay"
 
 # --- reward value -------------------------------------------------------------------
@@ -36,7 +35,7 @@ static func reward_value(reward: Dictionary) -> int:
 static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	var roll: Dictionary = Login.roll_mystery(day)
@@ -80,7 +79,7 @@ static func reveal_width(vw: float) -> float:
 ## source for the reveal: open() spins + drives the pick; the workbench renders it static / plays it.
 ## opts: frame_cfg (the dialog-frame config — defaults to the saved workbench settings); on_close (✕).
 static func build_reveal(options: Array, winners: Array, width: float, opts: Dictionary = {}) -> Dictionary:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var body := VBoxContainer.new()
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.add_theme_constant_override("separation", 14)
@@ -109,7 +108,7 @@ static func build_reveal(options: Array, winners: Array, width: float, opts: Dic
 	var reels: Array = []
 	for i in options.size():
 		var reel: Control = SlotReel.build_reel(options, options[i], cw, ch, i,
-			func(sym, w, _h) -> Control: return _reward_amounts(load(KIT_PATH), sym, w))
+			func(sym, w, _h) -> Control: return _reward_amounts(Game.kit_script(), sym, w))
 		reel.set_meta("top", i == top_i)
 		reel.set_meta("index", i)
 		reels.append(reel)

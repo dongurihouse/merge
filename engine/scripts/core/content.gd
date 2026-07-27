@@ -80,8 +80,17 @@ const WATER_CAP = D.WATER_CAP
 const REGEN_SECS = D.REGEN_SECS
 const POP_COST = D.POP_COST
 const POP_COST_BY_TIER_LOW = D.POP_COST_BY_TIER_LOW
-const WINBACK_HOURS = D.WINBACK_HOURS
 const WATER_REWARD_MAX_RATIO = D.WATER_REWARD_MAX_RATIO
+const SKY_SHARES = D.SKY_SHARES
+const SKY_SKIN_SPLIT = D.SKY_SKIN_SPLIT
+const SKY_COIN_RATE = D.SKY_COIN_RATE
+const SKY_COIN_TIER = D.SKY_COIN_TIER
+const SKY_WATER_RATE = D.SKY_WATER_RATE
+const STAR_TIER_WEIGHTS = D.STAR_TIER_WEIGHTS
+const STAR_DELAY = D.STAR_DELAY
+const LANE_MIN_OPEN = D.LANE_MIN_OPEN
+const PATCH_ALPHA = D.PATCH_ALPHA
+const SKY_MARKER_ICON_RELS = D.SKY_MARKER_ICON_RELS
 const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
@@ -89,6 +98,9 @@ const COIN_DROP_RATE = D.COIN_DROP_RATE
 const SCISSORS_LINE = D.SCISSORS_LINE
 const SCISSORS_COST = D.SCISSORS_COST
 const SPECIAL_TOP = D.SPECIAL_TOP
+const CHEST_LINE = D.CHEST_LINE
+const WATER_LINE = D.WATER_LINE
+const ACORN_LINE = D.ACORN_LINE
 const SPECIAL_ITEMS = D.SPECIAL_ITEMS
 const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
 const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
@@ -1454,7 +1466,7 @@ static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 
 		r -= int(SPECIAL_DROP_WEIGHTS[line])
 		if r <= 0:
 			return int(line) * 100 + 1
-	return 10 * 100 + 1                                              # defensive: a chest t1
+	return CHEST_LINE * 100 + 1                                      # defensive: a chest t1
 
 # What TAPPING a water/acorn item grants: {kind, amount}. Empty for a chest (it OPENS instead
 # — board._open_chest — spawning face-value reward items rather than crediting a wallet directly).

@@ -20,9 +20,6 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 
-# The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
-# hard-depending on a tools script, matching inbox.gd's guarded idiom.
-static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "LadderOverlay"
 
 # --- the tiers mock (games/grove/assets/_concepts/dialogs/tiers_1080x1920.png) ---------------------
@@ -47,9 +44,9 @@ const CELL_FACE_INSET := 3.0         # slot_cell_background's face inset — the
 const CELL_CORNER_FRAC := 0.18       # ...and its corner radius, so the chip's outer corner matches
 
 static func open(host: Control, opts: Dictionary) -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Ladder: ui kit missing at %s" % KIT_PATH)
+		push_warning("Ladder: ui kit missing at %s" % Game.kit())
 		return
 	# Rebuild IN PLACE: reuse an already-open ladder overlay so an ingredient tap REPLACES the screen
 	# (one modal ever) rather than stacking — Overlay.is_open would otherwise block a second mount, and

@@ -56,8 +56,19 @@
       "shop": "Rain ☔ get water",
       "hint": "Water refills over time ☔"
     },
-    "winback": {
-      "rained": "It rained while you were away ☔"
+    "sky": {
+      "rain": {
+        "title": "Rain",
+        "desc": "merges shake water loose."
+      },
+      "starfall": {
+        "title": "Starfall",
+        "desc": "a star is on its way."
+      },
+      "sunbeam": {
+        "title": "Sunbeam",
+        "desc": "merges in the beam drop coins."
+      }
     }
   },
   "inbox": {
