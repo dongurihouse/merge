@@ -1,22 +1,29 @@
 # Weather Hours — spec (2026-07-26)
 
-**Status: draft 7 — Calm sky added (40%); shares and gift rates re-swept together.**
+**Status: draft 8 — SHIPPED except §5.4–§5.6.** Starfall's lane was decorative (the star
+auto-landed and nothing the player did to the column mattered) and its arrival was
+unannounced. The catch fixes both: the star docks at the lane marker and the player taps a
+lit lane cell to place it. §13 is scoped to that delta; the rest is built and green.
 Builds §4 / rollout step 5 of
 `2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
 `engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
 `games/grove/tools/grove_sim.gd`.
 
-Dials are **sim-set** as of draft 7 (§7 water runaway, §11 table); the §10 sweep is the
-gate for any further change. Share and rate are one dial in two halves — never move one alone.
+Dials are **sim-set** (§7 water runaway, §11 table); the §10 sweep is the gate for any
+further change. Share and rate are one dial in two halves — never move one alone. The catch
+moves no dial that feeds the sim.
 
 ---
 
 ## 1 · Scope
 
-Ships: the hourly sky (4 skies incl. Calm), one lane patch, Sunbeam/Rain merge gifts, the starfall
-drop, lane marker + info-bar line + patch rendering, debug lever, tests, sim re-pass.
-Removes the
-win-back rain beat (§2).
+Ships: the hourly sky (4 skies incl. Calm), one lane patch, Sunbeam/Rain merge gifts, the
+starfall **catch** (dock → tap a lit lane cell → land, §5), lane marker + info-bar line +
+patch rendering, debug lever, tests, sim re-pass. Removes the win-back rain beat (§2).
+
+Every sky's lane must be load-bearing. Sunbeam and Rain gate their gift on in-lane merges;
+Starfall gates *placement* on the lit lane. A sky that draws a marker and a wash over a lane
+it does not use is the defect §5 exists to prevent.
 
 Home board only. Rush: untouched (separate scene, no coupling). Map: cosmetic skins only —
 no gifts, no patch.
@@ -114,7 +121,8 @@ cell no-ops (`pick_drop_cell` sentinel).
 
 ## 5 · Starfall
 
-State in `Save.grove().sky`.
+State in `Save.grove().sky`. The lane is **load-bearing**: the star docks at the marker and
+the player catches it into a lane cell they pick.
 
 1. **Arm:** home board open, Starfall hour, gate open, `hour > sky.paid_hour`.
 2. **Trigger:** board live ≥ `STAR_DELAY` 10 s this hour, no modal open, `animating`
@@ -123,17 +131,29 @@ State in `Save.grove().sky`.
 3. **Roll** (hour-salted RNG, never `board.rng`): line uniform from the Active set —
    `G.active_lines(level)` + ingredient lines of live asks (`G.quest_needed_lines`),
    content lines only (all span t1–t12). Tier menu {t8 80 · t9 15 · t10 5} minus every
-   (line, tier) currently asked (`BoardLogic.asked_items`, new pure helper from the
-   `quests.gd` avoid-set idiom); renormalize. Empty line menu → drop line, repick. All
+   (line, tier) currently asked (`BoardLogic.asked_items`); renormalize. Empty line menu → drop line, repick. All
    lines empty → step the menu down (t7, t6, … single tier, uniform line). Nothing at
    t1 → the hour pays nothing.
-4. **Land:** free open cell on the lane (RNG pick); else `pick_drop_cell` from lane
-   centre; board full → **owed**: `sky.owed.append(code)`, lands on the first
-   `_after_board_change` with a free cell, any hour, persists across restarts, queues.
-   The lane marker shows a star pip while owed.
-5. Landed, the piece is ordinary — merges, sells, delivers to later asks. The skip rule
+4. **Dock (the arrival beat):** the rolled code does **not** land. It flies in from
+   off-screen to the lane marker, bobs there, and is held as `sky.pending`. Every open,
+   empty, non-gen cell of the lane lights (§6). This is the alert — the reward is on
+   screen before it is the player's.
+5. **Catch:** a still tap on any lit lane cell lands the star in **that** cell. Every
+   other tap keeps its shipped behaviour and never catches. A lane with no free cell
+   lights nothing and the star keeps bobbing; freeing a lane cell lights it and it is
+   catchable for the rest of the window.
+6. **Fallback — the star is never lost.** `sky.pending` resolves to an uncaught landing on
+   the first of: `STAR_CATCH_SECS` 30 live seconds elapsed · the hour turns · the board is
+   left (`_persist`). It then lands by the shipped rule — free lane cell (RNG pick), else
+   `pick_drop_cell` from lane centre, else **owed**: `sky.owed.append(code)`, landing on
+   the first `_after_board_change` with a free cell, any hour, persisting across restarts,
+   queueing. The lane marker shows a star pip while owed.
+7. Landed, the piece is ordinary — merges, sells, delivers to later asks. The skip rule
    only blocks asks live at roll time.
 
+- **Payout is unchanged by the catch:** ≤1 piece per Starfall hour, same tier weights,
+  witnessed hours only. The catch moves *where* and *when*, never *whether* — §10's sim
+  numbers stand and no re-sweep is owed.
 - Offline Starfall hours never pay.
 - The generator pop-ceiling guard stays untouched. The star is the only high-tier faucet:
   ≤1 piece, ~10% of hours, witnessed hours only, sellable — the sim prices it (§10).
@@ -144,8 +164,11 @@ State in `Save.grove().sky`.
 
 Mocks (composition authority — geometry, tint strength, marker placement, info-bar line):
 `docs/design/mocks/weather_hours/sunbeam.png` (top marker, column wash) ·
-`rain.png` (left marker, row wash) · `starfall_star_and_column.png` (falling star + trail;
-its banner/chip predate §6's marker — read it for the star only).
+`rain.png` (left marker, row wash) · `starfall_star_and_column.png` — **authority for the
+star's LOOK only** (piece + comet trail against the lit column). Its banner/chip predate
+§6's marker, and its star falls from the sky onto a cell, which §5.4 supersedes: the star
+now arrives at the marker and only reaches a cell when caught. No mock exists yet for the
+docked + lit-cells state; build it from §5–§6 and capture a shot.
 
 - **Lane marker (the only chrome — no banner, no HUD chip):** a small sky glyph on a
   cream chip (~half a cell), outside the board mat, aligned to the lane: column skies
@@ -155,8 +178,25 @@ its banner/chip predate §6's marker — read it for the star only).
   carries the owed-star pip (§5). Rebuilt with the patch on `_rebuild_all` / reflow.
 - **Info bar:** tapping the marker sets the bottom info bar to glyph + line
   (`board.sky.*`): Sunbeam *"Sunbeam — merges in the beam drop coins."* · Rain *"Rain —
-  merges shake water loose."* · Starfall *"Starfall — a star is on its way."* The next
-  selection replaces it (existing info-bar behavior). No auto-announcement anywhere.
+  merges shake water loose."* · Starfall — line depends on state: pending with a lit cell
+  *"tap a glowing cell to catch your star."*; pending with the lane full *"clear a cell in
+  the column to catch it."*; otherwise the shipped *"a star is on its way."* The next
+  selection replaces it (existing info-bar behavior).
+- **The one auto-announcement — the star's arrival.** When the star docks (§5.4) the info
+  bar shows the Starfall glyph + pending line **without a tap**, and only when nothing is
+  selected (`_selected_cell.x < 0`); a live selection is never clobbered. It is replaced by
+  the next selection like any other info-bar content. This is the whole alert: no banner,
+  no HUD chip, no modal — a banner covers the NEXT UNLOCK progress bar, which is why it was
+  cut. On catch, select the landing cell so the bar names the piece just won.
+- **Docked star + lit cells (the §5 catch).** The star piece (`_make_piece(code, csz)`)
+  parents to the **lane marker**, not the board mat, and bobs on a looping tween.
+  Reusing the marker is load-bearing, not cosmetic: the marker is the one node already
+  positioned correctly for both orientations (`_sky_marker_pos` /
+  `lane_draws_horizontal = row_axis != _landscape`), so a column that draws *horizontally*
+  in landscape needs no second geometry path — and it makes the icon literally hold the
+  reward, which is the point of the redesign. Lit cells reuse the shipped drop-target
+  idiom (`DRAG_HILITE` + `FX.breathe_once`), not a new highlight. Both tear down on catch,
+  on fallback, and on `_rebuild_all`.
 - **Patch:** soft-edged low-alpha wash under pieces; warm shaft (Sunbeam), cool drift +
   drawn droplets (Rain), faint glimmer (Starfall). A self-drawing Control — particles are
   unreliable under Control parents (`gen_sparkle.gd` rule). Slow breathe via looping
@@ -178,8 +218,10 @@ its banner/chip predate §6's marker — read it for the star only).
   the cell art under it still fully legible.
 - **Hour turn:** handler beside `_tick_water` on the 1 Hz tick. On hour change: rebuild
   `WeatherLayer` (`debug_refresh_weather` pattern), move the patch + marker, re-arm §5.
-- **Star FX:** `MoveFx.apply(…, "arc")` + trail from above the lane's top edge; then the
-  `_drop_special_near` landing recipe (`LandFx` + neighbour ripple).
+- **Star FX:** three beats, all `MoveFx.apply(…, "arc")` + trail. **Arrive** — off-screen
+  along the lane axis to the marker (§5.4). **Catch** — marker to the tapped cell, then the
+  `_drop_special_near` landing recipe (`LandFx` + neighbour ripple). **Fallback** — same
+  landing recipe from the marker, no tap.
 - **Strings:** `board.sky.*` in `games/grove/strings.json` via `Strings.t` (engine cannot
   reference `res://games/`).
 - **Art:** the star marker reuses `ui/shared/icon_star.png`; new sun + raincloud glyphs via the
@@ -249,12 +291,24 @@ its banner/chip predate §6's marker — read it for the star only).
 ## 8 · Data
 
 - `{sky, skin, lane}` is derived from the hour index, never stored.
-- `g["sky"] = {"paid_hour": -1, "owed": []}` in the grove blob — defaulted on read, no
-  schema bump, persisted via the existing `_persist()`.
+- `g["sky"] = {"paid_hour": -1, "owed": [], "pending": 0}` in the grove blob — defaulted on
+  read in `Sky.grove_sky_state()` (same idiom `paid_hour`/`owed` already use), no schema
+  bump, persisted via the existing `_persist()`.
+- **`pending` and `owed` are distinct and must stay distinct.** `owed` auto-lands on the
+  very next `_after_board_change`, so a catchable star parked in `owed` would be swallowed
+  before the player could ever tap it. `pending` holds exactly one code (0 = none) and is
+  the *only* state the catch reads.
+- **Resuming `pending` across a restart:** on board open, resume the catch only if
+  `pending > 0` **and** the live sky is Starfall **and** `hour == paid_hour`. Otherwise the
+  hour has moved on — push it to `owed`, clear `pending`, and let the shipped owed path
+  land it. This is what makes "quit mid-catch" safe.
 
 ---
 
 ## 9 · Architecture (● = new)
+
+Every ● below except the §5-catch entries has shipped; they are kept because this section is
+the file map for the whole feature. Only the catch entries are outstanding — see §13.
 
 - ● `engine/scripts/core/sky.gd` — pure statics: `hour_index(now)`,
   `state(now, level, forced := "") → {hour, sky, skin, lane_axis, lane}` — `level` drives
@@ -276,11 +330,15 @@ its banner/chip predate §6's marker — read it for the star only).
   `_tick_water`; patch + marker insert in `_rebuild_all` + reflow; gifts in `_after_merge` via ➋;
   §5 trigger + owed landing in `_after_board_change`; star drop via `_drop_special_near`
   generalized to any code, with `"arc"`. Win-back grant, `_winback` toast, `last_seen`
-  write deleted (§2).
+  write deleted (§2). ● The §5 catch: dock/pending state machine, catch branch in
+  `_on_release`, window expiry on the 1 Hz tick, docked star + lit-cell rings, the
+  state-dependent Starfall info-bar lines and the arrival auto-announcement.
 - `engine/scripts/scenes/map.gd` — win-back stamp + `last_seen` write deleted (§2).
 - `engine/scripts/core/features.gd` — `"weather_hours"` + `docs/FEATURES.md` line;
   `winback_rain_beat` removed.
-- `games/grove/strings.json` — `board.sky.*` added; `board.winback.*` removed.
+- `games/grove/strings.json` — `board.sky.*` added; `board.winback.*` removed. ●
+  `board.sky.starfall.catch` = *"tap a glowing cell to catch your star."* ·
+  `board.sky.starfall.blocked` = *"clear a cell in the column to catch it."*
 - `games/grove/tools/grove_sim.gd` — §10.
 
 ---
@@ -298,14 +356,35 @@ its banner/chip predate §6's marker — read it for the star only).
   cells whenever any lane does; sweep ≥200 hours at levels 1/2/6/12/40 and assert **zero**
   dead lanes; the fallback picks the most-open lane when none clears the bar; board and sim
   derive the same lane for the same (hour, level).
+- **Catch suite (`grove_sky_tests.gd`) — model asserts, never visibility.** Drive the tap
+  through `_on_board_input` (a press + release pair at the cell's centre), not by calling
+  the catch handler: the shipped `emulate_touch_from_mouse` path delivers a mouse **and** a
+  touch event per press and the `_pressing` guard exists because of it, so a handler-level
+  test would not exercise what a finger does. Cover: (a) at `STAR_DELAY` the star is
+  `pending` and **no** model piece exists yet; (b) a tap on a lit lane cell places the code
+  in *that* cell and zeroes `pending`; (c) a tap on an occupied lane cell, an empty
+  off-lane cell, and the marker each leave `pending` untouched; (d) `STAR_CATCH_SECS`
+  elapsed lands it without a tap; (e) hour turn while pending → `owed`, then lands;
+  (f) `_persist` (board left) while pending → `owed`, and a fresh board lands it;
+  (g) full lane → nothing lit, `pending` survives, freeing a lane cell lights it;
+  (h) full board + fallback → `owed` + pip; (i) the arrival auto-announcement does not
+  overwrite a live selection.
 - **Scene suite** — ● `games/grove/tests/grove_sky_tests.gd` (+ `GROVE_TESTS` in the
   Makefile, + CLAUDE.md suite line, + `make import` for the `.uid`): the marker sits
   outside the mat aligned to the lane on both axes, and its tap sets the info bar line;
   patch sits after the slot block and survives
   `_rebuild_all` + orientation flip (`is_equal_approx` — Control geometry is float32);
-  forced `star` hour lands a real model piece (model asserts, not visibility); ≥48 h-away
-  load fills water by plain regen, no forced sky, no toast, stale `winback_until` ignored;
-  open modal defers the star.
+  a forced `star` hour docks a real code and lands it on catch or fallback (model asserts,
+  not visibility); ≥48 h-away load fills water by plain regen, no forced sky, no toast,
+  stale `winback_until` ignored; open modal defers the star.
+- **Two shipped assertions in `grove_sky_tests.gd` now state the old behaviour and must be
+  rewritten, not deleted:** `"forced Starfall lands a real model piece"` (the roll now
+  *docks* — the landing moves to the catch/fallback tests) and
+  `_test_starfall_start_tracks_landing_cell_in_landscape`, which pins
+  `_star_start_pos(cell)` above the target cell (the star now arrives at the **marker**, so
+  the landscape pin becomes: the arrival start sits outside the mat on the marker's side,
+  and the *catch* flight runs marker → tapped cell). Losing the landscape pin entirely would
+  drop the only guard on the orientation trap in §6.
 - **Shots:** add the three skies + patch to the shot set (`shot_base.gd` already forces
   weather).
 - **Sim fidelity (three rules the sweep depends on).** The sky roll is a pure function of
@@ -333,46 +412,97 @@ its banner/chip predate §6's marker — read it for the star only).
 | `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
 | `SKY_WATER_RATE` | 0.30 | in-patch water roll (t1 = +8, over-cap) — **sim-set at 20% Rain; drops saturate above ~0.30** (§7) |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
-| `STAR_DELAY` | 10 s | live seconds before the star falls |
+| `STAR_DELAY` | 10 s | live seconds before the star arrives at the marker |
+| `STAR_CATCH_SECS` | 30 s | live seconds the star stays catchable before it lands itself (§5.6) |
 | `LANE_MIN_OPEN` | 5 | min open cells for a lane to be rollable (§3) |
 | `PATCH_ALPHA` | Sunbeam 0.55 · Rain 0.13 · Star 0.12 | Sunbeam needs ~2× the others to read on locked brown cells (§6 measurement note) |
 | `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
 ---
 
-## 12 · Open questions
+## 12 · Open dial (owner's call — not a blocker)
 
-1. Sky shares 45/45/10 → rain-family looks ~45% of hours (vs ~10%). Keep, or tilt sunnier
-   (e.g. 50/35/15)?
-2. Sunbeam "count up" = c1→c2 upgrade, not two pieces — confirm.
-3. Starfall: witnessed hours only, owed instead of forfeit — confirm.
-4. Gate = both FTUE verbs seen — earlier/later?
-
-Build to the spec as written; these are dial questions, not blockers.
+`SKY_WATER_RATE` **0.30 (shipped) vs 0.45.** Both measured safe over 30-day, 3-seed runs at
+the shipped 20% Rain share (self-sustain: control 29/38/38% · 0.30 → 35/32/31% · 0.45 →
+32/41/34%). 0.45 grants ~52% more water. The runaway noted in §7 is **share-dependent** — a
+property of a 45% Rain world; at 20% Rain no rate up to 0.45 shows one. Ship 0.30 until the
+owner says otherwise; it is a one-line change either way.
 
 ---
 
 ## 13 · Implementation directions (for the implementing agent)
 
-**Workspace.** Branch `feat/weather-hours` from latest `main` in a NEW worktree outside the
-repo: `git worktree add /Users/xup/dh/merge-wt-weather -b feat/weather-hours` (in-repo
+**Everything in §1–§12 except the §5 catch already ships on `main`.** This task is one
+delta: Starfall currently auto-lands its star and the lane is decorative. Build §5.4–§5.6
+(dock → catch → fallback) and the §6 UI that goes with it. Do not rebuild the hourly roll,
+the patch, the marker, the gifts, or the sim — they are done and passing.
+
+**Workspace.** Branch `feat/starfall-catch` from latest `main` in a NEW worktree outside the
+repo: `git worktree add /Users/xup/dh/merge-wt-starfall -b feat/starfall-catch` (in-repo
 worktrees get wiped by other agents). Seed the import cache before the first run:
-`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-weather/.godot/`.
+`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-starfall/.godot/`.
 **Do not merge to main and do not remove the worktree** — implementation ends with the
 branch committed in place; code review happens in the worktree.
 
-**NO ASSET GENERATION IN THIS TASK.** Do not generate, edit, or import any PNG, texture,
-or art file, and do not run the art-intake pipeline. Art is produced separately by the
-spec owner. Use placeholders:
+**NO ASSET GENERATION IN THIS TASK.** Do not generate, edit, or import any PNG, texture, or
+art file, and do not run the art-intake pipeline. Art is produced separately by the spec
+owner. Every marker glyph this task needs already exists on disk
+(`ui/shared/icon_star.png`, `ui/kit/icon_sky_sun.png`, `ui/kit/icon_sky_rain.png`); the
+docked star reuses `_make_piece`, and the lit-cell rings, bob and trail are all code-drawn.
+If you believe a new texture is required, stop and say so instead of making one.
 
-- Lane marker glyphs: Starfall loads `ui/shared/icon_star.png` (exists). Sunbeam and Rain
-  load `ui/kit/icon_sky_sun.png` / `ui/kit/icon_sky_rain.png`, which do **not** exist yet
-  — resolve through the normal icon path, and when the texture is absent fall back to a
-  code-drawn glyph (a filled circle with short rays for sun; a rounded cloud blob with two
-  droplets for rain) in the §6 palette roles. Absent art must never spam load errors or
-  leave an empty marker.
-- Patch wash, droplet ticks, star glints, comet trail: all code-drawn — no textures.
-- Wire the real icon paths now so dropping the PNGs in later needs no code change.
+**Anchors** (verified at `main` `adc84b95`; line numbers drift, so confirm by name):
+
+| What | Where |
+|---|---|
+| roll + stamp `paid_hour` — becomes dock | `board.gd` `_try_starfall` :740 |
+| places the code + landing FX | `board.gd` `_land_star_code` :796 |
+| lane cell / off-lane / owed fallback | `board.gd` `_star_landing_cell` :820 |
+| owed drain, runs on **every** board change | `board.gd` `_land_owed_stars` :779, called :1359 |
+| 1 Hz tick + live-seconds counter | `board.gd` `_tick_sky_hour` :485, `_sky_live_secs` :173 |
+| empty-cell tap branch — hook the catch here | `board.gd` `_on_release` :4306–4312 |
+| tap entry + the double-event `_pressing` guard | `board.gd` `_on_board_input` :4117 |
+| pointer → MODEL cell, handles landscape | `board.gd` `_pos_to_cell` :2151 |
+| marker build · orientation-correct position · owed pip | `board.gd` :540–582 · `_sky_marker_pos` :584 · :573 |
+| info-bar write on marker tap | `board.gd` `_on_sky_marker_pressed` :716, `_sky_info_desc` :713 |
+| save-blob defaults | `sky.gd` `grove_sky_state` :83 |
+| arc move · highlight idiom · piece factory | `board.gd` :810 · `DRAG_HILITE` :84 + `FX.breathe_once` · `_make_piece` :2278 |
+| dials + re-export · strings · shot mode | `grove_data.gd` :405 · `strings.json` `board.sky.starfall.*` · `grove_shot.gd` :178 |
+
+**Order** — each step lands with `make test-fast` green before the next:
+
+1. `STAR_CATCH_SECS` in `grove_data.gd` + the `content.gd` re-export; `pending` defaulted in
+   `Sky.grove_sky_state` (§8) with its default/round-trip test in `engine/tests/sky_tests.gd`.
+2. **Dock instead of land.** `_try_starfall` sets `sky.pending` and starts the catch window
+   rather than calling `_land_star_code`. Suppress `_land_owed_stars` from touching the
+   pending code (§8 — they are separate fields, so this is a matter of not conflating them).
+   Add the §8 resume rule on board open. Tests (a), (e), (f) from §10 before the UI exists.
+3. **Catch tap.** New branch in `_on_release`'s empty-cell chain; `_pos_to_cell` already
+   returns a model cell, so the lane test is `tap.y == lane` for a column sky and
+   `tap.x == lane` for a row sky — do **not** re-derive screen geometry. Tests (b), (c), (g).
+4. **Fallback.** Window expiry on the 1 Hz tick, hour turn, and `_persist` all route to the
+   shipped `_land_star_code` / owed path. Tests (d), (h).
+5. **UI (§6):** docked star parented to the marker + bob; lit cells via `DRAG_HILITE` +
+   `FX.breathe_once`; the three star-FX beats; the state-dependent Starfall info-bar lines and
+   the arrival auto-announcement with its no-clobber guard; new `board.sky.starfall.catch` /
+   `.blocked` strings. Test (i). Add a shot mode capturing the docked+lit state.
+6. Full `make test` green before handoff, in the FOREGROUND.
+
+**Do not** re-run the economy sim. Payout is unchanged (§5), so the §10 sweep still holds;
+re-running it proves nothing and costs an hour.
+
+**The rule that outranks the steps above.** The point of this task is that *the lane must
+matter and the star must never be lost*. Those two invariants win over any instruction here.
+If a step above would break one of them — or if you find the shipped code already does
+something better than what this spec describes — do the right thing and say so in the
+handoff. A correct refusal is a deliverable, not a failure; the line numbers, the ordering,
+and the specific node choices are my best guess from reading `main`, not measurements you
+have to honour.
+
+**Handoff report** — include: the branch and worktree path, `make test` output, which §10
+catch cases (a)–(i) are covered and by which test name, the two rewritten shipped
+assertions, a shot of the docked + lit state, and **what you left undone or did differently
+and why**.
 
 **Order** — each step lands with `make test-fast` green before the next:
 
@@ -403,9 +533,17 @@ spec owner. Use placeholders:
 - Palette SSOT suite forbids re-typed hex — use `Color(Pal.ROLE, α)`.
 - Layering suite forbids bare `z_index` literals above `MODAL_TOP_Z`; the patch sits at
   z 0 inside `board_area` (positive z would cover pieces).
-- `_rebuild_all()` frees every `board_area` child — patch and marker must be re-inserted.
+- `_rebuild_all()` frees every `board_area` child — patch and marker must be re-inserted,
+  **and the docked star and lit-cell rings go with them.** Rebuild the dock from
+  `sky.pending`, never from a node reference you cached; a merge inside the lane during the
+  catch window triggers exactly this and must not drop the star or leave a stuck ring.
 - Particles do not render reliably under `Control` parents (`gen_sparkle.gd`) — the patch
   self-draws.
+- One physical press delivers **both** a mouse-button and a synthesized touch event
+  (`emulate_touch_from_mouse`); the `_pressing` guard at `_on_board_input` :4129 exists for
+  it. A catch must fire once per press — assert that, don't assume it.
+- A catch is a **still tap**, so it belongs after the slop check with the other still-tap
+  branches. Dragging a piece across a lit cell must never catch.
 - Fast parse check: `godot --headless --check-only --script <file.gd>`. Suites only via
   `make test-fast` / `make test`; a bare foreground `godot -s` can hang a shell. Run tests
   in the FOREGROUND.
@@ -416,6 +554,9 @@ spec owner. Use placeholders:
   `obj.notification(what)`.
 - Everything ships behind `features.gd` `"weather_hours"`; flag off = byte-identical
   behavior to today.
-- Parallel tasks are live in this repo (mastery, cascades, cell improvements). Touch only
-  what §9 lists; if a listed file already changed on `main`, rebase rather than revert.
+- Parallel tasks are live in this repo — at time of writing `codex/cascade-ui-fix`,
+  `codex/info-bar-ftue-design` and `fix/soil-ftue`. **`codex/info-bar-ftue-design` is
+  redesigning the info bar this task writes into**: read the info bar through its existing
+  accessors, add no new assumptions about its layout, and rebase rather than revert if it
+  lands first. Touch only what §9 and the §13 anchor table list.
 - Commits: small, one per step above, conventional prefixes.
