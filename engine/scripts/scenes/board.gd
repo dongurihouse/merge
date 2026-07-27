@@ -3663,6 +3663,15 @@ func _refresh_selected_soil_info() -> void:
 	if _selected_improvement and board.has_improvement(_selected_cell):
 		_select_improvement_cell(_selected_cell)
 		return
+	# A GENERATOR lives in board.gens, never in board.items — item_at() reads 0 on its cell, so without
+	# this branch the tray for a just-tapped generator fell through to _clear_selection() below and the
+	# next water tick silently defocused it (~0.7s after the tap). Nothing the generator tray shows reads
+	# `water` — the title/tier/boost detail, the mastery row and the burst chip are driven by coins, boost
+	# charges and pops — and each of those has its own refresh hook (_refresh_selected_generator_mastery()
+	# from _after_board_change, the pop path's own relabel). So this HOLDS the selection rather than
+	# rebuilding it: re-running _select_generator() every regen tick would just churn the preview sprite.
+	if board.is_gen(_selected_cell):
+		return
 	if board.is_growing(_selected_cell):
 		_info_label.text = _soil_info_title(_selected_cell)
 		_refresh_soil_chips(_selected_cell)
