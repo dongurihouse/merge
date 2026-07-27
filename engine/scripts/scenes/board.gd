@@ -455,7 +455,7 @@ func _ready() -> void:
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
 	if _land_owed_stars():
-		_persist(false)
+		_persist()
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 	_maybe_show_board_tutorial_first_run.call_deferred()
@@ -942,7 +942,7 @@ func _resolve_pending_starfall_uncaught() -> bool:
 		Save.grove_write()
 		return false
 	_sync_sky_patch_marker(false)
-	_persist(false)
+	_persist()
 	return true
 
 func _try_starfall() -> void:
@@ -1445,7 +1445,7 @@ func _load_state() -> void:
 			rng.randomize()
 		_regen_ts = now
 		_init_quests()
-		_persist(false)
+		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
 		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap when an active quest
 		# asks for their line and the player lacks the generator; see Quests.due_gen / _produce_due_generators.
@@ -1463,7 +1463,7 @@ func _load_state() -> void:
 	save_dirty = _reconcile_improvements(now, false) or save_dirty
 	save_dirty = _scan_magnets(false) or save_dirty
 	if save_dirty:
-		_persist(false)
+		_persist()
 
 # --- the discovery log: which items has this player ever grown? -------------------
 # Powers the upgrade-path card (unseen tiers show as "?"). The rules live in core/quests.gd; these
@@ -1537,9 +1537,12 @@ func _init_quests() -> void:
 	quests_map = _quest_map()
 	_refill_quests()
 
-func _persist(resolve_pending := true) -> void:
-	if resolve_pending and not _sky_state.is_empty():
-		_queue_pending_starfall_as_owed()
+## Write the live board/quest/bag/water state. ORDINARY and NON-DESTRUCTIVE: a dozen mutation paths
+## call this, so it must never consume a live catch. It deliberately does NOT resolve a pending Starfall
+## — `sky.pending` is already on disk from the moment the star docks, and `_reconcile_starfall_pending_for_sky`
+## decides on the next open whether it is still catchable or now owed, so nothing is lost by leaving it be.
+## The one path that DOES resolve is the board exit; it says so out loud in `_persist_leaving_board`.
+func _persist() -> void:
 	var g := Save.grove()
 	g["board"] = board.to_dict()
 	g["quests"] = quests
@@ -1550,6 +1553,20 @@ func _persist(resolve_pending := true) -> void:
 	g["water"] = water
 	g["regen_ts"] = _regen_ts
 	Save.grove_write()
+
+## §5.6's third fallback, in ONE place: leaving the board OWES a pending Starfall — it lands on the next
+## board-change beat with a free cell, any hour, persisting across restarts — and then saves. This is the
+## only caller that resolves; every other persist path leaves a live catch alone.
+func _persist_leaving_board() -> void:
+	_queue_pending_starfall_as_owed()
+	_persist()
+
+## The ONE board exit. Both Map nav taps (the NEXT UNLOCK strip and the Home disc) route through it, so a
+## third one cannot quietly skip the leave beat above. grove_sky_tests pins that this is the file's only
+## `SceneWarm.go`.
+func _leave_board_for_map() -> void:
+	_persist_leaving_board()
+	SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 
 # --- the fan-out contract (board_decomposition.md, "Architecture decision: coordinator owns state")
 # THE one post-mutation beat. Call this after ANY board / bag / quest mutation, whoever triggered
@@ -1586,7 +1603,7 @@ func _after_board_change(hud_deferred := false) -> void:
 		else:
 			_rebuild_after_drag = false
 			_rebuild_all()
-	_persist(false)
+	_persist()
 	if not hud_deferred:
 		_update_hud()
 	_refresh_giver_lights()
@@ -1673,7 +1690,7 @@ func _tick_water() -> void:
 	_refresh_selected_soil_info()
 	_update_water_hud()
 	if water != before or changed:
-		_persist(false)
+		_persist()
 	_tick_sky_hour()
 
 func _ftue_pops_done() -> bool:
@@ -1693,7 +1710,7 @@ func _update_water_hud() -> void:
 		var credit := Save.take_water_pending()
 		if credit > 0:
 			water = water + credit
-			_persist(false)
+			_persist()
 	# Water is a first-class currency in the shared top bar — always visible on the board now, matching
 	# the map. (The old FTUE staged-chrome hide that kept the meter hidden until the 10 free pops were
 	# spent is retired; the separate water-COST gate at _ftue_pops_done() — see _charge — is unchanged,
@@ -1775,7 +1792,7 @@ func _on_refill() -> void:
 		_update_water_hud()
 		_update_hud()
 	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, FX.reward_color("water"), water_target, refill_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "board_refill")
-	_persist(false)
+	_persist()
 	refill_btn.visible = false
 	_refill_stack.visible = false
 
@@ -1952,8 +1969,7 @@ func _build_unlock_bar() -> void:
 	_place_unlock_bar(_unlock_bar_h_px())
 	var unlock_go := func() -> void:
 		Audio.play("button_tap", -2.0)
-		_persist()
-		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
+		_leave_board_for_map()
 	_stand_tap(_unlock_bar, unlock_go)
 	_update_unlock_bar()
 	if _gate_ready():
@@ -2192,7 +2208,7 @@ func _grow_generators() -> void:
 	for id in added:
 		_grown_cells.append(G.gen_cell_of(G.GENERATORS, String(id)))
 	_refill_quests()                          # the new generator's lines are now askable
-	_persist(false)
+	_persist()
 
 func _refresh_generator_dim() -> void:
 	if board == null:
@@ -3259,8 +3275,7 @@ func _bag_count_text() -> String:
 func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 	var go := func() -> void:
 		Audio.play("button_tap", -2.0)
-		_persist()
-		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
+		_leave_board_for_map()
 	var b: Button
 	var KitH: GDScript = KIT
 	if KitH != null:
@@ -5285,7 +5300,7 @@ func _sync_accumulators() -> void:
 			board.remove_gen(cell)
 	board.prune_bag(func(id: String) -> bool: return not G.is_accumulator(id))   # drops legacy accumulators, keeps tiers aligned
 	Save.grove().erase("accumulators")
-	_persist(false)
+	_persist()
 
 # §6.C a tap on a BONUS generator pops collectable board items (× a burst while a boost is live — a
 # boosted pop then spends one boost tap, like a charged generator tap), spends one of its limited taps,

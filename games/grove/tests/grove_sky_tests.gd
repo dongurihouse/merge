@@ -309,11 +309,24 @@ func _test_starfall_fallbacks_and_resume_rules() -> void:
 	leaving._rebuild_all()
 	await process_frame
 	var leave_code := await _arm_pending_star(leaving)
+	# An ORDINARY persist must leave a live catch alone. It runs on a dozen mutation paths (every
+	# _after_board_change, the water tick, the load fixups), so a resolve here would let any of them
+	# silently eat the star the player is being invited to catch.
 	leaving._persist()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == leave_code \
+		and Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty(), \
+		"an ordinary _persist leaves a live pending Starfall catchable")
+	# The board-leave beat is the one that resolves — the same call both Map nav taps make, minus the
+	# scene change a headless test cannot run.
+	leaving._persist_leaving_board()
 	await process_frame
 	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 \
 		and Array(SkyLogic.grove_sky_state().get("owed", [])).has(leave_code), \
-		"_persist converts pending Starfall into owed before saving")
+		"leaving the board converts pending Starfall into owed before saving")
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.count("SceneWarm.go(") == 1 and board_src.count("_persist_leaving_board()") == 2, \
+		"the board has exactly ONE exit and it goes through the leave beat, so a new nav tap cannot skip it")
 	leaving.queue_free()
 	var reopened = await _mount_board("star")
 	await create_timer(0.35).timeout
