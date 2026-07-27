@@ -23,7 +23,18 @@ ARCHIVE="$ROOT/build/ios/AcornForest.xcarchive"
 EXPORT_DIR="$ROOT/build/ios/export"
 PLIST="$ROOT/build/ios/ExportOptions.plist"
 SCHEME="AcornForest"
-TEAM_ID="${ASC_TEAM_ID:-7F5H5YC2UT}"
+
+# The team id is READ from export_presets.cfg (application/app_store_team_id) — the id that
+# actually signed the archive — never re-typed here. Two different ids in one build fail
+# `xcodebuild -exportArchive` at UPLOAD time, after a full archive has already been made.
+# Same awk parse as tools/stamp_build_info.sh; ASC_TEAM_ID still overrides for a one-off.
+preset_value() {
+	awk -F= -v key="$1" '
+		$1 == key { value = $2; gsub(/^"/, "", value); gsub(/"$/, "", value); print value; exit }
+	' "$ROOT/export_presets.cfg"
+}
+TEAM_ID="${ASC_TEAM_ID:-$(preset_value "application/app_store_team_id")}"
+[ -n "$TEAM_ID" ] || { echo "release_ios: export_presets.cfg has no application/app_store_team_id" >&2; exit 1; }
 
 [ -d "$PROJECT" ] || { echo "release_ios: $PROJECT missing — run 'make ios $VERSION' first" >&2; exit 1; }
 

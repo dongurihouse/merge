@@ -6,8 +6,9 @@ QUIET   := engine/tools/quiet_godot.sh
 JOBS    ?= 4                                  # parallel suites; 4 avoids over-subscribing cores
 RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timing table
 DEVICE  ?=                                    # desktop phone simulator for make g, e.g. DEVICE=393x852
-# Suites = the pure code-logic set. The UI / FX / layout / scene-display suites were removed;
-# these guard game rules, model, economy, persistence, quest logic, store/IAP, and identity.
+# Suites = every active engine check: game rules, model, economy, persistence, quest logic,
+# store/IAP and identity, PLUS the UI / FX / layout / scene-display guards (layering,
+# fx_config, action_button, modal_dismiss, scene_cells, ftue_hand_hint, palette_ssot).
 ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests engine/tests/feature_flag_registry_tests
 ENGINE_TESTS_DISABLED :=
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
@@ -46,9 +47,9 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run g-phone editor fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
+.PHONY: help run g g-phone debug editor w fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
-        decor icon ios release-ios get-ios clean clean-cache intake intake-test
+        decor icon sfx sfx-test ios ios-plugins release-ios get-ios clean clean-cache intake intake-test c l
 
 help: ## list available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -181,6 +182,14 @@ IOS_VERSION := $(or $(VERSION),$(IOS_ARGS))
 # for on-device iteration; `release` is smaller and is what ships. `release-ios` overrides
 # this — never hand a debug template to App Store Connect.
 IOS_EXPORT_MODE ?= debug
+# The export output dir + the generated Xcode project, named once. NB the Info.plist lives
+# under build/ios/AcornForest/ (the target dir), NOT inside the .xcodeproj bundle.
+IOS_DIR       := build/ios
+IOS_XCODEPROJ := $(IOS_DIR)/AcornForest.xcodeproj
+# Wipe the export dir but KEEP ci_scripts: build/ios/ci_scripts/ci_post_clone.sh is a TRACKED
+# file (un-ignored by .gitignore's negations) that Xcode Cloud runs, and
+# tools/test_xcode_cloud_ci.sh fails if it is missing. Used by both `ios` and `clean`.
+IOS_WIPE      := find $(IOS_DIR) -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
 ifneq (,$(filter ios release-ios,$(MAKECMDGOALS)))
 ifneq (,$(IOS_ARGS))
 $(eval $(IOS_ARGS):;@:)
@@ -191,23 +200,23 @@ ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into ad
 	tools/install_ios_plugins.sh
 
 ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets the app version (see docs/design/apple-services-setup.md)
-	mkdir -p build/ios
-	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
+	mkdir -p $(IOS_DIR)
+	$(IOS_WIPE)
 	tools/stamp_build_info.sh engine/generated/build_info.gd $(IOS_VERSION)
-	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj $(IOS_EXPORT_MODE)
+	tools/export_ios.sh $(PROJECT) $(IOS_XCODEPROJ) $(IOS_EXPORT_MODE)
 	# The main preset excludes games/grove/assets/**, so the pack above is code + data only.
 	# Build the art/audio half separately and reference it from the Xcode project; boot.gd
 	# mounts it at startup. Keeping art in its own byte-stable pack is what lets a code-only
 	# update ship ~6 MB instead of the whole game.
-	tools/export_asset_pack.sh $(PROJECT) build/ios/grove_assets.pck
-	tools/add_asset_pack_to_xcode.py build/ios/AcornForest.xcodeproj/project.pbxproj
+	tools/export_asset_pack.sh $(PROJECT) $(IOS_DIR)/grove_assets.pck
+	tools/add_asset_pack_to_xcode.py $(IOS_XCODEPROJ)/project.pbxproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
-	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
+	tools/strip_unused_ios_permissions.sh $(IOS_DIR)/AcornForest/AcornForest-Info.plist
 	# Godot pins "Apple Distribution" on Release under automatic signing — Xcode rejects that. Fix to "Apple Development".
-	tools/normalize_ios_signing.sh build/ios/AcornForest.xcodeproj/project.pbxproj
+	tools/normalize_ios_signing.sh $(IOS_XCODEPROJ)/project.pbxproj
 	# `make ios 1.2.3` -> app version 1.2.3; bare `make ios` keeps export_presets' version (Xcode Cloud
 	# auto-sets the build number from $$CI_BUILD_NUMBER). See tools/set_ios_version.sh.
-	tools/set_ios_version.sh build/ios/AcornForest.xcodeproj/project.pbxproj $(IOS_VERSION)
+	tools/set_ios_version.sh $(IOS_XCODEPROJ)/project.pbxproj $(IOS_VERSION)
 
 release-ios: ## archive + upload to App Store Connect/TestFlight: make release-ios <patch|minor|major|X.Y.Z>
 	@test -n "$(strip $(IOS_VERSION))" || { echo "usage: make release-ios <patch|minor|major|X.Y.Z>"; exit 1; }
@@ -224,7 +233,7 @@ get-ios: ## print the last version/build uploaded to App Store Connect (needs th
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output
 	if [ -d build ]; then find build -mindepth 1 -maxdepth 1 ! -name ios -exec rm -rf {} +; fi
-	if [ -d build/ios ]; then find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +; fi
+	if [ -d $(IOS_DIR) ]; then $(IOS_WIPE); fi
 
 clean-cache: ## remove the Godot import cache (forces a full reimport next run)
 	rm -rf .godot
