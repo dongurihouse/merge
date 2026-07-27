@@ -60,19 +60,20 @@ var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
-# Responsive band caps (the bottom-anchored layout). The quest bar scales with screen HEIGHT (taller on
-# tall screens, to absorb spare vertical room) but is bounded; the bottom bar is bounded so it never
-# balloons on wide screens.
-const QUEST_H_MIN := 150.0
-const QUEST_H_MAX := 300.0
-const BOTTOM_BAR_MIN := 150.0
-const BOTTOM_BAR_MAX := 200.0
-const BOTTOM_BTN_MIN := 110.0
+# Responsive band caps (the bottom-anchored layout) — ALIASES, never re-typed numbers: ui/action_bar.gd
+# owns the bottom bar's band (it builds the bar) and ui/board_fit.gd owns the quest/page bands. The UI
+# workbench's layout preview reads the SAME two modules, so a retune moves the board and the preview
+# together and the operator can never tune to a value the board silently clamps away.
+const QUEST_H_MIN := BoardFit.QUEST_H_MIN
+const QUEST_H_MAX := BoardFit.QUEST_H_MAX
+const BOTTOM_BAR_MIN := ActionBar.BOTTOM_BAR_MIN
+const BOTTOM_BAR_MAX := ActionBar.BOTTOM_BAR_MAX
+const BOTTOM_BTN_MIN := ActionBar.BOTTOM_BTN_MIN
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · info bar · Bag); runtime follows workbench button px
-const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
-const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
+const BOTTOM_BAR_H := ActionBar.BOTTOM_BAR_H     # fallback bottom bar height (Home · info bar · Bag)
+const BOTTOM_BTN_PX := ActionBar.BOTTOM_BTN_PX   # fallback Bag/Home well size; runtime scales from button_w_pct
+const BOTTOM_BAR_PAD := ActionBar.BOTTOM_BAR_PAD
 const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
 static var BOARD_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_board.png")
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
@@ -81,7 +82,7 @@ const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band he
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # fallback gap BETWEEN cards — the workbench quest_card.gap overrides (via _giver_lay)
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
-const EDGE_GAP := 16.0           # the EQUAL page margin: HUD pills → content top == board bottom → bottom action bar
+const EDGE_GAP := BoardFit.EDGE_GAP   # the EQUAL page margin: HUD pills → content top == board bottom → bottom bar
 const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
 const STACK_SEP := 20      # the row gap of the content stack (strip <-> quest fence <-> board)
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
@@ -100,18 +101,16 @@ const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
 # Shading IS the clickable/important affordance (board polish #8): the brighter a thing
-# reads, the more it's asking to be tapped. BRIGHT/un-shaded = actionable right now; a
-# gentle DIM = inert/locked/satisfied. One cozy dim value (~0.78 alpha) for every
-# "step back" read — a soft difference, never harsh — so the eye lands on what's live.
-const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
-const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
+# reads, the more it's asking to be tapped. GENERATORS still carry that read (GEN_LIT/GEN_DIM
+# below). GIVERS no longer do — the dim tint was retuned to full opacity, so the ✓ mark, the
+# count and the bob carry the lit state on their own.
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
 # A generator's stop is a stronger signal than a giver's, so it dims further (0.5) — same
 # affordance family (bright = tappable), just a deeper "paused" read for the harder stop.
 const GEN_DIM := Color(1, 1, 1, 0.5)
-const GEN_LIT := SHADE_LIT
+const GEN_LIT := Color(1, 1, 1, 1.0)
 # A generator whose LINE no open quest asks for FADES OUT — it can still pop (free while faded),
 # but the eye lands on the generators the fence actually wants right now. Deeper than the paused
 # dim (it is "not needed", not just "stopped"). Accumulators (utility, never asked) stay exempt.
@@ -1496,10 +1495,7 @@ func _refresh_giver_lights() -> void:
 		var bust: Control = e.get("bust")
 		if bust != null and is_instance_valid(bust):
 			GiverStand.bob(bust, lit)
-		# board polish #8: a deliverable giver reads BRIGHT (it's the actionable thing);
-		# one not-yet-payable sits gently shaded. Same `lit` predicate as the ✓/bob above.
 		var chip: Control = e.chip
-		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
 	_reorder_giver_row()                          # float any now-deliverable card to the front (display-only)

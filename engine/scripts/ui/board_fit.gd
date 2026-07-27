@@ -1,6 +1,14 @@
 extends RefCounted
 ## Shared board-fit math for framed merge grids placed between a top band
-## and a bottom action or hint band.
+## and a bottom action or hint band, plus the page's own vertical band law.
+
+# THE board page's band law — one spelling each, read by the board scene
+# (engine/scripts/scenes/board.gd) and by the UI workbench's layout preview
+# (games/grove/tools/ui_workbench_view.gd) so the preview clamps exactly what the board clamps.
+# (The bottom action bar's own band lives with the module that builds it: ui/action_bar.gd.)
+const QUEST_H_MIN := 150.0   # the quest fence scales with screen HEIGHT (tall screens absorb spare room), bounded
+const QUEST_H_MAX := 300.0
+const EDGE_GAP := 16.0       # THE equal page margin: HUD pills → content top == board bottom → bottom action bar
 
 static func fit_bottom_aligned(
 		view: Vector2,
