@@ -1,7 +1,8 @@
 # Generator mastery (+ the Scissors) — design (2026-07-26)
 
-**Status: rev 6.** Rollout step 2 of `2026-07-26-progression-systems-design.md`. All numbers are
-provisional dials — the step-2 `grove_sim` re-pass owns finals.
+**Status: rev 7.** Rollout step 2 of `2026-07-26-progression-systems-design.md`. All numbers are
+provisional dials — the step-2 `grove_sim` re-pass owns finals. Rev 7 closes the §8 I2 residual with
+`LEVEL_WATER_GIFT` 40 → 32 and records that the residual was never mastery-specific.
 
 ## 0 · Summary
 
@@ -216,30 +217,65 @@ Mocks (composition authority for the builder):
 ## 8 · Sim gates (block the merge)
 
 `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>`, seeds 42 / 7 / 99
-(robustness swept over 8–16). Status: **passing on 7 of 8 seeds**; see the I2 residual below.
+(robustness swept over 100 seeds × both states of the `mastery` flag). Status: **passing**; the rev-6
+I2 residual is closed by `LEVEL_WATER_GIFT` 40 → 32 (`grove_data.gd`).
 
 1. **Time-to-rank — PASS.** The §3 pacing table is the measured result. Rank 8 is reached by wild
    berries on 14 of 16 seeds; nothing reached it at the old 6500 threshold.
-2. **I2 (per-map level-gift ÷ water spend < 0.30 on maps 3+) — PASSES ON MOST SEEDS, WITH A KNOWN
-   RESIDUAL.** At the shipped `tier_clicks` cost, 7 of 8 swept seeds pass; seed 57 fails map 3 at
-   0.37 (main, unmastered, passes that seed). Seeds 42/7/99 pass.
+2. **I2 (per-map level-gift ÷ water spend < 0.30 on maps 3+) — PASS after the gift re-tune.**
 
-   | Seed | map 1 | map 2 | map 3 | map 4 | map 5 |
-   |---|---|---|---|---|---|
-   | 42 | 0.74 | 0.34 | 0.17 | 0.15 | 0.14 |
-   | 7 | 0.82 | 0.26 | 0.26 | 0.23 | 0.20 |
-   | 99 | 0.73 | 0.33 | 0.25 | 0.14 | 0.09 |
+   **The residual was NOT mastery-specific.** At `LEVEL_WATER_GIFT = 40` the rule failed at least as
+   often with the flag OFF as ON: **unmastered play failed seed 3 map 3 at 0.32** (seed 57 passing),
+   mastered play failed seed 57 map 3 at 0.37 (seed 3 passing). Over 100 seeds the FAIL rate was 11%
+   (ON) and **17% (OFF)**, and the p90 worst map-3+ ratio was 0.31 / 0.32 — *above* the 0.30 limit
+   for more than a tenth of seeds in **both** configurations. Mastery only redistributes level-ups
+   across a map boundary (seed 57 ends at level 71 either way, total gift unchanged); the flat 40💧
+   gift had no headroom in either configuration.
 
-   **The pop-cost lever is exhausted**: no entry may exceed `tier_clicks(lo)` (pinned by
-   mastery_tests) or mastery becomes a punishment, so the residual cannot be closed by pricing.
-   Closing it needs a different lever — a smaller `LEVEL_WATER_GIFT`, a lower window cap (floor t4
-   rather than t5), or slower thresholds — each of which changes how the feature or the wider
-   economy feels, so it is an owner call and is PARKED, not silently tuned. Interaction note: this
-   residual appeared only after weather-hours landed its water faucet; mastery alone passed 16/16.
+   **The pop-cost lever was exhausted** — no entry may exceed `tier_clicks(lo)` (pinned by
+   mastery_tests) or mastery becomes a punishment — so the lever used was the gift. Measured,
+   100 seeds per cell, both flag states; a *real* breach is one whose failing map spent ≥1000💧 of
+   its own water (a page actually played through, not a tail sample):
 
-   Maps 1–2 are the reported-WARN onboarding band, unchanged in kind from the unmastered baseline
-   (0.67–0.72 / 0.25–0.32).
-3. **I1 zero jams — PASS** on every seed; no-strand PASS.
+   | `LEVEL_WATER_GIFT` | mastery | I2 sim FAILs | of which real | worst real map3+ | p90 worst map3+ | self-sustain avg |
+   |---|---|---|---|---|---|---|
+   | 40 (was) | ON | 11% | 7 | 0.38 | 0.31 | 34% |
+   | 40 (was) | OFF | 17% | 15 | 0.39 | 0.32 | 50% |
+   | 36 | ON | 7% | 1 | 0.33 | 0.30 | 31% |
+   | 36 | OFF | 4% | 3 | 0.32 | 0.28 | 46% |
+   | **32 (shipped)** | ON | 3% | 1 | 0.36 | **0.26** | 28% |
+   | **32 (shipped)** | OFF | 1% | 0 | 0.30 | **0.25** | 43% |
+   | 31 | ON / OFF | 4% / 2% | 0 / 0 | 0.25 / 0.29 | 0.24 / 0.26 | 27% / 42% |
+   | 30 | ON / OFF | 8% / 1% | 2 / 0 | 0.32 / 0.26 | 0.24 / 0.23 | 26% / 41% |
+   | 29 | ON / OFF | 5% / 1% | 2 / 0 | 0.31 / 0.26 | 0.24 / 0.22 | 25% / 40% |
+   | 28 | ON / OFF | 1% / 2% | 0 / 0 | 0.25 / 0.25 | 0.23 / 0.23 | 25% / 39% |
+   | 24 | ON / OFF | 2% / 1% | 0 / 0 | 0.25 / 0.23 | 0.18 / 0.19 | 22% / 37% |
+
+   Real breaches collapse from 22 per 200 runs at 40 to 1 at 32, and are **flat within noise for
+   every value below 32**, so 32 is the largest value that buys the whole improvement; cutting
+   further only costs a player-facing reward. 36 is not enough — it fails 4 of the 8 gate seeds with
+   mastery ON and sits at p90 0.30, exactly on the limit. **Verdict at 32, worst map-3+ ratio over
+   the 8 gate seeds (57 / 42 / 7 / 99 / 3 / 11 / 23 / 88), all passing both ways:**
+
+   | mastery | 57 | 42 | 7 | 99 | 3 | 11 | 23 | 88 |
+   |---|---|---|---|---|---|---|---|---|
+   | ON | 0.25 | 0.21 | 0.17 | 0.22 | 0.23 | 0.15 | 0.16 | 0.15 |
+   | OFF | 0.19 | 0.22 | 0.22 | 0.21 | 0.24 | 0.21 | 0.19 | 0.29 |
+
+   **Residual that no gift value closes (reported, not fixed).** 1–3% of seeds still FAIL I2 on the
+   **last** map with a denominator below one session of water: `map_spend` accrues from pops only
+   (grove_sim.gd:1128), so a page finished out of a banked coin wallet books its gift against a tiny
+   or zero spend — worst observed `224💧 / 0💧`, which the sim scores 999.0 and hard-fails. Dropping
+   the gift to 24 does not remove it (2/100). This is a denominator artifact of I2, not
+   self-sustain; closing it needs a minimum-spend floor on the I2 denominator — a metric change and
+   an owner call, PARKED. Mastery ON carries more of these than OFF because it finishes late pages
+   in fewer taps.
+
+   Maps 1–2 stay the reported-WARN onboarding band, 0.63 / 0.25 average at 32 (0.79 / 0.31 at 40).
+3. **I1 zero jams — PASS**, no-strand PASS, no stalls — on every seed of every cell above (0/0/0
+   over 1,600 sweep runs). The smaller gift does **not** starve the early game: book runway moves
+   26.8→27.7 days (ON) and 19.2→20.2 (OFF), end level is unchanged (~74), and water self-sustain
+   *improves* in both configurations (34%→28% ON, 50%→43% OFF).
 4. No profitable split→sell loop: pinned by the `SCISSORS_COST` floor test, not the sim.
 
 **What a flat pop cost did** (the state this replaced): book water spend fell 68% (map-1 spend
