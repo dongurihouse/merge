@@ -34,7 +34,7 @@ static var FLAGS := {
 	"spirit_tap_hop": true,       # tapping a map spirit hops it
 	"giver_bob": true,            # AB: frameless fence givers idle-bob over the rail
 	# ambient
-	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute
+	"weather_hours": true,        # hourly sky lane gifts: Sunbeam coins, Rain water, Starfall high-tier piece
 	"ambient_characters": true,   # characters wander the scenes
 	"ambient_weather": true,      # breeze/rain/snow schedule
 	# feature

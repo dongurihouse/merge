@@ -331,8 +331,34 @@ const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 const WATER_CAP := 100
 const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
-const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
+
+# Weather Hours (2026-07-26) — hourly sky gifts. The clock/state logic lives in core/sky.gd;
+# these dials stay with Grove content so the sim can own final values.
+const SKY_SHARES := {"sunbeam": 45, "rain": 45, "starfall": 10}
+const SKY_SKIN_SPLIT := {"sunbeam": {"clear": 70, "breeze": 30}, "rain": {"rain": 85, "snow": 15}}
+const SKY_COIN_RATE := 0.35
+const SKY_COIN_TIER := 2
+# SKY_WATER_RATE is the one sky dial with a RUNAWAY above ~0.2, so it does not match its coin
+# twin. Swept 4 seeds × 7 sim days: at 0.35 the sky owned 16.7–46.5% of the whole water spend and
+# total spend roughly doubled (4305–7744) — the extra water buys pops, pops make merges, in-patch
+# merges make more water, and the loop feeds itself. At 0.15 the gift is felt but water stays a
+# real constraint: sky water is 5.3–8.1% of spend, spend settles at 3433–3919, and self-sustain
+# sits 59–67% against a 52–58% no-weather control. Coins have no such loop (sky coins measure
+# 2.3–5.8% of a much larger faucet), which is why SKY_COIN_RATE stays at 0.35.
+const SKY_WATER_RATE := 0.15
+const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
+const STAR_DELAY := 10.0
+# §3 playable-lane roll: the hour picks only among lanes holding at least this many cells the player
+# has unlocked (MIN_LEVEL vs level). A uniform roll left 36% of level-2 hours on a lane with ZERO open
+# cells — no merge can happen there, so the sky gave nothing right after the FTUE gate opens.
+const LANE_MIN_OPEN := 5
+const PATCH_ALPHA := {"sunbeam": 0.55, "rain": 0.13, "starfall": 0.12}
+const SKY_MARKER_ICON_RELS := {
+	"sunbeam": "ui/kit/icon_sky_sun.png",
+	"rain": "ui/kit/icon_sky_rain.png",
+	"starfall": "ui/shared/icon_star.png",
+}
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
@@ -353,17 +379,22 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
 const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
+# The special LINE numbers, named so a `line*100 + tier` code never has to spell one as a bare
+# digit (cf COIN_LINE). These ARE the SPECIAL_ITEMS keys below — read them, don't re-type them.
+const CHEST_LINE := 10                     # code 10xx
+const WATER_LINE := 12                     # code 12xx
+const ACORN_LINE := 13                     # code 13xx
 const SPECIAL_ITEMS := {
-	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
-	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
-	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
+	CHEST_LINE: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
+	WATER_LINE: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
+	ACORN_LINE: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
 # (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1}   # chest·water·acorn (flat; the key + spark lines are retired)
+const SPECIAL_DROP_WEIGHTS := {CHEST_LINE: 1, WATER_LINE: 1, ACORN_LINE: 1}   # chest·water·acorn (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)

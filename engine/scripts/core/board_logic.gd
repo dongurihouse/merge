@@ -149,6 +149,58 @@ static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: 
 static func rolls_coin_drop(produced: int, rng: RandomNumberGenerator) -> bool:
 	return not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE
 
+# The live quest item avoid-set as item codes (line*100+tier). Mirrors the quest refill idiom:
+# malformed / grant-only quest entries do not contribute.
+static func asked_items(quests: Array) -> Array:
+	var out: Array = []
+	for q in quests:
+		if not (q is Dictionary):
+			continue
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		var code := int(it.line) * 100 + int(it.tier)
+		if code > 0 and not out.has(code):
+			out.append(code)
+	return out
+
+# Shared merge-drop rule for the scene and grove_sim. `in_patch` is the caller's answer for the
+# produced piece's landing cell. The shipped board-rng stream stays coin roll first and special roll
+# second; sky-only bonus chances use a side roll from the current stream marker and hour, with no
+# extra board-rng draw.
+static func roll_merge_drops(produced: int, rng: RandomNumberGenerator, sky_state: Dictionary, in_patch: bool) -> Array:
+	var out: Array = []
+	var sky := String(sky_state.get("sky", ""))
+	var stream_marker := int(rng.state)
+	var baseline_coin := rolls_coin_drop(produced, rng)
+	if sky == "sunbeam" and in_patch:
+		if not G.is_coin(produced) and _sky_bonus_hits(sky_state, produced, stream_marker, 104729, float(G.SKY_COIN_RATE)):
+			out.append(G.COIN_LINE * 100 + int(G.SKY_COIN_TIER))
+	elif baseline_coin:
+		out.append(G.COIN_LINE * 100 + 1)
+	if not G.is_special(produced):
+		if sky == "rain" and in_patch:
+			if _sky_bonus_hits(sky_state, produced, stream_marker, 130363, float(G.SKY_WATER_RATE)):
+				out.append(G.WATER_LINE * 100 + 1)
+		if G.rolls_special_drop(rng):
+			out.append(G.pick_special_drop(rng))
+	return out
+
+static func _sky_bonus_hits(sky_state: Dictionary, produced: int, stream_marker: int, salt: int, rate: float) -> bool:
+	if rate <= 0.0:
+		return false
+	if rate >= 1.0:
+		return true
+	var basis := "%d:%s:%d:%d:%d:%d" % [
+		int(sky_state.get("hour", 0)),
+		String(sky_state.get("lane_axis", "")),
+		int(sky_state.get("lane", 0)),
+		produced,
+		stream_marker,
+		salt,
+	]
+	return float(absi(hash(basis)) % 10000) < rate * 10000.0
+
 # A cozy successive-merge streak: a merge within `window` seconds of the previous one
 # extends the streak (+1); a longer gap (or no prior streak) restarts it at 1. Pure, so the
 # cadence is unit-tested without the scene. `dt` = seconds since the last merge.
