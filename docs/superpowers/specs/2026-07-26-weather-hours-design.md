@@ -1,6 +1,6 @@
 # Weather Hours — spec (2026-07-26)
 
-**Status: draft 4, approved for implementation.** Builds §4 / rollout step 5 of
+**Status: draft 5 — §3 lane roll revised after first implementation review.** Builds §4 / rollout step 5 of
 `2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
 `engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
 `games/grove/tools/grove_sim.gd`.
@@ -57,8 +57,19 @@ magnet/mirror skies, Wild piece, the water stall's daily free rain.
 ## 3 · Patch
 
 - Model space (`cell.x` = row 0..8, `cell.y` = col 0..6): Sunbeam and Starfall project one
-  **column** (9 cells); Rain one **row** (7 cells). Lane index = salted hour roll over the
-  axis range. Fixed for the hour; moves with the next sky.
+  **column** (9 cells); Rain one **row** (7 cells). Fixed for the hour; moves with the next
+  sky.
+- **Lane roll — playable lanes only.** The salted hour roll picks uniformly among lanes
+  holding **≥ `LANE_MIN_OPEN` (5) open cells** at the player's current level, not over the
+  whole axis range. A uniform roll makes early hours dead: at level 2 only 5 of 7 columns
+  and 5 of 9 rows contain any open cell at all, so **36% of hours land a lane with zero
+  open cells** — no merge can happen there, so the sky gives nothing in the hours right
+  after the FTUE gate opens. Openness comes from `G.MIN_LEVEL` vs the player's level (not
+  live board occupancy), so the lane is stable for the whole hour and identical in the sim.
+  If no lane clears the bar (very early boards), fall back to the lane with the **most**
+  open cells, ties broken by the roll — the sky always projects somewhere.
+- Lane openness changes only on level-up, so the lane may shift mid-hour when the player
+  levels; that is the one allowed mid-hour move, and it moves patch + marker together.
 - Landscape transposes display only (via `_cell_pos`); the model lane is unchanged.
 - The wash draws over the whole lane, locked cells included. No per-cell gating: gifts
   fire only from merges, and merges happen only on open cells.
@@ -180,7 +191,9 @@ its banner/chip predate §6's marker — read it for the star only).
 ## 9 · Architecture (● = new)
 
 - ● `engine/scripts/core/sky.gd` — pure statics: `hour_index(now)`,
-  `state(now, forced := "") → {sky, skin, lane_axis, lane}`, `in_patch(state, cell)`,
+  `state(now, level, forced := "") → {hour, sky, skin, lane_axis, lane}` — `level` drives
+  the §3 playable-lane roll, so every caller (board, sim, tests) passes it —
+  `in_patch(state, cell)`,
   `star_pick(hour, actives, asked) → code | 0`, `gate_open()`.
 - `engine/scripts/core/board_logic.gd` — ➊ `asked_items(quests)`; ➋ merge-drop rolls
   lifted out of the scene into pure
@@ -215,6 +228,10 @@ its banner/chip predate §6's marker — read it for the star only).
   incl. Rain's both-drops case.
 - **Byte-identity pin:** with the sky live, the board RNG stream is unchanged
   (`mechanics_tests` no-extra-draws precedent).
+- **Lane-roll pin (§3):** at every level, the rolled lane holds ≥ `LANE_MIN_OPEN` open
+  cells whenever any lane does; sweep ≥200 hours at levels 1/2/6/12/40 and assert **zero**
+  dead lanes; the fallback picks the most-open lane when none clears the bar; board and sim
+  derive the same lane for the same (hour, level).
 - **Scene suite** — ● `games/grove/tests/grove_sky_tests.gd` (+ `GROVE_TESTS` in the
   Makefile, + CLAUDE.md suite line, + `make import` for the `.uid`): the marker sits
   outside the mat aligned to the lane on both axes, and its tap sets the info bar line;
@@ -243,6 +260,7 @@ its banner/chip predate §6's marker — read it for the star only).
 | `SKY_WATER_RATE` | 0.35 | in-patch water roll (t1 = +8, over-cap) |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
 | `STAR_DELAY` | 10 s | live seconds before the star falls |
+| `LANE_MIN_OPEN` | 5 | min open cells for a lane to be rollable (§3) |
 | `PATCH_ALPHA` | Rain · Star 0.10–0.15; Sunbeam ~0.30 | gold-on-cream needs ~0.30 + same-hue edge deepening to read (mock-validated) |
 | `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
