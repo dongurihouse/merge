@@ -9,6 +9,17 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 
+## The shipped rank-0 tier stream, CAPTURED FROM THE PRE-MASTERY IMPLEMENTATION at seed 12345
+## (40 consecutive BoardLogic.roll_tier draws, one randf each against G.TIER_ODDS). It pins the
+## live generator curve to bytes the players already got, so any change to TIER_ODDS, to the
+## cumulative walk, or to the number of draws per roll shows up as a FAILURE here.
+## NEVER REGENERATE THIS ARRAY TO MAKE A FAILING TEST PASS — regenerating it is exactly the
+## edit the guard exists to catch, and it would leave the suite green over a silent re-tune.
+const GOLDEN_TIER_STREAM_12345 := [
+	1, 2, 1, 2, 2, 3, 1, 2, 3, 2, 1, 1, 1, 1, 1, 2, 1, 3, 2, 1,
+	1, 1, 3, 1, 1, 1, 1, 2, 1, 1, 2, 3, 1, 1, 2, 3, 2, 2, 1, 2,
+]
+
 ## A fixture roster (independent of the live grove data): map 0 has 2 generators, map 1 has 3.
 ## Generators PERSIST (no hand-in), so each carries its own `cell`. (`grant_from` is inert legacy
 ## data on the live roster; the fixture omits it.)
@@ -526,13 +537,21 @@ func _initialize() -> void:
 	ok(ri_cap_ok and ri_cap_seen.size() >= 2, \
 		"roll_item_tier clamps to a low merge ceiling (≤3) yet still spreads across tiers")
 	ok(BoardLogic.roll_item_tier(ri, 1) == 1, "roll_item_tier with a ceiling of 1 always pops tier 1")
-	var win_old := RandomNumberGenerator.new(); win_old.seed = 12345
+	# The rank-0 window must still deal the SHIPPED stream — asserted against a golden literal, not
+	# against roll_tier (roll_tier now delegates to roll_tier_window, so comparing the two is a
+	# tautology that passes even with the odds corrupted).
 	var win_new := RandomNumberGenerator.new(); win_new.seed = 12345
-	var default_window_same := true
-	for _i in 200:
-		if BoardLogic.roll_tier_window(win_new, 1, 4) != BoardLogic.roll_tier(win_old):
-			default_window_same = false
-	ok(default_window_same, "rank-0 roll_tier_window(1,4) reproduces the shipped tier stream")
+	var window_stream: Array = []
+	for _i in GOLDEN_TIER_STREAM_12345.size():
+		window_stream.append(BoardLogic.roll_tier_window(win_new, 1, 4))
+	ok(window_stream == GOLDEN_TIER_STREAM_12345, \
+		"rank-0 roll_tier_window(1,4) reproduces the shipped tier stream (golden seed 12345)")
+	var win_old := RandomNumberGenerator.new(); win_old.seed = 12345
+	var tier_stream: Array = []
+	for _i in GOLDEN_TIER_STREAM_12345.size():
+		tier_stream.append(BoardLogic.roll_tier(win_old))
+	ok(tier_stream == GOLDEN_TIER_STREAM_12345, \
+		"roll_tier still deals the shipped tier stream (the rank-0 delegation stays honest)")
 	var one_draw := true
 	for rank_i in range(0, 9):
 		var w := Mastery.tier_window_for_rank(rank_i)
