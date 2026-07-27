@@ -210,8 +210,9 @@ Mocks (composition authority for the builder):
   board.gd:2696–2716): two twin ghosts at ≈50% alpha side-by-side in the target cell, the
   original faded beneath, a dashed cream outline on the cell; drop = snip, halves pop apart;
   ineligible = the refuse wobble, no ghost.
-- **Strings** (`games/grove/strings.json`): next-reward forms `next: pops reach tX` (odd ranks) /
-  `next: pops start at tX` (even ranks); `shop.scissors.*`; the rank-up line. **Art** (guide
+- **Strings** (`games/grove/strings.json`): next-reward forms `next: reach tX` (odd ranks) /
+  `next: start tX` (even ranks) — both sized to render UNTRIMMED in the info row at the 1080-wide
+  design canvas; `shop.scissors.*`; the rank-up line. **Art** (guide
   intake): `tool_scissors` piece sprite and `shop_scissors` icon — matte cut-paper scissors,
   structural-slate blades `#3F6D7D`, coral handles `#D87865`; 4 trim frames.
 

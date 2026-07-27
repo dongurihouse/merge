@@ -113,8 +113,8 @@
   "mastery": {
     "info": {
       "maxed": "maxed",
-      "next_reach": "next: pops reach t%d",
-      "next_start": "next: pops start at t%d"
+      "next_reach": "next: reach t%d",
+      "next_start": "next: start t%d"
     },
     "rankup": {
       "body": "%s — pops now land t%d–t%d.",
