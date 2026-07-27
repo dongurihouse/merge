@@ -93,6 +93,9 @@ const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
 const SPECIAL_TOP = D.SPECIAL_TOP
+const CHEST_LINE = D.CHEST_LINE
+const WATER_LINE = D.WATER_LINE
+const ACORN_LINE = D.ACORN_LINE
 const SPECIAL_ITEMS = D.SPECIAL_ITEMS
 const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
 const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
@@ -1428,7 +1431,7 @@ static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 
 		r -= int(SPECIAL_DROP_WEIGHTS[line])
 		if r <= 0:
 			return int(line) * 100 + 1
-	return 10 * 100 + 1                                              # defensive: a chest t1
+	return CHEST_LINE * 100 + 1                                      # defensive: a chest t1
 
 # What TAPPING a water/acorn item grants: {kind, amount}. Empty for a chest (it OPENS instead
 # — board._open_chest — spawning face-value reward items rather than crediting a wallet directly).

@@ -214,12 +214,12 @@ static func build_weather(view: Vector2, kind: String) -> Control:
 			frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			layer.add_child(frost)
 		"starlit":
-			var stars := _drift_emitter(view, _star_tex(), 36, 8.0, Vector2(12, 36))
-			stars.scale_amount_min = 0.35
-			stars.scale_amount_max = 0.85
+			var stars := _drift_emitter(view, _star_tex(), Tune.STAR_AMOUNT, Tune.STAR_LIFE, Tune.STAR_VEL)
+			stars.scale_amount_min = Tune.STAR_SCALE_MIN
+			stars.scale_amount_max = Tune.STAR_SCALE_MAX
 			layer.add_child(stars)
-			var tint := ColorRect.new()
-			tint.color = Color(0.25, 0.34, 0.42, 0.10)
+			var tint := ColorRect.new()        # a faint deep-blue wash so the sparks read as night
+			tint.color = Tune.STAR_TINT
 			tint.set_anchors_preset(Control.PRESET_FULL_RECT)
 			tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			layer.add_child(tint)
@@ -275,13 +275,13 @@ static func _flake_tex() -> Texture2D:
 static var _star: Texture2D
 static func _star_tex() -> Texture2D:
 	if _star == null:
-		var img := Image.create(9, 9, false, Image.FORMAT_RGBA8)
+		var img := Image.create(Tune.STAR_SIZE, Tune.STAR_SIZE, false, Image.FORMAT_RGBA8)
 		img.fill(Color(0, 0, 0, 0))
-		for x in 9:
-			for y in 9:
-				var dx := absf(float(x) - 4.0)
-				var dy := absf(float(y) - 4.0)
+		for x in Tune.STAR_SIZE:
+			for y in Tune.STAR_SIZE:
+				var dx := absf(float(x) - Tune.STAR_CENTER)
+				var dy := absf(float(y) - Tune.STAR_CENTER)
 				if dx == 0.0 or dy == 0.0 or is_equal_approx(dx, dy):
-					img.set_pixel(x, y, Color(1.0, 0.86, 0.45, 0.85))
+					img.set_pixel(x, y, Tune.STAR_COLOR)
 		_star = ImageTexture.create_from_image(img)
 	return _star

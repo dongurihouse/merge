@@ -181,7 +181,7 @@ static func roll_merge_drops(produced: int, rng: RandomNumberGenerator, sky_stat
 	if not G.is_special(produced):
 		if sky == "rain" and in_patch:
 			if _sky_bonus_hits(sky_state, produced, stream_marker, 130363, float(G.SKY_WATER_RATE)):
-				out.append(12 * 100 + 1)
+				out.append(G.WATER_LINE * 100 + 1)
 		if G.rolls_special_drop(rng):
 			out.append(G.pick_special_drop(rng))
 	return out

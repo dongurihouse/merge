@@ -379,17 +379,22 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
 const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
+# The special LINE numbers, named so a `line*100 + tier` code never has to spell one as a bare
+# digit (cf COIN_LINE). These ARE the SPECIAL_ITEMS keys below — read them, don't re-type them.
+const CHEST_LINE := 10                     # code 10xx
+const WATER_LINE := 12                     # code 12xx
+const ACORN_LINE := 13                     # code 13xx
 const SPECIAL_ITEMS := {
-	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
-	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
-	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
+	CHEST_LINE: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
+	WATER_LINE: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
+	ACORN_LINE: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
 # (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1}   # chest·water·acorn (flat; the key + spark lines are retired)
+const SPECIAL_DROP_WEIGHTS := {CHEST_LINE: 1, WATER_LINE: 1, ACORN_LINE: 1}   # chest·water·acorn (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)

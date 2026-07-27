@@ -366,7 +366,7 @@ func _ready() -> void:
 
 	_build_hud()
 	_build_water_hud()
-	_refresh_sky_state(false)
+	_refresh_sky_state()
 	var tick := Timer.new()
 	tick.wait_time = 1.0
 	tick.timeout.connect(_tick_water)
@@ -394,8 +394,10 @@ func _ready() -> void:
 	_maybe_show_board_tutorial_first_run.call_deferred()
 	_maybe_offer_retirement.call_deferred()   # §6: a calm moment — board entry, never mid-gesture
 
-func debug_refresh_weather() -> void:
-	_refresh_sky_state(false)
+## Re-read the hour's sky state and rebuild what shows it: the weather layer + the patch marker.
+## This is a REAL path, not a debug one — _tick_sky_hour calls it every time the hour turns.
+func refresh_weather() -> void:
+	_refresh_sky_state()
 	var insert_at := get_child_count()
 	for child in get_children():
 		if child.name == "WeatherLayer":
@@ -407,7 +409,12 @@ func debug_refresh_weather() -> void:
 	move_child(weather, mini(insert_at, get_child_count() - 1))
 	_sync_sky_patch_marker(true)
 
-func _refresh_sky_state(_pop_marker: bool) -> void:
+## The debug overlay reaches this BY NAME (Debug._act_weather → host.call("debug_refresh_weather"),
+## same as map.gd's twin), and the shot tool calls it for the sky modes. Both want the real rebuild.
+func debug_refresh_weather() -> void:
+	refresh_weather()
+
+func _refresh_sky_state() -> void:
 	_sky_state = SkyLogic.state(Time.get_unix_time_from_system(), _quest_level(), Ambient.forced_weather)
 
 func _tick_sky_hour() -> void:
@@ -419,7 +426,7 @@ func _tick_sky_hour() -> void:
 			or int(next.lane) != int(_sky_state.get("lane", -1)):
 		_sky_state = next
 		_sky_live_secs = 0.0
-		debug_refresh_weather()
+		refresh_weather()
 		return
 	_sky_live_secs += 1.0
 	_try_starfall()
@@ -2102,7 +2109,7 @@ func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector
 	return best
 
 func _rebuild_all() -> void:
-	_refresh_sky_state(false)
+	_refresh_sky_state()
 	_grow_generators()                        # a staged second generator grows in once its level is reached
 	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
 	for n in board_area.get_children():
@@ -3680,7 +3687,7 @@ func debug_drop_coin() -> void:
 func debug_drop_acorn() -> void:
 	if board.empty_ground_cells().is_empty():
 		return
-	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), 13 * 100 + 1)
+	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), G.ACORN_LINE * 100 + 1)
 	_after_board_change()
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:

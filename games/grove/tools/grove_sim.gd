@@ -614,7 +614,7 @@ func _credit_special_drop(code: int, src: String = "drop") -> void:
 func _try_open_chest() -> void:
 	while _pending_chests >= 1:
 		_pending_chests -= 1
-		var rw := G.chest_open_reward(10 * 100 + 1)
+		var rw := G.chest_open_reward(G.CHEST_LINE * 100 + 1)
 		_gain_coins(int(rw.coins))
 		drop_open_coins += int(rw.coins)
 		acorns += int(rw.acorns)
@@ -1070,7 +1070,7 @@ func _play_session() -> Dictionary:
 						if code % 100 == int(G.SKY_COIN_TIER):
 							sky_coin_drops += 1
 				else:
-					if code == 12 * 100 + 1 and String(_sky_state.get("sky", "")) == "rain" and in_patch:
+					if code == G.WATER_LINE * 100 + 1 and String(_sky_state.get("sky", "")) == "rain" and in_patch:
 						sky_water_drops += 1
 						sky_water += int(G.special_collect(code).get("amount", 0))   # a DROP is worth this many 💧 — never 1
 					_credit_special_drop(code)
