@@ -37,7 +37,9 @@ func _start_breathe() -> void:
 
 func _draw() -> void:
 	var sky := String(sky_state.get("sky", ""))
-	if sky == "":
+	# Calm projects no lane (lane == -1), so there is nothing to wash — board.gd never mounts a patch
+	# for it, and this guard keeps a mis-set state from painting a stripe off the edge of the mat.
+	if sky == "" or sky == "calm" or int(sky_state.get("lane", -1)) < 0:
 		return
 	var r := _lane_rect().grow(cell_size * 0.08)
 	var samples := lane_alpha_samples(sky)

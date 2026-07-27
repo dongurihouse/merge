@@ -4,7 +4,7 @@ extends SceneTree
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
 ##        fresh | played | gate | fullline | ladder | farewell | almanac | bag | level | levelup | endgame |
-##        sky_sunbeam | sky_rain | sky_starfall |
+##        sky_calm | sky_sunbeam | sky_rain | sky_starfall |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -39,7 +39,7 @@ func _initialize() -> void:
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"cascade", "fullline", "sky_sunbeam", "sky_rain", "sky_starfall"],
+			"cascade", "fullline", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
 		"retired": {
@@ -60,6 +60,8 @@ func _initialize() -> void:
 	if mode == "ftuegen":
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
 	match mode:
+		"sky_calm":
+			Ambient.forced_weather = "calm"
 		"sky_rain":
 			Ambient.forced_weather = "rain"
 		"sky_starfall":
@@ -161,6 +163,12 @@ func _initialize() -> void:
 		"sky_sunbeam", "sky_rain":
 			# The live Weather Hours patch + marker, through Board.tscn. The save has both FTUE verbs
 			# marked above, so the gift gate is open and the lane is visible.
+			scn.debug_refresh_weather()
+			await create_timer(0.45).timeout
+		"sky_calm":
+			# The SAME gate-open board on a Calm hour — the capture's whole point is what is MISSING:
+			# no wash, no marker, nothing outside the mat. Diff it against sky_sunbeam to see the
+			# lane chrome appear and nothing else move.
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
 		"sky_starfall":

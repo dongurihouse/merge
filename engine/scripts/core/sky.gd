@@ -7,6 +7,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient
 
+const SKY_CALM := "calm"
 const SKY_SUNBEAM := "sunbeam"
 const SKY_RAIN := "rain"
 const SKY_STARFALL := "starfall"
@@ -32,6 +33,12 @@ static func state(now: float, level: int, forced := "") -> Dictionary:
 	var hour := hour_index(now)
 	var look := _look(hour, forced)
 	var sky := String(look.sky)
+	# CALM HAS NO LANE (§2). "" / -1 is the whole mechanism: in_patch is false for every cell, so no
+	# gift path can fire and no caller needs a calm special case. The playable-lane search is skipped
+	# outright rather than rolled and discarded — it walks the entire MIN_LEVEL grid for a lane that
+	# nothing on a calm hour will ever read.
+	if sky == SKY_CALM:
+		return {"hour": hour, "sky": sky, "skin": String(look.skin), "lane_axis": "", "lane": -1}
 	var axis := AXIS_ROW if sky == SKY_RAIN else AXIS_COLUMN
 	return {"hour": hour, "sky": sky, "skin": String(look.skin), "lane_axis": axis, "lane": _pick_lane(hour, axis, level)}
 
@@ -56,10 +63,16 @@ static func lane_open_count(axis: String, lane: int, level: int) -> int:
 
 static func in_patch(sky_state: Dictionary, cell: Vector2i) -> bool:
 	var sky := String(sky_state.get("sky", ""))
-	if sky == "":
+	# Two different "no patch" cases, both named OUTRIGHT rather than left to fall out of a lane miss:
+	# "" is "no sky state yet" (a scene before its first roll), and CALM is a real sky that simply
+	# projects nothing. Leaning on lane == -1 alone would hand a calm hour a patch the day someone
+	# changes the lane default, so the sky itself is the gate; the lane check below is the backstop.
+	if sky == "" or sky == SKY_CALM:
 		return false
 	var axis := String(sky_state.get("lane_axis", AXIS_COLUMN))
 	var lane := int(sky_state.get("lane", -1))
+	if lane < 0:
+		return false
 	if axis == AXIS_ROW:
 		return cell.x == lane
 	return cell.y == lane
@@ -106,6 +119,8 @@ static func star_pick(hour: int, active_lines: Array, asked: Array) -> int:
 ## Sky + skin for the hour (or the forced debug state). Level-free by construction.
 static func _look(hour: int, forced: String) -> Dictionary:
 	match forced:
+		"calm":
+			return {"sky": SKY_CALM, "skin": SKIN_CLEAR}
 		"clear":
 			return {"sky": SKY_SUNBEAM, "skin": SKIN_CLEAR}
 		"breeze":
@@ -116,13 +131,43 @@ static func _look(hour: int, forced: String) -> Dictionary:
 			return {"sky": SKY_RAIN, "skin": SKIN_SNOW}
 		"star":
 			return {"sky": SKY_STARFALL, "skin": SKIN_STARLIT}
-	var sun_share := int(G.SKY_SHARES.get(SKY_SUNBEAM, 45))
-	var r := _roll(hour, 100)
-	if r < sun_share:
-		return {"sky": SKY_SUNBEAM, "skin": _sun_skin(hour)}
-	if r < sun_share + int(G.SKY_SHARES.get(SKY_RAIN, 45)):
-		return {"sky": SKY_RAIN, "skin": _rain_skin(hour)}
-	return {"sky": SKY_STARFALL, "skin": SKIN_STARLIT}
+	var sky := _walk_shares(G.SKY_SHARES, hour, SKY_CALM)
+	return {"sky": sky, "skin": _skin(hour, sky)}
+
+## The hour's skin, walked out of SKY_SKIN_SPLIT the same way the sky itself is. A sky with no split
+## entry (Starfall) wears its single skin — the starlit look IS that sky, so there is nothing to roll.
+static func _skin(hour: int, sky: String) -> String:
+	var split: Dictionary = G.SKY_SKIN_SPLIT.get(sky, {})
+	if split.is_empty():
+		return SKIN_STARLIT
+	return _walk_shares(split, hour * 7 + _SALT_SKIN, SKIN_CLEAR)
+
+## ONE cumulative walk for every weighted-share table, so adding or reweighting a sky is a data edit
+## and never a code edit. Two properties this walk must keep:
+##   • DETERMINISTIC — GDScript Dictionaries iterate in INSERTION order, which is stable for a const
+##     literal, so the same table always assigns the same hour the same outcome. Re-ordering the table
+##     re-maps the hours on purpose; changing a share re-maps every hour past that threshold.
+##   • TOTAL-DRIVEN — the roll is taken modulo the table's own total, not a hardcoded 100, so shares
+##     that do not add to 100 still divide the hours in exactly their stated proportion.
+## Negative shares are clamped to 0; an empty or all-zero table yields `fallback`.
+static func _walk_shares(shares: Dictionary, seed_value: int, fallback: String) -> String:
+	var total := 0
+	for key in shares:
+		total += maxi(0, int(shares[key]))
+	if total <= 0:
+		return fallback
+	var r := _roll(seed_value, total)
+	var acc := 0
+	var last := fallback
+	for key in shares:
+		var share := maxi(0, int(shares[key]))
+		if share <= 0:
+			continue
+		acc += share
+		last = String(key)
+		if r < acc:
+			return String(key)
+	return last     # unreachable while r < total, but a share table is data — never trust it to sum
 
 ## §3 PLAYABLE LANES ONLY. The salted hour roll picks uniformly among the lanes holding at least
 ## `G.LANE_MIN_OPEN` open cells at this level, not over the whole axis — a uniform roll parks 36% of
@@ -142,14 +187,6 @@ static func _pick_lane(hour: int, axis: String, level: int) -> int:
 		if counts[i] >= bar:
 			pool.append(i)
 	return int(pool[_roll(hour * 11 + _SALT_LANE, pool.size())])
-
-static func _sun_skin(hour: int) -> String:
-	var split: Dictionary = G.SKY_SKIN_SPLIT.get(SKY_SUNBEAM, {})
-	return SKIN_CLEAR if _roll(hour * 7 + _SALT_SKIN, 100) < int(split.get(SKIN_CLEAR, 70)) else SKIN_BREEZE
-
-static func _rain_skin(hour: int) -> String:
-	var split: Dictionary = G.SKY_SKIN_SPLIT.get(SKY_RAIN, {})
-	return SKIN_RAIN if _roll(hour * 7 + _SALT_SKIN, 100) < int(split.get(SKIN_RAIN, 85)) else SKIN_SNOW
 
 static func _content_lines(active_lines: Array) -> Array:
 	var out: Array = []
