@@ -968,21 +968,29 @@ func _play_session() -> Dictionary:
 			# line can cost more than the floor, so _pop re-checks against the live can and returns 0.
 			burst = mini(burst, int(water / G.POP_COST))
 			burst = mini(burst, board.empty_ground_cells().size() - 2)   # keep a 2-cell working margin
+			var popped := 0
 			for _b in burst:
 				# the bot picks a line per item (single-generator model), so the cost is per item too:
 				# _pop charges what its own window costs and returns 0 rather than overdraw the can.
 				var cost := _pop(water)
 				if cost <= 0:
 					break
+				popped += 1
 				water -= cost
 				s_water += cost
 				map_spend[map] = int(map_spend.get(map, 0)) + cost
-			# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
-			if G.rolls_treat_spawn(rng):
-				_run_treat_gen()
-			# §6.C each main-generator tap also drains the live bonus generator, or may side-spawn a fresh one
-			_tick_bonus_gen()
-			continue
+			# A tap that popped NOTHING (every line's mastered window costs more than the can still holds)
+			# is not a tap: the board wobbles and returns. It must not tick the §6 faucets, and it must not
+			# re-enter this branch with the state unchanged — that spins the guard loop and mints phantom
+			# bonus generators (measured: 509 of them, dragging §6 to 98% of all coins earned). Falling
+			# through ends the session with the unspendable remainder left in the can, as designed above.
+			if popped > 0:
+				# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
+				if G.rolls_treat_spawn(rng):
+					_run_treat_gen()
+				# §6.C each main-generator tap also drains the live bonus generator, or may side-spawn a fresh one
+				_tick_bonus_gen()
+				continue
 
 		# 7. nothing to do
 		if water > 0 and board.empty_ground_cells().is_empty() and not _book_done():
@@ -1078,20 +1086,31 @@ func _pop(budget: int) -> int:
 	# plus 2+4 for tea cups via spices — so two of the five could never be produced and the late fence went
 	# permanently undeliverable (zero deliveries from ~day 55 while still burning 330 water/day).
 	var pool: Array = wanted if not wanted.is_empty() else opened
-	var pw: Array = []
+	# AFFORDABILITY IS PER LINE now: a mastered line pops from a raised window and costs
+	# G.pop_cost(low), so with 10💧 left a player taps a CHEAP generator rather than putting the can
+	# down. Filtering the pool is that choice. Pure — no rng — and with every line at G.POP_COST
+	# (unmastered, or the flag off) it keeps the arrays intact, so that stream is untouched.
+	var cost_of := {}
+	var affordable: Array = []
 	for l in pool:
+		var c := G.pop_cost(Mastery.window(int(l), live_quests).x)
+		cost_of[int(l)] = c
+		if c <= budget:
+			affordable.append(int(l))
+	if affordable.is_empty():
+		return 0
+	var pw: Array = []
+	for l in affordable:
 		if wanted.has(int(l)):
 			pw.append(int(l))
 	var line: int
 	if not pw.is_empty() and rng.randf() < G.ASK_WEIGHT:
 		line = pw[rng.randi_range(0, pw.size() - 1)]
 	else:
-		line = int(pool[rng.randi_range(0, pool.size() - 1)])
+		line = int(affordable[rng.randi_range(0, affordable.size() - 1)])
 	var mastery_window := Mastery.window(line, live_quests)
 	# §3 tier-scaled cost, same helper the board charges: a raised window means a dearer pop.
-	var cost := G.pop_cost(mastery_window.x)
-	if cost > budget:
-		return 0
+	var cost := int(cost_of[line])
 	var tier := BoardLogic.roll_tier_window(rng, mastery_window.x, mastery_window.y - mastery_window.x + 1)
 	# §6 tier-bias (mirrors BoardLogic.roll_spawn): lean toward an asked poppable tier for this line,
 	# with probability G.ASK_TIER_WEIGHT (0 = off → byte-identical baseline; owner pacing dial).
