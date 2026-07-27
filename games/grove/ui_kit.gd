@@ -1228,6 +1228,21 @@ static func _rush_cell(opts: Dictionary, pos: Vector2, size: Vector2, caption: S
 	labels_out[key] = val
 	return cell
 
+## THE kit's plain label: text · font size · font colour, outline OFF, mouse ignored. That five-line
+## run opened ~30 Label sites in this file verbatim, so it is one builder — deliberately with NO
+## option flags: anything else a site needs (alignment, anchors, autowrap, a font override, clipping)
+## it sets on the returned Label itself, which keeps the per-site differences visible instead of
+## hiding them behind arguments. Sites that do NOT set all five (a non-zero outline, a conditional
+## colour, a burn branch) are left as they are — they are not this label.
+static func _kit_label(text: String, size: int, color: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_constant_override("outline_size", 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
 static func _bar_label(text: String, size: int, color_hex: String, width: float, burn: float = 0.0) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -1345,18 +1360,13 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount_slot.custom_minimum_size = Vector2(amount_w, content_h)
 	amount_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	amount_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var amount := Label.new()
-	amount.name = "GoldCurrencyAmount"
 	var amount_value := int(counts.get(icon_id, opts.get("count", 2450)))
-	amount.text = FX.format_amount(amount_value)
+	var amount := _kit_label(FX.format_amount(amount_value), num_size, Pal.INK)
+	amount.name = "GoldCurrencyAmount"
 	amount.custom_minimum_size = Vector2(amount_w, content_h)
-	amount.add_theme_font_size_override("font_size", num_size)
-	amount.add_theme_color_override("font_color", Pal.INK)
-	amount.add_theme_constant_override("outline_size", 0)
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # right-align the number; amount_x pushes it toward the pill's right edge
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
-	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Wallet metadata: opts this label into K/M abbreviation + shrink-to-fit + right-anchor
 	# (FX.format_amount / FX.fit_amount). The design font size travels with the label so a live refresh
 	# can re-fit as digits grow. The fit budget is NOT the bare amount_w slot — the number is right-aligned
@@ -1737,15 +1747,11 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			icwrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			icwrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			vb.add_child(icwrap)
-			var cl := Label.new()
-			cl.text = caption
-			cl.add_theme_font_size_override("font_size", int(opts.get("caption_font", FS.FINE)))
 			# ink by default; a DARK paper role (slate) passes a light colour so the caption still reads.
-			cl.add_theme_color_override("font_color", opts.get("caption_color", Pal.INK))
-			cl.add_theme_constant_override("outline_size", 0)   # solid badge = the contrast (panel-text law)
+			# (the label's outline is off — a solid badge IS the contrast, the panel-text law.)
+			var cl := _kit_label(caption, int(opts.get("caption_font", FS.FINE)), opts.get("caption_color", Pal.INK))
 			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			vb.add_child(cl)
 			b.add_child(vb)
 	else:
@@ -2028,20 +2034,10 @@ static func mail_card(entry: Dictionary, title_font: int = FS.FINE, body_font: i
 	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(text)
-	var title := Label.new()
-	title.text = String(entry.get("title", ""))
-	title.add_theme_font_size_override("font_size", title_font)
-	title.add_theme_color_override("font_color", Pal.INK)
-	title.add_theme_constant_override("outline_size", 0)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := _kit_label(String(entry.get("title", "")), title_font, Pal.INK)
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # clip+… → never forces card wider
 	text.add_child(title)
-	var body := Label.new()
-	body.text = String(entry.get("body", ""))
-	body.add_theme_font_size_override("font_size", body_font)
-	body.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
-	body.add_theme_constant_override("outline_size", 0)
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var body := _kit_label(String(entry.get("body", "")), body_font, Color(Pal.BARK, 0.95))
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART             # wrap → never forces card wider
 	text.add_child(body)
 
@@ -2158,22 +2154,12 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(text)
 
-		var title := Label.new()
-		title.text = String(entry.get("title", entry.get("label", "")))
-		title.add_theme_font_size_override("font_size", label_font)
-		title.add_theme_color_override("font_color", Pal.INK)
-		title.add_theme_constant_override("outline_size", 0)
+		var title := _kit_label(String(entry.get("title", entry.get("label", ""))), label_font, Pal.INK)
 		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		text.add_child(title)
 
-		var body := Label.new()
-		body.text = String(entry.get("body", ""))
-		body.add_theme_font_size_override("font_size", body_font)
-		body.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
-		body.add_theme_constant_override("outline_size", 0)
+		var body := _kit_label(String(entry.get("body", "")), body_font, Color(Pal.BARK, 0.95))
 		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		text.add_child(body)
 
 		if entry.has("cost"):
@@ -2186,16 +2172,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 			cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(cost)
 	else:
-		var name_l := Label.new()
-		name_l.text = String(entry.get("label", ""))
-		name_l.add_theme_font_size_override("font_size", label_font)
-		name_l.add_theme_color_override("font_color", Pal.INK)
-		name_l.add_theme_constant_override("outline_size", 0)
-		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(name_l)
+		row.add_child(_row_name_label(String(entry.get("label", "")), label_font))
 
 	# the switch is the SHARED Look.toggle_switch — its rugged track + knob wear the SAME cut-paper edge
 	# knob set as the row (passed through here). The callback fires the entry's on_toggle (game persists).
@@ -2632,6 +2609,16 @@ static func _row_body(panel: Control) -> Control:
 	var host: Variant = panel.get_meta("row_body")
 	return host if host is Control else panel
 
+## The LEFT-hand name of a settings-family row (toggle_card's plain row + info_card) — ink on the row's
+## own surface, filling the width so the switch / value sits at the far edge, vertically centred.
+## Both callers had this identical 9-line block; they are documented siblings, so it is ONE builder.
+static func _row_name_label(text: String, font: int) -> Label:
+	var l := _kit_label(text, font, Pal.INK)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return l
+
 ## An INFO CARD — a read-only row on the toggle_card surface: a label on the LEFT, a value on the RIGHT,
 ## no switch. The settings dialog uses it for non-interactive lines (e.g. the Game Center id).
 ##   entry: label · value (both String) · id? (String metadata). opts: label_font (px) · card_art (bool).
@@ -2646,23 +2633,10 @@ static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 18)
 	_row_body(panel).add_child(row)
-	var name_l := Label.new()
-	name_l.text = String(entry.get("label", ""))
-	name_l.add_theme_font_size_override("font_size", label_font)
-	name_l.add_theme_color_override("font_color", Pal.INK)
-	name_l.add_theme_constant_override("outline_size", 0)
-	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(name_l)
-	var val_l := Label.new()
-	val_l.text = String(entry.get("value", ""))
+	row.add_child(_row_name_label(String(entry.get("label", "")), label_font))
+	var val_l := _kit_label(String(entry.get("value", "")), maxi(13, label_font - 4), Color(Pal.BARK, 0.95))
 	if info_id != "":
 		val_l.set_meta("settings_info_value_id", info_id)
-	val_l.add_theme_font_size_override("font_size", maxi(13, label_font - 4))
-	val_l.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
-	val_l.add_theme_constant_override("outline_size", 0)
 	val_l.custom_minimum_size.x = float(opts.get("value_min_w", 180.0))
 	val_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	val_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2817,17 +2791,12 @@ static func _title_header(text: String, font: int, band_h: float, width: float, 
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
-	var lbl := Label.new()
+	var lbl := _kit_label(text.to_upper(), font, Color("#1B2C38"))
 	lbl.name = "DialogTitle"
-	lbl.text = text.to_upper()
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_override("font", bold_font())
-	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", Color("#1B2C38"))
-	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# The title's depth is the SHARED text drop-shadow (Kit.TEXT_SHADOW_KNOBS): offset · blur · strength,
 	# tuned on the Frame item and appliable to any text element. Off by default → a flat label.
 	apply_text_shadow(lbl, shadow)
@@ -3231,15 +3200,10 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	# (the inbox passes none, so it stays a pure card list).
 	var foot_note := String(opts.get("note", ""))
 	if foot_note != "":
-		var fl := Label.new()
-		fl.text = foot_note
+		var fl := _kit_label(foot_note, int(opts.get("note_font", FS.FINE)), Color(Pal.BARK, 0.92))
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fl.add_theme_font_override("font", plain_font())          # standard text, not the chunky display face
-		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", FS.FINE)))
-		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
-		fl.add_theme_constant_override("outline_size", 0)
-		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(fl)
 	# an optional CLAIM ALL footer — the big full-width green button of mock v1 (envelope + label), PINNED
 	# to the card's bottom (dialog_frame's footer slot) so it stays on-screen while the list scrolls. Shown
@@ -3340,14 +3304,9 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	bal.add_theme_constant_override("separation", 8)
 	bal.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bal.add_child(make_icon("gem", float(opts.get("balance_icon", 34))))
-	var bnum := Label.new()
-	bnum.text = str(int(state.get("balance", 0)))
+	var bnum := _kit_label(str(int(state.get("balance", 0))), int(opts.get("balance_font", FS.TITLE)), Pal.INK)
 	bnum.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", FS.TITLE)))
-	bnum.add_theme_color_override("font_color", Pal.INK)
-	bnum.add_theme_constant_override("outline_size", 0)
 	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bal.add_child(bnum)
 	content.add_child(bal)
 
@@ -3356,15 +3315,11 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		float(opts.get("jar_px", 200)), float(opts.get("plate_px", 220))))
 
 	# the pitch line — the longer you play, the better the deal
-	var pitch := Label.new()
-	pitch.text = String(opts.get("pitch", "Premium you've earned, saved up — claim it all."))
+	# vault pitch — enlarged (was 20)
+	var pitch := _kit_label(String(opts.get("pitch", "Premium you've earned, saved up — claim it all.")), int(opts.get("pitch_font", FS.BODY)), Color(Pal.BARK, 0.95))
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", FS.BODY)))   # vault pitch — enlarged (was 20)
-	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
-	pitch.add_theme_constant_override("outline_size", 0)
-	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(pitch)
 
 	# the green price CTA — the SHARED pill_button (reused), claimable-gated (dim + a hint below)
@@ -3382,24 +3337,16 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		hint.alignment = BoxContainer.ALIGNMENT_CENTER
 		hint.add_theme_constant_override("separation", 4)
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var hl := Label.new()
-		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
+		# vault "keep playing" hint — enlarged (was 20)
+		var hl := _kit_label(String(opts.get("hint_text", "Keep playing — it fills at")), FS.BODY, Color(Pal.BARK, 0.8))
 		hl.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hl.add_theme_font_size_override("font_size", FS.BODY)   # vault "keep playing" hint — enlarged (was 20)
-		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
-		hl.add_theme_constant_override("outline_size", 0)
 		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint.add_child(hl)
 		hint.add_child(make_icon("gem", 16))
-		var hn := Label.new()
-		hn.text = str(int(state.get("claim_min", 0)))
+		# matches the hint text (was 20)
+		var hn := _kit_label(str(int(state.get("claim_min", 0))), FS.BODY, Color(Pal.BARK, 0.8))
 		hn.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hn.add_theme_font_size_override("font_size", FS.BODY)   # matches the hint text (was 20)
-		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
-		hn.add_theme_constant_override("outline_size", 0)
 		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		hn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint.add_child(hn)
 		content.add_child(hint)
 
@@ -3685,20 +3632,14 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		ic_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ic_col.add_child(make_icon(String(d.icon), cw * 0.52))
 		if int(d.get("count", 0)) > 0:
-			var cn := Label.new()
-			cn.text = str(int(d.count))
+			var cn := _kit_label(str(int(d.count)), count_font, Pal.INK)
 			cn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			cn.add_theme_font_size_override("font_size", count_font)
-			cn.add_theme_color_override("font_color", Pal.INK)
-			cn.add_theme_constant_override("outline_size", 0)
-			cn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			ic_col.add_child(cn)
 		center.add_child(ic_col)
 
 	# the label ("Day N") — pinned near the TOP, shifted down by label_y (tunable). shop packs omit it.
 	if d.has("label") or d.has("day"):
-		var dl := Label.new()
-		dl.text = String(d.get("label", "Day %d" % int(d.get("day", 1))))
+		var dl := _kit_label(String(d.get("label", "Day %d" % int(d.get("day", 1)))), label_font, Pal.INK if state != "today" else Pal.LEAF.darkened(0.15))
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		var label_x: float = float(opts.get("label_x", 0.0)) * s   # text H nudge (slider), scaled with the card
 		dl.anchor_left = 0.0; dl.anchor_right = 1.0
@@ -3706,10 +3647,6 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		dl.offset_left = label_x; dl.offset_right = label_x
 		dl.offset_top = label_y; dl.offset_bottom = label_y
 		dl.grow_vertical = Control.GROW_DIRECTION_END
-		dl.add_theme_font_size_override("font_size", label_font)
-		dl.add_theme_color_override("font_color", Pal.INK if state != "today" else Pal.LEAF.darkened(0.15))
-		dl.add_theme_constant_override("outline_size", 0)
-		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inner.add_child(dl)
 
 	# BOTTOM action — a price (shop) / Claim (today) is the SHARED green pill_button, a done day a ✓.
@@ -3832,13 +3769,7 @@ static func _ribbon_badge(text: String, scale: float = 1.0) -> Control:
 		pp.content_margin_top = 3 * s; pp.content_margin_bottom = 4 * s
 		pop.add_theme_stylebox_override("panel", pp)
 		fg = Pal.INK
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", maxi(8, int(13 * s)))
-	l.add_theme_color_override("font_color", fg)
-	l.add_theme_constant_override("outline_size", 0)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pop.add_child(l)
+	pop.add_child(_kit_label(text, maxi(8, int(13 * s)), fg))
 	return pop
 
 ## A reusable PROGRESS BAR — a rounded track with a honey fill clipped to `frac` (0..1). Art mode draws
@@ -3985,17 +3916,12 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 	# --- optional centered label (e.g. "75%") ---
 	var label := String(opts.get("label", ""))
 	if label != "":
-		var l := Label.new()
+		var l := _kit_label(label, int(h * 0.7), Pal.INK)
 		l.name = String(opts.get("label_name", "ProgressBarLabel"))
-		l.text = label
 		l.set_anchors_preset(Control.PRESET_FULL_RECT)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.add_theme_font_size_override("font_size", int(h * 0.7))
-		l.add_theme_color_override("font_color", Pal.INK)
-		l.add_theme_constant_override("outline_size", 0)
 		l.clip_text = true
-		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(l)
 	return holder
 
@@ -4310,12 +4236,8 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(med)
 	# "X / Y ★ earned"
-	var tally := Label.new()
-	tally.text = TranslationServer.translate("%d / %d ★ earned") % [int(data.get("earned", 0)), int(data.get("next", 0))]
+	var tally := _kit_label(TranslationServer.translate("%d / %d ★ earned") % [int(data.get("earned", 0)), int(data.get("next", 0))], int(opts.get("tally_font", FS.BODY)), Pal.INK)
 	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tally.add_theme_font_size_override("font_size", int(opts.get("tally_font", FS.BODY)))
-	tally.add_theme_color_override("font_color", Pal.INK)
-	tally.add_theme_constant_override("outline_size", 0)
 	col.add_child(tally)
 	# the progress bar (reusable component, fraction of the way through this level)
 	var span: int = maxi(1, int(data.get("span", 1)))
@@ -4332,12 +4254,8 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 			rrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			col.add_child(rrow)
 	else:
-		var nxt := Label.new()
-		nxt.text = TranslationServer.translate("%d more ★ to reach Level %d") % [int(data.get("remaining", 0)), lvl + 1]
+		var nxt := _kit_label(TranslationServer.translate("%d more ★ to reach Level %d") % [int(data.get("remaining", 0)), lvl + 1], int(opts.get("hint_font", FS.FINE)), Pal.BARK)
 		nxt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nxt.add_theme_font_size_override("font_size", int(opts.get("hint_font", FS.FINE)))
-		nxt.add_theme_color_override("font_color", Pal.BARK)
-		nxt.add_theme_constant_override("outline_size", 0)
 		col.add_child(nxt)
 	# the bottom button — the SHARED cta_button (the registered "level green" badge), the SAME atom the
 	# mail/info "Got it" footer uses, so the green badged button is authored once.
@@ -4380,29 +4298,15 @@ static func _apply_day_badge(panel: Control, key: String) -> void:
 	hi.add_theme_stylebox_override("panel", s)
 	panel.add_child(hi)
 
-## A GRID of the shared small cards, EXACTLY `cols` per row filling the width — the content for the
-## daily + shop dialogs. The cell width is computed from the dialog `width` and the card CONTENT
-## (fonts / icon / Claim) is BUILT at that width, so the cards actually shrink to fit cols across at ANY
-## width (a fixed-min Claim button used to force the dialog wider). A relayout makes the fit pixel-exact;
-## a partial last row (e.g. Day 7) centres.
-static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
-	var cols: int = maxi(1, int(opts.get("cols", 3)))
-	var gap: int = int(opts.get("cell_h_gap", 12))
-	# the cell width that fits `cols` across the frame's content area (~width − card margins). Build the
-	# content scaled to it (fonts + icon) so a card's min never exceeds 1/cols and the row can't overflow.
-	var cw: float = maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
-	# Preserve the EDITED card's ASPECT RATIO when the cells shrink to fit `cols` across — forcing 3 per row
-	# must not squash the card tall-and-thin; derive the cell HEIGHT from the original cell_w:cell_h ratio.
-	var aspect: float = float(opts.get("cell_h", 116.0)) / maxf(1.0, float(opts.get("cell_w", 96.0)))
-	var co := opts.duplicate()
-	co["cell_w"] = cw
-	co["cell_h"] = cw * aspect
-	co["cut_paper"] = bool(opts.get("cut_paper", true))   # the daily grid draws the code-drawn cut-paper face by default
-	# (the card's fonts / icon / ribbon all scale from cell_w inside daily_card — uniform proportions)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var made: Array = []
+## The cell width that fits `cols` cards across a dialog of `width` (≈ width − the card margins).
+## The card CONTENT is then built at this width, so a card's min never exceeds 1/cols and a row
+## cannot overflow (a fixed-min Claim button used to force the dialog wider).
+static func _card_cell_w(width: float, cols: int, gap: int) -> float:
+	return maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
+
+## Pack `cards` into centred rows of exactly `cols` under `content`, appending every built card to
+## `made` (the list the resize fit re-measures). A partial last row centres.
+static func _card_rows(cards: Array, cols: int, gap: int, co: Dictionary, content: Control, made: Array) -> void:
 	var i := 0
 	while i < cards.size():
 		var r := HBoxContainer.new()
@@ -4416,7 +4320,10 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 				made.append(c)
 		content.add_child(r)
 		i += cols
-	# pixel-exact: size each card to 1/cols of the ACTUAL content width, with the aspect-correct height
+
+## Pixel-exact sizing: on every relayout each card becomes 1/cols of the ACTUAL content width (so a
+## 2-card row keeps the SAME card size as a full one), with the aspect-correct height.
+static func _fit_cards(content: Control, made: Array, cols: int, gap: int, aspect: float) -> void:
 	var fit := func() -> void:
 		if not is_instance_valid(content):
 			return
@@ -4426,6 +4333,29 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 				(c as Control).custom_minimum_size = Vector2(maxf(40.0, cwf), maxf(40.0, cwf * aspect))
 	content.resized.connect(fit)
 	fit.call_deferred()
+
+## A GRID of the shared small cards, EXACTLY `cols` per row filling the width — the content for the
+## daily dialog. `_shop_sections` is this same grid plus a divider per section; both share
+## _card_cell_w / _card_rows / _fit_cards, and differ ONLY in the values noted below.
+static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
+	var cols: int = maxi(1, int(opts.get("cols", 3)))
+	var gap: int = int(opts.get("cell_h_gap", 12))
+	var cw := _card_cell_w(width, cols, gap)
+	# Preserve the EDITED card's ASPECT RATIO when the cells shrink to fit `cols` across — forcing 3 per row
+	# must not squash the card tall-and-thin; derive the cell HEIGHT from the original cell_w:cell_h ratio.
+	# NOTE the daily card's own 96×116 default shape — deliberately NOT the shop's 112×150.
+	var aspect: float = float(opts.get("cell_h", 116.0)) / maxf(1.0, float(opts.get("cell_w", 96.0)))
+	var co := opts.duplicate()
+	co["cell_w"] = cw
+	co["cell_h"] = cw * aspect
+	co["cut_paper"] = bool(opts.get("cut_paper", true))   # the daily grid draws the code-drawn cut-paper face by default
+	# (the card's fonts / icon / ribbon all scale from cell_w inside daily_card — uniform proportions)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var made: Array = []
+	_card_rows(cards, cols, gap, co, content, made)
+	_fit_cards(content, made, cols, gap, aspect)
 	return content
 
 ## The DAILY dialog — the shared frame with a grid of day cards.
@@ -4472,15 +4402,10 @@ static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
 			var cw := float(opts.get("cell_w", 150.0))
 			var ch := float(opts.get("cell_h", 150.0))
 			var font := int(maxf(14.0, cw * 0.18))
-			var num := Label.new()
+			var num := _kit_label(str(tier), font, Color(Pal.INK, 0.92))
 			num.name = "TierNumber"
-			num.text = str(tier)
-			num.add_theme_font_size_override("font_size", font)
-			num.add_theme_color_override("font_color", Color(Pal.INK, 0.92))
-			num.add_theme_constant_override("outline_size", 0)
 			num.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			num.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-			num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			num.anchor_left = 1.0; num.anchor_top = 1.0; num.anchor_right = 1.0; num.anchor_bottom = 1.0
 			num.offset_left = -cw * 0.34
 			num.offset_top = -ch * 0.26
@@ -4573,14 +4498,9 @@ static func _kit_divider(caption: String) -> Control:
 	row.add_child(_div_rule())                         # left rule fills to the edge
 	if has_sprig:
 		row.add_child(_div_sprig(sp, false))           # leaves point INWARD, toward the title
-	var cap := Label.new()
-	cap.text = caption
-	cap.add_theme_font_size_override("font_size", FS.BODY)
-	cap.add_theme_color_override("font_color", Color(Pal.INK, 0.95))
-	cap.add_theme_constant_override("outline_size", 0)
+	var cap := _kit_label(caption, FS.BODY, Color(Pal.INK, 0.95))
 	cap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(cap)
 	if has_sprig:
 		row.add_child(_div_sprig(sp, true))            # mirrored on the right
@@ -4616,44 +4536,24 @@ static func _shop_sections(sections: Array, width: float, opts: Dictionary) -> C
 	var cols: int = maxi(1, int(opts.get("cols", 3)))
 	var gap: int = int(opts.get("cell_h_gap", 12))
 	var row_gap: int = int(opts.get("row_gap", 22))
-	var cw: float = maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
+	var cw := _card_cell_w(width, cols, gap)
+	# the shop card's own default shape (112×150) — deliberately TALLER than the daily grid's 96×116;
+	# keep the card's aspect ratio when it shrinks to fit cols across.
 	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 112.0)))
 	var co := opts.duplicate()
 	co["cell_w"] = cw
-	co["cell_h"] = cw * aspect      # keep the card's aspect ratio when it shrinks to fit cols across
+	co["cell_h"] = cw * aspect
 	# (the card's fonts / icon / ribbon all scale from cell_w inside daily_card — uniform proportions)
+	# NOTE: no `cut_paper` seed here — the shop leaves the card's own default standing.
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", row_gap)
+	content.add_theme_constant_override("separation", row_gap)   # generous room BETWEEN rows + sections
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var made: Array = []
 	for sec in sections:
 		var s := sec as Dictionary
 		content.add_child(_kit_divider(String(s.get("caption", ""))))
-		var cards: Array = s.get("cards", [])
-		var i := 0
-		while i < cards.size():
-			var r := HBoxContainer.new()
-			r.alignment = BoxContainer.ALIGNMENT_CENTER
-			r.add_theme_constant_override("separation", gap)
-			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			for j in cols:
-				if i + j < cards.size():
-					var c := daily_card(cards[i + j], co)
-					r.add_child(c)
-					made.append(c)
-			content.add_child(r)
-			i += cols
-	# pixel-exact: every card is 1/cols of the content width (so a 2-card row keeps the SAME card size),
-	# with the aspect-correct height
-	var fit := func() -> void:
-		if not is_instance_valid(content):
-			return
-		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
-		for c in made:
-			if is_instance_valid(c):
-				(c as Control).custom_minimum_size = Vector2(maxf(40.0, cwf), maxf(40.0, cwf * aspect))
-	content.resized.connect(fit)
-	fit.call_deferred()
+		_card_rows(s.get("cards", []), cols, gap, co, content, made)
+	_fit_cards(content, made, cols, gap, aspect)
 	return content
 
 ## --- config → opts (the SINGLE source of the params→opts transform) ------------------------------
@@ -5146,6 +5046,10 @@ static func button_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## level badge width, wallet band/pill widths, top band reserved before side rail/settings, shared nav
 ## button width, board info-bar width, board bottom-row height, and the shared right-edge inset for the wallet + rail.
 ## Stored as whole percents for simple workbench sliders, except edge_margin_px which is literal pixels.
+##
+## THE OWNER of these defaults: board.gd, hud.gd and the UI workbench read this resolver and nothing
+## else — they keep NO private fallback percentages. (They used to, and the quest band was spelled
+## 0.13 / 11.0 / 0.13 across the three, dormant only because the settings JSON always supplies the key.)
 static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
 	return {
@@ -5156,8 +5060,12 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# quest band height (% screen height); board.gd clamps it to [QUEST_H_MIN, QUEST_H_MAX]. The old
 		# quest/board x·y and board-height fracs are retired — the live layout is responsive + bottom-anchored.
 		"quest_bar_h_frac": clampf(float(h.get("quest_bar_h_pct", 11.0)) / 100.0, 0.02, 0.50),
-		"edge_margin_px": clampf(float(h.get("edge_margin_px", 18.0)), 0.0, 96.0),
+		"edge_margin_px": clampf(float(h.get("edge_margin_px", HUD_EDGE_MARGIN_PX)), 0.0, 96.0),
 	}
+
+## The shared HUD side inset (px) when no config supplies one — the ONE spelling of this number.
+## map_select_layout takes it as an opts default too (its callers pass the resolved value through).
+const HUD_EDGE_MARGIN_PX := 18.0
 
 ## The SELECTED-cell focus ring (corner brackets) tuning from the workbench. Colours are saved as
 ## 6-digit hex strings (no '#'); the rest are whole percents. Flows to the live board via board.gd
@@ -5408,10 +5316,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	info_btn.position = Vector2((inner - info_btn_px) * 0.5 + info_x, (inner - info_btn_px) * 0.5 + info_y)
 	info_slot.add_child(info_btn)
 	info_overlay.add_child(info_slot)
-	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
-	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", FS.HEADING)))
-	name_label.add_theme_color_override("font_color", Pal.INK)
-	name_label.add_theme_constant_override("outline_size", 0)
+	# "<name> · Tier N" (or the empty prompt) — the text arrives from the caller
+	var name_label := _kit_label("", int(opts.get("name_font", FS.HEADING)), Pal.INK)
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -5421,10 +5327,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	# designed for — the same limits grove_info_bar_tests already asserts, so rendering is unchanged.
 	name_label.max_lines_visible = 2
 	text_stack.add_child(name_label)
-	var desc_label := Label.new()                                # one-line player-use hint; hidden when empty
-	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", FS.FINE)))
-	desc_label.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
-	desc_label.add_theme_constant_override("outline_size", 0)
+	# one-line player-use hint; hidden when empty (the text arrives from the caller)
+	var desc_label := _kit_label("", int(opts.get("desc_font", FS.FINE)), Color(Pal.BARK, 0.92))
 	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_label.clip_text = false
@@ -5445,13 +5349,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	sell_stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	sell_stack.add_theme_constant_override("separation", 3)
 	sell_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sell_label := Label.new()                                # the plain "Sell" caption above the badge
-	sell_label.text = "Sell"
-	sell_label.add_theme_font_size_override("font_size", sell_label_font)
-	sell_label.add_theme_color_override("font_color", Pal.INK)
-	sell_label.add_theme_constant_override("outline_size", 0)
+	var sell_label := _kit_label("Sell", sell_label_font, Pal.INK)   # the plain caption above the badge
 	sell_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sell_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sell_stack.add_child(sell_label)
 	# the green badge — a VERTICAL pill: the payout currency rides on top, the amount sits below it.
 	var badge_col := VBoxContainer.new()
@@ -5464,12 +5363,9 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	sell_coin.custom_minimum_size = Vector2(sell_icon_px, sell_icon_px)
 	sell_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge_col.add_child(sell_coin)
-	var sell_count := Label.new()                                # the payout amount (the caller sets the text), under the coin
-	sell_count.add_theme_font_size_override("font_size", sell_num_font)
-	sell_count.add_theme_color_override("font_color", Pal.CREAM)
-	sell_count.add_theme_constant_override("outline_size", 0)
+	# the payout amount (the caller sets the text), under the coin
+	var sell_count := _kit_label("", sell_num_font, Pal.CREAM)
 	sell_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sell_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge_col.add_child(sell_count)
 	# the badge wears the palette's ALERT red (Pal.ACCENT_ALERT — the same clay Look.button(danger) uses), so
 	# Sell reads as the destructive action and stays distinct from the green Buy/Burst chips beside it.
@@ -6232,13 +6128,8 @@ static func bag_generators_section(label_text: String, cells: Array, cell_opts: 
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label := Label.new()
-	label.text = label_text
-	label.add_theme_font_size_override("font_size", FS.BODY)
-	label.add_theme_color_override("font_color", Color(Pal.INK, 0.75))
-	label.add_theme_constant_override("outline_size", 0)
+	var label := _kit_label(label_text, FS.BODY, Color(Pal.INK, 0.75))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(label)
 	# an HFlowContainer (not a plain HBox): once the stored generators outgrow the dialog width they WRAP
 	# onto a new line instead of overflowing the parchment. ALIGNMENT_CENTER keeps every row centred, so a
@@ -6262,13 +6153,8 @@ static func _bag_footer(text: String) -> Control:
 	var ll := _bag_leaf("kit/bag_leaf_l.png", false)
 	if ll != null:
 		row.add_child(ll)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", FS.BODY)
-	lbl.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
-	lbl.add_theme_constant_override("outline_size", 0)
+	var lbl := _kit_label(text, FS.BODY, Color(Pal.BARK, 0.85))
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(lbl)
 	var lr := _bag_leaf("kit/bag_leaf_r.png", true)
 	if lr != null:
@@ -6292,7 +6178,7 @@ static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: fl
 	var top := 96.0 + safe_top
 	var sep := 18.0
 	var band_top := top + 16.0
-	var margin := clampf(float(opts.get("edge_margin_px", 18.0)), 0.0, 96.0)
+	var margin := clampf(float(opts.get("edge_margin_px", HUD_EDGE_MARGIN_PX)), 0.0, 96.0)
 	var band_bot := view.y - (safe_bottom + margin)
 	var col_h := maxf(1.0, band_bot - band_top)
 	var left_clip_top := 0.0
@@ -6331,7 +6217,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var hud: Dictionary = hud_layout_opts_from_config(cfg)
 	return {
 		"use_art":         bool(c.get("use_art", true)),
-		"edge_margin_px":  float(hud.get("edge_margin_px", 18.0)),     # place-picker column edges share the HUD side margin
+		"edge_margin_px":  float(hud.edge_margin_px),                   # place-picker column edges share the HUD side margin
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off)
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
