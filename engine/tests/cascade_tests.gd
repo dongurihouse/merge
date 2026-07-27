@@ -259,6 +259,9 @@ func _test_chain_placements_equivalence() -> void:
 	capped.items[BoardModel.idx(Vector2i(4, 4))] = 0
 	_same_placements(capped, Vector2i(0, 0), 1001, "chest line at its merge ceiling")
 
+	# 120 boards keeps the suite quick. The knobs are there because this was soaked much
+	# harder before the optimisation landed — 12 seeds × 300 boards at fill 0.2–0.9, 3600
+	# boards, 0 mismatches; re-run that spread after any change to the search.
 	var fuzz := _fuzz_report(120)
 	ok(int(fuzz.get("mismatches", -1)) == 0 and int(fuzz.get("with_candidates", 0)) >= 20, \
 		"chain_placements equivalence: %d random boards, %d with candidates, %d cells guided, %d mismatches" \
@@ -369,9 +372,9 @@ func _mixed_board() -> BoardModel:
 
 # Random boards with brambles, generators, rewards and mixed lines — the equivalence net that
 # catches what five hand-built boards cannot.
-func _fuzz_report(boards: int) -> Dictionary:
+func _fuzz_report(boards: int, sd: int = 20260726, lo: float = 0.25, hi: float = 0.6) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 20260726
+	rng.seed = sd
 	var mismatches := 0
 	var with_candidates := 0
 	var cells := 0
@@ -380,7 +383,7 @@ func _fuzz_report(boards: int) -> Dictionary:
 		# mixes bring coins (merge top 3) and chests (top 5) in to exercise the ceilings.
 		var lines: Array = [1] if rng.randf() < 0.6 else [1, 2, 9, 10]
 		var top_tier: int = 3 if rng.randf() < 0.7 else 6
-		var fill: float = rng.randf_range(0.25, 0.6)
+		var fill: float = rng.randf_range(lo, hi)
 		var b := _blank_board()
 		for i in b.items.size():
 			if rng.randf() < 0.05:

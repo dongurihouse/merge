@@ -82,29 +82,186 @@ static func ready_ladders(board: BoardModel) -> Array:
 
 # Empty cells where dropping `code` would improve the joined same-line
 # component's best cascade. The source cell is treated as vacated for drag use.
+#
+# HOT PATH. This runs synchronously inside the drag gesture (board.gd _begin_drag →
+# _show_cascade_drag_guides), so its cost is a hitch at the exact moment the player picks a
+# piece up — and it used to cost ~20 ms on a full board here, more than a 60fps frame on a
+# machine several times faster than a phone. It is written flat for that reason:
+#
+#   * ONE PackedInt32Array snapshot of `items` — no BoardModel copy per candidate cell, and
+#     the caller's live board is read but never written (chain_placements takes the REAL
+#     board; corrupting it would be a severe bug — cascade_tests pins it).
+#   * the dragged line's components are labelled ONCE, and each component's best cascade is
+#     memoised: neighbouring candidate cells keep asking about the same components.
+#   * the per-candidate search reports only the cascade LENGTH (see _best_cascade_n), which
+#     is all this function reads, so none of the path/tie-break bookkeeping is built.
+#
+# Results are IDENTICAL to the straightforward copy-per-candidate walk: same cells, same n,
+# same order. The order is row-major because this loop walks the board row-major, which is
+# what the old trailing sort_custom re-established (idx keys are unique, so that sort had
+# exactly one possible answer). engine/tests/cascade_tests.gd proves the equivalence against
+# a pasted copy of the original algorithm — hand-built boards plus seeded random ones.
 static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Array:
 	var out: Array = []
 	if board == null or code <= 0:
 		return out
-	var base := _copy_board(board)
-	if base.in_bounds(from) and base.item_at(from) == code:
-		base.take(from)
+	var count := board.items.size()
+	var items := board.items.duplicate()          # the scratch board: mutated, then rewound
+	var from_i := BoardModel.idx(from) if board.in_bounds(from) else -1
+	if from_i >= 0 and items[from_i] == code:
+		items[from_i] = 0                          # the dragged piece has left its cell
+	# Collect rewards block a merge. Flattened to an idx set, and only for OCCUPIED cells: every
+	# reader checks the item first, and place() clears the reward under a dropped piece, so a
+	# reward stranded on an empty cell is unreachable either way.
+	var rewarded := {}
+	for key in board.collect_rewards:
+		var ri := int(key)
+		if ri < 0 or ri >= count or items[ri] <= 0:
+			continue
+		var reward = board.collect_rewards[key]
+		if reward is Dictionary and not (reward as Dictionary).is_empty():
+			rewarded[ri] = true
+	var nbrs := _neighbour_table(count)
+	var tops := {}                                 # code -> G.merge_top(code), memoised
 	var line := BoardModel.line_of(code)
-	for i in base.items.size():
+	# --- the dragged line's components, labelled in one pass ----------------------------------
+	var comp_of := PackedInt32Array()
+	comp_of.resize(count)
+	comp_of.fill(-1)
+	var comp_cells: Array = []                     # component -> PackedInt32Array of cell idx
+	var comp_n := PackedInt32Array()               # component -> best cascade n, -1 until asked
+	for i in count:
+		if comp_of[i] >= 0 or items[i] <= 0 or BoardModel.line_of(items[i]) != line:
+			continue
+		var id := comp_cells.size()
+		var members := PackedInt32Array()
+		var stack: Array = [i]
+		comp_of[i] = id
+		while not stack.is_empty():
+			var c: int = stack.pop_back()
+			members.append(c)
+			var c4 := c * 4
+			for d in 4:
+				var nb: int = nbrs[c4 + d]
+				if nb < 0 or comp_of[nb] >= 0 or items[nb] <= 0 or BoardModel.line_of(items[nb]) != line:
+					continue
+				comp_of[nb] = id
+				stack.append(nb)
+		comp_cells.append(members)
+		comp_n.append(-1)
+	# --- one pass over the empty ground -------------------------------------------------------
+	var terrain := board.terrain
+	var touched := PackedInt32Array()
+	for i in count:
+		if i == from_i or items[i] != 0 or terrain[i] != 0:
+			continue
 		var cell := BoardModel.cell_of(i)
-		if cell == from or not base.is_empty_ground(cell):
+		if board.gens.has(cell):
 			continue
-		if not _has_adjacent_line(base, cell, line):
+		# The distinct same-line components this cell touches, and the best cascade they already
+		# have between them (the "no adjacent kin" early-out is this list coming back empty).
+		touched.clear()
+		var before_n := 0
+		var b4 := i * 4
+		for d in 4:
+			var nb: int = nbrs[b4 + d]
+			if nb < 0:
+				continue
+			var id: int = comp_of[nb]
+			if id < 0 or touched.has(id):
+				continue
+			touched.append(id)
+			if comp_n[id] < 0:
+				comp_n[id] = _best_cascade_n(items, comp_cells[id], nbrs, rewarded, tops)
+			if comp_n[id] > before_n:
+				before_n = comp_n[id]
+		if touched.is_empty():
 			continue
-		var before_n := _best_adjacent_component_n(base, cell, line)
-		var placed := _copy_board(base)
-		placed.place(cell, code)
-		var after := _best_tip_in_component(placed, _component_from(placed, cell, line))
-		var n := int(after.get("n", 0))
+		# Dropping `code` here fuses those components into one — that union IS the component the
+		# full search would walk, since the only new link is this cell.
+		var joined := PackedInt32Array([i])
+		for id in touched:
+			var members: PackedInt32Array = comp_cells[id]
+			joined.append_array(members)
+		items[i] = code
+		var n := _best_cascade_n(items, joined, nbrs, rewarded, tops)
+		items[i] = 0                               # rewind: the scratch is reused for every cell
 		if n >= 2 and n > before_n:
 			out.append({"cell": cell, "n": n})
-	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
 	return out
+
+# Cell idx -> its up-to-4 orthogonal neighbours (-1 where the board ends), so the searches
+# below never redo the row/column arithmetic. `count` is the board's cell count (G.ROWS ×
+# G.COLS). ORTHO_DIRS order is irrelevant here: every caller of this table takes a MAX over
+# the neighbours, and a max does not care in which order it is fed.
+static func _neighbour_table(count: int) -> PackedInt32Array:
+	var cols: int = G.COLS
+	var table := PackedInt32Array()
+	table.resize(count * 4)
+	for i in count:
+		var b4 := i * 4
+		table[b4] = i - cols if i >= cols else -1
+		table[b4 + 1] = i + cols if i + cols < count else -1
+		table[b4 + 2] = i - 1 if i % cols > 0 else -1
+		table[b4 + 3] = i + 1 if i % cols < cols - 1 else -1
+	return table
+
+# The best cascade length available inside ONE same-line component — the `n` half of
+# _best_tip_in_component, over flat cell indices and with none of the tie-break bookkeeping.
+# chain_placements only ever reads `n`, and the tie-breaks only choose WHICH equally long
+# cascade gets reported, so dropping them cannot change the answer. Returns 0 for the `n < 2`
+# runs the full search discards. `cells` must be a whole component: a same-code neighbour of a
+# member is same-line, hence already a member, which is why there is no cell-set check here.
+static func _best_cascade_n(items: PackedInt32Array, cells: PackedInt32Array, nbrs: PackedInt32Array, rewarded: Dictionary, tops: Dictionary) -> int:
+	var best := 0
+	var vacated := {}
+	for a in cells:
+		if rewarded.has(a):
+			continue
+		var k: int = items[a]
+		var top := int(tops.get(k, -1))
+		if top < 0:
+			top = G.merge_top(k)
+			tops[k] = top
+		if k % 100 >= top:
+			continue                               # this code is already at its merge ceiling
+		var b4: int = a * 4
+		for d in 4:
+			var b: int = nbrs[b4 + d]
+			if b < 0 or items[b] != k or rewarded.has(b):
+				continue
+			# can_merge(a, b) holds: same code, neither carrying a collect reward, below the top.
+			vacated[a] = true
+			var n := 1 + _max_chain(items, nbrs, rewarded, tops, b, k + 1, vacated)
+			vacated.erase(a)
+			if n > best:
+				best = n
+	return best if best >= 2 else 0
+
+# The LENGTH of chain_path()'s best run from `cell` once it holds `code`: the same depth-first
+# search _best_chain_from does — same ceiling stop, same partner rule (an orthogonal neighbour
+# holding `code`, not already consumed, carrying no collect reward) — returning the depth
+# instead of building the paths. _path_better ranks LENGTH first, so the longest run is the run
+# the full search picks. `vacated` is carried and rewound rather than duplicated per branch.
+static func _max_chain(items: PackedInt32Array, nbrs: PackedInt32Array, rewarded: Dictionary, tops: Dictionary, cell: int, code: int, vacated: Dictionary) -> int:
+	var top := int(tops.get(code, -1))
+	if top < 0:
+		top = G.merge_top(code)
+		tops[code] = top
+	if code % 100 >= top:
+		return 0
+	var best := 0
+	var b4 := cell * 4
+	vacated[cell] = true
+	for d in 4:
+		var nb: int = nbrs[b4 + d]
+		if nb < 0 or items[nb] != code or vacated.has(nb) or rewarded.has(nb):
+			continue
+		var run := 1 + _max_chain(items, nbrs, rewarded, tops, nb, code + 1, vacated)
+		if run > best:
+			best = run
+	vacated.erase(cell)
+	return best
 
 static func _best_chain_from(board: BoardModel, current: Vector2i, code: int, vacated: Dictionary) -> Array:
 	if BoardModel.tier_of(code) >= G.merge_top(code):
@@ -214,45 +371,6 @@ static func _sorted_cells(cells: Array) -> Array:
 	var out := cells.duplicate()
 	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i(a)) < BoardModel.idx(Vector2i(b)))
 	return out
-
-static func _has_adjacent_line(board: BoardModel, cell: Vector2i, line: int) -> bool:
-	for raw_d in ORTHO_DIRS:
-		var d := Vector2i(raw_d)
-		var n := cell + d
-		if board.in_bounds(n) and board.item_at(n) > 0 and BoardModel.line_of(board.item_at(n)) == line:
-			return true
-	return false
-
-static func _best_adjacent_component_n(board: BoardModel, cell: Vector2i, line: int) -> int:
-	var seen_components := {}
-	var best := 0
-	for raw_d in ORTHO_DIRS:
-		var d := Vector2i(raw_d)
-		var n := cell + d
-		if not board.in_bounds(n) or board.item_at(n) <= 0 or BoardModel.line_of(board.item_at(n)) != line:
-			continue
-		var comp := _component_from(board, n, line)
-		if comp.is_empty():
-			continue
-		var key := Vector2i(comp[0])
-		if seen_components.has(key):
-			continue
-		seen_components[key] = true
-		best = maxi(best, int(_best_tip_in_component(board, comp).get("n", 0)))
-	return best
-
-static func _copy_board(board: BoardModel) -> BoardModel:
-	var cp := BoardModel.new()
-	cp.terrain = board.terrain.duplicate()
-	cp.items = board.items.duplicate()
-	cp.collect_rewards = board.collect_rewards.duplicate(true)
-	cp.gens = board.gens.duplicate(true)
-	cp.gen_tiers = board.gen_tiers.duplicate(true)
-	cp.gen_bag = board.gen_bag.duplicate(true)
-	cp.gen_bag_tiers = board.gen_bag_tiers.duplicate(true)
-	cp.gen_boost = board.gen_boost.duplicate(true)
-	cp.gen_bag_boost = board.gen_bag_boost.duplicate(true)
-	return cp
 
 # §2 seam (pure, headless-testable): the sealed cells the hinted pair would open.
 # A merge can land on EITHER cell of the pair, so we union the level-reached sealed
