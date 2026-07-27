@@ -151,6 +151,7 @@ var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a 
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
+var bag_seed_ranks: Array = []     # PARALLEL to bag: Soil seed rank metadata; non-seeds/default seeds carry 1
 var water := G.WATER_CAP
 var _regen_ts := 0.0               # regen anchor (unix); advances as water accrues
 var _winback := false              # set on load when away >= WINBACK_HOURS
@@ -163,13 +164,9 @@ var board_area: Control
 var slot_nodes := {}
 var piece_nodes := {}
 var bramble_nodes := {}
-var build_btn: Button
-var _build_mode := false
-var _improvement_pad_nodes := {}
 var _improvement_art_nodes := {}
 var _soil_overlay_nodes := {}
 var _magnet_range_nodes := {}
-var _improvement_move_from := Vector2i(-1, -1)
 var _magnet_scanning := false
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
@@ -198,6 +195,7 @@ var _bag_well_drawn_disc := false    # true only for the kit-absent drawn-disc f
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
+var _selected_improvement := false  # true when the info bar is showing an empty improved cell, not an item/generator
 var _focus_ring: Control = null      # the corner-bracket frame drawn on the selected cell (lazily built in board_area)
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
@@ -222,6 +220,22 @@ var _info_buy: Button                # the buy-a-copy chip (a regular item's sec
 var _info_buy_sb: StyleBoxFlat       # the badge's style (mutated for affordable / dimmed states)
 var _info_buy_count: Label           # the price amount inside the badge
 var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
+var _info_seed_place: Button         # Seed item chip: place the selected seed into its own cell
+var _info_seed_place_sb: StyleBoxFlat
+var _info_seed_place_count: Label
+var _info_seed_place_coin: Control
+var _info_seed_bag: Button           # Seed item chip: stash the selected seed into the Bag
+var _info_seed_bag_sb: StyleBoxFlat
+var _info_seed_bag_count: Label
+var _info_seed_bag_coin: Control
+var _info_unsocket: Button           # Empty improvement chip: convert the improvement back into a seed
+var _info_unsocket_sb: StyleBoxFlat
+var _info_unsocket_count: Label
+var _info_unsocket_coin: Control
+var _info_soil_rank: Button          # Empty Soil chip: rank up the selected Soil improvement
+var _info_soil_rank_sb: StyleBoxFlat
+var _info_soil_rank_count: Label
+var _info_soil_rank_coin: Control
 var _info_soil_water: Button         # Soil grow-row chip: spend board water to halve the current step once
 var _info_soil_water_sb: StyleBoxFlat
 var _info_soil_water_count: Label
@@ -501,9 +515,20 @@ func _maybe_hand_hint() -> void:
 # _hand_hint_gen_cell() result — passed in rather than re-scanned here (that scan runs once per
 # _maybe_hand_hint(), not twice: once for eligibility, again for _hand_hint_rects()).
 func _hand_hint_eligible(gen_cell: Array) -> String:
+	if Save.ftue_seen("soil") and not Save.ftue_seen("soil_seed") and not _soil_seed_hint_cell().is_empty():
+		return "soil_seed"
 	var has_pair := not BoardLogic.find_mergeable_pair(board).is_empty()
 	var has_gen := not gen_cell.is_empty()
 	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
+
+func _soil_seed_hint_cell() -> Array:
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
+	for cell in piece_nodes.keys():
+		if board.item_at(cell) == code:
+			var n: Control = piece_nodes.get(cell)
+			if n != null and is_instance_valid(n):
+				return [cell]
+	return []
 
 # The generator the tap teach points at: the first live, tappable (non-accumulator, non-treat)
 # generator on the board. [] when there is none. Returned as an Array so "no cell" is expressible.
@@ -531,6 +556,14 @@ func _hand_hint_rects(id: String, gen_cell: Array) -> Array:
 		if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
 			return []
 		return [_local_rect(a), _local_rect(b)]
+	if id == "soil_seed":
+		var seed_cell := _soil_seed_hint_cell()
+		if seed_cell.is_empty():
+			return []
+		var sn: Control = piece_nodes.get(seed_cell[0])
+		if sn == null or not is_instance_valid(sn):
+			return []
+		return [Rect2(), _local_rect(sn)]
 	if gen_cell.is_empty():
 		return []
 	var gn: Control = gen_nodes.get(gen_cell[0])
@@ -726,6 +759,23 @@ func _sanitize_saved_item_bag(raw: Array) -> Dictionary:
 			changed = true
 	return {"items": out, "changed": changed}
 
+func _sanitize_saved_bag_seed_ranks(raw: Array, items: Array) -> Dictionary:
+	var out: Array = []
+	var changed := raw.size() != items.size()
+	for i in items.size():
+		var code := int(items[i])
+		var rank := int(raw[i]) if i < raw.size() else 1
+		if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
+			var clamped := clampi(rank, 1, int(G.SOIL_MAX_RANK))
+			out.append(clamped)
+			if clamped != rank:
+				changed = true
+		else:
+			out.append(1)
+			if i < raw.size() and int(raw[i]) != 1:
+				changed = true
+	return {"ranks": out, "changed": changed}
+
 func _quest_items_are_known(q: Dictionary) -> bool:
 	if q.has("line"):
 		return G.is_valid_item_code(int(q.get("line", 0)) * 100 + int(q.get("tier", 0)))
@@ -826,12 +876,16 @@ func _purge_above_level_content() -> bool:
 	board.gen_bag_boost = kept_boost
 	# stashed items in the item bag
 	var kept_bag: Array = []
-	for code in bag:
+	var kept_seed_ranks: Array = []
+	for i in bag.size():
+		var code := int(bag[i])
 		if G.line_gated_out(BoardModel.line_of(int(code)), lvl):
 			changed = true
 		else:
 			kept_bag.append(code)
+			kept_seed_ranks.append(int(bag_seed_ranks[i]) if i < bag_seed_ranks.size() else 1)
 	bag = kept_bag
+	bag_seed_ranks = kept_seed_ranks
 	# live quests asking for a now-too-advanced line (the fence refills with valid lines after)
 	var kept_quests: Array = []
 	for q in quests:
@@ -856,6 +910,9 @@ func _load_state() -> void:
 		var bag_clean := _sanitize_saved_item_bag(Array(g.get("bag", [])))
 		bag = bag_clean["items"]
 		save_dirty = bool(bag_clean["changed"]) or save_dirty
+		var seed_rank_clean := _sanitize_saved_bag_seed_ranks(Array(g.get("bag_seed_ranks", [])), bag)
+		bag_seed_ranks = seed_rank_clean["ranks"]
+		save_dirty = bool(seed_rank_clean["changed"]) or save_dirty
 		# strip any generator/item/quest above the player's level under the scene-aligned cadence (migrates
 		# older saves; idempotent no-op once clean). Runs after the board + quests + bag are loaded.
 		save_dirty = _purge_above_level_content() or save_dirty
@@ -1007,6 +1064,7 @@ func _persist() -> void:
 	g["quests"] = quests
 	g["quests_map"] = quests_map
 	g["bag"] = bag
+	g["bag_seed_ranks"] = bag_seed_ranks
 	g["rng_state"] = rng.state
 	g["water"] = water
 	g["regen_ts"] = _regen_ts
@@ -1808,9 +1866,7 @@ func _rebuild_all() -> void:
 	slot_nodes.clear()
 	piece_nodes.clear()
 	bramble_nodes.clear()
-	build_btn = null
 	_focus_ring = null
-	_improvement_pad_nodes.clear()
 	_improvement_art_nodes.clear()
 	_soil_overlay_nodes.clear()
 	_magnet_range_nodes.clear()
@@ -1868,9 +1924,6 @@ func _rebuild_all() -> void:
 	if _selected_cell.x >= 0:  # the wipe above freed the focus frame — redraw it on the still-selected cell
 		_show_focus(_selected_cell)
 	_maybe_hand_hint()                        # FTUE: the merge / generator-tap teach follows the board
-	_render_build_pads()
-	_ensure_build_button()
-
 # (The §14 FTUE feature-spotlight wiring — _maybe_spotlight_chrome / _spotlight_chrome_deferred /
 # _show_spotlight / _on_spotlight_done, plus the Spotlight/SpotlightOverlay preloads and the
 # shop_btn/_spotlight_active members — was removed 2026-06-23 with the dormant spotlight subsystem.
@@ -1994,139 +2047,6 @@ func _improvement_cells(kind: String = "") -> Array:
 			out.append(cell)
 	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return BoardModel.idx(a) < BoardModel.idx(b))
 	return out
-
-func _build_button_available() -> bool:
-	return _improvements_enabled() and (Save.ftue_seen("soil") or _build_mode)
-
-func _ensure_build_button() -> void:
-	if not _improvements_enabled() or board_area == null or not is_instance_valid(board_area):
-		return
-	var px := clampf(csz * 0.78, 54.0, 90.0)
-	build_btn = Button.new()
-	build_btn.name = "BuildButton"
-	build_btn.flat = true
-	build_btn.focus_mode = Control.FOCUS_NONE
-	build_btn.custom_minimum_size = Vector2(px, px)
-	build_btn.size = Vector2(px, px)
-	build_btn.position = Vector2(_board_w() - px * 0.82, _board_h() - px * 0.82)
-	build_btn.z_index = 30
-	build_btn.set_meta("improvement_build_button", true)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.CREAM
-	sb.border_color = Pal.BTN_PRIMARY_EDGE
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(int(roundf(px * 0.50)))
-	Look.apply_box_shadow(sb)
-	var press := sb.duplicate() as StyleBoxFlat
-	press.bg_color = Color(Pal.CREAM, 0.86)
-	for name in ["normal", "hover", "focus", "disabled"]:
-		build_btn.add_theme_stylebox_override(name, sb)
-	build_btn.add_theme_stylebox_override("pressed", press)
-	var leaf_path := Look.kit("kit/build_leaf.png")
-	var leaf_tex := _load_optional_texture(leaf_path)
-	if leaf_tex != null:
-		var leaf := TextureRect.new()
-		leaf.texture = leaf_tex
-		leaf.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		leaf.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		leaf.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		leaf.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		build_btn.add_child(leaf)
-	else:
-		build_btn.text = "+"
-		build_btn.add_theme_font_size_override("font_size", int(roundf(px * 0.52)))
-		build_btn.add_theme_color_override("font_color", Pal.BTN_PRIMARY)
-	build_btn.pressed.connect(func() -> void:
-		if _build_mode:
-			_exit_build_mode()
-		else:
-			_start_build_mode())
-	board_area.add_child(build_btn)
-	_refresh_build_button()
-
-func _refresh_build_button() -> void:
-	if build_btn == null or not is_instance_valid(build_btn):
-		return
-	build_btn.visible = _build_button_available()
-	build_btn.modulate = Color(1, 1, 1, 1.0) if not _build_mode else Color(1.05, 1.05, 1.05, 1.0)
-
-func _start_build_mode() -> void:
-	if not _improvements_enabled() or board == null:
-		return
-	_build_mode = true
-	_render_build_pads()
-	_refresh_build_button()
-
-func _exit_build_mode() -> void:
-	_build_mode = false
-	_improvement_move_from = Vector2i(-1, -1)
-	_clear_build_pads()
-	_clear_magnet_range()
-	_refresh_build_button()
-
-func _clear_build_pads() -> void:
-	for n in _improvement_pad_nodes.values():
-		if n != null and is_instance_valid(n):
-			n.queue_free()
-	_improvement_pad_nodes.clear()
-
-func _render_build_pads() -> void:
-	_clear_build_pads()
-	_clear_magnet_range()
-	if not _build_mode or board == null or board_area == null or not is_instance_valid(board_area):
-		return
-	for r in G.ROWS:
-		for c in G.COLS:
-			var cell := Vector2i(r, c)
-			if not board.can_build_improvement(cell):
-				continue
-			var pad := _make_improvement_pad(cell, true)
-			_improvement_pad_nodes[cell] = pad
-			board_area.add_child(pad)
-	for cell in _improvement_cells():
-		var hit := _make_improvement_pad(cell, false)
-		_improvement_pad_nodes["built_%s" % str(cell)] = hit
-		board_area.add_child(hit)
-		var row := board.improvement_at(cell)
-		if String(row.get("kind", "")) == Improvements.KIND_MAGNET:
-			_render_magnet_range(cell)
-
-func _make_improvement_pad(cell: Vector2i, buildable: bool) -> Button:
-	var pad := Button.new()
-	pad.name = ("ImprovementPad_%d_%d" if buildable else "ImprovementCell_%d_%d") % [cell.x, cell.y]
-	pad.flat = true
-	pad.focus_mode = Control.FOCUS_NONE
-	pad.position = _cell_pos(cell)
-	pad.custom_minimum_size = Vector2(csz, csz)
-	pad.size = Vector2(csz, csz)
-	pad.z_index = 22
-	pad.set_meta("cell", cell)
-	if buildable:
-		pad.set_meta("improvement_pad", true)
-		pad.text = "+"
-		pad.add_theme_font_size_override("font_size", int(roundf(csz * 0.42)))
-		pad.add_theme_color_override("font_color", Pal.BTN_PRIMARY)
-		pad.pressed.connect(func() -> void: _on_improvement_pad_pressed(cell))
-	else:
-		pad.set_meta("improvement_cell", true)
-		pad.pressed.connect(func() -> void: _open_improvement_cell(cell))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(Pal.CREAM, 0.18 if buildable else 0.08)
-	sb.border_color = Color(Pal.BTN_PRIMARY_EDGE, 0.75 if buildable else 0.45)
-	sb.set_border_width_all(3 if buildable else 2)
-	sb.set_corner_radius_all(maxi(8, int(roundf(csz * 0.16))))
-	var empty := StyleBoxEmpty.new()
-	pad.add_theme_stylebox_override("normal", sb)
-	pad.add_theme_stylebox_override("hover", sb)
-	pad.add_theme_stylebox_override("pressed", sb)
-	pad.add_theme_stylebox_override("focus", empty)
-	return pad
-
-func _on_improvement_pad_pressed(cell: Vector2i) -> void:
-	if _improvement_move_from.x >= 0:
-		_finish_improvement_move(cell)
-	else:
-		_open_improvement_sheet(cell)
 
 func _clear_improvement_art() -> void:
 	for n in _improvement_art_nodes.values():
@@ -2330,161 +2250,110 @@ func _soil_info_title(cell: Vector2i) -> String:
 	var target := mini(int(G.merge_top(code)), BoardModel.tier_of(code) + Improvements.grow_amount(int(row.get("rank", 1))))
 	return "Growing to t%d - %s" % [target, _format_improvement_time(board.soil_remaining(cell, Time.get_unix_time_from_system()))]
 
-func _open_improvement_sheet(cell: Vector2i) -> void:
-	if not _improvements_enabled() or not board.can_build_improvement(cell):
-		return
-	if Overlay.is_open(self, "ImprovementSheet"):
-		return
-	var m := Overlay.modal(self, "ImprovementSheet", {"ink": Pal.GROUND_EDGE, "alpha": 0.48})
-	var card := _make_improvement_sheet_card(cell, m.dismiss)
-	(m.center as CenterContainer).add_child(card)
-
-func _make_improvement_sheet_card(cell: Vector2i, dismiss: Callable) -> Control:
-	var card := PanelContainer.new()
-	card.name = "ImprovementSheetCard"
-	card.custom_minimum_size = Vector2(460, 280)
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 12)
-	card.add_child(col)
-	var title := Label.new()
-	title.text = "Improve this cell"
-	title.add_theme_font_size_override("font_size", FS.HEADING)
-	title.add_theme_color_override("font_color", Pal.INK)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(title)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 16)
-	col.add_child(row)
-	row.add_child(_make_improvement_choice(cell, Improvements.KIND_SOIL, dismiss))
-	row.add_child(_make_improvement_choice(cell, Improvements.KIND_MAGNET, dismiss))
-	return card
-
-func _make_improvement_choice(cell: Vector2i, kind: String, dismiss: Callable) -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(190, 170)
-	var count := board.improvement_count(kind)
-	var cap := Improvements.cap_for(kind)
-	var price := Improvements.build_price(kind, count)
-	var label := "Soil" if kind == Improvements.KIND_SOIL else "Magnet"
-	var price_text := "Max" if count >= cap else ("Free" if price == 0 else ("%d %s" % [price, "acorns" if kind == Improvements.KIND_MAGNET else "coins"]))
-	b.text = "%s\n%d/%d\n%s" % [label, count, cap, price_text]
-	b.disabled = count >= cap
-	b.modulate = Color(1, 1, 1, 1.0) if not b.disabled else Color(1, 1, 1, 0.45)
-	b.pressed.connect(func() -> void:
-		if _build_improvement(cell, kind):
-			if dismiss.is_valid():
-				dismiss.call())
-	return b
-
-func _open_improvement_cell(cell: Vector2i) -> void:
-	if not board.has_improvement(cell):
-		return
-	if Overlay.is_open(self, "ImprovementCellSheet"):
-		return
-	var m := Overlay.modal(self, "ImprovementCellSheet", {"ink": Pal.GROUND_EDGE, "alpha": 0.48})
-	var row := board.improvement_at(cell)
-	var card := PanelContainer.new()
-	card.name = "ImprovementCellCard"
-	card.custom_minimum_size = Vector2(420, 260)
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	card.add_child(col)
-	var title := Label.new()
-	var kind := String(row.get("kind", ""))
-	title.text = "Soil rank %d" % int(row.get("rank", 1)) if kind == Improvements.KIND_SOIL else "Magnet"
-	title.add_theme_font_size_override("font_size", FS.HEADING)
-	title.add_theme_color_override("font_color", Pal.INK)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(title)
-	if kind == Improvements.KIND_SOIL:
-		var rank_action := func() -> void:
-			if _rank_soil(cell) and m.dismiss.is_valid():
-				m.dismiss.call()
-		var rank_btn := Look.button("Rank up", rank_action, true)
-		rank_btn.disabled = int(row.get("rank", 1)) >= int(G.SOIL_MAX_RANK)
-		col.add_child(rank_btn)
-	var move_action := func() -> void:
-		if m.dismiss.is_valid():
-			m.dismiss.call()
-		_move_improvement_from(cell)
-	col.add_child(Look.button("Move", move_action, false))
-	var demolish_action := func() -> void:
-		if m.dismiss.is_valid():
-			m.dismiss.call()
-		_demolish_improvement(cell)
-	col.add_child(Look.button("Demolish", demolish_action, false))
-	(m.center as CenterContainer).add_child(card)
-
-func _build_improvement(cell: Vector2i, kind: String) -> bool:
+func _place_seed(cell: Vector2i) -> bool:
 	if not _improvements_enabled():
 		return false
-	var out := BoardActions.build_improvement(board, cell, kind)
-	if not bool(out.get("built", false)):
+	var seed_kind := Improvements.kind_for_seed(board.item_at(cell))
+	var out := BoardActions.place_seed(board, cell)
+	if not bool(out.get("placed", false)):
 		Audio.play("invalid_soft", -6.0)
-		if build_btn != null and is_instance_valid(build_btn):
-			FX.wobble(build_btn)
+		if _info_seed_place != null and is_instance_valid(_info_seed_place):
+			FX.wobble(_info_seed_place)
 		return false
+	if seed_kind == Improvements.KIND_SOIL:
+		_end_hand_hint("soil_seed")
 	Audio.play("button_tap", -2.0)
-	_build_mode = false
-	_improvement_move_from = Vector2i(-1, -1)
 	_rebuild_all()
 	_after_board_change()
+	_select_improvement_cell(cell)
 	var art: Control = _improvement_art_nodes.get(cell)
 	if art != null and is_instance_valid(art):
 		FX.pop(art)
 	return true
 
-func _move_improvement_from(cell: Vector2i) -> void:
-	if not board.has_improvement(cell):
-		return
-	if _defer_soil_reset([cell], "Move", func() -> void: _move_improvement_from_confirmed(cell)):
-		return
-	_move_improvement_from_confirmed(cell)
+func _on_seed_place() -> void:
+	if _selected_cell.x >= 0:
+		_place_seed(_selected_cell)
 
-func _move_improvement_from_confirmed(cell: Vector2i) -> void:
-	_improvement_move_from = cell
-	_build_mode = true
-	_render_build_pads()
-	_refresh_build_button()
+func _on_seed_bag() -> void:
+	if _selected_cell.x < 0:
+		return
+	var node: Control = piece_nodes.get(_selected_cell)
+	if node == null or not is_instance_valid(node):
+		return
+	_stash(_selected_cell, node)
+	_clear_selection()
 
-func _finish_improvement_move(dst: Vector2i) -> bool:
-	var src := _improvement_move_from
-	if src.x < 0:
+func _select_improvement_cell(cell: Vector2i) -> void:
+	if not board.has_improvement(cell) or board.item_at(cell) > 0:
+		_clear_selection()
+		return
+	_selected_cell = cell
+	_selected_improvement = true
+	_show_focus(cell)
+	if _info_burst != null and is_instance_valid(_info_burst):
+		_info_burst.visible = false
+	if _info_buy != null and is_instance_valid(_info_buy):
+		_info_buy.visible = false
+	if _info_trash != null and is_instance_valid(_info_trash):
+		_info_trash.visible = false
+	_hide_seed_chips()
+	_hide_soil_chips()
+	_place_info_button(false)
+	var row := board.improvement_at(cell)
+	var kind := String(row.get("kind", ""))
+	for c in _info_icon.get_children():
+		c.queue_free()
+	var seed_code := Improvements.seed_code_for_kind(kind)
+	if seed_code > 0:
+		_info_icon.add_child(PieceView.make_piece(seed_code, _info_item_px, 0.0))
+	_info_label.text = "Soil rank %d" % int(row.get("rank", 1)) if kind == Improvements.KIND_SOIL else "Magnet"
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		var cap := Improvements.cap_for(kind)
+		_info_desc_label.text = "%d/%d placed" % [board.improvement_count(kind), cap]
+		_info_desc_label.visible = true
+	_info_btn.visible = false
+	_info_btn.disabled = true
+	_refresh_improvement_chips(cell)
+
+func _unsocket_improvement(cell: Vector2i) -> bool:
+	if _defer_soil_reset([cell], "Unsocket", func() -> void: _unsocket_improvement_confirmed(cell)):
 		return false
-	var out := BoardActions.move_improvement(board, src, dst)
-	if not bool(out.get("moved", false)):
+	return _unsocket_improvement_confirmed(cell)
+
+func _unsocket_improvement_confirmed(cell: Vector2i) -> bool:
+	var out := BoardActions.unsocket_improvement(board, cell)
+	if not bool(out.get("unsocketed", false)):
 		Audio.play("invalid_soft", -6.0)
+		if _info_unsocket != null and is_instance_valid(_info_unsocket):
+			FX.wobble(_info_unsocket)
 		return false
-	_build_mode = false
-	_improvement_move_from = Vector2i(-1, -1)
+	Audio.play("button_tap", -2.0)
 	_rebuild_all()
 	_after_board_change()
+	if board.item_at(cell) > 0:
+		_select_item(cell)
 	return true
 
-func _demolish_improvement(cell: Vector2i) -> bool:
-	if _defer_soil_reset([cell], "Demolish", func() -> void: _demolish_improvement_confirmed(cell)):
-		return false
-	return _demolish_improvement_confirmed(cell)
+func _on_unsocket_improvement() -> void:
+	if _selected_cell.x >= 0:
+		_unsocket_improvement(_selected_cell)
 
-func _demolish_improvement_confirmed(cell: Vector2i) -> bool:
-	var out := BoardActions.demolish_improvement(board, cell)
-	if not bool(out.get("demolished", false)):
-		return false
-	_rebuild_all()
-	_after_board_change()
-	return true
+func _on_soil_rank() -> void:
+	if _selected_cell.x >= 0:
+		_rank_soil(_selected_cell)
 
 func _rank_soil(cell: Vector2i) -> bool:
 	var out := BoardActions.rank_soil(board, cell)
 	if not bool(out.get("ranked", false)):
+		if _info_soil_rank != null and is_instance_valid(_info_soil_rank):
+			FX.wobble(_info_soil_rank)
 		Audio.play("invalid_soft", -6.0)
 		return false
 	_rebuild_all()
 	_after_board_change()
+	if board.has_improvement(cell) and board.item_at(cell) == 0:
+		_select_improvement_cell(cell)
 	return true
 
 func _water_soil(cell: Vector2i, now: float = -1.0) -> bool:
@@ -2575,10 +2444,39 @@ func _maybe_soil_ftue() -> void:
 	if G.level() < 6:
 		return
 	Save.mark_ftue_seen("soil")
-	_start_build_mode()
-	_refresh_build_button()
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
+	var granted := false
+	if not _has_unplaced_seed(Improvements.KIND_SOIL) and board.improvement_count(Improvements.KIND_SOIL) < Improvements.cap_for(Improvements.KIND_SOIL):
+		var dest := Vector2i(-1, -1)
+		for c in board.empty_ground_cells():
+			if board.can_build_improvement(c):
+				dest = c
+				break
+		if dest.x >= 0:
+			board.place(dest, code)
+			granted = true
+		elif bag.size() < _bag_capacity():
+			_bag_append(code)
+			granted = true
+	if granted:
+		_rebuild_all()
+		_after_board_change()
+	else:
+		_maybe_hand_hint()
 	if is_inside_tree():
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 220), "You can tend the ground now - pick a spot for some soil.", CREAM, FS.BODY)
+		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 220), "A seed of good earth! Tap it to choose a spot.", CREAM, FS.BODY)
+
+func _has_unplaced_seed(kind: String) -> bool:
+	var code := Improvements.seed_code_for_kind(kind)
+	if code <= 0:
+		return false
+	for v in board.items:
+		if int(v) == code:
+			return true
+	for v in bag:
+		if int(v) == code:
+			return true
+	return false
 
 func _soil_reset_confirm_cell(cells: Array) -> Vector2i:
 	if board == null or not _improvements_enabled():
@@ -2645,6 +2543,7 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 	if row == null:
 		return
 	var prior_selection := _selected_cell
+	var prior_improvement := _selected_improvement
 	for child in row.get_children():
 		row.remove_child(child)
 		child.queue_free()
@@ -2659,7 +2558,9 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))
 	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag tile, OUTSIDE the info tray
 	if preserve_selection and prior_selection.x >= 0 and board != null:
-		if board.is_gen(prior_selection):
+		if prior_improvement and board.has_improvement(prior_selection) and board.item_at(prior_selection) == 0:
+			_select_improvement_cell(prior_selection)
+		elif board.is_gen(prior_selection):
 			_select_generator(prior_selection)
 		else:
 			_select_item(prior_selection)
@@ -2869,6 +2770,8 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_capture_info_button_positions()
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
+	_build_seed_chips(opts, _info_trash.get_parent())   # Improvement seeds: Place + Bag actions
+	_build_improvement_chips(opts, _info_trash.get_parent()) # Empty improvements: Rank + Unsocket actions
 	_build_soil_chips(opts, _info_trash.get_parent())   # Cell improvements: growing pieces expose water + finish chips
 	return pill
 
@@ -2907,6 +2810,34 @@ func _build_buy_chip(opts: Dictionary, row: Control) -> void:
 	_info_buy_coin = c.coin
 	row.move_child(_info_buy, _info_trash.get_index())   # buy sits just LEFT of the sell button
 
+func _build_seed_chips(opts: Dictionary, row: Control) -> void:
+	var place := ActionBar.action_chip(opts, row, "Place", _on_seed_place, BoxContainer.ALIGNMENT_END)
+	_info_seed_place = place.btn
+	_info_seed_place_sb = place.sb
+	_info_seed_place_count = place.count
+	_info_seed_place_coin = place.coin
+	row.move_child(_info_seed_place, _info_trash.get_index())
+	var bag_chip := ActionBar.action_chip(opts, row, "Bag", _on_seed_bag, BoxContainer.ALIGNMENT_END)
+	_info_seed_bag = bag_chip.btn
+	_info_seed_bag_sb = bag_chip.sb
+	_info_seed_bag_count = bag_chip.count
+	_info_seed_bag_coin = bag_chip.coin
+	row.move_child(_info_seed_bag, _info_trash.get_index())
+
+func _build_improvement_chips(opts: Dictionary, row: Control) -> void:
+	var rank := ActionBar.action_chip(opts, row, "Rank", _on_soil_rank, BoxContainer.ALIGNMENT_END)
+	_info_soil_rank = rank.btn
+	_info_soil_rank_sb = rank.sb
+	_info_soil_rank_count = rank.count
+	_info_soil_rank_coin = rank.coin
+	row.move_child(_info_soil_rank, _info_trash.get_index())
+	var unsocket := ActionBar.action_chip(opts, row, "Unsocket", _on_unsocket_improvement, BoxContainer.ALIGNMENT_END)
+	_info_unsocket = unsocket.btn
+	_info_unsocket_sb = unsocket.sb
+	_info_unsocket_count = unsocket.count
+	_info_unsocket_coin = unsocket.coin
+	row.move_child(_info_unsocket, _info_trash.get_index())
+
 func _build_soil_chips(opts: Dictionary, row: Control) -> void:
 	var water_chip := ActionBar.action_chip(opts, row, "Water", _on_soil_water, BoxContainer.ALIGNMENT_END)
 	_info_soil_water = water_chip.btn
@@ -2926,6 +2857,59 @@ func _hide_soil_chips() -> void:
 		_info_soil_water.visible = false
 	if _info_soil_finish != null and is_instance_valid(_info_soil_finish):
 		_info_soil_finish.visible = false
+
+func _hide_seed_chips() -> void:
+	if _info_seed_place != null and is_instance_valid(_info_seed_place):
+		_info_seed_place.visible = false
+	if _info_seed_bag != null and is_instance_valid(_info_seed_bag):
+		_info_seed_bag.visible = false
+
+func _hide_improvement_chips() -> void:
+	if _info_unsocket != null and is_instance_valid(_info_unsocket):
+		_info_unsocket.visible = false
+	if _info_soil_rank != null and is_instance_valid(_info_soil_rank):
+		_info_soil_rank.visible = false
+
+func _set_action_chip(btn: Button, sb: StyleBoxFlat, coin_slot: Control, count: Label, icon: String, text: String, ready: bool) -> void:
+	if btn == null or not is_instance_valid(btn):
+		return
+	for c in coin_slot.get_children():
+		c.queue_free()
+	var ic := Look.icon(icon, coin_slot.custom_minimum_size.x)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coin_slot.add_child(ic)
+	count.text = text
+	sb.bg_color = Pal.BTN_PRIMARY if ready else Color(Pal.BTN_PRIMARY, 0.42)
+	sb.border_color = Pal.BTN_PRIMARY_EDGE if ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
+	btn.modulate = Color(1, 1, 1, 1.0) if ready else Color(1, 1, 1, 0.7)
+	btn.visible = true
+
+func _refresh_seed_chips(cell: Vector2i) -> void:
+	if _info_seed_place == null or _info_seed_bag == null:
+		return
+	var can_place := board.can_place_seed(cell)
+	var can_bag := bag.size() < _bag_capacity() and board.collect_reward_at(cell).is_empty()
+	_set_action_chip(_info_seed_place, _info_seed_place_sb, _info_seed_place_coin, _info_seed_place_count, "check", "", can_place)
+	_set_action_chip(_info_seed_bag, _info_seed_bag_sb, _info_seed_bag_coin, _info_seed_bag_count, "bag", "", can_bag)
+
+func _refresh_improvement_chips(cell: Vector2i) -> void:
+	if _info_unsocket == null:
+		return
+	var row := board.improvement_at(cell)
+	var kind := String(row.get("kind", ""))
+	var price := Improvements.unsocket_price(kind)
+	var use_gem := price.y > 0
+	var cost := price.y if use_gem else price.x
+	var afford := (Save.diamonds() if use_gem else Save.coins()) >= cost
+	_set_action_chip(_info_unsocket, _info_unsocket_sb, _info_unsocket_coin, _info_unsocket_count, "gem" if use_gem else "coin", "%d" % cost, afford)
+	if _info_soil_rank == null:
+		return
+	if kind != Improvements.KIND_SOIL:
+		_info_soil_rank.visible = false
+		return
+	var rank_price := Improvements.soil_rank_price(int(row.get("rank", 1)))
+	var rank_ready := rank_price > 0 and Save.coins() >= rank_price
+	_set_action_chip(_info_soil_rank, _info_soil_rank_sb, _info_soil_rank_coin, _info_soil_rank_count, "coin", "%d" % rank_price if rank_price > 0 else "Max", rank_ready)
 
 func _refresh_soil_chips(cell: Vector2i) -> void:
 	if _info_soil_water == null or _info_soil_finish == null:
@@ -2965,6 +2949,9 @@ func _refresh_selected_soil_info() -> void:
 		return
 	if board == null:
 		return
+	if _selected_improvement and board.has_improvement(_selected_cell):
+		_select_improvement_cell(_selected_cell)
+		return
 	if board.is_growing(_selected_cell):
 		_info_label.text = _soil_info_title(_selected_cell)
 		_refresh_soil_chips(_selected_cell)
@@ -2981,12 +2968,16 @@ func _select_item(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
+	_selected_improvement = false
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
 	_hide_soil_chips()
+	_hide_seed_chips()
+	_hide_improvement_chips()
 	_place_info_button(false)
 	var tier := BoardModel.tier_of(code)
+	var seed_kind := Improvements.kind_for_seed(code)
 	for c in _info_icon.get_children():
 		c.queue_free()
 	_info_icon.add_child(PieceView.make_piece(code, _info_item_px, 0.0))
@@ -2997,9 +2988,10 @@ func _select_item(cell: Vector2i) -> void:
 		var desc := _item_description_for_cell(cell, code)
 		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
 		_info_desc_label.visible = true
-	_info_btn.visible = not _info_button_hidden
-	_info_btn.disabled = _info_button_hidden
-	if board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
+	var show_info := seed_kind == "" and not _info_button_hidden
+	_info_btn.visible = show_info
+	_info_btn.disabled = not show_info
+	if board.is_gen(cell) or G.is_coin(code) or (G.is_special(code) and seed_kind == ""):
 		_info_trash.visible = false           # generators, coins, and special drops aren't deletable for coins
 		if _info_buy != null and is_instance_valid(_info_buy):
 			_info_buy.visible = false         # …nor buyable
@@ -3013,7 +3005,12 @@ func _select_item(cell: Vector2i) -> void:
 		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_info_trash_coin.add_child(pay_icon)
 		_info_trash.visible = true
-		_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
+		if seed_kind != "":
+			if _info_buy != null and is_instance_valid(_info_buy):
+				_info_buy.visible = false
+			_refresh_seed_chips(cell)
+		else:
+			_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
 		if board.is_growing(cell):
 			_refresh_soil_chips(cell)
 
@@ -3038,6 +3035,7 @@ func _select_generator(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
+	_selected_improvement = false
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	_place_info_button(false)
@@ -3064,6 +3062,8 @@ func _select_generator(cell: Vector2i) -> void:
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false             # a generator is never buyable as a copy
 	_hide_soil_chips()
+	_hide_seed_chips()
+	_hide_improvement_chips()
 	# A generator is clearable when it is REDUNDANT (a higher-tier same-line sibling exists — the stranding
 	# fix) or RETIRED (§6: the game will never ask its line again — G.gen_retirable). The retired case is the
 	# manual path for a player who dismissed the retirement offer, so a dead tool is never stuck on the board.
@@ -3106,6 +3106,7 @@ func _gen_info_text(gid: String, cell: Vector2i) -> String:
 # Reset the info bar to its empty "tap an item" state.
 func _clear_selection() -> void:
 	_selected_cell = Vector2i(-1, -1)
+	_selected_improvement = false
 	_hide_focus()
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():
@@ -3125,6 +3126,8 @@ func _clear_selection() -> void:
 		_info_burst.visible = false
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
+	_hide_seed_chips()
+	_hide_improvement_chips()
 	_hide_soil_chips()
 
 # Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
@@ -3252,7 +3255,7 @@ func _on_buy_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var code := board.item_at(_selected_cell)
-	if code <= 0 or board.is_gen(_selected_cell) or G.is_coin(code):
+	if code <= 0 or board.is_gen(_selected_cell) or G.is_coin(code) or G.is_special(code):
 		return
 	var price := G.buy_price(code)
 	var use_gem := price.y > 0
@@ -3280,7 +3283,7 @@ func _on_buy_pressed() -> void:
 		return                                    # safety: affordability re-checked at the spend
 	Audio.play("button_tap", -2.0)
 	if to_bag:
-		bag.append(code)
+		_bag_append(code)
 		_rebuild_bag()
 		if bag_btn != null and is_instance_valid(bag_btn):
 			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.bought"), STRAW)
@@ -3320,6 +3323,8 @@ func _on_info_pressed() -> void:
 		return
 	var code := board.item_at(_selected_cell)
 	if code <= 0:
+		return
+	if Improvements.is_seed(code):
 		return
 	_open_ladder(BoardModel.line_of(code), BoardModel.tier_of(code))
 
@@ -3499,8 +3504,6 @@ func _gen_highlight_opts() -> Dictionary:
 
 func _on_board_input(event: InputEvent) -> void:
 	_idle = 0.0
-	if _build_mode:
-		return
 	if animating:
 		if Debug.on() and ((event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)):
 			print("[collect] board tap IGNORED — animating gate is true (a merge/anim never cleared it)")
@@ -3667,6 +3670,8 @@ func _on_release(pos: Vector2) -> void:
 		var tap := _pos_to_cell(pos)
 		if tap == _press_cell and board.is_bramble(tap):
 			_show_locked_cell_info(tap)
+		elif tap == _press_cell and board.has_improvement(tap) and board.item_at(tap) == 0:
+			_select_improvement_cell(tap)
 		return
 	var target := _pos_to_cell(pos)
 	var from := _drag_from
@@ -3709,7 +3714,8 @@ func _on_release(pos: Vector2) -> void:
 			if node != null and is_instance_valid(node):
 				node.position = _cell_pos(from)
 			_select_item(from)
-			_open_ladder(BoardModel.line_of(from_code), BoardModel.tier_of(from_code))
+			if not Improvements.is_seed(from_code):
+				_open_ladder(BoardModel.line_of(from_code), BoardModel.tier_of(from_code))
 		else:
 			_snap_back(from, node)
 			_select_item(from)
@@ -4077,7 +4083,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 		_drop_coin_near(b)
 	# §6.B a rarer luck: a merge sometimes also shakes a SPECIAL item loose (chest/key/water/acorn/exp)
 	if not G.is_special(produced) and G.rolls_special_drop(rng):
-		_drop_special_near(b, G.pick_special_drop(rng))
+		_drop_special_near(b, G.pick_special_drop(rng, _blocked_seed_drop_lines()))
 	animating = false
 	_after_board_change()
 
@@ -4192,6 +4198,9 @@ func debug_drop_acorn() -> void:
 		return
 	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), 13 * 100 + 1)
 	_after_board_change()
+
+func _blocked_seed_drop_lines() -> Array:
+	return Improvements.blocked_seed_drop_lines(board, bag)
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	# RULE in the pure action (take the coin + credit the wallet); the scene renders the fly-to-HUD.
@@ -4454,7 +4463,7 @@ func _pop_treat(cell: Vector2i) -> void:
 		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if not empties.is_empty() and rng.randf() < G.TREAT_DROP_RATE:
-		_drop_special_near(cell, G.pick_special_drop(rng))   # the treat shower: a §6.B special item too
+		_drop_special_near(cell, G.pick_special_drop(rng, _blocked_seed_drop_lines()))   # the treat shower: a §6.B special item too
 	var clicks := int(Save.grove().get("treat_clicks", 0)) - 1
 	FX.gen_charge(gen_nodes.get(cell))
 	Audio.play("water_pop", -2.0, 1.2)
@@ -4509,6 +4518,28 @@ func _commit_swap_confirmed(a: Vector2i, b: Vector2i, node: Control) -> void:
 func _bag_capacity() -> int:
 	return BoardLogic.bag_capacity(Save.bag_slots())
 
+func _bag_seed_rank_at(i: int) -> int:
+	if i < 0 or i >= bag.size():
+		return 1
+	var code := int(bag[i])
+	if Improvements.kind_for_seed(code) != Improvements.KIND_SOIL:
+		return 1
+	return clampi(int(bag_seed_ranks[i]) if i < bag_seed_ranks.size() else 1, 1, int(G.SOIL_MAX_RANK))
+
+func _bag_append(code: int, seed_rank: int = 1) -> void:
+	bag.append(code)
+	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
+		bag_seed_ranks.append(clampi(seed_rank, 1, int(G.SOIL_MAX_RANK)))
+	else:
+		bag_seed_ranks.append(1)
+
+func _bag_remove_at(i: int) -> int:
+	var rank := _bag_seed_rank_at(i)
+	bag.remove_at(i)
+	if i < bag_seed_ranks.size():
+		bag_seed_ranks.remove_at(i)
+	return rank
+
 
 func _stash(from: Vector2i, node: Control) -> void:
 	if not board.collect_reward_at(from).is_empty():
@@ -4523,8 +4554,11 @@ func _stash(from: Vector2i, node: Control) -> void:
 	_stash_confirmed(from, node)
 
 func _stash_confirmed(from: Vector2i, node: Control) -> void:
+	var rank := board.seed_rank_at(from)
 	var code := board.take(from)
-	bag.append(code)
+	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
+		_end_hand_hint("soil_seed")
+	_bag_append(code, rank)
 	piece_nodes.erase(from)
 	var at := board_area.get_global_transform() * _cell_pos(from) + Vector2(csz, csz) / 2.0
 	if is_instance_valid(node):
@@ -4560,8 +4594,9 @@ func _retrieve_from_bag(i: int, cell: Vector2i) -> bool:
 	if not board.is_empty_ground(cell):
 		return false
 	var code := int(bag[i])
-	bag.remove_at(i)
+	var seed_rank := _bag_remove_at(i)
 	board.place(cell, code)
+	board.set_seed_rank(cell, seed_rank)
 	var n := _make_piece(code, csz)
 	n.position = _cell_pos(cell)
 	n.scale = Vector2(0.3, 0.3)
@@ -4854,10 +4889,11 @@ func _maybe_offer_retirement() -> void:
 # gen_bag, and every leftover piece of it (board + item bag) is sold. All the decision logic is the pure
 # BoardActions.retire_line static (guarded on G.gen_retirable); this just plays the payout and rebuilds.
 func _retire_line(gid: String) -> void:
-	var out: Dictionary = BoardActions.retire_line(board, bag, gid, _quest_level())
+	var out: Dictionary = BoardActions.retire_line(board, bag, gid, _quest_level(), bag_seed_ranks)
 	if not bool(out.retired):
 		return
 	bag = out.bag
+	bag_seed_ranks = out.bag_seed_ranks
 	Audio.play("tidy_poof", -4.0, 1.1)
 	var coins := int(out.coins)
 	if coins > 0:
@@ -4876,6 +4912,8 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	if G.is_coin(code):
 		_collect_coin(from, node)          # coins are money already — pocket them
 		return
+	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
+		_end_hand_hint("soil_seed")
 	board.take(from)
 	piece_nodes.erase(from)
 	_grant_sale(code, node)

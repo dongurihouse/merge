@@ -7,8 +7,8 @@ const Improvements = preload("res://engine/scripts/core/improvements.gd")
 func _initialize() -> void:
 	begin("grove · cell improvements")
 	await process_frame
-	await _test_scene_builds_first_soil_free()
-	await _test_build_mode_pads_only_empty_unsealed_cells()
+	await _test_seed_info_bar_places_bags_and_sells()
+	await _test_unsocket_info_bar_returns_ranked_seed()
 	await _test_growing_piece_info_row_surfaces_actions()
 	await _test_growing_piece_keeps_ordinary_actions()
 	await _test_normal_drag_to_bag_stashes_without_soil_confirm()
@@ -20,7 +20,7 @@ func _initialize() -> void:
 	await _test_completed_top_soil_refreshes_selected_info()
 	await _test_soil_tick_does_not_free_active_drag_node()
 	await _test_soil_completion_wakes_magnet_and_opens_bramble()
-	await _test_soil_ftue_opens_build_mode_once()
+	await _test_soil_ftue_grants_seed_once()
 	finish()
 
 func _clear_board_model(b: BoardModel) -> void:
@@ -29,6 +29,7 @@ func _clear_board_model(b: BoardModel) -> void:
 	b.gen_boost = {}
 	b.collect_rewards = {}
 	b.improvements = {}
+	b.seed_ranks = {}
 	for i in b.items.size():
 		b.terrain[i] = 0
 		b.items[i] = 0
@@ -84,42 +85,65 @@ func _nodes_with_meta(root: Node, key: String) -> Array:
 		out.append_array(_nodes_with_meta(c, key))
 	return out
 
-func _test_scene_builds_first_soil_free() -> void:
-	fresh("improve_scene_build")
+func _test_seed_info_bar_places_bags_and_sells() -> void:
+	fresh("improve_scene_seed_actions")
 	Save.mark_board_tutorial_seen()
+	Save.add_coins(2000)
 	var scn := _open_board()
 	await _settle()
 	_clear_board_model(scn.board)
+	var soil := Vector2i(3, 3)
+	scn.board.place(soil, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	scn.board.set_seed_rank(soil, 2)
 	scn._rebuild_all()
-	var cell := Vector2i(3, 3)
 	var coins_b := Save.coins()
-	ok(scn._build_improvement(cell, Improvements.KIND_SOIL), "scene builds a soil improvement")
-	ok(String(scn.board.improvement_at(cell).kind) == Improvements.KIND_SOIL, "the built soil is stored on the board model")
-	ok(Save.coins() == coins_b, "the first soil build is free")
-	ok(scn.board_area.find_child("ImprovementArt_%d_%d" % [cell.x, cell.y], true, false) != null, "the board renders improvement art after a build")
+	scn._select_item(soil)
+	ok(scn._info_seed_place != null and scn._info_seed_place.visible, "a selected seed shows the Place chip")
+	ok(scn._info_seed_bag != null and scn._info_seed_bag.visible, "a selected seed shows the Bag chip")
+	ok(scn._info_trash != null and scn._info_trash.visible, "a selected seed remains sellable")
+	ok(scn._info_buy == null or not scn._info_buy.visible, "a seed is not buyable as a copy")
+	ok(scn._place_seed(soil), "scene Place action installs the seed as a cell improvement")
+	ok(Save.coins() == coins_b, "placing a seed is free")
+	ok(scn.board.item_at(soil) == 0 and String(scn.board.improvement_at(soil).kind) == Improvements.KIND_SOIL and int(scn.board.improvement_at(soil).rank) == 2, "placed seed consumes the item and carries Soil rank")
+	ok(scn.board_area.find_child("ImprovementArt_%d_%d" % [soil.x, soil.y], true, false) != null, "the board renders improvement art after seed placement")
+
+	var bag_cell := Vector2i(3, 4)
+	scn.board.place(bag_cell, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	scn.board.set_seed_rank(bag_cell, 3)
+	scn._rebuild_all()
+	scn._select_item(bag_cell)
+	scn._on_seed_bag()
+	ok(scn.bag.size() == 1 and int(scn.bag[0]) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL), "the seed Bag chip stashes the seed")
+	ok(scn.bag_seed_ranks.size() == 1 and int(scn.bag_seed_ranks[0]) == 3, "bagged Soil seed keeps its rank metadata")
+	ok(scn.board.item_at(bag_cell) == 0, "bagging a seed removes it from the board")
+
+	var sell_cell := Vector2i(3, 5)
+	scn.board.place(sell_cell, Improvements.seed_code_for_kind(Improvements.KIND_MAGNET))
+	scn._rebuild_all()
+	scn._select_item(sell_cell)
+	var coins_before_sell := Save.coins()
+	scn._on_trash_pressed()
+	ok(Save.coins() == coins_before_sell + 1000 and scn.board.item_at(sell_cell) == 0, "selling a magnet seed pays its seed sell value")
 	scn.queue_free()
 
-func _test_build_mode_pads_only_empty_unsealed_cells() -> void:
-	fresh("improve_build_pads")
+func _test_unsocket_info_bar_returns_ranked_seed() -> void:
+	fresh("improve_unsocket")
 	Save.mark_board_tutorial_seen()
+	Save.add_coins(500)
 	var scn := _open_board()
 	await _settle()
 	_clear_board_model(scn.board)
-	var occupied := Vector2i(3, 3)
-	var sealed := Vector2i(3, 4)
-	scn.board.place(occupied, 101)
-	scn.board.terrain[BoardModel.idx(sealed)] = 1
+	var cell := Vector2i(3, 3)
+	ok(scn.board.build_improvement(cell, Improvements.KIND_SOIL, 3), "test setup installs ranked soil")
 	scn._rebuild_all()
-	scn._start_build_mode()
-	var pads := _nodes_with_meta(scn.board_area, "improvement_pad")
-	var expected := 0
-	for r in G.ROWS:
-		for c in G.COLS:
-			if scn.board.can_build_improvement(Vector2i(r, c)):
-				expected += 1
-	ok(pads.size() == expected, "build mode creates pads only for empty, unsealed cells")
-	for p in pads:
-		ok(p.get_meta("cell") != occupied and p.get_meta("cell") != sealed and not scn.board.is_gen(p.get_meta("cell")), "pad is not rendered on an occupied, generator, or sealed cell")
+	_board_tap(scn, cell)
+	ok(scn._info_unsocket != null and scn._info_unsocket.visible, "empty improved cell selection shows Unsocket")
+	ok(scn._info_soil_rank != null and scn._info_soil_rank.visible, "empty Soil cell selection shows the Rank chip")
+	var coins_b := Save.coins()
+	scn._on_unsocket_improvement()
+	ok(Save.coins() == coins_b - 100, "unsocketing Soil charges the unsocket coin cost")
+	ok(not scn.board.has_improvement(cell) and scn.board.item_at(cell) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL), "Unsocket returns a seed to the same cell")
+	ok(scn.board.seed_rank_at(cell) == 3, "Unsocket keeps the Soil rank on the returned seed")
 	scn.queue_free()
 
 func _test_growing_piece_info_row_surfaces_actions() -> void:
@@ -364,7 +388,7 @@ func _test_soil_completion_wakes_magnet_and_opens_bramble() -> void:
 	ok(scn.board.is_open(bramble), "magnet auto-merge still opens eligible neighbouring brambles")
 	scn.queue_free()
 
-func _test_soil_ftue_opens_build_mode_once() -> void:
+func _test_soil_ftue_grants_seed_once() -> void:
 	fresh("improve_ftue")
 	Save.mark_board_tutorial_seen()
 	Save.grove()["coins_earned"] = G.coins_at_level(6)
@@ -372,10 +396,12 @@ func _test_soil_ftue_opens_build_mode_once() -> void:
 	var scn := _open_board()
 	await _settle()
 	ok(Save.ftue_seen("soil"), "level-6 soil FTUE marks its once-only ledger")
-	ok(scn._build_mode, "soil FTUE opens build mode")
-	ok(scn.build_btn != null and scn.build_btn.visible, "the build button is visible once the soil FTUE has fired")
-	scn._exit_build_mode()
+	var seed_cell: Vector2i = scn.board.first_item_of(Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	ok(seed_cell.x >= 0, "soil FTUE grants a deterministic Soil seed on the board")
+	ok(_nodes_with_meta(scn, "improvement_build_button").is_empty(), "soil FTUE does not show a build-mode button")
+	ok(_nodes_with_meta(scn.board_area, "improvement_pad").is_empty(), "soil FTUE does not render build pads")
+	ok(scn._hand_hint != null and is_instance_valid(scn._hand_hint), "soil FTUE points the hand hint at the seed")
 	scn._maybe_soil_ftue()
 	await _settle()
-	ok(not scn._build_mode, "soil FTUE does not re-open once seen")
+	ok(scn.board.count_of(Improvements.seed_code_for_kind(Improvements.KIND_SOIL)) == 1, "soil FTUE does not grant a second seed once seen")
 	scn.queue_free()

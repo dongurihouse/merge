@@ -19,6 +19,7 @@ func _clear_board(board: BoardModel) -> void:
 	board.gen_boost = {}
 	board.collect_rewards = {}
 	board.improvements = {}
+	board.seed_ranks = {}
 	for i in board.items.size():
 		board.terrain[i] = 0
 		board.items[i] = 0
@@ -33,19 +34,21 @@ func _cells(n: int) -> Array:
 	return out
 
 func _initialize() -> void:
-	_test_core_prices_curve_and_eligibility()
+	_test_seed_rules_drop_filter_and_eligibility()
 	_test_board_model_persists_improvements()
 	_test_soil_reconcile_water_and_completion()
-	_test_build_move_demolish_and_generator_skip()
+	_test_place_seed_unsocket_and_generator_skip()
 	_test_range_pairs_and_magnet_guards()
 	finish()
 
-func _test_core_prices_curve_and_eligibility() -> void:
-	ok(Improvements.soil_build_price(0) == 0 and Improvements.soil_build_price(2) == 0, "soil builds 1-3 are free")
-	ok(Improvements.soil_build_price(3) == 500 and Improvements.soil_build_price(8) == 16000, "soil paid ladder is keyed by current count")
-	ok(Improvements.soil_build_price(9) < 0, "soil price refuses the cap slot")
-	ok(Improvements.magnet_build_price(0) == 25 and Improvements.magnet_build_price(2) == 100, "magnet build ladder is acorn-priced")
-	ok(Improvements.magnet_build_price(3) < 0, "magnet price refuses the cap slot")
+func _test_seed_rules_drop_filter_and_eligibility() -> void:
+	ok(Improvements.seed_code_for_kind(Improvements.KIND_SOIL) == 1401, "soil seed is line 14 tier 1")
+	ok(Improvements.seed_code_for_kind(Improvements.KIND_MAGNET) == 1501, "magnet seed is line 15 tier 1")
+	ok(Improvements.kind_for_seed(1401) == Improvements.KIND_SOIL and Improvements.kind_for_seed(1501) == Improvements.KIND_MAGNET, "seed codes map back to improvement kinds")
+	ok(Improvements.seed_sell_reward(Improvements.KIND_SOIL) == Vector2i(250, 0), "soil seed sells for 250 coins")
+	ok(Improvements.seed_sell_reward(Improvements.KIND_MAGNET) == Vector2i(1000, 0), "magnet seed sells for 1000 coins")
+	ok(Improvements.unsocket_price(Improvements.KIND_SOIL) == Vector2i(100, 0), "soil unsocket costs 100 coins")
+	ok(Improvements.unsocket_price(Improvements.KIND_MAGNET) == Vector2i(0, 10), "magnet unsocket keeps the 10-acorn cost")
 	ok(Improvements.soil_rank_price(1) == 600 and Improvements.soil_rank_price(2) == 1500 and Improvements.soil_rank_price(3) < 0, "soil rank prices cover r2/r3 only")
 	ok(Improvements.soil_step_seconds(101, 1) == 10.0, "soil tier-1 step takes 10 seconds")
 	ok(Improvements.soil_step_seconds(107, 2) == 10080.0, "rank-2 soil applies the 30 percent time discount")
@@ -54,22 +57,41 @@ func _test_core_prices_curve_and_eligibility() -> void:
 	ok(not Improvements.is_soil_eligible(100 + G.TOP_TIER), "top-tier content does not grow")
 	ok(not Improvements.is_soil_eligible(G.COIN_LINE * 100 + 1), "coins do not grow on soil")
 	ok(not Improvements.is_soil_eligible(13 * 100 + 1), "collectable special drops do not grow on soil")
+	ok(not Improvements.is_soil_eligible(Improvements.seed_code_for_kind(Improvements.KIND_SOIL)), "improvement seeds do not grow on soil")
+	var b := BoardModel.new()
+	_clear_board(b)
+	b.place(Vector2i(2, 2), Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	for cell in _cells(G.MAGNET_MAX):
+		b.build_improvement(cell, Improvements.KIND_MAGNET)
+	var blocked := Improvements.blocked_seed_drop_lines(b, [Improvements.seed_code_for_kind(Improvements.KIND_SOIL)])
+	ok(blocked.has(14) and blocked.has(15), "drop filter blocks a kind that is already unplaced or at placed cap")
+	var rng_a := RandomNumberGenerator.new()
+	var rng_b := RandomNumberGenerator.new()
+	rng_a.seed = 77
+	rng_b.seed = 77
+	var drop := G.pick_special_drop(rng_a, blocked)
+	var fallback := G.pick_special_drop(rng_b, [14, 15])
+	ok(drop == fallback and rng_a.state == rng_b.state, "filtered special-drop pick still makes exactly one random draw")
 
 func _test_board_model_persists_improvements() -> void:
 	var b := BoardModel.new()
 	_clear_board(b)
 	var cell := Vector2i(3, 3)
-	ok(b.build_improvement(cell, Improvements.KIND_SOIL), "soil builds on open empty ground")
+	ok(b.build_improvement(cell, Improvements.KIND_SOIL), "test setup can still install a soil row directly")
 	var row := b.improvement_at(cell)
 	row["rank"] = 2
 	row["code"] = 104
 	row["ends_at"] = 1234.0
 	row["watered"] = true
 	b.improvements[cell] = row
+	var seed_cell := Vector2i(4, 4)
+	b.place(seed_cell, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	b.set_seed_rank(seed_cell, 3)
 	var b2 := BoardModel.new()
 	b2.from_dict(b.to_dict())
 	var got := b2.improvement_at(cell)
 	ok(String(got.kind) == Improvements.KIND_SOIL and int(got.rank) == 2 and int(got.code) == 104 and bool(got.watered), "improvement rows round-trip through board dict")
+	ok(b2.item_at(seed_cell) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL) and b2.seed_rank_at(seed_cell) == 3, "ranked seed metadata round-trips with the board item")
 	var blob := b.to_dict()
 	blob["improvements"] = [[99, 99, Improvements.KIND_SOIL, 1, 101, 10.0, false], [1, 1, "bogus", 1, 101, 10.0, false]]
 	var changed := b2.from_dict(blob)
@@ -117,41 +139,39 @@ func _test_soil_reconcile_water_and_completion() -> void:
 	b.reconcile_improvements(3001.0)
 	ok(b.item_at(r3) == 108, "rank-3 soil grows two tiers per completion")
 
-func _test_build_move_demolish_and_generator_skip() -> void:
-	fresh("build_actions")
+func _test_place_seed_unsocket_and_generator_skip() -> void:
+	fresh("seed_actions")
 	Save.add_coins(10000)
 	Save.add_diamonds(500)
 	var b := BoardModel.new()
 	_clear_board(b)
-	var cs := _cells(16)
+	var cell := Vector2i(3, 3)
+	b.place(cell, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	b.set_seed_rank(cell, 3)
 	var coins_b := Save.coins()
-	ok(BoardActions.build_improvement(b, cs[0], Improvements.KIND_SOIL).built, "first soil build succeeds")
-	ok(BoardActions.build_improvement(b, cs[1], Improvements.KIND_SOIL).built, "second soil build succeeds")
-	ok(BoardActions.build_improvement(b, cs[2], Improvements.KIND_SOIL).built, "third soil build succeeds")
-	ok(Save.coins() == coins_b, "the first three soil builds are free")
-	ok(BoardActions.build_improvement(b, cs[3], Improvements.KIND_SOIL).built and Save.coins() == coins_b - 500, "the fourth soil charges the first coin price")
-	var dia_b := Save.diamonds()
-	ok(BoardActions.build_improvement(b, cs[4], Improvements.KIND_MAGNET).built and Save.diamonds() == dia_b - 25, "magnet build spends acorns")
-	Save.add_coins(100000)
-	for i in range(5, 13):
-		BoardActions.build_improvement(b, cs[i], Improvements.KIND_SOIL)
-	ok(not BoardActions.build_improvement(b, cs[13], Improvements.KIND_SOIL).built, "soil refuses builds above the cap")
-	var src: Vector2i = cs[0]
-	var dst: Vector2i = cs[14]
-	var moving := b.improvement_at(src)
-	moving["rank"] = 3
-	moving["code"] = 107
-	moving["ends_at"] = 9999.0
-	b.improvements[src] = moving
-	var before_move := Save.coins()
-	ok(BoardActions.move_improvement(b, src, dst).moved and Save.coins() == before_move - G.IMPROVEMENT_MOVE_COST, "moving an improvement charges the flat coin fee")
-	var moved := b.improvement_at(dst)
-	ok(not b.improvements.has(src) and int(moved.rank) == 3 and int(moved.code) == 0 and float(moved.ends_at) == 0.0, "move carries soil rank but clears the running clock")
-	var before_demo := Save.coins()
-	ok(BoardActions.demolish_improvement(b, dst).demolished and Save.coins() == before_demo, "demolish is free and gives no refund")
-	Save.add_coins(50000)
-	var before_rebuild := Save.coins()
-	ok(BoardActions.build_improvement(b, dst, Improvements.KIND_SOIL).built and Save.coins() == before_rebuild - 16000, "rebuilding after demolish pays the current count slot again")
+	ok(BoardActions.place_seed(b, cell).placed, "placing a soil seed consumes the seed in its own cell")
+	var placed := b.improvement_at(cell)
+	ok(b.item_at(cell) == 0 and String(placed.kind) == Improvements.KIND_SOIL and int(placed.rank) == 3 and Save.coins() == coins_b, "seed placement is free and carries Soil rank metadata")
+	b.place(cell, 101)
+	ok(not BoardActions.unsocket_improvement(b, cell).unsocketed, "unsocket refuses an occupied improved cell")
+	b.take(cell)
+	var before_unsocket := Save.coins()
+	var unsocket := BoardActions.unsocket_improvement(b, cell)
+	ok(unsocket.unsocketed and Save.coins() == before_unsocket - 100, "unsocketing soil charges coins")
+	ok(not b.has_improvement(cell) and b.item_at(cell) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL) and b.seed_rank_at(cell) == 3, "unsocket leaves a ranked seed in the same cell")
+	ok(BoardActions.place_seed(b, cell).placed and int(b.improvement_at(cell).rank) == 3, "a returned Soil seed places again at the carried rank")
+
+	var magnet := Vector2i(3, 4)
+	b.place(magnet, Improvements.seed_code_for_kind(Improvements.KIND_MAGNET))
+	ok(BoardActions.place_seed(b, magnet).placed, "placing a magnet seed consumes the seed")
+	var diamonds_b := Save.diamonds()
+	ok(BoardActions.unsocket_improvement(b, magnet).unsocketed and Save.diamonds() == diamonds_b - 10, "unsocketing magnet charges acorns")
+	ok(b.item_at(magnet) == Improvements.seed_code_for_kind(Improvements.KIND_MAGNET), "magnet unsocket leaves a magnet seed")
+
+	var sealed := Vector2i(0, 0)
+	b.terrain[BoardModel.idx(sealed)] = 1
+	b.place(sealed, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+	ok(not BoardActions.place_seed(b, sealed).placed and b.item_at(sealed) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL), "placing refuses a sealed cell and keeps the seed")
 
 	var auto := BoardModel.new()
 	_clear_board(auto)

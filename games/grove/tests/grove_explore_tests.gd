@@ -74,6 +74,8 @@ func _test_retirement_offer() -> void:
 	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 2)
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("soil")        # this fixture needs both starter empty cells for retired stock
+	Save.mark_ftue_seen("soil_seed")
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(scn)
 	if scn.board == null:

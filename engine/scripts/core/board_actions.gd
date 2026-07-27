@@ -140,9 +140,9 @@ static func retire_preview(board: BoardModel, bag: Array, line: int) -> Dictiona
 			coins += int(G.sell_reward(int(c)).x)
 	return {"pieces": pieces, "coins": coins}
 
-static func retire_line(board: BoardModel, bag: Array, gen_id: String, level: int) -> Dictionary:
+static func retire_line(board: BoardModel, bag: Array, gen_id: String, level: int, bag_seed_ranks: Array = []) -> Dictionary:
 	var gid := String(gen_id)
-	var out := {"retired": false, "line": 0, "coins": 0, "items": 0, "gen_cells": [], "bag": bag}
+	var out := {"retired": false, "line": 0, "coins": 0, "items": 0, "gen_cells": [], "bag": bag, "bag_seed_ranks": bag_seed_ranks}
 	if not G.gen_retirable(gid, level):
 		return out                                    # still needed by a later craft — refuse
 	var line := int(gid.trim_prefix("gen_"))
@@ -158,13 +158,17 @@ static func retire_line(board: BoardModel, bag: Array, gen_id: String, level: in
 			board.take(BoardModel.cell_of(i))
 	# 2. the leftover stock in the ITEM BAG
 	var kept: Array = []
-	for code in bag:
+	var kept_seed_ranks: Array = []
+	for i in bag.size():
+		var code := int(bag[i])
 		if int(code) > 0 and not G.is_coin(int(code)) and BoardModel.line_of(int(code)) == line:
 			coins += int(G.sell_reward(int(code)).x)
 			items += 1
 		else:
 			kept.append(code)
+			kept_seed_ranks.append(int(bag_seed_ranks[i]) if i < bag_seed_ranks.size() else 1)
 	out["bag"] = kept
+	out["bag_seed_ranks"] = kept_seed_ranks
 	# 3. the generator itself — every copy, on the board and in the gen_bag (the parallel arrays move in lockstep)
 	var cells: Array = []
 	for cell in board.gens.keys():
@@ -204,32 +208,31 @@ static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
 		Save.add_coins(coins)                     # spendable only — SELLING NEVER ADVANCES THE CLOCK (quests only)
 	return {"sold": true, "coins": coins}
 
-static func build_improvement(board: BoardModel, cell: Vector2i, kind: String) -> Dictionary:
-	if not Improvements.is_valid_kind(kind) or not board.can_build_improvement(cell):
-		return {"built": false, "price": -1, "currency": ""}
-	var count := board.improvement_count(kind)
-	var price := Improvements.build_price(kind, count)
-	if price < 0:
-		return {"built": false, "price": price, "currency": ""}
-	if kind == Improvements.KIND_MAGNET:
-		if not Save.spend_diamonds(price):
-			return {"built": false, "price": price, "currency": "diamonds"}
-	else:
-		if price > 0 and not Save.spend(price, "improvement"):
-			return {"built": false, "price": price, "currency": "coins"}
-	if not board.build_improvement(cell, kind):
-		return {"built": false, "price": price, "currency": ""}
-	return {"built": true, "price": price, "currency": "diamonds" if kind == Improvements.KIND_MAGNET else "coins"}
+static func place_seed(board: BoardModel, cell: Vector2i) -> Dictionary:
+	return {"placed": board.place_seed(cell)}
 
-static func move_improvement(board: BoardModel, from: Vector2i, to: Vector2i) -> Dictionary:
-	if not board.has_improvement(from) or not board.can_build_improvement(to):
-		return {"moved": false}
-	if not Save.spend(G.IMPROVEMENT_MOVE_COST, "improvement"):
-		return {"moved": false, "price": int(G.IMPROVEMENT_MOVE_COST)}
-	return {"moved": board.move_improvement(from, to), "price": int(G.IMPROVEMENT_MOVE_COST)}
-
-static func demolish_improvement(board: BoardModel, cell: Vector2i) -> Dictionary:
-	return {"demolished": board.demolish_improvement(cell)}
+static func unsocket_improvement(board: BoardModel, cell: Vector2i) -> Dictionary:
+	var row := board.improvement_at(cell)
+	var kind := String(row.get("kind", ""))
+	if not Improvements.is_valid_kind(kind) or board.item_at(cell) != 0:
+		return {"unsocketed": false}
+	var price := Improvements.unsocket_price(kind)
+	if price.x > 0:
+		if not Save.spend(price.x, "improvement"):
+			return {"unsocketed": false, "price": price}
+	if price.y > 0:
+		if not Save.spend_diamonds(price.y):
+			return {"unsocketed": false, "price": price}
+	var out := board.unsocket_improvement(cell)
+	if out.is_empty():
+		if price.x > 0:
+			Save.add_coins(price.x)
+		if price.y > 0:
+			Save.add_diamonds(price.y)
+		return {"unsocketed": false, "price": price}
+	out["unsocketed"] = true
+	out["price"] = price
+	return out
 
 static func rank_soil(board: BoardModel, cell: Vector2i) -> Dictionary:
 	var row := board.improvement_at(cell)

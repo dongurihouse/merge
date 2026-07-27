@@ -238,14 +238,15 @@ const BOOST_BONUS := 2                    # >0 marks "a boost is live" to burst_
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
 
-# Cell improvements (Soil + Magnet), spec 2026-07-26. Prices are keyed by the
-# CURRENT count of that kind on the board: count 0 buys the first slot.
+# Cell improvements (Soil + Magnet), spec 2026-07-26. Improvements arrive as
+# seed items; moving one is unsocket -> carry -> place.
 const SOIL_MAX := 9
 const MAGNET_MAX := 3
 const SOIL_MAX_RANK := 3
-const SOIL_BUILD_PRICES := [0, 0, 0, 500, 1000, 2000, 4000, 8000, 16000]
-const MAGNET_BUILD_PRICES := [25, 50, 100]
-const IMPROVEMENT_MOVE_COST := 100
+const SOIL_UNSOCKET_PRICE := 100
+const MAGNET_UNSOCKET_ACORNS := 10
+const SOIL_SEED_SELL_COINS := 250
+const MAGNET_SEED_SELL_COINS := 1000
 const SOIL_RANK_PRICES := [600, 1500]
 const SOIL_WATER_COST := 10
 const SOIL_STEP_SECONDS := [10.0, 45.0, 180.0, 900.0, 1800.0, 3600.0, 14400.0, 28800.0, 57600.0, 86400.0, 172800.0]
@@ -358,10 +359,10 @@ const ART_TIER_PICK := {"coin": [1, 4, 5], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
-# §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Most merge up to a
+# §6.B SPECIAL DROP ITEMS — short pseudo-lines (merge.spec §6.B). Most merge up to a
 # small top (SPECIAL_TOP), while individual defs may override it. They are NEVER popped from the generator
-# and NEVER asked by quests or sold; they
-# DROP occasionally and pay out a reward on use. Codes `line*100 + tier` on dedicated line numbers (10+,
+# and NEVER asked by quests. Resource drops pay out on second tap; improvement seeds are ordinary
+# draggable/stashable/sellable board occupants that place into their own cell. Codes `line*100 + tier` on dedicated line numbers (10+,
 # clear of the 1-5 content lines + 9 = coin). Art at items/<base>/<base>_<tier>.png (already wired). `kind`
 # selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
@@ -370,13 +371,15 @@ const SPECIAL_ITEMS := {
 	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
+	14: {"name": "Soil seed", "base": "seed_soil", "kind": "soil_seed", "top": 1, "desc": "Place it to make this cell grow pieces over time."},
+	15: {"name": "Magnet seed", "base": "seed_magnet", "kind": "magnet_seed", "top": 1, "desc": "Place it to auto-merge nearby matches."},
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
 # (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1}   # chest·water·acorn (flat; the key + spark lines are retired)
+const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1, 14: 1, 15: 1}   # chest·water·acorn·Soil seed·Magnet seed
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)

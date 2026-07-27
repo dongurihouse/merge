@@ -535,11 +535,12 @@ func _initialize() -> void:
 	ok(BoardLogic.combo_step(4, 3.0, 2.5) == 1, "combo: a gap past the window restarts at 1")
 	ok(BoardLogic.combo_step(2, 2.51, 2.5) == 1, "combo: just past the window restarts at 1")
 
-	# --- §6.B special drop items — the shared pseudo-line foundation (chest/water/acorn) ---
+	# --- §6.B special drop items — the shared pseudo-line foundation (chest/water/acorn/seeds) ---
 	var chest_t1 := 10 * 100 + 1            # chest tier 1
+	var soil_seed_t1 := 14 * 100 + 1
 	var flower_t1 := 1 * 100 + 1           # a content line item
 	var coin_t1 := G.COIN_LINE * 100 + 1   # a coin
-	ok(G.is_special(chest_t1) and not G.is_special(flower_t1) and not G.is_special(coin_t1),
+	ok(G.is_special(chest_t1) and G.is_special(soil_seed_t1) and not G.is_special(flower_t1) and not G.is_special(coin_t1),
 		"is_special gates only the special pseudo-lines (not content, not coins)")
 	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "",
 		"the chest reads its kind; the retired key line (11) is no longer special")
@@ -559,6 +560,8 @@ func _initialize() -> void:
 	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
 	ok(G.merge_top(13 * 100 + 1) == G.SPECIAL_TOP, "acorn drops merge through tier 3 (the 12-tier ladder is retired)")
+	ok(G.merge_top(soil_seed_t1) == 1 and not G.is_collectable(soil_seed_t1), "improvement seeds are top-1 ordinary occupants, not tap-collect resources")
+	ok(G.item_tex_path(soil_seed_t1).ends_with("ui/kit/seed_soil.png"), "soil seed resolves through the kit seed-art seam")
 	ok(G.item_tex_path(13 * 100 + 3).ends_with("items/acorn/acorn_6.png"), "acorn t3 resolves its PICKED art (t3 wears acorn_6)")
 	ok(ResourceLoader.exists("res://games/grove/assets/items/coin/coin_12.png"), "coin t12 art is imported")
 	ok(ResourceLoader.exists(G.item_tex_path(13 * 100 + 3)), "acorn t3 art is imported")
@@ -569,8 +572,8 @@ func _initialize() -> void:
 	var picked := {}
 	for i in 400:
 		picked[int(G.pick_special_drop(srng) / 100.0)] = true
-	ok(picked.size() == 3 and G.special_kind(G.pick_special_drop(srng)) != "",
-		"pick_special_drop yields t1 codes spread across the 3 special kinds (chest/water/acorn)")
+	ok(picked.size() == 5 and G.special_kind(G.pick_special_drop(srng)) != "",
+		"pick_special_drop yields t1 codes spread across the 5 special kinds (chest/water/acorn/seeds)")
 	# tap-collect grants the resource by tier; a chest tap-OPENS instead (no wallet credit here)
 	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
 	var expected_acorn_values := {1: 1, 2: 2, 3: 5}

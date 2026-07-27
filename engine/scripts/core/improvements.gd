@@ -6,6 +6,10 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 const KIND_SOIL := "soil"
 const KIND_MAGNET := "magnet"
+const SEED_SOIL_LINE := 14
+const SEED_MAGNET_LINE := 15
+const SEED_SOIL_CODE := SEED_SOIL_LINE * 100 + 1
+const SEED_MAGNET_CODE := SEED_MAGNET_LINE * 100 + 1
 
 static func is_valid_kind(kind: String) -> bool:
 	return kind == KIND_SOIL or kind == KIND_MAGNET
@@ -18,23 +22,70 @@ static func cap_for(kind: String) -> int:
 			return int(G.MAGNET_MAX)
 	return 0
 
-static func soil_build_price(current_count: int) -> int:
-	if current_count < 0 or current_count >= int(G.SOIL_MAX):
-		return -1
-	return int(G.SOIL_BUILD_PRICES[current_count])
-
-static func magnet_build_price(current_count: int) -> int:
-	if current_count < 0 or current_count >= int(G.MAGNET_MAX):
-		return -1
-	return int(G.MAGNET_BUILD_PRICES[current_count])
-
-static func build_price(kind: String, current_count: int) -> int:
+static func seed_code_for_kind(kind: String) -> int:
 	match kind:
 		KIND_SOIL:
-			return soil_build_price(current_count)
+			return SEED_SOIL_CODE
 		KIND_MAGNET:
-			return magnet_build_price(current_count)
-	return -1
+			return SEED_MAGNET_CODE
+	return 0
+
+static func seed_line_for_kind(kind: String) -> int:
+	var code := seed_code_for_kind(kind)
+	return int(code / 100.0) if code > 0 else 0
+
+static func kind_for_seed(code: int) -> String:
+	if code % 100 != 1:
+		return ""
+	match int(code / 100.0):
+		SEED_SOIL_LINE:
+			return KIND_SOIL
+		SEED_MAGNET_LINE:
+			return KIND_MAGNET
+	return ""
+
+static func is_seed(code: int) -> bool:
+	return kind_for_seed(code) != ""
+
+static func seed_sell_reward(kind: String) -> Vector2i:
+	match kind:
+		KIND_SOIL:
+			return Vector2i(int(G.SOIL_SEED_SELL_COINS), 0)
+		KIND_MAGNET:
+			return Vector2i(int(G.MAGNET_SEED_SELL_COINS), 0)
+	return Vector2i.ZERO
+
+static func unsocket_price(kind: String) -> Vector2i:
+	match kind:
+		KIND_SOIL:
+			return Vector2i(int(G.SOIL_UNSOCKET_PRICE), 0)
+		KIND_MAGNET:
+			return Vector2i(0, int(G.MAGNET_UNSOCKET_ACORNS))
+	return Vector2i.ZERO
+
+static func blocked_seed_drop_lines(board, bag: Array) -> Array:
+	var blocked: Array = []
+	for kind in [KIND_SOIL, KIND_MAGNET]:
+		var line := seed_line_for_kind(kind)
+		if line <= 0:
+			continue
+		if board != null and board.improvement_count(kind) >= cap_for(kind):
+			blocked.append(line)
+			continue
+		var has_unplaced := false
+		if board != null:
+			for code in board.items:
+				if kind_for_seed(int(code)) == kind:
+					has_unplaced = true
+					break
+		if not has_unplaced:
+			for code in bag:
+				if kind_for_seed(int(code)) == kind:
+					has_unplaced = true
+					break
+		if has_unplaced:
+			blocked.append(line)
+	return blocked
 
 static func soil_rank_price(current_rank: int) -> int:
 	if current_rank < 1 or current_rank >= int(G.SOIL_MAX_RANK):

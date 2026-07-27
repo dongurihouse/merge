@@ -25,6 +25,7 @@ var gen_bag_tiers: Array = []             # PARALLEL to gen_bag: the TIER of eac
 var gen_boost: Dictionary = {}
 var gen_bag_boost: Array = []
 var improvements: Dictionary = {}          # cell -> {kind, rank, code, ends_at, watered}
+var seed_ranks: Dictionary = {}            # idx -> Soil seed rank; top-1 seed code stays stable while rank rides as metadata
 
 func _init() -> void:
 	terrain.resize(G.ROWS * G.COLS)
@@ -82,6 +83,7 @@ func _claim_gen_cells() -> void:
 			terrain[idx(cell)] = 0           # clears its bramble (no contents)
 			items[idx(cell)] = 0
 			collect_rewards.erase(idx(cell))
+			seed_ranks.erase(idx(cell))
 		elif items[idx(cell)] > 0:
 			var refuge := empty_ground_cells()
 			if not refuge.is_empty():
@@ -89,6 +91,7 @@ func _claim_gen_cells() -> void:
 			else:
 				items[idx(cell)] = 0
 				collect_rewards.erase(idx(cell))
+				seed_ranks.erase(idx(cell))
 
 ## Move a board generator into the bag's generator section (frees its cell). No-op on a bad cell.
 ## #8: the generator's TIER travels with it into the bag, and the vacated cell sheds its tier data.
@@ -257,6 +260,7 @@ func place_gen(id: String, cell: Vector2i, tier: int = 1) -> void:
 		terrain[idx(cell)] = 0
 		items[idx(cell)] = 0
 		collect_rewards.erase(idx(cell))
+		seed_ranks.erase(idx(cell))
 	elif items[idx(cell)] > 0:
 		var refuge := empty_ground_cells()
 		if not refuge.is_empty():
@@ -264,6 +268,7 @@ func place_gen(id: String, cell: Vector2i, tier: int = 1) -> void:
 		else:
 			items[idx(cell)] = 0
 			collect_rewards.erase(idx(cell))
+			seed_ranks.erase(idx(cell))
 
 ## Compat shim for the fresh-run tools (sim / shot) that still ask for a spot-count's
 ## generators: re-seed to the map that many home spots reaches. NOT used by the live board
@@ -328,6 +333,44 @@ func improvement_count(kind: String) -> int:
 
 func can_build_improvement(cell: Vector2i) -> bool:
 	return in_bounds(cell) and is_open(cell) and item_at(cell) == 0 and not is_gen(cell) and not improvements.has(cell)
+
+func can_place_seed(cell: Vector2i) -> bool:
+	var kind := Improvements.kind_for_seed(item_at(cell))
+	return Improvements.is_valid_kind(kind) and in_bounds(cell) and is_open(cell) and not is_gen(cell) \
+		and not improvements.has(cell) and improvement_count(kind) < Improvements.cap_for(kind)
+
+func place_seed(cell: Vector2i) -> bool:
+	var kind := Improvements.kind_for_seed(item_at(cell))
+	if kind == "" or not can_place_seed(cell):
+		return false
+	var rank := seed_rank_at(cell)
+	items[idx(cell)] = 0
+	collect_rewards.erase(idx(cell))
+	seed_ranks.erase(idx(cell))
+	improvements[cell] = {
+		"kind": kind,
+		"rank": rank if kind == Improvements.KIND_SOIL else 1,
+		"code": 0,
+		"ends_at": 0.0,
+		"watered": false,
+	}
+	return true
+
+func unsocket_improvement(cell: Vector2i) -> Dictionary:
+	var row := improvement_at(cell)
+	var kind := String(row.get("kind", ""))
+	if not Improvements.is_valid_kind(kind) or item_at(cell) != 0 or not is_open(cell) or is_gen(cell):
+		return {}
+	var rank := int(row.get("rank", 1))
+	improvements.erase(cell)
+	var code := Improvements.seed_code_for_kind(kind)
+	items[idx(cell)] = code
+	collect_rewards.erase(idx(cell))
+	if kind == Improvements.KIND_SOIL and rank > 1:
+		seed_ranks[idx(cell)] = clampi(rank, 1, int(G.SOIL_MAX_RANK))
+	else:
+		seed_ranks.erase(idx(cell))
+	return {"kind": kind, "rank": rank, "code": code}
 
 func build_improvement(cell: Vector2i, kind: String, rank: int = 1) -> bool:
 	if not Improvements.is_valid_kind(kind) or not can_build_improvement(cell):
@@ -485,31 +528,48 @@ func merge(a: Vector2i, b: Vector2i) -> int:
 	items[idx(b)] = produced
 	collect_rewards.erase(idx(a))
 	collect_rewards.erase(idx(b))
+	seed_ranks.erase(idx(a))
+	seed_ranks.erase(idx(b))
 	return produced
 
 func move(a: Vector2i, b: Vector2i) -> void:
 	var reward := collect_reward_at(a)
+	var rank := seed_rank_at(a)
+	var code := items[idx(a)]
 	items[idx(b)] = items[idx(a)]
 	items[idx(a)] = 0
 	collect_rewards.erase(idx(a))
 	collect_rewards.erase(idx(b))
+	seed_ranks.erase(idx(a))
+	seed_ranks.erase(idx(b))
 	if not reward.is_empty():
 		collect_rewards[idx(b)] = reward
+	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL and rank > 1:
+		seed_ranks[idx(b)] = rank
 
 ## P: trade the codes in two occupied cells — no merge, no side effects.
 ## Persists for free via to_dict (it serialises `items`).
 func swap(a: Vector2i, b: Vector2i) -> void:
 	var ka: int = items[idx(a)]
+	var kb: int = items[idx(b)]
 	var ra := collect_reward_at(a)
 	var rb := collect_reward_at(b)
+	var seed_a := seed_rank_at(a)
+	var seed_b := seed_rank_at(b)
 	items[idx(a)] = items[idx(b)]
 	items[idx(b)] = ka
 	collect_rewards.erase(idx(a))
 	collect_rewards.erase(idx(b))
+	seed_ranks.erase(idx(a))
+	seed_ranks.erase(idx(b))
 	if not rb.is_empty():
 		collect_rewards[idx(a)] = rb
 	if not ra.is_empty():
 		collect_rewards[idx(b)] = ra
+	if Improvements.kind_for_seed(kb) == Improvements.KIND_SOIL and seed_b > 1:
+		seed_ranks[idx(a)] = seed_b
+	if Improvements.kind_for_seed(ka) == Improvements.KIND_SOIL and seed_a > 1:
+		seed_ranks[idx(b)] = seed_a
 
 ## Trade a generator with a regular occupied item cell. The generator's tier/boost rides with
 ## it, and any custom collect reward rides with the item to the generator's old cell.
@@ -525,6 +585,7 @@ func swap_gen_with_item(gen_cell: Vector2i, item_cell: Vector2i) -> bool:
 	var boost := gen_boost_at(gen_cell)
 	var code := item_at(item_cell)
 	var reward := collect_reward_at(item_cell)
+	var seed_rank := seed_rank_at(item_cell)
 	gens.erase(gen_cell)
 	gen_tiers.erase(gen_cell)
 	gen_boost.erase(gen_cell)
@@ -532,8 +593,12 @@ func swap_gen_with_item(gen_cell: Vector2i, item_cell: Vector2i) -> bool:
 	items[idx(gen_cell)] = code
 	collect_rewards.erase(idx(item_cell))
 	collect_rewards.erase(idx(gen_cell))
+	seed_ranks.erase(idx(item_cell))
+	seed_ranks.erase(idx(gen_cell))
 	if not reward.is_empty():
 		collect_rewards[idx(gen_cell)] = reward
+	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL and seed_rank > 1:
+		seed_ranks[idx(gen_cell)] = seed_rank
 	gens[item_cell] = gid
 	gen_tiers[item_cell] = tier
 	if boost > 0:
@@ -571,11 +636,29 @@ func take(cell: Vector2i) -> int:
 	var k := item_at(cell)
 	items[idx(cell)] = 0
 	collect_rewards.erase(idx(cell))
+	seed_ranks.erase(idx(cell))
 	return k
 
 func place(cell: Vector2i, code: int) -> void:
 	items[idx(cell)] = code
 	collect_rewards.erase(idx(cell))
+	seed_ranks.erase(idx(cell))
+
+func seed_rank_at(cell: Vector2i) -> int:
+	if not in_bounds(cell) or Improvements.kind_for_seed(item_at(cell)) != Improvements.KIND_SOIL:
+		return 1
+	return clampi(int(seed_ranks.get(idx(cell), 1)), 1, int(G.SOIL_MAX_RANK))
+
+func set_seed_rank(cell: Vector2i, rank: int) -> void:
+	if not in_bounds(cell) or Improvements.kind_for_seed(item_at(cell)) != Improvements.KIND_SOIL:
+		if in_bounds(cell):
+			seed_ranks.erase(idx(cell))
+		return
+	var r := clampi(rank, 1, int(G.SOIL_MAX_RANK))
+	if r <= 1:
+		seed_ranks.erase(idx(cell))
+	else:
+		seed_ranks[idx(cell)] = r
 
 func collect_reward_at(cell: Vector2i) -> Dictionary:
 	if not in_bounds(cell):
@@ -669,6 +752,14 @@ func to_dict() -> Dictionary:
 		var reward: Dictionary = collect_reward_at(cell)
 		if not reward.is_empty():
 			cr.append([cell.x, cell.y, String(reward.kind), int(reward.amount)])
+	var sr: Array = []
+	var seed_keys := seed_ranks.keys()
+	seed_keys.sort()
+	for i in seed_keys:
+		var cell := cell_of(int(i))
+		var rank := seed_rank_at(cell)
+		if rank > 1:
+			sr.append([cell.x, cell.y, rank])
 	var il: Array = []
 	var icells: Array = improvements.keys()
 	icells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return idx(a) < idx(b))
@@ -676,7 +767,7 @@ func to_dict() -> Dictionary:
 		var row := improvement_at(cell)
 		if Improvements.is_valid_kind(String(row.get("kind", ""))):
 			il.append([cell.x, cell.y, String(row.kind), int(row.rank), int(row.code), float(row.ends_at), bool(row.watered)])
-	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate(), "gen_bag_boost": gen_bag_boost.duplicate(), "collect_rewards": cr, "improvements": il}
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate(), "gen_bag_tiers": gen_bag_tiers.duplicate(), "gen_bag_boost": gen_bag_boost.duplicate(), "collect_rewards": cr, "seed_ranks": sr, "improvements": il}
 
 func from_dict(d: Dictionary) -> bool:
 	var changed := false
@@ -709,6 +800,17 @@ func from_dict(d: Dictionary) -> bool:
 		var cell := Vector2i(int(e[0]), int(e[1]))
 		if in_bounds(cell) and item_at(cell) > 0:
 			set_collect_reward(cell, String(e[2]), int(e[3]))
+		else:
+			changed = true
+	seed_ranks = {}
+	for e in d.get("seed_ranks", []):
+		if not (e is Array) or (e as Array).size() < 3:
+			changed = true
+			continue
+		var sc := Vector2i(int(e[0]), int(e[1]))
+		var rank := int(e[2])
+		if in_bounds(sc) and Improvements.kind_for_seed(item_at(sc)) == Improvements.KIND_SOIL:
+			set_seed_rank(sc, rank)
 		else:
 			changed = true
 	gens = {}
