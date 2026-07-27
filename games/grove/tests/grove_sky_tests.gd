@@ -14,6 +14,9 @@ func _initialize() -> void:
 	await _test_patch_edges_read_stronger_than_centers()
 	await _test_calm_hour_shows_no_chrome()
 	await _test_marker_patch_and_info_bar()
+	await _test_sky_patch_refresh_stays_under_playables()
+	await _test_landscape_marker_stays_out_of_playable_cells()
+	await _test_starfall_start_tracks_landing_cell_in_landscape()
 	await _test_starfall_scene_payment_and_modal_defer()
 	await _test_winback_rain_beat_removed()
 	Ambient.reset_weather_debug_for_test()
@@ -113,6 +116,46 @@ func _test_marker_patch_and_info_bar() -> void:
 			"tapping the Rain marker writes the rain line into the bottom info bar")
 	rain.queue_free()
 
+func _test_sky_patch_refresh_stays_under_playables() -> void:
+	var sun = await _open_board("sky_patch_layer_refresh", "clear")
+	var before_patch := sun.board_area.find_child("SkyPatch", true, false) as Control
+	ok(before_patch != null and _first_tile_child_index(sun) > before_patch.get_index(), \
+		"Sunbeam patch starts below pieces/generators in board_area")
+	sun.refresh_weather()
+	await process_frame
+	var after_patch := sun.board_area.find_child("SkyPatch", true, false) as Control
+	ok(after_patch != null and _first_tile_child_index(sun) > after_patch.get_index(), \
+		"Sunbeam patch refresh keeps the wash below pieces/generators")
+	sun.queue_free()
+
+func _test_landscape_marker_stays_out_of_playable_cells() -> void:
+	var sun = await _open_board("sky_landscape_marker", "clear")
+	sun._landscape = true
+	for axis in [SkyLogic.AXIS_ROW, SkyLogic.AXIS_COLUMN]:
+		sun._sky_state = {
+			"hour": int(sun._sky_state.get("hour", 0)),
+			"sky": SkyLogic.SKY_SUNBEAM,
+			"skin": SkyLogic.SKIN_CLEAR,
+			"lane_axis": axis,
+			"lane": 3,
+		}
+		sun._sync_sky_patch_marker(false)
+		await process_frame
+		var marker := sun.find_child("SkyMarker", true, false) as Button
+		ok(marker != null and not _marker_intersects_playable_cells(sun, marker), \
+			"landscape %s marker stays off playable cells despite stopping mouse input" % axis)
+	sun.queue_free()
+
+func _test_starfall_start_tracks_landing_cell_in_landscape() -> void:
+	var star = await _open_board("sky_starfall_landscape_start", "star")
+	star._landscape = true
+	var cell := Vector2i(5, 2)
+	var target: Vector2 = star._cell_pos(cell)
+	var from: Vector2 = star._star_start_pos(cell)
+	ok(absf(from.x - target.x) < 0.01 and from.y < target.y, \
+		"landscape Starfall starts above its target cell, not from the board corner")
+	star.queue_free()
+
 func _test_starfall_scene_payment_and_modal_defer() -> void:
 	var deferred = await _open_board("sky_star_defer", "star")
 	var before := _item_count(deferred)
@@ -177,3 +220,16 @@ func _item_count(board_scene) -> int:
 			if board_scene.board.item_at(Vector2i(r, c)) > 0:
 				n += 1
 	return n
+
+func _first_tile_child_index(board_scene) -> int:
+	var best := 1 << 20
+	for nodes in [board_scene.piece_nodes, board_scene.gen_nodes]:
+		for node in nodes.values():
+			if node is Control and is_instance_valid(node) and node.get_parent() == board_scene.board_area:
+				best = mini(best, node.get_index())
+	return best
+
+func _marker_intersects_playable_cells(board_scene, marker: Control) -> bool:
+	var marker_rect := Rect2(marker.position, marker.size)
+	var inner := Rect2(Vector2.ZERO, Vector2(board_scene._board_w(), board_scene._board_h())).grow(-8.0)
+	return marker_rect.intersects(inner)

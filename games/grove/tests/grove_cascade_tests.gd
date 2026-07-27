@@ -5,12 +5,14 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const BoardScriptRef = preload("res://engine/scripts/scenes/board.gd")
 const RNG_SEED := 20260727   # any fixed value; the point is that it does not change between runs
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 
 func _initialize() -> void:
 	begin("grove · cascade combos")
 	await process_frame
 	await _test_drag_merge_auto_runs_and_locks_input()
 	await _test_cascade_watchdog_keeps_player_input_locked()
+	await _test_magnet_holds_fire_while_cascade_runs()
 	await _test_chain_bailouts_release_input_gate()
 	await _test_chain_rewards_and_chest_open_clock()
 	await _test_long_chain_rewards_upgrade_and_cap()
@@ -176,6 +178,27 @@ func _test_cascade_watchdog_keeps_player_input_locked() -> void:
 	await _wait_for_idle(b, 4.0)
 	ok(b.board.item_at(Vector2i(7, col)) == 108 and b.board.item_at(Vector2i(2, col)) == 1005, \
 		"the locked cascade completes its queued steps and final chest reward")
+	b.queue_free()
+
+func _test_magnet_holds_fire_while_cascade_runs() -> void:
+	var b := _open_board("cascade_magnet_hold_fire")
+	await process_frame
+	var col := 2
+	var magnet := Vector2i(4, col + 1)
+	_blank_fixture(b, {
+		Vector2i(3, col - 1): 101,
+		Vector2i(3, col): 101,
+		Vector2i(3, col + 1): 102,
+		Vector2i(3, col + 2): 103,
+	})
+	ok(b.board.build_improvement(magnet, Improvements.KIND_MAGNET), "fixture places a magnet whose 3x3 covers the cascade ladder")
+	b._rebuild_all()
+	_input_drag_merge(b, Vector2i(3, col - 1), Vector2i(3, col))
+	await _wait_for_idle(b, 4.0)
+	ok(b.board.item_at(Vector2i(3, col + 2)) == 104,
+		"a magnet beside the ladder does not consume the cascade partner before the queued auto-steps finish")
+	ok(b.board.item_at(Vector2i(3, col + 1)) == 1001,
+		"the protected run still grants its x3 cascade chest reward")
 	b.queue_free()
 
 func _test_chain_bailouts_release_input_gate() -> void:

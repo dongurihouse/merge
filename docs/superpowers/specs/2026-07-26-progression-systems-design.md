@@ -127,7 +127,8 @@ effective floor caps at t5 — exactly rank 8's grant, so the two ceilings agree
 **The Scissors — load-bearing, ships with mastery.** Crafts merge two ingredient pieces at
 the **same tier**, so a tier-3+ pop floor would make tier-2 ingredient asks impossible. The
 Scissors is a tool item: drag it onto a piece → the piece **splits into two pieces of one
-tier lower**. Needs one free neighboring cell; refused gently on a full board.
+tier lower**. Needs one landing cell for the twin; on a full board the scissors source cell can
+be the freed landing spot, otherwise it refuses gently.
 Value-neutral, and doubles as a combo-setup tool.
 
 - **Acquisition:** a shop item, purchasable with coins, always in stock and cheap. Never
@@ -301,9 +302,9 @@ tiers, idle at high tiers**:
 |---|---|---|---|---|---|---|---|
 | Grow time | ~10 s | ~45 s | ~3 min | ~15 min | ~1 h | ~3 h | ~8 h cap |
 
-You cannot plant a piece at its line's top ask tier, and **harvests clamp at that cap** (a
-rank-3 +2 growth from one below the cap lands at the cap) — the road to tier 12 is mastery
-and merging, not idle waiting. Cancel any time, free. **Watering:** tap the growing cell to
+You cannot plant a piece at its line's merge top, and **harvests clamp at that top** (a
+rank-3 +2 growth from one below the top lands at the top) — the road upward is soil, mastery,
+and merging together, not an ask-band cap. Cancel any time, free. **Watering:** tap the growing cell to
 spend board water and halve the remaining time, once per growth. **Acorns** finish a grow
 instantly, priced by time remaining — the paid lever: money buys time, never items.
 
@@ -342,7 +343,7 @@ cost a multiple of the slot.
 - **Acorns buy time, never items** (soil finish, and existing uses). The paid-bundle idea is
   rejected.
 - **Floors respect asks:** effective pop floor = min(mastery floor, ask band − 3); soil
-  refuses pieces at the ask cap and clamps harvests to it.
+  refuses line-top pieces and clamps harvests to the line's merge top.
 - **Scissors must not be a sell arbitrage** (sim-checked).
 - **Echo merges are free value, not an engine** — no chain credit, no combo coins, never a
   quest-asked pair.
