@@ -33,8 +33,9 @@ func _sum(arr: Array) -> float:
 
 func _test_thresholds_and_windows() -> void:
 	fresh("thresholds")
-	ok(G.MASTERY_THRESHOLDS == [20, 60, 150, 350, 800, 1700, 3400, 6500],
+	ok(G.MASTERY_THRESHOLDS == [20, 60, 150, 350, 650, 1150, 1900, 3000],
 		"mastery thresholds match the step-2 ladder")
+	ok(G.MASTERY_THRESHOLDS.size() == 8, "the ladder is still eight ranks")
 	var monotone := true
 	var prev := -1
 	for threshold in G.MASTERY_THRESHOLDS:

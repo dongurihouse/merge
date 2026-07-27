@@ -93,7 +93,12 @@ const MIN_LEVEL := [
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
-const MASTERY_THRESHOLDS := [20, 60, 150, 350, 800, 1700, 3400, 6500]
+# Mastery meter (tier-1 equivalents) needed for ranks 1..8. Ranks 1-4 are the original fast/cheap
+# early ladder; ranks 5-8 were compressed from 800/1700/3400/6500 because rank 8 was DEAD CONTENT —
+# the best-fed line ended a 60-day book around 3400 and nothing ever crossed 6500. At 3000 the top
+# rank is reached by the most-used line (wild berries, 14 of 16 sim seeds) and occasionally by a
+# second (glow-mushrooms / snow & ice, 1 of 16 each); see the spec's §3 pacing table.
+const MASTERY_THRESHOLDS := [20, 60, 150, 350, 650, 1150, 1900, 3000]
 const MASTERY_TIER_ODDS_5 := [0.65, 0.25, 0.06, 0.03, 0.01]
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
 # §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
@@ -331,14 +336,16 @@ const POP_COST := 1
 # 1 at rank 0 and with mastery off). A mastered generator pops from a RAISED window, so one pop is
 # worth tier_clicks(lo) = 2^(lo-1) tier-1 items; a flat POP_COST for it collapsed the water sink
 # (book spend fell 68% and the sim's I2 gift/spend guard failed on maps 3-5 on every seed, while the
-# 60-day book finished on day 4). The shipped curve IS tier_clicks(lo): a pop costs exactly what its
-# floor is worth, so water buys the same VALUE at every rank and I2 holds structurally rather than by
-# luck — mastery's reward is up to 16x fewer taps and merges (plus the wider odd-rank window), not
-# cheaper water. There is no room for a discount here: even unmastered, I2's worst steady-state map
-# sits at 0.27 of the 0.30 limit. Index 0 MUST stay POP_COST so unmastered play is unchanged, and no
-# entry may exceed tier_clicks(lo) or mastery turns into a punishment (both pinned by mastery_tests).
-# Read only through G.pop_cost(lo); the last entry covers any higher low.
-const POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 8, 16]
+# 60-day book finished on day 4). The curve is tier_clicks(lo) — a pop costs what its floor is
+# worth, so water buys the same VALUE at every rank and I2 holds structurally rather than by luck —
+# SHAVED at the top two lows (8→7, 16→12) so ranks 6-8 hand back 12-25% water. That shave is the
+# largest this economy pays for: at [1,2,4,6,8] I2 failed 2 of 16 sim seeds (0.31/0.32), and even
+# UNMASTERED play only sits at 0.29 of the 0.30 limit on its worst map. Mastery's reward is mostly
+# the LABOR — up to 12x fewer taps and ~70% fewer merges per delivery. Index 0 MUST stay POP_COST so
+# unmastered play is unchanged, and no entry may exceed tier_clicks(lo) or mastery turns into a
+# punishment (both pinned by mastery_tests). Read only through G.pop_cost(lo); the last entry covers
+# any higher low.
+const POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 7, 12]
 const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
 
