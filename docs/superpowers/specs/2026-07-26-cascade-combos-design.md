@@ -7,17 +7,19 @@ provisional dials; the sim owns finals.
 
 ## 1 · What it is
 
-A player merge **tips a cascade**: if the result lines up with adjacent matches, the follow-up
-merges run **by themselves**, one hop at a time. One algorithm finds the longest run; the UI
-follows it. Chain length pays one reward — a chest that grows with the run. Ready ladders get a
-stitched outline; dragging a piece shows where placing it would build a chain — the guide IS
-the teach (no FTUE dialog). Home board only; the Rush is untouched.
+A player merge **tips a cascade** when an equal pair produces a result that can continue through
+adjacent same-line, same-tier partners. The follow-up merges run **by themselves**, one hop at a
+time. One algorithm finds the longest run; the UI follows it. Chain length pays one reward — a
+chest that grows with the run. Armed ladders get a stitched outline. Runways — same-line tier
+staircases with no equal pair yet, but one duplicate away from a cascade — get a weaker stitched
+mark tagged with the tier they need. Dragging a piece shows ignition pads and weaker extension
+pads; the guide IS the teach (no FTUE dialog). Home board only; the Rush is untouched.
 
 **What gets built:**
 
 | File | Change |
 |---|---|
-| `engine/scripts/core/board_logic.gd` | + `chain_path` · `ready_ladders` · `chain_placements` (§3) |
+| `engine/scripts/core/board_logic.gd` | + `chain_path` · `ready_ladders` · `runways` · `chain_placements` (§3) |
 | `engine/scripts/scenes/board.gd` | + run executor, rewards, `chain_running()`, drag-guide wiring (§4–5, §8) |
 | `engine/scripts/ui/cascade_outline.gd` | **new** — stitched outlines, ×n tags, ghost pads (§7–8) |
 | `engine/scripts/core/content.gd` | + `G.line_color(code)` accessor (§7) |
@@ -71,6 +73,12 @@ static func chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array
 #   top_cell = the best run's final landing cell (anchors the ×n tag)
 static func ready_ladders(board: BoardModel) -> Array
 
+# Runway data: same-line components that have no equal pair today, but adding
+# one duplicate of a present tier would reach min_n. Ignite cells are the empty
+# ground cells where dropping needs_code would fire the cascade.
+# { cells, line, needs_code, would_be_n, ignite_cells }
+static func runways(board: BoardModel, min_n: int) -> Array
+
 # Drag guide: empty ground cells (≠ from) where placing `code` raises the joined
 # component's best chain to ≥ 2 and above its prior value. [{ cell, n }]
 static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Array
@@ -79,7 +87,8 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 Direction matters: merging A onto B lands the result at B, so only partners adjacent to B
 continue the run — `ready_ladders` computes n over both tip-over directions. Longest beats
 greedy: with two adjacent partners, the DFS must take the one whose onward neighbours extend
-the run.
+the run. `runways` reuses `chain_placements` for `ignite_cells`; it does not create a second
+placement search.
 
 ## 4 · Run execution — `board.gd`
 
@@ -126,33 +135,43 @@ vacated — always free, synchronously, before the lucky rolls.
 
 ## 7 · Ready-ladder outline
 
-- Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. The scene passes only
-  `ready_ladders` entries with `n >= CHAIN_MIN_N`, so a ×2 ladder draws nothing.
+- Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. The scene passes armed
+  `ready_ladders` entries with `n >= CHAIN_MIN_N`; ×2-only ladders draw nothing. It also passes
+  `runways(board, CHAIN_MIN_N)` entries for weaker resting marks.
 - Stack invariant: the outline child index must sit above every slot/mat node and below every
   live piece/generator (`move_child`; draw order = child order, no CanvasLayers). Exclude
   queued-for-deletion nodes from the computation because `queue_free` is deferred; the guard is
   `grove_cascade_tests.gd`'s stack assertion with stale generator nodes present. Template:
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
-- Per `ready_ladders` component: stitched dashes along the perimeter (cell edges whose
+- Per armed `ready_ladders` component: stitched dashes along the perimeter (cell edges whose
   neighbour is outside), slightly inset, rounded dash ends, per-stitch jitter, a whisper of
   warm shadow under each dash. Thickness + alpha step with n (×2 / ×3 / ×4+). Optional
   interior wash: a light line-color tint inside the group (`fill_pct` knob 0–8; the approved
   mock uses ~5). Redraw only on recompute — in `_after_board_change()` (`board.gd:1011`)
   and after `_rebuild_all`.
+- Per `runways` component: same stitched perimeter language, lower alpha/thinner stroke and
+  lower interior wash than an armed ladder. Tag text names the needed tier, derived from
+  `needs_code`, not ×n. Armed and runway marks must be distinguishable in still captures.
 - Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
   (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
-- ×n tag: small code-drawn paper chip on `top_cell`'s corner, above the pieces, updated per
-  recompute.
+- Tags: armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner; runways
+  show a smaller needed-tier chip on the component's anchor cell. Tags sit above the stitched
+  mark and update per recompute.
 - Geometry via `_cell_pos` (`board.gd:1704`, owns the landscape transpose).
 
 ## 8 · Drag guide
 
-On `_begin_drag` of an item (never a generator): `chain_placements` once (the model is frozen
-mid-drag); each candidate cell gets a stitched ghost pad — dashed rounded square, modest
-inset, light interior tint (~8 %), line color, thickness + brightness step by resulting n.
-The scene keeps only placements with `n >= CHAIN_MIN_N`, so ×2 placements draw no pads. Cleared on
-every release outcome. The merge telegraph (`_update_telegraph`) is untouched; pads mark empty
-cells only.
+On `_begin_drag` of an item (never a generator): compute drag guide marks once (the model is
+frozen mid-drag). Pads are empty ground cells only, and are cleared on every release outcome.
+
+- **Ignition pads**: placements from `chain_placements` where `n >= CHAIN_MIN_N`. Strongest
+  style, stitched ghost pad, light interior tint (~8 %), line color, thickness + brightness
+  step by resulting n, and ×n tag.
+- **Extension pads**: placements that add the held piece to a same-line runway or armed ladder
+  without firing a cascade now. Weaker style than ignition pads, no ×n tag.
+- Nothing draws when the held piece is neither an ignition nor an extension for the adjacent
+  same-line structure.
+- The merge telegraph (`_update_telegraph`) is untouched.
 
 ## 9 · Flags & save
 

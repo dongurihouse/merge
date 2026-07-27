@@ -7,6 +7,8 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const TAG_Z_INDEX := 20
+const RUNWAY_WIDTH_SCALE := 0.62
+const EXTENSION_WIDTH_SCALE := 0.72
 
 @export var inset_frac := 0.10: set = _set_inset
 @export var dash_frac := 0.16: set = _set_dash
@@ -16,6 +18,7 @@ const TAG_Z_INDEX := 20
 @export var jitter_frac := 0.012: set = _set_jitter
 
 var ladders: Array = []
+var runways: Array = []
 var ghost_pads: Array = []
 var cell_size := 86.0
 var cell_pos_fn: Callable
@@ -44,19 +47,29 @@ func set_ladders(data: Array) -> void:
 	_rebuild_tags()
 	queue_redraw()
 
+func set_runways(data: Array) -> void:
+	runways = data.duplicate(true)
+	_rebuild_tags()
+	queue_redraw()
+
 func set_ghost_pads(data: Array) -> void:
 	ghost_pads = data.duplicate(true)
+	_rebuild_tags()
 	queue_redraw()
 
 func clear_guides() -> void:
 	if ghost_pads.is_empty():
 		return
 	ghost_pads = []
+	_rebuild_tags()
 	queue_redraw()
 
 func _draw() -> void:
 	if cell_size <= 0.0 or not cell_pos_fn.is_valid():
 		return
+	for entry in runways:
+		if entry is Dictionary:
+			_draw_runway(entry as Dictionary)
 	for entry in ladders:
 		if entry is Dictionary:
 			_draw_ladder(entry as Dictionary)
@@ -73,6 +86,7 @@ func _draw_ladder(entry: Dictionary) -> void:
 	var wash := Color(color, clampf(fill_pct / 100.0, 0.0, 0.12))
 	var edge := Color(color.lightened(0.18), _alpha_for_n(n))
 	var shadow := Color(Pal.INK, 0.18)
+	var width := _mark_thickness({"kind": "armed", "n": n})
 	var set := {}
 	for raw in cells:
 		set[Vector2i(raw)] = true
@@ -80,7 +94,25 @@ func _draw_ladder(entry: Dictionary) -> void:
 		var cell := Vector2i(raw)
 		var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * inset_frac), Vector2.ONE * cell_size * (1.0 - inset_frac * 2.0))
 		draw_rect(rect, wash, true)
-		_draw_perimeter_edges(cell, set, shadow, edge, n)
+		_draw_perimeter_edges(cell, set, shadow, edge, width)
+
+func _draw_runway(entry: Dictionary) -> void:
+	var cells: Array = Array(entry.get("cells", []))
+	if cells.is_empty():
+		return
+	var color := G.line_color(int(entry.get("line", 0)))
+	var wash := Color(color, clampf(fill_pct / 100.0 * 0.45, 0.0, 0.06))
+	var edge := Color(color.lightened(0.10), 0.26)
+	var shadow := Color(Pal.INK, 0.10)
+	var width := _mark_thickness({"kind": "runway", "would_be_n": int(entry.get("would_be_n", 3))})
+	var set := {}
+	for raw in cells:
+		set[Vector2i(raw)] = true
+	for raw in cells:
+		var cell := Vector2i(raw)
+		var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * inset_frac), Vector2.ONE * cell_size * (1.0 - inset_frac * 2.0))
+		draw_rect(rect, wash, true)
+		_draw_perimeter_edges(cell, set, shadow, edge, width)
 
 func _draw_ghost_pad(entry: Dictionary) -> void:
 	var cell := Vector2i(entry.get("cell", Vector2i(-1, -1)))
@@ -88,13 +120,16 @@ func _draw_ghost_pad(entry: Dictionary) -> void:
 		return
 	var n := int(entry.get("n", 2))
 	var line := int(entry.get("line", 0))
+	var kind := String(entry.get("kind", "ignition"))
 	var color := G.line_color(line)
 	var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * 0.12), Vector2.ONE * cell_size * 0.76)
-	draw_rect(rect, Color(color, 0.08), true)
-	var edge := Color(color.lightened(0.25), _alpha_for_n(n) + 0.08)
-	_draw_dashed_rect(rect, edge, _thickness_for_n(n))
+	var tint_alpha := 0.08 if kind == "ignition" else 0.035
+	draw_rect(rect, Color(color, tint_alpha), true)
+	var alpha := _alpha_for_n(n) + 0.08 if kind == "ignition" else 0.28
+	var edge := Color(color.lightened(0.25 if kind == "ignition" else 0.12), alpha)
+	_draw_dashed_rect(rect, edge, _mark_thickness(entry))
 
-func _draw_perimeter_edges(cell: Vector2i, cell_set: Dictionary, shadow: Color, edge: Color, n: int) -> void:
+func _draw_perimeter_edges(cell: Vector2i, cell_set: Dictionary, shadow: Color, edge: Color, width: float) -> void:
 	for raw_d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
 		var d := Vector2i(raw_d)
 		if cell_set.has(cell + d):
@@ -103,8 +138,8 @@ func _draw_perimeter_edges(cell: Vector2i, cell_set: Dictionary, shadow: Color, 
 		var a := Vector2(seg[0])
 		var b := Vector2(seg[1])
 		var key := _edge_key(cell, d)
-		_draw_dashed_line(a + Vector2(0.0, 1.5), b + Vector2(0.0, 1.5), shadow, _thickness_for_n(n) + 1.5, key)
-		_draw_dashed_line(a, b, edge, _thickness_for_n(n), key)
+		_draw_dashed_line(a + Vector2(0.0, 1.5), b + Vector2(0.0, 1.5), shadow, width + 1.5, key)
+		_draw_dashed_line(a, b, edge, width, key)
 
 func _perimeter_edge_segment(cell: Vector2i, neighbour_delta: Vector2i) -> Array:
 	var p := _cell_pos(cell) + Vector2.ONE * (cell_size * inset_frac)
@@ -157,20 +192,41 @@ func _rebuild_tags() -> void:
 		if top_cell.x < 0:
 			continue
 		var n := int((entry as Dictionary).get("n", 2))
-		var chip := Label.new()
-		chip.name = "CascadeTag"
-		chip.text = "×%d" % n
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip.z_as_relative = false
-		chip.z_index = TAG_Z_INDEX
-		chip.theme = load("res://engine/scripts/ui/ui_font.gd").make()
-		chip.add_theme_font_size_override("font_size", _tag_font_size(n))
-		chip.add_theme_color_override("font_color", Pal.CREAM)
-		chip.add_theme_color_override("font_outline_color", Pal.INK)
-		chip.add_theme_constant_override("outline_size", maxi(2, int(roundf(cell_size * 0.025))))
-		chip.position = _cell_pos(top_cell) + Vector2(cell_size * 0.58, -cell_size * 0.08)
-		chip.custom_minimum_size = Vector2(cell_size * (0.34 + 0.035 * float(mini(n, 7) - 2)), cell_size * 0.24)
-		add_child(chip)
+		_add_tag(top_cell, "×%d" % n, n, false)
+	for entry in runways:
+		if not (entry is Dictionary):
+			continue
+		var cells: Array = Array((entry as Dictionary).get("cells", []))
+		if cells.is_empty():
+			continue
+		var need := int((entry as Dictionary).get("needs_code", 0))
+		if need <= 0:
+			continue
+		_add_tag(Vector2i(cells[0]), "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
+	for entry in ghost_pads:
+		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "ignition")) != "ignition":
+			continue
+		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
+		if cell.x < 0:
+			continue
+		var n := int((entry as Dictionary).get("n", 2))
+		_add_tag(cell, "×%d" % n, n, false)
+
+func _add_tag(cell: Vector2i, text: String, n: int, weak: bool) -> void:
+	var chip := Label.new()
+	chip.name = "CascadeTag"
+	chip.text = text
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.z_as_relative = false
+	chip.z_index = TAG_Z_INDEX
+	chip.theme = load("res://engine/scripts/ui/ui_font.gd").make()
+	chip.add_theme_font_size_override("font_size", _tag_font_size(n, weak))
+	chip.add_theme_color_override("font_color", Color(Pal.CREAM, 0.82 if weak else 1.0))
+	chip.add_theme_color_override("font_outline_color", Color(Pal.INK, 0.78 if weak else 1.0))
+	chip.add_theme_constant_override("outline_size", maxi(1 if weak else 2, int(roundf(cell_size * (0.018 if weak else 0.025)))))
+	chip.position = _cell_pos(cell) + Vector2(cell_size * (0.55 if weak else 0.58), -cell_size * (0.03 if weak else 0.08))
+	chip.custom_minimum_size = Vector2(cell_size * (0.28 if weak else (0.34 + 0.035 * float(mini(n, 7) - 2))), cell_size * 0.22)
+	add_child(chip)
 
 func _cell_pos(cell: Vector2i) -> Vector2:
 	return Vector2(cell_pos_fn.call(cell))
@@ -181,8 +237,15 @@ func _alpha_for_n(n: int) -> float:
 func _thickness_for_n(n: int) -> float:
 	return maxf(2.0, cell_size * thickness_frac + float(mini(n, 4) - 2) * 0.8)
 
-func _tag_font_size(n: int) -> int:
-	return maxi(14, int(roundf(cell_size * (0.22 + 0.018 * float(mini(n, 7) - 2)))))
+func _mark_thickness(entry: Dictionary) -> float:
+	var kind := String(entry.get("kind", "armed"))
+	var n := int(entry.get("n", entry.get("would_be_n", 3)))
+	var scale := RUNWAY_WIDTH_SCALE if kind == "runway" else (EXTENSION_WIDTH_SCALE if kind == "extension" else 1.0)
+	return maxf(1.4, _thickness_for_n(n) * scale)
+
+func _tag_font_size(n: int, weak := false) -> int:
+	var scale := 0.78 if weak else 1.0
+	return maxi(12 if weak else 14, int(roundf(cell_size * (0.22 + 0.018 * float(mini(n, 7) - 2)) * scale)))
 
 func _edge_key(cell: Vector2i, d: Vector2i) -> int:
 	return cell.x * 1009 + cell.y * 917 + (d.x + 2) * 37 + (d.y + 2) * 53

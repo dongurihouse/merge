@@ -19,6 +19,8 @@ func _initialize() -> void:
 	await _test_chain_rewards_and_chest_open_clock()
 	await _test_long_chain_rewards_upgrade_and_cap()
 	await _test_drag_guide_pads_and_generator_exclusion()
+	await _test_runway_resting_outline_and_tag()
+	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
 	await _test_landscape_outline_uses_transposed_edges()
@@ -82,6 +84,26 @@ func _input_drag_merge(b: Node, from: Vector2i, to: Vector2i) -> void:
 	up.position = end
 	b._on_board_input(up)
 
+func _input_begin_drag(b: Node, from: Vector2i) -> void:
+	var half := Vector2(b.csz, b.csz) / 2.0
+	var start: Vector2 = b._cell_pos(from) + half
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = start
+	b._on_board_input(down)
+	var move := InputEventMouseMotion.new()
+	move.position = start + Vector2(b._drag_slop_px() + 8.0, 0.0)
+	b._on_board_input(move)
+
+func _input_release(b: Node, cell: Vector2i) -> void:
+	var half := Vector2(b.csz, b.csz) / 2.0
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = b._cell_pos(cell) + half
+	b._on_board_input(up)
+
 func _wait_for_idle(b: Node, timeout: float = 2.0) -> void:
 	var waited := 0.0
 	while (bool(b.animating) or b.chain_running()) and waited < timeout:
@@ -112,6 +134,13 @@ func _outline_ladder_count(b: Node) -> int:
 	var ladders = o.get("ladders")
 	return (ladders as Array).size() if ladders is Array else 0
 
+func _outline_runway_count(b: Node) -> int:
+	var o := _outline(b)
+	if o == null:
+		return 0
+	var runways = o.get("runways")
+	return (runways as Array).size() if runways is Array else 0
+
 func _outline_pad_count(b: Node) -> int:
 	var o := _outline(b)
 	if o == null:
@@ -119,13 +148,25 @@ func _outline_pad_count(b: Node) -> int:
 	var pads = o.get("ghost_pads")
 	return (pads as Array).size() if pads is Array else 0
 
+func _outline_pad_count_by_kind(b: Node, kind: String) -> int:
+	var o := _outline(b)
+	if o == null:
+		return 0
+	var pads = o.get("ghost_pads")
+	var count := 0
+	if pads is Array:
+		for raw in pads:
+			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
+				count += 1
+	return count
+
 func _outline_has_tag(b: Node, text: String) -> bool:
 	var o := _outline(b)
 	if o == null:
 		return false
 	for raw in o.find_children("*", "Label", true, false):
 		var lbl := raw as Label
-		if lbl != null and lbl.text == text:
+		if lbl != null and not lbl.is_queued_for_deletion() and lbl.text == text:
 			return true
 	return false
 
@@ -396,6 +437,63 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	await process_frame
 	ok(_outline_pad_count(b) == 0, "generator drags do not show cascade ghost pads")
 	b._on_release(b._cell_pos(gen_cell) + half)
+	b.queue_free()
+
+func _test_runway_resting_outline_and_tag() -> void:
+	var b := _open_board("cascade_runway_outline")
+	await process_frame
+	_blank_fixture(b, {
+		Vector2i(3, 1): 102,
+		Vector2i(3, 2): 103,
+		Vector2i(3, 3): 104,
+	})
+	var o := _outline(b)
+	var armed_width := float(o.call("_mark_thickness", {"kind": "armed", "n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
+	var runway_width := float(o.call("_mark_thickness", {"kind": "runway", "would_be_n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
+	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_has_tag(b, "t2"),
+		"an inert t2-t3-t4 runway draws a needed-tier resting mark")
+	ok(runway_width > 0.0 and runway_width < armed_width,
+		"runway resting mark is visibly weaker than an armed ladder")
+	ok(_outline_stack_is_visible_between_board_and_items(b),
+		"runway outline keeps the cascade stack invariant")
+
+	_blank_fixture(b, {
+		Vector2i(3, 0): 102,
+		Vector2i(3, 1): 102,
+		Vector2i(3, 2): 103,
+		Vector2i(3, 3): 104,
+	})
+	ok(_outline_ladder_count(b) == 1 and _outline_runway_count(b) == 0 and _outline_has_tag(b, "×3") and not _outline_has_tag(b, "t2"),
+		"an armed ladder keeps the stronger xN mark instead of the runway tag")
+	b.queue_free()
+
+func _test_runway_drag_guide_strengths_use_real_input() -> void:
+	var b := _open_board("cascade_runway_drag_guides")
+	await process_frame
+	var from := Vector2i(6, 6)
+	var want := {
+		1: {"ignition": 0, "extension": 3},
+		2: {"ignition": 3, "extension": 0},
+		3: {"ignition": 0, "extension": 0},
+		4: {"ignition": 0, "extension": 0},
+		5: {"ignition": 0, "extension": 3},
+	}
+	for held in [1, 2, 3, 4, 5]:
+		_blank_fixture(b, {
+			Vector2i(3, 1): 102,
+			Vector2i(3, 2): 103,
+			Vector2i(3, 3): 104,
+			from: 100 + held,
+		})
+		_input_begin_drag(b, from)
+		await process_frame
+		var ignition := _outline_pad_count_by_kind(b, "ignition")
+		var extension := _outline_pad_count_by_kind(b, "extension")
+		var spec: Dictionary = want[held]
+		ok(ignition == int(spec.ignition) and extension == int(spec.extension),
+			"real input drag for held t%d draws %d ignition and %d extension runway pads" % [held, int(spec.ignition), int(spec.extension)])
+		_input_release(b, from)
+		await process_frame
 	b.queue_free()
 
 func _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes() -> void:
