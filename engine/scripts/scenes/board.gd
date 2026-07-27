@@ -30,7 +30,8 @@ const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
-const RetireOffer = preload("res://engine/scripts/ui/retire_offer.gd")   # §6 the line-retirement offer
+const FarewellCard = preload("res://engine/scripts/ui/farewell_card.gd")   # §8 line farewell sweep card
+const Almanac = preload("res://engine/scripts/ui/almanac.gd")   # §8 read-only line status grid
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
@@ -183,6 +184,7 @@ var bag_content: Control
 var bag_piece_px := 72.0             # the in-well item-preview size (set from the well px on build)
 var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 var _bag_well_drawn_disc := false    # true only for the kit-absent drawn-disc fallback (glyph lives IN bag_content)
+var _farewell_check_queued := false
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
@@ -210,6 +212,7 @@ var _info_buy: Button                # the buy-a-copy chip (a regular item's sec
 var _info_buy_sb: StyleBoxFlat       # the badge's style (mutated for affordable / dimmed states)
 var _info_buy_count: Label           # the price amount inside the badge
 var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
+var _info_almanac: Button            # the empty-state Almanac button, shown only when no board cell is selected
 var _info_inner_px := 62.4           # the info bar's info-button slot (from the kit's inner-control knob)
 var _info_item_icon_scale := 0.80    # selected item/generator art scale as a fraction of the info bar height
 var _info_item_px := 62.4            # selected item/generator art size in the info bar
@@ -388,7 +391,7 @@ func _ready() -> void:
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 	_maybe_show_board_tutorial_first_run.call_deferred()
-	_maybe_offer_retirement.call_deferred()   # §6: a calm moment — board entry, never mid-gesture
+	_queue_farewell_check.call_deferred()   # §8: old-save migration + calm board-entry farewell chain
 
 func debug_refresh_weather() -> void:
 	var insert_at := get_child_count()
@@ -2090,6 +2093,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_capture_info_button_positions()
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
+	_build_almanac_chip(opts, _info_trash.get_parent()) # §8: empty info-tray entry for away/complete lines
 	return pill
 
 func _capture_info_button_positions() -> void:
@@ -2127,6 +2131,20 @@ func _build_buy_chip(opts: Dictionary, row: Control) -> void:
 	_info_buy_coin = c.coin
 	row.move_child(_info_buy, _info_trash.get_index())   # buy sits just LEFT of the sell button
 
+func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
+	var KitA: GDScript = KIT
+	if KitA == null:
+		return
+	var chip_opts: Dictionary = KitA.action_button_opts_from_config(KitA.load_config(KitA.CONFIG_PATH))
+	chip_opts["name"] = "AlmanacInfoButton"
+	chip_opts["tooltip"] = Strings.t("almanac.chip")
+	chip_opts["icon_scale"] = minf(float(chip_opts.get("icon_scale", 0.9)), 0.78)
+	_info_almanac = KitA.action_button("almanac", Vector2(_info_inner_px, _info_inner_px), _open_almanac, chip_opts)
+	_info_almanac.set_meta("action_role", "almanac")
+	_info_almanac.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_info_almanac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_info_almanac)
+
 # Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle, enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
 func _select_item(cell: Vector2i) -> void:
@@ -2138,6 +2156,8 @@ func _select_item(cell: Vector2i) -> void:
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = false
 	_place_info_button(false)
 	var tier := BoardModel.tier_of(code)
 	for c in _info_icon.get_children():
@@ -2192,6 +2212,8 @@ func _select_generator(cell: Vector2i) -> void:
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	_place_info_button(false)
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = false
 	for c in _info_icon.get_children():
 		c.queue_free()
 	var tier := board.gen_tier_at(cell)
@@ -2214,15 +2236,11 @@ func _select_generator(cell: Vector2i) -> void:
 	_info_btn.disabled = not show_info_btn     # ⓘ opens the line ladder unless empty or hidden in the workbench
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false             # a generator is never buyable as a copy
-	# A generator is clearable when it is REDUNDANT (a higher-tier same-line sibling exists — the stranding
-	# fix) or RETIRED (§6: the game will never ask its line again — G.gen_retirable). The retired case is the
-	# manual path for a player who dismissed the retirement offer, so a dead tool is never stuck on the board.
-	var retirable := G.gen_retirable(gid, _quest_level())
-	if board.is_redundant_gen(cell) or retirable:
-		# price what the BUTTON ACTUALLY DOES: a redundant generator sells for its own tier value, a retired
-		# one clears the whole line (its stock too), so they read different payouts from the same source the
-		# offer card uses. Showing gen_sell_coins for a retirement would advertise 2-6 coins and pay far more.
-		var sell_coins := int(BoardActions.retire_preview(board, bag, int(gid.trim_prefix("gen_"))).coins) if retirable and not board.is_redundant_gen(cell) else G.gen_sell_coins(tier)
+	# A generator is clearable only when it is REDUNDANT (a higher-tier same-line sibling exists — the
+	# stranding fix). Not-currently-needed lines are now swept by the automatic farewell card, so the
+	# info tray never carries a second manual line-clearing path.
+	if board.is_redundant_gen(cell):
+		var sell_coins := G.gen_sell_coins(tier)
 		_info_trash_count.text = "%d" % sell_coins
 		for ic in _info_trash_coin.get_children():
 			ic.queue_free()
@@ -2275,6 +2293,9 @@ func _clear_selection() -> void:
 		_info_burst.visible = false
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = Features.on("discovery_ladder")
+		_info_almanac.disabled = not Features.on("discovery_ladder")
 
 # Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
 # _rebuild_all wipes it); z-lifted so the brackets sit above the resting piece they frame. The frame
@@ -2487,12 +2508,9 @@ func _on_trash_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var cell := _selected_cell
-	if board.is_gen(cell):                         # the sell button clears a REDUNDANT or a RETIRED generator
+	if board.is_gen(cell):                         # the sell button only clears a REDUNDANT generator
 		if board.is_redundant_gen(cell):
 			_sell_generator(cell)
-			_clear_selection()
-		elif G.gen_retirable(String(board.gen_id_at(cell)), _quest_level()):
-			_retire_line(String(board.gen_id_at(cell)))    # §6: clears the generator AND its dead stock
 			_clear_selection()
 		return
 	var code := board.item_at(cell)
@@ -3791,9 +3809,12 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 			lvlup_ov.tree_exited.connect(func() -> void:
 				if not is_instance_valid(self):
 					return
-				water = int(Save.grove().get("water", water))   # re-sync the local after Collect granted the gift
-				_update_water_hud()
-				_update_hud())
+					water = int(Save.grove().get("water", water))   # re-sync the local after Collect granted the gift
+					_update_water_hud()
+					_update_hud()
+					_rebuild_givers()
+					_refresh_giver_lights()
+					_queue_farewell_check())
 	_rebuild_givers()
 	# a paying quest FLIES its coins to the wallet — quest_coin_done ticks the pill on arrival
 	_after_board_change(sp_coins > 0)
@@ -3921,57 +3942,109 @@ func _sell_generator(cell: Vector2i) -> void:
 	_rebuild_all()
 	_after_board_change()
 
-# §6 OFFER the retirement of a line the game will never ask again. Deferred to board ENTRY (a calm moment)
-# rather than fired on the level-up that makes it retirable — a modal must never land mid-gesture, and the
-# level-up itself happens on a quest delivery. One line at a time; if the player dismisses it, the info-bar
-# sell button still clears the generator, so nothing is ever stuck. On the shipped roster this fires three
-# times in a whole playthrough.
-func _maybe_offer_retirement() -> void:
-	if not is_inside_tree() or RetireOffer.is_open(self):
+# Queue one calm farewell sweep after board entry or after the level-up ceremony has closed. The queued
+# seam keeps the card out of active gestures and lets any just-refilled quest fence settle first.
+func _queue_farewell_check() -> void:
+	if _farewell_check_queued:
+		return
+	_farewell_check_queued = true
+	_run_farewell_check.call_deferred()
+
+func _run_farewell_check() -> void:
+	_farewell_check_queued = false
+	_show_next_farewell()
+
+func _show_next_farewell() -> void:
+	if not is_inside_tree() or board == null or FarewellCard.is_open(self):
 		return
 	if not Save.board_tutorial_seen():
-		return                                        # never over the FTUE
-	var owned: Array = Quests.owned_gens(board.gens, board.gen_bag)
-	var offer := G.retirable_gens(owned, _quest_level())
-	var declined: Dictionary = Save.grove().get("retire_declined", {})
-	var gid := ""
-	for g in offer:
-		if not declined.has(String(g)):        # offered ONCE; the info-bar sell button is the path back
-			gid = String(g)
-			break
-	if gid == "":
 		return
-	var line := int(gid.trim_prefix("gen_"))
-	var pv: Dictionary = BoardActions.retire_preview(board, bag, line)   # the ONE payout read
-	RetireOffer.open(self, {"line": line, "gen_id": gid, "pieces": int(pv.pieces), "coins": int(pv.coins),
-		"on_confirm": func() -> void:
-			if is_instance_valid(self):
-				_retire_line(gid),
-		"on_dismiss": func() -> void:
-			# remember the decline so the offer does not re-fire on every board entry — it is an offer, not a nag.
-			var dm: Dictionary = Save.grove().get("retire_declined", {})
-			dm[gid] = true
-			Save.grove()["retire_declined"] = dm
-			Save.grove_write()})
+	var due := BoardActions.farewells_due(board, _quest_level())
+	if due.is_empty():
+		return
+	var entry: Dictionary = due[0]
+	var line := int(entry.get("line", 0))
+	var next_need: Dictionary = (entry.get("next_need", {}) as Dictionary).duplicate(true)
+	var preview := BoardActions.farewell_preview(board, line)
+	FarewellCard.open(self, {
+		"line": line,
+		"next_need": next_need,
+		"pieces": int(preview.pieces),
+		"coins": int(preview.coins),
+		"on_close": Callable(self, "_on_farewell_card_closed").bind(line, next_need),
+	})
 
-# §6 LINE RETIREMENT — clear a line the game will never ask again: its generator leaves the board and the
-# gen_bag, and every leftover piece of it (board + item bag) is sold. All the decision logic is the pure
-# BoardActions.retire_line static (guarded on G.gen_retirable); this just plays the payout and rebuilds.
-func _retire_line(gid: String) -> void:
-	var out: Dictionary = BoardActions.retire_line(board, bag, gid, _quest_level())
-	if not bool(out.retired):
-		return
-	bag = out.bag
+func _on_farewell_card_closed(line: int, next_need: Dictionary) -> void:
+	_sweep_farewell(line, next_need)
+
+func _sweep_farewell(line: int, next_need: Dictionary) -> void:
+	var out := BoardActions.sweep_line(board, int(line))
+	var coins := int(out.get("coins", 0))
+	if next_need.is_empty():
+		var g := Save.grove()
+		var retired: Dictionary = g.get("retired", {})
+		retired[str(int(line))] = true
+		g["retired"] = retired
+		Save.grove_write()
 	Audio.play("tidy_poof", -4.0, 1.1)
-	var coins := int(out.coins)
 	if coins > 0:
 		var center: Vector2 = get_global_rect().get_center()
 		var done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()
 		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	_clear_selection()
 	_rebuild_all()
-	_after_board_change()
+	_after_board_change(coins > 0)
+	_queue_farewell_check_after_frame()
+
+func _queue_farewell_check_after_frame() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if is_instance_valid(self):
+		_queue_farewell_check()
+
+func _open_almanac() -> void:
+	if not Features.on("discovery_ladder"):
+		return
+	Almanac.open(self, {
+		"entries": _almanac_entries(),
+		"on_line": func(line: int) -> void:
+			_open_ladder(line, 1, _almanac_ladder_suffix(line)),
+	})
+
+func _almanac_entries() -> Array:
+	var seen: Dictionary = Save.grove().get("seen", {})
+	var z := G.quest_zone_for_level(_quest_level())
+	var out: Array = []
+	for zi in G.ZONE_COUNT:
+		var line := G.zone_line(int(zi))
+		if line <= 0 or not G.LINES.has(line):
+			continue
+		var code := _lowest_seen_code(line, seen)
+		var next_need := G.next_need(line, _quest_level())
+		var state := "producing" if G.line_needed_at_zone(line, z) else ("away" if not next_need.is_empty() else "complete")
+		out.append({
+			"line": line,
+			"seen": code > 0,
+			"code": code,
+			"state": state,
+			"back_level": int(next_need.get("level", 0)),
+			"for_line": int(next_need.get("for_line", 0)),
+		})
+	return out
+
+func _almanac_ladder_suffix(line: int) -> String:
+	for e in _almanac_entries():
+		if int(e.get("line", 0)) != int(line):
+			continue
+		match String(e.get("state", "")):
+			"away":
+				return Strings.t("almanac.ladder_back") % [int(e.get("back_level", 0)), G.item_display_name(int(e.get("for_line", 0)) * 100 + 1)]
+			"complete":
+				return Strings.t("almanac.complete")
+	return ""
 
 func _sell_item(from: Vector2i, node: Control) -> void:
 	var code := board.item_at(from)
@@ -4020,13 +4093,13 @@ func _grant_sale(code: int, node: Control) -> void:
 # this button is the invitation: stars suffice, go decorate.
 # The upgrade path: the line's full ladder, tier by tier — grown tiers show their
 # art, never-seen tiers show "?", and the tapped/asked tier wears a gold ring.
-func _open_ladder(line: int, mark_tier: int) -> void:
+func _open_ladder(line: int, mark_tier: int, status_suffix: String = "") -> void:
 	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
 	# gen redesign #9/#15: a base line shows its GENERATOR icon atop the tier grid; a merged (special) line
 	# shows its two ingredient items atop the SAME tier grid (its own ladder) — tapping either ingredient
 	# opens THAT item's tier screen (Ladder rebuilds the modal in place, so navigation REPLACES, not stacks).
-	var header := _ladder_header(line)
+	var header := _ladder_header(line, status_suffix)
 	var opts := {
 		"header": header,
 		"mark_tier": mark_tier,
@@ -4058,13 +4131,17 @@ func _reveal_generator(gid: String) -> bool:
 
 # #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
 # the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
-func _ladder_header(line: int) -> Dictionary:
+func _ladder_header(line: int, status_suffix: String = "") -> Dictionary:
+	var suffix := String(status_suffix).strip_edges()
+	var display_name := _ladder_line_name(line)
+	if suffix != "":
+		display_name = "%s · %s" % [display_name, suffix]
 	var gid := G.gen_for_line(line)
 	if gid != "":
-		return {"kind": "generator", "gid": gid, "name": G.generator_display_name(gid)}
+		return {"kind": "generator", "gid": gid, "name": display_name}
 	var rl: Array = G.recipe_lines(line)
 	if rl.size() == 2:
-		return {"kind": "recipe", "lines": rl, "name": _ladder_line_name(line)}
+		return {"kind": "recipe", "lines": rl, "name": display_name}
 	return {"kind": "title", "name": Strings.t("ladder.title")}
 
 func _ladder_line_name(line: int) -> String:

@@ -241,6 +241,24 @@ static func quest_needed_lines(asked: Array) -> Dictionary:
 		_add_needed_line(out, int(l))
 	return out
 
+## True when `line` is in the recursive need closure for zone `z`: the active window's own lines plus
+## every ingredient needed to craft any special line in that window.
+static func line_needed_at_zone(line: int, z: int) -> bool:
+	return quest_needed_lines(zone_window_lines(int(z))).has(int(line))
+
+## First future zone, above the player's current zone, whose need closure contains `line`.
+## Returns {} when the line is complete for the shipped arc; otherwise {level, for_line}, where for_line is
+## the first visible window line whose recursive expansion pulls this line back.
+static func next_need(line: int, level: int) -> Dictionary:
+	var current_zone := quest_zone_for_level(int(level))
+	for z in range(current_zone + 1, ZONE_COUNT):
+		for window_line in zone_window_lines(int(z)):
+			var closure := {}
+			_add_needed_line(closure, int(window_line))
+			if closure.has(int(line)):
+				return {"level": zone_unlock_level(int(z)), "for_line": int(window_line)}
+	return {}
+
 # Walk one line's ingredient tree ALL THE WAY DOWN to its base lines. RECURSION IS LOAD-BEARING: an
 # ingredient may itself be a special — tea cups (19) <- spices (8) <- wild berries (2) + woolens (4) — and
 # only the BASE lines can actually be produced. A one-level expansion marked woolens as junk while a tea-

@@ -56,7 +56,7 @@ const PAPER_SURFACES := {
 # The core NAV/action set — one shared code-drawn rugged-edge button per role. The glyph is the only
 # differentiator between tiles (the edge + paper role are shared config). Roles map to the transparent,
 # edge-free glyph sprites generated as one family (no baked deckle — the button draws that in code).
-const ACTION_ROLES := ["map", "residents", "daily", "vault", "mail", "play", "home", "bag"]
+const ACTION_ROLES := ["map", "residents", "daily", "vault", "mail", "play", "home", "bag", "almanac"]
 const ACTION_GLYPHS := {
 	"map": "ui/nav/glyphs/glyph_map.png",
 	"residents": "ui/nav/glyphs/glyph_residents.png",
@@ -66,6 +66,7 @@ const ACTION_GLYPHS := {
 	"play": "ui/nav/glyphs/glyph_play.png",
 	"home": "ui/nav/glyphs/glyph_home.png",
 	"bag": "ui/nav/glyphs/glyph_bag.png",
+	"almanac": "ui/nav/glyphs/glyph_almanac.png",
 }
 # The glyph's soft RUNTIME drop shadow (the art PNG ships shadow-free per the style guide §0): darkened
 # silhouette copies of the glyph nudged DOWN by a fraction of the icon size, fading out — the same
@@ -75,7 +76,7 @@ const GLYPH_SHADOW := [{"dy": 0.03, "a": 0.18}, {"dy": 0.06, "a": 0.12}, {"dy": 
 # The workbench palette overrides any of these; the live game reads the saved palette.
 const ACTION_TINT_DEFAULTS := {
 	"map": "cream", "residents": "cream", "daily": "cream", "vault": "cream",
-	"mail": "cream", "play": "cream", "home": "cream", "bag": "cream",
+	"mail": "cream", "play": "cream", "home": "cream", "bag": "cream", "almanac": "cream",
 }
 # The shared cut-paper edge defaults for the action button (same knob SET as button/frame; own corner).
 const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
