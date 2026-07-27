@@ -196,9 +196,11 @@ board-edge button, no new screen.
   background. The grow row (below) replaces the chips while it is growing.
 - **FTUE (~L6):** arms at level ≥ 6, `ftue_seen("soil")` (`save.gd:288-300`); calm-moment
   deferred beat (retirement-offer template `board.gd:3938-3964`, gated on
-  `board_tutorial_seen`). It **grants a soil seed** onto a free cell (deterministic, not
-  rolled) with a one-line card — *"A seed of good earth! Tap it to choose a spot."* — then
-  `HandHint.present` (`hand_hint.gd:53-71`) points at the seed. The player taps it and
+  `board_tutorial_seen`). It **grants a soil seed** onto a free cell, or into the bag when
+  the board is full (deterministic, not rolled), with a one-line card — *"A seed of good
+  earth! Tap it to choose a spot."* — then `HandHint.present` (`hand_hint.gd:53-71`) points
+  at the seed when it is visible on the board. If the board and bag both have no destination,
+  it stays unmarked so the next room-making moment can grant the seed. The player taps it and
   presses Place. Seeds begin dropping normally from then on.
 - Visuals (normative for mocks and implementation; palette roles per the art guide §3):
   - Soil seed item: a small burlap seed pouch, gold-brown, sprig of green at the neck.

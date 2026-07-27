@@ -14,13 +14,17 @@ func _initialize() -> void:
 	await _test_normal_drag_to_bag_stashes_without_soil_confirm()
 	await _test_second_tap_board_delivery_falls_through_without_soil_confirm()
 	await _test_t7_move_requires_soil_reset_confirm()
+	await _test_cascade_auto_step_skips_t7_growing_partner()
 	await _test_giver_delivery_requires_t7_soil_reset_confirm()
+	await _test_scissors_split_requires_soil_reset_confirm()
 	await _test_magnet_bramble_open_preserves_rng_state()
 	await _test_mark_seen_catches_up_intermediate_tiers()
 	await _test_completed_top_soil_refreshes_selected_info()
 	await _test_soil_tick_does_not_free_active_drag_node()
 	await _test_soil_completion_wakes_magnet_and_opens_bramble()
 	await _test_soil_ftue_grants_seed_once()
+	await _test_soil_ftue_waits_when_seed_has_no_destination()
+	await _test_improvements_flag_blocks_seed_drops()
 	await _test_bagged_soil_seed_survives_the_round_trip()
 	await _test_bagged_soil_rank_survives_save_and_load()
 	await _test_bag_removal_keeps_every_slot_with_its_own_rank()
@@ -53,6 +57,14 @@ func _settle() -> void:
 
 func _cell_center(scn: Node, cell: Vector2i) -> Vector2:
 	return scn._cell_pos(cell) + Vector2(scn.csz, scn.csz) * 0.5
+
+func _mark_cell_growing(scn: Node, cell: Vector2i, code: int, seconds_left: float = 3600.0) -> void:
+	ok(scn.board.build_improvement(cell, Improvements.KIND_SOIL), "fixture installs Soil under %s" % cell)
+	scn.board.place(cell, code)
+	var row: Dictionary = scn.board.improvement_at(cell)
+	row["code"] = code
+	row["ends_at"] = Time.get_unix_time_from_system() + seconds_left
+	scn.board.improvements[cell] = row
 
 func _board_tap(scn: Node, cell: Vector2i) -> void:
 	var pos := _cell_center(scn, cell)
@@ -248,6 +260,29 @@ func _test_t7_move_requires_soil_reset_confirm() -> void:
 	ok(scn.get_node_or_null("SoilResetConfirm") != null, "t7+ reset warning is shown before the move")
 	scn.queue_free()
 
+func _test_cascade_auto_step_skips_t7_growing_partner() -> void:
+	fresh("improve_cascade_t7_guard")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var a := Vector2i(2, 1)
+	var b := Vector2i(2, 2)
+	var growing_partner := Vector2i(2, 3)
+	scn.board.place(a, 106)
+	scn.board.place(b, 106)
+	_mark_cell_growing(scn, growing_partner, 107, 8.0 * 3600.0)
+	scn._rebuild_all()
+	var half := Vector2(scn.csz, scn.csz) / 2.0
+	scn._on_press(scn._cell_pos(a) + half)
+	scn._on_release(scn._cell_pos(b) + half)
+	await create_timer(0.7).timeout
+	ok(scn.board.item_at(b) == 107 and scn.board.item_at(growing_partner) == 107,
+		"a cascade auto-step does not consume a t7+ growing partner")
+	ok(scn.board.is_growing(growing_partner), "the skipped t7 partner keeps its Soil growth progress")
+	ok(scn.get_node_or_null("SoilResetConfirm") == null, "auto-cascade does not pop a destructive Soil confirm mid-run")
+	scn.queue_free()
+
 func _test_giver_delivery_requires_t7_soil_reset_confirm() -> void:
 	fresh("improve_giver_t7_confirm")
 	Save.mark_board_tutorial_seen()
@@ -267,6 +302,24 @@ func _test_giver_delivery_requires_t7_soil_reset_confirm() -> void:
 	scn._on_giver_tap(0, chip)
 	ok(scn.board.item_at(cell) == 107, "giver-tap delivery waits before consuming a t7+ growing piece")
 	ok(scn.get_node_or_null("SoilResetConfirm") != null, "giver-tap delivery shows the t7+ Soil reset warning")
+	scn.queue_free()
+
+func _test_scissors_split_requires_soil_reset_confirm() -> void:
+	fresh("improve_scissors_t7_confirm")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var scissors := Vector2i(1, 1)
+	var target := Vector2i(2, 2)
+	scn.board.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	_mark_cell_growing(scn, target, 107, 8.0 * 3600.0)
+	scn._rebuild_all()
+	scn._split_piece(scissors, target, scn.piece_nodes[scissors])
+	ok(scn.board.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and scn.board.item_at(target) == 107,
+		"scissors waits for confirmation before splitting a t7+ growing piece")
+	ok(scn.board.is_growing(target), "the refused scissors split keeps the target's Soil growth progress")
+	ok(scn.get_node_or_null("SoilResetConfirm") != null, "scissors split shows the t7+ Soil reset warning")
 	scn.queue_free()
 
 func _test_magnet_bramble_open_preserves_rng_state() -> void:
@@ -411,6 +464,51 @@ func _test_soil_ftue_grants_seed_once() -> void:
 	await _settle()
 	ok(scn.board.count_of(Improvements.seed_code_for_kind(Improvements.KIND_SOIL)) == 1, "soil FTUE does not grant a second seed once seen")
 	scn.queue_free()
+
+func _test_soil_ftue_waits_when_seed_has_no_destination() -> void:
+	fresh("improve_ftue_no_destination")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["coins_earned"] = G.coins_at_level(6)
+	Save.grove_write()
+	var scn := _open_board()
+	_clear_board_model(scn.board)
+	for i in scn.board.items.size():
+		scn.board.items[i] = 101
+	scn.bag = []
+	scn.bag_seed_ranks = []
+	for _i in scn._bag_capacity():
+		scn._bag_append(101)
+	scn._rebuild_all()
+	await _settle()
+	var soil_seed := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
+	ok(not Save.ftue_seen("soil"), "soil FTUE stays retryable when the board and bag have no seed destination")
+	ok(scn.board.first_item_of(soil_seed).x < 0 and not scn.bag.has(soil_seed), "soil FTUE does not fake a seed grant when there is no room")
+	scn._bag_remove_at(scn.bag.size() - 1)
+	scn._maybe_soil_ftue()
+	await _settle()
+	ok(Save.ftue_seen("soil") and scn.bag.has(soil_seed), "soil FTUE marks seen once a later retry can grant the seed")
+	scn.queue_free()
+
+func _test_improvements_flag_blocks_seed_drops() -> void:
+	var original := bool(Feat.FLAGS.get("improvements", true))
+	Feat.FLAGS["improvements"] = false
+	fresh("improve_flag_drop_gate")
+	var scn := _open_board()
+	await _settle()
+	var blocked: Array = scn._blocked_seed_drop_lines()
+	ok(blocked.has(Improvements.seed_line_for_kind(Improvements.KIND_SOIL)) \
+		and blocked.has(Improvements.seed_line_for_kind(Improvements.KIND_MAGNET)), \
+		"improvements flag OFF blocks both improvement seed pseudo-lines")
+	var saw_seed := false
+	var rng := RandomNumberGenerator.new()
+	for seed in range(1, 80):
+		rng.seed = seed
+		if Improvements.is_seed(G.pick_special_drop(rng, blocked)):
+			saw_seed = true
+			break
+	ok(not saw_seed, "improvements flag OFF keeps special-drop rolls from producing seed items")
+	scn.queue_free()
+	Feat.FLAGS["improvements"] = original
 
 # --- the bag carries Soil rank ---------------------------------------------------
 # bag_seed_ranks is PARALLEL to bag (invariant: equal sizes), the same shape gen_bag_tiers /

@@ -7,6 +7,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 
 func _initialize() -> void:
 	begin("grove · board actions")
@@ -295,6 +296,24 @@ func _test_split_piece() -> void:
 		and full_plain.item_at(scissors) == 102 and full_plain.item_at(target) == 104,
 		"a full board refuses a non-scissors drag — only the scissors frees its own cell")
 
+	var growing := BoardModel.new()
+	for i in growing.items.size():
+		growing.terrain[i] = 0
+		growing.items[i] = 0
+	growing.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	ok(growing.build_improvement(target, Improvements.KIND_SOIL), "fixture installs Soil under the split target")
+	growing.place(target, 107)
+	var grow_row: Dictionary = growing.improvement_at(target)
+	grow_row["code"] = 107
+	grow_row["ends_at"] = Time.get_unix_time_from_system() + 3600.0
+	growing.improvements[target] = grow_row
+	ok(growing.is_growing(target), "fixture starts the target as a t7+ growing piece")
+	var growing_out: Dictionary = BoardActions.split_piece(growing, scissors, target)
+	ok(Vector2i(growing_out.get("target", Vector2i(-1, -1))) == target
+		and growing.item_at(target) == 106 and not growing.is_growing(target)
+		and int(growing.improvement_at(target).get("code", -1)) == 0,
+		"split_piece resets the consumed target's stale Soil grow row after a confirmed split")
+
 	# Every other refusal still holds on a FULL board, where the freed cell now exists: tier-1 targets,
 	# coins, treat lines and from == target all refuse with no loss (the scissors survives every one).
 	var full_t1 := BoardModel.new()
@@ -490,6 +509,29 @@ func _test_farewell_sweep() -> void:
 		"sweep touches board generators but leaves the generator bag untouched")
 	var kept: Dictionary = Save.grove().get("gen_kept", {})
 	ok(kept.get("gen_2", []) == [3, 5], "an upgraded swept board generator writes gen_kept [tier, boost]")
+	fresh("farewell_kept_merge_max")
+	var weaker := BoardModel.new()
+	for i in weaker.items.size():
+		weaker.terrain[i] = 0
+		weaker.items[i] = 0
+	weaker.place_gen("gen_2", Vector2i(0, 0), 2)
+	weaker.arm_gen_boost(Vector2i(0, 0), 9)
+	Save.grove()["gen_kept"] = {"gen_2": [3, 1]}
+	Save.grove_write()
+	BoardActions.sweep_line(weaker, 2)
+	ok((Save.grove().get("gen_kept", {}) as Dictionary).get("gen_2", []) == [3, 1],
+		"a second farewell keeps the stronger banked generator tier instead of overwriting it with a weaker copy")
+	var equal := BoardModel.new()
+	for i in equal.items.size():
+		equal.terrain[i] = 0
+		equal.items[i] = 0
+	equal.place_gen("gen_2", Vector2i(0, 0), 3)
+	equal.arm_gen_boost(Vector2i(0, 0), 9)
+	Save.grove()["gen_kept"] = {"gen_2": [3, 1]}
+	Save.grove_write()
+	BoardActions.sweep_line(equal, 2)
+	ok((Save.grove().get("gen_kept", {}) as Dictionary).get("gen_2", []) == [3, 9],
+		"a same-tier farewell keeps the stronger boost taps in the banked generator keepsake")
 	ok(BoardActions.farewells_due(b, l65).map(func(e): return int(e.line)) == [4, 8],
 		"presence-based evaluation is idempotent: the swept line does not re-fire")
 	var live_piece_survived := false

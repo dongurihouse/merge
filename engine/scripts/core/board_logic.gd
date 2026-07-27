@@ -79,6 +79,13 @@ static func chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array:
 	vacated[a] = true
 	return _best_chain_from(board, b, produced, vacated)
 
+static func chain_reward_code(n: int) -> int:
+	if n == 2:
+		return G.COIN_LINE * 100 + 1
+	if n >= 3:
+		return G.CHEST_LINE * 100 + mini(5, n - 2)
+	return 0
+
 # Ready outline data, one entry per same-line component whose best tip-over
 # would produce at least one automatic follow-up step.
 static func ready_ladders(board: BoardModel) -> Array:
@@ -142,14 +149,15 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 	# Collect rewards block a merge. Flattened to an idx set, and only for OCCUPIED cells: every
 	# reader checks the item first, and place() clears the reward under a dropped piece, so a
 	# reward stranded on an empty cell is unreachable either way.
-	var rewarded := {}
+	var guarded := _guarded_growing_indices(board)
+	var blocked := guarded.duplicate()
 	for key in board.collect_rewards:
 		var ri := int(key)
 		if ri < 0 or ri >= count or items[ri] <= 0:
 			continue
 		var reward = board.collect_rewards[key]
 		if reward is Dictionary and not (reward as Dictionary).is_empty():
-			rewarded[ri] = true
+			blocked[ri] = true
 	var nbrs := _neighbour_table(count)
 	var tops := {}                                 # code -> G.merge_top(code), memoised
 	var line := BoardModel.line_of(code)
@@ -160,7 +168,7 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 	var comp_cells: Array = []                     # component -> PackedInt32Array of cell idx
 	var comp_n := PackedInt32Array()               # component -> best cascade n, -1 until asked
 	for i in count:
-		if comp_of[i] >= 0 or items[i] <= 0 or BoardModel.line_of(items[i]) != line:
+		if comp_of[i] >= 0 or guarded.has(i) or items[i] <= 0 or BoardModel.line_of(items[i]) != line:
 			continue
 		var id := comp_cells.size()
 		var members := PackedInt32Array()
@@ -172,7 +180,7 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 			var c4 := c * 4
 			for d in 4:
 				var nb: int = nbrs[c4 + d]
-				if nb < 0 or comp_of[nb] >= 0 or items[nb] <= 0 or BoardModel.line_of(items[nb]) != line:
+				if nb < 0 or comp_of[nb] >= 0 or guarded.has(nb) or items[nb] <= 0 or BoardModel.line_of(items[nb]) != line:
 					continue
 				comp_of[nb] = id
 				stack.append(nb)
@@ -201,7 +209,7 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 				continue
 			touched.append(id)
 			if comp_n[id] < 0:
-				comp_n[id] = _best_cascade_n(items, comp_cells[id], nbrs, rewarded, tops)
+				comp_n[id] = _best_cascade_n(items, comp_cells[id], nbrs, blocked, tops)
 			if comp_n[id] > before_n:
 				before_n = comp_n[id]
 		if touched.is_empty():
@@ -213,7 +221,7 @@ static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Ar
 			var members: PackedInt32Array = comp_cells[id]
 			joined.append_array(members)
 		items[i] = code
-		var n := _best_cascade_n(items, joined, nbrs, rewarded, tops)
+		var n := _best_cascade_n(items, joined, nbrs, blocked, tops)
 		items[i] = 0                               # rewind: the scratch is reused for every cell
 		if n >= 2 and n > before_n:
 			out.append({"cell": cell, "n": n})
@@ -241,11 +249,11 @@ static func _neighbour_table(count: int) -> PackedInt32Array:
 # cascade gets reported, so dropping them cannot change the answer. Returns 0 for the `n < 2`
 # runs the full search discards. `cells` must be a whole component: a same-code neighbour of a
 # member is same-line, hence already a member, which is why there is no cell-set check here.
-static func _best_cascade_n(items: PackedInt32Array, cells: PackedInt32Array, nbrs: PackedInt32Array, rewarded: Dictionary, tops: Dictionary) -> int:
+static func _best_cascade_n(items: PackedInt32Array, cells: PackedInt32Array, nbrs: PackedInt32Array, blocked: Dictionary, tops: Dictionary) -> int:
 	var best := 0
 	var vacated := {}
 	for a in cells:
-		if rewarded.has(a):
+		if blocked.has(a):
 			continue
 		var k: int = items[a]
 		var top := int(tops.get(k, -1))
@@ -257,11 +265,11 @@ static func _best_cascade_n(items: PackedInt32Array, cells: PackedInt32Array, nb
 		var b4: int = a * 4
 		for d in 4:
 			var b: int = nbrs[b4 + d]
-			if b < 0 or items[b] != k or rewarded.has(b):
+			if b < 0 or items[b] != k or blocked.has(b):
 				continue
 			# can_merge(a, b) holds: same code, neither carrying a collect reward, below the top.
 			vacated[a] = true
-			var n := 1 + _max_chain(items, nbrs, rewarded, tops, b, k + 1, vacated)
+			var n := 1 + _max_chain(items, nbrs, blocked, tops, b, k + 1, vacated)
 			vacated.erase(a)
 			if n > best:
 				best = n
@@ -272,7 +280,7 @@ static func _best_cascade_n(items: PackedInt32Array, cells: PackedInt32Array, nb
 # holding `code`, not already consumed, carrying no collect reward) — returning the depth
 # instead of building the paths. _path_better ranks LENGTH first, so the longest run is the run
 # the full search picks. `vacated` is carried and rewound rather than duplicated per branch.
-static func _max_chain(items: PackedInt32Array, nbrs: PackedInt32Array, rewarded: Dictionary, tops: Dictionary, cell: int, code: int, vacated: Dictionary) -> int:
+static func _max_chain(items: PackedInt32Array, nbrs: PackedInt32Array, blocked: Dictionary, tops: Dictionary, cell: int, code: int, vacated: Dictionary) -> int:
 	var top := int(tops.get(code, -1))
 	if top < 0:
 		top = G.merge_top(code)
@@ -284,9 +292,9 @@ static func _max_chain(items: PackedInt32Array, nbrs: PackedInt32Array, rewarded
 	vacated[cell] = true
 	for d in 4:
 		var nb: int = nbrs[b4 + d]
-		if nb < 0 or items[nb] != code or vacated.has(nb) or rewarded.has(nb):
+		if nb < 0 or items[nb] != code or vacated.has(nb) or blocked.has(nb):
 			continue
-		var run := 1 + _max_chain(items, nbrs, rewarded, tops, nb, code + 1, vacated)
+		var run := 1 + _max_chain(items, nbrs, blocked, tops, nb, code + 1, vacated)
 		if run > best:
 			best = run
 	vacated.erase(cell)
@@ -305,6 +313,8 @@ static func _best_chain_from(board: BoardModel, current: Vector2i, code: int, va
 			continue
 		if not board.collect_reward_at(n).is_empty():
 			continue
+		if _is_guarded_growing_cell(board, n):
+			continue
 		candidates.append(n)
 	candidates = _sorted_cells(candidates)
 	var best: Array = []
@@ -316,6 +326,19 @@ static func _best_chain_from(board: BoardModel, current: Vector2i, code: int, va
 		if _path_better(path, best):
 			best = path
 	return best
+
+static func _is_guarded_growing_cell(board: BoardModel, cell: Vector2i) -> bool:
+	return board != null and board.is_growing(cell) and board.growing_from_tier(cell) >= 7
+
+static func _guarded_growing_indices(board: BoardModel) -> Dictionary:
+	var out := {}
+	if board == null:
+		return out
+	for cell in board.growing_cells():
+		var c := Vector2i(cell)
+		if board.growing_from_tier(c) >= 7:
+			out[BoardModel.idx(c)] = true
+	return out
 
 static func _tip_result_code(board: BoardModel, a: Vector2i, b: Vector2i) -> int:
 	if board.can_merge(a, b):

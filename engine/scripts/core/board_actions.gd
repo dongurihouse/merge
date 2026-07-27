@@ -208,6 +208,8 @@ static func split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> 
 	if twin == Vector2i(-1, -1):
 		return {}
 	var lowered := int(target_code) - 1
+	if board.is_growing(target):
+		board.reset_soil_activity(target)
 	board.take(from)
 	board.place(target, lowered)
 	board.place(twin, lowered)
@@ -227,27 +229,6 @@ static func split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> 
 # whole decision stays a pure, headless-testable static. Returns
 #   {retired, line, coins, items, gen_cells, bag}
 # — items = how many pieces were sold, gen_cells = board cells freed (for the scene's poof).
-## What retiring `line` would clear, WITHOUT mutating: {pieces, coins} over the board AND the item bag.
-## THE ONE payout read — the offer card, the info-bar sell label and retire_line itself all price the same
-## way, so the number shown can never differ from the number paid.
-static func retire_preview(board: BoardModel, bag: Array, line: int) -> Dictionary:
-	var pieces := 0
-	var coins := 0
-	for i in board.items.size():
-		var code: int = board.items[i]
-		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == int(line):
-			pieces += 1
-			coins += int(G.sell_reward(code).x)
-	for c in bag:
-		if int(c) > 0 and not G.is_coin(int(c)) and BoardModel.line_of(int(c)) == int(line):
-			pieces += 1
-			coins += int(G.sell_reward(int(c)).x)
-	return {"pieces": pieces, "coins": coins}
-# --- §6 LINE FAREWELLS (2026-07-26) -------------------------------------------------------------------
-# A line receives a farewell when it has BOARD presence but is outside the current zone's recursive need
-# closure. The bag is not presence here: it is the hoard path, and bagged generators/items stay player-held
-# without forcing a ceremony. Returning lines come back through the existing due_gen birth-on-tap path.
-
 static func farewells_due(board: BoardModel, level: int) -> Array:
 	var present := {}
 	for code in board.items:
@@ -321,16 +302,31 @@ static func sweep_line(board: BoardModel, line: int) -> Dictionary:
 	var keep_boost := int(out.get("keep_boost", 0))
 	if gid != "":
 		if keep_tier > 1 or keep_boost > 0:
-			var g := Save.grove()
-			var kept: Dictionary = g.get("gen_kept", {})
-			kept[gid] = [keep_tier, keep_boost]
-			g["gen_kept"] = kept
+			_merge_kept_gen_state(gid, keep_tier, keep_boost)
 	var coins := int(out.get("coins", 0))
 	if coins > 0:
 		Save.add_coins(coins)                         # spendable only — farewell sweep never advances the clock
 	elif gid != "" and (keep_tier > 1 or keep_boost > 0):
 		Save.grove_write()
 	return out
+
+static func _merge_kept_gen_state(gid: String, tier: int, boost: int) -> void:
+	var g := Save.grove()
+	var kept: Dictionary = g.get("gen_kept", {})
+	var best_tier := clampi(int(tier), 1, G.GEN_TOP_TIER)
+	var best_boost := maxi(0, int(boost))
+	var raw: Variant = kept.get(String(gid), [])
+	if raw is Array and not (raw as Array).is_empty():
+		var arr: Array = raw
+		var old_tier := clampi(int(arr[0]), 1, G.GEN_TOP_TIER)
+		var old_boost := maxi(0, int(arr[1]) if arr.size() > 1 else 0)
+		if old_tier > best_tier:
+			best_tier = old_tier
+			best_boost = old_boost
+		elif old_tier == best_tier:
+			best_boost = maxi(old_boost, best_boost)
+	kept[String(gid)] = [best_tier, best_boost]
+	g["gen_kept"] = kept
 
 # Gen stranding fix — SELL a redundant generator (one that has a strictly-higher same-line sibling, so the
 # line keeps its top producer). Guarded: a non-redundant generator is refused. Removes it from the model and
