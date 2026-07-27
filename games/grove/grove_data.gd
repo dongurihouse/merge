@@ -369,16 +369,25 @@ const SKY_SKIN_SPLIT := {
 	"sunbeam": {"clear": 70, "breeze": 30},
 	"rain": {"rain": 85, "snow": 15},
 }
-const SKY_COIN_RATE := 0.35
+# Raised 0.35 -> 0.50 when Calm landed: Sunbeam fell from 45% to 30% of hours, so the old rate
+# bought only 0.67x the coin-gift hours. At 0.50 under the new mix sky coins measure 2.8% of the
+# coin faucet, against 2.3–5.8% at 0.35 under the old one — the previous contribution restored.
+# Coins are a minor faucet with no runaway at any rate tested. Coin and water rates are
+# deliberately DIFFERENT numbers: equal rates are not equal generosity, because each feeds a
+# differently-sized economy — tune each against its own faucet.
+const SKY_COIN_RATE := 0.50
 const SKY_COIN_TIER := 2
-# SKY_WATER_RATE is the one sky dial with a RUNAWAY above ~0.2, so it does not match its coin
-# twin. Swept 4 seeds × 7 sim days: at 0.35 the sky owned 16.7–46.5% of the whole water spend and
-# total spend roughly doubled (4305–7744) — the extra water buys pops, pops make merges, in-patch
-# merges make more water, and the loop feeds itself. At 0.15 the gift is felt but water stays a
-# real constraint: sky water is 5.3–8.1% of spend, spend settles at 3433–3919, and self-sustain
-# sits 59–67% against a 52–58% no-weather control. Coins have no such loop (sky coins measure
-# 2.3–5.8% of a much larger faucet), which is why SKY_COIN_RATE stays at 0.35.
-const SKY_WATER_RATE := 0.15
+# Raised 0.15 -> 0.30 for the Calm mix (calm 40 / sunbeam 30 / rain 20 / starfall 10), which cut
+# Rain to 0.44x its old gift hours. Swept 3 seeds × 30 sim days (~18 rain hours each), absolute
+# water drops: 0.15 -> 10/18/3 · 0.30 -> 46/19/8 · 0.45 -> 51/21/9. Drops track the rate up to
+# ~0.30 and then SATURATE (0.30 -> 0.45 is a 50% rate rise for ~10% more drops), so 0.30 is the
+# efficient point — near-maximum felt generosity per unit of economic impact. The gate itself is
+# linear (empirical hit rate within 0.6% of the requested rate from 0.10 to 0.60); the saturation
+# is the economy self-regulating, since extra water changes how the bot plays and so how many
+# merges land in the lane. The old RUNAWAY above ~0.2 was a property of 45% RAIN HOURS, not of the
+# rate alone: at 20% Rain, water self-sustain stays at the control level (53–61% against a 52–58%
+# no-weather control) at every rate tested up to 0.45.
+const SKY_WATER_RATE := 0.30
 const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
 const STAR_DELAY := 10.0
 # §3 playable-lane roll: the hour picks only among lanes holding at least this many cells the player

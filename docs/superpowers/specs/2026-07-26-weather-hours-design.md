@@ -102,8 +102,8 @@ cell no-ops (`pick_drop_cell` sentinel).
 
 | In-patch | Roll | Drop |
 |---|---|---|
-| **Sunbeam** | coin roll at `SKY_COIN_RATE` 0.35 (replaces 0.10) | coin lands as **c2** (worth 4) |
-| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.15; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
+| **Sunbeam** | coin roll at `SKY_COIN_RATE` 0.50 (replaces 0.10) | coin lands as **c2** (worth 4) |
+| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.30; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
 
 - c2 upgrade instead of two c1 pieces: one cell, same value (Q2).
 - Soil hook, dormant until step 4: a growing soil cell in-patch during Rain fires its
@@ -199,26 +199,47 @@ its banner/chip predate §6's marker — read it for the star only).
 - A sky never completes a live ask (§5 skip rule).
 - Water gifts respect `WATER_REWARD_MAX_RATIO` 0.3 (I2). I2 is already RED on maps 3–4
   (`docs/BACKLOG.md`) — judge the delta, not the absolute.
-- **The water faucet runs away above `SKY_WATER_RATE` ≈ 0.2 — measured, keep it below.**
-  Sky water buys pops, pops make merges, merges land in-patch and make more sky water. The
-  loop is superlinear: cutting the rate 0.35 → 0.15 (2.3×) cut sky water 7–12×. Measured
-  over 4 seeds × 7 days, sky water as a share of total water spend, against a no-weather
-  control run:
+- **The water runaway is SHARE-DEPENDENT — it is not a flat threshold on the rate.** At
+  **45% Rain hours** (the pre-Calm mix) the faucet ran away above `SKY_WATER_RATE` ≈ 0.2:
+  sky water buys pops, pops make merges, merges land in-patch and make more sky water, and
+  the loop is superlinear — cutting the rate 0.35 → 0.15 (2.3×) cut sky water 7–12×. That
+  measurement stays in the record because it is why the coupling rule exists. Measured over
+  4 seeds × 7 days, sky water as a share of total water spend, against a no-weather control,
+  **all at 45% Rain**:
 
-  | rate | sky water share of spend | water self-sustain | total spend |
+  | rate @ 45% Rain | sky water share of spend | water self-sustain | total spend |
   |---|---|---|---|
   | control (no weather) | — | 52–58% | 3259–3553 |
   | 0.35 | 16.7–46.5% | 70–88% | 4305–7744 |
-  | **0.15 (shipped)** | **5.3–8.1%** | **59–67%** | **3433–3919** |
+  | 0.15 | 5.3–8.1% | 59–67% | 3433–3919 |
   | 0.10 | 4.4–5.5% | 59–62% | 3259–4075 |
 
-  At 0.35 water stops being the pacing constraint and total throughput roughly doubles. At
-  0.15 the gift is felt and the economy sits near control. Any future change to
-  `SKY_WATER_RATE`, in-patch geometry, or lane width re-opens this loop — re-run the sweep.
-- **The two sky rates are deliberately asymmetric.** `SKY_COIN_RATE` stays 0.35 while
-  `SKY_WATER_RATE` is 0.15: at equal rates sky coins measured only 2.3–5.8% of the coin
+- **At 20% Rain (the shipped Calm mix) the same rates show no runaway; drops SATURATE above
+  ~0.30 instead.** Re-swept 3 seeds × 30 days (~90 sim hours, ~18 rain hours each): water
+  self-sustain sat at the control level (53–61% against a 52–58% no-weather control) at
+  every rate tested up to 0.45. **Self-sustain is read on the 7-day protocol** — the metric
+  falls with run length (the same seeds over 30 days read 29–35% against a 29–38%
+  sky-water-off control), so only compare it against a control of equal length. What binds
+  now is diminishing return — absolute water drops per seed were 10/18/3 at 0.15, 46/19/8 at
+  **0.30 (shipped)** and 51/21/9 at 0.45, so drops track the rate up to ~0.30 and then
+  flatten: 0.30 → 0.45 is a 50% rate rise for ~10% more drops. 0.30 is the efficient point —
+  near-maximum felt generosity per unit of economic impact, with anything above it buying
+  almost nothing measurable. The probability gate itself is linear (empirical hit rate within
+  0.6% of the requested rate from 0.10 to 0.60); the flattening is the economy
+  self-regulating, because extra water changes how the bot plays and so how many merges land
+  in the lane.
+- **This second sweep demonstrates the coupling rule (§2).** The same rate is a runaway at
+  45% Rain and safe at 20% Rain, so *share and rate are one dial in two halves* is now a
+  measured property, not a precaution: neither number means anything without the other. Any
+  future change to `SKY_SHARES`, `SKY_WATER_RATE`, in-patch geometry, or lane width re-opens
+  this loop — re-run the sweep.
+- **The two sky rates are deliberately different numbers.** `SKY_COIN_RATE` is 0.50 where
+  `SKY_WATER_RATE` is 0.30: at equal rates sky coins measured only 2.3–5.8% of the coin
   faucet against water's 17–47%, because the coin economy is large and the water economy is
-  small. Equal rates are not equal generosity — tune each against its own faucet.
+  small. Equal rates are not equal generosity — tune each against its own faucet. Coin's
+  0.35 → 0.50 raise covers Sunbeam's 45% → 30% hour cut; at 0.50 under the Calm mix sky
+  coins measure 2.8% of the coin faucet, restoring the old contribution. Coins are a minor
+  faucet with no observed runaway at any rate tested.
 - The star is the only high-tier faucet, bounded per §5.
 - No draw from `board.rng` — hour-seeded RNG only; byte-identity test pins the board
   stream (§10).
@@ -308,9 +329,9 @@ its banner/chip predate §6's marker — read it for the star only).
 |---|---|---|
 | `SKY_SHARES` | 40 · 30 · 20 · 10 | Calm · Sunbeam · Rain · Starfall |
 | `SKY_SKIN_SPLIT` | 70/30 · 70/30 · 85/15 | clear/breeze in Calm and Sunbeam · rain/snow in Rain |
-| `SKY_COIN_RATE` | 0.35 | in-patch coin chance (base 0.10) |
+| `SKY_COIN_RATE` | 0.50 | in-patch coin chance (base 0.10) — raised to cover Sunbeam's 45% → 30% hour cut |
 | `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
-| `SKY_WATER_RATE` | 0.15 | in-patch water roll (t1 = +8, over-cap) — **sim-set, do not raise past ~0.2** (§7 runaway) |
+| `SKY_WATER_RATE` | 0.30 | in-patch water roll (t1 = +8, over-cap) — **sim-set at 20% Rain; drops saturate above ~0.30** (§7) |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
 | `STAR_DELAY` | 10 s | live seconds before the star falls |
 | `LANE_MIN_OPEN` | 5 | min open cells for a lane to be rollable (§3) |
