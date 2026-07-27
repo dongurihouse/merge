@@ -91,6 +91,8 @@ SHEETS = {
     "resident_dewdrop": (4, 3),      # desert_oasis (oasis sheet)
     "resident_breeze": (4, 3),       # coral_reef
     "resident_starlight": (4, 3),    # sakura
+    # §6.B chest drop line — re-cut as a full 12-tier ladder (was 5 hand-made tiers).
+    "chest": (4, 3),
 }
 
 SIZE = 512          # output canvas (square)
