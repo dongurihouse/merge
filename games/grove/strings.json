@@ -63,7 +63,9 @@
       },
       "starfall": {
         "title": "Starfall",
-        "desc": "a star is on its way."
+        "desc": "a star is on its way.",
+        "catch": "tap a glowing cell to catch your star.",
+        "blocked": "clear a cell in the column to catch it."
       },
       "sunbeam": {
         "title": "Sunbeam",

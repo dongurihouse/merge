@@ -173,6 +173,9 @@ var _sky_state: Dictionary = {}
 var _sky_live_secs := 0.0
 var _sky_patch: Control = null
 var _sky_marker: Button = null
+var _sky_docked_star: Control = null
+var _star_catch_nodes := {}
+var _star_pending_started_secs := -1.0
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
 var _gate_ready_seen := false      # skip the cue on the first (load-time) call
 var _unlock_bar: UnlockBar
@@ -449,6 +452,8 @@ func _ready() -> void:
 	_grid_fx_opts = {"merge": _merge_opts, "move": _move_opts, "land": _land_opts}   # one bundle for GridFx
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
+	if _land_owed_stars():
+		_persist(false)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 	_maybe_show_board_tutorial_first_run.call_deferred()
@@ -477,6 +482,7 @@ func debug_refresh_weather() -> void:
 
 func _refresh_sky_state() -> void:
 	_sky_state = SkyLogic.state(Time.get_unix_time_from_system(), _quest_level(), Ambient.forced_weather)
+	_reconcile_starfall_pending_for_sky()
 
 func _tick_sky_hour() -> void:
 	# The lane is level-dependent (§3), so a level-up can move it mid-hour — the lane check below
@@ -485,6 +491,9 @@ func _tick_sky_hour() -> void:
 	if _sky_state.is_empty() or int(next.hour) != int(_sky_state.get("hour", -1)) \
 			or String(next.sky) != String(_sky_state.get("sky", "")) \
 			or int(next.lane) != int(_sky_state.get("lane", -1)):
+		if int(SkyLogic.grove_sky_state().get("pending", 0)) > 0:
+			_queue_pending_starfall_as_owed()
+			Save.grove_write()
 		_sky_state = next
 		_sky_live_secs = 0.0
 		refresh_weather()
@@ -495,6 +504,7 @@ func _tick_sky_hour() -> void:
 func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	if board_area == null or not is_instance_valid(board_area):
 		return
+	_clear_starfall_catch_ui()
 	for node in [_sky_patch, _sky_marker]:
 		if node != null and is_instance_valid(node):
 			if node.get_parent() != null:
@@ -520,6 +530,7 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	_sky_marker = marker
 	if pop_marker:
 		FX.pop(marker)
+	_sync_starfall_catch_ui(false, false)
 
 func _sky_patch_insert_index() -> int:
 	var insert_at := board_area.get_child_count()
@@ -707,6 +718,10 @@ func _sky_info_title() -> String:
 	return Strings.t("board.sky.%s.title" % String(_sky_state.get("sky", "sunbeam")))
 
 func _sky_info_desc() -> String:
+	if String(_sky_state.get("sky", "")) == SkyLogic.SKY_STARFALL and int(SkyLogic.grove_sky_state().get("pending", 0)) > 0:
+		if _star_catch_cells().is_empty():
+			return Strings.t("board.sky.starfall.blocked")
+		return Strings.t("board.sky.starfall.catch")
 	return Strings.t("board.sky.%s.desc" % String(_sky_state.get("sky", "sunbeam")))
 
 func _on_sky_marker_pressed() -> void:
@@ -733,8 +748,198 @@ func _on_sky_marker_pressed() -> void:
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
 
+func _reconcile_starfall_pending_for_sky() -> void:
+	var sky_save := SkyLogic.grove_sky_state()
+	var pending := int(sky_save.get("pending", 0))
+	if pending <= 0:
+		_star_pending_started_secs = -1.0
+		return
+	var same_live_starfall := SkyLogic.gate_open() \
+		and String(_sky_state.get("sky", "")) == SkyLogic.SKY_STARFALL \
+		and int(_sky_state.get("hour", -1)) == int(sky_save.get("paid_hour", -2))
+	if same_live_starfall:
+		if _star_pending_started_secs < 0.0:
+			_star_pending_started_secs = _sky_live_secs
+		return
+	_queue_pending_starfall_as_owed()
+	Save.grove_write()
+
+func _queue_pending_starfall_as_owed() -> int:
+	var sky_save := SkyLogic.grove_sky_state()
+	var code := int(sky_save.get("pending", 0))
+	if code <= 0:
+		return 0
+	var owed: Array = sky_save.get("owed", [])
+	owed.append(code)
+	sky_save["owed"] = owed
+	sky_save["pending"] = 0
+	_star_pending_started_secs = -1.0
+	_clear_starfall_catch_ui()
+	return code
+
+func _pending_star_code() -> int:
+	return int(SkyLogic.grove_sky_state().get("pending", 0))
+
+func _star_lane_cells() -> Array:
+	var out: Array = []
+	var axis := String(_sky_state.get("lane_axis", "column"))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == "row":
+		for c in G.COLS:
+			out.append(Vector2i(lane, c))
+	else:
+		for r in G.ROWS:
+			out.append(Vector2i(r, lane))
+	return out
+
+func _star_catch_cells() -> Array:
+	var out: Array = []
+	if _pending_star_code() <= 0 or String(_sky_state.get("sky", "")) != SkyLogic.SKY_STARFALL or not SkyLogic.gate_open():
+		return out
+	for cell in _star_lane_cells():
+		if board.is_empty_ground(Vector2i(cell)):
+			out.append(Vector2i(cell))
+	return out
+
+func _clear_starfall_catch_ui() -> void:
+	if _sky_docked_star != null and is_instance_valid(_sky_docked_star):
+		_sky_docked_star.queue_free()
+	_sky_docked_star = null
+	for cell in _star_catch_nodes.keys():
+		var node: Control = _star_catch_nodes[cell]
+		if node != null and is_instance_valid(node):
+			FX.breathe_stop(node)
+			node.modulate = Color(1, 1, 1, 1)
+			if node.has_meta("starfall_catch_cell"):
+				node.remove_meta("starfall_catch_cell")
+	_star_catch_nodes.clear()
+	if board_area != null and is_instance_valid(board_area):
+		for flight in board_area.find_children("DockedStarFlight", "Control", true, false):
+			if flight is Control and is_instance_valid(flight):
+				(flight as Control).queue_free()
+
+func _sync_starfall_catch_ui(animate_arrival: bool, auto_announce: bool) -> void:
+	_clear_starfall_catch_ui()
+	var code := _pending_star_code()
+	if code <= 0 or String(_sky_state.get("sky", "")) != SkyLogic.SKY_STARFALL:
+		return
+	if _sky_marker == null or not is_instance_valid(_sky_marker):
+		return
+	_sky_docked_star = _make_docked_star(code)
+	_sky_docked_star.visible = not animate_arrival
+	_sky_marker.add_child(_sky_docked_star)
+	_start_docked_star_bob(_sky_docked_star)
+	for cell in _star_catch_cells():
+		var slot: Control = slot_nodes.get(Vector2i(cell))
+		if slot != null and is_instance_valid(slot):
+			slot.modulate = DRAG_HILITE
+			slot.set_meta("starfall_catch_cell", true)
+			FX.breathe_once(slot)
+			_star_catch_nodes[Vector2i(cell)] = slot
+	if animate_arrival:
+		_play_star_arrival(code)
+	if auto_announce and _selected_cell.x < 0:
+		_on_sky_marker_pressed()
+
+func _make_docked_star(code: int) -> Control:
+	var n := _make_piece(code, csz)
+	n.name = "DockedStar"
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var scale := minf(0.58, maxf(0.34, (_sky_marker.size.y * 0.82) / csz))
+	n.scale = Vector2(scale, scale)
+	var visual := Vector2(csz, csz) * scale
+	n.position = _sky_marker.size * 0.5 - visual * 0.5
+	n.z_index = 8
+	return n
+
+func _start_docked_star_bob(node: Control) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	var base := node.position
+	var t := node.create_tween()
+	t.set_loops()
+	t.tween_property(node, "position", base + Vector2(0, -3.0), 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t.tween_property(node, "position", base + Vector2(0, 2.0), 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _star_marker_piece_pos() -> Vector2:
+	if _sky_marker != null and is_instance_valid(_sky_marker):
+		return _sky_marker.position + _sky_marker.size * 0.5 - Vector2(csz, csz) * 0.5
+	return _cell_pos(_lane_center_cell())
+
+func _star_arrival_start_pos() -> Vector2:
+	var marker_pos := _star_marker_piece_pos()
+	var board_rect := Rect2(Vector2.ZERO, Vector2(_board_w(), _board_h()))
+	if _sky_marker != null and is_instance_valid(_sky_marker):
+		if _sky_marker.position.x < board_rect.position.x:
+			return Vector2(-csz * 1.55, marker_pos.y)
+		if _sky_marker.position.y < board_rect.position.y:
+			return Vector2(marker_pos.x, -csz * 1.55)
+	return Vector2(marker_pos.x, -csz * 1.55)
+
+func _play_star_arrival(code: int) -> void:
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	var fly := _make_piece(code, csz)
+	fly.name = "DockedStarFlight"
+	fly.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fly.scale = Vector2(0.55, 0.55)
+	var from := _star_arrival_start_pos()
+	var to := _star_marker_piece_pos()
+	fly.position = from
+	fly.z_index = 12
+	board_area.add_child(fly)
+	var t := MoveFx.apply(fly, from, to, "arc", _move_opts)
+	if t == null:
+		fly.queue_free()
+		if _sky_docked_star != null and is_instance_valid(_sky_docked_star):
+			_sky_docked_star.visible = true
+		return
+	t.parallel().tween_property(fly, "scale", Vector2(0.42, 0.42), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.chain().tween_callback(func() -> void:
+		if fly != null and is_instance_valid(fly):
+			fly.queue_free()
+		if _pending_star_code() == code and _sky_docked_star != null and is_instance_valid(_sky_docked_star):
+			_sky_docked_star.visible = true)
+
+func _catch_pending_star_at(cell: Vector2i) -> bool:
+	var code := _pending_star_code()
+	if code <= 0 or not _star_catch_cells().has(cell):
+		return false
+	var from := _star_marker_piece_pos()
+	SkyLogic.grove_sky_state()["pending"] = 0
+	_star_pending_started_secs = -1.0
+	_clear_starfall_catch_ui()
+	_place_star_code_at(code, cell, from)
+	_after_board_change()
+	return true
+
+func _resolve_pending_starfall_uncaught() -> bool:
+	var code := _pending_star_code()
+	if code <= 0:
+		return false
+	var from := _star_marker_piece_pos()
+	SkyLogic.grove_sky_state()["pending"] = 0
+	_star_pending_started_secs = -1.0
+	_clear_starfall_catch_ui()
+	if not _land_star_code(code, from):
+		var owed: Array = SkyLogic.grove_sky_state().get("owed", [])
+		owed.append(code)
+		SkyLogic.grove_sky_state()["owed"] = owed
+		_sync_sky_patch_marker(false)
+		Save.grove_write()
+		return false
+	_sync_sky_patch_marker(false)
+	_persist(false)
+	return true
+
 func _try_starfall() -> void:
 	if _sky_state.is_empty() or String(_sky_state.get("sky", "")) != "starfall":
+		return
+	if _pending_star_code() > 0:
+		if _star_pending_started_secs < 0.0:
+			_star_pending_started_secs = _sky_live_secs
+		if _sky_live_secs - _star_pending_started_secs >= float(G.STAR_CATCH_SECS):
+			_resolve_pending_starfall_uncaught()
 		return
 	if not SkyLogic.gate_open() or _sky_live_secs < float(G.STAR_DELAY) or animating or _modal_open():
 		return
@@ -746,13 +951,16 @@ func _try_starfall() -> void:
 	var asked := BoardLogic.asked_items(quests)
 	var code := SkyLogic.star_pick(hour, lines, asked)
 	sky_save["paid_hour"] = hour
-	if code > 0 and not _land_star_code(code):
-		var owed: Array = sky_save.get("owed", [])
-		owed.append(code)
-		sky_save["owed"] = owed
-		_sync_sky_patch_marker(false)
 	if code > 0:
-		_persist()
+		sky_save["pending"] = code
+		_star_pending_started_secs = _sky_live_secs
+		_sync_sky_patch_marker(false)
+		if _sky_docked_star != null and is_instance_valid(_sky_docked_star):
+			_sky_docked_star.visible = false
+		_play_star_arrival(code)
+		if _selected_cell.x < 0:
+			_on_sky_marker_pressed()
+		Save.grove_write()
 	else:
 		Save.grove_write()
 
@@ -789,15 +997,18 @@ func _land_owed_stars() -> bool:
 		_sync_sky_patch_marker(false)
 	return landed
 
-func _land_star_code(code: int) -> bool:
+func _land_star_code(code: int, from_pos: Variant = null) -> bool:
 	var cell := _star_landing_cell()
 	if cell.x < 0:
 		return false
+	return _place_star_code_at(code, cell, from_pos)
+
+func _place_star_code_at(code: int, cell: Vector2i, from_pos: Variant = null) -> bool:
 	board.place(cell, code)
 	_mark_seen(code)
 	if board_area != null and is_instance_valid(board_area):
 		var n := _make_piece(code, csz)
-		var from := _star_start_pos(cell)
+		var from: Vector2 = from_pos if from_pos is Vector2 else _star_start_pos(cell)
 		var to := _cell_pos(cell)
 		n.position = from
 		n.scale = Vector2(0.55, 0.55)
@@ -831,14 +1042,9 @@ func _star_landing_cell() -> Vector2i:
 		var rng_star := RandomNumberGenerator.new()
 		rng_star.seed = int(absi(hash(int(_sky_state.get("hour", 0)) * 31337 + 19)))
 		return lane_cells[rng_star.randi_range(0, lane_cells.size() - 1)]
-	var empties := board.empty_ground_cells()
-	if empties.is_empty():
-		return Vector2i(-1, -1)
-	var center := _lane_center_cell()
-	empties.sort_custom(func(a, b): return (Vector2i(a) - center).length_squared() < (Vector2i(b) - center).length_squared())
 	var rng_fallback := RandomNumberGenerator.new()
 	rng_fallback.seed = int(absi(hash(int(_sky_state.get("hour", 0)) * 31337 + 29)))
-	return empties[rng_fallback.randi_range(0, mini(2, empties.size() - 1))]
+	return BoardLogic.pick_drop_cell(board, _lane_center_cell(), rng_fallback)
 
 func _lane_center_cell() -> Vector2i:
 	var lane := int(_sky_state.get("lane", 0))
@@ -1226,7 +1432,7 @@ func _load_state() -> void:
 			rng.randomize()
 		_regen_ts = now
 		_init_quests()
-		_persist()
+		_persist(false)
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
 		# Seed only the zone-0 anchor (`gen_1`). Later base-line tools are born on tap when an active quest
 		# asks for their line and the player lacks the generator; see Quests.due_gen / _produce_due_generators.
@@ -1244,7 +1450,7 @@ func _load_state() -> void:
 	save_dirty = _reconcile_improvements(now, false) or save_dirty
 	save_dirty = _scan_magnets(false) or save_dirty
 	if save_dirty:
-		_persist()
+		_persist(false)
 
 # --- the discovery log: which items has this player ever grown? -------------------
 # Powers the upgrade-path card (unseen tiers show as "?"). The rules live in core/quests.gd; these
@@ -1318,7 +1524,9 @@ func _init_quests() -> void:
 	quests_map = _quest_map()
 	_refill_quests()
 
-func _persist() -> void:
+func _persist(resolve_pending := true) -> void:
+	if resolve_pending and not _sky_state.is_empty():
+		_queue_pending_starfall_as_owed()
 	var g := Save.grove()
 	g["board"] = board.to_dict()
 	g["quests"] = quests
@@ -1365,7 +1573,7 @@ func _after_board_change(hud_deferred := false) -> void:
 		else:
 			_rebuild_after_drag = false
 			_rebuild_all()
-	_persist()
+	_persist(false)
 	if not hud_deferred:
 		_update_hud()
 	_refresh_giver_lights()
@@ -1452,7 +1660,7 @@ func _tick_water() -> void:
 	_refresh_selected_soil_info()
 	_update_water_hud()
 	if water != before or changed:
-		_persist()
+		_persist(false)
 	_tick_sky_hour()
 
 func _ftue_pops_done() -> bool:
@@ -1472,7 +1680,7 @@ func _update_water_hud() -> void:
 		var credit := Save.take_water_pending()
 		if credit > 0:
 			water = water + credit
-			_persist()
+			_persist(false)
 	# Water is a first-class currency in the shared top bar — always visible on the board now, matching
 	# the map. (The old FTUE staged-chrome hide that kept the meter hidden until the 10 free pops were
 	# spent is retired; the separate water-COST gate at _ftue_pops_done() — see _charge — is unchanged,
@@ -1554,7 +1762,7 @@ func _on_refill() -> void:
 		_update_water_hud()
 		_update_hud()
 	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, FX.reward_color("water"), water_target, refill_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "board_refill")
-	_persist()
+	_persist(false)
 	refill_btn.visible = false
 	_refill_stack.visible = false
 
@@ -1971,7 +2179,7 @@ func _grow_generators() -> void:
 	for id in added:
 		_grown_cells.append(G.gen_cell_of(G.GENERATORS, String(id)))
 	_refill_quests()                          # the new generator's lines are now askable
-	_persist()
+	_persist(false)
 
 func _refresh_generator_dim() -> void:
 	if board == null:
@@ -4261,6 +4469,8 @@ func _on_release(pos: Vector2) -> void:
 		return
 	if _drag_node == null:
 		var tap := _pos_to_cell(pos)
+		if tap == _press_cell and pos.distance_to(_press_pos) <= _drag_slop_px() and _catch_pending_star_at(tap):
+			return
 		if tap == _press_cell and board.is_bramble(tap):
 			_show_locked_cell_info(tap)
 		elif tap == _press_cell and board.has_improvement(tap) and board.item_at(tap) == 0:
@@ -5033,7 +5243,7 @@ func _sync_accumulators() -> void:
 			board.remove_gen(cell)
 	board.prune_bag(func(id: String) -> bool: return not G.is_accumulator(id))   # drops legacy accumulators, keeps tiers aligned
 	Save.grove().erase("accumulators")
-	_persist()
+	_persist(false)
 
 # §6.C a tap on a BONUS generator pops collectable board items (× a burst while a boost is live — a
 # boosted pop then spends one boost tap, like a charged generator tap), spends one of its limited taps,

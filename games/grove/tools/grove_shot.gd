@@ -172,9 +172,14 @@ func _initialize() -> void:
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
 		"sky_starfall":
-			# The real Starfall gift path after its quiet delay: pick a quest-safe high-tier item, arc it
-			# into the hourly column, and leave the marker + lane visible for review.
+			# The real Starfall catch path after its quiet delay: pick a quest-safe high-tier item, dock it
+			# at the marker, and leave the catchable lane cells lit for review.
 			scn.debug_refresh_weather()
+			for cell in scn.call("_star_lane_cells"):
+				var v := Vector2i(cell)
+				if scn.board.is_open(v) and not scn.board.is_gen(v):
+					scn.board.place(v, 0)
+			scn._rebuild_all()
 			scn.set("_sky_live_secs", float(G.STAR_DELAY))
 			scn.call("_try_starfall")
 			await create_timer(0.75).timeout
