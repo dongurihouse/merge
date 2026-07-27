@@ -1,6 +1,6 @@
 # Cascade combos — design
 
-Date: 2026-07-26 · Status: **SHIPPED** (rev 3 as built; landed on `main` with the perf pass) · Parent: `2026-07-26-progression-systems-design.md` §5/§8-step-3.
+Date: 2026-07-26 · Status: **SHIPPED** · Parent: `2026-07-26-progression-systems-design.md` §5/§8-step-3.
 Supersedes the parent §5 wording: chains auto-execute — the parent's break rules ("any pop, any
 delivery…") and §6's "nothing ever merges by itself" clause are obsolete. All numbers are
 provisional dials; the sim owns finals.
@@ -22,9 +22,9 @@ the teach (no FTUE dialog). Home board only; the Rush is untouched.
 | `engine/scripts/ui/cascade_outline.gd` | **new** — stitched outlines, ×n tags, ghost pads (§7–8) |
 | `engine/scripts/core/content.gd` | + `G.line_color(code)` accessor (§7) |
 | `games/grove/grove_data.gd` | chest line `"top": 5` + loot rows 4/5 (§6) |
-| `games/grove/assets/items/chest/chest_4/5.png` | **new** — production art, landed via intake ahead of the branch (§6) |
+| `games/grove/assets/items/chest/chest_4/5.png` | chest line art tiers 4/5 (§6) |
 | `engine/scripts/core/features.gd` + `docs/FEATURES.md` | + `"cascade"` flag + row (§9) |
-| `games/grove/tools/grove_shot.gd` | + seeded `cascade` capture mode (§12 step 7) |
+| `games/grove/tools/grove_shot.gd` | + seeded `cascade` capture mode (§10 visual gate) |
 | `engine/tests/cascade_tests.gd` · `games/grove/tests/grove_cascade_tests.gd` | **new** suites (§10) |
 | `Makefile` + project `CLAUDE.md` | suite registrations (§10) |
 
@@ -33,11 +33,13 @@ the teach (no FTUE dialog). Home board only; the Rush is untouched.
 - **Only a player merge tips a run** — drag merge (`_commit_merge`) or recipe merge
   (`_apply_recipe`). Placements never auto-merge: moves, swaps, bag retrieves, pops, drops,
   starfall (step 5), soil harvests (step 4).
+- **Arming floor:** a player merge tips a run only when the final length would reach
+  `CHAIN_MIN_N` (`3`). A `t·t·t+1` board resolves as an ordinary merge to ×2; `_prepare_chain`
+  drops any run where `1 + _chain_run.size() < CHAIN_MIN_N`.
 - **Step-4 cells** (Magnet range auto-merger; the Mirror is cut —
   `2026-07-26-cell-improvements-design.md` §5-6): its auto-merges neither tip nor extend runs,
   and it holds fire while a run executes. The scene exposes `chain_running() -> bool` as that
-  gate (this replaces the `chain_armed_cell()` named in that spec's amendment — rev 3 has no
-  armed state; a cascade is atomic).
+  gate. There is no `chain_armed_cell()` state; a cascade is atomic.
 - **Auto-steps are same-code merges onto adjacent partners.** Legality per `can_merge`
   (`board_model.gd:305`), which caps at `merge_top`. Recipes never fire automatically.
 - **Landing rule:** each step slides the result onto its partner's cell (same as a player
@@ -81,21 +83,24 @@ the run.
 ## 4 · Run execution — `board.gd`
 
 - `_commit_merge` / `_apply_recipe` compute `_chain_run := BoardLogic.chain_path(board, a, b)`
-  (flag-gated) and `_chain_n := 1`.
+  (flag-gated). `_prepare_chain` arms only if `1 + _chain_run.size() >= CHAIN_MIN_N`; otherwise
+  it clears the run and the merge ends normally.
+- Before the first automatic step, `_schedule_chain_step` holds for `CHAIN_PREROLL_MS` (`300`) and
+  `_show_chain_preroll` pulses the exact run cells with the ×n tag. Input remains locked during
+  the pre-roll.
 - After each merge resolves, if `_chain_run` is non-empty: pop the next partner, keep
   `animating` true, `board.merge(result_cell, partner)`, slide + standard merge-impact FX,
-  `_chain_n += 1`, reward hook (§5), repeat. Step pace `CHAIN_STEP_MS ≈ 250`, a workbench knob.
+  `_chain_n += 1`, reward hook (§5), repeat. Step pace `CHAIN_STEP_MS = 250`.
 - Per step ≥ ×2: a "×n" floater at the merge (`FX.floating_text`, `fx.gd:330`), size stepping
   up with n. `FX.burst` (`fx.gd:664`) at ×5. Offset from the streak's milestone words.
 
 ## 5 · Rewards
 
-One reward per chain, by final length. Born mid-run on the cell the step just vacated — always
-free, synchronously, before the lucky rolls.
+One reward per chain, by final length. Rewards start at ×3. Born mid-run on the cell the step just
+vacated — always free, synchronously, before the lucky rolls.
 
 | Chain reaches | Reward |
 |---|---|
-| ×2 | a coin piece is born |
 | ×3 | chest t1 is born (40 c) |
 | ×4 | the chest upgrades in place → t2 (120 c + 1 acorn) |
 | ×5 | → t3 (320 c + 3 acorns) + burst |
@@ -107,8 +112,8 @@ free, synchronously, before the lucky rolls.
 - The chest is an ordinary piece: second-tap open (`_open_chest`, `board.gd:3393` →
   `G.chest_open_reward`), mergeable with other chests, persisted by the normal board save.
 - Economy: payouts flow through chest-open → `Save.add_coins` / `add_diamonds` — spendable
-  only; `G.earn_coins` (the quest clock) is never touched. Run `grove_sim` before merge
-  (chests-per-chain + per-step lucky rolls are a bigger faucet than parent §5's coin steps).
+  only; `G.earn_coins` (the quest clock) is never touched. `grove_sim` tracks
+  chests-per-chain plus per-step lucky rolls.
 
 ## 6 · Chest line extension (option B — in scope)
 
@@ -116,13 +121,16 @@ free, synchronously, before the lucky rolls.
   `grove_data.gd:343-349`) + `CHEST_OPEN_COINS`/`ACORNS` rows `4:` and `5:`
   (`grove_data.gd:365-366`). Detection, outlines and `merge_top` follow automatically.
 - Art: `items/chest/chest_4.png`, `chest_5.png` — produced separately from approved direction
-  mocks and landed on `main` via the intake pipeline; the implementing agent generates nothing
-  (§12 Assets rule).
+  mocks and landed on `main` via the intake pipeline.
 
 ## 7 · Ready-ladder outline
 
-- Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. Insert after slot
-  cells, before pieces (`move_child`; draw order = child order, no CanvasLayers). Template:
+- Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. The scene passes only
+  `ready_ladders` entries with `n >= CHAIN_MIN_N`, so a ×2 ladder draws nothing.
+- Stack invariant: the outline child index must sit above every slot/mat node and below every
+  live piece/generator (`move_child`; draw order = child order, no CanvasLayers). Exclude
+  queued-for-deletion nodes from the computation because `queue_free` is deferred; the guard is
+  `grove_cascade_tests.gd`'s stack assertion with stale generator nodes present. Template:
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
 - Per `ready_ladders` component: stitched dashes along the perimeter (cell edges whose
   neighbour is outside), slightly inset, rounded dash ends, per-stitch jitter, a whisper of
@@ -130,9 +138,8 @@ free, synchronously, before the lucky rolls.
   interior wash: a light line-color tint inside the group (`fill_pct` knob 0–8; the approved
   mock uses ~5). Redraw only on recompute — in `_after_board_change()` (`board.gd:1011`)
   and after `_rebuild_all`.
-- Color: `G.line_color(code)` — **new accessor** in `content.gd` reading `G.LINES[line].color`,
-  fallback `Pal.TEXT_MUTED` (mirrors `piece_view.gd:297`). No hex literals
-  (`palette_ssot_tests`).
+- Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
+  (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
 - ×n tag: small code-drawn paper chip on `top_cell`'s corner, above the pieces, updated per
   recompute.
 - Geometry via `_cell_pos` (`board.gd:1704`, owns the landscape transpose).
@@ -142,8 +149,9 @@ free, synchronously, before the lucky rolls.
 On `_begin_drag` of an item (never a generator): `chain_placements` once (the model is frozen
 mid-drag); each candidate cell gets a stitched ghost pad — dashed rounded square, modest
 inset, light interior tint (~8 %), line color, thickness + brightness step by resulting n.
-Cleared on every release outcome. The merge telegraph (`_update_telegraph`) is untouched;
-pads mark empty cells only.
+The scene keeps only placements with `n >= CHAIN_MIN_N`, so ×2 placements draw no pads. Cleared on
+every release outcome. The merge telegraph (`_update_telegraph`) is untouched; pads mark empty
+cells only.
 
 ## 9 · Flags & save
 
@@ -166,80 +174,25 @@ pads mark empty cells only.
     empty.
 - **Grove** `games/grove/tests/grove_cascade_tests.gd` (+ `GROVE_TESTS`, `Makefile:15`, +
   the project `CLAUDE.md` suite list line). Boot idiom: `grove_ftue_tests.gd:34-56`.
-  - A tipped t·t·t+1 auto-runs to ×2 with input locked, board state correct after.
-  - Rewards: ×2 coin then ×3 chest `1001` on the vacated cells; ×4 upgrades that cell to
-    `1002`; wallet and `coins_earned` unchanged until chest-open; open credits `add_coins`
-    only.
+  - A ×2-only ladder neither telegraphs nor arms nor shows drag pads.
+  - A tipped ×3-capable ladder auto-runs with input locked; the pre-roll holds before the first
+    auto-step and telegraphs the exact run.
+  - Cascade watchdog keeps input locked past the single-merge timeout; unrelated player input is
+    ignored until the queued steps and final reward finish.
+  - Bailouts for an empty queue or invalid next partner release the input gate.
+  - Rewards: ×3 chest `1001` is the first reward; ×4 upgrades that cell to `1002`; wallet and
+    `coins_earned` unchanged until chest-open; open credits `add_coins` only.
   - Guide pads on `_begin_drag`, cleared on release; generator drag → none.
-  - Outline present iff a ladder exists; tag text ×n.
+  - Outline present iff an armed ladder exists; tag text ×n; stack index above mat/slots and below
+    live items, with stale queued-for-deletion generator nodes present.
   - Flag OFF → no chain, no outline, no pads.
-- **Visual gate:** quiet-godot captures — lit ladder (stitches + tag), ghost pads under a
-  lifted piece, a mid-run step with floater — looked at before done.
-- `make test` green before merge.
+- **Visual gate:** quiet-godot `cascade` captures — lit ladder (stitches + tag), `phase=guide`
+  ghost pads under a lifted piece, a mid-run step with floater — looked at before done.
+  `phase=guide` needs a ×3-capable fixture; ×2 placements exit 0 with a bare board because the
+  scene filters out pads that would not arm a cascade.
+- `make test` green.
 
 ## 11 · Open questions
 
-1. ×2 pays a guaranteed coin piece — keep, or start rewards at ×3?
-2. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
+1. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
    auto-steps skip them? The sim pass will quantify either way.
-
-## 12 · Implementation directions (for the implementing agent)
-
-**Workspace.** Branch `feat/cascade-combos` from latest `main` in a NEW worktree outside the
-repo: `git worktree add /Users/xup/dh/merge-wt-cascade -b feat/cascade-combos` (in-repo
-worktrees get wiped by other agents). Seed the import cache before the first run:
-`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-cascade/.godot/`.
-**Do not merge to main and do not remove the worktree** — implementation ends with the branch
-committed in place; code review happens in the worktree.
-
-**Assets: generate NOTHING.** The implementing agent never invokes image generation, the
-intake pipeline, or any art tooling. All cascade art is produced separately and lands on
-`main` via the intake pipeline. If a texture this spec names is missing in your worktree
-(e.g. `items/chest/chest_4/5.png`), copy the nearest sibling tier as a placeholder, note it
-in the hand-off, and move on.
-
-**Order** — each step lands with its tests green (`make test-fast`, a few seconds) before the next:
-
-1. `board_logic.gd`: `chain_path` + `ready_ladders` + `chain_placements` (§3); new
-   `engine/tests/cascade_tests.gd` with the §10 engine battery; add the suite to `ENGINE_TESTS`
-   (`Makefile:11`).
-2. Chest extension (§6): `"top": 5` on the line-10 def + `CHEST_OPEN_COINS`/`ACORNS` rows 4/5.
-   Art: `chest_4/5.png` are expected to already exist on `main` — use them as-is; only if
-   missing, copy `chest_3.png` as placeholders (see the Assets rule above). `make import`.
-3. Run executor + rewards in `board.gd` (§4, §5): `_chain_run` computed in `_commit_merge` /
-   `_apply_recipe`, the step loop, ×n floater, ×5 burst, reward births/upgrades,
-   `chain_running()`.
-4. `engine/scripts/ui/cascade_outline.gd` + the `G.line_color(code)` accessor (§7).
-5. Drag guide (§8).
-6. `"cascade"` flag + `docs/FEATURES.md` row (§9); new
-   `games/grove/tests/grove_cascade_tests.gd` with the §10 grove battery; add to `GROVE_TESTS`
-   (`Makefile:15`) **and** the project `CLAUDE.md` suite-list line.
-7. Evidence + regression: extend `grove_shot.gd` with a seeded, byte-deterministic `cascade`
-   mode (a lit ladder + ghost pads + a mid-run frame) and save captures to
-   `/tmp/cascade_*.png`; run
-   `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>` for 3
-   seeds — a structural regression (invariant Y, "the clock is quests only", must hold; the
-   sim bot does not play cascades); full `make test` green. The hand-off summary lists suites
-   run, capture paths, and the sim's Z faucet lines.
-
-**Open-question defaults** (§11 — the Dev has not ruled; make each a one-line flip): ship the
-§5 table as written (×2 coin included) as one `CHAIN_REWARDS` const table; auto-steps roll the
-lucky drops, gated by one bool const.
-
-**Repo rules that bite:**
-
-- Do not touch `_bump_combo` / `combo_step` / the combo consts in `tuning.gd` / any Rush file
-  (`explore*.gd`) — the streak must behave byte-identically with the flag ON.
-- The mastery branch lifts `_apply_recipe` into `BoardActions.apply_recipe`; if that has landed
-  on `main` before §4 wiring, hook the chain at the `board.gd` call site (the scene wrapper),
-  never inside the lifted action.
-- Engine code never references `games/` directly — colors via the new `G.line_color` only, and
-  no new `Color("#…")` hex literals (`palette_ssot_tests` fails the build).
-- No bare `z_index` integer literals (`layering_tests`) — child order or named consts.
-- Don't reformat `test_base` output — the runner parses the `"  PASS"` lines and the footer.
-- New `.gd` files: run `make import` before committing so `.uid` sidecars exist and are
-  committed.
-- Fast parse check: `godot --headless --check-only --script <file.gd>`; suites only via
-  `make test-fast` / `make test` — a bare foreground `godot -s` run can hang a shell.
-- Tests comparing Control positions/sizes use `is_equal_approx` (float32 truncation); headless
-  runs dispatch notifications with `obj.notification(what)`, never `_notification()` directly.
