@@ -34,10 +34,12 @@ saving only. Verified: dropping a fresh PNG in and reimporting produces `compres
 with no manual step.
 
 **The guard enforces it.** `engine/tests/asset_size_guard_tests.gd` runs in `make test`.
-It walks the shipped texture set — the same definition the exporter uses (under
-`games/grove/assets`, not in a `.gdignore` subtree, not dropped by `exclude_filter`) — and
-fails if any texture ships lossless. It reads the real `exclude_filter` from
-`export_presets.cfg`, so the guard and the export cannot silently disagree.
+It walks the shipped texture set — the same definition the exporter uses (anywhere under
+`res://`, not in a `.gdignore` subtree, not dropped by `exclude_filter`) — and fails if any
+texture ships lossless. It reads the real `exclude_filter` from `export_presets.cfg`, so the
+guard and the export cannot silently disagree. The walk is repo-wide, not
+`games/grove/assets`-only: it used to start at the asset dir, which made root-level shipped
+textures invisible to it (`icon_small.png` shipped lossless under that blind spot).
 
 **The split rebuilds itself.** `make ios` produces two packs:
 
