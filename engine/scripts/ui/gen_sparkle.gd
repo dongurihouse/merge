@@ -6,11 +6,11 @@ extends Control
 ## reliable path. Add it full-rect over a host, mouse-ignore. The host's FX.breathe carries the larger
 ## motion.
 ##
-## This is the BASE of the shared twinkle: its own defaults are the GENERATOR tuning (sparser/softer,
-## sized for a single board cell). games/grove/sparkle.gd extends it with the daily-card tuning —
-## games/ → engine/ is the legal import direction (the layering guard only forbids engine → games), so
-## the twinkle curve, the star geometry and the animation live here once. A subclass re-tunes by
-## overriding `_seed()` (its own spot table + phase/size ramp) and setting the exports in `_init()`.
+## Its defaults are the GENERATOR tuning (sparser/softer, sized for a single board cell) — the only
+## tuning that ships. It is written to be subclassed: a re-tune overrides `_seed()` (its own spot
+## table + phase/size ramp) and sets the exports in `_init()`. A game-side subclass is legal
+## (games/ → engine/ is the allowed import direction; the layering guard only forbids engine → games);
+## there is none right now — the daily-card one was retired with the kit's daily_card mock sparkle.
 
 @export var tint := Color("#FFF4C2")   # warm twinkle colour
 @export var count := 5                  # how many twinkles (capped by the fixed spot list)
