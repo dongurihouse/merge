@@ -167,16 +167,24 @@ vacated — always free, synchronously, before the lucky rolls.
 ## 8 · Drag guide
 
 On `_begin_drag` of an item (never a generator): compute drag guide marks once (the model is
-frozen mid-drag). Pads are empty ground cells only, and are cleared on every release outcome.
+frozen mid-drag). Cleared on every release outcome. The merge telegraph (`_update_telegraph`)
+is untouched.
 
-- **Ignition pads**: placements from `chain_placements` where `n >= CHAIN_MIN_N`. Strongest
-  style, stitched ghost pad, light interior tint (~8 %), line color, thickness + brightness
-  step by resulting n, and ×n tag.
-- **Extension pads**: placements that add the held piece to a same-line runway or armed ladder
-  without firing a cascade now. Weaker style than ignition pads, no ×n tag.
-- Nothing draws when the held piece is neither an ignition nor an extension for the adjacent
-  same-line structure.
-- The merge telegraph (`_update_telegraph`) is untouched.
+**Only a merge fires a cascade.** `_prepare_chain` is reachable from `_commit_merge_confirmed`
+and `_apply_recipe_confirmed` only; a drop on an empty cell is `_commit_move` → `board.move()`
+and arms nothing. The marks say which of the two a drop is:
+
+| Mark | Where | Style | ×n |
+|---|---|---|---|
+| `cascade` | an occupied same-code target whose merge reaches `CHAIN_MIN_N` | strongest | **yes** |
+| `merge` | any other occupied same-code target | mid | no |
+| `stage` | an empty cell — `chain_placements` at `n >= CHAIN_MIN_N`, or a runway/ladder extension | weakest | no |
+
+- **A ×n appears only on a cell you can drop onto that really runs a chain.** A number on an
+  empty cell advertises a cascade the drop does not perform.
+- **`stage` marks are suppressed whenever a `cascade` mark exists** — when a firing move is
+  available it is the answer, and the staging cells around it compete with it.
+- Nothing draws when the held piece neither merges nor builds.
 
 ## 9 · Flags & save
 

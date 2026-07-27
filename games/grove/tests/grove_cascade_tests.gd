@@ -189,6 +189,19 @@ func _outline_has_pad_kind_at(b: Node, kind: String, cell: Vector2i) -> bool:
 				return true
 	return false
 
+# Count only the ×n chips. The runway's needed-tier chip ("t2") is a different statement and
+# must not be mistaken for a cascade promise — that conflation is the bug this grammar fixes.
+func _outline_number_tag_count(b: Node) -> int:
+	var o := _outline(b)
+	if o == null:
+		return 0
+	var n := 0
+	for raw in o.find_children("*", "Label", true, false):
+		var lbl := raw as Label
+		if lbl != null and lbl.text.begins_with("×"):
+			n += 1
+	return n
+
 func _outline_has_tag(b: Node, text: String) -> bool:
 	var o := _outline(b)
 	if o == null:
@@ -479,7 +492,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count_by_kind(b, "ignition") == 1, "beginning an item drag shows one cascade ignition pad")
+	ok(_outline_pad_count_by_kind(b, "stage") == 1, "beginning an item drag shows one staging pad on the empty cell")
 	var old_outline := _outline(b)
 	if old_outline != null:
 		b.board_area.remove_child(old_outline)
@@ -509,7 +522,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(x2_from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count_by_kind(b, "ignition") == 0, "x2-only drag placements do not show cascade ignition pads")
+	ok(_outline_pad_count_by_kind(b, "stage") == 0, "x2-only drag placements do not show staging pads")
 	b._on_release(b._cell_pos(x2_from) + half)
 
 	_blank_fixture(b, {})
@@ -554,7 +567,7 @@ func _test_drag_merge_targets_are_highlighted() -> void:
 	_blank_fixture(b, placements)
 	_input_begin_drag(b, from)
 	await process_frame
-	ok(_outline_has_pad_kind_at(b, "ignition", chain_target) and not _outline_has_pad_kind_at(b, "merge", chain_target),
+	ok(_outline_has_pad_kind_at(b, "cascade", chain_target) and not _outline_has_pad_kind_at(b, "merge", chain_target),
 		"a merge target that starts a cascade is highlighted as chain creation, not ordinary merge")
 	_input_release(b, from)
 	await process_frame
@@ -592,12 +605,19 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 	var b := _open_board("cascade_runway_drag_guides")
 	await process_frame
 	var from := Vector2i(6, 6)
+	# The guide's whole grammar, on the board the player reported: t2·t3·t4 in a row.
+	#   cascade = an occupied cell you drop ONTO whose merge really runs a chain (the only ×n)
+	#   merge   = an ordinary same-code target, no number
+	#   stage   = an empty cell; placing there builds the ladder and fires nothing
+	# Holding a t2 is the payoff: ONE cascade mark on the t2 itself, and the staging cells around
+	# it are suppressed so the eye has one place to go. t1/t5 cannot merge with anything, so they
+	# only stage. t3/t4 merge but stop short of CHAIN_MIN_N, so they stay ordinary.
 	var want := {
-		1: {"ignition": 0, "extension": 3},
-		2: {"ignition": 4, "extension": 0},
-		3: {"ignition": 0, "extension": 0},
-		4: {"ignition": 0, "extension": 0},
-		5: {"ignition": 0, "extension": 3},
+		1: {"cascade": 0, "merge": 0, "stage": 3},
+		2: {"cascade": 1, "merge": 0, "stage": 0},
+		3: {"cascade": 0, "merge": 1, "stage": 0},
+		4: {"cascade": 0, "merge": 1, "stage": 0},
+		5: {"cascade": 0, "merge": 0, "stage": 3},
 	}
 	for held in [1, 2, 3, 4, 5]:
 		_blank_fixture(b, {
@@ -608,11 +628,15 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 		})
 		_input_begin_drag(b, from)
 		await process_frame
-		var ignition := _outline_pad_count_by_kind(b, "ignition")
-		var extension := _outline_pad_count_by_kind(b, "extension")
 		var spec: Dictionary = want[held]
-		ok(ignition == int(spec.ignition) and extension == int(spec.extension),
-			"real input drag for held t%d draws %d ignition and %d extension runway pads" % [held, int(spec.ignition), int(spec.extension)])
+		var got := {
+			"cascade": _outline_pad_count_by_kind(b, "cascade"),
+			"merge": _outline_pad_count_by_kind(b, "merge"),
+			"stage": _outline_pad_count_by_kind(b, "stage"),
+		}
+		ok(got == spec, "real input drag for held t%d draws %s (got %s)" % [held, str(spec), str(got)])
+		ok(_outline_number_tag_count(b) == int(spec.cascade),
+			"held t%d numbers exactly its cascade marks — never a staging cell" % held)
 		_input_release(b, from)
 		await process_frame
 	b.queue_free()

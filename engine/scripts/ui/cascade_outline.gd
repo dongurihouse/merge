@@ -9,7 +9,7 @@ const Pal = Game.PALETTE
 const TAG_Z_INDEX := 20
 const RUNWAY_WIDTH_SCALE := 0.62
 const MERGE_WIDTH_SCALE := 0.82
-const EXTENSION_WIDTH_SCALE := 0.72
+const STAGE_WIDTH_SCALE := 0.72
 
 @export var inset_frac := 0.10: set = _set_inset
 @export var dash_frac := 0.16: set = _set_dash
@@ -121,13 +121,16 @@ func _draw_ghost_pad(entry: Dictionary) -> void:
 		return
 	var n := int(entry.get("n", 2))
 	var line := int(entry.get("line", 0))
-	var kind := String(entry.get("kind", "ignition"))
+	# Three strengths, one meaning each: `cascade` is the drop that goes off (and the only mark
+	# _rebuild_tags will number), `merge` is an ordinary same-code target, `stage` is an empty
+	# cell you are building into.
+	var kind := String(entry.get("kind", "stage"))
 	var color := G.line_color(line)
 	var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * 0.12), Vector2.ONE * cell_size * 0.76)
-	var tint_alpha := 0.08 if kind == "ignition" else (0.055 if kind == "merge" else 0.035)
+	var tint_alpha := 0.08 if kind == "cascade" else (0.055 if kind == "merge" else 0.035)
 	draw_rect(rect, Color(color, tint_alpha), true)
-	var alpha := _alpha_for_n(n) + 0.08 if kind == "ignition" else (0.42 if kind == "merge" else 0.28)
-	var light := 0.25 if kind == "ignition" else (0.34 if kind == "merge" else 0.12)
+	var alpha := _alpha_for_n(n) + 0.08 if kind == "cascade" else (0.42 if kind == "merge" else 0.28)
+	var light := 0.25 if kind == "cascade" else (0.34 if kind == "merge" else 0.12)
 	var edge := Color(color.lightened(light), alpha)
 	_draw_dashed_rect(rect, edge, _mark_thickness(entry))
 
@@ -206,7 +209,7 @@ func _rebuild_tags() -> void:
 			continue
 		_add_tag(Vector2i(cells[0]), "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
 	for entry in ghost_pads:
-		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "ignition")) != "ignition":
+		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
 			continue
 		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
 		if cell.x < 0:
@@ -242,7 +245,9 @@ func _thickness_for_n(n: int) -> float:
 func _mark_thickness(entry: Dictionary) -> float:
 	var kind := String(entry.get("kind", "armed"))
 	var n := int(entry.get("n", entry.get("would_be_n", 3)))
-	var scale := RUNWAY_WIDTH_SCALE if kind == "runway" else (MERGE_WIDTH_SCALE if kind == "merge" else (EXTENSION_WIDTH_SCALE if kind == "extension" else 1.0))
+	# Full width is reserved for the two marks that mean "this fires": an armed ladder at rest and
+	# a `cascade` drop target. Everything else is deliberately thinner.
+	var scale := RUNWAY_WIDTH_SCALE if kind == "runway" else (MERGE_WIDTH_SCALE if kind == "merge" else (STAGE_WIDTH_SCALE if kind == "stage" else 1.0))
 	return maxf(1.4, _thickness_for_n(n) * scale)
 
 func _tag_font_size(n: int, weak := false) -> int:

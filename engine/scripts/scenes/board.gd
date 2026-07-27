@@ -2394,19 +2394,30 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 		return
 	var occupied := {}
 	var pads := _merge_target_pads(from)
+	var fires := false
 	for raw_pad in pads:
 		if raw_pad is Dictionary:
 			occupied[Vector2i((raw_pad as Dictionary).get("cell", Vector2i(-1, -1)))] = true
+			fires = fires or String((raw_pad as Dictionary).get("kind", "")) == "cascade"
+	# Everything below lands on an EMPTY cell, and dropping on an empty cell is a move — it never
+	# reaches _prepare_chain, so it fires nothing. These are STAGING marks: they say "put it here
+	# and the ladder grows", never "put it here and it goes off". Hence kind, and hence no ×n:
+	# a number on an empty cell advertises a cascade the drop does not perform.
+	var staged: Array = []
 	for raw in BoardLogic.chain_placements(board, from, code):
 		if raw is Dictionary:
 			var entry: Dictionary = (raw as Dictionary).duplicate(true)
 			if int(entry.get("n", 0)) < CHAIN_MIN_N:
 				continue
 			entry["line"] = BoardModel.line_of(code)
-			entry["kind"] = "ignition"
-			pads.append(entry)
+			entry["kind"] = "stage"
+			staged.append(entry)
 			occupied[Vector2i(entry.get("cell", Vector2i(-1, -1)))] = true
-	pads.append_array(_cascade_extension_pads(from, code, occupied))
+	staged.append_array(_cascade_extension_pads(from, code, occupied))
+	# One place for the eye: when the held piece has a merge that actually cascades, that target is
+	# the answer, so the staging cells around it are noise competing with it.
+	if not fires:
+		pads.append_array(staged)
 	var outline := _ensure_cascade_outline()
 	if outline != null:
 		outline.set_ghost_pads(pads)
@@ -2426,7 +2437,9 @@ func _merge_target_pads(from: Vector2i) -> Array:
 		var entry := {
 			"cell": target,
 			"line": BoardModel.line_of(code),
-			"kind": "ignition" if n >= CHAIN_MIN_N else "merge",
+			# The ONLY mark that carries a ×n: an occupied cell you can drop onto, whose merge
+			# really does run a chain. Anything short of CHAIN_MIN_N is an ordinary merge.
+			"kind": "cascade" if n >= CHAIN_MIN_N else "merge",
 			"n": maxi(2, n),
 		}
 		out.append(entry)
@@ -2480,7 +2493,7 @@ func _extension_pads_for_component(from: Vector2i, code: int, cells: Array, occu
 			var cell := base + Vector2i(raw_d)
 			if not _can_show_extension_pad(cell, from, occupied):
 				continue
-			out.append({"cell": cell, "line": BoardModel.line_of(code), "kind": "extension"})
+			out.append({"cell": cell, "line": BoardModel.line_of(code), "kind": "stage"})
 	return out
 
 func _can_show_extension_pad(cell: Vector2i, from: Vector2i, occupied: Dictionary) -> bool:
