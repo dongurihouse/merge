@@ -39,7 +39,8 @@ the teach (no FTUE dialog). Home board only; the Rush is untouched.
 - **Step-4 cells** (Magnet range auto-merger; the Mirror is cut —
   `2026-07-26-cell-improvements-design.md` §5-6): its auto-merges neither tip nor extend runs,
   and it holds fire while a run executes. The scene exposes `chain_running() -> bool` as that
-  gate. There is no `chain_armed_cell()` state; a cascade is atomic.
+  gate, and passes `_chain_armed_cell()` — the run's next partner (`board.gd:2707`) — to
+  `BoardActions.magnet_merge_once` so a Magnet cannot consume a cell a queued step needs.
 - **Auto-steps are same-code merges onto adjacent partners.** Legality per `can_merge`
   (`board_model.gd:305`), which caps at `merge_top`. Recipes never fire automatically.
 - **Landing rule:** each step slides the result onto its partner's cell (same as a player
