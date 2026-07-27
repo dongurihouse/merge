@@ -5567,60 +5567,142 @@ func _debug_spawn_code() -> int:
 			return code
 	return 0
 
-## Debug-only: land every growing Soil right now (the debug panel's "Pop soil" button), so a tier
-## pop can be watched without waiting out the step timer. Each soil holding a growable item has its
-## step expired; a board whose soils are all BARE gets a deterministic tier-1 item dropped on the
-## first one first, so one tap still pops instead of the button reading as dead.
+## Debug-only: the plain empty ground inside a magnet's 3×3 range — where a debug pair can land.
+## Skips the magnet's own cell and every other improved cell: an item parked on a Soil in range
+## starts growing, and the magnet rule stands down on growing cells. Board-index order, no RNG.
+func _debug_magnet_room(magnet_cell: Vector2i) -> Array:
+	var out: Array = []
+	if board == null:
+		return out
+	for raw_cell in Improvements.range_cells(board, magnet_cell):
+		var cell := Vector2i(raw_cell)
+		if cell == magnet_cell or board.has_improvement(cell):
+			continue
+		if board.is_empty_ground(cell):
+			out.append(cell)
+	return out
+
+## Debug-only: where a debug-BUILT improvement of `kind` goes — the FIRST cell in board-index order
+## that can_build_improvement() allows and that (for a Magnet) still has room for a pair in its 3×3
+## range. Deterministic on purpose: these buttons must never touch the board RNG, whose stream is
+## persisted and order-sensitive. Never overwrites a player's item, a generator or an existing
+## improvement, and never exceeds the kind's cap. (-1, -1) when the board has no room for one.
+func _debug_build_cell(kind: String) -> Vector2i:
+	if board == null or board.improvement_count(kind) >= Improvements.cap_for(kind):
+		return Vector2i(-1, -1)
+	for raw_cell in board.empty_ground_cells():
+		var cell := Vector2i(raw_cell)
+		if not board.can_build_improvement(cell):
+			continue
+		if kind == Improvements.KIND_MAGNET and _debug_magnet_room(cell).size() < 2:
+			continue
+		return cell
+	return Vector2i(-1, -1)
+
+## Debug-only feedback: put the owner's eye on the cell a debug button just changed — SELECT it (the
+## focus ring frames it and the info bar names it and its tier), bounce its piece, and shout above it.
+## One cell moving on a forty-item board is invisible otherwise, which is exactly what made these
+## buttons read as dead. Called after _after_board_change, so piece_nodes holds the rebuilt node.
+func _debug_spotlight(cell: Vector2i, shout: String) -> void:
+	if board == null or cell.x < 0:
+		return
+	if board.item_at(cell) > 0:
+		_select_item(cell)
+	elif board.has_improvement(cell):
+		_select_improvement_cell(cell)
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	var node: Control = piece_nodes.get(cell)
+	if node != null and is_instance_valid(node):
+		FX.pop(node)
+	var ctr: Vector2 = board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	FX.celebrate_at(self, ctr, shout, STRAW)
+
+## Debug-only: land a Soil growth step right now (the debug panel's "Pop soil" button), so a tier pop
+## can be watched without waiting out the step timer. ONE press works from ANY board state: every
+## growing Soil has its step expired; a board whose soils are all BARE gets a deterministic tier-1
+## item dropped on the first one; a board with NO Soil at all gets one BUILT on the first free cell
+## first. The changed cell is then spotlighted, and every dead end prints why instead of returning
+## silently — a quiet no-op is unreadable from "the button is broken".
 ## The pop itself is left to _after_board_change's own reconcile — reconciling HERE would consume the
 ## change and leave that call with nothing to report, so the piece art would keep the old tier.
 ## No _reflect — the new tier rebuilds live and _after_board_change persists it (no scene reload).
 func debug_pop_soil() -> void:
 	if board == null or not _improvements_enabled():
+		print("[debug] Pop soil: improvements are switched off — there is nothing to pop.")
 		return
 	var now := Time.get_unix_time_from_system()
 	var soils := _improvement_cells(Improvements.KIND_SOIL)
 	if soils.is_empty():
-		return
-	var popped := false
-	for cell in soils:
-		popped = board.expire_soil_step(cell, now) or popped
-	if not popped:
+		var site := _debug_build_cell(Improvements.KIND_SOIL)
+		if site.x < 0:
+			print("[debug] Pop soil: no Soil placed and no free cell to build one on (%d/%d placed)." % [
+				board.improvement_count(Improvements.KIND_SOIL), Improvements.cap_for(Improvements.KIND_SOIL)])
+			return
+		board.build_improvement(site, Improvements.KIND_SOIL)
+		soils = [site]
+	var popped := Vector2i(-1, -1)
+	for raw_cell in soils:
+		var cell := Vector2i(raw_cell)
+		if board.expire_soil_step(cell, now) and popped.x < 0:
+			popped = cell
+	if popped.x < 0:
 		var code := _debug_spawn_code()
 		if code <= 0:
+			print("[debug] Pop soil: every producible line is quest-asked right now — nothing safe to seed.")
 			return
-		for cell in soils:
+		for raw_cell in soils:
+			var cell := Vector2i(raw_cell)
 			if board.item_at(cell) != 0:
 				continue                     # a soil holding an already-topped item cannot pop
 			board.place(cell, code)
-			popped = board.expire_soil_step(cell, now)
+			if board.expire_soil_step(cell, now):
+				popped = cell
 			break
-	if not popped:
+	if popped.x < 0:
+		print("[debug] Pop soil: every placed Soil holds an item that cannot grow any further.")
 		return
+	var was := board.item_at(popped)
 	_after_board_change()
+	_debug_spotlight(popped, "Soil pop")
+	print("[debug] Pop soil: %s grew %d -> %d." % [popped, was, board.item_at(popped)])
 
-## Debug-only: make a placed Magnet do its auto-merge right now (the debug panel's "Pop magnet"
-## button) by dropping a matching pair into its 3×3 range, so the pull can be watched on demand.
-## The pair goes on plain empty ground only — an item parked on a Soil in range starts growing, and
-## the magnet rule skips growing cells. _after_board_change runs the scan, so the merge itself takes
-## the normal path. (A cascade in flight makes the rule stand down; the pair then merges on the scan
-## that follows the chain, so the drop is never wasted.)
+## Debug-only: make a Magnet do its auto-merge right now (the debug panel's "Pop magnet" button) by
+## dropping a matching pair into its 3×3 range, so the pull can be watched on demand. ONE press works
+## from ANY board state: the first placed Magnet with two free cells in range is used; when none has
+## room — including when none is placed at all — one is BUILT on a cell that does have room.
+## The pair goes on plain empty ground only (see _debug_magnet_room). _after_board_change runs the
+## scan, so the merge itself takes the normal path. (A cascade in flight makes the rule stand down;
+## the pair then merges on the scan that follows the chain, so the drop is never wasted.) The result
+## is spotlighted, and every dead end prints why instead of returning silently.
 ## No _reflect — the pair lands and merges live, and _after_board_change persists it (no scene reload).
 func debug_pop_magnet() -> void:
 	if board == null or not _improvements_enabled():
+		print("[debug] Pop magnet: improvements are switched off — there is nothing to pop.")
 		return
-	var magnets := _improvement_cells(Improvements.KIND_MAGNET)
-	if magnets.is_empty():
-		return
-	var free_cells: Array = []
-	for raw_cell in Improvements.range_cells(board, Vector2i(magnets[0])):
-		var cell := Vector2i(raw_cell)
-		if board.is_empty_ground(cell) and not board.has_improvement(cell):
-			free_cells.append(cell)
 	var code := _debug_spawn_code()
-	if free_cells.size() < 2 or code <= 0:
+	if code <= 0:
+		print("[debug] Pop magnet: every producible line is quest-asked right now — nothing safe to seed.")
 		return
-	var a := Vector2i(free_cells[0])
-	var b := Vector2i(free_cells[1])
+	var magnet := Vector2i(-1, -1)
+	var room: Array = []
+	for raw_cell in _improvement_cells(Improvements.KIND_MAGNET):
+		var cell := Vector2i(raw_cell)
+		var free_cells := _debug_magnet_room(cell)
+		if free_cells.size() >= 2:           # a boxed-in Magnet is skipped for the next one that has room
+			magnet = cell
+			room = free_cells
+			break
+	if magnet.x < 0:
+		magnet = _debug_build_cell(Improvements.KIND_MAGNET)
+		if magnet.x < 0:
+			print("[debug] Pop magnet: no placed Magnet has two free cells in range and there is nowhere to build one (%d/%d placed)." % [
+				board.improvement_count(Improvements.KIND_MAGNET), Improvements.cap_for(Improvements.KIND_MAGNET)])
+			return
+		board.build_improvement(magnet, Improvements.KIND_MAGNET)
+		room = _debug_magnet_room(magnet)
+	var a := Vector2i(room[0])
+	var b := Vector2i(room[1])
 	board.place(a, code)
 	board.place(b, code)
 	_after_board_change()
@@ -5628,9 +5710,19 @@ func debug_pop_magnet() -> void:
 	# would sit in the model unrendered until the next rebuild — so draw it here instead. (The scan
 	# runs before that call's own _rebuild_all, so the quest set it checks is the one _debug_spawn_code
 	# filtered against; a rebuild first could refill the quests and re-ask the code mid-flight.)
-	if board.item_at(a) == code and board.item_at(b) == code:
-		if board_area != null and is_instance_valid(board_area) and not _drag_active():
-			_rebuild_all()
+	var stood_down := board.item_at(a) == code and board.item_at(b) == code
+	if stood_down and board_area != null and is_instance_valid(board_area) and not _drag_active():
+		_rebuild_all()
+	# where to point: whichever half of the pair survived the pull. Neither, when the merged result
+	# merged onward in the same scan — then the Magnet itself is the story.
+	var focus := a if board.item_at(a) > 0 else b
+	if board.item_at(focus) <= 0:
+		focus = magnet
+	_debug_spotlight(focus, "Magnet pull")
+	if stood_down:
+		print("[debug] Pop magnet: seeded a %d pair at %s/%s — a chain is running, so the Magnet at %s pulls it on the next scan." % [code, a, b, magnet])
+	else:
+		print("[debug] Pop magnet: the Magnet at %s pulled the seeded %d pair at %s/%s together." % [magnet, code, a, b])
 
 ## Debug-only: move the mastery rank of EVERY generator standing on the board by `delta` (the debug
 ## panel's "Gen rank ±1" buttons), so the raised pop windows and the rank-up card can be exercised
