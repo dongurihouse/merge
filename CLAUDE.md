@@ -43,3 +43,5 @@ name different sets (membership, not order).
 `make test` also runs `make test-config` — the non-Godot python/bash guards (`PY_TESTS` /
 `SH_TESTS`). The same suite asserts those lists cover every `test_*.py` / `*_tests.py` and
 `test_*.sh` on disk, so a new one cannot sit unrun behind its own target.
+Engine FX motion checks include `engine/tests/fx_config_tests.gd` and
+`engine/tests/fx_flight_tests.gd`; run the latter when changing wallet or piece flight feedback.

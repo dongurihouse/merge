@@ -6243,6 +6243,9 @@ func _on_farewell_card_closed(line: int, next_need: Dictionary) -> void:
 	_sweep_farewell(line, next_need)
 
 func _sweep_farewell(line: int, next_need: Dictionary) -> void:
+	var preview := BoardActions.farewell_preview(board, int(line))
+	var flights := _farewell_item_flights(int(line))
+	var keepsakes := _farewell_keepsake_nodes(preview)
 	var out := BoardActions.sweep_line(board, int(line))
 	var coins := int(out.get("coins", 0))
 	if next_need.is_empty():
@@ -6252,16 +6255,77 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 		g["retired"] = retired
 		Save.grove_write()
 	Audio.play("tidy_poof", -4.0, 1.1)
-	if coins > 0:
-		var center: Vector2 = get_global_rect().get_center()
-		var done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	for node in keepsakes:
+		FX.keepsake_fade(node)
+	var shown := Save.coins() - coins
+	var on_each := func(payout: int) -> void:
+		if not is_instance_valid(self):
+			return
+		if payout <= 0:
+			return
+		shown += int(payout)
+		_currency_arrival_beat(coins_label, "coin", int(payout), shown)
+	var on_all := func() -> void:
+		if is_instance_valid(self):
+			_update_hud()
+	FX.fly_pieces_away(self, flights, coins_label, {"fx_id": "farewell_sweep"}, on_each, on_all)
 	_clear_selection()
 	_rebuild_all()
 	_after_board_change(coins > 0)
 	_queue_farewell_check_after_frame()
+
+func _farewell_item_flights(line: int) -> Array:
+	var flights: Array = []
+	for i in board.items.size():
+		var code: int = board.items[i]
+		if code <= 0 or G.is_coin(code) or BoardModel.line_of(code) != int(line):
+			continue
+		var cell := BoardModel.cell_of(i)
+		var node: Control = piece_nodes.get(cell)
+		piece_nodes.erase(cell)
+		flights.append({"node": _detach_flyaway_node(node), "payout": int(G.sell_reward(code).x)})
+	return flights
+
+func _farewell_keepsake_nodes(preview: Dictionary) -> Array:
+	var out: Array = []
+	for cell_v in preview.get("gen_cells", []):
+		var cell := Vector2i(cell_v)
+		var node: Control = gen_nodes.get(cell)
+		gen_nodes.erase(cell)
+		var live := _detach_flyaway_node(node)
+		if live != null:
+			out.append(live)
+	return out
+
+func _detach_flyaway_node(node: Control) -> Control:
+	if node == null or not is_instance_valid(node) or node.is_queued_for_deletion():
+		return null
+	var at := node.global_position
+	var parent := node.get_parent()
+	if parent != self:
+		if parent != null:
+			parent.remove_child(node)
+		add_child(node)
+		node.global_position = at
+	node.z_index = Tuning.FX.FLY_Z
+	return node
+
+func _currency_arrival_beat(label: Label, icon_id: String, amount: int, shown_value: int) -> void:
+	if label == null or not is_instance_valid(label):
+		_update_hud()
+		return
+	var at := label.get_global_rect().get_center()
+	var pulse := _currency_pulse_target(label)
+	if pulse != null:
+		FX.breathe_once(pulse)
+	FX.floating_reward(self, at + Vector2(14, -42), icon_id, amount, FX.reward_color(icon_id))
+	FX.tick(label, shown_value)
+
+func _currency_pulse_target(label: Label) -> Control:
+	var cur: Node = label
+	while cur != null and not cur is PanelContainer:
+		cur = cur.get_parent()
+	return cur as Control if cur is Control else label
 
 func _queue_farewell_check_after_frame() -> void:
 	if not is_inside_tree():
@@ -6340,25 +6404,19 @@ func _grant_sale(code: int, node: Control) -> void:
 	if reward.y > 0:
 		Save.add_diamonds(reward.y)
 		Vault.skim(reward.y)                  # T44 SKIM-SITE 3/3 (t8-sell): the piggy bank skims a slice of the t8 premium sale (§10)
-	var target: Control = _info_trash if (_info_trash != null and is_instance_valid(_info_trash)) else null
-	var center: Vector2 = target.get_global_rect().get_center() if (target != null and is_instance_valid(target)) else get_global_rect().get_center()
-	if node != null and is_instance_valid(node):
-		var dest: Vector2 = center - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
-		var t := node.create_tween()
-		t.set_parallel(true)
-		t.tween_property(node, "position", dest, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		t.tween_property(node, "scale", Vector2(0.35, 0.35), 0.25)
-		t.chain().tween_callback(node.queue_free)
 	if reward.y > 0:
-		var sale_gem_done := func() -> void:
+		var gem_done := func() -> void:
 			if is_instance_valid(self):
+				_currency_arrival_beat(diamonds_label, "gem", int(reward.y), Save.diamonds())
+		FX.fly_piece_to(self, node, diamonds_label, {"fx_id": "sale_payout"}, gem_done)
+		return
+	var coin_done := func() -> void:
+		if is_instance_valid(self):
+			if reward.x > 0:
+				_currency_arrival_beat(coins_label, "coin", int(reward.x), Save.coins())
+			else:
 				_update_hud()
-		FX.reward_arrival(self, center, "gem", reward.y, FX.reward_color("gem"), diamonds_label, sale_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	elif reward.x > 0:
-		var sale_coin_done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, center, "coin", reward.x, STRAW, coins_label, sale_coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	FX.fly_piece_to(self, node, coins_label, {"fx_id": "sale_payout"}, coin_done)
 
 # The real gate lives on the HOME scene now (buying a spot IS the progression step) —
 # this button is the invitation: stars suffice, go decorate.

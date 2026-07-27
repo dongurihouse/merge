@@ -3,7 +3,7 @@ extends SceneTree
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
-##        fresh | played | gate | fullline | ladder | farewell | almanac | bag | level | levelup | endgame |
+##        fresh | played | gate | fullline | ladder | farewell | flyaway | almanac | bag | level | levelup | endgame |
 ##        sky_calm | sky_sunbeam | sky_rain | sky_starfall | sky_starfall_blocked |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
@@ -40,7 +40,7 @@ func _initialize() -> void:
 		# list in step when adding or removing a branch.
 		"modes": ["fresh", "ftue", "ftuegen", "ftuesoil",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
-			"level", "levelup", "swap", "ladder", "farewell", "almanac", "recipe",
+			"level", "levelup", "swap", "ladder", "farewell", "flyaway", "almanac", "recipe",
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
@@ -67,6 +67,9 @@ func _initialize() -> void:
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
 	if mode == "ftuesoil":
 		Save.data["ftue_seen"] = {"merge": true, "gen_tap": true}   # L6 grant: only Soil remains live
+	if mode == "flyaway":
+		Save.mark_ftue_seen("soil")
+		Save.mark_ftue_seen("soil_seed")
 	match mode:
 		"sky_calm":
 			Ambient.forced_weather = "calm"
@@ -102,6 +105,7 @@ func _initialize() -> void:
 	current_scene = scn
 	await create_timer(0.5).timeout
 	scn.rng.seed = RNG_SEED           # re-pin so each mode's own actions start from a fixed stream
+	var custom_capture_done := false
 
 	match mode:
 		"ftuesoil":
@@ -384,6 +388,10 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			scn._queue_farewell_check()
 			await create_timer(0.7).timeout
+		"flyaway":
+			# The item fly-away sweep itself. The clock seed uses the zone accessor (not a literal level)
+			# so the fixture follows progression retunes; phase=all saves launch/apex/arrival siblings.
+			custom_capture_done = await _capture_or_stage_flyaway(self, scn, args, out)
 		"almanac":
 			# The read-only Collection/Almanac grid: discovered dormant lines show their away/complete badges,
 			# current-producing lines stay bright, and unseen future lines remain locked.
@@ -699,6 +707,11 @@ func _initialize() -> void:
 			scn._update_hud()
 			await create_timer(0.6).timeout
 
+	if custom_capture_done:
+		print("SHOT saved=%s err=0 level=%d coins_earned=%d coins=%d brambles=%d" % \
+			[out, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count()])
+		quit()
+		return
 	var err := Base.capture(self, out, args)
 	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
 	# grove["exp"] — a capture that seeded the wrong clock used to print a plausible line and a Level-1 PNG.
@@ -719,6 +732,8 @@ static func _clock_seeds() -> Dictionary:
 		"producing": G.coins_at_level(6),
 		"producingdrill": G.coins_at_level(6),
 		"ftuesoil": G.coins_at_level(6),
+		# Flyaway is a zone-transition visual, so seed by symbolic zone unlock level.
+		"flyaway": G.coins_at_level(G.zone_unlock_level(3)),
 		# gate: the SAME 25 is also earned into the WALLET (earn_coins), because G.cluster_ready gates on
 		# the level floor AND the price — L6 · 25🪙 clears the first hollow clusters' floors and costs.
 		"gate": G.coins_at_level(6),
@@ -732,3 +747,70 @@ static func _clock_seeds() -> Dictionary:
 static func _clock_midway(level: int) -> int:
 	var base := G.coins_at_level(level)
 	return base + (G.coins_at_level(level + 1) - base) / 2
+
+static func _capture_or_stage_flyaway(tree: SceneTree, scn: Node, args: Array, out: String) -> bool:
+	_seed_flyaway_board(scn)
+	await tree.create_timer(0.25).timeout
+	scn._sweep_farewell(2, G.next_need(2, scn._quest_level()))
+	var phase := String(Base.opt(args, "phase", "apex"))
+	if phase == "all":
+		await tree.create_timer(_flyaway_phase_delay("launch")).timeout
+		var launch_path := _phase_out_path(out, "launch")
+		var launch_err := Base.capture(tree, launch_path, args)
+		await tree.create_timer(_flyaway_phase_delay("apex") - _flyaway_phase_delay("launch")).timeout
+		var apex_path := _phase_out_path(out, "apex")
+		var apex_err := Base.capture(tree, apex_path, args)
+		await tree.create_timer(_flyaway_phase_delay("arrival") - _flyaway_phase_delay("apex")).timeout
+		var arrival_path := _phase_out_path(out, "arrival")
+		var arrival_err := Base.capture(tree, arrival_path, args)
+		print("FLYAWAY frames launch=%s err=%d apex=%s err=%d arrival=%s err=%d" % \
+			[launch_path, launch_err, apex_path, apex_err, arrival_path, arrival_err])
+		return true
+	if not (phase in ["launch", "apex", "arrival"]):
+		push_warning("flyaway shot: unknown phase '%s', using apex" % phase)
+		phase = "apex"
+	await tree.create_timer(_flyaway_phase_delay(phase)).timeout
+	Engine.time_scale = 0.0
+	return false
+
+static func _seed_flyaway_board(scn: Node) -> void:
+	var g := Save.grove()
+	g["seen"] = {"201": true, "202": true, "203": true, "204": true, "205": true, "206": true}
+	Save.grove_write()
+	var BM: GDScript = load("res://engine/scripts/core/board_model.gd")
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			scn.board.terrain[BM.idx(cell)] = 0
+			scn.board.take(cell)
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale_farewell != null:
+		stale_farewell.queue_free()
+	var free_cells: Array = scn.board.empty_ground_cells()
+	if free_cells.size() < 8:
+		push_warning("flyaway shot: expected at least 8 free cells, got %d" % free_cells.size())
+		return
+	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.arm_gen_boost(free_cells[0], 4)
+	for i in 6:
+		scn.board.place(free_cells[i + 1], 201 + i)
+	scn._refill_quests()
+	scn._rebuild_all()
+	scn._update_hud()
+
+static func _flyaway_phase_delay(phase: String) -> float:
+	match phase:
+		"launch":
+			return 0.08
+		"arrival":
+			return 0.78
+		_:
+			return 0.26
+
+static func _phase_out_path(out: String, phase: String) -> String:
+	var ext := out.get_extension()
+	if ext == "":
+		return "%s_%s.png" % [out, phase]
+	return "%s_%s.%s" % [out.get_basename(), phase, ext]
