@@ -8,6 +8,11 @@ const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
 
+## The docked star bobs on a looping tween (board.gd `_start_docked_star_bob`, ±3 px), so its rendered
+## box is never pinned to a single y. Every dock-geometry assert allows exactly that much slack and no
+## more — the defect this guards against was a ~42 px offset, an order of magnitude bigger.
+const DOCK_BOB_PX := 3.0
+
 func _initialize() -> void:
 	begin("grove · weather hours")
 	await process_frame
@@ -18,12 +23,22 @@ func _initialize() -> void:
 	await _test_landscape_marker_stays_out_of_playable_cells()
 	await _test_starfall_start_tracks_landing_cell_in_landscape()
 	await _test_starfall_scene_payment_and_modal_defer()
+	await _test_starfall_pending_docks_before_catch()
+	await _test_starfall_catch_real_tap_and_duplicate_input()
+	await _test_starfall_ignores_non_catch_taps()
+	await _test_starfall_fallbacks_and_resume_rules()
+	await _test_starfall_landings_share_the_post_change_beat()
+	await _test_starfall_full_lane_and_full_board()
+	await _test_starfall_info_auto_announcement()
 	await _test_winback_rain_beat_removed()
 	Ambient.reset_weather_debug_for_test()
 	finish()
 
 func _open_board(name: String, forced_weather: String):
 	fresh(name)
+	return await _mount_board(forced_weather)
+
+func _mount_board(forced_weather: String):
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
@@ -149,11 +164,15 @@ func _test_landscape_marker_stays_out_of_playable_cells() -> void:
 func _test_starfall_start_tracks_landing_cell_in_landscape() -> void:
 	var star = await _open_board("sky_starfall_landscape_start", "star")
 	star._landscape = true
-	var cell := Vector2i(5, 2)
-	var target: Vector2 = star._cell_pos(cell)
-	var from: Vector2 = star._star_start_pos(cell)
-	ok(absf(from.x - target.x) < 0.01 and from.y < target.y, \
-		"landscape Starfall starts above its target cell, not from the board corner")
+	star._sync_sky_patch_marker(false)
+	await process_frame
+	ok(star.has_method("_star_arrival_start_pos"), "Starfall exposes its off-mat arrival start for tests and shot tooling")
+	if star.has_method("_star_arrival_start_pos"):
+		var marker := star.find_child("SkyMarker", true, false) as Control
+		var board_rect := Rect2(Vector2.ZERO, Vector2(star._board_w(), star._board_h()))
+		var from: Vector2 = star.call("_star_arrival_start_pos")
+		ok(marker != null and not board_rect.has_point(from) and from.distance_to(marker.position) < star.csz * 3.0, \
+			"landscape Starfall arrival starts outside the mat on the marker side")
 	star.queue_free()
 
 func _test_starfall_scene_payment_and_modal_defer() -> void:
@@ -181,9 +200,263 @@ func _test_starfall_scene_payment_and_modal_defer() -> void:
 	landed._sky_live_secs = G.STAR_DELAY
 	landed._try_starfall()
 	await process_frame
-	ok(_item_count(landed) > before_land, "forced Starfall lands a real model piece")
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) > 0 and _item_count(landed) == before_land, \
+		"forced Starfall docks a pending catch code instead of immediately landing a model piece")
 	ok(int(SkyLogic.grove_sky_state().paid_hour) == int(landed._sky_state.hour), "Starfall stamps paid_hour when it rolls")
 	landed.queue_free()
+
+func _test_starfall_pending_docks_before_catch() -> void:
+	var star = await _open_board("sky_star_pending", "star")
+	_clear_lane_for_catch(star)
+	star._rebuild_all()
+	await process_frame
+	var before := _item_count(star)
+	var code := await _arm_pending_star(star)
+	ok(code > 0, "at STAR_DELAY Starfall stores a pending catch code")
+	ok(_item_count(star) == before and _code_count(star, code) == 0, \
+		"pending Starfall has not placed the rolled item in the model yet")
+	ok(star.find_child("DockedStar", true, false) != null, "pending Starfall rebuilds a docked piece at the marker")
+	_assert_dock_sits_in_marker(star, "pending Starfall")
+	# §5.4's arrival beat lives in _sync_starfall_catch_ui's two flags and nowhere else — the roll routes
+	# through them instead of re-implementing the flight and the announce inline. Both are observable: the
+	# dock is held hidden behind a flying piece, then handed off when the flight lands.
+	var docked := star.find_child("DockedStar", true, false) as Control
+	ok(star.board_area.find_child("DockedStarFlight", true, false) != null and docked != null and not docked.visible, \
+		"the roll flies the star in and holds the dock hidden until it arrives")
+	for _i in 12:
+		if docked != null and is_instance_valid(docked) and docked.visible:
+			break
+		await create_timer(0.1).timeout
+	ok(docked != null and is_instance_valid(docked) and docked.visible, \
+		"the arrival hands the star off to the docked piece once the flight lands")
+	var catch_cells := _call_star_catch_cells(star)
+	ok(not catch_cells.is_empty(), "pending Starfall exposes the empty lane cells that should be lit for catch")
+	star._rebuild_all()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code \
+		and star.find_child("DockedStar", true, false) != null \
+		and not _call_star_catch_cells(star).is_empty(), \
+		"pending Starfall survives _rebuild_all with dock and catch cells restored from save state")
+	_assert_dock_sits_in_marker(star, "the rebuilt dock")
+	star.queue_free()
+
+func _test_starfall_catch_real_tap_and_duplicate_input() -> void:
+	var star = await _open_board("sky_star_catch_tap", "star")
+	var lane_cells := _clear_lane_for_catch(star)
+	star._rebuild_all()
+	await process_frame
+	var before := _item_count(star)
+	var code := await _arm_pending_star(star)
+	var target: Vector2i = lane_cells[0] if not lane_cells.is_empty() else Vector2i(-1, -1)
+	ok(code > 0 and target.x >= 0, "catch fixture has a pending star and a lane target")
+	if target.x >= 0:
+		_tap_board_with_duplicate_events(star, star._cell_pos(target) + Vector2(star.csz, star.csz) / 2.0)
+		await create_timer(0.35).timeout
+		ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0, "catching a lit cell clears pending")
+		ok(star.board.item_at(target) == code, "catching places the pending code in the tapped lane cell")
+		ok(_item_count(star) == before + 1 and _code_count(star, code) == 1, \
+			"mouse plus synthesized touch catches exactly once")
+		ok(star.find_child("DockedStar", true, false) == null and _call_star_catch_cells(star).is_empty(), \
+			"catch tears down the docked star and lit catch cells")
+	star.queue_free()
+
+func _test_starfall_ignores_non_catch_taps() -> void:
+	var star = await _open_board("sky_star_ignore_taps", "star")
+	var lane_cells := _clear_lane_for_catch(star)
+	star._rebuild_all()
+	await process_frame
+	var code := await _arm_pending_star(star)
+	# Occupy one lane cell so the "occupied lane cell" tap has something to land on. _rebuild_all replaces
+	# the marker node, so every handle the taps below need is read AFTER it.
+	var occupied: Vector2i = lane_cells[0] if not lane_cells.is_empty() else Vector2i(-1, -1)
+	if occupied.x >= 0:
+		star.board.place(occupied, 101)
+	star._rebuild_all()
+	await process_frame
+	var off_lane := _empty_off_lane_cell(star)
+	var marker := star.find_child("SkyMarker", true, false) as Button
+	# Without this guard the three asserts below pass VACUOUSLY on a degraded fixture: with no pending
+	# star every "pending is unchanged" read is 0 == 0, and a missing cell just skips its tap entirely.
+	ok(code > 0 and occupied.x >= 0 and off_lane.x >= 0 and marker != null, \
+		"non-catch fixture has a pending star, an occupied lane cell, a free off-lane cell and a marker")
+	if code <= 0 or occupied.x < 0 or off_lane.x < 0 or marker == null:
+		star.queue_free()
+		return
+	_tap_board_with_duplicate_events(star, star._cell_pos(occupied) + Vector2(star.csz, star.csz) / 2.0)
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping an occupied lane cell leaves pending untouched")
+	_tap_board_with_duplicate_events(star, star._cell_pos(off_lane) + Vector2(star.csz, star.csz) / 2.0)
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping an empty off-lane cell leaves pending untouched")
+	marker.pressed.emit()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == code, "tapping the marker shows info and leaves pending untouched")
+	star.queue_free()
+
+func _test_starfall_fallbacks_and_resume_rules() -> void:
+	var timeout = await _open_board("sky_star_timeout", "star")
+	_clear_lane_for_catch(timeout)
+	timeout._rebuild_all()
+	await process_frame
+	var timeout_code := await _arm_pending_star(timeout)
+	timeout._sky_live_secs = float(G.STAR_DELAY) + float(G.STAR_CATCH_SECS)
+	# The uncaught landing flies a piece in and runs the same landing recipe the roll does, so it defers
+	# for the same two reasons the roll does. Without this the 30 s timeout could drop a star mid-merge or
+	# behind an open dialog. Deferring holds it pending; it lands on the tick after the board frees up.
+	var veil := Control.new()
+	veil.name = "TestModalOverlay"
+	veil.z_index = Overlay.MODAL_Z
+	timeout.add_child(veil)
+	timeout._try_starfall()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == timeout_code, \
+		"an elapsed catch window holds the star pending while a modal covers the board")
+	timeout.remove_child(veil)
+	veil.queue_free()
+	timeout.animating = true
+	timeout._try_starfall()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == timeout_code, \
+		"an elapsed catch window holds the star pending while a board animation is running")
+	timeout.animating = false
+	timeout._try_starfall()
+	await create_timer(0.35).timeout
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 and _code_count(timeout, timeout_code) == 1 \
+		and Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty(), \
+		"STAR_CATCH_SECS elapsed resolves pending into an uncaught landing")
+	timeout.queue_free()
+
+	var turned = await _open_board("sky_star_hour_turn", "star")
+	_clear_lane_for_catch(turned)
+	turned._rebuild_all()
+	await process_frame
+	var turn_code := await _arm_pending_star(turned)
+	turned._sky_state["hour"] = int(turned._sky_state.get("hour", 0)) - 1
+	turned._tick_sky_hour()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 \
+		and Array(SkyLogic.grove_sky_state().get("owed", [])).has(turn_code), \
+		"an hour turn converts pending Starfall into owed")
+	turned._after_board_change()
+	await create_timer(0.35).timeout
+	ok(_code_count(turned, turn_code) == 1 and Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty(), \
+		"the owed Starfall lands on the next board-change beat")
+	turned.queue_free()
+
+	var leaving = await _open_board("sky_star_persist", "star")
+	_clear_lane_for_catch(leaving)
+	leaving._rebuild_all()
+	await process_frame
+	var leave_code := await _arm_pending_star(leaving)
+	# An ORDINARY persist must leave a live catch alone. It runs on a dozen mutation paths (every
+	# _after_board_change, the water tick, the load fixups), so a resolve here would let any of them
+	# silently eat the star the player is being invited to catch.
+	leaving._persist()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == leave_code \
+		and Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty(), \
+		"an ordinary _persist leaves a live pending Starfall catchable")
+	# The board-leave beat is the one that resolves — the same call both Map nav taps make, minus the
+	# scene change a headless test cannot run.
+	leaving._persist_leaving_board()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 \
+		and Array(SkyLogic.grove_sky_state().get("owed", [])).has(leave_code), \
+		"leaving the board converts pending Starfall into owed before saving")
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.count("SceneWarm.go(") == 1 and board_src.count("_persist_leaving_board()") == 2, \
+		"the board has exactly ONE exit and it goes through the leave beat, so a new nav tap cannot skip it")
+	leaving.queue_free()
+	var reopened = await _mount_board("star")
+	await create_timer(0.35).timeout
+	ok(_code_count(reopened, leave_code) == 1 and Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty(), \
+		"a fresh board open lands the owed Starfall from the saved handoff")
+	reopened.queue_free()
+
+## §5.5's catch and §5.6's uncaught landing put the SAME piece on the SAME board, so they owe the same
+## post-mutation beat: magnet scans, the improvements reconcile, the owed-star drain, the persist and the
+## HUD/fence refresh. The uncaught path used to only persist. Observed through the owed-star drain, which
+## nothing but _after_board_change performs.
+func _test_starfall_landings_share_the_post_change_beat() -> void:
+	for caught in [true, false]:
+		var how := "caught" if caught else "uncaught"
+		var scn = await _open_board("sky_star_beat_%s" % how, "star")
+		var lane_cells := _clear_lane_for_catch(scn)
+		scn._rebuild_all()
+		await process_frame
+		var code := await _arm_pending_star(scn)
+		var owed_code := 205
+		SkyLogic.grove_sky_state()["owed"] = [owed_code]
+		ok(code > 0 and code != owed_code and lane_cells.size() >= 2, \
+			"%s fixture has a pending star, a distinct owed star and two free lane cells" % how)
+		if lane_cells.size() >= 2 and code > 0:
+			if caught:
+				scn._catch_pending_star_at(lane_cells[0])
+			else:
+				scn._sky_live_secs = float(G.STAR_DELAY) + float(G.STAR_CATCH_SECS)
+				scn._try_starfall()
+			await create_timer(0.35).timeout
+			ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 and _code_count(scn, code) == 1, \
+				"the %s star lands on the board" % how)
+			ok(Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty() and _code_count(scn, owed_code) == 1, \
+				"the %s landing drains the owed queue on the same post-change beat" % how)
+		scn.queue_free()
+
+func _test_starfall_full_lane_and_full_board() -> void:
+	var lane_full = await _open_board("sky_star_full_lane", "star")
+	var freed := _fill_star_lane(lane_full)
+	lane_full._rebuild_all()
+	await process_frame
+	var lane_code := await _arm_pending_star(lane_full)
+	ok(lane_code > 0 and _call_star_catch_cells(lane_full).is_empty(), \
+		"a full Starfall lane keeps pending but exposes no catch cells")
+	if freed.x >= 0:
+		lane_full.board.place(freed, 0)
+		lane_full._after_board_change()
+		await process_frame
+		ok(_call_star_catch_cells(lane_full).has(freed) and int(SkyLogic.grove_sky_state().get("pending", 0)) == lane_code, \
+			"freeing a lane cell lights it while pending survives")
+	lane_full.queue_free()
+
+	var board_full = await _open_board("sky_star_full_board", "star")
+	_fill_all_empty_ground(board_full)
+	board_full._rebuild_all()
+	await process_frame
+	var full_code := await _arm_pending_star(board_full)
+	board_full._sky_live_secs = float(G.STAR_DELAY) + float(G.STAR_CATCH_SECS)
+	board_full._try_starfall()
+	await process_frame
+	ok(int(SkyLogic.grove_sky_state().get("pending", 0)) == 0 \
+		and Array(SkyLogic.grove_sky_state().get("owed", [])).has(full_code) \
+		and board_full.find_child("OwedPip", true, false) != null, \
+		"a full-board fallback queues owed and shows the owed pip")
+	board_full.queue_free()
+
+func _test_starfall_info_auto_announcement() -> void:
+	var quiet = await _open_board("sky_star_info_auto", "star")
+	_clear_lane_for_catch(quiet)
+	quiet._clear_selection()
+	await process_frame
+	await _arm_pending_star(quiet)
+	ok(String(quiet._info_label.text).find("Starfall") != -1 \
+		and String(quiet._info_desc_label.text).find("tap a glowing cell") != -1, \
+		"docking a pending Starfall auto-announces the catch line when nothing is selected")
+	quiet.queue_free()
+
+	var selected = await _open_board("sky_star_info_selected", "star")
+	_clear_lane_for_catch(selected)
+	selected._rebuild_all()
+	await process_frame
+	var item_cell := _first_item_cell(selected)
+	if item_cell.x >= 0:
+		selected._select_item(item_cell)
+		await process_frame
+	var label_before := String(selected._info_label.text)
+	var desc_before := String(selected._info_desc_label.text)
+	await _arm_pending_star(selected)
+	ok(String(selected._info_label.text) == label_before and String(selected._info_desc_label.text) == desc_before, \
+		"docking Starfall does not overwrite a live selection in the info bar")
+	selected.queue_free()
 
 func _test_winback_rain_beat_removed() -> void:
 	fresh("winback_removed")
@@ -213,11 +486,121 @@ func _test_winback_rain_beat_removed() -> void:
 		"Board no longer grants or toasts the win-back rain beat")
 	ok(map_src.find("last_seen") == -1, "Map no longer writes last_seen for win-back rain")
 
+## The rect a Control actually OCCUPIES ON SCREEN. Neither `get_global_rect()` nor `position`/`size`
+## answers this for a SCALED node: `size` is the unscaled box, and `Control.scale` scales about
+## `pivot_offset`, so the on-screen origin is `position + pivot_offset * (1 - scale)`. Reading the
+## global transform is the only measurement that matches what renders.
+func _rendered_rect(node: Control) -> Rect2:
+	var xf := node.get_global_transform()
+	return Rect2(xf.origin, node.size * xf.get_scale())
+
+## §6: "the star piece parents to the lane marker" — it has to RENDER there too. Asserting the node
+## exists is not enough: the docked star shipped ~42 px down-and-right of the chip, straddling the mat's
+## top edge and covering the first cell row, and every existing test was green through it. Measured off
+## the rendered transform of both nodes, so a pivot/scale regression fails here instead of in a capture.
+func _assert_dock_sits_in_marker(board_scene, label: String) -> void:
+	var dock := board_scene.find_child("DockedStar", true, false) as Control
+	var chip := board_scene.find_child("SkyMarker", true, false) as Control
+	ok(dock != null and chip != null, "%s has both a docked star and a marker chip to measure" % label)
+	if dock == null or chip == null:
+		return
+	var dock_rect := _rendered_rect(dock)
+	var chip_rect := _rendered_rect(chip)
+	var d: Vector2 = dock_rect.get_center() - chip_rect.get_center()
+	ok(absf(d.x) <= DOCK_BOB_PX and absf(d.y) <= DOCK_BOB_PX, \
+		"%s renders CENTRED in the marker chip, off by (%.2f, %.2f) px" % [label, d.x, d.y])
+	ok(chip_rect.grow(DOCK_BOB_PX).encloses(dock_rect), \
+		"%s renders INSIDE the marker chip, not over the mat (dock %s vs chip %s)" % [label, dock_rect, chip_rect])
+
+func _arm_pending_star(board_scene) -> int:
+	board_scene._sky_live_secs = float(G.STAR_DELAY)
+	board_scene._try_starfall()
+	await process_frame
+	return int(SkyLogic.grove_sky_state().get("pending", 0))
+
+func _lane_cells(board_scene) -> Array:
+	var out: Array = []
+	var axis := String(board_scene._sky_state.get("lane_axis", "column"))
+	var lane := int(board_scene._sky_state.get("lane", 0))
+	if axis == "row":
+		for c in G.COLS:
+			out.append(Vector2i(lane, c))
+	else:
+		for r in G.ROWS:
+			out.append(Vector2i(r, lane))
+	return out
+
+func _clear_lane_for_catch(board_scene) -> Array:
+	var out: Array = []
+	for cell in _lane_cells(board_scene):
+		if board_scene.board.is_open(cell) and not board_scene.board.is_gen(cell):
+			board_scene.board.place(cell, 0)
+			out.append(cell)
+	return out
+
+func _fill_star_lane(board_scene) -> Vector2i:
+	var first := Vector2i(-1, -1)
+	for cell in _lane_cells(board_scene):
+		if board_scene.board.is_open(cell) and not board_scene.board.is_gen(cell):
+			if first.x < 0:
+				first = cell
+			board_scene.board.place(cell, 101)
+	return first
+
+func _fill_all_empty_ground(board_scene) -> void:
+	for cell in board_scene.board.empty_ground_cells():
+		board_scene.board.place(Vector2i(cell), 101)
+
+func _empty_off_lane_cell(board_scene) -> Vector2i:
+	for cell in board_scene.board.empty_ground_cells():
+		var v := Vector2i(cell)
+		if not SkyLogic.in_patch(board_scene._sky_state, v):
+			return v
+	return Vector2i(-1, -1)
+
+func _first_item_cell(board_scene) -> Vector2i:
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			if board_scene.board.item_at(cell) > 0:
+				return cell
+	return Vector2i(-1, -1)
+
+func _call_star_catch_cells(board_scene) -> Array:
+	if not board_scene.has_method("_star_catch_cells"):
+		return []
+	return Array(board_scene.call("_star_catch_cells"))
+
+func _tap_board_with_duplicate_events(board_scene, at: Vector2) -> void:
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_LEFT
+	mouse_down.pressed = true
+	mouse_down.position = at
+	var touch_down := InputEventScreenTouch.new()
+	touch_down.pressed = true
+	touch_down.position = at
+	var mouse_up := mouse_down.duplicate()
+	mouse_up.pressed = false
+	var touch_up := touch_down.duplicate()
+	touch_up.pressed = false
+	board_scene._on_board_input(mouse_down)
+	board_scene._on_board_input(touch_down)
+	board_scene._on_board_input(mouse_up)
+	board_scene._on_board_input(touch_up)
+
 func _item_count(board_scene) -> int:
 	var n := 0
 	for r in G.ROWS:
 		for c in G.COLS:
 			if board_scene.board.item_at(Vector2i(r, c)) > 0:
+				n += 1
+	return n
+
+func _code_count(board_scene, code: int) -> int:
+	var n := 0
+	for r in G.ROWS:
+		for c in G.COLS:
+			if board_scene.board.item_at(Vector2i(r, c)) == code:
 				n += 1
 	return n
 

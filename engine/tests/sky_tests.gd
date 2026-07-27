@@ -223,14 +223,18 @@ func _initialize() -> void:
 	ok(not Sky.gate_open(), "weather-hours feature flag can shut the gift gate")
 	Features.FLAGS["weather_hours"] = true
 
-	ok(Sky.grove_sky_state().get("owed", []) is Array and int(Sky.grove_sky_state().get("paid_hour", 0)) == -1, \
-		"grove sky save state defaults paid_hour and owed without a schema bump")
+	ok(is_equal_approx(float(G.STAR_CATCH_SECS), 30.0), "Starfall catch timeout is a 30s content constant")
+	ok(Sky.grove_sky_state().get("owed", []) is Array and int(Sky.grove_sky_state().get("paid_hour", 0)) == -1 \
+		and int(Sky.grove_sky_state().get("pending", -1)) == 0, \
+		"grove sky save state defaults paid_hour, owed, and pending without a schema bump")
 	var sky_blob: Dictionary = Save.grove().get("sky", {})
 	sky_blob["paid_hour"] = 4
 	sky_blob["owed"] = [108]
+	sky_blob["pending"] = 209
 	Save.grove()["sky"] = sky_blob
-	ok(int(Sky.grove_sky_state().paid_hour) == 4 and Array(Sky.grove_sky_state().owed) == [108], \
-		"grove sky save state preserves paid_hour and owed queue")
+	ok(int(Sky.grove_sky_state().paid_hour) == 4 and Array(Sky.grove_sky_state().owed) == [108] \
+		and int(Sky.grove_sky_state().pending) == 209, \
+		"grove sky save state preserves paid_hour, owed queue, and pending catch code")
 
 	var logic := BoardLogic.new()
 	var asked: Array = logic.call("asked_items", [{"line": 1, "tier": 8}, {"line": 5, "tier": 9}, {"reward": {"coins": 1}}])

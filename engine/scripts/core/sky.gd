@@ -89,6 +89,8 @@ static func grove_sky_state() -> Dictionary:
 		sky["paid_hour"] = -1
 	if not (sky.get("owed", []) is Array):
 		sky["owed"] = []
+	if not sky.has("pending"):
+		sky["pending"] = 0
 	return sky
 
 static func star_pick(hour: int, active_lines: Array, asked: Array) -> int:

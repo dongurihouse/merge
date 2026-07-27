@@ -403,6 +403,7 @@ const SKY_COIN_TIER := 2
 const SKY_WATER_RATE := 0.30
 const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
 const STAR_DELAY := 10.0
+const STAR_CATCH_SECS := 30.0
 # §3 playable-lane roll: the hour picks only among lanes holding at least this many cells the player
 # has unlocked (MIN_LEVEL vs level). A uniform roll left 36% of level-2 hours on a lane with ZERO open
 # cells — no merge can happen there, so the sky gave nothing right after the FTUE gate opens.
