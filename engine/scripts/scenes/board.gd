@@ -44,6 +44,7 @@ const GridFx = preload("res://engine/scripts/ui/grid_fx.gd")       # THE shared 
 const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
+const SoilProgressRing = preload("res://engine/scripts/ui/soil_progress_ring.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
@@ -254,6 +255,7 @@ var _drag_is_gen := false           # the current drag picked up a generator (mo
 var _drag_pending := false          # pressed on a tile; the lift waits for the touch slop (_drag_slop_px)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
+var _rebuild_after_drag := false
 # Bundle A (tactile) drag feel — live only while a board piece is dragged:
 #   • telegraph: the cell the held tile currently hovers as a VALID merge target (glow + breathe +
 #     magnet lean). Tracked so it clears cleanly when the hover moves off / the drag ends (no stuck glow).
@@ -902,7 +904,10 @@ func _mark_seen(code: int) -> void:
 	var g := Save.grove()
 	if not g.has("seen"):
 		g["seen"] = {}
-	g["seen"][str(code)] = true
+	var line := BoardModel.line_of(code)
+	var tier := BoardModel.tier_of(code)
+	for t in range(1, tier + 1):
+		g["seen"][str(line * 100 + t)] = true
 
 # [{tier, code, seen}] for a line's full ladder (pure — tests use it directly).
 func _ladder_entries(line: int) -> Array:
@@ -1034,8 +1039,14 @@ func _after_board_change(hud_deferred := false) -> void:
 	if _scan_magnets():
 		changed = true
 		_reconcile_improvements(Time.get_unix_time_from_system(), false)
-	if changed and board_area != null and is_instance_valid(board_area):
-		_rebuild_all()
+	var needs_rebuild := changed or (_rebuild_after_drag and not _drag_active())
+	if needs_rebuild and board_area != null and is_instance_valid(board_area):
+		if _drag_active():
+			_rebuild_after_drag = true
+			_rebuild_soil_overlays()
+		else:
+			_rebuild_after_drag = false
+			_rebuild_all()
 	_persist()
 	if not hud_deferred:
 		_update_hud()
@@ -1097,6 +1108,9 @@ func _build_water_hud() -> void:
 	_update_water_hud()
 
 func _tick_water() -> void:
+	if _rebuild_after_drag and not _drag_active() and board_area != null and is_instance_valid(board_area):
+		_rebuild_after_drag = false
+		_rebuild_all()
 	var before := water
 	var now := Time.get_unix_time_from_system()
 	_apply_regen(now)
@@ -1104,7 +1118,12 @@ func _tick_water() -> void:
 	if changed and _scan_magnets(false):
 		changed = true
 	if changed and board_area != null and is_instance_valid(board_area):
-		_rebuild_all()
+		if _drag_active():
+			_rebuild_after_drag = true
+			_rebuild_soil_overlays()
+		else:
+			_rebuild_after_drag = false
+			_rebuild_all()
 	else:
 		_rebuild_soil_overlays()
 	_refresh_selected_soil_info()
@@ -1932,15 +1951,37 @@ func _reconcile_improvements(now: float = -1.0, render := true) -> bool:
 		return false
 	if now < 0.0:
 		now = Time.get_unix_time_from_system()
-	var before := str(board.to_dict().get("improvements", []))
+	var before := _improvements_state_key()
 	var grown: Array = board.reconcile_improvements(now)
-	var after := str(board.to_dict().get("improvements", []))
+	var after := _improvements_state_key()
 	for cell in grown:
 		_mark_seen(board.item_at(cell))
 	var changed := before != after or not grown.is_empty()
 	if render and board_area != null and is_instance_valid(board_area):
 		_rebuild_soil_overlays()
 	return changed
+
+func _improvements_state_key() -> String:
+	if board == null:
+		return ""
+	var rows: Array = []
+	for raw_cell in board.improvements.keys():
+		var cell := Vector2i(raw_cell)
+		var row := board.improvement_at(cell)
+		rows.append([
+			cell.x,
+			cell.y,
+			String(row.get("kind", "")),
+			int(row.get("rank", 1)),
+			int(row.get("code", 0)),
+			float(row.get("ends_at", 0.0)),
+			bool(row.get("watered", false)),
+		])
+	rows.sort_custom(func(a: Array, b: Array) -> bool:
+		if int(a[0]) == int(b[0]):
+			return int(a[1]) < int(b[1])
+		return int(a[0]) < int(b[0]))
+	return str(rows)
 
 func _improvement_cells(kind: String = "") -> Array:
 	var out: Array = []
@@ -2188,16 +2229,13 @@ func _make_soil_overlay(cell: Vector2i) -> Control:
 	holder.z_index = 12
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.set_meta("soil_progress", true)
-	var ring := Panel.new()
+	var ring := SoilProgressRing.new()
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0)
-	sb.draw_center = false
-	sb.border_color = Color(Pal.BTN_PRIMARY, 0.75)
-	sb.set_border_width_all(maxi(2, int(roundf(csz * 0.025))))
-	sb.set_corner_radius_all(maxi(12, int(roundf(csz * 0.22))))
-	ring.add_theme_stylebox_override("panel", sb)
+	ring.line_width = maxf(2.0, csz * 0.035)
+	ring.track_color = Color(Pal.BTN_PRIMARY, 0.18)
+	ring.fill_color = Color(Pal.BTN_PRIMARY, 0.86)
+	ring.progress = _soil_progress_fraction(cell)
 	holder.add_child(ring)
 	var remaining := board.soil_remaining(cell, Time.get_unix_time_from_system())
 	if remaining >= 900.0:
@@ -2223,6 +2261,17 @@ func _make_soil_overlay(cell: Vector2i) -> Control:
 		chip.add_child(lbl)
 		holder.add_child(chip)
 	return holder
+
+func _soil_progress_fraction(cell: Vector2i) -> float:
+	var row := board.improvement_at(cell)
+	var code := int(row.get("code", 0))
+	if code <= 0:
+		return 0.0
+	var duration := Improvements.soil_step_seconds(code, int(row.get("rank", 1)))
+	if duration <= 0.0:
+		return 1.0
+	var remaining := board.soil_remaining(cell, Time.get_unix_time_from_system())
+	return 1.0 - clampf(remaining / duration, 0.0, 1.0)
 
 func _clear_magnet_range() -> void:
 	for n in _magnet_range_nodes.values():
@@ -2513,10 +2562,9 @@ func _after_magnet_merge(out: Dictionary, render := true) -> void:
 		return
 	for cell in opened:
 		if render and board_area != null and is_instance_valid(board_area):
-			_open_bramble(cell)
+			_open_bramble(cell, true)
 		else:
-			var lines := _open_quest_lines()
-			var contents := board.open_bramble(cell, BoardLogic.bramble_seed(lines, rng) if not lines.is_empty() else -1)
+			var contents := board.open_bramble(cell, -1)
 			_mark_seen(contents)
 	if render:
 		_refresh_locked_cells()
@@ -2915,9 +2963,15 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 func _refresh_selected_soil_info() -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):
 		return
-	if board != null and board.is_growing(_selected_cell):
+	if board == null:
+		return
+	if board.is_growing(_selected_cell):
 		_info_label.text = _soil_info_title(_selected_cell)
 		_refresh_soil_chips(_selected_cell)
+	elif board.item_at(_selected_cell) > 0:
+		_select_item(_selected_cell)
+	else:
+		_clear_selection()
 
 # Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle, enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
@@ -2945,12 +2999,7 @@ func _select_item(cell: Vector2i) -> void:
 		_info_desc_label.visible = true
 	_info_btn.visible = not _info_button_hidden
 	_info_btn.disabled = _info_button_hidden
-	if board.is_growing(cell):
-		_info_trash.visible = false
-		if _info_buy != null and is_instance_valid(_info_buy):
-			_info_buy.visible = false
-		_refresh_soil_chips(cell)
-	elif board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
+	if board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
 		_info_trash.visible = false           # generators, coins, and special drops aren't deletable for coins
 		if _info_buy != null and is_instance_valid(_info_buy):
 			_info_buy.visible = false         # …nor buyable
@@ -2965,6 +3014,8 @@ func _select_item(cell: Vector2i) -> void:
 		_info_trash_coin.add_child(pay_icon)
 		_info_trash.visible = true
 		_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
+		if board.is_growing(cell):
+			_refresh_soil_chips(cell)
 
 func _item_description_for_cell(cell: Vector2i, code: int) -> String:
 	var reward := board.collect_reward_at(cell)
@@ -3571,6 +3622,9 @@ func _clear_drag_feel(node: Control = null) -> void:
 func _drag_slop_px() -> float:
 	return maxf(24.0, csz * 0.22)
 
+func _drag_active() -> bool:
+	return _drag_pending or _drag_node != null
+
 func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
 	_press_cell = cell
@@ -4062,11 +4116,14 @@ func _open_quest_lines() -> Array:
 			out.append(int(it.line))
 	return out
 
-func _open_bramble(cell: Vector2i) -> void:
+func _open_bramble(cell: Vector2i, deterministic := false) -> void:
 	# §4: a freshly-opened cell mimics ONE generator pop biased to a RANDOM open quest line. With no
 	# open quests (rare), pass -1 so the model falls back to the legacy positional seed.
 	var lines := _open_quest_lines()
-	var contents := board.open_bramble(cell, BoardLogic.bramble_seed(lines, rng) if not lines.is_empty() else -1)
+	var seed := -1
+	if not deterministic and not lines.is_empty():
+		seed = BoardLogic.bramble_seed(lines, rng)
+	var contents := board.open_bramble(cell, seed)
 	_mark_seen(contents)
 	Audio.play("bramble_clear" if Audio.has("bramble_clear") else "tidy_poof", -2.0)
 	var br: Control = bramble_nodes.get(cell)
@@ -4463,6 +4520,7 @@ func _stash(from: Vector2i, node: Control) -> void:
 		return
 	if _defer_soil_reset([from], "Stash", func() -> void: _stash_confirmed(from, node), func() -> void: _snap_back(from, node)):
 		return
+	_stash_confirmed(from, node)
 
 func _stash_confirmed(from: Vector2i, node: Control) -> void:
 	var code := board.take(from)
@@ -4567,7 +4625,10 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		Audio.play("invalid_soft", -6.0)
 		return
 	var it: Dictionary = G.quest_item(q)
-	_deliver_quest(qi, board.first_item_of(int(it.line) * 100 + int(it.tier)), chip)
+	var cell := board.first_item_of(int(it.line) * 100 + int(it.tier))
+	if _defer_soil_reset([cell], "Deliver", func() -> void: _deliver_quest(qi, cell, chip)):
+		return
+	_deliver_quest(qi, cell, chip)
 
 # Board-side delivery (the second-tap affordance): the player tapped an already-focused, glowing tile —
 # hand it to the leftmost giver that wants it, consuming THIS exact tile. No-op when nothing wants it
@@ -4581,6 +4642,7 @@ func _deliver_from_board(cell: Vector2i) -> void:
 		return
 	if _defer_soil_reset([cell], "Deliver", func() -> void: _deliver_from_board_confirmed(cell, qi, chip)):
 		return
+	_deliver_from_board_confirmed(cell, qi, chip)
 
 func _deliver_from_board_confirmed(cell: Vector2i, qi: int, chip: Control) -> void:
 	_clear_selection()                        # the tile is leaving — drop its focus ring + info bar
