@@ -10,13 +10,16 @@ const Improvements = preload("res://engine/scripts/core/improvements.gd")
 func _initialize() -> void:
 	begin("grove · cascade combos")
 	await process_frame
+	await _test_x2_ladder_does_not_arm_cascade()
 	await _test_drag_merge_auto_runs_and_locks_input()
+	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
 	await _test_cascade_watchdog_keeps_player_input_locked()
 	await _test_magnet_holds_fire_while_cascade_runs()
 	await _test_chain_bailouts_release_input_gate()
 	await _test_chain_rewards_and_chest_open_clock()
 	await _test_long_chain_rewards_upgrade_and_cap()
 	await _test_drag_guide_pads_and_generator_exclusion()
+	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
 	await _test_landscape_outline_uses_transposed_edges()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
@@ -126,6 +129,26 @@ func _outline_has_tag(b: Node, text: String) -> bool:
 			return true
 	return false
 
+func _outline_stack_is_visible_between_board_and_items(b: Node) -> bool:
+	var o := _outline(b)
+	if o == null or o.is_queued_for_deletion():
+		return false
+	var base_max := -1
+	for raw_node in b.slot_nodes.values():
+		var n := raw_node as Node
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion():
+			base_max = maxi(base_max, n.get_index())
+	for raw_child in b.board_area.get_children():
+		var c := raw_child as Control
+		if c != null and c != o and not c.is_queued_for_deletion() and c.position.x < 0.0 and c.position.y < 0.0:
+			base_max = maxi(base_max, c.get_index())
+	var item_min := 9999
+	for raw_node in b.gen_nodes.values() + b.piece_nodes.values():
+		var n := raw_node as Node
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion() and n.get_parent() == b.board_area:
+			item_min = mini(item_min, n.get_index())
+	return o.get_index() > base_max and o.get_index() < item_min
+
 func _landscape_outline_pos(cell: Vector2i) -> Vector2:
 	var step := 44.0
 	return Vector2(cell.x * step, cell.y * step)
@@ -138,6 +161,21 @@ func _segment_is_horizontal(seg: Array) -> bool:
 	return seg.size() == 2 and is_equal_approx(Vector2(seg[0]).y, Vector2(seg[1]).y) \
 		and not is_equal_approx(Vector2(seg[0]).x, Vector2(seg[1]).x)
 
+func _test_x2_ladder_does_not_arm_cascade() -> void:
+	var b := _open_board("cascade_x2_does_not_arm")
+	await process_frame
+	_blank_fixture(b, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+	})
+	ok(_outline_ladder_count(b) == 0, "a x2-only ladder does not draw a cascade telegraph")
+	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
+	await _wait_for_idle(b)
+	ok(not b.chain_running() and b.board.item_at(Vector2i(3, 2)) == 102 and b.board.item_at(Vector2i(3, 3)) == 102, \
+		"a x2-only ladder resolves as an ordinary merge and does not arm a cascade")
+	b.queue_free()
+
 func _test_drag_merge_auto_runs_and_locks_input() -> void:
 	var b := _open_board("cascade_auto_run")
 	await process_frame
@@ -145,19 +183,38 @@ func _test_drag_merge_auto_runs_and_locks_input() -> void:
 		Vector2i(3, 1): 101,
 		Vector2i(3, 2): 101,
 		Vector2i(3, 3): 102,
+		Vector2i(3, 4): 103,
 	})
 	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
 	ok(b.chain_running() and b.animating, "a tipped ready ladder exposes chain_running and keeps input locked")
 	ok(await _wait_for_auto_step_in_flight(b), "the auto-step stays in flight long enough to render its slide")
-	await _wait_for_idle(b)
+	await _wait_for_idle(b, 3.0)
 	ok(not b.animating and not b.chain_running(), "input unlocks after the cascade finishes")
 	# The source must no longer hold the LINE's piece. Not `== 0`: the ordinary 10% merge coin-drop
 	# picks among the 3 cells nearest the merge, and the just-vacated source is one of them, so a
 	# stray coin here is legal and unrelated to the slide (seed 1010 lands 901 on it).
-	ok(b.board.item_at(Vector2i(3, 3)) == 103 and _line_of(b.board.item_at(Vector2i(3, 1))) != 1, \
+	ok(b.board.item_at(Vector2i(3, 4)) == 104 and _line_of(b.board.item_at(Vector2i(3, 1))) != 1, \
 		"the auto-step slides the upgraded item along the partner path")
-	ok(b.board.item_at(Vector2i(3, 2)) == G.COIN_LINE * 100 + 1, \
-		"reaching x2 births a coin on the vacated result cell")
+	ok(b.board.item_at(Vector2i(3, 3)) == 1001, \
+		"reaching x3 births a chest on the first readable cascade event")
+	b.queue_free()
+
+func _test_preroll_delays_first_auto_step_and_telegraphs_run() -> void:
+	var b := _open_board("cascade_preroll")
+	await process_frame
+	_blank_fixture(b, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+		Vector2i(3, 4): 103,
+	})
+	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
+	await create_timer(0.16).timeout
+	ok(b.chain_running() and b.animating and not bool(b.get("_chain_auto_step")), \
+		"cascade pre-roll holds input before the first automatic step")
+	ok(b.board.item_at(Vector2i(3, 3)) == 102 and _outline_has_tag(b, "×3"), \
+		"pre-roll keeps the next partner in place while the exact run is telegraphed")
+	await _wait_for_idle(b, 3.0)
 	b.queue_free()
 
 func _test_cascade_watchdog_keeps_player_input_locked() -> void:
@@ -236,7 +293,7 @@ func _test_chain_rewards_and_chest_open_clock() -> void:
 	})
 	_drag_merge(b3, Vector2i(2, 1), Vector2i(2, 2))
 	await _wait_for_idle(b3)
-	ok(b3.board.item_at(Vector2i(2, 2)) == G.COIN_LINE * 100 + 1, "x2 leaves the coin reward")
+	ok(b3.board.item_at(Vector2i(2, 2)) != G.COIN_LINE * 100 + 1, "x2 no longer leaves a coin reward")
 	ok(b3.board.item_at(Vector2i(2, 3)) == 1001, "x3 births a tier-1 chest on that step's vacated cell")
 	b3.queue_free()
 
@@ -291,6 +348,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 		from: 101,
 		Vector2i(2, 1): 101,
 		Vector2i(2, 3): 102,
+		Vector2i(2, 4): 103,
 	})
 	var half := Vector2(b.csz, b.csz) / 2.0
 	b._on_press(b._cell_pos(from) + half)
@@ -311,9 +369,23 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 			first_piece_index = mini(first_piece_index, pn.get_index())
 	ok(recreated != null and recreated.get_index() < first_piece_index, \
 		"drag-guide creation keeps the cascade outline below pieces")
+	ok(_outline_stack_is_visible_between_board_and_items(b), \
+		"drag-guide creation keeps the cascade outline above the mat and slot tiles")
 	b._on_release(b._cell_pos(from) + half)
 	await process_frame
 	ok(_outline_pad_count(b) == 0, "releasing the item clears cascade ghost pads")
+
+	var x2_from := Vector2i(6, 5)
+	_blank_fixture(b, {
+		x2_from: 101,
+		Vector2i(1, 1): 101,
+		Vector2i(1, 3): 102,
+	})
+	b._on_press(b._cell_pos(x2_from) + half)
+	b._begin_drag()
+	await process_frame
+	ok(_outline_pad_count(b) == 0, "x2-only drag placements do not show cascade ghost pads")
+	b._on_release(b._cell_pos(x2_from) + half)
 
 	_blank_fixture(b, {})
 	var gen_cell := Vector2i(4, 3)
@@ -326,6 +398,26 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_release(b._cell_pos(gen_cell) + half)
 	b.queue_free()
 
+func _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes() -> void:
+	var b := _open_board("cascade_outline_stack_stale_gen")
+	await process_frame
+	_blank_fixture(b, {})
+	b.board.place_gen("gen_1", Vector2i(0, 0))
+	b._rebuild_all()
+	for i in b.board.items.size():
+		b.board.items[i] = 0
+	b.board.gens = {}
+	b.board.gen_tiers = {}
+	b.board.gen_boost = {}
+	b.board.place(Vector2i(3, 1), 101)
+	b.board.place(Vector2i(3, 2), 101)
+	b.board.place(Vector2i(3, 3), 102)
+	b.board.place(Vector2i(3, 4), 103)
+	b._rebuild_all()
+	ok(_outline_ladder_count(b) == 1 and _outline_stack_is_visible_between_board_and_items(b), \
+		"ready outline renders above mat/slots and below live items even with stale queued generator nodes")
+	b.queue_free()
+
 func _test_ready_outline_and_flag_off() -> void:
 	var original := bool(Feat.FLAGS.get("cascade", true))
 	Feat.FLAGS["cascade"] = true
@@ -335,10 +427,12 @@ func _test_ready_outline_and_flag_off() -> void:
 		Vector2i(3, 1): 101,
 		Vector2i(3, 2): 101,
 		Vector2i(3, 3): 102,
+		Vector2i(3, 4): 103,
 	})
 	ok(_outline_ladder_count(b) == 1, "a ready ladder draws one cascade outline")
-	ok(_outline_has_tag(b, "×2"), "the ready ladder tags its best chain length")
-	b.board.place(Vector2i(3, 3), 0)
+	ok(_outline_has_tag(b, "×3"), "the ready ladder tags its best armed chain length")
+	ok(_outline_stack_is_visible_between_board_and_items(b), "ready outline renders above the mat and slot tiles")
+	b.board.place(Vector2i(3, 4), 0)
 	b._rebuild_all()
 	ok(_outline_ladder_count(b) == 0, "removing the upgraded rung clears the cascade outline")
 	b.queue_free()

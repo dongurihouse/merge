@@ -110,6 +110,8 @@ const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece 
 const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
 const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
+const CHAIN_MIN_N := 3
+const CHAIN_PREROLL_MS := 300
 const CHAIN_STEP_MS := 250
 const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
@@ -260,10 +262,6 @@ var _info_soil_water: Button         # Soil grow-row chip: spend board water to 
 var _info_soil_water_sb: StyleBoxFlat
 var _info_soil_water_count: Label
 var _info_soil_water_coin: Control
-var _info_soil_finish: Button        # Soil grow-row chip: spend acorns to finish the current step now
-var _info_soil_finish_sb: StyleBoxFlat
-var _info_soil_finish_count: Label
-var _info_soil_finish_coin: Control
 var _info_mastery_row: HBoxContainer # generator mastery row: pips + slim meter + next reward
 var _info_mastery_pips: Array = []
 var _info_mastery_progress: ProgressBar
@@ -2043,12 +2041,19 @@ func _position_cascade_outline() -> void:
 	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
 			or _cascade_outline.get_parent() != board_area:
 		return
-	var insert_at := _cascade_outline.get_index()
+	var insert_at := board_area.get_child_count() - 1
 	for raw_node in gen_nodes.values() + piece_nodes.values():
 		var n := raw_node as Node
-		if n != null and is_instance_valid(n) and n.get_parent() == board_area:
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion() and n.get_parent() == board_area:
 			insert_at = mini(insert_at, n.get_index())
 	board_area.move_child(_cascade_outline, clampi(insert_at, 0, board_area.get_child_count() - 1))
+
+func _armed_cascade_marks(entries: Array) -> Array:
+	var out: Array = []
+	for raw in entries:
+		if raw is Dictionary and int((raw as Dictionary).get("n", 0)) >= CHAIN_MIN_N:
+			out.append((raw as Dictionary).duplicate(true))
+	return out
 
 func _refresh_cascade_outline() -> void:
 	if board == null or board_area == null or not is_instance_valid(board_area):
@@ -2056,7 +2061,7 @@ func _refresh_cascade_outline() -> void:
 	var outline := _ensure_cascade_outline()
 	if outline == null:
 		return
-	outline.set_ladders(BoardLogic.ready_ladders(board))
+	outline.set_ladders(_armed_cascade_marks(BoardLogic.ready_ladders(board)))
 
 func _show_cascade_drag_guides(from: Vector2i) -> void:
 	if not Features.on("cascade") or board == null or board.is_gen(from):
@@ -2068,6 +2073,8 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 	for raw in BoardLogic.chain_placements(board, from, code):
 		if raw is Dictionary:
 			var entry: Dictionary = (raw as Dictionary).duplicate(true)
+			if int(entry.get("n", 0)) < CHAIN_MIN_N:
+				continue
 			entry["line"] = BoardModel.line_of(code)
 			pads.append(entry)
 	var outline := _ensure_cascade_outline()
@@ -2694,28 +2701,9 @@ func _water_soil(cell: Vector2i, now: float = -1.0) -> bool:
 	_refresh_selected_soil_info()
 	return true
 
-func _finish_soil(cell: Vector2i, now: float = -1.0) -> bool:
-	if now < 0.0:
-		now = Time.get_unix_time_from_system()
-	var out := BoardActions.finish_soil(board, cell, now)
-	if not bool(out.get("finished", false)):
-		if _info_soil_finish != null and is_instance_valid(_info_soil_finish):
-			FX.wobble(_info_soil_finish)
-		Audio.play("invalid_soft", -6.0)
-		return false
-	_rebuild_all()
-	_after_board_change()
-	if board.item_at(cell) > 0:
-		_select_item(cell)
-	return true
-
 func _on_soil_water() -> void:
 	if _selected_cell.x >= 0:
 		_water_soil(_selected_cell)
-
-func _on_soil_finish() -> void:
-	if _selected_cell.x >= 0:
-		_finish_soil(_selected_cell)
 
 func _chain_armed_cell() -> Vector2i:
 	if chain_running() and not _chain_run.is_empty():
@@ -3103,7 +3091,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	_build_seed_chips(opts, _info_trash.get_parent())   # Improvement seeds: Place + Bag actions
 	_build_improvement_chips(opts, _info_trash.get_parent()) # Empty improvements: Rank + Unsocket actions
-	_build_soil_chips(opts, _info_trash.get_parent())   # Cell improvements: growing pieces expose water + finish chips
+	_build_soil_chips(opts, _info_trash.get_parent())   # Cell improvements: growing pieces expose the water chip
 	_build_almanac_chip(opts, _info_trash.get_parent()) # §8: empty info-tray entry for away/complete lines
 	return pill
 
@@ -3177,18 +3165,10 @@ func _build_soil_chips(opts: Dictionary, row: Control) -> void:
 	_info_soil_water_count = water_chip.count
 	_info_soil_water_coin = water_chip.coin
 	row.move_child(_info_soil_water, _info_trash.get_index())
-	var finish_chip := ActionBar.action_chip(opts, row, "Finish", _on_soil_finish, BoxContainer.ALIGNMENT_END)
-	_info_soil_finish = finish_chip.btn
-	_info_soil_finish_sb = finish_chip.sb
-	_info_soil_finish_count = finish_chip.count
-	_info_soil_finish_coin = finish_chip.coin
-	row.move_child(_info_soil_finish, _info_trash.get_index())
 
 func _hide_soil_chips() -> void:
 	if _info_soil_water != null and is_instance_valid(_info_soil_water):
 		_info_soil_water.visible = false
-	if _info_soil_finish != null and is_instance_valid(_info_soil_finish):
-		_info_soil_finish.visible = false
 
 func _hide_seed_chips() -> void:
 	if _info_seed_place != null and is_instance_valid(_info_seed_place):
@@ -3244,7 +3224,7 @@ func _refresh_improvement_chips(cell: Vector2i) -> void:
 	_set_action_chip(_info_soil_rank, _info_soil_rank_sb, _info_soil_rank_coin, _info_soil_rank_count, "coin", "%d" % rank_price if rank_price > 0 else "Max", rank_ready)
 
 func _refresh_soil_chips(cell: Vector2i) -> void:
-	if _info_soil_water == null or _info_soil_finish == null:
+	if _info_soil_water == null:
 		return
 	if not board.is_growing(cell):
 		_hide_soil_chips()
@@ -3252,29 +3232,7 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 	var row := board.improvement_at(cell)
 	var watered := bool(row.get("watered", false))
 	var water_ready := water >= int(G.SOIL_WATER_COST) and not watered
-	for c in _info_soil_water_coin.get_children():
-		c.queue_free()
-	var water_icon := Look.icon("water", _info_soil_water_coin.custom_minimum_size.x)
-	water_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_soil_water_coin.add_child(water_icon)
-	_info_soil_water_count.text = "-%d" % int(G.SOIL_WATER_COST)
-	_info_soil_water_sb.bg_color = Pal.BTN_PRIMARY if water_ready else Color(Pal.BTN_PRIMARY, 0.42)
-	_info_soil_water_sb.border_color = Pal.BTN_PRIMARY_EDGE if water_ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
-	_info_soil_water.modulate = Color(1, 1, 1, 1.0) if water_ready else Color(1, 1, 1, 0.7)
-	_info_soil_water.visible = true
-	var remaining := board.soil_remaining(cell, Time.get_unix_time_from_system())
-	var finish_cost := Improvements.finish_cost(remaining)
-	var finish_ready := Save.diamonds() >= finish_cost
-	for c in _info_soil_finish_coin.get_children():
-		c.queue_free()
-	var finish_icon := Look.icon("gem", _info_soil_finish_coin.custom_minimum_size.x)
-	finish_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_soil_finish_coin.add_child(finish_icon)
-	_info_soil_finish_count.text = "%d" % finish_cost
-	_info_soil_finish_sb.bg_color = Pal.BTN_PRIMARY if finish_ready else Color(Pal.BTN_PRIMARY, 0.42)
-	_info_soil_finish_sb.border_color = Pal.BTN_PRIMARY_EDGE if finish_ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
-	_info_soil_finish.modulate = Color(1, 1, 1, 1.0) if finish_ready else Color(1, 1, 1, 0.7)
-	_info_soil_finish.visible = true
+	_set_action_chip(_info_soil_water, _info_soil_water_sb, _info_soil_water_coin, _info_soil_water_count, "water", "-%d" % int(G.SOIL_WATER_COST), water_ready)
 
 func _refresh_selected_soil_info() -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):
@@ -4643,15 +4601,46 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	if not Features.on("cascade"):
 		return
 	_chain_run = BoardLogic.chain_path(board, a, b)
-	if not _chain_run.is_empty():
+	if 1 + _chain_run.size() >= CHAIN_MIN_N:
 		_chain_n = 1
 		_chain_active = true
+	else:
+		_chain_run = []
 
 func _schedule_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
 		_finish_chain()
 		return
+	if _chain_n == 1 and not _chain_auto_step and CHAIN_PREROLL_MS > 0:
+		_show_chain_preroll(current)
+		var tree := get_tree()
+		if tree != null:
+			tree.create_timer(float(CHAIN_PREROLL_MS) / 1000.0).timeout.connect(_run_chain_step.bind(current))
+		else:
+			_run_chain_step.call_deferred(current)
+		return
 	_run_chain_step.call_deferred(current)
+
+func _show_chain_preroll(current: Vector2i) -> void:
+	if board == null or _chain_run.is_empty():
+		return
+	var outline := _ensure_cascade_outline()
+	if outline == null:
+		return
+	var cells: Array = [current]
+	for raw in _chain_run:
+		cells.append(Vector2i(raw))
+	outline.set_ladders([{
+		"cells": cells,
+		"line": BoardModel.line_of(board.item_at(current)),
+		"n": 1 + _chain_run.size(),
+		"top_cell": Vector2i(_chain_run[_chain_run.size() - 1]),
+	}])
+	outline.modulate = Color(1, 1, 1, 0.76)
+	var t := outline.create_tween()
+	t.tween_property(outline, "modulate:a", 1.0, 0.12)
+	t.tween_property(outline, "modulate:a", 0.82, 0.08)
+	t.tween_property(outline, "modulate:a", 1.0, 0.10)
 
 func _run_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
@@ -4696,9 +4685,7 @@ func _apply_chain_reward(vacated: Vector2i) -> void:
 	var reward_code := _chain_reward_code(_chain_n)
 	if reward_code <= 0:
 		return
-	if _chain_n == 2:
-		_birth_chain_reward(vacated, reward_code)
-	elif _chain_n == 3:
+	if _chain_n == 3:
 		_chain_reward_cell = vacated
 		_birth_chain_reward(_chain_reward_cell, reward_code)
 	elif _chain_reward_cell.x >= 0:

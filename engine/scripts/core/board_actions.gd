@@ -380,14 +380,6 @@ static func rank_soil(board: BoardModel, cell: Vector2i) -> Dictionary:
 static func water_soil(board: BoardModel, cell: Vector2i, now: float) -> Dictionary:
 	return {"watered": board.apply_water_to_soil(cell, now)}
 
-static func finish_soil(board: BoardModel, cell: Vector2i, now: float) -> Dictionary:
-	if not board.is_growing(cell):
-		return {"finished": false, "cost": 0}
-	var cost := Improvements.finish_cost(board.soil_remaining(cell, now))
-	if not Save.spend_diamonds(cost):
-		return {"finished": false, "cost": cost}
-	return {"finished": board.finish_soil_now(cell, now), "cost": cost}
-
 static func magnet_merge_once(board: BoardModel, magnet_cell: Vector2i, asked_codes: Dictionary = {}, growing_cells: Array = [], chain_cell: Vector2i = Vector2i(-1, -1)) -> Dictionary:
 	if chain_cell != Vector2i(-1, -1):
 		return {"merged": false, "reason": "chain"}
