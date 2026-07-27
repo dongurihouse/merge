@@ -6,6 +6,7 @@ extends "res://engine/tests/test_base.gd"
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 
 ## A fixture roster (independent of the live grove data): map 0 has 2 generators, map 1 has 3.
@@ -263,6 +264,55 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 
+	# Mastery scene chrome: a ranked generator wears the progress ring, moves its tier into the title,
+	# shows the mastery row in the subtitle, and rank-up cards mark mastery_seen once opened.
+	fresh("scene_mastery_chrome")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["mastery"] = {"1": 60}
+	Save.grove()["mastery_seen"] = {}
+	Save.grove_write()
+	var smastery = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(smastery)
+	await process_frame
+	if smastery.board == null:
+		smastery._ready()
+	smastery._rebuild_all()
+	var mcell := Vector2i(4, 3)
+	var mgen: Control = smastery.gen_nodes.get(mcell)
+	var ring: Control = mgen.get_node_or_null("MasteryRing") as Control
+	ok(ring != null and mgen.get_children().find(ring) > 0,
+		"a mastered generator wears a non-bottom-child mastery ring")
+	ok(ring != null and is_equal_approx(float(ring.get("progress")), Mastery.rank_progress(1)),
+		"the mastery ring uses progress within the current rank")
+	smastery._select_generator(mcell)
+	ok(String(smastery._info_label.text).contains("Tier 1"),
+		"the generator info title carries the generator tier")
+	var mastery_row: Control = smastery._info_mastery_row
+	ok(mastery_row != null and mastery_row.visible
+		and smastery._info_mastery_pips.size() == 8
+		and is_equal_approx(float(smastery._info_mastery_progress.value), Mastery.rank_progress(1))
+		and String(smastery._info_mastery_next_label.text).contains("next: pops reach"),
+		"the generator info subtitle becomes the pips/progress/next mastery row")
+	smastery._queue_mastery_rankups({1: 1})
+	smastery._schedule_mastery_rankup(0.25)
+	await create_timer(0.05).timeout
+	ok(smastery.get_node_or_null("MasteryRankupOverlay") == null,
+		"a queued mastery rank-up waits for the action FX delay")
+	await create_timer(0.25).timeout
+	ok(smastery.get_node_or_null("MasteryRankupOverlay") != null and Mastery.seen_rank(1) == 2,
+		"a queued mastery rank-up opens after the FX delay and marks the highest current rank as seen")
+	var mov: Node = smastery.get_node_or_null("MasteryRankupOverlay")
+	if mov != null:
+		mov.queue_free()
+	await process_frame
+	smastery._queue_mastery_rankups({1: 1})
+	smastery._show_next_mastery_rankup()
+	await process_frame
+	ok(smastery.get_node_or_null("MasteryRankupOverlay") == null,
+		"the same seen mastery rank does not fire a second card")
+	smastery.queue_free()
+	await process_frame
+
 	# MERGE-PRIORITY DROP AREA: releasing just inside a competing neighbour still chooses the nearby
 	# compatible merge. The real press/release path covers normal items, recipes, and generators.
 	fresh("scene_merge_priority_drop_area")
@@ -310,6 +360,28 @@ func _initialize() -> void:
 		ok(sdrop.board.item_at(drop_target) == 501 and sdrop.board.item_at(drop_source) == 0
 			and sdrop.board.item_at(drop_decoy) == 101,
 			"nearby recipe ingredients craft instead of swapping with the competing exact cell")
+		await create_timer(0.3).timeout
+
+		for c in drop_cells:
+			sdrop.board.items[BoardModel.idx(Vector2i(c))] = 0
+			sdrop.board.collect_rewards.erase(BoardModel.idx(Vector2i(c)))
+			sdrop.board.place(Vector2i(c), 0)
+			sdrop.board.remove_gen(Vector2i(c))
+		sdrop.animating = false
+		sdrop.board.place(drop_source, G.SCISSORS_LINE * 100 + 1)
+		sdrop.board.place(drop_target, 103)
+		sdrop.board.place(drop_decoy, 101)
+		var before_split_lower: int = sdrop.board.count_of(102)
+		sdrop._rebuild_pieces()
+		sdrop._on_press(sdrop._cell_pos(drop_source) + half)
+		sdrop._begin_drag()
+		sdrop._drag_follow(sdrop._cell_pos(drop_target) + half)
+		ok(sdrop._split_preview != null and is_instance_valid(sdrop._split_preview),
+			"hovering scissors over an eligible item shows the split preview")
+		sdrop._on_release(sdrop._cell_pos(drop_target) + half)
+		ok(sdrop.board.item_at(drop_source) == 0 and sdrop.board.item_at(drop_target) == 102
+			and sdrop.board.count_of(102) == before_split_lower + 2,
+			"dragging scissors onto an eligible item splits it through the real release path")
 
 		for c in drop_cells:
 			sdrop.board.place(Vector2i(c), 0)
@@ -454,6 +526,30 @@ func _initialize() -> void:
 	ok(ri_cap_ok and ri_cap_seen.size() >= 2, \
 		"roll_item_tier clamps to a low merge ceiling (≤3) yet still spreads across tiers")
 	ok(BoardLogic.roll_item_tier(ri, 1) == 1, "roll_item_tier with a ceiling of 1 always pops tier 1")
+	var win_old := RandomNumberGenerator.new(); win_old.seed = 12345
+	var win_new := RandomNumberGenerator.new(); win_new.seed = 12345
+	var default_window_same := true
+	for _i in 200:
+		if BoardLogic.roll_tier_window(win_new, 1, 4) != BoardLogic.roll_tier(win_old):
+			default_window_same = false
+	ok(default_window_same, "rank-0 roll_tier_window(1,4) reproduces the shipped tier stream")
+	var one_draw := true
+	for rank_i in range(0, 9):
+		var w := Mastery.tier_window_for_rank(rank_i)
+		var a := RandomNumberGenerator.new(); a.seed = 700 + rank_i
+		var b := RandomNumberGenerator.new(); b.seed = 700 + rank_i
+		BoardLogic.roll_tier_window(a, w.x, w.y - w.x + 1)
+		b.randf()
+		one_draw = one_draw and is_equal_approx(a.randf(), b.randf())
+	ok(one_draw, "every mastery tier window consumes exactly one rng draw")
+	var windowed := true
+	var wrng := RandomNumberGenerator.new(); wrng.seed = 606
+	for _i in 400:
+		var codew := int(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], wrng, {}, 0.0, 3, 6).code)
+		var tw := BoardModel.tier_of(codew)
+		if tw < 3 or tw > 6:
+			windowed = false
+	ok(windowed, "roll_spawn can map one tier draw into an explicit mastery window")
 	# §4 bramble_seed: a freshly-opened cell mimics ONE generator pop biased to a RANDOM open-quest
 	# line — line ∈ open_lines, tier off the same curve. (The scene gathers open_lines from quests.)
 	var bs := RandomNumberGenerator.new(); bs.seed = 20240601

@@ -19,6 +19,12 @@ static func _store() -> Dictionary:
 		g["mastery"] = {}
 	return g["mastery"]
 
+static func _seen_store() -> Dictionary:
+	var g := Save.grove()
+	if not g.has("mastery_seen") or not (g.get("mastery_seen", {}) is Dictionary):
+		g["mastery_seen"] = {}
+	return g["mastery_seen"]
+
 static func meter(line: int) -> int:
 	if not _enabled() or not _is_mastery_line(line):
 		return 0
@@ -76,6 +82,22 @@ static func rank_progress(line: int) -> float:
 	var prev := 0 if r <= 0 else int(G.MASTERY_THRESHOLDS[r - 1])
 	var nxt := int(G.MASTERY_THRESHOLDS[r])
 	return clampf(float(meter(line) - prev) / float(maxi(1, nxt - prev)), 0.0, 1.0)
+
+static func seen_rank(line: int) -> int:
+	if not _enabled() or not _is_mastery_line(line):
+		return 0
+	return clampi(int(_seen_store().get(str(int(line)), 0)), 0, G.MASTERY_THRESHOLDS.size())
+
+static func mark_seen_rank(line: int, r: int) -> void:
+	if not _enabled() or not _is_mastery_line(line):
+		return
+	var seen := _seen_store()
+	var key := str(int(line))
+	var next := clampi(int(r), 0, G.MASTERY_THRESHOLDS.size())
+	if next <= int(seen.get(key, 0)):
+		return
+	seen[key] = next
+	Save.grove_write()
 
 static func any_rank_at_least(r: int) -> bool:
 	if not _enabled():

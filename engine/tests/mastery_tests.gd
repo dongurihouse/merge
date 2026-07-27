@@ -93,6 +93,11 @@ func _test_credit_math() -> void:
 	var rank_up := Mastery.credit_delivery(101)
 	ok(Mastery.meter(1) == 20 and int(rank_up.get(1, 0)) == 1,
 		"delivery reports ranks gained when a threshold is crossed")
+	ok(Mastery.seen_rank(1) == 0, "mastery_seen defaults to zero for a newly-ranked line")
+	Mastery.mark_seen_rank(1, 1)
+	Mastery.mark_seen_rank(1, 0)
+	ok(Mastery.seen_rank(1) == 1,
+		"mastery_seen records the highest celebrated rank and never rolls backward")
 	var craft := Mastery.credit_craft(202, 302)
 	ok(Mastery.meter(2) == G.tier_clicks(2)
 		and Mastery.meter(3) == G.tier_clicks(2)

@@ -12,6 +12,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
 
 # Deliver quest `qi` by consuming the tile at `cell`: drop the quest from the live fence, remember
 # the asked item (anti-monotony window, ≤5), and pay the COIN reward through the coin clock (the
@@ -30,9 +31,10 @@ static func deliver_quest(board: BoardModel, quests: Array, recent_items: Array,
 		recent_items.append(code)                 # remember this ask so the next ≤5 quests avoid it
 		while recent_items.size() > 5:
 			recent_items.pop_front()
+	var rank_ups := Mastery.credit_delivery(code) if has_item else {}
 	var sp_coins := Quests.coins(q)
 	var levels_up := G.earn_coins(sp_coins)       # organic earn — credits the wallet + the clock
-	return {"code": code, "coins": sp_coins, "levels_up": levels_up, "cell": cell}
+	return {"code": code, "coins": sp_coins, "levels_up": levels_up, "cell": cell, "rank_ups": rank_ups}
 
 # Collect the coin at `cell`: take it off the board and credit its value (a stashed collect-reward
 # overrides the face value). Returns {got, code} for the fly-to-HUD reward FX.
@@ -106,6 +108,78 @@ static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
 		board.bag_add(dup_id, tier)
 		return {"landed": [], "bagged": [dup_id]}
 	return {"landed": [], "bagged": []}
+
+# #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if
+# not a recipe, Core §6.G). The special lands at the ingredients' tier, then climbs its own ladder.
+static func recipe_merge_code(a_code: int, b_code: int) -> int:
+	if a_code <= 0 or b_code <= 0:
+		return 0
+	var at := a_code % 100
+	if at != (b_code % 100):
+		return 0
+	var special_line := G.special_for_pair(int(a_code / 100.0), int(b_code / 100.0))
+	return (special_line * 100 + at) if special_line > 0 else 0
+
+# Craft a special by consuming the source ingredient and replacing the target with the authored special.
+# Returns {code, consumed, target, rank_ups}; {} means the pair is not a recipe and nothing was mutated.
+static func apply_recipe(board: BoardModel, from: Vector2i, target: Vector2i) -> Dictionary:
+	var a_code := board.item_at(from)
+	var b_code := board.item_at(target)
+	var code := recipe_merge_code(a_code, b_code)
+	if code <= 0:
+		return {}
+	board.take(from)
+	board.place(target, code)
+	return {
+		"code": code,
+		"consumed": a_code,
+		"target": target,
+		"rank_ups": Mastery.credit_craft(a_code, b_code),
+	}
+
+static func is_scissors(code: int) -> bool:
+	return G.special_kind(code) == "scissors"
+
+static func is_splittable_code(code: int) -> bool:
+	if code <= 0 or code % 100 < 2:
+		return false
+	var line := int(code / 100.0)
+	return G.LINES.has(line) and not G.TREAT_LINES.has(line)
+
+static func split_twin_cell(board: BoardModel, target: Vector2i) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_dist := 1 << 30
+	for cell in board.empty_ground_cells():
+		var dist := absi(cell.x - target.x) + absi(cell.y - target.y)
+		if dist < best_dist:
+			best = cell
+			best_dist = dist
+	return best
+
+static func can_split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> bool:
+	if from == target or board.is_gen(target):
+		return false
+	if not is_scissors(board.item_at(from)):
+		return false
+	if not is_splittable_code(board.item_at(target)):
+		return false
+	return split_twin_cell(board, target) != Vector2i(-1, -1)
+
+# Split one eligible content piece into two one-tier-lower twins. The scissors source is consumed only
+# after every refusal condition has passed, so full-board / tier-1 / invalid-target drops are no-loss.
+static func split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> Dictionary:
+	if not can_split_piece(board, from, target):
+		return {}
+	var src_code := board.item_at(from)
+	var target_code := board.item_at(target)
+	var twin := split_twin_cell(board, target)
+	if twin == Vector2i(-1, -1):
+		return {}
+	var lowered := int(target_code) - 1
+	board.take(from)
+	board.place(target, lowered)
+	board.place(twin, lowered)
+	return {"code": lowered, "consumed": src_code, "target": target, "twin_cell": twin}
 
 # --- §6 LINE RETIREMENT (2026-07-25) -----------------------------------------------------------------
 # Clear a line the game will never ask for again (G.gen_retirable): its generator leaves the board AND the

@@ -43,6 +43,9 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")   # §1 idle yield + sell dials (the live residents coin SOURCES) — NOTE the full bucket re-author is the parked §5 economy pass
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
@@ -152,6 +155,8 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var days: int = int(args[0]) if args.size() >= 1 else 7
 	rng.seed = int(args[1]) if args.size() >= 2 else 42
+	Save.configure_for_test("user://grove_sim_%d_" % int(rng.seed))
+	Save.reset()
 	# 3rd arg "greedy" (or "g") flips the bot to the aggressive-welcome mode: it pours every
 	# affordable coin/diamond into residents with no restoration cushion (stress-tests the sink).
 	_greedy = args.size() >= 3 and String(args[2]).to_lower() in ["greedy", "g", "1", "true"]
@@ -187,6 +192,7 @@ func _initialize() -> void:
 	print("  clusters unlocked: %d/%d (%d🪙 paid — the dominant sink) · pages completed: %d · level %d (%d🪙 earned lifetime)" % \
 		[clusters_unlocked, _cluster_total(), cluster_spend, gates_reached, _level(), coins_earned])
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
+	print("  mastery ranks: %s" % _mastery_report())
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 	print("  PACING  curve base/step %d/%d · L%d at day %d · last content zone (L%d): %s · half the book: %s · whole book: %s" % \
 		[G.LEVEL_BASE_COINS, G.LEVEL_STEP_COINS, _level(), days, G.zone_unlock_level(G.ZONE_COUNT - 1),
@@ -396,6 +402,12 @@ func _live_lines() -> Array:
 	# depend on restored spots, so earning exp can reveal newer asks even if the player delays claiming
 	# zones. Base and crafted-special lines share the window (§7, 2026-07-25).
 	return G.active_lines(_level())
+
+func _mastery_report() -> String:
+	var parts: Array = []
+	for line in G.ZONE_BASE_LINES:
+		parts.append("%d:r%d/%d" % [int(line), Mastery.rank(int(line)), Mastery.meter(int(line))])
+	return ", ".join(parts)
 
 # Credit `amount` ORGANIC coins and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up
 # within the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current page's gift (I2).
@@ -828,9 +840,11 @@ func _play_session() -> Dictionary:
 				var r := G.zone_recipe(G.zone_of_line(int(it.line)))
 				board.take(board.first_item_of(int(r[0]) * 100 + int(it.tier)))
 				board.take(board.first_item_of(int(r[1]) * 100 + int(it.tier)))
+				Mastery.credit_craft(int(r[0]) * 100 + int(it.tier), int(r[1]) * 100 + int(it.tier))
 				specials_crafted += 1
 			else:
 				board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
+				Mastery.credit_delivery(int(it.line) * 100 + int(it.tier))
 			# The reward is COINS ONLY (quest_reward_for_line) — the old {exp, coins} pair is retired with
 			# the exp clock, and coins ARE the clock now, so _earn_coins is what fires the level-ups.
 			var rw: Dictionary = q.reward
@@ -1052,20 +1066,14 @@ func _pop() -> void:
 		line = pw[rng.randi_range(0, pw.size() - 1)]
 	else:
 		line = int(pool[rng.randi_range(0, pool.size() - 1)])
-	var roll := rng.randf()
-	var tier := 1
-	var acc := 0.0
-	for i in G.TIER_ODDS.size():
-		acc += G.TIER_ODDS[i]
-		if roll <= acc:
-			tier = i + 1
-			break
+	var mastery_window := Mastery.window(line, live_quests)
+	var tier := BoardLogic.roll_tier_window(rng, mastery_window.x, mastery_window.y - mastery_window.x + 1)
 	# §6 tier-bias (mirrors BoardLogic.roll_spawn): lean toward an asked poppable tier for this line,
 	# with probability G.ASK_TIER_WEIGHT (0 = off → byte-identical baseline; owner pacing dial).
 	if G.ASK_TIER_WEIGHT > 0.0:
 		var wt: Array = []
 		for t in _wanted_tiers(pool).get(line, []):
-			if int(t) >= 1 and int(t) <= G.TIER_ODDS.size():
+			if int(t) >= mastery_window.x and int(t) <= mastery_window.y:
 				wt.append(int(t))
 		if not wt.is_empty() and rng.randf() < G.ASK_TIER_WEIGHT:
 			tier = int(wt[rng.randi_range(0, wt.size() - 1)])

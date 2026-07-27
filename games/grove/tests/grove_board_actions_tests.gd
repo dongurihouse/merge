@@ -6,6 +6,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
 
 func _initialize() -> void:
 	begin("grove · board actions")
@@ -15,6 +16,8 @@ func _initialize() -> void:
 	_test_collect_coin()
 	_test_collect_special()
 	_test_produce_due_generators()
+	_test_apply_recipe()
+	_test_split_piece()
 	_test_gen_redundancy()
 	_test_self_dup_at_top()
 	_test_sell_generator()
@@ -38,6 +41,8 @@ func _test_deliver_quest() -> void:
 	var recent: Array = []
 	var earned_b := Save.coins_earned_lifetime()
 	var coins_b := Save.coins()
+	Save.grove()["mastery"] = {"1": 19}
+	Save.grove_write()
 
 	var out: Dictionary = BoardActions.deliver_quest(board, quests, recent, 0, cell)
 
@@ -49,6 +54,8 @@ func _test_deliver_quest() -> void:
 	ok(int(out.get("coins", -1)) == 3, "the outcome reports the coins for the render layer")
 	ok(int(out.get("code", -1)) == code and Vector2i(out.get("cell", Vector2i(-1, -1))) == cell, "the outcome reports the consumed code + cell")
 	ok(out.has("levels_up"), "the outcome reports levels gained (drives the Level dialog)")
+	ok(Mastery.meter(1) == 20 and int((out.get("rank_ups", {}) as Dictionary).get(1, 0)) == 1,
+		"delivery credits mastery and reports rank-ups to the render layer")
 
 # A quest with NO item (a stale/empty ask) still pays out, but does NOT push onto the recent-item
 # window — there is no asked code to steer future quests away from.
@@ -160,6 +167,87 @@ func _test_produce_due_generators() -> void:
 	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
 	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
 	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
+
+# Recipe crafting is a composite board action: consume the source ingredient, replace the target with
+# the authored special code at the shared tier, and credit mastery for the two base ingredients.
+func _test_apply_recipe() -> void:
+	fresh("apply_recipe")
+	var b := BoardModel.new()
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			b.terrain[BoardModel.idx(cell)] = 0
+			b.take(cell)
+	var from := Vector2i(2, 2)
+	var target := Vector2i(2, 3)
+	b.place(from, 2 * 100 + 2)
+	b.place(target, 3 * 100 + 2)
+	Save.grove()["mastery"] = {"2": 19}
+	Save.grove_write()
+	var out: Dictionary = BoardActions.apply_recipe(b, from, target)
+	ok(int(out.get("code", 0)) == 5 * 100 + 2, "apply_recipe produces the authored special at the shared tier")
+	ok(b.item_at(from) == 0 and b.item_at(target) == 5 * 100 + 2, "apply_recipe consumes source and replaces target")
+	ok(Mastery.meter(2) == 21 and Mastery.meter(3) == G.tier_clicks(2),
+		"apply_recipe credits each base ingredient by the shared tier-click cost")
+	ok(int((out.get("rank_ups", {}) as Dictionary).get(2, 0)) == 1,
+		"apply_recipe reports rank-ups for the crafted ingredients")
+	var refused := BoardActions.apply_recipe(b, target, Vector2i(1, 1))
+	ok(refused.is_empty(), "apply_recipe refuses non-recipe pairs without mutating")
+
+# Scissors consume one tool and split one eligible content piece into two one-tier-lower twins.
+func _test_split_piece() -> void:
+	fresh("split_piece")
+	var b := BoardModel.new()
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			b.terrain[BoardModel.idx(cell)] = 0
+			b.take(cell)
+	var scissors := Vector2i(0, 0)
+	var target := Vector2i(2, 2)
+	b.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	b.place(target, 1 * 100 + 3)
+	var out: Dictionary = BoardActions.split_piece(b, scissors, target)
+	ok(Vector2i(out.get("twin_cell", Vector2i(-1, -1))) == Vector2i(1, 2),
+		"split_piece chooses the nearest empty ground cell, tie-broken by board scan order")
+	ok(b.item_at(scissors) == 0 and b.item_at(target) == 1 * 100 + 2
+		and b.item_at(Vector2i(1, 2)) == 1 * 100 + 2,
+		"split_piece consumes the scissors and leaves two one-tier-lower twins")
+	ok(Mastery.meter(1) == 0, "splitting grants no mastery credit")
+
+	var tier1 := BoardModel.new()
+	for r in G.ROWS:
+		for c in G.COLS:
+			tier1.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+	tier1.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	tier1.place(target, 101)
+	ok(BoardActions.split_piece(tier1, scissors, target).is_empty()
+		and tier1.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and tier1.item_at(target) == 101,
+		"split_piece refuses tier-1 targets with no loss")
+
+	var full := BoardModel.new()
+	for i in full.items.size():
+		full.terrain[i] = 0
+		full.items[i] = 101
+	full.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	full.place(target, 102)
+	ok(BoardActions.split_piece(full, scissors, target).is_empty()
+		and full.item_at(scissors) == G.SCISSORS_LINE * 100 + 1 and full.item_at(target) == 102,
+		"split_piece refuses a full board before consuming the scissors")
+
+	var invalid := BoardModel.new()
+	for r in G.ROWS:
+		for c in G.COLS:
+			invalid.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			invalid.take(Vector2i(r, c))
+	invalid.place(scissors, G.SCISSORS_LINE * 100 + 1)
+	invalid.place(target, G.COIN_LINE * 100 + 2)
+	ok(BoardActions.split_piece(invalid, scissors, target).is_empty(), "split_piece refuses coins")
+	invalid.place(target, 71 * 100 + 2)
+	ok(BoardActions.split_piece(invalid, scissors, target).is_empty(), "split_piece refuses treat lines")
+	invalid.take(target)
+	invalid.place_gen("gen_1", target)
+	ok(BoardActions.split_piece(invalid, scissors, target).is_empty(), "split_piece refuses generators")
 
 # top_gen_tier = the line's highest owned tier across board + bag; is_redundant_gen flags any generator
 # that has a strictly-higher same-line sibling (so it can never merge up to the top → safe to sell).
