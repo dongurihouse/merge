@@ -18,7 +18,6 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
-const STRAW := Pal.STRAW
 
 static var KIT_PATH := Game.kit()
 const OVERLAY_NAME := "LoginMysteryOverlay"
@@ -300,7 +299,8 @@ static func _grant_and_finish(overlay: Control, rewards: Array, caption: Label, 
 	var at: Vector2 = overlay.get_viewport_rect().size * 0.5
 	var dy: float = -30.0
 	for rew in rewards:
-		_celebrate(overlay, at + Vector2(0, dy), rew)
+		# the chime already fired once above for the whole reveal — with_sound=false keeps it from stacking
+		FX.celebrate_rewards(overlay, at + Vector2(0, dy), rew, false)
 		dy += 38.0
 	overlay.get_tree().create_timer(1.5).timeout.connect(func() -> void: _dismiss(overlay, on_done))
 
@@ -309,13 +309,3 @@ static func _dismiss(overlay: Control, on_done: Callable) -> void:
 		overlay.queue_free()
 	if on_done.is_valid():
 		on_done.call()
-
-# A won reward's juice — a celebratory shout per granted component (mirrors ui/login.gd).
-static func _celebrate(host: Control, at: Vector2, rew: Dictionary) -> void:
-	var dy := 0.0
-	if int(rew.get("gems", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "gem", int(rew.gems), Color("#A9C7E8")); dy += 34
-	if int(rew.get("coins", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "coin", int(rew.coins), STRAW); dy += 34
-	if int(rew.get("water", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "water", int(rew.water), Color("#9CCDE8")); dy += 34
