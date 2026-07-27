@@ -111,9 +111,6 @@ static func soil_step_seconds(code: int, rank: int) -> float:
 static func grow_amount(rank: int) -> int:
 	return 2 if rank >= 3 else 1
 
-static func finish_cost(remaining_secs: float) -> int:
-	return maxi(1, int(ceil(maxf(0.0, remaining_secs) / 1800.0)))
-
 static func normalize_activity(raw: Dictionary) -> Dictionary:
 	var kind := String(raw.get("kind", ""))
 	var rank := clampi(int(raw.get("rank", 1)), 1, int(G.SOIL_MAX_RANK))

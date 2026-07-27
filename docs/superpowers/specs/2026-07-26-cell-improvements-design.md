@@ -18,8 +18,7 @@ board**, and every interaction reuses the existing tap → info-bar-chip surface
   At most one unplaced seed per kind exists at a time.
 - **Soil** (max 9, 3 ranks): any eligible piece resting on it grows +1 tier on an
   offline-capable timer — 10 s at tier 1 up to 48 h for t11→t12. Pieces are never locked;
-  changing one restarts the clock, with a confirm at t7+. Watering halves a step once;
-  acorns finish it now.
+  changing one restarts the clock, with a confirm at t7+. Watering halves a step once.
 - **Magnet** (max 3, rankless): a passive 3×3 field — matching pieces inside it auto-merge,
   guarded so it never eats quest-asked codes, growing pieces, or a live chain.
 - A placed improvement is the cell's **background**: pieces spawn, rest, and merge on it
@@ -90,7 +89,7 @@ The shipped branch built a build mode. Remove it entirely:
 - Tests naming build mode / pads / the move flow.
 
 **Keep unchanged:** everything in §2–§4 (the model, the laws, soil growth and its curve,
-ranks, water/finish, the t7+ warning, the magnet field and its five guards), the save shape,
+ranks, water, the t7+ warning, the magnet field and its five guards), the save shape,
 `cell_soil.png` / `cell_magnet.png` / `pip_leaf.png`, and every regression test from the
 review round (the dead-fall-through, RNG byte-identity, mark-seen catch-up, and drag-node
 tests are all still load-bearing).
@@ -142,12 +141,11 @@ time injected). Dials in `grove_data.gd`, read through `content.gd`. All behind
 - Ranks: r2 times −30% · r3 +2 tiers per completion.
 - No ask interplay — growth ignores the fence.
 - Selecting a growing piece → info-bar grow row: *"Growing to t8 — 2h 18m"*
-  (`residents.gd:648` format) + two chips (`ActionBar.action_chip`, pattern
+  (`residents.gd:648` format) + one chip (`ActionBar.action_chip`, pattern
   `board.gd:2118-2124`):
   - **💧 −10** — spend `SOIL_WATER_COST := 10` board water, once per step: remaining time
     halves. Via the scene `water` field + `_update_water_hud`, then `_after_board_change()`.
-  - **🌰 finish** — `Save.spend_diamonds(max(1, ceil(remaining_secs / 1800.0)))` — 1 acorn
-    per started 30 min (1 h → 2, 48 h → 96).
+  - There is no acorn "finish now" action: growth is only ever shortened by Water.
 - On the piece: thin progress ring (1 Hz); a countdown chip ("2h") when the step ≥ 15 min.
 - **t7+ warning:** any player action that resets or consumes a piece growing from tier ≥ 7 —
   move, merge, deliver, sell, stash — first shows a confirm (`Overlay.modal`, dismissable):
@@ -201,7 +199,7 @@ sit in a stable lower action row. Mock target:
   clipped with ellipsis, not multi-line wrap.
 - The action row uses fixed compact chips, 56-80 px wide depending on available width, with
   icon + count/price as the primary read. Visible captions are short and must fit without
-  wrapping: **Place**, **Bag**, **Buy**, **Water**, **Finish**, **Sell**, **Rank**,
+  wrapping: **Place**, **Bag**, **Buy**, **Water**, **Sell**, **Rank**,
   **Unsocket**. Every chip also carries `tooltip_text` / accessibility text with the full
   action name and price.
 - Three-piece bottom composition stays unchanged: Home tile · cream info tray · Bag tile.
@@ -263,8 +261,8 @@ sit in a stable lower action row. Mock target:
   - Magnet range field: translucent garden-green cut-paper field (~15% opacity) over the
     range cells, under the pieces.
   - Grow row: info tray title *"Growing to Tier 8"*; subtitle *"2h 18m left · Soil rank 2"*;
-    action-row chips 💧 droplet **−10** · 🌰 acorn **8** plus the ordinary Buy/Sell chips
-    when the piece is sellable/buyable.
+    action-row chip 💧 droplet **−10** plus the ordinary Buy/Sell chips when the piece is
+    sellable/buyable — three chips at most.
   - Warning card: *"This restarts 6h of growing. Move it anyway?"* — **Keep growing**
     (action green, default) · **Move it** (quiet cream).
 - Raster masters (already produced; 512² transparent, at `games/grove/assets/ui/kit/`):
@@ -288,7 +286,6 @@ sit in a stable lower action row. Mock target:
 | Seed sell price | Soil seed **250 coins** · Magnet seed **1 000 coins** |
 | Soil ranks | r2 600 · r3 1 500 coins |
 | `SOIL_WATER_COST` | 10 water — sim revisits the flat halve at t10+ (worth 24 h at t11) |
-| Acorn finish | `max(1, ceil(remaining / 30 min))` |
 
 Consts in `grove_data.gd` beside `BOOST_COST` (`grove_data.gd:232`); nothing in
 `economy_tuning.json` unless the owner wants a live dial.
@@ -338,7 +335,8 @@ advances by the same amount as an unfiltered drop) · seed Place/Bag/Sell chips 
 refused while a piece rests there · a placed improvement is background (pieces spawn/rest/
 merge on it) · spawn on Soil grows; gen auto-place skips · clock reconcile matrix
 (arrive/leave/replace/merge-onto/complete; `watered` per step) · curve incl. ranks and
-`merge_top` clamps · water-once + finish price · offline completion via stamp · t7+ warning
+`merge_top` clamps · water-once, and a growing piece's action row carrying exactly Buy/Water/
+Sell with no finish chip · offline completion via stamp · t7+ warning
 on every reset path, absent below t7 · magnet 3×3 from placement; a piece on the Magnet cell
 auto-merges · auto-merge order, landing cell, loop-until-done · all five guards (asked code
 · growing piece · armed chain · no credit/no RNG, `rng.state` byte-identical ·
