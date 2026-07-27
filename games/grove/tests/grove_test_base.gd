@@ -1,6 +1,6 @@
 extends "res://engine/tests/test_base.gd"
 ## Shared base for the split grove suites: preloaded refs, assert helpers, the
-## resident/T45 sub-tests, and begin()/finish() (header + Engine.time_scale + summary).
+## resident sub-tests, and begin()/finish() (header + Engine.time_scale + summary).
 ## NOT a runnable suite (no _tests suffix) — grove_*_tests.gd extend this.
 ## The counters, ok(), fresh() and the printed footer live one layer down in
 ## engine/tests/test_base.gd, shared with every engine suite.
@@ -212,97 +212,8 @@ func finish() -> void:
 # welcome (buy) a t1 with coins, and two-of-a-kind AUTO-MERGE one tier up, cascading to
 # RESIDENT_MAX_TIER. No roster cap (the endless coin sink). Merge + cost math is content.gd; storage is Save.
 
-# Pad a counts literal to a full RESIDENT_MAX_TIER int array (resident_counts always returns that length).
-func _pad(vals: Array) -> Array:
-	var a: Array = vals.duplicate()
-	while a.size() < G.RESIDENT_MAX_TIER:
-		a.append(0)
-	return a
-
-func _test_residents() -> void:
-	var z := 0                                  # map 0 (Farmhouse) — populate it once it's complete
-	var map_id := String(G.MAPS[z].id)
-
-	# 0. the OFFER: each map offers ONE resident line (a nature-elemental spirit-folk family),
-	# welcomed with coins. Costs come off resident_cost.
-	var lines := G.resident_lines(z)
-	ok(lines.size() == 1, "the map offers exactly one resident line")
-	var line_def: Dictionary = lines[0]
-	ok(String(G.resident_cost(line_def).currency) == "coins" and int(G.resident_cost(line_def).cost) == G.RESIDENT_BASE_COST, \
-		"a resident costs %d🪙" % G.RESIDENT_BASE_COST)
-	var _rart := G.resident_art(String(line_def.id))   # "" under the placeholder art-root (engine draws its fallback), else a real .png
-	ok(_rart == "" or _rart.ends_with(".png"), "resident_art resolves a type to an art path (or empty under the placeholder root)")
-
-	# 1. EARLY POPULATE GATE: can_populate opens as soon as the FIRST spot is restored (not full
-	# completion) — it gates the acquire loop (Expedition). Bucket CELLS come only from a FULLY-unlocked
-	# scene (Bucket.cells_total → content.cells_from_scenes; covered in bucket_adapter_tests + scene_cells_tests).
-	fresh("residents_gate")
-	var first_spot := String(G.MAPS[z].spots[0].id)
-	ok(not G.can_populate(z, {}, []), "can_populate is FALSE before any spot is restored")
-	ok(G.can_populate(z, {first_spot: true}, []), "can_populate OPENS once the first spot is restored")
-
-	# 2. WELCOME spends + adds a t1. A core welcome debits coins and pushes the t1 count to 1.
-	fresh("residents_welcome")
-	Save.add_coins(1000)
-	var cid := String(line_def.id)
-	var coins_b := Save.coins()
-	var r1: Dictionary = G.welcome_resident(z, cid)
-	ok(bool(r1.ok) and r1.events.is_empty(), "welcoming the first t1 succeeds with NO merge event")
-	ok(Save.coins() == coins_b - G.RESIDENT_BASE_COST, "the welcome debited the coin cost")
-	ok(Save.resident_counts(map_id, cid)[0] == 1, "the welcomed t1 lands in the t1 count")
-
-	# 3. TWO of a kind AUTO-MERGE to a t2 — the second welcome collapses the pair and returns an event.
-	var r2: Dictionary = G.welcome_resident(z, cid)
-	ok(bool(r2.ok), "the second welcome succeeds")
-	ok(r2.events.size() == 1 and int(r2.events[0].from) == 1 and int(r2.events[0].to) == 2, \
-		"two t1 of a kind auto-merge into one t2 (an event is returned)")
-	var c_after2: Array = Save.resident_counts(map_id, cid)
-	ok(int(c_after2[0]) == 0 and int(c_after2[1]) == 1, "the counts collapse: 0×t1, 1×t2")
-
-	# 4. CASCADE to t3 — building a second t2 (two more t1s) cascades t2→t3 (capped at RESIDENT_MAX_TIER).
-	G.welcome_resident(z, cid)                                    # → t1=1
-	var r4: Dictionary = G.welcome_resident(z, cid)              # → second t2 forms, then cascades to t3
-	var saw_t2 := false
-	var saw_t3 := false
-	for ev in r4.events:
-		if int(ev.to) == 2:
-			saw_t2 = true
-		if int(ev.to) == 3:
-			saw_t3 = true
-	ok(saw_t2 and saw_t3, "a fourth t1 cascades t1→t2→t3 (RESIDENT_MAX_TIER=%d)" % G.RESIDENT_MAX_TIER)
-	var c_after4: Array = Save.resident_counts(map_id, cid)
-	ok(int(c_after4[0]) == 0 and int(c_after4[1]) == 0 and int(c_after4[2]) == 1, "after 4 welcomes the roster is a single t3")
-
-	# 5. resident_members FLATTENS the persisted counts into one {type,tier} per instance. With a lone
-	# t3 plus a fresh t1 of the same type, the flattened list is exactly those two members.
-	G.welcome_resident(z, cid)                                    # add one more t1 alongside the t3
-	var members := G.resident_members(z)
-	var my := members.filter(func(m): return String(m.type) == cid)
-	ok(my.size() == 2, "resident_members flattens to one entry per resident instance")
-	var tiers := []
-	for m in my:
-		tiers.append(int(m.tier))
-	tiers.sort()
-	ok(tiers == [1, 3], "the flattened members carry the right tiers (a t1 + the merged t3)")
-
-	# 6. INSUFFICIENT funds refuse cleanly — no count change, no event, ok=false.
-	fresh("residents_broke")
-	var before_broke: Array = Save.resident_counts(map_id, cid)
-	var rb: Dictionary = G.welcome_resident(z, cid)             # 0 coins → refuse
-	ok(not bool(rb.ok) and rb.events.is_empty(), "a broke welcome refuses (ok=false, no event)")
-	ok(Save.resident_counts(map_id, cid) == before_broke, "a refused welcome leaves the roster untouched")
-
-	# 7. PERSISTENCE: the roster survives a cold reload (set → reload from disk → counts intact). A saved
-	# array shorter than RESIDENT_MAX_TIER right-pads with zeros on read (old-save migration, no schema bump).
-	fresh("residents_persist")
-	Save.set_resident_counts(map_id, cid, [2, 1, 0])
-	Save._loaded = false                                         # force a reload from disk
-	ok(Save.resident_counts(map_id, cid) == _pad([2, 1, 0]), "a roster line persists across a reload (padded to RESIDENT_MAX_TIER)")
-	ok(Save.resident_counts(map_id, "no_such_type") == _pad([]), "an un-welcomed type defaults to all-zero counts")
-
 # §1 · the per-map UNLOCK reward (scaling coins/gems + a free signature spirit), the free-spirit grant,
-# and the one-time claim. Pure-model coverage routed into the ACTIVE shop+ads suite (the resident tests
-# above run only from the parked placement suite).
+# and the one-time claim. Pure-model coverage routed into the ACTIVE shop+ads suite.
 func _test_unlock_rewards() -> void:
 	fresh("unlock_reward_scale")
 	for z in G.MAPS.size():
@@ -365,90 +276,8 @@ func _test_residents_shop_cards() -> void:
 		else:
 			ok(not bool(c.affordable), "a diamond card is unaffordable with 0 diamonds")
 
-# §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
-# completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
-# (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.
-func _test_resident_wiring() -> void:
-	fresh("residents_wiring")
-	var z := 0
-	var map_id := String(G.MAPS[z].id)
-	# stand map 0 up as COMPLETE (all spots restored + its gate delivered) so it can populate.
-	var g := Save.grove()
-	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true
-	g["unlocks"] = unl
-	g["gates"] = [z]
-	g["last_map"] = map_id
-	Save.grove_write()
-	Save.add_coins(1000)
-	ok(G.can_populate(z, unl, [z]), "map 0 complete → can_populate (the wiring's precondition)")
-
-	# the first core (coin) kind, and PRE-POPULATE the roster via the API (3 welcomes → a t2 + a t1)
-	# so the scene builds against a known non-empty roster (one clean build to inspect).
-	var cid := ""
-	for td in G.resident_lines(z):
-		if not bool(td.get("premium", false)):
-			cid = String(td.id)
-			break
-	G.welcome_resident(z, cid)
-	G.welcome_resident(z, cid)
-	G.welcome_resident(z, cid)
-	ok(Save.resident_counts(map_id, cid) == _pad([1, 1, 0]), "3 welcomes leave a t1 + an auto-merged t2")
-
-	var hx = map_host()
-	hx.unlocks = unl
-	hx._open_map(z)
-	ok(G.residents_shop_cards(z).size() >= 1, "the Residents shop offers kind cards on a populatable map")
-	ok(hx._residents_btn != null and hx._residents_btn.visible, "the Residents nav button shows on a populatable map")
-	# map.gd rendered the roster as one tier-tagged sprite per member (the population layer).
-	var sprites := _find_residents(hx.content, [])
-	var has_t1 := false
-	var has_t2 := false
-	for s in sprites:
-		if String(s.get_meta("resident", "")) == cid:
-			if int(s.get_meta("tier", 0)) == 1:
-				has_t1 = true
-			if int(s.get_meta("tier", 0)) == 2:
-				has_t2 = true
-	ok(sprites.size() >= 2 and has_t1 and has_t2, "map.gd rendered the roster as resident sprites (a t1 + the merged t2)")
-
-	# the REAL welcome handler spends + cascades the roster (asserted via the persisted roster — the
-	# on-screen rebuild is frame-deferred, so we trust the durable state, not a re-count of nodes).
-	var coins_b := Save.coins()
-	_welcome_kind(hx, z, cid)                                     # a 4th t1 → cascades t1+t2 → a t3
-	ok(Save.coins() == coins_b - G.RESIDENT_BASE_COST, "welcoming through map.gd spent the coin cost")
-	ok(Save.resident_counts(map_id, cid) == _pad([0, 0, 1]), "the welcome cascaded the roster to a single t3")
-	hx.queue_free()
-
-# collect every rendered resident sprite under `n` (meta-tagged by build_population_layer).
-func _find_residents(n: Node, acc: Array) -> Array:
-	if n.has_meta("resident"):
-		acc.append(n)
-	for c in n.get_children():
-		_find_residents(c, acc)
-	return acc
-
-# welcome kind `cid` on map z via the MODEL (the dead welcome-shop UI handler `_buy_resident` was removed —
-# the live acquisition is the Expedition; this stays a model-level cascade check).
-func _welcome_kind(_hx, z: int, cid: String) -> void:
-	G.welcome_resident(z, cid)
-
-# §10 · the 2× DOUBLER re-homed to the board's quest COIN reward (was the removed hub yield-collect).
-# Proves the moved card subsystem: a coin reward offers the doubler, accepting credits a SECOND N,
-# a zero reward never offers. The one-line wiring (`if sp_coins > 0: _maybe_offer_2x(...)` in
-# _on_giver_tap) rides on this; the risk is the moved card, which this drives directly.
-# Every Label.text in `node`'s subtree (depth-first) — for asserting composited card copy.
-func _label_texts(node: Node) -> Array:
-	var out: Array = []
-	if node is Label:
-		out.append((node as Label).text)
-	for c in node.get_children():
-		out.append_array(_label_texts(c))
-	return out
-
-# Every Button.text under `node` (depth-first). Button text is NOT a child Label, so _label_texts misses
-# it — use this to assert a widget's button/chip labels (e.g. a read-only amount chip) without pressing.
+# Every Button.text under `node` (depth-first). Button text is NOT a child Label, so a walk over Labels
+# misses it — use this to assert a widget's button/chip labels (e.g. a read-only amount chip) without pressing.
 func _button_texts(node: Node) -> Array:
 	var out: Array = []
 	if node is Button:
@@ -457,116 +286,6 @@ func _button_texts(node: Node) -> Array:
 		out.append_array(_button_texts(c))
 	return out
 
-func _test_2x_doubler_rehome() -> void:
-	fresh("rehome_2x")
-	var scn = board_host()
-	# The 💎-priced doubler is GATED: it only surfaces when the coin reward is big enough that doubling
-	# beats the shop pouch (got >= COLLECT_2X_COIN_RATE). A small reward never offers it.
-	scn._maybe_offer_2x(9, scn.get_global_rect().get_center())
-	ok(scn._2x_offer == null, "a small reward (9 < rate) never offers the doubler (it can't beat the shop)")
-	# A big reward (50 >= 36) DOES surface it — the deal is worth diamonds.
-	Save.add_diamonds(10)                              # enough to afford the doubler
-	var got := 50
-	var cost := G.collect_2x_cost(got)
-	scn._maybe_offer_2x(got, scn.get_global_rect().get_center())
-	ok(scn._2x_offer != null and is_instance_valid(scn._2x_offer), "a big quest coin reward surfaces the 2× doubler on the board")
-	# The card must SPELL OUT the doubling (legibility, not a bare "+50"): the ORIGINAL amount and the
-	# DOUBLED total both appear, so the player sees 50 → 100, not one ambiguous number.
-	var card_labels := _label_texts(scn._2x_offer)
-	ok("50" in card_labels, "the 2× card shows the original amount (50)")
-	ok("100" in card_labels, "the 2× card shows the DOUBLED total (100)")
-	var coins_b := Save.coins()
-	var gems_b := Save.diamonds()
-	scn._accept_2x_offer(got)
-	ok(Save.coins() == coins_b + got, "accepting the 2× credits a SECOND N coins (the doubled half)")
-	ok(Save.diamonds() == gems_b - cost, "...and spends the %d💎 price (paid in diamonds, no ad)" % cost)
-	ok(scn._2x_offer == null, "the card dismisses after accept")
-	scn._maybe_offer_2x(0, scn.get_global_rect().get_center())
-	ok(scn._2x_offer == null, "a zero-coin reward never offers the doubler")
-	scn.queue_free()
-
-# ── T45 · the INTEGRATION wiring (drives the real Map scene) ──────────────────────────────
-# The three monetization engines (2× coin doubler, piggy vault, daily-login calendar) merged
-# tested but UNREACHABLE; this proves their entry points are now live:
-#   1. a hub auto-collect of N coins surfaces an opt-in 2× DOUBLER that credits exactly a
-#      second N (and does NOT appear when the reward is too small to beat the shop),
-#   2. the piggy-bank button lives in the map chrome, opens the jar, and lights its pip when
-#      the vault is claimable,
-#   3. the daily-login calendar auto-pops on a fresh (unclaimed) day past the FTUE, and stays
-#      shut when already claimed today.
-func _test_t45_wiring() -> void:
-	var hub := G.hub_map()
-	var hub_id := String(G.MAPS[hub].spots[0].id)   # a real hub spot to restore as a yield building
-
-	# (The 2× DOUBLER sub-tests (1a/1b) were retired with the hub-yield auto-collect they hung off —
-	# the §8 home-hub loop is gone (population sub-game now). The 💎-priced "2×" doubler is covered by
-	# _test_2x_doubler_rehome on the board instead. See grove_spec §10.)
-
-	# 2. THE PIGGY-VAULT CHROME ENTRY. Parked behind the `piggy_vault` flag (OFF by default) —
-	# the wiring is still proven with the flag flipped ON (an N3 flip smoke); the shipped default
-	# (no tile, no skim) is asserted by grove_explore_tests / grove_maps_page_tests.
-	fresh("t45_vault")
-	Feat.FLAGS["piggy_vault"] = true
-	var hv = map_host()
-	# a sub-threshold jar → the pip is dark; fill it past the claim min → the pip lights.
-	hv._refresh_piggy_pip()
-	ok(hv._piggy_pip != null and not hv._piggy_pip.visible, "the piggy ready-pip is dark while the jar is below the claim threshold")
-	Vault.skim(Vault.claim_min() * Vault.skim_den() * 4)   # well past claimable
-	hv._refresh_piggy_pip()
-	ok(Vault.claimable() and hv._piggy_pip.visible, "the piggy ready-pip LIGHTS once the jar is claimable")
-	var ov_before: int = hv.get_child_count()
-	hv._open_vault()
-	ok(hv.get_child_count() == ov_before + 1, "tapping the piggy button opens a surface overlay")
-	var vov: Control = hv.get_child(hv.get_child_count() - 1)
-	ok(vov.find_children("*", "PanelContainer", true, false).size() >= 1, "the vault opens as a framed parchment jar card (diegetic, §13)")
-	ok(_press_label(vov, "Claim"), "the opened vault shows a Claim button (the jar surface, reachable from the hub)")
-	hv.queue_free()
-	Feat.FLAGS["piggy_vault"] = false          # restore the shipped default (parked)
-
-	# 3. THE DAILY-LOGIN AUTO-POPUP. Past the FTUE (a spot owned) and unclaimed today, the day's
-	# first hub open auto-shows the calendar ONCE; already-claimed → it stays shut.
-	Feat.FLAGS["daily_login_popup"] = true            # restore the flag the 2× section turned off
-	fresh("t45_login_fresh")
-	var gl := Save.grove()
-	gl["unlocks"] = {hub_id: true}                    # past the cold FTUE (a rewarding beat happened)
-	Save.grove_write()
-	ok(not Login.claimed_today(), "today is unclaimed (the day's first open)")
-	var hl = map_host()
-	await create_timer(0.2).timeout                   # the popup is deferred two frames; the timer spans them
-	var login_up := _find_calendar_overlay(hl)
-	ok(login_up != null, "the daily-login calendar AUTO-POPS on the day's first hub open (past the FTUE)")
-	ok(_press_label(login_up, "Claim"), "the auto-popped calendar shows a Claim button")
-	hl.queue_free()
-
-	# 3b. ALREADY CLAIMED today → no auto-popup (it fired its once; never nags).
-	fresh("t45_login_claimed")
-	var gl2 := Save.grove()
-	gl2["unlocks"] = {hub_id: true}
-	Save.grove_write()
-	ok(Login.claim_today(), "claim today's rung up front")
-	ok(Login.claimed_today(), "today now reads claimed")
-	var hl2 = map_host()
-	await create_timer(0.2).timeout
-	ok(_find_calendar_overlay(hl2) == null, "an already-claimed day shows NO calendar popup (fires once, never nags)")
-	hl2.queue_free()
-
-	# 3c. the cold FTUE session (no spots owned) is SKIPPED — §18 "after a reward, not a cold open".
-	fresh("t45_login_ftue")
-	var hf = map_host()
-	await create_timer(0.2).timeout
-	ok(_find_calendar_overlay(hf) == null, "the cold first FTUE session (no spots owned) skips the calendar (§18)")
-	hf.queue_free()
-
-# Find a live login-calendar overlay on `host`: the LoginUI roots a full-rect Control whose
-# subtree carries the day grid and today's green "Claim" CTA (ui/login.gd). Returns it or null.
-func _find_calendar_overlay(host: Control) -> Control:
-	for c in host.get_children():
-		if not (c is Control):
-			continue
-		for b in (c as Control).find_children("*", "Button", true, false):
-			if String((b as Button).text).findn("Claim") != -1:
-				return c as Control
-	return null
 # T44: press the first Button whose text contains `frag` inside `overlay`. Returns whether
 # one was found+pressed (so a test asserts the control exists AND fires its action).
 func _press_label(overlay: Control, frag: String) -> bool:
