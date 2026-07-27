@@ -263,14 +263,23 @@ I2 residual is closed by `LEVEL_WATER_GIFT` 40 → 32 (`grove_data.gd`).
    | ON | 0.25 | 0.21 | 0.17 | 0.22 | 0.23 | 0.15 | 0.16 | 0.15 |
    | OFF | 0.19 | 0.22 | 0.22 | 0.21 | 0.24 | 0.21 | 0.19 | 0.29 |
 
-   **Residual that no gift value closes (reported, not fixed).** 1–3% of seeds still FAIL I2 on the
-   **last** map with a denominator below one session of water: `map_spend` accrues from pops only
-   (grove_sim.gd:1128), so a page finished out of a banked coin wallet books its gift against a tiny
-   or zero spend — worst observed `224💧 / 0💧`, which the sim scores 999.0 and hard-fails. Dropping
-   the gift to 24 does not remove it (2/100). This is a denominator artifact of I2, not
-   self-sustain; closing it needs a minimum-spend floor on the I2 denominator — a metric change and
-   an owner call, PARKED. Mastery ON carries more of these than OFF because it finishes late pages
-   in fewer taps.
+   **The zero-spend denominator artifact does NOT reproduce at the shipped gift (re-measured
+   2026-07-27).** It was observed at gift 40, before 40→32 landed. Re-swept at HEAD — 60 seeds
+   mastery ON + 40 OFF, 500 pages — the THINNEST page spends 579💧 and **no page spends under
+   668💧 (ON) / 579💧 (OFF)**; zero pages fall under 100💧 or 200💧. The exact `224💧` gift that
+   once read against `0💧` now reads against 668💧 of real spend (seed 51, map 5). A minimum-spend
+   floor on the I2 denominator was therefore evaluated and **rejected, not shipped**: at any
+   defensible threshold (`WATER_CAP` 100 or `2 × WATER_CAP` 200, mirroring the run-level stall
+   floor) it skips zero pages in 500 and never fires, and the only thresholds that would change a
+   verdict (~900💧) sit *below* the 5th percentile of a normal page (1232💧) and would swallow
+   genuine breaches. I2's denominator needs no guard.
+
+   **What is real (economy signal, not metric):** 3 of 60 seeds breach on a thin LATE page —
+   seed 51 m5 `224/668 = 0.34`, seed 3 m5 `352/799 = 0.44`, seed 15 m4 `288/839 = 0.34`; 0 of 40
+   with mastery OFF. These are 7–8 full cans of genuine play, so the invariant is doing its job:
+   the last pages are short enough that a fixed per-level gift is a large share of their spend.
+   Whether a ~5% late-page breach rate is acceptable is an owner call for the §7 pacing pass, and
+   is PARKED — it is not closed by any denominator change.
 
    Maps 1–2 stay the reported-WARN onboarding band, 0.63 / 0.25 average at 32 (0.79 / 0.31 at 40).
 3. **I1 zero jams — PASS**, no-strand PASS, no stalls — on every seed of every cell above (0/0/0
