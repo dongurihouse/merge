@@ -13,6 +13,9 @@ func _initialize() -> void:
 	await _test_x2_ladder_does_not_arm_cascade()
 	await _test_drag_merge_auto_runs_and_locks_input()
 	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
+	await _test_chain_step_timing_ramps()
+	await _test_chain_counter_anchors_at_run_origin()
+	await _test_chain_lock_dim_covers_the_run()
 	await _test_cascade_watchdog_keeps_player_input_locked()
 	await _test_magnet_holds_fire_while_cascade_runs()
 	await _test_chain_bailouts_release_input_gate()
@@ -215,6 +218,61 @@ func _test_preroll_delays_first_auto_step_and_telegraphs_run() -> void:
 	ok(b.board.item_at(Vector2i(3, 3)) == 102 and _outline_has_tag(b, "×3"), \
 		"pre-roll keeps the next partner in place while the exact run is telegraphed")
 	await _wait_for_idle(b, 3.0)
+	b.queue_free()
+
+func _test_chain_step_timing_ramps() -> void:
+	var b := _open_board("cascade_step_ramp")
+	await process_frame
+	ok(b.has_method("_chain_step_ms_for_n") \
+		and int(b.call("_chain_step_ms_for_n", 2)) == 320 \
+		and int(b.call("_chain_step_ms_for_n", 3)) == 273 \
+		and int(b.call("_chain_step_ms_for_n", 4)) == 227 \
+		and int(b.call("_chain_step_ms_for_n", 5)) == 180 \
+		and int(b.call("_chain_step_ms_for_n", 8)) == 180, \
+		"cascade auto-step timing starts legible and reaches the fast cadence by x5")
+	b.queue_free()
+
+func _test_chain_counter_anchors_at_run_origin() -> void:
+	var b := _open_board("cascade_counter_anchor")
+	await process_frame
+	var origin := Vector2i(3, 2)
+	var step_cell := Vector2i(3, 4)
+	_blank_fixture(b, {
+		Vector2i(3, 1): 101,
+		origin: 101,
+		Vector2i(3, 3): 102,
+		step_cell: 103,
+	})
+	b._prepare_chain(Vector2i(3, 1), origin)
+	b.set("_chain_n", 5)
+	b._show_chain_step_feedback(step_cell, 104)
+	var want: Vector2 = b.board_area.get_global_transform() * (b._cell_pos(origin) + Vector2(b.csz, b.csz) / 2.0) \
+		+ Vector2(b.csz * 0.18, -b.csz * 0.38)
+	var got: Label = null
+	for raw in b.get_children():
+		var lbl := raw as Label
+		if lbl != null and lbl.text == "×5":
+			got = lbl
+			break
+	ok(got != null and got.position.distance_to(want) < 1.0, \
+		"cascade counter floater stays anchored at the run origin")
+	b.queue_free()
+
+func _test_chain_lock_dim_covers_the_run() -> void:
+	var b := _open_board("cascade_lock_dim")
+	await process_frame
+	_blank_fixture(b, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+		Vector2i(3, 4): 103,
+	})
+	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
+	await create_timer(0.16).timeout
+	ok(b.chain_running() and b.board_area.modulate.a < 1.0, \
+		"cascade input lock dims the board while the run owns input")
+	await _wait_for_idle(b, 3.0)
+	ok(is_equal_approx(b.board_area.modulate.a, 1.0), "cascade input lock dim clears when the run finishes")
 	b.queue_free()
 
 func _test_cascade_watchdog_keeps_player_input_locked() -> void:

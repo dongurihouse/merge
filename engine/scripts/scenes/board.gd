@@ -113,6 +113,13 @@ const CHAIN_STEP_WATCHDOG_SECS := 2.0
 const CHAIN_MIN_N := 3
 const CHAIN_PREROLL_MS := 300
 const CHAIN_STEP_MS := 250
+const CHAIN_STEP_RAMP_ENABLED := true
+const CHAIN_STEP_START_MS := 320
+const CHAIN_STEP_END_MS := 180
+const CHAIN_STEP_RAMP_END_N := 5
+const CHAIN_COUNTER_ANCHOR_ORIGIN := true
+const CHAIN_LOCK_DIM_ENABLED := true
+const CHAIN_LOCK_DIM_ALPHA := 0.86
 const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
@@ -314,6 +321,7 @@ var _chain_run: Array = []
 var _chain_n := 0
 var _chain_active := false
 var _chain_auto_step := false
+var _chain_origin_cell := Vector2i(-1, -1)
 var _chain_reward_cell := Vector2i(-1, -1)
 var _cascade_outline: Control = null
 
@@ -4911,15 +4919,19 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	_chain_n = 0
 	_chain_active = false
 	_chain_auto_step = false
+	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
 	if not Features.on("cascade"):
+		_refresh_chain_lock_dim()
 		return
 	_chain_run = BoardLogic.chain_path(board, a, b)
 	if 1 + _chain_run.size() >= CHAIN_MIN_N:
 		_chain_n = 1
 		_chain_active = true
+		_chain_origin_cell = b
 	else:
 		_chain_run = []
+	_refresh_chain_lock_dim()
 
 func _schedule_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
@@ -4972,7 +4984,7 @@ func _run_chain_step(current: Vector2i) -> void:
 	_chain_auto_step = true
 	animating = true
 	_anim_t = 0.0
-	var merge_slide_ms := CHAIN_STEP_MS
+	var merge_slide_ms := _chain_step_ms_for_n(_chain_n)
 	if node != null and is_instance_valid(node):
 		MoveFx.apply(node, node.position, _cell_pos(partner), "slide", _move_opts, merge_slide_ms)
 		var tree := get_tree()
@@ -4988,9 +5000,24 @@ func _finish_chain() -> void:
 	_chain_n = 0
 	_chain_active = false
 	_chain_auto_step = false
+	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
 	animating = false
 	_anim_t = 0.0
+	_refresh_chain_lock_dim()
+
+func _chain_step_ms_for_n(n: int) -> int:
+	if not CHAIN_STEP_RAMP_ENABLED:
+		return CHAIN_STEP_MS
+	var span := maxi(1, CHAIN_STEP_RAMP_END_N - 2)
+	var t := clampf(float(n - 2) / float(span), 0.0, 1.0)
+	return int(roundf(lerpf(float(CHAIN_STEP_START_MS), float(CHAIN_STEP_END_MS), t)))
+
+func _refresh_chain_lock_dim() -> void:
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	var alpha := CHAIN_LOCK_DIM_ALPHA if _chain_active and CHAIN_LOCK_DIM_ENABLED else 1.0
+	board_area.modulate = Color(1, 1, 1, alpha)
 
 func _chain_reward_code(n: int) -> int:
 	return BoardLogic.chain_reward_code(n)
@@ -5031,11 +5058,17 @@ func _replace_chain_reward(cell: Vector2i, code: int) -> void:
 	FX.pop(n)
 
 func _show_chain_step_feedback(cell: Vector2i, produced: int) -> void:
-	var at := board_area.get_global_transform() * (_cell_pos(cell) + Vector2(csz, csz) / 2.0)
+	var counter_cell := _chain_counter_cell(cell)
+	var at := board_area.get_global_transform() * (_cell_pos(counter_cell) + Vector2(csz, csz) / 2.0)
 	var floater_size := FS.HEADING + maxi(0, mini(_chain_n, 7) - 2) * 2
 	FX.floating_text(self, at + Vector2(csz * 0.18, -csz * 0.38), "×%d" % _chain_n, CREAM, floater_size)
 	if _chain_n >= 5:
 		FX.burst(board_area, _cell_pos(cell) + Vector2(csz, csz) / 2.0, G.line_color(produced), 24)
+
+func _chain_counter_cell(step_cell: Vector2i) -> Vector2i:
+	if CHAIN_COUNTER_ANCHOR_ORIGIN and board != null and board.in_bounds(_chain_origin_cell):
+		return _chain_origin_cell
+	return step_cell
 
 # #14 craft the special: consume the source ingredient; the target becomes the special at the same tier.
 func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:

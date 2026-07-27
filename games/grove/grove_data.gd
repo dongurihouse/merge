@@ -417,13 +417,15 @@ const SKY_MARKER_ICON_RELS := {
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
-const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is retired)
+const COIN_TOP := 8                       # 8-tier board-coin ladder; chest payouts still wallet-credit directly
 # Which ART file each in-game tier wears, per base — the 12-tier sheets stay on disk and the OWNER
-# picks the looks (2026-07-26: coin t1/t2/t3 wear art 1/4/5 — coin → coin roll → pouch; acorn wears
-# 3/5/6). A base not listed maps tier N → art N. Read via G.art_tier_for (item_tex_path + the
+# picks the looks (2026-07-27: coin t1..t8 wear art 1/4/5/6/7/8/10/12; acorn wears 3/5/6).
+# A base not listed maps tier N → art N. Read via G.art_tier_for (item_tex_path + the
 # piece_view coin branch).
-const ART_TIER_PICK := {"coin": [1, 4, 5], "acorn": [3, 5, 6]}
-const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
+const ART_TIER_PICK := {"coin": [1, 4, 5, 6, 7, 8, 10, 12], "acorn": [3, 5, 6]}
+const COIN_VALUES := {                    # tap-collect value per coin tier (2.2x from a 2-coin start)
+	1: 2, 2: 4, 3: 10, 4: 21, 5: 47, 6: 103, 7: 227, 8: 499,
+}
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 const SCISSORS_LINE := 14
 const SCISSORS_COST := 40
