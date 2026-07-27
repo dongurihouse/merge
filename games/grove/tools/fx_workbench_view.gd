@@ -456,7 +456,9 @@ func _play_farewell_sweep() -> void:
 		call_deferred("_play_farewell_sweep")
 		return
 	var target: Control = _targets.get("coin", null) as Control
-	var shown := int(_totals.get("coin", 0))
+	# one-element Array so the running total survives across arrivals — a lambda-captured int is
+	# re-seeded on every call (see the same note in board.gd's _sweep_farewell)
+	var shown := [int(_totals.get("coin", 0))]
 	var flights: Array = []
 	for entry_v in _sweep_sources:
 		var entry: Dictionary = entry_v
@@ -466,9 +468,9 @@ func _play_farewell_sweep() -> void:
 		FX.keepsake_fade(_keepsake_source)
 	_keepsake_source = null
 	FX.fly_pieces_away(_preview_root, flights, target, {"fx_id": "farewell_sweep"}, func(payout: int) -> void:
-		shown += int(payout)
-		_farewell_sweep_arrival(shown, int(payout)), func() -> void:
-		_farewell_sweep_done(shown))
+		shown[0] = int(shown[0]) + int(payout)
+		_farewell_sweep_arrival(int(shown[0]), int(payout)), func() -> void:
+		_farewell_sweep_done(int(shown[0])))
 
 func _sweep_sources_have_live_nodes() -> bool:
 	for entry_v in _sweep_sources:

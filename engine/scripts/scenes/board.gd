@@ -6257,14 +6257,19 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 	Audio.play("tidy_poof", -4.0, 1.1)
 	for node in keepsakes:
 		FX.keepsake_fade(node)
-	var shown := Save.coins() - coins
+	# ONE-ELEMENT ARRAY, not a plain int: a GDScript lambda captures locals BY VALUE and re-seeds that
+	# copy on EVERY call, so `shown += payout` inside the closure ticks to (pre-sweep + this one item)
+	# each arrival instead of accumulating — the counter would sit near its starting value for the whole
+	# flight and then snap on the final _update_hud(). An Array is a reference, so the running total
+	# survives across arrivals. FX.fly_pieces_away's own `remaining` counter uses this same idiom.
+	var shown := [Save.coins() - coins]
 	var on_each := func(payout: int) -> void:
 		if not is_instance_valid(self):
 			return
 		if payout <= 0:
 			return
-		shown += int(payout)
-		_currency_arrival_beat(coins_label, "coin", int(payout), shown)
+		shown[0] = int(shown[0]) + int(payout)
+		_currency_arrival_beat(coins_label, "coin", int(payout), int(shown[0]))
 	var on_all := func() -> void:
 		if is_instance_valid(self):
 			_update_hud()
