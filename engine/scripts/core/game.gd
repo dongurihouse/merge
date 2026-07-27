@@ -13,7 +13,7 @@ const DATA := Active.DATA
 const PALETTE := Active.PALETTE
 
 ## Which game's CLOTHES are active: the GAME env var, else the bare base. No source
-## edit per run — `make run_base` / `make run_grove` just set GAME=.
+## edit per run — `make run` takes it from the environment, `make g` / `make debug` set it.
 static func active() -> String:
 	var e := OS.get_environment("GAME")
 	return e if not e.is_empty() else Active.DEFAULT

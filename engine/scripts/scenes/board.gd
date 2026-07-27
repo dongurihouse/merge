@@ -15,6 +15,7 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")   # boost-line charges, spent on the board chip
 const Quests = preload("res://engine/scripts/core/quests.gd")
+const SaveMigrate = preload("res://engine/scripts/core/save_migrate.gd")   # load-time save hygiene + the above-level purge
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -696,145 +697,27 @@ func _apply_board_config(b: Dictionary) -> void:
 
 # --- state ----------------------------------------------------------------------
 
-func _sanitize_saved_item_bag(raw: Array) -> Dictionary:
-	var out: Array = []
-	var changed := false
-	for v in raw:
-		var code := int(v)
-		if code > 0 and G.is_valid_item_code(code):
-			out.append(code)
-		else:
-			changed = true
-	return {"items": out, "changed": changed}
-
-func _quest_items_are_known(q: Dictionary) -> bool:
-	if q.has("line"):
-		return G.is_valid_item_code(int(q.get("line", 0)) * 100 + int(q.get("tier", 0)))
-	if q.has("asks"):
-		for ask in Array(q.get("asks", [])):
-			if not (ask is Dictionary):
-				continue
-			if not G.is_valid_item_code(int(ask.get("line", 0)) * 100 + int(ask.get("tier", 0))):
-				return false
-	return true
-
-func _sanitize_saved_quests(raw: Array) -> Dictionary:
-	var out: Array = []
-	var changed := false
-	for q in raw:
-		if not (q is Dictionary):
-			changed = true
-			continue
-		var qd: Dictionary = q
-		if not _quest_items_are_known(qd):
-			changed = true
-			continue
-		out.append(qd)
-	return {"quests": out, "changed": changed}
-
-func _sanitize_seen(g: Dictionary) -> bool:
-	if not g.has("seen"):
-		return false
-	if not (g["seen"] is Dictionary):
-		g["seen"] = {}
-		return true
-	var seen: Dictionary = g["seen"]
-	var out := {}
-	var changed := false
-	for key in seen.keys():
-		var sk := String(key)
-		if not sk.is_valid_int():
-			changed = true
-			continue
-		var code := int(sk)
-		if not G.is_valid_item_code(code):
-			changed = true
-			continue
-		out[sk] = seen[key]
-	if changed:
-		g["seen"] = out
-	return changed
-
-# A saved quest asks for a line the player should not have reached yet (either its single `line`, or any
-# `asks[]` entry) — see G.line_gated_out. Mirrors _quest_items_are_known's dual shape.
-func _quest_line_gated_out(q: Dictionary, level: int) -> bool:
-	if q.has("line") and G.line_gated_out(int(q.get("line", 0)), level):
-		return true
-	for ask in Array(q.get("asks", [])):
-		if ask is Dictionary and G.line_gated_out(int((ask as Dictionary).get("line", 0)), level):
-			return true
-	return false
-
-# Save migration (2026-07-23, scene-aligned zone_unlock_level cadence — now DERIVED, see content.gd's
-# _build_cadence): strip every generator, item and quest for a line the player should NOT have reached
-# yet at their CURRENT level, so an older save matches
-# the new pacing. Silent removal, no compensation (owner call). IDEMPOTENT — a no-op on any save already
-# consistent with the cadence (birth-on-tap only ever grants in-cadence content; every new save starts
-# clean), so it runs on every load with no schema bump and no one-time flag. Exempt (never gated out):
-# coins, treasure/treat lines and special drops (zone_of_line == -1), accumulator generators, and the gen_1
-# anchor (zone 0 unlocks at L1). Returns true if anything was removed (→ the caller re-persists).
+# Save hygiene lives in core/save_migrate.gd (headless-testable; see engine/tests/save_migrate_tests.gd).
+# This wrapper stays because it owns the scene's run-state: it feeds the model/bag/quests in and assigns
+# the filtered arrays back. Returns true if anything was removed (→ the caller re-persists).
 func _purge_above_level_content() -> bool:
-	var lvl := _quest_level()
-	var changed := false
-	# board pieces
-	for r in G.ROWS:
-		for c in G.COLS:
-			var cell := Vector2i(r, c)
-			var code := board.item_at(cell)
-			if code > 0 and G.line_gated_out(BoardModel.line_of(code), lvl):
-				board.take(cell)
-				changed = true
-	# live generators on the board (accumulators + the anchor never gate out)
-	for cell in board.gens.keys():
-		var gid := String(board.gens[cell])
-		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
-			board.remove_gen(cell)
-			changed = true
-	# stored generators — filter the PARALLEL bag arrays (ids ∥ tiers ∥ boost) in lockstep
-	var kept_ids: Array = []
-	var kept_tiers: Array = []
-	var kept_boost: Array = []
-	for i in board.gen_bag.size():
-		var gid := String(board.gen_bag[i])
-		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
-			changed = true
-			continue
-		kept_ids.append(board.gen_bag[i])
-		kept_tiers.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
-		kept_boost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
-	board.gen_bag = kept_ids
-	board.gen_bag_tiers = kept_tiers
-	board.gen_bag_boost = kept_boost
-	# stashed items in the item bag
-	var kept_bag: Array = []
-	for code in bag:
-		if G.line_gated_out(BoardModel.line_of(int(code)), lvl):
-			changed = true
-		else:
-			kept_bag.append(code)
-	bag = kept_bag
-	# live quests asking for a now-too-advanced line (the fence refills with valid lines after)
-	var kept_quests: Array = []
-	for q in quests:
-		if q is Dictionary and _quest_line_gated_out(q, lvl):
-			changed = true
-		else:
-			kept_quests.append(q)
-	quests = kept_quests
-	return changed
+	var r := SaveMigrate.purge_above_level_content(board, bag, quests, _quest_level())
+	bag = r["bag"]
+	quests = r["quests"]
+	return bool(r["changed"])
 
 func _load_state() -> void:
 	board = BoardModel.new()
 	var now := Time.get_unix_time_from_system()
 	var g := Save.grove()
-	var save_dirty := _sanitize_seen(g)
+	var save_dirty := SaveMigrate.sanitize_seen(g)
 	if g.has("board"):
 		save_dirty = board.from_dict(g["board"]) or save_dirty
-		var quest_clean := _sanitize_saved_quests(Array(g.get("quests", [])))
+		var quest_clean := SaveMigrate.sanitize_quests(Array(g.get("quests", [])))
 		quests = quest_clean["quests"]
 		save_dirty = bool(quest_clean["changed"]) or save_dirty
 		quests_map = int(g.get("quests_map", -1))
-		var bag_clean := _sanitize_saved_item_bag(Array(g.get("bag", [])))
+		var bag_clean := SaveMigrate.sanitize_item_bag(Array(g.get("bag", [])))
 		bag = bag_clean["items"]
 		save_dirty = bool(bag_clean["changed"]) or save_dirty
 		# strip any generator/item/quest above the player's level under the scene-aligned cadence (migrates
@@ -875,58 +758,19 @@ func _load_state() -> void:
 		_persist()
 
 # --- the discovery log: which items has this player ever grown? -------------------
-# Powers the upgrade-path card (unseen tiers show as "?").
+# Powers the upgrade-path card (unseen tiers show as "?"). The rules live in core/quests.gd; these
+# wrappers only supply the Save read.
 
 func _mark_seen(code: int) -> void:
-	if code <= 0 or G.is_coin(code):
-		return
-	var g := Save.grove()
-	if not g.has("seen"):
-		g["seen"] = {}
-	g["seen"][str(code)] = true
+	Quests.mark_seen(Save.grove(), code)
 
 # [{tier, code, seen}] for a line's full ladder (pure — tests use it directly).
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
 
-# [{line, seen, in_pool, code}] for the Producing dialog. Normal generators SHOW ALL: one entry per line
-# in the WHOLE game (every generator / every map, in roster order), so the panel reads as the full
-# collection roadmap. Treat generators show only their treasure line; accumulator generators return no
-# entries because they bank currency, not item lines. `seen`/`code` carry the lowest-seen tier for the piece.
+# [{line, seen, in_pool, code}] for the Producing dialog.
 func _gen_line_entries(gid: String) -> Array:
-	var seen: Dictionary = Save.grove().get("seen", {})
-	var pool: Array = []
-	var out: Array = []
-	var added := {}
-	var lines: Array = []
-	if G.is_accumulator(gid):
-		return out
-	if G.is_treat_gen(gid):
-		var treat_line := G.treat_line_of(gid)
-		lines.append(treat_line)
-		pool = [treat_line] if treat_line > 0 else []
-	else:
-		var selected_line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
-		pool = [selected_line] if selected_line > 0 else []
-		for gen in G.GENERATORS:
-			lines.append(int(gen.get("line", 0)))   # gen redesign: one line per generator (was lines[])
-	for l in lines:
-		var line := int(l)
-		if added.has(line) or not G.LINES.has(line):
-			continue                      # a line lives on one generator, but guard against roster overlap
-		added[line] = true
-		var code := _lowest_seen_code(line, seen)
-		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
-	return out
-
-# The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0
-# if the line is wholly unseen. Pure off the seen set.
-func _lowest_seen_code(line: int, seen: Dictionary) -> int:
-	for t in range(1, G.TOP_TIER + 1):
-		var code := line * 100 + t
-		if seen.has(str(code)):
-			return code
-	return 0
+	return Quests.gen_line_entries(gid, Save.grove().get("seen", {}))
 
 # water regen rule lives in BoardLogic; apply the returned state to ours
 func _apply_regen(now: float) -> void:
@@ -1141,27 +985,27 @@ func _cue_empty_water() -> void:
 		return
 	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, FS.HEADING)
 
+# Send the player to the water STALL (free daily top-up / IAP). Falls back to the dead-end wobble only
+# if the stall isn't wired (e.g. a test that neutralizes _open_water).
+func _open_water_stall_or_wobble() -> void:
+	if _open_water.is_valid():
+		_open_water.call()
+	else:
+		FX.wobble(refill_btn)
+		Audio.play("invalid_soft", -4.0)
+
 func _on_refill() -> void:
 	if water > 0:
 		return
 	if Claims.can_show("refill_water"):
 		# Keep the claim ledger authoritative: the board's FREE action opens the same stall card
 		# used everywhere else instead of bypassing the daily claim.
-		if _open_water.is_valid():
-			_open_water.call()
-		else:
-			FX.wobble(refill_btn)
-			Audio.play("invalid_soft", -4.0)
+		_open_water_stall_or_wobble()
 		return
 	if not Save.spend_diamonds(G.REFILL_DIAMOND_COST):
-		# empty, today's free rain unavailable, and too few 🌰 for the paid fill → open the water STALL (free
-		# daily top-up / IAP) instead of the old dead-end wobble (§10 "no silent wall"). Fall back to
-		# the wobble only if the stall isn't wired (e.g. a test that neutralizes _open_water).
-		if _open_water.is_valid():
-			_open_water.call()
-		else:
-			FX.wobble(refill_btn)
-			Audio.play("invalid_soft", -4.0)
+		# empty, today's free rain unavailable, and too few 🌰 for the paid fill → open the water STALL
+		# instead of the old dead-end wobble (§10 "no silent wall").
+		_open_water_stall_or_wobble()
 		return
 	water = G.WATER_CAP
 	_regen_ts = Time.get_unix_time_from_system()
@@ -1172,7 +1016,7 @@ func _on_refill() -> void:
 			return
 		_update_water_hud()
 		_update_hud()
-	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"), water_target, refill_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "board_refill")
+	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, FX.reward_color("water"), water_target, refill_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "board_refill")
 	_persist()
 	refill_btn.visible = false
 	_refill_stack.visible = false
@@ -1366,13 +1210,12 @@ func _update_unlock_bar() -> void:
 	_unlock_bar.set_ready(_gate_ready())
 	_unlock_bar.set_progress(_purge_progress())
 
+# Refresh the face, then REWIND the fill to `previous_progress` and tween it forward to the live value.
 func _animate_unlock_bar_from(previous_progress: float) -> void:
 	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
 		return
 	var now := _purge_progress()
-	_unlock_bar.visible = _show_unlock_bar()
-	_unlock_bar.set_next_level(G.level_at_coins(_earned()) + 1)
-	_unlock_bar.set_ready(_gate_ready())
+	_update_unlock_bar()
 	_unlock_bar.set_progress(previous_progress)
 	_unlock_bar.animate_progress_to(now)
 	if now >= 1.0:
@@ -3298,12 +3141,16 @@ func _open_bramble(cell: Vector2i) -> void:
 	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), Strings.t("board.feedback.cleared"), CREAM, FS.HEADING)
 	Audio.play("tidy_poof", -2.0)
 
-func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
+# THE lucky-drop landing: shake `code` loose onto one of the open cells nearest `near` and fly it in.
+# Shared by the coin drop and the §6.B special drop — they were byte-identical apart from the coin's
+# default code, which now lives in _drop_coin_near.
+# JUICE: the piece TOUCHES DOWN at the end of its grow-in flight — a discrete (loud) LandFx.apply
+# owns the impact squash + small flash + micro-puff + touch sound. The verb plays the canonical
+# `tidy_poof` itself, so the old inline poof here is dropped (no double-sound).
+func _drop_item_near(near: Vector2i, code: int) -> void:
 	var cell := BoardLogic.pick_drop_cell(board, near, rng)
 	if cell.x < 0:                                # no open ground → nothing to shake loose
 		return
-	if code <= 0:
-		code = G.COIN_LINE * 100 + 1
 	board.place(cell, code)
 	var n := _make_piece(code, csz)
 	n.position = _cell_pos(near)
@@ -3314,14 +3161,15 @@ func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
 	t.set_parallel(true)
 	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# JUICE: the coin TOUCHES DOWN at the end of its grow-in flight — a discrete (loud) Feel.land
-	# owns the impact squash + small flash + micro-puff + touch sound. The verb plays the canonical
-	# `tidy_poof` itself, so the old inline poof here is dropped (no double-sound).
-	var coin_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	var ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	t.chain().tween_callback(func() -> void:
 		if n and is_instance_valid(n):
-			LandFx.apply(self, n, coin_ctr, _land_opts, 0.8, false)
-			Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
+			LandFx.apply(self, n, ctr, _land_opts, 0.8, false)
+			Feel.ripple(_orthogonal_neighbour_nodes(cell), ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
+
+# A merge shakes a coin loose. `code` <= 0 (the default) means a plain t1 coin.
+func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
+	_drop_item_near(near, code if code > 0 else G.COIN_LINE * 100 + 1)
 
 ## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
 ## Animates in from the board centre like a merge coin-drop, then persists so the coin survives a
@@ -3355,29 +3203,9 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 	Audio.play("coin_earn", -3.0)
 	_after_board_change(true)   # the coin FLIES to the wallet — coin_done ticks the pill on arrival
 
-# §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
+# §6.B place a SPECIAL drop item near `near` (the lucky special-item shake) — same landing as the coin.
 func _drop_special_near(near: Vector2i, code: int) -> void:
-	var cell := BoardLogic.pick_drop_cell(board, near, rng)
-	if cell.x < 0:                                # no open ground → nothing to shake loose
-		return
-	board.place(cell, code)
-	var n := _make_piece(code, csz)
-	n.position = _cell_pos(near)
-	n.scale = Vector2(0.3, 0.3)
-	board_area.add_child(n)
-	piece_nodes[cell] = n
-	var t := n.create_tween()
-	t.set_parallel(true)
-	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# JUICE: the special item TOUCHES DOWN at the end of its grow-in flight — a discrete (loud)
-	# Feel.land owns the impact squash + small flash + micro-puff + the canonical touch sound, so
-	# the old inline poof here is dropped (no double-sound). Mirrors _drop_coin_near.
-	var special_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
-	t.chain().tween_callback(func() -> void:
-		if n and is_instance_valid(n):
-			LandFx.apply(self, n, special_ctr, _land_opts, 0.8, false)
-			Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
+	_drop_item_near(near, code)
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water banks OVER the cap; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
@@ -3518,58 +3346,53 @@ func _refresh_accumulator_badge(cell: Vector2i) -> void:
 		gn.add_child(badge)
 	(badge.get_node("Count") as Label).text = "%d" % clicks
 
-# §6.C is any limited-use BONUS generator currently on the board or in the bag (one at a time)?
-func _has_bonus_gen() -> bool:
+# Is any generator matching `pred` (an id -> bool Callable) on the board or in the gen bag?
+func _board_has_gen(pred: Callable) -> bool:
 	for v in board.gens.values():
-		if G.is_accumulator(String(v)):
+		if pred.call(String(v)):
 			return true
 	for v in board.gen_bag:
-		if G.is_accumulator(String(v)):
+		if pred.call(String(v)):
 			return true
 	return false
 
+# §6.C is any limited-use BONUS generator currently on the board or in the bag (one at a time)?
+func _has_bonus_gen() -> bool:
+	return _board_has_gen(func(id: String) -> bool: return G.is_accumulator(id))
+
+# Place `gid` on the first free cell with no generator, bank its tap budget under `clicks_key`, and pop
+# it in. No-op when the board is full. `clicks` is a Callable so its rng draw happens ONLY after a cell
+# is found — the rng is seeded + persisted, so the draw must not fire on the full-board path.
+func _spawn_gen_on_free_cell(gid: String, clicks_key: String, clicks: Callable) -> void:
+	var dest := Vector2i(-1, -1)
+	for c in board.empty_ground_cells():
+		if not board.gens.has(c):
+			dest = c
+			break
+	if dest == Vector2i(-1, -1):
+		return
+	board.place_gen(gid, dest)
+	Save.grove()[clicks_key] = int(clicks.call())
+	_grown_cells.append(dest)             # _rebuild_all pops it in
+	_rebuild_all()
+	Audio.play("level_complete", -5.0, 1.25)
+
 # §6.C side-spawn a limited-use bonus generator onto a free cell with a random tap budget. Skips if full.
+# The KIND is drawn before the free-cell search, as it always was — a full board still consumes that draw.
 func _spawn_bonus_gen() -> void:
 	var kind := G.pick_bonus_kind(rng)
 	if kind == "":
 		return
-	var dest := Vector2i(-1, -1)
-	for c in board.empty_ground_cells():
-		if not board.gens.has(c):
-			dest = c
-			break
-	if dest == Vector2i(-1, -1):
-		return
-	board.place_gen(String(G.ACCUMULATORS[kind].id), dest)
-	Save.grove()["bonus_clicks"] = G.pick_bonus_clicks(rng)
-	_grown_cells.append(dest)
-	_rebuild_all()
-	Audio.play("level_complete", -5.0, 1.25)
+	_spawn_gen_on_free_cell(String(G.ACCUMULATORS[kind].id), "bonus_clicks", func() -> int: return G.pick_bonus_clicks(rng))
 
 # --- §6.D temporary treat generators (board) ----------------------------------------------------------
 func _has_treat_gen() -> bool:
-	for v in board.gens.values():
-		if G.is_treat_gen(String(v)):
-			return true
-	for v in board.gen_bag:
-		if G.is_treat_gen(String(v)):
-			return true
-	return false
+	return _board_has_gen(func(id: String) -> bool: return G.is_treat_gen(id))
 
 # Pop a temp treat generator onto a free cell with a random tap budget (saved). Skips if the board is full.
+# The line pick takes no rng (it is a per-map table lookup), so resolving the id up front is rng-neutral.
 func _spawn_treat_gen() -> void:
-	var dest := Vector2i(-1, -1)
-	for c in board.empty_ground_cells():
-		if not board.gens.has(c):
-			dest = c
-			break
-	if dest == Vector2i(-1, -1):
-		return
-	board.place_gen(G.treat_gen_id(G.pick_treat_line(_quest_map())), dest)
-	Save.grove()["treat_clicks"] = G.pick_treat_clicks(rng)
-	_grown_cells.append(dest)             # _rebuild_all pops it in
-	_rebuild_all()
-	Audio.play("level_complete", -5.0, 1.25)
+	_spawn_gen_on_free_cell(G.treat_gen_id(G.pick_treat_line(_quest_map())), "treat_clicks", func() -> int: return G.pick_treat_clicks(rng))
 
 # A tap on the treat generator pops a burst of its premium line at the head-start tier (no water), often
 # also showering a §6.B special drop. Decrements the tap budget; at 0 the treat generator VANISHES.
@@ -4024,7 +3847,7 @@ func _almanac_entries() -> Array:
 		var line := G.zone_line(int(zi))
 		if line <= 0 or not G.LINES.has(line):
 			continue
-		var code := _lowest_seen_code(line, seen)
+		var code := Quests.lowest_seen_code(line, seen)
 		var next_need := G.next_need(line, _quest_level())
 		var state := "producing" if G.line_needed_at_zone(line, z) else ("away" if not next_need.is_empty() else "complete")
 		out.append({
@@ -4084,7 +3907,7 @@ func _grant_sale(code: int, node: Control) -> void:
 		var sale_gem_done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()
-		FX.reward_arrival(self, center, "gem", reward.y, Color("#A9C7E8"), diamonds_label, sale_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+		FX.reward_arrival(self, center, "gem", reward.y, FX.reward_color("gem"), diamonds_label, sale_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
 	elif reward.x > 0:
 		var sale_coin_done := func() -> void:
 			if is_instance_valid(self):
@@ -4101,7 +3924,7 @@ func _open_ladder(line: int, mark_tier: int, status_suffix: String = "") -> void
 	# gen redesign #9/#15: a base line shows its GENERATOR icon atop the tier grid; a merged (special) line
 	# shows its two ingredient items atop the SAME tier grid (its own ladder) — tapping either ingredient
 	# opens THAT item's tier screen (Ladder rebuilds the modal in place, so navigation REPLACES, not stacks).
-	var header := _ladder_header(line, status_suffix)
+	var header := Quests.ladder_header(line, status_suffix)
 	var opts := {
 		"header": header,
 		"mark_tier": mark_tier,
@@ -4130,24 +3953,6 @@ func _reveal_generator(gid: String) -> bool:
 		_select_generator(Vector2i(cells[0]))
 		return true
 	return false
-
-# #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
-# the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
-func _ladder_header(line: int, status_suffix: String = "") -> Dictionary:
-	var suffix := String(status_suffix).strip_edges()
-	var display_name := _ladder_line_name(line)
-	if suffix != "":
-		display_name = "%s · %s" % [display_name, suffix]
-	var gid := G.gen_for_line(line)
-	if gid != "":
-		return {"kind": "generator", "gid": gid, "name": display_name}
-	var rl: Array = G.recipe_lines(line)
-	if rl.size() == 2:
-		return {"kind": "recipe", "lines": rl, "name": display_name}
-	return {"kind": "title", "name": Strings.t("ladder.title")}
-
-func _ladder_line_name(line: int) -> String:
-	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))
 
 # The board→Home handoff (req 3/4): ONE evolving home world now — the target is always the home
 # scene itself (the per-map decorate jump retired with the map-select).

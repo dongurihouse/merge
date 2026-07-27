@@ -37,7 +37,7 @@ const PENDING_STALE_SECS := 15.0
 ## True only on an iOS build that bundles the plugin — the gate for every native touch and the signal that
 ## a Confirm will move REAL money. Callers use the honest non-charging path when this is false. The plugin
 ## also ships macOS frameworks (so its GDExtension loads cleanly in the desktop editor), which register
-## `StoreKitManager` on the dev Mac too; the `ios` feature check keeps this iPad-only game inert there.
+## `StoreKitManager` on the dev Mac too; the `ios` feature check keeps this iPhone/iPad game inert there.
 static func available() -> bool:
 	return ClassDB.class_exists(SK_CLASS) and OS.has_feature("ios")
 
