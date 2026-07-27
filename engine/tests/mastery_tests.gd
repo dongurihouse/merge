@@ -5,6 +5,7 @@ extends "res://engine/tests/test_base.gd"
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
 
 func save_prefix() -> String:
 	return "tu_mastery_"
@@ -15,6 +16,7 @@ func _initialize() -> void:
 	_test_ask_band_and_sliding()
 	_test_pop_cost()
 	_test_credit_math()
+	_test_set_rank()
 	_test_scissors_price_floor()
 	finish()
 
@@ -147,6 +149,56 @@ func _test_credit_math() -> void:
 	var coin_before := Mastery.meter(1)
 	ok(Mastery.credit_delivery(G.COIN_LINE * 100 + 1).is_empty() and Mastery.meter(1) == coin_before,
 		"coins and other non-mastery lines credit nothing")
+
+## set_rank — the DEBUG-panel jump (ui/debug.gd "Gen rank ±1" → board.debug_bump_mastery). It is the only
+## writer that moves a meter BACKWARD, so the two properties that matter are the exact round-trip (a jumped
+## rank must read back as itself, not one either side of a threshold) and the celebration ledger following
+## it down — mark_seen_rank is monotonic, so a stuck mastery_seen would mute the rank-up card forever after
+## one rank-down, which is the main thing the button exists to re-test.
+func _test_set_rank() -> void:
+	fresh("set_rank")
+	var line := int(G.ZONE_BASE_LINES[0])
+	var top := G.MASTERY_THRESHOLDS.size()
+	var round_trips := true
+	var exact_meter := true
+	for r in range(0, top + 1):
+		Mastery.set_rank(line, r)
+		round_trips = round_trips and Mastery.rank(line) == r
+		exact_meter = exact_meter and Mastery.meter(line) == (0 if r == 0 else int(G.MASTERY_THRESHOLDS[r - 1]))
+	ok(round_trips, "set_rank round-trips every rank 0..%d" % top)
+	ok(exact_meter, "set_rank lands the meter exactly on the rank's own threshold entry")
+
+	Save.load_now()                            # re-read from disk: the jump is persisted, not just in memory
+	ok(Mastery.rank(line) == top, "set_rank persists through a save reload")
+
+	Mastery.set_rank(line, -3)
+	ok(Mastery.rank(line) == 0 and Mastery.meter(line) == 0,
+		"a rank below the ladder clamps to rank 0 and an empty meter")
+	Mastery.set_rank(line, 99)
+	ok(Mastery.rank(line) == top, "a rank above the ladder clamps to the top rank")
+
+	Mastery.set_rank(line, 3)
+	var before := Mastery.meter(line)
+	Features.FLAGS["mastery"] = false
+	Mastery.set_rank(line, 7)
+	Features.FLAGS["mastery"] = true            # restored before the read — meter() reads 0 with the flag off
+	ok(Mastery.meter(line) == before, "set_rank leaves the meter alone with the mastery flag off")
+
+	var special := int(G.ZONE_SPECIAL_LINES[0])   # a crafted special: never a mastery line
+	ok(not G.ZONE_BASE_LINES.has(special), "fixture: line %d is not a base line" % special)
+	Mastery.set_rank(special, 4)
+	ok(not Save.grove().get("mastery", {}).has(str(special)) and Mastery.rank(special) == 0,
+		"set_rank is a no-op on a non-base line — no meter key is written")
+
+	Mastery.set_rank(line, 5)
+	Mastery.mark_seen_rank(line, 5)
+	ok(Mastery.seen_rank(line) == 5, "fixture: the celebration ledger sits at rank 5")
+	Mastery.set_rank(line, 2)
+	ok(Mastery.rank(line) == 2 and Mastery.seen_rank(line) == 2,
+		"ranking down rolls mastery_seen down with it so the rank-up card can fire again")
+	Mastery.set_rank(line, 6)
+	ok(Mastery.seen_rank(line) == 2,
+		"ranking back up leaves mastery_seen alone — only the real celebration advances it")
 
 func _test_scissors_price_floor() -> void:
 	fresh("scissors_floor")

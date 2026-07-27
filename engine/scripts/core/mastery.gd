@@ -99,6 +99,23 @@ static func mark_seen_rank(line: int, r: int) -> void:
 	seen[key] = next
 	Save.grove_write()
 
+## The DEBUG PANEL's entry point (ui/debug.gd "Gen rank ±1" → board.debug_bump_mastery). Real play
+## never calls this: rank is only ever moved by the two credit sites below, which only ever add.
+## Writes the exact threshold entry for `r`, so rank(line) reads back exactly `r`, and rolls the
+## celebration ledger DOWN to match — mark_seen_rank is monotonic, so without that a line ranked
+## down and earned back up would never re-fire its rank-up card.
+static func set_rank(line: int, r: int) -> void:
+	if not _enabled() or not _is_mastery_line(line):
+		return
+	var key := str(int(line))
+	var next := clampi(int(r), 0, G.MASTERY_THRESHOLDS.size())
+	var s := _store()
+	s[key] = 0 if next <= 0 else int(G.MASTERY_THRESHOLDS[next - 1])
+	var seen := _seen_store()
+	if int(seen.get(key, 0)) > next:
+		seen[key] = next
+	Save.grove_write()
+
 static func any_rank_at_least(r: int) -> bool:
 	if not _enabled():
 		return false
