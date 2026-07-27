@@ -21,6 +21,9 @@ func _initialize() -> void:
 	await _test_mark_seen_catches_up_intermediate_tiers()
 	await _test_completed_top_soil_refreshes_selected_info()
 	await _test_soil_tick_does_not_free_active_drag_node()
+	await _test_water_tick_keeps_tapped_generator_selected()
+	await _test_water_tick_keeps_tapped_item_selected()
+	await _test_water_tick_clears_a_stale_selection()
 	await _test_soil_completion_wakes_magnet_and_opens_bramble()
 	await _test_soil_ftue_grants_seed_once()
 	await _test_soil_ftue_hand_follows_moved_seed()
@@ -510,6 +513,69 @@ func _test_soil_tick_does_not_free_active_drag_node() -> void:
 	up.pressed = false
 	up.position = scn.board_area.get_global_transform() * move.position
 	scn._input(up)
+	scn.queue_free()
+
+# The water regen tick refreshes whatever the info tray is showing. A GENERATOR lives in board.gens,
+# never in board.items, so item_at() reads 0 on its cell — _refresh_selected_soil_info() fell past every
+# branch and _clear_selection()'d it, dropping the tray back to its placeholder ~0.7s after the tap.
+# Driven through the REAL touch path on purpose: every existing generator test pokes _select_generator()
+# directly, and that internal seam is precisely what let this ship.
+func _test_water_tick_keeps_tapped_generator_selected() -> void:
+	fresh("improve_tick_keeps_gen")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var cell := Vector2i(2, 2)
+	scn.board.place_gen("gen_1", cell)
+	scn._rebuild_all()
+	_board_touch(scn, cell, true)
+	_board_touch(scn, cell, false)
+	await _settle()
+	ok(scn._selected_cell == cell and scn.board.is_gen(cell), "test setup taps a generator selected through the real touch path")
+	var title := String(scn._info_label.text)
+	scn._tick_water()
+	ok(scn._selected_cell == cell, "a water regen tick keeps the tapped generator selected")
+	ok(String(scn._info_label.text) == title, "a water regen tick leaves the generator's info title alone")
+	scn.queue_free()
+
+func _test_water_tick_keeps_tapped_item_selected() -> void:
+	fresh("improve_tick_keeps_item")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var cell := Vector2i(2, 2)
+	scn.board.place(cell, 101)
+	scn._rebuild_all()
+	_board_touch(scn, cell, true)
+	_board_touch(scn, cell, false)
+	await _settle()
+	ok(scn._selected_cell == cell, "test setup taps a plain item selected through the real touch path")
+	scn._tick_water()
+	ok(scn._selected_cell == cell, "a water regen tick keeps the tapped item selected")
+	scn.queue_free()
+
+# The other half of the contract: the tick MUST still drop a selection whose subject is gone (the item
+# was merged/dragged away), or _clear_selection() here becomes dead code and a stale focus frame outlives
+# its tile.
+func _test_water_tick_clears_a_stale_selection() -> void:
+	fresh("improve_tick_clears_stale")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var cell := Vector2i(2, 2)
+	scn.board.place(cell, 101)
+	scn._rebuild_all()
+	_board_touch(scn, cell, true)
+	_board_touch(scn, cell, false)
+	await _settle()
+	ok(scn._selected_cell == cell, "test setup selects the item that is about to leave the board")
+	scn.board.take(cell)
+	ok(scn.board.item_at(cell) == 0 and not scn.board.is_gen(cell) and not scn.board.has_improvement(cell) and not scn.board.is_growing(cell), "test setup empties the selected cell of every selectable subject")
+	scn._tick_water()
+	ok(scn._selected_cell.x < 0, "a water regen tick still clears a selection whose subject left the board")
 	scn.queue_free()
 
 func _test_soil_completion_wakes_magnet_and_opens_bramble() -> void:

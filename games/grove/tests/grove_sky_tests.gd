@@ -20,7 +20,7 @@ func _initialize() -> void:
 	await _test_calm_hour_shows_no_chrome()
 	await _test_marker_patch_and_info_bar()
 	await _test_sky_patch_refresh_stays_under_playables()
-	await _test_landscape_marker_stays_out_of_playable_cells()
+	await _test_landscape_weather_glyph_stays_in_powered_cell()
 	await _test_starfall_start_tracks_landing_cell_in_landscape()
 	await _test_starfall_scene_payment_and_modal_defer()
 	await _test_starfall_pending_docks_before_catch()
@@ -75,62 +75,88 @@ func _test_calm_hour_shows_no_chrome() -> void:
 		"a forced Calm hour reaches the board as the Calm sky with no lane")
 	ok(calm.board_area.find_child("SkyPatch", true, false) == null, "a Calm hour draws no lane wash")
 	ok(calm.find_child("SkyMarker", true, false) == null, "a Calm hour mounts no lane marker anywhere in the scene")
+	ok(calm.find_child("SkyCellGlyph", true, false) == null, "a Calm hour mounts no in-cell sky glyph")
 	var info := String(calm._info_label.text)
 	ok(info.find("Calm") == -1 and info.find("Sunbeam") == -1 and info.find("Rain") == -1 and info.find("Starfall") == -1, \
 		"a Calm hour leaves the info bar alone — no sky line is written (%s)" % info)
 	calm._rebuild_all()
 	await process_frame
 	ok(calm.board_area.find_child("SkyPatch", true, false) == null \
-		and calm.find_child("SkyMarker", true, false) == null, \
-		"the Calm board stays chrome-free across _rebuild_all, which re-inserts patch and marker for other skies")
+		and calm.find_child("SkyMarker", true, false) == null \
+		and calm.find_child("SkyCellGlyph", true, false) == null, \
+		"the Calm board stays chrome-free across _rebuild_all, which re-inserts patch and glyphs for other skies")
 	calm.queue_free()
 
 func _test_marker_patch_and_info_bar() -> void:
 	var sun = await _open_board("sky_marker_sun", "clear")
+	var sun_cell := _prepare_weather_focus_cell(sun)
 	var patch := sun.board_area.find_child("SkyPatch", true, false) as Control
-	var marker := sun.find_child("SkyMarker", true, false) as Button
+	var sun_glyph := _sky_cell_glyph(sun)
 	ok(patch != null and patch.get_parent() == sun.board_area, "Sunbeam patch mounts inside board_area")
 	ok(patch != null and patch.get_index() > 0, "Sunbeam patch is inserted after the board surface/slot block")
-	ok(marker != null, "Sunbeam marker exists as the single weather chrome")
-	if marker != null:
-		var sun_glyph := marker.find_child("SkyMarkerGlyph", true, false) as TextureRect
-		ok(marker.text == "" and sun_glyph != null, "Sunbeam marker uses a drawn/icon glyph, not a text letter")
-		ok(sun_glyph != null and String(sun_glyph.get_meta("icon_path", "")).find("icon_sky_sun.png") != -1, \
-			"Sunbeam marker is wired to the future sun icon path")
-		var sun_rect: Rect2 = marker.get_global_rect()
-		var sun_board_rect: Rect2 = sun.board_area.get_global_rect()
-		ok(absf(sun_rect.get_center().y - sun_board_rect.position.y) <= sun_rect.size.y * 0.7, \
-			"Sunbeam marker hugs the board edge instead of overlapping the quest cards above")
-		marker.pressed.emit()
+	ok(sun.find_child("SkyMarker", true, false) == null, "Sunbeam no longer mounts a side marker")
+	ok(_sky_cell_glyph_matches(sun, sun_glyph, sun_cell), \
+		"Sunbeam mounts its icon as a faint background over the powered center cell")
+	if sun_glyph != null:
+		ok(String(sun_glyph.get_meta("icon_path", "")).find("icon_sky_sun.png") != -1, \
+			"Sunbeam cell glyph is wired to the future sun icon path")
+		ok(sun_glyph.mouse_filter == Control.MOUSE_FILTER_IGNORE and sun_glyph.modulate.a <= 0.34, \
+			"Sunbeam cell glyph is faint and does not intercept board taps")
+	if sun_cell.x >= 0:
+		_tap_board_with_duplicate_events(sun, sun._cell_pos(sun_cell) + Vector2(sun.csz, sun.csz) / 2.0)
 		await process_frame
-		ok(String(sun._info_label.text).find("Sunbeam") != -1 and String(sun._info_desc_label.text).find("drop coins") != -1, \
-			"tapping the Sunbeam marker writes the sky line into the bottom info bar")
+		ok(sun._selected_cell == sun_cell \
+			and String(sun._info_label.text).find("Sunbeam") != -1 \
+			and String(sun._info_desc_label.text).find("drop coins") != -1, \
+			"tapping the powered Sunbeam cell focuses it and explains the effect in the info bar")
+		sun.board.place(sun_cell, 101)
+		sun._clear_selection()
+		sun._rebuild_all()
+		await process_frame
+		_tap_board_with_duplicate_events(sun, sun._cell_pos(sun_cell) + Vector2(sun.csz, sun.csz) / 2.0)
+		await process_frame
+		ok(sun._selected_cell == sun_cell \
+			and String(sun._info_desc_label.text).find("Sunbeam") != -1 \
+			and String(sun._info_desc_label.text).find("drop coins") != -1, \
+			"focusing an item on a powered Sunbeam cell keeps the item focus and adds the weather explanation")
 	sun._rebuild_all()
 	await process_frame
-	ok(sun.board_area.find_child("SkyPatch", true, false) != null and sun.find_child("SkyMarker", true, false) != null, \
-		"patch and marker survive _rebuild_all")
+	ok(sun.board_area.find_child("SkyPatch", true, false) != null \
+		and sun.find_child("SkyMarker", true, false) == null \
+		and _sky_cell_glyph(sun) != null, \
+		"Sunbeam patch and in-cell glyph survive _rebuild_all")
 	sun._landscape = not sun._landscape
 	sun._rebuild_all()
 	await process_frame
-	ok(sun.board_area.find_child("SkyPatch", true, false) != null, "patch survives an orientation flip/reflow")
+	ok(sun.board_area.find_child("SkyPatch", true, false) != null and _sky_cell_glyph(sun) != null, \
+		"Sunbeam patch and in-cell glyph survive an orientation flip/reflow")
 	sun.queue_free()
 
 	var rain = await _open_board("sky_marker_rain", "rain")
-	var rain_marker := rain.find_child("SkyMarker", true, false) as Button
-	ok(rain_marker != null, "Rain marker exists")
-	if rain_marker != null:
-		var rain_glyph := rain_marker.find_child("SkyMarkerGlyph", true, false) as TextureRect
-		ok(rain_marker.text == "" and rain_glyph != null, "Rain marker uses a drawn/icon glyph, not a text letter")
-		ok(rain_glyph != null and String(rain_glyph.get_meta("icon_path", "")).find("icon_sky_rain.png") != -1, \
-			"Rain marker is wired to the future rain icon path")
-		var rain_rect: Rect2 = rain_marker.get_global_rect()
-		var rain_board_rect: Rect2 = rain.board_area.get_global_rect()
-		ok(rain_rect.position.x >= 16.0 and rain_rect.end.x <= rain_board_rect.position.x + 6.0, \
-			"Rain marker keeps a screen gutter while staying on the mat's left edge")
-		rain_marker.pressed.emit()
+	var raw_rain_cell := _call_sky_icon_cell(rain)
+	if raw_rain_cell.x >= 0 and not rain.board.is_open(raw_rain_cell):
+		_tap_board_with_duplicate_events(rain, rain._cell_pos(raw_rain_cell) + Vector2(rain.csz, rain.csz) / 2.0)
 		await process_frame
-		ok(String(rain._info_label.text).find("Rain") != -1 and String(rain._info_desc_label.text).find("water") != -1, \
-			"tapping the Rain marker writes the rain line into the bottom info bar")
+		ok(rain._selected_cell == raw_rain_cell \
+			and String(rain._info_label.text).find("Rain") != -1 \
+			and String(rain._info_desc_label.text).find("water") != -1, \
+			"tapping a sealed powered Rain center cell focuses it and explains the weather before locked-cell info")
+		rain._clear_selection()
+	var rain_cell := _prepare_weather_focus_cell(rain)
+	var rain_glyph := _sky_cell_glyph(rain)
+	ok(rain.find_child("SkyMarker", true, false) == null, "Rain no longer mounts a side marker")
+	ok(_sky_cell_glyph_matches(rain, rain_glyph, rain_cell), \
+		"Rain mounts its icon as a faint background over the powered center cell")
+	if rain_glyph != null:
+		ok(String(rain_glyph.get_meta("icon_path", "")).find("icon_sky_rain.png") != -1, \
+			"Rain cell glyph is wired to the future rain icon path")
+	if rain_cell.x >= 0:
+		_tap_board_with_duplicate_events(rain, rain._cell_pos(rain_cell) + Vector2(rain.csz, rain.csz) / 2.0)
+		await process_frame
+		ok(rain._selected_cell == rain_cell \
+			and String(rain._info_label.text).find("Rain") != -1 \
+			and String(rain._info_desc_label.text).find("water") != -1, \
+			"tapping the powered Rain cell focuses it and explains the effect in the info bar")
 	rain.queue_free()
 
 func _test_sky_patch_refresh_stays_under_playables() -> void:
@@ -145,8 +171,8 @@ func _test_sky_patch_refresh_stays_under_playables() -> void:
 		"Sunbeam patch refresh keeps the wash below pieces/generators")
 	sun.queue_free()
 
-func _test_landscape_marker_stays_out_of_playable_cells() -> void:
-	var sun = await _open_board("sky_landscape_marker", "clear")
+func _test_landscape_weather_glyph_stays_in_powered_cell() -> void:
+	var sun = await _open_board("sky_landscape_glyph", "clear")
 	sun._landscape = true
 	for axis in [SkyLogic.AXIS_ROW, SkyLogic.AXIS_COLUMN]:
 		sun._sky_state = {
@@ -158,9 +184,13 @@ func _test_landscape_marker_stays_out_of_playable_cells() -> void:
 		}
 		sun._sync_sky_patch_marker(false)
 		await process_frame
-		var marker := sun.find_child("SkyMarker", true, false) as Button
-		ok(marker != null and not _marker_intersects_playable_cells(sun, marker), \
-			"landscape %s marker stays off playable cells despite stopping mouse input" % axis)
+		var glyph := _sky_cell_glyph(sun)
+		var cell := _call_sky_icon_cell(sun)
+		ok(sun.find_child("SkyMarker", true, false) == null \
+			and cell.x >= 0 \
+			and glyph != null \
+			and _sky_cell_glyph_matches(sun, glyph, cell), \
+			"landscape %s weather glyph stays inside the powered center cell" % axis)
 	sun.queue_free()
 
 func _test_starfall_start_tracks_landing_cell_in_landscape() -> void:
@@ -275,7 +305,7 @@ func _test_starfall_ignores_non_catch_taps() -> void:
 		star.board.place(occupied, 101)
 	star._rebuild_all()
 	await process_frame
-	var off_lane := _empty_off_lane_cell(star)
+	var off_lane := _ensure_empty_off_lane_cell(star)
 	var marker := star.find_child("SkyMarker", true, false) as Button
 	# Without this guard the three asserts below pass VACUOUSLY on a degraded fixture: with no pending
 	# star every "pending is unchanged" read is 0 == 0, and a missing cell just skips its tap entirely.
@@ -655,6 +685,20 @@ func _empty_off_lane_cell(board_scene) -> Vector2i:
 			return v
 	return Vector2i(-1, -1)
 
+func _ensure_empty_off_lane_cell(board_scene) -> Vector2i:
+	var found := _empty_off_lane_cell(board_scene)
+	if found.x >= 0:
+		return found
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			if SkyLogic.in_patch(board_scene._sky_state, cell) or board_scene.board.is_gen(cell):
+				continue
+			board_scene.board.terrain[BoardModel.idx(cell)] = 0
+			board_scene.board.place(cell, 0)
+			return cell
+	return Vector2i(-1, -1)
+
 func _first_item_cell(board_scene) -> Vector2i:
 	for r in G.ROWS:
 		for c in G.COLS:
@@ -709,7 +753,32 @@ func _first_tile_child_index(board_scene) -> int:
 				best = mini(best, node.get_index())
 	return best
 
-func _marker_intersects_playable_cells(board_scene, marker: Control) -> bool:
-	var marker_rect := Rect2(marker.position, marker.size)
-	var inner := Rect2(Vector2.ZERO, Vector2(board_scene._board_w(), board_scene._board_h())).grow(-8.0)
-	return marker_rect.intersects(inner)
+func _sky_cell_glyph(board_scene) -> TextureRect:
+	return board_scene.find_child("SkyCellGlyph", true, false) as TextureRect
+
+func _sky_cell_glyph_matches(board_scene, glyph: TextureRect, cell: Vector2i) -> bool:
+	if glyph == null or cell.x < 0:
+		return false
+	var meta_cell := Vector2i(glyph.get_meta("cell", Vector2i(-1, -1)))
+	var expected: Vector2 = board_scene._cell_pos(cell) + Vector2(float(board_scene.csz), float(board_scene.csz)) * 0.5
+	var ok_match: bool = glyph.get_parent() == board_scene.board_area \
+		and meta_cell == cell \
+		and glyph.get_rect().get_center().distance_to(expected) <= 2.0
+	return ok_match
+
+func _call_sky_icon_cell(board_scene) -> Vector2i:
+	if not board_scene.has_method("_sky_icon_cell"):
+		return Vector2i(-1, -1)
+	return board_scene.call("_sky_icon_cell")
+
+func _prepare_weather_focus_cell(board_scene) -> Vector2i:
+	var cell := _call_sky_icon_cell(board_scene)
+	if cell.x < 0:
+		return cell
+	if not board_scene.board.is_open(cell):
+		board_scene.board.terrain[BoardModel.idx(cell)] = 0
+	if not board_scene.board.is_gen(cell):
+		board_scene.board.place(cell, 0)
+		board_scene._rebuild_all()
+		cell = _call_sky_icon_cell(board_scene)
+	return cell

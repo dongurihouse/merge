@@ -182,6 +182,7 @@ var _sky_state: Dictionary = {}
 var _sky_live_secs := 0.0
 var _sky_patch: Control = null
 var _sky_marker: Button = null
+var _sky_cell_glyph: TextureRect = null
 var _sky_docked_star: Control = null
 var _star_catch_nodes := {}
 var _star_pending_started_secs := -1.0
@@ -515,6 +516,7 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	if board_area == null or not is_instance_valid(board_area):
 		return
 	_clear_starfall_catch_ui()
+	_clear_sky_cell_glyph()
 	for node in [_sky_patch, _sky_marker]:
 		if node != null and is_instance_valid(node):
 			if node.get_parent() != null:
@@ -535,6 +537,9 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	board_area.add_child(patch)
 	board_area.move_child(patch, _sky_patch_insert_index())
 	_sky_patch = patch
+	if sky != SkyLogic.SKY_STARFALL:
+		_sync_sky_cell_glyph(pop_marker)
+		return
 	var marker := _make_sky_marker()
 	board_area.add_child(marker)
 	_sky_marker = marker
@@ -549,6 +554,75 @@ func _sky_patch_insert_index() -> int:
 			if node is Control and is_instance_valid(node) and node.get_parent() == board_area:
 				insert_at = mini(insert_at, node.get_index())
 	return mini(insert_at, board_area.get_child_count() - 1)
+
+func _clear_sky_cell_glyph() -> void:
+	_free_now(_sky_cell_glyph)
+	_sky_cell_glyph = null
+
+func _weather_focus_sky() -> bool:
+	var sky := String(_sky_state.get("sky", ""))
+	return sky == SkyLogic.SKY_SUNBEAM or sky == SkyLogic.SKY_RAIN
+
+func _sky_lane_cells() -> Array:
+	var out: Array = []
+	var axis := String(_sky_state.get("lane_axis", SkyLogic.AXIS_COLUMN))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == SkyLogic.AXIS_ROW:
+		for c in G.COLS:
+			out.append(Vector2i(lane, c))
+	else:
+		for r in G.ROWS:
+			out.append(Vector2i(r, lane))
+	return out
+
+func _sky_icon_cell() -> Vector2i:
+	if board == null or _sky_state.is_empty() or not SkyLogic.gate_open() or not _weather_focus_sky():
+		return Vector2i(-1, -1)
+	var center := _lane_center_cell()
+	if board.is_open(center) and not board.is_gen(center):
+		return center
+	var best := Vector2i(-1, -1)
+	var best_dist := 1 << 20
+	for raw_cell in _sky_lane_cells():
+		var cell := Vector2i(raw_cell)
+		if not board.is_open(cell) or board.is_gen(cell):
+			continue
+		var d := absi(cell.x - center.x) + absi(cell.y - center.y)
+		if d < best_dist:
+			best = cell
+			best_dist = d
+	if best.x >= 0:
+		return best
+	if board.in_bounds(center) and SkyLogic.in_patch(_sky_state, center):
+		return center
+	return Vector2i(-1, -1)
+
+func _sync_sky_cell_glyph(pop_glyph: bool = false) -> void:
+	if board_area == null or not is_instance_valid(board_area) or not _weather_focus_sky():
+		return
+	var cell := _sky_icon_cell()
+	if cell.x < 0:
+		return
+	var glyph := TextureRect.new()
+	glyph.name = "SkyCellGlyph"
+	glyph.texture = _sky_marker_texture()
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.modulate = Color(1, 1, 1, 0.28)
+	glyph.set_meta("icon_path", _sky_marker_icon_path())
+	glyph.set_meta("cell", cell)
+	var inset := maxf(8.0, csz * 0.16)
+	glyph.position = _cell_pos(cell) + Vector2(inset, inset)
+	glyph.custom_minimum_size = Vector2(csz - inset * 2.0, csz - inset * 2.0)
+	glyph.size = glyph.custom_minimum_size
+	glyph.pivot_offset = glyph.size * 0.5
+	board_area.add_child(glyph)
+	if _sky_patch != null and is_instance_valid(_sky_patch):
+		board_area.move_child(glyph, mini(_sky_patch.get_index() + 1, board_area.get_child_count() - 1))
+	_sky_cell_glyph = glyph
+	if pop_glyph:
+		FX.pop(glyph)
 
 func _make_sky_marker() -> Button:
 	var marker := Button.new()
@@ -734,16 +808,39 @@ func _sky_info_desc() -> String:
 		return Strings.t("board.sky.starfall.catch")
 	return Strings.t("board.sky.%s.desc" % String(_sky_state.get("sky", "sunbeam")))
 
-func _on_sky_marker_pressed() -> void:
+func _weather_info_for_cell(cell: Vector2i) -> String:
+	if not _is_weather_focus_cell(cell):
+		return ""
+	return "%s: %s" % [_sky_info_title(), _sky_info_desc()]
+
+func _is_weather_focus_cell(cell: Vector2i) -> bool:
+	if board == null or cell.x < 0 or _sky_state.is_empty() or not SkyLogic.gate_open() or not _weather_focus_sky():
+		return false
+	return board.in_bounds(cell) and SkyLogic.in_patch(_sky_state, cell)
+
+func _write_sky_info_bar() -> void:
 	if _info_label == null or not is_instance_valid(_info_label):
 		return
-	_selected_cell = Vector2i(-1, -1)
-	if _focus_ring != null and is_instance_valid(_focus_ring):
-		_focus_ring.queue_free()
-		_focus_ring = null
+	_place_info_button(false)
+	_hide_mastery_info_row()
+	_hide_soil_chips()
+	_hide_seed_chips()
+	_hide_improvement_chips()
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = false
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():
 			c.queue_free()
+		var glyph := TextureRect.new()
+		glyph.name = "SkyInfoGlyph"
+		glyph.texture = _sky_marker_texture()
+		glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glyph.custom_minimum_size = Vector2(_info_item_px, _info_item_px)
+		glyph.size = glyph.custom_minimum_size
+		glyph.set_meta("icon_path", _sky_marker_icon_path())
+		_info_icon.add_child(glyph)
 	_info_label.text = _sky_info_title()
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		_info_desc_label.text = _sky_info_desc()
@@ -757,6 +854,21 @@ func _on_sky_marker_pressed() -> void:
 		_info_burst.visible = false
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
+
+func _select_sky_cell(cell: Vector2i) -> bool:
+	if not _is_weather_focus_cell(cell):
+		return false
+	_selected_cell = cell
+	_selected_improvement = false
+	_show_focus(cell)
+	_write_sky_info_bar()
+	return true
+
+func _on_sky_marker_pressed() -> void:
+	_selected_cell = Vector2i(-1, -1)
+	_selected_improvement = false
+	_hide_focus()
+	_write_sky_info_bar()
 
 func _reconcile_starfall_pending_for_sky() -> void:
 	var sky_save := SkyLogic.grove_sky_state()
@@ -791,16 +903,7 @@ func _pending_star_code() -> int:
 	return int(SkyLogic.grove_sky_state().get("pending", 0))
 
 func _star_lane_cells() -> Array:
-	var out: Array = []
-	var axis := String(_sky_state.get("lane_axis", "column"))
-	var lane := int(_sky_state.get("lane", 0))
-	if axis == "row":
-		for c in G.COLS:
-			out.append(Vector2i(lane, c))
-	else:
-		for r in G.ROWS:
-			out.append(Vector2i(r, lane))
-	return out
+	return _sky_lane_cells()
 
 func _star_catch_cells() -> Array:
 	var out: Array = []
@@ -3663,6 +3766,15 @@ func _refresh_selected_soil_info() -> void:
 	if _selected_improvement and board.has_improvement(_selected_cell):
 		_select_improvement_cell(_selected_cell)
 		return
+	# A GENERATOR lives in board.gens, never in board.items — item_at() reads 0 on its cell, so without
+	# this branch the tray for a just-tapped generator fell through to _clear_selection() below and the
+	# next water tick silently defocused it (~0.7s after the tap). Nothing the generator tray shows reads
+	# `water` — the title/tier/boost detail, the mastery row and the burst chip are driven by coins, boost
+	# charges and pops — and each of those has its own refresh hook (_refresh_selected_generator_mastery()
+	# from _after_board_change, the pop path's own relabel). So this HOLDS the selection rather than
+	# rebuilding it: re-running _select_generator() every regen tick would just churn the preview sprite.
+	if board.is_gen(_selected_cell):
+		return
 	if board.is_growing(_selected_cell):
 		_info_label.text = _soil_info_title(_selected_cell)
 		_refresh_soil_chips(_selected_cell)
@@ -3714,6 +3826,9 @@ func _select_item(cell: Vector2i) -> void:
 		_hide_mastery_info_row()
 		var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
 		var desc := _item_description_for_cell(cell, code)
+		var weather_desc := _weather_info_for_cell(cell)
+		if weather_desc != "":
+			desc = weather_desc if desc == "" else "%s · %s" % [desc, weather_desc]
 		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
 		_info_desc_label.visible = true
 	var show_info := seed_kind == "" and not _info_button_hidden
@@ -4688,6 +4803,8 @@ func _on_release(pos: Vector2) -> void:
 	if _drag_node == null:
 		var tap := _pos_to_cell(pos)
 		if tap == _press_cell and pos.distance_to(_press_pos) <= _drag_slop_px() and _catch_pending_star_at(tap):
+			return
+		if tap == _press_cell and pos.distance_to(_press_pos) <= _drag_slop_px() and _select_sky_cell(tap):
 			return
 		if tap == _press_cell and board.is_bramble(tap):
 			_show_locked_cell_info(tap)
