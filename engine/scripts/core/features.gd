@@ -41,6 +41,7 @@ static var FLAGS := {
 	"game_center": true,          # iOS Game Center sign-in for a pseudonymous player id (plugin installed via `make ios-plugins`; sign-in is safe to test, but DO NOT rely on the id for targeting until server-side signature verification exists — see docs/design/apple-services-setup.md §5)
 	"mail_sync": false,           # server-driven mail: pull the remote operator feed on map open (OFF until core/inbox_sync.gd::FEED_URL points at a real endpoint)
 	"update_check": true,         # iOS: at home open, check the App Store (iTunes lookup) for a newer version and offer the optional update prompt (core/update_check.gd → ui/update_prompt.gd). Platform-gated inside check() → no-op off iOS
+	"improvements": true,         # Soil + Magnet buildable board-cell improvements (home board only)
 
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)

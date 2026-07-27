@@ -43,6 +43,7 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")   # §1 idle yield + sell dials (the live residents coin SOURCES) — NOTE the full bucket re-author is the parked §5 economy pass
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
@@ -65,6 +66,11 @@ var sell_coins := 0            # coins from selling only (the Y "cleanup, not in
 var boost_taps := 0            # generator taps left on the live temporary boost (§6 coin sink)
 var boost_coins_spent := 0     # coins sunk into boost activations (a repeatable Z sink)
 var boosts_bought := 0         # how many boosts the bot has activated over the run
+var improve_spend := 0         # coins sunk into paid Soil builds/ranks/moves (cell improvements)
+var soils_built := 0
+var soil_rank := 1
+var magnets_built := 0
+var magnet_gems_spent := 0     # acorns/diamonds sunk into Magnet builds (D ledger)
 # §1 POPULATION loop: once a map COMPLETES, its resident roster opens. Welcoming spends coins
 # (base/core) or diamonds (premium signature); two-of-a-kind auto-merges a tier up. NO roster cap,
 # so the bot re-buys base feeders forever — this is the ENDLESS coin sink that replaced the hub.
@@ -334,18 +340,18 @@ func _initialize() -> void:
 	# hard checks). ---
 	var other_coins := coins_spendable - sell_coins               # §6 drops/chests/treats + §1 habitat yield/sell
 	var faucet := coins_earned + coins_spendable
-	var coin_sink := boost_coins_spent + expedition_spend + cluster_spend
+	var coin_sink := boost_coins_spent + expedition_spend + cluster_spend + improve_spend
 	print("  -- Z coins --  faucet %d🪙 = CLOCK %d (quest) + SPENDABLE %d (sell %d + other %d, incl. §1 habitat yield %d / sell %d) · held %d🪙" % \
 		[faucet, coins_earned, coins_spendable, sell_coins, other_coins, habitat_yield, habitat_sell, coins])
-	print("                 sink %d🪙 = clusters %d🪙 + boosts %d🪙 (%d) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
-		[coin_sink, cluster_spend, boost_coins_spent, boosts_bought, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, faucet)))])
+	print("                 sink %d🪙 = clusters %d🪙 + boosts %d🪙 (%d) + improvements %d🪙 (%d soil/r%d) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
+		[coin_sink, cluster_spend, boost_coins_spent, boosts_bought, improve_spend, soils_built, soil_rank, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, faucet)))])
 
 	# --- D: the DIAMOND economy (previously unmodeled). Faucet = level-ups (LEVEL_DIAMONDS) +
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
 	# (RESIDENT_PREMIUM_COST each). REPORTED as a ledger — the premium sink is gated behind completing
 	# a map, so an early/short run may show 0 spend (the faucet leads the sink, by design). ---
-	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
-		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, resident_gems_spent, residents_premium, diamonds])
+	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 = magnets %d (%d) + premium residents %d (%d) · balance %d💎" % \
+		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, magnet_gems_spent + resident_gems_spent, magnet_gems_spent, magnets_built, resident_gems_spent, residents_premium, diamonds])
 	print("                 NOTE the premium SINK reads 0 by construction: it models the retired per-map WELCOME roster")
 	print("                 (MAPS[z].spots, now save-compat legacy), so this ledger is faucet-only until the parked")
 	print("                 §5 bucket economy pass re-authors the live premium sink. Do not read 0 as a finding.")
@@ -425,6 +431,31 @@ func _earn_coins(amount: int) -> void:
 			map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
 		diamonds += G.LEVEL_DIAMONDS * up
 		gems_from_levels += G.LEVEL_DIAMONDS * up
+
+func _buy_improvement_sink() -> bool:
+	if soils_built < int(G.SOIL_MAX):
+		var soil_price := Improvements.soil_build_price(soils_built)
+		if soil_price == 0 or (soil_price > 0 and coins >= soil_price):
+			if soil_price > 0:
+				coins -= soil_price
+				improve_spend += soil_price
+			soils_built += 1
+			return true
+	if soils_built > 0 and soil_rank < int(G.SOIL_MAX_RANK):
+		var rank_price := Improvements.soil_rank_price(soil_rank)
+		if rank_price > 0 and coins >= rank_price:
+			coins -= rank_price
+			improve_spend += rank_price
+			soil_rank += 1
+			return true
+	if magnets_built < int(G.MAGNET_MAX):
+		var magnet_price := Improvements.magnet_build_price(magnets_built)
+		if magnet_price > 0 and diamonds >= magnet_price:
+			diamonds -= magnet_price
+			magnet_gems_spent += magnet_price
+			magnets_built += 1
+			return true
+	return false
 
 # §6.C BONUS GENERATORS (gen redesign 2026-06-28) — replaces the retired constant-accrual accumulators.
 # A main-generator tap (the burst block in _play_session) MAY side-spawn a limited-use bonus generator
@@ -861,6 +892,8 @@ func _play_session() -> Dictionary:
 			boost_coins_spent += G.BOOST_COST
 			boost_taps = G.BOOST_TAPS
 			boosts_bought += 1
+			continue
+		if _buy_improvement_sink():
 			continue
 		# §1 EXPEDITION — the live residents coin SINK: pay Explore.MIN_COST to acquire spirits, only while
 		# map-0's habitat has ROOM to place (once full, an expedition is pure loss, so a rational player stops —

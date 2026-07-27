@@ -10,6 +10,8 @@ extends RefCounted
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 
@@ -74,7 +76,7 @@ static func produce_due_generators(board: BoardModel, quests: Array) -> Dictiona
 	var bagged: Array = []
 	for id in [gid]:                              # one owed gen per tap (kept as a loop to mirror the source)
 		var dest := Vector2i(-1, -1)
-		for c in board.empty_ground_cells():     # gen redesign: NO board cap — place freely on any open cell
+		for c in board.empty_auto_gen_cells():   # auto-placement skips improved cells; manual drops may use them
 			if not board.gens.has(c):
 				dest = c
 				break
@@ -98,7 +100,7 @@ static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
 	var tier := board.top_gen_tier(line)
 	if tier <= 0 or tier >= G.GEN_TOP_TIER:
 		return {"landed": [], "bagged": []}          # maxed line → no merge fuel, no new strand
-	for c in board.empty_ground_cells():
+	for c in board.empty_auto_gen_cells():
 		if not board.gens.has(c):
 			board.place_gen(dup_id, c, tier)
 			return {"landed": [c], "bagged": []}
@@ -201,3 +203,76 @@ static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
 	if coins > 0:
 		Save.add_coins(coins)                     # spendable only — SELLING NEVER ADVANCES THE CLOCK (quests only)
 	return {"sold": true, "coins": coins}
+
+static func build_improvement(board: BoardModel, cell: Vector2i, kind: String) -> Dictionary:
+	if not Improvements.is_valid_kind(kind) or not board.can_build_improvement(cell):
+		return {"built": false, "price": -1, "currency": ""}
+	var count := board.improvement_count(kind)
+	var price := Improvements.build_price(kind, count)
+	if price < 0:
+		return {"built": false, "price": price, "currency": ""}
+	if kind == Improvements.KIND_MAGNET:
+		if not Save.spend_diamonds(price):
+			return {"built": false, "price": price, "currency": "diamonds"}
+	else:
+		if price > 0 and not Save.spend(price, "improvement"):
+			return {"built": false, "price": price, "currency": "coins"}
+	if not board.build_improvement(cell, kind):
+		return {"built": false, "price": price, "currency": ""}
+	return {"built": true, "price": price, "currency": "diamonds" if kind == Improvements.KIND_MAGNET else "coins"}
+
+static func move_improvement(board: BoardModel, from: Vector2i, to: Vector2i) -> Dictionary:
+	if not board.has_improvement(from) or not board.can_build_improvement(to):
+		return {"moved": false}
+	if not Save.spend(G.IMPROVEMENT_MOVE_COST, "improvement"):
+		return {"moved": false, "price": int(G.IMPROVEMENT_MOVE_COST)}
+	return {"moved": board.move_improvement(from, to), "price": int(G.IMPROVEMENT_MOVE_COST)}
+
+static func demolish_improvement(board: BoardModel, cell: Vector2i) -> Dictionary:
+	return {"demolished": board.demolish_improvement(cell)}
+
+static func rank_soil(board: BoardModel, cell: Vector2i) -> Dictionary:
+	var row := board.improvement_at(cell)
+	if String(row.get("kind", "")) != Improvements.KIND_SOIL:
+		return {"ranked": false, "price": -1}
+	var price := Improvements.soil_rank_price(int(row.get("rank", 1)))
+	if price < 0:
+		return {"ranked": false, "price": price}
+	if not Save.spend(price, "improvement"):
+		return {"ranked": false, "price": price}
+	return {"ranked": board.rank_soil(cell), "price": price}
+
+static func water_soil(board: BoardModel, cell: Vector2i, now: float) -> Dictionary:
+	return {"watered": board.apply_water_to_soil(cell, now)}
+
+static func finish_soil(board: BoardModel, cell: Vector2i, now: float) -> Dictionary:
+	if not board.is_growing(cell):
+		return {"finished": false, "cost": 0}
+	var cost := Improvements.finish_cost(board.soil_remaining(cell, now))
+	if not Save.spend_diamonds(cost):
+		return {"finished": false, "cost": cost}
+	return {"finished": board.finish_soil_now(cell, now), "cost": cost}
+
+static func magnet_merge_once(board: BoardModel, magnet_cell: Vector2i, asked_codes: Dictionary = {}, growing_cells: Array = [], chain_cell: Vector2i = Vector2i(-1, -1)) -> Dictionary:
+	if chain_cell != Vector2i(-1, -1):
+		return {"merged": false, "reason": "chain"}
+	var row := board.improvement_at(magnet_cell)
+	if String(row.get("kind", "")) != Improvements.KIND_MAGNET:
+		return {"merged": false, "reason": "missing"}
+	var pairs := BoardLogic.range_pairs(board, Improvements.range_cells(board, magnet_cell))
+	for pair in pairs:
+		var a: Vector2i = pair[0]
+		var b: Vector2i = pair[1]
+		var code := board.item_at(a)
+		if asked_codes.has(code) or growing_cells.has(a) or growing_cells.has(b):
+			continue
+		var da := (a - magnet_cell).length_squared()
+		var db := (b - magnet_cell).length_squared()
+		var target := a
+		var source := b
+		if db < da or (db == da and BoardModel.idx(b) < BoardModel.idx(a)):
+			target = b
+			source = a
+		var produced := board.merge(source, target)
+		return {"merged": true, "from": source, "to": target, "code": produced}
+	return {"merged": false, "reason": "none"}

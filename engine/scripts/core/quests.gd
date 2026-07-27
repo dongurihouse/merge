@@ -200,6 +200,17 @@ static func ready_first(items: Array, ready: Array) -> Array:
 			tail.append(items[i])
 	return head + tail
 
+static func asked_codes(quests: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for q in quests:
+		if not (q is Dictionary):
+			continue
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		out[int(it.line) * 100 + int(it.tier)] = true
+	return out
+
 # --- §7 stand PORTRAIT (the giver face) ---------------------------------------------------------------
 # Each quest carries a stable `giver` index (0..pool-1): the character portrait drawn on its stand. The
 # rule the board prefers is on-screen variety: do not reuse a face already on the fence while the scene pool

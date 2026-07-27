@@ -238,6 +238,18 @@ const BOOST_BONUS := 2                    # >0 marks "a boost is live" to burst_
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
 
+# Cell improvements (Soil + Magnet), spec 2026-07-26. Prices are keyed by the
+# CURRENT count of that kind on the board: count 0 buys the first slot.
+const SOIL_MAX := 9
+const MAGNET_MAX := 3
+const SOIL_MAX_RANK := 3
+const SOIL_BUILD_PRICES := [0, 0, 0, 500, 1000, 2000, 4000, 8000, 16000]
+const MAGNET_BUILD_PRICES := [25, 50, 100]
+const IMPROVEMENT_MOVE_COST := 100
+const SOIL_RANK_PRICES := [600, 1500]
+const SOIL_WATER_COST := 10
+const SOIL_STEP_SECONDS := [10.0, 45.0, 180.0, 900.0, 1800.0, 3600.0, 14400.0, 28800.0, 57600.0, 86400.0, 172800.0]
+
 # ─────────────────────────────────────────────────────────────────────────────
 # §1 RESIDENTS — the population sub-game (replaces the removed home-hub coin-yield
 # loop). Residents are WELCOMED (bought) on COMPLETED maps; two of the same type+tier

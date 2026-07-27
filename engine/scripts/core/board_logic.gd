@@ -35,6 +35,35 @@ static func find_mergeable_pair(board: BoardModel) -> Array:
 		seen[k] = BoardModel.cell_of(i)
 	return []
 
+static func range_pairs(board: BoardModel, cells: Array) -> Array:
+	var ordered: Array = []
+	for cell in cells:
+		var c := Vector2i(cell)
+		if board.in_bounds(c):
+			ordered.append(c)
+	ordered.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return BoardModel.idx(a) < BoardModel.idx(b))
+	var pairs: Array = []
+	for i in ordered.size():
+		for j in range(i + 1, ordered.size()):
+			var a: Vector2i = ordered[i]
+			var b: Vector2i = ordered[j]
+			if board.can_merge(a, b):
+				pairs.append([a, b])
+	pairs.sort_custom(func(pa: Array, pb: Array) -> bool:
+		var ca: int = board.item_at(pa[0])
+		var cb: int = board.item_at(pb[0])
+		var ta := BoardModel.tier_of(ca)
+		var tb := BoardModel.tier_of(cb)
+		if ta != tb:
+			return ta < tb
+		var ia := mini(BoardModel.idx(pa[0]), BoardModel.idx(pa[1]))
+		var ib := mini(BoardModel.idx(pb[0]), BoardModel.idx(pb[1]))
+		if ia != ib:
+			return ia < ib
+		return maxi(BoardModel.idx(pa[0]), BoardModel.idx(pa[1])) < maxi(BoardModel.idx(pb[0]), BoardModel.idx(pb[1]))
+	)
+	return pairs
+
 # §2 seam (pure, headless-testable): the sealed cells the hinted pair would open.
 # A merge can land on EITHER cell of the pair, so we union the level-reached sealed
 # neighbours of both (deduped). Empty pair, or nothing level-reached adjacent → []. The
