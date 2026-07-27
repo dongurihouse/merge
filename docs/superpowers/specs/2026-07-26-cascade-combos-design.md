@@ -91,9 +91,14 @@ the run.
   the pre-roll.
 - After each merge resolves, if `_chain_run` is non-empty: pop the next partner, keep
   `animating` true, `board.merge(result_cell, partner)`, slide + standard merge-impact FX,
-  `_chain_n += 1`, reward hook (§5), repeat. Step pace `CHAIN_STEP_MS = 250`.
-- Per step ≥ ×2: a "×n" floater at the merge (`FX.floating_text`, `fx.gd:330`), size stepping
-  up with n. `FX.burst` (`fx.gd:664`) at ×5. Offset from the streak's milestone words.
+  `_chain_n += 1`, reward hook (§5), repeat. Step pace ramps from `CHAIN_STEP_START_MS` (`320`)
+  to `CHAIN_STEP_END_MS` (`180`) by `CHAIN_STEP_RAMP_END_N` (`5`); `CHAIN_STEP_RAMP_ENABLED`
+  falls back to `CHAIN_STEP_MS` (`250`).
+- Per step ≥ ×2: a "×n" floater at the run origin cell (`FX.floating_text`, `fx.gd:330`), size
+  stepping up with n. `CHAIN_COUNTER_ANCHOR_ORIGIN` falls back to the step merge cell. `FX.burst`
+  (`fx.gd:664`) stays at the ×5+ merge cell. Offset from the streak's milestone words.
+- During an armed run, `CHAIN_LOCK_DIM_ENABLED` dims `board_area` to `CHAIN_LOCK_DIM_ALPHA`
+  (`0.86`); `_finish_chain()` restores it.
 
 ## 5 · Rewards
 
