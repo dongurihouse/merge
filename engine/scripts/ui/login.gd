@@ -21,7 +21,6 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
-const STRAW := Pal.STRAW
 
 static var KIT_PATH := Game.kit()
 const WEEK := 7
@@ -230,7 +229,7 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 				d["on_claim"] = func() -> void:
 					var fx_host: Control = rb.get("fx_host", host) ; var at := fx_host.get_viewport_rect().size * 0.5
 					if Login.claim_today():
-						_celebrate(fx_host, at, Login.reward_for(day))
+						FX.celebrate_rewards(fx_host, at, Login.reward_for(day))
 						if rb.fn.is_valid():
 							rb.fn.call()                 # flip today's card to ✓ behind the celebration
 						_close_after(fx_host, opts, CLAIM_CLOSE_DELAY)
@@ -648,14 +647,3 @@ static func _close_after(overlay: Control, opts: Dictionary, delay: float) -> vo
 		var tw := overlay.create_tween()
 		tw.tween_property(overlay, "modulate:a", 0.0, 0.22)
 		tw.tween_callback(func() -> void: _dismiss(overlay, opts)))
-
-# Play the collected rung's juice — a celebratory reward shout per granted component.
-static func _celebrate(host: Control, at: Vector2, rew: Dictionary) -> void:
-	Audio.play("merge_success", -3.0, 1.2)
-	var dy := 0.0
-	if int(rew.get("gems", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "gem", int(rew.gems), Color("#A9C7E8")); dy += 34
-	if int(rew.get("coins", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "coin", int(rew.coins), STRAW); dy += 34
-	if int(rew.get("water", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "water", int(rew.water), Color("#9CCDE8")); dy += 34

@@ -147,7 +147,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 			var got := Vault.crack()             # core/vault.gd
 			Audio.play("merge_success", -3.0, 1.2)
 			if got > 0:
-				FX.celebrate_reward(host, at, "gem", got, Color("#A9C7E8"))
+				FX.celebrate_reward(host, at, "gem", got, FX.reward_color("gem"))
 			if is_instance_valid(parent_overlay):
 				parent_overlay.queue_free()
 			if opts.has("refresh"):
