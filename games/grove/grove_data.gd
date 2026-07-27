@@ -577,7 +577,14 @@ static func _build_maps() -> Array:
 # Level-up energy gift. Loosened (20 → 40) to LOOSEN THE EARLY GAME: with the front-loaded level curve below,
 # week-1 level-ups are frequent, so a bigger gift surges water early then tapers automatically as leveling
 # slows — early leveling is actually FELT without permanently changing the cap/regen monetization socket.
-const LEVEL_WATER_GIFT := 40
+# RE-TUNED 40 → 32 (2026-07-26) to give the sim's I2 anti-self-sustain rule (gift ÷ that map's water
+# spend < WATER_REWARD_MAX_RATIO on maps 3+) real headroom. At 40 the p90 worst map-3+ ratio was 0.31
+# with mastery ON and 0.32 with it OFF — ABOVE the 0.30 limit for more than a tenth of seeds in BOTH
+# configurations, so this was never a mastery artifact. At 32 the p90 is 0.26 / 0.25 and steady-state
+# breaches fall from 22 to 1 per 200 sweep runs. 32 is the LARGEST value that buys that: every value
+# below it (31/30/29/28/24) measures the same within noise while costing more of a player-facing
+# reward. Evidence: docs/superpowers/specs/2026-07-26-generator-mastery-design.md §8.
+const LEVEL_WATER_GIFT := 32
 # §map-unlock — the per-spot exp threshold ladder is now ONE REGION PER LEVEL (content.gd: spot_unlock_level
 # / spot_unlock_exp): every spot, in global order, unlocks at its own consecutive level (first region at L2,
 # next at L3, …). So each level-up grants exactly one region and zones map cleanly onto a band of levels —
