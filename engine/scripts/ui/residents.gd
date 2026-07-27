@@ -86,14 +86,24 @@ class DragCard:
 	const TOUCH_DRAG_HOLD_MS := 220
 	const TOUCH_SCROLL_AXIS_BIAS := 1.15
 
-	## With emulate_touch_from_mouse BOTH the mouse event and its emulated touch arrive — the
-	## _down/_dragging flags make the second press/release of a pair a no-op.
+	## BOTH halves of every press arrive here — the platform's real event AND the engine's emulated
+	## twin — and the ORDER inverts by platform (measured at this method, Godot 4.6.2, this
+	## project's settings): a real MOUSE delivers touch_down(-1) then mouse_down(0); a real FINGER
+	## delivers mouse_down(-1) then touch_down(0). So the first event's CLASS does not say which
+	## kind of gesture this is — the DEVICE ID does: the engine stamps DEVICE_ID_EMULATION (-1) on
+	## the twin only. (DisplayServer.is_touchscreen_available() is not a substitute; it reports true
+	## on desktop because emulate_touch_from_mouse is on.)
+	## Every half still DRIVES the machine, exactly as it always did — the _down/_dragging guards
+	## make the second of a pair a no-op. The device id is passed down, never gated on: it only
+	## tells _press which half's KIND to believe. A platform that stamped -1 on real input would
+	## therefore lose the correction, not the dialog.
 	func _gui_input(ev: InputEvent) -> void:
+		var physical := ev.device != InputEvent.DEVICE_ID_EMULATION
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_press(_gp(ev.position), false) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
+			_press(_gp(ev.position), false, physical) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
 			accept_event()
 		elif ev is InputEventScreenTouch:
-			_press(_gp(ev.position), true) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
+			_press(_gp(ev.position), true, physical) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
 			accept_event()
 		elif (ev is InputEventMouseMotion or ev is InputEventScreenDrag) and _down:
 			_move(_gp(ev.position))
@@ -103,8 +113,17 @@ class DragCard:
 	func _gp(local: Vector2) -> Vector2:
 		return get_global_transform() * local
 
-	func _press(gp: Vector2, touch: bool) -> void:
+	## `touch` is THIS event's own kind; `physical` is false for the engine's emulated twin. Whichever
+	## half lands first opens the gesture and states a kind — that keeps the card responsive no matter
+	## what device ids a platform hands out. If the twin that follows is the PHYSICAL one, it corrects
+	## the kind, and only the kind: both halves arrive in the same frame, long before any movement, so
+	## the correction always lands before _move makes the scroll-vs-drag decision. Re-latching
+	## _down_ms/_down_gp/_last_gp here would restart the dwell clock and break the rule that holding
+	## briefly claims the resident, so the correction leaves them alone.
+	func _press(gp: Vector2, touch: bool, physical := true) -> void:
 		if _down:
+			if physical:
+				_touch_down = touch
 			return
 		_down = true
 		_dragging = false
