@@ -56,7 +56,9 @@ func _initialize() -> void:
 	ok(part.size() == 1 and G.LEVEL_BASE_EXP == 7 and G.LEVEL_STEP_EXP == 0,
 		"a partial file overrides only its named keys")
 
-	# a malformed grid (wrong shape) is rejected; the other keys still apply
+	# A malformed grid (wrong shape) is rejected; the other keys still apply. The `ERROR: economy_tuning
+	# min_level: expected 9 rows × 7 cols…` line this prints is EXPECTED — _coerce_grid used to drop a
+	# mis-shaped grid silently, so the board fell back to the const with no signal anywhere.
 	_write(path, {"level_step_exp": 9, "min_level": [[1, 2, 3]]})
 	var bad := G.apply_tuning(path)
 	ok(not bad.has("min_level") and bad.has("level_step_exp"),
