@@ -8,6 +8,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const TAG_Z_INDEX := 20
 const RUNWAY_WIDTH_SCALE := 0.62
+const MERGE_WIDTH_SCALE := 0.82
 const EXTENSION_WIDTH_SCALE := 0.72
 
 @export var inset_frac := 0.10: set = _set_inset
@@ -123,10 +124,11 @@ func _draw_ghost_pad(entry: Dictionary) -> void:
 	var kind := String(entry.get("kind", "ignition"))
 	var color := G.line_color(line)
 	var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * 0.12), Vector2.ONE * cell_size * 0.76)
-	var tint_alpha := 0.08 if kind == "ignition" else 0.035
+	var tint_alpha := 0.08 if kind == "ignition" else (0.055 if kind == "merge" else 0.035)
 	draw_rect(rect, Color(color, tint_alpha), true)
-	var alpha := _alpha_for_n(n) + 0.08 if kind == "ignition" else 0.28
-	var edge := Color(color.lightened(0.25 if kind == "ignition" else 0.12), alpha)
+	var alpha := _alpha_for_n(n) + 0.08 if kind == "ignition" else (0.42 if kind == "merge" else 0.28)
+	var light := 0.25 if kind == "ignition" else (0.34 if kind == "merge" else 0.12)
+	var edge := Color(color.lightened(light), alpha)
 	_draw_dashed_rect(rect, edge, _mark_thickness(entry))
 
 func _draw_perimeter_edges(cell: Vector2i, cell_set: Dictionary, shadow: Color, edge: Color, width: float) -> void:
@@ -240,7 +242,7 @@ func _thickness_for_n(n: int) -> float:
 func _mark_thickness(entry: Dictionary) -> float:
 	var kind := String(entry.get("kind", "armed"))
 	var n := int(entry.get("n", entry.get("would_be_n", 3)))
-	var scale := RUNWAY_WIDTH_SCALE if kind == "runway" else (EXTENSION_WIDTH_SCALE if kind == "extension" else 1.0)
+	var scale := RUNWAY_WIDTH_SCALE if kind == "runway" else (MERGE_WIDTH_SCALE if kind == "merge" else (EXTENSION_WIDTH_SCALE if kind == "extension" else 1.0))
 	return maxf(1.4, _thickness_for_n(n) * scale)
 
 func _tag_font_size(n: int, weak := false) -> int:

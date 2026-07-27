@@ -22,6 +22,7 @@ func _initialize() -> void:
 	await _test_chain_rewards_and_chest_open_clock()
 	await _test_long_chain_rewards_upgrade_and_cap()
 	await _test_drag_guide_pads_and_generator_exclusion()
+	await _test_drag_merge_targets_are_highlighted()
 	await _test_runway_resting_outline_and_tag()
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
@@ -162,6 +163,31 @@ func _outline_pad_count_by_kind(b: Node, kind: String) -> int:
 			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
 				count += 1
 	return count
+
+func _outline_pad_cells_by_kind(b: Node, kind: String) -> Array:
+	var out: Array = []
+	var o := _outline(b)
+	if o == null:
+		return out
+	var pads = o.get("ghost_pads")
+	if pads is Array:
+		for raw in pads:
+			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
+				out.append(Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))))
+	return out
+
+func _outline_has_pad_kind_at(b: Node, kind: String, cell: Vector2i) -> bool:
+	var o := _outline(b)
+	if o == null:
+		return false
+	var pads = o.get("ghost_pads")
+	if pads is Array:
+		for raw in pads:
+			if raw is Dictionary \
+					and String((raw as Dictionary).get("kind", "")) == kind \
+					and Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))) == cell:
+				return true
+	return false
 
 func _outline_has_tag(b: Node, text: String) -> bool:
 	var o := _outline(b)
@@ -453,7 +479,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count(b) == 1, "beginning an item drag shows one cascade ghost pad")
+	ok(_outline_pad_count_by_kind(b, "ignition") == 1, "beginning an item drag shows one cascade ignition pad")
 	var old_outline := _outline(b)
 	if old_outline != null:
 		b.board_area.remove_child(old_outline)
@@ -483,7 +509,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(x2_from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count(b) == 0, "x2-only drag placements do not show cascade ghost pads")
+	ok(_outline_pad_count_by_kind(b, "ignition") == 0, "x2-only drag placements do not show cascade ignition pads")
 	b._on_release(b._cell_pos(x2_from) + half)
 
 	_blank_fixture(b, {})
@@ -495,6 +521,43 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	await process_frame
 	ok(_outline_pad_count(b) == 0, "generator drags do not show cascade ghost pads")
 	b._on_release(b._cell_pos(gen_cell) + half)
+	b.queue_free()
+
+func _test_drag_merge_targets_are_highlighted() -> void:
+	var b := _open_board("cascade_drag_merge_targets")
+	await process_frame
+	var from := Vector2i(6, 6)
+	var target_a := Vector2i(2, 1)
+	var target_b := Vector2i(0, 0)
+	var placements := {}
+	placements[from] = 101
+	placements[target_a] = 101
+	placements[target_b] = 101
+	placements[Vector2i(3, 3)] = 102
+	_blank_fixture(b, placements)
+	_input_begin_drag(b, from)
+	await process_frame
+	ok(_outline_pad_count_by_kind(b, "merge") == 2,
+		"dragging an item highlights every same-code merge target")
+	var merge_cells := _outline_pad_cells_by_kind(b, "merge")
+	ok(merge_cells.has(target_a) and merge_cells.has(target_b),
+		"merge-target highlights are attached to the actual matching pieces")
+	_input_release(b, from)
+	await process_frame
+
+	var chain_target := Vector2i(3, 1)
+	placements = {}
+	placements[from] = 101
+	placements[chain_target] = 101
+	placements[Vector2i(3, 2)] = 102
+	placements[Vector2i(3, 3)] = 103
+	_blank_fixture(b, placements)
+	_input_begin_drag(b, from)
+	await process_frame
+	ok(_outline_has_pad_kind_at(b, "ignition", chain_target) and not _outline_has_pad_kind_at(b, "merge", chain_target),
+		"a merge target that starts a cascade is highlighted as chain creation, not ordinary merge")
+	_input_release(b, from)
+	await process_frame
 	b.queue_free()
 
 func _test_runway_resting_outline_and_tag() -> void:
@@ -531,7 +594,7 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 	var from := Vector2i(6, 6)
 	var want := {
 		1: {"ignition": 0, "extension": 3},
-		2: {"ignition": 3, "extension": 0},
+		2: {"ignition": 4, "extension": 0},
 		3: {"ignition": 0, "extension": 0},
 		4: {"ignition": 0, "extension": 0},
 		5: {"ignition": 0, "extension": 3},
