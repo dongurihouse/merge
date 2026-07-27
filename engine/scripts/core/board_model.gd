@@ -458,6 +458,22 @@ func apply_water_to_soil(cell: Vector2i, now: float) -> bool:
 	improvements[cell] = after
 	return true
 
+## Land this soil's current step on the next reconcile: re-point the row at whatever item is
+## actually sitting there and expire it at `now`. Re-pointing matters — a row still holding the
+## PREVIOUS item's code sends reconcile down its restart branch, which starts a fresh step instead
+## of growing. False when the cell holds no Soil or nothing growable. No RNG, no other side effects.
+func expire_soil_step(cell: Vector2i, now: float) -> bool:
+	var row := improvement_at(cell)
+	if String(row.get("kind", "")) != Improvements.KIND_SOIL:
+		return false
+	var code := item_at(cell)
+	if not Improvements.is_soil_eligible(code):
+		return false
+	row["code"] = code
+	row["ends_at"] = now
+	improvements[cell] = row
+	return true
+
 func reconcile_improvements(now: float) -> Array:
 	var grown: Array = []
 	for cell in improvements.keys():

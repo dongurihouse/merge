@@ -120,6 +120,10 @@ static func mount(host: Control) -> void:
 		_action(menu, host, "Drop coin", _act_drop_coin)
 	if host.has_method("debug_drop_acorn"):      # board-only: spawn an acorn to exercise premium collectables
 		_action(menu, host, "Drop acorn", _act_drop_acorn)
+	if host.has_method("debug_pop_soil"):        # board-only: land a Soil growth step without waiting it out
+		_action(menu, host, "Pop soil", _act_pop_soil)
+	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
+		_action(menu, host, "Pop magnet", _act_pop_magnet)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)
@@ -329,6 +333,19 @@ static func _act_drop_coin(host: Control) -> void:
 static func _act_drop_acorn(host: Control) -> void:
 	if host.has_method("debug_drop_acorn"):
 		host.debug_drop_acorn()
+
+## Board-only: finish every growing Soil's current step now, so a tier pop can be tested without
+## waiting out the timer (a board of bare soils gets one seeded first, so one tap always pops).
+## No _reflect — the new tier rebuilds live and debug_pop_soil() persists it (no scene reload).
+static func _act_pop_soil(host: Control) -> void:
+	if host.has_method("debug_pop_soil"):
+		host.call("debug_pop_soil")
+
+## Board-only: drop a matching pair into a placed Magnet's range so its auto-merge fires on demand.
+## No _reflect — the pair lands and merges live and debug_pop_magnet() persists it (no scene reload).
+static func _act_pop_magnet(host: Control) -> void:
+	if host.has_method("debug_pop_magnet"):
+		host.call("debug_pop_magnet")
 
 ## Knock 25 off the water can (floored at 0) to walk down into the out-of-water flow.
 static func _act_reduce_water(host: Control) -> void:
