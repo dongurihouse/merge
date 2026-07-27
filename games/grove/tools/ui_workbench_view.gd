@@ -219,7 +219,7 @@ func _default_params() -> Dictionary:
 		# this preview. Piece size is owned by Slot-cell content_frac.
 		"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
 			# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
-			"frame_style": "meadow", "frame_tint": "3F6D7D", "frame_corner": 46,
+			"frame_style": "meadow", "frame_tint": Pal.BARK.to_html(false), "frame_corner": 46,
 			"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
@@ -333,7 +333,7 @@ func _default_params() -> Dictionary:
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
 		# (test-only) so the preview shows a real reward row; the game supplies each entry's own content.
 		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
-			"tint": "F6EBDD", "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
+			"tint": Pal.CREAM.to_html(false), "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 		"daily": {"cols": 3, "list_max_h": 0},

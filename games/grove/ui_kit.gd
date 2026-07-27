@@ -2584,7 +2584,7 @@ const MAIL_TINT_DEFAULT := Pal.CREAM   # the reward card's default paper fill
 ## _params; the game passes the saved config) into the opts mail_card / mail_dialog forward to the builder.
 static func mail_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var d: Dictionary = cfg.get("mail_card", {})
-	var tint := Color.from_string("#" + String(d.get("tint", "F6EBDD")).lstrip("#"), MAIL_TINT_DEFAULT)
+	var tint := Color.from_string("#" + String(d.get("tint", MAIL_TINT_DEFAULT.to_html(false))).lstrip("#"), MAIL_TINT_DEFAULT)
 	return {"mail_cp": cut_paper_opts_from_config(cfg, "mail_card", MAIL_CP_DEFAULTS), "mail_tint": tint}
 
 ## The shared row surface: a code-drawn CUT-PAPER sheet — the SAME rugged deckled edge the dialog frame
@@ -4990,8 +4990,11 @@ const PROGRESS_TRACK_ART := "kit/level_track.png"
 const PROGRESS_FILL_ART := "kit/level_fill.png"
 const PROGRESS_ART_CAP := 512
 const PROGRESS_FILL_RIM_PCT := 10.0     # the thin rim left around the fill, % of bar height
-const PROGRESS_FILL_HEX := "5F9B6D"     # Pal.LEAF — the earned fill
-const PROGRESS_TRACK_HEX := "8FA6C9"    # the un-earned remainder
+## The earned fill IS Pal.LEAF; it is spelled as hex text only because the saved config
+## stores colours as 6-digit strings. `static var`, not `const`, because a const initialiser
+## may not call to_html() — the value is still write-once in practice.
+static var PROGRESS_FILL_HEX := Pal.LEAF.to_html(false)
+const PROGRESS_TRACK_HEX := "8FA6C9"    # the un-earned remainder — a one-off, not a palette role
 
 static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var p: Dictionary = cfg.get("progress_bar", {})
@@ -5691,7 +5694,7 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
 	return {
 		"frame_style": String(b.get("frame_style", "meadow")), # "meadow" default | legacy "badge" | "code"
-		"frame_tint":  Color.from_string("#" + String(b.get("frame_tint", "3F6D7D")).lstrip("#"), Pal.BARK),
+		"frame_tint":  Color.from_string("#" + String(b.get("frame_tint", Pal.BARK.to_html(false))).lstrip("#"), Pal.BARK),
 		"corner":      int(b.get("frame_corner", 58)),
 		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
 		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off

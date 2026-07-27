@@ -10,17 +10,26 @@ extends "res://engine/tests/test_base.gd"
 ## "#F6EBDD" eleven lines later). They were swept onto the palette constants and this
 ## scan now FAILS on a new one.
 ##
-## What is scanned: every .gd under engine/ and games/, for a Color("#RRGGBB"…) literal
-## whose hex equals one of the palette's ROLE values. Nothing else — the tree carries
-## ~200 Color("#…") literals and the large majority are genuine one-off colours (the
-## measured mock tones, the warm-gold unlockable rim, the purple/kraft paper roles …);
-## those are none of this guard's business. Comment text doesn't count, matching the
-## comment-stripping the layering guard's scans already do.
+## What is scanned: every .gd under engine/ and games/, for a 6-digit hex STRING LITERAL —
+## `Color("#RRGGBB")`, `"#RRGGBB"`, or the bare `"RRGGBB"` form — whose hex equals one of the
+## palette's ROLE values. Nothing else — the tree carries ~200 Color("#…") literals and the
+## large majority are genuine one-off colours (the measured mock tones, the warm-gold
+## unlockable rim, the purple/kraft paper roles …); those are none of this guard's business.
+## Comment text doesn't count, matching the comment-stripping the layering guard's scans
+## already do.
+##
+## The bare form is scanned because it is the same duplication wearing a different coat, and
+## it hid five sites for months: `const PROGRESS_FILL_HEX := "5F9B6D"` carried the comment
+## `# Pal.LEAF` on its own line, and two `Color.from_string("#" + cfg.get(k, "3F6D7D"), Pal.BARK)`
+## calls spelled the colour TWICE on one line — a re-typed hex default beside the Pal fallback
+## that already holds it. A value equal to a role is the whole match condition, so an asset id,
+## a hash or a uid fragment cannot trip it unless it happens to BE a palette colour.
 ##
 ## Fixing an offender: read the colour off the palette instead — `const Pal = Game.PALETTE`
 ## then `Pal.<ROLE>`, or a semantic alias (Pal.SURFACE / Pal.LOCKED / Pal.GOLD /
 ## Pal.SCREEN_BG / Pal.CELL_EMPTY) where that reads truer at the call site. An alpha
-## variant is Color(Pal.BARK, 0.35), not a re-typed "#3F6D7D".
+## variant is Color(Pal.BARK, 0.35), not a re-typed "#3F6D7D". Where a STRING is genuinely
+## needed (a config default that round-trips as hex text), write `Pal.<ROLE>.to_html(false)`.
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
@@ -96,7 +105,7 @@ func _initialize() -> void:
 			if ALLOWLIST.has(key):
 				allowed += 1
 				continue
-			offenders.append("%s:%d  Color(\"#%s\") == Pal.%s" % [p, hit.line, hit.hex, hit.role])
+			offenders.append("%s:%d  %s == Pal.%s" % [p, hit.line, hit.text, hit.role])
 	if not offenders.is_empty():
 		print("  ----------------------------------------------------------------")
 		print("  re-typed palette colours: %d" % offenders.size())
@@ -129,9 +138,12 @@ func _initialize() -> void:
 		("" if stale.is_empty() else " — stale: " + ", ".join(stale)))
 	finish()
 
-## Every palette-role Color("#…") literal in `path`, as {line, hex, role}. Comment text
-## is stripped first; a `#` inside the quoted hex is not a comment start, so the split
-## happens on the first `#` that is NOT preceded by a quote.
+## Every palette-role hex literal in `path`, as {line, hex, role, text}. One regex covers
+## all three spellings — the optional `#` makes `Color("#F6EBDD")`, a standalone `"#F6EBDD"`
+## and a bare `"F6EBDD"` the same match — and the role-value test is what keeps it from
+## reporting hex-shaped strings that are not colours. Comment text is stripped first; a `#`
+## inside the quoted hex is not a comment start, so the split happens on the first `#` that
+## is NOT preceded by a quote.
 func _scan(path: String, by_hex: Dictionary) -> Array:
 	var out: Array = []
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -139,7 +151,7 @@ func _scan(path: String, by_hex: Dictionary) -> Array:
 		return out
 	var text := f.get_as_text()
 	f.close()
-	var re := RegEx.create_from_string("Color\\(\"#([0-9A-Fa-f]{6})\"")
+	var re := RegEx.create_from_string("\"#?([0-9A-Fa-f]{6})\"")
 	var line_no := 0
 	for raw_line in text.split("\n"):
 		line_no += 1
@@ -147,7 +159,7 @@ func _scan(path: String, by_hex: Dictionary) -> Array:
 		for m in re.search_all(line):
 			var hex := m.get_string(1).to_upper()
 			if by_hex.has(hex):
-				out.append({"line": line_no, "hex": hex, "role": by_hex[hex]})
+				out.append({"line": line_no, "hex": hex, "role": by_hex[hex], "text": m.get_string(0)})
 	return out
 
 ## Drop a trailing `# comment`, keeping `Color("#RRGGBB")` intact (the `#` there is
