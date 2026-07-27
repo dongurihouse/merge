@@ -95,7 +95,7 @@ const TEST_KEYS := {
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"gold_currency_pill": ["icon", "count"],   # standalone pill study; sample icon/count are preview-only
 	"card": [],
-	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
+	"daily_card": ["preview", "ribbon"],   # preview/ribbon view toggles
 	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
 	"dialog": ["entries"],
 	"daily": [],
@@ -302,7 +302,7 @@ func _default_params() -> Dictionary:
 		# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 		# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
 		"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
-			"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
+			"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow",
 			"label_y": 12, "label_x": 0, "claim_y": 14, "info_icon": false,
 			"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
 		# the SETTINGS ROW style (a label + the shared switch on the rugged sage row surface). Edited on the

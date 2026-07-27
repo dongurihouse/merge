@@ -17,7 +17,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices by key (data/iap_products.json)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
-const Sparkle = preload("res://games/grove/sparkle.gd")   # the code-drawn twinkle overlay
 const ScaleContainer = preload("res://engine/scripts/ui/scale_container.gd")   # uniform content scaling inside the frame
 const FX = preload("res://engine/scripts/ui/fx.gd")   # shared wallet number formatting (K/M) + fit-to-cell
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -3714,11 +3713,6 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 
 	if not use_cp:
 		_apply_day_badge(panel, badge)   # the configurable rim/glow on today + milestone cards (the cut-paper face carries its own highlight)
-	# the generated SPARKLE marks the claimable (today) rung — animated twinkles around the reward
-	if state == "today" and bool(opts.get("sparkle", true)):
-		var sp := Sparkle.new()
-		sp.set_anchors_preset(Control.PRESET_FULL_RECT)
-		panel.add_child(sp)
 
 	# Wrap the card so the ribbon draws ON TOP of the card BORDER — inside the panel it was hidden behind
 	# the nine-patch lip + the day-badge rim. The ribbon is a BANNER over the top edge, with a tunable SIZE
@@ -4749,7 +4743,6 @@ static func daily_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_art": bool(dc.get("cell_art", true)),
 		"today_badge": String(dc.get("today_badge", "gold glow")),
 		"milestone_badge": String(dc.get("milestone_badge", "amber glow")),
-		"sparkle": bool(dc.get("sparkle", true)),
 		"label_y": float(dc.get("label_y", 12)),     # the "Day N" label's drop from the top edge
 		"label_x": float(dc.get("label_x", 0)),      # the label's horizontal nudge
 		"claim_y": float(dc.get("claim_y", 14)),     # how far the bottom action is lifted in from the base
