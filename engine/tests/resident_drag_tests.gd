@@ -23,8 +23,12 @@ extends "res://engine/tests/test_base.gd"
 ##   1. desktop ordering + quick vertical gesture  -> DRAG   (the reproduction)
 ##   2. device  ordering + quick vertical gesture  -> SCROLL (the reproduction)
 ##   3. device  ordering + dwell past the hold     -> DRAG   (hand→Habitat placement survives)
-##   4. a plain tap fires on_tap EXACTLY once under BOTH orderings (the change moves which half of
-##      the pair drives the machine, so neither half may double-fire or drop the tap).
+##   4. a plain tap fires on_tap EXACTLY once under BOTH orderings (neither half may double-fire
+##      or drop the tap).
+##   5. with EVERY half stamped DEVICE_ID_EMULATION — the hypothetical platform where even real
+##      input looks emulated — the card is still ALIVE: it taps, it drags, it drops. The device id
+##      may only CORRECT the gesture kind, never gate whether the gesture opens, because that one
+##      platform fact is not measurable from macOS and its failure mode would be a dead dialog.
 
 const Residents = preload("res://engine/scripts/ui/residents.gd")
 
@@ -131,29 +135,31 @@ func _drag(at: Vector2, rel: Vector2, dev: int) -> InputEventScreenDrag:
 	return e
 
 # _gui_input takes LOCAL positions; the emulated half carries device -1, the physical half a real id.
-func _send_press(card, at: Vector2, order: String) -> void:
+# `phys` is the id the PHYSICAL half carries — case 5 forces it to EM to play the hypothetical
+# platform where real input is stamped emulated too.
+func _send_press(card, at: Vector2, order: String, phys := PHYS) -> void:
 	if order == DESKTOP:
 		card._gui_input(_touch(true, at, EM))
-		card._gui_input(_mouse_btn(true, at, PHYS))
+		card._gui_input(_mouse_btn(true, at, phys))
 	else:
 		card._gui_input(_mouse_btn(true, at, EM))
-		card._gui_input(_touch(true, at, PHYS))
+		card._gui_input(_touch(true, at, phys))
 
-func _send_move(card, at: Vector2, rel: Vector2, order: String) -> void:
+func _send_move(card, at: Vector2, rel: Vector2, order: String, phys := PHYS) -> void:
 	if order == DESKTOP:
 		card._gui_input(_drag(at, rel, EM))
-		card._gui_input(_mouse_move(at, rel, PHYS))
+		card._gui_input(_mouse_move(at, rel, phys))
 	else:
 		card._gui_input(_mouse_move(at, rel, EM))
-		card._gui_input(_drag(at, rel, PHYS))
+		card._gui_input(_drag(at, rel, phys))
 
-func _send_release(card, at: Vector2, order: String) -> void:
+func _send_release(card, at: Vector2, order: String, phys := PHYS) -> void:
 	if order == DESKTOP:
 		card._gui_input(_touch(false, at, EM))
-		card._gui_input(_mouse_btn(false, at, PHYS))
+		card._gui_input(_mouse_btn(false, at, phys))
 	else:
 		card._gui_input(_mouse_btn(false, at, EM))
-		card._gui_input(_touch(false, at, PHYS))
+		card._gui_input(_touch(false, at, phys))
 
 func _ghost_of(card) -> Control:
 	return card._ghost as Control
@@ -233,6 +239,42 @@ func _initialize() -> void:
 		ok(int(f.counts["tap"]) == 1, "%s: a plain tap fires on_tap exactly once" % order)
 		ok(int(f.counts["take"]) == 0, "%s: a plain tap resolves no drop target" % order)
 		ok(f.scroll.scroll_vertical == 0, "%s: a plain tap does not scroll" % order)
+		await drop(f.host)
+
+	# 5. SAFETY: the device id may only CORRECT the gesture kind, never gate whether the gesture
+	# opens. That real iOS touches carry a non-emulated device id is the one fact behind this file
+	# that cannot be measured from macOS — every "physical" event above has its id set by hand. So
+	# this case plays the hypothetical platform that stamps DEVICE_ID_EMULATION on real input too:
+	# EVERY half of every event is emulated. The card must still be ALIVE. It asserts liveness, not
+	# a particular arbitration outcome — losing the correction is a tolerable regression to the old
+	# behaviour, but a residents dialog that ignores every touch on device is not.
+	for order in [DESKTOP, DEVICE]:
+		f = _fixture()
+		await process_frame
+		await process_frame
+		card = f.card
+		_send_press(card, Vector2(45, 50), order, EM)
+		ok(card._down, "%s all-emulated: the press still opens the gesture" % order)
+		_send_release(card, Vector2(45, 50), order, EM)
+		ok(int(f.counts["tap"]) == 1, "%s all-emulated: a tap still fires on_tap exactly once" % order)
+		await drop(f.host)
+
+		# ...and a held gesture still picks the resident up, whichever kind the first half claimed:
+		# past TOUCH_DRAG_HOLD_MS the dwell claims the drag on either branch.
+		f = _fixture()
+		await process_frame
+		await process_frame
+		card = f.card
+		_send_press(card, Vector2(45, 50), order, EM)
+		var t1 := Time.get_ticks_msec()
+		while Time.get_ticks_msec() - t1 < int(Residents.DragCard.TOUCH_DRAG_HOLD_MS) + 20:
+			await process_frame
+		_send_move(card, Vector2(45, 15), Vector2(0, -35), order, EM)
+		ok(card._dragging, "%s all-emulated: a held gesture still starts a DRAG" % order)
+		ok(_ghost_of(card) != null, "%s all-emulated: the drag ghost is still created" % order)
+		_send_move(card, Vector2(285, -5), Vector2(240, -20), order, EM)
+		_send_release(card, Vector2(285, -5), order, EM)
+		ok(int(f.counts["take"]) == 1, "%s all-emulated: the drop still resolves its target" % order)
 		await drop(f.host)
 
 	finish()
