@@ -64,7 +64,7 @@ func _check_alias_set(files: PackedStringArray) -> void:
 	var bound := {}
 	var rogue := PackedStringArray()
 	for p in files:
-		for m in re.search_all(_read(p)):
+		for m in re.search_all(read_text(p)):
 			var name := m.get_string(1)
 			bound[name] = true
 			if not ALIASES.has(name):
@@ -176,7 +176,7 @@ func _scan_refs(files: PackedStringArray) -> Array:
 		if p == FEATURES_PATH:
 			continue
 		var line_no := 0
-		for raw in _read(p).split("\n"):
+		for raw in read_text(p).split("\n"):
 			line_no += 1
 			# Comments only DOCUMENT calls; cutting at the first # keeps a doc line that spells a
 			# retired id out of the offender list. A `#` inside a string ahead of a real call on
@@ -193,29 +193,11 @@ func _scan_refs(files: PackedStringArray) -> Array:
 						break
 	return out
 
+# The walk and the slurp are test_base.gd's gd_files(dir, deep) / read_text(path) — one
+# coverage function for every guard. This suite's copy carried an explicit dotted-directory
+# skip; the shared one keeps it (and states why), so coverage here is unchanged.
 func _gd_files() -> PackedStringArray:
 	var out := PackedStringArray()
 	for root in SCAN_ROOTS:
-		out.append_array(_gd_files_deep(root))
+		out.append_array(gd_files(root))
 	return out
-
-func _gd_files_deep(dir: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var d := DirAccess.open(dir)
-	if d == null:
-		return out
-	for f in d.get_files():
-		if f.ends_with(".gd"):
-			out.append(dir + f)
-	for sub in d.get_directories():
-		if not sub.begins_with("."):
-			out.append_array(_gd_files_deep(dir + sub + "/"))
-	return out
-
-func _read(path: String) -> String:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return ""
-	var t := f.get_as_text()
-	f.close()
-	return t

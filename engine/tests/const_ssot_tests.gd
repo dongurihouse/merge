@@ -97,7 +97,7 @@ func _check_design_canvas() -> void:
 
 	var files := PackedStringArray()
 	for root in SCAN_ROOTS:
-		files.append_array(_gd_files_deep(root))
+		files.append_array(gd_files(root))
 	ok(files.size() >= 100, "scan reaches the tree (%d .gd files under %s)" % [files.size(), ", ".join(SCAN_ROOTS)])
 
 	# KNOWN-POSITIVE: the owner writes both numbers down (as ProjectSettings defaults). If this
@@ -187,7 +187,7 @@ func _check_marketing_version() -> void:
 			"unstamped, the player-facing version IS the shipping preset (%s == %s)" % [text, preset])
 	# The runtime must not re-type a version literal — that is exactly what shipped a stale
 	# "Version 1.1.9" into the Settings dialog long after the preset moved on.
-	var src := _read(BUILD_INFO_PATH)
+	var src := read_text(BUILD_INFO_PATH)
 	var re := RegEx.create_from_string("const\\s+(MARKETING_VERSION|BUILD_NUMBER)\\s*:?=\\s*\"[0-9]")
 	ok(src != "" and re.search(src) == null, \
 		"build_info.gd names no version literal of its own — it reads export_presets.cfg")
@@ -278,32 +278,15 @@ func _check_app_display_name() -> void:
 
 # --- scanning ------------------------------------------------------------------------------
 
-func _gd_files_deep(dir: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var d := DirAccess.open(dir)
-	if d == null:
-		return out
-	for f in d.get_files():
-		if f.ends_with(".gd"):
-			out.append(dir + f)
-	for sub in d.get_directories():
-		out.append_array(_gd_files_deep(dir + sub + "/"))
-	return out
-
-func _read(path: String) -> String:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return ""
-	var t := f.get_as_text()
-	f.close()
-	return t
+# The walk and the slurp are test_base.gd's gd_files(dir, deep) / read_text(path) — one
+# coverage function for every guard.
 
 ## Every canvas literal in `path` that survives comment + string stripping, as {line, literal, text}.
 ## The lookaround excludes identifiers (cx1080), longer numbers (21080, 10800) and decimal tails
 ## (0.1080) while still catching 1080.0 — the float spelling most call sites used.
 func _scan_canvas(path: String) -> Array:
 	var out: Array = []
-	var text := _read(path)
+	var text := read_text(path)
 	if text == "":
 		return out
 	var re := RegEx.create_from_string("(?<![0-9._A-Za-z])(%s)(?![0-9_A-Za-z])" % "|".join(CANVAS_LITERALS))

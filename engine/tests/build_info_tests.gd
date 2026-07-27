@@ -2,10 +2,6 @@ extends "res://engine/tests/test_base.gd"
 
 const BuildInfo = preload("res://engine/scripts/core/build_info.gd")
 
-func _read_text(path: String) -> String:
-	var f := FileAccess.open(path, FileAccess.READ)
-	return f.get_as_text() if f != null else ""
-
 func _write_generated_build_info(version: String, build: String) -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://engine/generated"))
 	var f := FileAccess.open(BuildInfo.GENERATED_PATH, FileAccess.WRITE)
@@ -39,7 +35,7 @@ func _initialize() -> void:
 		"editor/headless runs ignore stale ResourceLoader-only generated paths")
 
 	var had_generated := FileAccess.file_exists(BuildInfo.GENERATED_PATH)
-	var previous_generated := _read_text(BuildInfo.GENERATED_PATH) if had_generated else ""
+	var previous_generated := read_text(BuildInfo.GENERATED_PATH) if had_generated else ""
 	_write_generated_build_info("9.8.7", "456")
 	var stamped_text := BuildInfo.version_text()
 	_restore_generated_build_info(had_generated, previous_generated)

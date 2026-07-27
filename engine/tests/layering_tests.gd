@@ -23,43 +23,16 @@ const Hud := preload("res://engine/scripts/ui/hud.gd")
 const TuneFX := preload("res://engine/scripts/core/tuning.gd").FX   # the FX juice dials (FLY_Z / FLOAT_Z)
 const HandHint := preload("res://engine/scripts/ui/hand_hint.gd")   # the FTUE teach overlay — must sit under every modal
 
-func _gd_files(dir: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var d := DirAccess.open(dir)
-	if d == null:
-		return out
-	for f in d.get_files():
-		if f.ends_with(".gd"):
-			out.append(dir + f)
-	return out
-
-# Every .gd under `dir`, walking subdirectories, so a NEW engine/scripts/<layer>/ is
-# covered the day it appears instead of silently escaping the scan.
-func _gd_files_deep(dir: String) -> PackedStringArray:
-	var out := PackedStringArray()
-	var d := DirAccess.open(dir)
-	if d == null:
-		return out
-	for f in d.get_files():
-		if f.ends_with(".gd"):
-			out.append(dir + f)
-	for sub in d.get_directories():
-		out.append_array(_gd_files_deep(dir + sub + "/"))
-	return out
+# The walk is test_base.gd's gd_files(dir, deep) — one coverage function for every guard.
 
 # True if `path` mentions `needle` anywhere (preload/load both look like a path string).
 func _reads(path: String, needle: String) -> bool:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return false
-	var t := f.get_as_text()
-	f.close()
-	return t.find(needle) != -1
+	return read_text(path).find(needle) != -1
 
 func _initialize() -> void:
 	print("== Engine layering guard ==")
-	var core := _gd_files(CORE)
-	var ui := _gd_files(UI)
+	var core := gd_files(CORE, false)
+	var ui := gd_files(UI, false)
 	ok(core.size() >= 1, "core/ has scripts (%d found)" % core.size())
 	ok(ui.size() >= 1, "ui/ has scripts (%d found)" % ui.size())
 	# core/ is the bottom layer — it must not import ui/ or scenes/.
@@ -108,12 +81,9 @@ func _check_modal_z() -> void:
 func _check_no_z_above_modal_top() -> void:
 	var offenders := PackedStringArray()
 	for dir in [CORE, UI, SCENES]:
-		for p in _gd_files(dir):
-			var f := FileAccess.open(p, FileAccess.READ)
-			if f == null:
-				continue
+		for p in gd_files(dir, false):
 			var line_no := 0
-			for raw_line in f.get_as_text().split("\n"):
+			for raw_line in read_text(p).split("\n"):
 				line_no += 1
 				var line: String = raw_line.split("#")[0]   # comments (e.g. "z_index=4000" in prose) don't count
 				var idx := line.find("z_index")
@@ -128,7 +98,6 @@ func _check_no_z_above_modal_top() -> void:
 				var v := rest.to_int()
 				if v > Overlay.MODAL_TOP_Z:
 					offenders.append("%s:%d (z_index=%d)" % [p.get_file(), line_no, v])
-			f.close()
 	ok(offenders.is_empty(), \
 		"no script hand-rolls a z_index literal above MODAL_TOP_Z (%d)%s" % \
 		[Overlay.MODAL_TOP_Z, ("" if offenders.is_empty() else " — " + ", ".join(offenders))])
@@ -151,15 +120,12 @@ func _check_no_z_above_modal_top() -> void:
 # comment-stripping the z_index scan above already does.
 func _check_engine_never_reaches_into_games() -> void:
 	var offenders := PackedStringArray()
-	for p in _gd_files_deep(ENGINE_SCRIPTS):
+	for p in gd_files(ENGINE_SCRIPTS):
 		if p == CORE + "game.gd":
 			continue   # sanctioned: the game-indirection point
-		var f := FileAccess.open(p, FileAccess.READ)
-		if f == null:
-			continue
 		var rel := p.trim_prefix(ENGINE_SCRIPTS)
 		var line_no := 0
-		for raw_line in f.get_as_text().split("\n"):
+		for raw_line in read_text(p).split("\n"):
 			line_no += 1
 			var line: String = raw_line.split("#")[0]
 			var idx := line.find(GAMES)
@@ -174,7 +140,6 @@ func _check_engine_never_reaches_into_games() -> void:
 			var quote := tail.find("\"")
 			var matched: String = tail.substr(0, quote) if quote != -1 else tail.strip_edges()
 			offenders.append("%s:%d  %s" % [rel, line_no, matched])
-		f.close()
 	if not offenders.is_empty():
 		print("  ----------------------------------------------------------------")
 		print("  engine -> games references: %d" % offenders.size())
