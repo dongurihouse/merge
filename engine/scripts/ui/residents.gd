@@ -86,17 +86,29 @@ class DragCard:
 	const TOUCH_DRAG_HOLD_MS := 220
 	const TOUCH_SCROLL_AXIS_BIAS := 1.15
 
-	## With emulate_touch_from_mouse BOTH the mouse event and its emulated touch arrive — the
-	## _down/_dragging flags make the second press/release of a pair a no-op.
+	## BOTH halves of every press arrive here — the platform's real event AND the engine's emulated
+	## twin — and the ORDER inverts by platform (measured at this method, Godot 4.6.2, this
+	## project's settings): a real MOUSE delivers touch_down(-1) then mouse_down(0); a real FINGER
+	## delivers mouse_down(-1) then touch_down(0). So the first event's CLASS does not say which
+	## kind of gesture this is — the DEVICE ID does: the engine stamps DEVICE_ID_EMULATION (-1) on
+	## the twin only. (DisplayServer.is_touchscreen_available() is not a substitute; it reports true
+	## on desktop because emulate_touch_from_mouse is on.) The state machine therefore runs on the
+	## physical event alone, so `_touch_down` means what it says; the twin is ignored for state but
+	## still SWALLOWED exactly where events were swallowed before, so nothing downstream sees a
+	## phantom second press. The _down/_dragging guards stay as defence in depth.
 	func _gui_input(ev: InputEvent) -> void:
+		var emulated := ev.device == InputEvent.DEVICE_ID_EMULATION
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_press(_gp(ev.position), false) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
+			if not emulated:
+				_press(_gp(ev.position), false) if (ev as InputEventMouseButton).pressed else _release(_gp(ev.position))
 			accept_event()
 		elif ev is InputEventScreenTouch:
-			_press(_gp(ev.position), true) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
+			if not emulated:
+				_press(_gp(ev.position), true) if (ev as InputEventScreenTouch).pressed else _release(_gp(ev.position))
 			accept_event()
 		elif (ev is InputEventMouseMotion or ev is InputEventScreenDrag) and _down:
-			_move(_gp(ev.position))
+			if not emulated:
+				_move(_gp(ev.position))
 			accept_event()
 
 	## _gui_input positions are LOCAL — the drag runs in global space.
