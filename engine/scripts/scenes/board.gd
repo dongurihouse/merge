@@ -4011,13 +4011,21 @@ func _install_mastery_info_row() -> void:
 		pip.custom_minimum_size = Vector2(9, 9)
 		pip_row.add_child(pip)
 		_info_mastery_pips.append(pip)
+	# The row's width is PINNED at 391px on the 1080-wide design canvas (the generator icon and the
+	# Boost chip beside it are already at their minimums, so nothing more can be taken). Minus the
+	# pip row (93) and two 8px separations that leaves 282px to split between the meter and the
+	# next-reward text. The TEXT is the payload — an ellipsised "next: po…" says nothing — so the
+	# label takes the lion's share of that split (ratio 2.5 ⇒ ~201px, enough for the widest string)
+	# and the meter keeps the remainder (~80px) over a 76px floor that stops it collapsing on a
+	# narrower row. Splitting evenly (both EXPAND at ratio 1, meter floor 120) is what trimmed the
+	# label to "next: po…".
 	var bar := ProgressBar.new()
 	bar.name = "MasteryProgress"
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.show_percentage = false
 	bar.min_value = 0.0
 	bar.max_value = 1.0
-	bar.custom_minimum_size = Vector2(120, 14)
+	bar.custom_minimum_size = Vector2(76, 14)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(bar)
 	_info_mastery_progress = bar
@@ -4027,6 +4035,7 @@ func _install_mastery_info_row() -> void:
 	lbl.clip_text = true
 	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.size_flags_stretch_ratio = 2.5
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_size_override("font_size", _info_desc_label.get_theme_font_size("font_size"))
 	lbl.add_theme_color_override("font_color", Pal.INK)

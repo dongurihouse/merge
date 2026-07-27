@@ -8,6 +8,7 @@ const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # the shipped canvas — read it, never re-type it
 
 ## The shipped rank-0 tier stream, CAPTURED FROM THE PRE-MASTERY IMPLEMENTATION at seed 12345
 ## (40 consecutive BoardLogic.roll_tier draws, one randf each against G.TIER_ODDS). It pins the
@@ -299,7 +300,7 @@ func _initialize() -> void:
 	ok(mastery_row != null and mastery_row.visible
 		and smastery._info_mastery_pips.size() == 8
 		and is_equal_approx(float(smastery._info_mastery_progress.value), Mastery.rank_progress(1))
-		and String(smastery._info_mastery_next_label.text).contains("next: pops reach"),
+		and String(smastery._info_mastery_next_label.text).contains("next: reach"),
 		"the generator info subtitle becomes the pips/progress/next mastery row")
 	smastery._queue_mastery_rankups({1: 1})
 	smastery._schedule_mastery_rankup(0.25)
@@ -319,6 +320,51 @@ func _initialize() -> void:
 	ok(smastery.get_node_or_null("MasteryRankupOverlay") == null,
 		"the same seen mastery rank does not fire a second card")
 	smastery.queue_free()
+	await process_frame
+
+	# The mastery row's "next" label must READ, not ellipsise. The row is width-pinned by the info
+	# bar, so this measures the REAL laid-out label against EVERY string _mastery_next_text can
+	# produce (ranks 0..8) — a widened string or a meter that reclaims the split trims it back to
+	# "next: po…" and fails here. Mounted in a Design-sized SubViewport because the headless root
+	# viewport is wider than the shipped canvas, which would make the assert vacuous.
+	fresh("scene_mastery_row_fits")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["mastery"] = {"1": 1150}
+	Save.grove()["mastery_seen"] = {}
+	Save.grove_write()
+	var mvp := SubViewport.new()
+	mvp.size = Vector2i(Design.size())
+	get_root().add_child(mvp)
+	var sfit = load("res://engine/scenes/Board.tscn").instantiate()
+	mvp.add_child(sfit)
+	await process_frame
+	if sfit.board == null:
+		sfit._ready()
+	sfit._rebuild_all()
+	sfit._select_generator(Vector2i(4, 3))
+	for _f in 3:
+		await process_frame
+	var nlbl: Label = sfit._info_mastery_next_label
+	var nfont: Font = nlbl.get_theme_font("font")
+	var nsize: int = nlbl.get_theme_font_size("font_size")
+	var widest := 0.0
+	var widest_text := ""
+	for nrank in range(0, G.MASTERY_THRESHOLDS.size() + 1):
+		var ntext: String = sfit._mastery_next_text(nrank)
+		var nw: float = nfont.get_string_size(ntext, HORIZONTAL_ALIGNMENT_LEFT, -1, nsize).x
+		if nw > widest:
+			widest = nw
+			widest_text = ntext
+	ok(widest <= nlbl.size.x,
+		"the mastery next label fits its widest string untrimmed (%.0fpx '%s' in %.0fpx)" % [widest, widest_text, nlbl.size.x])
+	ok(sfit._info_mastery_progress.size.x >= 60.0 and sfit._info_mastery_pips[7].size.x >= 8.0,
+		"the mastery meter and pips keep a visible width beside the label (%.0fpx meter)" % sfit._info_mastery_progress.size.x)
+	ok(is_equal_approx(sfit._info_mastery_row.size.y, sfit._info_mastery_row.get_combined_minimum_size().y)
+		and sfit._info_mastery_row.size.y <= 40.0,
+		"the mastery row stays one line tall (%.0fpx)" % sfit._info_mastery_row.size.y)
+	sfit.queue_free()
+	await process_frame
+	mvp.queue_free()
 	await process_frame
 
 	# MERGE-PRIORITY DROP AREA: releasing just inside a competing neighbour still chooses the nearby
