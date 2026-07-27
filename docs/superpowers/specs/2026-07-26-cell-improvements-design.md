@@ -4,7 +4,7 @@ Draft 7 — **build mode is cut; improvements arrive as seed items** (§1, §1a 
 revert), with the readable two-row info-bar contract and the two-beat Soil seed FTUE fix
 added on 2026-07-27. Rollout step 4 of `2026-07-26-progression-systems-design.md`;
 supersedes its §6 where they differ. All numbers are provisional dials — the `grove_sim`
-re-pass owns finals. Acorns = `currencies.diamonds` (`save.gd:145-160`). Home board only
+re-pass owns finals. Acorns = `currencies.diamonds` (`save.gd:192-207`). Home board only
 (Rush is a separate scene, `explore_rush.gd:65` — no flag needed).
 
 ## Summary — what is being built
@@ -31,7 +31,7 @@ board**, and every interaction reuses the existing tap → info-bar-chip surface
 ## 1 · Seeds — acquisition, placement, unsocket
 
 **The seed item.** Soil and Magnet each get a pseudo-line in `SPECIAL_ITEMS`
-(`grove_data.gd:433`) — lines **29** (soil seed) and **30** (magnet seed), both `"top": 1`
+(`grove_data.gd:449`) — lines **29** (soil seed) and **30** (magnet seed), both `"top": 1`
 so they never merge. They are ordinary board occupants otherwise: draggable, stashable in the
 bag, sellable, and they occupy a cell. The line numbers must stay clear of scissors (14),
 live content lines, and legacy save rosters; reusing a retired content line would resurrect
@@ -194,10 +194,15 @@ sit in a stable lower action row. Mock target:
 
 ![Info bar redesign v1](2026-07-27-info-bar-redesign-v1.png)
 
-- The title row is never narrower than 220 px at the 557 px screenshot width; names use one
-  line with ellipsis only after the whole word boundary fails. Descriptions are one line,
-  clipped with ellipsis, not multi-line wrap.
-- The action row uses fixed compact chips, 56-80 px wide depending on available width, with
+The mock is drawn 557 px wide; the game renders 1080×1920, so every size below is a
+**fraction of the tray's inner width**, not a mock pixel count (the `width_pct` pattern
+already used elsewhere in the kit).
+
+- The title row is never narrower than **40 %** of the tray's inner width (220/557 in the
+  mock); names use one line with ellipsis only after the whole word boundary fails.
+  Descriptions are one line, clipped with ellipsis, not multi-line wrap.
+- The action row uses fixed compact chips, **10–14 %** of the tray's inner width each
+  (56–80/557 in the mock), with
   icon + count/price as the primary read. Visible captions are short and must fit without
   wrapping: **Place**, **Bag**, **Buy**, **Water**, **Sell**, **Rank**,
   **Unsocket**. Every chip also carries `tooltip_text` / accessibility text with the full
@@ -217,11 +222,11 @@ sit in a stable lower action row. Mock target:
 - **Improved cell, empty, selected:** info bar shows *"Soil · rank 2"* or *"Magnet"* in the
   title row plus **Unsocket** carrying its price (coin or acorn icon), and for Soil the next
   rank's price on the same action row (`FX.celebrate_at` on rank-up, no modal).
-  Direct-spend, no nested confirm — the `board.gd:3151` boost pattern; unaffordable wobbles
+  Direct-spend, no nested confirm — the `board.gd:4738` `_activate_gen_boost` pattern; unaffordable wobbles
   the wallet.
 - **Improved cell holding a piece:** selects the piece exactly as today; the improvement is
   background. The grow row (below) replaces the chips while it is growing.
-- **FTUE (~L6):** arms at level ≥ 6, `ftue_seen("soil")` (`save.gd:288-300`); calm-moment
+- **FTUE (~L6):** arms at level ≥ 6, `ftue_seen("soil")` (`save.gd:343-352`); calm-moment
   deferred beat (retirement-offer template `board.gd:3938-3964`, gated on
   `board_tutorial_seen`). It **grants a soil seed** onto a free cell, or into the bag when
   the board is full (deterministic, not rolled), with a one-line card — *"A seed of good
@@ -323,8 +328,8 @@ Run: `godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days
 ## 9 · Tests
 
 Maintain `games/grove/tests/grove_improvements_tests.gd` on `grove_test_base.gd` (pure
-rules + real-scene via manual `_ready`, `grove_test_base.gd:438-441`, and `_tap_board`
-`:126-134`) and the `range_pairs` units in `engine/tests/`. The suite is already registered
+rules + real-scene via manual `_ready`, `grove_improvements_tests.gd:47-52`, and `_tap_board`
+`grove_test_base.gd:153`) and the `range_pairs` units in `engine/tests/`. The suite is already registered
 in `GROVE_TESTS`; new regressions belong there unless a lower-level engine unit test can pin
 the behavior more directly.
 
@@ -349,9 +354,10 @@ does not mark `soil_seed` seen, while Place and Sell do.
 **Carry forward unchanged** — the regression tests added in the draft-5 review round stay
 and must keep passing: `_stash` / `_deliver_from_board` fall-through, giver-tap t7 confirm,
 magnet-bramble `rng.state` identity, `_mark_seen` catch-up, top-soil info refresh, and the
-tick-does-not-free-the-drag-node test. Add a small UI geometry assertion for the compact
-info-bar: in a 557 px-wide crop-equivalent viewport, the selected grow title must fit as a
-readable phrase and no action caption may wrap or truncate.
+tick-does-not-free-the-drag-node test. Add a UI geometry assertion for the compact info bar,
+measured on the real built node tree at the shipped 1080×1920 viewport with a growing Soil
+cell selected: the title Label reports a single line (no wrap), every action caption fits its
+chip without truncation, and the title row holds at least 40 % of the tray's inner width.
 
 ## 10 · Implementation directions (for the implementing agent)
 
