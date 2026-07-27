@@ -450,12 +450,14 @@ func _initialize() -> void:
 func _level() -> int:
 	return G.level_at_coins(coins_earned)
 
-# The run's weather MIX, "sunbeam 9 · rain 8 · starfall 4" — the sweep's spread signal: with the hour
-# offset above, two seeds should NOT report the same mix. A sweep whose seeds all print one mix means
-# the weather has re-correlated and the sky numbers below measure a single trajectory N times.
+# The run's weather MIX, "calm 12 · sunbeam 9 · rain 8 · starfall 4" — the sweep's spread signal: with
+# the hour offset above, two seeds should NOT report the same mix. A sweep whose seeds all print one mix
+# means the weather has re-correlated and the sky numbers below measure a single trajectory N times.
+# Calm is listed even though it pays nothing: it is 40% of hours, so leaving it out makes the paying
+# skies look denser than they are and hides an hour-mix drift from whoever re-sweeps the gift rates.
 func _sky_mix_str() -> String:
 	var parts: Array = []
-	for sky in [SkyLogic.SKY_SUNBEAM, SkyLogic.SKY_RAIN, SkyLogic.SKY_STARFALL]:
+	for sky in [SkyLogic.SKY_CALM, SkyLogic.SKY_SUNBEAM, SkyLogic.SKY_RAIN, SkyLogic.SKY_STARFALL]:
 		parts.append("%s %d" % [sky, int(_sky_hours.get(sky, 0))])
 	return " · ".join(parts)
 

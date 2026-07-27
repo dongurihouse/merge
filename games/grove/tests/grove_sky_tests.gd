@@ -12,6 +12,7 @@ func _initialize() -> void:
 	begin("grove · weather hours")
 	await process_frame
 	await _test_patch_edges_read_stronger_than_centers()
+	await _test_calm_hour_shows_no_chrome()
 	await _test_marker_patch_and_info_bar()
 	await _test_starfall_scene_payment_and_modal_defer()
 	await _test_winback_rain_beat_removed()
@@ -42,6 +43,27 @@ func _test_patch_edges_read_stronger_than_centers() -> void:
 	var star: Dictionary = patch.call("lane_alpha_samples", "starfall")
 	ok(float(star.edge) > float(star.center) + 0.03, \
 		"Starfall patch renders a stronger glimmer edge than center so the column reads")
+
+## A Calm hour is the pre-weather board: the ambient skin still drifts, but the mat carries no wash,
+## nothing sits outside it, and there is nothing to tap. Asserted on a board with the gift gate OPEN,
+## so a pass means Calm itself withholds the chrome — not the gate.
+func _test_calm_hour_shows_no_chrome() -> void:
+	var calm = await _open_board("sky_calm", "calm")
+	ok(SkyLogic.gate_open(), "the Calm capture runs with the gift gate OPEN, so Calm is what withholds the chrome")
+	ok(String(calm._sky_state.get("sky", "")) == "calm" and int(calm._sky_state.get("lane", 0)) == -1 \
+		and String(calm._sky_state.get("lane_axis", "x")) == "", \
+		"a forced Calm hour reaches the board as the Calm sky with no lane")
+	ok(calm.board_area.find_child("SkyPatch", true, false) == null, "a Calm hour draws no lane wash")
+	ok(calm.find_child("SkyMarker", true, false) == null, "a Calm hour mounts no lane marker anywhere in the scene")
+	var info := String(calm._info_label.text)
+	ok(info.find("Calm") == -1 and info.find("Sunbeam") == -1 and info.find("Rain") == -1 and info.find("Starfall") == -1, \
+		"a Calm hour leaves the info bar alone — no sky line is written (%s)" % info)
+	calm._rebuild_all()
+	await process_frame
+	ok(calm.board_area.find_child("SkyPatch", true, false) == null \
+		and calm.find_child("SkyMarker", true, false) == null, \
+		"the Calm board stays chrome-free across _rebuild_all, which re-inserts patch and marker for other skies")
+	calm.queue_free()
 
 func _test_marker_patch_and_info_bar() -> void:
 	var sun = await _open_board("sky_marker_sun", "clear")
