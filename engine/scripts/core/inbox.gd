@@ -242,8 +242,10 @@ static func _grant(rew: Dictionary) -> void:
 	if int(rew.get("gems", 0)) > 0:
 		Save.add_diamonds(int(rew.gems))         # persists
 	if int(rew.get("water", 0)) > 0:
-		var g := Save.grove()
-		# Top-up to the cap, never a drain: an already over-cap can (banked over-fill) is left as-is.
-		var cur := int(g.get("water", 0))
-		g["water"] = maxi(cur, mini(int(D.WATER_CAP), cur + int(rew.water)))
-		Save.grove_write()
+		# Top-up to the cap, never a drain: an already over-cap can (banked over-fill) is left as-is,
+		# which is why this is NOT Save.add_water (that clamps the total down to WATER_CAP).
+		# The can is read through Save.water() so its default is single-sourced: `water` is a lazily
+		# created key and an absent one means a FULL can — a local `get("water", 0)` read an untouched
+		# can as EMPTY and the gift then made the player poorer.
+		var cur := Save.water()
+		Save.set_water(maxi(cur, mini(int(D.WATER_CAP), cur + int(rew.water))))

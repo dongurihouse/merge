@@ -163,6 +163,12 @@ static func _credit_line(line: String, amount: int) -> void:
 			Save.add_diamonds(amount)
 		"boost":
 			Save.grove()["boost_charges"] = boost_charges() + amount
+		_:
+			# Exhaustive today (these four ARE RB.LINES), so this arm is a trap, not a live path:
+			# RB.collect DEBITS the bank before this runs and the returned `got` drives the
+			# fly-to-wallet FX regardless. A fifth line without a grant path here would let the
+			# player watch "+N" arc into a balance that never moves, with nothing logged.
+			push_error("Bucket._credit_line: no grant path for line \"%s\" (%d units LOST — the bank was already debited)" % [line, amount])
 
 # --- generator-boost charges (the board's free-boost stockpile; save key kept verbatim) ----------
 static func boost_charges() -> int:
