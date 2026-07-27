@@ -52,23 +52,47 @@ Three items were **refused during implementation** and the refusals stand:
    search can never match). Converting the seed would leave a dead tool looking fixed.
    **Owner's call: retire it, or rewrite it as a cluster-tap purchase test.**
 
+### Owner decisions taken 2026-07-27, and what came of them
+
+1. **iOS floor: keep 17.0, no further work.** The docs now state the cost honestly (it drops
+   every iPhone below the XS/XR generation, not just older iPads). Noted for the record: nothing
+   in this repo substantiates the 17.0 figure — no plugin manifest, no `.gdextension` field, no
+   line in `install_ios_plugins.sh`. Its only source is the same doc sentence that carried the
+   false "iPad-only" claim. Closed by decision, not by evidence.
+
+2. **Delete the four inert test functions. DONE** — 285 lines out of `grove_test_base.gd`. All
+   43 suites' assertion counts unchanged, confirming the functions were contributing nothing.
+   Three of the seven helpers I flagged as probably-dead were live and were kept: `_press_label`
+   is shared with `grove_shop_tests`, and `_button_texts` / `_tree_has` were never reachable
+   from the four at all — they just sat adjacent in the file.
+   Loose end: `docs/BACKLOG.md:220` names `_test_2x_doubler_rehome` as the seed for a future
+   ad-reward flow item. That pointer now dangles; the body is recoverable from git history.
+
+3. **Delete the daily-card mock and its sparkle. HALF DONE, and the other half is refused with
+   evidence.**
+   - `games/grove/sparkle.gd` **deleted** — genuinely dead, one instantiator, and it drew pure
+     vectors so the bake set is unchanged.
+   - `Kit.daily_card` **kept.** It could not be shown unreachable, and three of my premises were
+     wrong at HEAD. There is no `daily_card` workbench element at all (the workbench's `daily`
+     element renders the real `LoginUI._rebuild`). Two of its helpers are live: `Kit.daily_icon`
+     ← `login.gd:504`, `Kit.daily_opts_from_config` ← `login_mystery.gd:121`. Decisively, it is
+     the **bake tool's discovery vehicle for live storefront art**: `bake_targets.gd:30-31` reaches
+     it via `Kit.daily_dialog`/`Kit.shop_dialog`, and a measured probe found **14 of 53 bake keys
+     unique to that path, 8 of them drawn by the live shop** (`icon_coin`, `icon_pack_t1..t6`,
+     `icon_shop_can`, `icon_shop_pouch` via `shop.gd:347`). Deleting the mock un-bakes the real
+     shop's icons and reintroduces the first-open polish hitch the bake exists to prevent.
+
+     **Still open for the owner:** removing it is doable — replace the two dialog builds in
+     `bake_targets.gd` with an explicit `clean_tex_path` list, the pattern that file already uses
+     for `LoginUI.bake_sprites()` — but that is a decision about which of the 14 sprites are still
+     wanted, not something to infer. `_daily_card_uses_face_only_for_daily` would go with it.
+
 ### Still outstanding
 
-Nothing from this spec. What follows is work the review *uncovered* but did not take on.
-
-**Needs an owner decision**
-- **The min-iOS-17 floor.** Its documented justification ("the app is iPad-only") was false —
-  `targeted_device_family=2` ships to iPhone and iPad, so the floor excludes every iPhone below
-  the XS/XR generation too. The real tradeoff: the Game Center + StoreKit plugin requires 17.0,
-  so it is keep-the-plugin-and-accept-the-cut, or drop the floor and lose both. The docs now
-  state this honestly; the setting is unchanged.
-- **Four inert test functions** in `games/grove/tests/grove_test_base.gd` — `_test_residents`,
-  `_test_resident_wiring`, `_test_2x_doubler_rehome`, `_test_t45_wiring`. No suite calls them.
-  That is ~90 lines of scene-driving coverage (resident roster rendering, the 2× doubler, the
-  piggy vault and daily-login wiring) that has been silently dead. Revive or delete.
-- **The daily-card sparkle has no live render path.** `Kit.daily_card` — the only instantiator
-  of `games/grove/sparkle.gd` — is reached now only from `games/tools/bake_targets.gd` and one
-  unit test. The live calendar is `LoginUI.open`, which draws its own sparkles.
+**New, and unguarded:** `engine/scripts/ui/login.gd:86` says the baked sprite set is "held baked
+by `engine/tests/kit_bake_tests.gd`". **That suite does not exist.** The bake set — which exists
+to prevent a main-thread defringe/feather hitch on first open — is guarded by nothing, which is
+also why nothing would have caught the deletion refused above.
 
 **Mechanism gaps worth closing**
 - `engine/tests/layering_tests.gd` scans only `engine/scripts/`, so `engine/tools/*.gd` could
