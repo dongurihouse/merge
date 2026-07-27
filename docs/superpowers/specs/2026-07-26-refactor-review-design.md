@@ -11,16 +11,30 @@ House pattern this follows: `engine/tests/const_ssot_tests.gd` and
   guard keeps it honest.
 - An allowlist entry is a decision with a one-line reason, keyed `path@TOKEN` — never by line.
 
-## STATUS (2026-07-26)
+## STATUS (2026-07-26) — COMPLETE
 
-Landed on `main`, full sweep green throughout (40 suites · 2372 passed · 0 failed):
+**Every item in this spec has landed on `main`.** Full sweep green at each merge; final state
+43 suites · 2558 passed · 0 failed (suite count includes concurrent non-review work).
 
-- **Wave 1 — all of it.** 1.1–1.8.
-- **Wave 2 — all of it.** 2.1–2.8. `const_ssot_tests` grew 15 → 24 assertions; two new
-  scanning suites (`feature_flag_registry_tests`, and `suite_registry_tests` extended to
-  `.py`/`.sh`); the palette scan now catches bare-hex strings.
-- **Wave 3 — 3.1, 3.2 (partial), 3.3, 3.4, 3.5, 3.7 (three of four), 3.8.**
-- **Wave 5 — 5.1 only.**
+- **Wave 1** 1.1–1.8 · **Wave 2** 2.1–2.8 · **Wave 3** 3.1–3.10 · **Wave 4** 4.1, 4.2 ·
+  **Wave 5** 5.1–5.8.
+
+Guard surface added: `const_ssot_tests` 15 → 28 assertions; new `feature_flag_registry_tests`
+(the registry that failed *open*), new `save_migrate_tests` (90 assertions over the extracted
+save hygiene); `suite_registry_tests` extended to `.py`/`.sh` and to `games/grove/tools/tests/`;
+the palette scan widened to bare-hex strings; the asset size guard widened from one subtree to
+all of `res://`.
+
+Size: `board.gd` 4153 → 3958, `map.gd` 2611 → 2448, roughly 1500 lines net removed across the
+review, two dead systems deleted.
+
+**The pixel gate.** `engine/tools/board_montage.gd` — the before/after gate this spec's Wave 4
+depends on — was found **dead**: it errored on a builder deleted in `cfee2439` (2026-06-25) and
+then hung forever at 100% CPU, because a GDScript error kills `_initialize` but not the
+`SceneTree`, so `quit()` is never reached. It had been producing nothing for a month while
+looking like a working gate. Repaired under 5.8, and its content scale was disabled (it had been
+resampling the sheet to 0.604, which hides exactly the sub-pixel differences it exists to catch).
+Now byte-deterministic: sha256 `74864a84c12b8dd5…`, identical before and after both Wave 4 cuts.
 
 Three items were **refused during implementation** and the refusals stand:
 
@@ -40,38 +54,60 @@ Three items were **refused during implementation** and the refusals stand:
 
 ### Still outstanding
 
-| item | note |
-|---|---|
-| 3.2 (rest) | the `quest_bar_h_frac` / `button_w_frac` / `edge_margin_px` resolver consolidation; the eight band constants (3.1) landed, this did not |
-| 3.6 | the 42-site test scene-host fixture |
-| 3.7 (`_soft_silhouette`, sparkle twin) | `prop_shadow`/`sprite_shadow`; `gen_sparkle` ↔ `games/grove/sparkle.gd` |
-| 3.9 | internal duplication in `board.gd` (~70 lines), `map.gd` `_classify` ×3, `ui_kit.gd` label boilerplate (~150 lines) |
-| 3.10 | the `Game.kit()` boilerplate — 25 declarations, 51 loads, three divergent guard styles |
-| 4.1, 4.2 | both decomposition cuts, and 5.8 (`shot_base`) which must precede 4.1 |
-| 5.2–5.7 | `grove_spec.md`, "iPad-only" ×3, the `.gdignore` path inversion, `.gitignore` phantoms, the Makefile comment, config duplication |
+Nothing from this spec. What follows is work the review *uncovered* but did not take on.
 
-### Discovered during implementation, not in the original survey
+**Needs an owner decision**
+- **The min-iOS-17 floor.** Its documented justification ("the app is iPad-only") was false —
+  `targeted_device_family=2` ships to iPhone and iPad, so the floor excludes every iPhone below
+  the XS/XR generation too. The real tradeoff: the Game Center + StoreKit plugin requires 17.0,
+  so it is keep-the-plugin-and-accept-the-cut, or drop the floor and lose both. The docs now
+  state this honestly; the setting is unchanged.
+- **Four inert test functions** in `games/grove/tests/grove_test_base.gd` — `_test_residents`,
+  `_test_resident_wiring`, `_test_2x_doubler_rehome`, `_test_t45_wiring`. No suite calls them.
+  That is ~90 lines of scene-driving coverage (resident roster rendering, the 2× doubler, the
+  piggy vault and daily-login wiring) that has been silently dead. Revive or delete.
+- **The daily-card sparkle has no live render path.** `Kit.daily_card` — the only instantiator
+  of `games/grove/sparkle.gd` — is reached now only from `games/tools/bake_targets.gd` and one
+  unit test. The live calendar is `LoginUI.open`, which draws its own sparkles.
 
-- **`docs/design/mocks/weather_hours/*.png` ship.** `docs/` has no `.gdignore` and no
-  `exclude_filter` entry, so those mocks enter the shipped texture set on any import. Found by
-  the widened asset guard (1.6) — the narrow walk could never have produced it. Fix is a
-  `.gdignore` in `docs/` or a `docs/**` exclude entry.
-- **`merge_fx._color:76`** carried a bare `if tier >= 8` — a third live copy of `PREMIUM_TIER`
-  the survey missed. Collapsed under 2.2.
-- **`board.gd:1173` and `:4016`** still hardcode the currency hexes that 3.3 consolidated into
-  `FX.REWARD_COLORS`. Left for whoever next touches `board.gd`.
-- **`grove_shot.gd`'s Lv chip needed the seed moved earlier**, not just corrected: `board.gd:1042`
-  builds the HUD's level chip once and `_update_hud` only re-ticks the wallet, so a correct coin
+**Mechanism gaps worth closing**
+- `engine/tests/layering_tests.gd` scans only `engine/scripts/`, so `engine/tools/*.gd` could
+  preload `games/` and pass. That blind spot is what would have let a lazy fix through in 5.8.
+- `shot_base.begin()` has no wall-clock watchdog. Any capture tool that errors mid-coroutine
+  hangs forever at 100% CPU with no output and no non-zero exit — the exact failure that hid
+  `board_montage`'s death for a month. A bound needs measuring across all 17 tools first.
+- **Texture import quality is split** 549 at 0.9 / 425 at 0.88. Both lossy so the size guard
+  passes, but a new asset dropped beside a 0.88 neighbour imports differently from its sheet.
+- `map.gd`'s decorative kit guard is still decorative — now carrying a comment saying so, since
+  closing it either way is a behaviour change rather than a de-duplication.
+
+**Small, factual**
+- `grove_shot.gd`'s `unlock` mode: `int(round(coins_at_level(2) * 0.67))` evaluates to `1`,
+  i.e. exactly L2 at 0% progress, not the "~67%" its comment claims.
+- `grove_shot.gd`'s `producing` mode seeds discovery codes `6101/6201/6301` (Farm lines 61–63),
+  which are no longer in `G.LINES`, so seven of eight cells render as locked "?" wells.
+
+### Discovered during implementation and FIXED here
+
+- **`docs/design/mocks/weather_hours/*.png` were shipping.** `docs/` had no `.gdignore` and no
+  `exclude_filter` entry, so the mocks entered the shipped texture set on any import. Surfaced by
+  the widened asset guard (1.6) — the narrow walk could never have produced it. Closed with
+  `docs/.gdignore` (nothing in the tree loads `res://docs`, so stopping the import outright beats
+  an export filter that would still import them).
+- **`merge_fx._color`** carried a bare `if tier >= 8` — a third live copy of `PREMIUM_TIER` the
+  survey missed. Collapsed under 2.2.
+- **`board.gd`'s two currency hex literals** now read `FX.reward_color(...)` (4.2).
+- **`grove_shot.gd`'s Lv chip needed the seed moved earlier**, not just corrected: `board.gd`
+  builds the HUD level chip once and `_update_hud` only re-ticks the wallet, so a correct coin
   seed applied in the mode branch still rendered Lv 1.
-- **`unlock` capture mode** (`grove_shot.gd:158`): `int(round(coins_at_level(2) * 0.67))` evaluates
-  to `1` — exactly L2 at 0% progress, not the "~67%" its comment claims.
-- **`producing`'s discovery mix** seeds codes `6101/6201/6301` (Farm lines 61–63) which are no
-  longer in `G.LINES`, so seven of eight cells render as locked "?" wells. Separate rot from the
-  exp clock.
-- **`export_presets.cfg:260` is `iPhone & iPad`, not iPad-only** — so the min-iOS-17 floor drops
-  every iPhone below iOS 17 too, not just older iPads. The docs claim otherwise and use
-  "iPad-only" to argue the floor was free. **This is a re-priced tradeoff and the owner's call**
-  (5.3 corrects the claim only).
+- **`_spawn_bonus_gen` / `_spawn_treat_gen` could not be merged naively.** The bonus path draws
+  `pick_bonus_kind(rng)` *before* the free-cell search; the treat path draws nothing. Since the
+  rng is seeded and persisted, collapsing them the obvious way would have been a silent
+  save-compat break. The kind draw stays at the call site and the click budget is a `Callable`.
+- **The real fixture count was 45, not 42** (3.6), and the real kit-handle counts were 25
+  declarations / 60 load sites / **five** divergent guard styles, not 3 (3.10).
+- **`suite_registry_tests` was right and I was wrong** about the new save-migration suite: it
+  failed with exactly one assertion until the suite was wired into `ENGINE_TESTS`.
 
 Owner decisions taken 2026-07-26:
 - Board gate grid: **keep the shipped L16 board.** No pacing change. `grove_data.gd` re-syncs to
