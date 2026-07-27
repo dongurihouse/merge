@@ -211,13 +211,13 @@ func _initialize() -> void:
 			scn._on_release(scn._cell_pos(Vector2i(5, 4)) + half)
 			await create_timer(0.5).timeout
 		"sky_sunbeam", "sky_rain":
-			# The live Weather Hours patch + marker, through Board.tscn. The save has both FTUE verbs
-			# marked above, so the gift gate is open and the lane is visible.
+			# The live Weather Hours patch + in-cell glyph, through Board.tscn. The save has both FTUE
+			# verbs marked above, so the gift gate is open and the lane is visible.
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
 		"sky_calm":
 			# The SAME gate-open board on a Calm hour — the capture's whole point is what is MISSING:
-			# no wash, no marker, nothing outside the mat. Diff it against sky_sunbeam to see the
+			# no wash, no glyph, nothing outside the mat. Diff it against sky_sunbeam to see the
 			# lane chrome appear and nothing else move.
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
