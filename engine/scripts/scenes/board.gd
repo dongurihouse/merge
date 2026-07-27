@@ -25,6 +25,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
+const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
@@ -95,6 +96,11 @@ const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
 const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece must stay visible above
                                                   # the hand-hint veil (hand_hint.gd) while a teach is live
 const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
+const ANIM_WATCHDOG_SECS := 0.6
+const CHAIN_STEP_WATCHDOG_SECS := 2.0
+const CHAIN_STEP_MS := 250
+const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
+const CHAIN_REWARDS := {2: 901, 3: 1001, 4: 1002, 5: 1003, 6: 1004, 7: 1005}
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
 # grove board palette (the night-purples retire here)
@@ -252,6 +258,12 @@ var _drag_lean_seeded := false        # false until the first follow seeds _drag
 var animating := false
 var _anim_t := 0.0                  # seconds the animating gate has been held (watchdog — see _process)
 var _idle := 0.0                   # seconds without input → the wiggle hint
+var _chain_run: Array = []
+var _chain_n := 0
+var _chain_active := false
+var _chain_auto_step := false
+var _chain_reward_cell := Vector2i(-1, -1)
+var _cascade_outline: Control = null
 
 var water_label: Label
 var _water_icon: Control
@@ -410,14 +422,18 @@ func debug_refresh_weather() -> void:
 func _process(delta: float) -> void:
 	if board == null:
 		return
-	# Watchdog: `animating` gates ALL board taps and is meant to be true only for a merge tween
-	# (~0.12s, cleared in _after_merge). If a tween callback is ever missed the gate sticks true and
-	# the board silently swallows every tap (taps "do nothing"). Self-heal so input can never soft-lock.
+	# Watchdog: `animating` gates ALL board taps. Single merges should clear quickly; cascades reuse the
+	# same gate across several paced steps, so each step gets its own longer callback guard.
 	if animating:
 		_anim_t += delta
-		if _anim_t > 0.6:
-			animating = false
-			_anim_t = 0.0
+		var watchdog_secs := CHAIN_STEP_WATCHDOG_SECS if _chain_active else ANIM_WATCHDOG_SECS
+		if _anim_t > watchdog_secs:
+			if _chain_active:
+				_finish_chain()
+				_after_board_change()
+			else:
+				animating = false
+				_anim_t = 0.0
 			if Debug.on():
 				print("[collect] animating watchdog fired — gate was stuck; input re-enabled")
 	else:
@@ -657,7 +673,7 @@ func _reflow_board_after_resize() -> void:
 	if sz == _last_board_view_size:
 		return
 	# don't yank a piece out from under an in-flight drag; the next resize tick will catch up.
-	if _drag_node != null or animating:
+	if _drag_node != null or animating or _chain_active:
 		return
 	_last_board_view_size = sz
 	_recompute_board_geometry()
@@ -859,6 +875,7 @@ func _after_board_change(hud_deferred := false) -> void:
 	if not hud_deferred:
 		_update_hud()
 	_refresh_giver_lights()
+	_refresh_cascade_outline()
 
 # the unlock CTA: ready when the NEXT cover-up cluster is unlockable right now (its page open,
 # level floor met, affordable) — the Home button breathes to say "go unlock the next region."
@@ -1479,6 +1496,63 @@ func _refresh_item_line_dim() -> void:
 		var unused := not asked_lines.is_empty() and quest_line and not asked_lines.has(line)
 		node.modulate = ITEM_UNUSED if unused else Color(1, 1, 1, 1)
 
+func _ensure_cascade_outline() -> Control:
+	if not Features.on("cascade") or board_area == null or not is_instance_valid(board_area):
+		if _cascade_outline != null and is_instance_valid(_cascade_outline):
+			_cascade_outline.queue_free()
+		_cascade_outline = null
+		return null
+	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
+			or _cascade_outline.is_queued_for_deletion() or _cascade_outline.get_parent() != board_area:
+		if _cascade_outline != null and is_instance_valid(_cascade_outline):
+			if _cascade_outline.get_parent() != null:
+				_cascade_outline.get_parent().remove_child(_cascade_outline)
+			_cascade_outline.queue_free()
+		_cascade_outline = CascadeOutline.new()
+		board_area.add_child(_cascade_outline)
+	_cascade_outline.configure(Vector2(_board_w(), _board_h()), csz, Callable(self, "_cell_pos"))
+	_position_cascade_outline()
+	return _cascade_outline
+
+func _position_cascade_outline() -> void:
+	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
+			or _cascade_outline.get_parent() != board_area:
+		return
+	var insert_at := _cascade_outline.get_index()
+	for raw_node in gen_nodes.values() + piece_nodes.values():
+		var n := raw_node as Node
+		if n != null and is_instance_valid(n) and n.get_parent() == board_area:
+			insert_at = mini(insert_at, n.get_index())
+	board_area.move_child(_cascade_outline, clampi(insert_at, 0, board_area.get_child_count() - 1))
+
+func _refresh_cascade_outline() -> void:
+	if board == null or board_area == null or not is_instance_valid(board_area):
+		return
+	var outline := _ensure_cascade_outline()
+	if outline == null:
+		return
+	outline.set_ladders(BoardLogic.ready_ladders(board))
+
+func _show_cascade_drag_guides(from: Vector2i) -> void:
+	if not Features.on("cascade") or board == null or board.is_gen(from):
+		return
+	var code := board.item_at(from)
+	if code <= 0:
+		return
+	var pads: Array = []
+	for raw in BoardLogic.chain_placements(board, from, code):
+		if raw is Dictionary:
+			var entry: Dictionary = (raw as Dictionary).duplicate(true)
+			entry["line"] = BoardModel.line_of(code)
+			pads.append(entry)
+	var outline := _ensure_cascade_outline()
+	if outline != null:
+		outline.set_ghost_pads(pads)
+
+func _clear_cascade_drag_guides() -> void:
+	if _cascade_outline != null and is_instance_valid(_cascade_outline):
+		_cascade_outline.clear_guides()
+
 # §6 boost indicator — the on-board "this generator is boosted" marker. While a boost is live, every
 # generator wears a sparkle overlay (reused gen_sparkle) + a small corner badge counting the taps left;
 # both are cleared the moment the boost expires. Rebuilt by _rebuild_all and refreshed on each pop.
@@ -1608,6 +1682,7 @@ func _rebuild_all() -> void:
 				br.position = _cell_pos(cell)
 				board_area.add_child(br)
 				bramble_nodes[cell] = br
+	_refresh_cascade_outline()
 	gen_nodes.clear()
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
@@ -2507,7 +2582,7 @@ func _gen_highlight_opts() -> Dictionary:
 
 func _on_board_input(event: InputEvent) -> void:
 	_idle = 0.0
-	if animating:
+	if animating or _chain_active:
 		if Debug.on() and ((event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)):
 			print("[collect] board tap IGNORED — animating gate is true (a merge/anim never cleared it)")
 		return
@@ -2615,6 +2690,7 @@ func _update_drag_lean(pos: Vector2) -> void:
 # every drag-end path (release, snap-back, stash, gen release) so no glow or rotation can leak past a drop.
 func _clear_drag_feel(node: Control = null) -> void:
 	_clear_telegraph()
+	_clear_cascade_drag_guides()
 	_drag_lean = 0.0
 	_drag_lean_seeded = false
 	_drag_last_pos = Vector2.ZERO
@@ -2655,6 +2731,7 @@ func _begin_drag() -> void:
 	GrabFx.grab(_drag_node, _grab_opts)       # glow + white rim + a light pickup tap (workbench-tuned)
 	Audio.play("item_pickup", -6.0)
 	if not _drag_is_gen:
+		_show_cascade_drag_guides(cell)
 		_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
@@ -2981,17 +3058,129 @@ func _recipe_merge_code(a_code: int, b_code: int) -> int:
 	var special_line := G.special_for_pair(int(a_code / 100.0), int(b_code / 100.0))
 	return (special_line * 100 + at) if special_line > 0 else 0
 
+func chain_running() -> bool:
+	return _chain_active
+
+func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
+	_chain_run = []
+	_chain_n = 0
+	_chain_active = false
+	_chain_auto_step = false
+	_chain_reward_cell = Vector2i(-1, -1)
+	if not Features.on("cascade"):
+		return
+	_chain_run = BoardLogic.chain_path(board, a, b)
+	if not _chain_run.is_empty():
+		_chain_n = 1
+		_chain_active = true
+
+func _schedule_chain_step(current: Vector2i) -> void:
+	if not _chain_active or _chain_run.is_empty():
+		_finish_chain()
+		return
+	_run_chain_step.call_deferred(current)
+
+func _run_chain_step(current: Vector2i) -> void:
+	if not _chain_active or _chain_run.is_empty():
+		_finish_chain()
+		return
+	var partner := Vector2i(_chain_run.pop_front())
+	if not board.can_merge(current, partner):
+		_finish_chain()
+		_after_board_change()
+		return
+	var node: Control = piece_nodes.get(current)
+	var produced := board.merge(current, partner)
+	piece_nodes.erase(current)
+	_chain_n += 1
+	_chain_auto_step = true
+	animating = true
+	_anim_t = 0.0
+	var merge_slide_ms := CHAIN_STEP_MS
+	if node != null and is_instance_valid(node):
+		MoveFx.apply(node, node.position, _cell_pos(partner), "slide", _move_opts, merge_slide_ms)
+		var tree := get_tree()
+		if tree != null:
+			tree.create_timer(float(merge_slide_ms) / 1000.0).timeout.connect(_after_merge.bind(current, partner, produced, node, true))
+		else:
+			_after_merge(current, partner, produced, node, true)
+	else:
+		_after_merge(current, partner, produced, node, true)
+
+func _finish_chain() -> void:
+	_chain_run = []
+	_chain_n = 0
+	_chain_active = false
+	_chain_auto_step = false
+	_chain_reward_cell = Vector2i(-1, -1)
+	animating = false
+	_anim_t = 0.0
+
+func _chain_reward_code(n: int) -> int:
+	return int(CHAIN_REWARDS.get(mini(n, 7), 0))
+
+func _apply_chain_reward(vacated: Vector2i) -> void:
+	var reward_code := _chain_reward_code(_chain_n)
+	if reward_code <= 0:
+		return
+	if _chain_n == 2:
+		_birth_chain_reward(vacated, reward_code)
+	elif _chain_n == 3:
+		_chain_reward_cell = vacated
+		_birth_chain_reward(_chain_reward_cell, reward_code)
+	elif _chain_reward_cell.x >= 0:
+		_replace_chain_reward(_chain_reward_cell, reward_code)
+
+func _birth_chain_reward(cell: Vector2i, code: int) -> void:
+	if not board.is_empty_ground(cell):
+		return
+	board.place(cell, code)
+	_mark_seen(code)
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(cell)
+	board_area.add_child(n)
+	piece_nodes[cell] = n
+	FX.pop(n)
+
+func _replace_chain_reward(cell: Vector2i, code: int) -> void:
+	if not board.in_bounds(cell) or board.item_at(cell) <= 0:
+		return
+	var old: Control = piece_nodes.get(cell)
+	if old != null and is_instance_valid(old):
+		old.queue_free()
+	board.place(cell, code)
+	_mark_seen(code)
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(cell)
+	board_area.add_child(n)
+	piece_nodes[cell] = n
+	FX.pop(n)
+
+func _show_chain_step_feedback(cell: Vector2i, produced: int) -> void:
+	var at := board_area.get_global_transform() * (_cell_pos(cell) + Vector2(csz, csz) / 2.0)
+	var floater_size := FS.HEADING + maxi(0, mini(_chain_n, 7) - 2) * 2
+	FX.floating_text(self, at + Vector2(csz * 0.18, -csz * 0.38), "×%d" % _chain_n, CREAM, floater_size)
+	if _chain_n >= 5:
+		FX.burst(board_area, _cell_pos(cell) + Vector2(csz, csz) / 2.0, G.line_color(produced), 24)
+
 # #14 craft the special: consume the source ingredient; the target becomes the special at the same tier.
 func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
 	var code := _recipe_merge_code(board.item_at(from), board.item_at(target))
 	if code <= 0:
 		_snap_back(from, node)
 		return
+	_prepare_chain(from, target)
 	board.items[BoardModel.idx(from)] = 0
 	board.items[BoardModel.idx(target)] = code
 	_mark_seen(code)
 	_rebuild_all()
-	_after_board_change()
+	if _chain_active:
+		animating = true
+		_anim_t = 0.0
+		_after_board_change()
+		_schedule_chain_step(target)
+	else:
+		_after_board_change()
 	Audio.play("item_drop", -2.0)
 
 # Arm the temporary boost on ONE generator (§6/§10 coin sink): BOOST_TAPS taps of boosted burst odds on
@@ -3015,9 +3204,11 @@ func _activate_gen_boost(cell: Vector2i) -> bool:
 # the on-board indicator is _refresh_boost_indicator.
 
 func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
+	_prepare_chain(a, b)
 	var produced := board.merge(a, b)
 	piece_nodes.erase(a)
 	animating = true
+	_anim_t = 0.0
 	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
 	# impact). The slide duration is owned by the Merge FX workbench's merge_slide_ms knob, not by the
 	# Move workbench's general travel duration_ms, so tuning ordinary travel never makes merges sluggish.
@@ -3030,7 +3221,8 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	else:
 		_after_merge(a, b, produced, node)   # node went invalid mid-merge — resolve immediately
 
-func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> void:
+func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control, was_chain_step := false) -> void:
+	was_chain_step = was_chain_step or _chain_auto_step
 	if is_instance_valid(moved):
 		moved.queue_free()
 	var old: Control = piece_nodes.get(b)
@@ -3057,6 +3249,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# T63: a §6.G recipe-line (special "treasure" line) merge fires the intensified big-moment feel at EVERY
 	# tier — top-band colour/chime/haptic + the reserved shake + board punch — so the premium lines always land.
 	GridFx.play_merge(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), _grid_fx_opts, false, G.is_special_line(produced))
+	if was_chain_step:
+		_show_chain_step_feedback(b, produced)
+		_apply_chain_reward(_a)
 	# bundle D: poke the screen-bloom — a PERSISTENT overlay, so it can't live inside apply(); gate + scale it
 	# here by the workbench's combo_bloom toggle + bloom_pct knob (the scene owns the world reaction).
 	if MergeFx.on(_merge_opts, "combo_bloom") and _combo_bloom != null and is_instance_valid(_combo_bloom):
@@ -3066,13 +3261,21 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 		_open_bramble(cell)
 	_refresh_locked_cells()   # the open set changed → re-evaluate neighbours' frontier/highlight
 	# a little luck: merges sometimes shake a coin loose
-	if BoardLogic.rolls_coin_drop(produced, rng):
+	var roll_lucky := not was_chain_step or CHAIN_AUTO_STEPS_ROLL_LUCKY
+	if roll_lucky and BoardLogic.rolls_coin_drop(produced, rng):
 		_drop_coin_near(b)
 	# §6.B a rarer luck: a merge sometimes also shakes a SPECIAL item loose (chest/key/water/acorn/exp)
-	if not G.is_special(produced) and G.rolls_special_drop(rng):
+	if roll_lucky and not G.is_special(produced) and G.rolls_special_drop(rng):
 		_drop_special_near(b, G.pick_special_drop(rng))
-	animating = false
-	_after_board_change()
+	_chain_auto_step = false
+	var keep_running := _chain_active and not _chain_run.is_empty()
+	if keep_running:
+		_after_board_change()
+		_schedule_chain_step(b)
+	else:
+		_finish_chain()
+		animating = false
+		_after_board_change()
 
 # The up-to-4 ORTHOGONAL neighbour piece nodes of `cell`, gathered from the live grid (piece_nodes,
 # keyed by cell). Empty cells and invalid/freed nodes are skipped, so the returned list only ever holds

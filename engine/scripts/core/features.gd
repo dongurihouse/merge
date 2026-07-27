@@ -44,6 +44,7 @@ static var FLAGS := {
 
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)
+	"cascade": true,              # player-tipped adjacent ladders auto-merge into one rewarded cascade chain
 	# ftue
 	"ftue_free_pops": false,      # retired: water now costs from the first pop (no 10-pop free intro)
 	"ftue_hand_hint": true,       # the two one-time hand teaches: drag-to-merge, then tap-the-generator (spec 2026-07-23)

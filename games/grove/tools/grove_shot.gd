@@ -37,7 +37,7 @@ func _initialize() -> void:
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"fullline"],
+			"cascade", "fullline"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
 		"retired": {
@@ -85,6 +85,59 @@ func _initialize() -> void:
 	scn.rng.seed = RNG_SEED           # re-pin so each mode's own actions start from a fixed stream
 
 	match mode:
+		"cascade":
+			var phase := String(Base.opt(args, "phase", "run"))
+			for i in scn.board.items.size():
+				scn.board.terrain[i] = 0
+				scn.board.items[i] = 0
+			scn.board.collect_rewards = {}
+			scn.board.gens = {}
+			scn.board.gen_tiers = {}
+			scn.board.gen_boost = {}
+			scn.quests = []
+			var ready := {
+				Vector2i(3, 1): 101,
+				Vector2i(3, 2): 101,
+				Vector2i(3, 3): 102,
+				Vector2i(3, 4): 103,
+				Vector2i(3, 5): 104,
+				Vector2i(6, 6): 101,
+				Vector2i(5, 1): 101,
+				Vector2i(5, 3): 102,
+			}
+			for cell in ready:
+				scn.board.place(Vector2i(cell), int(ready[cell]))
+			scn._rebuild_all()
+			for n in scn.gen_nodes.values():
+				if n != null and is_instance_valid(n):
+					(n as Node).queue_free()
+			scn.gen_nodes.clear()
+			scn.gen_node = null
+			scn.board.gens = {}
+			scn.board.gen_tiers = {}
+			scn.board.gen_boost = {}
+			await create_timer(0.25).timeout
+			var chalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
+			if phase == "guide":
+				var held := Vector2i(6, 6)
+				scn._on_press(scn._cell_pos(held) + chalf)
+				scn._begin_drag()
+				scn._drag_follow(scn._cell_pos(Vector2i(5, 2)) + chalf + Vector2(18.0, -24.0))
+				await create_timer(0.35).timeout
+			elif phase == "run":
+				scn._on_press(scn._cell_pos(Vector2i(3, 1)) + chalf)
+				scn._on_release(scn._cell_pos(Vector2i(3, 2)) + chalf)
+				var reached_run_frame := false
+				for _i in 120:
+					await process_frame
+					if int(scn.get("_chain_n")) >= 2 and bool(scn.get("_chain_auto_step")):
+						reached_run_frame = true
+						break
+				if not reached_run_frame:
+					push_warning("cascade shot phase=run did not reach the seeded mid-run frame before capture")
+				Engine.time_scale = 0.0
+			else:
+				await create_timer(0.35).timeout
 		"played":
 			var half: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			scn._on_press(scn._cell_pos(Vector2i(3, 2)) + half)   # merge the flowers

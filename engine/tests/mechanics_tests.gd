@@ -536,8 +536,8 @@ func _initialize() -> void:
 		"is_special gates only the special pseudo-lines (not content, not coins)")
 	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "",
 		"the chest reads its kind; the retired key line (11) is no longer special")
-	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
-		"merge_top caps special items low, content high, coins at the coin top")
+	ok(G.merge_top(chest_t1) == 5 and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
+		"merge_top lets chests override to tier 5, content high, coins at the coin top")
 	ok(G.merge_top(coin_t1) == 3, "coins merge through tier 3 (the 12-tier ladder is retired)")
 	var expected_coin_values := {1: 2, 2: 4, 3: 10}
 	for tier in expected_coin_values:
@@ -547,10 +547,14 @@ func _initialize() -> void:
 	sbm.place(Vector2i(3, 2), 10 * 100 + 2)
 	sbm.place(Vector2i(3, 4), 10 * 100 + 2)
 	ok(sbm.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "two chest-t2 merge (below the special ceiling)")
-	sbm.place(Vector2i(5, 2), 10 * 100 + 3)
-	sbm.place(Vector2i(5, 4), 10 * 100 + 3)
-	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
+	sbm.place(Vector2i(5, 2), 10 * 100 + 4)
+	sbm.place(Vector2i(5, 4), 10 * 100 + 4)
+	ok(sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t4 merge into the top chest")
+	sbm.place(Vector2i(6, 2), 10 * 100 + 5)
+	sbm.place(Vector2i(6, 4), 10 * 100 + 5)
+	ok(not sbm.can_merge(Vector2i(6, 2), Vector2i(6, 4)), "two chest-t5 do NOT merge (at the chest ceiling)")
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
+	ok(G.item_tex_path(10 * 100 + 5).ends_with("items/chest/chest_5.png"), "chest t5 resolves its wired art path")
 	ok(G.merge_top(13 * 100 + 1) == G.SPECIAL_TOP, "acorn drops merge through tier 3 (the 12-tier ladder is retired)")
 	ok(G.item_tex_path(13 * 100 + 3).ends_with("items/acorn/acorn_6.png"), "acorn t3 resolves its PICKED art (t3 wears acorn_6)")
 	ok(ResourceLoader.exists("res://games/grove/assets/items/coin/coin_12.png"), "coin t12 art is imported")
@@ -574,9 +578,13 @@ func _initialize() -> void:
 	ok(G.is_chest(10 * 100 + 1) and G.is_collectable(10 * 100 + 1), "a chest is collectable — the second tap opens it (no key needed)")
 	# the open reward scales by the chest tier alone (the key line + its multiplier are retired)
 	var r1 := G.chest_open_reward(10 * 100 + 1)   # chest t1 → 40 coins, 0 acorns
-	var r3 := G.chest_open_reward(10 * 100 + 3)   # chest t3 → 320 coins, 3 acorns
+	var r3 := G.chest_open_reward(10 * 100 + 3)   # chest t3 -> 320 coins, 3 acorns
+	var r4 := G.chest_open_reward(10 * 100 + 4)   # chest t4 -> 800 coins, 6 acorns
+	var r5 := G.chest_open_reward(10 * 100 + 5)   # chest t5 -> 2000 coins, 12 acorns
 	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 opens for the base coins")
 	ok(int(r3.coins) == 320 and int(r3.acorns) == 3, "a higher chest tier opens for the richer payout")
+	ok(int(r4.coins) == 800 and int(r4.acorns) == 6, "chest t4 opens for the cascade reward row")
+	ok(int(r5.coins) == 2000 and int(r5.acorns) == 12, "chest t5 opens for the capped cascade reward row")
 
 	# --- §6.C utility accumulators (bank-to-cap, unlocked by map-1 spots) ---
 	var acc_spot: String = String(G.MAPS[0].spots[0].id)   # the water accumulator's unlock spot

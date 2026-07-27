@@ -1727,6 +1727,14 @@ static func item_tex_path(code: int) -> String:
 		return ""
 	return Game.art("items/%s/%s_%d.png" % [base, base, art_tier_for(base, tier)])
 
+static func line_color(code: int) -> Color:
+	var line := int(code / 100.0) if code >= 100 else code
+	if LINES.has(line):
+		var def: Dictionary = LINES[line]
+		if def.has("color"):
+			return def.color
+	return Game.PALETTE.TEXT_MUTED
+
 # The ART index in-game tier `tier` wears for `base` (D.ART_TIER_PICK — owner-picked looks off a
 # larger sheet, e.g. the 3-tier coin ladder wearing art 1/4/5). Unmapped bases pass through.
 static func art_tier_for(base: String, tier: int) -> int:

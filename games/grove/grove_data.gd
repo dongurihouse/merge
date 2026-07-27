@@ -354,7 +354,7 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
 const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
 const SPECIAL_ITEMS := {
-	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
+	10: {"name": "Chest", "base": "chest", "kind": "chest", "top": 5, "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (5 tiers); TAP-opened — the key line is retired
 	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
 }
@@ -368,8 +368,8 @@ const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)
 }
-const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
-const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
+const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320, 4: 800, 5: 2000}   # base coins for opening a chest of this tier …
+const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3, 4: 6, 5: 12}          # … plus acorns at the higher chest tiers
 
 # §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
 # cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored

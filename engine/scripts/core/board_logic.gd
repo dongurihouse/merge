@@ -8,6 +8,8 @@ extends RefCounted
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 
+const ORTHO_DIRS := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+
 # Offline + online water regen share one rule: +1 per REGEN_SECS from the anchor,
 # capped. Returns the updated {water, regen_ts}; the caller assigns them back.
 static func regen(water: int, regen_ts: float, now: float) -> Dictionary:
@@ -34,6 +36,223 @@ static func find_mergeable_pair(board: BoardModel) -> Array:
 			return [seen[k], BoardModel.cell_of(i)]
 		seen[k] = BoardModel.cell_of(i)
 	return []
+
+# If item `a` is merged onto matching item `b`, return the ordered partner
+# cells the upgraded result will auto-merge onto. Empty means the tip merge has
+# no cascade follow-up. Longest run wins; equal runs choose row-major order.
+static func chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array:
+	if board == null:
+		return []
+	var produced := _tip_result_code(board, a, b)
+	if produced <= 0:
+		return []
+	var vacated := {}
+	vacated[a] = true
+	return _best_chain_from(board, b, produced, vacated)
+
+# Ready outline data, one entry per same-line component whose best tip-over
+# would produce at least one automatic follow-up step.
+static func ready_ladders(board: BoardModel) -> Array:
+	var out: Array = []
+	if board == null:
+		return out
+	var visited := {}
+	for i in board.items.size():
+		var code := int(board.items[i])
+		if code <= 0:
+			continue
+		var cell := BoardModel.cell_of(i)
+		if visited.has(cell):
+			continue
+		var line := BoardModel.line_of(code)
+		var cells := _component_from(board, cell, line)
+		for c in cells:
+			visited[c] = true
+		var best := _best_tip_in_component(board, cells)
+		var n := int(best.get("n", 0))
+		if n >= 2:
+			out.append({
+				"cells": cells,
+				"line": line,
+				"n": n,
+				"top_cell": Vector2i(best.get("top_cell", cell)),
+			})
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("top_cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("top_cell", Vector2i.ZERO))))
+	return out
+
+# Empty cells where dropping `code` would improve the joined same-line
+# component's best cascade. The source cell is treated as vacated for drag use.
+static func chain_placements(board: BoardModel, from: Vector2i, code: int) -> Array:
+	var out: Array = []
+	if board == null or code <= 0:
+		return out
+	var base := _copy_board(board)
+	if base.in_bounds(from) and base.item_at(from) == code:
+		base.take(from)
+	var line := BoardModel.line_of(code)
+	for i in base.items.size():
+		var cell := BoardModel.cell_of(i)
+		if cell == from or not base.is_empty_ground(cell):
+			continue
+		if not _has_adjacent_line(base, cell, line):
+			continue
+		var before_n := _best_adjacent_component_n(base, cell, line)
+		var placed := _copy_board(base)
+		placed.place(cell, code)
+		var after := _best_tip_in_component(placed, _component_from(placed, cell, line))
+		var n := int(after.get("n", 0))
+		if n >= 2 and n > before_n:
+			out.append({"cell": cell, "n": n})
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
+	return out
+
+static func _best_chain_from(board: BoardModel, current: Vector2i, code: int, vacated: Dictionary) -> Array:
+	if BoardModel.tier_of(code) >= G.merge_top(code):
+		return []
+	var candidates: Array = []
+	for raw_d in ORTHO_DIRS:
+		var d := Vector2i(raw_d)
+		var n: Vector2i = current + d
+		if vacated.has(n) or not board.in_bounds(n):
+			continue
+		if board.item_at(n) != code:
+			continue
+		if not board.collect_reward_at(n).is_empty():
+			continue
+		candidates.append(n)
+	candidates = _sorted_cells(candidates)
+	var best: Array = []
+	for partner in candidates:
+		var next_vacated := vacated.duplicate()
+		next_vacated[current] = true
+		var path: Array = [partner]
+		path.append_array(_best_chain_from(board, Vector2i(partner), code + 1, next_vacated))
+		if _path_better(path, best):
+			best = path
+	return best
+
+static func _tip_result_code(board: BoardModel, a: Vector2i, b: Vector2i) -> int:
+	if board.can_merge(a, b):
+		return board.item_at(a) + 1
+	var a_code := board.item_at(a)
+	var b_code := board.item_at(b)
+	if a == b or a_code <= 0 or b_code <= 0:
+		return 0
+	if not board.collect_reward_at(a).is_empty() or not board.collect_reward_at(b).is_empty():
+		return 0
+	if BoardModel.tier_of(a_code) != BoardModel.tier_of(b_code):
+		return 0
+	var special_line := G.special_for_pair(BoardModel.line_of(a_code), BoardModel.line_of(b_code))
+	return special_line * 100 + BoardModel.tier_of(a_code) if special_line > 0 else 0
+
+static func _best_tip_in_component(board: BoardModel, cells: Array) -> Dictionary:
+	var cell_set := {}
+	for c in cells:
+		cell_set[Vector2i(c)] = true
+	var best := {"n": 0, "top_cell": Vector2i(-1, -1), "from": Vector2i(-1, -1), "to": Vector2i(-1, -1), "path": []}
+	for a in cells:
+		var from := Vector2i(a)
+		for raw_d in ORTHO_DIRS:
+			var d := Vector2i(raw_d)
+			var to := from + d
+			if not cell_set.has(to) or not board.can_merge(from, to):
+				continue
+			var path := chain_path(board, from, to)
+			var n := 1 + path.size()
+			if n < 2:
+				continue
+			var top_cell := Vector2i(path[path.size() - 1])
+			var candidate := {"n": n, "top_cell": top_cell, "from": from, "to": to, "path": path}
+			if _tip_better(candidate, best):
+				best = candidate
+	return best
+
+static func _tip_better(candidate: Dictionary, best: Dictionary) -> bool:
+	var cn := int(candidate.get("n", 0))
+	var bn := int(best.get("n", 0))
+	if cn != bn:
+		return cn > bn
+	var ct := BoardModel.idx(Vector2i(candidate.get("top_cell", Vector2i.ZERO)))
+	var bt := BoardModel.idx(Vector2i(best.get("top_cell", Vector2i(G.ROWS, G.COLS))))
+	if ct != bt:
+		return ct < bt
+	if _path_better(Array(candidate.get("path", [])), Array(best.get("path", []))):
+		return true
+	var cf := BoardModel.idx(Vector2i(candidate.get("from", Vector2i.ZERO)))
+	var bf := BoardModel.idx(Vector2i(best.get("from", Vector2i(G.ROWS, G.COLS))))
+	if cf != bf:
+		return cf < bf
+	return BoardModel.idx(Vector2i(candidate.get("to", Vector2i.ZERO))) < BoardModel.idx(Vector2i(best.get("to", Vector2i(G.ROWS, G.COLS))))
+
+static func _path_better(candidate: Array, best: Array) -> bool:
+	if candidate.size() != best.size():
+		return candidate.size() > best.size()
+	for i in candidate.size():
+		var ci := BoardModel.idx(Vector2i(candidate[i]))
+		var bi := BoardModel.idx(Vector2i(best[i]))
+		if ci != bi:
+			return ci < bi
+	return false
+
+static func _component_from(board: BoardModel, start: Vector2i, line: int) -> Array:
+	var seen := {}
+	var stack: Array = [start]
+	while not stack.is_empty():
+		var cell := Vector2i(stack.pop_back())
+		if seen.has(cell) or not board.in_bounds(cell):
+			continue
+		var code := board.item_at(cell)
+		if code <= 0 or BoardModel.line_of(code) != line:
+			continue
+		seen[cell] = true
+		for raw_d in ORTHO_DIRS:
+			var d := Vector2i(raw_d)
+			stack.append(cell + d)
+	return _sorted_cells(seen.keys())
+
+static func _sorted_cells(cells: Array) -> Array:
+	var out := cells.duplicate()
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i(a)) < BoardModel.idx(Vector2i(b)))
+	return out
+
+static func _has_adjacent_line(board: BoardModel, cell: Vector2i, line: int) -> bool:
+	for raw_d in ORTHO_DIRS:
+		var d := Vector2i(raw_d)
+		var n := cell + d
+		if board.in_bounds(n) and board.item_at(n) > 0 and BoardModel.line_of(board.item_at(n)) == line:
+			return true
+	return false
+
+static func _best_adjacent_component_n(board: BoardModel, cell: Vector2i, line: int) -> int:
+	var seen_components := {}
+	var best := 0
+	for raw_d in ORTHO_DIRS:
+		var d := Vector2i(raw_d)
+		var n := cell + d
+		if not board.in_bounds(n) or board.item_at(n) <= 0 or BoardModel.line_of(board.item_at(n)) != line:
+			continue
+		var comp := _component_from(board, n, line)
+		if comp.is_empty():
+			continue
+		var key := Vector2i(comp[0])
+		if seen_components.has(key):
+			continue
+		seen_components[key] = true
+		best = maxi(best, int(_best_tip_in_component(board, comp).get("n", 0)))
+	return best
+
+static func _copy_board(board: BoardModel) -> BoardModel:
+	var cp := BoardModel.new()
+	cp.terrain = board.terrain.duplicate()
+	cp.items = board.items.duplicate()
+	cp.collect_rewards = board.collect_rewards.duplicate(true)
+	cp.gens = board.gens.duplicate(true)
+	cp.gen_tiers = board.gen_tiers.duplicate(true)
+	cp.gen_bag = board.gen_bag.duplicate(true)
+	cp.gen_bag_tiers = board.gen_bag_tiers.duplicate(true)
+	cp.gen_boost = board.gen_boost.duplicate(true)
+	cp.gen_bag_boost = board.gen_bag_boost.duplicate(true)
+	return cp
 
 # §2 seam (pure, headless-testable): the sealed cells the hinted pair would open.
 # A merge can land on EITHER cell of the pair, so we union the level-reached sealed
