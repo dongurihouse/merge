@@ -3,7 +3,7 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
 ## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 
