@@ -148,15 +148,21 @@ vacated — always free, synchronously, before the lucky rolls.
   queued-for-deletion nodes from the computation because `queue_free` is deferred; the guard is
   `grove_cascade_tests.gd`'s stack assertion with stale generator nodes present. Template:
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
-- Per armed `ready_ladders` component: stitched dashes along the perimeter (cell edges whose
-  neighbour is outside), slightly inset, rounded dash ends, per-stitch jitter, a whisper of
-  warm shadow under each dash. Thickness + alpha step with n (×2 / ×3 / ×4+). Optional
-  interior wash: a light line-color tint inside the group (`fill_pct` knob 0–8; the approved
-  mock uses ~5). Redraw only on recompute — in `_after_board_change()` (`board.gd:1011`)
-  and after `_rebuild_all`.
-- Per `runways` component: same stitched perimeter language, lower alpha/thinner stroke and
-  lower interior wash than an armed ladder. Tag text names the needed tier, derived from
-  `needs_code`, not ×n. Armed and runway marks must be distinguishable in still captures.
+- Per armed `ready_ladders` component: a **paper ribbon** threading the run. For each marked
+  cell, stroke from the cell centre to the midpoint of every edge it shares with another marked
+  cell; round the joint, cap a lone end (`_ribbon_ends`). That one rule covers every shape a run
+  or component can take — straight, bend, zigzag, T, cross, and the closed ring a 2×2 block makes
+  — and the strip meets itself exactly on cell edges, so no configuration can misalign.
+  `grove_cascade_tests` pins the bend, T, ring and isolated cases by endpoint count. Redraw only
+  on recompute — in `_after_board_change()` and after `_rebuild_all`.
+- Material: cut-paper stack, bottom to top — contact shadow, warm cut edge, grained face, light
+  top plane. The grain is a seeded 64² `ImageTexture` (`PAPER_SEED`) drawn with board-space UVs
+  so it runs unbroken along the strip; seeded because `make shot` compares captures byte for
+  byte. The line colour is pulled ~40 % toward cream first (`tape`): at full saturation the band
+  reads as a new game object competing with the pieces instead of tape laid on the board.
+- Per `runways` component: the same ribbon, thinner and at half strength. Tag text names the
+  needed tier, derived from `needs_code`, not ×n. Armed and runway marks must be
+  distinguishable in still captures.
 - Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
   (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
 - Tags: armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner; runways

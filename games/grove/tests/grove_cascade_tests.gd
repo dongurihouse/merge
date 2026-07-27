@@ -27,6 +27,7 @@ func _initialize() -> void:
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
+	_test_ribbon_covers_bends_branches_and_rings()
 	await _test_landscape_outline_uses_transposed_edges()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
 	finish()
@@ -702,14 +703,63 @@ func _test_ready_outline_and_flag_off() -> void:
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
 
+# The ribbon's one rule has to cover every shape a run or a component can take, so pin the shapes
+# a straight-row fixture can never show: a bend, a T and a closed 2x2 ring. Each cell's endpoint
+# count IS its tile — 1 end caps, 2 opposite is a straight, 2 perpendicular is a corner, 3 is a T,
+# 4 is a cross — so asserting the counts asserts the whole tile set without an image.
+func _test_ribbon_covers_bends_branches_and_rings() -> void:
+	var outline := CascadeOutline.new()
+	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+
+	var bend := {Vector2i(1, 1): true, Vector2i(1, 2): true, Vector2i(2, 2): true}
+	var corner: Array = outline.call("_ribbon_ends", Vector2i(1, 2), bend)
+	var tail: Array = outline.call("_ribbon_ends", Vector2i(1, 1), bend)
+	var centre := Vector2(_landscape_outline_pos(Vector2i(1, 2))) + Vector2.ONE * 20.0
+	var perpendicular := false
+	if corner.size() == 2:
+		var u := (Vector2(corner[0]) - centre).normalized()
+		var v := (Vector2(corner[1]) - centre).normalized()
+		perpendicular = is_zero_approx(u.dot(v))
+	ok(corner.size() == 2 and perpendicular and tail.size() == 1, \
+		"a bent run turns a corner and caps its tail")
+
+	var tee := {Vector2i(2, 1): true, Vector2i(2, 2): true, Vector2i(2, 3): true, Vector2i(1, 2): true}
+	ok(Array(outline.call("_ribbon_ends", Vector2i(2, 2), tee)).size() == 3, \
+		"a branching component draws a T where three arms meet")
+
+	var ring := {Vector2i(1, 1): true, Vector2i(1, 2): true, Vector2i(2, 1): true, Vector2i(2, 2): true}
+	var ring_ok := true
+	for raw in ring:
+		if Array(outline.call("_ribbon_ends", Vector2i(raw), ring)).size() != 2:
+			ring_ok = false
+	ok(ring_ok, "a 2x2 block closes the ribbon into a ring with no loose ends")
+
+	var lone := {Vector2i(4, 4): true}
+	ok(Array(outline.call("_ribbon_ends", Vector2i(4, 4), lone)).is_empty(), \
+		"an isolated cell has no arms and falls back to the joint disc")
+	outline.free()
+
 func _test_landscape_outline_uses_transposed_edges() -> void:
 	var outline := CascadeOutline.new()
 	outline.configure(Vector2(240, 260), 40.0, Callable(self, "_landscape_outline_pos"))
-	var has_edges := outline.has_method("_perimeter_edge_segment")
-	var row_minus: Array = outline.call("_perimeter_edge_segment", Vector2i(3, 2), Vector2i(-1, 0)) if has_edges else []
-	var col_minus: Array = outline.call("_perimeter_edge_segment", Vector2i(3, 2), Vector2i(0, -1)) if has_edges else []
-	ok(_segment_is_vertical(row_minus) and _segment_is_horizontal(col_minus), \
-		"landscape outline maps model neighbours through the transposed cell geometry")
+	# The ribbon's endpoints are the transpose-sensitive part now: a model row-neighbour has to
+	# come out as a HORIZONTAL screen offset under the landscape transpose, not a vertical one.
+	var cells := {Vector2i(3, 2): true, Vector2i(2, 2): true, Vector2i(3, 1): true}
+	var ends: Array = outline.call("_ribbon_ends", Vector2i(3, 2), cells)
+	var centre: Vector2 = Vector2(_landscape_outline_pos(Vector2i(3, 2))) + Vector2.ONE * 20.0
+	var offs: Array = []
+	for e in ends:
+		offs.append(Vector2(e) - centre)
+	var row_off_horizontal := false
+	var col_off_vertical := false
+	for o in offs:
+		var v := Vector2(o)
+		if absf(v.x) > absf(v.y):
+			row_off_horizontal = true
+		else:
+			col_off_vertical = true
+	ok(ends.size() == 2 and row_off_horizontal and col_off_vertical, \
+		"landscape ribbon maps model neighbours through the transposed cell geometry")
 	outline.free()
 
 func _line_of(code: int) -> int:
