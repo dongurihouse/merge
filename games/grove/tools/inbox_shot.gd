@@ -6,7 +6,7 @@ extends SceneTree
 ## unless override.cfg exists — the born-minimized window must come from quiet_godot.sh, not
 ## in-script flags, which are too late and flash/steal focus). Parallel-safe (own temp save).
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
 const InboxUI = preload("res://engine/scripts/ui/inbox.gd")

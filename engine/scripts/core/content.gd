@@ -23,6 +23,8 @@ const APPEAR_ALL := 1 << 30        # sentinel level: "include every generator re
 const GEN_CELL = D.GEN_CELL
 static var MIN_LEVEL: Array = D.MIN_LEVEL   # OWNER DIAL — live-overridable by economy_tuning.json (apply_tuning)
 const TIER_ODDS = D.TIER_ODDS
+const MASTERY_THRESHOLDS = D.MASTERY_THRESHOLDS
+const MASTERY_TIER_ODDS_5 = D.MASTERY_TIER_ODDS_5
 const ASK_WEIGHT = D.ASK_WEIGHT
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
@@ -87,13 +89,30 @@ const BAG_SLOT_PRICES = D.BAG_SLOT_PRICES
 const WATER_CAP = D.WATER_CAP
 const REGEN_SECS = D.REGEN_SECS
 const POP_COST = D.POP_COST
-const WINBACK_HOURS = D.WINBACK_HOURS
+const POP_COST_BY_TIER_LOW = D.POP_COST_BY_TIER_LOW
 const WATER_REWARD_MAX_RATIO = D.WATER_REWARD_MAX_RATIO
+const SKY_SHARES = D.SKY_SHARES
+const SKY_SKIN_SPLIT = D.SKY_SKIN_SPLIT
+const SKY_COIN_RATE = D.SKY_COIN_RATE
+const SKY_COIN_TIER = D.SKY_COIN_TIER
+const SKY_WATER_RATE = D.SKY_WATER_RATE
+const STAR_TIER_WEIGHTS = D.STAR_TIER_WEIGHTS
+const STAR_DELAY = D.STAR_DELAY
+const LANE_MIN_OPEN = D.LANE_MIN_OPEN
+const PATCH_ALPHA = D.PATCH_ALPHA
+const SKY_MARKER_ICON_RELS = D.SKY_MARKER_ICON_RELS
 const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
+const SCISSORS_LINE = D.SCISSORS_LINE
+const SCISSORS_COST = D.SCISSORS_COST
 const SPECIAL_TOP = D.SPECIAL_TOP
+const CHEST_LINE = D.CHEST_LINE
+const WATER_LINE = D.WATER_LINE
+const ACORN_LINE = D.ACORN_LINE
+const SOIL_SEED_LINE = D.SOIL_SEED_LINE
+const MAGNET_SEED_LINE = D.MAGNET_SEED_LINE
 const SPECIAL_ITEMS = D.SPECIAL_ITEMS
 const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
 const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
@@ -159,13 +178,20 @@ static func apply_tuning(path: String = "") -> PackedStringArray:
 			MIN_LEVEL = grid;   applied.append("min_level")
 	return applied
 
-# Validate a ROWS×COLS non-negative int grid; [] (→ ignored) on any shape mismatch.
+# Validate a ROWS×COLS non-negative int grid; [] (→ the key is ignored) on any shape mismatch.
+# A mis-shaped grid used to be a SILENT skip: the board fell back to the grove_data const and the
+# owner's saved JSON did nothing, with no signal anywhere. push_error instead — a hand-edited or
+# tool-generated grid of the wrong shape is a mistake, and it must say so.
 static func _coerce_grid(raw: Array) -> Array:
 	if raw.size() != int(D.ROWS):
+		push_error("economy_tuning min_level: expected %d rows × %d cols, got %d rows — grid IGNORED, the board falls back to the grove data const" % [int(D.ROWS), int(D.COLS), raw.size()])
 		return []
 	var grid: Array = []
-	for r in raw:
+	for i in raw.size():
+		var r: Variant = raw[i]
 		if not (r is Array) or (r as Array).size() != int(D.COLS):
+			var got: String = "%d cols" % (r as Array).size() if r is Array else "not an array (%s)" % type_string(typeof(r))
+			push_error("economy_tuning min_level: expected %d rows × %d cols, row %d is %s — grid IGNORED, the board falls back to the grove data const" % [int(D.ROWS), int(D.COLS), i, got])
 			return []
 		var row: Array = []
 		for v in r:
@@ -243,6 +269,24 @@ static func quest_needed_lines(asked: Array) -> Dictionary:
 	for l in asked:
 		_add_needed_line(out, int(l))
 	return out
+
+## True when `line` is in the recursive need closure for zone `z`: the active window's own lines plus
+## every ingredient needed to craft any special line in that window.
+static func line_needed_at_zone(line: int, z: int) -> bool:
+	return quest_needed_lines(zone_window_lines(int(z))).has(int(line))
+
+## First future zone, above the player's current zone, whose need closure contains `line`.
+## Returns {} when the line is complete for the shipped arc; otherwise {level, for_line}, where for_line is
+## the first visible window line whose recursive expansion pulls this line back.
+static func next_need(line: int, level: int) -> Dictionary:
+	var current_zone := quest_zone_for_level(int(level))
+	for z in range(current_zone + 1, ZONE_COUNT):
+		for window_line in zone_window_lines(int(z)):
+			var closure := {}
+			_add_needed_line(closure, int(window_line))
+			if closure.has(int(line)):
+				return {"level": zone_unlock_level(int(z)), "for_line": int(window_line)}
+	return {}
 
 # Walk one line's ingredient tree ALL THE WAY DOWN to its base lines. RECURSION IS LOAD-BEARING: an
 # ingredient may itself be a special — tea cups (19) <- spices (8) <- wild berries (2) + woolens (4) — and
@@ -569,6 +613,18 @@ static func quest_item(q: Dictionary) -> Dictionary:
 ## generators pop tier-1, so a tier-N item costs 2^(N-1) clicks. The fundamental effort unit.
 static func tier_clicks(t: int) -> int:
 	return int(pow(2, maxi(1, t) - 1))
+
+## Water charged for ONE generator pop whose EFFECTIVE tier window starts at `lo`
+## (`Mastery.window(line, quests).x` — 1 at rank 0 and with the mastery flag off, where this
+## returns POP_COST exactly, so unmastered play is unchanged). Mastery hands a pop 2^(lo-1)×
+## the tier-1 value it used to have; pricing the pop off that floor keeps WATER the binding
+## resource instead of letting rank collapse the sink (sim invariant I2). The curve is the
+## POP_COST_BY_TIER_LOW dial, clamped at both ends — the last entry covers any higher low.
+static func pop_cost(lo: int) -> int:
+	var tbl: Array = POP_COST_BY_TIER_LOW
+	if tbl.is_empty():
+		return POP_COST
+	return maxi(1, int(tbl[clampi(int(lo) - 1, 0, tbl.size() - 1)]))
 
 ## EFFORT-BASED quest reward, keyed on the asked TIER and the band (§7 — COINS ONLY since the
 ## coin-clock redesign, spec 2026-07-17: quests no longer pay exp; the coin faucet IS the
@@ -1434,7 +1490,7 @@ static func pick_special_drop(rng: RandomNumberGenerator, blocked_lines: Array =
 		r -= int(weights[line])
 		if r <= 0:
 			return int(line) * 100 + 1
-	return 10 * 100 + 1                                              # defensive: a chest t1
+	return CHEST_LINE * 100 + 1                                      # defensive: a chest t1
 
 # What TAPPING a water/acorn item grants: {kind, amount}. Empty for a chest (it OPENS instead
 # — board._open_chest — spawning face-value reward items rather than crediting a wallet directly).
@@ -1725,6 +1781,14 @@ static func item_tex_path(code: int) -> String:
 	if special_kind(code).ends_with("_seed"):
 		return Game.art("ui/kit/%s.png" % base)
 	return Game.art("items/%s/%s_%d.png" % [base, base, art_tier_for(base, tier)])
+
+static func line_color(code: int) -> Color:
+	var line := int(code / 100.0) if code >= 100 else code
+	if LINES.has(line):
+		var def: Dictionary = LINES[line]
+		if def.has("color"):
+			return def.color
+	return Game.PALETTE.TEXT_MUTED
 
 # The ART index in-game tier `tier` wears for `base` (D.ART_TIER_PICK — owner-picked looks off a
 # larger sheet, e.g. the 3-tier coin ladder wearing art 1/4/5). Unmapped bases pass through.

@@ -17,6 +17,8 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -40,7 +42,6 @@ const BARK = Pal.BARK
 
 # The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
 # so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
-static var KIT_PATH := Game.kit()
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
@@ -61,6 +62,29 @@ static func buy_coin_pack() -> bool:
 	if not Save.spend_diamonds(COIN_PACK_GEM_COST):
 		return false
 	Save.add_coins(COIN_PACK)
+	return true
+
+static func scissors_available() -> bool:
+	return Features.on("scissors") and Mastery.any_rank_at_least(2)
+
+# `place_hook(commit)` is supplied by the Board shop opener. It is called once as a dry-run before
+# spending, then again with commit=true after the coin spend succeeds. Without a hook, the map/hub
+# shop banks the tool for the next board entry.
+static func buy_scissors(place_hook: Callable = Callable()) -> bool:
+	if not scissors_available():
+		return false
+	if place_hook.is_valid() and not bool(place_hook.call(false)):
+		return false
+	if Save.coins() < int(G.SCISSORS_COST):
+		return false
+	if not Save.spend(int(G.SCISSORS_COST), "scissors"):
+		return false
+	if place_hook.is_valid():
+		if not bool(place_hook.call(true)):
+			Save.add_coins(int(G.SCISSORS_COST))
+			return false
+	else:
+		Save.add_scissors_pending(1)
 	return true
 
 # Grant a ladder cash pack (§4/§10 — LIVE IAP; in this build the confirm grants directly,
@@ -145,9 +169,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 static func _open(host: Control, opts: Dictionary) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Shop: kit missing at %s" % KIT_PATH)
+		push_warning("Shop: kit missing at %s" % Game.kit())
 		return
 	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring
 	# flat dim becomes a cozy frosted backdrop that focuses the parchment. Falls back to a flat
@@ -178,7 +202,7 @@ static func _open(host: Control, opts: Dictionary) -> void:
 	# 2-up offer grid · the info footer) is built here, per the shop_dialog_v3_unified_storefront mock.
 	# Width is a % of the SCREEN (responsive).
 	var vw: float = host.get_viewport_rect().size.x
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
 	# the CONTENT lays out at the design width MINUS the sheet's insets (the frame scales it by
 	# content_scale, so the pads count at 1/scale in layout space) — the residents.gd idiom.
@@ -514,6 +538,15 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs)}
 	var cards: Array = [pouch]
+	if scissors_available():
+		cards.append({
+			"title": Strings.t("shop.scissors.title"),
+			"icon": "shop_pouch",
+			"label": Strings.t("shop.scissors.label"),
+			"note": Strings.t("shop.scissors.note"),
+			"price": str(int(G.SCISSORS_COST)), "price_icon": "coin",
+			"affordable": Save.coins() >= int(G.SCISSORS_COST),
+			"on_buy": func() -> void: _flow_scissors(refs)})
 	if not bool(refill_status().available):
 		cards.push_front(water)
 	return {"caption": Strings.t("shop.coin.quick_help_caption"), "cards": cards}
@@ -565,6 +598,13 @@ static func _flow_water(refs: Dictionary) -> void:
 
 static func _flow_coins(refs: Dictionary) -> void:
 	_buy(refs, "gem", COIN_PACK_GEM_COST, buy_coin_pack, "coin")
+
+static func _flow_scissors(refs: Dictionary) -> void:
+	var opts: Dictionary = refs.get("opts", {})
+	var hook: Callable = opts.get("place_scissors", Callable())
+	var act := func() -> bool:
+		return buy_scissors(hook)
+	_buy(refs, "coin", int(G.SCISSORS_COST), act, "coin")
 
 # (The free-ACORN faucet flow was retired 2026-06-23 — acorns earned-only, Option A.)
 
@@ -685,7 +725,7 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 # `grant` + a guard around this Confirm — the frame, the note, and the wiring stay.
 static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		line: String, sub: String, product_key: String, grant: Callable) -> void:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
 	# the cash confirm sits ABOVE the open shop and is NOT veil-dismissable — a money decision leaves
@@ -752,7 +792,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		else:
 			overlay.queue_free()
 			settle.call(), true))
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var copts: Dictionary = Kit.dialog_opts_from_config(cfg)
 	copts["content_scale"] = Kit.dialog_content_scale(cfg, "dialog")
 	copts["banner_text"] = title

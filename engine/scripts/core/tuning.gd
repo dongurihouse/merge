@@ -98,13 +98,8 @@ class Ambient:
 	const HOP_T_SQUASH := 0.08                       # seconds for the squash leg
 	const HOP_T_REST := 0.10                         # seconds for the stretch leg, and again for the settle leg
 
-	# --- weather selection (a deterministic roll, one bucket per real hour) -------------
-	const SECS_PER_HOUR := 3600.0                    # weather rolls once per hour; also the win-back's hour→seconds factor
-	const ROLL_RANGE := 100                          # the hourly roll spans 0..ROLL_RANGE-1
-	const BREEZE_AT := 70                            # roll in [BREEZE_AT, RAIN_AT) → breeze  (≈20%)
-	const RAIN_AT := 90                              #         [RAIN_AT, SNOW_AT)   → rain    (≈8%)
-	const SNOW_AT := 98                              #         [SNOW_AT, ROLL_RANGE) → snow   (≈2%); below BREEZE_AT → clear (≈70%)
-	const WINBACK_RAIN_SECS := 60.0                  # on a >=48h return, it rains for this long
+	# --- weather-hours clock ------------------------------------------------------------
+	const SECS_PER_HOUR := 3600.0                    # weather hours roll once per real-world hour
 
 	# --- weather particles (budget: ≤2 emitters, ≤80 particles per layer) ---------------
 	const BREEZE_PETAL := Color("#D98BA3")           # pink blossom drift
@@ -127,6 +122,12 @@ class Ambient:
 	const SNOW_SCALE_MIN := 1.1
 	const SNOW_SCALE_MAX := 1.8
 	const SNOW_FROST := Color(0.62, 0.72, 0.86, 0.10) # a cool cast so flakes read on a pale background
+	const STAR_AMOUNT := 36
+	const STAR_LIFE := 8.0
+	const STAR_VEL := Vector2(12, 36)                # slower than snow — stars barely fall
+	const STAR_SCALE_MIN := 0.35                     # the small star tex reads near full size
+	const STAR_SCALE_MAX := 0.85
+	const STAR_TINT := Color(0.25, 0.34, 0.42, 0.10) # a faint deep-blue wash over the scene
 
 	# --- the shared drift emitter + the two code-drawn textures ------------------------
 	const EMIT_WIDTH_FRAC := 0.75                    # the emission band spans this fraction of the view width
@@ -144,6 +145,9 @@ class Ambient:
 	const FLAKE_SIZE := 10                           # the snowflake bitmap is FLAKE_SIZE × FLAKE_SIZE px
 	const FLAKE_RADIUS := 4.5                        # soft-disc radius, and the bitmap's center
 	const FLAKE_ALPHA := 0.9                         # alpha at the flake's center, fading to 0 at the rim
+	const STAR_SIZE := 9                             # the star bitmap is STAR_SIZE × STAR_SIZE px
+	const STAR_CENTER := 4.0                         # the bitmap's center — the cross + diagonals radiate from here
+	const STAR_COLOR := Color(1.0, 0.86, 0.45, 0.85) # warm gold spark
 
 	# --- internal: seed mixing (arbitrary co-primes; they only decorrelate the inputs) --
 	const SECS_PER_DAY := 86400.0                    # the wander reseeds once per real day
@@ -274,7 +278,13 @@ class FX:
 	const GEN_CHARGE_T := [0.07, 0.11]  # per-leg seconds: K0->K1, K1->K2
 
 	# --- combo (cozy successive-merge streak) ------------------------------------------
-	const ESCALATE_TIER := 8            # tier >= this earns the reserved big-moment shake (PREMIUM_TIER — the pinnacle merges)
+	# Tier >= this earns the whole RESERVED big-moment vocabulary: the shake, the HOT burst colour,
+	# the heavy haptic. It IS the game's PREMIUM_TIER (grove_data.gd) — the pinnacle merge — restated
+	# as a literal because this file preloads nothing on purpose (see the header: these are the
+	# ENGINE's game-independent defaults, and reading Game.DATA here would make the engine's tuning
+	# leaf game-dependent). engine/tests/const_ssot_tests.gd §6 asserts the two agree, so moving
+	# PREMIUM_TIER can no longer leave the pinnacle cues firing one tier below the pinnacle.
+	const ESCALATE_TIER := 8
 	const BIG_BURST_BONUS := 6         # + burst particles on a big-moment (tier >= ESCALATE_TIER) merge
 	const COMBO_WINDOW := 2.5           # seconds; a merge within this of the last extends the streak
 	const COMBO_MILESTONES := [3, 5, 8] # streak counts that shout an encouraging word
@@ -292,7 +302,8 @@ class FX:
 	# --- feel.merge extras ---
 	const MERGE_FLASH_TIER_RAMP := [0.5, 0.65, 0.8, 1.0]
 	const MERGE_HITSTOP_COMBO_BONUS := 0.004
-	const MERGE_BURST_HOT_TIER := 8
+	# (MERGE_BURST_HOT_TIER was a second spelling of ESCALATE_TIER, 18 lines above. The HOT burst is
+	# one of the reserved big-moment cues, not a separate dial — its call sites read ESCALATE_TIER.)
 	# --- feel.move ---
 	const MOVE_SLIDE_T := 0.12
 	const MOVE_ARC_T_UP := 0.16

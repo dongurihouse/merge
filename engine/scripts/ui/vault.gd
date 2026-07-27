@@ -33,9 +33,6 @@ const INK := Pal.INK
 const CREAM := Pal.CREAM
 const BARK := Pal.BARK
 
-# the shared UI kit (ships in the build); loaded by PATH at runtime — the settings.gd/inbox.gd idiom.
-static var KIT_PATH := Game.kit()
-
 # IAP: the crack routes through StoreKit (via core/iap.gd → core/store.gd) when the plugin is in the
 # build; without it, the honest non-charging test path. Product id + price live in data/iap_products.json.
 const Iap = preload("res://engine/scripts/core/iap.gd")
@@ -47,16 +44,16 @@ const PIGGY_KEY := "piggybank"
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Vault: ui kit missing at %s" % KIT_PATH)
+		push_warning("Vault: ui kit missing at %s" % Game.kit())
 		return
 	# the dimmed backdrop, dismissing on tap (the same light modal seam as mail / shop / settings).
 	var modal := Overlay.modal(host, OVERLAY_NAME)
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	# the dialog renders at the SINGLE global frame width; content scales from the authored baseline
 	# (Kit.DIALOG_DESIGN_PCT) to that width — responsive across phones.
 	var vw: float = host.get_viewport_rect().size.x
@@ -91,7 +88,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 # hookup replaces exactly this middle: today Confirm calls Vault.crack() to grant + reset).
 static func _confirm_crack(host: Control, parent_overlay: Control, opts: Dictionary) -> void:
 	# the plain body face — the SAME standard font the vault dialog uses (loaded by path, no hard tools dep).
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var plain: Font = Kit.plain_font() if Kit != null else null
 	# the crack confirm sits ABOVE the open vault, and is NOT veil-dismissable — a money decision
 	# leaves by Cancel or Confirm, never by a stray tap on the backdrop.
@@ -147,7 +144,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 			var got := Vault.crack()             # core/vault.gd
 			Audio.play("merge_success", -3.0, 1.2)
 			if got > 0:
-				FX.celebrate_reward(host, at, "gem", got, Color("#A9C7E8"))
+				FX.celebrate_reward(host, at, "gem", got, FX.reward_color("gem"))
 			if is_instance_valid(parent_overlay):
 				parent_overlay.queue_free()
 			if opts.has("refresh"):

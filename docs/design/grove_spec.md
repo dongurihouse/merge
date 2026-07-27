@@ -251,7 +251,7 @@ Each generator emits its authored line, popped in a small burst (1 energy/item).
 
 The **coin pseudo-line** (Core §6): the currency *is* the **acorn** — code `9xx`, 3 tiers worth 1 / 5 / 25, tapped to collect, ~10% merge-drop rate (engine `COIN_DROP_RATE` default).
 
-All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (board 7×9 with the center 3×3 open around the satchel at (4,3); `WATER_CAP 100` / `POP_COST 1` / +1·120 s regen; first 10 pops free; `TIER_ODDS [0.65,0.25,0.09,0.01]`, `ASK_WEIGHT 0.6`) — see Core §2–4. Grove cell size defaults to **86 px** (`GAP 10`, `MARGIN 12`).
+All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (board 7×9 with the center 3×3 open around the satchel at (4,3); `WATER_CAP 100` / `POP_COST 1` / +1·120 s regen; first 10 pops free; (a pop off a MASTERED line costs `G.pop_cost(window low)` — 1 at rank 0, up to 12 at rank 8: see the generator-mastery spec §3;) `TIER_ODDS [0.65,0.25,0.09,0.01]`, `ASK_WEIGHT 0.6`) — see Core §2–4. Grove cell size defaults to **86 px** (`GAP 10`, `MARGIN 12`).
 
 ---
 
@@ -502,9 +502,9 @@ The grove's **brambles** are its instance of Core §4's obstacles — the **gati
 | `spirit_treats` | juice | a 10🪙 acorn treat at the stall; a spirit nibbles + hops | `scenes/board.gd:_buy_treat` | — |
 | `giver_bob` | juice | frameless fence givers idle-bob (±3 px, ~3 s) | `scenes/board.gd` (fence) | — |
 | `gen_preview` | juice | locked generators show a greyed silhouette + "after N spots" | `scenes/board.gd` (gen cells) | — |
-| `winback_rain_beat` | ambient | ≥48 h away → full Water + a one-time "it rained" minute | `scenes/board.gd:_load_state` | — |
 | `ambient_characters` | ambient | spirit-folk wander; **legacy** count = 1 + restored maps (cap 5) — **superseded on completed maps** by the habitat roster model (capacity-bounded placed spirits; §3/§7) | `ui/ambient.gd` | — |
-| `ambient_weather` | ambient | hourly clear/breeze/rain/snow; respects Calm | `ui/ambient.gd` | — |
+| `weather_hours` | ambient | hourly sky lane gifts: Sunbeam coins, Rain water, Starfall piece | `core/sky.gd`; `scenes/board.gd` | — |
+| `ambient_weather` | ambient | hourly clear/breeze/rain/snow/starlit skins; board gifts stay gated by `weather_hours` | `ui/ambient.gd` | — |
 | `item_backing` | feature | a soft warm contact shadow under each board piece | `scenes/board.gd:_make_piece` | — |
 | `drag_swap` | feature | drop on another occupied cell → swap (merge keeps precedence) | `scenes/board.gd` / `core/board_model.gd:swap` | — |
 | `ftue_free_pops` | ftue | first 10 pops free + uncounted; Water meter appears after | `scenes/board.gd:_pop_seed` | — |
@@ -598,7 +598,7 @@ Engine file names are unchanged (`merge_soft.wav`, `level_complete.wav`, `amb_gr
 
 *Instantiates Core §15 (Tech, Build & Save).* Engine constants and patterns (Godot 4.6, no autoloads, JSON save with deep-merge + atomic write, the Makefile/headless-suite/quiet-godot/economy-sim infra) are core. Grove specifics:
 
-**Code map.** `board.gd` = pure rules engine (tests) · `board_model.gd` = persistent board model · `grove.gd` (~86 KB, the live board) + `home.gd` (~63 KB, the homestead map) drive the loop · `grove_content.gd` = item lines, generator policy, quest script, map/wayside/sell data · static singletons `save.gd`/`features.gd`/`econ.gd`/`layout.gd`/`hud.gd`/`shop.gd`/`skin.gd`/`audio.gd`/`music.gd`/`ambient.gd`/`fx.gd` · legacy `districts.gd`/`levels.gd`/`jobs.gd`/`room.gd`/`main.gd` from an earlier "rooms" prototype framing (not the live grove loop; unrelated to the separate **Tidy Up** game — `tidyup_spec.md`). Main scene `scenes/Home.tscn`. Save `SCHEMA_VERSION = 2`; the `grove` save blob persists board · bag · `qdone` · `unlocks`(= spots bought) · `custom` variants · `seen` hints · `pops` · `waysides` · rng. iOS bundle `com.dongurihouse.dongurimerge`. Headless suites: `core_tests`, `grove_tests` (~297 asserts), `layout_tests`, `map_tests`, `quest_tests`, `save_tests`, + `smoke`; economy bot `games/grove/tools/grove_sim.gd` (default + greedy). The Makefile also wraps the grove art-processing targets `decor` / `icon` (raw → processed sprite) alongside the core-generic run/test/import/shot/ios targets (Core §15).
+**Code map.** `engine/scripts/core/board_logic.gd` + `board_model.gd` + `board_actions.gd` = the pure rules layer (no UI deps, headless-tested) · `engine/scripts/scenes/board.gd` (~205 KB, the live board) + `map.gd` (~128 KB, the home map) drive the loop — note `scenes/board.gd` is the **scene** script, not the rules engine · `games/grove/grove_data.gd` = item lines, generator policy, quest script, map/sell data · static singletons under `core/` (`save.gd`/`features.gd`/`content.gd`/`tuning.gd`/`audio.gd`/`music.gd`) and `ui/` (`hud.gd`/`shop.gd`/`skin.gd`/`ambient.gd`/`fx.gd`). (The separate **Tidy Up** game is `tidyup_spec.md`, unrelated.) Main scene `engine/scenes/Boot.tscn`. Save `SCHEMA_VERSION = 5`; an older schema is discarded and recreated fresh — no migration. iOS bundle `com.dongurihouse.acornforest`. Headless suites: the `ENGINE_TESTS` + `GROVE_TESTS` lists in the `Makefile` (`make test`), + `smoke`; economy bot `games/grove/tools/grove_sim.gd` (default + greedy). The Makefile also wraps the grove art-processing targets `decor` / `icon` (raw → processed sprite) alongside the core-generic run/test/import/shot/ios targets (Core §15).
 
 > **⚠️ This section is a legacy T14-branch snapshot** — broadly superseded by T17–T61 (the code map, `SCHEMA_VERSION`, spot counts, and the economy below have all moved on). Kept for history; the live model is §3–§5 + `economy_model.html`. Reconciling §11 to current state is a separate **tech/current-state** task (parked).
 

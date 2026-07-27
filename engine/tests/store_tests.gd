@@ -35,6 +35,7 @@ func _initialize() -> void:
 	ok(Store._product_id(null) == "", "_product_id is safe on a null product")
 
 	_test_successful_purchase_finishes_transaction_after_grant(pid)
+	_test_a_stale_pending_purchase_is_abandoned(pid)
 
 	var got := {"called": false, "ok": true}
 	Store.purchase("com.dongurihouse.dongurimerge.piggybank", func(success: bool) -> void:
@@ -76,6 +77,45 @@ func _test_successful_purchase_finishes_transaction_after_grant(pid: String) -> 
 		"successful StoreKit completion clears pending purchase state")
 	_reset_store_state()
 
+# A DROPPED StoreKit signal must not wedge IAP for the process lifetime. `_pending_id` clears only in
+# _settle(), which only the two native completion handlers reach — so if neither signal ever fires, the
+# slot stays occupied forever and every later Confirm returns on_done(false) at once. ui/purchase_wait.gd
+# gives the SHEET a 12s timeout, so the player's UI recovered while the state machine did not.
+# Off iOS the replacement purchase still fails at _ensure() (no plugin), so what is asserted here is the
+# part that survives without StoreKit: the wedge is cleared and the abandoned callback is settled false.
+func _test_a_stale_pending_purchase_is_abandoned(pid: String) -> void:
+	_reset_store_state()
+
+	# A pending INSIDE the stale window is genuinely in flight (the native sheet may be open) — leave it.
+	var in_flight := {"called": false}
+	Store._pending_id = pid
+	Store._pending_at_msec = Time.get_ticks_msec()
+	Store._pending_cb = func(_success: bool) -> void:
+		in_flight.called = true
+	Store.purchase("com.dongurihouse.dongurimerge.gems_small", func(_success: bool) -> void: pass)
+	ok(not in_flight.called and Store._pending_id == pid,
+		"a purchase still inside the stale window keeps its slot and blocks a second purchase")
+
+	# ...and one with no completion after PENDING_STALE_SECS is abandoned so the next purchase can run.
+	_reset_store_state()
+	var stale := {"called": false, "ok": true}
+	Store._pending_id = pid
+	Store._pending_at_msec = Time.get_ticks_msec() - int(Store.PENDING_STALE_SECS * 1000.0) - 1000
+	Store._pending_cb = func(success: bool) -> void:
+		stale.called = true
+		stale.ok = success
+	var second := {"called": false}
+	Store.purchase("com.dongurihouse.dongurimerge.gems_small", func(_success: bool) -> void:
+		second.called = true)
+
+	ok(stale.called and stale.ok == false,
+		"a pending purchase with no StoreKit completion is abandoned (its callback settles false)")
+	ok(Store._pending_id == "" and not Store._pending_cb.is_valid(),
+		"...and the in-flight slot is cleared, so a dropped signal cannot brick IAP for the process")
+	ok(second.called, "the replacement purchase reports its own outcome instead of being refused silently")
+	_reset_store_state()
+
 func _reset_store_state() -> void:
 	Store._pending_id = ""
 	Store._pending_cb = Callable()
+	Store._pending_at_msec = 0

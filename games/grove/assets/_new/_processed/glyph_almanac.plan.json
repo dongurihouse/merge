@@ -1,0 +1,10 @@
+{
+  "source": "_new/glyph_almanac.png",
+  "category": "icon",
+  "params": { "size": 512 },
+  "_note": "One new UI button glyph for the ALMANAC entry chip (docs/superpowers/specs/2026-07-26-shelf-design.md Build 7), generated to match the shipped action_button_glyphs_v2 family: glyph_bag.png + glyph_daily.png were attached as the family authority so it sits in a row with them (front-on, layered matte cardstock, cream base plate under the shape, gold bookmark + green leaf accents, no baked shadow — the button draws its own edge and runtime shadow). Codex returned it already transparent at 512x512, so this is a single clean-square icon drop, not a keyed sheet: one source, one output, no slicing.",
+  "outputs": [
+    { "name": "glyph_almanac", "path": "ui/nav/glyphs/glyph_almanac.png", "post": "icon:512" }
+  ],
+  "archive": "_originals/ui/glyph_almanac.png"
+}

@@ -22,7 +22,7 @@ const LINES := {
 	# 8 BASE lines (own generator, introduced in zone order) + 4 SPECIALS (crafted by merging two
 	# ingredient lines at the same tier — Core §6.G; recipes live in ZONES below, and may name
 	# another special as an ingredient: tea_cup ← spices+wild berries, the deepest v1 craft).
-	# Codes skip 9 (COIN_LINE) and 10-15 (SPECIAL_ITEMS drops); specials sit at 5/8/17/19 so each
+	# Codes skip 9 (COIN_LINE), 10-15 (SPECIAL_ITEMS drops) and 29-30 (improvement seeds); specials sit at 5/8/17/19 so each
 	# page reads contiguously. Art: items/<base>/<base>_<tier>.png (v2 cut-paper, sliced 2026-07-17).
 	# P1 Fairy Hollow
 	1: {"name": "Glow-mushrooms", "base": "fairy_hollow_glowshroom", "color": Color("#E387C9"), "desc": "Softly glowing caps from the hollow. The forest's first light."},
@@ -70,29 +70,35 @@ const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the op
 # reaches its number, then opens on the next ADJACENT MERGE (the level gates *when*, not *how*;
 # any merge opens an eligible neighbour). 0 = open at start (the center 3×3 + the generator).
 # A hand-tuned diamond: the L1 inner frontier (T37 — where the merge verb is taught; the board MUST
-# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L22
-# at the four corners (the last cells to open). The scene LEVEL WINDOWS have since moved onto the derived
-# coin-clock cadence (content.gd's _build_cadence): Fairy Hollow L1-7 · Snowy Village L8-19 · Desert Oasis
-# L20-37 · Coral Reef L38-61 · Cherry Blossom L62-87. The MIN_LEVEL grid below was hand-tuned against the
-# OLDER windows and was not rescaled with them — the L22 corners now open near the START of Desert Oasis
-# (scene 3) rather than the end of scene 4. The grove_sim
-# confirms the board drains smoothly to zero sealed cells with ZERO jams across the arc. THIS GRID IS THE
-# OWNER'S FEEL DIAL — re-tune it; the engine reads it via G.cell_min_level(). 9 rows × 7 cols, indexed
-# [row][col] = [cell.x][cell.y].
+# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates out to
+# the four corners, the last cells to open. The whole board is open by the corner level, well inside
+# scene 1 (SCENE_END_LEVEL below ends scene 1 at L28) — the grid paces the OPENING, not the arc.
+# The LIVE grid is economy_tuning.json's `min_level` (authored in docs/economy_tuning.html, applied at
+# class load by content.apply_tuning); this const is only the absent-JSON FALLBACK and the value
+# Content.MIN_LEVEL is seeded from. Editing it alone moves NOTHING while that file exists — re-tune in
+# the HTML tool and save the JSON. engine/tests/const_ssot_tests.gd §5 asserts the two agree.
+# 9 rows × 7 cols, indexed [row][col] = [cell.x][cell.y].
 const MIN_LEVEL := [
 #    c0  c1  c2  c3  c4  c5  c6
-	[22, 14, 10, 10, 10, 14, 22],   # r0  ← outer corners last (L22, mid map 3)
-	[18, 10,  6,  6,  6, 10, 18],   # r1
-	[14, 10,  1,  1,  1, 10, 14],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
-	[10,  3,  0,  0,  0,  3, 10],   # r3
-	[ 6,  3,  0,  0,  0,  3,  6],   # r4   center 3×3 open · generator at c3
-	[10,  3,  0,  0,  0,  3, 10],   # r5
-	[14, 10,  1,  1,  1, 10, 14],   # r6   inner N/S frontier → L1
-	[18, 10,  6,  6,  6, 10, 18],   # r7
-	[22, 14, 10, 10, 10, 14, 22],   # r8
+	[16, 10,  7,  7,  7, 10, 16],   # r0  ← outer corners last (L16)
+	[13,  4,  4,  4,  4,  4, 13],   # r1
+	[10,  4,  1,  1,  1,  4, 10],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
+	[ 7,  2,  0,  0,  0,  2,  7],   # r3
+	[ 4,  2,  0,  0,  0,  2,  4],   # r4   center 3×3 open · generator at c3
+	[ 7,  2,  0,  0,  0,  2,  7],   # r5
+	[10,  4,  1,  1,  1,  4, 10],   # r6   inner N/S frontier → L1
+	[13,  4,  4,  4,  4,  4, 13],   # r7
+	[16, 10,  7,  7,  7, 10, 16],   # r8
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
+# Mastery meter (tier-1 equivalents) needed for ranks 1..8. Ranks 1-4 are the original fast/cheap
+# early ladder; ranks 5-8 were compressed from 800/1700/3400/6500 because rank 8 was DEAD CONTENT —
+# the best-fed line ended a 60-day book around 3400 and nothing ever crossed 6500. At 3000 the top
+# rank is reached by the most-used line (wild berries, 14 of 16 sim seeds) and occasionally by a
+# second (glow-mushrooms / snow & ice, 1 of 16 each); see the spec's §3 pacing table.
+const MASTERY_THRESHOLDS := [20, 60, 150, 350, 650, 1150, 1900, 3000]
+const MASTERY_TIER_ODDS_5 := [0.65, 0.25, 0.06, 0.03, 0.01]
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
 # §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
 # (idea 3.2), but several quests could span many DISTINCT lines — scattering un-mergeable singletons until
@@ -345,8 +351,68 @@ const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 const WATER_CAP := 100
 const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
-const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
+# TIER-SCALED POP COST, indexed by the EFFECTIVE pop-window low (Mastery.window(line, quests).x —
+# 1 at rank 0 and with mastery off). A mastered generator pops from a RAISED window, so one pop is
+# worth tier_clicks(lo) = 2^(lo-1) tier-1 items; a flat POP_COST for it collapsed the water sink
+# (book spend fell 68% and the sim's I2 gift/spend guard failed on maps 3-5 on every seed). The curve
+# IS tier_clicks(lo): a pop costs exactly what its floor is worth, so water buys the same VALUE at
+# every rank and I2 holds structurally rather than by luck. Mastery's reward is the LABOR — up to 16x
+# fewer taps and ~70% fewer merges per delivery — not cheaper water. An earlier curve shaved the top
+# two lows (8->7, 16->12) to hand rank 6-8 some water back; weather-hours' water faucet erased that
+# margin (I2 0.31 on seed 42), so the shave is gone. Index 0 MUST stay POP_COST so unmastered play is
+# unchanged, and no entry may exceed tier_clicks(lo) or mastery turns into a punishment (both pinned
+# by mastery_tests). Read only through G.pop_cost(lo); the last entry covers any higher low.
+const POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 8, 16]
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
+
+# Weather Hours (2026-07-26) — hourly sky gifts. The clock/state logic lives in core/sky.gd;
+# these dials stay with Grove content so the sim can own final values.
+# CALM IS A REAL SKY, NOT AN ABSENCE (spec draft 7 §2). Most hours are ordinary; that is what makes a
+# Sunbeam or a Starfall hour land. A calm hour renders exactly like the pre-weather game — the ambient
+# skin still drifts, but there is no lane, no wash, no marker and no gift. It carries Sunbeam's skin
+# split so the sky people see most often is the one the game shipped with.
+# ORDER IS LOAD-BEARING: sky.gd walks these entries by CUMULATIVE share in Dictionary insertion order,
+# so re-ordering the keys re-maps which hour draws which sky. The values need not sum to 100 (the walk
+# normalises against their total), but changing any share moves every hour after the first threshold.
+const SKY_SHARES := {"calm": 40, "sunbeam": 30, "rain": 20, "starfall": 10}
+# Per-sky skin split, walked the same cumulative way. A sky with NO entry here (Starfall) wears its own
+# single skin. Calm and Sunbeam deliberately share the 70/30 clear/breeze look.
+const SKY_SKIN_SPLIT := {
+	"calm": {"clear": 70, "breeze": 30},
+	"sunbeam": {"clear": 70, "breeze": 30},
+	"rain": {"rain": 85, "snow": 15},
+}
+# Raised 0.35 -> 0.50 when Calm landed: Sunbeam fell from 45% to 30% of hours, so the old rate
+# bought only 0.67x the coin-gift hours. At 0.50 under the new mix sky coins measure 2.8% of the
+# coin faucet, against 2.3–5.8% at 0.35 under the old one — the previous contribution restored.
+# Coins are a minor faucet with no runaway at any rate tested. Coin and water rates are
+# deliberately DIFFERENT numbers: equal rates are not equal generosity, because each feeds a
+# differently-sized economy — tune each against its own faucet.
+const SKY_COIN_RATE := 0.50
+const SKY_COIN_TIER := 2
+# Raised 0.15 -> 0.30 for the Calm mix (calm 40 / sunbeam 30 / rain 20 / starfall 10), which cut
+# Rain to 0.44x its old gift hours. Swept 3 seeds × 30 sim days (~18 rain hours each), absolute
+# water drops: 0.15 -> 10/18/3 · 0.30 -> 46/19/8 · 0.45 -> 51/21/9. Drops track the rate up to
+# ~0.30 and then SATURATE (0.30 -> 0.45 is a 50% rate rise for ~10% more drops), so 0.30 is the
+# efficient point — near-maximum felt generosity per unit of economic impact. The gate itself is
+# linear (empirical hit rate within 0.6% of the requested rate from 0.10 to 0.60); the saturation
+# is the economy self-regulating, since extra water changes how the bot plays and so how many
+# merges land in the lane. The old RUNAWAY above ~0.2 was a property of 45% RAIN HOURS, not of the
+# rate alone: at 20% Rain, water self-sustain stays at the control level (53–61% against a 52–58%
+# no-weather control) at every rate tested up to 0.45.
+const SKY_WATER_RATE := 0.30
+const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
+const STAR_DELAY := 10.0
+# §3 playable-lane roll: the hour picks only among lanes holding at least this many cells the player
+# has unlocked (MIN_LEVEL vs level). A uniform roll left 36% of level-2 hours on a lane with ZERO open
+# cells — no merge can happen there, so the sky gave nothing right after the FTUE gate opens.
+const LANE_MIN_OPEN := 5
+const PATCH_ALPHA := {"sunbeam": 0.55, "rain": 0.13, "starfall": 0.12}
+const SKY_MARKER_ICON_RELS := {
+	"sunbeam": "ui/kit/icon_sky_sun.png",
+	"rain": "ui/kit/icon_sky_rain.png",
+	"starfall": "ui/shared/icon_star.png",
+}
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
@@ -358,6 +424,8 @@ const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is r
 const ART_TIER_PICK := {"coin": [1, 4, 5], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
+const SCISSORS_LINE := 14
+const SCISSORS_COST := 40
 
 # §6.B SPECIAL DROP ITEMS — short pseudo-lines (merge.spec §6.B). Most merge up to a
 # small top (SPECIAL_TOP), while individual defs may override it. They are NEVER popped from the generator
@@ -367,25 +435,37 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
 const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
+# The special LINE numbers, named so a `line*100 + tier` code never has to spell one as a bare
+# digit (cf COIN_LINE). These ARE the SPECIAL_ITEMS keys below — read them, don't re-type them.
+const CHEST_LINE := 10                     # code 10xx
+const WATER_LINE := 12                     # code 12xx
+const ACORN_LINE := 13                     # code 13xx
+# Improvement SEEDS sit at 29/30, away from the drop band: 14 is SCISSORS, 16-19 are live content
+# lines, and every other number below 31 was claimed by an EARLIER roster (1-8, 10-24, 31-38, 41-44,
+# 51-54, 61-66, 71-78) — reusing one would resurrect a legacy save's pruned pieces as seeds
+# (mechanics_tests pins 21xx/38xx/52xx/61xx as invalid). 29 and 30 were never in any roster.
+const SOIL_SEED_LINE := 29                 # code 29xx
+const MAGNET_SEED_LINE := 30               # code 30xx
 const SPECIAL_ITEMS := {
-	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
-	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
-	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
-	14: {"name": "Soil seed", "base": "seed_soil", "kind": "soil_seed", "top": 1, "desc": "Place it to make this cell grow pieces over time."},
-	15: {"name": "Magnet seed", "base": "seed_magnet", "kind": "magnet_seed", "top": 1, "desc": "Place it to auto-merge nearby matches."},
+	CHEST_LINE: {"name": "Chest", "base": "chest", "kind": "chest", "top": 5, "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (5 tiers, cascade chain chest); TAP-opened — the key line is retired
+	WATER_LINE: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
+	ACORN_LINE: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
+	SCISSORS_LINE: {"name": "Scissors", "base": "tool_scissors", "kind": "scissors", "top": 1, "desc": "Cuts a piece into two of a tier lower."},
+	SOIL_SEED_LINE: {"name": "Soil seed", "base": "seed_soil", "kind": "soil_seed", "top": 1, "desc": "Place it to make this cell grow pieces over time."},
+	MAGNET_SEED_LINE: {"name": "Magnet seed", "base": "seed_magnet", "kind": "magnet_seed", "top": 1, "desc": "Place it to auto-merge nearby matches."},
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
 # (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
-const SPECIAL_DROP_WEIGHTS := {10: 1, 12: 1, 13: 1, 14: 1, 15: 1}   # chest·water·acorn·Soil seed·Magnet seed
+const SPECIAL_DROP_WEIGHTS := {CHEST_LINE: 1, WATER_LINE: 1, ACORN_LINE: 1, SOIL_SEED_LINE: 1, MAGNET_SEED_LINE: 1}   # chest·water·acorn·soil seed·magnet seed (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)
 }
-const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
-const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
+const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320, 4: 800, 5: 2000}   # base coins for opening a chest of this tier …
+const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3, 4: 6, 5: 12}          # … plus acorns at the higher chest tiers
 
 # §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
 # cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored

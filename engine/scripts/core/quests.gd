@@ -8,6 +8,7 @@ extends RefCounted
 ## Layering: core/ never imports ui/ or scenes/ — see docs/design/merge_spec.md §15.
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 
 # --- fence gating on the COIN CLOCK (coin-clock redesign, spec 2026-07-17) ----------------
 # `earned` everywhere below = Save.coins_earned_lifetime() (the cumulative organic-coins clock).
@@ -266,6 +267,10 @@ static func assign_givers(quests: Array, recent: Array, pool: int, rng: RandomNu
 			while recent.size() > GIVER_RECENT:
 				recent.pop_front()
 
+# --- the discovery log: which items has this player ever grown? ---------------------------------------
+# Powers the upgrade-path card (unseen tiers show as "?"). Ambient-free like the rest of this module:
+# the scene hands the grove save's `seen` set in (or the whole grove dict, to mark), never Save itself.
+
 # The discovery ladder for a line: one row per tier, code = line*100+tier, with `seen` flagged
 # from the save's `seen` set (keyed by the string code, as written on merge).
 static func ladder_entries(seen: Dictionary, line: int) -> Array:
@@ -275,6 +280,71 @@ static func ladder_entries(seen: Dictionary, line: int) -> Array:
 		var code := line * 100 + t
 		out.append({"tier": t, "code": code, "seen": seen.has(str(code))})
 	return out
+
+# Record that the player has grown `code`. Coins (and the 0 sentinel) are never logged. Mutates the
+# grove save dict `g` in place; the caller persists.
+static func mark_seen(g: Dictionary, code: int) -> void:
+	if code <= 0 or G.is_coin(code):
+		return
+	if not g.has("seen"):
+		g["seen"] = {}
+	g["seen"][str(code)] = true
+
+# The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0
+# if the line is wholly unseen. Pure off the seen set.
+static func lowest_seen_code(line: int, seen: Dictionary) -> int:
+	for t in range(1, G.TOP_TIER + 1):
+		var code := line * 100 + t
+		if seen.has(str(code)):
+			return code
+	return 0
+
+# [{line, seen, in_pool, code}] for the Producing dialog. Normal generators SHOW ALL: one entry per line
+# in the WHOLE game (every generator / every map, in roster order), so the panel reads as the full
+# collection roadmap. Treat generators show only their treasure line; accumulator generators return no
+# entries because they bank currency, not item lines. `seen`/`code` carry the lowest-seen tier for the piece.
+static func gen_line_entries(gid: String, seen: Dictionary) -> Array:
+	var pool: Array = []
+	var out: Array = []
+	var added := {}
+	var lines: Array = []
+	if G.is_accumulator(gid):
+		return out
+	if G.is_treat_gen(gid):
+		var treat_line := G.treat_line_of(gid)
+		lines.append(treat_line)
+		pool = [treat_line] if treat_line > 0 else []
+	else:
+		var selected_line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
+		pool = [selected_line] if selected_line > 0 else []
+		for gen in G.GENERATORS:
+			lines.append(int(gen.get("line", 0)))   # gen redesign: one line per generator (was lines[])
+	for l in lines:
+		var line := int(l)
+		if added.has(line) or not G.LINES.has(line):
+			continue                      # a line lives on one generator, but guard against roster overlap
+		added[line] = true
+		var code := lowest_seen_code(line, seen)
+		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
+	return out
+
+# #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
+# the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
+static func ladder_header(line: int, status_suffix: String = "") -> Dictionary:
+	var suffix := String(status_suffix).strip_edges()
+	var display_name := ladder_line_name(line)
+	if suffix != "":
+		display_name = "%s · %s" % [display_name, suffix]
+	var gid := G.gen_for_line(line)
+	if gid != "":
+		return {"kind": "generator", "gid": gid, "name": display_name}
+	var rl: Array = G.recipe_lines(line)
+	if rl.size() == 2:
+		return {"kind": "recipe", "lines": rl, "name": display_name}
+	return {"kind": "title", "name": Strings.t("ladder.title")}
+
+static func ladder_line_name(line: int) -> String:
+	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))
 
 # Reward reader — the {reward:{coins,gems}} shape (COINS ONLY since the coin-clock redesign;
 # the exp reader is retired with the exp economy).

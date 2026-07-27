@@ -139,10 +139,7 @@ func _initialize() -> void:
 	# full can, so a clamping drain would silently swallow the paid water — regression guard).
 	fresh("oow_board")
 	Save.add_water_pending(int(Data.STARTER_PACK.water))
-	var bw = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bw)
-	if bw.board == null:
-		bw._ready()
+	var bw = board_host()
 	ok(bw.refill_btn != null, "the board builds the refill surface")
 	ok(Save.water_pending() == 0 and bw.water == G.WATER_CAP + int(Data.STARTER_PACK.water), \
 		"the board banks the starter water over-cap on open (%d = full can + %d, not clamped)" % [bw.water, int(Data.STARTER_PACK.water)])
@@ -191,6 +188,22 @@ func _initialize() -> void:
 	bw._update_water_hud()
 	ok(not bw._water_pill.has_meta("_fx_breathing"), "the water pill rests once the can is refilled")
 	ok(not bw.refill_btn.visible and not bw._empty_hint_shown, "refilled → the offer hides and the hint re-arms")
+	# MASTERED can (§3 tier-scaled pop cost): a pop can cost more than 1💧, so a can that still reads
+	# 3💧 can be unable to pop at all. "Empty" means "can't pay the pop you just tried" — otherwise a
+	# mastered player's can floors at cost-1 and the friction surface stops firing (the no-silent-wall
+	# rule above). At the rank-0 cost of 1💧 the same expression is exactly water<=0.
+	bw.water = int(G.pop_cost(5)) - 1                       # short of the dearest pop, but NOT empty
+	bw._water_short = int(G.pop_cost(5))                    # what _pop_seed records when it refuses
+	bw._update_water_hud()
+	ok(bw.refill_btn.visible and bw._refill_stack.visible, \
+		"a can too thin for a mastered pop (%d💧 of %d) still surfaces the refill offer" % [bw.water, bw._water_short])
+	bw.water = int(G.pop_cost(5))                           # now it can pay that pop
+	bw._update_water_hud()
+	ok(bw._water_short == 0 and not bw.refill_btn.visible, \
+		"the offer self-clears the moment the can can pay the refused pop again")
+	bw.water = 0
+	bw._update_water_hud()
+	ok(bw.refill_btn.visible, "an actually-empty can surfaces the offer with no pop recorded (rank-0 behaviour)")
 	bw.queue_free()
 	# T-J(ii): water is a Save-backed CURRENCY now (like coins/gems). The free refill ADDS a full can
 	# over-cap (banks a spare); a plain add clamps to the cap; the 💎 fill tops to full without trimming
@@ -209,6 +222,76 @@ func _initialize() -> void:
 	ok(Save.fill_water() == G.WATER_CAP * 2, "the 💎 fill never trims a banked over-cap spare")
 	Save.set_water(30)
 	ok(Save.fill_water() == G.WATER_CAP, "the 💎 fill tops a low can to full")
+	# Scissors stock unlocks from mastery rank 2. From a map-opened shop it banks a pending tool;
+	# from a board-opened shop it calls the board placement hook before spending.
+	fresh("scissors_shop")
+	var sc_host := Control.new()
+	get_root().add_child(sc_host)
+	var saw_scissors := false
+	for sec in Shop._sections({"host": sc_host, "opts": {}}):
+		for cardx in (sec as Dictionary).get("cards", []):
+			if String((cardx as Dictionary).get("title", "")) == Strings.t("shop.scissors.title"):
+				saw_scissors = true
+	ok(not saw_scissors and not Shop.scissors_available(), "scissors stay hidden before any line reaches mastery rank 2")
+	Save.grove()["mastery"] = {"1": 60}
+	Save.grove_write()
+	saw_scissors = false
+	for sec in Shop._sections({"host": sc_host, "opts": {}}):
+		for cardy in (sec as Dictionary).get("cards", []):
+			if String((cardy as Dictionary).get("title", "")) == Strings.t("shop.scissors.title"):
+				saw_scissors = true
+	ok(saw_scissors and Shop.scissors_available(), "scissors appear once any line reaches mastery rank 2")
+	Feat.FLAGS["scissors"] = false
+	saw_scissors = false
+	for sec_off in Shop._sections({"host": sc_host, "opts": {}}):
+		for card_off in (sec_off as Dictionary).get("cards", []):
+			if String((card_off as Dictionary).get("title", "")) == Strings.t("shop.scissors.title"):
+				saw_scissors = true
+	var coins_off := Save.coins()
+	ok(not saw_scissors and not Shop.scissors_available()
+		and not Shop.buy_scissors()
+		and Save.coins() == coins_off and Save.scissors_pending() == 0,
+		"the scissors feature flag hides the shop row and refuses purchases before spend")
+	Feat.FLAGS["scissors"] = true
+	Save.add_coins(G.SCISSORS_COST)
+	var coins_before := Save.coins()
+	ok(Shop.buy_scissors(), "map-opened scissors purchase succeeds when stocked and affordable")
+	ok(Save.coins() == coins_before - G.SCISSORS_COST and Save.scissors_pending() == 1,
+		"map-opened scissors purchase spends coins and banks one pending tool")
+	var placed := {"count": 0}
+	var place_hook := func(commit: bool) -> bool:
+		if commit:
+			placed.count = int(placed.count) + 1
+		return true
+	Save.add_coins(G.SCISSORS_COST)
+	ok(Shop.buy_scissors(place_hook) and int(placed.count) == 1 and Save.scissors_pending() == 1,
+		"board-opened scissors purchase places through the hook instead of banking another pending tool")
+	var no_room := func(_commit: bool) -> bool:
+		return false
+	Save.add_coins(G.SCISSORS_COST)
+	var coins_room := Save.coins()
+	ok(not Shop.buy_scissors(no_room) and Save.coins() == coins_room,
+		"board-opened scissors purchase refuses before spend when there is nowhere to place it")
+	sc_host.queue_free()
+	fresh("scissors_pending_board")
+	Feat.FLAGS["scissors"] = false
+	Save.add_scissors_pending(1)
+	var sc_code := G.SCISSORS_LINE * 100 + 1
+	var scn_off = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn_off)
+	if scn_off.board == null:
+		scn_off._ready()
+	ok(Save.scissors_pending() == 1 and (scn_off.board.count_of(sc_code) + scn_off.bag.count(sc_code)) == 0,
+		"board entry leaves pending scissors banked while the scissors flag is off")
+	scn_off.queue_free()
+	Feat.FLAGS["scissors"] = true
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	ok(Save.scissors_pending() == 0 and (scn.board.count_of(sc_code) + scn.bag.count(sc_code)) == 1,
+		"board entry drains one pending scissors tool onto the board or into the bag")
+	scn.queue_free()
 	# T-J(iii): the water cards are HOST-AGNOSTIC, and FREE takes precedence: the paid fill is hidden
 	# while today's free rain is ready, then appears after the free claim is consumed.
 	fresh("refill_card")
@@ -239,10 +322,7 @@ func _initialize() -> void:
 	# T-J(iv): pressing the free refill in the REAL stall GRANTS THROUGH SAVE (over-cap), end-to-end —
 	# no host callback. Start full so the refill banks a spare; assert Save's water doubles.
 	fresh("refill_card_live")
-	var wsh = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(wsh)
-	if wsh.content == null:
-		wsh._ready()
+	var wsh = map_host()
 	Save.set_water(G.WATER_CAP)                            # full → a refill banks a spare
 	ShopS.open_water(wsh, {})
 	var w_overlay: Control = wsh.find_child("ShopOverlay", true, false)
@@ -256,10 +336,7 @@ func _initialize() -> void:
 		var is_map: bool = "Map" in host_scene
 		var where: String = "map" if is_map else "board"
 		fresh("refill_card_%s" % where)
-		var h = load(host_scene).instantiate()
-		get_root().add_child(h)
-		if (h.get("content") if is_map else h.get("board")) == null:
-			h._ready()
+		var h = mount(host_scene, map_unready if is_map else board_unready)
 		Save.set_water(G.WATER_CAP)                        # full → a refill banks a spare
 		ok(h._open_water.is_valid(), "the %s HUD wires an _open_water callable" % where)
 		h._open_water.call()                               # the exact path the water pill + fires
@@ -271,10 +348,7 @@ func _initialize() -> void:
 	# the board re-syncs that cache from Save (the on_refresh hook) — no per-currency callback, and it
 	# can't undo a pop (the board never fires the refresh mid-pop).
 	fresh("board_water_resync")
-	var brd = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(brd)
-	if brd.board == null:
-		brd._ready()
+	var brd = board_host()
 	brd.water = G.WATER_CAP
 	Save.add_water(G.WATER_CAP, true)                      # a shop grant lands in Save; the cache is now stale
 	ok(brd.water == G.WATER_CAP and Save.water() == G.WATER_CAP * 2, "the board's live cache is stale until refresh")
@@ -285,10 +359,7 @@ func _initialize() -> void:
 	# the old positional 1-2 anchor. Force a single open quest on line 6 → the unlocked cell carries
 	# line 6 (the positional formula would yield line 2 at (2,3)).
 	fresh("bramopen")
-	var bq = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bq)
-	if bq.board == null:
-		bq._ready()
+	var bq = board_host()
 	bq.quests = [{"line": 6, "tier": 4}]
 	bq._open_bramble(Vector2i(2, 3))
 	ok(BoardModel.line_of(bq.board.item_at(Vector2i(2, 3))) == 6, \
@@ -297,10 +368,7 @@ func _initialize() -> void:
 	# debug affordance: in debug mode the panel's "Drop coin" button calls board.debug_drop_coin(), which
 	# lands a tier-1 coin on a free cell AND persists it (so the dropped coin survives the next save/reload).
 	fresh("debug_drop_coin")
-	var bd = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bd)
-	if bd.board == null:
-		bd._ready()
+	var bd = board_host()
 	for ci in bd.board.items.size():           # clear the playfield so the only coin is the debug drop
 		bd.board.items[ci] = 0
 	bd._rebuild_pieces()
@@ -422,10 +490,7 @@ func _initialize() -> void:
 	# rugged edge + centered glyph, not a baked nav_<x>.png sprite. The Bag well additionally keeps
 	# its BagContent overlay host (the most-recent stashed item) intact.
 	fresh("board_action_wells")
-	var bx = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bx)
-	if bx.board == null:
-		bx._ready()
+	var bx = board_host()
 	var home_tile := bx.find_child("BoardHomeTile", true, false) as Button
 	ok(home_tile != null and home_tile.find_child("ActionButtonDeckleSurface", true, false) != null,
 		"the board Home well wears the shared code-drawn rugged edge")
@@ -471,10 +536,7 @@ func _initialize() -> void:
 	# end-to-end: the piggy-bank Claim→Confirm cracks the jar; the calendar Claim claims today's rung.
 	fresh("vault_surface")
 	Feat.FLAGS["piggy_vault"] = true   # the vault is parked (flag OFF); flip on to drive its surface
-	var vhost = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(vhost)
-	if vhost.has_method("_ready") and vhost.content == null:
-		vhost._ready()
+	var vhost = map_host()
 	# fill the jar past the threshold, open the surface, and assert it framed a parchment card.
 	Vault.skim(Vault.claim_min() * Vault.skim_den() * 4)   # well past claimable
 	var v_before := Save.diamonds()
@@ -494,10 +556,7 @@ func _initialize() -> void:
 	Feat.FLAGS["piggy_vault"] = false  # restore the shipped default (parked)
 
 	fresh("login_surface")
-	var lhost = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(lhost)
-	if lhost.has_method("_ready") and lhost.content == null:
-		lhost._ready()
+	var lhost = map_host()
 	var l_coins := Save.coins()
 	var l_streak := Login.streak()
 	LoginUI.open(lhost)

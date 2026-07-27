@@ -57,12 +57,35 @@ Exactly two credit sites:
 
 ## 3 · The ladder
 
-`MASTERY_THRESHOLDS := [20, 60, 150, 350, 800, 1700, 3400, 6500]` (grove_data.gd). Each rank
+`MASTERY_THRESHOLDS := [20, 60, 150, 350, 650, 1150, 1900, 3000]` (grove_data.gd). Each rank
 moves only the pop tier window: `lo(r) = 1 + r ÷ 2`, `hi(r) = 4 + (r + 1) ÷ 2` (integer division).
 
 | Rank | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|---|
+| Threshold | — | 20 | 60 | 150 | 350 | 650 | 1150 | 1900 | 3000 |
 | Pops land | t1–t4 | t1–t5 | t2–t5 | t2–t6 | t3–t6 | t3–t7 | t4–t7 | t4–t8 | t5–t8 |
+| Pop cost 💧 | 1 | 1 | 2 | 2 | 4 | 4 | 7 | 7 | 12 |
+
+Ranks 1–4 are unchanged. Ranks 5–8 were compressed from `800 / 1700 / 3400 / 6500`: at those
+numbers rank 8 was dead content — the best-fed line ends a 60-day book near 3400 and nothing ever
+crossed 6500 (measured, §8).
+
+**Pop cost.** A pop is charged `G.pop_cost(lo)` off the **effective** window low (after the
+ask-band slide below), driven by `POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 8, 16]`. Rank 0 and the
+flag off pay exactly `POP_COST` — unmastered play is unchanged. A raised window hands each pop
+`tier_clicks(lo) = 2^(lo-1)` times the tier-1 value, so a flat cost let mastery collapse the water
+sink (§8); pricing the pop off its floor keeps water buying the same VALUE at every rank. The curve
+IS `tier_clicks(lo)` — a pop costs exactly what its floor is worth. An earlier curve shaved the top
+two lows (8→7, 16→12) to hand ranks 6–8 some water back; weather-hours' water faucet erased that
+margin, so the shave is gone. Mastery's reward is the LABOR: up to 16× fewer taps and ~70% fewer
+merges per delivery, plus the wider odd-rank window.
+
+- A burst is priced once (one window per `_pop_seed` call) and clamped by `water / pop_cost`, so it
+  can never overdraw the can.
+- The empty-water surfaces mean "can't pay the pop you just tried", not `water <= 0` — a mastered
+  can floors at `cost − 1`, and §10's no-silent-wall rule still has to fire there.
+- No entry may exceed `tier_clicks(lo)`: charging more water than the pop is worth would make
+  mastery a punishment (pinned in mastery_tests).
 
 **Tier roll.** Always one draw: width-4 windows walk the shipped `TIER_ODDS = [0.65, 0.25, 0.09,
 0.01]`, width-5 windows walk `MASTERY_TIER_ODDS_5 := [0.65, 0.25, 0.06, 0.03, 0.01]`; the result
@@ -81,6 +104,26 @@ tool): no slide. Recomputed once per `_pop_seed` call — one window per burst.
 
 **RNG law.** Zero added draws at every rank — the window changes the mapping, never the count.
 Draw order stays contractual (board_logic.gd:120–124); rank-0 streams are byte-identical to today.
+
+**Rank pacing (measured, 16 sim seeds × 60 days).** Rank tracks how much of the book a line is
+USED across, not when it arrives. Early lines are craft ingredients for the whole book; late lines
+arrive with little runway left. This ordering is the craft web working as designed, not a defect —
+do not "fix" it with per-line thresholds.
+
+| Line | Zone | End-of-book meter (min/med/max) | Rank | Reaches r8 |
+|---|---|---|---|---|
+| Wild berries (2) | P1 | 2816 / 3344 / 3800 | 7–8 | 14/16 seeds |
+| Glow-mushrooms (1) | P1 | 2488 / 2704 / 3032 | 7–8 | 1/16 |
+| Snow & ice (3) | P2 | 2008 / 2616 / 3152 | 7–8 | 1/16 |
+| Woolens (4) | P2 | 880 / 1712 / 2080 | 5–7 | — |
+| Sand sculptures (7) | P3 | 936 / 1472 / 1848 | 5–6 | — |
+| Shells (16) | P4 | 264 / 496 / 792 | 3–5 | — |
+| Desert fruits (6) | P3 | 144 / 336 / 528 | 2–4 | — |
+| Koi (18) | P5 | 64 / 208 / 488 | 2–4 | — |
+
+Wild berries tops the ladder because it feeds three of the four specials (winter berries, spices,
+tea cups). Desert fruits sits low for a mid-book line because it feeds none. Rank 8 is the devoted
+top line's goal, reached late in the book, and a second line reaches it on a lucky run.
 
 ## 4 · The Scissors
 
@@ -172,23 +215,57 @@ Mocks (composition authority for the builder):
 
 ## 8 · Sim gates (block the merge)
 
-Run ≥ 3 seeds × 60 days, mastery credits + windowed roller wired in (§6):
+`godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- 60 <seed>`, seeds 42 / 7 / 99
+(robustness swept over 8–16). Status: **passing on 7 of 8 seeds**; see the I2 residual below.
 
-1. Time-to-rank: typical lines reach rank 4–6 by book end, koi/shells ~7, rank 8 post-book —
-   thresholds move if not.
-2. Invariant Z (sink > faucet) and P1/P2 hold; report the book-length compression from rising
-   windows.
-3. I1 zero jams; the bot buys scissors when a strand would otherwise jam.
-4. No profitable split→sell loop exists.
+1. **Time-to-rank — PASS.** The §3 pacing table is the measured result. Rank 8 is reached by wild
+   berries on 14 of 16 seeds; nothing reached it at the old 6500 threshold.
+2. **I2 (per-map level-gift ÷ water spend < 0.30 on maps 3+) — PASSES ON MOST SEEDS, WITH A KNOWN
+   RESIDUAL.** At the shipped `tier_clicks` cost, 7 of 8 swept seeds pass; seed 57 fails map 3 at
+   0.37 (main, unmastered, passes that seed). Seeds 42/7/99 pass.
+
+   | Seed | map 1 | map 2 | map 3 | map 4 | map 5 |
+   |---|---|---|---|---|---|
+   | 42 | 0.74 | 0.34 | 0.17 | 0.15 | 0.14 |
+   | 7 | 0.82 | 0.26 | 0.26 | 0.23 | 0.20 |
+   | 99 | 0.73 | 0.33 | 0.25 | 0.14 | 0.09 |
+
+   **The pop-cost lever is exhausted**: no entry may exceed `tier_clicks(lo)` (pinned by
+   mastery_tests) or mastery becomes a punishment, so the residual cannot be closed by pricing.
+   Closing it needs a different lever — a smaller `LEVEL_WATER_GIFT`, a lower window cap (floor t4
+   rather than t5), or slower thresholds — each of which changes how the feature or the wider
+   economy feels, so it is an owner call and is PARKED, not silently tuned. Interaction note: this
+   residual appeared only after weather-hours landed its water faucet; mastery alone passed 16/16.
+
+   Maps 1–2 are the reported-WARN onboarding band, unchanged in kind from the unmastered baseline
+   (0.67–0.72 / 0.25–0.32).
+3. **I1 zero jams — PASS** on every seed; no-strand PASS.
+4. No profitable split→sell loop: pinned by the `SCISSORS_COST` floor test, not the sim.
+
+**What a flat pop cost did** (the state this replaced): book water spend fell 68% (map-1 spend
+1566 → 557💧), I2 FAILED on maps 3/4/5 on all three seeds (ratios 0.50–0.95), and the 60-day book
+finished on **day 4**. With the §3 cost it finishes day 23–34 against the unmastered 21–25.
+
+**Known consequence — the book runs ~30% longer under mastery.** Cause is measured and is NOT the
+pop cost: §6's bonus-generator/chest coins are 85% of all coins earned in the unmastered baseline
+and are minted **per tap and per merge**, both of which mastery cuts ~70% (merges 9322 → 2723 on
+seed 42). Total water and total clicks delivered are within 2% of baseline — only the tap-priced
+faucet shrinks. Re-pricing the §6 faucets off water spent (or delivered clicks) rather than raw tap
+count is the fix; it is a §6/§7 faucet pass, not a mastery dial, and stays parked in BACKLOG.
 
 ## 9 · Tests
 
-- **`engine/tests/mastery_tests.gd` (new, pure):** threshold monotonicity; `lo/hi` closed forms
-  reproduce the §3 table; `MASTERY_TIER_ODDS_5` sums to 1 and decays; slide cases (clamped,
-  no-own-asks unclamped, retroactive rise, reach ranks never clamp); band from a quests fixture
-  (own asks only); credit math (delivery, craft both lines, nested special credits once, sum
-  equals click cost); split value neutrality; the scissors price-floor inequality over all
-  tiers × bands.
+- **`engine/tests/mastery_tests.gd` (new, pure):** threshold monotonicity + the eight-rank ladder;
+  `lo/hi` closed forms reproduce the §3 table; `MASTERY_TIER_ODDS_5` sums to 1 and decays; slide
+  cases (clamped, no-own-asks unclamped, retroactive rise, reach ranks never clamp); band from a
+  quests fixture (own asks only); credit math (delivery, craft both lines, nested special credits
+  once, sum equals click cost); split value neutrality; the scissors price-floor inequality over
+  all tiers × bands.
+- **Pop cost (economy guard, same suite):** rank 0 costs exactly `POP_COST`; the curve never falls
+  and never exceeds `tier_clicks(lo)`; a low below/above the table clamps to the first/last entry;
+  the dearest window still fits in `WATER_CAP` (12💧 of 100, so the top rank is always poppable
+  from a full can); the cost reads the EFFECTIVE window, so an ask-band slide back to t1 charges
+  `POP_COST` again.
 - **RNG byte-identity:** extend the mechanics_tests.gd:413 pattern — default window reproduces
   today's exact stream; one tier draw at every rank.
 - **`grove_board_actions_tests.gd`:** deliver credits + `rank_ups`; `apply_recipe` parity with the

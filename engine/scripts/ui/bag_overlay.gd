@@ -42,7 +42,6 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
-static var KIT_PATH := Game.kit()   # the shared ui kit (frame · cell · pill)
 const OVERLAY_NAME := "BagOverlay"
 const NEED_MORE_NAME := "BagNeedMorePrompt"     ## the short-of-acorns prompt raised over an open bag
 # the prompt card's proportions, read off the authored mock (card ≈ 3/4 of the frame, the medallion
@@ -121,11 +120,11 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 
 	# build the bag card from the SHARED kit — the same dialog the workbench previews. A missing kit
 	# would only happen if the tools script were stripped from a build; bail to a bare veil if so.
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("BagOverlay: ui kit missing at %s" % KIT_PATH)
+		push_warning("BagOverlay: ui kit missing at %s" % Game.kit())
 		return overlay
-	var kcfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var kcfg: Dictionary = Game.kit_config()
 	var opts: Dictionary = Kit.bag_opts_from_config(kcfg)
 	opts["content_scale"] = Kit.dialog_content_scale(kcfg, "bag")
 	opts["banner_text"] = Strings.t("bag.banner_text")
@@ -207,7 +206,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 # · cta_button · pill_button), so a workbench knob change reaches this card too.
 static func _need_more(host: Control, have: int, price: int, on_open_shop: Callable, dismiss_bag: Callable) -> Control:
 	Audio.play("invalid_soft", -4.0)
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var plain: Font = Kit.plain_font() if Kit != null else null
 	var bold: Font = Kit.bold_font() if Kit != null else null
 	# one notch above the bag it explains. The veil dismisses THIS card only — the bag underneath

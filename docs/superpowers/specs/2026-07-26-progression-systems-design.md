@@ -97,7 +97,10 @@ turns on, per-line, the **ask-lean dial that already exists in code** (`ASK_TIER
 `roll_spawn` — held at 0 globally because the sim showed full-strength front-loads spend;
 scoping it to top-mastery lines bounds it, and the step-2 sim re-pass gates it).
 
-**The ladder — 8 ranks, fast early.** Thresholds step ~×2.2 and start low:
+**The ladder — 8 ranks, fast early.** Thresholds step ~×2.2 and start low. *(SUPERSEDED — the
+shipped ladder, per-rank rewards and pop cost live in `2026-07-26-generator-mastery-design.md` §3.
+Only the pop-window rows below shipped; ranks 5–8 now read 650 / 1150 / 1900 / 3000, because at the
+numbers here nothing ever reached rank 8 in a 60-day book.)*
 
 | Rank | Threshold (t1-eq) | Permanent reward |
 |---|---|---|
@@ -353,9 +356,10 @@ cost a multiple of the slot.
    problems 1 + 3 by itself.)
 2. **Mastery + Scissors** — meters, 8 ranks, floor rule, ring/trim/rank-up UI; Scissors
    ships with it.
-3. **Combos + ready-ladder outlines + cascade FTUE.**
-4. **Improvements** — build mode, slots, Soil + Magnet + Mirror. (Magnet and Mirror build on
-   step 3's ladder detection and echo guards.)
+3. **Cascades + ready-ladder outlines** — **SHIPPED** (`2026-07-26-cascade-combos-design.md`).
+   Chains auto-execute; the FTUE was cut, the drag guide is the teach.
+4. **Improvements** — build mode, slots, Soil + Magnet. (The Magnet gates on the scene's
+   `chain_running()`; the Mirror was cut — `2026-07-26-cell-improvements-design.md` §5-6.)
 5. **Weather hours** — the sky roll, the patch, three skies, the starfall drop. (Independent
    of step 4; order between 4 and 5 is the Dev's pick.)
 

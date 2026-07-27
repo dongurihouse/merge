@@ -46,11 +46,6 @@ static func shadow_color(alpha: float) -> Color:
 static func kit(rel: String) -> String:
 	return Game.art("ui/" + rel)
 
-## The game's UI KIT SCRIPT (frames · cells · pills), reached by runtime load() — the kit preloads
-## this file, so a preload here would be a hard cycle. Resolved once at script load, so the per-call
-## cost is just load()'s resource-cache hit, exactly as the old literal was.
-static var KIT_PATH := Game.kit()
-
 # Glyph fallbacks (shown only when a sprite is absent). NOTE: "coin" = the SOFT currency
 # (a gold coin) and "gem" = the PREMIUM currency (the grove's golden acorn 🌰) — the icons
 # were inverted from the old acorn-coin / dewdrop-gem scheme; the code ids still map to roles.
@@ -116,7 +111,7 @@ static func level_badge_index(level: int) -> int:
 ## The number Label is named "lv_num" and each part TextureRect "lv_<part>" so a live caller (the HUD
 ## level-up) can rebuild/refresh them. Falls back to a warm honey token when the part art is absent.
 static func make_level_badge(level: int, px: float, num_font: int = -1, cfg_override: Dictionary = {}) -> Control:
-	var Kit = load(KIT_PATH)
+	var Kit = Game.kit_script()
 	var cfg: Dictionary = cfg_override if not cfg_override.is_empty() else Kit.load_config(Kit.CONFIG_PATH)
 	var opts: Dictionary = Kit.level_badge_opts_from_config(cfg)
 	var badge: Control = Kit.level_badge(opts, level_badge_index(level), level, px, num_font)
@@ -141,7 +136,7 @@ static func make_level_badge(level: int, px: float, num_font: int = -1, cfg_over
 ## Shared by every layered level badge (the meadow tiers + the HUD star), so an irregular cutout casts
 ## along its real outline instead of a box.
 static func _lay_silhouette_shadow(badge: Control, art: TextureRect, sp: Dictionary) -> void:
-	var Kit = load(KIT_PATH)
+	var Kit = Game.kit_script()
 	var art_img: Image = art.texture.get_image() if art != null and art.texture != null else null
 	if art_img == null:
 		return
@@ -173,7 +168,7 @@ static func _lay_silhouette_shadow(badge: Control, art: TextureRect, sp: Diction
 const STAR_BADGE_ART := "kit/level_star_badge.png"
 const STAR_BADGE_PAINTED_SPAN := 0.90     # the painted star's span as a fraction of its square canvas
 static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg_override: Dictionary = {}) -> Control:
-	var Kit = load(KIT_PATH)
+	var Kit = Game.kit_script()
 	var cfg: Dictionary = cfg_override if not cfg_override.is_empty() else Kit.load_config(Kit.CONFIG_PATH)
 	var badge := Control.new()
 	badge.name = "LevelBadge"
@@ -560,10 +555,7 @@ static func shadow_params(cfg: Dictionary) -> Dictionary:
 ## EVERY shadow path resolves through this, so tuning + saving in the workbench restyles the
 ## whole game on next build; SHADOW_DEFAULTS is only the absent-config/kit fallback.
 static func saved_shadow_params() -> Dictionary:
-	var Kit = load(KIT_PATH)
-	if Kit == null:
-		return shadow_params({})
-	return shadow_params(Kit.load_config(Kit.CONFIG_PATH))
+	return shadow_params(Game.kit_config())
 
 static func shadow_bottom_reach() -> float:
 	var p := saved_shadow_params()

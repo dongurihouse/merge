@@ -6,8 +6,8 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 const KIND_SOIL := "soil"
 const KIND_MAGNET := "magnet"
-const SEED_SOIL_LINE := 14
-const SEED_MAGNET_LINE := 15
+const SEED_SOIL_LINE = G.SOIL_SEED_LINE
+const SEED_MAGNET_LINE = G.MAGNET_SEED_LINE
 const SEED_SOIL_CODE := SEED_SOIL_LINE * 100 + 1
 const SEED_MAGNET_CODE := SEED_MAGNET_LINE * 100 + 1
 

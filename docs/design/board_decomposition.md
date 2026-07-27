@@ -42,8 +42,8 @@ architectural layer and without behaviour change**, addressing all four drivers
    call order must be preserved exactly (see `core/board_logic.gd` `roll_spawn`).
    Any extraction touching spawning/refilling must not reorder `rng` calls.
 4. **Save schema is frozen.** `_persist()` writes a fixed key set
-   (`board`, `quests`, `quests_map`, `bag`, `rng_state`, `water`,
-   `regen_ts`, `last_seen`). Extraction must not change what is written or read.
+   (`board`, `quests`, `quests_map`, `bag`, `rng_state`, `water`, `regen_ts`).
+   Extraction must not change what is written or read.
 5. **No behaviour change.** This is a structural refactor. Visuals and gameplay
    must be byte-for-byte equivalent (verified by composite/measure, never eyeball).
 6. **Edits to `board.gd` are sequential within a wave** (they touch one file, so
@@ -82,7 +82,7 @@ intent and trust the coordinator to apply + refresh.
   ┌────────────────────────── scenes/board.gd (coordinator) ──────────────────────────┐
   │  owns: BoardModel, bag, basket, quests, water, drag-state                          │
   │  owns: transactions (_commit_merge/move/swap, _grant_sale, _deliver_*, _buy_back)  │
-  │  owns: lifecycle (_ready/_process), water tick, winback, gate cue, spotlight orch. │
+  │  owns: lifecycle (_ready/_process), water tick, sky hour, gate cue, spotlight orch. │
   │  on intent → mutate model/Save → _after_board_change() → fan out refresh()         │
   └───▲────────────▲────────────▲────────────▲────────────▲───────────────────────────┘
       │ intents     │            │            │            │   (signals / injected Callables up)
@@ -278,7 +278,7 @@ button (`_on_gate`), and the transaction + signal-wiring glue.
 `scenes/board.gd` becomes the coordinator: builds the layout shell (the `_ready`
 VBox: spacer → fence slot → grid slot → bag slot, plus gate
 button, bottom bar, HUD), instantiates each component into its slot, owns
-run-state + transactions + lifecycle (`_process`, water tick, winback, gate cue,
+run-state + transactions + lifecycle (`_process`, water tick, sky hour, gate cue,
 spotlight orchestration), and wires intents → transactions → `_after_board_change()`.
 Target ~450 lines.
 

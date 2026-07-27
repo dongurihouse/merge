@@ -34,7 +34,7 @@ static var FLAGS := {
 	"spirit_tap_hop": true,       # tapping a map spirit hops it
 	"giver_bob": true,            # AB: frameless fence givers idle-bob over the rail
 	# ambient
-	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute
+	"weather_hours": true,        # hourly sky lane gifts: Sunbeam coins, Rain water, Starfall high-tier piece
 	"ambient_characters": true,   # characters wander the scenes
 	"ambient_weather": true,      # breeze/rain/snow schedule
 	# feature
@@ -45,6 +45,9 @@ static var FLAGS := {
 
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)
+	"cascade": true,              # player-tipped adjacent ladders auto-merge into one rewarded cascade chain
+	"mastery": true,              # generator mastery meters raise pop tier windows
+	"scissors": true,             # the scissors tool splits one piece into two lower-tier pieces
 	# ftue
 	"ftue_free_pops": false,      # retired: water now costs from the first pop (no 10-pop free intro)
 	"ftue_hand_hint": true,       # the two one-time hand teaches: drag-to-merge, then tap-the-generator (spec 2026-07-23)

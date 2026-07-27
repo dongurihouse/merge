@@ -18,10 +18,19 @@ const Tuning = preload("res://engine/scripts/core/tuning.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 # The gold-pill / action-bar look is tuned in the UI Workbench and saved to the shared kit config.
-# Loaded at runtime (matches hud.gd / nav_bar) to avoid a preload cycle (engine → game-tool bridge).
-static var KIT_PATH := Game.kit()
 
+# THE bottom action bar's BAND LAW — one spelling each, read by the board scene
+# (engine/scripts/scenes/board.gd) and by the UI workbench's layout preview
+# (games/grove/tools/ui_workbench_view.gd) so the preview clamps exactly what the board clamps.
+# It lives here because this module BUILDS the bar, and because ui/ is importable by both scenes/ and
+# the game tools while ui/ may NOT import scenes/ (engine/tests/layering_tests.gd) — the arrow only
+# points this way. Retune here; every reader follows.
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
+const BOTTOM_BTN_PX := 130.0                            # fallback Bag/Home well size; runtime scales from button_w_pct
+const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX    # the band's padding around a well (bar height − well size)
+const BOTTOM_BAR_MIN := 150.0                           # the bar never shrinks below this...
+const BOTTOM_BAR_MAX := 200.0                           # ...nor balloons past it on a wide screen
+const BOTTOM_BTN_MIN := 110.0                           # a well stays tappable on a narrow screen
 const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray
 const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
 const DECKLE_SURFACE_NODE := "ActionBarInfoDeckleSurface"
@@ -32,10 +41,10 @@ const PAPER_CORNER_FRAC := 0.18
 
 # The workbench-tuned action-bar opts ({} when the kit can't load — every reader falls back to a const).
 static func opts() -> Dictionary:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return {}
-	return Kit.action_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.action_bar_opts_from_config(Game.kit_config())
 
 # The CENTRE info tray's cream surface. Shape, light edge, and shadow are code-drawn here;
 # apply_paper_surface adds only a flat cream grain inside that shape. The Home and Bag tiles sit OUTSIDE
@@ -71,7 +80,7 @@ static func _transparent_tray_style() -> StyleBox:
 	return flat
 
 static func _apply_info_deckle_surface(tray: Control, bar_h: float, action_opts: Dictionary = {}) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null or tray == null:
 		return null
 	var surface := tray.find_child(DECKLE_SURFACE_NODE, false, false) as Control
@@ -82,7 +91,7 @@ static func _apply_info_deckle_surface(tray: Control, bar_h: float, action_opts:
 		surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		tray.add_child(surface)
-	var cp: Dictionary = Kit.cut_paper_opts_from_config(Kit.load_config(Kit.CONFIG_PATH), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
 	var corner := float(_bar_corner(bar_h))
 	cp["corner"] = corner
 	surface.configure(cp, PAPER_FILL, PAPER_EDGE, Kit.cut_paper_tile())
@@ -241,10 +250,10 @@ static func tray_well(px: float, art: String = "") -> Button:
 # global-rect, so a disc is as good a target as the old wood well. Soft-loads the kit by path; falls back
 # to the wood tray_well if the kit can't load.
 static func home_well(px: float, icon_id: String, fallback_art: String, count: String = "", icon_scale: float = -1.0, action_opts: Dictionary = {}) -> Button:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return tray_well(px, fallback_art)
-	var home_opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var home_opts: Dictionary = Kit.home_button_opts_from_config(Game.kit_config())
 	home_opts["px"] = px
 	home_opts["shape"] = "rect"               # the board's Home + Bag wells are code-drawn rounded paper tiles
 	home_opts["surface_role"] = "purple" if icon_id == "bag" else "green"

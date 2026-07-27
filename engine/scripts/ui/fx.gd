@@ -4,6 +4,7 @@ extends RefCounted
 ## Every animation value lives in Tune (engine/scripts/core/tuning.gd → class FX).
 
 const Features = preload("res://engine/scripts/core/features.gd")
+const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # §13: every glyph is a sprite via Look.icon — no emoji in floaters
 const Pal = Game.PALETTE
@@ -27,9 +28,6 @@ const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_pa
 # ONE place — Kit.load_config(path), invalidated by Kit.clear_config_cache(path). FX deliberately
 # keeps no private cache of its own: two caches over one file meant a workbench save through either
 # side left the other serving pre-save values for the rest of the session.
-# The kit lives in the game and preloads this script, so it can only be reached by runtime load()
-# (a preload here would be a hard cycle) — the same convention every other engine → kit call site uses.
-static var KIT_PATH := Game.kit()
 
 static var _dot_tex: Texture2D
 static var _reward_fx_config_path := ""
@@ -49,16 +47,16 @@ static func configure_reward_fx_config_for_test(path: String) -> void:
 # The parsed settings file, straight off the shared kit cache. This is the kit's OWN Dictionary —
 # treat it as READ-ONLY (duplicate before mutating, as _write_reward_fx_config does).
 static func _shared_config(path: String) -> Dictionary:
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("FX: ui kit missing at %s — reward FX config falls back to defaults" % KIT_PATH)
+		push_warning("FX: ui kit missing at %s — reward FX config falls back to defaults" % Game.kit())
 		return {}
 	return Kit.load_config(path)
 
 static func _clear_shared_config(path: String) -> void:
 	if path == "":
 		return   # "" means "clear EVERY path" to the kit — never widen the blast radius by accident
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit != null:
 		Kit.clear_config_cache(path)
 
@@ -408,6 +406,54 @@ static func celebrate_reward(host: Control, gpos: Vector2, icon_id: String, amou
 		return
 	floating_reward(host, gpos - Vector2(Tune.CELEB_TEXT_DX * 2.0, Tune.CELEB_TEXT_DY), icon_id, amount, color, Tune.FLOAT_SIZE, prefix)
 	burst(host, gpos, color, Tune.CELEB_BURST)
+
+## --- the reward shout ------------------------------------------------------------
+## The one place a `{coins, gems, water}` grant turns into juice, and the one place a
+## currency's floater tint is written down. Three byte-identical private `_celebrate`
+## copies (ui/login.gd, ui/inbox.gd, ui/login_mystery.gd) plus a fourth icon→colour
+## switch in the FX workbench used to spell these nine literals out; adding a fourth
+## currency meant finding three files, and a retint silently missed two of five sites.
+
+## Reward components in SHOUT ORDER (top to bottom), each with the Look.icon id it
+## renders as. Add a currency here and every claim surface grows it at once.
+const REWARD_SHOUT := [
+	{"key": "gems", "icon": "gem"},
+	{"key": "coins", "icon": "coin"},
+	{"key": "water", "icon": "water"},
+]
+const REWARD_SHOUT_STEP := 34.0   # vertical gap between stacked component shouts
+
+## Currency FLOATER tints. These are NOT palette roles (`palette_ssot_tests.gd` scans the
+## roles and none of these values is one) — they are the per-currency shout tints: the gem
+## and water blues read against the burst where Pal.SKY/Pal.MEADOW would not. Coin and bag
+## are the straw role, so they read it off the palette rather than restating it.
+const REWARD_COLORS := {
+	"gem": Color("#A9C7E8"),
+	"water": Color("#9CCDE8"),
+	"coin": Pal.STRAW,
+	"bag": Pal.STRAW,
+}
+const REWARD_COLOR_FALLBACK := Pal.STRAW
+
+## The tint a reward floater/arrival uses for `icon_id` (Look.icon ids: gem/coin/water/bag).
+static func reward_color(icon_id: String) -> Color:
+	return REWARD_COLORS.get(icon_id, REWARD_COLOR_FALLBACK)
+
+## Shout a whole `{coins, gems, water}` grant at `at` — one celebrate_reward per NON-ZERO
+## component, stacked downward. `with_sound` fires the claim chime; pass false when the
+## caller already played its own (login_mystery shouts once per won reward in a loop, so
+## the chime would stack).
+static func celebrate_rewards(host: Control, at: Vector2, rew: Dictionary, with_sound := true) -> void:
+	if with_sound:
+		Audio.play("merge_success", -3.0, 1.2)
+	var dy := 0.0
+	for part in REWARD_SHOUT:
+		var amount := int(rew.get(String(part["key"]), 0))
+		if amount <= 0:
+			continue
+		var icon_id := String(part["icon"])
+		celebrate_reward(host, at + Vector2(0, dy), icon_id, amount, reward_color(icon_id))
+		dy += REWARD_SHOUT_STEP
 
 # loop-tween guard: breathing twice on one node compounds the oscillation
 static func breathe_once(node: Control) -> void:

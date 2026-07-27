@@ -54,9 +54,9 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 
 | Flag | What it does | Lives-in | Eval |
 |---|---|---|---|
-| `winback_rain_beat` | >=48h away → full water + the rainy minute | `engine/scripts/ui/ambient.gd` `check_winback()` (L121), `winback_active()` (L130) | keep — default ON, owner review pending |
+| `weather_hours` | hourly sky lane gifts: Sunbeam coins, Rain water, Starfall piece | `engine/scripts/core/sky.gd`; `engine/scripts/scenes/board.gd` | keep — default ON, owner review pending |
 | `ambient_characters` | characters wander the scenes | `engine/scripts/ui/ambient.gd` `build_layer()` (L38) | keep — default ON, owner review pending |
-| `ambient_weather` | breeze/rain/snow schedule | `engine/scripts/ui/ambient.gd` `build_weather()` (L159) | keep — default ON, owner review pending |
+| `ambient_weather` | clear/breeze/rain/snow/starlit weather skins | `engine/scripts/ui/ambient.gd` `build_weather()` | keep — default ON, owner review pending |
 
 ## feature
 
@@ -64,6 +64,7 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 |---|---|---|---|
 | `item_backing` | AF3: ON — re-purposed as a soft warm contact shadow under each piece | `engine/scripts/scenes/board.gd` `_make_piece()` (L1219) | keep — default ON, owner review pending |
 | `drag_swap` | drop an item on another occupied cell → swap (P) | `engine/scripts/scenes/board.gd` `_on_release()` (L1554) | keep — default ON, owner review pending |
+| `cascade` | player-tipped adjacent ladders auto-merge into one rewarded cascade chain | `engine/scripts/scenes/board.gd` `_prepare_chain()`, `_run_chain_step()`, `_show_cascade_drag_guides()` | keep — default ON, owner review pending |
 | `piggy_vault` | §10 — the accrual vault (piggy bank): the bottom-bar tile + pip and the premium skim | `engine/scripts/scenes/map.gd` `_bottom_bar_specs()`; `engine/scripts/core/vault.gd` `skim()` | parked — default OFF by owner's word (2026-07-19) |
 | `improvements` | Soil and Magnet buildable board-cell improvements on the home board | `engine/scripts/scenes/board.gd` build-mode and board-change beats; `engine/scripts/core/improvements.gd` rules | keep — default ON, owner review pending |
 

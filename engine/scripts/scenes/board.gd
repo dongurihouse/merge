@@ -8,14 +8,16 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
-static var KIT: GDScript = load(Game.kit())   # the shared UI kit — resolved ONCE at script load, not a load() per call site
+static var KIT: GDScript = Game.kit_script()   # the shared UI kit — the one cached handle, not a load() per call site
 const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")   # boost-line charges, spent on the board chip
 const Quests = preload("res://engine/scripts/core/quests.gd")
+const SaveMigrate = preload("res://engine/scripts/core/save_migrate.gd")   # load-time save hygiene + the above-level purge
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -25,13 +27,18 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
+const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
-const RetireOffer = preload("res://engine/scripts/ui/retire_offer.gd")   # §6 the line-retirement offer
+const MasteryRankup = preload("res://engine/scripts/ui/mastery_rankup.gd")
+const MasteryRing = preload("res://engine/scripts/ui/mastery_ring.gd")
+const SplitPreview = preload("res://engine/scripts/ui/split_preview.gd")
+const FarewellCard = preload("res://engine/scripts/ui/farewell_card.gd")   # §8 line farewell sweep card
+const Almanac = preload("res://engine/scripts/ui/almanac.gd")   # §8 read-only line status grid
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
@@ -46,6 +53,8 @@ const Hud = preload("res://engine/scripts/ui/hud.gd")
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")   # the bottom action bar's shared visual builders
 const SoilProgressRing = preload("res://engine/scripts/ui/soil_progress_ring.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const SkyLogic = preload("res://engine/scripts/core/sky.gd")
+const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
@@ -63,29 +72,33 @@ var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
-# Responsive band caps (the bottom-anchored layout). The quest bar scales with screen HEIGHT (taller on
-# tall screens, to absorb spare vertical room) but is bounded; the bottom bar is bounded so it never
-# balloons on wide screens.
-const QUEST_H_MIN := 150.0
-const QUEST_H_MAX := 300.0
-const BOTTOM_BAR_MIN := 150.0
-const BOTTOM_BAR_MAX := 200.0
-const BOTTOM_BTN_MIN := 110.0
+# Responsive band caps (the bottom-anchored layout) — ALIASES, never re-typed numbers: ui/action_bar.gd
+# owns the bottom bar's band (it builds the bar) and ui/board_fit.gd owns the quest/page bands. The UI
+# workbench's layout preview reads the SAME two modules, so a retune moves the board and the preview
+# together and the operator can never tune to a value the board silently clamps away.
+const QUEST_H_MIN := BoardFit.QUEST_H_MIN
+const QUEST_H_MAX := BoardFit.QUEST_H_MAX
+const BOTTOM_BAR_MIN := ActionBar.BOTTOM_BAR_MIN
+const BOTTOM_BAR_MAX := ActionBar.BOTTOM_BAR_MAX
+const BOTTOM_BTN_MIN := ActionBar.BOTTOM_BTN_MIN
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · info bar · Bag); runtime follows workbench button px
-const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
-const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
+const BOTTOM_BAR_H := ActionBar.BOTTOM_BAR_H     # fallback bottom bar height (Home · info bar · Bag)
+const BOTTOM_BTN_PX := ActionBar.BOTTOM_BTN_PX   # fallback Bag/Home well size; runtime scales from button_w_pct
+const BOTTOM_BAR_PAD := ActionBar.BOTTOM_BAR_PAD
 const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
 static var BOARD_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_board.png")
+const SKY_MARKER_SCREEN_GUTTER := 16.0
+static var _sky_marker_icon_cache := {}
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # fallback gap BETWEEN cards — the workbench quest_card.gap overrides (via _giver_lay)
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
-const EDGE_GAP := 16.0           # the EQUAL page margin: HUD pills → content top == board bottom → bottom action bar
+const EDGE_GAP := BoardFit.EDGE_GAP   # the EQUAL page margin: HUD pills → content top == board bottom → bottom bar
 const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
+const MASTERY_RANKUP_FX_DELAY := 0.45 # after the 0.3s tile flight and 0.4s wallet arrival settle
 const STACK_SEP := 20      # the row gap of the content stack (strip <-> quest fence <-> board)
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
@@ -95,6 +108,11 @@ const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
 const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece must stay visible above
                                                   # the hand-hint veil (hand_hint.gd) while a teach is live
 const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
+const ANIM_WATCHDOG_SECS := 0.6
+const CHAIN_STEP_WATCHDOG_SECS := 2.0
+const CHAIN_STEP_MS := 250
+const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
+const CHAIN_REWARDS := {2: 901, 3: 1001, 4: 1002, 5: 1003, 6: 1004, 7: 1005}
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
 # grove board palette (the night-purples retire here)
@@ -103,18 +121,16 @@ const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
 # Shading IS the clickable/important affordance (board polish #8): the brighter a thing
-# reads, the more it's asking to be tapped. BRIGHT/un-shaded = actionable right now; a
-# gentle DIM = inert/locked/satisfied. One cozy dim value (~0.78 alpha) for every
-# "step back" read — a soft difference, never harsh — so the eye lands on what's live.
-const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
-const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
+# reads, the more it's asking to be tapped. GENERATORS still carry that read (GEN_LIT/GEN_DIM
+# below). GIVERS no longer do — the dim tint was retuned to full opacity, so the ✓ mark, the
+# count and the bob carry the lit state on their own.
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
 # A generator's stop is a stronger signal than a giver's, so it dims further (0.5) — same
 # affordance family (bright = tappable), just a deeper "paused" read for the harder stop.
 const GEN_DIM := Color(1, 1, 1, 0.5)
-const GEN_LIT := SHADE_LIT
+const GEN_LIT := Color(1, 1, 1, 1.0)
 # A generator whose LINE no open quest asks for FADES OUT — it can still pop (free while faded),
 # but the eye lands on the generators the fence actually wants right now. Deeper than the paused
 # dim (it is "not needed", not just "stopped"). Accumulators (utility, never asked) stay exempt.
@@ -154,7 +170,10 @@ var bag: Array = []
 var bag_seed_ranks: Array = []     # PARALLEL to bag: Soil seed rank metadata; non-seeds/default seeds carry 1
 var water := G.WATER_CAP
 var _regen_ts := 0.0               # regen anchor (unix); advances as water accrues
-var _winback := false              # set on load when away >= WINBACK_HOURS
+var _sky_state: Dictionary = {}
+var _sky_live_secs := 0.0
+var _sky_patch: Control = null
+var _sky_marker: Button = null
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
 var _gate_ready_seen := false      # skip the cue on the first (load-time) call
 var _unlock_bar: UnlockBar
@@ -192,11 +211,13 @@ var bag_content: Control
 var bag_piece_px := 72.0             # the in-well item-preview size (set from the well px on build)
 var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 var _bag_well_drawn_disc := false    # true only for the kit-absent drawn-disc fallback (glyph lives IN bag_content)
+var _farewell_check_queued := false
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
 var _selected_improvement := false  # true when the info bar is showing an empty improved cell, not an item/generator
 var _focus_ring: Control = null      # the corner-bracket frame drawn on the selected cell (lazily built in board_area)
+var _split_preview: Control = null   # scissors hover preview: dashed target + twin ghosts
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
 var _info_desc_label: Label          # compact player-use hint for the selected item
@@ -244,9 +265,16 @@ var _info_soil_finish: Button        # Soil grow-row chip: spend acorns to finis
 var _info_soil_finish_sb: StyleBoxFlat
 var _info_soil_finish_count: Label
 var _info_soil_finish_coin: Control
+var _info_mastery_row: HBoxContainer # generator mastery row: pips + slim meter + next reward
+var _info_mastery_pips: Array = []
+var _info_mastery_progress: ProgressBar
+var _info_mastery_next_label: Label
+var _info_almanac: Button            # the empty-state Almanac button, shown only when no board cell is selected
 var _info_inner_px := 62.4           # the info bar's info-button slot (from the kit's inner-control knob)
 var _info_item_icon_scale := 0.80    # selected item/generator art scale as a fraction of the info bar height
 var _info_item_px := 62.4            # selected item/generator art size in the info bar
+var _mastery_rankup_queue: Array = [] # [{line, rank}] waiting for the celebration modal
+var _mastery_rankup_open := false
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" card — pay 💎 to double a big quest coin reward (§10)
 var diamonds_label: Label
@@ -283,6 +311,12 @@ var _drag_lean_seeded := false        # false until the first follow seeds _drag
 var animating := false
 var _anim_t := 0.0                  # seconds the animating gate has been held (watchdog — see _process)
 var _idle := 0.0                   # seconds without input → the wiggle hint
+var _chain_run: Array = []
+var _chain_n := 0
+var _chain_active := false
+var _chain_auto_step := false
+var _chain_reward_cell := Vector2i(-1, -1)
+var _cascade_outline: Control = null
 
 var water_label: Label
 var _water_icon: Control
@@ -295,6 +329,11 @@ var _empty_hint_shown := false        # the drifting "water refills over time" h
 # SHOP stall now, not here; see shop.gd.)
 var _refill_stack: VBoxContainer
 var _water_pending_drained := false   # the starter-pack water credit drains once per board open
+# The cost of the last pop the can could NOT pay (0 = none). A mastered generator's pop costs more than
+# 1💧 (§3 tier-scaled cost), so "empty" can no longer mean water<=0 alone or the refill offer would stop
+# surfacing for a mastered player whose can floors at cost-1 — §10's "no silent wall". Cleared by
+# _update_water_hud the moment the can can pay it again; at cost 1 it reproduces water<=0 exactly.
+var _water_short := 0
 
 func _ready() -> void:
 	UiFont.apply()
@@ -393,6 +432,7 @@ func _ready() -> void:
 
 	_build_hud()
 	_build_water_hud()
+	_refresh_sky_state()
 	var tick := Timer.new()
 	tick.wait_time = 1.0
 	tick.timeout.connect(_tick_water)
@@ -415,18 +455,16 @@ func _ready() -> void:
 	_grid_fx_opts = {"merge": _merge_opts, "move": _move_opts, "land": _land_opts}   # one bundle for GridFx
 	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
-	if _winback:
-		_winback = false
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
-			Strings.t("board.winback.rained"), CREAM, FS.TITLE)
-		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 	_maybe_show_board_tutorial_first_run.call_deferred()
-	_maybe_offer_retirement.call_deferred()   # §6: a calm moment — board entry, never mid-gesture
+	_queue_farewell_check.call_deferred()   # §8: old-save migration + calm board-entry farewell chain
 	_maybe_soil_ftue.call_deferred()
 
-func debug_refresh_weather() -> void:
+## Re-read the hour's sky state and rebuild what shows it: the weather layer + the patch marker.
+## This is a REAL path, not a debug one — _tick_sky_hour calls it every time the hour turns.
+func refresh_weather() -> void:
+	_refresh_sky_state()
 	var insert_at := get_child_count()
 	for child in get_children():
 		if child.name == "WeatherLayer":
@@ -436,20 +474,392 @@ func debug_refresh_weather() -> void:
 	var weather := Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now())
 	add_child(weather)
 	move_child(weather, mini(insert_at, get_child_count() - 1))
+	_sync_sky_patch_marker(true)
+
+## The debug overlay reaches this BY NAME (Debug._act_weather → host.call("debug_refresh_weather"),
+## same as map.gd's twin), and the shot tool calls it for the sky modes. Both want the real rebuild.
+func debug_refresh_weather() -> void:
+	refresh_weather()
+
+func _refresh_sky_state() -> void:
+	_sky_state = SkyLogic.state(Time.get_unix_time_from_system(), _quest_level(), Ambient.forced_weather)
+
+func _tick_sky_hour() -> void:
+	# The lane is level-dependent (§3), so a level-up can move it mid-hour — the lane check below
+	# catches that and moves patch + marker together.
+	var next := SkyLogic.state(Time.get_unix_time_from_system(), _quest_level(), Ambient.forced_weather)
+	if _sky_state.is_empty() or int(next.hour) != int(_sky_state.get("hour", -1)) \
+			or String(next.sky) != String(_sky_state.get("sky", "")) \
+			or int(next.lane) != int(_sky_state.get("lane", -1)):
+		_sky_state = next
+		_sky_live_secs = 0.0
+		refresh_weather()
+		return
+	_sky_live_secs += 1.0
+	_try_starfall()
+
+func _sync_sky_patch_marker(pop_marker: bool) -> void:
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	for node in [_sky_patch, _sky_marker]:
+		if node != null and is_instance_valid(node):
+			if node.get_parent() != null:
+				node.get_parent().remove_child(node)
+			node.queue_free()
+	_sky_patch = null
+	_sky_marker = null
+	if _sky_state.is_empty() or not SkyLogic.gate_open():
+		return
+	var sky := String(_sky_state.get("sky", ""))
+	# A CALM hour is chrome-free by design (§2): no wash, no marker, nothing outside the mat and
+	# nothing to tap, so the info bar keeps whatever the player last selected. The board reads exactly
+	# as it did before weather shipped. Same early-out as "" — the state before the first roll.
+	if sky == "" or sky == SkyLogic.SKY_CALM:
+		return
+	var patch := SkyPatch.new()
+	patch.setup(_sky_state, csz, GAP, _landscape)
+	board_area.add_child(patch)
+	_sky_patch = patch
+	var marker := _make_sky_marker()
+	board_area.add_child(marker)
+	_sky_marker = marker
+	if pop_marker:
+		FX.pop(marker)
+
+func _make_sky_marker() -> Button:
+	var marker := Button.new()
+	marker.name = "SkyMarker"
+	marker.focus_mode = Control.FOCUS_NONE
+	marker.tooltip_text = _sky_info_title()
+	marker.text = ""
+	marker.custom_minimum_size = Vector2(maxf(34.0, csz * 0.48), maxf(32.0, csz * 0.42))
+	marker.size = marker.custom_minimum_size
+	marker.mouse_filter = Control.MOUSE_FILTER_STOP
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Pal.CREAM, 0.96)
+	sb.border_color = Color(Pal.BARK, 0.72)
+	sb.border_width_bottom = 2
+	sb.border_width_left = 2
+	sb.border_width_right = 2
+	sb.border_width_top = 2
+	sb.set_corner_radius_all(int(marker.custom_minimum_size.y * 0.5))
+	marker.add_theme_stylebox_override("normal", sb)
+	marker.add_theme_stylebox_override("hover", sb)
+	marker.add_theme_stylebox_override("pressed", sb)
+	marker.add_theme_color_override("font_color", Pal.INK)
+	var glyph := TextureRect.new()
+	glyph.name = "SkyMarkerGlyph"
+	glyph.texture = _sky_marker_texture()
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.set_meta("icon_path", _sky_marker_icon_path())
+	glyph.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := int(maxf(4.0, marker.custom_minimum_size.y * 0.14))
+	glyph.offset_left = inset
+	glyph.offset_top = inset
+	glyph.offset_right = -inset
+	glyph.offset_bottom = -inset
+	marker.add_child(glyph)
+	marker.position = _sky_marker_pos(marker.custom_minimum_size)
+	marker.pressed.connect(_on_sky_marker_pressed)
+	if not Array(SkyLogic.grove_sky_state().get("owed", [])).is_empty():
+		var pip := Label.new()
+		pip.name = "OwedPip"
+		pip.text = "*"
+		pip.add_theme_font_size_override("font_size", int(maxf(10.0, csz * 0.16)))
+		pip.add_theme_color_override("font_color", Pal.STRAW)
+		pip.position = Vector2(marker.custom_minimum_size.x - 12.0, -4.0)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		marker.add_child(pip)
+	return marker
+
+func _sky_marker_pos(marker_size: Vector2) -> Vector2:
+	var lane := int(_sky_state.get("lane", 0))
+	if String(_sky_state.get("lane_axis", "column")) == "row":
+		var left_cell := _cell_pos(Vector2i(lane, 0))
+		var pos := left_cell + Vector2(-marker_size.x - 6.0, (csz - marker_size.y) * 0.5)
+		var board_global_x := board_area.get_global_rect().position.x if board_area != null and is_instance_valid(board_area) else 0.0
+		pos.x = maxf(pos.x, SKY_MARKER_SCREEN_GUTTER - board_global_x)
+		pos.x = minf(pos.x, 6.0 - marker_size.x)
+		return pos
+	var top_cell := _cell_pos(Vector2i(0, lane))
+	return top_cell + Vector2((csz - marker_size.x) * 0.5, -marker_size.y * 0.45)
+
+func _sky_marker_icon_path() -> String:
+	var rels: Dictionary = G.SKY_MARKER_ICON_RELS
+	var rel := String(rels.get(String(_sky_state.get("sky", "sunbeam")), rels.get("sunbeam", "")))
+	return Game.art(rel)
+
+func _sky_marker_texture() -> Texture2D:
+	var sky := String(_sky_state.get("sky", "sunbeam"))
+	var path := _sky_marker_icon_path()
+	if ResourceLoader.exists(path):
+		return load(path)
+	if _sky_marker_icon_cache.has(sky):
+		return _sky_marker_icon_cache[sky]
+	var tex := _draw_sky_marker_texture(sky)
+	_sky_marker_icon_cache[sky] = tex
+	return tex
+
+func _draw_sky_marker_texture(sky: String) -> Texture2D:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	match sky:
+		"rain":
+			_paint_cloud_icon(img)
+		"starfall":
+			_paint_star_icon(img)
+		_:
+			_paint_sun_icon(img)
+	return ImageTexture.create_from_image(img)
+
+func _paint_sun_icon(img: Image) -> void:
+	var gold := Color(Pal.STRAW, 1.0)
+	var edge := Color(Pal.BARK, 0.72)
+	var ctr := Vector2i(32, 32)
+	for p in [Vector2i(32, 8), Vector2i(32, 56), Vector2i(8, 32), Vector2i(56, 32), Vector2i(15, 15), Vector2i(49, 15), Vector2i(15, 49), Vector2i(49, 49)]:
+		_paint_line(img, ctr, p, edge, 2)
+		_paint_line(img, ctr, p, gold, 1)
+	_paint_circle(img, ctr, 17, edge)
+	_paint_circle(img, ctr, 14, gold)
+
+func _paint_cloud_icon(img: Image) -> void:
+	var blue := Color(Pal.SKY, 1.0)
+	var edge := Color(Pal.BARK, 0.70)
+	for c in [Vector2i(24, 30), Vector2i(34, 24), Vector2i(44, 31)]:
+		_paint_circle(img, c, 13, edge)
+	for c in [Vector2i(24, 30), Vector2i(34, 24), Vector2i(44, 31)]:
+		_paint_circle(img, c, 10, blue)
+	_paint_rect(img, Rect2i(17, 30, 34, 13), edge)
+	_paint_rect(img, Rect2i(19, 29, 30, 12), blue)
+	for x in [22, 34, 46]:
+		_paint_line(img, Vector2i(x, 47), Vector2i(x - 3, 56), edge, 2)
+		_paint_line(img, Vector2i(x, 47), Vector2i(x - 3, 56), blue, 1)
+
+func _paint_star_icon(img: Image) -> void:
+	var gold := Color(Pal.STRAW, 1.0)
+	var edge := Color(Pal.BARK, 0.72)
+	var pts := [
+		Vector2i(32, 7), Vector2i(39, 25), Vector2i(58, 25), Vector2i(43, 37),
+		Vector2i(49, 57), Vector2i(32, 45), Vector2i(15, 57), Vector2i(21, 37),
+		Vector2i(6, 25), Vector2i(25, 25),
+	]
+	_paint_polygon(img, pts, edge)
+	var inner := []
+	for p in pts:
+		var v := Vector2(32, 32) + (Vector2(p) - Vector2(32, 32)) * 0.82
+		inner.append(Vector2i(roundi(v.x), roundi(v.y)))
+	_paint_polygon(img, inner, gold)
+
+func _paint_rect(img: Image, rect: Rect2i, color: Color) -> void:
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			_set_icon_pixel(img, x, y, color)
+
+func _paint_circle(img: Image, center: Vector2i, radius: int, color: Color) -> void:
+	var r2 := radius * radius
+	for y in range(center.y - radius, center.y + radius + 1):
+		for x in range(center.x - radius, center.x + radius + 1):
+			if (Vector2i(x, y) - center).length_squared() <= r2:
+				_set_icon_pixel(img, x, y, color)
+
+func _paint_line(img: Image, a: Vector2i, b: Vector2i, color: Color, width: int) -> void:
+	var steps := maxi(1, int((b - a).length()))
+	for i in range(steps + 1):
+		var p := Vector2(a).lerp(Vector2(b), float(i) / float(steps))
+		_paint_circle(img, Vector2i(roundi(p.x), roundi(p.y)), width, color)
+
+func _paint_polygon(img: Image, pts: Array, color: Color) -> void:
+	var min_y := 64
+	var max_y := 0
+	for p in pts:
+		min_y = mini(min_y, int(p.y))
+		max_y = maxi(max_y, int(p.y))
+	for y in range(min_y, max_y + 1):
+		var nodes: Array = []
+		var j := pts.size() - 1
+		for i in pts.size():
+			var pi: Vector2i = pts[i]
+			var pj: Vector2i = pts[j]
+			if (pi.y < y and pj.y >= y) or (pj.y < y and pi.y >= y):
+				nodes.append(int(pi.x + float(y - pi.y) / float(pj.y - pi.y) * float(pj.x - pi.x)))
+			j = i
+		nodes.sort()
+		for n in range(0, nodes.size(), 2):
+			if n + 1 >= nodes.size():
+				break
+			for x in range(int(nodes[n]), int(nodes[n + 1]) + 1):
+				_set_icon_pixel(img, x, y, color)
+
+func _set_icon_pixel(img: Image, x: int, y: int, color: Color) -> void:
+	if x >= 0 and x < img.get_width() and y >= 0 and y < img.get_height():
+		img.set_pixel(x, y, color)
+
+func _sky_info_title() -> String:
+	return Strings.t("board.sky.%s.title" % String(_sky_state.get("sky", "sunbeam")))
+
+func _sky_info_desc() -> String:
+	return Strings.t("board.sky.%s.desc" % String(_sky_state.get("sky", "sunbeam")))
+
+func _on_sky_marker_pressed() -> void:
+	if _info_label == null or not is_instance_valid(_info_label):
+		return
+	_selected_cell = Vector2i(-1, -1)
+	if _focus_ring != null and is_instance_valid(_focus_ring):
+		_focus_ring.queue_free()
+		_focus_ring = null
+	if _info_icon != null and is_instance_valid(_info_icon):
+		for c in _info_icon.get_children():
+			c.queue_free()
+	_info_label.text = _sky_info_title()
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_info_desc_label.text = _sky_info_desc()
+		_info_desc_label.visible = true
+	if _info_btn != null and is_instance_valid(_info_btn):
+		_info_btn.visible = false
+		_info_btn.disabled = true
+	if _info_trash != null and is_instance_valid(_info_trash):
+		_info_trash.visible = false
+	if _info_burst != null and is_instance_valid(_info_burst):
+		_info_burst.visible = false
+	if _info_buy != null and is_instance_valid(_info_buy):
+		_info_buy.visible = false
+
+func _try_starfall() -> void:
+	if _sky_state.is_empty() or String(_sky_state.get("sky", "")) != "starfall":
+		return
+	if not SkyLogic.gate_open() or _sky_live_secs < float(G.STAR_DELAY) or animating or _modal_open():
+		return
+	var sky_save := SkyLogic.grove_sky_state()
+	var hour := int(_sky_state.get("hour", -1))
+	if hour <= int(sky_save.get("paid_hour", -1)):
+		return
+	var lines := _star_lines()
+	var asked := BoardLogic.asked_items(quests)
+	var code := SkyLogic.star_pick(hour, lines, asked)
+	sky_save["paid_hour"] = hour
+	if code > 0 and not _land_star_code(code):
+		var owed: Array = sky_save.get("owed", [])
+		owed.append(code)
+		sky_save["owed"] = owed
+		_sync_sky_patch_marker(false)
+	if code > 0:
+		_persist()
+	else:
+		Save.grove_write()
+
+func _star_lines() -> Array:
+	var out: Array = []
+	for l in G.active_lines(_quest_level()):
+		if not out.has(int(l)):
+			out.append(int(l))
+	for l in G.quest_needed_lines(_open_quest_lines()).keys():
+		if not out.has(int(l)):
+			out.append(int(l))
+	return out
+
+func _modal_open() -> bool:
+	for child in get_children():
+		if child is Control and (child as Control).visible and int((child as Control).z_index) >= Overlay.MODAL_Z:
+			return true
+	return false
+
+func _land_owed_stars() -> bool:
+	if _sky_state.is_empty() or not SkyLogic.gate_open():
+		return false
+	var sky_save := SkyLogic.grove_sky_state()
+	var owed: Array = sky_save.get("owed", [])
+	var landed := false
+	while not owed.is_empty():
+		var code := int(owed[0])
+		if not _land_star_code(code):
+			break
+		owed.pop_front()
+		landed = true
+	sky_save["owed"] = owed
+	if landed:
+		_sync_sky_patch_marker(false)
+	return landed
+
+func _land_star_code(code: int) -> bool:
+	var cell := _star_landing_cell()
+	if cell.x < 0:
+		return false
+	board.place(cell, code)
+	_mark_seen(code)
+	if board_area != null and is_instance_valid(board_area):
+		var n := _make_piece(code, csz)
+		var from := _star_start_pos(cell)
+		var to := _cell_pos(cell)
+		n.position = from
+		n.scale = Vector2(0.55, 0.55)
+		board_area.add_child(n)
+		piece_nodes[cell] = n
+		var t := MoveFx.apply(n, from, to, "arc", _move_opts)
+		if t != null:
+			t.parallel().tween_property(n, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			var ctr := board_area.get_global_transform() * to + Vector2(csz, csz) / 2.0
+			t.chain().tween_callback(func() -> void:
+				if n and is_instance_valid(n):
+					LandFx.apply(self, n, ctr, _land_opts, 0.9, false)
+					Feel.ripple(_orthogonal_neighbour_nodes(cell), ctr, 0.9))
+	return true
+
+func _star_landing_cell() -> Vector2i:
+	var lane_cells: Array = []
+	var axis := String(_sky_state.get("lane_axis", "column"))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == "row":
+		for c in G.COLS:
+			var cell := Vector2i(lane, c)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	else:
+		for r in G.ROWS:
+			var cell := Vector2i(r, lane)
+			if board.is_open(cell) and board.item_at(cell) == 0 and not board.is_gen(cell):
+				lane_cells.append(cell)
+	if not lane_cells.is_empty():
+		var rng_star := RandomNumberGenerator.new()
+		rng_star.seed = int(absi(hash(int(_sky_state.get("hour", 0)) * 31337 + 19)))
+		return lane_cells[rng_star.randi_range(0, lane_cells.size() - 1)]
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		return Vector2i(-1, -1)
+	var center := _lane_center_cell()
+	empties.sort_custom(func(a, b): return (Vector2i(a) - center).length_squared() < (Vector2i(b) - center).length_squared())
+	var rng_fallback := RandomNumberGenerator.new()
+	rng_fallback.seed = int(absi(hash(int(_sky_state.get("hour", 0)) * 31337 + 29)))
+	return empties[rng_fallback.randi_range(0, mini(2, empties.size() - 1))]
+
+func _lane_center_cell() -> Vector2i:
+	var lane := int(_sky_state.get("lane", 0))
+	if String(_sky_state.get("lane_axis", "column")) == "row":
+		return Vector2i(lane, int(G.COLS / 2))
+	return Vector2i(int(G.ROWS / 2), lane)
+
+func _star_start_pos(cell: Vector2i) -> Vector2:
+	var lane_top := _cell_pos(Vector2i(0, cell.y))
+	return Vector2(lane_top.x, -csz * 1.4)
 
 # After a quiet spell, a pair that can merge wiggles to show the next step
 # (owner: ~5-10s of inactivity). Re-nudges gently while the player stays idle.
 func _process(delta: float) -> void:
 	if board == null:
 		return
-	# Watchdog: `animating` gates ALL board taps and is meant to be true only for a merge tween
-	# (~0.12s, cleared in _after_merge). If a tween callback is ever missed the gate sticks true and
-	# the board silently swallows every tap (taps "do nothing"). Self-heal so input can never soft-lock.
+	# Watchdog: `animating` gates ALL board taps. Single merges should clear quickly; cascades reuse the
+	# same gate across several paced steps, so each step gets its own longer callback guard.
 	if animating:
 		_anim_t += delta
-		if _anim_t > 0.6:
-			animating = false
-			_anim_t = 0.0
+		var watchdog_secs := CHAIN_STEP_WATCHDOG_SECS if _chain_active else ANIM_WATCHDOG_SECS
+		if _anim_t > watchdog_secs:
+			if _chain_active:
+				_finish_chain()
+				_after_board_change()
+			else:
+				animating = false
+				_anim_t = 0.0
 			if Debug.on():
 				print("[collect] animating watchdog fired — gate was stuck; input re-enabled")
 	else:
@@ -708,7 +1118,7 @@ func _reflow_board_after_resize() -> void:
 	if sz == _last_board_view_size:
 		return
 	# don't yank a piece out from under an in-flight drag; the next resize tick will catch up.
-	if _drag_node != null or animating:
+	if _drag_node != null or animating or _chain_active:
 		return
 	_last_board_view_size = sz
 	_recompute_board_geometry()
@@ -724,7 +1134,7 @@ func _load_board_config() -> void:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	if cfg.has("board") and cfg["board"] is Dictionary:
 		var b: Dictionary = (cfg["board"] as Dictionary).duplicate()
 		# Slot-cell owns piece size via bag_card.content_frac — resolve it through the shared rule so the
@@ -748,17 +1158,6 @@ func _apply_board_config(b: Dictionary) -> void:
 
 # --- state ----------------------------------------------------------------------
 
-func _sanitize_saved_item_bag(raw: Array) -> Dictionary:
-	var out: Array = []
-	var changed := false
-	for v in raw:
-		var code := int(v)
-		if code > 0 and G.is_valid_item_code(code):
-			out.append(code)
-		else:
-			changed = true
-	return {"items": out, "changed": changed}
-
 func _sanitize_saved_bag_seed_ranks(raw: Array, items: Array) -> Dictionary:
 	var out: Array = []
 	var changed := raw.size() != items.size()
@@ -776,138 +1175,31 @@ func _sanitize_saved_bag_seed_ranks(raw: Array, items: Array) -> Dictionary:
 				changed = true
 	return {"ranks": out, "changed": changed}
 
-func _quest_items_are_known(q: Dictionary) -> bool:
-	if q.has("line"):
-		return G.is_valid_item_code(int(q.get("line", 0)) * 100 + int(q.get("tier", 0)))
-	if q.has("asks"):
-		for ask in Array(q.get("asks", [])):
-			if not (ask is Dictionary):
-				continue
-			if not G.is_valid_item_code(int(ask.get("line", 0)) * 100 + int(ask.get("tier", 0))):
-				return false
-	return true
-
-func _sanitize_saved_quests(raw: Array) -> Dictionary:
-	var out: Array = []
-	var changed := false
-	for q in raw:
-		if not (q is Dictionary):
-			changed = true
-			continue
-		var qd: Dictionary = q
-		if not _quest_items_are_known(qd):
-			changed = true
-			continue
-		out.append(qd)
-	return {"quests": out, "changed": changed}
-
-func _sanitize_seen(g: Dictionary) -> bool:
-	if not g.has("seen"):
-		return false
-	if not (g["seen"] is Dictionary):
-		g["seen"] = {}
-		return true
-	var seen: Dictionary = g["seen"]
-	var out := {}
-	var changed := false
-	for key in seen.keys():
-		var sk := String(key)
-		if not sk.is_valid_int():
-			changed = true
-			continue
-		var code := int(sk)
-		if not G.is_valid_item_code(code):
-			changed = true
-			continue
-		out[sk] = seen[key]
-	if changed:
-		g["seen"] = out
-	return changed
-
-# A saved quest asks for a line the player should not have reached yet (either its single `line`, or any
-# `asks[]` entry) — see G.line_gated_out. Mirrors _quest_items_are_known's dual shape.
-func _quest_line_gated_out(q: Dictionary, level: int) -> bool:
-	if q.has("line") and G.line_gated_out(int(q.get("line", 0)), level):
-		return true
-	for ask in Array(q.get("asks", [])):
-		if ask is Dictionary and G.line_gated_out(int((ask as Dictionary).get("line", 0)), level):
-			return true
-	return false
-
-# Save migration (2026-07-23, scene-aligned zone_unlock_level cadence — now DERIVED, see content.gd's
-# _build_cadence): strip every generator, item and quest for a line the player should NOT have reached
-# yet at their CURRENT level, so an older save matches
-# the new pacing. Silent removal, no compensation (owner call). IDEMPOTENT — a no-op on any save already
-# consistent with the cadence (birth-on-tap only ever grants in-cadence content; every new save starts
-# clean), so it runs on every load with no schema bump and no one-time flag. Exempt (never gated out):
-# coins, treasure/treat lines and special drops (zone_of_line == -1), accumulator generators, and the gen_1
-# anchor (zone 0 unlocks at L1). Returns true if anything was removed (→ the caller re-persists).
+# Save hygiene lives in core/save_migrate.gd (headless-testable; see engine/tests/save_migrate_tests.gd).
+# This wrapper stays because it owns the scene's run-state: it feeds the model/bag/quests in and assigns
+# the filtered arrays back. Returns true if anything was removed (→ the caller re-persists).
 func _purge_above_level_content() -> bool:
-	var lvl := _quest_level()
-	var changed := false
-	# board pieces
-	for r in G.ROWS:
-		for c in G.COLS:
-			var cell := Vector2i(r, c)
-			var code := board.item_at(cell)
-			if code > 0 and G.line_gated_out(BoardModel.line_of(code), lvl):
-				board.take(cell)
-				changed = true
-	# live generators on the board (accumulators + the anchor never gate out)
-	for cell in board.gens.keys():
-		var gid := String(board.gens[cell])
-		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
-			board.remove_gen(cell)
-			changed = true
-	# stored generators — filter the PARALLEL bag arrays (ids ∥ tiers ∥ boost) in lockstep
-	var kept_ids: Array = []
-	var kept_tiers: Array = []
-	var kept_boost: Array = []
-	for i in board.gen_bag.size():
-		var gid := String(board.gen_bag[i])
-		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
-			changed = true
-			continue
-		kept_ids.append(board.gen_bag[i])
-		kept_tiers.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
-		kept_boost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
-	board.gen_bag = kept_ids
-	board.gen_bag_tiers = kept_tiers
-	board.gen_bag_boost = kept_boost
-	# stashed items in the item bag
-	var kept_bag: Array = []
+	var r := SaveMigrate.purge_above_level_content(board, bag, quests, _quest_level())
 	var kept_seed_ranks: Array = []
-	for i in bag.size():
-		var code := int(bag[i])
-		if G.line_gated_out(BoardModel.line_of(int(code)), lvl):
-			changed = true
-		else:
-			kept_bag.append(code)
-			kept_seed_ranks.append(int(bag_seed_ranks[i]) if i < bag_seed_ranks.size() else 1)
-	bag = kept_bag
-	bag_seed_ranks = kept_seed_ranks
-	# live quests asking for a now-too-advanced line (the fence refills with valid lines after)
-	var kept_quests: Array = []
-	for q in quests:
-		if q is Dictionary and _quest_line_gated_out(q, lvl):
-			changed = true
-		else:
-			kept_quests.append(q)
-	quests = kept_quests
-	return changed
+	for i in Array(r["bag_kept"]):
+		kept_seed_ranks.append(int(bag_seed_ranks[int(i)]) if int(i) < bag_seed_ranks.size() else 1)
+	bag = r["bag"]
+	bag_seed_ranks = kept_seed_ranks      # PARALLEL to bag — filtered on the same surviving indices
+	quests = r["quests"]
+	return bool(r["changed"])
 
 func _load_state() -> void:
 	board = BoardModel.new()
 	var now := Time.get_unix_time_from_system()
 	var g := Save.grove()
-	var save_dirty := _sanitize_seen(g)
+	var save_dirty := SaveMigrate.sanitize_seen(g)
 	if g.has("board"):
 		save_dirty = board.from_dict(g["board"]) or save_dirty
-		var quest_clean := _sanitize_saved_quests(Array(g.get("quests", [])))
+		var quest_clean := SaveMigrate.sanitize_quests(Array(g.get("quests", [])))
 		quests = quest_clean["quests"]
 		save_dirty = bool(quest_clean["changed"]) or save_dirty
 		quests_map = int(g.get("quests_map", -1))
-		var bag_clean := _sanitize_saved_item_bag(Array(g.get("bag", [])))
+		var bag_clean := SaveMigrate.sanitize_item_bag(Array(g.get("bag", [])))
 		bag = bag_clean["items"]
 		save_dirty = bool(bag_clean["changed"]) or save_dirty
 		var seed_rank_clean := _sanitize_saved_bag_seed_ranks(Array(g.get("bag_seed_ranks", [])), bag)
@@ -919,13 +1211,7 @@ func _load_state() -> void:
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
 		_regen_ts = float(g.get("regen_ts", now))
-		# the >=48h check lives in Ambient now (both scenes' weather reads its stamp)
-		if Ambient.check_winback(g, now) and water < G.WATER_CAP:
-			water = G.WATER_CAP            # "it rained" — the >= 48h win-back
-			_regen_ts = now
-			_winback = true
-		else:
-			_apply_regen(now)
+		_apply_regen(now)
 	else:
 		if forced_rng_seed >= 0:
 			rng.seed = forced_rng_seed      # a screenshot tool asked for a reproducible board
@@ -943,6 +1229,7 @@ func _load_state() -> void:
 		_init_quests()
 	else:
 		_refill_quests()                    # top up / trim the live fence to the current meter
+	save_dirty = _drain_scissors_pending() or save_dirty
 	for v in board.items:                # everything already growing counts as met
 		_mark_seen(int(v))
 	for v in bag:
@@ -953,61 +1240,27 @@ func _load_state() -> void:
 		_persist()
 
 # --- the discovery log: which items has this player ever grown? -------------------
-# Powers the upgrade-path card (unseen tiers show as "?").
+# Powers the upgrade-path card (unseen tiers show as "?"). The rules live in core/quests.gd; these
+# wrappers only supply the Save read.
 
+# The WRITE rule lives in Quests.mark_seen; the scene adds the LADDER BACKFILL — a Soil-grown or
+# merged piece can be the first of its line the player ever holds, and an almanac ladder with holes
+# below it reads as a bug. Marks every tier up to this code's.
 func _mark_seen(code: int) -> void:
 	if code <= 0 or G.is_coin(code):
 		return
 	var g := Save.grove()
-	if not g.has("seen"):
-		g["seen"] = {}
 	var line := BoardModel.line_of(code)
-	var tier := BoardModel.tier_of(code)
-	for t in range(1, tier + 1):
-		g["seen"][str(line * 100 + t)] = true
+	for t in range(1, BoardModel.tier_of(code) + 1):
+		Quests.mark_seen(g, line * 100 + t)
 
 # [{tier, code, seen}] for a line's full ladder (pure — tests use it directly).
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
 
-# [{line, seen, in_pool, code}] for the Producing dialog. Normal generators SHOW ALL: one entry per line
-# in the WHOLE game (every generator / every map, in roster order), so the panel reads as the full
-# collection roadmap. Treat generators show only their treasure line; accumulator generators return no
-# entries because they bank currency, not item lines. `seen`/`code` carry the lowest-seen tier for the piece.
+# [{line, seen, in_pool, code}] for the Producing dialog.
 func _gen_line_entries(gid: String) -> Array:
-	var seen: Dictionary = Save.grove().get("seen", {})
-	var pool: Array = []
-	var out: Array = []
-	var added := {}
-	var lines: Array = []
-	if G.is_accumulator(gid):
-		return out
-	if G.is_treat_gen(gid):
-		var treat_line := G.treat_line_of(gid)
-		lines.append(treat_line)
-		pool = [treat_line] if treat_line > 0 else []
-	else:
-		var selected_line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
-		pool = [selected_line] if selected_line > 0 else []
-		for gen in G.GENERATORS:
-			lines.append(int(gen.get("line", 0)))   # gen redesign: one line per generator (was lines[])
-	for l in lines:
-		var line := int(l)
-		if added.has(line) or not G.LINES.has(line):
-			continue                      # a line lives on one generator, but guard against roster overlap
-		added[line] = true
-		var code := _lowest_seen_code(line, seen)
-		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
-	return out
-
-# The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0
-# if the line is wholly unseen. Pure off the seen set.
-func _lowest_seen_code(line: int, seen: Dictionary) -> int:
-	for t in range(1, G.TOP_TIER + 1):
-		var code := line * 100 + t
-		if seen.has(str(code)):
-			return code
-	return 0
+	return Quests.gen_line_entries(gid, Save.grove().get("seen", {}))
 
 # water regen rule lives in BoardLogic; apply the returned state to ours
 func _apply_regen(now: float) -> void:
@@ -1068,7 +1321,6 @@ func _persist() -> void:
 	g["rng_state"] = rng.state
 	g["water"] = water
 	g["regen_ts"] = _regen_ts
-	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
 
 # --- the fan-out contract (board_decomposition.md, "Architecture decision: coordinator owns state")
@@ -1093,6 +1345,7 @@ func _persist() -> void:
 # nav taps, and _grow_generators / _sync_accumulators (internal steps of _rebuild_all, which fans out
 # on its own beat).
 func _after_board_change(hud_deferred := false) -> void:
+	_land_owed_stars()
 	var changed := _reconcile_improvements(Time.get_unix_time_from_system(), false)
 	if _scan_magnets():
 		changed = true
@@ -1109,6 +1362,10 @@ func _after_board_change(hud_deferred := false) -> void:
 	if not hud_deferred:
 		_update_hud()
 	_refresh_giver_lights()
+	_refresh_cascade_outline()
+	_refresh_mastery_chrome()
+	if _selected_cell.x >= 0 and board.is_gen(_selected_cell):
+		_refresh_selected_generator_mastery()
 
 # the unlock CTA: ready when the NEXT cover-up cluster is unlockable right now (its page open,
 # level floor met, affordable) — the Home button breathes to say "go unlock the next region."
@@ -1128,6 +1385,7 @@ func _build_hud() -> void:
 				water = Save.water()
 				_regen_ts = Time.get_unix_time_from_system()
 			_update_water_hud(),
+		"place_scissors": _shop_scissors_place,
 		# the board shows the shared level badge top-left (mock: board_next_unlock_v1) — tap → the
 		# level screen, same as the map.
 		"on_level": func() -> void: LevelPopup.open(self)})
@@ -1188,6 +1446,7 @@ func _tick_water() -> void:
 	_update_water_hud()
 	if water != before or changed:
 		_persist()
+	_tick_sky_hour()
 
 func _ftue_pops_done() -> bool:
 	if not Features.on("ftue_free_pops"):
@@ -1215,7 +1474,11 @@ func _update_water_hud() -> void:
 	water_label.visible = true
 	water_label.text = str(water)
 	# the empty-water surfaces (§10 the friction point): while the can is empty the offer ALWAYS shows.
-	var empty := water <= 0
+	# "Empty" = can't pay the pop that was last refused (_water_short); with an unmastered 1💧 pop that
+	# is exactly water<=0, so this is unchanged for rank-0 play. Self-clears once the can can pay again.
+	if water >= _water_short:
+		_water_short = 0
+	var empty := water < maxi(1, _water_short)
 	var free_ready := Claims.can_show("refill_water")
 	# option 1 — no silent wall: the refill button surfaces whenever water <= 0, even when today's free
 	# rain is unavailable AND there are too few 🌰 for the paid fill. In that third state it INVITES the water STALL
@@ -1252,27 +1515,27 @@ func _cue_empty_water() -> void:
 		return
 	FX.floating_text(self, anchor.get_global_rect().get_center() + Vector2(-140.0, 66.0), Strings.t("board.refill.hint"), CREAM, FS.HEADING)
 
+# Send the player to the water STALL (free daily top-up / IAP). Falls back to the dead-end wobble only
+# if the stall isn't wired (e.g. a test that neutralizes _open_water).
+func _open_water_stall_or_wobble() -> void:
+	if _open_water.is_valid():
+		_open_water.call()
+	else:
+		FX.wobble(refill_btn)
+		Audio.play("invalid_soft", -4.0)
+
 func _on_refill() -> void:
-	if water > 0:
+	if water >= maxi(1, _water_short):   # water>0 for an unmastered 1💧 pop; see _water_short
 		return
 	if Claims.can_show("refill_water"):
 		# Keep the claim ledger authoritative: the board's FREE action opens the same stall card
 		# used everywhere else instead of bypassing the daily claim.
-		if _open_water.is_valid():
-			_open_water.call()
-		else:
-			FX.wobble(refill_btn)
-			Audio.play("invalid_soft", -4.0)
+		_open_water_stall_or_wobble()
 		return
 	if not Save.spend_diamonds(G.REFILL_DIAMOND_COST):
-		# empty, today's free rain unavailable, and too few 🌰 for the paid fill → open the water STALL (free
-		# daily top-up / IAP) instead of the old dead-end wobble (§10 "no silent wall"). Fall back to
-		# the wobble only if the stall isn't wired (e.g. a test that neutralizes _open_water).
-		if _open_water.is_valid():
-			_open_water.call()
-		else:
-			FX.wobble(refill_btn)
-			Audio.play("invalid_soft", -4.0)
+		# empty, today's free rain unavailable, and too few 🌰 for the paid fill → open the water STALL
+		# instead of the old dead-end wobble (§10 "no silent wall").
+		_open_water_stall_or_wobble()
 		return
 	water = G.WATER_CAP
 	_regen_ts = Time.get_unix_time_from_system()
@@ -1283,7 +1546,7 @@ func _on_refill() -> void:
 			return
 		_update_water_hud()
 		_update_hud()
-	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"), water_target, refill_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "board_refill")
+	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, FX.reward_color("water"), water_target, refill_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "board_refill")
 	_persist()
 	refill_btn.visible = false
 	_refill_stack.visible = false
@@ -1477,13 +1740,12 @@ func _update_unlock_bar() -> void:
 	_unlock_bar.set_ready(_gate_ready())
 	_unlock_bar.set_progress(_purge_progress())
 
+# Refresh the face, then REWIND the fill to `previous_progress` and tween it forward to the live value.
 func _animate_unlock_bar_from(previous_progress: float) -> void:
 	if _unlock_bar == null or not is_instance_valid(_unlock_bar):
 		return
 	var now := _purge_progress()
-	_unlock_bar.visible = _show_unlock_bar()
-	_unlock_bar.set_next_level(G.level_at_coins(_earned()) + 1)
-	_unlock_bar.set_ready(_gate_ready())
+	_update_unlock_bar()
 	_unlock_bar.set_progress(previous_progress)
 	_unlock_bar.animate_progress_to(now)
 	if now >= 1.0:
@@ -1538,7 +1800,7 @@ func _giver_lay() -> Dictionary:
 	var L: Dictionary = GiverStand.LAY.duplicate()
 	var Kit: GDScript = KIT
 	if Kit != null:
-		var over: Dictionary = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		var over: Dictionary = Kit.giver_lay_from_config(Game.kit_config())
 		for k in over:
 			L[k] = over[k]
 	return L
@@ -1609,10 +1871,7 @@ func _refresh_giver_lights() -> void:
 		var bust: Control = e.get("bust")
 		if bust != null and is_instance_valid(bust):
 			GiverStand.bob(bust, lit)
-		# board polish #8: a deliverable giver reads BRIGHT (it's the actionable thing);
-		# one not-yet-payable sits gently shaded. Same `lit` predicate as the ✓/bob above.
 		var chip: Control = e.chip
-		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
 	_reorder_giver_row()                          # float any now-deliverable card to the front (display-only)
@@ -1750,6 +2009,63 @@ func _refresh_item_line_dim() -> void:
 		var unused := not asked_lines.is_empty() and quest_line and not asked_lines.has(line)
 		node.modulate = ITEM_UNUSED if unused else Color(1, 1, 1, 1)
 
+func _ensure_cascade_outline() -> Control:
+	if not Features.on("cascade") or board_area == null or not is_instance_valid(board_area):
+		if _cascade_outline != null and is_instance_valid(_cascade_outline):
+			_cascade_outline.queue_free()
+		_cascade_outline = null
+		return null
+	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
+			or _cascade_outline.is_queued_for_deletion() or _cascade_outline.get_parent() != board_area:
+		if _cascade_outline != null and is_instance_valid(_cascade_outline):
+			if _cascade_outline.get_parent() != null:
+				_cascade_outline.get_parent().remove_child(_cascade_outline)
+			_cascade_outline.queue_free()
+		_cascade_outline = CascadeOutline.new()
+		board_area.add_child(_cascade_outline)
+	_cascade_outline.configure(Vector2(_board_w(), _board_h()), csz, Callable(self, "_cell_pos"))
+	_position_cascade_outline()
+	return _cascade_outline
+
+func _position_cascade_outline() -> void:
+	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
+			or _cascade_outline.get_parent() != board_area:
+		return
+	var insert_at := _cascade_outline.get_index()
+	for raw_node in gen_nodes.values() + piece_nodes.values():
+		var n := raw_node as Node
+		if n != null and is_instance_valid(n) and n.get_parent() == board_area:
+			insert_at = mini(insert_at, n.get_index())
+	board_area.move_child(_cascade_outline, clampi(insert_at, 0, board_area.get_child_count() - 1))
+
+func _refresh_cascade_outline() -> void:
+	if board == null or board_area == null or not is_instance_valid(board_area):
+		return
+	var outline := _ensure_cascade_outline()
+	if outline == null:
+		return
+	outline.set_ladders(BoardLogic.ready_ladders(board))
+
+func _show_cascade_drag_guides(from: Vector2i) -> void:
+	if not Features.on("cascade") or board == null or board.is_gen(from):
+		return
+	var code := board.item_at(from)
+	if code <= 0:
+		return
+	var pads: Array = []
+	for raw in BoardLogic.chain_placements(board, from, code):
+		if raw is Dictionary:
+			var entry: Dictionary = (raw as Dictionary).duplicate(true)
+			entry["line"] = BoardModel.line_of(code)
+			pads.append(entry)
+	var outline := _ensure_cascade_outline()
+	if outline != null:
+		outline.set_ghost_pads(pads)
+
+func _clear_cascade_drag_guides() -> void:
+	if _cascade_outline != null and is_instance_valid(_cascade_outline):
+		_cascade_outline.clear_guides()
+
 # §6 boost indicator — the on-board "this generator is boosted" marker. While a boost is live, every
 # generator wears a sparkle overlay (reused gen_sparkle) + a small corner badge counting the taps left;
 # both are cleared the moment the boost expires. Rebuilt by _rebuild_all and refreshed on each pop.
@@ -1846,7 +2162,8 @@ func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector
 				and board.gen_tier_at(from) < G.GEN_TOP_TIER
 		else:
 			compatible = board.can_merge(from, target) \
-				or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0
+				or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0 \
+				or (Features.on("scissors") and BoardActions.can_split_piece(board, from, target))
 		if not compatible:
 			continue
 		var hit := Rect2(_cell_pos(target), Vector2(csz, csz)).grow(csz * MERGE_TARGET_GROW)
@@ -1859,6 +2176,7 @@ func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector
 	return best
 
 func _rebuild_all() -> void:
+	_refresh_sky_state()
 	_grow_generators()                        # a staged second generator grows in once its level is reached
 	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
 	for n in board_area.get_children():
@@ -1884,6 +2202,8 @@ func _rebuild_all() -> void:
 				board_area.add_child(br)
 				bramble_nodes[cell] = br
 	_rebuild_improvement_art()
+	_sync_sky_patch_marker(false)
+	_refresh_cascade_outline()
 	gen_nodes.clear()
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
@@ -1963,7 +2283,7 @@ func _make_board_mat() -> Control:
 	if Kit == null:
 		return PieceView.make_board_mat(_board_w(), _board_h())
 	var size := Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
-	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)))
+	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Game.kit_config()))
 	panel.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	return panel
 
@@ -2629,7 +2949,7 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	# the most-recent one overlays the drawn glyph (bag_content); the "x/y" count rides the tile's foot.
 	# Drag-to-stash / drag-back / highlight all key off the button's global rect, unchanged.
 	_bag_well_drawn_disc = false            # the code-drawn well's own centered glyph IS the empty state
-	var bag_opts: Dictionary = KitB.action_button_opts_from_config(KitB.load_config(KitB.CONFIG_PATH))
+	var bag_opts: Dictionary = KitB.action_button_opts_from_config(Game.kit_config())
 	bag_opts["name"] = "BagWell"
 	var b: Button = KitB.action_button("bag", Vector2(px, px), Callable(self, "_open_bag_overlay"), bag_opts)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -2674,39 +2994,41 @@ func _build_bag_box(px: float, action_opts: Dictionary = {}) -> Control:
 	bag_btn = _make_bag_button(px, action_opts)
 	return bag_btn
 
-func _bottom_button_px() -> float:
-	var frac := 0.15
+# The kit's RESOLVED hud_layout dials, or {} on a kit-less build. The kit's resolver owns every
+# default percentage (games/grove/ui_kit.gd: hud_layout_opts_from_config) — the three sizers below
+# keep NO private copy of one; kit-less they fall back to their own engine constant instead.
+func _hud_layout() -> Dictionary:
 	var Kit: GDScript = KIT
-	if Kit != null:
-		frac = float(Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("button_w_frac", 0.15))
+	if Kit == null:
+		return {}
+	return Kit.hud_layout_opts_from_config(Game.kit_config())
+
+func _bottom_button_px() -> float:
+	var lay := _hud_layout()
+	# Kit-less: the ActionBar fallback well size stands in (BOTTOM_BTN_PX is exactly that fallback).
+	var px := BOTTOM_BTN_PX if lay.is_empty() else roundf(_view_size().x * float(lay.button_w_frac))
 	# Bounded: a min so it stays tappable on narrow screens, a max so it (and the bar) can't balloon on
 	# wide ones — capped to leave the bar within BOTTOM_BAR_MAX (button + pad).
-	return clampf(roundf(_view_size().x * frac), BOTTOM_BTN_MIN, BOTTOM_BAR_MAX - BOTTOM_BAR_PAD)
+	return clampf(px, BOTTOM_BTN_MIN, BOTTOM_BAR_MAX - BOTTOM_BAR_PAD)
 
 func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 	var raw := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
-	var Kit: GDScript = KIT
-	if Kit != null:
-		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-		if h.has("bottom_row_h_pct"):
-			var frac := float(Kit.hud_layout_opts_from_config(cfg).get("bottom_row_h_frac", 0.0))
-			if frac > 0.0:
-				raw = maxf(bottom_btn_px, roundf(_view_size().y * frac))
+	var lay := _hud_layout()
+	if lay.has("bottom_row_h_frac"):
+		# 0 means "unset" for this dial (the resolver's own default) — the button+pad height stands.
+		var frac := float(lay.bottom_row_h_frac)
+		if frac > 0.0:
+			raw = maxf(bottom_btn_px, roundf(_view_size().y * frac))
 	# Capped: never too short to hold the wells, never tall enough to look weird on wide screens.
 	return clampf(raw, BOTTOM_BAR_MIN, BOTTOM_BAR_MAX)
 
 func _quest_row_h_px() -> float:
-	var frac := 0.13
-	var Kit: GDScript = KIT
-	if Kit != null:
-		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-		if h.has("quest_bar_h_pct"):
-			frac = float(Kit.hud_layout_opts_from_config(cfg).get("quest_bar_h_frac", frac))
+	var lay := _hud_layout()
 	# Scale with screen HEIGHT (taller screens → taller band, absorbing spare vertical room) and clamp.
 	# Cards pack to fit the WIDTH (see _rebuild_givers), so the band height no longer keys off width.
-	return clampf(roundf(_view_size().y * frac), QUEST_H_MIN, QUEST_H_MAX)
+	# Kit-less: FENCE_H, the engine's own fence band (the seed of _fence_h, which this drives).
+	var h := FENCE_H if lay.is_empty() else roundf(_view_size().y * float(lay.quest_bar_h_frac))
+	return clampf(h, QUEST_H_MIN, QUEST_H_MAX)
 
 func _view_size() -> Vector2:
 	if is_inside_tree():
@@ -2730,7 +3052,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 	if KitH != null:
 		# the shared code-drawn action button (CutPaperPanel rugged edge + centered home glyph) — the
 		# same builder the home bottom bar uses, so the two read identically off one source.
-		var ho: Dictionary = KitH.action_button_opts_from_config(KitH.load_config(KitH.CONFIG_PATH))
+		var ho: Dictionary = KitH.action_button_opts_from_config(Game.kit_config())
 		ho["name"] = "BoardHomeTile"
 		b = KitH.action_button("home", Vector2(px, px), go, ho)
 	else:
@@ -2749,7 +3071,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
-	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var opts: Dictionary = Kit.info_bar_opts_from_config(Game.kit_config())
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
 	pill.name = "ActionBarInfoBar"
 	pill.custom_minimum_size.x = 1.0
@@ -2767,12 +3089,14 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_info_item_icon_scale = float(pill.get_meta("item_icon_scale", 0.80)) # artwork scale as a fraction of bar height
 	_info_item_px = float(pill.get_meta("item_icon_px", _info_inner_px * _info_item_icon_scale))
 	_info_button_hidden = bool(pill.get_meta("hide_info_button", false))
+	_install_mastery_info_row()
 	_capture_info_button_positions()
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	_build_seed_chips(opts, _info_trash.get_parent())   # Improvement seeds: Place + Bag actions
 	_build_improvement_chips(opts, _info_trash.get_parent()) # Empty improvements: Rank + Unsocket actions
 	_build_soil_chips(opts, _info_trash.get_parent())   # Cell improvements: growing pieces expose water + finish chips
+	_build_almanac_chip(opts, _info_trash.get_parent()) # §8: empty info-tray entry for away/complete lines
 	return pill
 
 func _capture_info_button_positions() -> void:
@@ -2960,6 +3284,20 @@ func _refresh_selected_soil_info() -> void:
 	else:
 		_clear_selection()
 
+func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
+	var KitA: GDScript = KIT
+	if KitA == null:
+		return
+	var chip_opts: Dictionary = KitA.action_button_opts_from_config(Game.kit_config())
+	chip_opts["name"] = "AlmanacInfoButton"
+	chip_opts["tooltip"] = Strings.t("almanac.chip")
+	chip_opts["icon_scale"] = minf(float(chip_opts.get("icon_scale", 0.9)), 0.78)
+	_info_almanac = KitA.action_button("almanac", Vector2(_info_inner_px, _info_inner_px), _open_almanac, chip_opts)
+	_info_almanac.set_meta("action_role", "almanac")
+	_info_almanac.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_info_almanac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_info_almanac)
+
 # Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle, enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
 func _select_item(cell: Vector2i) -> void:
@@ -2975,6 +3313,8 @@ func _select_item(cell: Vector2i) -> void:
 	_hide_soil_chips()
 	_hide_seed_chips()
 	_hide_improvement_chips()
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = false
 	_place_info_button(false)
 	var tier := BoardModel.tier_of(code)
 	var seed_kind := Improvements.kind_for_seed(code)
@@ -2984,6 +3324,7 @@ func _select_item(cell: Vector2i) -> void:
 	var nm: String = tr(G.item_display_name(code))
 	_info_label.text = _soil_info_title(cell) if board.is_growing(cell) else nm
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_hide_mastery_info_row()
 		var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
 		var desc := _item_description_for_cell(cell, code)
 		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
@@ -3039,6 +3380,8 @@ func _select_generator(cell: Vector2i) -> void:
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	_place_info_button(false)
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = false
 	for c in _info_icon.get_children():
 		c.queue_free()
 	var tier := board.gen_tier_at(cell)
@@ -3047,12 +3390,12 @@ func _select_generator(cell: Vector2i) -> void:
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid, cell)
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
-		var desc := G.generator_description(gid)
-		if not G.gen_def(G.GENERATORS, gid).is_empty():
-			var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
-			_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
-			_info_desc_label.visible = true
+		var line := _gen_line(gid)
+		if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
+			_show_mastery_info_row(line)
 		else:
+			_hide_mastery_info_row()
+			var desc := G.generator_description(gid)
 			_info_desc_label.text = desc
 			_info_desc_label.visible = desc != ""
 	var entries := _gen_line_entries(gid)
@@ -3064,15 +3407,11 @@ func _select_generator(cell: Vector2i) -> void:
 	_hide_soil_chips()
 	_hide_seed_chips()
 	_hide_improvement_chips()
-	# A generator is clearable when it is REDUNDANT (a higher-tier same-line sibling exists — the stranding
-	# fix) or RETIRED (§6: the game will never ask its line again — G.gen_retirable). The retired case is the
-	# manual path for a player who dismissed the retirement offer, so a dead tool is never stuck on the board.
-	var retirable := G.gen_retirable(gid, _quest_level())
-	if board.is_redundant_gen(cell) or retirable:
-		# price what the BUTTON ACTUALLY DOES: a redundant generator sells for its own tier value, a retired
-		# one clears the whole line (its stock too), so they read different payouts from the same source the
-		# offer card uses. Showing gen_sell_coins for a retirement would advertise 2-6 coins and pay far more.
-		var sell_coins := int(BoardActions.retire_preview(board, bag, int(gid.trim_prefix("gen_"))).coins) if retirable and not board.is_redundant_gen(cell) else G.gen_sell_coins(tier)
+	# A generator is clearable only when it is REDUNDANT (a higher-tier same-line sibling exists — the
+	# stranding fix). Not-currently-needed lines are now swept by the automatic farewell card, so the
+	# info tray never carries a second manual line-clearing path.
+	if board.is_redundant_gen(cell):
+		var sell_coins := G.gen_sell_coins(tier)
 		_info_trash_count.text = "%d" % sell_coins
 		for ic in _info_trash_coin.get_children():
 			ic.queue_free()
@@ -3095,6 +3434,8 @@ func _select_generator(cell: Vector2i) -> void:
 # the whole info bar (§3 boost detail).
 func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
+	if not G.gen_def(G.GENERATORS, gid).is_empty():
+		lbl += " · %s %d" % [Strings.t("board.info.tier"), board.gen_tier_at(cell)]
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:
@@ -3102,6 +3443,129 @@ func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	elif board.is_gen_boosted(cell):
 		lbl += " · " + (Strings.t("board.info.boost_detail") % board.gen_boost_at(cell))
 	return lbl
+
+func _refresh_selected_generator_mastery() -> void:
+	if _info_label == null or _info_desc_label == null:
+		return
+	if not is_instance_valid(_info_label) or not is_instance_valid(_info_desc_label):
+		return
+	var gid := board.gen_id_at(_selected_cell)
+	if gid == "":
+		return
+	_info_label.text = _gen_info_text(gid, _selected_cell)
+	var line := _gen_line(gid)
+	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
+		_show_mastery_info_row(line)
+
+func _mastery_info_text(line: int) -> String:
+	var rank := Mastery.rank(line)
+	var meter := Mastery.meter(line)
+	var next := Mastery.next_threshold(line)
+	var pips := ""
+	for i in range(G.MASTERY_THRESHOLDS.size()):
+		pips += "●" if i < rank else "○"
+	var progress := Strings.t("mastery.info.maxed") if rank >= G.MASTERY_THRESHOLDS.size() else "%d/%d" % [meter, next]
+	return "%s · %s · %s" % [pips, progress, _mastery_next_text(rank)]
+
+func _mastery_next_text(rank: int) -> String:
+	if rank >= G.MASTERY_THRESHOLDS.size():
+		return Strings.t("mastery.info.maxed")
+	var next_rank := rank + 1
+	var w := Mastery.tier_window_for_rank(next_rank)
+	if next_rank % 2 == 1:
+		return Strings.t("mastery.info.next_reach") % w.y
+	return Strings.t("mastery.info.next_start") % w.x
+
+func _install_mastery_info_row() -> void:
+	if _info_desc_label == null or not is_instance_valid(_info_desc_label):
+		return
+	var parent := _info_desc_label.get_parent()
+	if parent == null:
+		return
+	var row := HBoxContainer.new()
+	row.name = "MasteryInfoRow"
+	row.visible = false
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.custom_minimum_size.y = maxf(14.0, _info_desc_label.custom_minimum_size.y)
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+	parent.move_child(row, _info_desc_label.get_index() + 1)
+	_info_mastery_row = row
+	var pip_row := HBoxContainer.new()
+	pip_row.name = "MasteryPips"
+	pip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pip_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	pip_row.add_theme_constant_override("separation", 3)
+	row.add_child(pip_row)
+	_info_mastery_pips.clear()
+	for i in range(G.MASTERY_THRESHOLDS.size()):
+		var pip := PanelContainer.new()
+		pip.name = "Pip%d" % (i + 1)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pip.custom_minimum_size = Vector2(9, 9)
+		pip_row.add_child(pip)
+		_info_mastery_pips.append(pip)
+	var bar := ProgressBar.new()
+	bar.name = "MasteryProgress"
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.show_percentage = false
+	bar.min_value = 0.0
+	bar.max_value = 1.0
+	bar.custom_minimum_size = Vector2(120, 14)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(bar)
+	_info_mastery_progress = bar
+	var lbl := Label.new()
+	lbl.name = "MasteryNext"
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.clip_text = true
+	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", _info_desc_label.get_theme_font_size("font_size"))
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	row.add_child(lbl)
+	_info_mastery_next_label = lbl
+
+func _hide_mastery_info_row() -> void:
+	if _info_mastery_row != null and is_instance_valid(_info_mastery_row):
+		_info_mastery_row.visible = false
+
+func _show_mastery_info_row(line: int) -> void:
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_info_desc_label.visible = false
+	if _info_mastery_row == null or not is_instance_valid(_info_mastery_row):
+		_info_desc_label.text = _mastery_info_text(line)
+		_info_desc_label.visible = true
+		return
+	var rank := Mastery.rank(line)
+	var color := _line_color(line)
+	for i in range(_info_mastery_pips.size()):
+		var pip := _info_mastery_pips[i] as PanelContainer
+		if pip == null or not is_instance_valid(pip):
+			continue
+		var filled := i < rank
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = color if filled else Pal.CREAM
+		sb.border_color = color if filled else Pal.INK
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(99)
+		pip.add_theme_stylebox_override("panel", sb)
+	if _info_mastery_progress != null and is_instance_valid(_info_mastery_progress):
+		_info_mastery_progress.value = Mastery.rank_progress(line)
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = Color("#FBF3EA", 0.72)
+		bg.set_corner_radius_all(7)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = color
+		fill.set_corner_radius_all(7)
+		_info_mastery_progress.add_theme_stylebox_override("background", bg)
+		_info_mastery_progress.add_theme_stylebox_override("fill", fill)
+	if _info_mastery_next_label != null and is_instance_valid(_info_mastery_next_label):
+		_info_mastery_next_label.text = _mastery_next_text(rank)
+	_info_mastery_row.visible = true
 
 # Reset the info bar to its empty "tap an item" state.
 func _clear_selection() -> void:
@@ -3114,6 +3578,7 @@ func _clear_selection() -> void:
 	if _info_label != null and is_instance_valid(_info_label):
 		_info_label.text = Strings.t("board.info.empty_prompt")
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_hide_mastery_info_row()
 		_info_desc_label.text = Strings.t("board.info.empty_bag_hint")
 		_info_desc_label.visible = _info_desc_label.text != ""
 	if _info_btn != null and is_instance_valid(_info_btn):
@@ -3129,6 +3594,9 @@ func _clear_selection() -> void:
 	_hide_seed_chips()
 	_hide_improvement_chips()
 	_hide_soil_chips()
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = Features.on("discovery_ladder")
+		_info_almanac.disabled = not Features.on("discovery_ladder")
 
 # Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
 # _rebuild_all wipes it); z-lifted so the brackets sit above the resting piece they frame. The frame
@@ -3167,13 +3635,14 @@ func _focus_ring_opts() -> Dictionary:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
-	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.focus_ring_opts_from_config(Game.kit_config())
 
 func _show_locked_cell_info(cell: Vector2i) -> void:
 	_clear_selection()
 	if _info_label != null and is_instance_valid(_info_label):
 		_info_label.text = Strings.t("board.info.unlock_level") % maxi(1, G.cell_min_level(cell))
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_hide_mastery_info_row()
 		_info_desc_label.text = ""
 		_info_desc_label.visible = false
 
@@ -3302,6 +3771,52 @@ func _on_buy_pressed() -> void:
 	_after_board_change()                         # wallet ticks down, the copy may satisfy a quest, a full board dims the gens
 	_refresh_buy_chip(code)                       # re-read affordability (currency dropped)
 
+func _place_scissors_tool(commit: bool) -> bool:
+	if not Features.on("scissors"):
+		return false
+	var code := int(G.SCISSORS_LINE) * 100 + 1
+	var dest := Vector2i(-1, -1)
+	for c in board.empty_ground_cells():
+		if not board.is_gen(c):
+			dest = c
+			break
+	if dest.x >= 0:
+		if commit:
+			board.place(dest, code)
+			_mark_seen(code)
+		return true
+	if bag.size() >= _bag_capacity():
+		return false
+	if commit:
+		bag.append(code)
+		_mark_seen(code)
+	return true
+
+func _shop_scissors_place(commit: bool) -> bool:
+	if not _place_scissors_tool(commit):
+		return false
+	if commit:
+		_rebuild_all()
+		_after_board_change()
+	return true
+
+func _drain_scissors_pending() -> bool:
+	if not Features.on("scissors"):
+		return false
+	var pending := Save.take_scissors_pending()
+	if pending <= 0:
+		return false
+	var placed := 0
+	var remaining := 0
+	for _i in range(pending):
+		if _place_scissors_tool(true):
+			placed += 1
+		else:
+			remaining += 1
+	if remaining > 0:
+		Save.add_scissors_pending(remaining)
+	return placed > 0
+
 # The info button → open the board tutorial when nothing is focused, or the selected item's Tiers
 # ladder (or, for a generator, the ladder of what it produces) when something is focused.
 func _on_info_pressed() -> void:
@@ -3343,12 +3858,9 @@ func _on_trash_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var cell := _selected_cell
-	if board.is_gen(cell):                         # the sell button clears a REDUNDANT or a RETIRED generator
+	if board.is_gen(cell):                         # the sell button only clears a REDUNDANT generator
 		if board.is_redundant_gen(cell):
 			_sell_generator(cell)
-			_clear_selection()
-		elif G.gen_retirable(String(board.gen_id_at(cell)), _quest_level()):
-			_retire_line(String(board.gen_id_at(cell)))    # §6: clears the generator AND its dead stock
 			_clear_selection()
 		return
 	var code := board.item_at(cell)
@@ -3490,7 +4002,100 @@ func _refresh_locked_cells() -> void:
 		bramble_nodes[cell] = nb
 
 func _make_generator(id: String, hl: Dictionary = {}, tier: int = 1) -> Control:
-	return PieceView.make_generator(String(id), csz, hl, tier)
+	var gn := PieceView.make_generator(String(id), csz, hl, tier)
+	_attach_mastery_chrome(gn, String(id))
+	return gn
+
+func _gen_line(gid: String) -> int:
+	var def := G.gen_def(G.GENERATORS, gid)
+	return int(def.get("line", 0))
+
+func _line_color(line: int) -> Color:
+	var def: Dictionary = G.LINES.get(line, {})
+	return def.get("color", STRAW)
+
+func _attach_mastery_chrome(gn: Control, gid: String) -> void:
+	if not Features.on("mastery"):
+		return
+	var line := _gen_line(gid)
+	if line <= 0 or Mastery.meter(line) <= 0:
+		return
+	var ring := MasteryRing.new()
+	ring.name = "MasteryRing"
+	ring.size = Vector2(csz, csz)
+	ring.custom_minimum_size = ring.size
+	ring.ring_color = _line_color(line)
+	ring.progress = Mastery.rank_progress(line)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.z_index = 6
+	gn.add_child(ring)
+	_add_mastery_trim(gn, Mastery.rank(line))
+
+func _refresh_mastery_chrome() -> void:
+	if not Features.on("mastery"):
+		return
+	for cell in gen_nodes:
+		var gn: Control = gen_nodes[cell]
+		if gn == null or not is_instance_valid(gn):
+			continue
+		var line := _gen_line(board.gen_id_at(cell))
+		var ring := gn.get_node_or_null("MasteryRing") as MasteryRing
+		if Mastery.meter(line) <= 0:
+			if ring != null:
+				ring.queue_free()
+			continue
+		if ring == null:
+			_attach_mastery_chrome(gn, board.gen_id_at(cell))
+		else:
+			ring.ring_color = _line_color(line)
+			ring.progress = Mastery.rank_progress(line)
+		_refresh_mastery_trim(gn, Mastery.rank(line))
+
+func _add_mastery_trim(gn: Control, rank: int) -> void:
+	var trim := _mastery_trim(rank)
+	if trim != null:
+		gn.add_child(trim)
+
+func _refresh_mastery_trim(gn: Control, rank: int) -> void:
+	var old := gn.get_node_or_null("MasteryTrim") as TextureRect
+	var tex := _mastery_trim_texture(rank)
+	if tex == null:
+		if old != null:
+			old.queue_free()
+		return
+	if old != null:
+		old.texture = tex
+		return
+	var tr := _mastery_trim_from_texture(tex)
+	gn.add_child(tr)
+
+func _mastery_trim(rank: int) -> TextureRect:
+	var tex := _mastery_trim_texture(rank)
+	return _mastery_trim_from_texture(tex) if tex != null else null
+
+func _mastery_trim_texture(rank: int) -> Texture2D:
+	var idx := clampi(int(rank / 2), 0, 4)
+	if idx <= 0:
+		return null
+	var path := Look.kit("mastery_trim_%d.png" % idx)
+	if not ResourceLoader.exists(path):
+		return null
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return null
+	return tex
+
+func _mastery_trim_from_texture(tex: Texture2D) -> TextureRect:
+	var tr := TextureRect.new()
+	tr.name = "MasteryTrim"
+	tr.texture = tex
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tr.size = Vector2(csz * 0.34, csz * 0.34)
+	tr.position = Vector2(csz * 0.06, csz * 0.62)
+	tr.z_index = 7
+	return tr
 
 # The GEN-highlight (glow / silhouette outline / sparkle) tuning saved in the UI workbench
 # ("generator" block). Absent file/keys → {} → make_generator falls back to its shipped GEN_* consts.
@@ -3498,13 +4103,13 @@ func _gen_highlight_opts() -> Dictionary:
 	var Kit: GDScript = KIT
 	if Kit == null:
 		return {}
-	return Kit.gen_highlight_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return Kit.gen_highlight_opts_from_config(Game.kit_config())
 
 # --- input ---------------------------------------------------------------------
 
 func _on_board_input(event: InputEvent) -> void:
 	_idle = 0.0
-	if animating:
+	if animating or _chain_active:
 		if Debug.on() and ((event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)):
 			print("[collect] board tap IGNORED — animating gate is true (a merge/anim never cleared it)")
 		return
@@ -3556,7 +4161,8 @@ func _update_telegraph(pos: Vector2) -> void:
 		return
 	if target == _telegraph_cell:
 		# still hovering the same target — keep the held tile leaning toward it (the follow re-seated it).
-		_apply_drag_magnet(target)
+		if _split_preview == null:
+			_apply_drag_magnet(target)
 		return
 	_clear_telegraph()                       # moved onto a new valid target — drop the previous glow first
 	var tnode: Control = piece_nodes.get(target)
@@ -3565,11 +4171,17 @@ func _update_telegraph(pos: Vector2) -> void:
 	_telegraph_cell = target
 	_telegraph_node = tnode
 	_telegraph_rest = _cell_pos(target)
-	tnode.modulate = FX.Tune.TELEGRAPH_GLOW
-	# pull the TARGET toward the held tile (the magnet's other half) — a small, steady lean toward the pair centre.
-	tnode.position = _telegraph_rest + (_drag_node.position - tnode.position).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
-	FX.breathe_once(tnode)
-	_apply_drag_magnet(target)
+	if Features.on("scissors") and BoardActions.can_split_piece(board, _drag_from, target):
+		tnode.modulate = Color(1, 1, 1, 0.32)
+		var target_code := board.item_at(target)
+		var twin_code := BoardModel.line_of(target_code) * 100 + BoardModel.tier_of(target_code) - 1
+		_show_split_preview(target, twin_code)
+	else:
+		tnode.modulate = FX.Tune.TELEGRAPH_GLOW
+		# pull the TARGET toward the held tile (the magnet's other half) — a small, steady lean toward the pair centre.
+		tnode.position = _telegraph_rest + (_drag_node.position - tnode.position).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
+		FX.breathe_once(tnode)
+		_apply_drag_magnet(target)
 
 # Pull the HELD tile a fraction of a cell toward the telegraphed target (the magnet, held-tile half). Layered
 # ON TOP of the pointer-seated position each follow so it reads as a tug, never a teleport.
@@ -3583,6 +4195,7 @@ func _apply_drag_magnet(target: Vector2i) -> void:
 # Restore the currently-telegraphed target (modulate + magnet offset + breathe) and forget it. Safe when
 # nothing is telegraphed (no-op). The single teardown both the hover-exit and the drag-end call.
 func _clear_telegraph() -> void:
+	_clear_split_preview()
 	if _telegraph_node != null and is_instance_valid(_telegraph_node):
 		FX.breathe_stop(_telegraph_node)
 		_telegraph_node.modulate = Color(1, 1, 1, 1.0)
@@ -3590,6 +4203,21 @@ func _clear_telegraph() -> void:
 	_telegraph_node = null
 	_telegraph_cell = Vector2i(-1, -1)
 	_telegraph_rest = Vector2.ZERO
+
+func _show_split_preview(cell: Vector2i, code: int) -> void:
+	_clear_split_preview()
+	var prev := SplitPreview.new()
+	prev.name = "SplitPreview"
+	prev.setup(code, csz)
+	prev.position = _cell_pos(cell)
+	prev.z_index = 9
+	board_area.add_child(prev)
+	_split_preview = prev
+
+func _clear_split_preview() -> void:
+	if _split_preview != null and is_instance_valid(_split_preview):
+		_split_preview.queue_free()
+	_split_preview = null
 
 # Tilt the held tile INTO pointer velocity, lagged: the lean target is DRAG_LEAN_DEG scaled by the
 # normalized horizontal speed of this update, sign following travel direction; we lerp the live lean toward
@@ -3612,6 +4240,7 @@ func _update_drag_lean(pos: Vector2) -> void:
 # every drag-end path (release, snap-back, stash, gen release) so no glow or rotation can leak past a drop.
 func _clear_drag_feel(node: Control = null) -> void:
 	_clear_telegraph()
+	_clear_cascade_drag_guides()
 	_drag_lean = 0.0
 	_drag_lean_seeded = false
 	_drag_last_pos = Vector2.ZERO
@@ -3655,6 +4284,7 @@ func _begin_drag() -> void:
 	GrabFx.grab(_drag_node, _grab_opts)       # glow + white rim + a light pickup tap (workbench-tuned)
 	Audio.play("item_pickup", -6.0)
 	if not _drag_is_gen:
+		_show_cascade_drag_guides(cell)
 		_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
@@ -3723,6 +4353,8 @@ func _on_release(pos: Vector2) -> void:
 		_commit_merge(from, target, node)
 	elif _recipe_merge_code(from_code, target_code) > 0:
 		_apply_recipe(from, target, node)   # #14: two DIFFERENT base lines at the same tier craft a SPECIAL
+	elif Features.on("scissors") and BoardActions.can_split_piece(board, from, target):
+		_split_piece(from, target, node)
 	elif board.is_empty_ground(target) and target != from:
 		_commit_move(from, target, node)
 	elif Features.on("drag_swap") and target != from \
@@ -3835,7 +4467,16 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if _produce_due_generators():
 		return
 	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
-	if charged and water < G.POP_COST:
+	# What this tap COSTS. A MASTERED line pops from a raised tier window (§3), so one pop is worth
+	# 2^(lo-1) tier-1 items — it is priced off that window low (G.pop_cost) or rank would collapse the
+	# water sink (sim I2). All three reads below are PURE (no rng), so the contractual draw order
+	# further down is untouched; at rank 0 / mastery off the window low is 1 and the cost is G.POP_COST.
+	var giver_quests: Array = _pop_pool_ctx()["giver_quests"]
+	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
+	var mastery_window := Mastery.window(gen_line, giver_quests)
+	var pop_cost := G.pop_cost(mastery_window.x)
+	if charged and water < pop_cost:
+		_water_short = pop_cost            # a mastered pop can cost >1: "empty" means "can't afford THIS tap"
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
 		_update_water_hud()                # surfaces the refill offer + breathes the empty pill
@@ -3849,7 +4490,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# Burst-pop (§6): one tap throws a BURST, not just one item. Its odds scale with the generator's
 	# TIER (gen redesign #8 — higher tier → more multiples); a live boost swaps in the boosted per-tier
 	# odds (T64 — the top tier gains a 4th burst slot). No per-map scale-up. Bound it by what's
-	# affordable (energy) and what fits (open cells). Each popped item still costs G.POP_COST.
+	# affordable (energy) and what fits (open cells). Each popped item costs `G.pop_cost(lo)` off
+	# the burst's ONE mastery window, so the whole burst is priced the same — the clamp below is
+	# what keeps a burst from overdrawing the can.
 	# FTUE (§4): during the free-pop intro a tap pops EXACTLY ONE item — burst is suppressed so the
 	# 10 free pops are ~10 deliberate frictionless taps (not spent 3-at-a-time) and the counter can't
 	# overshoot 10 mid-burst. Burst resumes the moment the free budget is gone (`charged`).
@@ -3858,14 +4501,13 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if charged:
 		burst = G.gen_burst_count(board.gen_tier_at(cell), rng, board.is_gen_boosted(cell))
 	if charged:
-		burst = mini(burst, int(water / G.POP_COST))
+		burst = mini(burst, int(water / pop_cost))
 	burst = mini(burst, empties.size())
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
 	# gen redesign #4: a per-line generator pops ONLY its own line (the legacy shared windowed pool is gone).
-	var giver_quests: Array = _pop_pool_ctx()["giver_quests"]
-	var gen_line := int(G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("line", 0))
+	# `giver_quests` / `gen_line` / `mastery_window` were read above (they price the tap) — reused here.
 	if gen_line <= 0:
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
@@ -3886,9 +4528,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	var last_piece: Control = null         # the representative projectile for Feel.launch (one emit per pop)
 	for _b in burst:
 		if charged:
-			water -= G.POP_COST
+			water -= pop_cost
 		g["pops"] = int(g.get("pops", 0)) + 1
-		var spawn := BoardLogic.roll_spawn(empties, cell, pool, wanted, rng, wanted_t, G.ASK_TIER_WEIGHT)
+		var spawn := BoardLogic.roll_spawn(empties, cell, pool, wanted, rng, wanted_t, G.ASK_TIER_WEIGHT, mastery_window.x, mastery_window.y)
 		var pick: Vector2i = spawn.cell
 		var code: int = spawn.code
 		board.place(pick, code)
@@ -3976,13 +4618,112 @@ func _self_dup_generator(src: Vector2i) -> void:
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.
 func _recipe_merge_code(a_code: int, b_code: int) -> int:
-	if a_code <= 0 or b_code <= 0:
-		return 0
-	var at := a_code % 100
-	if at != (b_code % 100):
-		return 0                              # the two ingredients must be the same tier
-	var special_line := G.special_for_pair(int(a_code / 100.0), int(b_code / 100.0))
-	return (special_line * 100 + at) if special_line > 0 else 0
+	return BoardActions.recipe_merge_code(a_code, b_code)
+
+func chain_running() -> bool:
+	return _chain_active
+
+func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
+	_chain_run = []
+	_chain_n = 0
+	_chain_active = false
+	_chain_auto_step = false
+	_chain_reward_cell = Vector2i(-1, -1)
+	if not Features.on("cascade"):
+		return
+	_chain_run = BoardLogic.chain_path(board, a, b)
+	if not _chain_run.is_empty():
+		_chain_n = 1
+		_chain_active = true
+
+func _schedule_chain_step(current: Vector2i) -> void:
+	if not _chain_active or _chain_run.is_empty():
+		_finish_chain()
+		return
+	_run_chain_step.call_deferred(current)
+
+func _run_chain_step(current: Vector2i) -> void:
+	if not _chain_active or _chain_run.is_empty():
+		_finish_chain()
+		return
+	var partner := Vector2i(_chain_run.pop_front())
+	if not board.can_merge(current, partner):
+		_finish_chain()
+		_after_board_change()
+		return
+	var node: Control = piece_nodes.get(current)
+	var produced := board.merge(current, partner)
+	piece_nodes.erase(current)
+	_chain_n += 1
+	_chain_auto_step = true
+	animating = true
+	_anim_t = 0.0
+	var merge_slide_ms := CHAIN_STEP_MS
+	if node != null and is_instance_valid(node):
+		MoveFx.apply(node, node.position, _cell_pos(partner), "slide", _move_opts, merge_slide_ms)
+		var tree := get_tree()
+		if tree != null:
+			tree.create_timer(float(merge_slide_ms) / 1000.0).timeout.connect(_after_merge.bind(current, partner, produced, node, true))
+		else:
+			_after_merge(current, partner, produced, node, true)
+	else:
+		_after_merge(current, partner, produced, node, true)
+
+func _finish_chain() -> void:
+	_chain_run = []
+	_chain_n = 0
+	_chain_active = false
+	_chain_auto_step = false
+	_chain_reward_cell = Vector2i(-1, -1)
+	animating = false
+	_anim_t = 0.0
+
+func _chain_reward_code(n: int) -> int:
+	return int(CHAIN_REWARDS.get(mini(n, 7), 0))
+
+func _apply_chain_reward(vacated: Vector2i) -> void:
+	var reward_code := _chain_reward_code(_chain_n)
+	if reward_code <= 0:
+		return
+	if _chain_n == 2:
+		_birth_chain_reward(vacated, reward_code)
+	elif _chain_n == 3:
+		_chain_reward_cell = vacated
+		_birth_chain_reward(_chain_reward_cell, reward_code)
+	elif _chain_reward_cell.x >= 0:
+		_replace_chain_reward(_chain_reward_cell, reward_code)
+
+func _birth_chain_reward(cell: Vector2i, code: int) -> void:
+	if not board.is_empty_ground(cell):
+		return
+	board.place(cell, code)
+	_mark_seen(code)
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(cell)
+	board_area.add_child(n)
+	piece_nodes[cell] = n
+	FX.pop(n)
+
+func _replace_chain_reward(cell: Vector2i, code: int) -> void:
+	if not board.in_bounds(cell) or board.item_at(cell) <= 0:
+		return
+	var old: Control = piece_nodes.get(cell)
+	if old != null and is_instance_valid(old):
+		old.queue_free()
+	board.place(cell, code)
+	_mark_seen(code)
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(cell)
+	board_area.add_child(n)
+	piece_nodes[cell] = n
+	FX.pop(n)
+
+func _show_chain_step_feedback(cell: Vector2i, produced: int) -> void:
+	var at := board_area.get_global_transform() * (_cell_pos(cell) + Vector2(csz, csz) / 2.0)
+	var floater_size := FS.HEADING + maxi(0, mini(_chain_n, 7) - 2) * 2
+	FX.floating_text(self, at + Vector2(csz * 0.18, -csz * 0.38), "×%d" % _chain_n, CREAM, floater_size)
+	if _chain_n >= 5:
+		FX.burst(board_area, _cell_pos(cell) + Vector2(csz, csz) / 2.0, G.line_color(produced), 24)
 
 # #14 craft the special: consume the source ingredient; the target becomes the special at the same tier.
 func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
@@ -3991,16 +4732,37 @@ func _apply_recipe(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_apply_recipe_confirmed(from, target, node)
 
 func _apply_recipe_confirmed(from: Vector2i, target: Vector2i, node: Control) -> void:
-	var code := _recipe_merge_code(board.item_at(from), board.item_at(target))
-	if code <= 0:
+	# The chain is armed BEFORE the action: BoardActions.apply_recipe mutates the board, and
+	# chain_path has to read the PRE-merge cells to find the run the craft tips off.
+	_prepare_chain(from, target)
+	var out := BoardActions.apply_recipe(board, from, target)
+	if out.is_empty():
+		_finish_chain()               # nothing merged — drop the run we armed above
 		_snap_back(from, node)
 		return
-	board.items[BoardModel.idx(from)] = 0
-	board.items[BoardModel.idx(target)] = code
+	var code := int(out.code)
 	_mark_seen(code)
+	_queue_mastery_rankups(out.get("rank_ups", {}))
+	_rebuild_all()
+	if _chain_active:
+		animating = true
+		_anim_t = 0.0
+		_after_board_change()
+		_schedule_chain_step(target)
+	else:
+		_after_board_change()
+	_schedule_mastery_rankup(MASTERY_RANKUP_FX_DELAY)
+	Audio.play("item_drop", -2.0)
+
+func _split_piece(from: Vector2i, target: Vector2i, node: Control) -> void:
+	var out := BoardActions.split_piece(board, from, target)
+	if out.is_empty():
+		_snap_back(from, node)
+		return
+	_mark_seen(int(out.code))
 	_rebuild_all()
 	_after_board_change()
-	Audio.play("item_drop", -2.0)
+	Audio.play("item_drop", -2.0, 1.18)
 
 # Arm the temporary boost on ONE generator (§6/§10 coin sink): BOOST_TAPS taps of boosted burst odds on
 # `cell`. Refuses (no spend) when the cell holds no generator, that generator is already boosted, or the
@@ -4028,9 +4790,11 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	_commit_merge_confirmed(a, b, node)
 
 func _commit_merge_confirmed(a: Vector2i, b: Vector2i, node: Control) -> void:
+	_prepare_chain(a, b)
 	var produced := board.merge(a, b)
 	piece_nodes.erase(a)
 	animating = true
+	_anim_t = 0.0
 	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
 	# impact). The slide duration is owned by the Merge FX workbench's merge_slide_ms knob, not by the
 	# Move workbench's general travel duration_ms, so tuning ordinary travel never makes merges sluggish.
@@ -4043,7 +4807,8 @@ func _commit_merge_confirmed(a: Vector2i, b: Vector2i, node: Control) -> void:
 	else:
 		_after_merge(a, b, produced, node)   # node went invalid mid-merge — resolve immediately
 
-func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> void:
+func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control, was_chain_step := false) -> void:
+	was_chain_step = was_chain_step or _chain_auto_step
 	if is_instance_valid(moved):
 		moved.queue_free()
 	var old: Control = piece_nodes.get(b)
@@ -4070,6 +4835,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# T63: a §6.G recipe-line (special "treasure" line) merge fires the intensified big-moment feel at EVERY
 	# tier — top-band colour/chime/haptic + the reserved shake + board punch — so the premium lines always land.
 	GridFx.play_merge(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), _grid_fx_opts, false, G.is_special_line(produced))
+	if was_chain_step:
+		_show_chain_step_feedback(b, produced)
+		_apply_chain_reward(_a)
 	# bundle D: poke the screen-bloom — a PERSISTENT overlay, so it can't live inside apply(); gate + scale it
 	# here by the workbench's combo_bloom toggle + bloom_pct knob (the scene owns the world reaction).
 	if MergeFx.on(_merge_opts, "combo_bloom") and _combo_bloom != null and is_instance_valid(_combo_bloom):
@@ -4078,14 +4846,27 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	for cell in board.openable_brambles(b, _quest_level()):
 		_open_bramble(cell)
 	_refresh_locked_cells()   # the open set changed → re-evaluate neighbours' frontier/highlight
-	# a little luck: merges sometimes shake a coin loose
-	if BoardLogic.rolls_coin_drop(produced, rng):
-		_drop_coin_near(b)
-	# §6.B a rarer luck: a merge sometimes also shakes a SPECIAL item loose (chest/key/water/acorn/exp)
-	if not G.is_special(produced) and G.rolls_special_drop(rng):
-		_drop_special_near(b, G.pick_special_drop(rng, _blocked_seed_drop_lines()))
-	animating = false
-	_after_board_change()
+	# a little luck: merges sometimes shake a coin/special loose — the sky decides what falls, and the
+	# improvement-seed filter keeps a kind the player already holds (or has at cap) out of the draw.
+	# A cascade's AUTO steps roll it too (CHAIN_AUTO_STEPS_ROLL_LUCKY): every step is a real merge.
+	var roll_lucky := not was_chain_step or CHAIN_AUTO_STEPS_ROLL_LUCKY
+	if roll_lucky:
+		var in_patch := SkyLogic.gate_open() and SkyLogic.in_patch(_sky_state, b)
+		for drop in BoardLogic.roll_merge_drops(produced, rng, _sky_state, in_patch, _blocked_seed_drop_lines()):
+			var code := int(drop)
+			if G.is_coin(code):
+				_drop_coin_near(b, code)
+			else:
+				_drop_special_near(b, code)
+	_chain_auto_step = false
+	var keep_running := _chain_active and not _chain_run.is_empty()
+	if keep_running:
+		_after_board_change()
+		_schedule_chain_step(b)
+	else:
+		_finish_chain()
+		animating = false
+		_after_board_change()
 
 # The up-to-4 ORTHOGONAL neighbour piece nodes of `cell`, gathered from the live grid (piece_nodes,
 # keyed by cell). Empty cells and invalid/freed nodes are skipped, so the returned list only ever holds
@@ -4157,12 +4938,16 @@ func _open_bramble(cell: Vector2i, deterministic := false) -> void:
 	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), Strings.t("board.feedback.cleared"), CREAM, FS.HEADING)
 	Audio.play("tidy_poof", -2.0)
 
-func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
+# THE lucky-drop landing: shake `code` loose onto one of the open cells nearest `near` and fly it in.
+# Shared by the coin drop and the §6.B special drop — they were byte-identical apart from the coin's
+# default code, which now lives in _drop_coin_near.
+# JUICE: the piece TOUCHES DOWN at the end of its grow-in flight — a discrete (loud) LandFx.apply
+# owns the impact squash + small flash + micro-puff + touch sound. The verb plays the canonical
+# `tidy_poof` itself, so the old inline poof here is dropped (no double-sound).
+func _drop_item_near(near: Vector2i, code: int) -> void:
 	var cell := BoardLogic.pick_drop_cell(board, near, rng)
 	if cell.x < 0:                                # no open ground → nothing to shake loose
 		return
-	if code <= 0:
-		code = G.COIN_LINE * 100 + 1
 	board.place(cell, code)
 	var n := _make_piece(code, csz)
 	n.position = _cell_pos(near)
@@ -4173,14 +4958,15 @@ func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
 	t.set_parallel(true)
 	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# JUICE: the coin TOUCHES DOWN at the end of its grow-in flight — a discrete (loud) Feel.land
-	# owns the impact squash + small flash + micro-puff + touch sound. The verb plays the canonical
-	# `tidy_poof` itself, so the old inline poof here is dropped (no double-sound).
-	var coin_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	var ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	t.chain().tween_callback(func() -> void:
 		if n and is_instance_valid(n):
-			LandFx.apply(self, n, coin_ctr, _land_opts, 0.8, false)
-			Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
+			LandFx.apply(self, n, ctr, _land_opts, 0.8, false)
+			Feel.ripple(_orthogonal_neighbour_nodes(cell), ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
+
+# A merge shakes a coin loose. `code` <= 0 (the default) means a plain t1 coin.
+func _drop_coin_near(near: Vector2i, code: int = -1) -> void:
+	_drop_item_near(near, code if code > 0 else G.COIN_LINE * 100 + 1)
 
 ## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
 ## Animates in from the board centre like a merge coin-drop, then persists so the coin survives a
@@ -4196,7 +4982,7 @@ func debug_drop_coin() -> void:
 func debug_drop_acorn() -> void:
 	if board.empty_ground_cells().is_empty():
 		return
-	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), 13 * 100 + 1)
+	_drop_special_near(Vector2i(G.ROWS / 2, G.COLS / 2), G.ACORN_LINE * 100 + 1)
 	_after_board_change()
 
 func _blocked_seed_drop_lines() -> Array:
@@ -4217,29 +5003,9 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 	Audio.play("coin_earn", -3.0)
 	_after_board_change(true)   # the coin FLIES to the wallet — coin_done ticks the pill on arrival
 
-# §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
+# §6.B place a SPECIAL drop item near `near` (the lucky special-item shake) — same landing as the coin.
 func _drop_special_near(near: Vector2i, code: int) -> void:
-	var cell := BoardLogic.pick_drop_cell(board, near, rng)
-	if cell.x < 0:                                # no open ground → nothing to shake loose
-		return
-	board.place(cell, code)
-	var n := _make_piece(code, csz)
-	n.position = _cell_pos(near)
-	n.scale = Vector2(0.3, 0.3)
-	board_area.add_child(n)
-	piece_nodes[cell] = n
-	var t := n.create_tween()
-	t.set_parallel(true)
-	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# JUICE: the special item TOUCHES DOWN at the end of its grow-in flight — a discrete (loud)
-	# Feel.land owns the impact squash + small flash + micro-puff + the canonical touch sound, so
-	# the old inline poof here is dropped (no double-sound). Mirrors _drop_coin_near.
-	var special_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
-	t.chain().tween_callback(func() -> void:
-		if n and is_instance_valid(n):
-			LandFx.apply(self, n, special_ctr, _land_opts, 0.8, false)
-			Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
+	_drop_item_near(near, code)
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water banks OVER the cap; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
@@ -4380,58 +5146,53 @@ func _refresh_accumulator_badge(cell: Vector2i) -> void:
 		gn.add_child(badge)
 	(badge.get_node("Count") as Label).text = "%d" % clicks
 
-# §6.C is any limited-use BONUS generator currently on the board or in the bag (one at a time)?
-func _has_bonus_gen() -> bool:
+# Is any generator matching `pred` (an id -> bool Callable) on the board or in the gen bag?
+func _board_has_gen(pred: Callable) -> bool:
 	for v in board.gens.values():
-		if G.is_accumulator(String(v)):
+		if pred.call(String(v)):
 			return true
 	for v in board.gen_bag:
-		if G.is_accumulator(String(v)):
+		if pred.call(String(v)):
 			return true
 	return false
 
+# §6.C is any limited-use BONUS generator currently on the board or in the bag (one at a time)?
+func _has_bonus_gen() -> bool:
+	return _board_has_gen(func(id: String) -> bool: return G.is_accumulator(id))
+
+# Place `gid` on the first free cell with no generator, bank its tap budget under `clicks_key`, and pop
+# it in. No-op when the board is full. `clicks` is a Callable so its rng draw happens ONLY after a cell
+# is found — the rng is seeded + persisted, so the draw must not fire on the full-board path.
+func _spawn_gen_on_free_cell(gid: String, clicks_key: String, clicks: Callable) -> void:
+	var dest := Vector2i(-1, -1)
+	for c in board.empty_ground_cells():
+		if not board.gens.has(c):
+			dest = c
+			break
+	if dest == Vector2i(-1, -1):
+		return
+	board.place_gen(gid, dest)
+	Save.grove()[clicks_key] = int(clicks.call())
+	_grown_cells.append(dest)             # _rebuild_all pops it in
+	_rebuild_all()
+	Audio.play("level_complete", -5.0, 1.25)
+
 # §6.C side-spawn a limited-use bonus generator onto a free cell with a random tap budget. Skips if full.
+# The KIND is drawn before the free-cell search, as it always was — a full board still consumes that draw.
 func _spawn_bonus_gen() -> void:
 	var kind := G.pick_bonus_kind(rng)
 	if kind == "":
 		return
-	var dest := Vector2i(-1, -1)
-	for c in board.empty_ground_cells():
-		if not board.gens.has(c):
-			dest = c
-			break
-	if dest == Vector2i(-1, -1):
-		return
-	board.place_gen(String(G.ACCUMULATORS[kind].id), dest)
-	Save.grove()["bonus_clicks"] = G.pick_bonus_clicks(rng)
-	_grown_cells.append(dest)
-	_rebuild_all()
-	Audio.play("level_complete", -5.0, 1.25)
+	_spawn_gen_on_free_cell(String(G.ACCUMULATORS[kind].id), "bonus_clicks", func() -> int: return G.pick_bonus_clicks(rng))
 
 # --- §6.D temporary treat generators (board) ----------------------------------------------------------
 func _has_treat_gen() -> bool:
-	for v in board.gens.values():
-		if G.is_treat_gen(String(v)):
-			return true
-	for v in board.gen_bag:
-		if G.is_treat_gen(String(v)):
-			return true
-	return false
+	return _board_has_gen(func(id: String) -> bool: return G.is_treat_gen(id))
 
 # Pop a temp treat generator onto a free cell with a random tap budget (saved). Skips if the board is full.
+# The line pick takes no rng (it is a per-map table lookup), so resolving the id up front is rng-neutral.
 func _spawn_treat_gen() -> void:
-	var dest := Vector2i(-1, -1)
-	for c in board.empty_ground_cells():
-		if not board.gens.has(c):
-			dest = c
-			break
-	if dest == Vector2i(-1, -1):
-		return
-	board.place_gen(G.treat_gen_id(G.pick_treat_line(_quest_map())), dest)
-	Save.grove()["treat_clicks"] = G.pick_treat_clicks(rng)
-	_grown_cells.append(dest)             # _rebuild_all pops it in
-	_rebuild_all()
-	Audio.play("level_complete", -5.0, 1.25)
+	_spawn_gen_on_free_cell(G.treat_gen_id(G.pick_treat_line(_quest_map())), "treat_clicks", func() -> int: return G.pick_treat_clicks(rng))
 
 # A tap on the treat generator pops a burst of its premium line at the head-start tier (no water), often
 # also showering a §6.B special drop. Decrements the tap budget; at 0 the treat generator VANISHES.
@@ -4686,6 +5447,54 @@ func _deliver_from_board_confirmed(cell: Vector2i, qi: int, chip: Control) -> vo
 # The ONE delivery path, shared by the giver tap and the board second-tap. Consumes the item at `cell`,
 # flies it to `chip`, pays the quest's reward (exp + coins + level-up), and drops the quest from the
 # fence. `cell` is explicit so a board-tap consumes the EXACT tile tapped, not just first_item_of(code).
+func _queue_mastery_rankups(rank_ups: Dictionary) -> void:
+	if not Features.on("mastery") or rank_ups.is_empty():
+		return
+	for raw_line in rank_ups.keys():
+		var line := int(raw_line)
+		var target_rank := Mastery.rank(line)
+		if target_rank <= Mastery.seen_rank(line):
+			continue
+		var replaced := false
+		for i in range(_mastery_rankup_queue.size()):
+			var queued: Dictionary = _mastery_rankup_queue[i]
+			if int(queued.get("line", 0)) == line:
+				queued["rank"] = maxi(int(queued.get("rank", 0)), target_rank)
+				_mastery_rankup_queue[i] = queued
+				replaced = true
+				break
+		if not replaced:
+			_mastery_rankup_queue.append({"line": line, "rank": target_rank})
+
+func _schedule_mastery_rankup(delay_seconds := 0.0) -> void:
+	if not Features.on("mastery") or _mastery_rankup_queue.is_empty():
+		return
+	if delay_seconds <= 0.0 or not is_inside_tree():
+		call_deferred("_show_next_mastery_rankup")
+		return
+	var timer := get_tree().create_timer(delay_seconds)
+	timer.timeout.connect(func() -> void:
+		if is_instance_valid(self):
+			_show_next_mastery_rankup())
+
+func _show_next_mastery_rankup() -> void:
+	if _mastery_rankup_open or _mastery_rankup_queue.is_empty():
+		return
+	if Overlay.is_open(self, LevelPopup.OVERLAY_NAME):
+		return
+	var entry: Dictionary = _mastery_rankup_queue.pop_front()
+	var line := int(entry.get("line", 0))
+	var rank := int(entry.get("rank", 0))
+	var overlay := MasteryRankup.open(self, {"line": line, "rank": rank, "window": Mastery.window(line, quests)})
+	if overlay == null:
+		return
+	Mastery.mark_seen_rank(line, rank)
+	_mastery_rankup_open = true
+	overlay.tree_exited.connect(func() -> void:
+		_mastery_rankup_open = false
+		if is_instance_valid(self):
+			call_deferred("_show_next_mastery_rankup"))
+
 func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 	# Snapshot the unlock-bar meter BEFORE the action mutates exp/quests — the animation tweens from it.
 	var purge_before := _purge_progress()
@@ -4693,6 +5502,7 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 	# (the ONE place exp earns), pay the coin faucet — lives in the pure, headless-tested action. The scene
 	# below is render-only: it reads the returned outcome to drive the fly, reward FX, level dialog, vase.
 	var out := BoardActions.deliver_quest(board, quests, _recent_items, qi, cell)
+	_queue_mastery_rankups(out.get("rank_ups", {}))
 	var sp_coins := int(out.coins)
 	var levels_up := int(out.levels_up)
 	var n: Control = piece_nodes.get(cell)
@@ -4724,7 +5534,15 @@ func _deliver_quest(qi: int, cell: Vector2i, chip: Control) -> void:
 					return
 				water = int(Save.grove().get("water", water))   # re-sync the local after Collect granted the gift
 				_update_water_hud()
-				_update_hud())
+				_update_hud()
+				_rebuild_givers()
+				_refresh_giver_lights()
+				_queue_farewell_check()
+				_show_next_mastery_rankup())
+		else:
+			_schedule_mastery_rankup(MASTERY_RANKUP_FX_DELAY)
+	else:
+		_schedule_mastery_rankup(MASTERY_RANKUP_FX_DELAY)
 	_rebuild_givers()
 	# a paying quest FLIES its coins to the wallet — quest_coin_done ticks the pill on arrival
 	_after_board_change(sp_coins > 0)
@@ -4852,58 +5670,109 @@ func _sell_generator(cell: Vector2i) -> void:
 	_rebuild_all()
 	_after_board_change()
 
-# §6 OFFER the retirement of a line the game will never ask again. Deferred to board ENTRY (a calm moment)
-# rather than fired on the level-up that makes it retirable — a modal must never land mid-gesture, and the
-# level-up itself happens on a quest delivery. One line at a time; if the player dismisses it, the info-bar
-# sell button still clears the generator, so nothing is ever stuck. On the shipped roster this fires three
-# times in a whole playthrough.
-func _maybe_offer_retirement() -> void:
-	if not is_inside_tree() or RetireOffer.is_open(self):
+# Queue one calm farewell sweep after board entry or after the level-up ceremony has closed. The queued
+# seam keeps the card out of active gestures and lets any just-refilled quest fence settle first.
+func _queue_farewell_check() -> void:
+	if _farewell_check_queued:
+		return
+	_farewell_check_queued = true
+	_run_farewell_check.call_deferred()
+
+func _run_farewell_check() -> void:
+	_farewell_check_queued = false
+	_show_next_farewell()
+
+func _show_next_farewell() -> void:
+	if not is_inside_tree() or board == null or FarewellCard.is_open(self):
 		return
 	if not Save.board_tutorial_seen():
-		return                                        # never over the FTUE
-	var owned: Array = Quests.owned_gens(board.gens, board.gen_bag)
-	var offer := G.retirable_gens(owned, _quest_level())
-	var declined: Dictionary = Save.grove().get("retire_declined", {})
-	var gid := ""
-	for g in offer:
-		if not declined.has(String(g)):        # offered ONCE; the info-bar sell button is the path back
-			gid = String(g)
-			break
-	if gid == "":
 		return
-	var line := int(gid.trim_prefix("gen_"))
-	var pv: Dictionary = BoardActions.retire_preview(board, bag, line)   # the ONE payout read
-	RetireOffer.open(self, {"line": line, "gen_id": gid, "pieces": int(pv.pieces), "coins": int(pv.coins),
-		"on_confirm": func() -> void:
-			if is_instance_valid(self):
-				_retire_line(gid),
-		"on_dismiss": func() -> void:
-			# remember the decline so the offer does not re-fire on every board entry — it is an offer, not a nag.
-			var dm: Dictionary = Save.grove().get("retire_declined", {})
-			dm[gid] = true
-			Save.grove()["retire_declined"] = dm
-			Save.grove_write()})
+	var due := BoardActions.farewells_due(board, _quest_level())
+	if due.is_empty():
+		return
+	var entry: Dictionary = due[0]
+	var line := int(entry.get("line", 0))
+	var next_need: Dictionary = (entry.get("next_need", {}) as Dictionary).duplicate(true)
+	var preview := BoardActions.farewell_preview(board, line)
+	FarewellCard.open(self, {
+		"line": line,
+		"next_need": next_need,
+		"pieces": int(preview.pieces),
+		"coins": int(preview.coins),
+		"on_close": Callable(self, "_on_farewell_card_closed").bind(line, next_need),
+	})
 
-# §6 LINE RETIREMENT — clear a line the game will never ask again: its generator leaves the board and the
-# gen_bag, and every leftover piece of it (board + item bag) is sold. All the decision logic is the pure
-# BoardActions.retire_line static (guarded on G.gen_retirable); this just plays the payout and rebuilds.
-func _retire_line(gid: String) -> void:
-	var out: Dictionary = BoardActions.retire_line(board, bag, gid, _quest_level(), bag_seed_ranks)
-	if not bool(out.retired):
-		return
-	bag = out.bag
-	bag_seed_ranks = out.bag_seed_ranks
+func _on_farewell_card_closed(line: int, next_need: Dictionary) -> void:
+	_sweep_farewell(line, next_need)
+
+func _sweep_farewell(line: int, next_need: Dictionary) -> void:
+	var out := BoardActions.sweep_line(board, int(line))
+	var coins := int(out.get("coins", 0))
+	if next_need.is_empty():
+		var g := Save.grove()
+		var retired: Dictionary = g.get("retired", {})
+		retired[str(int(line))] = true
+		g["retired"] = retired
+		Save.grove_write()
 	Audio.play("tidy_poof", -4.0, 1.1)
-	var coins := int(out.coins)
 	if coins > 0:
 		var center: Vector2 = get_global_rect().get_center()
 		var done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()
 		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	_clear_selection()
 	_rebuild_all()
-	_after_board_change()
+	_after_board_change(coins > 0)
+	_queue_farewell_check_after_frame()
+
+func _queue_farewell_check_after_frame() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if is_instance_valid(self):
+		_queue_farewell_check()
+
+func _open_almanac() -> void:
+	if not Features.on("discovery_ladder"):
+		return
+	Almanac.open(self, {
+		"entries": _almanac_entries(),
+		"on_line": func(line: int) -> void:
+			_open_ladder(line, 1, _almanac_ladder_suffix(line)),
+	})
+
+func _almanac_entries() -> Array:
+	var seen: Dictionary = Save.grove().get("seen", {})
+	var z := G.quest_zone_for_level(_quest_level())
+	var out: Array = []
+	for zi in G.ZONE_COUNT:
+		var line := G.zone_line(int(zi))
+		if line <= 0 or not G.LINES.has(line):
+			continue
+		var code := Quests.lowest_seen_code(line, seen)
+		var next_need := G.next_need(line, _quest_level())
+		var state := "producing" if G.line_needed_at_zone(line, z) else ("away" if not next_need.is_empty() else "complete")
+		out.append({
+			"line": line,
+			"seen": code > 0,
+			"code": code,
+			"state": state,
+			"back_level": int(next_need.get("level", 0)),
+			"for_line": int(next_need.get("for_line", 0)),
+		})
+	return out
+
+func _almanac_ladder_suffix(line: int) -> String:
+	for e in _almanac_entries():
+		if int(e.get("line", 0)) != int(line):
+			continue
+		match String(e.get("state", "")):
+			"away":
+				return Strings.t("almanac.ladder_back") % [int(e.get("back_level", 0)), G.item_display_name(int(e.get("for_line", 0)) * 100 + 1)]
+			"complete":
+				return Strings.t("almanac.complete")
+	return ""
 
 func _sell_item(from: Vector2i, node: Control) -> void:
 	var code := board.item_at(from)
@@ -4943,7 +5812,7 @@ func _grant_sale(code: int, node: Control) -> void:
 		var sale_gem_done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()
-		FX.reward_arrival(self, center, "gem", reward.y, Color("#A9C7E8"), diamonds_label, sale_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+		FX.reward_arrival(self, center, "gem", reward.y, FX.reward_color("gem"), diamonds_label, sale_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
 	elif reward.x > 0:
 		var sale_coin_done := func() -> void:
 			if is_instance_valid(self):
@@ -4954,13 +5823,13 @@ func _grant_sale(code: int, node: Control) -> void:
 # this button is the invitation: stars suffice, go decorate.
 # The upgrade path: the line's full ladder, tier by tier — grown tiers show their
 # art, never-seen tiers show "?", and the tapped/asked tier wears a gold ring.
-func _open_ladder(line: int, mark_tier: int) -> void:
+func _open_ladder(line: int, mark_tier: int, status_suffix: String = "") -> void:
 	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
 	# gen redesign #9/#15: a base line shows its GENERATOR icon atop the tier grid; a merged (special) line
 	# shows its two ingredient items atop the SAME tier grid (its own ladder) — tapping either ingredient
 	# opens THAT item's tier screen (Ladder rebuilds the modal in place, so navigation REPLACES, not stacks).
-	var header := _ladder_header(line)
+	var header := Quests.ladder_header(line, status_suffix)
 	var opts := {
 		"header": header,
 		"mark_tier": mark_tier,
@@ -4989,20 +5858,6 @@ func _reveal_generator(gid: String) -> bool:
 		_select_generator(Vector2i(cells[0]))
 		return true
 	return false
-
-# #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
-# the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
-func _ladder_header(line: int) -> Dictionary:
-	var gid := G.gen_for_line(line)
-	if gid != "":
-		return {"kind": "generator", "gid": gid, "name": G.generator_display_name(gid)}
-	var rl: Array = G.recipe_lines(line)
-	if rl.size() == 2:
-		return {"kind": "recipe", "lines": rl, "name": _ladder_line_name(line)}
-	return {"kind": "title", "name": Strings.t("ladder.title")}
-
-func _ladder_line_name(line: int) -> String:
-	return String((G.LINES.get(line, {}) as Dictionary).get("name", "line %d" % line))
 
 # The board→Home handoff (req 3/4): ONE evolving home world now — the target is always the home
 # scene itself (the per-map decorate jump retired with the map-select).

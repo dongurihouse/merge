@@ -14,6 +14,7 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
 
 # Deliver quest `qi` by consuming the tile at `cell`: drop the quest from the live fence, remember
 # the asked item (anti-monotony window, ≤5), and pay the COIN reward through the coin clock (the
@@ -32,9 +33,10 @@ static func deliver_quest(board: BoardModel, quests: Array, recent_items: Array,
 		recent_items.append(code)                 # remember this ask so the next ≤5 quests avoid it
 		while recent_items.size() > 5:
 			recent_items.pop_front()
+	var rank_ups := Mastery.credit_delivery(code) if has_item else {}
 	var sp_coins := Quests.coins(q)
 	var levels_up := G.earn_coins(sp_coins)       # organic earn — credits the wallet + the clock
-	return {"code": code, "coins": sp_coins, "levels_up": levels_up, "cell": cell}
+	return {"code": code, "coins": sp_coins, "levels_up": levels_up, "cell": cell, "rank_ups": rank_ups}
 
 # Collect the coin at `cell`: take it off the board and credit its value (a stashed collect-reward
 # overrides the face value). Returns {got, code} for the fly-to-HUD reward FX.
@@ -75,18 +77,38 @@ static func produce_due_generators(board: BoardModel, quests: Array) -> Dictiona
 	var landed: Array = []
 	var bagged: Array = []
 	for id in [gid]:                              # one owed gen per tap (kept as a loop to mirror the source)
+		var kept := _take_kept_gen_state(String(id))
+		var tier := int(kept.get("tier", 1))
+		var boost := int(kept.get("boost", 0))
 		var dest := Vector2i(-1, -1)
 		for c in board.empty_auto_gen_cells():   # auto-placement skips improved cells; manual drops may use them
 			if not board.gens.has(c):
 				dest = c
 				break
 		if dest == Vector2i(-1, -1):
-			board.bag_add(id)                     # board genuinely full → hold it in the bag
+			board.bag_add(id, tier, boost)        # board genuinely full → hold it in the bag
 			bagged.append(id)
 		else:
-			board.place_gen(id, dest)
+			board.place_gen(id, dest, tier)
+			if boost > 0:
+				board.arm_gen_boost(dest, boost)
 			landed.append(dest)
 	return {"due": true, "landed": landed, "bagged": bagged}
+
+static func _take_kept_gen_state(gid: String) -> Dictionary:
+	var g := Save.grove()
+	var kept: Dictionary = g.get("gen_kept", {})
+	var raw: Variant = kept.get(String(gid), [])
+	if not (raw is Array) or (raw as Array).is_empty():
+		return {"tier": 1, "boost": 0}
+	var arr: Array = raw
+	kept.erase(String(gid))
+	g["gen_kept"] = kept
+	Save.grove_write()
+	return {
+		"tier": clampi(int(arr[0]), 1, G.GEN_TOP_TIER),
+		"boost": maxi(0, int(arr[1]) if arr.size() > 1 else 0),
+	}
 
 # Gen stranding fix — SELF-DUP (the merge fuel). The duplicate spawns at the LINE's TOP tier
 # (top_gen_tier across board+bag) so every self-dup feeds ONE lineage and merges up — no sub-tier strand
@@ -108,6 +130,88 @@ static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
 		board.bag_add(dup_id, tier)
 		return {"landed": [], "bagged": [dup_id]}
 	return {"landed": [], "bagged": []}
+
+# #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if
+# not a recipe, Core §6.G). The special lands at the ingredients' tier, then climbs its own ladder.
+static func recipe_merge_code(a_code: int, b_code: int) -> int:
+	if a_code <= 0 or b_code <= 0:
+		return 0
+	var at := a_code % 100
+	if at != (b_code % 100):
+		return 0
+	var special_line := G.special_for_pair(int(a_code / 100.0), int(b_code / 100.0))
+	return (special_line * 100 + at) if special_line > 0 else 0
+
+# Craft a special by consuming the source ingredient and replacing the target with the authored special.
+# Returns {code, consumed, target, rank_ups}; {} means the pair is not a recipe and nothing was mutated.
+static func apply_recipe(board: BoardModel, from: Vector2i, target: Vector2i) -> Dictionary:
+	var a_code := board.item_at(from)
+	var b_code := board.item_at(target)
+	var code := recipe_merge_code(a_code, b_code)
+	if code <= 0:
+		return {}
+	board.take(from)
+	board.place(target, code)
+	return {
+		"code": code,
+		"consumed": a_code,
+		"target": target,
+		"rank_ups": Mastery.credit_craft(a_code, b_code),
+	}
+
+static func is_scissors(code: int) -> bool:
+	return G.special_kind(code) == "scissors"
+
+static func is_splittable_code(code: int) -> bool:
+	if code <= 0 or code % 100 < 2:
+		return false
+	var line := int(code / 100.0)
+	return G.LINES.has(line) and not G.TREAT_LINES.has(line)
+
+# Where the twin lands: the empty ground cell nearest the target (Manhattan, ties broken by board scan
+# order), else `freed` — the scissors' own cell, which board.take(from) empties a beat before the twin
+# is placed. That LAST-RESORT cell is what lets a COMPLETELY FULL board split: consuming the scissors
+# frees exactly the one cell the twin needs, so the drop no longer refuses for want of a cell that the
+# action itself creates. It stays OUT of the nearest search on purpose — a board with any other free
+# cell places the twin exactly where it always did, and the cell the player dragged from still empties.
+# It only counts when it would really be open ground (in bounds, unsealed, not a generator, not the
+# target), so a drop that frees nothing still refuses. Pure — no RNG draw.
+static func split_twin_cell(board: BoardModel, target: Vector2i, freed: Vector2i = Vector2i(-1, -1)) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_dist := 1 << 30
+	for cell in board.empty_ground_cells():
+		var dist := absi(cell.x - target.x) + absi(cell.y - target.y)
+		if dist < best_dist:
+			best = cell
+			best_dist = dist
+	if best == Vector2i(-1, -1) and freed != target and board.is_open(freed) and not board.is_gen(freed):
+		return freed
+	return best
+
+static func can_split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> bool:
+	if from == target or board.is_gen(target):
+		return false
+	if not is_scissors(board.item_at(from)):
+		return false
+	if not is_splittable_code(board.item_at(target)):
+		return false
+	return split_twin_cell(board, target, from) != Vector2i(-1, -1)
+
+# Split one eligible content piece into two one-tier-lower twins. The scissors source is consumed only
+# after every refusal condition has passed, so tier-1 / invalid-target / nowhere-to-land drops are no-loss.
+static func split_piece(board: BoardModel, from: Vector2i, target: Vector2i) -> Dictionary:
+	if not can_split_piece(board, from, target):
+		return {}
+	var src_code := board.item_at(from)
+	var target_code := board.item_at(target)
+	var twin := split_twin_cell(board, target, from)
+	if twin == Vector2i(-1, -1):
+		return {}
+	var lowered := int(target_code) - 1
+	board.take(from)
+	board.place(target, lowered)
+	board.place(twin, lowered)
+	return {"code": lowered, "consumed": src_code, "target": target, "twin_cell": twin}
 
 # --- §6 LINE RETIREMENT (2026-07-25) -----------------------------------------------------------------
 # Clear a line the game will never ask for again (G.gen_retirable): its generator leaves the board AND the
@@ -139,61 +243,93 @@ static func retire_preview(board: BoardModel, bag: Array, line: int) -> Dictiona
 			pieces += 1
 			coins += int(G.sell_reward(int(c)).x)
 	return {"pieces": pieces, "coins": coins}
+# --- §6 LINE FAREWELLS (2026-07-26) -------------------------------------------------------------------
+# A line receives a farewell when it has BOARD presence but is outside the current zone's recursive need
+# closure. The bag is not presence here: it is the hoard path, and bagged generators/items stay player-held
+# without forcing a ceremony. Returning lines come back through the existing due_gen birth-on-tap path.
 
-static func retire_line(board: BoardModel, bag: Array, gen_id: String, level: int, bag_seed_ranks: Array = []) -> Dictionary:
-	var gid := String(gen_id)
-	var out := {"retired": false, "line": 0, "coins": 0, "items": 0, "gen_cells": [], "bag": bag, "bag_seed_ranks": bag_seed_ranks}
-	if not G.gen_retirable(gid, level):
-		return out                                    # still needed by a later craft — refuse
-	var line := int(gid.trim_prefix("gen_"))
-	out["line"] = line
+static func farewells_due(board: BoardModel, level: int) -> Array:
+	var present := {}
+	for code in board.items:
+		var c := int(code)
+		if c <= 0 or G.is_coin(c):
+			continue
+		var line := BoardModel.line_of(c)
+		if G.zone_of_line(line) >= 0:
+			present[line] = true
+	for gid_v in board.gens.values():
+		var gid := String(gid_v)
+		var line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
+		if line > 0 and G.zone_of_line(line) >= 0:
+			present[line] = true
+	var out: Array = []
+	var z := G.quest_zone_for_level(int(level))
+	for zi in G.ZONE_COUNT:
+		var line := G.zone_line(int(zi))
+		if present.has(line) and not G.line_needed_at_zone(line, z):
+			out.append({"line": line, "next_need": G.next_need(line, int(level))})
+	return out
+
+static func farewell_preview(board: BoardModel, line: int) -> Dictionary:
+	var ln := int(line)
+	var out := {"line": ln, "pieces": 0, "coins": 0, "gens": 0, "gen_cells": []}
+	if G.zone_of_line(ln) < 0:
+		return out
 	var coins := 0
-	var items := 0
-	# 1. the leftover stock on the BOARD
+	var pieces := 0
 	for i in board.items.size():
 		var code: int = board.items[i]
-		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == line:
+		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == ln:
 			coins += int(G.sell_reward(code).x)
-			items += 1
-			board.take(BoardModel.cell_of(i))
-	# 2. the leftover stock in the ITEM BAG
-	var kept: Array = []
-	var kept_seed_ranks: Array = []
-	for i in bag.size():
-		var code := int(bag[i])
-		if int(code) > 0 and not G.is_coin(int(code)) and BoardModel.line_of(int(code)) == line:
-			coins += int(G.sell_reward(int(code)).x)
-			items += 1
-		else:
-			kept.append(code)
-			kept_seed_ranks.append(int(bag_seed_ranks[i]) if i < bag_seed_ranks.size() else 1)
-	out["bag"] = kept
-	out["bag_seed_ranks"] = kept_seed_ranks
-	# 3. the generator itself — every copy, on the board and in the gen_bag (the parallel arrays move in lockstep)
+			pieces += 1
+	var gid := G.gen_for_line(ln)
 	var cells: Array = []
-	for cell in board.gens.keys():
-		if String(board.gens[cell]) == gid:
-			cells.append(cell)
-	for cell in cells:
-		board.remove_gen(cell)
-	out["gen_cells"] = cells
-	var kid: Array = []
-	var ktier: Array = []
-	var kboost: Array = []
-	for i in board.gen_bag.size():
-		if String(board.gen_bag[i]) == gid:
-			continue
-		kid.append(board.gen_bag[i])
-		ktier.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
-		kboost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
-	board.gen_bag = kid
-	board.gen_bag_tiers = ktier
-	board.gen_bag_boost = kboost
-	if coins > 0:
-		Save.add_coins(coins)                         # spendable only — retirement never advances the clock
-	out["retired"] = true
+	var keep_tier := 1
+	var keep_boost := 0
+	if gid != "":
+		for cell in board.gens.keys():
+			if String(board.gens[cell]) == gid:
+				var tier := board.gen_tier_at(cell)
+				var boost := board.gen_boost_at(cell)
+				if tier > keep_tier or (tier == keep_tier and boost > keep_boost):
+					keep_tier = tier
+					keep_boost = boost
+				cells.append(cell)
+	out["pieces"] = pieces
 	out["coins"] = coins
-	out["items"] = items
+	out["gens"] = cells.size()
+	out["gen_cells"] = cells
+	out["keep_tier"] = keep_tier
+	out["keep_boost"] = keep_boost
+	return out
+
+static func sweep_line(board: BoardModel, line: int) -> Dictionary:
+	var ln := int(line)
+	var out := farewell_preview(board, ln)
+	if G.zone_of_line(ln) < 0:
+		return out
+	for i in board.items.size():
+		var code: int = board.items[i]
+		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == ln:
+			board.take(BoardModel.cell_of(i))
+	var gid := G.gen_for_line(ln)
+	var cells: Array = out.get("gen_cells", [])
+	for cell_v in cells:
+		var cell := Vector2i(cell_v)
+		board.remove_gen(cell)
+	var keep_tier := int(out.get("keep_tier", 1))
+	var keep_boost := int(out.get("keep_boost", 0))
+	if gid != "":
+		if keep_tier > 1 or keep_boost > 0:
+			var g := Save.grove()
+			var kept: Dictionary = g.get("gen_kept", {})
+			kept[gid] = [keep_tier, keep_boost]
+			g["gen_kept"] = kept
+	var coins := int(out.get("coins", 0))
+	if coins > 0:
+		Save.add_coins(coins)                         # spendable only — farewell sweep never advances the clock
+	elif gid != "" and (keep_tier > 1 or keep_boost > 0):
+		Save.grove_write()
 	return out
 
 # Gen stranding fix — SELL a redundant generator (one that has a strictly-higher same-line sibling, so the

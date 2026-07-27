@@ -32,8 +32,14 @@ make test           # every suite (engine + grove), parallel + per-suite timing 
 Both run headless and in parallel via `engine/tools/run_suites.py` (`JOBS=4` default).
 The runner prints a per-suite timing table and fails on any FAIL or crash — it never
 trusts a zero exit code alone. The grove suite is split into focused suites
-(`grove_board_actions_tests`, `grove_explore_tests`, `grove_shop_tests`,
+(`grove_board_actions_tests`, `grove_explore_tests`, `grove_sky_tests`, `grove_shop_tests`,
 `grove_ui_workbench_tests`, `grove_scene_workbench_tests`, `grove_scene_covers_tests`,
-`grove_ftue_tests`, `grove_rush_ftue_tests`, `grove_improvements_tests`) sharing `games/grove/tests/grove_test_base.gd`
+`grove_ftue_tests`, `grove_rush_ftue_tests`, `grove_cascade_tests`, `grove_improvements_tests`) sharing `games/grove/tests/grove_test_base.gd`
 — edit a slice, run that slice with `make test-grove`. The authoritative list is
-`GROVE_TESTS` in the Makefile; keep this line in step with it.
+`GROVE_TESTS` in the Makefile. This line no longer relies on anyone remembering to update
+it: `engine/tests/suite_registry_tests.gd` fails if the Makefile, this file and the README
+name different sets (membership, not order).
+
+`make test` also runs `make test-config` — the non-Godot python/bash guards (`PY_TESTS` /
+`SH_TESTS`). The same suite asserts those lists cover every `test_*.py` / `*_tests.py` and
+`test_*.sh` on disk, so a new one cannot sit unrun behind its own target.

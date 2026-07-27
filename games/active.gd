@@ -6,7 +6,7 @@ extends RefCounted
 ## script's consts only through a compile-time class ref, so these can't be a per-run
 ## env layer — BASE is the one build-level pick (grove's). The CLOTHES (art/audio/font)
 ## of each game in ROSTER layer on at RUNTIME via the GAME env var — no source edits;
-## `make run_grove` / `make run_debug` set GAME=.
+## `make g` / `make debug` set GAME=.
 
 # The compile-time base ruleset + colours.
 const BASE := preload("res://games/grove/game.gd")

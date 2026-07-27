@@ -8,7 +8,7 @@ extends SceneTree
 ## must come from quiet_godot.sh, not in-script flags, which are too late and flash/steal focus).
 ## Parallel-safe (own temp save).
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")

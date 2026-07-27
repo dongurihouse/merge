@@ -3,7 +3,8 @@ extends SceneTree
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
-##        fresh | played | gate | fullline | ladder | bag | level | levelup | endgame |
+##        fresh | played | gate | fullline | ladder | farewell | almanac | bag | level | levelup | endgame |
+##        sky_calm | sky_sunbeam | sky_rain | sky_starfall |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -13,11 +14,12 @@ extends SceneTree
 ## fence it then rolls decides every generator's + item line's dimming), the window size is forced
 ## (shot_base), and weather is pinned to "clear" unless `weather=` says otherwise.
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 
 const RNG_SEED := Base.RNG_SEED
 
@@ -33,11 +35,11 @@ func _initialize() -> void:
 		# list in step when adding or removing a branch.
 		"modes": ["fresh", "ftue", "ftuegen",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
-			"level", "levelup", "swap", "ladder", "retire", "retiredone", "recipe",
+			"level", "levelup", "swap", "ladder", "farewell", "almanac", "recipe",
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"fullline"],
+			"cascade", "fullline", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
 		"retired": {
@@ -57,6 +59,31 @@ func _initialize() -> void:
 		Save.data["ftue_seen"] = {}          # a brand-new player: the merge hand is live
 	if mode == "ftuegen":
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
+	match mode:
+		"sky_calm":
+			Ambient.forced_weather = "calm"
+		"sky_rain":
+			Ambient.forced_weather = "rain"
+		"sky_starfall":
+			Ambient.forced_weather = "star"
+		"sky_sunbeam":
+			Ambient.forced_weather = "clear"
+
+	# Seed the COIN CLOCK — the ONE level clock (G.level ← Save.coins_earned_lifetime) — BEFORE the scene
+	# enters the tree. It has to be early for two reasons: the HUD's Lv chip is built ONCE with the level
+	# it reads at build (board.gd stores hud.level and _update_hud only re-ticks the wallet), and _ready →
+	# _load_state rolls the initial deal + quest fence off the same level. A post-load write leaves the
+	# chip reading Level 1 over a level-1 board.
+	# NEVER seed grove["exp"] / Save.add_exp for this: the clock moved off exp (save.gd SCHEMA v5), so
+	# those feed no level at all and every "leveled" capture rendered at Level 1 at exit code 0.
+	var clock_seed: int = int(_clock_seeds().get(mode, 0))
+	if clock_seed > 0:
+		if mode == "gate":
+			Save.earn_coins(clock_seed)   # BOTH halves: earn_coins moves the clock AND the wallet
+		else:
+			var gcl := Save.grove()
+			gcl["coins_earned"] = clock_seed
+			Save.grove_write()
 
 	# Pin the seed BEFORE the scene enters the tree: _ready → _load_state() rolls the quest fence off
 	# this RNG, and on a fresh save it would otherwise randomize() — the fence composition drives
@@ -69,6 +96,59 @@ func _initialize() -> void:
 	scn.rng.seed = RNG_SEED           # re-pin so each mode's own actions start from a fixed stream
 
 	match mode:
+		"cascade":
+			var phase := String(Base.opt(args, "phase", "run"))
+			for i in scn.board.items.size():
+				scn.board.terrain[i] = 0
+				scn.board.items[i] = 0
+			scn.board.collect_rewards = {}
+			scn.board.gens = {}
+			scn.board.gen_tiers = {}
+			scn.board.gen_boost = {}
+			scn.quests = []
+			var ready := {
+				Vector2i(3, 1): 101,
+				Vector2i(3, 2): 101,
+				Vector2i(3, 3): 102,
+				Vector2i(3, 4): 103,
+				Vector2i(3, 5): 104,
+				Vector2i(6, 6): 101,
+				Vector2i(5, 1): 101,
+				Vector2i(5, 3): 102,
+			}
+			for cell in ready:
+				scn.board.place(Vector2i(cell), int(ready[cell]))
+			scn._rebuild_all()
+			for n in scn.gen_nodes.values():
+				if n != null and is_instance_valid(n):
+					(n as Node).queue_free()
+			scn.gen_nodes.clear()
+			scn.gen_node = null
+			scn.board.gens = {}
+			scn.board.gen_tiers = {}
+			scn.board.gen_boost = {}
+			await create_timer(0.25).timeout
+			var chalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
+			if phase == "guide":
+				var held := Vector2i(6, 6)
+				scn._on_press(scn._cell_pos(held) + chalf)
+				scn._begin_drag()
+				scn._drag_follow(scn._cell_pos(Vector2i(5, 2)) + chalf + Vector2(18.0, -24.0))
+				await create_timer(0.35).timeout
+			elif phase == "run":
+				scn._on_press(scn._cell_pos(Vector2i(3, 1)) + chalf)
+				scn._on_release(scn._cell_pos(Vector2i(3, 2)) + chalf)
+				var reached_run_frame := false
+				for _i in 120:
+					await process_frame
+					if int(scn.get("_chain_n")) >= 2 and bool(scn.get("_chain_auto_step")):
+						reached_run_frame = true
+						break
+				if not reached_run_frame:
+					push_warning("cascade shot phase=run did not reach the seeded mid-run frame before capture")
+				Engine.time_scale = 0.0
+			else:
+				await create_timer(0.35).timeout
 		"played":
 			var half: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			scn._on_press(scn._cell_pos(Vector2i(3, 2)) + half)   # merge the flowers
@@ -80,6 +160,24 @@ func _initialize() -> void:
 			scn._on_press(scn._cell_pos(Vector2i(5, 2)) + half)   # merge the berries too
 			scn._on_release(scn._cell_pos(Vector2i(5, 4)) + half)
 			await create_timer(0.5).timeout
+		"sky_sunbeam", "sky_rain":
+			# The live Weather Hours patch + marker, through Board.tscn. The save has both FTUE verbs
+			# marked above, so the gift gate is open and the lane is visible.
+			scn.debug_refresh_weather()
+			await create_timer(0.45).timeout
+		"sky_calm":
+			# The SAME gate-open board on a Calm hour — the capture's whole point is what is MISSING:
+			# no wash, no marker, nothing outside the mat. Diff it against sky_sunbeam to see the
+			# lane chrome appear and nothing else move.
+			scn.debug_refresh_weather()
+			await create_timer(0.45).timeout
+		"sky_starfall":
+			# The real Starfall gift path after its quiet delay: pick a quest-safe high-tier item, arc it
+			# into the hourly column, and leave the marker + lane visible for review.
+			scn.debug_refresh_weather()
+			scn.set("_sky_live_secs", float(G.STAR_DELAY))
+			scn.call("_try_starfall")
+			await create_timer(0.75).timeout
 		"genfade":
 			# quest-unused fade: swap the fence for quests asking a line NO on-board generator produces
 			# or item carries, so every generator fades (GEN_UNUSED) and every base-line item greys
@@ -89,14 +187,13 @@ func _initialize() -> void:
 			scn._refresh_item_line_dim()
 			await create_timer(0.4).timeout
 		"gate":
-			# bank enough stars to make the frontier map's cheapest spot affordable, so the
-			# board reaches the gate-ready state it is meant to showcase (the lit Home button)
-			var gz := Save.grove()
-			gz["exp"] = 300
-			Save.grove_write()
-			Save.add_exp(300)
+			# the gate-ready state this showcases (the lit Home button) is banked in _clock_seeds above —
+			# G.cluster_ready needs BOTH halves, the LEVEL floor (the coin clock) and the wallet PRICE.
 			scn._rebuild_givers()
 			scn._update_hud()
+			# the Home cue is a BREATHE (a transient tween), so a still frame can't prove it fired —
+			# print the state it keys off instead, or a silently un-ready capture reads as a pass again.
+			print("GATE ready=%s level=%d coins=%d" % [scn._gate_ready(), G.level(), Save.coins()])
 			await create_timer(0.6).timeout
 		"genpreview":
 			# V1: open a path out to a line-3 (mushroom/compost) edge bramble so the
@@ -107,13 +204,11 @@ func _initialize() -> void:
 			await create_timer(0.4).timeout
 		"hud":
 			# mid-game: FTUE long done (water shown) + leveled (Lv chip shows a real
-			# value) — proves water sits in the top-right cluster next to ★🪙💎
+			# value) — proves water sits in the top-right cluster next to 💧🪙💎
 			var gh := Save.grove()
 			gh["pops"] = 30
-			gh["exp"] = 24
 			gh["water"] = 42
 			Save.grove_write()
-			Save.add_exp(8)
 			scn.water = 42
 			scn._update_hud()
 			scn._update_water_hud()
@@ -161,20 +256,12 @@ func _initialize() -> void:
 			await create_timer(0.2).timeout
 		"level":
 			# the level screen (tapping the Lv badge or a locked cell): banked partway to the
-			# next level so the tally + progress bar show a real fraction.
-			var glv := Save.grove()
-			glv["exp"] = 24
-			Save.grove_write()
-			Save.add_exp(8)
+			# next level so the tally + progress bar show a real fraction (banked in _clock_seeds above).
 			scn._update_hud()
 			load("res://engine/scripts/ui/level_popup.gd").open(scn)
 			await create_timer(0.5).timeout
 		"levelup":
 			# the level-UP celebration (auto on a level gain): the Collect dialog showing the earned gift
-			var glu := Save.grove()
-			glu["exp"] = 24
-			Save.grove_write()
-			Save.add_exp(8)
 			scn._update_hud()
 			load("res://engine/scripts/ui/level_popup.gd").open_levelup(scn, 1)
 			await create_timer(0.5).timeout
@@ -199,33 +286,50 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
-		"retire":
-			# §6 the LINE-RETIREMENT offer: a player still holding the anchor generator and some of its now-dead
-			# stock. gen_1 becomes retirable once zone 3 opens (zone_unlock_level(3)); seed one level past that
-			# boundary so the seed cannot sit exactly on it.
+		"farewell":
+			# The LINE-FAREWELL card: L65 has moved beyond Wild Berries, Woolens, and Spices, but the
+			# player still has board presence. The first due line opens as a calm board-entry card.
 			var gr := Save.grove()
-			gr["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 1)
+			gr["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))
+			gr["seen"] = {"201": true, "401": true, "801": true, "1601": true}
 			Save.grove_write()
+			for r in G.ROWS:
+				for c in G.COLS:
+					scn.board.terrain[load("res://engine/scripts/core/board_model.gd").idx(Vector2i(r, c))] = 0
+					scn.board.take(Vector2i(r, c))
+			for cell in scn.board.gens.keys():
+				scn.board.remove_gen(cell)
+			var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+			if stale_farewell != null:
+				stale_farewell.queue_free()
+				await create_timer(0.1).timeout
 			var free_cells: Array = scn.board.empty_ground_cells()
-			for k in mini(3, free_cells.size()):
-				scn.board.place(free_cells[k], 1 * 100 + 2 + k)   # leftover glow pieces to be cleared
+			if free_cells.size() >= 7:
+				scn.board.place_gen("gen_2", free_cells[0], 3)
+				scn.board.arm_gen_boost(free_cells[0], 4)
+				scn.board.place_gen("gen_4", free_cells[1])
+				scn.board.place(free_cells[2], 202)
+				scn.board.place(free_cells[3], 403)
+				scn.board.place(free_cells[4], 801)
+				scn.board.place(free_cells[5], 1602)
+				scn.board.place(free_cells[6], 1901)
+			scn._refill_quests()
 			scn._rebuild_all()
 			await create_timer(0.3).timeout
-			scn._maybe_offer_retirement()
-			await create_timer(0.5).timeout
-		"retiredone":
-			# §6 the board AFTER confirming a retirement: the generator and its dead stock are gone, the payout
-			# has flown to the coin HUD. The state the offer promises — worth LOOKING at, not just asserting.
-			var gd := Save.grove()
-			gd["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 1)
+			scn._queue_farewell_check()
+			await create_timer(0.7).timeout
+		"almanac":
+			# The read-only Collection/Almanac grid: discovered dormant lines show their away/complete badges,
+			# current-producing lines stay bright, and unseen future lines remain locked.
+			var ga := Save.grove()
+			ga["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))
+			ga["seen"] = {"101": true, "201": true, "401": true, "801": true, "1601": true}
 			Save.grove_write()
-			var fc: Array = scn.board.empty_ground_cells()
-			for k in mini(3, fc.size()):
-				scn.board.place(fc[k], 1 * 100 + 2 + k)
+			scn._refill_quests()
 			scn._rebuild_all()
 			await create_timer(0.3).timeout
-			scn._retire_line("gen_1")
-			await create_timer(0.6).timeout
+			scn._open_almanac()
+			await create_timer(0.5).timeout
 		"recipe":
 			# the MERGED-line tier screen: a special line (71 = Prize pumpkin, crafted from Wildflower + Feather)
 			# opens its RECIPE view — the two ingredient items alone, each tapping through to its own tier screen.
@@ -250,11 +354,11 @@ func _initialize() -> void:
 			scn._on_info_pressed()                 # tap ⓘ → open the Producing dialog
 			await create_timer(0.45).timeout
 		"producing", "producingdrill":
-			# the PRODUCING dialog (tap generator → ⓘ): the lines the anchor currently makes. ~L6 so all six
-			# staged Farm lines (61–66) have grown in alongside Wildflower (1) — the live pop pool's lines wear
-			# the gold ring, popped lines show their piece, and not-yet-discovered lines fall to the locked "?".
+			# the PRODUCING dialog (tap generator → ⓘ): the lines the anchor currently makes, at ~L6 — the live
+			# pop pool's lines wear the gold ring, popped lines show their piece, and not-yet-discovered lines
+			# fall to the locked "?". (The dialog's line-up is NOT level-gated at HEAD: board._gen_line_entries
+			# walks the whole G.GENERATORS roster, so the seed sets the HUD + board state, not the roster.)
 			var gpr := Save.grove()
-			gpr["exp"] = 250                       # ≈ L6 (exp_at_level 6 = 230) → every Farm line is live
 			gpr["pops"] = 30                       # past the FTUE so taps cost water (and read the played state)
 			gpr["water"] = 300
 			gpr["seen"] = {}                       # an explicit blank discovery set, then pop to fill it
@@ -530,6 +634,34 @@ func _initialize() -> void:
 			await create_timer(0.6).timeout
 
 	var err := Base.capture(self, out, args)
-	print("SHOT saved=%s err=%d stars=%d coins=%d brambles=%d" % \
-		[out, err, Save.exp_total(), Save.coins(), scn.board.bramble_count()])
+	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
+	# grove["exp"] — a capture that seeded the wrong clock used to print a plausible line and a Level-1 PNG.
+	print("SHOT saved=%s err=%d level=%d coins_earned=%d coins=%d brambles=%d" % \
+		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count()])
 	quit()
+
+## The lifetime-organic-coins each mode banks BEFORE the scene loads (see _initialize) — the ONLY way
+## a capture sets its level now. A mode absent here keeps the fresh save's Level 1.
+static func _clock_seeds() -> Dictionary:
+	return {
+		# L3 banked half-way to L4: the Lv chip reads 3 AND every progress readout shows a real fraction
+		# (the level dialog's tally + bar, the board's NEXT UNLOCK strip) instead of sitting on 0%.
+		"hud": _clock_midway(3),
+		"level": _clock_midway(3),
+		"levelup": _clock_midway(3),
+		# L6 · 25🪙 — the level the Producing capture is written for.
+		"producing": G.coins_at_level(6),
+		"producingdrill": G.coins_at_level(6),
+		# gate: the SAME 25 is also earned into the WALLET (earn_coins), because G.cluster_ready gates on
+		# the level floor AND the price — L6 · 25🪙 clears the first hollow clusters' floors and costs.
+		"gate": G.coins_at_level(6),
+	}
+
+## Coin-clock seed for `level`, banked HALF-WAY to the next level. The clock is coins now
+## (content.level_at_coins ← Save.coins_earned_lifetime), so a capture that wants a level seeds this —
+## never grove["exp"], which feeds nothing. Seeding coins_at_level(N) exactly lands ON the threshold and
+## every progress readout (the level dialog's tally + bar, the board's NEXT UNLOCK strip) reads 0%; the
+## midpoint makes them show a real fraction. Symbolic, so a curve re-tune can't strand it.
+static func _clock_midway(level: int) -> int:
+	var base := G.coins_at_level(level)
+	return base + (G.coins_at_level(level + 1) - base) / 2

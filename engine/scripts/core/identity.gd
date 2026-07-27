@@ -24,7 +24,7 @@ static var _id := ""
 
 ## True only on an iOS build that actually bundles the plugin — the gate for every native touch. The
 ## plugin's macOS frameworks (bundled so its GDExtension loads cleanly in the desktop editor) register
-## `GameCenterManager` on the dev Mac too; the `ios` feature check keeps this iPad-only game inert there.
+## `GameCenterManager` on the dev Mac too; the `ios` feature check keeps this iPhone/iPad game inert there.
 static func available() -> bool:
 	return ClassDB.class_exists(GC_CLASS) and OS.has_feature("ios")
 

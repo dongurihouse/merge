@@ -12,7 +12,6 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
 const Pal = Game.PALETTE
-static var KIT_PATH := Game.kit()   # the SHARED slot cell (bag + board)
 
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
@@ -59,8 +58,11 @@ static func gen_halo_tex() -> Texture2D:
 # Item textures are framed with inconsistent transparent padding, so KEEP_ASPECT_CENTERED on the
 # raw image leaves the visible art off-centre in the cell. Crop each to its opaque content (cached
 # per path) via an AtlasTexture so the art CENTERS. Falls back to the raw texture if get_image fails.
+# THE trim: board item art, resident/spirit ladder art (residents.gd, map.gd's dock) and anything else
+# drawn from a padded canvas all resolve here, so a path is decoded + get_used_rect scanned ONCE and
+# one AtlasTexture is held for it. Keyed by path, so unrelated art families share the cache safely.
 static var _content_cache: Dictionary = {}
-static func _content_tex(path: String) -> Texture2D:
+static func trimmed_tex(path: String) -> Texture2D:
 	if _content_cache.has(path):
 		return _content_cache[path]
 	var tex: Texture2D = load(path)
@@ -86,7 +88,7 @@ const ITEM_INSET := 0.16   # margin so art sits INSIDE the cell, not bleeding to
 # shape-true drop-shadow) reads the SAME cropped texture the piece renders, framed the same way.
 static func content_texture(code: int) -> Texture2D:
 	var path := G.item_tex_path(code)
-	return _content_tex(path) if ResourceLoader.exists(path) else null
+	return trimmed_tex(path) if ResourceLoader.exists(path) else null
 
 # THE one content_frac → inset mapping (Slot-cell "visible piece width as % of cell" → per-side
 # margin). Owned here so every cell surface (live board, residents habitat/hand, previews) derives
@@ -162,7 +164,7 @@ static var item_shadow_override: Dictionary = {}
 static func _item_shadow_cfg() -> Dictionary:
 	if not item_shadow_override.is_empty():
 		return item_shadow_override
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	return {"on": bool(opts.get("content_shadow", true)), "params": opts.get("content_shadow_params", {})}
 
@@ -176,7 +178,7 @@ static func _shape_contact_shadow(holder: Control, tex: Texture2D, size: float, 
 	var ts := tex.get_size()
 	if ts.x <= 0.0 or ts.y <= 0.0:
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var box := maxf(1.0, size - inset * 2.0)
 	var fit_scale := minf(box / ts.x, box / ts.y)
 	var fit_sz := ts * fit_scale
@@ -261,7 +263,7 @@ static func make_piece_from_texture(tex: Texture2D, size: float, inset := ITEM_I
 static func make_piece(code: int, size: float, inset := ITEM_INSET) -> Control:
 	var path := G.item_tex_path(code)
 	if ResourceLoader.exists(path):
-		return make_piece_from_texture(_content_tex(path), size, inset)   # cropped to opaque content so it CENTERS (art padding varies); `inset` = the board.item width
+		return make_piece_from_texture(trimmed_tex(path), size, inset)   # cropped to opaque content so it CENTERS (art padding varies); `inset` = the board.item width
 	var holder := _make_holder(size)
 	_add_contact_shadow(holder, size)
 	# coins: painted acorn art by tier (tap to pocket). Tier alone reads the value —
@@ -271,7 +273,7 @@ static func make_piece(code: int, size: float, inset := ITEM_INSET) -> Control:
 		var ctier := BoardModel.tier_of(code)
 		var cpath := Game.art("items/coin/coin_%d.png" % G.art_tier_for("coin", ctier))
 		if cpath != "" and ResourceLoader.exists(cpath):
-			_add_sprite(holder, _content_tex(cpath), size, inset)   # coins fit the cell UNIFORMLY — same inset as every other item (was a tighter 0.06)
+			_add_sprite(holder, trimmed_tex(cpath), size, inset)   # coins fit the cell UNIFORMLY — same inset as every other item (was a tighter 0.06)
 		else:
 			var cdisc := Panel.new()
 			var cd := size * (0.5 + 0.1 * ctier)
@@ -399,7 +401,7 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	var opts: Dictionary = Kit.board_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
@@ -426,7 +428,7 @@ static func make_generator(id: String, csz: float, hl: Dictionary = {}, tier: in
 	holder.set_meta("gen_tex_path", path)
 	if ResourceLoader.exists(path):
 		_add_gen_outline(holder, csz, path, hl)   # GEN highlight (2/3): gold rim tracing the silhouette, BEHIND the art
-		_add_sprite(holder, _content_tex(path), csz, ITEM_INSET)   # same crop-to-content + inset as a piece
+		_add_sprite(holder, trimmed_tex(path), csz, ITEM_INSET)   # same crop-to-content + inset as a piece
 	else:
 		var p := Panel.new()
 		p.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -543,7 +545,7 @@ static var _silhouette_cache: Dictionary = {}
 static func _silhouette_tex(path: String) -> Texture2D:
 	if _silhouette_cache.has(path):
 		return _silhouette_cache[path]
-	var ct := _content_tex(path)
+	var ct := trimmed_tex(path)
 	var result: Texture2D = _silhouette_from_tex(ct) if ct != null else null
 	_silhouette_cache[path] = result
 	return result

@@ -42,9 +42,9 @@ func _initialize() -> void:
 	finish()
 
 func _test_seed_rules_drop_filter_and_eligibility() -> void:
-	ok(Improvements.seed_code_for_kind(Improvements.KIND_SOIL) == 1401, "soil seed is line 14 tier 1")
-	ok(Improvements.seed_code_for_kind(Improvements.KIND_MAGNET) == 1501, "magnet seed is line 15 tier 1")
-	ok(Improvements.kind_for_seed(1401) == Improvements.KIND_SOIL and Improvements.kind_for_seed(1501) == Improvements.KIND_MAGNET, "seed codes map back to improvement kinds")
+	ok(Improvements.seed_code_for_kind(Improvements.KIND_SOIL) == 2901, "soil seed is line 29 tier 1")
+	ok(Improvements.seed_code_for_kind(Improvements.KIND_MAGNET) == 3001, "magnet seed is line 30 tier 1")
+	ok(Improvements.kind_for_seed(2901) == Improvements.KIND_SOIL and Improvements.kind_for_seed(3001) == Improvements.KIND_MAGNET, "seed codes map back to improvement kinds")
 	ok(Improvements.seed_sell_reward(Improvements.KIND_SOIL) == Vector2i(250, 0), "soil seed sells for 250 coins")
 	ok(Improvements.seed_sell_reward(Improvements.KIND_MAGNET) == Vector2i(1000, 0), "magnet seed sells for 1000 coins")
 	ok(Improvements.unsocket_price(Improvements.KIND_SOIL) == Vector2i(100, 0), "soil unsocket costs 100 coins")
@@ -64,13 +64,13 @@ func _test_seed_rules_drop_filter_and_eligibility() -> void:
 	for cell in _cells(G.MAGNET_MAX):
 		b.build_improvement(cell, Improvements.KIND_MAGNET)
 	var blocked := Improvements.blocked_seed_drop_lines(b, [Improvements.seed_code_for_kind(Improvements.KIND_SOIL)])
-	ok(blocked.has(14) and blocked.has(15), "drop filter blocks a kind that is already unplaced or at placed cap")
+	ok(blocked.has(int(G.SOIL_SEED_LINE)) and blocked.has(int(G.MAGNET_SEED_LINE)), "drop filter blocks a kind that is already unplaced or at placed cap")
 	var rng_a := RandomNumberGenerator.new()
 	var rng_b := RandomNumberGenerator.new()
 	rng_a.seed = 77
 	rng_b.seed = 77
 	var drop := G.pick_special_drop(rng_a, blocked)
-	var fallback := G.pick_special_drop(rng_b, [14, 15])
+	var fallback := G.pick_special_drop(rng_b, [int(G.SOIL_SEED_LINE), int(G.MAGNET_SEED_LINE)])
 	ok(drop == fallback and rng_a.state == rng_b.state, "filtered special-drop pick still makes exactly one random draw")
 
 func _test_board_model_persists_improvements() -> void:

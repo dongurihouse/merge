@@ -1,6 +1,6 @@
 # Cascade combos — design
 
-Date: 2026-07-26 · Status: **draft rev 3, for Dev review** · Parent: `2026-07-26-progression-systems-design.md` §5/§8-step-3.
+Date: 2026-07-26 · Status: **SHIPPED** (rev 3 as built; landed on `main` with the perf pass) · Parent: `2026-07-26-progression-systems-design.md` §5/§8-step-3.
 Supersedes the parent §5 wording: chains auto-execute — the parent's break rules ("any pop, any
 delivery…") and §6's "nothing ever merges by itself" clause are obsolete. All numbers are
 provisional dials; the sim owns finals.

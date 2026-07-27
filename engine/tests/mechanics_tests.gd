@@ -6,7 +6,19 @@ extends "res://engine/tests/test_base.gd"
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+
+## The shipped rank-0 tier stream, CAPTURED FROM THE PRE-MASTERY IMPLEMENTATION at seed 12345
+## (40 consecutive BoardLogic.roll_tier draws, one randf each against G.TIER_ODDS). It pins the
+## live generator curve to bytes the players already got, so any change to TIER_ODDS, to the
+## cumulative walk, or to the number of draws per roll shows up as a FAILURE here.
+## NEVER REGENERATE THIS ARRAY TO MAKE A FAILING TEST PASS — regenerating it is exactly the
+## edit the guard exists to catch, and it would leave the suite green over a silent re-tune.
+const GOLDEN_TIER_STREAM_12345 := [
+	1, 2, 1, 2, 2, 3, 1, 2, 3, 2, 1, 1, 1, 1, 1, 2, 1, 3, 2, 1,
+	1, 1, 3, 1, 1, 1, 1, 2, 1, 1, 2, 3, 1, 1, 2, 3, 2, 2, 1, 2,
+]
 
 ## A fixture roster (independent of the live grove data): map 0 has 2 generators, map 1 has 3.
 ## Generators PERSIST (no hand-in), so each carries its own `cell`. (`grant_from` is inert legacy
@@ -258,9 +270,55 @@ func _initialize() -> void:
 	sgen._on_press(sgen._cell_pos(spawned) + gen_half)
 	sgen._on_release(sgen._cell_pos(src) + gen_half)
 	ok(sgen.board.gen_tier_at(src) == 3 and not sgen.board.gens.has(spawned), "scene drag-drop merges self-dup back into the source tier")
-	sgen.queue_free()
+	await drop(sgen, 3)
+
+	# Mastery scene chrome: a ranked generator wears the progress ring, moves its tier into the title,
+	# shows the mastery row in the subtitle, and rank-up cards mark mastery_seen once opened.
+	fresh("scene_mastery_chrome")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["mastery"] = {"1": 60}
+	Save.grove()["mastery_seen"] = {}
+	Save.grove_write()
+	var smastery = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(smastery)
 	await process_frame
+	if smastery.board == null:
+		smastery._ready()
+	smastery._rebuild_all()
+	var mcell := Vector2i(4, 3)
+	var mgen: Control = smastery.gen_nodes.get(mcell)
+	var ring: Control = mgen.get_node_or_null("MasteryRing") as Control
+	ok(ring != null and mgen.get_children().find(ring) > 0,
+		"a mastered generator wears a non-bottom-child mastery ring")
+	ok(ring != null and is_equal_approx(float(ring.get("progress")), Mastery.rank_progress(1)),
+		"the mastery ring uses progress within the current rank")
+	smastery._select_generator(mcell)
+	ok(String(smastery._info_label.text).contains("Tier 1"),
+		"the generator info title carries the generator tier")
+	var mastery_row: Control = smastery._info_mastery_row
+	ok(mastery_row != null and mastery_row.visible
+		and smastery._info_mastery_pips.size() == 8
+		and is_equal_approx(float(smastery._info_mastery_progress.value), Mastery.rank_progress(1))
+		and String(smastery._info_mastery_next_label.text).contains("next: pops reach"),
+		"the generator info subtitle becomes the pips/progress/next mastery row")
+	smastery._queue_mastery_rankups({1: 1})
+	smastery._schedule_mastery_rankup(0.25)
+	await create_timer(0.05).timeout
+	ok(smastery.get_node_or_null("MasteryRankupOverlay") == null,
+		"a queued mastery rank-up waits for the action FX delay")
+	await create_timer(0.25).timeout
+	ok(smastery.get_node_or_null("MasteryRankupOverlay") != null and Mastery.seen_rank(1) == 2,
+		"a queued mastery rank-up opens after the FX delay and marks the highest current rank as seen")
+	var mov: Node = smastery.get_node_or_null("MasteryRankupOverlay")
+	if mov != null:
+		mov.queue_free()
 	await process_frame
+	smastery._queue_mastery_rankups({1: 1})
+	smastery._show_next_mastery_rankup()
+	await process_frame
+	ok(smastery.get_node_or_null("MasteryRankupOverlay") == null,
+		"the same seen mastery rank does not fire a second card")
+	smastery.queue_free()
 	await process_frame
 
 	# MERGE-PRIORITY DROP AREA: releasing just inside a competing neighbour still chooses the nearby
@@ -310,6 +368,28 @@ func _initialize() -> void:
 		ok(sdrop.board.item_at(drop_target) == 501 and sdrop.board.item_at(drop_source) == 0
 			and sdrop.board.item_at(drop_decoy) == 101,
 			"nearby recipe ingredients craft instead of swapping with the competing exact cell")
+		await create_timer(0.3).timeout
+
+		for c in drop_cells:
+			sdrop.board.items[BoardModel.idx(Vector2i(c))] = 0
+			sdrop.board.collect_rewards.erase(BoardModel.idx(Vector2i(c)))
+			sdrop.board.place(Vector2i(c), 0)
+			sdrop.board.remove_gen(Vector2i(c))
+		sdrop.animating = false
+		sdrop.board.place(drop_source, G.SCISSORS_LINE * 100 + 1)
+		sdrop.board.place(drop_target, 103)
+		sdrop.board.place(drop_decoy, 101)
+		var before_split_lower: int = sdrop.board.count_of(102)
+		sdrop._rebuild_pieces()
+		sdrop._on_press(sdrop._cell_pos(drop_source) + half)
+		sdrop._begin_drag()
+		sdrop._drag_follow(sdrop._cell_pos(drop_target) + half)
+		ok(sdrop._split_preview != null and is_instance_valid(sdrop._split_preview),
+			"hovering scissors over an eligible item shows the split preview")
+		sdrop._on_release(sdrop._cell_pos(drop_target) + half)
+		ok(sdrop.board.item_at(drop_source) == 0 and sdrop.board.item_at(drop_target) == 102
+			and sdrop.board.count_of(102) == before_split_lower + 2,
+			"dragging scissors onto an eligible item splits it through the real release path")
 
 		for c in drop_cells:
 			sdrop.board.place(Vector2i(c), 0)
@@ -324,8 +404,7 @@ func _initialize() -> void:
 		ok(sdrop.board.gen_tier_at(drop_target) == 2 and not sdrop.board.is_gen(drop_source)
 			and sdrop.board.gen_id_at(drop_decoy) == "gen_2",
 			"nearby matching generators merge instead of swapping with the competing exact cell")
-	sdrop.queue_free()
-	await process_frame
+	await drop(sdrop)
 
 	# gen stranding fix: selecting a REDUNDANT (sub-top) generator surfaces the info-bar SELL button; tapping
 	# it removes the generator + credits coins, while the line's TOP generator is never sellable.
@@ -351,10 +430,7 @@ func _initialize() -> void:
 	ok(Save.coins() == coins_before + G.gen_sell_coins(1), "the sale credited the generator's coin payout")
 	ssell._select_generator(topcell)
 	ok(not ssell._info_trash.visible, "the top generator of a line is not sellable (no sell button)")
-	ssell.queue_free()
-	await process_frame
-	await process_frame
-	await process_frame
+	await drop(ssell, 3)
 
 	# --- burst-pop, the FLAT/UNTIERED burst_count family (§6, T58) — the special generators (boosted
 	# accumulator collect, treat pop) + the sim; tiered line generators roll gen_burst_count (T64, below).
@@ -494,6 +570,38 @@ func _initialize() -> void:
 	ok(ri_cap_ok and ri_cap_seen.size() >= 2, \
 		"roll_item_tier clamps to a low merge ceiling (≤3) yet still spreads across tiers")
 	ok(BoardLogic.roll_item_tier(ri, 1) == 1, "roll_item_tier with a ceiling of 1 always pops tier 1")
+	# The rank-0 window must still deal the SHIPPED stream — asserted against a golden literal, not
+	# against roll_tier (roll_tier now delegates to roll_tier_window, so comparing the two is a
+	# tautology that passes even with the odds corrupted).
+	var win_new := RandomNumberGenerator.new(); win_new.seed = 12345
+	var window_stream: Array = []
+	for _i in GOLDEN_TIER_STREAM_12345.size():
+		window_stream.append(BoardLogic.roll_tier_window(win_new, 1, 4))
+	ok(window_stream == GOLDEN_TIER_STREAM_12345, \
+		"rank-0 roll_tier_window(1,4) reproduces the shipped tier stream (golden seed 12345)")
+	var win_old := RandomNumberGenerator.new(); win_old.seed = 12345
+	var tier_stream: Array = []
+	for _i in GOLDEN_TIER_STREAM_12345.size():
+		tier_stream.append(BoardLogic.roll_tier(win_old))
+	ok(tier_stream == GOLDEN_TIER_STREAM_12345, \
+		"roll_tier still deals the shipped tier stream (the rank-0 delegation stays honest)")
+	var one_draw := true
+	for rank_i in range(0, 9):
+		var w := Mastery.tier_window_for_rank(rank_i)
+		var a := RandomNumberGenerator.new(); a.seed = 700 + rank_i
+		var b := RandomNumberGenerator.new(); b.seed = 700 + rank_i
+		BoardLogic.roll_tier_window(a, w.x, w.y - w.x + 1)
+		b.randf()
+		one_draw = one_draw and is_equal_approx(a.randf(), b.randf())
+	ok(one_draw, "every mastery tier window consumes exactly one rng draw")
+	var windowed := true
+	var wrng := RandomNumberGenerator.new(); wrng.seed = 606
+	for _i in 400:
+		var codew := int(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], wrng, {}, 0.0, 3, 6).code)
+		var tw := BoardModel.tier_of(codew)
+		if tw < 3 or tw > 6:
+			windowed = false
+	ok(windowed, "roll_spawn can map one tier draw into an explicit mastery window")
 	# §4 bramble_seed: a freshly-opened cell mimics ONE generator pop biased to a RANDOM open-quest
 	# line — line ∈ open_lines, tier off the same curve. (The scene gathers open_lines from quests.)
 	var bs := RandomNumberGenerator.new(); bs.seed = 20240601
@@ -537,15 +645,15 @@ func _initialize() -> void:
 
 	# --- §6.B special drop items — the shared pseudo-line foundation (chest/water/acorn/seeds) ---
 	var chest_t1 := 10 * 100 + 1            # chest tier 1
-	var soil_seed_t1 := 14 * 100 + 1
+	var soil_seed_t1 := G.SOIL_SEED_LINE * 100 + 1
 	var flower_t1 := 1 * 100 + 1           # a content line item
 	var coin_t1 := G.COIN_LINE * 100 + 1   # a coin
 	ok(G.is_special(chest_t1) and G.is_special(soil_seed_t1) and not G.is_special(flower_t1) and not G.is_special(coin_t1),
 		"is_special gates only the special pseudo-lines (not content, not coins)")
 	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "",
 		"the chest reads its kind; the retired key line (11) is no longer special")
-	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
-		"merge_top caps special items low, content high, coins at the coin top")
+	ok(G.merge_top(chest_t1) == 5 and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
+		"merge_top lets chests override to tier 5, content high, coins at the coin top")
 	ok(G.merge_top(coin_t1) == 3, "coins merge through tier 3 (the 12-tier ladder is retired)")
 	var expected_coin_values := {1: 2, 2: 4, 3: 10}
 	for tier in expected_coin_values:
@@ -555,10 +663,14 @@ func _initialize() -> void:
 	sbm.place(Vector2i(3, 2), 10 * 100 + 2)
 	sbm.place(Vector2i(3, 4), 10 * 100 + 2)
 	ok(sbm.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "two chest-t2 merge (below the special ceiling)")
-	sbm.place(Vector2i(5, 2), 10 * 100 + 3)
-	sbm.place(Vector2i(5, 4), 10 * 100 + 3)
-	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
+	sbm.place(Vector2i(5, 2), 10 * 100 + 4)
+	sbm.place(Vector2i(5, 4), 10 * 100 + 4)
+	ok(sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t4 merge into the top chest")
+	sbm.place(Vector2i(6, 2), 10 * 100 + 5)
+	sbm.place(Vector2i(6, 4), 10 * 100 + 5)
+	ok(not sbm.can_merge(Vector2i(6, 2), Vector2i(6, 4)), "two chest-t5 do NOT merge (at the chest ceiling)")
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
+	ok(G.item_tex_path(10 * 100 + 5).ends_with("items/chest/chest_5.png"), "chest t5 resolves its wired art path")
 	ok(G.merge_top(13 * 100 + 1) == G.SPECIAL_TOP, "acorn drops merge through tier 3 (the 12-tier ladder is retired)")
 	ok(G.merge_top(soil_seed_t1) == 1 and not G.is_collectable(soil_seed_t1), "improvement seeds are top-1 ordinary occupants, not tap-collect resources")
 	ok(G.item_tex_path(soil_seed_t1).ends_with("ui/kit/seed_soil.png"), "soil seed resolves through the kit seed-art seam")
@@ -584,9 +696,13 @@ func _initialize() -> void:
 	ok(G.is_chest(10 * 100 + 1) and G.is_collectable(10 * 100 + 1), "a chest is collectable — the second tap opens it (no key needed)")
 	# the open reward scales by the chest tier alone (the key line + its multiplier are retired)
 	var r1 := G.chest_open_reward(10 * 100 + 1)   # chest t1 → 40 coins, 0 acorns
-	var r3 := G.chest_open_reward(10 * 100 + 3)   # chest t3 → 320 coins, 3 acorns
+	var r3 := G.chest_open_reward(10 * 100 + 3)   # chest t3 -> 320 coins, 3 acorns
+	var r4 := G.chest_open_reward(10 * 100 + 4)   # chest t4 -> 800 coins, 6 acorns
+	var r5 := G.chest_open_reward(10 * 100 + 5)   # chest t5 -> 2000 coins, 12 acorns
 	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 opens for the base coins")
 	ok(int(r3.coins) == 320 and int(r3.acorns) == 3, "a higher chest tier opens for the richer payout")
+	ok(int(r4.coins) == 800 and int(r4.acorns) == 6, "chest t4 opens for the cascade reward row")
+	ok(int(r5.coins) == 2000 and int(r5.acorns) == 12, "chest t5 opens for the capped cascade reward row")
 
 	# --- §6.C utility accumulators (bank-to-cap, unlocked by map-1 spots) ---
 	var acc_spot: String = String(G.MAPS[0].spots[0].id)   # the water accumulator's unlock spot

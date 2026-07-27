@@ -56,8 +56,19 @@
       "shop": "Rain ☔ get water",
       "hint": "Water refills over time ☔"
     },
-    "winback": {
-      "rained": "It rained while you were away ☔"
+    "sky": {
+      "rain": {
+        "title": "Rain",
+        "desc": "merges shake water loose."
+      },
+      "starfall": {
+        "title": "Starfall",
+        "desc": "a star is on its way."
+      },
+      "sunbeam": {
+        "title": "Sunbeam",
+        "desc": "merges in the beam drop coins."
+      }
     }
   },
   "inbox": {
@@ -73,11 +84,41 @@
   "ladder": {
     "title": "Tiers"
   },
+  "farewell": {
+    "title_returning": "See you soon",
+    "title_complete": "All done here",
+    "returning_body": "The %s will be back at Level %d, for %s%s.",
+    "returning_coin_clause": " — %d coins for the leftovers",
+    "returning_coin_clause_one": " — %d coin for the leftovers",
+    "complete_body": "%s's story is complete%s.",
+    "complete_coin_clause": " — %d coins for the leftovers",
+    "complete_coin_clause_one": " — %d coin for the leftovers",
+    "ok": "OK"
+  },
+  "almanac": {
+    "title": "Almanac",
+    "chip": "Almanac",
+    "back_at": "Back at L%d",
+    "complete": "Complete",
+    "ladder_back": "back at L%d for %s"
+  },
   "producing": {
     "title": "Producing"
   },
   "level": {
     "banner": "Level %d"
+  },
+  "mastery": {
+    "info": {
+      "maxed": "maxed",
+      "next_reach": "next: pops reach t%d",
+      "next_start": "next: pops start at t%d"
+    },
+    "rankup": {
+      "body": "%s — pops now land t%d–t%d.",
+      "continue": "Continue",
+      "title": "Mastery %d"
+    }
   },
   "login": {
     "banner": "Daily",
@@ -149,6 +190,11 @@
       "cta": "Free",
       "ready_in": "Ready in %dm"
     },
+    "scissors": {
+      "label": "Cuts a piece",
+      "note": "Into two of a tier lower.",
+      "title": "SCISSORS"
+    },
     "water": {
       "fill_label": "Fill water"
     },
@@ -172,10 +218,5 @@
     },
     "hint": "Keep playing — it fills at",
     "pitch": "Premium you've earned, saved up — claim it all for %s."
-  },
-  "retire": {
-    "title": "All done here",
-    "body": "Nothing will ask for this line again. Clearing it frees the generator and sells %d leftover pieces for %d coins.",
-    "confirm": "Clear it"
   }
 }

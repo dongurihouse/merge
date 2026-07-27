@@ -21,10 +21,7 @@ func _initialize() -> void:
 func _rush() -> Node:
 	Explore.begin_run({})
 	Save.mark_rush_intro_seen()   # spend the first-run how-to popup so it can't cover the hint
-	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(s)
-	if s.get_child_count() == 0:
-		s._ready()
+	var s = rush_host()
 	s.set_process(false)          # freeze the frame loop; we drive state by hand
 	return s
 
@@ -44,8 +41,7 @@ func _test_flag_off_presents_nothing() -> void:
 	s._refresh_hand_hint()
 	ok(_live_hand_hint(s) == null, "flag off: a mergeable pair presents no hint")
 	Feat.FLAGS["ftue_rush_hint"] = orig
-	s.queue_free()
-	await process_frame
+	await drop(s)
 
 func _test_merge_pair_presents_merge_hint() -> void:
 	fresh("rush_ftue_merge")
@@ -67,8 +63,7 @@ func _test_merge_pair_presents_merge_hint() -> void:
 	ok(_live_hand_hint(s) == null, "...and the hint is dismissed")
 	s._refresh_hand_hint()
 	ok(_live_hand_hint(s) == null, "a seen merge teach never re-presents")
-	s.queue_free()
-	await process_frame
+	await drop(s)
 
 func _test_telegraph_presents_treefall_over_merge() -> void:
 	fresh("rush_ftue_treefall")
@@ -87,5 +82,4 @@ func _test_telegraph_presents_treefall_over_merge() -> void:
 	s._end_hand_hint("rush_treefall")
 	ok(Save.ftue_seen("rush_treefall"), "the dodge teach is marked seen")
 	ok(s._hand_hint_id == "rush_merge", "with the treefall seen, the merge teach follows during the same telegraph")
-	s.queue_free()
-	await process_frame
+	await drop(s)

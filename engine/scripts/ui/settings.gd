@@ -7,8 +7,7 @@ extends RefCounted
 ## per persisted flag — the look (banner, card art, switch size, label font, width) is authored ONCE in
 ## the workbench's Settings + Toggle-card items and read here, never duplicated. Only the BEHAVIOUR
 ## (which flags, their defaults, persistence + side-effects) lives in this file.
-## Layering: ui/ may import core/ + ui/, never scenes/ — see docs/design/merge_spec.md §15. The kit is
-## loaded by PATH at runtime (like inbox.gd) so this file keeps no hard dependency on a tools script.
+## Layering: ui/ may import core/ + ui/, never scenes/ — see docs/design/merge_spec.md §15.
 
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -24,9 +23,6 @@ const GC_INFO_ID := "game_center"
 const VERSION_INFO_ID := "app_version"
 const GC_REFRESH_SECONDS := 0.05
 
-# The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
-# hard-depending on a tools script, matching the inbox/login idiom.
-static var KIT_PATH := Game.kit()
 # The privacy policy the App Store listing points at — also reachable in-app (reviewer-expected for a
 # paid-IAP app). The SAME URL goes in App Store Connect's "Privacy Policy URL" field.
 const PRIVACY_URL := "https://dongurihouse.net/privacy"
@@ -42,9 +38,9 @@ const FLAGS := [
 static func open(host: Control) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Settings: mail kit missing at %s" % KIT_PATH)
+		push_warning("Settings: mail kit missing at %s" % Game.kit())
 		return
 	Audio.play("button_tap", -2.0)
 
@@ -53,7 +49,7 @@ static func open(host: Control) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	# the dialog renders at the SINGLE global frame width; content scales from the authored baseline
 	# (Kit.DIALOG_DESIGN_PCT) to that width — responsive across phones.
 	var vw: float = host.get_viewport_rect().size.x

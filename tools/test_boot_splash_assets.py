@@ -9,7 +9,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCH_RES = "res://games/grove/assets/ui/boot/splash_launch.png"
 LAUNCH_FILE = ROOT / LAUNCH_RES.removeprefix("res://")
-CREAM = "Color(0.956, 0.933, 0.874, 1)"
 
 
 def _setting(path, key):
@@ -50,9 +49,14 @@ class BootSplashAssetTests(unittest.TestCase):
         )
 
     def test_launch_storyboard_background_matches_engine_fallback(self):
-        self.assertEqual(_setting("project.godot", "boot_splash/bg_color"), CREAM)
+        # The colour is READ from project.godot (the engine fallback the iOS storyboard has
+        # to match) and asserted equal on the export preset — never re-typed here as a third
+        # copy, which would just go stale on the next retune. Same lesson as
+        # tools/test_stamp_build_info.sh, which reads the version out of export_presets.cfg.
+        cream = _setting("project.godot", "boot_splash/bg_color")
+        self.assertRegex(cream, r"^Color\([\d.]+, [\d.]+, [\d.]+, [\d.]+\)$")
         self.assertEqual(_setting("export_presets.cfg", "storyboard/use_custom_bg_color"), "true")
-        self.assertEqual(_setting("export_presets.cfg", "storyboard/custom_bg_color"), CREAM)
+        self.assertEqual(_setting("export_presets.cfg", "storyboard/custom_bg_color"), cream)
 
     def test_engine_splash_uses_cover_scale_like_ios_storyboard(self):
         # The engine boot-splash stretch_mode enum is

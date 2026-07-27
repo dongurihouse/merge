@@ -13,25 +13,19 @@ extends RefCounted
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
-const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
-const Pal = Game.PALETTE
-const STRAW := Pal.STRAW
 const OVERLAY_NAME := "InboxOverlay"
 
-# The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
-# hard-depending on a tools script, matching the inbox's own guarded-system idiom.
-static var KIT_PATH := Game.kit()
 
 # --- the mailbox popup --------------------------------------------------------------
 
 static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Inbox: mail kit missing at %s" % KIT_PATH)
+		push_warning("Inbox: mail kit missing at %s" % Game.kit())
 		return
 
 	var modal := Overlay.modal(host, OVERLAY_NAME)
@@ -44,7 +38,7 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	Inbox.prune()
 	Inbox.mark_all_read()
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	# the mail dialog renders at the SINGLE global frame width; content scales from the authored
 	# baseline (Kit.DIALOG_DESIGN_PCT) to that width (responsive across phone sizes).
 	var vw: float = host.get_viewport_rect().size.x
@@ -84,7 +78,7 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 					var fx_host: Control = rb.get("fx_host", host)
 					if not is_instance_valid(fx_host):
 						fx_host = host
-					_celebrate(fx_host, fx_host.get_viewport_rect().size * 0.5, granted)
+					FX.celebrate_rewards(fx_host, fx_host.get_viewport_rect().size * 0.5, granted)
 					var ho: Dictionary = rb.get("host_opts", {})
 					if ho.has("refresh"):
 						(ho.refresh as Callable).call()
@@ -121,7 +115,7 @@ static func _entries(host: Control, rb: Dictionary) -> Array:
 					var fx_host: Control = rb.get("fx_host", host)
 					if not is_instance_valid(fx_host):
 						fx_host = host
-					_celebrate(fx_host, fx_host.get_viewport_rect().size * 0.5, granted)
+					FX.celebrate_rewards(fx_host, fx_host.get_viewport_rect().size * 0.5, granted)
 					# Save has no change signal — the HUD wallet is pull-based — so tell the host to
 					# re-read the currency bar (mirrors the login calendar's refresh hook).
 					var ho: Dictionary = rb.get("host_opts", {})
@@ -131,18 +125,6 @@ static func _entries(host: Control, rb: Dictionary) -> Array:
 					rb.fn.call()
 		out.append(e)
 	return out
-
-# Play the claimed gift's juice — a small reward shout per granted component (mirrors the login
-# calendar's _celebrate, kept simple).
-static func _celebrate(host: Control, at: Vector2, rew: Dictionary) -> void:
-	Audio.play("merge_success", -3.0, 1.2)
-	var dy := 0.0
-	if int(rew.get("gems", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "gem", int(rew.gems), Color("#A9C7E8")); dy += 34
-	if int(rew.get("coins", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "coin", int(rew.coins), STRAW); dy += 34
-	if int(rew.get("water", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "water", int(rew.water), Color("#9CCDE8")); dy += 34
 
 static func _reward_total(rew: Dictionary) -> int:
 	return int(rew.get("coins", 0)) + int(rew.get("gems", 0)) + int(rew.get("water", 0))

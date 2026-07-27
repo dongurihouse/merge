@@ -6,6 +6,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy-bank accrual vault
 const Feat = preload("res://engine/scripts/core/features.gd") # the vault is parked (flag OFF); flipped ON for its section
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
+const Inbox = preload("res://engine/scripts/core/inbox.gd")   # the mailbox — the second reward faucet
 const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
 const G = preload("res://engine/scripts/core/content.gd")     # map-progression queries (gate/unlock chain)
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")   # §29 — the board-size-mismatch wipe
@@ -619,4 +620,42 @@ func _initialize() -> void:
 	ok(not Save.get_setting("sfx") and Save.get_setting("music"), "round trip: settings")
 	ok(Save.water() == 7 and not Save.last_load_repaired, "round trip: the grove blob, with no repair flagged")
 
+	_test_water_gifts_respect_the_implicit_full_can()
+
 	finish()
+
+# 31. WATER GIFTS AND THE IMPLICIT FULL CAN. `water` is a lazily created grove key: an absent key
+# means a FULL can (Save.water() defaults to WATER_CAP, and so does every other read site). A gift
+# that computed its own `get("water", 0)` default and wrote the sum back as an ABSOLUTE value turned
+# a full can into the gift amount — the gift made the player poorer. Both faucets (the login ladder
+# and the inbox) must read the can through Save, never re-type the default.
+# The over-cap half is the other invariant: the free refill banks a spare OVER WATER_CAP
+# (shop.gd's `Save.add_water(n, true)`), and a gift is a TOP-UP, never a drain.
+func _test_water_gifts_respect_the_implicit_full_can() -> void:
+	var cap := int(G.WATER_CAP)
+
+	fresh("water_gift_login")
+	Save.grove().erase("water")                  # the lazily created key: absent == a full can
+	Login._grant_water(3)
+	ok(Save.water() == cap, \
+		"a login water gift on a save with no `water` key leaves a FULL can, not the gift amount")
+
+	Save.set_water(cap - 10)
+	Login._grant_water(4)
+	ok(Save.water() == cap - 6, "a login water gift on a partly empty can still adds")
+	Login._grant_water(cap)
+	ok(Save.water() == cap, "a login water gift clamps to WATER_CAP")
+
+	fresh("water_gift_inbox")
+	Save.grove().erase("water")
+	Inbox._grant({"water": 3})
+	ok(Save.water() == cap, \
+		"an inbox water gift on a save with no `water` key leaves a FULL can, not the gift amount")
+
+	Save.set_water(cap - 10)
+	Inbox._grant({"water": 4})
+	ok(Save.water() == cap - 6, "an inbox water gift on a partly empty can still adds")
+	Save.set_water(cap + 20)                     # a banked over-cap spare (the free refill)
+	Inbox._grant({"water": 5})
+	ok(Save.water() == cap + 20, \
+		"an inbox water gift is a top-up, never a drain: a banked over-cap can is left as-is")

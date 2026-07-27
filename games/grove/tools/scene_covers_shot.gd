@@ -4,7 +4,7 @@ extends SceneTree
 ## put). Born minimized via quiet_godot.sh's override.cfg.
 ##   godot --path . -s res://games/grove/tools/scene_covers_shot.gd -- [SCENE] [OBJECT|auto] [OUT]
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const View = preload("res://games/grove/tools/scene_workbench_view.gd")
 const M = preload("res://games/grove/tools/scene_workbench_model.gd")
 const CoversModel = preload("res://games/grove/tools/scene_covers_model.gd")

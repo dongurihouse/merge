@@ -11,8 +11,7 @@ extends RefCounted
 ## line+tier hand spirit MERGES (Bucket.hand_merge), onto a matching placed spirit climbs it
 ## (place_merge), onto a free habitat cell moves in (place).
 ## The MODEL is entirely engine/scripts/core/bucket.gd; this file is render + taps + drags only.
-## Layering: ui/ may import core/ + ui/, never scenes/. The kit is loaded by PATH at runtime
-## (the settings.gd/inbox.gd idiom) so this file keeps no hard dependency on a tools script.
+## Layering: ui/ may import core/ + ui/, never scenes/.
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
@@ -31,7 +30,6 @@ const Pal = Game.PALETTE
 const D = Game.DATA
 
 const OVERLAY_NAME := "ResidentsOverlay"
-static var KIT_PATH := Game.kit()
 # Resident-specific body sprites extracted from the residents mock. The outer dialog frame stays owned by
 # the shared kit so it matches Mail/Daily/Settings instead of drawing a second sheet.
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")
@@ -227,9 +225,9 @@ class DragCard:
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Residents: mail kit missing at %s" % KIT_PATH)
+		push_warning("Residents: mail kit missing at %s" % Game.kit())
 		return
 	Audio.play("button_tap", -2.0)
 
@@ -237,7 +235,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var viewport_size := host.get_viewport_rect().size
 	var vw: float = viewport_size.x
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["residents"] / 100.0
@@ -824,24 +822,11 @@ static func _register_card(ctx: Dictionary, dc: DragCard) -> void:
 
 ## The spirit's per-tier ladder art, centred in its box — TRIMMED to its used rect (the raw canvas
 ## carries transparent padding that would shrink the sprite), cached per path like the map dock.
-static var _art_cache: Dictionary = {}
+# The trim-to-opaque-content cache lives on PieceView (trimmed_tex) — resident art and board item
+# art are the SAME padded canvases, so a second copy here decoded every path twice and held two
+# AtlasTextures for it.
 static func _spirit_tex(path: String) -> Texture2D:
-	if _art_cache.has(path):
-		return _art_cache[path]
-	var tex: Texture2D = load(path)
-	var result: Texture2D = tex
-	if tex != null:
-		var img := tex.get_image()
-		if img != null:
-			var used := img.get_used_rect()
-			var full := Vector2i(tex.get_width(), tex.get_height())
-			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != full):
-				var at := AtlasTexture.new()
-				at.atlas = tex
-				at.region = Rect2(used)
-				result = at
-	_art_cache[path] = result
-	return result
+	return PieceView.trimmed_tex(path)
 
 ## The resident cell's ART, rendered through the SHARED board pipeline (PieceView.make_piece_from_texture):
 ## a cell-sized holder carrying the board's CONTACT SHADOW under the centered sprite, at the board's own

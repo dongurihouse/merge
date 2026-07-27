@@ -21,9 +21,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
-const STRAW := Pal.STRAW
 
-static var KIT_PATH := Game.kit()
 const WEEK := 7
 const COLS := 3
 const OVERLAY_NAME := "LoginOverlay"
@@ -110,9 +108,9 @@ class Spark:
 static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Overlay.is_open(host, OVERLAY_NAME):
 		return
-	var Kit: GDScript = load(KIT_PATH)
+	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
-		push_warning("Daily: mail kit missing at %s" % KIT_PATH)
+		push_warning("Daily: mail kit missing at %s" % Game.kit())
 		return
 
 	# the veil tap is _dismiss split in two: the scaffold frees the overlay, on_dismiss runs the refresh.
@@ -120,7 +118,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var cfg: Dictionary = Game.kit_config()
 	var vw: float = host.get_viewport_rect().size.x
 	# every dialog renders at the SINGLE global frame width; content scales from this dialog's
 	# authored baseline (Kit.DIALOG_DESIGN_PCT) to that width (Kit.dialog_content_scale).
@@ -230,7 +228,7 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 				d["on_claim"] = func() -> void:
 					var fx_host: Control = rb.get("fx_host", host) ; var at := fx_host.get_viewport_rect().size * 0.5
 					if Login.claim_today():
-						_celebrate(fx_host, at, Login.reward_for(day))
+						FX.celebrate_rewards(fx_host, at, Login.reward_for(day))
 						if rb.fn.is_valid():
 							rb.fn.call()                 # flip today's card to ✓ behind the celebration
 						_close_after(fx_host, opts, CLAIM_CLOSE_DELAY)
@@ -648,14 +646,3 @@ static func _close_after(overlay: Control, opts: Dictionary, delay: float) -> vo
 		var tw := overlay.create_tween()
 		tw.tween_property(overlay, "modulate:a", 0.0, 0.22)
 		tw.tween_callback(func() -> void: _dismiss(overlay, opts)))
-
-# Play the collected rung's juice — a celebratory reward shout per granted component.
-static func _celebrate(host: Control, at: Vector2, rew: Dictionary) -> void:
-	Audio.play("merge_success", -3.0, 1.2)
-	var dy := 0.0
-	if int(rew.get("gems", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "gem", int(rew.gems), Color("#A9C7E8")); dy += 34
-	if int(rew.get("coins", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "coin", int(rew.coins), STRAW); dy += 34
-	if int(rew.get("water", 0)) > 0:
-		FX.celebrate_reward(host, at + Vector2(0, dy), "water", int(rew.water), Color("#9CCDE8")); dy += 34

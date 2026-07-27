@@ -6,32 +6,50 @@ QUIET   := engine/tools/quiet_godot.sh
 JOBS    ?= 4                                  # parallel suites; 4 avoids over-subscribing cores
 RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timing table
 DEVICE  ?=                                    # desktop phone simulator for make g, e.g. DEVICE=393x852
-# Suites = the pure code-logic set. The UI / FX / layout / scene-display suites were removed;
-# these guard game rules, model, economy, persistence, quest logic, store/IAP, and identity.
-ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests engine/tests/improvements_tests
+# Suites = every active engine check: game rules, model, economy, persistence, quest logic,
+# store/IAP and identity, PLUS the UI / FX / layout / scene-display guards (layering,
+# fx_config, action_button, modal_dismiss, scene_cells, ftue_hand_hint, palette_ssot).
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/cascade_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/sky_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests engine/tests/feature_flag_registry_tests engine/tests/save_migrate_tests engine/tests/mastery_tests engine/tests/improvements_tests
 ENGINE_TESTS_DISABLED :=
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_scene_covers_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_ftue_tests games/grove/tests/grove_rush_ftue_tests games/grove/tests/grove_improvements_tests
+GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_sky_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_scene_covers_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_ftue_tests games/grove/tests/grove_rush_ftue_tests games/grove/tests/grove_cascade_tests games/grove/tests/grove_improvements_tests
 GROVE_TESTS_DISABLED :=
 # dev-tool suites — pure-Image logic for the asset intake pipeline (fast, no scenes)
 TOOLS_TESTS  := games/tools/tests/slice_islands_tests
 TESTS        := $(ENGINE_TESTS) $(TOOLS_TESTS) $(GROVE_TESTS)
-# Build/config guards — no Godot, stdlib only, milliseconds each. They check the SHIPPING
-# config (splash + launch storyboard, the build-info stamper, the Xcode Cloud clone hook)
-# rather than game logic, so they live outside $(RUNNER) and run via `make test-config`.
-# All three read only committed files (build/ios/ci_scripts/ci_post_clone.sh is tracked —
-# un-ignored by .gitignore's negations — and none of them touch gitignored engine/generated/),
-# so they are safe on a clean checkout and in CI.
-PY_TESTS     := tools/test_boot_splash_assets.py
+# Non-Godot guards — plain python/bash, seconds at most, run via `make test-config` (which
+# `make test` depends on). Two kinds live here:
+#   • SHIPPING-config guards (splash + launch storyboard, the build-info stamper, the Xcode
+#     Cloud clone hook) — stdlib only, milliseconds, and they read only committed files
+#     (build/ios/ci_scripts/ci_post_clone.sh is tracked — un-ignored by .gitignore's
+#     negations — and none of them touch gitignored engine/generated/), so they are safe on
+#     a clean checkout and in CI.
+#   • ASSET-PIPELINE guards for the python image tools (composite baker, meadow-UI
+#     extractor). These are NOT stdlib-only — they need Pillow / numpy / scipy, the same
+#     deps the intake pipeline already requires. They build their fixtures in tempdirs and
+#     touch no repo files.
+# Every suite here is run with PYTHONPATH=. so package-style imports
+# (`from games.grove.tools.… import …`) resolve from the repo root; run bare, those fail
+# with ModuleNotFoundError because sys.path[0] is the test's own directory.
+#   • TOOL-PIPELINE suites that used to hang off their own targets only (`make intake-test`,
+#     `make sfx-test`) and so were absent from the sweep everyone actually runs. Both are fast
+#     (~0.05s and ~0.6s) and build their fixtures in tempdirs, so they are folded in here; the
+#     two targets stay as shortcuts. engine/tests/suite_registry_tests.gd now asserts this list
+#     covers every python suite on disk, so the next one cannot sit unrun.
+PY_TESTS     := tools/test_boot_splash_assets.py \
+                games/grove/tests/bake_scene_composites_tests.py \
+                games/grove/tools/tests/test_extract_meadow_ui_v2.py \
+                games/tools/test_intake_apply.py \
+                tools/sfx_synth/test_synth.py
 SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run g-phone editor fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
+.PHONY: help run g g-phone debug editor w fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
         shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
-        decor icon ios release-ios get-ios clean clean-cache intake intake-test
+        decor icon sfx sfx-test ios ios-plugins release-ios get-ios clean clean-cache intake intake-test c l
 
 help: ## list available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -81,9 +99,9 @@ test-fast: ## ⚡ inner-loop check — engine + tool suites, parallel. USE THIS 
 test: test-config ## full sweep: config guards + every suite (engine + grove), parallel + per-suite timing table
 	@python3 $(RUNNER) $(TESTS)
 
-test-config: ## build/config guards (splash, build-info stamp, Xcode Cloud hook) — no godot, milliseconds
+test-config: ## non-godot guards (splash, build-info stamp, Xcode Cloud hook, asset-pipeline image tools)
 	@set -e; \
-	for t in $(PY_TESTS); do echo "== $$t"; python3 $$t; done; \
+	for t in $(PY_TESTS); do echo "== $$t"; PYTHONPATH=$(PROJECT) python3 $$t; done; \
 	for t in $(SH_TESTS); do echo "== $$t"; bash $$t; done
 
 test-engine: ## only the base-engine suites (parallel)
@@ -92,8 +110,14 @@ test-engine: ## only the base-engine suites (parallel)
 test-grove: ## only the grove game suites (parallel)
 	@python3 $(RUNNER) $(GROVE_TESTS)
 
+# Goes through $(RUNNER) like every other test target, so a single suite is judged by the
+# SAME rules as the full sweep: it passes only on "== N passed, 0 failed ==" with exit 0 and
+# ZERO `SCRIPT ERROR`, and a suite that aborts mid-`_initialize()` (never reaching quit()) is
+# killed by the hang guard and reported, instead of idling forever. Running godot directly
+# here trusted the raw exit code, which is 0 for a suite that logged failures — so the one
+# command you reach for when debugging was the one that could not fail honestly.
 test-one: ## run one suite by path:  make test-one SUITE=engine/tests/save_tests
-	$(GODOT) --headless --path $(PROJECT) -s res://$(SUITE).gd
+	@python3 $(RUNNER) $(SUITE)
 
 smoke: ## scene smoke test (instantiates the UI + board)
 	$(GODOT) --headless --path $(PROJECT) -s res://engine/tests/smoke.gd
@@ -158,6 +182,14 @@ IOS_VERSION := $(or $(VERSION),$(IOS_ARGS))
 # for on-device iteration; `release` is smaller and is what ships. `release-ios` overrides
 # this — never hand a debug template to App Store Connect.
 IOS_EXPORT_MODE ?= debug
+# The export output dir + the generated Xcode project, named once. NB the Info.plist lives
+# under build/ios/AcornForest/ (the target dir), NOT inside the .xcodeproj bundle.
+IOS_DIR       := build/ios
+IOS_XCODEPROJ := $(IOS_DIR)/AcornForest.xcodeproj
+# Wipe the export dir but KEEP ci_scripts: build/ios/ci_scripts/ci_post_clone.sh is a TRACKED
+# file (un-ignored by .gitignore's negations) that Xcode Cloud runs, and
+# tools/test_xcode_cloud_ci.sh fails if it is missing. Used by both `ios` and `clean`.
+IOS_WIPE      := find $(IOS_DIR) -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
 ifneq (,$(filter ios release-ios,$(MAKECMDGOALS)))
 ifneq (,$(IOS_ARGS))
 $(eval $(IOS_ARGS):;@:)
@@ -168,23 +200,23 @@ ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into ad
 	tools/install_ios_plugins.sh
 
 ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets the app version (see docs/design/apple-services-setup.md)
-	mkdir -p build/ios
-	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
+	mkdir -p $(IOS_DIR)
+	$(IOS_WIPE)
 	tools/stamp_build_info.sh engine/generated/build_info.gd $(IOS_VERSION)
-	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj $(IOS_EXPORT_MODE)
+	tools/export_ios.sh $(PROJECT) $(IOS_XCODEPROJ) $(IOS_EXPORT_MODE)
 	# The main preset excludes games/grove/assets/**, so the pack above is code + data only.
 	# Build the art/audio half separately and reference it from the Xcode project; boot.gd
 	# mounts it at startup. Keeping art in its own byte-stable pack is what lets a code-only
 	# update ship ~6 MB instead of the whole game.
-	tools/export_asset_pack.sh $(PROJECT) build/ios/grove_assets.pck
-	tools/add_asset_pack_to_xcode.py build/ios/AcornForest.xcodeproj/project.pbxproj
+	tools/export_asset_pack.sh $(PROJECT) $(IOS_DIR)/grove_assets.pck
+	tools/add_asset_pack_to_xcode.py $(IOS_XCODEPROJ)/project.pbxproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
-	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
+	tools/strip_unused_ios_permissions.sh $(IOS_DIR)/AcornForest/AcornForest-Info.plist
 	# Godot pins "Apple Distribution" on Release under automatic signing — Xcode rejects that. Fix to "Apple Development".
-	tools/normalize_ios_signing.sh build/ios/AcornForest.xcodeproj/project.pbxproj
+	tools/normalize_ios_signing.sh $(IOS_XCODEPROJ)/project.pbxproj
 	# `make ios 1.2.3` -> app version 1.2.3; bare `make ios` keeps export_presets' version (Xcode Cloud
 	# auto-sets the build number from $$CI_BUILD_NUMBER). See tools/set_ios_version.sh.
-	tools/set_ios_version.sh build/ios/AcornForest.xcodeproj/project.pbxproj $(IOS_VERSION)
+	tools/set_ios_version.sh $(IOS_XCODEPROJ)/project.pbxproj $(IOS_VERSION)
 
 release-ios: ## archive + upload to App Store Connect/TestFlight: make release-ios <patch|minor|major|X.Y.Z>
 	@test -n "$(strip $(IOS_VERSION))" || { echo "usage: make release-ios <patch|minor|major|X.Y.Z>"; exit 1; }
@@ -201,7 +233,7 @@ get-ios: ## print the last version/build uploaded to App Store Connect (needs th
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output
 	if [ -d build ]; then find build -mindepth 1 -maxdepth 1 ! -name ios -exec rm -rf {} +; fi
-	if [ -d build/ios ]; then find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +; fi
+	if [ -d $(IOS_DIR) ]; then $(IOS_WIPE); fi
 
 clean-cache: ## remove the Godot import cache (forces a full reimport next run)
 	rm -rf .godot
