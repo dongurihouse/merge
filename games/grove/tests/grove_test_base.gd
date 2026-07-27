@@ -31,6 +31,33 @@ const Data = preload("res://games/active.gd").DATA
 # are the real speed-up. Raise ONLY if you re-verify the counts still hold.
 const TIME_SCALE := 1.0
 
+# --- the three engine scene hosts ----------------------------------------------
+# test_base.mount() bound to each scene's path + its "did _ready run?" probe. The probe is a
+# property of the SCENE, not of the test: Map builds `content`, Board builds `board`, ExploreRush
+# builds its whole subtree. Suites call map_host()/board_host()/rush_host(); grove_shop_tests
+# drives both Map and Board from one loop, so the raw probes stay reachable too.
+const MAP_SCENE := "res://engine/scenes/Map.tscn"
+const BOARD_SCENE := "res://engine/scenes/Board.tscn"
+const RUSH_SCENE := "res://engine/scenes/ExploreRush.tscn"
+
+static func map_unready(h) -> bool:
+	return h.content == null
+
+static func board_unready(h) -> bool:
+	return h.board == null
+
+static func rush_unready(h) -> bool:
+	return h.get_child_count() == 0
+
+func map_host() -> Node:
+	return mount(MAP_SCENE, map_unready)
+
+func board_host() -> Node:
+	return mount(BOARD_SCENE, board_unready)
+
+func rush_host() -> Node:
+	return mount(RUSH_SCENE, rush_unready)
+
 # --- R3: pixel-right asserts (eng rule 14) -------------------------------------
 # Composited UI (panel + icon + label + offsets) is where 10px misalignment hides
 # at full-screen scale. These ASSERT the composition headlessly. Call after the
@@ -369,10 +396,7 @@ func _test_resident_wiring() -> void:
 	G.welcome_resident(z, cid)
 	ok(Save.resident_counts(map_id, cid) == _pad([1, 1, 0]), "3 welcomes leave a t1 + an auto-merged t2")
 
-	var hx = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hx)
-	if hx.content == null:
-		hx._ready()
+	var hx = map_host()
 	hx.unlocks = unl
 	hx._open_map(z)
 	ok(G.residents_shop_cards(z).size() >= 1, "the Residents shop offers kind cards on a populatable map")
@@ -435,10 +459,7 @@ func _button_texts(node: Node) -> Array:
 
 func _test_2x_doubler_rehome() -> void:
 	fresh("rehome_2x")
-	var scn = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(scn)
-	if scn.board == null:
-		scn._ready()
+	var scn = board_host()
 	# The 💎-priced doubler is GATED: it only surfaces when the coin reward is big enough that doubling
 	# beats the shop pouch (got >= COLLECT_2X_COIN_RATE). A small reward never offers it.
 	scn._maybe_offer_2x(9, scn.get_global_rect().get_center())
@@ -486,10 +507,7 @@ func _test_t45_wiring() -> void:
 	# (no tile, no skim) is asserted by grove_explore_tests / grove_maps_page_tests.
 	fresh("t45_vault")
 	Feat.FLAGS["piggy_vault"] = true
-	var hv = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hv)
-	if hv.content == null:
-		hv._ready()
+	var hv = map_host()
 	# a sub-threshold jar → the pip is dark; fill it past the claim min → the pip lights.
 	hv._refresh_piggy_pip()
 	ok(hv._piggy_pip != null and not hv._piggy_pip.visible, "the piggy ready-pip is dark while the jar is below the claim threshold")
@@ -513,10 +531,7 @@ func _test_t45_wiring() -> void:
 	gl["unlocks"] = {hub_id: true}                    # past the cold FTUE (a rewarding beat happened)
 	Save.grove_write()
 	ok(not Login.claimed_today(), "today is unclaimed (the day's first open)")
-	var hl = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hl)
-	if hl.content == null:
-		hl._ready()
+	var hl = map_host()
 	await create_timer(0.2).timeout                   # the popup is deferred two frames; the timer spans them
 	var login_up := _find_calendar_overlay(hl)
 	ok(login_up != null, "the daily-login calendar AUTO-POPS on the day's first hub open (past the FTUE)")
@@ -530,20 +545,14 @@ func _test_t45_wiring() -> void:
 	Save.grove_write()
 	ok(Login.claim_today(), "claim today's rung up front")
 	ok(Login.claimed_today(), "today now reads claimed")
-	var hl2 = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hl2)
-	if hl2.content == null:
-		hl2._ready()
+	var hl2 = map_host()
 	await create_timer(0.2).timeout
 	ok(_find_calendar_overlay(hl2) == null, "an already-claimed day shows NO calendar popup (fires once, never nags)")
 	hl2.queue_free()
 
 	# 3c. the cold FTUE session (no spots owned) is SKIPPED — §18 "after a reward, not a cold open".
 	fresh("t45_login_ftue")
-	var hf = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hf)
-	if hf.content == null:
-		hf._ready()
+	var hf = map_host()
 	await create_timer(0.2).timeout
 	ok(_find_calendar_overlay(hf) == null, "the cold first FTUE session (no spots owned) skips the calendar (§18)")
 	hf.queue_free()

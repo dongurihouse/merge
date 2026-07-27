@@ -1,0 +1,44 @@
+Generate an image (do not write code).
+Use case: UI mock — a locked edit of a live game screenshot (one small control added).
+Asset type: full-frame mobile mock, opaque PNG, exactly 1080x1920 (the size of image 1).
+
+Image 1 is the exact edit target. Preserve everything: the board, HUD, quest cards, and the bottom
+row (Home tile on the left, the wide empty info tray in the middle, Bag tile on the right).
+Image 2 is the Meadow Sky palette and cut-paper material authority — colors and paper only.
+
+Add ONE small control: an ALMANAC button at the right end of the empty middle info tray of the
+bottom row. Keep the tray's ⓘ disc and its hint text exactly as they are; the hint text may
+compress slightly leftward to make room.
+
+- A compact warm-cream #F6EBDD rounded cut-paper chip, about 22% of the tray's width, inset from
+  the tray's right edge.
+- On the chip: a small ink #243B4B open-book glyph (two simple page shapes, cut-paper, no detail)
+  and under it one small ink caption exactly: Almanac
+- The chip reads as quiet furniture (no accent color), matching the tray's paper language.
+
+Change nothing else in the screenshot. No watermark.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: render only the exact text specified above ("Almanac"), plus every label that
+already exists in image 1, unchanged.
+
+Avoid: moving or resizing the Home/Bag tiles, filling the tray with anything else, accent-green
+chip, glow, gloss, badges, counters, watermark.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/26df01ea-7e0b-4e2e-bd26-f7cdb770f476/scratchpad/mocks
+Name it: almanac_infobar_v1_1080x1920.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation, key out the background to transparent,
+and save it to the path above. Then report the saved path.

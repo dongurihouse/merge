@@ -444,7 +444,7 @@ func _preview_screen_w() -> float:
 
 func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 	var layout := Kit.hud_layout_opts_from_config({"hud_layout": _params["hud_layout"]})
-	var edge := float(layout.get("edge_margin_px", 18.0))
+	var edge := float(layout.edge_margin_px)
 	var pill_slot_w := maxf(1.0, roundf(_preview_screen_w() * float(layout.get("currency_pill_w_frac", 0.25))))
 	var pill_body_w := maxf(1.0, pill_slot_w - edge)
 	var row := HBoxContainer.new()
@@ -766,14 +766,16 @@ func _hud_layout_preview() -> Control:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
-	var edge := float(p.get("edge_margin_px", 18)) * s
+	# every dial below comes off the kit's RESOLVED layout (Kit.hud_layout_opts_from_config) — the
+	# preview must not carry its own copy of a default, or it certifies geometry the board won't render.
+	var edge := float(layout.edge_margin_px) * s
 
 	# --- top HUD: the level badge (sized to the currency pill height, hud.gd) + the wallet band, whose 3
 	# pills are CENTRED in the currency area (hud.gd centres them; they are not left-packed). ---
 	var pill_slot_w := PHONE_W * float(layout.get("currency_pill_w_frac", 0.25))
-	var pill_body_w := maxf(1.0, pill_slot_w - float(p.get("edge_margin_px", 18))) * s
+	var pill_body_w := maxf(1.0, pill_slot_w - float(layout.edge_margin_px)) * s
 	var pill_h := 74.0 * s   # the shipped gold-currency-pill height (hud.gd sizes the badge to it)
-	var pill_gap := float(p.get("edge_margin_px", 18)) * s
+	var pill_gap := float(layout.edge_margin_px) * s
 	var wallet_w := w * clampf(float(layout.get("currency_area_frac", 0.75)), 0.0, 1.0)
 	var wallet_x := w - wallet_w
 	var pill_run := pill_body_w * 3.0 + pill_gap * 2.0
@@ -793,14 +795,14 @@ func _hud_layout_preview() -> Control:
 
 	# --- bottom bar + quest + board: bottom-anchored, with the board's REAL absolute-px clamps applied on
 	# the full viewport then scaled — so the sliders show what the board will actually render, not a raw %. ---
-	var btn_px := clampf(roundf(PHONE_W * float(layout.get("button_w_frac", 0.15))), ActionBar.BOTTOM_BTN_MIN, ActionBar.BOTTOM_BAR_MAX - (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
+	var btn_px := clampf(roundf(PHONE_W * float(layout.button_w_frac)), ActionBar.BOTTOM_BTN_MIN, ActionBar.BOTTOM_BAR_MAX - (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
 	var bottom_raw := maxf(ActionBar.BOTTOM_BAR_H, btn_px + (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
-	var bottom_frac := float(layout.get("bottom_row_h_frac", 0.0))
+	var bottom_frac := float(layout.bottom_row_h_frac)
 	if bottom_frac > 0.0:
 		bottom_raw = maxf(btn_px, roundf(PHONE_H * bottom_frac))
 	var bottom_h := clampf(bottom_raw, ActionBar.BOTTOM_BAR_MIN, ActionBar.BOTTOM_BAR_MAX) * s
 	var btn_w := btn_px * s
-	var quest_h := clampf(roundf(PHONE_H * float(layout.get("quest_bar_h_frac", 0.13))), BoardFit.QUEST_H_MIN, BoardFit.QUEST_H_MAX) * s
+	var quest_h := clampf(roundf(PHONE_H * float(layout.quest_bar_h_frac)), BoardFit.QUEST_H_MIN, BoardFit.QUEST_H_MAX) * s
 	var gap := 8.0 * s
 	var bottom_y := h - bottom_h - edge
 	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
@@ -841,7 +843,7 @@ func _action_bar_preview() -> Control:
 	# still come from the shared params); Kit.home_button itself is still the live map.gd/board.gd builder.
 	var ho := Kit.home_button_opts_from_config({"badge": _params["badge"], "shadow": _params["shadow"]})
 	var preview_w := PHONE_W
-	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.get("button_w_frac", 0.15))))))
+	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.button_w_frac)))))
 	var bar_h := maxf(166.0, btn_px + 36.0)
 
 	# Mirrors the live board: a TRANSPARENT holder, with the Home/Bag tiles standing free at the two ends and

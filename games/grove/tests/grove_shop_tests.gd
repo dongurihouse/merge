@@ -139,10 +139,7 @@ func _initialize() -> void:
 	# full can, so a clamping drain would silently swallow the paid water — regression guard).
 	fresh("oow_board")
 	Save.add_water_pending(int(Data.STARTER_PACK.water))
-	var bw = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bw)
-	if bw.board == null:
-		bw._ready()
+	var bw = board_host()
 	ok(bw.refill_btn != null, "the board builds the refill surface")
 	ok(Save.water_pending() == 0 and bw.water == G.WATER_CAP + int(Data.STARTER_PACK.water), \
 		"the board banks the starter water over-cap on open (%d = full can + %d, not clamped)" % [bw.water, int(Data.STARTER_PACK.water)])
@@ -239,10 +236,7 @@ func _initialize() -> void:
 	# T-J(iv): pressing the free refill in the REAL stall GRANTS THROUGH SAVE (over-cap), end-to-end —
 	# no host callback. Start full so the refill banks a spare; assert Save's water doubles.
 	fresh("refill_card_live")
-	var wsh = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(wsh)
-	if wsh.content == null:
-		wsh._ready()
+	var wsh = map_host()
 	Save.set_water(G.WATER_CAP)                            # full → a refill banks a spare
 	ShopS.open_water(wsh, {})
 	var w_overlay: Control = wsh.find_child("ShopOverlay", true, false)
@@ -256,10 +250,7 @@ func _initialize() -> void:
 		var is_map: bool = "Map" in host_scene
 		var where: String = "map" if is_map else "board"
 		fresh("refill_card_%s" % where)
-		var h = load(host_scene).instantiate()
-		get_root().add_child(h)
-		if (h.get("content") if is_map else h.get("board")) == null:
-			h._ready()
+		var h = mount(host_scene, map_unready if is_map else board_unready)
 		Save.set_water(G.WATER_CAP)                        # full → a refill banks a spare
 		ok(h._open_water.is_valid(), "the %s HUD wires an _open_water callable" % where)
 		h._open_water.call()                               # the exact path the water pill + fires
@@ -271,10 +262,7 @@ func _initialize() -> void:
 	# the board re-syncs that cache from Save (the on_refresh hook) — no per-currency callback, and it
 	# can't undo a pop (the board never fires the refresh mid-pop).
 	fresh("board_water_resync")
-	var brd = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(brd)
-	if brd.board == null:
-		brd._ready()
+	var brd = board_host()
 	brd.water = G.WATER_CAP
 	Save.add_water(G.WATER_CAP, true)                      # a shop grant lands in Save; the cache is now stale
 	ok(brd.water == G.WATER_CAP and Save.water() == G.WATER_CAP * 2, "the board's live cache is stale until refresh")
@@ -285,10 +273,7 @@ func _initialize() -> void:
 	# the old positional 1-2 anchor. Force a single open quest on line 6 → the unlocked cell carries
 	# line 6 (the positional formula would yield line 2 at (2,3)).
 	fresh("bramopen")
-	var bq = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bq)
-	if bq.board == null:
-		bq._ready()
+	var bq = board_host()
 	bq.quests = [{"line": 6, "tier": 4}]
 	bq._open_bramble(Vector2i(2, 3))
 	ok(BoardModel.line_of(bq.board.item_at(Vector2i(2, 3))) == 6, \
@@ -297,10 +282,7 @@ func _initialize() -> void:
 	# debug affordance: in debug mode the panel's "Drop coin" button calls board.debug_drop_coin(), which
 	# lands a tier-1 coin on a free cell AND persists it (so the dropped coin survives the next save/reload).
 	fresh("debug_drop_coin")
-	var bd = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bd)
-	if bd.board == null:
-		bd._ready()
+	var bd = board_host()
 	for ci in bd.board.items.size():           # clear the playfield so the only coin is the debug drop
 		bd.board.items[ci] = 0
 	bd._rebuild_pieces()
@@ -422,10 +404,7 @@ func _initialize() -> void:
 	# rugged edge + centered glyph, not a baked nav_<x>.png sprite. The Bag well additionally keeps
 	# its BagContent overlay host (the most-recent stashed item) intact.
 	fresh("board_action_wells")
-	var bx = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(bx)
-	if bx.board == null:
-		bx._ready()
+	var bx = board_host()
 	var home_tile := bx.find_child("BoardHomeTile", true, false) as Button
 	ok(home_tile != null and home_tile.find_child("ActionButtonDeckleSurface", true, false) != null,
 		"the board Home well wears the shared code-drawn rugged edge")
@@ -471,10 +450,7 @@ func _initialize() -> void:
 	# end-to-end: the piggy-bank Claim→Confirm cracks the jar; the calendar Claim claims today's rung.
 	fresh("vault_surface")
 	Feat.FLAGS["piggy_vault"] = true   # the vault is parked (flag OFF); flip on to drive its surface
-	var vhost = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(vhost)
-	if vhost.has_method("_ready") and vhost.content == null:
-		vhost._ready()
+	var vhost = map_host()
 	# fill the jar past the threshold, open the surface, and assert it framed a parchment card.
 	Vault.skim(Vault.claim_min() * Vault.skim_den() * 4)   # well past claimable
 	var v_before := Save.diamonds()
@@ -494,10 +470,7 @@ func _initialize() -> void:
 	Feat.FLAGS["piggy_vault"] = false  # restore the shipped default (parked)
 
 	fresh("login_surface")
-	var lhost = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(lhost)
-	if lhost.has_method("_ready") and lhost.content == null:
-		lhost._ready()
+	var lhost = map_host()
 	var l_coins := Save.coins()
 	var l_streak := Login.streak()
 	LoginUI.open(lhost)

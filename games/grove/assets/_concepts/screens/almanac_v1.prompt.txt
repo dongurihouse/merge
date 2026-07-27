@@ -1,0 +1,59 @@
+Generate an image (do not write code).
+Use case: UI mock — a locked edit of a live game screenshot (an existing dialog restructured).
+Asset type: full-frame mobile mock, opaque PNG, exactly 1080x1920 (the size of image 1).
+
+Image 1 is the exact edit target: a cut-paper game screen with a deckle-edged parchment dialog
+("PRODUCING") of square discovery cells over a dimmed board. Keep everything outside the dialog
+pixel-faithful, and keep the dialog's parchment, deckle edges, title treatment, red ✕ disc, and
+the two existing cell designs exactly: (a) the warm-gold backing tile holding a piece (the
+producing cell), (b) the pink-lavender locked well with the flower-keyhole.
+Image 2 is the Meadow Sky palette and cut-paper material authority — colors and paper only.
+
+Restructure the dialog into the ALMANAC — the book of all 12 item lines. The parchment may grow
+taller to fit; keep it centered.
+
+1. Title, same treatment, exactly: ALMANAC
+2. A grid of 12 cells, 3 columns by 4 rows, every cell the same square size as image 1's cells,
+   generous even gutters. Row-major, in this exact order:
+   - cell 1: the egg-shaped red-capped piece from image 1, on a plain warm-cream backing tile;
+     under the cell one small ink caption exactly: Complete
+   - cell 2: a cluster of dark purple wild berries, on the warm-gold producing tile
+   - cell 3: a pale-blue snowflake-and-ice piece, on a plain warm-cream tile; small ink caption
+     exactly: Back at L60
+   - cell 4: a folded coral-red knitted woolen piece, on the warm-gold producing tile
+   - cell 5: a red winter-berry sprig, on a plain warm-cream tile; small ink caption exactly: Complete
+   - cell 6: a round orange desert fruit, on the warm-gold producing tile
+   - cell 7: a small sand castle, on the warm-gold producing tile
+   - cell 8: a small terracotta spice jar, on the warm-gold producing tile
+   - cells 9-12: the locked flower-keyhole well exactly as in image 1, no caption
+3. Captions exist ONLY under cells 1, 3, and 5. No other text anywhere on the dialog.
+
+All 12 pieces are matte cut-paper game items in the style of image 1's egg piece: broad rounded
+silhouettes, one flat base color plus one same-hue shadow plane, warm cut edge.
+
+Preserve the dimmed board beneath faithfully. No watermark.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: render only the exact texts specified above ("ALMANAC", "Complete" twice,
+"Back at L60") plus every label that already exists in image 1 outside the dialog, unchanged.
+
+Avoid: a 13th cell, uneven cell sizes, captions under gold cells, "?" marks, names or numbers under
+cells, scrollbars, buttons, glow, gloss, watermark.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/26df01ea-7e0b-4e2e-bd26-f7cdb770f476/scratchpad/mocks
+Name it: almanac_v1_1080x1920.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation, key out the background to transparent,
+and save it to the path above. Then report the saved path.

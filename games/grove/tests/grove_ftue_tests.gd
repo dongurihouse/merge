@@ -41,11 +41,7 @@ func _initialize() -> void:
 # Boot a fresh Board.tscn in-tree, the way the other grove suites do (fresh() must be called
 # first so _load_state() reads the intended save/ledger state).
 func _open_board() -> Node:
-	var b = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(b)
-	if b.board == null:
-		b._ready()
-	return b
+	return board_host()
 
 # Let _maybe_hand_hint's `await get_tree().process_frame` (fired off at the end of _rebuild_all,
 # not awaited by its caller) resolve before the test reads the board's hint state.

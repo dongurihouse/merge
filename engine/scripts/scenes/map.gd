@@ -51,6 +51,11 @@ const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")   # cold-bo
 const Bucket = preload("res://engine/scripts/core/bucket.gd")   # the GLOBAL resident bucket adapter (hand + cells + per-line production) — the dock IS the habitat surface
 const Explore = preload("res://engine/scripts/core/explore.gd")   # the acquire ritual (Expedition nav button → Load out dialog → Rush → Trade)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const ResidentView = preload("res://engine/scripts/ui/resident_view.gd")   # the resident/spirit view vocabulary (orb chip, board cell, dock label + pill)
+# The dock ink/parchment pair is defined with those builders; the map's own info-bar panel and the
+# two dock overlays (ladder, expedition) read the same two colours.
+const DOCK_INK = ResidentView.DOCK_INK
+const DOCK_PARCH = ResidentView.DOCK_PARCH
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
@@ -590,14 +595,6 @@ func _habitat_members(z: int) -> Array:
 		out.append({"type": Bucket.line_kind(String(inst.line)), "tier": int(inst.tier)})
 	return out
 
-# Force a control subtree mouse-transparent — the map routes every spot tap through its single input
-# surface, so any seated affordance (the kit unlock disc) must not eat the press before _map_tap.
-func _force_ignore(n: Control) -> void:
-	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for c in n.get_children():
-		if c is Control:
-			_force_ignore(c)
-
 # The available area below the HUD and above the bottom chrome; the map image COVER-FILLS the full
 # viewport at the design aspect, centered.
 func _map_image_rect() -> Rect2:
@@ -995,11 +992,10 @@ func _maps_pill(text: String, bg: Color, fg: Color, font_px: int) -> Control:
 # The MAPS page input: a still-tap resolves against maps_hits — a locked card wobbles,
 # an open card opens that map. (CONTINUE and the back arrow are real buttons above this.)
 func _on_maps_input(event: InputEvent) -> void:
-	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
-		or event is InputEventScreenTouch
-	if pressed and event.pressed:
+	var ev := _classify(event)
+	if ev.press:
 		_press = event.position
-	elif pressed and not event.pressed and event.position.distance_to(_press) <= 18.0:
+	elif ev.release and event.position.distance_to(_press) <= 18.0:
 		_maps_tap(content.get_global_transform() * event.position)
 
 func _maps_tap(gpos: Vector2) -> void:
@@ -1036,7 +1032,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		var bp_opts: Dictionary = Kit.board_panel_opts_from_config(cfg)
 		var bp: Control = Kit.board_panel(rect.size, bp_opts)
 		bp.position = Vector2.ZERO
-		_force_ignore(bp)
+		ResidentView.force_ignore(bp)
 		panel.add_child(bp)
 
 	var ci := 22.0                                               # content inset inside the board frame
@@ -1051,7 +1047,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	bag_opts["dialog_cells"] = true   # a DIALOG surface → the shared sage cell face, not the board's mint
 
 	# --- the CELLS (the one global bucket) — placed spirits, then free capacity ----------------------
-	var title := _dock_label("Spirits", FS.BODY, true)
+	var title := ResidentView.dock_label("Spirits", FS.BODY, true)
 	title.position = Vector2(cx, ctop)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(title)
@@ -1060,7 +1056,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var placed: Array = Bucket.placed()
 	var cells_h := 0.0
 	if cells_total <= 0:
-		var closed := _dock_label("Complete a map to open the habitat.", FS.FINE)
+		var closed := ResidentView.dock_label("Complete a map to open the habitat.", FS.FINE)
 		closed.name = "BucketCellsClosedHint"
 		closed.autowrap_mode = TextServer.AUTOWRAP_WORD
 		closed.position = Vector2(cx + 2.0, cells_top)
@@ -1085,12 +1081,12 @@ func _build_hand_panel(rect: Rect2) -> Control:
 			var inst: Dictionary = placed[i]
 			var pkind := Bucket.line_kind(String(inst.line))
 			var psel := String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("idx", -1)) == i
-			var pcell := _spirit_cell(Kit, cbag, pkind, int(inst.tier), cell_px, psel)
+			var pcell := ResidentView.spirit_cell(Kit, cbag, pkind, int(inst.tier), cell_px, psel)
 			pcell.name = "BucketCell_%02d" % i
 			cgrid.add_child(pcell)
 			_placed_orbs.append({"node": pcell, "idx": i, "kind": pkind, "tier": int(inst.tier)})
 		for _e in range(placed.size(), cells_total):
-			cgrid.add_child(_empty_cell(Kit, cbag, cell_px))
+			cgrid.add_child(ResidentView.empty_cell(Kit, cbag, cell_px))
 		cgrid.position = Vector2(cx, cells_top)
 		panel.add_child(cgrid)
 		_cells_grid = cgrid
@@ -1116,7 +1112,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 			row.size = Vector2(cw, row_h)
 			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			if Kit != null:
-				var ic: Control = Kit.make_icon(_line_icon(String(line)), 20.0)
+				var ic: Control = Kit.make_icon(ResidentView.line_icon(String(line)), 20.0)
 				ic.custom_minimum_size = Vector2(20.0, 20.0)
 				ic.size = ic.custom_minimum_size
 				ic.position = Vector2(0.0, (row_h - 20.0) * 0.5)
@@ -1151,7 +1147,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	var chip_h := 40.0
 	var chip_y := rows_y + (4.0 if rows_y > cells_top + cells_h + 6.0 else 2.0)
 	if cells_total > 0:
-		var collect := _dock_chip_button("BucketCollectChip", "Collect", ready_total > 0)
+		var collect := ResidentView.dock_chip_button("BucketCollectChip", "Collect", ready_total > 0)
 		collect.position = Vector2(cx, chip_y)
 		collect.custom_minimum_size = Vector2(cw * 0.56 - 4.0, chip_h)
 		collect.size = collect.custom_minimum_size
@@ -1161,7 +1157,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	# (cells come from buildings now, spec 2026-07-17). Same condition as the Collect chip.
 	var exped_open := cells_total > 0
 	if exped_open:
-		var exped := _dock_chip_button("BucketExpeditionButton", "Expedition", true)
+		var exped := ResidentView.dock_chip_button("BucketExpeditionButton", "Expedition", true)
 		exped.position = Vector2(cx + cw * 0.56 + 4.0, chip_y)
 		exped.custom_minimum_size = Vector2(cw * 0.44 - 4.0, chip_h)
 		exped.size = exped.custom_minimum_size
@@ -1173,7 +1169,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		chip_y = cells_top + cells_h - chip_h - 8.0      # no chips yet — hand the row back to the grid
 
 	# --- the IN-HAND grid, scrollable between the chips and the info bar ------------------------------
-	var hand_title := _dock_label("In hand", FS.FINE, true)
+	var hand_title := ResidentView.dock_label("In hand", FS.FINE, true)
 	hand_title.position = Vector2(cx, chip_y + chip_h + 8.0)
 	hand_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(hand_title)
@@ -1194,7 +1190,7 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(clip)
 	if hand.is_empty():
-		var empty := _dock_label("Empty —\nfind spirits on Expedition.", FS.FINE)
+		var empty := ResidentView.dock_label("Empty —\nfind spirits on Expedition.", FS.FINE)
 		empty.position = Vector2(2.0, 2.0)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD
 		empty.size = Vector2(cw - 4.0, view_h)
@@ -1218,14 +1214,14 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		var inst: Dictionary = hand[i]
 		var kind := Bucket.line_kind(String(inst.line))
 		var sel := String(_sel_orb.get("src", "")) == "hand" and int(_sel_orb.get("idx", -1)) == i
-		var cell := _spirit_cell(Kit, bag_opts, kind, int(inst.tier), cell_w, sel)
+		var cell := ResidentView.spirit_cell(Kit, bag_opts, kind, int(inst.tier), cell_w, sel)
 		grid.add_child(cell)
 		_hand_orbs.append({"node": cell, "idx": i, "kind": kind, "tier": int(inst.tier)})
 	# round the grid out with EMPTY cells so it reads as a board, filling the visible rows
 	var vis_rows := maxi(1, int((view_h + sep) / (cell_w + sep)))
 	var want_cells := maxi(hand.size(), vis_rows * cols)
 	for _e in range(hand.size(), want_cells):
-		grid.add_child(_empty_cell(Kit, bag_opts, cell_w))
+		grid.add_child(ResidentView.empty_cell(Kit, bag_opts, cell_w))
 	clip.add_child(grid)
 	var rows := int(ceil(float(want_cells) / float(cols)))
 	var grid_h := float(rows) * cell_w + float(maxi(rows - 1, 0)) * sep
@@ -1233,28 +1229,6 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	_hand_scroll = clampf(_hand_scroll, 0.0, _hand_scroll_max)
 	grid.position = Vector2(0.0, -_hand_scroll)
 	return panel
-
-# A small green pill button for the dock chips (Collect / Expedition) — the same face the Sell pill wears.
-func _dock_chip_button(btn_name: String, text: String, enabled: bool) -> Button:
-	var btn := Button.new()
-	btn.name = btn_name
-	btn.text = text
-	btn.disabled = not enabled
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.add_theme_font_size_override("font_size", FS.FINE)
-	btn.add_theme_color_override("font_color", Color("#F4FBE9"))
-	btn.add_theme_color_override("font_outline_color", Color("#173404"))
-	btn.add_theme_constant_override("outline_size", 3)
-	var gsb := StyleBoxFlat.new()
-	gsb.bg_color = Color("#639922") if enabled else Color("#8A9377")
-	gsb.set_corner_radius_all(12)
-	gsb.set_border_width_all(2)
-	gsb.content_margin_left = 10.0
-	gsb.content_margin_right = 10.0
-	gsb.border_color = Color("#3B6D11") if enabled else Color("#6B755C")
-	for st_name in ["normal", "hover", "pressed", "focus", "disabled"]:
-		btn.add_theme_stylebox_override(st_name, gsb)
-	return btn
 
 # The in-hand board's bottom strip reads the selected spirit's tier and surfaces Sell. It uses the same
 # thin code-drawn Slot-cell face as the resident cells so it stays quiet inside the right board.
@@ -1287,7 +1261,7 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	bar.add_child(bg)
 	var pad := 8.0
 	if _sel_orb.is_empty():
-		var hint := _dock_label("Tap a spirit", FS.FINE)
+		var hint := ResidentView.dock_label("Tap a spirit", FS.FINE)
 		hint.position = Vector2(pad + 4.0, (rect.size.y - 22.0) * 0.5)
 		hint.modulate = Color(1, 1, 1, 0.65)
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1362,14 +1336,6 @@ func _on_dock_collect() -> void:
 			off += 34.0
 	_refresh_picker()    # a collect can change every badge; repaint the dock
 
-# The per-line collect glyph on the dock chip (boost reuses the leaf until bespoke art ships — parked).
-func _line_icon(line: String) -> String:
-	match line:
-		"coin": return "coin"
-		"water": return "water"
-		"diamond": return "gem"
-		_: return "leaf"
-
 const SWIPE_COMMIT_FRAC := 0.33   # commit once the slide passes this fraction of the viewport width
 const SWIPE_ACTIVATE := 12.0      # px of horizontal travel before a drag becomes a scene-swipe
 const SWIPE_EDGE_RESIST := 0.35   # damping when dragging toward a missing neighbour (first/last scene)
@@ -1388,6 +1354,21 @@ static func _swipe_commit_dir(eff: float, view_w: float) -> int:
 
 # --- input: ONE surface, still-tap resolution ------------------------------------------
 
+# Touch-vs-mouse classification for the map's THREE input surfaces (home map · place-picker · MAPS
+# gallery), which used to hand-roll it three times — twice verbatim, once in a different shape that
+# carried no `moved` arm at all. A press/release is a LEFT mouse button or a screen touch; a move is a
+# screen drag or a mouse motion with the left button held. `and` short-circuits, so `.pressed` /
+# `.button_mask` are only read off an event that actually has them.
+static func _classify(event: InputEvent) -> Dictionary:
+	var btn_or_touch: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
+		or event is InputEventScreenTouch
+	return {
+		"press": btn_or_touch and event.pressed,
+		"release": btn_or_touch and not event.pressed,
+		"moved": event is InputEventScreenDrag \
+			or (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0),
+	}
+
 func _on_input(event: InputEvent) -> void:
 	if _view == "select":
 		_on_select_input(event)
@@ -1404,12 +1385,10 @@ func _on_input(event: InputEvent) -> void:
 func _on_map_input(event: InputEvent) -> void:
 	if _swipe.get("settling", false):
 		return   # ignore input while a snap / spring-back tween finishes
-	var press: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
-		or (event is InputEventScreenTouch and event.pressed)
-	var release: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
-		or (event is InputEventScreenTouch and not event.pressed)
-	var moved: bool = event is InputEventScreenDrag \
-		or (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0)
+	var ev := _classify(event)
+	var press: bool = ev.press
+	var release: bool = ev.release
+	var moved: bool = ev.moved
 	if press:
 		_press = event.position
 		_swipe = {}
@@ -1492,12 +1471,10 @@ func _commit_to(z: int) -> void:
 # on the in-hand column BRINGS OUT. A press on empty card area PANS the stack / still-taps a card to open it.
 # A still-tap on a housed orb FOCUSES it (its Sell button appears in the hand column).
 func _on_select_input(event: InputEvent) -> void:
-	var press: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
-		or (event is InputEventScreenTouch and event.pressed)
-	var release: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
-		or (event is InputEventScreenTouch and not event.pressed)
-	var moved: bool = event is InputEventScreenDrag \
-		or (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0)
+	var ev := _classify(event)
+	var press: bool = ev.press
+	var release: bool = ev.release
+	var moved: bool = ev.moved
 	if press:
 		_press = event.position
 		_drag = _orb_at(content.get_global_transform() * event.position)
@@ -1555,8 +1532,8 @@ func _begin_drag_ghost(gpos: Vector2) -> void:
 	_drag["active"] = true
 	_sel_orb = {}                       # starting a drag clears any Sell focus
 	var px := _drag_source_px()
-	_drag_ghost = _spirit_chip(String(_drag.get("kind", "")), int(_drag.get("tier", 1)), px, func() -> void: pass, false)
-	_force_ignore(_drag_ghost)
+	_drag_ghost = ResidentView.spirit_chip(String(_drag.get("kind", "")), int(_drag.get("tier", 1)), px, func() -> void: pass, false)
+	ResidentView.force_ignore(_drag_ghost)
 	_drag_ghost.z_index = 200
 	_drag_ghost.modulate = Color(1.0, 1.0, 1.0, 0.92)
 	_drag_ghost.set_meta("ghost_px", px)
@@ -1705,7 +1682,7 @@ func _open_resident_ladder(kind: String, mark_tier: int) -> void:
 	dopts["content_scale"] = Kit.dialog_content_scale(cfg, "tiers")
 	dopts["banner_text"] = Strings.t("ladder.title")
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-		return _spirit_icon_node(String(d.get("kind", "")), int(d.get("tier", 1)), px)
+		return ResidentView.spirit_icon(String(d.get("kind", "")), int(d.get("tier", 1)), px)
 	dopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()
@@ -1915,139 +1892,6 @@ func _build_chrome() -> void:
 	_select_back = _make_back_button(sb)
 	add_child(_select_back)
 	_select_back.visible = false
-
-# --- the spirit DOCK constants (shared by the place-picker's housed strip + in-hand column) ------
-# The map view IS the residents surface now: the place-picker carries every completed map's housed orbs
-# as a right-side STRIP and the in-hand spirits as a right-hand COLUMN. Spirits are dragged between them
-# (a map places, a match merges, the hand column brings out); a tap on a housed orb focuses it for Sell.
-# (There is no standalone Residents button or modal dialog any more.)
-const DOCK_INK := Color("#43352B")
-const DOCK_PARCH := Color("#F3E7CE")
-
-# The trim-to-opaque-content cache lives on PieceView (trimmed_tex) — resident art and board item
-# art are the SAME padded canvases, so a second copy here decoded every path twice and held two
-# AtlasTextures for it.
-static func _resident_content_tex(path: String) -> Texture2D:
-	return PieceView.trimmed_tex(path)
-
-func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_badge: bool = true) -> Control:
-	var btn := Button.new()
-	btn.flat = true
-	btn.custom_minimum_size = Vector2(px, px)
-	btn.size = Vector2(px, px)
-	btn.pressed.connect(on_tap)
-	var path := G.resident_art(kind, tier)
-	var has_art := path != "" and ResourceLoader.exists(path)
-	if has_art:
-		var t := TextureRect.new()
-		t.texture = load(path)                            # art is pre-centered (re-cut), so display it as-is
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		btn.add_child(t)
-	else:
-		var disc := Panel.new()
-		disc.name = "MapResidentFallbackDisc"
-		disc.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var ds := StyleBoxFlat.new()
-		ds.bg_color = Color("#F6B659", 0.96)
-		ds.set_corner_radius_all(int(px / 2.0))
-		ds.set_border_width_all(maxi(2, int(round(px * 0.075))))
-		ds.border_color = Color("#8D5A26", 0.72)
-		disc.add_theme_stylebox_override("panel", ds)
-		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		btn.add_child(disc)
-	if not show_badge:
-		return btn                                       # the in-hand board reads tier from its info bar, not a per-orb badge
-	var badge := Label.new()
-	badge.text = "t%d" % tier
-	badge.name = "MapResidentTierBadge"
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge.add_theme_font_size_override("font_size", int(clampf(px * (0.38 if has_art else 0.46), 14.0, 24.0)))   # scales with the orb size
-	badge.add_theme_color_override("font_color", DOCK_INK)
-	badge.add_theme_color_override("font_outline_color", DOCK_PARCH)
-	badge.add_theme_constant_override("outline_size", 3)
-	badge.custom_minimum_size = Vector2(px * (0.48 if has_art else 1.0), px * (0.34 if has_art else 1.0))
-	badge.size = badge.custom_minimum_size
-	badge.position = Vector2(px - badge.size.x - 1.0, 0.0) if has_art else Vector2.ZERO
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn.add_child(badge)
-	return btn
-
-# A NEW-STYLE board CELL holding a spirit — built from Kit.slot_cell (the SAME cell the reskinned merge board
-# + bag use), with the spirit's icon (content-cropped → uniform + centered) as its filled content. The cell
-# IGNOREs the mouse (the single input surface hit-tests it); `selected` draws the board's shared focus ring.
-func _spirit_cell(Kit: GDScript, bag_opts: Dictionary, kind: String, tier: int, px: float, selected: bool) -> Control:
-	if Kit == null:
-		return _empty_cell(Kit, bag_opts, px)
-	var cell: Control = Kit.slot_cell({"state": "filled",
-		"make_content": func(pp: float) -> Control: return _spirit_icon_node(kind, tier, pp)}, bag_opts)
-	cell.custom_minimum_size = Vector2(px, px)
-	_force_ignore(cell)
-	if selected:
-		cell.add_child(_resident_focus_ring())
-	return cell
-
-# An EMPTY new-style board cell (Kit.slot_cell, no spirit) so the in-hand grid reads as a board of cells.
-func _empty_cell(Kit: GDScript, bag_opts: Dictionary, px: float) -> Control:
-	if Kit == null:
-		var c := Panel.new()
-		c.custom_minimum_size = Vector2(px, px)
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return c
-	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
-	cell.custom_minimum_size = Vector2(px, px)
-	_force_ignore(cell)
-	return cell
-
-func _spirit_icon_node(kind: String, tier: int, px: float) -> Control:
-	var t := TextureRect.new()
-	t.custom_minimum_size = Vector2(px, px)
-	t.size = Vector2(px, px)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var art := G.resident_art(kind, tier)
-	if art != "" and ResourceLoader.exists(art):
-		t.texture = _resident_content_tex(art)
-	return t
-
-func _resident_focus_ring() -> Control:
-	var ring := FocusRing.new()
-	ring.name = "ResidentFocusRing"
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.z_index = 8
-	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var o := _focus_ring_opts()
-	if not o.is_empty():
-		ring.color = o.color
-		ring.halo_color = o.halo_color
-		ring.halo_a = o.halo_a
-		ring.arm_frac = o.arm_frac
-		ring.thick_frac = o.thick_frac
-		ring.pad_frac = o.pad_frac
-		ring.halo = o.halo
-	ring.queue_redraw()
-	return ring
-
-func _focus_ring_opts() -> Dictionary:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return {}
-	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-
-func _dock_label(text: String, size: int, bold: bool = false) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", DOCK_INK)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	if bold:
-		l.add_theme_color_override("font_outline_color", DOCK_PARCH)
-		l.add_theme_constant_override("outline_size", 2)
-	return l
 
 # The EXPEDITION entry: the Load out as an overlay dialog (the start-expedition dialog). Spend coins on
 # stackable boosts, then Set off → the Rush (a scene) → Trade → back to the map with spirits in hand.

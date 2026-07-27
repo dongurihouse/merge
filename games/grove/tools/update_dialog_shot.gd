@@ -7,7 +7,7 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/update_dialog_shot.gd -- <out_dir>
 ## Mirrors residents_dialog_shot.gd's quiet-capture header + light home seed.
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")

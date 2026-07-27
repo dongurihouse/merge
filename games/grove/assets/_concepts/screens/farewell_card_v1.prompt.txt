@@ -1,0 +1,47 @@
+Generate an image (do not write code).
+Use case: UI mock — a locked edit of a live game screenshot (an existing dialog restyled in place).
+Asset type: full-frame mobile mock, opaque PNG, exactly 1080x1920 (the size of image 1).
+
+Image 1 is the exact edit target: a cut-paper game screen with a centered deckle-edged cream
+dialog card ("ALL DONE HERE") over a dimmed board. Keep everything outside the card pixel-faithful:
+the dimmed board, HUD, quest cards, bottom row. Keep the card's paper, size, position, red ✕ disc,
+and vertical scroll thread exactly.
+Image 2 is the Meadow Sky palette and cut-paper material authority — colors and paper only.
+
+Restyle only the card's contents (this is the new FAREWELL card):
+
+1. Title, same large ink #243B4B treatment and position, exactly: SEE YOU SOON
+2. Replace the egg-shaped piece with one game item at the same size and position: a small
+   hand-knitted woolen piece — a folded coral-red #D87865 and cream mitten-and-yarn bundle,
+   matte cut-paper, the game's item style, subtle same-hue shadow plane.
+3. Body text, same ink treatment, exactly:
+   The Woolens will be back at Level 51, for Spices — 8 coins for the leftovers.
+   (it may wrap to two or three centered rows; no other text)
+4. The green rounded button, same style and position, cream text exactly: OK
+
+No other changes anywhere. No watermark.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Explicit exception: render only the exact texts specified above ("SEE YOU SOON", the farewell
+sentence, "OK") plus every label that already exists in image 1 outside the card, unchanged.
+
+Avoid: a second button, coin icons on the card, stat blocks, item grids, confetti, glow, gloss,
+moving or resizing the card, changing the board beneath, watermark.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/26df01ea-7e0b-4e2e-bd26-f7cdb770f476/scratchpad/mocks
+Name it: farewell_card_v1_1080x1920.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation, key out the background to transparent,
+and save it to the path above. Then report the saved path.

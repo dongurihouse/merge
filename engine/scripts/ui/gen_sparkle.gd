@@ -1,11 +1,16 @@
 @tool
 extends Control
-## A code-GENERATED twinkle overlay for GENERATORS — a few 4-point stars on a slow loop, drawn +
-## animated in _draw/_process. NO particles on purpose: CPUParticles2D is a Node2D and does not render
-## when parented to a Control (the board item holder is a Control), so a self-drawing Control is the
-## reliable path. Add it full-rect over a generator, mouse-ignore. Engine-local twin of the grove
-## daily-card sparkle (games/grove/sparkle.gd) — engine may not import a game script — tuned
-## sparser/softer for a single board cell. The host's FX.breathe carries the larger motion.
+## A code-GENERATED twinkle overlay — a few 4-point stars on a slow loop, drawn + animated in
+## _draw/_process. NO particles on purpose: CPUParticles2D is a Node2D and does not render when
+## parented to a Control (the board item holder is a Control), so a self-drawing Control is the
+## reliable path. Add it full-rect over a host, mouse-ignore. The host's FX.breathe carries the larger
+## motion.
+##
+## This is the BASE of the shared twinkle: its own defaults are the GENERATOR tuning (sparser/softer,
+## sized for a single board cell). games/grove/sparkle.gd extends it with the daily-card tuning —
+## games/ → engine/ is the legal import direction (the layering guard only forbids engine → games), so
+## the twinkle curve, the star geometry and the animation live here once. A subclass re-tunes by
+## overriding `_seed()` (its own spot table + phase/size ramp) and setting the exports in `_init()`.
 
 @export var tint := Color("#FFF4C2")   # warm twinkle colour
 @export var count := 5                  # how many twinkles (capped by the fixed spot list)
@@ -27,6 +32,8 @@ func _ready() -> void:
 	_seed()
 	set_process(true)
 
+# The GENERATOR spread. Overridden wholesale by a subclass with its own table + ramp (see the header)
+# — it is the only member that differs between tunings, so there are no per-knob config flags here.
 func _seed() -> void:
 	_spots.clear()
 	for i in mini(count, _BASE.size()):

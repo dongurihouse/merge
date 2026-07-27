@@ -16,7 +16,6 @@ const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
-const RetireOffer = preload("res://engine/scripts/ui/retire_offer.gd")
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -60,61 +59,127 @@ func _initialize() -> void:
 	await _test_home_swipe_resize_mid_commit_finalizes()
 	await _test_endgame_fence_stays_live()
 	await _test_purge_above_level_migration()
-	await _test_retirement_offer()
+	await _test_farewell_cards_chain()
+	await _test_almanac_entries_and_info_chip()
 	finish()
 
-# §6 LINE RETIREMENT through the REAL scene: the offer picks the right generator, DECLINING is remembered
-# (an offer, not a nag), and CONFIRMING clears the generator and its dead stock end-to-end. The pure statics
-# are covered in grove_board_actions_tests; this is the wiring — the part unit tests cannot see.
-func _test_retirement_offer() -> void:
-	fresh("retire_offer")
-	# gen_1 retires the level after zone 3 opens (G.zone_unlock_level(3)) — derived, not hardcoded, so a
-	# SCENE_END_LEVEL re-tune moves this with it. +2 lands safely past that boundary while staying well
-	# below gen_6's own retirement level, so gen_1 alone is retirable here.
-	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 2)
+# §8 line farewells through the REAL scene: due cards chain one at a time, ignore the legacy decline key,
+# and sweep on every close path. The pure statics cover the board math; this pins the coordinator wiring.
+func _test_farewell_cards_chain() -> void:
+	fresh("farewell_cards")
+	ok(ResourceLoader.exists("res://engine/scripts/ui/farewell_card.gd"), "farewell card script exists")
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))  # L65: 2,4,8 are away
+	Save.grove()["retire_declined"] = {"gen_2": true}                         # legacy key must be ignored
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
-	var scn = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(scn)
-	if scn.board == null:
-		scn._ready()
+	var scn = board_host()
 	await process_frame
+	for r in G.ROWS:
+		for c in G.COLS:
+			scn.board.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			scn.board.take(Vector2i(r, c))
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale_farewell != null:
+		stale_farewell.queue_free()
+		await process_frame
 	var free_cells: Array = scn.board.empty_ground_cells()
-	ok(free_cells.size() >= 2, "fixture: the board has ground for the leftover stock")
-	scn.board.place(free_cells[0], 1 * 100 + 2)           # leftover glow stock — must be cleared
-	scn.board.place(free_cells[1], 1 * 100 + 3)
-	var pv: Dictionary = BoardActions.retire_preview(scn.board, scn.bag, 1)
-	ok(int(pv.pieces) >= 2 and int(pv.coins) > 0, "the preview prices the line's stock (%d pieces / %d coins)" % [int(pv.pieces), int(pv.coins)])
-	# the OFFER appears and targets the retirable generator
-	scn._maybe_offer_retirement()
+	ok(free_cells.size() >= 6, "fixture: the board has ground for chained farewells")
+	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.arm_gen_boost(free_cells[0], 4)
+	scn.board.place_gen("gen_4", free_cells[1])
+	scn.board.place(free_cells[2], 2 * 100 + 2)
+	scn.board.place(free_cells[3], 4 * 100 + 3)
+	scn.board.place(free_cells[4], 8 * 100 + 1)
+	scn.board.place(free_cells[5], 16 * 100 + 2)
+	scn._rebuild_all()
 	await process_frame
-	ok(RetireOffer.is_open(scn), "board entry offers the retirement")
-	# DECLINE → remembered, and not re-offered on the next entry
-	var dm: Dictionary = Save.grove().get("retire_declined", {})
-	dm["gen_1"] = true
-	Save.grove()["retire_declined"] = dm
-	Save.grove_write()
-	for ov in scn.get_children():
-		if String(ov.name) == "RetireOfferOverlay":
-			ov.free()
-	scn._maybe_offer_retirement()
-	await process_frame
-	ok(not RetireOffer.is_open(scn), "a DECLINED offer is not re-fired on the next board entry")
-	# CONFIRM (the same call the card's button makes) → generator and stock gone, wallet paid, clock still
 	var wallet_b := Save.coins()
 	var clock_b := Save.coins_earned_lifetime()
-	scn._retire_line("gen_1")
+	scn._queue_farewell_check()
 	await process_frame
-	ok(not scn.board.gens.values().has("gen_1"), "confirming removes the generator from the live board")
-	var leftover := 0
-	for i in scn.board.items.size():
-		if int(scn.board.items[i]) > 0 and BoardModel.line_of(int(scn.board.items[i])) == 1:
-			leftover += 1
-	ok(leftover == 0, "confirming clears every leftover piece of the retired line")
-	ok(Save.coins() == wallet_b + int(pv.coins), "the wallet is paid EXACTLY what the offer advertised (%d)" % int(pv.coins))
-	ok(Save.coins_earned_lifetime() == clock_b, "retiring never advances the clock")
-	scn.queue_free()
 	await process_frame
+	var seen_lines: Array = []
+	for expected in [2, 4, 8]:
+		var overlay := scn.find_child("FarewellCardOverlay", true, false) as Control
+		ok(overlay != null and int(overlay.get_meta("farewell_line", 0)) == expected,
+			"farewell card %d opens for line %d" % [seen_lines.size() + 1, expected])
+		seen_lines.append(expected)
+		var ok_btn := overlay.find_child("FarewellOK", true, false) as Button if overlay != null else null
+		ok(ok_btn != null, "farewell card has one OK button")
+		if ok_btn != null:
+			ok_btn.pressed.emit()
+		await process_frame
+		await process_frame
+	ok(seen_lines == [2, 4, 8], "farewell cards chain in zone order, one at a time")
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null, "the farewell chain ends after due lines are swept")
+	ok(not scn.board.gens.values().has("gen_2") and not scn.board.gens.values().has("gen_4"),
+		"closing the cards sweeps the away board generators")
+	var kept: Dictionary = Save.grove().get("gen_kept", {})
+	ok(kept.get("gen_2", []) == [3, 4], "the swept upgraded generator is kept for its return")
+	ok(Save.coins() > wallet_b and Save.coins_earned_lifetime() == clock_b,
+		"farewell payouts are spendable-only and never advance the clock")
+	scn._queue_farewell_check()
+	await process_frame
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null, "migration is idempotent on re-entry")
+	await drop(scn)
+
+func _test_almanac_entries_and_info_chip() -> void:
+	fresh("almanac_entries")
+	ok(ResourceLoader.exists("res://engine/scripts/ui/almanac.gd"), "almanac script exists")
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))
+	Save.grove()["seen"] = {"101": true, "201": true, "401": true, "801": true, "1601": true}
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	var scn = board_host()
+	await process_frame
+	var entries: Array = scn._almanac_entries()
+	ok(entries.size() == G.ZONE_COUNT, "almanac builds one zone-order cell per zone line")
+	var by_line := {}
+	for e in entries:
+		by_line[int(e.line)] = e
+	ok(bool(by_line[1].seen) and String(by_line[1].state) == "complete",
+		"a seen done-forever line renders complete")
+	ok(bool(by_line[2].seen) and String(by_line[2].state) == "away"
+		and int(by_line[2].back_level) == G.zone_unlock_level(11) and int(by_line[2].for_line) == 19,
+		"a seen away line carries its return level and reason")
+	ok(bool(by_line[16].seen) and String(by_line[16].state) == "producing",
+		"a seen line in the current need closure is producing now")
+	ok(not bool(by_line[19].seen) and int(by_line[19].code) == 0,
+		"an unseen line stays locked even when it has a future status")
+	var chip := scn.find_child("AlmanacInfoButton", true, false) as Button
+	ok(chip != null and chip.visible and not chip.disabled, "the empty info tray exposes the Almanac chip")
+	ok(String(scn._info_label.text) == Strings.t("board.info.empty_prompt"),
+		"the empty info tray keeps the normal tap-an-item prompt beside the Almanac button")
+	ok(String(scn._info_desc_label.text) == Strings.t("board.info.empty_bag_hint"),
+		"the empty info tray keeps the bag-space hint beside the Almanac button")
+	if chip != null:
+		ok(String(chip.get_meta("action_role", "")) == "almanac",
+			"the Almanac entry is the shared action-button almanac role, not a stat chip")
+	if chip != null:
+		chip.pressed.emit()
+	await process_frame
+	var almanac_overlay := scn.find_child("AlmanacOverlay", true, false) as Control
+	ok(almanac_overlay != null, "pressing the empty-tray chip opens the Almanac")
+	if almanac_overlay != null:
+		var away_cell: Control = null
+		for node in almanac_overlay.find_children("AlmanacCell*", "Control", true, false):
+			if int((node as Control).get_meta("almanac_line", 0)) == 2:
+				away_cell = node as Control
+				break
+		var art := away_cell.find_child("ItemArt", true, false) as Control if away_cell != null else null
+		var status := away_cell.find_child("AlmanacStatusPill", true, false) as Control if away_cell != null else null
+		ok(art != null and status != null and art.get_global_rect().end.y <= status.get_global_rect().position.y - 1.0,
+			"an away Almanac status pill sits below the piece art instead of overlapping it")
+		almanac_overlay.queue_free()
+	var free_cells: Array = scn.board.empty_ground_cells()
+	scn.board.place(free_cells[0], 101)
+	scn._rebuild_all()
+	scn._select_item(free_cells[0])
+	await process_frame
+	ok(chip != null and not chip.visible, "the Almanac chip hides while an item selection is shown")
+	await drop(scn)
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
 # _refresh_generator_dim (scene state: gen_nodes + quests), so — like the other board scene wiring —
@@ -452,10 +517,7 @@ func _test_endgame_fence_stays_live() -> void:
 	Save.mark_ftue_seen("gen_tap")
 	ok(Save.coins_earned_lifetime() >= G.arc_finish_threshold(),
 		"setup: earnings sit far past the old arc-finish (inert) threshold")
-	var scn = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(scn)
-	if scn.board == null:
-		scn._ready()
+	var scn = board_host()
 	await process_frame
 	scn._refresh_giver_lights()
 	ok(scn.giver_chips.size() >= 1, "the endgame fence still shows live giver cards (never empties)")
@@ -491,10 +553,7 @@ func _test_purge_above_level_migration() -> void:
 		if not G.line_gated_out(int(_bl), 15):
 			ok_line = int(_bl)
 	ok(ok_line > 0 and G.line_gated_out(18, 15), "setup: line %d is in cadence at L15; koi (18) is still future" % ok_line)
-	var scn = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(scn)
-	if scn.board == null:
-		scn._ready()
+	var scn = board_host()
 	await process_frame
 	# use the always-open centre cells (MIN_LEVEL 0), cleared first, so injection doesn't depend on the deal
 	var c_koi := Vector2i(3, 2)
@@ -759,10 +818,7 @@ func _test_map_card_expedition_chrome() -> void:
 	locked_g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
 
-	var locked = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(locked)
-	if locked.content == null:
-		locked._ready()
+	var locked = map_host()
 	locked.unlocks = {}
 	locked._open_map(z)
 	await create_timer(0.05).timeout
@@ -794,10 +850,7 @@ func _test_map_card_expedition_chrome() -> void:
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
 
-	var hx = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hx)
-	if hx.content == null:
-		hx._ready()
+	var hx = map_host()
 	hx.unlocks = unl
 	hx._open_map(z)
 	await create_timer(0.05).timeout
@@ -1169,10 +1222,7 @@ func _test_rush_intro_hint() -> void:
 	# the bottom hint + replay info button stay on every Rush.
 	fresh("rush_intro_scene")
 	Explore.begin_run({})
-	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(s)
-	if s.get_child_count() == 0:
-		s._ready()
+	var s = rush_host()
 	ok(s.find_child("RushTutorialOverlay", true, false) != null, "the first Rush shows the image tutorial")
 	ok(s.find_child("RushTapHint", true, false) == null, "the old transient Tap to Merge popup is gone")
 	var strip := s.find_child("RushBottomHintStrip", true, false) as Control
@@ -1238,13 +1288,9 @@ func _test_rush_intro_hint() -> void:
 	s._process(0.5)
 	ok(float(s._time) < paused_time and float(s._elapsed) > paused_elapsed, \
 		"Rush timer resumes after the info tutorial closes")
-	s.queue_free()
-	await process_frame
+	await drop(s)
 	# the second Rush: the first-run tutorial is retired, the bottom hint and replay button stay.
-	var s2 = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(s2)
-	if s2.get_child_count() == 0:
-		s2._ready()
+	var s2 = rush_host()
 	ok(s2.find_child("RushTutorialOverlay", true, false) == null, "the image tutorial is gone on the second Rush")
 	ok(s2.find_child("RushBottomHint", true, false) != null, "the bottom hint stays on the second Rush")
 	ok(s2.find_child("RushInfoButton", true, false) != null, "the tutorial replay info button stays on the second Rush")
@@ -1292,10 +1338,7 @@ func _test_screens() -> void:
 	fresh("explore_screens")
 	# (Load out is now an overlay dialog on the map — map.gd::_open_expedition — not a scene.)
 	for path in ["res://engine/scenes/ExploreRush.tscn"]:
-		var s = load(path).instantiate()
-		get_root().add_child(s)
-		if s.get_child_count() == 0:        # headless -s defers _ready a frame; build it now
-			s._ready()
+		var s = mount(path, rush_unready)
 		ok(s.get_child_count() > 0, "%s builds a non-empty tree" % String(path).get_file())
 		s.queue_free()
 
@@ -1307,10 +1350,7 @@ func _test_screens() -> void:
 	sg["seen"] = {"101": true, "201": true, "301": true, "1001": true, "1301": true}   # 3 base lines + chest + acorn-drop
 	Save.grove_write()
 	Explore.begin_run({})
-	var rs = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(rs)
-	if rs.get_child_count() == 0:
-		rs._ready()
+	var rs = rush_host()
 	var clean := true
 	for ln in rs._cfg.lines:
 		if not G.is_valid_item_code(int(ln) * 100 + Explore.MAX_TIER):
@@ -1360,10 +1400,7 @@ func _uses_cut_paper(n: Node) -> bool:
 func _test_rush_board_skin() -> void:
 	fresh("rush_board_skin")
 	Explore.begin_run({})
-	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(s)
-	if s.get_child_count() == 0:
-		s._ready()
+	var s = rush_host()
 	await process_frame
 	var time_cell := s._topbar.find_child("RushTimeCell", true, false) as Control if s._topbar != null else null
 	var score_cell := s._topbar.find_child("RushScoreCell", true, false) as Control if s._topbar != null else null
@@ -1391,8 +1428,7 @@ func _test_rush_board_skin() -> void:
 	var hint_tray := s.find_child("RushBottomHintTray", true, false) as PanelContainer
 	ok(hint_tray != null and hint_tray.find_child(ActionBarKit.DECKLE_SURFACE_NODE, true, false) != null, \
 		"Rush info card uses the board info tray deckled surface")
-	s.queue_free()
-	await process_frame
+	await drop(s)
 
 
 # S-RESIZE: the Rush screen must re-fit on a live viewport resize (drag the window wider / rotate), like the
@@ -1402,10 +1438,7 @@ func _test_rush_board_skin() -> void:
 func _test_rush_resize() -> void:
 	fresh("rush_resize")
 	Explore.begin_run({})
-	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(s)
-	if s.get_child_count() == 0:
-		s._ready()
+	var s = rush_host()
 	# let the engine run the in-tree _ready (it connects size_changed — the manual one above ran out of tree)
 	await create_timer(0.06).timeout
 	get_root().size = Vector2i(1080, 1920)

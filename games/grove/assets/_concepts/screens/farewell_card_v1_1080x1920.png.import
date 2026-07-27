@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://immf1yu6ayas"
-path="res://.godot/imported/build_leaf.png-099b258c83473fa0531415030d1c45fe.ctex"
+uid="uid://cnvrhgqpr2jyt"
+path="res://.godot/imported/farewell_card_v1_1080x1920.png-1a1789b3f0af2e17af5221bcec85bc33.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/kit/build_leaf.png"
-dest_files=["res://.godot/imported/build_leaf.png-099b258c83473fa0531415030d1c45fe.ctex"]
+source_file="res://games/grove/assets/_concepts/screens/farewell_card_v1_1080x1920.png"
+dest_files=["res://.godot/imported/farewell_card_v1_1080x1920.png-1a1789b3f0af2e17af5221bcec85bc33.ctex"]
 
 [params]
 

@@ -6,7 +6,12 @@ extends RefCounted
 ## let four tools drift without the refusal guard, and what let the window-size race go unnoticed.
 ## A tool now keeps ONLY its own fixture body:
 ##
-##   const Base = preload("res://games/grove/tools/shot_base.gd")
+## WHY IT LIVES IN engine/tools/ (it used to sit in games/grove/tools/): the engine's OWN capture
+## tools — board_montage.gd, boot_splash_shot.gd — need this prologue too, and engine ↛ games is
+## the layering direction (docs/design/merge_spec.md §15; engine/tests/layering_tests.gd). It has
+## no game-side dependency: save.gd, ambient.gd and design.gd are all engine/scripts/.
+##
+##   const Base = preload("res://engine/tools/shot_base.gd")
 ##   func _initialize() -> void:
 ##       var ctx := await Base.begin(self, {"tool": "grove", "default_mode": "hud",
 ##                                          "default_out": "/tmp/grove_%s.png",

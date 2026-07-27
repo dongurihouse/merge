@@ -3,7 +3,7 @@ extends SceneTree
 ## with no stretch — render several very different rectangles side by side on the sky.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/cutpaper_shot.gd -- /tmp/cutpaper.png
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")
 const Pal = preload("res://engine/scripts/core/game.gd").PALETTE
 const TILE := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"
