@@ -44,7 +44,7 @@ func _initialize() -> void:
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"cascade", "fullline", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
+			"cascade", "fullline", "mastery", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
 			"sky_starfall_blocked"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
@@ -514,6 +514,35 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			scn._select_generator(scn.board.gens.keys()[0])
 			await create_timer(0.3).timeout
+		"mastery":
+			# The generator INFO BAR at a given mastery rank — the pips, the within-rank progress bar and
+			# the next-tier label. `line=` picks the generator (2 = Wild Berries), `meter=` is written
+			# straight into the save, so a THRESHOLD entry lands exactly on that rank. Seeds the meter
+			# BEFORE selecting: _select_generator is what builds the row off Mastery.rank().
+			var ml := int(Base.opt(args, "line", "2"))
+			var mm := int(Base.opt(args, "meter", "1150"))
+			var mg := Save.grove()
+			mg["pops"] = 30                    # past the FTUE so the bar reads its played state
+			mg["mastery"] = {str(ml): mm}
+			Save.grove_write()
+			var mcell := Vector2i(-1, -1)
+			for c in scn.board.gens:
+				if int(G.gen_def(G.GENERATORS, String(scn.board.gens[c])).get("line", 0)) == ml:
+					mcell = c
+					break
+			if mcell.x < 0:                    # that line's generator is not on the fresh board — place it
+				var freem: Array = scn.board.empty_ground_cells()
+				if freem.is_empty():
+					print("REFUSED: no free cell to place the line-%d generator" % ml)
+					quit(2)
+					return
+				mcell = Vector2i(freem[0])
+				scn.board.place_gen(G.gen_for_line(ml), mcell)
+			scn._update_hud()
+			await create_timer(0.3).timeout
+			scn._select_generator(mcell)
+			await create_timer(0.4).timeout
+			print("MASTERY line=%d meter=%d cell=%s" % [ml, mm, str(mcell)])
 		"genboost":
 			# T57: a LIVE boost — every generator wears the sparkle + taps-left badge, the info bar reads
 			# the boost detail (+N/tap · M left), and the boost chip is FADED (no re-buy while running).
