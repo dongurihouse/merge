@@ -258,10 +258,7 @@ func _initialize() -> void:
 	sgen._on_press(sgen._cell_pos(spawned) + gen_half)
 	sgen._on_release(sgen._cell_pos(src) + gen_half)
 	ok(sgen.board.gen_tier_at(src) == 3 and not sgen.board.gens.has(spawned), "scene drag-drop merges self-dup back into the source tier")
-	sgen.queue_free()
-	await process_frame
-	await process_frame
-	await process_frame
+	await drop(sgen, 3)
 
 	# MERGE-PRIORITY DROP AREA: releasing just inside a competing neighbour still chooses the nearby
 	# compatible merge. The real press/release path covers normal items, recipes, and generators.
@@ -324,8 +321,7 @@ func _initialize() -> void:
 		ok(sdrop.board.gen_tier_at(drop_target) == 2 and not sdrop.board.is_gen(drop_source)
 			and sdrop.board.gen_id_at(drop_decoy) == "gen_2",
 			"nearby matching generators merge instead of swapping with the competing exact cell")
-	sdrop.queue_free()
-	await process_frame
+	await drop(sdrop)
 
 	# gen stranding fix: selecting a REDUNDANT (sub-top) generator surfaces the info-bar SELL button; tapping
 	# it removes the generator + credits coins, while the line's TOP generator is never sellable.
@@ -351,10 +347,7 @@ func _initialize() -> void:
 	ok(Save.coins() == coins_before + G.gen_sell_coins(1), "the sale credited the generator's coin payout")
 	ssell._select_generator(topcell)
 	ok(not ssell._info_trash.visible, "the top generator of a line is not sellable (no sell button)")
-	ssell.queue_free()
-	await process_frame
-	await process_frame
-	await process_frame
+	await drop(ssell, 3)
 
 	# --- burst-pop, the FLAT/UNTIERED burst_count family (§6, T58) — the special generators (boosted
 	# accumulator collect, treat pop) + the sim; tiered line generators roll gen_burst_count (T64, below).
