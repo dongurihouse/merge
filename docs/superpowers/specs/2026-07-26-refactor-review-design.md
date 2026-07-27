@@ -11,6 +11,68 @@ House pattern this follows: `engine/tests/const_ssot_tests.gd` and
   guard keeps it honest.
 - An allowlist entry is a decision with a one-line reason, keyed `path@TOKEN` — never by line.
 
+## STATUS (2026-07-26)
+
+Landed on `main`, full sweep green throughout (40 suites · 2372 passed · 0 failed):
+
+- **Wave 1 — all of it.** 1.1–1.8.
+- **Wave 2 — all of it.** 2.1–2.8. `const_ssot_tests` grew 15 → 24 assertions; two new
+  scanning suites (`feature_flag_registry_tests`, and `suite_registry_tests` extended to
+  `.py`/`.sh`); the palette scan now catches bare-hex strings.
+- **Wave 3 — 3.1, 3.2 (partial), 3.3, 3.4, 3.5, 3.7 (three of four), 3.8.**
+- **Wave 5 — 5.1 only.**
+
+Three items were **refused during implementation** and the refusals stand:
+
+1. **1.1 (`inbox.gd` half).** Routing it through `Save.add_water` would have trimmed a banked
+   over-cap can down to the cap, and over-cap is live (`shop.gd:581` free refill,
+   `grove_data.gd:611`). The local `maxi` top-up is load-bearing. It now reads the can through
+   `Save.water()` — the duplicated *default* is gone, the over-cap guard survives.
+2. **2.3 (bundle id).** Porting `build_info.gd`'s preset parser would have **broken the shipped
+   update check**: `export_presets.cfg` is not in the pack, and `update_check.check()` only runs
+   on iOS, where the file is absent — the app would poll `lookup?bundleId=` empty forever.
+   `build_info.gd` gets away with it only because a release also stamps a shipped
+   `engine/generated/build_info.gd`. Took REMAIN+ASSERT instead.
+3. **1.3 (`click_spot.gd`).** Not converted — it is dead for a larger reason (it errors on
+   `map_nodes` and hangs, and every `spot_hits` entry now carries `k: -1`, so its `hit.k == 0`
+   search can never match). Converting the seed would leave a dead tool looking fixed.
+   **Owner's call: retire it, or rewrite it as a cluster-tap purchase test.**
+
+### Still outstanding
+
+| item | note |
+|---|---|
+| 3.2 (rest) | the `quest_bar_h_frac` / `button_w_frac` / `edge_margin_px` resolver consolidation; the eight band constants (3.1) landed, this did not |
+| 3.6 | the 42-site test scene-host fixture |
+| 3.7 (`_soft_silhouette`, sparkle twin) | `prop_shadow`/`sprite_shadow`; `gen_sparkle` ↔ `games/grove/sparkle.gd` |
+| 3.9 | internal duplication in `board.gd` (~70 lines), `map.gd` `_classify` ×3, `ui_kit.gd` label boilerplate (~150 lines) |
+| 3.10 | the `Game.kit()` boilerplate — 25 declarations, 51 loads, three divergent guard styles |
+| 4.1, 4.2 | both decomposition cuts, and 5.8 (`shot_base`) which must precede 4.1 |
+| 5.2–5.7 | `grove_spec.md`, "iPad-only" ×3, the `.gdignore` path inversion, `.gitignore` phantoms, the Makefile comment, config duplication |
+
+### Discovered during implementation, not in the original survey
+
+- **`docs/design/mocks/weather_hours/*.png` ship.** `docs/` has no `.gdignore` and no
+  `exclude_filter` entry, so those mocks enter the shipped texture set on any import. Found by
+  the widened asset guard (1.6) — the narrow walk could never have produced it. Fix is a
+  `.gdignore` in `docs/` or a `docs/**` exclude entry.
+- **`merge_fx._color:76`** carried a bare `if tier >= 8` — a third live copy of `PREMIUM_TIER`
+  the survey missed. Collapsed under 2.2.
+- **`board.gd:1173` and `:4016`** still hardcode the currency hexes that 3.3 consolidated into
+  `FX.REWARD_COLORS`. Left for whoever next touches `board.gd`.
+- **`grove_shot.gd`'s Lv chip needed the seed moved earlier**, not just corrected: `board.gd:1042`
+  builds the HUD's level chip once and `_update_hud` only re-ticks the wallet, so a correct coin
+  seed applied in the mode branch still rendered Lv 1.
+- **`unlock` capture mode** (`grove_shot.gd:158`): `int(round(coins_at_level(2) * 0.67))` evaluates
+  to `1` — exactly L2 at 0% progress, not the "~67%" its comment claims.
+- **`producing`'s discovery mix** seeds codes `6101/6201/6301` (Farm lines 61–63) which are no
+  longer in `G.LINES`, so seven of eight cells render as locked "?" wells. Separate rot from the
+  exp clock.
+- **`export_presets.cfg:260` is `iPhone & iPad`, not iPad-only** — so the min-iOS-17 floor drops
+  every iPhone below iOS 17 too, not just older iPads. The docs claim otherwise and use
+  "iPad-only" to argue the floor was free. **This is a re-priced tradeoff and the owner's call**
+  (5.3 corrects the claim only).
+
 Owner decisions taken 2026-07-26:
 - Board gate grid: **keep the shipped L16 board.** No pacing change. `grove_data.gd` re-syncs to
   the JSON and is demoted to the absent-file fallback.
