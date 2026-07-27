@@ -20,9 +20,10 @@ it is now automatic; the short list of things a human still has to get right is 
 
 3. **Keep working/source art out of the shipped tree.** Concept art, originals, montages,
    and review renders must live under a directory the export drops: either a `.gdignore`
-   subtree (`_originals`, `_new`, `_archive`, `map/*/shared`) or an `exclude_filter` prefix
-   in `export_presets.cfg` (`_concepts`, `_review`, `map/*/reference`). New scratch art goes
-   in one of those, never loose under a shipping path.
+   subtree (`_originals`, `_new`, `_archive`, `map/shared/*`, and `docs/` — mock-ups and
+   design renders) or an `exclude_filter` prefix in `export_presets.cfg` (`_concepts`,
+   `_review`, `map/*/reference`). New scratch art goes in one of those, never loose under a
+   shipping path.
 
 Everything below is handled by tooling and needs no attention unless it breaks.
 
@@ -34,10 +35,12 @@ saving only. Verified: dropping a fresh PNG in and reimporting produces `compres
 with no manual step.
 
 **The guard enforces it.** `engine/tests/asset_size_guard_tests.gd` runs in `make test`.
-It walks the shipped texture set — the same definition the exporter uses (under
-`games/grove/assets`, not in a `.gdignore` subtree, not dropped by `exclude_filter`) — and
-fails if any texture ships lossless. It reads the real `exclude_filter` from
-`export_presets.cfg`, so the guard and the export cannot silently disagree.
+It walks the shipped texture set — the same definition the exporter uses (anywhere under
+`res://`, not in a `.gdignore` subtree, not dropped by `exclude_filter`) — and fails if any
+texture ships lossless. It reads the real `exclude_filter` from `export_presets.cfg`, so the
+guard and the export cannot silently disagree. The walk is repo-wide, not
+`games/grove/assets`-only: it used to start at the asset dir, which made root-level shipped
+textures invisible to it (`icon_small.png` shipped lossless under that blind spot).
 
 **The split rebuilds itself.** `make ios` produces two packs:
 

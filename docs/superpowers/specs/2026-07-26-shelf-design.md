@@ -45,12 +45,15 @@ same skeleton, `retire_offer.gd:55-106`: `Overlay.modal` + `Kit.dialog_frame` + 
 art + one body line + one CTA; keep the `min_h` floor)
 
 - One variant, one **OK** button; veil-tap and ✕ do the same. The sweep runs on close.
+- Title (the shipped in-card treatment): returning → *"See you soon"* · done forever →
+  *"All done here"* (shipped key).
 - Body, names/levels/coins interpolated (`farewell.*` keys in `strings.json`; coin clause
   only when payout > 0):
   - returning: *"The Woolens will be back at Level 51, for Spices — %d coins for the
     leftovers."*
   - done forever: *"The Glow-mushrooms' story is complete — %d coins join your purse."*
 - FX on close: `tidy_poof` + coin `reward_arrival` (the `board.gd:3981` pattern).
+- Mock: `games/grove/assets/_concepts/screens/farewell_card_v1_1080x1920.png`.
 
 **4 · Seams — `board.gd`** (cards chain one at a time)
 
@@ -87,10 +90,15 @@ view — swept lines have no board presence, so `ladder.gd`/`gen_lines.gd` can't
   done-forever → sub-caption *"Complete"*.
 - Tap a seen cell → `Ladder.open` (existing); its banner appends the status (*"Wild Berries
   · back at L69, for Tea Cups"*).
-- Entry point: a small **Almanac** button in the info tray's EMPTY state, hidden while a
-  selection is shown — board-side, no new nav chrome. Gate: the `discovery_ladder` feature,
-  same as its siblings.
+- Entry point: a small **Almanac** chip at the right end of the info tray's EMPTY state, hint
+  text kept; hidden while a selection is shown — board-side, no new nav chrome. Build it with
+  the shipped action button, `Kit.action_button("almanac", …)`, by adding `"almanac"` to
+  `ACTION_ROLES` + `ACTION_GLYPHS` (`ui_kit.gd:59-70`) pointing at the shipped
+  `ui/nav/glyphs/glyph_almanac.png`. Gate: the `discovery_ladder` feature, same as its
+  siblings.
 - Strings `almanac.*`. No new save keys, no actions, no economy paths.
+- Mocks: `games/grove/assets/_concepts/screens/almanac_v1_1080x1920.png` (the L51 snapshot) ·
+  `almanac_infobar_v1_1080x1920.png` (the entry chip).
 
 ## Invariants (test assertions)
 
@@ -120,6 +128,69 @@ view — swept lines have no board presence, so `ladder.gd`/`gen_lines.gd` can't
 
 Out of scope: mastery (step 2), the Collection archive (favorite-as-décor etc. — the
 Almanac's Complete cells are its seam), any storage/hoard UI, sell-band tuning.
+
+## Implementation directions (for the implementing agent)
+
+**Workspace.** Branch `feat/line-farewells` from latest `main` in a NEW worktree outside the
+repo: `git worktree add /Users/xup/dh/merge-wt-farewells -b feat/line-farewells` (in-repo
+worktrees get wiped by other agents). Seed the import cache before the first run:
+`rsync -a --delete /Users/xup/dh/merge/.godot/ /Users/xup/dh/merge-wt-farewells/.godot/`.
+**Do not merge to main and do not remove the worktree** — implementation ends with the branch
+committed in place; code review happens in the worktree.
+
+**Assets: generate NOTHING.** Never invoke image generation, `make intake`, `codex`, or any
+art tooling; never hand-draw, composite, or download a substitute. The one new sprite this
+feature needs is **already on `main`**:
+`games/grove/assets/ui/nav/glyphs/glyph_almanac.png` (512² transparent, matching the shipped
+`action_button_glyphs_v2` family) — wire it, don't remake it. Everything else reuses shipped
+art: piece art via `PieceView.make_piece`, the dialog frame / slot cells / locked well via
+the kit, coins and FX as they are. If any texture is missing in your worktree, use the
+nearest shipped sibling as a placeholder, note it in the hand-off, and move on. The three
+approved mocks in `games/grove/assets/_concepts/screens/` (`farewell_card_v1_…`,
+`almanac_v1_…`, `almanac_infobar_v1_…`) are layout references only — never ship their pixels.
+
+**Order** — each step lands with its tests green (`make test-fast`, a few seconds) before the
+next. Run every test and capture in the FOREGROUND:
+
+1. `content.gd` §6: `line_needed_at_zone` + `next_need` (Build 1), plus the arc-table battery
+   in `engine/tests/mechanics_tests.gd` beside the existing window/cadence rows. Levels
+   derived (`G.zone_unlock_level(z)`), never literal.
+2. `save.gd`: `gen_kept` / `retired` default-on-read accessors (Build 5). No
+   `SCHEMA_VERSION` bump; follow the deep-merge idiom (`save.gd:98`).
+3. `board_actions.gd`: `farewells_due` + `sweep_line` (Build 2) and the `gen_kept` restore in
+   `produce_due_generators`; tests in `games/grove/tests/grove_board_actions_tests.gd` beside
+   the retirement cases. Keep the caps-lock clock assertion ("SWEEP NEVER ADVANCES THE
+   CLOCK").
+4. `engine/scripts/ui/farewell_card.gd` (Build 3) + `farewell.*` strings; delete
+   `retire_offer.gd`.
+5. `board.gd`: the two seams (Build 4) and every deletion in Build 6.
+6. `engine/scripts/ui/almanac.gd` + the info-tray chip (Build 7).
+7. Evidence: retarget the shot modes (below), full `make test` green, and a hand-off summary
+   listing suites run and capture paths.
+
+**Repo rules that bite:**
+
+- **`grove_shot.gd` breaks unless retargeted.** Its `retire` mode calls
+  `scn._maybe_offer_retirement()` (`grove_shot.gd:214`) and `retiredone` calls
+  `scn._retire_line("gen_1")` (`:227`) — both deleted by Build 6. Repoint them at the
+  farewell card and its post-sweep board, add a `farewell` mode for the returning variant
+  (a Woolens sweep) and an `almanac` mode, and keep the tool's authoritative `modes` list
+  (`:34-40`) in step. **Look at every capture** — a stale mode that renders a plain board
+  still exits 0.
+- New `.gd` files: run `make import` before committing so `.uid` sidecars exist, or the
+  regenerated untracked `.uid` aborts the later merge.
+- `ui/` never imports `scenes/` (`layering_tests`) — `almanac.gd` and `farewell_card.gd` take
+  every read and action as an injected Callable, like `bag_overlay.gd`.
+- Every `Strings.t("literal")` must resolve (`strings_tests`); retiring `retire.*` means
+  retiring its test pins too.
+- Engine code never references `games/` directly; no new `Color("#…")` hex literals
+  (`palette_ssot_tests`), no bare `z_index` integer literals (`layering_tests`).
+- Don't reformat `test_base` output — the runner parses the `"  PASS"` lines and the footer.
+- Payouts use `Save.add_coins`, never `G.earn_coins` — retirement/sweep coins are spendable
+  only.
+- Don't touch any Rush file (`explore*.gd`) or the Rush's own rules.
+- `modal_dismiss_tests` pins real call sites; register the card's overlay name there if it
+  gates dismissal.
 
 ## Appendix · Per-line timeline (shipped cadence `[1,15,29,33,38,42,46,51,55,60,65,69]`)
 

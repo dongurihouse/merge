@@ -70,26 +70,25 @@ const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the op
 # reaches its number, then opens on the next ADJACENT MERGE (the level gates *when*, not *how*;
 # any merge opens an eligible neighbour). 0 = open at start (the center 3×3 + the generator).
 # A hand-tuned diamond: the L1 inner frontier (T37 — where the merge verb is taught; the board MUST
-# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L22
-# at the four corners (the last cells to open). The scene LEVEL WINDOWS have since moved onto the derived
-# coin-clock cadence (content.gd's _build_cadence): Fairy Hollow L1-7 · Snowy Village L8-19 · Desert Oasis
-# L20-37 · Coral Reef L38-61 · Cherry Blossom L62-87. The MIN_LEVEL grid below was hand-tuned against the
-# OLDER windows and was not rescaled with them — the L22 corners now open near the START of Desert Oasis
-# (scene 3) rather than the end of scene 4. The grove_sim
-# confirms the board drains smoothly to zero sealed cells with ZERO jams across the arc. THIS GRID IS THE
-# OWNER'S FEEL DIAL — re-tune it; the engine reads it via G.cell_min_level(). 9 rows × 7 cols, indexed
-# [row][col] = [cell.x][cell.y].
+# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates out to
+# the four corners, the last cells to open. The whole board is open by the corner level, well inside
+# scene 1 (SCENE_END_LEVEL below ends scene 1 at L28) — the grid paces the OPENING, not the arc.
+# The LIVE grid is economy_tuning.json's `min_level` (authored in docs/economy_tuning.html, applied at
+# class load by content.apply_tuning); this const is only the absent-JSON FALLBACK and the value
+# Content.MIN_LEVEL is seeded from. Editing it alone moves NOTHING while that file exists — re-tune in
+# the HTML tool and save the JSON. engine/tests/const_ssot_tests.gd §5 asserts the two agree.
+# 9 rows × 7 cols, indexed [row][col] = [cell.x][cell.y].
 const MIN_LEVEL := [
 #    c0  c1  c2  c3  c4  c5  c6
-	[22, 14, 10, 10, 10, 14, 22],   # r0  ← outer corners last (L22, mid map 3)
-	[18, 10,  6,  6,  6, 10, 18],   # r1
-	[14, 10,  1,  1,  1, 10, 14],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
-	[10,  3,  0,  0,  0,  3, 10],   # r3
-	[ 6,  3,  0,  0,  0,  3,  6],   # r4   center 3×3 open · generator at c3
-	[10,  3,  0,  0,  0,  3, 10],   # r5
-	[14, 10,  1,  1,  1, 10, 14],   # r6   inner N/S frontier → L1
-	[18, 10,  6,  6,  6, 10, 18],   # r7
-	[22, 14, 10, 10, 10, 14, 22],   # r8
+	[16, 10,  7,  7,  7, 10, 16],   # r0  ← outer corners last (L16)
+	[13,  4,  4,  4,  4,  4, 13],   # r1
+	[10,  4,  1,  1,  1,  4, 10],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
+	[ 7,  2,  0,  0,  0,  2,  7],   # r3
+	[ 4,  2,  0,  0,  0,  2,  4],   # r4   center 3×3 open · generator at c3
+	[ 7,  2,  0,  0,  0,  2,  7],   # r5
+	[10,  4,  1,  1,  1,  4, 10],   # r6   inner N/S frontier → L1
+	[13,  4,  4,  4,  4,  4, 13],   # r7
+	[16, 10,  7,  7,  7, 10, 16],   # r8
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
@@ -200,6 +199,11 @@ const GEN_TIER_BURST_ODDS := [             # burst odds [1,2,3 items] by generat
 	[0.50, 0.35, 0.15],   # tier 2
 	[0.20, 0.45, 0.35],   # tier 3
 ]
+const GEN_TIER_BURST_ODDS_BOOST := [       # BOOSTED burst odds by generator tier (T64) — each row must
+	[0.20, 0.45, 0.35],                    #   strictly beat its unboosted row on EV (mechanics_tests guard).
+	[0.20, 0.45, 0.35],                    #   tiers 1-2 = the pre-T64 flat boost table (live tuning preserved)
+	[0.10, 0.30, 0.40, 0.20],              #   tier 3 gains a 4th slot — only a boosted top-tier gen pops 4
+]
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
@@ -225,15 +229,17 @@ const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest 
 const MAX_GIVERS := 8                     # fence quest slots (§7, gen redesign #13) — up to 8 quest cards (+ the jar); metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
 const MAX_QUESTS_PER_LINE := 4            # per active item line; a one-line fresh game shows 4 quests, then the fence grows as level reaches more lines.
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
-# §6 burst-pop (T58). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not the
-# per-item energy economy). The COUNT is drawn from an odds table: BURST_ODDS with NO boost (a single item
-# is the norm, multiples are rare) or BURST_ODDS_BOOST while a temporary BOOST is live (multiples become the
-# norm). The boost RAISES THE CHANCE of multiples — it does NOT add a flat count, and there is no per-map
-# scale-up. One BOOST_COST activation arms BOOST_TAPS taps on ONE chosen generator (per-generator, stackable
-# across generators), decays one tap at a time, then expires (the §10 coin sink — T57). Both tables top out at BURST_MAX.
+# §6 burst-pop (T58, T64). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not
+# the per-item energy economy). A TIERED generator rolls GEN_TIER_BURST_ODDS[tier] unboosted and
+# GEN_TIER_BURST_ODDS_BOOST[tier] while its own temporary BOOST is live — the boost RAISES THE CHANCE of
+# multiples (never a flat add), is per-generator (stackable across generators), decays one tap per charged
+# tap, then expires (one BOOST_COST activation arms BOOST_TAPS taps — the §10 coin sink, T57). The flat
+# BURST_ODDS / BURST_ODDS_BOOST tables serve the UNTIERED special generators (boosted accumulator collect,
+# treat pop) via burst_count.
 const BURST_ODDS       := [0.80, 0.15, 0.05]   # no boost: 1 / 2 / 3 items — a single item is the norm
 const BURST_ODDS_BOOST := [0.20, 0.45, 0.35]   # boost live: 1 / 2 / 3 items — multiples are the norm
-const BURST_MAX        := 3                     # ceiling on one tap's burst (both tables top out here)
+const BURST_MAX        := 3                     # the FLAT tables' ceiling (the burst_count clamp); the tiered
+                                                # roll clamps to its own row length — a boosted top-tier bursts up to 4
 const BOOST_BONUS := 2                    # >0 marks "a boost is live" to burst_count (legacy name — no longer a flat add)
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
@@ -353,10 +359,10 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 const COIN_LINE := 9                      # code 9xx; never popped, never asked
 const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is retired)
 # Which ART file each in-game tier wears, per base — the 12-tier sheets stay on disk and the OWNER
-# picks the looks (2026-07-18: coin t1/t2/t3 wear art 1/5/12 — coin → pouch → chest; acorn wears
+# picks the looks (2026-07-26: coin t1/t2/t3 wear art 1/4/5 — coin → coin roll → pouch; acorn wears
 # 3/5/6). A base not listed maps tier N → art N. Read via G.art_tier_for (item_tex_path + the
 # piece_view coin branch).
-const ART_TIER_PICK := {"coin": [1, 5, 12], "acorn": [3, 5, 6]}
+const ART_TIER_PICK := {"coin": [1, 4, 5], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 const SCISSORS_LINE := 14

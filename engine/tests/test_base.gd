@@ -40,6 +40,81 @@ func fresh(name: String, prefix: String = "") -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	_TSave.configure_for_test(dir)
 
+# --- the guards' shared coverage function --------------------------------------------------
+#
+# Every .gd file under `dir`, as res:// paths. `deep` (the default) walks subdirectories, so a
+# NEW engine/scripts/<layer>/ is covered the day it appears instead of silently escaping the
+# scan; `deep := false` stays in the one directory. `dir` may be spelled with or without a
+# trailing slash.
+#
+# This lives here because it is the COVERAGE function of const_ssot_tests, palette_ssot_tests,
+# layering_tests, feature_flag_registry_tests and strings_tests. A walker that quietly misses a
+# directory makes every one of those guards report green over unscanned code — the same failure
+# suite_registry_tests.gd exists to catch one level up. One copy, so "every .gd file" means one
+# thing.
+#
+# DOTTED ENTRIES ARE SKIPPED, deliberately. `.godot/` (the import cache), `.claude/`,
+# `.scratch/` and `.superpowers/` hold caches and agent scratch — copies of source that nothing
+# ships and no guard should judge. DirAccess already hides them (`include_hidden` defaults to
+# false), so the skips below change no path today (measured: identical sets for all five guards,
+# every root); they are written out so the coverage rule is STATED here rather than inherited
+# from an engine default that a Godot upgrade could flip under us. Turning them off is a
+# coverage decision, not a cleanup.
+func gd_files(dir: String, deep := true) -> PackedStringArray:
+	var out := PackedStringArray()
+	var root: String = dir if dir.ends_with("/") else dir + "/"
+	var d := DirAccess.open(root)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if f.ends_with(".gd") and not f.begins_with("."):
+			out.append(root + f)
+	if deep:
+		for sub in d.get_directories():
+			if not sub.begins_with("."):
+				out.append_array(gd_files(root + sub + "/", true))
+	return out
+
+# The whole text of `path`, or "" if it cannot be opened. The guards' file slurp: an unreadable
+# path reads as empty rather than crashing the sweep, so one bad path costs one scan, not a
+# suite. (Six suites each carried this.)
+func read_text(path: String) -> String:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var t := f.get_as_text()
+	f.close()
+	return t
+
+# --- the scene-host fixture ------------------------------------------------------------------
+#
+# Mount an engine scene under the test root the way every scene-driving suite does it: instantiate,
+# add it to the root, and run `_ready()` by hand when the headless `-s` construction skipped it.
+#
+# `ready_probe` answers "did `_ready` NOT run yet?" for THIS scene. It is a per-SCENE constant, not
+# a per-test choice — Map answers `content == null`, Board `board == null`, ExploreRush
+# `get_child_count() == 0` — so grove_test_base binds the three as map_host()/board_host()/
+# rush_host() and nothing else has to remember them. When the engine changes WHEN `_ready` fires
+# headlessly, the fix lands here instead of in every suite.
+#
+# NOT a coroutine, deliberately. The sites this replaces read the tree with no frame in between;
+# awaiting one here would hand `_ready` to the engine a frame later and change what they observe.
+# A test that wants a settled frame first still writes its own `await`.
+func mount(path: String, ready_probe: Callable) -> Node:
+	var host = load(path).instantiate()
+	get_root().add_child(host)
+	if ready_probe.call(host):
+		host._ready()
+	return host
+
+# Tear a mounted host down: queue_free plus the frame drain that makes the free land before the
+# next fixture builds. `frames` is 3 where a suite waited out a longer teardown. Sites that free
+# without draining are NOT this pairing — they keep their bare queue_free().
+func drop(host: Node, frames := 1) -> void:
+	host.queue_free()
+	for _i in frames:
+		await process_frame
+
 # The footer the runner parses, then the exit code. Every suite ends on this.
 func finish() -> void:
 	print("== %d passed, %d failed ==" % [_pass, _fail])

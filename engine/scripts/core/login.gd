@@ -24,7 +24,6 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
-const D = Game.DATA                                  # the active game's data (WATER_CAP for the water grant)
 
 # --- the reward config (data-tunable JSON, lazy-loaded + cached) ---------------------
 # Mirrors core/strings.gd: one structured JSON per game, resolved off Game.active(), loaded
@@ -200,9 +199,12 @@ static func _grant(rew: Dictionary) -> void:
 	Save.grove_write()                       # one final flush for the in-grove grants
 
 # Water lives in the grove blob, capped at WATER_CAP (a modest top-up, never self-sustaining).
+# Routed through Save.add_water so the CAN'S DEFAULT is single-sourced: `water` is a lazily created
+# key and an absent one means a FULL can (Save.water() → WATER_CAP). A local `get("water", 0)` here
+# read an untouched can as EMPTY and wrote the gift back as an absolute — the gift made the player
+# poorer. add_water reads via Save.water() and clamps to WATER_CAP.
 static func _grant_water(n: int) -> void:
-	var g := Save.grove()
-	g["water"] = mini(int(D.WATER_CAP), int(g.get("water", 0)) + n)
+	Save.add_water(n)
 
 # --- faucet-discipline + test helpers ----------------------------------------------
 

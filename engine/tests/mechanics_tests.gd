@@ -270,10 +270,7 @@ func _initialize() -> void:
 	sgen._on_press(sgen._cell_pos(spawned) + gen_half)
 	sgen._on_release(sgen._cell_pos(src) + gen_half)
 	ok(sgen.board.gen_tier_at(src) == 3 and not sgen.board.gens.has(spawned), "scene drag-drop merges self-dup back into the source tier")
-	sgen.queue_free()
-	await process_frame
-	await process_frame
-	await process_frame
+	await drop(sgen, 3)
 
 	# Mastery scene chrome: a ranked generator wears the progress ring, moves its tier into the title,
 	# shows the mastery row in the subtitle, and rank-up cards mark mastery_seen once opened.
@@ -407,8 +404,7 @@ func _initialize() -> void:
 		ok(sdrop.board.gen_tier_at(drop_target) == 2 and not sdrop.board.is_gen(drop_source)
 			and sdrop.board.gen_id_at(drop_decoy) == "gen_2",
 			"nearby matching generators merge instead of swapping with the competing exact cell")
-	sdrop.queue_free()
-	await process_frame
+	await drop(sdrop)
 
 	# gen stranding fix: selecting a REDUNDANT (sub-top) generator surfaces the info-bar SELL button; tapping
 	# it removes the generator + credits coins, while the line's TOP generator is never sellable.
@@ -434,15 +430,13 @@ func _initialize() -> void:
 	ok(Save.coins() == coins_before + G.gen_sell_coins(1), "the sale credited the generator's coin payout")
 	ssell._select_generator(topcell)
 	ok(not ssell._info_trash.visible, "the top generator of a line is not sellable (no sell button)")
-	ssell.queue_free()
-	await process_frame
-	await process_frame
-	await process_frame
+	await drop(ssell, 3)
 
-	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
-	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
-	# the norm — the boost RAISES THE CHANCE of multiples, it does not add a flat count. Both tables top
-	# out at BURST_MAX, and there is no per-map scale-up (the map arg is ignored). ---
+	# --- burst-pop, the FLAT/UNTIERED burst_count family (§6, T58) — the special generators (boosted
+	# accumulator collect, treat pop) + the sim; tiered line generators roll gen_burst_count (T64, below).
+	# WITHOUT a boost a tap almost always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in
+	# BURST_ODDS_BOOST so multiples become the norm — the boost RAISES THE CHANCE of multiples, it does
+	# not add a flat count. Both tables top out at BURST_MAX; no per-map scale-up (the map arg is ignored). ---
 	var brng := RandomNumberGenerator.new()
 	brng.seed = 7
 	var N := 4000
@@ -480,6 +474,45 @@ func _initialize() -> void:
 	ok(deep_max <= int(G.BURST_MAX), "a deep map does not burst beyond BURST_MAX (no per-map scale-up)")
 	# the boost coin sink: a flat cost, the same every activation (no ladder — T57)
 	ok(G.boost_cost() > 0, "the boost has a positive coin cost")
+
+	# --- tiered boosted burst odds (T64): a live boost swaps a generator's per-tier row for the
+	# strictly-better GEN_TIER_BURST_ODDS_BOOST row; the top tier gains a 4th burst slot, so only a
+	# boosted top-tier generator ever pops 4. ---
+	for boost_tier in range(1, int(G.GEN_TOP_TIER) + 1):
+		var row_plain: Array = G.gen_burst_odds(boost_tier)
+		var row_boost: Array = G.gen_burst_odds(boost_tier, true)
+		var sum_plain := 0.0
+		var ev_plain := 0.0
+		for i in row_plain.size():
+			sum_plain += float(row_plain[i])
+			ev_plain += float(row_plain[i]) * float(i + 1)
+		var sum_boost := 0.0
+		var ev_boost := 0.0
+		for i in row_boost.size():
+			sum_boost += float(row_boost[i])
+			ev_boost += float(row_boost[i]) * float(i + 1)
+		ok(absf(sum_plain - 1.0) < 0.0001 and absf(sum_boost - 1.0) < 0.0001, "tier %d: both burst-odds rows sum to 1" % boost_tier)
+		ok(ev_boost > ev_plain, "tier %d: a boost is never a no-op (T64 guard) — boosted EV %.2f > unboosted %.2f" % [boost_tier, ev_boost, ev_plain])
+	ok(G.gen_burst_odds(1, true) == [0.20, 0.45, 0.35] and G.gen_burst_odds(2, true) == [0.20, 0.45, 0.35], 		"boosted tiers 1-2 keep the pre-T64 flat boost tuning")
+	var t3rng := RandomNumberGenerator.new()
+	t3rng.seed = 64
+	var t3_un_max := 0
+	var t3_un_sum := 0
+	var t3_bo_max := 0
+	var t3_bo_min := 99
+	var t3_bo_sum := 0
+	for _i in N:
+		var u3 := G.gen_burst_count(3, t3rng)
+		var b3 := G.gen_burst_count(3, t3rng, true)
+		t3_un_max = maxi(t3_un_max, u3)
+		t3_un_sum += u3
+		t3_bo_max = maxi(t3_bo_max, b3)
+		t3_bo_min = mini(t3_bo_min, b3)
+		t3_bo_sum += b3
+	ok(t3_un_max <= 3, "an unboosted tier-3 generator never bursts past 3")
+	ok(t3_bo_max == 4, "a boosted tier-3 generator reaches the 4th burst slot (T64)")
+	ok(t3_bo_min >= 1, "a boosted tier-3 burst is always at least 1 item")
+	ok(t3_bo_sum > t3_un_sum, "the boost raises a tier-3 generator's mean burst (was a paid no-op)")
 
 	# --- §6 spawn TIER-bias: a pop's line AND tier lean toward what givers want (ASK_WEIGHT), but
 	# --- only among POPPABLE tiers (≤ TIER_ODDS range) so a generator never pops a high tier
@@ -875,7 +908,7 @@ func _initialize() -> void:
 	ok(_starters_produceable, "every STARTER_ITEMS line is produceable by a map-0 generator (no orphan starters)")
 	ok(G.base_generator(5).is_empty(), "a special line has no generator")
 	# owner art picks (2026-07-18): the 3-tier coin/acorn ladders wear chosen art off the 12-tier sheets
-	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 5 and G.art_tier_for("coin", 3) == 12, 		"coin tiers wear the picked art (1/5/12 — coin → pouch → chest)")
+	ok(G.art_tier_for("coin", 1) == 1 and G.art_tier_for("coin", 2) == 4 and G.art_tier_for("coin", 3) == 5, 		"coin tiers wear the picked art (1/4/5 — coin → coin roll → pouch)")
 	ok(G.art_tier_for("acorn", 2) == 5 and G.art_tier_for("acorn", 3) == 6, "acorn tiers wear the picked art (3/5/6)")
 	ok(G.art_tier_for("water", 2) == 2 and G.art_tier_for("fairy_hollow_glowshroom", 7) == 7, "unmapped bases pass tiers through unchanged")
 	ok(G.item_tex_path(13 * 100 + 1).ends_with("acorn_3.png"), "the acorn drop's t1 sprite resolves through the pick map")

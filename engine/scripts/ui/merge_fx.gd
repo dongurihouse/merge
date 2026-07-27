@@ -71,15 +71,15 @@ static func on(opts: Dictionary, id: String) -> bool:
 	return FxConfig.on(opts, id)
 
 ## The merge burst colour ramp, copied from feel._merge_color: tier<4 LEAF green, 4..7 STRAW gold,
-## >= 8 HOT.
+## >= ESCALATE_TIER (the pinnacle) HOT.
 static func _color(tier: int) -> Color:
-	if tier >= 8:
+	if tier >= Tune.ESCALATE_TIER:
 		return HOT
 	return STRAW if tier >= 4 else LEAF
 
 ## The tier the escalation (colour / chime / haptic) reads off. An INTENSIFIED merge — a §6.G recipe-line
 ## merge (T63) — should feel like a pinnacle merge at ANY tier, so we lift the read-off tier to the
-## big-moment band (ESCALATE_TIER == the HOT/PREMIUM pinnacle, 8) while NEVER dropping a real high-tier
+## big-moment band (ESCALATE_TIER == the HOT/PREMIUM pinnacle) while NEVER dropping a real high-tier
 ## merge below itself. An ordinary merge reads off its own tier unchanged. (feel_tests asserts the lift
 ## composes to HOT colour + heavy weight + the success-chime threshold, so this stays correct if the
 ## constant ever moves.)

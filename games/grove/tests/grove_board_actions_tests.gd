@@ -21,7 +21,8 @@ func _initialize() -> void:
 	_test_gen_redundancy()
 	_test_self_dup_at_top()
 	_test_sell_generator()
-	_test_retire_line()
+	_test_line_farewell_predicates()
+	_test_farewell_sweep()
 	_test_pick_drop_cell()
 	_test_generator_swaps()
 	finish()
@@ -167,6 +168,22 @@ func _test_produce_due_generators() -> void:
 	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
 	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
 	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
+	# 4. a returning line restores the kept tier/boost saved by the farewell sweep, then consumes the keepsake.
+	fresh("produce_due_generators_kept")
+	var kept := Save.grove()
+	kept["gen_kept"] = {"gen_4": [3, 6]}
+	Save.grove_write()
+	var returning := BoardModel.new()
+	var own_cell: Vector2i = returning.empty_ground_cells()[0]
+	returning.place_gen("gen_2", own_cell)
+	var due: Array = [{"line": 8, "tier": 1}]       # spices needs wild berries + woolens
+	var outk: Dictionary = BoardActions.produce_due_generators(returning, due)
+	ok(bool(outk.due) and outk.landed.size() == 1, "a future special ask births the missing kept generator")
+	var rc: Vector2i = outk.landed[0]
+	ok(returning.gen_id_at(rc) == "gen_4" and returning.gen_tier_at(rc) == 3 and returning.gen_boost_at(rc) == 6,
+		"the returning generator restores its kept tier and boost exactly")
+	ok(not (Save.grove().get("gen_kept", {}) as Dictionary).has("gen_4"),
+		"the keepsake is consumed after the generator returns")
 
 # Recipe crafting is a composite board action: consume the source ingredient, replace the target with
 # the authored special code at the shared tier, and credit mastery for the two base ingredients.
@@ -392,70 +409,94 @@ func _test_sell_generator() -> void:
 	ok(not bool(out2.sold) and b.gens.has(top), "a non-redundant (top) generator cannot be sold")
 	ok(G.gen_sell_coins(1) >= 0 and G.gen_sell_coins(2) >= 0, "gen_sell_coins is defined for the sellable tiers 1..2")
 
-# §6 LINE RETIREMENT — clearing a line the game will never ask for again. The predicate is FORWARD-LOOKING
-# (G.gen_retirable), not "left the active window": lines 2/3/4 drop out of the window and come BACK as the
-# ingredients of later crafts, so a window-exit rule would strand the player. On the shipped roster exactly
-# three generators ever retire — gen_1/gen_6/gen_16 at the zone_unlock_level(3)/(8)/(11) boundaries derived below.
-func _test_retire_line() -> void:
-	fresh("retire_line")
-	# --- the predicate, against the shipped zone ladder
-	# Each retirement boundary is the level at which the generator's line leaves the window for good —
-	# derived from the cadence so a curve or cost re-tune moves these with it, never stale.
-	var _z3 := G.zone_unlock_level(3)     # zone 3 opens -> line 1 (zone 0) has left the 3-line window
-	ok(not G.gen_retirable("gen_1", _z3 - 1) and G.gen_retirable("gen_1", _z3), "the anchor line retires the level after it is last needed (L%d -> L%d)" % [_z3 - 1, _z3])
-	var _z8 := G.zone_unlock_level(8)     # zone 8 opens -> line 6 (zone 5) has left the window
-	ok(not G.gen_retirable("gen_6", _z8 - 1) and G.gen_retirable("gen_6", _z8), "desert fruits retires past L%d" % (_z8 - 1))
-	var _z11 := G.zone_unlock_level(11)   # zone 11 opens -> line 16 (zone 8) has left the window
-	ok(not G.gen_retirable("gen_16", _z11 - 1) and G.gen_retirable("gen_16", _z11), "shells retires past L%d" % (_z11 - 1))
-	for _keep in ["gen_2", "gen_3", "gen_4", "gen_7", "gen_18"]:
-		var _ever := false
-		for _lv in range(1, G.zone_unlock_level(G.ZONE_COUNT - 1) + 20):
-			if G.gen_retirable(String(_keep), _lv):
-				_ever = true
-		ok(not _ever, "%s is NEVER retirable — it feeds the final window's crafts at every level" % _keep)
-	# a line that goes DORMANT is not retirable while a later craft still needs it (the whole point)
-	var _dormant := G.zone_unlock_level(10)   # Cherry Blossom's first zone: the window is [16,17,18], no woolens
-	ok(not G.active_lines(_dormant).has(4) and not G.gen_retirable("gen_4", _dormant), "woolens is out of the L%d window yet still NOT retirable — tea cups needs it at L%d" % [_dormant, G.zone_unlock_level(11)])
-	ok(G.retirable_gens(["gen_1", "gen_4", "gen_18"], _z3) == ["gen_1"], "the offer set holds only the truly-done generators")
-	ok(G.retirable_gens(["acc_water", "treat_71"], 30) == [], "accumulator / treat generators are never offered — their own lifecycle")
-	# --- the action. A fresh board deals the FTUE terrain (3 open cells), and level does not widen it —
-	# cells open by MERGING beside a bramble. Force the terrain open, the way the other suites do, so the
-	# fixture has ground to sit on; this test is about retirement, not about the obstacle field.
+# The farewell predicates read the active window's recursive closure, not just the three visible asks.
+# This catches the bug where Woolens/Snow/Wild Berries leave the current window but must come back later as
+# special-line ingredients. Levels are derived from the zone cadence so tuning moves the assertions with it.
+func _test_line_farewell_predicates() -> void:
+	fresh("line_farewell_predicates")
+	var l33 := G.zone_unlock_level(3)
+	var l46 := G.zone_unlock_level(6)
+	var l51 := G.zone_unlock_level(7)
+	var l60 := G.zone_unlock_level(9)
+	var l65 := G.zone_unlock_level(10)
+	var l69 := G.zone_unlock_level(11)
+	ok(G.line_needed_at_zone(1, 2) and not G.line_needed_at_zone(1, 3),
+		"glow-mushrooms are needed through zone 2, then complete when zone 3 opens at L%d" % l33)
+	var wool_back: Dictionary = G.next_need(4, l46)
+	ok(not G.line_needed_at_zone(4, 6) and int(wool_back.level) == l51 and int(wool_back.for_line) == 8,
+		"woolens are away at L%d and return at L%d for spices" % [l46, l51])
+	var snow_back: Dictionary = G.next_need(3, l51)
+	ok(not G.line_needed_at_zone(3, 7) and int(snow_back.level) == l60 and int(snow_back.for_line) == 17,
+		"snow & ice are away at L%d and return at L%d for corals" % [l51, l60])
+	var wild_back: Dictionary = G.next_need(2, l65)
+	ok(not G.line_needed_at_zone(2, 10) and int(wild_back.level) == l69 and int(wild_back.for_line) == 19,
+		"wild berries are away at L%d and return at L%d for tea cups" % [l65, l69])
+	ok(G.next_need(1, l33).is_empty(), "a complete line has no future next_need")
+	var final_gens: Dictionary = G.needed_gens(l69)
+	ok(final_gens.has("gen_2") and final_gens.has("gen_4") and final_gens.has("gen_18"),
+		"due_gen can reach every base generator needed by the future Tea Cups window")
+
+# Farewell sweep is board-presence based: board stock sells into the spendable wallet, board generators
+# disappear, upgraded generators leave a gen_kept keepsake, and item/gen bags remain a true hoard path.
+func _test_farewell_sweep() -> void:
+	fresh("farewell_sweep")
 	var b := BoardModel.new()
 	for r in G.ROWS:
 		for c in G.COLS:
 			b.terrain[BoardModel.idx(Vector2i(r, c))] = 0
-			b.take(Vector2i(r, c))                 # and clear the dealt bramble CONTENTS — the fixture must be exact
+			b.take(Vector2i(r, c))
 	var cells := b.empty_ground_cells()
-	ok(cells.size() >= 5, "fixture: the opened board has room for the retirement fixture (%d cells)" % cells.size())
-	b.place_gen("gen_1", cells[0])
-	b.place_gen("gen_18", cells[1])
-	b.place(cells[2], 1 * 100 + 3)                 # two leftover glow pieces on the board
-	b.place(cells[3], 1 * 100 + 5)
-	b.place(cells[4], 18 * 100 + 2)                # a live koi piece — must SURVIVE
-	b.gen_bag = ["gen_1", "gen_18"]
-	b.gen_bag_tiers = [2, 1]
-	b.gen_bag_boost = [0, 0]
-	var bag: Array = [1 * 100 + 2, 18 * 100 + 4]   # one dead glow item + one live koi item stashed
-	var expect := int(G.sell_reward(103).x) + int(G.sell_reward(105).x) + int(G.sell_reward(102).x)
+	ok(cells.size() >= 8, "fixture: opened board has room for the farewell sweep")
+	var l65 := G.zone_unlock_level(10)
+	b.place_gen("gen_2", cells[0], 3)
+	b.arm_gen_boost(cells[0], 5)
+	b.place_gen("gen_4", cells[1], 2)
+	b.place(cells[2], 2 * 100 + 2)
+	b.place(cells[3], 4 * 100 + 3)
+	b.place(cells[4], 8 * 100 + 1)
+	b.place(cells[5], 16 * 100 + 2)             # currently needed at L65 — must survive
+	b.gen_bag = ["gen_2", "gen_4"]
+	b.gen_bag_tiers = [4, 1]
+	b.gen_bag_boost = [9, 0]
+	var due: Array = BoardActions.farewells_due(b, l65)
+	ok(due.map(func(e): return int(e.line)) == [2, 4, 8],
+		"L65 farewells are Wild Berries, Woolens, and Spices when each has board presence")
+	for e in due:
+		ok(int((e.next_need as Dictionary).level) == G.zone_unlock_level(11) and int((e.next_need as Dictionary).for_line) == 19,
+			"each L65 farewell points at Tea Cups as its return")
 	var wallet_b := Save.coins()
 	var clock_b := Save.coins_earned_lifetime()
-	var refused: Dictionary = BoardActions.retire_line(b, bag, "gen_18", _z3)
-	ok(not bool(refused.retired) and b.gens.values().has("gen_18"), "retiring a STILL-NEEDED line is refused outright")
-	var res: Dictionary = BoardActions.retire_line(b, bag, "gen_1", _z3)
-	ok(bool(res.retired) and int(res.line) == 1, "the done line retires")
-	ok(int(res.items) == 3 and int(res.coins) == expect, "every leftover piece is sold — board AND item bag (%d pieces, %d coins)" % [int(res.items), int(res.coins)])
-	ok(Save.coins() == wallet_b + expect, "the sale credits the wallet")
-	ok(Save.coins_earned_lifetime() == clock_b, "RETIREMENT NEVER ADVANCES THE CLOCK — quests only")
-	ok(not b.gens.values().has("gen_1") and b.gens.values().has("gen_18"), "the retired generator leaves the board; the live one stays")
-	ok(b.gen_bag == ["gen_18"] and b.gen_bag_tiers == [1] and b.gen_bag_boost == [0], "the gen_bag drops it and its PARALLEL arrays stay aligned")
-	ok(res.bag == [18 * 100 + 4], "the item bag keeps the live line and drops the retired one")
-	var survived := false
-	for i in b.items.size():
-		if int(b.items[i]) == 18 * 100 + 2:
-			survived = true
-	ok(survived, "a live line's board piece is untouched")
-	ok(int((BoardActions.retire_line(b, res.bag, "gen_1", _z3) as Dictionary).items) == 0, "retiring again is a clean no-op — nothing left to clear")
+	var expect := int(G.sell_reward(202).x)
+	var actions := BoardActions.new()
+	var has_preview := false
+	for method in actions.get_method_list():
+		if String(method.get("name", "")) == "farewell_preview":
+			has_preview = true
+	ok(has_preview, "farewell payout exposes one shared preview for the card and sweep")
+	var preview: Dictionary = actions.call("farewell_preview", b, 2) if has_preview else {}
+	ok(int(preview.get("pieces", -1)) == 1 and int(preview.get("coins", -1)) == expect and int(preview.get("gens", -1)) == 1,
+		"farewell_preview reports the exact pieces, spendable coins, and board generators before mutation")
+	ok(b.item_at(cells[2]) == 2 * 100 + 2 and b.gens.has(cells[0]),
+		"farewell_preview is read-only: the card can display it before the sweep mutates the board")
+	var out: Dictionary = BoardActions.sweep_line(b, 2)
+	ok(int(out.pieces) == int(preview.get("pieces", -1)) and int(out.coins) == int(preview.get("coins", -1)) and int(out.gens) == int(preview.get("gens", -1)),
+		"sweep_line returns the same payout facts the farewell card preview displayed")
+	ok(int(out.pieces) == 1 and int(out.coins) == expect and int(out.gens) == 1,
+		"sweep_line reports board pieces, spendable coins, and removed board generators")
+	ok(Save.coins() == wallet_b + expect, "sweep_line credits board-stock coins to the wallet")
+	ok(Save.coins_earned_lifetime() == clock_b, "SWEEP NEVER ADVANCES THE CLOCK")
+	ok(not b.gens.values().has("gen_2") and b.gen_bag == ["gen_2", "gen_4"]
+		and b.gen_bag_tiers == [4, 1] and b.gen_bag_boost == [9, 0],
+		"sweep touches board generators but leaves the generator bag untouched")
+	var kept: Dictionary = Save.grove().get("gen_kept", {})
+	ok(kept.get("gen_2", []) == [3, 5], "an upgraded swept board generator writes gen_kept [tier, boost]")
+	ok(BoardActions.farewells_due(b, l65).map(func(e): return int(e.line)) == [4, 8],
+		"presence-based evaluation is idempotent: the swept line does not re-fire")
+	var live_piece_survived := false
+	for v in b.items:
+		if int(v) == 16 * 100 + 2:
+			live_piece_survived = true
+	ok(live_piece_survived, "a currently needed line's board piece is untouched")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.

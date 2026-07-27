@@ -37,7 +37,7 @@ static func bottom_px() -> float:
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
 	var lv_px := maxf(1.0, ceilf(float(pill.pill_h) * LEVEL_BADGE_SCALE))
-	return float(layout.get("edge_margin_px", 18.0)) + lv_px
+	return float(layout.edge_margin_px) + lv_px
 
 static func _view_size(host: Control) -> Vector2:
 	if host != null and host.is_inside_tree():
@@ -100,7 +100,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
 	var view := _view_size(host)
-	var edge_margin := float(layout.get("edge_margin_px", 18.0))
+	var edge_margin := float(layout.edge_margin_px)   # the kit's resolver owns this default, not us
 	var safe_top := float(opts.get("_safe_top_for_test", Look.safe_top(host)))
 	var top_edge := edge_margin + safe_top
 	var pill_slot_w := _screen_w_px(view, float(layout.currency_pill_w_frac))

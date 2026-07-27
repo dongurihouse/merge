@@ -37,6 +37,7 @@ const QUEST_GEN_CAP = D.QUEST_GEN_CAP
 const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
 const GEN_SELL_COINS = D.GEN_SELL_COINS
 const GEN_TIER_BURST_ODDS = D.GEN_TIER_BURST_ODDS
+const GEN_TIER_BURST_ODDS_BOOST = D.GEN_TIER_BURST_ODDS_BOOST
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -153,13 +154,20 @@ static func apply_tuning(path: String = "") -> PackedStringArray:
 			MIN_LEVEL = grid;   applied.append("min_level")
 	return applied
 
-# Validate a ROWS×COLS non-negative int grid; [] (→ ignored) on any shape mismatch.
+# Validate a ROWS×COLS non-negative int grid; [] (→ the key is ignored) on any shape mismatch.
+# A mis-shaped grid used to be a SILENT skip: the board fell back to the grove_data const and the
+# owner's saved JSON did nothing, with no signal anywhere. push_error instead — a hand-edited or
+# tool-generated grid of the wrong shape is a mistake, and it must say so.
 static func _coerce_grid(raw: Array) -> Array:
 	if raw.size() != int(D.ROWS):
+		push_error("economy_tuning min_level: expected %d rows × %d cols, got %d rows — grid IGNORED, the board falls back to the grove data const" % [int(D.ROWS), int(D.COLS), raw.size()])
 		return []
 	var grid: Array = []
-	for r in raw:
+	for i in raw.size():
+		var r: Variant = raw[i]
 		if not (r is Array) or (r as Array).size() != int(D.COLS):
+			var got: String = "%d cols" % (r as Array).size() if r is Array else "not an array (%s)" % type_string(typeof(r))
+			push_error("economy_tuning min_level: expected %d rows × %d cols, row %d is %s — grid IGNORED, the board falls back to the grove data const" % [int(D.ROWS), int(D.COLS), i, got])
 			return []
 		var row: Array = []
 		for v in r:
@@ -237,6 +245,24 @@ static func quest_needed_lines(asked: Array) -> Dictionary:
 	for l in asked:
 		_add_needed_line(out, int(l))
 	return out
+
+## True when `line` is in the recursive need closure for zone `z`: the active window's own lines plus
+## every ingredient needed to craft any special line in that window.
+static func line_needed_at_zone(line: int, z: int) -> bool:
+	return quest_needed_lines(zone_window_lines(int(z))).has(int(line))
+
+## First future zone, above the player's current zone, whose need closure contains `line`.
+## Returns {} when the line is complete for the shipped arc; otherwise {level, for_line}, where for_line is
+## the first visible window line whose recursive expansion pulls this line back.
+static func next_need(line: int, level: int) -> Dictionary:
+	var current_zone := quest_zone_for_level(int(level))
+	for z in range(current_zone + 1, ZONE_COUNT):
+		for window_line in zone_window_lines(int(z)):
+			var closure := {}
+			_add_needed_line(closure, int(window_line))
+			if closure.has(int(line)):
+				return {"level": zone_unlock_level(int(z)), "for_line": int(window_line)}
+	return {}
 
 # Walk one line's ingredient tree ALL THE WAY DOWN to its base lines. RECURSION IS LOAD-BEARING: an
 # ingredient may itself be a special — tea cups (19) <- spices (8) <- wild berries (2) + woolens (4) — and
@@ -450,9 +476,11 @@ static func quest_zone_for_level(level: int) -> int:
 	return z
 
 # --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
-# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples.
-static func gen_burst_odds(tier: int) -> Array:
-	return GEN_TIER_BURST_ODDS[clampi(tier, 1, GEN_TOP_TIER) - 1]
+# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples. A live boost
+# swaps in the strictly-better boosted table (T64).
+static func gen_burst_odds(tier: int, boosted: bool = false) -> Array:
+	var table: Array = GEN_TIER_BURST_ODDS_BOOST if boosted else GEN_TIER_BURST_ODDS
+	return table[clampi(tier, 1, GEN_TOP_TIER) - 1]
 
 # Two same-line generators merge 2:1 into the next tier (capped at GEN_TOP_TIER).
 static func gen_merge_tier(tier: int) -> int:
@@ -467,9 +495,10 @@ static func gen_sell_coins(tier: int) -> int:
 static func rolls_gen_self_dup(rng: RandomNumberGenerator) -> bool:
 	return rng.randf() < GEN_SELF_DUP_RATE
 
-# A generator's burst count at its tier (1..N items), rolled over its tier odds.
-static func gen_burst_count(tier: int, rng: RandomNumberGenerator) -> int:
-	var odds := gen_burst_odds(tier)
+# A generator's burst count at its tier (1..N items), rolled over its tier odds; a live boost swaps in the
+# strictly-better boosted row (the top row adds a 4th slot — only a boosted top-tier generator pops 4).
+static func gen_burst_count(tier: int, rng: RandomNumberGenerator, boosted: bool = false) -> int:
+	var odds := gen_burst_odds(tier, boosted)
 	var n := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -747,12 +776,12 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 		return 0
 	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
-## Burst-pop (§6, T58): one tap on a generator pops a BURST of items, not just one. The COUNT is drawn
-## from an odds table — BURST_ODDS when no boost is live (a single item is the norm, multiples are rare)
-## or BURST_ODDS_BOOST while a boost is live (multiples become the norm). The boost RAISES THE CHANCE of
-## multiples; it does NOT add a flat count, and there is no per-map scale-up (`_map` is unused — kept for
-## call-site stability). `boost_bonus > 0` marks a live boost. Clamped to [1, BURST_MAX] as a board-flood
-## safety net. Each popped item still costs 1 energy.
+## Burst-pop for the UNTIERED special-generator family (§6, T58): the boosted accumulator collect, the
+## treat pop, and the sim roll their burst COUNT here — tiered line generators roll gen_burst_count
+## instead (T64). BURST_ODDS when no boost is live (a single item is the norm), BURST_ODDS_BOOST while
+## one is (`boost_bonus > 0` marks a live boost — it RAISES THE CHANCE of multiples, never a flat add;
+## `_map` is unused — kept for call-site stability). Clamped to [1, BURST_MAX] as a board-flood safety
+## net. Each popped item still costs 1 energy.
 static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
 	var odds: Array = BURST_ODDS_BOOST if boost_bonus > 0 else BURST_ODDS
 	var n := 1
@@ -1716,7 +1745,7 @@ static func item_tex_path(code: int) -> String:
 	return Game.art("items/%s/%s_%d.png" % [base, base, art_tier_for(base, tier)])
 
 # The ART index in-game tier `tier` wears for `base` (D.ART_TIER_PICK — owner-picked looks off a
-# larger sheet, e.g. the 3-tier coin ladder wearing art 1/5/12). Unmapped bases pass through.
+# larger sheet, e.g. the 3-tier coin ladder wearing art 1/4/5). Unmapped bases pass through.
 static func art_tier_for(base: String, tier: int) -> int:
 	var pick: Array = D.ART_TIER_PICK.get(base, [])
 	if tier >= 1 and tier - 1 < pick.size():

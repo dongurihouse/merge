@@ -13,6 +13,7 @@ extends "res://games/grove/tools/workbench_view.gd"
 
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
+const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")   # the page band law the board fits into
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
@@ -219,7 +220,7 @@ func _default_params() -> Dictionary:
 		# this preview. Piece size is owned by Slot-cell content_frac.
 		"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
 			# the board FRAME defaults to the authored Meadow nine-slice; badge/code remain compatibility studies.
-			"frame_style": "meadow", "frame_tint": "3F6D7D", "frame_corner": 46,
+			"frame_style": "meadow", "frame_tint": Pal.BARK.to_html(false), "frame_corner": 46,
 			"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 		# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 		# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
@@ -333,7 +334,7 @@ func _default_params() -> Dictionary:
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
 		# (test-only) so the preview shows a real reward row; the game supplies each entry's own content.
 		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
-			"tint": "F6EBDD", "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
+			"tint": Pal.CREAM.to_html(false), "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 		"daily": {"cols": 3, "list_max_h": 0},
@@ -443,7 +444,7 @@ func _preview_screen_w() -> float:
 
 func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 	var layout := Kit.hud_layout_opts_from_config({"hud_layout": _params["hud_layout"]})
-	var edge := float(layout.get("edge_margin_px", 18.0))
+	var edge := float(layout.edge_margin_px)
 	var pill_slot_w := maxf(1.0, roundf(_preview_screen_w() * float(layout.get("currency_pill_w_frac", 0.25))))
 	var pill_body_w := maxf(1.0, pill_slot_w - edge)
 	var row := HBoxContainer.new()
@@ -740,18 +741,16 @@ func _action_button_row_preview(p: Dictionary) -> Control:
 	mc.add_child(row)
 	return mc
 
-# The board's own layout law, mirrored so the preview shows what the board WILL render (board wins): the
-# same absolute-px clamps board.gd applies, computed on the real 1080×1920 viewport then scaled to the
-# preview. Only the knobs the live board actually reads drive a region — level width, the wallet band, the
-# side rail, and the info-bar width are NOT board knobs, so they draw nothing here (they were preview-only).
-const HUD_BOTTOM_BAR_H := 166.0     # board.gd BOTTOM_BAR_H (fallback bar height)
-const HUD_BOTTOM_BTN_PX := 130.0    # board.gd BOTTOM_BTN_PX (fallback well size)
-const HUD_BOTTOM_BAR_MIN := 150.0   # board.gd BOTTOM_BAR_MIN / MAX
-const HUD_BOTTOM_BAR_MAX := 200.0
-const HUD_BOTTOM_BTN_MIN := 110.0
-const HUD_QUEST_H_MIN := 150.0      # board.gd QUEST_H_MIN / MAX
-const HUD_QUEST_H_MAX := 300.0
-const HUD_EDGE_GAP := 16.0          # board.gd EDGE_GAP — the equal margin below the pills / above the bottom bar
+# The board's own layout law is READ here, never mirrored: ActionBar.* owns the bottom bar's band (it
+# builds the bar) and BoardFit.* owns the quest/page bands, so this preview applies the very same
+# absolute-px clamps board.gd applies — computed on the real 1080×1920 viewport, then scaled to the
+# preview. A retune over there moves the board and this preview in one step; the operator can no longer
+# drag a slider to a value the preview accepts and the board silently clamps away.
+# Only the knobs the live board actually reads drive a region — level width, the wallet band, the side
+# rail, and the info-bar width are NOT board knobs, so they draw nothing here (they were preview-only).
+# HUD_UNLOCK_BAR_H is deliberately NOT one of those constants: it is a REPRESENTATIVE strip height
+# standing in for the board's runtime-MEASURED _unlock_bar_h_px band, which has no constant to read.
+# It is preview-only by design — do not promote it to a mirror.
 const HUD_UNLOCK_BAR_H := 108.0     # a representative next-unlock strip height (board's _unlock_bar_h_px band)
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
@@ -767,14 +766,16 @@ func _hud_layout_preview() -> Control:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
-	var edge := float(p.get("edge_margin_px", 18)) * s
+	# every dial below comes off the kit's RESOLVED layout (Kit.hud_layout_opts_from_config) — the
+	# preview must not carry its own copy of a default, or it certifies geometry the board won't render.
+	var edge := float(layout.edge_margin_px) * s
 
 	# --- top HUD: the level badge (sized to the currency pill height, hud.gd) + the wallet band, whose 3
 	# pills are CENTRED in the currency area (hud.gd centres them; they are not left-packed). ---
 	var pill_slot_w := PHONE_W * float(layout.get("currency_pill_w_frac", 0.25))
-	var pill_body_w := maxf(1.0, pill_slot_w - float(p.get("edge_margin_px", 18))) * s
+	var pill_body_w := maxf(1.0, pill_slot_w - float(layout.edge_margin_px)) * s
 	var pill_h := 74.0 * s   # the shipped gold-currency-pill height (hud.gd sizes the badge to it)
-	var pill_gap := float(p.get("edge_margin_px", 18)) * s
+	var pill_gap := float(layout.edge_margin_px) * s
 	var wallet_w := w * clampf(float(layout.get("currency_area_frac", 0.75)), 0.0, 1.0)
 	var wallet_x := w - wallet_w
 	var pill_run := pill_body_w * 3.0 + pill_gap * 2.0
@@ -787,21 +788,21 @@ func _hud_layout_preview() -> Control:
 
 	# --- the NEXT-UNLOCK strip: the board's single largest top-reserve consumer, below the pills.
 	# board.gd anchors it EDGE_GAP below the HUD's measured bottom (the Lv badge; pill_h is our proxy). ---
-	var unlock_y := edge + pill_h + HUD_EDGE_GAP * s
+	var unlock_y := edge + pill_h + BoardFit.EDGE_GAP * s
 	var unlock_h := HUD_UNLOCK_BAR_H * s
 	root.add_child(_layout_preview_box(Rect2(edge, unlock_y, w - edge * 2.0, unlock_h), Color("#CBB89A", 0.34), "next unlock", "HudLayoutUnlockBar"))
 	var stack_top := maxf(hud_clear_y, unlock_y + unlock_h + 8.0 * s)
 
 	# --- bottom bar + quest + board: bottom-anchored, with the board's REAL absolute-px clamps applied on
 	# the full viewport then scaled — so the sliders show what the board will actually render, not a raw %. ---
-	var btn_px := clampf(roundf(PHONE_W * float(layout.get("button_w_frac", 0.15))), HUD_BOTTOM_BTN_MIN, HUD_BOTTOM_BAR_MAX - (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
-	var bottom_raw := maxf(HUD_BOTTOM_BAR_H, btn_px + (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
-	var bottom_frac := float(layout.get("bottom_row_h_frac", 0.0))
+	var btn_px := clampf(roundf(PHONE_W * float(layout.button_w_frac)), ActionBar.BOTTOM_BTN_MIN, ActionBar.BOTTOM_BAR_MAX - (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
+	var bottom_raw := maxf(ActionBar.BOTTOM_BAR_H, btn_px + (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
+	var bottom_frac := float(layout.bottom_row_h_frac)
 	if bottom_frac > 0.0:
 		bottom_raw = maxf(btn_px, roundf(PHONE_H * bottom_frac))
-	var bottom_h := clampf(bottom_raw, HUD_BOTTOM_BAR_MIN, HUD_BOTTOM_BAR_MAX) * s
+	var bottom_h := clampf(bottom_raw, ActionBar.BOTTOM_BAR_MIN, ActionBar.BOTTOM_BAR_MAX) * s
 	var btn_w := btn_px * s
-	var quest_h := clampf(roundf(PHONE_H * float(layout.get("quest_bar_h_frac", 0.13))), HUD_QUEST_H_MIN, HUD_QUEST_H_MAX) * s
+	var quest_h := clampf(roundf(PHONE_H * float(layout.quest_bar_h_frac)), BoardFit.QUEST_H_MIN, BoardFit.QUEST_H_MAX) * s
 	var gap := 8.0 * s
 	var bottom_y := h - bottom_h - edge
 	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
@@ -828,38 +829,10 @@ func _hud_layout_preview() -> Control:
 func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
 	return ActionBar.bar_style(bar_h, ao)
 
-func _action_bar_nudge(child: Control, x_frac: float, node_name: String) -> Control:
-	if absf(x_frac) < 0.001:
-		return child
-	var slot := MarginContainer.new()
-	slot.name = node_name
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.custom_minimum_size = child.custom_minimum_size
-	slot.size_flags_horizontal = child.size_flags_horizontal
-	slot.size_flags_vertical = child.size_flags_vertical
-	var x_px := int(roundf(maxf(1.0, child.custom_minimum_size.x) * x_frac))
-	slot.add_theme_constant_override("margin_left", x_px)
-	slot.add_theme_constant_override("margin_right", -x_px)
-	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slot.add_child(child)
-	return slot
-
-func _action_bar_clear_button_frame(b: Button) -> void:
-	var empty := StyleBoxEmpty.new()
-	for st_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-		b.add_theme_stylebox_override(st_name, empty)
-
-func _action_bar_transparent_info_frame(opts: Dictionary) -> StyleBoxEmpty:
-	var empty := StyleBoxEmpty.new()
-	var pad: Dictionary = opts.get("pill", {})
-	var pad_x := float(pad.get("pad_x", 18.0))
-	empty.content_margin_left = float(pad.get("pad_left", pad_x))
-	empty.content_margin_right = float(opts.get("pad_right", 16.0))
-	var vpad := float(opts.get("vpad", 8.0))
-	empty.content_margin_top = vpad
-	empty.content_margin_bottom = vpad
-	return empty
-
+# The three action-bar helpers this preview used to re-implement (offset_slot / clear_button_frame /
+# info_bar_frame) are called straight off ActionBar now. This workbench IS the tuning surface for the
+# shipped bar, so a private copy meant a padding or basis change over there left the preview
+# certifying old geometry into ui_kit_settings.json.
 func _action_bar_preview() -> Control:
 	var p: Dictionary = _params["info_bar"]
 	var ao := Kit.action_bar_opts_from_config({"info_bar": p})
@@ -870,7 +843,7 @@ func _action_bar_preview() -> Control:
 	# still come from the shared params); Kit.home_button itself is still the live map.gd/board.gd builder.
 	var ho := Kit.home_button_opts_from_config({"badge": _params["badge"], "shadow": _params["shadow"]})
 	var preview_w := PHONE_W
-	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.get("button_w_frac", 0.15))))))
+	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.button_w_frac)))))
 	var bar_h := maxf(166.0, btn_px + 36.0)
 
 	# Mirrors the live board: a TRANSPARENT holder, with the Home/Bag tiles standing free at the two ends and
@@ -896,7 +869,7 @@ func _action_bar_preview() -> Control:
 	home_btn.name = "ActionBarPreviewHome"
 	home_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_action_bar_clear_button_frame(home_btn)
+	ActionBar.clear_button_frame(home_btn)
 	row.add_child(home_btn)
 	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "shadow": _params["shadow"]})
 	var ib: PanelContainer = Kit.info_bar({}, io)
@@ -904,7 +877,7 @@ func _action_bar_preview() -> Control:
 	ib.custom_minimum_size.x = 1.0
 	ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ib.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	ib.add_theme_stylebox_override("panel", _action_bar_transparent_info_frame(io))
+	ib.add_theme_stylebox_override("panel", ActionBar.info_bar_frame(io))
 	var inner := float(ib.get_meta("inner_px", 62.0))
 	var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
 	var item_icon_px := float(ib.get_meta("item_icon_px", inner * item_scale))
@@ -924,14 +897,14 @@ func _action_bar_preview() -> Control:
 	var ib_tray := ActionBar.info_tray(ib, bar_h, ao)
 	ib_tray.name = "ActionBarPreviewInfoTray"
 	ib_tray.add_theme_stylebox_override("panel", _action_bar_preview_style(bar_h, ao))
-	row.add_child(_action_bar_nudge(ib_tray, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
+	row.add_child(ActionBar.offset_slot(ib_tray, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
 	var bag_opts := ho.duplicate()
 	bag_opts["surface_role"] = "purple"
 	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, bag_opts)
 	bag_btn.name = "ActionBarPreviewBag"
 	bag_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	bag_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_action_bar_clear_button_frame(bag_btn)
+	ActionBar.clear_button_frame(bag_btn)
 	row.add_child(bag_btn)
 	return bar
 

@@ -246,3 +246,10 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
   build (ids `farmhouse/barn/pond/orchard/meadow`; names The Farm/Orchard/Garden/Mill/Gate; `[7,4,7,4,1]`).
   This is a world-design/naming reconcile (NOT economy — economy facts were fixed in T62); needs a Dev call on
   the canonical map names + journey before rewriting the table.
+
+- **grove_sim burst model is stale (T64 flagged).** The sim's pop step (`games/grove/tools/grove_sim.gd`
+  ~931-942) still rolls the flat `burst_count(map, …)` with a single GLOBAL boost counter — it models neither
+  the per-tier unboosted odds (gen redesign #8) nor the per-tier boosted odds / per-generator boost (T64/T57).
+  Harmless for now (the flat tables straddle the tier rows) but any burst-throughput conclusion from the sim
+  understates tiered generators; re-point its pop step at `gen_burst_count` + per-generator boost state on the
+  next economy sim pass.

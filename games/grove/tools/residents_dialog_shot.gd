@@ -5,7 +5,7 @@ extends SceneTree
 ## Seeds a completed scene (its bucket cell), a placed spirit, matured stock and a hand.
 ## Parallel-safe (own temp save). Mirrors residents_shot.gd's quiet-capture header.
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")

@@ -274,7 +274,13 @@ class FX:
 	const GEN_CHARGE_T := [0.07, 0.11]  # per-leg seconds: K0->K1, K1->K2
 
 	# --- combo (cozy successive-merge streak) ------------------------------------------
-	const ESCALATE_TIER := 8            # tier >= this earns the reserved big-moment shake (PREMIUM_TIER — the pinnacle merges)
+	# Tier >= this earns the whole RESERVED big-moment vocabulary: the shake, the HOT burst colour,
+	# the heavy haptic. It IS the game's PREMIUM_TIER (grove_data.gd) — the pinnacle merge — restated
+	# as a literal because this file preloads nothing on purpose (see the header: these are the
+	# ENGINE's game-independent defaults, and reading Game.DATA here would make the engine's tuning
+	# leaf game-dependent). engine/tests/const_ssot_tests.gd §6 asserts the two agree, so moving
+	# PREMIUM_TIER can no longer leave the pinnacle cues firing one tier below the pinnacle.
+	const ESCALATE_TIER := 8
 	const BIG_BURST_BONUS := 6         # + burst particles on a big-moment (tier >= ESCALATE_TIER) merge
 	const COMBO_WINDOW := 2.5           # seconds; a merge within this of the last extends the streak
 	const COMBO_MILESTONES := [3, 5, 8] # streak counts that shout an encouraging word
@@ -292,7 +298,8 @@ class FX:
 	# --- feel.merge extras ---
 	const MERGE_FLASH_TIER_RAMP := [0.5, 0.65, 0.8, 1.0]
 	const MERGE_HITSTOP_COMBO_BONUS := 0.004
-	const MERGE_BURST_HOT_TIER := 8
+	# (MERGE_BURST_HOT_TIER was a second spelling of ESCALATE_TIER, 18 lines above. The HOT burst is
+	# one of the reserved big-moment cues, not a separate dial — its call sites read ESCALATE_TIER.)
 	# --- feel.move ---
 	const MOVE_SLIDE_T := 0.12
 	const MOVE_ARC_T_UP := 0.16

@@ -1,7 +1,33 @@
 # Generator mastery (+ the Scissors) — design (2026-07-26)
 
-**Status: rev 3.** Rollout step 2 of `2026-07-26-progression-systems-design.md`. All numbers are
+**Status: rev 6.** Rollout step 2 of `2026-07-26-progression-systems-design.md`. All numbers are
 provisional dials — the step-2 `grove_sim` re-pass owns finals.
+
+## 0 · Summary
+
+A permanent per-line growth track. Using a line productively — delivering its pieces to the fence,
+or consuming them as craft ingredients — fills that line's meter. Meter ranks raise the line's pop
+**tier window**, from today's t1–t4 up to t5–t8, so a mastered line's generator starts producing
+where it used to take four merges to reach. At a t5 floor a t12 trophy costs 128 pops instead of
+2048. Bursts are untouched — burst power stays what the player buys (the boost); tier power is
+what a line earns.
+
+The Scissors ships with it: a cheap shop tool that splits one piece into two of one tier lower —
+the bridge back down when a high window sits above a low ingredient ask.
+
+What gets built:
+
+| Piece | Where |
+|---|---|
+| Meter + 8-rank ladder + window/clamp math | new `engine/scripts/core/mastery.gd`, dials in `grove_data.gd` (§2, §3) |
+| Credits at exactly two sites (delivery, craft) | `board_actions.gd` — includes lifting `_apply_recipe` out of the board scene (§2, §6) |
+| Windowed tier roll, zero added RNG draws | `board_logic.roll_tier_window` + `roll_spawn` params (§3) |
+| The Scissors item, split verb, shop row | `content.gd`, `board_actions.split_piece`, `board.gd` release ladder, `shop.gd` (§4) |
+| Save keys, no migration | grove blob (§5) |
+| Ring, trim, rank-up card, info-bar row | `board.gd` + the §7 mocks as composition authority |
+| Sim wiring + the gate battery | `grove_sim.gd` (§6, §8) |
+
+Not in this step: the Shelf (step 1), combos (step 3), improvements/weather (steps 4–5).
 
 ## 1 · Scope
 

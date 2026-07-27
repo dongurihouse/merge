@@ -399,6 +399,12 @@ func swap_gens(a: Vector2i, b: Vector2i) -> bool:
 	return true
 
 func take(cell: Vector2i) -> int:
+	# The bounds guard its neighbours have (item_at / collect_reward_at / set_collect_reward). Without
+	# it an out-of-bounds cell is not an error: idx() goes NEGATIVE and GDScript's negative array
+	# indexing clears a real cell from the other end of the board. first_item_of() returns (-1,-1) on
+	# a miss and callers pass that straight in (games/grove/tools/grove_sim.gd:829-833).
+	if not in_bounds(cell):
+		return 0
 	var k := item_at(cell)
 	items[idx(cell)] = 0
 	collect_rewards.erase(idx(cell))

@@ -12,8 +12,8 @@
 # loads cleanly in the desktop editor/headless — no "no library for macos.arm64"
 # spam), plus the no-op linux/windows stubs. The native classes therefore DO
 # register on the dev Mac, but Store/Identity.available() additionally gate on
-# OS.has_feature("ios"), so the iPad-only game stays inert on desktop (and the
-# headless test suites keep passing). See docs/design/apple-services-setup.md.
+# OS.has_feature("ios"), so the game (iPhone + iPad) stays inert on desktop (and
+# the headless test suites keep passing). See docs/design/apple-services-setup.md.
 #
 # Usage:  tools/install_ios_plugins.sh [--force]
 set -euo pipefail

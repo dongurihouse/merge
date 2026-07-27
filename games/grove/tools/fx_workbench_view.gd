@@ -1,17 +1,29 @@
 @tool
 extends Control
-## Coin Flow workbench - one shared reward-flow component with per-action gates.
+## The COIN FLOW PREVIEW — the staged screen the FX workbench flies a reward across.
+##
+## This is a COMPONENT, not a screen: `fx_gallery_view.gd` (the live FxWorkbench.tscn view)
+## mounts one of these as the "fx" gallery element and owns the whole sidebar. Its own
+## standalone chrome — backdrop, sidebar, stage shell and a second copy of every slider and
+## action row — was superseded when the gallery took over and is gone; nothing ever
+## instantiated this class standalone, so an `embedded` flag that was always true went with it.
+##
+## The gallery drives it through the PUBLIC methods below (select_action / set_fx_enabled /
+## set_global_setting / set_auto_replay / play_selected) — they are the component's contract,
+## not private methods reached by string dispatch.
+##
+## The action table it stages lives in fx_defs.gd so the sidebar reads it without reaching
+## into this view class.
 
-const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const FxDefs = preload("res://games/grove/tools/fx_defs.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Pal = Game.PALETTE
 
-const SIDEBAR_W := 360.0
 const PREVIEW_W := 620.0
 const PREVIEW_H := 940.0
 const EMBEDDED_PREVIEW_SCALE := 0.68
@@ -19,15 +31,6 @@ const COIN_CODE := G.COIN_LINE * 100 + 1
 const SAMPLE_ITEM_A := 101
 const SAMPLE_ITEM_B := 102
 
-const FX_DEFS := [
-	{"id": "coin_pickup", "label": "Coin pickup", "screen": "Board", "context": "board", "icon": "coin", "target": "coin", "source_kind": "coin_piece", "targets": ["coin"], "footer": "Coin pickup routes to wallet"},
-	{"id": "board_refill", "label": "Board refill", "screen": "Board", "context": "board", "icon": "water", "target": "water", "source_kind": "button", "source_label": "Refill", "targets": ["water"], "footer": "Refill button sends water to the HUD"},
-	{"id": "stash_to_bag", "label": "Stash to bag", "screen": "Board", "context": "board", "icon": "bag", "target": "bag", "source_kind": "item_piece", "targets": ["bag"], "footer": "Dragged item stores into the bag"},
-	{"id": "quest_payout", "label": "Quest payout", "screen": "Board", "context": "board", "icon": "coin", "target": "coin", "source_kind": "quest", "targets": ["coin"], "footer": "Quest coin reward flies from the giver chip"},
-	{"id": "accept_2x", "label": "2x reward accept", "screen": "Board", "context": "board", "icon": "coin", "target": "coin", "source_kind": "offer", "targets": ["coin"], "footer": "Bonus accept pays a second coin grant"},
-	{"id": "map_task_reward", "label": "Map task reward", "screen": "Map", "context": "map", "icon": "coin", "target": "coin", "source_kind": "map_card", "targets": ["gem", "coin"], "footer": "Restored place pays gems and coins"},
-	{"id": "sale_payout", "label": "Sale payout", "screen": "Home", "context": "home", "icon": "coin", "target": "coin", "source_kind": "sale_item", "targets": ["coin"], "footer": "Sold item payout routes to the wallet"},
-]
 
 var _preview_action := "coin_pickup"
 var _settings := {
@@ -40,24 +43,15 @@ var _settings := {
 var _totals: Dictionary = {"coin": 120, "gem": 8, "water": 0, "bag": 3}
 var _targets: Dictionary = {}
 var _target_labels: Dictionary = {}
-var _controls: VBoxContainer = null
 var _preview_stage: CenterContainer = null
 var _preview_root: Control = null
 var _source: Control = null
 var _auto_timer: Timer = null
-@export var embedded := false
-@export var show_sidebar := true
-@export var preview_scale := 1.0
+@export var preview_scale := EMBEDDED_PREVIEW_SCALE
 
 func _ready() -> void:
-	if not embedded:
-		UiFont.apply()
-	else:
-		show_sidebar = false
-		if is_equal_approx(preview_scale, 1.0):
-			preview_scale = EMBEDDED_PREVIEW_SCALE
-	mouse_filter = Control.MOUSE_FILTER_PASS if embedded else Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(540, 760) if embedded else Vector2(960, 720)
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	custom_minimum_size = Vector2(540, 760)
 	_load_settings()
 	_build()
 
@@ -76,30 +70,12 @@ func _build() -> void:
 	_target_labels.clear()
 	_source = null
 
-	if embedded:
-		var cc := CenterContainer.new()
-		cc.name = "CoinFlowEmbeddedRoot"
-		cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-		add_child(cc)
-		_preview_stage = cc
-		_build_selected_preview()
-	else:
-		var bg := ColorRect.new()
-		bg.name = "CoinFlowBackdrop"
-		bg.color = Pal.SCREEN_BG
-		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(bg)
-
-		var root := HBoxContainer.new()
-		root.name = "CoinFlowRoot"
-		root.set_anchors_preset(Control.PRESET_FULL_RECT)
-		root.add_theme_constant_override("separation", 0)
-		add_child(root)
-		if show_sidebar:
-			root.add_child(_make_sidebar())
-		root.add_child(_make_stage())
-		_build_selected_preview()
+	var cc := CenterContainer.new()
+	cc.name = "CoinFlowEmbeddedRoot"
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(cc)
+	_preview_stage = cc
+	_build_selected_preview()
 
 	_auto_timer = Timer.new()
 	_auto_timer.name = "AutoReplayTimer"
@@ -107,185 +83,14 @@ func _build() -> void:
 	_auto_timer.autostart = false
 	_auto_timer.timeout.connect(func() -> void:
 		if bool(_settings.get("auto_replay", false)):
-			_play_selected())
+			play_selected())
 	add_child(_auto_timer)
 	if bool(_settings.get("auto_replay", false)):
 		_auto_timer.start()
 
-func _make_sidebar() -> Control:
-	var panel := PanelContainer.new()
-	panel.name = "CoinFlowSidebar"
-	panel.custom_minimum_size = Vector2(SIDEBAR_W, 0)
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", _box(Color("#15101F"), 0, 0, Color.TRANSPARENT, 0))
+## --- the gallery's control surface (public: the sidebar drives the component) ------
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 18)
-	margin.add_theme_constant_override("margin_bottom", 18)
-	panel.add_child(margin)
-
-	_controls = VBoxContainer.new()
-	_controls.name = "CoinFlowControls"
-	_controls.add_theme_constant_override("separation", 10)
-	_controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(_controls)
-	_rebuild_controls()
-	return panel
-
-func _make_stage() -> Control:
-	var shell := PanelContainer.new()
-	shell.name = "CoinFlowStageShell"
-	shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shell.add_theme_stylebox_override("panel", _box(Pal.SCREEN_BG, 0, 0, Color.TRANSPARENT, 0))
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 28)
-	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	shell.add_child(margin)
-
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 16)
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(body)
-
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 12)
-	body.add_child(header)
-	header.add_child(_label("Coin Flow", FS.BODY, Pal.INK))
-	var pill := PanelContainer.new()
-	pill.add_theme_stylebox_override("panel", _box(Pal.PILL, 16, 2, Pal.PILL_EDGE, 4))
-	pill.add_child(_label("shared reward flow", FS.TOOL, Pal.INK))
-	header.add_child(pill)
-
-	var stage_panel := PanelContainer.new()
-	stage_panel.name = "CoinFlowPreviewPanel"
-	stage_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stage_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stage_panel.add_theme_stylebox_override("panel", _box(Color("#E8DFC8"), 22, 2, Color(Pal.BARK, 0.18), 6))
-	body.add_child(stage_panel)
-	_preview_stage = CenterContainer.new()
-	_preview_stage.name = "CoinFlowPreviewStage"
-	_preview_stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_preview_stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stage_panel.add_child(_preview_stage)
-	return shell
-
-func _rebuild_controls() -> void:
-	if _controls == null:
-		return
-	for c in _controls.get_children():
-		_controls.remove_child(c)
-		c.queue_free()
-	_controls.add_child(_label("Coin Flow", FS.FINE, Pal.CREAM))
-	var note := _label("One shared reward-flight component. Toggle which game actions use it, then test different sources.", FS.TOOL, Color(Pal.CREAM, 0.76))
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_controls.add_child(note)
-
-	_controls.add_child(_header("FxSavedSettingsHeader", "Saved to config", true))
-	_controls.add_child(_section_label("Action gates"))
-	for entry in FX_DEFS:
-		var id := String((entry as Dictionary).get("id", ""))
-		var toggle := CheckButton.new()
-		toggle.name = "FxActionToggle_%s" % id
-		toggle.text = String((entry as Dictionary).get("label", id))
-		toggle.button_pressed = FX.reward_fx_enabled(id)
-		toggle.add_theme_font_size_override("font_size", FS.TOOL)
-		toggle.add_theme_color_override("font_color", Pal.CREAM)
-		toggle.toggled.connect(func(on: bool) -> void:
-			_set_fx_enabled(id, on))
-		_controls.add_child(toggle)
-	_controls.add_child(_section_label("Feel"))
-	_controls.add_child(_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
-	_controls.add_child(_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
-
-	_controls.add_child(_header("FxTestSettingsHeader", "Test only - not saved", false))
-	_controls.add_child(_action_option())
-	var replay := Button.new()
-	replay.name = "ReplayButton"
-	replay.text = "Replay"
-	replay.custom_minimum_size = Vector2(0, 42)
-	replay.add_theme_font_size_override("font_size", FS.TOOL)
-	replay.disabled = not _is_fx_enabled(_preview_action)
-	replay.pressed.connect(_play_selected)
-	_controls.add_child(replay)
-	_controls.add_child(_slider_row("Amount", "amount", FX.REWARD_FX_MIN_AMOUNT, FX.REWARD_FX_MAX_AMOUNT, 1))
-	_controls.add_child(_slider_row("Source size", "coin_size", FX.REWARD_FX_MIN_SOURCE_SIZE, FX.REWARD_FX_MAX_SOURCE_SIZE, 1))
-	var auto := CheckButton.new()
-	auto.name = "AutoReplayToggle"
-	auto.text = "Auto replay"
-	auto.button_pressed = bool(_settings.get("auto_replay", false))
-	auto.add_theme_font_size_override("font_size", FS.TOOL)
-	auto.add_theme_color_override("font_color", Pal.CREAM)
-	auto.toggled.connect(func(on: bool) -> void:
-		_set_auto_replay(on))
-	_controls.add_child(auto)
-
-func _header(name_text: String, text: String, saved: bool) -> Label:
-	var l := _label(("●  " if saved else "○  ") + text, FS.TOOL, Pal.STRAW if saved else Color(Pal.CREAM, 0.5))
-	l.name = name_text
-	return l
-
-func _section_label(text: String) -> Label:
-	return _label(text, FS.TOOL, Pal.STRAW)
-
-func _action_option() -> Control:
-	var row := HBoxContainer.new()
-	row.name = "PreviewActionRow"
-	row.add_theme_constant_override("separation", 10)
-	var lbl := _label("Preview action", FS.TOOL, Pal.CREAM)
-	lbl.custom_minimum_size = Vector2(118, 0)
-	row.add_child(lbl)
-	var opt := OptionButton.new()
-	opt.name = "PreviewActionOption"
-	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opt.add_theme_font_size_override("font_size", FS.TOOL)
-	for i in FX_DEFS.size():
-		var def: Dictionary = FX_DEFS[i]
-		opt.add_item(String(def.get("label", def.get("id", ""))), i)
-		if String(def.get("id", "")) == _preview_action:
-			opt.select(i)
-	opt.item_selected.connect(func(index: int) -> void:
-		var def: Dictionary = FX_DEFS[index]
-		_select_action(String(def.get("id", "coin_pickup"))))
-	row.add_child(opt)
-	return row
-
-func _slider_row(label: String, key: String, min_value: float, max_value: float, step: float) -> Control:
-	var row := VBoxContainer.new()
-	row.name = "%sSliderRow" % _pascal_id(key)
-	row.add_theme_constant_override("separation", 4)
-	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 8)
-	row.add_child(top)
-	var l := _label(label, FS.TOOL, Pal.CREAM)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(l)
-	var current_value := int(_settings.get(key, min_value))
-	var value := _label(str(current_value), FS.TOOL, Color(Pal.STRAW, 0.95))
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	value.custom_minimum_size = Vector2(54, 0)
-	top.add_child(value)
-	var slider := HSlider.new()
-	slider.name = "%sSlider" % _pascal_id(key)
-	slider.min_value = min_value
-	slider.max_value = max_value
-	slider.step = step
-	slider.value = float(current_value)
-	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.value_changed.connect(func(v: float) -> void:
-		_set_global_setting(key, int(round(v)))
-		value.text = str(int(_settings[key])))
-	row.add_child(slider)
-	return row
-
-func _set_global_setting(key: String, value: int) -> void:
+func set_global_setting(key: String, value: int) -> void:
 	_settings[key] = value
 	match key:
 		"icon_size":
@@ -295,7 +100,7 @@ func _set_global_setting(key: String, value: int) -> void:
 		"coin_size":
 			_build_selected_preview()
 
-func _set_auto_replay(on: bool) -> void:
+func set_auto_replay(on: bool) -> void:
 	_settings["auto_replay"] = on
 	if _auto_timer != null:
 		if on:
@@ -303,21 +108,24 @@ func _set_auto_replay(on: bool) -> void:
 		else:
 			_auto_timer.stop()
 
-func _select_action(id: String) -> void:
+func select_action(id: String) -> void:
 	if id == _preview_action:
 		return
 	_preview_action = id
-	_rebuild_controls()
 	_build_selected_preview()
 
-func _set_fx_enabled(id: String, on: bool) -> void:
+func set_fx_enabled(id: String, on: bool) -> void:
 	FX.set_reward_fx_enabled(id, on)
-	_rebuild_controls()
 	if id == _preview_action:
 		_build_selected_preview()
 
-func _is_fx_enabled(id: String) -> bool:
-	return FX.reward_fx_enabled(id)
+## The live settings the gallery's sliders read back (icon_size / trail_count / amount /
+## coin_size / auto_replay).
+func settings() -> Dictionary:
+	return _settings.duplicate()
+
+func preview_action() -> String:
+	return _preview_action
 
 func _build_selected_preview() -> void:
 	if _preview_stage == null:
@@ -348,7 +156,7 @@ func _build_selected_preview() -> void:
 	else:
 		_preview_stage.add_child(_preview_root)
 
-	var def := _fx_def(_preview_action)
+	var def := FxDefs.def(_preview_action)
 	match String(def.get("context", "board")):
 		"map":
 			_preview_root.add_child(_map_backdrop())
@@ -363,7 +171,7 @@ func _build_selected_preview() -> void:
 			_add_preview_hud("Board", def.get("targets", []))
 			_add_board_surface(def)
 	_add_bottom_bar(String(def.get("footer", "")))
-	if not _is_fx_enabled(_preview_action):
+	if not FX.reward_fx_enabled(_preview_action):
 		_show_disabled_badge()
 
 func _field_backdrop() -> Control:
@@ -567,12 +375,12 @@ func _make_action_card(title: String, icon_id: String, caption: String) -> Panel
 
 func _wire_source(source: Control) -> void:
 	if source is Button:
-		(source as Button).pressed.connect(_play_selected)
+		(source as Button).pressed.connect(play_selected)
 	else:
 		source.mouse_filter = Control.MOUSE_FILTER_STOP
 		source.gui_input.connect(func(ev: InputEvent) -> void:
 			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-				_play_selected())
+				play_selected())
 
 func _add_bottom_bar(text: String) -> void:
 	var bar := PanelContainer.new()
@@ -585,24 +393,24 @@ func _add_bottom_bar(text: String) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
-	row.add_child(Look.icon(String(_fx_def(_preview_action).get("target", "coin")), 30))
+	row.add_child(Look.icon(String(FxDefs.def(_preview_action).get("target", "coin")), 30))
 	row.add_child(_label(text, FS.TOOL, Pal.INK))
 
-func _play_selected() -> void:
-	if not _is_fx_enabled(_preview_action):
+func play_selected() -> void:
+	if not FX.reward_fx_enabled(_preview_action):
 		_show_disabled_badge()
 		return
-	var def := _fx_def(_preview_action)
+	var def := FxDefs.def(_preview_action)
 	match _preview_action:
 		"map_task_reward":
-			_play_reward("gem", 1, Color("#A9C7E8"), "gem", Vector2(0, -12))
-			_play_reward("coin", int(_settings.get("amount", 25)), Color("#E3B23C"), "coin", Vector2(0, 28))
+			_play_reward("gem", 1, FX.reward_color("gem"), "gem", Vector2(0, -12))
+			_play_reward("coin", int(_settings.get("amount", 25)), FX.reward_color("coin"), "coin", Vector2(0, 28))
 		"stash_to_bag":
-			_play_reward("bag", 1, Pal.STRAW, "bag")
+			_play_reward("bag", 1, FX.reward_color("bag"), "bag")
 		_:
 			var icon_id := String(def.get("icon", "coin"))
 			var target_id := String(def.get("target", "coin"))
-			_play_reward(icon_id, _reward_amount_for(_preview_action), _reward_color(icon_id), target_id)
+			_play_reward(icon_id, _reward_amount_for(_preview_action), FX.reward_color(icon_id), target_id)
 
 func _play_reward(icon_id: String, amount: int, color: Color, target_id: String, offset: Vector2 = Vector2.ZERO) -> void:
 	if _preview_root == null or _source == null:
@@ -630,17 +438,6 @@ func _finish_reward(target_id: String, amount: int) -> void:
 func _reward_amount_for(id: String) -> int:
 	return 1 if id == "stash_to_bag" else int(_settings.get("amount", FX.REWARD_FX_DEFAULT_AMOUNT))
 
-func _reward_color(icon_id: String) -> Color:
-	match icon_id:
-		"gem":
-			return Color("#A9C7E8")
-		"water":
-			return Color("#9CCDE8")
-		"bag":
-			return Pal.STRAW
-		_:
-			return Color("#E3B23C")
-
 func _show_disabled_badge() -> void:
 	_clear_disabled_badges()
 	if _preview_root == null:
@@ -667,13 +464,6 @@ func _clear_runtime_fx() -> void:
 	for n in find_children("RewardArrival*", "Control", true, false):
 		(n as Node).queue_free()
 	_clear_disabled_badges()
-
-func _fx_def(id: String) -> Dictionary:
-	for entry in FX_DEFS:
-		var def: Dictionary = entry
-		if String(def.get("id", "")) == id:
-			return def
-	return FX_DEFS[0]
 
 func _label(text: String, px: int, color: Color) -> Label:
 	var l := Label.new()

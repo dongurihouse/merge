@@ -59,6 +59,7 @@ const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")           # the tog
 const GrabFx = preload("res://engine/scripts/ui/grab_fx.gd")           # the toggleable Grab (pickup) highlight
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")   # the shared persistent combo-bloom overlay
 const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
+const FxDefs = preload("res://games/grove/tools/fx_defs.gd")   # the action table, shared with the preview
 # per-effect knob slider specs for the rush_fx inspector: effect id → [[param, lo, hi], …]
 const RUSH_FX_KNOBS := {
 	"merge_burst": [["merge_burst_count", 4, 40]],
@@ -508,7 +509,7 @@ func _fx_sidebar() -> void:
 	saved.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(saved)
 	_section_header("Action gates")
-	for entry in FxWorkbenchView.FX_DEFS:
+	for entry in FxDefs.DEFS:
 		var def: Dictionary = entry
 		var fx_id := String(def.get("id", ""))
 		var toggle := CheckButton.new()
@@ -560,13 +561,13 @@ func _fx_action_row() -> Control:
 	var opt := OptionButton.new()
 	opt.name = "WorkbenchFxPreviewActionOption"
 	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in FxWorkbenchView.FX_DEFS.size():
-		var def: Dictionary = FxWorkbenchView.FX_DEFS[i]
+	for i in FxDefs.DEFS.size():
+		var def: Dictionary = FxDefs.DEFS[i]
 		opt.add_item(String(def.get("label", def.get("id", ""))), i)
 		if String(def.get("id", "")) == _fx_selected:
 			opt.select(i)
 	opt.item_selected.connect(func(index: int) -> void:
-		var def: Dictionary = FxWorkbenchView.FX_DEFS[index]
+		var def: Dictionary = FxDefs.DEFS[index]
 		_fx_select(String(def.get("id", "coin_pickup"))))
 	row.add_child(opt)
 	return row
@@ -608,7 +609,7 @@ func _pascal_fx_key(key: String) -> String:
 
 func _fx_global_value(key: String) -> int:
 	var preview := _fx_preview()
-	if preview != null and preview.has_method("_set_global_setting"):
+	if preview != null and preview.has_method("set_global_setting"):
 		var settings: Dictionary = preview.get("_settings")
 		if settings.has(key):
 			return int(round(float(settings.get(key, 0))))
@@ -631,7 +632,7 @@ func _fx_select(id: String) -> void:
 	_fx_selected = id
 	var preview := _fx_preview()
 	if preview != null and is_instance_valid(preview):
-		preview.call("_select_action", id)
+		preview.call("select_action", id)
 	else:
 		_rebuild_element("fx")
 	_rebuild_sidebar.call_deferred()
@@ -639,7 +640,7 @@ func _fx_select(id: String) -> void:
 func _fx_set_enabled(id: String, on: bool) -> void:
 	var preview := _fx_preview()
 	if preview != null and is_instance_valid(preview):
-		preview.call("_set_fx_enabled", id, on)
+		preview.call("set_fx_enabled", id, on)
 	else:
 		FX.set_reward_fx_enabled(id, on)
 	_rebuild_sidebar.call_deferred()
@@ -647,7 +648,7 @@ func _fx_set_enabled(id: String, on: bool) -> void:
 func _fx_set_global_setting(key: String, value: int) -> void:
 	var preview := _fx_preview()
 	if preview != null and is_instance_valid(preview):
-		preview.call("_set_global_setting", key, value)
+		preview.call("set_global_setting", key, value)
 		return
 	match key:
 		"amount":
@@ -662,21 +663,21 @@ func _fx_set_global_setting(key: String, value: int) -> void:
 func _fx_set_auto_replay(on: bool) -> void:
 	var preview := _fx_preview()
 	if preview != null and is_instance_valid(preview):
-		preview.call("_set_auto_replay", on)
+		preview.call("set_auto_replay", on)
 	else:
 		FX.set_reward_fx_auto_replay(on)
 
 func _fx_replay() -> void:
 	var preview := _fx_preview()
 	if preview != null and is_instance_valid(preview):
-		preview.call("_play_selected")
+		preview.call("play_selected")
 
 func _fx_def(id: String) -> Dictionary:
-	for entry in FxWorkbenchView.FX_DEFS:
+	for entry in FxDefs.DEFS:
 		var def: Dictionary = entry
 		if String(def.get("id", "")) == id:
 			return def
-	return FxWorkbenchView.FX_DEFS[0]
+	return FxDefs.DEFS[0]
 
 ## --- persistence -------------------------------------------------------------------------------
 
@@ -745,8 +746,8 @@ func _make_element(id: String) -> Control:
 		"fx":
 			var fx := FxWorkbenchView.new()
 			fx.name = "FxWorkbenchComponent"
-			fx.embedded = true
-			fx.show_sidebar = false
+			# No `embedded`/`show_sidebar` to set any more: the standalone chrome is gone, so the
+			# component is only ever the embedded preview and both flags were always this value.
 			fx.preview_scale = 0.68
 			fx.set("_preview_action", _fx_selected)
 			fx.custom_minimum_size = Vector2(540, 760)

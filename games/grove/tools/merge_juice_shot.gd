@@ -6,7 +6,7 @@ extends SceneTree
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/merge_juice_shot.gd -- <out_dir>
 ## Writes <out_dir>/after/f00..17.png (juice on) and <out_dir>/before/f00..17.png (juice off).
 
-const Base = preload("res://games/grove/tools/shot_base.gd")
+const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Feat = preload("res://engine/scripts/core/features.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")

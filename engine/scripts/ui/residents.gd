@@ -824,24 +824,11 @@ static func _register_card(ctx: Dictionary, dc: DragCard) -> void:
 
 ## The spirit's per-tier ladder art, centred in its box — TRIMMED to its used rect (the raw canvas
 ## carries transparent padding that would shrink the sprite), cached per path like the map dock.
-static var _art_cache: Dictionary = {}
+# The trim-to-opaque-content cache lives on PieceView (trimmed_tex) — resident art and board item
+# art are the SAME padded canvases, so a second copy here decoded every path twice and held two
+# AtlasTextures for it.
 static func _spirit_tex(path: String) -> Texture2D:
-	if _art_cache.has(path):
-		return _art_cache[path]
-	var tex: Texture2D = load(path)
-	var result: Texture2D = tex
-	if tex != null:
-		var img := tex.get_image()
-		if img != null:
-			var used := img.get_used_rect()
-			var full := Vector2i(tex.get_width(), tex.get_height())
-			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != full):
-				var at := AtlasTexture.new()
-				at.atlas = tex
-				at.region = Rect2(used)
-				result = at
-	_art_cache[path] = result
-	return result
+	return PieceView.trimmed_tex(path)
 
 ## The resident cell's ART, rendered through the SHARED board pipeline (PieceView.make_piece_from_texture):
 ## a cell-sized holder carrying the board's CONTACT SHADOW under the centered sprite, at the board's own

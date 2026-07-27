@@ -28,10 +28,10 @@ func _scan_missing() -> Array:
 	var miss: Array = []
 	var re := RegEx.new()
 	re.compile('Strings\\.t\\("([^"]+)"\\)')
-	for f in _gd_files("res://engine/scripts") + _gd_files("res://games/grove"):
+	for f in gd_files("res://engine/scripts") + gd_files("res://games/grove"):
 		if f.ends_with("strings.gd"):
 			continue
-		var txt := FileAccess.get_file_as_string(f)
+		var txt := read_text(f)
 		for m in re.search_all(txt):
 			var path := m.get_string(1)
 			if Strings.t(path) == path:
@@ -44,28 +44,15 @@ func _scan_leftover_tr() -> Array:
 	var left: Array = []
 	var re := RegEx.new()
 	re.compile('(?:\\btr|TranslationServer\\.translate)\\("([^"]+)"')
-	for f in _gd_files("res://engine/scripts"):
+	for f in gd_files("res://engine/scripts"):
 		if "/tools/" in f or f.ends_with("strings.gd"):   # strings.gd's docs mention tr("…") — not real calls
 			continue
-		var txt := FileAccess.get_file_as_string(f)
+		var txt := read_text(f)
 		for m in re.search_all(txt):
 			left.append(f.get_file() + ": " + m.get_string(1))
 	return left
 
-func _gd_files(dir: String) -> Array:
-	var out: Array = []
-	var d := DirAccess.open(dir)
-	if d == null:
-		return out
-	d.list_dir_begin()
-	var name := d.get_next()
-	while name != "":
-		var p := dir + "/" + name
-		if d.current_is_dir():
-			if not name.begins_with("."):
-				out.append_array(_gd_files(p))
-		elif name.ends_with(".gd"):
-			out.append(p)
-		name = d.get_next()
-	d.list_dir_end()
-	return out
+# The walk and the slurp are test_base.gd's gd_files(dir, deep) / read_text(path) — one
+# coverage function for every guard. This suite's older list_dir_begin walk carried an explicit
+# dotted-directory skip; the shared one keeps it (and states why). Measured before the swap: the
+# two yield the IDENTICAL 136 paths over these two roots, so the scan lost nothing.

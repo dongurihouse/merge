@@ -21,7 +21,18 @@ const Pal = Game.PALETTE
 # Loaded at runtime (matches hud.gd / nav_bar) to avoid a preload cycle (engine → game-tool bridge).
 static var KIT_PATH := Game.kit()
 
+# THE bottom action bar's BAND LAW — one spelling each, read by the board scene
+# (engine/scripts/scenes/board.gd) and by the UI workbench's layout preview
+# (games/grove/tools/ui_workbench_view.gd) so the preview clamps exactly what the board clamps.
+# It lives here because this module BUILDS the bar, and because ui/ is importable by both scenes/ and
+# the game tools while ui/ may NOT import scenes/ (engine/tests/layering_tests.gd) — the arrow only
+# points this way. Retune here; every reader follows.
 const BOTTOM_BAR_H := 166.0                             # fallback bar height (the bar_style default)
+const BOTTOM_BTN_PX := 130.0                            # fallback Bag/Home well size; runtime scales from button_w_pct
+const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX    # the band's padding around a well (bar height − well size)
+const BOTTOM_BAR_MIN := 150.0                           # the bar never shrinks below this...
+const BOTTOM_BAR_MAX := 200.0                           # ...nor balloons past it on a wide screen
+const BOTTOM_BTN_MIN := 110.0                           # a well stays tappable on a narrow screen
 const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray
 const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
 const DECKLE_SURFACE_NODE := "ActionBarInfoDeckleSurface"
