@@ -369,19 +369,69 @@ Read before coding: this spec end to end; `docs/design/board_decomposition.md` (
 `scenes/ → ui/ → core/`, frozen `_persist()` key set, RNG discipline); the §2 anchors in
 their files.
 
-Build in commit-sized steps, each green (`fix(improvements): …` messages):
+Two independent tasks. **A does not depend on B — do A first**, it is the one a live player
+hits. Anchors below verified at `e268416a`; re-grep before trusting a line number.
 
-1. Info bar: add the adaptive two-row/compact-chip mode to the shared kit/action-bar seam
-   (`games/grove/ui_kit.gd`, `engine/scripts/ui/action_bar.gd`) and drive it from
-   `board.gd` without bespoke per-chip layout. Update the UI workbench preview knobs if the
-   fixed widths/heights become tunable.
-2. FTUE: call `_maybe_hand_hint()` from `_after_board_change()` as well as `_rebuild_all()`;
-   use cell geometry for seed cutouts; add transient `soil_place`; let tap hints preserve an
-   optional source/context cutout when provided; make Bag dismiss-only and Place/Sell write
-   `soil_seed`.
-3. Tests: add the FTUE retarget/second-beat/bag-dismiss regressions and the compact
-   info-bar geometry assertion before changing production code; run the focused Grove
-   improvement suite, then `make test-fast`, then full `make test`.
+### Task A — the Soil-seed FTUE (three defects, all reproduced)
+
+Reproduce first, at L6 with `ftue_seen = {merge, gen_tap}`: the board grants a Soil seed and
+the hand teach lights its cell.
+
+**A1 · the hint does not follow the seed.** `_maybe_hand_hint()` (`board.gd:910`) is called
+only from `_end_hand_hint` (`:1017`), the end of `_rebuild_all` (`:2264`) and
+`_maybe_soil_ftue` (`:2774`, `:2781`). A plain move does not rebuild — `_commit_move_confirmed`
+reparents the node and calls `_after_board_change()`, which rebuilds only when an improvement
+changed. Measured: seed (3,3)→(5,3), cutout stayed at the old rect. Swap, stash and bag
+retrieval have the same hole.
+**Fix:** also call `_maybe_hand_hint()` from `_after_board_change()` (`:1357`) — the file's
+own documented post-mutation fan-out — keeping the `_rebuild_all` call. It must stay
+idempotent: `_after_board_change` itself calls `_rebuild_all` on some paths, so two calls can
+be in flight in one frame. Both `await get_tree().process_frame` first, then either retarget
+(same id) or dismiss, and `HandHint.present` frees a stale node — verify that holds rather
+than assuming it. Early-out before the `await` when the flag is off or the ledger is complete;
+this runs on every board mutation.
+**Also:** build the seed cutout from cell geometry (`_cell_pos(cell)`, `csz`), not the piece
+node's rect (`_hand_hint_rects` `:969` → `_local_rect` via `_soil_seed_hint_cell` `:944`).
+`_commit_move_confirmed` tweens the node with `GridFx.slide_and_land`; a node-rect cutout
+freezes mid-slide.
+
+**A2 · the tap's result is hidden under the teach's own veil.** Tapping the seed selects it
+and reveals the Place chip (`_select_item` `:3269` → `_refresh_seed_chips` `:3199`), but the
+veil is *screen minus the cutouts* and the only cutout is the seed cell. Measured: the Place
+chip renders at `(62, 101, 71)` over 12 145 px — exactly `LEAF #5F9B6D × 0.65`, the palette
+green under `DIM_ALPHA` 0.35. The hand keeps bobbing because the teach only ends on
+place/bag/sell. The player reads this as "the tap did nothing".
+**Fix:** add the transient `soil_place` beat per §5. It needs a TAP hint that keeps a second
+context cutout — today `HandHint.cutouts()` (`hand_hint.gd:93`) returns both rects for a drag
+and only `_dst` for a tap. Widen it so a tap also exposes `_src` when `_src` is non-empty;
+keep `Rect2()` meaning "no context cutout" so the merge/gen_tap teaches are untouched. Hand
+target = the Place chip, context cutout = the seed cell.
+
+**A3 · bagging burns the teach.** `_stash_confirmed` (`:5342`) calls
+`_end_hand_hint("soil_seed")`, which writes the ledger, so pulling the seed back out teaches
+nothing. Measured: `after stash: seen(soil_seed)=true, seed_in_bag=true`.
+**Fix:** dismiss without writing the ledger. Place (`:2581`) and Sell (`:5812`) keep the
+write — placed is taught, sold is gone.
+
+Tests (grove_improvements_tests.gd), each failing before the fix:
+move the seed → the cutout covers its new cell; tap the seed → the id becomes `soil_place`
+and a cutout covers the Place chip; bag the seed → `ftue_seen("soil_seed")` is false and the
+teach returns on pull-back. Drive both halves of every round trip through their real entry
+points (`_stash` → `_retrieve_from_bag`, not `board.place`) — a probe that shortcuts one half
+invents defects as readily as it hides them.
+
+Add a permanent `grove_shot` mode for this state (level 6, `ftue_seen = {merge, gen_tap}`) so
+the teach is capturable; the fix is not done until its frames have been looked at.
+
+### Task B — the two-row info bar
+
+Independent of A. Add the adaptive two-row/compact-chip mode to the shared seam
+(`action_bar.action_chip` `action_bar.gd:272`, `games/grove/ui_kit.gd`) and drive it from
+`_build_info_bar` (`board.gd:3066`) — no bespoke per-chip layout. Every chip type already
+goes through `_set_action_chip`; keep it that way. Sizes are fractions of the tray's inner
+width (§5), never mock pixels. Update the UI workbench preview knobs if the widths become
+tunable. Current failure to fix, visible on any growing Soil cell: the title wraps to two
+lines and the subtitle is clipped by the tray's bottom edge.
 
 Hard rules (violations fail review): never bump `SCHEMA_VERSION`; zero RNG draws in any
 improvement path (the byte-identity test pins it); never call `G.earn_coins`/
@@ -405,8 +455,15 @@ any new `.gd`, run `make import` before committing so its `.uid` lands in the sa
 Capture proof of the new surfaces (`make shot-grove OUT=…` from the worktree) and list the
 capture paths in the handoff note.
 
-Done = full `make test` green in the worktree, sim invariants pasted, captures listed,
-branch pushed-in-place and left unmerged for review.
+**This section can be wrong — it outranks itself.** The anchors and the fixes above are one
+reading of the code. If an anchor has moved, or a described defect no longer reproduces at
+HEAD, or a prescribed fix would change behaviour nobody asked to change, **do not force it**:
+leave that part, and say so in the handoff. A correct refusal is a deliverable. Reproduce
+each defect at HEAD before fixing it — this repo auto-commits `main` and peer agents merge
+into it mid-session, so a report naming exact lines can be stale by the time it is read.
+
+Done = full `make test` green in the worktree, captures listed and actually looked at,
+"what I left and why" stated, branch left unmerged for review.
 
 ## 11 · Open questions
 

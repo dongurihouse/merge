@@ -160,6 +160,16 @@ func _tap_board(h, at: Vector2) -> void:
 	up.pressed = false
 	h._on_board_input(up)
 
+# ONE HALF of a board gesture: a real InputEventScreenTouch (the device event, not the mouse twin)
+# through the board's own input surface, addressed by MODEL CELL — the touch lands at that cell's
+# centre. _tap_board sends both halves at once; this one lets a test hold the finger down across
+# frames, which is the only way to observe what the board does DURING a live press.
+func _board_touch(h, cell: Vector2i, pressed: bool) -> void:
+	var ev := InputEventScreenTouch.new()
+	ev.pressed = pressed
+	ev.position = h._cell_pos(cell) + Vector2(h.csz, h.csz) / 2.0
+	h._on_board_input(ev)
+
 # Count the purchasable cards of the MOST RECENT shop overlay (meta shop_buy) —
 # a UI-shape smoke that survives storefront restyles.
 func _shop_rows(host: Control) -> int:

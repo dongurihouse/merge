@@ -61,6 +61,9 @@ func _initialize() -> void:
 	await _test_purge_above_level_migration()
 	await _test_farewell_cards_chain()
 	await _test_almanac_entries_and_info_chip()
+	await _test_farewell_check_respects_generator_selection()
+	await _test_farewell_check_resumes_after_bare_press()
+	await _test_farewell_check_resumes_after_tap_that_clears_selection()
 	finish()
 
 # §8 line farewells through the REAL scene: due cards chain one at a time, ignore the legacy decline key,
@@ -174,6 +177,10 @@ func _test_almanac_entries_and_info_chip() -> void:
 		var status := away_cell.find_child("AlmanacStatusPill", true, false) as Control if away_cell != null else null
 		ok(art != null and status != null and art.get_global_rect().end.y <= status.get_global_rect().position.y - 1.0,
 			"an away Almanac status pill sits below the piece art instead of overlapping it")
+		ok(away_cell.find_child("SlotContentShadow", true, false) == null,
+			"Almanac cells do not stack the generic slot content shadow under scaled inactive art")
+		ok(status != null and status.find_child("AlmanacStatusCutPaper", true, false) != null,
+			"Almanac status text sits on a cut-paper background")
 		almanac_overlay.queue_free()
 	var free_cells: Array = scn.board.empty_ground_cells()
 	scn.board.place(free_cells[0], 101)
@@ -181,6 +188,120 @@ func _test_almanac_entries_and_info_chip() -> void:
 	scn._select_item(free_cells[0])
 	await process_frame
 	ok(chip != null and not chip.visible, "the Almanac chip hides while an item selection is shown")
+	await drop(scn)
+
+# The §8 defer fixture the three farewell-resume tests share: an L65 save (line 2 is away), a board
+# wiped to bare ground, and one away-line generator + one away-line item, so exactly one farewell is
+# due. Returns {scn, gen, empty} — `empty` is bare ground a real gesture can land on without selecting
+# anything, which is the case the resume used to lose.
+func _farewell_fixture(name: String) -> Dictionary:
+	fresh(name)
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))  # L65: line 2 is away
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("soil")
+	Save.mark_ftue_seen("soil_seed")
+	var scn = board_host()
+	await process_frame
+	var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale_farewell != null:
+		stale_farewell.queue_free()
+		await process_frame
+	for r in G.ROWS:
+		for c in G.COLS:
+			scn.board.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			scn.board.take(Vector2i(r, c))
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var free_cells: Array = scn.board.empty_ground_cells()
+	ok(free_cells.size() >= 3, "fixture: board has room for the away generator, its item, and bare ground")
+	var gen_cell: Vector2i = free_cells[0]
+	scn.board.place_gen("gen_2", gen_cell, 2)
+	scn.board.place(free_cells[1], 2 * 100 + 1)
+	scn._rebuild_all()
+	return {"scn": scn, "gen": gen_cell, "empty": free_cells[2]}
+
+func _test_farewell_check_respects_generator_selection() -> void:
+	var fix: Dictionary = await _farewell_fixture("farewell_generator_focus")
+	var scn = fix.scn
+	var gen_cell: Vector2i = fix.gen
+	scn._select_generator(gen_cell)
+	await process_frame
+	ok(scn._selected_cell == gen_cell and scn.board.is_gen(gen_cell),
+		"fixture: an away-line generator is selected before the queued farewell check")
+	var selected_label := String(scn._info_label.text)
+	scn._queue_farewell_check()
+	await process_frame
+	await process_frame
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null,
+		"queued farewell checks wait while a generator info tray is selected")
+	ok(scn._selected_cell == gen_cell and String(scn._info_label.text) == selected_label,
+		"queued farewell checks do not defocus the selected generator")
+	scn._clear_selection()
+	await process_frame
+	await process_frame
+	var resumed := scn.find_child("FarewellCardOverlay", true, false) as Control
+	ok(resumed != null and int(resumed.get_meta("farewell_line", 0)) == 2,
+		"the deferred farewell check resumes once generator info clears")
+	await drop(scn)
+
+# A DEFERRED FAREWELL CARD MUST ALWAYS COME BACK. The check waits out a live gesture (press or drag)
+# and a held info-tray selection — but the resume must not hang off "a selection was cleared", because
+# the commonest gesture of all, a tap on bare ground, selects nothing to clear and ends with a release
+# that clears no state. Both tests below drive the REAL press/release pair through the shipped input
+# path (_on_board_input), so a resume that only fires from _clear_selection() fails here instead of
+# silently stranding the card until the next level-up.
+func _test_farewell_check_resumes_after_bare_press() -> void:
+	var fix: Dictionary = await _farewell_fixture("farewell_resume_bare_press")
+	var scn = fix.scn
+	var empty: Vector2i = fix.empty
+	ok(scn.board.item_at(empty) == 0 and not scn.board.is_gen(empty),
+		"fixture: the tap cell is bare ground (a tap there selects nothing)")
+	_board_touch(scn, empty, true)
+	ok(scn._pressing and scn._selected_cell.x < 0,
+		"fixture: a real press on bare ground is live with nothing selected")
+	scn._queue_farewell_check()
+	await process_frame
+	await process_frame
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null,
+		"a queued farewell check waits while a bare press is still down")
+	_board_touch(scn, empty, false)
+	await process_frame
+	await process_frame
+	await process_frame
+	var resumed := scn.find_child("FarewellCardOverlay", true, false) as Control
+	ok(resumed != null and int(resumed.get_meta("farewell_line", 0)) == 2,
+		"the deferred farewell card opens when the press ends, though it cleared no selection")
+	await drop(scn)
+
+func _test_farewell_check_resumes_after_tap_that_clears_selection() -> void:
+	var fix: Dictionary = await _farewell_fixture("farewell_resume_clearing_tap")
+	var scn = fix.scn
+	var empty: Vector2i = fix.empty
+	scn._select_generator(fix.gen)
+	await process_frame
+	ok(scn._selected_cell == fix.gen, "fixture: the away generator is selected before the check is queued")
+	scn._queue_farewell_check()
+	await process_frame
+	await process_frame
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null,
+		"the queued check defers while the generator info tray is up")
+	# The real gesture: pressing bare ground clears the selection WITH THE FINGER STILL DOWN, so the
+	# resume cannot ride on _clear_selection — the check has to survive to the release.
+	_board_touch(scn, empty, true)
+	await process_frame
+	await process_frame
+	ok(scn._selected_cell.x < 0 and scn._pressing,
+		"the press cleared the selection while the finger is still down")
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null,
+		"the card stays away under a live finger even once the selection it waited on is gone")
+	_board_touch(scn, empty, false)
+	await process_frame
+	await process_frame
+	await process_frame
+	var resumed := scn.find_child("FarewellCardOverlay", true, false) as Control
+	ok(resumed != null and int(resumed.get_meta("farewell_line", 0)) == 2,
+		"the deferred farewell card opens when the tap that cleared the selection ends")
 	await drop(scn)
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in

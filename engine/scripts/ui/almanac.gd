@@ -8,6 +8,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -40,6 +41,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	dopts["show_num"] = false
 	dopts["banner_text"] = Strings.t("almanac.title")
 	dopts["list_max_h"] = host.get_viewport_rect().size.y * 0.66
+	dopts["content_shadow"] = false
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		var state := String(d.get("state", ""))
 		var art_px := px * (0.62 if state == "away" or state == "complete" else 1.0)
@@ -50,7 +52,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 
 	var cells := _cells(entries, on_line)
 	var grid: Control = Kit.tiers_grid(cells, width, dopts)
-	_dress_cells(grid, cells)
+	_dress_cells(grid, cells, Kit)
 	var dialog: Control = Kit.dialog_frame(grid, width, dopts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
@@ -81,15 +83,15 @@ static func _line_tap(on_line: Callable, line: int) -> Callable:
 	return func() -> void:
 		on_line.call(line)
 
-static func _dress_cells(grid: Control, cells: Array) -> void:
+static func _dress_cells(grid: Control, cells: Array, Kit: GDScript) -> void:
 	var i := 0
 	for row in grid.get_children():
 		for child in (row as Node).get_children():
 			if i < cells.size() and child is Control:
-				_dress_cell(child as Control, cells[i], i)
+				_dress_cell(child as Control, cells[i], i, Kit)
 			i += 1
 
-static func _dress_cell(cell: Control, d: Dictionary, idx: int) -> void:
+static func _dress_cell(cell: Control, d: Dictionary, idx: int, Kit: GDScript) -> void:
 	cell.name = "AlmanacCell%d" % idx
 	cell.set_meta("almanac_line", int(d.get("line", 0)))
 	cell.set_meta("almanac_state", String(d.get("state", "")))
@@ -110,19 +112,21 @@ static func _dress_cell(cell: Control, d: Dictionary, idx: int) -> void:
 	var status := _status_text(d)
 	if status == "":
 		return
-	var pill := PanelContainer.new()
+	var pill := Control.new()
 	pill.name = "AlmanacStatusPill"
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(Pal.CREAM, 0.92)
-	sb.border_color = Color(Pal.INK, 0.18)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(10)
-	sb.anti_aliasing = true
-	pill.add_theme_stylebox_override("panel", sb)
+	var paper := CutPaper.new()
+	paper.name = "AlmanacStatusCutPaper"
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	paper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	paper.configure(_status_paper_opts(Kit), Color(Pal.CREAM, 0.95), Color(Pal.BARK, 0.22), Kit.cut_paper_tile(), 0.46)
+	pill.add_child(paper)
 	var label := Label.new()
 	label.name = "AlmanacStatus"
 	label.text = status
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.offset_left = 6.0
+	label.offset_right = -6.0
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", FS.FINE)
@@ -134,11 +138,19 @@ static func _dress_cell(cell: Control, d: Dictionary, idx: int) -> void:
 	var dock := func() -> void:
 		if not (is_instance_valid(pill) and is_instance_valid(cell)):
 			return
-		var h := maxf(20.0, cell.size.y * 0.17)
-		pill.size = Vector2(maxf(1.0, cell.size.x - 12.0), h)
-		pill.position = Vector2(6.0, cell.size.y - h - 6.0)
+		var h := maxf(22.0, cell.size.y * 0.18)
+		pill.size = Vector2(maxf(1.0, cell.size.x - 14.0), h)
+		pill.position = Vector2(7.0, cell.size.y - h - 7.0)
 	cell.resized.connect(dock)
 	dock.call_deferred()
+
+static func _status_paper_opts(Kit: GDScript) -> Dictionary:
+	var cp: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "mail_card", Kit.MAIL_CP_DEFAULTS)
+	cp["corner"] = 10.0
+	cp["deckle_amp"] = minf(float(cp.get("deckle_amp", 2.0)), 2.0)
+	cp["rim_width"] = minf(float(cp.get("rim_width", 1.0)), 1.0)
+	cp["edge_shadow"] = false
+	return cp
 
 static func _status_text(d: Dictionary) -> String:
 	match String(d.get("state", "")):
