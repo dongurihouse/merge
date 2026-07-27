@@ -42,7 +42,6 @@ func _initialize() -> void:
 					gsel["unlocks"] = ulsel
 					gsel["gates"] = gates
 					gsel["task_reward"] = claimed
-					gsel["exp"] = 400
 					Save.grove_write()
 		"maps":
 			# the MAPS gallery page in a representative mid-game state: a few Fairy Hollow clusters
@@ -57,16 +56,17 @@ func _initialize() -> void:
 			Save.grove_write()
 		"hub":
 			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
-			# no overlays. Unlock the hub spots, seed the reference wallet (★256 🪙132 💧87) and a
-			# mid level, and mark today claimed so the daily-login popup never covers the screen.
+			# no overlays. Unlock the hub spots, seed the reference wallet (🪙132 💎87) and a mid
+			# level, and mark today claimed so the daily-login popup never covers the screen.
+			# The level badge reads the COIN clock (content.level ← Save.coins_earned_lifetime), so the
+			# mid level is seeded there; the retired grove["exp"] left this capture stuck at Level 1.
 			var gh := Save.grove()
 			var fh := {}
 			for sp in G.MAPS[G.hub_map()].spots:
 				fh[String(sp.id)] = true
 			gh["unlocks"] = fh
-			gh["exp"] = 200
+			gh["coins_earned"] = G.coins_at_level(12)   # a mid level for the badge (the hub's own clusters span L1-28)
 			Save.grove_write()
-			Save.add_exp(256)
 			Save.add_coins(132)
 			Save.add_diamonds(87)
 			load("res://engine/scripts/core/login.gd").claim_today()
@@ -108,7 +108,6 @@ func _initialize() -> void:
 			for sp in G.MAPS[G.hub_map()].spots:
 				fv[String(sp.id)] = true
 			gv["unlocks"] = fv
-			gv["exp"] = 20
 			Save.grove_write()
 			load("res://engine/scripts/core/vault.gd").skim(load("res://games/grove/grove_data.gd").VAULT_CLAIM_MIN * 4 * load("res://games/grove/grove_data.gd").VAULT_SKIM_DEN)
 		"login":
@@ -116,23 +115,22 @@ func _initialize() -> void:
 			# cold FTUE) + today unclaimed (the default) → the _ready-driven popup fires.
 			var gl := Save.grove()
 			gl["unlocks"] = {String(G.MAPS[G.hub_map()].spots[0].id): true}
-			gl["exp"] = 6
 			Save.grove_write()
 		"closeup", "progress":
-			Save.add_exp(20)
+			# Mark the first N hub spots owned (3 for progress, 1 for closeup) by the hub's REAL spot ids.
+			# Readiness is seeded on the COIN clock: the per-spot EXP ladder this used to set
+			# (G.spot_unlock_exp / map_next_unlock) is DEAD — it has no live caller, and a region now opens
+			# on its cluster's level floor + coin price (G.cluster_ready ← map._on_cluster_tap). Banking past
+			# both makes the bottom restore badge read a representative ready state.
 			var g := Save.grove()
-			# Seed by the hub's REAL spot ids — content.gd remaps the hub to a vine map (farmhouse_r0..r6),
-			# so the retired fh_* ids matched nothing and the home rendered fully overgrown. Mark the first N
-			# owned (3 for progress, 1 for closeup) and set exp to the NEXT spot's unlock threshold, so the
-			# bottom restore badge reads a representative ready state over a partially-restored home.
 			var hub := G.hub_map()
 			var n_owned: int = mini(3 if mode == "progress" else 1, G.MAPS[hub].spots.size())
 			var seeded := {}
 			for k in n_owned:
 				seeded[String(G.MAPS[hub].spots[k].id)] = true
 			g["unlocks"] = seeded
-			g["exp"] = G.spot_unlock_exp(hub, n_owned)   # the next unclaimed spot's threshold
 			Save.grove_write()
+			Save.earn_coins(G.coins_at_level(6))   # L6 · 25🪙 — past the first hollow clusters' floors + costs
 		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
 			var go := Save.grove()
 			var ul := {}
@@ -149,7 +147,6 @@ func _initialize() -> void:
 			go["unlocks"] = ul
 			go["gates"] = ogates
 			go["task_reward"] = oclaimed
-			go["exp"] = 40
 			Save.grove_write()
 			# seed in-hand + placed spirits so the residents dialog renders fully (for UI capture): a
 			# mergeable pair left in hand + a few placed on the hub.
@@ -267,5 +264,7 @@ func _initialize() -> void:
 		await create_timer(0.5).timeout
 
 	var err := Base.capture(self, out, args)
-	print("SHOT saved=%s err=%d exp=%d" % [out, err, Save.exp_total()])
+	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
+	# grove["exp"] — a capture that seeded the wrong clock used to print a plausible line and a Level-1 PNG.
+	print("SHOT saved=%s err=%d level=%d coins_earned=%d" % [out, err, G.level(), Save.coins_earned_lifetime()])
 	quit()
