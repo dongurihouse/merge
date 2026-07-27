@@ -1927,24 +1927,11 @@ func _build_chrome() -> void:
 const DOCK_INK := Color("#43352B")
 const DOCK_PARCH := Color("#F3E7CE")
 
-static var _resident_content_cache: Dictionary = {}
+# The trim-to-opaque-content cache lives on PieceView (trimmed_tex) — resident art and board item
+# art are the SAME padded canvases, so a second copy here decoded every path twice and held two
+# AtlasTextures for it.
 static func _resident_content_tex(path: String) -> Texture2D:
-	if _resident_content_cache.has(path):
-		return _resident_content_cache[path]
-	var tex: Texture2D = load(path)
-	var result: Texture2D = tex
-	if tex != null:
-		var img := tex.get_image()
-		if img != null:
-			var used := img.get_used_rect()
-			var full := Vector2i(tex.get_width(), tex.get_height())
-			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != full):
-				var at := AtlasTexture.new()
-				at.atlas = tex
-				at.region = Rect2(used)
-				result = at
-	_resident_content_cache[path] = result
-	return result
+	return PieceView.trimmed_tex(path)
 
 func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_badge: bool = true) -> Control:
 	var btn := Button.new()
