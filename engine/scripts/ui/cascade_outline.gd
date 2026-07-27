@@ -10,6 +10,27 @@ const TAG_Z_INDEX := 20
 const RUNWAY_WIDTH_SCALE := 0.62
 const MERGE_WIDTH_SCALE := 0.82
 const STAGE_WIDTH_SCALE := 0.72
+const RIBBON_WIDTH_FRAC := 0.26      # ribbon width as a share of the cell
+const PAPER_TEX_PX := 64
+const PAPER_SEED := 20260727         # fixed: `make shot` compares captures byte for byte
+const JOINT_SIDES := 12
+
+static var _paper: ImageTexture = null
+
+# Matte paper grain, built once. Seeded on purpose — a random grain would break the
+# byte-deterministic shot captures the tools rely on.
+static func paper_grain() -> ImageTexture:
+	if _paper != null:
+		return _paper
+	var img := Image.create(PAPER_TEX_PX, PAPER_TEX_PX, false, Image.FORMAT_RGB8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = PAPER_SEED
+	for y in PAPER_TEX_PX:
+		for x in PAPER_TEX_PX:
+			var v := 0.93 + rng.randf() * 0.07
+			img.set_pixel(x, y, Color(v, v, v))
+	_paper = ImageTexture.create_from_image(img)
+	return _paper
 
 @export var inset_frac := 0.10: set = _set_inset
 @export var dash_frac := 0.16: set = _set_dash
@@ -34,6 +55,7 @@ func _set_jitter(v: float) -> void: jitter_frac = v; queue_redraw()
 func _ready() -> void:
 	name = "CascadeOutline"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED   # the grain tiles in board space
 	queue_redraw()
 
 func configure(board_size: Vector2, csz: float, cell_pos: Callable) -> void:
@@ -79,41 +101,82 @@ func _draw() -> void:
 			_draw_ghost_pad(entry as Dictionary)
 
 func _draw_ladder(entry: Dictionary) -> void:
-	var cells: Array = Array(entry.get("cells", []))
-	if cells.is_empty():
-		return
-	var n := int(entry.get("n", 2))
-	var color := G.line_color(int(entry.get("line", 0)))
-	var wash := Color(color, clampf(fill_pct / 100.0, 0.0, 0.12))
-	var edge := Color(color.lightened(0.18), _alpha_for_n(n))
-	var shadow := Color(Pal.INK, 0.18)
-	var width := _mark_thickness({"kind": "armed", "n": n})
-	var set := {}
-	for raw in cells:
-		set[Vector2i(raw)] = true
-	for raw in cells:
-		var cell := Vector2i(raw)
-		var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * inset_frac), Vector2.ONE * cell_size * (1.0 - inset_frac * 2.0))
-		draw_rect(rect, wash, true)
-		_draw_perimeter_edges(cell, set, shadow, edge, width)
+	_draw_ribbon(Array(entry.get("cells", [])), G.line_color(int(entry.get("line", 0))),
+		cell_size * RIBBON_WIDTH_FRAC, 1.0)
 
 func _draw_runway(entry: Dictionary) -> void:
-	var cells: Array = Array(entry.get("cells", []))
-	if cells.is_empty():
+	# A runway is the same ribbon, quieter: it is not going to fire until its piece arrives.
+	_draw_ribbon(Array(entry.get("cells", [])), G.line_color(int(entry.get("line", 0))),
+		cell_size * RIBBON_WIDTH_FRAC * 0.78, 0.5)
+
+# The chain drawn as one continuous strip of cut paper: from each marked cell's centre out to the
+# midpoint of every edge it shares with another marked cell, joints rounded, ends capped. That one
+# rule covers every shape a run or a component can take — straight, bend, zigzag, T, cross, even a
+# closed ring round a 2x2 block — and the strip meets itself exactly at the cell edges, so nothing
+# can misalign. Neighbour directions come from _cell_pos, never from the model delta: _cell_pos
+# owns the landscape transpose, and hardcoding portrait here is what once drew rungs instead of a
+# border on a wide screen.
+func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float) -> void:
+	if raw_cells.is_empty() or width <= 0.5:
 		return
-	var color := G.line_color(int(entry.get("line", 0)))
-	var wash := Color(color, clampf(fill_pct / 100.0 * 0.45, 0.0, 0.06))
-	var edge := Color(color.lightened(0.10), 0.26)
-	var shadow := Color(Pal.INK, 0.10)
-	var width := _mark_thickness({"kind": "runway", "would_be_n": int(entry.get("would_be_n", 3))})
-	var set := {}
-	for raw in cells:
-		set[Vector2i(raw)] = true
-	for raw in cells:
-		var cell := Vector2i(raw)
-		var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * inset_frac), Vector2.ONE * cell_size * (1.0 - inset_frac * 2.0))
-		draw_rect(rect, wash, true)
-		_draw_perimeter_edges(cell, set, shadow, edge, width)
+	var cells := {}
+	for raw in raw_cells:
+		cells[Vector2i(raw)] = true
+	# Pull the line colour toward cream first. Full-saturation line colour reads as a new game
+	# object competing with the pieces; the group mark has to stay quieter than the drop target
+	# it sits under, so this is tape laid on the board, not a painted stripe.
+	var tape := base.lerp(Color(0.98, 0.95, 0.88), 0.42)
+	var lift := maxf(1.5, cell_size * 0.035)
+	# Cut-paper stack, bottom to top: contact shadow, the warm cut edge the fill sits inside,
+	# the grained face, then a light top plane along the upper side.
+	_ribbon_pass(cells, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), null)
+	_ribbon_pass(cells, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, null)
+	_ribbon_pass(cells, width, Color(tape, 0.88 * strength), Vector2.ZERO, paper_grain())
+	_ribbon_pass(cells, width * 0.42, Color(tape.lightened(0.30), 0.40 * strength),
+		Vector2(0.0, -width * 0.24), null)
+
+func _ribbon_pass(cells: Dictionary, width: float, colour: Color, offset: Vector2, tex: Texture2D) -> void:
+	var half := width * 0.5
+	for raw_cell in cells:
+		var cell := Vector2i(raw_cell)
+		var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5) + offset
+		var ends := _ribbon_ends(cell, cells)
+		for end_pt in ends:
+			var b := Vector2(end_pt) + offset
+			var dir := (b - centre)
+			if dir.length() <= 0.01:
+				continue
+			var nrm := Vector2(-dir.y, dir.x).normalized() * half
+			_poly([centre + nrm, b + nrm, b - nrm, centre - nrm], colour, tex)
+		_disc(centre, half, colour, tex)          # rounds the joint AND caps a lone end
+
+# Screen-space endpoints of the strip inside `cell`: the midpoint of each shared edge.
+func _ribbon_ends(cell: Vector2i, cells: Dictionary) -> Array:
+	var out: Array = []
+	var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5)
+	for raw_d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+		var d := Vector2i(raw_d)
+		if not cells.has(cell + d):
+			continue
+		out.append(centre + (_cell_pos(cell + d) - _cell_pos(cell)) * 0.5)
+	return out
+
+func _poly(pts: Array, colour: Color, tex: Texture2D) -> void:
+	var pv := PackedVector2Array(pts)
+	if tex == null:
+		draw_colored_polygon(pv, colour)
+		return
+	var uvs := PackedVector2Array()
+	for p in pv:
+		uvs.append(p / float(PAPER_TEX_PX))    # board-space UVs: the grain runs unbroken
+	draw_colored_polygon(pv, colour, uvs, tex)
+
+func _disc(at: Vector2, r: float, colour: Color, tex: Texture2D) -> void:
+	var pts: Array = []
+	for i in JOINT_SIDES:
+		var a := TAU * float(i) / float(JOINT_SIDES)
+		pts.append(at + Vector2(cos(a), sin(a)) * r)
+	_poly(pts, colour, tex)
 
 func _draw_ghost_pad(entry: Dictionary) -> void:
 	var cell := Vector2i(entry.get("cell", Vector2i(-1, -1)))
@@ -133,30 +196,6 @@ func _draw_ghost_pad(entry: Dictionary) -> void:
 	var light := 0.25 if kind == "cascade" else (0.34 if kind == "merge" else 0.12)
 	var edge := Color(color.lightened(light), alpha)
 	_draw_dashed_rect(rect, edge, _mark_thickness(entry))
-
-func _draw_perimeter_edges(cell: Vector2i, cell_set: Dictionary, shadow: Color, edge: Color, width: float) -> void:
-	for raw_d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
-		var d := Vector2i(raw_d)
-		if cell_set.has(cell + d):
-			continue
-		var seg := _perimeter_edge_segment(cell, d)
-		var a := Vector2(seg[0])
-		var b := Vector2(seg[1])
-		var key := _edge_key(cell, d)
-		_draw_dashed_line(a + Vector2(0.0, 1.5), b + Vector2(0.0, 1.5), shadow, width + 1.5, key)
-		_draw_dashed_line(a, b, edge, width, key)
-
-func _perimeter_edge_segment(cell: Vector2i, neighbour_delta: Vector2i) -> Array:
-	var p := _cell_pos(cell) + Vector2.ONE * (cell_size * inset_frac)
-	var s := cell_size * (1.0 - inset_frac * 2.0)
-	var delta := _cell_pos(cell + neighbour_delta) - _cell_pos(cell)
-	if absf(delta.x) > absf(delta.y):
-		if delta.x < 0.0:
-			return [p, p + Vector2(0.0, s)]
-		return [p + Vector2(s, 0.0), p + Vector2(s, s)]
-	if delta.y < 0.0:
-		return [p, p + Vector2(s, 0.0)]
-	return [p + Vector2(0.0, s), p + Vector2(s, s)]
 
 func _draw_dashed_rect(rect: Rect2, color: Color, width: float) -> void:
 	_draw_dashed_line(rect.position, Vector2(rect.end.x, rect.position.y), color, width, 11)
