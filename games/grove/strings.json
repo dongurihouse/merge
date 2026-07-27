@@ -73,6 +73,24 @@
   "ladder": {
     "title": "Tiers"
   },
+  "farewell": {
+    "title_returning": "See you soon",
+    "title_complete": "All done here",
+    "returning_body": "The %s will be back at Level %d, for %s%s.",
+    "returning_coin_clause": " — %d coins for the leftovers",
+    "returning_coin_clause_one": " — %d coin for the leftovers",
+    "complete_body": "%s's story is complete%s.",
+    "complete_coin_clause": " — %d coins for the leftovers",
+    "complete_coin_clause_one": " — %d coin for the leftovers",
+    "ok": "OK"
+  },
+  "almanac": {
+    "title": "Almanac",
+    "chip": "Almanac",
+    "back_at": "Back at L%d",
+    "complete": "Complete",
+    "ladder_back": "back at L%d for %s"
+  },
   "producing": {
     "title": "Producing"
   },
@@ -172,10 +190,5 @@
     },
     "hint": "Keep playing — it fills at",
     "pitch": "Premium you've earned, saved up — claim it all for %s."
-  },
-  "retire": {
-    "title": "All done here",
-    "body": "Nothing will ask for this line again. Clearing it frees the generator and sells %d leftover pieces for %d coins.",
-    "confirm": "Clear it"
   }
 }

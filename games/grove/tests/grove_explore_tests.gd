@@ -16,7 +16,6 @@ const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
-const RetireOffer = preload("res://engine/scripts/ui/retire_offer.gd")
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -60,18 +59,17 @@ func _initialize() -> void:
 	await _test_home_swipe_resize_mid_commit_finalizes()
 	await _test_endgame_fence_stays_live()
 	await _test_purge_above_level_migration()
-	await _test_retirement_offer()
+	await _test_farewell_cards_chain()
+	await _test_almanac_entries_and_info_chip()
 	finish()
 
-# §6 LINE RETIREMENT through the REAL scene: the offer picks the right generator, DECLINING is remembered
-# (an offer, not a nag), and CONFIRMING clears the generator and its dead stock end-to-end. The pure statics
-# are covered in grove_board_actions_tests; this is the wiring — the part unit tests cannot see.
-func _test_retirement_offer() -> void:
-	fresh("retire_offer")
-	# gen_1 retires the level after zone 3 opens (G.zone_unlock_level(3)) — derived, not hardcoded, so a
-	# SCENE_END_LEVEL re-tune moves this with it. +2 lands safely past that boundary while staying well
-	# below gen_6's own retirement level, so gen_1 alone is retirable here.
-	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 2)
+# §8 line farewells through the REAL scene: due cards chain one at a time, ignore the legacy decline key,
+# and sweep on every close path. The pure statics cover the board math; this pins the coordinator wiring.
+func _test_farewell_cards_chain() -> void:
+	fresh("farewell_cards")
+	ok(ResourceLoader.exists("res://engine/scripts/ui/farewell_card.gd"), "farewell card script exists")
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))  # L65: 2,4,8 are away
+	Save.grove()["retire_declined"] = {"gen_2": true}                         # legacy key must be ignored
 	Save.grove_write()
 	Save.mark_board_tutorial_seen()
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
@@ -79,40 +77,115 @@ func _test_retirement_offer() -> void:
 	if scn.board == null:
 		scn._ready()
 	await process_frame
+	for r in G.ROWS:
+		for c in G.COLS:
+			scn.board.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			scn.board.take(Vector2i(r, c))
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale_farewell != null:
+		stale_farewell.queue_free()
+		await process_frame
 	var free_cells: Array = scn.board.empty_ground_cells()
-	ok(free_cells.size() >= 2, "fixture: the board has ground for the leftover stock")
-	scn.board.place(free_cells[0], 1 * 100 + 2)           # leftover glow stock — must be cleared
-	scn.board.place(free_cells[1], 1 * 100 + 3)
-	var pv: Dictionary = BoardActions.retire_preview(scn.board, scn.bag, 1)
-	ok(int(pv.pieces) >= 2 and int(pv.coins) > 0, "the preview prices the line's stock (%d pieces / %d coins)" % [int(pv.pieces), int(pv.coins)])
-	# the OFFER appears and targets the retirable generator
-	scn._maybe_offer_retirement()
+	ok(free_cells.size() >= 6, "fixture: the board has ground for chained farewells")
+	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.arm_gen_boost(free_cells[0], 4)
+	scn.board.place_gen("gen_4", free_cells[1])
+	scn.board.place(free_cells[2], 2 * 100 + 2)
+	scn.board.place(free_cells[3], 4 * 100 + 3)
+	scn.board.place(free_cells[4], 8 * 100 + 1)
+	scn.board.place(free_cells[5], 16 * 100 + 2)
+	scn._rebuild_all()
 	await process_frame
-	ok(RetireOffer.is_open(scn), "board entry offers the retirement")
-	# DECLINE → remembered, and not re-offered on the next entry
-	var dm: Dictionary = Save.grove().get("retire_declined", {})
-	dm["gen_1"] = true
-	Save.grove()["retire_declined"] = dm
-	Save.grove_write()
-	for ov in scn.get_children():
-		if String(ov.name) == "RetireOfferOverlay":
-			ov.free()
-	scn._maybe_offer_retirement()
-	await process_frame
-	ok(not RetireOffer.is_open(scn), "a DECLINED offer is not re-fired on the next board entry")
-	# CONFIRM (the same call the card's button makes) → generator and stock gone, wallet paid, clock still
 	var wallet_b := Save.coins()
 	var clock_b := Save.coins_earned_lifetime()
-	scn._retire_line("gen_1")
+	scn._queue_farewell_check()
 	await process_frame
-	ok(not scn.board.gens.values().has("gen_1"), "confirming removes the generator from the live board")
-	var leftover := 0
-	for i in scn.board.items.size():
-		if int(scn.board.items[i]) > 0 and BoardModel.line_of(int(scn.board.items[i])) == 1:
-			leftover += 1
-	ok(leftover == 0, "confirming clears every leftover piece of the retired line")
-	ok(Save.coins() == wallet_b + int(pv.coins), "the wallet is paid EXACTLY what the offer advertised (%d)" % int(pv.coins))
-	ok(Save.coins_earned_lifetime() == clock_b, "retiring never advances the clock")
+	await process_frame
+	var seen_lines: Array = []
+	for expected in [2, 4, 8]:
+		var overlay := scn.find_child("FarewellCardOverlay", true, false) as Control
+		ok(overlay != null and int(overlay.get_meta("farewell_line", 0)) == expected,
+			"farewell card %d opens for line %d" % [seen_lines.size() + 1, expected])
+		seen_lines.append(expected)
+		var ok_btn := overlay.find_child("FarewellOK", true, false) as Button if overlay != null else null
+		ok(ok_btn != null, "farewell card has one OK button")
+		if ok_btn != null:
+			ok_btn.pressed.emit()
+		await process_frame
+		await process_frame
+	ok(seen_lines == [2, 4, 8], "farewell cards chain in zone order, one at a time")
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null, "the farewell chain ends after due lines are swept")
+	ok(not scn.board.gens.values().has("gen_2") and not scn.board.gens.values().has("gen_4"),
+		"closing the cards sweeps the away board generators")
+	var kept: Dictionary = Save.grove().get("gen_kept", {})
+	ok(kept.get("gen_2", []) == [3, 4], "the swept upgraded generator is kept for its return")
+	ok(Save.coins() > wallet_b and Save.coins_earned_lifetime() == clock_b,
+		"farewell payouts are spendable-only and never advance the clock")
+	scn._queue_farewell_check()
+	await process_frame
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null, "migration is idempotent on re-entry")
+	scn.queue_free()
+	await process_frame
+
+func _test_almanac_entries_and_info_chip() -> void:
+	fresh("almanac_entries")
+	ok(ResourceLoader.exists("res://engine/scripts/ui/almanac.gd"), "almanac script exists")
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))
+	Save.grove()["seen"] = {"101": true, "201": true, "401": true, "801": true, "1601": true}
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	await process_frame
+	var entries: Array = scn._almanac_entries()
+	ok(entries.size() == G.ZONE_COUNT, "almanac builds one zone-order cell per zone line")
+	var by_line := {}
+	for e in entries:
+		by_line[int(e.line)] = e
+	ok(bool(by_line[1].seen) and String(by_line[1].state) == "complete",
+		"a seen done-forever line renders complete")
+	ok(bool(by_line[2].seen) and String(by_line[2].state) == "away"
+		and int(by_line[2].back_level) == G.zone_unlock_level(11) and int(by_line[2].for_line) == 19,
+		"a seen away line carries its return level and reason")
+	ok(bool(by_line[16].seen) and String(by_line[16].state) == "producing",
+		"a seen line in the current need closure is producing now")
+	ok(not bool(by_line[19].seen) and int(by_line[19].code) == 0,
+		"an unseen line stays locked even when it has a future status")
+	var chip := scn.find_child("AlmanacInfoButton", true, false) as Button
+	ok(chip != null and chip.visible and not chip.disabled, "the empty info tray exposes the Almanac chip")
+	ok(String(scn._info_label.text) == Strings.t("board.info.empty_prompt"),
+		"the empty info tray keeps the normal tap-an-item prompt beside the Almanac button")
+	ok(String(scn._info_desc_label.text) == Strings.t("board.info.empty_bag_hint"),
+		"the empty info tray keeps the bag-space hint beside the Almanac button")
+	if chip != null:
+		ok(String(chip.get_meta("action_role", "")) == "almanac",
+			"the Almanac entry is the shared action-button almanac role, not a stat chip")
+	if chip != null:
+		chip.pressed.emit()
+	await process_frame
+	var almanac_overlay := scn.find_child("AlmanacOverlay", true, false) as Control
+	ok(almanac_overlay != null, "pressing the empty-tray chip opens the Almanac")
+	if almanac_overlay != null:
+		var away_cell: Control = null
+		for node in almanac_overlay.find_children("AlmanacCell*", "Control", true, false):
+			if int((node as Control).get_meta("almanac_line", 0)) == 2:
+				away_cell = node as Control
+				break
+		var art := away_cell.find_child("ItemArt", true, false) as Control if away_cell != null else null
+		var status := away_cell.find_child("AlmanacStatusPill", true, false) as Control if away_cell != null else null
+		ok(art != null and status != null and art.get_global_rect().end.y <= status.get_global_rect().position.y - 1.0,
+			"an away Almanac status pill sits below the piece art instead of overlapping it")
+		almanac_overlay.queue_free()
+	var free_cells: Array = scn.board.empty_ground_cells()
+	scn.board.place(free_cells[0], 101)
+	scn._rebuild_all()
+	scn._select_item(free_cells[0])
+	await process_frame
+	ok(chip != null and not chip.visible, "the Almanac chip hides while an item selection is shown")
 	scn.queue_free()
 	await process_frame
 

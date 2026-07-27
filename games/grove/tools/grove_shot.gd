@@ -3,7 +3,7 @@ extends SceneTree
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
-##        fresh | played | gate | fullline | ladder | bag | level | levelup | endgame |
+##        fresh | played | gate | fullline | ladder | farewell | almanac | bag | level | levelup | endgame |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint)
@@ -33,7 +33,7 @@ func _initialize() -> void:
 		# list in step when adding or removing a branch.
 		"modes": ["fresh", "ftue", "ftuegen",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
-			"level", "levelup", "swap", "ladder", "retire", "retiredone", "recipe",
+			"level", "levelup", "swap", "ladder", "farewell", "almanac", "recipe",
 			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
@@ -204,33 +204,50 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
-		"retire":
-			# §6 the LINE-RETIREMENT offer: a player still holding the anchor generator and some of its now-dead
-			# stock. gen_1 becomes retirable once zone 3 opens (zone_unlock_level(3)); seed one level past that
-			# boundary so the seed cannot sit exactly on it.
+		"farewell":
+			# The LINE-FAREWELL card: L65 has moved beyond Wild Berries, Woolens, and Spices, but the
+			# player still has board presence. The first due line opens as a calm board-entry card.
 			var gr := Save.grove()
-			gr["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 1)
+			gr["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))
+			gr["seen"] = {"201": true, "401": true, "801": true, "1601": true}
 			Save.grove_write()
+			for r in G.ROWS:
+				for c in G.COLS:
+					scn.board.terrain[load("res://engine/scripts/core/board_model.gd").idx(Vector2i(r, c))] = 0
+					scn.board.take(Vector2i(r, c))
+			for cell in scn.board.gens.keys():
+				scn.board.remove_gen(cell)
+			var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+			if stale_farewell != null:
+				stale_farewell.queue_free()
+				await create_timer(0.1).timeout
 			var free_cells: Array = scn.board.empty_ground_cells()
-			for k in mini(3, free_cells.size()):
-				scn.board.place(free_cells[k], 1 * 100 + 2 + k)   # leftover glow pieces to be cleared
+			if free_cells.size() >= 7:
+				scn.board.place_gen("gen_2", free_cells[0], 3)
+				scn.board.arm_gen_boost(free_cells[0], 4)
+				scn.board.place_gen("gen_4", free_cells[1])
+				scn.board.place(free_cells[2], 202)
+				scn.board.place(free_cells[3], 403)
+				scn.board.place(free_cells[4], 801)
+				scn.board.place(free_cells[5], 1602)
+				scn.board.place(free_cells[6], 1901)
+			scn._refill_quests()
 			scn._rebuild_all()
 			await create_timer(0.3).timeout
-			scn._maybe_offer_retirement()
-			await create_timer(0.5).timeout
-		"retiredone":
-			# §6 the board AFTER confirming a retirement: the generator and its dead stock are gone, the payout
-			# has flown to the coin HUD. The state the offer promises — worth LOOKING at, not just asserting.
-			var gd := Save.grove()
-			gd["coins_earned"] = G.coins_at_level(G.zone_unlock_level(3) + 1)
+			scn._queue_farewell_check()
+			await create_timer(0.7).timeout
+		"almanac":
+			# The read-only Collection/Almanac grid: discovered dormant lines show their away/complete badges,
+			# current-producing lines stay bright, and unseen future lines remain locked.
+			var ga := Save.grove()
+			ga["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))
+			ga["seen"] = {"101": true, "201": true, "401": true, "801": true, "1601": true}
 			Save.grove_write()
-			var fc: Array = scn.board.empty_ground_cells()
-			for k in mini(3, fc.size()):
-				scn.board.place(fc[k], 1 * 100 + 2 + k)
+			scn._refill_quests()
 			scn._rebuild_all()
 			await create_timer(0.3).timeout
-			scn._retire_line("gen_1")
-			await create_timer(0.6).timeout
+			scn._open_almanac()
+			await create_timer(0.5).timeout
 		"recipe":
 			# the MERGED-line tier screen: a special line (71 = Prize pumpkin, crafted from Wildflower + Feather)
 			# opens its RECIPE view — the two ingredient items alone, each tapping through to its own tier screen.
