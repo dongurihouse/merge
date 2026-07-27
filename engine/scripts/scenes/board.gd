@@ -110,6 +110,8 @@ const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece 
 const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
 const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
+const CHAIN_MIN_N := 3
+const CHAIN_PREROLL_MS := 300
 const CHAIN_STEP_MS := 250
 const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
@@ -2042,12 +2044,19 @@ func _position_cascade_outline() -> void:
 	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
 			or _cascade_outline.get_parent() != board_area:
 		return
-	var insert_at := _cascade_outline.get_index()
+	var insert_at := board_area.get_child_count() - 1
 	for raw_node in gen_nodes.values() + piece_nodes.values():
 		var n := raw_node as Node
-		if n != null and is_instance_valid(n) and n.get_parent() == board_area:
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion() and n.get_parent() == board_area:
 			insert_at = mini(insert_at, n.get_index())
 	board_area.move_child(_cascade_outline, clampi(insert_at, 0, board_area.get_child_count() - 1))
+
+func _armed_cascade_marks(entries: Array) -> Array:
+	var out: Array = []
+	for raw in entries:
+		if raw is Dictionary and int((raw as Dictionary).get("n", 0)) >= CHAIN_MIN_N:
+			out.append((raw as Dictionary).duplicate(true))
+	return out
 
 func _refresh_cascade_outline() -> void:
 	if board == null or board_area == null or not is_instance_valid(board_area):
@@ -2055,7 +2064,7 @@ func _refresh_cascade_outline() -> void:
 	var outline := _ensure_cascade_outline()
 	if outline == null:
 		return
-	outline.set_ladders(BoardLogic.ready_ladders(board))
+	outline.set_ladders(_armed_cascade_marks(BoardLogic.ready_ladders(board)))
 
 func _show_cascade_drag_guides(from: Vector2i) -> void:
 	if not Features.on("cascade") or board == null or board.is_gen(from):
@@ -2067,6 +2076,8 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 	for raw in BoardLogic.chain_placements(board, from, code):
 		if raw is Dictionary:
 			var entry: Dictionary = (raw as Dictionary).duplicate(true)
+			if int(entry.get("n", 0)) < CHAIN_MIN_N:
+				continue
 			entry["line"] = BoardModel.line_of(code)
 			pads.append(entry)
 	var outline := _ensure_cascade_outline()
@@ -4639,15 +4650,46 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	if not Features.on("cascade"):
 		return
 	_chain_run = BoardLogic.chain_path(board, a, b)
-	if not _chain_run.is_empty():
+	if 1 + _chain_run.size() >= CHAIN_MIN_N:
 		_chain_n = 1
 		_chain_active = true
+	else:
+		_chain_run = []
 
 func _schedule_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
 		_finish_chain()
 		return
+	if _chain_n == 1 and not _chain_auto_step and CHAIN_PREROLL_MS > 0:
+		_show_chain_preroll(current)
+		var tree := get_tree()
+		if tree != null:
+			tree.create_timer(float(CHAIN_PREROLL_MS) / 1000.0).timeout.connect(_run_chain_step.bind(current))
+		else:
+			_run_chain_step.call_deferred(current)
+		return
 	_run_chain_step.call_deferred(current)
+
+func _show_chain_preroll(current: Vector2i) -> void:
+	if board == null or _chain_run.is_empty():
+		return
+	var outline := _ensure_cascade_outline()
+	if outline == null:
+		return
+	var cells: Array = [current]
+	for raw in _chain_run:
+		cells.append(Vector2i(raw))
+	outline.set_ladders([{
+		"cells": cells,
+		"line": BoardModel.line_of(board.item_at(current)),
+		"n": 1 + _chain_run.size(),
+		"top_cell": Vector2i(_chain_run[_chain_run.size() - 1]),
+	}])
+	outline.modulate = Color(1, 1, 1, 0.76)
+	var t := outline.create_tween()
+	t.tween_property(outline, "modulate:a", 1.0, 0.12)
+	t.tween_property(outline, "modulate:a", 0.82, 0.08)
+	t.tween_property(outline, "modulate:a", 1.0, 0.10)
 
 func _run_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
@@ -4692,9 +4734,7 @@ func _apply_chain_reward(vacated: Vector2i) -> void:
 	var reward_code := _chain_reward_code(_chain_n)
 	if reward_code <= 0:
 		return
-	if _chain_n == 2:
-		_birth_chain_reward(vacated, reward_code)
-	elif _chain_n == 3:
+	if _chain_n == 3:
 		_chain_reward_cell = vacated
 		_birth_chain_reward(_chain_reward_cell, reward_code)
 	elif _chain_reward_cell.x >= 0:
