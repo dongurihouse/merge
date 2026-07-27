@@ -61,6 +61,7 @@ func _initialize() -> void:
 	await _test_purge_above_level_migration()
 	await _test_farewell_cards_chain()
 	await _test_almanac_entries_and_info_chip()
+	await _test_farewell_check_respects_generator_selection()
 	finish()
 
 # §8 line farewells through the REAL scene: due cards chain one at a time, ignore the legacy decline key,
@@ -174,6 +175,10 @@ func _test_almanac_entries_and_info_chip() -> void:
 		var status := away_cell.find_child("AlmanacStatusPill", true, false) as Control if away_cell != null else null
 		ok(art != null and status != null and art.get_global_rect().end.y <= status.get_global_rect().position.y - 1.0,
 			"an away Almanac status pill sits below the piece art instead of overlapping it")
+		ok(away_cell.find_child("SlotContentShadow", true, false) == null,
+			"Almanac cells do not stack the generic slot content shadow under scaled inactive art")
+		ok(status != null and status.find_child("AlmanacStatusCutPaper", true, false) != null,
+			"Almanac status text sits on a cut-paper background")
 		almanac_overlay.queue_free()
 	var free_cells: Array = scn.board.empty_ground_cells()
 	scn.board.place(free_cells[0], 101)
@@ -181,6 +186,51 @@ func _test_almanac_entries_and_info_chip() -> void:
 	scn._select_item(free_cells[0])
 	await process_frame
 	ok(chip != null and not chip.visible, "the Almanac chip hides while an item selection is shown")
+	await drop(scn)
+
+func _test_farewell_check_respects_generator_selection() -> void:
+	fresh("farewell_generator_focus")
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))  # L65: line 2 is away
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("soil")
+	Save.mark_ftue_seen("soil_seed")
+	var scn = board_host()
+	await process_frame
+	var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale_farewell != null:
+		stale_farewell.queue_free()
+		await process_frame
+	for r in G.ROWS:
+		for c in G.COLS:
+			scn.board.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			scn.board.take(Vector2i(r, c))
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var free_cells: Array = scn.board.empty_ground_cells()
+	ok(free_cells.size() >= 2, "fixture: board has room for away generator focus")
+	var gen_cell: Vector2i = free_cells[0]
+	scn.board.place_gen("gen_2", gen_cell, 2)
+	scn.board.place(free_cells[1], 2 * 100 + 1)
+	scn._rebuild_all()
+	scn._select_generator(gen_cell)
+	await process_frame
+	ok(scn._selected_cell == gen_cell and scn.board.is_gen(gen_cell),
+		"fixture: an away-line generator is selected before the queued farewell check")
+	var selected_label := String(scn._info_label.text)
+	scn._queue_farewell_check()
+	await process_frame
+	await process_frame
+	ok(scn.find_child("FarewellCardOverlay", true, false) == null,
+		"queued farewell checks wait while a generator info tray is selected")
+	ok(scn._selected_cell == gen_cell and String(scn._info_label.text) == selected_label,
+		"queued farewell checks do not defocus the selected generator")
+	scn._clear_selection()
+	await process_frame
+	await process_frame
+	var resumed := scn.find_child("FarewellCardOverlay", true, false) as Control
+	ok(resumed != null and int(resumed.get_meta("farewell_line", 0)) == 2,
+		"the deferred farewell check resumes once generator info clears")
 	await drop(scn)
 
 # A generator whose LINE no open quest asks for fades out (GEN_UNUSED). The predicate lives inline in
