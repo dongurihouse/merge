@@ -1,5 +1,5 @@
 extends RefCounted
-## The reward-flight ACTION TABLE — the seven game moments that route through the shared
+## The reward-flight ACTION TABLE — the game moments that route through the shared
 ## Coin Flow component (FX.reward_arrival), and how each one stages itself in the workbench.
 ##
 ## Lives in its own file so the FX workbench's sidebar (fx_gallery_view.gd) and its embedded
@@ -19,6 +19,7 @@ const DEFS := [
 	{"id": "accept_2x", "label": "2x reward accept", "screen": "Board", "context": "board", "icon": "coin", "target": "coin", "source_kind": "offer", "targets": ["coin"], "footer": "Bonus accept pays a second coin grant"},
 	{"id": "map_task_reward", "label": "Map task reward", "screen": "Map", "context": "map", "icon": "coin", "target": "coin", "source_kind": "map_card", "targets": ["gem", "coin"], "footer": "Restored place pays gems and coins"},
 	{"id": "sale_payout", "label": "Sale payout", "screen": "Home", "context": "home", "icon": "coin", "target": "coin", "source_kind": "sale_item", "targets": ["coin"], "footer": "Sold item payout routes to the wallet"},
+	{"id": "farewell_sweep", "label": "Farewell sweep", "screen": "Board", "context": "board", "icon": "coin", "target": "coin", "source_kind": "farewell_sweep", "targets": ["coin"], "footer": "Departing pieces stagger into the wallet"},
 ]
 
 ## The def for `id`, falling back to the first entry so a stale selection still renders.

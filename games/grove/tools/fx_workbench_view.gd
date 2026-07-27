@@ -30,6 +30,7 @@ const EMBEDDED_PREVIEW_SCALE := 0.68
 const COIN_CODE := G.COIN_LINE * 100 + 1
 const SAMPLE_ITEM_A := 101
 const SAMPLE_ITEM_B := 102
+const SWEEP_SAMPLE_CODES := [201, 202, 203, 204, 205, 206]
 
 
 var _preview_action := "coin_pickup"
@@ -46,6 +47,8 @@ var _target_labels: Dictionary = {}
 var _preview_stage: CenterContainer = null
 var _preview_root: Control = null
 var _source: Control = null
+var _sweep_sources: Array = []
+var _keepsake_source: Control = null
 var _auto_timer: Timer = null
 @export var preview_scale := EMBEDDED_PREVIEW_SCALE
 
@@ -69,6 +72,8 @@ func _build() -> void:
 	_targets.clear()
 	_target_labels.clear()
 	_source = null
+	_sweep_sources.clear()
+	_keepsake_source = null
 
 	var cc := CenterContainer.new()
 	cc.name = "CoinFlowEmbeddedRoot"
@@ -136,6 +141,8 @@ func _build_selected_preview() -> void:
 	_targets.clear()
 	_target_labels.clear()
 	_source = null
+	_sweep_sources.clear()
+	_keepsake_source = null
 
 	_preview_root = Control.new()
 	_preview_root.name = "CoinFlowPreview"
@@ -257,6 +264,9 @@ func _add_board_surface(def: Dictionary) -> void:
 	var source_kind := String(def.get("source_kind", "coin_piece"))
 	var source_pos := Vector2(grid.size.x * 0.5, grid.size.y * 0.52)
 	match source_kind:
+		"farewell_sweep":
+			_add_farewell_sweep_sources(grid)
+			return
 		"coin_piece":
 			_source = _make_piece_source(COIN_CODE)
 		"item_piece":
@@ -288,6 +298,29 @@ func _add_board_cells(grid: Control, cols: int, rows: int) -> void:
 			well.add_theme_stylebox_override("panel", _cell_box())
 			well.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			grid.add_child(well)
+
+func _add_farewell_sweep_sources(grid: Control) -> void:
+	var px := clampf(float(_settings.get("coin_size", FX.REWARD_FX_DEFAULT_SOURCE_SIZE)), 82.0, 118.0)
+	var spots := [
+		Vector2(0.22, 0.30), Vector2(0.45, 0.30), Vector2(0.68, 0.31),
+		Vector2(0.29, 0.56), Vector2(0.52, 0.58), Vector2(0.74, 0.55),
+	]
+	for i in SWEEP_SAMPLE_CODES.size():
+		var piece := _make_piece_source(int(SWEEP_SAMPLE_CODES[i]))
+		piece.name = "FarewellSweepPiece%d" % i
+		piece.position = Vector2(grid.size.x * float(spots[i].x), grid.size.y * float(spots[i].y)) - Vector2(px, px) / 2.0
+		_wire_source(piece)
+		grid.add_child(piece)
+		_sweep_sources.append({"node": piece, "payout": int(G.sell_reward(int(SWEEP_SAMPLE_CODES[i])).x)})
+		if _source == null:
+			_source = piece
+	var gen := PieceView.make_generator("gen_2", px, {}, 2)
+	gen.name = "FarewellSweepGenerator"
+	gen.position = Vector2(grid.size.x * 0.46, grid.size.y * 0.78) - Vector2(px, px) / 2.0
+	gen.mouse_filter = Control.MOUSE_FILTER_STOP
+	_wire_source(gen)
+	grid.add_child(gen)
+	_keepsake_source = gen
 
 func _add_map_surface(_def: Dictionary) -> void:
 	var trail := Panel.new()
@@ -402,6 +435,8 @@ func play_selected() -> void:
 		return
 	var def := FxDefs.def(_preview_action)
 	match _preview_action:
+		"farewell_sweep":
+			_play_farewell_sweep()
 		"map_task_reward":
 			_play_reward("gem", 1, FX.reward_color("gem"), "gem", Vector2(0, -12))
 			_play_reward("coin", int(_settings.get("amount", 25)), FX.reward_color("coin"), "coin", Vector2(0, 28))
@@ -411,6 +446,55 @@ func play_selected() -> void:
 			var icon_id := String(def.get("icon", "coin"))
 			var target_id := String(def.get("target", "coin"))
 			_play_reward(icon_id, _reward_amount_for(_preview_action), FX.reward_color(icon_id), target_id)
+
+func _play_farewell_sweep() -> void:
+	if _preview_root == null:
+		return
+	_clear_disabled_badges()
+	if not _sweep_sources_have_live_nodes():
+		_build_selected_preview()
+		call_deferred("_play_farewell_sweep")
+		return
+	var target: Control = _targets.get("coin", null) as Control
+	# one-element Array so the running total survives across arrivals — a lambda-captured int is
+	# re-seeded on every call (see the same note in board.gd's _sweep_farewell)
+	var shown := [int(_totals.get("coin", 0))]
+	var flights: Array = []
+	for entry_v in _sweep_sources:
+		var entry: Dictionary = entry_v
+		flights.append({"node": entry.get("node", null), "payout": int(entry.get("payout", 0))})
+	_sweep_sources.clear()
+	if _keepsake_source != null and is_instance_valid(_keepsake_source):
+		FX.keepsake_fade(_keepsake_source)
+	_keepsake_source = null
+	FX.fly_pieces_away(_preview_root, flights, target, {"fx_id": "farewell_sweep"}, func(payout: int) -> void:
+		shown[0] = int(shown[0]) + int(payout)
+		_farewell_sweep_arrival(int(shown[0]), int(payout)), func() -> void:
+		_farewell_sweep_done(int(shown[0])))
+
+func _sweep_sources_have_live_nodes() -> bool:
+	for entry_v in _sweep_sources:
+		var entry: Dictionary = entry_v
+		var node: Control = entry.get("node", null) as Control
+		if node != null and is_instance_valid(node):
+			return true
+	return false
+
+func _farewell_sweep_arrival(shown: int, payout: int) -> void:
+	var target: Control = _targets.get("coin", null) as Control
+	var lbl: Label = _target_labels.get("coin", null) as Label
+	_totals["coin"] = shown
+	if target != null and is_instance_valid(target):
+		FX.breathe_once(target)
+		FX.floating_reward(self, target.get_global_rect().get_center() + Vector2(14, -42), "coin", payout, FX.reward_color("coin"))
+	if lbl != null and is_instance_valid(lbl):
+		FX.tick(lbl, shown)
+
+func _farewell_sweep_done(shown: int) -> void:
+	_totals["coin"] = shown
+	var lbl: Label = _target_labels.get("coin", null) as Label
+	if lbl != null and is_instance_valid(lbl):
+		lbl.text = str(shown)
 
 func _play_reward(icon_id: String, amount: int, color: Color, target_id: String, offset: Vector2 = Vector2.ZERO) -> void:
 	if _preview_root == null or _source == null:

@@ -224,6 +224,15 @@ class FX:
 	const FLY_T_UP := 0.18
 	const FLY_T_DOWN := 0.22
 	const FLY_SCALE := Vector2(0.55, 0.55)
+	const PIECE_FLY_T_UP := 0.20
+	const PIECE_FLY_T_DOWN := 0.26
+	const PIECE_FLY_ARC := Vector2(0, -140)
+	const PIECE_FLY_SCALE := Vector2(0.30, 0.30)
+	const SWEEP_STAGGER := 0.06
+	const SWEEP_STAGGER_CAP := 0.90
+	const KEEPSAKE_T := 0.45
+	const KEEPSAKE_LIFT := Vector2(0, -18)
+	const KEEPSAKE_SCALE := Vector2(0.55, 0.55)
 
 	# --- burst (celebration particles; grove sprite vs soft dot) -----------------------
 	const BURST_AMOUNT := 14              # default particle count
