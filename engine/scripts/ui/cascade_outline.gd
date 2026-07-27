@@ -101,13 +101,20 @@ func _draw() -> void:
 			_draw_ghost_pad(entry as Dictionary)
 
 func _draw_ladder(entry: Dictionary) -> void:
-	_draw_ribbon(Array(entry.get("cells", [])), G.line_color(int(entry.get("line", 0))),
+	_draw_ribbon(_ribbon_cells(entry), G.line_color(int(entry.get("line", 0))),
 		cell_size * RIBBON_WIDTH_FRAC, 1.0)
 
 func _draw_runway(entry: Dictionary) -> void:
 	# A runway is the same ribbon, quieter: it is not going to fire until its piece arrives.
-	_draw_ribbon(Array(entry.get("cells", [])), G.line_color(int(entry.get("line", 0))),
+	_draw_ribbon(_ribbon_cells(entry), G.line_color(int(entry.get("line", 0))),
 		cell_size * RIBBON_WIDTH_FRAC * 0.78, 0.5)
+
+# The ribbon follows `run` — the cells the cascade walks — not `cells`, which is a same-LINE
+# flood fill with no tier condition. A t4 touching a t6 lands in one component while neither can
+# ever feed the other's chain; a ribbon over that draws a connection that does not exist.
+func _ribbon_cells(entry: Dictionary) -> Array:
+	var run := Array(entry.get("run", []))
+	return run if not run.is_empty() else Array(entry.get("cells", []))
 
 # The chain drawn as one continuous strip of cut paper: from each marked cell's centre out to the
 # midpoint of every edge it shares with another marked cell, joints rounded, ends capped. That one

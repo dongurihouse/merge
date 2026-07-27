@@ -107,6 +107,7 @@ static func ready_ladders(board: BoardModel) -> Array:
 		if n >= 2:
 			out.append({
 				"cells": cells,
+				"run": _run_cells(best),
 				"line": line,
 				"n": n,
 				"top_cell": Vector2i(best.get("top_cell", cell)),
@@ -148,6 +149,7 @@ static func runways(board: BoardModel, min_n: int) -> Array:
 			continue
 		out.append({
 			"cells": cells,
+			"run": _runway_rungs(board, cells),
 			"line": line,
 			"needs_code": int(best.needs_code),
 			"would_be_n": int(best.would_be_n),
@@ -415,6 +417,50 @@ static func _best_tip_in_component(board: BoardModel, cells: Array) -> Dictionar
 			if _tip_better(candidate, best):
 				best = candidate
 	return best
+
+
+# The cells a tipped run actually walks: the two that merge, then each partner it slides onto.
+# NOT the same as the component. `cells` is a same-LINE flood fill with no tier condition, so a
+# stray high tier sitting next to the ladder joins it while being unable to feed it — drawing a
+# ribbon over that claims a connection which does not exist.
+static func _run_cells(tip: Dictionary) -> Array:
+	var from := Vector2i(tip.get("from", Vector2i(-1, -1)))
+	var to := Vector2i(tip.get("to", Vector2i(-1, -1)))
+	if from.x < 0 or to.x < 0:
+		return []
+	var out: Array = [from, to]
+	for raw in Array(tip.get("path", [])):
+		out.append(Vector2i(raw))
+	return out
+
+# The rungs of a runway: from its lowest tier, step to a neighbour exactly one tier up, as far as
+# that keeps going. A gap in the ladder (t4 beside t6) ends the walk, which is the whole point —
+# those two can never be part of one chain.
+static func _runway_rungs(board: BoardModel, cells: Array) -> Array:
+	var in_set := {}
+	var lowest := 9999
+	var start := Vector2i(-1, -1)
+	for raw in cells:
+		var c := Vector2i(raw)
+		in_set[c] = true
+		var t := BoardModel.tier_of(board.item_at(c))
+		if t < lowest or (t == lowest and BoardModel.idx(c) < BoardModel.idx(start)):
+			lowest = t
+			start = c
+	if start.x < 0:
+		return []
+	return _ascend(board, in_set, start, lowest)
+
+static func _ascend(board: BoardModel, in_set: Dictionary, at: Vector2i, tier: int) -> Array:
+	var best: Array = []
+	for raw_d in ORTHO_DIRS:
+		var nb := at + Vector2i(raw_d)
+		if not in_set.has(nb) or BoardModel.tier_of(board.item_at(nb)) != tier + 1:
+			continue
+		var tail := _ascend(board, in_set, nb, tier + 1)
+		if tail.size() > best.size():
+			best = tail
+	return [at] + best
 
 static func _component_has_merge_pair(board: BoardModel, cells: Array) -> bool:
 	var cell_set := {}
