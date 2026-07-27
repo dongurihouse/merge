@@ -13,6 +13,7 @@ extends "res://games/grove/tools/workbench_view.gd"
 
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
+const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")   # the page band law the board fits into
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
@@ -740,18 +741,16 @@ func _action_button_row_preview(p: Dictionary) -> Control:
 	mc.add_child(row)
 	return mc
 
-# The board's own layout law, mirrored so the preview shows what the board WILL render (board wins): the
-# same absolute-px clamps board.gd applies, computed on the real 1080×1920 viewport then scaled to the
-# preview. Only the knobs the live board actually reads drive a region — level width, the wallet band, the
-# side rail, and the info-bar width are NOT board knobs, so they draw nothing here (they were preview-only).
-const HUD_BOTTOM_BAR_H := 166.0     # board.gd BOTTOM_BAR_H (fallback bar height)
-const HUD_BOTTOM_BTN_PX := 130.0    # board.gd BOTTOM_BTN_PX (fallback well size)
-const HUD_BOTTOM_BAR_MIN := 150.0   # board.gd BOTTOM_BAR_MIN / MAX
-const HUD_BOTTOM_BAR_MAX := 200.0
-const HUD_BOTTOM_BTN_MIN := 110.0
-const HUD_QUEST_H_MIN := 150.0      # board.gd QUEST_H_MIN / MAX
-const HUD_QUEST_H_MAX := 300.0
-const HUD_EDGE_GAP := 16.0          # board.gd EDGE_GAP — the equal margin below the pills / above the bottom bar
+# The board's own layout law is READ here, never mirrored: ActionBar.* owns the bottom bar's band (it
+# builds the bar) and BoardFit.* owns the quest/page bands, so this preview applies the very same
+# absolute-px clamps board.gd applies — computed on the real 1080×1920 viewport, then scaled to the
+# preview. A retune over there moves the board and this preview in one step; the operator can no longer
+# drag a slider to a value the preview accepts and the board silently clamps away.
+# Only the knobs the live board actually reads drive a region — level width, the wallet band, the side
+# rail, and the info-bar width are NOT board knobs, so they draw nothing here (they were preview-only).
+# HUD_UNLOCK_BAR_H is deliberately NOT one of those constants: it is a REPRESENTATIVE strip height
+# standing in for the board's runtime-MEASURED _unlock_bar_h_px band, which has no constant to read.
+# It is preview-only by design — do not promote it to a mirror.
 const HUD_UNLOCK_BAR_H := 108.0     # a representative next-unlock strip height (board's _unlock_bar_h_px band)
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
@@ -787,21 +786,21 @@ func _hud_layout_preview() -> Control:
 
 	# --- the NEXT-UNLOCK strip: the board's single largest top-reserve consumer, below the pills.
 	# board.gd anchors it EDGE_GAP below the HUD's measured bottom (the Lv badge; pill_h is our proxy). ---
-	var unlock_y := edge + pill_h + HUD_EDGE_GAP * s
+	var unlock_y := edge + pill_h + BoardFit.EDGE_GAP * s
 	var unlock_h := HUD_UNLOCK_BAR_H * s
 	root.add_child(_layout_preview_box(Rect2(edge, unlock_y, w - edge * 2.0, unlock_h), Color("#CBB89A", 0.34), "next unlock", "HudLayoutUnlockBar"))
 	var stack_top := maxf(hud_clear_y, unlock_y + unlock_h + 8.0 * s)
 
 	# --- bottom bar + quest + board: bottom-anchored, with the board's REAL absolute-px clamps applied on
 	# the full viewport then scaled — so the sliders show what the board will actually render, not a raw %. ---
-	var btn_px := clampf(roundf(PHONE_W * float(layout.get("button_w_frac", 0.15))), HUD_BOTTOM_BTN_MIN, HUD_BOTTOM_BAR_MAX - (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
-	var bottom_raw := maxf(HUD_BOTTOM_BAR_H, btn_px + (HUD_BOTTOM_BAR_H - HUD_BOTTOM_BTN_PX))
+	var btn_px := clampf(roundf(PHONE_W * float(layout.get("button_w_frac", 0.15))), ActionBar.BOTTOM_BTN_MIN, ActionBar.BOTTOM_BAR_MAX - (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
+	var bottom_raw := maxf(ActionBar.BOTTOM_BAR_H, btn_px + (ActionBar.BOTTOM_BAR_H - ActionBar.BOTTOM_BTN_PX))
 	var bottom_frac := float(layout.get("bottom_row_h_frac", 0.0))
 	if bottom_frac > 0.0:
 		bottom_raw = maxf(btn_px, roundf(PHONE_H * bottom_frac))
-	var bottom_h := clampf(bottom_raw, HUD_BOTTOM_BAR_MIN, HUD_BOTTOM_BAR_MAX) * s
+	var bottom_h := clampf(bottom_raw, ActionBar.BOTTOM_BAR_MIN, ActionBar.BOTTOM_BAR_MAX) * s
 	var btn_w := btn_px * s
-	var quest_h := clampf(roundf(PHONE_H * float(layout.get("quest_bar_h_frac", 0.13))), HUD_QUEST_H_MIN, HUD_QUEST_H_MAX) * s
+	var quest_h := clampf(roundf(PHONE_H * float(layout.get("quest_bar_h_frac", 0.13))), BoardFit.QUEST_H_MIN, BoardFit.QUEST_H_MAX) * s
 	var gap := 8.0 * s
 	var bottom_y := h - bottom_h - edge
 	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
@@ -828,38 +827,10 @@ func _hud_layout_preview() -> Control:
 func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
 	return ActionBar.bar_style(bar_h, ao)
 
-func _action_bar_nudge(child: Control, x_frac: float, node_name: String) -> Control:
-	if absf(x_frac) < 0.001:
-		return child
-	var slot := MarginContainer.new()
-	slot.name = node_name
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.custom_minimum_size = child.custom_minimum_size
-	slot.size_flags_horizontal = child.size_flags_horizontal
-	slot.size_flags_vertical = child.size_flags_vertical
-	var x_px := int(roundf(maxf(1.0, child.custom_minimum_size.x) * x_frac))
-	slot.add_theme_constant_override("margin_left", x_px)
-	slot.add_theme_constant_override("margin_right", -x_px)
-	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slot.add_child(child)
-	return slot
-
-func _action_bar_clear_button_frame(b: Button) -> void:
-	var empty := StyleBoxEmpty.new()
-	for st_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-		b.add_theme_stylebox_override(st_name, empty)
-
-func _action_bar_transparent_info_frame(opts: Dictionary) -> StyleBoxEmpty:
-	var empty := StyleBoxEmpty.new()
-	var pad: Dictionary = opts.get("pill", {})
-	var pad_x := float(pad.get("pad_x", 18.0))
-	empty.content_margin_left = float(pad.get("pad_left", pad_x))
-	empty.content_margin_right = float(opts.get("pad_right", 16.0))
-	var vpad := float(opts.get("vpad", 8.0))
-	empty.content_margin_top = vpad
-	empty.content_margin_bottom = vpad
-	return empty
-
+# The three action-bar helpers this preview used to re-implement (offset_slot / clear_button_frame /
+# info_bar_frame) are called straight off ActionBar now. This workbench IS the tuning surface for the
+# shipped bar, so a private copy meant a padding or basis change over there left the preview
+# certifying old geometry into ui_kit_settings.json.
 func _action_bar_preview() -> Control:
 	var p: Dictionary = _params["info_bar"]
 	var ao := Kit.action_bar_opts_from_config({"info_bar": p})
@@ -896,7 +867,7 @@ func _action_bar_preview() -> Control:
 	home_btn.name = "ActionBarPreviewHome"
 	home_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_action_bar_clear_button_frame(home_btn)
+	ActionBar.clear_button_frame(home_btn)
 	row.add_child(home_btn)
 	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "shadow": _params["shadow"]})
 	var ib: PanelContainer = Kit.info_bar({}, io)
@@ -904,7 +875,7 @@ func _action_bar_preview() -> Control:
 	ib.custom_minimum_size.x = 1.0
 	ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ib.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	ib.add_theme_stylebox_override("panel", _action_bar_transparent_info_frame(io))
+	ib.add_theme_stylebox_override("panel", ActionBar.info_bar_frame(io))
 	var inner := float(ib.get_meta("inner_px", 62.0))
 	var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
 	var item_icon_px := float(ib.get_meta("item_icon_px", inner * item_scale))
@@ -924,14 +895,14 @@ func _action_bar_preview() -> Control:
 	var ib_tray := ActionBar.info_tray(ib, bar_h, ao)
 	ib_tray.name = "ActionBarPreviewInfoTray"
 	ib_tray.add_theme_stylebox_override("panel", _action_bar_preview_style(bar_h, ao))
-	row.add_child(_action_bar_nudge(ib_tray, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
+	row.add_child(ActionBar.offset_slot(ib_tray, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
 	var bag_opts := ho.duplicate()
 	bag_opts["surface_role"] = "purple"
 	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, bag_opts)
 	bag_btn.name = "ActionBarPreviewBag"
 	bag_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	bag_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_action_bar_clear_button_frame(bag_btn)
+	ActionBar.clear_button_frame(bag_btn)
 	row.add_child(bag_btn)
 	return bar
 
