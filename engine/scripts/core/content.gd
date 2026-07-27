@@ -992,8 +992,8 @@ static func map_for_id(id: String) -> int:
 	return -1
 
 ## The index of the home-hub map (the permanent anchor — Core §8 / grove_spec §3). The game
-## flags it with `hub: true`; defaults to the first map. Drives the boot landing + the HUD home
-## shortcut. (The hub is authored deeper than a finish-once map; its yield loop is the KEYSTONE.)
+## flags it with `hub: true`; defaults to the first map. Used when a caller needs the permanent
+## home fallback, not the current cover-up progress page.
 static func hub_map() -> int:
 	for z in MAPS.size():
 		if bool(MAPS[z].get("hub", false)):
