@@ -12,6 +12,7 @@ func _initialize() -> void:
 	_test_chain_reward_codes()
 	_test_growing_soil_is_excluded_from_chain_search()
 	_test_ready_ladders()
+	_test_runways()
 	_test_chain_placements()
 	_test_chain_placements_equivalence()
 	_test_chain_placements_no_mutation()
@@ -56,11 +57,24 @@ func _entry_for_cell(entries: Array, cell: Vector2i) -> Dictionary:
 			return e
 	return {}
 
+func _runway_for_need(entries: Array, code: int) -> Dictionary:
+	for e in entries:
+		if e is Dictionary and int((e as Dictionary).get("needs_code", 0)) == code:
+			return e
+	return {}
+
 func _has_candidate(entries: Array, cell: Vector2i, n: int) -> bool:
 	for e in entries:
 		if e is Dictionary and Vector2i((e as Dictionary).get("cell", Vector2i(-9, -9))) == cell and int((e as Dictionary).get("n", 0)) == n:
 			return true
 	return false
+
+func _candidate_cells(entries: Array) -> Array:
+	var out := []
+	for e in entries:
+		if e is Dictionary:
+			out.append(Vector2i((e as Dictionary).get("cell", Vector2i(-9, -9))))
+	return out
 
 func _test_chain_path() -> void:
 	var b := _blank_board()
@@ -199,6 +213,38 @@ func _test_ready_ladders() -> void:
 	_put(b, Vector2i(5, 2), 201)
 	_put(b, Vector2i(5, 3), 202)
 	ok(BoardLogic.ready_ladders(b).size() == 2, "ready_ladders: two ready components produce two entries")
+
+func _test_runways() -> void:
+	var b := _blank_board()
+	_put(b, Vector2i(3, 1), 102)
+	_put(b, Vector2i(3, 2), 103)
+	_put(b, Vector2i(3, 3), 104)
+	var runways: Array = BoardLogic.runways(b, 3)
+	var e := _runway_for_need(runways, 102)
+	ok(runways.size() == 1 and int(e.get("line", 0)) == 1 and int(e.get("would_be_n", 0)) == 3,
+		"runways: a t2-t3-t4 staircase is one t2 away from a x3 cascade")
+	ok(_cells_equal(Array(e.get("ignite_cells", [])), [Vector2i(2, 1), Vector2i(3, 0), Vector2i(4, 1)]),
+		"runways: ignite_cells are the t2 placements that would fire the runway")
+
+	b = _blank_board()
+	_put(b, Vector2i(3, 1), 102)
+	_put(b, Vector2i(3, 2), 103)
+	_put(b, Vector2i(3, 3), 104)
+	ok(BoardLogic.runways(b, 4).is_empty(),
+		"runways: min_n is a caller-owned floor")
+	_put(b, Vector2i(3, 4), 105)
+	runways = BoardLogic.runways(b, 4)
+	e = _runway_for_need(runways, 102)
+	ok(runways.size() == 1 and int(e.get("would_be_n", 0)) == 4,
+		"runways: a longer staircase can satisfy a higher min_n with the same duplicate")
+
+	b = _blank_board()
+	_put(b, Vector2i(3, 1), 102)
+	_put(b, Vector2i(3, 2), 102)
+	_put(b, Vector2i(3, 3), 103)
+	_put(b, Vector2i(3, 4), 104)
+	ok(BoardLogic.runways(b, 3).is_empty(),
+		"runways: an equal pair is an armed ladder, not an inert runway")
 
 func _test_chain_placements() -> void:
 	var b := _blank_board()

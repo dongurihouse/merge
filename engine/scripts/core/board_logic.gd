@@ -114,6 +114,48 @@ static func ready_ladders(board: BoardModel) -> Array:
 	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("top_cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("top_cell", Vector2i.ZERO))))
 	return out
 
+# Same-line components that are one duplicate away from a cascade: no equal pair today,
+# but adding one more of a tier already present in the component would reach min_n.
+static func runways(board: BoardModel, min_n: int) -> Array:
+	var out: Array = []
+	if board == null or min_n <= 0:
+		return out
+	var visited := {}
+	for i in board.items.size():
+		var code := int(board.items[i])
+		if code <= 0:
+			continue
+		var cell := BoardModel.cell_of(i)
+		if visited.has(cell):
+			continue
+		var line := BoardModel.line_of(code)
+		var cells := _component_from(board, cell, line)
+		for c in cells:
+			visited[c] = true
+		if _component_has_merge_pair(board, cells):
+			continue
+		var cell_set := {}
+		var codes: Array = []
+		for raw in cells:
+			var c := Vector2i(raw)
+			cell_set[c] = true
+			var ccode := board.item_at(c)
+			if ccode > 0 and not codes.has(ccode):
+				codes.append(ccode)
+		codes.sort()
+		var best := _best_runway_need(board, cell_set, codes, min_n)
+		if int(best.get("needs_code", 0)) <= 0:
+			continue
+		out.append({
+			"cells": cells,
+			"line": line,
+			"needs_code": int(best.needs_code),
+			"would_be_n": int(best.would_be_n),
+			"ignite_cells": Array(best.ignite_cells),
+		})
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i(Array((a as Dictionary).get("cells", [Vector2i.ZERO]))[0])) < BoardModel.idx(Vector2i(Array((b as Dictionary).get("cells", [Vector2i.ZERO]))[0])))
+	return out
+
 # Empty cells where dropping `code` would improve the joined same-line
 # component's best cascade. The source cell is treated as vacated for drag use.
 #
@@ -373,6 +415,65 @@ static func _best_tip_in_component(board: BoardModel, cells: Array) -> Dictionar
 			if _tip_better(candidate, best):
 				best = candidate
 	return best
+
+static func _component_has_merge_pair(board: BoardModel, cells: Array) -> bool:
+	var cell_set := {}
+	for c in cells:
+		cell_set[Vector2i(c)] = true
+	for raw in cells:
+		var cell := Vector2i(raw)
+		for raw_d in ORTHO_DIRS:
+			var n := cell + Vector2i(raw_d)
+			if cell_set.has(n) and board.can_merge(cell, n):
+				return true
+	return false
+
+static func _best_runway_need(board: BoardModel, cell_set: Dictionary, codes: Array, min_n: int) -> Dictionary:
+	var best := {"needs_code": 0, "would_be_n": 0, "ignite_cells": []}
+	for raw_code in codes:
+		var code := int(raw_code)
+		var ignite_cells: Array = []
+		var would_be_n := 0
+		for raw in chain_placements(board, Vector2i(-1, -1), code):
+			if not (raw is Dictionary):
+				continue
+			var entry := raw as Dictionary
+			var cell := Vector2i(entry.get("cell", Vector2i(-1, -1)))
+			var n := int(entry.get("n", 0))
+			if n < min_n or not _cell_touches_set(cell, cell_set):
+				continue
+			ignite_cells.append(cell)
+			would_be_n = maxi(would_be_n, n)
+		if ignite_cells.is_empty():
+			continue
+		var current := {"needs_code": code, "would_be_n": would_be_n, "ignite_cells": ignite_cells}
+		if _runway_need_better(current, best):
+			best = current
+	return best
+
+static func _cell_touches_set(cell: Vector2i, cell_set: Dictionary) -> bool:
+	for raw_d in ORTHO_DIRS:
+		if cell_set.has(cell + Vector2i(raw_d)):
+			return true
+	return false
+
+static func _runway_need_better(candidate: Dictionary, best: Dictionary) -> bool:
+	var cn := int(candidate.get("would_be_n", 0))
+	var bn := int(best.get("would_be_n", 0))
+	if cn != bn:
+		return cn > bn
+	var cc := int(candidate.get("needs_code", 0))
+	var bc := int(best.get("needs_code", 0))
+	if bc <= 0 or cc != bc:
+		return bc <= 0 or cc < bc
+	var c_cells := Array(candidate.get("ignite_cells", []))
+	var b_cells := Array(best.get("ignite_cells", []))
+	for i in mini(c_cells.size(), b_cells.size()):
+		var ci := BoardModel.idx(Vector2i(c_cells[i]))
+		var bi := BoardModel.idx(Vector2i(b_cells[i]))
+		if ci != bi:
+			return ci < bi
+	return c_cells.size() < b_cells.size()
 
 static func _tip_better(candidate: Dictionary, best: Dictionary) -> bool:
 	var cn := int(candidate.get("n", 0))

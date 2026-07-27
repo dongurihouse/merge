@@ -2384,6 +2384,7 @@ func _refresh_cascade_outline() -> void:
 	if outline == null:
 		return
 	outline.set_ladders(_armed_cascade_marks(BoardLogic.ready_ladders(board)))
+	outline.set_runways(BoardLogic.runways(board, CHAIN_MIN_N))
 
 func _show_cascade_drag_guides(from: Vector2i) -> void:
 	if not Features.on("cascade") or board == null or board.is_gen(from):
@@ -2392,16 +2393,77 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 	if code <= 0:
 		return
 	var pads: Array = []
+	var occupied := {}
 	for raw in BoardLogic.chain_placements(board, from, code):
 		if raw is Dictionary:
 			var entry: Dictionary = (raw as Dictionary).duplicate(true)
 			if int(entry.get("n", 0)) < CHAIN_MIN_N:
 				continue
 			entry["line"] = BoardModel.line_of(code)
+			entry["kind"] = "ignition"
 			pads.append(entry)
+			occupied[Vector2i(entry.get("cell", Vector2i(-1, -1)))] = true
+	pads.append_array(_cascade_extension_pads(from, code, occupied))
 	var outline := _ensure_cascade_outline()
 	if outline != null:
 		outline.set_ghost_pads(pads)
+
+func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
+	var out: Array = []
+	var line := BoardModel.line_of(code)
+	var components: Array = []
+	for raw in _armed_cascade_marks(BoardLogic.ready_ladders(board)):
+		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
+			components.append({"cells": Array((raw as Dictionary).get("cells", [])), "line": line})
+	for raw in BoardLogic.runways(board, CHAIN_MIN_N):
+		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
+			components.append({"cells": Array((raw as Dictionary).get("cells", [])), "line": line})
+	var seen := {}
+	for comp in components:
+		for entry in _extension_pads_for_component(from, code, Array((comp as Dictionary).get("cells", [])), occupied):
+			var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
+			if cell.x < 0 or seen.has(cell):
+				continue
+			seen[cell] = true
+			out.append(entry)
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
+	return out
+
+func _extension_pads_for_component(from: Vector2i, code: int, cells: Array, occupied: Dictionary) -> Array:
+	var out: Array = []
+	if cells.is_empty():
+		return out
+	var held_tier := BoardModel.tier_of(code)
+	var min_tier := 9999
+	var max_tier := -1
+	for raw in cells:
+		var tier := BoardModel.tier_of(board.item_at(Vector2i(raw)))
+		min_tier = mini(min_tier, tier)
+		max_tier = maxi(max_tier, tier)
+	var edge_tier := -1
+	if held_tier == min_tier - 1:
+		edge_tier = min_tier
+	elif held_tier == max_tier + 1:
+		edge_tier = max_tier
+	else:
+		return out
+	for raw in cells:
+		var base := Vector2i(raw)
+		if BoardModel.tier_of(board.item_at(base)) != edge_tier:
+			continue
+		for raw_d in BoardLogic.ORTHO_DIRS:
+			var cell := base + Vector2i(raw_d)
+			if not _can_show_extension_pad(cell, from, occupied):
+				continue
+			out.append({"cell": cell, "line": BoardModel.line_of(code), "kind": "extension"})
+	return out
+
+func _can_show_extension_pad(cell: Vector2i, from: Vector2i, occupied: Dictionary) -> bool:
+	if cell == from or occupied.has(cell) or board == null or not board.in_bounds(cell):
+		return false
+	if not board.is_empty_ground(cell):
+		return false
+	return not board.gens.has(cell)
 
 func _clear_cascade_drag_guides() -> void:
 	if _cascade_outline != null and is_instance_valid(_cascade_outline):
