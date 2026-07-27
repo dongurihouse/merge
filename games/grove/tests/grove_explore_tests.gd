@@ -47,6 +47,7 @@ func _initialize() -> void:
 	_test_swipe_commit_dir()
 	_test_maps_gallery_featured_unlock_target()
 	_test_maps_gallery_grid_lock_state()
+	await _test_home_entry_uses_current_progress_page()
 	await _test_home_opens_without_a_fade()
 	await _test_home_has_no_page_arrows()
 	await _test_home_prebuilds_window()
@@ -422,6 +423,24 @@ func _test_maps_gallery_grid_lock_state() -> void:
 	for z in G.coverup_pages():
 		ok(not map._grid_card_locked(int(z)), "a completed book unlocks every gallery card")
 	map.free()
+
+func _test_home_entry_uses_current_progress_page() -> void:
+	fresh("home_progress_entry")
+	var g := Save.grove()
+	var progressed := {}
+	for cluster in G.clusters(0):
+		progressed[String((cluster as Dictionary).id)] = true
+	g["unlocks"] = progressed
+	g["last_map"] = String(G.MAPS[0].id)
+	Save.grove_write()
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	ok(int(map._map_idx) == 1,
+		"the board Home scene entry opens the current progress page, not the first page")
+	ok(String(Save.grove().get("last_map", "")) == String(G.MAPS[1].id),
+		"scene entry persists the progress page as last_map")
+	map.queue_free()
+	await process_frame
 
 # Entering the home scene (the board's Home button swaps scenes here) must NOT fade the map art in.
 # `content` holds ONLY the scenery — the sky fill, HUD and nav bar sit outside it — so a pop-in fade

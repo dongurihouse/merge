@@ -220,7 +220,7 @@ func _ready() -> void:
 
 	# Choose the initial view (still inside _ready = before the first draw):
 	# T2 the board's Decorate jumps straight to a known, unlocked map; otherwise
-	# open the frontier (falling back to the hub when nothing is open yet).
+	# open the current cover-up progress page (falling back to the hub in legacy data).
 	var start := -1
 	if decorate_map != "":
 		var dz := G.map_for_id(decorate_map)
@@ -228,9 +228,7 @@ func _ready() -> void:
 			start = dz
 	decorate_map = ""
 	if start < 0:
-		start = _frontier_map()
-		if start < 0:
-			start = G.hub_map()
+		start = _featured_map()
 	# animate=false: on SCENE ENTRY the map must be there on the first drawn frame. `content` holds only
 	# the scenery — the sky fill, HUD and nav bar are siblings — so a pop-in fade paints one bright,
 	# EMPTY sky-blue screen before the art arrives, which off the warm board reads as a white flash. The
@@ -246,8 +244,8 @@ func _ready() -> void:
 		get_viewport().size_changed.connect(_on_viewport_resized)
 
 	# T45 (§18): on the day's FIRST hub open, auto-show the login calendar ONCE. The hub map is the
-	# surface the player reliably hits first (fresh boot lands on the frontier — the hub when nothing
-	# is open yet — and the board's Home button returns here). Gated + deferred so it never fires on a
+	# surface the player reliably hits first (fresh boot lands on the current progress page — the hub in
+	# legacy data — and the board's Home button returns here). Gated + deferred so it never fires on a
 	# cold first launch (see _maybe_login_popup).
 	_maybe_login_popup_deferred.call_deferred()
 
