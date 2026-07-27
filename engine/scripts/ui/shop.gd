@@ -17,6 +17,8 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type 1080×1920
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -60,6 +62,29 @@ static func buy_coin_pack() -> bool:
 	if not Save.spend_diamonds(COIN_PACK_GEM_COST):
 		return false
 	Save.add_coins(COIN_PACK)
+	return true
+
+static func scissors_available() -> bool:
+	return Features.on("scissors") and Mastery.any_rank_at_least(2)
+
+# `place_hook(commit)` is supplied by the Board shop opener. It is called once as a dry-run before
+# spending, then again with commit=true after the coin spend succeeds. Without a hook, the map/hub
+# shop banks the tool for the next board entry.
+static func buy_scissors(place_hook: Callable = Callable()) -> bool:
+	if not scissors_available():
+		return false
+	if place_hook.is_valid() and not bool(place_hook.call(false)):
+		return false
+	if Save.coins() < int(G.SCISSORS_COST):
+		return false
+	if not Save.spend(int(G.SCISSORS_COST), "scissors"):
+		return false
+	if place_hook.is_valid():
+		if not bool(place_hook.call(true)):
+			Save.add_coins(int(G.SCISSORS_COST))
+			return false
+	else:
+		Save.add_scissors_pending(1)
 	return true
 
 # Grant a ladder cash pack (§4/§10 — LIVE IAP; in this build the confirm grants directly,
@@ -513,6 +538,15 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs)}
 	var cards: Array = [pouch]
+	if scissors_available():
+		cards.append({
+			"title": Strings.t("shop.scissors.title"),
+			"icon": "shop_pouch",
+			"label": Strings.t("shop.scissors.label"),
+			"note": Strings.t("shop.scissors.note"),
+			"price": str(int(G.SCISSORS_COST)), "price_icon": "coin",
+			"affordable": Save.coins() >= int(G.SCISSORS_COST),
+			"on_buy": func() -> void: _flow_scissors(refs)})
 	if not bool(refill_status().available):
 		cards.push_front(water)
 	return {"caption": Strings.t("shop.coin.quick_help_caption"), "cards": cards}
@@ -564,6 +598,13 @@ static func _flow_water(refs: Dictionary) -> void:
 
 static func _flow_coins(refs: Dictionary) -> void:
 	_buy(refs, "gem", COIN_PACK_GEM_COST, buy_coin_pack, "coin")
+
+static func _flow_scissors(refs: Dictionary) -> void:
+	var opts: Dictionary = refs.get("opts", {})
+	var hook: Callable = opts.get("place_scissors", Callable())
+	var act := func() -> bool:
+		return buy_scissors(hook)
+	_buy(refs, "coin", int(G.SCISSORS_COST), act, "coin")
 
 # (The free-ACORN faucet flow was retired 2026-06-23 — acorns earned-only, Option A.)
 

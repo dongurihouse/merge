@@ -46,6 +46,8 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # §7 the LIVE fence engine — the sim CALLS it (refill / current_band), never mirrors it
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const Features = preload("res://engine/scripts/core/features.gd")   # the weather-hours flag the live gift gate reads
 const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
@@ -184,6 +186,8 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var days: int = int(args[0]) if args.size() >= 1 else 7
 	rng.seed = int(args[1]) if args.size() >= 2 else 42
+	Save.configure_for_test("user://grove_sim_%d_" % int(rng.seed))
+	Save.reset()
 	# Decorrelate the weather from the board rng: the sky is seed-free, so the SEED picks which stretch
 	# of the hour sequence this run walks (see HOUR_OFFSET_PER_SEED).
 	_sim_hour = absi(int(rng.seed) * HOUR_OFFSET_PER_SEED)
@@ -224,6 +228,7 @@ func _initialize() -> void:
 	print("  clusters unlocked: %d/%d (%d🪙 paid — the dominant sink) · pages completed: %d · level %d (%d🪙 earned lifetime)" % \
 		[clusters_unlocked, _cluster_total(), cluster_spend, gates_reached, _level(), coins_earned])
 	print("  merchant sells: %d · specials crafted: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, specials_crafted, open_low_mark, jams])
+	print("  mastery ranks: %s" % _mastery_report())
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 	# WEATHER HOURS — the sky's SHARE of each faucet, not raw drop counts. A drop count is unreadable:
 	# a Rain drop is a t1 water special worth G.special_collect().amount 💧, so 400 drops is thousands of
@@ -301,6 +306,16 @@ func _initialize() -> void:
 	# "§7 economy tuning + pacing sign-off" pass — see BACKLOG. ---
 	var i2_ftue_maps := 2                       # maps 1-2: low-volume early game — WARN, not FAIL
 	var i2_ok := true
+	# Report EVERY map's ratio, not just the breaches: the margin under 0.30 is what a pop-cost /
+	# gift re-tune is steered by, and a bare "PASS I2" hides whether map 3 sits at 0.05 or 0.29.
+	var i2_row: Array = []
+	for z in (map_gift.keys() if not stalled else []):
+		var sp: int = int(map_spend.get(z, 0))
+		i2_row.append("m%d %d/%d=%.2f" % [int(z) + 1, int(map_gift.get(z, 0)), sp,
+			(float(map_gift.get(z, 0)) / float(sp)) if sp > 0 else 999.0])
+	if not i2_row.is_empty():
+		print("  -- I2 per map (gift💧/spend💧=ratio, limit %.2f on maps %d+) --  %s" % \
+			[G.WATER_REWARD_MAX_RATIO, i2_ftue_maps + 1, " · ".join(i2_row)])
 	for z in (map_gift.keys() if not stalled else []):   # skip per-map ratios on a stall (tiny denominators)
 		var spend: int = int(map_spend.get(z, 0))
 		var gift: int = int(map_gift.get(z, 0))
@@ -463,6 +478,11 @@ func _live_lines() -> Array:
 	# zones. Base and crafted-special lines share the window (§7, 2026-07-25).
 	return G.active_lines(_level())
 
+func _mastery_report() -> String:
+	var parts: Array = []
+	for line in G.ZONE_BASE_LINES:
+		parts.append("%d:r%d/%d" % [int(line), Mastery.rank(int(line)), Mastery.meter(int(line))])
+	return ", ".join(parts)
 # The live gift gate, modelled without a Save layer — see the _saw_merge / _saw_gen_tap notes above.
 # EVERY sky payout routes through this, mirroring board.gd: merge drops (`gate_open() and in_patch`),
 # the starfall roll and the owed-star landing all read it.
@@ -961,9 +981,11 @@ func _play_session() -> Dictionary:
 				var r := G.zone_recipe(G.zone_of_line(int(it.line)))
 				board.take(board.first_item_of(int(r[0]) * 100 + int(it.tier)))
 				board.take(board.first_item_of(int(r[1]) * 100 + int(it.tier)))
+				Mastery.credit_craft(int(r[0]) * 100 + int(it.tier), int(r[1]) * 100 + int(it.tier))
 				specials_crafted += 1
 			else:
 				board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
+				Mastery.credit_delivery(int(it.line) * 100 + int(it.tier))
 			# The reward is COINS ONLY (quest_reward_for_line) — the old {exp, coins} pair is retired with
 			# the exp clock, and coins ARE the clock now, so _earn_coins is what fires the level-ups.
 			var rw: Dictionary = q.reward
@@ -1077,8 +1099,9 @@ func _play_session() -> Dictionary:
 			continue
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
-		# each costing G.POP_COST, bounded by affordable energy + open cells. A charged tap spends one
-		# boost tap (the boost is global and decays one tap at a time, then lapses).
+		# each costing G.pop_cost(window low) — G.POP_COST for an unmastered line, more once mastery
+		# raises the line's pop window (§3 tier-scaled cost). A charged tap spends one boost tap (the
+		# boost is global and decays one tap at a time, then lapses).
 		# pop only with working ROOM — a real player never bursts into a near-full board (that just floods it
 		# into a singleton lockout). Leave a 2-cell margin; surplus water the board can't absorb is left
 		# UNSPENT (a realistic "energy I can't use right now"), never forced into a jam.
@@ -1087,19 +1110,34 @@ func _play_session() -> Dictionary:
 			_saw_gen_tap = true                # FTUE proxy: the "gen_tap" verb is now seen (see _sky_gate_open)
 			if boost_taps > 0:
 				boost_taps -= 1
+			# Clamp by the CHEAPEST a pop can be (G.POP_COST) first — that is the old clamp exactly, so an
+			# unmastered run never enters _pop unaffordably and its RNG stream is untouched. A mastered
+			# line can cost more than the floor, so _pop re-checks against the live can and returns 0.
 			burst = mini(burst, int(water / G.POP_COST))
 			burst = mini(burst, board.empty_ground_cells().size() - 2)   # keep a 2-cell working margin
+			var popped := 0
 			for _b in burst:
-				water -= G.POP_COST
-				s_water += G.POP_COST
-				map_spend[map] = int(map_spend.get(map, 0)) + G.POP_COST
-				_pop()
-			# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
-			if G.rolls_treat_spawn(rng):
-				_run_treat_gen()
-			# §6.C each main-generator tap also drains the live bonus generator, or may side-spawn a fresh one
-			_tick_bonus_gen()
-			continue
+				# the bot picks a line per item (single-generator model), so the cost is per item too:
+				# _pop charges what its own window costs and returns 0 rather than overdraw the can.
+				var cost := _pop(water)
+				if cost <= 0:
+					break
+				popped += 1
+				water -= cost
+				s_water += cost
+				map_spend[map] = int(map_spend.get(map, 0)) + cost
+			# A tap that popped NOTHING (every line's mastered window costs more than the can still holds)
+			# is not a tap: the board wobbles and returns. It must not tick the §6 faucets, and it must not
+			# re-enter this branch with the state unchanged — that spins the guard loop and mints phantom
+			# bonus generators (measured: 509 of them, dragging §6 to 98% of all coins earned). Falling
+			# through ends the session with the unspendable remainder left in the can, as designed above.
+			if popped > 0:
+				# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
+				if G.rolls_treat_spawn(rng):
+					_run_treat_gen()
+				# §6.C each main-generator tap also drains the live bonus generator, or may side-spawn a fresh one
+				_tick_bonus_gen()
+				continue
 
 		# 7. nothing to do
 		if water > 0 and board.empty_ground_cells().is_empty() and not _book_done():
@@ -1165,10 +1203,13 @@ func _best_pair() -> Array:
 		return [b, a]
 	return [a, b]
 
-func _pop() -> void:
+## One pop. Returns the WATER it charged, or 0 when it could not pop at all (no room, no pool, or the
+## line's window costs more than `budget`) — the caller subtracts the return value, so a burst can
+## never overdraw the can however the per-item window moves.
+func _pop(budget: int) -> int:
 	var empties := board.empty_ground_cells()
 	if empties.is_empty():
-		return
+		return 0
 	var cell: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
 	# SINGLE-GENERATOR model (idea 3.2): pop the items the CURRENT QUESTS REQUIRE — pool = the WANTED
 	# (quested) lines drawn from the all-opened askable set; fall back to opened only when nothing is
@@ -1183,7 +1224,7 @@ func _pop() -> void:
 			if not opened.has(int(b)):
 				opened.append(int(b))
 	if opened.is_empty():
-		return
+		return 0
 	var wanted := _wanted_lines()
 	# NO POP-LINE CAP. G.pop_line_cap is a single-generator-era leftover with no live caller left: under the
 	# per-line generator model each generator pops its own line, and the real bound is QUEST_GEN_CAP on the
@@ -1192,30 +1233,40 @@ func _pop() -> void:
 	# plus 2+4 for tea cups via spices — so two of the five could never be produced and the late fence went
 	# permanently undeliverable (zero deliveries from ~day 55 while still burning 330 water/day).
 	var pool: Array = wanted if not wanted.is_empty() else opened
-	var pw: Array = []
+	# AFFORDABILITY IS PER LINE now: a mastered line pops from a raised window and costs
+	# G.pop_cost(low), so with 10💧 left a player taps a CHEAP generator rather than putting the can
+	# down. Filtering the pool is that choice. Pure — no rng — and with every line at G.POP_COST
+	# (unmastered, or the flag off) it keeps the arrays intact, so that stream is untouched.
+	var cost_of := {}
+	var affordable: Array = []
 	for l in pool:
+		var c := G.pop_cost(Mastery.window(int(l), live_quests).x)
+		cost_of[int(l)] = c
+		if c <= budget:
+			affordable.append(int(l))
+	if affordable.is_empty():
+		return 0
+	var pw: Array = []
+	for l in affordable:
 		if wanted.has(int(l)):
 			pw.append(int(l))
 	var line: int
 	if not pw.is_empty() and rng.randf() < G.ASK_WEIGHT:
 		line = pw[rng.randi_range(0, pw.size() - 1)]
 	else:
-		line = int(pool[rng.randi_range(0, pool.size() - 1)])
-	var roll := rng.randf()
-	var tier := 1
-	var acc := 0.0
-	for i in G.TIER_ODDS.size():
-		acc += G.TIER_ODDS[i]
-		if roll <= acc:
-			tier = i + 1
-			break
+		line = int(affordable[rng.randi_range(0, affordable.size() - 1)])
+	var mastery_window := Mastery.window(line, live_quests)
+	# §3 tier-scaled cost, same helper the board charges: a raised window means a dearer pop.
+	var cost := int(cost_of[line])
+	var tier := BoardLogic.roll_tier_window(rng, mastery_window.x, mastery_window.y - mastery_window.x + 1)
 	# §6 tier-bias (mirrors BoardLogic.roll_spawn): lean toward an asked poppable tier for this line,
 	# with probability G.ASK_TIER_WEIGHT (0 = off → byte-identical baseline; owner pacing dial).
 	if G.ASK_TIER_WEIGHT > 0.0:
 		var wt: Array = []
 		for t in _wanted_tiers(pool).get(line, []):
-			if int(t) >= 1 and int(t) <= G.TIER_ODDS.size():
+			if int(t) >= mastery_window.x and int(t) <= mastery_window.y:
 				wt.append(int(t))
 		if not wt.is_empty() and rng.randf() < G.ASK_TIER_WEIGHT:
 			tier = int(wt[rng.randi_range(0, wt.size() - 1)])
 	board.place(cell, line * 100 + tier)
+	return cost

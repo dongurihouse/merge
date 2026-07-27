@@ -92,6 +92,13 @@ const MIN_LEVEL := [
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
+# Mastery meter (tier-1 equivalents) needed for ranks 1..8. Ranks 1-4 are the original fast/cheap
+# early ladder; ranks 5-8 were compressed from 800/1700/3400/6500 because rank 8 was DEAD CONTENT —
+# the best-fed line ended a 60-day book around 3400 and nothing ever crossed 6500. At 3000 the top
+# rank is reached by the most-used line (wild berries, 14 of 16 sim seeds) and occasionally by a
+# second (glow-mushrooms / snow & ice, 1 of 16 each); see the spec's §3 pacing table.
+const MASTERY_THRESHOLDS := [20, 60, 150, 350, 650, 1150, 1900, 3000]
+const MASTERY_TIER_ODDS_5 := [0.65, 0.25, 0.06, 0.03, 0.01]
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
 # §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
 # (idea 3.2), but several quests could span many DISTINCT lines — scattering un-mergeable singletons until
@@ -331,6 +338,18 @@ const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 const WATER_CAP := 100
 const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
+# TIER-SCALED POP COST, indexed by the EFFECTIVE pop-window low (Mastery.window(line, quests).x —
+# 1 at rank 0 and with mastery off). A mastered generator pops from a RAISED window, so one pop is
+# worth tier_clicks(lo) = 2^(lo-1) tier-1 items; a flat POP_COST for it collapsed the water sink
+# (book spend fell 68% and the sim's I2 gift/spend guard failed on maps 3-5 on every seed). The curve
+# IS tier_clicks(lo): a pop costs exactly what its floor is worth, so water buys the same VALUE at
+# every rank and I2 holds structurally rather than by luck. Mastery's reward is the LABOR — up to 16x
+# fewer taps and ~70% fewer merges per delivery — not cheaper water. An earlier curve shaved the top
+# two lows (8->7, 16->12) to hand rank 6-8 some water back; weather-hours' water faucet erased that
+# margin (I2 0.31 on seed 42), so the shave is gone. Index 0 MUST stay POP_COST so unmastered play is
+# unchanged, and no entry may exceed tier_clicks(lo) or mastery turns into a punishment (both pinned
+# by mastery_tests). Read only through G.pop_cost(lo); the last entry covers any higher low.
+const POP_COST_BY_TIER_LOW := [POP_COST, 2, 4, 8, 16]
 const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
 
 # Weather Hours (2026-07-26) — hourly sky gifts. The clock/state logic lives in core/sky.gd;
@@ -370,6 +389,8 @@ const COIN_TOP := 3                       # 3 tiers now (the 12-tier ladder is r
 const ART_TIER_PICK := {"coin": [1, 4, 5], "acorn": [3, 5, 6]}
 const COIN_VALUES := {1: 2, 2: 4, 3: 10}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
+const SCISSORS_LINE := 14
+const SCISSORS_COST := 40
 
 # §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Most merge up to a
 # small top (SPECIAL_TOP), while individual defs may override it. They are NEVER popped from the generator
@@ -388,6 +409,7 @@ const SPECIAL_ITEMS := {
 	CHEST_LINE: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Tap again to open a reward. Merge first for a richer one."},   # merges (3 tiers); TAP-opened — the key line is retired
 	WATER_LINE: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
 	ACORN_LINE: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges (3 tiers); tap-collect → acorns (premium)
+	SCISSORS_LINE: {"name": "Scissors", "base": "tool_scissors", "kind": "scissors", "top": 1, "desc": "Cuts a piece into two of a tier lower."},
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.

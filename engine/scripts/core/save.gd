@@ -543,6 +543,25 @@ static func take_water_pending() -> int:
 		grove_write()
 	return n
 
+# Banked scissors bought from a non-board shop. The board drains this on entry and places the tools
+# into the first open cell or the item bag, preserving map-opened purchases without touching board blobs.
+static func scissors_pending() -> int:
+	return int(grove().get("scissors_pending", 0))
+
+static func add_scissors_pending(n: int) -> void:
+	if n <= 0:
+		return
+	var g := grove()
+	g["scissors_pending"] = int(g.get("scissors_pending", 0)) + n
+	grove_write()
+
+static func take_scissors_pending() -> int:
+	var n := scissors_pending()
+	if n > 0:
+		grove().erase("scissors_pending")
+		grove_write()
+	return n
+
 # --- test support ----------------------------------------------------------
 
 static func configure_for_test(dir: String) -> void:
