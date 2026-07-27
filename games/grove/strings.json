@@ -108,6 +108,18 @@
   "level": {
     "banner": "Level %d"
   },
+  "mastery": {
+    "info": {
+      "maxed": "maxed",
+      "next_reach": "next: pops reach t%d",
+      "next_start": "next: pops start at t%d"
+    },
+    "rankup": {
+      "body": "%s — pops now land t%d–t%d.",
+      "continue": "Continue",
+      "title": "Mastery %d"
+    }
+  },
   "login": {
     "banner": "Daily",
     "claim": "Claim",
@@ -177,6 +189,11 @@
       "caption": "Free refill",
       "cta": "Free",
       "ready_in": "Ready in %dm"
+    },
+    "scissors": {
+      "label": "Cuts a piece",
+      "note": "Into two of a tier lower.",
+      "title": "SCISSORS"
     },
     "water": {
       "fill_label": "Fill water"

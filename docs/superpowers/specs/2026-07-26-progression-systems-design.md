@@ -97,7 +97,10 @@ turns on, per-line, the **ask-lean dial that already exists in code** (`ASK_TIER
 `roll_spawn` — held at 0 globally because the sim showed full-strength front-loads spend;
 scoping it to top-mastery lines bounds it, and the step-2 sim re-pass gates it).
 
-**The ladder — 8 ranks, fast early.** Thresholds step ~×2.2 and start low:
+**The ladder — 8 ranks, fast early.** Thresholds step ~×2.2 and start low. *(SUPERSEDED — the
+shipped ladder, per-rank rewards and pop cost live in `2026-07-26-generator-mastery-design.md` §3.
+Only the pop-window rows below shipped; ranks 5–8 now read 650 / 1150 / 1900 / 3000, because at the
+numbers here nothing ever reached rank 8 in a 60-day book.)*
 
 | Rank | Threshold (t1-eq) | Permanent reward |
 |---|---|---|

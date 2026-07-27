@@ -420,18 +420,26 @@ static func wanted_tiers(pool: Array, quests: Array) -> Dictionary:
 				out[li].append(t)
 	return out
 
+# The generator's tier curve over an explicit closed window: ONE randf against the cumulative tier odds.
+# Rank-0 uses the shipped width-4 odds byte-for-byte; odd mastery ranks use the width-5 odds. The fallback
+# stays at the window low, matching the old t1 fallback when lo=1.
+static func roll_tier_window(rng: RandomNumberGenerator, lo: int = 1, width: int = 4) -> int:
+	var roll := rng.randf()
+	var acc := 0.0
+	var odds: Array = G.MASTERY_TIER_ODDS_5 if int(width) == 5 else G.TIER_ODDS
+	var n := mini(maxi(1, int(width)), odds.size())
+	for i in n:
+		acc += float(odds[i])
+		if roll <= acc:
+			return maxi(1, int(lo)) + i
+	return maxi(1, int(lo))
+
 # The generator's tier curve: ONE randf against the cumulative TIER_ODDS (t1 most likely, decaying).
 # Factored out so a generator pop AND a freshly-opened cell (bramble_seed) draw the tier from one
 # definition. Exactly one rng.randf() and the same fallback (t1) as the old inline loop — roll_spawn's
 # load-bearing RNG order depends on this staying a single draw.
 static func roll_tier(rng: RandomNumberGenerator) -> int:
-	var roll := rng.randf()
-	var acc := 0.0
-	for i in G.TIER_ODDS.size():
-		acc += G.TIER_ODDS[i]
-		if roll <= acc:
-			return i + 1
-	return 1
+	return roll_tier_window(rng, 1, G.TIER_ODDS.size())
 
 # roll_item_tier: roll_tier CLAMPED to an item's merge ceiling (`top`). Treat AND special-item/bonus
 # generators use this so they pop a SPREAD of tiers like a normal generator, while never popping above
@@ -459,7 +467,7 @@ static func bramble_seed(open_lines: Array, rng: RandomNumberGenerator) -> int:
 # then tier, then [tier-weight, wanted-tier] — that last draw fires ONLY when tier_weight > 0 AND the
 # line has a poppable wanted tier, so an off/empty `wanted_tiers` is a byte-identical no-op. `empties`
 # is not mutated.
-static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: Array, rng: RandomNumberGenerator, wanted_tiers: Dictionary = {}, tier_weight: float = 0.0) -> Dictionary:
+static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: Array, rng: RandomNumberGenerator, wanted_tiers: Dictionary = {}, tier_weight: float = 0.0, tier_lo: int = 1, tier_hi: int = 4) -> Dictionary:
 	var es := empties.duplicate()
 	es.sort_custom(func(a, b): return absi(a.x - gen_cell.x) + absi(a.y - gen_cell.y) < absi(b.x - gen_cell.x) + absi(b.y - gen_cell.y))
 	var pick: Vector2i = es[rng.randi_range(0, mini(2, es.size() - 1))]
@@ -468,14 +476,14 @@ static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: 
 		line = wanted[rng.randi_range(0, wanted.size() - 1)]
 	else:
 		line = int(pool[rng.randi_range(0, pool.size() - 1)])
-	var tier := roll_tier(rng)
+	var tier := roll_tier_window(rng, tier_lo, maxi(1, int(tier_hi) - int(tier_lo) + 1))
 	# §6: lean the tier toward an asked POPPABLE tier for this line (guarded to the TIER_ODDS range,
 	# so a generator never pops above it), with probability `tier_weight`. OFF (0.0) skips the whole
 	# block — no rng draw, byte-identical — so the default is a true no-op until the owner ramps the dial.
 	if tier_weight > 0.0:
 		var wt: Array = []
 		for t in wanted_tiers.get(line, []):
-			if int(t) >= 1 and int(t) <= G.TIER_ODDS.size():
+			if int(t) >= int(tier_lo) and int(t) <= int(tier_hi):
 				wt.append(int(t))
 		if not wt.is_empty() and rng.randf() < tier_weight:
 			tier = int(wt[rng.randi_range(0, wt.size() - 1)])

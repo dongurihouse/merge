@@ -188,6 +188,22 @@ func _initialize() -> void:
 	bw._update_water_hud()
 	ok(not bw._water_pill.has_meta("_fx_breathing"), "the water pill rests once the can is refilled")
 	ok(not bw.refill_btn.visible and not bw._empty_hint_shown, "refilled → the offer hides and the hint re-arms")
+	# MASTERED can (§3 tier-scaled pop cost): a pop can cost more than 1💧, so a can that still reads
+	# 3💧 can be unable to pop at all. "Empty" means "can't pay the pop you just tried" — otherwise a
+	# mastered player's can floors at cost-1 and the friction surface stops firing (the no-silent-wall
+	# rule above). At the rank-0 cost of 1💧 the same expression is exactly water<=0.
+	bw.water = int(G.pop_cost(5)) - 1                       # short of the dearest pop, but NOT empty
+	bw._water_short = int(G.pop_cost(5))                    # what _pop_seed records when it refuses
+	bw._update_water_hud()
+	ok(bw.refill_btn.visible and bw._refill_stack.visible, \
+		"a can too thin for a mastered pop (%d💧 of %d) still surfaces the refill offer" % [bw.water, bw._water_short])
+	bw.water = int(G.pop_cost(5))                           # now it can pay that pop
+	bw._update_water_hud()
+	ok(bw._water_short == 0 and not bw.refill_btn.visible, \
+		"the offer self-clears the moment the can can pay the refused pop again")
+	bw.water = 0
+	bw._update_water_hud()
+	ok(bw.refill_btn.visible, "an actually-empty can surfaces the offer with no pop recorded (rank-0 behaviour)")
 	bw.queue_free()
 	# T-J(ii): water is a Save-backed CURRENCY now (like coins/gems). The free refill ADDS a full can
 	# over-cap (banks a spare); a plain add clamps to the cap; the 💎 fill tops to full without trimming
@@ -206,6 +222,76 @@ func _initialize() -> void:
 	ok(Save.fill_water() == G.WATER_CAP * 2, "the 💎 fill never trims a banked over-cap spare")
 	Save.set_water(30)
 	ok(Save.fill_water() == G.WATER_CAP, "the 💎 fill tops a low can to full")
+	# Scissors stock unlocks from mastery rank 2. From a map-opened shop it banks a pending tool;
+	# from a board-opened shop it calls the board placement hook before spending.
+	fresh("scissors_shop")
+	var sc_host := Control.new()
+	get_root().add_child(sc_host)
+	var saw_scissors := false
+	for sec in Shop._sections({"host": sc_host, "opts": {}}):
+		for cardx in (sec as Dictionary).get("cards", []):
+			if String((cardx as Dictionary).get("title", "")) == Strings.t("shop.scissors.title"):
+				saw_scissors = true
+	ok(not saw_scissors and not Shop.scissors_available(), "scissors stay hidden before any line reaches mastery rank 2")
+	Save.grove()["mastery"] = {"1": 60}
+	Save.grove_write()
+	saw_scissors = false
+	for sec in Shop._sections({"host": sc_host, "opts": {}}):
+		for cardy in (sec as Dictionary).get("cards", []):
+			if String((cardy as Dictionary).get("title", "")) == Strings.t("shop.scissors.title"):
+				saw_scissors = true
+	ok(saw_scissors and Shop.scissors_available(), "scissors appear once any line reaches mastery rank 2")
+	Feat.FLAGS["scissors"] = false
+	saw_scissors = false
+	for sec_off in Shop._sections({"host": sc_host, "opts": {}}):
+		for card_off in (sec_off as Dictionary).get("cards", []):
+			if String((card_off as Dictionary).get("title", "")) == Strings.t("shop.scissors.title"):
+				saw_scissors = true
+	var coins_off := Save.coins()
+	ok(not saw_scissors and not Shop.scissors_available()
+		and not Shop.buy_scissors()
+		and Save.coins() == coins_off and Save.scissors_pending() == 0,
+		"the scissors feature flag hides the shop row and refuses purchases before spend")
+	Feat.FLAGS["scissors"] = true
+	Save.add_coins(G.SCISSORS_COST)
+	var coins_before := Save.coins()
+	ok(Shop.buy_scissors(), "map-opened scissors purchase succeeds when stocked and affordable")
+	ok(Save.coins() == coins_before - G.SCISSORS_COST and Save.scissors_pending() == 1,
+		"map-opened scissors purchase spends coins and banks one pending tool")
+	var placed := {"count": 0}
+	var place_hook := func(commit: bool) -> bool:
+		if commit:
+			placed.count = int(placed.count) + 1
+		return true
+	Save.add_coins(G.SCISSORS_COST)
+	ok(Shop.buy_scissors(place_hook) and int(placed.count) == 1 and Save.scissors_pending() == 1,
+		"board-opened scissors purchase places through the hook instead of banking another pending tool")
+	var no_room := func(_commit: bool) -> bool:
+		return false
+	Save.add_coins(G.SCISSORS_COST)
+	var coins_room := Save.coins()
+	ok(not Shop.buy_scissors(no_room) and Save.coins() == coins_room,
+		"board-opened scissors purchase refuses before spend when there is nowhere to place it")
+	sc_host.queue_free()
+	fresh("scissors_pending_board")
+	Feat.FLAGS["scissors"] = false
+	Save.add_scissors_pending(1)
+	var sc_code := G.SCISSORS_LINE * 100 + 1
+	var scn_off = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn_off)
+	if scn_off.board == null:
+		scn_off._ready()
+	ok(Save.scissors_pending() == 1 and (scn_off.board.count_of(sc_code) + scn_off.bag.count(sc_code)) == 0,
+		"board entry leaves pending scissors banked while the scissors flag is off")
+	scn_off.queue_free()
+	Feat.FLAGS["scissors"] = true
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	ok(Save.scissors_pending() == 0 and (scn.board.count_of(sc_code) + scn.bag.count(sc_code)) == 1,
+		"board entry drains one pending scissors tool onto the board or into the bag")
+	scn.queue_free()
 	# T-J(iii): the water cards are HOST-AGNOSTIC, and FREE takes precedence: the paid fill is hidden
 	# while today's free rain is ready, then appears after the free claim is consumed.
 	fresh("refill_card")

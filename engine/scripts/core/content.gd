@@ -23,6 +23,8 @@ const APPEAR_ALL := 1 << 30        # sentinel level: "include every generator re
 const GEN_CELL = D.GEN_CELL
 static var MIN_LEVEL: Array = D.MIN_LEVEL   # OWNER DIAL — live-overridable by economy_tuning.json (apply_tuning)
 const TIER_ODDS = D.TIER_ODDS
+const MASTERY_THRESHOLDS = D.MASTERY_THRESHOLDS
+const MASTERY_TIER_ODDS_5 = D.MASTERY_TIER_ODDS_5
 const ASK_WEIGHT = D.ASK_WEIGHT
 const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (gen redesign 2026-06-28)
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
@@ -77,6 +79,7 @@ const BAG_SLOT_PRICES = D.BAG_SLOT_PRICES
 const WATER_CAP = D.WATER_CAP
 const REGEN_SECS = D.REGEN_SECS
 const POP_COST = D.POP_COST
+const POP_COST_BY_TIER_LOW = D.POP_COST_BY_TIER_LOW
 const WATER_REWARD_MAX_RATIO = D.WATER_REWARD_MAX_RATIO
 const SKY_SHARES = D.SKY_SHARES
 const SKY_SKIN_SPLIT = D.SKY_SKIN_SPLIT
@@ -92,6 +95,8 @@ const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
+const SCISSORS_LINE = D.SCISSORS_LINE
+const SCISSORS_COST = D.SCISSORS_COST
 const SPECIAL_TOP = D.SPECIAL_TOP
 const CHEST_LINE = D.CHEST_LINE
 const WATER_LINE = D.WATER_LINE
@@ -596,6 +601,18 @@ static func quest_item(q: Dictionary) -> Dictionary:
 ## generators pop tier-1, so a tier-N item costs 2^(N-1) clicks. The fundamental effort unit.
 static func tier_clicks(t: int) -> int:
 	return int(pow(2, maxi(1, t) - 1))
+
+## Water charged for ONE generator pop whose EFFECTIVE tier window starts at `lo`
+## (`Mastery.window(line, quests).x` — 1 at rank 0 and with the mastery flag off, where this
+## returns POP_COST exactly, so unmastered play is unchanged). Mastery hands a pop 2^(lo-1)×
+## the tier-1 value it used to have; pricing the pop off that floor keeps WATER the binding
+## resource instead of letting rank collapse the sink (sim invariant I2). The curve is the
+## POP_COST_BY_TIER_LOW dial, clamped at both ends — the last entry covers any higher low.
+static func pop_cost(lo: int) -> int:
+	var tbl: Array = POP_COST_BY_TIER_LOW
+	if tbl.is_empty():
+		return POP_COST
+	return maxi(1, int(tbl[clampi(int(lo) - 1, 0, tbl.size() - 1)]))
 
 ## EFFORT-BASED quest reward, keyed on the asked TIER and the band (§7 — COINS ONLY since the
 ## coin-clock redesign, spec 2026-07-17: quests no longer pay exp; the coin faucet IS the
