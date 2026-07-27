@@ -27,6 +27,7 @@ make test           # full sweep: every suite (engine + grove), parallel + timin
 make test-engine    # base-engine suites only
 make test-grove     # grove game suites only
 make test-one SUITE=engine/tests/save_tests   # a single suite (serial)
+make test-config    # the non-godot python/bash guards only (also a prerequisite of `make test`)
 make smoke          # scene-instantiation smoke check
 JOBS=8 make test    # raise/lower parallelism
 ```
@@ -34,7 +35,10 @@ Suites live beside the code they cover: the base-engine ones in `engine/tests/`,
 grove game's in `games/grove/tests/`. The grove suite was split from one 2.3k-line
 monolith into focused suites sharing `grove_test_base.gd`, so they parallelise and you
 can run just the slice you touched. The authoritative list is `GROVE_TESTS` in the
-`Makefile` — as of this writing: `grove_board_actions_tests`, `grove_explore_tests`, `grove_scene_workbench_tests`, `grove_scene_covers_tests`, `grove_shop_tests`, `grove_ui_workbench_tests`, `grove_ftue_tests`, `grove_rush_ftue_tests`.
+`Makefile`: `grove_board_actions_tests`, `grove_explore_tests`, `grove_scene_workbench_tests`, `grove_scene_covers_tests`, `grove_shop_tests`, `grove_ui_workbench_tests`, `grove_ftue_tests`, `grove_rush_ftue_tests`.
+`engine/tests/suite_registry_tests.gd` fails if that list, this line and `CLAUDE.md` name
+different sets (membership, not order), and if any `*_tests.gd` / `test_*.py` / `test_*.sh`
+on disk is missing from the Makefile — a suite nothing runs looks exactly like a passing one.
 
 ## Layout
 | Path | Role |

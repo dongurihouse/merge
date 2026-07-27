@@ -8,7 +8,7 @@ RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timi
 DEVICE  ?=                                    # desktop phone simulator for make g, e.g. DEVICE=393x852
 # Suites = the pure code-logic set. The UI / FX / layout / scene-display suites were removed;
 # these guard game rules, model, economy, persistence, quest logic, store/IAP, and identity.
-ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests engine/tests/feature_flag_registry_tests
 ENGINE_TESTS_DISABLED :=
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
@@ -31,9 +31,16 @@ TESTS        := $(ENGINE_TESTS) $(TOOLS_TESTS) $(GROVE_TESTS)
 # Every suite here is run with PYTHONPATH=. so package-style imports
 # (`from games.grove.tools.… import …`) resolve from the repo root; run bare, those fail
 # with ModuleNotFoundError because sys.path[0] is the test's own directory.
+#   • TOOL-PIPELINE suites that used to hang off their own targets only (`make intake-test`,
+#     `make sfx-test`) and so were absent from the sweep everyone actually runs. Both are fast
+#     (~0.05s and ~0.6s) and build their fixtures in tempdirs, so they are folded in here; the
+#     two targets stay as shortcuts. engine/tests/suite_registry_tests.gd now asserts this list
+#     covers every python suite on disk, so the next one cannot sit unrun.
 PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tests/bake_scene_composites_tests.py \
-                games/grove/tools/tests/test_extract_meadow_ui_v2.py
+                games/grove/tools/tests/test_extract_meadow_ui_v2.py \
+                games/tools/test_intake_apply.py \
+                tools/sfx_synth/test_synth.py
 SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
