@@ -77,7 +77,7 @@ cell no-ops (`pick_drop_cell` sentinel).
 | In-patch | Roll | Drop |
 |---|---|---|
 | **Sunbeam** | coin roll at `SKY_COIN_RATE` 0.35 (replaces 0.10) | coin lands as **c2** (worth 4) |
-| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.35; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
+| **Rain** | extra independent roll at `SKY_WATER_RATE` 0.15; baseline rolls untouched | **water special t1** (+8 on tap, banks over cap) |
 
 - c2 upgrade instead of two c1 pieces: one cell, same value (Q2).
 - Soil hook, dormant until step 4: a growing soil cell in-patch during Rain fires its
@@ -240,10 +240,10 @@ its banner/chip predate §6's marker — read it for the star only).
 | `SKY_SKIN_SPLIT` | 70/30 · 85/15 | clear/breeze in Sunbeam · rain/snow in Rain |
 | `SKY_COIN_RATE` | 0.35 | in-patch coin chance (base 0.10) |
 | `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
-| `SKY_WATER_RATE` | 0.35 | in-patch water roll (t1 = +8, over-cap) |
+| `SKY_WATER_RATE` | 0.15 | in-patch water roll (t1 = +8, over-cap) — 0.35 ran away (sky owned 17–47% of water spend and doubled throughput); 0.15 measures 5–8% |
 | `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
 | `STAR_DELAY` | 10 s | live seconds before the star falls |
-| `PATCH_ALPHA` | Rain · Star 0.10–0.15; Sunbeam ~0.30 | gold-on-cream needs ~0.30 + same-hue edge deepening to read (mock-validated) |
+| `PATCH_ALPHA` | Rain 0.13 · Star 0.12; Sunbeam 0.55 | Sunbeam raised from 0.30: the draw path applies 0.56× the constant to the lane centre, so 0.30 washed the lane by only ~3 luma. 0.55 lands the beam's warm shift at +27.7 R-B on cream cells (mock: +38.5) |
 | `RAIN_VEIL` alpha | existing | art dial — rain-family hours ×4.5 |
 
 ---

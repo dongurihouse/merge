@@ -339,14 +339,21 @@ const SKY_SHARES := {"sunbeam": 45, "rain": 45, "starfall": 10}
 const SKY_SKIN_SPLIT := {"sunbeam": {"clear": 70, "breeze": 30}, "rain": {"rain": 85, "snow": 15}}
 const SKY_COIN_RATE := 0.35
 const SKY_COIN_TIER := 2
-const SKY_WATER_RATE := 0.35
+# SKY_WATER_RATE is the one sky dial with a RUNAWAY above ~0.2, so it does not match its coin
+# twin. Swept 4 seeds × 7 sim days: at 0.35 the sky owned 16.7–46.5% of the whole water spend and
+# total spend roughly doubled (4305–7744) — the extra water buys pops, pops make merges, in-patch
+# merges make more water, and the loop feeds itself. At 0.15 the gift is felt but water stays a
+# real constraint: sky water is 5.3–8.1% of spend, spend settles at 3433–3919, and self-sustain
+# sits 59–67% against a 52–58% no-weather control. Coins have no such loop (sky coins measure
+# 2.3–5.8% of a much larger faucet), which is why SKY_COIN_RATE stays at 0.35.
+const SKY_WATER_RATE := 0.15
 const STAR_TIER_WEIGHTS := {8: 80, 9: 15, 10: 5}
 const STAR_DELAY := 10.0
 # §3 playable-lane roll: the hour picks only among lanes holding at least this many cells the player
 # has unlocked (MIN_LEVEL vs level). A uniform roll left 36% of level-2 hours on a lane with ZERO open
 # cells — no merge can happen there, so the sky gave nothing right after the FTUE gate opens.
 const LANE_MIN_OPEN := 5
-const PATCH_ALPHA := {"sunbeam": 0.30, "rain": 0.13, "starfall": 0.12}
+const PATCH_ALPHA := {"sunbeam": 0.55, "rain": 0.13, "starfall": 0.12}
 const SKY_MARKER_ICON_RELS := {
 	"sunbeam": "ui/kit/icon_sky_sun.png",
 	"rain": "ui/kit/icon_sky_rain.png",
