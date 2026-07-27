@@ -2472,9 +2472,15 @@ func _make_soil_overlay(cell: Vector2i) -> Control:
 	var ring := SoilProgressRing.new()
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ring.line_width = maxf(2.0, csz * 0.035)
-	ring.track_color = Color(Pal.BTN_PRIMARY, 0.18)
-	ring.fill_color = Color(Pal.BTN_PRIMARY, 0.86)
+	# Contrast, not decoration. The old LEAF-on-earth ring (0.18 track / 0.86 fill) measured 1.17:1
+	# against its own backdrop — invisible over 91% of the arc, and worse at phone size. A mid-tone
+	# green cannot win against BOTH the warm earth patch and the piece art sitting on it, so the ring
+	# stops relying on the backdrop: a dark INK groove carries the track and outlines the fill (see
+	# soil_progress_ring.outline_width), and the fill is a LIGHT green that pops out of that groove.
+	ring.line_width = maxf(4.0, csz * 0.062)
+	ring.outline_width = maxf(1.5, csz * 0.017)
+	ring.track_color = Color(Pal.INK, 0.55)
+	ring.fill_color = Pal.MEADOW
 	ring.progress = _soil_progress_fraction(cell)
 	holder.add_child(ring)
 	var remaining := board.soil_remaining(cell, Time.get_unix_time_from_system())
@@ -2482,7 +2488,6 @@ func _make_soil_overlay(cell: Vector2i) -> Control:
 		var chip := PanelContainer.new()
 		chip.name = "SoilTimeChip"
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip.position = Vector2(csz * 0.56, -csz * 0.05)
 		var csb := StyleBoxFlat.new()
 		csb.bg_color = Color(Pal.CREAM, 0.94)
 		csb.border_color = Color(Pal.INK, 0.22)
@@ -2499,6 +2504,15 @@ func _make_soil_overlay(cell: Vector2i) -> Control:
 		lbl.add_theme_color_override("font_color", Pal.INK)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		chip.add_child(lbl)
+		# Keep the countdown INSIDE its own cell. It used to sit at a hand-placed (0.56·csz, -0.05·csz),
+		# which pushed a ~72px chip past the cell's right edge and 6px ABOVE its top — the countdown
+		# clipped into the neighbouring cell above. Anchored to the cell's top-right with a small inset
+		# and grown LEFT/DOWN instead, so a wider label ("2d 3h") eats into its OWN cell. The preset runs
+		# after the label is parented because PRESET_MODE_MINSIZE measures the chip's minimum size.
+		var chip_inset := maxi(3, int(roundf(csz * 0.045)))
+		chip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, chip_inset)
+		chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		chip.grow_vertical = Control.GROW_DIRECTION_END
 		holder.add_child(chip)
 	return holder
 
@@ -3788,7 +3802,7 @@ func _place_scissors_tool(commit: bool) -> bool:
 	if bag.size() >= _bag_capacity():
 		return false
 	if commit:
-		bag.append(code)
+		_bag_append(code)      # through the aligned seam — a raw bag.append() desyncs bag_seed_ranks
 		_mark_seen(code)
 	return true
 
@@ -5287,18 +5301,35 @@ func _bag_seed_rank_at(i: int) -> int:
 		return 1
 	return clampi(int(bag_seed_ranks[i]) if i < bag_seed_ranks.size() else 1, 1, int(G.SOIL_MAX_RANK))
 
+# Pad/trim bag_seed_ranks to `n` entries (a missing rank defaults to 1). The bag's parallel-array
+# invariant is "equal sizes", and it is re-established only HERE: the two mutators below call this
+# before touching either array, so a caller that wrote `bag` directly (the screenshot tools and a
+# couple of test fixtures assign `scn.bag = [...]`) cannot leave the two out of step. Without it an
+# append lands at the wrong index and a LATER seed reads its rank off the end of the array and
+# silently arrives as rank 1 — an off-by-one here mis-assigns ranks to the WRONG seed.
+func _bag_ranks_align_to(n: int) -> void:
+	while bag_seed_ranks.size() < n:
+		bag_seed_ranks.append(1)
+	if bag_seed_ranks.size() > n:
+		bag_seed_ranks.resize(n)
+
+# The ONE way to put an item in the bag (cf. BoardModel.bag_add for generators). Never call
+# bag.append() directly — that is what dropped the rank of the seed stashed after a bagged tool.
 func _bag_append(code: int, seed_rank: int = 1) -> void:
+	_bag_ranks_align_to(bag.size())     # align to the PRE-append bag so the new rank lands at the new index
 	bag.append(code)
 	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
 		bag_seed_ranks.append(clampi(seed_rank, 1, int(G.SOIL_MAX_RANK)))
 	else:
 		bag_seed_ranks.append(1)
 
+# The ONE way to take an item out of the bag. Returns the rank that travelled with it so the caller
+# can hand it straight back to the board (see _retrieve_from_bag).
 func _bag_remove_at(i: int) -> int:
 	var rank := _bag_seed_rank_at(i)
+	_bag_ranks_align_to(bag.size())     # equal sizes, so the one index removes exactly one pair
 	bag.remove_at(i)
-	if i < bag_seed_ranks.size():
-		bag_seed_ranks.remove_at(i)
+	bag_seed_ranks.remove_at(i)
 	return rank
 
 
