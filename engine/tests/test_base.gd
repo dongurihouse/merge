@@ -86,6 +86,35 @@ func read_text(path: String) -> String:
 	f.close()
 	return t
 
+# --- the scene-host fixture ------------------------------------------------------------------
+#
+# Mount an engine scene under the test root the way every scene-driving suite does it: instantiate,
+# add it to the root, and run `_ready()` by hand when the headless `-s` construction skipped it.
+#
+# `ready_probe` answers "did `_ready` NOT run yet?" for THIS scene. It is a per-SCENE constant, not
+# a per-test choice — Map answers `content == null`, Board `board == null`, ExploreRush
+# `get_child_count() == 0` — so grove_test_base binds the three as map_host()/board_host()/
+# rush_host() and nothing else has to remember them. When the engine changes WHEN `_ready` fires
+# headlessly, the fix lands here instead of in every suite.
+#
+# NOT a coroutine, deliberately. The sites this replaces read the tree with no frame in between;
+# awaiting one here would hand `_ready` to the engine a frame later and change what they observe.
+# A test that wants a settled frame first still writes its own `await`.
+func mount(path: String, ready_probe: Callable) -> Node:
+	var host = load(path).instantiate()
+	get_root().add_child(host)
+	if ready_probe.call(host):
+		host._ready()
+	return host
+
+# Tear a mounted host down: queue_free plus the frame drain that makes the free land before the
+# next fixture builds. `frames` is 3 where a suite waited out a longer teardown. Sites that free
+# without draining are NOT this pairing — they keep their bare queue_free().
+func drop(host: Node, frames := 1) -> void:
+	host.queue_free()
+	for _i in frames:
+		await process_frame
+
 # The footer the runner parses, then the exit code. Every suite ends on this.
 func finish() -> void:
 	print("== %d passed, %d failed ==" % [_pass, _fail])
