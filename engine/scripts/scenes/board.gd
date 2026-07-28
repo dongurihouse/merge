@@ -5770,11 +5770,12 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 	_update_water_hud()
 
 # §6.B open a chest with a second TAP (the key line is retired): consume it and credit its
-# coins+acorns payout DIRECTLY to the wallet (like every other tap-collect). Coins are ORGANIC
+# coins+acorns payout — ROLLED low-biased from the chest tier's range — DIRECTLY to the wallet
+# (like every other tap-collect). Coins are ORGANIC
 # (add_coins — spendable, but the clock is quests only); acorns skim the piggy bank like other premium earns. (The old
 # face-value item spawn died with the 12-tier coin ladder — 3-tier coins can't carry the payout.)
 func _open_chest(target: Vector2i, node: Control) -> void:
-	var reward := G.chest_open_reward(board.item_at(target))
+	var reward := G.chest_open_reward(board.item_at(target), rng)
 	board.take(target)
 	piece_nodes.erase(target)
 	if node != null and is_instance_valid(node):
