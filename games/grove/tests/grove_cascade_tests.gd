@@ -23,6 +23,7 @@ func _initialize() -> void:
 	await _test_long_chain_rewards_upgrade_and_cap()
 	await _test_drag_guide_pads_and_generator_exclusion()
 	await _test_drag_merge_targets_are_highlighted()
+	await _test_drag_focuses_the_held_cascade_path()
 	await _test_runway_resting_outline_and_tag()
 	await _test_one_tag_per_cell_when_marks_collide()
 	await _test_runway_drag_guide_strengths_use_real_input()
@@ -144,6 +145,31 @@ func _outline_runway_count(b: Node) -> int:
 		return 0
 	var runways = o.get("runways")
 	return (runways as Array).size() if runways is Array else 0
+
+func _outline_drag_ladder_count(b: Node) -> int:
+	var o := _outline(b)
+	if o == null:
+		return 0
+	var drag_ladders = o.get("drag_ladders")
+	return (drag_ladders as Array).size() if drag_ladders is Array else 0
+
+func _outline_drag_ladder_run(b: Node) -> Array:
+	var o := _outline(b)
+	if o == null:
+		return []
+	var drag_ladders = o.get("drag_ladders")
+	if not (drag_ladders is Array) or (drag_ladders as Array).is_empty():
+		return []
+	var entry: Variant = (drag_ladders as Array)[0]
+	return Array((entry as Dictionary).get("run", [])) if entry is Dictionary else []
+
+func _cells_equal(got: Array, want: Array) -> bool:
+	if got.size() != want.size():
+		return false
+	for i in got.size():
+		if Vector2i(got[i]) != Vector2i(want[i]):
+			return false
+	return true
 
 func _outline_pad_count(b: Node) -> int:
 	var o := _outline(b)
@@ -580,6 +606,38 @@ func _test_drag_merge_targets_are_highlighted() -> void:
 	await process_frame
 	b.queue_free()
 
+func _test_drag_focuses_the_held_cascade_path() -> void:
+	var b := _open_board("cascade_drag_focus_path")
+	await process_frame
+	var from := Vector2i(1, 1)
+	var target := Vector2i(1, 2)
+	var t4 := Vector2i(1, 3)
+	var t5 := Vector2i(2, 3)
+	_blank_fixture(b, {
+		Vector2i(3, 1): 201,
+		Vector2i(2, 1): 201,
+		Vector2i(2, 2): 202,
+		from: 203,
+		target: 203,
+		t4: 204,
+		t5: 205,
+	})
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5"),
+		"resting outline still reports the best armed ladder in the mixed component")
+	_input_begin_drag(b, from)
+	await process_frame
+	ok(_outline_has_pad_kind_at(b, "cascade", target),
+		"dragging the t3 highlights the occupied target that creates the t3→t5 chain")
+	ok(_outline_drag_ladder_count(b) == 1 and _cells_equal(_outline_drag_ladder_run(b), [target, t4, t5]),
+		"drag focus follows the held piece's actual cascade path, not the component's lower-tier best")
+	ok(_outline_has_tag(b, "×3") and not _outline_has_tag(b, "×5"),
+		"drag focus hides the resting ×5 tag so the player sees the chain they are creating")
+	_input_release(b, from)
+	await process_frame
+	ok(_outline_drag_ladder_count(b) == 0 and _outline_has_tag(b, "×5"),
+		"releasing the drag restores the resting ready-ladder outline")
+	b.queue_free()
+
 func _test_runway_resting_outline_and_tag() -> void:
 	var b := _open_board("cascade_runway_outline")
 	await process_frame
@@ -746,12 +804,18 @@ func _test_ready_outline_and_flag_off() -> void:
 # The ribbon's one rule has to cover every shape a run or a component can take, so pin the shapes
 # a straight-row fixture can never show: a bend, a T and a closed 2x2 ring. Each cell's endpoint
 # count IS its tile — 1 end caps, 2 opposite is a straight, 2 perpendicular is a corner, 3 is a T,
-# 4 is a cross — so asserting the counts asserts the whole tile set without an image.
+# 4 is a cross — so asserting the counts asserts the whole tile set without an image. Ordered run
+# paths get one extra guard: touching cells that are not consecutive chain steps must not sprout
+# extra rungs.
 func _test_ribbon_covers_bends_branches_and_rings() -> void:
 	var outline := CascadeOutline.new()
 	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+	ok(outline.has_method("_ribbon_links"), "cascade ribbon exposes the link map used by drawing")
+	if not outline.has_method("_ribbon_links"):
+		outline.free()
+		return
 
-	var bend := {Vector2i(1, 1): true, Vector2i(1, 2): true, Vector2i(2, 2): true}
+	var bend: Dictionary = outline.call("_ribbon_links", [Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 2)], true)
 	var corner: Array = outline.call("_ribbon_ends", Vector2i(1, 2), bend)
 	var tail: Array = outline.call("_ribbon_ends", Vector2i(1, 1), bend)
 	var centre := Vector2(_landscape_outline_pos(Vector2i(1, 2))) + Vector2.ONE * 20.0
@@ -763,18 +827,23 @@ func _test_ribbon_covers_bends_branches_and_rings() -> void:
 	ok(corner.size() == 2 and perpendicular and tail.size() == 1, \
 		"a bent run turns a corner and caps its tail")
 
-	var tee := {Vector2i(2, 1): true, Vector2i(2, 2): true, Vector2i(2, 3): true, Vector2i(1, 2): true}
+	var tee: Dictionary = outline.call("_ribbon_links", [Vector2i(2, 1), Vector2i(2, 2), Vector2i(2, 3), Vector2i(1, 2)], false)
 	ok(Array(outline.call("_ribbon_ends", Vector2i(2, 2), tee)).size() == 3, \
 		"a branching component draws a T where three arms meet")
 
-	var ring := {Vector2i(1, 1): true, Vector2i(1, 2): true, Vector2i(2, 1): true, Vector2i(2, 2): true}
+	var ring: Dictionary = outline.call("_ribbon_links", [Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 1), Vector2i(2, 2)], false)
 	var ring_ok := true
 	for raw in ring:
 		if Array(outline.call("_ribbon_ends", Vector2i(raw), ring)).size() != 2:
 			ring_ok = false
 	ok(ring_ok, "a 2x2 block closes the ribbon into a ring with no loose ends")
 
-	var lone := {Vector2i(4, 4): true}
+	var square_path: Dictionary = outline.call("_ribbon_links", [Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 2), Vector2i(2, 1)], true)
+	ok(Array(outline.call("_ribbon_ends", Vector2i(1, 1), square_path)).size() == 1
+		and Array(outline.call("_ribbon_ends", Vector2i(2, 1), square_path)).size() == 1,
+		"an ordered chain path does not draw a false closing edge between touching non-consecutive cells")
+
+	var lone: Dictionary = outline.call("_ribbon_links", [Vector2i(4, 4)], true)
 	ok(Array(outline.call("_ribbon_ends", Vector2i(4, 4), lone)).is_empty(), \
 		"an isolated cell has no arms and falls back to the joint disc")
 	outline.free()
@@ -782,9 +851,13 @@ func _test_ribbon_covers_bends_branches_and_rings() -> void:
 func _test_landscape_outline_uses_transposed_edges() -> void:
 	var outline := CascadeOutline.new()
 	outline.configure(Vector2(240, 260), 40.0, Callable(self, "_landscape_outline_pos"))
+	ok(outline.has_method("_ribbon_links"), "cascade ribbon exposes ordered links for landscape mapping")
+	if not outline.has_method("_ribbon_links"):
+		outline.free()
+		return
 	# The ribbon's endpoints are the transpose-sensitive part now: a model row-neighbour has to
 	# come out as a HORIZONTAL screen offset under the landscape transpose, not a vertical one.
-	var cells := {Vector2i(3, 2): true, Vector2i(2, 2): true, Vector2i(3, 1): true}
+	var cells: Dictionary = outline.call("_ribbon_links", [Vector2i(2, 2), Vector2i(3, 2), Vector2i(3, 1)], true)
 	var ends: Array = outline.call("_ribbon_ends", Vector2i(3, 2), cells)
 	var centre: Vector2 = Vector2(_landscape_outline_pos(Vector2i(3, 2))) + Vector2.ONE * 20.0
 	var offs: Array = []
