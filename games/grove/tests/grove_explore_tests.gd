@@ -1253,6 +1253,13 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		# the ONE knob apart — the same panel, same fill, same rim, same halo).
 		ok(is_equal_approx(float(panel.get("deckle_amp")), 0.0),
 			"%s draws a smooth edge, not the torn deckle (amp %.2f)" % [tile_name, panel.get("deckle_amp")])
+		# …and a smooth edge has to be an ANTIALIASED one. draw_colored_polygon computes no coverage, so
+		# with the tear gone the corner arc rasterized as a hard binary staircase (measured on the render:
+		# 0.0 blended pixels per row across the arc, against the mock's 1.7). The feather restores the
+		# coverage term; without it the row cannot read as a card, whose defining quality is a clean cut.
+		var feather := float(panel.get("edge_feather"))
+		ok(feather > 0.0 and feather <= 2.5,
+			"%s antialiases its silhouette (%.2f px feather ≤ 2.5)" % [tile_name, feather])
 		# THE BORDER marks the one active destination: only the ACTIVE tab is outlined. A plain tab's paper
 		# edge just ends — no warm cut-edge rim at all.
 		var is_active := btn.find_child("ActionButtonActiveRim", true, false) != null
@@ -1334,6 +1341,12 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		"…the shared torn deckle survives off the nav row (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("deckle_amp")])
 	ok(plain_panel != null and float(plain_panel.get("rim_width")) > 0.0,
 		"…and so does the shared warm cut-edge rim (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("rim_width")])
+	# the FEATHER is the row's own too. A torn sheet has no visible staircase (the tear is louder than it),
+	# and a three-pass face on every dialog, pill and board cell would repaint the whole game, so the knob
+	# defaults OFF and only the one smooth row asks for it.
+	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("edge_feather")), 0.0),
+		"…and an ordinary torn sheet still draws ONE flat polygon, unfeathered (%.2f)"
+			% [0.0 if plain_panel == null else plain_panel.get("edge_feather")])
 	# the CHALK is the row's own too: the shared paper ROLES keep their fills, so no dialog, pill, board or
 	# shop surface moves. Compare the untouched role fill against what the row would have chalked it to.
 	var gold: Color = Kit.action_role_fill("play", {"play": "gold"})

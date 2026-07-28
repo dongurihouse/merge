@@ -57,6 +57,17 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # box width, so a row of flared tabs never widens into its neighbour's gap — the tops sit further apart
 # instead. > 0 selects the "tab" base shape; 0 (the default) leaves every surface a plain rounded rect.
 @export var flare: float = 0.0
+# EDGE FEATHER — ANTIALIASING for the drawn silhouette. `draw_colored_polygon` rasterizes with no
+# antialiasing at all: a pixel is either wholly inside the outline or wholly outside it, so a smooth
+# arc comes out as a hard, stair-stepped binary edge. The torn deckle HIDES that (the tear is louder
+# than the stairs), which is why it never showed until a surface asked for a smooth edge — on a nav
+# tab, whose `deckle_amp` is 0, the aliasing IS the silhouette, and a card's defining quality is a
+# clean cut edge. When this is > 0 the face is drawn as an opaque CORE inset past the edge plus a quad
+# strip that ramps the paper's alpha 1 → 0 across `edge_feather` px CENTRED on the true outline —
+# which is the coverage term the rasterizer skipped. The 50% point lands exactly on the outline, so
+# the silhouette does not move or grow; the rim, bevel and halo still key off the same `pts`.
+# 0 = off (the default everywhere): every torn surface draws the single flat polygon it always drew.
+@export var edge_feather: float = 0.0
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -94,6 +105,7 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	bevel_px = maxf(0.0, float(o.get("bevel_px", bevel_px)))
 	if o.has("bevel_strength"):
 		bevel_strength = clampf(float(o["bevel_strength"]) / 100.0, 0.0, 1.0)
+	edge_feather = maxf(0.0, float(o.get("edge_feather", edge_feather)))
 	paper_color = fill
 	# rim precedence: an explicit `rim` arg (a per-caller computed edge, e.g. the mail card's tinted rim)
 	# wins; otherwise the shared `rim_color` edge knob in the opts dict applies, so the workbench picker
@@ -130,14 +142,10 @@ func _draw() -> void:
 			for p in shadow_pts:
 				off.append(p + Vector2(0.0, dy))
 			draw_colored_polygon(off, sh)
-	if paper_tex != null:
-		var tp := paper_tex.get_size()
-		var uvs := PackedVector2Array()
-		for p in pts:
-			uvs.append(Vector2(p.x / maxf(tp.x, 1.0), p.y / maxf(tp.y, 1.0)))
-		draw_colored_polygon(pts, paper_color, uvs, paper_tex)
+	if _feather_px() > 0.0:
+		_draw_feathered_face(pts)   # the antialiased silhouette (off unless `edge_feather` > 0)
 	else:
-		draw_colored_polygon(pts, paper_color)
+		_draw_face(pts)
 	_draw_bevel(pts)                # the paper's thickness (off unless `bevel_px` > 0)
 	# the warm cut-edge rim, closed around the deckle. 0 width = NO border at all — the paper edge just
 	# ends (a plain nav tab; only the active one is outlined). Guarded because draw_polyline treats a
@@ -146,6 +154,19 @@ func _draw() -> void:
 		var closed := pts.duplicate()
 		closed.append(pts[0])
 		draw_polyline(closed, rim_color, rim_width, true)
+
+## The paper FACE as one flat polygon — the fibre tile mapped at its native scale (so the grain never
+## stretches), or the bare fill when no tile is set. This is exactly what `_draw` always drew; the
+## feathered path below reuses it for its opaque core.
+func _draw_face(pts: PackedVector2Array) -> void:
+	if paper_tex != null:
+		var tp := paper_tex.get_size()
+		var uvs := PackedVector2Array()
+		for p in pts:
+			uvs.append(Vector2(p.x / maxf(tp.x, 1.0), p.y / maxf(tp.y, 1.0)))
+		draw_colored_polygon(pts, paper_color, uvs, paper_tex)
+	else:
+		draw_colored_polygon(pts, paper_color)
 
 ## The torn-edge polygon: take the base OUTLINE for the chosen shape (any convex/organic polygon), then
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the
@@ -348,7 +369,11 @@ func _outward_normals(pts: PackedVector2Array) -> PackedVector2Array:
 func _offset_loop(pts: PackedVector2Array, d: float) -> PackedVector2Array:
 	if pts.size() < 3 or absf(d) < 0.001:
 		return pts
-	var nrm := _outward_normals(pts)
+	return _offset_by(pts, _outward_normals(pts), d)
+
+## `pts` moved `d` px along ALREADY-COMPUTED normals — for callers that offset the same loop several
+## times (the feather builds three), so the O(n) normal pass runs once.
+static func _offset_by(pts: PackedVector2Array, nrm: PackedVector2Array, d: float) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	for i in pts.size():
 		out.append(pts[i] + nrm[i] * d)
@@ -374,6 +399,89 @@ func _draw_edge_halo() -> void:
 	var sh := Look.shadow_color(per)
 	for i in range(steps, 0, -1):
 		draw_colored_polygon(_offset_loop(base, halo_reach * float(i) / float(steps)), sh)
+
+## ── THE ANTIALIASED SILHOUETTE ───────────────────────────────────────────────────────────────────
+## How far the opaque CORE is inset PAST the feather's inner lip. The core is itself an un-antialiased
+## polygon, so its own stair-stepped boundary has to land where the strip is already FULLY opaque —
+## otherwise those stairs reappear as a 1px seam of background inside the feather. One pixel covers
+## the rasterizer's worst-case half-pixel snap on either side of the nominal inset.
+const FEATHER_GUARD := 1.0
+
+## The feather actually applied: the request, clamped so the opaque core can never invert on a sheet
+## smaller than the band (a tiny switch knob asking for a 1.5px feather on a 6px sheet).
+func _feather_px() -> float:
+	if edge_feather <= 0.0:
+		return 0.0
+	return minf(edge_feather, maxf(0.0, minf(size.x, size.y) / 3.0 - FEATHER_GUARD * 2.0))
+
+## The face's alpha at a signed distance `d` px from the outline (negative = inside the sheet) for a
+## band of width `feather`. This is the coverage term `draw_colored_polygon` does not compute: 1 inside
+## the inner lip, 0 outside the outer one, LINEAR across the band, and exactly 0.5 ON the outline — so
+## the silhouette keeps its position and only its hardness changes. A 0 feather is the binary step the
+## unantialiased rasterizer produces, which is what every torn surface still draws.
+static func feather_coverage(feather: float, d: float) -> float:
+	if feather <= 0.0:
+		return 1.0 if d <= 0.0 else 0.0
+	return clampf(0.5 - d / feather, 0.0, 1.0)
+
+## The face's DRAW PLAN for a band of `f` px: `core` is how far the opaque polygon is inset from the
+## outline, `rings` the quad strips ringing it — {d_in, d_out, a_in, a_out}, signed px along the outward
+## normal with alphas taken from `feather_coverage`. It is pulled out of the drawing so the ramp can be
+## ASSERTED headlessly (engine/tests/action_button_tests.gd): a real-renderer capture is the only way to
+## LOOK at an edge and `get_image()` is null under --headless, so the geometry is what a suite can hold.
+static func feather_plan(f: float) -> Dictionary:
+	var half := f * 0.5
+	return {
+		"core": -(half + FEATHER_GUARD),
+		"rings": [
+			# the guard band: fully opaque, so the core polygon's own un-antialiased boundary is buried
+			{"d_in": -(half + FEATHER_GUARD), "d_out": -half, "a_in": 1.0, "a_out": 1.0},
+			# …and the coverage ramp itself, centred on the outline
+			{"d_in": -half, "d_out": half,
+			 "a_in": feather_coverage(f, -half), "a_out": feather_coverage(f, half)},
+		],
+	}
+
+## THE FACE, ANTIALIASED. An opaque core polygon (inset past the band, so its own hard edge is buried)
+## plus two textured quad strips ringing the outline: the inner one holds full opacity across the guard
+## band, the outer one carries the 1 → 0 coverage ramp. Both are built from the sheet's OWN outline, so
+## a flared, cornered or torn silhouette feathers along whatever shape it actually is.
+func _draw_feathered_face(pts: PackedVector2Array) -> void:
+	var plan := feather_plan(_feather_px())
+	var nrm := _outward_normals(pts)
+	_draw_face(_offset_by(pts, nrm, float(plan["core"])))
+	for r in plan["rings"]:
+		_draw_feather_ring(pts, nrm, float(r["d_in"]), float(r["d_out"]), float(r["a_in"]), float(r["a_out"]))
+
+## One closed strip of textured quads between the outline offset `d_in` (alpha `a_in`) and `d_out`
+## (alpha `a_out`), the fibre tile sampled at the same native scale the face uses so the grain runs
+## straight through the band. Godot's 2D API has no annulus primitive — `draw_colored_polygon` would
+## have to triangulate a ring, which fails — so the strip goes to the server as one triangle array.
+func _draw_feather_ring(pts: PackedVector2Array, nrm: PackedVector2Array, d_in: float, d_out: float, a_in: float, a_out: float) -> void:
+	var n := pts.size()
+	if n < 3:
+		return
+	var inner := _offset_by(pts, nrm, d_in)
+	var outer := _offset_by(pts, nrm, d_out)
+	var tp := paper_tex.get_size() if paper_tex != null else Vector2.ONE
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
+	for i in n:
+		verts.append(inner[i])
+		verts.append(outer[i])
+		cols.append(Color(paper_color.r, paper_color.g, paper_color.b, paper_color.a * a_in))
+		cols.append(Color(paper_color.r, paper_color.g, paper_color.b, paper_color.a * a_out))
+		if paper_tex != null:
+			uvs.append(Vector2(inner[i].x / maxf(tp.x, 1.0), inner[i].y / maxf(tp.y, 1.0)))
+			uvs.append(Vector2(outer[i].x / maxf(tp.x, 1.0), outer[i].y / maxf(tp.y, 1.0)))
+	var idx := PackedInt32Array()
+	for i in n:
+		var j := (i + 1) % n
+		idx.append_array([i * 2, i * 2 + 1, j * 2 + 1, i * 2, j * 2 + 1, j * 2])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols, uvs,
+		PackedInt32Array(), PackedFloat32Array(),
+		paper_tex.get_rid() if paper_tex != null else RID())
 
 ## How much LIGHT (x) and how much SHADOW (y) a stretch of edge takes, from the vertical component of its
 ## outward normal (-1 = facing straight up, 0 = a side, +1 = the foot). Light comes from above: the top

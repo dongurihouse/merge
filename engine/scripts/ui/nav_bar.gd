@@ -48,6 +48,15 @@ const BEVEL_STRENGTH_PCT := 34.0      # …and its peak alpha (%)
 # paper surface in the game wears. It is the same CutPaperPanel with its tear amplitude zeroed — fill,
 # rim, halo, bevel and every metric above are untouched.
 const DECKLE_AMP := 0.0
+# …and the price of losing the tear: `draw_colored_polygon` antialiases nothing, so with the deckle gone
+# the corner arc rasterized as a hard binary STAIRCASE. Measured across the Map tile's top-left arc — the
+# pixels whose value lands between the ground and the fill — ours ran 0.00 per row (a pure binary step)
+# against the mock's 1.68 on its own 931px canvas, i.e. ~1.95 at our 1080. A card's defining quality is a
+# clean cut edge, so the row asks for the shared feather at that width. The ramp is CENTRED on the
+# outline, so the silhouette neither moves nor grows — half the band of coverage lands either side of it,
+# which is what the rasterizer would have written. Rendered back: 1.22 per row at 2.0px. Wider still
+# (2.5 measured 1.39) stops reading as a cut and starts reading as a soft glow.
+const EDGE_FEATHER_PX := 2.0
 # Only the ACTIVE tab carries a visible border (its cream rim sheet). A plain tab's paper edge just ends —
 # no warm cut-edge rim — which is what separates the current destination from its neighbours in the mock.
 # The shared rim (rim_color/rim_width) is untouched everywhere else; this zeroes it for THIS row's plain
@@ -94,6 +103,7 @@ static func tab_cp(w: float, box_h: float, sheet_h: float, active := false) -> D
 		"halo_strength": HALO_ALPHA_PCT,
 		"bevel_px": w * BEVEL_FRAC,
 		"bevel_strength": BEVEL_STRENGTH_PCT,
+		"edge_feather": EDGE_FEATHER_PX,
 	}
 	if not active:
 		o["rim_width"] = PLAIN_RIM_WIDTH

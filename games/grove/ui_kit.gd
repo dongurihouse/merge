@@ -2349,6 +2349,10 @@ const CUT_PAPER_KNOBS := [
 	# TAB FLARE (CutPaperPanel._tab_base): the trapezoid tab — how much WIDER the sheet's bottom edge reads
 	# than its top, as a PERCENT (`freq` = "saved as a percent, normalized to a fraction here"). 0 = off.
 	{"key": "flare",           "kind": "slider", "label": "Tab flare %",     "min": 0, "max": 30,  "default": 0, "freq": true},
+	# EDGE FEATHER (CutPaperPanel._draw_feathered_face): antialiasing for the drawn silhouette, in px.
+	# `draw_colored_polygon` computes no coverage, so a SMOOTH sheet's arc rasterizes as a stair-stepped
+	# binary edge; a torn one hides it. 0 = off, which is every surface that keeps its deckle.
+	{"key": "edge_feather",    "kind": "slider", "label": "Edge feather px", "min": 0, "max": 4,   "default": 0},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
