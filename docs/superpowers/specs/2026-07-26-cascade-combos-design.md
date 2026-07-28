@@ -10,8 +10,8 @@ provisional dials; the sim owns finals.
 A player merge **tips a cascade** when an equal pair produces a result that can continue through
 adjacent same-line, same-tier partners. The follow-up merges run **by themselves**, one hop at a
 time. One algorithm finds the longest run; the UI follows it. Chain length pays one reward — a
-chest that grows with the run. Armed ladders get a stitched outline. Runways — same-line tier
-staircases with no equal pair yet, but one duplicate away from a cascade — get a weaker stitched
+chest that grows with the run. Armed ladders wear a paper ribbon along the run. Runways — same-line
+tier staircases with no equal pair yet, but one duplicate away from a cascade — wear a weaker
 mark tagged with the tier they need. Dragging a piece shows ignition pads and weaker extension
 pads; the guide IS the teach (no FTUE dialog). Home board only; the Rush is untouched.
 
@@ -21,7 +21,7 @@ pads; the guide IS the teach (no FTUE dialog). Home board only; the Rush is unto
 |---|---|
 | `engine/scripts/core/board_logic.gd` | + `chain_path` · `ready_ladders` · `runways` · `chain_placements` (§3) |
 | `engine/scripts/scenes/board.gd` | + run executor, rewards, `chain_running()`, drag-guide wiring (§4–5, §8) |
-| `engine/scripts/ui/cascade_outline.gd` | **new** — stitched outlines, ×n tags, ghost pads (§7–8) |
+| `engine/scripts/ui/cascade_outline.gd` | **new** — run ribbons, ×n tags, drop marks (§7–8) |
 | `engine/scripts/core/content.gd` | + `G.line_color(code)` accessor (§7) |
 | `games/grove/grove_data.gd` | chest line `"top": 5` + loot rows 4/5 (§6) |
 | `games/grove/assets/items/chest/chest_4/5.png` | chest line art tiers 4/5 (§6) |
@@ -166,7 +166,7 @@ vacated — always free, synchronously, before the lucky rolls.
 - Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
   (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
 - Tags: armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner; runways
-  show a smaller needed-tier chip on the component's anchor cell. Tags sit above the stitched
+  show a smaller needed-tier chip on the ribbon's first cell. Tags sit above the drawn
   mark and update per recompute.
 - Geometry via `_cell_pos` (`board.gd:1704`, owns the landscape transpose).
 
@@ -185,6 +185,12 @@ and arms nothing. The marks say which of the two a drop is:
 | `cascade` | an occupied same-code target whose merge reaches `CHAIN_MIN_N` | strongest | **yes** |
 | `merge` | any other occupied same-code target | mid | no |
 | `stage` | an empty cell — `chain_placements` at `n >= CHAIN_MIN_N`, or a runway/ladder extension | weakest | no |
+
+The three are different **materials**, not three weights of one stroke: `stage` cuts a shallow well
+into the cardstock (something goes here), while `cascade` and `merge` pool warm light behind an
+occupied piece. The pool is warmed ~60 % toward gold — it shows through the piece's own transparent
+margins, so a saturated line colour tints the art itself rather than reading as light. Never a
+`modulate` brighten: that clamps to nothing on art this bright.
 
 - **A ×n appears only on a cell you can drop onto that really runs a chain.** A number on an
   empty cell advertises a cascade the drop does not perform.
