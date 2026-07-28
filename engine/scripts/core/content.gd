@@ -117,6 +117,7 @@ const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
 const SPECIAL_COLLECT = D.SPECIAL_COLLECT
 const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
 const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
+const CHEST_ROLL_SKEW = D.CHEST_ROLL_SKEW
 const ACCUMULATORS = D.ACCUMULATORS
 const BONUS_SPAWN_CHANCE = D.BONUS_SPAWN_CHANCE
 const BONUS_CLICKS = D.BONUS_CLICKS
@@ -1502,13 +1503,30 @@ static func special_collect(code: int) -> Dictionary:
 		return {"kind": kind, "amount": int((SPECIAL_COLLECT[kind] as Dictionary).get(tier, 0))}
 	return {}
 
-# The reward for opening a chest (tap-opened — no key): {coins, acorns}, scaled by the chest tier.
-static func chest_open_reward(chest: int) -> Dictionary:
+# The BAND a chest of this tier can pay (tap-opened — no key): {coins: [lo, hi], acorns: [lo, hi]}.
+# Pure — the display/guard read. An unknown tier bands to [0, 0].
+static func chest_open_range(chest: int) -> Dictionary:
 	var ct := chest % 100
 	return {
-		"coins": int(CHEST_OPEN_COINS.get(ct, 0)),
-		"acorns": int(CHEST_OPEN_ACORNS.get(ct, 0)),
+		"coins": (CHEST_OPEN_COINS.get(ct, [0, 0]) as Array).duplicate(),
+		"acorns": (CHEST_OPEN_ACORNS.get(ct, [0, 0]) as Array).duplicate(),
 	}
+
+# The rolled reward for opening a chest: {coins, acorns}, each drawn from its tier's range as
+# lo + span·randf()^CHEST_ROLL_SKEW — at skew 2 the expectation sits at 1/3 of the span, so a
+# typical open pays near the floor and the ceiling is the jackpot. ROUNDED, not floored: flooring
+# would collapse a narrow range like 0..2 acorns to almost always 0. The caller owns the rng.
+static func chest_open_reward(chest: int, rng: RandomNumberGenerator) -> Dictionary:
+	var band := chest_open_range(chest)
+	return {
+		"coins": _roll_chest_band(band.coins as Array, rng),
+		"acorns": _roll_chest_band(band.acorns as Array, rng),
+	}
+
+static func _roll_chest_band(band: Array, rng: RandomNumberGenerator) -> int:
+	var lo := float(band[0])
+	var hi := float(band[1])
+	return roundi(lo + (hi - lo) * pow(rng.randf(), CHEST_ROLL_SKEW))
 
 
 # --- §6.C utility accumulators (bank a resource over time) -----------------------------

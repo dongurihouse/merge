@@ -63,6 +63,120 @@ func _has_stale_test_quest_item(list: Array) -> bool:
 			return true
 	return false
 
+# --- §6.B chest-open roll helpers -----------------------------------------------------------
+# The reward tables are [lo, hi] RANGES rolled low-biased (CHEST_ROLL_SKEW 2 → the roll's
+# expectation sits at 1/3 of the span). The FLAT_* rows below are the retired fixed payouts —
+# the baseline the ranges are tuned against, kept here as the guard's reference, never re-read
+# from the live tables.
+const FLAT_CHEST_COINS := {1: 40, 2: 120, 3: 320, 4: 800, 5: 2000}
+const FLAT_CHEST_ACORNS := {1: 0, 2: 1, 3: 3, 4: 6, 5: 12}
+const CHEST_TIERS := 5
+
+func _chest_bounds(tier: int, cur: String) -> Array:
+	return G.chest_open_range(G.CHEST_LINE * 100 + tier)[cur] as Array
+
+func _chest_lo(tier: int, cur: String) -> int:
+	return int(_chest_bounds(tier, cur)[0])
+
+func _chest_hi(tier: int, cur: String) -> int:
+	return int(_chest_bounds(tier, cur)[1])
+
+# The skew-2 expectation of a roll in [lo, hi].
+func _chest_mean(tier: int, cur: String) -> float:
+	var lo := float(_chest_lo(tier, cur))
+	var hi := float(_chest_hi(tier, cur))
+	return lo + (hi - lo) / 3.0
+
+# Shape of the tables: ordered pairs, a defensive miss, and both bounds climbing with the tier.
+func _test_chest_ranges() -> void:
+	ok(float(G.CHEST_ROLL_SKEW) > 1.0, "the chest roll is skewed toward the LOW end of its range")
+	ok(int((G.SPECIAL_ITEMS[G.CHEST_LINE] as Dictionary).get("top", 0)) == CHEST_TIERS,
+		"the chest line still merges through %d tiers (this guard covers all of them)" % CHEST_TIERS)
+	var r1 := G.chest_open_range(G.CHEST_LINE * 100 + 1)
+	ok(r1.has("coins") and r1.has("acorns") and (r1.coins as Array).size() == 2 and (r1.acorns as Array).size() == 2,
+		"chest_open_range returns a [lo, hi] pair per currency")
+	ok(G.chest_open_range(G.CHEST_LINE * 100 + 99) == {"coins": [0, 0], "acorns": [0, 0]},
+		"an unknown chest tier ranges to nothing")
+	for tier in range(1, CHEST_TIERS + 1):
+		for cur in ["coins", "acorns"]:
+			var c := String(cur)
+			ok(_chest_lo(tier, c) <= _chest_hi(tier, c),
+				"chest t%d %s range is ordered (%d..%d)" % [tier, c, _chest_lo(tier, c), _chest_hi(tier, c)])
+	for tier in range(1, CHEST_TIERS):
+		ok(_chest_lo(tier + 1, "coins") > _chest_lo(tier, "coins"), "chest t%d→t%d: the coin FLOOR climbs" % [tier, tier + 1])
+		ok(_chest_hi(tier + 1, "coins") > _chest_hi(tier, "coins"), "chest t%d→t%d: the coin CEILING climbs" % [tier, tier + 1])
+		# the acorn floor is flat at 0 across the bottom tiers, so it may only hold — never fall
+		ok(_chest_lo(tier + 1, "acorns") >= _chest_lo(tier, "acorns"), "chest t%d→t%d: the acorn floor never falls" % [tier, tier + 1])
+		ok(_chest_hi(tier + 1, "acorns") > _chest_hi(tier, "acorns"), "chest t%d→t%d: the acorn CEILING climbs" % [tier, tier + 1])
+	# vs the retired FLAT payout: each tier pays LESS on average but MORE at its ceiling — the
+	# jackpot read. (t1 acorns were 0 flat and stay 0: a range cannot sit under zero.)
+	var mean_sum := 0.0
+	var flat_sum := 0.0
+	for tier in range(1, CHEST_TIERS + 1):
+		var fc := int(FLAT_CHEST_COINS[tier])
+		mean_sum += _chest_mean(tier, "coins")
+		flat_sum += float(fc)
+		ok(_chest_mean(tier, "coins") < float(fc) and _chest_hi(tier, "coins") > fc,
+			"chest t%d coins: mean %.1f < the old flat %d < ceiling %d" % [tier, _chest_mean(tier, "coins"), fc, _chest_hi(tier, "coins")])
+		var fa := int(FLAT_CHEST_ACORNS[tier])
+		if fa > 0:
+			ok(_chest_mean(tier, "acorns") < float(fa) and _chest_hi(tier, "acorns") > fa,
+				"chest t%d acorns: mean %.2f < the old flat %d < ceiling %d" % [tier, _chest_mean(tier, "acorns"), fa, _chest_hi(tier, "acorns")])
+		else:
+			ok(_chest_hi(tier, "acorns") == 0, "chest t%d paid no acorns flat and still pays none" % tier)
+	var drop := 1.0 - mean_sum / flat_sum
+	ok(drop > 0.25 and drop < 0.35, "expected chest COINS fall ~30%% against the flat payout (measured %.1f%%)" % (drop * 100.0))
+
+# THE MERGE INVARIANT: merging two tier-N chests into one tier-N+1 must BEAT opening both —
+# so N+1's ceiling AND its expectation each more than DOUBLE N's, for both currencies.
+func _test_chest_merge_invariant() -> void:
+	for tier in range(1, CHEST_TIERS):
+		for cur in ["coins", "acorns"]:
+			var c := String(cur)
+			ok(_chest_hi(tier + 1, c) > 2 * _chest_hi(tier, c),
+				"chest t%d→t%d %s: the ceiling more than doubles (%d → %d)" % [tier, tier + 1, c, _chest_hi(tier, c), _chest_hi(tier + 1, c)])
+			ok(_chest_mean(tier + 1, c) > 2.0 * _chest_mean(tier, c),
+				"chest t%d→t%d %s: the mean more than doubles (%.2f → %.2f)" % [tier, tier + 1, c, _chest_mean(tier, c), _chest_mean(tier + 1, c)])
+
+# The seeded roll: always inside the range, reaching both ends, and averaging in the LOWER half.
+func _test_chest_roll() -> void:
+	var rolls := 4000
+	for tier in range(1, CHEST_TIERS + 1):
+		var code := G.CHEST_LINE * 100 + tier
+		var rng2 := RandomNumberGenerator.new()
+		rng2.seed = 20260727 + tier
+		var lo_c := _chest_lo(tier, "coins")
+		var hi_c := _chest_hi(tier, "coins")
+		var lo_a := _chest_lo(tier, "acorns")
+		var hi_a := _chest_hi(tier, "acorns")
+		var inside := true
+		var min_c := hi_c
+		var max_c := lo_c
+		var sum_c := 0.0
+		var sum_a := 0.0
+		for _i in rolls:
+			var got := G.chest_open_reward(code, rng2)
+			var c := int(got.coins)
+			var a := int(got.acorns)
+			if c < lo_c or c > hi_c or a < lo_a or a > hi_a:
+				inside = false
+			min_c = mini(min_c, c)
+			max_c = maxi(max_c, c)
+			sum_c += float(c)
+			sum_a += float(a)
+		ok(inside, "chest t%d: every roll lands inside its range (coins %d..%d, acorns %d..%d)" % [tier, lo_c, hi_c, lo_a, hi_a])
+		var span := float(hi_c - lo_c)
+		ok(float(min_c) <= float(lo_c) + span * 0.02, "chest t%d: the coin roll reaches its floor (min %d)" % [tier, min_c])
+		ok(float(max_c) >= float(hi_c) - span * 0.05, "chest t%d: the coin roll approaches its ceiling (max %d)" % [tier, max_c])
+		var mean_c := sum_c / float(rolls)
+		var mean_a := sum_a / float(rolls)
+		ok(mean_c < float(lo_c) + span * 0.5,
+			"chest t%d: the coin roll averages in the LOWER half of its span (mean %.1f of %d..%d)" % [tier, mean_c, lo_c, hi_c])
+		ok(absf(mean_c - _chest_mean(tier, "coins")) < span * 0.05,
+			"chest t%d: the sampled coin mean %.1f tracks the skew-2 expectation %.1f" % [tier, mean_c, _chest_mean(tier, "coins")])
+		ok(absf(mean_a - _chest_mean(tier, "acorns")) <= 0.6,
+			"chest t%d: the sampled acorn mean %.2f tracks its low-biased expectation %.2f" % [tier, mean_a, _chest_mean(tier, "acorns")])
+
 func _initialize() -> void:
 	var r := _fixture()
 
@@ -698,15 +812,10 @@ func _initialize() -> void:
 			"acorn t%d follows the 2.2x ladder (%d)" % [int(tier), int(expected_acorn_values[tier])])
 	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest has no tap-collect credit (it OPENS via the board path)")
 	ok(G.is_chest(10 * 100 + 1) and G.is_collectable(10 * 100 + 1), "a chest is collectable — the second tap opens it (no key needed)")
-	# the open reward scales by the chest tier alone (the key line + its multiplier are retired)
-	var r1 := G.chest_open_reward(10 * 100 + 1)   # chest t1 → 40 coins, 0 acorns
-	var r3 := G.chest_open_reward(10 * 100 + 3)   # chest t3 -> 320 coins, 3 acorns
-	var r4 := G.chest_open_reward(10 * 100 + 4)   # chest t4 -> 800 coins, 6 acorns
-	var r5 := G.chest_open_reward(10 * 100 + 5)   # chest t5 -> 2000 coins, 12 acorns
-	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 opens for the base coins")
-	ok(int(r3.coins) == 320 and int(r3.acorns) == 3, "a higher chest tier opens for the richer payout")
-	ok(int(r4.coins) == 800 and int(r4.acorns) == 6, "chest t4 opens for the cascade reward row")
-	ok(int(r5.coins) == 2000 and int(r5.acorns) == 12, "chest t5 opens for the capped cascade reward row")
+	# --- the chest open ROLL (§6.B): a per-tier RANGE rolled low-biased, not a fixed payout ---
+	_test_chest_ranges()
+	_test_chest_merge_invariant()
+	_test_chest_roll()
 
 	# --- §6.C utility accumulators (bank-to-cap, unlocked by map-1 spots) ---
 	var acc_spot: String = String(G.MAPS[0].spots[0].id)   # the water accumulator's unlock spot
