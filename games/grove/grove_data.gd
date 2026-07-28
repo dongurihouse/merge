@@ -364,7 +364,12 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 # ORDER IS LOAD-BEARING: sky.gd walks these entries by CUMULATIVE share in Dictionary insertion order,
 # so re-ordering the keys re-maps which hour draws which sky. The values need not sum to 100 (the walk
 # normalises against their total), but changing any share moves every hour after the first threshold.
-const SKY_SHARES := {"calm": 40, "sunbeam": 30, "rain": 20, "starfall": 10}
+# STARFALL IS PARKED AT 0 (temporary). The walk skips a share <= 0, so no hour rolls Starfall
+# automatically and the other three keep their stated proportions against the table's own total of 90
+# (calm 44.4% · sunbeam 33.3% · rain 22.2%). Nothing else about Starfall is removed: forcing "star"
+# still produces it, so the debug picker and the shot modes are unchanged. Restoring it is this one
+# number back to 10 — which is why 40/30/20 are left as they are rather than rescaled to sum to 100.
+const SKY_SHARES := {"calm": 40, "sunbeam": 30, "rain": 20, "starfall": 0}
 # Per-sky skin split, walked the same cumulative way. A sky with NO entry here (Starfall) wears its own
 # single skin. Calm and Sunbeam deliberately share the 70/30 clear/breeze look.
 const SKY_SKIN_SPLIT := {
