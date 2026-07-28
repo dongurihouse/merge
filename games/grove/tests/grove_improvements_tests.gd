@@ -19,6 +19,9 @@ func _initialize() -> void:
 	await _test_giver_delivery_requires_t7_soil_reset_confirm()
 	await _test_scissors_split_requires_soil_reset_confirm()
 	await _test_magnet_bramble_open_preserves_rng_state()
+	await _test_magnet_merge_slides_and_lands_a_muted_impact()
+	await _test_magnet_scan_is_silent_on_the_render_false_path()
+	await _test_magnet_sweep_takes_one_pair_per_beat_lowest_tier_first()
 	await _test_mark_seen_catches_up_intermediate_tiers()
 	await _test_completed_top_soil_refreshes_selected_info()
 	await _test_soil_tick_does_not_free_active_drag_node()
@@ -442,6 +445,172 @@ func _test_magnet_bramble_open_preserves_rng_state() -> void:
 	ok(scn._scan_magnets(true), "magnet scan performs the auto-merge that opens a bramble")
 	ok(scn.board.is_open(bramble), "magnet auto-merge opens the eligible neighbouring bramble")
 	ok(scn.rng.state == before, "magnet-triggered bramble opening preserves rng.state byte-identity")
+	scn.queue_free()
+
+# --- §4 Magnet auto-merge FX ---------------------------------------------------------------------
+# The throwaway pre-merge tiles the magnet playback slides together, live on the board right now.
+# Real nodes the feature builds — not a probe kept for the tests.
+func _magnet_ghosts(scn: Node) -> Array:
+	var out: Array = []
+	for n in scn.board_area.get_children():
+		if n.has_meta("magnet_ghost") and not n.is_queued_for_deletion():
+			out.append(n)
+	return out
+
+# The SHIPPED merge tuning has both burst and world_puff off, so nothing about a dialog-muted impact
+# would look different from a full one. Turn the two on exactly the way the Merge workbench does; then
+# the burst COUNT is the proof: a dialog-muted impact emits ONE (the merge burst) and a full one emits
+# TWO (merge burst + world puff). _grid_fx_opts holds this same dictionary, so one write covers both.
+func _arm_merge_burst_opts(scn: Node) -> void:
+	scn._merge_opts["burst"] = true
+	scn._merge_opts["world_puff"] = true
+
+# Counts every one-shot particle system a merge IMPACT parents to the board, live, as it is added — a
+# burst frees itself fast (headless faster still), so watching child_entered_tree is the only honest way
+# to count them. Returns a one-key dict so the caller can read the running tally.
+func _watch_impact_bursts(scn: Node) -> Dictionary:
+	var tally := {"n": 0}
+	scn.board_area.child_entered_tree.connect(func(child: Node) -> void:
+		if child is GPUParticles2D:
+			tally["n"] = int(tally["n"]) + 1)
+	return tally
+
+# A magnet's auto-merge is a REAL merge on screen: the travelling half slides into the pair cell and the
+# produced tile lands the standard impact at dialog scale. It used to change the model and let the pieces
+# teleport on the next rebuild. The parities a player merge earns and this one must not — combo, drop
+# rolls, the merge teach, chain credit — are checked on the same run.
+func _test_magnet_merge_slides_and_lands_a_muted_impact() -> void:
+	fresh("improve_magnet_merge_fx")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	var far := Vector2i(3, 3)          # two cells from the magnet — this half travels
+	var near := Vector2i(3, 4)         # one cell — the pair lands here
+	scn.board.build_improvement(magnet, Improvements.KIND_MAGNET)
+	scn.board.place(far, 101)
+	scn.board.place(near, 101)
+	scn.quests = []                    # no generators left on the fixture board, so the fence stays empty
+	_arm_merge_burst_opts(scn)
+	scn._rebuild_all()
+	await _settle()
+	var combo_before: int = scn._combo_count
+	var rng_before: int = scn.rng.state
+	var teach_before := Save.ftue_seen("merge")
+
+	ok(scn._scan_magnets(true), "the rendered magnet scan commits the merge to the model")
+	ok(scn.board.item_at(near) == 102 and scn.board.item_at(far) == 0, "the pair lands on the cell nearer the magnet")
+	ok(scn.rng.state == rng_before, "the magnet merge rolls no coin/special drops (board rng untouched)")
+	var queued = scn.get("_magnet_fx")
+	ok(queued is Array and (queued as Array).size() == 1, "the scan RECORDS the merge for playback (got %s)" % [queued])
+	if queued is Array and (queued as Array).size() == 1:
+		var rec: Dictionary = (queued as Array)[0]
+		ok(Vector2i(rec.get("from", Vector2i(-1, -1))) == far and Vector2i(rec.get("to", Vector2i(-1, -1))) == near,
+			"the record names the travelling half and the pair cell (%s -> %s)" % [rec.get("from"), rec.get("to")])
+		ok(int(rec.get("was", 0)) == 101 and int(rec.get("code", 0)) == 102,
+			"the record carries the PRE-merge code, so the slide has a tile to draw")
+
+	scn._rebuild_all()                 # what the caller does next — it frees every node in piece_nodes
+	var rng_rebuilt: int = scn.rng.state
+	var bursts := _watch_impact_bursts(scn)
+	scn._play_magnet_fx()
+	var ghosts := _magnet_ghosts(scn)
+	ok(ghosts.size() == 2, "playback re-creates BOTH pre-merge halves as ghosts (got %d)" % ghosts.size())
+	var spots: Array = []
+	for g in ghosts:
+		spots.append((g as Control).position)
+	ok(spots.has(scn._cell_pos(far)) and spots.has(scn._cell_pos(near)),
+		"one ghost starts on the travelling cell, one rests on the pair cell")
+	var landed: Control = scn.piece_nodes.get(near)
+	ok(landed != null and not landed.visible, "the produced tile stays hidden behind the ghosts until the impact")
+
+	await create_timer(0.30).timeout   # the slide (merge_slide_ms) plus margin
+	await process_frame
+	landed = scn.piece_nodes.get(near)
+	ok(landed != null and landed.visible, "the impact reveals the produced tile when the slide lands")
+	ok(_magnet_ghosts(scn).is_empty(), "the ghosts are cleared once the slide lands")
+	ok(int(bursts["n"]) == 1, "the impact fires the merge burst ONCE — dialog-muted, so no world puff (got %d)" % bursts["n"])
+
+	ok(scn._combo_count == combo_before, "a magnet merge does not bump the player's combo")
+	ok(scn.rng.state == rng_rebuilt, "the magnet playback rolls nothing off the board rng either")
+	ok(Save.ftue_seen("merge") == teach_before, "a magnet merge does not complete the player's merge teach")
+	ok(not scn._chain_active and scn._chain_run.is_empty(), "a magnet merge takes no chain credit")
+	scn.queue_free()
+
+# The load settle and the water tick pass render = false. Those run with no player watching (one before
+# the board is even built), so they must DRAIN the whole board in the one pass and show nothing at all.
+func _test_magnet_scan_is_silent_on_the_render_false_path() -> void:
+	fresh("improve_magnet_silent_load")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	scn.board.build_improvement(magnet, Improvements.KIND_MAGNET)
+	scn.board.place(Vector2i(3, 3), 101)
+	scn.board.place(Vector2i(3, 4), 101)
+	scn.board.place(Vector2i(5, 4), 201)
+	scn.board.place(Vector2i(5, 5), 201)
+	scn.quests = []
+	_arm_merge_burst_opts(scn)
+	scn._rebuild_all()
+	await _settle()
+	var bursts := _watch_impact_bursts(scn)
+
+	ok(scn._scan_magnets(false), "the silent scan reports the board changed")
+	ok(scn.board.count_of(101) == 0 and scn.board.count_of(201) == 0,
+		"render = false DRAINS every pair in one pass — the load path leaves nothing pending")
+	var queued = scn.get("_magnet_fx")
+	ok(queued is Array and (queued as Array).is_empty(), "the silent scan records no playback (got %s)" % [queued])
+	ok(scn.get("_magnet_fx_armed") == false, "the silent scan arms no deferred playback")
+	await _settle()
+	ok(_magnet_ghosts(scn).is_empty(), "the silent scan slides nothing")
+	ok(int(bursts["n"]) == 0, "the silent scan fires no merge impact (got %d bursts)" % bursts["n"])
+	for cell in [Vector2i(3, 4), Vector2i(5, 4)]:
+		var n: Control = scn.piece_nodes.get(cell)
+		if n != null:
+			ok(n.visible, "the silent scan leaves the produced tile at %s plainly visible" % cell)
+	scn.queue_free()
+
+# Several pairs in range read as a SEQUENCE, not one frame in which the board rearranges itself: a
+# rendered scan takes exactly one pair, lowest tier first, and the rest follow on the MAGNET_BEAT_SECS
+# beat. The fixture puts the lower tier at the HIGHER board index, so index order alone would pick wrong.
+func _test_magnet_sweep_takes_one_pair_per_beat_lowest_tier_first() -> void:
+	fresh("improve_magnet_beat_order")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	var high_a := Vector2i(3, 3)       # tier 2, LOW board index
+	var high_b := Vector2i(3, 4)
+	var low_a := Vector2i(5, 5)        # tier 1, HIGH board index — must still go first
+	var low_b := Vector2i(5, 4)
+	scn.board.build_improvement(magnet, Improvements.KIND_MAGNET)
+	scn.board.place(high_a, 102)
+	scn.board.place(high_b, 102)
+	scn.board.place(low_a, 201)
+	scn.board.place(low_b, 201)
+	scn.quests = []
+	scn._rebuild_all()
+	await _settle()
+
+	ok(scn._scan_magnets(true), "the rendered scan merges")
+	ok(scn.board.item_at(low_b) == 202 and scn.board.count_of(201) == 0,
+		"the LOWEST-tier pair goes first even though its board index is higher")
+	ok(scn.board.item_at(high_a) == 102 and scn.board.item_at(high_b) == 102,
+		"the second pair is left alone — a rendered scan takes ONE pair, not the whole board")
+	var queued = scn.get("_magnet_fx")
+	ok(queued is Array and (queued as Array).size() == 1, "exactly one merge is queued for playback")
+
+	scn._rebuild_all()
+	scn._play_magnet_fx()
+	ok(scn.get("_magnet_beat_armed") == true, "playback arms the next beat, so the sweep is SPACED, not simultaneous")
+	await create_timer(0.55).timeout   # board.gd MAGNET_BEAT_SECS (0.3) + the next slide + margin
+	await process_frame
+	ok(scn.board.item_at(high_b) == 103 and scn.board.count_of(102) == 0,
+		"the beat picks the sweep back up and merges the remaining pair")
 	scn.queue_free()
 
 func _test_mark_seen_catches_up_intermediate_tiers() -> void:

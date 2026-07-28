@@ -360,5 +360,8 @@ static func magnet_merge_once(board: BoardModel, magnet_cell: Vector2i, asked_co
 			target = b
 			source = a
 		var produced := board.merge(source, target)
-		return {"merged": true, "from": source, "to": target, "code": produced}
+		# `was` is the PRE-merge code BOTH halves carried (can_merge only pairs identical codes). The scene
+		# needs it to replay the merge visually: by FX time the model has already consumed both tiles, so the
+		# sliding half has to be rebuilt from this code.
+		return {"merged": true, "from": source, "to": target, "code": produced, "was": code}
 	return {"merged": false, "reason": "none"}

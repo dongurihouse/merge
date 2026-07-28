@@ -121,6 +121,10 @@ const CHAIN_COUNTER_ANCHOR_ORIGIN := true
 const CHAIN_LOCK_DIM_ENABLED := true
 const CHAIN_LOCK_DIM_ALPHA := 0.86
 const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
+# §4 Magnet: a rendered magnet sweep commits ONE pair per beat instead of draining the whole board in a
+# single frame, so a multi-pair sweep reads as a sequence. Kept under ANIM_WATCHDOG_SECS — each beat's
+# slide + impact must finish well inside one 0.6s watchdog window.
+const MAGNET_BEAT_SECS := 0.3
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 
 # grove board palette (the night-purples retire here)
@@ -198,6 +202,9 @@ var bramble_nodes := {}
 var _improvement_art_nodes := {}
 var _soil_overlay_nodes := {}
 var _magnet_scanning := false
+var _magnet_fx: Array = []          # §4: merges committed this beat, awaiting their playback (see _scan_magnets)
+var _magnet_fx_armed := false       # a deferred _play_magnet_fx is already queued
+var _magnet_beat_armed := false     # the next sweep beat's tree timer is already running
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
 var _hand_hint: Control = null      # FTUE: the live hand teach overlay (at most one), or null
@@ -3250,6 +3257,19 @@ func _chain_armed_cell() -> Vector2i:
 		return Vector2i(_chain_run[0])
 	return Vector2i(-1, -1)
 
+# §4 Magnet auto-merge. The MODEL commit is unchanged and still synchronous — the returned bool is the
+# caller's "the board changed, rebuild" contract, and every caller keeps working — but the two modes now
+# differ in pace and in what they show:
+#
+#   render = false  (the _load_state settle + the water tick) — DRAIN the whole board in one pass, silently.
+#                   No FX at all: the pieces those callers settle were never on screen mid-change.
+#   render = true   (_after_board_change, i.e. a player action) — commit ONE pair, record it, and let the
+#                   sweep continue on the MAGNET_BEAT_SECS beat, so several pairs read as a sequence rather
+#                   than the whole board resolving in a frame.
+#
+# The visuals cannot run here: the caller rebuilds the board right after this returns and _rebuild_all
+# frees every node in piece_nodes, so any FX applied now is thrown away. So a rendered merge is only
+# RECORDED, and _play_magnet_fx (deferred, i.e. after that rebuild) plays it back against the new nodes.
 func _scan_magnets(render := true) -> bool:
 	if _magnet_scanning or not _improvements_enabled() or board == null:
 		return false
@@ -3264,14 +3284,131 @@ func _scan_magnets(render := true) -> bool:
 				continue
 			_mark_seen(int(out.get("code", 0)))
 			_after_magnet_merge(out, render)
+			if render:
+				_magnet_fx.append(out)
 			changed = true
 			merged_any = true
 			break
 		if not merged_any:
 			break
 		guard += 1
+		if render:
+			break            # one pair per beat — _play_magnet_fx picks the sweep back up
 	_magnet_scanning = false
+	if render and changed:
+		_arm_magnet_fx()
 	return changed
+
+# Queue this beat's playback for AFTER the caller's rebuild. _after_board_change rebuilds synchronously
+# once _scan_magnets returns, so a deferred call lands on the fresh piece_nodes.
+#
+# Deliberately does NOT raise `animating`. That flag gates every board tap, and a Magnet is passive
+# background furniture — locking the player out for a beat per pair, on every action, would be worse than
+# the missing FX. It is also unnecessary: the model commit is synchronous and complete before any of this
+# runs, so there is no half-applied merge for a tap to land in. The 0.6s ANIM_WATCHDOG_SECS window still
+# bounds the design (slide + impact finish in ~0.13s, well inside one beat).
+func _arm_magnet_fx() -> void:
+	if not is_inside_tree():
+		_magnet_fx = []          # no tree, no playback — don't let records pile up for a later beat
+		return
+	if _magnet_fx_armed:
+		return
+	_magnet_fx_armed = true
+	_play_magnet_fx.call_deferred()
+
+# Play back every merge the last rendered scan committed, then keep the sweep going. Everything here is
+# best-effort: the board may have been rebuilt, dragged, or left since the merge committed, and the model
+# is already correct either way — the FX is decoration that is allowed to be skipped.
+func _play_magnet_fx() -> void:
+	_magnet_fx_armed = false
+	var records: Array = _magnet_fx
+	_magnet_fx = []
+	if records.is_empty() or not is_inside_tree():
+		return
+	# Mid-drag the caller SKIPPED its rebuild (_rebuild_after_drag), so piece_nodes still shows the
+	# pre-merge board; replaying against it would slide a ghost onto a tile that has not changed yet.
+	# Drop the visuals for this beat and stand the sweep down — the next fan-out after the drag resumes it.
+	if board_area == null or not is_instance_valid(board_area) or _drag_active() or _rebuild_after_drag:
+		return
+	for rec in records:
+		_play_magnet_merge_fx(rec)
+	_schedule_magnet_beat()
+
+# One magnet merge, replayed on the rebuilt board: the pair is re-created as two short-lived GHOSTS
+# carrying the pre-merge code (the produced tile hides behind them), the losing half slides into the pair
+# cell through the same MOVE verb a player merge uses, and the impact lands when it arrives.
+func _play_magnet_merge_fx(rec: Dictionary) -> void:
+	var to := Vector2i(rec.get("to", Vector2i(-1, -1)))
+	var from := Vector2i(rec.get("from", Vector2i(-1, -1)))
+	var was := int(rec.get("was", 0))
+	var produced: Control = piece_nodes.get(to)
+	if to.x < 0 or from.x < 0 or was <= 0 or produced == null or not is_instance_valid(produced):
+		return
+	var slide_ms := MergeFx.knob(_merge_opts, "merge_slide_ms")
+	# The produced tile already sits in the cell (the rebuild put it there). Hide it behind the ghosts so
+	# the next tier is REVEALED by the impact instead of being there before the merge visibly happens.
+	produced.visible = false
+	var mover := _make_magnet_ghost(was, from)
+	var resting := _make_magnet_ghost(was, to)
+	MoveFx.apply(mover, mover.position, _cell_pos(to), "slide", _move_opts, slide_ms)
+	# The impact rides its OWN tree timer, never the slide tween: a rebuild that frees the ghost mid-flight
+	# kills the tween with it, and the produced tile must still be un-hidden and land its merge.
+	get_tree().create_timer(float(slide_ms) / 1000.0).timeout.connect(
+		_magnet_impact.bind(to, int(rec.get("code", 0)), [mover, resting]))
+
+# A throwaway copy of a pre-merge tile, parented to the board so any _rebuild_all sweeps it up.
+func _make_magnet_ghost(code: int, cell: Vector2i) -> Control:
+	var n := _make_piece(code, csz)
+	n.name = "MagnetGhost"          # sibling names are uniquified by the engine — match on the meta, not this
+	n.set_meta("magnet_ghost", true)
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	n.position = _cell_pos(cell)
+	board_area.add_child(n)
+	return n
+
+# The magnet merge's landing beat: drop the ghosts, reveal the produced tile, and play the standard merge
+# impact at DIALOG scale (grid_fx's _DIALOG_MUTED drops board punch / shake / world puff / combo words and
+# keeps the piece-local squash / burst / flash / hitstop / sound). A passive background merge must not
+# punch the screen like the player's own merge. Combo is passed as 0, not _bump_combo(): the spec excludes
+# a magnet from the player's streak, so it neither advances it nor reads off it.
+func _magnet_impact(cell: Vector2i, produced_code: int, ghosts: Array) -> void:
+	for g in ghosts:
+		if g != null and is_instance_valid(g):
+			g.queue_free()
+	var node: Control = piece_nodes.get(cell)
+	if node == null or not is_instance_valid(node) or board_area == null or not is_instance_valid(board_area):
+		return
+	node.visible = true
+	var center := _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	GridFx.play_merge(board_area, node, center, BoardModel.tier_of(produced_code), 0,
+		_orthogonal_neighbour_nodes(cell), _grid_fx_opts, true)
+
+# Keep sweeping: one beat from now, look for the next pair. The timer is a SceneTreeTimer rather than a
+# tween on any node, so nothing a rebuild frees can stall the sweep half-finished. _after_board_change is
+# the whole fan-out (scan → rebuild → persist → refresh) — exactly what the next merge needs; when the
+# scan finds nothing left it simply does not arm another beat and the sweep ends.
+func _schedule_magnet_beat() -> void:
+	if _magnet_beat_armed or not is_inside_tree():
+		return
+	_magnet_beat_armed = true
+	get_tree().create_timer(MAGNET_BEAT_SECS).timeout.connect(_on_magnet_beat)
+
+func _on_magnet_beat() -> void:
+	_magnet_beat_armed = false
+	if board == null or not is_inside_tree() or not _magnet_pair_pending():
+		return
+	_after_board_change()
+
+# Cheap read-only probe: does any Magnet still SEE a pair? A SUPERSET of what the scan would actually
+# merge (the asked-code / growing / chain guards still apply on top), used only so the beat that ends a
+# sweep skips a whole pointless fan-out. Never mutates the board or the RNG.
+func _magnet_pair_pending() -> bool:
+	if not _improvements_enabled() or board == null:
+		return false
+	for magnet_cell in _improvement_cells(Improvements.KIND_MAGNET):
+		if not BoardLogic.range_pairs(board, Improvements.range_cells(board, magnet_cell)).is_empty():
+			return true
+	return false
 
 func _after_magnet_merge(out: Dictionary, render := true) -> void:
 	var target := Vector2i(out.get("to", Vector2i(-1, -1)))
