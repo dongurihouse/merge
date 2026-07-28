@@ -24,6 +24,7 @@ func _initialize() -> void:
 	await _test_drag_guide_pads_and_generator_exclusion()
 	await _test_drag_merge_targets_are_highlighted()
 	await _test_drag_focuses_the_held_cascade_path()
+	await _test_drag_stage_starts_from_single_tier_neighbors()
 	await _test_runway_resting_outline_and_tag()
 	await _test_one_tag_per_cell_when_marks_collide()
 	await _test_runway_drag_guide_strengths_use_real_input()
@@ -525,7 +526,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count_by_kind(b, "stage") == 1, "beginning an item drag shows one staging pad on the empty cell")
+	ok(_outline_has_pad_kind_at(b, "stage", Vector2i(2, 2)), "beginning an item drag shows the ladder gap as a staging pad")
 	var old_outline := _outline(b)
 	if old_outline != null:
 		b.board_area.remove_child(old_outline)
@@ -555,7 +556,9 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(x2_from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count_by_kind(b, "stage") == 0, "x2-only drag placements do not show staging pads")
+	ok(_outline_pad_count_by_kind(b, "stage") > 0, "x2-only drag still shows weak build pads beside adjacent tiers")
+	ok(_outline_number_tag_count(b) == 0 and _outline_pad_count_by_kind(b, "cascade") == 0,
+		"x2-only build pads do not advertise a cascade")
 	b._on_release(b._cell_pos(x2_from) + half)
 
 	_blank_fixture(b, {})
@@ -638,6 +641,31 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		"releasing the drag restores the resting ready-ladder outline")
 	b.queue_free()
 
+func _test_drag_stage_starts_from_single_tier_neighbors() -> void:
+	var b := _open_board("cascade_drag_single_neighbor_seeds")
+	await process_frame
+	var from := Vector2i(6, 6)
+	_blank_fixture(b, {
+		from: 102,
+		Vector2i(3, 1): 101,
+		Vector2i(3, 4): 103,
+	})
+	_input_begin_drag(b, from)
+	await process_frame
+	var want := [
+		Vector2i(2, 1), Vector2i(2, 4),
+		Vector2i(3, 0), Vector2i(3, 2), Vector2i(3, 3), Vector2i(3, 5),
+		Vector2i(4, 1), Vector2i(4, 4),
+	]
+	ok(_cells_equal(_outline_pad_cells_by_kind(b, "stage"), want),
+		"dragging t2 seeds weak stage pads beside every single t1/t3 neighbor")
+	ok(_outline_pad_count_by_kind(b, "merge") == 0 and _outline_pad_count_by_kind(b, "cascade") == 0,
+		"single-neighbor seed pads are not advertised as merge or cascade targets")
+	ok(_outline_number_tag_count(b) == 0, "single-neighbor seed pads do not show a cascade number")
+	_input_release(b, from)
+	await process_frame
+	b.queue_free()
+
 func _test_runway_resting_outline_and_tag() -> void:
 	var b := _open_board("cascade_runway_outline")
 	await process_frame
@@ -711,12 +739,13 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 	#   stage   = an empty cell; placing there builds the ladder and fires nothing
 	# Holding a t2 is the payoff: ONE cascade mark on the t2 itself, and the staging cells around
 	# it are suppressed so the eye has one place to go. t1/t5 cannot merge with anything, so they
-	# only stage. t3/t4 merge but stop short of CHAIN_MIN_N, so they stay ordinary.
+	# only stage. t3/t4 merge but stop short of CHAIN_MIN_N, so they stay ordinary while still
+	# showing weak build pads beside the single lower/higher neighboring tiers.
 	var want := {
 		1: {"cascade": 0, "merge": 0, "stage": 3},
 		2: {"cascade": 1, "merge": 0, "stage": 0},
-		3: {"cascade": 0, "merge": 1, "stage": 0},
-		4: {"cascade": 0, "merge": 1, "stage": 0},
+		3: {"cascade": 0, "merge": 1, "stage": 6},
+		4: {"cascade": 0, "merge": 1, "stage": 2},
 		5: {"cascade": 0, "merge": 0, "stage": 3},
 	}
 	for held in [1, 2, 3, 4, 5]:

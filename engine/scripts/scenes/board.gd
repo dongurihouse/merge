@@ -2648,12 +2648,41 @@ func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) ->
 				continue
 			seen[cell] = true
 			out.append(entry)
+	for entry in _single_neighbor_seed_pads(from, code, occupied):
+		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
+		if cell.x < 0 or seen.has(cell):
+			continue
+		seen[cell] = true
+		out.append(entry)
 	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
 	return out
 
 func _guide_run_cells(entry: Dictionary) -> Array:
 	var run := Array(entry.get("run", []))
 	return run if not run.is_empty() else Array(entry.get("cells", []))
+
+func _single_neighbor_seed_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
+	var out: Array = []
+	if board == null or code <= 0:
+		return out
+	var line := BoardModel.line_of(code)
+	var held_tier := BoardModel.tier_of(code)
+	for i in board.items.size():
+		var base := BoardModel.cell_of(i)
+		if base == from:
+			continue
+		var item := int(board.items[i])
+		if item <= 0 or BoardModel.line_of(item) != line:
+			continue
+		var tier := BoardModel.tier_of(item)
+		if tier != held_tier - 1 and tier != held_tier + 1:
+			continue
+		for raw_d in BoardLogic.ORTHO_DIRS:
+			var cell := base + Vector2i(raw_d)
+			if not _can_show_extension_pad(cell, from, occupied):
+				continue
+			out.append({"cell": cell, "line": line, "kind": "stage"})
+	return out
 
 func _extension_pads_for_component(from: Vector2i, code: int, cells: Array, occupied: Dictionary) -> Array:
 	var out: Array = []

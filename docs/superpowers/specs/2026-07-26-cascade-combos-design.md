@@ -184,7 +184,7 @@ and arms nothing. The marks say which of the two a drop is:
 |---|---|---|---|
 | `cascade` | an occupied same-code target whose merge reaches `CHAIN_MIN_N` | strongest | **yes** |
 | `merge` | any other occupied same-code target | mid | no |
-| `stage` | an empty cell — `chain_placements` at `n >= CHAIN_MIN_N`, or a runway/ladder extension | weakest | no |
+| `stage` | an empty cell that would grow the held line beside a single lower/higher tier, finish `chain_placements` at `n >= CHAIN_MIN_N`, or extend a runway/ladder | weakest | no |
 
 The three are different **materials**, not three weights of one stroke: `stage` cuts a shallow well
 into the cardstock (something goes here), while `cascade` and `merge` pool warm light behind an
@@ -194,6 +194,9 @@ margins, so a saturated line colour tints the art itself rather than reading as 
 
 - **A ×n appears only for a drop that really runs a chain.** During drag focus it anchors on the
   focused run's top cell so the lifted piece cannot cover it; empty staging cells never carry ×n.
+- **`stage` starts from one adjacent tier.** Holding `t2`, for example, marks every empty ground
+  cell beside same-line `t1` and `t3` pieces. These are build hints only: they do not promote the
+  single neighbor to `merge`/`cascade`, and they never show ×n.
 - **`stage` marks are suppressed whenever a `cascade` mark exists** — when a firing move is
   available it is the answer, and the staging cells around it compete with it.
 - When a held item has a `cascade` target, the outline uses a drag-focused ladder built from
@@ -231,14 +234,17 @@ margins, so a saturated line colour tints the art itself rather than reading as 
   - Rewards: ×3 chest `1001` is the first reward; ×4 upgrades that cell to `1002`; wallet and
     `coins_earned` unchanged until chest-open; open credits `add_coins` only.
   - Guide pads on `_begin_drag`, cleared on release; generator drag → none.
+  - Weak guide pads start from a single lower/higher neighboring tier; they stay unnumbered and
+    below cascade strength.
   - A mixed component with a lower-tier `×5` at rest focuses to the held item's `×3` run while
     dragging; ordered ribbon links do not connect touching non-consecutive path cells.
   - Outline present iff an armed ladder exists; tag text ×n; stack index above mat/slots and below
     live items, with stale queued-for-deletion generator nodes present.
   - Flag OFF → no chain, no outline, no pads.
 - **Visual gate:** quiet-godot `cascade` captures — lit ladder (stitches + tag), `phase=guide`
-  ghost pads under a lifted piece, `phase=dragfocus` for a mixed-component held-path guide, and
-  a mid-run step with floater — looked at before done.
+  ghost pads under a lifted piece, `phase=seedguide` for one-neighbor build pads,
+  `phase=dragfocus` for a mixed-component held-path guide, and a mid-run step with floater —
+  looked at before done.
   `phase=guide` needs a ×3-capable fixture; ×2 placements exit 0 with a bare board because the
   scene filters out pads that would not arm a cascade.
 - `make test` green.

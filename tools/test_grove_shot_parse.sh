@@ -115,6 +115,7 @@ run_flyaway() {
 run_mode cascade_run    0 0 cascade
 run_mode cascade_runway 0 0 cascade phase=runway
 run_mode cascade_guide  0 0 cascade phase=guide
+run_mode cascade_seedguide 0 0 cascade phase=seedguide
 # baggen SEEDS the stored-generator row via bag_add — genbag MUST be 2 (the pair the overlay's
 # generator row exists to show). gens=1 is the fresh board's own starting generator, untouched.
 run_mode baggen         1 2 baggen
