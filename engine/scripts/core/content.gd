@@ -72,6 +72,9 @@ const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
 const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
 const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
+const SELL_TIER_COINS = D.SELL_TIER_COINS
+const SELL_ACORN_TIER = D.SELL_ACORN_TIER
+const SELL_ACORNS = D.SELL_ACORNS
 const BUY_MARKUP = D.BUY_MARKUP
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const LEVEL_DIAMOND_EVERY = D.LEVEL_DIAMOND_EVERY
@@ -1255,20 +1258,43 @@ static func any_cluster_ready(unlocks: Dictionary, level: int, coins: int) -> bo
 	return cl != "" and cluster_ready(z, cl, unlocks, level, coins)
 
 # --- sell / economy formulas ------------------------------------------------------
-## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
-## for its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more). There is NO
-## premium-sell pinnacle anymore — selling never mints acorns (acorns are milestone/IAP only), so the
-## old t8=1💎 special case + the 32× anti-arbitrage guard are retired. `premium` is always 0 here.
+## What an item sells for at the merchant (§9): Vector2i(coins, acorns). The ladder is AUTHORED, not
+## computed — G.SELL_TIER_COINS (doubling from t4, band-scaled) up to G.SELL_ACORN_TIER, then flat
+## G.SELL_ACORNS instead of coins (the deep tiers pay the premium currency; the band does NOT apply
+## there). A tier pays coins OR acorns, never both. Re-tune the three dials in grove_data, never here.
 static func sell_reward(code: int) -> Vector2i:
 	match special_kind(code):
 		"soil_seed":
 			return Vector2i(SOIL_SEED_SELL_COINS, 0)
 		"magnet_seed":
 			return Vector2i(MAGNET_SEED_SELL_COINS, 0)
-	var tier := code % 100
+	var tier := maxi(1, code % 100)
+	if tier >= SELL_ACORN_TIER:
+		return Vector2i(0, sell_acorns(tier))
 	# §6.D premium treat lines sell at a flat premium band; everything else at its per-map band.
 	var band: float = TREAT_SELL_BAND if is_treat_line(code) else sell_map_band(map_for_code(code))
-	return Vector2i(int(round(maxi(1, tier) * band)), 0)
+	return Vector2i(int(round(sell_tier_coins(tier) * band)), 0)
+
+## The AUTHORED base coin value of `tier` before the map band (G.SELL_TIER_COINS, clamped to the table;
+## 0 means the tier pays acorns instead). A tier past the table reuses the last entry.
+static func sell_tier_coins(tier: int) -> int:
+	var tbl: Array = SELL_TIER_COINS
+	if tbl.is_empty():
+		return maxi(1, tier)
+	return int(tbl[clampi(maxi(1, tier) - 1, 0, tbl.size() - 1)])
+
+## Acorns an acorn-tier sale pays (flat, no band). Tiers below SELL_ACORN_TIER pay 0; a tier past the
+## authored table reuses the deepest authored payout, so TOP_TIER can move without stranding the ladder.
+static func sell_acorns(tier: int) -> int:
+	var t := maxi(1, tier)
+	if t < SELL_ACORN_TIER:
+		return 0
+	var best := 0
+	for raw_key in SELL_ACORNS.keys():
+		var key := int(raw_key)
+		if key <= t and key >= SELL_ACORN_TIER:
+			best = maxi(best, int(SELL_ACORNS[raw_key]))
+	return maxi(1, best)
 
 ## What it costs to BUY a copy of an item via the board info bar (§10, T55) — the SPLIT ladder
 ## (owner decision 2026-07-18): shallow tiers are a COIN convenience at a steep markup, deep tiers
@@ -1297,8 +1323,17 @@ static func sell_map_band(map: int) -> float:
 		return 1.0
 	return float(SELL_MAP_BAND[clampi(map, 0, SELL_MAP_BAND.size() - 1)])
 
+## Water clicks to EARN one acorn the cheapest way the sell ladder allows — the CHEAPEST acorn tier by
+## clicks-per-acorn (tier_clicks / SELL_ACORNS[tier]), not a fixed tier: the acorn-paying tiers are the
+## only sell path that mints acorns, so this is what the sim's Y round-trip guard must measure.
 static func water_to_earn_diamond() -> int:
-	return int(pow(2, PREMIUM_TIER - 1))
+	var best := 0
+	for raw_key in SELL_ACORNS.keys():
+		var tier := int(raw_key)
+		var paid := maxi(1, int(SELL_ACORNS[raw_key]))
+		var per_acorn := int(tier_clicks(tier) / float(paid))
+		best = per_acorn if best == 0 else mini(best, per_acorn)
+	return best if best > 0 else int(pow(2, PREMIUM_TIER - 1))
 static func water_a_diamond_buys() -> int:
 	return int(WATER_CAP / float(REFILL_DIAMOND_COST))
 

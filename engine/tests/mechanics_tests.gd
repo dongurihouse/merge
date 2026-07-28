@@ -905,6 +905,44 @@ func _initialize() -> void:
 	ok(G.burst_odds() == [0.80, 0.15, 0.05] and G.burst_odds(true) == [0.20, 0.45, 0.35],
 		"generator burst odds are flat after retiring generator merge tiers")
 
+	# --- §9 THE SELL LADDER (docs/design/sell-economy-rework.md) — the SHAPE, so a re-tune of the three
+	# grove_data dials is checked instead of restated. Coin values double from t4; t10+ pay flat acorns. ---
+	ok(G.SELL_TIER_COINS.size() == int(G.TOP_TIER), "the authored coin ladder has one entry per tier")
+	var split_ok := true
+	for t in range(1, int(G.TOP_TIER) + 1):
+		var pays_acorns := t >= int(G.SELL_ACORN_TIER)
+		if pays_acorns != (int(G.sell_acorns(t)) > 0) or pays_acorns != (int(G.sell_tier_coins(t)) == 0):
+			split_ok = false
+	ok(split_ok, "every tier pays coins XOR acorns, split exactly at SELL_ACORN_TIER")
+	# value of a tier in COIN-EQUIVALENTS (1 acorn = COINS_PER_ACORN), on the band-1.0 anchor line
+	var tier_value := func(t: int) -> int:
+		var rw: Vector2i = G.sell_reward(100 + t)
+		return int(rw.x) + int(rw.y) * int(G.COINS_PER_ACORN)
+	var merge_keeps_value := true
+	var worst_split := 0
+	for t in range(2, int(G.TOP_TIER) + 1):
+		var gain := 2 * int(tier_value.call(t - 1)) - int(tier_value.call(t))
+		worst_split = maxi(worst_split, gain)
+		if t >= 5 and gain > 0:
+			merge_keeps_value = false
+	# t1-t4 keep the old linear 1·2·3·4, so a merge INTO t3/t4 still loses a coin or two (bounded by S2);
+	# from t5 — the first doubled tier — value never falls.
+	ok(merge_keeps_value, "S1: no merge into t5 or deeper destroys value — v(t) >= 2 x v(t-1) in coin-equivalents")
+	ok(worst_split < int(G.SCISSORS_COST),
+		"S2: the best split-and-sell gain (%d) stays under the scissors price (%d)" % [worst_split, int(G.SCISSORS_COST)])
+	var acorn_water_ok := true
+	var sells_under_buy := true
+	for raw_tier in G.SELL_ACORNS.keys():
+		var at := int(raw_tier)
+		var paid := maxi(1, int(G.SELL_ACORNS[raw_tier]))
+		if int(G.tier_clicks(at) / float(paid)) < 10 * int(G.water_a_diamond_buys()):
+			acorn_water_ok = false
+		if paid >= int(G.buy_price(100 + at).y):
+			sells_under_buy = false
+	ok(acorn_water_ok and int(G.water_to_earn_diamond()) >= 10 * int(G.water_a_diamond_buys()),
+		"S3: earning an acorn by selling costs %d💧 — at least 10x the %d💧 an acorn buys" % [int(G.water_to_earn_diamond()), int(G.water_a_diamond_buys())])
+	ok(sells_under_buy, "S4: an acorn-tier sale always pays less than buying that tier costs")
+
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
 	var per_map_ok := true
@@ -925,7 +963,7 @@ func _initialize() -> void:
 			clicks_ok = false
 	ok(clicks_ok, "pick_treat_clicks stays within the configured budget")
 	# §6.D premium sell band — a treasure line sells above the top map band; a normal line does not
-	ok(G.sell_reward(71 * 100 + 5).x == int(round(5 * G.TREAT_SELL_BAND))
+	ok(G.sell_reward(71 * 100 + 5).x == int(round(G.sell_tier_coins(5) * G.TREAT_SELL_BAND))
 		and not G.is_treat_line(1 * 100 + 5),
 		"a treasure line sells at the premium treat band; a normal line does not")
 	# id ↔ line roundtrip + the is_treat_gen gate (a real gen id is not a treat)

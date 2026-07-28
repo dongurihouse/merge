@@ -155,10 +155,14 @@ func _initialize() -> void:
 	# resolution recurses to the BASE gens (wild berries gen_2 + woolens gen_4).
 	ok(Quests.due_gen([{"line": 19, "tier": 1}], ["gen_1", "gen_2"]) == "gen_4", "a special-of-a-special quest recurses to its missing BASE generator")
 
-	# --- economy ceiling + sell economy (Option A: no premium-sell pinnacle, every tier → coins) ---
+	# --- economy ceiling + sell economy (§9 ladder: doubling coins to t9, ACORNS at t10+) ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")
-	ok(int(G.sell_reward(int(G.PREMIUM_TIER)).y) == 0 and int(G.sell_reward(int(G.PREMIUM_TIER)).x) > 0, "t8 (former pinnacle) now sells for COINS, not acorns (Option A)")
-	ok(int(G.sell_reward(int(G.TOP_TIER)).y) == 0, "no tier mints acorns on sale (selling never pays premium)")
+	var deepest_coin_tier := int(G.SELL_ACORN_TIER) - 1
+	ok(int(G.sell_reward(100 + deepest_coin_tier).y) == 0 and int(G.sell_reward(100 + deepest_coin_tier).x) > 0,
+		"the deepest coin tier sells for coins alone")
+	ok(int(G.sell_reward(100 + int(G.TOP_TIER)).y) == int(G.SELL_ACORNS[int(G.TOP_TIER)])
+		and int(G.sell_reward(100 + int(G.TOP_TIER)).x) == 0,
+		"the top tier sells for its authored ACORNS alone (no coins)")
 	var rngc := RandomNumberGenerator.new(); rngc.seed = 5
 	var saw_high := false
 	for _i in 800:

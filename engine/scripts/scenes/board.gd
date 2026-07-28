@@ -6474,6 +6474,7 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 	var keepsakes := _farewell_keepsake_nodes(preview)
 	var out := BoardActions.sweep_line(board, int(line))
 	var coins := int(out.get("coins", 0))
+	var acorns := int(out.get("acorns", 0))     # §9 ladder: the deep tiers in the line paid acorns, not coins
 	if next_need.is_empty():
 		var g := Save.grove()
 		var retired: Dictionary = g.get("retired", {})
@@ -6499,10 +6500,28 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 	var on_all := func() -> void:
 		if is_instance_valid(self):
 			_update_hud()
-	FX.fly_pieces_away(self, flights, coins_label, {"fx_id": "farewell_sweep"}, on_each, on_all)
+	# The sweep flies to whichever counter the piece actually paid — a t10+ item mints ACORNS (§9), so it
+	# must not tick the coin label. Coin pieces and acorn pieces are two flights to two labels.
+	var coin_flights: Array = []
+	var acorn_flights: Array = []
+	for f_v in flights:
+		var f: Dictionary = f_v
+		if int(f.get("acorns", 0)) > 0:
+			acorn_flights.append({"node": f.get("node"), "payout": int(f.get("acorns", 0))})
+		else:
+			coin_flights.append({"node": f.get("node"), "payout": int(f.get("payout", 0))})
+	if not acorn_flights.is_empty():
+		var acorns_shown := [Save.diamonds() - acorns]
+		var on_each_acorn := func(payout: int) -> void:
+			if not is_instance_valid(self) or payout <= 0:
+				return
+			acorns_shown[0] = int(acorns_shown[0]) + int(payout)
+			_currency_arrival_beat(diamonds_label, "gem", int(payout), int(acorns_shown[0]))
+		FX.fly_pieces_away(self, acorn_flights, diamonds_label, {"fx_id": "farewell_sweep_acorn"}, on_each_acorn, on_all)
+	FX.fly_pieces_away(self, coin_flights, coins_label, {"fx_id": "farewell_sweep"}, on_each, on_all)
 	_clear_selection()
 	_rebuild_all()
-	_after_board_change(coins > 0)
+	_after_board_change(coins > 0 or acorns > 0)
 	_queue_farewell_check_after_frame()
 
 func _farewell_item_flights(line: int) -> Array:
@@ -6514,7 +6533,8 @@ func _farewell_item_flights(line: int) -> Array:
 		var cell := BoardModel.cell_of(i)
 		var node: Control = piece_nodes.get(cell)
 		piece_nodes.erase(cell)
-		flights.append({"node": _detach_flyaway_node(node), "payout": int(G.sell_reward(code).x)})
+		var rw := G.sell_reward(code)
+		flights.append({"node": _detach_flyaway_node(node), "payout": int(rw.x), "acorns": int(rw.y)})
 	return flights
 
 func _farewell_keepsake_nodes(preview: Dictionary) -> Array:

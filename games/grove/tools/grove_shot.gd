@@ -41,7 +41,7 @@ func _initialize() -> void:
 		"modes": ["fresh", "ftue", "ftuegen", "ftuesoil",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
 			"level", "levelup", "swap", "ladder", "farewell", "flyaway", "almanac", "recipe",
-			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
+			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "infoacorn", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
 			"cascade", "fullline", "mastery", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
@@ -458,10 +458,12 @@ func _initialize() -> void:
 			if mode == "producingdrill":
 				scn._open_ladder(1, 1)             # tap the Wildflower line → its tier ladder, stacked on top
 				await create_timer(0.4).timeout
-		"infosel", "infobuy":
+		"infosel", "infobuy", "infoacorn":
 			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
 			# the piece + "<name> · Tier N" + the BUY chip (T55) + the sell button. Coins make the buy chip
 			# read affordable (green); "infobuy" is just the explicit alias for the buy-chip capture.
+			# "infoacorn" selects an ACORN-PAYING tier instead (§9 ladder, t >= G.SELL_ACORN_TIER), so the
+			# sell button reads its payout in acorns — the one state where BOTH chips show the acorn icon.
 			var tut: Node = scn.get_node_or_null("BoardTutorialOverlay")   # drop the first-run How-to-Play so the bar shows
 			if tut != null:
 				tut.queue_free()
@@ -469,7 +471,8 @@ func _initialize() -> void:
 			Save.add_diamonds(50)
 			var ies: Array = scn.board.empty_ground_cells()
 			var icell := Vector2i(ies[0])
-			scn.board.place(icell, 104)            # a tier-4 item (a clear name + a non-trivial buy/sell value)
+			# a tier-4 item (a clear name + a non-trivial buy/sell value), or the TOP tier for infoacorn
+			scn.board.place(icell, 100 + (int(G.TOP_TIER) if mode == "infoacorn" else 4))
 			scn._rebuild_pieces()
 			scn._update_hud()
 			await create_timer(0.3).timeout
