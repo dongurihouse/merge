@@ -20,6 +20,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
+const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 
 const RNG_SEED := Base.RNG_SEED
@@ -27,6 +28,11 @@ const RNG_SEED := Base.RNG_SEED
 ## What the Starfall shot modes park in a lane cell to make it un-catchable — a plain base-line item, so
 ## the eye reads "this cell is taken", not "something special is happening here".
 const LANE_BLOCKER := 101
+
+## The flyaway fixture, named once so the seeding and the guard that checks it can never drift apart:
+## the line that is swept and how many of its pieces are on the board when the sweep starts.
+const FLYAWAY_LINE := 2
+const FLYAWAY_PIECES := 6
 
 func _initialize() -> void:
 	var ctx := await Base.begin(self, {
@@ -393,7 +399,30 @@ func _initialize() -> void:
 		"flyaway":
 			# The item fly-away sweep itself. The clock seed uses the zone accessor (not a literal level)
 			# so the fixture follows progression retunes; phase=all saves launch/apex/arrival siblings.
-			custom_capture_done = await _capture_or_stage_flyaway(self, scn, args, out)
+			_seed_flyaway_board(scn)
+			await create_timer(0.25).timeout
+			# CHECK THE SEEDED BOARD HERE — after the seeding, before the sweep eats it, and in the
+			# CALLER rather than at the end of _seed_flyaway_board: a runtime error inside that function
+			# (a retired parameter on one of its calls, say) aborts it on the spot, so a self-check as its
+			# last statement is the very first thing skipped. Without this, the sweep ran on an empty
+			# board and the tool saved three believable PNGs of a bare field at err=0.
+			var fly_seeded: Dictionary = BoardActions.farewell_preview(scn.board, FLYAWAY_LINE)
+			var fly_bad := _flyaway_fixture_problem(fly_seeded)
+			if fly_bad != "":
+				print("REFUSED: the flyaway fixture did not seed — %s" % fly_bad)
+				print("  The sweep is the whole capture; with nothing on the board it animates nothing and")
+				print("  the frames would show an empty field. Look for a SCRIPT ERROR above this line —")
+				print("  it names the call inside _seed_flyaway_board that aborted the seeding.")
+				quit(2)
+				return
+			print("FLYAWAY fixture line=%d gens=%d pieces=%d coins=%d" % \
+				[FLYAWAY_LINE, int(fly_seeded["gens"]), int(fly_seeded["pieces"]), int(fly_seeded["coins"])])
+			var fly: Dictionary = await _capture_or_stage_flyaway(self, scn, args, out)
+			if int(fly["err"]) != 0:
+				print("REFUSED: a flyaway frame failed to save — err=%d" % int(fly["err"]))
+				quit(2)
+				return
+			custom_capture_done = bool(fly["captured"])
 		"almanac":
 			# The read-only Collection/Almanac grid: discovered dormant lines show their away/complete badges,
 			# current-producing lines stay bright, and unseen future lines remain locked.
@@ -745,6 +774,8 @@ func _initialize() -> void:
 			await create_timer(0.6).timeout
 
 	if custom_capture_done:
+		# The literal err=0 is earned: the branch that set custom_capture_done already refused the run
+		# on any non-zero save_png code, so this line cannot claim a save that did not happen.
 		print("SHOT saved=%s err=0 level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
 			[out, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
 			scn.board.gens.size(), scn.board.gen_bag.size()])
@@ -790,10 +821,12 @@ static func _clock_midway(level: int) -> int:
 	var base := G.coins_at_level(level)
 	return base + (G.coins_at_level(level + 1) - base) / 2
 
-static func _capture_or_stage_flyaway(tree: SceneTree, scn: Node, args: Array, out: String) -> bool:
-	_seed_flyaway_board(scn)
-	await tree.create_timer(0.25).timeout
-	scn._sweep_farewell(2, G.next_need(2, scn._quest_level()))
+## Sweep the seeded line and either save the phase=all frames or freeze on a single phase.
+## Returns {captured: bool, err: int} — `captured` is true when this call already wrote the PNG(s),
+## `err` the worst save_png code across them (the caller refuses on a non-zero one; the SHOT line it
+## prints for a custom capture reads a literal err=0, which is only honest if that is checked).
+static func _capture_or_stage_flyaway(tree: SceneTree, scn: Node, args: Array, out: String) -> Dictionary:
+	scn._sweep_farewell(FLYAWAY_LINE, G.next_need(FLYAWAY_LINE, scn._quest_level()))
 	var phase := String(Base.opt(args, "phase", "apex"))
 	if phase == "all":
 		await tree.create_timer(_flyaway_phase_delay("launch")).timeout
@@ -807,17 +840,36 @@ static func _capture_or_stage_flyaway(tree: SceneTree, scn: Node, args: Array, o
 		var arrival_err := Base.capture(tree, arrival_path, args)
 		print("FLYAWAY frames launch=%s err=%d apex=%s err=%d arrival=%s err=%d" % \
 			[launch_path, launch_err, apex_path, apex_err, arrival_path, arrival_err])
-		return true
+		return {"captured": true, "err": maxi(launch_err, maxi(apex_err, arrival_err))}
 	if not (phase in ["launch", "apex", "arrival"]):
 		push_warning("flyaway shot: unknown phase '%s', using apex" % phase)
 		phase = "apex"
 	await tree.create_timer(_flyaway_phase_delay(phase)).timeout
 	Engine.time_scale = 0.0
-	return false
+	return {"captured": false, "err": 0}
 
+## What is WRONG with the board the flyaway capture was just handed, read off the sweep's own preview;
+## "" when it is exactly what the animation needs. The three conditions are the three things the frames
+## are supposed to show: the keepsake generator that fades in place, the pieces that detach and fly, and
+## a payout at the wallet. A sweep that pays nothing has nothing to watch fly.
+static func _flyaway_fixture_problem(preview: Dictionary) -> String:
+	if int(preview.get("gens", 0)) < 1:
+		return "the line-%d generator is not on the board (no keepsake to fade)" % FLYAWAY_LINE
+	if int(preview.get("pieces", 0)) != FLYAWAY_PIECES:
+		return "expected %d line-%d pieces on the board, found %d" % \
+			[FLYAWAY_PIECES, FLYAWAY_LINE, int(preview.get("pieces", 0))]
+	if int(preview.get("coins", 0)) <= 0:
+		return "the sweep would pay 0 coins — nothing would fly to the wallet"
+	return ""
+
+## Clear the board and lay out the fixture the sweep consumes: the line's generator (boosted, so it
+## wears its badge) plus one piece per tier. NOT self-checking on purpose — see the caller.
 static func _seed_flyaway_board(scn: Node) -> void:
 	var g := Save.grove()
-	g["seen"] = {"201": true, "202": true, "203": true, "204": true, "205": true, "206": true}
+	var seen := {}
+	for i in FLYAWAY_PIECES:
+		seen[str(FLYAWAY_LINE * 100 + 1 + i)] = true
+	g["seen"] = seen
 	Save.grove_write()
 	var BM: GDScript = load("res://engine/scripts/core/board_model.gd")
 	for r in G.ROWS:
@@ -831,13 +883,14 @@ static func _seed_flyaway_board(scn: Node) -> void:
 	if stale_farewell != null:
 		stale_farewell.queue_free()
 	var free_cells: Array = scn.board.empty_ground_cells()
-	if free_cells.size() < 8:
-		push_warning("flyaway shot: expected at least 8 free cells, got %d" % free_cells.size())
+	if free_cells.size() < FLYAWAY_PIECES + 1:
+		push_warning("flyaway shot: expected at least %d free cells, got %d" % \
+			[FLYAWAY_PIECES + 1, free_cells.size()])
 		return
-	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.place_gen(G.gen_for_line(FLYAWAY_LINE), free_cells[0])
 	scn.board.arm_gen_boost(free_cells[0], 4)
-	for i in 6:
-		scn.board.place(free_cells[i + 1], 201 + i)
+	for i in FLYAWAY_PIECES:
+		scn.board.place(free_cells[i + 1], FLYAWAY_LINE * 100 + 1 + i)
 	scn._refill_quests()
 	scn._rebuild_all()
 	scn._update_hud()

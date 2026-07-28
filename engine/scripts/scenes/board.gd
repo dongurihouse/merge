@@ -98,6 +98,8 @@ const QUEST_GAP := 16.0          # fallback gap BETWEEN cards — the workbench 
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
 const EDGE_GAP := BoardFit.EDGE_GAP   # the EQUAL page margin: HUD pills → content top == board bottom → bottom bar
 const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
+const ALMANAC_INSET_FRAC := 0.30 # the empty-tray Almanac chip's gap off the info row's right edge, as a
+                                 # fraction of the chip's own size (so it scales with the tray)
 const MASTERY_RANKUP_FX_DELAY := 0.45 # after the 0.3s tile flight and 0.4s wallet arrival settle
 const STACK_SEP := 20      # the row gap of the content stack (strip <-> quest fence <-> board)
 const IDLE_HINT_SECS := 2.0      # W1: first idle hint sooner (was 7, then 4.5) → a mergeable pair rocks
@@ -285,6 +287,7 @@ var _info_mastery_row: HBoxContainer # generator mastery row: slim meter + next 
 var _info_mastery_progress: ProgressBar
 var _info_mastery_next_label: Label
 var _info_almanac: Button            # the empty-state Almanac button, shown only when no board cell is selected
+var _info_almanac_slot: Control      # ...and the inset slot holding it — hidden together (_set_almanac_visible)
 var _info_inner_px := 62.4           # the info bar's info-button slot (from the kit's inner-control knob)
 var _info_item_icon_scale := 0.80    # selected item/generator art scale as a fraction of the info bar height
 var _info_item_px := 62.4            # selected item/generator art size in the info bar
@@ -846,8 +849,7 @@ func _write_sky_info_bar() -> void:
 	_hide_soil_chips()
 	_hide_seed_chips()
 	_hide_improvement_chips()
-	if _info_almanac != null and is_instance_valid(_info_almanac):
-		_info_almanac.visible = false
+	_set_almanac_visible(false)
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():
 			c.queue_free()
@@ -3838,9 +3840,23 @@ func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	_info_almanac.set_meta("action_role", "almanac")
 	_info_almanac.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_info_almanac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_info_almanac)
+	# In the empty state the chip is the row's LAST visible child, so it lands flush on the tray's right
+	# edge. The inset slot reserves a slice of the chip's own width to its right: the chip keeps its size
+	# and moves inboard, and the width comes out of the expanding text row beside it (which re-measures)
+	# rather than the chip sliding under the wrapped hint. Hidden with the chip — see _set_almanac_visible.
+	_info_almanac_slot = ActionBar.inset_slot(_info_almanac, ALMANAC_INSET_FRAC, "AlmanacInfoInset")
+	row.add_child(_info_almanac_slot)
 
-# Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle, enable the info button, and
+## Show/hide the empty-state Almanac chip. The slot goes with it: a visible slot around a hidden chip
+## would still claim the chip's width plus a row separation, shoving the rest of the tray left.
+func _set_almanac_visible(on: bool) -> void:
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = on
+	if _info_almanac_slot != null and is_instance_valid(_info_almanac_slot):
+		_info_almanac_slot.visible = on
+
+# Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle ("Max tier" at the
+# code's merge ceiling — G.merge_top — since that number can never move again), enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
 func _select_item(cell: Vector2i) -> void:
 	var code := board.item_at(cell)
@@ -3855,8 +3871,7 @@ func _select_item(cell: Vector2i) -> void:
 	_hide_soil_chips()
 	_hide_seed_chips()
 	_hide_improvement_chips()
-	if _info_almanac != null and is_instance_valid(_info_almanac):
-		_info_almanac.visible = false
+	_set_almanac_visible(false)
 	_place_info_button(false)
 	var tier := BoardModel.tier_of(code)
 	var seed_kind := Improvements.kind_for_seed(code)
@@ -3867,7 +3882,7 @@ func _select_item(cell: Vector2i) -> void:
 	_info_label.text = _soil_info_title(cell) if board.is_growing(cell) else nm
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		_hide_mastery_info_row()
-		var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
+		var tier_text := Strings.t("board.info.max_tier") if tier >= G.merge_top(code) else "%s %d" % [Strings.t("board.info.tier"), tier]
 		var desc := _item_description_for_cell(cell, code)
 		var weather_desc := _weather_info_for_cell(cell)
 		if weather_desc != "":
@@ -3927,8 +3942,7 @@ func _select_generator(cell: Vector2i) -> void:
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	_place_info_button(false)
-	if _info_almanac != null and is_instance_valid(_info_almanac):
-		_info_almanac.visible = false
+	_set_almanac_visible(false)
 	for c in _info_icon.get_children():
 		c.queue_free()
 	var prev := PieceView.make_generator(gid, _info_item_px, {})
@@ -3960,7 +3974,8 @@ func _select_generator(cell: Vector2i) -> void:
 	else:
 		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
-# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge,
+# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge ("· Max
+# tier" once the last MASTERY_THRESHOLDS rank is banked — the number stops moving, so stop printing it),
 # plus — while a boost is live — the boost detail (that the boost is on and how many taps are left).
 # Built here so a pop can refresh it live without rebuilding the whole info bar (§3 boost detail).
 # The badge is gated on the SAME condition _select_generator uses to choose the mastery row over the
@@ -3970,7 +3985,7 @@ func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
 	var line := _gen_line(gid)
 	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
-		lbl += " · " + (Strings.t("mastery.info.badge") % Mastery.rank(line))
+		lbl += " · " + (Strings.t("board.info.max_tier") if Mastery.rank(line) >= G.MASTERY_THRESHOLDS.size() else Strings.t("mastery.info.badge") % Mastery.rank(line))
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:
@@ -4113,8 +4128,8 @@ func _clear_selection() -> void:
 	_hide_seed_chips()
 	_hide_improvement_chips()
 	_hide_soil_chips()
+	_set_almanac_visible(Features.on("discovery_ladder"))
 	if _info_almanac != null and is_instance_valid(_info_almanac):
-		_info_almanac.visible = Features.on("discovery_ladder")
 		_info_almanac.disabled = not Features.on("discovery_ladder")
 
 # Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
