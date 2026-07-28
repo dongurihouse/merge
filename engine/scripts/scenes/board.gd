@@ -207,6 +207,13 @@ var _magnet_scanning := false
 var _magnet_fx: Array = []          # §4: merges committed this beat, awaiting their playback (see _scan_magnets)
 var _magnet_fx_armed := false       # a deferred _play_magnet_fx is already queued
 var _magnet_beat_armed := false     # the next sweep beat's tree timer is already running
+# §4: the slides currently IN THE AIR — pair cell -> {"code": the produced code, "ghosts": [mover,
+# resting], "hidden": the tile this slide is holding invisible}. Written by _play_magnet_merge_fx, erased
+# by _magnet_impact, and the single source of truth for four things: a slide is in flight
+# (_magnet_slide_in_flight), which nodes _rebuild_all must carry across the wipe (_detach_magnet_slides),
+# which tile the landing has to reveal, and whether an impact still has a slide to land at all (a cell no
+# longer here has already landed early and must not fire twice).
+var _magnet_pending := {}
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
 var _hand_hint: Control = null      # FTUE: the live hand teach overlay (at most one), or null
@@ -1570,6 +1577,9 @@ func _reflow_board_after_resize() -> void:
 	if _drag_node != null or animating or _chain_active:
 		return
 	_last_board_view_size = sz
+	# §4: the ONE rebuild an in-flight magnet slide must not ride across — every cell moves and resizes
+	# under it. Land it here, in the geometry it was authored in, and let the reflow build a plain board.
+	_land_magnet_slides_now()
 	_recompute_board_geometry()
 	_rebuild_all()   # re-lays the slots, pieces, generators and giver cards at the new cell size
 	_relayout_action_bar()   # the bar insets to the board's sides — re-run it now csz (and _board_w) are fresh
@@ -2803,6 +2813,11 @@ func _rebuild_all() -> void:
 	_refresh_sky_state()
 	_grow_generators()                        # a staged second generator grows in once its level is reached
 	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
+	# §4: a magnet slide in the air rides OVER this wipe (out of the tree for the length of the rebuild,
+	# back on top at the end). Without it ANY caller that rebuilds inside the ~130ms slide window — a drop
+	# that completes a pair, a soil finishing, a generator move, the debug buttons — erases the travelling
+	# ghosts and pops the produced tier with no travel at all. See _detach_magnet_slides.
+	var carried_slides := _detach_magnet_slides()
 	for n in board_area.get_children():
 		_free_now(n)                          # UNPARENT now, not at end of frame — see below
 	slot_nodes.clear()
@@ -2872,6 +2887,7 @@ func _rebuild_all() -> void:
 	_update_hud()
 	if _selected_cell.x >= 0:  # the wipe above freed the focus frame — redraw it on the still-selected cell
 		_show_focus(_selected_cell)
+	_restore_magnet_slides(carried_slides)    # §4: the in-flight slide back on top, produced tile re-hidden
 	_maybe_hand_hint()                        # FTUE: the merge / generator-tap teach follows the board
 # (The §14 FTUE feature-spotlight wiring — _maybe_spotlight_chrome / _spotlight_chrome_deferred /
 # _show_spotlight / _on_spotlight_done, plus the Spotlight/SpotlightOverlay preloads and the
@@ -3345,6 +3361,14 @@ func _chain_armed_cell() -> Vector2i:
 func _scan_magnets(render := true) -> bool:
 	if _magnet_scanning or not _improvements_enabled() or board == null:
 		return false
+	# One pull at a time. A rendered scan that fires while the last one is still in the air (or before its
+	# beat has come round) would slide a SECOND pair through the same frame — the "whole board resolves at
+	# once" read MAGNET_BEAT_SECS exists to prevent. Any caller can land here inside that window: a drop or
+	# a lucky drop that completes a pair in range, the debug Pop magnet button, a soil finishing its step.
+	# Stand down and let the beat take it — the pair keeps, and the beat re-runs this whole fan-out.
+	if render and _magnet_fx_busy():
+		_schedule_magnet_beat()
+		return false
 	_magnet_scanning = true
 	var changed := false
 	var guard := 0
@@ -3422,13 +3446,16 @@ func _play_magnet_merge_fx(rec: Dictionary) -> void:
 	produced.visible = false
 	var mover := _make_magnet_ghost(was, from)
 	var resting := _make_magnet_ghost(was, to)
+	_magnet_pending[to] = {"code": int(rec.get("code", 0)), "ghosts": [mover, resting], "hidden": produced}
 	MoveFx.apply(mover, mover.position, _cell_pos(to), "slide", _move_opts, slide_ms)
-	# The impact rides its OWN tree timer, never the slide tween: a rebuild that frees the ghost mid-flight
-	# kills the tween with it, and the produced tile must still be un-hidden and land its merge.
+	# The impact rides its OWN tree timer, never the slide tween: whatever happens to the ghost mid-flight
+	# (a reflow lands it early, a stray free), the produced tile must still be un-hidden and land its merge.
 	get_tree().create_timer(float(slide_ms) / 1000.0).timeout.connect(
-		_magnet_impact.bind(to, int(rec.get("code", 0)), [mover, resting]))
+		_magnet_impact.bind(to, int(rec.get("code", 0))))
 
-# A throwaway copy of a pre-merge tile, parented to the board so any _rebuild_all sweeps it up.
+# A throwaway copy of a pre-merge tile. Parented to the board like every piece, but tracked in
+# _magnet_pending by REFERENCE — a rebuild carries these two nodes across the wipe (_detach_magnet_slides)
+# and sweeps everything else, including the MoveFx trail's duplicates, which copy this meta.
 func _make_magnet_ghost(code: int, cell: Vector2i) -> Control:
 	var n := _make_piece(code, csz)
 	n.name = "MagnetGhost"          # sibling names are uniquified by the engine — match on the meta, not this
@@ -3443,17 +3470,76 @@ func _make_magnet_ghost(code: int, cell: Vector2i) -> Control:
 # keeps the piece-local squash / burst / flash / hitstop / sound). A passive background merge must not
 # punch the screen like the player's own merge. Combo is passed as 0, not _bump_combo(): the spec excludes
 # a magnet from the player's streak, so it neither advances it nor reads off it.
-func _magnet_impact(cell: Vector2i, produced_code: int, ghosts: Array) -> void:
-	for g in ghosts:
+#
+# Reads the ghosts out of _magnet_pending rather than off the timer's binding, so it lands the slide that
+# is ACTUALLY in the air: a rebuild may have swapped the produced tile for a fresh node, and a reflow may
+# have landed this same slide early. A cell no longer pending has already landed — do nothing.
+func _magnet_impact(cell: Vector2i, produced_code: int) -> void:
+	var rec: Dictionary = _magnet_pending.get(cell, {})
+	if rec.is_empty():
+		return
+	_magnet_pending.erase(cell)
+	for g in rec.get("ghosts", []):
 		if g != null and is_instance_valid(g):
-			g.queue_free()
+			_free_now(g)
+	# Reveal the node this FX actually HID, wherever it ended up. A move/swap re-keys piece_nodes without
+	# rebuilding, so the hidden tile can be standing on a different cell by now — looking it up by cell
+	# alone would leave it invisible for good, which is far worse than a truncated slide.
+	var hidden = rec.get("hidden")
+	if hidden != null and is_instance_valid(hidden) and hidden is CanvasItem:
+		(hidden as CanvasItem).visible = true
 	var node: Control = piece_nodes.get(cell)
 	if node == null or not is_instance_valid(node) or board_area == null or not is_instance_valid(board_area):
 		return
 	node.visible = true
+	if board.item_at(cell) != produced_code:
+		return                   # the cell moved on (merged onward, swapped) — reveal, but no impact on it
 	var center := _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	GridFx.play_merge(board_area, node, center, BoardModel.tier_of(produced_code), 0,
 		_orthogonal_neighbour_nodes(cell), _grid_fx_opts, true)
+
+## Land every in-flight slide RIGHT NOW, truncating its travel. For the one case where carrying a slide
+## across a rebuild would be a lie: a reflow rebuilds at a new cell size, and a ghost sized and aimed at
+## the old geometry would slide to a stale spot. Called BEFORE the geometry recompute so the impact plays
+## against the geometry the slide was authored in. The pending timers still fire and find nothing to do.
+func _land_magnet_slides_now() -> void:
+	for cell in _magnet_pending.keys():
+		_magnet_impact(Vector2i(cell), int((_magnet_pending[cell] as Dictionary).get("code", 0)))
+
+## §4: lift the in-flight slide's ghosts OUT of board_area so _rebuild_all's wipe cannot free them, and
+## hand them back to _restore_magnet_slides. The ghosts are UNPARENTED rather than skipped by the wipe
+## because the rest of _rebuild_all does index arithmetic on board_area (the mat has to land at child 0,
+## _open_bramble seats a face by index) and every one of those reads a lie if strays are still parented.
+func _detach_magnet_slides() -> Array:
+	var out: Array = []
+	if _magnet_pending.is_empty() or board_area == null or not is_instance_valid(board_area):
+		return out
+	for cell in _magnet_pending:
+		for g in (_magnet_pending[cell] as Dictionary).get("ghosts", []):
+			if g != null and is_instance_valid(g) and g.get_parent() == board_area:
+				board_area.remove_child(g)
+				out.append(g)
+	return out
+
+## The other half: put the carried ghosts back on TOP of the freshly built board, and re-hide the produced
+## tile the rebuild just re-created visible, so the next tier is still REVEALED by the landing rather than
+## popping into place the moment anything else touches the board. The code check is the safety catch — if
+## the cell no longer holds what this slide produced, its tile belongs to something else and stays visible.
+func _restore_magnet_slides(carried: Array) -> void:
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	for g in carried:
+		if g != null and is_instance_valid(g):
+			board_area.add_child(g)   # LAST child — the slide reads over the rebuilt pieces
+	for cell in _magnet_pending:
+		var rec: Dictionary = _magnet_pending[cell]
+		rec["hidden"] = null        # the node this slide hid was just freed by the wipe
+		var node: Control = piece_nodes.get(cell)
+		if node == null or not is_instance_valid(node):
+			continue
+		if board.item_at(cell) == int(rec.get("code", 0)):
+			node.visible = false
+			rec["hidden"] = node    # ...and the record follows the tile it is hiding now
 
 # Keep sweeping: one beat from now, look for the next pair. The timer is a SceneTreeTimer rather than a
 # tween on any node, so nothing a rebuild frees can stall the sweep half-finished. _after_board_change is
@@ -3482,16 +3568,11 @@ func _magnet_pair_pending() -> bool:
 			return true
 	return false
 
-func _magnet_ghosts_live() -> bool:
-	if board_area == null or not is_instance_valid(board_area):
-		return false
-	for child in board_area.get_children():
-		if child.has_meta("magnet_ghost") and not child.is_queued_for_deletion():
-			return true
-	return false
+func _magnet_slide_in_flight() -> bool:
+	return not _magnet_pending.is_empty()
 
 func _magnet_fx_busy() -> bool:
-	return _magnet_fx_armed or _magnet_beat_armed or not _magnet_fx.is_empty() or _magnet_ghosts_live()
+	return _magnet_fx_armed or _magnet_beat_armed or not _magnet_fx.is_empty() or _magnet_slide_in_flight()
 
 func _after_magnet_merge(out: Dictionary, render := true) -> void:
 	var target := Vector2i(out.get("to", Vector2i(-1, -1)))
@@ -5842,27 +5923,6 @@ func _debug_spotlight(cell: Vector2i, shout: String) -> void:
 	var ctr: Vector2 = board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	FX.celebrate_at(self, ctr, shout, STRAW)
 
-func _debug_render_piece_cell(cell: Vector2i) -> void:
-	if board == null or board_area == null or not is_instance_valid(board_area):
-		return
-	var code := board.item_at(cell)
-	if code <= 0:
-		return
-	var old: Control = piece_nodes.get(cell)
-	if old != null and is_instance_valid(old):
-		old.queue_free()
-	var ghost_seat := -1
-	for child in board_area.get_children():
-		if child.has_meta("magnet_ghost") and not child.is_queued_for_deletion():
-			ghost_seat = child.get_index()
-			break
-	var n := _make_piece(code, csz)
-	n.position = _cell_pos(cell)
-	board_area.add_child(n)
-	if ghost_seat >= 0:
-		board_area.move_child(n, ghost_seat)
-	piece_nodes[cell] = n
-
 ## Debug-only: land a Soil growth step right now (the debug panel's "Pop soil" button), so a tier pop
 ## can be watched without waiting out the step timer. ONE press works from ANY board state: every
 ## growing Soil has its step expired; a board whose soils are all BARE gets a deterministic tier-1
@@ -5917,9 +5977,11 @@ func debug_pop_soil() -> void:
 ## from ANY board state: the first placed Magnet with two free cells in range is used; when none has
 ## room — including when none is placed at all — one is BUILT on a cell that does have room.
 ## The pair goes on plain empty ground only (see _debug_magnet_room). _after_board_change runs the
-## scan, so the merge itself takes the normal path. (A cascade in flight makes the rule stand down;
-## the pair then merges on the scan that follows the chain, so the drop is never wasted.) The result
-## is spotlighted, and every dead end prints why instead of returning silently.
+## scan, so the merge itself takes the normal path — INCLUDING when the scan stands down: a cascade in
+## flight, or a slide from a previous press still in the air, leaves the seeded pair for the next beat
+## (see _scan_magnets), so a fast double-press sequences its two pulls instead of overlapping them.
+## The drop is never wasted either way. The result is spotlighted, and every dead end prints why
+## instead of returning silently.
 ## No _reflect — the pair lands and merges live, and _after_board_change persists it (no scene reload).
 func debug_pop_magnet() -> void:
 	if board == null or not _improvements_enabled():
@@ -5948,22 +6010,8 @@ func debug_pop_magnet() -> void:
 		room = _debug_magnet_room(magnet)
 	var a := Vector2i(room[0])
 	var b := Vector2i(room[1])
-	var queue_behind_magnet := _magnet_fx_busy()
 	board.place(a, code)
 	board.place(b, code)
-	if queue_behind_magnet:
-		_debug_render_piece_cell(a)
-		_debug_render_piece_cell(b)
-		_persist()
-		_update_hud()
-		_refresh_giver_lights()
-		_refresh_cascade_outline()
-		_refresh_mastery_chrome()
-		_maybe_hand_hint()
-		_schedule_magnet_beat()
-		_debug_spotlight(a, "Magnet pull")
-		print("[debug] Pop magnet: seeded a %d pair at %s/%s — the Magnet at %s pulls it after the current slide." % [code, a, b, magnet])
-		return
 	_after_board_change()
 	# _after_board_change rebuilds only when something CHANGED. If the magnet stood down, the pair
 	# would sit in the model unrendered until the next rebuild — so draw it here instead. (The scan
@@ -5979,7 +6027,7 @@ func debug_pop_magnet() -> void:
 		focus = magnet
 	_debug_spotlight(focus, "Magnet pull")
 	if stood_down:
-		print("[debug] Pop magnet: seeded a %d pair at %s/%s — a chain is running, so the Magnet at %s pulls it on the next scan." % [code, a, b, magnet])
+		print("[debug] Pop magnet: seeded a %d pair at %s/%s — the Magnet at %s is standing down (a chain, or a pull still in the air), so it takes the pair on the next beat." % [code, a, b, magnet])
 	else:
 		print("[debug] Pop magnet: the Magnet at %s pulled the seeded %d pair at %s/%s together." % [magnet, code, a, b])
 

@@ -22,6 +22,9 @@ func _initialize() -> void:
 	await _test_magnet_merge_slides_and_lands_a_muted_impact()
 	await _test_magnet_scan_is_silent_on_the_render_false_path()
 	await _test_magnet_sweep_takes_one_pair_per_beat_lowest_tier_first()
+	await _test_magnet_slide_survives_a_pair_dropped_into_range_mid_flight()
+	await _test_magnet_slide_survives_an_unrelated_rebuild_mid_flight()
+	await _test_magnet_slide_leaves_no_tile_hidden_when_its_cell_empties()
 	await _test_mark_seen_catches_up_intermediate_tiers()
 	await _test_completed_top_soil_refreshes_selected_info()
 	await _test_soil_tick_does_not_free_active_drag_node()
@@ -612,6 +615,166 @@ func _test_magnet_sweep_takes_one_pair_per_beat_lowest_tier_first() -> void:
 	await process_frame
 	ok(scn.board.item_at(high_b) == 103 and scn.board.count_of(102) == 0,
 		"the beat picks the sweep back up and merges the remaining pair")
+	scn.queue_free()
+
+# Board pieces that are currently INVISIBLE, cell -> node. The slide hides exactly one (the produced
+# tile) and only until it lands; anything still here afterwards is a tile stuck invisible for good.
+func _hidden_pieces(scn: Node) -> Dictionary:
+	var out := {}
+	for cell in scn.piece_nodes:
+		var n: Control = scn.piece_nodes[cell]
+		if n != null and is_instance_valid(n) and not n.visible:
+			out[cell] = n
+	return out
+
+# The slide has to read OVER the board it is crossing: every ghost sits later in board_area's child
+# order (= drawn on top) than every piece.
+func _ghosts_draw_over_pieces(scn: Node) -> bool:
+	var lowest_ghost := 1 << 30
+	for g in _magnet_ghosts(scn):
+		lowest_ghost = mini(lowest_ghost, (g as Node).get_index())
+	for cell in scn.piece_nodes:
+		var n: Control = scn.piece_nodes[cell]
+		if n != null and is_instance_valid(n) and n.get_index() > lowest_ghost:
+			return false
+	return true
+
+# Put one magnet merge in the air and hand back the pair cell: scan, rebuild (what the caller does
+# next), play. The board is left exactly as a real beat leaves it — two ghosts crossing the board and
+# the produced tile hidden behind them.
+func _start_magnet_slide(scn: Node, magnet: Vector2i, far: Vector2i, near: Vector2i) -> void:
+	scn.board.build_improvement(magnet, Improvements.KIND_MAGNET)
+	scn.board.place(far, 101)
+	scn.board.place(near, 101)
+
+# A magnet slide is ~130ms of travel, and for that whole window the produced tier is hidden behind the
+# ghosts. ANY caller that rebuilds the board inside it used to erase the slide and pop the next tier with
+# no travel at all — the debug Pop magnet button was only the easiest way to see it. This is the plain
+# non-debug case: a piece lands in the magnet's range mid-slide (a drag, a merge's lucky drop) and the
+# board runs its ORDINARY fan-out.
+func _test_magnet_slide_survives_a_pair_dropped_into_range_mid_flight() -> void:
+	fresh("improve_magnet_slide_vs_pair")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	var far := Vector2i(3, 3)
+	var near := Vector2i(3, 4)
+	_start_magnet_slide(scn, magnet, far, near)
+	scn.quests = []
+	scn._rebuild_all()
+	await _settle()
+	ok(scn._scan_magnets(true), "the rendered scan commits the first merge")
+	scn._rebuild_all()                 # what the caller does next
+	scn._play_magnet_fx()
+	ok(_magnet_ghosts(scn).size() == 2, "the slide is in the air before anything else touches the board")
+
+	var drop_a := Vector2i(5, 3)       # a second pair lands in the same magnet's range, mid-slide
+	var drop_b := Vector2i(5, 5)
+	scn.board.place(drop_a, 101)
+	scn.board.place(drop_b, 101)
+	scn._after_board_change()
+	ok(_magnet_ghosts(scn).size() == 2,
+		"the in-flight ghosts survive the ordinary fan-out (got %d)" % _magnet_ghosts(scn).size())
+	var landed: Control = scn.piece_nodes.get(near)
+	ok(landed != null and not landed.visible, "the produced tier is still hidden — it is not revealed early")
+	ok(scn.board.item_at(drop_a) == 101 and scn.board.item_at(drop_b) == 101,
+		"the new pair WAITS for the next beat instead of sliding a second pull through the same frame")
+
+	await create_timer(0.20).timeout   # merge_slide_ms (130) + margin, still short of the 0.3s beat
+	await process_frame
+	landed = scn.piece_nodes.get(near)
+	ok(landed != null and landed.visible, "the first slide still reveals its tier when it lands")
+	ok(_magnet_ghosts(scn).is_empty(), "its ghosts are cleared on landing")
+
+	await create_timer(0.55).timeout   # the beat picks the sweep back up
+	await process_frame
+	ok(scn.board.count_of(101) == 0, "the waiting pair is pulled on a later beat — the drop is never wasted")
+	scn.queue_free()
+
+# The other half of the same contract: a rebuild driven by something with NO magnet in it at all. A soil
+# finishing its step marks the board changed, so the ordinary fan-out reaches _rebuild_all — which frees
+# every child of board_area. The slide has to ride across it and the freshly built produced tile has to
+# go back to hidden, or the tier pops the moment an unrelated timer lands.
+func _test_magnet_slide_survives_an_unrelated_rebuild_mid_flight() -> void:
+	fresh("improve_magnet_slide_vs_rebuild")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	var far := Vector2i(3, 3)
+	var near := Vector2i(3, 4)
+	var soil := Vector2i(0, 0)         # outside the magnet's 3x3 — its pop must not feed the magnet
+	_start_magnet_slide(scn, magnet, far, near)
+	ok(scn.board.build_improvement(soil, Improvements.KIND_SOIL), "fixture installs a Soil under %s" % soil)
+	scn.board.place(soil, 201)
+	var row: Dictionary = scn.board.improvement_at(soil)
+	row["code"] = 201
+	row["ends_at"] = Time.get_unix_time_from_system() - 1.0
+	scn.board.improvements[soil] = row
+	scn.quests = []
+	scn._rebuild_all()
+	await _settle()
+	ok(scn._scan_magnets(true), "the rendered scan commits the merge")
+	scn._rebuild_all()
+	scn._play_magnet_fx()
+	ok(_magnet_ghosts(scn).size() == 2, "the slide is in the air")
+	var before_node: Control = scn.piece_nodes.get(near)
+
+	scn._after_board_change()          # the soil step lands here, and the fan-out rebuilds for it
+	ok(scn.board.item_at(soil) == 202, "the soil step landed, so the fan-out really did rebuild")
+	ok(scn.piece_nodes.get(near) != before_node, "the rebuild really did replace the produced tile's node")
+	ok(_magnet_ghosts(scn).size() == 2,
+		"the rebuild carries the travelling ghosts across (got %d)" % _magnet_ghosts(scn).size())
+	var landed: Control = scn.piece_nodes.get(near)
+	ok(landed != null and not landed.visible, "the freshly built produced tile is re-hidden behind the slide")
+	ok(_ghosts_draw_over_pieces(scn), "the carried ghosts are drawn ABOVE the rebuilt pieces")
+
+	await create_timer(0.30).timeout
+	await process_frame
+	landed = scn.piece_nodes.get(near)
+	ok(landed != null and landed.visible, "the impact reveals the REBUILT produced tile when the slide lands")
+	ok(_magnet_ghosts(scn).is_empty(), "the carried ghosts are cleared on landing")
+	ok(_hidden_pieces(scn).is_empty(), "nothing is left invisible once the slide is over")
+	scn.queue_free()
+
+# The failure that would be worse than a truncated slide: a tile stuck invisible. The produced tile is
+# hidden for the length of the slide, and a press on its cell can pick it up in that window — so the
+# player can walk it to another cell before the impact, and the impact then finds nothing at the cell it
+# was told to reveal. Whatever this FX hid must come back, wherever it ended up.
+func _test_magnet_slide_leaves_no_tile_hidden_when_its_cell_empties() -> void:
+	fresh("improve_magnet_slide_vs_empty_cell")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	var far := Vector2i(3, 3)
+	var near := Vector2i(3, 4)
+	var away := Vector2i(7, 1)         # plain empty ground, well outside the magnet's range
+	_start_magnet_slide(scn, magnet, far, near)
+	scn.quests = []
+	scn._rebuild_all()
+	await _settle()
+	ok(scn._scan_magnets(true), "the rendered scan commits the merge")
+	scn._rebuild_all()
+	scn._play_magnet_fx()
+	ok(_magnet_ghosts(scn).size() == 2, "the slide is in the air")
+	var produced: Control = scn.piece_nodes.get(near)
+	ok(produced != null and not produced.visible, "the produced tile starts the window hidden")
+
+	scn._commit_move(near, away, produced)   # the drop path: the player walks it off the pair cell
+	ok(scn.board.item_at(near) == 0 and scn.board.item_at(away) == 102, "the produced tile moved cells mid-slide")
+	ok(scn.piece_nodes.get(away) == produced, "the move re-keyed the node without rebuilding the board")
+
+	await create_timer(0.30).timeout
+	await process_frame
+	ok(produced != null and is_instance_valid(produced) and produced.visible,
+		"the moved tile is revealed by the landing instead of staying invisible for good")
+	ok(_hidden_pieces(scn).is_empty(), "no board piece is left hidden (%s)" % [_hidden_pieces(scn).keys()])
+	ok(_magnet_ghosts(scn).is_empty(), "the ghosts still clear even though their cell emptied")
 	scn.queue_free()
 
 func _test_mark_seen_catches_up_intermediate_tiers() -> void:
