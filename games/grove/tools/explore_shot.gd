@@ -4,7 +4,7 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/explore_shot.gd -- trade <out.png> revealed=12
 ## Seeds a completed map (so the spirit pool is non-empty), coins, and a run; for `rush` it lets the board
 ## fill for a couple of seconds before capturing. Mirrors residents_screen_shot.gd's quiet header
-## (REFUSES unless override.cfg exists — the born-minimized window must come from quiet_godot.sh).
+## (REFUSES unless override.cfg exists — the off-screen capture window must come from quiet_godot.sh).
 ## Parallel-safe (own temp save).
 
 const Base = preload("res://engine/tools/shot_base.gd")

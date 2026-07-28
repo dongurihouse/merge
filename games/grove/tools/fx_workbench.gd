@@ -6,6 +6,7 @@ extends SceneTree
 ##                     that one element centred — a clean, repeatable single-component shot)
 
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
+const Shot = preload("res://engine/tools/shot_base.gd")   # shared quiet-window parking (hide_offscreen)
 const SCENE := "res://games/grove/tools/FxWorkbench.tscn"
 
 func _initialize() -> void:
@@ -18,11 +19,14 @@ func _initialize() -> void:
 	if screen.x > 0 and screen.y > 0:
 		win.x = mini(1480, screen.x - 80)
 		win.y = clampi(screen.y - 130, 760, 1400)
-	DisplayServer.window_set_size(win)
-	DisplayServer.window_set_position((screen - win) / 2)
 	if quiet:
+		# park it OFF every display BEFORE sizing — centering a capture window on screen (and then
+		# minimizing it) is what used to flash the workbench across the owner's desktop for ~2.9 s.
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+		Shot.hide_offscreen()
+	DisplayServer.window_set_size(win)
+	if not quiet:
+		DisplayServer.window_set_position((screen - win) / 2)
 	UiFont.apply()
 
 	# args: ua[0] = OUT path (quiet path), ua[1] = optional focus element id (EL=) → render just that one.

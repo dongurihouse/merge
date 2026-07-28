@@ -1,12 +1,13 @@
 extends SceneTree
 ## Scene-placement workbench — standalone runner (mirrors ui_workbench.gd).
 ##   interactive:       make sw [SCENE=sakura] [ROOT=<scenes dir>]
-##   quiet screenshot:  make shot-sw [SCENE=...] [OUT=/tmp/scene_workbench.png]   (born-minimized)
+##   quiet screenshot:  make shot-sw [SCENE=...] [OUT=/tmp/scene_workbench.png]   (off-screen)
 ##
 ## Every picture-book scene lives under …/assets/map (one folder per scene, art organized into its
 ## layer subdirs, its placements.json at map/<scene>/placements.json). ROOT= overrides.
 
 const View = preload("res://games/grove/tools/scene_workbench_view.gd")
+const Shot = preload("res://engine/tools/shot_base.gd")   # shared quiet-window parking (hide_offscreen)
 
 const ROOT_CANDIDATES := [
 	"res://games/grove/assets/map",
@@ -46,11 +47,14 @@ func _initialize() -> void:
 		var stage_w := int((win.y - 40) * 1320.0 / 2346.0)
 		var ref_w := int((win.y - 44) * 941.0 / 1672.0) + 104
 		win.x = clampi(stage_w + ref_w + 340 + 60, 1200, screen.x - 80)
-	DisplayServer.window_set_size(win)
-	DisplayServer.window_set_position((screen - win) / 2)
 	if quiet:
+		# park it OFF every display BEFORE sizing — centering a capture window on screen (and then
+		# minimizing it) is what used to flash the workbench across the owner's desktop for ~2.9 s.
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+		Shot.hide_offscreen()
+	DisplayServer.window_set_size(win)
+	if not quiet:
+		DisplayServer.window_set_position((screen - win) / 2)
 	DisplayServer.window_set_title("Scene workbench — " + scene)
 
 	var view: Control = View.new()

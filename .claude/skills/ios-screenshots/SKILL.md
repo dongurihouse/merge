@@ -12,7 +12,7 @@ file's pixel size:
 games/grove/tools/release_screenshots.sh
 ```
 
-Runs quietly (born-minimized windows, never steals focus), takes ~2-3 minutes, and prints
+Runs quietly (off-screen windows, never shown, never steals focus), takes ~2-3 minutes, and prints
 `ALL SCREENSHOTS OK` on success. Run it from a worktree, review, then commit + merge — the
 PNGs are repo files.
 

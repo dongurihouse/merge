@@ -40,7 +40,7 @@ func _initialize() -> void:
 		b._label.visible = not noload
 
 	await create_timer(0.3).timeout
-	RenderingServer.force_draw()      # warm-up draw: a minimized window's FIRST read can be stale
+	RenderingServer.force_draw()      # warm-up draw: a hidden window's FIRST read can be stale
 	await create_timer(0.1).timeout
 	var err := Base.capture(self, out, args)
 	print("BOOT SPLASH saved=%s err=%d size=%s" % [out, err, str(DisplayServer.window_get_size())])

@@ -11,8 +11,8 @@
 ##                      asserted on the SHOT line's own state fields, not on the exit code.
 ##   FAST=1           — parse check only. For a tight edit loop; NOT what `make test` runs.
 ##
-## Each capture goes through engine/tools/quiet_godot.sh, so the window is born minimized and
-## never steals focus.
+## Each capture goes through engine/tools/quiet_godot.sh, so the window is born 1x1 off the
+## corner of the screen, parked off-screen for the run, and never steals focus.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

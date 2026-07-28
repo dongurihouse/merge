@@ -143,7 +143,7 @@ make sw SCENE=desert_oasis CLUSTER=oasis_pool  # open isolated on one cluster
 
 ## 5 · Agent verification (headless — never steal focus)
 
-Never open a visible window to check work. The quiet screenshot path is born-minimized:
+Never open a visible window to check work. The quiet screenshot path keeps its window off-screen:
 
 ```bash
 make shot-sw SCENE=<scene> [CLUSTER=<name>] OUT=/tmp/scene.png

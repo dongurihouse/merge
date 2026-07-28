@@ -22,11 +22,12 @@ extends RefCounted
 ##       Base.capture(self, ctx.out, ctx.args)
 ##       quit()
 ##
-## WHY THE REFUSAL GUARD MATTERS: the born-minimized/no-focus window flags must be applied AT
-## WINDOW CREATION, which only engine/tools/quiet_godot.sh's temporary override.cfg can do.
-## Setting them from _initialize() is TOO LATE — the window has already flashed and stolen the
-## owner's focus mid-session. So a tool with no override.cfg REFUSES to run. Living here, that
-## guard is structural instead of copy-pasted.
+## WHY THE REFUSAL GUARD MATTERS: the no-focus flag and the 1x1 corner birth size must be applied AT
+## WINDOW CREATION, which only engine/tools/quiet_godot.sh's temporary override.cfg can do. Setting
+## them from _initialize() is TOO LATE — the window has already been composited at full size and
+## stolen the owner's focus mid-session. So a tool with no override.cfg REFUSES to run. Living here,
+## that guard is structural instead of copy-pasted. `begin` then finishes the job with
+## `hide_offscreen()`; the two halves are only quiet together.
 ##
 ## WHY AN UNKNOWN MODE REFUSES TOO: a `match mode:` that finds no branch falls through in silence,
 ## so a misspelled or RETIRED mode used to save a plausible-looking PNG of the default fixture and
@@ -67,6 +68,24 @@ const SIZE_SETTLE := 0.2      # seconds between a set_size and the re-read
 ## same value to board.gd's forced_rng_seed so both streams are pinned to one number.
 const RNG_SEED := 7
 
+## Where a capture window is parked: far outside every display, so it renders but is never composited
+## onto a screen. See `hide_offscreen`.
+const OFFSCREEN := Vector2i(-32000, -32000)
+
+## Park the window off every display. THIS is what makes a capture quiet, and it is not the same as
+## minimizing:
+##   * `window_set_mode(MINIMIZED)` plays macOS's genie animation SYNCHRONOUSLY — measured 560 ms
+##     during which the full-size window is drawn across the screen. Moving is instant.
+##   * Godot clamps a window's BIRTH position into the screen's usable rect (measured: a request for
+##     (9000, 9000) lands at (840, 62)), but `window_set_position` afterwards is NOT clamped —
+##     (-32000, -32000) sticks. So the window can only be moved out, never born out.
+##   * Off screen the window also escapes macOS's window-height clamp, so `_apply_size` gets the size
+##     it asks for on the first try instead of racing the window manager.
+## macOS/Metal keeps drawing an off-screen window, so `frame()` still reads real pixels — the capture
+## PNGs are byte-identical to the ones the old minimize path produced.
+static func hide_offscreen() -> void:
+	DisplayServer.window_set_position(OFFSCREEN)
+
 ## Guard + flags + arg parse + window size + temp save dir. AWAIT it.
 ##
 ## cfg keys (all optional except `tool`):
@@ -90,12 +109,13 @@ const RNG_SEED := 7
 ## else {args: Array, mode: String, out: String, dir: String}.
 static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
-		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
+		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (the window is")
+		print("born 1x1 + focusless in a screen corner; in-script flags are too late and the window")
+		print("has already been drawn full-size across the screen). See ~/.claude/CLAUDE.md")
 		tree.quit(2)
 		return {}
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+	hide_offscreen()
 	seed(int(cfg.get("seed", RNG_SEED)))   # pin the GLOBAL stream before any scene code can draw from it
 
 	var args := OS.get_cmdline_user_args()
@@ -143,7 +163,7 @@ static func capture(tree: SceneTree, out: String, args: Array = [], region := Re
 	img = crop(img, args)
 	return img.save_png(out)
 
-## One fresh framebuffer read. A MINIMIZED window occasionally serves a STALE frame (the capture
+## One fresh framebuffer read. A HIDDEN window occasionally serves a STALE frame (the capture
 ## then shows the PREVIOUS screen), so every read forces a draw first. null under --headless.
 static func frame(tree: SceneTree) -> Image:
 	RenderingServer.force_draw()
@@ -197,9 +217,11 @@ static func _size_from(args: Array, base) -> Vector2i:
 			want = Vector2i(int(m.get_string(1)), int(m.get_string(2)))
 	return want
 
-# The window is born at either the project size or a screen-clamped one (a macOS race — see the
-# header). Force ours and wait until BOTH the window and the root viewport report it, so the saved
-# PNG's dimensions are a property of the tool, not of how the window manager felt that second.
+# The window is born 1x1 (quiet_godot.sh's override.cfg), so the size ALWAYS has to be forced here.
+# Wait until BOTH the window and the root viewport report it, so the saved PNG's dimensions are a
+# property of the tool, not of how the window manager felt that second. `hide_offscreen()` has
+# already run by now, which is why this normally settles on the first try: on screen, macOS clamps a
+# window to the display height (a 1080x1920 request came back 1080x1018) — off screen it does not.
 static func _apply_size(tree: SceneTree, size: Vector2i) -> void:
 	for _try in SIZE_TRIES:
 		DisplayServer.window_set_size(size)
