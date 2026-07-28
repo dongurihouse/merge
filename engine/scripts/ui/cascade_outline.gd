@@ -33,8 +33,6 @@ static func paper_grain() -> ImageTexture:
 	return _paper
 
 @export var inset_frac := 0.10: set = _set_inset
-@export var dash_frac := 0.16: set = _set_dash
-@export var gap_frac := 0.10: set = _set_dash_gap
 @export var thickness_frac := 0.035: set = _set_thickness
 @export var fill_pct := 5.0: set = _set_fill_pct
 @export var jitter_frac := 0.012: set = _set_jitter
@@ -46,8 +44,6 @@ var cell_size := 86.0
 var cell_pos_fn: Callable
 
 func _set_inset(v: float) -> void: inset_frac = v; queue_redraw()
-func _set_dash(v: float) -> void: dash_frac = v; queue_redraw()
-func _set_dash_gap(v: float) -> void: gap_frac = v; queue_redraw()
 func _set_thickness(v: float) -> void: thickness_frac = v; queue_redraw()
 func _set_fill_pct(v: float) -> void: fill_pct = v; queue_redraw()
 func _set_jitter(v: float) -> void: jitter_frac = v; queue_redraw()
@@ -189,47 +185,63 @@ func _draw_ghost_pad(entry: Dictionary) -> void:
 	var cell := Vector2i(entry.get("cell", Vector2i(-1, -1)))
 	if cell.x < 0:
 		return
-	var n := int(entry.get("n", 2))
-	var line := int(entry.get("line", 0))
-	# Three strengths, one meaning each: `cascade` is the drop that goes off (and the only mark
-	# _rebuild_tags will number), `merge` is an ordinary same-code target, `stage` is an empty
-	# cell you are building into.
-	var kind := String(entry.get("kind", "stage"))
-	var color := G.line_color(line)
-	var rect := Rect2(_cell_pos(cell) + Vector2.ONE * (cell_size * 0.12), Vector2.ONE * cell_size * 0.76)
-	var tint_alpha := 0.08 if kind == "cascade" else (0.055 if kind == "merge" else 0.035)
-	draw_rect(rect, Color(color, tint_alpha), true)
-	var alpha := _alpha_for_n(n) + 0.08 if kind == "cascade" else (0.42 if kind == "merge" else 0.28)
-	var light := 0.25 if kind == "cascade" else (0.34 if kind == "merge" else 0.12)
-	var edge := Color(color.lightened(light), alpha)
-	_draw_dashed_rect(rect, edge, _mark_thickness(entry))
+	var colour := G.line_color(int(entry.get("line", 0)))
+	# Three strengths, one meaning each, and they are different MATERIALS rather than three weights
+	# of the same dash: `stage` is an empty cell, cut away so a piece can drop in; `merge` and
+	# `cascade` are occupied targets, lit from behind. Only `cascade` is numbered (_rebuild_tags).
+	match String(entry.get("kind", "stage")):
+		"stage":
+			_draw_stage_well(cell, colour)
+		"cascade":
+			_draw_target_bloom(cell, colour, 1.0)
+		_:
+			_draw_target_bloom(cell, colour, 0.55)
 
-func _draw_dashed_rect(rect: Rect2, color: Color, width: float) -> void:
-	_draw_dashed_line(rect.position, Vector2(rect.end.x, rect.position.y), color, width, 11)
-	_draw_dashed_line(Vector2(rect.end.x, rect.position.y), rect.end, color, width, 23)
-	_draw_dashed_line(rect.end, Vector2(rect.position.x, rect.end.y), color, width, 37)
-	_draw_dashed_line(Vector2(rect.position.x, rect.end.y), rect.position, color, width, 41)
+# An empty cell you are building into: the cardstock is cut away, leaving a shallow well with the
+# warm inner edge the cut exposes. Reads as "something goes here" without a stroke.
+func _draw_stage_well(cell: Vector2i, colour: Color) -> void:
+	var origin := _cell_pos(cell)
+	var inset := cell_size * 0.13
+	var side := cell_size - inset * 2.0
+	var r := cell_size * 0.20
+	var well := Rect2(origin + Vector2.ONE * inset, Vector2.ONE * side)
+	# the cut edge, then the floor sitting a touch lower-right so the well reads as recessed
+	_poly(_round_rect(well, r), Color(colour.darkened(0.34), 0.34), null)
+	var floor_rect := Rect2(well.position + Vector2.ONE * (cell_size * 0.022), well.size - Vector2.ONE * (cell_size * 0.030))
+	_poly(_round_rect(floor_rect, r * 0.9), Color(colour.lightened(0.62), 0.30), paper_grain())
 
-func _draw_dashed_line(a: Vector2, b: Vector2, color: Color, width: float, jitter_key := 0) -> void:
-	var length := a.distance_to(b)
-	if length <= 0.1:
-		return
-	var dir := (b - a).normalized()
-	var normal := Vector2(-dir.y, dir.x)
-	var dash := maxf(4.0, cell_size * dash_frac)
-	var gap := maxf(3.0, cell_size * gap_frac)
-	var t := 0.0
-	var stitch := 0
-	while t < length:
-		var end_t := minf(t + dash, length)
-		var j := normal * _stitch_jitter(jitter_key, stitch)
-		var start := a + dir * t + j
-		var finish := a + dir * end_t + j
-		draw_line(start, finish, color, width, true)
-		draw_circle(start, width * 0.5, color)
-		draw_circle(finish, width * 0.5, color)
-		t += dash + gap
-		stitch += 1
+# An occupied cell you can drop onto. The outline sits under the pieces, so warm light pooled here
+# reads as the piece being lit from behind. Concentric layers, not a blur: cheap, and it keeps the
+# matte look. Never a modulate brighten — that clamps to nothing on art this bright.
+func _draw_target_bloom(cell: Vector2i, colour: Color, strength: float) -> void:
+	var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5)
+	# Warm, not the raw line colour. The pool shows THROUGH the piece's own transparent margins,
+	# so a saturated hue tints the art itself — pink light under a blue mushroom read as a bruise.
+	# Pulling it to warm gold keeps it reading as light rather than as a second colour.
+	var glow := colour.lerp(Color(1.0, 0.92, 0.66), 0.62)
+	var rings := 5
+	for i in rings:
+		var t := float(i) / float(rings - 1)             # 0 = widest, 1 = tightest
+		_disc(centre, cell_size * lerpf(0.44, 0.21, t),
+			Color(glow, lerpf(0.06, 0.34, t) * strength), null)
+
+func _round_rect(rect: Rect2, radius: float) -> Array:
+	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
+	var pts: Array = []
+	var corners := [
+		[rect.position + Vector2(r, r), PI, 1.5 * PI],
+		[Vector2(rect.end.x - r, rect.position.y + r), 1.5 * PI, TAU],
+		[rect.end - Vector2(r, r), 0.0, 0.5 * PI],
+		[Vector2(rect.position.x + r, rect.end.y - r), 0.5 * PI, PI],
+	]
+	for raw in corners:
+		var c: Vector2 = raw[0]
+		var a0: float = raw[1]
+		var a1: float = raw[2]
+		for i in 5:
+			var ang := lerpf(a0, a1, float(i) / 4.0)
+			pts.append(c + Vector2(cos(ang), sin(ang)) * r)
+	return pts
 
 func _rebuild_tags() -> void:
 	for child in get_children():
@@ -309,9 +321,3 @@ func _tag_font_size(n: int, weak := false) -> int:
 func _edge_key(cell: Vector2i, d: Vector2i) -> int:
 	return cell.x * 1009 + cell.y * 917 + (d.x + 2) * 37 + (d.y + 2) * 53
 
-func _stitch_jitter(key: int, stitch: int) -> float:
-	var span := cell_size * jitter_frac
-	if span <= 0.0:
-		return 0.0
-	var h := absi(key * 1103515245 + stitch * 12345 + 6789) % 1000
-	return (float(h) / 999.0 - 0.5) * 2.0 * span
