@@ -6,16 +6,27 @@
 ## and pinned to the far corner — geometry applied at window creation, because script
 ## code runs ~460 ms after the window is already composited. Godot CLAMPS a birth
 ## position into the screen's usable rect, so the corner is the furthest out a window
-## can be born; at 1x1 borderless that clamp lands it one pixel PAST the screen edge,
-## i.e. never composited at all. shot_base.begin() then moves it to (-32000, -32000)
-## (window_set_position is NOT clamped) and sizes it there. Removes override.cfg when done.
+## can be born; at 1x1 borderless that clamp lands the window's CONTENT one point PAST the
+## screen edge. shot_base.begin() then moves it to (-32000, -32000) (window_set_position is
+## NOT clamped) and sizes it there. Removes override.cfg when done.
 ##
 ## MEASURED (CGWindowListCopyWindowInfo, .optionOnScreenOnly, 40 ms sampling, filtered to
-## the capture pid, intersected with the real display rects): every capture tool now shows
-## ZERO on-screen frames. The previous born-minimized recipe showed ~1000 ms of a full-size
-## window per capture — ~460 ms of engine boot plus ~560 ms of macOS's SYNCHRONOUS minimize
-## animation. `window/size/mode=1` never worked: window_get_mode() read WINDOWED at script
-## entry, so the old "quiet" was really the in-script minimize, and it was only ever
+## the capture pid, intersected with the real display rects):
+##
+##                          BEFORE                          AFTER
+##   shot-grove/-map        ~880 ms of 1192x1051            240 ms of 3x3 at the corner
+##   shot-widget            ~840 ms of 1193x1051            240 ms of 3x3 at the corner
+##   shot-workbench        ~2520 ms of 1840x982             240 ms of 3x3 at the corner
+##   shot-sw / -fx-wb   ~880 / ~1200 ms of ~1500x982        240 ms of 3x3 at the corner
+##
+## NOT zero, and the residue is the floor, not an oversight: macOS reports the 1x1 window's
+## frame one point larger on every side, so a single corner POINT of it touches the screen
+## for the ~240 ms of engine boot before begin() runs. 1 pt^2 against the old 1,239,000.
+## A window cannot be born fully off-screen here — Godot's birth clamp sees to that.
+##
+## The old recipe's ~1000 ms was ~460 ms of engine boot plus ~560 ms of macOS's SYNCHRONOUS
+## minimize animation. `window/size/mode=1` never worked: window_get_mode() read WINDOWED at
+## script entry, so the old "quiet" was really the in-script minimize — and it was only ever
 ## verified against FOCUS (lsappinfo front), never against visibility.
 ## tools/test_quiet_window.py is the guard that keeps this honest (it re-measures on every
 ## `make test-config`, and it FAILS on the old recipe).
