@@ -377,15 +377,18 @@ func _initialize() -> void:
 	ok(String(smastery._info_label.text) == "%s · %s" % [G.generator_display_name(mgid), mbadge],
 		"the generator info title reads '<name> · Tier N' at the line's mastery tier (%s)" % smastery._info_label.text)
 	var mastery_row: Control = smastery._info_mastery_row
+	var mastery_progress: Control = smastery._info_mastery_progress
 	ok(mastery_row != null and mastery_row.visible
-		and is_equal_approx(float(smastery._info_mastery_progress.value), Mastery.rank_progress(1))
-		and String(smastery._info_mastery_next_label.text).contains("next: reach"),
-		"the generator info subtitle becomes the progress/next mastery row")
+		and mastery_progress != null
+		and is_equal_approx(float(mastery_progress.get_meta("frac", -1.0)), Mastery.rank_progress(1))
+		and mastery_progress.find_child("MasteryProgressTrack", true, false) != null
+		and mastery_progress.find_child("MasteryProgressFill", true, false) != null,
+		"the generator info subtitle becomes the shared progress mastery row")
 	var mrow_kids: Array = []
 	for mk in mastery_row.get_children():
 		mrow_kids.append(String(mk.name))
-	ok(mrow_kids == ["MasteryProgress", "MasteryNext"],
-		"the mastery row is just the meter and the next label — the pips are gone (%s)" % str(mrow_kids))
+	ok(mrow_kids == ["MasteryProgress"],
+		"the mastery row is just the shared meter — no next label or pips (%s)" % str(mrow_kids))
 
 	# The badge is gated exactly like the row: a generator OFF the base lines (a treat gen carries no
 	# meter) keeps its bare name…
@@ -424,10 +427,8 @@ func _initialize() -> void:
 	smastery.queue_free()
 	await process_frame
 
-	# The mastery row's "next" label must READ, not ellipsise. The row is width-pinned by the info
-	# bar, so this measures the REAL laid-out label against EVERY string _mastery_next_text can
-	# produce (ranks 0..8) — a widened string or a meter that reclaims the split trims it back to
-	# "next: po…" and fails here. Mounted in a Design-sized SubViewport because the headless root
+	# The mastery row is width-pinned by the info bar, so this measures the REAL laid-out shared
+	# progress bar at design size. Mounted in a Design-sized SubViewport because the headless root
 	# viewport is wider than the shipped canvas, which would make the assert vacuous.
 	fresh("scene_mastery_row_fits")
 	Save.mark_board_tutorial_seen()
@@ -446,26 +447,17 @@ func _initialize() -> void:
 	sfit._select_generator(Vector2i(4, 3))
 	for _f in 3:
 		await process_frame
-	var nlbl: Label = sfit._info_mastery_next_label
-	var nfont: Font = nlbl.get_theme_font("font")
-	var nsize: int = nlbl.get_theme_font_size("font_size")
-	var widest := 0.0
-	var widest_text := ""
-	for nrank in range(0, G.MASTERY_THRESHOLDS.size() + 1):
-		var ntext: String = sfit._mastery_next_text(nrank)
-		var nw: float = nfont.get_string_size(ntext, HORIZONTAL_ALIGNMENT_LEFT, -1, nsize).x
-		if nw > widest:
-			widest = nw
-			widest_text = ntext
-	ok(widest <= nlbl.size.x,
-		"the mastery next label fits its widest string untrimmed (%.0fpx '%s' in %.0fpx)" % [widest, widest_text, nlbl.size.x])
-	# The other half of the split: the meter must keep a visible width beside the label AND take a real
-	# share of the row rather than sitting pinned at its floor (the pips used to eat that width). Both
-	# read off the REAL laid-out row, so a size_flags/ratio change that starves either half fails here.
-	ok(sfit._info_mastery_progress.size.x >= 60.0
-		and sfit._info_mastery_progress.size.x > sfit._info_mastery_progress.custom_minimum_size.x,
-		"the mastery meter keeps a visible width and takes a share of the freed row (%.0fpx meter over a %.0fpx floor, %.0fpx label)"
-			% [sfit._info_mastery_progress.size.x, sfit._info_mastery_progress.custom_minimum_size.x, nlbl.size.x])
+	var fit_bar: Control = sfit._info_mastery_progress
+	ok(fit_bar != null
+		and fit_bar.find_child("MasteryProgressTrack", true, false) != null
+		and fit_bar.find_child("MasteryProgressFillClip", true, false) != null
+		and fit_bar.find_child("MasteryProgressFill", true, false) != null,
+		"the design-sized mastery row uses the shared progress-bar component")
+	ok(fit_bar != null
+		and fit_bar.size.x >= 120.0
+		and fit_bar.size.x > fit_bar.custom_minimum_size.x,
+		"the mastery meter keeps a visible width and expands beyond its floor (%.0fpx meter over a %.0fpx floor)"
+			% [fit_bar.size.x, fit_bar.custom_minimum_size.x])
 	ok(is_equal_approx(sfit._info_mastery_row.size.y, sfit._info_mastery_row.get_combined_minimum_size().y)
 		and sfit._info_mastery_row.size.y <= 40.0,
 		"the mastery row stays one line tall (%.0fpx)" % sfit._info_mastery_row.size.y)

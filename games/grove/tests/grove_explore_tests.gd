@@ -67,6 +67,7 @@ func _initialize() -> void:
 	await _test_farewell_sweep_flyaway_pays_once_with_fx_on_and_off()
 	await _test_fx_workbench_farewell_sweep_preview()
 	await _test_almanac_entries_and_info_chip()
+	await _test_generator_mastery_info_uses_shared_progress_bar()
 	await _test_farewell_check_respects_generator_selection()
 	await _test_farewell_check_resumes_after_bare_press()
 	await _test_farewell_check_resumes_after_tap_that_clears_selection()
@@ -308,6 +309,45 @@ func _test_almanac_entries_and_info_chip() -> void:
 	scn._select_item(free_cells[0])
 	await process_frame
 	ok(chip != null and not chip.visible, "the Almanac chip hides while an item selection is shown")
+	await drop(scn)
+
+func _test_generator_mastery_info_uses_shared_progress_bar() -> void:
+	fresh("generator_mastery_info")
+	var old_mastery := bool(Feat.FLAGS.get("mastery", true))
+	Feat.FLAGS["mastery"] = true
+	Save.grove()["mastery"] = {"2": 10}
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	var scn = board_host()
+	await process_frame
+	for r in G.ROWS:
+		for c in G.COLS:
+			scn.board.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			scn.board.take(Vector2i(r, c))
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var gen_cell: Vector2i = scn.board.empty_ground_cells()[0]
+	scn.board.place_gen("gen_2", gen_cell)
+	scn._rebuild_all()
+	scn._select_generator(gen_cell)
+	await process_frame
+	var row := scn.find_child("MasteryInfoRow", true, false) as Control
+	var bar := scn.find_child("MasteryProgress", true, false) as Control
+	ok(row != null and row.visible, "selecting a mastered generator shows the mastery meter row")
+	ok(bar != null and not (bar is ProgressBar),
+		"generator mastery info uses the shared Kit progress control, not a raw ProgressBar")
+	ok(bar != null
+		and bar.find_child("MasteryProgressTrack", true, false) != null
+		and bar.find_child("MasteryProgressFillClip", true, false) != null
+		and bar.find_child("MasteryProgressFill", true, false) != null,
+		"generator mastery info exposes the shared progress-bar track and fill nodes")
+	var next_label := scn.find_child("MasteryNext", true, false) as Label
+	ok(next_label == null or not next_label.visible or String(next_label.text).strip_edges() == "",
+		"generator mastery info does not show the next-tier copy")
+	ok(String(scn._info_desc_label.text).to_lower().find("next:") < 0
+		and String(scn._info_label.text).to_lower().find("next:") < 0,
+		"generator info tray has no next-tier text payload")
+	Feat.FLAGS["mastery"] = old_mastery
 	await drop(scn)
 
 # The §8 defer fixture the three farewell-resume tests share: an L65 save (line 2 is away), a board

@@ -298,9 +298,8 @@ var _info_soil_water: Button         # Soil grow-row chip: spend board water to 
 var _info_soil_water_sb: StyleBoxFlat
 var _info_soil_water_count: Label
 var _info_soil_water_coin: Control
-var _info_mastery_row: HBoxContainer # generator mastery row: slim meter + next reward (the rank number rides the title)
-var _info_mastery_progress: ProgressBar
-var _info_mastery_next_label: Label
+var _info_mastery_row: HBoxContainer # generator mastery row: shared progress meter (the rank number rides the title)
+var _info_mastery_progress: Control
 var _info_almanac: Button            # the empty-state Almanac button, shown only when no board cell is selected
 var _info_almanac_slot: Control      # ...and the inset slot holding it — hidden together (_set_almanac_visible)
 var _info_inner_px := 62.4           # the info bar's info-button slot (from the kit's inner-control knob)
@@ -4335,24 +4334,13 @@ func _refresh_selected_generator_mastery() -> void:
 	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
 		_show_mastery_info_row(line)
 
-# The TEXT twin of the mastery row, used when the graphical row could not be installed. It carries the
-# same two payloads the row does — the within-rank progress and the next reward. The rank NUMBER is not
-# repeated here: it rides the title (_gen_info_text) in both renderings.
+# The TEXT twin of the mastery row, used when the graphical row could not be installed. It carries only
+# the within-rank progress; the rank NUMBER rides the title (_gen_info_text) in both renderings.
 func _mastery_info_text(line: int) -> String:
 	var rank := Mastery.rank(line)
 	var meter := Mastery.meter(line)
 	var next := Mastery.next_threshold(line)
-	var progress := Strings.t("mastery.info.maxed") if rank >= G.MASTERY_THRESHOLDS.size() else "%d/%d" % [meter, next]
-	return "%s · %s" % [progress, _mastery_next_text(rank)]
-
-func _mastery_next_text(rank: int) -> String:
-	if rank >= G.MASTERY_THRESHOLDS.size():
-		return Strings.t("mastery.info.maxed")
-	var next_rank := rank + 1
-	var w := Mastery.tier_window_for_rank(next_rank)
-	if next_rank % 2 == 1:
-		return Strings.t("mastery.info.next_reach") % w.y
-	return Strings.t("mastery.info.next_start") % w.x
+	return Strings.t("mastery.info.maxed") if rank >= G.MASTERY_THRESHOLDS.size() else "%d/%d" % [meter, next]
 
 func _install_mastery_info_row() -> void:
 	if _info_desc_label == null or not is_instance_valid(_info_desc_label):
@@ -4366,41 +4354,21 @@ func _install_mastery_info_row() -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.custom_minimum_size.y = maxf(14.0, _info_desc_label.custom_minimum_size.y)
-	row.add_theme_constant_override("separation", 8)
+	row.custom_minimum_size.y = maxf(18.0, _info_desc_label.custom_minimum_size.y)
+	row.add_theme_constant_override("separation", 0)
 	parent.add_child(row)
 	parent.move_child(row, _info_desc_label.get_index() + 1)
 	_info_mastery_row = row
-	# The row's width is PINNED at 391px on the 1080-wide design canvas (the generator icon and the
-	# Boost chip beside it are already at their minimums, so nothing more can be taken). TWO children
-	# and the ONE 8px separation between them leave 383px to split between the meter and the
-	# next-reward text. The TEXT is the payload — an ellipsised "next: po…" says nothing — so the
-	# label keeps the lion's share of that split (ratio 2.5 ⇒ ~274px, well clear of the widest string)
-	# and the meter takes the remainder (~109px) over a 76px floor that stops it collapsing on a
-	# narrower row. Splitting evenly (both EXPAND at ratio 1, meter floor 120) is what once trimmed the
-	# label to "next: po…". mechanics_tests measures both halves against the real laid-out row.
-	var bar := ProgressBar.new()
-	bar.name = "MasteryProgress"
+	var opts: Dictionary = KIT.progress_bar_opts_from_config(Game.kit_config())
+	opts["name"] = "MasteryProgress"
+	opts["width"] = 128.0
+	opts["height"] = maxf(14.0, minf(20.0, float(opts.get("height", 20.0))))
+	var bar: Control = KIT.progress_bar(0.0, opts)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.show_percentage = false
-	bar.min_value = 0.0
-	bar.max_value = 1.0
-	bar.custom_minimum_size = Vector2(76, 14)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(bar)
 	_info_mastery_progress = bar
-	var lbl := Label.new()
-	lbl.name = "MasteryNext"
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lbl.clip_text = true
-	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl.size_flags_stretch_ratio = 2.5
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", _info_desc_label.get_theme_font_size("font_size"))
-	lbl.add_theme_color_override("font_color", Pal.INK)
-	row.add_child(lbl)
-	_info_mastery_next_label = lbl
 
 func _hide_mastery_info_row() -> void:
 	if _info_mastery_row != null and is_instance_valid(_info_mastery_row):
@@ -4413,20 +4381,8 @@ func _show_mastery_info_row(line: int) -> void:
 		_info_desc_label.text = _mastery_info_text(line)
 		_info_desc_label.visible = true
 		return
-	var rank := Mastery.rank(line)
-	var color := _line_color(line)
 	if _info_mastery_progress != null and is_instance_valid(_info_mastery_progress):
-		_info_mastery_progress.value = Mastery.rank_progress(line)
-		var bg := StyleBoxFlat.new()
-		bg.bg_color = Color("#FBF3EA", 0.72)
-		bg.set_corner_radius_all(7)
-		var fill := StyleBoxFlat.new()
-		fill.bg_color = color
-		fill.set_corner_radius_all(7)
-		_info_mastery_progress.add_theme_stylebox_override("background", bg)
-		_info_mastery_progress.add_theme_stylebox_override("fill", fill)
-	if _info_mastery_next_label != null and is_instance_valid(_info_mastery_next_label):
-		_info_mastery_next_label.text = _mastery_next_text(rank)
+		KIT.progress_bar_set_frac(_info_mastery_progress, Mastery.rank_progress(line))
 	_info_mastery_row.visible = true
 
 # Reset the info bar to its empty "tap an item" state.
